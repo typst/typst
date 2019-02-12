@@ -1,0 +1,10 @@
+[package]
+name = "typeset"
+version = "0.1.0"
+authors = ["Laurenz Mädje <laurmaedje@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+unicode-segmentation = "1.2"
+unicode-xid = "0.1.0"
+byteorder = "1"
