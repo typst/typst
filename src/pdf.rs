@@ -113,9 +113,6 @@ impl<W: Write> WritePdf<Document> for W {
             root: catalog_id,
         })?;
 
-        // Write where the xref table starts
-        writer.write_start_xref()?;
-
         Ok(writer.written())
     }
 }
