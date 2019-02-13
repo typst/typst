@@ -1,7 +1,9 @@
 //! Writing of documents in the _PDF_ format.
 
 use std::io::{self, Write};
-use crate::doc::{Document, Text, DocumentFont, Size};
+use crate::doc::{Document, DocumentFont};
+use pdf::{PdfWriter, Id, Rect, Size, Version, DocumentCatalog, PageTree,
+          Page, PageData, Resource, Font, FontType, Text, Trailer};
 
 
 /// A type that is a sink for types that can be written conforming
@@ -13,332 +15,108 @@ pub trait WritePdf<T> {
 }
 
 impl<W: Write> WritePdf<Document> for W {
-    fn write_pdf(&mut self, document: &Document) -> io::Result<usize> {
-        PdfWriter::new(document).write(self)
-    }
-}
+    fn write_pdf(&mut self, doc: &Document) -> io::Result<usize> {
+        let mut writer = PdfWriter::new(self);
 
-impl<W: Write> WritePdf<Size> for W {
-    fn write_pdf(&mut self, size: &Size) -> io::Result<usize> {
-        self.write_str(size.points)
-    }
-}
+        // Calculate unique id's for everything
+        let catalog_id: Id = 1;
 
-/// A type that is a sink for types that can be converted to strings
-/// and thus can be written string-like into a byte sink.
-pub trait WriteByteString {
-    /// Write the string-like type into self, returning how many
-    /// bytes were written.
-    fn write_str<S: ToString>(&mut self, string_like: S) -> io::Result<usize>;
-}
-
-impl<W: Write> WriteByteString for W {
-    fn write_str<S: ToString>(&mut self, string_like: S) -> io::Result<usize> {
-        self.write(string_like.to_string().as_bytes())
-    }
-}
-
-
-/// Writes an abstract document into a byte sink in the _PDF_ format.
-#[derive(Debug, Clone)]
-struct PdfWriter<'d> {
-    doc: &'d Document,
-    w: usize,
-    catalog_id: u32,
-    page_tree_id: u32,
-    resources_start: u32,
-    pages_start: u32,
-    content_start: u32,
-    xref_table: Vec<u32>,
-    offset_xref: u32,
-}
-
-impl<'d> PdfWriter<'d> {
-    /// Create a new pdf writer from a document.
-    fn new(doc: &'d Document) -> PdfWriter<'d> {
-        // Calculate unique ids for each object
-        let catalog_id: u32 = 1;
         let page_tree_id = catalog_id + 1;
         let pages_start = page_tree_id + 1;
-        let resources_start = pages_start + doc.pages.len() as u32;
-        let content_start = resources_start + doc.fonts.len() as u32;
+        let pages_end = pages_start + doc.pages.len() as Id;
 
-        PdfWriter {
-            doc,
-            catalog_id,
-            page_tree_id,
-            resources_start,
-            pages_start,
-            content_start,
-            w: 0,
-            xref_table: vec![],
-            offset_xref: 0,
-        }
-    }
+        let resources_start = pages_end;
+        let font_start = resources_start;
+        let font_end = font_start + doc.fonts.len() as Id;
+        let resources_end = font_end;
 
-    /// Write the document into a byte sink.
-    fn write<W: Write>(&mut self, target: &mut W) -> io::Result<usize> {
-        self.write_header(target)?;
+        let content_start = resources_end;
+        let content_end = content_start
+            + doc.pages.iter().flat_map(|p| p.contents.iter()).count() as Id;
 
-        self.write_document_catalog(target)?;
-        self.write_page_tree(target)?;
-        self.write_pages(target)?;
+        writer.write_header(&Version::new(1, 7))?;
 
-        self.write_resources(target)?;
+        // The document catalog
+        writer.write_obj(catalog_id, &DocumentCatalog {
+            page_tree: page_tree_id,
+        })?;
 
-        self.write_content(target)?;
-        // self.write_fonts(target)?;
+        let font_resources: Vec<_> = (1 ..= doc.fonts.len() as u32)
+            .zip(font_start .. font_end)
+            .map(|(nr, id)| Resource::Font(nr, id)).collect();
 
-        self.write_xref_table(target)?;
-        self.write_trailer(target)?;
-        self.write_start_xref(target)?;
+        // Root page tree
+        writer.write_obj(page_tree_id, &PageTree {
+            parent: None,
+            kids: (pages_start .. pages_end).collect(),
+            data: PageData {
+                resources: Some(font_resources),
+                .. PageData::default()
+            },
+        })?;
 
-        Ok(self.w)
-    }
+        // The page objects
+        let mut id = pages_start;
+        for page in &doc.pages {
+            let width = page.size[0].points;
+            let height = page.size[1].points;
 
-    /// Write the pdf header.
-    fn write_header<W: Write>(&mut self, target: &mut W) -> io::Result<usize> {
-        // Write the magic start
-        self.w += target.write(b"%PDF-1.7\n")?;
-        Ok(self.w)
-    }
-
-    /// Write the document catalog (contains general info about the document).
-    fn write_document_catalog<W: Write>(&mut self, target: &mut W) -> io::Result<usize> {
-        self.xref_table.push(self.w as u32);
-
-        self.w += target.write_str(self.catalog_id)?;
-        self.w += target.write(b" 0 obj\n")?;
-        self.w += target.write(b"<<\n")?;
-        self.w += target.write(b"/Type /Catalog\n")?;
-
-        self.w += target.write(b"/Pages ")?;
-        self.w += target.write_str(self.page_tree_id)?;
-        self.w += target.write(b" 0 R\n")?;
-
-        self.w += target.write(b">>\n")?;
-        self.w += target.write(b"endobj\n")?;
-
-        Ok(self.w)
-    }
-
-    /// Write the page tree (overview over the pages of a document).
-    fn write_page_tree<W: Write>(&mut self, target: &mut W) -> io::Result<usize> {
-        self.xref_table.push(self.w as u32);
-
-        // Create page tree
-        self.w += target.write_str(self.page_tree_id)?;
-        self.w += target.write(b" 0 obj\n")?;
-        self.w += target.write(b"<<\n")?;
-        self.w += target.write(b"/Type /Pages\n")?;
-
-        self.w += target.write(b"/Count ")?;
-        self.w += target.write_str(self.doc.pages.len())?;
-        self.w += target.write(b"\n")?;
-
-        self.w += target.write(b"/Kids [")?;
-
-        for id in self.pages_start .. self.pages_start + self.doc.pages.len() as u32 {
-            self.w += target.write_str(id)?;
-            self.w += target.write(b" 0 R ")?;
-        }
-
-        self.w += target.write(b"]\n")?;
-
-        self.w += target.write(b"/Resources\n")?;
-        self.w += target.write(b"<<\n")?;
-
-        self.w += target.write(b"/Font\n")?;
-        self.w += target.write(b"<<\n")?;
-
-        let mut font_id = self.resources_start;
-        for nr in 1 ..= self.doc.fonts.len() as u32 {
-            self.w += target.write(b"/F")?;
-            self.w += target.write_str(nr)?;
-            self.w += target.write(b" ")?;
-            self.w += target.write_str(font_id)?;
-            self.w += target.write(b" 0 R\n")?;
-            font_id += 1;
-        }
-
-        self.w += target.write(b">>\n")?;
-        self.w += target.write(b">>\n")?;
-
-        self.w += target.write(b">>\n")?;
-        self.w += target.write(b"endobj\n")?;
-
-        Ok(self.w)
-    }
-
-    /// Write the page descriptions.
-    fn write_pages<W: Write>(&mut self, target: &mut W) -> io::Result<usize> {
-        let mut page_id = self.pages_start;
-        let mut content_id = self.content_start;
-
-        for page in &self.doc.pages {
-            self.xref_table.push(self.w as u32);
-
-            self.w += target.write_str(page_id)?;
-            self.w += target.write(b" 0 obj\n")?;
-            self.w += target.write(b"<<\n")?;
-            self.w += target.write(b"/Type /Page\n")?;
-
-            self.w += target.write(b"/Parent ")?;
-            self.w += target.write_str(self.page_tree_id)?;
-            self.w += target.write(b" 0 R\n")?;
-
-            self.w += target.write(b"/MediaBox [0 0 ")?;
-            self.w += target.write_pdf(&page.size[0])?;
-            self.w += target.write(b" ")?;
-            self.w += target.write_pdf(&page.size[1])?;
-            self.w += target.write(b"]\n")?;
-
-            self.w += target.write(b"/Contents [")?;
-
-            for _ in &page.contents {
-                self.w += target.write_str(content_id)?;
-                self.w += target.write(b" 0 R ")?;
-
-                content_id += 1;
-            }
-
-            self.w += target.write(b"]\n")?;
-
-            self.w += target.write(b">>\n")?;
-            self.w += target.write(b"endobj\n")?;
-
-            page_id += 1;
-        }
-
-        Ok(self.w)
-    }
-
-    /// Write the resources used by the file (fonts and friends).
-    fn write_resources<W: Write>(&mut self, target: &mut W) -> io::Result<usize> {
-        let mut id = self.resources_start;
-
-        for font in &self.doc.fonts {
-            self.xref_table.push(self.w as u32);
-
-            self.w += target.write_str(id)?;
-            self.w += target.write(b" 0 obj\n")?;
-            self.w += target.write(b"<<\n")?;
-            self.w += target.write(b"/Type /Font\n")?;
-
-            match font {
-                DocumentFont::Builtin(builtin) => {
-                    self.w += target.write(b"/Subtype /Type1\n")?;
-                    self.w += target.write(b"/BaseFont /")?;
-                    self.w += target.write_str(builtin.name())?;
-                    self.w += target.write(b"\n")?;
+            writer.write_obj(id, &Page {
+                parent: page_tree_id,
+                data: PageData {
+                    media_box: Some(Rect::new(0.0, 0.0, width, height)),
+                    contents: Some((content_start .. content_end).collect()),
+                    .. PageData::default()
                 },
-                DocumentFont::Loaded(font) => {
-                    self.w += target.write(b"/Subtype /TrueType\n")?;
-                    self.w += target.write(b"/BaseFont /")?;
-                    self.w += target.write_str(font.name.as_str())?;
-                    self.w += target.write(b"\n")?;
-                    unimplemented!();
-                },
-            }
-
-            self.w += target.write(b">>\n")?;
-            self.w += target.write(b"endobj\n")?;
+            })?;
 
             id += 1;
         }
 
-        Ok(self.w)
-    }
+        // The resources (fonts)
+        let mut id = font_start;
+        for font in &doc.fonts {
+            match font {
+                DocumentFont::Builtin(font) => {
+                    writer.write_obj(id, &Font {
+                        subtype: FontType::Type1,
+                        base_font: font.name().to_owned(),
+                    })?;
+                },
+                DocumentFont::Loaded(_) => unimplemented!(),
+            }
 
-    /// Write the page contents.
-    fn write_content<W: Write>(&mut self, target: &mut W) -> io::Result<usize> {
-        let mut id = self.content_start;
+            id += 1;
+        }
 
-        for page in &self.doc.pages {
+        // The page contents
+        let mut id = content_start;
+        for page in &doc.pages {
             for content in &page.contents {
-                self.xref_table.push(self.w as u32);
+                let string = &content.0;
 
-                self.w += target.write_str(id)?;
-                self.w += target.write(b" 0 obj\n")?;
-                self.w += target.write(b"<<\n")?;
+                let mut text = Text::new();
+                text.set_font(1, Size::from_points(13.0))
+                    .move_pos(Size::from_points(108.0), Size::from_points(734.0))
+                    .write_str(&string);
 
-                let mut buffer = Vec::new();
-                    buffer.write(b"BT/\n")?;
-
-                    buffer.write(b"/F1 13 Tf\n")?;
-                    buffer.write(b"108 734 Td\n")?;
-                    buffer.write(b"(")?;
-
-                    let Text(string) = content;
-                    buffer.write(string.as_bytes())?;
-
-                    buffer.write(b") Tj\n")?;
-                    buffer.write(b"ET\n")?;
-
-                self.w += target.write(b"/Length ")?;
-                self.w += target.write_str(buffer.len())?;
-                self.w += target.write(b"\n")?;
-
-                self.w += target.write(b">>\n")?;
-
-                self.w += target.write(b"stream\n")?;
-                self.w += target.write(&buffer)?;
-                self.w += target.write(b"endstream\n")?;
-
-                self.w += target.write(b"endobj\n")?;
-
+                writer.write_obj(id, &text.as_stream())?;
                 id += 1;
             }
         }
 
-        Ok(self.w)
-    }
+        // Cross-reference table
+        writer.write_xref_table()?;
 
-    /// Write the cross-reference table.
-    fn write_xref_table<W: Write>(&mut self, target: &mut W) -> io::Result<usize> {
-        self.offset_xref = self.w as u32;
+        // Trailer
+        writer.write_trailer(&Trailer {
+            root: catalog_id,
+        })?;
 
-        self.w += target.write(b"xref\n")?;
-        self.w += target.write(b"0 ")?;
-        self.w += target.write_str(self.xref_table.len())?;
-        self.w += target.write(b"\n")?;
+        // Write where the xref table starts
+        writer.write_start_xref()?;
 
-        self.w += target.write(b"0000000000 65535 f\r\n")?;
-
-        for offset in &self.xref_table {
-            self.w += target.write(format!("{:010}", offset).as_bytes())?;
-            self.w += target.write(b" 00000 n")?;
-            self.w += target.write(b"\r\n")?;
-        }
-
-        Ok(self.w)
-    }
-
-    /// Write the trailer (points to the root object).
-    fn write_trailer<W: Write>(&mut self, target: &mut W) -> io::Result<usize> {
-        self.w += target.write(b"trailer\n")?;
-        self.w += target.write(b"<<\n")?;
-
-        self.w += target.write(b"/Root ")?;
-        self.w += target.write_str(self.catalog_id)?;
-        self.w += target.write(b" 0 R\n")?;
-
-        self.w += target.write(b"/Size ")?;
-        self.w += target.write_str(self.xref_table.len() + 1)?;
-        self.w += target.write(b"\n")?;
-
-        self.w += target.write(b">>\n")?;
-
-        Ok(self.w)
-    }
-
-    /// Write where the cross-reference table starts.
-    fn write_start_xref<W: Write>(&mut self, target: &mut W) -> io::Result<usize> {
-        self.w += target.write(b"startxref\n")?;
-        self.w += target.write_str(self.offset_xref)?;
-        self.w += target.write(b"\n")?;
-
-        Ok(self.w)
+        Ok(writer.written())
     }
 }
 

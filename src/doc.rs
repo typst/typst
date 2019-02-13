@@ -3,6 +3,7 @@
 use std::fmt;
 use crate::parsing::{SyntaxTree, Node};
 use crate::font::{Font, BuiltinFont};
+use pdf::Size;
 
 
 /// Abstract representation of a complete typesetted document.
@@ -46,35 +47,6 @@ pub enum DocumentFont {
     Builtin(BuiltinFont),
     /// An externally loaded font.
     Loaded(Font),
-}
-
-/// A distance that can be created from different units of length.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Size {
-    /// The size in typographic points (1/72 inches).
-    pub points: f32,
-}
-
-impl Size {
-    /// Create a size from a number of points.
-    pub fn from_points(points: f32) -> Size {
-        Size { points }
-    }
-
-    /// Create a size from a number of inches.
-    pub fn from_inches(inches: f32) -> Size {
-        Size { points: inches / 72.0 }
-    }
-
-    /// Create a size from a number of millimeters.
-    pub fn from_mm(mm: f32) -> Size {
-        Size { points: 2.8345 * mm  }
-    }
-
-    /// Create a size from a number of centimeters.
-    pub fn from_cm(cm: f32) -> Size {
-        Size { points: 0.028345 * cm }
-    }
 }
 
 

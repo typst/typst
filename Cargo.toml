@@ -5,6 +5,7 @@ authors = ["Laurenz Mädje <laurmaedje@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+pdf = { path = "../pdf" }
 unicode-segmentation = "1.2"
 unicode-xid = "0.1.0"
 byteorder = "1"
