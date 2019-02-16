@@ -1,5 +1,7 @@
 //! Generation of abstract documents from syntax trees.
 
+#![allow(dead_code)]
+
 use std::fmt;
 use crate::parsing::{SyntaxTree, Node};
 
@@ -39,7 +41,7 @@ pub struct Text(pub String);
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Size {
     /// The size in typographic points (1/72 inches).
-    pub points: f32,
+    points: f32,
 }
 
 impl Size {
@@ -112,7 +114,7 @@ type GenResult<T> = std::result::Result<T, GenerationError>;
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct GenerationError {
     /// A message describing the error.
-    pub message: String,
+    message: String,
 }
 
 impl fmt::Display for GenerationError {

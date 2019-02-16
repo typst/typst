@@ -45,22 +45,22 @@ impl<W: Write> WritePdf<Document> for W {
             kids: (pages_start .. pages_end).collect(),
             data: PageData {
                 resources: Some(vec![Resource::Font(1, font_start)]),
-                .. PageData::default()
+                .. PageData::none()
             },
         })?;
 
         // The page objects
         let mut id = pages_start;
         for page in &doc.pages {
-            let width = page.size[0].points;
-            let height = page.size[1].points;
+            let width = page.size[0].to_points();
+            let height = page.size[1].to_points();
 
             writer.write_obj(id, &Page {
                 parent: page_tree_id,
                 data: PageData {
                     media_box: Some(Rect::new(0.0, 0.0, width, height)),
                     contents: Some((content_start .. content_end).collect()),
-                    .. PageData::default()
+                    .. PageData::none()
                 },
             })?;
 
@@ -78,12 +78,12 @@ impl<W: Write> WritePdf<Document> for W {
             for content in &page.contents {
                 let string = &content.0;
 
-                let mut text = Text::new();
-                text.set_font(1, 13.0)
+                writer.write_obj(id, &Text::new()
+                    .set_font(1, 13.0)
                     .move_pos(108.0, 734.0)
-                    .write_str(&string);
-
-                writer.write_obj(id, &text.as_stream())?;
+                    .write_str(&string)
+                    .to_stream()
+                )?;
                 id += 1;
             }
         }

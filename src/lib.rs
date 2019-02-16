@@ -1,10 +1,13 @@
-//! Typeset is a library for compiling _plain-text_ strings written in the
-//! corresponding typesetting language into a typesetted document in a
-//! file format like _PDF_.
+//! Typeset is a library for compiling documents written in the
+//! corresponding typesetting language into a typesetted document in an
+//! output format like _PDF_.
 
-#![allow(unused)]
-
+mod pdf;
+mod utility;
 pub mod parsing;
 pub mod doc;
-pub mod pdf;
-pub mod utility;
+
+/// Writing of documents into supported formats.
+pub mod export {
+    pub use crate::pdf::WritePdf;
+}

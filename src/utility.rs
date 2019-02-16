@@ -12,8 +12,7 @@ pub trait Splinor {
     ///
     /// # Example
     ///
-    /// ```
-    /// # use typeset::utility::*;
+    /// ```ignore
     /// #[derive(Debug, Copy, Clone, PartialEq)]
     /// struct Space;
     ///

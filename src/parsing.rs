@@ -322,7 +322,7 @@ type ParseResult<T> = std::result::Result<T, ParseError>;
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ParseError {
     /// A message describing the error.
-    pub message: String,
+    message: String,
 }
 
 impl fmt::Display for ParseError {
@@ -590,7 +590,7 @@ mod token_tests {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
-    use Node::{Space as S, Newline as N, Word as W, Func as F};
+    use Node::{Space as S, Word as W, Func as F};
 
     /// Test if the source code parses into the syntax tree.
     fn test(src: &str, tree: SyntaxTree) {
