@@ -2,7 +2,6 @@
 
 use std::fmt;
 use crate::parsing::{SyntaxTree, Node};
-use pdf::Size;
 
 
 /// Abstract representation of a complete typesetted document.
@@ -35,6 +34,63 @@ pub struct Page {
 /// Plain text.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Text(pub String);
+
+/// A general distance type that can convert between units.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Size {
+    /// The size in typographic points (1/72 inches).
+    pub points: f32,
+}
+
+impl Size {
+    /// Create a size from a number of points.
+    #[inline]
+    pub fn from_points(points: f32) -> Size {
+        Size { points }
+    }
+
+    /// Create a size from a number of inches.
+    #[inline]
+    pub fn from_inches(inches: f32) -> Size {
+        Size { points: 72.0 * inches }
+    }
+
+    /// Create a size from a number of millimeters.
+    #[inline]
+    pub fn from_mm(mm: f32) -> Size {
+        Size { points: 2.83465 * mm  }
+    }
+
+    /// Create a size from a number of centimeters.
+    #[inline]
+    pub fn from_cm(cm: f32) -> Size {
+        Size { points: 28.3465 * cm }
+    }
+
+    /// Create a size from a number of points.
+    #[inline]
+    pub fn to_points(&self) -> f32 {
+        self.points
+    }
+
+    /// Create a size from a number of inches.
+    #[inline]
+    pub fn to_inches(&self) -> f32 {
+        self.points * 0.0138889
+    }
+
+    /// Create a size from a number of millimeters.
+    #[inline]
+    pub fn to_mm(&self) -> f32 {
+        self.points * 0.352778
+    }
+
+    /// Create a size from a number of centimeters.
+    #[inline]
+    pub fn to_cm(&self) -> f32 {
+        self.points * 0.0352778
+    }
+}
 
 
 /// A type that can be generated into a document.
