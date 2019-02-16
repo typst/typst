@@ -6,6 +6,5 @@
 
 pub mod parsing;
 pub mod doc;
-pub mod font;
 pub mod pdf;
 pub mod utility;

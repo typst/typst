@@ -2,7 +2,6 @@
 
 use std::fmt;
 use crate::parsing::{SyntaxTree, Node};
-use crate::font::{Font, BuiltinFont};
 use pdf::Size;
 
 
@@ -13,8 +12,6 @@ use pdf::Size;
 pub struct Document {
     /// The pages of the document.
     pub pages: Vec<Page>,
-    /// The fonts used by the document.
-    pub fonts: Vec<DocumentFont>,
 }
 
 impl Document {
@@ -22,7 +19,6 @@ impl Document {
     pub fn new() -> Document {
         Document {
             pages: vec![],
-            fonts: vec![],
         }
     }
 }
@@ -39,15 +35,6 @@ pub struct Page {
 /// Plain text.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Text(pub String);
-
-/// A font (either built-in or external).
-#[derive(Debug, Clone, PartialEq)]
-pub enum DocumentFont {
-    /// One of the 14 built-in fonts.
-    Builtin(BuiltinFont),
-    /// An externally loaded font.
-    Loaded(Font),
-}
 
 
 /// A type that can be generated into a document.
@@ -93,8 +80,6 @@ impl<'s> Generator<'s> {
 
     /// Generate the abstract document.
     fn generate(&mut self) -> GenResult<Document> {
-        let fonts = vec![DocumentFont::Builtin(BuiltinFont::Helvetica)];
-
         let mut text = String::new();
         for node in &self.tree.nodes {
             match node {
@@ -115,7 +100,6 @@ impl<'s> Generator<'s> {
 
         Ok(Document {
             pages: vec![page],
-            fonts,
         })
     }
 
@@ -153,7 +137,6 @@ mod generator_tests {
                     ]
                 }
             ],
-            fonts: vec![DocumentFont::Builtin(BuiltinFont::Helvetica)],
         });
     }
 }

@@ -1,8 +1,8 @@
 //! Writing of documents in the _PDF_ format.
 
 use std::io::{self, Write};
-use crate::doc::{Document, DocumentFont};
-use pdf::{PdfWriter, Id, Rect, Size, Version, DocumentCatalog, PageTree,
+use crate::doc::Document;
+use pdf::{PdfWriter, Id, Rect, Version, DocumentCatalog, PageTree,
           Page, PageData, Resource, font::Type1Font, Text, Trailer};
 
 
@@ -25,12 +25,10 @@ impl<W: Write> WritePdf<Document> for W {
         let pages_start = page_tree_id + 1;
         let pages_end = pages_start + doc.pages.len() as Id;
 
-        let resources_start = pages_end;
-        let font_start = resources_start;
-        let font_end = font_start + doc.fonts.len() as Id;
-        let resources_end = font_end;
+        let font_start = pages_end;
+        let font_end = font_start + 1;
 
-        let content_start = resources_end;
+        let content_start = font_end;
         let content_end = content_start
             + doc.pages.iter().flat_map(|p| p.contents.iter()).count() as Id;
 
@@ -41,16 +39,12 @@ impl<W: Write> WritePdf<Document> for W {
             page_tree: page_tree_id,
         })?;
 
-        let font_resources: Vec<_> = (1 ..= doc.fonts.len() as u32)
-            .zip(font_start .. font_end)
-            .map(|(nr, id)| Resource::Font(nr, id)).collect();
-
         // Root page tree
         writer.write_obj(page_tree_id, &PageTree {
             parent: None,
             kids: (pages_start .. pages_end).collect(),
             data: PageData {
-                resources: Some(font_resources),
+                resources: Some(vec![Resource::Font(1, font_start)]),
                 .. PageData::default()
             },
         })?;
@@ -73,20 +67,10 @@ impl<W: Write> WritePdf<Document> for W {
             id += 1;
         }
 
-        // The resources (fonts)
-        let mut id = font_start;
-        for font in &doc.fonts {
-            match font {
-                DocumentFont::Builtin(font) => {
-                    writer.write_obj(id, &Type1Font {
-                        base_font: font.name().to_owned(),
-                    })?;
-                },
-                DocumentFont::Loaded(_) => unimplemented!(),
-            }
-
-            id += 1;
-        }
+        // The resources, currently only one hardcoded font
+        writer.write_obj(font_start, &Type1Font {
+            base_font: "Helvetica".to_owned(),
+        })?;
 
         // The page contents
         let mut id = content_start;
