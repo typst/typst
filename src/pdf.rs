@@ -3,7 +3,7 @@
 use std::io::{self, Write};
 use crate::doc::{Document, DocumentFont};
 use pdf::{PdfWriter, Id, Rect, Size, Version, DocumentCatalog, PageTree,
-          Page, PageData, Resource, Font, FontType, Text, Trailer};
+          Page, PageData, Resource, font::Type1Font, Text, Trailer};
 
 
 /// A type that is a sink for types that can be written conforming
@@ -78,8 +78,7 @@ impl<W: Write> WritePdf<Document> for W {
         for font in &doc.fonts {
             match font {
                 DocumentFont::Builtin(font) => {
-                    writer.write_obj(id, &Font {
-                        subtype: FontType::Type1,
+                    writer.write_obj(id, &Type1Font {
                         base_font: font.name().to_owned(),
                     })?;
                 },
@@ -96,8 +95,8 @@ impl<W: Write> WritePdf<Document> for W {
                 let string = &content.0;
 
                 let mut text = Text::new();
-                text.set_font(1, Size::from_points(13.0))
-                    .move_pos(Size::from_points(108.0), Size::from_points(734.0))
+                text.set_font(1, 13.0)
+                    .move_pos(108.0, 734.0)
                     .write_str(&string);
 
                 writer.write_obj(id, &text.as_stream())?;
