@@ -8,7 +8,7 @@ use crate::parsing::{SyntaxTree, Node};
 
 /// Abstract representation of a complete typesetted document.
 ///
-/// This abstract thing can then be serialized into a specific format like PDF.
+/// This abstract thing can then be serialized into a specific format like _PDF_.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Document {
     /// The pages of the document.

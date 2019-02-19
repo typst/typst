@@ -7,8 +7,7 @@ use pdf::{PdfWriter, Id, Rect, Version, DocumentCatalog, PageTree,
 
 
 /// A type that is a sink for types that can be written conforming
-/// to the _PDF_ format (that may be things like sizes, other objects
-/// or whole documents).
+/// to the _PDF_ format.
 pub trait WritePdf<T> {
     /// Write self into a byte sink, returning how many bytes were written.
     fn write_pdf(&mut self, object: &T) -> io::Result<usize>;
@@ -44,7 +43,7 @@ impl<W: Write> WritePdf<Document> for W {
             parent: None,
             kids: (pages_start .. pages_end).collect(),
             data: PageData {
-                resources: Some(vec![Resource::Font(1, font_start)]),
+                resources: Some(vec![Resource::Font { nr: 1, id: font_start }]),
                 .. PageData::none()
             },
         })?;
@@ -81,7 +80,7 @@ impl<W: Write> WritePdf<Document> for W {
                 writer.write_obj(id, &Text::new()
                     .set_font(1, 13.0)
                     .move_pos(108.0, 734.0)
-                    .write_str(&string)
+                    .write_text(&string)
                     .to_stream()
                 )?;
                 id += 1;

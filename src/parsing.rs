@@ -21,24 +21,24 @@ pub enum Token<'s> {
     /// A colon (`:`) indicating the beginning of function arguments.
     ///
     /// If a colon occurs outside of the function header, it will be
-    /// tokenized as a `Word`.
+    /// tokenized as a [Word](Token::Word).
     Colon,
-    /// Same as with `Colon`.
+    /// Same as with [Colon](Token::Colon).
     Equals,
     /// Two underscores, indicating text in _italics_.
     DoubleUnderscore,
     /// Two stars, indicating **bold** text.
     DoubleStar,
-    /// A dollar sign, indicating mathematical content.
+    /// A dollar sign, indicating _mathematical_ content.
     Dollar,
-    /// A hashtag starting a comment.
+    /// A hashtag starting a _comment_.
     Hashtag,
     /// Everything else just is a literal word.
     Word(&'s str),
 }
 
 
-/// A type that is seperable into logical units (tokens).
+/// A type that is separable into logical units (tokens).
 pub trait Tokenize {
     /// Tokenize self into logical units.
     fn tokenize<'s>(&'s self) -> Tokens<'s>;
@@ -297,7 +297,7 @@ pub struct Function<'s> {
 }
 
 
-/// A type that is parseable into a syntax tree.
+/// A type that is parsable into a syntax tree.
 pub trait Parse<'s> {
     /// Parse self into a syntax tree.
     fn parse(self) -> ParseResult<SyntaxTree<'s>>;
@@ -559,7 +559,7 @@ mod token_tests {
     }
 
     /// This test has a special look at the double underscore syntax, because
-    /// per Unicode standard they are not seperate words and thus harder to parse
+    /// per Unicode standard they are not separate words and thus harder to parse
     /// than the stars.
     #[test]
     fn tokenize_double_underscore() {
