@@ -75,12 +75,10 @@ impl<W: Write> WritePdf<Document> for W {
         let mut id = content_start;
         for page in &doc.pages {
             for content in &page.contents {
-                let string = &content.0;
-
                 writer.write_obj(id, &Text::new()
                     .set_font(1, 13.0)
                     .move_pos(108.0, 734.0)
-                    .write_text(&string)
+                    .write_text(content.0.as_bytes())
                     .to_stream()
                 )?;
                 id += 1;
@@ -108,7 +106,7 @@ mod pdf_tests {
 
     /// Create a pdf with a name from the source code.
     fn test(name: &str, src: &str) {
-        let mut file = std::fs::File::create(name).unwrap();
+        let mut file = std::fs::File::create(format!("../target/{}", name)).unwrap();
         let doc = src.tokenize()
             .parse().unwrap()
             .generate().unwrap();
@@ -117,8 +115,8 @@ mod pdf_tests {
 
     #[test]
     fn pdf_simple() {
-        test("../target/write1.pdf", "This is an example of a sentence.");
-        test("../target/write2.pdf","
+        test("write-simple.pdf", "This is an example of a sentence.");
+        test("write-break.pdf","
              Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed
              diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam
              voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd
@@ -128,5 +126,6 @@ mod pdf_tests {
              justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est
              Lorem ipsum dolor sit amet.
         ");
+        test("write-parens.pdf", "Text enclosed in (parenthesis), like ) or ( should work!");
     }
 }
