@@ -6,14 +6,13 @@ use pdf::{PdfWriter, Id, Rect, Version, DocumentCatalog, PageTree,
           Page, PageData, Resource, font::Type1Font, Text, Trailer};
 
 
-/// A type that is a sink for types that can be written conforming
-/// to the _PDF_ format.
-pub trait WritePdf<T> {
-    /// Write self into a byte sink, returning how many bytes were written.
-    fn write_pdf(&mut self, object: &T) -> io::Result<usize>;
+/// A type that is a sink for documents that can be written in the _PDF_ format.
+pub trait WritePdf {
+    /// Write a document into self, returning how many bytes were written.
+    fn write_pdf(&mut self, doc: &Document) -> io::Result<usize>;
 }
 
-impl<W: Write> WritePdf<Document> for W {
+impl<W: Write> WritePdf for W {
     fn write_pdf(&mut self, doc: &Document) -> io::Result<usize> {
         let mut writer = PdfWriter::new(self);
 
