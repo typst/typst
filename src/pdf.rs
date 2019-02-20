@@ -101,15 +101,13 @@ impl<W: Write> WritePdf<Document> for W {
 #[cfg(test)]
 mod pdf_tests {
     use super::*;
-    use crate::parsing::{Tokenize, Parse};
+    use crate::parsing::ParseTree;
     use crate::doc::Generate;
 
     /// Create a pdf with a name from the source code.
     fn test(name: &str, src: &str) {
         let mut file = std::fs::File::create(format!("../target/{}", name)).unwrap();
-        let doc = src.tokenize()
-            .parse().unwrap()
-            .generate().unwrap();
+        let doc = src.parse_tree().unwrap().generate().unwrap();
         file.write_pdf(&doc).unwrap();
     }
 

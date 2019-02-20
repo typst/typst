@@ -298,19 +298,28 @@ pub struct Function<'s> {
 
 
 /// A type that is parsable into a syntax tree.
-pub trait Parse<'s> {
+pub trait ParseTree<'s> {
     /// Parse self into a syntax tree.
-    fn parse(self) -> ParseResult<SyntaxTree<'s>>;
+    fn parse_tree(self) -> ParseResult<SyntaxTree<'s>>;
 }
 
-impl<'s> Parse<'s> for Tokens<'s> {
-    fn parse(self) -> ParseResult<SyntaxTree<'s>> {
+impl<'s> ParseTree<'s> for &'s str {
+    #[inline]
+    fn parse_tree(self) -> ParseResult<SyntaxTree<'s>> {
+        self.tokenize().parse_tree()
+    }
+}
+
+impl<'s> ParseTree<'s> for Tokens<'s> {
+    #[inline]
+    fn parse_tree(self) -> ParseResult<SyntaxTree<'s>> {
         Parser::new(self).parse()
     }
 }
 
-impl<'s> Parse<'s> for Vec<Token<'s>> {
-    fn parse(self) -> ParseResult<SyntaxTree<'s>> {
+impl<'s> ParseTree<'s> for Vec<Token<'s>> {
+    #[inline]
+    fn parse_tree(self) -> ParseResult<SyntaxTree<'s>> {
         Parser::new(self.into_iter()).parse()
     }
 }
@@ -594,12 +603,12 @@ mod parse_tests {
 
     /// Test if the source code parses into the syntax tree.
     fn test(src: &str, tree: SyntaxTree) {
-        assert_eq!(src.tokenize().parse(), Ok(tree));
+        assert_eq!(src.parse_tree(), Ok(tree));
     }
 
     /// Test if the source parses into the error.
     fn test_err(src: &str, err: ParseError) {
-        assert_eq!(src.tokenize().parse(), Err(err));
+        assert_eq!(src.parse_tree(), Err(err));
     }
 
     /// Short cut macro to create a syntax tree.

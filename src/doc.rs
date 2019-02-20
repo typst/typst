@@ -172,16 +172,16 @@ impl<'s> Generator<'s> {
 #[cfg(test)]
 mod generator_tests {
     use super::*;
-    use crate::parsing::{Tokenize, Parse};
+    use crate::parsing::ParseTree;
 
     /// Test if the source gets generated into the document.
     fn test(src: &str, doc: Document) {
-        assert_eq!(src.tokenize().parse().unwrap().generate(), Ok(doc));
+        assert_eq!(src.parse_tree().unwrap().generate(), Ok(doc));
     }
 
     /// Test if generation gives this error for the source code.
     fn test_err(src: &str, err: GenerationError) {
-        assert_eq!(src.tokenize().parse().unwrap().generate(), Err(err));
+        assert_eq!(src.parse_tree().unwrap().generate(), Err(err));
     }
 
     #[test]
