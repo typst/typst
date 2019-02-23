@@ -108,7 +108,7 @@ impl<'s> Iterator for Tokens<'s> {
         use TokensState as TS;
 
         // Return the remaining words and double underscores.
-        if let TS::DoubleUnderscore(ref mut splinor) = self.state {
+        if let TS::DoubleUnderscore(splinor) = &mut self.state {
             loop {
                 if let Some(splined) = splinor.next() {
                     return Some(match splined {
