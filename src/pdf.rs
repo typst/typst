@@ -77,7 +77,7 @@ impl<W: Write> WritePdf for W {
             for content in &page.contents {
                 writer.write_obj(id, &Text::new()
                     .set_font(1, 13.0)
-                    .move_pos(108.0, 734.0)
+                    .move_line(108.0, 734.0)
                     .write_text(content.0.as_bytes())
                     .to_stream()
                 )?;
