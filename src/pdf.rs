@@ -2,8 +2,9 @@
 
 use std::io::{self, Write};
 use crate::doc::Document;
-use pdf::{PdfWriter, Id, Rect, Version, DocumentCatalog, PageTree,
-          Page, PageData, Resource, font::Type1Font, Text, Trailer};
+use pdf::{PdfWriter, Id, Rect, Version, Trailer};
+use pdf::doc::{DocumentCatalog, PageTree, Page, PageData, Resource, Text};
+use pdf::font::Type1Font;
 
 
 /// A type that is a sink for documents that can be written in the _PDF_ format.
