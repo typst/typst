@@ -3,7 +3,8 @@
 use std::io::{self, Write};
 use crate::doc::Document;
 use pdf::{PdfWriter, Id, Rect, Version, Trailer};
-use pdf::doc::{DocumentCatalog, PageTree, Page, PageData, Resource, Text};
+use pdf::doc::{DocumentCatalog, PageTree, Page, PageData, Resource, Content};
+use pdf::text::Text;
 use pdf::font::Type1Font;
 
 
