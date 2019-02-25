@@ -3,18 +3,21 @@
 //! output format like _PDF_.
 //!
 //! # Example
-//! This is an example of compiling a _really_ simple document into _PDF_.
+//! This is an example of compiling a really simple document into _PDF_.
 //! ```
 //! use typeset::{parsing::ParseTree, doc::Generate, export::WritePdf};
 //!
-//! let path = "hello-typeset.pdf";
-//! # let path = "../target/hello-typeset.pdf";
-//! let mut file = std::fs::File::create(path).unwrap();
+//! // Create an output file.
+//! # /*
+//! let mut file = std::fs::File::create("hello-typeset.pdf").unwrap();
+//! # */
+//! # let mut file = std::fs::File::create("../target/hello-typeset.pdf").unwrap();
 //!
 //! // Parse the source and then generate the document.
 //! let src = "Hello World from Typeset!";
 //! let doc = src.parse_tree().unwrap().generate().unwrap();
 //!
+//! // Write the document into file as PDF.
 //! file.write_pdf(&doc).unwrap();
 //! ```
 
