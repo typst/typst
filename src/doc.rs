@@ -192,4 +192,18 @@ mod generator_tests {
             font: "NotoSans-Regular".to_owned(),
         });
     }
+
+    #[test]
+    fn generate_emoji() {
+        use crate::write::WritePdf;
+        let doc = Document {
+            pages: vec![Page {
+                size: [Size::from_mm(210.0), Size::from_mm(297.0)],
+                contents: vec![Text("🌍".to_owned())]
+            }],
+            font: "NotoEmoji-Regular".to_owned(),
+        };
+        let mut file = std::fs::File::create("../target/typeset-doc-emoji.pdf").unwrap();
+        file.write_pdf(&doc).unwrap();
+    }
 }
