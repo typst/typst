@@ -13,15 +13,8 @@ use crate::parsing::{SyntaxTree, Node};
 pub struct Document {
     /// The pages of the document.
     pub pages: Vec<Page>,
-}
-
-impl Document {
-    /// Create a new document without content.
-    pub fn new() -> Document {
-        Document {
-            pages: vec![],
-        }
-    }
+    /// The font the document is written in.
+    pub font: String,
 }
 
 /// A page of a document.
@@ -158,6 +151,7 @@ impl<'s> Generator<'s> {
 
         Ok(Document {
             pages: vec![page],
+            font: "NotoSans-Regular".to_owned(),
         })
     }
 
@@ -195,6 +189,7 @@ mod generator_tests {
                     ]
                 }
             ],
+            font: "NotoSans-Regular".to_owned(),
         });
     }
 }
