@@ -10,7 +10,7 @@ use pdf::font::{
     Type0Font, CMapEncoding, CIDFont, CIDFontType, CIDSystemInfo,
     WidthRecord, FontDescriptor, FontFlags, EmbeddedFont, GlyphUnit
 };
-use opentype::{OpenTypeReader, tables};
+use opentype::{OpenTypeReader, tables::{self, NameEntry}};
 
 
 /// A type that is a sink for documents that can be written in the _PDF_ format.
@@ -190,8 +190,8 @@ impl<'a, W: Write> PdfCreator<'a, W> {
         let ratio = 1000.0 / (font_data.head.units_per_em as f32);
         let convert = |x| (ratio * x as f32).round() as GlyphUnit;
 
-        let base_font = font_data.name.post_script_name.as_ref()
-            .unwrap_or(&self.doc.font);
+        let font_name = font_data.name.get_decoded(NameEntry::PostScriptName);
+        let base_font = font_name.as_ref().unwrap_or(&self.doc.font);
 
         self.writer.write_obj(id, &Type0Font::new(
             base_font.clone(),
