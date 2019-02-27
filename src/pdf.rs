@@ -4,10 +4,12 @@ use std::fmt;
 use std::io::{self, Write, Cursor};
 use crate::doc::Document;
 use pdf::{PdfWriter, Id, Rect, Version, Trailer};
-use pdf::doc::{DocumentCatalog, PageTree, Page, PageData, Resource, Content};
+use pdf::doc::{Catalog, PageTree, Page, Resource, Content};
 use pdf::text::Text;
-use pdf::font::{Type0Font, CMapEncoding, CIDFont, CIDFontType, CIDSystemInfo,
-               WidthRecord, FontDescriptor, EmbeddedFont, GlyphUnit};
+use pdf::font::{
+    Type0Font, CMapEncoding, CIDFont, CIDFontType, CIDSystemInfo,
+    WidthRecord, FontDescriptor, FontFlags, EmbeddedFont, GlyphUnit
+};
 use opentype::{OpenTypeReader, tables};
 
 
@@ -51,18 +53,6 @@ impl fmt::Display for PdfWritingError {
     }
 }
 
-
-/// Shortcut macro to create bitflags from bools.
-macro_rules! flags {
-    ($($bit:expr => $value:expr),*) => {{
-        let mut flags = 0;
-        $(
-            flags |= if $value { 1 << ($bit - 1) } else { 0 };
-        )*
-        flags
-    }};
-    ($($bit:expr => $value:expr,)*) => (flags!($($bit => $value),*));
-}
 
 /// Keeps track of the document while letting the pdf writer
 /// generate the _PDF_.
@@ -140,9 +130,7 @@ impl<'a, W: Write> PdfCreator<'a, W> {
         self.writer.write_xref_table()?;
 
         // Trailer
-        self.writer.write_trailer(&Trailer {
-            root: self.offsets.catalog,
-        })?;
+        self.writer.write_trailer(&Trailer::new(self.offsets.catalog))?;
 
         Ok(self.writer.written())
     }
@@ -150,19 +138,13 @@ impl<'a, W: Write> PdfCreator<'a, W> {
     /// Write the document catalog, page tree and pages.
     fn write_pages(&mut self) -> PdfResult<()> {
         // The document catalog
-        self.writer.write_obj(self.offsets.catalog, &DocumentCatalog {
-            page_tree: self.offsets.page_tree,
-        })?;
+        self.writer.write_obj(self.offsets.catalog, &Catalog::new(self.offsets.page_tree))?;
 
         // Root page tree
-        self.writer.write_obj(self.offsets.page_tree, &PageTree {
-            parent: None,
-            kids: (self.offsets.pages.0 ..= self.offsets.pages.1).collect(),
-            data: PageData {
-                resources: Some(vec![Resource::Font { nr: 1, id: self.offsets.fonts.0 }]),
-                .. PageData::none()
-            },
-        })?;
+        self.writer.write_obj(self.offsets.page_tree, PageTree::new()
+            .kids(self.offsets.pages.0 ..= self.offsets.pages.1)
+            .resource(Resource::Font { nr: 1, id: self.offsets.fonts.0 })
+        )?;
 
         // The page objects
         let mut id = self.offsets.pages.0;
@@ -170,15 +152,10 @@ impl<'a, W: Write> PdfCreator<'a, W> {
             let width = page.size[0].to_points();
             let height = page.size[1].to_points();
 
-            let contents = (self.offsets.contents.0 ..= self.offsets.contents.1).collect();
-            self.writer.write_obj(id, &Page {
-                parent: self.offsets.page_tree,
-                data: PageData {
-                    media_box: Some(Rect::new(0.0, 0.0, width, height)),
-                    contents: Some(contents),
-                    .. PageData::none()
-                },
-            })?;
+            self.writer.write_obj(id, Page::new(self.offsets.page_tree)
+                .media_box(Rect::new(0.0, 0.0, width, height))
+                .contents(self.offsets.contents.0 ..= self.offsets.contents.1)
+            )?;
 
             id += 1;
         }
@@ -216,54 +193,50 @@ impl<'a, W: Write> PdfCreator<'a, W> {
         let base_font = font_data.name.post_script_name.as_ref()
             .unwrap_or(&self.doc.font);
 
-        self.writer.write_obj(id, &Type0Font {
-            base_font: base_font.clone(),
-            encoding: CMapEncoding::Predefined("Identity-H".to_owned()),
-            descendant_font: id + 1,
-            to_unicode: None,
-        }).unwrap();
+        self.writer.write_obj(id, &Type0Font::new(
+            base_font.clone(),
+            CMapEncoding::Predefined("Identity-H".to_owned()),
+            id + 1
+        )).unwrap();
 
-        self.writer.write_obj(id + 1, &CIDFont {
-            subtype: CIDFontType::Type2,
-            base_font: base_font.clone(),
-            cid_system_info: CIDSystemInfo {
-                registry: "(Adobe)".to_owned(),
-                ordering: "(Identity)".to_owned(),
-                supplement: 0,
-            },
-            font_descriptor: id + 2,
-            widths: Some(vec![WidthRecord::Start(0,
-                font_data.hmtx.metrics.iter()
-                    .map(|m| convert(m.advance_width))
-                    .collect::<Vec<_>>()
-            )]),
-            cid_to_gid_map: Some(CMapEncoding::Predefined("Identity".to_owned())),
-        }).unwrap();
+        self.writer.write_obj(id + 1,
+            CIDFont::new(
+                CIDFontType::Type2,
+                base_font.clone(),
+                CIDSystemInfo::new("(Adobe)", "(Identity)", 0),
+                id + 2,
+            ).widths(vec![
+                WidthRecord::start(0, font_data.hmtx.metrics.iter().map(|m| convert(m.advance_width))
+            )])
+        ).unwrap();
 
-        self.writer.write_obj(id + 2, &FontDescriptor {
-            font_name: base_font.clone(),
-            flags: flags!(
-                1 => font_data.post.is_fixed_pitch,
-                2 => base_font.contains("Serif"),
-                3 => true, 4 => false, 6 => false,
-                7 => (font_data.head.mac_style & 1) != 0,
-                17 => false, 18 => true, 19 => false,
-            ),
-            found_bbox: Rect::new(
+        let mut flags = FontFlags::empty();
+        flags.set(FontFlags::FIXED_PITCH, font_data.post.is_fixed_pitch);
+        flags.set(FontFlags::SERIF, base_font.contains("Serif"));
+        flags.insert(FontFlags::SYMBOLIC);
+        flags.set(FontFlags::ITALIC, (font_data.head.mac_style & 1) != 0);
+        flags.insert(FontFlags::SMALL_CAP);
+
+        self.writer.write_obj(id + 2,
+            FontDescriptor::new(
+                base_font.clone(),
+                flags,
+                font_data.post.italic_angle.to_f32(),
+            )
+            .font_bbox(Rect::new(
                 convert(font_data.head.x_min),
                 convert(font_data.head.y_min),
                 convert(font_data.head.x_max),
                 convert(font_data.head.y_max)
-            ),
-            italic_angle: font_data.post.italic_angle.to_f32(),
-            ascent: convert(font_data.os2.s_typo_ascender),
-            descent: convert(font_data.os2.s_typo_descender),
-            cap_height: convert(font_data.os2.s_cap_height
-                .unwrap_or(font_data.os2.s_typo_ascender)),
-            stem_v: (10.0 + 220.0 *
-                (font_data.os2.us_weight_class as f32 - 50.0) / 900.0) as GlyphUnit,
-            font_file_3: Some(id + 3),
-        }).unwrap();
+            ))
+            .ascent(convert(font_data.os2.s_typo_ascender))
+            .descent(convert(font_data.os2.s_typo_descender))
+            .cap_height(convert(font_data.os2.s_cap_height
+                .unwrap_or(font_data.os2.s_typo_ascender)))
+            .stem_v((10.0 + 220.0 * (font_data.os2.us_weight_class as f32
+                - 50.0) / 900.0) as GlyphUnit)
+            .font_file_3(id + 3)
+        ).unwrap();
 
         self.writer.write_obj(id + 3, &EmbeddedFont::OpenType(&font_data.data)).unwrap();
 
