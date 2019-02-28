@@ -10,7 +10,7 @@ use pdf::font::{
     Type0Font, CMapEncoding, CIDFont, CIDFontType, CIDSystemInfo,
     WidthRecord, FontDescriptor, FontFlags, EmbeddedFont, GlyphUnit
 };
-use opentype::{OpenTypeReader, tables::{self, NameEntry}};
+use opentype::{OpenTypeReader, tables::{self, NameEntry, MacStyleFlags}};
 
 
 /// A type that is a sink for documents that can be written in the _PDF_ format.
@@ -214,7 +214,7 @@ impl<'a, W: Write> PdfCreator<'a, W> {
         flags.set(FontFlags::FIXED_PITCH, font_data.post.is_fixed_pitch);
         flags.set(FontFlags::SERIF, base_font.contains("Serif"));
         flags.insert(FontFlags::SYMBOLIC);
-        flags.set(FontFlags::ITALIC, (font_data.head.mac_style & 1) != 0);
+        flags.set(FontFlags::ITALIC, font_data.head.mac_style.contains(MacStyleFlags::ITALIC));
         flags.insert(FontFlags::SMALL_CAP);
 
         self.writer.write_obj(id + 2,
