@@ -23,6 +23,7 @@
 
 mod pdf;
 mod utility;
+pub mod font;
 pub mod parsing;
 pub mod doc;
 

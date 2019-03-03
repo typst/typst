@@ -2,7 +2,7 @@
 
 use std::fmt;
 use std::io::{self, Write, Cursor};
-use crate::doc::Document;
+use std::collections::{HashMap, HashSet};
 use pdf::{PdfWriter, Id, Rect, Version, Trailer};
 use pdf::doc::{Catalog, PageTree, Page, Resource, Content};
 use pdf::text::Text;
@@ -11,6 +11,8 @@ use pdf::font::{
     WidthRecord, FontDescriptor, FontFlags, EmbeddedFont, GlyphUnit
 };
 use opentype::{OpenTypeReader, tables::{self, NameEntry, MacStyleFlags}};
+use crate::doc::Document;
+use crate::font::Font;
 
 
 /// A type that is a sink for documents that can be written in the _PDF_ format.
@@ -47,6 +49,12 @@ impl From<opentype::Error> for PdfWritingError {
     }
 }
 
+impl From<crate::font::SubsettingError> for PdfWritingError {
+    fn from(err: crate::font::SubsettingError) -> PdfWritingError {
+        PdfWritingError { message: format!("{}", err) }
+    }
+}
+
 impl fmt::Display for PdfWritingError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "pdf writing error: {}", self.message)
@@ -60,7 +68,7 @@ struct PdfCreator<'a, W: Write> {
     writer: PdfWriter<'a, W>,
     doc: &'a Document,
     offsets: Offsets,
-    font_data: FontData,
+    font: PdfFont,
 }
 
 /// Offsets for the various groups of ids.
@@ -70,17 +78,6 @@ struct Offsets {
     pages: (Id, Id),
     contents: (Id, Id),
     fonts: (Id, Id),
-}
-
-/// The data we need from the font.
-struct FontData {
-    data: Vec<u8>,
-    name: tables::Name,
-    head: tables::Header,
-    post: tables::Post,
-    os2: tables::OS2,
-    hmtx: tables::HorizontalMetrics,
-    cmap: tables::CharMap,
 }
 
 impl<'a, W: Write> PdfCreator<'a, W> {
@@ -94,9 +91,17 @@ impl<'a, W: Write> PdfCreator<'a, W> {
         let contents = (pages.1 + 1, pages.1 + content_count);
         let fonts = (contents.1 + 1, contents.1 + 4);
 
-        // Read the font from a file.
+        // Find out which chars are used in this document.
+        let mut chars = HashSet::new();
+        for page in &doc.pages {
+            for content in &page.contents {
+                chars.extend(content.0.chars());
+            }
+        }
+
+        // Create a subsetted pdf font.
         let data = std::fs::read(format!("../fonts/{}.ttf", doc.font))?;
-        let font_data = FontData::load(data)?;
+        let font = PdfFont::new(&doc.font, data, chars)?;
 
         Ok(PdfCreator {
             writer: PdfWriter::new(target),
@@ -108,7 +113,7 @@ impl<'a, W: Write> PdfCreator<'a, W> {
                 contents,
                 fonts,
             },
-            font_data,
+            font,
         })
     }
 
@@ -184,17 +189,9 @@ impl<'a, W: Write> PdfCreator<'a, W> {
     /// Write the fonts.
     fn write_fonts(&mut self) -> PdfResult<()> {
         let id = self.offsets.fonts.0;
-        let font_data = &self.font_data;
-
-        // Create conversion function from font units to PDF units.
-        let ratio = 1000.0 / (font_data.head.units_per_em as f32);
-        let convert = |x| (ratio * x as f32).round() as GlyphUnit;
-
-        let font_name = font_data.name.get_decoded(NameEntry::PostScriptName);
-        let base_font = font_name.as_ref().unwrap_or(&self.doc.font);
 
         self.writer.write_obj(id, &Type0Font::new(
-            base_font.clone(),
+            self.font.name.clone(),
             CMapEncoding::Predefined("Identity-H".to_owned()),
             id + 1
         )).unwrap();
@@ -202,79 +199,123 @@ impl<'a, W: Write> PdfCreator<'a, W> {
         self.writer.write_obj(id + 1,
             CIDFont::new(
                 CIDFontType::Type2,
-                base_font.clone(),
+                self.font.name.clone(),
                 CIDSystemInfo::new("(Adobe)", "(Identity)", 0),
                 id + 2,
-            ).widths(vec![
-                WidthRecord::start(0, font_data.hmtx.metrics.iter().map(|m| convert(m.advance_width))
-            )])
+            ).widths(vec![WidthRecord::start(0, self.font.widths.clone())])
         ).unwrap();
-
-        let mut flags = FontFlags::empty();
-        flags.set(FontFlags::FIXED_PITCH, font_data.post.is_fixed_pitch);
-        flags.set(FontFlags::SERIF, base_font.contains("Serif"));
-        flags.insert(FontFlags::SYMBOLIC);
-        flags.set(FontFlags::ITALIC, font_data.head.mac_style.contains(MacStyleFlags::ITALIC));
-        flags.insert(FontFlags::SMALL_CAP);
 
         self.writer.write_obj(id + 2,
             FontDescriptor::new(
-                base_font.clone(),
-                flags,
-                font_data.post.italic_angle.to_f32(),
+                self.font.name.clone(),
+                self.font.flags,
+                self.font.italic_angle,
             )
-            .font_bbox(Rect::new(
-                convert(font_data.head.x_min),
-                convert(font_data.head.y_min),
-                convert(font_data.head.x_max),
-                convert(font_data.head.y_max)
-            ))
-            .ascent(convert(font_data.os2.s_typo_ascender))
-            .descent(convert(font_data.os2.s_typo_descender))
-            .cap_height(convert(font_data.os2.s_cap_height
-                .unwrap_or(font_data.os2.s_typo_ascender)))
-            .stem_v((10.0 + 220.0 * (font_data.os2.us_weight_class as f32
-                - 50.0) / 900.0) as GlyphUnit)
+            .font_bbox(self.font.bounding_box)
+            .ascent(self.font.ascender)
+            .descent(self.font.descender)
+            .cap_height(self.font.cap_height)
+            .stem_v(self.font.stem_v)
             .font_file_3(id + 3)
         ).unwrap();
 
-        self.writer.write_obj(id + 3, &EmbeddedFont::OpenType(&font_data.data)).unwrap();
+
+        self.writer.write_obj(id + 3, &EmbeddedFont::OpenType(&self.font.data)).unwrap();
 
         Ok(())
     }
 
     /// Encode the given text for our font.
     fn encode(&self, text: &str) -> Vec<u8> {
-        let default = self.font_data.os2.us_default_char.unwrap_or(0);
         let mut bytes = Vec::with_capacity(2 * text.len());
-        text.chars().map(|c| {
-            self.font_data.cmap.get(c).unwrap_or(default)
-        })
-        .for_each(|glyph| {
+        for glyph in text.chars().map(|c| self.font.map(c)) {
             bytes.push((glyph >> 8) as u8);
             bytes.push((glyph & 0xff) as u8);
-        });
+        }
         bytes
     }
 }
 
-impl FontData {
-    /// Load various needed tables from the font data.
-    pub fn load(data: Vec<u8>) -> PdfResult<FontData> {
-        let mut readable = Cursor::new(data);
+
+/// The data we need from the font.
+struct PdfFont {
+    data: Vec<u8>,
+    mapping: HashMap<char, u16>,
+    default_glyph: u16,
+    name: String,
+    widths: Vec<GlyphUnit>,
+    flags: FontFlags,
+    italic_angle: f32,
+    bounding_box: Rect<GlyphUnit>,
+    ascender: GlyphUnit,
+    descender: GlyphUnit,
+    cap_height: GlyphUnit,
+    stem_v: GlyphUnit,
+}
+
+impl PdfFont {
+    /// Create a subetted version of the font and calculate some information
+    /// needed for creating the _PDF_.
+    pub fn new(font_name: &str, data: Vec<u8>, chars: HashSet<char>) -> PdfResult<PdfFont> {
+        let mut readable = Cursor::new(&data);
         let mut reader = OpenTypeReader::new(&mut readable);
 
-        let name = reader.read_table::<tables::Name>()?;
         let head = reader.read_table::<tables::Header>()?;
+        let name = reader.read_table::<tables::Name>()?;
         let post = reader.read_table::<tables::Post>()?;
         let os2 = reader.read_table::<tables::OS2>()?;
-        let hmtx = reader.read_table::<tables::HorizontalMetrics>()?;
-        let cmap = reader.read_table::<tables::CharMap>()?;
 
-        Ok(FontData {
-            data: readable.into_inner(),
-            name, head, post, os2, hmtx, cmap,
+        let font = Font::new(data);
+        let (subsetted, mapping) = font.subsetted(
+            chars,
+            &["head", "hhea", "maxp", "hmtx", "loca", "glyf"],
+            &["cvt ", "prep", "fpgm", "OS/2", "cmap", "name", "post"],
+        )?;
+
+        let unit_ratio = 1000.0 / (head.units_per_em as f32);
+        let convert = |x| (unit_ratio * x as f32).round() as GlyphUnit;
+
+        let base_font = name.get_decoded(NameEntry::PostScriptName);
+        let font_name =  base_font.unwrap_or_else(|| font_name.to_owned());
+
+
+        let mut flags = FontFlags::empty();
+        flags.set(FontFlags::FIXED_PITCH, post.is_fixed_pitch);
+        flags.set(FontFlags::SERIF, font_name.contains("Serif"));
+        flags.insert(FontFlags::SYMBOLIC);
+        flags.set(FontFlags::ITALIC, head.mac_style.contains(MacStyleFlags::ITALIC));
+        flags.insert(FontFlags::SMALL_CAP);
+
+        let mut readable = Cursor::new(&subsetted);
+        let mut reader = OpenTypeReader::new(&mut readable);
+        let hmtx = reader.read_table::<tables::HorizontalMetrics>()?;
+        let widths = hmtx.metrics.iter().map(|m| convert(m.advance_width)).collect();
+
+
+        Ok(PdfFont {
+            data: subsetted,
+            mapping,
+            default_glyph: os2.us_default_char.unwrap_or(0),
+            name: font_name,
+            widths,
+            flags,
+            italic_angle: post.italic_angle.to_f32(),
+            bounding_box: Rect::new(
+                convert(head.x_min),
+                convert(head.y_min),
+                convert(head.x_max),
+                convert(head.y_max)
+            ),
+            ascender: convert(os2.s_typo_ascender),
+            descender: convert(os2.s_typo_descender),
+            cap_height: convert(os2.s_cap_height.unwrap_or(os2.s_typo_ascender)),
+            stem_v: (10.0 + 220.0 * (os2.us_weight_class as f32 - 50.0) / 900.0) as GlyphUnit,
         })
+    }
+
+    /// Map a character to it's glyph index.
+    fn map(&self, c: char) -> u16 {
+        self.mapping.get(&c).map(|&g| g).unwrap_or(self.default_glyph)
     }
 }
 
@@ -304,4 +345,17 @@ mod pdf_tests {
              Stet clita kasd gubergren, no sea takimata sanctus est.
         ");
     }
+
+    // #[test]
+    // fn pdf_fix_1() {
+    //     use unicode_normalization::UnicodeNormalization;
+
+    //     let text = "Hello World! from Typeset‼";
+    //     let chars = text.nfd().collect::<HashSet<char>>();
+
+    //     // Create a subsetted pdf font.
+    //     let data = std::fs::read("../fonts/NotoSans-Regular.ttf").unwrap();
+    //     let font = PdfFont::new("NotoSans-Regular", data, chars).unwrap();
+    //     std::fs::write("../target/NotoTest.ttf", font.data).unwrap();
+    // }
 }
