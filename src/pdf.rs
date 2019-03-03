@@ -346,16 +346,8 @@ mod pdf_tests {
         ");
     }
 
-    // #[test]
-    // fn pdf_fix_1() {
-    //     use unicode_normalization::UnicodeNormalization;
-
-    //     let text = "Hello World! from Typeset‼";
-    //     let chars = text.nfd().collect::<HashSet<char>>();
-
-    //     // Create a subsetted pdf font.
-    //     let data = std::fs::read("../fonts/NotoSans-Regular.ttf").unwrap();
-    //     let font = PdfFont::new("NotoSans-Regular", data, chars).unwrap();
-    //     std::fs::write("../target/NotoTest.ttf", font.data).unwrap();
-    // }
+    #[test]
+    fn pdf_composite_glyph() {
+        test("composite-glyph", "Composite character‼");
+    }
 }
