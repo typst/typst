@@ -87,6 +87,7 @@ enum TokensState<'s> {
 }
 
 impl PartialEq for TokensState<'_> {
+    #[inline]
     fn eq(&self, other: &TokensState) -> bool {
         use TokensState as TS;
 
@@ -262,6 +263,7 @@ pub struct SyntaxTree<'s> {
 
 impl<'s> SyntaxTree<'s> {
     /// Create an empty syntax tree.
+    #[inline]
     pub fn new() -> SyntaxTree<'s> {
         SyntaxTree { nodes: vec![] }
     }

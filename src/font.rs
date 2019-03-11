@@ -1,9 +1,9 @@
 //! Font utility and subsetting.
 
+use std::collections::HashMap;
 use std::error;
 use std::fmt;
 use std::io::{self, Cursor, Seek, SeekFrom};
-use std::collections::HashMap;
 use byteorder::{BE, ReadBytesExt, WriteBytesExt};
 use opentype::{OpenTypeReader, Outlines, TableRecord, Tag};
 use opentype::tables::{Header, Name, NameEntry, CharMap, MaximumProfile, HorizontalMetrics, OS2};
@@ -49,11 +49,13 @@ impl Font {
     }
 
     /// Map a character to it's glyph index.
+    #[inline]
     pub fn map(&self, c: char) -> u16 {
         self.mapping.get(&c).map(|&g| g).unwrap_or(self.default_glyph)
     }
 
     /// Encode the given text for our font (into glyph ids).
+    #[inline]
     pub fn encode(&self, text: &str) -> Vec<u8> {
         println!("encoding {} with {:?}", text, self.mapping);
         let mut bytes = Vec::with_capacity(2 * text.len());
@@ -457,7 +459,8 @@ impl<'p> Subsetter<'p> {
             Err(_) => return Err(SubsettingError::MissingTable(tag.to_string())),
         };
 
-        self.font.program.get(record.offset as usize .. (record.offset + record.length) as usize)
+        self.font.program
+            .get(record.offset as usize .. (record.offset + record.length) as usize)
             .take_bytes()
     }
 
@@ -552,6 +555,7 @@ pub enum SubsettingError {
 }
 
 impl error::Error for SubsettingError {
+    #[inline]
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             SubsettingError::Opentype(err) => Some(err),

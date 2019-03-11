@@ -1,15 +1,12 @@
 //! Writing of documents in the _PDF_ format.
 
+use std::collections::HashSet;
 use std::fmt;
 use std::io::{self, Write, Cursor};
-use std::collections::HashSet;
-use pdf::{PdfWriter, Id, Rect, Version, Trailer};
-use pdf::doc::{Catalog, PageTree, Page, Resource, Content};
-use pdf::text::Text;
-use pdf::font::{
-    Type0Font, CMapEncoding, CIDFont, CIDFontType, CIDSystemInfo,
-    WidthRecord, FontDescriptor, FontFlags, EmbeddedFont, GlyphUnit
-};
+use pdf::{PdfWriter, Reference, Rect, Version, Trailer};
+use pdf::{Catalog, PageTree, Page, Resource, Text, Content};
+use pdf::font::{Type0Font, CMapEncoding, CIDFont, CIDFontType, CIDSystemInfo, WidthRecord,
+    FontDescriptor, FontFlags, EmbeddedFont, GlyphUnit};
 use opentype::{OpenTypeReader, tables::{self, MacStyleFlags}};
 use crate::doc::{self, Document, TextCommand};
 use crate::font::Font;
@@ -22,6 +19,7 @@ pub trait WritePdf {
 }
 
 impl<W: Write> WritePdf for W {
+    #[inline]
     fn write_pdf(&mut self, doc: &Document) -> PdfResult<usize> {
         PdfCreator::new(self, doc)?.write()
     }
@@ -38,26 +36,30 @@ pub struct PdfWritingError {
 }
 
 impl From<io::Error> for PdfWritingError {
+    #[inline]
     fn from(err: io::Error) -> PdfWritingError {
-        PdfWritingError { message: format!("io error: {}", err) }
+        PdfWritingError { message: format!("{}", err) }
     }
 }
 
 impl From<opentype::Error> for PdfWritingError {
+    #[inline]
     fn from(err: opentype::Error) -> PdfWritingError {
         PdfWritingError { message: format!("{}", err) }
     }
 }
 
 impl From<crate::font::SubsettingError> for PdfWritingError {
+    #[inline]
     fn from(err: crate::font::SubsettingError) -> PdfWritingError {
         PdfWritingError { message: format!("{}", err) }
     }
 }
 
 impl fmt::Display for PdfWritingError {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "pdf writing error: {}", self.message)
+        f.write_str(&self.message)
     }
 }
 
@@ -73,11 +75,11 @@ struct PdfCreator<'a, W: Write> {
 
 /// Offsets for the various groups of ids.
 struct Offsets {
-    catalog: Id,
-    page_tree: Id,
-    pages: (Id, Id),
-    contents: (Id, Id),
-    fonts: (Id, Id),
+    catalog: Reference,
+    page_tree: Reference,
+    pages: (Reference, Reference),
+    contents: (Reference, Reference),
+    fonts: (Reference, Reference),
 }
 
 impl<'a, W: Write> PdfCreator<'a, W> {
@@ -86,10 +88,10 @@ impl<'a, W: Write> PdfCreator<'a, W> {
         // Calculate a unique id for all object to come
         let catalog = 1;
         let page_tree = catalog + 1;
-        let pages = (page_tree + 1, page_tree + doc.pages.len() as Id);
-        let content_count = doc.pages.iter().flat_map(|p| p.text.iter()).count() as Id;
+        let pages = (page_tree + 1, page_tree + doc.pages.len() as Reference);
+        let content_count = doc.pages.iter().flat_map(|p| p.text.iter()).count() as Reference;
         let contents = (pages.1 + 1, pages.1 + content_count);
-        let fonts = (contents.1 + 1, contents.1 + 4 * doc.fonts.len() as Id);
+        let fonts = (contents.1 + 1, contents.1 + 4 * doc.fonts.len() as Reference);
 
         let offsets = Offsets {
             catalog,
@@ -338,6 +340,7 @@ impl PdfFont {
 impl std::ops::Deref for PdfFont {
     type Target = Font;
 
+    #[inline]
     fn deref(&self) -> &Font {
         &self.font
     }
