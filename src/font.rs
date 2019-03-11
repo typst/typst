@@ -6,18 +6,62 @@ use std::io::{self, Cursor, Seek, SeekFrom};
 use std::collections::HashMap;
 use byteorder::{BE, ReadBytesExt, WriteBytesExt};
 use opentype::{OpenTypeReader, Outlines, TableRecord, Tag};
-use opentype::tables::{Header, CharMap, MaximumProfile, HorizontalMetrics};
+use opentype::tables::{Header, Name, NameEntry, CharMap, MaximumProfile, HorizontalMetrics, OS2};
+use crate::doc::Size;
 
 
 /// An font wrapper which allows to subset a font.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Font {
-    program: Vec<u8>,
+    pub name: String,
+    pub program: Vec<u8>,
+    pub mapping: HashMap<char, u16>,
+    pub widths: Vec<Size>,
+    pub default_glyph: u16,
 }
 
 impl Font {
     /// Create a new font from a font program.
-    pub fn new(program: Vec<u8>) -> Font {
-        Font { program }
+    pub fn new(program: Vec<u8>) -> Result<Font, opentype::Error> {
+        let mut readable = Cursor::new(&program);
+        let mut reader = OpenTypeReader::new(&mut readable);
+
+        let head = reader.read_table::<Header>()?;
+        let name = reader.read_table::<Name>()?;
+        let os2 = reader.read_table::<OS2>()?;
+        let charmap = reader.read_table::<CharMap>()?;
+        let hmtx = reader.read_table::<HorizontalMetrics>()?;
+
+        let unit_ratio = 1.0 / (head.units_per_em as f32);
+        let convert = |x| Size::from_points(unit_ratio * x as f32);
+
+        let base_font = name.get_decoded(NameEntry::PostScriptName);
+        let font_name =  base_font.unwrap_or_else(|| "unknown".to_owned());
+        let widths = hmtx.metrics.iter().map(|m| convert(m.advance_width)).collect();
+
+        Ok(Font {
+            name: font_name,
+            program,
+            mapping: charmap.mapping,
+            widths,
+            default_glyph: os2.us_default_char.unwrap_or(0),
+        })
+    }
+
+    /// Map a character to it's glyph index.
+    pub fn map(&self, c: char) -> u16 {
+        self.mapping.get(&c).map(|&g| g).unwrap_or(self.default_glyph)
+    }
+
+    /// Encode the given text for our font (into glyph ids).
+    pub fn encode(&self, text: &str) -> Vec<u8> {
+        println!("encoding {} with {:?}", text, self.mapping);
+        let mut bytes = Vec::with_capacity(2 * text.len());
+        for glyph in text.chars().map(|c| self.map(c)) {
+            bytes.push((glyph >> 8) as u8);
+            bytes.push((glyph & 0xff) as u8);
+        }
+        bytes
     }
 
     /// Generate a subsetted version of this font including only the chars listed in
@@ -33,7 +77,7 @@ impl Font {
         chars: C,
         needed_tables: I1,
         optional_tables: I2
-    ) -> Result<(Vec<u8>, HashMap<char, u16>), SubsettingError>
+    ) -> Result<Font, SubsettingError>
     where
         C: IntoIterator<Item=char>,
         I1: IntoIterator<Item=S1>, S1: AsRef<str>,
@@ -48,7 +92,7 @@ impl Font {
         tables.sort_by_key(|r| r.tag);
 
         Subsetter {
-            program: &self.program,
+            font: &self,
             reader,
             outlines,
             tables,
@@ -65,7 +109,7 @@ impl Font {
 
 struct Subsetter<'p> {
     // Original font
-    program: &'p [u8],
+    font: &'p Font,
     reader: OpenTypeReader<'p, Cursor<&'p Vec<u8>>>,
     outlines: Outlines,
     tables: Vec<TableRecord>,
@@ -82,7 +126,7 @@ struct Subsetter<'p> {
 
 impl<'p> Subsetter<'p> {
     fn subset<I1, S1, I2, S2>(mut self, needed_tables: I1, optional_tables: I2)
-    -> SubsettingResult<(Vec<u8>, HashMap<char, u16>)>
+    -> SubsettingResult<Font>
     where
         I1: IntoIterator<Item=S1>, S1: AsRef<str>,
         I2: IntoIterator<Item=S2>, S2: AsRef<str>
@@ -117,10 +161,21 @@ impl<'p> Subsetter<'p> {
 
         self.write_header()?;
 
+        let widths = self.glyphs.iter()
+            .map(|&glyph| self.font.widths.get(glyph as usize).map(|&w| w)
+                .take_invalid("missing glyph metrics"))
+            .collect::<SubsettingResult<Vec<_>>>()?;
+
         let mapping = self.chars.into_iter().enumerate().map(|(i, c)| (c, i as u16))
             .collect::<HashMap<char, u16>>();
 
-        Ok((self.body, mapping))
+        Ok(Font {
+            name: self.font.name.clone(),
+            program: self.body,
+            mapping,
+            widths,
+            default_glyph: self.font.default_glyph,
+        })
     }
 
     fn build_glyphs(&mut self) -> SubsettingResult<()> {
@@ -130,6 +185,8 @@ impl<'p> Subsetter<'p> {
         for &c in &self.chars {
             self.glyphs.push(cmap.get(c).ok_or_else(|| SubsettingError::MissingCharacter(c))?)
         }
+
+        self.glyphs.push(self.font.default_glyph);
 
         // Composite glyphs may need additional glyphs we have not yet in our list.
         // So now we have a look at the glyf table to check that and add glyphs
@@ -400,7 +457,7 @@ impl<'p> Subsetter<'p> {
             Err(_) => return Err(SubsettingError::MissingTable(tag.to_string())),
         };
 
-        self.program.get(record.offset as usize .. (record.offset + record.length) as usize)
+        self.font.program.get(record.offset as usize .. (record.offset + record.length) as usize)
             .take_bytes()
     }
 
