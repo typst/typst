@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::io::{self, Write, Cursor};
 use pdf::{PdfWriter, Reference, Rect, Version, Trailer};
-use pdf::{Catalog, PageTree, Page, Resource, Text, Content};
+use pdf::{DocumentCatalog, PageTree, Page, Resource, Text, Content};
 use pdf::font::{Type0Font, CMapEncoding, CIDFont, CIDFontType, CIDSystemInfo, WidthRecord,
     FontDescriptor, FontFlags, EmbeddedFont, GlyphUnit};
 use opentype::{OpenTypeReader, tables::{self, MacStyleFlags}};
@@ -162,7 +162,8 @@ impl<'a, W: Write> PdfCreator<'a, W> {
     /// Write the document catalog, page tree and pages.
     fn write_pages(&mut self) -> PdfResult<()> {
         // The document catalog
-        self.writer.write_obj(self.offsets.catalog, &Catalog::new(self.offsets.page_tree))?;
+        self.writer.write_obj(self.offsets.catalog,
+            &DocumentCatalog::new(self.offsets.page_tree))?;
 
         // Root page tree
         self.writer.write_obj(self.offsets.page_tree, PageTree::new()
