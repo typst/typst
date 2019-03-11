@@ -1,54 +1,12 @@
 //! Parsing of source code into tokens and syntax trees.
 
+use std::error;
 use std::fmt;
 use std::iter::Peekable;
 use std::mem::swap;
 use unicode_segmentation::{UnicodeSegmentation, UWordBounds};
+use crate::syntax::*;
 use crate::utility::{Splinor, Spline, Splined, StrExt};
-
-
-/// A logical unit of the incoming text stream.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Token<'s> {
-    /// One or more whitespace (non-newline) codepoints.
-    Space,
-    /// A line feed (either `\n` or `\r\n`).
-    Newline,
-    /// A left bracket: `[`.
-    LeftBracket,
-    /// A right bracket: `]`.
-    RightBracket,
-    /// A colon (`:`) indicating the beginning of function arguments.
-    ///
-    /// If a colon occurs outside of the function header, it will be
-    /// tokenized as a [Word](Token::Word).
-    Colon,
-    /// Same as with [Colon](Token::Colon).
-    Equals,
-    /// Two underscores, indicating text in _italics_.
-    DoubleUnderscore,
-    /// Two stars, indicating **bold** text.
-    DoubleStar,
-    /// A dollar sign, indicating _mathematical_ content.
-    Dollar,
-    /// A hashtag starting a _comment_.
-    Hashtag,
-    /// Everything else just is a literal word.
-    Word(&'s str),
-}
-
-
-/// A type that is separable into logical units (tokens).
-pub trait Tokenize {
-    /// Tokenize self into logical units.
-    fn tokenize<'s>(&'s self) -> Tokens<'s>;
-}
-
-impl Tokenize for str {
-    fn tokenize<'s>(&'s self) -> Tokens<'s> {
-        Tokens::new(self)
-    }
-}
 
 
 /// An iterator over the tokens of a text.
@@ -253,99 +211,9 @@ impl<'s> Tokens<'s> {
     }
 }
 
-
-/// A tree representation of the source.
-#[derive(Debug, Clone, PartialEq)]
-pub struct SyntaxTree<'s> {
-    /// The children.
-    pub nodes: Vec<Node<'s>>,
-}
-
-impl<'s> SyntaxTree<'s> {
-    /// Create an empty syntax tree.
-    #[inline]
-    pub fn new() -> SyntaxTree<'s> {
-        SyntaxTree { nodes: vec![] }
-    }
-}
-
-/// A node in the abstract syntax tree.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Node<'s> {
-    /// Whitespace between other nodes.
-    Space,
-    /// A line feed.
-    Newline,
-    /// Indicates that italics were enabled/disabled.
-    ToggleItalics,
-    /// Indicates that boldface was enabled/disabled.
-    ToggleBold,
-    /// Indicates that math mode was enabled/disabled.
-    ToggleMath,
-    /// A literal word.
-    Word(&'s str),
-    /// A function invocation.
-    Func(Function<'s>),
-}
-
-/// A node representing a function invocation.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Function<'s> {
-    /// The name of the function.
-    pub name: &'s str,
-    /// Some syntax tree if the function had a body (second set of brackets),
-    /// otherwise nothing.
-    pub body: Option<SyntaxTree<'s>>,
-}
-
-
-/// A type that is parsable into a syntax tree.
-pub trait ParseTree<'s> {
-    /// Parse self into a syntax tree.
-    fn parse_tree(self) -> ParseResult<SyntaxTree<'s>>;
-}
-
-impl<'s> ParseTree<'s> for &'s str {
-    #[inline]
-    fn parse_tree(self) -> ParseResult<SyntaxTree<'s>> {
-        self.tokenize().parse_tree()
-    }
-}
-
-impl<'s> ParseTree<'s> for Tokens<'s> {
-    #[inline]
-    fn parse_tree(self) -> ParseResult<SyntaxTree<'s>> {
-        Parser::new(self).parse()
-    }
-}
-
-impl<'s> ParseTree<'s> for Vec<Token<'s>> {
-    #[inline]
-    fn parse_tree(self) -> ParseResult<SyntaxTree<'s>> {
-        Parser::new(self.into_iter()).parse()
-    }
-}
-
-/// Result type used for parsing.
-type ParseResult<T> = std::result::Result<T, ParseError>;
-
-/// A failure when parsing.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ParseError {
-    /// A message describing the error.
-    message: String,
-}
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(&self.message)
-    }
-}
-
-
 /// Parses a token stream into an abstract syntax tree.
 #[derive(Debug, Clone)]
-struct Parser<'s, T> where T: Iterator<Item = Token<'s>> {
+pub struct Parser<'s, T> where T: Iterator<Item = Token<'s>> {
     tokens: Peekable<T>,
     state: ParserState,
     stack: Vec<Function<'s>>,
@@ -363,7 +231,7 @@ enum ParserState {
 
 impl<'s, T> Parser<'s, T> where T: Iterator<Item = Token<'s>> {
     /// Create a new parser from a type that emits results of tokens.
-    fn new(tokens: T) -> Parser<'s, T> {
+    pub fn new(tokens: T) -> Parser<'s, T> {
         Parser {
             tokens: tokens.peekable(),
             state: ParserState::Body,
@@ -373,7 +241,7 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item = Token<'s>> {
     }
 
     /// Parse into an abstract syntax tree.
-    fn parse(mut self) -> ParseResult<SyntaxTree<'s>> {
+    pub fn parse(mut self) -> ParseResult<SyntaxTree<'s>> {
         use ParserState as PS;
 
         while let Some(token) = self.tokens.next() {
@@ -487,6 +355,24 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item = Token<'s>> {
     }
 }
 
+/// Result type used for parsing.
+type ParseResult<T> = std::result::Result<T, ParseError>;
+
+/// The error type for parsing.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ParseError {
+    /// A message describing the error.
+    message: String,
+}
+
+impl error::Error for ParseError {}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
 
 #[cfg(test)]
 mod token_tests {
@@ -497,7 +383,7 @@ mod token_tests {
 
     /// Test if the source code tokenizes to the tokens.
     fn test(src: &str, tokens: Vec<Token>) {
-        assert_eq!(src.tokenize().collect::<Vec<_>>(), tokens);
+        assert_eq!(Tokens::new(src).collect::<Vec<_>>(), tokens);
     }
 
     /// Tokenizes the basic building blocks.
@@ -605,12 +491,12 @@ mod parse_tests {
 
     /// Test if the source code parses into the syntax tree.
     fn test(src: &str, tree: SyntaxTree) {
-        assert_eq!(src.parse_tree(), Ok(tree));
+        assert_eq!(Parser::new(Tokens::new(src)).parse(), Ok(tree));
     }
 
     /// Test if the source parses into the error.
     fn test_err(src: &str, err: ParseError) {
-        assert_eq!(src.parse_tree(), Err(err));
+        assert_eq!(Parser::new(Tokens::new(src)).parse(), Err(err));
     }
 
     /// Short cut macro to create a syntax tree.

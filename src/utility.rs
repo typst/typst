@@ -29,7 +29,6 @@ pub trait Splinor {
 }
 
 impl Splinor for str {
-    #[inline]
     fn spline<'s, T: Clone>(&'s self, pat: &'s str, splinor: T) -> Spline<'s, T> {
         Spline {
             splinor: Splined::Splinor(splinor),
@@ -61,7 +60,6 @@ pub enum Splined<'s, T> {
 impl<'s, T: Clone> Iterator for Spline<'s, T> {
     type Item = Splined<'s, T>;
 
-    #[inline]
     fn next(&mut self) -> Option<Splined<'s, T>> {
         if self.next_splinor && self.split.peek().is_some() {
             self.next_splinor = false;
@@ -73,7 +71,6 @@ impl<'s, T: Clone> Iterator for Spline<'s, T> {
     }
 }
 
-
 /// More useful functions on `str`'s.
 pub trait StrExt {
     /// Whether self consists only of whitespace.
@@ -84,12 +81,10 @@ pub trait StrExt {
 }
 
 impl StrExt for str {
-    #[inline]
     fn is_whitespace(&self) -> bool {
         self.chars().all(|c| c.is_whitespace() && c != '\n')
     }
 
-    #[inline]
     fn is_identifier(&self) -> bool {
         let mut chars = self.chars();
 

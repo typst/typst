@@ -1,6 +1,7 @@
 //! Writing of documents in the _PDF_ format.
 
 use std::collections::HashSet;
+use std::error;
 use std::fmt;
 use std::io::{self, Write, Cursor};
 use pdf::{PdfWriter, Reference, Rect, Version, Trailer};
@@ -12,61 +13,8 @@ use crate::doc::{self, Document, TextCommand};
 use crate::font::Font;
 
 
-/// A type that is a sink for documents that can be written in the _PDF_ format.
-pub trait WritePdf {
-    /// Write a document into self, returning how many bytes were written.
-    fn write_pdf(&mut self, doc: &Document) -> PdfResult<usize>;
-}
-
-impl<W: Write> WritePdf for W {
-    #[inline]
-    fn write_pdf(&mut self, doc: &Document) -> PdfResult<usize> {
-        PdfCreator::new(self, doc)?.write()
-    }
-}
-
-/// Result type used for parsing.
-type PdfResult<T> = std::result::Result<T, PdfWritingError>;
-
-/// A failure while writing a _PDF_.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct PdfWritingError {
-    /// A message describing the error.
-    message: String,
-}
-
-impl From<io::Error> for PdfWritingError {
-    #[inline]
-    fn from(err: io::Error) -> PdfWritingError {
-        PdfWritingError { message: format!("{}", err) }
-    }
-}
-
-impl From<opentype::Error> for PdfWritingError {
-    #[inline]
-    fn from(err: opentype::Error) -> PdfWritingError {
-        PdfWritingError { message: format!("{}", err) }
-    }
-}
-
-impl From<crate::font::SubsettingError> for PdfWritingError {
-    #[inline]
-    fn from(err: crate::font::SubsettingError) -> PdfWritingError {
-        PdfWritingError { message: format!("{}", err) }
-    }
-}
-
-impl fmt::Display for PdfWritingError {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(&self.message)
-    }
-}
-
-
-/// Keeps track of the document while letting the pdf writer
-/// generate the _PDF_.
-struct PdfCreator<'a, W: Write> {
+/// Writes documents in the _PDF_ format.
+pub struct PdfCreator<'a, W: Write> {
     writer: PdfWriter<'a, W>,
     doc: &'a Document,
     offsets: Offsets,
@@ -137,7 +85,7 @@ impl<'a, W: Write> PdfCreator<'a, W> {
     }
 
     /// Write the complete document.
-    fn write(&mut self) -> PdfResult<usize> {
+    pub fn write(&mut self) -> PdfResult<usize> {
         // Header
         self.writer.write_header(&Version::new(1, 7))?;
 
@@ -174,8 +122,8 @@ impl<'a, W: Write> PdfCreator<'a, W> {
         // The page objects
         let mut id = self.offsets.pages.0;
         for page in &self.doc.pages {
-            let width = page.width.to_points();
-            let height = page.height.to_points();
+            let width = page.size[0].to_points();
+            let height = page.size[1].to_points();
 
             self.writer.write_obj(id, Page::new(self.offsets.page_tree)
                 .media_box(Rect::new(0.0, 0.0, width, height))
@@ -274,7 +222,6 @@ impl<'a, W: Write> PdfCreator<'a, W> {
     }
 }
 
-
 /// The data we need from the font.
 struct PdfFont {
     font: Font,
@@ -302,7 +249,7 @@ impl PdfFont {
         let subsetted = font.subsetted(
             chars.iter().cloned(),
             &["head", "hhea", "maxp", "hmtx", "loca", "glyf"],
-            &["cvt ", "prep", "fpgm", "OS/2", "cmap", "name", "post"],
+            &["cvt ", "prep", "fpgm", /* "OS/2", "cmap", "name", "post" */],
         )?;
 
         let mut flags = FontFlags::empty();
@@ -341,37 +288,47 @@ impl PdfFont {
 impl std::ops::Deref for PdfFont {
     type Target = Font;
 
-    #[inline]
     fn deref(&self) -> &Font {
         &self.font
     }
 }
 
+/// Result type used for parsing.
+type PdfResult<T> = std::result::Result<T, PdfWritingError>;
 
-#[cfg(test)]
-mod pdf_tests {
-    use super::*;
-    use crate::parsing::ParseTree;
-    use crate::engine::Typeset;
+/// The error type for _PDF_ creation.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct PdfWritingError {
+    /// A message describing the error.
+    message: String,
+}
 
-    /// Create a pdf with a name from the source code.
-    fn test(name: &str, src: &str) {
-        let doc = src.parse_tree().unwrap().typeset().unwrap();
-        let path = format!("../target/typeset-pdf-{}.pdf", name);
-        let mut file = std::fs::File::create(path).unwrap();
-        file.write_pdf(&doc).unwrap();
+impl error::Error for PdfWritingError {}
+
+impl From<io::Error> for PdfWritingError {
+    #[inline]
+    fn from(err: io::Error) -> PdfWritingError {
+        PdfWritingError { message: format!("{}", err) }
     }
+}
 
-    #[test]
-    fn pdf() {
-        test("unicode", "∑mbe∂∂ed font with Unicode!");
-        test("parentheses", "Text with ) and ( or (enclosed) works.");
-        test("composite-glyph", "Composite character‼");
-        test("multiline","
-             Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed
-             diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed
-             diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum.
-             Stet clita kasd gubergren, no sea takimata sanctus est.
-        ");
+impl From<opentype::Error> for PdfWritingError {
+    #[inline]
+    fn from(err: opentype::Error) -> PdfWritingError {
+        PdfWritingError { message: format!("{}", err) }
+    }
+}
+
+impl From<crate::font::SubsettingError> for PdfWritingError {
+    #[inline]
+    fn from(err: crate::font::SubsettingError) -> PdfWritingError {
+        PdfWritingError { message: format!("{}", err) }
+    }
+}
+
+impl fmt::Display for PdfWritingError {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&self.message)
     }
 }

@@ -1,53 +1,26 @@
 //! Core typesetting engine.
 
+use std::error;
 use std::fmt;
-use crate::parsing::{SyntaxTree, Node};
+use crate::syntax::{SyntaxTree, Node};
 use crate::doc::{Document, Style, Page, Text, TextCommand};
 use crate::font::Font;
 
 
-/// A type that can be typesetted into a document.
-pub trait Typeset {
-    /// Generate a document from self.
-    fn typeset(self) -> TypeResult<Document>;
-}
-
-impl Typeset for SyntaxTree<'_> {
-    fn typeset(self) -> TypeResult<Document> {
-        Engine::new(self).typeset()
-    }
-}
-
-/// Result type used for parsing.
-type TypeResult<T> = std::result::Result<T, TypesetError>;
-
-/// Errors occuring in the process of typesetting.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct TypesetError {
-    message: String,
-}
-
-impl fmt::Display for TypesetError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(&self.message)
-    }
-}
-
-
-/// Transforms an abstract syntax tree into a document.
+/// The core typesetting engine, transforming an abstract syntax tree into a document.
 #[derive(Debug, Clone)]
-struct Engine<'s> {
+pub struct Engine<'s> {
     tree: SyntaxTree<'s>,
 }
 
 impl<'s> Engine<'s> {
     /// Create a new generator from a syntax tree.
-    fn new(tree: SyntaxTree<'s>) -> Engine<'s> {
+    pub fn new(tree: SyntaxTree<'s>) -> Engine<'s> {
         Engine { tree }
     }
 
     /// Generate the abstract document.
-    fn typeset(&mut self) -> TypeResult<Document> {
+    pub fn typeset(&mut self) -> TypeResult<Document> {
         let style = Style::default();
 
         // Load font defined by style
@@ -68,8 +41,7 @@ impl<'s> Engine<'s> {
         }
 
         let page = Page {
-            width: style.paper_size[0],
-            height: style.paper_size[1],
+            size: style.paper_size,
             text: vec![Text {
                 commands: vec![
                     TextCommand::Move(style.margins[0], style.paper_size[1] - style.margins[1]),
@@ -83,5 +55,22 @@ impl<'s> Engine<'s> {
             pages: vec![page],
             fonts: vec![font],
         })
+    }
+}
+
+/// Result type used for parsing.
+type TypeResult<T> = std::result::Result<T, TypesetError>;
+
+/// The error type for typesetting.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct TypesetError {
+    message: String,
+}
+
+impl error::Error for TypesetError {}
+
+impl fmt::Display for TypesetError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&self.message)
     }
 }
