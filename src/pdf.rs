@@ -122,11 +122,11 @@ impl<'a, W: Write> PdfCreator<'a, W> {
         // The page objects
         let mut id = self.offsets.pages.0;
         for page in &self.doc.pages {
-            let width = page.size[0].to_points();
-            let height = page.size[1].to_points();
-
             self.writer.write_obj(id, Page::new(self.offsets.page_tree)
-                .media_box(Rect::new(0.0, 0.0, width, height))
+                .media_box(Rect::new(
+                    0.0, 0.0,
+                    page.width.to_points(), page.height.to_points())
+                )
                 .contents(self.offsets.contents.0 ..= self.offsets.contents.1)
             )?;
 

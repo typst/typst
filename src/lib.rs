@@ -37,20 +37,32 @@ use std::error;
 use std::fmt;
 use std::io::Write;
 use crate::syntax::SyntaxTree;
-use crate::doc::Document;
+use crate::doc::{Document, Style};
 
 
 /// Emits various compiled intermediates from source code.
 pub struct Compiler<'s> {
     /// The source code of the document.
     source: &'s str,
+    /// Style for typesetting.
+    style: Style,
 }
 
 impl<'s> Compiler<'s> {
     /// Create a new compiler from a document.
     #[inline]
     pub fn new(source: &'s str) -> Compiler<'s> {
-        Compiler { source }
+        Compiler {
+            source,
+            style: Style::default(),
+        }
+    }
+
+    /// Set the default style for typesetting.
+    #[inline]
+    pub fn style(&mut self, style: Style) -> &mut Self {
+        self.style = style;
+        self
     }
 
     /// Return an iterator over the tokens of the document.
@@ -69,7 +81,7 @@ impl<'s> Compiler<'s> {
     #[inline]
     pub fn typeset(&self) -> Result<Document, Error> {
         let tree = self.parse()?;
-        Engine::new(&tree).typeset().map_err(Into::into)
+        Engine::new(&tree, self.style.clone()).typeset().map_err(Into::into)
     }
 
     /// Write the document as a _PDF_, returning how many bytes were written.
@@ -159,7 +171,7 @@ mod test {
     }
 
     #[test]
-    fn long() {
+    fn long_styled() {
         test("wikipedia", r#"
             Typesetting is the composition of text by means of arranging physical types or the
             digital equivalents. Stored letters and other symbols (called sorts in mechanical

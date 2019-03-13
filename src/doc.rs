@@ -15,10 +15,19 @@ pub struct Document {
 /// Default styles for a document.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Style {
-    /// The width and height of the paper.
-    pub paper_size: [Size; 2],
-    /// The [left, top, right, bottom] margins of the paper.
-    pub margins: [Size; 4],
+    /// The width of the paper.
+    pub width: Size,
+    /// The height of the paper.
+    pub height: Size,
+
+    /// The left margin of the paper.
+    pub margin_left: Size,
+    /// The top margin of the paper.
+    pub margin_top: Size,
+    /// The right margin of the paper.
+    pub margin_right: Size,
+    /// The bottom margin of the paper.
+    pub margin_bottom: Size,
 
     /// A fallback list of font families to use.
     pub font_families: Vec<String>,
@@ -31,9 +40,15 @@ pub struct Style {
 impl Default for Style {
     fn default() -> Style {
         Style {
-            // A4 paper with 1.5 cm margins in all directions
-            paper_size: [Size::from_mm(210.0), Size::from_mm(297.0)],
-            margins: [Size::from_cm(2.5); 4],
+            // A4 paper
+            width: Size::from_mm(210.0),
+            height: Size::from_mm(297.0),
+
+            // A bit more on top and bottom
+            margin_left: Size::from_cm(2.5),
+            margin_top: Size::from_cm(3.0),
+            margin_right: Size::from_cm(2.5),
+            margin_bottom: Size::from_cm(3.0),
 
             // Default font family
             font_families: (&[
@@ -48,8 +63,10 @@ impl Default for Style {
 /// A page with text contents in a document.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Page {
-    /// The width and height of the page.
-    pub size: [Size; 2],
+    /// The width of the page.
+    pub width: Size,
+    /// The height of the page.
+    pub height: Size,
     /// Text content on the page.
     pub text: Vec<Text>,
 }

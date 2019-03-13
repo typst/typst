@@ -24,9 +24,9 @@ pub struct Engine<'s> {
 
 impl<'s> Engine<'s> {
     /// Create a new generator from a syntax tree.
-    pub fn new(tree: &'s SyntaxTree<'s>) -> Engine<'s> {
+    pub fn new(tree: &'s SyntaxTree<'s>, style: Style) -> Engine<'s> {
         Engine {
-            style: Style::default(),
+            style,
             tree,
             fonts: Vec::new(),
             active_font: 0,
@@ -48,9 +48,9 @@ impl<'s> Engine<'s> {
 
         // Move cursor to top-left position
         self.text_commands.push(TextCommand::Move(
-            self.style.margins[0],
-            self.style.paper_size[1] - self.style.margins[1])
-        );
+            self.style.margin_left,
+            self.style.height - self.style.margin_top
+        ));
 
         // Set the current font
         self.text_commands.push(TextCommand::SetFont(0, self.style.font_size));
@@ -70,7 +70,8 @@ impl<'s> Engine<'s> {
 
         // Create a page from the contents.
         let page = Page {
-            size: self.style.paper_size,
+            width: self.style.width,
+            height: self.style.height,
             text: vec![Text {
                 commands: self.text_commands,
             }],
@@ -83,15 +84,10 @@ impl<'s> Engine<'s> {
     }
 
     fn write_word(&mut self, word: &str) {
-        let max_width = self.style.paper_size[0] - 2 * self.style.margins[0];
-
         let font = &self.fonts[self.active_font];
-        let width = word.chars()
-            .map(|c| font.widths[font.map(c) as usize] * self.style.font_size)
-            .sum();
 
-
-        if self.current_width + width > max_width {
+        let width = self.width(word);
+        if self.would_overflow(width) {
             let vertical_move = - self.style.font_size
                 * self.style.line_spacing
                 * font.metrics.ascender;
@@ -107,9 +103,28 @@ impl<'s> Engine<'s> {
     }
 
     fn write_space(&mut self) {
-        if !self.current_line.is_empty() {
-            self.write_word(" ");
+        let space_width = self.width(" ");
+
+        if !self.would_overflow(space_width) && !self.current_line.is_empty() {
+            self.text_commands.push(TextCommand::Text(" ".to_owned()));
+            self.current_line.push_str(" ");
+            self.current_width += space_width;
         }
+    }
+
+    fn width(&self, word: &str) -> Size {
+        let font = &self.fonts[self.active_font];
+        word.chars()
+            .map(|c| font.widths[font.map(c) as usize] * self.style.font_size)
+            .sum()
+    }
+
+    fn would_overflow(&self, width: Size) -> bool {
+        let max_width = self.style.width
+            - self.style.margin_left
+            - self.style.margin_right;
+
+        self.current_width + width > max_width
     }
 }
 
