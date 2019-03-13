@@ -23,6 +23,15 @@ pub struct Font {
     pub widths: Vec<Size>,
     /// The fallback glyph.
     pub default_glyph: u16,
+    /// The relevant metrics of this font.
+    pub metrics: FontMetrics,
+}
+
+/// Font metrics relevant to the typesetting engine.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FontMetrics {
+    /// The typographics ascender relevant for line spacing.
+    pub ascender: Size,
 }
 
 impl Font {
@@ -44,12 +53,17 @@ impl Font {
         let font_name =  base_font.unwrap_or_else(|| "unknown".to_owned());
         let widths = hmtx.metrics.iter().map(|m| convert(m.advance_width)).collect();
 
+        let metrics = FontMetrics {
+            ascender: convert(os2.s_typo_ascender),
+        };
+
         Ok(Font {
             name: font_name,
             program,
             mapping: charmap.mapping,
             widths,
             default_glyph: os2.us_default_char.unwrap_or(0),
+            metrics,
         })
     }
 
@@ -62,7 +76,6 @@ impl Font {
     /// Encode the given text for this font (into glyph ids).
     #[inline]
     pub fn encode(&self, text: &str) -> Vec<u8> {
-        println!("encoding {} with {:?}", text, self.mapping);
         let mut bytes = Vec::with_capacity(2 * text.len());
         for glyph in text.chars().map(|c| self.map(c)) {
             bytes.push((glyph >> 8) as u8);
@@ -181,6 +194,7 @@ impl<'p> Subsetter<'p> {
             mapping,
             widths,
             default_glyph: self.font.default_glyph,
+            metrics: self.font.metrics.clone(),
         })
     }
 
