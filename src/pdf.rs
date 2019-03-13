@@ -3,13 +3,12 @@
 use std::collections::HashSet;
 use std::error;
 use std::fmt;
-use std::io::{self, Write, Cursor};
+use std::io::{self, Write};
 use pdf::{PdfWriter, Reference, Rect, Version, Trailer};
 use pdf::{DocumentCatalog, PageTree, Page, Resource, Text, Content};
-use pdf::font::{Type0Font, CMapEncoding, CIDFont, CIDFontType, CIDSystemInfo, WidthRecord,
-    FontDescriptor, FontFlags, EmbeddedFont, GlyphUnit};
-use opentype::{OpenTypeReader, tables::{self, MacStyleFlags}};
-use crate::doc::{self, Document, TextCommand};
+use pdf::font::{Type0Font, CMapEncoding, CIDFont, CIDFontType, CIDSystemInfo,
+    WidthRecord, FontDescriptor, FontFlags, EmbeddedFont, GlyphUnit};
+use crate::doc::{Document, Size, Text as DocText, TextCommand as DocTextCommand};
 use crate::font::Font;
 
 
@@ -49,8 +48,6 @@ impl<'a, W: Write> PdfCreator<'a, W> {
             fonts,
         };
 
-        assert!(doc.fonts.len() > 0);
-
         // Find out which chars are used in this document.
         let mut char_sets = vec![HashSet::new(); doc.fonts.len()];
         let mut current_font: usize = 0;
@@ -58,13 +55,9 @@ impl<'a, W: Write> PdfCreator<'a, W> {
             for text in &page.text {
                 for command in &text.commands {
                     match command {
-                        TextCommand::Text(string) => {
-                            char_sets[current_font].extend(string.chars());
-                        },
-                        TextCommand::SetFont(id, _) => {
-                            assert!(*id < doc.fonts.len());
-                            current_font = *id;
-                        },
+                        DocTextCommand::Text(string)
+                          => char_sets[current_font].extend(string.chars()),
+                        DocTextCommand::SetFont(id, _) => current_font = *id,
                         _ => {},
                     }
                 }
@@ -148,11 +141,11 @@ impl<'a, W: Write> PdfCreator<'a, W> {
         Ok(())
     }
 
-    fn write_text(&mut self, id: u32, text: &doc::Text) -> PdfResult<()> {
+    fn write_text(&mut self, id: u32, text: &DocText) -> PdfResult<()> {
         let mut current_font = 0;
         let encoded = text.commands.iter().filter_map(|cmd| match cmd {
-            TextCommand::Text(string) => Some(self.fonts[current_font].encode(&string)),
-            TextCommand::SetFont(id, _) => { current_font = *id; None },
+            DocTextCommand::Text(string) => Some(self.fonts[current_font].encode(&string)),
+            DocTextCommand::SetFont(id, _) => { current_font = *id; None },
             _ => None,
         }).collect::<Vec<_>>();
 
@@ -161,16 +154,12 @@ impl<'a, W: Write> PdfCreator<'a, W> {
 
         for command in &text.commands {
             match command {
-                TextCommand::Text(_) => {
+                DocTextCommand::Text(_) => {
                     object.write_text(&encoded[nr]);
                     nr += 1;
                 },
-                TextCommand::SetFont(id, size) => {
-                    object.set_font(*id as u32 + 1, *size);
-                },
-                TextCommand::Move(x, y) => {
-                    object.move_line(x.to_points(), y.to_points());
-                }
+                DocTextCommand::SetFont(id, size) => { object.set_font(*id as u32 + 1, *size); },
+                DocTextCommand::Move(x, y) => { object.move_line(x.to_points(), y.to_points()); },
             }
         }
 
@@ -239,50 +228,46 @@ impl PdfFont {
     /// Create a subetted version of the font and calculate some information
     /// needed for creating the _PDF_.
     pub fn new(font: &Font, chars: &HashSet<char>) -> PdfResult<PdfFont> {
-        let mut readable = Cursor::new(&font.program);
-        let mut reader = OpenTypeReader::new(&mut readable);
-
-        let head = reader.read_table::<tables::Header>()?;
-        let post = reader.read_table::<tables::Post>()?;
-        let os2 = reader.read_table::<tables::OS2>()?;
-
+        // Subset the font using the selected characters
         let subsetted = font.subsetted(
             chars.iter().cloned(),
             &["head", "hhea", "maxp", "hmtx", "loca", "glyf"],
             &["cvt ", "prep", "fpgm", /* "OS/2", "cmap", "name", "post" */],
         )?;
 
+        // Specify flags for the font
         let mut flags = FontFlags::empty();
-        flags.set(FontFlags::FIXED_PITCH, post.is_fixed_pitch);
+        flags.set(FontFlags::FIXED_PITCH, font.metrics.is_fixed_pitch);
         flags.set(FontFlags::SERIF, font.name.contains("Serif"));
         flags.insert(FontFlags::SYMBOLIC);
-        flags.set(FontFlags::ITALIC, head.mac_style.contains(MacStyleFlags::ITALIC));
+        flags.set(FontFlags::ITALIC, font.metrics.is_italic);
         flags.insert(FontFlags::SMALL_CAP);
 
-        let widths = subsetted.widths.iter()
-            .map(|w| (1000.0 * w.to_points()).round() as GlyphUnit)
-            .collect();
-
-        let unit_ratio = 1.0 / (head.units_per_em as f32);
-        let convert = |x| (unit_ratio * x as f32).round() as GlyphUnit;
+        // Transform the widths
+        let widths = subsetted.widths.iter().map(|&x| size_to_glyph_unit(x)).collect();
 
         Ok(PdfFont {
             font: subsetted,
             widths,
             flags,
-            italic_angle: post.italic_angle.to_f32(),
+            italic_angle: font.metrics.italic_angle,
             bounding_box: Rect::new(
-                convert(head.x_min),
-                convert(head.y_min),
-                convert(head.x_max),
-                convert(head.y_max)
+                size_to_glyph_unit(font.metrics.bounding_box[0]),
+                size_to_glyph_unit(font.metrics.bounding_box[1]),
+                size_to_glyph_unit(font.metrics.bounding_box[2]),
+                size_to_glyph_unit(font.metrics.bounding_box[3]),
             ),
-            ascender: convert(os2.s_typo_ascender),
-            descender: convert(os2.s_typo_descender),
-            cap_height: convert(os2.s_cap_height.unwrap_or(os2.s_typo_ascender)),
-            stem_v: (10.0 + 220.0 * (os2.us_weight_class as f32 - 50.0) / 900.0) as GlyphUnit,
+            ascender: size_to_glyph_unit(font.metrics.ascender),
+            descender: size_to_glyph_unit(font.metrics.descender),
+            cap_height: size_to_glyph_unit(font.metrics.cap_height),
+            stem_v: (10.0 + 0.244 * (font.metrics.weight_class as f32 - 50.0)) as GlyphUnit,
         })
     }
+}
+
+/// Convert a size into a _PDF_ glyph unit.
+fn size_to_glyph_unit(size: Size) -> GlyphUnit {
+    (1000.0 * size.to_points()).round() as GlyphUnit
 }
 
 impl std::ops::Deref for PdfFont {
@@ -308,13 +293,6 @@ impl error::Error for PdfWritingError {}
 impl From<io::Error> for PdfWritingError {
     #[inline]
     fn from(err: io::Error) -> PdfWritingError {
-        PdfWritingError { message: format!("{}", err) }
-    }
-}
-
-impl From<opentype::Error> for PdfWritingError {
-    #[inline]
-    fn from(err: opentype::Error) -> PdfWritingError {
         PdfWritingError { message: format!("{}", err) }
     }
 }

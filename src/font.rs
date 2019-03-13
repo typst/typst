@@ -6,7 +6,8 @@ use std::fmt;
 use std::io::{self, Cursor, Seek, SeekFrom};
 use byteorder::{BE, ReadBytesExt, WriteBytesExt};
 use opentype::{OpenTypeReader, Outlines, TableRecord, Tag};
-use opentype::tables::{Header, Name, NameEntry, CharMap, MaximumProfile, HorizontalMetrics, OS2};
+use opentype::tables::{Header, MacStyleFlags, Name, NameEntry, CharMap,
+    MaximumProfile, HorizontalMetrics, Post, OS2};
 use crate::doc::Size;
 
 
@@ -30,37 +31,72 @@ pub struct Font {
 /// Font metrics relevant to the typesetting engine.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FontMetrics {
+    /// Whether the font is italic.
+    pub is_italic: bool,
+    /// Whether font is fixed pitch.
+    pub is_fixed_pitch: bool,
+    /// The angle of italics.
+    pub italic_angle: f32,
+    /// The glyph bounding box: [x_min, y_min, x_max, y_max],
+    pub bounding_box: [Size; 4],
     /// The typographics ascender relevant for line spacing.
     pub ascender: Size,
+    /// The typographics descender relevant for line spacing.
+    pub descender: Size,
+    /// The approximate height of capital letters.
+    pub cap_height: Size,
+    /// The weight class of the font.
+    pub weight_class: u16,
 }
 
 impl Font {
     /// Create a new font from a font program.
     pub fn new(program: Vec<u8>) -> Result<Font, opentype::Error> {
+        // Create opentype reader to parse font tables
         let mut readable = Cursor::new(&program);
         let mut reader = OpenTypeReader::new(&mut readable);
 
+        // Read the relevant tables
+        // (all of these are required by the OpenType specification)
         let head = reader.read_table::<Header>()?;
         let name = reader.read_table::<Name>()?;
         let os2 = reader.read_table::<OS2>()?;
-        let charmap = reader.read_table::<CharMap>()?;
+        let cmap = reader.read_table::<CharMap>()?;
         let hmtx = reader.read_table::<HorizontalMetrics>()?;
+        let post = reader.read_table::<Post>()?;
 
-        let unit_ratio = 1.0 / (head.units_per_em as f32);
-        let convert = |x| Size::from_points(unit_ratio * x as f32);
+        // Create conversion function between font units and sizes
+        let font_unit_ratio = 1.0 / (head.units_per_em as f32);
+        let font_unit_to_size = |x| Size::from_points(font_unit_ratio * x as f32);
 
-        let base_font = name.get_decoded(NameEntry::PostScriptName);
-        let font_name =  base_font.unwrap_or_else(|| "unknown".to_owned());
-        let widths = hmtx.metrics.iter().map(|m| convert(m.advance_width)).collect();
+        // Find out the name of the font
+        let font_name = name.get_decoded(NameEntry::PostScriptName)
+            .unwrap_or_else(|| "unknown".to_owned());
 
+        // Convert the widths
+        let widths = hmtx.metrics.iter().map(|m| font_unit_to_size(m.advance_width)).collect();
+
+        // Calculate some metrics
         let metrics = FontMetrics {
-            ascender: convert(os2.s_typo_ascender),
+            is_italic: head.mac_style.contains(MacStyleFlags::ITALIC),
+            is_fixed_pitch: post.is_fixed_pitch,
+            italic_angle: post.italic_angle.to_f32(),
+            bounding_box: [
+                font_unit_to_size(head.x_min),
+                font_unit_to_size(head.y_min),
+                font_unit_to_size(head.x_max),
+                font_unit_to_size(head.y_max),
+            ],
+            ascender: font_unit_to_size(os2.s_typo_ascender),
+            descender: font_unit_to_size(os2.s_typo_descender),
+            cap_height: font_unit_to_size(os2.s_cap_height.unwrap_or(os2.s_typo_ascender)),
+            weight_class: os2.us_weight_class,
         };
 
         Ok(Font {
             name: font_name,
             program,
-            mapping: charmap.mapping,
+            mapping: cmap.mapping,
             widths,
             default_glyph: os2.us_default_char.unwrap_or(0),
             metrics,
