@@ -15,10 +15,10 @@
 //!
 //! // Create a compiler and export a PDF.
 //! let src = "Hello World from Typeset!";
-//! let compiler = Compiler::new(src);
+//! let compiler = Compiler::new();
 //!
 //! // Write the document into a file as a PDF.
-//! compiler.write_pdf(&mut file).unwrap();
+//! compiler.write_pdf(src, &mut file).unwrap();
 //! ```
 
 pub mod syntax;

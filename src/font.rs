@@ -51,7 +51,7 @@ pub struct FontMetrics {
 
 impl Font {
     /// Create a new font from a font program.
-    pub fn new(program: Vec<u8>) -> Result<Font, opentype::Error> {
+    pub fn new(program: Vec<u8>) -> FontResult<Font> {
         // Create opentype reader to parse font tables
         let mut readable = Cursor::new(&program);
         let mut reader = OpenTypeReader::new(&mut readable);
@@ -131,7 +131,7 @@ impl Font {
         chars: C,
         needed_tables: I1,
         optional_tables: I2
-    ) -> Result<Font, SubsettingError>
+    ) -> Result<Font, FontError>
     where
         C: IntoIterator<Item=char>,
         I1: IntoIterator<Item=S1>, S1: AsRef<str>,
@@ -181,7 +181,7 @@ struct Subsetter<'p> {
 
 impl<'p> Subsetter<'p> {
     fn subset<I1, S1, I2, S2>(mut self, needed_tables: I1, optional_tables: I2)
-    -> SubsetResult<Font>
+    -> FontResult<Font>
     where
         I1: IntoIterator<Item=S1>, S1: AsRef<str>,
         I2: IntoIterator<Item=S2>, S2: AsRef<str>
@@ -194,12 +194,12 @@ impl<'p> Subsetter<'p> {
         for table in needed_tables.into_iter() {
             let table = table.as_ref();
             let tag: Tag = table.parse()
-                .map_err(|_| SubsettingError::UnsupportedTable(table.to_string()))?;
+                .map_err(|_| FontError::UnsupportedTable(table.to_string()))?;
 
             if self.contains(tag) {
                 self.write_table(tag)?;
             } else {
-                return Err(SubsettingError::MissingTable(tag.to_string()));
+                return Err(FontError::MissingTable(tag.to_string()));
             }
         }
 
@@ -207,7 +207,7 @@ impl<'p> Subsetter<'p> {
         for table in optional_tables.into_iter() {
             let table = table.as_ref();
             let tag: Tag = table.parse()
-                .map_err(|_| SubsettingError::UnsupportedTable(table.to_string()))?;
+                .map_err(|_| FontError::UnsupportedTable(table.to_string()))?;
 
             if self.contains(tag) {
                 self.write_table(tag)?;
@@ -219,7 +219,7 @@ impl<'p> Subsetter<'p> {
         let widths = self.glyphs.iter()
             .map(|&glyph| self.font.widths.get(glyph as usize).map(|&w| w)
                 .take_invalid("missing glyph metrics"))
-            .collect::<SubsetResult<Vec<_>>>()?;
+            .collect::<FontResult<Vec<_>>>()?;
 
         let mapping = self.chars.into_iter().enumerate().map(|(i, c)| (c, i as u16))
             .collect::<HashMap<char, u16>>();
@@ -234,12 +234,12 @@ impl<'p> Subsetter<'p> {
         })
     }
 
-    fn build_glyphs(&mut self) -> SubsetResult<()> {
+    fn build_glyphs(&mut self) -> FontResult<()> {
         self.read_cmap()?;
         let cmap = self.cmap.as_ref().unwrap();
 
         for &c in &self.chars {
-            self.glyphs.push(cmap.get(c).ok_or_else(|| SubsettingError::MissingCharacter(c))?)
+            self.glyphs.push(cmap.get(c).ok_or_else(|| FontError::MissingCharacter(c))?)
         }
 
         self.glyphs.push(self.font.default_glyph);
@@ -294,7 +294,7 @@ impl<'p> Subsetter<'p> {
         Ok(())
     }
 
-    fn write_header(&mut self) -> SubsetResult<()> {
+    fn write_header(&mut self) -> FontResult<()> {
         // Create an output buffer
         let header_len = 12 + self.records.len() * 16;
         let mut header = Vec::with_capacity(header_len);
@@ -336,7 +336,7 @@ impl<'p> Subsetter<'p> {
         Ok(())
     }
 
-    fn write_table(&mut self, tag: Tag) -> SubsetResult<()> {
+    fn write_table(&mut self, tag: Tag) -> FontResult<()> {
         match tag.value() {
             b"head" | b"cvt " | b"prep" | b"fpgm" | b"name" | b"post" | b"OS/2" => {
                 self.copy_table(tag)
@@ -478,19 +478,19 @@ impl<'p> Subsetter<'p> {
                 })
             },
 
-            _ => Err(SubsettingError::UnsupportedTable(tag.to_string())),
+            _ => Err(FontError::UnsupportedTable(tag.to_string())),
         }
     }
 
-    fn copy_table(&mut self, tag: Tag) -> SubsetResult<()> {
+    fn copy_table(&mut self, tag: Tag) -> FontResult<()> {
         self.write_table_body(tag, |this| {
             let table = this.get_table_data(tag)?;
             Ok(this.body.extend(table))
         })
     }
 
-    fn write_table_body<F>(&mut self, tag: Tag, writer: F) -> SubsetResult<()>
-    where F: FnOnce(&mut Self) -> SubsetResult<()> {
+    fn write_table_body<F>(&mut self, tag: Tag, writer: F) -> FontResult<()>
+    where F: FnOnce(&mut Self) -> FontResult<()> {
         let start = self.body.len();
         writer(self)?;
         let end = self.body.len();
@@ -506,10 +506,10 @@ impl<'p> Subsetter<'p> {
         }))
     }
 
-    fn get_table_data(&self, tag: Tag) -> SubsetResult<&'p [u8]> {
+    fn get_table_data(&self, tag: Tag) -> FontResult<&'p [u8]> {
         let record = match self.tables.binary_search_by_key(&tag, |r| r.tag) {
             Ok(index) => &self.tables[index],
-            Err(_) => return Err(SubsettingError::MissingTable(tag.to_string())),
+            Err(_) => return Err(FontError::MissingTable(tag.to_string())),
         };
 
         self.font.program
@@ -521,19 +521,19 @@ impl<'p> Subsetter<'p> {
         self.tables.binary_search_by_key(&tag, |r| r.tag).is_ok()
     }
 
-    fn read_cmap(&mut self) -> SubsetResult<()> {
+    fn read_cmap(&mut self) -> FontResult<()> {
         Ok(if self.cmap.is_none() {
             self.cmap = Some(self.reader.read_table::<CharMap>()?);
         })
     }
 
-    fn read_hmtx(&mut self) -> SubsetResult<()> {
+    fn read_hmtx(&mut self) -> FontResult<()> {
         Ok(if self.hmtx.is_none() {
             self.hmtx = Some(self.reader.read_table::<HorizontalMetrics>()?);
         })
     }
 
-    fn read_loca(&mut self) -> SubsetResult<()> {
+    fn read_loca(&mut self) -> FontResult<()> {
         Ok(if self.loca.is_none() {
             let mut table = self.get_table_data("loca".parse().unwrap())?;
             let format = self.reader.read_table::<Header>()?.index_to_loc_format;
@@ -571,72 +571,81 @@ fn calculate_check_sum(data: &[u8]) -> u32 {
 trait TakeInvalid<T>: Sized {
     /// Pull the type out of the option, returning a subsetting error
     /// about an invalid font wrong.
-    fn take_invalid<S: Into<String>>(self, message: S) -> SubsetResult<T>;
+    fn take_invalid<S: Into<String>>(self, message: S) -> FontResult<T>;
 
     /// Pull the type out of the option, returning an error about missing
     /// bytes if it is nothing.
-    fn take_bytes(self) -> SubsetResult<T> {
+    fn take_bytes(self) -> FontResult<T> {
         self.take_invalid("expected more bytes")
     }
 }
 
 impl<T> TakeInvalid<T> for Option<T> {
-    fn take_invalid<S: Into<String>>(self, message: S) -> SubsetResult<T> {
-        self.ok_or(SubsettingError::Opentype(opentype::Error::InvalidFont(message.into())))
+    fn take_invalid<S: Into<String>>(self, message: S) -> FontResult<T> {
+        self.ok_or(FontError::InvalidFont(message.into()))
     }
 }
 
-type SubsetResult<T> = Result<T, SubsettingError>;
+type FontResult<T> = Result<T, FontError>;
 
 /// The error type for font subsetting.
 #[derive(Debug)]
-pub enum SubsettingError {
+pub enum FontError {
+    /// The font file is incorrect.
+    InvalidFont(String),
     /// A requested table was not present in the source font.
     MissingTable(String),
-    /// The table is unknown to the engine (unimplemented or invalid).
+    /// The table is unknown to the subsetting engine (unimplemented or invalid).
     UnsupportedTable(String),
     /// A requested character was not present in the source font.
     MissingCharacter(char),
-    /// There was an error while parsing the font file.
-    Opentype(opentype::Error),
+    /// An I/O Error occured while reading the font program.
+    Io(io::Error),
+
+    #[doc(hidden)]
+    __Extensible,
 }
 
-impl error::Error for SubsettingError {
+impl error::Error for FontError {
     #[inline]
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
-            SubsettingError::Opentype(err) => Some(err),
+            FontError::Io(err) => Some(err),
             _ => None,
         }
     }
 }
 
-impl fmt::Display for SubsettingError {
+impl fmt::Display for FontError {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use SubsettingError::*;
+        use FontError::*;
         match self {
+            InvalidFont(message) => write!(f, "invalid font: {}", message),
             MissingTable(table) => write!(f, "missing table: {}", table),
             UnsupportedTable(table) => write!(f, "unsupported table: {}", table),
-            MissingCharacter(c) => write!(f, "missing character: {}", c),
-            Opentype(err) => fmt::Display::fmt(err, f),
+            MissingCharacter(c) => write!(f, "missing character: '{}'", c),
+            Io(err) => fmt::Display::fmt(err, f),
+            __Extensible => panic!("tried to display extensible variant"),
         }
     }
 }
 
-impl From<io::Error> for SubsettingError {
+impl From<io::Error> for FontError {
     #[inline]
-    fn from(err: io::Error) -> SubsettingError {
-        SubsettingError::Opentype(err.into())
+    fn from(err: io::Error) -> FontError {
+        FontError::Io(err)
     }
 }
 
-impl From<opentype::Error> for SubsettingError {
-    #[inline]
-    fn from(err: opentype::Error) -> SubsettingError {
+impl From<opentype::Error> for FontError {
+    fn from(err: opentype::Error) -> FontError {
+        use opentype::Error::*;
         match err {
-            opentype::Error::MissingTable(s) => SubsettingError::MissingTable(s),
-            err => SubsettingError::Opentype(err),
+            InvalidFont(message) => FontError::InvalidFont(message),
+            MissingTable(tag) => FontError::MissingTable(tag.to_string()),
+            Io(err) => FontError::Io(err),
+            _ => panic!("unexpected extensible variant"),
         }
     }
 }

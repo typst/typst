@@ -297,9 +297,9 @@ impl From<io::Error> for PdfWritingError {
     }
 }
 
-impl From<crate::font::SubsettingError> for PdfWritingError {
+impl From<crate::font::FontError> for PdfWritingError {
     #[inline]
-    fn from(err: crate::font::SubsettingError) -> PdfWritingError {
+    fn from(err: crate::font::FontError) -> PdfWritingError {
         PdfWritingError { message: format!("{}", err) }
     }
 }
