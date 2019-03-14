@@ -1,24 +1,50 @@
-//! Typeset is a library for compiling documents written in the
-//! corresponding typesetting language into a typesetted document in an
-//! output format like _PDF_.
+//! The compiler for the _Typeset_ typesetting language 📜.
+//!
+//! # Compilation
+//! - **Parsing:** The parsing step first transforms a plain string into an
+//!   [iterator of tokens](Tokens). Then the parser operates on that to
+//!   construct an abstract syntax tree. The structures describing the tree
+//!   can be found in the [`syntax`](syntax) module.
+//! - **Typesetting:** The next step is to transform the syntax tree into an
+//!   abstract document representation. Types for these can be found in the
+//!   [`doc`](doc) module. This representation contains already the finished
+//!   layout, but is still portable.
+//! - **Exporting:** The abstract document can then be exported into supported
+//!   formats. Currently the only supported format is _PDF_. In this step
+//!   the text is finally encoded into glyph indices and font data is
+//!   subsetted.
+//!
+//! # Fonts
+//! To do the typesetting, the compiler needs font data. To be highly portable
+//! the compiler assumes nothing about the environment. To still work with fonts,
+//! the consumer of this library has to add _font providers_ to their compiler
+//! instance. These can be queried for font data given a flexible font configuration
+//! specifying font families and styles. A font provider is a type implementing the
+//! [`FontProvider`](crate::font::FontProvider) trait. For convenience there exists
+//! the [`FileFontProvider`](crate::font::FileFontProvider) to serve fonts from a
+//! local folder.
 //!
 //! # Example
-//! This is an example of compiling a really simple document into _PDF_.
 //! ```
-//! use typeset::Compiler;
+//! use std::fs::File;
+//! use typeset::{Compiler, font::FileFontProvider, file_font};
 //!
-//! // Minimal source code for our document.
-//! let src = "Hello World from Typeset!";
+//! // Simple example source code.
+//! let source = "Hello World from Typeset!";
 //!
-//! // Create an output file.
+//! // Create a compiler with a font provider that provides one font.
+//! let mut compiler = Compiler::new();
+//! compiler.add_font_provider(FileFontProvider::new("../fonts", vec![
+//!     // Font family name, generic families, file, bold, italic
+//!     file_font!("NotoSans", [SansSerif], "NotoSans-Regular.ttf", false, false),
+//! ]));
+//!
+//! // Open an output file, compile and write to the file.
 //! # /*
-//! let mut file = std::fs::File::create("hello-typeset.pdf").unwrap();
+//! let mut file = File::create("hello-typeset.pdf").unwrap();
 //! # */
-//! # let mut file = std::fs::File::create("../target/typeset-hello.pdf").unwrap();
-//!
-//! // Create a compiler and write the document into a file as a PDF.
-//! let compiler = Compiler::new();
-//! compiler.write_pdf(src, &mut file).unwrap();
+//! # let mut file = File::create("../target/typeset-hello.pdf").unwrap();
+//! compiler.write_pdf(source, &mut file).unwrap();
 //! ```
 
 pub mod syntax;
@@ -36,33 +62,51 @@ pub use crate::pdf::PdfError;
 use std::error;
 use std::fmt;
 use std::io::Write;
-use crate::parsing::Parser;
 use crate::syntax::SyntaxTree;
-use crate::engine::Engine;
+use crate::parsing::Parser;
 use crate::doc::{Document, Style};
+use crate::font::FontProvider;
+use crate::engine::Engine;
 use crate::pdf::PdfCreator;
 
 
 /// Compiles source code into typesetted documents allowing to
 /// retrieve results at various stages.
-pub struct Compiler {
-    /// Style for typesetting.
-    style: Style,
+pub struct Compiler<'p> {
+    context: Context<'p>,
 }
 
-impl Compiler {
+struct Context<'p> {
+    /// Style for typesetting.
+    style: Style,
+    /// Font providers.
+    font_providers: Vec<Box<dyn FontProvider + 'p>>,
+}
+
+impl<'p> Compiler<'p> {
     /// Create a new compiler from a document.
     #[inline]
-    pub fn new() -> Compiler {
+    pub fn new() -> Compiler<'p> {
         Compiler {
-            style: Style::default(),
+            context: Context {
+                style: Style::default(),
+                font_providers: Vec::new(),
+            }
         }
     }
 
     /// Set the default style for typesetting.
     #[inline]
     pub fn style(&mut self, style: Style) -> &mut Self {
-        self.style = style;
+        self.context.style = style;
+        self
+    }
+
+    /// Add a font provider.
+    #[inline]
+    pub fn add_font_provider<P: 'p>(&mut self, provider: P) -> &mut Self
+    where P: FontProvider {
+        self.context.font_providers.push(Box::new(provider));
         self
     }
 
@@ -82,7 +126,7 @@ impl Compiler {
     #[inline]
     pub fn typeset(&self, source: &str) -> Result<Document, Error> {
         let tree = self.parse(source)?;
-        Engine::new(&tree, self.style.clone()).typeset().map_err(Into::into)
+        Engine::new(&tree, &self.context).typeset().map_err(Into::into)
     }
 
     /// Write the document as a _PDF_, returning how many bytes were written.
@@ -156,13 +200,32 @@ impl From<PdfError> for Error {
 
 #[cfg(test)]
 mod test {
+    use std::fs::File;
     use crate::Compiler;
+    use crate::font::FileFontProvider;
 
     /// Create a pdf with a name from the source code.
     fn test(name: &str, src: &str) {
+        // Create compiler
+        let mut compiler = Compiler::new();
+        let provider = FileFontProvider::new("../fonts", vec![
+            // Font family name, generic families, file, bold, italic
+            file_font!("NotoSans", [SansSerif], "NotoSans-Regular.ttf", false, false),
+            file_font!("NotoSans", [SansSerif], "NotoSans-Bold.ttf", true, false),
+            file_font!("NotoSans", [SansSerif], "NotoSans-Italic.ttf", false, true),
+            file_font!("NotoSans", [SansSerif], "NotoSans-BoldItalic.ttf", true, true),
+            file_font!("NotoSansMath", [SansSerif], "NotoSansMath-Regular.ttf", false, false),
+            file_font!("NotoEmoji", [SansSerif, Serif, Monospace],
+                       "NotoEmoji-Regular.ttf", false, false),
+        ]);
+        compiler.add_font_provider(provider);
+
+        // Open output file;
         let path = format!("../target/typeset-pdf-{}.pdf", name);
-        let mut file = std::fs::File::create(path).unwrap();
-        Compiler::new().write_pdf(src, &mut file).unwrap();
+        let mut file = File::create(path).unwrap();
+
+        // Compile and output
+        compiler.write_pdf(src, &mut file).unwrap();
     }
 
     #[test]

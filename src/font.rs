@@ -1,14 +1,17 @@
 //! Font loading, utility and subsetting.
 
+#![macro_use]
+
 use std::collections::HashMap;
 use std::error;
 use std::fmt;
-use std::io::{self, Cursor, Seek, SeekFrom};
+use std::path::{Path, PathBuf};
+use std::io::{self, Cursor, Read, Seek, SeekFrom};
 use byteorder::{BE, ReadBytesExt, WriteBytesExt};
 use opentype::{Error as OpentypeError, OpenTypeReader, Outlines, TableRecord, Tag};
 use opentype::tables::{Header, Name, CharMap, MaximumProfile, HorizontalMetrics, Post, OS2};
 use opentype::tables::{MacStyleFlags, NameEntry};
-use crate::doc::Size;
+use crate::doc::{Size, FontFamily};
 
 
 /// An font wrapper which allows to subset a font.
@@ -583,6 +586,133 @@ trait TakeInvalid<T>: Sized {
 impl<T> TakeInvalid<T> for Option<T> {
     fn take_invalid<S: Into<String>>(self, message: S) -> FontResult<T> {
         self.ok_or(FontError::InvalidFont(message.into()))
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+/// A type that provides fonts matching given criteria.
+pub trait FontProvider {
+    /// Returns a font matching the configuration
+    /// if this provider has a matching font.
+    fn provide(&self, config: &FontConfig) -> Option<Box<dyn FontSource>>;
+}
+
+/// A wrapper trait around `Read + Seek` to allow for making a trait object.
+///
+/// Automatically implemented for all types that are [`Read`] and [`Seek`].
+pub trait FontSource: Read + Seek {}
+impl<T> FontSource for T where T: Read + Seek {}
+
+/// Criteria to filter fonts.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FontConfig {
+    /// The font families we are looking for.
+    pub families: Vec<FontFamily>,
+    /// If some, matches only italic/non-italic fonts, otherwise any.
+    pub italic: Option<bool>,
+    /// If some, matches only bold/non-bold fonts, otherwise any.
+    pub bold: Option<bool>,
+}
+
+impl FontConfig {
+    /// Create a new font config with the given families.
+    ///
+    /// All other fields are set to [`None`] and match anything.
+    pub fn new(families: Vec<FontFamily>) -> FontConfig {
+        FontConfig {
+            families,
+            italic: None,
+            bold: None,
+        }
+    }
+
+    /// Set the italic value to something.
+    pub fn italic(&mut self, italic: bool) -> &mut Self {
+        self.italic = Some(italic);
+        self
+    }
+
+    /// Set the bold value to something.
+    pub fn bold(&mut self, bold: bool) -> &mut Self {
+        self.bold = Some(bold);
+        self
+    }
+}
+
+/// A font provider that works on font files on the local file system.
+pub struct FileFontProvider<'a> {
+    root: PathBuf,
+    specs: Vec<FileFontDescriptor<'a>>,
+}
+
+impl<'a> FileFontProvider<'a> {
+    /// Create a new file font provider. The folder relative to which the `specs`
+    /// contains the file paths, is given as `root`.
+    pub fn new<P: 'a, I>(root: P, specs: I) -> FileFontProvider<'a>
+    where
+        I: IntoIterator<Item=FileFontDescriptor<'a>>,
+        P: Into<PathBuf>
+    {
+        FileFontProvider {
+            root: root.into(),
+            specs: specs.into_iter().collect()
+        }
+    }
+}
+
+/// A type describing a font on the file system.
+///
+/// Can be constructed conventiently with the [`file_font`] macro.
+pub struct FileFontDescriptor<'a> {
+    /// The path to the font relative to the root.
+    pub path: &'a Path,
+    /// The font families this font is part of.
+    pub families: Vec<FontFamily>,
+    /// Whether the font is in italics.
+    pub italic: bool,
+    /// Whether the font is bold.
+    pub bold: bool,
+}
+
+impl FileFontDescriptor<'_> {
+    fn matches(&self, config: &FontConfig) -> bool {
+        config.italic.map(|i| i == self.italic).unwrap_or(true)
+        && config.bold.map(|i| i == self.bold).unwrap_or(true)
+        && config.families.iter().any(|family| self.families.contains(family))
+    }
+}
+
+/// Helper macro to create [file font descriptors](crate::font::FileFontDescriptor).
+///
+/// ```
+/// # use typeset::file_font;
+/// file_font!(
+///     "NotoSans",              // Font family name
+///     [SansSerif],             // Generic families
+///     "NotoSans-Regular.ttf",  // Font file
+///     false, false             // Bold & Italic
+/// );
+/// ```
+#[macro_export]
+macro_rules! file_font {
+    ($family:expr, [$($generic:ident),*], $path:expr, $bold:expr, $italic:expr) => {{
+        let mut families = vec![$crate::doc::FontFamily::Named($family.to_string())];
+        families.extend([$($crate::doc::FontFamily::$generic),*].iter().cloned());
+        $crate::font::FileFontDescriptor {
+            path: std::path::Path::new($path),
+            families,
+            italic: $italic, bold: $bold,
+        }
+    }};
+}
+
+impl FontProvider for FileFontProvider<'_> {
+    fn provide(&self, config: &FontConfig) -> Option<Box<dyn FontSource>> {
+        self.specs.iter().find(|spec| spec.matches(&config)).map(|spec| {
+            let file = std::fs::File::open(self.root.join(spec.path)).unwrap();
+            Box::new(file) as Box<FontSource>
+        })
     }
 }
 

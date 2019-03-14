@@ -278,7 +278,7 @@ impl std::ops::Deref for PdfFont {
     }
 }
 
-/// Result type used for parsing.
+/// Result type for _PDF_ creation.
 type PdfResult<T> = std::result::Result<T, PdfError>;
 
 /// The error type for _PDF_ creation.

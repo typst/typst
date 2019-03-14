@@ -30,30 +30,38 @@ pub struct Style {
     pub margin_bottom: Size,
 
     /// A fallback list of font families to use.
-    pub font_families: Vec<String>,
+    pub font_families: Vec<FontFamily>,
     /// The font size.
     pub font_size: f32,
     /// The line spacing (as a multiple of the font size).
     pub line_spacing: f32,
 }
 
+/// A family of fonts (either generic or named).
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum FontFamily {
+    SansSerif,
+    Serif,
+    Monospace,
+    Named(String),
+}
+
 impl Default for Style {
     fn default() -> Style {
+        use FontFamily::*;
         Style {
-            // A4 paper
+            // A4 paper.
             width: Size::from_mm(210.0),
             height: Size::from_mm(297.0),
 
-            // A bit more on top and bottom
+            // Margins. A bit more on top and bottom.
             margin_left: Size::from_cm(2.5),
             margin_top: Size::from_cm(3.0),
             margin_right: Size::from_cm(2.5),
             margin_bottom: Size::from_cm(3.0),
 
-            // Default font family
-            font_families: (&[
-                "NotoSans", "NotoSansMath"
-            ]).iter().map(ToString::to_string).collect(),
+            // Default font family, font size and line spacing.
+            font_families: vec![SansSerif, Serif, Monospace],
             font_size: 12.0,
             line_spacing: 1.25,
         }
