@@ -132,15 +132,20 @@ impl<'s> Engine<'s> {
 type TypeResult<T> = std::result::Result<T, TypesetError>;
 
 /// The error type for typesetting.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct TypesetError {
-    message: String,
-}
+pub enum TypesetError {}
 
 impl error::Error for TypesetError {}
 
 impl fmt::Display for TypesetError {
+    #[inline]
+    fn fmt(&self, _: &mut fmt::Formatter) -> fmt::Result {
+        Ok(())
+    }
+}
+
+impl fmt::Debug for TypesetError {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(&self.message)
+        fmt::Display::fmt(self, f)
     }
 }

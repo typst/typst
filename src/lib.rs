@@ -7,17 +7,17 @@
 //! ```
 //! use typeset::Compiler;
 //!
+//! // Minimal source code for our document.
+//! let src = "Hello World from Typeset!";
+//!
 //! // Create an output file.
 //! # /*
 //! let mut file = std::fs::File::create("hello-typeset.pdf").unwrap();
 //! # */
 //! # let mut file = std::fs::File::create("../target/typeset-hello.pdf").unwrap();
 //!
-//! // Create a compiler and export a PDF.
-//! let src = "Hello World from Typeset!";
+//! // Create a compiler and write the document into a file as a PDF.
 //! let compiler = Compiler::new();
-//!
-//! // Write the document into a file as a PDF.
 //! compiler.write_pdf(src, &mut file).unwrap();
 //! ```
 
@@ -31,7 +31,7 @@ mod utility;
 
 pub use crate::parsing::{Tokens, ParseError};
 pub use crate::engine::TypesetError;
-pub use crate::pdf::PdfWritingError;
+pub use crate::pdf::PdfError;
 
 use std::error;
 use std::fmt;
@@ -74,8 +74,8 @@ impl Compiler {
 
     /// Return the abstract syntax tree representation of the document.
     #[inline]
-    pub fn parse<'s>(&self, source: &'s str) -> Result<SyntaxTree<'s>, Error> {
-        Parser::new(self.tokenize(source)).parse().map_err(Into::into)
+    pub fn parse<'s>(&self, source: &'s str) -> Result<SyntaxTree<'s>, ParseError> {
+        Parser::new(self.tokenize(source)).parse()
     }
 
     /// Return the abstract typesetted representation of the document.
@@ -92,8 +92,7 @@ impl Compiler {
     }
 }
 
-/// The error type for compilation.
-#[derive(Debug, Clone, Eq, PartialEq)]
+/// The general error type for compilation.
 pub enum Error {
     /// An error that occured while transforming source code into
     /// an abstract syntax tree.
@@ -101,7 +100,7 @@ pub enum Error {
     /// An error that occured while typesetting into an abstract document.
     Typeset(TypesetError),
     /// An error that occured while writing the document as a _PDF_.
-    PdfWrite(PdfWritingError)
+    Pdf(PdfError),
 }
 
 impl error::Error for Error {
@@ -110,7 +109,7 @@ impl error::Error for Error {
         match self {
             Error::Parse(err) => Some(err),
             Error::Typeset(err) => Some(err),
-            Error::PdfWrite(err) => Some(err),
+            Error::Pdf(err) => Some(err),
         }
     }
 }
@@ -121,8 +120,15 @@ impl fmt::Display for Error {
         match self {
             Error::Parse(err) => write!(f, "parse error: {}", err),
             Error::Typeset(err) => write!(f, "typeset error: {}", err),
-            Error::PdfWrite(err) => write!(f, "typeset error: {}", err),
+            Error::Pdf(err) => write!(f, "pdf error: {}", err),
         }
+    }
+}
+
+impl fmt::Debug for Error {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }
 
@@ -140,10 +146,10 @@ impl From<TypesetError> for Error {
     }
 }
 
-impl From<PdfWritingError> for Error {
+impl From<PdfError> for Error {
     #[inline]
-    fn from(err: PdfWritingError) -> Error {
-        Error::PdfWrite(err)
+    fn from(err: PdfError) -> Error {
+        Error::Pdf(err)
     }
 }
 

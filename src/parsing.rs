@@ -359,7 +359,6 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item = Token<'s>> {
 type ParseResult<T> = std::result::Result<T, ParseError>;
 
 /// The error type for parsing.
-#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ParseError {
     /// A message describing the error.
     message: String,
@@ -368,11 +367,18 @@ pub struct ParseError {
 impl error::Error for ParseError {}
 
 impl fmt::Display for ParseError {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(&self.message)
     }
 }
 
+impl fmt::Debug for ParseError {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
 
 #[cfg(test)]
 mod token_tests {
@@ -491,12 +497,12 @@ mod parse_tests {
 
     /// Test if the source code parses into the syntax tree.
     fn test(src: &str, tree: SyntaxTree) {
-        assert_eq!(Parser::new(Tokens::new(src)).parse(), Ok(tree));
+        assert_eq!(Parser::new(Tokens::new(src)).parse().unwrap(), tree);
     }
 
     /// Test if the source parses into the error.
-    fn test_err(src: &str, err: ParseError) {
-        assert_eq!(Parser::new(Tokens::new(src)).parse(), Err(err));
+    fn test_err(src: &str, err: &str) {
+        assert_eq!(Parser::new(Tokens::new(src)).parse().unwrap_err().message, err);
     }
 
     /// Short cut macro to create a syntax tree.
@@ -577,17 +583,9 @@ mod parse_tests {
     /// Tests whether errors get reported correctly.
     #[test]
     fn parse_errors() {
-        test_err("No functions here]", ParseError {
-            message: "unexpected closing bracket".to_owned(),
-        });
-        test_err("[hello][world", ParseError {
-            message: "expected closing bracket".to_owned(),
-        });
-        test_err("[hello world", ParseError {
-            message: "expected closing bracket".to_owned(),
-        });
-        test_err("[ no-name][Why?]", ParseError {
-            message: "expected identifier".to_owned(),
-        });
+        test_err("No functions here]", "unexpected closing bracket");
+        test_err("[hello][world", "expected closing bracket");
+        test_err("[hello world", "expected closing bracket");
+        test_err("[ no-name][Why?]", "expected identifier");
     }
 }

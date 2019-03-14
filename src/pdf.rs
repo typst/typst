@@ -4,12 +4,12 @@ use std::collections::HashSet;
 use std::error;
 use std::fmt;
 use std::io::{self, Write};
-use pdf::{PdfWriter, Reference, Rect, Version, Trailer};
-use pdf::{DocumentCatalog, PageTree, Page, Resource, Text, Content};
-use pdf::font::{Type0Font, CMapEncoding, CIDFont, CIDFontType, CIDSystemInfo,
-    WidthRecord, FontDescriptor, FontFlags, EmbeddedFont, GlyphUnit};
+use pdf::{PdfWriter, Reference, Rect, Version, Trailer, DocumentCatalog};
+use pdf::{PageTree, Page, Resource, Text, Content};
+use pdf::font::{Type0Font, CMapEncoding, CIDFont, CIDFontType, CIDSystemInfo};
+use pdf::font::{WidthRecord, FontDescriptor, FontFlags, EmbeddedFont, GlyphUnit};
 use crate::doc::{Document, Size, Text as DocText, TextCommand as DocTextCommand};
-use crate::font::Font;
+use crate::font::{Font, FontError};
 
 
 /// Writes documents in the _PDF_ format.
@@ -279,34 +279,53 @@ impl std::ops::Deref for PdfFont {
 }
 
 /// Result type used for parsing.
-type PdfResult<T> = std::result::Result<T, PdfWritingError>;
+type PdfResult<T> = std::result::Result<T, PdfError>;
 
 /// The error type for _PDF_ creation.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct PdfWritingError {
-    /// A message describing the error.
-    message: String,
+pub enum PdfError {
+    /// An error occured while subsetting the font for the _PDF_.
+    Font(FontError),
+    /// An I/O Error on the underlying writable occured.
+    Io(io::Error),
 }
 
-impl error::Error for PdfWritingError {}
-
-impl From<io::Error> for PdfWritingError {
+impl error::Error for PdfError {
     #[inline]
-    fn from(err: io::Error) -> PdfWritingError {
-        PdfWritingError { message: format!("{}", err) }
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            PdfError::Font(err) => Some(err),
+            PdfError::Io(err) => Some(err),
+        }
     }
 }
 
-impl From<crate::font::FontError> for PdfWritingError {
-    #[inline]
-    fn from(err: crate::font::FontError) -> PdfWritingError {
-        PdfWritingError { message: format!("{}", err) }
-    }
-}
-
-impl fmt::Display for PdfWritingError {
+impl fmt::Display for PdfError {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(&self.message)
+        match self {
+            PdfError::Font(err) => write!(f, "font error: {}", err),
+            PdfError::Io(err) => write!(f, "io error: {}", err),
+        }
+    }
+}
+
+impl fmt::Debug for PdfError {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
+
+impl From<io::Error> for PdfError {
+    #[inline]
+    fn from(err: io::Error) -> PdfError {
+        PdfError::Io(err)
+    }
+}
+
+impl From<FontError> for PdfError {
+    #[inline]
+    fn from(err: FontError) -> PdfError {
+        PdfError::Font(err)
     }
 }
