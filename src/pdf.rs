@@ -31,7 +31,7 @@ struct Offsets {
 
 impl<'a, W: Write> PdfCreator<'a, W> {
     /// Create a new _PDF_ Creator.
-    pub fn new(target: &'a mut W, doc: &'a Document) -> PdfResult<PdfCreator<'a, W>> {
+    pub fn new(doc: &'a Document, target: &'a mut W) -> PdfResult<PdfCreator<'a, W>> {
         // Calculate a unique id for all object to come
         let catalog = 1;
         let page_tree = catalog + 1;

@@ -29,31 +29,32 @@ mod engine;
 mod pdf;
 mod utility;
 
-pub use crate::parsing::{Tokens, Parser, ParseError};
-pub use crate::engine::{Engine, TypesetError};
-pub use crate::pdf::{PdfCreator, PdfWritingError};
+pub use crate::parsing::{Tokens, ParseError};
+pub use crate::engine::TypesetError;
+pub use crate::pdf::PdfWritingError;
 
 use std::error;
 use std::fmt;
 use std::io::Write;
+use crate::parsing::Parser;
 use crate::syntax::SyntaxTree;
+use crate::engine::Engine;
 use crate::doc::{Document, Style};
+use crate::pdf::PdfCreator;
 
 
-/// Emits various compiled intermediates from source code.
-pub struct Compiler<'s> {
-    /// The source code of the document.
-    source: &'s str,
+/// Compiles source code into typesetted documents allowing to
+/// retrieve results at various stages.
+pub struct Compiler {
     /// Style for typesetting.
     style: Style,
 }
 
-impl<'s> Compiler<'s> {
+impl Compiler {
     /// Create a new compiler from a document.
     #[inline]
-    pub fn new(source: &'s str) -> Compiler<'s> {
+    pub fn new() -> Compiler {
         Compiler {
-            source,
             style: Style::default(),
         }
     }
@@ -67,26 +68,27 @@ impl<'s> Compiler<'s> {
 
     /// Return an iterator over the tokens of the document.
     #[inline]
-    pub fn tokenize(&self) -> Tokens<'s> {
-        Tokens::new(self.source)
+    pub fn tokenize<'s>(&self, source: &'s str) -> Tokens<'s> {
+        Tokens::new(source)
     }
 
     /// Return the abstract syntax tree representation of the document.
     #[inline]
-    pub fn parse(&self) -> Result<SyntaxTree<'s>, Error> {
-        Parser::new(self.tokenize()).parse().map_err(Into::into)
+    pub fn parse<'s>(&self, source: &'s str) -> Result<SyntaxTree<'s>, Error> {
+        Parser::new(self.tokenize(source)).parse().map_err(Into::into)
     }
 
     /// Return the abstract typesetted representation of the document.
     #[inline]
-    pub fn typeset(&self) -> Result<Document, Error> {
-        let tree = self.parse()?;
+    pub fn typeset(&self, source: &str) -> Result<Document, Error> {
+        let tree = self.parse(source)?;
         Engine::new(&tree, self.style.clone()).typeset().map_err(Into::into)
     }
 
     /// Write the document as a _PDF_, returning how many bytes were written.
-    pub fn write_pdf<W: Write>(&self, target: &mut W) -> Result<usize, Error> {
-        PdfCreator::new(target, &self.typeset()?)?.write().map_err(Into::into)
+    pub fn write_pdf<W: Write>(&self, source: &str, target: &mut W) -> Result<usize, Error> {
+        let document = self.typeset(source)?;
+        PdfCreator::new(&document, target)?.write().map_err(Into::into)
     }
 }
 
@@ -154,11 +156,11 @@ mod test {
     fn test(name: &str, src: &str) {
         let path = format!("../target/typeset-pdf-{}.pdf", name);
         let mut file = std::fs::File::create(path).unwrap();
-        Compiler::new(src).write_pdf(&mut file).unwrap();
+        Compiler::new().write_pdf(src, &mut file).unwrap();
     }
 
     #[test]
-    fn pdfs() {
+    fn small() {
         test("unicode", "∑mbe∂∂ed font with Unicode!");
         test("parentheses", "Text with ) and ( or (enclosed) works.");
         test("composite-glyph", "Composite character‼");
