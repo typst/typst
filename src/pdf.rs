@@ -4,17 +4,17 @@ use std::collections::HashSet;
 use std::error;
 use std::fmt;
 use std::io::{self, Write};
-use pdf::{PdfWriter, Reference, Rect, Version, Trailer, DocumentCatalog};
-use pdf::{PageTree, Page, Resource, Text, Content};
+use pdf::{PdfWriter, Ref, Rect, Version, Trailer, Content};
+use pdf::doc::{Catalog, PageTree, Page, Resource, Text};
 use pdf::font::{Type0Font, CMapEncoding, CIDFont, CIDFontType, CIDSystemInfo};
-use pdf::font::{WidthRecord, FontDescriptor, FontFlags, EmbeddedFont, GlyphUnit};
-use crate::doc::{Document, Size, Text as DocText, TextCommand as DocTextCommand};
+use pdf::font::{GlyphUnit, WidthRecord, FontDescriptor, FontFlags, FontStream, EmbeddedFontType};
+use crate::doc::{Document, Size, Text as DocText, TextCommand};
 use crate::font::{Font, FontError};
 
 
 /// Writes documents in the _PDF_ format.
 pub struct PdfCreator<'a, W: Write> {
-    writer: PdfWriter<'a, W>,
+    writer: PdfWriter<W>,
     doc: &'a Document,
     offsets: Offsets,
     fonts: Vec<PdfFont>,
@@ -22,23 +22,23 @@ pub struct PdfCreator<'a, W: Write> {
 
 /// Offsets for the various groups of ids.
 struct Offsets {
-    catalog: Reference,
-    page_tree: Reference,
-    pages: (Reference, Reference),
-    contents: (Reference, Reference),
-    fonts: (Reference, Reference),
+    catalog: Ref,
+    page_tree: Ref,
+    pages: (Ref, Ref),
+    contents: (Ref, Ref),
+    fonts: (Ref, Ref),
 }
 
 impl<'a, W: Write> PdfCreator<'a, W> {
     /// Create a new _PDF_ Creator.
-    pub fn new(doc: &'a Document, target: &'a mut W) -> PdfResult<PdfCreator<'a, W>> {
+    pub fn new(doc: &'a Document, target: W) -> PdfResult<PdfCreator<'a, W>> {
         // Calculate a unique id for all object to come
         let catalog = 1;
         let page_tree = catalog + 1;
-        let pages = (page_tree + 1, page_tree + doc.pages.len() as Reference);
-        let content_count = doc.pages.iter().flat_map(|p| p.text.iter()).count() as Reference;
+        let pages = (page_tree + 1, page_tree + doc.pages.len() as Ref);
+        let content_count = doc.pages.iter().flat_map(|p| p.text.iter()).count() as Ref;
         let contents = (pages.1 + 1, pages.1 + content_count);
-        let fonts = (contents.1 + 1, contents.1 + 4 * doc.fonts.len() as Reference);
+        let fonts = (contents.1 + 1, contents.1 + 4 * doc.fonts.len() as Ref);
 
         let offsets = Offsets {
             catalog,
@@ -55,9 +55,9 @@ impl<'a, W: Write> PdfCreator<'a, W> {
             for text in &page.text {
                 for command in &text.commands {
                     match command {
-                        DocTextCommand::Text(string)
+                        TextCommand::Text(string)
                           => char_sets[current_font].extend(string.chars()),
-                        DocTextCommand::SetFont(id, _) => current_font = *id,
+                        TextCommand::SetFont(id, _) => current_font = *id,
                         _ => {},
                     }
                 }
@@ -104,12 +104,12 @@ impl<'a, W: Write> PdfCreator<'a, W> {
     fn write_pages(&mut self) -> PdfResult<()> {
         // The document catalog
         self.writer.write_obj(self.offsets.catalog,
-            &DocumentCatalog::new(self.offsets.page_tree))?;
+            &Catalog::new(self.offsets.page_tree))?;
 
         // Root page tree
         self.writer.write_obj(self.offsets.page_tree, PageTree::new()
             .kids(self.offsets.pages.0 ..= self.offsets.pages.1)
-            .resource(Resource::Font { nr: 1, id: self.offsets.fonts.0 })
+            .resource(Resource::Font(1, self.offsets.fonts.0))
         )?;
 
         // The page objects
@@ -144,8 +144,8 @@ impl<'a, W: Write> PdfCreator<'a, W> {
     fn write_text(&mut self, id: u32, text: &DocText) -> PdfResult<()> {
         let mut current_font = 0;
         let encoded = text.commands.iter().filter_map(|cmd| match cmd {
-            DocTextCommand::Text(string) => Some(self.fonts[current_font].encode(&string)),
-            DocTextCommand::SetFont(id, _) => { current_font = *id; None },
+            TextCommand::Text(string) => Some(self.fonts[current_font].encode(&string)),
+            TextCommand::SetFont(id, _) => { current_font = *id; None },
             _ => None,
         }).collect::<Vec<_>>();
 
@@ -154,12 +154,12 @@ impl<'a, W: Write> PdfCreator<'a, W> {
 
         for command in &text.commands {
             match command {
-                DocTextCommand::Text(_) => {
-                    object.write_text(&encoded[nr]);
+                TextCommand::Text(_) => {
+                    object.tj(&encoded[nr]);
                     nr += 1;
                 },
-                DocTextCommand::SetFont(id, size) => { object.set_font(*id as u32 + 1, *size); },
-                DocTextCommand::Move(x, y) => { object.move_line(x.to_points(), y.to_points()); },
+                TextCommand::SetFont(id, size) => { object.tf(*id as u32 + 1, *size); },
+                TextCommand::Move(x, y) => { object.td(x.to_points(), y.to_points()); },
             }
         }
 
@@ -202,7 +202,10 @@ impl<'a, W: Write> PdfCreator<'a, W> {
                 .font_file_3(id + 3)
             )?;
 
-            self.writer.write_obj(id + 3, &EmbeddedFont::OpenType(&font.program))?;
+            self.writer.write_obj(id + 3, &FontStream::new(
+                &font.program,
+                EmbeddedFontType::OpenType,
+            ))?;
 
             id += 4;
         }
