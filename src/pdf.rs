@@ -142,23 +142,19 @@ impl<'a, W: Write> PdfCreator<'a, W> {
     }
 
     fn write_text(&mut self, id: u32, text: &DocText) -> PdfResult<()> {
-        let mut current_font = 0;
-        let encoded = text.commands.iter().filter_map(|cmd| match cmd {
-            TextCommand::Text(string) => Some(self.fonts[current_font].encode(&string)),
-            TextCommand::SetFont(id, _) => { current_font = *id; None },
-            _ => None,
-        }).collect::<Vec<_>>();
-
         let mut object = Text::new();
-        let mut nr = 0;
+        let mut current_font = 0;
 
         for command in &text.commands {
             match command {
-                TextCommand::Text(_) => {
-                    object.tj(&encoded[nr]);
-                    nr += 1;
+                TextCommand::Text(string) => {
+                    let encoded = self.fonts[current_font].encode(&string);
+                    object.tj(encoded);
                 },
-                TextCommand::SetFont(id, size) => { object.tf(*id as u32 + 1, *size); },
+                TextCommand::SetFont(id, size) => {
+                    current_font = *id;
+                    object.tf(*id as u32 + 1, *size);
+                },
                 TextCommand::Move(x, y) => { object.td(x.to_points(), y.to_points()); },
             }
         }
