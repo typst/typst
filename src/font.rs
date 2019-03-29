@@ -10,7 +10,7 @@ use std::io::{self, Cursor, Read, Seek, SeekFrom};
 use byteorder::{BE, ReadBytesExt, WriteBytesExt};
 use opentype::{Error as OpentypeError, OpenTypeReader, Outlines, TableRecord, Tag};
 use opentype::tables::{Header, Name, CharMap, MaximumProfile, HorizontalMetrics, Post, OS2};
-use opentype::tables::{MacStyleFlags, NameEntry};
+use opentype::global::{MacStyleFlags, NameEntry};
 use crate::doc::{Size, FontFamily};
 
 
@@ -142,11 +142,10 @@ impl Font {
     {
         let mut chars: Vec<char> = chars.into_iter().collect();
         chars.sort();
-        let mut cursor = Cursor::new(&self.program);
-        let mut reader = OpenTypeReader::new(&mut cursor);
+
+        let mut reader = OpenTypeReader::from_slice(&self.program);
         let outlines = reader.outlines()?;
-        let mut tables = reader.tables()?.to_vec();
-        tables.sort_by_key(|r| r.tag);
+        let tables = reader.tables()?.to_vec();
 
         Subsetter {
             font: &self,
@@ -168,7 +167,7 @@ impl Font {
 struct Subsetter<'p> {
     // Original font
     font: &'p Font,
-    reader: OpenTypeReader<'p, Cursor<&'p Vec<u8>>>,
+    reader: OpenTypeReader<Cursor<&'p [u8]>>,
     outlines: Outlines,
     tables: Vec<TableRecord>,
     cmap: Option<CharMap>,
