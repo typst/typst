@@ -2,76 +2,61 @@
 //!
 //! # Compilation
 //! - **Parsing:** The parsing step first transforms a plain string into an
-//!   [iterator of tokens](Tokens). Then the parser operates on that to
-//!   construct an abstract syntax tree. The structures describing the tree
-//!   can be found in the [`syntax`](syntax) module.
-//! - **Typesetting:** The next step is to transform the syntax tree into an
-//!   abstract document representation. Types for these can be found in the
-//!   [`doc`](doc) module. This representation contains already the finished
-//!   layout, but is still portable.
-//! - **Exporting:** The abstract document can then be exported into supported
-//!   formats. Currently the only supported format is _PDF_. In this step
-//!   the text is finally encoded into glyph indices and font data is
-//!   subsetted.
-//!
-//! # Fonts
-//! To do the typesetting, the compiler needs font data. To be highly portable
-//! the compiler assumes nothing about the environment. To still work with fonts,
-//! the consumer of this library has to add _font providers_ to their compiler
-//! instance. These can be queried for font data given a flexible font configuration
-//! specifying font families and styles. A font provider is a type implementing the
-//! [`FontProvider`](crate::font::FontProvider) trait. For convenience there exists
-//! the [`FileFontProvider`](crate::font::FileFontProvider) to serve fonts from a
-//! local folder.
+//!   [iterator of tokens](crate::parsing::Tokens). Then the parser operates on that to construct
+//!   a syntax tree. The structures describing the tree can be found in the [`syntax`] module.
+//! - **Typesetting:** The next step is to transform the syntax tree into a portable representation
+//!   of the typesetted document. Types for these can be found in the [`doc`] module. This
+//!   representation contains already the finished layout.
+//! - **Exporting:** The finished document can then be exported into supported formats. Submodules
+//!   for the supported formats are located in the [`export`] module. Currently the only supported
+//!   format is _PDF_.
 //!
 //! # Example
 //! ```
 //! use std::fs::File;
-//! use typeset::{Compiler, font::FileFontProvider, file_font};
+//! use typeset::Compiler;
+//! use typeset::{font::FileFontProvider, file_font};
+//! use typeset::export::pdf::PdfExporter;
 //!
 //! // Simple example source code.
-//! let source = "Hello World from Typeset!";
+//! let src = "Hello World from Typeset!";
 //!
-//! // Create a compiler with a font provider that provides one font.
+//! // Create a compiler with a font provider that provides three fonts
+//! // (the default sans-serif fonts and a fallback for the emoji).
 //! let mut compiler = Compiler::new();
 //! compiler.add_font_provider(FileFontProvider::new("../fonts", vec![
 //!     // Font family name, generic families, file, bold, italic
 //!     file_font!("NotoSans", [SansSerif], "NotoSans-Regular.ttf", false, false),
 //! ]));
 //!
-//! // Open an output file, compile and write to the file.
-//! # /*
+//! // Compile the source code with the compiler.
+//! let document = compiler.typeset(src).unwrap();
+//!
+//! // Export the document into a PDF file.
 //! let mut file = File::create("hello-typeset.pdf").unwrap();
-//! # */
-//! # let mut file = File::create("../target/typeset-hello.pdf").unwrap();
-//! compiler.write_pdf(source, &mut file).unwrap();
+//! let exporter = PdfExporter::new();
+//! exporter.export(&document, &mut file).unwrap();
 //! ```
 
-pub mod syntax;
-pub mod doc;
-pub mod font;
-mod parsing;
-mod engine;
-mod pdf;
-mod utility;
-
-pub use crate::parsing::{Tokens, ParseError};
-pub use crate::engine::TypesetError;
-pub use crate::pdf::PdfError;
-
-use std::error;
-use std::fmt;
-use std::io::Write;
+use std::fmt::{self, Display, Debug, Formatter};
 use crate::syntax::SyntaxTree;
-use crate::parsing::Parser;
+use crate::parsing::{Tokens, Parser, ParseError};
 use crate::doc::{Document, Style};
 use crate::font::FontProvider;
-use crate::engine::Engine;
-use crate::pdf::PdfCreator;
+use crate::engine::{Engine, TypesetError};
+
+pub mod doc;
+pub mod engine;
+pub mod export;
+pub mod font;
+pub mod parsing;
+pub mod syntax;
+mod utility;
 
 
-/// Compiles source code into typesetted documents allowing to
-/// retrieve results at various stages.
+/// Transforms source code into typesetted documents.
+///
+/// Holds the compilation context, which can be configured through various methods.
 pub struct Compiler<'p> {
     context: Context<'p>,
 }
@@ -83,8 +68,9 @@ struct Context<'p> {
     font_providers: Vec<Box<dyn FontProvider + 'p>>,
 }
 
+/// Functions to set up the compilation context.
 impl<'p> Compiler<'p> {
-    /// Create a new compiler from a document.
+    /// Create a new compiler.
     #[inline]
     pub fn new() -> Compiler<'p> {
         Compiler {
@@ -95,44 +81,33 @@ impl<'p> Compiler<'p> {
         }
     }
 
-    /// Set the default style for typesetting.
+    /// Set the default style for the document.
     #[inline]
-    pub fn style(&mut self, style: Style) -> &mut Self {
+    pub fn set_style(&mut self, style: Style) {
         self.context.style = style;
-        self
     }
 
-    /// Add a font provider.
+    /// Add a font provider to the context of this compiler.
     #[inline]
-    pub fn add_font_provider<P: 'p>(&mut self, provider: P) -> &mut Self
-    where P: FontProvider {
+    pub fn add_font_provider<P: 'p>(&mut self, provider: P) where P: FontProvider {
         self.context.font_providers.push(Box::new(provider));
-        self
     }
+}
 
-    /// Return an iterator over the tokens of the document.
+/// Compilation functions.
+impl<'p> Compiler<'p> {
+    /// Parse source code into a syntax tree.
     #[inline]
-    pub fn tokenize<'s>(&self, source: &'s str) -> Tokens<'s> {
-        Tokens::new(source)
+    pub fn parse<'s>(&self, src: &'s str) -> Result<SyntaxTree<'s>, ParseError> {
+        Parser::new(Tokens::new(src)).parse()
     }
 
-    /// Return the abstract syntax tree representation of the document.
+    /// Compile a portable typesetted document from source code.
     #[inline]
-    pub fn parse<'s>(&self, source: &'s str) -> Result<SyntaxTree<'s>, ParseError> {
-        Parser::new(self.tokenize(source)).parse()
-    }
-
-    /// Return the abstract typesetted representation of the document.
-    #[inline]
-    pub fn typeset(&self, source: &str) -> Result<Document, Error> {
-        let tree = self.parse(source)?;
-        Engine::new(&tree, &self.context).typeset().map_err(Into::into)
-    }
-
-    /// Write the document as a _PDF_, returning how many bytes were written.
-    pub fn write_pdf<W: Write>(&self, source: &str, target: &mut W) -> Result<usize, Error> {
-        let document = self.typeset(source)?;
-        PdfCreator::new(&document, target)?.write().map_err(Into::into)
+    pub fn typeset(&self, src: &str) -> Result<Document, Error> {
+        let tree = self.parse(src)?;
+        let engine = Engine::new(&tree, &self.context);
+        engine.typeset().map_err(Into::into)
     }
 }
 
@@ -143,57 +118,41 @@ pub enum Error {
     Parse(ParseError),
     /// An error that occured while typesetting into an abstract document.
     Typeset(TypesetError),
-    /// An error that occured while writing the document as a _PDF_.
-    Pdf(PdfError),
 }
 
-impl error::Error for Error {
-    #[inline]
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Error::Parse(err) => Some(err),
             Error::Typeset(err) => Some(err),
-            Error::Pdf(err) => Some(err),
         }
     }
 }
 
-impl fmt::Display for Error {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Error::Parse(err) => write!(f, "parse error: {}", err),
             Error::Typeset(err) => write!(f, "typeset error: {}", err),
-            Error::Pdf(err) => write!(f, "pdf error: {}", err),
         }
     }
 }
 
-impl fmt::Debug for Error {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(self, f)
+impl Debug for Error {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(self, f)
     }
 }
 
 impl From<ParseError> for Error {
-    #[inline]
     fn from(err: ParseError) -> Error {
         Error::Parse(err)
     }
 }
 
 impl From<TypesetError> for Error {
-    #[inline]
     fn from(err: TypesetError) -> Error {
         Error::Typeset(err)
-    }
-}
-
-impl From<PdfError> for Error {
-    #[inline]
-    fn from(err: PdfError) -> Error {
-        Error::Pdf(err)
     }
 }
 
@@ -202,13 +161,14 @@ impl From<PdfError> for Error {
 mod test {
     use std::fs::File;
     use crate::Compiler;
+    use crate::export::pdf::PdfExporter;
     use crate::font::FileFontProvider;
 
     /// Create a pdf with a name from the source code.
     fn test(name: &str, src: &str) {
         // Create compiler
         let mut compiler = Compiler::new();
-        let provider = FileFontProvider::new("../fonts", vec![
+        compiler.add_font_provider(FileFontProvider::new("../fonts", vec![
             // Font family name, generic families, file, bold, italic
             file_font!("NotoSans", [SansSerif], "NotoSans-Regular.ttf", false, false),
             file_font!("NotoSans", [SansSerif], "NotoSans-Bold.ttf", true, false),
@@ -217,15 +177,16 @@ mod test {
             file_font!("NotoSansMath", [SansSerif], "NotoSansMath-Regular.ttf", false, false),
             file_font!("NotoEmoji", [SansSerif, Serif, Monospace],
                        "NotoEmoji-Regular.ttf", false, false),
-        ]);
-        compiler.add_font_provider(provider);
+        ]));
 
-        // Open output file;
+        // Compile into document
+        let document = compiler.typeset(src).unwrap();
+
+        // Write to file
         let path = format!("../target/typeset-pdf-{}.pdf", name);
-        let mut file = File::create(path).unwrap();
-
-        // Compile and output
-        compiler.write_pdf(src, &mut file).unwrap();
+        let file = File::create(path).unwrap();
+        let exporter = PdfExporter::new();
+        exporter.export(&document, file).unwrap();
     }
 
     #[test]

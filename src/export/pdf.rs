@@ -1,26 +1,48 @@
-//! Writing of documents in the _PDF_ format.
+//! Exporting into _PDF_ documents.
 
 use std::collections::HashSet;
-use std::error;
-use std::fmt;
+use std::fmt::{self, Display, Debug, Formatter};
 use std::io::{self, Write};
+
 use pdf::{PdfWriter, Ref, Rect, Version, Trailer, Content};
 use pdf::doc::{Catalog, PageTree, Page, Resource, Text};
-use pdf::font::{Type0Font, CMapEncoding, CIDFont, CIDFontType, CIDSystemInfo};
-use pdf::font::{GlyphUnit, WidthRecord, FontDescriptor, FontFlags, FontStream, EmbeddedFontType};
+use pdf::font::{Type0Font, CIDFont, CIDFontType, CIDSystemInfo, FontDescriptor, FontFlags};
+use pdf::font::{GlyphUnit, CMapEncoding, WidthRecord, FontStream, EmbeddedFontType};
+
 use crate::doc::{Document, Size, Text as DocText, TextCommand};
 use crate::font::{Font, FontError};
 
 
+/// Exports documents into _PDFs_.
+#[derive(Debug)]
+pub struct PdfExporter {}
+
+impl PdfExporter {
+    /// Create a new exporter.
+    #[inline]
+    pub fn new() -> PdfExporter {
+        PdfExporter {}
+    }
+
+    /// Export a typesetted document into a writer. Returns how many bytes were written.
+    #[inline]
+    pub fn export<W: Write>(&self, document: &Document, target: W) -> PdfResult<usize> {
+        let mut engine = PdfEngine::new(document, target)?;
+        engine.write()
+    }
+}
+
 /// Writes documents in the _PDF_ format.
-pub struct PdfCreator<'a, W: Write> {
+#[derive(Debug)]
+struct PdfEngine<'d, W: Write> {
     writer: PdfWriter<W>,
-    doc: &'a Document,
+    doc: &'d Document,
     offsets: Offsets,
     fonts: Vec<PdfFont>,
 }
 
 /// Offsets for the various groups of ids.
+#[derive(Debug, Copy, Clone)]
 struct Offsets {
     catalog: Ref,
     page_tree: Ref,
@@ -29,47 +51,42 @@ struct Offsets {
     fonts: (Ref, Ref),
 }
 
-impl<'a, W: Write> PdfCreator<'a, W> {
+impl<'d, W: Write> PdfEngine<'d, W> {
     /// Create a new _PDF_ Creator.
-    pub fn new(doc: &'a Document, target: W) -> PdfResult<PdfCreator<'a, W>> {
-        // Calculate a unique id for all object to come
+    fn new(doc: &'d Document, target: W) -> PdfResult<PdfEngine<'d, W>> {
+        // Calculate a unique id for all objects that will be written.
         let catalog = 1;
         let page_tree = catalog + 1;
         let pages = (page_tree + 1, page_tree + doc.pages.len() as Ref);
         let content_count = doc.pages.iter().flat_map(|p| p.text.iter()).count() as Ref;
         let contents = (pages.1 + 1, pages.1 + content_count);
         let fonts = (contents.1 + 1, contents.1 + 4 * doc.fonts.len() as Ref);
+        let offsets = Offsets { catalog, page_tree, pages, contents, fonts };
 
-        let offsets = Offsets {
-            catalog,
-            page_tree,
-            pages,
-            contents,
-            fonts,
-        };
+        // Create a subsetted PDF font for each font in the document.
+        let fonts = {
+            let mut font = 0usize;
+            let mut chars = vec![HashSet::new(); doc.fonts.len()];
 
-        // Find out which chars are used in this document.
-        let mut char_sets = vec![HashSet::new(); doc.fonts.len()];
-        let mut current_font: usize = 0;
-        for page in &doc.pages {
-            for text in &page.text {
+            // Iterate through every text object on every page and find out
+            // which characters they use.
+            for text in doc.pages.iter().flat_map(|page| page.text.iter()) {
                 for command in &text.commands {
                     match command {
-                        TextCommand::Text(string)
-                          => char_sets[current_font].extend(string.chars()),
-                        TextCommand::SetFont(id, _) => current_font = *id,
+                        TextCommand::Text(string) => chars[font].extend(string.chars()),
+                        TextCommand::SetFont(id, _) => font = *id,
                         _ => {},
                     }
                 }
             }
-        }
 
-        // Create a subsetted pdf font.
-        let fonts = doc.fonts.iter().enumerate().map(|(i, font)| {
-            PdfFont::new(font, &char_sets[i])
-        }).collect::<PdfResult<Vec<_>>>()?;
+            doc.fonts.iter()
+                .enumerate()
+                .map(|(i, font)| PdfFont::new(font, &chars[i]))
+                .collect::<PdfResult<Vec<_>>>()?
+        };
 
-        Ok(PdfCreator {
+        Ok(PdfEngine {
             writer: PdfWriter::new(target),
             doc,
             offsets,
@@ -78,58 +95,40 @@ impl<'a, W: Write> PdfCreator<'a, W> {
     }
 
     /// Write the complete document.
-    pub fn write(&mut self) -> PdfResult<usize> {
-        // Header
+    fn write(&mut self) -> PdfResult<usize> {
+        // Write all the things!
         self.writer.write_header(&Version::new(1, 7))?;
-
-        // Document catalog, page tree and pages
         self.write_pages()?;
-
-        // Contents
         self.write_contents()?;
-
-        // Fonts
         self.write_fonts()?;
-
-        // Cross-reference table
         self.writer.write_xref_table()?;
-
-        // Trailer
         self.writer.write_trailer(&Trailer::new(self.offsets.catalog))?;
-
         Ok(self.writer.written())
     }
 
-    /// Write the document catalog, page tree and pages.
+    /// Write the document catalog and page tree.
     fn write_pages(&mut self) -> PdfResult<()> {
-        // The document catalog
-        self.writer.write_obj(self.offsets.catalog,
-            &Catalog::new(self.offsets.page_tree))?;
+        // The document catalog.
+        self.writer.write_obj(self.offsets.catalog, &Catalog::new(self.offsets.page_tree))?;
 
-        // Root page tree
+        // The root page tree.
         self.writer.write_obj(self.offsets.page_tree, PageTree::new()
-            .kids(self.offsets.pages.0 ..= self.offsets.pages.1)
+            .kids(ids(self.offsets.pages))
             .resource(Resource::Font(1, self.offsets.fonts.0))
         )?;
 
-        // The page objects
-        let mut id = self.offsets.pages.0;
-        for page in &self.doc.pages {
+        // The page objects.
+        for (id, page) in ids(self.offsets.pages).zip(&self.doc.pages) {
             self.writer.write_obj(id, Page::new(self.offsets.page_tree)
-                .media_box(Rect::new(
-                    0.0, 0.0,
-                    page.width.to_points(), page.height.to_points())
-                )
-                .contents(self.offsets.contents.0 ..= self.offsets.contents.1)
+                .media_box(Rect::new(0.0, 0.0, page.width.to_points(), page.height.to_points()))
+                .contents(ids(self.offsets.contents))
             )?;
-
-            id += 1;
         }
 
         Ok(())
     }
 
-    /// Write the page contents.
+    /// Write the contents of all pages.
     fn write_contents(&mut self) -> PdfResult<()> {
         let mut id = self.offsets.contents.0;
         for page in &self.doc.pages {
@@ -141,40 +140,40 @@ impl<'a, W: Write> PdfCreator<'a, W> {
         Ok(())
     }
 
-    fn write_text(&mut self, id: u32, text: &DocText) -> PdfResult<()> {
-        let mut object = Text::new();
-        let mut current_font = 0;
+    /// Write one text object.
+    fn write_text(&mut self, id: u32, doc_text: &DocText) -> PdfResult<()> {
+        let mut font = 0;
+        let mut text = Text::new();
 
-        for command in &text.commands {
+        for command in &doc_text.commands {
             match command {
-                TextCommand::Text(string) => {
-                    let encoded = self.fonts[current_font].encode(&string);
-                    object.tj(encoded);
-                },
+                TextCommand::Text(string) => { text.tj(self.fonts[font].encode(&string)); },
+                TextCommand::Move(x, y) => { text.td(x.to_points(), y.to_points()); },
                 TextCommand::SetFont(id, size) => {
-                    current_font = *id;
-                    object.tf(*id as u32 + 1, *size);
+                    font = *id;
+                    text.tf(*id as u32 + 1, *size);
                 },
-                TextCommand::Move(x, y) => { object.td(x.to_points(), y.to_points()); },
             }
         }
 
-        self.writer.write_obj(id, &object.to_stream())?;
+        self.writer.write_obj(id, &text.to_stream())?;
 
         Ok(())
     }
 
-    /// Write the fonts.
+    /// Write all the fonts.
     fn write_fonts(&mut self) -> PdfResult<()> {
         let mut id = self.offsets.fonts.0;
 
         for font in &self.fonts {
+            // Write the base font object referencing the CID font.
             self.writer.write_obj(id, &Type0Font::new(
                 font.name.clone(),
                 CMapEncoding::Predefined("Identity-H".to_owned()),
                 id + 1
             ))?;
 
+            // Write the CID font referencing the font descriptor.
             self.writer.write_obj(id + 1,
                 CIDFont::new(
                     CIDFontType::Type2,
@@ -184,6 +183,7 @@ impl<'a, W: Write> PdfCreator<'a, W> {
                 ).widths(vec![WidthRecord::start(0, font.widths.clone())])
             )?;
 
+            // Write the font descriptor (contains the global information about the font).
             self.writer.write_obj(id + 2,
                 FontDescriptor::new(
                     font.name.clone(),
@@ -198,6 +198,7 @@ impl<'a, W: Write> PdfCreator<'a, W> {
                 .font_file_3(id + 3)
             )?;
 
+            // Finally write the subsetted font program.
             self.writer.write_obj(id + 3, &FontStream::new(
                 &font.program,
                 EmbeddedFontType::OpenType,
@@ -210,7 +211,13 @@ impl<'a, W: Write> PdfCreator<'a, W> {
     }
 }
 
+/// Create an iterator from reference pair.
+fn ids((start, end): (Ref, Ref)) -> impl Iterator<Item=Ref> {
+    start ..= end
+}
+
 /// The data we need from the font.
+#[derive(Debug, Clone)]
 struct PdfFont {
     font: Font,
     widths: Vec<GlyphUnit>,
@@ -226,7 +233,12 @@ struct PdfFont {
 impl PdfFont {
     /// Create a subetted version of the font and calculate some information
     /// needed for creating the _PDF_.
-    pub fn new(font: &Font, chars: &HashSet<char>) -> PdfResult<PdfFont> {
+    fn new(font: &Font, chars: &HashSet<char>) -> PdfResult<PdfFont> {
+        /// Convert a size into a _PDF_ glyph unit.
+        fn size_to_glyph_unit(size: Size) -> GlyphUnit {
+            (1000.0 * size.to_points()).round() as GlyphUnit
+        }
+
         // Subset the font using the selected characters
         let subsetted = font.subsetted(
             chars.iter().cloned(),
@@ -264,11 +276,6 @@ impl PdfFont {
     }
 }
 
-/// Convert a size into a _PDF_ glyph unit.
-fn size_to_glyph_unit(size: Size) -> GlyphUnit {
-    (1000.0 * size.to_points()).round() as GlyphUnit
-}
-
 impl std::ops::Deref for PdfFont {
     type Target = Font;
 
@@ -278,53 +285,48 @@ impl std::ops::Deref for PdfFont {
 }
 
 /// Result type for _PDF_ creation.
-type PdfResult<T> = std::result::Result<T, PdfError>;
+type PdfResult<T> = std::result::Result<T, PdfExportError>;
 
 /// The error type for _PDF_ creation.
-pub enum PdfError {
+pub enum PdfExportError {
     /// An error occured while subsetting the font for the _PDF_.
     Font(FontError),
     /// An I/O Error on the underlying writable occured.
     Io(io::Error),
 }
 
-impl error::Error for PdfError {
-    #[inline]
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+impl std::error::Error for PdfExportError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            PdfError::Font(err) => Some(err),
-            PdfError::Io(err) => Some(err),
+            PdfExportError::Font(err) => Some(err),
+            PdfExportError::Io(err) => Some(err),
         }
     }
 }
 
-impl fmt::Display for PdfError {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Display for PdfExportError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            PdfError::Font(err) => write!(f, "font error: {}", err),
-            PdfError::Io(err) => write!(f, "io error: {}", err),
+            PdfExportError::Font(err) => write!(f, "font error: {}", err),
+            PdfExportError::Io(err) => write!(f, "io error: {}", err),
         }
     }
 }
 
-impl fmt::Debug for PdfError {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(self, f)
+impl Debug for PdfExportError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(self, f)
     }
 }
 
-impl From<io::Error> for PdfError {
-    #[inline]
-    fn from(err: io::Error) -> PdfError {
-        PdfError::Io(err)
+impl From<io::Error> for PdfExportError {
+    fn from(err: io::Error) -> PdfExportError {
+        PdfExportError::Io(err)
     }
 }
 
-impl From<FontError> for PdfError {
-    #[inline]
-    fn from(err: FontError) -> PdfError {
-        PdfError::Font(err)
+impl From<FontError> for PdfExportError {
+    fn from(err: FontError) -> PdfExportError {
+        PdfExportError::Font(err)
     }
 }
