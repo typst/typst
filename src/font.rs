@@ -206,25 +206,72 @@ pub struct FontInfo {
 
 /// A macro to create [FontInfos](crate::font::FontInfo) easily.
 ///
+/// Accepts first a bracketed (ordered) list of font families. Allowed are string expressions
+/// aswell as the three base families `SansSerif`, `Serif` and `Monospace`.
+///
+/// Then there may follow (separated by commas) the keywords `italic` and/or `bold`.
+///
+/// # Examples
+/// The font _Noto Sans_ in regular typeface.
 /// ```
 /// # use typeset::font_info;
-/// font_info!(
-///     "NotoSans",              // Font family name
-///     [SansSerif],             // Generic families
-///     false, false             // Bold & Italic
-/// );
+/// font_info!(["NotoSans", "Noto", SansSerif]);
+/// ```
+///
+/// The font font _Noto Serif_ in italics and boldface.
+/// ```
+/// # use typeset::font_info;
+/// font_info!(["NotoSerif", "Noto", Serif], italic, bold);
+/// ```
+///
+/// The font _Arial_ in italics.
+/// ```
+/// # use typeset::font_info;
+/// font_info!(["Arial", SansSerif], italic);
+/// ```
+///
+/// The font _Noto Emoji_, which works with all base families. 🙂
+/// ```
+/// # use typeset::font_info;
+/// font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace]);
 /// ```
 #[macro_export]
 macro_rules! font_info {
-    ($family:expr, [$($generic:ident),*], $bold:expr, $italic:expr) => {{
-        let mut families = vec![$crate::font::FontFamily::Named($family.to_string())];
-        families.extend([$($crate::font::FontFamily::$generic),*].iter().cloned());
-        $crate::font::FontInfo {
-            families,
-            italic: $italic,
-            bold: $bold,
-        }
+    // Entry point
+    ([$($tts:tt)*] $(,$style:tt)*) => {{
+        let mut families = Vec::new();
+        font_info!(@__fam families, $($tts)*);
+
+        #[allow(unused)] let mut italic = false;
+        #[allow(unused)] let mut bold = false;
+        $( font_info!(@__sty (italic, bold) $style); )*
+
+        $crate::font::FontInfo { families, italic, bold }
     }};
+
+    // Parse family list
+    (@__fam $v:expr) => {};
+    (@__fam $v:expr, $f:ident) => { $v.push(font_info!(@__gen $f)); };
+    (@__fam $v:expr, $f:ident, $($tts:tt)*) => {
+        font_info!(@__fam $v, $f);
+        font_info!(@__fam $v, $($tts)*)
+    };
+    (@__fam $v:expr, $f:expr) => {
+        $v.push( $crate::font::FontFamily::Named($f.to_string()));
+    };
+    (@__fam $v:expr, $f:expr, $($tts:tt)*) => {
+        font_info!(@__fam $v, $f);
+        font_info!(@__fam $v, $($tts)*)
+    };
+
+    // Parse styles (italic/bold)
+    (@__sty ($i:ident, $b:ident) italic) => { $i = true; };
+    (@__sty ($i:ident, $b:ident) bold) => { $b = true; };
+
+    // Parse enum variants
+    (@__gen SansSerif) => {  $crate::font::FontFamily::SansSerif };
+    (@__gen Serif) => {  $crate::font::FontFamily::Serif };
+    (@__gen Monospace) => {  $crate::font::FontFamily::Monospace };
 }
 
 /// Criteria to filter fonts.
@@ -295,8 +342,8 @@ impl FileSystemFontProvider {
     /// ```
     /// # use typeset::{font::FileSystemFontProvider, font_info};
     /// FileSystemFontProvider::new("../fonts", vec![
-    ///     ("NotoSans-Regular.ttf", font_info!("NotoSans", [SansSerif], false, false)),
-    ///     ("NotoSans-Italic.ttf", font_info!("NotoSans", [SansSerif], false, true)),
+    ///     ("NotoSans-Regular.ttf", font_info!(["NotoSans", SansSerif])),
+    ///     ("NotoSans-Italic.ttf", font_info!(["NotoSans", SansSerif], italic)),
     /// ]);
     /// ```
     pub fn new<B, I, P>(base: B, infos: I) -> FileSystemFontProvider
@@ -794,4 +841,42 @@ error_type! {
         OpentypeError::Io(err) => FontError::Io(err),
         _ => panic!("unexpected extensible variant"),
     }),
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Tests the font info macro.
+    #[test]
+    fn font_info_macro() {
+        use FontFamily::{SansSerif as S, Serif as F, Monospace as M};
+        #[allow(non_snake_case)]
+        fn N(family: &str) -> FontFamily { FontFamily::Named(family.to_string()) }
+
+        assert_eq!(font_info!(["NotoSans", "Noto", SansSerif]), FontInfo {
+            families: vec![N("NotoSans"), N("Noto"), S],
+            italic: false,
+            bold: false,
+        });
+
+        assert_eq!(font_info!(["NotoSerif", Serif, "Noto"], italic), FontInfo {
+            families: vec![N("NotoSerif"), F, N("Noto")],
+            italic: true,
+            bold: false,
+        });
+
+        assert_eq!(font_info!(["NotoSans", "Noto", SansSerif], italic, bold), FontInfo {
+            families: vec![N("NotoSans"), N("Noto"), S],
+            italic: true,
+            bold: true,
+        });
+
+        assert_eq!(font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace]), FontInfo {
+            families: vec![N("NotoEmoji"), N("Noto"), S, F, M],
+            italic: false,
+            bold: false,
+        });
+    }
 }

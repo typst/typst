@@ -25,8 +25,9 @@
 //! // (the default sans-serif fonts and a fallback for the emoji).
 //! let mut compiler = Compiler::new();
 //! compiler.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
-//!     // Font family name, generic families, file, bold, italic
-//!     ("NotoSans-Regular.ttf", font_info!("NotoSans", [SansSerif], false, false)),
+//!     ("NotoSans-Regular.ttf", font_info!(["NotoSans", "Noto", SansSerif])),
+//!     ("NotoSans-Italic.ttf", font_info!(["NotoSans", "Noto", SansSerif], italic)),
+//!     ("NotoEmoji-Regular.ttf", font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
 //! ]));
 //!
 //! // Compile the source code with the compiler.
@@ -152,13 +153,12 @@ mod test {
         // Create compiler
         let mut compiler = Compiler::new();
         compiler.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
-            ("NotoSans-Regular.ttf", font_info!("NotoSans", [SansSerif], false, false)),
-            ("NotoSans-Bold.ttf", font_info!("NotoSans", [SansSerif], true, false)),
-            ("NotoSans-Italic.ttf", font_info!("NotoSans", [SansSerif], false, true)),
-            ("NotoSans-BoldItalic.ttf", font_info!("NotoSans", [SansSerif], true, true)),
-            ("NotoSansMath-Regular.ttf", font_info!("NotoSansMath", [SansSerif], false, false)),
-            ("NotoEmoji-Regular.ttf",
-             font_info!("NotoEmoji", [SansSerif, Serif, Monospace], false, false)),
+            ("NotoSans-Regular.ttf",     font_info!(["NotoSans", "Noto", SansSerif])),
+            ("NotoSans-Italic.ttf",      font_info!(["NotoSans", "Noto", SansSerif], italic)),
+            ("NotoSans-Bold.ttf",        font_info!(["NotoSans", "Noto", SansSerif], bold)),
+            ("NotoSans-BoldItalic.ttf",  font_info!(["NotoSans", "Noto", SansSerif], italic, bold)),
+            ("NotoSansMath-Regular.ttf", font_info!(["NotoSansMath", "Noto", SansSerif])),
+            ("NotoEmoji-Regular.ttf",    font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
         ]));
 
         // Compile into document
