@@ -1,14 +1,11 @@
 //! Exporting into _PDF_ documents.
 
 use std::collections::HashSet;
-use std::fmt::{self, Display, Debug, Formatter};
 use std::io::{self, Write};
-
 use pdf::{PdfWriter, Ref, Rect, Version, Trailer, Content};
 use pdf::doc::{Catalog, PageTree, Page, Resource, Text};
 use pdf::font::{Type0Font, CIDFont, CIDFontType, CIDSystemInfo, FontDescriptor, FontFlags};
 use pdf::font::{GlyphUnit, CMapEncoding, WidthRecord, FontStream, EmbeddedFontType};
-
 use crate::doc::{Document, Size, Text as DocText, TextCommand};
 use crate::font::{Font, FontError};
 
@@ -284,9 +281,6 @@ impl std::ops::Deref for PdfFont {
     }
 }
 
-/// Result type for _PDF_ creation.
-type PdfResult<T> = std::result::Result<T, PdfExportError>;
-
 /// The error type for _PDF_ creation.
 pub enum PdfExportError {
     /// An error occured while subsetting the font for the _PDF_.
@@ -295,38 +289,17 @@ pub enum PdfExportError {
     Io(io::Error),
 }
 
-impl std::error::Error for PdfExportError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            PdfExportError::Font(err) => Some(err),
-            PdfExportError::Io(err) => Some(err),
-        }
-    }
-}
-
-impl Display for PdfExportError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            PdfExportError::Font(err) => write!(f, "font error: {}", err),
-            PdfExportError::Io(err) => write!(f, "io error: {}", err),
-        }
-    }
-}
-
-impl Debug for PdfExportError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
-    }
-}
-
-impl From<io::Error> for PdfExportError {
-    fn from(err: io::Error) -> PdfExportError {
-        PdfExportError::Io(err)
-    }
-}
-
-impl From<FontError> for PdfExportError {
-    fn from(err: FontError) -> PdfExportError {
-        PdfExportError::Font(err)
-    }
+error_type! {
+    err: PdfExportError,
+    res: PdfResult,
+    show: f => match err {
+        PdfExportError::Font(err) => write!(f, "font error: {}", err),
+        PdfExportError::Io(err) => write!(f, "io error: {}", err),
+    },
+    source: match err {
+        PdfExportError::Font(err) => Some(err),
+        PdfExportError::Io(err) => Some(err),
+    },
+    from: (io::Error, PdfExportError::Io(err)),
+    from: (FontError, PdfExportError::Font(err)),
 }

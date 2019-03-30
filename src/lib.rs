@@ -38,20 +38,21 @@
 //! exporter.export(&document, &mut file).unwrap();
 //! ```
 
-use std::fmt::{self, Display, Debug, Formatter};
 use crate::syntax::SyntaxTree;
 use crate::parsing::{Tokens, Parser, ParseError};
 use crate::doc::{Document, Style};
 use crate::font::FontProvider;
 use crate::engine::{Engine, TypesetError};
 
+#[macro_use]
+mod error;
+mod utility;
 pub mod doc;
 pub mod engine;
 pub mod export;
 pub mod font;
 pub mod parsing;
 pub mod syntax;
-mod utility;
 
 
 /// Transforms source code into typesetted documents.
@@ -120,42 +121,19 @@ pub enum Error {
     Typeset(TypesetError),
 }
 
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Error::Parse(err) => Some(err),
-            Error::Typeset(err) => Some(err),
-        }
-    }
+error_type! {
+    err: Error,
+    show: f => match err {
+        Error::Parse(e) => write!(f, "parse error: {}", e),
+        Error::Typeset(e) => write!(f, "typeset error: {}", e),
+    },
+    source: match err {
+        Error::Parse(e) => Some(e),
+        Error::Typeset(e) => Some(e),
+    },
+    from: (ParseError, Error::Parse(err)),
+    from: (TypesetError, Error::Typeset(err)),
 }
-
-impl Display for Error {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Error::Parse(err) => write!(f, "parse error: {}", err),
-            Error::Typeset(err) => write!(f, "typeset error: {}", err),
-        }
-    }
-}
-
-impl Debug for Error {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
-    }
-}
-
-impl From<ParseError> for Error {
-    fn from(err: ParseError) -> Error {
-        Error::Parse(err)
-    }
-}
-
-impl From<TypesetError> for Error {
-    fn from(err: TypesetError) -> Error {
-        Error::Typeset(err)
-    }
-}
-
 
 #[cfg(test)]
 mod test {

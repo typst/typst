@@ -1,6 +1,5 @@
 //! Parsing of source code into tokens and syntax trees.
 
-use std::error;
 use std::fmt;
 use std::iter::Peekable;
 use std::mem::swap;
@@ -9,7 +8,7 @@ use crate::syntax::*;
 use crate::utility::{Splinor, Spline, Splined, StrExt};
 
 
-/// An iterator over the tokens of a text.
+/// An iterator over the tokens of source code.
 #[derive(Clone)]
 pub struct Tokens<'s> {
     source: &'s str,
@@ -211,7 +210,7 @@ impl<'s> Tokens<'s> {
     }
 }
 
-/// Parses a token stream into an abstract syntax tree.
+/// Transforms token streams to syntax trees.
 #[derive(Debug, Clone)]
 pub struct Parser<'s, T> where T: Iterator<Item = Token<'s>> {
     tokens: Peekable<T>,
@@ -355,30 +354,17 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item = Token<'s>> {
     }
 }
 
-/// Result type used for parsing.
-type ParseResult<T> = std::result::Result<T, ParseError>;
-
 /// The error type for parsing.
 pub struct ParseError {
-    /// A message describing the error.
     message: String,
 }
 
-impl error::Error for ParseError {}
-
-impl fmt::Display for ParseError {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(&self.message)
-    }
+error_type! {
+    err: ParseError,
+    res: ParseResult,
+    show: f => f.write_str(&err.message),
 }
 
-impl fmt::Debug for ParseError {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(self, f)
-    }
-}
 
 #[cfg(test)]
 mod token_tests {

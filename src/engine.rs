@@ -1,8 +1,5 @@
 //! Core typesetting engine.
 
-use std::io;
-use std::error;
-use std::fmt;
 use crate::syntax::{SyntaxTree, Node};
 use crate::doc::{Document, Size, Page, Text, TextCommand};
 use crate::font::{Font, FontConfig, FontError};
@@ -141,58 +138,25 @@ impl<'a> Engine<'a> {
     }
 }
 
-/// Result type used for typesetting.
-type TypeResult<T> = std::result::Result<T, TypesetError>;
-
 /// The error type for typesetting.
 pub enum TypesetError {
     /// There was no suitable font.
     MissingFont,
     /// An error occured while gathering font data.
     Font(FontError),
-    /// An I/O Error on occured while reading a font.
-    Io(io::Error),
 }
 
-impl error::Error for TypesetError {
-    #[inline]
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self {
-            TypesetError::Font(err) => Some(err),
-            TypesetError::Io(err) => Some(err),
-            _ => None,
-        }
-    }
-}
-
-impl fmt::Display for TypesetError {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            TypesetError::MissingFont => write!(f, "missing font"),
-            TypesetError::Font(err) => write!(f, "font error: {}", err),
-            TypesetError::Io(err) => write!(f, "io error: {}", err),
-        }
-    }
-}
-
-impl fmt::Debug for TypesetError {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(self, f)
-    }
-}
-
-impl From<io::Error> for TypesetError {
-    #[inline]
-    fn from(err: io::Error) -> TypesetError {
-        TypesetError::Io(err)
-    }
-}
-
-impl From<FontError> for TypesetError {
-    #[inline]
-    fn from(err: FontError) -> TypesetError {
-        TypesetError::Font(err)
-    }
+error_type! {
+    err: TypesetError,
+    res: TypeResult,
+    show: f => match err {
+        TypesetError::MissingFont => write!(f, "missing font"),
+        TypesetError::Font(err) => write!(f, "font error: {}", err),
+    },
+    source: match err {
+        TypesetError::Font(err) => Some(err),
+        _ => None,
+    },
+    from: (std::io::Error, TypesetError::Font(FontError::Io(err))),
+    from: (FontError, TypesetError::Font(err)),
 }

@@ -3,8 +3,6 @@
 #![macro_use]
 
 use std::collections::HashMap;
-use std::error;
-use std::fmt;
 use std::path::{Path, PathBuf};
 use std::io::{self, Cursor, Read, Seek, SeekFrom};
 use byteorder::{BE, ReadBytesExt, WriteBytesExt};
@@ -715,8 +713,6 @@ impl FontProvider for FileFontProvider<'_> {
     }
 }
 
-type FontResult<T> = Result<T, FontError>;
-
 /// The error type for font operations.
 pub enum FontError {
     /// The font file is incorrect.
@@ -731,50 +727,25 @@ pub enum FontError {
     Io(io::Error),
 }
 
-impl error::Error for FontError {
-    #[inline]
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self {
-            FontError::Io(err) => Some(err),
-            _ => None,
-        }
-    }
-}
-
-impl fmt::Display for FontError {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            FontError::InvalidFont(message) => write!(f, "invalid font: {}", message),
-            FontError::MissingTable(table) => write!(f, "missing table: {}", table),
-            FontError::UnsupportedTable(table) => write!(f, "unsupported table: {}", table),
-            FontError::MissingCharacter(c) => write!(f, "missing character: '{}'", c),
-            FontError::Io(err) => write!(f, "io error: {}", err),
-        }
-    }
-}
-
-impl fmt::Debug for FontError {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(self, f)
-    }
-}
-
-impl From<io::Error> for FontError {
-    #[inline]
-    fn from(err: io::Error) -> FontError {
-        FontError::Io(err)
-    }
-}
-
-impl From<OpentypeError> for FontError {
-    fn from(err: OpentypeError) -> FontError {
-        match err {
-            OpentypeError::InvalidFont(message) => FontError::InvalidFont(message),
-            OpentypeError::MissingTable(tag) => FontError::MissingTable(tag.to_string()),
-            OpentypeError::Io(err) => FontError::Io(err),
-            _ => panic!("unexpected extensible variant"),
-        }
-    }
+error_type! {
+    err: FontError,
+    res: FontResult,
+    show: f => match err {
+        FontError::InvalidFont(message) => write!(f, "invalid font: {}", message),
+        FontError::MissingTable(table) => write!(f, "missing table: {}", table),
+        FontError::UnsupportedTable(table) => write!(f, "unsupported table: {}", table),
+        FontError::MissingCharacter(c) => write!(f, "missing character: '{}'", c),
+        FontError::Io(err) => write!(f, "io error: {}", err),
+    },
+    source: match err {
+        FontError::Io(err) => Some(err),
+        _ => None,
+    },
+    from: (io::Error, FontError::Io(err)),
+    from: (OpentypeError, match err {
+        OpentypeError::InvalidFont(message) => FontError::InvalidFont(message),
+        OpentypeError::MissingTable(tag) => FontError::MissingTable(tag.to_string()),
+        OpentypeError::Io(err) => FontError::Io(err),
+        _ => panic!("unexpected extensible variant"),
+    }),
 }
