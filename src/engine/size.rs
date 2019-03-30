@@ -4,7 +4,7 @@ use std::iter::Sum;
 use std::ops::*;
 
 
-/// A general distance type that can convert between units.
+/// A general size (unit of length) type.
 #[derive(Copy, Clone, PartialEq)]
 pub struct Size {
     /// The size in typographic points (1/72 inches).

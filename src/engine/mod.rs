@@ -2,7 +2,7 @@
 
 use crate::syntax::{SyntaxTree, Node};
 use crate::doc::{Document, Page, Text, TextCommand};
-use crate::font::{Font, FontFamily, FontConfig, FontError};
+use crate::font::{Font, FontFamily, FontFilter, FontError};
 use crate::Context;
 
 mod size;
@@ -41,13 +41,18 @@ impl<'a> Engine<'a> {
     pub fn typeset(mut self) -> TypeResult<Document> {
         // Load font defined by style
         let mut font = None;
-        let config = FontConfig::new(self.ctx.style.font_families.clone());
+        let filter = FontFilter::new(&self.ctx.style.font_families);
         for provider in &self.ctx.font_providers {
-            if let Some(mut source) = provider.provide(&config) {
-                let mut program = Vec::new();
-                source.read_to_end(&mut program)?;
-                font = Some(Font::new(program)?);
-                break;
+            let available = provider.available();
+            for info in available {
+                if filter.matches(info) {
+                    if let Some(mut source) = provider.get(info) {
+                        let mut program = Vec::new();
+                        source.read_to_end(&mut program)?;
+                        font = Some(Font::new(program)?);
+                        break;
+                    }
+                }
             }
         }
 
@@ -141,7 +146,7 @@ impl<'a> Engine<'a> {
     }
 }
 
-/// Default styles for a document.
+/// Default styles for typesetting.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Style {
     /// The width of the paper.

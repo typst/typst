@@ -15,7 +15,7 @@
 //! ```
 //! use std::fs::File;
 //! use typeset::Compiler;
-//! use typeset::{font::FileFontProvider, file_font};
+//! use typeset::{font::FileSystemFontProvider, font_info};
 //! use typeset::export::pdf::PdfExporter;
 //!
 //! // Simple example source code.
@@ -24,9 +24,9 @@
 //! // Create a compiler with a font provider that provides three fonts
 //! // (the default sans-serif fonts and a fallback for the emoji).
 //! let mut compiler = Compiler::new();
-//! compiler.add_font_provider(FileFontProvider::new("../fonts", vec![
+//! compiler.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
 //!     // Font family name, generic families, file, bold, italic
-//!     file_font!("NotoSans", [SansSerif], "NotoSans-Regular.ttf", false, false),
+//!     ("NotoSans-Regular.ttf", font_info!("NotoSans", [SansSerif], false, false)),
 //! ]));
 //!
 //! // Compile the source code with the compiler.
@@ -145,21 +145,20 @@ mod test {
     use std::fs::File;
     use crate::Compiler;
     use crate::export::pdf::PdfExporter;
-    use crate::font::FileFontProvider;
+    use crate::font::FileSystemFontProvider;
 
     /// Create a pdf with a name from the source code.
     fn test(name: &str, src: &str) {
         // Create compiler
         let mut compiler = Compiler::new();
-        compiler.add_font_provider(FileFontProvider::new("../fonts", vec![
-            // Font family name, generic families, file, bold, italic
-            file_font!("NotoSans", [SansSerif], "NotoSans-Regular.ttf", false, false),
-            file_font!("NotoSans", [SansSerif], "NotoSans-Bold.ttf", true, false),
-            file_font!("NotoSans", [SansSerif], "NotoSans-Italic.ttf", false, true),
-            file_font!("NotoSans", [SansSerif], "NotoSans-BoldItalic.ttf", true, true),
-            file_font!("NotoSansMath", [SansSerif], "NotoSansMath-Regular.ttf", false, false),
-            file_font!("NotoEmoji", [SansSerif, Serif, Monospace],
-                       "NotoEmoji-Regular.ttf", false, false),
+        compiler.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
+            ("NotoSans-Regular.ttf", font_info!("NotoSans", [SansSerif], false, false)),
+            ("NotoSans-Bold.ttf", font_info!("NotoSans", [SansSerif], true, false)),
+            ("NotoSans-Italic.ttf", font_info!("NotoSans", [SansSerif], false, true)),
+            ("NotoSans-BoldItalic.ttf", font_info!("NotoSans", [SansSerif], true, true)),
+            ("NotoSansMath-Regular.ttf", font_info!("NotoSansMath", [SansSerif], false, false)),
+            ("NotoEmoji-Regular.ttf",
+             font_info!("NotoEmoji", [SansSerif, Serif, Monospace], false, false)),
         ]));
 
         // Compile into document

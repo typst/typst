@@ -5,7 +5,7 @@ use crate::engine::Size;
 
 
 /// A complete typesetted document, which can be exported.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Document {
     /// The pages of the document.
     pub pages: Vec<Page>,
@@ -14,7 +14,7 @@ pub struct Document {
 }
 
 /// A page with text contents in a document.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Page {
     /// The width of the page.
     pub width: Size,
@@ -25,14 +25,14 @@ pub struct Page {
 }
 
 /// A series of text command, that can be written on to a page.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Text {
     /// The text commands.
     pub commands: Vec<TextCommand>,
 }
 
 /// Different commands for rendering text.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum TextCommand {
     /// Writing of the text.
     Text(String),

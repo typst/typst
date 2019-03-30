@@ -240,8 +240,8 @@ impl PdfFont {
         // Subset the font using the selected characters
         let subsetted = font.subsetted(
             chars.iter().cloned(),
-            &["head", "hhea", "maxp", "hmtx", "loca", "glyf"],
-            &["cvt ", "prep", "fpgm", /* "OS/2", "cmap", "name", "post" */],
+            &["head", "hhea", "maxp", "hmtx", "loca", "glyf"][..],
+            &["cvt ", "prep", "fpgm"][..],
         )?;
 
         // Specify flags for the font
