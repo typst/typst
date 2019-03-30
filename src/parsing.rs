@@ -1,4 +1,4 @@
-//! Parsing of source code into tokens and syntax trees.
+//! Tokenization and parsing of source code into syntax trees.
 
 use std::fmt;
 use std::iter::Peekable;
@@ -474,7 +474,6 @@ mod token_tests {
                   W("Third"), S, W("line"), N]);
     }
 }
-
 
 #[cfg(test)]
 mod parse_tests {

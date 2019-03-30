@@ -1,6 +1,4 @@
-//! Font loading, utility and subsetting.
-
-#![macro_use]
+//! Font loading and transforming.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -9,7 +7,7 @@ use byteorder::{BE, ReadBytesExt, WriteBytesExt};
 use opentype::{Error as OpentypeError, OpenTypeReader, Outlines, TableRecord, Tag};
 use opentype::tables::{Header, Name, CharMap, MaximumProfile, HorizontalMetrics, Post, OS2};
 use opentype::global::{MacStyleFlags, NameEntry};
-use crate::doc::{Size, FontFamily};
+use crate::engine::Size;
 
 
 /// An font wrapper which allows to subset a font.
@@ -54,8 +52,8 @@ impl Font {
     /// Create a new font from a font program.
     pub fn new(program: Vec<u8>) -> FontResult<Font> {
         // Create opentype reader to parse font tables
-        let mut readable = Cursor::new(&program);
-        let mut reader = OpenTypeReader::new(&mut readable);
+        let cursor = Cursor::new(&program);
+        let mut reader = OpenTypeReader::new(cursor);
 
         // Read the relevant tables
         // (all of these are required by the OpenType specification)
@@ -586,8 +584,6 @@ impl<T> TakeInvalid<T> for Option<T> {
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-
 /// A type that provides fonts matching given criteria.
 pub trait FontProvider {
     /// Returns a font matching the configuration
@@ -599,7 +595,17 @@ pub trait FontProvider {
 ///
 /// Automatically implemented for all types that are [`Read`] and [`Seek`].
 pub trait FontSource: Read + Seek {}
+
 impl<T> FontSource for T where T: Read + Seek {}
+
+/// A family of fonts (either generic or named).
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum FontFamily {
+    SansSerif,
+    Serif,
+    Monospace,
+    Named(String),
+}
 
 /// Criteria to filter fonts.
 #[derive(Debug, Clone, PartialEq)]
@@ -694,8 +700,8 @@ impl FileFontDescriptor<'_> {
 #[macro_export]
 macro_rules! file_font {
     ($family:expr, [$($generic:ident),*], $path:expr, $bold:expr, $italic:expr) => {{
-        let mut families = vec![$crate::doc::FontFamily::Named($family.to_string())];
-        families.extend([$($crate::doc::FontFamily::$generic),*].iter().cloned());
+        let mut families = vec![$crate::font::FontFamily::Named($family.to_string())];
+        families.extend([$($crate::font::FontFamily::$generic),*].iter().cloned());
         $crate::font::FileFontDescriptor {
             path: std::path::Path::new($path),
             families,

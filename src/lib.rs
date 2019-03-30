@@ -33,16 +33,19 @@
 //! let document = compiler.typeset(src).unwrap();
 //!
 //! // Export the document into a PDF file.
-//! let mut file = File::create("hello-typeset.pdf").unwrap();
+//! # /*
+//! let file = File::create("hello-typeset.pdf").unwrap();
+//! # */
+//! # let file = File::create("../target/typeset-hello.pdf").unwrap();
 //! let exporter = PdfExporter::new();
-//! exporter.export(&document, &mut file).unwrap();
+//! exporter.export(&document, file).unwrap();
 //! ```
 
 use crate::syntax::SyntaxTree;
 use crate::parsing::{Tokens, Parser, ParseError};
-use crate::doc::{Document, Style};
+use crate::doc::Document;
 use crate::font::FontProvider;
-use crate::engine::{Engine, TypesetError};
+use crate::engine::{Engine, Style, TypesetError};
 
 #[macro_use]
 mod error;
@@ -50,6 +53,7 @@ mod utility;
 pub mod doc;
 pub mod engine;
 pub mod export;
+#[macro_use]
 pub mod font;
 pub mod parsing;
 pub mod syntax;
@@ -134,6 +138,7 @@ error_type! {
     from: (ParseError, Error::Parse(err)),
     from: (TypesetError, Error::Typeset(err)),
 }
+
 
 #[cfg(test)]
 mod test {

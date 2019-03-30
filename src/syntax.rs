@@ -1,4 +1,4 @@
-//! Token and abstract syntax tree representations.
+//! Tokenized and syntax tree representations of source code.
 
 
 /// A logical unit of the incoming text stream.

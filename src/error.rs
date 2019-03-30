@@ -1,3 +1,5 @@
+//! Error handling.
+
 /// Create an error type.
 macro_rules! error_type {
     (

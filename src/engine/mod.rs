@@ -1,9 +1,12 @@
 //! Core typesetting engine.
 
 use crate::syntax::{SyntaxTree, Node};
-use crate::doc::{Document, Size, Page, Text, TextCommand};
-use crate::font::{Font, FontConfig, FontError};
+use crate::doc::{Document, Page, Text, TextCommand};
+use crate::font::{Font, FontFamily, FontConfig, FontError};
 use crate::Context;
+
+mod size;
+pub use size::Size;
 
 
 /// The core typesetting engine, transforming an abstract syntax tree into a document.
@@ -135,6 +138,53 @@ impl<'a> Engine<'a> {
             - self.ctx.style.margin_right;
 
         self.current_width + width > max_width
+    }
+}
+
+/// Default styles for a document.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Style {
+    /// The width of the paper.
+    pub width: Size,
+    /// The height of the paper.
+    pub height: Size,
+
+    /// The left margin of the paper.
+    pub margin_left: Size,
+    /// The top margin of the paper.
+    pub margin_top: Size,
+    /// The right margin of the paper.
+    pub margin_right: Size,
+    /// The bottom margin of the paper.
+    pub margin_bottom: Size,
+
+    /// A fallback list of font families to use.
+    pub font_families: Vec<FontFamily>,
+    /// The font size.
+    pub font_size: f32,
+    /// The line spacing (as a multiple of the font size).
+    pub line_spacing: f32,
+}
+
+impl Default for Style {
+    fn default() -> Style {
+        use FontFamily::*;
+        Style {
+            // A4 paper.
+            width: Size::from_mm(210.0),
+            height: Size::from_mm(297.0),
+
+            // Margins. A bit more on top and bottom.
+            margin_left: Size::from_cm(2.5),
+            margin_top: Size::from_cm(3.0),
+            margin_right: Size::from_cm(2.5),
+            margin_bottom: Size::from_cm(3.0),
+
+            // Default font family, font size and line spacing.
+            font_families: vec![SansSerif, Serif, Monospace],
+            font_size: 12.0,
+            line_spacing: 1.25,
+        }
     }
 }
 
