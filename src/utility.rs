@@ -49,7 +49,7 @@ pub struct Spline<'s, T> {
 }
 
 /// Represents either a splitted substring or a splinor.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Splined<'s, T> {
     /// A substring.
     Value(&'s str),

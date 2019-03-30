@@ -44,7 +44,6 @@ enum TokensState<'s> {
 }
 
 impl PartialEq for TokensState<'_> {
-    #[inline]
     fn eq(&self, other: &TokensState) -> bool {
         use TokensState as TS;
 
@@ -184,26 +183,22 @@ impl<'s> Tokens<'s> {
     }
 
     /// Advance the iterator by one step.
-    #[inline]
     fn advance(&mut self) {
         self.words.next();
     }
 
     /// Switch to the given state.
-    #[inline]
     fn switch(&mut self, mut state: TokensState<'s>) {
         swap(&mut state, &mut self.state);
         self.stack.push(state);
     }
 
     /// Go back to the top-of-stack state.
-    #[inline]
     fn unswitch(&mut self) {
          self.state = self.stack.pop().unwrap_or(TokensState::Body);
     }
 
     /// Advance and return the given token.
-    #[inline]
     fn consumed(&mut self, token: Token<'s>) -> Token<'s> {
         self.advance();
         token
@@ -211,8 +206,8 @@ impl<'s> Tokens<'s> {
 }
 
 /// Transforms token streams to syntax trees.
-#[derive(Debug, Clone)]
-pub struct Parser<'s, T> where T: Iterator<Item = Token<'s>> {
+#[derive(Debug)]
+pub struct Parser<'s, T> where T: Iterator<Item=Token<'s>> {
     tokens: Peekable<T>,
     state: ParserState,
     stack: Vec<Function<'s>>,
@@ -220,7 +215,7 @@ pub struct Parser<'s, T> where T: Iterator<Item = Token<'s>> {
 }
 
 /// The state the parser is in.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum ParserState {
     /// The base state of the parser.
     Body,
@@ -228,9 +223,9 @@ enum ParserState {
     Function,
 }
 
-impl<'s, T> Parser<'s, T> where T: Iterator<Item = Token<'s>> {
+impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
     /// Create a new parser from a type that emits results of tokens.
-    pub fn new(tokens: T) -> Parser<'s, T> {
+    pub(crate) fn new(tokens: T) -> Parser<'s, T> {
         Parser {
             tokens: tokens.peekable(),
             state: ParserState::Body,
@@ -240,13 +235,13 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item = Token<'s>> {
     }
 
     /// Parse into an abstract syntax tree.
-    pub fn parse(mut self) -> ParseResult<SyntaxTree<'s>> {
+    pub(crate) fn parse(mut self) -> ParseResult<SyntaxTree<'s>> {
         use ParserState as PS;
 
         while let Some(token) = self.tokens.next() {
             // Comment
             if token == Token::Hashtag {
-                self.skip_while(|t| *t != Token::Newline);
+                self.skip_while(|&t| t != Token::Newline);
                 self.advance();
             }
 
@@ -314,13 +309,11 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item = Token<'s>> {
     }
 
     /// Advance the iterator by one step.
-    #[inline]
     fn advance(&mut self) {
         self.tokens.next();
     }
 
     /// Skip tokens until the condition is met.
-    #[inline]
     fn skip_while<F>(&mut self, f: F) where F: Fn(&Token) -> bool {
         while let Some(token) = self.tokens.peek() {
             if !f(token) {
@@ -331,16 +324,14 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item = Token<'s>> {
     }
 
     /// Switch the state.
-    #[inline]
     fn switch(&mut self, state: ParserState) {
         self.state = state;
     }
 
     /// Append a node to the top-of-stack function or the main tree itself.
-    #[inline]
     fn append(&mut self, node: Node<'s>) {
         let tree = match self.stack.last_mut() {
-            Some(func) => func.body.get_or_insert_with(|| SyntaxTree::new()),
+            Some(func) => func.body.as_mut().unwrap(),
             None => &mut self.tree,
         };
 
@@ -348,7 +339,6 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item = Token<'s>> {
     }
 
     /// Gives a parsing error with a message.
-    #[inline]
     fn err<R, S: Into<String>>(&self, message: S) -> ParseResult<R> {
         Err(ParseError { message: message.into() })
     }

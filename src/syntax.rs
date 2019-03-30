@@ -2,7 +2,7 @@
 
 
 /// A logical unit of the incoming text stream.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Token<'s> {
     /// One or more whitespace (non-newline) codepoints.
     Space,

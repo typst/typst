@@ -2,13 +2,14 @@
 //!
 //! # Compilation
 //! - **Parsing:** The parsing step first transforms a plain string into an
-//!   [iterator of tokens](crate::parsing::Tokens). Then the parser operates on that to construct
-//!   a syntax tree. The structures describing the tree can be found in the [`syntax`] module.
+//!   [iterator of tokens](crate::parsing::Tokens). Then the [parser](crate::parsing::Parser)
+//!   operates on that to construct a syntax tree. The structures describing the tree can be found
+//!   in the [syntax] module.
 //! - **Typesetting:** The next step is to transform the syntax tree into a portable representation
-//!   of the typesetted document. Types for these can be found in the [`doc`] module. This
+//!   of the typesetted document. Types for these can be found in the [doc] module. This
 //!   representation contains already the finished layout.
 //! - **Exporting:** The finished document can then be exported into supported formats. Submodules
-//!   for the supported formats are located in the [`export`] module. Currently the only supported
+//!   for the supported formats are located in the [export] module. Currently the only supported
 //!   format is _PDF_.
 //!
 //! # Example
@@ -82,7 +83,7 @@ impl<'p> Compiler<'p> {
         Compiler {
             context: Context {
                 style: Style::default(),
-                font_providers: Vec::new(),
+                font_providers: vec![],
             }
         }
     }

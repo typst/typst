@@ -5,7 +5,7 @@ use std::ops::*;
 
 
 /// A general size (unit of length) type.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Default)]
 pub struct Size {
     /// The size in typographic points (1/72 inches).
     points: f32,
@@ -62,6 +62,7 @@ impl Debug for Size {
 }
 
 impl PartialOrd for Size {
+    #[inline]
     fn partial_cmp(&self, other: &Size) -> Option<Ordering> {
         self.points.partial_cmp(&other.points)
     }
@@ -70,12 +71,14 @@ impl PartialOrd for Size {
 impl Neg for Size {
     type Output = Size;
 
+    #[inline]
     fn neg(self) -> Size {
         Size { points: -self.points }
     }
 }
 
 impl Sum for Size {
+    #[inline]
     fn sum<I>(iter: I) -> Size where I: Iterator<Item=Size> {
         iter.fold(Size::zero(), Add::add)
     }

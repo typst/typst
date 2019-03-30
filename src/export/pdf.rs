@@ -40,7 +40,7 @@ struct PdfEngine<'d, W: Write> {
 }
 
 /// Offsets for the various groups of ids.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct Offsets {
     catalog: Ref,
     page_tree: Ref,

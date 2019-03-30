@@ -143,8 +143,8 @@ impl Font {
             loca: None,
             glyphs: Vec::with_capacity(chars.len()),
             chars,
-            records: Vec::new(),
-            body: Vec::new(),
+            records: vec![],
+            body: vec![],
         };
 
         subsetter.subset(needed_tables, optional_tables)
@@ -152,7 +152,7 @@ impl Font {
 }
 
 /// Font metrics relevant to the typesetting engine.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct FontMetrics {
     /// Whether the font is italic.
     pub is_italic: bool,
@@ -275,10 +275,10 @@ macro_rules! font_info {
 }
 
 /// Criteria to filter fonts.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FontFilter<'a> {
-    /// A fallback list of font families we accept. The first family in this list, that also
-    /// satisfies the other conditions shall be returned.
+    /// A fallback list of font families to accept. The first family in this list, that also
+    /// satisfies the other conditions, shall be returned.
     pub families: &'a [FontFamily],
     /// If some, matches only italic/non-italic fonts, otherwise any.
     pub italic: Option<bool>,
@@ -298,13 +298,6 @@ impl<'a> FontFilter<'a> {
         }
     }
 
-    /// Whether this filter matches the given info.
-    pub fn matches(&self, info: &FontInfo) -> bool {
-        self.italic.map(|i| i == info.italic).unwrap_or(true)
-          && self.bold.map(|i| i == info.bold).unwrap_or(true)
-          && self.families.iter().any(|family| info.families.contains(family))
-    }
-
     /// Set the italic value to something.
     pub fn italic(&mut self, italic: bool) -> &mut Self {
         self.italic = Some(italic); self
@@ -313,6 +306,13 @@ impl<'a> FontFilter<'a> {
     /// Set the bold value to something.
     pub fn bold(&mut self, bold: bool) -> &mut Self {
         self.bold = Some(bold); self
+    }
+
+    /// Whether this filter matches the given info.
+    pub fn matches(&self, info: &FontInfo) -> bool {
+        self.italic.map(|i| i == info.italic).unwrap_or(true)
+          && self.bold.map(|i| i == info.bold).unwrap_or(true)
+          && self.families.iter().any(|family| info.families.contains(family))
     }
 }
 
@@ -326,6 +326,7 @@ pub enum FontFamily {
 }
 
 /// A font provider serving fonts from a folder on the local file system.
+#[derive(Debug)]
 pub struct FileSystemFontProvider {
     base: PathBuf,
     paths: Vec<PathBuf>,
@@ -346,29 +347,36 @@ impl FileSystemFontProvider {
     ///     ("NotoSans-Italic.ttf", font_info!(["NotoSans", SansSerif], italic)),
     /// ]);
     /// ```
+    #[inline]
     pub fn new<B, I, P>(base: B, infos: I) -> FileSystemFontProvider
     where
         B: Into<PathBuf>,
         I: IntoIterator<Item = (P, FontInfo)>,
         P: Into<PathBuf>,
     {
-        let mut paths = Vec::new();
-        let mut font_infos = Vec::new();
+        // Find out how long the iterator is at least, to reserve the correct
+        // capacity for the vectors.
+        let iter = infos.into_iter();
+        let min = iter.size_hint().0;
 
-        for (path, info) in infos.into_iter() {
+        // Split the iterator into two seperated vectors.
+        let mut paths = Vec::with_capacity(min);
+        let mut infos = Vec::with_capacity(min);
+        for (path, info) in iter {
             paths.push(path.into());
-            font_infos.push(info);
+            infos.push(info);
         }
 
         FileSystemFontProvider {
             base: base.into(),
             paths,
-            infos: font_infos,
+            infos,
         }
     }
 }
 
 impl FontProvider for FileSystemFontProvider {
+    #[inline]
     fn get(&self, info: &FontInfo) -> Option<Box<dyn FontData>> {
         let index = self.infos.iter().position(|i| i == info)?;
         let path = &self.paths[index];
@@ -376,16 +384,17 @@ impl FontProvider for FileSystemFontProvider {
         Some(Box::new(file) as Box<FontData>)
     }
 
+    #[inline]
     fn available<'a>(&'a self) -> &'a [FontInfo] {
         &self.infos
     }
 }
 
 #[derive(Debug)]
-struct Subsetter<'p> {
+struct Subsetter<'d> {
     // Original font
-    font: &'p Font,
-    reader: OpenTypeReader<Cursor<&'p [u8]>>,
+    font: &'d Font,
+    reader: OpenTypeReader<Cursor<&'d [u8]>>,
     outlines: Outlines,
     tables: Vec<TableRecord>,
     cmap: Option<CharMap>,
@@ -399,7 +408,7 @@ struct Subsetter<'p> {
     body: Vec<u8>,
 }
 
-impl<'p> Subsetter<'p> {
+impl<'d> Subsetter<'d> {
     fn subset<I1, S1, I2, S2>(mut self, needed_tables: I1, optional_tables: I2)
     -> FontResult<Font>
     where
@@ -726,7 +735,7 @@ impl<'p> Subsetter<'p> {
         }))
     }
 
-    fn get_table_data(&self, tag: Tag) -> FontResult<&'p [u8]> {
+    fn get_table_data(&self, tag: Tag) -> FontResult<&'d [u8]> {
         let record = match self.tables.binary_search_by_key(&tag, |r| r.tag) {
             Ok(index) => &self.tables[index],
             Err(_) => return Err(FontError::MissingTable(tag.to_string())),

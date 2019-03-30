@@ -10,10 +10,10 @@ pub use size::Size;
 
 
 /// The core typesetting engine, transforming an abstract syntax tree into a document.
-pub(crate) struct Engine<'a> {
+pub struct Engine<'t> {
     // Immutable
-    tree: &'a SyntaxTree<'a>,
-    ctx: &'a Context<'a>,
+    tree: &'t SyntaxTree<'t>,
+    ctx: &'t Context<'t>,
 
     // Mutable
     fonts: Vec<Font>,
@@ -23,22 +23,22 @@ pub(crate) struct Engine<'a> {
     current_width: Size,
 }
 
-impl<'a> Engine<'a> {
+impl<'t> Engine<'t> {
     /// Create a new generator from a syntax tree.
-    pub fn new(tree: &'a SyntaxTree<'a>, context: &'a Context<'a>) -> Engine<'a> {
+    pub(crate) fn new(tree: &'t SyntaxTree<'t>, context: &'t Context<'t>) -> Engine<'t> {
         Engine {
             tree,
             ctx: context,
-            fonts: Vec::new(),
+            fonts: vec![],
             active_font: 0,
-            text_commands: Vec::new(),
+            text_commands: vec![],
             current_line: String::new(),
             current_width: Size::zero(),
         }
     }
 
     /// Generate the abstract document.
-    pub fn typeset(mut self) -> TypeResult<Document> {
+    pub(crate) fn typeset(mut self) -> TypeResult<Document> {
         // Load font defined by style
         let mut font = None;
         let filter = FontFilter::new(&self.ctx.style.font_families);
