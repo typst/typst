@@ -5,7 +5,7 @@ use std::io::{self, Write};
 use pdf::{PdfWriter, Ref, Rect, Version, Trailer, Content};
 use pdf::doc::{Catalog, PageTree, Page, Resource, Text};
 use pdf::font::{Type0Font, CIDFont, CIDFontType, CIDSystemInfo, FontDescriptor, FontFlags};
-use pdf::font::{GlyphUnit, CMapEncoding, WidthRecord, FontStream, EmbeddedFontType};
+use pdf::font::{GlyphUnit, CMap, CMapEncoding, WidthRecord, FontStream, EmbeddedFontType};
 use crate::doc::{Document, Text as DocText, TextCommand};
 use crate::font::{Font, FontError};
 use crate::engine::Size;
@@ -165,24 +165,32 @@ impl<'d, W: Write> PdfEngine<'d, W> {
 
         for font in &self.fonts {
             // Write the base font object referencing the CID font.
-            self.writer.write_obj(id, &Type0Font::new(
-                font.name.clone(),
-                CMapEncoding::Predefined("Identity-H".to_owned()),
-                id + 1
-            ))?;
+            self.writer.write_obj(id,
+                Type0Font::new(
+                    font.name.clone(),
+                    CMapEncoding::Predefined("Identity-H".to_owned()),
+                    id + 1
+                ).to_unicode(id + 2)
+            )?;
+
+            let system_info = CIDSystemInfo::new("(Adobe)", "(Identity)", 0);
 
             // Write the CID font referencing the font descriptor.
             self.writer.write_obj(id + 1,
                 CIDFont::new(
                     CIDFontType::Type2,
                     font.name.clone(),
-                    CIDSystemInfo::new("(Adobe)", "(Identity)", 0),
-                    id + 2,
+                    system_info.clone(),
+                    id + 3,
                 ).widths(vec![WidthRecord::start(0, font.widths.clone())])
             )?;
 
+            // The CMap, which maps glyphs to unicode codepoints.
+            let mapping = font.font.mapping.iter().map(|(&c, &cid)| (cid, c));
+            self.writer.write_obj(id + 2, &CMap::new("Custom", system_info, mapping))?;
+
             // Write the font descriptor (contains the global information about the font).
-            self.writer.write_obj(id + 2,
+            self.writer.write_obj(id + 3,
                 FontDescriptor::new(
                     font.name.clone(),
                     font.flags,
@@ -193,16 +201,16 @@ impl<'d, W: Write> PdfEngine<'d, W> {
                 .descent(font.descender)
                 .cap_height(font.cap_height)
                 .stem_v(font.stem_v)
-                .font_file_3(id + 3)
+                .font_file_3(id + 4)
             )?;
 
             // Finally write the subsetted font program.
-            self.writer.write_obj(id + 3, &FontStream::new(
+            self.writer.write_obj(id + 4, &FontStream::new(
                 &font.program,
                 EmbeddedFontType::OpenType,
             ))?;
 
-            id += 4;
+            id += 5;
         }
 
         Ok(())
