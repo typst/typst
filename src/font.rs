@@ -218,7 +218,7 @@ pub struct FontInfo {
 /// font_info!(["NotoSans", "Noto", SansSerif]);
 /// ```
 ///
-/// The font font _Noto Serif_ in italics and boldface.
+/// The font _Noto Serif_ in italics and boldface.
 /// ```
 /// # use typeset::font_info;
 /// font_info!(["NotoSerif", "Noto", Serif], italic, bold);
