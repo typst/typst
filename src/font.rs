@@ -141,7 +141,7 @@ impl Font {
             cmap: None,
             hmtx: None,
             loca: None,
-            glyphs: Vec::with_capacity(chars.len()),
+            glyphs: Vec::with_capacity(1 + chars.len()),
             chars,
             records: vec![],
             body: vec![],
@@ -445,12 +445,15 @@ impl<'d> Subsetter<'d> {
 
         self.write_header()?;
 
+        // Build the new widths.
         let widths = self.glyphs.iter()
-            .map(|&glyph| self.font.widths.get(glyph as usize).map(|&w| w)
-                .take_invalid("missing glyph metrics"))
-            .collect::<FontResult<Vec<_>>>()?;
+            .map(|&glyph| {
+                self.font.widths.get(glyph as usize).map(|&w| w)
+                    .take_invalid("missing glyph metrics")
+            }).collect::<FontResult<Vec<_>>>()?;
 
-        let mapping = self.chars.into_iter().enumerate().map(|(i, c)| (c, i as u16))
+        // We add one to the index here because we added the default glyph to the front.
+        let mapping = self.chars.into_iter().enumerate().map(|(i, c)| (c, 1 + i as u16))
             .collect::<HashMap<char, u16>>();
 
         Ok(Font {
@@ -467,11 +470,11 @@ impl<'d> Subsetter<'d> {
         self.read_cmap()?;
         let cmap = self.cmap.as_ref().unwrap();
 
+        // The default glyph should be always present.
+        self.glyphs.push(self.font.default_glyph);
         for &c in &self.chars {
             self.glyphs.push(cmap.get(c).ok_or_else(|| FontError::MissingCharacter(c))?)
         }
-
-        self.glyphs.push(self.font.default_glyph);
 
         // Composite glyphs may need additional glyphs we have not yet in our list.
         // So now we have a look at the glyf table to check that and add glyphs
@@ -678,7 +681,10 @@ impl<'d> Subsetter<'d> {
                         while i + 1 < len && this.chars[i+1] as u32 == this.chars[i] as u32 + 1 {
                             i += 1;
                         }
-                        groups.push((this.chars[start], this.chars[i], start));
+
+                        // Add one to the start because we inserted the default glyph in front.
+                        let glyph = 1 + start;
+                        groups.push((this.chars[start], this.chars[i], glyph));
                         i += 1;
                     }
 

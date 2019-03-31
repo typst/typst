@@ -187,7 +187,7 @@ impl Default for Style {
 
             // Default font family, font size and line spacing.
             font_families: vec![SansSerif, Serif, Monospace],
-            font_size: 12.0,
+            font_size: 11.0,
             line_spacing: 1.25,
         }
     }

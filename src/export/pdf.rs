@@ -164,35 +164,33 @@ impl<'d, W: Write> PdfEngine<'d, W> {
         let mut id = self.offsets.fonts.0;
 
         for font in &self.fonts {
+            let base_font = format!("ABCDEF+{}", font.name);
+
             // Write the base font object referencing the CID font.
             self.writer.write_obj(id,
                 Type0Font::new(
-                    font.name.clone(),
+                    base_font.clone(),
                     CMapEncoding::Predefined("Identity-H".to_owned()),
                     id + 1
-                ).to_unicode(id + 2)
+                ).to_unicode(id + 3)
             )?;
 
-            let system_info = CIDSystemInfo::new("(Adobe)", "(Identity)", 0);
+            let system_info = CIDSystemInfo::new("Adobe", "Identity", 0);
 
             // Write the CID font referencing the font descriptor.
             self.writer.write_obj(id + 1,
                 CIDFont::new(
                     CIDFontType::Type2,
-                    font.name.clone(),
+                    base_font.clone(),
                     system_info.clone(),
-                    id + 3,
+                    id + 2,
                 ).widths(vec![WidthRecord::start(0, font.widths.clone())])
             )?;
 
-            // The CMap, which maps glyphs to unicode codepoints.
-            let mapping = font.font.mapping.iter().map(|(&c, &cid)| (cid, c));
-            self.writer.write_obj(id + 2, &CMap::new("Custom", system_info, mapping))?;
-
             // Write the font descriptor (contains the global information about the font).
-            self.writer.write_obj(id + 3,
+            self.writer.write_obj(id + 2,
                 FontDescriptor::new(
-                    font.name.clone(),
+                    base_font,
                     font.flags,
                     font.italic_angle,
                 )
@@ -203,6 +201,10 @@ impl<'d, W: Write> PdfEngine<'d, W> {
                 .stem_v(font.stem_v)
                 .font_file_3(id + 4)
             )?;
+
+            // The CMap, which maps glyphs to unicode codepoints.
+            let mapping = font.font.mapping.iter().map(|(&c, &cid)| (cid, c));
+            self.writer.write_obj(id + 3, &CMap::new("Custom", system_info, mapping))?;
 
             // Finally write the subsetted font program.
             self.writer.write_obj(id + 4, &FontStream::new(
@@ -249,7 +251,7 @@ impl PdfFont {
         let subsetted = font.subsetted(
             chars.iter().cloned(),
             &["head", "hhea", "maxp", "hmtx", "loca", "glyf"][..],
-            &["cvt ", "prep", "fpgm"][..],
+            &["cvt ", "prep", "fpgm", /* "OS/2", "cmap", "name", "post" */][..],
         )?;
 
         // Specify flags for the font
