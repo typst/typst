@@ -174,9 +174,7 @@ mod test {
 
     #[test]
     fn small() {
-        test("unicode", "∑mbe∂∂ed font with Unicode!");
         test("parentheses", "Text with ) and ( or (enclosed) works.");
-        test("composite-glyph", "Composite character‼");
         test("multiline","
             Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy
             eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam
@@ -186,7 +184,17 @@ mod test {
     }
 
     #[test]
-    fn long_styled() {
+    fn unicode() {
+        test("unicode", "∑mbe∂∂ed font with Unicode!");
+    }
+
+    #[test]
+    fn composite_glyph() {
+        test("composite-glyph", "Composite character‼");
+    }
+
+    #[test]
+    fn long_wikipedia() {
         test("wikipedia", r#"
             Typesetting is the composition of text by means of arranging physical types or the
             digital equivalents. Stored letters and other symbols (called sorts in mechanical
