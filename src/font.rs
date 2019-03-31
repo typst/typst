@@ -409,12 +409,8 @@ struct Subsetter<'d> {
 }
 
 impl<'d> Subsetter<'d> {
-    fn subset<I1, S1, I2, S2>(mut self, needed_tables: I1, optional_tables: I2)
-    -> FontResult<Font>
-    where
-        I1: IntoIterator<Item=S1>, S1: AsRef<str>,
-        I2: IntoIterator<Item=S2>, S2: AsRef<str>
-    {
+    fn subset<I, S>(mut self, needed_tables: I, optional_tables: I) -> FontResult<Font>
+    where I: IntoIterator<Item=S>, S: AsRef<str> {
         // Find out which glyphs to include based on which characters we want
         // and which glyphs are used by composition.
         self.build_glyphs()?;
