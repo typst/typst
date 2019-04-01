@@ -20,7 +20,7 @@
 //! use typeset::export::pdf::PdfExporter;
 //!
 //! // Simple example source code.
-//! let src = "Hello World from Typeset! 🌍";
+//! let src = "Hello World from __Typeset__! 🌍";
 //!
 //! // Create a compiler with a font provider that provides three fonts
 //! // (the default sans-serif fonts and a fallback for the emoji).
@@ -38,7 +38,7 @@
 //! # /*
 //! let file = File::create("hello-typeset.pdf").unwrap();
 //! # */
-//! # let file = File::create("../target/typeset-hello.pdf").unwrap();
+//! # let file = File::create("../target/typeset-doc-hello.pdf").unwrap();
 //! let exporter = PdfExporter::new();
 //! exporter.export(&document, file).unwrap();
 //! ```
@@ -167,16 +167,16 @@ mod test {
         let document = compiler.typeset(src).unwrap();
 
         // Write to file
-        let path = format!("../target/typeset-pdf-{}.pdf", name);
+        let path = format!("../target/typeset-unit-{}.pdf", name);
         let file = BufWriter::new(File::create(path).unwrap());
         let exporter = PdfExporter::new();
         exporter.export(&document, file).unwrap();
     }
 
     #[test]
-    fn small() {
+    fn simple() {
         test("parentheses", "Text with ) and ( or (enclosed) works.");
-        test("multiline","
+        test("multiline-lorem","
             Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy
             eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam
             voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet
@@ -185,18 +185,19 @@ mod test {
     }
 
     #[test]
-    fn unicode() {
-        test("unicode", "∑mbe∂∂ed font with Unicode!");
-    }
-
-    #[test]
     fn composite_glyph() {
         test("composite-glyph", "Composite character‼");
     }
 
     #[test]
-    fn mixed_emoji() {
+    fn unicode() {
+        test("unicode", "∑mbe∂∂ed font with Unicode!");
         test("mixed-emoji", "Hello World 🌍!")
+    }
+
+    #[test]
+    fn styled() {
+        test("styled", "**Hello World**. That's __great__!");
     }
 
     #[test]

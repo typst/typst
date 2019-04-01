@@ -13,7 +13,7 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::PathBuf;
-use std::io::{self, Cursor, Read, Seek, SeekFrom};
+use std::io::{self, Cursor, Read, Seek, SeekFrom, BufReader};
 use byteorder::{BE, ReadBytesExt, WriteBytesExt};
 use opentype::{Error as OpentypeError, OpenTypeReader, Outlines, TableRecord, Tag};
 use opentype::tables::{Header, Name, CharMap, MaximumProfile, HorizontalMetrics, Post, OS2};
@@ -339,7 +339,7 @@ impl FontProvider for FileSystemFontProvider {
         let index = self.infos.iter().position(|i| i == info)?;
         let path = &self.paths[index];
         let file = File::open(self.base.join(path)).ok()?;
-        Some(Box::new(file) as Box<FontData>)
+        Some(Box::new(BufReader::new(file)) as Box<FontData>)
     }
 
     #[inline]

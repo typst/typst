@@ -249,7 +249,12 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
                 PS::Body => match token {
                     // Whitespace
                     Token::Space => self.append(Node::Space),
-                    Token::Newline => self.append(Node::Newline),
+                    Token::Newline => {
+                        self.append(Node::Newline);
+                        if self.tokens.peek() != Some(&Token::Space) {
+                            self.append(Node::Space);
+                        }
+                    },
 
                     // Words
                     Token::Word(word) => self.append(Node::Word(word)),
@@ -382,6 +387,17 @@ mod token_tests {
         test("\n", vec![N]);
     }
 
+    /// This test looks if LF- and CRLF-style newlines get both identified correctly
+    #[test]
+    fn tokenize_whitespace_newlines() {
+        test(" \t", vec![S]);
+        test("First line\r\nSecond line\nThird line\n",
+             vec![W("First"), S, W("line"), N, W("Second"), S, W("line"), N,
+                  W("Third"), S, W("line"), N]);
+        test("Hello \n ", vec![W("Hello"), S, N, S]);
+        test("Dense\nTimes", vec![W("Dense"), N, W("Times")]);
+    }
+
     /// Tests if escaping with backslash works as it should.
     #[test]
     fn tokenize_escape() {
@@ -454,21 +470,12 @@ mod token_tests {
              vec![L, W("document"), R, L, W("Hello"), S, W("🌍"), W("!"), R]);
         test("[f]⺐.", vec![L, W("f"), R, W("⺐"), W(".")]);
     }
-
-    /// This test looks if LF- and CRLF-style newlines get both identified correctly.
-    #[test]
-    fn tokenize_whitespace_newlines() {
-        test(" \t", vec![S]);
-        test("First line\r\nSecond line\nThird line\n",
-             vec![W("First"), S, W("line"), N, W("Second"), S, W("line"), N,
-                  W("Third"), S, W("line"), N]);
-    }
 }
 
 #[cfg(test)]
 mod parse_tests {
     use super::*;
-    use Node::{Space as S, Word as W, Func as F};
+    use Node::{Space as S, Word as W, Newline as N, Func as F};
 
     /// Test if the source code parses into the syntax tree.
     fn test(src: &str, tree: SyntaxTree) {
@@ -494,6 +501,15 @@ mod parse_tests {
     fn parse_base() {
         test("", tree! {});
         test("Hello World!", tree! { W("Hello"), S, W("World"), W("!")});
+    }
+
+    /// Test whether newlines generate the correct whitespace.
+    #[test]
+    fn parse_newlines_whitespace() {
+        test("Hello \n World", tree! { W("Hello"), S, N, S, W("World") });
+        test("Hello\nWorld", tree! { W("Hello"), N, S, W("World") });
+        test("Hello\n World", tree! { W("Hello"), N, S, W("World") });
+        test("Hello \nWorld", tree! { W("Hello"), S, N, S, W("World") });
     }
 
     /// Parse things dealing with functions.

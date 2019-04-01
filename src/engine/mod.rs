@@ -30,6 +30,8 @@ pub struct Engine<'t> {
     current_text: String,
     current_line_width: Size,
     current_max_vertical_move: Size,
+    bold: bool,
+    italic: bool,
 }
 
 impl<'t> Engine<'t> {
@@ -44,6 +46,8 @@ impl<'t> Engine<'t> {
             current_text: String::new(),
             current_line_width: Size::zero(),
             current_max_vertical_move: Size::zero(),
+            italic: false,
+            bold: false,
         }
     }
 
@@ -57,8 +61,12 @@ impl<'t> Engine<'t> {
             match node {
                 Node::Word(word) => self.write_word(word)?,
                 Node::Space => self.write_space()?,
-                Node::Newline => (),
-                Node::ToggleItalics | Node::ToggleBold | Node::ToggleMath => unimplemented!(),
+                Node::Newline => {},
+
+                Node::ToggleItalics => self.italic = !self.italic,
+                Node::ToggleBold => self.bold = !self.bold,
+
+                Node::ToggleMath => unimplemented!(),
                 Node::Func(_) => unimplemented!(),
             }
         }
@@ -177,8 +185,8 @@ impl<'t> Engine<'t> {
     fn get_font_for(&self, character: char) -> TypeResult<(usize, Ref<Font>)> {
         self.font_loader.get(FontQuery {
             families: &self.ctx.style.font_families,
-            italic: false,
-            bold: false,
+            italic: self.italic,
+            bold: self.bold,
             character,
         }).ok_or_else(|| TypesetError::MissingFont)
     }
