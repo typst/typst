@@ -3,6 +3,7 @@
 use std::cell::{RefCell, Ref};
 use std::collections::HashMap;
 use std::mem::swap;
+use smallvec::SmallVec;
 use crate::syntax::{SyntaxTree, Node};
 use crate::doc::{Document, Page, Text, TextCommand};
 use crate::font::{Font, FontFamily, FontInfo, FontError};
@@ -65,10 +66,6 @@ impl<'t> Engine<'t> {
         // Flush the text buffer.
         self.write_buffered_text();
 
-        let fonts =  self.font_loader.into_fonts();
-
-        println!("fonts: {:?}", fonts.len());
-
         // Create a document with one page from the contents.
         Ok(Document {
             pages: vec![Page {
@@ -78,8 +75,63 @@ impl<'t> Engine<'t> {
                     commands: self.text_commands,
                 }],
             }],
-            fonts,
+            fonts: self.font_loader.into_fonts(),
         })
+    }
+
+    /// Write a word.
+    fn write_word(&mut self, word: &str) -> TypeResult<()> {
+        // Contains pairs of (characters, font_index, char_width).
+        let mut chars_with_widths = SmallVec::<[(char, usize, Size); 12]>::new();
+
+        // Find out which font to use for each character in the word and meanwhile
+        // calculate the width of the word.
+        let mut word_width = Size::zero();
+        for c in word.chars() {
+            let (index, font) = self.get_font_for(c)?;
+            let width = self.char_width(c, &font);
+            word_width += width;
+            chars_with_widths.push((c, index, width));
+        }
+
+        // If this would overflow, we move to a new line and finally write the previous one.
+        if self.would_overflow(word_width) {
+            self.write_buffered_text();
+            self.move_newline();
+        }
+
+        // Finally write the word.
+        for (c, index, width) in chars_with_widths {
+            if index != self.active_font {
+                // If we will change the font, first write the remaining things.
+                self.write_buffered_text();
+                self.set_font(index);
+            }
+
+            self.current_text.push(c);
+            self.current_line_width += width;
+        }
+
+        Ok(())
+    }
+
+    /// Write the space character: `' '`.
+    fn write_space(&mut self) -> TypeResult<()> {
+        let space_width = self.char_width(' ', &self.get_font_for(' ')?.1);
+        if !self.would_overflow(space_width) && self.current_line_width > Size::zero() {
+            self.write_word(" ")?;
+        }
+
+        Ok(())
+    }
+
+    /// Write a text command with the buffered text.
+    fn write_buffered_text(&mut self) {
+        if !self.current_text.is_empty() {
+            let mut current_text = String::new();
+            swap(&mut self.current_text, &mut current_text);
+            self.text_commands.push(TextCommand::Text(current_text));
+        }
     }
 
     /// Move to the starting position defined by the style.
@@ -98,7 +150,7 @@ impl<'t> Engine<'t> {
             // font size from the previous line.
             self.ctx.style.font_size
                 * self.ctx.style.line_spacing
-                * self.font_loader.get_at(self.active_font).metrics.ascender
+                * self.get_font_at(self.active_font).metrics.ascender
         } else {
             self.current_max_vertical_move
         };
@@ -114,50 +166,6 @@ impl<'t> Engine<'t> {
         self.active_font = index;
     }
 
-    /// Write a word.
-    fn write_word(&mut self, word: &str) -> TypeResult<()> {
-        let width = self.width(word)?;
-
-        // If this would overflow, we move to a new line and finally write the previous one.
-        if self.would_overflow(width) {
-            self.write_buffered_text();
-            self.move_newline();
-        }
-
-        for c in word.chars() {
-            let (index, _) = self.get_font_for(c)?;
-            if index != self.active_font {
-                self.write_buffered_text();
-                self.set_font(index);
-            }
-            self.current_text.push(c);
-            let char_width = self.char_width(c).unwrap();
-            self.current_line_width += char_width;
-        }
-
-        Ok(())
-    }
-
-    /// Write the space character: `' '`.
-    fn write_space(&mut self) -> TypeResult<()> {
-        let space_width = self.char_width(' ')?;
-
-        if !self.would_overflow(space_width) && self.current_line_width > Size::zero() {
-            self.write_word(" ")?;
-        }
-
-        Ok(())
-    }
-
-    /// Write a text command with the buffered text.
-    fn write_buffered_text(&mut self) {
-        if !self.current_text.is_empty() {
-            let mut current_text = String::new();
-            swap(&mut self.current_text, &mut current_text);
-            self.text_commands.push(TextCommand::Text(current_text));
-        }
-    }
-
     /// Whether the current line plus the extra `width` would overflow the line.
     fn would_overflow(&self, width: Size) -> bool {
         let max_width = self.ctx.style.width
@@ -165,30 +173,24 @@ impl<'t> Engine<'t> {
         self.current_line_width + width > max_width
     }
 
-    /// The width of a word when printed out.
-    fn width(&self, word: &str) -> TypeResult<Size> {
-        let mut width = Size::zero();
-        for c in word.chars() {
-            width += self.char_width(c)?;
-        }
-        Ok(width)
-    }
-
-    /// The width of a char when printed out.
-    fn char_width(&self, character: char) -> TypeResult<Size> {
-        let font = self.get_font_for(character)?.1;
-        Ok(font.widths[font.map(character) as usize] * self.ctx.style.font_size)
-    }
-
     /// Load a font that has the character we need.
     fn get_font_for(&self, character: char) -> TypeResult<(usize, Ref<Font>)> {
-        let res = self.font_loader.get(FontQuery {
+        self.font_loader.get(FontQuery {
             families: &self.ctx.style.font_families,
             italic: false,
             bold: false,
             character,
-        }).ok_or_else(|| TypesetError::MissingFont)?;
-        Ok(res)
+        }).ok_or_else(|| TypesetError::MissingFont)
+    }
+
+    /// Load a font at an index.
+    fn get_font_at(&self, index: usize) -> Ref<Font> {
+        self.font_loader.get_with_index(index)
+    }
+
+    /// The width of a char in a specific font.
+    fn char_width(&self, character: char, font: &Font) -> Size {
+        font.widths[font.map(character) as usize] * self.ctx.style.font_size
     }
 }
 
@@ -197,65 +199,107 @@ struct FontLoader<'t> {
     /// The context containing the used font providers.
     context: &'t Context<'t>,
     /// All available fonts indexed by provider.
-    availables: Vec<&'t [FontInfo]>,
-    /// Allows to lookup fonts by their infos.
-    indices: RefCell<HashMap<FontInfo, usize>>,
+    provider_fonts: Vec<&'t [FontInfo]>,
+    /// The internal state.
+    state: RefCell<FontLoaderState<'t>>,
+}
+
+/// Internal state of the font loader (wrapped in a RefCell).
+struct FontLoaderState<'t> {
+    /// The loaded fonts along with their external indices.
+    fonts: Vec<(Option<usize>, Font)>,
     /// Allows to retrieve cached results for queries.
-    matches: RefCell<HashMap<FontQuery<'t>, usize>>,
-    /// All loaded fonts.
-    loaded: RefCell<Vec<Font>>,
+    query_cache: HashMap<FontQuery<'t>, usize>,
+    /// Allows to lookup fonts by their infos.
+    info_cache: HashMap<&'t FontInfo, usize>,
     /// Indexed by outside and indices maps to internal indices.
-    external: RefCell<Vec<usize>>,
+    inner_index: Vec<usize>,
 }
 
 impl<'t> FontLoader<'t> {
     /// Create a new font loader.
     pub fn new(context: &'t Context<'t>) -> FontLoader {
-        let availables = context.font_providers.iter()
+        let provider_fonts = context.font_providers.iter()
             .map(|prov| prov.available()).collect();
 
         FontLoader {
             context,
-            availables,
-            indices: RefCell::new(HashMap::new()),
-            matches: RefCell::new(HashMap::new()),
-            loaded: RefCell::new(vec![]),
-            external: RefCell::new(vec![]),
+            provider_fonts,
+            state: RefCell::new(FontLoaderState {
+                query_cache: HashMap::new(),
+                info_cache: HashMap::new(),
+                inner_index: vec![],
+                fonts: vec![],
+            }),
         }
-    }
-
-    /// Return the list of fonts.
-    pub fn into_fonts(self) -> Vec<Font> {
-        // FIXME: Don't clone here.
-        let fonts = self.loaded.into_inner();
-        self.external.into_inner().into_iter().map(|index| fonts[index].clone()).collect()
     }
 
     /// Return the best matching font and it's index (if there is any) given the query.
     pub fn get(&self, query: FontQuery<'t>) -> Option<(usize, Ref<Font>)> {
-        if let Some(index) = self.matches.borrow().get(&query) {
-            let external = self.external.borrow().iter().position(|i| i == index).unwrap();
-            return Some((external, self.get_at_internal(*index)));
+        // Check if we had the exact same query before.
+        let state = self.state.borrow();
+        if let Some(&index) = state.query_cache.get(&query) {
+            // That this is the query cache means it must has an index as we've served it before.
+            let extern_index = state.fonts[index].0.unwrap();
+            let font = Ref::map(state, |s| &s.fonts[index].1);
+
+            return Some((extern_index, font));
         }
+        drop(state);
 
-        // Go through all available fonts and try to find one.
+        // Go over all font infos from all font providers that match the query.
         for family in query.families {
-            for (p, available) in self.availables.iter().enumerate() {
-                for info in available.iter() {
-                    if Self::matches(query, &family, info) {
-                        if let Some((index, font)) = self.try_load(info, p) {
-                            if font.mapping.contains_key(&query.character) {
-                                self.matches.borrow_mut().insert(query, index);
+            for (provider, infos) in self.context.font_providers.iter().zip(&self.provider_fonts) {
+                for info in infos.iter() {
+                    // Check whether this info matches the query.
+                    if Self::matches(query, family, info) {
+                        let mut state = self.state.borrow_mut();
 
-                                let pos = self.external.borrow().iter().position(|&i| i == index);
-                                let external = pos.unwrap_or_else(|| {
-                                    let external = self.external.borrow().len();
-                                    self.external.borrow_mut().push(index);
-                                    external
-                                });
+                        // Check if we have already loaded this font before.
+                        // Otherwise we'll fetch the font from the provider.
+                        let index = if let Some(&index) = state.info_cache.get(info) {
+                            index
+                        } else if let Some(mut source) = provider.get(info) {
+                            // Read the font program into a vec.
+                            let mut program = Vec::new();
+                            source.read_to_end(&mut program).ok()?;
 
-                                return Some((external, font));
-                            }
+                            // Create a font from it.
+                            let font = Font::new(program).ok()?;
+
+                            // Insert it into the storage.
+                            let index = state.fonts.len();
+                            state.info_cache.insert(info, index);
+                            state.fonts.push((None, font));
+
+                            index
+                        } else {
+                            continue;
+                        };
+
+                        // Check whether this font has the character we need.
+                        let has_char = state.fonts[index].1.mapping.contains_key(&query.character);
+                        if has_char {
+                            // We can take this font, so we store the query.
+                            state.query_cache.insert(query, index);
+
+                            // Now we have to find out the external index of it, or assign a new
+                            // one if it has not already one.
+                            let maybe_extern_index = state.fonts[index].0;
+                            let extern_index = maybe_extern_index.unwrap_or_else(|| {
+                                // We have to assign an external index before serving.
+                                let extern_index = state.inner_index.len();
+                                state.inner_index.push(index);
+                                state.fonts[index].0 =  Some(extern_index);
+                                extern_index
+                            });
+
+                            // Release the mutable borrow and borrow immutably.
+                            drop(state);
+                            let font = Ref::map(self.state.borrow(), |s| &s.fonts[index].1);
+
+                            // Finally we can return it.
+                            return Some((extern_index, font));
                         }
                     }
                 }
@@ -266,37 +310,25 @@ impl<'t> FontLoader<'t> {
     }
 
     /// Return a loaded font at an index. Panics if the index is out of bounds.
-    pub fn get_at(&self, index: usize) -> Ref<Font> {
-        let internal = self.external.borrow()[index];
-        self.get_at_internal(internal)
+    pub fn get_with_index(&self, index: usize) -> Ref<Font> {
+        let state = self.state.borrow();
+        let internal = state.inner_index[index];
+        Ref::map(state, |s| &s.fonts[internal].1)
     }
 
-    /// Try to load the font with the given info from the provider.
-    fn try_load(&self, info: &FontInfo,  provider: usize) -> Option<(usize, Ref<Font>)> {
-        if let Some(index) = self.indices.borrow().get(info) {
-            return Some((*index, self.get_at_internal(*index)));
-        }
+    /// Return the list of fonts.
+    pub fn into_fonts(self) -> Vec<Font> {
+        // Sort the fonts by external key so that they are in the correct order.
+        let mut fonts = self.state.into_inner().fonts;
+        fonts.sort_by_key(|&(maybe_index, _)| match maybe_index {
+            Some(index) => index as isize,
+            None => -1,
+        });
 
-        if let Some(mut source) = self.context.font_providers[provider].get(info) {
-            let mut program = Vec::new();
-            source.read_to_end(&mut program).ok()?;
-
-            let font = Font::new(program).ok()?;
-
-            let index = self.loaded.borrow().len();
-            println!("loading at interal index: {}", index);
-            self.loaded.borrow_mut().push(font);
-            self.indices.borrow_mut().insert(info.clone(), index);
-
-            Some((index, self.get_at_internal(index)))
-        } else {
-            None
-        }
-    }
-
-    /// Return a loaded font at an internal index. Panics if the index is out of bounds.
-    fn get_at_internal(&self, index: usize) -> Ref<Font> {
-        Ref::map(self.loaded.borrow(), |loaded| &loaded[index])
+        // Remove the fonts that are not used from the outside
+        fonts.into_iter().filter_map(|(maybe_index, font)| {
+            maybe_index.map(|_| font)
+        }).collect()
     }
 
     /// Check whether the query and the current family match the info.
