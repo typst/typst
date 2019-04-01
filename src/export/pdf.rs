@@ -58,7 +58,7 @@ impl<'d, W: Write> PdfEngine<'d, W> {
         let pages = (page_tree + 1, page_tree + doc.pages.len() as Ref);
         let content_count = doc.pages.iter().flat_map(|p| p.text.iter()).count() as Ref;
         let contents = (pages.1 + 1, pages.1 + content_count);
-        let fonts = (contents.1 + 1, contents.1 + 4 * doc.fonts.len() as Ref);
+        let fonts = (contents.1 + 1, contents.1 + 5 * doc.fonts.len() as Ref);
         let offsets = Offsets { catalog, page_tree, pages, contents, fonts };
 
         // Create a subsetted PDF font for each font in the document.
@@ -109,10 +109,14 @@ impl<'d, W: Write> PdfEngine<'d, W> {
         // The document catalog.
         self.writer.write_obj(self.offsets.catalog, &Catalog::new(self.offsets.page_tree))?;
 
+        // The font resources.
+        let fonts = (0 .. self.fonts.len())
+            .map(|i| Resource::Font((i + 1) as u32, self.offsets.fonts.0 + 5 * i as u32));
+
         // The root page tree.
         self.writer.write_obj(self.offsets.page_tree, PageTree::new()
             .kids(ids(self.offsets.pages))
-            .resource(Resource::Font(1, self.offsets.fonts.0))
+            .resources(fonts)
         )?;
 
         // The page objects.

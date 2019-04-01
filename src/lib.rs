@@ -20,7 +20,7 @@
 //! use typeset::export::pdf::PdfExporter;
 //!
 //! // Simple example source code.
-//! let src = "Hello World from Typeset!";
+//! let src = "Hello World from Typeset! 🌍";
 //!
 //! // Create a compiler with a font provider that provides three fonts
 //! // (the default sans-serif fonts and a fallback for the emoji).
@@ -145,6 +145,7 @@ error_type! {
 #[cfg(test)]
 mod test {
     use std::fs::File;
+    use std::io::BufWriter;
     use crate::Compiler;
     use crate::export::pdf::PdfExporter;
     use crate::font::FileSystemFontProvider;
@@ -167,7 +168,7 @@ mod test {
 
         // Write to file
         let path = format!("../target/typeset-pdf-{}.pdf", name);
-        let file = File::create(path).unwrap();
+        let file = BufWriter::new(File::create(path).unwrap());
         let exporter = PdfExporter::new();
         exporter.export(&document, file).unwrap();
     }
@@ -191,6 +192,11 @@ mod test {
     #[test]
     fn composite_glyph() {
         test("composite-glyph", "Composite character‼");
+    }
+
+    #[test]
+    fn mixed_emoji() {
+        test("mixed-emoji", "Hello World 🌍!")
     }
 
     #[test]

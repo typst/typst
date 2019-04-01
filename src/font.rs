@@ -172,7 +172,7 @@ pub struct FontMetrics {
     pub weight_class: u16,
 }
 
-/// A type that provides fonts matching given criteria.
+/// A type that provides fonts.
 pub trait FontProvider {
     /// Returns the font with the given info if this provider has it.
     fn get(&self, info: &FontInfo) -> Option<Box<dyn FontData>>;
@@ -194,7 +194,7 @@ impl<T> FontData for T where T: Read + Seek {}
 /// Describes a font.
 ///
 /// Can be constructed conventiently with the [`font_info`] macro.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FontInfo {
     /// The font families this font is part of.
     pub families: Vec<FontFamily>,
@@ -274,50 +274,8 @@ macro_rules! font_info {
     (@__gen Monospace) => {  $crate::font::FontFamily::Monospace };
 }
 
-/// Criteria to filter fonts.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FontFilter<'a> {
-    /// A fallback list of font families to accept. The first family in this list, that also
-    /// satisfies the other conditions, shall be returned.
-    pub families: &'a [FontFamily],
-    /// If some, matches only italic/non-italic fonts, otherwise any.
-    pub italic: Option<bool>,
-    /// If some, matches only bold/non-bold fonts, otherwise any.
-    pub bold: Option<bool>,
-}
-
-impl<'a> FontFilter<'a> {
-    /// Create a new font config with the given families.
-    ///
-    /// All other fields are set to [`None`] and match anything.
-    pub fn new(families: &'a [FontFamily]) -> FontFilter<'a> {
-        FontFilter {
-            families,
-            italic: None,
-            bold: None,
-        }
-    }
-
-    /// Set the italic value to something.
-    pub fn italic(&mut self, italic: bool) -> &mut Self {
-        self.italic = Some(italic); self
-    }
-
-    /// Set the bold value to something.
-    pub fn bold(&mut self, bold: bool) -> &mut Self {
-        self.bold = Some(bold); self
-    }
-
-    /// Whether this filter matches the given info.
-    pub fn matches(&self, info: &FontInfo) -> bool {
-        self.italic.map(|i| i == info.italic).unwrap_or(true)
-          && self.bold.map(|i| i == info.bold).unwrap_or(true)
-          && self.families.iter().any(|family| info.families.contains(family))
-    }
-}
-
 /// A family of fonts (either generic or named).
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum FontFamily {
     SansSerif,
     Serif,
