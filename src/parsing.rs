@@ -130,9 +130,7 @@ impl<'s> Iterator for Tokens<'s> {
             "=" if self.state == TS::Function => Token::Equals,
 
             // Double star/underscore
-            "*" if afterwards == Some(&"*") => {
-                self.consumed(Token::DoubleStar)
-            },
+            "*" if afterwards == Some(&"*") => self.consumed(Token::DoubleStar),
             "__" => Token::DoubleUnderscore,
 
             // Newlines
@@ -219,6 +217,10 @@ pub struct Parser<'s, T> where T: Iterator<Item=Token<'s>> {
 enum ParserState {
     /// The base state of the parser.
     Body,
+    /// We saw one newline already.
+    FirstNewline,
+    /// We wrote a newline.
+    WroteNewline,
     /// Inside a function header.
     Function,
 }
@@ -238,30 +240,46 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
     pub(crate) fn parse(mut self) -> ParseResult<SyntaxTree<'s>> {
         use ParserState as PS;
 
-        while let Some(token) = self.tokens.next() {
-            // Comment
+        while let Some(token) = self.tokens.peek() {
+            let token = *token;
+
+            // Skip over comments.
             if token == Token::Hashtag {
                 self.skip_while(|&t| t != Token::Newline);
                 self.advance();
             }
 
+            // Handles all the states.
             match self.state {
+                PS::FirstNewline => match token {
+                    Token::Newline => {
+                        self.append_consumed(Node::Newline);
+                        self.switch(PS::WroteNewline);
+                    },
+                    Token::Space => self.append_space_consumed(),
+                    _ => {
+                        self.append_space();
+                        self.switch(PS::Body);
+                    },
+                }
+
+                PS::WroteNewline => match token {
+                    Token::Newline | Token::Space => self.append_space_consumed(),
+                    _ => self.switch(PS::Body),
+                }
+
                 PS::Body => match token {
                     // Whitespace
-                    Token::Space => self.append(Node::Space),
-                    Token::Newline => {
-                        self.append(Node::Newline);
-                        if self.tokens.peek() != Some(&Token::Space) {
-                            self.append(Node::Space);
-                        }
-                    },
+                    Token::Space => self.append_space_consumed(),
+                    Token::Newline => self.switch_consumed(PS::FirstNewline),
 
                     // Words
-                    Token::Word(word) => self.append(Node::Word(word)),
+                    Token::Word(word) => self.append_consumed(Node::Word(word)),
 
                     // Functions
-                    Token::LeftBracket => self.switch(PS::Function),
+                    Token::LeftBracket => self.switch_consumed(PS::Function),
                     Token::RightBracket => {
+                        self.advance();
                         match self.stack.pop() {
                             Some(func) => self.append(Node::Func(func)),
                             None => return self.err("unexpected closing bracket"),
@@ -269,9 +287,9 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
                     },
 
                     // Modifiers
-                    Token::DoubleUnderscore => self.append(Node::ToggleItalics),
-                    Token::DoubleStar => self.append(Node::ToggleBold),
-                    Token::Dollar => self.append(Node::ToggleMath),
+                    Token::DoubleUnderscore => self.append_consumed(Node::ToggleItalics),
+                    Token::DoubleStar => self.append_consumed(Node::ToggleBold),
+                    Token::Dollar => self.append_consumed(Node::ToggleMath),
 
                     // Should not happen
                     Token::Colon | Token::Equals | Token::Hashtag => unreachable!(),
@@ -283,6 +301,7 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
                         _ => return self.err("expected identifier"),
                     };
 
+                    self.advance();
                     if self.tokens.next() != Some(Token::RightBracket) {
                         return self.err("expected closing bracket");
                     }
@@ -303,6 +322,7 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
 
                     self.switch(PS::Body);
                 },
+
             }
         }
 
@@ -318,6 +338,43 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
         self.tokens.next();
     }
 
+    /// Append a node to the top-of-stack function or the main tree itself.
+    fn append(&mut self, node: Node<'s>) {
+        match self.stack.last_mut() {
+            Some(func) => func.body.as_mut().unwrap(),
+            None => &mut self.tree,
+        }.nodes.push(node);
+    }
+
+    /// Advance and return the given node.
+    fn append_consumed(&mut self, node: Node<'s>) { self.advance(); self.append(node); }
+
+    /// Append a space if there is not one already.
+    fn append_space(&mut self) {
+        if self.last() != Some(&Node::Space) {
+            self.append(Node::Space);
+        }
+    }
+
+    /// Advance and append a space if there is not one already.
+    fn append_space_consumed(&mut self) { self.advance(); self.append_space(); }
+
+    /// Switch the state.
+    fn switch(&mut self, state: ParserState) {
+        self.state = state;
+    }
+
+    /// Advance and switch the state.
+    fn switch_consumed(&mut self, state: ParserState) { self.advance(); self.state = state; }
+
+    /// The last appended node of the top-of-stack function or of the main tree.
+    fn last(&self) -> Option<&Node<'s>> {
+        match self.stack.last() {
+            Some(func) => func.body.as_ref().unwrap(),
+            None => &self.tree,
+        }.nodes.last()
+    }
+
     /// Skip tokens until the condition is met.
     fn skip_while<F>(&mut self, f: F) where F: Fn(&Token) -> bool {
         while let Some(token) = self.tokens.peek() {
@@ -326,21 +383,6 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
             }
             self.advance();
         }
-    }
-
-    /// Switch the state.
-    fn switch(&mut self, state: ParserState) {
-        self.state = state;
-    }
-
-    /// Append a node to the top-of-stack function or the main tree itself.
-    fn append(&mut self, node: Node<'s>) {
-        let tree = match self.stack.last_mut() {
-            Some(func) => func.body.as_mut().unwrap(),
-            None => &mut self.tree,
-        };
-
-        tree.nodes.push(node);
     }
 
     /// Gives a parsing error with a message.
@@ -506,10 +548,13 @@ mod parse_tests {
     /// Test whether newlines generate the correct whitespace.
     #[test]
     fn parse_newlines_whitespace() {
-        test("Hello \n World", tree! { W("Hello"), S, N, S, W("World") });
-        test("Hello\nWorld", tree! { W("Hello"), N, S, W("World") });
-        test("Hello\n World", tree! { W("Hello"), N, S, W("World") });
-        test("Hello \nWorld", tree! { W("Hello"), S, N, S, W("World") });
+        test("Hello\nWorld", tree! { W("Hello"), S, W("World") });
+        test("Hello \n World", tree! { W("Hello"), S, W("World") });
+        test("Hello\n\nWorld", tree! { W("Hello"), N, W("World") });
+        test("Hello \n\nWorld", tree! { W("Hello"), S, N, W("World") });
+        test("Hello\n\n  World", tree! { W("Hello"), N, S, W("World") });
+        test("Hello \n \n \n  World", tree! { W("Hello"), S, N, S, W("World") });
+        test("Hello\n \n\n  World", tree! { W("Hello"), S, N, S, W("World") });
     }
 
     /// Parse things dealing with functions.

@@ -193,7 +193,7 @@ impl<T> FontData for T where T: Read + Seek {}
 
 /// Describes a font.
 ///
-/// Can be constructed conventiently with the [`font_info`] macro.
+/// Can be constructed conveniently with the [`font_info`] macro.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FontInfo {
     /// The font families this font is part of.

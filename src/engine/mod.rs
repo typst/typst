@@ -61,7 +61,10 @@ impl<'t> Engine<'t> {
             match node {
                 Node::Word(word) => self.write_word(word)?,
                 Node::Space => self.write_space()?,
-                Node::Newline => {},
+                Node::Newline => {
+                    self.write_buffered_text();
+                    self.move_newline(self.ctx.style.paragraph_spacing);
+                },
 
                 Node::ToggleItalics => self.italic = !self.italic,
                 Node::ToggleBold => self.bold = !self.bold,
@@ -105,7 +108,7 @@ impl<'t> Engine<'t> {
         // If this would overflow, we move to a new line and finally write the previous one.
         if self.would_overflow(word_width) {
             self.write_buffered_text();
-            self.move_newline();
+            self.move_newline(1.0);
         }
 
         // Finally write the word.
@@ -152,18 +155,23 @@ impl<'t> Engine<'t> {
     }
 
     /// Move to a new line.
-    fn move_newline(&mut self) {
-        let vertical_move = - if self.current_max_vertical_move == Size::zero() {
+    fn move_newline(&mut self, factor: f32) {
+        if self.active_font == std::usize::MAX {
+            return;
+        }
+
+        let vertical_move = if self.current_max_vertical_move == Size::zero() {
             // If max vertical move is still zero, the line is empty and we take the
             // font size from the previous line.
             self.ctx.style.font_size
                 * self.ctx.style.line_spacing
                 * self.get_font_at(self.active_font).metrics.ascender
+                * factor
         } else {
             self.current_max_vertical_move
         };
 
-        self.text_commands.push(TextCommand::Move(Size::zero(), vertical_move));
+        self.text_commands.push(TextCommand::Move(Size::zero(), -vertical_move));
         self.current_max_vertical_move = Size::zero();
         self.current_line_width = Size::zero();
     }
@@ -383,6 +391,8 @@ pub struct Style {
     pub font_size: f32,
     /// The line spacing (as a multiple of the font size).
     pub line_spacing: f32,
+    /// The spacing for paragraphs (as a multiple of the line spacing).
+    pub paragraph_spacing: f32,
 }
 
 impl Default for Style {
@@ -394,15 +404,16 @@ impl Default for Style {
             height: Size::from_mm(297.0),
 
             // Margins. A bit more on top and bottom.
-            margin_left: Size::from_cm(2.5),
+            margin_left: Size::from_cm(3.0),
             margin_top: Size::from_cm(3.0),
-            margin_right: Size::from_cm(2.5),
+            margin_right: Size::from_cm(3.0),
             margin_bottom: Size::from_cm(3.0),
 
             // Default font family, font size and line spacing.
             font_families: vec![SansSerif, Serif, Monospace],
             font_size: 11.0,
             line_spacing: 1.25,
+            paragraph_spacing: 1.5,
         }
     }
 }

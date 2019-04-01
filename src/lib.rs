@@ -23,7 +23,7 @@
 //! let src = "Hello World from __Typeset__! 🌍";
 //!
 //! // Create a compiler with a font provider that provides three fonts
-//! // (the default sans-serif fonts and a fallback for the emoji).
+//! // (two sans-serif fonts and a fallback for the emoji).
 //! let mut compiler = Compiler::new();
 //! compiler.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
 //!     ("NotoSans-Regular.ttf", font_info!(["NotoSans", "Noto", SansSerif])),
@@ -197,7 +197,11 @@ mod test {
 
     #[test]
     fn styled() {
-        test("styled", "**Hello World**. That's __great__!");
+        test("styled", "
+            **Hello World**.
+
+            That's __great__!
+        ");
     }
 
     #[test]
