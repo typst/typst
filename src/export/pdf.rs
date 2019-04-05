@@ -5,7 +5,7 @@ use std::io::{self, Write};
 use pdf::{PdfWriter, Ref, Rect, Version, Trailer, Content};
 use pdf::doc::{Catalog, PageTree, Page, Resource, Text};
 use pdf::font::{Type0Font, CIDFont, CIDFontType, CIDSystemInfo, FontDescriptor, FontFlags};
-use pdf::font::{GlyphUnit, CMap, CMapEncoding, WidthRecord, FontStream, EmbeddedFontType};
+use pdf::font::{GlyphUnit, CMap, CMapEncoding, WidthRecord, FontStream};
 use crate::doc::{Document, Text as DocText, TextCommand};
 use crate::font::{Font, FontError};
 use crate::engine::Size;
@@ -203,7 +203,7 @@ impl<'d, W: Write> PdfEngine<'d, W> {
                 .descent(font.descender)
                 .cap_height(font.cap_height)
                 .stem_v(font.stem_v)
-                .font_file_3(id + 4)
+                .font_file_2(id + 4)
             )?;
 
             // The CMap, which maps glyphs to unicode codepoints.
@@ -211,10 +211,7 @@ impl<'d, W: Write> PdfEngine<'d, W> {
             self.writer.write_obj(id + 3, &CMap::new("Custom", system_info, mapping))?;
 
             // Finally write the subsetted font program.
-            self.writer.write_obj(id + 4, &FontStream::new(
-                &font.program,
-                EmbeddedFontType::OpenType,
-            ))?;
+            self.writer.write_obj(id + 4, &FontStream::new(&font.program))?;
 
             id += 5;
         }
