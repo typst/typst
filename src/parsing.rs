@@ -1,5 +1,6 @@
 //! Tokenization and parsing of source code into syntax trees.
 
+use std::collections::HashMap;
 use std::fmt;
 use std::iter::Peekable;
 use std::mem::swap;
@@ -208,7 +209,7 @@ impl<'s> Tokens<'s> {
 pub struct Parser<'s, T> where T: Iterator<Item=Token<'s>> {
     tokens: Peekable<T>,
     state: ParserState,
-    stack: Vec<Function<'s>>,
+    stack: Vec<FuncInvocation>,
     tree: SyntaxTree<'s>,
 }
 
@@ -296,9 +297,13 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
                 },
 
                 PS::Function => {
-                    let name = match token {
-                        Token::Word(word) if word.is_identifier() => word,
-                        _ => return self.err("expected identifier"),
+                    let name = if let Token::Word(word) = token {
+                        match Ident::new(word) {
+                            Some(ident) => ident,
+                            None => return self.err("invalid identifier"),
+                        }
+                    } else {
+                        return self.err("expected identifier");
                     };
 
                     self.advance();
@@ -306,9 +311,15 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
                         return self.err("expected closing bracket");
                     }
 
-                    let mut func = Function {
+                    let header = FuncHeader {
                         name,
-                        body: None,
+                        args: vec![],
+                        kwargs: HashMap::new(),
+                    };
+
+                    let func = FuncInvocation {
+                        header,
+                        body: unimplemented!(),
                     };
 
                     // This function has a body.
