@@ -57,6 +57,7 @@ pub mod engine;
 pub mod export;
 #[macro_use]
 pub mod font;
+pub mod func;
 pub mod parsing;
 pub mod syntax;
 
@@ -105,7 +106,7 @@ impl<'p> Compiler<'p> {
 impl<'p> Compiler<'p> {
     /// Parse source code into a syntax tree.
     #[inline]
-    pub fn parse<'s>(&self, src: &'s str) -> Result<SyntaxTree<'s>, ParseError> {
+    pub fn parse(&self, src: &str) -> Result<SyntaxTree, ParseError> {
         Parser::new(Tokens::new(src)).parse()
     }
 

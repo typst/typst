@@ -1,8 +1,9 @@
 //! Tokenized and syntax tree representations of source code.
 
-use std::fmt::Debug;
 use std::collections::HashMap;
+use std::fmt::{self, Display, Formatter};
 use std::ops::Deref;
+use crate::func::Function;
 use crate::utility::StrExt;
 
 
@@ -38,22 +39,22 @@ pub enum Token<'s> {
 
 /// A tree representation of the source.
 #[derive(Debug, PartialEq)]
-pub struct SyntaxTree<'s> {
+pub struct SyntaxTree {
     /// The children.
-    pub nodes: Vec<Node<'s>>,
+    pub nodes: Vec<Node>,
 }
 
-impl<'s> SyntaxTree<'s> {
+impl SyntaxTree {
     /// Create an empty syntax tree.
     #[inline]
-    pub fn new() -> SyntaxTree<'s> {
+    pub fn new() -> SyntaxTree {
         SyntaxTree { nodes: vec![] }
     }
 }
 
 /// A node in the abstract syntax tree.
 #[derive(Debug, PartialEq)]
-pub enum Node<'s> {
+pub enum Node {
     /// Whitespace between other nodes.
     Space,
     /// A line feed.
@@ -65,16 +66,22 @@ pub enum Node<'s> {
     /// Indicates that math mode was enabled/disabled.
     ToggleMath,
     /// A literal word.
-    Word(&'s str),
+    Word(String),
     /// A function invocation.
     Func(FuncInvocation),
 }
 
 /// A complete function invocation consisting of header and body.
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct FuncInvocation {
     pub header: FuncHeader,
     pub body: Box<dyn Function>,
+}
+
+impl PartialEq for FuncInvocation {
+    fn eq(&self, other: &FuncInvocation) -> bool {
+        (self.header == other.header) && (&self.body == &other.body)
+    }
 }
 
 /// Contains header information of a function invocation.
@@ -85,53 +92,11 @@ pub struct FuncHeader {
     pub kwargs: HashMap<Ident, Expression>
 }
 
-use std::any::Any;
-
-/// Types that act as functions.
-pub trait Function: Debug + FunctionHelper {
-    /// Parse the function.
-    fn parse() -> Self where Self: Sized;
-
-    /// Execute the function and optionally yield a return value.
-    fn typeset(&self, header: &FuncHeader) -> Option<Expression>;
-}
-
-trait FunctionHelper {
-    fn help_as_any(&self) -> &dyn Any;
-    fn help_eq(&self, other: &dyn Function) -> bool;
-}
-
-impl<T> FunctionHelper for T where T: Clone + PartialEq + 'static {
-    fn help_as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn help_eq(&self, other: &dyn Function) -> bool {
-        if let Some(other) = other.help_as_any().downcast_ref::<Self>() {
-            self == other
-        } else {
-            false
-        }
-    }
-}
-
-impl PartialEq<dyn Function> for &dyn Function {
-    fn eq(&self, other: &dyn Function) -> bool {
-        self.help_eq(other)
-    }
-}
-
-impl PartialEq<Box<dyn Function>> for Box<dyn Function> {
-    fn eq(&self, other: &Box<dyn Function>) -> bool {
-        &*self == &*other
-    }
-}
-
 /// A potentially unevaluated expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {}
 
-/// A valid identifier.
+/// An owned valid identifier.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Ident(String);
 
@@ -151,6 +116,12 @@ impl Ident {
     #[inline]
     pub fn into_inner(self) -> String {
         self.0
+    }
+}
+
+impl Display for Ident {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(&self.0, f)
     }
 }
 

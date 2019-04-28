@@ -4,8 +4,10 @@ use std::collections::HashMap;
 use std::fmt;
 use std::iter::Peekable;
 use std::mem::swap;
+use std::ops::Deref;
 use unicode_segmentation::{UnicodeSegmentation, UWordBounds};
 use crate::syntax::*;
+use crate::func::{Scope, BodyTokens};
 use crate::utility::{Splinor, Spline, Splined, StrExt};
 
 
@@ -205,12 +207,12 @@ impl<'s> Tokens<'s> {
 }
 
 /// Transforms token streams to syntax trees.
-#[derive(Debug)]
 pub struct Parser<'s, T> where T: Iterator<Item=Token<'s>> {
     tokens: Peekable<T>,
+    scope: ParserScope<'s>,
     state: ParserState,
     stack: Vec<FuncInvocation>,
-    tree: SyntaxTree<'s>,
+    tree: SyntaxTree,
 }
 
 /// The state the parser is in.
@@ -226,11 +228,39 @@ enum ParserState {
     Function,
 }
 
+/// An owned or shared scope.
+enum ParserScope<'s> {
+    Owned(Scope),
+    Shared(&'s Scope)
+}
+
+impl Deref for ParserScope<'_> {
+    type Target = Scope;
+
+    fn deref(&self) -> &Scope {
+        match self {
+            ParserScope::Owned(scope) => &scope,
+            ParserScope::Shared(scope) => scope,
+        }
+    }
+}
+
 impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
     /// Create a new parser from a type that emits results of tokens.
-    pub(crate) fn new(tokens: T) -> Parser<'s, T> {
+    pub fn new(tokens: T) -> Parser<'s, T> {
+        Parser::new_internal(ParserScope::Owned(Scope::new()), tokens)
+    }
+
+    /// Create a new parser with a scope containing function definitions.
+    pub fn with_scope(scope: &'s Scope, tokens: T) -> Parser<'s, T> {
+        Parser::new_internal(ParserScope::Shared(scope), tokens)
+    }
+
+    /// Internal helper for construction.
+    fn new_internal(scope: ParserScope<'s>, tokens: T) -> Parser<'s, T> {
         Parser {
             tokens: tokens.peekable(),
+            scope,
             state: ParserState::Body,
             stack: vec![],
             tree: SyntaxTree::new(),
@@ -238,7 +268,7 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
     }
 
     /// Parse into an abstract syntax tree.
-    pub(crate) fn parse(mut self) -> ParseResult<SyntaxTree<'s>> {
+    pub(crate) fn parse(mut self) -> ParseResult<SyntaxTree> {
         use ParserState as PS;
 
         while let Some(token) = self.tokens.peek() {
@@ -275,7 +305,7 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
                     Token::Newline => self.switch_consumed(PS::FirstNewline),
 
                     // Words
-                    Token::Word(word) => self.append_consumed(Node::Word(word)),
+                    Token::Word(word) => self.append_consumed(Node::Word(word.to_owned())),
 
                     // Functions
                     Token::LeftBracket => self.switch_consumed(PS::Function),
@@ -283,7 +313,7 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
                         self.advance();
                         match self.stack.pop() {
                             Some(func) => self.append(Node::Func(func)),
-                            None => return self.err("unexpected closing bracket"),
+                            None => return Err(ParseError::new("unexpected closing bracket")),
                         }
                     },
 
@@ -300,36 +330,59 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
                     let name = if let Token::Word(word) = token {
                         match Ident::new(word) {
                             Some(ident) => ident,
-                            None => return self.err("invalid identifier"),
+                            None => return Err(ParseError::new("invalid identifier")),
                         }
                     } else {
-                        return self.err("expected identifier");
+                        return Err(ParseError::new("expected identifier"));
                     };
-
                     self.advance();
+
+                    // Expect the header closing bracket.
                     if self.tokens.next() != Some(Token::RightBracket) {
-                        return self.err("expected closing bracket");
+                        return Err(ParseError::new("expected closing bracket"));
                     }
 
+                    // Store the header information of the function invocation.
                     let header = FuncHeader {
-                        name,
+                        name: name.clone(),
                         args: vec![],
                         kwargs: HashMap::new(),
                     };
 
-                    let func = FuncInvocation {
-                        header,
-                        body: unimplemented!(),
+                    // This function has a body.
+                    let mut tokens = if let Some(Token::LeftBracket) = self.tokens.peek() {
+                        self.advance();
+                        Some(FuncTokens::new(&mut self.tokens))
+                    } else {
+                        None
                     };
 
-                    // This function has a body.
-                    if let Some(Token::LeftBracket) = self.tokens.peek() {
-                        self.advance();
-                        func.body = Some(SyntaxTree::new());
-                        self.stack.push(func);
+                    // A mutably borrowed view over the tokens.
+                    let borrow_tokens: BodyTokens<'_> = tokens.as_mut().map(|toks| {
+                        Box::new(toks) as Box<dyn Iterator<Item=Token<'_>>>
+                    });
+
+                    // Run the parser over the tokens.
+                    let body = if let Some(parser) = self.scope.get_parser(&name) {
+                        parser(&header, borrow_tokens, &self.scope)?
                     } else {
-                        self.append(Node::Func(func));
+                        let message = format!("unknown function: '{}'", &name);
+                        return Err(ParseError::new(message));
+                    };
+
+                    // Expect the closing bracket if it had a body.
+                    if let Some(tokens) = tokens {
+                        println!("lulz");
+                        if tokens.unexpected_end {
+                            return Err(ParseError::new("expected closing bracket"));
+                        }
                     }
+
+                    // Finally this function is parsed to the end.
+                    self.append(Node::Func(FuncInvocation {
+                        header,
+                        body,
+                    }));
 
                     self.switch(PS::Body);
                 },
@@ -337,9 +390,9 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
             }
         }
 
-        if !self.stack.is_empty() {
-            return self.err("expected closing bracket");
-        }
+        // if !self.stack.is_empty() {
+        //     return Err(ParseError::new("expected closing bracket"));
+        // }
 
         Ok(self.tree)
     }
@@ -350,15 +403,16 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
     }
 
     /// Append a node to the top-of-stack function or the main tree itself.
-    fn append(&mut self, node: Node<'s>) {
-        match self.stack.last_mut() {
-            Some(func) => func.body.as_mut().unwrap(),
-            None => &mut self.tree,
-        }.nodes.push(node);
+    fn append(&mut self, node: Node) {
+        self.tree.nodes.push(node);
+        // match self.stack.last_mut() {
+        //     Some(func) => func.body.as_mut().unwrap(),
+        //     None => &mut self.tree,
+        // }.nodes.push(node);
     }
 
     /// Advance and return the given node.
-    fn append_consumed(&mut self, node: Node<'s>) { self.advance(); self.append(node); }
+    fn append_consumed(&mut self, node: Node) { self.advance(); self.append(node); }
 
     /// Append a space if there is not one already.
     fn append_space(&mut self) {
@@ -379,11 +433,12 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
     fn switch_consumed(&mut self, state: ParserState) { self.advance(); self.state = state; }
 
     /// The last appended node of the top-of-stack function or of the main tree.
-    fn last(&self) -> Option<&Node<'s>> {
-        match self.stack.last() {
-            Some(func) => func.body.as_ref().unwrap(),
-            None => &self.tree,
-        }.nodes.last()
+    fn last(&self) -> Option<&Node> {
+        self.tree.nodes.last()
+        // match self.stack.last() {
+        //     Some(func) => func.body.as_ref().unwrap(),
+        //     None => &self.tree,
+        // }.nodes.last()
     }
 
     /// Skip tokens until the condition is met.
@@ -395,16 +450,59 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
             self.advance();
         }
     }
+}
 
-    /// Gives a parsing error with a message.
-    fn err<R, S: Into<String>>(&self, message: S) -> ParseResult<R> {
-        Err(ParseError { message: message.into() })
+/// A token iterator that that stops after the first unbalanced right paren.
+pub struct FuncTokens<'s, T> where T: Iterator<Item=Token<'s>> {
+    tokens: T,
+    parens: u32,
+    unexpected_end: bool,
+}
+
+impl<'s, T> FuncTokens<'s, T> where T: Iterator<Item=Token<'s>> {
+    /// Create a new iterator operating over an existing one.
+    pub fn new(tokens: T) -> FuncTokens<'s, T> {
+        FuncTokens {
+            tokens,
+            parens: 0,
+            unexpected_end: false,
+        }
+    }
+}
+
+impl<'s, T> Iterator for FuncTokens<'s, T> where T: Iterator<Item=Token<'s>> {
+    type Item = Token<'s>;
+
+    fn next(&mut self) -> Option<Token<'s>> {
+        let token = self.tokens.next();
+        match token {
+            Some(Token::RightBracket) if self.parens == 0 => None,
+            Some(Token::RightBracket) => {
+                self.parens -= 1;
+                token
+            },
+            Some(Token::LeftBracket) => {
+                self.parens += 1;
+                token
+            }
+            None => {
+                self.unexpected_end = true;
+                None
+            }
+            token => token,
+        }
     }
 }
 
 /// The error type for parsing.
 pub struct ParseError {
     message: String,
+}
+
+impl ParseError {
+    fn new<S: Into<String>>(message: S) -> ParseError {
+        ParseError { message: message.into() }
+    }
 }
 
 error_type! {
@@ -528,19 +626,64 @@ mod token_tests {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
-    use Node::{Space as S, Word as W, Newline as N, Func as F};
+    use crate::func::{Function, Scope, BodyTokens};
+    use Node::{Space as S, Newline as N, Func as F};
 
-    /// Test if the source code parses into the syntax tree.
-    fn test(src: &str, tree: SyntaxTree) {
-        assert_eq!(Parser::new(Tokens::new(src)).parse().unwrap(), tree);
+    #[allow(non_snake_case)]
+    fn W(s: &str) -> Node { Node::Word(s.to_owned()) }
+
+    /// A testing function which just parses it's body into a syntax tree.
+    #[derive(Debug, PartialEq)]
+    struct TreeFn(SyntaxTree);
+
+    impl Function for TreeFn {
+        fn parse(_: &FuncHeader, tokens: BodyTokens<'_>, scope: &Scope)
+        -> ParseResult<Self> where Self: Sized {
+            if let Some(tokens) = tokens {
+                Parser::with_scope(scope, tokens).parse().map(|tree| TreeFn(tree))
+            } else {
+                Err(ParseError::new("expected body for tree fn"))
+            }
+        }
+        fn typeset(&self, _header: &FuncHeader) -> Option<Expression> { None }
     }
 
-    /// Test if the source parses into the error.
-    fn test_err(src: &str, err: &str) {
-        assert_eq!(Parser::new(Tokens::new(src)).parse().unwrap_err().message, err);
+    /// A testing function without a body.
+    #[derive(Debug, PartialEq)]
+    struct BodylessFn;
+
+    impl Function for BodylessFn {
+        fn parse(_: &FuncHeader, tokens: BodyTokens<'_>, _: &Scope) -> ParseResult<Self> where Self: Sized {
+            if tokens.is_none() {
+                Ok(BodylessFn)
+            } else {
+                Err(ParseError::new("unexpected body for bodyless fn"))
+            }
+        }
+        fn typeset(&self, _header: &FuncHeader) -> Option<Expression> { None }
     }
 
-    /// Short cut macro to create a syntax tree.
+    /// Shortcut macro to create a function.
+    macro_rules! func {
+        (name => $name:expr, body => None $(,)*) => {
+            func!(@$name, Box::new(BodylessFn))
+        };
+        (name => $name:expr, body => $tree:expr $(,)*) => {
+            func!(@$name, Box::new(TreeFn($tree)))
+        };
+        (@$name:expr, $body:expr) => {
+            FuncInvocation {
+                header: FuncHeader {
+                    name: Ident::new($name).unwrap(),
+                    args: vec![],
+                    kwargs: HashMap::new(),
+                },
+                body: $body,
+            }
+        }
+    }
+
+    /// Shortcut macro to create a syntax tree.
     /// Is `vec`-like and the elements are the nodes.
     macro_rules! tree {
         ($($x:expr),*) => (
@@ -549,89 +692,124 @@ mod parse_tests {
         ($($x:expr,)*) => (tree![$($x),*])
     }
 
+    /// Test if the source code parses into the syntax tree.
+    fn test(src: &str, tree: SyntaxTree) {
+        assert_eq!(Parser::new(Tokens::new(src)).parse().unwrap(), tree);
+    }
+
+    /// Test with a scope containing function definitions.
+    fn test_scoped(scope: &Scope, src: &str, tree: SyntaxTree) {
+        assert_eq!(Parser::with_scope(scope, Tokens::new(src)).parse().unwrap(), tree);
+    }
+
+    /// Test if the source parses into the error.
+    fn test_err(src: &str, err: &str) {
+        assert_eq!(Parser::new(Tokens::new(src)).parse().unwrap_err().message, err);
+    }
+
+    /// Test if the source parses into the error.
+    fn test_err_scoped(scope: &Scope, src: &str, err: &str) {
+        assert_eq!(Parser::with_scope(scope, Tokens::new(src)).parse().unwrap_err().message, err);
+    }
+
     /// Parse the basic cases.
     #[test]
     fn parse_base() {
-        test("", tree! {});
-        test("Hello World!", tree! { W("Hello"), S, W("World"), W("!")});
+        test("", tree! []);
+        test("Hello World!", tree! [ W("Hello"), S, W("World"), W("!") ]);
     }
 
     /// Test whether newlines generate the correct whitespace.
     #[test]
     fn parse_newlines_whitespace() {
-        test("Hello\nWorld", tree! { W("Hello"), S, W("World") });
-        test("Hello \n World", tree! { W("Hello"), S, W("World") });
-        test("Hello\n\nWorld", tree! { W("Hello"), N, W("World") });
-        test("Hello \n\nWorld", tree! { W("Hello"), S, N, W("World") });
-        test("Hello\n\n  World", tree! { W("Hello"), N, S, W("World") });
-        test("Hello \n \n \n  World", tree! { W("Hello"), S, N, S, W("World") });
-        test("Hello\n \n\n  World", tree! { W("Hello"), S, N, S, W("World") });
+        test("Hello\nWorld", tree! [ W("Hello"), S, W("World") ]);
+        test("Hello \n World", tree! [ W("Hello"), S, W("World") ]);
+        test("Hello\n\nWorld", tree! [ W("Hello"), N, W("World") ]);
+        test("Hello \n\nWorld", tree! [ W("Hello"), S, N, W("World") ]);
+        test("Hello\n\n  World", tree! [ W("Hello"), N, S, W("World") ]);
+        test("Hello \n \n \n  World", tree! [ W("Hello"), S, N, S, W("World") ]);
+        test("Hello\n \n\n  World", tree! [ W("Hello"), S, N, S, W("World") ]);
     }
 
     /// Parse things dealing with functions.
     #[test]
     fn parse_functions() {
-        test("[test]", tree! { F(Function { name: "test", body: None }) });
-        test("This is an [modifier][example] of a function invocation.", tree! {
+        let mut scope = Scope::new();
+        let tree_fns = ["modifier", "func", "links", "bodyempty", "nested"];
+        let bodyless_fns = ["test", "end"];
+        for func in &bodyless_fns { scope.add::<BodylessFn>(func); }
+        for func in &tree_fns { scope.add::<TreeFn>(func); }
+
+        test_scoped(&scope,"[test]", tree! [ F(func! { name => "test", body => None }) ]);
+        test_scoped(&scope, "This is an [modifier][example] of a function invocation.", tree! [
             W("This"), S, W("is"), S, W("an"), S,
-            F(Function { name: "modifier", body: Some(tree! { W("example") }) }), S,
+            F(func! { name => "modifier", body => tree! [ W("example") ] }), S,
             W("of"), S, W("a"), S, W("function"), S, W("invocation"), W(".")
-        });
-        test("[func][Hello][links][Here][end]",  tree! {
-            F(Function {
-                name: "func",
-                body: Some(tree! { W("Hello") }),
+        ]);
+        test_scoped(&scope, "[func][Hello][links][Here][end]",  tree! [
+            F(func! {
+                name => "func",
+                body => tree! [ W("Hello") ],
             }),
-            F(Function {
-                name: "links",
-                body: Some(tree! { W("Here") }),
+            F(func! {
+                name => "links",
+                body => tree! [ W("Here") ],
             }),
-            F(Function {
-                name: "end",
-                body: None,
+            F(func! {
+                name => "end",
+                body => None,
             }),
-        });
-        test("[bodyempty][]", tree! {
-            F(Function {
-                name: "bodyempty",
-                body: Some(tree! {})
+        ]);
+        test_scoped(&scope, "[bodyempty][]", tree! [
+            F(func! {
+                name => "bodyempty",
+                body => tree! [],
             })
-        });
-        test("[nested][[func][call]] outside", tree! {
-            F(Function {
-                name: "nested",
-                body: Some(tree! { F(Function {
-                    name: "func",
-                    body: Some(tree! { W("call") }),
-                }), }),
+        ]);
+        test_scoped(&scope, "[nested][[func][call]] outside", tree! [
+            F(func! {
+                name => "nested",
+                body => tree! [
+                    F(func! {
+                        name => "func",
+                        body => tree! [ W("call") ],
+                    }),
+                ],
             }),
             S, W("outside")
-        });
+        ]);
     }
 
     /// Tests if the parser handles non-ASCII stuff correctly.
     #[test]
     fn parse_unicode() {
-        test("[lib_parse] ⺐.", tree! {
-            F(Function {
-                name: "lib_parse",
-                body: None
+        let mut scope = Scope::new();
+        scope.add::<BodylessFn>("lib_parse");
+        scope.add::<TreeFn>("func123");
+
+        test_scoped(&scope, "[lib_parse] ⺐.", tree! [
+            F(func! {
+                name => "lib_parse",
+                body => None,
             }),
             S, W("⺐"), W(".")
-        });
-        test("[func123][Hello 🌍!]", tree! {
-            F(Function {
-                name: "func123",
-                body: Some(tree! { W("Hello"), S, W("🌍"), W("!") }),
+        ]);
+        test_scoped(&scope, "[func123][Hello 🌍!]", tree! [
+            F(func! {
+                name => "func123",
+                body => tree! [ W("Hello"), S, W("🌍"), W("!") ],
             })
-        });
+        ]);
     }
 
     /// Tests whether errors get reported correctly.
     #[test]
     fn parse_errors() {
+        let mut scope = Scope::new();
+        scope.add::<TreeFn>("hello");
+
         test_err("No functions here]", "unexpected closing bracket");
-        test_err("[hello][world", "expected closing bracket");
+        test_err_scoped(&scope, "[hello][world", "expected closing bracket");
         test_err("[hello world", "expected closing bracket");
         test_err("[ no-name][Why?]", "expected identifier");
     }

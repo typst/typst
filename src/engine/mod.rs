@@ -14,13 +14,13 @@ pub use size::Size;
 
 
 /// The core typesetting engine, transforming an abstract syntax tree into a document.
-pub struct Engine<'t> {
+pub struct Engine<'a> {
     // Input
-    tree: &'t SyntaxTree<'t>,
-    ctx: &'t Context<'t>,
+    tree: &'a SyntaxTree,
+    ctx: &'a Context<'a>,
 
     // Internal
-    font_loader: FontLoader<'t>,
+    font_loader: FontLoader<'a>,
 
     // Output
     text_commands: Vec<TextCommand>,
@@ -34,9 +34,9 @@ pub struct Engine<'t> {
     italic: bool,
 }
 
-impl<'t> Engine<'t> {
+impl<'a> Engine<'a> {
     /// Create a new generator from a syntax tree.
-    pub(crate) fn new(tree: &'t SyntaxTree<'t>, context: &'t Context<'t>) -> Engine<'t> {
+    pub(crate) fn new(tree: &'a SyntaxTree, context: &'a Context<'a>) -> Engine<'a> {
         Engine {
             tree,
             ctx: context,
@@ -211,30 +211,30 @@ impl<'t> Engine<'t> {
 }
 
 /// Serves matching fonts given a query.
-struct FontLoader<'t> {
+struct FontLoader<'a> {
     /// The context containing the used font providers.
-    context: &'t Context<'t>,
+    context: &'a Context<'a>,
     /// All available fonts indexed by provider.
-    provider_fonts: Vec<&'t [FontInfo]>,
+    provider_fonts: Vec<&'a [FontInfo]>,
     /// The internal state.
-    state: RefCell<FontLoaderState<'t>>,
+    state: RefCell<FontLoaderState<'a>>,
 }
 
 /// Internal state of the font loader (wrapped in a RefCell).
-struct FontLoaderState<'t> {
+struct FontLoaderState<'a> {
     /// The loaded fonts along with their external indices.
     fonts: Vec<(Option<usize>, Font)>,
     /// Allows to retrieve cached results for queries.
-    query_cache: HashMap<FontQuery<'t>, usize>,
+    query_cache: HashMap<FontQuery<'a>, usize>,
     /// Allows to lookup fonts by their infos.
-    info_cache: HashMap<&'t FontInfo, usize>,
+    info_cache: HashMap<&'a FontInfo, usize>,
     /// Indexed by outside and indices maps to internal indices.
     inner_index: Vec<usize>,
 }
 
-impl<'t> FontLoader<'t> {
+impl<'a> FontLoader<'a> {
     /// Create a new font loader.
-    pub fn new(context: &'t Context<'t>) -> FontLoader {
+    pub fn new(context: &'a Context<'a>) -> FontLoader {
         let provider_fonts = context.font_providers.iter()
             .map(|prov| prov.available()).collect();
 
@@ -251,7 +251,7 @@ impl<'t> FontLoader<'t> {
     }
 
     /// Return the best matching font and it's index (if there is any) given the query.
-    pub fn get(&self, query: FontQuery<'t>) -> Option<(usize, Ref<Font>)> {
+    pub fn get(&self, query: FontQuery<'a>) -> Option<(usize, Ref<Font>)> {
         // Check if we had the exact same query before.
         let state = self.state.borrow();
         if let Some(&index) = state.query_cache.get(&query) {
