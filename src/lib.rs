@@ -44,7 +44,7 @@
 //! ```
 
 use crate::syntax::SyntaxTree;
-use crate::parsing::{Tokens, Parser, ParseError};
+use crate::parsing::{Parser, ParseTokens, ParseError};
 use crate::doc::Document;
 use crate::font::FontProvider;
 use crate::engine::{Engine, Style, TypesetError};
@@ -107,7 +107,8 @@ impl<'p> Compiler<'p> {
     /// Parse source code into a syntax tree.
     #[inline]
     pub fn parse(&self, src: &str) -> Result<SyntaxTree, ParseError> {
-        Parser::new(Tokens::new(src)).parse()
+        let mut tokens = ParseTokens::new(src);
+        Parser::new(&mut tokens).parse()
     }
 
     /// Compile a portable typesetted document from source code.

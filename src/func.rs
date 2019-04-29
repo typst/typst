@@ -4,16 +4,12 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use crate::syntax::{Token, FuncHeader, Expression};
-use crate::parsing::ParseResult;
+use crate::syntax::{FuncHeader, Expression};
+use crate::parsing::{ParseTokens, ParseResult};
 
-
-/// An optional iterator over the tokens of a function body.
-pub type BodyTokens<'a> = Option<Box<dyn Iterator<Item=Token<'a>> + 'a>>;
 
 /// Parser functions.
-pub type ParseFunc = dyn Fn(&FuncHeader, BodyTokens<'_>, &Scope)
-                         -> ParseResult<Box<dyn Function>>;
+pub type ParseFunc = dyn Fn(ParseContext) -> ParseResult<Box<dyn Function>>;
 
 /// Types that act as functions.
 ///
@@ -24,8 +20,7 @@ pub type ParseFunc = dyn Fn(&FuncHeader, BodyTokens<'_>, &Scope)
 /// used as functions, that is they fulfill the bounds  `Debug + PartialEq + 'static`.
 pub trait Function: FunctionBounds {
     /// Parse the function.
-    fn parse(header: &FuncHeader, tokens: BodyTokens<'_>, scope: &Scope)
-    -> ParseResult<Self> where Self: Sized;
+    fn parse(context: ParseContext) -> ParseResult<Self> where Self: Sized;
 
     /// Execute the function and optionally yield a return value.
     fn typeset(&self, header: &FuncHeader) -> Option<Expression>;
@@ -46,7 +41,7 @@ impl Scope {
     pub fn add<F: Function + 'static>(&mut self, name: &str) {
         self.parsers.insert(
             name.to_owned(),
-            Box::new(|header, tokens, scope| match F::parse(header, tokens, scope) {
+            Box::new(|context| match F::parse(context) {
                 Ok(func) => Ok(Box::new(func)),
                 Err(err) => Err(err),
             })
@@ -57,6 +52,16 @@ impl Scope {
     pub fn get_parser(&self, name: &str) -> Option<&ParseFunc> {
         self.parsers.get(name).map(|x| &**x)
     }
+}
+
+/// The context for parsing a function.
+pub struct ParseContext<'s, 't> {
+    /// The header of the function to be parsed.
+    pub header: &'s FuncHeader,
+    /// Tokens if the function has a body, otherwise nothing.
+    pub tokens: Option<&'s mut ParseTokens<'t>>,
+    /// The current scope containing function definitions.
+    pub scope: &'s Scope,
 }
 
 /// A helper trait that describes requirements for types that can implement [`Function`].

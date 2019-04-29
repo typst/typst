@@ -7,7 +7,7 @@ use std::mem::swap;
 use std::ops::Deref;
 
 use crate::syntax::*;
-use crate::func::Scope;
+use crate::func::{ParseContext, Scope};
 use crate::utility::{Splinor, Spline, Splined, StrExt};
 
 use unicode_segmentation::{UnicodeSegmentation, UWordBounds};
@@ -209,8 +209,8 @@ impl<'s> Tokens<'s> {
 }
 
 /// Transforms token streams to syntax trees.
-pub struct Parser<'s, T> where T: Iterator<Item=Token<'s>> {
-    tokens: Peekable<T>,
+pub struct Parser<'s, 't> {
+    tokens: &'s mut ParseTokens<'t>,
     scope: ParserScope<'s>,
     state: ParserState,
     tree: SyntaxTree,
@@ -227,21 +227,21 @@ enum ParserState {
     WroteNewline,
 }
 
-impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
+impl<'s, 't> Parser<'s, 't> {
     /// Create a new parser from a type that emits results of tokens.
-    pub fn new(tokens: T) -> Parser<'s, T> {
+    pub fn new(tokens: &'s mut ParseTokens<'t>) -> Parser<'s, 't> {
         Parser::new_internal(ParserScope::Owned(Scope::new()), tokens)
     }
 
     /// Create a new parser with a scope containing function definitions.
-    pub fn with_scope(scope: &'s Scope, tokens: T) -> Parser<'s, T> {
+    pub fn with_scope(scope: &'s Scope, tokens: &'s mut ParseTokens<'t>) -> Parser<'s, 't> {
         Parser::new_internal(ParserScope::Shared(scope), tokens)
     }
 
     /// Internal helper for construction.
-    fn new_internal(scope: ParserScope<'s>, tokens: T) -> Parser<'s, T> {
+    fn new_internal(scope: ParserScope<'s>, tokens: &'s mut ParseTokens<'t>) -> Parser<'s, 't> {
         Parser {
-            tokens: tokens.peekable(),
+            tokens,
             scope,
             state: ParserState::Body,
             tree: SyntaxTree::new(),
@@ -341,19 +341,33 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
         let parser = self.scope.get_parser(&header.name)
             .ok_or_else(|| ParseError::new(format!("unknown function: '{}'", &header.name)))?;
 
-        // Do the parsing dependend on whether the function has a body.
+        // Do the parsing dependent on whether the function has a body.
         let body = if has_body {
-            let mut func_tokens = FuncTokens::new(&mut self.tokens);
-            let borrowed = Box::new(&mut func_tokens) as Box<dyn Iterator<Item=Token<'_>>>;
+            self.tokens.start();
 
-            let body = parser(&header, Some(borrowed), &self.scope)?;
-            if func_tokens.unexpected_end {
+            println!("starting with: {:?}", self.tokens);
+
+            let body = parser(ParseContext {
+                header: &header,
+                tokens: Some(&mut self.tokens),
+                scope: &self.scope,
+            })?;
+
+            self.tokens.finish();
+            println!("finished with: {:?}", self.tokens);
+
+            // Now the body should be closed.
+            if self.tokens.next() != Some(Token::RightBracket) {
                 return Err(ParseError::new("expected closing bracket"));
             }
 
             body
         } else {
-            parser(&header, None, &self.scope)?
+            parser(ParseContext {
+                header: &header,
+                tokens: None,
+                scope: &self.scope,
+            })?
         };
 
         // Finally this function is parsed to the end.
@@ -433,45 +447,71 @@ impl Deref for ParserScope<'_> {
     }
 }
 
-/// A token iterator that that stops after the first unbalanced right paren.
-pub struct FuncTokens<'s, T> where T: Iterator<Item=Token<'s>> {
-    tokens: T,
-    parens: u32,
-    unexpected_end: bool,
+/// A token iterator that iterates over exactly one body.
+#[derive(Debug)]
+pub struct ParseTokens<'s> {
+    tokens: Peekable<Tokens<'s>>,
+    parens: Vec<u32>,
 }
 
-impl<'s, T> FuncTokens<'s, T> where T: Iterator<Item=Token<'s>> {
+impl<'s> ParseTokens<'s> {
+    /// Create a new iterator over text.
+    #[inline]
+    pub fn new(source: &'s str) -> ParseTokens<'s> {
+        ParseTokens::from_tokens(Tokens::new(source))
+    }
+
     /// Create a new iterator operating over an existing one.
-    pub fn new(tokens: T) -> FuncTokens<'s, T> {
-        FuncTokens {
-            tokens,
-            parens: 0,
-            unexpected_end: false,
+    #[inline]
+    pub fn from_tokens(tokens: Tokens<'s>) -> ParseTokens<'s> {
+        ParseTokens {
+            tokens: tokens.peekable(),
+            parens: vec![],
         }
+    }
+
+    /// Peek at the next token.
+    #[inline]
+    pub fn peek(&mut self) -> Option<&Token<'s>> {
+        let token = self.tokens.peek();
+        if token == Some(&Token::RightBracket) && self.parens.last() == Some(&0) {
+            return None;
+        }
+        token
+    }
+
+    /// Start a new substream of tokens.
+    fn start(&mut self) {
+        self.parens.push(0);
+    }
+
+    /// Finish a substream of tokens.
+    fn finish(&mut self) {
+        self.parens.pop().unwrap();
     }
 }
 
-impl<'s, T> Iterator for FuncTokens<'s, T> where T: Iterator<Item=Token<'s>> {
+impl<'s> Iterator for ParseTokens<'s> {
     type Item = Token<'s>;
 
     fn next(&mut self) -> Option<Token<'s>> {
         let token = self.tokens.next();
         match token {
-            Some(Token::RightBracket) if self.parens == 0 => None,
             Some(Token::RightBracket) => {
-                self.parens -= 1;
-                token
+                match self.parens.last_mut() {
+                    Some(&mut 0) => return None,
+                    Some(top) => *top -= 1,
+                    None => {}
+                }
             },
             Some(Token::LeftBracket) => {
-                self.parens += 1;
-                token
+                if let Some(top) = self.parens.last_mut() {
+                    *top += 1;
+                }
             }
-            None => {
-                self.unexpected_end = true;
-                None
-            }
-            token => token,
-        }
+            _ => {}
+        };
+        token
     }
 }
 
@@ -610,7 +650,7 @@ mod token_tests {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
-    use crate::func::{Function, Scope, BodyTokens};
+    use crate::func::{Function, Scope};
     use Node::{Space as S, Newline as N, Func as F};
 
     #[allow(non_snake_case)]
@@ -621,10 +661,9 @@ mod parse_tests {
     struct TreeFn(SyntaxTree);
 
     impl Function for TreeFn {
-        fn parse(_: &FuncHeader, tokens: BodyTokens<'_>, scope: &Scope)
-        -> ParseResult<Self> where Self: Sized {
-            if let Some(tokens) = tokens {
-                Parser::with_scope(scope, tokens).parse().map(|tree| TreeFn(tree))
+        fn parse(context: ParseContext) -> ParseResult<Self> where Self: Sized {
+            if let Some(tokens) = context.tokens {
+                Parser::with_scope(context.scope, tokens).parse().map(|tree| TreeFn(tree))
             } else {
                 Err(ParseError::new("expected body for tree fn"))
             }
@@ -637,9 +676,8 @@ mod parse_tests {
     struct BodylessFn;
 
     impl Function for BodylessFn {
-        fn parse(_: &FuncHeader, tokens: BodyTokens<'_>, _: &Scope)
-        -> ParseResult<Self> where Self: Sized {
-            if tokens.is_none() {
+        fn parse(context: ParseContext) -> ParseResult<Self> where Self: Sized {
+            if context.tokens.is_none() {
                 Ok(BodylessFn)
             } else {
                 Err(ParseError::new("unexpected body for bodyless fn"))
@@ -679,22 +717,26 @@ mod parse_tests {
 
     /// Test if the source code parses into the syntax tree.
     fn test(src: &str, tree: SyntaxTree) {
-        assert_eq!(Parser::new(Tokens::new(src)).parse().unwrap(), tree);
+        let mut tokens = ParseTokens::new(src);
+        assert_eq!(Parser::new(&mut tokens).parse().unwrap(), tree);
     }
 
     /// Test with a scope containing function definitions.
     fn test_scoped(scope: &Scope, src: &str, tree: SyntaxTree) {
-        assert_eq!(Parser::with_scope(scope, Tokens::new(src)).parse().unwrap(), tree);
+        let mut tokens = ParseTokens::new(src);
+        assert_eq!(Parser::with_scope(scope, &mut tokens).parse().unwrap(), tree);
     }
 
     /// Test if the source parses into the error.
     fn test_err(src: &str, err: &str) {
-        assert_eq!(Parser::new(Tokens::new(src)).parse().unwrap_err().message, err);
+        let mut tokens = ParseTokens::new(src);
+        assert_eq!(Parser::new(&mut tokens).parse().unwrap_err().message, err);
     }
 
     /// Test with a scope if the source parses into the error.
     fn test_err_scoped(scope: &Scope, src: &str, err: &str) {
-        assert_eq!(Parser::with_scope(scope, Tokens::new(src)).parse().unwrap_err().message, err);
+        let mut tokens = ParseTokens::new(src);
+        assert_eq!(Parser::with_scope(scope, &mut tokens).parse().unwrap_err().message, err);
     }
 
     /// Parse the basic cases.
@@ -771,7 +813,6 @@ mod parse_tests {
         let mut scope = Scope::new();
         scope.add::<BodylessFn>("func");
         scope.add::<TreeFn>("bold");
-
         test_scoped(&scope, "[func] ⺐.", tree! [
             F(func! {
                 name => "func",
