@@ -7,7 +7,7 @@ use std::mem::swap;
 use std::ops::Deref;
 
 use crate::syntax::*;
-use crate::func::{Scope, BodyTokens};
+use crate::func::Scope;
 use crate::utility::{Splinor, Spline, Splined, StrExt};
 
 use unicode_segmentation::{UnicodeSegmentation, UWordBounds};
@@ -225,8 +225,6 @@ enum ParserState {
     FirstNewline,
     /// We wrote a newline.
     WroteNewline,
-    /// Inside a function header.
-    Function,
 }
 
 impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
@@ -251,12 +249,10 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
     }
 
     /// Parse into an abstract syntax tree.
-    pub(crate) fn parse(mut self) -> ParseResult<SyntaxTree> {
+    pub fn parse(mut self) -> ParseResult<SyntaxTree> {
         use ParserState as PS;
 
-        while let Some(token) = self.tokens.peek() {
-            let token = *token;
-
+        while let Some(&token) = self.tokens.peek() {
             // Skip over comments.
             if token == Token::Hashtag {
                 self.skip_while(|&t| t != Token::Newline);
@@ -291,7 +287,7 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
                     Token::Word(word) => self.append_consumed(Node::Word(word.to_owned())),
 
                     // Functions
-                    Token::LeftBracket => self.switch_consumed(PS::Function),
+                    Token::LeftBracket => self.parse_function()?,
                     Token::RightBracket => {
                         return Err(ParseError::new("unexpected closing bracket"));
                     },
@@ -304,70 +300,69 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
                     // Should not happen
                     Token::Colon | Token::Equals | Token::Hashtag => unreachable!(),
                 },
-
-                PS::Function => {
-                    let name = if let Token::Word(word) = token {
-                        match Ident::new(word) {
-                            Some(ident) => ident,
-                            None => return Err(ParseError::new("invalid identifier")),
-                        }
-                    } else {
-                        return Err(ParseError::new("expected identifier"));
-                    };
-                    self.advance();
-
-                    // Expect the header closing bracket.
-                    if self.tokens.next() != Some(Token::RightBracket) {
-                        return Err(ParseError::new("expected closing bracket"));
-                    }
-
-                    // Store the header information of the function invocation.
-                    let header = FuncHeader {
-                        name: name.clone(),
-                        args: vec![],
-                        kwargs: HashMap::new(),
-                    };
-
-                    // This function has a body.
-                    let mut tokens = if let Some(Token::LeftBracket) = self.tokens.peek() {
-                        self.advance();
-                        Some(FuncTokens::new(&mut self.tokens))
-                    } else {
-                        None
-                    };
-
-                    // A mutably borrowed view over the tokens.
-                    let borrow_tokens: BodyTokens<'_> = tokens.as_mut().map(|toks| {
-                        Box::new(toks) as Box<dyn Iterator<Item=Token<'_>>>
-                    });
-
-                    // Run the parser over the tokens.
-                    let body = if let Some(parser) = self.scope.get_parser(&name) {
-                        parser(&header, borrow_tokens, &self.scope)?
-                    } else {
-                        return Err(ParseError::new(format!("unknown function: '{}'", &name)));
-                    };
-
-                    // Expect the closing bracket if it had a body.
-                    if let Some(tokens) = tokens {
-                        if tokens.unexpected_end {
-                            return Err(ParseError::new("expected closing bracket"));
-                        }
-                    }
-
-                    // Finally this function is parsed to the end.
-                    self.append(Node::Func(FuncCall {
-                        header,
-                        body,
-                    }));
-
-                    self.switch(PS::Body);
-                },
-
             }
         }
 
         Ok(self.tree)
+    }
+
+    /// Parse a function from the current position.
+    fn parse_function(&mut self) -> ParseResult<()> {
+        // This should only be called if a left bracket was seen.
+        debug_assert!(self.tokens.next() == Some(Token::LeftBracket));
+
+        // The next token should be the name of the function.
+        let name = match self.tokens.next() {
+            Some(Token::Word(word)) => {
+                Ident::new(word).ok_or_else(|| ParseError::new("invalid identifier"))
+            },
+            _ => Err(ParseError::new("expected identifier")),
+        }?;
+
+        // Now the header should be closed.
+        if self.tokens.next() != Some(Token::RightBracket) {
+            return Err(ParseError::new("expected closing bracket"));
+        }
+
+        // Store the header information of the function invocation.
+        let header = FuncHeader {
+            name,
+            args: vec![],
+            kwargs: HashMap::new(),
+        };
+
+        // Whether the function has a body.
+        let has_body = self.tokens.peek() == Some(&Token::LeftBracket);
+        if has_body {
+            self.advance();
+        }
+
+        // Now we want to parse this function dynamically.
+        let parser = self.scope.get_parser(&header.name)
+            .ok_or_else(|| ParseError::new(format!("unknown function: '{}'", &header.name)))?;
+
+        // Do the parsing dependend on whether the function has a body.
+        let body = if has_body {
+            let mut func_tokens = FuncTokens::new(&mut self.tokens);
+            let borrowed = Box::new(&mut func_tokens) as Box<dyn Iterator<Item=Token<'_>>>;
+
+            let body = parser(&header, Some(borrowed), &self.scope)?;
+            if func_tokens.unexpected_end {
+                return Err(ParseError::new("expected closing bracket"));
+            }
+
+            body
+        } else {
+            parser(&header, None, &self.scope)?
+        };
+
+        // Finally this function is parsed to the end.
+        self.append(Node::Func(FuncCall {
+            header,
+            body,
+        }));
+
+        Ok(self.switch(ParserState::Body))
     }
 
     /// Advance the iterator by one step.
@@ -380,14 +375,22 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
         self.tree.nodes.push(node);
     }
 
-    /// Advance and return the given node.
-    fn append_consumed(&mut self, node: Node) { self.advance(); self.append(node); }
-
     /// Append a space if there is not one already.
     fn append_space(&mut self) {
-        if self.last() != Some(&Node::Space) {
+        if self.tree.nodes.last() != Some(&Node::Space) {
             self.append(Node::Space);
         }
+    }
+
+    /// Switch the state.
+    fn switch(&mut self, state: ParserState) {
+        self.state = state;
+    }
+
+    /// Advance and return the given node.
+    fn append_consumed(&mut self, node: Node) {
+        self.advance();
+        self.append(node);
     }
 
     /// Advance and append a space if there is not one already.
@@ -396,20 +399,10 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
         self.append_space();
     }
 
-    /// Switch the state.
-    fn switch(&mut self, state: ParserState) {
-        self.state = state;
-    }
-
     /// Advance and switch the state.
     fn switch_consumed(&mut self, state: ParserState) {
         self.advance();
-        self.state = state;
-    }
-
-    /// The last appended node of the tree.
-    fn last(&self) -> Option<&Node> {
-        self.tree.nodes.last()
+        self.switch(state);
     }
 
     /// Skip tokens until the condition is met.
