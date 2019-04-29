@@ -2,14 +2,14 @@
 
 use std::any::Any;
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 
 use crate::syntax::{FuncHeader, Expression};
 use crate::parsing::{ParseTokens, ParseResult};
 
 
-/// Parser functions.
-pub type ParseFunc = dyn Fn(ParseContext) -> ParseResult<Box<dyn Function>>;
+/// A function which transforms a parsing context into a boxed function.
+type ParseFunc = dyn Fn(ParseContext) -> ParseResult<Box<dyn Function>>;
 
 /// Types that act as functions.
 ///
@@ -19,7 +19,7 @@ pub type ParseFunc = dyn Fn(ParseContext) -> ParseResult<Box<dyn Function>>;
 /// The trait `FunctionBounds` is automatically implemented for types which can be
 /// used as functions, that is they fulfill the bounds  `Debug + PartialEq + 'static`.
 pub trait Function: FunctionBounds {
-    /// Parse the function.
+    /// Parse the tokens of the context with the given header and scope into self.
     fn parse(context: ParseContext) -> ParseResult<Self> where Self: Sized;
 
     /// Execute the function and optionally yield a return value.
@@ -41,20 +41,27 @@ impl Scope {
     pub fn add<F: Function + 'static>(&mut self, name: &str) {
         self.parsers.insert(
             name.to_owned(),
-            Box::new(|context| match F::parse(context) {
-                Ok(func) => Ok(Box::new(func)),
-                Err(err) => Err(err),
+            Box::new(|context| {
+                F::parse(context).map(|func| Box::new(func) as Box<dyn Function>)
             })
         );
     }
 
     /// Return the parser with the given name if there is one.
-    pub fn get_parser(&self, name: &str) -> Option<&ParseFunc> {
+    pub(crate) fn get_parser(&self, name: &str) -> Option<&ParseFunc> {
         self.parsers.get(name).map(|x| &**x)
     }
 }
 
+impl Debug for Scope {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Scope ")?;
+        write!(f, "{:?}", self.parsers.keys())
+    }
+}
+
 /// The context for parsing a function.
+#[derive(Debug)]
 pub struct ParseContext<'s, 't> {
     /// The header of the function to be parsed.
     pub header: &'s FuncHeader,

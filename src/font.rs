@@ -12,12 +12,14 @@
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::path::PathBuf;
 use std::io::{self, Cursor, Read, Seek, SeekFrom, BufReader};
+use std::path::PathBuf;
+
 use byteorder::{BE, ReadBytesExt, WriteBytesExt};
 use opentype::{Error as OpentypeError, OpenTypeReader, Outlines, TableRecord, Tag};
 use opentype::tables::{Header, Name, CharMap, MaximumProfile, HorizontalMetrics, Post, OS2};
 use opentype::global::{MacStyleFlags, NameEntry};
+
 use crate::engine::Size;
 
 
@@ -152,7 +154,7 @@ impl Font {
 }
 
 /// Font metrics relevant to the typesetting engine.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone)]
 pub struct FontMetrics {
     /// Whether the font is italic.
     pub is_italic: bool,
@@ -284,7 +286,6 @@ pub enum FontFamily {
 }
 
 /// A font provider serving fonts from a folder on the local file system.
-#[derive(Debug)]
 pub struct FileSystemFontProvider {
     base: PathBuf,
     paths: Vec<PathBuf>,
@@ -348,7 +349,6 @@ impl FontProvider for FileSystemFontProvider {
     }
 }
 
-#[derive(Debug)]
 struct Subsetter<'d> {
     // Original font
     font: &'d Font,

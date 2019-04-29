@@ -1,11 +1,7 @@
 //! Tokenized and syntax tree representations of source code.
 
 use std::collections::HashMap;
-use std::fmt::{self, Display, Formatter};
-use std::ops::Deref;
-
 use crate::func::Function;
-use crate::utility::StrExt;
 
 
 /// A logical unit of the incoming text stream.
@@ -72,7 +68,7 @@ pub enum Node {
     Func(FuncCall),
 }
 
-/// A complete function invocation consisting of header and body.
+/// A function invocation consisting of header and body.
 #[derive(Debug)]
 pub struct FuncCall {
     pub header: FuncHeader,
@@ -88,49 +84,11 @@ impl PartialEq for FuncCall {
 /// Contains header information of a function invocation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuncHeader {
-    pub name: Ident,
+    pub name: String,
     pub args: Vec<Expression>,
-    pub kwargs: HashMap<Ident, Expression>
+    pub kwargs: HashMap<String, Expression>
 }
 
 /// A potentially unevaluated expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {}
-
-/// An owned valid identifier.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Ident(String);
-
-impl Ident {
-    /// Create a new identifier if the string is a valid one.
-    #[inline]
-    pub fn new<S: Into<String>>(ident: S) -> Option<Ident> {
-        let ident = ident.into();
-        if ident.is_identifier() {
-            Some(Ident(ident))
-        } else {
-            None
-        }
-    }
-
-    /// Consume self and return the underlying string.
-    #[inline]
-    pub fn into_inner(self) -> String {
-        self.0
-    }
-}
-
-impl Display for Ident {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
-
-impl Deref for Ident {
-    type Target = str;
-
-    #[inline]
-    fn deref(&self) -> &str {
-        &*self.0
-    }
-}

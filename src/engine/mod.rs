@@ -3,7 +3,9 @@
 use std::cell::{RefCell, Ref};
 use std::collections::HashMap;
 use std::mem::swap;
+
 use smallvec::SmallVec;
+
 use crate::syntax::{SyntaxTree, Node};
 use crate::doc::{Document, Page, Text, TextCommand};
 use crate::font::{Font, FontFamily, FontInfo, FontError};
@@ -36,7 +38,8 @@ pub struct Engine<'a> {
 
 impl<'a> Engine<'a> {
     /// Create a new generator from a syntax tree.
-    pub(crate) fn new(tree: &'a SyntaxTree, context: &'a Context<'a>) -> Engine<'a> {
+    #[inline]
+    pub fn new(tree: &'a SyntaxTree, context: &'a Context<'a>) -> Engine<'a> {
         Engine {
             tree,
             ctx: context,
@@ -52,7 +55,7 @@ impl<'a> Engine<'a> {
     }
 
     /// Generate the abstract document.
-    pub(crate) fn typeset(mut self) -> TypeResult<Document> {
+    pub fn typeset(mut self) -> TypesetResult<Document> {
         // Start by moving to a suitable position.
         self.move_start();
 
@@ -91,7 +94,7 @@ impl<'a> Engine<'a> {
     }
 
     /// Write a word.
-    fn write_word(&mut self, word: &str) -> TypeResult<()> {
+    fn write_word(&mut self, word: &str) -> TypesetResult<()> {
         // Contains pairs of (characters, font_index, char_width).
         let mut chars_with_widths = SmallVec::<[(char, usize, Size); 12]>::new();
 
@@ -127,7 +130,7 @@ impl<'a> Engine<'a> {
     }
 
     /// Write the space character: `' '`.
-    fn write_space(&mut self) -> TypeResult<()> {
+    fn write_space(&mut self) -> TypesetResult<()> {
         let space_width = self.char_width(' ', &self.get_font_for(' ')?.1);
         if !self.would_overflow(space_width) && self.current_line_width > Size::zero() {
             self.write_word(" ")?;
@@ -190,7 +193,7 @@ impl<'a> Engine<'a> {
     }
 
     /// Load a font that has the character we need.
-    fn get_font_for(&self, character: char) -> TypeResult<(usize, Ref<Font>)> {
+    fn get_font_for(&self, character: char) -> TypesetResult<(usize, Ref<Font>)> {
         self.font_loader.get(FontQuery {
             families: &self.ctx.style.font_families,
             italic: self.italic,
@@ -426,9 +429,11 @@ pub enum TypesetError {
     Font(FontError),
 }
 
+/// The result type for typesetting.
+pub type TypesetResult<T> = Result<T, TypesetError>;
+
 error_type! {
     err: TypesetError,
-    res: TypeResult,
     show: f => match err {
         TypesetError::MissingFont => write!(f, "missing font"),
         TypesetError::Font(err) => write!(f, "font error: {}", err),

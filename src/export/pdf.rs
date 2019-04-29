@@ -2,17 +2,18 @@
 
 use std::collections::HashSet;
 use std::io::{self, Write};
+
 use pdf::{PdfWriter, Ref, Rect, Version, Trailer, Content};
 use pdf::doc::{Catalog, PageTree, Page, Resource, Text};
 use pdf::font::{Type0Font, CIDFont, CIDFontType, CIDSystemInfo, FontDescriptor, FontFlags};
 use pdf::font::{GlyphUnit, CMap, CMapEncoding, WidthRecord, FontStream};
+
 use crate::doc::{Document, Text as DocText, TextCommand};
 use crate::font::{Font, FontError};
 use crate::engine::Size;
 
 
 /// Exports documents into _PDFs_.
-#[derive(Debug)]
 pub struct PdfExporter {}
 
 impl PdfExporter {
@@ -31,7 +32,6 @@ impl PdfExporter {
 }
 
 /// Writes documents in the _PDF_ format.
-#[derive(Debug)]
 struct PdfEngine<'d, W: Write> {
     writer: PdfWriter<W>,
     doc: &'d Document,

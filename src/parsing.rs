@@ -6,11 +6,11 @@ use std::iter::Peekable;
 use std::mem::swap;
 use std::ops::Deref;
 
+use unicode_segmentation::{UnicodeSegmentation, UWordBounds};
+
 use crate::syntax::*;
 use crate::func::{ParseContext, Scope};
 use crate::utility::{Splinor, Spline, Splined, StrExt};
-
-use unicode_segmentation::{UnicodeSegmentation, UWordBounds};
 
 
 /// An iterator over the tokens of source code.
@@ -20,17 +20,6 @@ pub struct Tokens<'s> {
     words: Peekable<UWordBounds<'s>>,
     state: TokensState<'s>,
     stack: Vec<TokensState<'s>>,
-}
-
-impl fmt::Debug for Tokens<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Tokens")
-            .field("source", &self.source)
-            .field("words", &"Peekable<UWordBounds>")
-            .field("state", &self.state)
-            .field("stack", &self.stack)
-            .finish()
-    }
 }
 
 /// The state the tokenizer is in.
@@ -48,17 +37,38 @@ enum TokensState<'s> {
     DoubleUnderscore(Spline<'s, Token<'s>>),
 }
 
-impl PartialEq for TokensState<'_> {
-    fn eq(&self, other: &TokensState) -> bool {
-        use TokensState as TS;
-
-        match (self, other) {
-            (TS::Body, TS::Body) => true,
-            (TS::Function, TS::Function) => true,
-            (TS::MaybeBody, TS::MaybeBody) => true,
-            // They are not necessarily different, but we don't care
-            _ => false,
+impl<'s> Tokens<'s> {
+    /// Create a new token stream from text.
+    #[inline]
+    pub fn new(source: &'s str) -> Tokens<'s> {
+        Tokens {
+            source,
+            words: source.split_word_bounds().peekable(),
+            state: TokensState::Body,
+            stack: vec![],
         }
+    }
+
+    /// Advance the iterator by one step.
+    fn advance(&mut self) {
+        self.words.next();
+    }
+
+    /// Switch to the given state.
+    fn switch(&mut self, mut state: TokensState<'s>) {
+        swap(&mut state, &mut self.state);
+        self.stack.push(state);
+    }
+
+    /// Go back to the top-of-stack state.
+    fn unswitch(&mut self) {
+         self.state = self.stack.pop().unwrap_or(TokensState::Body);
+    }
+
+    /// Advance and return the given token.
+    fn consumed(&mut self, token: Token<'s>) -> Token<'s> {
+        self.advance();
+        token
     }
 }
 
@@ -173,38 +183,28 @@ impl<'s> Iterator for Tokens<'s> {
     }
 }
 
-impl<'s> Tokens<'s> {
-    /// Create a new token stream from text.
-    #[inline]
-    pub fn new(source: &'s str) -> Tokens<'s> {
-        Tokens {
-            source,
-            words: source.split_word_bounds().peekable(),
-            state: TokensState::Body,
-            stack: vec![],
+impl fmt::Debug for Tokens<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Tokens")
+            .field("source", &self.source)
+            .field("words", &"Peekable<UWordBounds>")
+            .field("state", &self.state)
+            .field("stack", &self.stack)
+            .finish()
+    }
+}
+
+impl PartialEq for TokensState<'_> {
+    fn eq(&self, other: &TokensState) -> bool {
+        use TokensState as TS;
+
+        match (self, other) {
+            (TS::Body, TS::Body) => true,
+            (TS::Function, TS::Function) => true,
+            (TS::MaybeBody, TS::MaybeBody) => true,
+            // They are not necessarily different, but we don't care
+            _ => false,
         }
-    }
-
-    /// Advance the iterator by one step.
-    fn advance(&mut self) {
-        self.words.next();
-    }
-
-    /// Switch to the given state.
-    fn switch(&mut self, mut state: TokensState<'s>) {
-        swap(&mut state, &mut self.state);
-        self.stack.push(state);
-    }
-
-    /// Go back to the top-of-stack state.
-    fn unswitch(&mut self) {
-         self.state = self.stack.pop().unwrap_or(TokensState::Body);
-    }
-
-    /// Advance and return the given token.
-    fn consumed(&mut self, token: Token<'s>) -> Token<'s> {
-        self.advance();
-        token
     }
 }
 
@@ -228,18 +228,20 @@ enum ParserState {
 }
 
 impl<'s, 't> Parser<'s, 't> {
-    /// Create a new parser from a type that emits results of tokens.
+    /// Create a new parser from a stream of tokens.
+    #[inline]
     pub fn new(tokens: &'s mut ParseTokens<'t>) -> Parser<'s, 't> {
-        Parser::new_internal(ParserScope::Owned(Scope::new()), tokens)
+        Parser::new_internal(tokens, ParserScope::Owned(Scope::new()))
     }
 
     /// Create a new parser with a scope containing function definitions.
-    pub fn with_scope(scope: &'s Scope, tokens: &'s mut ParseTokens<'t>) -> Parser<'s, 't> {
-        Parser::new_internal(ParserScope::Shared(scope), tokens)
+    #[inline]
+    pub fn with_scope(tokens: &'s mut ParseTokens<'t>, scope: &'s Scope) -> Parser<'s, 't> {
+        Parser::new_internal(tokens, ParserScope::Shared(scope))
     }
 
     /// Internal helper for construction.
-    fn new_internal(scope: ParserScope<'s>, tokens: &'s mut ParseTokens<'t>) -> Parser<'s, 't> {
+    fn new_internal(tokens: &'s mut ParseTokens<'t>, scope: ParserScope<'s>) -> Parser<'s, 't> {
         Parser {
             tokens,
             scope,
@@ -248,7 +250,7 @@ impl<'s, 't> Parser<'s, 't> {
         }
     }
 
-    /// Parse into an abstract syntax tree.
+    /// Parse the source into an abstract syntax tree.
     pub fn parse(mut self) -> ParseResult<SyntaxTree> {
         use ParserState as PS;
 
@@ -314,7 +316,11 @@ impl<'s, 't> Parser<'s, 't> {
         // The next token should be the name of the function.
         let name = match self.tokens.next() {
             Some(Token::Word(word)) => {
-                Ident::new(word).ok_or_else(|| ParseError::new("invalid identifier"))
+                if word.is_identifier() {
+                    Ok(word.to_owned())
+                } else {
+                    Err(ParseError::new("invalid identifier"))
+                }
             },
             _ => Err(ParseError::new("expected identifier")),
         }?;
@@ -345,8 +351,6 @@ impl<'s, 't> Parser<'s, 't> {
         let body = if has_body {
             self.tokens.start();
 
-            println!("starting with: {:?}", self.tokens);
-
             let body = parser(ParseContext {
                 header: &header,
                 tokens: Some(&mut self.tokens),
@@ -354,7 +358,6 @@ impl<'s, 't> Parser<'s, 't> {
             })?;
 
             self.tokens.finish();
-            println!("finished with: {:?}", self.tokens);
 
             // Now the body should be closed.
             if self.tokens.next() != Some(Token::RightBracket) {
@@ -431,6 +434,7 @@ impl<'s, 't> Parser<'s, 't> {
 }
 
 /// An owned or shared scope.
+#[derive(Debug)]
 enum ParserScope<'s> {
     Owned(Scope),
     Shared(&'s Scope)
@@ -448,10 +452,14 @@ impl Deref for ParserScope<'_> {
 }
 
 /// A token iterator that iterates over exactly one body.
-#[derive(Debug)]
+///
+/// This iterator wraps [`Tokens`] and yields exactly the tokens of one
+/// function body or the complete top-level body and stops there.
+#[derive(Debug, Clone)]
 pub struct ParseTokens<'s> {
     tokens: Peekable<Tokens<'s>>,
     parens: Vec<u32>,
+    blocked: bool,
 }
 
 impl<'s> ParseTokens<'s> {
@@ -467,16 +475,22 @@ impl<'s> ParseTokens<'s> {
         ParseTokens {
             tokens: tokens.peekable(),
             parens: vec![],
+            blocked: false,
         }
     }
 
     /// Peek at the next token.
     #[inline]
     pub fn peek(&mut self) -> Option<&Token<'s>> {
+        if self.blocked {
+            return None;
+        }
+
         let token = self.tokens.peek();
         if token == Some(&Token::RightBracket) && self.parens.last() == Some(&0) {
             return None;
         }
+
         token
     }
 
@@ -487,6 +501,7 @@ impl<'s> ParseTokens<'s> {
 
     /// Finish a substream of tokens.
     fn finish(&mut self) {
+        self.blocked = false;
         self.parens.pop().unwrap();
     }
 }
@@ -495,11 +510,18 @@ impl<'s> Iterator for ParseTokens<'s> {
     type Item = Token<'s>;
 
     fn next(&mut self) -> Option<Token<'s>> {
-        let token = self.tokens.next();
+        if self.blocked {
+            return None;
+        }
+
+        let token = self.tokens.peek();
         match token {
             Some(Token::RightBracket) => {
                 match self.parens.last_mut() {
-                    Some(&mut 0) => return None,
+                    Some(&mut 0) => {
+                        self.blocked = true;
+                        return None
+                    },
                     Some(top) => *top -= 1,
                     None => {}
                 }
@@ -511,18 +533,16 @@ impl<'s> Iterator for ParseTokens<'s> {
             }
             _ => {}
         };
-        token
+        self.tokens.next()
     }
 }
 
 /// The error type for parsing.
-pub struct ParseError {
-    message: String,
-}
+pub struct ParseError(String);
 
 impl ParseError {
     fn new<S: Into<String>>(message: S) -> ParseError {
-        ParseError { message: message.into() }
+        ParseError(message.into())
     }
 }
 
@@ -531,7 +551,7 @@ pub type ParseResult<T> = Result<T, ParseError>;
 
 error_type! {
     err: ParseError,
-    show: f => f.write_str(&err.message),
+    show: f => f.write_str(&err.0),
 }
 
 
@@ -663,7 +683,7 @@ mod parse_tests {
     impl Function for TreeFn {
         fn parse(context: ParseContext) -> ParseResult<Self> where Self: Sized {
             if let Some(tokens) = context.tokens {
-                Parser::with_scope(context.scope, tokens).parse().map(|tree| TreeFn(tree))
+                Parser::with_scope(tokens, context.scope).parse().map(|tree| TreeFn(tree))
             } else {
                 Err(ParseError::new("expected body for tree fn"))
             }
@@ -697,7 +717,7 @@ mod parse_tests {
         (@$name:expr, $body:expr) => {
             FuncCall {
                 header: FuncHeader {
-                    name: Ident::new($name).unwrap(),
+                    name: $name.to_string(),
                     args: vec![],
                     kwargs: HashMap::new(),
                 },
@@ -715,28 +735,29 @@ mod parse_tests {
         ($($x:expr,)*) => (tree![$($x),*])
     }
 
+    fn parse(src: &str, scope: &Scope) -> ParseResult<SyntaxTree> {
+        let mut tokens = ParseTokens::new(src);
+        Parser::with_scope(&mut tokens, scope).parse()
+    }
+
     /// Test if the source code parses into the syntax tree.
     fn test(src: &str, tree: SyntaxTree) {
-        let mut tokens = ParseTokens::new(src);
-        assert_eq!(Parser::new(&mut tokens).parse().unwrap(), tree);
+        assert_eq!(parse(src, &Scope::new()).unwrap(), tree);
     }
 
     /// Test with a scope containing function definitions.
     fn test_scoped(scope: &Scope, src: &str, tree: SyntaxTree) {
-        let mut tokens = ParseTokens::new(src);
-        assert_eq!(Parser::with_scope(scope, &mut tokens).parse().unwrap(), tree);
+        assert_eq!(parse(src, &scope).unwrap(), tree);
     }
 
     /// Test if the source parses into the error.
     fn test_err(src: &str, err: &str) {
-        let mut tokens = ParseTokens::new(src);
-        assert_eq!(Parser::new(&mut tokens).parse().unwrap_err().message, err);
+        assert_eq!(parse(src, &Scope::new()).unwrap_err().to_string(), err);
     }
 
     /// Test with a scope if the source parses into the error.
     fn test_err_scoped(scope: &Scope, src: &str, err: &str) {
-        let mut tokens = ParseTokens::new(src);
-        assert_eq!(Parser::with_scope(scope, &mut tokens).parse().unwrap_err().message, err);
+        assert_eq!(parse(src, &scope).unwrap_err().to_string(), err);
     }
 
     /// Parse the basic cases.

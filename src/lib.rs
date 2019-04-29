@@ -43,11 +43,13 @@
 //! exporter.export(&document, file).unwrap();
 //! ```
 
-use crate::syntax::SyntaxTree;
-use crate::parsing::{Parser, ParseTokens, ParseError};
+use std::fmt::{self, Debug, Formatter};
+
 use crate::doc::Document;
-use crate::font::FontProvider;
 use crate::engine::{Engine, Style, TypesetError};
+use crate::font::FontProvider;
+use crate::parsing::{Parser, ParseTokens, ParseResult, ParseError};
+use crate::syntax::SyntaxTree;
 
 #[macro_use]
 mod error;
@@ -69,14 +71,6 @@ pub struct Compiler<'p> {
     context: Context<'p>,
 }
 
-struct Context<'p> {
-    /// Style for typesetting.
-    style: Style,
-    /// Font providers.
-    font_providers: Vec<Box<dyn FontProvider + 'p>>,
-}
-
-/// Functions to set up the compilation context.
 impl<'p> Compiler<'p> {
     /// Create a new compiler.
     #[inline]
@@ -100,28 +94,42 @@ impl<'p> Compiler<'p> {
     pub fn add_font_provider<P: 'p>(&mut self, provider: P) where P: FontProvider {
         self.context.font_providers.push(Box::new(provider));
     }
-}
 
-/// Compilation functions.
-impl<'p> Compiler<'p> {
     /// Parse source code into a syntax tree.
     #[inline]
-    pub fn parse(&self, src: &str) -> Result<SyntaxTree, ParseError> {
+    pub fn parse(&self, src: &str) -> ParseResult<SyntaxTree> {
         let mut tokens = ParseTokens::new(src);
         Parser::new(&mut tokens).parse()
     }
 
     /// Compile a portable typesetted document from source code.
     #[inline]
-    pub fn typeset(&self, src: &str) -> Result<Document, Error> {
+    pub fn typeset(&self, src: &str) -> CompileResult<Document> {
         let tree = self.parse(src)?;
         let engine = Engine::new(&tree, &self.context);
         engine.typeset().map_err(Into::into)
     }
 }
 
+/// Holds the compilation context.
+pub struct Context<'p> {
+    /// Style for typesetting.
+    style: Style,
+    /// Font providers.
+    font_providers: Vec<Box<dyn FontProvider + 'p>>,
+}
+
+impl Debug for Context<'_> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("Context")
+            .field("style", &self.style)
+            .field("font_providers", &self.font_providers.len())
+            .finish()
+    }
+}
+
 /// The general error type for compilation.
-pub enum Error {
+pub enum CompileError {
     /// An error that occured while transforming source code into
     /// an abstract syntax tree.
     Parse(ParseError),
@@ -129,18 +137,21 @@ pub enum Error {
     Typeset(TypesetError),
 }
 
+/// The result type for compilation.
+pub type CompileResult<T> = Result<T, CompileError>;
+
 error_type! {
-    err: Error,
+    err: CompileError,
     show: f => match err {
-        Error::Parse(e) => write!(f, "parse error: {}", e),
-        Error::Typeset(e) => write!(f, "typeset error: {}", e),
+        CompileError::Parse(e) => write!(f, "parse error: {}", e),
+        CompileError::Typeset(e) => write!(f, "typeset error: {}", e),
     },
     source: match err {
-        Error::Parse(e) => Some(e),
-        Error::Typeset(e) => Some(e),
+        CompileError::Parse(e) => Some(e),
+        CompileError::Typeset(e) => Some(e),
     },
-    from: (ParseError, Error::Parse(err)),
-    from: (TypesetError, Error::Typeset(err)),
+    from: (ParseError, CompileError::Parse(err)),
+    from: (TypesetError, CompileError::Typeset(err)),
 }
 
 
