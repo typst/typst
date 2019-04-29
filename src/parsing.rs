@@ -5,10 +5,12 @@ use std::fmt;
 use std::iter::Peekable;
 use std::mem::swap;
 use std::ops::Deref;
-use unicode_segmentation::{UnicodeSegmentation, UWordBounds};
+
 use crate::syntax::*;
 use crate::func::{Scope, BodyTokens};
 use crate::utility::{Splinor, Spline, Splined, StrExt};
+
+use unicode_segmentation::{UnicodeSegmentation, UWordBounds};
 
 
 /// An iterator over the tokens of source code.
@@ -211,7 +213,6 @@ pub struct Parser<'s, T> where T: Iterator<Item=Token<'s>> {
     tokens: Peekable<T>,
     scope: ParserScope<'s>,
     state: ParserState,
-    stack: Vec<FuncInvocation>,
     tree: SyntaxTree,
 }
 
@@ -226,23 +227,6 @@ enum ParserState {
     WroteNewline,
     /// Inside a function header.
     Function,
-}
-
-/// An owned or shared scope.
-enum ParserScope<'s> {
-    Owned(Scope),
-    Shared(&'s Scope)
-}
-
-impl Deref for ParserScope<'_> {
-    type Target = Scope;
-
-    fn deref(&self) -> &Scope {
-        match self {
-            ParserScope::Owned(scope) => &scope,
-            ParserScope::Shared(scope) => scope,
-        }
-    }
 }
 
 impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
@@ -262,7 +246,6 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
             tokens: tokens.peekable(),
             scope,
             state: ParserState::Body,
-            stack: vec![],
             tree: SyntaxTree::new(),
         }
     }
@@ -310,11 +293,7 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
                     // Functions
                     Token::LeftBracket => self.switch_consumed(PS::Function),
                     Token::RightBracket => {
-                        self.advance();
-                        match self.stack.pop() {
-                            Some(func) => self.append(Node::Func(func)),
-                            None => return Err(ParseError::new("unexpected closing bracket")),
-                        }
+                        return Err(ParseError::new("unexpected closing bracket"));
                     },
 
                     // Modifiers
@@ -366,20 +345,18 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
                     let body = if let Some(parser) = self.scope.get_parser(&name) {
                         parser(&header, borrow_tokens, &self.scope)?
                     } else {
-                        let message = format!("unknown function: '{}'", &name);
-                        return Err(ParseError::new(message));
+                        return Err(ParseError::new(format!("unknown function: '{}'", &name)));
                     };
 
                     // Expect the closing bracket if it had a body.
                     if let Some(tokens) = tokens {
-                        println!("lulz");
                         if tokens.unexpected_end {
                             return Err(ParseError::new("expected closing bracket"));
                         }
                     }
 
                     // Finally this function is parsed to the end.
-                    self.append(Node::Func(FuncInvocation {
+                    self.append(Node::Func(FuncCall {
                         header,
                         body,
                     }));
@@ -390,10 +367,6 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
             }
         }
 
-        // if !self.stack.is_empty() {
-        //     return Err(ParseError::new("expected closing bracket"));
-        // }
-
         Ok(self.tree)
     }
 
@@ -402,13 +375,9 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
         self.tokens.next();
     }
 
-    /// Append a node to the top-of-stack function or the main tree itself.
+    /// Append a node to the tree.
     fn append(&mut self, node: Node) {
         self.tree.nodes.push(node);
-        // match self.stack.last_mut() {
-        //     Some(func) => func.body.as_mut().unwrap(),
-        //     None => &mut self.tree,
-        // }.nodes.push(node);
     }
 
     /// Advance and return the given node.
@@ -422,7 +391,10 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
     }
 
     /// Advance and append a space if there is not one already.
-    fn append_space_consumed(&mut self) { self.advance(); self.append_space(); }
+    fn append_space_consumed(&mut self) {
+        self.advance();
+        self.append_space();
+    }
 
     /// Switch the state.
     fn switch(&mut self, state: ParserState) {
@@ -430,15 +402,14 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
     }
 
     /// Advance and switch the state.
-    fn switch_consumed(&mut self, state: ParserState) { self.advance(); self.state = state; }
+    fn switch_consumed(&mut self, state: ParserState) {
+        self.advance();
+        self.state = state;
+    }
 
-    /// The last appended node of the top-of-stack function or of the main tree.
+    /// The last appended node of the tree.
     fn last(&self) -> Option<&Node> {
         self.tree.nodes.last()
-        // match self.stack.last() {
-        //     Some(func) => func.body.as_ref().unwrap(),
-        //     None => &self.tree,
-        // }.nodes.last()
     }
 
     /// Skip tokens until the condition is met.
@@ -448,6 +419,23 @@ impl<'s, T> Parser<'s, T> where T: Iterator<Item=Token<'s>> {
                 break;
             }
             self.advance();
+        }
+    }
+}
+
+/// An owned or shared scope.
+enum ParserScope<'s> {
+    Owned(Scope),
+    Shared(&'s Scope)
+}
+
+impl Deref for ParserScope<'_> {
+    type Target = Scope;
+
+    fn deref(&self) -> &Scope {
+        match self {
+            ParserScope::Owned(scope) => &scope,
+            ParserScope::Shared(scope) => scope,
         }
     }
 }
@@ -505,9 +493,11 @@ impl ParseError {
     }
 }
 
+/// The result type for parsing.
+pub type ParseResult<T> = Result<T, ParseError>;
+
 error_type! {
     err: ParseError,
-    res: ParseResult,
     show: f => f.write_str(&err.message),
 }
 
@@ -623,6 +613,7 @@ mod token_tests {
     }
 }
 
+
 #[cfg(test)]
 mod parse_tests {
     use super::*;
@@ -653,7 +644,8 @@ mod parse_tests {
     struct BodylessFn;
 
     impl Function for BodylessFn {
-        fn parse(_: &FuncHeader, tokens: BodyTokens<'_>, _: &Scope) -> ParseResult<Self> where Self: Sized {
+        fn parse(_: &FuncHeader, tokens: BodyTokens<'_>, _: &Scope)
+        -> ParseResult<Self> where Self: Sized {
             if tokens.is_none() {
                 Ok(BodylessFn)
             } else {
@@ -672,7 +664,7 @@ mod parse_tests {
             func!(@$name, Box::new(TreeFn($tree)))
         };
         (@$name:expr, $body:expr) => {
-            FuncInvocation {
+            FuncCall {
                 header: FuncHeader {
                     name: Ident::new($name).unwrap(),
                     args: vec![],
@@ -707,7 +699,7 @@ mod parse_tests {
         assert_eq!(Parser::new(Tokens::new(src)).parse().unwrap_err().message, err);
     }
 
-    /// Test if the source parses into the error.
+    /// Test with a scope if the source parses into the error.
     fn test_err_scoped(scope: &Scope, src: &str, err: &str) {
         assert_eq!(Parser::with_scope(scope, Tokens::new(src)).parse().unwrap_err().message, err);
     }
@@ -735,10 +727,10 @@ mod parse_tests {
     #[test]
     fn parse_functions() {
         let mut scope = Scope::new();
-        let tree_fns = ["modifier", "func", "links", "bodyempty", "nested"];
-        let bodyless_fns = ["test", "end"];
-        for func in &bodyless_fns { scope.add::<BodylessFn>(func); }
-        for func in &tree_fns { scope.add::<TreeFn>(func); }
+        scope.add::<BodylessFn>("test");
+        scope.add::<BodylessFn>("end");
+        scope.add::<TreeFn>("modifier");
+        scope.add::<TreeFn>("func");
 
         test_scoped(&scope,"[test]", tree! [ F(func! { name => "test", body => None }) ]);
         test_scoped(&scope, "This is an [modifier][example] of a function invocation.", tree! [
@@ -746,13 +738,13 @@ mod parse_tests {
             F(func! { name => "modifier", body => tree! [ W("example") ] }), S,
             W("of"), S, W("a"), S, W("function"), S, W("invocation"), W(".")
         ]);
-        test_scoped(&scope, "[func][Hello][links][Here][end]",  tree! [
+        test_scoped(&scope, "[func][Hello][modifier][Here][end]",  tree! [
             F(func! {
                 name => "func",
                 body => tree! [ W("Hello") ],
             }),
             F(func! {
-                name => "links",
+                name => "modifier",
                 body => tree! [ W("Here") ],
             }),
             F(func! {
@@ -760,15 +752,15 @@ mod parse_tests {
                 body => None,
             }),
         ]);
-        test_scoped(&scope, "[bodyempty][]", tree! [
+        test_scoped(&scope, "[func][]", tree! [
             F(func! {
-                name => "bodyempty",
+                name => "func",
                 body => tree! [],
             })
         ]);
-        test_scoped(&scope, "[nested][[func][call]] outside", tree! [
+        test_scoped(&scope, "[modifier][[func][call]] outside", tree! [
             F(func! {
-                name => "nested",
+                name => "modifier",
                 body => tree! [
                     F(func! {
                         name => "func",
@@ -784,19 +776,19 @@ mod parse_tests {
     #[test]
     fn parse_unicode() {
         let mut scope = Scope::new();
-        scope.add::<BodylessFn>("lib_parse");
-        scope.add::<TreeFn>("func123");
+        scope.add::<BodylessFn>("func");
+        scope.add::<TreeFn>("bold");
 
-        test_scoped(&scope, "[lib_parse] ⺐.", tree! [
+        test_scoped(&scope, "[func] ⺐.", tree! [
             F(func! {
-                name => "lib_parse",
+                name => "func",
                 body => None,
             }),
             S, W("⺐"), W(".")
         ]);
-        test_scoped(&scope, "[func123][Hello 🌍!]", tree! [
+        test_scoped(&scope, "[bold][Hello 🌍!]", tree! [
             F(func! {
-                name => "func123",
+                name => "bold",
                 body => tree! [ W("Hello"), S, W("🌍"), W("!") ],
             })
         ]);

@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use std::ops::Deref;
+
 use crate::func::Function;
 use crate::utility::StrExt;
 
@@ -68,18 +69,18 @@ pub enum Node {
     /// A literal word.
     Word(String),
     /// A function invocation.
-    Func(FuncInvocation),
+    Func(FuncCall),
 }
 
 /// A complete function invocation consisting of header and body.
 #[derive(Debug)]
-pub struct FuncInvocation {
+pub struct FuncCall {
     pub header: FuncHeader,
     pub body: Box<dyn Function>,
 }
 
-impl PartialEq for FuncInvocation {
-    fn eq(&self, other: &FuncInvocation) -> bool {
+impl PartialEq for FuncCall {
+    fn eq(&self, other: &FuncCall) -> bool {
         (self.header == other.header) && (&self.body == &other.body)
     }
 }
