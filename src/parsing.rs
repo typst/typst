@@ -1,30 +1,29 @@
 //! Tokenization and parsing of source code into syntax trees.
 
 use std::collections::HashMap;
-use std::fmt;
 use std::iter::Peekable;
 use std::mem::swap;
 use std::ops::Deref;
+use std::str::CharIndices;
 
-use unicode_segmentation::{UnicodeSegmentation, UWordBounds};
+use unicode_xid::UnicodeXID;
 
 use crate::syntax::*;
 use crate::func::{ParseContext, Scope};
-use crate::utility::{Splinor, Spline, Splined, StrExt};
 
 
 /// An iterator over the tokens of source code.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Tokens<'s> {
     source: &'s str,
-    words: Peekable<UWordBounds<'s>>,
-    state: TokensState<'s>,
-    stack: Vec<TokensState<'s>>,
+    chars: Peekable<CharIndices<'s>>,
+    state: TokensState,
+    stack: Vec<TokensState>,
 }
 
 /// The state the tokenizer is in.
-#[derive(Debug, Clone)]
-enum TokensState<'s> {
+#[derive(Debug, Clone, PartialEq)]
+enum TokensState {
     /// The base state if there is nothing special we are in.
     Body,
     /// Inside a function header. Here colons and equal signs get parsed
@@ -32,9 +31,6 @@ enum TokensState<'s> {
     Function,
     /// We expect either the end of the function or the beginning of the body.
     MaybeBody,
-    /// We are inside one unicode word that consists of multiple tokens,
-    /// because it contains double underscores.
-    DoubleUnderscore(Spline<'s, Token<'s>>),
 }
 
 impl<'s> Tokens<'s> {
@@ -43,7 +39,7 @@ impl<'s> Tokens<'s> {
     pub fn new(source: &'s str) -> Tokens<'s> {
         Tokens {
             source,
-            words: source.split_word_bounds().peekable(),
+            chars: source.char_indices().peekable(),
             state: TokensState::Body,
             stack: vec![],
         }
@@ -51,11 +47,11 @@ impl<'s> Tokens<'s> {
 
     /// Advance the iterator by one step.
     fn advance(&mut self) {
-        self.words.next();
+        self.chars.next();
     }
 
     /// Switch to the given state.
-    fn switch(&mut self, mut state: TokensState<'s>) {
+    fn switch(&mut self, mut state: TokensState) {
         swap(&mut state, &mut self.state);
         self.stack.push(state);
     }
@@ -70,6 +66,11 @@ impl<'s> Tokens<'s> {
         self.advance();
         token
     }
+
+    /// Returns a word containing the string bounded by the given indices.
+    fn text(&self, start: usize, end: usize) -> Token<'s> {
+        Token::Text(&self.source[start .. end])
+    }
 }
 
 impl<'s> Iterator for Tokens<'s> {
@@ -79,27 +80,11 @@ impl<'s> Iterator for Tokens<'s> {
     fn next(&mut self) -> Option<Token<'s>> {
         use TokensState as TS;
 
-        // Return the remaining words and double underscores.
-        if let TS::DoubleUnderscore(splinor) = &mut self.state {
-            loop {
-                if let Some(splined) = splinor.next() {
-                    return Some(match splined {
-                        Splined::Value(word) if word != "" => Token::Word(word),
-                        Splined::Splinor(s) => s,
-                        _ => continue,
-                    });
-                } else {
-                    self.unswitch();
-                    break;
-                }
-            }
-        }
-
-        // Skip whitespace, but if at least one whitespace word existed,
-        // remember that, because we return a space token.
+        // Skip whitespace, but if at least one whitespace character existed,
+        // remember that, because then we return a space token.
         let mut whitespace = false;
-        while let Some(word) = self.words.peek() {
-            if !word.is_whitespace() {
+        while let Some(&(_, c)) = self.chars.peek() {
+            if !c.is_whitespace() || c == '\n' || c == '\r' {
                 break;
             }
             whitespace = true;
@@ -111,100 +96,82 @@ impl<'s> Iterator for Tokens<'s> {
 
         // Function maybe has a body
         if self.state == TS::MaybeBody {
-            match *self.words.peek()? {
-                "[" => {
-                    self.state = TS::Body;
-                    return Some(self.consumed(Token::LeftBracket));
-                },
-                _ => self.unswitch(),
+            if self.chars.peek()?.1 == '[' {
+                self.state = TS::Body;
+                return Some(self.consumed(Token::LeftBracket));
+            } else {
+                self.unswitch();
             }
         }
 
         // Now all special cases are handled and we can finally look at the
         // next words.
-        let next = self.words.next()?;
-        let afterwards = self.words.peek();
+        let (next_pos, next) = self.chars.next()?;
+        let afterwards = self.chars.peek().map(|&(_, c)| c);
 
         Some(match next {
             // Special characters
-            "[" => {
+            '[' => {
                 self.switch(TS::Function);
                 Token::LeftBracket
             },
-            "]" => {
+            ']' => {
                 if self.state == TS::Function {
                     self.state = TS::MaybeBody;
                 }
                 Token::RightBracket
             },
-            "$" => Token::Dollar,
-            "#" => Token::Hashtag,
+            '$' => Token::Dollar,
+            '#' => Token::Hashtag,
 
             // Context sensitive operators
-            ":" if self.state == TS::Function => Token::Colon,
-            "=" if self.state == TS::Function => Token::Equals,
+            ':' if self.state == TS::Function => Token::Colon,
+            '=' if self.state == TS::Function => Token::Equals,
 
             // Double star/underscore
-            "*" if afterwards == Some(&"*") => self.consumed(Token::DoubleStar),
-            "__" => Token::DoubleUnderscore,
+            '*' if afterwards == Some('*') => self.consumed(Token::DoubleStar),
+            '_' if afterwards == Some('_') => self.consumed(Token::DoubleUnderscore),
 
             // Newlines
-            "\n" | "\r\n" => Token::Newline,
+            '\n' => Token::Newline,
+            '\r' if afterwards == Some('\n') => self.consumed(Token::Newline),
 
             // Escaping
-            r"\" => {
-                if let Some(next) = afterwards {
-                    let escapable = match *next {
-                        "[" | "]" | "$" | "#" | r"\" | ":" | "=" | "*" | "_" => true,
-                        w if w.starts_with("__") => true,
-                        _ => false,
-                    };
-
-                    if escapable {
-                        let next = *next;
+            '\\' => {
+                if let Some(&(index, c)) = self.chars.peek() {
+                    if is_special_character(c) {
                         self.advance();
-                        return Some(Token::Word(next));
+                        return Some(self.text(index, index + c.len_utf8()));
                     }
                 }
 
-                Token::Word(r"\")
-            },
-
-            // Double underscores hidden in words.
-            word if word.contains("__") => {
-                let spline = word.spline("__", Token::DoubleUnderscore);
-                self.switch(TS::DoubleUnderscore(spline));
-                return self.next();
+                Token::Text("\\")
             },
 
             // Now it seems like it's just a normal word.
-            word => Token::Word(word),
+            _ => {
+                // Find out when the word ends.
+                let mut end = (next_pos, next);
+                while let Some(&(index, c)) = self.chars.peek() {
+                    if is_special_character(c) || c.is_whitespace() {
+                        break;
+                    }
+                    end = (index, c);
+                    self.advance();
+                }
+
+                let end_pos = end.0 + end.1.len_utf8();
+                self.text(next_pos, end_pos)
+            },
         })
     }
 }
 
-impl fmt::Debug for Tokens<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Tokens")
-            .field("source", &self.source)
-            .field("words", &"Peekable<UWordBounds>")
-            .field("state", &self.state)
-            .field("stack", &self.stack)
-            .finish()
-    }
-}
-
-impl PartialEq for TokensState<'_> {
-    fn eq(&self, other: &TokensState) -> bool {
-        use TokensState as TS;
-
-        match (self, other) {
-            (TS::Body, TS::Body) => true,
-            (TS::Function, TS::Function) => true,
-            (TS::MaybeBody, TS::MaybeBody) => true,
-            // They are not necessarily different, but we don't care
-            _ => false,
-        }
+/// Whether this character has a special meaning in the language.
+fn is_special_character(character: char) -> bool {
+    match character {
+        '[' | ']' | '$' | '#' | '\\' | ':' | '=' | '*' | '_' => true,
+        _ => false,
     }
 }
 
@@ -285,8 +252,8 @@ impl<'s, 't> Parser<'s, 't> {
                     Token::Space => self.append_space_consumed(),
                     Token::Newline => self.switch_consumed(PS::FirstNewline),
 
-                    // Words
-                    Token::Word(word) => self.append_consumed(Node::Word(word.to_owned())),
+                    // Text
+                    Token::Text(word) => self.append_consumed(Node::Text(word.to_owned())),
 
                     // Functions
                     Token::LeftBracket => self.parse_function()?,
@@ -315,7 +282,7 @@ impl<'s, 't> Parser<'s, 't> {
 
         // The next token should be the name of the function.
         let name = match self.tokens.next() {
-            Some(Token::Word(word)) => {
+            Some(Token::Text(word)) => {
                 if word.is_identifier() {
                     Ok(word.to_owned())
                 } else {
@@ -537,6 +504,39 @@ impl<'s> Iterator for ParseTokens<'s> {
     }
 }
 
+/// More useful functions on `str`'s.
+trait StrExt {
+    /// Whether self consists only of whitespace.
+    fn is_whitespace(&self) -> bool;
+
+    /// Whether this word is a valid unicode identifier.
+    fn is_identifier(&self) -> bool;
+}
+
+impl StrExt for str {
+    fn is_whitespace(&self) -> bool {
+        self.chars().all(|c| c.is_whitespace() && c != '\n')
+    }
+
+    fn is_identifier(&self) -> bool {
+        let mut chars = self.chars();
+
+        match chars.next() {
+            Some(c) if !UnicodeXID::is_xid_start(c) => return false,
+            None => return false,
+            _ => (),
+        }
+
+        while let Some(c) = chars.next() {
+            if !UnicodeXID::is_xid_continue(c) {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
 /// The error type for parsing.
 pub struct ParseError(String);
 
@@ -560,7 +560,7 @@ mod token_tests {
     use super::*;
     use Token::{Space as S, Newline as N, LeftBracket as L, RightBracket as R,
                 Colon as C, Equals as E, DoubleUnderscore as DU, DoubleStar as DS,
-                Dollar as D, Hashtag as H, Word as W};
+                Dollar as D, Hashtag as H, Text as T};
 
     /// Test if the source code tokenizes to the tokens.
     fn test(src: &str, tokens: Vec<Token>) {
@@ -571,7 +571,7 @@ mod token_tests {
     #[test]
     fn tokenize_base() {
         test("", vec![]);
-        test("Hallo", vec![W("Hallo")]);
+        test("Hallo", vec![T("Hallo")]);
         test("[", vec![L]);
         test("]", vec![R]);
         test("$", vec![D]);
@@ -586,26 +586,26 @@ mod token_tests {
     fn tokenize_whitespace_newlines() {
         test(" \t", vec![S]);
         test("First line\r\nSecond line\nThird line\n",
-             vec![W("First"), S, W("line"), N, W("Second"), S, W("line"), N,
-                  W("Third"), S, W("line"), N]);
-        test("Hello \n ", vec![W("Hello"), S, N, S]);
-        test("Dense\nTimes", vec![W("Dense"), N, W("Times")]);
+             vec![T("First"), S, T("line"), N, T("Second"), S, T("line"), N,
+                  T("Third"), S, T("line"), N]);
+        test("Hello \n ", vec![T("Hello"), S, N, S]);
+        test("Dense\nTimes", vec![T("Dense"), N, T("Times")]);
     }
 
     /// Tests if escaping with backslash works as it should.
     #[test]
     fn tokenize_escape() {
-        test(r"\[", vec![W("[")]);
-        test(r"\]", vec![W("]")]);
-        test(r"\#", vec![W("#")]);
-        test(r"\$", vec![W("$")]);
-        test(r"\:", vec![W(":")]);
-        test(r"\=", vec![W("=")]);
-        test(r"\**", vec![W("*"), W("*")]);
-        test(r"\*", vec![W("*")]);
-        test(r"\__", vec![W("__")]);
-        test(r"\_", vec![W("_")]);
-        test(r"\hello", vec![W(r"\"), W("hello")]);
+        test(r"\[", vec![T("[")]);
+        test(r"\]", vec![T("]")]);
+        test(r"\#", vec![T("#")]);
+        test(r"\$", vec![T("$")]);
+        test(r"\:", vec![T(":")]);
+        test(r"\=", vec![T("=")]);
+        test(r"\**", vec![T("*"), T("*")]);
+        test(r"\*", vec![T("*")]);
+        test(r"\__", vec![T("_"), T("_")]);
+        test(r"\_", vec![T("_")]);
+        test(r"\hello", vec![T("\\"), T("hello")]);
     }
 
     /// Tokenizes some more realistic examples.
@@ -616,8 +616,8 @@ mod token_tests {
                 Test [italic][example]!
             ]
         ", vec![
-            N, S, L, W("function"), R, L, N, S, W("Test"), S, L, W("italic"), R, L,
-            W("example"), R, W("!"), N, S, R, N, S
+            N, S, L, T("function"), R, L, N, S, T("Test"), S, L, T("italic"), R, L,
+            T("example"), R, T("!"), N, S, R, N, S
         ]);
 
         test(r"
@@ -626,10 +626,10 @@ mod token_tests {
 
             Das ist ein Beispielsatz mit **fetter** Schrift.
         ", vec![
-            N, S, L, W("page"), C, S, W("size"), E, W("A4"), R, N, S,
-            L, W("font"), C, S, W("size"), E, W("12pt"), R, N, N, S,
-            W("Das"), S, W("ist"), S, W("ein"), S, W("Beispielsatz"), S, W("mit"), S,
-            DS, W("fetter"), DS, S, W("Schrift"), W("."), N, S
+            N, S, L, T("page"), C, S, T("size"), E, T("A4"), R, N, S,
+            L, T("font"), C, S, T("size"), E, T("12pt"), R, N, N, S,
+            T("Das"), S, T("ist"), S, T("ein"), S, T("Beispielsatz"), S, T("mit"), S,
+            DS, T("fetter"), DS, S, T("Schrift."), N, S
         ]);
     }
 
@@ -638,13 +638,13 @@ mod token_tests {
     #[test]
     fn tokenize_symbols_context() {
         test("[func: key=value][Answer: 7]",
-             vec![L, W("func"), C, S, W("key"), E, W("value"), R, L,
-                  W("Answer"), W(":"), S, W("7"), R]);
+             vec![L, T("func"), C, S, T("key"), E, T("value"), R, L,
+                  T("Answer"), T(":"), S, T("7"), R]);
         test("[[n: k=v]:x][:[=]]:=",
-             vec![L, L, W("n"), C, S, W("k"), E, W("v"), R, C, W("x"), R,
-                  L, W(":"), L, E, R, R, W(":"), W("=")]);
+             vec![L, L, T("n"), C, S, T("k"), E, T("v"), R, C, T("x"), R,
+                  L, T(":"), L, E, R, R, T(":"), T("=")]);
         test("[func: __key__=value]",
-             vec![L, W("func"), C, S, DU, W("key"), DU, E, W("value"), R]);
+             vec![L, T("func"), C, S, DU, T("key"), DU, E, T("value"), R]);
     }
 
     /// This test has a special look at the double underscore syntax, because
@@ -653,16 +653,16 @@ mod token_tests {
     #[test]
     fn tokenize_double_underscore() {
         test("he__llo__world_ _ __ Now this_ is__ special!",
-             vec![W("he"), DU, W("llo"), DU, W("world_"), S, W("_"), S, DU, S, W("Now"), S,
-                  W("this_"), S, W("is"), DU, S, W("special"), W("!")]);
+             vec![T("he"), DU, T("llo"), DU, T("world"), T("_"), S, T("_"), S, DU, S, T("Now"), S,
+                  T("this"), T("_"), S, T("is"), DU, S, T("special!")]);
     }
 
     /// This test is for checking if non-ASCII characters get parsed correctly.
     #[test]
     fn tokenize_unicode() {
         test("[document][Hello 🌍!]",
-             vec![L, W("document"), R, L, W("Hello"), S, W("🌍"), W("!"), R]);
-        test("[f]⺐.", vec![L, W("f"), R, W("⺐"), W(".")]);
+             vec![L, T("document"), R, L, T("Hello"), S, T("🌍!"), R]);
+        test("[f]⺐.", vec![L, T("f"), R, T("⺐.")]);
     }
 }
 
@@ -674,7 +674,7 @@ mod parse_tests {
     use Node::{Space as S, Newline as N, Func as F};
 
     #[allow(non_snake_case)]
-    fn W(s: &str) -> Node { Node::Word(s.to_owned()) }
+    fn T(s: &str) -> Node { Node::Text(s.to_owned()) }
 
     /// A testing function which just parses it's body into a syntax tree.
     #[derive(Debug, PartialEq)]
@@ -764,19 +764,19 @@ mod parse_tests {
     #[test]
     fn parse_base() {
         test("", tree! []);
-        test("Hello World!", tree! [ W("Hello"), S, W("World"), W("!") ]);
+        test("Hello World!", tree! [ T("Hello"), S, T("World!") ]);
     }
 
     /// Test whether newlines generate the correct whitespace.
     #[test]
     fn parse_newlines_whitespace() {
-        test("Hello\nWorld", tree! [ W("Hello"), S, W("World") ]);
-        test("Hello \n World", tree! [ W("Hello"), S, W("World") ]);
-        test("Hello\n\nWorld", tree! [ W("Hello"), N, W("World") ]);
-        test("Hello \n\nWorld", tree! [ W("Hello"), S, N, W("World") ]);
-        test("Hello\n\n  World", tree! [ W("Hello"), N, S, W("World") ]);
-        test("Hello \n \n \n  World", tree! [ W("Hello"), S, N, S, W("World") ]);
-        test("Hello\n \n\n  World", tree! [ W("Hello"), S, N, S, W("World") ]);
+        test("Hello\nWorld", tree! [ T("Hello"), S, T("World") ]);
+        test("Hello \n World", tree! [ T("Hello"), S, T("World") ]);
+        test("Hello\n\nWorld", tree! [ T("Hello"), N, T("World") ]);
+        test("Hello \n\nWorld", tree! [ T("Hello"), S, N, T("World") ]);
+        test("Hello\n\n  World", tree! [ T("Hello"), N, S, T("World") ]);
+        test("Hello \n \n \n  World", tree! [ T("Hello"), S, N, S, T("World") ]);
+        test("Hello\n \n\n  World", tree! [ T("Hello"), S, N, S, T("World") ]);
     }
 
     /// Parse things dealing with functions.
@@ -790,18 +790,18 @@ mod parse_tests {
 
         test_scoped(&scope,"[test]", tree! [ F(func! { name => "test", body => None }) ]);
         test_scoped(&scope, "This is an [modifier][example] of a function invocation.", tree! [
-            W("This"), S, W("is"), S, W("an"), S,
-            F(func! { name => "modifier", body => tree! [ W("example") ] }), S,
-            W("of"), S, W("a"), S, W("function"), S, W("invocation"), W(".")
+            T("This"), S, T("is"), S, T("an"), S,
+            F(func! { name => "modifier", body => tree! [ T("example") ] }), S,
+            T("of"), S, T("a"), S, T("function"), S, T("invocation.")
         ]);
         test_scoped(&scope, "[func][Hello][modifier][Here][end]",  tree! [
             F(func! {
                 name => "func",
-                body => tree! [ W("Hello") ],
+                body => tree! [ T("Hello") ],
             }),
             F(func! {
                 name => "modifier",
-                body => tree! [ W("Here") ],
+                body => tree! [ T("Here") ],
             }),
             F(func! {
                 name => "end",
@@ -820,11 +820,11 @@ mod parse_tests {
                 body => tree! [
                     F(func! {
                         name => "func",
-                        body => tree! [ W("call") ],
+                        body => tree! [ T("call") ],
                     }),
                 ],
             }),
-            S, W("outside")
+            S, T("outside")
         ]);
     }
 
@@ -839,12 +839,12 @@ mod parse_tests {
                 name => "func",
                 body => None,
             }),
-            S, W("⺐"), W(".")
+            S, T("⺐.")
         ]);
         test_scoped(&scope, "[bold][Hello 🌍!]", tree! [
             F(func! {
                 name => "bold",
-                body => tree! [ W("Hello"), S, W("🌍"), W("!") ],
+                body => tree! [ T("Hello"), S, T("🌍!") ],
             })
         ]);
     }

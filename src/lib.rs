@@ -53,7 +53,6 @@ use crate::syntax::SyntaxTree;
 
 #[macro_use]
 mod error;
-mod utility;
 pub mod doc;
 pub mod engine;
 pub mod export;

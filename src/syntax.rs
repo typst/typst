@@ -30,8 +30,8 @@ pub enum Token<'s> {
     Dollar,
     /// A hashtag starting a _comment_.
     Hashtag,
-    /// Everything else just is a literal word.
-    Word(&'s str),
+    /// Everything else is just text.
+    Text(&'s str),
 }
 
 /// A tree representation of the source.
@@ -62,8 +62,8 @@ pub enum Node {
     ToggleBold,
     /// Indicates that math mode was enabled/disabled.
     ToggleMath,
-    /// A literal word.
-    Word(String),
+    /// Literal text.
+    Text(String),
     /// A function invocation.
     Func(FuncCall),
 }

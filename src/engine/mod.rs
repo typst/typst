@@ -62,7 +62,7 @@ impl<'a> Engine<'a> {
         // Iterate through the documents nodes.
         for node in &self.tree.nodes {
             match node {
-                Node::Word(word) => self.write_word(word)?,
+                Node::Text(text) => self.write_word(text)?,
                 Node::Space => self.write_space()?,
                 Node::Newline => {
                     self.write_buffered_text();
