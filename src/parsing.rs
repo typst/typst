@@ -16,7 +16,7 @@ use crate::func::{ParseContext, Scope};
 #[derive(Debug, Clone)]
 pub struct Tokens<'s> {
     source: &'s str,
-    chars: Peekable<CharIndices<'s>>,
+    chars: PeekableChars<'s>,
     state: TokensState,
     stack: Vec<TokensState>,
 }
@@ -39,7 +39,7 @@ impl<'s> Tokens<'s> {
     pub fn new(source: &'s str) -> Tokens<'s> {
         Tokens {
             source,
-            chars: source.char_indices().peekable(),
+            chars: PeekableChars::new(source),
             state: TokensState::Body,
             stack: vec![],
         }
@@ -80,20 +80,6 @@ impl<'s> Iterator for Tokens<'s> {
     fn next(&mut self) -> Option<Token<'s>> {
         use TokensState as TS;
 
-        // Skip whitespace, but if at least one whitespace character existed,
-        // remember that, because then we return a space token.
-        let mut whitespace = false;
-        while let Some(&(_, c)) = self.chars.peek() {
-            if !c.is_whitespace() || c == '\n' || c == '\r' {
-                break;
-            }
-            whitespace = true;
-            self.advance();
-        }
-        if whitespace {
-            return Some(Token::Space);
-        }
-
         // Function maybe has a body
         if self.state == TS::MaybeBody {
             if self.chars.peek()?.1 == '[' {
@@ -107,7 +93,7 @@ impl<'s> Iterator for Tokens<'s> {
         // Now all special cases are handled and we can finally look at the
         // next words.
         let (next_pos, next) = self.chars.next()?;
-        let afterwards = self.chars.peek().map(|&(_, c)| c);
+        let afterwards = self.chars.peek().map(|p| p.1);
 
         Some(match next {
             // Special characters
@@ -124,22 +110,40 @@ impl<'s> Iterator for Tokens<'s> {
             '$' => Token::Dollar,
             '#' => Token::Hashtag,
 
-            // Context sensitive operators
+            // Whitespace
+            ' ' | '\t' => {
+                while let Some((_, c)) = self.chars.peek() {
+                    match c {
+                        ' ' | '\t' => self.advance(),
+                        _ => break,
+                    }
+                }
+                Token::Space
+            }
+
+            // Context sensitive operators in headers
             ':' if self.state == TS::Function => Token::Colon,
             '=' if self.state == TS::Function => Token::Equals,
 
-            // Double star/underscore
-            '*' if afterwards == Some('*') => self.consumed(Token::DoubleStar),
-            '_' if afterwards == Some('_') => self.consumed(Token::DoubleUnderscore),
+            // Double star/underscore in bodies
+            '*' if self.state == TS::Body && afterwards == Some('*')
+                => self.consumed(Token::DoubleStar),
+            '_' if self.state == TS::Body && afterwards == Some('_')
+                => self.consumed(Token::DoubleUnderscore),
 
             // Newlines
-            '\n' => Token::Newline,
             '\r' if afterwards == Some('\n') => self.consumed(Token::Newline),
+            c if is_newline_char(c) => Token::Newline,
 
             // Escaping
             '\\' => {
-                if let Some(&(index, c)) = self.chars.peek() {
-                    if is_special_character(c) {
+                if let Some((index, c)) = self.chars.peek() {
+                    let escapable = match c {
+                        '[' | ']' | '$' | '#' | '\\' | '*' | '_' => true,
+                        _ => false,
+                    };
+
+                    if escapable {
                         self.advance();
                         return Some(self.text(index, index + c.len_utf8()));
                     }
@@ -148,14 +152,31 @@ impl<'s> Iterator for Tokens<'s> {
                 Token::Text("\\")
             },
 
-            // Now it seems like it's just a normal word.
+            // Normal text
             _ => {
                 // Find out when the word ends.
                 let mut end = (next_pos, next);
-                while let Some(&(index, c)) = self.chars.peek() {
-                    if is_special_character(c) || c.is_whitespace() {
+                while let Some((index, c)) = self.chars.peek() {
+                    // Whether the next token is still from the next or not.
+                    let continues = match c {
+                        '[' | ']' | '$' | '#' | '\\' => false,
+                        ':' | '=' if self.state == TS::Function => false,
+
+                        '*' if self.state == TS::Body
+                             => self.chars.peek_second().map(|p| p.1) != Some('*'),
+                        '_' if self.state == TS::Body
+                             => self.chars.peek_second().map(|p| p.1) != Some('_'),
+
+                        ' ' | '\t' => false,
+                        c if is_newline_char(c) => false,
+
+                        _ => true,
+                    };
+
+                    if !continues {
                         break;
                     }
+
                     end = (index, c);
                     self.advance();
                 }
@@ -167,11 +188,63 @@ impl<'s> Iterator for Tokens<'s> {
     }
 }
 
-/// Whether this character has a special meaning in the language.
-fn is_special_character(character: char) -> bool {
+/// Whether this character is a newline (or starts one).
+fn is_newline_char(character: char) -> bool {
     match character {
-        '[' | ']' | '$' | '#' | '\\' | ':' | '=' | '*' | '_' => true,
+        '\n' | '\r' | '\u{000c}' | '\u{0085}' | '\u{2028}' | '\u{2029}' => true,
         _ => false,
+    }
+}
+
+/// A index + char iterator with double lookahead.
+#[derive(Debug, Clone)]
+struct PeekableChars<'s> {
+    chars: CharIndices<'s>,
+    peek1: Option<Option<(usize, char)>>,
+    peek2: Option<Option<(usize, char)>>,
+}
+
+impl<'s> PeekableChars<'s> {
+    /// Create a new iterator from a string.
+    fn new(string: &'s str) -> PeekableChars<'s> {
+        PeekableChars {
+            chars: string.char_indices(),
+            peek1: None,
+            peek2: None,
+        }
+    }
+
+    /// Peek at the next element.
+    fn peek(&mut self) -> Option<(usize, char)> {
+        let iter = &mut self.chars;
+        *self.peek1.get_or_insert_with(|| iter.next())
+    }
+
+    /// Peek at the element after the next element.
+    fn peek_second(&mut self) -> Option<(usize, char)> {
+        match self.peek2 {
+            Some(peeked) => peeked,
+            None => {
+                self.peek();
+                let next = self.chars.next();
+                self.peek2 = Some(next);
+                next
+            }
+        }
+    }
+}
+
+impl Iterator for PeekableChars<'_> {
+    type Item = (usize, char);
+
+    fn next(&mut self) -> Option<(usize, char)> {
+        match self.peek1.take() {
+            Some(value) => {
+                self.peek1 = self.peek2.take();
+                value
+            },
+            None => self.chars.next(),
+        }
     }
 }
 
@@ -506,18 +579,11 @@ impl<'s> Iterator for ParseTokens<'s> {
 
 /// More useful functions on `str`'s.
 trait StrExt {
-    /// Whether self consists only of whitespace.
-    fn is_whitespace(&self) -> bool;
-
     /// Whether this word is a valid unicode identifier.
     fn is_identifier(&self) -> bool;
 }
 
 impl StrExt for str {
-    fn is_whitespace(&self) -> bool {
-        self.chars().all(|c| c.is_whitespace() && c != '\n')
-    }
-
     fn is_identifier(&self) -> bool {
         let mut chars = self.chars();
 
@@ -599,8 +665,6 @@ mod token_tests {
         test(r"\]", vec![T("]")]);
         test(r"\#", vec![T("#")]);
         test(r"\$", vec![T("$")]);
-        test(r"\:", vec![T(":")]);
-        test(r"\=", vec![T("=")]);
         test(r"\**", vec![T("*"), T("*")]);
         test(r"\*", vec![T("*")]);
         test(r"\__", vec![T("_"), T("_")]);
@@ -639,12 +703,12 @@ mod token_tests {
     fn tokenize_symbols_context() {
         test("[func: key=value][Answer: 7]",
              vec![L, T("func"), C, S, T("key"), E, T("value"), R, L,
-                  T("Answer"), T(":"), S, T("7"), R]);
+                  T("Answer:"), S, T("7"), R]);
         test("[[n: k=v]:x][:[=]]:=",
              vec![L, L, T("n"), C, S, T("k"), E, T("v"), R, C, T("x"), R,
-                  L, T(":"), L, E, R, R, T(":"), T("=")]);
+                  L, T(":"), L, E, R, R, T(":=")]);
         test("[func: __key__=value]",
-             vec![L, T("func"), C, S, DU, T("key"), DU, E, T("value"), R]);
+             vec![L, T("func"), C, S, T("__key__"), E, T("value"), R]);
     }
 
     /// This test has a special look at the double underscore syntax, because
@@ -653,8 +717,8 @@ mod token_tests {
     #[test]
     fn tokenize_double_underscore() {
         test("he__llo__world_ _ __ Now this_ is__ special!",
-             vec![T("he"), DU, T("llo"), DU, T("world"), T("_"), S, T("_"), S, DU, S, T("Now"), S,
-                  T("this"), T("_"), S, T("is"), DU, S, T("special!")]);
+             vec![T("he"), DU, T("llo"), DU, T("world_"), S, T("_"), S, DU, S, T("Now"), S,
+                  T("this_"), S, T("is"), DU, S, T("special!")]);
     }
 
     /// This test is for checking if non-ASCII characters get parsed correctly.
