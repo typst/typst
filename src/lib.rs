@@ -49,7 +49,7 @@ use crate::doc::Document;
 use crate::engine::{Engine, Style, TypesetError};
 use crate::func::Scope;
 use crate::font::FontProvider;
-use crate::parsing::{Parser, BodyTokens, ParseResult, ParseError};
+use crate::parsing::{parse, ParseResult, ParseError};
 use crate::syntax::SyntaxTree;
 
 #[macro_use]
@@ -99,8 +99,7 @@ impl<'p> Compiler<'p> {
     #[inline]
     pub fn parse(&self, src: &str) -> ParseResult<SyntaxTree> {
         let scope = Scope::new();
-        let mut tokens = BodyTokens::new(src);
-        Parser::new(&mut tokens, &scope).parse()
+        parse(src, &scope)
     }
 
     /// Compile a portable typesetted document from source code.

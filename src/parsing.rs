@@ -1,23 +1,29 @@
 //! Tokenization and parsing of source code into syntax trees.
 
 use std::collections::HashMap;
-use std::iter::Peekable;
 use std::mem::swap;
 use std::str::CharIndices;
 
+use smallvec::SmallVec;
 use unicode_xid::UnicodeXID;
 
 use crate::syntax::*;
-use crate::func::{ParseContext, Scope};
+use crate::func::Scope;
 
+
+/// Builds an iterator over the tokens of the source code.
+#[inline]
+pub fn tokenize(src: &str) -> Tokens {
+    Tokens::new(src)
+}
 
 /// An iterator over the tokens of source code.
 #[derive(Debug, Clone)]
 pub struct Tokens<'s> {
-    source: &'s str,
+    src: &'s str,
     chars: PeekableChars<'s>,
     state: TokensState,
-    stack: Vec<TokensState>,
+    stack: SmallVec<[TokensState; 1]>,
 }
 
 /// The state the tokenizer is in.
@@ -33,14 +39,13 @@ enum TokensState {
 }
 
 impl<'s> Tokens<'s> {
-    /// Create a new token stream from text.
-    #[inline]
-    pub fn new(source: &'s str) -> Tokens<'s> {
+    /// Create a new token stream from source code.
+    fn new(src: &'s str) -> Tokens<'s> {
         Tokens {
-            source,
-            chars: PeekableChars::new(source),
+            src,
+            chars: PeekableChars::new(src),
             state: TokensState::Body,
-            stack: vec![],
+            stack: SmallVec::new(),
         }
     }
 
@@ -68,7 +73,7 @@ impl<'s> Tokens<'s> {
 
     /// Returns a word containing the string bounded by the given indices.
     fn text(&self, start: usize, end: usize) -> Token<'s> {
-        Token::Text(&self.source[start .. end])
+        Token::Text(&self.src[start .. end])
     }
 }
 
@@ -102,6 +107,8 @@ impl<'s> Iterator for Tokens<'s> {
             ']' => {
                 if self.state == TS::Function {
                     self.state = TS::MaybeBody;
+                } else {
+                    self.unswitch();
                 }
                 Token::RightBracket
             },
@@ -197,6 +204,8 @@ fn is_newline_char(character: char) -> bool {
 /// A index + char iterator with double lookahead.
 #[derive(Debug, Clone)]
 struct PeekableChars<'s> {
+    offset: usize,
+    string: &'s str,
     chars: CharIndices<'s>,
     peek1: Option<Option<(usize, char)>>,
     peek2: Option<Option<(usize, char)>>,
@@ -206,6 +215,8 @@ impl<'s> PeekableChars<'s> {
     /// Create a new iterator from a string.
     fn new(string: &'s str) -> PeekableChars<'s> {
         PeekableChars {
+            offset: 0,
+            string,
             chars: string.char_indices(),
             peek1: None,
             peek2: None,
@@ -214,8 +225,14 @@ impl<'s> PeekableChars<'s> {
 
     /// Peek at the next element.
     fn peek(&mut self) -> Option<(usize, char)> {
-        let iter = &mut self.chars;
-        *self.peek1.get_or_insert_with(|| iter.next())
+        match self.peek1 {
+            Some(peeked) => peeked,
+            None => {
+                let next = self.next_inner();
+                self.peek1 = Some(next);
+                next
+            }
+        }
     }
 
     /// Peek at the element after the next element.
@@ -224,11 +241,29 @@ impl<'s> PeekableChars<'s> {
             Some(peeked) => peeked,
             None => {
                 self.peek();
-                let next = self.chars.next();
+                let next = self.next_inner();
                 self.peek2 = Some(next);
                 next
             }
         }
+    }
+
+    /// Return the next value of the inner iterator mapped with the offset.
+    fn next_inner(&mut self) -> Option<(usize, char)> {
+        self.chars.next().map(|(i, c)| (i + self.offset, c))
+    }
+
+    /// The index of the first character of the next token in the source string.
+    fn current_index(&mut self) -> Option<usize> {
+        self.peek().map(|p| p.0)
+    }
+
+    /// Go to a new position in the underlying string.
+    fn goto(&mut self, index: usize) {
+        self.offset = index;
+        self.chars = self.string[index..].char_indices();
+        self.peek1 = None;
+        self.peek2 = None;
     }
 }
 
@@ -241,14 +276,21 @@ impl Iterator for PeekableChars<'_> {
                 self.peek1 = self.peek2.take();
                 value
             },
-            None => self.chars.next(),
+            None => self.next_inner(),
         }
     }
 }
 
+/// Parses source code into a syntax tree using function definitions from a scope.
+#[inline]
+pub fn parse(src: &str, scope: &Scope) -> ParseResult<SyntaxTree> {
+    Parser::new(src, scope).parse()
+}
+
 /// Transforms token streams to syntax trees.
-pub struct Parser<'s, 't> {
-    tokens: &'s mut BodyTokens<'t>,
+struct Parser<'s> {
+    src: &'s str,
+    tokens: PeekableTokens<'s>,
     scope: &'s Scope,
     state: ParserState,
     tree: SyntaxTree,
@@ -265,12 +307,12 @@ enum ParserState {
     WroteNewline,
 }
 
-impl<'s, 't> Parser<'s, 't> {
+impl<'s> Parser<'s> {
     /// Create a new parser from a stream of tokens and a scope of functions.
-    #[inline]
-    pub fn new(tokens: &'s mut BodyTokens<'t>, scope: &'s Scope) -> Parser<'s, 't> {
+    fn new(src: &'s str, scope: &'s Scope) -> Parser<'s> {
         Parser {
-            tokens,
+            src,
+            tokens: PeekableTokens::new(tokenize(src)),
             scope,
             state: ParserState::Body,
             tree: SyntaxTree::new(),
@@ -278,13 +320,13 @@ impl<'s, 't> Parser<'s, 't> {
     }
 
     /// Parse the source into an abstract syntax tree.
-    pub fn parse(mut self) -> ParseResult<SyntaxTree> {
+    fn parse(mut self) -> ParseResult<SyntaxTree> {
         use ParserState as PS;
 
-        while let Some(&token) = self.tokens.peek() {
+        while let Some(token) = self.tokens.peek() {
             // Skip over comments.
             if token == Token::Hashtag {
-                self.skip_while(|&t| t != Token::Newline);
+                self.skip_while(|t| t != Token::Newline);
                 self.advance();
             }
 
@@ -341,7 +383,7 @@ impl<'s, 't> Parser<'s, 't> {
     /// Parse a function from the current position.
     fn parse_function(&mut self) -> ParseResult<()> {
         // This should only be called if a left bracket was seen.
-        debug_assert!(self.tokens.next() == Some(Token::LeftBracket));
+        assert!(self.tokens.next() == Some(Token::LeftBracket));
 
         // The next token should be the name of the function.
         let name = match self.tokens.next() {
@@ -368,7 +410,7 @@ impl<'s, 't> Parser<'s, 't> {
         };
 
         // Whether the function has a body.
-        let has_body = self.tokens.peek() == Some(&Token::LeftBracket);
+        let has_body = self.tokens.peek() == Some(Token::LeftBracket);
         if has_body {
             self.advance();
         }
@@ -379,26 +421,31 @@ impl<'s, 't> Parser<'s, 't> {
 
         // Do the parsing dependent on whether the function has a body.
         let body = if has_body {
-            self.tokens.start();
+            // Find out the string which makes the body of this function.
+            let (start, end) = self.tokens.current_index().and_then(|index| {
+                find_closing_bracket(&self.src[index..])
+                    .map(|end| (index, index + end))
+            }).ok_or_else(|| ParseError::new("expected closing bracket"))?;
 
-            let body = parser(ParseContext {
+            // Parse the body.
+            let body_string = &self.src[start .. end];
+            let body = parser(FuncContext {
                 header: &header,
-                tokens: Some(&mut self.tokens),
+                body: Some(body_string),
                 scope: &self.scope,
             })?;
 
-            self.tokens.finish();
+            // Skip to the end of the function in the token stream.
+            self.tokens.goto(end);
 
             // Now the body should be closed.
-            if self.tokens.next() != Some(Token::RightBracket) {
-                return Err(ParseError::new("expected closing bracket"));
-            }
+            assert!(self.tokens.next() == Some(Token::RightBracket));
 
             body
         } else {
-            parser(ParseContext {
+            parser(FuncContext {
                 header: &header,
-                tokens: None,
+                body: None,
                 scope: &self.scope,
             })?
         };
@@ -447,7 +494,7 @@ impl<'s, 't> Parser<'s, 't> {
     }
 
     /// Skip tokens until the condition is met.
-    fn skip_while<F>(&mut self, f: F) where F: Fn(&Token) -> bool {
+    fn skip_while<F>(&mut self, f: F) where F: Fn(Token) -> bool {
         while let Some(token) = self.tokens.peek() {
             if !f(token) {
                 break;
@@ -455,6 +502,77 @@ impl<'s, 't> Parser<'s, 't> {
             self.advance();
         }
     }
+}
+
+/// Find the index of the first unbalanced closing bracket.
+fn find_closing_bracket(src: &str) -> Option<usize> {
+    let mut parens = 0;
+    for (index, c) in src.char_indices() {
+        match c {
+            ']' if parens == 0 => return Some(index),
+            '[' => parens += 1,
+            ']' => parens -= 1,
+            _ => {},
+        }
+    }
+    None
+}
+
+/// A peekable iterator for tokens which allows access to the original iterator
+/// inside this module (which is needed by the parser).
+#[derive(Debug, Clone)]
+struct PeekableTokens<'s> {
+    tokens: Tokens<'s>,
+    peeked: Option<Option<Token<'s>>>,
+}
+
+impl<'s> PeekableTokens<'s> {
+    /// Create a new iterator from a string.
+    fn new(tokens: Tokens<'s>) -> PeekableTokens<'s> {
+        PeekableTokens {
+            tokens,
+            peeked: None,
+        }
+    }
+
+    /// Peek at the next element.
+    fn peek(&mut self) -> Option<Token<'s>> {
+        let iter = &mut self.tokens;
+        *self.peeked.get_or_insert_with(|| iter.next())
+    }
+
+    /// The index of the first character of the next token in the source string.
+    fn current_index(&mut self) -> Option<usize> {
+        self.tokens.chars.current_index()
+    }
+
+    /// Go to a new position in the underlying string.
+    fn goto(&mut self, index: usize) {
+        self.tokens.chars.goto(index);
+        self.peeked = None;
+    }
+}
+
+impl<'s> Iterator for PeekableTokens<'s> {
+    type Item = Token<'s>;
+
+    fn next(&mut self) -> Option<Token<'s>> {
+        match self.peeked.take() {
+            Some(value) => value,
+            None => self.tokens.next(),
+        }
+    }
+}
+
+/// The context for parsing a function.
+#[derive(Debug)]
+pub struct FuncContext<'s> {
+    /// The header of the function to be parsed.
+    pub header: &'s FuncHeader,
+    /// The body source if the function has a body, otherwise nothing.
+    pub body: Option<&'s str>,
+    /// The current scope containing function definitions.
+    pub scope: &'s Scope,
 }
 
 /// Whether this word is a valid unicode identifier.
@@ -474,92 +592,6 @@ fn is_identifier(string: &str) -> bool {
     }
 
     true
-}
-
-/// A token iterator that iterates over exactly one body.
-///
-/// This iterator wraps [`Tokens`] and yields exactly the tokens of one
-/// function body or the complete top-level body and stops then.
-#[derive(Debug, Clone)]
-pub struct BodyTokens<'s> {
-    tokens: Peekable<Tokens<'s>>,
-    parens: Vec<u32>,
-    blocked: bool,
-}
-
-impl<'s> BodyTokens<'s> {
-    /// Create a new iterator over text.
-    #[inline]
-    pub fn new(source: &'s str) -> BodyTokens<'s> {
-        BodyTokens::from_tokens(Tokens::new(source))
-    }
-
-    /// Create a new iterator operating over an existing one.
-    #[inline]
-    pub fn from_tokens(tokens: Tokens<'s>) -> BodyTokens<'s> {
-        BodyTokens {
-            tokens: tokens.peekable(),
-            parens: vec![],
-            blocked: false,
-        }
-    }
-
-    /// Peek at the next token.
-    #[inline]
-    pub fn peek(&mut self) -> Option<&Token<'s>> {
-        if self.blocked {
-            return None;
-        }
-
-        let token = self.tokens.peek();
-        if token == Some(&Token::RightBracket) && self.parens.last() == Some(&0) {
-            return None;
-        }
-
-        token
-    }
-
-    /// Start a new substream of tokens.
-    fn start(&mut self) {
-        self.parens.push(0);
-    }
-
-    /// Finish a substream of tokens.
-    fn finish(&mut self) {
-        self.blocked = false;
-        self.parens.pop().unwrap();
-    }
-}
-
-impl<'s> Iterator for BodyTokens<'s> {
-    type Item = Token<'s>;
-
-    fn next(&mut self) -> Option<Token<'s>> {
-        if self.blocked {
-            return None;
-        }
-
-        let token = self.tokens.peek();
-        match token {
-            Some(Token::RightBracket) => {
-                match self.parens.last_mut() {
-                    Some(&mut 0) => {
-                        self.blocked = true;
-                        return None
-                    },
-                    Some(top) => *top -= 1,
-                    None => {}
-                }
-            },
-            Some(Token::LeftBracket) => {
-                if let Some(top) = self.parens.last_mut() {
-                    *top += 1;
-                }
-            }
-            _ => {}
-        };
-        self.tokens.next()
-    }
 }
 
 /// The error type for parsing.
@@ -666,6 +698,9 @@ mod token_tests {
         test("[[n: k=v]:x][:[=]]:=",
              vec![L, L, T("n"), C, S, T("k"), E, T("v"), R, C, T("x"), R,
                   L, T(":"), L, E, R, R, T(":=")]);
+        test("[hi: k=[func][body] v=1][hello]",
+            vec![L, T("hi"), C, S, T("k"), E, L, T("func"), R, L, T("body"), R, S,
+                 T("v"), E, T("1"), R, L, T("hello"), R]);
         test("[func: __key__=value]",
              vec![L, T("func"), C, S, T("__key__"), E, T("value"), R]);
     }
@@ -707,9 +742,9 @@ mod parse_tests {
         pub struct TreeFn(pub SyntaxTree);
 
         impl Function for TreeFn {
-            fn parse(context: ParseContext) -> ParseResult<Self> where Self: Sized {
-                if let Some(tokens) = context.tokens {
-                    Parser::new(tokens, context.scope).parse().map(|tree| TreeFn(tree))
+            fn parse(context: FuncContext) -> ParseResult<Self> where Self: Sized {
+                if let Some(src) = context.body {
+                    parse(src, context.scope).map(|tree| TreeFn(tree))
                 } else {
                     Err(ParseError::new("expected body for tree fn"))
                 }
@@ -722,8 +757,8 @@ mod parse_tests {
         pub struct BodylessFn;
 
         impl Function for BodylessFn {
-            fn parse(context: ParseContext) -> ParseResult<Self> where Self: Sized {
-                if context.tokens.is_none() {
+            fn parse(context: FuncContext) -> ParseResult<Self> where Self: Sized {
+                if context.body.is_none() {
                     Ok(BodylessFn)
                 } else {
                     Err(ParseError::new("unexpected body for bodyless fn"))
@@ -751,12 +786,6 @@ mod parse_tests {
     /// Test with a scope if the source parses into the error.
     fn test_err_scoped(scope: &Scope, src: &str, err: &str) {
         assert_eq!(parse(src, &scope).unwrap_err().to_string(), err);
-    }
-
-    /// Parse the source code with the given scope.
-    fn parse(src: &str, scope: &Scope) -> ParseResult<SyntaxTree> {
-        let mut tokens = BodyTokens::new(src);
-        Parser::new(&mut tokens, scope).parse()
     }
 
     /// Create a text node.
