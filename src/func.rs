@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
 use crate::syntax::{FuncHeader, Expression};
-use crate::parsing::{ParseTokens, ParseResult};
+use crate::parsing::{BodyTokens, ParseResult};
 
 
 /// A function which transforms a parsing context into a boxed function.
@@ -66,7 +66,7 @@ pub struct ParseContext<'s, 't> {
     /// The header of the function to be parsed.
     pub header: &'s FuncHeader,
     /// Tokens if the function has a body, otherwise nothing.
-    pub tokens: Option<&'s mut ParseTokens<'t>>,
+    pub tokens: Option<&'s mut BodyTokens<'t>>,
     /// The current scope containing function definitions.
     pub scope: &'s Scope,
 }

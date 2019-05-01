@@ -3,7 +3,6 @@
 use std::collections::HashMap;
 use std::iter::Peekable;
 use std::mem::swap;
-use std::ops::Deref;
 use std::str::CharIndices;
 
 use unicode_xid::UnicodeXID;
@@ -90,8 +89,7 @@ impl<'s> Iterator for Tokens<'s> {
             }
         }
 
-        // Now all special cases are handled and we can finally look at the
-        // next words.
+        // Take the next char and peek at the one behind.
         let (next_pos, next) = self.chars.next()?;
         let afterwards = self.chars.peek().map(|p| p.1);
 
@@ -250,8 +248,8 @@ impl Iterator for PeekableChars<'_> {
 
 /// Transforms token streams to syntax trees.
 pub struct Parser<'s, 't> {
-    tokens: &'s mut ParseTokens<'t>,
-    scope: ParserScope<'s>,
+    tokens: &'s mut BodyTokens<'t>,
+    scope: &'s Scope,
     state: ParserState,
     tree: SyntaxTree,
 }
@@ -268,20 +266,9 @@ enum ParserState {
 }
 
 impl<'s, 't> Parser<'s, 't> {
-    /// Create a new parser from a stream of tokens.
+    /// Create a new parser from a stream of tokens and a scope of functions.
     #[inline]
-    pub fn new(tokens: &'s mut ParseTokens<'t>) -> Parser<'s, 't> {
-        Parser::new_internal(tokens, ParserScope::Owned(Scope::new()))
-    }
-
-    /// Create a new parser with a scope containing function definitions.
-    #[inline]
-    pub fn with_scope(tokens: &'s mut ParseTokens<'t>, scope: &'s Scope) -> Parser<'s, 't> {
-        Parser::new_internal(tokens, ParserScope::Shared(scope))
-    }
-
-    /// Internal helper for construction.
-    fn new_internal(tokens: &'s mut ParseTokens<'t>, scope: ParserScope<'s>) -> Parser<'s, 't> {
+    pub fn new(tokens: &'s mut BodyTokens<'t>, scope: &'s Scope) -> Parser<'s, 't> {
         Parser {
             tokens,
             scope,
@@ -323,7 +310,10 @@ impl<'s, 't> Parser<'s, 't> {
                 PS::Body => match token {
                     // Whitespace
                     Token::Space => self.append_space_consumed(),
-                    Token::Newline => self.switch_consumed(PS::FirstNewline),
+                    Token::Newline => {
+                        self.advance();
+                        self.switch(PS::FirstNewline);
+                    },
 
                     // Text
                     Token::Text(word) => self.append_consumed(Node::Text(word.to_owned())),
@@ -356,7 +346,7 @@ impl<'s, 't> Parser<'s, 't> {
         // The next token should be the name of the function.
         let name = match self.tokens.next() {
             Some(Token::Text(word)) => {
-                if word.is_identifier() {
+                if is_identifier(word) {
                     Ok(word.to_owned())
                 } else {
                     Err(ParseError::new("invalid identifier"))
@@ -427,6 +417,11 @@ impl<'s, 't> Parser<'s, 't> {
         self.tokens.next();
     }
 
+    /// Switch the state.
+    fn switch(&mut self, state: ParserState) {
+        self.state = state;
+    }
+
     /// Append a node to the tree.
     fn append(&mut self, node: Node) {
         self.tree.nodes.push(node);
@@ -437,11 +432,6 @@ impl<'s, 't> Parser<'s, 't> {
         if self.tree.nodes.last() != Some(&Node::Space) {
             self.append(Node::Space);
         }
-    }
-
-    /// Switch the state.
-    fn switch(&mut self, state: ParserState) {
-        self.state = state;
     }
 
     /// Advance and return the given node.
@@ -456,12 +446,6 @@ impl<'s, 't> Parser<'s, 't> {
         self.append_space();
     }
 
-    /// Advance and switch the state.
-    fn switch_consumed(&mut self, state: ParserState) {
-        self.advance();
-        self.switch(state);
-    }
-
     /// Skip tokens until the condition is met.
     fn skip_while<F>(&mut self, f: F) where F: Fn(&Token) -> bool {
         while let Some(token) = self.tokens.peek() {
@@ -473,46 +457,47 @@ impl<'s, 't> Parser<'s, 't> {
     }
 }
 
-/// An owned or shared scope.
-#[derive(Debug)]
-enum ParserScope<'s> {
-    Owned(Scope),
-    Shared(&'s Scope)
-}
+/// Whether this word is a valid unicode identifier.
+fn is_identifier(string: &str) -> bool {
+    let mut chars = string.chars();
 
-impl Deref for ParserScope<'_> {
-    type Target = Scope;
+    match chars.next() {
+        Some(c) if !UnicodeXID::is_xid_start(c) => return false,
+        None => return false,
+        _ => (),
+    }
 
-    fn deref(&self) -> &Scope {
-        match self {
-            ParserScope::Owned(scope) => &scope,
-            ParserScope::Shared(scope) => scope,
+    while let Some(c) = chars.next() {
+        if !UnicodeXID::is_xid_continue(c) {
+            return false;
         }
     }
+
+    true
 }
 
 /// A token iterator that iterates over exactly one body.
 ///
 /// This iterator wraps [`Tokens`] and yields exactly the tokens of one
-/// function body or the complete top-level body and stops there.
+/// function body or the complete top-level body and stops then.
 #[derive(Debug, Clone)]
-pub struct ParseTokens<'s> {
+pub struct BodyTokens<'s> {
     tokens: Peekable<Tokens<'s>>,
     parens: Vec<u32>,
     blocked: bool,
 }
 
-impl<'s> ParseTokens<'s> {
+impl<'s> BodyTokens<'s> {
     /// Create a new iterator over text.
     #[inline]
-    pub fn new(source: &'s str) -> ParseTokens<'s> {
-        ParseTokens::from_tokens(Tokens::new(source))
+    pub fn new(source: &'s str) -> BodyTokens<'s> {
+        BodyTokens::from_tokens(Tokens::new(source))
     }
 
     /// Create a new iterator operating over an existing one.
     #[inline]
-    pub fn from_tokens(tokens: Tokens<'s>) -> ParseTokens<'s> {
-        ParseTokens {
+    pub fn from_tokens(tokens: Tokens<'s>) -> BodyTokens<'s> {
+        BodyTokens {
             tokens: tokens.peekable(),
             parens: vec![],
             blocked: false,
@@ -546,7 +531,7 @@ impl<'s> ParseTokens<'s> {
     }
 }
 
-impl<'s> Iterator for ParseTokens<'s> {
+impl<'s> Iterator for BodyTokens<'s> {
     type Item = Token<'s>;
 
     fn next(&mut self) -> Option<Token<'s>> {
@@ -577,43 +562,17 @@ impl<'s> Iterator for ParseTokens<'s> {
     }
 }
 
-/// More useful functions on `str`'s.
-trait StrExt {
-    /// Whether this word is a valid unicode identifier.
-    fn is_identifier(&self) -> bool;
-}
-
-impl StrExt for str {
-    fn is_identifier(&self) -> bool {
-        let mut chars = self.chars();
-
-        match chars.next() {
-            Some(c) if !UnicodeXID::is_xid_start(c) => return false,
-            None => return false,
-            _ => (),
-        }
-
-        while let Some(c) = chars.next() {
-            if !UnicodeXID::is_xid_continue(c) {
-                return false;
-            }
-        }
-
-        true
-    }
-}
-
 /// The error type for parsing.
 pub struct ParseError(String);
+
+/// The result type for parsing.
+pub type ParseResult<T> = Result<T, ParseError>;
 
 impl ParseError {
     fn new<S: Into<String>>(message: S) -> ParseError {
         ParseError(message.into())
     }
 }
-
-/// The result type for parsing.
-pub type ParseResult<T> = Result<T, ParseError>;
 
 error_type! {
     err: ParseError,
@@ -734,74 +693,44 @@ mod token_tests {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
+    use funcs::*;
     use crate::func::{Function, Scope};
     use Node::{Space as S, Newline as N, Func as F};
 
-    #[allow(non_snake_case)]
-    fn T(s: &str) -> Node { Node::Text(s.to_owned()) }
+    /// Two test functions, one which parses it's body as another syntax tree
+    /// and another one which does not expect a body.
+    mod funcs {
+        use super::*;
 
-    /// A testing function which just parses it's body into a syntax tree.
-    #[derive(Debug, PartialEq)]
-    struct TreeFn(SyntaxTree);
+        /// A testing function which just parses it's body into a syntax tree.
+        #[derive(Debug, PartialEq)]
+        pub struct TreeFn(pub SyntaxTree);
 
-    impl Function for TreeFn {
-        fn parse(context: ParseContext) -> ParseResult<Self> where Self: Sized {
-            if let Some(tokens) = context.tokens {
-                Parser::with_scope(tokens, context.scope).parse().map(|tree| TreeFn(tree))
-            } else {
-                Err(ParseError::new("expected body for tree fn"))
+        impl Function for TreeFn {
+            fn parse(context: ParseContext) -> ParseResult<Self> where Self: Sized {
+                if let Some(tokens) = context.tokens {
+                    Parser::new(tokens, context.scope).parse().map(|tree| TreeFn(tree))
+                } else {
+                    Err(ParseError::new("expected body for tree fn"))
+                }
             }
+            fn typeset(&self, _header: &FuncHeader) -> Option<Expression> { None }
         }
-        fn typeset(&self, _header: &FuncHeader) -> Option<Expression> { None }
-    }
 
-    /// A testing function without a body.
-    #[derive(Debug, PartialEq)]
-    struct BodylessFn;
+        /// A testing function without a body.
+        #[derive(Debug, PartialEq)]
+        pub struct BodylessFn;
 
-    impl Function for BodylessFn {
-        fn parse(context: ParseContext) -> ParseResult<Self> where Self: Sized {
-            if context.tokens.is_none() {
-                Ok(BodylessFn)
-            } else {
-                Err(ParseError::new("unexpected body for bodyless fn"))
+        impl Function for BodylessFn {
+            fn parse(context: ParseContext) -> ParseResult<Self> where Self: Sized {
+                if context.tokens.is_none() {
+                    Ok(BodylessFn)
+                } else {
+                    Err(ParseError::new("unexpected body for bodyless fn"))
+                }
             }
+            fn typeset(&self, _header: &FuncHeader) -> Option<Expression> { None }
         }
-        fn typeset(&self, _header: &FuncHeader) -> Option<Expression> { None }
-    }
-
-    /// Shortcut macro to create a function.
-    macro_rules! func {
-        (name => $name:expr, body => None $(,)*) => {
-            func!(@$name, Box::new(BodylessFn))
-        };
-        (name => $name:expr, body => $tree:expr $(,)*) => {
-            func!(@$name, Box::new(TreeFn($tree)))
-        };
-        (@$name:expr, $body:expr) => {
-            FuncCall {
-                header: FuncHeader {
-                    name: $name.to_string(),
-                    args: vec![],
-                    kwargs: HashMap::new(),
-                },
-                body: $body,
-            }
-        }
-    }
-
-    /// Shortcut macro to create a syntax tree.
-    /// Is `vec`-like and the elements are the nodes.
-    macro_rules! tree {
-        ($($x:expr),*) => (
-            SyntaxTree { nodes: vec![$($x),*] }
-        );
-        ($($x:expr,)*) => (tree![$($x),*])
-    }
-
-    fn parse(src: &str, scope: &Scope) -> ParseResult<SyntaxTree> {
-        let mut tokens = ParseTokens::new(src);
-        Parser::with_scope(&mut tokens, scope).parse()
     }
 
     /// Test if the source code parses into the syntax tree.
@@ -822,6 +751,45 @@ mod parse_tests {
     /// Test with a scope if the source parses into the error.
     fn test_err_scoped(scope: &Scope, src: &str, err: &str) {
         assert_eq!(parse(src, &scope).unwrap_err().to_string(), err);
+    }
+
+    /// Parse the source code with the given scope.
+    fn parse(src: &str, scope: &Scope) -> ParseResult<SyntaxTree> {
+        let mut tokens = BodyTokens::new(src);
+        Parser::new(&mut tokens, scope).parse()
+    }
+
+    /// Create a text node.
+    #[allow(non_snake_case)]
+    fn T(s: &str) -> Node { Node::Text(s.to_owned()) }
+
+    /// Shortcut macro to create a syntax tree.
+    /// Is `vec`-like and the elements are the nodes.
+    macro_rules! tree {
+        ($($x:expr),*) => (
+            SyntaxTree { nodes: vec![$($x),*] }
+        );
+        ($($x:expr,)*) => (tree![$($x),*])
+    }
+
+    /// Shortcut macro to create a function.
+    macro_rules! func {
+        (name => $name:expr, body => None $(,)*) => {
+            func!(@$name, Box::new(BodylessFn))
+        };
+        (name => $name:expr, body => $tree:expr $(,)*) => {
+            func!(@$name, Box::new(TreeFn($tree)))
+        };
+        (@$name:expr, $body:expr) => {
+            FuncCall {
+                header: FuncHeader {
+                    name: $name.to_string(),
+                    args: vec![],
+                    kwargs: HashMap::new(),
+                },
+                body: $body,
+            }
+        }
     }
 
     /// Parse the basic cases.

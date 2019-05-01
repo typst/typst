@@ -47,8 +47,9 @@ use std::fmt::{self, Debug, Formatter};
 
 use crate::doc::Document;
 use crate::engine::{Engine, Style, TypesetError};
+use crate::func::Scope;
 use crate::font::FontProvider;
-use crate::parsing::{Parser, ParseTokens, ParseResult, ParseError};
+use crate::parsing::{Parser, BodyTokens, ParseResult, ParseError};
 use crate::syntax::SyntaxTree;
 
 #[macro_use]
@@ -97,8 +98,9 @@ impl<'p> Compiler<'p> {
     /// Parse source code into a syntax tree.
     #[inline]
     pub fn parse(&self, src: &str) -> ParseResult<SyntaxTree> {
-        let mut tokens = ParseTokens::new(src);
-        Parser::new(&mut tokens).parse()
+        let scope = Scope::new();
+        let mut tokens = BodyTokens::new(src);
+        Parser::new(&mut tokens, &scope).parse()
     }
 
     /// Compile a portable typesetted document from source code.
