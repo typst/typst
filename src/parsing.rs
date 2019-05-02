@@ -504,16 +504,22 @@ impl<'s> Parser<'s> {
     }
 }
 
-/// Find the index of the first unbalanced closing bracket.
+/// Find the index of the first unbalanced (unescaped) closing bracket.
 fn find_closing_bracket(src: &str) -> Option<usize> {
     let mut parens = 0;
+    let mut escaped = false;
     for (index, c) in src.char_indices() {
         match c {
-            ']' if parens == 0 => return Some(index),
-            '[' => parens += 1,
-            ']' => parens -= 1,
+            '\\' => {
+                escaped = !escaped;
+                continue;
+            },
+            ']' if !escaped && parens == 0 => return Some(index),
+            '[' if !escaped => parens += 1,
+            ']' if !escaped => parens -= 1,
             _ => {},
         }
+        escaped = false;
     }
     None
 }
@@ -856,36 +862,43 @@ mod parse_tests {
             T("of"), S, T("a"), S, T("function"), S, T("invocation.")
         ]);
         test_scoped(&scope, "[func][Hello][modifier][Here][end]",  tree! [
-            F(func! {
-                name => "func",
-                body => tree! [ T("Hello") ],
-            }),
-            F(func! {
-                name => "modifier",
-                body => tree! [ T("Here") ],
-            }),
-            F(func! {
-                name => "end",
-                body => None,
-            }),
+            F(func! { name => "func", body => tree! [ T("Hello") ] }),
+            F(func! { name => "modifier", body => tree! [ T("Here") ] }),
+            F(func! { name => "end", body => None }),
         ]);
-        test_scoped(&scope, "[func][]", tree! [
-            F(func! {
-                name => "func",
-                body => tree! [],
-            })
-        ]);
+        test_scoped(&scope, "[func][]", tree! [ F(func! { name => "func", body => tree! [] }) ]);
         test_scoped(&scope, "[modifier][[func][call]] outside", tree! [
             F(func! {
                 name => "modifier",
-                body => tree! [
-                    F(func! {
-                        name => "func",
-                        body => tree! [ T("call") ],
-                    }),
-                ],
+                body => tree! [ F(func! { name => "func", body => tree! [ T("call") ] }) ],
             }),
             S, T("outside")
+        ]);
+    }
+
+    /// Test if escaped, but unbalanced parens are correctly parsed.
+    #[test]
+    fn parse_unbalanced_body_parens() {
+        let mut scope = Scope::new();
+        scope.add::<TreeFn>("code");
+
+        test_scoped(&scope, r"My [code][Close \]] end", tree! [
+            T("My"), S, F(func! {
+                name => "code",
+                body => tree! [ T("Close"), S, T("]") ]
+            }), S, T("end")
+        ]);
+        test_scoped(&scope, r"My [code][\[ Open] end", tree! [
+            T("My"), S, F(func! {
+                name => "code",
+                body => tree! [ T("["), S, T("Open") ]
+            }), S, T("end")
+        ]);
+        test_scoped(&scope, r"My [code][Open \]  and  \[ close]end", tree! [
+            T("My"), S, F(func! {
+                name => "code",
+                body => tree! [ T("Open"), S, T("]"), S, T("and"), S, T("["), S, T("close") ]
+            }), T("end")
         ]);
     }
 
@@ -895,6 +908,7 @@ mod parse_tests {
         let mut scope = Scope::new();
         scope.add::<BodylessFn>("func");
         scope.add::<TreeFn>("bold");
+
         test_scoped(&scope, "[func] ⺐.", tree! [
             F(func! {
                 name => "func",
