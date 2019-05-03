@@ -8,7 +8,7 @@ use smallvec::SmallVec;
 use unicode_xid::UnicodeXID;
 
 use crate::syntax::*;
-use crate::func::Scope;
+use crate::func::{Function, Scope};
 
 
 /// Builds an iterator over the tokens of the source code.
@@ -99,7 +99,7 @@ impl<'s> Iterator for Tokens<'s> {
         let afterwards = self.chars.peek().map(|p| p.1);
 
         Some(match next {
-            // Special characters
+            // Functions
             '[' => {
                 self.switch(TS::Function);
                 Token::LeftBracket
@@ -112,8 +112,47 @@ impl<'s> Iterator for Tokens<'s> {
                 }
                 Token::RightBracket
             },
-            '$' => Token::Dollar,
-            '#' => Token::Hashtag,
+
+            // Line comment
+            '/' if afterwards == Some('/') => {
+                let mut end = self.chars.next().unwrap();
+                let start = end.0 + end.1.len_utf8();
+
+                while let Some((index, c)) = self.chars.peek() {
+                    if is_newline_char(c) {
+                        break;
+                    }
+                    self.advance();
+                    end = (index, c);
+                }
+
+                let end = end.0 + end.1.len_utf8();
+                Token::LineComment(&self.src[start .. end])
+            },
+
+            // Block comment
+            '/' if afterwards == Some('*') => {
+                let mut end = self.chars.next().unwrap();
+                let start = end.0 + end.1.len_utf8();
+
+                let mut nested = 0;
+                while let Some((index, c)) = self.chars.next() {
+                    let after = self.chars.peek().map(|p| p.1);
+                    match (c, after) {
+                        ('*', Some('/')) if nested == 0 => { self.advance(); break },
+                        ('/', Some('*')) => { self.advance(); nested += 1 },
+                        ('*', Some('/')) => { self.advance(); nested -= 1 },
+                        _ => {},
+                    }
+                    end = (index, c);
+                }
+
+                let end = end.0 + end.1.len_utf8();
+                Token::BlockComment(&self.src[start .. end])
+            },
+
+            // Unexpected end of block comment
+            '*' if afterwards == Some('/') => self.consumed(Token::StarSlash),
 
             // Whitespace
             ' ' | '\t' => {
@@ -126,25 +165,26 @@ impl<'s> Iterator for Tokens<'s> {
                 Token::Space
             }
 
+            // Newlines
+            '\r' if afterwards == Some('\n') => self.consumed(Token::Newline),
+            c if is_newline_char(c) => Token::Newline,
+
             // Context sensitive operators in headers
             ':' if self.state == TS::Function => Token::Colon,
             '=' if self.state == TS::Function => Token::Equals,
 
-            // Double star/underscore in bodies
+            // Double star/underscore and dollar in bodies
             '*' if self.state == TS::Body && afterwards == Some('*')
                 => self.consumed(Token::DoubleStar),
             '_' if self.state == TS::Body && afterwards == Some('_')
                 => self.consumed(Token::DoubleUnderscore),
-
-            // Newlines
-            '\r' if afterwards == Some('\n') => self.consumed(Token::Newline),
-            c if is_newline_char(c) => Token::Newline,
+            '$' if self.state == TS::Body => Token::Dollar,
 
             // Escaping
             '\\' => {
                 if let Some((index, c)) = self.chars.peek() {
                     let escapable = match c {
-                        '[' | ']' | '$' | '#' | '\\' | '*' | '_' => true,
+                        '[' | ']' | '$' | '#' | '\\' | '*' | '_' | '/' => true,
                         _ => false,
                     };
 
@@ -162,15 +202,18 @@ impl<'s> Iterator for Tokens<'s> {
                 // Find out when the word ends.
                 let mut end = (next_pos, next);
                 while let Some((index, c)) = self.chars.peek() {
+                    let second = self.chars.peek_second().map(|p| p.1);
+
                     // Whether the next token is still from the next or not.
                     let continues = match c {
                         '[' | ']' | '$' | '#' | '\\' => false,
                         ':' | '=' if self.state == TS::Function => false,
 
-                        '*' if self.state == TS::Body
-                             => self.chars.peek_second().map(|p| p.1) != Some('*'),
-                        '_' if self.state == TS::Body
-                             => self.chars.peek_second().map(|p| p.1) != Some('_'),
+                        '*' if self.state == TS::Body => second != Some('*'),
+                        '_' if self.state == TS::Body => second != Some('_'),
+
+                        '/' => second != Some('/') && second != Some('*'),
+                        '*' => second != Some('/'),
 
                         ' ' | '\t' => false,
                         c if is_newline_char(c) => false,
@@ -321,94 +364,89 @@ impl<'s> Parser<'s> {
 
     /// Parse the source into an abstract syntax tree.
     fn parse(mut self) -> ParseResult<SyntaxTree> {
-        use ParserState as PS;
-
-        while let Some(token) = self.tokens.peek() {
-            // Skip over comments.
-            if token == Token::Hashtag {
-                self.skip_while(|t| t != Token::Newline);
-                self.advance();
-            }
-
-            // Handles all the states.
-            match self.state {
-                PS::FirstNewline => match token {
-                    Token::Newline => {
-                        self.append_consumed(Node::Newline);
-                        self.switch(PS::WroteNewline);
-                    },
-                    Token::Space => self.append_space_consumed(),
-                    _ => {
-                        self.append_space();
-                        self.switch(PS::Body);
-                    },
-                }
-
-                PS::WroteNewline => match token {
-                    Token::Newline | Token::Space => self.append_space_consumed(),
-                    _ => self.switch(PS::Body),
-                }
-
-                PS::Body => match token {
-                    // Whitespace
-                    Token::Space => self.append_space_consumed(),
-                    Token::Newline => {
-                        self.advance();
-                        self.switch(PS::FirstNewline);
-                    },
-
-                    // Text
-                    Token::Text(word) => self.append_consumed(Node::Text(word.to_owned())),
-
-                    // Functions
-                    Token::LeftBracket => self.parse_function()?,
-                    Token::RightBracket => {
-                        return Err(ParseError::new("unexpected closing bracket"));
-                    },
-
-                    // Modifiers
-                    Token::DoubleUnderscore => self.append_consumed(Node::ToggleItalics),
-                    Token::DoubleStar => self.append_consumed(Node::ToggleBold),
-                    Token::Dollar => self.append_consumed(Node::ToggleMath),
-
-                    // Should not happen
-                    Token::Colon | Token::Equals | Token::Hashtag => unreachable!(),
-                },
-            }
+        // Loop through all the tokens.
+        while self.tokens.peek().is_some() {
+            self.parse_white()?;
+            self.parse_body_part()?;
         }
 
         Ok(self.tree)
     }
 
-    /// Parse a function from the current position.
-    fn parse_function(&mut self) -> ParseResult<()> {
+    /// Parse part of the body.
+    fn parse_body_part(&mut self) -> ParseResult<()> {
+        if let Some(token) = self.tokens.peek() {
+            match token {
+                // Functions
+                Token::LeftBracket => self.parse_func()?,
+                Token::RightBracket => return Err(ParseError::new("unexpected closing bracket")),
+
+                // Modifiers
+                Token::DoubleUnderscore => self.append_consumed(Node::ToggleItalics),
+                Token::DoubleStar => self.append_consumed(Node::ToggleBold),
+                Token::Dollar => self.append_consumed(Node::ToggleMath),
+
+                // Normal text
+                Token::Text(word) => self.append_consumed(Node::Text(word.to_owned())),
+
+                Token::Colon | Token::Equals => panic!("bad token for body: {:?}", token),
+
+                // The rest is handled elsewhere or should not happen, because Tokens does
+                // not yield colons or equals in the body, but their text equivalents instead.
+                _ => panic!("unexpected token: {:?}", token),
+            }
+        }
+        Ok(())
+    }
+
+    /// Parse a complete function from the current position.
+    fn parse_func(&mut self) -> ParseResult<()> {
         // This should only be called if a left bracket was seen.
         assert!(self.tokens.next() == Some(Token::LeftBracket));
 
+        let header = self.parse_func_header()?;
+        let body = self.parse_func_body(&header)?;
+
+        // Finally this function is parsed to the end.
+        self.append(Node::Func(FuncCall {
+            header,
+            body,
+        }));
+
+        Ok(self.switch(ParserState::Body))
+    }
+
+    /// Parse a function header.
+    fn parse_func_header(&mut self) -> ParseResult<FuncHeader> {
         // The next token should be the name of the function.
+        self.parse_white()?;
         let name = match self.tokens.next() {
             Some(Token::Text(word)) => {
                 if is_identifier(word) {
                     Ok(word.to_owned())
                 } else {
-                    Err(ParseError::new("invalid identifier"))
+                    Err(ParseError::new(format!("invalid identifier: '{}'", word)))
                 }
             },
             _ => Err(ParseError::new("expected identifier")),
         }?;
 
         // Now the header should be closed.
+        self.parse_white()?;
         if self.tokens.next() != Some(Token::RightBracket) {
             return Err(ParseError::new("expected closing bracket"));
         }
 
         // Store the header information of the function invocation.
-        let header = FuncHeader {
+        Ok(FuncHeader {
             name,
             args: vec![],
             kwargs: HashMap::new(),
-        };
+        })
+    }
 
+    /// Parse the body of a function.
+    fn parse_func_body(&mut self, header: &FuncHeader) -> ParseResult<Box<dyn Function>> {
         // Whether the function has a body.
         let has_body = self.tokens.peek() == Some(Token::LeftBracket);
         if has_body {
@@ -420,7 +458,7 @@ impl<'s> Parser<'s> {
             .ok_or_else(|| ParseError::new(format!("unknown function: '{}'", &header.name)))?;
 
         // Do the parsing dependent on whether the function has a body.
-        let body = if has_body {
+        Ok(if has_body {
             // Find out the string which makes the body of this function.
             let (start, end) = self.tokens.current_index().and_then(|index| {
                 find_closing_bracket(&self.src[index..])
@@ -448,15 +486,48 @@ impl<'s> Parser<'s> {
                 body: None,
                 scope: &self.scope,
             })?
-        };
+        })
+    }
 
-        // Finally this function is parsed to the end.
-        self.append(Node::Func(FuncCall {
-            header,
-            body,
-        }));
+    /// Parse whitespace (as long as there is any) and skip over comments.
+    fn parse_white(&mut self) -> ParseResult<()> {
+        while let Some(token) = self.tokens.peek() {
+            match self.state {
+                ParserState::FirstNewline => match token {
+                    Token::Newline => {
+                        self.append_consumed(Node::Newline);
+                        self.switch(ParserState::WroteNewline);
+                    },
+                    Token::Space => self.append_space_consumed(),
+                    _ => {
+                        self.append_space();
+                        self.switch(ParserState::Body);
+                    },
+                },
+                ParserState::WroteNewline => match token {
+                    Token::Newline | Token::Space => self.append_space_consumed(),
+                    _ => self.switch(ParserState::Body),
+                },
+                ParserState::Body => match token {
+                    // Whitespace
+                    Token::Space => self.append_space_consumed(),
+                    Token::Newline => {
+                        self.advance();
+                        self.switch(ParserState::FirstNewline);
+                    },
 
-        Ok(self.switch(ParserState::Body))
+                    // Comments
+                    Token::LineComment(_) | Token::BlockComment(_) => self.advance(),
+                    Token::StarSlash => {
+                        return Err(ParseError::new("unexpected end of block comment"));
+                    },
+
+                    // Anything else skips out of the function.
+                    _ => break,
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Advance the iterator by one step.
@@ -491,16 +562,6 @@ impl<'s> Parser<'s> {
     fn append_space_consumed(&mut self) {
         self.advance();
         self.append_space();
-    }
-
-    /// Skip tokens until the condition is met.
-    fn skip_while<F>(&mut self, f: F) where F: Fn(Token) -> bool {
-        while let Some(token) = self.tokens.peek() {
-            if !f(token) {
-                break;
-            }
-            self.advance();
-        }
     }
 }
 
@@ -623,7 +684,7 @@ mod token_tests {
     use super::*;
     use Token::{Space as S, Newline as N, LeftBracket as L, RightBracket as R,
                 Colon as C, Equals as E, DoubleUnderscore as DU, DoubleStar as DS,
-                Dollar as D, Hashtag as H, Text as T};
+                Dollar as D, Text as T, LineComment as LC, BlockComment as BC, StarSlash as SS};
 
     /// Test if the source code tokenizes to the tokens.
     fn test(src: &str, tokens: Vec<Token>) {
@@ -638,7 +699,6 @@ mod token_tests {
         test("[", vec![L]);
         test("]", vec![R]);
         test("$", vec![D]);
-        test("#", vec![H]);
         test("**", vec![DS]);
         test("__", vec![DU]);
         test("\n", vec![N]);
@@ -709,11 +769,24 @@ mod token_tests {
                  T("v"), E, T("1"), R, L, T("hello"), R]);
         test("[func: __key__=value]",
              vec![L, T("func"), C, S, T("__key__"), E, T("value"), R]);
+        test("The /*[*/ answer: 7.",
+            vec![T("The"), S, BC("["), S, T("answer:"), S, T("7.")]);
     }
 
-    /// This test has a special look at the double underscore syntax, because
-    /// per Unicode standard they are not separate words and thus harder to parse
-    /// than the stars.
+    /// Test if block and line comments get tokenized as expected.
+    #[test]
+    fn tokenize_comments() {
+        test("These // Line comments.",
+            vec![T("These"), S, LC(" Line comments.")]);
+        test("This /* is */ a comment.",
+            vec![T("This"), S, BC(" is "), S, T("a"), S, T("comment.")]);
+        test("[Head/*of*/][Body]", vec![L, T("Head"), BC("of"), R, L, T("Body"), R]);
+        test("/* Hey */ */", vec![BC(" Hey "), S, SS]);
+        test("Hey\n// Yoo /*\n*/", vec![T("Hey"), N, LC(" Yoo /*"), N, SS]);
+        test("/* My /* line // */ comment */", vec![BC(" My /* line // */ comment ")])
+    }
+
+    /// This test has a special look at the double underscore syntax.
     #[test]
     fn tokenize_double_underscore() {
         test("he__llo__world_ _ __ Now this_ is__ special!",
@@ -876,6 +949,21 @@ mod parse_tests {
         ]);
     }
 
+    /// Parse comments (line and block).
+    #[test]
+    fn parse_comments() {
+        let mut scope = Scope::new();
+        scope.add::<BodylessFn>("test");
+        scope.add::<TreeFn>("func");
+
+        test_scoped(&scope, "Text\n// Comment\n More text",
+            tree! [ T("Text"), S, T("More"), S, T("text") ]);
+        test_scoped(&scope, "[test/*world*/]",
+            tree! [ F(func! { name => "test", body => None }) ]);
+        test_scoped(&scope, "[test/*]*/]",
+            tree! [ F(func! { name => "test", body => None }) ]);
+    }
+
     /// Test if escaped, but unbalanced parens are correctly parsed.
     #[test]
     fn parse_unbalanced_body_parens() {
@@ -933,6 +1021,7 @@ mod parse_tests {
         test_err("No functions here]", "unexpected closing bracket");
         test_err_scoped(&scope, "[hello][world", "expected closing bracket");
         test_err("[hello world", "expected closing bracket");
-        test_err("[ no-name][Why?]", "expected identifier");
+        test_err("[ no-name][Why?]", "invalid identifier: 'no-name'");
+        test_err("Hello */", "unexpected end of block comment");
     }
 }

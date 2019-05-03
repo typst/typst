@@ -9,7 +9,7 @@ use crate::func::Function;
 pub enum Token<'s> {
     /// One or more whitespace (non-newline) codepoints.
     Space,
-    /// A line feed (either `\n` or `\r\n`).
+    /// A line feed (`\n`, `\r\n` and some more as defined by the Unicode standard).
     Newline,
     /// A left bracket: `[`.
     LeftBracket,
@@ -17,19 +17,27 @@ pub enum Token<'s> {
     RightBracket,
     /// A colon (`:`) indicating the beginning of function arguments.
     ///
-    /// If a colon occurs outside of the function header, it will be
+    /// If a colon occurs outside of a function header, it will be
     /// tokenized as a [Word](Token::Word).
     Colon,
-    /// Same as with [Colon](Token::Colon).
+    /// An equals (`=`) sign assigning a function argument a value.
+    ///
+    /// Outside of functions headers, same as with [Colon](Token::Colon).
     Equals,
-    /// Two underscores, indicating text in _italics_.
+    /// Two underscores, indicating text in italics.
     DoubleUnderscore,
-    /// Two stars, indicating **bold** text.
+    /// Two stars, indicating bold text.
     DoubleStar,
-    /// A dollar sign, indicating _mathematical_ content.
+    /// A dollar sign, indicating mathematical content.
     Dollar,
-    /// A hashtag starting a _comment_.
-    Hashtag,
+    /// A line comment.
+    LineComment(&'s str),
+    /// A block comment.
+    BlockComment(&'s str),
+    /// A star followed by a slash unexpectedly ending a block comment
+    /// (the comment was not started before, otherwise a
+    /// [BlockComment](Token::BlockComment) would be returned).
+    StarSlash,
     /// Everything else is just text.
     Text(&'s str),
 }
