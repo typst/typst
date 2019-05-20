@@ -97,6 +97,6 @@ pub struct FuncHeader {
     pub kwargs: HashMap<String, Expression>
 }
 
-/// A potentially unevaluated expression.
+/// A value expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {}

@@ -31,8 +31,8 @@
 //!     ("NotoEmoji-Regular.ttf", font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
 //! ]));
 //!
-//! // Compile the source code with the compiler.
-//! let document = compiler.typeset(src).unwrap();
+//! // Compile the source code into a document with the compiler.
+//! let document = compiler.compile(src).unwrap();
 //!
 //! // Export the document into a PDF file.
 //! # /*
@@ -43,10 +43,8 @@
 //! exporter.export(&document, file).unwrap();
 //! ```
 
-use std::fmt::{self, Debug, Formatter};
-
 use crate::doc::Document;
-use crate::engine::{Engine, Style, TypesetError};
+use crate::engine::{typeset, Style, TypesetResult, TypesetError};
 use crate::func::Scope;
 use crate::font::FontProvider;
 use crate::parsing::{parse, ParseResult, ParseError};
@@ -68,7 +66,10 @@ pub mod syntax;
 ///
 /// Holds the compilation context, which can be configured through various methods.
 pub struct Compiler<'p> {
-    context: Context<'p>,
+    /// Style for typesetting.
+    style: Style,
+    /// Font providers.
+    font_providers: Vec<Box<dyn FontProvider + 'p>>,
 }
 
 impl<'p> Compiler<'p> {
@@ -76,55 +77,42 @@ impl<'p> Compiler<'p> {
     #[inline]
     pub fn new() -> Compiler<'p> {
         Compiler {
-            context: Context {
-                style: Style::default(),
-                font_providers: vec![],
-            }
+            style: Style::default(),
+            font_providers: vec![],
         }
     }
 
     /// Set the default style for the document.
     #[inline]
     pub fn set_style(&mut self, style: Style) {
-        self.context.style = style;
+        self.style = style;
     }
 
     /// Add a font provider to the context of this compiler.
     #[inline]
     pub fn add_font_provider<P: 'p>(&mut self, provider: P) where P: FontProvider {
-        self.context.font_providers.push(Box::new(provider));
+        self.font_providers.push(Box::new(provider));
     }
 
     /// Parse source code into a syntax tree.
     #[inline]
     pub fn parse(&self, src: &str) -> ParseResult<SyntaxTree> {
-        let scope = Scope::new();
+        let scope = Scope::with_std();
         parse(src, &scope)
+    }
+
+    /// Typeset a parsed syntax tree into a document.
+    #[inline]
+    pub fn typeset(&self, tree: &SyntaxTree) -> TypesetResult<Document> {
+        typeset(&tree, &self.style, &self.font_providers).map_err(Into::into)
     }
 
     /// Compile a portable typesetted document from source code.
     #[inline]
-    pub fn typeset(&self, src: &str) -> CompileResult<Document> {
+    pub fn compile(&self, src: &str) -> Result<Document, CompileError> {
         let tree = self.parse(src)?;
-        let engine = Engine::new(&tree, &self.context);
-        engine.typeset().map_err(Into::into)
-    }
-}
-
-/// Holds the compilation context.
-pub struct Context<'p> {
-    /// Style for typesetting.
-    style: Style,
-    /// Font providers.
-    font_providers: Vec<Box<dyn FontProvider + 'p>>,
-}
-
-impl Debug for Context<'_> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("Context")
-            .field("style", &self.style)
-            .field("font_providers", &self.font_providers.len())
-            .finish()
+        let document = self.typeset(&tree)?;
+        Ok(document)
     }
 }
 
@@ -132,26 +120,23 @@ impl Debug for Context<'_> {
 pub enum CompileError {
     /// An error that occured while transforming source code into
     /// an abstract syntax tree.
-    Parse(ParseError),
+    ParseErr(ParseError),
     /// An error that occured while typesetting into an abstract document.
-    Typeset(TypesetError),
+    TypesetErr(TypesetError),
 }
-
-/// The result type for compilation.
-pub type CompileResult<T> = Result<T, CompileError>;
 
 error_type! {
     err: CompileError,
     show: f => match err {
-        CompileError::Parse(e) => write!(f, "parse error: {}", e),
-        CompileError::Typeset(e) => write!(f, "typeset error: {}", e),
+        CompileError::ParseErr(e) => write!(f, "parse error: {}", e),
+        CompileError::TypesetErr(e) => write!(f, "typeset error: {}", e),
     },
     source: match err {
-        CompileError::Parse(e) => Some(e),
-        CompileError::Typeset(e) => Some(e),
+        CompileError::ParseErr(e) => Some(e),
+        CompileError::TypesetErr(e) => Some(e),
     },
-    from: (ParseError, CompileError::Parse(err)),
-    from: (TypesetError, CompileError::Typeset(err)),
+    from: (ParseError, CompileError::ParseErr(err)),
+    from: (TypesetError, CompileError::TypesetErr(err)),
 }
 
 
@@ -177,7 +162,7 @@ mod test {
         ]));
 
         // Compile into document
-        let document = compiler.typeset(src).unwrap();
+        let document = compiler.compile(src).unwrap();
 
         // Write to file
         let path = format!("../target/typeset-unit-{}.pdf", name);
@@ -187,38 +172,30 @@ mod test {
     }
 
     #[test]
-    fn simple() {
-        test("parentheses", "Text with ) and ( or (enclosed) works.");
-        test("multiline-lorem","
+    fn features() {
+        test("features", r"
+            **FEATURES TEST PAGE**
+
+            __Simple multiline:__
             Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy
             eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam
             voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet
             clita kasd gubergren, no sea takimata sanctus est.
+
+            __Parentheses:__ Text with ) and ( or (enclosed) works.
+
+            __Composite character:__ ‼
+
+            __Unicode:__ ∑mbe∂∂ed font with Unicode!
+
+            __Emoji:__ Hello World 🌍!
+
+            __Styles:__ This is **bold** and that is __great__!
         ");
     }
 
     #[test]
-    fn composite_glyph() {
-        test("composite-glyph", "Composite character‼");
-    }
-
-    #[test]
-    fn unicode() {
-        test("unicode", "∑mbe∂∂ed font with Unicode!");
-        test("mixed-emoji", "Hello World 🌍!")
-    }
-
-    #[test]
-    fn styled() {
-        test("styled", "
-            **Hello World**.
-
-            That's __great__!
-        ");
-    }
-
-    #[test]
-    fn long_wikipedia() {
+    fn wikipedia() {
         test("wikipedia", r#"
             Typesetting is the composition of text by means of arranging physical types or the
             digital equivalents. Stored letters and other symbols (called sorts in mechanical

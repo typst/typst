@@ -209,7 +209,7 @@ pub struct FontInfo {
 /// A macro to create [FontInfos](crate::font::FontInfo) easily.
 ///
 /// Accepts first a bracketed (ordered) list of font families. Allowed are string expressions
-/// aswell as the three base families `SansSerif`, `Serif` and `Monospace`.
+/// as well as the three base families `SansSerif`, `Serif` and `Monospace`.
 ///
 /// Then there may follow (separated by commas) the keywords `italic` and/or `bold`.
 ///

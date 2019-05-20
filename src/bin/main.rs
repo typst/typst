@@ -46,7 +46,7 @@ fn run() -> Result<(), Box<Error>> {
     ]));
 
     // Compile the source code with the compiler.
-    let document = compiler.typeset(&src)?;
+    let document = compiler.compile(&src)?;
 
 
     // Export the document into a PDF file.

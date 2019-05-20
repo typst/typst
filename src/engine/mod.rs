@@ -1,25 +1,32 @@
 //! Core typesetting engine.
 
-use std::cell::{RefCell, Ref};
-use std::collections::HashMap;
+use std::cell::Ref;
 use std::mem::swap;
 
 use smallvec::SmallVec;
 
-use crate::syntax::{SyntaxTree, Node};
 use crate::doc::{Document, Page, Text, TextCommand};
-use crate::font::{Font, FontFamily, FontInfo, FontError};
-use crate::Context;
+use crate::font::{Font, FontFamily, FontProvider, FontError};
+use crate::syntax::{SyntaxTree, Node};
+use loader::{FontLoader, FontQuery};
 
 mod size;
+mod loader;
 pub use size::Size;
 
 
+/// Typeset a parsed syntax tree.
+pub fn typeset<'p>(tree: &SyntaxTree, style: &Style, font_providers: &[Box<dyn FontProvider + 'p>])
+    -> TypesetResult<Document> {
+    Engine::new(tree, style, font_providers).typeset()
+}
+
+
 /// The core typesetting engine, transforming an abstract syntax tree into a document.
-pub struct Engine<'a> {
+struct Engine<'a> {
     // Input
     tree: &'a SyntaxTree,
-    ctx: &'a Context<'a>,
+    style: &'a Style,
 
     // Internal
     font_loader: FontLoader<'a>,
@@ -38,12 +45,15 @@ pub struct Engine<'a> {
 
 impl<'a> Engine<'a> {
     /// Create a new generator from a syntax tree.
-    #[inline]
-    pub fn new(tree: &'a SyntaxTree, context: &'a Context<'a>) -> Engine<'a> {
+    fn new(
+        tree: &'a SyntaxTree,
+        style: &'a Style,
+        font_providers: &'a [Box<dyn FontProvider + 'a>]
+    ) -> Engine<'a> {
         Engine {
             tree,
-            ctx: context,
-            font_loader: FontLoader::new(context),
+            style,
+            font_loader: FontLoader::new(font_providers),
             text_commands: vec![],
             active_font: std::usize::MAX,
             current_text: String::new(),
@@ -55,7 +65,7 @@ impl<'a> Engine<'a> {
     }
 
     /// Generate the abstract document.
-    pub fn typeset(mut self) -> TypesetResult<Document> {
+    fn typeset(mut self) -> TypesetResult<Document> {
         // Start by moving to a suitable position.
         self.move_start();
 
@@ -66,7 +76,7 @@ impl<'a> Engine<'a> {
                 Node::Space => self.write_space()?,
                 Node::Newline => {
                     self.write_buffered_text();
-                    self.move_newline(self.ctx.style.paragraph_spacing);
+                    self.move_newline(self.style.paragraph_spacing);
                 },
 
                 Node::ToggleItalics => self.italic = !self.italic,
@@ -83,8 +93,8 @@ impl<'a> Engine<'a> {
         // Create a document with one page from the contents.
         Ok(Document {
             pages: vec![Page {
-                width: self.ctx.style.width,
-                height: self.ctx.style.height,
+                width: self.style.width,
+                height: self.style.height,
                 text: vec![Text {
                     commands: self.text_commands,
                 }],
@@ -152,8 +162,8 @@ impl<'a> Engine<'a> {
     fn move_start(&mut self) {
         // Move cursor to top-left position
         self.text_commands.push(TextCommand::Move(
-            self.ctx.style.margin_left,
-            self.ctx.style.height - self.ctx.style.margin_top
+            self.style.margin_left,
+            self.style.height - self.style.margin_top
         ));
     }
 
@@ -166,8 +176,8 @@ impl<'a> Engine<'a> {
         let vertical_move = if self.current_max_vertical_move == Size::zero() {
             // If max vertical move is still zero, the line is empty and we take the
             // font size from the previous line.
-            self.ctx.style.font_size
-                * self.ctx.style.line_spacing
+            self.style.font_size
+                * self.style.line_spacing
                 * self.get_font_at(self.active_font).metrics.ascender
                 * factor
         } else {
@@ -181,21 +191,21 @@ impl<'a> Engine<'a> {
 
     /// Set the current font.
     fn set_font(&mut self, index: usize) {
-        self.text_commands.push(TextCommand::SetFont(index, self.ctx.style.font_size));
+        self.text_commands.push(TextCommand::SetFont(index, self.style.font_size));
         self.active_font = index;
     }
 
     /// Whether the current line plus the extra `width` would overflow the line.
     fn would_overflow(&self, width: Size) -> bool {
-        let max_width = self.ctx.style.width
-            - self.ctx.style.margin_left - self.ctx.style.margin_right;
+        let max_width = self.style.width
+            - self.style.margin_left - self.style.margin_right;
         self.current_line_width + width > max_width
     }
 
     /// Load a font that has the character we need.
     fn get_font_for(&self, character: char) -> TypesetResult<(usize, Ref<Font>)> {
         self.font_loader.get(FontQuery {
-            families: &self.ctx.style.font_families,
+            families: &self.style.font_families,
             italic: self.italic,
             bold: self.bold,
             character,
@@ -209,167 +219,13 @@ impl<'a> Engine<'a> {
 
     /// The width of a char in a specific font.
     fn char_width(&self, character: char, font: &Font) -> Size {
-        font.widths[font.map(character) as usize] * self.ctx.style.font_size
+        font.widths[font.map(character) as usize] * self.style.font_size
     }
 }
 
-/// Serves matching fonts given a query.
-struct FontLoader<'a> {
-    /// The context containing the used font providers.
-    context: &'a Context<'a>,
-    /// All available fonts indexed by provider.
-    provider_fonts: Vec<&'a [FontInfo]>,
-    /// The internal state.
-    state: RefCell<FontLoaderState<'a>>,
-}
-
-/// Internal state of the font loader (wrapped in a RefCell).
-struct FontLoaderState<'a> {
-    /// The loaded fonts along with their external indices.
-    fonts: Vec<(Option<usize>, Font)>,
-    /// Allows to retrieve cached results for queries.
-    query_cache: HashMap<FontQuery<'a>, usize>,
-    /// Allows to lookup fonts by their infos.
-    info_cache: HashMap<&'a FontInfo, usize>,
-    /// Indexed by outside and indices maps to internal indices.
-    inner_index: Vec<usize>,
-}
-
-impl<'a> FontLoader<'a> {
-    /// Create a new font loader.
-    pub fn new(context: &'a Context<'a>) -> FontLoader {
-        let provider_fonts = context.font_providers.iter()
-            .map(|prov| prov.available()).collect();
-
-        FontLoader {
-            context,
-            provider_fonts,
-            state: RefCell::new(FontLoaderState {
-                query_cache: HashMap::new(),
-                info_cache: HashMap::new(),
-                inner_index: vec![],
-                fonts: vec![],
-            }),
-        }
-    }
-
-    /// Return the best matching font and it's index (if there is any) given the query.
-    pub fn get(&self, query: FontQuery<'a>) -> Option<(usize, Ref<Font>)> {
-        // Check if we had the exact same query before.
-        let state = self.state.borrow();
-        if let Some(&index) = state.query_cache.get(&query) {
-            // That this is the query cache means it must has an index as we've served it before.
-            let extern_index = state.fonts[index].0.unwrap();
-            let font = Ref::map(state, |s| &s.fonts[index].1);
-
-            return Some((extern_index, font));
-        }
-        drop(state);
-
-        // Go over all font infos from all font providers that match the query.
-        for family in query.families {
-            for (provider, infos) in self.context.font_providers.iter().zip(&self.provider_fonts) {
-                for info in infos.iter() {
-                    // Check whether this info matches the query.
-                    if Self::matches(query, family, info) {
-                        let mut state = self.state.borrow_mut();
-
-                        // Check if we have already loaded this font before.
-                        // Otherwise we'll fetch the font from the provider.
-                        let index = if let Some(&index) = state.info_cache.get(info) {
-                            index
-                        } else if let Some(mut source) = provider.get(info) {
-                            // Read the font program into a vec.
-                            let mut program = Vec::new();
-                            source.read_to_end(&mut program).ok()?;
-
-                            // Create a font from it.
-                            let font = Font::new(program).ok()?;
-
-                            // Insert it into the storage.
-                            let index = state.fonts.len();
-                            state.info_cache.insert(info, index);
-                            state.fonts.push((None, font));
-
-                            index
-                        } else {
-                            continue;
-                        };
-
-                        // Check whether this font has the character we need.
-                        let has_char = state.fonts[index].1.mapping.contains_key(&query.character);
-                        if has_char {
-                            // We can take this font, so we store the query.
-                            state.query_cache.insert(query, index);
-
-                            // Now we have to find out the external index of it, or assign a new
-                            // one if it has not already one.
-                            let maybe_extern_index = state.fonts[index].0;
-                            let extern_index = maybe_extern_index.unwrap_or_else(|| {
-                                // We have to assign an external index before serving.
-                                let extern_index = state.inner_index.len();
-                                state.inner_index.push(index);
-                                state.fonts[index].0 =  Some(extern_index);
-                                extern_index
-                            });
-
-                            // Release the mutable borrow and borrow immutably.
-                            drop(state);
-                            let font = Ref::map(self.state.borrow(), |s| &s.fonts[index].1);
-
-                            // Finally we can return it.
-                            return Some((extern_index, font));
-                        }
-                    }
-                }
-            }
-        }
-
-        None
-    }
-
-    /// Return a loaded font at an index. Panics if the index is out of bounds.
-    pub fn get_with_index(&self, index: usize) -> Ref<Font> {
-        let state = self.state.borrow();
-        let internal = state.inner_index[index];
-        Ref::map(state, |s| &s.fonts[internal].1)
-    }
-
-    /// Return the list of fonts.
-    pub fn into_fonts(self) -> Vec<Font> {
-        // Sort the fonts by external key so that they are in the correct order.
-        let mut fonts = self.state.into_inner().fonts;
-        fonts.sort_by_key(|&(maybe_index, _)| match maybe_index {
-            Some(index) => index as isize,
-            None => -1,
-        });
-
-        // Remove the fonts that are not used from the outside
-        fonts.into_iter().filter_map(|(maybe_index, font)| {
-            maybe_index.map(|_| font)
-        }).collect()
-    }
-
-    /// Check whether the query and the current family match the info.
-    fn matches(query: FontQuery, family: &FontFamily, info: &FontInfo) -> bool {
-        info.families.contains(family)
-          && info.italic == query.italic && info.bold == query.bold
-    }
-}
-
-/// A query for a font with specific properties.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-struct FontQuery<'a> {
-    /// A fallback list of font families to accept. The first family in this list, that also
-    /// satisfies the other conditions, shall be returned.
-    families: &'a [FontFamily],
-    /// Whether the font shall be in italics.
-    italic: bool,
-    /// Whether the font shall be in boldface.
-    bold: bool,
-    /// Which character we need.
-    character: char,
-}
+/// The context for typesetting a function.
+#[derive(Debug)]
+pub struct TypesetContext {}
 
 /// Default styles for typesetting.
 #[derive(Debug, Clone, PartialEq)]

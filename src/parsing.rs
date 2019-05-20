@@ -457,6 +457,10 @@ impl<'s> Parser<'s> {
         let parser = self.scope.get_parser(&header.name)
             .ok_or_else(|| ParseError::new(format!("unknown function: '{}'", &header.name)))?;
 
+        let parse_context = ParseContext {
+            scope: &self.scope,
+        };
+
         // Do the parsing dependent on whether the function has a body.
         Ok(if has_body {
             // Find out the string which makes the body of this function.
@@ -467,11 +471,7 @@ impl<'s> Parser<'s> {
 
             // Parse the body.
             let body_string = &self.src[start .. end];
-            let body = parser(FuncContext {
-                header: &header,
-                body: Some(body_string),
-                scope: &self.scope,
-            })?;
+            let body = parser(&header, Some(body_string), &parse_context)?;
 
             // Skip to the end of the function in the token stream.
             self.tokens.goto(end);
@@ -481,11 +481,7 @@ impl<'s> Parser<'s> {
 
             body
         } else {
-            parser(FuncContext {
-                header: &header,
-                body: None,
-                scope: &self.scope,
-            })?
+            parser(&header, None, &parse_context)?
         })
     }
 
@@ -633,12 +629,8 @@ impl<'s> Iterator for PeekableTokens<'s> {
 
 /// The context for parsing a function.
 #[derive(Debug)]
-pub struct FuncContext<'s> {
-    /// The header of the function to be parsed.
-    pub header: &'s FuncHeader,
-    /// The body source if the function has a body, otherwise nothing.
-    pub body: Option<&'s str>,
-    /// The current scope containing function definitions.
+pub struct ParseContext<'s> {
+    /// The scope containing function definitions.
     pub scope: &'s Scope,
 }
 
@@ -668,7 +660,8 @@ pub struct ParseError(String);
 pub type ParseResult<T> = Result<T, ParseError>;
 
 impl ParseError {
-    fn new<S: Into<String>>(message: S) -> ParseError {
+    /// Create a new parse error with a message.
+    pub fn new<S: Into<String>>(message: S) -> ParseError {
         ParseError(message.into())
     }
 }
@@ -807,9 +800,10 @@ mod token_tests {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
-    use funcs::*;
     use crate::func::{Function, Scope};
+    use crate::engine::{TypesetContext, TypesetResult};
     use Node::{Space as S, Newline as N, Func as F};
+    use funcs::*;
 
     /// Two test functions, one which parses it's body as another syntax tree
     /// and another one which does not expect a body.
@@ -821,14 +815,16 @@ mod parse_tests {
         pub struct TreeFn(pub SyntaxTree);
 
         impl Function for TreeFn {
-            fn parse(context: FuncContext) -> ParseResult<Self> where Self: Sized {
-                if let Some(src) = context.body {
-                    parse(src, context.scope).map(|tree| TreeFn(tree))
+            fn parse(_: &FuncHeader, body: Option<&str>, ctx: &ParseContext)
+                -> ParseResult<Self> where Self: Sized {
+                if let Some(src) = body {
+                    parse(src, ctx.scope).map(|tree| TreeFn(tree))
                 } else {
                     Err(ParseError::new("expected body for tree fn"))
                 }
             }
-            fn typeset(&self, _header: &FuncHeader) -> Option<Expression> { None }
+
+            fn typeset(&self, _: &TypesetContext) -> TypesetResult<()> { Ok(()) }
         }
 
         /// A testing function without a body.
@@ -836,14 +832,16 @@ mod parse_tests {
         pub struct BodylessFn;
 
         impl Function for BodylessFn {
-            fn parse(context: FuncContext) -> ParseResult<Self> where Self: Sized {
-                if context.body.is_none() {
+            fn parse(_: &FuncHeader, body: Option<&str>, _: &ParseContext)
+                -> ParseResult<Self> where Self: Sized {
+                if body.is_none() {
                     Ok(BodylessFn)
                 } else {
                     Err(ParseError::new("unexpected body for bodyless fn"))
                 }
             }
-            fn typeset(&self, _header: &FuncHeader) -> Option<Expression> { None }
+
+            fn typeset(&self, _: &TypesetContext) -> TypesetResult<()> { Ok(()) }
         }
     }
 
