@@ -5,9 +5,9 @@
 //!   [iterator of tokens](crate::parsing::Tokens). Then the [parser](crate::parsing::Parser)
 //!   operates on that to construct a syntax tree. The structures describing the tree can be found
 //!   in the [syntax] module.
-//! - **Typesetting:** The next step is to transform the syntax tree into a portable representation
-//!   of the typesetted document. Types for these can be found in the [doc] module. This
-//!   representation contains already the finished layout.
+//! - **Layouting:** The next step is to transform the syntax tree into a portable representation
+//!   of the typesetted document. Types for these can be found in the [doc] and [layout] modules.
+//!   This representation contains already the finished layout.
 //! - **Exporting:** The finished document can then be exported into supported formats. Submodules
 //!   for the supported formats are located in the [export] module. Currently the only supported
 //!   format is _PDF_.
@@ -15,24 +15,24 @@
 //! # Example
 //! ```
 //! use std::fs::File;
-//! use typeset::Compiler;
+//! use typeset::Typesetter;
 //! use typeset::{font::FileSystemFontProvider, font_info};
 //! use typeset::export::pdf::PdfExporter;
 //!
 //! // Simple example source code.
 //! let src = "Hello World from __Typeset__! 🌍";
 //!
-//! // Create a compiler with a font provider that provides three fonts
+//! // Create a typesetter with a font provider that provides three fonts
 //! // (two sans-serif fonts and a fallback for the emoji).
-//! let mut compiler = Compiler::new();
-//! compiler.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
+//! let mut typesetter = Typesetter::new();
+//! typesetter.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
 //!     ("NotoSans-Regular.ttf", font_info!(["NotoSans", "Noto", SansSerif])),
 //!     ("NotoSans-Italic.ttf", font_info!(["NotoSans", "Noto", SansSerif], italic)),
 //!     ("NotoEmoji-Regular.ttf", font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
 //! ]));
 //!
-//! // Compile the source code into a document with the compiler.
-//! let document = compiler.compile(src).unwrap();
+//! // Typeset the source code into a document.
+//! let document = typesetter.typeset(src).unwrap();
 //!
 //! // Export the document into a PDF file.
 //! # /*
@@ -44,51 +44,61 @@
 //! ```
 
 use crate::doc::Document;
-use crate::engine::{typeset, Style, TypesetResult, TypesetError};
 use crate::func::Scope;
-use crate::font::FontProvider;
-use crate::parsing::{parse, ParseResult, ParseError};
+use crate::font::{Font, FontLoader, FontProvider};
+use crate::layout::{layout, Layout, LayoutContext, LayoutResult, LayoutError};
+use crate::layout::{PageStyle, TextStyle};
+use crate::parsing::{parse, ParseContext, ParseResult, ParseError};
 use crate::syntax::SyntaxTree;
 
 #[macro_use]
 mod error;
 pub mod doc;
-pub mod engine;
 pub mod export;
 #[macro_use]
 pub mod font;
 pub mod func;
+pub mod layout;
 pub mod parsing;
 pub mod syntax;
 
 
 /// Transforms source code into typesetted documents.
 ///
-/// Holds the compilation context, which can be configured through various methods.
-pub struct Compiler<'p> {
-    /// Style for typesetting.
-    style: Style,
+/// Holds the typesetting context, which can be configured through various methods.
+pub struct Typesetter<'p> {
+    /// The default page style.
+    base_page_style: PageStyle,
+    /// The default text style.
+    base_text_style: TextStyle,
     /// Font providers.
     font_providers: Vec<Box<dyn FontProvider + 'p>>,
 }
 
-impl<'p> Compiler<'p> {
-    /// Create a new compiler.
+impl<'p> Typesetter<'p> {
+    /// Create a new typesetter.
     #[inline]
-    pub fn new() -> Compiler<'p> {
-        Compiler {
-            style: Style::default(),
+    pub fn new() -> Typesetter<'p> {
+        Typesetter {
+            base_page_style: PageStyle::default(),
+            base_text_style: TextStyle::default(),
             font_providers: vec![],
         }
     }
 
-    /// Set the default style for the document.
+    /// Set the default page style for the document.
     #[inline]
-    pub fn set_style(&mut self, style: Style) {
-        self.style = style;
+    pub fn set_page_style(&mut self, style: PageStyle) {
+        self.base_page_style = style;
     }
 
-    /// Add a font provider to the context of this compiler.
+    /// Set the default text style for the document.
+    #[inline]
+    pub fn set_text_style(&mut self, style: TextStyle) {
+        self.base_text_style = style;
+    }
+
+    /// Add a font provider to the context of this typesetter.
     #[inline]
     pub fn add_font_provider<P: 'p>(&mut self, provider: P) where P: FontProvider {
         self.font_providers.push(Box::new(provider));
@@ -98,45 +108,50 @@ impl<'p> Compiler<'p> {
     #[inline]
     pub fn parse(&self, src: &str) -> ParseResult<SyntaxTree> {
         let scope = Scope::with_std();
-        parse(src, &scope)
+        let ctx = ParseContext { scope: &scope };
+        parse(src, &ctx)
     }
 
-    /// Typeset a parsed syntax tree into a document.
+    /// Layout a parsed syntax tree and return the layout and the referenced font list.
     #[inline]
-    pub fn typeset(&self, tree: &SyntaxTree) -> TypesetResult<Document> {
-        typeset(&tree, &self.style, &self.font_providers).map_err(Into::into)
+    pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<(Layout, Vec<Font>)> {
+        let loader = FontLoader::new(&self.font_providers);
+        let ctx = LayoutContext { loader: &loader };
+        let layout = layout(&tree, &ctx)?;
+        Ok((layout, loader.into_fonts()))
     }
 
-    /// Compile a portable typesetted document from source code.
+    /// Typeset a portable document from source code.
     #[inline]
-    pub fn compile(&self, src: &str) -> Result<Document, CompileError> {
+    pub fn typeset(&self, src: &str) -> Result<Document, TypesetError> {
         let tree = self.parse(src)?;
-        let document = self.typeset(&tree)?;
+        let (layout, fonts) = self.layout(&tree)?;
+        let document = layout.into_document(fonts);
         Ok(document)
     }
 }
 
-/// The general error type for compilation.
-pub enum CompileError {
+/// The general error type for typesetting.
+pub enum TypesetError {
     /// An error that occured while transforming source code into
     /// an abstract syntax tree.
-    ParseErr(ParseError),
-    /// An error that occured while typesetting into an abstract document.
-    TypesetErr(TypesetError),
+    Parse(ParseError),
+    /// An error that occured while layouting.
+    Layout(LayoutError),
 }
 
 error_type! {
-    err: CompileError,
+    err: TypesetError,
     show: f => match err {
-        CompileError::ParseErr(e) => write!(f, "parse error: {}", e),
-        CompileError::TypesetErr(e) => write!(f, "typeset error: {}", e),
+        TypesetError::Parse(e) => write!(f, "parse error: {}", e),
+        TypesetError::Layout(e) => write!(f, "layout error: {}", e),
     },
     source: match err {
-        CompileError::ParseErr(e) => Some(e),
-        CompileError::TypesetErr(e) => Some(e),
+        TypesetError::Parse(e) => Some(e),
+        TypesetError::Layout(e) => Some(e),
     },
-    from: (ParseError, CompileError::ParseErr(err)),
-    from: (TypesetError, CompileError::TypesetErr(err)),
+    from: (ParseError, TypesetError::Parse(err)),
+    from: (LayoutError, TypesetError::Layout(err)),
 }
 
 
@@ -144,15 +159,14 @@ error_type! {
 mod test {
     use std::fs::File;
     use std::io::BufWriter;
-    use crate::Compiler;
+    use crate::Typesetter;
     use crate::export::pdf::PdfExporter;
     use crate::font::FileSystemFontProvider;
 
     /// Create a pdf with a name from the source code.
     fn test(name: &str, src: &str) {
-        // Create compiler
-        let mut compiler = Compiler::new();
-        compiler.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
+        let mut typesetter = Typesetter::new();
+        typesetter.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
             ("NotoSans-Regular.ttf",     font_info!(["NotoSans", "Noto", SansSerif])),
             ("NotoSans-Italic.ttf",      font_info!(["NotoSans", "Noto", SansSerif], italic)),
             ("NotoSans-Bold.ttf",        font_info!(["NotoSans", "Noto", SansSerif], bold)),
@@ -161,8 +175,8 @@ mod test {
             ("NotoEmoji-Regular.ttf",    font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
         ]));
 
-        // Compile into document
-        let document = compiler.compile(src).unwrap();
+        // Typeset into document
+        let document = typesetter.typeset(src).unwrap();
 
         // Write to file
         let path = format!("../target/typeset-unit-{}.pdf", name);

@@ -324,18 +324,25 @@ impl Iterator for PeekableChars<'_> {
     }
 }
 
-/// Parses source code into a syntax tree using function definitions from a scope.
+/// Parses source code into a syntax tree given a context.
 #[inline]
-pub fn parse(src: &str, scope: &Scope) -> ParseResult<SyntaxTree> {
-    Parser::new(src, scope).parse()
+pub fn parse(src: &str, ctx: &ParseContext) -> ParseResult<SyntaxTree> {
+    Parser::new(src, ctx).parse()
+}
+
+/// The context for parsing.
+#[derive(Debug)]
+pub struct ParseContext<'a> {
+    /// The scope containing function definitions.
+    pub scope: &'a Scope,
 }
 
 /// Transforms token streams to syntax trees.
 struct Parser<'s> {
     src: &'s str,
     tokens: PeekableTokens<'s>,
-    scope: &'s Scope,
     state: ParserState,
+    ctx: &'s ParseContext<'s>,
     tree: SyntaxTree,
 }
 
@@ -352,11 +359,11 @@ enum ParserState {
 
 impl<'s> Parser<'s> {
     /// Create a new parser from a stream of tokens and a scope of functions.
-    fn new(src: &'s str, scope: &'s Scope) -> Parser<'s> {
+    fn new(src: &'s str, ctx: &'s ParseContext) -> Parser<'s> {
         Parser {
             src,
             tokens: PeekableTokens::new(tokenize(src)),
-            scope,
+            ctx,
             state: ParserState::Body,
             tree: SyntaxTree::new(),
         }
@@ -454,12 +461,8 @@ impl<'s> Parser<'s> {
         }
 
         // Now we want to parse this function dynamically.
-        let parser = self.scope.get_parser(&header.name)
+        let parser = self.ctx.scope.get_parser(&header.name)
             .ok_or_else(|| ParseError::new(format!("unknown function: '{}'", &header.name)))?;
-
-        let parse_context = ParseContext {
-            scope: &self.scope,
-        };
 
         // Do the parsing dependent on whether the function has a body.
         Ok(if has_body {
@@ -471,7 +474,7 @@ impl<'s> Parser<'s> {
 
             // Parse the body.
             let body_string = &self.src[start .. end];
-            let body = parser(&header, Some(body_string), &parse_context)?;
+            let body = parser(&header, Some(body_string), self.ctx)?;
 
             // Skip to the end of the function in the token stream.
             self.tokens.goto(end);
@@ -481,7 +484,7 @@ impl<'s> Parser<'s> {
 
             body
         } else {
-            parser(&header, None, &parse_context)?
+            parser(&header, None, self.ctx)?
         })
     }
 
@@ -625,13 +628,6 @@ impl<'s> Iterator for PeekableTokens<'s> {
             None => self.tokens.next(),
         }
     }
-}
-
-/// The context for parsing a function.
-#[derive(Debug)]
-pub struct ParseContext<'s> {
-    /// The scope containing function definitions.
-    pub scope: &'s Scope,
 }
 
 /// Whether this word is a valid unicode identifier.
@@ -801,7 +797,7 @@ mod token_tests {
 mod parse_tests {
     use super::*;
     use crate::func::{Function, Scope};
-    use crate::engine::{TypesetContext, TypesetResult};
+    use crate::layout::{LayoutContext, LayoutResult, Layout};
     use Node::{Space as S, Newline as N, Func as F};
     use funcs::*;
 
@@ -818,13 +814,14 @@ mod parse_tests {
             fn parse(_: &FuncHeader, body: Option<&str>, ctx: &ParseContext)
                 -> ParseResult<Self> where Self: Sized {
                 if let Some(src) = body {
-                    parse(src, ctx.scope).map(|tree| TreeFn(tree))
+                    parse(src, ctx).map(|tree| TreeFn(tree))
                 } else {
                     Err(ParseError::new("expected body for tree fn"))
                 }
             }
 
-            fn typeset(&self, _: &TypesetContext) -> TypesetResult<()> { Ok(()) }
+            fn layout(&self, _: &LayoutContext)
+                -> LayoutResult<(Option<Layout>, Option<LayoutContext>)> { Ok((None, None)) }
         }
 
         /// A testing function without a body.
@@ -841,28 +838,33 @@ mod parse_tests {
                 }
             }
 
-            fn typeset(&self, _: &TypesetContext) -> TypesetResult<()> { Ok(()) }
+            fn layout(&self, _: &LayoutContext)
+                -> LayoutResult<(Option<Layout>, Option<LayoutContext>)> { Ok((None, None)) }
         }
     }
 
     /// Test if the source code parses into the syntax tree.
     fn test(src: &str, tree: SyntaxTree) {
-        assert_eq!(parse(src, &Scope::new()).unwrap(), tree);
+        let ctx = ParseContext { scope: &Scope::new() };
+        assert_eq!(parse(src, &ctx).unwrap(), tree);
     }
 
     /// Test with a scope containing function definitions.
     fn test_scoped(scope: &Scope, src: &str, tree: SyntaxTree) {
-        assert_eq!(parse(src, &scope).unwrap(), tree);
+        let ctx = ParseContext { scope };
+        assert_eq!(parse(src, &ctx).unwrap(), tree);
     }
 
     /// Test if the source parses into the error.
     fn test_err(src: &str, err: &str) {
-        assert_eq!(parse(src, &Scope::new()).unwrap_err().to_string(), err);
+        let ctx = ParseContext { scope: &Scope::new() };
+        assert_eq!(parse(src, &ctx).unwrap_err().to_string(), err);
     }
 
     /// Test with a scope if the source parses into the error.
     fn test_err_scoped(scope: &Scope, src: &str, err: &str) {
-        assert_eq!(parse(src, &scope).unwrap_err().to_string(), err);
+        let ctx = ParseContext { scope };
+        assert_eq!(parse(src, &ctx).unwrap_err().to_string(), err);
     }
 
     /// Create a text node.

@@ -5,7 +5,7 @@ use std::process;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use typeset::Compiler;
+use typeset::Typesetter;
 use typeset::{font::FileSystemFontProvider, font_info};
 use typeset::export::pdf::PdfExporter;
 
@@ -33,10 +33,10 @@ fn run() -> Result<(), Box<Error>> {
     let mut src = String::new();
     file.read_to_string(&mut src).map_err(|_| "failed to read from source file")?;
 
-    // Create a compiler with a font provider that provides three fonts
+    // Create a typesetter with a font provider that provides three fonts
     // (two sans-serif fonts and a fallback for the emoji).
-    let mut compiler = Compiler::new();
-    compiler.add_font_provider(FileSystemFontProvider::new("fonts", vec![
+    let mut typesetter = Typesetter::new();
+    typesetter.add_font_provider(FileSystemFontProvider::new("fonts", vec![
         ("NotoSans-Regular.ttf",     font_info!(["NotoSans", "Noto", SansSerif])),
         ("NotoSans-Italic.ttf",      font_info!(["NotoSans", "Noto", SansSerif], italic)),
         ("NotoSans-Bold.ttf",        font_info!(["NotoSans", "Noto", SansSerif], bold)),
@@ -45,9 +45,8 @@ fn run() -> Result<(), Box<Error>> {
         ("NotoEmoji-Regular.ttf",    font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
     ]));
 
-    // Compile the source code with the compiler.
-    let document = compiler.compile(&src)?;
-
+    // Typeset the source code.
+    let document = typesetter.typeset(&src)?;
 
     // Export the document into a PDF file.
     let exporter = PdfExporter::new();

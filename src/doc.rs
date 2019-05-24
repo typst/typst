@@ -1,7 +1,7 @@
 //! Representation of typesetted documents.
 
 use crate::font::Font;
-use crate::engine::Size;
+use crate::layout::Size;
 
 
 /// A complete typesetted document, which can be exported.

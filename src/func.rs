@@ -6,7 +6,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use crate::syntax::FuncHeader;
 use crate::parsing::{ParseContext, ParseResult};
-use crate::engine::{TypesetContext, TypesetResult};
+use crate::layout::{Layout, LayoutContext, LayoutResult};
 
 
 /// Types that act as functions.
@@ -17,12 +17,16 @@ use crate::engine::{TypesetContext, TypesetResult};
 /// The trait `FunctionBounds` is automatically implemented for types which can be
 /// used as functions, that is they fulfill the bounds  `Debug + PartialEq + 'static`.
 pub trait Function: FunctionBounds {
-    /// Parse the tokens of the context with the given header and scope into self.
+    /// Parse the header and body into this function given this context.
     fn parse(header: &FuncHeader, body: Option<&str>, ctx: &ParseContext)
         -> ParseResult<Self> where Self: Sized;
 
-    /// Execute the function and optionally yield a return value.
-    fn typeset(&self, ctx: &TypesetContext) -> TypesetResult<()>;
+    /// Layout this function given a context.
+    ///
+    /// Returns optionally the resulting layout and a if changes to the context
+    /// should be made new context.
+    fn layout(&self, ctx: &LayoutContext)
+        -> LayoutResult<(Option<Layout>, Option<LayoutContext>)>;
 }
 
 impl PartialEq for dyn Function {
