@@ -4,27 +4,27 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
-use crate::syntax::FuncHeader;
-use crate::parsing::{ParseContext, ParseResult};
 use crate::layout::{Layout, LayoutContext, LayoutResult};
+use crate::parsing::{ParseContext, ParseResult};
+use crate::syntax::FuncHeader;
 
 
-/// Types that act as functions.
+/// Typesetting function types.
 ///
-/// These types have to be able to parse tokens into themselves and store the
-/// relevant information from the parsing to do their role in typesetting later.
+/// These types have to be able to parse tokens into themselves and store the relevant information
+/// from the parsing to do their role in typesetting later.
 ///
-/// The trait `FunctionBounds` is automatically implemented for types which can be
-/// used as functions, that is they fulfill the bounds  `Debug + PartialEq + 'static`.
+/// The trait `FunctionBounds` is automatically implemented for types which can be used as
+/// functions, that is they fulfill the bounds `Debug + PartialEq + 'static`.
 pub trait Function: FunctionBounds {
-    /// Parse the header and body into this function given this context.
+    /// Parse the header and body into this function given a context.
     fn parse(header: &FuncHeader, body: Option<&str>, ctx: &ParseContext)
         -> ParseResult<Self> where Self: Sized;
 
     /// Layout this function given a context.
     ///
-    /// Returns optionally the resulting layout and a if changes to the context
-    /// should be made new context.
+    /// Returns optionally the resulting layout and a new context if changes to the context should
+    /// be made.
     fn layout(&self, ctx: &LayoutContext)
         -> LayoutResult<(Option<Layout>, Option<LayoutContext>)>;
 }
@@ -37,8 +37,8 @@ impl PartialEq for dyn Function {
 
 /// A helper trait that describes requirements for types that can implement [`Function`].
 ///
-/// Automatically implemented for all types which fulfill to the bounds
-/// `Debug + PartialEq + 'static`. There should be no need to implement this manually.
+/// Automatically implemented for all types which fulfill to the bounds `Debug + PartialEq +
+/// 'static`. There should be no need to implement this manually.
 pub trait FunctionBounds: Debug {
     /// Cast self into `Any`.
     fn help_cast_as_any(&self) -> &dyn Any;
@@ -66,7 +66,7 @@ pub struct Scope {
     parsers: HashMap<String, Box<ParseFunc>>,
 }
 
-/// A function which transforms a parsing context into a boxed function.
+/// A function which parses a function invocation into a function type.
 type ParseFunc = dyn Fn(&FuncHeader, Option<&str>, &ParseContext)
                        -> ParseResult<Box<dyn Function>>;
 
@@ -81,7 +81,7 @@ impl Scope {
         Scope::new()
     }
 
-    /// Add a function type to the scope with a given name.
+    /// Add a function type to the scope giving it a name.
     pub fn add<F: Function + 'static>(&mut self, name: &str) {
         self.parsers.insert(
             name.to_owned(),

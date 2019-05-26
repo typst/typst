@@ -25,7 +25,7 @@ use opentype::global::{MacStyleFlags, NameEntry};
 use crate::layout::Size;
 
 
-/// A loaded font, containing relevant information for typesetting.
+/// A loaded and parsed font program.
 #[derive(Debug, Clone)]
 pub struct Font {
     /// The base name of the font.
@@ -38,19 +38,19 @@ pub struct Font {
     pub widths: Vec<Size>,
     /// The fallback glyph.
     pub default_glyph: u16,
-    /// The relevant metrics of this font.
+    /// The typesetting-relevant metrics of this font.
     pub metrics: FontMetrics,
 }
 
 impl Font {
-    /// Create a new font from a font program.
+    /// Create a new font from a raw font program.
     pub fn new(program: Vec<u8>) -> FontResult<Font> {
-        // Create opentype reader to parse font tables
+        // Create an OpentypeReader to parse the font tables.
         let cursor = Cursor::new(&program);
         let mut reader = OpenTypeReader::new(cursor);
 
         // Read the relevant tables
-        // (all of these are required by the OpenType specification)
+        // (all of these are required by the OpenType specification, so we expect them).
         let head = reader.read_table::<Header>()?;
         let name = reader.read_table::<Name>()?;
         let os2 = reader.read_table::<OS2>()?;
@@ -58,21 +58,21 @@ impl Font {
         let hmtx = reader.read_table::<HorizontalMetrics>()?;
         let post = reader.read_table::<Post>()?;
 
-        // Create conversion function between font units and sizes
+        // Create a conversion function between font units and sizes.
         let font_unit_ratio = 1.0 / (head.units_per_em as f32);
         let font_unit_to_size = |x| Size::from_points(font_unit_ratio * x as f32);
 
-        // Find out the name of the font
+        // Find out the name of the font.
         let font_name = name.get_decoded(NameEntry::PostScriptName)
             .unwrap_or_else(|| "unknown".to_owned());
 
-        // Convert the widths
+        // Convert the widths from font units to sizes.
         let widths = hmtx.metrics.iter().map(|m| font_unit_to_size(m.advance_width)).collect();
 
-        // Calculate some metrics
+        // Calculate the typesetting-relevant metrics.
         let metrics = FontMetrics {
-            is_italic: head.mac_style.contains(MacStyleFlags::ITALIC),
-            is_fixed_pitch: post.is_fixed_pitch,
+            italic: head.mac_style.contains(MacStyleFlags::ITALIC),
+            monospace: post.is_fixed_pitch,
             italic_angle: post.italic_angle.to_f32(),
             bounding_box: [
                 font_unit_to_size(head.x_min),
@@ -105,6 +105,7 @@ impl Font {
     /// Encode the given text for this font (into glyph ids).
     #[inline]
     pub fn encode(&self, text: &str) -> Vec<u8> {
+        // Each glyph id takes two bytes that we encode in big endian.
         let mut bytes = Vec::with_capacity(2 * text.len());
         for glyph in text.chars().map(|c| self.map(c)) {
             bytes.push((glyph >> 8) as u8);
@@ -113,62 +114,37 @@ impl Font {
         bytes
     }
 
-    /// Generate a subsetted version of this font including only the chars listed in
-    /// `chars`.
+    /// Generate a subsetted version of this font including only the chars listed in `chars`.
     ///
-    /// All needed tables will be included (returning an error if a table was not present
-    /// in the  source font) and optional tables will be included if there were present
-    /// in the source font. All other tables will be dropped.
-    pub fn subsetted<C, I, S>(
-        &self,
-        chars: C,
-        needed_tables: I,
-        optional_tables: I,
-    ) -> Result<Font, FontError>
+    /// All needed tables will be included (returning an error if a table was not present in the
+    /// source font) and optional tables will be included if they were present in the source font.
+    /// All other tables will be dropped.
+    #[inline]
+    pub fn subsetted<C, I, S>(&self, chars: C, needed_tables: I, optional_tables: I)
+        -> Result<Font, FontError>
     where
         C: IntoIterator<Item=char>,
         I: IntoIterator<Item=S>,
-        S: AsRef<str>,
+        S: AsRef<str>
     {
-        let mut chars: Vec<char> = chars.into_iter().collect();
-        chars.sort();
-
-        let mut reader = OpenTypeReader::from_slice(&self.program);
-        let outlines = reader.outlines()?;
-        let tables = reader.tables()?.to_vec();
-
-        let subsetter = Subsetter {
-            font: &self,
-            reader,
-            outlines,
-            tables,
-            cmap: None,
-            hmtx: None,
-            loca: None,
-            glyphs: Vec::with_capacity(1 + chars.len()),
-            chars,
-            records: vec![],
-            body: vec![],
-        };
-
-        subsetter.subset(needed_tables, optional_tables)
+        Subsetter::subset(self, chars, needed_tables, optional_tables)
     }
 }
 
-/// Font metrics relevant to the typesetting engine.
+/// Font metrics relevant to the typesetting or exporting processes.
 #[derive(Debug, Copy, Clone)]
 pub struct FontMetrics {
     /// Whether the font is italic.
-    pub is_italic: bool,
-    /// Whether font is fixed pitch.
-    pub is_fixed_pitch: bool,
-    /// The angle of italics.
+    pub italic: bool,
+    /// Whether font is monospace.
+    pub monospace: bool,
+    /// The angle of text in italics.
     pub italic_angle: f32,
     /// The glyph bounding box: [x_min, y_min, x_max, y_max],
     pub bounding_box: [Size; 4],
-    /// The typographics ascender relevant for line spacing.
+    /// The typographics ascender.
     pub ascender: Size,
-    /// The typographics descender relevant for line spacing.
+    /// The typographics descender.
     pub descender: Size,
     /// The approximate height of capital letters.
     pub cap_height: Size,
@@ -176,25 +152,34 @@ pub struct FontMetrics {
     pub weight_class: u16,
 }
 
-/// Describes a font.
+/// Categorizes a font.
 ///
 /// Can be constructed conveniently with the [`font_info`] macro.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FontInfo {
     /// The font families this font is part of.
     pub families: Vec<FontFamily>,
-    /// Whether the font is in italics.
+    /// Whether the font is italic.
     pub italic: bool,
-    /// Whether the font is bold.
+    /// Whether the font bold.
     pub bold: bool,
+}
+
+/// A family of fonts.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum FontFamily {
+    Serif,
+    SansSerif,
+    Monospace,
+    /// A custom class like _Arial_ or _Times_.
+    Named(String),
 }
 
 /// A macro to create [FontInfos](crate::font::FontInfo) easily.
 ///
-/// Accepts first a bracketed (ordered) list of font families. Allowed are string expressions
-/// as well as the three base families `SansSerif`, `Serif` and `Monospace`.
-///
-/// Then there may follow (separated by commas) the keywords `italic` and/or `bold`.
+/// Accepts first a bracketed, ordered list of font families. Allowed are string expressions as well
+/// as the three base families `SansSerif`, `Serif` and `Monospace`. Then there may follow
+/// (separated by commas) the keywords `italic` and/or `bold`.
 ///
 /// # Examples
 /// The font _Noto Sans_ in regular typeface.
@@ -259,48 +244,43 @@ macro_rules! font_info {
     (@__gen Monospace) => {  $crate::font::FontFamily::Monospace };
 }
 
-/// A family of fonts (either generic or named).
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum FontFamily {
-    SansSerif,
-    Serif,
-    Monospace,
-    Named(String),
-}
+//------------------------------------------------------------------------------------------------//
 
 /// A type that provides fonts.
 pub trait FontProvider {
-    /// Returns the font with the given info if this provider has it.
+    /// Returns a font with the given info if this provider has one.
     fn get(&self, info: &FontInfo) -> Option<Box<dyn FontData>>;
 
     /// The available fonts this provider can serve. While these should generally be retrievable
-    /// through the `get` method, it is not guaranteed that a font info that is contained here
-    /// yields a `Some` value when passed into `get`.
-    fn available<'a>(&'a self) -> &'a [FontInfo];
+    /// through the `get` method, it does not have to be guaranteed that a font info, that is
+    /// contained, here yields a `Some` value when passed into `get`.
+    fn available<'p>(&'p self) -> &'p [FontInfo];
 }
 
 /// A wrapper trait around `Read + Seek`.
 ///
-/// This type is needed because currently you can't make a trait object
-/// with two traits, like `Box<dyn Read + Seek>`.
-/// Automatically implemented for all types that are [`Read`] and [`Seek`].
+/// This type is needed because currently you can't make a trait object with two traits, like
+/// `Box<dyn Read + Seek>`. Automatically implemented for all types that are [`Read`] and [`Seek`].
 pub trait FontData: Read + Seek {}
 impl<T> FontData for T where T: Read + Seek {}
 
 /// A font provider serving fonts from a folder on the local file system.
+#[derive(Debug)]
 pub struct FileSystemFontProvider {
+    /// The root folder.
     base: PathBuf,
+    /// Paths of the fonts relative to the `base` path.
     paths: Vec<PathBuf>,
+    /// The information for the font with the same index in `paths`.
     infos: Vec<FontInfo>,
 }
 
 impl FileSystemFontProvider {
-    /// Create a new provider from a folder and an iterator of pairs of
-    /// font paths and font infos.
+    /// Create a new provider from a folder and an iterator of pairs of font paths and font infos.
     ///
     /// # Example
-    /// Serve the two fonts `NotoSans-Regular` and `NotoSans-Italic` from the local
-    /// folder `../fonts`.
+    /// Serve the two fonts `NotoSans-Regular` and `NotoSans-Italic` from the local folder
+    /// `../fonts`.
     /// ```
     /// # use typeset::{font::FileSystemFontProvider, font_info};
     /// FileSystemFontProvider::new("../fonts", vec![
@@ -315,8 +295,8 @@ impl FileSystemFontProvider {
         I: IntoIterator<Item = (P, FontInfo)>,
         P: Into<PathBuf>,
     {
-        // Find out how long the iterator is at least, to reserve the correct
-        // capacity for the vectors.
+        // Find out how long the iterator is at least, to reserve the correct capacity for the
+        // vectors.
         let iter = infos.into_iter();
         let min = iter.size_hint().0;
 
@@ -339,42 +319,52 @@ impl FileSystemFontProvider {
 impl FontProvider for FileSystemFontProvider {
     #[inline]
     fn get(&self, info: &FontInfo) -> Option<Box<dyn FontData>> {
+        // Find the index of the font in both arrays (early exit if there is no match).
         let index = self.infos.iter().position(|i| i == info)?;
+
+        // Open the file and return a boxed reader operating on it.
         let path = &self.paths[index];
         let file = File::open(self.base.join(path)).ok()?;
         Some(Box::new(BufReader::new(file)) as Box<FontData>)
     }
 
     #[inline]
-    fn available<'a>(&'a self) -> &'a [FontInfo] {
+    fn available<'p>(&'p self) -> &'p [FontInfo] {
         &self.infos
     }
 }
 
-/// Serves matching fonts given a query.
+//------------------------------------------------------------------------------------------------//
+
+/// Serves fonts matching queries.
 pub struct FontLoader<'p> {
     /// The font providers.
     providers: Vec<&'p (dyn FontProvider + 'p)>,
-    /// All available fonts indexed by provider.
+    /// The fonts available from each provider (indexed like `providers`).
     provider_fonts: Vec<&'p [FontInfo]>,
-    /// The internal state.
+    /// The internal state. Uses interior mutability because the loader works behind
+    /// an immutable reference to ease usage.
     state: RefCell<FontLoaderState<'p>>,
 }
 
-/// Internal state of the font loader (wrapped in a RefCell).
+/// Internal state of the font loader (seperated to wrap it in a `RefCell`).
 struct FontLoaderState<'p> {
-    /// The loaded fonts along with their external indices.
+    /// The loaded fonts alongside their external indices. Some fonts may not have external indices
+    /// because they were loaded but did not contain the required character. However, these are
+    /// still stored because they may be needed later. The index is just set to `None` then.
     fonts: Vec<(Option<usize>, Font)>,
-    /// Allows to retrieve cached results for queries.
-    query_cache: HashMap<FontQuery<'p>, usize>,
-    /// Allows to lookup fonts by their infos.
+    /// Allows to retrieve a font (index) quickly if a query was submitted before.
+    query_cache: HashMap<FontQuery, usize>,
+    /// Allows to re-retrieve loaded fonts by their info instead of loading them again.
     info_cache: HashMap<&'p FontInfo, usize>,
-    /// Indexed by outside and indices maps to internal indices.
+    /// Indexed by external indices (the ones inside the tuples in the `fonts` vector) and maps to
+    /// internal indices (the actual indices into the vector).
     inner_index: Vec<usize>,
 }
 
 impl<'p> FontLoader<'p> {
-    /// Create a new font loader.
+    /// Create a new font loader using a set of providers.
+    #[inline]
     pub fn new<P: 'p>(providers: &'p [P]) -> FontLoader<'p> where P: AsRef<dyn FontProvider + 'p> {
         let providers: Vec<_> = providers.iter().map(|p| p.as_ref()).collect();
         let provider_fonts = providers.iter().map(|prov| prov.available()).collect();
@@ -391,12 +381,13 @@ impl<'p> FontLoader<'p> {
         }
     }
 
-    /// Return the best matching font and it's index (if there is any) given the query.
-    pub fn get(&self, query: FontQuery<'p>) -> Option<(usize, Ref<Font>)> {
-        // Check if we had the exact same query before.
+    /// Returns the font (and its index) best matching the query, if there is any.
+    pub fn get(&self, query: FontQuery) -> Option<(usize, Ref<Font>)> {
+        // Load results from the cache, if we had the exact same query before.
         let state = self.state.borrow();
         if let Some(&index) = state.query_cache.get(&query) {
-            // That this is the query cache means it must has an index as we've served it before.
+            // The font must have an external index already because it is in the query cache.
+            // It has been served before.
             let extern_index = state.fonts[index].0.unwrap();
             let font = Ref::map(state, |s| &s.fonts[index].1);
 
@@ -404,94 +395,99 @@ impl<'p> FontLoader<'p> {
         }
         drop(state);
 
-        // Go over all font infos from all font providers that match the query.
-        for family in query.families {
+        // The outermost loop goes over the families because we want to serve
+        // the font that matches the first possible family.
+        for family in &query.families {
+            // For each family now go over all font infos from all font providers.
             for (provider, infos) in self.providers.iter().zip(&self.provider_fonts) {
                 for info in infos.iter() {
-                    // Check whether this info matches the query.
-                    if Self::matches(query, family, info) {
+                    // Proceed only if this font matches the query.
+                    if Self::matches(&query, family, info) {
                         let mut state = self.state.borrow_mut();
 
-                        // Check if we have already loaded this font before.
-                        // Otherwise we'll fetch the font from the provider.
+                        // Check if we have already loaded this font before, otherwise, we will
+                        // load it from the provider. Anyway, have it stored and find out its
+                        // internal index.
                         let index = if let Some(&index) = state.info_cache.get(info) {
                             index
                         } else if let Some(mut source) = provider.get(info) {
-                            // Read the font program into a vec.
+                            // Read the font program into a vector and parse it.
                             let mut program = Vec::new();
                             source.read_to_end(&mut program).ok()?;
-
-                            // Create a font from it.
                             let font = Font::new(program).ok()?;
 
-                            // Insert it into the storage.
+                            // Insert it into the storage and cache it by its info.
                             let index = state.fonts.len();
                             state.info_cache.insert(info, index);
                             state.fonts.push((None, font));
 
                             index
                         } else {
+                            // Strangely, this provider lied and cannot give us the promised font.
                             continue;
                         };
 
-                        // Check whether this font has the character we need.
+                        // Proceed if this font has the character we need.
                         let has_char = state.fonts[index].1.mapping.contains_key(&query.character);
                         if has_char {
-                            // We can take this font, so we store the query.
+                            // This font is suitable, thus we cache the query result.
                             state.query_cache.insert(query, index);
 
-                            // Now we have to find out the external index of it, or assign a new
-                            // one if it has not already one.
-                            let maybe_extern_index = state.fonts[index].0;
-                            let extern_index = maybe_extern_index.unwrap_or_else(|| {
+                            // Now we have to find out the external index of it or assign a new one
+                            // if it has none.
+                            let external_index = state.fonts[index].0.unwrap_or_else(|| {
                                 // We have to assign an external index before serving.
-                                let extern_index = state.inner_index.len();
+                                let new_index = state.inner_index.len();
                                 state.inner_index.push(index);
-                                state.fonts[index].0 =  Some(extern_index);
-                                extern_index
+                                state.fonts[index].0 =  Some(new_index);
+                                new_index
                             });
 
-                            // Release the mutable borrow and borrow immutably.
+                            // Release the mutable borrow to be allowed to borrow immutably.
                             drop(state);
-                            let font = Ref::map(self.state.borrow(), |s| &s.fonts[index].1);
 
-                            // Finally we can return it.
-                            return Some((extern_index, font));
+                            // Finally, get a reference to the actual font.
+                            let font = Ref::map(self.state.borrow(), |s| &s.fonts[index].1);
+                            return Some((external_index, font));
                         }
                     }
                 }
             }
         }
 
+        // Not a single match!
         None
     }
 
-    /// Return a loaded font at an index. Panics if the index is out of bounds.
+    /// Return the font previously loaded at this index. Panics if the index is not assigned.
+    #[inline]
     pub fn get_with_index(&self, index: usize) -> Ref<Font> {
         let state = self.state.borrow();
         let internal = state.inner_index[index];
         Ref::map(state, |s| &s.fonts[internal].1)
     }
 
-    /// Return the list of fonts.
+    /// Move the whole list of fonts out.
     pub fn into_fonts(self) -> Vec<Font> {
-        // Sort the fonts by external key so that they are in the correct order.
+        // Sort the fonts by external index so that they are in the correct order.
+        // All fonts that were cached but not used by the outside are sorted to the back
+        // and are removed in the next step.
         let mut fonts = self.state.into_inner().fonts;
         fonts.sort_by_key(|&(maybe_index, _)| match maybe_index {
-            Some(index) => index as isize,
-            None => -1,
+            Some(index) => index,
+            None => std::usize::MAX,
         });
 
-        // Remove the fonts that are not used from the outside
+        // Remove the fonts that are not used from the outside.
         fonts.into_iter().filter_map(|(maybe_index, font)| {
-            maybe_index.map(|_| font)
+            if maybe_index.is_some() { Some(font) } else { None }
         }).collect()
     }
 
-    /// Check whether the query and the current family match the info.
-    fn matches(query: FontQuery, family: &FontFamily, info: &FontInfo) -> bool {
-        info.families.contains(family)
-          && info.italic == query.italic && info.bold == query.bold
+    /// Checks whether the query and the family match the info.
+    fn matches(query: &FontQuery, family: &FontFamily, info: &FontInfo) -> bool {
+        info.italic == query.italic && info.bold == query.bold
+            && info.families.contains(family)
     }
 }
 
@@ -510,21 +506,25 @@ impl Debug for FontLoader<'_> {
 }
 
 /// A query for a font with specific properties.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct FontQuery<'a> {
-    /// A fallback list of font families to accept. The first family in this list, that also
-    /// satisfies the other conditions, shall be returned.
-    pub families: &'a [FontFamily],
-    /// Whether the font shall be in italics.
-    pub italic: bool,
-    /// Whether the font shall be in boldface.
-    pub bold: bool,
-    /// Which character we need.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct FontQuery {
+    /// Which character is needed.
     pub character: char,
+    /// Whether the font should be in italics.
+    pub italic: bool,
+    /// Whether the font should be in boldface.
+    pub bold: bool,
+    /// A fallback list of font families to accept. The font matching the first possible family in
+    /// this list satisfying all other constraints should be returned.
+    pub families: Vec<FontFamily>,
 }
 
+//------------------------------------------------------------------------------------------------//
+
+/// Subsets a font.
+#[derive(Debug)]
 struct Subsetter<'a> {
-    // Original font
+    // The original font
     font: &'a Font,
     reader: OpenTypeReader<Cursor<&'a [u8]>>,
     outlines: Outlines,
@@ -534,17 +534,53 @@ struct Subsetter<'a> {
     loca: Option<Vec<u32>>,
     glyphs: Vec<u16>,
 
-    // Subsetted font
+    // The subsetted font
     chars: Vec<char>,
     records: Vec<TableRecord>,
     body: Vec<u8>,
 }
 
 impl<'a> Subsetter<'a> {
-    fn subset<I, S>(mut self, needed_tables: I, optional_tables: I) -> FontResult<Font>
+    /// Subset a font. See [`Font::subetted`] for more details.
+    pub fn subset<C, I, S>(
+        font: &Font,
+        chars: C,
+        needed_tables: I,
+        optional_tables: I,
+    ) -> Result<Font, FontError>
+    where
+        C: IntoIterator<Item=char>,
+        I: IntoIterator<Item=S>,
+        S: AsRef<str>
+    {
+        // Parse some header information and keep the reading around.
+        let mut reader = OpenTypeReader::from_slice(&font.program);
+        let outlines = reader.outlines()?;
+        let tables = reader.tables()?.to_vec();
+
+        let chars: Vec<_> = chars.into_iter().collect();
+
+        let subsetter = Subsetter {
+            font,
+            reader,
+            outlines,
+            tables,
+            cmap: None,
+            hmtx: None,
+            loca: None,
+            glyphs: Vec::with_capacity(1 + chars.len()),
+            chars,
+            records: vec![],
+            body: vec![],
+        };
+
+        subsetter.run(needed_tables, optional_tables)
+    }
+
+    fn run<I, S>(mut self, needed_tables: I, optional_tables: I) -> FontResult<Font>
     where I: IntoIterator<Item=S>, S: AsRef<str> {
-        // Find out which glyphs to include based on which characters we want
-        // and which glyphs are used by composition.
+        // Find out which glyphs to include based on which characters we want and which glyphs are
+        // used by other composite glyphs.
         self.build_glyphs()?;
 
         // Iterate through the needed tables first
@@ -553,7 +589,7 @@ impl<'a> Subsetter<'a> {
             let tag: Tag = table.parse()
                 .map_err(|_| FontError::UnsupportedTable(table.to_string()))?;
 
-            if self.contains(tag) {
+            if self.contains_table(tag) {
                 self.write_table(tag)?;
             } else {
                 return Err(FontError::MissingTable(tag.to_string()));
@@ -566,7 +602,7 @@ impl<'a> Subsetter<'a> {
             let tag: Tag = table.parse()
                 .map_err(|_| FontError::UnsupportedTable(table.to_string()))?;
 
-            if self.contains(tag) {
+            if self.contains_table(tag) {
                 self.write_table(tag)?;
             }
         }
@@ -598,16 +634,16 @@ impl<'a> Subsetter<'a> {
         self.read_cmap()?;
         let cmap = self.cmap.as_ref().unwrap();
 
-        // The default glyph should be always present.
+        // The default glyph should be always present, others only if used.
         self.glyphs.push(self.font.default_glyph);
         for &c in &self.chars {
-            self.glyphs.push(cmap.get(c).ok_or_else(|| FontError::MissingCharacter(c))?)
+            let glyph = cmap.get(c).ok_or_else(|| FontError::MissingCharacter(c))?;
+            self.glyphs.push(glyph);
         }
 
-        // Composite glyphs may need additional glyphs we have not yet in our list.
-        // So now we have a look at the glyf table to check that and add glyphs
-        // we need additionally.
-        if self.contains("glyf".parse().unwrap()) {
+        // Composite glyphs may need additional glyphs we do not have in our list yet. So now we
+        // have a look at the `glyf` table to check that and add glyphs we need additionally.
+        if self.contains_table("glyf".parse().unwrap()) {
             self.read_loca()?;
             let loca = self.loca.as_ref().unwrap();
             let table = self.get_table_data("glyf".parse().unwrap())?;
@@ -880,7 +916,8 @@ impl<'a> Subsetter<'a> {
             .take_bytes()
     }
 
-    fn contains(&self, tag: Tag) -> bool {
+    /// Whether this font contains some table.
+    fn contains_table(&self, tag: Tag) -> bool {
         self.tables.binary_search_by_key(&tag, |r| r.tag).is_ok()
     }
 
@@ -916,8 +953,8 @@ impl<'a> Subsetter<'a> {
     }
 }
 
-/// Calculate a checksum over the sliced data as sum of u32's.
-/// The data length has to be a multiple of four.
+/// Calculate a checksum over the sliced data as sum of u32's. The data length has to be a multiple
+/// of four.
 fn calculate_check_sum(data: &[u8]) -> u32 {
     let mut sum = 0u32;
     data.chunks_exact(4).for_each(|c| {
@@ -931,13 +968,12 @@ fn calculate_check_sum(data: &[u8]) -> u32 {
     sum
 }
 
+/// Helper trait to create subsetting errors more easily.
 trait TakeInvalid<T>: Sized {
-    /// Pull the type out of the option, returning a subsetting error
-    /// about an invalid font wrong.
+    /// Pull the type out of the option, returning an invalid font error if self was not valid.
     fn take_invalid<S: Into<String>>(self, message: S) -> FontResult<T>;
 
-    /// Pull the type out of the option, returning an error about missing
-    /// bytes if it is nothing.
+    /// Same as above with predefined message "expected more bytes".
     fn take_bytes(self) -> FontResult<T> {
         self.take_invalid("expected more bytes")
     }
@@ -949,15 +985,17 @@ impl<T> TakeInvalid<T> for Option<T> {
     }
 }
 
+//------------------------------------------------------------------------------------------------//
+
 /// The error type for font operations.
 pub enum FontError {
     /// The font file is incorrect.
     InvalidFont(String),
     /// A requested table was not present in the source font.
     MissingTable(String),
-    /// The table is unknown to the subsetting engine (unimplemented or invalid).
+    /// The table is unknown to the subsetting engine.
     UnsupportedTable(String),
-    /// A requested character was not present in the source font.
+    /// A character requested for subsetting was not present in the source font.
     MissingCharacter(char),
     /// An I/O Error occured while reading the font program.
     Io(io::Error),

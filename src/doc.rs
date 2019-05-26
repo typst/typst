@@ -9,35 +9,28 @@ use crate::layout::Size;
 pub struct Document {
     /// The pages of the document.
     pub pages: Vec<Page>,
-    /// The fonts used in the document.
+    /// The fonts used (the page contents index into this).
     pub fonts: Vec<Font>,
 }
 
-/// A page with text contents in a document.
+/// A page of a document.
 #[derive(Debug, Clone)]
 pub struct Page {
     /// The width of the page.
     pub width: Size,
     /// The height of the page.
     pub height: Size,
-    /// Text content on the page.
-    pub text: Vec<Text>,
+    /// Text actions specifying how to draw text content on the page.
+    pub actions: Vec<TextAction>,
 }
 
-/// A series of text command, that can be written on to a page.
+/// A series of text layouting actions.
 #[derive(Debug, Clone)]
-pub struct Text {
-    /// The text commands.
-    pub commands: Vec<TextCommand>,
-}
-
-/// Different commands for rendering text.
-#[derive(Debug, Clone)]
-pub enum TextCommand {
-    /// Writing of the text.
-    Text(String),
-    /// Moves from the *start* of the current line by an (x,y) offset.
-    Move(Size, Size),
-    /// Use the indexed font in the documents font list with a given font size.
+pub enum TextAction {
+    /// Move from the _start_ of the current line by an (x, y) offset.
+    MoveNewline(Size, Size),
+    /// Write text starting at the current position.
+    WriteText(String),
+    /// Set the font by index and font size.
     SetFont(usize, f32),
 }

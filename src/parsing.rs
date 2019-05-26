@@ -1,14 +1,13 @@
 //! Tokenization and parsing of source code into syntax trees.
 
 use std::collections::HashMap;
-use std::mem::swap;
 use std::str::CharIndices;
 
 use smallvec::SmallVec;
 use unicode_xid::UnicodeXID;
 
-use crate::syntax::*;
 use crate::func::{Function, Scope};
+use crate::syntax::*;
 
 
 /// Builds an iterator over the tokens of the source code.
@@ -27,7 +26,7 @@ pub struct Tokens<'s> {
 }
 
 /// The state the tokenizer is in.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum TokensState {
     /// The base state if there is nothing special we are in.
     Body,
@@ -55,9 +54,9 @@ impl<'s> Tokens<'s> {
     }
 
     /// Switch to the given state.
-    fn switch(&mut self, mut state: TokensState) {
-        swap(&mut state, &mut self.state);
-        self.stack.push(state);
+    fn switch(&mut self, state: TokensState) {
+        self.stack.push(self.state);
+        self.state = state;
     }
 
     /// Go back to the top-of-stack state.
@@ -84,7 +83,7 @@ impl<'s> Iterator for Tokens<'s> {
     fn next(&mut self) -> Option<Token<'s>> {
         use TokensState as TS;
 
-        // Function maybe has a body
+        // Go to the body state if the function has a body or return to the top-of-stack state.
         if self.state == TS::MaybeBody {
             if self.chars.peek()?.1 == '[' {
                 self.state = TS::Body;
@@ -244,7 +243,7 @@ fn is_newline_char(character: char) -> bool {
     }
 }
 
-/// A index + char iterator with double lookahead.
+/// A (index, char) iterator with double lookahead.
 #[derive(Debug, Clone)]
 struct PeekableChars<'s> {
     offset: usize,
@@ -324,6 +323,8 @@ impl Iterator for PeekableChars<'_> {
     }
 }
 
+//------------------------------------------------------------------------------------------------//
+
 /// Parses source code into a syntax tree given a context.
 #[inline]
 pub fn parse(src: &str, ctx: &ParseContext) -> ParseResult<SyntaxTree> {
@@ -338,6 +339,7 @@ pub struct ParseContext<'a> {
 }
 
 /// Transforms token streams to syntax trees.
+#[derive(Debug)]
 struct Parser<'s> {
     src: &'s str,
     tokens: PeekableTokens<'s>,
@@ -358,7 +360,7 @@ enum ParserState {
 }
 
 impl<'s> Parser<'s> {
-    /// Create a new parser from a stream of tokens and a scope of functions.
+    /// Create a new parser from the source and the context.
     fn new(src: &'s str, ctx: &'s ParseContext) -> Parser<'s> {
         Parser {
             src,
@@ -380,7 +382,7 @@ impl<'s> Parser<'s> {
         Ok(self.tree)
     }
 
-    /// Parse part of the body.
+    /// Parse the next part of the body.
     fn parse_body_part(&mut self) -> ParseResult<()> {
         if let Some(token) = self.tokens.peek() {
             match token {
@@ -398,8 +400,8 @@ impl<'s> Parser<'s> {
 
                 Token::Colon | Token::Equals => panic!("bad token for body: {:?}", token),
 
-                // The rest is handled elsewhere or should not happen, because Tokens does
-                // not yield colons or equals in the body, but their text equivalents instead.
+                // The rest is handled elsewhere or should not happen, because `Tokens` does not
+                // yield colons or equals in the body, but their text equivalents instead.
                 _ => panic!("unexpected token: {:?}", token),
             }
         }
@@ -526,6 +528,7 @@ impl<'s> Parser<'s> {
                 }
             }
         }
+
         Ok(())
     }
 
@@ -564,7 +567,7 @@ impl<'s> Parser<'s> {
     }
 }
 
-/// Find the index of the first unbalanced (unescaped) closing bracket.
+/// Find the index of the first unbalanced and unescaped closing bracket.
 fn find_closing_bracket(src: &str) -> Option<usize> {
     let mut parens = 0;
     let mut escaped = false;
@@ -584,8 +587,8 @@ fn find_closing_bracket(src: &str) -> Option<usize> {
     None
 }
 
-/// A peekable iterator for tokens which allows access to the original iterator
-/// inside this module (which is needed by the parser).
+/// A peekable iterator for tokens which allows access to the original iterator inside this module
+/// (which is needed by the parser).
 #[derive(Debug, Clone)]
 struct PeekableTokens<'s> {
     tokens: Tokens<'s>,
@@ -649,6 +652,8 @@ fn is_identifier(string: &str) -> bool {
     true
 }
 
+//------------------------------------------------------------------------------------------------//
+
 /// The error type for parsing.
 pub struct ParseError(String);
 
@@ -693,7 +698,7 @@ mod token_tests {
         test("\n", vec![N]);
     }
 
-    /// This test looks if LF- and CRLF-style newlines get both identified correctly
+    /// This test looks if LF- and CRLF-style newlines get both identified correctly.
     #[test]
     fn tokenize_whitespace_newlines() {
         test(" \t", vec![S]);
@@ -743,8 +748,8 @@ mod token_tests {
         ]);
     }
 
-    /// This test checks whether the colon and equals symbols get parsed correctly
-    /// depending on the context: Either in a function header or in a body.
+    /// This test checks whether the colon and equals symbols get parsed correctly depending on the
+    /// context: Either in a function header or in a body.
     #[test]
     fn tokenize_symbols_context() {
         test("[func: key=value][Answer: 7]",
@@ -801,8 +806,8 @@ mod parse_tests {
     use Node::{Space as S, Newline as N, Func as F};
     use funcs::*;
 
-    /// Two test functions, one which parses it's body as another syntax tree
-    /// and another one which does not expect a body.
+    /// Two test functions, one which parses it's body as another syntax tree and another one which
+    /// does not expect a body.
     mod funcs {
         use super::*;
 
@@ -871,8 +876,7 @@ mod parse_tests {
     #[allow(non_snake_case)]
     fn T(s: &str) -> Node { Node::Text(s.to_owned()) }
 
-    /// Shortcut macro to create a syntax tree.
-    /// Is `vec`-like and the elements are the nodes.
+    /// Shortcut macro to create a syntax tree. Is `vec`-like and the elements are the nodes.
     macro_rules! tree {
         ($($x:expr),*) => (
             SyntaxTree { nodes: vec![$($x),*] }

@@ -17,8 +17,8 @@ pub enum Token<'s> {
     RightBracket,
     /// A colon (`:`) indicating the beginning of function arguments.
     ///
-    /// If a colon occurs outside of a function header, it will be
-    /// tokenized as a [Word](Token::Word).
+    /// If a colon occurs outside of a function header, it will be tokenized as a
+    /// [Word](Token::Word).
     Colon,
     /// An equals (`=`) sign assigning a function argument a value.
     ///
@@ -34,9 +34,8 @@ pub enum Token<'s> {
     LineComment(&'s str),
     /// A block comment.
     BlockComment(&'s str),
-    /// A star followed by a slash unexpectedly ending a block comment
-    /// (the comment was not started before, otherwise a
-    /// [BlockComment](Token::BlockComment) would be returned).
+    /// A star followed by a slash unexpectedly ending a block comment (the comment was not started
+    /// before, otherwise a [BlockComment](Token::BlockComment) would be returned).
     StarSlash,
     /// Everything else is just text.
     Text(&'s str),
@@ -64,11 +63,11 @@ pub enum Node {
     Space,
     /// A line feed.
     Newline,
-    /// Indicates that italics were enabled/disabled.
+    /// Indicates that italics were enabled / disabled.
     ToggleItalics,
-    /// Indicates that boldface was enabled/disabled.
+    /// Indicates that boldface was enabled / disabled.
     ToggleBold,
-    /// Indicates that math mode was enabled/disabled.
+    /// Indicates that math mode was enabled / disabled.
     ToggleMath,
     /// Literal text.
     Text(String),

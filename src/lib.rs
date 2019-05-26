@@ -1,13 +1,13 @@
 //! The compiler for the _Typeset_ typesetting language 📜.
 //!
 //! # Compilation
-//! - **Parsing:** The parsing step first transforms a plain string into an
-//!   [iterator of tokens](crate::parsing::Tokens). Then the [parser](crate::parsing::Parser)
-//!   operates on that to construct a syntax tree. The structures describing the tree can be found
-//!   in the [syntax] module.
-//! - **Layouting:** The next step is to transform the syntax tree into a portable representation
-//!   of the typesetted document. Types for these can be found in the [doc] and [layout] modules.
-//!   This representation contains already the finished layout.
+//! - **Parsing:** The parsing step first transforms a plain string into an [iterator of
+//!   tokens](crate::parsing::Tokens). Then the [parser](crate::parsing::Parser) operates on that to
+//!   construct a syntax tree. The structures describing the tree can be found in the [syntax]
+//!   module.
+//! - **Layouting:** The next step is to transform the syntax tree into a portable representation of
+//!   the typesetted document. Types for these can be found in the [doc] and [layout] modules. This
+//!   representation contains already the finished layout.
 //! - **Exporting:** The finished document can then be exported into supported formats. Submodules
 //!   for the supported formats are located in the [export] module. Currently the only supported
 //!   format is _PDF_.
@@ -43,11 +43,13 @@
 //! exporter.export(&document, file).unwrap();
 //! ```
 
+use std::fmt::{self, Debug, Formatter};
+
 use crate::doc::Document;
-use crate::func::Scope;
 use crate::font::{Font, FontLoader, FontProvider};
-use crate::layout::{layout, Layout, LayoutContext, LayoutResult, LayoutError};
-use crate::layout::{PageStyle, TextStyle};
+use crate::func::Scope;
+use crate::layout::{layout, Layout, LayoutContext, LayoutDimensions};
+use crate::layout::{PageStyle, TextStyle, LayoutResult, LayoutError};
 use crate::parsing::{parse, ParseContext, ParseResult, ParseError};
 use crate::syntax::SyntaxTree;
 
@@ -65,12 +67,12 @@ pub mod syntax;
 
 /// Transforms source code into typesetted documents.
 ///
-/// Holds the typesetting context, which can be configured through various methods.
+/// Can be configured through various methods.
 pub struct Typesetter<'p> {
     /// The default page style.
-    base_page_style: PageStyle,
+    page_style: PageStyle,
     /// The default text style.
-    base_text_style: TextStyle,
+    text_style: TextStyle,
     /// Font providers.
     font_providers: Vec<Box<dyn FontProvider + 'p>>,
 }
@@ -80,8 +82,8 @@ impl<'p> Typesetter<'p> {
     #[inline]
     pub fn new() -> Typesetter<'p> {
         Typesetter {
-            base_page_style: PageStyle::default(),
-            base_text_style: TextStyle::default(),
+            page_style: PageStyle::default(),
+            text_style: TextStyle::default(),
             font_providers: vec![],
         }
     }
@@ -89,13 +91,13 @@ impl<'p> Typesetter<'p> {
     /// Set the default page style for the document.
     #[inline]
     pub fn set_page_style(&mut self, style: PageStyle) {
-        self.base_page_style = style;
+        self.page_style = style;
     }
 
     /// Set the default text style for the document.
     #[inline]
     pub fn set_text_style(&mut self, style: TextStyle) {
-        self.base_text_style = style;
+        self.text_style = style;
     }
 
     /// Add a font provider to the context of this typesetter.
@@ -112,12 +114,23 @@ impl<'p> Typesetter<'p> {
         parse(src, &ctx)
     }
 
-    /// Layout a parsed syntax tree and return the layout and the referenced font list.
+    /// Layout a syntax tree and return the layout and the referenced font list.
     #[inline]
     pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<(Layout, Vec<Font>)> {
         let loader = FontLoader::new(&self.font_providers);
-        let ctx = LayoutContext { loader: &loader };
+
+        let page = &self.page_style;
+        let ctx = LayoutContext {
+            loader: &loader,
+            text_style: self.text_style.clone(),
+            max_extent: LayoutDimensions {
+                width: page.width - page.margin_left - page.margin_right,
+                height: page.height - page.margin_top - page.margin_bottom,
+            },
+        };
+
         let layout = layout(&tree, &ctx)?;
+
         Ok((layout, loader.into_fonts()))
     }
 
@@ -127,14 +140,25 @@ impl<'p> Typesetter<'p> {
         let tree = self.parse(src)?;
         let (layout, fonts) = self.layout(&tree)?;
         let document = layout.into_document(fonts);
+        println!("fonts = {}", document.fonts.len());
+        println!("document = {:?}", document.pages);
         Ok(document)
+    }
+}
+
+impl Debug for Typesetter<'_> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("Typesetter")
+            .field("page_style", &self.page_style)
+            .field("text_style", &self.text_style)
+            .field("font_providers", &self.font_providers.len())
+            .finish()
     }
 }
 
 /// The general error type for typesetting.
 pub enum TypesetError {
-    /// An error that occured while transforming source code into
-    /// an abstract syntax tree.
+    /// An error that occured while parsing.
     Parse(ParseError),
     /// An error that occured while layouting.
     Layout(LayoutError),
@@ -163,7 +187,7 @@ mod test {
     use crate::export::pdf::PdfExporter;
     use crate::font::FileSystemFontProvider;
 
-    /// Create a pdf with a name from the source code.
+    /// Create a _PDF_ with a name from the source code.
     fn test(name: &str, src: &str) {
         let mut typesetter = Typesetter::new();
         typesetter.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
@@ -175,10 +199,10 @@ mod test {
             ("NotoEmoji-Regular.ttf",    font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
         ]));
 
-        // Typeset into document
+        // Typeset into document.
         let document = typesetter.typeset(src).unwrap();
 
-        // Write to file
+        // Write to file.
         let path = format!("../target/typeset-unit-{}.pdf", name);
         let file = BufWriter::new(File::create(path).unwrap());
         let exporter = PdfExporter::new();

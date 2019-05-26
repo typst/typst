@@ -1,10 +1,12 @@
+//! A general spacing type.
+
 use std::cmp::Ordering;
 use std::fmt::{self, Display, Debug, Formatter};
 use std::iter::Sum;
 use std::ops::*;
 
 
-/// A general size (unit of length) type.
+/// A general spacing type.
 #[derive(Copy, Clone, PartialEq, Default)]
 pub struct Size {
     /// The size in typographic points (1/72 inches).
@@ -12,39 +14,39 @@ pub struct Size {
 }
 
 impl Size {
-    /// Create an zeroed size.
+    /// Create a zeroed size.
     #[inline]
     pub fn zero() -> Size { Size { points: 0.0 } }
 
-    /// Create a size from a number of points.
+    /// Create a size from an amount of points.
     #[inline]
     pub fn from_points(points: f32) -> Size { Size { points } }
 
-    /// Create a size from a number of inches.
+    /// Create a size from an amount of inches.
     #[inline]
     pub fn from_inches(inches: f32) -> Size { Size { points: 72.0 * inches } }
 
-    /// Create a size from a number of millimeters.
+    /// Create a size from an amount of millimeters.
     #[inline]
     pub fn from_mm(mm: f32) -> Size { Size { points: 2.83465 * mm  } }
 
-    /// Create a size from a number of centimeters.
+    /// Create a size from an amount of centimeters.
     #[inline]
     pub fn from_cm(cm: f32) -> Size { Size { points: 28.3465 * cm } }
 
-    /// Create a size from a number of points.
+    /// Convert this size into points.
     #[inline]
     pub fn to_points(&self) -> f32 { self.points }
 
-    /// Create a size from a number of inches.
+    /// Convert this size into inches.
     #[inline]
     pub fn to_inches(&self) -> f32 { self.points * 0.0138889 }
 
-    /// Create a size from a number of millimeters.
+    /// Convert this size into millimeters.
     #[inline]
     pub fn to_mm(&self) -> f32 { self.points * 0.352778 }
 
-    /// Create a size from a number of centimeters.
+    /// Convert this size into centimeters.
     #[inline]
     pub fn to_cm(&self) -> f32 { self.points * 0.0352778 }
 }

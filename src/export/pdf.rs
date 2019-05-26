@@ -8,12 +8,13 @@ use pdf::doc::{Catalog, PageTree, Page, Resource, Text};
 use pdf::font::{Type0Font, CIDFont, CIDFontType, CIDSystemInfo, FontDescriptor, FontFlags};
 use pdf::font::{GlyphUnit, CMap, CMapEncoding, WidthRecord, FontStream};
 
-use crate::doc::{Document, Text as DocText, TextCommand};
+use crate::doc::{Document, TextAction};
 use crate::font::{Font, FontError};
 use crate::layout::Size;
 
 
 /// Exports documents into _PDFs_.
+#[derive(Debug)]
 pub struct PdfExporter {}
 
 impl PdfExporter {
@@ -32,6 +33,7 @@ impl PdfExporter {
 }
 
 /// Writes documents in the _PDF_ format.
+#[derive(Debug)]
 struct PdfEngine<'d, W: Write> {
     writer: PdfWriter<W>,
     doc: &'d Document,
@@ -40,7 +42,7 @@ struct PdfEngine<'d, W: Write> {
 }
 
 /// Offsets for the various groups of ids.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone)]
 struct Offsets {
     catalog: Ref,
     page_tree: Ref,
@@ -50,14 +52,13 @@ struct Offsets {
 }
 
 impl<'d, W: Write> PdfEngine<'d, W> {
-    /// Create a new _PDF_ Creator.
+    /// Create a new _PDF_ engine.
     fn new(doc: &'d Document, target: W) -> PdfResult<PdfEngine<'d, W>> {
         // Calculate a unique id for all objects that will be written.
         let catalog = 1;
         let page_tree = catalog + 1;
         let pages = (page_tree + 1, page_tree + doc.pages.len() as Ref);
-        let content_count = doc.pages.iter().flat_map(|p| p.text.iter()).count() as Ref;
-        let contents = (pages.1 + 1, pages.1 + content_count);
+        let contents = (pages.1 + 1, pages.1 + doc.pages.len() as Ref);
         let fonts = (contents.1 + 1, contents.1 + 5 * doc.fonts.len() as Ref);
         let offsets = Offsets { catalog, page_tree, pages, contents, fonts };
 
@@ -66,13 +67,13 @@ impl<'d, W: Write> PdfEngine<'d, W> {
             let mut font = 0usize;
             let mut chars = vec![HashSet::new(); doc.fonts.len()];
 
-            // Iterate through every text object on every page and find out
-            // which characters they use.
-            for text in doc.pages.iter().flat_map(|page| page.text.iter()) {
-                for command in &text.commands {
-                    match command {
-                        TextCommand::Text(string) => chars[font].extend(string.chars()),
-                        TextCommand::SetFont(id, _) => font = *id,
+            // Iterate through every text object on every page and find out which characters they
+            // use.
+            for page in &doc.pages {
+                for action in &page.actions {
+                    match action {
+                        TextAction::WriteText(string) => chars[font].extend(string.chars()),
+                        TextAction::SetFont(id, _) => font = *id,
                         _ => {},
                     }
                 }
@@ -94,7 +95,6 @@ impl<'d, W: Write> PdfEngine<'d, W> {
 
     /// Write the complete document.
     fn write(&mut self) -> PdfResult<usize> {
-        // Write all the things!
         self.writer.write_header(&Version::new(1, 7))?;
         self.write_pages()?;
         self.write_contents()?;
@@ -106,20 +106,20 @@ impl<'d, W: Write> PdfEngine<'d, W> {
 
     /// Write the document catalog and page tree.
     fn write_pages(&mut self) -> PdfResult<()> {
-        // The document catalog.
+        // The document catalog
         self.writer.write_obj(self.offsets.catalog, &Catalog::new(self.offsets.page_tree))?;
 
-        // The font resources.
+        // The font resources
         let fonts = (0 .. self.fonts.len())
             .map(|i| Resource::Font((i + 1) as u32, self.offsets.fonts.0 + 5 * i as u32));
 
-        // The root page tree.
+        // The root page tree
         self.writer.write_obj(self.offsets.page_tree, PageTree::new()
             .kids(ids(self.offsets.pages))
             .resources(fonts)
         )?;
 
-        // The page objects.
+        // The page objects
         for (id, page) in ids(self.offsets.pages).zip(&self.doc.pages) {
             self.writer.write_obj(id, Page::new(self.offsets.page_tree)
                 .media_box(Rect::new(0.0, 0.0, page.width.to_points(), page.height.to_points()))
@@ -132,26 +132,22 @@ impl<'d, W: Write> PdfEngine<'d, W> {
 
     /// Write the contents of all pages.
     fn write_contents(&mut self) -> PdfResult<()> {
-        let mut id = self.offsets.contents.0;
-        for page in &self.doc.pages {
-            for text in &page.text {
-                self.write_text(id, text)?;
-                id += 1;
-            }
+        for (id, page) in ids(self.offsets.contents).zip(&self.doc.pages) {
+            self.write_text_actions(id, &page.actions)?;
         }
         Ok(())
     }
 
-    /// Write one text object.
-    fn write_text(&mut self, id: u32, doc_text: &DocText) -> PdfResult<()> {
+    /// Write a series of text actions.
+    fn write_text_actions(&mut self, id: u32, actions: &[TextAction]) -> PdfResult<()> {
         let mut font = 0;
         let mut text = Text::new();
 
-        for command in &doc_text.commands {
-            match command {
-                TextCommand::Text(string) => { text.tj(self.fonts[font].encode(&string)); },
-                TextCommand::Move(x, y) => { text.td(x.to_points(), y.to_points()); },
-                TextCommand::SetFont(id, size) => {
+        for action in actions {
+            match action {
+                TextAction::MoveNewline(x, y) => { text.td(x.to_points(), y.to_points()); },
+                TextAction::WriteText(string) => { text.tj(self.fonts[font].encode(&string)); },
+                TextAction::SetFont(id, size) => {
                     font = *id;
                     text.tf(*id as u32 + 1, *size);
                 },
@@ -220,7 +216,7 @@ impl<'d, W: Write> PdfEngine<'d, W> {
     }
 }
 
-/// Create an iterator from reference pair.
+/// Create an iterator from a reference pair.
 fn ids((start, end): (Ref, Ref)) -> impl Iterator<Item=Ref> {
     start ..= end
 }
@@ -240,30 +236,30 @@ struct PdfFont {
 }
 
 impl PdfFont {
-    /// Create a subetted version of the font and calculate some information
-    /// needed for creating the _PDF_.
+    /// Create a subetted version of the font and calculate some information needed for creating the
+    /// _PDF_.
     fn new(font: &Font, chars: &HashSet<char>) -> PdfResult<PdfFont> {
         /// Convert a size into a _PDF_ glyph unit.
         fn size_to_glyph_unit(size: Size) -> GlyphUnit {
             (1000.0 * size.to_points()).round() as GlyphUnit
         }
 
-        // Subset the font using the selected characters
+        // Subset the font using the selected characters.
         let subsetted = font.subsetted(
             chars.iter().cloned(),
             &["head", "hhea", "maxp", "hmtx", "loca", "glyf"][..],
             &["cvt ", "prep", "fpgm", /* "OS/2", "cmap", "name", "post" */][..],
         )?;
 
-        // Specify flags for the font
+        // Specify flags for the font.
         let mut flags = FontFlags::empty();
-        flags.set(FontFlags::FIXED_PITCH, font.metrics.is_fixed_pitch);
+        flags.set(FontFlags::FIXED_PITCH, font.metrics.monospace);
         flags.set(FontFlags::SERIF, font.name.contains("Serif"));
         flags.insert(FontFlags::SYMBOLIC);
-        flags.set(FontFlags::ITALIC, font.metrics.is_italic);
+        flags.set(FontFlags::ITALIC, font.metrics.italic);
         flags.insert(FontFlags::SMALL_CAP);
 
-        // Transform the widths
+        // Transform the widths.
         let widths = subsetted.widths.iter().map(|&x| size_to_glyph_unit(x)).collect();
 
         Ok(PdfFont {
