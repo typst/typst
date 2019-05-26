@@ -28,8 +28,6 @@ pub enum Token<'s> {
     DoubleUnderscore,
     /// Two stars, indicating bold text.
     DoubleStar,
-    /// A dollar sign, indicating mathematical content.
-    Dollar,
     /// A line comment.
     LineComment(&'s str),
     /// A block comment.
@@ -67,8 +65,6 @@ pub enum Node {
     ToggleItalics,
     /// Indicates that boldface was enabled / disabled.
     ToggleBold,
-    /// Indicates that math mode was enabled / disabled.
-    ToggleMath,
     /// Literal text.
     Text(String),
     /// A function invocation.

@@ -172,12 +172,11 @@ impl<'s> Iterator for Tokens<'s> {
             ':' if self.state == TS::Function => Token::Colon,
             '=' if self.state == TS::Function => Token::Equals,
 
-            // Double star/underscore and dollar in bodies
+            // Double star/underscore in bodies
             '*' if self.state == TS::Body && afterwards == Some('*')
                 => self.consumed(Token::DoubleStar),
             '_' if self.state == TS::Body && afterwards == Some('_')
                 => self.consumed(Token::DoubleUnderscore),
-            '$' if self.state == TS::Body => Token::Dollar,
 
             // Escaping
             '\\' => {
@@ -393,7 +392,6 @@ impl<'s> Parser<'s> {
                 // Modifiers
                 Token::DoubleUnderscore => self.append_consumed(Node::ToggleItalics),
                 Token::DoubleStar => self.append_consumed(Node::ToggleBold),
-                Token::Dollar => self.append_consumed(Node::ToggleMath),
 
                 // Normal text
                 Token::Text(word) => self.append_consumed(Node::Text(word.to_owned())),
@@ -678,7 +676,7 @@ mod token_tests {
     use super::*;
     use Token::{Space as S, Newline as N, LeftBracket as L, RightBracket as R,
                 Colon as C, Equals as E, DoubleUnderscore as DU, DoubleStar as DS,
-                Dollar as D, Text as T, LineComment as LC, BlockComment as BC, StarSlash as SS};
+                Text as T, LineComment as LC, BlockComment as BC, StarSlash as SS};
 
     /// Test if the source code tokenizes to the tokens.
     fn test(src: &str, tokens: Vec<Token>) {
@@ -692,7 +690,6 @@ mod token_tests {
         test("Hallo", vec![T("Hallo")]);
         test("[", vec![L]);
         test("]", vec![R]);
-        test("$", vec![D]);
         test("**", vec![DS]);
         test("__", vec![DU]);
         test("\n", vec![N]);

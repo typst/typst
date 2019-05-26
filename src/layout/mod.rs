@@ -2,20 +2,42 @@
 
 use crate::doc::{Document, Page, TextAction};
 use crate::font::{Font, FontLoader, FontFamily, FontError};
-use crate::syntax::SyntaxTree;
+use crate::syntax::{SyntaxTree, Node};
 
 mod size;
+mod text;
 
 pub use size::Size;
+pub use text::TextLayouter;
 
 
 /// Layout a syntax tree in a given context.
-#[allow(unused_variables)]
 pub fn layout(tree: &SyntaxTree, ctx: &LayoutContext) -> LayoutResult<Layout> {
-    Ok(Layout {
-        extent: LayoutDimensions { width: Size::zero(), height: Size::zero() },
-        actions: vec![],
-    })
+    let mut layouter = TextLayouter::new(ctx);
+
+    let mut italic = false;
+    let mut bold = false;
+
+    for node in &tree.nodes {
+        match node {
+            Node::Text(text) => layouter.add_text(text)?,
+            Node::Space => layouter.add_space()?,
+            Node::Newline => layouter.add_paragraph()?,
+
+            Node::ToggleItalics => {
+                italic = !italic;
+                layouter.set_italic(italic);
+            },
+            Node::ToggleBold => {
+                bold = !bold;
+                layouter.set_bold(bold);
+            }
+
+            Node::Func(_) => unimplemented!(),
+        }
+    }
+
+    layouter.finish()
 }
 
 /// A collection of layouted content.
