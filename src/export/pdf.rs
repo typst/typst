@@ -8,9 +8,9 @@ use pdf::doc::{Catalog, PageTree, Page, Resource, Text};
 use pdf::font::{Type0Font, CIDFont, CIDFontType, CIDSystemInfo, FontDescriptor, FontFlags};
 use pdf::font::{GlyphUnit, CMap, CMapEncoding, WidthRecord, FontStream};
 
-use crate::doc::{Document, TextAction};
+use crate::doc::{Document, Page as DocPage, TextAction};
 use crate::font::{Font, FontError};
-use crate::layout::Size;
+use crate::layout::{Size, Position};
 
 
 /// Exports documents into _PDFs_.
@@ -96,8 +96,8 @@ impl<'d, W: Write> PdfEngine<'d, W> {
     /// Write the complete document.
     fn write(&mut self) -> PdfResult<usize> {
         self.writer.write_header(&Version::new(1, 7))?;
+        self.write_page_tree()?;
         self.write_pages()?;
-        self.write_contents()?;
         self.write_fonts()?;
         self.writer.write_xref_table()?;
         self.writer.write_trailer(&Trailer::new(self.offsets.catalog))?;
@@ -105,13 +105,14 @@ impl<'d, W: Write> PdfEngine<'d, W> {
     }
 
     /// Write the document catalog and page tree.
-    fn write_pages(&mut self) -> PdfResult<()> {
+    fn write_page_tree(&mut self) -> PdfResult<()> {
         // The document catalog
         self.writer.write_obj(self.offsets.catalog, &Catalog::new(self.offsets.page_tree))?;
 
         // The font resources
+        let offset = self.offsets.fonts.0;
         let fonts = (0 .. self.fonts.len())
-            .map(|i| Resource::Font((i + 1) as u32, self.offsets.fonts.0 + 5 * i as u32));
+            .map(|i| Resource::Font((i + 1) as u32, offset + 5 * i as u32));
 
         // The root page tree
         self.writer.write_obj(self.offsets.page_tree, PageTree::new()
@@ -131,21 +132,28 @@ impl<'d, W: Write> PdfEngine<'d, W> {
     }
 
     /// Write the contents of all pages.
-    fn write_contents(&mut self) -> PdfResult<()> {
+    fn write_pages(&mut self) -> PdfResult<()> {
         for (id, page) in ids(self.offsets.contents).zip(&self.doc.pages) {
-            self.write_text_actions(id, &page.actions)?;
+            self.write_page(id, &page)?;
         }
         Ok(())
     }
 
-    /// Write a series of text actions.
-    fn write_text_actions(&mut self, id: u32, actions: &[TextAction]) -> PdfResult<()> {
+    /// Write the content of a page.
+    fn write_page(&mut self, id: u32, page: &DocPage) -> PdfResult<()> {
         let mut font = 0;
         let mut text = Text::new();
 
-        for action in actions {
+        text.tm(1.0, 0.0, 0.0, 1.0, 0.0, page.height.to_points());
+
+        for action in &page.actions {
             match action {
-                TextAction::MoveNewline(x, y) => { text.td(x.to_points(), y.to_points()); },
+                TextAction::MoveAbsolute(pos) => {
+                    let x = pos.x.to_points();
+                    let y = (page.height - pos.y).to_points();
+                    text.tm(1.0, 0.0, 0.0, 1.0, x, y);
+                },
+                TextAction::MoveNewline(pos) => { text.td(pos.x.to_points(), -pos.y.to_points()); },
                 TextAction::WriteText(string) => { text.tj(self.fonts[font].encode(&string)); },
                 TextAction::SetFont(id, size) => {
                     font = *id;

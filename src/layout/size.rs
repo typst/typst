@@ -15,6 +15,12 @@ pub struct Position {
     pub y: Size,
 }
 
+impl Position {
+    /// Create a zeroed position.
+    #[inline]
+    pub fn zero() -> Position { Position { x: Size::zero(), y: Size::zero() } }
+}
+
 /// Size of a box in 2-dimensional space.
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct Extent {

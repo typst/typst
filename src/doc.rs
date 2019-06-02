@@ -27,6 +27,8 @@ pub struct Page {
 /// A text layouting action.
 #[derive(Debug, Clone)]
 pub enum TextAction {
+    /// Move to an absolute position.
+    MoveAbsolute(Position),
     /// Move from the _start_ of the current line by an (x, y) offset.
     MoveNewline(Position),
     /// Write text starting at the current position.

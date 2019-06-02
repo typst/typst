@@ -22,7 +22,7 @@ impl<'a, 'p> BoxLayouter<'a, 'p> {
 
     /// Add a sublayout.
     pub fn add_layout_absolute(&mut self, position: Position, layout: Layout) {
-        self.actions.push(TextAction::MoveNewline(position));
+        self.actions.push(TextAction::MoveAbsolute(position));
         self.actions.extend(layout.actions);
     }
 }

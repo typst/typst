@@ -145,8 +145,9 @@ impl<'a, 'p> TextFinisher<'a, 'p> {
         let mut units = Vec::new();
         mem::swap(&mut self.layouter.units, &mut units);
 
-        // Move to the top-left corner of the layout space.
-        self.move_start();
+        // Move from the origin one line below because the y-component of the origin is the
+        // baseline.
+        self.move_newline(1.0);
 
         for unit in units {
             match unit {
@@ -206,29 +207,18 @@ impl<'a, 'p> TextFinisher<'a, 'p> {
         }
     }
 
-    /// Move to the top-left corner of the layout space.
-    fn move_start(&mut self) {
-        self.actions.push(TextAction::MoveNewline(Position {
-            x: Size::zero(),
-            y: self.layouter.ctx.max_extent.height
-                - Size::from_points(self.layouter.ctx.text_style.font_size)
-        }));
-    }
-
     /// Move to the next line. A factor of 1.0 uses the default line spacing.
     fn move_newline(&mut self, factor: f32) {
-        if self.active_font != std::usize::MAX {
-            let vertical = Size::from_points(self.layouter.ctx.text_style.font_size)
-                * self.layouter.ctx.text_style.line_spacing
-                * factor;
+        let vertical = Size::from_points(self.layouter.ctx.text_style.font_size)
+            * self.layouter.ctx.text_style.line_spacing
+            * factor;
 
-            self.actions.push(TextAction::MoveNewline(Position {
-                x: Size::zero(),
-                y: -vertical
-            }));
+        self.actions.push(TextAction::MoveNewline(Position {
+            x: Size::zero(),
+            y: vertical
+        }));
 
-            self.current_width = Size::zero();
-        }
+        self.current_width = Size::zero();
     }
 
     /// Output a text action containing the buffered text and reset the buffer.
