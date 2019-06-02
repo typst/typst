@@ -140,8 +140,6 @@ impl<'p> Typesetter<'p> {
         let tree = self.parse(src)?;
         let (layout, fonts) = self.layout(&tree)?;
         let document = layout.into_document(fonts);
-        println!("fonts = {}", document.fonts.len());
-        println!("document = {:?}", document.pages);
         Ok(document)
     }
 }

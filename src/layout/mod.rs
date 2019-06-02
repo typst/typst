@@ -80,6 +80,7 @@ pub struct LayoutContext<'a, 'p> {
     pub text_style: TextStyle,
 }
 
+/// A space to layout in.
 #[derive(Debug, Clone)]
 pub struct LayoutDimensions {
     /// Horizontal extent.

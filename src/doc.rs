@@ -24,7 +24,7 @@ pub struct Page {
     pub actions: Vec<TextAction>,
 }
 
-/// A series of text layouting actions.
+/// A text layouting action.
 #[derive(Debug, Clone)]
 pub enum TextAction {
     /// Move from the _start_ of the current line by an (x, y) offset.

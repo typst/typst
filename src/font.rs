@@ -395,8 +395,8 @@ impl<'p> FontLoader<'p> {
         }
         drop(state);
 
-        // The outermost loop goes over the families because we want to serve
-        // the font that matches the first possible family.
+        // The outermost loop goes over the families because we want to serve the font that matches
+        // the first possible family.
         for family in &query.families {
             // For each family now go over all font infos from all font providers.
             for (provider, infos) in self.providers.iter().zip(&self.provider_fonts) {
@@ -405,9 +405,9 @@ impl<'p> FontLoader<'p> {
                     if Self::matches(&query, family, info) {
                         let mut state = self.state.borrow_mut();
 
-                        // Check if we have already loaded this font before, otherwise, we will
-                        // load it from the provider. Anyway, have it stored and find out its
-                        // internal index.
+                        // Check if we have already loaded this font before, otherwise, we will load
+                        // it from the provider. Anyway, have it stored and find out its internal
+                        // index.
                         let index = if let Some(&index) = state.info_cache.get(info) {
                             index
                         } else if let Some(mut source) = provider.get(info) {
@@ -469,9 +469,9 @@ impl<'p> FontLoader<'p> {
 
     /// Move the whole list of fonts out.
     pub fn into_fonts(self) -> Vec<Font> {
-        // Sort the fonts by external index so that they are in the correct order.
-        // All fonts that were cached but not used by the outside are sorted to the back
-        // and are removed in the next step.
+        // Sort the fonts by external index so that they are in the correct order. All fonts that
+        // were cached but not used by the outside are sorted to the back and are removed in the
+        // next step.
         let mut fonts = self.state.into_inner().fonts;
         fonts.sort_by_key(|&(maybe_index, _)| match maybe_index {
             Some(index) => index,
