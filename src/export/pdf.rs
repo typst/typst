@@ -10,7 +10,7 @@ use pdf::font::{GlyphUnit, CMap, CMapEncoding, WidthRecord, FontStream};
 
 use crate::doc::{Document, Page as DocPage, TextAction};
 use crate::font::{Font, FontError};
-use crate::layout::{Size, Position};
+use crate::layout::Size;
 
 
 /// Exports documents into _PDFs_.

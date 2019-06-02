@@ -144,8 +144,8 @@ impl Default for PageStyle {
 
 /// The error type for layouting.
 pub enum LayoutError {
-    /// There was no suitable font.
-    NoSuitableFont,
+    /// There was no suitable font for the given character.
+    NoSuitableFont(char),
     /// An error occured while gathering font data.
     Font(FontError),
 }
@@ -156,7 +156,7 @@ pub type LayoutResult<T> = Result<T, LayoutError>;
 error_type! {
     err: LayoutError,
     show: f => match err {
-        LayoutError::NoSuitableFont => write!(f, "no suitable font"),
+        LayoutError::NoSuitableFont(c) => write!(f, "no suitable font for '{}'", c),
         LayoutError::Font(err) => write!(f, "font error: {}", err),
     },
     source: match err {

@@ -26,8 +26,8 @@
 //! // (two sans-serif fonts and a fallback for the emoji).
 //! let mut typesetter = Typesetter::new();
 //! typesetter.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
-//!     ("NotoSans-Regular.ttf", font_info!(["NotoSans", "Noto", SansSerif])),
-//!     ("NotoSans-Italic.ttf", font_info!(["NotoSans", "Noto", SansSerif], italic)),
+//!     ("CMU-SansSerif-Regular.ttf", font_info!(["Computer Modern", SansSerif])),
+//!     ("CMU-SansSerif-Italic.ttf",  font_info!(["Computer Modern", SansSerif], italic)),
 //!     ("NotoEmoji-Regular.ttf", font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
 //! ]));
 //!
@@ -202,12 +202,19 @@ mod test {
     fn test(name: &str, src: &str) {
         let mut typesetter = Typesetter::new();
         typesetter.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
-            ("NotoSans-Regular.ttf",     font_info!(["NotoSans", "Noto", SansSerif])),
-            ("NotoSans-Italic.ttf",      font_info!(["NotoSans", "Noto", SansSerif], italic)),
-            ("NotoSans-Bold.ttf",        font_info!(["NotoSans", "Noto", SansSerif], bold)),
-            ("NotoSans-BoldItalic.ttf",  font_info!(["NotoSans", "Noto", SansSerif], italic, bold)),
-            ("NotoSansMath-Regular.ttf", font_info!(["NotoSansMath", "Noto", SansSerif])),
-            ("NotoEmoji-Regular.ttf",    font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
+            ("CMU-SansSerif-Regular.ttf", font_info!(["Computer Modern", SansSerif])),
+            ("CMU-SansSerif-Italic.ttf", font_info!(["Computer Modern", SansSerif], italic)),
+            ("CMU-SansSerif-Bold.ttf", font_info!(["Computer Modern", SansSerif], bold)),
+            ("CMU-SansSerif-Bold-Italic.ttf", font_info!(["Computer Modern", SansSerif], bold, italic)),
+            ("CMU-Serif-Regular.ttf", font_info!(["Computer Modern", Serif])),
+            ("CMU-Serif-Italic.ttf", font_info!(["Computer Modern", Serif], italic)),
+            ("CMU-Serif-Bold.ttf", font_info!(["Computer Modern", Serif], bold)),
+            ("CMU-Serif-Bold-Italic.ttf", font_info!(["Computer Modern", Serif], bold, italic)),
+            ("CMU-Typewriter-Regular.ttf", font_info!(["Computer Modern", Monospace])),
+            ("CMU-Typewriter-Italic.ttf", font_info!(["Computer Modern", Monospace], italic)),
+            ("CMU-Typewriter-Bold.ttf", font_info!(["Computer Modern", Monospace], bold)),
+            ("CMU-Typewriter-Bold-Italic.ttf", font_info!(["Computer Modern", Monospace], bold, italic)),
+            ("NotoEmoji-Regular.ttf", font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
         ]));
 
         // Typeset into document.
@@ -225,21 +232,15 @@ mod test {
         test("features", r"
             **FEATURES TEST PAGE**
 
-            __Simple multiline:__
+            __Multiline:__
             Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy
             eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam
             voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet
             clita kasd gubergren, no sea takimata sanctus est.
 
-            __Parentheses:__ Text with ) and ( or (enclosed) works.
+            __Emoji:__ Hello World! 🌍
 
-            __Composite character:__ ‼
-
-            __Unicode:__ ∑mbe∂∂ed font with Unicode!
-
-            __Emoji:__ Hello World 🌍!
-
-            __Styles:__ This is **bold** and that is __great__!
+            __Styles:__ This is **bold** and that is __italic__!
         ");
     }
 

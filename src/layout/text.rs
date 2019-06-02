@@ -104,7 +104,7 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
             italic: self.italic,
             bold: self.bold,
             character,
-        }).ok_or_else(|| LayoutError::NoSuitableFont)
+        }).ok_or_else(|| LayoutError::NoSuitableFont(character))
     }
 
     /// The width of a char in a specific font.
