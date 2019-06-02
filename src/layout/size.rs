@@ -6,6 +6,24 @@ use std::iter::Sum;
 use std::ops::*;
 
 
+/// A position in 2-dimensional space.
+#[derive(Debug, Copy, Clone, PartialEq, Default)]
+pub struct Position {
+    /// The horizontal coordinate.
+    pub x: Size,
+    /// The vertical coordinate.
+    pub y: Size,
+}
+
+/// Size of a box in 2-dimensional space.
+#[derive(Debug, Copy, Clone, PartialEq, Default)]
+pub struct Extent {
+    /// The horizontal extent.
+    pub width: Size,
+    /// The vertical extent.
+    pub height: Size,
+}
+
 /// A general spacing type.
 #[derive(Copy, Clone, PartialEq, Default)]
 pub struct Size {

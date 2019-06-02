@@ -7,7 +7,7 @@ use smallvec::SmallVec;
 
 use crate::doc::TextAction;
 use crate::font::{Font, FontQuery};
-use super::{Layouter, Layout, LayoutError, LayoutContext, Size, LayoutResult};
+use super::{Layouter, Layout, LayoutError, LayoutContext, LayoutResult, Size, Position};
 
 
 /// Layouts text within the constraints of a layouting context.
@@ -208,10 +208,11 @@ impl<'a, 'p> TextFinisher<'a, 'p> {
 
     /// Move to the top-left corner of the layout space.
     fn move_start(&mut self) {
-        self.actions.push(TextAction::MoveNewline(
-            Size::zero(), self.layouter.ctx.max_extent.height
+        self.actions.push(TextAction::MoveNewline(Position {
+            x: Size::zero(),
+            y: self.layouter.ctx.max_extent.height
                 - Size::from_points(self.layouter.ctx.text_style.font_size)
-        ));
+        }));
     }
 
     /// Move to the next line. A factor of 1.0 uses the default line spacing.
@@ -221,7 +222,11 @@ impl<'a, 'p> TextFinisher<'a, 'p> {
                 * self.layouter.ctx.text_style.line_spacing
                 * factor;
 
-            self.actions.push(TextAction::MoveNewline(Size::zero(), -vertical));
+            self.actions.push(TextAction::MoveNewline(Position {
+                x: Size::zero(),
+                y: -vertical
+            }));
+
             self.current_width = Size::zero();
         }
     }

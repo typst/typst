@@ -48,7 +48,7 @@ use std::fmt::{self, Debug, Formatter};
 use crate::doc::Document;
 use crate::font::{Font, FontLoader, FontProvider};
 use crate::func::Scope;
-use crate::layout::{layout, Layout, LayoutContext, LayoutDimensions};
+use crate::layout::{layout, Layout, Layouter, LayoutContext, BoxLayouter, Extent, Position};
 use crate::layout::{PageStyle, TextStyle, LayoutResult, LayoutError};
 use crate::parsing::{parse, ParseContext, ParseResult, ParseError};
 use crate::syntax::SyntaxTree;
@@ -115,21 +115,34 @@ impl<'p> Typesetter<'p> {
     }
 
     /// Layout a syntax tree and return the layout and the referenced font list.
-    #[inline]
     pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<(Layout, Vec<Font>)> {
         let loader = FontLoader::new(&self.font_providers);
 
+        // Prepare the layouting context.
         let page = &self.page_style;
-        let ctx = LayoutContext {
+        let mut ctx = LayoutContext {
             loader: &loader,
             text_style: self.text_style.clone(),
-            max_extent: LayoutDimensions {
+            max_extent: Extent {
                 width: page.width - page.margin_left - page.margin_right,
                 height: page.height - page.margin_top - page.margin_bottom,
             },
         };
 
-        let layout = layout(&tree, &ctx)?;
+        // Layout the content of the page (without margins).
+        let content = layout(&tree, &ctx)?;
+
+        // Adjust the context for adding the margins.
+        ctx.max_extent = Extent {
+            width: page.width,
+            height: page.height,
+        };
+
+        // Add the margins.
+        let mut box_layouter = BoxLayouter::new(&ctx);
+        let start = Position { x: page.margin_left, y: page.margin_top };
+        box_layouter.add_layout_absolute(start, content);
+        let layout = box_layouter.finish()?;
 
         Ok((layout, loader.into_fonts()))
     }

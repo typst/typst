@@ -6,9 +6,11 @@ use crate::syntax::{SyntaxTree, Node};
 
 mod size;
 mod text;
+mod boxed;
 
-pub use size::Size;
+pub use size::{Size, Position, Extent};
 pub use text::TextLayouter;
+pub use boxed::BoxLayouter;
 
 
 /// Layout a syntax tree in a given context.
@@ -44,7 +46,7 @@ pub fn layout(tree: &SyntaxTree, ctx: &LayoutContext) -> LayoutResult<Layout> {
 #[derive(Debug, Clone)]
 pub struct Layout {
     /// The extent of this layout into all directions.
-    extent: LayoutDimensions,
+    extent: Extent,
     /// Actions composing this layout.
     actions: Vec<TextAction>,
 }
@@ -75,18 +77,9 @@ pub struct LayoutContext<'a, 'p> {
     /// Loads fonts matching queries.
     pub loader: &'a FontLoader<'p>,
     /// The spacial constraints to layout in.
-    pub max_extent: LayoutDimensions,
+    pub max_extent: Extent,
     /// Base style to set text with.
     pub text_style: TextStyle,
-}
-
-/// A space to layout in.
-#[derive(Debug, Clone)]
-pub struct LayoutDimensions {
-    /// Horizontal extent.
-    pub width: Size,
-    /// Vertical extent.
-    pub height: Size,
 }
 
 /// Default styles for text.
