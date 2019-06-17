@@ -1,7 +1,7 @@
 //! Representation of typesetted documents.
 
 use crate::font::Font;
-use crate::layout::{Size, Position};
+use crate::size::{Size, Size2D};
 
 
 /// A complete typesetted document, which can be exported.
@@ -28,9 +28,9 @@ pub struct Page {
 #[derive(Debug, Clone)]
 pub enum TextAction {
     /// Move to an absolute position.
-    MoveAbsolute(Position),
+    MoveAbsolute(Size2D),
     /// Move from the _start_ of the current line by an (x, y) offset.
-    MoveNewline(Position),
+    MoveNewline(Size2D),
     /// Write text starting at the current position.
     WriteText(String),
     /// Set the font by index and font size.

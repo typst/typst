@@ -1,74 +1,35 @@
 //! The layouting engine.
 
-use crate::doc::{Document, Page, TextAction};
-use crate::font::{Font, FontLoader, FontFamily, FontError};
+use crate::font::{FontLoader, FontError};
+use crate::size::{Size2D, SizeBox};
 use crate::syntax::{SyntaxTree, Node};
+use crate::style::TextStyle;
 
-mod size;
-mod text;
 mod boxed;
+mod flex;
 
-pub use size::{Size, Position, Extent};
-pub use text::TextLayouter;
-pub use boxed::BoxLayouter;
+pub use flex::{FlexLayout, FlexLayouter};
+pub use boxed::{BoxLayout, BoxLayouter};
 
 
-/// Layout a syntax tree in a given context.
-pub fn layout(tree: &SyntaxTree, ctx: &LayoutContext) -> LayoutResult<Layout> {
-    let mut layouter = TextLayouter::new(ctx);
+/// Types that layout components and can be finished into some kind of layout.
+pub trait Layouter {
+    type Layout;
 
-    let mut italic = false;
-    let mut bold = false;
+    /// Finish the layouting and create the layout from this.
+    fn finish(self) -> Self::Layout;
 
-    for node in &tree.nodes {
-        match node {
-            Node::Text(text) => layouter.add_text(text)?,
-            Node::Space => layouter.add_space()?,
-            Node::Newline => layouter.add_paragraph()?,
-
-            Node::ToggleItalics => {
-                italic = !italic;
-                layouter.set_italic(italic);
-            },
-            Node::ToggleBold => {
-                bold = !bold;
-                layouter.set_bold(bold);
-            }
-
-            Node::Func(_) => unimplemented!(),
-        }
-    }
-
-    layouter.finish()
+    /// Whether this layouter contains any items.
+    fn is_empty(&self) -> bool;
 }
 
 /// A collection of layouted content.
 #[derive(Debug, Clone)]
-pub struct Layout {
-    /// The extent of this layout into all directions.
-    extent: Extent,
-    /// Actions composing this layout.
-    actions: Vec<TextAction>,
-}
-
-impl Layout {
-    /// Convert this layout into a document given the list of fonts referenced by it.
-    pub fn into_document(self, fonts: Vec<Font>) -> Document {
-        Document {
-            pages: vec![Page {
-                width: self.extent.width,
-                height: self.extent.height,
-                actions: self.actions,
-            }],
-            fonts,
-        }
-    }
-}
-
-/// Types supporting some kind of layouting.
-pub trait Layouter {
-    /// Finishing the current layouting process and return a layout.
-    fn finish(self) -> LayoutResult<Layout>;
+pub enum Layout {
+    /// A box layout.
+    Boxed(BoxLayout),
+    /// A flexible layout.
+    Flex(FlexLayout),
 }
 
 /// The context for layouting.
@@ -76,70 +37,61 @@ pub trait Layouter {
 pub struct LayoutContext<'a, 'p> {
     /// Loads fonts matching queries.
     pub loader: &'a FontLoader<'p>,
-    /// The spacial constraints to layout in.
-    pub max_extent: Extent,
     /// Base style to set text with.
-    pub text_style: TextStyle,
+    pub style: TextStyle,
+    /// The space to layout in.
+    pub space: LayoutSpace,
 }
 
-/// Default styles for text.
+/// Spacial constraints for layouting.
 #[derive(Debug, Clone)]
-pub struct TextStyle {
-    /// A fallback list of font families to use.
-    pub font_families: Vec<FontFamily>,
-    /// The font size.
-    pub font_size: f32,
-    /// The line spacing (as a multiple of the font size).
-    pub line_spacing: f32,
-    /// The paragraphs spacing (as a multiple of the line spacing).
-    pub paragraph_spacing: f32,
+pub struct LayoutSpace {
+    /// The maximum size of the box to layout in.
+    pub dimensions: Size2D,
+    /// Padding that should be respected on each side.
+    pub padding: SizeBox,
 }
 
-impl Default for TextStyle {
-    fn default() -> TextStyle {
-        use FontFamily::*;
-        TextStyle {
-            // Default font family, font size and line spacing.
-            font_families: vec![SansSerif, Serif, Monospace],
-            font_size: 11.0,
-            line_spacing: 1.25,
-            paragraph_spacing: 1.5,
+/// Layout a syntax tree in a given context.
+pub fn layout(tree: &SyntaxTree, ctx: &LayoutContext) -> LayoutResult<BoxLayout> {
+    // The top-level layouter and the sub-level layouter.
+    let mut box_layouter = BoxLayouter::new(ctx);
+    let mut flex_layouter = FlexLayouter::new(ctx);
+
+    // The current text style.
+    let mut italic = false;
+    let mut bold = false;
+
+    // Walk all nodes and layout them.
+    for node in &tree.nodes {
+        match node {
+            Node::Text(text) => {
+                unimplemented!()
+            },
+            Node::Space => {
+                unimplemented!()
+            },
+            Node::Newline => {
+                unimplemented!()
+            },
+
+            // Toggle the text styles.
+            Node::ToggleItalics => italic = !italic,
+            Node::ToggleBold => bold = !bold,
+
+            Node::Func(func) => {
+                unimplemented!()
+            }
         }
     }
-}
 
-/// Default styles for pages.
-#[derive(Debug, Clone)]
-pub struct PageStyle {
-    /// The width of the page.
-    pub width: Size,
-    /// The height of the page.
-    pub height: Size,
-
-    /// The amount of white space on the left side.
-    pub margin_left: Size,
-    /// The amount of white space on the top side.
-    pub margin_top: Size,
-    /// The amount of white space on the right side.
-    pub margin_right: Size,
-    /// The amount of white space on the bottom side.
-    pub margin_bottom: Size,
-}
-
-impl Default for PageStyle {
-    fn default() -> PageStyle {
-        PageStyle {
-            // A4 paper.
-            width: Size::from_mm(210.0),
-            height: Size::from_mm(297.0),
-
-            // All the same margins.
-            margin_left: Size::from_cm(3.0),
-            margin_top: Size::from_cm(3.0),
-            margin_right: Size::from_cm(3.0),
-            margin_bottom: Size::from_cm(3.0),
-        }
+    // If there are remainings, add them to the layout.
+    if !flex_layouter.is_empty() {
+        let boxed = flex_layouter.finish().into_box();
+        box_layouter.add_box(boxed);
     }
+
+    Ok(box_layouter.finish())
 }
 
 /// The error type for layouting.

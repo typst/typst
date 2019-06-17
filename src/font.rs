@@ -22,7 +22,7 @@ use opentype::{Error as OpentypeError, OpenTypeReader, Outlines, TableRecord, Ta
 use opentype::tables::{Header, Name, CharMap, MaximumProfile, HorizontalMetrics, Post, OS2};
 use opentype::global::{MacStyleFlags, NameEntry};
 
-use crate::layout::Size;
+use crate::size::Size;
 
 
 /// A loaded and parsed font program.

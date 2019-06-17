@@ -48,9 +48,9 @@ use std::fmt::{self, Debug, Formatter};
 use crate::doc::Document;
 use crate::font::{Font, FontLoader, FontProvider};
 use crate::func::Scope;
-use crate::layout::{layout, Layout, Layouter, LayoutContext, BoxLayouter, Extent, Position};
-use crate::layout::{PageStyle, TextStyle, LayoutResult, LayoutError};
 use crate::parsing::{parse, ParseContext, ParseResult, ParseError};
+use crate::layout::{layout, LayoutContext, LayoutSpace, LayoutError, LayoutResult, BoxLayout};
+use crate::style::{PageStyle, TextStyle};
 use crate::syntax::SyntaxTree;
 
 #[macro_use]
@@ -62,6 +62,8 @@ pub mod font;
 pub mod func;
 pub mod layout;
 pub mod parsing;
+pub mod size;
+pub mod style;
 pub mod syntax;
 
 
@@ -69,12 +71,12 @@ pub mod syntax;
 ///
 /// Can be configured through various methods.
 pub struct Typesetter<'p> {
-    /// The default page style.
-    page_style: PageStyle,
-    /// The default text style.
-    text_style: TextStyle,
     /// Font providers.
     font_providers: Vec<Box<dyn FontProvider + 'p>>,
+    /// The default text style.
+    text_style: TextStyle,
+    /// The default page style.
+    page_style: PageStyle,
 }
 
 impl<'p> Typesetter<'p> {
@@ -82,8 +84,8 @@ impl<'p> Typesetter<'p> {
     #[inline]
     pub fn new() -> Typesetter<'p> {
         Typesetter {
-            page_style: PageStyle::default(),
             text_style: TextStyle::default(),
+            page_style: PageStyle::default(),
             font_providers: vec![],
         }
     }
@@ -115,36 +117,19 @@ impl<'p> Typesetter<'p> {
     }
 
     /// Layout a syntax tree and return the layout and the referenced font list.
-    pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<(Layout, Vec<Font>)> {
+    pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<(BoxLayout, Vec<Font>)> {
         let loader = FontLoader::new(&self.font_providers);
-
-        // Prepare the layouting context.
-        let page = &self.page_style;
-        let mut ctx = LayoutContext {
+        let ctx = LayoutContext {
             loader: &loader,
-            text_style: self.text_style.clone(),
-            max_extent: Extent {
-                width: page.width - page.margin_left - page.margin_right,
-                height: page.height - page.margin_top - page.margin_bottom,
+            style: self.text_style.clone(),
+            space: LayoutSpace {
+                dimensions: self.page_style.dimensions,
+                padding: self.page_style.margins,
             },
         };
 
-        // Layout the content of the page (without margins).
-        let content = layout(&tree, &ctx)?;
-
-        // Adjust the context for adding the margins.
-        ctx.max_extent = Extent {
-            width: page.width,
-            height: page.height,
-        };
-
-        // Add the margins.
-        let mut box_layouter = BoxLayouter::new(&ctx);
-        let start = Position { x: page.margin_left, y: page.margin_top };
-        box_layouter.add_layout_absolute(start, content);
-        let layout = box_layouter.finish()?;
-
-        Ok((layout, loader.into_fonts()))
+        let pages = layout(&tree, &ctx)?;
+        Ok((pages, loader.into_fonts()))
     }
 
     /// Typeset a portable document from source code.
@@ -152,7 +137,7 @@ impl<'p> Typesetter<'p> {
     pub fn typeset(&self, src: &str) -> Result<Document, TypesetError> {
         let tree = self.parse(src)?;
         let (layout, fonts) = self.layout(&tree)?;
-        let document = layout.into_document(fonts);
+        let document = layout.into_doc(fonts);
         Ok(document)
     }
 }
