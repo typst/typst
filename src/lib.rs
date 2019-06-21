@@ -26,11 +26,10 @@
 //! // (two sans-serif fonts and a fallback for the emoji).
 //! let mut typesetter = Typesetter::new();
 //! typesetter.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
-//!     ("CMU-SansSerif-Regular.ttf", font_info!(["Computer Modern", SansSerif])),
-//!     ("CMU-SansSerif-Italic.ttf",  font_info!(["Computer Modern", SansSerif], italic)),
+//!     ("CMU-Serif-Regular.ttf", font_info!(["Computer Modern", Serif])),
+//!     ("CMU-Serif-Italic.ttf",  font_info!(["Computer Modern", Serif], italic)),
 //!     ("NotoEmoji-Regular.ttf", font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
 //! ]));
-//!
 //! // Typeset the source code into a document.
 //! let document = typesetter.typeset(src).unwrap();
 //!
@@ -49,7 +48,8 @@ use crate::doc::Document;
 use crate::font::{Font, FontLoader, FontProvider};
 use crate::func::Scope;
 use crate::parsing::{parse, ParseContext, ParseResult, ParseError};
-use crate::layout::{layout, LayoutContext, LayoutSpace, LayoutError, LayoutResult, BoxLayout};
+use crate::layout::{layout, LayoutContext, LayoutSpace, LayoutError, LayoutResult};
+use crate::layout::boxed::BoxLayout;
 use crate::style::{PageStyle, TextStyle};
 use crate::syntax::SyntaxTree;
 
@@ -125,6 +125,7 @@ impl<'p> Typesetter<'p> {
             space: LayoutSpace {
                 dimensions: self.page_style.dimensions,
                 padding: self.page_style.margins,
+                shrink_to_fit: false,
             },
         };
 

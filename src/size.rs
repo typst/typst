@@ -14,7 +14,7 @@ pub struct Size {
 }
 
 /// A position or extent in 2-dimensional space.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Default)]
+#[derive(Copy, Clone, PartialEq, Default)]
 pub struct Size2D {
     /// The horizontal coordinate.
     pub x: Size,
@@ -23,7 +23,7 @@ pub struct Size2D {
 }
 
 /// A size in four directions.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Default)]
+#[derive(Copy, Clone, PartialEq, Default)]
 pub struct SizeBox {
     /// The left extent.
     pub left: Size,
@@ -38,23 +38,23 @@ pub struct SizeBox {
 impl Size {
     /// Create a zeroed size.
     #[inline]
-    pub fn zero() -> Size { Size { points: 0.0 } }
+    pub fn zero() -> Size { Size::default() }
 
     /// Create a size from an amount of points.
     #[inline]
-    pub fn from_points(points: f32) -> Size { Size { points } }
+    pub fn points(points: f32) -> Size { Size { points } }
 
     /// Create a size from an amount of inches.
     #[inline]
-    pub fn from_inches(inches: f32) -> Size { Size { points: 72.0 * inches } }
+    pub fn inches(inches: f32) -> Size { Size { points: 72.0 * inches } }
 
     /// Create a size from an amount of millimeters.
     #[inline]
-    pub fn from_mm(mm: f32) -> Size { Size { points: 2.83465 * mm  } }
+    pub fn mm(mm: f32) -> Size { Size { points: 2.83465 * mm  } }
 
     /// Create a size from an amount of centimeters.
     #[inline]
-    pub fn from_cm(cm: f32) -> Size { Size { points: 28.3465 * cm } }
+    pub fn cm(cm: f32) -> Size { Size { points: 28.3465 * cm } }
 
     /// Convert this size into points.
     #[inline]
@@ -74,13 +74,30 @@ impl Size {
 }
 
 impl Size2D {
-    /// Create a new 2D vector from two sizes.
+    /// Create a new vector from two sizes.
     #[inline]
     pub fn new(x: Size, y: Size) -> Size2D { Size2D { x, y } }
 
-    /// Create a zeroed vector.
+    /// Create a vector with all set to zero.
     #[inline]
-    pub fn zero() -> Size2D { Size2D { x: Size::zero(), y: Size::zero() } }
+    pub fn zero() -> Size2D { Size2D::default() }
+
+    /// Create a new vector with `x` set to zero and `y` to a value.
+    #[inline]
+    pub fn with_x(x: Size) -> Size2D { Size2D { x, y: Size::zero() } }
+
+    /// Create a new vector with `y` set to zero and `x` to a value.
+    #[inline]
+    pub fn with_y(y: Size) -> Size2D { Size2D { x: Size::zero(), y } }
+
+    /// Return a [`Size2D`] padded by the paddings of the given box.
+    #[inline]
+    pub fn padded(&self, padding: SizeBox) -> Size2D {
+        Size2D {
+            x: self.x + padding.left + padding.right,
+            y: self.y + padding.top + padding.bottom,
+        }
+    }
 }
 
 impl SizeBox {
@@ -90,17 +107,24 @@ impl SizeBox {
         SizeBox { left, top, right, bottom }
     }
 
-    /// Create a zeroed vector.
+    /// Create a box with all set to zero.
     #[inline]
     pub fn zero() -> SizeBox {
-        SizeBox {
-            left: Size::zero(),
-            top: Size::zero(),
-            right: Size::zero(),
-            bottom: Size::zero(),
-        }
+        SizeBox::default()
     }
 }
+
+/// The maximum of two sizes.
+pub fn max(a: Size, b: Size) -> Size {
+    if a >= b { a } else { b }
+}
+
+/// The minimum of two sizes.
+pub fn min(a: Size, b: Size) -> Size {
+    if a <= b { a } else { b }
+}
+
+//------------------------------------------------------------------------------------------------//
 
 impl Display for Size {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {

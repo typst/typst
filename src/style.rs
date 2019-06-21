@@ -9,6 +9,10 @@ use crate::size::{Size, Size2D, SizeBox};
 pub struct TextStyle {
     /// A fallback list of font families to use.
     pub font_families: Vec<FontFamily>,
+    /// Whether the font is in italics.
+    pub italic: bool,
+    /// Whether the font is bold.
+    pub bold: bool,
     /// The font size.
     pub font_size: f32,
     /// The line spacing (as a multiple of the font size).
@@ -22,7 +26,9 @@ impl Default for TextStyle {
         use FontFamily::*;
         TextStyle {
             // Default font family, font size and line spacing.
-            font_families: vec![SansSerif, Serif, Monospace],
+            font_families: vec![Serif, SansSerif, Monospace],
+            italic: false,
+            bold: false,
             font_size: 11.0,
             line_spacing: 1.25,
             paragraph_spacing: 1.5,
@@ -44,16 +50,16 @@ impl Default for PageStyle {
         PageStyle {
             // A4 paper.
             dimensions: Size2D {
-                x: Size::from_mm(210.0),
-                y: Size::from_mm(297.0),
+                x: Size::mm(210.0),
+                y: Size::mm(297.0),
             },
 
             // All the same margins.
             margins: SizeBox {
-                left: Size::from_cm(3.0),
-                top: Size::from_cm(3.0),
-                right: Size::from_cm(3.0),
-                bottom: Size::from_cm(3.0),
+                left: Size::cm(2.5),
+                top: Size::cm(2.5),
+                right: Size::cm(2.5),
+                bottom: Size::cm(2.5),
             },
         }
     }
