@@ -124,9 +124,9 @@ impl<'a, 'p> Layouter<'a, 'p> {
                 // Then start a new flex layouting process.
                 Node::Newline => {
                     // Finish the current paragraph into a box and add it.
-                    self.add_paragraph_spacing();
-                    let boxed = self.flex_layout.into_box();
-                    self.box_layouter.add_box(boxed);
+                    self.add_paragraph_spacing()?;
+                    let boxed = self.flex_layout.into_box()?;
+                    self.box_layouter.add_box(boxed)?;
 
                     // Create a fresh flex layout for the next paragraph.
                     self.flex_ctx.space.dimensions = self.box_layouter.remaining();
@@ -144,48 +144,87 @@ impl<'a, 'p> Layouter<'a, 'p> {
 
         // If there are remainings, add them to the layout.
         if !self.flex_layout.is_empty() {
-            self.add_paragraph_spacing();
-            let boxed = self.flex_layout.into_box();
-            self.box_layouter.add_box(boxed);
+            self.add_paragraph_spacing()?;
+            let boxed = self.flex_layout.into_box()?;
+            self.box_layouter.add_box(boxed)?;
         }
 
         Ok(self.box_layouter.finish())
     }
 
     /// Add the spacing between two paragraphs.
-    fn add_paragraph_spacing(&mut self) {
+    fn add_paragraph_spacing(&mut self) -> LayoutResult<()> {
         let size = Size::points(self.text_ctx.style.font_size)
             * (self.text_ctx.style.line_spacing * self.text_ctx.style.paragraph_spacing - 1.0);
-        self.box_layouter.add_space(size);
+        self.box_layouter.add_space(size)
     }
 }
 
-/// Translate a stream of text actions by an offset.
-pub fn translate_actions<I>(offset: Size2D, actions: I) -> TranslatedActions<I::IntoIter>
-    where I: IntoIterator<Item=TextAction> {
-    TranslatedActions { offset, iter: actions.into_iter() }
+/// Manipulates and optimizes a list of actions.
+#[derive(Debug, Clone)]
+pub struct ActionList {
+    actions: Vec<TextAction>,
+    origin: Size2D,
+    active_font: (usize, f32),
 }
 
-/// An iterator over the translated text actions, created by [`translate_actions`].
-pub struct TranslatedActions<I> where I: Iterator<Item=TextAction> {
-    offset: Size2D,
-    iter: I,
-}
+impl ActionList {
+    /// Create a new action list.
+    pub fn new() -> ActionList {
+        ActionList {
+            actions: vec![],
+            origin: Size2D::zero(),
+            active_font: (std::usize::MAX, 0.0),
+        }
+    }
 
-impl<I> Iterator for TranslatedActions<I> where I: Iterator<Item=TextAction> {
-    type Item = TextAction;
-
-    fn next(&mut self) -> Option<TextAction> {
+    /// Add an action to the list if it is not useless
+    /// (like changing to a font that is already active).
+    pub fn add(&mut self, action: TextAction) {
         use TextAction::*;
-        self.iter.next().map(|action| match action {
-            MoveAbsolute(pos) => MoveAbsolute(pos + self.offset),
-            a => a,
-        })
+        match action {
+            MoveAbsolute(pos) => self.actions.push(MoveAbsolute(self.origin + pos)),
+            SetFont(index, size) => if (index, size) != self.active_font {
+                self.active_font = (index, size);
+                self.actions.push(action);
+            },
+            _ => self.actions.push(action),
+        }
+    }
+
+    /// Add a series of actions.
+    pub fn extend<I>(&mut self, actions: I) where I: IntoIterator<Item=TextAction> {
+        for action in actions.into_iter() {
+            self.add(action);
+        }
+    }
+
+    /// Move the origin for the upcomming actions. Absolute moves will be
+    /// changed by that origin.
+    pub fn set_origin(&mut self, origin: Size2D) {
+        self.origin = origin;
+    }
+
+    /// Reset the origin to zero.
+    pub fn reset_origin(&mut self) {
+        self.origin = Size2D::zero();
+    }
+
+    /// Whether there are any actions in this list.
+    pub fn is_empty(&self) -> bool {
+        self.actions.is_empty()
+    }
+
+    /// Return the list of actions as a vector.
+    pub fn into_vec(self) -> Vec<TextAction> {
+        self.actions
     }
 }
 
 /// The error type for layouting.
 pub enum LayoutError {
+    /// There is not enough space to add an item.
+    NotEnoughSpace,
     /// There was no suitable font for the given character.
     NoSuitableFont(char),
     /// An error occured while gathering font data.
@@ -198,6 +237,7 @@ pub type LayoutResult<T> = Result<T, LayoutError>;
 error_type! {
     err: LayoutError,
     show: f => match err {
+        LayoutError::NotEnoughSpace => write!(f, "not enough space"),
         LayoutError::NoSuitableFont(c) => write!(f, "no suitable font for '{}'", c),
         LayoutError::Font(err) => write!(f, "font error: {}", err),
     },

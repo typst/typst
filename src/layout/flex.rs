@@ -2,7 +2,7 @@
 
 use crate::doc::TextAction;
 use crate::size::Size2D;
-use super::{LayoutSpace, BoxLayout};
+use super::{BoxLayout, ActionList, LayoutSpace, LayoutResult, LayoutError};
 
 
 /// A flex layout consists of a yet unarranged list of boxes.
@@ -54,7 +54,7 @@ impl FlexLayout {
     }
 
     /// Compute the justified layout.
-    pub fn into_box(self) -> BoxLayout {
+    pub fn into_box(self) -> LayoutResult<BoxLayout> {
         FlexFinisher::new(self).finish()
     }
 }
@@ -73,7 +73,7 @@ pub struct FlexContext {
 struct FlexFinisher {
     units: Vec<FlexUnit>,
     ctx: FlexContext,
-    actions: Vec<TextAction>,
+    actions: ActionList,
     dimensions: Size2D,
     usable: Size2D,
     cursor: Size2D,
@@ -87,7 +87,7 @@ impl FlexFinisher {
         FlexFinisher {
             units: layout.units,
             ctx: layout.ctx,
-            actions: vec![],
+            actions: ActionList::new(),
             dimensions: Size2D::zero(),
             usable: space.usable(),
             cursor: Size2D::new(space.padding.left, space.padding.top),
@@ -96,7 +96,7 @@ impl FlexFinisher {
     }
 
     /// Finish the flex layout into the justified box layout.
-    fn finish(mut self) -> BoxLayout {
+    fn finish(mut self) -> LayoutResult<BoxLayout> {
         // Move the units out of the layout.
         let units = self.units;
         self.units = vec![];
@@ -104,7 +104,7 @@ impl FlexFinisher {
         // Arrange the units.
         for unit in units {
             match unit {
-                FlexUnit::Boxed(boxed) => self.boxed(boxed),
+                FlexUnit::Boxed(boxed) => self.boxed(boxed)?,
                 FlexUnit::Glue(glue) => self.glue(glue),
             }
         }
@@ -112,29 +112,31 @@ impl FlexFinisher {
         // Flush everything to get the correct dimensions.
         self.newline();
 
-        BoxLayout {
+        Ok(BoxLayout {
             dimensions: if self.ctx.space.shrink_to_fit {
                 self.dimensions.padded(self.ctx.space.padding)
             } else {
                 self.ctx.space.dimensions
             },
-            actions: self.actions,
-        }
+            actions: self.actions.into_vec(),
+        })
     }
 
     /// Layout the box.
-    fn boxed(&mut self, boxed: BoxLayout) {
+    fn boxed(&mut self, boxed: BoxLayout) -> LayoutResult<()> {
         // Move to the next line if necessary.
         if self.line.x + boxed.dimensions.x > self.usable.x {
             // If it still does not fit, we stand no chance.
             if boxed.dimensions.x > self.usable.x {
-                panic!("flex layouter: box is to wide");
+                return Err(LayoutError::NotEnoughSpace);
             }
 
             self.newline();
         }
 
         self.append(boxed);
+
+        Ok(())
     }
 
     /// Layout the glue.
@@ -150,8 +152,10 @@ impl FlexFinisher {
     /// Append a box to the layout without checking anything.
     fn append(&mut self, layout: BoxLayout) {
         // Move all actions into this layout and translate absolute positions.
-        self.actions.push(TextAction::MoveAbsolute(self.cursor));
-        self.actions.extend(super::translate_actions(self.cursor, layout.actions));
+        self.actions.reset_origin();
+        self.actions.add(TextAction::MoveAbsolute(self.cursor));
+        self.actions.set_origin(self.cursor);
+        self.actions.extend(layout.actions);
 
         // Adjust the sizes.
         self.line.x += layout.dimensions.x;
