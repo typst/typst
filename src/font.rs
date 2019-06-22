@@ -20,7 +20,7 @@ use std::path::PathBuf;
 use byteorder::{BE, ReadBytesExt, WriteBytesExt};
 use opentype::{Error as OpentypeError, OpenTypeReader, Outlines, TableRecord, Tag};
 use opentype::tables::{Header, Name, CharMap, MaximumProfile, HorizontalMetrics, Post, OS2};
-use opentype::global::{MacStyleFlags, NameEntry};
+use opentype::types::{MacStyleFlags, NameEntry};
 
 use crate::size::Size;
 
