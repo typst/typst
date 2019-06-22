@@ -81,12 +81,12 @@ impl<'s> Iterator for Tokens<'s> {
 
     /// Advance the iterator, return the next token or nothing.
     fn next(&mut self) -> Option<Token<'s>> {
-        use TokensState as TS;
+        use TokensState as TU;
 
         // Go to the body state if the function has a body or return to the top-of-stack state.
-        if self.state == TS::MaybeBody {
+        if self.state == TU::MaybeBody {
             if self.chars.peek()?.1 == '[' {
-                self.state = TS::Body;
+                self.state = TU::Body;
                 return Some(self.consumed(Token::LeftBracket));
             } else {
                 self.unswitch();
@@ -100,12 +100,12 @@ impl<'s> Iterator for Tokens<'s> {
         Some(match next {
             // Functions
             '[' => {
-                self.switch(TS::Function);
+                self.switch(TU::Function);
                 Token::LeftBracket
             },
             ']' => {
-                if self.state == TS::Function {
-                    self.state = TS::MaybeBody;
+                if self.state == TU::Function {
+                    self.state = TU::MaybeBody;
                 } else {
                     self.unswitch();
                 }
@@ -168,21 +168,20 @@ impl<'s> Iterator for Tokens<'s> {
             '\r' if afterwards == Some('\n') => self.consumed(Token::Newline),
             c if is_newline_char(c) => Token::Newline,
 
-            // Context sensitive operators in headers
-            ':' if self.state == TS::Function => Token::Colon,
-            '=' if self.state == TS::Function => Token::Equals,
+            // Star/Underscore/Backtick in bodies
+            '*' if self.state == TU::Body => Token::Star,
+            '_' if self.state == TU::Body => Token::Underscore,
+            '`' if self.state == TU::Body => Token::Backtick,
 
-            // Double star/underscore in bodies
-            '*' if self.state == TS::Body && afterwards == Some('*')
-                => self.consumed(Token::DoubleStar),
-            '_' if self.state == TS::Body && afterwards == Some('_')
-                => self.consumed(Token::DoubleUnderscore),
+            // Context sensitive operators in headers
+            ':' if self.state == TU::Function => Token::Colon,
+            '=' if self.state == TU::Function => Token::Equals,
 
             // Escaping
             '\\' => {
                 if let Some((index, c)) = self.chars.peek() {
                     let escapable = match c {
-                        '[' | ']' | '$' | '#' | '\\' | '*' | '_' | '/' => true,
+                        '[' | ']' | '\\' | '*' | '_' | '`' | ':' | '=' | '/' => true,
                         _ => false,
                     };
 
@@ -202,13 +201,11 @@ impl<'s> Iterator for Tokens<'s> {
                 while let Some((index, c)) = self.chars.peek() {
                     let second = self.chars.peek_second().map(|p| p.1);
 
-                    // Whether the next token is still from the next or not.
+                    // Whether the next token is still from the text or not.
                     let continues = match c {
-                        '[' | ']' | '$' | '#' | '\\' => false,
-                        ':' | '=' if self.state == TS::Function => false,
-
-                        '*' if self.state == TS::Body => second != Some('*'),
-                        '_' if self.state == TS::Body => second != Some('_'),
+                        '[' | ']' | '\\' => false,
+                        '*' | '_' | '`' if self.state == TU::Body => false,
+                        ':' | '=' if self.state == TU::Function => false,
 
                         '/' => second != Some('/') && second != Some('*'),
                         '*' => second != Some('/'),
@@ -390,8 +387,9 @@ impl<'s> Parser<'s> {
                 Token::RightBracket => return Err(ParseError::new("unexpected closing bracket")),
 
                 // Modifiers
-                Token::DoubleUnderscore => self.append_consumed(Node::ToggleItalics),
-                Token::DoubleStar => self.append_consumed(Node::ToggleBold),
+                Token::Underscore => self.append_consumed(Node::ToggleItalics),
+                Token::Star => self.append_consumed(Node::ToggleBold),
+                Token::Backtick => self.append_consumed(Node::ToggleMonospace),
 
                 // Normal text
                 Token::Text(word) => self.append_consumed(Node::Text(word.to_owned())),
@@ -675,7 +673,7 @@ error_type! {
 mod token_tests {
     use super::*;
     use Token::{Space as S, Newline as N, LeftBracket as L, RightBracket as R,
-                Colon as C, Equals as E, DoubleUnderscore as DU, DoubleStar as DS,
+                Colon as C, Equals as E, Underscore as TU, Star as TS, Backtick as TB,
                 Text as T, LineComment as LC, BlockComment as BC, StarSlash as SS};
 
     /// Test if the source code tokenizes to the tokens.
@@ -690,8 +688,9 @@ mod token_tests {
         test("Hallo", vec![T("Hallo")]);
         test("[", vec![L]);
         test("]", vec![R]);
-        test("**", vec![DS]);
-        test("__", vec![DU]);
+        test("*", vec![TS]);
+        test("_", vec![TU]);
+        test("`", vec![TB]);
         test("\n", vec![N]);
     }
 
@@ -711,11 +710,9 @@ mod token_tests {
     fn tokenize_escape() {
         test(r"\[", vec![T("[")]);
         test(r"\]", vec![T("]")]);
-        test(r"\#", vec![T("#")]);
-        test(r"\$", vec![T("$")]);
-        test(r"\**", vec![T("*"), T("*")]);
+        test(r"\**", vec![T("*"), TS]);
         test(r"\*", vec![T("*")]);
-        test(r"\__", vec![T("_"), T("_")]);
+        test(r"\__", vec![T("_"), TU]);
         test(r"\_", vec![T("_")]);
         test(r"\hello", vec![T("\\"), T("hello")]);
     }
@@ -736,12 +733,12 @@ mod token_tests {
             [page: size=A4]
             [font: size=12pt]
 
-            Das ist ein Beispielsatz mit **fetter** Schrift.
+            Das ist ein Beispielsatz mit *fetter* Schrift.
         ", vec![
             N, S, L, T("page"), C, S, T("size"), E, T("A4"), R, N, S,
             L, T("font"), C, S, T("size"), E, T("12pt"), R, N, N, S,
             T("Das"), S, T("ist"), S, T("ein"), S, T("Beispielsatz"), S, T("mit"), S,
-            DS, T("fetter"), DS, S, T("Schrift."), N, S
+            TS, T("fetter"), TS, S, T("Schrift."), N, S
         ]);
     }
 
@@ -777,12 +774,12 @@ mod token_tests {
         test("/* My /* line // */ comment */", vec![BC(" My /* line // */ comment ")])
     }
 
-    /// This test has a special look at the double underscore syntax.
+    /// This test has a special look at the underscore syntax.
     #[test]
-    fn tokenize_double_underscore() {
-        test("he__llo__world_ _ __ Now this_ is__ special!",
-             vec![T("he"), DU, T("llo"), DU, T("world_"), S, T("_"), S, DU, S, T("Now"), S,
-                  T("this_"), S, T("is"), DU, S, T("special!")]);
+    fn tokenize_underscores() {
+        test("he_llo_world_ __ Now this_ is_ special!",
+             vec![T("he"), TU, T("llo"), TU, T("world"), TU, S, TU, TU, S, T("Now"), S,
+                  T("this"), TU, S, T("is"), TU, S, T("special!")]);
     }
 
     /// This test is for checking if non-ASCII characters get parsed correctly.

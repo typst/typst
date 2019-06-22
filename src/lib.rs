@@ -20,7 +20,7 @@
 //! use typeset::export::pdf::PdfExporter;
 //!
 //! // Simple example source code.
-//! let src = "Hello World from __Typeset__! 🌍";
+//! let src = "Hello World from _Typeset_! 🌍";
 //!
 //! // Create a typesetter with a font provider that provides three fonts
 //! // (two sans-serif fonts and a fallback for the emoji).
@@ -193,11 +193,11 @@ mod test {
             ("CMU-Serif-Italic.ttf",           font!["Computer Modern", Italic, Serif]),
             ("CMU-Serif-Bold.ttf",             font!["Computer Modern", Bold, Serif]),
             ("CMU-Serif-Bold-Italic.ttf",      font!["Computer Modern", Bold, Italic, Serif]),
-            ("CMU-Typewriter-Regular.ttf",     font!["Computer Modern", Regular, Monospace]),
-            ("CMU-Typewriter-Italic.ttf",      font!["Computer Modern", Italic, Monospace]),
-            ("CMU-Typewriter-Bold.ttf",        font!["Computer Modern", Bold, Monospace]),
-            ("CMU-Typewriter-Bold-Italic.ttf", font!["Computer Modern", Bold, Italic, Monospace]),
-            ("NotoEmoji-Regular.ttf",          font!["Noto", Regular, SansSerif, Serif, Monospace]),
+            ("CMU-Typewriter-Regular.ttf",     font!["Computer Modern", Regular, Serif, SansSerif, Monospace]),
+            ("CMU-Typewriter-Italic.ttf",      font!["Computer Modern", Italic, Serif, SansSerif, Monospace]),
+            ("CMU-Typewriter-Bold.ttf",        font!["Computer Modern", Bold, Serif, SansSerif, Monospace]),
+            ("CMU-Typewriter-Bold-Italic.ttf", font!["Computer Modern", Bold, Italic, Serif, SansSerif, Monospace]),
+            ("NotoEmoji-Regular.ttf",          font!["Noto", Regular, Bold, Italic, SansSerif, Serif, Monospace]),
         ]));
 
         // Typeset into document.
@@ -213,20 +213,21 @@ mod test {
     #[test]
     fn features() {
         test("features", r"
-            **Features Test Page**
+            *Features Test Page*
 
-            __Multiline:__
+            _Multiline:_
             Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy
             eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam
             voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet
             clita kasd gubergren, no sea takimata sanctus est.
 
-            __Emoji:__ Hello World! 🌍
+            _Emoji:_ Hello World! 🌍
 
-            __Styles:__ This is made **bold** and that __italic__ using the built-in syntax!
+            _Styles:_ This is made *bold*, that _italic_ and this one `monospace` using the
+            built-in syntax!
 
-            __Styles with functions:__ This is in [bold][boldface] and that is in [italic][italics]
-            using library functions!
+            _Styles with functions:_ This [bold][word] is made bold and [italic][that] is italic
+            using the standard library functions [mono][bold] and `italic`!
         ");
     }
 

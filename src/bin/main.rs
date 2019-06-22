@@ -59,11 +59,11 @@ fn run() -> Result<(), Box<Error>> {
         ("CMU-Serif-Italic.ttf",           font!["Computer Modern", Italic, Serif]),
         ("CMU-Serif-Bold.ttf",             font!["Computer Modern", Bold, Serif]),
         ("CMU-Serif-Bold-Italic.ttf",      font!["Computer Modern", Bold, Italic, Serif]),
-        ("CMU-Typewriter-Regular.ttf",     font!["Computer Modern", Regular, Monospace]),
-        ("CMU-Typewriter-Italic.ttf",      font!["Computer Modern", Italic, Monospace]),
-        ("CMU-Typewriter-Bold.ttf",        font!["Computer Modern", Bold, Monospace]),
-        ("CMU-Typewriter-Bold-Italic.ttf", font!["Computer Modern", Bold, Italic, Monospace]),
-        ("NotoEmoji-Regular.ttf",          font!["Noto", Regular, SansSerif, Serif, Monospace]),
+        ("CMU-Typewriter-Regular.ttf",     font!["Computer Modern", Regular, Serif, SansSerif, Monospace]),
+        ("CMU-Typewriter-Italic.ttf",      font!["Computer Modern", Italic, Serif, SansSerif, Monospace]),
+        ("CMU-Typewriter-Bold.ttf",        font!["Computer Modern", Bold, Serif, SansSerif, Monospace]),
+        ("CMU-Typewriter-Bold-Italic.ttf", font!["Computer Modern", Bold, Italic, Serif, SansSerif, Monospace]),
+        ("NotoEmoji-Regular.ttf",          font!["Noto", Regular, Bold, Italic, SansSerif, Serif, Monospace]),
     ]));
 
     // Typeset the source code.

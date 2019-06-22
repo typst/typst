@@ -24,10 +24,12 @@ pub enum Token<'s> {
     ///
     /// Outside of functions headers, same as with [Colon](Token::Colon).
     Equals,
-    /// Two underscores, indicating text in italics.
-    DoubleUnderscore,
-    /// Two stars, indicating bold text.
-    DoubleStar,
+    /// An underscore, indicating text in italics.
+    Underscore,
+    /// A star, indicating bold text.
+    Star,
+    /// A backtick, indicating monospace text.
+    Backtick,
     /// A line comment.
     LineComment(&'s str),
     /// A block comment.
@@ -65,6 +67,8 @@ pub enum Node {
     ToggleItalics,
     /// Indicates that boldface was enabled / disabled.
     ToggleBold,
+    /// Indicates that monospace was enabled / disabled.
+    ToggleMonospace,
     /// Literal text.
     Text(String),
     /// A function invocation.

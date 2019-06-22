@@ -116,6 +116,7 @@ impl<'a, 'p> Layouter<'a, 'p> {
                 // Toggle the text styles.
                 Node::ToggleItalics => self.style.to_mut().toggle_class(FontClass::Italic),
                 Node::ToggleBold => self.style.to_mut().toggle_class(FontClass::Bold),
+                Node::ToggleMonospace => self.style.to_mut().toggle_class(FontClass::Monospace),
 
                 // Execute a function.
                 Node::Func(func) => self.layout_func(func)?,

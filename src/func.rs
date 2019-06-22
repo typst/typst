@@ -77,13 +77,12 @@ impl Scope {
         Scope { parsers: HashMap::new() }
     }
 
-    /// Create a new scope with the standard functions contained:
-    /// - `italic`
-    /// - `bold`
+    /// Create a new scope with the standard functions contained.
     pub fn with_std() -> Scope {
         let mut std = Scope::new();
         std.add::<BoldFunc>("bold");
         std.add::<ItalicFunc>("italic");
+        std.add::<MonospaceFunc>("mono");
         std
     }
 
@@ -160,4 +159,10 @@ style_func! {
     /// Typesets text in italics.
     pub struct ItalicFunc { "italic" },
     style => { style.toggle_class(FontClass::Italic) }
+}
+
+style_func! {
+    /// Typesets text in monospace.
+    pub struct MonospaceFunc { "mono" },
+    style => { style.toggle_class(FontClass::Monospace) }
 }
