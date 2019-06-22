@@ -822,8 +822,7 @@ mod parse_tests {
                 }
             }
 
-            fn layout(&self, _: &LayoutContext)
-                -> LayoutResult<(Option<Layout>, Option<LayoutContext>)> { Ok((None, None)) }
+            fn layout(&self, _: &LayoutContext) -> LayoutResult<Option<Layout>> { Ok(None) }
         }
 
         /// A testing function without a body.
@@ -840,8 +839,7 @@ mod parse_tests {
                 }
             }
 
-            fn layout(&self, _: &LayoutContext)
-                -> LayoutResult<(Option<Layout>, Option<LayoutContext>)> { Ok((None, None)) }
+            fn layout(&self, _: &LayoutContext) -> LayoutResult<Option<Layout>> { Ok(None) }
         }
     }
 

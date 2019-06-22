@@ -48,16 +48,22 @@ fn run() -> Result<(), Box<Error>> {
     let mut src = String::new();
     file.read_to_string(&mut src).map_err(|_| "failed to read from source file")?;
 
-    // Create a typesetter with a font provider that provides three fonts
-    // (two sans-serif fonts and a fallback for the emoji).
+    // Create a typesetter with a font provider that provides the default fonts.
     let mut typesetter = Typesetter::new();
     typesetter.add_font_provider(FileSystemFontProvider::new("fonts", vec![
-        ("NotoSans-Regular.ttf",     font_info!(["NotoSans", "Noto", SansSerif])),
-        ("NotoSans-Italic.ttf",      font_info!(["NotoSans", "Noto", SansSerif], italic)),
-        ("NotoSans-Bold.ttf",        font_info!(["NotoSans", "Noto", SansSerif], bold)),
-        ("NotoSans-BoldItalic.ttf",  font_info!(["NotoSans", "Noto", SansSerif], italic, bold)),
-        ("NotoSansMath-Regular.ttf", font_info!(["NotoSansMath", "Noto", SansSerif])),
-        ("NotoEmoji-Regular.ttf",    font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
+        ("CMU-SansSerif-Regular.ttf", font_info!(["Computer Modern", SansSerif])),
+        ("CMU-SansSerif-Italic.ttf", font_info!(["Computer Modern", SansSerif], italic)),
+        ("CMU-SansSerif-Bold.ttf", font_info!(["Computer Modern", SansSerif], bold)),
+        ("CMU-SansSerif-Bold-Italic.ttf", font_info!(["Computer Modern", SansSerif], bold, italic)),
+        ("CMU-Serif-Regular.ttf", font_info!(["Computer Modern", Serif])),
+        ("CMU-Serif-Italic.ttf", font_info!(["Computer Modern", Serif], italic)),
+        ("CMU-Serif-Bold.ttf", font_info!(["Computer Modern", Serif], bold)),
+        ("CMU-Serif-Bold-Italic.ttf", font_info!(["Computer Modern", Serif], bold, italic)),
+        ("CMU-Typewriter-Regular.ttf", font_info!(["Computer Modern", Monospace])),
+        ("CMU-Typewriter-Italic.ttf", font_info!(["Computer Modern", Monospace], italic)),
+        ("CMU-Typewriter-Bold.ttf", font_info!(["Computer Modern", Monospace], bold)),
+        ("CMU-Typewriter-Bold-Italic.ttf", font_info!(["Computer Modern", Monospace], bold, italic)),
+        ("NotoEmoji-Regular.ttf", font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
     ]));
 
     // Typeset the source code.

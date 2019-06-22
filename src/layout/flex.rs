@@ -1,7 +1,7 @@
 //! Flexible and lazy layouting of boxes.
 
 use crate::doc::TextAction;
-use crate::size::Size2D;
+use crate::size::{Size, Size2D};
 use super::{BoxLayout, ActionList, LayoutSpace, LayoutResult, LayoutError};
 
 
@@ -10,8 +10,6 @@ use super::{BoxLayout, ActionList, LayoutSpace, LayoutResult, LayoutError};
 pub struct FlexLayout {
     /// The sublayouts composing this layout.
     pub units: Vec<FlexUnit>,
-    /// The layout space to arrange in.
-    pub ctx: FlexContext,
 }
 
 /// A unit in a flex layout.
@@ -25,11 +23,17 @@ pub enum FlexUnit {
 }
 
 impl FlexLayout {
-    /// Create a new flex layouter.
-    pub fn new(ctx: FlexContext) -> FlexLayout {
+    /// Create a new flex layout.
+    pub fn new() -> FlexLayout {
         FlexLayout {
-            ctx,
             units: vec![],
+        }
+    }
+
+    /// Create a new flex layout containing just one box.
+    pub fn from_box(boxed: BoxLayout) -> FlexLayout {
+        FlexLayout {
+            units: vec![FlexUnit::Boxed(boxed)],
         }
     }
 
@@ -54,8 +58,8 @@ impl FlexLayout {
     }
 
     /// Compute the justified layout.
-    pub fn into_box(self) -> LayoutResult<BoxLayout> {
-        FlexFinisher::new(self).finish()
+    pub fn finish(self, ctx: FlexContext) -> LayoutResult<BoxLayout> {
+        FlexFinisher::new(self, ctx).finish()
     }
 }
 
@@ -64,8 +68,8 @@ impl FlexLayout {
 pub struct FlexContext {
     /// The space to layout the boxes in.
     pub space: LayoutSpace,
-    /// The flex spacing (like line spacing).
-    pub flex_spacing: f32,
+    /// The flex spacing between two lines of boxes.
+    pub flex_spacing: Size,
 }
 
 /// Finishes a flex layout by justifying the positions of the individual boxes.
@@ -82,11 +86,11 @@ struct FlexFinisher {
 
 impl FlexFinisher {
     /// Create the finisher from the layout.
-    fn new(layout: FlexLayout) -> FlexFinisher {
-        let space = layout.ctx.space;
+    fn new(layout: FlexLayout, ctx: FlexContext) -> FlexFinisher {
+        let space = ctx.space;
         FlexFinisher {
             units: layout.units,
-            ctx: layout.ctx,
+            ctx,
             actions: ActionList::new(),
             dimensions: Size2D::zero(),
             usable: space.usable(),
@@ -165,11 +169,13 @@ impl FlexFinisher {
 
     /// Move to the next line.
     fn newline(&mut self) {
-        self.line.y *= self.ctx.flex_spacing;
         self.dimensions.x = crate::size::max(self.dimensions.x, self.line.x);
+        if self.dimensions.y > Size::zero() {
+            self.dimensions.y += self.ctx.flex_spacing;
+        }
         self.dimensions.y += self.line.y;
         self.cursor.x = self.ctx.space.padding.left;
-        self.cursor.y += self.line.y;
+        self.cursor.y += self.line.y + self.ctx.flex_spacing;
         self.line = Size2D::zero();
     }
 }

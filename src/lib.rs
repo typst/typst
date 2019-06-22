@@ -216,7 +216,7 @@ mod test {
     #[test]
     fn features() {
         test("features", r"
-            **FEATURES TEST PAGE**
+            **Features Test Page**
 
             __Multiline:__
             Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy
@@ -226,7 +226,10 @@ mod test {
 
             __Emoji:__ Hello World! 🌍
 
-            __Styles:__ This is **bold** and that is __italic__!
+            __Styles:__ This is made **bold** and that __italic__ using the built-in syntax!
+
+            __Styles with functions:__ This is in [bold][boldface] and that is in [italic][italics]
+            using library functions!
         ");
     }
 

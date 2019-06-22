@@ -30,7 +30,7 @@ impl Default for TextStyle {
             italic: false,
             bold: false,
             font_size: 11.0,
-            line_spacing: 1.25,
+            line_spacing: 1.2,
             paragraph_spacing: 1.5,
         }
     }

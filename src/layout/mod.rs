@@ -70,6 +70,7 @@ struct Layouter<'a, 'p> {
     flex_layout: FlexLayout,
     flex_ctx: FlexContext,
     text_ctx: TextContext<'a, 'p>,
+    func_ctx: LayoutContext<'a, 'p>,
 }
 
 impl<'a, 'p> Layouter<'a, 'p> {
@@ -85,7 +86,7 @@ impl<'a, 'p> Layouter<'a, 'p> {
                 padding: SizeBox::zero(),
                 shrink_to_fit: true,
             },
-            flex_spacing: ctx.style.line_spacing,
+            flex_spacing: (ctx.style.line_spacing - 1.0) * Size::points(ctx.style.font_size),
         };
 
         // The mutable context for layouting single pieces of text.
@@ -94,12 +95,24 @@ impl<'a, 'p> Layouter<'a, 'p> {
             style: ctx.style.clone(),
         };
 
+        // The mutable context for layouting single functions.
+        let func_ctx = LayoutContext {
+            loader: &ctx.loader,
+            style: ctx.style.clone(),
+            space: LayoutSpace {
+                dimensions: ctx.space.usable(),
+                padding: SizeBox::zero(),
+                shrink_to_fit: true,
+            },
+        };
+
         Layouter {
             tree,
             box_layouter: BoxLayouter::new(box_ctx),
-            flex_layout: FlexLayout::new(flex_ctx),
+            flex_layout: FlexLayout::new(),
             flex_ctx,
             text_ctx,
+            func_ctx,
         }
     }
 
@@ -124,28 +137,53 @@ impl<'a, 'p> Layouter<'a, 'p> {
                 // Then start a new flex layouting process.
                 Node::Newline => {
                     // Finish the current paragraph into a box and add it.
-                    self.add_paragraph_spacing()?;
-                    let boxed = self.flex_layout.into_box()?;
+                    let boxed = self.flex_layout.finish(self.flex_ctx)?;
                     self.box_layouter.add_box(boxed)?;
 
                     // Create a fresh flex layout for the next paragraph.
                     self.flex_ctx.space.dimensions = self.box_layouter.remaining();
-                    self.flex_layout = FlexLayout::new(self.flex_ctx);
+                    self.flex_layout = FlexLayout::new();
+                    self.add_paragraph_spacing()?;
                 },
 
                 // Toggle the text styles.
-                Node::ToggleItalics => self.text_ctx.style.italic = !self.text_ctx.style.italic,
-                Node::ToggleBold => self.text_ctx.style.bold = !self.text_ctx.style.bold,
+                Node::ToggleItalics => {
+                    self.text_ctx.style.italic = !self.text_ctx.style.italic;
+                    self.func_ctx.style.italic = !self.func_ctx.style.italic;
+                },
+                Node::ToggleBold => {
+                    self.text_ctx.style.bold = !self.text_ctx.style.bold;
+                    self.func_ctx.style.bold = !self.func_ctx.style.bold;
+                },
 
                 // Execute a function.
-                Node::Func(_) => unimplemented!(),
+                Node::Func(func) => {
+                    self.func_ctx.space.dimensions = self.box_layouter.remaining();
+                    let layout = func.body.layout(&self.func_ctx)?;
+
+                    // Add the potential layout.
+                    if let Some(layout) = layout {
+                        match layout {
+                            Layout::Boxed(boxed) => {
+                                // Finish the previous flex run before adding the box.
+                                let previous = self.flex_layout.finish(self.flex_ctx)?;
+                                self.box_layouter.add_box(previous)?;
+                                self.box_layouter.add_box(boxed)?;
+
+                                // Create a fresh flex layout for the following content.
+                                self.flex_ctx.space.dimensions = self.box_layouter.remaining();
+                                self.flex_layout = FlexLayout::new();
+                            },
+                            Layout::Flex(flex) => self.flex_layout.add_flexible(flex),
+                        }
+                    }
+                },
             }
         }
 
         // If there are remainings, add them to the layout.
         if !self.flex_layout.is_empty() {
-            self.add_paragraph_spacing()?;
-            let boxed = self.flex_layout.into_box()?;
+            let boxed = self.flex_layout.finish(self.flex_ctx)?;
             self.box_layouter.add_box(boxed)?;
         }
 
