@@ -4,6 +4,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
+use crate::font::FontClass;
 use crate::layout::{layout, Layout, LayoutContext, LayoutResult};
 use crate::layout::flex::FlexLayout;
 use crate::parsing::{parse, ParseContext, ParseError, ParseResult};
@@ -19,14 +20,14 @@ use crate::syntax::{SyntaxTree, FuncHeader};
 /// functions, that is they fulfill the bounds `Debug + PartialEq + 'static`.
 pub trait Function: FunctionBounds {
     /// Parse the header and body into this function given a context.
-    fn parse(header: &FuncHeader, body: Option<&str>, ctx: &ParseContext)
+    fn parse(header: &FuncHeader, body: Option<&str>, ctx: ParseContext)
         -> ParseResult<Self> where Self: Sized;
 
     /// Layout this function given a context.
     ///
     /// Returns optionally the resulting layout and a new context if changes to the context should
     /// be made.
-    fn layout(&self, ctx: &LayoutContext) -> LayoutResult<Option<Layout>>;
+    fn layout(&self, ctx: LayoutContext) -> LayoutResult<Option<Layout>>;
 }
 
 impl PartialEq for dyn Function {
@@ -67,7 +68,7 @@ pub struct Scope {
 }
 
 /// A function which parses a function invocation into a function type.
-type ParseFunc = dyn Fn(&FuncHeader, Option<&str>, &ParseContext)
+type ParseFunc = dyn Fn(&FuncHeader, Option<&str>, ParseContext)
                        -> ParseResult<Box<dyn Function>>;
 
 impl Scope {
@@ -112,12 +113,12 @@ impl Debug for Scope {
 /// Creates style functions like bold and italic.
 macro_rules! style_func {
     ($(#[$outer:meta])* pub struct $struct:ident { $name:expr },
-     $new_ctx:ident => $ctx_change:block) => {
+     $style:ident => $style_change:block) => {
         $(#[$outer])*
         #[derive(Debug, PartialEq)]
         pub struct $struct { body: SyntaxTree }
         impl Function for $struct {
-            fn parse(header: &FuncHeader, body: Option<&str>, ctx: &ParseContext)
+            fn parse(header: &FuncHeader, body: Option<&str>, ctx: ParseContext)
                 -> ParseResult<Self> where Self: Sized {
                 // Accept only invocations without arguments and with body.
                 if header.args.is_empty() && header.kwargs.is_empty() {
@@ -131,13 +132,16 @@ macro_rules! style_func {
                 }
             }
 
-            fn layout(&self, ctx: &LayoutContext) -> LayoutResult<Option<Layout>> {
+            fn layout(&self, ctx: LayoutContext) -> LayoutResult<Option<Layout>> {
                 // Change the context.
-                let mut $new_ctx = ctx.clone();
-                $ctx_change
+                let mut $style = ctx.style.clone();
+                $style_change
 
                 // Create a box and put it into a flex layout.
-                let boxed = layout(&self.body, &$new_ctx)?;
+                let boxed = layout(&self.body, LayoutContext {
+                    style: &$style,
+                    .. ctx
+                })?;
                 let flex = FlexLayout::from_box(boxed);
 
                 Ok(Some(Layout::Flex(flex)))
@@ -149,11 +153,11 @@ macro_rules! style_func {
 style_func! {
     /// Typesets text in bold.
     pub struct BoldFunc { "bold" },
-    ctx => { ctx.style.bold = !ctx.style.bold }
+    style => { style.toggle_class(FontClass::Bold) }
 }
 
 style_func! {
     /// Typesets text in italics.
     pub struct ItalicFunc { "italic" },
-    ctx => { ctx.style.italic = !ctx.style.italic }
+    style => { style.toggle_class(FontClass::Italic) }
 }

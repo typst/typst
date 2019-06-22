@@ -1,9 +1,12 @@
 //! The layouting engine.
 
+use std::borrow::Cow;
+use std::mem;
+
 use crate::doc::LayoutAction;
-use crate::font::{FontLoader, FontError};
+use crate::font::{FontLoader, FontClass, FontError};
 use crate::size::{Size, Size2D, SizeBox};
-use crate::syntax::{SyntaxTree, Node};
+use crate::syntax::{SyntaxTree, Node, FuncCall};
 use crate::style::TextStyle;
 
 use self::flex::{FlexLayout, FlexContext};
@@ -24,13 +27,18 @@ pub enum Layout {
     Flex(FlexLayout),
 }
 
+/// Layout a syntax tree in a given context.
+pub fn layout(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<BoxLayout> {
+    Layouter::new(tree, ctx).layout()
+}
+
 /// The context for layouting.
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct LayoutContext<'a, 'p> {
     /// Loads fonts matching queries.
     pub loader: &'a FontLoader<'p>,
     /// Base style to set text with.
-    pub style: TextStyle,
+    pub style: &'a TextStyle,
     /// The space to layout in.
     pub space: LayoutSpace,
 }
@@ -57,62 +65,25 @@ impl LayoutSpace {
     }
 }
 
-/// Layout a syntax tree in a given context.
-pub fn layout(tree: &SyntaxTree, ctx: &LayoutContext) -> LayoutResult<BoxLayout> {
-    Layouter::new(tree, ctx).layout()
-}
-
 /// Transforms a syntax tree into a box layout.
 #[derive(Debug)]
 struct Layouter<'a, 'p> {
     tree: &'a SyntaxTree,
     box_layouter: BoxLayouter,
     flex_layout: FlexLayout,
-    flex_ctx: FlexContext,
-    text_ctx: TextContext<'a, 'p>,
-    func_ctx: LayoutContext<'a, 'p>,
+    loader: &'a FontLoader<'p>,
+    style: Cow<'a, TextStyle>,
 }
 
 impl<'a, 'p> Layouter<'a, 'p> {
     /// Create a new layouter.
-    fn new(tree: &'a SyntaxTree, ctx: &LayoutContext<'a, 'p>) -> Layouter<'a, 'p> {
-        // The top-level context for arranging paragraphs.
-        let box_ctx = BoxContext { space: ctx.space };
-
-        // The sub-level context for arranging pieces of text.
-        let flex_ctx = FlexContext {
-            space: LayoutSpace {
-                dimensions: ctx.space.usable(),
-                padding: SizeBox::zero(),
-                shrink_to_fit: true,
-            },
-            flex_spacing: (ctx.style.line_spacing - 1.0) * Size::pt(ctx.style.font_size),
-        };
-
-        // The mutable context for layouting single pieces of text.
-        let text_ctx = TextContext {
-            loader: &ctx.loader,
-            style: ctx.style.clone(),
-        };
-
-        // The mutable context for layouting single functions.
-        let func_ctx = LayoutContext {
-            loader: &ctx.loader,
-            style: ctx.style.clone(),
-            space: LayoutSpace {
-                dimensions: ctx.space.usable(),
-                padding: SizeBox::zero(),
-                shrink_to_fit: true,
-            },
-        };
-
+    fn new(tree: &'a SyntaxTree, ctx: LayoutContext<'a, 'p>) -> Layouter<'a, 'p> {
         Layouter {
             tree,
-            box_layouter: BoxLayouter::new(box_ctx),
+            box_layouter: BoxLayouter::new(BoxContext { space: ctx.space }),
             flex_layout: FlexLayout::new(),
-            flex_ctx,
-            text_ctx,
-            func_ctx,
+            loader: ctx.loader,
+            style: Cow::Borrowed(ctx.style)
         }
     }
 
@@ -122,79 +93,101 @@ impl<'a, 'p> Layouter<'a, 'p> {
         for node in &self.tree.nodes {
             match node {
                 // Layout a single piece of text.
-                Node::Text(text) => {
-                    let boxed = self::text::layout(text, &self.text_ctx)?;
-                    self.flex_layout.add_box(boxed);
-                },
+                Node::Text(text) => self.layout_text(text, false)?,
+
+                // Add a space.
                 Node::Space => {
                     if !self.flex_layout.is_empty() {
-                        let boxed = self::text::layout(" ", &self.text_ctx)?;
-                        self.flex_layout.add_glue(boxed);
+                        self.layout_text(" ", true)?;
                     }
                 },
 
                 // Finish the current flex layout and add it to the box layouter.
-                // Then start a new flex layouting process.
                 Node::Newline => {
                     // Finish the current paragraph into a box and add it.
-                    let boxed = self.flex_layout.finish(self.flex_ctx)?;
-                    self.box_layouter.add_box(boxed)?;
+                    self.layout_flex()?;
 
-                    // Create a fresh flex layout for the next paragraph.
-                    self.flex_ctx.space.dimensions = self.box_layouter.remaining();
-                    self.flex_layout = FlexLayout::new();
-                    self.add_paragraph_spacing()?;
+                    // Add some paragraph spacing.
+                    let size = Size::pt(self.style.font_size)
+                        * (self.style.line_spacing * self.style.paragraph_spacing - 1.0);
+                    self.box_layouter.add_space(size)?;
                 },
 
                 // Toggle the text styles.
-                Node::ToggleItalics => {
-                    self.text_ctx.style.italic = !self.text_ctx.style.italic;
-                    self.func_ctx.style.italic = !self.func_ctx.style.italic;
-                },
-                Node::ToggleBold => {
-                    self.text_ctx.style.bold = !self.text_ctx.style.bold;
-                    self.func_ctx.style.bold = !self.func_ctx.style.bold;
-                },
+                Node::ToggleItalics => self.style.to_mut().toggle_class(FontClass::Italic),
+                Node::ToggleBold => self.style.to_mut().toggle_class(FontClass::Bold),
 
                 // Execute a function.
-                Node::Func(func) => {
-                    self.func_ctx.space.dimensions = self.box_layouter.remaining();
-                    let layout = func.body.layout(&self.func_ctx)?;
-
-                    // Add the potential layout.
-                    if let Some(layout) = layout {
-                        match layout {
-                            Layout::Boxed(boxed) => {
-                                // Finish the previous flex run before adding the box.
-                                let previous = self.flex_layout.finish(self.flex_ctx)?;
-                                self.box_layouter.add_box(previous)?;
-                                self.box_layouter.add_box(boxed)?;
-
-                                // Create a fresh flex layout for the following content.
-                                self.flex_ctx.space.dimensions = self.box_layouter.remaining();
-                                self.flex_layout = FlexLayout::new();
-                            },
-                            Layout::Flex(flex) => self.flex_layout.add_flexible(flex),
-                        }
-                    }
-                },
+                Node::Func(func) => self.layout_func(func)?,
             }
         }
 
         // If there are remainings, add them to the layout.
         if !self.flex_layout.is_empty() {
-            let boxed = self.flex_layout.finish(self.flex_ctx)?;
-            self.box_layouter.add_box(boxed)?;
+            self.layout_flex()?;
         }
 
         Ok(self.box_layouter.finish())
     }
 
-    /// Add the spacing between two paragraphs.
-    fn add_paragraph_spacing(&mut self) -> LayoutResult<()> {
-        let size = Size::pt(self.text_ctx.style.font_size)
-            * (self.text_ctx.style.line_spacing * self.text_ctx.style.paragraph_spacing - 1.0);
-        self.box_layouter.add_space(size)
+    /// Layout a piece of text into a box.
+    fn layout_text(&mut self, text: &str, glue: bool) -> LayoutResult<()> {
+        let boxed = self::text::layout(text, TextContext {
+            loader: &self.loader,
+            style: &self.style,
+        })?;
+
+        if glue {
+            self.flex_layout.add_glue(boxed);
+        } else {
+            self.flex_layout.add_box(boxed);
+        }
+
+        Ok(())
+    }
+
+    /// Finish the current flex run and return the resulting box.
+    fn layout_flex(&mut self) -> LayoutResult<()> {
+        let mut layout = FlexLayout::new();
+        mem::swap(&mut layout, &mut self.flex_layout);
+
+        let boxed = layout.finish(FlexContext {
+            space: LayoutSpace {
+                dimensions: self.box_layouter.remaining(),
+                padding: SizeBox::zero(),
+                shrink_to_fit: true,
+            },
+            flex_spacing: (self.style.line_spacing - 1.0) * Size::pt(self.style.font_size),
+        })?;
+
+        self.box_layouter.add_box(boxed)
+    }
+
+    /// Layout a function.
+    fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
+        let layout = func.body.layout(LayoutContext {
+            loader: &self.loader,
+            style: &self.style,
+            space: LayoutSpace {
+                dimensions: self.box_layouter.remaining(),
+                padding: SizeBox::zero(),
+                shrink_to_fit: true,
+            },
+        })?;
+
+        // Add the potential layout.
+        if let Some(layout) = layout {
+            match layout {
+                Layout::Boxed(boxed) => {
+                    // Finish the previous flex run before adding the box.
+                    self.layout_flex()?;
+                    self.box_layouter.add_box(boxed)?;
+                },
+                Layout::Flex(flex) => self.flex_layout.add_flexible(flex),
+            }
+        }
+
+        Ok(())
     }
 }
 

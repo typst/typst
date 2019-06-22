@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process;
 
 use typeset::Typesetter;
-use typeset::{font::FileSystemFontProvider, font_info};
+use typeset::{font::FileSystemFontProvider, font};
 use typeset::export::pdf::PdfExporter;
 
 
@@ -50,20 +50,20 @@ fn run() -> Result<(), Box<Error>> {
 
     // Create a typesetter with a font provider that provides the default fonts.
     let mut typesetter = Typesetter::new();
-    typesetter.add_font_provider(FileSystemFontProvider::new("fonts", vec![
-        ("CMU-SansSerif-Regular.ttf", font_info!(["Computer Modern", SansSerif])),
-        ("CMU-SansSerif-Italic.ttf", font_info!(["Computer Modern", SansSerif], italic)),
-        ("CMU-SansSerif-Bold.ttf", font_info!(["Computer Modern", SansSerif], bold)),
-        ("CMU-SansSerif-Bold-Italic.ttf", font_info!(["Computer Modern", SansSerif], bold, italic)),
-        ("CMU-Serif-Regular.ttf", font_info!(["Computer Modern", Serif])),
-        ("CMU-Serif-Italic.ttf", font_info!(["Computer Modern", Serif], italic)),
-        ("CMU-Serif-Bold.ttf", font_info!(["Computer Modern", Serif], bold)),
-        ("CMU-Serif-Bold-Italic.ttf", font_info!(["Computer Modern", Serif], bold, italic)),
-        ("CMU-Typewriter-Regular.ttf", font_info!(["Computer Modern", Monospace])),
-        ("CMU-Typewriter-Italic.ttf", font_info!(["Computer Modern", Monospace], italic)),
-        ("CMU-Typewriter-Bold.ttf", font_info!(["Computer Modern", Monospace], bold)),
-        ("CMU-Typewriter-Bold-Italic.ttf", font_info!(["Computer Modern", Monospace], bold, italic)),
-        ("NotoEmoji-Regular.ttf", font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
+    typesetter.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
+        ("CMU-SansSerif-Regular.ttf",      font!["Computer Modern", Regular, SansSerif]),
+        ("CMU-SansSerif-Italic.ttf",       font!["Computer Modern", Italic, SansSerif]),
+        ("CMU-SansSerif-Bold.ttf",         font!["Computer Modern", Bold, SansSerif]),
+        ("CMU-SansSerif-Bold-Italic.ttf",  font!["Computer Modern", Bold, Italic, SansSerif]),
+        ("CMU-Serif-Regular.ttf",          font!["Computer Modern", Regular, Serif]),
+        ("CMU-Serif-Italic.ttf",           font!["Computer Modern", Italic, Serif]),
+        ("CMU-Serif-Bold.ttf",             font!["Computer Modern", Bold, Serif]),
+        ("CMU-Serif-Bold-Italic.ttf",      font!["Computer Modern", Bold, Italic, Serif]),
+        ("CMU-Typewriter-Regular.ttf",     font!["Computer Modern", Regular, Monospace]),
+        ("CMU-Typewriter-Italic.ttf",      font!["Computer Modern", Italic, Monospace]),
+        ("CMU-Typewriter-Bold.ttf",        font!["Computer Modern", Bold, Monospace]),
+        ("CMU-Typewriter-Bold-Italic.ttf", font!["Computer Modern", Bold, Italic, Monospace]),
+        ("NotoEmoji-Regular.ttf",          font!["Noto", Regular, SansSerif, Serif, Monospace]),
     ]));
 
     // Typeset the source code.

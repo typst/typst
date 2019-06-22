@@ -7,16 +7,16 @@ use super::*;
 
 
 /// The context for text layouting.
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct TextContext<'a, 'p> {
     /// Loads fonts matching queries.
     pub loader: &'a FontLoader<'p>,
     /// Base style to set text with.
-    pub style: TextStyle,
+    pub style: &'a TextStyle,
 }
 
 /// Layout one piece of text without any breaks as one continous box.
-pub fn layout(text: &str, ctx: &TextContext) -> LayoutResult<BoxLayout> {
+pub fn layout(text: &str, ctx: TextContext) -> LayoutResult<BoxLayout> {
     let mut actions = Vec::new();
     let mut active_font = std::usize::MAX;
     let mut buffer = String::new();
@@ -26,9 +26,8 @@ pub fn layout(text: &str, ctx: &TextContext) -> LayoutResult<BoxLayout> {
     for character in text.chars() {
         // Retrieve the best font for this character.
         let (index, font) = ctx.loader.get(FontQuery {
-            families: ctx.style.font_families.clone(),
-            italic: ctx.style.italic,
-            bold: ctx.style.bold,
+            classes: ctx.style.classes.clone(),
+            fallback: ctx.style.fallback.clone(),
             character,
         }).ok_or_else(|| LayoutError::NoSuitableFont(character))?;
 

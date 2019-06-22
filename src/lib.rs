@@ -16,7 +16,7 @@
 //! ```
 //! use std::fs::File;
 //! use typeset::Typesetter;
-//! use typeset::{font::FileSystemFontProvider, font_info};
+//! use typeset::{font::FileSystemFontProvider, font};
 //! use typeset::export::pdf::PdfExporter;
 //!
 //! // Simple example source code.
@@ -26,9 +26,9 @@
 //! // (two sans-serif fonts and a fallback for the emoji).
 //! let mut typesetter = Typesetter::new();
 //! typesetter.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
-//!     ("CMU-Serif-Regular.ttf", font_info!(["Computer Modern", Serif])),
-//!     ("CMU-Serif-Italic.ttf",  font_info!(["Computer Modern", Serif], italic)),
-//!     ("NotoEmoji-Regular.ttf", font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
+//!     ("CMU-Serif-Regular.ttf", font!["Computer Modern", Regular, Serif]),
+//!     ("CMU-Serif-Italic.ttf",  font!["Computer Modern", Italic, Serif]),
+//!     ("NotoEmoji-Regular.ttf", font!["Noto", Regular, Serif, SansSerif, Monospace]),
 //! ]));
 //! // Typeset the source code into a document.
 //! let document = typesetter.typeset(src).unwrap();
@@ -112,24 +112,21 @@ impl<'p> Typesetter<'p> {
     #[inline]
     pub fn parse(&self, src: &str) -> ParseResult<SyntaxTree> {
         let scope = Scope::with_std();
-        let ctx = ParseContext { scope: &scope };
-        parse(src, &ctx)
+        parse(src, ParseContext { scope: &scope })
     }
 
     /// Layout a syntax tree and return the layout and the referenced font list.
     pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<(BoxLayout, Vec<Font>)> {
         let loader = FontLoader::new(&self.font_providers);
-        let ctx = LayoutContext {
+        let pages = layout(&tree, LayoutContext {
             loader: &loader,
-            style: self.text_style.clone(),
+            style: &self.text_style,
             space: LayoutSpace {
                 dimensions: self.page_style.dimensions,
                 padding: self.page_style.margins,
                 shrink_to_fit: false,
             },
-        };
-
-        let pages = layout(&tree, &ctx)?;
+        })?;
         Ok((pages, loader.into_fonts()))
     }
 
@@ -182,25 +179,25 @@ mod test {
     use std::io::BufWriter;
     use crate::Typesetter;
     use crate::export::pdf::PdfExporter;
-    use crate::font::FileSystemFontProvider;
+    use crate::font::{FileSystemFontProvider};
 
     /// Create a _PDF_ with a name from the source code.
     fn test(name: &str, src: &str) {
         let mut typesetter = Typesetter::new();
         typesetter.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
-            ("CMU-SansSerif-Regular.ttf", font_info!(["Computer Modern", SansSerif])),
-            ("CMU-SansSerif-Italic.ttf", font_info!(["Computer Modern", SansSerif], italic)),
-            ("CMU-SansSerif-Bold.ttf", font_info!(["Computer Modern", SansSerif], bold)),
-            ("CMU-SansSerif-Bold-Italic.ttf", font_info!(["Computer Modern", SansSerif], bold, italic)),
-            ("CMU-Serif-Regular.ttf", font_info!(["Computer Modern", Serif])),
-            ("CMU-Serif-Italic.ttf", font_info!(["Computer Modern", Serif], italic)),
-            ("CMU-Serif-Bold.ttf", font_info!(["Computer Modern", Serif], bold)),
-            ("CMU-Serif-Bold-Italic.ttf", font_info!(["Computer Modern", Serif], bold, italic)),
-            ("CMU-Typewriter-Regular.ttf", font_info!(["Computer Modern", Monospace])),
-            ("CMU-Typewriter-Italic.ttf", font_info!(["Computer Modern", Monospace], italic)),
-            ("CMU-Typewriter-Bold.ttf", font_info!(["Computer Modern", Monospace], bold)),
-            ("CMU-Typewriter-Bold-Italic.ttf", font_info!(["Computer Modern", Monospace], bold, italic)),
-            ("NotoEmoji-Regular.ttf", font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace])),
+            ("CMU-SansSerif-Regular.ttf",      font!["Computer Modern", Regular, SansSerif]),
+            ("CMU-SansSerif-Italic.ttf",       font!["Computer Modern", Italic, SansSerif]),
+            ("CMU-SansSerif-Bold.ttf",         font!["Computer Modern", Bold, SansSerif]),
+            ("CMU-SansSerif-Bold-Italic.ttf",  font!["Computer Modern", Bold, Italic, SansSerif]),
+            ("CMU-Serif-Regular.ttf",          font!["Computer Modern", Regular, Serif]),
+            ("CMU-Serif-Italic.ttf",           font!["Computer Modern", Italic, Serif]),
+            ("CMU-Serif-Bold.ttf",             font!["Computer Modern", Bold, Serif]),
+            ("CMU-Serif-Bold-Italic.ttf",      font!["Computer Modern", Bold, Italic, Serif]),
+            ("CMU-Typewriter-Regular.ttf",     font!["Computer Modern", Regular, Monospace]),
+            ("CMU-Typewriter-Italic.ttf",      font!["Computer Modern", Italic, Monospace]),
+            ("CMU-Typewriter-Bold.ttf",        font!["Computer Modern", Bold, Monospace]),
+            ("CMU-Typewriter-Bold-Italic.ttf", font!["Computer Modern", Bold, Italic, Monospace]),
+            ("NotoEmoji-Regular.ttf",          font!["Noto", Regular, SansSerif, Serif, Monospace]),
         ]));
 
         // Typeset into document.

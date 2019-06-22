@@ -154,94 +154,83 @@ pub struct FontMetrics {
 
 /// Categorizes a font.
 ///
-/// Can be constructed conveniently with the [`font_info`] macro.
+/// Can be constructed conveniently with the [`font`] macro.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FontInfo {
     /// The font families this font is part of.
-    pub families: Vec<FontFamily>,
-    /// Whether the font is italic.
-    pub italic: bool,
-    /// Whether the font bold.
-    pub bold: bool,
+    pub classes: Vec<FontClass>,
 }
 
-/// A family of fonts.
+impl FontInfo {
+    /// Create a new font info from an iterator of classes.
+    pub fn new<I>(classes: I) -> FontInfo where I: IntoIterator<Item=FontClass> {
+        FontInfo { classes: classes.into_iter().collect() }
+    }
+}
+
+/// A class of fonts.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum FontFamily {
+pub enum FontClass {
     Serif,
     SansSerif,
     Monospace,
-    /// A custom class like _Arial_ or _Times_.
-    Named(String),
+    Regular,
+    Bold,
+    Italic,
+    /// A custom family like _Arial_ or _Times_.
+    Family(String),
 }
 
 /// A macro to create [FontInfos](crate::font::FontInfo) easily.
 ///
-/// Accepts first a bracketed, ordered list of font families. Allowed are string expressions as well
-/// as the three base families `SansSerif`, `Serif` and `Monospace`. Then there may follow
-/// (separated by commas) the keywords `italic` and/or `bold`.
+/// Accepts an ordered list of font classes. Strings expressions are parsed
+/// into custom `Family`-variants and others can be named directly.
 ///
 /// # Examples
 /// The font _Noto Sans_ in regular typeface.
 /// ```
-/// # use typeset::font_info;
-/// font_info!(["NotoSans", "Noto", SansSerif]);
+/// # use typeset::font;
+/// font!["NotoSans", "Noto", Regular, SansSerif];
 /// ```
 ///
 /// The font _Noto Serif_ in italics and boldface.
 /// ```
-/// # use typeset::font_info;
-/// font_info!(["NotoSerif", "Noto", Serif], italic, bold);
+/// # use typeset::font;
+/// font!["NotoSerif", "Noto", Bold, Italic, Serif];
 /// ```
 ///
 /// The font _Arial_ in italics.
 /// ```
-/// # use typeset::font_info;
-/// font_info!(["Arial", SansSerif], italic);
+/// # use typeset::font;
+/// font!["Arial", Italic, SansSerif];
 /// ```
 ///
 /// The font _Noto Emoji_, which works with all base families. 🙂
 /// ```
-/// # use typeset::font_info;
-/// font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace]);
+/// # use typeset::font;
+/// font!["NotoEmoji", "Noto", Regular, SansSerif, Serif, Monospace];
 /// ```
 #[macro_export]
-macro_rules! font_info {
+macro_rules! font {
+    // Parse class list one by one.
+    (@__cls $v:expr) => {};
+    (@__cls $v:expr, $c:ident) => { $v.push($crate::font::FontClass::$c); };
+    (@__cls $v:expr, $c:ident, $($tts:tt)*) => {
+        font!(@__cls $v, $c);
+        font!(@__cls $v, $($tts)*)
+    };
+    (@__cls $v:expr, $f:expr) => { $v.push( $crate::font::FontClass::Family($f.to_string())); };
+    (@__cls $v:expr, $f:expr, $($tts:tt)*) => {
+        font!(@__cls $v, $f);
+        font!(@__cls $v, $($tts)*)
+    };
+
     // Entry point
-    ([$($tts:tt)*] $(,$style:tt)*) => {{
-        let mut families = Vec::new();
-        font_info!(@__fam families, $($tts)*);
-
-        #[allow(unused)] let mut italic = false;
-        #[allow(unused)] let mut bold = false;
-        $( font_info!(@__sty (italic, bold) $style); )*
-
-        $crate::font::FontInfo { families, italic, bold }
+    ($($tts:tt)*) => {{
+        let mut classes = Vec::new();
+        font!(@__cls classes, $($tts)*);
+        $crate::font::FontInfo { classes }
     }};
-
-    // Parse family list
-    (@__fam $v:expr) => {};
-    (@__fam $v:expr, $f:ident) => { $v.push(font_info!(@__gen $f)); };
-    (@__fam $v:expr, $f:ident, $($tts:tt)*) => {
-        font_info!(@__fam $v, $f);
-        font_info!(@__fam $v, $($tts)*)
-    };
-    (@__fam $v:expr, $f:expr) => {
-        $v.push( $crate::font::FontFamily::Named($f.to_string()));
-    };
-    (@__fam $v:expr, $f:expr, $($tts:tt)*) => {
-        font_info!(@__fam $v, $f);
-        font_info!(@__fam $v, $($tts)*)
-    };
-
-    // Parse styles (italic/bold)
-    (@__sty ($i:ident, $b:ident) italic) => { $i = true; };
-    (@__sty ($i:ident, $b:ident) bold) => { $b = true; };
-
-    // Parse enum variants
-    (@__gen SansSerif) => {  $crate::font::FontFamily::SansSerif };
-    (@__gen Serif) => {  $crate::font::FontFamily::Serif };
-    (@__gen Monospace) => {  $crate::font::FontFamily::Monospace };
 }
 
 //------------------------------------------------------------------------------------------------//
@@ -282,10 +271,10 @@ impl FileSystemFontProvider {
     /// Serve the two fonts `NotoSans-Regular` and `NotoSans-Italic` from the local folder
     /// `../fonts`.
     /// ```
-    /// # use typeset::{font::FileSystemFontProvider, font_info};
+    /// # use typeset::{font::FileSystemFontProvider, font};
     /// FileSystemFontProvider::new("../fonts", vec![
-    ///     ("NotoSans-Regular.ttf", font_info!(["NotoSans", SansSerif])),
-    ///     ("NotoSans-Italic.ttf", font_info!(["NotoSans", SansSerif], italic)),
+    ///     ("NotoSans-Regular.ttf", font!["NotoSans", Regular, SansSerif]),
+    ///     ("NotoSans-Italic.ttf", font!["NotoSans", Italic, SansSerif]),
     /// ]);
     /// ```
     #[inline]
@@ -395,14 +384,17 @@ impl<'p> FontLoader<'p> {
         }
         drop(state);
 
-        // The outermost loop goes over the families because we want to serve the font that matches
-        // the first possible family.
-        for family in &query.families {
-            // For each family now go over all font infos from all font providers.
+        // The outermost loop goes over the fallbacks because we want to serve the font that matches
+        // the first possible class.
+        for class in &query.fallback {
+            // For each class now go over all font infos from all font providers.
             for (provider, infos) in self.providers.iter().zip(&self.provider_fonts) {
                 for info in infos.iter() {
-                    // Proceed only if this font matches the query.
-                    if Self::matches(&query, family, info) {
+                    let matches = info.classes.contains(class)
+                        && query.classes.iter().all(|class| info.classes.contains(class));
+
+                    // Proceed only if this font matches the query up to now.
+                    if matches {
                         let mut state = self.state.borrow_mut();
 
                         // Check if we have already loaded this font before, otherwise, we will load
@@ -483,12 +475,6 @@ impl<'p> FontLoader<'p> {
             if maybe_index.is_some() { Some(font) } else { None }
         }).collect()
     }
-
-    /// Checks whether the query and the family match the info.
-    fn matches(query: &FontQuery, family: &FontFamily, info: &FontInfo) -> bool {
-        info.italic == query.italic && info.bold == query.bold
-            && info.families.contains(family)
-    }
 }
 
 impl Debug for FontLoader<'_> {
@@ -510,13 +496,11 @@ impl Debug for FontLoader<'_> {
 pub struct FontQuery {
     /// Which character is needed.
     pub character: char,
-    /// Whether the font should be in italics.
-    pub italic: bool,
-    /// Whether the font should be in boldface.
-    pub bold: bool,
-    /// A fallback list of font families to accept. The font matching the first possible family in
-    /// this list satisfying all other constraints should be returned.
-    pub families: Vec<FontFamily>,
+    /// Which classes the font has to be part of.
+    pub classes: Vec<FontClass>,
+    /// A sequence of classes. The font matching the leftmost class in this sequence
+    /// should be returned.
+    pub fallback: Vec<FontClass>,
 }
 
 //------------------------------------------------------------------------------------------------//
@@ -626,7 +610,7 @@ impl<'a> Subsetter<'a> {
             mapping,
             widths,
             default_glyph: self.font.default_glyph,
-            metrics: self.font.metrics.clone(),
+            metrics: self.font.metrics,
         })
     }
 
@@ -1031,33 +1015,21 @@ mod tests {
 
     /// Tests the font info macro.
     #[test]
-    fn font_info_macro() {
-        use FontFamily::{SansSerif as S, Serif as F, Monospace as M};
-        #[allow(non_snake_case)]
-        fn N(family: &str) -> FontFamily { FontFamily::Named(family.to_string()) }
+    fn font_macro() {
+        use FontClass::*;
 
-        assert_eq!(font_info!(["NotoSans", "Noto", SansSerif]), FontInfo {
-            families: vec![N("NotoSans"), N("Noto"), S],
-            italic: false,
-            bold: false,
+        assert_eq!(font!["NotoSans", "Noto", Regular, SansSerif], FontInfo {
+            classes: vec![
+                Family("NotoSans".to_owned()), Family("Noto".to_owned()),
+                Regular, SansSerif
+            ]
         });
 
-        assert_eq!(font_info!(["NotoSerif", Serif, "Noto"], italic), FontInfo {
-            families: vec![N("NotoSerif"), F, N("Noto")],
-            italic: true,
-            bold: false,
-        });
-
-        assert_eq!(font_info!(["NotoSans", "Noto", SansSerif], italic, bold), FontInfo {
-            families: vec![N("NotoSans"), N("Noto"), S],
-            italic: true,
-            bold: true,
-        });
-
-        assert_eq!(font_info!(["NotoEmoji", "Noto", SansSerif, Serif, Monospace]), FontInfo {
-            families: vec![N("NotoEmoji"), N("Noto"), S, F, M],
-            italic: false,
-            bold: false,
+        assert_eq!(font!["NotoSerif", Serif, Italic, "Noto"], FontInfo {
+            classes: vec![
+                Family("NotoSerif".to_owned()), Serif, Italic,
+                Family("Noto".to_owned())
+            ],
         });
     }
 }
