@@ -1,6 +1,6 @@
 //! Flexible and lazy layouting of boxes.
 
-use crate::doc::TextAction;
+use crate::doc::LayoutAction;
 use crate::size::{Size, Size2D};
 use super::{BoxLayout, ActionList, LayoutSpace, LayoutResult, LayoutError};
 
@@ -157,7 +157,7 @@ impl FlexFinisher {
     fn append(&mut self, layout: BoxLayout) {
         // Move all actions into this layout and translate absolute positions.
         self.actions.reset_origin();
-        self.actions.add(TextAction::MoveAbsolute(self.cursor));
+        self.actions.add(LayoutAction::MoveAbsolute(self.cursor));
         self.actions.set_origin(self.cursor);
         self.actions.extend(layout.actions);
 

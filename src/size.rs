@@ -42,11 +42,7 @@ impl Size {
 
     /// Create a size from an amount of points.
     #[inline]
-    pub fn points(points: f32) -> Size { Size { points } }
-
-    /// Create a size from an amount of inches.
-    #[inline]
-    pub fn inches(inches: f32) -> Size { Size { points: 72.0 * inches } }
+    pub fn pt(points: f32) -> Size { Size { points } }
 
     /// Create a size from an amount of millimeters.
     #[inline]
@@ -56,13 +52,13 @@ impl Size {
     #[inline]
     pub fn cm(cm: f32) -> Size { Size { points: 28.3465 * cm } }
 
+    /// Create a size from an amount of inches.
+    #[inline]
+    pub fn inches(inches: f32) -> Size { Size { points: 72.0 * inches } }
+
     /// Convert this size into points.
     #[inline]
-    pub fn to_points(&self) -> f32 { self.points }
-
-    /// Convert this size into inches.
-    #[inline]
-    pub fn to_inches(&self) -> f32 { self.points * 0.0138889 }
+    pub fn to_pt(&self) -> f32 { self.points }
 
     /// Convert this size into millimeters.
     #[inline]
@@ -71,6 +67,10 @@ impl Size {
     /// Convert this size into centimeters.
     #[inline]
     pub fn to_cm(&self) -> f32 { self.points * 0.0352778 }
+
+    /// Convert this size into inches.
+    #[inline]
+    pub fn to_inches(&self) -> f32 { self.points * 0.0138889 }
 }
 
 impl Size2D {

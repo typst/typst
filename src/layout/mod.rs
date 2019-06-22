@@ -1,6 +1,6 @@
 //! The layouting engine.
 
-use crate::doc::TextAction;
+use crate::doc::LayoutAction;
 use crate::font::{FontLoader, FontError};
 use crate::size::{Size, Size2D, SizeBox};
 use crate::syntax::{SyntaxTree, Node};
@@ -86,7 +86,7 @@ impl<'a, 'p> Layouter<'a, 'p> {
                 padding: SizeBox::zero(),
                 shrink_to_fit: true,
             },
-            flex_spacing: (ctx.style.line_spacing - 1.0) * Size::points(ctx.style.font_size),
+            flex_spacing: (ctx.style.line_spacing - 1.0) * Size::pt(ctx.style.font_size),
         };
 
         // The mutable context for layouting single pieces of text.
@@ -192,7 +192,7 @@ impl<'a, 'p> Layouter<'a, 'p> {
 
     /// Add the spacing between two paragraphs.
     fn add_paragraph_spacing(&mut self) -> LayoutResult<()> {
-        let size = Size::points(self.text_ctx.style.font_size)
+        let size = Size::pt(self.text_ctx.style.font_size)
             * (self.text_ctx.style.line_spacing * self.text_ctx.style.paragraph_spacing - 1.0);
         self.box_layouter.add_space(size)
     }
@@ -201,7 +201,7 @@ impl<'a, 'p> Layouter<'a, 'p> {
 /// Manipulates and optimizes a list of actions.
 #[derive(Debug, Clone)]
 pub struct ActionList {
-    actions: Vec<TextAction>,
+    actions: Vec<LayoutAction>,
     origin: Size2D,
     active_font: (usize, f32),
 }
@@ -218,8 +218,8 @@ impl ActionList {
 
     /// Add an action to the list if it is not useless
     /// (like changing to a font that is already active).
-    pub fn add(&mut self, action: TextAction) {
-        use TextAction::*;
+    pub fn add(&mut self, action: LayoutAction) {
+        use LayoutAction::*;
         match action {
             MoveAbsolute(pos) => self.actions.push(MoveAbsolute(self.origin + pos)),
             SetFont(index, size) => if (index, size) != self.active_font {
@@ -231,7 +231,7 @@ impl ActionList {
     }
 
     /// Add a series of actions.
-    pub fn extend<I>(&mut self, actions: I) where I: IntoIterator<Item=TextAction> {
+    pub fn extend<I>(&mut self, actions: I) where I: IntoIterator<Item=LayoutAction> {
         for action in actions.into_iter() {
             self.add(action);
         }
@@ -254,7 +254,7 @@ impl ActionList {
     }
 
     /// Return the list of actions as a vector.
-    pub fn into_vec(self) -> Vec<TextAction> {
+    pub fn into_vec(self) -> Vec<LayoutAction> {
         self.actions
     }
 }

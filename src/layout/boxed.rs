@@ -1,6 +1,6 @@
 //! Block-style layouting of boxes.
 
-use crate::doc::{Document, Page, TextAction};
+use crate::doc::{Document, Page, LayoutAction};
 use crate::font::Font;
 use crate::size::{Size, Size2D};
 use super::{ActionList, LayoutSpace, LayoutResult, LayoutError};
@@ -12,7 +12,7 @@ pub struct BoxLayout {
     /// The size of the box.
     pub dimensions: Size2D,
     /// The actions composing this layout.
-    pub actions: Vec<TextAction>,
+    pub actions: Vec<LayoutAction>,
 }
 
 impl BoxLayout {
@@ -90,7 +90,7 @@ impl BoxLayouter {
     pub fn add_box_absolute(&mut self, position: Size2D, layout: BoxLayout) {
         // Move all actions into this layout and translate absolute positions.
         self.actions.reset_origin();
-        self.actions.add(TextAction::MoveAbsolute(position));
+        self.actions.add(LayoutAction::MoveAbsolute(position));
         self.actions.set_origin(position);
         self.actions.extend(layout.actions);
     }

@@ -20,19 +20,17 @@ pub struct Page {
     pub width: Size,
     /// The height of the page.
     pub height: Size,
-    /// Text actions specifying how to draw text content on the page.
-    pub actions: Vec<TextAction>,
+    /// Layouting actions specifying how to draw content on the page.
+    pub actions: Vec<LayoutAction>,
 }
 
-/// A text layouting action.
+/// A layouting action.
 #[derive(Debug, Clone)]
-pub enum TextAction {
+pub enum LayoutAction {
     /// Move to an absolute position.
     MoveAbsolute(Size2D),
-    /// Move from the _start_ of the current line by an (x, y) offset.
-    MoveNewline(Size2D),
-    /// Write text starting at the current position.
-    WriteText(String),
     /// Set the font by index and font size.
     SetFont(usize, f32),
+    /// Write text starting at the current position.
+    WriteText(String),
 }

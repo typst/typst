@@ -1,6 +1,6 @@
 //! Layouting of text into boxes.
 
-use crate::doc::TextAction;
+use crate::doc::LayoutAction;
 use crate::font::FontQuery;
 use crate::size::{Size, Size2D};
 use super::*;
@@ -39,11 +39,11 @@ pub fn layout(text: &str, ctx: &TextContext) -> LayoutResult<BoxLayout> {
         // Change the font if necessary.
         if active_font != index {
             if !buffer.is_empty() {
-                actions.push(TextAction::WriteText(buffer));
+                actions.push(LayoutAction::WriteText(buffer));
                 buffer = String::new();
             }
 
-            actions.push(TextAction::SetFont(index, ctx.style.font_size));
+            actions.push(LayoutAction::SetFont(index, ctx.style.font_size));
             active_font = index;
         }
 
@@ -52,11 +52,11 @@ pub fn layout(text: &str, ctx: &TextContext) -> LayoutResult<BoxLayout> {
 
     // Write the remaining characters.
     if !buffer.is_empty() {
-        actions.push(TextAction::WriteText(buffer));
+        actions.push(LayoutAction::WriteText(buffer));
     }
 
     Ok(BoxLayout {
-        dimensions: Size2D::new(width, Size::points(ctx.style.font_size)),
+        dimensions: Size2D::new(width, Size::pt(ctx.style.font_size)),
         actions,
     })
 }

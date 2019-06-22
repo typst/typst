@@ -8,9 +8,9 @@ use pdf::doc::{Catalog, PageTree, Page, Resource, Text};
 use pdf::font::{Type0Font, CIDFont, CIDFontType, CIDSystemInfo, FontDescriptor, FontFlags};
 use pdf::font::{GlyphUnit, CMap, CMapEncoding, WidthRecord, FontStream};
 
-use crate::doc::{Document, Page as DocPage, TextAction};
+use crate::doc::{Document, Page as DocPage, LayoutAction};
 use crate::font::{Font, FontError};
-use crate::size::Size;
+use crate::size::{Size, Size2D};
 
 
 /// Exports documents into _PDFs_.
@@ -72,8 +72,8 @@ impl<'d, W: Write> PdfEngine<'d, W> {
             for page in &doc.pages {
                 for action in &page.actions {
                     match action {
-                        TextAction::WriteText(string) => chars[font].extend(string.chars()),
-                        TextAction::SetFont(id, _) => font = *id,
+                        LayoutAction::WriteText(string) => chars[font].extend(string.chars()),
+                        LayoutAction::SetFont(id, _) => font = *id,
                         _ => {},
                     }
                 }
@@ -123,7 +123,7 @@ impl<'d, W: Write> PdfEngine<'d, W> {
         // The page objects
         for (id, page) in ids(self.offsets.pages).zip(&self.doc.pages) {
             self.writer.write_obj(id, Page::new(self.offsets.page_tree)
-                .media_box(Rect::new(0.0, 0.0, page.width.to_points(), page.height.to_points()))
+                .media_box(Rect::new(0.0, 0.0, page.width.to_pt(), page.height.to_pt()))
                 .contents(ids(self.offsets.contents))
             )?;
         }
@@ -141,23 +141,40 @@ impl<'d, W: Write> PdfEngine<'d, W> {
 
     /// Write the content of a page.
     fn write_page(&mut self, id: u32, page: &DocPage) -> PdfResult<()> {
-        let mut font = 0;
-        let mut text = Text::new();
+        // The currently used font.
+        let mut active_font = (std::usize::MAX, 0.0);
 
-        text.tm(1.0, 0.0, 0.0, 1.0, 0.0, page.height.to_points());
+        // The last set position and font, these get flushed when content is written.
+        let mut next_pos = Some(Size2D::zero());
+        let mut next_font = None;
+
+        // The output text.
+        let mut text = Text::new();
 
         for action in &page.actions {
             match action {
-                TextAction::MoveAbsolute(pos) => {
-                    let x = pos.x.to_points();
-                    let y = (page.height - pos.y).to_points();
-                    text.tm(1.0, 0.0, 0.0, 1.0, x, y);
-                },
-                TextAction::MoveNewline(pos) => { text.td(pos.x.to_points(), -pos.y.to_points()); },
-                TextAction::WriteText(string) => { text.tj(self.fonts[font].encode(&string)); },
-                TextAction::SetFont(id, size) => {
-                    font = *id;
-                    text.tf(*id as u32 + 1, *size);
+                LayoutAction::MoveAbsolute(pos) => next_pos = Some(*pos),
+                LayoutAction::SetFont(id, size) => next_font = Some((*id, *size)),
+                LayoutAction::WriteText(string) => {
+                    // Flush the font if it is different from the current.
+                    if let Some((id, size)) = next_font {
+                        if (id, size) != active_font {
+                            text.tf(id as u32 + 1, size);
+                            active_font = (id, size);
+                            next_font = None;
+                        }
+                    }
+
+                    // Flush the position.
+                    if let Some(pos) = next_pos {
+                        let x = pos.x.to_pt();
+                        let y = (page.height - pos.y - Size::pt(active_font.1)).to_pt();
+                        text.tm(1.0, 0.0, 0.0, 1.0, x, y);
+                        next_pos = None;
+                    }
+
+                    // Write the text.
+                    text.tj(self.fonts[active_font.0].encode(&string));
                 },
             }
         }
@@ -249,7 +266,7 @@ impl PdfFont {
     fn new(font: &Font, chars: &HashSet<char>) -> PdfResult<PdfFont> {
         /// Convert a size into a _PDF_ glyph unit.
         fn size_to_glyph_unit(size: Size) -> GlyphUnit {
-            (1000.0 * size.to_points()).round() as GlyphUnit
+            (1000.0 * size.to_pt()).round() as GlyphUnit
         }
 
         // Subset the font using the selected characters.

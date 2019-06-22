@@ -60,7 +60,7 @@ impl Font {
 
         // Create a conversion function between font units and sizes.
         let font_unit_ratio = 1.0 / (head.units_per_em as f32);
-        let font_unit_to_size = |x| Size::points(font_unit_ratio * x as f32);
+        let font_unit_to_size = |x| Size::pt(font_unit_ratio * x as f32);
 
         // Find out the name of the font.
         let font_name = name.get_decoded(NameEntry::PostScriptName)
