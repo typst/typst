@@ -44,6 +44,27 @@ pub struct Font {
     pub metrics: FontMetrics,
 }
 
+/// Font metrics relevant to the typesetting or exporting processes.
+#[derive(Debug, Copy, Clone)]
+pub struct FontMetrics {
+    /// Whether the font is italic.
+    pub italic: bool,
+    /// Whether font is monospace.
+    pub monospace: bool,
+    /// The angle of text in italics.
+    pub italic_angle: f32,
+    /// The glyph bounding box: [x_min, y_min, x_max, y_max],
+    pub bounding_box: [Size; 4],
+    /// The typographics ascender.
+    pub ascender: Size,
+    /// The typographics descender.
+    pub descender: Size,
+    /// The approximate height of capital letters.
+    pub cap_height: Size,
+    /// The weight class of the font.
+    pub weight_class: u16,
+}
+
 impl Font {
     /// Create a new font from a raw font program.
     pub fn new(program: Vec<u8>) -> FontResult<Font> {
@@ -118,40 +139,12 @@ impl Font {
 
     /// Generate a subsetted version of this font including only the chars listed in `chars`.
     ///
-    /// All needed tables will be included (returning an error if a table was not present in the
-    /// source font) and optional tables will be included if they were present in the source font.
-    /// All other tables will be dropped.
+    /// The filter functions decides which tables to keep and which not based on their tag.
     #[inline]
-    pub fn subsetted<C, I, S>(&self, chars: C, needed_tables: I, optional_tables: I)
-        -> Result<Font, FontError>
-    where
-        C: IntoIterator<Item=char>,
-        I: IntoIterator<Item=S>,
-        S: AsRef<str>
-    {
-        Subsetter::subset(self, chars, needed_tables, optional_tables)
+    pub fn subsetted<C, I, S>(&self, chars: C, tables: I) -> Result<Font, FontError>
+    where C: IntoIterator<Item=char>, I: IntoIterator<Item=S>, S: AsRef<str>  {
+        Subsetter::subset(self, chars, tables)
     }
-}
-
-/// Font metrics relevant to the typesetting or exporting processes.
-#[derive(Debug, Copy, Clone)]
-pub struct FontMetrics {
-    /// Whether the font is italic.
-    pub italic: bool,
-    /// Whether font is monospace.
-    pub monospace: bool,
-    /// The angle of text in italics.
-    pub italic_angle: f32,
-    /// The glyph bounding box: [x_min, y_min, x_max, y_max],
-    pub bounding_box: [Size; 4],
-    /// The typographics ascender.
-    pub ascender: Size,
-    /// The typographics descender.
-    pub descender: Size,
-    /// The approximate height of capital letters.
-    pub cap_height: Size,
-    /// The weight class of the font.
-    pub weight_class: u16,
 }
 
 /// Categorizes a font.
@@ -327,12 +320,14 @@ impl FontProvider for FileSystemFontProvider {
 pub enum FontError {
     /// The font file is incorrect.
     InvalidFont(String),
-    /// A requested table was not present in the source font.
+    /// A character requested for subsetting was not present in the source font.
+    MissingCharacter(char),
+    /// A requested table was not present.
     MissingTable(String),
     /// The table is unknown to the subsetting engine.
     UnsupportedTable(String),
-    /// A character requested for subsetting was not present in the source font.
-    MissingCharacter(char),
+    /// The font is not supported by the subsetting engine.
+    UnsupportedFont(String),
     /// An I/O Error occured while reading the font program.
     Io(io::Error),
 }
@@ -342,9 +337,10 @@ error_type! {
     res: FontResult,
     show: f => match err {
         FontError::InvalidFont(message) => write!(f, "invalid font: {}", message),
-        FontError::MissingTable(table) => write!(f, "missing table: {}", table),
-        FontError::UnsupportedTable(table) => write!(f, "unsupported table: {}", table),
         FontError::MissingCharacter(c) => write!(f, "missing character: '{}'", c),
+        FontError::MissingTable(table) => write!(f, "missing table: '{}'", table),
+        FontError::UnsupportedTable(table) => write!(f, "unsupported table: {}", table),
+        FontError::UnsupportedFont(message) => write!(f, "unsupported font: {}", message),
         FontError::Io(err) => write!(f, "io error: {}", err),
     },
     source: match err {
