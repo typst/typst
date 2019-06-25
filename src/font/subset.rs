@@ -5,7 +5,7 @@ use std::io::{Cursor, Seek, SeekFrom};
 
 use byteorder::{BE, ReadBytesExt, WriteBytesExt};
 use opentype::{OpenTypeReader, Outlines, Table, TableRecord, Tag};
-use opentype::tables::{CharMap, Locations, HorizontalMetrics, Glyphs};
+use opentype::tables::{Header, CharMap, Locations, HorizontalMetrics, Glyphs};
 
 use crate::size::Size;
 use super::{Font, FontError, FontResult};
@@ -56,8 +56,7 @@ impl<'a> Subsetter<'a> {
     /// Do the subsetting.
     fn run<I, S>(mut self, tables: I) -> FontResult<Font>
     where I: IntoIterator<Item=S>, S: AsRef<str> {
-        // Quit early if we cannot handle the font.
-        if self.outlines != Outlines::TrueType {
+        if self.outlines == Outlines::CFF {
             return Err(FontError::UnsupportedFont("CFF outlines".to_string()));
         }
 
@@ -216,7 +215,7 @@ impl<'a> Subsetter<'a> {
         })
     }
 
-    /// Subset the `hhea` table by changing the glyph count in it.
+    /// Subset the `hhea` table by changing the number of horizontal metrics in it.
     fn subset_hhea(&mut self) -> FontResult<()> {
         let tag = "hhea".parse().unwrap();
         let hhea = self.read_table_data(tag)?;
@@ -235,7 +234,7 @@ impl<'a> Subsetter<'a> {
         self.write_table_body(tag, |this| {
             for &glyph in &this.glyphs {
                 let metrics = hmtx.get(glyph).take_invalid("missing glyph metrics")?;
-                this.body.write_i16::<BE>(metrics.advance_width)?;
+                this.body.write_u16::<BE>(metrics.advance_width)?;
                 this.body.write_i16::<BE>(metrics.left_side_bearing)?;
             }
             Ok(())
@@ -352,8 +351,14 @@ impl<'a> Subsetter<'a> {
                             break;
                         }
 
-                        let args_len = if flags & 0x0001 == 1 { 4 } else { 2 };
-                        cursor.seek(SeekFrom::Current(args_len))?;
+                        // Skip additional arguments.
+                        let skip = if flags & 1 != 0 { 4 } else { 2 }
+                            + if flags & 8 != 0 { 2 }
+                            else if flags & 64 != 0 { 4 }
+                            else if flags & 128 != 0 { 8 }
+                            else { 0 };
+
+                        cursor.seek(SeekFrom::Current(skip))?;
                     }
                 }
 
@@ -365,13 +370,19 @@ impl<'a> Subsetter<'a> {
 
     /// Subset the `loca` table by changing to the new offsets.
     fn subset_loca(&mut self) -> FontResult<()> {
+        let format = self.read_table::<Header>()?.index_to_loc_format;
         let tag = "loca".parse().unwrap();
         let loca = self.read_table::<Locations>()?;
 
         self.write_table_body(tag, |this| {
             let mut offset = 0;
             for &glyph in &this.glyphs {
-                this.body.write_u32::<BE>(offset)?;
+                if format == 0 {
+                    this.body.write_u16::<BE>((offset / 2) as u16)?;
+                } else {
+                    this.body.write_u32::<BE>(offset)?;
+                }
+
                 let len = loca.length(glyph).take_invalid("missing loca entry")?;
                 offset += len;
             }
@@ -458,7 +469,7 @@ mod tests {
 
     #[test]
     fn subset() {
-        let program = std::fs::read("../fonts/NotoSans-Regular.ttf").unwrap();
+        let program = std::fs::read("../fonts/SourceSansPro-Regular.ttf").unwrap();
         let font = Font::new(program).unwrap();
 
         let subsetted = font.subsetted(
@@ -467,6 +478,6 @@ mod tests {
               "cvt ", "fpgm", "prep", "loca", "glyf"][..]
         ).unwrap();
 
-        std::fs::write("../target/NotoSans-Subsetted.ttf", &subsetted.program).unwrap();
+        std::fs::write("../target/SourceSansPro-Subsetted.ttf", &subsetted.program).unwrap();
     }
 }

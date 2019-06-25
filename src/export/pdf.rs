@@ -270,10 +270,18 @@ impl PdfFont {
         }
 
         // Subset the font using the selected characters.
-        let subsetted = font.subsetted(
+        let subset_result = font.subsetted(
             chars.iter().cloned(),
             &["head", "hhea", "hmtx", "maxp", "cmap", "cvt ", "fpgm", "prep", "loca", "glyf"][..]
-        )?;
+        );
+
+        // Check if the subsetting was successful and if it could not handle this
+        // font we just copy it plainly.
+        let subsetted = match subset_result {
+            Ok(font) => font,
+            Err(FontError::UnsupportedFont(_)) => font.clone(),
+            Err(err) => return Err(err.into()),
+        };
 
         // Specify flags for the font.
         let mut flags = FontFlags::empty();

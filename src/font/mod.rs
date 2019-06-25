@@ -83,14 +83,15 @@ impl Font {
 
         // Create a conversion function between font units and sizes.
         let font_unit_ratio = 1.0 / (head.units_per_em as f32);
-        let font_unit_to_size = |x| Size::pt(font_unit_ratio * x as f32);
+        let font_unit_to_size = |x| Size::pt(font_unit_ratio * x);
 
         // Find out the name of the font.
         let font_name = name.get_decoded(NameEntry::PostScriptName)
             .unwrap_or_else(|| "unknown".to_owned());
 
         // Convert the widths from font units to sizes.
-        let widths = hmtx.metrics.iter().map(|m| font_unit_to_size(m.advance_width)).collect();
+        let widths = hmtx.metrics.iter()
+            .map(|m| font_unit_to_size(m.advance_width as f32)).collect();
 
         // Calculate the typesetting-relevant metrics.
         let metrics = FontMetrics {
@@ -98,14 +99,14 @@ impl Font {
             monospace: post.is_fixed_pitch,
             italic_angle: post.italic_angle.to_f32(),
             bounding_box: [
-                font_unit_to_size(head.x_min),
-                font_unit_to_size(head.y_min),
-                font_unit_to_size(head.x_max),
-                font_unit_to_size(head.y_max),
+                font_unit_to_size(head.x_min as f32),
+                font_unit_to_size(head.y_min as f32),
+                font_unit_to_size(head.x_max as f32),
+                font_unit_to_size(head.y_max as f32),
             ],
-            ascender: font_unit_to_size(os2.s_typo_ascender),
-            descender: font_unit_to_size(os2.s_typo_descender),
-            cap_height: font_unit_to_size(os2.s_cap_height.unwrap_or(os2.s_typo_ascender)),
+            ascender: font_unit_to_size(os2.s_typo_ascender as f32),
+            descender: font_unit_to_size(os2.s_typo_descender as f32),
+            cap_height: font_unit_to_size(os2.s_cap_height.unwrap_or(os2.s_typo_ascender) as f32),
             weight_class: os2.us_weight_class,
         };
 
@@ -352,7 +353,6 @@ error_type! {
         OpentypeError::InvalidFont(message) => FontError::InvalidFont(message),
         OpentypeError::MissingTable(tag) => FontError::MissingTable(tag.to_string()),
         OpentypeError::Io(err) => FontError::Io(err),
-        _ => panic!("unexpected extensible variant"),
     }),
 }
 
