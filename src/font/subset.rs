@@ -30,13 +30,15 @@ pub struct Subsetter<'a> {
 impl<'a> Subsetter<'a> {
     /// Subset a font. See [`Font::subetted`] for more details.
     pub fn subset<C, I, S>(font: &Font, chars: C, tables: I) -> Result<Font, FontError>
-    where C: IntoIterator<Item=char>, I: IntoIterator<Item=S>, S: AsRef<str> {
-        // Parse some header information.
+    where
+        C: IntoIterator<Item=char>,
+        I: IntoIterator<Item=S>,
+        S: AsRef<str>
+    {
         let mut reader = OpenTypeReader::from_slice(&font.program);
+
         let outlines = reader.outlines()?;
         let table_records = reader.tables()?.to_vec();
-
-        // Store all chars we want in a vector.
         let chars: Vec<_> = chars.into_iter().collect();
 
         let subsetter = Subsetter {
@@ -64,7 +66,7 @@ impl<'a> Subsetter<'a> {
         // which glyphs are additionally used by composite glyphs.
         self.find_glyphs()?;
 
-        // Write all the tables the callee wants.
+        // Copy/subset all the tables the caller wants.
         for table in tables.into_iter() {
             let tag = table.as_ref().parse()
                 .map_err(|_| FontError::UnsupportedTable(table.as_ref().to_string()))?;
@@ -91,20 +93,19 @@ impl<'a> Subsetter<'a> {
     /// Store all glyphs the subset shall contain into `self.glyphs`.
     fn find_glyphs(&mut self) -> FontResult<()> {
         if self.outlines == Outlines::TrueType {
-            // Parse the necessary information.
             let char_map = self.read_table::<CharMap>()?;
             let glyf = self.read_table::<Glyphs>()?;
 
-            // Add the default glyph at index 0 in any case.
+            // The default glyph should always be at index 0.
             self.glyphs.push(self.font.default_glyph);
 
-            // Add all the glyphs for the chars requested.
             for &c in &self.chars {
                 let glyph = char_map.get(c).ok_or_else(|| FontError::MissingCharacter(c))?;
                 self.glyphs.push(glyph);
             }
 
-            // Collect the composite glyphs.
+            // Collect the glyphs not used mapping from characters but used in
+            // composite glyphs, too.
             let mut i = 0;
             while i < self.glyphs.len() as u16 {
                 let glyph_id = self.glyphs[i as usize];
@@ -115,6 +116,7 @@ impl<'a> Subsetter<'a> {
                         self.glyphs.push(composite);
                     }
                 }
+
                 i += 1;
             }
         } else {
@@ -127,13 +129,13 @@ impl<'a> Subsetter<'a> {
     /// Prepend the new header to the constructed body.
     fn write_header(&mut self) -> FontResult<()> {
         // Create an output buffer
-        let header_len = 12 + self.records.len() * 16;
+        const BASE_HEADER_LEN: usize = 12;
+        const TABLE_RECORD_LEN: usize = 16;
+        let header_len = BASE_HEADER_LEN + self.records.len() * TABLE_RECORD_LEN;
         let mut header = Vec::with_capacity(header_len);
 
-        // Compute the first four header entries.
         let num_tables = self.records.len() as u16;
 
-        // The highester power lower than the table count.
         let mut max_power = 1u16;
         while max_power * 2 <= num_tables {
             max_power *= 2;
@@ -144,7 +146,7 @@ impl<'a> Subsetter<'a> {
         let entry_selector = (max_power as f32).log2() as u16;
         let range_shift = num_tables * 16 - search_range;
 
-        // Write the base header
+        // Write the base OpenType header
         header.write_u32::<BE>(match self.outlines {
             Outlines::TrueType => 0x00010000,
             Outlines::CFF => 0x4f54544f,
@@ -169,7 +171,7 @@ impl<'a> Subsetter<'a> {
         Ok(())
     }
 
-    /// Compute the new widths.
+    /// Compute the new subsetted widths vector.
     fn compute_widths(&self) -> FontResult<Vec<Size>> {
         let mut widths = Vec::with_capacity(self.glyphs.len());
         for &glyph in &self.glyphs {
@@ -180,11 +182,12 @@ impl<'a> Subsetter<'a> {
         Ok(widths)
     }
 
-    /// Compute the new mapping.
+    /// Compute the new character to glyph id mapping.
     fn compute_mapping(&self) -> HashMap<char, u16> {
-        // The mapping is basically just the index in the char vector, but we add one
+        // The mapping is basically just the index into the char vector, but we add one
         // to each index here because we added the default glyph to the front.
-        self.chars.iter().enumerate().map(|(i, &c)| (c, 1 + i as u16))
+        self.chars.iter().enumerate()
+            .map(|(i, &c)| (c, 1 + i as u16))
             .collect::<HashMap<char, u16>>()
     }
 
@@ -192,13 +195,14 @@ impl<'a> Subsetter<'a> {
     fn subset_table(&mut self, tag: Tag) -> FontResult<()> {
         match tag.value() {
             // These tables can just be copied.
-            b"head" | b"name" | b"OS/2" | b"post" |
+            b"head" | b"name" | b"OS/2" |
             b"cvt " | b"fpgm" | b"prep" | b"gasp" => self.copy_table(tag),
 
             // These tables have more complex subsetting routines.
             b"hhea" => self.subset_hhea(),
             b"hmtx" => self.subset_hmtx(),
             b"maxp" => self.subset_maxp(),
+            b"post" => self.subset_post(),
             b"cmap" => self.subset_cmap(),
             b"glyf" => self.subset_glyf(),
             b"loca" => self.subset_loca(),
@@ -253,11 +257,21 @@ impl<'a> Subsetter<'a> {
         })
     }
 
-    /// Subset the `cmap` table by
+    /// Subset the `post` table by removing all name information.
+    fn subset_post(&mut self) -> FontResult<()> {
+        let tag = "post".parse().unwrap();
+        let post = self.read_table_data(tag)?;
+        self.write_table_body(tag, |this| {
+            this.body.write_u32::<BE>(0x00030000)?;
+            Ok(this.body.extend(&post[4..32]))
+        })
+    }
+
+    /// Subset the `cmap` table by only including the selected characters.
+    /// Always uses format 12 for simplicity.
     fn subset_cmap(&mut self) -> FontResult<()> {
         let tag = "cmap".parse().unwrap();
 
-        // Always uses format 12 for simplicity.
         self.write_table_body(tag, |this| {
             let mut groups = Vec::new();
 
@@ -281,7 +295,7 @@ impl<'a> Subsetter<'a> {
             this.body.write_u16::<BE>(0)?;
             this.body.write_u16::<BE>(1)?;
             this.body.write_u16::<BE>(3)?;
-            this.body.write_u16::<BE>(1)?;
+            this.body.write_u16::<BE>(10)?;
             this.body.write_u32::<BE>(12)?;
 
             // Write the subtable header.
@@ -319,27 +333,23 @@ impl<'a> Subsetter<'a> {
                     continue;
                 }
 
-                // Extract the glyph data.
                 let mut glyph_data = glyf.get(start as usize .. end as usize)
                     .take_invalid("missing glyph data")?.to_vec();
-
-                // Construct a cursor to operate on the data.
                 let mut cursor = Cursor::new(&mut glyph_data);
-                let num_contours = cursor.read_i16::<BE>()?;
 
                 // This is a composite glyph
+                let num_contours = cursor.read_i16::<BE>()?;
                 if num_contours < 0 {
                     cursor.seek(SeekFrom::Current(8))?;
                     loop {
                         let flags = cursor.read_u16::<BE>()?;
 
-                        // Read the old glyph index.
-                        let glyph_index = cursor.read_u16::<BE>()?;
+                        let old_glyph_index = cursor.read_u16::<BE>()?;
 
                         // Compute the new glyph index by searching for it's index
                         // in the glyph vector.
                         let new_glyph_index = this.glyphs.iter()
-                            .position(|&g| g == glyph_index)
+                            .position(|&g| g == old_glyph_index)
                             .take_invalid("invalid composite glyph")? as u16;
 
                         // Overwrite the old index with the new one.
@@ -386,7 +396,14 @@ impl<'a> Subsetter<'a> {
                 let len = loca.length(glyph).take_invalid("missing loca entry")?;
                 offset += len;
             }
-            this.body.write_u32::<BE>(offset)?;
+
+            // Write the final offset (so that it is known how long the last glyph is).
+            if format == 0 {
+                this.body.write_u16::<BE>((offset / 2) as u16)?;
+            } else {
+                this.body.write_u32::<BE>(offset)?;
+            }
+
             Ok(())
         })
     }
@@ -399,7 +416,7 @@ impl<'a> Subsetter<'a> {
         writer(self)?;
         let end = self.body.len();
 
-        // Pad with zeroes.
+        // Pad with zeros.
         while (self.body.len() - start) % 4 != 0 {
             self.body.push(0);
         }
@@ -410,6 +427,11 @@ impl<'a> Subsetter<'a> {
             offset: start as u32,
             length: (end - start) as u32,
         }))
+    }
+
+    /// Whether this font contains a given table.
+    fn contains_table(&self, tag: Tag) -> bool {
+        self.tables.binary_search_by_key(&tag, |r| r.tag).is_ok()
     }
 
     /// Read a table with the opentype reader.
@@ -428,15 +450,10 @@ impl<'a> Subsetter<'a> {
             .get(record.offset as usize .. (record.offset + record.length) as usize)
             .take_invalid("missing table data")
     }
-
-    /// Whether this font contains a given table.
-    fn contains_table(&self, tag: Tag) -> bool {
-        self.tables.binary_search_by_key(&tag, |r| r.tag).is_ok()
-    }
 }
 
-/// Calculate a checksum over the sliced data as sum of u32's. The data length has to be a multiple
-/// of four.
+/// Calculate a checksum over the sliced data as sum of u32's. The data
+/// length has to be a multiple of four.
 fn calculate_check_sum(data: &[u8]) -> u32 {
     let mut sum = 0u32;
     data.chunks_exact(4).for_each(|c| {
@@ -452,7 +469,8 @@ fn calculate_check_sum(data: &[u8]) -> u32 {
 
 /// Helper trait to create subsetting errors more easily.
 trait TakeInvalid<T>: Sized {
-    /// Pull the type out of the option, returning an invalid font error if self was not valid.
+    /// Pull the type out of self, returning an invalid font
+    /// error if self was not valid.
     fn take_invalid<S: Into<String>>(self, message: S) -> FontResult<T>;
 }
 
@@ -465,19 +483,80 @@ impl<T> TakeInvalid<T> for Option<T> {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use crate::font::Font;
+    use opentype::{OpenTypeReader, TableRecord};
+    use opentype::tables::{CharMap, Locations};
 
-    #[test]
-    fn subset() {
-        let program = std::fs::read("../fonts/SourceSansPro-Regular.ttf").unwrap();
+    const ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz";
+
+    /// Stores some tables for inspections.
+    struct Tables<'a> {
+        cmap: CharMap,
+        loca: Locations,
+        glyf_data: &'a [u8],
+    }
+
+    impl<'a> Tables<'a> {
+        /// Load the tables from the font.
+        fn new(font: &'a Font) -> Tables<'a> {
+            let mut reader = OpenTypeReader::from_slice(&font.program);
+
+            let cmap = reader.read_table::<CharMap>().unwrap();
+            let loca = reader.read_table::<Locations>().unwrap();
+
+            let &TableRecord { offset, length, .. } = reader.get_table_record("glyf").unwrap();
+            let glyf_data = &font.program[offset as usize .. (offset + length) as usize];
+
+            Tables { cmap, loca, glyf_data }
+        }
+
+        /// Return the glyph data for the given character.
+        fn glyph_data(&self, character: char) -> Option<&'a [u8]> {
+            let glyph = self.cmap.get(character)?;
+            let start = self.loca.offset(glyph)?;
+            let end = self.loca.offset(glyph + 1)?;
+            Some(&self.glyf_data[start as usize .. end as usize])
+        }
+    }
+
+    /// Return the original and subsetted version of a font with the characters
+    /// included that are given as the chars of the string.
+    fn subset(font: &str, chars: &str) -> (Font, Font) {
+        let program = fs::read(format!("../fonts/{}", font)).unwrap();
         let font = Font::new(program).unwrap();
 
         let subsetted = font.subsetted(
-            "abcdefghijklmnopqrstuvwxyz‼".chars(),
+            chars.chars(),
             &["name", "OS/2", "post", "head", "hhea", "hmtx", "maxp", "cmap",
-              "cvt ", "fpgm", "prep", "loca", "glyf"][..]
+              "cvt ", "fpgm", "prep", "gasp", "loca", "glyf"][..]
         ).unwrap();
 
-        std::fs::write("../target/SourceSansPro-Subsetted.ttf", &subsetted.program).unwrap();
+        (font, subsetted)
+    }
+
+    /// A test that creates a subsetted fonts in the `target` directory
+    /// for manual inspection.
+    #[test]
+    fn manual_files() {
+        let subsetted = subset("SourceSansPro-Regular.ttf", ALPHABET).1;
+        fs::write("../target/SourceSansPro-Subsetted.ttf", &subsetted.program).unwrap();
+
+        let subsetted = subset("NotoSans-Regular.ttf", ALPHABET).1;
+        fs::write("../target/NotoSans-Subsetted.ttf", &subsetted.program).unwrap();
+    }
+
+    /// Tests whether the glyph data for specific glyphs match in the original
+    /// and subsetted version.
+    #[test]
+    fn glyph_data() {
+        let (font, subsetted) = subset("SourceSansPro-Regular.ttf", ALPHABET);
+        let font_tables = Tables::new(&font);
+        let subset_tables = Tables::new(&subsetted);
+
+        // Go through all characters but skip the composite glyphs.
+        for c in ALPHABET.chars().filter(|&x| x != 'i' && x != 'j') {
+            assert_eq!(font_tables.glyph_data(c), subset_tables.glyph_data(c));
+        }
     }
 }

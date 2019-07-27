@@ -30,10 +30,9 @@
 //!     ("CMU-Serif-Italic.ttf",  font!["Computer Modern", Italic, Serif]),
 //!     ("NotoEmoji-Regular.ttf", font!["Noto", Regular, Serif, SansSerif, Monospace]),
 //! ]));
-//! // Typeset the source code into a document.
-//! let document = typesetter.typeset(src).unwrap();
 //!
-//! // Export the document into a PDF file.
+//! // Typeset the document and export it into a PDF file.
+//! let document = typesetter.typeset(src).unwrap();
 //! # /*
 //! let file = File::create("hello-typeset.pdf").unwrap();
 //! # */

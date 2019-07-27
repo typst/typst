@@ -42,7 +42,7 @@ struct PdfEngine<'d, W: Write> {
 }
 
 /// Offsets for the various groups of ids.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct Offsets {
     catalog: Ref,
     page_tree: Ref,
@@ -67,8 +67,7 @@ impl<'d, W: Write> PdfEngine<'d, W> {
             let mut font = 0usize;
             let mut chars = vec![HashSet::new(); doc.fonts.len()];
 
-            // Iterate through every text object on every page and find out which characters they
-            // use.
+            // Find out which characters are used for each font.
             for page in &doc.pages {
                 for action in &page.actions {
                     match action {
@@ -141,15 +140,13 @@ impl<'d, W: Write> PdfEngine<'d, W> {
 
     /// Write the content of a page.
     fn write_page(&mut self, id: u32, page: &DocPage) -> PdfResult<()> {
-        // The currently used font.
+        let mut text = Text::new();
         let mut active_font = (std::usize::MAX, 0.0);
 
-        // The last set position and font, these get flushed when content is written.
+        // The last set position and font,
+        // these only get flushed lazily when content is written.
         let mut next_pos = Some(Size2D::zero());
         let mut next_font = None;
-
-        // The output text.
-        let mut text = Text::new();
 
         for action in &page.actions {
             match action {
@@ -174,7 +171,7 @@ impl<'d, W: Write> PdfEngine<'d, W> {
                     }
 
                     // Write the text.
-                    text.tj(self.fonts[active_font.0].encode(&string));
+                    text.tj(self.fonts[active_font.0].encode_text(&string));
                 },
             }
         }
@@ -227,7 +224,7 @@ impl<'d, W: Write> PdfEngine<'d, W> {
                 .font_file_2(id + 4)
             )?;
 
-            // The CMap, which maps glyphs to unicode codepoints.
+            // Write the CMap, which maps glyphs to unicode codepoints.
             let mapping = font.font.mapping.iter().map(|(&c, &cid)| (cid, c));
             self.writer.write_obj(id + 3, &CMap::new("Custom", system_info, mapping))?;
 
@@ -261,15 +258,14 @@ struct PdfFont {
 }
 
 impl PdfFont {
-    /// Create a subetted version of the font and calculate some information needed for creating the
-    /// _PDF_.
+    /// Create a subetted version of the font and calculate some information
+    /// needed for creating the _PDF_.
     fn new(font: &Font, chars: &HashSet<char>) -> PdfResult<PdfFont> {
         /// Convert a size into a _PDF_ glyph unit.
         fn size_to_glyph_unit(size: Size) -> GlyphUnit {
             (1000.0 * size.to_pt()).round() as GlyphUnit
         }
 
-        // Subset the font using the selected characters.
         let subset_result = font.subsetted(
             chars.iter().cloned(),
             &["head", "hhea", "hmtx", "maxp", "cmap", "cvt ", "fpgm", "prep", "loca", "glyf"][..]
@@ -283,7 +279,6 @@ impl PdfFont {
             Err(err) => return Err(err.into()),
         };
 
-        // Specify flags for the font.
         let mut flags = FontFlags::empty();
         flags.set(FontFlags::FIXED_PITCH, font.metrics.monospace);
         flags.set(FontFlags::SERIF, font.name.contains("Serif"));
@@ -291,7 +286,6 @@ impl PdfFont {
         flags.set(FontFlags::ITALIC, font.metrics.italic);
         flags.insert(FontFlags::SMALL_CAP);
 
-        // Transform the widths.
         let widths = subsetted.widths.iter().map(|&x| size_to_glyph_unit(x)).collect();
 
         Ok(PdfFont {

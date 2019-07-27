@@ -1,7 +1,7 @@
 use std::env;
 use std::error::Error;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, BufWriter};
 use std::path::{Path, PathBuf};
 use std::process;
 
@@ -19,14 +19,10 @@ fn main() {
 
 /// The actual main function.
 fn run() -> Result<(), Box<Error>> {
-    // Check the command line arguments.
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 || args.len() > 3 {
         help_and_quit();
     }
-
-    // Open the input file.
-    let mut file = File::open(&args[1]).map_err(|_| "failed to open source file")?;
 
     let source_path = Path::new(&args[1]);
 
@@ -39,14 +35,13 @@ fn run() -> Result<(), Box<Error>> {
         PathBuf::from(&args[2])
     };
 
-    // We do not want to overwrite the source file.
     if dest_path == source_path {
         return Err("source and destination path are the same".into());
     }
 
-    // Read the input file.
     let mut src = String::new();
-    file.read_to_string(&mut src).map_err(|_| "failed to read from source file")?;
+    let mut source_file = File::open(source_path).map_err(|_| "failed to open source file")?;
+    source_file.read_to_string(&mut src).map_err(|_| "failed to read from source file")?;
 
     // Create a typesetter with a font provider that provides the default fonts.
     let mut typesetter = Typesetter::new();
@@ -71,15 +66,15 @@ fn run() -> Result<(), Box<Error>> {
 
     // Export the document into a PDF file.
     let exporter = PdfExporter::new();
-    let output_file = File::create(&dest_path)?;
-    exporter.export(&document, output_file)?;
+    let dest_file = File::create(&dest_path)?;
+    exporter.export(&document, BufWriter::new(dest_file))?;
 
     Ok(())
 }
 
 /// Print a usage message and quit.
 fn help_and_quit() {
-    let name = env::args().next().unwrap_or("typeset".to_string());
+    let name = env::args().next().unwrap_or("typst".to_string());
     println!("usage: {} source [destination]", name);
     process::exit(0);
 }

@@ -32,7 +32,7 @@ pub fn layout(text: &str, ctx: TextContext) -> LayoutResult<BoxLayout> {
         }).ok_or_else(|| LayoutError::NoSuitableFont(character))?;
 
         // Add the char width to the total box width.
-        let char_width = font.widths[font.map(character) as usize] * ctx.style.font_size;
+        let char_width = font.widths[font.encode(character) as usize] * ctx.style.font_size;
         width += char_width;
 
         // Change the font if necessary.

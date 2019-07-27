@@ -1,4 +1,4 @@
-//! Loads fonts matching queries.
+//! Loading of fonts matching queries.
 
 use std::cell::{RefCell, Ref};
 use std::collections::HashMap;
@@ -12,7 +12,7 @@ pub struct FontLoader<'p> {
     /// The font providers.
     providers: Vec<&'p (dyn FontProvider + 'p)>,
     /// The fonts available from each provider (indexed like `providers`).
-    provider_fonts: Vec<&'p [FontInfo]>,
+    infos: Vec<&'p [FontInfo]>,
     /// The internal state. Uses interior mutability because the loader works behind
     /// an immutable reference to ease usage.
     state: RefCell<FontLoaderState<'p>>,
@@ -20,29 +20,29 @@ pub struct FontLoader<'p> {
 
 /// Internal state of the font loader (seperated to wrap it in a `RefCell`).
 struct FontLoaderState<'p> {
-    /// The loaded fonts alongside their external indices. Some fonts may not have external indices
-    /// because they were loaded but did not contain the required character. However, these are
-    /// still stored because they may be needed later. The index is just set to `None` then.
+    /// The loaded fonts alongside their external indices. Some fonts may not
+    /// have external indices because they were loaded but did not contain the
+    /// required character. However, these are still stored because they may
+    /// be needed later. The index is just set to `None` then.
     fonts: Vec<(Option<usize>, Font)>,
     /// Allows to retrieve a font (index) quickly if a query was submitted before.
     query_cache: HashMap<FontQuery, usize>,
     /// Allows to re-retrieve loaded fonts by their info instead of loading them again.
     info_cache: HashMap<&'p FontInfo, usize>,
-    /// Indexed by external indices (the ones inside the tuples in the `fonts` vector) and maps to
-    /// internal indices (the actual indices into the vector).
+    /// Indexed by external indices (the ones inside the tuples in the `fonts` vector)
+    /// and maps to internal indices (the actual indices into the vector).
     inner_index: Vec<usize>,
 }
 
 impl<'p> FontLoader<'p> {
     /// Create a new font loader using a set of providers.
-    #[inline]
     pub fn new<P: 'p>(providers: &'p [P]) -> FontLoader<'p> where P: AsRef<dyn FontProvider + 'p> {
         let providers: Vec<_> = providers.iter().map(|p| p.as_ref()).collect();
-        let provider_fonts = providers.iter().map(|prov| prov.available()).collect();
+        let infos = providers.iter().map(|prov| prov.available()).collect();
 
         FontLoader {
             providers,
-            provider_fonts,
+            infos,
             state: RefCell::new(FontLoaderState {
                 query_cache: HashMap::new(),
                 info_cache: HashMap::new(),
@@ -66,26 +66,24 @@ impl<'p> FontLoader<'p> {
         }
         drop(state);
 
-        // The outermost loop goes over the fallbacks because we want to serve the font that matches
-        // the first possible class.
+        // The outermost loop goes over the fallbacks because we want to serve the
+        // font that matches the first possible class.
         for class in &query.fallback {
-            // For each class now go over all font infos from all font providers.
-            for (provider, infos) in self.providers.iter().zip(&self.provider_fonts) {
+            // For each class now go over all fonts from all font providers.
+            for (provider, infos) in self.providers.iter().zip(&self.infos) {
                 for info in infos.iter() {
-                    let matches = info.classes.contains(class)
-                        && query.classes.iter().all(|class| info.classes.contains(class));
+                    let viable = info.classes.contains(class);
+                    let matches = viable && query.classes.iter()
+                        .all(|class| info.classes.contains(class));
 
-                    // Proceed only if this font matches the query up to now.
                     if matches {
                         let mut state = self.state.borrow_mut();
 
-                        // Check if we have already loaded this font before, otherwise, we will load
-                        // it from the provider. Anyway, have it stored and find out its internal
-                        // index.
+                        // Check if we have already loaded this font before, otherwise,
+                        // we will load it from the provider.
                         let index = if let Some(&index) = state.info_cache.get(info) {
                             index
                         } else if let Some(mut source) = provider.get(info) {
-                            // Read the font program into a vector and parse it.
                             let mut program = Vec::new();
                             source.read_to_end(&mut program).ok()?;
                             let font = Font::new(program).ok()?;
@@ -107,8 +105,8 @@ impl<'p> FontLoader<'p> {
                             // This font is suitable, thus we cache the query result.
                             state.query_cache.insert(query, index);
 
-                            // Now we have to find out the external index of it or assign a new one
-                            // if it has none.
+                            // Now we have to find out the external index of it or assign
+                            // a new one if it has none.
                             let external_index = state.fonts[index].0.unwrap_or_else(|| {
                                 // We have to assign an external index before serving.
                                 let new_index = state.inner_index.len();
@@ -133,7 +131,8 @@ impl<'p> FontLoader<'p> {
         None
     }
 
-    /// Return the font previously loaded at this index. Panics if the index is not assigned.
+    /// Return the font previously loaded at this index.
+    /// Panics if the index is not assigned.
     #[inline]
     pub fn get_with_index(&self, index: usize) -> Ref<Font> {
         let state = self.state.borrow();
@@ -143,9 +142,9 @@ impl<'p> FontLoader<'p> {
 
     /// Move the whole list of fonts out.
     pub fn into_fonts(self) -> Vec<Font> {
-        // Sort the fonts by external index so that they are in the correct order. All fonts that
-        // were cached but not used by the outside are sorted to the back and are removed in the
-        // next step.
+        // Sort the fonts by external index so that they are in the correct order.
+        // All fonts that were cached but not used by the outside are sorted to the back
+        // and are removed in the next step.
         let mut fonts = self.state.into_inner().fonts;
         fonts.sort_by_key(|&(maybe_index, _)| match maybe_index {
             Some(index) => index,
@@ -164,7 +163,7 @@ impl Debug for FontLoader<'_> {
         let state = self.state.borrow();
         f.debug_struct("FontLoader")
             .field("providers", &self.providers.len())
-            .field("provider_fonts", &self.provider_fonts)
+            .field("infos", &self.infos)
             .field("fonts", &state.fonts)
             .field("query_cache", &state.query_cache)
             .field("info_cache", &state.info_cache)
@@ -180,7 +179,6 @@ pub struct FontQuery {
     pub character: char,
     /// Which classes the font has to be part of.
     pub classes: Vec<FontClass>,
-    /// A sequence of classes. The font matching the leftmost class in this sequence
-    /// should be returned.
+    /// The font matching the leftmost class in this sequence should be returned.
     pub fallback: Vec<FontClass>,
 }
