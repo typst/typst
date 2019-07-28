@@ -168,7 +168,7 @@ pub trait FontProvider {
 /// This type is needed because currently you can't make a trait object with two traits, like
 /// `Box<dyn Read + Seek>`. Automatically implemented for all types that are [`Read`] and [`Seek`].
 pub trait FontData: Read + Seek {}
-impl<T> FontData for T where T: Read + Seek {}
+impl<T: Read + Seek> FontData for T {}
 
 /// Classifies a font by listing the font classes it is part of.
 ///
