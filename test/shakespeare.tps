@@ -1,4 +1,3 @@
-// -------------------------------------------------------------------------- //
 [bold][Scene 5: _The Tower of London_]
 
 [italic][Enter Mortimer, brought in a chair, and Gaolers.]
@@ -39,7 +38,6 @@
     That so he might recover what was lost.
 
 
-// -------------------------------------------------------------------------- //
 [italic][Enter Richard Plantagenet]
 
 *First Keeper.* My lord, your loving nephew now is come.

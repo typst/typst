@@ -3,10 +3,11 @@ use typeset::font::{*, FontClass::*};
 use typeset::style::TextStyle;
 
 
+/// Benchmarks just the char-by-char font loading.
 fn font_loading(b: &mut Bencher) {
     let provider = FileSystemFontProvider::from_listing("../fonts/fonts.toml").unwrap();
-    let providers = vec![Box::new(provider) as Box<dyn FontProvider>];
-    let font_loader = FontLoader::new(&providers);
+    let mut font_loader = FontLoader::new();
+    font_loader.add_font_provider(provider);
 
     let text = include_str!("../test/shakespeare.tps");
 
@@ -28,7 +29,7 @@ fn font_loading(b: &mut Bencher) {
             match character {
                 '_' => style.toggle_class(Italic),
                 '*' => style.toggle_class(Bold),
-                '\n' => {},
+                '\n' | '[' | ']' => {},
                 _ => {
                     let _font = font_loader.get(FontQuery {
                         character,

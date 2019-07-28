@@ -1,6 +1,6 @@
 //! Exporting into _PDF_ documents.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 
 use pdf::{PdfWriter, Ref, Rect, Version, Trailer, Content};
@@ -9,7 +9,7 @@ use pdf::font::{Type0Font, CIDFont, CIDFontType, CIDSystemInfo, FontDescriptor, 
 use pdf::font::{GlyphUnit, CMap, CMapEncoding, WidthRecord, FontStream};
 
 use crate::doc::{Document, Page as DocPage, LayoutAction};
-use crate::font::{Font, FontError};
+use crate::font::{Font, FontLoader, FontError};
 use crate::size::{Size, Size2D};
 
 
@@ -26,8 +26,9 @@ impl PdfExporter {
 
     /// Export a typesetted document into a writer. Returns how many bytes were written.
     #[inline]
-    pub fn export<W: Write>(&self, document: &Document, target: W) -> PdfResult<usize> {
-        let mut engine = PdfEngine::new(document, target)?;
+    pub fn export<W: Write>(&self, document: &Document, loader: &FontLoader, target: W)
+    -> PdfResult<usize> {
+        let mut engine = PdfEngine::new(document, loader, target)?;
         engine.write()
     }
 }
@@ -38,6 +39,7 @@ struct PdfEngine<'d, W: Write> {
     writer: PdfWriter<W>,
     doc: &'d Document,
     offsets: Offsets,
+    font_remap: HashMap<usize, usize>,
     fonts: Vec<PdfFont>,
 }
 
@@ -53,41 +55,53 @@ struct Offsets {
 
 impl<'d, W: Write> PdfEngine<'d, W> {
     /// Create a new _PDF_ engine.
-    fn new(doc: &'d Document, target: W) -> PdfResult<PdfEngine<'d, W>> {
-        // Calculate a unique id for all objects that will be written.
-        let catalog = 1;
-        let page_tree = catalog + 1;
-        let pages = (page_tree + 1, page_tree + doc.pages.len() as Ref);
-        let contents = (pages.1 + 1, pages.1 + doc.pages.len() as Ref);
-        let fonts = (contents.1 + 1, contents.1 + 5 * doc.fonts.len() as Ref);
-        let offsets = Offsets { catalog, page_tree, pages, contents, fonts };
-
+    fn new(doc: &'d Document, loader: &FontLoader, target: W) -> PdfResult<PdfEngine<'d, W>> {
         // Create a subsetted PDF font for each font in the document.
+        let mut font_remap = HashMap::new();
         let fonts = {
             let mut font = 0usize;
-            let mut chars = vec![HashSet::new(); doc.fonts.len()];
+            let mut chars = HashMap::new();
 
             // Find out which characters are used for each font.
             for page in &doc.pages {
                 for action in &page.actions {
                     match action {
-                        LayoutAction::WriteText(string) => chars[font].extend(string.chars()),
-                        LayoutAction::SetFont(id, _) => font = *id,
+                        LayoutAction::WriteText(string) => {
+                            chars.entry(font)
+                                .or_insert_with(HashSet::new)
+                                .extend(string.chars())
+                        },
+                        LayoutAction::SetFont(id, _) => {
+                            font = *id;
+                            let new_id = font_remap.len();
+                            font_remap.entry(font).or_insert(new_id);
+                        },
                         _ => {},
                     }
                 }
             }
 
-            doc.fonts.iter()
-                .enumerate()
-                .map(|(i, font)| PdfFont::new(font, &chars[i]))
+            // Collect the fonts into a vector in the order of the values in the remapping.
+            let mut order = font_remap.iter().map(|(&old, &new)| (old, new)).collect::<Vec<_>>();
+            order.sort_by_key(|&(_, new)| new);
+            order.into_iter()
+                .map(|(old, _)| PdfFont::new(&loader.get_with_index(old), &chars[&old]))
                 .collect::<PdfResult<Vec<_>>>()?
         };
+
+        // Calculate a unique id for all objects that will be written.
+        let catalog = 1;
+        let page_tree = catalog + 1;
+        let pages = (page_tree + 1, page_tree + doc.pages.len() as Ref);
+        let contents = (pages.1 + 1, pages.1 + doc.pages.len() as Ref);
+        let font_offsets = (contents.1 + 1, contents.1 + 5 * fonts.len() as Ref);
+        let offsets = Offsets { catalog, page_tree, pages, contents, fonts: font_offsets };
 
         Ok(PdfEngine {
             writer: PdfWriter::new(target),
             doc,
             offsets,
+            font_remap,
             fonts,
         })
     }
@@ -151,7 +165,7 @@ impl<'d, W: Write> PdfEngine<'d, W> {
         for action in &page.actions {
             match action {
                 LayoutAction::MoveAbsolute(pos) => next_pos = Some(*pos),
-                LayoutAction::SetFont(id, size) => next_font = Some((*id, *size)),
+                LayoutAction::SetFont(id, size) => next_font = Some((self.font_remap[id], *size)),
                 LayoutAction::WriteText(string) => {
                     // Flush the font if it is different from the current.
                     if let Some((id, size)) = next_font {

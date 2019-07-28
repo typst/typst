@@ -38,13 +38,11 @@
 //! # */
 //! # let file = File::create("../target/typeset-doc-hello.pdf").unwrap();
 //! let exporter = PdfExporter::new();
-//! exporter.export(&document, file).unwrap();
+//! exporter.export(&document, typesetter.loader(), file).unwrap();
 //! ```
 
-use std::fmt::{self, Debug, Formatter};
-
 use crate::doc::Document;
-use crate::font::{Font, FontLoader, FontProvider};
+use crate::font::{FontLoader, FontProvider};
 use crate::func::Scope;
 use crate::parsing::{parse, ParseContext, ParseResult, ParseError};
 use crate::layout::{layout, LayoutContext, LayoutSpace, LayoutError, LayoutResult};
@@ -69,9 +67,10 @@ pub mod syntax;
 /// Transforms source code into typesetted documents.
 ///
 /// Can be configured through various methods.
+#[derive(Debug)]
 pub struct Typesetter<'p> {
-    /// Font providers.
-    font_providers: Vec<Box<dyn FontProvider + 'p>>,
+    /// The font loader shared by all typesetting processes.
+    loader: FontLoader<'p>,
     /// The default text style.
     text_style: TextStyle,
     /// The default page style.
@@ -83,9 +82,9 @@ impl<'p> Typesetter<'p> {
     #[inline]
     pub fn new() -> Typesetter<'p> {
         Typesetter {
+            loader: FontLoader::new(),
             text_style: TextStyle::default(),
             page_style: PageStyle::default(),
-            font_providers: vec![],
         }
     }
 
@@ -104,21 +103,19 @@ impl<'p> Typesetter<'p> {
     /// Add a font provider to the context of this typesetter.
     #[inline]
     pub fn add_font_provider<P: 'p>(&mut self, provider: P) where P: FontProvider {
-        self.font_providers.push(Box::new(provider));
+        self.loader.add_font_provider(provider);
     }
 
     /// Parse source code into a syntax tree.
-    #[inline]
     pub fn parse(&self, src: &str) -> ParseResult<SyntaxTree> {
         let scope = Scope::with_std();
         parse(src, ParseContext { scope: &scope })
     }
 
     /// Layout a syntax tree and return the layout and the referenced font list.
-    pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<(BoxLayout, Vec<Font>)> {
-        let loader = FontLoader::new(&self.font_providers);
+    pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<BoxLayout> {
         let pages = layout(&tree, LayoutContext {
-            loader: &loader,
+            loader: &self.loader,
             style: &self.text_style,
             space: LayoutSpace {
                 dimensions: self.page_style.dimensions,
@@ -126,28 +123,23 @@ impl<'p> Typesetter<'p> {
                 shrink_to_fit: false,
             },
         })?;
-        Ok((pages, loader.into_fonts()))
+        Ok(pages)
     }
 
     /// Typeset a portable document from source code.
-    #[inline]
     pub fn typeset(&self, src: &str) -> Result<Document, TypesetError> {
         let tree = self.parse(src)?;
-        let (layout, fonts) = self.layout(&tree)?;
-        let document = layout.into_doc(fonts);
+        let layout = self.layout(&tree)?;
+        let document = layout.into_doc();
         Ok(document)
+    }
+
+    /// A reference to the backing font loader.
+    pub fn loader(&self) -> &FontLoader<'p> {
+        &self.loader
     }
 }
 
-impl Debug for Typesetter<'_> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("Typesetter")
-            .field("page_style", &self.page_style)
-            .field("text_style", &self.text_style)
-            .field("font_providers", &self.font_providers.len())
-            .finish()
-    }
-}
 
 /// The general error type for typesetting.
 pub enum TypesetError {
@@ -193,7 +185,7 @@ mod test {
         let path = format!("../target/typeset-unit-{}.pdf", name);
         let file = BufWriter::new(File::create(path).unwrap());
         let exporter = PdfExporter::new();
-        exporter.export(&document, file).unwrap();
+        exporter.export(&document, typesetter.loader(), file).unwrap();
     }
 
     #[test]

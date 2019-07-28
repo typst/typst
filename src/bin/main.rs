@@ -54,7 +54,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     // Export the document into a PDF file.
     let exporter = PdfExporter::new();
     let dest_file = File::create(&dest_path)?;
-    exporter.export(&document, BufWriter::new(dest_file))?;
+    exporter.export(&document, typesetter.loader(), BufWriter::new(dest_file))?;
 
     Ok(())
 }

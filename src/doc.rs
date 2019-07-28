@@ -1,6 +1,5 @@
 //! Representation of typesetted documents.
 
-use crate::font::Font;
 use crate::size::{Size, Size2D};
 
 
@@ -9,8 +8,6 @@ use crate::size::{Size, Size2D};
 pub struct Document {
     /// The pages of the document.
     pub pages: Vec<Page>,
-    /// The fonts used (the page contents index into this).
-    pub fonts: Vec<Font>,
 }
 
 /// A page of a document.

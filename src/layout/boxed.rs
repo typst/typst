@@ -1,7 +1,6 @@
 //! Block-style layouting of boxes.
 
 use crate::doc::{Document, Page, LayoutAction};
-use crate::font::Font;
 use crate::size::{Size, Size2D};
 use super::{ActionList, LayoutSpace, LayoutResult, LayoutError};
 
@@ -16,15 +15,14 @@ pub struct BoxLayout {
 }
 
 impl BoxLayout {
-    /// Convert this layout into a document given the list of fonts referenced by it.
-    pub fn into_doc(self, fonts: Vec<Font>) -> Document {
+    /// Convert this layout into a document.
+    pub fn into_doc(self) -> Document {
         Document {
             pages: vec![Page {
                 width: self.dimensions.x,
                 height: self.dimensions.y,
                 actions: self.actions,
             }],
-            fonts,
         }
     }
 }
