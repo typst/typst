@@ -10,7 +10,19 @@ opentype = { path = "../opentype" }
 byteorder = "1"
 smallvec = "0.6.10"
 unicode-xid = "0.1.0"
+toml = "0.5"
+
+[dev-dependencies]
+bencher = "0.1"
 
 [[bin]]
 name = "typst"
 path = "src/bin/main.rs"
+
+[[bench]]
+name = "font"
+harness = false
+
+[[bench]]
+name = "complete"
+harness = false

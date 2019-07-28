@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process;
 
 use typeset::Typesetter;
-use typeset::{font::FileSystemFontProvider, font};
+use typeset::font::FileSystemFontProvider;
 use typeset::export::pdf::PdfExporter;
 
 
@@ -18,7 +18,7 @@ fn main() {
 }
 
 /// The actual main function.
-fn run() -> Result<(), Box<Error>> {
+fn run() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 || args.len() > 3 {
         help_and_quit();
@@ -45,21 +45,8 @@ fn run() -> Result<(), Box<Error>> {
 
     // Create a typesetter with a font provider that provides the default fonts.
     let mut typesetter = Typesetter::new();
-    typesetter.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
-        ("CMU-SansSerif-Regular.ttf",      font!["Computer Modern", Regular, SansSerif]),
-        ("CMU-SansSerif-Italic.ttf",       font!["Computer Modern", Italic, SansSerif]),
-        ("CMU-SansSerif-Bold.ttf",         font!["Computer Modern", Bold, SansSerif]),
-        ("CMU-SansSerif-Bold-Italic.ttf",  font!["Computer Modern", Bold, Italic, SansSerif]),
-        ("CMU-Serif-Regular.ttf",          font!["Computer Modern", Regular, Serif]),
-        ("CMU-Serif-Italic.ttf",           font!["Computer Modern", Italic, Serif]),
-        ("CMU-Serif-Bold.ttf",             font!["Computer Modern", Bold, Serif]),
-        ("CMU-Serif-Bold-Italic.ttf",      font!["Computer Modern", Bold, Italic, Serif]),
-        ("CMU-Typewriter-Regular.ttf",     font!["Computer Modern", Regular, Serif, SansSerif, Monospace]),
-        ("CMU-Typewriter-Italic.ttf",      font!["Computer Modern", Italic, Serif, SansSerif, Monospace]),
-        ("CMU-Typewriter-Bold.ttf",        font!["Computer Modern", Bold, Serif, SansSerif, Monospace]),
-        ("CMU-Typewriter-Bold-Italic.ttf", font!["Computer Modern", Bold, Italic, Serif, SansSerif, Monospace]),
-        ("NotoEmoji-Regular.ttf",          font!["Noto", Regular, Bold, Italic, SansSerif, Serif, Monospace]),
-    ]));
+    let provider = FileSystemFontProvider::from_listing("fonts/fonts.toml").unwrap();
+    typesetter.add_font_provider(provider);
 
     // Typeset the source code.
     let document = typesetter.typeset(&src)?;

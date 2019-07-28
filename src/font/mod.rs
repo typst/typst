@@ -11,13 +11,15 @@
 //! from a folder on the file system.
 
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{self, Cursor, Read, Seek, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use opentype::{Error as OpentypeError, OpenTypeReader};
 use opentype::tables::{Header, Name, CharMap, HorizontalMetrics, Post, OS2};
 use opentype::types::{MacStyleFlags, NameEntry};
+use toml::map::Map as TomlMap;
+use toml::value::Value as TomlValue;
 
 use self::subset::Subsetter;
 use crate::size::Size;
@@ -300,6 +302,64 @@ impl FileSystemFontProvider {
             infos,
         }
     }
+
+    /// Create a new provider from a font listing file.
+    pub fn from_listing<P: AsRef<Path>>(file: P) -> FontResult<FileSystemFontProvider> {
+        fn inv<S: ToString>(message: S) -> FontError {
+            FontError::InvalidListing(message.to_string())
+        }
+
+        let file = file.as_ref();
+        let base = file.parent()
+            .ok_or_else(|| inv("expected listings file"))?;
+
+        let bytes = fs::read(file)?;
+        let map: TomlMap<String, toml::Value> = toml::de::from_slice(&bytes)
+            .map_err(|err| inv(err))?;
+
+        let mut paths = Vec::new();
+        let mut infos = Vec::new();
+
+        for value in map.values() {
+            if let TomlValue::Table(table) = value {
+                // Parse the string file key.
+                paths.push(match table.get("file") {
+                    Some(TomlValue::String(s)) => PathBuf::from(s),
+                    _ => return Err(inv("expected file name")),
+                });
+
+                // Parse the array<string> classes key.
+                infos.push(if let Some(TomlValue::Array(array)) = table.get("classes") {
+                    let mut classes = Vec::with_capacity(array.len());
+                    for class in array {
+                        classes.push(match class {
+                            TomlValue::String(class) => match class.as_str() {
+                                "Serif" => FontClass::Serif,
+                                "SansSerif" => FontClass::SansSerif,
+                                "Monospace" => FontClass::Monospace,
+                                "Regular" => FontClass::Regular,
+                                "Bold" => FontClass::Bold,
+                                "Italic" => FontClass::Italic,
+                                _ => FontClass::Family(class.to_string()),
+                            },
+                            _ => return Err(inv("expect font class string")),
+                        })
+                    }
+                    FontInfo { classes }
+                } else {
+                    return Err(inv("expected font classes"));
+                });
+            } else {
+                return Err(inv("expected file/classes table"));
+            }
+        }
+
+        Ok(FileSystemFontProvider {
+            base: base.to_owned(),
+            paths,
+            infos,
+        })
+    }
 }
 
 impl FontProvider for FileSystemFontProvider {
@@ -309,7 +369,7 @@ impl FontProvider for FileSystemFontProvider {
         let path = &self.paths[index];
         let full_path = self.base.join(path);
         let file = File::open(full_path).ok()?;
-        Some(Box::new(BufReader::new(file)) as Box<FontData>)
+        Some(Box::new(BufReader::new(file)) as Box<dyn FontData>)
     }
 
     #[inline]
@@ -323,6 +383,8 @@ impl FontProvider for FileSystemFontProvider {
 pub enum FontError {
     /// The font file is incorrect.
     InvalidFont(String),
+    /// The font listing is incorrect.
+    InvalidListing(String),
     /// A character requested for subsetting was not present in the source font.
     MissingCharacter(char),
     /// A requested or required table was not present.
@@ -340,6 +402,7 @@ error_type! {
     res: FontResult,
     show: f => match err {
         FontError::InvalidFont(message) => write!(f, "invalid font: {}", message),
+        FontError::InvalidListing(message) => write!(f, "invalid font listing: {}", message),
         FontError::MissingCharacter(c) => write!(f, "missing character: '{}'", c),
         FontError::MissingTable(table) => write!(f, "missing table: '{}'", table),
         FontError::UnsupportedTable(table) => write!(f, "unsupported table: {}", table),
