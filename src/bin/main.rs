@@ -5,9 +5,9 @@ use std::io::{Read, BufWriter};
 use std::path::{Path, PathBuf};
 use std::process;
 
-use typeset::Typesetter;
-use typeset::font::FileSystemFontProvider;
-use typeset::export::pdf::PdfExporter;
+use typst::Typesetter;
+use typst::export::pdf::PdfExporter;
+use typst::toddle::query::FileSystemFontProvider;
 
 
 fn main() {

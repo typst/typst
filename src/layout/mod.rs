@@ -3,8 +3,10 @@
 use std::borrow::Cow;
 use std::mem;
 
+use toddle::query::{SharedFontLoader, FontClass};
+use toddle::Error as FontError;
+
 use crate::doc::LayoutAction;
-use crate::font::{FontLoader, FontClass, FontError};
 use crate::size::{Size, Size2D, SizeBox};
 use crate::syntax::{SyntaxTree, Node, FuncCall};
 use crate::style::TextStyle;
@@ -33,10 +35,10 @@ pub fn layout(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<BoxLayout> 
 }
 
 /// The context for layouting.
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct LayoutContext<'a, 'p> {
     /// Loads fonts matching queries.
-    pub loader: &'a FontLoader<'p>,
+    pub loader: &'a SharedFontLoader<'p>,
     /// Base style to set text with.
     pub style: &'a TextStyle,
     /// The space to layout in.
@@ -66,12 +68,11 @@ impl LayoutSpace {
 }
 
 /// Transforms a syntax tree into a box layout.
-#[derive(Debug)]
 struct Layouter<'a, 'p> {
     tree: &'a SyntaxTree,
     box_layouter: BoxLayouter,
     flex_layout: FlexLayout,
-    loader: &'a FontLoader<'p>,
+    loader: &'a SharedFontLoader<'p>,
     style: Cow<'a, TextStyle>,
 }
 

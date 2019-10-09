@@ -1,6 +1,6 @@
-//! The compiler for the _Typeset_ typesetting language 📜.
+//! The compiler for the _Typst_ typesetting language.
 //!
-//! # Compilation
+//! # Steps
 //! - **Parsing:** The parsing step first transforms a plain string into an [iterator of
 //!   tokens](crate::parsing::Tokens). Then the [parser](crate::parsing::Parser) operates on that to
 //!   construct a syntax tree. The structures describing the tree can be found in the [syntax]
@@ -11,38 +11,13 @@
 //! - **Exporting:** The finished document can then be exported into supported formats. Submodules
 //!   for the supported formats are located in the [export] module. Currently the only supported
 //!   format is _PDF_.
-//!
-//! # Example
-//! ```
-//! use std::fs::File;
-//! use typeset::Typesetter;
-//! use typeset::{font::FileSystemFontProvider, font};
-//! use typeset::export::pdf::PdfExporter;
-//!
-//! // Simple example source code.
-//! let src = "Hello World from _Typeset_! 🌍";
-//!
-//! // Create a typesetter with a font provider that provides three fonts
-//! // (two sans-serif fonts and a fallback for the emoji).
-//! let mut typesetter = Typesetter::new();
-//! typesetter.add_font_provider(FileSystemFontProvider::new("../fonts", vec![
-//!     ("CMU-Serif-Regular.ttf", font!["Computer Modern", Regular, Serif]),
-//!     ("CMU-Serif-Italic.ttf",  font!["Computer Modern", Italic, Serif]),
-//!     ("NotoEmoji-Regular.ttf", font!["Noto", Regular, Serif, SansSerif, Monospace]),
-//! ]));
-//!
-//! // Typeset the document and export it into a PDF file.
-//! let document = typesetter.typeset(src).unwrap();
-//! # /*
-//! let file = File::create("hello-typeset.pdf").unwrap();
-//! # */
-//! # let file = File::create("../target/typeset-doc-hello.pdf").unwrap();
-//! let exporter = PdfExporter::new();
-//! exporter.export(&document, typesetter.loader(), file).unwrap();
-//! ```
+
+pub extern crate toddle;
+
+use std::cell::RefCell;
+use toddle::query::{FontLoader, SharedFontLoader, FontProvider};
 
 use crate::doc::Document;
-use crate::font::{FontLoader, FontProvider};
 use crate::func::Scope;
 use crate::parsing::{parse, ParseContext, ParseResult, ParseError};
 use crate::layout::{layout, LayoutContext, LayoutSpace, LayoutError, LayoutResult};
@@ -54,8 +29,6 @@ use crate::syntax::SyntaxTree;
 mod error;
 pub mod doc;
 pub mod export;
-#[macro_use]
-pub mod font;
 pub mod func;
 pub mod layout;
 pub mod parsing;
@@ -67,10 +40,9 @@ pub mod syntax;
 /// Transforms source code into typesetted documents.
 ///
 /// Can be configured through various methods.
-#[derive(Debug)]
 pub struct Typesetter<'p> {
     /// The font loader shared by all typesetting processes.
-    loader: FontLoader<'p>,
+    loader: SharedFontLoader<'p>,
     /// The default text style.
     text_style: TextStyle,
     /// The default page style.
@@ -82,7 +54,7 @@ impl<'p> Typesetter<'p> {
     #[inline]
     pub fn new() -> Typesetter<'p> {
         Typesetter {
-            loader: FontLoader::new(),
+            loader: RefCell::new(FontLoader::new()),
             text_style: TextStyle::default(),
             page_style: PageStyle::default(),
         }
@@ -103,7 +75,7 @@ impl<'p> Typesetter<'p> {
     /// Add a font provider to the context of this typesetter.
     #[inline]
     pub fn add_font_provider<P: 'p>(&mut self, provider: P) where P: FontProvider {
-        self.loader.add_font_provider(provider);
+        self.loader.get_mut().add_provider(provider);
     }
 
     /// Parse source code into a syntax tree.
@@ -135,7 +107,7 @@ impl<'p> Typesetter<'p> {
     }
 
     /// A reference to the backing font loader.
-    pub fn loader(&self) -> &FontLoader<'p> {
+    pub fn loader(&self) -> &SharedFontLoader<'p> {
         &self.loader
     }
 }
@@ -170,12 +142,12 @@ mod test {
     use std::io::BufWriter;
     use crate::Typesetter;
     use crate::export::pdf::PdfExporter;
-    use crate::font::{FileSystemFontProvider};
+    use toddle::query::FileSystemFontProvider;
 
     /// Create a _PDF_ with a name from the source code.
     fn test(name: &str, src: &str) {
         let mut typesetter = Typesetter::new();
-        let provider = FileSystemFontProvider::from_listing("../fonts/fonts.toml").unwrap();
+        let provider = FileSystemFontProvider::from_listing("fonts/fonts.toml").unwrap();
         typesetter.add_font_provider(provider);
 
         // Typeset into document.

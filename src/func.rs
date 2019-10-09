@@ -3,8 +3,8 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
+use toddle::query::FontClass;
 
-use crate::font::FontClass;
 use crate::layout::{layout, Layout, LayoutContext, LayoutResult};
 use crate::layout::flex::FlexLayout;
 use crate::parsing::{parse, ParseContext, ParseError, ParseResult};

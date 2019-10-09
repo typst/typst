@@ -3,13 +3,18 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 
-use pdf::{PdfWriter, Ref, Rect, Version, Trailer, Content};
-use pdf::doc::{Catalog, PageTree, Page, Resource, Text};
-use pdf::font::{Type0Font, CIDFont, CIDFontType, CIDSystemInfo, FontDescriptor, FontFlags};
-use pdf::font::{GlyphUnit, CMap, CMapEncoding, WidthRecord, FontStream};
+use tide::{PdfWriter, Ref, Rect, Version, Trailer};
+use tide::content::Content;
+use tide::doc::{Catalog, PageTree, Page, Resource, Text};
+use tide::font::{Type0Font, CIDFont, CIDFontType, CIDSystemInfo, FontDescriptor, FontFlags};
+use tide::font::{GlyphUnit, CMap, CMapEncoding, WidthRecord, FontStream};
+
+use toddle::tables::{Header, Post, OS2, HorizontalMetrics, CharMap, Name, NameEntry, MacStyleFlags};
+use toddle::font::OwnedFont;
+use toddle::query::SharedFontLoader;
+use toddle::Error as FontError;
 
 use crate::doc::{Document, Page as DocPage, LayoutAction};
-use crate::font::{Font, FontLoader, FontError};
 use crate::size::{Size, Size2D};
 
 
@@ -26,7 +31,7 @@ impl PdfExporter {
 
     /// Export a typesetted document into a writer. Returns how many bytes were written.
     #[inline]
-    pub fn export<W: Write>(&self, document: &Document, loader: &FontLoader, target: W)
+    pub fn export<W: Write>(&self, document: &Document, loader: &SharedFontLoader, target: W)
     -> PdfResult<usize> {
         let mut engine = PdfEngine::new(document, loader, target)?;
         engine.write()
@@ -34,13 +39,12 @@ impl PdfExporter {
 }
 
 /// Writes documents in the _PDF_ format.
-#[derive(Debug)]
 struct PdfEngine<'d, W: Write> {
     writer: PdfWriter<W>,
     doc: &'d Document,
     offsets: Offsets,
     font_remap: HashMap<usize, usize>,
-    fonts: Vec<PdfFont>,
+    fonts: Vec<OwnedFont>,
 }
 
 /// Offsets for the various groups of ids.
@@ -55,7 +59,7 @@ struct Offsets {
 
 impl<'d, W: Write> PdfEngine<'d, W> {
     /// Create a new _PDF_ engine.
-    fn new(doc: &'d Document, loader: &FontLoader, target: W) -> PdfResult<PdfEngine<'d, W>> {
+    fn new(doc: &'d Document, loader: &SharedFontLoader, target: W) -> PdfResult<PdfEngine<'d, W>> {
         // Create a subsetted PDF font for each font in the document.
         let mut font_remap = HashMap::new();
         let fonts = {
@@ -82,11 +86,22 @@ impl<'d, W: Write> PdfEngine<'d, W> {
             }
 
             // Collect the fonts into a vector in the order of the values in the remapping.
+            let mut loader = loader.borrow_mut();
             let mut order = font_remap.iter().map(|(&old, &new)| (old, new)).collect::<Vec<_>>();
             order.sort_by_key(|&(_, new)| new);
-            order.into_iter()
-                .map(|(old, _)| PdfFont::new(&loader.get_with_index(old), &chars[&old]))
-                .collect::<PdfResult<Vec<_>>>()?
+
+            let mut fonts = vec![];
+            for (index, _) in order {
+                let font = loader.get_with_index(index);
+                let subsetted = font.subsetted(
+                    chars[&index].iter().cloned(),
+                    &["name", "OS/2", "post", "head", "hhea", "hmtx", "maxp",
+                      "cmap", "cvt ", "fpgm", "prep", "loca", "glyf"][..]
+                )?;
+                fonts.push(OwnedFont::from_bytes(subsetted)?);
+            }
+
+            fonts
         };
 
         // Calculate a unique id for all objects that will be written.
@@ -108,12 +123,12 @@ impl<'d, W: Write> PdfEngine<'d, W> {
 
     /// Write the complete document.
     fn write(&mut self) -> PdfResult<usize> {
-        self.writer.write_header(&Version::new(1, 7))?;
+        self.writer.write_header(Version::new(1, 7))?;
         self.write_page_tree()?;
         self.write_pages()?;
         self.write_fonts()?;
         self.writer.write_xref_table()?;
-        self.writer.write_trailer(&Trailer::new(self.offsets.catalog))?;
+        self.writer.write_trailer(Trailer::new(self.offsets.catalog))?;
         Ok(self.writer.written())
     }
 
@@ -185,7 +200,7 @@ impl<'d, W: Write> PdfEngine<'d, W> {
                     }
 
                     // Write the text.
-                    text.tj(self.fonts[active_font.0].encode_text(&string));
+                    text.tj(self.fonts[active_font.0].encode_text(&string)?);
                 },
             }
         }
@@ -199,8 +214,11 @@ impl<'d, W: Write> PdfEngine<'d, W> {
     fn write_fonts(&mut self) -> PdfResult<()> {
         let mut id = self.offsets.fonts.0;
 
-        for font in &self.fonts {
-            let base_font = format!("ABCDEF+{}", font.name);
+        for font in &mut self.fonts {
+            let name = font.read_table::<Name>()?
+                .get_decoded(NameEntry::PostScriptName)
+                .unwrap_or_else(|| "unknown".to_string());
+            let base_font = format!("ABCDEF+{}", name);
 
             // Write the base font object referencing the CID font.
             self.writer.write_obj(id,
@@ -211,39 +229,77 @@ impl<'d, W: Write> PdfEngine<'d, W> {
                 ).to_unicode(id + 3)
             )?;
 
-            let system_info = CIDSystemInfo::new("Adobe", "Identity", 0);
+            // Extract information from the head table.
+            let head = font.read_table::<Header>()?;
+
+            let font_unit_ratio = 1.0 / (head.units_per_em as f32);
+            let font_unit_to_size = |x| Size::pt(font_unit_ratio * x);
+            let font_unit_to_glyph_unit = |fu| {
+                let size = font_unit_to_size(fu);
+                (1000.0 * size.to_pt()).round() as GlyphUnit
+            };
+
+            let italic = head.mac_style.contains(MacStyleFlags::ITALIC);
+            let bounding_box = Rect::new(
+                font_unit_to_glyph_unit(head.x_min as f32),
+                font_unit_to_glyph_unit(head.y_min as f32),
+                font_unit_to_glyph_unit(head.x_max as f32),
+                font_unit_to_glyph_unit(head.y_max as f32),
+            );
+
+            // Transform the width into PDF units.
+            let widths: Vec<_> = font
+                .read_table::<HorizontalMetrics>()?
+                .metrics.iter()
+                .map(|m| font_unit_to_glyph_unit(m.advance_width as f32))
+                .collect();
 
             // Write the CID font referencing the font descriptor.
+            let system_info = CIDSystemInfo::new("Adobe", "Identity", 0);
             self.writer.write_obj(id + 1,
                 CIDFont::new(
                     CIDFontType::Type2,
                     base_font.clone(),
                     system_info.clone(),
                     id + 2,
-                ).widths(vec![WidthRecord::start(0, font.widths.clone())])
+                ).widths(vec![WidthRecord::start(0, widths)])
             )?;
+
+            // Extract information from the post table.
+            let post = font.read_table::<Post>()?;
+            let fixed_pitch = post.is_fixed_pitch;
+            let italic_angle = post.italic_angle.to_f32();
+
+            // Build the flag set.
+            let mut flags = FontFlags::empty();
+            flags.set(FontFlags::SERIF, name.contains("Serif"));
+            flags.set(FontFlags::FIXED_PITCH, fixed_pitch);
+            flags.set(FontFlags::ITALIC, italic);
+            flags.insert(FontFlags::SYMBOLIC);
+            flags.insert(FontFlags::SMALL_CAP);
+
+            // Extract information from the OS/2 table.
+            let os2 = font.read_table::<OS2>()?;
 
             // Write the font descriptor (contains the global information about the font).
             self.writer.write_obj(id + 2,
-                FontDescriptor::new(
-                    base_font,
-                    font.flags,
-                    font.italic_angle,
-                )
-                .font_bbox(font.bounding_box)
-                .ascent(font.ascender)
-                .descent(font.descender)
-                .cap_height(font.cap_height)
-                .stem_v(font.stem_v)
-                .font_file_2(id + 4)
+                FontDescriptor::new(base_font, flags, italic_angle)
+                    .font_bbox(bounding_box)
+                    .ascent(font_unit_to_glyph_unit(os2.s_typo_ascender as f32))
+                    .descent(font_unit_to_glyph_unit(os2.s_typo_descender as f32))
+                    .cap_height(font_unit_to_glyph_unit(os2.s_cap_height.unwrap_or(os2.s_typo_ascender) as f32))
+                    .stem_v((10.0 + 0.244 * (os2.us_weight_class as f32 - 50.0)) as GlyphUnit)
+                    .font_file_2(id + 4)
             )?;
 
             // Write the CMap, which maps glyphs to unicode codepoints.
-            let mapping = font.font.mapping.iter().map(|(&c, &cid)| (cid, c));
+            let mapping = font.read_table::<CharMap>()?
+                .mapping.iter()
+                .map(|(&c, &cid)| (cid, c));
             self.writer.write_obj(id + 3, &CMap::new("Custom", system_info, mapping))?;
 
             // Finally write the subsetted font program.
-            self.writer.write_obj(id + 4, &FontStream::new(&font.program))?;
+            self.writer.write_obj(id + 4, &FontStream::new(font.data().get_ref()))?;
 
             id += 5;
         }
@@ -255,78 +311,6 @@ impl<'d, W: Write> PdfEngine<'d, W> {
 /// Create an iterator from a reference pair.
 fn ids((start, end): (Ref, Ref)) -> impl Iterator<Item=Ref> {
     start ..= end
-}
-
-/// The data we need from the font.
-#[derive(Debug, Clone)]
-struct PdfFont {
-    font: Font,
-    widths: Vec<GlyphUnit>,
-    flags: FontFlags,
-    italic_angle: f32,
-    bounding_box: Rect<GlyphUnit>,
-    ascender: GlyphUnit,
-    descender: GlyphUnit,
-    cap_height: GlyphUnit,
-    stem_v: GlyphUnit,
-}
-
-impl PdfFont {
-    /// Create a subetted version of the font and calculate some information
-    /// needed for creating the _PDF_.
-    fn new(font: &Font, chars: &HashSet<char>) -> PdfResult<PdfFont> {
-        /// Convert a size into a _PDF_ glyph unit.
-        fn size_to_glyph_unit(size: Size) -> GlyphUnit {
-            (1000.0 * size.to_pt()).round() as GlyphUnit
-        }
-
-        let subset_result = font.subsetted(
-            chars.iter().cloned(),
-            &["head", "hhea", "hmtx", "maxp", "cmap", "cvt ", "fpgm", "prep", "loca", "glyf"][..]
-        );
-
-        // Check if the subsetting was successful and if it could not handle this
-        // font we just copy it plainly.
-        let subsetted = match subset_result {
-            Ok(font) => font,
-            Err(FontError::UnsupportedFont(_)) => font.clone(),
-            Err(err) => return Err(err.into()),
-        };
-
-        let mut flags = FontFlags::empty();
-        flags.set(FontFlags::FIXED_PITCH, font.metrics.monospace);
-        flags.set(FontFlags::SERIF, font.name.contains("Serif"));
-        flags.insert(FontFlags::SYMBOLIC);
-        flags.set(FontFlags::ITALIC, font.metrics.italic);
-        flags.insert(FontFlags::SMALL_CAP);
-
-        let widths = subsetted.widths.iter().map(|&x| size_to_glyph_unit(x)).collect();
-
-        Ok(PdfFont {
-            font: subsetted,
-            widths,
-            flags,
-            italic_angle: font.metrics.italic_angle,
-            bounding_box: Rect::new(
-                size_to_glyph_unit(font.metrics.bounding_box[0]),
-                size_to_glyph_unit(font.metrics.bounding_box[1]),
-                size_to_glyph_unit(font.metrics.bounding_box[2]),
-                size_to_glyph_unit(font.metrics.bounding_box[3]),
-            ),
-            ascender: size_to_glyph_unit(font.metrics.ascender),
-            descender: size_to_glyph_unit(font.metrics.descender),
-            cap_height: size_to_glyph_unit(font.metrics.cap_height),
-            stem_v: (10.0 + 0.244 * (font.metrics.weight_class as f32 - 50.0)) as GlyphUnit,
-        })
-    }
-}
-
-impl std::ops::Deref for PdfFont {
-    type Target = Font;
-
-    fn deref(&self) -> &Font {
-        &self.font
-    }
 }
 
 /// The error type for _PDF_ creation.
