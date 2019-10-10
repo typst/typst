@@ -1,7 +1,9 @@
 //! Tokenized and syntax tree representations of source code.
 
 use std::collections::HashMap;
+use std::fmt::{self, Display, Formatter};
 use crate::func::Function;
+use crate::size::Size;
 
 
 /// A logical unit of the incoming text stream.
@@ -15,15 +17,17 @@ pub enum Token<'s> {
     LeftBracket,
     /// A right bracket: `]`.
     RightBracket,
-    /// A colon (`:`) indicating the beginning of function arguments.
+    /// A colon (`:`) indicating the beginning of function arguments (Function header only).
     ///
     /// If a colon occurs outside of a function header, it will be tokenized as a
     /// [Word](Token::Word).
     Colon,
-    /// An equals (`=`) sign assigning a function argument a value.
-    ///
-    /// Outside of functions headers, same as with [Colon](Token::Colon).
+    /// An equals (`=`) sign assigning a function argument a value (Function header only).
     Equals,
+    /// A comma (`,`) separating two function arguments (Function header only).
+    Comma,
+    /// Quoted text as a string value (Function header only).
+    Quoted(&'s str),
     /// An underscore, indicating text in italics.
     Underscore,
     /// A star, indicating bold text.
@@ -98,4 +102,23 @@ pub struct FuncHeader {
 
 /// A value expression.
 #[derive(Debug, Clone, PartialEq)]
-pub enum Expression {}
+pub enum Expression {
+    Ident(String),
+    Str(String),
+    Number(f64),
+    Size(Size),
+    Bool(bool),
+}
+
+impl Display for Expression {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        use Expression::*;
+        match self {
+            Ident(s) => write!(f, "{}", s),
+            Str(s) => write!(f, "{:?}", s),
+            Number(n) => write!(f, "{}", n),
+            Size(s) => write!(f, "{}", s),
+            Bool(b) => write!(f, "{}", b),
+        }
+    }
+}

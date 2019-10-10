@@ -8,6 +8,7 @@ use unicode_xid::UnicodeXID;
 
 use crate::func::{Function, Scope};
 use crate::syntax::*;
+use crate::size::Size;
 
 
 /// Builds an iterator over the tokens of the source code.
@@ -176,6 +177,26 @@ impl<'s> Iterator for Tokens<'s> {
             // Context sensitive operators in headers
             ':' if self.state == TU::Function => Token::Colon,
             '=' if self.state == TU::Function => Token::Equals,
+            ',' if self.state == TU::Function => Token::Comma,
+
+            // A string value.
+            '"' if self.state == TU::Function => {
+                // Find out when the word ends.
+                let mut escaped = false;
+                let mut end = (next_pos, next);
+
+                while let Some((index, c)) = self.chars.next() {
+                    if c == '"' && !escaped {
+                        break;
+                    }
+
+                    escaped = c == '\\';
+                    end = (index, c);
+                }
+
+                let end_pos = end.0 + end.1.len_utf8();
+                Token::Quoted(&self.src[next_pos + 1 .. end_pos])
+            }
 
             // Escaping
             '\\' => {
@@ -205,7 +226,7 @@ impl<'s> Iterator for Tokens<'s> {
                     let continues = match c {
                         '[' | ']' | '\\' => false,
                         '*' | '_' | '`' if self.state == TU::Body => false,
-                        ':' | '=' if self.state == TU::Function => false,
+                        ':' | '=' | ',' | '"' if self.state == TU::Function => false,
 
                         '/' => second != Some('/') && second != Some('*'),
                         '*' => second != Some('/'),
@@ -424,7 +445,7 @@ impl<'s> Parser<'s> {
     /// Parse a function header.
     fn parse_func_header(&mut self) -> ParseResult<FuncHeader> {
         // The next token should be the name of the function.
-        self.parse_white()?;
+        self.skip_white();
         let name = match self.tokens.next() {
             Some(Token::Text(word)) => {
                 if is_identifier(word) {
@@ -436,17 +457,77 @@ impl<'s> Parser<'s> {
             _ => Err(ParseError::new("expected identifier")),
         }?;
 
-        // Now the header should be closed.
-        self.parse_white()?;
-        if self.tokens.next() != Some(Token::RightBracket) {
-            return Err(ParseError::new("expected closing bracket"));
-        }
-
-        // Store the header information of the function invocation.
-        Ok(FuncHeader {
+        let mut header = FuncHeader {
             name,
             args: vec![],
             kwargs: HashMap::new(),
+        };
+
+        self.skip_white();
+
+        // Check for arguments
+        match self.tokens.next() {
+            Some(Token::RightBracket) => {},
+            Some(Token::Colon) => {
+                let (args, kwargs) = self.parse_func_args()?;
+                header.args = args;
+                header.kwargs = kwargs;
+            },
+            _ => return Err(ParseError::new("expected function arguments or closing bracket")),
+        }
+
+        // Store the header information of the function invocation.
+        Ok(header)
+    }
+
+    /// Parse the arguments to a function.
+    fn parse_func_args(&mut self) -> ParseResult<(Vec<Expression>, HashMap<String, Expression>)> {
+        let mut args = vec![];
+        let kwargs = HashMap::new();
+
+        let mut comma = false;
+        loop {
+            self.skip_white();
+
+            match self.tokens.peek() {
+                Some(Token::Text(_)) | Some(Token::Quoted(_)) if !comma => {
+                    args.push(self.parse_expression()?);
+                    comma = true;
+                },
+
+                Some(Token::Comma) if comma => {
+                    self.advance();
+                    comma = false
+                },
+                Some(Token::RightBracket) => {
+                    self.advance();
+                    break
+                },
+
+                _ if comma => return Err(ParseError::new("expected comma or closing bracket")),
+                _ => return Err(ParseError::new("expected closing bracket")),
+            }
+        }
+
+        Ok((args, kwargs))
+    }
+
+    /// Parse an expression.
+    fn parse_expression(&mut self) -> ParseResult<Expression> {
+        Ok(match self.tokens.next() {
+            Some(Token::Quoted(text)) => Expression::Str(text.to_owned()),
+            Some(Token::Text(text)) => {
+                if let Ok(b) = text.parse::<bool>() {
+                    Expression::Bool(b)
+                } else if let Ok(num) = text.parse::<f64>() {
+                    Expression::Number(num)
+                } else if let Ok(size) = text.parse::<Size>() {
+                    Expression::Size(size)
+                } else {
+                    Expression::Ident(text.to_owned())
+                }
+            },
+            _ => return Err(ParseError::new("expected expression")),
         })
     }
 
@@ -526,6 +607,17 @@ impl<'s> Parser<'s> {
         }
 
         Ok(())
+    }
+
+    /// Skip over whitespace and comments.
+    fn skip_white(&mut self) {
+        while let Some(token) = self.tokens.peek() {
+            match token {
+                Token::Space | Token::Newline
+                | Token::LineComment(_) | Token::BlockComment(_) => self.advance(),
+                _ => break,
+            }
+        }
     }
 
     /// Advance the iterator by one step.
@@ -673,8 +765,9 @@ error_type! {
 mod token_tests {
     use super::*;
     use Token::{Space as S, Newline as N, LeftBracket as L, RightBracket as R,
-                Colon as C, Equals as E, Underscore as TU, Star as TS, Backtick as TB,
-                Text as T, LineComment as LC, BlockComment as BC, StarSlash as SS};
+                Colon as C, Equals as E, Quoted as Q, Underscore as TU, Star as TS,
+                Backtick as TB, Text as T, LineComment as LC, BlockComment as BC,
+                StarSlash as SS};
 
     /// Test if the source code tokenizes to the tokens.
     fn test(src: &str, tokens: Vec<Token>) {
@@ -715,6 +808,12 @@ mod token_tests {
         test(r"\__", vec![T("_"), TU]);
         test(r"\_", vec![T("_")]);
         test(r"\hello", vec![T("\\"), T("hello")]);
+    }
+
+    /// Tests if escaped strings work.
+    #[test]
+    fn tokenize_quoted() {
+        test(r#"[align: "hello\"world"]"#, vec![L, T("align"), C, S, Q(r#"hello\"world"#), R]);
     }
 
     /// Tokenizes some more realistic examples.
@@ -925,6 +1024,7 @@ mod parse_tests {
         scope.add::<TreeFn>("func");
 
         test_scoped(&scope,"[test]", tree! [ F(func! { name => "test", body => None }) ]);
+        test_scoped(&scope,"[ test]", tree! [ F(func! { name => "test", body => None }) ]);
         test_scoped(&scope, "This is an [modifier][example] of a function invocation.", tree! [
             T("This"), S, T("is"), S, T("an"), S,
             F(func! { name => "modifier", body => tree! [ T("example") ] }), S,
@@ -943,6 +1043,43 @@ mod parse_tests {
             }),
             S, T("outside")
         ]);
+
+    }
+
+    /// Parse functions with arguments.
+    #[test]
+    fn parse_function_args() {
+        use Expression::{Number as N, Size as Z, Bool as B};
+
+        #[allow(non_snake_case)]
+        fn S(string: &str) -> Expression { Expression::Str(string.to_owned()) }
+        #[allow(non_snake_case)]
+        fn I(string: &str) -> Expression { Expression::Ident(string.to_owned()) }
+
+        fn func(name: &str, args: Vec<Expression>) -> SyntaxTree {
+            tree! [ F(FuncCall {
+                header: FuncHeader {
+                    name: name.to_string(),
+                    args,
+                    kwargs: HashMap::new(),
+                },
+                body: Box::new(BodylessFn)
+            }) ]
+        }
+
+        let mut scope = Scope::new();
+        scope.add::<BodylessFn>("align");
+
+        test_scoped(&scope, "[align: left]", func("align", vec![I("left")]));
+        test_scoped(&scope, "[align: left,right]", func("align", vec![I("left"), I("right")]));
+        test_scoped(&scope, "[align: left, right]", func("align", vec![I("left"), I("right")]));
+        test_scoped(&scope, "[align: \"hello\"]", func("align", vec![S("hello")]));
+        test_scoped(&scope, r#"[align: "hello\"world"]"#, func("align", vec![S(r#"hello\"world"#)]));
+        test_scoped(&scope, "[align: 12]", func("align", vec![N(12.0)]));
+        test_scoped(&scope, "[align: 17.53pt]", func("align", vec![Z(Size::pt(17.53))]));
+        test_scoped(&scope, "[align: 2.4in]", func("align", vec![Z(Size::inches(2.4))]));
+        test_scoped(&scope, "[align: true, 10mm, left, \"hi, there\"]",
+            func("align", vec![B(true), Z(Size::mm(10.0)), I("left"), S("hi, there")]));
     }
 
     /// Parse comments (line and block).
@@ -1016,7 +1153,7 @@ mod parse_tests {
 
         test_err("No functions here]", "unexpected closing bracket");
         test_err_scoped(&scope, "[hello][world", "expected closing bracket");
-        test_err("[hello world", "expected closing bracket");
+        test_err("[hello world", "expected function arguments or closing bracket");
         test_err("[ no-name][Why?]", "invalid identifier: 'no-name'");
         test_err("Hello */", "unexpected end of block comment");
     }

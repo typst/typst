@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::{self, Display, Debug, Formatter};
 use std::iter::Sum;
 use std::ops::*;
+use std::str::FromStr;
 
 
 /// A general spacing type.
@@ -82,11 +83,11 @@ impl Size2D {
     #[inline]
     pub fn zero() -> Size2D { Size2D::default() }
 
-    /// Create a new vector with `x` set to zero and `y` to a value.
+    /// Create a new vector with `y` set to zero and `x` to a value.
     #[inline]
     pub fn with_x(x: Size) -> Size2D { Size2D { x, y: Size::zero() } }
 
-    /// Create a new vector with `y` set to zero and `x` to a value.
+    /// Create a new vector with `x` set to zero and `y` to a value.
     #[inline]
     pub fn with_y(y: Size) -> Size2D { Size2D { x: Size::zero(), y } }
 
@@ -135,6 +136,30 @@ impl Display for Size {
 impl Debug for Size {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(self, f)
+    }
+}
+
+/// An error which can be returned when parsing a size.
+pub struct ParseSizeError;
+
+impl FromStr for Size {
+    type Err = ParseSizeError;
+
+    fn from_str(src: &str) -> Result<Size, ParseSizeError> {
+        if src.len() < 2 {
+            return Err(ParseSizeError);
+        }
+
+        let value = src[.. src.len() - 2].parse::<f32>()
+            .map_err(|_| ParseSizeError)?;
+
+        Ok(match &src[src.len() - 2 ..] {
+            "pt" => Size::pt(value),
+            "mm" => Size::mm(value),
+            "cm" => Size::cm(value),
+            "in" => Size::inches(value),
+            _ => return Err(ParseSizeError),
+        })
     }
 }
 
