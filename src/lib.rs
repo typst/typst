@@ -20,7 +20,7 @@ use toddle::query::{FontLoader, SharedFontLoader, FontProvider};
 use crate::doc::Document;
 use crate::func::Scope;
 use crate::parsing::{parse, ParseContext, ParseResult, ParseError};
-use crate::layout::{layout, LayoutContext, LayoutSpace, LayoutError, LayoutResult};
+use crate::layout::{layout, LayoutContext, Alignment, LayoutSpace, LayoutError, LayoutResult};
 use crate::layout::boxed::BoxLayout;
 use crate::style::{PageStyle, TextStyle};
 use crate::syntax::SyntaxTree;
@@ -35,6 +35,7 @@ pub mod parsing;
 pub mod size;
 pub mod style;
 pub mod syntax;
+pub mod library;
 
 
 /// Transforms source code into typesetted documents.
@@ -92,6 +93,7 @@ impl<'p> Typesetter<'p> {
             space: LayoutSpace {
                 dimensions: self.page_style.dimensions,
                 padding: self.page_style.margins,
+                alignment: Alignment::Left,
                 shrink_to_fit: false,
             },
         })?;
@@ -184,5 +186,6 @@ mod test {
     #[test]
     fn shakespeare() {
         test("shakespeare", include_str!("../test/shakespeare.tps"));
+        test("shakespeare-right", &format!("[align:right][{}]", include_str!("../test/shakespeare.tps")));
     }
 }

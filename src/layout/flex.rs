@@ -1,8 +1,7 @@
 //! Flexible and lazy layouting of boxes.
 
-use crate::doc::LayoutAction;
 use crate::size::{Size, Size2D};
-use super::{BoxLayout, ActionList, LayoutSpace, LayoutResult, LayoutError};
+use super::{BoxLayout, ActionList, LayoutSpace, Alignment, LayoutResult, LayoutError};
 
 
 /// A flex layout consists of a yet unarranged list of boxes.
@@ -81,7 +80,9 @@ struct FlexFinisher {
     dimensions: Size2D,
     usable: Size2D,
     cursor: Size2D,
-    line: Size2D,
+    line_metrics: Size2D,
+    line_content: Vec<(Size2D, BoxLayout)>,
+    glue: Option<BoxLayout>,
 }
 
 impl FlexFinisher {
@@ -92,10 +93,15 @@ impl FlexFinisher {
             units: layout.units,
             ctx,
             actions: ActionList::new(),
-            dimensions: Size2D::zero(),
+            dimensions: match ctx.space.alignment {
+                Alignment::Left => Size2D::zero(),
+                Alignment::Right => Size2D::with_x(space.usable().x),
+            },
             usable: space.usable(),
             cursor: Size2D::new(space.padding.left, space.padding.top),
-            line: Size2D::zero(),
+            line_metrics: Size2D::zero(),
+            line_content: vec![],
+            glue: None,
         }
     }
 
@@ -128,14 +134,20 @@ impl FlexFinisher {
 
     /// Layout the box.
     fn boxed(&mut self, boxed: BoxLayout) -> LayoutResult<()> {
+        let last_glue_x = self.glue.as_ref()
+            .map(|g| g.dimensions.x)
+            .unwrap_or(Size::zero());
+
         // Move to the next line if necessary.
-        if self.line.x + boxed.dimensions.x > self.usable.x {
+        if self.line_metrics.x + boxed.dimensions.x + last_glue_x > self.usable.x {
             // If it still does not fit, we stand no chance.
             if boxed.dimensions.x > self.usable.x {
                 return Err(LayoutError::NotEnoughSpace);
             }
 
             self.newline();
+        } else if let Some(glue) = self.glue.take() {
+            self.append(glue);
         }
 
         self.append(boxed);
@@ -145,37 +157,51 @@ impl FlexFinisher {
 
     /// Layout the glue.
     fn glue(&mut self, glue: BoxLayout) {
-        // Only add the glue if it fits on the line, otherwise move to the next line.
-        if self.line.x + glue.dimensions.x > self.usable.x {
-            self.newline();
-        } else {
-            self.append(glue);
-        }
+        self.glue = Some(glue);
     }
 
     /// Append a box to the layout without checking anything.
     fn append(&mut self, layout: BoxLayout) {
-        // Move all actions into this layout and translate absolute positions.
-        self.actions.reset_origin();
-        self.actions.add(LayoutAction::MoveAbsolute(self.cursor));
-        self.actions.set_origin(self.cursor);
-        self.actions.extend(layout.actions);
+        let dim = layout.dimensions;
+        self.line_content.push((self.cursor, layout));
 
-        // Adjust the sizes.
-        self.line.x += layout.dimensions.x;
-        self.line.y = crate::size::max(self.line.y, layout.dimensions.y);
-        self.cursor.x += layout.dimensions.x;
+        self.line_metrics.x += dim.x;
+        self.line_metrics.y = crate::size::max(self.line_metrics.y, dim.y);
+        self.cursor.x += dim.x;
     }
 
     /// Move to the next line.
     fn newline(&mut self) {
-        self.dimensions.x = crate::size::max(self.dimensions.x, self.line.x);
+        // Move all actions into this layout and translate absolute positions.
+        let remaining_space = Size2D::with_x(self.ctx.space.usable().x - self.line_metrics.x);
+        for (cursor, layout) in self.line_content.drain(..) {
+            let position = match self.ctx.space.alignment {
+                Alignment::Left => cursor,
+                Alignment::Right => {
+                    // Right align everything by shifting it right by the
+                    // amount of space left to the right of the line.
+                    cursor + remaining_space
+                },
+            };
+
+            self.actions.add_box_absolute(position, layout);
+        }
+
+        // Stretch the dimensions to at least the line width.
+        self.dimensions.x = crate::size::max(self.dimensions.x, self.line_metrics.x);
+
+        // If we wrote a line previously add the inter-line spacing.
         if self.dimensions.y > Size::zero() {
             self.dimensions.y += self.ctx.flex_spacing;
         }
-        self.dimensions.y += self.line.y;
+
+        self.dimensions.y += self.line_metrics.y;
+
+        // Reset the cursor the left and move down by the line and the inter-line spacing.
         self.cursor.x = self.ctx.space.padding.left;
-        self.cursor.y += self.line.y + self.ctx.flex_spacing;
-        self.line = Size2D::zero();
+        self.cursor.y += self.line_metrics.y + self.ctx.flex_spacing;
+
+        // Reset the current line metrics.
+        self.line_metrics = Size2D::zero();
     }
 }

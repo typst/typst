@@ -52,9 +52,18 @@ pub struct LayoutSpace {
     pub dimensions: Size2D,
     /// Padding that should be respected on each side.
     pub padding: SizeBox,
+    /// The alignment to use for the content.
+    pub alignment: Alignment,
     /// Whether to shrink the dimensions to fit the content or the keep the
     /// original ones.
     pub shrink_to_fit: bool,
+}
+
+/// Where to align content.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Alignment {
+    Left,
+    Right,
 }
 
 impl LayoutSpace {
@@ -157,6 +166,7 @@ impl<'a, 'p> Layouter<'a, 'p> {
             space: LayoutSpace {
                 dimensions: self.box_layouter.remaining(),
                 padding: SizeBox::zero(),
+                alignment: self.box_layouter.ctx.space.alignment,
                 shrink_to_fit: true,
             },
             flex_spacing: (self.style.line_spacing - 1.0) * Size::pt(self.style.font_size),
@@ -173,6 +183,7 @@ impl<'a, 'p> Layouter<'a, 'p> {
             space: LayoutSpace {
                 dimensions: self.box_layouter.remaining(),
                 padding: SizeBox::zero(),
+                alignment: self.box_layouter.ctx.space.alignment,
                 shrink_to_fit: true,
             },
         })?;
@@ -196,8 +207,8 @@ impl<'a, 'p> Layouter<'a, 'p> {
 /// Manipulates and optimizes a list of actions.
 #[derive(Debug, Clone)]
 pub struct ActionList {
+    pub origin: Size2D,
     actions: Vec<LayoutAction>,
-    origin: Size2D,
     active_font: (usize, f32),
 }
 
@@ -232,15 +243,12 @@ impl ActionList {
         }
     }
 
-    /// Move the origin for the upcomming actions. Absolute moves will be
-    /// changed by that origin.
-    pub fn set_origin(&mut self, origin: Size2D) {
-        self.origin = origin;
-    }
-
-    /// Reset the origin to zero.
-    pub fn reset_origin(&mut self) {
-        self.origin = Size2D::zero();
+    /// Add all actions from a box layout at a position. A move to the position
+    /// is generated and all moves inside the box layout are translated as necessary.
+    pub fn add_box_absolute(&mut self, position: Size2D, layout: BoxLayout) {
+        self.actions.push(LayoutAction::MoveAbsolute(position));
+        self.origin = position;
+        self.extend(layout.actions);
     }
 
     /// Whether there are any actions in this list.

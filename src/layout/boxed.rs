@@ -2,7 +2,7 @@
 
 use crate::doc::{Document, Page, LayoutAction};
 use crate::size::{Size, Size2D};
-use super::{ActionList, LayoutSpace, LayoutResult, LayoutError};
+use super::{ActionList, LayoutSpace, Alignment, LayoutResult, LayoutError};
 
 
 /// A box layout has a fixed width and height and composes of actions.
@@ -37,7 +37,7 @@ pub struct BoxContext {
 /// Layouts boxes block-style.
 #[derive(Debug)]
 pub struct BoxLayouter {
-    ctx: BoxContext,
+    pub ctx: BoxContext,
     actions: ActionList,
     dimensions: Size2D,
     usable: Size2D,
@@ -51,9 +51,15 @@ impl BoxLayouter {
         BoxLayouter {
             ctx,
             actions: ActionList::new(),
-            dimensions: Size2D::zero(),
+            dimensions: match ctx.space.alignment {
+                Alignment::Left => Size2D::zero(),
+                Alignment::Right => Size2D::with_x(space.usable().x),
+            },
             usable: space.usable(),
-            cursor: Size2D::new(space.padding.left, space.padding.right),
+            cursor: Size2D::new(match ctx.space.alignment {
+                Alignment::Left => space.padding.left,
+                Alignment::Right => space.dimensions.x - space.padding.right,
+            }, space.padding.top),
         }
     }
 
@@ -71,12 +77,18 @@ impl BoxLayouter {
             return Err(LayoutError::NotEnoughSpace);
         }
 
-        // Apply the dimensions as they fit.
-        let height = layout.dimensions.y;
+        // Apply the dimensions if they fit.
         self.dimensions = new;
+        let width = layout.dimensions.x;
+        let height = layout.dimensions.y;
+
+        let position = match self.ctx.space.alignment {
+            Alignment::Left => self.cursor,
+            Alignment::Right => self.cursor - Size2D::with_x(width),
+        };
 
         // Add the box.
-        self.add_box_absolute(self.cursor, layout);
+        self.add_box_absolute(position, layout);
 
         // Adjust the cursor.
         self.cursor.y += height;
@@ -86,11 +98,7 @@ impl BoxLayouter {
 
     /// Add a sublayout at an absolute position.
     pub fn add_box_absolute(&mut self, position: Size2D, layout: BoxLayout) {
-        // Move all actions into this layout and translate absolute positions.
-        self.actions.reset_origin();
-        self.actions.add(LayoutAction::MoveAbsolute(position));
-        self.actions.set_origin(position);
-        self.actions.extend(layout.actions);
+        self.actions.add_box_absolute(position, layout);
     }
 
     /// Add some space in between two boxes.
