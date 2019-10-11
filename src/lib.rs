@@ -26,7 +26,7 @@ use crate::style::{PageStyle, TextStyle};
 use crate::syntax::SyntaxTree;
 
 #[macro_use]
-mod error;
+mod macros;
 pub mod doc;
 pub mod export;
 pub mod func;

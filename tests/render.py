@@ -37,9 +37,24 @@ def main():
 class Renderer:
     def __init__(self, fonts, width, height):
         self.fonts = fonts
-        self.img = Image.new("RGBA", (pix(width), pix(height)), (255, 255, 255))
+        self.size = (pix(width), pix(height))
+        self.img = Image.new("RGBA", self.size, (255, 255, 255, 255))
         self.draw = ImageDraw.Draw(self.img)
         self.cursor = (0, 0)
+
+        self.colors = [
+            (176, 264, 158),
+            (274, 173, 207),
+            (158, 252, 264),
+            (285, 275, 187),
+            (132, 217, 136),
+            (236, 177, 246),
+            (174, 232, 279),
+            (285, 234, 158)
+        ]
+
+        self.rects = []
+        self.color_index = 0
 
     def execute(self, command):
         cmd = command[0]
@@ -56,7 +71,33 @@ class Renderer:
 
         elif cmd == 'w':
             text = command[2:]
-            self.draw.text(self.cursor, text, (0, 0, 0), font=self.font)
+            self.draw.text(self.cursor, text, (0, 0, 0, 255), font=self.font)
+
+        elif cmd == 'b':
+            x, y, w, h = (pix(float(s)) for s in parts)
+            rect = [x, y, x+w, y+h]
+
+            forbidden_colors = set()
+            for other_rect, other_color in self.rects:
+                if rect == other_rect:
+                    return
+
+                if overlap(rect, other_rect) or overlap(other_rect, rect):
+                    forbidden_colors.add(other_color)
+
+            for color in self.colors[self.color_index:] + self.colors[:self.color_index]:
+                self.color_index = (self.color_index + 1) % len(self.colors)
+                if color not in forbidden_colors:
+                    break
+
+            overlay = Image.new("RGBA", self.size, (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+            draw.rectangle(rect, fill=color + (255,))
+
+            self.img = Image.alpha_composite(self.img, overlay)
+            self.draw = ImageDraw.Draw(self.img)
+
+            self.rects.append((rect, color))
 
         else:
             raise Exception("invalid command")
@@ -67,6 +108,9 @@ class Renderer:
 
 def pix(points):
     return int(2 * points)
+
+def overlap(a, b):
+    return (a[0] < b[2] and b[0] < a[2]) and (a[1] < b[3] and b[1] < a[3])
 
 
 if __name__ == "__main__":

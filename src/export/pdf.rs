@@ -14,7 +14,8 @@ use toddle::font::OwnedFont;
 use toddle::query::SharedFontLoader;
 use toddle::Error as FontError;
 
-use crate::doc::{Document, Page as DocPage, LayoutAction};
+use crate::layout::LayoutAction;
+use crate::doc::{Document, Page as DocPage};
 use crate::size::{Size, Size2D};
 
 
@@ -192,16 +193,16 @@ impl<'d, W: Write> PdfEngine<'d, W> {
                     }
 
                     // Flush the position.
-                    if let Some(pos) = next_pos {
+                    if let Some(pos) = next_pos.take() {
                         let x = pos.x.to_pt();
                         let y = (page.height - pos.y - Size::pt(active_font.1)).to_pt();
                         text.tm(1.0, 0.0, 0.0, 1.0, x, y);
-                        next_pos = None;
                     }
 
                     // Write the text.
                     text.tj(self.fonts[active_font.0].encode_text(&string)?);
                 },
+                LayoutAction::DebugBox(_, _) => {},
             }
         }
 

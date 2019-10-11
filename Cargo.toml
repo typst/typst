@@ -14,3 +14,8 @@ unicode-xid = "0.1.0"
 [[bin]]
 name = "typstc"
 path = "src/bin/main.rs"
+
+[[test]]
+name = "layouting"
+path = "tests/layouting.rs"
+harness = false

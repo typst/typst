@@ -6,7 +6,6 @@ use std::mem;
 use toddle::query::{SharedFontLoader, FontClass};
 use toddle::Error as FontError;
 
-use crate::doc::LayoutAction;
 use crate::size::{Size, Size2D, SizeBox};
 use crate::syntax::{SyntaxTree, Node, FuncCall};
 use crate::style::TextStyle;
@@ -18,6 +17,9 @@ use self::text::TextContext;
 pub mod text;
 pub mod boxed;
 pub mod flex;
+mod actions;
+
+pub use actions::{LayoutAction, LayoutActionList};
 
 
 /// A collection of layouted content.
@@ -159,6 +161,10 @@ impl<'a, 'p> Layouter<'a, 'p> {
 
     /// Finish the current flex run and return the resulting box.
     fn layout_flex(&mut self) -> LayoutResult<()> {
+        if self.flex_layout.is_empty() {
+            return Ok(());
+        }
+
         let mut layout = FlexLayout::new();
         mem::swap(&mut layout, &mut self.flex_layout);
 
@@ -201,64 +207,6 @@ impl<'a, 'p> Layouter<'a, 'p> {
         }
 
         Ok(())
-    }
-}
-
-/// Manipulates and optimizes a list of actions.
-#[derive(Debug, Clone)]
-pub struct ActionList {
-    pub origin: Size2D,
-    actions: Vec<LayoutAction>,
-    active_font: (usize, f32),
-}
-
-impl ActionList {
-    /// Create a new action list.
-    pub fn new() -> ActionList {
-        ActionList {
-            actions: vec![],
-            origin: Size2D::zero(),
-            active_font: (std::usize::MAX, 0.0),
-        }
-    }
-
-    /// Add an action to the list if it is not useless
-    /// (like changing to a font that is already active).
-    pub fn add(&mut self, action: LayoutAction) {
-        use LayoutAction::*;
-        match action {
-            MoveAbsolute(pos) => self.actions.push(MoveAbsolute(self.origin + pos)),
-            SetFont(index, size) => if (index, size) != self.active_font {
-                self.active_font = (index, size);
-                self.actions.push(action);
-            },
-            _ => self.actions.push(action),
-        }
-    }
-
-    /// Add a series of actions.
-    pub fn extend<I>(&mut self, actions: I) where I: IntoIterator<Item=LayoutAction> {
-        for action in actions.into_iter() {
-            self.add(action);
-        }
-    }
-
-    /// Add all actions from a box layout at a position. A move to the position
-    /// is generated and all moves inside the box layout are translated as necessary.
-    pub fn add_box_absolute(&mut self, position: Size2D, layout: BoxLayout) {
-        self.actions.push(LayoutAction::MoveAbsolute(position));
-        self.origin = position;
-        self.extend(layout.actions);
-    }
-
-    /// Whether there are any actions in this list.
-    pub fn is_empty(&self) -> bool {
-        self.actions.is_empty()
-    }
-
-    /// Return the list of actions as a vector.
-    pub fn into_vec(self) -> Vec<LayoutAction> {
-        self.actions
     }
 }
 

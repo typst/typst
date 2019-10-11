@@ -1,7 +1,7 @@
 //! Flexible and lazy layouting of boxes.
 
 use crate::size::{Size, Size2D};
-use super::{BoxLayout, ActionList, LayoutSpace, Alignment, LayoutResult, LayoutError};
+use super::*;
 
 
 /// A flex layout consists of a yet unarranged list of boxes.
@@ -76,7 +76,7 @@ pub struct FlexContext {
 struct FlexFinisher {
     units: Vec<FlexUnit>,
     ctx: FlexContext,
-    actions: ActionList,
+    actions: LayoutActionList,
     dimensions: Size2D,
     usable: Size2D,
     cursor: Size2D,
@@ -92,7 +92,7 @@ impl FlexFinisher {
         FlexFinisher {
             units: layout.units,
             ctx,
-            actions: ActionList::new(),
+            actions: LayoutActionList::new(),
             dimensions: match ctx.space.alignment {
                 Alignment::Left => Size2D::zero(),
                 Alignment::Right => Size2D::with_x(space.usable().x),
@@ -129,6 +129,7 @@ impl FlexFinisher {
                 self.ctx.space.dimensions
             },
             actions: self.actions.into_vec(),
+            debug_render: true,
         })
     }
 
@@ -187,7 +188,7 @@ impl FlexFinisher {
                 },
             };
 
-            self.actions.add_box_absolute(position, layout);
+            self.actions.add_box(position, layout);
         }
 
         // Stretch the dimensions to at least the line width.

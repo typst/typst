@@ -1,9 +1,9 @@
 //! Block-style layouting of boxes.
 
 use std::io::{self, Write};
-use crate::doc::{Document, Page, LayoutAction};
+use crate::doc::{Document, Page};
 use crate::size::{Size, Size2D};
-use super::{ActionList, LayoutSpace, Alignment, LayoutResult, LayoutError};
+use super::*;
 
 
 /// A box layout has a fixed width and height and composes of actions.
@@ -13,6 +13,8 @@ pub struct BoxLayout {
     pub dimensions: Size2D,
     /// The actions composing this layout.
     pub actions: Vec<LayoutAction>,
+    /// Whether to debug-render this box.
+    pub debug_render: bool,
 }
 
 impl BoxLayout {
@@ -49,7 +51,7 @@ pub struct BoxContext {
 #[derive(Debug)]
 pub struct BoxLayouter {
     pub ctx: BoxContext,
-    actions: ActionList,
+    actions: LayoutActionList,
     dimensions: Size2D,
     usable: Size2D,
     cursor: Size2D,
@@ -59,9 +61,10 @@ impl BoxLayouter {
     /// Create a new box layouter.
     pub fn new(ctx: BoxContext) -> BoxLayouter {
         let space = ctx.space;
+
         BoxLayouter {
             ctx,
-            actions: ActionList::new(),
+            actions: LayoutActionList::new(),
             dimensions: match ctx.space.alignment {
                 Alignment::Left => Size2D::zero(),
                 Alignment::Right => Size2D::with_x(space.usable().x),
@@ -109,7 +112,7 @@ impl BoxLayouter {
 
     /// Add a sublayout at an absolute position.
     pub fn add_box_absolute(&mut self, position: Size2D, layout: BoxLayout) {
-        self.actions.add_box_absolute(position, layout);
+        self.actions.add_box(position, layout);
     }
 
     /// Add some space in between two boxes.
@@ -148,6 +151,7 @@ impl BoxLayouter {
                 self.ctx.space.dimensions
             },
             actions: self.actions.into_vec(),
+            debug_render: true,
         }
     }
 

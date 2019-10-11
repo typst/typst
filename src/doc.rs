@@ -1,7 +1,7 @@
 //! Representation of typesetted documents.
 
-use std::io::{self, Write};
-use crate::size::{Size, Size2D};
+use crate::layout::LayoutAction;
+use crate::size::Size;
 
 
 /// A complete typesetted document, which can be exported.
@@ -20,27 +20,4 @@ pub struct Page {
     pub height: Size,
     /// Layouting actions specifying how to draw content on the page.
     pub actions: Vec<LayoutAction>,
-}
-
-/// A layouting action.
-#[derive(Debug, Clone)]
-pub enum LayoutAction {
-    /// Move to an absolute position.
-    MoveAbsolute(Size2D),
-    /// Set the font by index and font size.
-    SetFont(usize, f32),
-    /// Write text starting at the current position.
-    WriteText(String),
-}
-
-impl LayoutAction {
-    /// Serialize this layout action into a string representation.
-    pub fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
-        use LayoutAction::*;
-        match self {
-            MoveAbsolute(s) => write!(f, "m {:.4} {:.4}", s.x.to_pt(), s.y.to_pt()),
-            SetFont(i, s) => write!(f, "f {} {}", i, s),
-            WriteText(s) => write!(f, "w {}", s),
-        }
-    }
 }

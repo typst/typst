@@ -3,7 +3,6 @@
 use toddle::query::{FontQuery, SharedFontLoader};
 use toddle::tables::{Header, CharMap, HorizontalMetrics};
 
-use crate::doc::LayoutAction;
 use crate::size::{Size, Size2D};
 use super::*;
 
@@ -92,5 +91,6 @@ pub fn layout(text: &str, ctx: TextContext) -> LayoutResult<BoxLayout> {
     Ok(BoxLayout {
         dimensions: Size2D::new(width, Size::pt(ctx.style.font_size)),
         actions,
+        debug_render: false,
     })
 }

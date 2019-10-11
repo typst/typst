@@ -1,7 +1,7 @@
 //! General spacing types.
 
 use std::cmp::Ordering;
-use std::fmt::{self, Display, Debug, Formatter};
+use std::fmt::{self, Display, Formatter};
 use std::iter::Sum;
 use std::ops::*;
 use std::str::FromStr;
@@ -133,11 +133,7 @@ impl Display for Size {
     }
 }
 
-impl Debug for Size {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
-    }
-}
+debug_display!(Size);
 
 /// An error which can be returned when parsing a size.
 pub struct ParseSizeError;
@@ -254,11 +250,7 @@ impl Display for Size2D {
     }
 }
 
-impl Debug for Size2D {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
-    }
-}
+debug_display!(Size2D);
 
 impl Neg for Size2D {
     type Output = Size2D;
@@ -349,8 +341,4 @@ impl Display for SizeBox {
     }
 }
 
-impl Debug for SizeBox {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
-    }
-}
+debug_display!(SizeBox);
