@@ -1,5 +1,6 @@
 //! Block-style layouting of boxes.
 
+use std::io::{self, Write};
 use crate::doc::{Document, Page, LayoutAction};
 use crate::size::{Size, Size2D};
 use super::{ActionList, LayoutSpace, Alignment, LayoutResult, LayoutError};
@@ -24,6 +25,16 @@ impl BoxLayout {
                 actions: self.actions,
             }],
         }
+    }
+
+    /// Serialize this layout into a string representation.
+    pub fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
+        writeln!(f, "{:.4} {:.4}", self.dimensions.x.to_pt(), self.dimensions.y.to_pt())?;
+        for action in &self.actions {
+            action.serialize(f)?;
+            writeln!(f)?;
+        }
+        Ok(())
     }
 }
 

@@ -157,6 +157,9 @@ impl FlexFinisher {
 
     /// Layout the glue.
     fn glue(&mut self, glue: BoxLayout) {
+        if let Some(glue) = self.glue.take() {
+            self.append(glue);
+        }
         self.glue = Some(glue);
     }
 
