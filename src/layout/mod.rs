@@ -81,6 +81,15 @@ impl MultiLayout {
     }
 }
 
+impl IntoIterator for MultiLayout {
+    type Item = Layout;
+    type IntoIter = std::vec::IntoIter<Layout>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.layouts.into_iter()
+    }
+}
+
 /// The context for layouting.
 #[derive(Copy, Clone)]
 pub struct LayoutContext<'a, 'p> {
@@ -122,13 +131,14 @@ pub enum Alignment {
 }
 
 pub fn layout_tree(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<MultiLayout> {
-    Layouter::new(tree, ctx).layout()
+    let mut layouter = Layouter::new(ctx);
+    layouter.layout(tree)?;
+    layouter.finish()
 }
 
 /// Transforms a syntax tree into a box layout.
 struct Layouter<'a, 'p> {
     ctx: LayoutContext<'a, 'p>,
-    tree: &'a SyntaxTree,
     stack_layouter: StackLayouter,
     flex_layouter: FlexLayouter,
     style: Cow<'a, TextStyle>,
@@ -136,10 +146,9 @@ struct Layouter<'a, 'p> {
 
 impl<'a, 'p> Layouter<'a, 'p> {
     /// Create a new layouter.
-    fn new(tree: &'a SyntaxTree, ctx: LayoutContext<'a, 'p>) -> Layouter<'a, 'p> {
+    fn new(ctx: LayoutContext<'a, 'p>) -> Layouter<'a, 'p> {
         Layouter {
             ctx,
-            tree,
             stack_layouter: StackLayouter::new(StackContext { space: ctx.space }),
             flex_layouter: FlexLayouter::new(FlexContext {
                 space: LayoutSpace {
@@ -155,9 +164,9 @@ impl<'a, 'p> Layouter<'a, 'p> {
     }
 
     /// Layout the tree into a box.
-    fn layout(mut self) -> LayoutResult<MultiLayout> {
+    fn layout(&mut self, tree: &SyntaxTree) -> LayoutResult<()> {
         // Walk all nodes and layout them.
-        for node in &self.tree.nodes {
+        for node in &tree.nodes {
             match node {
                 // Layout a single piece of text.
                 Node::Text(text) => self.layout_text(text, false)?,
@@ -190,6 +199,10 @@ impl<'a, 'p> Layouter<'a, 'p> {
             }
         }
 
+        Ok(())
+    }
+
+    fn finish(mut self) -> LayoutResult<MultiLayout> {
         // If there are remainings, add them to the layout.
         if !self.flex_layouter.is_empty() {
             self.layout_flex()?;
@@ -254,9 +267,9 @@ impl<'a, 'p> Layouter<'a, 'p> {
 
         for command in commands {
             match command {
-                Command::Layout(tree) => unimplemented!(),
-                Command::Add(layout) => unimplemented!(),
-                Command::AddMany(layouts) => unimplemented!(),
+                Command::Layout(tree) => self.layout(tree)?,
+                Command::Add(layout) => self.stack_layouter.add_box(layout)?,
+                Command::AddMany(layouts) => self.stack_layouter.add_many(layouts)?,
                 Command::ToggleStyleClass(class) => self.style.to_mut().toggle_class(class),
             }
         }

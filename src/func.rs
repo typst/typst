@@ -37,20 +37,20 @@ impl PartialEq for dyn Function {
 
 /// A sequence of commands requested for execution by a function.
 #[derive(Debug)]
-pub struct FuncCommands {
-    pub commands: Vec<Command>
+pub struct FuncCommands<'a> {
+    pub commands: Vec<Command<'a>>
 }
 
-impl FuncCommands {
+impl<'a> FuncCommands<'a> {
     /// Create an empty command list.
-    pub fn new() -> FuncCommands {
+    pub fn new() -> FuncCommands<'a> {
         FuncCommands {
             commands: vec![],
         }
     }
 
     /// Add a command to the sequence.
-    pub fn add_command(&mut self, command: Command) {
+    pub fn add(&mut self, command: Command<'a>) {
         self.commands.push(command);
     }
 
@@ -60,9 +60,9 @@ impl FuncCommands {
     }
 }
 
-impl IntoIterator for FuncCommands {
-    type Item = Command;
-    type IntoIter = std::vec::IntoIter<Command>;
+impl<'a> IntoIterator for FuncCommands<'a> {
+    type Item = Command<'a>;
+    type IntoIter = std::vec::IntoIter<Command<'a>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.commands.into_iter()
@@ -71,8 +71,8 @@ impl IntoIterator for FuncCommands {
 
 /// Commands requested for execution by functions.
 #[derive(Debug)]
-pub enum Command {
-    Layout(SyntaxTree),
+pub enum Command<'a> {
+    Layout(&'a SyntaxTree),
     Add(Layout),
     AddMany(MultiLayout),
     ToggleStyleClass(FontClass),

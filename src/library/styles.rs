@@ -1,13 +1,15 @@
 //! Basic style functions: bold, italic, monospace.
 
 use super::prelude::*;
-// use toddle::query::FontClass;
-
+use toddle::query::FontClass;
 
 
 macro_rules! style_func {
-    ($(#[$outer:meta])* pub struct $struct:ident { $name:expr },
-     $style:ident => $style_change:block) => {
+    (
+        $(#[$outer:meta])*
+        pub struct $struct:ident { $name:expr },
+        $style:ident => $class:ident
+    ) => {
         $(#[$outer])*
         #[derive(Debug, PartialEq)]
         pub struct $struct { body: SyntaxTree }
@@ -27,20 +29,14 @@ macro_rules! style_func {
                 }
             }
 
-            fn layout(&self, ctx: LayoutContext) -> LayoutResult<FuncCommands> {
-                // // Change the context.
-                // let mut $style = ctx.style.clone();
-                // $style_change
+            fn layout(&self, _: LayoutContext) -> LayoutResult<FuncCommands> {
+                let mut commands = FuncCommands::new();
 
-                // // Create a box and put it into a flex layout.
-                // let boxed = layout(&self.body, LayoutContext {
-                //     style: &$style,
-                //     .. ctx
-                // })?;
-                // let flex = FlexLayout::from_box(boxed);
+                commands.add(Command::ToggleStyleClass(FontClass::$class));
+                commands.add(Command::Layout(&self.body));
+                commands.add(Command::ToggleStyleClass(FontClass::$class));
 
-                // Ok(Some(Layout::Flex(flex)))
-                Ok(FuncCommands::new())
+                Ok(commands)
             }
         }
     };
@@ -49,17 +45,17 @@ macro_rules! style_func {
 style_func! {
     /// Typesets text in bold.
     pub struct BoldFunc { "bold" },
-    style => { style.toggle_class(FontClass::Bold) }
+    style => Bold
 }
 
 style_func! {
     /// Typesets text in italics.
     pub struct ItalicFunc { "italic" },
-    style => { style.toggle_class(FontClass::Italic) }
+    style => Italic
 }
 
 style_func! {
     /// Typesets text in monospace.
     pub struct MonospaceFunc { "mono" },
-    style => { style.toggle_class(FontClass::Monospace) }
+    style => Monospace
 }

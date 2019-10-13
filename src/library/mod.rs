@@ -9,7 +9,7 @@ mod styles;
 pub mod prelude {
     pub use crate::syntax::{SyntaxTree, FuncHeader, Expression};
     pub use crate::parsing::{parse, ParseContext, ParseResult, ParseError};
-    pub use crate::layout::{layout_tree, layout_text, MultiLayout, Layout, LayoutContext};
+    pub use crate::layout::{layout_tree, LayoutContext, MultiLayout, Layout};
     pub use crate::layout::{LayoutResult, LayoutError};
     pub use crate::func::{Function, Command, FuncCommands};
 

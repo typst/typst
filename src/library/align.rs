@@ -38,13 +38,15 @@ impl Function for AlignFunc {
         Ok(AlignFunc { alignment, body })
     }
 
-    fn layout(&self, ctx: LayoutContext) -> LayoutResult<FuncCommands> {
+    fn layout(&self, mut ctx: LayoutContext) -> LayoutResult<FuncCommands> {
         if let Some(body) = &self.body {
-            // // Override the previous alignment and do the layouting.
-            // ctx.space.alignment = self.alignment;
-            // layout(body, ctx)
-            //     .map(|l| Some(Layout::Boxed(l)))
-            Ok(FuncCommands::new())
+            ctx.space.alignment = self.alignment;
+            let layouts = layout_tree(body, ctx)?;
+
+            let mut commands = FuncCommands::new();
+            commands.add(Command::AddMany(layouts));
+
+            Ok(commands)
         } else {
             unimplemented!("context-modifying align func")
         }

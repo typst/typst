@@ -72,9 +72,17 @@ impl StackLayouter {
         Ok(())
     }
 
+    /// Add multiple sublayouts.
+    pub fn add_many(&mut self, layouts: MultiLayout) -> LayoutResult<()> {
+        for layout in layouts {
+            self.add_box(layout)?;
+        }
+        Ok(())
+    }
+
     /// Add a sublayout at an absolute position.
-    pub fn add_box_absolute(&mut self, position: Size2D, layout: Layout) -> LayoutResult<()> {
-        Ok(self.actions.add_box(position, layout))
+    pub fn add_box_absolute(&mut self, position: Size2D, layout: Layout) {
+        self.actions.add_box(position, layout);
     }
 
     /// Add space in between two boxes.
