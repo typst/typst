@@ -4,62 +4,21 @@ use crate::size::{Size, Size2D};
 use super::*;
 
 
-/// A flex layout consists of a yet unarranged list of boxes.
-#[derive(Debug, Clone)]
-pub struct FlexLayout {
-    /// The sublayouts composing this layout.
-    pub units: Vec<FlexUnit>,
-}
 
-/// A unit in a flex layout.
-#[derive(Debug, Clone)]
-pub enum FlexUnit {
-    /// A content unit to be arranged flexibly.
-    Boxed(BoxLayout),
-    /// A unit which acts as glue between two [`FlexUnit::Boxed`] units and
-    /// is only present if there was no flow break in between the two surrounding boxes.
-    Glue(BoxLayout),
-}
+/// Finishes a flex layout by justifying the positions of the individual boxes.
+#[derive(Debug)]
+pub struct FlexLayouter {
+    ctx: FlexContext,
+    units: Vec<FlexUnit>,
 
-impl FlexLayout {
-    /// Create a new flex layout.
-    pub fn new() -> FlexLayout {
-        FlexLayout {
-            units: vec![],
-        }
-    }
+    actions: LayoutActionList,
+    dimensions: Size2D,
+    usable: Size2D,
+    cursor: Size2D,
 
-    /// Create a new flex layout containing just one box.
-    pub fn from_box(boxed: BoxLayout) -> FlexLayout {
-        FlexLayout {
-            units: vec![FlexUnit::Boxed(boxed)],
-        }
-    }
-
-    /// Add a sublayout.
-    pub fn add_box(&mut self, layout: BoxLayout) {
-        self.units.push(FlexUnit::Boxed(layout));
-    }
-
-    /// Add a glue layout which can be replaced by a line break.
-    pub fn add_glue(&mut self, glue: BoxLayout) {
-        self.units.push(FlexUnit::Glue(glue));
-    }
-
-    /// Add all sublayouts of another flex layout.
-    pub fn add_flexible(&mut self, layout: FlexLayout) {
-        self.units.extend(layout.units);
-    }
-
-    /// Whether this layouter contains any items.
-    pub fn is_empty(&self) -> bool {
-        self.units.is_empty()
-    }
-
-    /// Compute the justified layout.
-    pub fn finish(self, ctx: FlexContext) -> LayoutResult<BoxLayout> {
-        FlexFinisher::new(self, ctx).finish()
-    }
+    line_content: Vec<(Size2D, Layout)>,
+    line_metrics: Size2D,
+    last_glue: Option<Layout>,
 }
 
 /// The context for flex layouting.
@@ -71,42 +30,59 @@ pub struct FlexContext {
     pub flex_spacing: Size,
 }
 
-/// Finishes a flex layout by justifying the positions of the individual boxes.
-#[derive(Debug)]
-struct FlexFinisher {
-    units: Vec<FlexUnit>,
-    ctx: FlexContext,
-    actions: LayoutActionList,
-    dimensions: Size2D,
-    usable: Size2D,
-    cursor: Size2D,
-    line_metrics: Size2D,
-    line_content: Vec<(Size2D, BoxLayout)>,
-    glue: Option<BoxLayout>,
+/// A unit in a flex layout.
+#[derive(Debug, Clone)]
+enum FlexUnit {
+    /// A content unit to be arranged flexibly.
+    Boxed(Layout),
+    /// A unit which acts as glue between two [`FlexUnit::Boxed`] units and
+    /// is only present if there was no flow break in between the two surrounding boxes.
+    Glue(Layout),
 }
 
-impl FlexFinisher {
-    /// Create the finisher from the layout.
-    fn new(layout: FlexLayout, ctx: FlexContext) -> FlexFinisher {
-        let space = ctx.space;
-        FlexFinisher {
-            units: layout.units,
+impl FlexLayouter {
+    /// Create a new flex layouter.
+    pub fn new(ctx: FlexContext) -> FlexLayouter {
+        FlexLayouter {
             ctx,
+            units: vec![],
+
             actions: LayoutActionList::new(),
             dimensions: match ctx.space.alignment {
                 Alignment::Left => Size2D::zero(),
-                Alignment::Right => Size2D::with_x(space.usable().x),
+                Alignment::Right => Size2D::with_x(ctx.space.usable().x),
             },
-            usable: space.usable(),
-            cursor: Size2D::new(space.padding.left, space.padding.top),
-            line_metrics: Size2D::zero(),
+            usable: ctx.space.usable(),
+            cursor: Size2D::new(ctx.space.padding.left, ctx.space.padding.top),
+
             line_content: vec![],
-            glue: None,
+            line_metrics: Size2D::zero(),
+            last_glue: None,
         }
     }
 
-    /// Finish the flex layout into the justified box layout.
-    fn finish(mut self) -> LayoutResult<BoxLayout> {
+    /// Get a reference to this layouter's context.
+    pub fn ctx(&self) -> &FlexContext {
+        &self.ctx
+    }
+
+    /// Add a sublayout.
+    pub fn add(&mut self, layout: Layout) {
+        self.units.push(FlexUnit::Boxed(layout));
+    }
+
+    /// Add a glue layout which can be replaced by a line break.
+    pub fn add_glue(&mut self, glue: Layout) {
+        self.units.push(FlexUnit::Glue(glue));
+    }
+
+    /// Whether this layouter contains any items.
+    pub fn is_empty(&self) -> bool {
+        self.units.is_empty()
+    }
+
+    /// Compute the justified layout.
+    pub fn finish(mut self) -> LayoutResult<Layout> {
         // Move the units out of the layout.
         let units = self.units;
         self.units = vec![];
@@ -122,7 +98,7 @@ impl FlexFinisher {
         // Flush everything to get the correct dimensions.
         self.newline();
 
-        Ok(BoxLayout {
+        Ok(Layout {
             dimensions: if self.ctx.space.shrink_to_fit {
                 self.dimensions.padded(self.ctx.space.padding)
             } else {
@@ -134,8 +110,8 @@ impl FlexFinisher {
     }
 
     /// Layout the box.
-    fn boxed(&mut self, boxed: BoxLayout) -> LayoutResult<()> {
-        let last_glue_x = self.glue.as_ref()
+    fn boxed(&mut self, boxed: Layout) -> LayoutResult<()> {
+        let last_glue_x = self.last_glue.as_ref()
             .map(|g| g.dimensions.x)
             .unwrap_or(Size::zero());
 
@@ -147,7 +123,7 @@ impl FlexFinisher {
             }
 
             self.newline();
-        } else if let Some(glue) = self.glue.take() {
+        } else if let Some(glue) = self.last_glue.take() {
             self.append(glue);
         }
 
@@ -157,15 +133,15 @@ impl FlexFinisher {
     }
 
     /// Layout the glue.
-    fn glue(&mut self, glue: BoxLayout) {
-        if let Some(glue) = self.glue.take() {
+    fn glue(&mut self, glue: Layout) {
+        if let Some(glue) = self.last_glue.take() {
             self.append(glue);
         }
-        self.glue = Some(glue);
+        self.last_glue = Some(glue);
     }
 
     /// Append a box to the layout without checking anything.
-    fn append(&mut self, layout: BoxLayout) {
+    fn append(&mut self, layout: Layout) {
         let dim = layout.dimensions;
         self.line_content.push((self.cursor, layout));
 

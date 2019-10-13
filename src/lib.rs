@@ -17,17 +17,15 @@ pub extern crate toddle;
 use std::cell::RefCell;
 use toddle::query::{FontLoader, SharedFontLoader, FontProvider};
 
-use crate::doc::Document;
 use crate::func::Scope;
 use crate::parsing::{parse, ParseContext, ParseResult, ParseError};
-use crate::layout::{layout, LayoutContext, Alignment, LayoutSpace, LayoutError, LayoutResult};
-use crate::layout::boxed::BoxLayout;
+use crate::layout::{layout_tree, LayoutContext, MultiLayout};
+use crate::layout::{LayoutSpace, Alignment, LayoutError, LayoutResult};
 use crate::style::{PageStyle, TextStyle};
 use crate::syntax::SyntaxTree;
 
 #[macro_use]
 mod macros;
-pub mod doc;
 pub mod export;
 pub mod func;
 pub mod layout;
@@ -79,6 +77,12 @@ impl<'p> Typesetter<'p> {
         self.loader.get_mut().add_provider(provider);
     }
 
+    /// A reference to the backing font loader.
+    #[inline]
+    pub fn loader(&self) -> &SharedFontLoader<'p> {
+        &self.loader
+    }
+
     /// Parse source code into a syntax tree.
     pub fn parse(&self, src: &str) -> ParseResult<SyntaxTree> {
         let scope = Scope::with_std();
@@ -86,31 +90,29 @@ impl<'p> Typesetter<'p> {
     }
 
     /// Layout a syntax tree and return the layout and the referenced font list.
-    pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<BoxLayout> {
-        let pages = layout(&tree, LayoutContext {
+    pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<MultiLayout> {
+        let space = LayoutSpace {
+            dimensions: self.page_style.dimensions,
+            padding: self.page_style.margins,
+            alignment: Alignment::Left,
+            shrink_to_fit: false,
+        };
+
+        let pages = layout_tree(&tree, LayoutContext {
             loader: &self.loader,
             style: &self.text_style,
-            space: LayoutSpace {
-                dimensions: self.page_style.dimensions,
-                padding: self.page_style.margins,
-                alignment: Alignment::Left,
-                shrink_to_fit: false,
-            },
+            space,
+            extra_space: Some(space),
         })?;
+
         Ok(pages)
     }
 
     /// Typeset a portable document from source code.
-    pub fn typeset(&self, src: &str) -> Result<Document, TypesetError> {
+    pub fn typeset(&self, src: &str) -> Result<MultiLayout, TypesetError> {
         let tree = self.parse(src)?;
         let layout = self.layout(&tree)?;
-        let document = layout.into_doc();
-        Ok(document)
-    }
-
-    /// A reference to the backing font loader.
-    pub fn loader(&self) -> &SharedFontLoader<'p> {
-        &self.loader
+        Ok(layout)
     }
 }
 

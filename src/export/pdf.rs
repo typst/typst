@@ -14,12 +14,11 @@ use toddle::font::OwnedFont;
 use toddle::query::SharedFontLoader;
 use toddle::Error as FontError;
 
-use crate::layout::LayoutAction;
-use crate::doc::{Document, Page as DocPage};
+use crate::layout::{MultiLayout, Layout, LayoutAction};
 use crate::size::{Size, Size2D};
 
 
-/// Exports documents into _PDFs_.
+/// Exports layouts into _PDFs_.
 #[derive(Debug)]
 pub struct PdfExporter {}
 
@@ -30,19 +29,19 @@ impl PdfExporter {
         PdfExporter {}
     }
 
-    /// Export a typesetted document into a writer. Returns how many bytes were written.
+    /// Export a finished layouts into a writer. Returns how many bytes were written.
     #[inline]
-    pub fn export<W: Write>(&self, document: &Document, loader: &SharedFontLoader, target: W)
+    pub fn export<W: Write>(&self, layout: &MultiLayout, loader: &SharedFontLoader, target: W)
     -> PdfResult<usize> {
-        let mut engine = PdfEngine::new(document, loader, target)?;
+        let mut engine = PdfEngine::new(layout, loader, target)?;
         engine.write()
     }
 }
 
-/// Writes documents in the _PDF_ format.
+/// Writes layouts in the _PDF_ format.
 struct PdfEngine<'d, W: Write> {
     writer: PdfWriter<W>,
-    doc: &'d Document,
+    layout: &'d MultiLayout,
     offsets: Offsets,
     font_remap: HashMap<usize, usize>,
     fonts: Vec<OwnedFont>,
@@ -60,16 +59,17 @@ struct Offsets {
 
 impl<'d, W: Write> PdfEngine<'d, W> {
     /// Create a new _PDF_ engine.
-    fn new(doc: &'d Document, loader: &SharedFontLoader, target: W) -> PdfResult<PdfEngine<'d, W>> {
-        // Create a subsetted PDF font for each font in the document.
+    fn new(layout: &'d MultiLayout, loader: &SharedFontLoader, target: W)
+    -> PdfResult<PdfEngine<'d, W>> {
+        // Create a subsetted PDF font for each font in the layout.
         let mut font_remap = HashMap::new();
         let fonts = {
             let mut font = 0usize;
             let mut chars = HashMap::new();
 
             // Find out which characters are used for each font.
-            for page in &doc.pages {
-                for action in &page.actions {
+            for boxed in &layout.layouts {
+                for action in &boxed.actions {
                     match action {
                         LayoutAction::WriteText(string) => {
                             chars.entry(font)
@@ -108,21 +108,21 @@ impl<'d, W: Write> PdfEngine<'d, W> {
         // Calculate a unique id for all objects that will be written.
         let catalog = 1;
         let page_tree = catalog + 1;
-        let pages = (page_tree + 1, page_tree + doc.pages.len() as Ref);
-        let contents = (pages.1 + 1, pages.1 + doc.pages.len() as Ref);
+        let pages = (page_tree + 1, page_tree + layout.layouts.len() as Ref);
+        let contents = (pages.1 + 1, pages.1 + layout.layouts.len() as Ref);
         let font_offsets = (contents.1 + 1, contents.1 + 5 * fonts.len() as Ref);
         let offsets = Offsets { catalog, page_tree, pages, contents, fonts: font_offsets };
 
         Ok(PdfEngine {
             writer: PdfWriter::new(target),
-            doc,
+            layout,
             offsets,
             font_remap,
             fonts,
         })
     }
 
-    /// Write the complete document.
+    /// Write the complete layout.
     fn write(&mut self) -> PdfResult<usize> {
         self.writer.write_header(Version::new(1, 7))?;
         self.write_page_tree()?;
@@ -150,9 +150,10 @@ impl<'d, W: Write> PdfEngine<'d, W> {
         )?;
 
         // The page objects
-        for (id, page) in ids(self.offsets.pages).zip(&self.doc.pages) {
+        for (id, page) in ids(self.offsets.pages).zip(&self.layout.layouts) {
+            let rect = Rect::new(0.0, 0.0, page.dimensions.x.to_pt(), page.dimensions.y.to_pt());
             self.writer.write_obj(id, Page::new(self.offsets.page_tree)
-                .media_box(Rect::new(0.0, 0.0, page.width.to_pt(), page.height.to_pt()))
+                .media_box(rect)
                 .contents(ids(self.offsets.contents))
             )?;
         }
@@ -162,14 +163,14 @@ impl<'d, W: Write> PdfEngine<'d, W> {
 
     /// Write the contents of all pages.
     fn write_pages(&mut self) -> PdfResult<()> {
-        for (id, page) in ids(self.offsets.contents).zip(&self.doc.pages) {
+        for (id, page) in ids(self.offsets.contents).zip(&self.layout.layouts) {
             self.write_page(id, &page)?;
         }
         Ok(())
     }
 
     /// Write the content of a page.
-    fn write_page(&mut self, id: u32, page: &DocPage) -> PdfResult<()> {
+    fn write_page(&mut self, id: u32, page: &Layout) -> PdfResult<()> {
         let mut text = Text::new();
         let mut active_font = (std::usize::MAX, 0.0);
 
@@ -195,7 +196,7 @@ impl<'d, W: Write> PdfEngine<'d, W> {
                     // Flush the position.
                     if let Some(pos) = next_pos.take() {
                         let x = pos.x.to_pt();
-                        let y = (page.height - pos.y - Size::pt(active_font.1)).to_pt();
+                        let y = (page.dimensions.y - pos.y - Size::pt(active_font.1)).to_pt();
                         text.tm(1.0, 0.0, 0.0, 1.0, x, y);
                     }
 

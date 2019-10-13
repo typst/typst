@@ -11,15 +11,17 @@ const CACHE_DIR: &str = "test-cache";
 
 
 fn main() {
+    let mut perfect_match = false;
     let mut filter = Vec::new();
+
     for arg in std::env::args().skip(1) {
-        if arg.as_str() != "--nocapture" {
+        if arg.as_str() == "--nocapture" {
+            continue;
+        } else if arg.as_str() == "=" {
+            perfect_match = true;
+        } else {
             filter.push(arg);
         }
-    }
-
-    if !filter.is_empty() {
-        println!("Using filter: {:?}", filter);
     }
 
     fs::create_dir_all(format!("{}/serialized", CACHE_DIR)).unwrap();
@@ -33,7 +35,13 @@ fn main() {
             .file_stem().unwrap()
             .to_str().unwrap();
 
-        if filter.is_empty() || filter.iter().any(|pattern| name.contains(pattern)) {
+        let matches = if perfect_match {
+            filter.iter().any(|pattern| name == pattern)
+        } else {
+            filter.is_empty() || filter.iter().any(|pattern| name.contains(pattern))
+        };
+
+        if matches {
             let mut file = File::open(&path).unwrap();
             let mut src = String::new();
             file.read_to_string(&mut src).unwrap();
@@ -62,7 +70,8 @@ fn test(name: &str, src: &str) {
     // Find all used fonts and their filenames.
     let mut map = Vec::new();
     let mut loader = typesetter.loader().borrow_mut();
-    for action in &layout.actions {
+    let single = &layout.layouts[0];
+    for action in &single.actions {
         if let LayoutAction::SetFont(index, _) = action {
             if map.iter().find(|(i, _)| i == index).is_none() {
                 let (_, provider_index) = loader.get_provider_and_index(*index);
@@ -78,7 +87,7 @@ fn test(name: &str, src: &str) {
     for (index, path) in map {
         writeln!(file, "{} {}", index, path).unwrap();
     }
-    layout.serialize(&mut file).unwrap();
+    single.serialize(&mut file).unwrap();
 
     // Render the layout into a PNG.
     Command::new("python")
@@ -90,7 +99,6 @@ fn test(name: &str, src: &str) {
     // Write the PDF file.
     let path = format!("{}/pdf/{}.pdf", CACHE_DIR, name);
     let file = BufWriter::new(File::create(path).unwrap());
-    let document = layout.into_doc();
     let exporter = PdfExporter::new();
-    exporter.export(&document, typesetter.loader(), file).unwrap();
+    exporter.export(&layout, typesetter.loader(), file).unwrap();
 }

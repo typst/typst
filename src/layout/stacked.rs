@@ -1,68 +1,27 @@
-//! Block-style layouting of boxes.
-
-use std::io::{self, Write};
-use crate::doc::{Document, Page};
-use crate::size::{Size, Size2D};
 use super::*;
 
 
-/// A box layout has a fixed width and height and composes of actions.
-#[derive(Debug, Clone)]
-pub struct BoxLayout {
-    /// The size of the box.
-    pub dimensions: Size2D,
-    /// The actions composing this layout.
-    pub actions: Vec<LayoutAction>,
-    /// Whether to debug-render this box.
-    pub debug_render: bool,
-}
-
-impl BoxLayout {
-    /// Convert this layout into a document.
-    pub fn into_doc(self) -> Document {
-        Document {
-            pages: vec![Page {
-                width: self.dimensions.x,
-                height: self.dimensions.y,
-                actions: self.actions,
-            }],
-        }
-    }
-
-    /// Serialize this layout into a string representation.
-    pub fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
-        writeln!(f, "{:.4} {:.4}", self.dimensions.x.to_pt(), self.dimensions.y.to_pt())?;
-        for action in &self.actions {
-            action.serialize(f)?;
-            writeln!(f)?;
-        }
-        Ok(())
-    }
-}
-
-/// The context for layouting boxes.
-#[derive(Debug, Copy, Clone)]
-pub struct BoxContext {
-    /// The space to layout the boxes in.
-    pub space: LayoutSpace,
-}
-
 /// Layouts boxes block-style.
 #[derive(Debug)]
-pub struct BoxLayouter {
-    pub ctx: BoxContext,
+pub struct StackLayouter {
+    ctx: StackContext,
     actions: LayoutActionList,
     dimensions: Size2D,
     usable: Size2D,
     cursor: Size2D,
 }
 
-impl BoxLayouter {
+#[derive(Debug, Copy, Clone)]
+pub struct StackContext {
+    pub space: LayoutSpace,
+}
+
+impl StackLayouter {
     /// Create a new box layouter.
-    pub fn new(ctx: BoxContext) -> BoxLayouter {
+    pub fn new(ctx: StackContext) -> StackLayouter {
         let space = ctx.space;
 
-        BoxLayouter {
+        StackLayouter {
             ctx,
             actions: LayoutActionList::new(),
             dimensions: match ctx.space.alignment {
@@ -77,52 +36,54 @@ impl BoxLayouter {
         }
     }
 
+    /// Get a reference to this layouter's context.
+    pub fn ctx(&self) -> &StackContext {
+        &self.ctx
+    }
+
     /// Add a sublayout.
-    pub fn add_box(&mut self, layout: BoxLayout) -> LayoutResult<()> {
+    pub fn add_box(&mut self, layout: Layout) -> LayoutResult<()> {
         // In the flow direction (vertical) add the layout and in the second
         // direction just consider the maximal size of any child layout.
-        let new = Size2D {
+        let new_size = Size2D {
             x: crate::size::max(self.dimensions.x, layout.dimensions.x),
             y: self.dimensions.y + layout.dimensions.y,
         };
 
         // Check whether this box fits.
-        if self.overflows(new) {
+        if self.overflows(new_size) {
             return Err(LayoutError::NotEnoughSpace);
         }
 
-        // Apply the dimensions if they fit.
-        self.dimensions = new;
-        let width = layout.dimensions.x;
-        let height = layout.dimensions.y;
+        self.dimensions = new_size;
 
+        // Determine where to put the box. When we right-align it, we want the
+        // cursor to point to the top-right corner of the box. Therefore, the
+        // position has to be moved to the left by the width of the box.
         let position = match self.ctx.space.alignment {
             Alignment::Left => self.cursor,
-            Alignment::Right => self.cursor - Size2D::with_x(width),
+            Alignment::Right => self.cursor - Size2D::with_x(layout.dimensions.x),
         };
 
-        // Add the box.
-        self.add_box_absolute(position, layout);
+        self.cursor.y += layout.dimensions.y;
 
-        // Adjust the cursor.
-        self.cursor.y += height;
+        self.add_box_absolute(position, layout);
 
         Ok(())
     }
 
     /// Add a sublayout at an absolute position.
-    pub fn add_box_absolute(&mut self, position: Size2D, layout: BoxLayout) {
-        self.actions.add_box(position, layout);
+    pub fn add_box_absolute(&mut self, position: Size2D, layout: Layout) -> LayoutResult<()> {
+        Ok(self.actions.add_box(position, layout))
     }
 
-    /// Add some space in between two boxes.
+    /// Add space in between two boxes.
     pub fn add_space(&mut self, space: Size) -> LayoutResult<()> {
         // Check whether this space fits.
         if self.overflows(self.dimensions + Size2D::with_y(space)) {
             return Err(LayoutError::NotEnoughSpace);
         }
 
-        // Adjust the sizes.
         self.cursor.y += space;
         self.dimensions.y += space;
 
@@ -143,8 +104,8 @@ impl BoxLayouter {
     }
 
     /// Finish the layouting and create a box layout from this.
-    pub fn finish(self) -> BoxLayout {
-        BoxLayout {
+    pub fn finish(self) -> Layout {
+        Layout {
             dimensions: if self.ctx.space.shrink_to_fit {
                 self.dimensions.padded(self.ctx.space.padding)
             } else {

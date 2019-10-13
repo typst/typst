@@ -9,10 +9,9 @@ mod styles;
 pub mod prelude {
     pub use crate::syntax::{SyntaxTree, FuncHeader, Expression};
     pub use crate::parsing::{parse, ParseContext, ParseResult, ParseError};
-    pub use crate::layout::{layout, Layout, LayoutContext, LayoutResult, LayoutError};
-    pub use crate::layout::flex::FlexLayout;
-    pub use crate::layout::boxed::BoxLayout;
-    pub use crate::func::Function;
+    pub use crate::layout::{layout_tree, layout_text, MultiLayout, Layout, LayoutContext};
+    pub use crate::layout::{LayoutResult, LayoutError};
+    pub use crate::func::{Function, Command, FuncCommands};
 
     pub fn err<S: Into<String>, T>(message: S) -> ParseResult<T> {
         Err(ParseError::new(message))

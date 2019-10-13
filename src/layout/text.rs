@@ -17,7 +17,7 @@ pub struct TextContext<'a, 'p> {
 }
 
 /// Layout one piece of text without any breaks as one continous box.
-pub fn layout(text: &str, ctx: TextContext) -> LayoutResult<BoxLayout> {
+pub fn layout_text(text: &str, ctx: TextContext) -> LayoutResult<Layout> {
     let mut loader = ctx.loader.borrow_mut();
 
     let mut actions = Vec::new();
@@ -88,7 +88,7 @@ pub fn layout(text: &str, ctx: TextContext) -> LayoutResult<BoxLayout> {
         actions.push(LayoutAction::WriteText(buffer));
     }
 
-    Ok(BoxLayout {
+    Ok(Layout {
         dimensions: Size2D::new(width, Size::pt(ctx.style.font_size)),
         actions,
         debug_render: false,

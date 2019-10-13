@@ -3,7 +3,7 @@
 use std::fmt::{self, Display, Formatter};
 use std::io::{self, Write};
 use crate::size::Size2D;
-use super::boxed::BoxLayout;
+use super::Layout;
 use LayoutAction::*;
 
 
@@ -104,7 +104,7 @@ impl LayoutActionList {
 
     /// Add all actions from a box layout at a position. A move to the position
     /// is generated and all moves inside the box layout are translated as necessary.
-    pub fn add_box(&mut self, position: Size2D, layout: BoxLayout) {
+    pub fn add_box(&mut self, position: Size2D, layout: Layout) {
         if let Some(target) = self.next_pos.take() {
             self.actions.push(MoveAbsolute(target));
         }

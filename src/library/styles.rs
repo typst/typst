@@ -1,7 +1,7 @@
 //! Basic style functions: bold, italic, monospace.
 
 use super::prelude::*;
-use toddle::query::FontClass;
+// use toddle::query::FontClass;
 
 
 
@@ -27,19 +27,20 @@ macro_rules! style_func {
                 }
             }
 
-            fn layout(&self, ctx: LayoutContext) -> LayoutResult<Option<Layout>> {
-                // Change the context.
-                let mut $style = ctx.style.clone();
-                $style_change
+            fn layout(&self, ctx: LayoutContext) -> LayoutResult<FuncCommands> {
+                // // Change the context.
+                // let mut $style = ctx.style.clone();
+                // $style_change
 
-                // Create a box and put it into a flex layout.
-                let boxed = layout(&self.body, LayoutContext {
-                    style: &$style,
-                    .. ctx
-                })?;
-                let flex = FlexLayout::from_box(boxed);
+                // // Create a box and put it into a flex layout.
+                // let boxed = layout(&self.body, LayoutContext {
+                //     style: &$style,
+                //     .. ctx
+                // })?;
+                // let flex = FlexLayout::from_box(boxed);
 
-                Ok(Some(Layout::Flex(flex)))
+                // Ok(Some(Layout::Flex(flex)))
+                Ok(FuncCommands::new())
             }
         }
     };

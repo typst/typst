@@ -432,8 +432,8 @@ error_type! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::{Function, Scope};
-    use crate::layout::{LayoutContext, LayoutResult, Layout};
+    use crate::func::{Function, FuncCommands, Scope};
+    use crate::layout::{LayoutContext, LayoutResult};
     use Node::{Space as S, Newline as N, Func as F};
     use funcs::*;
 
@@ -456,7 +456,9 @@ mod tests {
                 }
             }
 
-            fn layout(&self, _: LayoutContext) -> LayoutResult<Option<Layout>> { Ok(None) }
+            fn layout(&self, _: LayoutContext) -> LayoutResult<FuncCommands> {
+                Ok(FuncCommands::new())
+            }
         }
 
         /// A testing function without a body.
@@ -473,7 +475,9 @@ mod tests {
                 }
             }
 
-            fn layout(&self, _: LayoutContext) -> LayoutResult<Option<Layout>> { Ok(None) }
+            fn layout(&self, _: LayoutContext) -> LayoutResult<FuncCommands> {
+                Ok(FuncCommands::new())
+            }
         }
     }
 

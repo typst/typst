@@ -4,9 +4,10 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
-use crate::layout::{Layout, LayoutContext, LayoutResult};
+use toddle::query::FontClass;
+use crate::layout::{Layout, MultiLayout , LayoutContext, LayoutResult};
 use crate::parsing::{ParseContext, ParseResult};
-use crate::syntax::FuncHeader;
+use crate::syntax::{SyntaxTree, FuncHeader};
 
 
 /// Typesetting function types.
@@ -25,13 +26,56 @@ pub trait Function: FunctionBounds {
     ///
     /// Returns optionally the resulting layout and a new context if changes to the context should
     /// be made.
-    fn layout(&self, ctx: LayoutContext) -> LayoutResult<Option<Layout>>;
+    fn layout(&self, ctx: LayoutContext) -> LayoutResult<FuncCommands>;
 }
 
 impl PartialEq for dyn Function {
     fn eq(&self, other: &dyn Function) -> bool {
         self.help_eq(other)
     }
+}
+
+/// A sequence of commands requested for execution by a function.
+#[derive(Debug)]
+pub struct FuncCommands {
+    pub commands: Vec<Command>
+}
+
+impl FuncCommands {
+    /// Create an empty command list.
+    pub fn new() -> FuncCommands {
+        FuncCommands {
+            commands: vec![],
+        }
+    }
+
+    /// Add a command to the sequence.
+    pub fn add_command(&mut self, command: Command) {
+        self.commands.push(command);
+    }
+
+    /// Whether there are any commands in this sequence.
+    pub fn is_empty(&self) -> bool {
+        self.commands.is_empty()
+    }
+}
+
+impl IntoIterator for FuncCommands {
+    type Item = Command;
+    type IntoIter = std::vec::IntoIter<Command>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.commands.into_iter()
+    }
+}
+
+/// Commands requested for execution by functions.
+#[derive(Debug)]
+pub enum Command {
+    Layout(SyntaxTree),
+    Add(Layout),
+    AddMany(MultiLayout),
+    ToggleStyleClass(FontClass),
 }
 
 /// A helper trait that describes requirements for types that can implement [`Function`].
