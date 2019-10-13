@@ -1,9 +1,8 @@
 use toddle::query::{FontQuery, SharedFontLoader};
-use toddle::tables::{Header, CharMap, HorizontalMetrics};
+use toddle::tables::{CharMap, Header, HorizontalMetrics};
 
-use crate::size::{Size, Size2D};
 use super::*;
-
+use crate::size::{Size, Size2D};
 
 /// The context for text layouting.
 #[derive(Copy, Clone)]
@@ -53,7 +52,8 @@ pub fn layout_text(text: &str, ctx: TextContext) -> LayoutResult<Layout> {
         let font_unit_to_size = |x| Size::pt(font_unit_ratio * x);
 
         // Add the char width to the total box width.
-        let glyph = font.read_table::<CharMap>()?
+        let glyph = font
+            .read_table::<CharMap>()?
             .get(character)
             .expect("layout text: font should have char");
 
@@ -61,7 +61,7 @@ pub fn layout_text(text: &str, ctx: TextContext) -> LayoutResult<Layout> {
             font.read_table::<HorizontalMetrics>()?
                 .get(glyph)
                 .expect("layout text: font should have glyph")
-                .advance_width as f32
+                .advance_width as f32,
         );
 
         let char_width = glyph_width * ctx.style.font_size;

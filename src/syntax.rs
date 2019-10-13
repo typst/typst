@@ -6,24 +6,26 @@ use std::fmt::{self, Display, Formatter};
 use crate::func::Function;
 use crate::size::Size;
 
-
 /// A logical unit of the incoming text stream.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Token<'s> {
     /// One or more whitespace (non-newline) codepoints.
     Space,
-    /// A line feed (`\n`, `\r\n` and some more as defined by the Unicode standard).
+    /// A line feed (`\n`, `\r\n` and some more as defined by the Unicode
+    /// standard).
     Newline,
     /// A left bracket: `[`.
     LeftBracket,
     /// A right bracket: `]`.
     RightBracket,
-    /// A colon (`:`) indicating the beginning of function arguments (Function header only).
+    /// A colon (`:`) indicating the beginning of function arguments (Function
+    /// header only).
     ///
-    /// If a colon occurs outside of a function header, it will be tokenized as a
-    /// [Word](Token::Word).
+    /// If a colon occurs outside of a function header, it will be tokenized as
+    /// a [Word](Token::Word).
     Colon,
-    /// An equals (`=`) sign assigning a function argument a value (Function header only).
+    /// An equals (`=`) sign assigning a function argument a value (Function
+    /// header only).
     Equals,
     /// A comma (`,`) separating two function arguments (Function header only).
     Comma,
@@ -39,8 +41,9 @@ pub enum Token<'s> {
     LineComment(&'s str),
     /// A block comment.
     BlockComment(&'s str),
-    /// A star followed by a slash unexpectedly ending a block comment (the comment was not started
-    /// before, otherwise a [BlockComment](Token::BlockComment) would be returned).
+    /// A star followed by a slash unexpectedly ending a block comment (the
+    /// comment was not started before, otherwise a
+    /// [BlockComment](Token::BlockComment) would be returned).
     StarSlash,
     /// Everything else is just text.
     Text(&'s str),
@@ -98,7 +101,7 @@ impl PartialEq for FuncCall {
 pub struct FuncHeader {
     pub name: String,
     pub args: Vec<Expression>,
-    pub kwargs: HashMap<String, Expression>
+    pub kwargs: HashMap<String, Expression>,
 }
 
 /// A value expression.

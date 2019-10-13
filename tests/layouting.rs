@@ -1,14 +1,13 @@
 use std::fs::{self, File};
-use std::io::{Write, Read, BufWriter};
+use std::io::{BufWriter, Read, Write};
 use std::process::Command;
 
-use typst::Typesetter;
+use typst::export::pdf::PdfExporter;
 use typst::layout::LayoutAction;
 use typst::toddle::query::FileSystemFontProvider;
-use typst::export::pdf::PdfExporter;
+use typst::Typesetter;
 
 const CACHE_DIR: &str = "test-cache";
-
 
 fn main() {
     let mut perfect_match = false;
@@ -31,9 +30,7 @@ fn main() {
     for entry in fs::read_dir("tests/layouts/").unwrap() {
         let path = entry.unwrap().path();
 
-        let name = path
-            .file_stem().unwrap()
-            .to_str().unwrap();
+        let name = path.file_stem().unwrap().to_str().unwrap();
 
         let matches = if perfect_match {
             filter.iter().any(|pattern| name == pattern)

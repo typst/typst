@@ -4,14 +4,13 @@ use toddle::query::FontClass;
 
 use crate::size::{Size, Size2D, SizeBox};
 
-
 /// Default styles for text.
 #[derive(Debug, Clone)]
 pub struct TextStyle {
     /// The classes the font we want has to be part of.
     pub classes: Vec<FontClass>,
-    /// A sequence of classes. We need the font to be part of at least one of these
-    /// and preferably the leftmost possible.
+    /// A sequence of classes. We need the font to be part of at least one of
+    /// these and preferably the leftmost possible.
     pub fallback: Vec<FontClass>,
     /// The font size.
     pub font_size: f32,
@@ -26,13 +25,14 @@ impl TextStyle {
     ///
     /// If the class was one of _italic_ or _bold_, then:
     /// - If it was not present, the _regular_ class will be removed.
-    /// - If it was present, the _regular_ class will be added in case the
-    ///   other style class is not present.
+    /// - If it was present, the _regular_ class will be added in case the other
+    ///   style class is not present.
     pub fn toggle_class(&mut self, class: FontClass) {
         if self.classes.contains(&class) {
             self.classes.retain(|x| x != &class);
             if (class == FontClass::Italic && !self.classes.contains(&FontClass::Bold))
-               || (class == FontClass::Bold && !self.classes.contains(&FontClass::Italic)) {
+                || (class == FontClass::Bold && !self.classes.contains(&FontClass::Italic))
+            {
                 self.classes.push(FontClass::Regular);
             }
         } else {

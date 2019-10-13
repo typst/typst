@@ -1,6 +1,5 @@
 use super::*;
 
-
 /// Finishes a flex layout by justifying the positions of the individual boxes.
 #[derive(Debug)]
 pub struct FlexLayouter {
@@ -32,7 +31,8 @@ enum FlexUnit {
     /// A content unit to be arranged flexibly.
     Boxed(Layout),
     /// A unit which acts as glue between two [`FlexUnit::Boxed`] units and
-    /// is only present if there was no flow break in between the two surrounding boxes.
+    /// is only present if there was no flow break in between the two
+    /// surrounding boxes.
     Glue(Layout),
 }
 
@@ -107,7 +107,9 @@ impl FlexLayouter {
 
     /// Layout the box.
     fn boxed(&mut self, boxed: Layout) -> LayoutResult<()> {
-        let last_glue_x = self.last_glue.as_ref()
+        let last_glue_x = self
+            .last_glue
+            .as_ref()
             .map(|g| g.dimensions.x)
             .unwrap_or(Size::zero());
 
@@ -157,7 +159,7 @@ impl FlexLayouter {
                     // Right align everything by shifting it right by the
                     // amount of space left to the right of the line.
                     cursor + remaining_space
-                },
+                }
             };
 
             self.actions.add_box(position, layout);
@@ -173,7 +175,8 @@ impl FlexLayouter {
 
         self.dimensions.y += self.line_metrics.y;
 
-        // Reset the cursor the left and move down by the line and the inter-line spacing.
+        // Reset the cursor the left and move down by the line and the inter-line
+        // spacing.
         self.cursor.x = self.ctx.space.padding.left;
         self.cursor.y += self.line_metrics.y + self.ctx.flex_spacing;
 

@@ -7,11 +7,11 @@ mod styles;
 
 /// Useful imports for creating your own functions.
 pub mod prelude {
-    pub use crate::syntax::{SyntaxTree, FuncHeader, Expression};
-    pub use crate::parsing::{parse, ParseContext, ParseResult, ParseError};
-    pub use crate::layout::{layout_tree, LayoutContext, MultiLayout, Layout};
-    pub use crate::layout::{LayoutResult, LayoutError};
-    pub use crate::func::{Function, Command, FuncCommands};
+    pub use crate::func::{Command, FuncCommands, Function};
+    pub use crate::layout::{layout_tree, Layout, LayoutContext, MultiLayout};
+    pub use crate::layout::{LayoutError, LayoutResult};
+    pub use crate::parsing::{parse, ParseContext, ParseError, ParseResult};
+    pub use crate::syntax::{Expression, FuncHeader, SyntaxTree};
 
     pub fn err<S: Into<String>, T>(message: S) -> ParseResult<T> {
         Err(ParseError::new(message))
@@ -19,8 +19,7 @@ pub mod prelude {
 }
 
 pub use align::AlignFunc;
-pub use styles::{ItalicFunc, BoldFunc, MonospaceFunc};
-
+pub use styles::{BoldFunc, ItalicFunc, MonospaceFunc};
 
 /// Create a scope with all standard functions.
 pub fn std() -> Scope {

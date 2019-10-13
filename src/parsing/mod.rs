@@ -5,13 +5,12 @@ use std::collections::HashMap;
 use unicode_xid::UnicodeXID;
 
 use crate::func::{Function, Scope};
-use crate::syntax::*;
 use crate::size::Size;
+use crate::syntax::*;
 
 mod tokens;
 
 pub use tokens::{tokenize, Tokens};
-
 
 /// Parses source code into a syntax tree given a context.
 #[inline]
@@ -105,10 +104,7 @@ impl<'s> Parser<'s> {
         let body = self.parse_func_body(&header)?;
 
         // Finally this function is parsed to the end.
-        self.append(Node::Func(FuncCall {
-            header,
-            body,
-        }));
+        self.append(Node::Func(FuncCall { header, body }));
 
         Ok(self.switch(ParserState::Body))
     }
@@ -124,7 +120,7 @@ impl<'s> Parser<'s> {
                 } else {
                     Err(ParseError::new(format!("invalid identifier: '{}'", word)))
                 }
-            },
+            }
             _ => Err(ParseError::new("expected identifier")),
         }?;
 
@@ -138,13 +134,17 @@ impl<'s> Parser<'s> {
 
         // Check for arguments
         match self.tokens.next() {
-            Some(Token::RightBracket) => {},
+            Some(Token::RightBracket) => {}
             Some(Token::Colon) => {
                 let (args, kwargs) = self.parse_func_args()?;
                 header.args = args;
                 header.kwargs = kwargs;
-            },
-            _ => return Err(ParseError::new("expected function arguments or closing bracket")),
+            }
+            _ => {
+                return Err(ParseError::new(
+                    "expected function arguments or closing bracket",
+                ))
+            }
         }
 
         // Store the header information of the function invocation.
@@ -164,16 +164,16 @@ impl<'s> Parser<'s> {
                 Some(Token::Text(_)) | Some(Token::Quoted(_)) if !comma => {
                     args.push(self.parse_expression()?);
                     comma = true;
-                },
+                }
 
                 Some(Token::Comma) if comma => {
                     self.advance();
                     comma = false
-                },
+                }
                 Some(Token::RightBracket) => {
                     self.advance();
-                    break
-                },
+                    break;
+                }
 
                 _ if comma => return Err(ParseError::new("expected comma or closing bracket")),
                 _ => return Err(ParseError::new("expected closing bracket")),
@@ -197,7 +197,7 @@ impl<'s> Parser<'s> {
                 } else {
                     Expression::Ident(text.to_owned())
                 }
-            },
+            }
             _ => return Err(ParseError::new("expected expression")),
         })
     }
@@ -211,19 +211,25 @@ impl<'s> Parser<'s> {
         }
 
         // Now we want to parse this function dynamically.
-        let parser = self.ctx.scope.get_parser(&header.name)
+        let parser = self
+            .ctx
+            .scope
+            .get_parser(&header.name)
             .ok_or_else(|| ParseError::new(format!("unknown function: '{}'", &header.name)))?;
 
         // Do the parsing dependent on whether the function has a body.
         Ok(if has_body {
             // Find out the string which makes the body of this function.
-            let (start, end) = self.tokens.current_index().and_then(|index| {
-                find_closing_bracket(&self.src[index..])
-                    .map(|end| (index, index + end))
-            }).ok_or_else(|| ParseError::new("expected closing bracket"))?;
+            let (start, end) = self
+                .tokens
+                .current_index()
+                .and_then(|index| {
+                    find_closing_bracket(&self.src[index..]).map(|end| (index, index + end))
+                })
+                .ok_or_else(|| ParseError::new("expected closing bracket"))?;
 
             // Parse the body.
-            let body_string = &self.src[start .. end];
+            let body_string = &self.src[start..end];
             let body = parser(&header, Some(body_string), self.ctx)?;
 
             // Skip to the end of the function in the token stream.
@@ -246,12 +252,12 @@ impl<'s> Parser<'s> {
                     Token::Newline => {
                         self.append_consumed(Node::Newline);
                         self.switch(ParserState::WroteNewline);
-                    },
+                    }
                     Token::Space => self.append_space_consumed(),
                     _ => {
                         self.append_space();
                         self.switch(ParserState::Body);
-                    },
+                    }
                 },
                 ParserState::WroteNewline => match token {
                     Token::Newline | Token::Space => self.append_space_consumed(),
@@ -263,17 +269,17 @@ impl<'s> Parser<'s> {
                     Token::Newline => {
                         self.advance();
                         self.switch(ParserState::FirstNewline);
-                    },
+                    }
 
                     // Comments
                     Token::LineComment(_) | Token::BlockComment(_) => self.advance(),
                     Token::StarSlash => {
                         return Err(ParseError::new("unexpected end of block comment"));
-                    },
+                    }
 
                     // Anything else skips out of the function.
                     _ => break,
-                }
+                },
             }
         }
 
@@ -284,8 +290,9 @@ impl<'s> Parser<'s> {
     fn skip_white(&mut self) {
         while let Some(token) = self.tokens.peek() {
             match token {
-                Token::Space | Token::Newline
-                | Token::LineComment(_) | Token::BlockComment(_) => self.advance(),
+                Token::Space | Token::Newline | Token::LineComment(_) | Token::BlockComment(_) => {
+                    self.advance()
+                }
                 _ => break,
             }
         }
@@ -335,19 +342,19 @@ fn find_closing_bracket(src: &str) -> Option<usize> {
             '\\' => {
                 escaped = !escaped;
                 continue;
-            },
+            }
             ']' if !escaped && parens == 0 => return Some(index),
             '[' if !escaped => parens += 1,
             ']' if !escaped => parens -= 1,
-            _ => {},
+            _ => {}
         }
         escaped = false;
     }
     None
 }
 
-/// A peekable iterator for tokens which allows access to the original iterator inside this module
-/// (which is needed by the parser).
+/// A peekable iterator for tokens which allows access to the original iterator
+/// inside this module (which is needed by the parser).
 #[derive(Debug, Clone)]
 struct PeekableTokens<'s> {
     tokens: Tokens<'s>,
@@ -411,7 +418,6 @@ fn is_identifier(string: &str) -> bool {
     true
 }
 
-
 /// The error type for parsing.
 pub struct ParseError(String);
 
@@ -430,17 +436,16 @@ error_type! {
     show: f => f.write_str(&err.0),
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::{Function, FuncCommands, Scope};
+    use crate::func::{FuncCommands, Function, Scope};
     use crate::layout::{LayoutContext, LayoutResult};
-    use Node::{Space as S, Newline as N, Func as F};
     use funcs::*;
+    use Node::{Func as F, Newline as N, Space as S};
 
-    /// Two test functions, one which parses it's body as another syntax tree and another one which
-    /// does not expect a body.
+    /// Two test functions, one which parses it's body as another syntax tree
+    /// and another one which does not expect a body.
     mod funcs {
         use super::*;
 
@@ -449,8 +454,8 @@ mod tests {
         pub struct TreeFn(pub SyntaxTree);
 
         impl Function for TreeFn {
-            fn parse(_: &FuncHeader, body: Option<&str>, ctx: ParseContext)
-                -> ParseResult<Self> where Self: Sized {
+            fn parse(_: &FuncHeader, body: Option<&str>, ctx: ParseContext) -> ParseResult<Self>
+            where Self: Sized {
                 if let Some(src) = body {
                     parse(src, ctx).map(|tree| TreeFn(tree))
                 } else {
@@ -468,8 +473,8 @@ mod tests {
         pub struct BodylessFn;
 
         impl Function for BodylessFn {
-            fn parse(_: &FuncHeader, body: Option<&str>, _: ParseContext)
-                -> ParseResult<Self> where Self: Sized {
+            fn parse(_: &FuncHeader, body: Option<&str>, _: ParseContext) -> ParseResult<Self>
+            where Self: Sized {
                 if body.is_none() {
                     Ok(BodylessFn)
                 } else {
@@ -485,7 +490,9 @@ mod tests {
 
     /// Test if the source code parses into the syntax tree.
     fn test(src: &str, tree: SyntaxTree) {
-        let ctx = ParseContext { scope: &Scope::new() };
+        let ctx = ParseContext {
+            scope: &Scope::new(),
+        };
         assert_eq!(parse(src, ctx).unwrap(), tree);
     }
 
@@ -497,7 +504,9 @@ mod tests {
 
     /// Test if the source parses into the error.
     fn test_err(src: &str, err: &str) {
-        let ctx = ParseContext { scope: &Scope::new() };
+        let ctx = ParseContext {
+            scope: &Scope::new(),
+        };
         assert_eq!(parse(src, ctx).unwrap_err().to_string(), err);
     }
 
@@ -509,9 +518,12 @@ mod tests {
 
     /// Create a text node.
     #[allow(non_snake_case)]
-    fn T(s: &str) -> Node { Node::Text(s.to_owned()) }
+    fn T(s: &str) -> Node {
+        Node::Text(s.to_owned())
+    }
 
-    /// Shortcut macro to create a syntax tree. Is `vec`-like and the elements are the nodes.
+    /// Shortcut macro to create a syntax tree. Is `vec`-like and the elements
+    /// are the nodes.
     macro_rules! tree {
         ($($x:expr),*) => (
             SyntaxTree { nodes: vec![$($x),*] }

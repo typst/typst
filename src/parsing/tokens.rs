@@ -4,7 +4,6 @@ use smallvec::SmallVec;
 
 use crate::syntax::*;
 
-
 /// Builds an iterator over the tokens of the source code.
 #[inline]
 pub fn tokenize(src: &str) -> Tokens {
@@ -15,7 +14,7 @@ pub fn tokenize(src: &str) -> Tokens {
 #[derive(Debug, Clone)]
 pub struct Tokens<'s> {
     src: &'s str,
-    pub(in super) chars: PeekableChars<'s>,
+    pub(super) chars: PeekableChars<'s>,
     state: TokensState,
     stack: SmallVec<[TokensState; 1]>,
 }
@@ -56,7 +55,7 @@ impl<'s> Tokens<'s> {
 
     /// Go back to the top-of-stack state.
     fn unswitch(&mut self) {
-         self.state = self.stack.pop().unwrap_or(TokensState::Body);
+        self.state = self.stack.pop().unwrap_or(TokensState::Body);
     }
 
     /// Advance and return the given token.
@@ -67,7 +66,7 @@ impl<'s> Tokens<'s> {
 
     /// Returns a word containing the string bounded by the given indices.
     fn text(&self, start: usize, end: usize) -> Token<'s> {
-        Token::Text(&self.src[start .. end])
+        Token::Text(&self.src[start..end])
     }
 }
 
@@ -78,7 +77,8 @@ impl<'s> Iterator for Tokens<'s> {
     fn next(&mut self) -> Option<Token<'s>> {
         use TokensState as TU;
 
-        // Go to the body state if the function has a body or return to the top-of-stack state.
+        // Go to the body state if the function has a body or return to the top-of-stack
+        // state.
         if self.state == TU::MaybeBody {
             if self.chars.peek()?.1 == '[' {
                 self.state = TU::Body;
@@ -97,7 +97,7 @@ impl<'s> Iterator for Tokens<'s> {
             '[' => {
                 self.switch(TU::Function);
                 Token::LeftBracket
-            },
+            }
             ']' => {
                 if self.state == TU::Function {
                     self.state = TU::MaybeBody;
@@ -105,7 +105,7 @@ impl<'s> Iterator for Tokens<'s> {
                     self.unswitch();
                 }
                 Token::RightBracket
-            },
+            }
 
             // Line comment
             '/' if afterwards == Some('/') => {
@@ -121,8 +121,8 @@ impl<'s> Iterator for Tokens<'s> {
                 }
 
                 let end = end.0 + end.1.len_utf8();
-                Token::LineComment(&self.src[start .. end])
-            },
+                Token::LineComment(&self.src[start..end])
+            }
 
             // Block comment
             '/' if afterwards == Some('*') => {
@@ -133,17 +133,26 @@ impl<'s> Iterator for Tokens<'s> {
                 while let Some((index, c)) = self.chars.next() {
                     let after = self.chars.peek().map(|p| p.1);
                     match (c, after) {
-                        ('*', Some('/')) if nested == 0 => { self.advance(); break },
-                        ('/', Some('*')) => { self.advance(); nested += 1 },
-                        ('*', Some('/')) => { self.advance(); nested -= 1 },
-                        _ => {},
+                        ('*', Some('/')) if nested == 0 => {
+                            self.advance();
+                            break;
+                        }
+                        ('/', Some('*')) => {
+                            self.advance();
+                            nested += 1
+                        }
+                        ('*', Some('/')) => {
+                            self.advance();
+                            nested -= 1
+                        }
+                        _ => {}
                     }
                     end = (index, c);
                 }
 
                 let end = end.0 + end.1.len_utf8();
-                Token::BlockComment(&self.src[start .. end])
-            },
+                Token::BlockComment(&self.src[start..end])
+            }
 
             // Unexpected end of block comment
             '*' if afterwards == Some('/') => self.consumed(Token::StarSlash),
@@ -189,7 +198,7 @@ impl<'s> Iterator for Tokens<'s> {
                 }
 
                 let end_pos = end.0 + end.1.len_utf8();
-                Token::Quoted(&self.src[next_pos + 1 .. end_pos])
+                Token::Quoted(&self.src[next_pos + 1..end_pos])
             }
 
             // Escaping
@@ -207,7 +216,7 @@ impl<'s> Iterator for Tokens<'s> {
                 }
 
                 Token::Text("\\")
-            },
+            }
 
             // Normal text
             _ => {
@@ -241,7 +250,7 @@ impl<'s> Iterator for Tokens<'s> {
 
                 let end_pos = end.0 + end.1.len_utf8();
                 self.text(next_pos, end_pos)
-            },
+            }
         })
     }
 }
@@ -328,20 +337,20 @@ impl Iterator for PeekableChars<'_> {
             Some(value) => {
                 self.peek1 = self.peek2.take();
                 value
-            },
+            }
             None => self.next_inner(),
         }
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use Token::{Space as S, Newline as N, LeftBracket as L, RightBracket as R,
-                Colon as C, Equals as E, Quoted as Q, Underscore as TU, Star as TS,
-                Backtick as TB, Text as T, LineComment as LC, BlockComment as BC,
-                StarSlash as SS};
+    use Token::{
+        Backtick as TB, BlockComment as BC, Colon as C, Equals as E, LeftBracket as L,
+        LineComment as LC, Newline as N, Quoted as Q, RightBracket as R, Space as S, Star as TS,
+        StarSlash as SS, Text as T, Underscore as TU,
+    };
 
     /// Test if the source code tokenizes to the tokens.
     fn test(src: &str, tokens: Vec<Token>) {

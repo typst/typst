@@ -4,24 +4,23 @@ use std::borrow::Cow;
 use std::io::{self, Write};
 use std::mem;
 
-use toddle::query::{SharedFontLoader, FontClass};
+use toddle::query::{FontClass, SharedFontLoader};
 use toddle::Error as FontError;
 
 use crate::func::Command;
 use crate::size::{Size, Size2D, SizeBox};
-use crate::syntax::{SyntaxTree, Node, FuncCall};
 use crate::style::TextStyle;
+use crate::syntax::{FuncCall, Node, SyntaxTree};
 
-mod text;
-mod stacked;
-mod flex;
 mod actions;
+mod flex;
+mod stacked;
+mod text;
 
 pub use actions::{LayoutAction, LayoutActionList};
+pub use flex::{FlexContext, FlexLayouter};
+pub use stacked::{StackContext, StackLayouter};
 pub use text::{layout_text, TextContext};
-pub use flex::{FlexLayouter, FlexContext};
-pub use stacked::{StackLayouter, StackContext};
-
 
 /// A box layout has a fixed width and height and composes of actions.
 #[derive(Debug, Clone)]
@@ -37,7 +36,12 @@ pub struct Layout {
 impl Layout {
     /// Serialize this layout into an output buffer.
     pub fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
-        writeln!(f, "{:.4} {:.4}", self.dimensions.x.to_pt(), self.dimensions.y.to_pt())?;
+        writeln!(
+            f,
+            "{:.4} {:.4}",
+            self.dimensions.x.to_pt(),
+            self.dimensions.y.to_pt()
+        )?;
         for action in &self.actions {
             action.serialize(f)?;
             writeln!(f)?;
@@ -55,9 +59,7 @@ pub struct MultiLayout {
 impl MultiLayout {
     /// Create an empty multibox layout.
     pub fn new() -> MultiLayout {
-        MultiLayout {
-            layouts: vec![],
-        }
+        MultiLayout { layouts: vec![] }
     }
 
     /// Extract a single sublayout and panic if this layout does not have
@@ -158,7 +160,7 @@ impl<'a, 'p> Layouter<'a, 'p> {
                 },
                 flex_spacing: (ctx.style.line_spacing - 1.0) * Size::pt(ctx.style.font_size),
             }),
-            style: Cow::Borrowed(ctx.style)
+            style: Cow::Borrowed(ctx.style),
         }
     }
 
@@ -175,7 +177,7 @@ impl<'a, 'p> Layouter<'a, 'p> {
                     if !self.flex_layouter.is_empty() {
                         self.layout_text(" ", true)?;
                     }
-                },
+                }
 
                 // Finish the current flex layout and add it to the box layouter.
                 Node::Newline => {
@@ -186,7 +188,7 @@ impl<'a, 'p> Layouter<'a, 'p> {
                     let size = Size::pt(self.style.font_size)
                         * (self.style.line_spacing * self.style.paragraph_spacing - 1.0);
                     self.stack_layouter.add_space(size)?;
-                },
+                }
 
                 // Toggle the text styles.
                 Node::ToggleItalics => self.style.to_mut().toggle_class(FontClass::Italic),
@@ -208,16 +210,19 @@ impl<'a, 'p> Layouter<'a, 'p> {
         }
 
         Ok(MultiLayout {
-            layouts: vec![self.stack_layouter.finish()]
+            layouts: vec![self.stack_layouter.finish()],
         })
     }
 
     /// Layout a piece of text into a box.
     fn layout_text(&mut self, text: &str, glue: bool) -> LayoutResult<()> {
-        let boxed = layout_text(text, TextContext {
-            loader: &self.ctx.loader,
-            style: &self.style,
-        })?;
+        let boxed = layout_text(
+            text,
+            TextContext {
+                loader: &self.ctx.loader,
+                style: &self.style,
+            },
+        )?;
 
         if glue {
             self.flex_layouter.add_glue(boxed);

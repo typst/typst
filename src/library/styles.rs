@@ -2,7 +2,6 @@ use toddle::query::FontClass;
 
 use super::prelude::*;
 
-
 macro_rules! style_func {
     (
         $(#[$outer:meta])*

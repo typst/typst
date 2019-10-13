@@ -3,10 +3,9 @@
 use std::fmt::{self, Display, Formatter};
 use std::io::{self, Write};
 
-use crate::size::Size2D;
 use super::Layout;
+use crate::size::Size2D;
 use LayoutAction::*;
-
 
 /// A layouting action.
 #[derive(Clone)]
@@ -30,8 +29,14 @@ impl LayoutAction {
             MoveAbsolute(s) => write!(f, "m {:.4} {:.4}", s.x.to_pt(), s.y.to_pt()),
             SetFont(i, s) => write!(f, "f {} {}", i, s),
             WriteText(s) => write!(f, "w {}", s),
-            DebugBox(p, s) => write!(f, "b {} {} {} {}",
-                p.x.to_pt(), p.y.to_pt(), s.x.to_pt(), s.y.to_pt())
+            DebugBox(p, s) => write!(
+                f,
+                "b {} {} {} {}",
+                p.x.to_pt(),
+                p.y.to_pt(),
+                s.x.to_pt(),
+                s.y.to_pt()
+            ),
         }
     }
 }
@@ -81,7 +86,7 @@ impl LayoutActionList {
 
             SetFont(index, size) if (index, size) != self.active_font => {
                 self.next_font = Some((index, size));
-            },
+            }
 
             _ => {
                 if let Some(target) = self.next_pos.take() {
@@ -92,19 +97,21 @@ impl LayoutActionList {
                 }
 
                 self.actions.push(action);
-            },
+            }
         }
     }
 
     /// Add a series of actions.
-    pub fn extend<I>(&mut self, actions: I) where I: IntoIterator<Item=LayoutAction> {
+    pub fn extend<I>(&mut self, actions: I)
+    where I: IntoIterator<Item = LayoutAction> {
         for action in actions.into_iter() {
             self.add(action);
         }
     }
 
     /// Add all actions from a box layout at a position. A move to the position
-    /// is generated and all moves inside the box layout are translated as necessary.
+    /// is generated and all moves inside the box layout are translated as
+    /// necessary.
     pub fn add_box(&mut self, position: Size2D, layout: Layout) {
         if let Some(target) = self.next_pos.take() {
             self.actions.push(MoveAbsolute(target));
@@ -114,7 +121,8 @@ impl LayoutActionList {
         self.origin = position;
 
         if layout.debug_render {
-            self.actions.push(LayoutAction::DebugBox(position, layout.dimensions));
+            self.actions
+                .push(LayoutAction::DebugBox(position, layout.dimensions));
         }
 
         self.extend(layout.actions);

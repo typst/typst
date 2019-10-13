@@ -6,7 +6,6 @@ use std::iter::Sum;
 use std::ops::*;
 use std::str::FromStr;
 
-
 /// A general spacing type.
 #[derive(Copy, Clone, PartialEq, Default)]
 pub struct Size {
@@ -39,57 +38,89 @@ pub struct SizeBox {
 impl Size {
     /// Create a zeroed size.
     #[inline]
-    pub fn zero() -> Size { Size::default() }
+    pub fn zero() -> Size {
+        Size::default()
+    }
 
     /// Create a size from an amount of points.
     #[inline]
-    pub fn pt(points: f32) -> Size { Size { points } }
+    pub fn pt(points: f32) -> Size {
+        Size { points }
+    }
 
     /// Create a size from an amount of millimeters.
     #[inline]
-    pub fn mm(mm: f32) -> Size { Size { points: 2.83465 * mm  } }
+    pub fn mm(mm: f32) -> Size {
+        Size {
+            points: 2.83465 * mm,
+        }
+    }
 
     /// Create a size from an amount of centimeters.
     #[inline]
-    pub fn cm(cm: f32) -> Size { Size { points: 28.3465 * cm } }
+    pub fn cm(cm: f32) -> Size {
+        Size {
+            points: 28.3465 * cm,
+        }
+    }
 
     /// Create a size from an amount of inches.
     #[inline]
-    pub fn inches(inches: f32) -> Size { Size { points: 72.0 * inches } }
+    pub fn inches(inches: f32) -> Size {
+        Size {
+            points: 72.0 * inches,
+        }
+    }
 
     /// Convert this size into points.
     #[inline]
-    pub fn to_pt(&self) -> f32 { self.points }
+    pub fn to_pt(&self) -> f32 {
+        self.points
+    }
 
     /// Convert this size into millimeters.
     #[inline]
-    pub fn to_mm(&self) -> f32 { self.points * 0.352778 }
+    pub fn to_mm(&self) -> f32 {
+        self.points * 0.352778
+    }
 
     /// Convert this size into centimeters.
     #[inline]
-    pub fn to_cm(&self) -> f32 { self.points * 0.0352778 }
+    pub fn to_cm(&self) -> f32 {
+        self.points * 0.0352778
+    }
 
     /// Convert this size into inches.
     #[inline]
-    pub fn to_inches(&self) -> f32 { self.points * 0.0138889 }
+    pub fn to_inches(&self) -> f32 {
+        self.points * 0.0138889
+    }
 }
 
 impl Size2D {
     /// Create a new vector from two sizes.
     #[inline]
-    pub fn new(x: Size, y: Size) -> Size2D { Size2D { x, y } }
+    pub fn new(x: Size, y: Size) -> Size2D {
+        Size2D { x, y }
+    }
 
     /// Create a vector with all set to zero.
     #[inline]
-    pub fn zero() -> Size2D { Size2D::default() }
+    pub fn zero() -> Size2D {
+        Size2D::default()
+    }
 
     /// Create a new vector with `y` set to zero and `x` to a value.
     #[inline]
-    pub fn with_x(x: Size) -> Size2D { Size2D { x, y: Size::zero() } }
+    pub fn with_x(x: Size) -> Size2D {
+        Size2D { x, y: Size::zero() }
+    }
 
     /// Create a new vector with `x` set to zero and `y` to a value.
     #[inline]
-    pub fn with_y(y: Size) -> Size2D { Size2D { x: Size::zero(), y } }
+    pub fn with_y(y: Size) -> Size2D {
+        Size2D { x: Size::zero(), y }
+    }
 
     /// Return a [`Size2D`] padded by the paddings of the given box.
     #[inline]
@@ -105,7 +136,12 @@ impl SizeBox {
     /// Create a new box from four sizes.
     #[inline]
     pub fn new(left: Size, top: Size, right: Size, bottom: Size) -> SizeBox {
-        SizeBox { left, top, right, bottom }
+        SizeBox {
+            left,
+            top,
+            right,
+            bottom,
+        }
     }
 
     /// Create a box with all set to zero.
@@ -117,12 +153,20 @@ impl SizeBox {
 
 /// The maximum of two sizes.
 pub fn max(a: Size, b: Size) -> Size {
-    if a >= b { a } else { b }
+    if a >= b {
+        a
+    } else {
+        b
+    }
 }
 
 /// The minimum of two sizes.
 pub fn min(a: Size, b: Size) -> Size {
-    if a <= b { a } else { b }
+    if a <= b {
+        a
+    } else {
+        b
+    }
 }
 
 //------------------------------------------------------------------------------------------------//
@@ -146,10 +190,11 @@ impl FromStr for Size {
             return Err(ParseSizeError);
         }
 
-        let value = src[.. src.len() - 2].parse::<f32>()
+        let value = src[..src.len() - 2]
+            .parse::<f32>()
             .map_err(|_| ParseSizeError)?;
 
-        Ok(match &src[src.len() - 2 ..] {
+        Ok(match &src[src.len() - 2..] {
             "pt" => Size::pt(value),
             "mm" => Size::mm(value),
             "cm" => Size::cm(value),
@@ -171,13 +216,16 @@ impl Neg for Size {
 
     #[inline]
     fn neg(self) -> Size {
-        Size { points: -self.points }
+        Size {
+            points: -self.points,
+        }
     }
 }
 
 impl Sum for Size {
     #[inline]
-    fn sum<I>(iter: I) -> Size where I: Iterator<Item=Size> {
+    fn sum<I>(iter: I) -> Size
+    where I: Iterator<Item = Size> {
         iter.fold(Size::zero(), Add::add)
     }
 }
@@ -189,7 +237,9 @@ macro_rules! impl_reflexive {
 
             #[inline]
             fn $func(self, other: Size) -> Size {
-                Size { points: $trait::$func(self.points, other.points) }
+                Size {
+                    points: $trait::$func(self.points, other.points),
+                }
             }
         }
 
@@ -209,7 +259,9 @@ macro_rules! impl_num_back {
 
             #[inline]
             fn $func(self, other: $ty) -> Size {
-                Size { points: $trait::$func(self.points, other as f32) }
+                Size {
+                    points: $trait::$func(self.points, other as f32),
+                }
             }
         }
 
@@ -231,7 +283,9 @@ macro_rules! impl_num_both {
 
             #[inline]
             fn $func(self, other: Size) -> Size {
-                Size { points: $trait::$func(self as f32, other.points) }
+                Size {
+                    points: $trait::$func(self as f32, other.points),
+                }
             }
         }
     };
@@ -257,7 +311,10 @@ impl Neg for Size2D {
 
     #[inline]
     fn neg(self) -> Size2D {
-        Size2D { x: -self.x, y: -self.y }
+        Size2D {
+            x: -self.x,
+            y: -self.y,
+        }
     }
 }
 
@@ -336,8 +393,11 @@ impl_num_back2d!(Div, div, DivAssign, div_assign, i32);
 
 impl Display for SizeBox {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "[left: {}, top: {}, right: {}, bottom: {}]",
-            self.left, self.top, self.right, self.bottom)
+        write!(
+            f,
+            "[left: {}, top: {}, right: {}, bottom: {}]",
+            self.left, self.top, self.right, self.bottom
+        )
     }
 }
 

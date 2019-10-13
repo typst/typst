@@ -1,7 +1,6 @@
 use super::prelude::*;
 use crate::layout::Alignment;
 
-
 /// Allows to align content in different ways.
 #[derive(Debug, PartialEq)]
 pub struct AlignFunc {
@@ -10,9 +9,8 @@ pub struct AlignFunc {
 }
 
 impl Function for AlignFunc {
-    fn parse(header: &FuncHeader, body: Option<&str>, ctx: ParseContext)
-        -> ParseResult<Self> where Self: Sized {
-
+    fn parse(header: &FuncHeader, body: Option<&str>, ctx: ParseContext) -> ParseResult<Self>
+    where Self: Sized {
         if header.args.len() != 1 || !header.kwargs.is_empty() {
             return err("expected exactly one positional argument specifying the alignment");
         }
@@ -24,7 +22,10 @@ impl Function for AlignFunc {
                 s => return err(format!("invalid alignment specifier: '{}'", s)),
             }
         } else {
-            return err(format!("expected alignment specifier, found: '{}'", header.args[0]));
+            return err(format!(
+                "expected alignment specifier, found: '{}'",
+                header.args[0]
+            ));
         };
 
         let body = if let Some(body) = body {

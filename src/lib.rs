@@ -1,26 +1,28 @@
 //! The compiler for the _Typst_ typesetting language.
 //!
 //! # Steps
-//! - **Parsing:** The parsing step first transforms a plain string into an [iterator of
-//!   tokens](crate::parsing::Tokens). Then parser constructs a syntax tree from the token stream.
-//!   The structures describing the tree can be found in the [syntax]. Dynamic functions parse
-//!   their own bodies themselves.
-//! - **Layouting:** The next step is to transform the syntax tree into a portable representation of
-//!   the typesetted document. Types for these can be found in the [layout] module.
-//! - **Exporting:** The finished document can then be exported into supported formats. Submodules
-//!   for the supported formats are located in the [export] module. Currently the only supported
-//!   format is _PDF_.
+//! - **Parsing:** The parsing step first transforms a plain string into an
+//!   [iterator of tokens](crate::parsing::Tokens). Then parser constructs a
+//!   syntax tree from the token stream. The structures describing the tree can
+//!   be found in the [syntax]. Dynamic functions parse their own bodies
+//!   themselves.
+//! - **Layouting:** The next step is to transform the syntax tree into a
+//!   portable representation of the typesetted document. Types for these can be
+//!   found in the [layout] module.
+//! - **Exporting:** The finished document can then be exported into supported
+//!   formats. Submodules for the supported formats are located in the [export]
+//!   module. Currently the only supported format is _PDF_.
 
 pub extern crate toddle;
 
 use std::cell::RefCell;
 
-use toddle::query::{FontLoader, SharedFontLoader, FontProvider};
+use toddle::query::{FontLoader, FontProvider, SharedFontLoader};
 
 use crate::func::Scope;
-use crate::parsing::{parse, ParseContext, ParseResult, ParseError};
 use crate::layout::{layout_tree, LayoutContext, MultiLayout};
-use crate::layout::{LayoutSpace, Alignment, LayoutError, LayoutResult};
+use crate::layout::{Alignment, LayoutError, LayoutResult, LayoutSpace};
+use crate::parsing::{parse, ParseContext, ParseError, ParseResult};
 use crate::style::{PageStyle, TextStyle};
 use crate::syntax::SyntaxTree;
 
@@ -29,12 +31,11 @@ mod macros;
 pub mod export;
 pub mod func;
 pub mod layout;
+pub mod library;
 pub mod parsing;
 pub mod size;
 pub mod style;
 pub mod syntax;
-pub mod library;
-
 
 /// Transforms source code into typesetted documents.
 ///
@@ -73,7 +74,8 @@ impl<'p> Typesetter<'p> {
 
     /// Add a font provider to the context of this typesetter.
     #[inline]
-    pub fn add_font_provider<P: 'p>(&mut self, provider: P) where P: FontProvider {
+    pub fn add_font_provider<P: 'p>(&mut self, provider: P)
+    where P: FontProvider {
         self.loader.get_mut().add_provider(provider);
     }
 
@@ -98,12 +100,15 @@ impl<'p> Typesetter<'p> {
             shrink_to_fit: false,
         };
 
-        let pages = layout_tree(&tree, LayoutContext {
-            loader: &self.loader,
-            style: &self.text_style,
-            space,
-            extra_space: Some(space),
-        })?;
+        let pages = layout_tree(
+            &tree,
+            LayoutContext {
+                loader: &self.loader,
+                style: &self.text_style,
+                space,
+                extra_space: Some(space),
+            },
+        )?;
 
         Ok(pages)
     }
@@ -115,7 +120,6 @@ impl<'p> Typesetter<'p> {
         Ok(layout)
     }
 }
-
 
 /// The general error type for typesetting.
 pub enum TypesetError {

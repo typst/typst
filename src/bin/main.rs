@@ -1,14 +1,13 @@
 use std::env;
 use std::error::Error;
 use std::fs::File;
-use std::io::{Read, BufWriter};
+use std::io::{BufWriter, Read};
 use std::path::{Path, PathBuf};
 use std::process;
 
-use typst::Typesetter;
 use typst::export::pdf::PdfExporter;
 use typst::toddle::query::FileSystemFontProvider;
-
+use typst::Typesetter;
 
 fn main() {
     if let Err(err) = run() {
@@ -26,11 +25,16 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     let source_path = Path::new(&args[1]);
 
-    // Compute the output filename from the input filename by replacing the extension.
+    // Compute the output filename from the input filename by replacing the
+    // extension.
     let dest_path = if args.len() <= 2 {
-        let stem = source_path.file_stem().ok_or_else(|| "missing destation file name")?;
+        let stem = source_path
+            .file_stem()
+            .ok_or_else(|| "missing destation file name")?;
 
-        let base = source_path.parent().ok_or_else(|| "missing destation folder")?;
+        let base = source_path
+            .parent()
+            .ok_or_else(|| "missing destation folder")?;
 
         base.join(format!("{}.pdf", stem.to_string_lossy()))
     } else {
@@ -43,7 +47,9 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     let mut src = String::new();
     let mut source_file = File::open(source_path).map_err(|_| "failed to open source file")?;
-    source_file.read_to_string(&mut src).map_err(|_| "failed to read from source file")?;
+    source_file
+        .read_to_string(&mut src)
+        .map_err(|_| "failed to read from source file")?;
 
     // Create a typesetter with a font provider that provides the default fonts.
     let mut typesetter = Typesetter::new();

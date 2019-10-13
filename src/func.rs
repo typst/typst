@@ -6,27 +6,27 @@ use std::fmt::{self, Debug, Formatter};
 
 use toddle::query::FontClass;
 
-use crate::layout::{Layout, MultiLayout , LayoutContext, LayoutResult};
+use crate::layout::{Layout, LayoutContext, LayoutResult, MultiLayout};
 use crate::parsing::{ParseContext, ParseResult};
-use crate::syntax::{SyntaxTree, FuncHeader};
-
+use crate::syntax::{FuncHeader, SyntaxTree};
 
 /// Typesetting function types.
 ///
-/// These types have to be able to parse tokens into themselves and store the relevant information
-/// from the parsing to do their role in typesetting later.
+/// These types have to be able to parse tokens into themselves and store the
+/// relevant information from the parsing to do their role in typesetting later.
 ///
-/// The trait `FunctionBounds` is automatically implemented for types which can be used as
-/// functions, that is they fulfill the bounds `Debug + PartialEq + 'static`.
+/// The trait `FunctionBounds` is automatically implemented for types which can
+/// be used as functions, that is they fulfill the bounds `Debug + PartialEq +
+/// 'static`.
 pub trait Function: FunctionBounds {
     /// Parse the header and body into this function given a context.
-    fn parse(header: &FuncHeader, body: Option<&str>, ctx: ParseContext)
-        -> ParseResult<Self> where Self: Sized;
+    fn parse(header: &FuncHeader, body: Option<&str>, ctx: ParseContext) -> ParseResult<Self>
+    where Self: Sized;
 
     /// Layout this function given a context.
     ///
-    /// Returns optionally the resulting layout and a new context if changes to the context should
-    /// be made.
+    /// Returns optionally the resulting layout and a new context if changes to
+    /// the context should be made.
     fn layout(&self, ctx: LayoutContext) -> LayoutResult<FuncCommands>;
 }
 
@@ -39,15 +39,13 @@ impl PartialEq for dyn Function {
 /// A sequence of commands requested for execution by a function.
 #[derive(Debug)]
 pub struct FuncCommands<'a> {
-    pub commands: Vec<Command<'a>>
+    pub commands: Vec<Command<'a>>,
 }
 
 impl<'a> FuncCommands<'a> {
     /// Create an empty command list.
     pub fn new() -> FuncCommands<'a> {
-        FuncCommands {
-            commands: vec![],
-        }
+        FuncCommands { commands: vec![] }
     }
 
     /// Add a command to the sequence.
@@ -79,10 +77,11 @@ pub enum Command<'a> {
     ToggleStyleClass(FontClass),
 }
 
-/// A helper trait that describes requirements for types that can implement [`Function`].
+/// A helper trait that describes requirements for types that can implement
+/// [`Function`].
 ///
-/// Automatically implemented for all types which fulfill to the bounds `Debug + PartialEq +
-/// 'static`. There should be no need to implement this manually.
+/// Automatically implemented for all types which fulfill to the bounds `Debug +
+/// PartialEq + 'static`. There should be no need to implement this manually.
 pub trait FunctionBounds: Debug {
     /// Cast self into `Any`.
     fn help_cast_as_any(&self) -> &dyn Any;
@@ -91,7 +90,9 @@ pub trait FunctionBounds: Debug {
     fn help_eq(&self, other: &dyn Function) -> bool;
 }
 
-impl<T> FunctionBounds for T where T: Debug + PartialEq + 'static {
+impl<T> FunctionBounds for T
+where T: Debug + PartialEq + 'static
+{
     fn help_cast_as_any(&self) -> &dyn Any {
         self
     }
@@ -111,13 +112,14 @@ pub struct Scope {
 }
 
 /// A function which parses a function invocation into a function type.
-type ParseFunc = dyn Fn(&FuncHeader, Option<&str>, ParseContext)
-                       -> ParseResult<Box<dyn Function>>;
+type ParseFunc = dyn Fn(&FuncHeader, Option<&str>, ParseContext) -> ParseResult<Box<dyn Function>>;
 
 impl Scope {
     /// Create a new empty scope.
     pub fn new() -> Scope {
-        Scope { parsers: HashMap::new() }
+        Scope {
+            parsers: HashMap::new(),
+        }
     }
 
     /// Create a new scope with the standard functions contained.
@@ -129,9 +131,7 @@ impl Scope {
     pub fn add<F: Function + 'static>(&mut self, name: &str) {
         self.parsers.insert(
             name.to_owned(),
-            Box::new(|h, b, c| {
-                F::parse(h, b, c).map(|func| Box::new(func) as Box<dyn Function>)
-            })
+            Box::new(|h, b, c| F::parse(h, b, c).map(|func| Box::new(func) as Box<dyn Function>)),
         );
     }
 

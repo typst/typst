@@ -1,6 +1,5 @@
 use super::*;
 
-
 /// Layouts boxes block-style.
 #[derive(Debug)]
 pub struct StackLayouter {
@@ -29,10 +28,13 @@ impl StackLayouter {
                 Alignment::Right => Size2D::with_x(space.usable().x),
             },
             usable: space.usable(),
-            cursor: Size2D::new(match ctx.space.alignment {
-                Alignment::Left => space.padding.left,
-                Alignment::Right => space.dimensions.x - space.padding.right,
-            }, space.padding.top),
+            cursor: Size2D::new(
+                match ctx.space.alignment {
+                    Alignment::Left => space.padding.left,
+                    Alignment::Right => space.dimensions.x - space.padding.right,
+                },
+                space.padding.top,
+            ),
         }
     }
 
