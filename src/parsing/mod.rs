@@ -1,6 +1,7 @@
-//! Parsing of source code into token streams an syntax trees.
+//! Parsing of source code into token streams and syntax trees.
 
 use std::collections::HashMap;
+
 use unicode_xid::UnicodeXID;
 
 use crate::func::{Function, Scope};
@@ -8,6 +9,7 @@ use crate::syntax::*;
 use crate::size::Size;
 
 mod tokens;
+
 pub use tokens::{tokenize, Tokens};
 
 
@@ -539,6 +541,7 @@ mod tests {
 
     /// Parse the basic cases.
     #[test]
+    #[rustfmt::skip]
     fn parse_base() {
         test("", tree! []);
         test("Hello World!", tree! [ T("Hello"), S, T("World!") ]);
@@ -546,6 +549,7 @@ mod tests {
 
     /// Test whether newlines generate the correct whitespace.
     #[test]
+    #[rustfmt::skip]
     fn parse_newlines_whitespace() {
         test("Hello\nWorld", tree! [ T("Hello"), S, T("World") ]);
         test("Hello \n World", tree! [ T("Hello"), S, T("World") ]);
@@ -558,6 +562,7 @@ mod tests {
 
     /// Parse things dealing with functions.
     #[test]
+    #[rustfmt::skip]
     fn parse_functions() {
         let mut scope = Scope::new();
         scope.add::<BodylessFn>("test");
@@ -590,6 +595,7 @@ mod tests {
 
     /// Parse functions with arguments.
     #[test]
+    #[rustfmt::skip]
     fn parse_function_args() {
         use Expression::{Number as N, Size as Z, Bool as B};
 
@@ -599,14 +605,16 @@ mod tests {
         fn I(string: &str) -> Expression { Expression::Ident(string.to_owned()) }
 
         fn func(name: &str, args: Vec<Expression>) -> SyntaxTree {
-            tree! [ F(FuncCall {
-                header: FuncHeader {
-                    name: name.to_string(),
-                    args,
-                    kwargs: HashMap::new(),
-                },
-                body: Box::new(BodylessFn)
-            }) ]
+            tree! [
+                F(FuncCall {
+                    header: FuncHeader {
+                        name: name.to_string(),
+                        args,
+                        kwargs: HashMap::new(),
+                    },
+                    body: Box::new(BodylessFn)
+                })
+            ]
         }
 
         let mut scope = Scope::new();
@@ -626,6 +634,7 @@ mod tests {
 
     /// Parse comments (line and block).
     #[test]
+    #[rustfmt::skip]
     fn parse_comments() {
         let mut scope = Scope::new();
         scope.add::<BodylessFn>("test");
@@ -641,6 +650,7 @@ mod tests {
 
     /// Test if escaped, but unbalanced parens are correctly parsed.
     #[test]
+    #[rustfmt::skip]
     fn parse_unbalanced_body_parens() {
         let mut scope = Scope::new();
         scope.add::<TreeFn>("code");
@@ -667,6 +677,7 @@ mod tests {
 
     /// Tests if the parser handles non-ASCII stuff correctly.
     #[test]
+    #[rustfmt::skip]
     fn parse_unicode() {
         let mut scope = Scope::new();
         scope.add::<BodylessFn>("func");
@@ -689,6 +700,7 @@ mod tests {
 
     /// Tests whether errors get reported correctly.
     #[test]
+    #[rustfmt::skip]
     fn parse_errors() {
         let mut scope = Scope::new();
         scope.add::<TreeFn>("hello");

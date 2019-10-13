@@ -1,7 +1,7 @@
-//! Tokenization of text.
-
 use std::str::CharIndices;
+
 use smallvec::SmallVec;
+
 use crate::syntax::*;
 
 
@@ -350,6 +350,7 @@ mod tests {
 
     /// Tokenizes the basic building blocks.
     #[test]
+    #[rustfmt::skip]
     fn tokenize_base() {
         test("", vec![]);
         test("Hallo", vec![T("Hallo")]);
@@ -363,17 +364,20 @@ mod tests {
 
     /// This test looks if LF- and CRLF-style newlines get both identified correctly.
     #[test]
+    #[rustfmt::skip]
     fn tokenize_whitespace_newlines() {
         test(" \t", vec![S]);
-        test("First line\r\nSecond line\nThird line\n",
-             vec![T("First"), S, T("line"), N, T("Second"), S, T("line"), N,
-                  T("Third"), S, T("line"), N]);
+        test("First line\r\nSecond line\nThird line\n", vec![
+            T("First"), S, T("line"), N, T("Second"), S, T("line"), N,
+            T("Third"), S, T("line"), N
+        ]);
         test("Hello \n ", vec![T("Hello"), S, N, S]);
         test("Dense\nTimes", vec![T("Dense"), N, T("Times")]);
     }
 
     /// Tests if escaping with backslash works as it should.
     #[test]
+    #[rustfmt::skip]
     fn tokenize_escape() {
         test(r"\[", vec![T("[")]);
         test(r"\]", vec![T("]")]);
@@ -386,12 +390,14 @@ mod tests {
 
     /// Tests if escaped strings work.
     #[test]
+    #[rustfmt::skip]
     fn tokenize_quoted() {
         test(r#"[align: "hello\"world"]"#, vec![L, T("align"), C, S, Q(r#"hello\"world"#), R]);
     }
 
     /// Tokenizes some more realistic examples.
     #[test]
+    #[rustfmt::skip]
     fn tokenize_examples() {
         test(r"
             [function][
@@ -418,29 +424,30 @@ mod tests {
     /// This test checks whether the colon and equals symbols get parsed correctly depending on the
     /// context: Either in a function header or in a body.
     #[test]
+    #[rustfmt::skip]
     fn tokenize_symbols_context() {
-        test("[func: key=value][Answer: 7]",
-             vec![L, T("func"), C, S, T("key"), E, T("value"), R, L,
-                  T("Answer:"), S, T("7"), R]);
-        test("[[n: k=v]:x][:[=]]:=",
-             vec![L, L, T("n"), C, S, T("k"), E, T("v"), R, C, T("x"), R,
-                  L, T(":"), L, E, R, R, T(":=")]);
-        test("[hi: k=[func][body] v=1][hello]",
-            vec![L, T("hi"), C, S, T("k"), E, L, T("func"), R, L, T("body"), R, S,
-                 T("v"), E, T("1"), R, L, T("hello"), R]);
-        test("[func: __key__=value]",
-             vec![L, T("func"), C, S, T("__key__"), E, T("value"), R]);
-        test("The /*[*/ answer: 7.",
-            vec![T("The"), S, BC("["), S, T("answer:"), S, T("7.")]);
+        test("[func: key=value][Answer: 7]", vec![
+            L, T("func"), C, S, T("key"), E, T("value"), R, L,
+            T("Answer:"), S, T("7"), R
+        ]);
+        test("[[n: k=v]:x][:[=]]:=", vec![
+            L, L, T("n"), C, S, T("k"), E, T("v"), R, C, T("x"), R,
+            L, T(":"), L, E, R, R, T(":=")
+        ]);
+        test("[hi: k=[func][body] v=1][hello]", vec![
+            L, T("hi"), C, S, T("k"), E, L, T("func"), R, L, T("body"), R, S,
+            T("v"), E, T("1"), R, L, T("hello"), R
+        ]);
+        test("[func: __key__=value]", vec![L, T("func"), C, S, T("__key__"), E, T("value"), R]);
+        test("The /*[*/ answer: 7.", vec![T("The"), S, BC("["), S, T("answer:"), S, T("7.")]);
     }
 
     /// Test if block and line comments get tokenized as expected.
     #[test]
+    #[rustfmt::skip]
     fn tokenize_comments() {
-        test("These // Line comments.",
-            vec![T("These"), S, LC(" Line comments.")]);
-        test("This /* is */ a comment.",
-            vec![T("This"), S, BC(" is "), S, T("a"), S, T("comment.")]);
+        test("These // Line comments.", vec![T("These"), S, LC(" Line comments.")]);
+        test("This /* is */ a comment.", vec![T("This"), S, BC(" is "), S, T("a"), S, T("comment.")]);
         test("[Head/*of*/][Body]", vec![L, T("Head"), BC("of"), R, L, T("Body"), R]);
         test("/* Hey */ */", vec![BC(" Hey "), S, SS]);
         test("Hey\n// Yoo /*\n*/", vec![T("Hey"), N, LC(" Yoo /*"), N, SS]);
@@ -449,6 +456,7 @@ mod tests {
 
     /// This test has a special look at the underscore syntax.
     #[test]
+    #[rustfmt::skip]
     fn tokenize_underscores() {
         test("he_llo_world_ __ Now this_ is_ special!",
              vec![T("he"), TU, T("llo"), TU, T("world"), TU, S, TU, TU, S, T("Now"), S,
@@ -457,9 +465,9 @@ mod tests {
 
     /// This test is for checking if non-ASCII characters get parsed correctly.
     #[test]
+    #[rustfmt::skip]
     fn tokenize_unicode() {
-        test("[document][Hello 🌍!]",
-             vec![L, T("document"), R, L, T("Hello"), S, T("🌍!"), R]);
+        test("[document][Hello 🌍!]", vec![L, T("document"), R, L, T("Hello"), S, T("🌍!"), R]);
         test("[f]⺐.", vec![L, T("f"), R, T("⺐.")]);
     }
 }

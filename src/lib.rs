@@ -2,12 +2,11 @@
 //!
 //! # Steps
 //! - **Parsing:** The parsing step first transforms a plain string into an [iterator of
-//!   tokens](crate::parsing::Tokens). Then the [parser](crate::parsing::Parser) operates on that to
-//!   construct a syntax tree. The structures describing the tree can be found in the [syntax]
-//!   module.
+//!   tokens](crate::parsing::Tokens). Then parser constructs a syntax tree from the token stream.
+//!   The structures describing the tree can be found in the [syntax]. Dynamic functions parse
+//!   their own bodies themselves.
 //! - **Layouting:** The next step is to transform the syntax tree into a portable representation of
-//!   the typesetted document. Types for these can be found in the [doc] and [layout] modules. This
-//!   representation contains already the finished layout.
+//!   the typesetted document. Types for these can be found in the [layout] module.
 //! - **Exporting:** The finished document can then be exported into supported formats. Submodules
 //!   for the supported formats are located in the [export] module. Currently the only supported
 //!   format is _PDF_.
@@ -15,6 +14,7 @@
 pub extern crate toddle;
 
 use std::cell::RefCell;
+
 use toddle::query::{FontLoader, SharedFontLoader, FontProvider};
 
 use crate::func::Scope;

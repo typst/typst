@@ -1,8 +1,4 @@
-//! Flexible and lazy layouting of boxes.
-
-use crate::size::{Size, Size2D};
 use super::*;
-
 
 
 /// Finishes a flex layout by justifying the positions of the individual boxes.

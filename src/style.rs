@@ -1,6 +1,7 @@
-//! Styles for layouting.
+//! Layouting styles.
 
 use toddle::query::FontClass;
+
 use crate::size::{Size, Size2D, SizeBox};
 
 

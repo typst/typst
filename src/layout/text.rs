@@ -1,5 +1,3 @@
-//! Layouting of text into boxes.
-
 use toddle::query::{FontQuery, SharedFontLoader};
 use toddle::tables::{Header, CharMap, HorizontalMetrics};
 

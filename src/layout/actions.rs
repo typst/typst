@@ -1,7 +1,8 @@
-//! Drawing and cofiguration actions used by layouts.
+//! Drawing and cofiguration actions composing layouts.
 
 use std::fmt::{self, Display, Formatter};
 use std::io::{self, Write};
+
 use crate::size::Size2D;
 use super::Layout;
 use LayoutAction::*;

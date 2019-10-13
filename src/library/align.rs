@@ -1,5 +1,3 @@
-//! Alignment function.
-
 use super::prelude::*;
 use crate::layout::Alignment;
 

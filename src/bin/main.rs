@@ -29,7 +29,9 @@ fn run() -> Result<(), Box<dyn Error>> {
     // Compute the output filename from the input filename by replacing the extension.
     let dest_path = if args.len() <= 2 {
         let stem = source_path.file_stem().ok_or_else(|| "missing destation file name")?;
+
         let base = source_path.parent().ok_or_else(|| "missing destation folder")?;
+
         base.join(format!("{}.pdf", stem.to_string_lossy()))
     } else {
         PathBuf::from(&args[2])

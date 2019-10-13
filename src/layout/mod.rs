@@ -1,4 +1,4 @@
-//! The layouting engine.
+//! The core layouting engine.
 
 use std::borrow::Cow;
 use std::io::{self, Write};
@@ -11,7 +11,6 @@ use crate::func::Command;
 use crate::size::{Size, Size2D, SizeBox};
 use crate::syntax::{SyntaxTree, Node, FuncCall};
 use crate::style::TextStyle;
-
 
 mod text;
 mod stacked;

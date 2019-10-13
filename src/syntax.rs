@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
+
 use crate::func::Function;
 use crate::size::Size;
 

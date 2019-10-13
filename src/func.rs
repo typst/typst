@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
 use toddle::query::FontClass;
+
 use crate::layout::{Layout, MultiLayout , LayoutContext, LayoutResult};
 use crate::parsing::{ParseContext, ParseResult};
 use crate::syntax::{SyntaxTree, FuncHeader};

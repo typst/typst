@@ -1,4 +1,4 @@
-//! General spacing types.
+//! Different-dimensional spacing types.
 
 use std::cmp::Ordering;
 use std::fmt::{self, Display, Formatter};

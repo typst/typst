@@ -1,7 +1,6 @@
-//! Basic style functions: bold, italic, monospace.
+use toddle::query::FontClass;
 
 use super::prelude::*;
-use toddle::query::FontClass;
 
 
 macro_rules! style_func {
