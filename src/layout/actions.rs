@@ -17,14 +17,13 @@ pub enum LayoutAction {
     /// Write text starting at the current position.
     WriteText(String),
     /// Visualize a box for debugging purposes.
-    /// Arguments are position and size.
+    /// The arguments are position and size.
     DebugBox(Size2D, Size2D),
 }
 
 impl LayoutAction {
-    /// Serialize this layout action into a string representation.
+    /// Serialize this layout action into an easy-to-parse string representation.
     pub fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
-        use LayoutAction::*;
         match self {
             MoveAbsolute(s) => write!(f, "m {:.4} {:.4}", s.x.to_pt(), s.y.to_pt()),
             SetFont(i, s) => write!(f, "f {} {}", i, s),
@@ -55,7 +54,17 @@ impl Display for LayoutAction {
 
 debug_display!(LayoutAction);
 
-/// Unifies and otimizes lists of actions.
+/// A sequence of layouting actions.
+///
+/// The sequence of actions is optimized as the actions are added. For example,
+/// a font changing option will only be added if the selected font is not already active.
+/// All configuration actions (like moving, setting fonts, ...) are only flushed when
+/// content is written.
+///
+/// Furthermore, the action list can translate absolute position into a coordinate system
+/// with a different. This is realized in the `add_box` method, which allows a layout to
+/// be added at a position, effectively translating all movement actions inside the layout
+/// by the position.
 #[derive(Debug, Clone)]
 pub struct LayoutActionList {
     pub origin: Size2D,
@@ -77,8 +86,7 @@ impl LayoutActionList {
         }
     }
 
-    /// Add an action to the list if it is not useless
-    /// (like changing to a font that is already active).
+    /// Add an action to the list.
     pub fn add(&mut self, action: LayoutAction) {
         match action {
             MoveAbsolute(pos) => self.next_pos = Some(self.origin + pos),
@@ -89,16 +97,8 @@ impl LayoutActionList {
             }
 
             _ => {
-                if let Some(target) = self.next_pos.take() {
-                    self.actions.push(MoveAbsolute(target));
-                }
-
-                if let Some((index, size)) = self.next_font.take() {
-                    if (index, size) != self.active_font {
-                        self.actions.push(SetFont(index, size));
-                        self.active_font = (index, size);
-                    }
-                }
+                self.flush_position();
+                self.flush_font();
 
                 self.actions.push(action);
             }
@@ -113,20 +113,16 @@ impl LayoutActionList {
         }
     }
 
-    /// Add all actions from a box layout at a position. A move to the position
-    /// is generated and all moves inside the box layout are translated as
-    /// necessary.
-    pub fn add_box(&mut self, position: Size2D, layout: Layout) {
-        if let Some(target) = self.next_pos.take() {
-            self.actions.push(MoveAbsolute(target));
-        }
+    /// Add a layout at a position. All move actions inside the layout are translated
+    /// by the position.
+    pub fn add_layout(&mut self, position: Size2D, layout: Layout) {
+        self.flush_position();
 
-        self.next_pos = Some(position);
         self.origin = position;
+        self.next_pos = Some(position);
 
         if layout.debug_render {
-            self.actions
-                .push(LayoutAction::DebugBox(position, layout.dimensions));
+            self.actions.push(DebugBox(position, layout.dimensions));
         }
 
         self.extend(layout.actions);
@@ -140,5 +136,22 @@ impl LayoutActionList {
     /// Return the list of actions as a vector.
     pub fn into_vec(self) -> Vec<LayoutAction> {
         self.actions
+    }
+
+    /// Append a cached move action if one is cached.
+    fn flush_position(&mut self) {
+        if let Some(target) = self.next_pos.take() {
+            self.actions.push(MoveAbsolute(target));
+        }
+    }
+
+    /// Append a cached font-setting action if one is cached.
+    fn flush_font(&mut self) {
+        if let Some((index, size)) = self.next_font.take() {
+            if (index, size) != self.active_font {
+                self.actions.push(SetFont(index, size));
+                self.active_font = (index, size);
+            }
+        }
     }
 }

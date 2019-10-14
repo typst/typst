@@ -130,6 +130,13 @@ impl Size2D {
             y: self.y + padding.top + padding.bottom,
         }
     }
+
+    /// Whether the given [`Size2D`] fits into this one, that is,
+    /// both coordinate values are smaller.
+    #[inline]
+    pub fn fits(&self, other: Size2D) -> bool {
+        self.x >= other.x && self.y >= other.y
+    }
 }
 
 impl SizeBox {

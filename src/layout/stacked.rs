@@ -1,34 +1,41 @@
 use super::*;
 
-/// Layouts boxes block-style.
-#[derive(Debug)]
+/// Stack-like layouting of boxes.
+///
+/// The boxes are arranged vertically, each layout gettings it's own "line".
 pub struct StackLayouter {
     ctx: StackContext,
     actions: LayoutActionList,
-    dimensions: Size2D,
     usable: Size2D,
+    dimensions: Size2D,
     cursor: Size2D,
 }
 
+/// The context for the [`StackLayouter`].
 #[derive(Debug, Copy, Clone)]
 pub struct StackContext {
     pub space: LayoutSpace,
 }
 
 impl StackLayouter {
-    /// Create a new box layouter.
+    /// Create a new stack layouter.
     pub fn new(ctx: StackContext) -> StackLayouter {
         let space = ctx.space;
 
         StackLayouter {
             ctx,
             actions: LayoutActionList::new(),
+
+            usable: ctx.space.usable(),
             dimensions: match ctx.space.alignment {
                 Alignment::Left => Size2D::zero(),
                 Alignment::Right => Size2D::with_x(space.usable().x),
             },
-            usable: space.usable(),
+
             cursor: Size2D::new(
+                // If left-align, the cursor points to the top-left corner of
+                // each box. If we right-align, it points to the top-right
+                // corner.
                 match ctx.space.alignment {
                     Alignment::Left => space.padding.left,
                     Alignment::Right => space.dimensions.x - space.padding.right,
@@ -43,21 +50,16 @@ impl StackLayouter {
         &self.ctx
     }
 
-    /// Add a sublayout.
-    pub fn add_box(&mut self, layout: Layout) -> LayoutResult<()> {
-        // In the flow direction (vertical) add the layout and in the second
-        // direction just consider the maximal size of any child layout.
-        let new_size = Size2D {
+    /// Add a sublayout to the bottom.
+    pub fn add(&mut self, layout: Layout) -> LayoutResult<()> {
+        let new_dimensions = Size2D {
             x: crate::size::max(self.dimensions.x, layout.dimensions.x),
             y: self.dimensions.y + layout.dimensions.y,
         };
 
-        // Check whether this box fits.
-        if self.overflows(new_size) {
+        if self.overflows(new_dimensions) {
             return Err(LayoutError::NotEnoughSpace);
         }
-
-        self.dimensions = new_size;
 
         // Determine where to put the box. When we right-align it, we want the
         // cursor to point to the top-right corner of the box. Therefore, the
@@ -68,28 +70,23 @@ impl StackLayouter {
         };
 
         self.cursor.y += layout.dimensions.y;
+        self.dimensions = new_dimensions;
 
-        self.add_box_absolute(position, layout);
+        self.actions.add_layout(position, layout);
 
         Ok(())
     }
 
-    /// Add multiple sublayouts.
+    /// Add multiple sublayouts from a multi-layout.
     pub fn add_many(&mut self, layouts: MultiLayout) -> LayoutResult<()> {
         for layout in layouts {
-            self.add_box(layout)?;
+            self.add(layout)?;
         }
         Ok(())
     }
 
-    /// Add a sublayout at an absolute position.
-    pub fn add_box_absolute(&mut self, position: Size2D, layout: Layout) {
-        self.actions.add_box(position, layout);
-    }
-
-    /// Add space in between two boxes.
+    /// Add vertical space after the last layout.
     pub fn add_space(&mut self, space: Size) -> LayoutResult<()> {
-        // Check whether this space fits.
         if self.overflows(self.dimensions + Size2D::with_y(space)) {
             return Err(LayoutError::NotEnoughSpace);
         }
@@ -100,20 +97,7 @@ impl StackLayouter {
         Ok(())
     }
 
-    /// The remaining space for new boxes.
-    pub fn remaining(&self) -> Size2D {
-        Size2D {
-            x: self.usable.x,
-            y: self.usable.y - self.dimensions.y,
-        }
-    }
-
-    /// Whether this layouter contains any items.
-    pub fn is_empty(&self) -> bool {
-        self.actions.is_empty()
-    }
-
-    /// Finish the layouting and create a box layout from this.
+    /// Finish the layouting.
     pub fn finish(self) -> Layout {
         Layout {
             dimensions: if self.ctx.space.shrink_to_fit {
@@ -126,8 +110,20 @@ impl StackLayouter {
         }
     }
 
-    /// Whether the given box is bigger than what we can hold.
+    /// The remaining space for new layouts.
+    pub fn remaining(&self) -> Size2D {
+        Size2D {
+            x: self.usable.x,
+            y: self.usable.y - self.dimensions.y,
+        }
+    }
+
+    /// Whether this layouter contains any items.
+    pub fn is_empty(&self) -> bool {
+        self.actions.is_empty()
+    }
+
     fn overflows(&self, dimensions: Size2D) -> bool {
-        dimensions.x > self.usable.x || dimensions.y > self.usable.y
+        !self.usable.fits(dimensions)
     }
 }

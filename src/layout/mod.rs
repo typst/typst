@@ -267,7 +267,7 @@ impl<'a, 'p> Layouter<'a, 'p> {
 
         let boxed = layout.finish()?;
 
-        self.stack_layouter.add_box(boxed)
+        self.stack_layouter.add(boxed)
     }
 
     /// Layout a function.
@@ -287,7 +287,7 @@ impl<'a, 'p> Layouter<'a, 'p> {
         for command in commands {
             match command {
                 Command::Layout(tree) => self.layout(tree)?,
-                Command::Add(layout) => self.stack_layouter.add_box(layout)?,
+                Command::Add(layout) => self.stack_layouter.add(layout)?,
                 Command::AddMany(layouts) => self.stack_layouter.add_many(layouts)?,
                 Command::ToggleStyleClass(class) => self.style.to_mut().toggle_class(class),
             }

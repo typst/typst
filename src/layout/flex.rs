@@ -1,19 +1,33 @@
 use super::*;
 
-/// Finishes a flex layout by justifying the positions of the individual boxes.
-#[derive(Debug)]
+/// Flex-layouting of boxes.
+///
+/// The boxes are arranged in "lines", each line having the height of its
+/// biggest box. When a box does not fit on a line anymore horizontally,
+/// a new line is started.
+///
+/// The flex layouter does not actually compute anything until the `finish`
+/// method is called. The reason for this is the flex layouter will have
+/// the capability to justify its layouts, later. To find a good justification
+/// it needs total information about the contents.
+///
+/// There are two different kinds units that can be added to a flex run:
+/// Normal layouts and _glue_. _Glue_ layouts are only written if a normal
+/// layout follows and a glue layout is omitted if the following layout
+/// flows into a new line. A _glue_ layout is typically used for a space character
+/// since it prevents a space from appearing in the beginning or end of a line.
+/// However, it can be any layout.
 pub struct FlexLayouter {
     ctx: FlexContext,
     units: Vec<FlexUnit>,
 
     actions: LayoutActionList,
-    dimensions: Size2D,
     usable: Size2D,
+    dimensions: Size2D,
     cursor: Size2D,
 
-    line_content: Vec<(Size2D, Layout)>,
-    line_metrics: Size2D,
-    last_glue: Option<Layout>,
+    run: FlexRun,
+    next_glue: Option<Layout>,
 }
 
 /// The context for flex layouting.
@@ -21,12 +35,10 @@ pub struct FlexLayouter {
 pub struct FlexContext {
     /// The space to layout the boxes in.
     pub space: LayoutSpace,
-    /// The flex spacing between two lines of boxes.
+    /// The spacing between two lines of boxes.
     pub flex_spacing: Size,
 }
 
-/// A unit in a flex layout.
-#[derive(Debug, Clone)]
 enum FlexUnit {
     /// A content unit to be arranged flexibly.
     Boxed(Layout),
@@ -34,6 +46,11 @@ enum FlexUnit {
     /// is only present if there was no flow break in between the two
     /// surrounding boxes.
     Glue(Layout),
+}
+
+struct FlexRun {
+    content: Vec<(Size2D, Layout)>,
+    size: Size2D,
 }
 
 impl FlexLayouter {
@@ -44,16 +61,16 @@ impl FlexLayouter {
             units: vec![],
 
             actions: LayoutActionList::new(),
+            usable: ctx.space.usable(),
             dimensions: match ctx.space.alignment {
                 Alignment::Left => Size2D::zero(),
                 Alignment::Right => Size2D::with_x(ctx.space.usable().x),
             },
-            usable: ctx.space.usable(),
+
             cursor: Size2D::new(ctx.space.padding.left, ctx.space.padding.top),
 
-            line_content: vec![],
-            line_metrics: Size2D::zero(),
-            last_glue: None,
+            run: FlexRun::new(),
+            next_glue: None,
         }
     }
 
@@ -72,27 +89,22 @@ impl FlexLayouter {
         self.units.push(FlexUnit::Glue(glue));
     }
 
-    /// Whether this layouter contains any items.
-    pub fn is_empty(&self) -> bool {
-        self.units.is_empty()
-    }
-
     /// Compute the justified layout.
     pub fn finish(mut self) -> LayoutResult<Layout> {
-        // Move the units out of the layout.
+        // Move the units out of the layout because otherwise, we run into
+        // ownership problems.
         let units = self.units;
-        self.units = vec![];
+        self.units = Vec::new();
 
-        // Arrange the units.
         for unit in units {
             match unit {
-                FlexUnit::Boxed(boxed) => self.boxed(boxed)?,
-                FlexUnit::Glue(glue) => self.glue(glue),
+                FlexUnit::Boxed(boxed) => self.layout_box(boxed)?,
+                FlexUnit::Glue(glue) => self.layout_glue(glue),
             }
         }
 
-        // Flush everything to get the correct dimensions.
-        self.newline();
+        // Finish the last flex run.
+        self.finish_flex_run();
 
         Ok(Layout {
             dimensions: if self.ctx.space.shrink_to_fit {
@@ -105,82 +117,95 @@ impl FlexLayouter {
         })
     }
 
-    /// Layout the box.
-    fn boxed(&mut self, boxed: Layout) -> LayoutResult<()> {
-        let last_glue_x = self
-            .last_glue
+    /// Whether this layouter contains any items.
+    pub fn is_empty(&self) -> bool {
+        self.units.is_empty()
+    }
+
+    fn layout_box(&mut self, boxed: Layout) -> LayoutResult<()> {
+        let next_glue_width = self
+            .next_glue
             .as_ref()
             .map(|g| g.dimensions.x)
             .unwrap_or(Size::zero());
 
-        // Move to the next line if necessary.
-        if self.line_metrics.x + boxed.dimensions.x + last_glue_x > self.usable.x {
-            // If it still does not fit, we stand no chance.
-            if boxed.dimensions.x > self.usable.x {
+        let new_line_width = self.run.size.x + next_glue_width + boxed.dimensions.x;
+
+        if self.overflows(new_line_width) {
+            // If the box does not even fit on its own line, then
+            // we can't do anything.
+            if self.overflows(boxed.dimensions.x) {
                 return Err(LayoutError::NotEnoughSpace);
             }
 
-            self.newline();
-        } else if let Some(glue) = self.last_glue.take() {
-            self.append(glue);
+            self.finish_flex_run();
+        } else {
+            // Only add the glue if we did not move to a new line.
+            self.flush_glue();
         }
 
-        self.append(boxed);
+        self.add_to_flex_run(boxed);
 
         Ok(())
     }
 
-    /// Layout the glue.
-    fn glue(&mut self, glue: Layout) {
-        if let Some(glue) = self.last_glue.take() {
-            self.append(glue);
+    fn layout_glue(&mut self, glue: Layout) {
+        self.flush_glue();
+        self.next_glue = Some(glue);
+    }
+
+    fn flush_glue(&mut self) {
+        if let Some(glue) = self.next_glue.take() {
+            self.add_to_flex_run(glue);
         }
-        self.last_glue = Some(glue);
     }
 
-    /// Append a box to the layout without checking anything.
-    fn append(&mut self, layout: Layout) {
-        let dim = layout.dimensions;
-        self.line_content.push((self.cursor, layout));
+    fn add_to_flex_run(&mut self, layout: Layout) {
+        let position = self.cursor;
 
-        self.line_metrics.x += dim.x;
-        self.line_metrics.y = crate::size::max(self.line_metrics.y, dim.y);
-        self.cursor.x += dim.x;
+        self.cursor.x += layout.dimensions.x;
+        self.run.size.x += layout.dimensions.x;
+        self.run.size.y = crate::size::max(self.run.size.y, layout.dimensions.y);
+
+        self.run.content.push((position, layout));
     }
 
-    /// Move to the next line.
-    fn newline(&mut self) {
-        // Move all actions into this layout and translate absolute positions.
-        let remaining_space = Size2D::with_x(self.ctx.space.usable().x - self.line_metrics.x);
-        for (cursor, layout) in self.line_content.drain(..) {
-            let position = match self.ctx.space.alignment {
-                Alignment::Left => cursor,
-                Alignment::Right => {
-                    // Right align everything by shifting it right by the
-                    // amount of space left to the right of the line.
-                    cursor + remaining_space
+    fn finish_flex_run(&mut self) {
+        // Add all layouts from the current flex run at the correct positions.
+        match self.ctx.space.alignment {
+            Alignment::Left => {
+                for (position, layout) in self.run.content.drain(..) {
+                    self.actions.add_layout(position, layout);
                 }
-            };
+            }
 
-            self.actions.add_box(position, layout);
+            Alignment::Right => {
+                let extra_space = Size2D::with_x(self.usable.x -  self.run.size.x);
+                for (position, layout) in self.run.content.drain(..) {
+                    self.actions.add_layout(position + extra_space, layout);
+                }
+            }
         }
 
-        // Stretch the dimensions to at least the line width.
-        self.dimensions.x = crate::size::max(self.dimensions.x, self.line_metrics.x);
+        self.dimensions.x = crate::size::max(self.dimensions.x,  self.run.size.x);
+        self.dimensions.y += self.ctx.flex_spacing;
+        self.dimensions.y +=  self.run.size.y;
 
-        // If we wrote a line previously add the inter-line spacing.
-        if self.dimensions.y > Size::zero() {
-            self.dimensions.y += self.ctx.flex_spacing;
-        }
-
-        self.dimensions.y += self.line_metrics.y;
-
-        // Reset the cursor the left and move down by the line and the inter-line
-        // spacing.
         self.cursor.x = self.ctx.space.padding.left;
-        self.cursor.y += self.line_metrics.y + self.ctx.flex_spacing;
+        self.cursor.y += self.run.size.y + self.ctx.flex_spacing;
+        self.run.size = Size2D::zero();
+    }
 
-        // Reset the current line metrics.
-        self.line_metrics = Size2D::zero();
+    fn overflows(&self, line: Size) -> bool {
+        line > self.usable.x
+    }
+}
+
+impl FlexRun {
+    fn new() -> FlexRun {
+        FlexRun {
+            content: vec![],
+            size: Size2D::zero()
+        }
     }
 }
