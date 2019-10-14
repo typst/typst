@@ -1,4 +1,4 @@
-use toddle::query::{FontQuery, SharedFontLoader};
+use toddle::query::{SharedFontLoader, FontQuery, FontClass};
 use toddle::tables::{CharMap, Header, HorizontalMetrics};
 
 use super::*;
@@ -13,82 +13,106 @@ pub struct TextContext<'a, 'p> {
     pub style: &'a TextStyle,
 }
 
-/// Layout one piece of text without any breaks as one continous box.
+/// Layouts text into a box.
+///
+/// There is no complex layout involved. The text is simply laid out left-
+/// to-right using the correct font for each character.
 pub fn layout_text(text: &str, ctx: TextContext) -> LayoutResult<Layout> {
-    let mut loader = ctx.loader.borrow_mut();
+    TextLayouter::new(text, ctx).layout()
+}
 
-    let mut actions = Vec::new();
-    let mut active_font = std::usize::MAX;
-    let mut buffer = String::new();
-    let mut width = Size::zero();
+/// Layouts text into boxes.
+struct TextLayouter<'a, 'p> {
+    ctx: TextContext<'a, 'p>,
+    text: &'a str,
+    actions: LayoutActionList,
+    buffer: String,
+    active_font: usize,
+    width: Size,
+    classes: Vec<FontClass>,
+}
 
-    // Walk the characters.
-    for character in text.chars() {
-        // Retrieve the best font for this character.
-        let mut font = None;
-        let mut classes = ctx.style.classes.clone();
-        for class in &ctx.style.fallback {
-            classes.push(class.clone());
-
-            font = loader.get(FontQuery {
-                chars: &[character],
-                classes: &classes,
-            });
-
-            if font.is_some() {
-                break;
-            }
-
-            classes.pop();
+impl<'a, 'p> TextLayouter<'a, 'p> {
+    /// Create a new text layouter.
+    fn new(text: &'a str, ctx: TextContext<'a, 'p>) -> TextLayouter<'a, 'p> {
+        TextLayouter {
+            ctx,
+            text,
+            actions: LayoutActionList::new(),
+            buffer: String::new(),
+            active_font: std::usize::MAX,
+            width: Size::zero(),
+            classes: ctx.style.classes.clone(),
         }
-
-        let (font, index) = match font {
-            Some(f) => f,
-            None => return Err(LayoutError::NoSuitableFont(character)),
-        };
-
-        // Create a conversion function between font units and sizes.
-        let font_unit_ratio = 1.0 / (font.read_table::<Header>()?.units_per_em as f32);
-        let font_unit_to_size = |x| Size::pt(font_unit_ratio * x);
-
-        // Add the char width to the total box width.
-        let glyph = font
-            .read_table::<CharMap>()?
-            .get(character)
-            .expect("layout text: font should have char");
-
-        let glyph_width = font_unit_to_size(
-            font.read_table::<HorizontalMetrics>()?
-                .get(glyph)
-                .expect("layout text: font should have glyph")
-                .advance_width as f32,
-        );
-
-        let char_width = glyph_width * ctx.style.font_size;
-        width += char_width;
-
-        // Change the font if necessary.
-        if active_font != index {
-            if !buffer.is_empty() {
-                actions.push(LayoutAction::WriteText(buffer));
-                buffer = String::new();
-            }
-
-            actions.push(LayoutAction::SetFont(index, ctx.style.font_size));
-            active_font = index;
-        }
-
-        buffer.push(character);
     }
 
-    // Write the remaining characters.
-    if !buffer.is_empty() {
-        actions.push(LayoutAction::WriteText(buffer));
+    /// Layout the text
+    fn layout(mut self) -> LayoutResult<Layout> {
+        for c in self.text.chars() {
+            let (index, char_width) = self.select_font(c)?;
+
+            self.width += char_width;
+
+            if self.active_font != index {
+                if !self.buffer.is_empty() {
+                    self.actions.add(LayoutAction::WriteText(self.buffer));
+                    self.buffer = String::new();
+                }
+
+                self.actions.add(LayoutAction::SetFont(index, self.ctx.style.font_size));
+                self.active_font = index;
+            }
+
+            self.buffer.push(c);
+        }
+
+        if !self.buffer.is_empty() {
+            self.actions.add(LayoutAction::WriteText(self.buffer));
+        }
+
+        Ok(Layout {
+            dimensions: Size2D::new(self.width, Size::pt(self.ctx.style.font_size)),
+            actions: self.actions.into_vec(),
+            debug_render: false,
+        })
     }
 
-    Ok(Layout {
-        dimensions: Size2D::new(width, Size::pt(ctx.style.font_size)),
-        actions,
-        debug_render: false,
-    })
+    /// Select the best font for a character and return its index along with
+    /// the width of the char in the font.
+    fn select_font(&mut self, c: char) -> LayoutResult<(usize, Size)> {
+        let mut loader = self.ctx.loader.borrow_mut();
+
+        for class in &self.ctx.style.fallback {
+            self.classes.push(class.clone());
+
+            let query = FontQuery {
+                chars: &[c],
+                classes: &self.classes,
+            };
+
+            if let Some((font, index)) = loader.get(query) {
+                let font_unit_ratio = 1.0 / (font.read_table::<Header>()?.units_per_em as f32);
+                let font_unit_to_size = |x| Size::pt(font_unit_ratio * x);
+
+                let glyph = font
+                    .read_table::<CharMap>()?
+                    .get(c)
+                    .expect("layout text: font should have char");
+
+                let glyph_width = font
+                    .read_table::<HorizontalMetrics>()?
+                    .get(glyph)
+                    .expect("layout text: font should have glyph")
+                    .advance_width as f32;
+
+                let char_width = font_unit_to_size(glyph_width) * self.ctx.style.font_size;
+
+                return Ok((index, char_width));
+            }
+
+            self.classes.pop();
+        }
+
+        Err(LayoutError::NoSuitableFont(c))
+    }
 }

@@ -14,6 +14,7 @@ pub struct StackLayouter {
 /// The context for the [`StackLayouter`].
 #[derive(Debug, Copy, Clone)]
 pub struct StackContext {
+    /// The space to layout the boxes in.
     pub space: LayoutSpace,
 }
 
