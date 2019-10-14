@@ -1,6 +1,7 @@
 use std::fs::{self, File};
 use std::io::{BufWriter, Read, Write};
 use std::process::Command;
+use std::time::Instant;
 
 use typst::export::pdf::PdfExporter;
 use typst::layout::LayoutAction;
@@ -50,15 +51,21 @@ fn main() {
 
 /// Create a _PDF_ with a name from the source code.
 fn test(name: &str, src: &str) {
-    println!("Testing: {}", name);
+    print!("Testing: {}", name);
 
     let mut typesetter = Typesetter::new();
     let provider = FileSystemFontProvider::from_listing("fonts/fonts.toml").unwrap();
     typesetter.add_font_provider(provider.clone());
 
+    let start = Instant::now();
+
     // Layout into box layout.
     let tree = typesetter.parse(src).unwrap();
     let layout = typesetter.layout(&tree).unwrap();
+
+    let end = Instant::now();
+    let duration = end - start;
+    println!(" [{:?}]", duration);
 
     // Write the serialed layout file.
     let path = format!("{}/serialized/{}.box", CACHE_DIR, name);

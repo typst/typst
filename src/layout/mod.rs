@@ -76,6 +76,11 @@ impl MultiLayout {
         self.layouts.push(layout);
     }
 
+    /// The count of sublayouts.
+    pub fn count(&self) -> usize {
+        self.layouts.len()
+    }
+
     /// Whether this layout contains any sublayouts.
     pub fn is_empty(&self) -> bool {
         self.layouts.is_empty()
@@ -90,6 +95,16 @@ impl IntoIterator for MultiLayout {
         self.layouts.into_iter()
     }
 }
+
+impl<'a> IntoIterator for &'a MultiLayout {
+    type Item = &'a Layout;
+    type IntoIter = std::slice::Iter<'a, Layout>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.layouts.iter()
+    }
+}
+
 
 /// The context for layouting.
 #[derive(Copy, Clone)]

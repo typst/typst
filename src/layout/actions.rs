@@ -84,7 +84,7 @@ impl LayoutActionList {
             MoveAbsolute(pos) => self.next_pos = Some(self.origin + pos),
             DebugBox(pos, size) => self.actions.push(DebugBox(self.origin + pos, size)),
 
-            SetFont(index, size) if (index, size) != self.active_font => {
+            SetFont(index, size) => {
                 self.next_font = Some((index, size));
             }
 
@@ -92,8 +92,12 @@ impl LayoutActionList {
                 if let Some(target) = self.next_pos.take() {
                     self.actions.push(MoveAbsolute(target));
                 }
+
                 if let Some((index, size)) = self.next_font.take() {
-                    self.actions.push(SetFont(index, size));
+                    if (index, size) != self.active_font {
+                        self.actions.push(SetFont(index, size));
+                        self.active_font = (index, size);
+                    }
                 }
 
                 self.actions.push(action);
