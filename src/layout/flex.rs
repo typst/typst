@@ -138,6 +138,7 @@ impl FlexLayouter {
                 return Err(LayoutError::NotEnoughSpace);
             }
 
+            self.next_glue = None;
             self.finish_flex_run();
         } else {
             // Only add the glue if we did not move to a new line.
