@@ -2,7 +2,6 @@
 
 use std::borrow::Cow;
 use std::io::{self, Write};
-use std::mem;
 
 use toddle::query::{FontClass, SharedFontLoader};
 use toddle::Error as FontError;
@@ -13,16 +12,23 @@ use crate::style::TextStyle;
 use crate::syntax::{FuncCall, Node, SyntaxTree};
 
 mod actions;
+mod tree;
 mod flex;
 mod stacked;
 mod text;
 
-pub use actions::{LayoutAction, LayoutActionList};
-pub use flex::{FlexContext, FlexLayouter};
-pub use stacked::{StackContext, StackLayouter};
-pub use text::{layout_text, TextContext};
+/// Different kinds of layouters (fully re-exported).
+pub mod layouters {
+    pub use super::tree::layout_tree;
+    pub use super::flex::{FlexLayouter, FlexContext};
+    pub use super::stacked::{StackLayouter, StackContext};
+    pub use super::text::{layout_text, TextContext};
+}
 
-/// A box layout has a fixed width and height and composes of actions.
+pub use actions::{LayoutAction, LayoutActionList};
+pub use layouters::*;
+
+/// A sequence of layouting actions inside a box.
 #[derive(Debug, Clone)]
 pub struct Layout {
     /// The size of the box.
@@ -50,19 +56,19 @@ impl Layout {
     }
 }
 
-/// A collection of box layouts.
+/// A collection of layouts.
 #[derive(Debug, Clone)]
 pub struct MultiLayout {
     pub layouts: Vec<Layout>,
 }
 
 impl MultiLayout {
-    /// Create an empty multibox layout.
+    /// Create an empty multi-layout.
     pub fn new() -> MultiLayout {
         MultiLayout { layouts: vec![] }
     }
 
-    /// Extract a single sublayout and panic if this layout does not have
+    /// Extract the single sublayout. This panics if the layout does not have
     /// exactly one child.
     pub fn into_single(mut self) -> Layout {
         if self.layouts.len() != 1 {
@@ -105,8 +111,7 @@ impl<'a> IntoIterator for &'a MultiLayout {
     }
 }
 
-
-/// The context for layouting.
+/// The general context for layouting.
 #[derive(Copy, Clone)]
 pub struct LayoutContext<'a, 'p> {
     pub loader: &'a SharedFontLoader<'p>,
@@ -115,7 +120,7 @@ pub struct LayoutContext<'a, 'p> {
     pub extra_space: Option<LayoutSpace>,
 }
 
-/// Spacial constraints for layouting.
+/// Spacial layouting constraints.
 #[derive(Debug, Copy, Clone)]
 pub struct LayoutSpace {
     /// The maximum size of the box to layout in.
@@ -125,12 +130,12 @@ pub struct LayoutSpace {
     /// The alignment to use for the content.
     pub alignment: Alignment,
     /// Whether to shrink the dimensions to fit the content or the keep the
-    /// original ones.
+    /// dimensions from the layout space.
     pub shrink_to_fit: bool,
 }
 
 impl LayoutSpace {
-    /// The actually usable area.
+    /// The actually usable area (dimensions minus padding).
     pub fn usable(&self) -> Size2D {
         Size2D {
             x: self.dimensions.x - self.padding.left - self.padding.right,
@@ -144,157 +149,6 @@ impl LayoutSpace {
 pub enum Alignment {
     Left,
     Right,
-}
-
-pub fn layout_tree(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<MultiLayout> {
-    let mut layouter = Layouter::new(ctx);
-    layouter.layout(tree)?;
-    layouter.finish()
-}
-
-/// Transforms a syntax tree into a box layout.
-struct Layouter<'a, 'p> {
-    ctx: LayoutContext<'a, 'p>,
-    stack_layouter: StackLayouter,
-    flex_layouter: FlexLayouter,
-    style: Cow<'a, TextStyle>,
-}
-
-impl<'a, 'p> Layouter<'a, 'p> {
-    /// Create a new layouter.
-    fn new(ctx: LayoutContext<'a, 'p>) -> Layouter<'a, 'p> {
-        Layouter {
-            ctx,
-            stack_layouter: StackLayouter::new(StackContext { space: ctx.space }),
-            flex_layouter: FlexLayouter::new(FlexContext {
-                space: LayoutSpace {
-                    dimensions: ctx.space.usable(),
-                    padding: SizeBox::zero(),
-                    alignment: ctx.space.alignment,
-                    shrink_to_fit: true,
-                },
-                flex_spacing: (ctx.style.line_spacing - 1.0) * Size::pt(ctx.style.font_size),
-            }),
-            style: Cow::Borrowed(ctx.style),
-        }
-    }
-
-    /// Layout the tree into a box.
-    fn layout(&mut self, tree: &SyntaxTree) -> LayoutResult<()> {
-        // Walk all nodes and layout them.
-        for node in &tree.nodes {
-            match node {
-                // Layout a single piece of text.
-                Node::Text(text) => self.layout_text(text, false)?,
-
-                // Add a space.
-                Node::Space => {
-                    if !self.flex_layouter.is_empty() {
-                        self.layout_text(" ", true)?;
-                    }
-                }
-
-                // Finish the current flex layout and add it to the box layouter.
-                Node::Newline => {
-                    // Finish the current paragraph into a box and add it.
-                    self.layout_flex()?;
-
-                    // Add some paragraph spacing.
-                    let size = Size::pt(self.style.font_size)
-                        * (self.style.line_spacing * self.style.paragraph_spacing - 1.0);
-                    self.stack_layouter.add_space(size)?;
-                }
-
-                // Toggle the text styles.
-                Node::ToggleItalics => self.style.to_mut().toggle_class(FontClass::Italic),
-                Node::ToggleBold => self.style.to_mut().toggle_class(FontClass::Bold),
-                Node::ToggleMonospace => self.style.to_mut().toggle_class(FontClass::Monospace),
-
-                // Execute a function.
-                Node::Func(func) => self.layout_func(func)?,
-            }
-        }
-
-        Ok(())
-    }
-
-    fn finish(mut self) -> LayoutResult<MultiLayout> {
-        // If there are remainings, add them to the layout.
-        if !self.flex_layouter.is_empty() {
-            self.layout_flex()?;
-        }
-
-        Ok(MultiLayout {
-            layouts: vec![self.stack_layouter.finish()],
-        })
-    }
-
-    /// Layout a piece of text into a box.
-    fn layout_text(&mut self, text: &str, glue: bool) -> LayoutResult<()> {
-        let boxed = layout_text(
-            text,
-            TextContext {
-                loader: &self.ctx.loader,
-                style: &self.style,
-            },
-        )?;
-
-        if glue {
-            self.flex_layouter.add_glue(boxed);
-        } else {
-            self.flex_layouter.add(boxed);
-        }
-
-        Ok(())
-    }
-
-    /// Finish the current flex run and return the resulting box.
-    fn layout_flex(&mut self) -> LayoutResult<()> {
-        if self.flex_layouter.is_empty() {
-            return Ok(());
-        }
-
-        let mut layout = FlexLayouter::new(FlexContext {
-            space: LayoutSpace {
-                dimensions: self.stack_layouter.ctx().space.usable(),
-                padding: SizeBox::zero(),
-                alignment: self.ctx.space.alignment,
-                shrink_to_fit: true,
-            },
-            flex_spacing: (self.style.line_spacing - 1.0) * Size::pt(self.style.font_size),
-        });
-        mem::swap(&mut layout, &mut self.flex_layouter);
-
-        let boxed = layout.finish()?;
-
-        self.stack_layouter.add(boxed)
-    }
-
-    /// Layout a function.
-    fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
-        let commands = func.body.layout(LayoutContext {
-            loader: &self.ctx.loader,
-            style: &self.style,
-            space: LayoutSpace {
-                dimensions: self.stack_layouter.remaining(),
-                padding: SizeBox::zero(),
-                alignment: self.ctx.space.alignment,
-                shrink_to_fit: true,
-            },
-            extra_space: self.ctx.extra_space,
-        })?;
-
-        for command in commands {
-            match command {
-                Command::Layout(tree) => self.layout(tree)?,
-                Command::Add(layout) => self.stack_layouter.add(layout)?,
-                Command::AddMany(layouts) => self.stack_layouter.add_many(layouts)?,
-                Command::ToggleStyleClass(class) => self.style.to_mut().toggle_class(class),
-            }
-        }
-
-        Ok(())
-    }
 }
 
 /// The error type for layouting.

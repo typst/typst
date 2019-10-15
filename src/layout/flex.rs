@@ -1,6 +1,6 @@
 use super::*;
 
-/// Flex-layouting of boxes.
+/// Layouts boxes flex-like.
 ///
 /// The boxes are arranged in "lines", each line having the height of its
 /// biggest box. When a box does not fit on a line anymore horizontally,
@@ -74,9 +74,9 @@ impl FlexLayouter {
         }
     }
 
-    /// Get a reference to this layouter's context.
-    pub fn ctx(&self) -> &FlexContext {
-        &self.ctx
+    /// This layouter's context.
+    pub fn ctx(&self) -> FlexContext {
+        self.ctx
     }
 
     /// Add a sublayout.

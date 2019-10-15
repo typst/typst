@@ -19,7 +19,6 @@ use crate::layout::{Layout, LayoutAction, MultiLayout};
 use crate::size::Size;
 
 /// Exports layouts into _PDFs_.
-#[derive(Debug)]
 pub struct PdfExporter {}
 
 impl PdfExporter {

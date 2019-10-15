@@ -1,6 +1,6 @@
 use super::*;
 
-/// Stack-like layouting of boxes.
+/// Layouts boxes stack-like.
 ///
 /// The boxes are arranged vertically, each layout gettings it's own "line".
 pub struct StackLayouter {
@@ -11,7 +11,7 @@ pub struct StackLayouter {
     cursor: Size2D,
 }
 
-/// The context for the [`StackLayouter`].
+/// The context for stack layouting.
 #[derive(Debug, Copy, Clone)]
 pub struct StackContext {
     /// The space to layout the boxes in.
@@ -46,9 +46,9 @@ impl StackLayouter {
         }
     }
 
-    /// Get a reference to this layouter's context.
-    pub fn ctx(&self) -> &StackContext {
-        &self.ctx
+    /// This layouter's context.
+    pub fn ctx(&self) -> StackContext {
+        self.ctx
     }
 
     /// Add a sublayout to the bottom.

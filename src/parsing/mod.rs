@@ -153,7 +153,7 @@ impl<'s> Parser<'s> {
 
     /// Parse the arguments to a function.
     fn parse_func_args(&mut self) -> ParseResult<(Vec<Expression>, HashMap<String, Expression>)> {
-        let mut args = vec![];
+        let mut args = Vec::new();
         let kwargs = HashMap::new();
 
         let mut comma = false;
