@@ -126,10 +126,22 @@ impl<'a> IntoIterator for &'a MultiLayout {
 /// The general context for layouting.
 #[derive(Debug, Copy, Clone)]
 pub struct LayoutContext<'a, 'p> {
+    /// The font loader to retrieve fonts from when typesetting text
+    /// using [`layout_text`].
     pub loader: &'a SharedFontLoader<'p>,
+    /// The style to set text with. This includes sizes and font classes
+    /// which determine which font from the loaders selection is used.
     pub style: &'a TextStyle,
+    /// The alignment to use for the content.
+    pub alignment: Alignment,
+    /// The primary space to layout in.
     pub space: LayoutSpace,
-    pub extra_space: Option<LayoutSpace>,
+    /// The additional spaces which are used when the primary space
+    /// cannot fit the whole content.
+    pub followup_spaces: Option<LayoutSpace>,
+    /// Whether to shrink the dimensions to fit the content or the keep the
+    /// dimensions from the layout spaces.
+    pub shrink_to_fit: bool,
 }
 
 /// Spacial layouting constraints.
@@ -139,17 +151,20 @@ pub struct LayoutSpace {
     pub dimensions: Size2D,
     /// Padding that should be respected on each side.
     pub padding: SizeBox,
-    /// The alignment to use for the content.
-    pub alignment: Alignment,
-    /// Whether to shrink the dimensions to fit the content or the keep the
-    /// dimensions from the layout space.
-    pub shrink_to_fit: bool,
 }
 
 impl LayoutSpace {
     /// The actually usable area (dimensions minus padding).
     pub fn usable(&self) -> Size2D {
         self.dimensions.unpadded(self.padding)
+    }
+
+    /// A layout without padding and dimensions reduced by the padding.
+    pub fn usable_space(&self) -> LayoutSpace {
+        LayoutSpace {
+            dimensions: self.usable(),
+            padding: SizeBox::zero(),
+        }
     }
 }
 

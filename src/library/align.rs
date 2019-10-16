@@ -40,10 +40,7 @@ impl Function for AlignFunc {
 
     fn layout(&self, mut ctx: LayoutContext) -> LayoutResult<FuncCommands> {
         if let Some(body) = &self.body {
-            ctx.space.alignment = self.alignment;
-            if let Some(space) = ctx.extra_space.as_mut() {
-                space.alignment = self.alignment;
-            }
+            ctx.alignment = self.alignment;
 
             let layouts = layout_tree(body, ctx)?;
 

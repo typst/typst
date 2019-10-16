@@ -19,14 +19,12 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     fn new(ctx: LayoutContext<'a, 'p>) -> TreeLayouter<'a, 'p> {
         TreeLayouter {
             ctx,
-            stack: StackLayouter::new(StackContext {
-                space: ctx.space,
-                extra_space: ctx.extra_space
-            }),
+            stack: StackLayouter::new(StackContext::from_layout_ctx(ctx)),
             flex: FlexLayouter::new(FlexContext {
-                space: flex_space(ctx.space),
-                extra_space: ctx.extra_space.map(|s| flex_space(s)),
-                flex_spacing: flex_spacing(&ctx.style),
+                space: ctx.space.usable_space(),
+                followup_spaces: ctx.followup_spaces.map(|s| s.usable_space()),
+                shrink_to_fit: true,
+                .. FlexContext::from_layout_ctx(ctx, flex_spacing(&ctx.style))
             }),
             style: Cow::Borrowed(ctx.style),
         }
@@ -119,15 +117,13 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
         let mut ctx = self.ctx;
         ctx.style = &self.style;
+        ctx.shrink_to_fit = true;
 
         ctx.space.dimensions = self.stack.remaining();
         ctx.space.padding = SizeBox::zero();
-        ctx.space.shrink_to_fit = true;
 
-        if let Some(space) = ctx.extra_space.as_mut() {
-            space.dimensions = space.usable();
-            space.padding = SizeBox::zero();
-            space.shrink_to_fit = true;
+        if let Some(space) = ctx.followup_spaces.as_mut() {
+            *space = space.usable_space();
         }
 
         let commands = func.body.layout(ctx)?;
@@ -142,15 +138,6 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
         }
 
         Ok(())
-    }
-}
-
-fn flex_space(space: LayoutSpace) -> LayoutSpace {
-    LayoutSpace {
-        dimensions: space.usable(),
-        padding: SizeBox::zero(),
-        alignment: space.alignment,
-        shrink_to_fit: true,
     }
 }
 

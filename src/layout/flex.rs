@@ -28,12 +28,40 @@ pub struct FlexLayouter {
 }
 
 /// The context for flex layouting.
+///
+/// See [`LayoutContext`] for details about the fields.
 #[derive(Debug, Copy, Clone)]
 pub struct FlexContext {
-    pub space: LayoutSpace,
     /// The spacing between two lines of boxes.
     pub flex_spacing: Size,
-    pub extra_space: Option<LayoutSpace>,
+    pub alignment: Alignment,
+    pub space: LayoutSpace,
+    pub followup_spaces: Option<LayoutSpace>,
+    pub shrink_to_fit: bool,
+}
+
+macro_rules! reuse {
+    ($ctx:expr, $flex_spacing:expr) => {
+        FlexContext {
+            flex_spacing: $flex_spacing,
+            alignment: $ctx.alignment,
+            space: $ctx.space,
+            followup_spaces: $ctx.followup_spaces,
+            shrink_to_fit: $ctx.shrink_to_fit,
+        }
+    };
+}
+
+impl FlexContext {
+    /// Create a flex context from a generic layout context.
+    pub fn from_layout_ctx(ctx: LayoutContext, flex_spacing: Size) -> FlexContext {
+        reuse!(ctx, flex_spacing)
+    }
+
+    /// Create a flex context from a stack context.
+    pub fn from_stack_ctx(ctx: StackContext, flex_spacing: Size) -> FlexContext {
+        reuse!(ctx, flex_spacing)
+    }
 }
 
 enum FlexUnit {
@@ -57,10 +85,7 @@ impl FlexLayouter {
             ctx,
             units: vec![],
 
-            stack: StackLayouter::new(StackContext {
-                space: ctx.space,
-                extra_space: ctx.extra_space,
-            }),
+            stack: StackLayouter::new(StackContext::from_flex_ctx(ctx)),
 
             usable_width: ctx.space.usable().x,
             run: FlexRun {
@@ -125,7 +150,7 @@ impl FlexLayouter {
             // If the box does not even fit on its own line, then we try
             // it in the next space, or we have to give up if there is none.
             if self.overflows_line(boxed.dimensions.x) {
-                if self.ctx.extra_space.is_some() {
+                if self.ctx.followup_spaces.is_some() {
                     self.stack.finish_layout(true)?;
                     return self.layout_box(boxed);
                 } else {

@@ -96,8 +96,6 @@ impl<'p> Typesetter<'p> {
         let space = LayoutSpace {
             dimensions: self.page_style.dimensions,
             padding: self.page_style.margins,
-            alignment: Alignment::Left,
-            shrink_to_fit: false,
         };
 
         let pages = layout_tree(
@@ -105,8 +103,10 @@ impl<'p> Typesetter<'p> {
             LayoutContext {
                 loader: &self.loader,
                 style: &self.text_style,
+                alignment: Alignment::Left,
                 space,
-                extra_space: Some(space),
+                followup_spaces: Some(space),
+                shrink_to_fit: false,
             },
         )?;
 

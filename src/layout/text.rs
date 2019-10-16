@@ -5,12 +5,22 @@ use super::*;
 use crate::size::{Size, Size2D};
 
 /// The context for text layouting.
+///
+/// See [`LayoutContext`] for details about the fields.
 #[derive(Copy, Clone)]
 pub struct TextContext<'a, 'p> {
-    /// Loads fonts matching queries.
     pub loader: &'a SharedFontLoader<'p>,
-    /// Base style to set text with.
     pub style: &'a TextStyle,
+}
+
+impl<'a, 'p> TextContext<'a, 'p> {
+    /// Create a text context from a generic layout context.
+    pub fn from_layout_ctx(ctx: LayoutContext<'a, 'p>) -> TextContext<'a, 'p> {
+        TextContext {
+            loader: ctx.loader,
+            style: ctx.style,
+        }
+    }
 }
 
 /// Layouts text into a box.
