@@ -19,14 +19,13 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     fn new(ctx: LayoutContext<'a, 'p>) -> TreeLayouter<'a, 'p> {
         TreeLayouter {
             ctx,
-            stack: StackLayouter::new(StackContext { space: ctx.space }),
+            stack: StackLayouter::new(StackContext {
+                space: ctx.space,
+                extra_space: ctx.extra_space
+            }),
             flex: FlexLayouter::new(FlexContext {
-                space: LayoutSpace {
-                    dimensions: ctx.space.usable(),
-                    padding: SizeBox::zero(),
-                    alignment: ctx.space.alignment,
-                    shrink_to_fit: true,
-                },
+                space: flex_space(ctx.space),
+                extra_space: ctx.extra_space.map(|s| flex_space(s)),
                 flex_spacing: flex_spacing(&ctx.style),
             }),
             style: Cow::Borrowed(ctx.style),
@@ -48,10 +47,8 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
                 // Finish the current flex layouting process.
                 Node::Newline => {
-                    self.layout_flex()?;
-
                     let space = paragraph_spacing(&self.style);
-                    self.stack.add_space(space)?;
+                    self.layout_flex(space)?;
                 }
 
                 // Toggle the text styles.
@@ -70,12 +67,10 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     fn finish(mut self) -> LayoutResult<MultiLayout> {
         // If there are remainings, add them to the layout.
         if !self.flex.is_empty() {
-            self.layout_flex()?;
+            self.layout_flex(Size::zero())?;
         }
 
-        Ok(MultiLayout {
-            layouts: vec![self.stack.finish()],
-        })
+        self.stack.finish()
     }
 
     /// Add text to the flex layout. If `glue` is true, the text will be a glue
@@ -98,29 +93,38 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     }
 
     /// Finish the current flex layout and add it the stack.
-    fn layout_flex(&mut self) -> LayoutResult<()> {
+    fn layout_flex(&mut self, after_space: Size) -> LayoutResult<()> {
         if self.flex.is_empty() {
             return Ok(());
         }
+
+        let layouts = self.flex.finish()?;
+        self.stack.add_many(layouts)?;
+        self.stack.add_space(after_space)?;
 
         let mut ctx = self.flex.ctx();
         ctx.space.dimensions = self.stack.remaining();
         ctx.flex_spacing = flex_spacing(&self.style);
 
-        let next = FlexLayouter::new(ctx);
-        let flex = std::mem::replace(&mut self.flex, next);
-        let boxed = flex.finish()?;
+        self.flex = FlexLayouter::new(ctx);
 
-        self.stack.add(boxed)
+        Ok(())
     }
 
     /// Layout a function.
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
         let mut ctx = self.ctx;
         ctx.style = &self.style;
+
         ctx.space.dimensions = self.stack.remaining();
         ctx.space.padding = SizeBox::zero();
-        ctx.space.shrink_to_fit = true;
+        ctx.space.shrink_to_fit = false;
+
+        if let Some(space) = ctx.extra_space.as_mut() {
+            space.dimensions = space.dimensions.unpadded(space.padding);
+            space.padding = SizeBox::zero();
+            space.shrink_to_fit = false;
+        }
 
         let commands = func.body.layout(ctx)?;
 
@@ -134,6 +138,15 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
         }
 
         Ok(())
+    }
+}
+
+fn flex_space(space: LayoutSpace) -> LayoutSpace {
+    LayoutSpace {
+        dimensions: space.usable(),
+        padding: SizeBox::zero(),
+        alignment: space.alignment,
+        shrink_to_fit: true,
     }
 }
 

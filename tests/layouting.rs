@@ -3,12 +3,16 @@ use std::io::{BufWriter, Read, Write};
 use std::process::Command;
 use std::time::Instant;
 
+use regex::{Regex, Captures};
+
 use typst::export::pdf::PdfExporter;
 use typst::layout::LayoutAction;
 use typst::toddle::query::FileSystemFontProvider;
+use typst::size::{Size, Size2D, SizeBox};
+use typst::style::PageStyle;
 use typst::Typesetter;
 
-const CACHE_DIR: &str = "test-cache";
+const CACHE_DIR: &str = "tests/cache";
 
 fn main() {
     let mut perfect_match = false;
@@ -31,6 +35,10 @@ fn main() {
     for entry in fs::read_dir("tests/layouts/").unwrap() {
         let path = entry.unwrap().path();
 
+        if path.extension() != Some(std::ffi::OsStr::new("typ")) {
+            continue;
+        }
+
         let name = path.file_stem().unwrap().to_str().unwrap();
 
         let matches = if perfect_match {
@@ -51,36 +59,47 @@ fn main() {
 
 /// Create a _PDF_ with a name from the source code.
 fn test(name: &str, src: &str) {
-    print!("Testing: {}", name);
+    println!("Testing: {}", name);
+
+    let (src, size) = preprocess(src);
 
     let mut typesetter = Typesetter::new();
     let provider = FileSystemFontProvider::from_listing("fonts/fonts.toml").unwrap();
     typesetter.add_font_provider(provider.clone());
 
+    if let Some(dimensions) = size {
+        typesetter.set_page_style(PageStyle {
+            dimensions,
+            margins: SizeBox::zero()
+        });
+    }
+
     let start = Instant::now();
 
     // Layout into box layout.
-    let tree = typesetter.parse(src).unwrap();
-    let layout = typesetter.layout(&tree).unwrap();
+    let tree = typesetter.parse(&src).unwrap();
+    let layouts = typesetter.layout(&tree).unwrap();
 
     let end = Instant::now();
     let duration = end - start;
-    println!(" [{:?}]", duration);
+    println!(" => {:?}", duration);
+    println!();
 
     // Write the serialed layout file.
-    let path = format!("{}/serialized/{}.box", CACHE_DIR, name);
+    let path = format!("{}/serialized/{}.lay", CACHE_DIR, name);
     let mut file = File::create(path).unwrap();
 
     // Find all used fonts and their filenames.
     let mut map = Vec::new();
     let mut loader = typesetter.loader().borrow_mut();
-    let single = &layout.layouts[0];
-    for action in &single.actions {
-        if let LayoutAction::SetFont(index, _) = action {
-            if map.iter().find(|(i, _)| i == index).is_none() {
-                let (_, provider_index) = loader.get_provider_and_index(*index);
-                let filename = provider.get_path(provider_index).to_str().unwrap();
-                map.push((*index, filename));
+    for layout in &layouts {
+        for action in &layout.actions {
+            if let LayoutAction::SetFont(index, _) = action {
+                if map.iter().find(|(i, _)| i == index).is_none() {
+                    let (_, provider_index) = loader.get_provider_and_index(*index);
+                    let filename = provider.get_path(provider_index).to_str().unwrap();
+                    map.push((*index, filename));
+                }
             }
         }
     }
@@ -91,7 +110,8 @@ fn test(name: &str, src: &str) {
     for (index, path) in map {
         writeln!(file, "{} {}", index, path).unwrap();
     }
-    single.serialize(&mut file).unwrap();
+
+    layouts.serialize(&mut file).unwrap();
 
     // Render the layout into a PNG.
     Command::new("python")
@@ -104,5 +124,69 @@ fn test(name: &str, src: &str) {
     let path = format!("{}/pdf/{}.pdf", CACHE_DIR, name);
     let file = BufWriter::new(File::create(path).unwrap());
     let exporter = PdfExporter::new();
-    exporter.export(&layout, typesetter.loader(), file).unwrap();
+    exporter.export(&layouts, typesetter.loader(), file).unwrap();
+}
+
+fn preprocess<'a>(src: &'a str) -> (String, Option<Size2D>) {
+    let include_regex = Regex::new(r"\{include:((.|\.|\-)*)\}").unwrap();
+    let lorem_regex = Regex::new(r"\{lorem:(\d*)\}").unwrap();
+    let size_regex = Regex::new(r"\{(size:(([\d\w]*)\*([\d\w]*)))\}").unwrap();
+
+    let mut size = None;
+
+    let mut preprocessed = size_regex.replace_all(&src, |cap: &Captures| {
+        let width_str = cap.get(3).unwrap().as_str();
+        let height_str = cap.get(4).unwrap().as_str();
+
+        let width = width_str.parse::<Size>().unwrap();
+        let height = height_str.parse::<Size>().unwrap();
+
+        size = Some(Size2D::new(width, height));
+
+        "".to_string()
+    }).to_string();
+
+    let mut changed = true;
+    while changed {
+        changed = false;
+        preprocessed = include_regex.replace_all(&preprocessed, |cap: &Captures| {
+            changed = true;
+            let filename = cap.get(1).unwrap().as_str();
+
+            let path = format!("tests/layouts/{}", filename);
+            let mut file = File::open(path).unwrap();
+            let mut buf = String::new();
+            file.read_to_string(&mut buf).unwrap();
+            buf
+        }).to_string();
+    }
+
+    preprocessed= lorem_regex.replace_all(&preprocessed, |cap: &Captures| {
+        let num_str = cap.get(1).unwrap().as_str();
+        let num_words = num_str.parse::<usize>().unwrap();
+
+        generate_lorem(num_words)
+    }).to_string();
+
+    (preprocessed, size)
+}
+
+fn generate_lorem(num_words: usize) -> String {
+    const LOREM: [&str; 69] = [
+        "Lorem", "ipsum", "dolor", "sit", "amet,", "consectetur", "adipiscing", "elit.", "Etiam",
+        "suscipit", "porta", "pretium.", "Donec", "eu", "lorem", "hendrerit,", "scelerisque",
+        "lectus", "at,", "consequat", "ligula.", "Nulla", "elementum", "massa", "et", "viverra",
+        "consectetur.", "Donec", "blandit", "metus", "ut", "ipsum", "commodo", "congue.", "Nullam",
+        "auctor,", "mi", "vel", "tristique", "venenatis,", "nisl", "nunc", "tristique", "diam,",
+        "aliquam", "pellentesque", "lorem", "massa", "vel", "neque.", "Sed", "malesuada", "ante",
+        "nisi,", "sit", "amet", "auctor", "risus", "fermentum", "in.", "Sed", "blandit", "mollis",
+        "mi,", "non", "tristique", "nisi", "fringilla", "at."
+    ];
+
+    let mut buf = String::new();
+    for i in 0 .. num_words {
+        buf.push_str(LOREM[i % LOREM.len()]);
+        buf.push(' ');
+    }
+    buf
 }

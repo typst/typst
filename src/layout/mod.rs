@@ -48,6 +48,7 @@ impl Layout {
             self.dimensions.x.to_pt(),
             self.dimensions.y.to_pt()
         )?;
+        writeln!(f, "{}", self.actions.len())?;
         for action in &self.actions {
             action.serialize(f)?;
             writeln!(f)?;
@@ -93,6 +94,17 @@ impl MultiLayout {
     }
 }
 
+impl MultiLayout {
+    /// Serialize this collection of layouts into an output buffer.
+    pub fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
+        writeln!(f, "{}", self.count())?;
+        for layout in self {
+            layout.serialize(f)?;
+        }
+        Ok(())
+    }
+}
+
 impl IntoIterator for MultiLayout {
     type Item = Layout;
     type IntoIter = std::vec::IntoIter<Layout>;
@@ -112,7 +124,7 @@ impl<'a> IntoIterator for &'a MultiLayout {
 }
 
 /// The general context for layouting.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct LayoutContext<'a, 'p> {
     pub loader: &'a SharedFontLoader<'p>,
     pub style: &'a TextStyle,
@@ -154,7 +166,7 @@ pub enum Alignment {
 /// The error type for layouting.
 pub enum LayoutError {
     /// There is not enough space to add an item.
-    NotEnoughSpace,
+    NotEnoughSpace(&'static str),
     /// There was no suitable font for the given character.
     NoSuitableFont(char),
     /// An error occured while gathering font data.
@@ -167,7 +179,7 @@ pub type LayoutResult<T> = Result<T, LayoutError>;
 error_type! {
     err: LayoutError,
     show: f => match err {
-        LayoutError::NotEnoughSpace => write!(f, "not enough space"),
+        LayoutError::NotEnoughSpace(desc) => write!(f, "not enough space: {}", desc),
         LayoutError::NoSuitableFont(c) => write!(f, "no suitable font for '{}'", c),
         LayoutError::Font(err) => write!(f, "font error: {}", err),
     },

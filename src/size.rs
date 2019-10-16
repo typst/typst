@@ -131,6 +131,15 @@ impl Size2D {
         }
     }
 
+    /// Return a [`Size2D`] reduced by the paddings of the given box.
+    #[inline]
+    pub fn unpadded(&self, padding: SizeBox) -> Size2D {
+        Size2D {
+            x: self.x - padding.left - padding.right,
+            y: self.y - padding.top - padding.bottom,
+        }
+    }
+
     /// Whether the given [`Size2D`] fits into this one, that is,
     /// both coordinate values are smaller.
     #[inline]
@@ -188,6 +197,11 @@ debug_display!(Size);
 
 /// An error which can be returned when parsing a size.
 pub struct ParseSizeError;
+
+error_type! {
+    err: ParseSizeError,
+    show: f => write!(f, "failed to parse size"),
+}
 
 impl FromStr for Size {
     type Err = ParseSizeError;

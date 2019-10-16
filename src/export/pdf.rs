@@ -80,7 +80,7 @@ impl<'d, W: Write> ExportProcess<'d, W> {
     ) -> PdfResult<ExportProcess<'d, W>>
     {
         let (fonts, font_remap) = Self::subset_fonts(layouts, font_loader)?;
-        let offsets = Self::calculate_offset(layouts.count(), fonts.len());
+        let offsets = Self::calculate_offsets(layouts.count(), fonts.len());
 
         Ok(ExportProcess {
             writer: PdfWriter::new(target),
@@ -155,7 +155,7 @@ impl<'d, W: Write> ExportProcess<'d, W> {
 
     /// We need to know in advance which IDs to use for which objects to cross-reference them.
     /// Therefore, we calculate them in the beginning.
-    fn calculate_offset(layout_count: usize, font_count: usize) -> Offsets {
+    fn calculate_offsets(layout_count: usize, font_count: usize) -> Offsets {
         let catalog = 1;
         let page_tree = catalog + 1;
         let pages = (page_tree + 1, page_tree + layout_count as Ref);
@@ -203,7 +203,11 @@ impl<'d, W: Write> ExportProcess<'d, W> {
         )?;
 
         // The page objects (non-root nodes in the page tree).
-        for (id, page) in ids(self.offsets.pages).zip(self.layouts) {
+        let iter = ids(self.offsets.pages)
+            .zip(ids(self.offsets.contents))
+            .zip(self.layouts);
+
+        for ((page_id, content_id), page) in iter {
             let rect = Rect::new(
                 0.0,
                 0.0,
@@ -212,10 +216,10 @@ impl<'d, W: Write> ExportProcess<'d, W> {
             );
 
             self.writer.write_obj(
-                id,
+                page_id,
                 Page::new(self.offsets.page_tree)
                     .media_box(rect)
-                    .contents(ids(self.offsets.contents)),
+                    .content(content_id),
             )?;
         }
 

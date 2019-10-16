@@ -5,36 +5,73 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 BASE = os.path.dirname(__file__)
-CACHE_DIR = os.path.join(BASE, "../test-cache/");
+CACHE_DIR = os.path.join(BASE, "cache/");
 
 
 def main():
     assert len(sys.argv) == 2, "usage: python render.py <name>"
     name = sys.argv[1]
 
-    filename = os.path.join(CACHE_DIR, f"serialized/{name}.box")
+    filename = os.path.join(CACHE_DIR, f"serialized/{name}.lay")
     with open(filename, encoding="utf-8") as file:
         lines = [line[:-1] for line in file.readlines()]
 
-    fonts = {}
-    font_count = int(lines[0])
-    for i in range(font_count):
-        parts = lines[1 + i].split(' ', 1)
-        index = int(parts[0])
-        path = parts[1]
-        fonts[index] = os.path.join(BASE, "../fonts", path)
-
-    width, height = (float(s) for s in lines[font_count + 1].split())
-
-    renderer = Renderer(fonts, width, height)
-    for command in lines[font_count + 2:]:
-        renderer.execute(command)
+    renderer = MultiboxRenderer(lines)
+    renderer.render()
+    image = renderer.export()
 
     pathlib.Path(os.path.join(CACHE_DIR, "rendered")).mkdir(parents=True, exist_ok=True)
-    renderer.export(name)
+    image.save(CACHE_DIR + "rendered/" + name + ".png")
 
 
-class Renderer:
+class MultiboxRenderer:
+    def __init__(self, lines):
+        self.combined = None
+
+        self.fonts = {}
+        font_count = int(lines[0])
+        for i in range(font_count):
+            parts = lines[i + 1].split(' ', 1)
+            index = int(parts[0])
+            path = parts[1]
+            self.fonts[index] = os.path.join(BASE, "../fonts", path)
+
+        self.content = lines[font_count + 1:]
+
+    def render(self):
+        images = []
+
+        layout_count = int(self.content[0])
+        start = 1
+
+        for _ in range(layout_count):
+            width, height = (float(s) for s in self.content[start].split())
+            action_count = int(self.content[start + 1])
+            start += 2
+
+            renderer = BoxRenderer(self.fonts, width, height)
+            for i in range(action_count):
+                command = self.content[start + i]
+                renderer.execute(command)
+
+            images.append(renderer.export())
+            start += action_count
+
+        width = max(image.width for image in images) + 20
+        height = sum(image.height for image in images) + 10 * (len(images) + 1)
+
+        self.combined = Image.new('RGBA', (width, height))
+
+        cursor = 10
+        for image in images:
+            self.combined.paste(image, (10, cursor))
+            cursor += 10 + image.height
+
+    def export(self):
+        return self.combined
+
+
+class BoxRenderer:
     def __init__(self, fonts, width, height):
         self.fonts = fonts
         self.size = (pix(width), pix(height))
@@ -102,8 +139,8 @@ class Renderer:
         else:
             raise Exception("invalid command")
 
-    def export(self, name):
-        self.img.save(CACHE_DIR + "rendered/" + name + ".png")
+    def export(self):
+        return self.img
 
 
 def pix(points):

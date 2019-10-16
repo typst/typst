@@ -12,6 +12,7 @@ macro_rules! error_type {
 
         impl std::fmt::Display for $err {
             fn fmt(&self, $f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                #[allow(unused)]
                 let $var = self;
                 $show
             }
@@ -22,6 +23,7 @@ macro_rules! error_type {
         impl std::error::Error for $err {
             // The source method is only generated if an implementation was given.
             $(fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+                #[allow(unused)]
                 let $var = self;
                 $source
             })*
