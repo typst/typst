@@ -73,6 +73,7 @@ impl StackLayouter {
         let position = match self.space.alignment {
             Alignment::Left => self.cursor,
             Alignment::Right => self.cursor - Size2D::with_x(layout.dimensions.x),
+            Alignment::Center => self.cursor - Size2D::with_x(layout.dimensions.x / 2),
         };
 
         self.cursor.y += layout.dimensions.y;
@@ -172,9 +173,9 @@ impl StackLayouter {
         }
     }
 
-    /// Whether this layouter contains any items.
-    pub fn is_empty(&self) -> bool {
-        self.layouts.is_empty() && self.actions.is_empty()
+    /// Whether the active space of this layouter contains no content.
+    pub fn current_space_is_empty(&self) -> bool {
+        !self.started || self.actions.is_empty()
     }
 
     fn overflows(&self, dimensions: Size2D) -> bool {
@@ -185,7 +186,7 @@ impl StackLayouter {
 fn start_dimensions(space: LayoutSpace) -> Size2D {
     match space.alignment {
         Alignment::Left => Size2D::zero(),
-        Alignment::Right => Size2D::with_x(space.usable().x),
+        Alignment::Right | Alignment::Center => Size2D::with_x(space.usable().x),
     }
 }
 
@@ -197,6 +198,7 @@ fn start_cursor(space: LayoutSpace) -> Size2D {
         x: match space.alignment {
             Alignment::Left => space.padding.left,
             Alignment::Right => space.dimensions.x - space.padding.right,
+            Alignment::Center => space.padding.left + (space.usable().x / 2),
         },
         y: space.padding.top,
     }

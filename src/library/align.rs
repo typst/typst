@@ -19,6 +19,7 @@ impl Function for AlignFunc {
             match ident.as_str() {
                 "left" => Alignment::Left,
                 "right" => Alignment::Right,
+                "center" => Alignment::Center,
                 s => return err(format!("invalid alignment specifier: '{}'", s)),
             }
         } else {
@@ -40,6 +41,10 @@ impl Function for AlignFunc {
     fn layout(&self, mut ctx: LayoutContext) -> LayoutResult<FuncCommands> {
         if let Some(body) = &self.body {
             ctx.space.alignment = self.alignment;
+            if let Some(space) = ctx.extra_space.as_mut() {
+                space.alignment = self.alignment;
+            }
+
             let layouts = layout_tree(body, ctx)?;
 
             let mut commands = FuncCommands::new();

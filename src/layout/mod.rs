@@ -149,10 +149,7 @@ pub struct LayoutSpace {
 impl LayoutSpace {
     /// The actually usable area (dimensions minus padding).
     pub fn usable(&self) -> Size2D {
-        Size2D {
-            x: self.dimensions.x - self.padding.left - self.padding.right,
-            y: self.dimensions.y - self.padding.top - self.padding.bottom,
-        }
+        self.dimensions.unpadded(self.padding)
     }
 }
 
@@ -161,6 +158,7 @@ impl LayoutSpace {
 pub enum Alignment {
     Left,
     Right,
+    Center,
 }
 
 /// The error type for layouting.

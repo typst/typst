@@ -47,8 +47,14 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
                 // Finish the current flex layouting process.
                 Node::Newline => {
-                    let space = paragraph_spacing(&self.style);
-                    self.layout_flex(space)?;
+                    self.layout_flex()?;
+
+                    if !self.stack.current_space_is_empty() {
+                        let space = paragraph_spacing(&self.style);
+                        self.stack.add_space(space)?;
+                    }
+
+                    self.start_new_flex();
                 }
 
                 // Toggle the text styles.
@@ -65,11 +71,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
     /// Finish the layout.
     fn finish(mut self) -> LayoutResult<MultiLayout> {
-        // If there are remainings, add them to the layout.
-        if !self.flex.is_empty() {
-            self.layout_flex(Size::zero())?;
-        }
-
+        self.layout_flex()?;
         self.stack.finish()
     }
 
@@ -93,22 +95,24 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     }
 
     /// Finish the current flex layout and add it the stack.
-    fn layout_flex(&mut self, after_space: Size) -> LayoutResult<()> {
+    fn layout_flex(&mut self) -> LayoutResult<()> {
         if self.flex.is_empty() {
             return Ok(());
         }
 
         let layouts = self.flex.finish()?;
         self.stack.add_many(layouts)?;
-        self.stack.add_space(after_space)?;
 
+        Ok(())
+    }
+
+    /// Start a new flex layout.
+    fn start_new_flex(&mut self) {
         let mut ctx = self.flex.ctx();
         ctx.space.dimensions = self.stack.remaining();
         ctx.flex_spacing = flex_spacing(&self.style);
 
         self.flex = FlexLayouter::new(ctx);
-
-        Ok(())
     }
 
     /// Layout a function.
@@ -118,12 +122,12 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
         ctx.space.dimensions = self.stack.remaining();
         ctx.space.padding = SizeBox::zero();
-        ctx.space.shrink_to_fit = false;
+        ctx.space.shrink_to_fit = true;
 
         if let Some(space) = ctx.extra_space.as_mut() {
-            space.dimensions = space.dimensions.unpadded(space.padding);
+            space.dimensions = space.usable();
             space.padding = SizeBox::zero();
-            space.shrink_to_fit = false;
+            space.shrink_to_fit = true;
         }
 
         let commands = func.body.layout(ctx)?;
