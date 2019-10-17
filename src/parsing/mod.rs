@@ -439,7 +439,7 @@ error_type! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::{FuncCommands, Function, Scope};
+    use crate::func::{CommandList, Function, Scope};
     use crate::layout::{LayoutContext, LayoutResult};
     use funcs::*;
     use Node::{Func as F, Newline as N, Space as S};
@@ -463,8 +463,8 @@ mod tests {
                 }
             }
 
-            fn layout(&self, _: LayoutContext) -> LayoutResult<FuncCommands> {
-                Ok(FuncCommands::new())
+            fn layout(&self, _: LayoutContext) -> LayoutResult<CommandList> {
+                Ok(CommandList::new())
             }
         }
 
@@ -482,8 +482,8 @@ mod tests {
                 }
             }
 
-            fn layout(&self, _: LayoutContext) -> LayoutResult<FuncCommands> {
-                Ok(FuncCommands::new())
+            fn layout(&self, _: LayoutContext) -> LayoutResult<CommandList> {
+                Ok(CommandList::new())
             }
         }
     }

@@ -24,7 +24,7 @@ pub struct FlexLayouter {
     stack: StackLayouter,
     usable_width: Size,
     run: FlexRun,
-    cached_glue: Option<Layout>,
+    cached_glue: Option<Size2D>,
 }
 
 /// The context for flex layouting.
@@ -70,7 +70,7 @@ enum FlexUnit {
     /// A unit which acts as glue between two [`FlexUnit::Boxed`] units and
     /// is only present if there was no flow break in between the two
     /// surrounding boxes.
-    Glue(Layout),
+    Glue(Size2D),
 }
 
 struct FlexRun {
@@ -106,8 +106,8 @@ impl FlexLayouter {
         self.units.push(FlexUnit::Boxed(layout));
     }
 
-    /// Add a glue layout which can be replaced by a line break.
-    pub fn add_glue(&mut self, glue: Layout) {
+    /// Add a glue box which can be replaced by a line break.
+    pub fn add_glue(&mut self, glue: Size2D) {
         self.units.push(FlexUnit::Glue(glue));
     }
 
@@ -136,12 +136,7 @@ impl FlexLayouter {
     /// Layout a content box into the current flex run or start a new run if
     /// it does not fit.
     fn layout_box(&mut self, boxed: Layout) -> LayoutResult<()> {
-        let glue_width = self
-            .cached_glue
-            .as_ref()
-            .map(|layout| layout.dimensions.x)
-            .unwrap_or(Size::zero());
-
+        let glue_width = self.cached_glue.unwrap_or(Size2D::zero()).x;
         let new_line_width = self.run.size.x + glue_width + boxed.dimensions.x;
 
         if self.overflows_line(new_line_width) {
@@ -164,32 +159,31 @@ impl FlexLayouter {
             self.flush_glue();
         }
 
-        self.add_to_run(boxed);
+        let dimensions = boxed.dimensions;
+        self.run.content.push((self.run.size.x, boxed));
+
+        self.grow_run(dimensions);
 
         Ok(())
     }
 
-    fn layout_glue(&mut self, glue: Layout) {
+    fn layout_glue(&mut self, glue: Size2D) {
         self.flush_glue();
         self.cached_glue = Some(glue);
     }
 
     fn flush_glue(&mut self) {
         if let Some(glue) = self.cached_glue.take() {
-            let new_line_width = self.run.size.x + glue.dimensions.x;
+            let new_line_width = self.run.size.x + glue.x;
             if !self.overflows_line(new_line_width) {
-                self.add_to_run(glue);
+                self.grow_run(glue);
             }
         }
     }
 
-    fn add_to_run(&mut self, layout: Layout) {
-        let x = self.run.size.x;
-
-        self.run.size.x += layout.dimensions.x;
-        self.run.size.y = crate::size::max(self.run.size.y, layout.dimensions.y);
-
-        self.run.content.push((x, layout));
+    fn grow_run(&mut self, dimensions: Size2D) {
+        self.run.size.x += dimensions.x;
+        self.run.size.y = crate::size::max(self.run.size.y, dimensions.y);
     }
 
     fn finish_run(&mut self) -> LayoutResult<()> {

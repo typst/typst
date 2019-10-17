@@ -7,7 +7,7 @@ mod styles;
 
 /// Useful imports for creating your own functions.
 pub mod prelude {
-    pub use crate::func::{Command, FuncCommands, Function};
+    pub use crate::func::{Command, CommandList, Function};
     pub use crate::layout::{layout_tree, Layout, LayoutContext, MultiLayout};
     pub use crate::layout::{LayoutError, LayoutResult};
     pub use crate::parsing::{parse, ParseContext, ParseError, ParseResult};

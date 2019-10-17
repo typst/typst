@@ -27,12 +27,16 @@ macro_rules! style_func {
                 }
             }
 
-            fn layout(&self, _: LayoutContext) -> LayoutResult<FuncCommands> {
-                let mut commands = FuncCommands::new();
+            fn layout(&self, ctx: LayoutContext) -> LayoutResult<CommandList> {
+                let mut commands = CommandList::new();
 
-                commands.add(Command::ToggleStyleClass(FontClass::$class));
+                let saved_style = ctx.style.clone();
+                let mut new_style = ctx.style.clone();
+                new_style.toggle_class(FontClass::$class);
+
+                commands.add(Command::SetStyle(new_style));
                 commands.add(Command::Layout(&self.body));
-                commands.add(Command::ToggleStyleClass(FontClass::$class));
+                commands.add(Command::SetStyle(saved_style));
 
                 Ok(commands)
             }

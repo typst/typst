@@ -4,10 +4,9 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
-use toddle::query::FontClass;
-
-use crate::layout::{Layout, LayoutContext, LayoutResult, MultiLayout};
+use crate::layout::{Layout, LayoutContext, Alignment, LayoutResult, MultiLayout};
 use crate::parsing::{ParseContext, ParseResult};
+use crate::style::TextStyle;
 use crate::syntax::{FuncHeader, SyntaxTree};
 
 /// Typesetting function types.
@@ -27,7 +26,7 @@ pub trait Function: FunctionBounds {
     ///
     /// Returns optionally the resulting layout and a new context if changes to
     /// the context should be made.
-    fn layout(&self, ctx: LayoutContext) -> LayoutResult<FuncCommands>;
+    fn layout(&self, ctx: LayoutContext) -> LayoutResult<CommandList>;
 }
 
 impl PartialEq for dyn Function {
@@ -38,14 +37,14 @@ impl PartialEq for dyn Function {
 
 /// A sequence of commands requested for execution by a function.
 #[derive(Debug)]
-pub struct FuncCommands<'a> {
+pub struct CommandList<'a> {
     pub commands: Vec<Command<'a>>,
 }
 
-impl<'a> FuncCommands<'a> {
+impl<'a> CommandList<'a> {
     /// Create an empty command list.
-    pub fn new() -> FuncCommands<'a> {
-        FuncCommands { commands: vec![] }
+    pub fn new() -> CommandList<'a> {
+        CommandList { commands: vec![] }
     }
 
     /// Add a command to the sequence.
@@ -59,12 +58,21 @@ impl<'a> FuncCommands<'a> {
     }
 }
 
-impl<'a> IntoIterator for FuncCommands<'a> {
+impl<'a> IntoIterator for CommandList<'a> {
     type Item = Command<'a>;
     type IntoIter = std::vec::IntoIter<Command<'a>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.commands.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a CommandList<'a> {
+    type Item = &'a Command<'a>;
+    type IntoIter = std::slice::Iter<'a, Command<'a>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.commands.iter()
     }
 }
 
@@ -74,7 +82,8 @@ pub enum Command<'a> {
     Layout(&'a SyntaxTree),
     Add(Layout),
     AddMany(MultiLayout),
-    ToggleStyleClass(FontClass),
+    SetAlignment(Alignment),
+    SetStyle(TextStyle),
 }
 
 /// A helper trait that describes requirements for types that can implement

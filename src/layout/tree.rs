@@ -12,6 +12,8 @@ struct TreeLayouter<'a, 'p> {
     stack: StackLayouter,
     flex: FlexLayouter,
     style: Cow<'a, TextStyle>,
+    alignment: Alignment,
+    set_newline: bool,
 }
 
 impl<'a, 'p> TreeLayouter<'a, 'p> {
@@ -27,6 +29,8 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                 .. FlexContext::from_layout_ctx(ctx, flex_spacing(&ctx.style))
             }),
             style: Cow::Borrowed(ctx.style),
+            alignment: ctx.alignment,
+            set_newline: false,
         }
     }
 
@@ -34,22 +38,28 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     fn layout(&mut self, tree: &SyntaxTree) -> LayoutResult<()> {
         for node in &tree.nodes {
             match node {
-                Node::Text(text) => self.layout_text(text, false)?,
+                Node::Text(text) => {
+                    let layout = self.layout_text(text)?;
+                    self.flex.add(layout);
+                    self.set_newline = true;
+                }
 
                 Node::Space => {
                     // Only add a space if there was any content before.
                     if !self.flex.is_empty() {
-                        self.layout_text(" ", true)?;
+                        let layout = self.layout_text(" ")?;
+                        self.flex.add_glue(layout.dimensions);
                     }
                 }
 
                 // Finish the current flex layouting process.
                 Node::Newline => {
-                    self.layout_flex()?;
+                    self.finish_flex()?;
 
-                    if !self.stack.current_space_is_empty() {
+                    if self.set_newline {
                         let space = paragraph_spacing(&self.style);
                         self.stack.add_space(space)?;
+                        self.set_newline = false;
                     }
 
                     self.start_new_flex();
@@ -69,48 +79,8 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
     /// Finish the layout.
     fn finish(mut self) -> LayoutResult<MultiLayout> {
-        self.layout_flex()?;
+        self.finish_flex()?;
         self.stack.finish()
-    }
-
-    /// Add text to the flex layout. If `glue` is true, the text will be a glue
-    /// part in the flex layouter. For details, see [`FlexLayouter`].
-    fn layout_text(&mut self, text: &str, glue: bool) -> LayoutResult<()> {
-        let ctx = TextContext {
-            loader: &self.ctx.loader,
-            style: &self.style,
-        };
-
-        let layout = layout_text(text, ctx)?;
-
-        if glue {
-            self.flex.add_glue(layout);
-        } else {
-            self.flex.add(layout);
-        }
-
-        Ok(())
-    }
-
-    /// Finish the current flex layout and add it the stack.
-    fn layout_flex(&mut self) -> LayoutResult<()> {
-        if self.flex.is_empty() {
-            return Ok(());
-        }
-
-        let layouts = self.flex.finish()?;
-        self.stack.add_many(layouts)?;
-
-        Ok(())
-    }
-
-    /// Start a new flex layout.
-    fn start_new_flex(&mut self) {
-        let mut ctx = self.flex.ctx();
-        ctx.space.dimensions = self.stack.remaining();
-        ctx.flex_spacing = flex_spacing(&self.style);
-
-        self.flex = FlexLayouter::new(ctx);
     }
 
     /// Layout a function.
@@ -130,14 +100,70 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
         for command in commands {
             match command {
-                Command::Layout(tree) => self.layout(tree)?,
-                Command::Add(layout) => self.stack.add(layout)?,
-                Command::AddMany(layouts) => self.stack.add_many(layouts)?,
-                Command::ToggleStyleClass(class) => self.style.to_mut().toggle_class(class),
+                Command::Layout(tree) => {
+                    self.layout(tree)?;
+                }
+
+                Command::Add(layout) => {
+                    self.finish_flex()?;
+                    self.stack.add(layout)?;
+                    self.set_newline = true;
+                    self.start_new_flex();
+                }
+
+                Command::AddMany(layouts) => {
+                    self.finish_flex()?;
+                    self.stack.add_many(layouts)?;
+                    self.set_newline = true;
+                    self.start_new_flex();
+                }
+
+                Command::SetAlignment(alignment) => {
+                    self.finish_flex()?;
+                    self.alignment = alignment;
+                    self.start_new_flex();
+                }
+
+                Command::SetStyle(style) => {
+                    *self.style.to_mut() = style;
+                }
             }
         }
 
         Ok(())
+    }
+
+    /// Add text to the flex layout. If `glue` is true, the text will be a glue
+    /// part in the flex layouter. For details, see [`FlexLayouter`].
+    fn layout_text(&mut self, text: &str) -> LayoutResult<Layout> {
+        let ctx = TextContext {
+            loader: &self.ctx.loader,
+            style: &self.style,
+        };
+
+        layout_text(text, ctx)
+    }
+
+    /// Finish the current flex layout and add it the stack.
+    fn finish_flex(&mut self) -> LayoutResult<()> {
+        if self.flex.is_empty() {
+            return Ok(());
+        }
+
+        let layouts = self.flex.finish()?;
+        self.stack.add_many(layouts)?;
+
+        Ok(())
+    }
+
+    /// Start a new flex layout.
+    fn start_new_flex(&mut self) {
+        let mut ctx = self.flex.ctx();
+        ctx.space.dimensions = self.stack.remaining();
+        ctx.alignment = self.alignment;
+        ctx.flex_spacing = flex_spacing(&self.style);
+
+        self.flex = FlexLayouter::new(ctx);
     }
 }
 
