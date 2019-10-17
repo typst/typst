@@ -10,35 +10,37 @@ macro_rules! style_func {
     ) => {
         $(#[$outer])*
         #[derive(Debug, PartialEq)]
-        pub struct $struct { body: SyntaxTree }
+        pub struct $struct {
+            body: Option<SyntaxTree>
+        }
 
         impl Function for $struct {
             fn parse(header: &FuncHeader, body: Option<&str>, ctx: ParseContext)
                 -> ParseResult<Self> where Self: Sized {
                 // Accept only invocations without arguments and with body.
-                if header.args.is_empty() && header.kwargs.is_empty() {
-                    if let Some(body) = body {
-                        Ok($struct { body: parse(body, ctx)? })
-                    } else {
-                        Err(ParseError::new(format!("expected body for function `{}`", $name)))
-                    }
-                } else {
-                    Err(ParseError::new(format!("unexpected arguments to function `{}`", $name)))
+                if has_arguments(header) {
+                    return err(format!("{}: expected no arguments", $name));
                 }
+
+                let body = parse_maybe_body(body, ctx)?;
+
+                Ok($struct { body })
             }
 
             fn layout(&self, ctx: LayoutContext) -> LayoutResult<CommandList> {
-                let mut commands = CommandList::new();
-
-                let saved_style = ctx.style.clone();
                 let mut new_style = ctx.style.clone();
                 new_style.toggle_class(FontClass::$class);
 
-                commands.add(Command::SetStyle(new_style));
-                commands.add(Command::Layout(&self.body));
-                commands.add(Command::SetStyle(saved_style));
-
-                Ok(commands)
+                if let Some(body) = &self.body {
+                    let saved_style = ctx.style.clone();
+                    Ok(commands![
+                        Command::SetStyle(new_style),
+                        Command::Layout(body),
+                        Command::SetStyle(saved_style),
+                    ])
+                } else {
+                    Ok(commands![Command::SetStyle(new_style)])
+                }
             }
         }
     };

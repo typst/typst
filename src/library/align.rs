@@ -12,7 +12,7 @@ impl Function for AlignFunc {
     fn parse(header: &FuncHeader, body: Option<&str>, ctx: ParseContext) -> ParseResult<Self>
     where Self: Sized {
         if header.args.len() != 1 || !header.kwargs.is_empty() {
-            return err("expected exactly one positional argument specifying the alignment");
+            return err("align: expected exactly one positional argument");
         }
 
         let alignment = if let Expression::Ident(ident) = &header.args[0] {
@@ -29,11 +29,7 @@ impl Function for AlignFunc {
             ));
         };
 
-        let body = if let Some(body) = body {
-            Some(parse(body, ctx)?)
-        } else {
-            None
-        };
+        let body = parse_maybe_body(body, ctx)?;
 
         Ok(AlignFunc { alignment, body })
     }
@@ -45,14 +41,9 @@ impl Function for AlignFunc {
                 .. ctx
             })?;
 
-            let mut commands = CommandList::new();
-            commands.add(Command::AddMany(layouts));
-            Ok(commands)
+            Ok(commands![Command::AddMany(layouts)])
         } else {
-            let mut commands = CommandList::new();
-            commands.add(Command::SetAlignment(self.alignment));
-
-            Ok(commands)
+            Ok(commands![Command::SetAlignment(self.alignment)])
         }
     }
 }

@@ -17,6 +17,7 @@ use super::*;
 /// flows into a new line. A _glue_ layout is typically used for a space character
 /// since it prevents a space from appearing in the beginning or end of a line.
 /// However, it can be any layout.
+#[derive(Debug, Clone)]
 pub struct FlexLayouter {
     ctx: FlexContext,
     units: Vec<FlexUnit>,
@@ -64,6 +65,7 @@ impl FlexContext {
     }
 }
 
+#[derive(Debug, Clone)]
 enum FlexUnit {
     /// A content unit to be arranged flexibly.
     Boxed(Layout),
@@ -73,6 +75,7 @@ enum FlexUnit {
     Glue(Size2D),
 }
 
+#[derive(Debug, Clone)]
 struct FlexRun {
     content: Vec<(Size, Layout)>,
     size: Size2D,
@@ -168,7 +171,6 @@ impl FlexLayouter {
     }
 
     fn layout_glue(&mut self, glue: Size2D) {
-        self.flush_glue();
         self.cached_glue = Some(glue);
     }
 

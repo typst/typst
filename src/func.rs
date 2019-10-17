@@ -35,6 +35,35 @@ impl PartialEq for dyn Function {
     }
 }
 
+/// A helper trait that describes requirements for types that can implement
+/// [`Function`].
+///
+/// Automatically implemented for all types which fulfill to the bounds `Debug +
+/// PartialEq + 'static`. There should be no need to implement this manually.
+pub trait FunctionBounds: Debug {
+    /// Cast self into `Any`.
+    fn help_cast_as_any(&self) -> &dyn Any;
+
+    /// Compare self with another function.
+    fn help_eq(&self, other: &dyn Function) -> bool;
+}
+
+impl<T> FunctionBounds for T
+where T: Debug + PartialEq + 'static
+{
+    fn help_cast_as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn help_eq(&self, other: &dyn Function) -> bool {
+        if let Some(other) = other.help_cast_as_any().downcast_ref::<Self>() {
+            self == other
+        } else {
+            false
+        }
+    }
+}
+
 /// A sequence of commands requested for execution by a function.
 #[derive(Debug)]
 pub struct CommandList<'a> {
@@ -45,6 +74,11 @@ impl<'a> CommandList<'a> {
     /// Create an empty command list.
     pub fn new() -> CommandList<'a> {
         CommandList { commands: vec![] }
+    }
+
+    /// Create a command list with commands from a vector.
+    pub fn from_vec(commands: Vec<Command<'a>>) -> CommandList<'a> {
+        CommandList { commands }
     }
 
     /// Add a command to the sequence.
@@ -84,35 +118,13 @@ pub enum Command<'a> {
     AddMany(MultiLayout),
     SetAlignment(Alignment),
     SetStyle(TextStyle),
+    FinishLayout,
 }
 
-/// A helper trait that describes requirements for types that can implement
-/// [`Function`].
-///
-/// Automatically implemented for all types which fulfill to the bounds `Debug +
-/// PartialEq + 'static`. There should be no need to implement this manually.
-pub trait FunctionBounds: Debug {
-    /// Cast self into `Any`.
-    fn help_cast_as_any(&self) -> &dyn Any;
-
-    /// Compare self with another function.
-    fn help_eq(&self, other: &dyn Function) -> bool;
-}
-
-impl<T> FunctionBounds for T
-where T: Debug + PartialEq + 'static
-{
-    fn help_cast_as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn help_eq(&self, other: &dyn Function) -> bool {
-        if let Some(other) = other.help_cast_as_any().downcast_ref::<Self>() {
-            self == other
-        } else {
-            false
-        }
-    }
+macro_rules! commands {
+    ($($x:expr),*$(,)*) => ({
+        $crate::func::CommandList::from_vec(vec![$($x,)*])
+    });
 }
 
 /// A map from identifiers to functions.

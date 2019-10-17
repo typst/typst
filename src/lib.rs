@@ -29,6 +29,7 @@ use crate::syntax::SyntaxTree;
 #[macro_use]
 mod macros;
 pub mod export;
+#[macro_use]
 pub mod func;
 pub mod layout;
 pub mod library;

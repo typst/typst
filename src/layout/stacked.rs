@@ -3,6 +3,7 @@ use super::*;
 /// Layouts boxes stack-like.
 ///
 /// The boxes are arranged vertically, each layout gettings it's own "line".
+#[derive(Debug, Clone)]
 pub struct StackLayouter {
     ctx: StackContext,
     layouts: MultiLayout,

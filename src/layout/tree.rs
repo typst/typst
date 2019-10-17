@@ -7,6 +7,7 @@ pub fn layout_tree(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<MultiL
     layouter.finish()
 }
 
+#[derive(Debug, Clone)]
 struct TreeLayouter<'a, 'p> {
     ctx: LayoutContext<'a, 'p>,
     stack: StackLayouter,
@@ -85,13 +86,18 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
     /// Layout a function.
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
+        // Finish the current flex layout on a copy to find out how
+        // much space would be remaining if we finished.
+        let mut lookahead_stack = self.stack.clone();
+        let layouts = self.flex.clone().finish()?;
+        lookahead_stack.add_many(layouts)?;
+        let remaining = lookahead_stack.remaining();
+
         let mut ctx = self.ctx;
         ctx.style = &self.style;
         ctx.shrink_to_fit = true;
-
-        ctx.space.dimensions = self.stack.remaining();
+        ctx.space.dimensions = remaining;
         ctx.space.padding = SizeBox::zero();
-
         if let Some(space) = ctx.followup_spaces.as_mut() {
             *space = space.usable_space();
         }
@@ -126,6 +132,12 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
                 Command::SetStyle(style) => {
                     *self.style.to_mut() = style;
+                }
+
+                Command::FinishLayout => {
+                    self.finish_flex()?;
+                    self.stack.finish_layout(true)?;
+                    self.start_new_flex();
                 }
             }
         }

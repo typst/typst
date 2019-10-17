@@ -1,25 +1,33 @@
-{size:150pt*208pt}
+{size:150pt*215pt}
 
-// Without newline in between
+// ---------------------------------- //
+// Without newline in between.
 [align: left][Left: {lorem:20}]
 [align: right][Right: {lorem:20}]
 
-// With newline in between
+// Over three pages.
 [align: center][Center: {lorem:80}]
 
-[align: left][Left: {lorem:20}]
+// Over multiple pages after the pervious 3-page run.
+[align: left][Left: {lorem:80}]
 
-// Context-modifying align
+[pagebreak]
+
+// ---------------------------------- //
+// Context-modifying align.
 [align: right]
 
-New Right: {lorem:30}
+Context Right: {lorem:10}
 
-[align: left][Inside Left: {lorem:10}]
+[align: left][In-between Left: {lorem:10}]
 
 Right Again: {lorem:10}
 
-// Reset context-modifier
+// Reset context-modifier.
 [align: left]
 
-// All in one line
-{lorem:25} [align: right][{lorem:50}] {lorem:15}
+[pagebreak]
+
+// ---------------------------------- //
+// All in one line.
+All in one line: {lorem:25} [align: right][{lorem:50}] {lorem:15}
