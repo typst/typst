@@ -3,8 +3,9 @@
 use crate::func::Scope;
 
 mod align;
-mod styles;
+mod boxed;
 mod breaks;
+mod styles;
 
 /// Useful imports for creating your own functions.
 pub mod prelude {
@@ -17,17 +18,21 @@ pub mod prelude {
 }
 
 pub use align::AlignFunc;
-pub use breaks::PagebreakFunc;
+pub use boxed::BoxFunc;
+pub use breaks::{LinebreakFunc, PagebreakFunc};
 pub use styles::{BoldFunc, ItalicFunc, MonospaceFunc};
 
 /// Create a scope with all standard functions.
 pub fn std() -> Scope {
     let mut std = Scope::new();
+    std.add::<AlignFunc>("align");
+    std.add::<BoxFunc>("box");
+    std.add::<LinebreakFunc>("linebreak");
+    std.add::<LinebreakFunc>("n");
+    std.add::<PagebreakFunc>("pagebreak");
     std.add::<BoldFunc>("bold");
     std.add::<ItalicFunc>("italic");
     std.add::<MonospaceFunc>("mono");
-    std.add::<AlignFunc>("align");
-    std.add::<PagebreakFunc>("pagebreak");
     std
 }
 

@@ -88,6 +88,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
         // Finish the current flex layout on a copy to find out how
         // much space would be remaining if we finished.
+
         let mut lookahead_stack = self.stack.clone();
         let layouts = self.flex.clone().finish()?;
         lookahead_stack.add_many(layouts)?;
@@ -106,9 +107,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
         for command in commands {
             match command {
-                Command::Layout(tree) => {
-                    self.layout(tree)?;
-                }
+                Command::Layout(tree) => self.layout(tree)?,
 
                 Command::Add(layout) => {
                     self.finish_flex()?;
@@ -130,15 +129,15 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                     self.start_new_flex();
                 }
 
-                Command::SetStyle(style) => {
-                    *self.style.to_mut() = style;
-                }
+                Command::SetStyle(style) => *self.style.to_mut() = style,
 
                 Command::FinishLayout => {
                     self.finish_flex()?;
                     self.stack.finish_layout(true)?;
                     self.start_new_flex();
                 }
+
+                Command::FinishFlexRun => self.flex.add_break(),
             }
         }
 

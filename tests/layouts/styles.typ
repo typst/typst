@@ -17,3 +17,10 @@ This is not italic anymore, but still bold.
 [bold]
 
 This is completely reset. 😀
+
+[box][
+    [italic]
+    Styles are scoped by boxes.
+]
+
+Outside of the box: No effect.

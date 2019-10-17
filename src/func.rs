@@ -119,6 +119,7 @@ pub enum Command<'a> {
     SetAlignment(Alignment),
     SetStyle(TextStyle),
     FinishLayout,
+    FinishFlexRun,
 }
 
 macro_rules! commands {

@@ -73,6 +73,8 @@ enum FlexUnit {
     /// is only present if there was no flow break in between the two
     /// surrounding boxes.
     Glue(Size2D),
+    /// A forced break of the current flex run.
+    Break,
 }
 
 #[derive(Debug, Clone)]
@@ -114,6 +116,11 @@ impl FlexLayouter {
         self.units.push(FlexUnit::Glue(glue));
     }
 
+    /// Add a forced line break.
+    pub fn add_break(&mut self) {
+        self.units.push(FlexUnit::Break);
+    }
+
     /// Compute the justified layout.
     ///
     /// The layouter is not consumed by this to prevent ownership problems
@@ -127,6 +134,7 @@ impl FlexLayouter {
             match unit {
                 FlexUnit::Boxed(boxed) => self.layout_box(boxed)?,
                 FlexUnit::Glue(glue) => self.layout_glue(glue),
+                FlexUnit::Break => self.layout_break()?,
             }
         }
 
@@ -157,14 +165,12 @@ impl FlexLayouter {
             }
 
             self.finish_run()?;
-        } else {
-            // Only add the glue if we did not move to a new line.
-            self.flush_glue();
         }
+
+        self.flush_glue();
 
         let dimensions = boxed.dimensions;
         self.run.content.push((self.run.size.x, boxed));
-
         self.grow_run(dimensions);
 
         Ok(())
@@ -174,20 +180,12 @@ impl FlexLayouter {
         self.cached_glue = Some(glue);
     }
 
-    fn flush_glue(&mut self) {
-        if let Some(glue) = self.cached_glue.take() {
-            let new_line_width = self.run.size.x + glue.x;
-            if !self.overflows_line(new_line_width) {
-                self.grow_run(glue);
-            }
-        }
+    fn layout_break(&mut self) -> LayoutResult<()> {
+        self.cached_glue = None;
+        self.finish_run()
     }
 
-    fn grow_run(&mut self, dimensions: Size2D) {
-        self.run.size.x += dimensions.x;
-        self.run.size.y = crate::size::max(self.run.size.y, dimensions.y);
-    }
-
+    /// Finish the current flex run.
     fn finish_run(&mut self) -> LayoutResult<()> {
         self.run.size.y += self.ctx.flex_spacing;
 
@@ -206,6 +204,19 @@ impl FlexLayouter {
         self.run.size = Size2D::zero();
 
         Ok(())
+    }
+
+    fn flush_glue(&mut self) {
+        if let Some(glue) = self.cached_glue.take() {
+            if self.run.size.x > Size::zero() && !self.overflows_line(self.run.size.x + glue.x) {
+                self.grow_run(glue);
+            }
+        }
+    }
+
+    fn grow_run(&mut self, dimensions: Size2D) {
+        self.run.size.x += dimensions.x;
+        self.run.size.y = crate::size::max(self.run.size.y, dimensions.y);
     }
 
     /// Whether this layouter contains any items.
