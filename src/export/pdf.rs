@@ -146,8 +146,10 @@ impl<'d, W: Write> ExportProcess<'d, W> {
         for index in 0 .. num_fonts {
             let old_index = new_to_old[&index];
             let font = font_loader.get_with_index(old_index);
-            let subsetted = font.subsetted(font_chars[&old_index].iter().cloned(), &SUBSET_TABLES)?;
-            fonts.push(OwnedFont::from_bytes(subsetted)?);
+            let subsetted = font.subsetted(font_chars[&old_index].iter().cloned(), &SUBSET_TABLES)
+                .map(|bytes| OwnedFont::from_bytes(bytes))
+                .unwrap_or_else(|_| font.to_owned())?;
+            fonts.push(subsetted);
         }
 
         Ok((fonts, old_to_new))

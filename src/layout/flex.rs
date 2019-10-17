@@ -90,7 +90,7 @@ impl FlexLayouter {
             ctx,
             units: vec![],
 
-            stack: StackLayouter::new(StackContext::from_flex_ctx(ctx)),
+            stack: StackLayouter::new(StackContext::from_flex_ctx(ctx, Flow::Vertical)),
 
             usable_width: ctx.space.usable().x,
             run: FlexRun {

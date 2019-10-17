@@ -10,4 +10,5 @@
 "CMU-Typewriter-Italic.ttf"      = ["Computer Modern", "Italic", "Serif", "SansSerif", "Monospace"]
 "CMU-Typewriter-Bold.ttf"        = ["Computer Modern", "Bold", "Serif", "SansSerif", "Monospace"]
 "CMU-Typewriter-Bold-Italic.ttf" = ["Computer Modern", "Bold", "Italic", "Serif", "SansSerif", "Monospace"]
+"Latin-Modern-Math.otf"          = ["Latin Modern", "Latin Modern Math", "Math", "Regular", "Serif"]
 "NotoEmoji-Regular.ttf"          = ["Noto", "Noto Emoji", "Regular", "SansSerif", "Serif", "Monospace"]

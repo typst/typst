@@ -21,7 +21,7 @@ use toddle::query::{FontLoader, FontProvider, SharedFontLoader};
 
 use crate::func::Scope;
 use crate::layout::{layout_tree, LayoutContext, MultiLayout};
-use crate::layout::{Alignment, LayoutError, LayoutResult, LayoutSpace};
+use crate::layout::{Alignment, Flow, LayoutError, LayoutResult, LayoutSpace};
 use crate::parsing::{parse, ParseContext, ParseError, ParseResult};
 use crate::style::{PageStyle, TextStyle};
 use crate::syntax::SyntaxTree;
@@ -105,6 +105,7 @@ impl<'p> Typesetter<'p> {
                 loader: &self.loader,
                 style: &self.text_style,
                 alignment: Alignment::Left,
+                flow: Flow::Vertical,
                 space,
                 followup_spaces: Some(space),
                 shrink_to_fit: false,

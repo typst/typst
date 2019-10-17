@@ -96,6 +96,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
         let mut ctx = self.ctx;
         ctx.style = &self.style;
+        ctx.flow = Flow::Vertical;
         ctx.shrink_to_fit = true;
         ctx.space.dimensions = remaining;
         ctx.space.padding = SizeBox::zero();

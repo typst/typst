@@ -26,15 +26,17 @@ pub struct StackContext {
     pub space: LayoutSpace,
     pub followup_spaces: Option<LayoutSpace>,
     pub shrink_to_fit: bool,
+    pub flow: Flow,
 }
 
 macro_rules! reuse {
-    ($ctx:expr) => {
+    ($ctx:expr, $flow:expr) => {
         StackContext {
             alignment: $ctx.alignment,
             space: $ctx.space,
             followup_spaces: $ctx.followup_spaces,
-            shrink_to_fit: $ctx.shrink_to_fit
+            shrink_to_fit: $ctx.shrink_to_fit,
+            flow: $flow
         }
     };
 }
@@ -42,12 +44,12 @@ macro_rules! reuse {
 impl StackContext {
     /// Create a stack context from a generic layout context.
     pub fn from_layout_ctx(ctx: LayoutContext) -> StackContext {
-        reuse!(ctx)
+        reuse!(ctx, ctx.flow)
     }
 
     /// Create a stack context from a flex context.
-    pub fn from_flex_ctx(ctx: FlexContext) -> StackContext {
-        reuse!(ctx)
+    pub fn from_flex_ctx(ctx: FlexContext, flow: Flow) -> StackContext {
+        reuse!(ctx, flow)
     }
 }
 
@@ -79,9 +81,15 @@ impl StackLayouter {
             self.start_new_space()?;
         }
 
-        let new_dimensions = Size2D {
-            x: crate::size::max(self.dimensions.x, layout.dimensions.x),
-            y: self.dimensions.y + layout.dimensions.y,
+        let new_dimensions = match self.ctx.flow {
+            Flow::Vertical => Size2D {
+                x: crate::size::max(self.dimensions.x, layout.dimensions.x),
+                y: self.dimensions.y + layout.dimensions.y,
+            },
+            Flow::Horizontal => Size2D {
+                x: self.dimensions.x + layout.dimensions.x,
+                y: crate::size::max(self.dimensions.y, layout.dimensions.y),
+            }
         };
 
         if self.overflows(new_dimensions) {
@@ -104,8 +112,12 @@ impl StackLayouter {
             Alignment::Center => self.cursor - Size2D::with_x(layout.dimensions.x / 2),
         };
 
-        self.cursor.y += layout.dimensions.y;
         self.dimensions = new_dimensions;
+
+        match self.ctx.flow {
+            Flow::Vertical => self.cursor.y += layout.dimensions.y,
+            Flow::Horizontal => self.cursor.x += layout.dimensions.x,
+        }
 
         self.actions.add_layout(position, layout);
 
@@ -120,23 +132,26 @@ impl StackLayouter {
         Ok(())
     }
 
-    /// Add vertical space after the last layout.
+    /// Add space after the last layout.
     pub fn add_space(&mut self, space: Size) -> LayoutResult<()> {
         if !self.started {
             self.start_new_space()?;
         }
 
-        let new_dimensions = self.dimensions + Size2D::with_y(space);
+        let new_space = match self.ctx.flow {
+            Flow::Vertical => Size2D::with_y(space),
+            Flow::Horizontal => Size2D::with_x(space),
+        };
 
-        if self.overflows(new_dimensions) {
+        if self.overflows(self.dimensions + new_space) {
             if self.ctx.followup_spaces.is_some() {
                 self.finish_layout(false)?;
             } else {
                 return Err(LayoutError::NotEnoughSpace("cannot fit space into stack"));
             }
         } else {
-            self.cursor.y += space;
-            self.dimensions.y += space;
+            self.cursor += new_space;
+            self.dimensions += new_space;
         }
 
         Ok(())
@@ -195,10 +210,17 @@ impl StackLayouter {
 
     /// The remaining space for new layouts.
     pub fn remaining(&self) -> Size2D {
-        Size2D {
-            x: self.usable.x,
-            y: self.usable.y - self.dimensions.y,
+        match self.ctx.flow {
+            Flow::Vertical => Size2D {
+                x: self.usable.x,
+                y: self.usable.y - self.dimensions.y,
+            },
+            Flow::Horizontal => Size2D {
+                x: self.usable.x - self.dimensions.x,
+                y: self.usable.y,
+            },
         }
+
     }
 
     /// Whether the active space of this layouter contains no content.

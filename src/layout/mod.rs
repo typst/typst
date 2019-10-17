@@ -134,6 +134,8 @@ pub struct LayoutContext<'a, 'p> {
     pub style: &'a TextStyle,
     /// The alignment to use for the content.
     pub alignment: Alignment,
+    /// How to stack the context.
+    pub flow: Flow,
     /// The primary space to layout in.
     pub space: LayoutSpace,
     /// The additional spaces which are used when the primary space
@@ -174,6 +176,13 @@ pub enum Alignment {
     Left,
     Right,
     Center,
+}
+
+/// The flow of content.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Flow {
+    Vertical,
+    Horizontal,
 }
 
 /// The error type for layouting.
