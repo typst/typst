@@ -124,6 +124,8 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                     self.start_new_flex();
                 }
 
+                Command::AddFlex(layout) => self.flex.add(layout),
+
                 Command::SetAlignment(alignment) => {
                     self.finish_flex()?;
                     self.alignment = alignment;

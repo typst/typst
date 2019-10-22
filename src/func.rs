@@ -116,6 +116,7 @@ pub enum Command<'a> {
     Layout(&'a SyntaxTree),
     Add(Layout),
     AddMany(MultiLayout),
+    AddFlex(Layout),
     SetAlignment(Alignment),
     SetStyle(TextStyle),
     FinishLayout,

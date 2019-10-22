@@ -404,13 +404,13 @@ fn is_identifier(string: &str) -> bool {
     let mut chars = string.chars();
 
     match chars.next() {
-        Some(c) if !UnicodeXID::is_xid_start(c) => return false,
+        Some(c) if c != '.' && !UnicodeXID::is_xid_start(c) => return false,
         None => return false,
         _ => (),
     }
 
     while let Some(c) = chars.next() {
-        if !UnicodeXID::is_xid_continue(c) {
+        if c != '.' && !UnicodeXID::is_xid_continue(c) {
             return false;
         }
     }

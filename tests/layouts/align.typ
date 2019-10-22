@@ -11,7 +11,7 @@
 // Over multiple pages after the pervious 3-page run.
 [align: left][Left: {lorem:80}]
 
-[pagebreak]
+[page.break]
 
 // ---------------------------------- //
 // Context-modifying align.
@@ -26,7 +26,7 @@ Right Again: {lorem:10}
 // Reset context-modifier.
 [align: left]
 
-[pagebreak]
+[page.break]
 
 // ---------------------------------- //
 // All in one line.

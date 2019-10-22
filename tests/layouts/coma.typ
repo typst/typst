@@ -9,9 +9,7 @@
 
     [align: right][*WiSe 2019/2020* [n] Week 1]
 ]
-
-// hack for more whitespace
-[box][]
+[v: 3mm]
 
 [align: center][
     *3. Ubungsblatt Computerorientierte Mathematik II* [n]
@@ -27,5 +25,3 @@ Ein _Binärbaum_ ist ein Wurzelbaum, in dem jeder Knoten ≤ 2 Kinder hat.
 Die Tiefe eines Knotens _v_ ist die Länge des eindeutigen Weges von der Wurzel
 zu _v_, und die Höhe von _v_ ist die Länge eines längsten (absteigenden) Weges
 von _v_ zu einem Blatt. Die Höhe des Baumes ist die Höhe der Wurzel.
-
-

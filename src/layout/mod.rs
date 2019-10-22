@@ -40,6 +40,15 @@ pub struct Layout {
 }
 
 impl Layout {
+    /// Create an empty layout with the specified dimensions.
+    pub fn empty(width: Size, height: Size) -> Layout {
+        Layout {
+            dimensions: Size2D::new(width, height),
+            actions: vec![],
+            debug_render: true,
+        }
+    }
+
     /// Serialize this layout into an output buffer.
     pub fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
         writeln!(
