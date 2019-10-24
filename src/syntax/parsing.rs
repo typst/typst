@@ -1,16 +1,11 @@
 //! Parsing of source code into token streams and syntax trees.
 
 use std::collections::HashMap;
-
 use unicode_xid::UnicodeXID;
 
 use crate::func::{Function, Scope};
 use crate::size::Size;
-use crate::syntax::*;
-
-mod tokens;
-
-pub use tokens::{tokenize, Tokens};
+use super::*;
 
 /// Parses source code into a syntax tree given a context.
 #[inline]
@@ -222,7 +217,7 @@ impl<'s> Parser<'s> {
             // Find out the string which makes the body of this function.
             let (start, end) = self
                 .tokens
-                .current_index()
+                .string_index()
                 .and_then(|index| {
                     find_closing_bracket(&self.src[index..]).map(|end| (index, index + end))
                 })
@@ -233,7 +228,7 @@ impl<'s> Parser<'s> {
             let body = parser(&header, Some(body_string), self.ctx)?;
 
             // Skip to the end of the function in the token stream.
-            self.tokens.goto(end);
+            self.tokens.set_string_index(end);
 
             // Now the body should be closed.
             assert!(self.tokens.next() == Some(Token::RightBracket));
@@ -377,13 +372,13 @@ impl<'s> PeekableTokens<'s> {
     }
 
     /// The index of the first character of the next token in the source string.
-    fn current_index(&mut self) -> Option<usize> {
-        self.tokens.chars.current_index()
+    fn string_index(&mut self) -> Option<usize> {
+        self.tokens.chars.string_index()
     }
 
     /// Go to a new position in the underlying string.
-    fn goto(&mut self, index: usize) {
-        self.tokens.chars.goto(index);
+    fn set_string_index(&mut self, index: usize) {
+        self.tokens.chars.set_string_index(index);
         self.peeked = None;
     }
 }

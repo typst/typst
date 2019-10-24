@@ -1,11 +1,14 @@
-use super::prelude::*;
 use std::iter::Peekable;
 use std::slice::Iter;
+use super::prelude::*;
 
 /// Implement the function trait more concisely.
 #[macro_export]
 macro_rules! function {
     (data: $ident:ident, $($tts:tt)*) => {
+        #[allow(unused_imports)]
+        use $crate::func::prelude::*;
+
         impl Function for $ident {
             function!(@parse $ident, $($tts)*);
         }
@@ -64,7 +67,7 @@ macro_rules! parse {
 
     (optional: $body:expr, $ctx:expr) => {
         if let Some(body) = $body {
-            Some($crate::parsing::parse(body, $ctx)?)
+            Some($crate::syntax::parse(body, $ctx)?)
         } else {
             None
         }
@@ -72,7 +75,7 @@ macro_rules! parse {
 
     (required: $body:expr, $ctx:expr) => {
         if let Some(body) = $body {
-            $crate::parsing::parse(body, $ctx)?
+            $crate::syntax::parse(body, $ctx)?
         } else {
             err!("expected body");
         }
@@ -83,7 +86,7 @@ macro_rules! parse {
 #[macro_export]
 macro_rules! err {
     ($($tts:tt)*) => {
-        return Err(ParseError::new(format!($($tts)*)));
+        return Err($crate::syntax::ParseError::new(format!($($tts)*)));
     };
 }
 

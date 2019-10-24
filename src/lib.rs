@@ -22,9 +22,8 @@ use toddle::query::{FontLoader, FontProvider, SharedFontLoader};
 use crate::func::Scope;
 use crate::layout::{layout_tree, LayoutContext, MultiLayout};
 use crate::layout::{Alignment, Flow, LayoutError, LayoutResult, LayoutSpace};
-use crate::parsing::{parse, ParseContext, ParseError, ParseResult};
+use crate::syntax::{SyntaxTree, parse, ParseContext, ParseError, ParseResult};
 use crate::style::{PageStyle, TextStyle};
-use crate::syntax::SyntaxTree;
 
 #[macro_use]
 mod macros;
@@ -33,7 +32,6 @@ pub mod export;
 pub mod func;
 pub mod layout;
 pub mod library;
-pub mod parsing;
 pub mod size;
 pub mod style;
 pub mod syntax;

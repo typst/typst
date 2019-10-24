@@ -4,10 +4,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
-use crate::layout::{Layout, LayoutContext, Alignment, LayoutResult, MultiLayout};
-use crate::parsing::{ParseContext, ParseResult};
-use crate::style::TextStyle;
-use crate::syntax::{FuncHeader, SyntaxTree};
+use self::prelude::*;
 
 #[macro_use]
 mod helpers;
@@ -18,9 +15,10 @@ pub mod prelude {
     pub use crate::func::{Command, CommandList, Function};
     pub use crate::layout::{layout_tree, Layout, LayoutContext, MultiLayout};
     pub use crate::layout::{Flow, Alignment, LayoutError, LayoutResult};
-    pub use crate::parsing::{parse, ParseContext, ParseError, ParseResult};
     pub use crate::syntax::{Expression, FuncHeader, SyntaxTree};
+    pub use crate::syntax::{parse, ParseContext, ParseError, ParseResult};
     pub use crate::size::{Size, Size2D, SizeBox};
+    pub use crate::style::{PageStyle, TextStyle};
     pub use super::helpers::*;
 }
 

@@ -1,8 +1,6 @@
 use std::str::CharIndices;
-
 use smallvec::SmallVec;
-
-use crate::syntax::*;
+use super::*;
 
 /// Builds an iterator over the tokens of the source code.
 #[inline]
@@ -223,7 +221,7 @@ impl<'s> Iterator for Tokens<'s> {
                 // Find out when the word ends.
                 let mut end = (next_pos, next);
                 while let Some((index, c)) = self.chars.peek() {
-                    let second = self.chars.peek_second().map(|p| p.1);
+                    let second = self.chars.peekn(1).map(|p| p.1);
 
                     // Whether the next token is still from the text or not.
                     let continues = match c {
@@ -266,66 +264,53 @@ fn is_newline_char(character: char) -> bool {
 /// A (index, char) iterator with double lookahead.
 #[derive(Debug, Clone)]
 pub struct PeekableChars<'s> {
-    offset: usize,
     string: &'s str,
     chars: CharIndices<'s>,
-    peek1: Option<Option<(usize, char)>>,
-    peek2: Option<Option<(usize, char)>>,
+    base: usize,
+    peeked: SmallVec<[Option<(usize, char)>; 2]>,
 }
 
 impl<'s> PeekableChars<'s> {
     /// Create a new iterator from a string.
     pub fn new(string: &'s str) -> PeekableChars<'s> {
         PeekableChars {
-            offset: 0,
             string,
             chars: string.char_indices(),
-            peek1: None,
-            peek2: None,
+            base: 0,
+            peeked: SmallVec::new(),
         }
     }
 
     /// Peek at the next element.
     pub fn peek(&mut self) -> Option<(usize, char)> {
-        match self.peek1 {
-            Some(peeked) => peeked,
-            None => {
-                let next = self.next_inner();
-                self.peek1 = Some(next);
-                next
-            }
-        }
+        self.peekn(0)
     }
 
     /// Peek at the element after the next element.
-    pub fn peek_second(&mut self) -> Option<(usize, char)> {
-        match self.peek2 {
-            Some(peeked) => peeked,
-            None => {
-                self.peek();
-                let next = self.next_inner();
-                self.peek2 = Some(next);
-                next
-            }
+    pub fn peekn(&mut self, n: usize) -> Option<(usize, char)> {
+        while self.peeked.len() <= n {
+            let next = self.next_inner();
+            self.peeked.push(next);
         }
+
+        self.peeked[n]
     }
 
     /// Return the next value of the inner iterator mapped with the offset.
     pub fn next_inner(&mut self) -> Option<(usize, char)> {
-        self.chars.next().map(|(i, c)| (i + self.offset, c))
+        self.chars.next().map(|(i, c)| (i + self.base, c))
     }
 
     /// The index of the first character of the next token in the source string.
-    pub fn current_index(&mut self) -> Option<usize> {
+    pub fn string_index(&mut self) -> Option<usize> {
         self.peek().map(|p| p.0)
     }
 
     /// Go to a new position in the underlying string.
-    pub fn goto(&mut self, index: usize) {
-        self.offset = index;
+    pub fn set_string_index(&mut self, index: usize) {
         self.chars = self.string[index..].char_indices();
-        self.peek1 = None;
-        self.peek2 = None;
+        self.base = index;
+        self.peeked.clear();
     }
 }
 
@@ -333,12 +318,10 @@ impl Iterator for PeekableChars<'_> {
     type Item = (usize, char);
 
     fn next(&mut self) -> Option<(usize, char)> {
-        match self.peek1.take() {
-            Some(value) => {
-                self.peek1 = self.peek2.take();
-                value
-            }
-            None => self.next_inner(),
+        if !self.peeked.is_empty() {
+            self.peeked.remove(0)
+        } else {
+            self.next_inner()
         }
     }
 }

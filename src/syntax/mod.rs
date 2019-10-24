@@ -6,6 +6,12 @@ use std::fmt::{self, Display, Formatter};
 use crate::func::Function;
 use crate::size::Size;
 
+mod tokens;
+mod parsing;
+
+pub use tokens::{tokenize, Tokens};
+pub use parsing::{parse, ParseContext, ParseError, ParseResult};
+
 /// A logical unit of the incoming text stream.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Token<'s> {
