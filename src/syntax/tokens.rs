@@ -12,7 +12,7 @@ pub fn tokenize(src: &str) -> Tokens {
 #[derive(Debug, Clone)]
 pub struct Tokens<'s> {
     src: &'s str,
-    pub(super) chars: PeekableChars<'s>,
+    chars: PeekableChars<'s>,
     state: TokensState,
     stack: SmallVec<[TokensState; 1]>,
 }
@@ -31,13 +31,23 @@ enum TokensState {
 
 impl<'s> Tokens<'s> {
     /// Create a new token stream from source code.
-    fn new(src: &'s str) -> Tokens<'s> {
+    pub fn new(src: &'s str) -> Tokens<'s> {
         Tokens {
             src,
             chars: PeekableChars::new(src),
             state: TokensState::Body,
             stack: SmallVec::new(),
         }
+    }
+
+    /// The index of the first character of the next token in the source string.
+    pub fn string_index(&mut self) -> usize {
+        self.chars.string_index()
+    }
+
+    /// Go to a new position in the underlying string.
+    pub fn set_string_index(&mut self, index: usize) {
+        self.chars.set_string_index(index);
     }
 
     /// Advance the iterator by one step.
@@ -55,81 +65,69 @@ impl<'s> Tokens<'s> {
     fn unswitch(&mut self) {
         self.state = self.stack.pop().unwrap_or(TokensState::Body);
     }
-
-    /// Advance and return the given token.
-    fn consumed(&mut self, token: Token<'s>) -> Token<'s> {
-        self.advance();
-        token
-    }
-
-    /// Returns a word containing the string bounded by the given indices.
-    fn text(&self, start: usize, end: usize) -> Token<'s> {
-        Token::Text(&self.src[start..end])
-    }
 }
 
 impl<'s> Iterator for Tokens<'s> {
-    type Item = Token<'s>;
+    type Item = Spanned<Token<'s>>;
 
     /// Advance the iterator, return the next token or nothing.
-    fn next(&mut self) -> Option<Token<'s>> {
-        use TokensState as TU;
+    fn next(&mut self) -> Option<Self::Item> {
+        use TokensState as TS;
 
         // Go to the body state if the function has a body or return to the top-of-stack
         // state.
-        if self.state == TU::MaybeBody {
-            if self.chars.peek()?.1 == '[' {
-                self.state = TU::Body;
-                return Some(self.consumed(Token::LeftBracket));
+        if self.state == TS::MaybeBody {
+            if let Some((index, '[')) = self.chars.peek() {
+                self.advance();
+                self.state = TS::Body;
+                return Some(Spanned::new(Token::LeftBracket, Span::at(index)));
             } else {
                 self.unswitch();
             }
         }
 
         // Take the next char and peek at the one behind.
-        let (next_pos, next) = self.chars.next()?;
-        let afterwards = self.chars.peek().map(|p| p.1);
+        let (pos, next) = self.chars.next()?;
+        let afterwards = self.chars.peekc();
 
-        Some(match next {
+        let token = match next {
             // Functions
             '[' => {
-                self.switch(TU::Function);
+                self.switch(TS::Function);
                 Token::LeftBracket
             }
             ']' => {
-                if self.state == TU::Function {
-                    self.state = TU::MaybeBody;
+                if self.state == TS::Function {
+                    self.state = TS::MaybeBody;
                 } else {
                     self.unswitch();
                 }
+
                 Token::RightBracket
             }
 
             // Line comment
             '/' if afterwards == Some('/') => {
-                let mut end = self.chars.next().unwrap();
-                let start = end.0 + end.1.len_utf8();
+                let start = self.string_index() + 1;
 
-                while let Some((index, c)) = self.chars.peek() {
+                while let Some(c) = self.chars.peekc() {
                     if is_newline_char(c) {
                         break;
                     }
                     self.advance();
-                    end = (index, c);
                 }
 
-                let end = end.0 + end.1.len_utf8();
+                let end = self.string_index();
                 Token::LineComment(&self.src[start..end])
             }
 
             // Block comment
             '/' if afterwards == Some('*') => {
-                let mut end = self.chars.next().unwrap();
-                let start = end.0 + end.1.len_utf8();
-
+                let start = self.string_index() + 1;
                 let mut nested = 0;
-                while let Some((index, c)) = self.chars.next() {
-                    let after = self.chars.peek().map(|p| p.1);
+
+                while let Some((_, c)) = self.chars.next() {
+                    let after = self.chars.peekc();
                     match (c, after) {
                         ('*', Some('/')) if nested == 0 => {
                             self.advance();
@@ -145,58 +143,62 @@ impl<'s> Iterator for Tokens<'s> {
                         }
                         _ => {}
                     }
-                    end = (index, c);
                 }
 
-                let end = end.0 + end.1.len_utf8();
+                let end = self.string_index() - 2;
                 Token::BlockComment(&self.src[start..end])
             }
 
             // Unexpected end of block comment
-            '*' if afterwards == Some('/') => self.consumed(Token::StarSlash),
+            '*' if afterwards == Some('/') => {
+                self.advance();
+                Token::StarSlash
+            }
 
             // Whitespace
             ' ' | '\t' => {
-                while let Some((_, c)) = self.chars.peek() {
+                while let Some(c) = self.chars.peekc() {
                     match c {
                         ' ' | '\t' => self.advance(),
                         _ => break,
                     }
                 }
+
                 Token::Space
             }
 
             // Newlines
-            '\r' if afterwards == Some('\n') => self.consumed(Token::Newline),
+            '\r' if afterwards == Some('\n') => {
+                self.advance();
+                Token::Newline
+            },
             c if is_newline_char(c) => Token::Newline,
 
             // Star/Underscore/Backtick in bodies
-            '*' if self.state == TU::Body => Token::Star,
-            '_' if self.state == TU::Body => Token::Underscore,
-            '`' if self.state == TU::Body => Token::Backtick,
+            '*' if self.state == TS::Body => Token::Star,
+            '_' if self.state == TS::Body => Token::Underscore,
+            '`' if self.state == TS::Body => Token::Backtick,
 
             // Context sensitive operators in headers
-            ':' if self.state == TU::Function => Token::Colon,
-            '=' if self.state == TU::Function => Token::Equals,
-            ',' if self.state == TU::Function => Token::Comma,
+            ':' if self.state == TS::Function => Token::Colon,
+            '=' if self.state == TS::Function => Token::Equals,
+            ',' if self.state == TS::Function => Token::Comma,
 
             // A string value.
-            '"' if self.state == TU::Function => {
-                // Find out when the word ends.
+            '"' if self.state == TS::Function => {
+                let start = self.string_index();
                 let mut escaped = false;
-                let mut end = (next_pos, next);
 
-                while let Some((index, c)) = self.chars.next() {
+                while let Some((_, c)) = self.chars.next() {
                     if c == '"' && !escaped {
                         break;
                     }
 
                     escaped = c == '\\';
-                    end = (index, c);
                 }
 
-                let end_pos = end.0 + end.1.len_utf8();
-                Token::Quoted(&self.src[next_pos + 1..end_pos])
+                let end = self.string_index() - 1;
+                Token::Quoted(&self.src[start..end])
             }
 
             // Escaping
@@ -209,25 +211,26 @@ impl<'s> Iterator for Tokens<'s> {
 
                     if escapable {
                         self.advance();
-                        return Some(self.text(index, index + c.len_utf8()));
+                        Token::Text(&self.src[index..index + c.len_utf8()])
+                    } else {
+                        Token::Text("\\")
                     }
+                } else {
+                    Token::Text("\\")
                 }
-
-                Token::Text("\\")
             }
 
             // Normal text
             _ => {
                 // Find out when the word ends.
-                let mut end = (next_pos, next);
-                while let Some((index, c)) = self.chars.peek() {
+                while let Some((_, c)) = self.chars.peek() {
                     let second = self.chars.peekn(1).map(|p| p.1);
 
                     // Whether the next token is still from the text or not.
                     let continues = match c {
                         '[' | ']' | '\\' => false,
-                        '*' | '_' | '`' if self.state == TU::Body => false,
-                        ':' | '=' | ',' | '"' if self.state == TU::Function => false,
+                        '*' | '_' | '`' if self.state == TS::Body => false,
+                        ':' | '=' | ',' | '"' if self.state == TS::Function => false,
 
                         '/' => second != Some('/') && second != Some('*'),
                         '*' => second != Some('/'),
@@ -242,14 +245,15 @@ impl<'s> Iterator for Tokens<'s> {
                         break;
                     }
 
-                    end = (index, c);
                     self.advance();
                 }
 
-                let end_pos = end.0 + end.1.len_utf8();
-                self.text(next_pos, end_pos)
+                let end = self.string_index();
+                Token::Text(&self.src[pos..end])
             }
-        })
+        };
+
+        Some(Spanned::new(token, Span::new(pos, self.string_index())))
     }
 }
 
@@ -266,8 +270,9 @@ fn is_newline_char(character: char) -> bool {
 pub struct PeekableChars<'s> {
     string: &'s str,
     chars: CharIndices<'s>,
-    base: usize,
     peeked: SmallVec<[Option<(usize, char)>; 2]>,
+    base: usize,
+    index: usize,
 }
 
 impl<'s> PeekableChars<'s> {
@@ -276,14 +281,20 @@ impl<'s> PeekableChars<'s> {
         PeekableChars {
             string,
             chars: string.char_indices(),
-            base: 0,
             peeked: SmallVec::new(),
+            base: 0,
+            index: 0,
         }
     }
 
     /// Peek at the next element.
     pub fn peek(&mut self) -> Option<(usize, char)> {
         self.peekn(0)
+    }
+
+    /// Peek at the char of the next element.
+    pub fn peekc(&mut self) -> Option<char> {
+        self.peekn(0).map(|p| p.1)
     }
 
     /// Peek at the element after the next element.
@@ -298,18 +309,17 @@ impl<'s> PeekableChars<'s> {
 
     /// Return the next value of the inner iterator mapped with the offset.
     pub fn next_inner(&mut self) -> Option<(usize, char)> {
-        self.chars.next().map(|(i, c)| (i + self.base, c))
+        self.chars.next().map(|(i, c)| (self.base + i, c))
     }
 
-    /// The index of the first character of the next token in the source string.
-    pub fn string_index(&mut self) -> Option<usize> {
-        self.peek().map(|p| p.0)
+    pub fn string_index(&mut self) -> usize {
+        self.index
     }
 
-    /// Go to a new position in the underlying string.
     pub fn set_string_index(&mut self, index: usize) {
         self.chars = self.string[index..].char_indices();
         self.base = index;
+        self.index = 0;
         self.peeked.clear();
     }
 }
@@ -318,11 +328,17 @@ impl Iterator for PeekableChars<'_> {
     type Item = (usize, char);
 
     fn next(&mut self) -> Option<(usize, char)> {
-        if !self.peeked.is_empty() {
+        let next = if !self.peeked.is_empty() {
             self.peeked.remove(0)
         } else {
             self.next_inner()
+        };
+
+        if let Some((index, c)) = next {
+            self.index = index + c.len_utf8();
         }
+
+        next
     }
 }
 
@@ -337,7 +353,16 @@ mod tests {
 
     /// Test if the source code tokenizes to the tokens.
     fn test(src: &str, tokens: Vec<Token>) {
-        assert_eq!(Tokens::new(src).collect::<Vec<_>>(), tokens);
+        assert_eq!(Tokens::new(src)
+            .map(|token| token.val)
+            .collect::<Vec<_>>(), tokens);
+    }
+
+    /// Test if the tokens of the source code have the correct spans.
+    fn test_span(src: &str, spans: Vec<(usize, usize)>) {
+        assert_eq!(Tokens::new(src)
+            .map(|token| (token.span.start, token.span.end))
+            .collect::<Vec<_>>(), spans);
     }
 
     /// Tokenizes the basic building blocks.
@@ -461,5 +486,14 @@ mod tests {
     fn tokenize_unicode() {
         test("[document][Hello 🌍!]", vec![L, T("document"), R, L, T("Hello"), S, T("🌍!"), R]);
         test("[f]⺐.", vec![L, T("f"), R, T("⺐.")]);
+    }
+
+    /// This test checks if all tokens have the correct spans.
+    #[test]
+    #[rustfmt::skip]
+    fn tokenize_spans() {
+        test_span("Hello World", vec![(0, 5), (5, 6), (6, 11)]);
+        test_span("🌍_🎈", vec![(0, 4), (4, 5), (5, 9)]);
+        test_span("[hello: world]", vec![(0, 1), (1, 6), (6, 7), (7, 8), (8, 13), (13, 14)]);
     }
 }

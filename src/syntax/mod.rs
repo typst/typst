@@ -129,3 +129,29 @@ impl Display for Expression {
         }
     }
 }
+
+pub struct Spanned<T> {
+    pub val: T,
+    pub span: Span,
+}
+
+impl<T> Spanned<T> {
+    pub fn new(val: T, span: Span) -> Spanned<T> {
+        Spanned { val, span }
+    }
+}
+
+pub struct Span {
+    pub start: usize,
+    pub end: usize,
+}
+
+impl Span {
+    pub fn new(start: usize, end: usize) -> Span {
+        Span { start, end }
+    }
+
+    pub fn at(index: usize) -> Span {
+        Span { start: index, end: index + 1 }
+    }
+}

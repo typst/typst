@@ -217,12 +217,9 @@ impl<'s> Parser<'s> {
         // Do the parsing dependent on whether the function has a body.
         Ok(if has_body {
             // Find out the string which makes the body of this function.
-            let (start, end) = self
-                .tokens
-                .string_index()
-                .and_then(|index| {
-                    find_closing_bracket(&self.src[index..]).map(|end| (index, index + end))
-                })
+            let start = self.tokens.string_index();
+            let end = find_closing_bracket(&self.src[start..])
+                .map(|end| start + end)
                 .ok_or_else(|| ParseError::new("expected closing bracket"))?;
 
             // Parse the body.
@@ -370,17 +367,15 @@ impl<'s> PeekableTokens<'s> {
     /// Peek at the next element.
     fn peek(&mut self) -> Option<Token<'s>> {
         let iter = &mut self.tokens;
-        *self.peeked.get_or_insert_with(|| iter.next())
+        *self.peeked.get_or_insert_with(|| iter.next().map(|token| token.val))
     }
 
-    /// The index of the first character of the next token in the source string.
-    fn string_index(&mut self) -> Option<usize> {
-        self.tokens.chars.string_index()
+    fn string_index(&mut self) -> usize {
+        self.tokens.string_index()
     }
 
-    /// Go to a new position in the underlying string.
     fn set_string_index(&mut self, index: usize) {
-        self.tokens.chars.set_string_index(index);
+        self.tokens.set_string_index(index);
         self.peeked = None;
     }
 }
@@ -391,7 +386,7 @@ impl<'s> Iterator for PeekableTokens<'s> {
     fn next(&mut self) -> Option<Token<'s>> {
         match self.peeked.take() {
             Some(value) => value,
-            None => self.tokens.next(),
+            None => self.tokens.next().map(|token| token.val),
         }
     }
 }
