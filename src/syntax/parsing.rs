@@ -24,21 +24,20 @@ pub struct ParseContext<'a> {
 struct Parser<'s> {
     src: &'s str,
     tokens: PeekableTokens<'s>,
-    state: ParserState,
     ctx: ParseContext<'s>,
     tree: SyntaxTree,
 }
 
-/// The state the parser is in.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum ParserState {
-    /// The base state of the parser.
-    Body,
-    /// We saw one newline already and are looking for another.
-    FirstNewline,
+enum NewlineState {
+    /// No newline yet.
+    Zero,
+    /// We saw one newline with the given span already and are
+    /// looking for another.
+    One(Span),
     /// We saw at least two newlines and wrote one, thus not
     /// writing another one for more newlines.
-    WroteNewline,
+    TwoOrMore,
 }
 
 impl<'s> Parser<'s> {
@@ -47,7 +46,6 @@ impl<'s> Parser<'s> {
         Parser {
             src,
             tokens: PeekableTokens::new(tokenize(src)),
-            state: ParserState::Body,
             ctx,
             tree: SyntaxTree::new(),
         }
@@ -68,18 +66,18 @@ impl<'s> Parser<'s> {
         use Token::*;
 
         if let Some(token) = self.tokens.peek() {
-            match token {
+            match token.val {
                 // Functions.
                 LeftBracket => self.parse_func()?,
                 RightBracket => return Err(ParseError::new("unexpected closing bracket")),
 
                 // Modifiers.
-                Underscore => self.append_consumed(Node::ToggleItalics),
-                Star => self.append_consumed(Node::ToggleBold),
-                Backtick => self.append_consumed(Node::ToggleMonospace),
+                Underscore => self.append_consumed(Node::ToggleItalics, token.span),
+                Star => self.append_consumed(Node::ToggleBold, token.span),
+                Backtick => self.append_consumed(Node::ToggleMonospace, token.span),
 
                 // Normal text.
-                Text(word) => self.append_consumed(Node::Text(word.to_owned())),
+                Text(word) => self.append_consumed(Node::Text(word.to_owned()), token.span),
 
                 // The rest is handled elsewhere or should not happen, because `Tokens` does not
                 // yield these in a body.
@@ -95,22 +93,27 @@ impl<'s> Parser<'s> {
     /// Parse a complete function from the current position.
     fn parse_func(&mut self) -> ParseResult<()> {
         // This should only be called if a left bracket was seen.
-        assert!(self.tokens.next() == Some(Token::LeftBracket));
+        let token = self.tokens.next().expect("parse_func: expected token");
+        assert!(token.val == Token::LeftBracket);
+
+        let mut span = token.span;
 
         let header = self.parse_func_header()?;
         let body = self.parse_func_body(&header)?;
 
-        // Finally this function is parsed to the end.
-        self.append(Node::Func(FuncCall { header, body }));
+        span.end = self.tokens.string_index();
 
-        Ok(self.switch(ParserState::Body))
+        // Finally this function is parsed to the end.
+        self.append(Node::Func(FuncCall { header, body }), span);
+
+        Ok(())
     }
 
     /// Parse a function header.
     fn parse_func_header(&mut self) -> ParseResult<FuncHeader> {
-        // The next token should be the name of the function.
         self.skip_white();
-        let name = match self.tokens.next() {
+
+        let name = match self.tokens.next().map(|token| token.val) {
             Some(Token::Text(word)) => {
                 if is_identifier(word) {
                     Ok(word.to_owned())
@@ -130,7 +133,7 @@ impl<'s> Parser<'s> {
         self.skip_white();
 
         // Check for arguments
-        match self.tokens.next() {
+        match self.tokens.next().map(|token| token.val) {
             Some(Token::RightBracket) => {}
             Some(Token::Colon) => {
                 let (args, kwargs) = self.parse_func_args()?;
@@ -157,7 +160,7 @@ impl<'s> Parser<'s> {
         loop {
             self.skip_white();
 
-            match self.tokens.peek() {
+            match self.tokens.peek().map(|token| token.val) {
                 Some(Token::Text(_)) | Some(Token::Quoted(_)) if !comma => {
                     args.push(self.parse_expression()?);
                     comma = true;
@@ -182,7 +185,7 @@ impl<'s> Parser<'s> {
 
     /// Parse an expression.
     fn parse_expression(&mut self) -> ParseResult<Expression> {
-        Ok(match self.tokens.next() {
+        Ok(match self.tokens.next().map(|token| token.val) {
             Some(Token::Quoted(text)) => Expression::Str(text.to_owned()),
             Some(Token::Text(text)) => {
                 if let Ok(b) = text.parse::<bool>() {
@@ -202,7 +205,7 @@ impl<'s> Parser<'s> {
     /// Parse the body of a function.
     fn parse_func_body(&mut self, header: &FuncHeader) -> ParseResult<Box<dyn Function>> {
         // Whether the function has a body.
-        let has_body = self.tokens.peek() == Some(Token::LeftBracket);
+        let has_body = self.tokens.peek().map(|token| token.val) == Some(Token::LeftBracket);
         if has_body {
             self.advance();
         }
@@ -230,7 +233,8 @@ impl<'s> Parser<'s> {
             self.tokens.set_string_index(end);
 
             // Now the body should be closed.
-            assert!(self.tokens.next() == Some(Token::RightBracket));
+            let token = self.tokens.next().expect("parse_func_body: expected token");
+            assert!(token.val == Token::RightBracket);
 
             body
         } else {
@@ -240,40 +244,45 @@ impl<'s> Parser<'s> {
 
     /// Parse whitespace (as long as there is any) and skip over comments.
     fn parse_white(&mut self) -> ParseResult<()> {
+        let mut state = NewlineState::Zero;
+
         while let Some(token) = self.tokens.peek() {
-            match self.state {
-                ParserState::FirstNewline => match token {
-                    Token::Newline => {
-                        self.append_consumed(Node::Newline);
-                        self.switch(ParserState::WroteNewline);
+            match token.val {
+                Token::Space => {
+                    self.advance();
+                    match state {
+                        NewlineState::Zero | NewlineState::TwoOrMore => {
+                            self.append_space(token.span);
+                        }
+                        _ => {}
                     }
-                    Token::Space => self.append_space_consumed(),
-                    _ => {
-                        self.append_space();
-                        self.switch(ParserState::Body);
+                }
+
+                Token::Newline => {
+                    self.advance();
+                    match state {
+                        NewlineState::Zero => state = NewlineState::One(token.span),
+                        NewlineState::One(mut span) => {
+                            span.expand(token.span);
+                            state = NewlineState::TwoOrMore;
+                            self.append(Node::Newline, span);
+                        },
+                        NewlineState::TwoOrMore => self.append_space(token.span),
                     }
-                },
-                ParserState::WroteNewline => match token {
-                    Token::Newline | Token::Space => self.append_space_consumed(),
-                    _ => self.switch(ParserState::Body),
-                },
-                ParserState::Body => match token {
-                    // Whitespace
-                    Token::Space => self.append_space_consumed(),
-                    Token::Newline => {
-                        self.advance();
-                        self.switch(ParserState::FirstNewline);
+                }
+
+                _ => {
+                    if let NewlineState::One(span) = state {
+                        self.append_space(span);
                     }
 
-                    // Comments
-                    Token::LineComment(_) | Token::BlockComment(_) => self.advance(),
-                    Token::StarSlash => {
-                        return Err(ParseError::new("unexpected end of block comment"));
+                    state = NewlineState::Zero;
+                    match token.val {
+                        Token::LineComment(_) | Token::BlockComment(_) => self.advance(),
+                        Token::StarSlash => err!("unexpected end of block comment"),
+                        _ => break,
                     }
-
-                    // Anything else skips out of the function.
-                    _ => break,
-                },
+                }
             }
         }
 
@@ -283,10 +292,9 @@ impl<'s> Parser<'s> {
     /// Skip over whitespace and comments.
     fn skip_white(&mut self) {
         while let Some(token) = self.tokens.peek() {
-            match token {
-                Token::Space | Token::Newline | Token::LineComment(_) | Token::BlockComment(_) => {
-                    self.advance()
-                }
+            match token.val {
+                Token::Space | Token::Newline |
+                Token::LineComment(_) | Token::BlockComment(_) => self.advance(),
                 _ => break,
             }
         }
@@ -297,33 +305,23 @@ impl<'s> Parser<'s> {
         self.tokens.next();
     }
 
-    /// Switch the state.
-    fn switch(&mut self, state: ParserState) {
-        self.state = state;
-    }
-
     /// Append a node to the tree.
-    fn append(&mut self, node: Node) {
-        self.tree.nodes.push(node);
+    fn append(&mut self, node: Node, span: Span) {
+        self.tree.nodes.push(Spanned::new(node, span));
     }
 
-    /// Append a space if there is not one already.
-    fn append_space(&mut self) {
-        if self.tree.nodes.last() != Some(&Node::Space) {
-            self.append(Node::Space);
+    /// Append a space, merging with a previous space if there is one.
+    fn append_space(&mut self, span: Span) {
+        match self.tree.nodes.last_mut() {
+            Some(ref mut node) if node.val == Node::Space => node.span.expand(span),
+            _ => self.append(Node::Space, span),
         }
     }
 
     /// Advance and return the given node.
-    fn append_consumed(&mut self, node: Node) {
+    fn append_consumed(&mut self, node: Node, span: Span) {
         self.advance();
-        self.append(node);
-    }
-
-    /// Advance and append a space if there is not one already.
-    fn append_space_consumed(&mut self) {
-        self.advance();
-        self.append_space();
+        self.append(node, span);
     }
 }
 
@@ -352,7 +350,7 @@ fn find_closing_bracket(src: &str) -> Option<usize> {
 #[derive(Debug, Clone)]
 struct PeekableTokens<'s> {
     tokens: Tokens<'s>,
-    peeked: Option<Option<Token<'s>>>,
+    peeked: Option<Option<Spanned<Token<'s>>>>,
 }
 
 impl<'s> PeekableTokens<'s> {
@@ -365,9 +363,9 @@ impl<'s> PeekableTokens<'s> {
     }
 
     /// Peek at the next element.
-    fn peek(&mut self) -> Option<Token<'s>> {
+    fn peek(&mut self) -> Option<Spanned<Token<'s>>> {
         let iter = &mut self.tokens;
-        *self.peeked.get_or_insert_with(|| iter.next().map(|token| token.val))
+        *self.peeked.get_or_insert_with(|| iter.next())
     }
 
     fn string_index(&mut self) -> usize {
@@ -381,12 +379,12 @@ impl<'s> PeekableTokens<'s> {
 }
 
 impl<'s> Iterator for PeekableTokens<'s> {
-    type Item = Token<'s>;
+    type Item = Spanned<Token<'s>>;
 
-    fn next(&mut self) -> Option<Token<'s>> {
+    fn next(&mut self) -> Option<Self::Item> {
         match self.peeked.take() {
             Some(value) => value,
-            None => self.tokens.next().map(|token| token.val),
+            None => self.tokens.next(),
         }
     }
 }
@@ -442,7 +440,7 @@ mod tests {
         use super::*;
 
         /// A testing function which just parses it's body into a syntax tree.
-        #[derive(Debug, PartialEq)]
+        #[derive(Debug)]
         pub struct TreeFn(pub SyntaxTree);
 
         function! {
@@ -452,8 +450,12 @@ mod tests {
             layout(_, _) { Ok(commands![]) }
         }
 
+        impl PartialEq for TreeFn {
+            fn eq(&self, other: &TreeFn) -> bool { tree_equal(&self.0, &other.0) }
+        }
+
         /// A testing function without a body.
-        #[derive(Debug, PartialEq)]
+        #[derive(Debug)]
         pub struct BodylessFn;
 
         function! {
@@ -462,6 +464,14 @@ mod tests {
             parse(_args, body, _ctx) { parse!(forbidden: body); Ok(BodylessFn) }
             layout(_, _) { Ok(commands![]) }
         }
+
+        impl PartialEq for BodylessFn {
+            fn eq(&self, _: &BodylessFn) -> bool { true }
+        }
+    }
+
+    fn tree_equal(a: &SyntaxTree, b: &SyntaxTree) -> bool {
+        a.nodes.iter().zip(&b.nodes).all(|(x, y)| x.val == y.val)
     }
 
     /// Test if the source code parses into the syntax tree.
@@ -469,13 +479,13 @@ mod tests {
         let ctx = ParseContext {
             scope: &Scope::new(),
         };
-        assert_eq!(parse(src, ctx).unwrap(), tree);
+        assert!(tree_equal(&parse(src, ctx).unwrap(), &tree));
     }
 
     /// Test with a scope containing function definitions.
     fn test_scoped(scope: &Scope, src: &str, tree: SyntaxTree) {
         let ctx = ParseContext { scope };
-        assert_eq!(parse(src, ctx).unwrap(), tree);
+        assert!(tree_equal(&parse(src, ctx).unwrap(), &tree));
     }
 
     /// Test if the source parses into the error.
@@ -499,11 +509,15 @@ mod tests {
     }
 
     /// Shortcut macro to create a syntax tree. Is `vec`-like and the elements
-    /// are the nodes.
+    /// are the nodes without spans.
     macro_rules! tree {
-        ($($x:expr),*) => (
-            SyntaxTree { nodes: vec![$($x),*] }
-        );
+        ($($x:expr),*) => ({
+            #[allow(unused_mut)] let mut nodes = vec![];
+            $(
+                nodes.push(Spanned::new($x, Span::new(0, 0)));
+            )*
+            SyntaxTree { nodes }
+        });
         ($($x:expr,)*) => (tree![$($x),*])
     }
 
@@ -545,7 +559,8 @@ mod tests {
         test("Hello \n\nWorld", tree! [ T("Hello"), S, N, T("World") ]);
         test("Hello\n\n  World", tree! [ T("Hello"), N, S, T("World") ]);
         test("Hello \n \n \n  World", tree! [ T("Hello"), S, N, S, T("World") ]);
-        test("Hello\n \n\n  World", tree! [ T("Hello"), S, N, S, T("World") ]);
+        test("Hello\n \n\n  World", tree! [ T("Hello"), N, S, T("World") ]);
+        test("Hello\n \nWorld", tree! [ T("Hello"), N, T("World") ]);
     }
 
     /// Parse things dealing with functions.
@@ -684,6 +699,38 @@ mod tests {
                 body => tree! [ T("Hello"), S, T("🌍!") ],
             })
         ]);
+    }
+
+    /// Tests whether spans get calculated correctly.
+    #[test]
+    #[rustfmt::skip]
+    fn parse_spans() {
+        let mut scope = Scope::new();
+        scope.add::<TreeFn>("hello");
+
+        let parse = |string| {
+            parse(string, ParseContext { scope: &scope }).unwrap().nodes
+        };
+
+        let tree = parse("hello world");
+        assert_eq!(tree[0].span.pair(), (0, 5));
+        assert_eq!(tree[2].span.pair(), (6, 11));
+
+        let tree = parse("p1\n \np2");
+        assert_eq!(tree[1].span.pair(), (2, 5));
+
+        let tree = parse("func [hello: pos, other][body _🌍_]");
+        assert_eq!(tree[0].span.pair(), (0, 4));
+        assert_eq!(tree[1].span.pair(), (4, 5));
+        assert_eq!(tree[2].span.pair(), (5, 37));
+
+        let func = if let Node::Func(f) = &tree[2].val { f } else { panic!() };
+        let body = &func.body.downcast::<TreeFn>().unwrap().0.nodes;
+        assert_eq!(body[0].span.pair(), (0, 4));
+        assert_eq!(body[1].span.pair(), (4, 5));
+        assert_eq!(body[2].span.pair(), (5, 6));
+        assert_eq!(body[3].span.pair(), (6, 10));
+        assert_eq!(body[4].span.pair(), (10, 11));
     }
 
     /// Tests whether errors get reported correctly.

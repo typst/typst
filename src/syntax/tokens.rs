@@ -361,7 +361,7 @@ mod tests {
     /// Test if the tokens of the source code have the correct spans.
     fn test_span(src: &str, spans: Vec<(usize, usize)>) {
         assert_eq!(Tokens::new(src)
-            .map(|token| (token.span.start, token.span.end))
+            .map(|token| token.span.pair())
             .collect::<Vec<_>>(), spans);
     }
 

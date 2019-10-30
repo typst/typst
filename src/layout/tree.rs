@@ -38,7 +38,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     /// Layout the tree into a box.
     fn layout(&mut self, tree: &SyntaxTree) -> LayoutResult<()> {
         for node in &tree.nodes {
-            match node {
+            match &node.val {
                 Node::Text(text) => {
                     let layout = self.layout_text(text)?;
                     self.flex.add(layout);

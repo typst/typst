@@ -56,12 +56,11 @@ pub enum Token<'s> {
 /// A tree representation of source code.
 #[derive(Debug, PartialEq)]
 pub struct SyntaxTree {
-    pub nodes: Vec<Node>,
+    pub nodes: Vec<Spanned<Node>>,
 }
 
 impl SyntaxTree {
     /// Create an empty syntax tree.
-    #[inline]
     pub fn new() -> SyntaxTree {
         SyntaxTree { nodes: vec![] }
     }
@@ -130,6 +129,8 @@ impl Display for Expression {
     }
 }
 
+/// Annotates a value with the part of the source code it corresponds to.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Spanned<T> {
     pub val: T,
     pub span: Span,
@@ -141,6 +142,8 @@ impl<T> Spanned<T> {
     }
 }
 
+/// Describes a slice of source code.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Span {
     pub start: usize,
     pub end: usize,
@@ -153,5 +156,14 @@ impl Span {
 
     pub fn at(index: usize) -> Span {
         Span { start: index, end: index + 1 }
+    }
+
+    pub fn pair(&self) -> (usize, usize) {
+        (self.start, self.end)
+    }
+
+    pub fn expand(&mut self, other: Span) {
+        self.start = self.start.min(other.start);
+        self.end = self.end.max(other.end);
     }
 }

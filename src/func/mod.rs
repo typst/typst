@@ -42,6 +42,13 @@ pub trait Function: FunctionBounds {
     fn layout(&self, ctx: LayoutContext) -> LayoutResult<CommandList>;
 }
 
+impl dyn Function {
+    /// Downcast a dynamic function to a concrete function type.
+    pub fn downcast<F>(&self) -> Option<&F> where F: Function + 'static {
+        self.help_cast_as_any().downcast_ref::<F>()
+    }
+}
+
 impl PartialEq for dyn Function {
     fn eq(&self, other: &dyn Function) -> bool {
         self.help_eq(other)
