@@ -1,6 +1,5 @@
-//! Parsing of source code into token streams and syntax trees.
+//! Parsing of token streams into syntax trees.
 
-use std::collections::HashMap;
 use unicode_xid::UnicodeXID;
 
 use crate::func::{Function, Scope};
@@ -20,7 +19,7 @@ pub struct ParseContext<'a> {
     pub scope: &'a Scope,
 }
 
-/// Transforms token streams to syntax trees.
+/// Transforms token streams into syntax trees.
 #[derive(Debug)]
 struct Parser<'s> {
     src: &'s str,
@@ -35,14 +34,15 @@ struct Parser<'s> {
 enum ParserState {
     /// The base state of the parser.
     Body,
-    /// We saw one newline already.
+    /// We saw one newline already and are looking for another.
     FirstNewline,
-    /// We wrote a newline.
+    /// We saw at least two newlines and wrote one, thus not
+    /// writing another one for more newlines.
     WroteNewline,
 }
 
 impl<'s> Parser<'s> {
-    /// Create a new parser from the source and the context.
+    /// Create a new parser from the source code and the context.
     fn new(src: &'s str, ctx: ParseContext<'s>) -> Parser<'s> {
         Parser {
             src,
@@ -53,9 +53,8 @@ impl<'s> Parser<'s> {
         }
     }
 
-    /// Parse the source into an abstract syntax tree.
+    /// Parse the source into a syntax tree.
     fn parse(mut self) -> ParseResult<SyntaxTree> {
-        // Loop through all the tokens.
         while self.tokens.peek().is_some() {
             self.parse_white()?;
             self.parse_body_part()?;
@@ -66,27 +65,30 @@ impl<'s> Parser<'s> {
 
     /// Parse the next part of the body.
     fn parse_body_part(&mut self) -> ParseResult<()> {
+        use Token::*;
+
         if let Some(token) = self.tokens.peek() {
             match token {
-                // Functions
-                Token::LeftBracket => self.parse_func()?,
-                Token::RightBracket => return Err(ParseError::new("unexpected closing bracket")),
+                // Functions.
+                LeftBracket => self.parse_func()?,
+                RightBracket => return Err(ParseError::new("unexpected closing bracket")),
 
-                // Modifiers
-                Token::Underscore => self.append_consumed(Node::ToggleItalics),
-                Token::Star => self.append_consumed(Node::ToggleBold),
-                Token::Backtick => self.append_consumed(Node::ToggleMonospace),
+                // Modifiers.
+                Underscore => self.append_consumed(Node::ToggleItalics),
+                Star => self.append_consumed(Node::ToggleBold),
+                Backtick => self.append_consumed(Node::ToggleMonospace),
 
-                // Normal text
-                Token::Text(word) => self.append_consumed(Node::Text(word.to_owned())),
-
-                Token::Colon | Token::Equals => panic!("bad token for body: {:?}", token),
+                // Normal text.
+                Text(word) => self.append_consumed(Node::Text(word.to_owned())),
 
                 // The rest is handled elsewhere or should not happen, because `Tokens` does not
-                // yield colons or equals in the body, but their text equivalents instead.
-                _ => panic!("unexpected token: {:?}", token),
+                // yield these in a body.
+                Space | Newline | LineComment(_) | BlockComment(_) |
+                Colon | Equals | Comma | Quoted(_) | StarSlash
+                    => panic!("parse_body_part: unexpected token: {:?}", token),
             }
         }
+
         Ok(())
     }
 
@@ -122,7 +124,7 @@ impl<'s> Parser<'s> {
         let mut header = FuncHeader {
             name,
             args: vec![],
-            kwargs: HashMap::new(),
+            kwargs: vec![],
         };
 
         self.skip_white();
@@ -147,9 +149,9 @@ impl<'s> Parser<'s> {
     }
 
     /// Parse the arguments to a function.
-    fn parse_func_args(&mut self) -> ParseResult<(Vec<Expression>, HashMap<String, Expression>)> {
+    fn parse_func_args(&mut self) -> ParseResult<(Vec<Expression>, Vec<(String, Expression)>)> {
         let mut args = Vec::new();
-        let kwargs = HashMap::new();
+        let kwargs = Vec::new();
 
         let mut comma = false;
         loop {
@@ -448,38 +450,22 @@ mod tests {
         #[derive(Debug, PartialEq)]
         pub struct TreeFn(pub SyntaxTree);
 
-        impl Function for TreeFn {
-            fn parse(_: &FuncHeader, body: Option<&str>, ctx: ParseContext) -> ParseResult<Self>
-            where Self: Sized {
-                if let Some(src) = body {
-                    parse(src, ctx).map(|tree| TreeFn(tree))
-                } else {
-                    Err(ParseError::new("expected body for tree fn"))
-                }
-            }
+        function! {
+            data: TreeFn,
 
-            fn layout(&self, _: LayoutContext) -> LayoutResult<CommandList> {
-                Ok(CommandList::new())
-            }
+            parse(_args, body, ctx) { Ok(TreeFn(parse!(required: body, ctx))) }
+            layout(_, _) { Ok(commands![]) }
         }
 
         /// A testing function without a body.
         #[derive(Debug, PartialEq)]
         pub struct BodylessFn;
 
-        impl Function for BodylessFn {
-            fn parse(_: &FuncHeader, body: Option<&str>, _: ParseContext) -> ParseResult<Self>
-            where Self: Sized {
-                if body.is_none() {
-                    Ok(BodylessFn)
-                } else {
-                    Err(ParseError::new("unexpected body for bodyless fn"))
-                }
-            }
+        function! {
+            data: BodylessFn,
 
-            fn layout(&self, _: LayoutContext) -> LayoutResult<CommandList> {
-                Ok(CommandList::new())
-            }
+            parse(_args, body, _ctx) { parse!(forbidden: body); Ok(BodylessFn) }
+            layout(_, _) { Ok(commands![]) }
         }
     }
 
@@ -539,7 +525,7 @@ mod tests {
                 header: FuncHeader {
                     name: $name.to_string(),
                     args: vec![],
-                    kwargs: HashMap::new(),
+                    kwargs: vec![],
                 },
                 body: $body,
             }
@@ -617,7 +603,7 @@ mod tests {
                     header: FuncHeader {
                         name: name.to_string(),
                         args,
-                        kwargs: HashMap::new(),
+                        kwargs: vec![],
                     },
                     body: Box::new(BodylessFn)
                 })

@@ -2,21 +2,21 @@
 //!
 //! # Steps
 //! - **Parsing:** The parsing step first transforms a plain string into an
-//!   [iterator of tokens](crate::parsing::Tokens). Then parser constructs a
+//!   [iterator of tokens](crate::syntax::Tokens). Then, a parser constructs a
 //!   syntax tree from the token stream. The structures describing the tree can
-//!   be found in the [syntax]. Dynamic functions parse their own bodies
-//!   themselves.
+//!   be found in the [syntax](crate::syntax) module.
 //! - **Layouting:** The next step is to transform the syntax tree into a
 //!   portable representation of the typesetted document. Types for these can be
-//!   found in the [layout] module.
-//! - **Exporting:** The finished document can then be exported into supported
-//!   formats. Submodules for the supported formats are located in the [export]
-//!   module. Currently the only supported format is _PDF_.
+//!   found in the [layout] module. A finished layout reading for exporting is a
+//!   [multi layout](crate::layout::MultiLayout) consisting of multiple boxes (or
+//!   pages).
+//! - **Exporting:** The finished document can finally be exported into a supported
+//!   format. Submodules for these formats are located in the [export](crate::export)
+//!   module. Currently, the only supported output format is _PDF_.
 
 pub extern crate toddle;
 
 use std::cell::RefCell;
-
 use toddle::query::{FontLoader, FontProvider, SharedFontLoader};
 
 use crate::func::Scope;
@@ -36,15 +36,15 @@ pub mod size;
 pub mod style;
 pub mod syntax;
 
-/// Transforms source code into typesetted documents.
+/// Transforms source code into typesetted layouts.
 ///
-/// Can be configured through various methods.
+/// A typesetter can be configured through various methods.
 pub struct Typesetter<'p> {
     /// The font loader shared by all typesetting processes.
     loader: SharedFontLoader<'p>,
-    /// The default text style.
+    /// The base text style.
     text_style: TextStyle,
-    /// The default page style.
+    /// The base page style.
     page_style: PageStyle,
 }
 
@@ -59,13 +59,13 @@ impl<'p> Typesetter<'p> {
         }
     }
 
-    /// Set the default page style for the document.
+    /// Set the base page style.
     #[inline]
     pub fn set_page_style(&mut self, style: PageStyle) {
         self.page_style = style;
     }
 
-    /// Set the default text style for the document.
+    /// Set the base text style.
     #[inline]
     pub fn set_text_style(&mut self, style: TextStyle) {
         self.text_style = style;
@@ -90,7 +90,7 @@ impl<'p> Typesetter<'p> {
         parse(src, ParseContext { scope: &scope })
     }
 
-    /// Layout a syntax tree and return the layout and the referenced font list.
+    /// Layout a syntax tree and return the produced layout.
     pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<MultiLayout> {
         let space = LayoutSpace {
             dimensions: self.page_style.dimensions,
@@ -113,7 +113,7 @@ impl<'p> Typesetter<'p> {
         Ok(pages)
     }
 
-    /// Typeset a portable document from source code.
+    /// Process source code directly into a layout.
     pub fn typeset(&self, src: &str) -> Result<MultiLayout, TypesetError> {
         let tree = self.parse(src)?;
         let layout = self.layout(&tree)?;
@@ -123,9 +123,9 @@ impl<'p> Typesetter<'p> {
 
 /// The general error type for typesetting.
 pub enum TypesetError {
-    /// An error that occured while parsing.
+    /// An error that occured in the parsing step.
     Parse(ParseError),
-    /// An error that occured while layouting.
+    /// An error that occured in the layouting step.
     Layout(LayoutError),
 }
 

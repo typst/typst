@@ -6,7 +6,7 @@ use std::iter::Sum;
 use std::ops::*;
 use std::str::FromStr;
 
-/// A general spacing type.
+/// A general space type.
 #[derive(Copy, Clone, PartialEq, Default)]
 pub struct Size {
     /// The size in typographic points (1/72 inches).
@@ -98,31 +98,31 @@ impl Size {
 }
 
 impl Size2D {
-    /// Create a new vector from two sizes.
+    /// Create a new 2D-size from two sizes.
     #[inline]
     pub fn new(x: Size, y: Size) -> Size2D {
         Size2D { x, y }
     }
 
-    /// Create a vector with all set to zero.
+    /// Create a 2D-size with both sizes set to zero.
     #[inline]
     pub fn zero() -> Size2D {
         Size2D::default()
     }
 
-    /// Create a new vector with `y` set to zero and `x` to a value.
+    /// Create a new 2D-size with `x` set to a value and `y` zero.
     #[inline]
     pub fn with_x(x: Size) -> Size2D {
         Size2D { x, y: Size::zero() }
     }
 
-    /// Create a new vector with `x` set to zero and `y` to a value.
+    /// Create a new 2D-size with `y` set to a value and `x` zero.
     #[inline]
     pub fn with_y(y: Size) -> Size2D {
         Size2D { x: Size::zero(), y }
     }
 
-    /// Return a [`Size2D`] padded by the paddings of the given box.
+    /// Return a 2D-size padded by the paddings of the given box.
     #[inline]
     pub fn padded(&self, padding: SizeBox) -> Size2D {
         Size2D {
@@ -131,7 +131,7 @@ impl Size2D {
         }
     }
 
-    /// Return a [`Size2D`] reduced by the paddings of the given box.
+    /// Return a 2D-size reduced by the paddings of the given box.
     #[inline]
     pub fn unpadded(&self, padding: SizeBox) -> Size2D {
         Size2D {
@@ -140,8 +140,8 @@ impl Size2D {
         }
     }
 
-    /// Whether the given [`Size2D`] fits into this one, that is,
-    /// both coordinate values are smaller.
+    /// Whether the given 2D-size fits into this one, that is,
+    /// both coordinate values are smaller or equal.
     #[inline]
     pub fn fits(&self, other: Size2D) -> bool {
         self.x >= other.x && self.y >= other.y
@@ -160,7 +160,7 @@ impl SizeBox {
         }
     }
 
-    /// Create a box with all set to zero.
+    /// Create a box with all values set to zero.
     #[inline]
     pub fn zero() -> SizeBox {
         SizeBox::default()
@@ -319,6 +319,8 @@ impl_num_both!(Mul, mul, MulAssign, mul_assign, i32);
 impl_num_back!(Div, div, DivAssign, div_assign, f32);
 impl_num_back!(Div, div, DivAssign, div_assign, i32);
 
+//------------------------------------------------------------------------------------------------//
+
 impl Display for Size2D {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "[{}, {}]", self.x, self.y)
@@ -411,6 +413,8 @@ impl_num_both2d!(Mul, mul, MulAssign, mul_assign, f32);
 impl_num_both2d!(Mul, mul, MulAssign, mul_assign, i32);
 impl_num_back2d!(Div, div, DivAssign, div_assign, f32);
 impl_num_back2d!(Div, div, DivAssign, div_assign, i32);
+
+//------------------------------------------------------------------------------------------------//
 
 impl Display for SizeBox {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {

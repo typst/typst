@@ -1,4 +1,6 @@
-/// Create an error type.
+//! Auxiliary macros.
+
+/// Create trait implementations for an error type.
 macro_rules! error_type {
     (
         $var:ident: $err:ident,
@@ -38,7 +40,7 @@ macro_rules! error_type {
     };
 }
 
-/// Create a `Debug` implementation from a display implementation.
+/// Create a `Debug` implementation from a `Display` implementation.
 macro_rules! debug_display {
     ($type:ident) => {
         impl std::fmt::Debug for $type {

@@ -1,6 +1,5 @@
-//! Tokenized and syntax tree representations of source code.
+//! Tokenization and parsing of source code.
 
-use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 
 use crate::func::Function;
@@ -17,8 +16,7 @@ pub use parsing::{parse, ParseContext, ParseError, ParseResult};
 pub enum Token<'s> {
     /// One or more whitespace (non-newline) codepoints.
     Space,
-    /// A line feed (`\n`, `\r\n` and some more as defined by the Unicode
-    /// standard).
+    /// A line feed (`\n`, `\r\n` and some more as defined by the Unicode standard).
     Newline,
     /// A left bracket: `[`.
     LeftBracket,
@@ -28,37 +26,36 @@ pub enum Token<'s> {
     /// header only).
     ///
     /// If a colon occurs outside of a function header, it will be tokenized as
-    /// a [Word](Token::Word).
+    /// [Text](Token::Text), just like the other tokens annotated with
+    /// _Function header only_.
     Colon,
-    /// An equals (`=`) sign assigning a function argument a value (Function
-    /// header only).
+    /// An equals (`=`) sign assigning a function argument a value (Function header only).
     Equals,
     /// A comma (`,`) separating two function arguments (Function header only).
     Comma,
     /// Quoted text as a string value (Function header only).
     Quoted(&'s str),
-    /// An underscore, indicating text in italics.
+    /// An underscore, indicating text in italics (Body only).
     Underscore,
-    /// A star, indicating bold text.
+    /// A star, indicating bold text (Body only).
     Star,
-    /// A backtick, indicating monospace text.
+    /// A backtick, indicating monospace text (Body only).
     Backtick,
     /// A line comment.
     LineComment(&'s str),
     /// A block comment.
     BlockComment(&'s str),
-    /// A star followed by a slash unexpectedly ending a block comment (the
-    /// comment was not started before, otherwise a
-    /// [BlockComment](Token::BlockComment) would be returned).
+    /// A star followed by a slash unexpectedly ending a block comment
+    /// (the comment was not started before, otherwise a
+    /// [BlockComment](Token::BlockComment would be returned).
     StarSlash,
-    /// Everything else is just text.
+    /// A unit of Plain text.
     Text(&'s str),
 }
 
-/// A tree representation of the source.
+/// A tree representation of source code.
 #[derive(Debug, PartialEq)]
 pub struct SyntaxTree {
-    /// The children.
     pub nodes: Vec<Node>,
 }
 
@@ -70,10 +67,10 @@ impl SyntaxTree {
     }
 }
 
-/// A node in the abstract syntax tree.
+/// A node in the syntax tree.
 #[derive(Debug, PartialEq)]
 pub enum Node {
-    /// Whitespace between other nodes.
+    /// Whitespace.
     Space,
     /// A line feed.
     Newline,
@@ -89,17 +86,11 @@ pub enum Node {
     Func(FuncCall),
 }
 
-/// A function invocation consisting of header and body.
+/// A function invocation, consisting of header and a dynamically parsed body.
 #[derive(Debug)]
 pub struct FuncCall {
     pub header: FuncHeader,
     pub body: Box<dyn Function>,
-}
-
-impl PartialEq for FuncCall {
-    fn eq(&self, other: &FuncCall) -> bool {
-        (self.header == other.header) && (&self.body == &other.body)
-    }
 }
 
 /// Contains header information of a function invocation.
@@ -107,10 +98,10 @@ impl PartialEq for FuncCall {
 pub struct FuncHeader {
     pub name: String,
     pub args: Vec<Expression>,
-    pub kwargs: HashMap<String, Expression>,
+    pub kwargs: Vec<(String, Expression)>,
 }
 
-/// A value expression.
+/// An argument or return value.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Ident(String),
@@ -118,6 +109,12 @@ pub enum Expression {
     Number(f64),
     Size(Size),
     Bool(bool),
+}
+
+impl PartialEq for FuncCall {
+    fn eq(&self, other: &FuncCall) -> bool {
+        (self.header == other.header) && (&self.body == &other.body)
+    }
 }
 
 impl Display for Expression {
