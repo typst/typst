@@ -30,7 +30,7 @@ pub struct StackContext {
 }
 
 macro_rules! reuse {
-    ($ctx:expr, $flow:expr) => {
+    ($ctx:expr, $flow:expr) => (
         StackContext {
             alignment: $ctx.alignment,
             space: $ctx.space,
@@ -38,7 +38,7 @@ macro_rules! reuse {
             shrink_to_fit: $ctx.shrink_to_fit,
             flow: $flow
         }
-    };
+    );
 }
 
 impl StackContext {

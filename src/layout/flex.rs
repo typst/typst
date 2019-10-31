@@ -42,7 +42,7 @@ pub struct FlexContext {
 }
 
 macro_rules! reuse {
-    ($ctx:expr, $flex_spacing:expr) => {
+    ($ctx:expr, $flex_spacing:expr) => (
         FlexContext {
             flex_spacing: $flex_spacing,
             alignment: $ctx.alignment,
@@ -50,7 +50,7 @@ macro_rules! reuse {
             followup_spaces: $ctx.followup_spaces,
             shrink_to_fit: $ctx.shrink_to_fit,
         }
-    };
+    );
 }
 
 impl FlexContext {

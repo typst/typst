@@ -104,7 +104,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             *space = space.usable_space();
         }
 
-        let commands = func.body.layout(ctx)?;
+        let commands = func.body.val.layout(ctx)?;
 
         for command in commands {
             match command {

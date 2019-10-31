@@ -38,7 +38,8 @@ function! {
 
     parse(args, body, ctx) {
         let body = parse!(optional: body, ctx);
-        let alignment = match args.get_ident()? {
+        let arg = args.get_ident()?;
+        let alignment = match arg.val {
             "left" => Alignment::Left,
             "right" => Alignment::Right,
             "center" => Alignment::Center,
@@ -80,7 +81,7 @@ function! {
 
         let mut flow = Flow::Vertical;
         if let Some(ident) = args.get_ident_if_present()? {
-            flow = match ident {
+            flow = match ident.val {
                 "vertical" => Flow::Vertical,
                 "horizontal" => Flow::Horizontal,
                 f => err!("invalid flow specifier: {}", f),
@@ -105,7 +106,7 @@ function! {
 }
 
 macro_rules! spacefunc {
-    ($ident:ident, $name:expr, $var:ident => $command:expr) => {
+    ($ident:ident, $name:expr, $var:ident => $command:expr) => (
         /// Adds whitespace.
         #[derive(Debug, PartialEq)]
         pub struct $ident(Spacing);
@@ -116,9 +117,10 @@ macro_rules! spacefunc {
             parse(args, body, _ctx) {
                 parse!(forbidden: body);
 
-                let spacing = match args.get_expr()? {
-                    Expression::Size(s) => Spacing::Absolute(*s),
-                    Expression::Number(f) => Spacing::Relative(*f as f32),
+                let arg = args.get_expr()?;
+                let spacing = match arg.val {
+                    Expression::Size(s) => Spacing::Absolute(s),
+                    Expression::Number(f) => Spacing::Relative(f as f32),
                     _ => err!("invalid spacing, expected size or number"),
                 };
 
@@ -134,7 +136,7 @@ macro_rules! spacefunc {
                 Ok(commands![$command])
             }
         }
-    };
+    );
 }
 
 /// Absolute or font-relative spacing.

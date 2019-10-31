@@ -27,13 +27,13 @@ pub enum Token<'s> {
     ///
     /// If a colon occurs outside of a function header, it will be tokenized as
     /// [Text](Token::Text), just like the other tokens annotated with
-    /// _Function header only_.
+    /// _Header only_.
     Colon,
-    /// An equals (`=`) sign assigning a function argument a value (Function header only).
+    /// An equals (`=`) sign assigning a function argument a value (Header only).
     Equals,
-    /// A comma (`,`) separating two function arguments (Function header only).
+    /// A comma (`,`) separating two function arguments (Header only).
     Comma,
-    /// Quoted text as a string value (Function header only).
+    /// Quoted text as a string value (Header only).
     Quoted(&'s str),
     /// An underscore, indicating text in italics (Body only).
     Underscore,
@@ -47,9 +47,9 @@ pub enum Token<'s> {
     BlockComment(&'s str),
     /// A star followed by a slash unexpectedly ending a block comment
     /// (the comment was not started before, otherwise a
-    /// [BlockComment](Token::BlockComment would be returned).
+    /// [BlockComment](Token::BlockComment) would be returned).
     StarSlash,
-    /// A unit of Plain text.
+    /// Any consecutive string which does not contain markup.
     Text(&'s str),
 }
 
@@ -88,16 +88,32 @@ pub enum Node {
 /// A function invocation, consisting of header and a dynamically parsed body.
 #[derive(Debug)]
 pub struct FuncCall {
-    pub header: FuncHeader,
-    pub body: Box<dyn Function>,
+    pub header: Spanned<FuncHeader>,
+    pub body: Spanned<Box<dyn Function>>,
 }
 
 /// Contains header information of a function invocation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuncHeader {
-    pub name: String,
-    pub args: Vec<Expression>,
-    pub kwargs: Vec<(String, Expression)>,
+    pub name: Spanned<String>,
+    pub args: FuncArgs,
+}
+
+/// The arguments passed to a function.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FuncArgs {
+    pub positional: Vec<Spanned<Expression>>,
+    pub keyword: Vec<Spanned<(Spanned<String>, Spanned<Expression>)>>
+}
+
+impl FuncArgs {
+    /// Create an empty collection of arguments.
+    fn new() -> FuncArgs {
+        FuncArgs {
+            positional: vec![],
+            keyword: vec![],
+        }
+    }
 }
 
 /// An argument or return value.
@@ -139,6 +155,14 @@ pub struct Spanned<T> {
 impl<T> Spanned<T> {
     pub fn new(val: T, span: Span) -> Spanned<T> {
         Spanned { val, span }
+    }
+
+    pub fn value(&self) -> &T {
+        &self.val
+    }
+
+    pub fn span_map<F, U>(self, f: F) -> Spanned<U> where F: FnOnce(T) -> U {
+        Spanned::new(f(self.val), self.span)
     }
 }
 

@@ -2,7 +2,7 @@ use crate::func::prelude::*;
 use toddle::query::FontClass;
 
 macro_rules! stylefunc {
-    ($ident:ident) => {
+    ($ident:ident) => (
         /// Styles text.
         #[derive(Debug, PartialEq)]
         pub struct $ident {
@@ -31,7 +31,7 @@ macro_rules! stylefunc {
                 })
             }
         }
-    };
+    );
 }
 
 stylefunc!(Italic);

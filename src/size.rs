@@ -252,7 +252,7 @@ impl Sum for Size {
 }
 
 macro_rules! impl_reflexive {
-    ($trait:ident, $func:ident, $assign_trait:ident, $assign_func:ident) => {
+    ($trait:ident, $func:ident, $assign_trait:ident, $assign_func:ident) => (
         impl $trait for Size {
             type Output = Size;
 
@@ -270,11 +270,11 @@ macro_rules! impl_reflexive {
                 $assign_trait::$assign_func(&mut self.points, other.points);
             }
         }
-    };
+    );
 }
 
 macro_rules! impl_num_back {
-    ($trait:ident, $func:ident, $assign_trait:ident, $assign_func:ident, $ty:ty) => {
+    ($trait:ident, $func:ident, $assign_trait:ident, $assign_func:ident, $ty:ty) => (
         impl $trait<$ty> for Size {
             type Output = Size;
 
@@ -292,11 +292,11 @@ macro_rules! impl_num_back {
                 $assign_trait::$assign_func(&mut self.points, other as f32);
             }
         }
-    };
+    );
 }
 
 macro_rules! impl_num_both {
-    ($trait:ident, $func:ident, $assign_trait:ident, $assign_func:ident, $ty:ty) => {
+    ($trait:ident, $func:ident, $assign_trait:ident, $assign_func:ident, $ty:ty) => (
         impl_num_back!($trait, $func, $assign_trait, $assign_func, $ty);
 
         impl $trait<Size> for $ty {
@@ -309,7 +309,7 @@ macro_rules! impl_num_both {
                 }
             }
         }
-    };
+    );
 }
 
 impl_reflexive!(Add, add, AddAssign, add_assign);
@@ -342,7 +342,7 @@ impl Neg for Size2D {
 }
 
 macro_rules! impl_reflexive2d {
-    ($trait:ident, $func:ident, $assign_trait:ident, $assign_func:ident) => {
+    ($trait:ident, $func:ident, $assign_trait:ident, $assign_func:ident) => (
         impl $trait for Size2D {
             type Output = Size2D;
 
@@ -362,11 +362,11 @@ macro_rules! impl_reflexive2d {
                 $assign_trait::$assign_func(&mut self.y, other.y);
             }
         }
-    };
+    );
 }
 
 macro_rules! impl_num_back2d {
-    ($trait:ident, $func:ident, $assign_trait:ident, $assign_func:ident, $ty:ty) => {
+    ($trait:ident, $func:ident, $assign_trait:ident, $assign_func:ident, $ty:ty) => (
         impl $trait<$ty> for Size2D {
             type Output = Size2D;
 
@@ -386,11 +386,11 @@ macro_rules! impl_num_back2d {
                 $assign_trait::$assign_func(&mut self.y, other as f32);
             }
         }
-    };
+    );
 }
 
 macro_rules! impl_num_both2d {
-    ($trait:ident, $func:ident, $assign_trait:ident, $assign_func:ident, $ty:ty) => {
+    ($trait:ident, $func:ident, $assign_trait:ident, $assign_func:ident, $ty:ty) => (
         impl_num_back2d!($trait, $func, $assign_trait, $assign_func, $ty);
 
         impl $trait<Size2D> for $ty {
@@ -404,7 +404,7 @@ macro_rules! impl_num_both2d {
                 }
             }
         }
-    };
+    );
 }
 
 impl_reflexive2d!(Add, add, AddAssign, add_assign);

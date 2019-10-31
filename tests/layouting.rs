@@ -74,15 +74,23 @@ fn test(name: &str, src: &str) {
         });
     }
 
-    let start = Instant::now();
+    // Make run warm.
+    let warmup_start = Instant::now();
+    typesetter.typeset(&src).unwrap();
+    let warmup_end = Instant::now();
 
     // Layout into box layout.
+    let start = Instant::now();
     let tree = typesetter.parse(&src).unwrap();
+    let mid = Instant::now();
     let layouts = typesetter.layout(&tree).unwrap();
-
     let end = Instant::now();
-    let duration = end - start;
-    println!(" => {:?}", duration);
+
+    // Print measurements.
+    println!(" - cold start:  {:?}", warmup_end - warmup_start);
+    println!(" - warmed up:   {:?}", end - start);
+    println!("   - parsing:   {:?}", mid - start);
+    println!("   - layouting: {:?}", end - mid);
     println!();
 
     // Write the serialed layout file.
