@@ -116,8 +116,15 @@ impl FuncArgs {
     }
 }
 
-/// An argument or return value.
+/// One argument passed to a function.
 #[derive(Debug, Clone, PartialEq)]
+pub enum FuncArg {
+    Positional(Spanned<Expression>),
+    Keyword(Spanned<(Spanned<String>, Spanned<Expression>)>),
+}
+
+/// An argument or return value.
+#[derive(Clone, PartialEq)]
 pub enum Expression {
     Ident(String),
     Str(String),
@@ -145,8 +152,10 @@ impl Display for Expression {
     }
 }
 
+debug_display!(Expression);
+
 /// Annotates a value with the part of the source code it corresponds to.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Spanned<T> {
     pub val: T,
     pub span: Span,
@@ -157,8 +166,8 @@ impl<T> Spanned<T> {
         Spanned { val, span }
     }
 
-    pub fn value(&self) -> &T {
-        &self.val
+    pub fn value(self) -> T {
+        self.val
     }
 
     pub fn span_map<F, U>(self, f: F) -> Spanned<U> where F: FnOnce(T) -> U {
@@ -166,8 +175,16 @@ impl<T> Spanned<T> {
     }
 }
 
+impl<T> Display for Spanned<T> where T: std::fmt::Debug {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "({:?}:{})", self.val, self.span)
+    }
+}
+
+debug_display!(Spanned; T where T: std::fmt::Debug);
+
 /// Describes a slice of source code.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Span {
     pub start: usize,
     pub end: usize,
@@ -176,6 +193,13 @@ pub struct Span {
 impl Span {
     pub fn new(start: usize, end: usize) -> Span {
         Span { start, end }
+    }
+
+    pub fn merge(a: Span, b: Span) -> Span {
+        Span {
+            start: a.start.min(b.start),
+            end: a.end.max(b.end),
+        }
     }
 
     pub fn at(index: usize) -> Span {
@@ -187,7 +211,14 @@ impl Span {
     }
 
     pub fn expand(&mut self, other: Span) {
-        self.start = self.start.min(other.start);
-        self.end = self.end.max(other.end);
+        *self = Span::merge(*self, other)
     }
 }
+
+impl Display for Span {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "[{}, {}]", self.start, self.end)
+    }
+}
+
+debug_display!(Span);

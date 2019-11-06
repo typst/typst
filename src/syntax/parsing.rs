@@ -129,7 +129,7 @@ impl<'s> Parser<'s> {
         self.skip_white();
 
         // Check for arguments
-        let args = match self.tokens.next().map(|token| token.val) {
+        let args = match self.tokens.next().map(Spanned::value) {
             Some(Token::RightBracket) => FuncArgs::new(),
             Some(Token::Colon) => self.parse_func_args()?,
             _ => err!("expected arguments or closing bracket"),
@@ -144,57 +144,83 @@ impl<'s> Parser<'s> {
     /// Parse the arguments to a function.
     fn parse_func_args(&mut self) -> ParseResult<FuncArgs> {
         let mut positional = Vec::new();
-        let keyword = Vec::new();
+        let mut keyword = Vec::new();
 
-        let mut comma = false;
         loop {
             self.skip_white();
 
-            match self.tokens.peek().map(|token| token.val) {
-                Some(Token::Text(_)) | Some(Token::Quoted(_)) if !comma => {
-                    positional.push(self.parse_expression()?);
-                    comma = true;
-                }
+            match self.parse_func_arg()? {
+                Some(FuncArg::Positional(arg)) => positional.push(arg),
+                Some(FuncArg::Keyword(arg)) => keyword.push(arg),
+                _ => {},
+            }
 
-                Some(Token::Comma) if comma => {
-                    self.advance();
-                    comma = false
-                }
-                Some(Token::RightBracket) => {
-                    self.advance();
-                    break;
-                }
-
-                _ if comma => err!("expected comma or closing bracket"),
-                _ => err!("expected closing bracket"),
+            match self.tokens.next().map(Spanned::value) {
+                Some(Token::Comma) => {},
+                Some(Token::RightBracket) => break,
+                _ => err!("expected comma or closing bracket"),
             }
         }
 
-        Ok( FuncArgs { positional, keyword })
+        Ok(FuncArgs { positional, keyword })
+    }
+
+    /// Parse one argument to a function.
+    fn parse_func_arg(&mut self) -> ParseResult<Option<FuncArg>> {
+        let token = match self.tokens.peek() {
+            Some(token) => token,
+            None => return Ok(None),
+        };
+
+        Ok(match token.val {
+            Token::Text(name) => {
+                self.advance();
+                self.skip_white();
+
+                Some(match self.tokens.peek().map(Spanned::value) {
+                    Some(Token::Equals) => {
+                        self.advance();
+                        self.skip_white();
+
+                        let name = token.span_map(|_| name.to_string());
+                        let next = self.tokens.next().ok_or_else(|| err!(@"expected value"))?;
+                        let val = Self::parse_expression(next)?;
+                        let span = Span::merge(name.span, val.span);
+
+                        FuncArg::Keyword(Spanned::new((name, val), span))
+                    }
+
+                    _ => FuncArg::Positional(Self::parse_expression(token)?),
+                })
+            }
+
+            Token::Quoted(_) => {
+                self.advance();
+                Some(FuncArg::Positional(Self::parse_expression(token)?))
+            }
+
+            _ => None,
+        })
     }
 
     /// Parse an expression.
-    fn parse_expression(&mut self) -> ParseResult<Spanned<Expression>> {
-        if let Some(token) = self.tokens.next() {
-            Ok(Spanned::new(match token.val {
-                Token::Quoted(text) => Expression::Str(text.to_owned()),
-                Token::Text(text) => {
-                    if let Ok(b) = text.parse::<bool>() {
-                        Expression::Bool(b)
-                    } else if let Ok(num) = text.parse::<f64>() {
-                        Expression::Number(num)
-                    } else if let Ok(size) = text.parse::<Size>() {
-                        Expression::Size(size)
-                    } else {
-                        Expression::Ident(text.to_owned())
-                    }
+    fn parse_expression(token: Spanned<Token>) -> ParseResult<Spanned<Expression>> {
+        Ok(Spanned::new(match token.val {
+            Token::Quoted(text) => Expression::Str(text.to_owned()),
+            Token::Text(text) => {
+                if let Ok(b) = text.parse::<bool>() {
+                    Expression::Bool(b)
+                } else if let Ok(num) = text.parse::<f64>() {
+                    Expression::Number(num)
+                } else if let Ok(size) = text.parse::<Size>() {
+                    Expression::Size(size)
+                } else {
+                    Expression::Ident(text.to_owned())
                 }
+            }
 
-                _ => err!("expected expression"),
-            }, token.span))
-        } else {
-            err!("expected expression");
-        }
+            _ => err!("expected expression"),
+        }, token.span))
     }
 
     /// Parse the body of a function.
@@ -206,7 +232,7 @@ impl<'s> Parser<'s> {
             .get_parser(&header.name.val)
             .ok_or_else(|| err!(@"unknown function: '{}'", &header.name.val))?;
 
-        let has_body = self.tokens.peek().map(|token| token.val) == Some(Token::LeftBracket);
+        let has_body = self.tokens.peek().map(Spanned::value) == Some(Token::LeftBracket);
 
         // Do the parsing dependent on whether the function has a body.
         Ok(if has_body {
@@ -256,9 +282,8 @@ impl<'s> Parser<'s> {
                     self.advance();
                     match state {
                         NewlineState::Zero => state = NewlineState::One(token.span),
-                        NewlineState::One(mut span) => {
-                            span.expand(token.span);
-                            self.append(Node::Newline, span);
+                        NewlineState::One(span) => {
+                            self.append(Node::Newline, Span::merge(span, token.span));
                             state = NewlineState::TwoOrMore;
                         },
                         NewlineState::TwoOrMore => self.append_space(token.span),
@@ -472,22 +497,31 @@ mod tests {
         }
     }
 
+    mod args {
+        use super::Expression;
+        pub use Expression::{Number as N, Size as Z, Bool as B};
+
+        pub fn S(string: &str) -> Expression { Expression::Str(string.to_owned()) }
+        pub fn I(string: &str) -> Expression { Expression::Ident(string.to_owned()) }
+    }
+
     /// Asserts that two syntax trees are equal except for all spans inside them.
     fn assert_tree_equal(a: &SyntaxTree, b: &SyntaxTree) {
         for (x, y) in a.nodes.iter().zip(&b.nodes) {
             let equal = match (x, y) {
                 (Spanned { val: F(x), .. }, Spanned { val: F(y), .. }) => {
                     x.header.val.name.val == y.header.val.name.val
-                    && x.header.val.args.positional.iter().map(Spanned::value)
-                       .eq(y.header.val.args.positional.iter().map(Spanned::value))
+                    && x.header.val.args.positional.iter().map(|span| &span.val)
+                       .eq(y.header.val.args.positional.iter().map(|span| &span.val))
                     && x.header.val.args.keyword.iter().map(|s| (&s.val.0.val, &s.val.1.val))
                        .eq(y.header.val.args.keyword.iter().map(|s| (&s.val.0.val, &s.val.1.val)))
+                    && &x.body.val == &y.body.val
                 }
                 _ => x.val == y.val
             };
 
             if !equal {
-                panic!("assert_tree_equal: ({:?}) != ({:?})", x.val, y.val);
+                panic!("assert_tree_equal: ({:#?}) != ({:#?})", x.val, y.val);
             }
         }
     }
@@ -620,32 +654,42 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn parse_function_args() {
-        use Expression::{Number as N, Size as Z, Bool as B};
+        use args::*;
 
-        fn S(string: &str) -> Expression { Expression::Str(string.to_owned()) }
-        fn I(string: &str) -> Expression { Expression::Ident(string.to_owned()) }
-
-        fn func(name: &str, positional: Vec<Expression>) -> SyntaxTree {
+        fn func(
+            positional: Vec<Expression>,
+            keyword: Vec<(&str, Expression)>,
+        ) -> SyntaxTree {
             let args = FuncArgs {
                 positional: positional.into_iter().map(zerospan).collect(),
-                keyword: vec![]
+                keyword: keyword.into_iter()
+                    .map(|(s, e)| zerospan((zerospan(s.to_string()), zerospan(e))))
+                    .collect()
             };
-            tree! [ F(func!(@name, Box::new(BodylessFn), args)) ]
+            tree! [ F(func!(@"align", Box::new(BodylessFn), args)) ]
         }
 
         let mut scope = Scope::new();
         scope.add::<BodylessFn>("align");
 
-        test_scoped(&scope, "[align: left]", func("align", vec![I("left")]));
-        test_scoped(&scope, "[align: left,right]", func("align", vec![I("left"), I("right")]));
-        test_scoped(&scope, "[align: left, right]", func("align", vec![I("left"), I("right")]));
-        test_scoped(&scope, "[align: \"hello\"]", func("align", vec![S("hello")]));
-        test_scoped(&scope, r#"[align: "hello\"world"]"#, func("align", vec![S(r#"hello\"world"#)]));
-        test_scoped(&scope, "[align: 12]", func("align", vec![N(12.0)]));
-        test_scoped(&scope, "[align: 17.53pt]", func("align", vec![Z(Size::pt(17.53))]));
-        test_scoped(&scope, "[align: 2.4in]", func("align", vec![Z(Size::inches(2.4))]));
+        test_scoped(&scope, "[align: left]", func(vec![I("left")], vec![]));
+        test_scoped(&scope, "[align: left,right]", func(vec![I("left"), I("right")], vec![]));
+        test_scoped(&scope, "[align: left, right]", func(vec![I("left"), I("right")], vec![]));
+        test_scoped(&scope, "[align: \"hello\"]", func(vec![S("hello")], vec![]));
+        test_scoped(&scope, r#"[align: "hello\"world"]"#, func(vec![S(r#"hello\"world"#)], vec![]));
+        test_scoped(&scope, "[align: 12]", func(vec![N(12.0)], vec![]));
+        test_scoped(&scope, "[align: 17.53pt]", func(vec![Z(Size::pt(17.53))], vec![]));
+        test_scoped(&scope, "[align: 2.4in]", func(vec![Z(Size::inches(2.4))], vec![]));
         test_scoped(&scope, "[align: true, 10mm, left, \"hi, there\"]",
-            func("align", vec![B(true), Z(Size::mm(10.0)), I("left"), S("hi, there")]));
+            func(vec![B(true), Z(Size::mm(10.0)), I("left"), S("hi, there")], vec![]));
+
+        test_scoped(&scope, "[align: right=true]", func(vec![], vec![("right", B(true))]));
+        test_scoped(&scope, "[align: flow = horizontal]",
+            func(vec![], vec![("flow", I("horizontal"))]));
+        test_scoped(&scope, "[align: x=1cm, y=20mm]",
+            func(vec![], vec![("x", Z(Size::cm(1.0))), ("y", Z(Size::mm(20.0)))]));
+        test_scoped(&scope, "[align: x=5.14,a, \"b\", c=me,d=you]",
+            func(vec![I("a"), S("b")], vec![("x", N(5.14)), ("c", I("me")), ("d", I("you"))]));
     }
 
     /// Parse comments (line and block).

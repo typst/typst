@@ -1,6 +1,7 @@
 use std::fs::{self, File};
 use std::io::{BufWriter, Read, Write};
 use std::process::Command;
+#[cfg(not(debug_assertions))]
 use std::time::Instant;
 
 use regex::{Regex, Captures};
@@ -59,7 +60,7 @@ fn main() {
 
 /// Create a _PDF_ with a name from the source code.
 fn test(name: &str, src: &str) {
-    println!("Testing: {}", name);
+    println!("Testing: {}.", name);
 
     let (src, size) = preprocess(src);
 
@@ -75,23 +76,25 @@ fn test(name: &str, src: &str) {
     }
 
     // Make run warm.
-    let warmup_start = Instant::now();
+    #[cfg(not(debug_assertions))] let warmup_start = Instant::now();
     typesetter.typeset(&src).unwrap();
-    let warmup_end = Instant::now();
+    #[cfg(not(debug_assertions))] let warmup_end = Instant::now();
 
     // Layout into box layout.
-    let start = Instant::now();
+    #[cfg(not(debug_assertions))] let start = Instant::now();
     let tree = typesetter.parse(&src).unwrap();
-    let mid = Instant::now();
+    #[cfg(not(debug_assertions))] let mid = Instant::now();
     let layouts = typesetter.layout(&tree).unwrap();
-    let end = Instant::now();
+    #[cfg(not(debug_assertions))] let end = Instant::now();
 
     // Print measurements.
-    println!(" - cold start:  {:?}", warmup_end - warmup_start);
-    println!(" - warmed up:   {:?}", end - start);
-    println!("   - parsing:   {:?}", mid - start);
-    println!("   - layouting: {:?}", end - mid);
-    println!();
+    #[cfg(not(debug_assertions))] {
+        println!(" - cold start:  {:?}", warmup_end - warmup_start);
+        println!(" - warmed up:   {:?}", end - start);
+        println!("   - parsing:   {:?}", mid - start);
+        println!("   - layouting: {:?}", end - mid);
+        println!();
+    }
 
     // Write the serialed layout file.
     let path = format!("{}/serialized/{}.lay", CACHE_DIR, name);

@@ -49,4 +49,11 @@ macro_rules! debug_display {
             }
         }
     );
+    ($type:ident; $generics:tt where $($bounds:tt)*) => (
+        impl<$generics> std::fmt::Debug for $type<$generics> where $($bounds)* {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                std::fmt::Display::fmt(self, f)
+            }
+        }
+    );
 }
