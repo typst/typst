@@ -211,7 +211,7 @@ impl<'s> Parser<'s> {
                 if let Ok(b) = text.parse::<bool>() {
                     Expression::Bool(b)
                 } else if let Ok(num) = text.parse::<f64>() {
-                    Expression::Number(num)
+                    Expression::Num(num)
                 } else if let Ok(size) = text.parse::<Size>() {
                     Expression::Size(size)
                 } else {
@@ -499,7 +499,7 @@ mod tests {
 
     mod args {
         use super::Expression;
-        pub use Expression::{Number as N, Size as Z, Bool as B};
+        pub use Expression::{Num as N, Size as Z, Bool as B};
 
         pub fn S(string: &str) -> Expression { Expression::Str(string.to_owned()) }
         pub fn I(string: &str) -> Expression { Expression::Ident(string.to_owned()) }

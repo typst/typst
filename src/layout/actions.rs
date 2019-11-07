@@ -62,7 +62,7 @@ debug_display!(LayoutAction);
 /// content is written.
 ///
 /// Furthermore, the action list can translate absolute position into a coordinate system
-/// with a different. This is realized in the `add_box` method, which allows a layout to
+/// with a different origin. This is realized in the `add_box` method, which allows a layout to
 /// be added at a position, effectively translating all movement actions inside the layout
 /// by the position.
 #[derive(Debug, Clone)]

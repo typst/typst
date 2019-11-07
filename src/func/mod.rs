@@ -7,8 +7,7 @@ use std::fmt::{self, Debug, Formatter};
 use self::prelude::*;
 
 #[macro_use]
-mod helpers;
-pub use helpers::Arguments;
+pub mod helpers;
 
 /// Useful imports for creating your own functions.
 pub mod prelude {
@@ -24,11 +23,12 @@ pub mod prelude {
 
 /// Typesetting function types.
 ///
-/// These types have to be able to parse tokens into themselves and store the
-/// relevant information from the parsing to do their role in typesetting later.
+/// These types have to be able to parse themselves from a string and build
+/// a list of layouting commands corresponding to the parsed source.
 ///
-/// The trait `FunctionBounds` is automatically implemented for types which can
-/// be used as functions, that is they fulfill the bounds `Debug + PartialEq +
+/// This trait is a supertrait of `FunctionBounds` for technical reasons.  The
+/// trait `FunctionBounds` is automatically implemented for types which can
+/// be used as functions, that is, all types which fulfill the bounds `Debug + PartialEq +
 /// 'static`.
 pub trait Function: FunctionBounds {
     /// Parse the header and body into this function given a context.
@@ -84,6 +84,19 @@ where T: Debug + PartialEq + 'static
     }
 }
 
+/// Commands requested for execution by functions.
+#[derive(Debug)]
+pub enum Command<'a> {
+    LayoutTree(&'a SyntaxTree),
+    Add(Layout),
+    AddMany(MultiLayout),
+    AddFlex(Layout),
+    SetAlignment(Alignment),
+    SetStyle(TextStyle),
+    FinishLayout,
+    FinishFlexRun,
+}
+
 /// A sequence of commands requested for execution by a function.
 #[derive(Debug)]
 pub struct CommandList<'a> {
@@ -130,19 +143,8 @@ impl<'a> IntoIterator for &'a CommandList<'a> {
     }
 }
 
-/// Commands requested for execution by functions.
-#[derive(Debug)]
-pub enum Command<'a> {
-    Layout(&'a SyntaxTree),
-    Add(Layout),
-    AddMany(MultiLayout),
-    AddFlex(Layout),
-    SetAlignment(Alignment),
-    SetStyle(TextStyle),
-    FinishLayout,
-    FinishFlexRun,
-}
-
+/// Create a list of commands.
+#[macro_export]
 macro_rules! commands {
     ($($x:expr),*$(,)*) => (
         $crate::func::CommandList::from_vec(vec![$($x,)*])

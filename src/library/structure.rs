@@ -1,6 +1,7 @@
 use crate::func::prelude::*;
+use Command::*;
 
-/// Ends the current page.
+/// 📜 `page.break`: Ends the current page.
 #[derive(Debug, PartialEq)]
 pub struct Pagebreak;
 
@@ -9,11 +10,11 @@ function! {
     parse: plain,
 
     layout(_, _) {
-        Ok(commands![Command::FinishLayout])
+        Ok(commands![FinishLayout])
     }
 }
 
-/// Ends the current line.
+/// 🔙 `line.break`, `n`: Ends the current line.
 #[derive(Debug, PartialEq)]
 pub struct Linebreak;
 
@@ -22,11 +23,14 @@ function! {
     parse: plain,
 
     layout(_, _) {
-        Ok(commands![Command::FinishFlexRun])
+        Ok(commands![FinishFlexRun])
     }
 }
 
-/// Aligns content in different ways.
+/// 📐 `align`: Aligns content in different ways.
+///
+/// **Positional arguments:**
+/// - `left`, `right` or `center` _(required)_.
 #[derive(Debug, PartialEq)]
 pub struct Align {
     body: Option<SyntaxTree>,
@@ -38,7 +42,7 @@ function! {
 
     parse(args, body, ctx) {
         let body = parse!(optional: body, ctx);
-        let arg = args.get_ident()?;
+        let arg = args.get_pos::<ArgIdent>()?;
         let alignment = match arg.val {
             "left" => Alignment::Left,
             "right" => Alignment::Right,
@@ -56,17 +60,22 @@ function! {
     layout(this, ctx) {
         Ok(commands![match &this.body {
             Some(body) => {
-                Command::AddMany(layout_tree(body, LayoutContext {
+                AddMany(layout_tree(body, LayoutContext {
                     alignment: this.alignment,
                     .. ctx
                 })?)
             }
-            None => Command::SetAlignment(this.alignment)
+            None => SetAlignment(this.alignment)
         }])
     }
 }
 
-/// Layouts content into a box.
+/// 📦 `box`: Layouts content into a box.
+///
+/// **Positional arguments:** None.
+///
+/// **Keyword arguments:**
+/// - flow: either `horizontal` or `vertical` _(optional)_.
 #[derive(Debug, PartialEq)]
 pub struct Boxed {
     body: SyntaxTree,
@@ -80,7 +89,7 @@ function! {
         let body = parse!(required: body, ctx);
 
         let mut flow = Flow::Vertical;
-        if let Some(ident) = args.get_ident_if_present()? {
+        if let Some(ident) = args.get_key_opt::<ArgIdent>("flow")? {
             flow = match ident.val {
                 "vertical" => Flow::Vertical,
                 "horizontal" => Flow::Horizontal,
@@ -97,7 +106,7 @@ function! {
 
     layout(this, ctx) {
         Ok(commands![
-            Command::AddMany(layout_tree(&this.body, LayoutContext {
+            AddMany(layout_tree(&this.body, LayoutContext {
                 flow: this.flow,
                 .. ctx
             })?)
@@ -106,8 +115,12 @@ function! {
 }
 
 macro_rules! spacefunc {
-    ($ident:ident, $name:expr, $var:ident => $command:expr) => (
-        /// Adds whitespace.
+    ($ident:ident, $doc:expr, $var:ident => $command:expr) => (
+        #[doc = $doc]
+        ///
+        /// **Positional arguments:**
+        /// - Spacing as a size or number, which is interpreted as a multiple
+        ///   of the font size _(required)_.
         #[derive(Debug, PartialEq)]
         pub struct $ident(Spacing);
 
@@ -117,10 +130,10 @@ macro_rules! spacefunc {
             parse(args, body, _ctx) {
                 parse!(forbidden: body);
 
-                let arg = args.get_expr()?;
+                let arg = args.get_pos::<ArgExpr>()?;
                 let spacing = match arg.val {
-                    Expression::Size(s) => Spacing::Absolute(s),
-                    Expression::Number(f) => Spacing::Relative(f as f32),
+                    Expression::Size(s) => Spacing::Absolute(*s),
+                    Expression::Num(f) => Spacing::Relative(*f as f32),
                     _ => err!("invalid spacing, expected size or number"),
                 };
 
@@ -146,5 +159,8 @@ enum Spacing {
     Relative(f32),
 }
 
-spacefunc!(HorizontalSpace, "h", space => Command::AddFlex(Layout::empty(space, Size::zero())));
-spacefunc!(VerticalSpace, "v", space => Command::Add(Layout::empty(Size::zero(), space)));
+spacefunc!(HorizontalSpace, "📖 `h`: Adds horizontal whitespace.",
+    space => AddFlex(Layout::empty(space, Size::zero())));
+
+spacefunc!(VerticalSpace, "📑 `v`: Adds vertical whitespace.",
+    space => Add(Layout::empty(Size::zero(), space)));

@@ -108,7 +108,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
         for command in commands {
             match command {
-                Command::Layout(tree) => self.layout(tree)?,
+                Command::LayoutTree(tree) => self.layout(tree)?,
 
                 Command::Add(layout) => {
                     self.finish_flex()?;

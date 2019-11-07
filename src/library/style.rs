@@ -2,8 +2,8 @@ use crate::func::prelude::*;
 use toddle::query::FontClass;
 
 macro_rules! stylefunc {
-    ($ident:ident) => (
-        /// Styles text.
+    ($ident:ident, $doc:expr) => (
+        #[doc = $doc]
         #[derive(Debug, PartialEq)]
         pub struct $ident {
             body: Option<SyntaxTree>
@@ -24,7 +24,7 @@ macro_rules! stylefunc {
                 Ok(match &this.body {
                     Some(body) => commands![
                         Command::SetStyle(new_style),
-                        Command::Layout(body),
+                        Command::LayoutTree(body),
                         Command::SetStyle(ctx.style.clone()),
                     ],
                     None => commands![Command::SetStyle(new_style)]
@@ -34,6 +34,6 @@ macro_rules! stylefunc {
     );
 }
 
-stylefunc!(Italic);
-stylefunc!(Bold);
-stylefunc!(Monospace);
+stylefunc!(Italic, "💡 `italic`: Sets text in _italics_.");
+stylefunc!(Bold, "🧱 `bold`: Sets text in **bold**.");
+stylefunc!(Monospace, "👩‍💻 `mono`: Sets text in `monospace`.");

@@ -128,7 +128,7 @@ pub enum FuncArg {
 pub enum Expression {
     Ident(String),
     Str(String),
-    Number(f64),
+    Num(f64),
     Size(Size),
     Bool(bool),
 }
@@ -145,7 +145,7 @@ impl Display for Expression {
         match self {
             Ident(s) => write!(f, "{}", s),
             Str(s) => write!(f, "{:?}", s),
-            Number(n) => write!(f, "{}", n),
+            Num(n) => write!(f, "{}", n),
             Size(s) => write!(f, "{}", s),
             Bool(b) => write!(f, "{}", b),
         }
