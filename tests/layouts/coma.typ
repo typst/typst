@@ -1,6 +1,6 @@
-{size:420pt*300pt}
+{size:420pt x 300pt}
 
-[box: flow=horizontal][
+[box: flow = horizontal][
     *Technical University Berlin* [n]
     *Faculty II, Institute for Mathematics* [n]
     Secretary Example [n]
@@ -17,7 +17,7 @@
     *Alle Antworten sind zu beweisen.*
 ]
 
-[box: flow=horizontal][
+[box: flow = horizontal][
     *1. Aufgabe* [align: right][(1 + 1 + 2 Punkte)]
 ]
 

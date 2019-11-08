@@ -1,4 +1,4 @@
-{size:150pt*215pt}
+{size:150pt x 215pt}
 
 // ---------------------------------- //
 // Without newline in between.

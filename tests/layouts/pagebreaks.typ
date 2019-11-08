@@ -1,4 +1,4 @@
-{size:150pt*200pt}
+{size:150pt x 200pt}
 {lorem:100}
 
 [page.break]

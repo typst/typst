@@ -141,7 +141,7 @@ fn test(name: &str, src: &str) {
 fn preprocess<'a>(src: &'a str) -> (String, Option<Size2D>) {
     let include_regex = Regex::new(r"\{include:((.|\.|\-)*)\}").unwrap();
     let lorem_regex = Regex::new(r"\{lorem:(\d*)\}").unwrap();
-    let size_regex = Regex::new(r"\{(size:(([\d\w]*)\*([\d\w]*)))\}").unwrap();
+    let size_regex = Regex::new(r"\{(size:(([\d\w]*)\sx\s([\d\w]*)))\}").unwrap();
 
     let mut size = None;
 
