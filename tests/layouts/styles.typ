@@ -11,7 +11,7 @@ using the standard library functions `bold` and `italic`!
 [italic]
 Styles can also be changed through context modification.
 This works basically in the same way as the built-in syntax.
-_
+[italic]
 
 This is not italic anymore. 😀
 
