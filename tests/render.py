@@ -1,6 +1,7 @@
 import sys
 import os
 import pathlib
+import math
 from PIL import Image, ImageDraw, ImageFont
 
 
@@ -42,6 +43,7 @@ class MultiboxRenderer:
         images = []
 
         layout_count = int(self.content[0])
+        horizontal = math.ceil(math.sqrt(layout_count))
         start = 1
 
         for _ in range(layout_count):
@@ -57,15 +59,35 @@ class MultiboxRenderer:
             images.append(renderer.export())
             start += action_count
 
-        width = max(image.width for image in images) + 20
-        height = sum(image.height for image in images) + 10 * (len(images) + 1)
+        i = 0
+        x = 10
+        y = 10
+        width = 10
+        row_height = 0
+
+        positions = []
+
+        for image in images:
+            positions.append((x, y))
+
+            x += 10 + image.width
+            row_height = max(row_height, image.height)
+
+            i += 1
+            if i >= horizontal:
+                width = max(width, x)
+                x = 10
+                y += 10 + row_height
+                i = 0
+
+        height = y
+        if i != 0:
+            height += 10 + row_height
 
         self.combined = Image.new('RGBA', (width, height))
 
-        cursor = 10
-        for image in images:
-            self.combined.paste(image, (10, cursor))
-            cursor += 10 + image.height
+        for (position, image) in zip(positions, images):
+            self.combined.paste(image, position)
 
     def export(self):
         return self.combined
