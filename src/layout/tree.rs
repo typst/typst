@@ -59,7 +59,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
                     if self.set_newline {
                         let space = paragraph_spacing(&self.style);
-                        self.stack.add_space(space)?;
+                        self.stack.add_space(space);
                         self.set_newline = false;
                     }
 
@@ -81,7 +81,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     /// Finish the layout.
     fn finish(mut self) -> LayoutResult<MultiLayout> {
         self.finish_flex()?;
-        self.stack.finish()
+        Ok(self.stack.finish())
     }
 
     /// Layout a function.
@@ -136,8 +136,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
                 Command::FinishLayout => {
                     self.finish_flex()?;
-                    self.stack.finish_layout()?;
-                    self.stack.start_new_space(true);
+                    self.stack.finish_layout(true);
                     self.start_new_flex();
                 }
 

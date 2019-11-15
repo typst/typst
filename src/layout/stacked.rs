@@ -41,11 +41,6 @@ impl StackLayouter {
         }
     }
 
-    /// This layouter's context.
-    pub fn ctx(&self) -> StackContext {
-        self.ctx
-    }
-
     /// Add a sublayout.
     pub fn add(&mut self, layout: Layout) -> LayoutResult<()> {
         let size = layout.dimensions.generalized(self.ctx.axes);
@@ -53,12 +48,11 @@ impl StackLayouter {
 
         // Search for a suitable space to insert the box.
         while !self.usable.fits(new_dimensions) {
-            if self.active_space == self.ctx.spaces.len() - 1 {
-                return Err(LayoutError::NotEnoughSpace("box is to large for stack spaces"));
+            if self.in_last_space() {
+                Err(LayoutError::NotEnoughSpace("cannot fit box into stack"))?;
             }
 
-            self.finish_layout()?;
-            self.start_new_space(true);
+            self.finish_layout(true);
             new_dimensions = self.size_with(size);
         }
 
@@ -80,33 +74,36 @@ impl StackLayouter {
     }
 
     /// Add space after the last layout.
-    pub fn add_space(&mut self, space: Size) -> LayoutResult<()> {
+    pub fn add_space(&mut self, space: Size) {
         if self.dimensions.y + space > self.usable.y {
-            self.finish_layout()?;
-            self.start_new_space(false);
+            self.finish_layout(false);
         } else {
             self.dimensions.y += space;
         }
-
-        Ok(())
     }
 
     /// Finish the layouting.
     ///
     /// The layouter is not consumed by this to prevent ownership problems.
     /// Nevertheless, it should not be used further.
-    pub fn finish(&mut self) -> LayoutResult<MultiLayout> {
+    pub fn finish(&mut self) -> MultiLayout {
         if self.include_empty || !self.boxes.is_empty() {
-            self.finish_layout()?;
+            self.finish_boxes();
         }
-        Ok(std::mem::replace(&mut self.layouts, MultiLayout::new()))
+        std::mem::replace(&mut self.layouts, MultiLayout::new())
     }
 
     /// Finish the current layout and start a new one in a new space.
     ///
-    /// If `start_new_empty` is true, a new empty layout will be started. Otherwise,
-    /// the new layout only appears once new content is added.
-    pub fn finish_layout(&mut self) -> LayoutResult<()> {
+    /// If `include_empty` is true, the followup layout will even be
+    /// part of the finished multi-layout if it would be empty.
+    pub fn finish_layout(&mut self, include_empty: bool) {
+        self.finish_boxes();
+        self.start_new_space(include_empty);
+    }
+
+    /// Compose all cached boxes into a layout.
+    fn finish_boxes(&mut self) {
         let mut actions = LayoutActionList::new();
 
         let space = self.ctx.spaces[self.active_space];
@@ -116,7 +113,7 @@ impl StackLayouter {
 
         for (offset, layout_anchor, layout) in self.boxes.drain(..) {
             let general_position = anchor - layout_anchor + Size2D::with_y(offset * factor);
-            let position = general_position.specialized(self.ctx.axes) + start;
+            let position = start + general_position.specialized(self.ctx.axes);
 
             actions.add_layout(position, layout);
         }
@@ -130,8 +127,6 @@ impl StackLayouter {
             actions: actions.into_vec(),
             debug_render: true,
         });
-
-        Ok(())
     }
 
     /// Set up layouting in the next space. Should be preceded by `finish_layout`.
@@ -139,17 +134,32 @@ impl StackLayouter {
     /// If `include_empty` is true, the new empty layout will always be added when
     /// finishing this stack. Otherwise, the new layout only appears if new
     /// content is added to it.
-    pub fn start_new_space(&mut self, include_empty: bool) {
+    fn start_new_space(&mut self, include_empty: bool) {
         self.active_space = (self.active_space + 1).min(self.ctx.spaces.len() - 1);
         self.usable = self.ctx.spaces[self.active_space].usable().generalized(self.ctx.axes);
         self.dimensions = start_dimensions(self.usable, self.ctx.axes);
         self.include_empty = include_empty;
     }
 
-    /// The remaining space for new layouts.
+    /// This layouter's context.
+    pub fn ctx(&self) -> StackContext {
+        self.ctx
+    }
+
+    /// The (generalized) usable area of the current space.
+    pub fn usable(&self) -> Size2D {
+        self.usable
+    }
+
+    /// The (specialized) remaining area for new layouts in the current space.
     pub fn remaining(&self) -> Size2D {
         Size2D::new(self.usable.x, self.usable.y - self.dimensions.y)
             .specialized(self.ctx.axes)
+    }
+
+    /// Whether this layouter is in its last space.
+    pub fn in_last_space(&self) -> bool {
+        self.active_space == self.ctx.spaces.len() - 1
     }
 
     /// The combined size of the so-far included boxes with the other size.

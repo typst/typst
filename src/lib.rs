@@ -17,6 +17,7 @@
 pub extern crate toddle;
 
 use std::cell::RefCell;
+use smallvec::smallvec;
 use toddle::query::{FontLoader, FontProvider, SharedFontLoader};
 
 use crate::func::Scope;
@@ -93,27 +94,22 @@ impl<'p> Typesetter<'p> {
 
     /// Layout a syntax tree and return the produced layout.
     pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<MultiLayout> {
-        let space = LayoutSpace {
-            dimensions: self.page_style.dimensions,
-            padding: self.page_style.margins,
-        };
-
-        let pages = layout_tree(
+        Ok(layout_tree(
             &tree,
             LayoutContext {
                 loader: &self.loader,
                 style: &self.text_style,
-                space,
-                followup_spaces: Some(space),
-                shrink_to_fit: false,
+                spaces: smallvec![LayoutSpace {
+                    dimensions: self.page_style.dimensions,
+                    padding: self.page_style.margins,
+                    shrink_to_fit: false,
+                }],
                 axes: LayoutAxes {
-                    primary: AlignedAxis::new(Axis::LeftToRight, Alignment::Left).unwrap(),
-                    secondary: AlignedAxis::new(Axis::TopToBottom, Alignment::Top).unwrap(),
+                    primary: AlignedAxis::new(Axis::LeftToRight, Alignment::Origin),
+                    secondary: AlignedAxis::new(Axis::TopToBottom, Alignment::Origin),
                 },
             },
-        )?;
-
-        Ok(pages)
+        )?)
     }
 
     /// Process source code directly into a layout.

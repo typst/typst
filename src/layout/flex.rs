@@ -21,58 +21,31 @@ use super::*;
 pub struct FlexLayouter {
     ctx: FlexContext,
     units: Vec<FlexUnit>,
-
     stack: StackLayouter,
-    usable_width: Size,
+
+    usable: Size,
     run: FlexRun,
-    cached_glue: Option<Size2D>,
+    space: Option<Size>,
 }
 
 /// The context for flex layouting.
 ///
 /// See [`LayoutContext`] for details about the fields.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct FlexContext {
+    pub spaces: LayoutSpaces,
+    pub axes: LayoutAxes,
     /// The spacing between two lines of boxes.
     pub flex_spacing: Size,
-    pub alignment: Alignment,
-    pub space: LayoutSpace,
-    pub followup_spaces: Option<LayoutSpace>,
-    pub shrink_to_fit: bool,
-}
-
-macro_rules! reuse {
-    ($ctx:expr, $flex_spacing:expr) => (
-        FlexContext {
-            flex_spacing: $flex_spacing,
-            alignment: $ctx.alignment,
-            space: $ctx.space,
-            followup_spaces: $ctx.followup_spaces,
-            shrink_to_fit: $ctx.shrink_to_fit,
-        }
-    );
-}
-
-impl FlexContext {
-    /// Create a flex context from a generic layout context.
-    pub fn from_layout_ctx(ctx: LayoutContext, flex_spacing: Size) -> FlexContext {
-        reuse!(ctx, flex_spacing)
-    }
-
-    /// Create a flex context from a stack context.
-    pub fn from_stack_ctx(ctx: StackContext, flex_spacing: Size) -> FlexContext {
-        reuse!(ctx, flex_spacing)
-    }
 }
 
 #[derive(Debug, Clone)]
 enum FlexUnit {
     /// A content unit to be arranged flexibly.
     Boxed(Layout),
-    /// A unit which acts as glue between two [`FlexUnit::Boxed`] units and
-    /// is only present if there was no flow break in between the two
-    /// surrounding boxes.
-    Glue(Size2D),
+    /// Space between two box units which is only present if there
+    /// was no flow break in between the two surrounding units.
+    Space(Size),
     /// A forced break of the current flex run.
     Break,
 }
@@ -86,18 +59,19 @@ struct FlexRun {
 impl FlexLayouter {
     /// Create a new flex layouter.
     pub fn new(ctx: FlexContext) -> FlexLayouter {
+        let stack = StackLayouter::new(StackContext {
+            spaces: ctx.spaces,
+            axes: ctx.axes,
+        });
+
         FlexLayouter {
             ctx,
             units: vec![],
+            stack,
 
-            stack: StackLayouter::new(StackContext::from_flex_ctx(ctx, Flow::Vertical)),
-
-            usable_width: ctx.space.usable().x,
-            run: FlexRun {
-                content: vec![],
-                size: Size2D::zero()
-            },
-            cached_glue: None,
+            usable: stack.usable().x,
+            run: FlexRun { content: vec![], size: Size2D::zero() },
+            space: None,
         }
     }
 
@@ -111,12 +85,12 @@ impl FlexLayouter {
         self.units.push(FlexUnit::Boxed(layout));
     }
 
-    /// Add a glue box which can be replaced by a line break.
-    pub fn add_glue(&mut self, glue: Size2D) {
-        self.units.push(FlexUnit::Glue(glue));
+    /// Add a space box which can be replaced by a run break.
+    pub fn add_space(&mut self, space: Size) {
+        self.units.push(FlexUnit::Space(space));
     }
 
-    /// Add a forced line break.
+    /// Add a forced run break.
     pub fn add_break(&mut self) {
         self.units.push(FlexUnit::Break);
     }
@@ -133,70 +107,71 @@ impl FlexLayouter {
         for unit in units {
             match unit {
                 FlexUnit::Boxed(boxed) => self.layout_box(boxed)?,
-                FlexUnit::Glue(glue) => self.layout_glue(glue),
-                FlexUnit::Break => self.layout_break()?,
+                FlexUnit::Space(space) => {
+                    self.space = Some(space);
+                }
+
+                FlexUnit::Break => {
+                    self.space = None;
+                    self.finish_run()?;
+                },
             }
         }
 
         // Finish the last flex run.
         self.finish_run()?;
 
-        self.stack.finish()
+        Ok(self.stack.finish())
     }
 
     /// Layout a content box into the current flex run or start a new run if
     /// it does not fit.
     fn layout_box(&mut self, boxed: Layout) -> LayoutResult<()> {
-        let glue_width = self.cached_glue.unwrap_or(Size2D::zero()).x;
-        let new_line_width = self.run.size.x + glue_width + boxed.dimensions.x;
+        let size = boxed.dimensions.generalized(self.ctx.axes);
 
-        if self.overflows_line(new_line_width) {
-            self.cached_glue = None;
+        let space = self.space.unwrap_or(Size::zero());
+        let new_run_size = self.run.size.x + space + size.x;
 
-            // If the box does not even fit on its own line, then we try
-            // it in the next space, or we have to give up if there is none.
-            if self.overflows_line(boxed.dimensions.x) {
-                if self.ctx.followup_spaces.is_some() {
-                    self.stack.finish_layout(true)?;
-                    return self.layout_box(boxed);
-                } else {
-                    return Err(LayoutError::NotEnoughSpace("cannot fit box into flex run"));
+        if new_run_size > self.usable {
+            self.space = None;
+
+            while size.x > self.usable {
+                if self.stack.in_last_space() {
+                    Err(LayoutError::NotEnoughSpace("cannot fix box into flex run"))?;
                 }
+
+                self.stack.finish_layout(true);
+                self.usable = self.stack.usable().x;
             }
 
             self.finish_run()?;
         }
 
-        self.flush_glue();
+        if let Some(space) = self.space.take() {
+            if self.run.size.x > Size::zero() && self.run.size.x + space <= self.usable {
+                self.run.size.x += space;
+            }
+        }
 
-        let dimensions = boxed.dimensions;
         self.run.content.push((self.run.size.x, boxed));
-        self.grow_run(dimensions);
+        self.run.size.x += size.x;
+        self.run.size.y = crate::size::max(self.run.size.y, size.y);
 
         Ok(())
     }
 
-    fn layout_glue(&mut self, glue: Size2D) {
-        self.cached_glue = Some(glue);
-    }
-
-    fn layout_break(&mut self) -> LayoutResult<()> {
-        self.cached_glue = None;
-        self.finish_run()
-    }
-
     /// Finish the current flex run.
     fn finish_run(&mut self) -> LayoutResult<()> {
-        self.run.size.y += self.ctx.flex_spacing;
-
         let mut actions = LayoutActionList::new();
         for (x, layout) in self.run.content.drain(..) {
-            let position = Size2D::with_x(x);
+            let position = Size2D::with_x(x).specialized(self.ctx.axes);
             actions.add_layout(position, layout);
         }
 
+        self.run.size.y += self.ctx.flex_spacing;
+
         self.stack.add(Layout {
-            dimensions: self.run.size,
+            dimensions: self.run.size.specialized(self.ctx.axes),
             actions: actions.into_vec(),
             debug_render: false,
         })?;
@@ -206,25 +181,8 @@ impl FlexLayouter {
         Ok(())
     }
 
-    fn flush_glue(&mut self) {
-        if let Some(glue) = self.cached_glue.take() {
-            if self.run.size.x > Size::zero() && !self.overflows_line(self.run.size.x + glue.x) {
-                self.grow_run(glue);
-            }
-        }
-    }
-
-    fn grow_run(&mut self, dimensions: Size2D) {
-        self.run.size.x += dimensions.x;
-        self.run.size.y = crate::size::max(self.run.size.y, dimensions.y);
-    }
-
     /// Whether this layouter contains any items.
     pub fn is_empty(&self) -> bool {
         self.units.is_empty()
-    }
-
-    fn overflows_line(&self, line: Size) -> bool {
-        line > self.usable_width
     }
 }
