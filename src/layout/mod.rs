@@ -3,6 +3,8 @@
 use std::borrow::Cow;
 use std::io::{self, Write};
 
+use smallvec::SmallVec;
+
 use toddle::query::{FontClass, SharedFontLoader};
 use toddle::Error as FontError;
 
@@ -133,35 +135,38 @@ impl<'a> IntoIterator for &'a MultiLayout {
 }
 
 /// The general context for layouting.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct LayoutContext<'a, 'p> {
     /// The font loader to retrieve fonts from when typesetting text
     /// using [`layout_text`].
     pub loader: &'a SharedFontLoader<'p>,
+
     /// The style to set text with. This includes sizes and font classes
     /// which determine which font from the loaders selection is used.
     pub style: &'a TextStyle,
-    /// The alignment to use for the content.
-    pub alignment: Alignment,
-    /// How to stack the context.
-    pub flow: Flow,
-    /// The primary space to layout in.
-    pub space: LayoutSpace,
-    /// The additional spaces which are used when the primary space
-    /// cannot fit the whole content.
-    pub followup_spaces: Option<LayoutSpace>,
-    /// Whether to shrink the dimensions to fit the content or the keep the
-    /// dimensions from the layout spaces.
-    pub shrink_to_fit: bool,
+
+    /// The spaces to layout in.
+    pub spaces: LayoutSpaces,
+
+    /// The axes to flow on.
+    pub axes: LayoutAxes,
 }
+
+/// A possibly stack-allocated vector of layout spaces.
+pub type LayoutSpaces = SmallVec<[LayoutSpace; 2]>;
 
 /// Spacial layouting constraints.
 #[derive(Debug, Copy, Clone)]
 pub struct LayoutSpace {
     /// The maximum size of the box to layout in.
     pub dimensions: Size2D,
+
     /// Padding that should be respected on each side.
     pub padding: SizeBox,
+
+    /// Whether to shrink the space to fit the content or to keep
+    /// the original dimensions.
+    pub shrink_to_fit: bool,
 }
 
 impl LayoutSpace {
@@ -170,11 +175,89 @@ impl LayoutSpace {
         self.dimensions.unpadded(self.padding)
     }
 
-    /// A layout without padding and dimensions reduced by the padding.
-    pub fn usable_space(&self) -> LayoutSpace {
+    /// The offset from the origin to the start of content, that is,
+    /// `(padding.left, padding.top)`.
+    pub fn start(&self) -> Size2D {
+        Size2D::new(self.padding.left, self.padding.right)
+    }
+
+    /// A layout space without padding and dimensions reduced by the padding.
+    pub fn usable_space(&self, shrink_to_fit: bool) -> LayoutSpace {
         LayoutSpace {
             dimensions: self.usable(),
             padding: SizeBox::zero(),
+            shrink_to_fit,
+        }
+    }
+}
+
+/// The axes along which the content is laid out.
+#[derive(Debug, Copy, Clone)]
+pub struct LayoutAxes {
+    pub primary: AlignedAxis,
+    pub secondary: AlignedAxis,
+}
+
+impl LayoutAxes {
+    /// The position of the anchor specified by the two aligned axes
+    /// in the given generalized space.
+    pub fn anchor(&self, area: Size2D) -> Size2D {
+        Size2D::new(self.primary.anchor(area.x), self.secondary.anchor(area.y))
+    }
+}
+
+/// An axis with an alignment.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct AlignedAxis {
+    pub axis: Axis,
+    pub alignment: Alignment,
+}
+
+impl AlignedAxis {
+    /// Returns an aligned axis if the alignment is compatible with the axis.
+    pub fn new(axis: Axis, alignment: Alignment) -> AlignedAxis {
+        AlignedAxis { axis, alignment }
+    }
+
+    /// The pair of axis and alignment.
+    pub fn pair(&self) -> (Axis, Alignment) {
+        (self.axis, self.alignment)
+    }
+
+    /// The position of the anchor specified by this axis on the given line.
+    pub fn anchor(&self, line: Size) -> Size {
+        use Alignment::*;
+        match (self.axis.is_positive(), self.alignment) {
+            (true, Origin) | (false, End) => Size::zero(),
+            (_, Center) => line / 2,
+            (true, End) | (false, Origin) => line,
+        }
+    }
+}
+
+/// Where to put content.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Axis {
+    LeftToRight,
+    RightToLeft,
+    TopToBottom,
+    BottomToTop,
+}
+
+impl Axis {
+    /// Whether this is a horizontal axis.
+    pub fn is_horizontal(&self) -> bool {
+        match self {
+            Axis::LeftToRight | Axis::RightToLeft => true,
+            Axis::TopToBottom | Axis::BottomToTop => false,
+        }
+    }
+
+    /// Whether this axis points into the positive coordinate direction.
+    pub fn is_positive(&self) -> bool {
+        match self {
+            Axis::LeftToRight | Axis::TopToBottom => true,
+            Axis::RightToLeft | Axis::BottomToTop => false,
         }
     }
 }
@@ -182,16 +265,9 @@ impl LayoutSpace {
 /// Where to align content.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Alignment {
-    Left,
-    Right,
+    Origin,
     Center,
-}
-
-/// The flow of content.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Flow {
-    Vertical,
-    Horizontal,
+    End,
 }
 
 /// The error type for layouting.

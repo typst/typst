@@ -7,66 +7,37 @@ use super::*;
 pub struct StackLayouter {
     ctx: StackContext,
     layouts: MultiLayout,
-    actions: LayoutActionList,
+    /// Offset on secondary axis, anchor of the layout and the layout itself.
+    boxes: Vec<(Size, Size2D, Layout)>,
 
-    space: LayoutSpace,
     usable: Size2D,
     dimensions: Size2D,
-    cursor: Size2D,
-    in_extra_space: bool,
-    started: bool,
+    active_space: usize,
+    include_empty: bool,
 }
 
 /// The context for stack layouting.
 ///
 /// See [`LayoutContext`] for details about the fields.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct StackContext {
-    pub alignment: Alignment,
-    pub space: LayoutSpace,
-    pub followup_spaces: Option<LayoutSpace>,
-    pub shrink_to_fit: bool,
-    pub flow: Flow,
-}
-
-macro_rules! reuse {
-    ($ctx:expr, $flow:expr) => (
-        StackContext {
-            alignment: $ctx.alignment,
-            space: $ctx.space,
-            followup_spaces: $ctx.followup_spaces,
-            shrink_to_fit: $ctx.shrink_to_fit,
-            flow: $flow
-        }
-    );
-}
-
-impl StackContext {
-    /// Create a stack context from a generic layout context.
-    pub fn from_layout_ctx(ctx: LayoutContext) -> StackContext {
-        reuse!(ctx, ctx.flow)
-    }
-
-    /// Create a stack context from a flex context.
-    pub fn from_flex_ctx(ctx: FlexContext, flow: Flow) -> StackContext {
-        reuse!(ctx, flow)
-    }
+    pub spaces: LayoutSpaces,
+    pub axes: LayoutAxes,
 }
 
 impl StackLayouter {
     /// Create a new stack layouter.
     pub fn new(ctx: StackContext) -> StackLayouter {
+        let usable = ctx.spaces[0].usable().generalized(ctx.axes);
         StackLayouter {
             ctx,
             layouts: MultiLayout::new(),
-            actions: LayoutActionList::new(),
+            boxes: vec![],
 
-            space: ctx.space,
-            usable: ctx.space.usable(),
-            dimensions: start_dimensions(ctx.alignment, ctx.space),
-            cursor: start_cursor(ctx.alignment, ctx.space),
-            in_extra_space: false,
-            started: true,
+            usable,
+            active_space: 0,
+            dimensions: start_dimensions(usable, ctx.axes),
+            include_empty: true,
         }
     }
 
@@ -75,51 +46,27 @@ impl StackLayouter {
         self.ctx
     }
 
-    /// Add a sublayout to the bottom.
+    /// Add a sublayout.
     pub fn add(&mut self, layout: Layout) -> LayoutResult<()> {
-        if !self.started {
-            self.start_new_space()?;
-        }
+        let size = layout.dimensions.generalized(self.ctx.axes);
+        let mut new_dimensions = self.size_with(size);
 
-        let new_dimensions = match self.ctx.flow {
-            Flow::Vertical => Size2D {
-                x: crate::size::max(self.dimensions.x, layout.dimensions.x),
-                y: self.dimensions.y + layout.dimensions.y,
-            },
-            Flow::Horizontal => Size2D {
-                x: self.dimensions.x + layout.dimensions.x,
-                y: crate::size::max(self.dimensions.y, layout.dimensions.y),
+        // Search for a suitable space to insert the box.
+        while !self.usable.fits(new_dimensions) {
+            if self.active_space == self.ctx.spaces.len() - 1 {
+                return Err(LayoutError::NotEnoughSpace("box is to large for stack spaces"));
             }
-        };
 
-        if self.overflows(new_dimensions) {
-            if self.ctx.followup_spaces.is_some() &&
-                !(self.in_extra_space && self.overflows(layout.dimensions))
-            {
-                self.finish_layout(true)?;
-                return self.add(layout);
-            } else {
-                return Err(LayoutError::NotEnoughSpace("cannot fit box into stack"));
-            }
+            self.finish_layout()?;
+            self.start_new_space(true);
+            new_dimensions = self.size_with(size);
         }
 
-        // Determine where to put the box. When we right-align it, we want the
-        // cursor to point to the top-right corner of the box. Therefore, the
-        // position has to be moved to the left by the width of the box.
-        let position = match self.ctx.alignment {
-            Alignment::Left => self.cursor,
-            Alignment::Right => self.cursor - Size2D::with_x(layout.dimensions.x),
-            Alignment::Center => self.cursor - Size2D::with_x(layout.dimensions.x / 2),
-        };
+        let ofset = self.dimensions.y;
+        let anchor = self.ctx.axes.anchor(size);
+        self.boxes.push((ofset, anchor, layout));
 
-        self.dimensions = new_dimensions;
-
-        match self.ctx.flow {
-            Flow::Vertical => self.cursor.y += layout.dimensions.y,
-            Flow::Horizontal => self.cursor.x += layout.dimensions.x,
-        }
-
-        self.actions.add_layout(position, layout);
+        self.dimensions.y += size.y;
 
         Ok(())
     }
@@ -134,24 +81,11 @@ impl StackLayouter {
 
     /// Add space after the last layout.
     pub fn add_space(&mut self, space: Size) -> LayoutResult<()> {
-        if !self.started {
-            self.start_new_space()?;
-        }
-
-        let new_space = match self.ctx.flow {
-            Flow::Vertical => Size2D::with_y(space),
-            Flow::Horizontal => Size2D::with_x(space),
-        };
-
-        if self.overflows(self.dimensions + new_space) {
-            if self.ctx.followup_spaces.is_some() {
-                self.finish_layout(false)?;
-            } else {
-                return Err(LayoutError::NotEnoughSpace("cannot fit space into stack"));
-            }
+        if self.dimensions.y + space > self.usable.y {
+            self.finish_layout()?;
+            self.start_new_space(false);
         } else {
-            self.cursor += new_space;
-            self.dimensions += new_space;
+            self.dimensions.y += space;
         }
 
         Ok(())
@@ -160,96 +94,76 @@ impl StackLayouter {
     /// Finish the layouting.
     ///
     /// The layouter is not consumed by this to prevent ownership problems.
-    /// It should not be used further.
+    /// Nevertheless, it should not be used further.
     pub fn finish(&mut self) -> LayoutResult<MultiLayout> {
-        if self.started {
-            self.finish_layout(false)?;
+        if self.include_empty || !self.boxes.is_empty() {
+            self.finish_layout()?;
         }
         Ok(std::mem::replace(&mut self.layouts, MultiLayout::new()))
     }
 
-    /// Finish the current layout and start a new one in an extra space
-    /// (if there is an extra space).
+    /// Finish the current layout and start a new one in a new space.
     ///
     /// If `start_new_empty` is true, a new empty layout will be started. Otherwise,
-    /// the new layout only emerges when new content is added.
-    pub fn finish_layout(&mut self, start_new_empty: bool) -> LayoutResult<()> {
-        let actions = std::mem::replace(&mut self.actions, LayoutActionList::new());
+    /// the new layout only appears once new content is added.
+    pub fn finish_layout(&mut self) -> LayoutResult<()> {
+        let mut actions = LayoutActionList::new();
+
+        let space = self.ctx.spaces[self.active_space];
+        let anchor = self.ctx.axes.anchor(self.usable);
+        let factor = if self.ctx.axes.secondary.axis.is_positive() { 1 } else { -1 };
+        let start = space.start();
+
+        for (offset, layout_anchor, layout) in self.boxes.drain(..) {
+            let general_position = anchor - layout_anchor + Size2D::with_y(offset * factor);
+            let position = general_position.specialized(self.ctx.axes) + start;
+
+            actions.add_layout(position, layout);
+        }
+
         self.layouts.add(Layout {
-            dimensions: if self.ctx.shrink_to_fit {
-                self.dimensions.padded(self.space.padding)
+            dimensions: if space.shrink_to_fit {
+                self.dimensions.padded(space.padding)
             } else {
-                self.space.dimensions
+                space.dimensions
             },
             actions: actions.into_vec(),
             debug_render: true,
         });
 
-        self.started = false;
-
-        if start_new_empty {
-            self.start_new_space()?;
-        }
-
         Ok(())
     }
 
-    pub fn start_new_space(&mut self) -> LayoutResult<()> {
-        if let Some(space) = self.ctx.followup_spaces {
-            self.started = true;
-            self.space = space;
-            self.usable = space.usable();
-            self.dimensions = start_dimensions(self.ctx.alignment, space);
-            self.cursor = start_cursor(self.ctx.alignment, space);
-            self.in_extra_space = true;
-            Ok(())
-        } else {
-            Err(LayoutError::NotEnoughSpace("no extra space to start"))
-        }
+    /// Set up layouting in the next space. Should be preceded by `finish_layout`.
+    ///
+    /// If `include_empty` is true, the new empty layout will always be added when
+    /// finishing this stack. Otherwise, the new layout only appears if new
+    /// content is added to it.
+    pub fn start_new_space(&mut self, include_empty: bool) {
+        self.active_space = (self.active_space + 1).min(self.ctx.spaces.len() - 1);
+        self.usable = self.ctx.spaces[self.active_space].usable().generalized(self.ctx.axes);
+        self.dimensions = start_dimensions(self.usable, self.ctx.axes);
+        self.include_empty = include_empty;
     }
 
     /// The remaining space for new layouts.
     pub fn remaining(&self) -> Size2D {
-        match self.ctx.flow {
-            Flow::Vertical => Size2D {
-                x: self.usable.x,
-                y: self.usable.y - self.dimensions.y,
-            },
-            Flow::Horizontal => Size2D {
-                x: self.usable.x - self.dimensions.x,
-                y: self.usable.y,
-            },
+        Size2D::new(self.usable.x, self.usable.y - self.dimensions.y)
+            .specialized(self.ctx.axes)
+    }
+
+    /// The combined size of the so-far included boxes with the other size.
+    fn size_with(&self, other: Size2D) -> Size2D {
+        Size2D {
+            x: crate::size::max(self.dimensions.x, other.x),
+            y: self.dimensions.y + other.y,
         }
-
-    }
-
-    /// Whether the active space of this layouter contains no content.
-    pub fn current_space_is_empty(&self) -> bool {
-        !self.started || self.actions.is_empty()
-    }
-
-    fn overflows(&self, dimensions: Size2D) -> bool {
-        !self.usable.fits(dimensions)
     }
 }
 
-fn start_dimensions(alignment: Alignment, space: LayoutSpace) -> Size2D {
-    match alignment {
-        Alignment::Left => Size2D::zero(),
-        Alignment::Right | Alignment::Center => Size2D::with_x(space.usable().x),
-    }
-}
-
-fn start_cursor(alignment: Alignment, space: LayoutSpace) -> Size2D {
-    Size2D {
-        // If left-align, the cursor points to the top-left corner of
-        // each box. If we right-align, it points to the top-right
-        // corner.
-        x: match alignment {
-            Alignment::Left => space.padding.left,
-            Alignment::Right => space.dimensions.x - space.padding.right,
-            Alignment::Center => space.padding.left + (space.usable().x / 2),
-        },
-        y: space.padding.top,
-    }
+fn start_dimensions(usable: Size2D, axes: LayoutAxes) -> Size2D {
+    Size2D::with_x(match axes.primary.alignment {
+        Alignment::Origin => Size::zero(),
+        Alignment::Center | Alignment::End => usable.x,
+    })
 }

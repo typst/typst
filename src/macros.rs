@@ -40,6 +40,16 @@ macro_rules! error_type {
     };
 }
 
+/// Whether an expression matches a pattern.
+macro_rules! matches {
+    ($val:expr, $($pattern:tt)*) => (
+        match $val {
+            $($pattern)* => true,
+            _ => false,
+        }
+    );
+}
+
 /// Create a `Debug` implementation from a `Display` implementation.
 macro_rules! debug_display {
     ($type:ident) => (

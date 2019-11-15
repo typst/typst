@@ -136,7 +136,8 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
                 Command::FinishLayout => {
                     self.finish_flex()?;
-                    self.stack.finish_layout(true)?;
+                    self.stack.finish_layout()?;
+                    self.stack.start_new_space(true);
                     self.start_new_flex();
                 }
 
