@@ -142,28 +142,6 @@ impl Size2D {
         }
     }
 
-    /// Returns the generalized version of this Size2D dependent on
-    /// the given layouting axes, that is:
-    /// - The x coordinate describes the primary axis instead of the horizontal one.
-    /// - The y coordinate describes the secondary axis instead of the vertical one.
-    #[inline]
-    pub fn generalized(&self, axes: LayoutAxes) -> Size2D {
-        if axes.primary.axis.is_horizontal() {
-            *self
-        } else {
-            Size2D { x: self.y, y: self.x }
-        }
-    }
-
-    /// Returns the specialized version of this generalized Size2D.
-    /// (Inverse to `generalized`).
-    #[inline]
-    pub fn specialized(&self, axes: LayoutAxes) -> Size2D {
-        // In fact, generalized is its own inverse. For reasons of clarity
-        // at the call site, we still have this second function.
-        self.generalized(axes)
-    }
-
     /// Whether the given 2D-size fits into this one, that is,
     /// both coordinate values are smaller or equal.
     #[inline]

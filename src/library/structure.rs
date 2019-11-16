@@ -149,7 +149,7 @@ macro_rules! spacefunc {
             layout(this, ctx) {
                 let $var = match this.0 {
                     Spacing::Absolute(s) => s,
-                    Spacing::Relative(f) => Size::pt(f * ctx.style.font_size),
+                    Spacing::Relative(f) => f * ctx.style.font_size,
                 };
 
                 Ok(commands![$command])

@@ -129,7 +129,7 @@ impl FlexLayouter {
     /// Layout a content box into the current flex run or start a new run if
     /// it does not fit.
     fn layout_box(&mut self, boxed: Layout) -> LayoutResult<()> {
-        let size = boxed.dimensions.generalized(self.ctx.axes);
+        let size = self.ctx.axes.generalize(boxed.dimensions);
 
         let space = self.space.unwrap_or(Size::zero());
         let new_run_size = self.run.size.x + space + size.x;
@@ -166,14 +166,14 @@ impl FlexLayouter {
     fn finish_run(&mut self) -> LayoutResult<()> {
         let mut actions = LayoutActionList::new();
         for (x, layout) in self.run.content.drain(..) {
-            let position = Size2D::with_x(x).specialized(self.ctx.axes);
+            let position = self.ctx.axes.specialize(Size2D::with_x(x));
             actions.add_layout(position, layout);
         }
 
         self.run.size.y += self.ctx.flex_spacing;
 
         self.stack.add(Layout {
-            dimensions: self.run.size.specialized(self.ctx.axes),
+            dimensions: self.ctx.axes.specialize(self.run.size),
             actions: actions.into_vec(),
             debug_render: false,
         })?;
@@ -181,6 +181,11 @@ impl FlexLayouter {
         self.run.size = Size2D::zero();
 
         Ok(())
+    }
+
+    /// Update the axes in use by this flex layouter.
+    pub fn set_axes(&self, axes: LayoutAxes) {
+
     }
 
     /// This layouter's context.

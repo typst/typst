@@ -29,7 +29,7 @@ pub struct StackContext {
 impl StackLayouter {
     /// Create a new stack layouter.
     pub fn new(ctx: StackContext) -> StackLayouter {
-        let usable = ctx.spaces[0].usable().generalized(ctx.axes);
+        let usable = ctx.axes.generalize(ctx.spaces[0].usable());
         StackLayouter {
             ctx,
             layouts: MultiLayout::new(),
@@ -44,7 +44,7 @@ impl StackLayouter {
 
     /// Add a sublayout.
     pub fn add(&mut self, layout: Layout) -> LayoutResult<()> {
-        let size = layout.dimensions.generalized(self.ctx.axes);
+        let size = self.ctx.axes.generalize(layout.dimensions);
         let mut new_dimensions = self.size_with(size);
 
         // Search for a suitable space to insert the box.
@@ -114,7 +114,7 @@ impl StackLayouter {
 
         for (offset, layout_anchor, layout) in self.boxes.drain(..) {
             let general_position = anchor - layout_anchor + Size2D::with_y(offset * factor);
-            let position = start + general_position.specialized(self.ctx.axes);
+            let position = start + self.ctx.axes.specialize(general_position);
 
             actions.add_layout(position, layout);
         }
@@ -137,9 +137,14 @@ impl StackLayouter {
     /// content is added to it.
     fn start_new_space(&mut self, include_empty: bool) {
         self.active_space = self.next_space();
-        self.usable = self.ctx.spaces[self.active_space].usable().generalized(self.ctx.axes);
+        self.usable = self.ctx.axes.generalize(self.ctx.spaces[self.active_space].usable());
         self.dimensions = start_dimensions(self.usable, self.ctx.axes);
         self.include_empty = include_empty;
+    }
+
+    /// Update the axes in use by this stack layouter.
+    pub fn set_axes(&self, axes: LayoutAxes) {
+
     }
 
     /// This layouter's context.
@@ -154,9 +159,9 @@ impl StackLayouter {
 
     /// The remaining spaces for new layouts in the current space.
     pub fn remaining(&self, shrink_to_fit: bool) -> LayoutSpaces {
+        let remains = Size2D::new(self.usable.x, self.usable.y - self.dimensions.y);
         let mut spaces = smallvec![LayoutSpace {
-            dimensions: Size2D::new(self.usable.x, self.usable.y - self.dimensions.y)
-                .specialized(self.ctx.axes),
+            dimensions: self.ctx.axes.specialize(remains),
             padding: SizeBox::zero(),
             shrink_to_fit,
         }];
