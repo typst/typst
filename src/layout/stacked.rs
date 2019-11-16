@@ -8,13 +8,16 @@ use super::*;
 pub struct StackLayouter {
     ctx: StackContext,
     layouts: MultiLayout,
-    /// Offset on secondary axis, anchor of the layout and the layout itself.
-    boxes: Vec<(Size, Size2D, Layout)>,
 
+    merged_actions: LayoutActionList,
+    merged_dimensions: Size2D,
+
+    // Offset on secondary axis, anchor of the layout and the layout itself.
+    boxes: Vec<(Size, Size2D, Layout)>,
     usable: Size2D,
     dimensions: Size2D,
     active_space: usize,
-    include_empty: bool,
+    hard: bool,
 }
 
 /// The context for stack layouting.
@@ -29,23 +32,28 @@ pub struct StackContext {
 impl StackLayouter {
     /// Create a new stack layouter.
     pub fn new(ctx: StackContext) -> StackLayouter {
-        let usable = ctx.axes.generalize(ctx.spaces[0].usable());
+        let space = ctx.spaces[0];
+        let usable = ctx.axes.generalize(space.usable());
+
         StackLayouter {
             ctx,
             layouts: MultiLayout::new(),
-            boxes: vec![],
 
+            merged_actions: LayoutActionList::new(),
+            merged_dimensions: space.start(),
+
+            boxes: vec![],
             usable,
             active_space: 0,
-            dimensions: start_dimensions(usable, ctx.axes),
-            include_empty: true,
+            dimensions: Size2D::zero(),
+            hard: true,
         }
     }
 
     /// Add a sublayout.
     pub fn add(&mut self, layout: Layout) -> LayoutResult<()> {
         let size = self.ctx.axes.generalize(layout.dimensions);
-        let mut new_dimensions = self.size_with(size);
+        let mut new_dimensions = merge_sizes(self.dimensions, size);
 
         // Search for a suitable space to insert the box.
         while !self.usable.fits(new_dimensions) {
@@ -53,13 +61,13 @@ impl StackLayouter {
                 Err(LayoutError::NotEnoughSpace("cannot fit box into stack"))?;
             }
 
-            self.finish_layout(true);
-            new_dimensions = self.size_with(size);
+            self.add_break(true);
+            new_dimensions = merge_sizes(self.dimensions, size);
         }
 
-        let ofset = self.dimensions.y;
+        let offset = self.dimensions.y;
         let anchor = self.ctx.axes.anchor(size);
-        self.boxes.push((ofset, anchor, layout));
+        self.boxes.push((offset, anchor, layout));
 
         self.dimensions.y += size.y;
 
@@ -77,10 +85,16 @@ impl StackLayouter {
     /// Add space after the last layout.
     pub fn add_space(&mut self, space: Size) {
         if self.dimensions.y + space > self.usable.y {
-            self.finish_layout(false);
+            self.add_break(false);
         } else {
             self.dimensions.y += space;
         }
+    }
+
+    /// Finish the current layout and start a new one in a new space.
+    pub fn add_break(&mut self, hard: bool) {
+        self.finish_layout();
+        self.start_new_space(hard);
     }
 
     /// Finish the layouting.
@@ -88,40 +102,21 @@ impl StackLayouter {
     /// The layouter is not consumed by this to prevent ownership problems.
     /// Nevertheless, it should not be used further.
     pub fn finish(&mut self) -> MultiLayout {
-        if self.include_empty || !self.boxes.is_empty() {
-            self.finish_boxes();
+        if self.hard || !self.boxes.is_empty() {
+            self.finish_layout();
         }
         std::mem::replace(&mut self.layouts, MultiLayout::new())
     }
 
-    /// Finish the current layout and start a new one in a new space.
-    ///
-    /// If `include_empty` is true, the followup layout will even be
-    /// part of the finished multi-layout if it would be empty.
-    pub fn finish_layout(&mut self, include_empty: bool) {
+    fn finish_layout(&mut self) {
         self.finish_boxes();
-        self.start_new_space(include_empty);
-    }
-
-    /// Compose all cached boxes into a layout.
-    fn finish_boxes(&mut self) {
-        let mut actions = LayoutActionList::new();
 
         let space = self.ctx.spaces[self.active_space];
-        let anchor = self.ctx.axes.anchor(self.usable);
-        let factor = if self.ctx.axes.secondary.axis.is_positive() { 1 } else { -1 };
-        let start = space.start();
-
-        for (offset, layout_anchor, layout) in self.boxes.drain(..) {
-            let general_position = anchor - layout_anchor + Size2D::with_y(offset * factor);
-            let position = start + self.ctx.axes.specialize(general_position);
-
-            actions.add_layout(position, layout);
-        }
+        let actions = std::mem::replace(&mut self.merged_actions, LayoutActionList::new());
 
         self.layouts.add(Layout {
             dimensions: if space.shrink_to_fit {
-                self.dimensions.padded(space.padding)
+                self.merged_dimensions.padded(space.padding)
             } else {
                 space.dimensions
             },
@@ -130,21 +125,56 @@ impl StackLayouter {
         });
     }
 
-    /// Set up layouting in the next space. Should be preceded by `finish_layout`.
-    ///
-    /// If `include_empty` is true, the new empty layout will always be added when
-    /// finishing this stack. Otherwise, the new layout only appears if new
-    /// content is added to it.
-    fn start_new_space(&mut self, include_empty: bool) {
-        self.active_space = self.next_space();
-        self.usable = self.ctx.axes.generalize(self.ctx.spaces[self.active_space].usable());
-        self.dimensions = start_dimensions(self.usable, self.ctx.axes);
-        self.include_empty = include_empty;
+    /// Compose all cached boxes into a layout.
+    fn finish_boxes(&mut self) {
+        let space = self.ctx.spaces[self.active_space];
+        let start = space.start() + Size2D::with_y(self.merged_dimensions.y);
+
+        let anchor = self.ctx.axes.anchor(self.usable);
+        let factor = if self.ctx.axes.secondary.axis.is_positive() { 1 } else { -1 };
+
+        for (offset, layout_anchor, layout) in self.boxes.drain(..) {
+            let general_position = anchor - layout_anchor + Size2D::with_y(offset * factor);
+            let position = start + self.ctx.axes.specialize(general_position);
+
+            self.merged_actions.add_layout(position, layout);
+        }
+
+        let mut dimensions = self.ctx.axes.specialize(self.dimensions);
+        let usable = self.ctx.axes.specialize(self.usable);
+
+        if needs_expansion(self.ctx.axes.primary) {
+            dimensions.x = usable.x;
+        }
+
+        if needs_expansion(self.ctx.axes.secondary) {
+            dimensions.y = usable.y;
+        }
+
+        self.merged_dimensions = merge_sizes(self.merged_dimensions, dimensions);
+    }
+
+    /// Set up layouting in the next space.
+    fn start_new_space(&mut self, hard: bool) {
+        let next_space = self.next_space();
+        let space = self.ctx.spaces[next_space];
+
+        self.merged_dimensions = Size2D::zero();
+
+        self.usable = self.ctx.axes.generalize(space.usable());
+        self.dimensions = Size2D::zero();
+        self.active_space = next_space;
+        self.hard = hard;
     }
 
     /// Update the axes in use by this stack layouter.
     pub fn set_axes(&self, axes: LayoutAxes) {
-
+        if axes != self.ctx.axes {
+            self.finish_boxes();
+            self.usable = self.remains();
+            self.dimensions = Size2D::zero();
+            self.ctx.axes = axes;
+        }
     }
 
     /// This layouter's context.
@@ -159,9 +189,8 @@ impl StackLayouter {
 
     /// The remaining spaces for new layouts in the current space.
     pub fn remaining(&self, shrink_to_fit: bool) -> LayoutSpaces {
-        let remains = Size2D::new(self.usable.x, self.usable.y - self.dimensions.y);
         let mut spaces = smallvec![LayoutSpace {
-            dimensions: self.ctx.axes.specialize(remains),
+            dimensions: self.ctx.axes.specialize(self.remains()),
             padding: SizeBox::zero(),
             shrink_to_fit,
         }];
@@ -173,6 +202,10 @@ impl StackLayouter {
         spaces
     }
 
+    fn remains(&self) -> Size2D {
+        Size2D::new(self.usable.x, self.usable.y - self.dimensions.y)
+    }
+
     /// Whether this layouter is in its last space.
     pub fn in_last_space(&self) -> bool {
         self.active_space == self.ctx.spaces.len() - 1
@@ -181,19 +214,18 @@ impl StackLayouter {
     fn next_space(&self) -> usize {
         (self.active_space + 1).min(self.ctx.spaces.len() - 1)
     }
+}
 
-    /// The combined size of the so-far included boxes with the other size.
-    fn size_with(&self, other: Size2D) -> Size2D {
-        Size2D {
-            x: crate::size::max(self.dimensions.x, other.x),
-            y: self.dimensions.y + other.y,
-        }
+fn merge_sizes(a: Size2D, b: Size2D) -> Size2D {
+    Size2D {
+        x: crate::size::max(a.x, b.x),
+        y: a.y + b.y
     }
 }
 
-fn start_dimensions(usable: Size2D, axes: LayoutAxes) -> Size2D {
-    Size2D::with_x(match axes.primary.alignment {
-        Alignment::Origin => Size::zero(),
-        Alignment::Center | Alignment::End => usable.x,
-    })
+fn needs_expansion(axis: AlignedAxis) -> bool {
+    match (axis.axis.is_positive(), axis.alignment) {
+        (true, Alignment::Origin) | (false, Alignment::End) => false,
+        _ => true,
+    }
 }

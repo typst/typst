@@ -142,7 +142,7 @@ impl FlexLayouter {
                     Err(LayoutError::NotEnoughSpace("cannot fix box into flex run"))?;
                 }
 
-                self.stack.finish_layout(true);
+                self.stack.add_break(true);
                 self.usable = self.stack.usable().x;
             }
 

@@ -6,8 +6,6 @@ use std::iter::Sum;
 use std::ops::*;
 use std::str::FromStr;
 
-use crate::layout::LayoutAxes;
-
 /// A general space type.
 #[derive(Copy, Clone, PartialEq, Default)]
 pub struct Size {

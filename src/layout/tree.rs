@@ -94,9 +94,9 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             Command::Add(layout) => self.flex.add(layout),
             Command::AddMultiple(layouts) => self.flex.add_multiple(layouts),
 
-            Command::FinishFlexRun => self.flex.add_break(),
-            Command::FinishFlexLayout => self.finish_paragraph()?,
-            Command::FinishLayout => self.finish_layout(true)?,
+            Command::BreakFlex => self.flex.add_break(),
+            Command::FinishFlex => self.finish_paragraph()?,
+            Command::BreakStack => self.finish_layout()?,
 
             Command::SetStyle(style) => *self.style.to_mut() = style,
             Command::SetAxes(axes) => {
@@ -115,10 +115,10 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
         Ok(self.stack.finish())
     }
 
-    /// Finish the current stack layout.
-    fn finish_layout(&mut self, include_empty: bool) -> LayoutResult<()> {
+    /// Finish the current stack layout with a hard break.
+    fn finish_layout(&mut self) -> LayoutResult<()> {
         self.finish_flex()?;
-        self.stack.finish_layout(include_empty);
+        self.stack.add_break(true);
         self.start_new_flex();
         Ok(())
     }

@@ -8,7 +8,7 @@ pub struct Linebreak;
 function! {
     data: Linebreak,
     parse: plain,
-    layout(_, _) { Ok(commands![FinishFlexRun]) }
+    layout(_, _) { Ok(commands![BreakFlex]) }
 }
 
 /// ↕ `paragraph.break`: Ends the current paragraph.
@@ -20,7 +20,7 @@ pub struct Parbreak;
 function! {
     data: Parbreak,
     parse: plain,
-    layout(_, _) { Ok(commands![FinishFlexLayout]) }
+    layout(_, _) { Ok(commands![FinishFlex]) }
 }
 
 /// 📜 `page.break`: Ends the current page.
@@ -30,7 +30,7 @@ pub struct Pagebreak;
 function! {
     data: Pagebreak,
     parse: plain,
-    layout(_, _) { Ok(commands![FinishLayout]) }
+    layout(_, _) { Ok(commands![BreakStack]) }
 }
 
 /// 📐 `align`: Aligns content in different ways.
