@@ -12,8 +12,9 @@ pub mod helpers;
 /// Useful imports for creating your own functions.
 pub mod prelude {
     pub use crate::func::{Command, CommandList, Function};
-    pub use crate::layout::{layout_tree, Layout, LayoutContext, MultiLayout};
-    pub use crate::layout::{Flow, Alignment, LayoutError, LayoutResult};
+    pub use crate::layout::{layout_tree, Layout, MultiLayout, LayoutContext, LayoutSpace};
+    pub use crate::layout::{LayoutAxes, AlignedAxis, Axis, Alignment};
+    pub use crate::layout::{LayoutError, LayoutResult};
     pub use crate::syntax::{SyntaxTree, FuncHeader, FuncArgs, Expression, Spanned, Span};
     pub use crate::syntax::{parse, ParseContext, ParseError, ParseResult};
     pub use crate::size::{Size, Size2D, SizeBox};
@@ -88,13 +89,16 @@ where T: Debug + PartialEq + 'static
 #[derive(Debug)]
 pub enum Command<'a> {
     LayoutTree(&'a SyntaxTree),
+
     Add(Layout),
-    AddMany(MultiLayout),
-    AddFlex(Layout),
-    SetAlignment(Alignment),
-    SetStyle(TextStyle),
-    FinishLayout,
+    AddMultiple(MultiLayout),
+
     FinishFlexRun,
+    FinishFlexLayout,
+    FinishLayout,
+
+    SetStyle(TextStyle),
+    SetAxes(LayoutAxes),
 }
 
 /// A sequence of commands requested for execution by a function.

@@ -13,7 +13,9 @@ pub struct TextStyle {
     /// leftmost possible one.
     pub fallback: Vec<FontClass>,
     /// The font size.
-    pub font_size: f32,
+    pub font_size: Size,
+    /// The word spacing (as a multiple of the font size).
+    pub word_spacing: f32,
     /// The line spacing (as a multiple of the font size).
     pub line_spacing: f32,
     /// The paragraphs spacing (as a multiple of the font size).
@@ -63,7 +65,8 @@ impl Default for TextStyle {
         TextStyle {
             classes: vec![Regular],
             fallback: vec![Serif],
-            font_size: 11.0,
+            font_size: Size::pt(11.0),
+            word_spacing: 0.25,
             line_spacing: 1.2,
             paragraph_spacing: 1.5,
         }

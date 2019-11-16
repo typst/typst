@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 use std::io::{self, Write};
 
 use super::Layout;
-use crate::size::Size2D;
+use crate::size::{Size, Size2D};
 use LayoutAction::*;
 
 /// A layouting action.
@@ -13,7 +13,7 @@ pub enum LayoutAction {
     /// Move to an absolute position.
     MoveAbsolute(Size2D),
     /// Set the font by index and font size.
-    SetFont(usize, f32),
+    SetFont(usize, Size),
     /// Write text starting at the current position.
     WriteText(String),
     /// Visualize a box for debugging purposes.
@@ -26,7 +26,7 @@ impl LayoutAction {
     pub fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
         match self {
             MoveAbsolute(s) => write!(f, "m {:.4} {:.4}", s.x.to_pt(), s.y.to_pt()),
-            SetFont(i, s) => write!(f, "f {} {}", i, s),
+            SetFont(i, s) => write!(f, "f {} {}", i, s.to_pt()),
             WriteText(s) => write!(f, "w {}", s),
             DebugBox(p, s) => write!(
                 f,
@@ -69,9 +69,9 @@ debug_display!(LayoutAction);
 pub struct LayoutActionList {
     pub origin: Size2D,
     actions: Vec<LayoutAction>,
-    active_font: (usize, f32),
+    active_font: (usize, Size),
     next_pos: Option<Size2D>,
-    next_font: Option<(usize, f32)>,
+    next_font: Option<(usize, Size)>,
 }
 
 impl LayoutActionList {
@@ -80,7 +80,7 @@ impl LayoutActionList {
         LayoutActionList {
             actions: vec![],
             origin: Size2D::zero(),
-            active_font: (std::usize::MAX, 0.0),
+            active_font: (std::usize::MAX, Size::zero()),
             next_pos: None,
             next_font: None,
         }

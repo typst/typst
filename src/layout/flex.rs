@@ -75,14 +75,16 @@ impl FlexLayouter {
         }
     }
 
-    /// This layouter's context.
-    pub fn ctx(&self) -> FlexContext {
-        self.ctx
-    }
-
     /// Add a sublayout.
     pub fn add(&mut self, layout: Layout) {
         self.units.push(FlexUnit::Boxed(layout));
+    }
+
+    /// Add multiple sublayouts from a multi-layout.
+    pub fn add_multiple(&mut self, layouts: MultiLayout) {
+        for layout in layouts {
+            self.add(layout);
+        }
     }
 
     /// Add a space box which can be replaced by a run break.
@@ -179,6 +181,11 @@ impl FlexLayouter {
         self.run.size = Size2D::zero();
 
         Ok(())
+    }
+
+    /// This layouter's context.
+    pub fn ctx(&self) -> FlexContext {
+        self.ctx
     }
 
     /// Whether this layouter contains any items.

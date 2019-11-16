@@ -13,16 +13,6 @@ pub struct TextContext<'a, 'p> {
     pub style: &'a TextStyle,
 }
 
-impl<'a, 'p> TextContext<'a, 'p> {
-    /// Create a text context from a generic layout context.
-    pub fn from_layout_ctx(ctx: LayoutContext<'a, 'p>) -> TextContext<'a, 'p> {
-        TextContext {
-            loader: ctx.loader,
-            style: ctx.style,
-        }
-    }
-}
-
 /// Layouts text into a box.
 ///
 /// There is no complex layout involved. The text is simply laid out left-
@@ -81,7 +71,7 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
         }
 
         Ok(Layout {
-            dimensions: Size2D::new(self.width, Size::pt(self.ctx.style.font_size)),
+            dimensions: Size2D::new(self.width, self.ctx.style.font_size),
             actions: self.actions.into_vec(),
             debug_render: false,
         })
@@ -107,15 +97,16 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
                 let glyph = font
                     .read_table::<CharMap>()?
                     .get(c)
-                    .expect("layout text: font should have char");
+                    .expect("select_font: font should have char");
 
                 let glyph_width = font
                     .read_table::<HorizontalMetrics>()?
                     .get(glyph)
-                    .expect("layout text: font should have glyph")
+                    .expect("select_font: font should have glyph")
                     .advance_width as f32;
 
-                let char_width = font_unit_to_size(glyph_width) * self.ctx.style.font_size;
+                let char_width = font_unit_to_size(glyph_width)
+                    * self.ctx.style.font_size.to_pt();
 
                 return Ok((index, char_width));
             }

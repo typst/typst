@@ -192,7 +192,7 @@ impl LayoutSpace {
 }
 
 /// The axes along which the content is laid out.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct LayoutAxes {
     pub primary: AlignedAxis,
     pub secondary: AlignedAxis,

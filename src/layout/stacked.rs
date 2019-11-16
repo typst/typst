@@ -1,3 +1,4 @@
+use smallvec::smallvec;
 use super::*;
 
 /// Layouts boxes stack-like.
@@ -66,7 +67,7 @@ impl StackLayouter {
     }
 
     /// Add multiple sublayouts from a multi-layout.
-    pub fn add_many(&mut self, layouts: MultiLayout) -> LayoutResult<()> {
+    pub fn add_multiple(&mut self, layouts: MultiLayout) -> LayoutResult<()> {
         for layout in layouts {
             self.add(layout)?;
         }
@@ -135,7 +136,7 @@ impl StackLayouter {
     /// finishing this stack. Otherwise, the new layout only appears if new
     /// content is added to it.
     fn start_new_space(&mut self, include_empty: bool) {
-        self.active_space = (self.active_space + 1).min(self.ctx.spaces.len() - 1);
+        self.active_space = self.next_space();
         self.usable = self.ctx.spaces[self.active_space].usable().generalized(self.ctx.axes);
         self.dimensions = start_dimensions(self.usable, self.ctx.axes);
         self.include_empty = include_empty;
@@ -151,15 +152,29 @@ impl StackLayouter {
         self.usable
     }
 
-    /// The (specialized) remaining area for new layouts in the current space.
-    pub fn remaining(&self) -> Size2D {
-        Size2D::new(self.usable.x, self.usable.y - self.dimensions.y)
-            .specialized(self.ctx.axes)
+    /// The remaining spaces for new layouts in the current space.
+    pub fn remaining(&self, shrink_to_fit: bool) -> LayoutSpaces {
+        let mut spaces = smallvec![LayoutSpace {
+            dimensions: Size2D::new(self.usable.x, self.usable.y - self.dimensions.y)
+                .specialized(self.ctx.axes),
+            padding: SizeBox::zero(),
+            shrink_to_fit,
+        }];
+
+        for space in &self.ctx.spaces[self.next_space()..] {
+            spaces.push(space.usable_space(shrink_to_fit));
+        }
+
+        spaces
     }
 
     /// Whether this layouter is in its last space.
     pub fn in_last_space(&self) -> bool {
         self.active_space == self.ctx.spaces.len() - 1
+    }
+
+    fn next_space(&self) -> usize {
+        (self.active_space + 1).min(self.ctx.spaces.len() - 1)
     }
 
     /// The combined size of the so-far included boxes with the other size.

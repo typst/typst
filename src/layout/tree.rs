@@ -13,8 +13,6 @@ struct TreeLayouter<'a, 'p> {
     stack: StackLayouter,
     flex: FlexLayouter,
     style: Cow<'a, TextStyle>,
-    alignment: Alignment,
-    set_newline: bool,
 }
 
 impl<'a, 'p> TreeLayouter<'a, 'p> {
@@ -22,56 +20,93 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     fn new(ctx: LayoutContext<'a, 'p>) -> TreeLayouter<'a, 'p> {
         TreeLayouter {
             ctx,
-            stack: StackLayouter::new(StackContext::from_layout_ctx(ctx)),
+            stack: StackLayouter::new(StackContext {
+                spaces: ctx.spaces,
+                axes: ctx.axes,
+            }),
             flex: FlexLayouter::new(FlexContext {
-                space: ctx.space.usable_space(),
-                followup_spaces: ctx.followup_spaces.map(|s| s.usable_space()),
-                shrink_to_fit: true,
-                .. FlexContext::from_layout_ctx(ctx, flex_spacing(&ctx.style))
+                flex_spacing: flex_spacing(&ctx.style),
+                spaces: ctx.spaces.iter().map(|space| space.usable_space(true)).collect(),
+                axes: ctx.axes,
             }),
             style: Cow::Borrowed(ctx.style),
-            alignment: ctx.alignment,
-            set_newline: false,
         }
     }
 
-    /// Layout the tree into a box.
+    /// Layout a syntax tree.
     fn layout(&mut self, tree: &SyntaxTree) -> LayoutResult<()> {
         for node in &tree.nodes {
             match &node.val {
                 Node::Text(text) => {
-                    let layout = self.layout_text(text)?;
-                    self.flex.add(layout);
-                    self.set_newline = true;
+                    self.flex.add(layout_text(text, TextContext {
+                        loader: &self.ctx.loader,
+                        style: &self.style,
+                    })?);
                 }
 
                 Node::Space => {
-                    // Only add a space if there was any content before.
                     if !self.flex.is_empty() {
-                        let layout = self.layout_text(" ")?;
-                        self.flex.add_glue(layout.dimensions);
+                        self.flex.add_space(self.style.word_spacing * self.style.font_size);
                     }
                 }
-
-                // Finish the current flex layouting process.
                 Node::Newline => {
-                    self.finish_flex()?;
-
-                    if self.set_newline {
-                        let space = paragraph_spacing(&self.style);
-                        self.stack.add_space(space);
-                        self.set_newline = false;
+                    if !self.flex.is_empty() {
+                        self.finish_paragraph()?;
                     }
-
-                    self.start_new_flex();
                 }
 
-                // Toggle the text styles.
                 Node::ToggleItalics => self.style.to_mut().toggle_class(FontClass::Italic),
                 Node::ToggleBold => self.style.to_mut().toggle_class(FontClass::Bold),
                 Node::ToggleMonospace => self.style.to_mut().toggle_class(FontClass::Monospace),
 
                 Node::Func(func) => self.layout_func(func)?,
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Layout a function.
+    fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
+        // Finish the current flex layout on a copy to find out how
+        // much space would be remaining if we finished.
+        let mut lookahead = self.stack.clone();
+        lookahead.add_multiple(self.flex.clone().finish()?)?;
+        let spaces = lookahead.remaining(true);
+
+        let commands = func.body.val.layout(LayoutContext {
+            style: &self.style,
+            spaces,
+            .. self.ctx
+        })?;
+
+        for command in commands {
+            self.execute(command)?;
+        }
+
+        Ok(())
+    }
+
+    fn execute(&mut self, command: Command) -> LayoutResult<()> {
+        match command {
+            Command::LayoutTree(tree) => self.layout(tree)?,
+
+            Command::Add(layout) => self.flex.add(layout),
+            Command::AddMultiple(layouts) => self.flex.add_multiple(layouts),
+
+            Command::FinishFlexRun => self.flex.add_break(),
+            Command::FinishFlexLayout => self.finish_paragraph()?,
+            Command::FinishLayout => self.finish_layout(true)?,
+
+            Command::SetStyle(style) => *self.style.to_mut() = style,
+            Command::SetAxes(axes) => {
+                if axes.secondary != self.ctx.axes.secondary {
+                    self.stack.set_axis(axes.secondary);
+                } else if axes.primary != self.ctx.axes.primary {
+                    self.flex.set_axis(axes.primary);
+                }
+
+                self.ctx.axes = axes;
             }
         }
 
@@ -84,109 +119,45 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
         Ok(self.stack.finish())
     }
 
-    /// Layout a function.
-    fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
-        // Finish the current flex layout on a copy to find out how
-        // much space would be remaining if we finished.
-
-        let mut lookahead_stack = self.stack.clone();
-        let layouts = self.flex.clone().finish()?;
-        lookahead_stack.add_many(layouts)?;
-        let remaining = lookahead_stack.remaining();
-
-        let mut ctx = self.ctx;
-        ctx.style = &self.style;
-        ctx.flow = Flow::Vertical;
-        ctx.shrink_to_fit = true;
-        ctx.space.dimensions = remaining;
-        ctx.space.padding = SizeBox::zero();
-        if let Some(space) = ctx.followup_spaces.as_mut() {
-            *space = space.usable_space();
-        }
-
-        let commands = func.body.val.layout(ctx)?;
-
-        for command in commands {
-            match command {
-                Command::LayoutTree(tree) => self.layout(tree)?,
-
-                Command::Add(layout) => {
-                    self.finish_flex()?;
-                    self.stack.add(layout)?;
-                    self.set_newline = true;
-                    self.start_new_flex();
-                }
-
-                Command::AddMany(layouts) => {
-                    self.finish_flex()?;
-                    self.stack.add_many(layouts)?;
-                    self.set_newline = true;
-                    self.start_new_flex();
-                }
-
-                Command::AddFlex(layout) => self.flex.add(layout),
-
-                Command::SetAlignment(alignment) => {
-                    self.finish_flex()?;
-                    self.alignment = alignment;
-                    self.start_new_flex();
-                }
-
-                Command::SetStyle(style) => *self.style.to_mut() = style,
-
-                Command::FinishLayout => {
-                    self.finish_flex()?;
-                    self.stack.finish_layout(true);
-                    self.start_new_flex();
-                }
-
-                Command::FinishFlexRun => self.flex.add_break(),
-            }
-        }
-
+    /// Finish the current stack layout.
+    fn finish_layout(&mut self, include_empty: bool) -> LayoutResult<()> {
+        self.finish_flex()?;
+        self.stack.finish_layout(include_empty);
+        self.start_new_flex();
         Ok(())
     }
 
-    /// Add text to the flex layout. If `glue` is true, the text will be a glue
-    /// part in the flex layouter. For details, see [`FlexLayouter`].
-    fn layout_text(&mut self, text: &str) -> LayoutResult<Layout> {
-        let ctx = TextContext {
-            loader: &self.ctx.loader,
-            style: &self.style,
-        };
-
-        layout_text(text, ctx)
+    /// Finish the current flex layout and add space after it.
+    fn finish_paragraph(&mut self) -> LayoutResult<()> {
+        self.finish_flex()?;
+        self.stack.add_space(paragraph_spacing(&self.style));
+        self.start_new_flex();
+        Ok(())
     }
 
     /// Finish the current flex layout and add it the stack.
     fn finish_flex(&mut self) -> LayoutResult<()> {
-        if self.flex.is_empty() {
-            return Ok(());
+        if !self.flex.is_empty() {
+            let layouts = self.flex.finish()?;
+            self.stack.add_multiple(layouts)?;
         }
-
-        let layouts = self.flex.finish()?;
-        self.stack.add_many(layouts)?;
-
         Ok(())
     }
 
     /// Start a new flex layout.
     fn start_new_flex(&mut self) {
-        let mut ctx = self.flex.ctx();
-        ctx.space.dimensions = self.stack.remaining();
-        ctx.alignment = self.alignment;
-        ctx.flex_spacing = flex_spacing(&self.style);
-
-        self.flex = FlexLayouter::new(ctx);
+        self.flex = FlexLayouter::new(FlexContext {
+            flex_spacing: flex_spacing(&self.style),
+            spaces: self.stack.remaining(true),
+            axes: self.ctx.axes,
+        });
     }
 }
 
 fn flex_spacing(style: &TextStyle) -> Size {
-    (style.line_spacing - 1.0) * Size::pt(style.font_size)
+    (style.line_spacing - 1.0) * style.font_size
 }
 
 fn paragraph_spacing(style: &TextStyle) -> Size {
-    let line_height = Size::pt(style.font_size);
-    let space_factor = style.line_spacing * style.paragraph_spacing - 1.0;
-    line_height * space_factor
+    (style.paragraph_spacing - 1.0) * style.font_size
 }

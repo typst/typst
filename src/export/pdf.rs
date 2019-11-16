@@ -249,8 +249,8 @@ impl<'d, W: Write> ExportProcess<'d, W> {
                 },
 
                 LayoutAction::SetFont(id, size) => {
-                    active_font = (self.font_remap[id], *size);
-                    text.tf(active_font.0 as u32 + 1, *size);
+                    active_font = (self.font_remap[id], size.to_pt());
+                    text.tf(active_font.0 as u32 + 1, size.to_pt());
                 }
 
                 LayoutAction::WriteText(string) => {

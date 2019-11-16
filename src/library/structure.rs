@@ -1,6 +1,28 @@
 use crate::func::prelude::*;
 use Command::*;
 
+/// ↩ `line.break`, `n`: Ends the current line.
+#[derive(Debug, PartialEq)]
+pub struct Linebreak;
+
+function! {
+    data: Linebreak,
+    parse: plain,
+    layout(_, _) { Ok(commands![FinishFlexRun]) }
+}
+
+/// ↕ `paragraph.break`: Ends the current paragraph.
+///
+/// This has the same effect as two subsequent newlines.
+#[derive(Debug, PartialEq)]
+pub struct Parbreak;
+
+function! {
+    data: Parbreak,
+    parse: plain,
+    layout(_, _) { Ok(commands![FinishFlexLayout]) }
+}
+
 /// 📜 `page.break`: Ends the current page.
 #[derive(Debug, PartialEq)]
 pub struct Pagebreak;
@@ -8,23 +30,7 @@ pub struct Pagebreak;
 function! {
     data: Pagebreak,
     parse: plain,
-
-    layout(_, _) {
-        Ok(commands![FinishLayout])
-    }
-}
-
-/// 🔙 `line.break`, `n`: Ends the current line.
-#[derive(Debug, PartialEq)]
-pub struct Linebreak;
-
-function! {
-    data: Linebreak,
-    parse: plain,
-
-    layout(_, _) {
-        Ok(commands![FinishFlexRun])
-    }
+    layout(_, _) { Ok(commands![FinishLayout]) }
 }
 
 /// 📐 `align`: Aligns content in different ways.
