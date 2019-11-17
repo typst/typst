@@ -1,6 +1,5 @@
 //! The core layouting engine.
 
-use std::borrow::Cow;
 use std::io::{self, Write};
 
 use smallvec::SmallVec;

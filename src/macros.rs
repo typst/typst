@@ -57,3 +57,10 @@ macro_rules! debug_display {
         }
     );
 }
+
+macro_rules! pub_use_mod {
+    ($name:ident) => {
+        mod $name;
+        pub use $name::*;
+    };
+}

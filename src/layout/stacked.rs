@@ -93,7 +93,7 @@ impl StackLayouter {
     }
 
     /// Update the axes in use by this stack layouter.
-    pub fn set_axes(&self, axes: LayoutAxes) {
+    pub fn set_axes(&mut self, axes: LayoutAxes) {
         if axes != self.ctx.axes {
             self.finish_boxes();
             self.usable = self.remains();
@@ -171,8 +171,8 @@ impl StackLayouter {
     }
 
     /// This layouter's context.
-    pub fn ctx(&self) -> StackContext {
-        self.ctx
+    pub fn ctx(&self) -> &StackContext {
+        &self.ctx
     }
 
     /// The (generalized) usable area of the current space.

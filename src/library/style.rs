@@ -23,17 +23,17 @@ macro_rules! stylefunc {
 
                 Ok(match &this.body {
                     Some(body) => commands![
-                        Command::SetStyle(new_style),
-                        Command::LayoutTree(body),
-                        Command::SetStyle(ctx.style.clone()),
+                        SetStyle(new_style),
+                        LayoutTree(body),
+                        SetStyle(ctx.style.clone()),
                     ],
-                    None => commands![Command::SetStyle(new_style)]
+                    None => commands![SetStyle(new_style)]
                 })
             }
         }
     );
 }
 
-stylefunc!(Italic, "💡 `italic`: Sets text in _italics_.");
-stylefunc!(Bold, "🧱 `bold`: Sets text in **bold**.");
-stylefunc!(Monospace, "👩‍💻 `mono`: Sets text in `monospace`.");
+stylefunc!(Italic, "`italic`: Sets text in _italics_.");
+stylefunc!(Bold, "`bold`: Sets text in **bold**.");
+stylefunc!(Monospace, "`mono`: Sets text in `monospace`.");

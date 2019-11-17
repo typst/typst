@@ -20,6 +20,7 @@ pub mod prelude {
     pub use crate::size::{Size, Size2D, SizeBox};
     pub use crate::style::{PageStyle, TextStyle};
     pub use super::helpers::*;
+    pub use Command::*;
 }
 
 /// Typesetting function types.
@@ -92,6 +93,9 @@ pub enum Command<'a> {
 
     Add(Layout),
     AddMultiple(MultiLayout),
+
+    AddPrimarySpace(Size),
+    AddSecondarySpace(Size),
 
     FinishRun,
     FinishBox,

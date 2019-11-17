@@ -67,7 +67,7 @@ impl FlexLayouter {
     /// Create a new flex layouter.
     pub fn new(ctx: FlexContext) -> FlexLayouter {
         let stack = StackLayouter::new(StackContext {
-            spaces: ctx.spaces,
+            spaces: ctx.spaces.clone(),
             axes: ctx.axes,
             shrink_to_fit: ctx.shrink_to_fit,
         });
@@ -118,7 +118,7 @@ impl FlexLayouter {
     }
 
     /// Update the axes in use by this flex layouter.
-    pub fn set_axes(&self, axes: LayoutAxes) {
+    pub fn set_axes(&mut self, axes: LayoutAxes) {
         self.units.push(FlexUnit::SetAxes(axes));
     }
 
@@ -246,7 +246,7 @@ impl FlexLayouter {
         Ok(())
     }
 
-    fn finish_aligned_run(&mut self) -> LayoutResult<()> {
+    fn finish_aligned_run(&mut self) {
         let anchor = self.ctx.axes.primary.anchor(self.merged_dimensions.x);
         let factor = if self.ctx.axes.primary.axis.is_positive() { 1 } else { -1 };
 
@@ -259,13 +259,11 @@ impl FlexLayouter {
 
         self.merged_dimensions.y = crate::size::max(self.merged_dimensions.y, self.run.size.y);
         self.run.size = Size2D::zero();
-
-        Ok(())
     }
 
     /// This layouter's context.
-    pub fn ctx(&self) -> FlexContext {
-        self.ctx
+    pub fn ctx(&self) -> &FlexContext {
+        &self.ctx
     }
 
     pub fn remaining(&self) -> LayoutResult<LayoutSpaces> {

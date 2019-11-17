@@ -2,22 +2,23 @@
 
 use crate::func::Scope;
 
-mod structure;
-mod style;
-
-pub use structure::*;
-pub use style::*;
+pub_use_mod!(boxed);
+pub_use_mod!(axes);
+pub_use_mod!(spacing);
+pub_use_mod!(style);
 
 /// Create a scope with all standard functions.
 pub fn std() -> Scope {
     let mut std = Scope::new();
 
-    std.add::<Align>("align");
     std.add::<Boxed>("box");
 
-    std.add::<Linebreak>("line.break");
-    std.add::<Linebreak>("n");
-    std.add::<Pagebreak>("page.break");
+    std.add::<Align>("align");
+
+    std.add::<LineBreak>("n");
+    std.add::<LineBreak>("line.break");
+    std.add::<ParagraphBreak>("paragraph.break");
+    std.add::<PageBreak>("page.break");
 
     std.add::<HorizontalSpace>("h");
     std.add::<VerticalSpace>("v");

@@ -11,21 +11,21 @@ pub fn layout_tree(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<MultiL
 struct TreeLayouter<'a, 'p> {
     ctx: LayoutContext<'a, 'p>,
     flex: FlexLayouter,
-    style: Cow<'a, TextStyle>,
+    style: TextStyle,
 }
 
 impl<'a, 'p> TreeLayouter<'a, 'p> {
     /// Create a new layouter.
     fn new(ctx: LayoutContext<'a, 'p>) -> TreeLayouter<'a, 'p> {
         TreeLayouter {
-            ctx,
             flex: FlexLayouter::new(FlexContext {
                 flex_spacing: flex_spacing(&ctx.style),
-                spaces: ctx.spaces,
+                spaces: ctx.spaces.clone(),
                 axes: ctx.axes,
                 shrink_to_fit: ctx.shrink_to_fit,
             }),
-            style: Cow::Borrowed(ctx.style),
+            style: ctx.style.clone(),
+            ctx,
         }
     }
 
@@ -52,9 +52,9 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                     }
                 }
 
-                Node::ToggleItalics => self.style.to_mut().toggle_class(FontClass::Italic),
-                Node::ToggleBold => self.style.to_mut().toggle_class(FontClass::Bold),
-                Node::ToggleMonospace => self.style.to_mut().toggle_class(FontClass::Monospace),
+                Node::ToggleItalics => self.style.toggle_class(FontClass::Italic),
+                Node::ToggleBold => self.style.toggle_class(FontClass::Bold),
+                Node::ToggleMonospace => self.style.toggle_class(FontClass::Monospace),
 
                 Node::Func(func) => self.layout_func(func)?,
             }
@@ -85,13 +85,16 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             Command::Add(layout) => self.flex.add(layout),
             Command::AddMultiple(layouts) => self.flex.add_multiple(layouts),
 
+            Command::AddPrimarySpace(space) => self.flex.add_primary_space(space),
+            Command::AddSecondarySpace(space) => self.flex.add_secondary_space(space)?,
+
             Command::FinishRun => self.flex.add_run_break(),
             Command::FinishBox => self.flex.finish_box()?,
             Command::FinishLayout => self.flex.finish_layout(true)?,
 
             Command::BreakParagraph => self.break_paragraph()?,
 
-            Command::SetStyle(style) => *self.style.to_mut() = style,
+            Command::SetStyle(style) => self.style = style,
             Command::SetAxes(axes) => {
                 self.flex.set_axes(axes);
                 self.ctx.axes = axes;

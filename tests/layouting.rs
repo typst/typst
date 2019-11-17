@@ -77,7 +77,7 @@ fn test(name: &str, src: &str) {
 
     // Make run warm.
     #[cfg(not(debug_assertions))] let warmup_start = Instant::now();
-    typesetter.typeset(&src).unwrap();
+    #[cfg(not(debug_assertions))] typesetter.typeset(&src).unwrap();
     #[cfg(not(debug_assertions))] let warmup_end = Instant::now();
 
     // Layout into box layout.
