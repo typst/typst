@@ -139,6 +139,7 @@ impl FlexLayouter {
             match unit {
                 FlexUnit::Boxed(boxed) => self.layout_box(boxed)?,
                 FlexUnit::Space(space) => {
+                    self.layout_space();
                     self.space = Some(space);
                 }
 
@@ -201,17 +202,21 @@ impl FlexLayouter {
             self.finish_run()?;
         }
 
-        if let Some(space) = self.space.take() {
-            if self.run.size.x > Size::zero() && self.run.size.x + space <= self.usable {
-                self.run.size.x += space;
-            }
-        }
+        self.layout_space();
 
         self.run.content.push((self.run.size.x, boxed));
         self.run.size.x += size.x;
         self.run.size.y = crate::size::max(self.run.size.y, size.y);
 
         Ok(())
+    }
+
+    fn layout_space(&mut self) {
+        if let Some(space) = self.space.take() {
+            if self.run.size.x > Size::zero() && self.run.size.x + space <= self.usable {
+                self.run.size.x += space;
+            }
+        }
     }
 
     fn layout_set_axes(&mut self, axes: LayoutAxes) {
