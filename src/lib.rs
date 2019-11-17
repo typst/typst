@@ -102,12 +102,12 @@ impl<'p> Typesetter<'p> {
                 spaces: smallvec![LayoutSpace {
                     dimensions: self.page_style.dimensions,
                     padding: self.page_style.margins,
-                    shrink_to_fit: false,
                 }],
                 axes: LayoutAxes {
                     primary: AlignedAxis::new(Axis::LeftToRight, Alignment::Origin),
                     secondary: AlignedAxis::new(Axis::TopToBottom, Alignment::Origin),
                 },
+                shrink_to_fit: false,
             },
         )?)
     }

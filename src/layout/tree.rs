@@ -10,7 +10,6 @@ pub fn layout_tree(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<MultiL
 #[derive(Debug, Clone)]
 struct TreeLayouter<'a, 'p> {
     ctx: LayoutContext<'a, 'p>,
-    stack: StackLayouter,
     flex: FlexLayouter,
     style: Cow<'a, TextStyle>,
 }
@@ -20,14 +19,11 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     fn new(ctx: LayoutContext<'a, 'p>) -> TreeLayouter<'a, 'p> {
         TreeLayouter {
             ctx,
-            stack: StackLayouter::new(StackContext {
-                spaces: ctx.spaces,
-                axes: ctx.axes,
-            }),
             flex: FlexLayouter::new(FlexContext {
                 flex_spacing: flex_spacing(&ctx.style),
-                spaces: ctx.spaces.iter().map(|space| space.usable_space(true)).collect(),
+                spaces: ctx.spaces,
                 axes: ctx.axes,
+                shrink_to_fit: ctx.shrink_to_fit,
             }),
             style: Cow::Borrowed(ctx.style),
         }
@@ -45,13 +41,14 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                 }
 
                 Node::Space => {
-                    if !self.flex.is_empty() {
-                        self.flex.add_space(self.style.word_spacing * self.style.font_size);
+                    if !self.flex.box_is_empty() {
+                        let space = self.style.word_spacing * self.style.font_size;
+                        self.flex.add_primary_space(space);
                     }
                 }
                 Node::Newline => {
-                    if !self.flex.is_empty() {
-                        self.finish_paragraph()?;
+                    if !self.flex.box_is_empty() {
+                        self.break_paragraph()?;
                     }
                 }
 
@@ -68,15 +65,9 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
     /// Layout a function.
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
-        // Finish the current flex layout on a copy to find out how
-        // much space would be remaining if we finished.
-        let mut lookahead = self.stack.clone();
-        lookahead.add_multiple(self.flex.clone().finish()?)?;
-        let spaces = lookahead.remaining(true);
-
         let commands = func.body.val.layout(LayoutContext {
             style: &self.style,
-            spaces,
+            spaces: self.flex.remaining()?,
             .. self.ctx
         })?;
 
@@ -94,16 +85,15 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             Command::Add(layout) => self.flex.add(layout),
             Command::AddMultiple(layouts) => self.flex.add_multiple(layouts),
 
-            Command::BreakFlex => self.flex.add_break(),
-            Command::FinishFlex => self.finish_paragraph()?,
-            Command::BreakStack => self.finish_layout()?,
+            Command::FinishRun => self.flex.add_run_break(),
+            Command::FinishBox => self.flex.finish_box()?,
+            Command::FinishLayout => self.flex.finish_layout(true)?,
+
+            Command::BreakParagraph => self.break_paragraph()?,
 
             Command::SetStyle(style) => *self.style.to_mut() = style,
             Command::SetAxes(axes) => {
                 self.flex.set_axes(axes);
-                if axes.secondary != self.ctx.axes.secondary {
-                    self.stack.set_axes(axes);
-                }
                 self.ctx.axes = axes;
             }
         }
@@ -113,42 +103,14 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
     /// Finish the layout.
     fn finish(mut self) -> LayoutResult<MultiLayout> {
-        self.finish_flex()?;
-        Ok(self.stack.finish())
-    }
-
-    /// Finish the current stack layout with a hard break.
-    fn finish_layout(&mut self) -> LayoutResult<()> {
-        self.finish_flex()?;
-        self.stack.add_break(true);
-        self.start_new_flex();
-        Ok(())
+        self.flex.finish()
     }
 
     /// Finish the current flex layout and add space after it.
-    fn finish_paragraph(&mut self) -> LayoutResult<()> {
-        self.finish_flex()?;
-        self.stack.add_space(paragraph_spacing(&self.style));
-        self.start_new_flex();
+    fn break_paragraph(&mut self) -> LayoutResult<()> {
+        self.flex.finish_box()?;
+        self.flex.add_secondary_space(paragraph_spacing(&self.style))?;
         Ok(())
-    }
-
-    /// Finish the current flex layout and add it the stack.
-    fn finish_flex(&mut self) -> LayoutResult<()> {
-        if !self.flex.is_empty() {
-            let layouts = self.flex.finish()?;
-            self.stack.add_multiple(layouts)?;
-        }
-        Ok(())
-    }
-
-    /// Start a new flex layout.
-    fn start_new_flex(&mut self) {
-        self.flex = FlexLayouter::new(FlexContext {
-            flex_spacing: flex_spacing(&self.style),
-            spaces: self.stack.remaining(true),
-            axes: self.ctx.axes,
-        });
     }
 }
 

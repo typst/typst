@@ -27,6 +27,7 @@ pub struct StackLayouter {
 pub struct StackContext {
     pub spaces: LayoutSpaces,
     pub axes: LayoutAxes,
+    pub shrink_to_fit: bool,
 }
 
 impl StackLayouter {
@@ -61,7 +62,7 @@ impl StackLayouter {
                 Err(LayoutError::NotEnoughSpace("cannot fit box into stack"))?;
             }
 
-            self.add_break(true);
+            self.finish_layout(true);
             new_dimensions = merge_sizes(self.dimensions, size);
         }
 
@@ -85,16 +86,20 @@ impl StackLayouter {
     /// Add space after the last layout.
     pub fn add_space(&mut self, space: Size) {
         if self.dimensions.y + space > self.usable.y {
-            self.add_break(false);
+            self.finish_layout(false);
         } else {
             self.dimensions.y += space;
         }
     }
 
-    /// Finish the current layout and start a new one in a new space.
-    pub fn add_break(&mut self, hard: bool) {
-        self.finish_layout();
-        self.start_new_space(hard);
+    /// Update the axes in use by this stack layouter.
+    pub fn set_axes(&self, axes: LayoutAxes) {
+        if axes != self.ctx.axes {
+            self.finish_boxes();
+            self.usable = self.remains();
+            self.dimensions = Size2D::zero();
+            self.ctx.axes = axes;
+        }
     }
 
     /// Finish the layouting.
@@ -103,19 +108,20 @@ impl StackLayouter {
     /// Nevertheless, it should not be used further.
     pub fn finish(&mut self) -> MultiLayout {
         if self.hard || !self.boxes.is_empty() {
-            self.finish_layout();
+            self.finish_layout(false);
         }
         std::mem::replace(&mut self.layouts, MultiLayout::new())
     }
 
-    fn finish_layout(&mut self) {
+    /// Finish the current layout and start a new one in a new space.
+    pub fn finish_layout(&mut self, hard: bool) {
         self.finish_boxes();
 
         let space = self.ctx.spaces[self.active_space];
         let actions = std::mem::replace(&mut self.merged_actions, LayoutActionList::new());
 
         self.layouts.add(Layout {
-            dimensions: if space.shrink_to_fit {
+            dimensions: if self.ctx.shrink_to_fit {
                 self.merged_dimensions.padded(space.padding)
             } else {
                 space.dimensions
@@ -123,6 +129,16 @@ impl StackLayouter {
             actions: actions.into_vec(),
             debug_render: true,
         });
+
+        let next_space = self.next_space();
+        let space = self.ctx.spaces[next_space];
+
+        self.merged_dimensions = Size2D::zero();
+
+        self.usable = self.ctx.axes.generalize(space.usable());
+        self.dimensions = Size2D::zero();
+        self.active_space = next_space;
+        self.hard = hard;
     }
 
     /// Compose all cached boxes into a layout.
@@ -154,29 +170,6 @@ impl StackLayouter {
         self.merged_dimensions = merge_sizes(self.merged_dimensions, dimensions);
     }
 
-    /// Set up layouting in the next space.
-    fn start_new_space(&mut self, hard: bool) {
-        let next_space = self.next_space();
-        let space = self.ctx.spaces[next_space];
-
-        self.merged_dimensions = Size2D::zero();
-
-        self.usable = self.ctx.axes.generalize(space.usable());
-        self.dimensions = Size2D::zero();
-        self.active_space = next_space;
-        self.hard = hard;
-    }
-
-    /// Update the axes in use by this stack layouter.
-    pub fn set_axes(&self, axes: LayoutAxes) {
-        if axes != self.ctx.axes {
-            self.finish_boxes();
-            self.usable = self.remains();
-            self.dimensions = Size2D::zero();
-            self.ctx.axes = axes;
-        }
-    }
-
     /// This layouter's context.
     pub fn ctx(&self) -> StackContext {
         self.ctx
@@ -187,16 +180,15 @@ impl StackLayouter {
         self.usable
     }
 
-    /// The remaining spaces for new layouts in the current space.
-    pub fn remaining(&self, shrink_to_fit: bool) -> LayoutSpaces {
+    /// The remaining usable spaces for new layouts.
+    pub fn remaining(&self) -> LayoutSpaces {
         let mut spaces = smallvec![LayoutSpace {
             dimensions: self.ctx.axes.specialize(self.remains()),
             padding: SizeBox::zero(),
-            shrink_to_fit,
         }];
 
         for space in &self.ctx.spaces[self.next_space()..] {
-            spaces.push(space.usable_space(shrink_to_fit));
+            spaces.push(space.usable_space());
         }
 
         spaces

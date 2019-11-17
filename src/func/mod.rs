@@ -93,9 +93,11 @@ pub enum Command<'a> {
     Add(Layout),
     AddMultiple(MultiLayout),
 
-    BreakFlex,
-    FinishFlex,
-    BreakStack,
+    FinishRun,
+    FinishBox,
+    FinishLayout,
+
+    BreakParagraph,
 
     SetStyle(TextStyle),
     SetAxes(LayoutAxes),

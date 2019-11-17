@@ -150,6 +150,10 @@ pub struct LayoutContext<'a, 'p> {
 
     /// The axes to flow on.
     pub axes: LayoutAxes,
+
+    /// Whether to shrink the spaces to fit the content or to keep
+    /// the original dimensions.
+    pub shrink_to_fit: bool,
 }
 
 /// A possibly stack-allocated vector of layout spaces.
@@ -163,10 +167,6 @@ pub struct LayoutSpace {
 
     /// Padding that should be respected on each side.
     pub padding: SizeBox,
-
-    /// Whether to shrink the space to fit the content or to keep
-    /// the original dimensions.
-    pub shrink_to_fit: bool,
 }
 
 impl LayoutSpace {
@@ -182,11 +182,10 @@ impl LayoutSpace {
     }
 
     /// A layout space without padding and dimensions reduced by the padding.
-    pub fn usable_space(&self, shrink_to_fit: bool) -> LayoutSpace {
+    pub fn usable_space(&self) -> LayoutSpace {
         LayoutSpace {
             dimensions: self.usable(),
             padding: SizeBox::zero(),
-            shrink_to_fit,
         }
     }
 }
