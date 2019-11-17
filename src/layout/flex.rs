@@ -25,8 +25,7 @@ pub struct FlexLayouter {
 
     merged_actions: LayoutActionList,
     merged_dimensions: Size2D,
-    max_left: Size,
-    max_right: Size,
+    max_extent: Size,
 
     usable: Size,
     run: FlexRun,
@@ -59,7 +58,7 @@ enum FlexUnit {
 
 #[derive(Debug, Clone)]
 struct FlexRun {
-    content: Vec<(Size, Size, Layout)>,
+    content: Vec<(Size, Layout)>,
     size: Size2D,
 }
 
@@ -80,8 +79,7 @@ impl FlexLayouter {
 
             merged_actions: LayoutActionList::new(),
             merged_dimensions: Size2D::with_x(usable),
-            max_left: Size::zero(),
-            max_right: usable,
+            max_extent: Size::zero(),
 
             usable,
             run: FlexRun { content: vec![], size: Size2D::zero() },
@@ -179,6 +177,7 @@ impl FlexLayouter {
 
         if new_run_size > self.usable {
             self.space = None;
+            self.finish_run()?;
 
             while size.x > self.usable {
                 if self.stack.in_last_space() {
@@ -188,15 +187,12 @@ impl FlexLayouter {
                 self.stack.finish_layout(true);
                 self.usable = self.stack.usable().x;
             }
-
-            self.finish_run()?;
         }
 
         self.layout_space();
 
         let offset = self.run.size.x;
-        let anchor = self.ctx.axes.primary.anchor(size.x);
-        self.run.content.push((offset, anchor, boxed));
+        self.run.content.push((offset, boxed));
 
         self.run.size.x += size.x;
         self.run.size.y = crate::size::max(self.run.size.y, size.y);
@@ -215,21 +211,34 @@ impl FlexLayouter {
     fn layout_set_axes(&mut self, axes: LayoutAxes) {
         if axes.primary != self.ctx.axes.primary {
             self.finish_aligned_run();
+
             self.usable = match axes.primary.alignment {
-                Alignment::Origin => self.max_right,
-                Alignment::Center => self.max_right - self.max_left,
-                Alignment::End => self.merged_dimensions.x - self.max_left,
+                Alignment::Origin =>
+                    if self.max_extent == Size::zero() { self.usable } else { Size::zero() },
+                Alignment::Center => crate::size::max(
+                    self.merged_dimensions.x - 2 * self.max_extent,
+                    Size::zero()
+                ),
+                Alignment::End => self.merged_dimensions.x - self.max_extent,
             };
         }
 
         if axes.secondary != self.ctx.axes.secondary {
             self.stack.set_axes(axes);
         }
+
+        self.ctx.axes = axes;
     }
 
     /// Finish the current flex run.
     fn finish_run(&mut self) -> LayoutResult<()> {
         self.finish_aligned_run();
+
+        if self.merged_dimensions.y == Size::zero() {
+            return Ok(());
+        }
+
+        self.merged_dimensions.y += self.ctx.flex_spacing;
 
         let actions = std::mem::replace(&mut self.merged_actions, LayoutActionList::new());
         self.stack.add(Layout {
@@ -239,19 +248,25 @@ impl FlexLayouter {
         })?;
 
         self.merged_dimensions.y = Size::zero();
-        self.max_left = Size::zero();
-        self.max_right = self.merged_dimensions.x;
+        self.max_extent = Size::zero();
         self.usable = self.merged_dimensions.x;
 
         Ok(())
     }
 
     fn finish_aligned_run(&mut self) {
-        let anchor = self.ctx.axes.primary.anchor(self.merged_dimensions.x);
-        let factor = if self.ctx.axes.primary.axis.is_positive() { 1 } else { -1 };
+        if self.run.content.is_empty() {
+            return;
+        }
 
-        for (offset, layout_anchor, layout) in self.run.content.drain(..) {
-            let general_position = Size2D::with_x(anchor - layout_anchor + factor * offset);
+        let factor = if self.ctx.axes.primary.axis.is_positive() { 1 } else { -1 };
+        let anchor = self.ctx.axes.primary.anchor(self.merged_dimensions.x)
+                     - self.ctx.axes.primary.anchor(self.run.size.x);
+
+        self.max_extent = crate::size::max(self.max_extent, anchor + factor * self.run.size.x);
+
+        for (offset, layout) in self.run.content.drain(..) {
+            let general_position = Size2D::with_x(anchor + factor * offset);
             let position = self.ctx.axes.specialize(general_position);
 
             self.merged_actions.add_layout(position, layout);
@@ -274,6 +289,10 @@ impl FlexLayouter {
 
     /// Whether this layouter contains any items.
     pub fn box_is_empty(&self) -> bool {
-        self.units.is_empty()
+        !self.units.iter().any(|unit| matches!(unit, FlexUnit::Boxed(_)))
+    }
+
+    pub fn last_is_space(&self) -> bool {
+        matches!(self.units.last(), Some(FlexUnit::Space(_)))
     }
 }

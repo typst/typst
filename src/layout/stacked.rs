@@ -58,7 +58,7 @@ impl StackLayouter {
 
         // Search for a suitable space to insert the box.
         while !self.usable.fits(new_dimensions) {
-            if self.in_last_space() {
+            if self.boxes.is_empty() && self.in_last_space() {
                 Err(LayoutError::NotEnoughSpace("cannot fit box into stack"))?;
             }
 
@@ -70,7 +70,7 @@ impl StackLayouter {
         let anchor = self.ctx.axes.anchor(size);
         self.boxes.push((offset, anchor, layout));
 
-        self.dimensions.y += size.y;
+        self.dimensions = new_dimensions;
 
         Ok(())
     }
@@ -216,8 +216,8 @@ fn merge_sizes(a: Size2D, b: Size2D) -> Size2D {
 }
 
 fn needs_expansion(axis: AlignedAxis) -> bool {
-    match (axis.axis.is_positive(), axis.alignment) {
-        (true, Alignment::Origin) | (false, Alignment::End) => false,
-        _ => true,
-    }
+    !matches!(
+        (axis.axis.is_positive(), axis.alignment),
+        (true, Alignment::Origin) | (false, Alignment::End)
+    )
 }

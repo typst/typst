@@ -41,7 +41,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                 }
 
                 Node::Space => {
-                    if !self.flex.box_is_empty() {
+                    if !self.flex.box_is_empty() && !self.flex.last_is_space() {
                         let space = self.style.word_spacing * self.style.font_size;
                         self.flex.add_primary_space(space);
                     }
@@ -68,6 +68,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
         let commands = func.body.val.layout(LayoutContext {
             style: &self.style,
             spaces: self.flex.remaining()?,
+            shrink_to_fit: true,
             .. self.ctx
         })?;
 

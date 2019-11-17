@@ -40,6 +40,16 @@ macro_rules! error_type {
     };
 }
 
+/// Shorthand for checking whether an expression matches a pattern.
+macro_rules! matches {
+    ($expr:expr, $($pattern:tt)*) => {
+        match $expr {
+            $($pattern)* => true,
+            _ => false,
+        }
+    };
+}
+
 /// Create a `Debug` implementation from a `Display` implementation.
 macro_rules! debug_display {
     ($type:ident) => (
@@ -58,6 +68,7 @@ macro_rules! debug_display {
     );
 }
 
+/// Declare a module and reexport all its contents.
 macro_rules! pub_use_mod {
     ($name:ident) => {
         mod $name;
