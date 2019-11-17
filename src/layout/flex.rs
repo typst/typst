@@ -48,6 +48,7 @@ enum FlexUnit {
     Space(Size),
     /// A forced break of the current flex run.
     Break,
+    SetAxes(LayoutAxes),
 }
 
 #[derive(Debug, Clone)]
@@ -97,6 +98,11 @@ impl FlexLayouter {
         self.units.push(FlexUnit::Break);
     }
 
+    /// Update the axes in use by this flex layouter.
+    pub fn set_axes(&self, axes: LayoutAxes) {
+        self.units.push(FlexUnit::SetAxes(axes));
+    }
+
     /// Compute the justified layout.
     ///
     /// The layouter is not consumed by this to prevent ownership problems
@@ -117,6 +123,8 @@ impl FlexLayouter {
                     self.space = None;
                     self.finish_run()?;
                 },
+
+                FlexUnit::SetAxes(axes) => self.layout_set_axes(axes),
             }
         }
 
@@ -162,6 +170,10 @@ impl FlexLayouter {
         Ok(())
     }
 
+    fn layout_set_axes(&mut self, axes: LayoutAxes) {
+        // TODO
+    }
+
     /// Finish the current flex run.
     fn finish_run(&mut self) -> LayoutResult<()> {
         let mut actions = LayoutActionList::new();
@@ -181,11 +193,6 @@ impl FlexLayouter {
         self.run.size = Size2D::zero();
 
         Ok(())
-    }
-
-    /// Update the axes in use by this flex layouter.
-    pub fn set_axes(&self, axes: LayoutAxes) {
-
     }
 
     /// This layouter's context.

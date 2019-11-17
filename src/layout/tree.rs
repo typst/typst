@@ -100,8 +100,10 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
             Command::SetStyle(style) => *self.style.to_mut() = style,
             Command::SetAxes(axes) => {
-                self.stack.set_axes(axes);
                 self.flex.set_axes(axes);
+                if axes.secondary != self.ctx.axes.secondary {
+                    self.stack.set_axes(axes);
+                }
                 self.ctx.axes = axes;
             }
         }
