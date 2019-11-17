@@ -202,20 +202,20 @@ impl LayoutAxes {
     /// the layouting axes, that is:
     /// - The x coordinate describes the primary axis instead of the horizontal one.
     /// - The y coordinate describes the secondary axis instead of the vertical one.
-    pub fn generalize(&self, space: Size2D) -> Size2D {
+    pub fn generalize(&self, size: Size2D) -> Size2D {
         if self.primary.axis.is_horizontal() {
-            space
+            size
         } else {
-            Size2D { x: space.y, y: space.x }
+            Size2D { x: size.y, y: size.x }
         }
     }
 
     /// Returns the specialized version of this generalized Size2D.
     /// (Inverse to `generalized`).
-    pub fn specialize(&self, space: Size2D) -> Size2D {
+    pub fn specialize(&self, size: Size2D) -> Size2D {
         // In fact, generalized is its own inverse. For reasons of clarity
         // at the call site, we still have this second function.
-        self.generalize(space)
+        self.generalize(size)
     }
 
     /// The position of the anchor specified by the two aligned axes

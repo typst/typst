@@ -150,7 +150,7 @@ impl StackLayouter {
         let factor = if self.ctx.axes.secondary.axis.is_positive() { 1 } else { -1 };
 
         for (offset, layout_anchor, layout) in self.boxes.drain(..) {
-            let general_position = anchor - layout_anchor + Size2D::with_y(offset * factor);
+            let general_position = anchor - layout_anchor + Size2D::with_y(factor * offset);
             let position = start + self.ctx.axes.specialize(general_position);
 
             self.merged_actions.add_layout(position, layout);

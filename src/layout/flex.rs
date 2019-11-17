@@ -23,6 +23,11 @@ pub struct FlexLayouter {
     stack: StackLayouter,
     units: Vec<FlexUnit>,
 
+    merged_actions: LayoutActionList,
+    merged_dimensions: Size2D,
+    max_left: Size,
+    max_right: Size,
+
     usable: Size,
     run: FlexRun,
     space: Option<Size>,
@@ -54,7 +59,7 @@ enum FlexUnit {
 
 #[derive(Debug, Clone)]
 struct FlexRun {
-    content: Vec<(Size, Layout)>,
+    content: Vec<(Size, Size, Layout)>,
     size: Size2D,
 }
 
@@ -67,12 +72,18 @@ impl FlexLayouter {
             shrink_to_fit: ctx.shrink_to_fit,
         });
 
+        let usable = stack.usable().x;
         FlexLayouter {
             ctx,
             units: vec![],
             stack,
 
-            usable: stack.usable().x,
+            merged_actions: LayoutActionList::new(),
+            merged_dimensions: Size2D::with_x(usable),
+            max_left: Size::zero(),
+            max_right: usable,
+
+            usable,
             run: FlexRun { content: vec![], size: Size2D::zero() },
             space: None,
         }
@@ -158,27 +169,6 @@ impl FlexLayouter {
         Ok(())
     }
 
-    /// Finish the current flex run.
-    fn finish_run(&mut self) -> LayoutResult<()> {
-        let mut actions = LayoutActionList::new();
-        for (x, layout) in self.run.content.drain(..) {
-            let position = self.ctx.axes.specialize(Size2D::with_x(x));
-            actions.add_layout(position, layout);
-        }
-
-        self.run.size.y += self.ctx.flex_spacing;
-
-        self.stack.add(Layout {
-            dimensions: self.ctx.axes.specialize(self.run.size),
-            actions: actions.into_vec(),
-            debug_render: false,
-        })?;
-
-        self.run.size = Size2D::zero();
-
-        Ok(())
-    }
-
     /// Layout a content box into the current flex run or start a new run if
     /// it does not fit.
     fn layout_box(&mut self, boxed: Layout) -> LayoutResult<()> {
@@ -204,7 +194,10 @@ impl FlexLayouter {
 
         self.layout_space();
 
-        self.run.content.push((self.run.size.x, boxed));
+        let offset = self.run.size.x;
+        let anchor = self.ctx.axes.primary.anchor(size.x);
+        self.run.content.push((offset, anchor, boxed));
+
         self.run.size.x += size.x;
         self.run.size.y = crate::size::max(self.run.size.y, size.y);
 
@@ -220,7 +213,54 @@ impl FlexLayouter {
     }
 
     fn layout_set_axes(&mut self, axes: LayoutAxes) {
-        // TODO
+        if axes.primary != self.ctx.axes.primary {
+            self.finish_aligned_run();
+            self.usable = match axes.primary.alignment {
+                Alignment::Origin => self.max_right,
+                Alignment::Center => self.max_right - self.max_left,
+                Alignment::End => self.merged_dimensions.x - self.max_left,
+            };
+        }
+
+        if axes.secondary != self.ctx.axes.secondary {
+            self.stack.set_axes(axes);
+        }
+    }
+
+    /// Finish the current flex run.
+    fn finish_run(&mut self) -> LayoutResult<()> {
+        self.finish_aligned_run();
+
+        let actions = std::mem::replace(&mut self.merged_actions, LayoutActionList::new());
+        self.stack.add(Layout {
+            dimensions: self.ctx.axes.specialize(self.merged_dimensions),
+            actions: actions.into_vec(),
+            debug_render: false,
+        })?;
+
+        self.merged_dimensions.y = Size::zero();
+        self.max_left = Size::zero();
+        self.max_right = self.merged_dimensions.x;
+        self.usable = self.merged_dimensions.x;
+
+        Ok(())
+    }
+
+    fn finish_aligned_run(&mut self) -> LayoutResult<()> {
+        let anchor = self.ctx.axes.primary.anchor(self.merged_dimensions.x);
+        let factor = if self.ctx.axes.primary.axis.is_positive() { 1 } else { -1 };
+
+        for (offset, layout_anchor, layout) in self.run.content.drain(..) {
+            let general_position = Size2D::with_x(anchor - layout_anchor + factor * offset);
+            let position = self.ctx.axes.specialize(general_position);
+
+            self.merged_actions.add_layout(position, layout);
+        }
+
+        self.merged_dimensions.y = crate::size::max(self.merged_dimensions.y, self.run.size.y);
+        self.run.size = Size2D::zero();
+
+        Ok(())
     }
 
     /// This layouter's context.
