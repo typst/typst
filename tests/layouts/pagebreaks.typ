@@ -1,4 +1,6 @@
-{size:150pt x 200pt}
+[page.size: width=150pt, height=200pt]
+[page.margins: 0pt]
+
 {lorem:100}
 
 [page.break]

@@ -1,4 +1,5 @@
-{size:250pt x 500pt}
+[page.size: width=250pt, height=300pt]
+[page.margins: 10pt]
 
 _Emoji:_ Hello World! 🌍
 

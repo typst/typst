@@ -9,7 +9,7 @@ use toddle::Error as FontError;
 
 use crate::func::Command;
 use crate::size::{Size, Size2D, SizeBox};
-use crate::style::TextStyle;
+use crate::style::{PageStyle, TextStyle};
 use crate::syntax::{FuncCall, Node, SyntaxTree};
 
 mod actions;
@@ -131,9 +131,15 @@ pub struct LayoutContext<'a, 'p> {
     /// using [`layout_text`].
     pub loader: &'a SharedFontLoader<'p>,
 
+    /// Whether this layouting process handles the top-level pages.
+    pub top_level: bool,
+
     /// The style to set text with. This includes sizes and font classes
     /// which determine which font from the loaders selection is used.
-    pub style: &'a TextStyle,
+    pub text_style: &'a TextStyle,
+
+    /// The current size and margins of the top-level pages.
+    pub page_style: PageStyle,
 
     /// The spaces to layout in.
     pub spaces: LayoutSpaces,
@@ -281,6 +287,8 @@ pub enum Alignment {
 
 /// The error type for layouting.
 pub enum LayoutError {
+    /// An action is unallowed in the active context.
+    Unallowed(&'static str),
     /// There is not enough space to add an item.
     NotEnoughSpace(&'static str),
     /// There was no suitable font for the given character.
@@ -295,6 +303,7 @@ pub type LayoutResult<T> = Result<T, LayoutError>;
 error_type! {
     err: LayoutError,
     show: f => match err {
+        LayoutError::Unallowed(desc) => write!(f, "unallowed: {}", desc),
         LayoutError::NotEnoughSpace(desc) => write!(f, "not enough space: {}", desc),
         LayoutError::NoSuitableFont(c) => write!(f, "no suitable font for '{}'", c),
         LayoutError::Font(err) => write!(f, "font error: {}", err),

@@ -96,9 +96,21 @@ impl StackLayouter {
     pub fn set_axes(&mut self, axes: LayoutAxes) {
         if axes != self.ctx.axes {
             self.finish_boxes();
+            self.ctx.axes = axes;
             self.usable = self.remains();
             self.dimensions = Size2D::zero();
-            self.ctx.axes = axes;
+        }
+    }
+
+    /// Update the followup space to be used by this flex layouter.
+    pub fn set_spaces(&mut self, spaces: LayoutSpaces, replace_empty: bool) {
+        if replace_empty && self.space_is_empty() {
+            self.usable = self.ctx.axes.generalize(spaces[0].usable());
+            self.active_space = 0;
+            self.ctx.spaces = spaces;
+        } else {
+            self.ctx.spaces.truncate(self.active_space + 1);
+            self.ctx.spaces.extend(spaces);
         }
     }
 
@@ -143,6 +155,10 @@ impl StackLayouter {
 
     /// Compose all cached boxes into a layout.
     fn finish_boxes(&mut self) {
+        if self.boxes.is_empty() {
+            return;
+        }
+
         let space = self.ctx.spaces[self.active_space];
         let start = space.start() + Size2D::with_y(self.merged_dimensions.y);
 
@@ -170,11 +186,6 @@ impl StackLayouter {
         self.merged_dimensions = merge_sizes(self.merged_dimensions, dimensions);
     }
 
-    /// This layouter's context.
-    pub fn ctx(&self) -> &StackContext {
-        &self.ctx
-    }
-
     /// The (generalized) usable area of the current space.
     pub fn usable(&self) -> Size2D {
         self.usable
@@ -196,6 +207,10 @@ impl StackLayouter {
 
     fn remains(&self) -> Size2D {
         Size2D::new(self.usable.x, self.usable.y - self.dimensions.y)
+    }
+
+    pub fn space_is_empty(&self) -> bool {
+        self.boxes.is_empty() && self.merged_dimensions == Size2D::zero()
     }
 
     /// Whether this layouter is in its last space.

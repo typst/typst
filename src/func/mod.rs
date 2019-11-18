@@ -103,7 +103,9 @@ pub enum Command<'a> {
 
     BreakParagraph,
 
-    SetStyle(TextStyle),
+    SetTextStyle(TextStyle),
+    SetPageStyle(PageStyle),
+
     SetAxes(LayoutAxes),
 }
 

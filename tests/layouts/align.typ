@@ -1,4 +1,5 @@
-{size:150pt x 215pt}
+[page.size: width=150pt, height=215pt]
+[page.margins: 0pt]
 
 // ---------------------------------- //
 // Without newline in between.

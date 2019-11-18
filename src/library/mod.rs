@@ -6,6 +6,7 @@ pub_use_mod!(boxed);
 pub_use_mod!(axes);
 pub_use_mod!(spacing);
 pub_use_mod!(style);
+pub_use_mod!(page);
 
 /// Create a scope with all standard functions.
 pub fn std() -> Scope {
@@ -19,13 +20,15 @@ pub fn std() -> Scope {
     std.add::<LineBreak>("line.break");
     std.add::<ParagraphBreak>("paragraph.break");
     std.add::<PageBreak>("page.break");
-
     std.add::<HorizontalSpace>("h");
     std.add::<VerticalSpace>("v");
 
     std.add::<Bold>("bold");
     std.add::<Italic>("italic");
     std.add::<Monospace>("mono");
+
+    std.add::<PageSize>("page.size");
+    std.add::<PageMargins>("page.margins");
 
     std
 }

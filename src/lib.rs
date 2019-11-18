@@ -21,7 +21,7 @@ use smallvec::smallvec;
 use toddle::query::{FontLoader, FontProvider, SharedFontLoader};
 
 use crate::func::Scope;
-use crate::layout::{layout_tree, LayoutContext, MultiLayout};
+use crate::layout::{layout_tree, MultiLayout, LayoutContext};
 use crate::layout::{LayoutAxes, AlignedAxis, Axis, Alignment};
 use crate::layout::{LayoutError, LayoutResult, LayoutSpace};
 use crate::syntax::{SyntaxTree, parse, ParseContext, ParseError, ParseResult};
@@ -98,7 +98,9 @@ impl<'p> Typesetter<'p> {
             &tree,
             LayoutContext {
                 loader: &self.loader,
-                style: &self.text_style,
+                top_level: true,
+                text_style: &self.text_style,
+                page_style: self.page_style,
                 spaces: smallvec![LayoutSpace {
                     dimensions: self.page_style.dimensions,
                     padding: self.page_style.margins,

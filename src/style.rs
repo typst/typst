@@ -74,7 +74,7 @@ impl Default for TextStyle {
 }
 
 /// Defines the size and margins of a page.
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct PageStyle {
     /// The width and height of the page.
     pub dimensions: Size2D,

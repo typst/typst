@@ -19,7 +19,9 @@ use super::*;
 /// However, it can be any layout.
 #[derive(Debug, Clone)]
 pub struct FlexLayouter {
-    ctx: FlexContext,
+    axes: LayoutAxes,
+    flex_spacing: Size,
+
     stack: StackLayouter,
     units: Vec<FlexUnit>,
 
@@ -69,14 +71,16 @@ impl FlexLayouter {
     /// Create a new flex layouter.
     pub fn new(ctx: FlexContext) -> FlexLayouter {
         let stack = StackLayouter::new(StackContext {
-            spaces: ctx.spaces.clone(),
+            spaces: ctx.spaces,
             axes: ctx.axes,
             shrink_to_fit: ctx.shrink_to_fit,
         });
 
         let usable = stack.usable().x;
         FlexLayouter {
-            ctx,
+            axes: ctx.axes,
+            flex_spacing: ctx.flex_spacing,
+
             units: vec![],
             stack,
 
@@ -124,6 +128,18 @@ impl FlexLayouter {
     /// Update the axes in use by this flex layouter.
     pub fn set_axes(&mut self, axes: LayoutAxes) {
         self.units.push(FlexUnit::SetAxes(axes));
+    }
+
+    /// Update the followup space to be used by this flex layouter.
+    pub fn set_spaces(&mut self, spaces: LayoutSpaces, replace_empty: bool) {
+        if replace_empty && self.box_is_empty() && self.stack.space_is_empty() {
+            self.stack.set_spaces(spaces, true);
+            self.total_usable = self.stack.usable().x;
+            self.usable = self.total_usable;
+            self.space = None;
+        } else {
+            self.stack.set_spaces(spaces, false);
+        }
     }
 
     /// Compute the justified layout.
@@ -176,7 +192,7 @@ impl FlexLayouter {
     /// Layout a content box into the current flex run or start a new run if
     /// it does not fit.
     fn layout_box(&mut self, boxed: Layout) -> LayoutResult<()> {
-        let size = self.ctx.axes.generalize(boxed.dimensions);
+        let size = self.axes.generalize(boxed.dimensions);
 
         if size.x > self.size_left() {
             self.space = None;
@@ -213,7 +229,7 @@ impl FlexLayouter {
     }
 
     fn layout_set_axes(&mut self, axes: LayoutAxes) {
-        if axes.primary != self.ctx.axes.primary {
+        if axes.primary != self.axes.primary {
             self.finish_aligned_run();
 
             self.usable = match axes.primary.alignment {
@@ -231,11 +247,11 @@ impl FlexLayouter {
             };
         }
 
-        if axes.secondary != self.ctx.axes.secondary {
+        if axes.secondary != self.axes.secondary {
             self.stack.set_axes(axes);
         }
 
-        self.ctx.axes = axes;
+        self.axes = axes;
     }
 
     /// Finish the current flex run.
@@ -248,7 +264,7 @@ impl FlexLayouter {
 
         let actions = std::mem::replace(&mut self.merged_actions, LayoutActionList::new());
         self.stack.add(Layout {
-            dimensions: self.ctx.axes.specialize(self.merged_dimensions),
+            dimensions: self.axes.specialize(self.merged_dimensions),
             actions: actions.into_vec(),
             debug_render: false,
         })?;
@@ -265,36 +281,31 @@ impl FlexLayouter {
             return;
         }
 
-        let factor = if self.ctx.axes.primary.axis.is_positive() { 1 } else { -1 };
-        let anchor = self.ctx.axes.primary.anchor(self.total_usable)
-                     - self.ctx.axes.primary.anchor(self.run.size.x);
+        let factor = if self.axes.primary.axis.is_positive() { 1 } else { -1 };
+        let anchor = self.axes.primary.anchor(self.total_usable)
+                     - self.axes.primary.anchor(self.run.size.x);
 
         self.max_extent = crate::size::max(self.max_extent, anchor + factor * self.run.size.x);
 
         for (offset, layout) in self.run.content.drain(..) {
             let general_position = Size2D::with_x(anchor + factor * offset);
-            let position = self.ctx.axes.specialize(general_position);
+            let position = self.axes.specialize(general_position);
 
             self.merged_actions.add_layout(position, layout);
         }
 
-        self.merged_dimensions.x = match self.ctx.axes.primary.alignment {
+        self.merged_dimensions.x = match self.axes.primary.alignment {
             Alignment::Origin => self.run.size.x,
             Alignment::Center | Alignment::End => self.total_usable,
         };
 
         self.merged_dimensions.y = crate::size::max(
             self.merged_dimensions.y,
-            self.run.size.y + self.ctx.flex_spacing,
+            self.run.size.y + self.flex_spacing,
         );
 
         self.last_run_remaining = Size2D::new(self.size_left(), self.merged_dimensions.y);
         self.run.size = Size2D::zero();
-    }
-
-    /// This layouter's context.
-    pub fn ctx(&self) -> &FlexContext {
-        &self.ctx
     }
 
     pub fn remaining(&self) -> LayoutResult<(LayoutSpaces, LayoutSpaces)> {
@@ -310,7 +321,6 @@ impl FlexLayouter {
         Ok((flex_spaces, stack_spaces))
     }
 
-    /// Whether this layouter contains any items.
     pub fn box_is_empty(&self) -> bool {
         !self.units.iter().any(|unit| matches!(unit, FlexUnit::Boxed(_)))
     }

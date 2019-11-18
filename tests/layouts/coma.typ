@@ -1,4 +1,5 @@
-{size:420pt x 300pt}
+[page.size: width=450pt, height=300pt]
+[page.margins: 1cm]
 
 [box][
     *Technical University Berlin* [n]

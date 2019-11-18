@@ -9,8 +9,6 @@ use regex::{Regex, Captures};
 use typst::export::pdf::PdfExporter;
 use typst::layout::LayoutAction;
 use typst::toddle::query::FileSystemFontProvider;
-use typst::size::{Size, Size2D, SizeBox};
-use typst::style::PageStyle;
 use typst::Typesetter;
 
 const CACHE_DIR: &str = "tests/cache";
@@ -62,18 +60,11 @@ fn main() {
 fn test(name: &str, src: &str) {
     println!("Testing: {}.", name);
 
-    let (src, size) = preprocess(src);
+    let src = preprocess(src);
 
     let mut typesetter = Typesetter::new();
     let provider = FileSystemFontProvider::from_listing("fonts/fonts.toml").unwrap();
     typesetter.add_font_provider(provider.clone());
-
-    if let Some(dimensions) = size {
-        typesetter.set_page_style(PageStyle {
-            dimensions,
-            margins: SizeBox::zero()
-        });
-    }
 
     // Make run warm.
     #[cfg(not(debug_assertions))] let warmup_start = Instant::now();
@@ -138,24 +129,11 @@ fn test(name: &str, src: &str) {
     exporter.export(&layouts, typesetter.loader(), file).unwrap();
 }
 
-fn preprocess<'a>(src: &'a str) -> (String, Option<Size2D>) {
+fn preprocess<'a>(src: &'a str) -> String {
     let include_regex = Regex::new(r"\{include:((.|\.|\-)*)\}").unwrap();
     let lorem_regex = Regex::new(r"\{lorem:(\d*)\}").unwrap();
-    let size_regex = Regex::new(r"\{(size:(([\d\w]*)\sx\s([\d\w]*)))\}").unwrap();
 
-    let mut size = None;
-
-    let mut preprocessed = size_regex.replace_all(&src, |cap: &Captures| {
-        let width_str = cap.get(3).unwrap().as_str();
-        let height_str = cap.get(4).unwrap().as_str();
-
-        let width = width_str.parse::<Size>().unwrap();
-        let height = height_str.parse::<Size>().unwrap();
-
-        size = Some(Size2D::new(width, height));
-
-        "".to_string()
-    }).to_string();
+    let mut preprocessed = src.to_string();
 
     let mut changed = true;
     while changed {
@@ -179,7 +157,7 @@ fn preprocess<'a>(src: &'a str) -> (String, Option<Size2D>) {
         generate_lorem(num_words)
     }).to_string();
 
-    (preprocessed, size)
+    preprocessed
 }
 
 fn generate_lorem(num_words: usize) -> String {

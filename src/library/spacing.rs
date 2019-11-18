@@ -22,16 +22,6 @@ function! {
     layout(_, _) { Ok(commands![FinishBox]) }
 }
 
-/// `page.break`: Ends the current page.
-#[derive(Debug, PartialEq)]
-pub struct PageBreak;
-
-function! {
-    data: PageBreak,
-    parse: plain,
-    layout(_, _) { Ok(commands![FinishLayout]) }
-}
-
 macro_rules! space_func {
     ($ident:ident, $doc:expr, $var:ident => $command:expr) => (
         #[doc = $doc]
@@ -57,7 +47,7 @@ macro_rules! space_func {
             layout(this, ctx) {
                 let $var = match this.0 {
                     Spacing::Absolute(s) => s,
-                    Spacing::Relative(f) => f * ctx.style.font_size,
+                    Spacing::Relative(f) => f * ctx.text_style.font_size,
                 };
 
                 Ok(commands![$command])

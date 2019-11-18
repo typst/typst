@@ -1,4 +1,5 @@
 use super::*;
+use smallvec::smallvec;
 
 /// Layouts syntax trees into boxes.
 pub fn layout_tree(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<MultiLayout> {
@@ -19,12 +20,12 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     fn new(ctx: LayoutContext<'a, 'p>) -> TreeLayouter<'a, 'p> {
         TreeLayouter {
             flex: FlexLayouter::new(FlexContext {
-                flex_spacing: flex_spacing(&ctx.style),
+                flex_spacing: flex_spacing(&ctx.text_style),
                 spaces: ctx.spaces.clone(),
                 axes: ctx.axes,
                 shrink_to_fit: ctx.shrink_to_fit,
             }),
-            style: ctx.style.clone(),
+            style: ctx.text_style.clone(),
             ctx,
         }
     }
@@ -68,7 +69,8 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
         let (flex_spaces, stack_spaces) = self.flex.remaining()?;
 
         let ctx = |spaces| LayoutContext {
-            style: &self.style,
+            top_level: false,
+            text_style: &self.style,
             spaces: spaces,
             shrink_to_fit: true,
             .. self.ctx
@@ -107,7 +109,21 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
             Command::BreakParagraph => self.break_paragraph()?,
 
-            Command::SetStyle(style) => self.style = style,
+            Command::SetTextStyle(style) => self.style = style,
+            Command::SetPageStyle(style) => {
+                if !self.ctx.top_level {
+                    Err(LayoutError::Unallowed("can only set page style from top level"))?;
+                }
+
+                self.ctx.page_style = style;
+                self.flex.set_spaces(smallvec![
+                    LayoutSpace {
+                        dimensions: style.dimensions,
+                        padding: style.margins,
+                    }
+                ], true);
+            },
+
             Command::SetAxes(axes) => {
                 self.flex.set_axes(axes);
                 self.ctx.axes = axes;
