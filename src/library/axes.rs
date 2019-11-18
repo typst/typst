@@ -28,16 +28,17 @@ function! {
     }
 
     layout(this, ctx) {
-        let mut new_axes = ctx.axes;
-        new_axes.primary.alignment = this.alignment;
+        let mut axes = ctx.axes;
+        axes.primary.alignment = this.alignment;
 
         Ok(match &this.body {
-            Some(body) => commands![
-                SetAxes(new_axes),
-                LayoutTree(body),
-                SetAxes(ctx.axes),
-            ],
-            None => commands![Command::SetAxes(new_axes)]
+            Some(body) => commands![AddMultiple(
+                layout_tree(body, LayoutContext {
+                    axes,
+                    .. ctx.clone()
+                })?
+            )],
+            None => commands![Command::SetAxes(axes)]
         })
     }
 }

@@ -1,14 +1,14 @@
 {size:420pt x 300pt}
 
-[box: flow = horizontal][
+[box][
     *Technical University Berlin* [n]
     *Faculty II, Institute for Mathematics* [n]
     Secretary Example [n]
     Prof. Dr. Example [n]
     Assistant #1, Assistant #2, Assistant #3
-
-    [align: right][*WiSe 2019/2020* [n] Week 1]
 ]
+[align: right][*WiSe 2019/2020* [n] Week 1]
+
 [v: 3mm]
 
 [align: center][
@@ -17,9 +17,7 @@
     *Alle Antworten sind zu beweisen.*
 ]
 
-[box: flow = horizontal][
-    *1. Aufgabe* [align: right][(1 + 1 + 2 Punkte)]
-]
+*1. Aufgabe* [align: right][(1 + 1 + 2 Punkte)]
 
 Ein _Binärbaum_ ist ein Wurzelbaum, in dem jeder Knoten ≤ 2 Kinder hat.
 Die Tiefe eines Knotens _v_ ist die Länge des eindeutigen Weges von der Wurzel

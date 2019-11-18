@@ -65,12 +65,24 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
     /// Layout a function.
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
-        let commands = func.body.val.layout(LayoutContext {
+        let (flex_spaces, stack_spaces) = self.flex.remaining()?;
+
+        let ctx = |spaces| LayoutContext {
             style: &self.style,
-            spaces: self.flex.remaining()?,
+            spaces: spaces,
             shrink_to_fit: true,
             .. self.ctx
-        })?;
+        };
+
+        // Try putting it in the flex space first, but if that is not enough
+        // space, use the other space.
+        let commands = match func.body.val.layout(ctx(flex_spaces)) {
+            Ok(c) => c,
+            Err(LayoutError::NotEnoughSpace(_)) => {
+                func.body.val.layout(ctx(stack_spaces))?
+            },
+            e => e?,
+        };
 
         for command in commands {
             self.execute(command)?;

@@ -18,16 +18,16 @@ macro_rules! stylefunc {
             }
 
             layout(this, ctx) {
-                let mut new_style = ctx.style.clone();
-                new_style.toggle_class(FontClass::$ident);
+                let mut style = ctx.style.clone();
+                style.toggle_class(FontClass::$ident);
 
                 Ok(match &this.body {
                     Some(body) => commands![
-                        SetStyle(new_style),
+                        SetStyle(style),
                         LayoutTree(body),
                         SetStyle(ctx.style.clone()),
                     ],
-                    None => commands![SetStyle(new_style)]
+                    None => commands![SetStyle(style)]
                 })
             }
         }

@@ -41,7 +41,7 @@ impl StackLayouter {
             layouts: MultiLayout::new(),
 
             merged_actions: LayoutActionList::new(),
-            merged_dimensions: space.start(),
+            merged_dimensions: Size2D::zero(),
 
             boxes: vec![],
             usable,

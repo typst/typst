@@ -29,5 +29,4 @@ Right Again: {lorem:10}
 [page.break]
 
 // ---------------------------------- //
-// All in one line.
-All in one line: {lorem:25} [align: right][{lorem:50}] {lorem:15}
+All in one line: {lorem:25} [align: right] {lorem:50} [align: left] {lorem:15}
