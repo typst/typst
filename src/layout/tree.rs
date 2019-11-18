@@ -134,7 +134,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     }
 
     /// Finish the layout.
-    fn finish(mut self) -> LayoutResult<MultiLayout> {
+    fn finish(self) -> LayoutResult<MultiLayout> {
         self.flex.finish()
     }
 

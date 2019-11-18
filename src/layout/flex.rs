@@ -76,7 +76,7 @@ impl FlexLayouter {
             shrink_to_fit: ctx.shrink_to_fit,
         });
 
-        let usable = stack.usable().x;
+        let usable = stack.primary_usable();
         FlexLayouter {
             axes: ctx.axes,
             flex_spacing: ctx.flex_spacing,
@@ -134,7 +134,7 @@ impl FlexLayouter {
     pub fn set_spaces(&mut self, spaces: LayoutSpaces, replace_empty: bool) {
         if replace_empty && self.box_is_empty() && self.stack.space_is_empty() {
             self.stack.set_spaces(spaces, true);
-            self.total_usable = self.stack.usable().x;
+            self.total_usable = self.stack.primary_usable();
             self.usable = self.total_usable;
             self.space = None;
         } else {
@@ -147,7 +147,7 @@ impl FlexLayouter {
     /// The layouter is not consumed by this to prevent ownership problems
     /// with borrowed layouters. The state of the layouter is not reset.
     /// Therefore, it should not be further used after calling `finish`.
-    pub fn finish(&mut self) -> LayoutResult<MultiLayout> {
+    pub fn finish(mut self) -> LayoutResult<MultiLayout> {
         self.finish_box()?;
         Ok(self.stack.finish())
     }
@@ -204,7 +204,7 @@ impl FlexLayouter {
                 }
 
                 self.stack.finish_layout(true);
-                self.total_usable = self.stack.usable().x;
+                self.total_usable = self.stack.primary_usable();
                 self.usable = self.total_usable;
             }
         }

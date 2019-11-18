@@ -275,6 +275,14 @@ impl Axis {
             Axis::RightToLeft | Axis::BottomToTop => false,
         }
     }
+
+    /// The direction factor for this axis.
+    ///
+    /// - 1 if the axis is positive.
+    /// - -1 if the axis is negative.
+    pub fn factor(&self) -> i32 {
+        if self.is_positive() { 1 } else { -1 }
+    }
 }
 
 /// Where to align content.
