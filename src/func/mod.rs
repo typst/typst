@@ -97,9 +97,9 @@ pub enum Command<'a> {
     AddPrimarySpace(Size),
     AddSecondarySpace(Size),
 
+    FinishLine,
     FinishRun,
-    FinishBox,
-    FinishLayout,
+    FinishSpace,
 
     BreakParagraph,
 

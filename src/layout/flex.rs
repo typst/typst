@@ -1,40 +1,60 @@
 use super::*;
 
-/// Layouts boxes flex-like.
-///
-/// The boxes are arranged in "lines", each line having the height of its
-/// biggest box. When a box does not fit on a line anymore horizontally,
-/// a new line is started.
-///
-/// The flex layouter does not actually compute anything until the `finish`
-/// method is called. The reason for this is the flex layouter will have
-/// the capability to justify its layouts, later. To find a good justification
-/// it needs total information about the contents.
-///
-/// There are two different kinds units that can be added to a flex run:
-/// Normal layouts and _glue_. _Glue_ layouts are only written if a normal
-/// layout follows and a glue layout is omitted if the following layout
-/// flows into a new line. A _glue_ layout is typically used for a space character
-/// since it prevents a space from appearing in the beginning or end of a line.
-/// However, it can be any layout.
 #[derive(Debug, Clone)]
 pub struct FlexLayouter {
+    stack: StackLayouter,
+
     axes: LayoutAxes,
     flex_spacing: Size,
 
-    stack: StackLayouter,
     units: Vec<FlexUnit>,
+    line: FlexLine,
+}
 
-    total_usable: Size,
-    merged_actions: LayoutActionList,
-    merged_dimensions: Size2D,
-    max_extent: Size,
+#[derive(Debug, Clone)]
+enum FlexUnit {
+    Boxed(Layout),
+    Space(Size, bool),
+    SetAxes(LayoutAxes),
+    Break,
+}
 
+#[derive(Debug, Clone)]
+struct FlexLine {
     usable: Size,
-    run: FlexRun,
-    space: Option<Size>,
+    actions: LayoutActionList,
+    combined_dimensions: Size2D,
+    part: PartialLine,
+}
 
-    last_run_remaining: Size2D,
+impl FlexLine {
+    fn new(usable: Size) -> FlexLine {
+        FlexLine {
+            usable,
+            actions: LayoutActionList::new(),
+            combined_dimensions: Size2D::zero(),
+            part: PartialLine::new(usable),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct PartialLine {
+    usable: Size,
+    content: Vec<(Size, Layout)>,
+    dimensions: Size2D,
+    space: Option<(Size, bool)>,
+}
+
+impl PartialLine {
+    fn new(usable: Size) -> PartialLine {
+        PartialLine {
+            usable,
+            content: vec![],
+            dimensions: Size2D::zero(),
+            space: None,
+        }
+    }
 }
 
 /// The context for flex layouting.
@@ -45,26 +65,7 @@ pub struct FlexContext {
     pub spaces: LayoutSpaces,
     pub axes: LayoutAxes,
     pub shrink_to_fit: bool,
-    /// The spacing between two lines of boxes.
     pub flex_spacing: Size,
-}
-
-#[derive(Debug, Clone)]
-enum FlexUnit {
-    /// A content unit to be arranged flexibly.
-    Boxed(Layout),
-    /// Space between two box units which is only present if there
-    /// was no flow break in between the two surrounding units.
-    Space(Size),
-    /// A forced break of the current flex run.
-    Break,
-    SetAxes(LayoutAxes),
-}
-
-#[derive(Debug, Clone)]
-struct FlexRun {
-    content: Vec<(Size, Layout)>,
-    size: Size2D,
 }
 
 impl FlexLayouter {
@@ -78,132 +79,126 @@ impl FlexLayouter {
 
         let usable = stack.primary_usable();
         FlexLayouter {
+            stack,
+
             axes: ctx.axes,
             flex_spacing: ctx.flex_spacing,
 
             units: vec![],
-            stack,
-
-            total_usable: usable,
-            merged_actions: LayoutActionList::new(),
-            merged_dimensions: Size2D::zero(),
-            max_extent: Size::zero(),
-
-            usable,
-            run: FlexRun { content: vec![], size: Size2D::zero() },
-            space: None,
-
-            last_run_remaining: Size2D::zero(),
+            line: FlexLine::new(usable)
         }
     }
 
-    /// Add a sublayout.
     pub fn add(&mut self, layout: Layout) {
         self.units.push(FlexUnit::Boxed(layout));
     }
 
-    /// Add multiple sublayouts from a multi-layout.
     pub fn add_multiple(&mut self, layouts: MultiLayout) {
         for layout in layouts {
             self.add(layout);
         }
     }
 
-    /// Add a forced run break.
-    pub fn add_run_break(&mut self) {
+    pub fn add_break(&mut self) {
         self.units.push(FlexUnit::Break);
     }
 
-    /// Add a space box which can be replaced by a run break.
-    pub fn add_primary_space(&mut self, space: Size) {
-        self.units.push(FlexUnit::Space(space));
+    pub fn add_primary_space(&mut self, space: Size, soft: bool) {
+        self.units.push(FlexUnit::Space(space, soft));
     }
 
     pub fn add_secondary_space(&mut self, space: Size) -> LayoutResult<()> {
-        self.finish_box()?;
-        self.stack.add_space(space);
-        Ok(())
+        self.finish_run()?;
+        Ok(self.stack.add_space(space))
     }
 
-    /// Update the axes in use by this flex layouter.
     pub fn set_axes(&mut self, axes: LayoutAxes) {
         self.units.push(FlexUnit::SetAxes(axes));
     }
 
-    /// Update the followup space to be used by this flex layouter.
     pub fn set_spaces(&mut self, spaces: LayoutSpaces, replace_empty: bool) {
-        if replace_empty && self.box_is_empty() && self.stack.space_is_empty() {
+        if replace_empty && self.run_is_empty() && self.stack.space_is_empty() {
             self.stack.set_spaces(spaces, true);
-            self.total_usable = self.stack.primary_usable();
-            self.usable = self.total_usable;
-            self.space = None;
+            self.start_run();
+
+            // let usable = self.stack.primary_usable();
+            // self.line = FlexLine::new(usable);
+
+            // // self.total_usable = self.stack.primary_usable();
+            // // self.usable = self.total_usable;
+            // // self.space = None;
         } else {
             self.stack.set_spaces(spaces, false);
         }
     }
 
-    /// Compute the justified layout.
-    ///
-    /// The layouter is not consumed by this to prevent ownership problems
-    /// with borrowed layouters. The state of the layouter is not reset.
-    /// Therefore, it should not be further used after calling `finish`.
+    pub fn remaining(&self) -> LayoutResult<(LayoutSpaces, LayoutSpaces)> {
+        let mut future = self.clone();
+        future.finish_run()?;
+
+        let stack_spaces = future.stack.remaining();
+        let mut flex_spaces = stack_spaces.clone();
+        flex_spaces[0].dimensions.x = future.last_run_remaining.x;
+        flex_spaces[0].dimensions.y += future.last_run_remaining.y;
+
+        Ok((flex_spaces, stack_spaces))
+    }
+
+    pub fn run_is_empty(&self) -> bool {
+        !self.units.iter().any(|unit| matches!(unit, FlexUnit::Boxed(_)))
+    }
+
+    pub fn run_last_is_space(&self) -> bool {
+        matches!(self.units.last(), Some(FlexUnit::Space(_)))
+    }
+
     pub fn finish(mut self) -> LayoutResult<MultiLayout> {
-        self.finish_box()?;
+        self.finish_space(false)?;
         Ok(self.stack.finish())
     }
 
-    pub fn finish_layout(&mut self, hard: bool) -> LayoutResult<()> {
-        self.finish_box()?;
-        self.stack.finish_layout(hard);
-        Ok(())
+    pub fn finish_space(&mut self, hard: bool) -> LayoutResult<()> {
+        self.finish_run()?;
+        Ok(self.stack.finish_space(hard))
     }
 
-    pub fn finish_box(&mut self) -> LayoutResult<()> {
-        if self.box_is_empty() {
-            return Ok(());
-        }
-
-        // Move the units out of the layout because otherwise, we run into
-        // ownership problems.
+    pub fn finish_run(&mut self) -> LayoutResult<()> {
         let units = std::mem::replace(&mut self.units, vec![]);
         for unit in units {
             match unit {
                 FlexUnit::Boxed(boxed) => self.layout_box(boxed)?,
-                FlexUnit::Space(space) => {
+                FlexUnit::Space(space, soft) => {
                     self.layout_space();
                     self.space = Some(space);
                 }
 
                 FlexUnit::Break => {
                     self.space = None;
-                    self.finish_run()?;
+                    self.finish_line()?;
                 },
 
                 FlexUnit::SetAxes(axes) => self.layout_set_axes(axes),
             }
         }
 
-        // Finish the last flex run.
-        self.finish_run()?;
+        self.finish_line()?;
 
         Ok(())
     }
 
-    /// Layout a content box into the current flex run or start a new run if
-    /// it does not fit.
     fn layout_box(&mut self, boxed: Layout) -> LayoutResult<()> {
         let size = self.axes.generalize(boxed.dimensions);
 
         if size.x > self.size_left() {
             self.space = None;
-            self.finish_run()?;
+            self.finish_line()?;
 
             while size.x > self.usable {
-                if self.stack.in_last_space() {
+                if self.stack.space_is_last() {
                     Err(LayoutError::NotEnoughSpace("cannot fix box into flex run"))?;
                 }
 
-                self.stack.finish_layout(true);
+                self.finish_space(true);
                 self.total_usable = self.stack.primary_usable();
                 self.usable = self.total_usable;
             }
@@ -230,7 +225,7 @@ impl FlexLayouter {
 
     fn layout_set_axes(&mut self, axes: LayoutAxes) {
         if axes.primary != self.axes.primary {
-            self.finish_aligned_run();
+            self.finish_partial_line();
 
             self.usable = match axes.primary.alignment {
                 Alignment::Origin =>
@@ -254,9 +249,8 @@ impl FlexLayouter {
         self.axes = axes;
     }
 
-    /// Finish the current flex run.
-    fn finish_run(&mut self) -> LayoutResult<()> {
-        self.finish_aligned_run();
+    fn finish_line(&mut self) -> LayoutResult<()> {
+        self.finish_partial_line();
 
         if self.merged_dimensions.y == Size::zero() {
             return Ok(());
@@ -276,7 +270,7 @@ impl FlexLayouter {
         Ok(())
     }
 
-    fn finish_aligned_run(&mut self) {
+    fn finish_partial_line(&mut self) {
         if self.run.content.is_empty() {
             return;
         }
@@ -306,27 +300,6 @@ impl FlexLayouter {
 
         self.last_run_remaining = Size2D::new(self.size_left(), self.merged_dimensions.y);
         self.run.size = Size2D::zero();
-    }
-
-    pub fn remaining(&self) -> LayoutResult<(LayoutSpaces, LayoutSpaces)> {
-        let mut future = self.clone();
-        future.finish_box()?;
-
-        let stack_spaces = future.stack.remaining();
-
-        let mut flex_spaces = stack_spaces.clone();
-        flex_spaces[0].dimensions.x = future.last_run_remaining.x;
-        flex_spaces[0].dimensions.y += future.last_run_remaining.y;
-
-        Ok((flex_spaces, stack_spaces))
-    }
-
-    pub fn box_is_empty(&self) -> bool {
-        !self.units.iter().any(|unit| matches!(unit, FlexUnit::Boxed(_)))
-    }
-
-    pub fn last_is_space(&self) -> bool {
-        matches!(self.units.last(), Some(FlexUnit::Space(_)))
     }
 
     fn size_left(&self) -> Size {

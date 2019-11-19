@@ -42,13 +42,13 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                 }
 
                 Node::Space => {
-                    if !self.flex.box_is_empty() && !self.flex.last_is_space() {
+                    if !self.flex.run_is_empty() && !self.flex.run_last_is_space() {
                         let space = self.style.word_spacing * self.style.font_size;
-                        self.flex.add_primary_space(space);
+                        self.flex.add_primary_space(space, true);
                     }
                 }
                 Node::Newline => {
-                    if !self.flex.box_is_empty() {
+                    if !self.flex.run_is_empty() {
                         self.break_paragraph()?;
                     }
                 }
@@ -71,7 +71,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
         let ctx = |spaces| LayoutContext {
             top_level: false,
             text_style: &self.style,
-            spaces: spaces,
+            spaces,
             shrink_to_fit: true,
             .. self.ctx
         };
@@ -100,12 +100,12 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             Command::Add(layout) => self.flex.add(layout),
             Command::AddMultiple(layouts) => self.flex.add_multiple(layouts),
 
-            Command::AddPrimarySpace(space) => self.flex.add_primary_space(space),
+            Command::AddPrimarySpace(space) => self.flex.add_primary_space(space, false),
             Command::AddSecondarySpace(space) => self.flex.add_secondary_space(space)?,
 
-            Command::FinishRun => self.flex.add_run_break(),
-            Command::FinishBox => self.flex.finish_box()?,
-            Command::FinishLayout => self.flex.finish_layout(true)?,
+            Command::FinishLine => self.flex.add_break(),
+            Command::FinishRun => self.flex.finish_run()?,
+            Command::FinishSpace => self.flex.finish_space(true)?,
 
             Command::BreakParagraph => self.break_paragraph()?,
 
@@ -140,9 +140,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
     /// Finish the current flex layout and add space after it.
     fn break_paragraph(&mut self) -> LayoutResult<()> {
-        self.flex.finish_box()?;
-        self.flex.add_secondary_space(paragraph_spacing(&self.style))?;
-        Ok(())
+        self.flex.add_secondary_space(paragraph_spacing(&self.style))
     }
 }
 

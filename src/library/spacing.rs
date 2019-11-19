@@ -7,7 +7,7 @@ pub struct LineBreak;
 function! {
     data: LineBreak,
     parse: plain,
-    layout(_, _) { Ok(commands![FinishRun]) }
+    layout(_, _) { Ok(commands![FinishLine]) }
 }
 
 /// `paragraph.break`: Ends the current paragraph.
@@ -19,7 +19,7 @@ pub struct ParagraphBreak;
 function! {
     data: ParagraphBreak,
     parse: plain,
-    layout(_, _) { Ok(commands![FinishBox]) }
+    layout(_, _) { Ok(commands![FinishRun]) }
 }
 
 macro_rules! space_func {

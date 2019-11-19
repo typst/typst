@@ -7,7 +7,7 @@ pub struct PageBreak;
 function! {
     data: PageBreak,
     parse: plain,
-    layout(_, _) { Ok(commands![FinishLayout]) }
+    layout(_, _) { Ok(commands![FinishSpace]) }
 }
 
 /// `page.size`: Set the size of pages.

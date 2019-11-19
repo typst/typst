@@ -47,9 +47,9 @@ pub struct StackContext {
 impl StackLayouter {
     /// Create a new stack layouter.
     pub fn new(ctx: StackContext) -> StackLayouter {
+        let axes = ctx.axes;
         let space = ctx.spaces[0];
         let usable = ctx.axes.generalize(space.usable());
-        let axes = ctx.axes;
 
         StackLayouter {
             ctx,
@@ -145,7 +145,8 @@ impl StackLayouter {
 
     pub fn space_is_empty(&self) -> bool {
         self.combined_dimensions == Size2D::zero()
-        && self.sub.dimensions == Size2D::zero()
+            && self.sub.dimensions == Size2D::zero()
+            && self.actions.is_empty()
     }
 
     pub fn space_is_last(&self) -> bool {
