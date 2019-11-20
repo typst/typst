@@ -106,10 +106,10 @@ impl<'p> Typesetter<'p> {
                     padding: self.page_style.margins,
                 }],
                 axes: LayoutAxes {
-                    primary: AlignedAxis::new(Axis::LeftToRight, Alignment::Origin),
-                    secondary: AlignedAxis::new(Axis::TopToBottom, Alignment::Origin),
+                    primary: AlignedAxis::new(Axis::LeftToRight, Alignment::Origin, false),
+                    secondary: AlignedAxis::new(Axis::TopToBottom, Alignment::Origin, false),
                 },
-                shrink_to_fit: false,
+                expand: true,
             },
         )?)
     }

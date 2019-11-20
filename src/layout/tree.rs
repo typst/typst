@@ -23,7 +23,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                 flex_spacing: flex_spacing(&ctx.text_style),
                 spaces: ctx.spaces.clone(),
                 axes: ctx.axes,
-                shrink_to_fit: ctx.shrink_to_fit,
+                expand: ctx.expand,
             }),
             style: ctx.text_style.clone(),
             ctx,
@@ -66,24 +66,25 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
     /// Layout a function.
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
-        let (flex_spaces, stack_spaces) = self.flex.remaining()?;
+        let (first, second) = self.flex.remaining()?;
 
         let ctx = |spaces| LayoutContext {
+            loader: self.ctx.loader,
             top_level: false,
             text_style: &self.style,
+            page_style: self.ctx.page_style,
             spaces,
-            shrink_to_fit: true,
-            .. self.ctx
+            axes: self.ctx.axes.expanding(false),
+            expand: false,
         };
 
-        // Try putting it in the flex space first, but if that is not enough
-        // space, use the other space.
-        let commands = match func.body.val.layout(ctx(flex_spaces)) {
+        let commands = match func.body.val.layout(ctx(first)) {
             Ok(c) => c,
-            Err(LayoutError::NotEnoughSpace(_)) => {
-                func.body.val.layout(ctx(stack_spaces))?
+            Err(e) => match (e, second) {
+                (LayoutError::NotEnoughSpace(_), Some(space))
+                    => func.body.val.layout(ctx(space))?,
+                _ => Err(e)?,
             },
-            e => e?,
         };
 
         for command in commands {
@@ -101,10 +102,10 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             Command::AddMultiple(layouts) => self.flex.add_multiple(layouts),
 
             Command::AddPrimarySpace(space) => self.flex.add_primary_space(space, false),
-            Command::AddSecondarySpace(space) => self.flex.add_secondary_space(space)?,
+            Command::AddSecondarySpace(space) => self.flex.add_secondary_space(space, false)?,
 
             Command::FinishLine => self.flex.add_break(),
-            Command::FinishRun => self.flex.finish_run()?,
+            Command::FinishRun => { self.flex.finish_run()?; },
             Command::FinishSpace => self.flex.finish_space(true)?,
 
             Command::BreakParagraph => self.break_paragraph()?,
@@ -140,7 +141,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
     /// Finish the current flex layout and add space after it.
     fn break_paragraph(&mut self) -> LayoutResult<()> {
-        self.flex.add_secondary_space(paragraph_spacing(&self.style))
+        self.flex.add_secondary_space(paragraph_spacing(&self.style), true)
     }
 }
 

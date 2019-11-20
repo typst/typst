@@ -147,9 +147,9 @@ pub struct LayoutContext<'a, 'p> {
     /// The axes to flow on.
     pub axes: LayoutAxes,
 
-    /// Whether to shrink the spaces to fit the content or to keep
-    /// the original dimensions.
-    pub shrink_to_fit: bool,
+    /// Whether layouts should expand to the full dimensions of the space
+    /// they lie on or whether should tightly fit the content.
+    pub expand: bool,
 }
 
 /// A possibly stack-allocated vector of layout spaces.
@@ -219,6 +219,14 @@ impl LayoutAxes {
     pub fn anchor(&self, space: Size2D) -> Size2D {
         Size2D::new(self.primary.anchor(space.x), self.secondary.anchor(space.y))
     }
+
+    /// This axes with `expand` set to the given value for both axes.
+    pub fn expanding(&self, expand: bool) -> LayoutAxes {
+        LayoutAxes {
+            primary: self.primary.expanding(expand),
+            secondary: self.secondary.expanding(expand),
+        }
+    }
 }
 
 /// An axis with an alignment.
@@ -226,17 +234,13 @@ impl LayoutAxes {
 pub struct AlignedAxis {
     pub axis: Axis,
     pub alignment: Alignment,
+    pub expand: bool,
 }
 
 impl AlignedAxis {
-    /// Returns an aligned axis if the alignment is compatible with the axis.
-    pub fn new(axis: Axis, alignment: Alignment) -> AlignedAxis {
-        AlignedAxis { axis, alignment }
-    }
-
-    /// The pair of axis and alignment.
-    pub fn pair(&self) -> (Axis, Alignment) {
-        (self.axis, self.alignment)
+    /// Creates an aligned axis from its three components.
+    pub fn new(axis: Axis, alignment: Alignment, expand: bool) -> AlignedAxis {
+        AlignedAxis { axis, alignment, expand }
     }
 
     /// The position of the anchor specified by this axis on the given line.
@@ -247,6 +251,16 @@ impl AlignedAxis {
             (_, Center) => line / 2,
             (true, End) | (false, Origin) => line,
         }
+    }
+
+    /// This axis with `expand` set to the given value.
+    pub fn expanding(&self, expand: bool) -> AlignedAxis {
+        AlignedAxis { expand, ..*self }
+    }
+
+    /// Whether this axis needs expansion.
+    pub fn needs_expansion(&self) -> bool {
+        self.expand || self.alignment != Alignment::Origin
     }
 }
 

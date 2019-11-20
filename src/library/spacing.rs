@@ -19,7 +19,7 @@ pub struct ParagraphBreak;
 function! {
     data: ParagraphBreak,
     parse: plain,
-    layout(_, _) { Ok(commands![FinishRun]) }
+    layout(_, _) { Ok(commands![BreakParagraph]) }
 }
 
 macro_rules! space_func {

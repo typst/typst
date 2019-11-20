@@ -95,6 +95,12 @@ impl Size {
     pub fn to_inches(&self) -> f32 {
         self.points * 0.0138889
     }
+
+    /// Set this size to the maximum of itself and the other size.
+    #[inline]
+    pub fn max_eq(&mut self, other: Size) {
+        *self = max(*self, other);
+    }
 }
 
 impl Size2D {
@@ -145,6 +151,14 @@ impl Size2D {
     #[inline]
     pub fn fits(&self, other: Size2D) -> bool {
         self.x >= other.x && self.y >= other.y
+    }
+
+    /// Set this size to the maximum of itself and the other size
+    /// (for both dimensions).
+    #[inline]
+    pub fn max_eq(&mut self, other: Size2D) {
+        self.x.max_eq(other.x);
+        self.y.max_eq(other.y);
     }
 }
 
