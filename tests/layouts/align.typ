@@ -20,7 +20,7 @@
 
 Context Right: {lorem:10}
 
-[align: left][In-between Left: {lorem:10}]
+[align: left][In-between Left]
 
 Right Again: {lorem:10}
 

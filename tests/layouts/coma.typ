@@ -10,11 +10,11 @@
 ]
 [align: right][*WiSe 2019/2020* [n] Week 1]
 
-[v: 3mm]
+[v: 6mm]
 
 [align: center][
-    *3. Ubungsblatt Computerorientierte Mathematik II* [n]
-    *Abgabe: 03.05.2019* (bis 10:10 Uhr in MA 001) [n]
+    *3. Ubungsblatt Computerorientierte Mathematik II* [v: 0.3mm]
+    *Abgabe: 03.05.2019* (bis 10:10 Uhr in MA 001) [v: 0.3mm]
     *Alle Antworten sind zu beweisen.*
 ]
 

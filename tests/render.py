@@ -43,7 +43,7 @@ class MultiboxRenderer:
         images = []
 
         layout_count = int(self.content[0])
-        horizontal = math.ceil(math.sqrt(layout_count))
+        horizontal = math.floor(math.sqrt(layout_count))
         start = 1
 
         for _ in range(layout_count):

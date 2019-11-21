@@ -36,8 +36,7 @@ struct Subspace {
     anchor: Size2D,
     factor: i32,
     dimensions: Size2D,
-    space: Option<Size>,
-    last_was_space: bool,
+    space: SpaceState,
 }
 
 impl Subspace {
@@ -48,8 +47,7 @@ impl Subspace {
             anchor: axes.anchor(usable),
             factor: axes.secondary.axis.factor(),
             dimensions: Size2D::zero(),
-            space: None,
-            last_was_space: false,
+            space: SpaceState::Forbidden,
         }
     }
 }
@@ -79,7 +77,7 @@ impl StackLayouter {
     }
 
     pub fn add(&mut self, layout: Layout) -> LayoutResult<()> {
-        if let Some(space) = self.sub.space.take() {
+        if let SpaceState::Soft(space) = self.sub.space {
             self.add_space(space, false);
         }
 
@@ -92,6 +90,9 @@ impl StackLayouter {
 
         while !self.sub.usable.fits(new_dimensions) {
             if self.space_is_last() && self.space_is_empty() {
+                println!("usable: {}", self.sub.usable);
+                println!("dims:   {}", new_dimensions);
+                println!("size:   {}", size);
                 Err(LayoutError::NotEnoughSpace("failed to add box to stack"))?;
             }
 
@@ -109,7 +110,7 @@ impl StackLayouter {
 
         self.space.actions.add_layout(pos, layout);
         self.sub.dimensions = new_dimensions;
-        self.sub.last_was_space = false;
+        self.sub.space = SpaceState::Allowed;
 
         Ok(())
     }
@@ -123,17 +124,17 @@ impl StackLayouter {
 
     pub fn add_space(&mut self, space: Size, soft: bool) {
         if soft {
-            if !self.sub.last_was_space {
-                self.sub.space = Some(space);
+            if self.sub.space != SpaceState::Forbidden {
+                self.sub.space = SpaceState::Soft(space);
             }
         } else {
             if self.sub.dimensions.y + space > self.sub.usable.y {
                 self.sub.dimensions.y = self.sub.usable.y;
-                self.finish_space(false);
             } else {
                 self.sub.dimensions.y += space;
             }
-            self.sub.last_was_space = true;
+
+            self.sub.space = SpaceState::Forbidden;
         }
     }
 
@@ -197,8 +198,8 @@ impl StackLayouter {
 
         self.layouts.add(Layout {
             dimensions: match self.ctx.expand {
-                true => self.space.combined_dimensions.padded(space.padding),
-                false => space.dimensions,
+                true => space.dimensions,
+                false => self.space.combined_dimensions.padded(space.padding),
             },
             actions: self.space.actions.to_vec(),
             debug_render: true,

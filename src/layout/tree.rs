@@ -58,16 +58,11 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     }
 
     fn layout_space(&mut self) {
-        if !self.flex.run_is_empty() {
-            self.flex.add_primary_space(word_spacing(&self.style), true);
-        }
+        self.flex.add_primary_space(word_spacing(&self.style), true);
     }
 
     fn layout_paragraph(&mut self) -> LayoutResult<()> {
-        if !self.flex.run_is_empty() {
-            self.flex.add_secondary_space(paragraph_spacing(&self.style), true)?;
-        }
-        Ok(())
+        self.flex.add_secondary_space(paragraph_spacing(&self.style), true)
     }
 
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {

@@ -307,6 +307,19 @@ pub enum Alignment {
     End,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum SpaceState {
+    Soft(Size),
+    Forbidden,
+    Allowed,
+}
+
+impl SpaceState {
+    fn soft_or_zero(&self) -> Size {
+        if let SpaceState::Soft(space) = self { *space } else { Size::zero() }
+    }
+}
+
 /// The error type for layouting.
 pub enum LayoutError {
     /// An action is unallowed in the active context.

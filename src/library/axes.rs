@@ -31,6 +31,11 @@ function! {
         let mut axes = ctx.axes;
         axes.primary.alignment = this.alignment;
 
+        if ctx.axes.primary.alignment == Alignment::End
+           && this.alignment == Alignment::Origin {
+            axes.primary.expand = true;
+        }
+
         Ok(match &this.body {
             Some(body) => commands![AddMultiple(
                 layout_tree(body, LayoutContext {

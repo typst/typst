@@ -41,8 +41,7 @@ struct PartialLine {
     usable: Size,
     content: Vec<(Size, Layout)>,
     dimensions: Size2D,
-    space: Option<Size>,
-    last_was_space: bool,
+    space: SpaceState,
 }
 
 impl PartialLine {
@@ -51,8 +50,7 @@ impl PartialLine {
             usable,
             content: vec![],
             dimensions: Size2D::zero(),
-            space: None,
-            last_was_space: false,
+            space: SpaceState::Forbidden,
         }
     }
 }
@@ -198,7 +196,7 @@ impl FlexLayouter {
         let remaining = self.axes.specialize(Size2D {
             x: self.part.usable
                 - self.part.dimensions.x
-                - self.part.space.unwrap_or(Size::zero()),
+                - self.part.space.soft_or_zero(),
             y: self.line.combined_dimensions.y,
         });
 
@@ -235,9 +233,9 @@ impl FlexLayouter {
 
     fn layout_box(&mut self, boxed: Layout) -> LayoutResult<()> {
         let size = self.axes.generalize(boxed.dimensions);
-
         let new_dimension = self.part.dimensions.x
-            + self.part.space.unwrap_or(Size::zero());
+            + size.x
+            + self.part.space.soft_or_zero();
 
         if new_dimension > self.part.usable {
             self.finish_line()?;
@@ -251,7 +249,7 @@ impl FlexLayouter {
             }
         }
 
-        if let Some(space) = self.part.space.take() {
+        if let SpaceState::Soft(space) = self.part.space {
             self.layout_space(space, false);
         }
 
@@ -260,15 +258,15 @@ impl FlexLayouter {
 
         self.part.dimensions.x += size.x;
         self.part.dimensions.y.max_eq(size.y);
-        self.part.last_was_space = false;
+        self.part.space = SpaceState::Allowed;
 
         Ok(())
     }
 
     fn layout_space(&mut self, space: Size, soft: bool) {
         if soft {
-            if !self.part.last_was_space {
-                self.part.space = Some(space);
+            if self.part.space != SpaceState::Forbidden {
+                self.part.space = SpaceState::Soft(space);
             }
         } else {
             if self.part.dimensions.x + space > self.part.usable {
@@ -276,7 +274,8 @@ impl FlexLayouter {
             } else {
                 self.part.dimensions.x += space;
             }
-            self.part.last_was_space = true;
+
+            self.part.space = SpaceState::Forbidden;
         }
     }
 
