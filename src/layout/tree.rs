@@ -1,7 +1,6 @@
 use super::*;
 use smallvec::smallvec;
 
-/// Layouts syntax trees into boxes.
 pub fn layout_tree(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<MultiLayout> {
     let mut layouter = TreeLayouter::new(ctx);
     layouter.layout(tree)?;
@@ -16,7 +15,7 @@ struct TreeLayouter<'a, 'p> {
 }
 
 impl<'a, 'p> TreeLayouter<'a, 'p> {
-    /// Create a new layouter.
+    /// Create a new syntax tree layouter.
     fn new(ctx: LayoutContext<'a, 'p>) -> TreeLayouter<'a, 'p> {
         TreeLayouter {
             flex: FlexLayouter::new(FlexContext {
@@ -30,28 +29,13 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
         }
     }
 
-    /// Layout a syntax tree.
     fn layout(&mut self, tree: &SyntaxTree) -> LayoutResult<()> {
         for node in &tree.nodes {
             match &node.val {
-                Node::Text(text) => {
-                    self.flex.add(layout_text(text, TextContext {
-                        loader: &self.ctx.loader,
-                        style: &self.style,
-                    })?);
-                }
+                Node::Text(text) => self.layout_text(text)?,
 
-                Node::Space => {
-                    if !self.flex.run_is_empty() && !self.flex.run_last_is_space() {
-                        let space = self.style.word_spacing * self.style.font_size;
-                        self.flex.add_primary_space(space, true);
-                    }
-                }
-                Node::Newline => {
-                    if !self.flex.run_is_empty() {
-                        self.break_paragraph()?;
-                    }
-                }
+                Node::Space => self.layout_space(),
+                Node::Newline => self.layout_paragraph()?,
 
                 Node::ToggleItalics => self.style.toggle_class(FontClass::Italic),
                 Node::ToggleBold => self.style.toggle_class(FontClass::Bold),
@@ -64,27 +48,53 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
         Ok(())
     }
 
-    /// Layout a function.
+    fn layout_text(&mut self, text: &str) -> LayoutResult<()> {
+        let layout = layout_text(text, TextContext {
+            loader: &self.ctx.loader,
+            style: &self.style,
+        })?;
+
+        Ok(self.flex.add(layout))
+    }
+
+    fn layout_space(&mut self) {
+        if !self.flex.run_is_empty() {
+            self.flex.add_primary_space(word_spacing(&self.style), true);
+        }
+    }
+
+    fn layout_paragraph(&mut self) -> LayoutResult<()> {
+        if !self.flex.run_is_empty() {
+            self.flex.add_secondary_space(paragraph_spacing(&self.style), true)?;
+        }
+        Ok(())
+    }
+
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
         let (first, second) = self.flex.remaining()?;
 
-        let ctx = |spaces| LayoutContext {
-            loader: self.ctx.loader,
-            top_level: false,
-            text_style: &self.style,
-            page_style: self.ctx.page_style,
-            spaces,
-            axes: self.ctx.axes.expanding(false),
-            expand: false,
+        let ctx = |spaces| {
+            LayoutContext {
+                loader: self.ctx.loader,
+                top_level: false,
+                text_style: &self.style,
+                page_style: self.ctx.page_style,
+                spaces,
+                axes: self.ctx.axes.expanding(false),
+                expand: false,
+            }
         };
 
         let commands = match func.body.val.layout(ctx(first)) {
             Ok(c) => c,
-            Err(e) => match (e, second) {
-                (LayoutError::NotEnoughSpace(_), Some(space))
-                    => func.body.val.layout(ctx(space))?,
-                _ => Err(e)?,
-            },
+            Err(e) => {
+                match (e, second) {
+                    (LayoutError::NotEnoughSpace(_), Some(space)) => {
+                        func.body.val.layout(ctx(space))?
+                    }
+                    (e, _) => Err(e)?,
+                }
+            }
         };
 
         for command in commands {
@@ -108,7 +118,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             Command::FinishRun => { self.flex.finish_run()?; },
             Command::FinishSpace => self.flex.finish_space(true)?,
 
-            Command::BreakParagraph => self.break_paragraph()?,
+            Command::BreakParagraph => self.layout_paragraph()?,
 
             Command::SetTextStyle(style) => self.style = style,
             Command::SetPageStyle(style) => {
@@ -134,15 +144,13 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
         Ok(())
     }
 
-    /// Finish the layout.
     fn finish(self) -> LayoutResult<MultiLayout> {
         self.flex.finish()
     }
+}
 
-    /// Finish the current flex layout and add space after it.
-    fn break_paragraph(&mut self) -> LayoutResult<()> {
-        self.flex.add_secondary_space(paragraph_spacing(&self.style), true)
-    }
+fn word_spacing(style: &TextStyle) -> Size {
+    style.word_spacing * style.font_size
 }
 
 fn flex_spacing(style: &TextStyle) -> Size {

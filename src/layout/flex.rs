@@ -2,13 +2,13 @@ use super::*;
 
 #[derive(Debug, Clone)]
 pub struct FlexLayouter {
-    stack: StackLayouter,
-
     axes: LayoutAxes,
     flex_spacing: Size,
+    stack: StackLayouter,
 
     units: Vec<FlexUnit>,
     line: FlexLine,
+    part: PartialLine,
 }
 
 #[derive(Debug, Clone)]
@@ -24,7 +24,6 @@ struct FlexLine {
     usable: Size,
     actions: LayoutActionList,
     combined_dimensions: Size2D,
-    part: PartialLine,
 }
 
 impl FlexLine {
@@ -33,7 +32,6 @@ impl FlexLine {
             usable,
             actions: LayoutActionList::new(),
             combined_dimensions: Size2D::zero(),
-            part: PartialLine::new(usable),
         }
     }
 }
@@ -44,6 +42,7 @@ struct PartialLine {
     content: Vec<(Size, Layout)>,
     dimensions: Size2D,
     space: Option<Size>,
+    last_was_space: bool,
 }
 
 impl PartialLine {
@@ -53,6 +52,7 @@ impl PartialLine {
             content: vec![],
             dimensions: Size2D::zero(),
             space: None,
+            last_was_space: false,
         }
     }
 }
@@ -80,13 +80,13 @@ impl FlexLayouter {
         let usable = stack.primary_usable();
 
         FlexLayouter {
-            stack,
-
             axes: ctx.axes,
             flex_spacing: ctx.flex_spacing,
+            stack,
 
             units: vec![],
-            line: FlexLine::new(usable)
+            line: FlexLine::new(usable),
+            part: PartialLine::new(usable),
         }
     }
 
@@ -105,7 +105,7 @@ impl FlexLayouter {
     }
 
     pub fn add_primary_space(&mut self, space: Size, soft: bool) {
-        self.units.push(FlexUnit::Space(space, soft));
+        self.units.push(FlexUnit::Space(space, soft))
     }
 
     pub fn add_secondary_space(&mut self, space: Size, soft: bool) -> LayoutResult<()> {
@@ -122,7 +122,7 @@ impl FlexLayouter {
     pub fn set_spaces(&mut self, spaces: LayoutSpaces, replace_empty: bool) {
         if replace_empty && self.run_is_empty() && self.stack.space_is_empty() {
             self.stack.set_spaces(spaces, true);
-            self.start_run();
+            self.start_line();
         } else {
             self.stack.set_spaces(spaces, false);
         }
@@ -142,7 +142,6 @@ impl FlexLayouter {
 
             Ok((flex_spaces, Some(stack_spaces)))
         }
-
     }
 
     pub fn run_is_empty(&self) -> bool {
@@ -162,7 +161,9 @@ impl FlexLayouter {
         if !self.run_is_empty() {
             self.finish_run()?;
         }
-        Ok(self.stack.finish_space(hard))
+
+        self.stack.finish_space(hard);
+        Ok(self.start_line())
     }
 
     pub fn finish_run(&mut self) -> LayoutResult<Size2D> {
@@ -172,7 +173,7 @@ impl FlexLayouter {
                 FlexUnit::Boxed(boxed) => self.layout_box(boxed)?,
                 FlexUnit::Space(space, soft) => self.layout_space(space, soft),
                 FlexUnit::SetAxes(axes) => self.layout_set_axes(axes),
-                FlexUnit::Break => self.layout_break(),
+                FlexUnit::Break => { self.finish_line()?; },
             }
         }
 
@@ -183,77 +184,91 @@ impl FlexLayouter {
         self.finish_partial_line();
 
         self.stack.add(Layout {
-            dimensions: self.axes.specialize(self.line.combined_dimensions),
-            actions: self.line.actions.into_vec(),
+            dimensions: self.axes.specialize(Size2D {
+                x: self.line.usable,
+                y: self.line.combined_dimensions.y + self.flex_spacing,
+            }),
+            actions: self.line.actions.to_vec(),
             debug_render: false,
         })?;
 
         let remaining = self.axes.specialize(Size2D {
-            x: self.line.usable - self.line.combined_dimensions.x,
+            x: self.part.usable
+                - self.part.dimensions.x
+                - self.part.space.unwrap_or(Size::zero()),
             y: self.line.combined_dimensions.y,
         });
 
-        self.line = FlexLine::new(self.stack.primary_usable());
+        self.start_line();
 
         Ok(remaining)
     }
 
-    fn finish_partial_line(&mut self) {
-        let part = self.line.part;
+    fn start_line(&mut self) {
+        let usable = self.stack.primary_usable();
+        self.line = FlexLine::new(usable);
+        self.part = PartialLine::new(usable);
+    }
 
+    fn finish_partial_line(&mut self) {
         let factor = self.axes.primary.axis.factor();
         let anchor =
             self.axes.primary.anchor(self.line.usable)
-            - self.axes.primary.anchor(part.dimensions.x);
+            - self.axes.primary.anchor(self.part.dimensions.x);
 
-        for (offset, layout) in part.content {
+        for (offset, layout) in self.part.content.drain(..) {
             let pos = self.axes.specialize(Size2D::with_x(anchor + factor * offset));
             self.line.actions.add_layout(pos, layout);
         }
 
-        self.line.combined_dimensions.x.max_eq(part.dimensions.x);
-        self.line.part = PartialLine::new(self.line.usable - part.dimensions.x);
-    }
-
-    fn start_run(&mut self) {
-        let usable = self.stack.primary_usable();
-        self.line = FlexLine::new(usable);
+        self.line.combined_dimensions.x = anchor + factor * self.part.dimensions.x;
+        self.line.combined_dimensions.y.max_eq(self.part.dimensions.x);
     }
 
     fn layout_box(&mut self, boxed: Layout) -> LayoutResult<()> {
         let size = self.axes.generalize(boxed.dimensions);
 
-        if size.x > self.size_left() {
-            self.space = None;
+        let new_dimension = self.part.dimensions.x
+            + self.part.space.unwrap_or(Size::zero());
+
+        if new_dimension > self.part.usable {
             self.finish_line()?;
 
-            while size.x > self.usable {
+            while size.x > self.line.usable {
                 if self.stack.space_is_last() {
-                    Err(LayoutError::NotEnoughSpace("cannot fix box into flex run"))?;
+                    Err(LayoutError::NotEnoughSpace("failed to add box to flex run"))?;
                 }
 
-                self.finish_space(true);
-                self.total_usable = self.stack.primary_usable();
-                self.usable = self.total_usable;
+                self.stack.finish_space(true);
             }
         }
 
-        self.layout_space();
+        if let Some(space) = self.part.space.take() {
+            self.layout_space(space, false);
+        }
 
-        let offset = self.run.size.x;
-        self.run.content.push((offset, boxed));
+        let offset = self.part.dimensions.x;
+        self.part.content.push((offset, boxed));
 
-        self.run.size.x += size.x;
-        self.run.size.y = crate::size::max(self.run.size.y, size.y);
+        self.part.dimensions.x += size.x;
+        self.part.dimensions.y.max_eq(size.y);
+        self.part.last_was_space = false;
 
         Ok(())
     }
 
     fn layout_space(&mut self, space: Size, soft: bool) {
-        if let Some(space) = self.space.take() {
-            if self.run.size.x > Size::zero() && self.run.size.x + space <= self.usable {
-                self.run.size.x += space;
+        if soft {
+            if !self.part.last_was_space {
+                self.part.space = Some(space);
             }
+        } else {
+            if self.part.dimensions.x + space > self.part.usable {
+                self.part.dimensions.x = self.part.usable;
+            } else {
+                self.part.dimensions.x += space;
+            }
+            self.part.last_was_space = true;
         }
     }
 
@@ -261,19 +276,17 @@ impl FlexLayouter {
         if axes.primary != self.axes.primary {
             self.finish_partial_line();
 
-            // self.usable = match axes.primary.alignment {
-            //     Alignment::Origin =>
-            //         if self.max_extent == Size::zero() {
-            //             self.total_usable
-            //         } else {
-            //             Size::zero()
-            //         },
-            //     Alignment::Center => crate::size::max(
-            //         self.total_usable - 2 * self.max_extent,
-            //         Size::zero()
-            //     ),
-            //     Alignment::End => self.total_usable - self.max_extent,
-            // };
+            let extent = self.line.combined_dimensions.x;
+            let usable = self.line.usable;
+
+            let new_usable = match axes.primary.alignment {
+                Alignment::Origin if extent == Size::zero() => usable,
+                Alignment::Center if extent < usable / 2 => usable - 2 * extent,
+                Alignment::End => usable - extent,
+                _ => Size::zero(),
+            };
+
+            self.part = PartialLine::new(new_usable);
         }
 
         if axes.secondary != self.axes.secondary {
@@ -281,14 +294,5 @@ impl FlexLayouter {
         }
 
         self.axes = axes;
-    }
-
-    fn layout_break(&mut self) {
-
-    }
-
-    fn size_left(&self) -> Size {
-        let space = self.space.unwrap_or(Size::zero());
-        self.usable - (self.run.size.x + space)
     }
 }

@@ -72,7 +72,7 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
 
         Ok(Layout {
             dimensions: Size2D::new(self.width, self.ctx.style.font_size),
-            actions: self.actions.into_vec(),
+            actions: self.actions.to_vec(),
             debug_render: false,
         })
     }

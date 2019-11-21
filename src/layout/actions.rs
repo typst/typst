@@ -133,9 +133,10 @@ impl LayoutActionList {
         self.actions.is_empty()
     }
 
-    /// Return the list of actions as a vector.
-    pub fn into_vec(self) -> Vec<LayoutAction> {
-        self.actions
+    /// Return the list of actions as a vector, leaving an empty
+    /// vector in its position.
+    pub fn to_vec(&mut self) -> Vec<LayoutAction> {
+        std::mem::replace(&mut self.actions, vec![])
     }
 
     /// Append a cached move action if one is cached.
