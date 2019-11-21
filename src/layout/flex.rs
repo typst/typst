@@ -183,11 +183,14 @@ impl FlexLayouter {
     fn finish_line(&mut self) -> LayoutResult<Size2D> {
         self.finish_partial_line();
 
+        if self.axes.primary.needs_expansion() {
+            self.line.combined_dimensions.x = self.line.usable;
+        }
+
         self.stack.add(Layout {
-            dimensions: self.axes.specialize(Size2D {
-                x: self.line.usable,
-                y: self.line.combined_dimensions.y + self.flex_spacing,
-            }),
+            dimensions: self.axes.specialize(
+                self.line.combined_dimensions+ Size2D::with_y(self.flex_spacing)
+            ),
             actions: self.line.actions.to_vec(),
             debug_render: false,
         })?;
@@ -221,8 +224,13 @@ impl FlexLayouter {
             self.line.actions.add_layout(pos, layout);
         }
 
-        self.line.combined_dimensions.x = anchor + factor * self.part.dimensions.x;
-        self.line.combined_dimensions.y.max_eq(self.part.dimensions.x);
+        self.line.combined_dimensions.x = match self.axes.primary.alignment {
+            Alignment::Origin => self.part.dimensions.x,
+            Alignment::Center => self.part.usable / 2 + self.part.dimensions.x / 2,
+            Alignment::End => self.part.usable,
+        };
+
+        self.line.combined_dimensions.y.max_eq(self.part.dimensions.y);
     }
 
     fn layout_box(&mut self, boxed: Layout) -> LayoutResult<()> {
