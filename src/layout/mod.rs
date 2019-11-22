@@ -324,6 +324,8 @@ impl SpaceState {
 pub enum LayoutError {
     /// An action is unallowed in the active context.
     Unallowed(&'static str),
+    /// A specifier or operation is invalid for the given axis.
+    UnalignedAxis(&'static str),
     /// There is not enough space to add an item.
     NotEnoughSpace(&'static str),
     /// There was no suitable font for the given character.
@@ -339,6 +341,7 @@ error_type! {
     err: LayoutError,
     show: f => match err {
         LayoutError::Unallowed(desc) => write!(f, "unallowed: {}", desc),
+        LayoutError::UnalignedAxis(desc) => write!(f, "unaligned axis: {}", desc),
         LayoutError::NotEnoughSpace(desc) => write!(f, "not enough space: {}", desc),
         LayoutError::NoSuitableFont(c) => write!(f, "no suitable font for '{}'", c),
         LayoutError::Font(err) => write!(f, "font error: {}", err),

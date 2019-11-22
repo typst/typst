@@ -4,7 +4,21 @@ use crate::func::prelude::*;
 #[derive(Debug, PartialEq)]
 pub struct Align {
     body: Option<SyntaxTree>,
-    alignment: Alignment,
+    primary: Option<AlignSpecifier>,
+    secondary: Option<AlignSpecifier>,
+    horizontal: Option<AlignSpecifier>,
+    vertical: Option<AlignSpecifier>,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum AlignSpecifier {
+    Origin,
+    Center,
+    End,
+    Left,
+    Right,
+    Top,
+    Bottom,
 }
 
 function! {
@@ -12,29 +26,76 @@ function! {
 
     parse(args, body, ctx) {
         let body = parse!(optional: body, ctx);
-        let arg = args.get_pos::<ArgIdent>()?;
-        let alignment = match arg.val {
-            "left" | "origin" => Alignment::Origin,
-            "center" => Alignment::Center,
-            "right" | "end" => Alignment::End,
-            s => err!("invalid alignment specifier: {}", s),
+
+        let mut align = Align {
+            body,
+            primary: None,
+            secondary: None,
+            horizontal: None,
+            vertical: None,
         };
+
+        if let Some(arg) = args.get_pos_opt::<ArgIdent>()? {
+            align.primary = Some(parse_align_specifier(arg)?);
+        }
+
+        let mut parse_arg = |axis, target: &mut Option<AlignSpecifier>| {
+            Ok(if let Some(arg) = args.get_key_opt::<ArgIdent>(axis)? {
+                if target.is_none() {
+                    *target = Some(parse_align_specifier(arg)?);
+                } else {
+                    err!("duplicate alignment specification for {} axis", axis);
+                }
+            })
+        };
+
+        parse_arg("primary", &mut align.primary)?;
+        parse_arg("secondary", &mut align.secondary)?;
+        parse_arg("horizontal", &mut align.horizontal)?;
+        parse_arg("vertical", &mut align.vertical)?;
+
         args.done()?;
 
-        Ok(Align {
-            body,
-            alignment,
-        })
+        Ok(align)
     }
 
     layout(this, ctx) {
         let mut axes = ctx.axes;
-        axes.primary.alignment = this.alignment;
+        let primary_horizontal = axes.primary.axis.is_horizontal();
 
-        if ctx.axes.primary.alignment == Alignment::End
-           && this.alignment == Alignment::Origin {
-            axes.primary.expand = true;
-        }
+        let mut primary = false;
+        let mut secondary = false;
+
+        let mut set_axis = |is_primary: bool, spec: Option<AlignSpecifier>| -> LayoutResult<()> {
+            if let Some(spec) = spec {
+                let (axis, was_set, name) = match is_primary {
+                    true => (&mut axes.primary, &mut primary, "primary"),
+                    false => (&mut axes.secondary, &mut secondary, "secondary"),
+                };
+
+                if *was_set {
+                    panic!("duplicate alignment for {} axis", name);
+                }
+
+                *was_set = true;
+
+                let horizontal = axis.axis.is_horizontal();
+                let alignment = generic_alignment(spec, horizontal)?;
+
+                if axis.alignment == Alignment::End && alignment == Alignment::Origin {
+                    axis.expand = true;
+                }
+
+                axis.alignment = alignment;
+            }
+
+            Ok(())
+        };
+
+        set_axis(true, this.primary)?;
+        set_axis(false, this.secondary)?;
+        set_axis(primary_horizontal, this.horizontal)?;
+        set_axis(!primary_horizontal, this.vertical)?;
 
         Ok(match &this.body {
             Some(body) => commands![AddMultiple(
@@ -46,4 +107,27 @@ function! {
             None => commands![Command::SetAxes(axes)]
         })
     }
+}
+
+fn parse_align_specifier(arg: Spanned<&str>) -> ParseResult<AlignSpecifier> {
+    Ok(match arg.val {
+        "origin" => AlignSpecifier::Origin,
+        "center" => AlignSpecifier::Center,
+        "end" => AlignSpecifier::End,
+        "left" => AlignSpecifier::Left,
+        "right" => AlignSpecifier::Right,
+        "top" => AlignSpecifier::Top,
+        "bottom" => AlignSpecifier::Bottom,
+        s => err!("invalid alignment specifier: {}", s),
+    })
+}
+
+fn generic_alignment(spec: AlignSpecifier, horizontal: bool) -> LayoutResult<Alignment> {
+    use AlignSpecifier::*;
+    Ok(match (spec, horizontal) {
+        (Origin, _) | (Left, true) | (Top, false) => Alignment::Origin,
+        (Center, _) => Alignment::Center,
+        (End, _) | (Right, true) | (Bottom, false) => Alignment::End,
+        _ => Err(LayoutError::UnalignedAxis("invalid alignment"))?,
+    })
 }
