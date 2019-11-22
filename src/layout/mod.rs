@@ -308,7 +308,17 @@ pub enum Alignment {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum SpaceState {
+pub enum SpaceKind {
+    /// Soft spaces are eaten up by hard spaces before or after them.
+    Soft,
+    /// Independent do not eat up soft spaces and are not eaten up by hard spaces.
+    Independent,
+    /// Hard spaces eat up soft spaces before or after them.
+    Hard,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+enum SpaceState {
     Soft(Size),
     Forbidden,
     Allowed,

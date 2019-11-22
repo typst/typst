@@ -4,6 +4,8 @@ use crate::func::prelude::*;
 #[derive(Debug, PartialEq)]
 pub struct Align {
     body: Option<SyntaxTree>,
+    positional_1: Option<AlignSpecifier>,
+    positional_2: Option<AlignSpecifier>,
     primary: Option<AlignSpecifier>,
     secondary: Option<AlignSpecifier>,
     horizontal: Option<AlignSpecifier>,
@@ -29,6 +31,8 @@ function! {
 
         let mut align = Align {
             body,
+            positional_1: None,
+            positional_2: None,
             primary: None,
             secondary: None,
             horizontal: None,
@@ -36,7 +40,11 @@ function! {
         };
 
         if let Some(arg) = args.get_pos_opt::<ArgIdent>()? {
-            align.primary = Some(parse_align_specifier(arg)?);
+            align.positional_1 = Some(parse_align_specifier(arg)?);
+        }
+
+        if let Some(arg) = args.get_pos_opt::<ArgIdent>()? {
+            align.positional_2 = Some(parse_align_specifier(arg)?);
         }
 
         let mut parse_arg = |axis, target: &mut Option<AlignSpecifier>| {
@@ -91,6 +99,16 @@ function! {
 
             Ok(())
         };
+
+        if let Some(spec) = this.positional_1 {
+            let positional = generic_alignment(spec, primary_horizontal).is_ok();
+            set_axis(positional, this.positional_1)?;
+        }
+
+        if let Some(spec) = this.positional_2 {
+            let positional = generic_alignment(spec, primary_horizontal).is_ok();
+            set_axis(positional, this.positional_2)?;
+        }
 
         set_axis(true, this.primary)?;
         set_axis(false, this.secondary)?;

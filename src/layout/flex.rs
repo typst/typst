@@ -14,7 +14,7 @@ pub struct FlexLayouter {
 #[derive(Debug, Clone)]
 enum FlexUnit {
     Boxed(Layout),
-    Space(Size, bool),
+    Space(Size, SpaceKind),
     SetAxes(LayoutAxes),
     Break,
 }
@@ -102,15 +102,15 @@ impl FlexLayouter {
         self.units.push(FlexUnit::Break);
     }
 
-    pub fn add_primary_space(&mut self, space: Size, soft: bool) {
-        self.units.push(FlexUnit::Space(space, soft))
+    pub fn add_primary_space(&mut self, space: Size, kind: SpaceKind) {
+        self.units.push(FlexUnit::Space(space, kind))
     }
 
-    pub fn add_secondary_space(&mut self, space: Size, soft: bool) -> LayoutResult<()> {
+    pub fn add_secondary_space(&mut self, space: Size, kind: SpaceKind) -> LayoutResult<()> {
         if !self.run_is_empty() {
             self.finish_run()?;
         }
-        Ok(self.stack.add_space(space, soft))
+        Ok(self.stack.add_space(space, kind))
     }
 
     pub fn set_axes(&mut self, axes: LayoutAxes) {
@@ -169,7 +169,7 @@ impl FlexLayouter {
         for unit in units {
             match unit {
                 FlexUnit::Boxed(boxed) => self.layout_box(boxed)?,
-                FlexUnit::Space(space, soft) => self.layout_space(space, soft),
+                FlexUnit::Space(space, kind) => self.layout_space(space, kind),
                 FlexUnit::SetAxes(axes) => self.layout_set_axes(axes),
                 FlexUnit::Break => { self.finish_line()?; },
             }
@@ -186,12 +186,12 @@ impl FlexLayouter {
         }
 
         self.stack.add(Layout {
-            dimensions: self.axes.specialize(
-                self.line.combined_dimensions+ Size2D::with_y(self.flex_spacing)
-            ),
+            dimensions: self.axes.specialize(self.line.combined_dimensions),
             actions: self.line.actions.to_vec(),
             debug_render: false,
         })?;
+
+        self.stack.add_space(self.flex_spacing, SpaceKind::Independent);
 
         let remaining = self.axes.specialize(Size2D {
             x: self.part.usable
@@ -250,7 +250,7 @@ impl FlexLayouter {
         }
 
         if let SpaceState::Soft(space) = self.part.space {
-            self.layout_space(space, false);
+            self.layout_space(space, SpaceKind::Hard);
         }
 
         let offset = self.part.dimensions.x;
@@ -263,8 +263,8 @@ impl FlexLayouter {
         Ok(())
     }
 
-    fn layout_space(&mut self, space: Size, soft: bool) {
-        if soft {
+    fn layout_space(&mut self, space: Size, kind: SpaceKind) {
+        if kind == SpaceKind::Soft {
             if self.part.space != SpaceState::Forbidden {
                 self.part.space = SpaceState::Soft(space);
             }
@@ -275,7 +275,9 @@ impl FlexLayouter {
                 self.part.dimensions.x += space;
             }
 
-            self.part.space = SpaceState::Forbidden;
+            if kind == SpaceKind::Hard {
+                self.part.space = SpaceState::Forbidden;
+            }
         }
     }
 

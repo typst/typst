@@ -58,15 +58,18 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     }
 
     fn layout_space(&mut self) {
-        self.flex.add_primary_space(word_spacing(&self.style), true);
+        self.flex.add_primary_space(word_spacing(&self.style), SpaceKind::Soft);
     }
 
     fn layout_paragraph(&mut self) -> LayoutResult<()> {
-        self.flex.add_secondary_space(paragraph_spacing(&self.style), true)
+        self.flex.add_secondary_space(paragraph_spacing(&self.style), SpaceKind::Soft)
     }
 
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
         let (first, second) = self.flex.remaining()?;
+
+        let mut axes = self.ctx.axes.expanding(false);
+        axes.secondary.alignment = Alignment::Origin;
 
         let ctx = |spaces| {
             LayoutContext {
@@ -75,7 +78,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                 text_style: &self.style,
                 page_style: self.ctx.page_style,
                 spaces,
-                axes: self.ctx.axes.expanding(false),
+                axes,
                 expand: false,
             }
         };
@@ -106,8 +109,10 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             Command::Add(layout) => self.flex.add(layout),
             Command::AddMultiple(layouts) => self.flex.add_multiple(layouts),
 
-            Command::AddPrimarySpace(space) => self.flex.add_primary_space(space, false),
-            Command::AddSecondarySpace(space) => self.flex.add_secondary_space(space, false)?,
+            Command::AddPrimarySpace(space)
+                => self.flex.add_primary_space(space, SpaceKind::Hard),
+            Command::AddSecondarySpace(space)
+                => self.flex.add_secondary_space(space, SpaceKind::Hard)?,
 
             Command::FinishLine => self.flex.add_break(),
             Command::FinishRun => { self.flex.finish_run()?; },

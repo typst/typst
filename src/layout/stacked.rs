@@ -32,10 +32,14 @@ impl Space {
 #[derive(Debug, Clone)]
 struct Subspace {
     origin: Size2D,
-    usable: Size2D,
     anchor: Size2D,
     factor: i32,
+
+    boxes: Vec<(Size, Size, Layout)>,
+
+    usable: Size2D,
     dimensions: Size2D,
+
     space: SpaceState,
 }
 
@@ -43,9 +47,10 @@ impl Subspace {
     fn new(origin: Size2D, usable: Size2D, axes: LayoutAxes) -> Subspace {
         Subspace {
             origin,
-            usable: axes.generalize(usable),
             anchor: axes.anchor(usable),
             factor: axes.secondary.axis.factor(),
+            boxes: vec![],
+            usable: axes.generalize(usable),
             dimensions: Size2D::zero(),
             space: SpaceState::Forbidden,
         }
@@ -78,7 +83,7 @@ impl StackLayouter {
 
     pub fn add(&mut self, layout: Layout) -> LayoutResult<()> {
         if let SpaceState::Soft(space) = self.sub.space {
-            self.add_space(space, false);
+            self.add_space(space, SpaceKind::Hard);
         }
 
         let size = self.ctx.axes.generalize(layout.dimensions);
@@ -90,9 +95,6 @@ impl StackLayouter {
 
         while !self.sub.usable.fits(new_dimensions) {
             if self.space_is_last() && self.space_is_empty() {
-                println!("usable: {}", self.sub.usable);
-                println!("dims:   {}", new_dimensions);
-                println!("size:   {}", size);
                 Err(LayoutError::NotEnoughSpace("failed to add box to stack"))?;
             }
 
@@ -101,14 +103,9 @@ impl StackLayouter {
         }
 
         let offset = self.sub.dimensions.y;
-        let anchor = self.ctx.axes.anchor(size);
+        let anchor = self.ctx.axes.primary.anchor(size.x);
 
-        let pos = self.sub.origin + self.ctx.axes.specialize(
-            (self.sub.anchor - anchor)
-            + Size2D::with_y(self.space.combined_dimensions.y + self.sub.factor * offset)
-        );
-
-        self.space.actions.add_layout(pos, layout);
+        self.sub.boxes.push((offset, anchor, layout));
         self.sub.dimensions = new_dimensions;
         self.sub.space = SpaceState::Allowed;
 
@@ -122,8 +119,8 @@ impl StackLayouter {
         Ok(())
     }
 
-    pub fn add_space(&mut self, space: Size, soft: bool) {
-        if soft {
+    pub fn add_space(&mut self, space: Size, kind: SpaceKind) {
+        if kind == SpaceKind::Soft {
             if self.sub.space != SpaceState::Forbidden {
                 self.sub.space = SpaceState::Soft(space);
             }
@@ -134,7 +131,9 @@ impl StackLayouter {
                 self.sub.dimensions.y += space;
             }
 
-            self.sub.space = SpaceState::Forbidden;
+            if kind == SpaceKind::Hard {
+                self.sub.space = SpaceState::Forbidden;
+            }
         }
     }
 
@@ -220,6 +219,20 @@ impl StackLayouter {
     }
 
     fn finish_subspace(&mut self) {
+        let factor = self.ctx.axes.secondary.axis.factor();
+        let anchor =
+            self.ctx.axes.anchor(self.sub.usable)
+            - self.ctx.axes.anchor(Size2D::with_y(self.sub.dimensions.y));
+
+        for (offset, layout_anchor, layout) in self.sub.boxes.drain(..) {
+            let pos = self.sub.origin
+                + self.ctx.axes.specialize(
+                    anchor + Size2D::new(-layout_anchor, factor * offset)
+                );
+
+            self.space.actions.add_layout(pos, layout);
+        }
+
         if self.ctx.axes.primary.needs_expansion() {
             self.sub.dimensions.x = self.sub.usable.x;
         }
