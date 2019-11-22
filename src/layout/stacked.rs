@@ -255,7 +255,7 @@ impl StackLayouter {
 
         let new_usable = self.ctx.axes.specialize(Size2D {
             x: self.sub.usable.x,
-            y: self.sub.usable.y - self.sub.dimensions.y,
+            y: self.sub.usable.y - self.sub.dimensions.y - self.sub.space.soft_or_zero(),
         });
 
         (new_origin, new_usable)

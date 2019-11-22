@@ -79,6 +79,7 @@ class MultiboxRenderer:
                 x = 10
                 y += 10 + row_height
                 i = 0
+                row_height = 0
 
         height = y
         if i != 0:
