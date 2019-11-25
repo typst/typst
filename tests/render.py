@@ -2,6 +2,7 @@ import sys
 import os
 import pathlib
 import math
+import numpy
 from PIL import Image, ImageDraw, ImageFont
 
 
@@ -102,6 +103,13 @@ class BoxRenderer:
         self.draw = ImageDraw.Draw(self.img)
         self.cursor = (0, 0)
 
+        pixels = numpy.array(self.img)
+        for i in range(0, int(height)):
+            for j in range(0 if i % 2 == 0 else 1, int(width), 2):
+                pixels[4*i:4*(i+1), 4*j:4*(j+1)] = (200, 200, 200, 255)
+
+        self.img = Image.fromarray(pixels)
+
         self.colors = [
             (176, 264, 158),
             (274, 173, 207),
@@ -167,7 +175,7 @@ class BoxRenderer:
 
 
 def pix(points):
-    return int(2 * points)
+    return int(4 * points)
 
 def overlap(a, b):
     return (a[0] < b[2] and b[0] < a[2]) and (a[1] < b[3] and b[1] < a[3])
