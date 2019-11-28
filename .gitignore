@@ -1,5 +1,5 @@
+.vscode
 /target
 **/*.rs.bk
 Cargo.lock
-things
 tests/cache
