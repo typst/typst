@@ -1,14 +1,12 @@
 use std::fs::{self, File};
 use std::io::{BufWriter, Read, Write};
 use std::process::Command;
-#[cfg(not(debug_assertions))]
-use std::time::Instant;
-
-use regex::{Regex, Captures};
 
 use typst::export::pdf::PdfExporter;
 use typst::layout::LayoutAction;
 use typst::toddle::query::FileSystemFontProvider;
+use typst::size::{Size, Size2D, SizeBox};
+use typst::style::PageStyle;
 use typst::Typesetter;
 
 const CACHE_DIR: &str = "tests/cache";
@@ -60,35 +58,45 @@ fn main() {
 fn test(name: &str, src: &str) {
     println!("Testing: {}.", name);
 
-    let src = preprocess(src);
-
     let mut typesetter = Typesetter::new();
+
+    typesetter.set_page_style(PageStyle {
+        dimensions: Size2D::with_all(Size::pt(250.0)),
+        margins: SizeBox::with_all(Size::pt(10.0)),
+    });
+
     let provider = FileSystemFontProvider::from_listing("fonts/fonts.toml").unwrap();
     typesetter.add_font_provider(provider.clone());
 
-    // Make run warm.
-    #[cfg(not(debug_assertions))] let warmup_start = Instant::now();
-    #[cfg(not(debug_assertions))] typesetter.typeset(&src).unwrap();
-    #[cfg(not(debug_assertions))] let warmup_end = Instant::now();
+    #[cfg(not(debug_assertions))]
+    let layouts = {
+        use std::time::Instant;
 
-    // Layout into box layout.
-    #[cfg(not(debug_assertions))] let start = Instant::now();
-    let tree = typesetter.parse(&src).unwrap();
-    #[cfg(not(debug_assertions))] let mid = Instant::now();
-    let layouts = typesetter.layout(&tree).unwrap();
-    #[cfg(not(debug_assertions))] let end = Instant::now();
+        // Warmup.
+        let warmup_start = Instant::now();
+        typesetter.typeset(&src).unwrap();
+        let warmup_end = Instant::now();
 
-    // Print measurements.
-    #[cfg(not(debug_assertions))] {
+        let start = Instant::now();
+        let tree = typesetter.parse(&src).unwrap();
+        let mid = Instant::now();
+        let layouts = typesetter.layout(&tree).unwrap();
+        let end = Instant::now();
+
         println!(" - cold start:  {:?}", warmup_end - warmup_start);
         println!(" - warmed up:   {:?}", end - start);
         println!("   - parsing:   {:?}", mid - start);
         println!("   - layouting: {:?}", end - mid);
         println!();
-    }
+
+        layouts
+    };
+
+    #[cfg(debug_assertions)]
+    let layouts = typesetter.typeset(&src).unwrap();
 
     // Write the serialed layout file.
-    let path = format!("{}/serialized/{}.lay", CACHE_DIR, name);
+    let path = format!("{}/serialized/{}.tld", CACHE_DIR, name);
     let mut file = File::create(path).unwrap();
 
     // Find all used fonts and their filenames.
@@ -127,55 +135,4 @@ fn test(name: &str, src: &str) {
     let file = BufWriter::new(File::create(path).unwrap());
     let exporter = PdfExporter::new();
     exporter.export(&layouts, typesetter.loader(), file).unwrap();
-}
-
-fn preprocess<'a>(src: &'a str) -> String {
-    let include_regex = Regex::new(r"\{include:((.|\.|\-)*)\}").unwrap();
-    let lorem_regex = Regex::new(r"\{lorem:(\d*)\}").unwrap();
-
-    let mut preprocessed = src.to_string();
-
-    let mut changed = true;
-    while changed {
-        changed = false;
-        preprocessed = include_regex.replace_all(&preprocessed, |cap: &Captures| {
-            changed = true;
-            let filename = cap.get(1).unwrap().as_str();
-
-            let path = format!("tests/layouts/{}", filename);
-            let mut file = File::open(path).unwrap();
-            let mut buf = String::new();
-            file.read_to_string(&mut buf).unwrap();
-            buf
-        }).to_string();
-    }
-
-    preprocessed= lorem_regex.replace_all(&preprocessed, |cap: &Captures| {
-        let num_str = cap.get(1).unwrap().as_str();
-        let num_words = num_str.parse::<usize>().unwrap();
-
-        generate_lorem(num_words)
-    }).to_string();
-
-    preprocessed
-}
-
-fn generate_lorem(num_words: usize) -> String {
-    const LOREM: [&str; 69] = [
-        "Lorem", "ipsum", "dolor", "sit", "amet,", "consectetur", "adipiscing", "elit.", "Etiam",
-        "suscipit", "porta", "pretium.", "Donec", "eu", "lorem", "hendrerit,", "scelerisque",
-        "lectus", "at,", "consequat", "ligula.", "Nulla", "elementum", "massa", "et", "viverra",
-        "consectetur.", "Donec", "blandit", "metus", "ut", "ipsum", "commodo", "congue.", "Nullam",
-        "auctor,", "mi", "vel", "tristique", "venenatis,", "nisl", "nunc", "tristique", "diam,",
-        "aliquam", "pellentesque", "lorem", "massa", "vel", "neque.", "Sed", "malesuada", "ante",
-        "nisi,", "sit", "amet", "auctor", "risus", "fermentum", "in.", "Sed", "blandit", "mollis",
-        "mi,", "non", "tristique", "nisi", "fringilla", "at."
-    ];
-
-    let mut buf = String::new();
-    for i in 0 .. num_words {
-        buf.push_str(LOREM[i % LOREM.len()]);
-        buf.push(' ');
-    }
-    buf
 }

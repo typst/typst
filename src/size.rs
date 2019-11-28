@@ -116,6 +116,12 @@ impl Size2D {
         Size2D::default()
     }
 
+    /// Create a 2D-size with `x` and `y` set to the same value `s`.
+    #[inline]
+    pub fn with_all(s: Size) -> Size2D {
+        Size2D { x: s, y: s }
+    }
+
     /// Create a new 2D-size with `x` set to a value and `y` zero.
     #[inline]
     pub fn with_x(x: Size) -> Size2D {
@@ -178,6 +184,12 @@ impl SizeBox {
     #[inline]
     pub fn zero() -> SizeBox {
         SizeBox::default()
+    }
+
+    /// Create a box with all four fields set to the same value `s`.
+    #[inline]
+    pub fn with_all(s: Size) -> SizeBox {
+        SizeBox { left: s, top: s, right: s, bottom: s }
     }
 }
 

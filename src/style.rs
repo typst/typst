@@ -65,10 +65,10 @@ impl Default for TextStyle {
         TextStyle {
             classes: vec![Regular],
             fallback: vec![Serif],
-            font_size: Size::pt(11.0),
+            font_size: Size::pt(10.0),
             word_spacing: 0.25,
             line_spacing: 1.2,
-            paragraph_spacing: 1.5,
+            paragraph_spacing: 1.4,
         }
     }
 }

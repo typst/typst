@@ -7,14 +7,14 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 BASE = os.path.dirname(__file__)
-CACHE_DIR = os.path.join(BASE, "cache/");
+CACHE_DIR = os.path.join(BASE, "cache/")
 
 
 def main():
     assert len(sys.argv) == 2, "usage: python render.py <name>"
     name = sys.argv[1]
 
-    filename = os.path.join(CACHE_DIR, f"serialized/{name}.lay")
+    filename = os.path.join(CACHE_DIR, f"serialized/{name}.tld")
     with open(filename, encoding="utf-8") as file:
         lines = [line[:-1] for line in file.readlines()]
 
@@ -99,16 +99,17 @@ class BoxRenderer:
     def __init__(self, fonts, width, height):
         self.fonts = fonts
         self.size = (pix(width), pix(height))
-        self.img = Image.new("RGBA", self.size, (255, 255, 255, 255))
+
+        img = Image.new("RGBA", self.size, (255, 255, 255, 255))
+        pixels = numpy.array(img)
+        for i in range(0, int(height)):
+            for j in range(0, int(width)):
+                if ((i // 2) % 2 == 0) == ((j // 2) % 2 == 0):
+                    pixels[4*i:4*(i+1), 4*j:4*(j+1)] = (225, 225, 225, 255)
+
+        self.img = Image.fromarray(pixels, "RGBA")
         self.draw = ImageDraw.Draw(self.img)
         self.cursor = (0, 0)
-
-        pixels = numpy.array(self.img)
-        for i in range(0, int(height)):
-            for j in range(0 if i % 2 == 0 else 1, int(width), 2):
-                pixels[4*i:4*(i+1), 4*j:4*(j+1)] = (200, 200, 200, 255)
-
-        self.img = Image.fromarray(pixels)
 
         self.colors = [
             (176, 264, 158),
@@ -143,7 +144,7 @@ class BoxRenderer:
 
         elif cmd == 'b':
             x, y, w, h = (pix(float(s)) for s in parts)
-            rect = [x, y, x+w, y+h]
+            rect = [x, y, x+w-1, y+h-1]
 
             forbidden_colors = set()
             for other_rect, other_color in self.rects:

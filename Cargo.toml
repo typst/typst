@@ -11,9 +11,6 @@ byteorder = "1"
 smallvec = "0.6.10"
 unicode-xid = "0.1.0"
 
-[dev-dependencies]
-regex = "1"
-
 [[bin]]
 name = "typstc"
 path = "src/bin/main.rs"
