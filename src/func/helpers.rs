@@ -20,7 +20,7 @@ macro_rules! function {
         where Self: Sized {
             ArgParser::new(&header.args).done()?;
             if body.is_some() {
-                err!("expected no body");
+                perr!("expected no body");
             }
             Ok($ident)
         }
@@ -63,7 +63,7 @@ macro_rules! function {
 macro_rules! parse {
     (forbidden: $body:expr) => {
         if $body.is_some() {
-            err!("unexpected body");
+            perr!("unexpected body");
         }
     };
 
@@ -79,7 +79,7 @@ macro_rules! parse {
         if let Some(body) = $body {
             $crate::syntax::parse(body, $ctx)?
         } else {
-            err!("expected body");
+            perr!("expected body");
         }
     )
 }
@@ -87,10 +87,19 @@ macro_rules! parse {
 /// Early-return with a formatted parsing error or yield
 /// an error expression without returning when prefixed with `@`.
 #[macro_export]
-macro_rules! err {
+macro_rules! perr {
     (@$($tts:tt)*) => ($crate::syntax::ParseError::new(format!($($tts)*)));
-    ($($tts:tt)*) => (return Err(err!(@$($tts)*)););
+    ($($tts:tt)*) => (return Err(perr!(@$($tts)*)););
 }
+
+/// Early-return with a formatted layouting error or yield
+/// an error expression without returning when prefixed with `@`.
+#[macro_export]
+macro_rules! lerr {
+    (@$($tts:tt)*) => ($crate::layout::LayoutError::new(format!($($tts)*)));
+    ($($tts:tt)*) => (return Err(lerr!(@$($tts)*)););
+}
+
 
 /// Easy parsing of function arguments.
 pub struct ArgParser<'a> {
@@ -112,7 +121,7 @@ impl<'a> ArgParser<'a> {
     /// this will return an error.
     pub fn get_pos<T>(&mut self) -> ParseResult<Spanned<T::Output>> where T: Argument<'a> {
         self.get_pos_opt::<T>()?
-            .ok_or_else(|| err!(@"expected {}", T::ERROR_MESSAGE))
+            .ok_or_else(|| perr!(@"expected {}", T::ERROR_MESSAGE))
     }
 
     /// Get the next positional argument if there is any.
@@ -136,7 +145,7 @@ impl<'a> ArgParser<'a> {
     pub fn get_key<T>(&mut self, key: &str) -> ParseResult<Spanned<T::Output>>
     where T: Argument<'a> {
         self.get_key_opt::<T>(key)?
-            .ok_or_else(|| err!(@"expected {}", T::ERROR_MESSAGE))
+            .ok_or_else(|| perr!(@"expected {}", T::ERROR_MESSAGE))
     }
 
     /// Get a keyword argument with the given key and type if it is present.
@@ -153,7 +162,7 @@ impl<'a> ArgParser<'a> {
         if self.positional_index == self.args.positional.len() {
             Ok(())
         } else {
-            err!("unexpected argument");
+            perr!("unexpected argument");
         }
     }
 }
@@ -176,9 +185,10 @@ macro_rules! arg {
             const ERROR_MESSAGE: &'static str = $err;
 
             fn from_expr(expr: &'a Spanned<Expression>) -> ParseResult<Spanned<Self::Output>> {
+                #[allow(unreachable_patterns)]
                 match &expr.val {
                     $wanted => Ok(Spanned::new($converted, expr.span)),
-                    #[allow(unreachable_patterns)] _ => err!("expected {}", $err),
+                    _ => perr!("expected {}", $err),
                 }
             }
         }

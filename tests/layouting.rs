@@ -68,32 +68,39 @@ fn test(name: &str, src: &str) {
     let provider = FileSystemFontProvider::from_listing("fonts/fonts.toml").unwrap();
     typesetter.add_font_provider(provider.clone());
 
-    #[cfg(not(debug_assertions))]
-    let layouts = {
+    #[cfg(not(debug_assertions))] {
         use std::time::Instant;
 
         // Warmup.
         let warmup_start = Instant::now();
-        typesetter.typeset(&src).unwrap();
+        let is_ok = typesetter.typeset(&src).is_ok();
         let warmup_end = Instant::now();
 
-        let start = Instant::now();
-        let tree = typesetter.parse(&src).unwrap();
-        let mid = Instant::now();
-        let layouts = typesetter.layout(&tree).unwrap();
-        let end = Instant::now();
+        if is_ok {
+            let start = Instant::now();
+            let tree = typesetter.parse(&src).unwrap();
+            let mid = Instant::now();
+            typesetter.layout(&tree).unwrap();
+            let end = Instant::now();
 
-        println!(" - cold start:  {:?}", warmup_end - warmup_start);
-        println!(" - warmed up:   {:?}", end - start);
-        println!("   - parsing:   {:?}", mid - start);
-        println!("   - layouting: {:?}", end - mid);
-        println!();
-
-        layouts
+            println!(" - cold start:  {:?}", warmup_end - warmup_start);
+            println!(" - warmed up:   {:?}", end - start);
+            println!("   - parsing:   {:?}", mid - start);
+            println!("   - layouting: {:?}", end - mid);
+            println!();
+        }
     };
 
-    #[cfg(debug_assertions)]
-    let layouts = typesetter.typeset(&src).unwrap();
+    let layouts = match typesetter.typeset(&src) {
+        Ok(layouts) => layouts,
+        Err(err) => {
+            println!(" - compilation failed: {}", err);
+            #[cfg(not(debug_assertions))]
+            println!();
+            return;
+        },
+    };
+
 
     // Write the serialed layout file.
     let path = format!("{}/serialized/{}.tld", CACHE_DIR, name);

@@ -6,6 +6,7 @@ use crate::func::Function;
 use crate::size::Size;
 
 mod tokens;
+#[macro_use]
 mod parsing;
 
 pub use tokens::{tokenize, Tokens};

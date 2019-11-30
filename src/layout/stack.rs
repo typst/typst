@@ -95,7 +95,7 @@ impl StackLayouter {
 
         while !self.sub.usable.fits(new_dimensions) {
             if self.space_is_last() && self.space_is_empty() {
-                Err(LayoutError::NotEnoughSpace("failed to add box to stack"))?;
+                lerr!("box does not fit into stack");
             }
 
             self.finish_space(true);

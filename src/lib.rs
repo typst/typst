@@ -133,8 +133,8 @@ pub enum TypesetError {
 error_type! {
     err: TypesetError,
     show: f => match err {
-        TypesetError::Parse(e) => write!(f, "parse error: {}", e),
-        TypesetError::Layout(e) => write!(f, "layout error: {}", e),
+        TypesetError::Parse(e) => write!(f, "{}", e),
+        TypesetError::Layout(e) => write!(f, "{}", e),
     },
     source: match err {
         TypesetError::Parse(e) => Some(e),

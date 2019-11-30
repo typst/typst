@@ -120,10 +120,10 @@ impl<'s> Parser<'s> {
                 if is_identifier(word) {
                     Ok(Spanned::new(word.to_owned(), span))
                 } else {
-                    err!("invalid identifier: '{}'", word);
+                    perr!("invalid identifier: '{}'", word);
                 }
             }
-            _ => err!("expected identifier"),
+            _ => perr!("expected identifier"),
         }?;
 
         self.skip_white();
@@ -132,7 +132,7 @@ impl<'s> Parser<'s> {
         let args = match self.tokens.next().map(Spanned::value) {
             Some(Token::RightBracket) => FuncArgs::new(),
             Some(Token::Colon) => self.parse_func_args()?,
-            _ => err!("expected arguments or closing bracket"),
+            _ => perr!("expected arguments or closing bracket"),
         };
 
         let end = self.tokens.string_index();
@@ -158,7 +158,7 @@ impl<'s> Parser<'s> {
             match self.tokens.next().map(Spanned::value) {
                 Some(Token::Comma) => {},
                 Some(Token::RightBracket) => break,
-                _ => err!("expected comma or closing bracket"),
+                _ => perr!("expected comma or closing bracket"),
             }
         }
 
@@ -183,7 +183,7 @@ impl<'s> Parser<'s> {
                         self.skip_white();
 
                         let name = token.span_map(|_| name.to_string());
-                        let next = self.tokens.next().ok_or_else(|| err!(@"expected value"))?;
+                        let next = self.tokens.next().ok_or_else(|| perr!(@"expected value"))?;
                         let val = Self::parse_expression(next)?;
                         let span = Span::merge(name.span, val.span);
 
@@ -219,7 +219,7 @@ impl<'s> Parser<'s> {
                 }
             }
 
-            _ => err!("expected expression"),
+            _ => perr!("expected expression"),
         }, token.span))
     }
 
@@ -230,7 +230,7 @@ impl<'s> Parser<'s> {
             .ctx
             .scope
             .get_parser(&header.name.val)
-            .ok_or_else(|| err!(@"unknown function: '{}'", &header.name.val))?;
+            .ok_or_else(|| perr!(@"unknown function: '{}'", &header.name.val))?;
 
         let has_body = self.tokens.peek().map(Spanned::value) == Some(Token::LeftBracket);
 
@@ -298,7 +298,7 @@ impl<'s> Parser<'s> {
                     state = NewlineState::Zero;
                     match token.val {
                         Token::LineComment(_) | Token::BlockComment(_) => self.advance(),
-                        Token::StarSlash => err!("unexpected end of block comment"),
+                        Token::StarSlash => perr!("unexpected end of block comment"),
                         _ => break,
                     }
                 }
@@ -447,6 +447,7 @@ error_type! {
     err: ParseError,
     show: f => f.write_str(&err.0),
 }
+
 
 #[cfg(test)]
 mod tests {

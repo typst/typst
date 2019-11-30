@@ -52,7 +52,7 @@ function! {
                 if target.is_none() {
                     *target = Some(parse_align_specifier(arg)?);
                 } else {
-                    err!("duplicate alignment specification for {} axis", axis);
+                    perr!("duplicate alignment specification for {} axis", axis);
                 }
             })
         };
@@ -136,7 +136,7 @@ fn parse_align_specifier(arg: Spanned<&str>) -> ParseResult<AlignSpecifier> {
         "right" => AlignSpecifier::Right,
         "top" => AlignSpecifier::Top,
         "bottom" => AlignSpecifier::Bottom,
-        s => err!("invalid alignment specifier: {}", s),
+        s => perr!("invalid alignment specifier: {}", s),
     })
 }
 
@@ -146,6 +146,10 @@ fn generic_alignment(spec: AlignSpecifier, horizontal: bool) -> LayoutResult<Ali
         (Origin, _) | (Left, true) | (Top, false) => Alignment::Origin,
         (Center, _) => Alignment::Center,
         (End, _) | (Right, true) | (Bottom, false) => Alignment::End,
-        _ => Err(LayoutError::UnalignedAxis("invalid alignment"))?,
+        _ => lerr!(
+            "invalid alignment specifier `{}` for {} axis",
+            format!("{:?}", spec).to_lowercase(),
+            if horizontal { "horizontal" } else { "vertical" },
+        ),
     })
 }

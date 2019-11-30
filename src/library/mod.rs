@@ -3,7 +3,7 @@
 use crate::func::Scope;
 
 pub_use_mod!(boxed);
-pub_use_mod!(axes);
+pub_use_mod!(align);
 pub_use_mod!(spacing);
 pub_use_mod!(style);
 pub_use_mod!(page);

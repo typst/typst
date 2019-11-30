@@ -15,14 +15,14 @@ use crate::syntax::{FuncCall, Node, SyntaxTree};
 mod actions;
 mod tree;
 mod flex;
-mod stacked;
+mod stack;
 mod text;
 
 /// Different kinds of layouters (fully re-exported).
 pub mod layouters {
     pub use super::tree::layout_tree;
     pub use super::flex::{FlexLayouter, FlexContext};
-    pub use super::stacked::{StackLayouter, StackContext};
+    pub use super::stack::{StackLayouter, StackContext};
     pub use super::text::{layout_text, TextContext};
 }
 
@@ -130,23 +130,17 @@ pub struct LayoutContext<'a, 'p> {
     /// The font loader to retrieve fonts from when typesetting text
     /// using [`layout_text`].
     pub loader: &'a SharedFontLoader<'p>,
-
     /// Whether this layouting process handles the top-level pages.
     pub top_level: bool,
-
     /// The style to set text with. This includes sizes and font classes
     /// which determine which font from the loaders selection is used.
     pub text_style: &'a TextStyle,
-
     /// The current size and margins of the top-level pages.
     pub page_style: PageStyle,
-
     /// The spaces to layout in.
     pub spaces: LayoutSpaces,
-
     /// The axes to flow on.
     pub axes: LayoutAxes,
-
     /// Whether layouts should expand to the full dimensions of the space
     /// they lie on or whether should tightly fit the content.
     pub expand: bool,
@@ -160,7 +154,6 @@ pub type LayoutSpaces = SmallVec<[LayoutSpace; 2]>;
 pub struct LayoutSpace {
     /// The maximum size of the box to layout in.
     pub dimensions: Size2D,
-
     /// Padding that should be respected on each side.
     pub padding: SizeBox,
 }
@@ -331,35 +324,21 @@ impl SpaceState {
 }
 
 /// The error type for layouting.
-pub enum LayoutError {
-    /// An action is unallowed in the active context.
-    Unallowed(&'static str),
-    /// A specifier or operation is invalid for the given axis.
-    UnalignedAxis(&'static str),
-    /// There is not enough space to add an item.
-    NotEnoughSpace(&'static str),
-    /// There was no suitable font for the given character.
-    NoSuitableFont(char),
-    /// An error occured while gathering font data.
-    Font(FontError),
-}
+pub struct LayoutError(String);
 
 /// The result type for layouting.
 pub type LayoutResult<T> = Result<T, LayoutError>;
 
+impl LayoutError {
+    /// Create a new layout error with a message.
+    pub fn new<S: Into<String>>(message: S) -> LayoutError {
+        LayoutError(message.into())
+    }
+}
+
 error_type! {
     err: LayoutError,
-    show: f => match err {
-        LayoutError::Unallowed(desc) => write!(f, "unallowed: {}", desc),
-        LayoutError::UnalignedAxis(desc) => write!(f, "unaligned axis: {}", desc),
-        LayoutError::NotEnoughSpace(desc) => write!(f, "not enough space: {}", desc),
-        LayoutError::NoSuitableFont(c) => write!(f, "no suitable font for '{}'", c),
-        LayoutError::Font(err) => write!(f, "font error: {}", err),
-    },
-    source: match err {
-        LayoutError::Font(err) => Some(err),
-        _ => None,
-    },
-    from: (std::io::Error, LayoutError::Font(FontError::Io(err))),
-    from: (FontError, LayoutError::Font(err)),
+    show: f => f.write_str(&err.0),
+    from: (std::io::Error, LayoutError::new(err.to_string())),
+    from: (FontError, LayoutError::new(err.to_string())),
 }

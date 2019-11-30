@@ -114,6 +114,6 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
             self.classes.pop();
         }
 
-        Err(LayoutError::NoSuitableFont(c))
+        lerr!("no suitable font for character `{}`", c);
     }
 }

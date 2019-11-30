@@ -66,34 +66,20 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     }
 
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
-        let (first, second) = self.flex.remaining()?;
+        let spaces = self.flex.remaining();
 
         let mut axes = self.ctx.axes.expanding(false);
         axes.secondary.alignment = Alignment::Origin;
 
-        let ctx = |spaces| {
-            LayoutContext {
-                loader: self.ctx.loader,
-                top_level: false,
-                text_style: &self.style,
-                page_style: self.ctx.page_style,
-                spaces,
-                axes,
-                expand: false,
-            }
-        };
-
-        let commands = match func.body.val.layout(ctx(first)) {
-            Ok(c) => c,
-            Err(e) => {
-                match (e, second) {
-                    (LayoutError::NotEnoughSpace(_), Some(space)) => {
-                        func.body.val.layout(ctx(space))?
-                    }
-                    (e, _) => Err(e)?,
-                }
-            }
-        };
+        let commands = func.body.val.layout(LayoutContext {
+            loader: self.ctx.loader,
+            top_level: false,
+            text_style: &self.style,
+            page_style: self.ctx.page_style,
+            spaces,
+            axes,
+            expand: false,
+        })?;
 
         for command in commands {
             self.execute(command)?;
@@ -123,7 +109,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             Command::SetTextStyle(style) => self.style = style,
             Command::SetPageStyle(style) => {
                 if !self.ctx.top_level {
-                    Err(LayoutError::Unallowed("can only set page style from top level"))?;
+                    lerr!("page style cannot only be altered in the top-level context");
                 }
 
                 self.ctx.page_style = style;

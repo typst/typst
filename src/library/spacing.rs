@@ -38,7 +38,7 @@ macro_rules! space_func {
                 let spacing = match arg.val {
                     Expression::Size(s) => Spacing::Absolute(*s),
                     Expression::Num(f) => Spacing::Relative(*f as f32),
-                    _ => err!("invalid spacing, expected size or number"),
+                    _ => perr!("invalid spacing, expected size or number"),
                 };
 
                 Ok($ident(spacing))

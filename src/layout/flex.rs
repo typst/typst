@@ -126,20 +126,8 @@ impl FlexLayouter {
         }
     }
 
-    pub fn remaining(&self) -> LayoutResult<(LayoutSpaces, Option<LayoutSpaces>)> {
-        if self.run_is_empty() {
-            Ok((self.stack.remaining(), None))
-        } else {
-            let mut future = self.clone();
-            let remaining_run = future.finish_run()?;
-
-            let stack_spaces = future.stack.remaining();
-            let mut flex_spaces = stack_spaces.clone();
-            flex_spaces[0].dimensions.x = remaining_run.x;
-            flex_spaces[0].dimensions.y += remaining_run.y;
-
-            Ok((flex_spaces, Some(stack_spaces)))
-        }
+    pub fn remaining(&self) -> LayoutSpaces {
+        self.stack.remaining()
     }
 
     pub fn run_is_empty(&self) -> bool {
@@ -242,7 +230,7 @@ impl FlexLayouter {
 
             while size.x > self.line.usable {
                 if self.stack.space_is_last() {
-                    Err(LayoutError::NotEnoughSpace("failed to add box to flex run"))?;
+                    lerr!("box does not fit into line");
                 }
 
                 self.stack.finish_space(true);
