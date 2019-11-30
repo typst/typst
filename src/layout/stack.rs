@@ -1,21 +1,52 @@
 use smallvec::smallvec;
 use super::*;
 
+/// The stack layouter arranges boxes stacked onto each other.
+///
+/// The boxes are laid out in the direction of the secondary layouting axis and
+/// are aligned along both axes.
 #[derive(Debug, Clone)]
 pub struct StackLayouter {
+    /// The context for layouter.
     ctx: StackContext,
+    /// The output layouts.
     layouts: MultiLayout,
-
+    /// The full layout space.
     space: Space,
+    /// The currently active subspace.
     sub: Subspace,
 }
 
 #[derive(Debug, Clone)]
 struct Space {
+    /// The index of this space in the list of spaces.
     index: usize,
+    /// Whether to add the layout for this space even if it would be empty.
     hard: bool,
+    /// The layouting actions accumulated from the subspaces.
     actions: LayoutActionList,
+    /// The used size of this space from the top-left corner to
+    /// the bottomright-most point of used space (specialized).
     combined_dimensions: Size2D,
+}
+
+#[derive(Debug, Clone)]
+struct Subspace {
+    /// The axes along which contents in this subspace are laid out.
+    axes: LayoutAxes,
+    /// The beginning of this subspace in the parent space (specialized).
+    origin: Size2D,
+    /// The total usable space of this subspace (generalized).
+    usable: Size2D,
+    /// The used size of this subspace (generalized), with
+    /// - `x` being the maximum of the primary size of all boxes.
+    /// - `y` being the total extent of all boxes and space in the secondary
+    ///   direction.
+    size: Size2D,
+    /// The so-far accumulated (offset, anchor, box) triples.
+    boxes: Vec<(Size, Size, Layout)>,
+    /// The last added spacing if the last was spacing.
+    last_spacing: LastSpacing,
 }
 
 impl Space {
@@ -29,20 +60,6 @@ impl Space {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Subspace {
-    origin: Size2D,
-    anchor: Size2D,
-    factor: i32,
-
-    boxes: Vec<(Size, Size, Layout)>,
-
-    usable: Size2D,
-    dimensions: Size2D,
-
-    space: SpaceState,
-}
-
 impl Subspace {
     fn new(origin: Size2D, usable: Size2D, axes: LayoutAxes) -> Subspace {
         Subspace {
@@ -52,7 +69,7 @@ impl Subspace {
             boxes: vec![],
             usable: axes.generalize(usable),
             dimensions: Size2D::zero(),
-            space: SpaceState::Forbidden,
+            space: LastSpacing::Forbidden,
         }
     }
 }
@@ -82,7 +99,7 @@ impl StackLayouter {
     }
 
     pub fn add(&mut self, layout: Layout) -> LayoutResult<()> {
-        if let SpaceState::Soft(space) = self.sub.space {
+        if let LastSpacing::Soft(space) = self.sub.space {
             self.add_space(space, SpaceKind::Hard);
         }
 
@@ -107,7 +124,7 @@ impl StackLayouter {
 
         self.sub.boxes.push((offset, anchor, layout));
         self.sub.dimensions = new_dimensions;
-        self.sub.space = SpaceState::Allowed;
+        self.sub.space = LastSpacing::Allowed;
 
         Ok(())
     }
@@ -121,8 +138,8 @@ impl StackLayouter {
 
     pub fn add_space(&mut self, space: Size, kind: SpaceKind) {
         if kind == SpaceKind::Soft {
-            if self.sub.space != SpaceState::Forbidden {
-                self.sub.space = SpaceState::Soft(space);
+            if self.sub.space != LastSpacing::Forbidden {
+                self.sub.space = LastSpacing::Soft(space);
             }
         } else {
             if self.sub.dimensions.y + space > self.sub.usable.y {
@@ -132,7 +149,7 @@ impl StackLayouter {
             }
 
             if kind == SpaceKind::Hard {
-                self.sub.space = SpaceState::Forbidden;
+                self.sub.space = LastSpacing::Forbidden;
             }
         }
     }

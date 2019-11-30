@@ -13,7 +13,7 @@ pub mod helpers;
 pub mod prelude {
     pub use crate::func::{Command, CommandList, Function};
     pub use crate::layout::{layout_tree, Layout, MultiLayout, LayoutContext, LayoutSpace};
-    pub use crate::layout::{LayoutAxes, AlignedAxis, Axis, Alignment};
+    pub use crate::layout::{LayoutAxes, Axis, Alignment};
     pub use crate::layout::{LayoutError, LayoutResult};
     pub use crate::syntax::{SyntaxTree, FuncHeader, FuncArgs, Expression, Spanned, Span};
     pub use crate::syntax::{parse, ParseContext, ParseError, ParseResult};
@@ -86,6 +86,9 @@ where T: Debug + PartialEq + 'static
     }
 }
 
+/// A sequence of commands requested for execution by a function.
+pub type CommandList<'a> = Vec<Command<'a>>;
+
 /// Commands requested for execution by functions.
 #[derive(Debug)]
 pub enum Command<'a> {
@@ -107,60 +110,6 @@ pub enum Command<'a> {
     SetPageStyle(PageStyle),
 
     SetAxes(LayoutAxes),
-}
-
-/// A sequence of commands requested for execution by a function.
-#[derive(Debug)]
-pub struct CommandList<'a> {
-    pub commands: Vec<Command<'a>>,
-}
-
-impl<'a> CommandList<'a> {
-    /// Create an empty command list.
-    pub fn new() -> CommandList<'a> {
-        CommandList { commands: vec![] }
-    }
-
-    /// Create a command list with commands from a vector.
-    pub fn from_vec(commands: Vec<Command<'a>>) -> CommandList<'a> {
-        CommandList { commands }
-    }
-
-    /// Add a command to the sequence.
-    pub fn add(&mut self, command: Command<'a>) {
-        self.commands.push(command);
-    }
-
-    /// Whether there are any commands in this sequence.
-    pub fn is_empty(&self) -> bool {
-        self.commands.is_empty()
-    }
-}
-
-impl<'a> IntoIterator for CommandList<'a> {
-    type Item = Command<'a>;
-    type IntoIter = std::vec::IntoIter<Command<'a>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.commands.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a CommandList<'a> {
-    type Item = &'a Command<'a>;
-    type IntoIter = std::slice::Iter<'a, Command<'a>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.commands.iter()
-    }
-}
-
-/// Create a list of commands.
-#[macro_export]
-macro_rules! commands {
-    ($($x:expr),*$(,)*) => (
-        $crate::func::CommandList::from_vec(vec![$($x,)*])
-    );
 }
 
 /// A map from identifiers to functions.

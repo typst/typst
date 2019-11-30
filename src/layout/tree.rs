@@ -11,7 +11,7 @@ pub fn layout_tree(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<MultiL
 struct TreeLayouter<'a, 'p> {
     ctx: LayoutContext<'a, 'p>,
     flex: FlexLayouter,
-    style: TextStyle,
+    style: LayoutStyle,
 }
 
 impl<'a, 'p> TreeLayouter<'a, 'p> {
@@ -19,12 +19,12 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     fn new(ctx: LayoutContext<'a, 'p>) -> TreeLayouter<'a, 'p> {
         TreeLayouter {
             flex: FlexLayouter::new(FlexContext {
-                flex_spacing: flex_spacing(&ctx.text_style),
+                flex_spacing: flex_spacing(&ctx.style.text),
                 spaces: ctx.spaces.clone(),
                 axes: ctx.axes,
                 expand: ctx.expand,
             }),
-            style: ctx.text_style.clone(),
+            style: ctx.style.clone(),
             ctx,
         }
     }
@@ -37,9 +37,9 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                 Node::Space => self.layout_space(),
                 Node::Newline => self.layout_paragraph()?,
 
-                Node::ToggleItalics => self.style.toggle_class(FontClass::Italic),
-                Node::ToggleBold => self.style.toggle_class(FontClass::Bold),
-                Node::ToggleMonospace => self.style.toggle_class(FontClass::Monospace),
+                Node::ToggleItalics => self.style.text.toggle_class(FontClass::Italic),
+                Node::ToggleBold => self.style.text.toggle_class(FontClass::Bold),
+                Node::ToggleMonospace => self.style.text.toggle_class(FontClass::Monospace),
 
                 Node::Func(func) => self.layout_func(func)?,
             }
@@ -51,34 +51,35 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     fn layout_text(&mut self, text: &str) -> LayoutResult<()> {
         let layout = layout_text(text, TextContext {
             loader: &self.ctx.loader,
-            style: &self.style,
+            style: &self.style.text,
         })?;
 
         Ok(self.flex.add(layout))
     }
 
     fn layout_space(&mut self) {
-        self.flex.add_primary_space(word_spacing(&self.style), SpaceKind::Soft);
+        self.flex.add_primary_space(
+            word_spacing(&self.style.text),
+            SPACE_KIND,
+        );
     }
 
     fn layout_paragraph(&mut self) -> LayoutResult<()> {
-        self.flex.add_secondary_space(paragraph_spacing(&self.style), SpaceKind::Soft)
+        self.flex.add_secondary_space(
+            paragraph_spacing(&self.style.text),
+            PARAGRAPH_KIND,
+        )
     }
 
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
         let spaces = self.flex.remaining();
 
-        let mut axes = self.ctx.axes.expanding(false);
-        axes.secondary.alignment = Alignment::Origin;
-
         let commands = func.body.val.layout(LayoutContext {
             loader: self.ctx.loader,
+            style: &self.style,
             top_level: false,
-            text_style: &self.style,
-            page_style: self.ctx.page_style,
             spaces,
-            axes,
-            expand: false,
+            .. self.ctx
         })?;
 
         for command in commands {
@@ -95,10 +96,8 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             Command::Add(layout) => self.flex.add(layout),
             Command::AddMultiple(layouts) => self.flex.add_multiple(layouts),
 
-            Command::AddPrimarySpace(space)
-                => self.flex.add_primary_space(space, SpaceKind::Hard),
-            Command::AddSecondarySpace(space)
-                => self.flex.add_secondary_space(space, SpaceKind::Hard)?,
+            Command::AddPrimarySpace(space) => self.flex.add_primary_space(space, SpacingKind::Hard),
+            Command::AddSecondarySpace(space) => self.flex.add_secondary_space(space, SpacingKind::Hard)?,
 
             Command::FinishLine => self.flex.add_break(),
             Command::FinishRun => { self.flex.finish_run()?; },
@@ -106,16 +105,17 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
             Command::BreakParagraph => self.layout_paragraph()?,
 
-            Command::SetTextStyle(style) => self.style = style,
+            Command::SetTextStyle(style) => self.style.text = style,
             Command::SetPageStyle(style) => {
                 if !self.ctx.top_level {
                     lerr!("page style cannot only be altered in the top-level context");
                 }
 
-                self.ctx.page_style = style;
+                self.style.page = style;
                 self.flex.set_spaces(smallvec![
                     LayoutSpace {
                         dimensions: style.dimensions,
+                        expand: (true, true),
                         padding: style.margins,
                     }
                 ], true);

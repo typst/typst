@@ -32,6 +32,6 @@ function! {
             ctx.spaces[0].dimensions.y = height;
         }
 
-        Ok(commands![AddMultiple(layout_tree(&this.body, ctx)?)])
+        Ok(vec![AddMultiple(layout_tree(&this.body, ctx)?)])
     }
 }

@@ -7,7 +7,7 @@ pub struct PageBreak;
 function! {
     data: PageBreak,
     parse: plain,
-    layout(_, _) { Ok(commands![FinishSpace]) }
+    layout(_, _) { Ok(vec![FinishSpace]) }
 }
 
 /// `page.size`: Set the size of pages.
@@ -29,12 +29,12 @@ function! {
     }
 
     layout(this, ctx) {
-        let mut style = ctx.page_style;
+        let mut style = ctx.style.page;
 
         if let Some(width) = this.width { style.dimensions.x = width; }
         if let Some(height) = this.height { style.dimensions.y = height; }
 
-        Ok(commands![SetPageStyle(style)])
+        Ok(vec![SetPageStyle(style)])
     }
 }
 
@@ -67,13 +67,13 @@ function! {
     }
 
     layout(this, ctx) {
-        let mut style = ctx.page_style;
+        let mut style = ctx.style.page;
 
         if let Some(left) = this.left { style.margins.left = left; }
         if let Some(top) = this.top { style.margins.top = top; }
         if let Some(right) = this.right { style.margins.right = right; }
         if let Some(bottom) = this.bottom { style.margins.bottom = bottom; }
 
-        Ok(commands![SetPageStyle(style)])
+        Ok(vec![SetPageStyle(style)])
     }
 }

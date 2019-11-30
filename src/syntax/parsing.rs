@@ -472,7 +472,7 @@ mod tests {
             data: TreeFn,
 
             parse(_args, body, ctx) { Ok(TreeFn(parse!(required: body, ctx))) }
-            layout(_, _) { Ok(commands![]) }
+            layout(_, _) { Ok(vec![]) }
         }
 
         impl PartialEq for TreeFn {
@@ -490,7 +490,7 @@ mod tests {
             data: BodylessFn,
 
             parse(_args, body, _ctx) { parse!(forbidden: body); Ok(BodylessFn) }
-            layout(_, _) { Ok(commands![]) }
+            layout(_, _) { Ok(vec![]) }
         }
 
         impl PartialEq for BodylessFn {

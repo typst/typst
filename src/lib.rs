@@ -22,10 +22,10 @@ use toddle::query::{FontLoader, FontProvider, SharedFontLoader};
 
 use crate::func::Scope;
 use crate::layout::{layout_tree, MultiLayout, LayoutContext};
-use crate::layout::{LayoutAxes, AlignedAxis, Axis, Alignment};
+use crate::layout::{LayoutAxes, LayoutAlignment, Axis, Alignment};
 use crate::layout::{LayoutError, LayoutResult, LayoutSpace};
 use crate::syntax::{SyntaxTree, parse, ParseContext, ParseError, ParseResult};
-use crate::style::{PageStyle, TextStyle};
+use crate::style::{LayoutStyle, PageStyle, TextStyle};
 
 #[macro_use]
 mod macros;
@@ -44,10 +44,8 @@ pub mod syntax;
 pub struct Typesetter<'p> {
     /// The font loader shared by all typesetting processes.
     loader: SharedFontLoader<'p>,
-    /// The base text style.
-    text_style: TextStyle,
-    /// The base page style.
-    page_style: PageStyle,
+    /// The base layouting style.
+    style: LayoutStyle,
 }
 
 impl<'p> Typesetter<'p> {
@@ -56,21 +54,20 @@ impl<'p> Typesetter<'p> {
     pub fn new() -> Typesetter<'p> {
         Typesetter {
             loader: RefCell::new(FontLoader::new()),
-            text_style: TextStyle::default(),
-            page_style: PageStyle::default(),
+            style: LayoutStyle::default(),
         }
     }
 
     /// Set the base page style.
     #[inline]
     pub fn set_page_style(&mut self, style: PageStyle) {
-        self.page_style = style;
+        self.style.page = style;
     }
 
     /// Set the base text style.
     #[inline]
     pub fn set_text_style(&mut self, style: TextStyle) {
-        self.text_style = style;
+        self.style.text = style;
     }
 
     /// Add a font provider to the context of this typesetter.
@@ -99,17 +96,14 @@ impl<'p> Typesetter<'p> {
             LayoutContext {
                 loader: &self.loader,
                 top_level: true,
-                text_style: &self.text_style,
-                page_style: self.page_style,
+                style: &self.style,
                 spaces: smallvec![LayoutSpace {
-                    dimensions: self.page_style.dimensions,
-                    padding: self.page_style.margins,
+                    dimensions: self.style.page.dimensions,
+                    expand: (true, true),
+                    padding: self.style.page.margins,
                 }],
-                axes: LayoutAxes {
-                    primary: AlignedAxis::new(Axis::LeftToRight, Alignment::Origin, false),
-                    secondary: AlignedAxis::new(Axis::TopToBottom, Alignment::Origin, false),
-                },
-                expand: true,
+                axes: LayoutAxes::new(Axis::LeftToRight, Axis::TopToBottom),
+                alignment: LayoutAlignment::new(Alignment::Origin, Alignment::Origin),
             },
         )?)
     }

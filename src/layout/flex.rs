@@ -41,7 +41,7 @@ struct PartialLine {
     usable: Size,
     content: Vec<(Size, Layout)>,
     dimensions: Size2D,
-    space: SpaceState,
+    space: LastSpacing,
 }
 
 impl PartialLine {
@@ -50,7 +50,7 @@ impl PartialLine {
             usable,
             content: vec![],
             dimensions: Size2D::zero(),
-            space: SpaceState::Forbidden,
+            space: LastSpacing::Forbidden,
         }
     }
 }
@@ -237,7 +237,7 @@ impl FlexLayouter {
             }
         }
 
-        if let SpaceState::Soft(space) = self.part.space {
+        if let LastSpacing::Soft(space) = self.part.space {
             self.layout_space(space, SpaceKind::Hard);
         }
 
@@ -246,15 +246,15 @@ impl FlexLayouter {
 
         self.part.dimensions.x += size.x;
         self.part.dimensions.y.max_eq(size.y);
-        self.part.space = SpaceState::Allowed;
+        self.part.space = LastSpacing::Allowed;
 
         Ok(())
     }
 
     fn layout_space(&mut self, space: Size, kind: SpaceKind) {
         if kind == SpaceKind::Soft {
-            if self.part.space != SpaceState::Forbidden {
-                self.part.space = SpaceState::Soft(space);
+            if self.part.space != LastSpacing::Forbidden {
+                self.part.space = LastSpacing::Soft(space);
             }
         } else {
             if self.part.dimensions.x + space > self.part.usable {
@@ -264,7 +264,7 @@ impl FlexLayouter {
             }
 
             if kind == SpaceKind::Hard {
-                self.part.space = SpaceState::Forbidden;
+                self.part.space = LastSpacing::Forbidden;
             }
         }
     }

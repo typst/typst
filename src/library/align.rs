@@ -69,7 +69,7 @@ function! {
 
     layout(this, ctx) {
         let mut axes = ctx.axes;
-        let primary_horizontal = axes.primary.axis.is_horizontal();
+        let primary_horizontal = axes.primary.is_horizontal();
 
         let mut primary = false;
         let mut secondary = false;
@@ -87,7 +87,7 @@ function! {
 
                 *was_set = true;
 
-                let horizontal = axis.axis.is_horizontal();
+                let horizontal = axis.is_horizontal();
                 let alignment = generic_alignment(spec, horizontal)?;
 
                 if axis.alignment == Alignment::End && alignment == Alignment::Origin {
@@ -116,13 +116,13 @@ function! {
         set_axis(!primary_horizontal, this.vertical)?;
 
         Ok(match &this.body {
-            Some(body) => commands![AddMultiple(
+            Some(body) => vec![AddMultiple(
                 layout_tree(body, LayoutContext {
                     axes,
                     .. ctx.clone()
                 })?
             )],
-            None => commands![Command::SetAxes(axes)]
+            None => vec![Command::SetAxes(axes)]
         })
     }
 }

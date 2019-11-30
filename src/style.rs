@@ -4,6 +4,13 @@ use toddle::query::FontClass;
 use FontClass::*;
 use crate::size::{Size, Size2D, SizeBox};
 
+/// Defines properties of pages and text.
+#[derive(Debug, Default, Clone)]
+pub struct LayoutStyle {
+    pub page: PageStyle,
+    pub text: TextStyle,
+}
+
 /// Defines which fonts to use and how to space text.
 #[derive(Debug, Clone)]
 pub struct TextStyle {

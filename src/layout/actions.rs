@@ -1,10 +1,8 @@
 //! Drawing and cofiguration actions composing layouts.
 
 use std::fmt::{self, Display, Formatter};
-use std::io::{self, Write};
 
-use super::Layout;
-use crate::size::{Size, Size2D};
+use super::*;
 use LayoutAction::*;
 
 /// A layouting action.
@@ -21,9 +19,8 @@ pub enum LayoutAction {
     DebugBox(Size2D, Size2D),
 }
 
-impl LayoutAction {
-    /// Serialize this layout action into an easy-to-parse string representation.
-    pub fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
+impl Serialize for LayoutAction {
+    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
         match self {
             MoveAbsolute(s) => write!(f, "m {:.4} {:.4}", s.x.to_pt(), s.y.to_pt()),
             SetFont(i, s) => write!(f, "f {} {}", i, s.to_pt()),
@@ -120,10 +117,6 @@ impl LayoutActionList {
 
         self.origin = position;
         self.next_pos = Some(position);
-
-        if layout.debug_render {
-            self.actions.push(DebugBox(position, layout.dimensions));
-        }
 
         self.extend(layout.actions);
     }

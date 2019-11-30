@@ -7,7 +7,7 @@ pub struct LineBreak;
 function! {
     data: LineBreak,
     parse: plain,
-    layout(_, _) { Ok(commands![FinishLine]) }
+    layout(_, _) { Ok(vec![FinishLine]) }
 }
 
 /// `paragraph.break`: Ends the current paragraph.
@@ -19,7 +19,7 @@ pub struct ParagraphBreak;
 function! {
     data: ParagraphBreak,
     parse: plain,
-    layout(_, _) { Ok(commands![BreakParagraph]) }
+    layout(_, _) { Ok(vec![BreakParagraph]) }
 }
 
 macro_rules! space_func {
@@ -47,10 +47,10 @@ macro_rules! space_func {
             layout(this, ctx) {
                 let $var = match this.0 {
                     Spacing::Absolute(s) => s,
-                    Spacing::Relative(f) => f * ctx.text_style.font_size,
+                    Spacing::Relative(f) => f * ctx.style.text.font_size,
                 };
 
-                Ok(commands![$command])
+                Ok(vec![$command])
             }
         }
     );

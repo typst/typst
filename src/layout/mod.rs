@@ -9,7 +9,7 @@ use toddle::Error as FontError;
 
 use crate::func::Command;
 use crate::size::{Size, Size2D, SizeBox};
-use crate::style::{PageStyle, TextStyle};
+use crate::style::{LayoutStyle, TextStyle};
 use crate::syntax::{FuncCall, Node, SyntaxTree};
 
 mod actions;
@@ -29,99 +29,20 @@ pub mod layouters {
 pub use actions::{LayoutAction, LayoutActionList};
 pub use layouters::*;
 
+/// A collection of layouts.
+pub type MultiLayout = Vec<Layout>;
+
 /// A sequence of layouting actions inside a box.
 #[derive(Debug, Clone)]
 pub struct Layout {
     /// The size of the box.
     pub dimensions: Size2D,
+    /// The baseline of the layout (as an offset from the top-left).
+    pub baseline: Option<Size>,
+    /// How to align this layout in a parent container.
+    pub alignment: LayoutAlignment,
     /// The actions composing this layout.
     pub actions: Vec<LayoutAction>,
-    /// Whether to debug-render this box.
-    pub debug_render: bool,
-}
-
-impl Layout {
-    /// Serialize this layout into an output buffer.
-    pub fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
-        writeln!(
-            f,
-            "{:.4} {:.4}",
-            self.dimensions.x.to_pt(),
-            self.dimensions.y.to_pt()
-        )?;
-        writeln!(f, "{}", self.actions.len())?;
-        for action in &self.actions {
-            action.serialize(f)?;
-            writeln!(f)?;
-        }
-        Ok(())
-    }
-}
-
-/// A collection of layouts.
-#[derive(Debug, Clone)]
-pub struct MultiLayout {
-    pub layouts: Vec<Layout>,
-}
-
-impl MultiLayout {
-    /// Create an empty multi-layout.
-    pub fn new() -> MultiLayout {
-        MultiLayout { layouts: vec![] }
-    }
-
-    /// Extract the single sublayout. This panics if the layout does not have
-    /// exactly one child.
-    pub fn into_single(mut self) -> Layout {
-        if self.layouts.len() != 1 {
-            panic!("into_single: contains not exactly one layout");
-        }
-        self.layouts.pop().unwrap()
-    }
-
-    /// Add a sublayout.
-    pub fn add(&mut self, layout: Layout) {
-        self.layouts.push(layout);
-    }
-
-    /// The count of sublayouts.
-    pub fn count(&self) -> usize {
-        self.layouts.len()
-    }
-
-    /// Whether this layout contains any sublayouts.
-    pub fn is_empty(&self) -> bool {
-        self.layouts.is_empty()
-    }
-}
-
-impl MultiLayout {
-    /// Serialize this collection of layouts into an output buffer.
-    pub fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
-        writeln!(f, "{}", self.count())?;
-        for layout in self {
-            layout.serialize(f)?;
-        }
-        Ok(())
-    }
-}
-
-impl IntoIterator for MultiLayout {
-    type Item = Layout;
-    type IntoIter = std::vec::IntoIter<Layout>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.layouts.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a MultiLayout {
-    type Item = &'a Layout;
-    type IntoIter = std::slice::Iter<'a, Layout>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.layouts.iter()
-    }
 }
 
 /// The general context for layouting.
@@ -130,20 +51,16 @@ pub struct LayoutContext<'a, 'p> {
     /// The font loader to retrieve fonts from when typesetting text
     /// using [`layout_text`].
     pub loader: &'a SharedFontLoader<'p>,
+    /// The style for pages and text.
+    pub style: &'a LayoutStyle,
     /// Whether this layouting process handles the top-level pages.
     pub top_level: bool,
-    /// The style to set text with. This includes sizes and font classes
-    /// which determine which font from the loaders selection is used.
-    pub text_style: &'a TextStyle,
-    /// The current size and margins of the top-level pages.
-    pub page_style: PageStyle,
     /// The spaces to layout in.
     pub spaces: LayoutSpaces,
-    /// The axes to flow on.
+    /// The initial axes along which content is laid out.
     pub axes: LayoutAxes,
-    /// Whether layouts should expand to the full dimensions of the space
-    /// they lie on or whether should tightly fit the content.
-    pub expand: bool,
+    /// The alignment for the two axes.
+    pub alignment: LayoutAlignment,
 }
 
 /// A possibly stack-allocated vector of layout spaces.
@@ -154,26 +71,31 @@ pub type LayoutSpaces = SmallVec<[LayoutSpace; 2]>;
 pub struct LayoutSpace {
     /// The maximum size of the box to layout in.
     pub dimensions: Size2D,
+    /// Whether to expand the dimensions of the resulting layout to the full
+    /// dimensions of this space or to shrink them to fit the content for the
+    /// vertical and horizontal axis.
+    pub expand: (bool, bool),
     /// Padding that should be respected on each side.
     pub padding: SizeBox,
 }
 
 impl LayoutSpace {
-    /// The actually usable area (dimensions minus padding).
-    pub fn usable(&self) -> Size2D {
-        self.dimensions.unpadded(self.padding)
-    }
-
     /// The offset from the origin to the start of content, that is,
     /// `(padding.left, padding.top)`.
     pub fn start(&self) -> Size2D {
         Size2D::new(self.padding.left, self.padding.right)
     }
 
+    /// The actually usable area (dimensions minus padding).
+    pub fn usable(&self) -> Size2D {
+        self.dimensions.unpadded(self.padding)
+    }
+
     /// A layout space without padding and dimensions reduced by the padding.
     pub fn usable_space(&self) -> LayoutSpace {
         LayoutSpace {
             dimensions: self.usable(),
+            expand: (false, false),
             padding: SizeBox::zero(),
         }
     }
@@ -182,17 +104,21 @@ impl LayoutSpace {
 /// The axes along which the content is laid out.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct LayoutAxes {
-    pub primary: AlignedAxis,
-    pub secondary: AlignedAxis,
+    pub primary: Axis,
+    pub secondary: Axis,
 }
 
 impl LayoutAxes {
+    pub fn new(primary: Axis, secondary: Axis) -> LayoutAxes {
+        LayoutAxes { primary, secondary }
+    }
+
     /// Returns the generalized version of a `Size2D` dependent on
     /// the layouting axes, that is:
     /// - The x coordinate describes the primary axis instead of the horizontal one.
     /// - The y coordinate describes the secondary axis instead of the vertical one.
     pub fn generalize(&self, size: Size2D) -> Size2D {
-        if self.primary.axis.is_horizontal() {
+        if self.primary.is_horizontal() {
             size
         } else {
             Size2D { x: size.y, y: size.x }
@@ -206,58 +132,9 @@ impl LayoutAxes {
         // at the call site, we still have this second function.
         self.generalize(size)
     }
-
-    /// The position of the anchor specified by the two aligned axes
-    /// in the given generalized space.
-    pub fn anchor(&self, space: Size2D) -> Size2D {
-        Size2D::new(self.primary.anchor(space.x), self.secondary.anchor(space.y))
-    }
-
-    /// This axes with `expand` set to the given value for both axes.
-    pub fn expanding(&self, expand: bool) -> LayoutAxes {
-        LayoutAxes {
-            primary: self.primary.expanding(expand),
-            secondary: self.secondary.expanding(expand),
-        }
-    }
 }
 
-/// An axis with an alignment.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct AlignedAxis {
-    pub axis: Axis,
-    pub alignment: Alignment,
-    pub expand: bool,
-}
-
-impl AlignedAxis {
-    /// Creates an aligned axis from its three components.
-    pub fn new(axis: Axis, alignment: Alignment, expand: bool) -> AlignedAxis {
-        AlignedAxis { axis, alignment, expand }
-    }
-
-    /// The position of the anchor specified by this axis on the given line.
-    pub fn anchor(&self, line: Size) -> Size {
-        use Alignment::*;
-        match (self.axis.is_positive(), self.alignment) {
-            (true, Origin) | (false, End) => Size::zero(),
-            (_, Center) => line / 2,
-            (true, End) | (false, Origin) => line,
-        }
-    }
-
-    /// This axis with `expand` set to the given value.
-    pub fn expanding(&self, expand: bool) -> AlignedAxis {
-        AlignedAxis { expand, ..*self }
-    }
-
-    /// Whether this axis needs expansion.
-    pub fn needs_expansion(&self) -> bool {
-        self.expand || self.alignment != Alignment::Origin
-    }
-}
-
-/// Where to put content.
+/// Directions along which content is laid out.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Axis {
     LeftToRight,
@@ -292,6 +169,19 @@ impl Axis {
     }
 }
 
+/// The place to put a layout in a container.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct LayoutAlignment {
+    pub primary: Alignment,
+    pub secondary: Alignment,
+}
+
+impl LayoutAlignment {
+    pub fn new(primary: Alignment, secondary: Alignment) -> LayoutAlignment {
+        LayoutAlignment { primary, secondary }
+    }
+}
+
 /// Where to align content.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Alignment {
@@ -300,26 +190,74 @@ pub enum Alignment {
     End,
 }
 
+/// The specialized anchor position for an item with the given alignment in a
+/// container with a given size along the given axis.
+pub fn anchor(axis: Axis, size: Size, alignment: Alignment) -> Size {
+    use Alignment::*;
+    match (axis.is_positive(), alignment) {
+        (true, Origin) | (false, End) => Size::zero(),
+        (_, Center) => size / 2,
+        (true, End) | (false, Origin) => size,
+    }
+}
+
+/// Whitespace between boxes with different interaction properties.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum SpaceKind {
-    /// Soft spaces are eaten up by hard spaces before or after them.
-    Soft,
-    /// Independent do not eat up soft spaces and are not eaten up by hard spaces.
-    Independent,
-    /// Hard spaces eat up soft spaces before or after them.
+pub enum SpacingKind {
+    /// A hard space consumes surrounding soft spaces and is always layouted.
     Hard,
+    /// A soft space consumes surrounding soft spaces with higher value.
+    Soft(u32),
 }
 
+/// The standard spacing kind used for paragraph spacing.
+const PARAGRAPH_KIND: SpacingKind = SpacingKind::Soft(1);
+
+/// The standard spacing kind used for normal spaces between boxes.
+const SPACE_KIND: SpacingKind = SpacingKind::Soft(2);
+
+/// The last appeared spacing.
 #[derive(Debug, Copy, Clone, PartialEq)]
-enum SpaceState {
-    Soft(Size),
-    Forbidden,
-    Allowed,
+enum LastSpacing {
+    Hard,
+    Soft(Size, u32),
+    None,
 }
 
-impl SpaceState {
+impl LastSpacing {
     fn soft_or_zero(&self) -> Size {
-        if let SpaceState::Soft(space) = self { *space } else { Size::zero() }
+        match self {
+            LastSpacing::Soft(space, _) => *space,
+            _ => Size::zero(),
+        }
+    }
+}
+
+/// Layout components that can be serialized.
+trait Serialize {
+    /// Serialize the data structure into an output writable.
+    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()>;
+}
+
+impl Serialize for Layout {
+    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
+        writeln!(f, "{:.4} {:.4}", self.dimensions.x.to_pt(), self.dimensions.y.to_pt())?;
+        writeln!(f, "{}", self.actions.len())?;
+        for action in &self.actions {
+            action.serialize(f)?;
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+}
+
+impl Serialize for MultiLayout {
+    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
+        writeln!(f, "{}", self.len())?;
+        for layout in self {
+            layout.serialize(f)?;
+        }
+        Ok(())
     }
 }
 
