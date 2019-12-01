@@ -65,7 +65,7 @@ enum Spacing {
 
 // FIXME: h != primary and v != secondary.
 space_func!(HorizontalSpace, "📖 `h`: Adds horizontal whitespace.",
-    space => AddPrimarySpace(space));
+    space => AddSpacing(space, SpacingKind::Hard, AxisKind::Primary));
 
 space_func!(VerticalSpace, "📑 `v`: Adds vertical whitespace.",
-    space => AddSecondarySpace(space));
+    space => AddSpacing(space, SpacingKind::Hard, AxisKind::Secondary));

@@ -12,8 +12,9 @@ pub mod helpers;
 /// Useful imports for creating your own functions.
 pub mod prelude {
     pub use crate::func::{Command, CommandList, Function};
-    pub use crate::layout::{layout_tree, Layout, MultiLayout, LayoutContext, LayoutSpace};
-    pub use crate::layout::{LayoutAxes, Axis, Alignment};
+    pub use crate::layout::{layout_tree, Layout, MultiLayout, LayoutContext};
+    pub use crate::layout::{LayoutSpace, LayoutSpaces, SpacingKind};
+    pub use crate::layout::{LayoutAxes, Axis, AxisKind, LayoutAlignment, Alignment};
     pub use crate::layout::{LayoutError, LayoutResult};
     pub use crate::syntax::{SyntaxTree, FuncHeader, FuncArgs, Expression, Spanned, Span};
     pub use crate::syntax::{parse, ParseContext, ParseError, ParseResult};
@@ -96,19 +97,16 @@ pub enum Command<'a> {
 
     Add(Layout),
     AddMultiple(MultiLayout),
-
-    AddPrimarySpace(Size),
-    AddSecondarySpace(Size),
+    AddSpacing(Size, SpacingKind, AxisKind),
 
     FinishLine,
     FinishRun,
     FinishSpace,
-
     BreakParagraph,
 
     SetTextStyle(TextStyle),
     SetPageStyle(PageStyle),
-
+    SetAlignment(LayoutAlignment),
     SetAxes(LayoutAxes),
 }
 

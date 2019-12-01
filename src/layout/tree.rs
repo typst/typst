@@ -19,10 +19,10 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     fn new(ctx: LayoutContext<'a, 'p>) -> TreeLayouter<'a, 'p> {
         TreeLayouter {
             flex: FlexLayouter::new(FlexContext {
-                flex_spacing: flex_spacing(&ctx.style.text),
                 spaces: ctx.spaces.clone(),
                 axes: ctx.axes,
-                expand: ctx.expand,
+                alignment: ctx.alignment,
+                flex_spacing: flex_spacing(&ctx.style.text),
             }),
             style: ctx.style.clone(),
             ctx,
@@ -52,6 +52,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
         let layout = layout_text(text, TextContext {
             loader: &self.ctx.loader,
             style: &self.style.text,
+            alignment: self.ctx.alignment,
         })?;
 
         Ok(self.flex.add(layout))
@@ -90,23 +91,25 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     }
 
     fn execute(&mut self, command: Command) -> LayoutResult<()> {
+        use Command::*;
+
         match command {
-            Command::LayoutTree(tree) => self.layout(tree)?,
+            LayoutTree(tree) => self.layout(tree)?,
 
-            Command::Add(layout) => self.flex.add(layout),
-            Command::AddMultiple(layouts) => self.flex.add_multiple(layouts),
+            Add(layout) => self.flex.add(layout),
+            AddMultiple(layouts) => self.flex.add_multiple(layouts),
+            AddSpacing(space, kind, axis) => match axis {
+                AxisKind::Primary => self.flex.add_primary_space(space, kind),
+                AxisKind::Secondary => self.flex.add_secondary_space(space, kind)?,
+            }
 
-            Command::AddPrimarySpace(space) => self.flex.add_primary_space(space, SpacingKind::Hard),
-            Command::AddSecondarySpace(space) => self.flex.add_secondary_space(space, SpacingKind::Hard)?,
+            FinishLine => self.flex.add_break(),
+            FinishRun => { self.flex.finish_run()?; },
+            FinishSpace => self.flex.finish_space(true)?,
+            BreakParagraph => self.layout_paragraph()?,
 
-            Command::FinishLine => self.flex.add_break(),
-            Command::FinishRun => { self.flex.finish_run()?; },
-            Command::FinishSpace => self.flex.finish_space(true)?,
-
-            Command::BreakParagraph => self.layout_paragraph()?,
-
-            Command::SetTextStyle(style) => self.style.text = style,
-            Command::SetPageStyle(style) => {
+            SetTextStyle(style) => self.style.text = style,
+            SetPageStyle(style) => {
                 if !self.ctx.top_level {
                     lerr!("page style cannot only be altered in the top-level context");
                 }
@@ -115,13 +118,13 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                 self.flex.set_spaces(smallvec![
                     LayoutSpace {
                         dimensions: style.dimensions,
-                        expand: (true, true),
                         padding: style.margins,
+                        expand: (true, true),
                     }
                 ], true);
-            },
-
-            Command::SetAxes(axes) => {
+            }
+            SetAlignment(alignment) => self.ctx.alignment = alignment,
+            SetAxes(axes) => {
                 self.flex.set_axes(axes);
                 self.ctx.axes = axes;
             }

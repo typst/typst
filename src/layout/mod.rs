@@ -59,7 +59,7 @@ pub struct LayoutContext<'a, 'p> {
     pub spaces: LayoutSpaces,
     /// The initial axes along which content is laid out.
     pub axes: LayoutAxes,
-    /// The alignment for the two axes.
+    /// The alignment of the finished layout.
     pub alignment: LayoutAlignment,
 }
 
@@ -71,12 +71,12 @@ pub type LayoutSpaces = SmallVec<[LayoutSpace; 2]>;
 pub struct LayoutSpace {
     /// The maximum size of the box to layout in.
     pub dimensions: Size2D,
+    /// Padding that should be respected on each side.
+    pub padding: SizeBox,
     /// Whether to expand the dimensions of the resulting layout to the full
     /// dimensions of this space or to shrink them to fit the content for the
     /// vertical and horizontal axis.
     pub expand: (bool, bool),
-    /// Padding that should be respected on each side.
-    pub padding: SizeBox,
 }
 
 impl LayoutSpace {
@@ -95,8 +95,8 @@ impl LayoutSpace {
     pub fn usable_space(&self) -> LayoutSpace {
         LayoutSpace {
             dimensions: self.usable(),
-            expand: (false, false),
             padding: SizeBox::zero(),
+            expand: (false, false),
         }
     }
 }
@@ -110,6 +110,10 @@ pub struct LayoutAxes {
 
 impl LayoutAxes {
     pub fn new(primary: Axis, secondary: Axis) -> LayoutAxes {
+        if primary.is_horizontal() == secondary.is_horizontal() {
+            panic!("LayoutAxes::new: invalid parallel axes {:?} and {:?}", primary, secondary);
+        }
+
         LayoutAxes { primary, secondary }
     }
 
@@ -132,6 +136,13 @@ impl LayoutAxes {
         // at the call site, we still have this second function.
         self.generalize(size)
     }
+}
+
+/// The two kinds of axes.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum AxisKind {
+    Primary,
+    Secondary,
 }
 
 /// Directions along which content is laid out.

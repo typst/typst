@@ -8,3 +8,16 @@
     [align: bottom]
     A longer sentence with a few more words.
 ]
+
+[page.break]
+
+[box][
+    [align: vertical=top]
+    Top
+
+    [align: vertical=center]
+    Center
+
+    [align: vertical=bottom]
+    Bottom [n] Bottom [n] Bottom
+]

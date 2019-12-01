@@ -11,6 +11,7 @@ use crate::size::{Size, Size2D};
 pub struct TextContext<'a, 'p> {
     pub loader: &'a SharedFontLoader<'p>,
     pub style: &'a TextStyle,
+    pub alignment: LayoutAlignment,
 }
 
 /// Layouts text into a box.
@@ -72,6 +73,8 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
 
         Ok(Layout {
             dimensions: Size2D::new(self.width, self.ctx.style.font_size),
+            baseline: None,
+            alignment: self.ctx.alignment,
             actions: self.actions.to_vec(),
         })
     }

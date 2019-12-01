@@ -11,67 +11,11 @@ pub struct StackLayouter {
     ctx: StackContext,
     /// The output layouts.
     layouts: MultiLayout,
-    /// The full layout space.
+    /// The currently active layout space.
     space: Space,
-    /// The currently active subspace.
+    /// The remaining subspace of the active space. Whenever the layouting axes
+    /// change a new subspace is started.
     sub: Subspace,
-}
-
-#[derive(Debug, Clone)]
-struct Space {
-    /// The index of this space in the list of spaces.
-    index: usize,
-    /// Whether to add the layout for this space even if it would be empty.
-    hard: bool,
-    /// The layouting actions accumulated from the subspaces.
-    actions: LayoutActionList,
-    /// The used size of this space from the top-left corner to
-    /// the bottomright-most point of used space (specialized).
-    combined_dimensions: Size2D,
-}
-
-#[derive(Debug, Clone)]
-struct Subspace {
-    /// The axes along which contents in this subspace are laid out.
-    axes: LayoutAxes,
-    /// The beginning of this subspace in the parent space (specialized).
-    origin: Size2D,
-    /// The total usable space of this subspace (generalized).
-    usable: Size2D,
-    /// The used size of this subspace (generalized), with
-    /// - `x` being the maximum of the primary size of all boxes.
-    /// - `y` being the total extent of all boxes and space in the secondary
-    ///   direction.
-    size: Size2D,
-    /// The so-far accumulated (offset, anchor, box) triples.
-    boxes: Vec<(Size, Size, Layout)>,
-    /// The last added spacing if the last was spacing.
-    last_spacing: LastSpacing,
-}
-
-impl Space {
-    fn new(index: usize, hard: bool) -> Space {
-        Space {
-            index,
-            hard,
-            actions: LayoutActionList::new(),
-            combined_dimensions: Size2D::zero(),
-        }
-    }
-}
-
-impl Subspace {
-    fn new(origin: Size2D, usable: Size2D, axes: LayoutAxes) -> Subspace {
-        Subspace {
-            origin,
-            anchor: axes.anchor(usable),
-            factor: axes.secondary.axis.factor(),
-            boxes: vec![],
-            usable: axes.generalize(usable),
-            dimensions: Size2D::zero(),
-            space: LastSpacing::Forbidden,
-        }
-    }
 }
 
 /// The context for stack layouting.
@@ -81,7 +25,50 @@ impl Subspace {
 pub struct StackContext {
     pub spaces: LayoutSpaces,
     pub axes: LayoutAxes,
-    pub expand: bool,
+    pub alignment: LayoutAlignment,
+}
+
+/// A layout space composed of subspaces which can have different axes and
+/// alignments.
+#[derive(Debug, Clone)]
+struct Space {
+    /// The index of this space in the list of spaces.
+    index: usize,
+    /// Whether to add the layout for this space even if it would be empty.
+    hard: bool,
+    /// The so-far accumulated subspaces.
+    spaces: Vec<Subspace>,
+}
+
+/// A part of a space with fixed axes and secondary alignment.
+#[derive(Debug, Clone)]
+struct Subspace {
+    /// The axes along which contents in this subspace are laid out.
+    axes: LayoutAxes,
+    /// The secondary alignment of this subspace.
+    alignment: Alignment,
+    /// The beginning of this subspace in the parent space (specialized).
+    origin: Size2D,
+    /// The total usable space of this subspace (generalized).
+    usable: Size2D,
+    /// The used size of this subspace (generalized), with
+    /// - `x` being the maximum of the primary size of all boxes.
+    /// - `y` being the total extent of all boxes and space in the secondary
+    ///   direction.
+    size: Size2D,
+    /// The so-far accumulated layouts.
+    layouts: Vec<LayoutEntry>,
+    /// The last added spacing if the last added thing was spacing.
+    last_spacing: LastSpacing,
+}
+
+/// A single layout in a subspace.
+#[derive(Debug, Clone)]
+struct LayoutEntry {
+    /// The offset of this box on the secondary axis.
+    offset: Size,
+    /// The layout itself.
+    layout: Layout,
 }
 
 impl StackLayouter {
@@ -94,41 +81,61 @@ impl StackLayouter {
             ctx,
             layouts: MultiLayout::new(),
             space: Space::new(0, true),
-            sub: Subspace::new(space.start(), space.usable(), axes),
+            sub: Subspace::new(axes, Alignment::Origin, space.start(), space.usable()),
         }
     }
 
+    /// Add a layout to the stack.
     pub fn add(&mut self, layout: Layout) -> LayoutResult<()> {
-        if let LastSpacing::Soft(space) = self.sub.space {
-            self.add_space(space, SpaceKind::Hard);
+        if layout.alignment.secondary != self.sub.alignment {
+            // self.finish_subspace();
+            // finish sub and start new with layout's alignment
         }
 
-        let size = self.ctx.axes.generalize(layout.dimensions);
+        // Add a cached soft space if there is one.
+        if let LastSpacing::Soft(space, _) = self.sub.last_spacing {
+            self.add_spacing(space, SpacingKind::Hard);
+        }
 
-        let mut new_dimensions = Size2D {
-            x: crate::size::max(self.sub.dimensions.x, size.x),
-            y: self.sub.dimensions.y + size.y
+        // The new primary size is the maximum of the current one and the
+        // layout's one while the secondary size grows by the layout's size.
+        let size = self.ctx.axes.generalize(layout.dimensions);
+        let mut new_size = Size2D {
+            x: crate::size::max(self.sub.size.x, size.x),
+            y: self.sub.size.y + size.y
         };
 
-        while !self.sub.usable.fits(new_dimensions) {
+        // Find the first (sub-)space that fits the layout.
+        while !self.sub.usable.fits(new_size) {
             if self.space_is_last() && self.space_is_empty() {
                 lerr!("box does not fit into stack");
             }
 
             self.finish_space(true);
-            new_dimensions = size;
+            new_size = size;
         }
 
-        let offset = self.sub.dimensions.y;
-        let anchor = self.ctx.axes.primary.anchor(size.x);
+        // The secondary offset from the start of layouts is given by the
+        // current primary size of the subspace.
+        let offset = self.sub.size.y;
+        self.sub.layouts.push(LayoutEntry {
+            offset,
+            layout,
+        });
 
-        self.sub.boxes.push((offset, anchor, layout));
-        self.sub.dimensions = new_dimensions;
-        self.sub.space = LastSpacing::Allowed;
+        // The new size of the subspace is the previously calculated
+        // combination.
+        self.sub.size = new_size;
+
+        // Since the last item was a box, last spacing is reset to `None`.
+        self.sub.last_spacing = LastSpacing::None;
 
         Ok(())
     }
 
+    /// Add multiple layouts to the stack.
+    ///
+    /// This function simply calls `add` for each layout.
     pub fn add_multiple(&mut self, layouts: MultiLayout) -> LayoutResult<()> {
         for layout in layouts {
             self.add(layout)?;
@@ -136,33 +143,55 @@ impl StackLayouter {
         Ok(())
     }
 
-    pub fn add_space(&mut self, space: Size, kind: SpaceKind) {
-        if kind == SpaceKind::Soft {
-            if self.sub.space != LastSpacing::Forbidden {
-                self.sub.space = LastSpacing::Soft(space);
-            }
-        } else {
-            if self.sub.dimensions.y + space > self.sub.usable.y {
-                self.sub.dimensions.y = self.sub.usable.y;
-            } else {
-                self.sub.dimensions.y += space;
+    /// Add secondary spacing to the stack.
+    pub fn add_spacing(&mut self, space: Size, kind: SpacingKind) {
+        match kind {
+            // A hard space is directly added to the sub's size.
+            SpacingKind::Hard => {
+                if self.sub.size.y + space > self.sub.usable.y {
+                    self.sub.size.y = self.sub.usable.y;
+                } else {
+                    self.sub.size.y += space;
+                }
+
+                self.sub.last_spacing = LastSpacing::Hard;
             }
 
-            if kind == SpaceKind::Hard {
-                self.sub.space = LastSpacing::Forbidden;
+            // A hard space is cached if it is not consumed by a hard space or
+            // previous soft space with higher level.
+            SpacingKind::Soft(level) => {
+                let consumes = match self.sub.last_spacing {
+                    LastSpacing::None => true,
+                    LastSpacing::Soft(_, prev) if level < prev => true,
+                    _ => false,
+                };
+
+                if consumes {
+                    self.sub.last_spacing = LastSpacing::Soft(space, level);
+                }
             }
         }
     }
 
+    /// Change the layouting axis used by this layouter.
+    ///
+    /// This starts a new subspace (if the axes are actually different from the
+    /// current ones).
     pub fn set_axes(&mut self, axes: LayoutAxes) {
         if axes != self.ctx.axes {
             self.finish_subspace();
+
             let (origin, usable) = self.remaining_subspace();
+            self.sub = Subspace::new(axes, Alignment::Origin, origin, usable);
             self.ctx.axes = axes;
-            self.sub = Subspace::new(origin, usable, axes);
         }
     }
 
+    /// Change the layouting spaces to use.
+    ///
+    /// If `replace_empty` is true, the current space is replaced if there are
+    /// no boxes laid into it yet. Otherwise, only the followup spaces are
+    /// replaced.
     pub fn set_spaces(&mut self, spaces: LayoutSpaces, replace_empty: bool) {
         if replace_empty && self.space_is_empty() {
             self.ctx.spaces = spaces;
@@ -173,10 +202,13 @@ impl StackLayouter {
         }
     }
 
+    /// The remaining unpadded, unexpanding spaces. If a multi-layout is laid
+    /// out into these spaces, it will fit into this stack.
     pub fn remaining(&self) -> LayoutSpaces {
         let mut spaces = smallvec![LayoutSpace {
             dimensions: self.remaining_subspace().1,
             padding: SizeBox::zero(),
+            expand: (false, false),
         }];
 
         for space in &self.ctx.spaces[self.next_space()..] {
@@ -186,20 +218,24 @@ impl StackLayouter {
         spaces
     }
 
+    /// The usable size along the primary axis.
     pub fn primary_usable(&self) -> Size {
         self.sub.usable.x
     }
 
+    /// Whether the current layout space (not subspace) is empty.
     pub fn space_is_empty(&self) -> bool {
-        self.space.combined_dimensions == Size2D::zero()
-            && self.space.actions.is_empty()
-            && self.sub.dimensions == Size2D::zero()
+        self.sub.layouts.is_empty()
+            && self.sub.size == Size2D::zero()
+            && self.space.spaces.is_empty()
     }
 
+    /// Whether the current layout space is the last is the followup list.
     pub fn space_is_last(&self) -> bool {
         self.space.index == self.ctx.spaces.len() - 1
     }
 
+    /// Compute the finished multi-layout.
     pub fn finish(mut self) -> MultiLayout {
         if self.space.hard || !self.space_is_empty() {
             self.finish_space(false);
@@ -212,27 +248,17 @@ impl StackLayouter {
 
         let space = self.ctx.spaces[self.space.index];
 
-        self.layouts.add(Layout {
+        self.layouts.push(Layout {
             dimensions: match self.ctx.expand {
                 true => space.dimensions,
                 false => self.space.combined_dimensions.padded(space.padding),
             },
-            actions: self.space.actions.to_vec(),
-            debug_render: true,
+            baseline: None,
+            alignment: self.ctx.alignment,
+            actions: actions.to_vec(),
         });
 
         self.start_space(self.next_space(), hard);
-    }
-
-    fn start_space(&mut self, space: usize, hard: bool) {
-        self.space = Space::new(space, hard);
-
-        let space = self.ctx.spaces[space];
-        self.sub = Subspace::new(space.start(), space.usable(), self.ctx.axes);
-    }
-
-    fn next_space(&self) -> usize {
-        (self.space.index + 1).min(self.ctx.spaces.len() - 1)
     }
 
     fn finish_subspace(&mut self) {
@@ -264,6 +290,18 @@ impl StackLayouter {
         self.space.combined_dimensions.max_eq(origin - space.start() + dimensions);
     }
 
+    /// Start a new space with the given index.
+    fn start_space(&mut self, space: usize, hard: bool) {
+        // Start the space.
+        self.space = Space::new(space, hard);
+
+        // Start the subspace.
+        let space = self.ctx.spaces[space];
+        let axes = self.ctx.axes;
+        self.sub = Subspace::new(axes, Alignment::Origin, space.start(), space.usable());
+    }
+
+    /// The remaining sub
     fn remaining_subspace(&self) -> (Size2D, Size2D) {
         let new_origin = self.sub.origin + match self.ctx.axes.secondary.axis.is_positive() {
             true => self.ctx.axes.specialize(Size2D::with_y(self.sub.dimensions.y)),
@@ -276,5 +314,33 @@ impl StackLayouter {
         });
 
         (new_origin, new_usable)
+    }
+
+    fn next_space(&self) -> usize {
+        (self.space.index + 1).min(self.ctx.spaces.len() - 1)
+    }
+}
+
+impl Space {
+    fn new(index: usize, hard: bool) -> Space {
+        Space {
+            index,
+            hard,
+            spaces: vec![],
+        }
+    }
+}
+
+impl Subspace {
+    fn new(axes: LayoutAxes, alignment: Alignment, origin: Size2D, usable: Size2D) -> Subspace {
+        Subspace {
+            axes,
+            alignment,
+            origin,
+            usable: axes.generalize(usable),
+            size: Size2D::zero(),
+            layouts: vec![],
+            last_spacing: LastSpacing::Hard,
+        }
     }
 }

@@ -62,7 +62,7 @@ impl PartialLine {
 pub struct FlexContext {
     pub spaces: LayoutSpaces,
     pub axes: LayoutAxes,
-    pub expand: bool,
+    pub alignment: LayoutAlignment,
     pub flex_spacing: Size,
 }
 
@@ -110,7 +110,7 @@ impl FlexLayouter {
         if !self.run_is_empty() {
             self.finish_run()?;
         }
-        Ok(self.stack.add_space(space, kind))
+        Ok(self.stack.add_spacing(space, kind))
     }
 
     pub fn set_axes(&mut self, axes: LayoutAxes) {
@@ -179,7 +179,7 @@ impl FlexLayouter {
             debug_render: false,
         })?;
 
-        self.stack.add_space(self.flex_spacing, SpaceKind::Independent);
+        self.stack.add_spacing(self.flex_spacing, SpaceKind::Independent);
 
         let remaining = self.axes.specialize(Size2D {
             x: self.part.usable
