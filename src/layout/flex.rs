@@ -230,7 +230,8 @@ impl FlexLayouter {
 
             while size.x > self.line.usable {
                 if self.stack.space_is_last() {
-                    lr!("box does not fit into line");
+                    error!("box of size {} does not fit into line of size {}",
+                        size.x, self.line.usable);
                 }
 
                 self.stack.finish_space(true);

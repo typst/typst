@@ -2,6 +2,7 @@
 
 use unicode_xid::UnicodeXID;
 
+use crate::TypesetResult;
 use crate::func::{LayoutFunc, Scope};
 use crate::size::Size;
 use super::*;
@@ -69,7 +70,7 @@ impl<'s> Parser<'s> {
             match token.val {
                 // Functions.
                 LeftBracket => self.parse_func()?,
-                RightBracket => return Err(ParseError::new("unexpected closing bracket")),
+                RightBracket => error!("unexpected closing bracket"),
 
                 // Modifiers.
                 Underscore => self.append_consumed(Node::ToggleItalics, token.span),
@@ -120,10 +121,10 @@ impl<'s> Parser<'s> {
                 if is_identifier(word) {
                     Ok(Spanned::new(word.to_owned(), span))
                 } else {
-                    pr!("invalid identifier: '{}'", word);
+                    error!("invalid identifier: `{}`", word);
                 }
             }
-            _ => pr!("expected identifier"),
+            _ => error!("expected identifier"),
         }?;
 
         self.skip_white();
@@ -132,7 +133,7 @@ impl<'s> Parser<'s> {
         let args = match self.tokens.next().map(Spanned::value) {
             Some(Token::RightBracket) => FuncArgs::new(),
             Some(Token::Colon) => self.parse_func_args()?,
-            _ => pr!("expected arguments or closing bracket"),
+            _ => error!("expected arguments or closing bracket"),
         };
 
         let end = self.tokens.string_index();
@@ -158,7 +159,7 @@ impl<'s> Parser<'s> {
             match self.tokens.next().map(Spanned::value) {
                 Some(Token::Comma) => {},
                 Some(Token::RightBracket) => break,
-                _ => pr!("expected comma or closing bracket"),
+                _ => error!("expected comma or closing bracket"),
             }
         }
 
@@ -183,7 +184,7 @@ impl<'s> Parser<'s> {
                         self.skip_white();
 
                         let name = token.span_map(|_| name.to_string());
-                        let next = self.tokens.next().ok_or_else(|| pr!(@"expected value"))?;
+                        let next = self.tokens.next().ok_or_else(|| error!(@"expected expression"))?;
                         let val = Self::parse_expression(next)?;
                         let span = Span::merge(name.span, val.span);
 
@@ -218,8 +219,7 @@ impl<'s> Parser<'s> {
                     Expression::Ident(text.to_owned())
                 }
             }
-
-            _ => pr!("expected expression"),
+            _ => error!("expected expression"),
         }, token.span))
     }
 
@@ -231,7 +231,7 @@ impl<'s> Parser<'s> {
             .ctx
             .scope
             .get_parser(&header.name.val)
-            .ok_or_else(|| pr!(@"unknown function: '{}'", &header.name.val))?;
+            .ok_or_else(|| error!(@"unknown function: `{}`", &header.name.val))?;
 
         let has_body = self.tokens.peek().map(Spanned::value) == Some(Token::LeftBracket);
 
@@ -243,7 +243,7 @@ impl<'s> Parser<'s> {
             let start = self.tokens.string_index();
             let end = find_closing_bracket(&self.src[start..])
                 .map(|end| start + end)
-                .ok_or_else(|| ParseError::new("expected closing bracket"))?;
+                .ok_or_else(|| error!(@"expected closing bracket"))?;
 
             // Parse the body.
             let body_string = &self.src[start..end];
@@ -299,7 +299,7 @@ impl<'s> Parser<'s> {
                     state = NewlineState::Zero;
                     match token.val {
                         Token::LineComment(_) | Token::BlockComment(_) => self.advance(),
-                        Token::StarSlash => pr!("unexpected end of block comment"),
+                        Token::StarSlash => error!("unexpected end of block comment"),
                         _ => break,
                     }
                 }
@@ -431,23 +431,8 @@ fn is_identifier(string: &str) -> bool {
     true
 }
 
-/// The error type for parsing.
-pub struct ParseError(String);
-
 /// The result type for parsing.
-pub type ParseResult<T> = Result<T, ParseError>;
-
-impl ParseError {
-    /// Create a new parse error with a message.
-    pub fn new<S: Into<String>>(message: S) -> ParseError {
-        ParseError(message.into())
-    }
-}
-
-error_type! {
-    err: ParseError,
-    show: f => f.write_str(&err.0),
-}
+pub type ParseResult<T> = TypesetResult<T>;
 
 
 #[cfg(test)]

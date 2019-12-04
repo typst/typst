@@ -18,13 +18,15 @@ pub extern crate toddle;
 
 use std::cell::RefCell;
 use smallvec::smallvec;
+
 use toddle::query::{FontLoader, FontProvider, SharedFontLoader};
+use toddle::Error as FontError;
 
 use crate::func::Scope;
 use crate::layout::{layout_tree, MultiLayout, LayoutContext};
 use crate::layout::{LayoutAxes, LayoutAlignment, Axis, Alignment};
-use crate::layout::{LayoutError, LayoutResult, LayoutSpace};
-use crate::syntax::{SyntaxTree, parse, ParseContext, ParseError, ParseResult};
+use crate::layout::{LayoutResult, LayoutSpace};
+use crate::syntax::{parse, SyntaxTree, ParseContext, Span, ParseResult};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 
 #[macro_use]
@@ -116,24 +118,31 @@ impl<'p> Typesetter<'p> {
     }
 }
 
-/// The general error type for typesetting.
-pub enum TypesetError {
-    /// An error that occured in the parsing step.
-    Parse(ParseError),
-    /// An error that occured in the layouting step.
-    Layout(LayoutError),
+/// The result type for typesetting.
+pub type TypesetResult<T> = Result<T, TypesetError>;
+
+/// The error type for typesetting.
+pub struct TypesetError {
+    message: String,
+    span: Option<Span>,
+}
+
+impl TypesetError {
+    /// Create a new typesetting error.
+    pub fn with_message(message: String) -> TypesetError {
+        TypesetError { message, span: None }
+    }
 }
 
 error_type! {
     err: TypesetError,
-    show: f => match err {
-        TypesetError::Parse(e) => write!(f, "{}", e),
-        TypesetError::Layout(e) => write!(f, "{}", e),
+    show: f => {
+        write!(f, "{}", err.message)?;
+        if let Some(span) = err.span {
+            write!(f, " at {}", span)?;
+        }
+        Ok(())
     },
-    source: match err {
-        TypesetError::Parse(e) => Some(e),
-        TypesetError::Layout(e) => Some(e),
-    },
-    from: (ParseError, TypesetError::Parse(err)),
-    from: (LayoutError, TypesetError::Layout(err)),
+    from: (std::io::Error, TypesetError::with_message(err.to_string())),
+    from: (FontError, TypesetError::with_message(err.to_string())),
 }

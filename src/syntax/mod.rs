@@ -12,7 +12,7 @@ mod span;
 
 pub use span::{Span, Spanned};
 pub use tokens::{tokenize, Tokens};
-pub use parsing::{parse, ParseContext, ParseError, ParseResult};
+pub use parsing::{parse, ParseContext, ParseResult};
 
 /// A logical unit of the incoming text stream.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

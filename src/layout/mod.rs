@@ -5,8 +5,8 @@ use std::io::{self, Write};
 use smallvec::SmallVec;
 
 use toddle::query::{FontClass, SharedFontLoader};
-use toddle::Error as FontError;
 
+use crate::TypesetResult;
 use crate::func::Command;
 use crate::size::{Size, Size2D, SizeBox};
 use crate::style::{LayoutStyle, TextStyle};
@@ -366,22 +366,5 @@ impl Serialize for MultiLayout {
     }
 }
 
-/// The error type for layouting.
-pub struct LayoutError(String);
-
 /// The result type for layouting.
-pub type LayoutResult<T> = Result<T, LayoutError>;
-
-impl LayoutError {
-    /// Create a new layout error with a message.
-    pub fn new<S: Into<String>>(message: S) -> LayoutError {
-        LayoutError(message.into())
-    }
-}
-
-error_type! {
-    err: LayoutError,
-    show: f => f.write_str(&err.0),
-    from: (std::io::Error, LayoutError::new(err.to_string())),
-    from: (FontError, LayoutError::new(err.to_string())),
-}
+pub type LayoutResult<T> = TypesetResult<T>;

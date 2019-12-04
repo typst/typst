@@ -64,14 +64,14 @@ impl<'a> ArgParser<'a> {
         if self.positional_index == self.args.positional.len() {
             Ok(())
         } else {
-            pr!("unexpected argument");
+            error!(unexpected_argument);
         }
     }
 
     /// Covert an option to a result with an error on `None`.
     fn expected<T>(val: Option<Spanned<T::Output>>) -> ParseResult<Spanned<T::Output>>
     where T: Argument<'a> {
-        val.ok_or_else(|| pr!(@"expected {}", T::ERROR_MESSAGE))
+        val.ok_or_else(|| error!(@"expected {}", T::ERROR_MESSAGE))
     }
 }
 
@@ -93,10 +93,10 @@ macro_rules! arg {
             const ERROR_MESSAGE: &'static str = $err;
 
             fn from_expr(expr: &'a Spanned<Expression>) -> ParseResult<Spanned<Self::Output>> {
-                #[allow(unreachable_patterns)]
+                #[allow(unreachable_code)]
                 match &expr.val {
                     $wanted => Ok(Spanned::new($converted, expr.span)),
-                    _ => pr!("expected {}", $err),
+                    _ => error!("expected {}", $err),
                 }
             }
         }
@@ -179,7 +179,7 @@ impl AlignmentKey {
             Right if horizontal => axes.right(),
             Top if !horizontal => axes.top(),
             Bottom if !horizontal => axes.bottom(),
-            _ => lr!(
+            _ => error!(
                 "invalid alignment `{}` for {} axis",
                 format!("{:?}", self).to_lowercase(),
                 format!("{:?}", axis).to_lowercase()

@@ -111,7 +111,7 @@ macro_rules! function {
 macro_rules! parse {
     (forbidden: $body:expr) => {
         if $body.is_some() {
-            pr!("unexpected body");
+            error!("unexpected body");
         }
     };
 
@@ -127,23 +127,16 @@ macro_rules! parse {
         if let Some(body) = $body {
             $crate::syntax::parse(body, $ctx)?
         } else {
-            pr!("expected body");
+            error!("expected body");
         }
     )
 }
 
-/// Early-return with a formatted parsing error or yield
-/// an error expression without returning when prefixed with `@`.
+/// Early-return with a formatted typesetting error or construct an error
+/// expression without returning when prefixed with `@`.
 #[macro_export]
-macro_rules! pr {
-    (@$($tts:tt)*) => ($crate::syntax::ParseError::new(format!($($tts)*)));
-    ($($tts:tt)*) => (return Err(pr!(@$($tts)*)););
-}
-
-/// Early-return with a formatted layouting error or yield
-/// an error expression without returning when prefixed with `@`.
-#[macro_export]
-macro_rules! lr {
-    (@$($tts:tt)*) => ($crate::layout::LayoutError::new(format!($($tts)*)));
-    ($($tts:tt)*) => (return Err(lr!(@$($tts)*)););
+macro_rules! error {
+    (@unexpected_argument) => (error!(@"unexpected argument"));
+    (@$($tts:tt)*) => ($crate::TypesetError::with_message(format!($($tts)*)));
+    ($($tts:tt)*) => (return Err(error!(@$($tts)*)););
 }

@@ -19,7 +19,7 @@ function! {
                 "vertical" => Key::Axis(AxisKey::Vertical),
                 "primary" => Key::Axis(AxisKey::Primary),
                 "secondary" => Key::Axis(AxisKey::Secondary),
-                _ => pr!("unexpected argument"),
+                _ => error!(unexpected_argument),
             };
 
             let value = AlignmentKey::parse(arg.val.1.val)?;

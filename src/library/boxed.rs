@@ -17,7 +17,7 @@ function! {
                 "height" | "h" => AxisKey::Vertical,
                 "primary-size" => AxisKey::Primary,
                 "secondary-size" => AxisKey::Secondary,
-                _ => pr!("unexpected argument"),
+                _ => error!(unexpected_argument),
             };
 
             let size = ArgParser::convert::<ArgSize>(arg.val.1.val)?;

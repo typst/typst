@@ -111,7 +111,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             SetTextStyle(style) => self.style.text = style,
             SetPageStyle(style) => {
                 if !self.ctx.top_level {
-                    lr!("page style cannot only be altered in the top-level context");
+                    error!("the page style cannot only be altered from a top-level context");
                 }
 
                 self.style.page = style;

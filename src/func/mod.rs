@@ -16,7 +16,7 @@ pub mod prelude {
     pub use super::args::*;
     pub use super::{Scope, ParseFunc, LayoutFunc, Command, Commands};
     pub use crate::syntax::{SyntaxTree, FuncHeader, FuncArgs, Expression, Spanned, Span};
-    pub use crate::syntax::{parse, ParseContext, ParseError, ParseResult};
+    pub use crate::syntax::{parse, ParseContext, ParseResult};
     pub use crate::size::{Size, Size2D, SizeBox};
     pub use crate::style::{PageStyle, TextStyle};
     pub use crate::layout::{
@@ -24,8 +24,7 @@ pub mod prelude {
         LayoutContext, LayoutSpace, LayoutSpaces,
         LayoutAxes, Axis, GenericAxisKind, SpecificAxisKind,
         LayoutAlignment, Alignment,
-        SpacingKind,
-        LayoutError, LayoutResult,
+        SpacingKind, LayoutResult,
     };
 }
 

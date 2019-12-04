@@ -108,7 +108,8 @@ impl StackLayouter {
         // Find the first (sub-)space that fits the layout.
         while !self.sub.usable.fits(new_size) {
             if self.space_is_last() && self.space_is_empty() {
-                lr!("box does not fit into stack");
+                error!("box of size {} does not fit into remaining stack of size {}",
+                    size, self.sub.usable - Size2D::with_y(self.sub.size.y));
             }
 
             self.finish_space(true);

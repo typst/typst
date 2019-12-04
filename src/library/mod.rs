@@ -128,7 +128,7 @@ function! {
                 "vertical-origin" => AxisAligned(AxisKey::Vertical, Origin),
                 "vertical-end" => AxisAligned(AxisKey::Vertical, End),
 
-                _ => pr!("unexpected argument"),
+                _ => error!(unexpected_argument),
             };
 
             let size = ArgParser::convert::<ArgSize>(arg.val.1.val)?;
@@ -200,13 +200,13 @@ function! {
                     "vertical" => AxisKey::Vertical,
                     "primary" => AxisKey::Primary,
                     "secondary" => AxisKey::Secondary,
-                    _ => pr!("unexpected argument"),
+                    _ => error!(unexpected_argument),
                 };
 
                 let spacing = SpacingValue::from_expr(arg.val.1.val)?;
                 Spacing { axis, spacing }
             } else {
-                pr!("expected axis and expression")
+                error!("expected axis and expression")
             }
         };
 
@@ -236,7 +236,7 @@ impl SpacingValue {
         Ok(match expr.val {
             Expression::Size(s) => SpacingValue::Absolute(*s),
             Expression::Num(f) => SpacingValue::Relative(*f as f32),
-            _ => pr!("invalid spacing: expected size or number"),
+            _ => error!("invalid spacing: expected size or number"),
         })
     }
 }
