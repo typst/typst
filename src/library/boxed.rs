@@ -1,37 +1,44 @@
 use crate::func::prelude::*;
 
-/// `box`: Layouts content into a box.
-#[derive(Debug, PartialEq)]
-pub struct Boxed {
-    body: SyntaxTree,
-    width: Option<Size>,
-    height: Option<Size>,
-}
-
 function! {
-    data: Boxed,
-
-    parse(args, body, ctx) {
-        let width = args.get_key_opt::<ArgSize>("width")?.map(|a| a.val);
-        let height = args.get_key_opt::<ArgSize>("height")?.map(|a| a.val);
-        args.done()?;
-
-        let body = parse!(required: body, ctx);
-        Ok(Boxed {
-            body,
-            width,
-            height,
-        })
+    /// `box`: Layouts content into a box.
+    #[derive(Debug, PartialEq)]
+    pub struct Boxed {
+        body: SyntaxTree,
+        map: ArgMap<AxisKey, Size>,
     }
 
-    layout(this, mut ctx) {
-        if let Some(width) = this.width {
-            ctx.spaces[0].dimensions.x = width;
-        }
-        if let Some(height) = this.height {
-            ctx.spaces[0].dimensions.y = height;
+    parse(args, body, ctx) {
+        let mut map = ArgMap::new();
+
+        for arg in args.keys() {
+            let key = match arg.val.0.val {
+                "width" | "w" => AxisKey::Horizontal,
+                "height" | "h" => AxisKey::Vertical,
+                "primary-size" => AxisKey::Primary,
+                "secondary-size" => AxisKey::Secondary,
+                _ => pr!("unexpected argument"),
+            };
+
+            let size = ArgParser::convert::<ArgSize>(arg.val.1.val)?;
+            map.add(key, size);
         }
 
-        Ok(vec![AddMultiple(layout_tree(&this.body, ctx)?)])
+        Boxed {
+            body: parse!(expected: body, ctx),
+            map,
+        }
+    }
+
+    layout(self, mut ctx) {
+        let map = self.map.dedup(|key, val| {
+            Ok((key.specific(ctx.axes), val))
+        });
+
+        let mut dimensions = &mut ctx.spaces[0].dimensions;
+        map.with(AxisKey::Horizontal, |val| dimensions.x = val);
+        map.with(AxisKey::Vertical, |val| dimensions.y = val);
+
+        vec![AddMultiple(layout_tree(&self.body, ctx)?)]
     }
 }

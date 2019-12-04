@@ -116,6 +116,6 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
             self.classes.pop();
         }
 
-        lerr!("no suitable font for character `{}`", c);
+        lr!("no suitable font for character `{}`", c);
     }
 }

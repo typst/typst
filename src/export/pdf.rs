@@ -80,7 +80,7 @@ impl<'d, W: Write> ExportProcess<'d, W> {
     ) -> PdfResult<ExportProcess<'d, W>>
     {
         let (fonts, font_remap) = Self::subset_fonts(layouts, font_loader)?;
-        let offsets = Self::calculate_offsets(layouts.count(), fonts.len());
+        let offsets = Self::calculate_offsets(layouts.len(), fonts.len());
 
         Ok(ExportProcess {
             writer: PdfWriter::new(target),

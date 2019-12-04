@@ -108,7 +108,7 @@ impl StackLayouter {
         // Find the first (sub-)space that fits the layout.
         while !self.sub.usable.fits(new_size) {
             if self.space_is_last() && self.space_is_empty() {
-                lerr!("box does not fit into stack");
+                lr!("box does not fit into stack");
             }
 
             self.finish_space(true);

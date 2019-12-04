@@ -102,7 +102,7 @@ impl LayoutSpace {
 }
 
 /// The axes along which the content is laid out.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct LayoutAxes {
     pub primary: Axis,
     pub secondary: Axis,
@@ -136,17 +136,66 @@ impl LayoutAxes {
         // at the call site, we still have this second function.
         self.generalize(size)
     }
-}
 
-/// The two kinds of axes.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum AxisKind {
-    Primary,
-    Secondary,
+    /// Returns the generic axis kind which is the horizontal axis.
+    pub fn horizontal(&self) -> GenericAxisKind {
+        match self.primary.is_horizontal() {
+            true => GenericAxisKind::Primary,
+            false => GenericAxisKind::Secondary,
+        }
+    }
+
+    /// Returns the generic axis kind which is the vertical axis.
+    pub fn vertical(&self) -> GenericAxisKind {
+        self.horizontal().inv()
+    }
+
+    /// Returns the specific axis kind which is the primary axis.
+    pub fn primary(&self) -> SpecificAxisKind {
+        match self.primary.is_horizontal() {
+            true => SpecificAxisKind::Horizontal,
+            false => SpecificAxisKind::Vertical,
+        }
+    }
+
+    /// Returns the specific axis kind which is the secondary axis.
+    pub fn secondary(&self) -> SpecificAxisKind {
+        self.primary().inv()
+    }
+
+    /// Returns the generic alignment corresponding to left-alignment.
+    pub fn left(&self) -> Alignment {
+        let positive = match self.primary.is_horizontal() {
+            true => self.primary.is_positive(),
+            false => self.secondary.is_positive(),
+        };
+
+        if positive { Alignment::Origin } else { Alignment::End }
+    }
+
+    /// Returns the generic alignment corresponding to right-alignment.
+    pub fn right(&self) -> Alignment {
+        self.left().inv()
+    }
+
+    /// Returns the generic alignment corresponding to top-alignment.
+    pub fn top(&self) -> Alignment {
+        let positive = match self.primary.is_horizontal() {
+            true => self.secondary.is_positive(),
+            false => self.primary.is_positive(),
+        };
+
+        if positive { Alignment::Origin } else { Alignment::End }
+    }
+
+    /// Returns the generic alignment corresponding to bottom-alignment.
+    pub fn bottom(&self) -> Alignment {
+        self.top().inv()
+    }
 }
 
 /// Directions along which content is laid out.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Axis {
     LeftToRight,
     RightToLeft,
@@ -180,8 +229,42 @@ impl Axis {
     }
 }
 
+/// The two generic kinds of layouting axes.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum GenericAxisKind {
+    Primary,
+    Secondary,
+}
+
+impl GenericAxisKind {
+    /// The other axis.
+    pub fn inv(&self) -> GenericAxisKind {
+        match self {
+            GenericAxisKind::Primary => GenericAxisKind::Secondary,
+            GenericAxisKind::Secondary => GenericAxisKind::Primary,
+        }
+    }
+}
+
+/// The two specific kinds of layouting axes.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum SpecificAxisKind {
+    Horizontal,
+    Vertical,
+}
+
+impl SpecificAxisKind {
+    /// The other axis.
+    pub fn inv(&self) -> SpecificAxisKind {
+        match self {
+            SpecificAxisKind::Horizontal => SpecificAxisKind::Vertical,
+            SpecificAxisKind::Vertical => SpecificAxisKind::Horizontal,
+        }
+    }
+}
+
 /// The place to put a layout in a container.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct LayoutAlignment {
     pub primary: Alignment,
     pub secondary: Alignment,
@@ -194,11 +277,22 @@ impl LayoutAlignment {
 }
 
 /// Where to align content.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Alignment {
     Origin,
     Center,
     End,
+}
+
+impl Alignment {
+    /// The inverse alignment.
+    pub fn inv(&self) -> Alignment {
+        match self {
+            Alignment::Origin => Alignment::End,
+            Alignment::Center => Alignment::Center,
+            Alignment::End => Alignment::Origin,
+        }
+    }
 }
 
 /// The specialized anchor position for an item with the given alignment in a
@@ -213,7 +307,7 @@ pub fn anchor(axis: Axis, size: Size, alignment: Alignment) -> Size {
 }
 
 /// Whitespace between boxes with different interaction properties.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SpacingKind {
     /// A hard space consumes surrounding soft spaces and is always layouted.
     Hard,

@@ -7,53 +7,64 @@ use std::fmt::{self, Debug, Formatter};
 use self::prelude::*;
 
 #[macro_use]
-pub mod helpers;
+pub mod macros;
+pub mod args;
 
 /// Useful imports for creating your own functions.
 pub mod prelude {
-    pub use crate::func::{Command, CommandList, Function};
-    pub use crate::layout::{layout_tree, Layout, MultiLayout, LayoutContext};
-    pub use crate::layout::{LayoutSpace, LayoutSpaces, SpacingKind};
-    pub use crate::layout::{LayoutAxes, Axis, AxisKind, LayoutAlignment, Alignment};
-    pub use crate::layout::{LayoutError, LayoutResult};
+    pub use Command::*;
+    pub use super::args::*;
+    pub use super::{Scope, ParseFunc, LayoutFunc, Command, Commands};
     pub use crate::syntax::{SyntaxTree, FuncHeader, FuncArgs, Expression, Spanned, Span};
     pub use crate::syntax::{parse, ParseContext, ParseError, ParseResult};
     pub use crate::size::{Size, Size2D, SizeBox};
     pub use crate::style::{PageStyle, TextStyle};
-    pub use super::helpers::*;
-    pub use Command::*;
+    pub use crate::layout::{
+        layout_tree, Layout, MultiLayout,
+        LayoutContext, LayoutSpace, LayoutSpaces,
+        LayoutAxes, Axis, GenericAxisKind, SpecificAxisKind,
+        LayoutAlignment, Alignment,
+        SpacingKind,
+        LayoutError, LayoutResult,
+    };
 }
 
-/// Typesetting function types.
-///
-/// These types have to be able to parse themselves from a string and build
-/// a list of layouting commands corresponding to the parsed source.
-///
-/// This trait is a supertrait of `FunctionBounds` for technical reasons.  The
-/// trait `FunctionBounds` is automatically implemented for types which can
-/// be used as functions, that is, all types which fulfill the bounds `Debug + PartialEq +
-/// 'static`.
-pub trait Function: FunctionBounds {
+/// Types representing functions that are parsed from source code.
+pub trait ParseFunc {
+    type Meta;
+
     /// Parse the header and body into this function given a context.
-    fn parse(header: &FuncHeader, body: Option<&str>, ctx: ParseContext) -> ParseResult<Self>
-    where Self: Sized;
-
-    /// Layout this function given a context.
-    ///
-    /// Returns optionally the resulting layout and a new context if changes to
-    /// the context should be made.
-    fn layout(&self, ctx: LayoutContext) -> LayoutResult<CommandList>;
+    fn parse(
+        header: &FuncHeader,
+        body: Option<&str>,
+        ctx: ParseContext,
+        metadata: Self::Meta,
+    ) -> ParseResult<Self> where Self: Sized;
 }
 
-impl dyn Function {
-    /// Downcast a dynamic function to a concrete function type.
-    pub fn downcast<F>(&self) -> Option<&F> where F: Function + 'static {
+/// Types representing functions which can be laid out in a layout context.
+///
+/// This trait is a supertrait of `[LayoutFuncBounds]` for technical reasons.
+/// The trait `[LayoutFuncBounds]` is automatically implemented for types which
+/// can be used as functions, that is, all types which fulfill the bounds `Debug
+/// + PartialEq + 'static`.
+pub trait LayoutFunc: LayoutFuncBounds {
+    /// Layout this function in a given context.
+    ///
+    /// Returns a sequence of layouting commands which describe what the
+    /// function is doing.
+    fn layout(&self, ctx: LayoutContext) -> LayoutResult<Commands>;
+}
+
+impl dyn LayoutFunc {
+    /// Downcast a function trait object to a concrete function type.
+    pub fn downcast<F>(&self) -> Option<&F> where F: LayoutFunc + 'static {
         self.help_cast_as_any().downcast_ref::<F>()
     }
 }
 
-impl PartialEq for dyn Function {
-    fn eq(&self, other: &dyn Function) -> bool {
+impl PartialEq for dyn LayoutFunc {
+    fn eq(&self, other: &dyn LayoutFunc) -> bool {
         self.help_eq(other)
     }
 }
@@ -63,22 +74,20 @@ impl PartialEq for dyn Function {
 ///
 /// Automatically implemented for all types which fulfill to the bounds `Debug +
 /// PartialEq + 'static`. There should be no need to implement this manually.
-pub trait FunctionBounds: Debug {
+pub trait LayoutFuncBounds: Debug {
     /// Cast self into `Any`.
     fn help_cast_as_any(&self) -> &dyn Any;
 
-    /// Compare self with another function.
-    fn help_eq(&self, other: &dyn Function) -> bool;
+    /// Compare self with another function trait object.
+    fn help_eq(&self, other: &dyn LayoutFunc) -> bool;
 }
 
-impl<T> FunctionBounds for T
-where T: Debug + PartialEq + 'static
-{
+impl<T> LayoutFuncBounds for T where T: Debug + PartialEq + 'static {
     fn help_cast_as_any(&self) -> &dyn Any {
         self
     }
 
-    fn help_eq(&self, other: &dyn Function) -> bool {
+    fn help_eq(&self, other: &dyn LayoutFunc) -> bool {
         if let Some(other) = other.help_cast_as_any().downcast_ref::<Self>() {
             self == other
         } else {
@@ -87,17 +96,17 @@ where T: Debug + PartialEq + 'static
     }
 }
 
-/// A sequence of commands requested for execution by a function.
-pub type CommandList<'a> = Vec<Command<'a>>;
+/// A sequence of layouting commands.
+pub type Commands<'a> = Vec<Command<'a>>;
 
-/// Commands requested for execution by functions.
+/// Layouting commands from functions to the typesetting engine.
 #[derive(Debug)]
 pub enum Command<'a> {
     LayoutTree(&'a SyntaxTree),
 
     Add(Layout),
     AddMultiple(MultiLayout),
-    AddSpacing(Size, SpacingKind, AxisKind),
+    AddSpacing(Size, SpacingKind, GenericAxisKind),
 
     FinishLine,
     FinishRun,
@@ -110,13 +119,18 @@ pub enum Command<'a> {
     SetAxes(LayoutAxes),
 }
 
-/// A map from identifiers to functions.
+/// A map from identifiers to function parsers.
 pub struct Scope {
-    parsers: HashMap<String, Box<ParseFunc>>,
+    parsers: HashMap<String, Box<Parser>>,
 }
 
-/// A function which parses a function invocation into a function type.
-type ParseFunc = dyn Fn(&FuncHeader, Option<&str>, ParseContext) -> ParseResult<Box<dyn Function>>;
+/// A function which parses the source of a function into a function type which
+/// implements [`LayoutFunc`].
+type Parser = dyn Fn(
+    &FuncHeader,
+    Option<&str>,
+    ParseContext
+) -> ParseResult<Box<dyn LayoutFunc>>;
 
 impl Scope {
     /// Create a new empty scope.
@@ -131,16 +145,27 @@ impl Scope {
         crate::library::std()
     }
 
-    /// Add a function type to the scope giving it a name.
-    pub fn add<F: Function + 'static>(&mut self, name: &str) {
+    /// Associate the given name with a type that is parseable into a function.
+    pub fn add<F>(&mut self, name: &str)
+    where F: ParseFunc<Meta=()> + LayoutFunc + 'static {
+        self.add_with_metadata::<F, ()>(name, ());
+    }
+
+    /// Add a parseable type with additional metadata  that is given to the
+    /// parser (other than the default of `()`).
+    pub fn add_with_metadata<F, T>(&mut self, name: &str, metadata: T)
+    where F: ParseFunc<Meta=T> + LayoutFunc + 'static, T: 'static {
         self.parsers.insert(
             name.to_owned(),
-            Box::new(|h, b, c| F::parse(h, b, c).map(|func| Box::new(func) as Box<dyn Function>)),
+            Box::new(|h, b, c| {
+                F::parse(h, b, c, metadata)
+                    .map(|f| Box::new(f) as Box<dyn LayoutFunc>)
+            })
         );
     }
 
     /// Return the parser with the given name if there is one.
-    pub(crate) fn get_parser(&self, name: &str) -> Option<&ParseFunc> {
+    pub(crate) fn get_parser(&self, name: &str) -> Option<&Parser> {
         self.parsers.get(name).map(|x| &**x)
     }
 }

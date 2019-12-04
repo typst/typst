@@ -51,25 +51,19 @@ impl Size {
     /// Create a size from an amount of millimeters.
     #[inline]
     pub fn mm(mm: f32) -> Size {
-        Size {
-            points: 2.83465 * mm,
-        }
+        Size { points: 2.83465 * mm }
     }
 
     /// Create a size from an amount of centimeters.
     #[inline]
     pub fn cm(cm: f32) -> Size {
-        Size {
-            points: 28.3465 * cm,
-        }
+        Size { points: 28.3465 * cm }
     }
 
     /// Create a size from an amount of inches.
     #[inline]
     pub fn inches(inches: f32) -> Size {
-        Size {
-            points: 72.0 * inches,
-        }
+        Size { points: 72.0 * inches }
     }
 
     /// Convert this size into points.
@@ -188,12 +182,33 @@ impl SizeBox {
 
     /// Create a box with all four fields set to the same value `s`.
     #[inline]
-    pub fn with_all(s: Size) -> SizeBox {
-        SizeBox { left: s, top: s, right: s, bottom: s }
+    pub fn with_all(value: Size) -> SizeBox {
+        SizeBox { left: value, top: value, right: value, bottom: value }
+    }
+
+    /// Set the `left` and `right` values.
+    #[inline]
+    pub fn set_all(&mut self, value: Size) {
+        *self = SizeBox::with_all(value);
+    }
+
+    /// Set the `left` and `right` values.
+    #[inline]
+    pub fn set_horizontal(&mut self, value: Size) {
+        self.left = value;
+        self.right = value;
+    }
+
+    /// Set the `top` and `bottom` values.
+    #[inline]
+    pub fn set_vertical(&mut self, value: Size) {
+        self.top = value;
+        self.bottom = value;
     }
 }
 
 /// The maximum of two sizes.
+#[inline]
 pub fn max(a: Size, b: Size) -> Size {
     if a >= b {
         a
@@ -203,6 +218,7 @@ pub fn max(a: Size, b: Size) -> Size {
 }
 
 /// The minimum of two sizes.
+#[inline]
 pub fn min(a: Size, b: Size) -> Size {
     if a <= b {
         a

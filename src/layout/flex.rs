@@ -14,7 +14,7 @@ pub struct FlexLayouter {
 #[derive(Debug, Clone)]
 enum FlexUnit {
     Boxed(Layout),
-    Space(Size, SpaceKind),
+    Space(Size, SpacingKind),
     SetAxes(LayoutAxes),
     Break,
 }
@@ -102,11 +102,11 @@ impl FlexLayouter {
         self.units.push(FlexUnit::Break);
     }
 
-    pub fn add_primary_space(&mut self, space: Size, kind: SpaceKind) {
+    pub fn add_primary_space(&mut self, space: Size, kind: SpacingKind) {
         self.units.push(FlexUnit::Space(space, kind))
     }
 
-    pub fn add_secondary_space(&mut self, space: Size, kind: SpaceKind) -> LayoutResult<()> {
+    pub fn add_secondary_space(&mut self, space: Size, kind: SpacingKind) -> LayoutResult<()> {
         if !self.run_is_empty() {
             self.finish_run()?;
         }
@@ -179,7 +179,7 @@ impl FlexLayouter {
             debug_render: false,
         })?;
 
-        self.stack.add_spacing(self.flex_spacing, SpaceKind::Independent);
+        self.stack.add_spacing(self.flex_spacing, SpacingKind::Independent);
 
         let remaining = self.axes.specialize(Size2D {
             x: self.part.usable
@@ -230,7 +230,7 @@ impl FlexLayouter {
 
             while size.x > self.line.usable {
                 if self.stack.space_is_last() {
-                    lerr!("box does not fit into line");
+                    lr!("box does not fit into line");
                 }
 
                 self.stack.finish_space(true);
@@ -238,7 +238,7 @@ impl FlexLayouter {
         }
 
         if let LastSpacing::Soft(space) = self.part.space {
-            self.layout_space(space, SpaceKind::Hard);
+            self.layout_space(space, SpacingKind::Hard);
         }
 
         let offset = self.part.dimensions.x;
@@ -251,8 +251,8 @@ impl FlexLayouter {
         Ok(())
     }
 
-    fn layout_space(&mut self, space: Size, kind: SpaceKind) {
-        if kind == SpaceKind::Soft {
+    fn layout_space(&mut self, space: Size, kind: SpacingKind) {
+        if kind == SpacingKind::Soft {
             if self.part.space != LastSpacing::Forbidden {
                 self.part.space = LastSpacing::Soft(space);
             }
@@ -263,7 +263,7 @@ impl FlexLayouter {
                 self.part.dimensions.x += space;
             }
 
-            if kind == SpaceKind::Hard {
+            if kind == SpacingKind::Hard {
                 self.part.space = LastSpacing::Forbidden;
             }
         }

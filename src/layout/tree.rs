@@ -99,8 +99,8 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             Add(layout) => self.flex.add(layout),
             AddMultiple(layouts) => self.flex.add_multiple(layouts),
             AddSpacing(space, kind, axis) => match axis {
-                AxisKind::Primary => self.flex.add_primary_space(space, kind),
-                AxisKind::Secondary => self.flex.add_secondary_space(space, kind)?,
+                GenericAxisKind::Primary => self.flex.add_primary_space(space, kind),
+                GenericAxisKind::Secondary => self.flex.add_secondary_space(space, kind)?,
             }
 
             FinishLine => self.flex.add_break(),
@@ -111,7 +111,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             SetTextStyle(style) => self.style.text = style,
             SetPageStyle(style) => {
                 if !self.ctx.top_level {
-                    lerr!("page style cannot only be altered in the top-level context");
+                    lr!("page style cannot only be altered in the top-level context");
                 }
 
                 self.style.page = style;

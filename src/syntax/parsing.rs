@@ -2,7 +2,7 @@
 
 use unicode_xid::UnicodeXID;
 
-use crate::func::{Function, Scope};
+use crate::func::{LayoutFunc, Scope};
 use crate::size::Size;
 use super::*;
 
@@ -120,10 +120,10 @@ impl<'s> Parser<'s> {
                 if is_identifier(word) {
                     Ok(Spanned::new(word.to_owned(), span))
                 } else {
-                    perr!("invalid identifier: '{}'", word);
+                    pr!("invalid identifier: '{}'", word);
                 }
             }
-            _ => perr!("expected identifier"),
+            _ => pr!("expected identifier"),
         }?;
 
         self.skip_white();
@@ -132,7 +132,7 @@ impl<'s> Parser<'s> {
         let args = match self.tokens.next().map(Spanned::value) {
             Some(Token::RightBracket) => FuncArgs::new(),
             Some(Token::Colon) => self.parse_func_args()?,
-            _ => perr!("expected arguments or closing bracket"),
+            _ => pr!("expected arguments or closing bracket"),
         };
 
         let end = self.tokens.string_index();
@@ -158,7 +158,7 @@ impl<'s> Parser<'s> {
             match self.tokens.next().map(Spanned::value) {
                 Some(Token::Comma) => {},
                 Some(Token::RightBracket) => break,
-                _ => perr!("expected comma or closing bracket"),
+                _ => pr!("expected comma or closing bracket"),
             }
         }
 
@@ -183,7 +183,7 @@ impl<'s> Parser<'s> {
                         self.skip_white();
 
                         let name = token.span_map(|_| name.to_string());
-                        let next = self.tokens.next().ok_or_else(|| perr!(@"expected value"))?;
+                        let next = self.tokens.next().ok_or_else(|| pr!(@"expected value"))?;
                         let val = Self::parse_expression(next)?;
                         let span = Span::merge(name.span, val.span);
 
@@ -219,18 +219,19 @@ impl<'s> Parser<'s> {
                 }
             }
 
-            _ => perr!("expected expression"),
+            _ => pr!("expected expression"),
         }, token.span))
     }
 
     /// Parse the body of a function.
-    fn parse_func_body(&mut self, header: &FuncHeader) -> ParseResult<Spanned<Box<dyn Function>>> {
+    fn parse_func_body(&mut self, header: &FuncHeader)
+    -> ParseResult<Spanned<Box<dyn LayoutFunc>>> {
         // Now we want to parse this function dynamically.
         let parser = self
             .ctx
             .scope
             .get_parser(&header.name.val)
-            .ok_or_else(|| perr!(@"unknown function: '{}'", &header.name.val))?;
+            .ok_or_else(|| pr!(@"unknown function: '{}'", &header.name.val))?;
 
         let has_body = self.tokens.peek().map(Spanned::value) == Some(Token::LeftBracket);
 
@@ -298,7 +299,7 @@ impl<'s> Parser<'s> {
                     state = NewlineState::Zero;
                     match token.val {
                         Token::LineComment(_) | Token::BlockComment(_) => self.advance(),
-                        Token::StarSlash => perr!("unexpected end of block comment"),
+                        Token::StarSlash => pr!("unexpected end of block comment"),
                         _ => break,
                     }
                 }
@@ -454,7 +455,7 @@ mod tests {
     #![allow(non_snake_case)]
 
     use super::*;
-    use crate::func::{CommandList, Function, Scope};
+    use crate::func::{Commands, Scope};
     use crate::layout::{LayoutContext, LayoutResult};
     use funcs::*;
     use Node::{Func as F, Newline as N, Space as S};
@@ -464,37 +465,36 @@ mod tests {
     mod funcs {
         use super::*;
 
-        /// A testing function which just parses it's body into a syntax tree.
-        #[derive(Debug)]
-        pub struct TreeFn(pub SyntaxTree);
-
         function! {
-            data: TreeFn,
+            /// A testing function which just parses it's body into a syntax
+            /// tree.
+            #[derive(Debug)]
+            pub struct TreeFn { pub tree: SyntaxTree }
 
-            parse(_args, body, ctx) { Ok(TreeFn(parse!(required: body, ctx))) }
-            layout(_, _) { Ok(vec![]) }
+            parse(args, body, ctx) {
+                args.clear();
+                TreeFn {
+                    tree: parse!(expected: body, ctx)
+                }
+            }
+
+            layout() { vec![] }
         }
 
         impl PartialEq for TreeFn {
             fn eq(&self, other: &TreeFn) -> bool {
-                assert_tree_equal(&self.0, &other.0);
+                assert_tree_equal(&self.tree, &other.tree);
                 true
             }
         }
 
-        /// A testing function without a body.
-        #[derive(Debug)]
-        pub struct BodylessFn;
-
         function! {
-            data: BodylessFn,
+            /// A testing function without a body.
+            #[derive(Debug, Default, PartialEq)]
+            pub struct BodylessFn;
 
-            parse(_args, body, _ctx) { parse!(forbidden: body); Ok(BodylessFn) }
-            layout(_, _) { Ok(vec![]) }
-        }
-
-        impl PartialEq for BodylessFn {
-            fn eq(&self, _: &BodylessFn) -> bool { true }
+            parse(default)
+            layout() { vec![] }
         }
     }
 
@@ -583,7 +583,7 @@ mod tests {
             func!(@$name, Box::new(BodylessFn), FuncArgs::new())
         );
         (name => $name:expr, body => $tree:expr $(,)*) => (
-            func!(@$name, Box::new(TreeFn($tree)), FuncArgs::new())
+            func!(@$name, Box::new(TreeFn { tree: $tree }), FuncArgs::new())
         );
         (@$name:expr, $body:expr, $args:expr) => (
             FuncCall {
@@ -789,7 +789,7 @@ mod tests {
         assert_eq!(func.header.val.args.positional[0].span.pair(), (13, 16));
         assert_eq!(func.header.val.args.positional[1].span.pair(), (18, 23));
 
-        let body = &func.body.val.downcast::<TreeFn>().unwrap().0.nodes;
+        let body = &func.body.val.downcast::<TreeFn>().unwrap().tree.nodes;
         assert_eq!(func.body.span.pair(), (24, 37));
         assert_eq!(body[0].span.pair(), (0, 4));
         assert_eq!(body[1].span.pair(), (4, 5));
