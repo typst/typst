@@ -3,10 +3,10 @@ use std::io::{BufWriter, Read, Write};
 use std::process::Command;
 
 use typst::export::pdf::PdfExporter;
-use typst::layout::LayoutAction;
-use typst::toddle::query::FileSystemFontProvider;
+use typst::layout::{LayoutAction, Serialize};
 use typst::size::{Size, Size2D, SizeBox};
 use typst::style::PageStyle;
+use typst::toddle::query::FileSystemFontProvider;
 use typst::Typesetter;
 
 const CACHE_DIR: &str = "tests/cache";

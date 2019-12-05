@@ -1,7 +1,5 @@
 //! Parsing of token streams into syntax trees.
 
-use unicode_xid::UnicodeXID;
-
 use crate::TypesetResult;
 use crate::func::{LayoutFunc, Scope};
 use crate::size::Size;
@@ -67,7 +65,7 @@ impl<'s> Parser<'s> {
         use Token::*;
 
         if let Some(token) = self.tokens.peek() {
-            match token.val {
+            match token.v {
                 // Functions.
                 LeftBracket => self.parse_func()?,
                 RightBracket => error!("unexpected closing bracket"),
@@ -80,8 +78,8 @@ impl<'s> Parser<'s> {
                 // Normal text.
                 Text(word) => self.append_consumed(Node::Text(word.to_owned()), token.span),
 
-                // The rest is handled elsewhere or should not happen, because `Tokens` does not
-                // yield these in a body.
+                // The rest is handled elsewhere or should not happen, because
+                // the tokenizer does not yield these in a body.
                 Space | Newline | LineComment(_) | BlockComment(_) |
                 Colon | Equals | Comma | Quoted(_) | StarSlash
                     => panic!("parse_body_part: unexpected token: {:?}", token),
@@ -95,39 +93,10 @@ impl<'s> Parser<'s> {
     fn parse_func(&mut self) -> ParseResult<()> {
         // This should only be called if a left bracket was seen.
         let token = self.tokens.next().expect("parse_func: expected token");
-        assert!(token.val == Token::LeftBracket);
+        assert!(token.v == Token::LeftBracket);
 
         let mut span = token.span;
-
-        let header = self.parse_func_header()?;
-        let body = self.parse_func_body(&header.val)?;
-
-        span.end = self.tokens.string_index();
-
-        // Finally this function is parsed to the end.
-        self.append(Node::Func(FuncCall { header, body }), span);
-
-        Ok(())
-    }
-
-    /// Parse a function header.
-    fn parse_func_header(&mut self) -> ParseResult<Spanned<FuncHeader>> {
-        let start = self.tokens.string_index() - 1;
-
-        self.skip_white();
-
-        let name = match self.tokens.next() {
-            Some(Spanned { val: Token::Text(word), span }) => {
-                if is_identifier(word) {
-                    Ok(Spanned::new(word.to_owned(), span))
-                } else {
-                    error!("invalid identifier: `{}`", word);
-                }
-            }
-            _ => error!("expected identifier"),
-        }?;
-
-        self.skip_white();
+        let name = self.parse_func_name()?;
 
         // Check for arguments
         let args = match self.tokens.next().map(Spanned::value) {
@@ -136,23 +105,43 @@ impl<'s> Parser<'s> {
             _ => error!("expected arguments or closing bracket"),
         };
 
-        let end = self.tokens.string_index();
+        let call = self.parse_func_call(name, args)?;
+        span.end = self.tokens.string_index();
 
-        // Store the header information of the function invocation.
-        Ok(Spanned::new(FuncHeader { name, args }, Span::new(start, end)))
+        // Finally this function is parsed to the end.
+        self.append(Node::Func(FuncCall { call }), span);
+
+        Ok(())
+    }
+
+    /// Parse a function header.
+    fn parse_func_name(&mut self) -> ParseResult<Spanned<Ident>> {
+        self.skip_white();
+
+        let name = match self.tokens.next() {
+            Some(Spanned { v: Token::Text(word), span }) => {
+                let ident = Ident::new(word.to_string())?;
+                Spanned::new(ident, span)
+            }
+            _ => error!("expected identifier"),
+        };
+
+        self.skip_white();
+
+        Ok(name)
     }
 
     /// Parse the arguments to a function.
     fn parse_func_args(&mut self) -> ParseResult<FuncArgs> {
-        let mut positional = Vec::new();
-        let mut keyword = Vec::new();
+        let mut pos = Vec::new();
+        let mut key = Vec::new();
 
         loop {
             self.skip_white();
 
             match self.parse_func_arg()? {
-                Some(FuncArg::Positional(arg)) => positional.push(arg),
-                Some(FuncArg::Keyword(arg)) => keyword.push(arg),
+                Some(DynArg::Pos(arg)) => pos.push(arg),
+                Some(DynArg::Key(arg)) => key.push(arg),
                 _ => {},
             }
 
@@ -163,17 +152,17 @@ impl<'s> Parser<'s> {
             }
         }
 
-        Ok(FuncArgs { positional, keyword })
+        Ok(FuncArgs { pos, key })
     }
 
     /// Parse one argument to a function.
-    fn parse_func_arg(&mut self) -> ParseResult<Option<FuncArg>> {
+    fn parse_func_arg(&mut self) -> ParseResult<Option<DynArg>> {
         let token = match self.tokens.peek() {
             Some(token) => token,
             None => return Ok(None),
         };
 
-        Ok(match token.val {
+        Ok(match token.v {
             Token::Text(name) => {
                 self.advance();
                 self.skip_white();
@@ -183,55 +172,41 @@ impl<'s> Parser<'s> {
                         self.advance();
                         self.skip_white();
 
-                        let name = token.span_map(|_| name.to_string());
-                        let next = self.tokens.next().ok_or_else(|| error!(@"expected expression"))?;
-                        let val = Self::parse_expression(next)?;
-                        let span = Span::merge(name.span, val.span);
+                        let name = Ident::new(name.to_string())?;
+                        let key = Spanned::new(name, token.span);
 
-                        FuncArg::Keyword(Spanned::new((name, val), span))
+                        let next = self.tokens.next()
+                            .ok_or_else(|| error!(@"expected expression"))?;
+                        let value = Self::parse_expression(next)?;
+
+                        let span = Span::merge(key.span, value.span);
+                        let arg = KeyArg { key, value };
+
+                        DynArg::Key(Spanned::new(arg, span))
                     }
 
-                    _ => FuncArg::Positional(Self::parse_expression(token)?),
+                    _ => DynArg::Pos(Self::parse_expression(token)?),
                 })
             }
 
             Token::Quoted(_) => {
                 self.advance();
-                Some(FuncArg::Positional(Self::parse_expression(token)?))
+                Some(DynArg::Pos(Self::parse_expression(token)?))
             }
 
             _ => None,
         })
     }
 
-    /// Parse an expression.
-    fn parse_expression(token: Spanned<Token>) -> ParseResult<Spanned<Expression>> {
-        Ok(Spanned::new(match token.val {
-            Token::Quoted(text) => Expression::Str(text.to_owned()),
-            Token::Text(text) => {
-                if let Ok(b) = text.parse::<bool>() {
-                    Expression::Bool(b)
-                } else if let Ok(num) = text.parse::<f64>() {
-                    Expression::Num(num)
-                } else if let Ok(size) = text.parse::<Size>() {
-                    Expression::Size(size)
-                } else {
-                    Expression::Ident(text.to_owned())
-                }
-            }
-            _ => error!("expected expression"),
-        }, token.span))
-    }
-
-    /// Parse the body of a function.
-    fn parse_func_body(&mut self, header: &FuncHeader)
-    -> ParseResult<Spanned<Box<dyn LayoutFunc>>> {
+    /// Parse a function call.
+    fn parse_func_call(&mut self, name: Spanned<Ident>, args: FuncArgs)
+    -> ParseResult<Box<dyn LayoutFunc>> {
         // Now we want to parse this function dynamically.
         let parser = self
             .ctx
             .scope
-            .get_parser(&header.name.val)
-            .ok_or_else(|| error!(@"unknown function: `{}`", &header.name.val))?;
+            .get_parser(&name.v.0)
+            .ok_or_else(|| error!(@"unknown function: `{}`", &name.v))?;
 
         let has_body = self.tokens.peek().map(Spanned::value) == Some(Token::LeftBracket);
 
@@ -245,22 +220,42 @@ impl<'s> Parser<'s> {
                 .map(|end| start + end)
                 .ok_or_else(|| error!(@"expected closing bracket"))?;
 
+            let span = Span::new(start - 1, end + 1);
+
             // Parse the body.
             let body_string = &self.src[start..end];
-            let body = parser(&header, Some(body_string), self.ctx)?;
+            let body = parser(args, Some(Spanned::new(body_string, span)), self.ctx)?;
 
             // Skip to the end of the function in the token stream.
             self.tokens.set_string_index(end);
 
             // Now the body should be closed.
             let token = self.tokens.next().expect("parse_func_body: expected token");
-            assert!(token.val == Token::RightBracket);
+            assert!(token.v == Token::RightBracket);
 
-            Spanned::new(body, Span::new(start - 1, end + 1))
+            body
         } else {
-            let body = parser(&header, None, self.ctx)?;
-            Spanned::new(body, Span::new(0, 0))
+            parser(args, None, self.ctx)?
         })
+    }
+
+    /// Parse an expression.
+    fn parse_expression(token: Spanned<Token>) -> ParseResult<Spanned<Expression>> {
+        Ok(Spanned::new(match token.v {
+            Token::Quoted(text) => Expression::Str(text.to_owned()),
+            Token::Text(text) => {
+                if let Ok(b) = text.parse::<bool>() {
+                    Expression::Bool(b)
+                } else if let Ok(num) = text.parse::<f64>() {
+                    Expression::Num(num)
+                } else if let Ok(size) = text.parse::<Size>() {
+                    Expression::Size(size)
+                } else {
+                    Expression::Ident(Ident::new(text.to_string())?)
+                }
+            }
+            _ => error!("expected expression"),
+        }, token.span))
     }
 
     /// Parse whitespace (as long as there is any) and skip over comments.
@@ -268,7 +263,7 @@ impl<'s> Parser<'s> {
         let mut state = NewlineState::Zero;
 
         while let Some(token) = self.tokens.peek() {
-            match token.val {
+            match token.v {
                 Token::Space => {
                     self.advance();
                     match state {
@@ -297,7 +292,7 @@ impl<'s> Parser<'s> {
                     }
 
                     state = NewlineState::Zero;
-                    match token.val {
+                    match token.v {
                         Token::LineComment(_) | Token::BlockComment(_) => self.advance(),
                         Token::StarSlash => error!("unexpected end of block comment"),
                         _ => break,
@@ -312,7 +307,7 @@ impl<'s> Parser<'s> {
     /// Skip over whitespace and comments.
     fn skip_white(&mut self) {
         while let Some(token) = self.tokens.peek() {
-            match token.val {
+            match token.v {
                 Token::Space | Token::Newline |
                 Token::LineComment(_) | Token::BlockComment(_) => self.advance(),
                 _ => break,
@@ -333,7 +328,7 @@ impl<'s> Parser<'s> {
     /// Append a space, merging with a previous space if there is one.
     fn append_space(&mut self, span: Span) {
         match self.tree.nodes.last_mut() {
-            Some(ref mut node) if node.val == Node::Space => node.span.expand(span),
+            Some(ref mut node) if node.v == Node::Space => node.span.expand(span),
             _ => self.append(Node::Space, span),
         }
     }
@@ -412,102 +407,73 @@ impl<'s> Iterator for PeekableTokens<'s> {
     }
 }
 
-/// Whether this word is a valid unicode identifier.
-fn is_identifier(string: &str) -> bool {
-    let mut chars = string.chars();
-
-    match chars.next() {
-        Some(c) if c != '.' && !UnicodeXID::is_xid_start(c) => return false,
-        None => return false,
-        _ => (),
-    }
-
-    while let Some(c) = chars.next() {
-        if c != '.' && !UnicodeXID::is_xid_continue(c) {
-            return false;
-        }
-    }
-
-    true
-}
-
 /// The result type for parsing.
 pub type ParseResult<T> = TypesetResult<T>;
 
 
 #[cfg(test)]
+#[allow(non_snake_case)]
 mod tests {
-    #![allow(non_snake_case)]
-
-    use super::*;
     use crate::func::{Commands, Scope};
     use crate::layout::{LayoutContext, LayoutResult};
-    use funcs::*;
+    use crate::syntax::*;
     use Node::{Func as F, Newline as N, Space as S};
 
-    /// Two test functions, one which parses it's body as another syntax tree
-    /// and another one which does not expect a body.
-    mod funcs {
-        use super::*;
+    function! {
+        /// A testing function which just parses it's body into a syntax
+        /// tree.
+        #[derive(Debug)]
+        pub struct TreeFn { pub tree: SyntaxTree }
 
-        function! {
-            /// A testing function which just parses it's body into a syntax
-            /// tree.
-            #[derive(Debug)]
-            pub struct TreeFn { pub tree: SyntaxTree }
-
-            parse(args, body, ctx) {
-                args.clear();
-                TreeFn {
-                    tree: parse!(expected: body, ctx)
-                }
-            }
-
-            layout() { vec![] }
-        }
-
-        impl PartialEq for TreeFn {
-            fn eq(&self, other: &TreeFn) -> bool {
-                assert_tree_equal(&self.tree, &other.tree);
-                true
+        parse(args, body, ctx) {
+            args.clear();
+            TreeFn {
+                tree: parse!(expected: body, ctx)
             }
         }
 
-        function! {
-            /// A testing function without a body.
-            #[derive(Debug, Default, PartialEq)]
-            pub struct BodylessFn;
+        layout() { vec![] }
+    }
 
-            parse(default)
-            layout() { vec![] }
+    impl PartialEq for TreeFn {
+        fn eq(&self, other: &TreeFn) -> bool {
+            assert_tree_equal(&self.tree, &other.tree);
+            true
         }
     }
 
+    function! {
+        /// A testing function without a body.
+        #[derive(Debug, Default, PartialEq)]
+        pub struct BodylessFn(Vec<Expression>, Vec<(Ident, Expression)>);
+
+        parse(args, body) {
+            parse!(forbidden: body);
+            BodylessFn(
+                args.pos().map(Spanned::value).collect(),
+                args.keys().map(|arg| (arg.v.key.v, arg.v.value.v)).collect(),
+            )
+        }
+
+        layout() { vec![] }
+    }
+
     mod args {
+        use super::*;
         use super::Expression;
         pub use Expression::{Num as N, Size as Z, Bool as B};
 
         pub fn S(string: &str) -> Expression { Expression::Str(string.to_owned()) }
-        pub fn I(string: &str) -> Expression { Expression::Ident(string.to_owned()) }
+        pub fn I(string: &str) -> Expression {
+            Expression::Ident(Ident::new(string.to_owned()).unwrap())
+        }
     }
 
     /// Asserts that two syntax trees are equal except for all spans inside them.
     fn assert_tree_equal(a: &SyntaxTree, b: &SyntaxTree) {
         for (x, y) in a.nodes.iter().zip(&b.nodes) {
-            let equal = match (x, y) {
-                (Spanned { val: F(x), .. }, Spanned { val: F(y), .. }) => {
-                    x.header.val.name.val == y.header.val.name.val
-                    && x.header.val.args.positional.iter().map(|span| &span.val)
-                       .eq(y.header.val.args.positional.iter().map(|span| &span.val))
-                    && x.header.val.args.keyword.iter().map(|s| (&s.val.0.val, &s.val.1.val))
-                       .eq(y.header.val.args.keyword.iter().map(|s| (&s.val.0.val, &s.val.1.val)))
-                    && &x.body.val == &y.body.val
-                }
-                _ => x.val == y.val
-            };
-
-            if !equal {
-                panic!("assert_tree_equal: ({:#?}) != ({:#?})", x.val, y.val);
+            if x.v != y.v {
+                panic!("trees are not equal: ({:#?}) != ({:#?})", x.v, y.v);
             }
         }
     }
@@ -564,21 +530,15 @@ mod tests {
 
     /// Shortcut macro to create a function.
     macro_rules! func {
-        (name => $name:expr) => (
-            func!(@$name, Box::new(BodylessFn), FuncArgs::new())
+        () => (
+            FuncCall { call: Box::new(BodylessFn(vec![], vec![])) }
         );
-        (name => $name:expr, body => $tree:expr $(,)*) => (
-            func!(@$name, Box::new(TreeFn { tree: $tree }), FuncArgs::new())
+        (body: $tree:expr $(,)*) => (
+            FuncCall { call: Box::new(TreeFn { tree: $tree }) }
         );
-        (@$name:expr, $body:expr, $args:expr) => (
-            FuncCall {
-                header: zerospan(FuncHeader {
-                    name: zerospan($name.to_string()),
-                    args: $args,
-                }),
-                body: zerospan($body),
-            }
-        )
+        (args: $pos:expr, $key:expr) => (
+            FuncCall { call: Box::new(BodylessFn($pos, $key)) }
+        );
     }
 
     /// Parse the basic cases.
@@ -613,25 +573,21 @@ mod tests {
         scope.add::<TreeFn>("modifier");
         scope.add::<TreeFn>("func");
 
-        test_scoped(&scope,"[test]", tree! [ F(func! { name => "test" }) ]);
-        test_scoped(&scope,"[ test]", tree! [ F(func! { name => "test" }) ]);
+        test_scoped(&scope,"[test]", tree! [ F(func! {}) ]);
+        test_scoped(&scope,"[ test]", tree! [ F(func! {}) ]);
         test_scoped(&scope, "This is an [modifier][example] of a function invocation.", tree! [
             T("This"), S, T("is"), S, T("an"), S,
-            F(func! { name => "modifier", body => tree! [ T("example") ] }), S,
+            F(func! { body: tree! [ T("example") ] }), S,
             T("of"), S, T("a"), S, T("function"), S, T("invocation.")
         ]);
         test_scoped(&scope, "[func][Hello][modifier][Here][end]",  tree! [
-            F(func! { name => "func", body => tree! [ T("Hello") ] }),
-            F(func! { name => "modifier", body => tree! [ T("Here") ] }),
-            F(func! { name => "end" }),
+            F(func! { body: tree! [ T("Hello") ] }),
+            F(func! { body: tree! [ T("Here") ] }),
+            F(func! {}),
         ]);
-        test_scoped(&scope, "[func][]", tree! [ F(func! { name => "func", body => tree! [] }) ]);
+        test_scoped(&scope, "[func][]", tree! [ F(func! { body: tree! [] }) ]);
         test_scoped(&scope, "[modifier][[func][call]] outside", tree! [
-            F(func! {
-                name => "modifier",
-                body => tree! [ F(func! { name => "func", body => tree! [ T("call") ] }) ],
-            }),
-            S, T("outside")
+            F(func! { body: tree! [ F(func! { body: tree! [ T("call") ] }) ] }), S, T("outside")
         ]);
 
     }
@@ -643,16 +599,14 @@ mod tests {
         use args::*;
 
         fn func(
-            positional: Vec<Expression>,
-            keyword: Vec<(&str, Expression)>,
+            pos: Vec<Expression>,
+            key: Vec<(&str, Expression)>,
         ) -> SyntaxTree {
-            let args = FuncArgs {
-                positional: positional.into_iter().map(zerospan).collect(),
-                keyword: keyword.into_iter()
-                    .map(|(s, e)| zerospan((zerospan(s.to_string()), zerospan(e))))
-                    .collect()
-            };
-            tree! [ F(func!(@"align", Box::new(BodylessFn), args)) ]
+            let key = key.into_iter()
+                .map(|s| (Ident::new(s.0.to_string()).unwrap(), s.1))
+                .collect();
+
+            tree! [ F(func!(args: pos, key)) ]
         }
 
         let mut scope = Scope::new();
@@ -689,9 +643,9 @@ mod tests {
         test_scoped(&scope, "Text\n// Comment\n More text",
             tree! [ T("Text"), S, T("More"), S, T("text") ]);
         test_scoped(&scope, "[test/*world*/]",
-            tree! [ F(func! { name => "test" }) ]);
+            tree! [ F(func! {}) ]);
         test_scoped(&scope, "[test/*]*/]",
-            tree! [ F(func! { name => "test" }) ]);
+            tree! [ F(func! {}) ]);
     }
 
     /// Test if escaped, but unbalanced parens are correctly parsed.
@@ -702,21 +656,14 @@ mod tests {
         scope.add::<TreeFn>("code");
 
         test_scoped(&scope, r"My [code][Close \]] end", tree! [
-            T("My"), S, F(func! {
-                name => "code",
-                body => tree! [ T("Close"), S, T("]") ]
-            }), S, T("end")
+            T("My"), S, F(func! { body: tree! [ T("Close"), S, T("]") ] }), S, T("end")
         ]);
         test_scoped(&scope, r"My [code][\[ Open] end", tree! [
-            T("My"), S, F(func! {
-                name => "code",
-                body => tree! [ T("["), S, T("Open") ]
-            }), S, T("end")
+            T("My"), S, F(func! { body: tree! [ T("["), S, T("Open") ] }), S, T("end")
         ]);
         test_scoped(&scope, r"My [code][Open \]  and  \[ close]end", tree! [
-            T("My"), S, F(func! {
-                name => "code",
-                body => tree! [ T("Open"), S, T("]"), S, T("and"), S, T("["), S, T("close") ]
+            T("My"), S, F(func! { body:
+                tree! [ T("Open"), S, T("]"), S, T("and"), S, T("["), S, T("close") ]
             }), T("end")
         ]);
     }
@@ -729,15 +676,9 @@ mod tests {
         scope.add::<BodylessFn>("func");
         scope.add::<TreeFn>("bold");
 
-        test_scoped(&scope, "[func] ⺐.", tree! [
-            F(func! { name => "func" }),
-            S, T("⺐.")
-        ]);
+        test_scoped(&scope, "[func] ⺐.", tree! [ F(func! {}), S, T("⺐.") ]);
         test_scoped(&scope, "[bold][Hello 🌍!]", tree! [
-            F(func! {
-                name => "bold",
-                body => tree! [ T("Hello"), S, T("🌍!") ],
-            })
+            F(func! { body: tree! [ T("Hello"), S, T("🌍!") ] })
         ]);
     }
 
@@ -768,14 +709,8 @@ mod tests {
         assert_eq!(tree[1].span.pair(), (4, 5));
         assert_eq!(tree[2].span.pair(), (5, 37));
 
-        let func = if let Node::Func(f) = &tree[2].val { f } else { panic!() };
-        assert_eq!(func.header.span.pair(), (5, 24));
-        assert_eq!(func.header.val.name.span.pair(), (6, 11));
-        assert_eq!(func.header.val.args.positional[0].span.pair(), (13, 16));
-        assert_eq!(func.header.val.args.positional[1].span.pair(), (18, 23));
-
-        let body = &func.body.val.downcast::<TreeFn>().unwrap().tree.nodes;
-        assert_eq!(func.body.span.pair(), (24, 37));
+        let func = if let Node::Func(f) = &tree[2].v { f } else { panic!() };
+        let body = &func.call.downcast::<TreeFn>().unwrap().tree.nodes;
         assert_eq!(body[0].span.pair(), (0, 4));
         assert_eq!(body[1].span.pair(), (4, 5));
         assert_eq!(body[2].span.pair(), (5, 6));
@@ -793,7 +728,7 @@ mod tests {
         test_err("No functions here]", "unexpected closing bracket");
         test_err_scoped(&scope, "[hello][world", "expected closing bracket");
         test_err("[hello world", "expected arguments or closing bracket");
-        test_err("[ no-name][Why?]", "invalid identifier: 'no-name'");
+        test_err("[ no^name][Why?]", "invalid identifier: `no^name`");
         test_err("Hello */", "unexpected end of block comment");
     }
 }

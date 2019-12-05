@@ -3,37 +3,33 @@
 /// Create trait implementations for an error type.
 macro_rules! error_type {
     (
-        $var:ident: $err:ident,
+        $this:ident: $type:ident,
         $(res: $res:ident,)*
         show: $f:ident => $show:expr,
         $(source: $source:expr,)*
-        $(from: ($from:path, $conv:expr),)*
+        $(from: ($err:ident: $from:path, $conv:expr),)*
     ) => {
         // Possibly create a result type.
-        $(type $res<T> = std::result::Result<T, $err>;)*
+        $(type $res<T> = std::result::Result<T, $type>;)*
 
-        impl std::fmt::Display for $err {
-            fn fmt(&self, $f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                #[allow(unused)]
-                let $var = self;
+        impl std::fmt::Display for $type {
+            fn fmt(&$this, $f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 $show
             }
         }
 
-        debug_display!($err);
+        debug_display!($type);
 
-        impl std::error::Error for $err {
+        impl std::error::Error for $type {
             // The source method is only generated if an implementation was given.
-            $(fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-                #[allow(unused)]
-                let $var = self;
+            $(fn source(&$this) -> Option<&(dyn std::error::Error + 'static)> {
                 $source
             })*
         }
 
         // Create any number of from implementations.
-        $(impl From<$from> for $err {
-            fn from($var: $from) -> $err {
+        $(impl From<$from> for $type {
+            fn from($err: $from) -> $type {
                 $conv
             }
         })*

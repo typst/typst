@@ -8,17 +8,12 @@ use self::prelude::*;
 
 #[macro_use]
 pub mod macros;
-pub mod args;
+pub mod map;
 
 /// Useful imports for creating your own functions.
 pub mod prelude {
-    pub use Command::*;
-    pub use super::args::*;
-    pub use super::{Scope, ParseFunc, LayoutFunc, Command, Commands};
-    pub use crate::syntax::{SyntaxTree, FuncHeader, FuncArgs, Expression, Spanned, Span};
-    pub use crate::syntax::{parse, ParseContext, ParseResult};
-    pub use crate::size::{Size, Size2D, SizeBox};
-    pub use crate::style::{PageStyle, TextStyle};
+    pub use super::map::ConsistentMap;
+    pub use crate::func::{Scope, ParseFunc, LayoutFunc, Command, Commands};
     pub use crate::layout::{
         layout_tree, Layout, MultiLayout,
         LayoutContext, LayoutSpace, LayoutSpaces,
@@ -26,16 +21,25 @@ pub mod prelude {
         LayoutAlignment, Alignment,
         SpacingKind, LayoutResult,
     };
+    pub use crate::syntax::{
+        parse, ParseContext, ParseResult,
+        SyntaxTree, FuncCall, FuncArgs, PosArg, KeyArg,
+        Expression, Ident, ExpressionKind,
+        Spanned, Span
+    };
+    pub use crate::size::{Size, Size2D, SizeBox, ScaleSize, FSize, PSize};
+    pub use crate::style::{LayoutStyle, PageStyle, TextStyle};
+    pub use Command::*;
 }
 
 /// Types representing functions that are parsed from source code.
 pub trait ParseFunc {
-    type Meta;
+    type Meta: Clone;
 
     /// Parse the header and body into this function given a context.
     fn parse(
-        header: &FuncHeader,
-        body: Option<&str>,
+        args: FuncArgs,
+        body: Option<Spanned<&str>>,
         ctx: ParseContext,
         metadata: Self::Meta,
     ) -> ParseResult<Self> where Self: Sized;
@@ -126,8 +130,8 @@ pub struct Scope {
 /// A function which parses the source of a function into a function type which
 /// implements [`LayoutFunc`].
 type Parser = dyn Fn(
-    &FuncHeader,
-    Option<&str>,
+    FuncArgs,
+    Option<Spanned<&str>>,
     ParseContext
 ) -> ParseResult<Box<dyn LayoutFunc>>;
 
@@ -153,11 +157,11 @@ impl Scope {
     /// Add a parseable type with additional metadata  that is given to the
     /// parser (other than the default of `()`).
     pub fn add_with_metadata<F, T>(&mut self, name: &str, metadata: T)
-    where F: ParseFunc<Meta=T> + LayoutFunc + 'static, T: 'static {
+    where F: ParseFunc<Meta=T> + LayoutFunc + 'static, T: 'static + Clone {
         self.parsers.insert(
             name.to_owned(),
-            Box::new(|h, b, c| {
-                F::parse(h, b, c, metadata)
+            Box::new(move |a, b, c| {
+                F::parse(a, b, c, metadata.clone())
                     .map(|f| Box::new(f) as Box<dyn LayoutFunc>)
             })
         );

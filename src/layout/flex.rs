@@ -50,7 +50,7 @@ impl PartialLine {
             usable,
             content: vec![],
             dimensions: Size2D::zero(),
-            space: LastSpacing::Forbidden,
+            space: LastSpacing::Hard,
         }
     }
 }
@@ -72,7 +72,7 @@ impl FlexLayouter {
         let stack = StackLayouter::new(StackContext {
             spaces: ctx.spaces,
             axes: ctx.axes,
-            expand: ctx.expand,
+            alignment: ctx.alignment,
         });
 
         let usable = stack.primary_usable();
@@ -167,130 +167,27 @@ impl FlexLayouter {
     }
 
     fn finish_line(&mut self) -> LayoutResult<Size2D> {
-        self.finish_partial_line();
-
-        if self.axes.primary.needs_expansion() {
-            self.line.combined_dimensions.x = self.line.usable;
-        }
-
-        self.stack.add(Layout {
-            dimensions: self.axes.specialize(self.line.combined_dimensions),
-            actions: self.line.actions.to_vec(),
-            debug_render: false,
-        })?;
-
-        self.stack.add_spacing(self.flex_spacing, SpacingKind::Independent);
-
-        let remaining = self.axes.specialize(Size2D {
-            x: self.part.usable
-                - self.part.dimensions.x
-                - self.part.space.soft_or_zero(),
-            y: self.line.combined_dimensions.y,
-        });
-
-        self.start_line();
-
-        Ok(remaining)
+        unimplemented!()
     }
 
     fn start_line(&mut self) {
-        let usable = self.stack.primary_usable();
-        self.line = FlexLine::new(usable);
-        self.part = PartialLine::new(usable);
+        unimplemented!()
     }
 
+    #[allow(dead_code)]
     fn finish_partial_line(&mut self) {
-        let factor = self.axes.primary.axis.factor();
-        let anchor =
-            self.axes.primary.anchor(self.line.usable)
-            - self.axes.primary.anchor(self.part.dimensions.x);
-
-        for (offset, layout) in self.part.content.drain(..) {
-            let pos = self.axes.specialize(Size2D::with_x(anchor + factor * offset));
-            self.line.actions.add_layout(pos, layout);
-        }
-
-        self.line.combined_dimensions.x = match self.axes.primary.alignment {
-            Alignment::Origin => self.part.dimensions.x,
-            Alignment::Center => self.part.usable / 2 + self.part.dimensions.x / 2,
-            Alignment::End => self.part.usable,
-        };
-
-        self.line.combined_dimensions.y.max_eq(self.part.dimensions.y);
+        unimplemented!()
     }
 
-    fn layout_box(&mut self, boxed: Layout) -> LayoutResult<()> {
-        let size = self.axes.generalize(boxed.dimensions);
-        let new_dimension = self.part.dimensions.x
-            + size.x
-            + self.part.space.soft_or_zero();
-
-        if new_dimension > self.part.usable {
-            self.finish_line()?;
-
-            while size.x > self.line.usable {
-                if self.stack.space_is_last() {
-                    error!("box of size {} does not fit into line of size {}",
-                        size.x, self.line.usable);
-                }
-
-                self.stack.finish_space(true);
-            }
-        }
-
-        if let LastSpacing::Soft(space) = self.part.space {
-            self.layout_space(space, SpacingKind::Hard);
-        }
-
-        let offset = self.part.dimensions.x;
-        self.part.content.push((offset, boxed));
-
-        self.part.dimensions.x += size.x;
-        self.part.dimensions.y.max_eq(size.y);
-        self.part.space = LastSpacing::Allowed;
-
-        Ok(())
+    fn layout_box(&mut self, _boxed: Layout) -> LayoutResult<()> {
+        unimplemented!()
     }
 
-    fn layout_space(&mut self, space: Size, kind: SpacingKind) {
-        if kind == SpacingKind::Soft {
-            if self.part.space != LastSpacing::Forbidden {
-                self.part.space = LastSpacing::Soft(space);
-            }
-        } else {
-            if self.part.dimensions.x + space > self.part.usable {
-                self.part.dimensions.x = self.part.usable;
-            } else {
-                self.part.dimensions.x += space;
-            }
-
-            if kind == SpacingKind::Hard {
-                self.part.space = LastSpacing::Forbidden;
-            }
-        }
+    fn layout_space(&mut self, _space: Size, _kind: SpacingKind) {
+        unimplemented!()
     }
 
-    fn layout_set_axes(&mut self, axes: LayoutAxes) {
-        if axes.primary != self.axes.primary {
-            self.finish_partial_line();
-
-            let extent = self.line.combined_dimensions.x;
-            let usable = self.line.usable;
-
-            let new_usable = match axes.primary.alignment {
-                Alignment::Origin if extent == Size::zero() => usable,
-                Alignment::Center if extent < usable / 2 => usable - 2 * extent,
-                Alignment::End => usable - extent,
-                _ => Size::zero(),
-            };
-
-            self.part = PartialLine::new(new_usable);
-        }
-
-        if axes.secondary != self.axes.secondary {
-            self.stack.set_axes(axes);
-        }
-
-        self.axes = axes;
+    fn layout_set_axes(&mut self, _axes: LayoutAxes) {
+        unimplemented!()
     }
 }

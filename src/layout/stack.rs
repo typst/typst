@@ -244,51 +244,12 @@ impl StackLayouter {
         self.layouts
     }
 
-    pub fn finish_space(&mut self, hard: bool) {
-        self.finish_subspace();
-
-        let space = self.ctx.spaces[self.space.index];
-
-        self.layouts.push(Layout {
-            dimensions: match self.ctx.expand {
-                true => space.dimensions,
-                false => self.space.combined_dimensions.padded(space.padding),
-            },
-            baseline: None,
-            alignment: self.ctx.alignment,
-            actions: actions.to_vec(),
-        });
-
-        self.start_space(self.next_space(), hard);
+    pub fn finish_space(&mut self, _hard: bool) {
+        unimplemented!()
     }
 
     fn finish_subspace(&mut self) {
-        let factor = self.ctx.axes.secondary.axis.factor();
-        let anchor =
-            self.ctx.axes.anchor(self.sub.usable)
-            - self.ctx.axes.anchor(Size2D::with_y(self.sub.dimensions.y));
-
-        for (offset, layout_anchor, layout) in self.sub.boxes.drain(..) {
-            let pos = self.sub.origin
-                + self.ctx.axes.specialize(
-                    anchor + Size2D::new(-layout_anchor, factor * offset)
-                );
-
-            self.space.actions.add_layout(pos, layout);
-        }
-
-        if self.ctx.axes.primary.needs_expansion() {
-            self.sub.dimensions.x = self.sub.usable.x;
-        }
-
-        if self.ctx.axes.secondary.needs_expansion() {
-            self.sub.dimensions.y = self.sub.usable.y;
-        }
-
-        let space = self.ctx.spaces[self.space.index];
-        let origin = self.sub.origin;
-        let dimensions = self.ctx.axes.specialize(self.sub.dimensions);
-        self.space.combined_dimensions.max_eq(origin - space.start() + dimensions);
+        unimplemented!()
     }
 
     /// Start a new space with the given index.
@@ -304,17 +265,7 @@ impl StackLayouter {
 
     /// The remaining sub
     fn remaining_subspace(&self) -> (Size2D, Size2D) {
-        let new_origin = self.sub.origin + match self.ctx.axes.secondary.axis.is_positive() {
-            true => self.ctx.axes.specialize(Size2D::with_y(self.sub.dimensions.y)),
-            false => Size2D::zero(),
-        };
-
-        let new_usable = self.ctx.axes.specialize(Size2D {
-            x: self.sub.usable.x,
-            y: self.sub.usable.y - self.sub.dimensions.y - self.sub.space.soft_or_zero(),
-        });
-
-        (new_origin, new_usable)
+        unimplemented!()
     }
 
     fn next_space(&self) -> usize {

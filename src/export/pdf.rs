@@ -399,16 +399,16 @@ pub enum PdfExportError {
 }
 
 error_type! {
-    err: PdfExportError,
+    self: PdfExportError,
     res: PdfResult,
-    show: f => match err {
+    show: f => match self {
         PdfExportError::Font(err) => write!(f, "font error: {}", err),
         PdfExportError::Io(err) => write!(f, "io error: {}", err),
     },
-    source: match err {
+    source: match self {
         PdfExportError::Font(err) => Some(err),
         PdfExportError::Io(err) => Some(err),
     },
-    from: (io::Error, PdfExportError::Io(err)),
-    from: (FontError, PdfExportError::Font(err)),
+    from: (err: io::Error, PdfExportError::Io(err)),
+    from: (err: FontError, PdfExportError::Font(err)),
 }

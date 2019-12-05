@@ -10,7 +10,7 @@ use crate::TypesetResult;
 use crate::func::Command;
 use crate::size::{Size, Size2D, SizeBox};
 use crate::style::{LayoutStyle, TextStyle};
-use crate::syntax::{FuncCall, Node, SyntaxTree};
+use crate::syntax::{Node, SyntaxTree, FuncCall};
 
 mod actions;
 mod tree;
@@ -137,6 +137,19 @@ impl LayoutAxes {
         self.generalize(size)
     }
 
+    /// Return the specified generic axis.
+    pub fn get_generic(&self, axis: GenericAxisKind) -> Axis {
+        match axis {
+            GenericAxisKind::Primary => self.primary,
+            GenericAxisKind::Secondary => self.secondary,
+        }
+    }
+
+    /// Return the specified specific axis.
+    pub fn get_specific(&self, axis: SpecificAxisKind) -> Axis {
+        self.get_generic(axis.generic(*self))
+    }
+
     /// Returns the generic axis kind which is the horizontal axis.
     pub fn horizontal(&self) -> GenericAxisKind {
         match self.primary.is_horizontal() {
@@ -237,6 +250,14 @@ pub enum GenericAxisKind {
 }
 
 impl GenericAxisKind {
+    /// The specific version of this axis in the given system of axes.
+    pub fn specific(&self, axes: LayoutAxes) -> SpecificAxisKind {
+        match self {
+            GenericAxisKind::Primary => axes.primary(),
+            GenericAxisKind::Secondary => axes.secondary(),
+        }
+    }
+
     /// The other axis.
     pub fn inv(&self) -> GenericAxisKind {
         match self {
@@ -254,6 +275,14 @@ pub enum SpecificAxisKind {
 }
 
 impl SpecificAxisKind {
+    /// The generic version of this axis in the given system of axes.
+    pub fn generic(&self, axes: LayoutAxes) -> GenericAxisKind {
+        match self {
+            SpecificAxisKind::Horizontal => axes.horizontal(),
+            SpecificAxisKind::Vertical => axes.vertical(),
+        }
+    }
+
     /// The other axis.
     pub fn inv(&self) -> SpecificAxisKind {
         match self {
@@ -330,6 +359,7 @@ enum LastSpacing {
 }
 
 impl LastSpacing {
+    #[allow(dead_code)]
     fn soft_or_zero(&self) -> Size {
         match self {
             LastSpacing::Soft(space, _) => *space,
@@ -339,7 +369,7 @@ impl LastSpacing {
 }
 
 /// Layout components that can be serialized.
-trait Serialize {
+pub trait Serialize {
     /// Serialize the data structure into an output writable.
     fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()>;
 }

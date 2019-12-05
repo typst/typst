@@ -5,27 +5,27 @@ use std::fmt::{self, Display, Formatter};
 /// Annotates a value with the part of the source code it corresponds to.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Spanned<T> {
-    pub val: T,
+    pub v: T,
     pub span: Span,
 }
 
 impl<T> Spanned<T> {
-    pub fn new(val: T, span: Span) -> Spanned<T> {
-        Spanned { val, span }
+    pub fn new(v: T, span: Span) -> Spanned<T> {
+        Spanned { v, span }
     }
 
     pub fn value(self) -> T {
-        self.val
+        self.v
     }
 
-    pub fn span_map<F, U>(self, f: F) -> Spanned<U> where F: FnOnce(T) -> U {
-        Spanned::new(f(self.val), self.span)
+    pub fn map<F, U>(self, f: F) -> Spanned<U> where F: FnOnce(T) -> U {
+        Spanned::new(f(self.v), self.span)
     }
 }
 
 impl<T> Display for Spanned<T> where T: std::fmt::Debug {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "({:?}:{})", self.val, self.span)
+        write!(f, "({:?}:{})", self.v, self.span)
     }
 }
 

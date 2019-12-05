@@ -10,6 +10,13 @@ macro_rules! function {
         function!(@meta $type | $($rest)*);
     };
 
+    // Parse a tuple struct.
+    ($(#[$outer:meta])* pub struct $type:ident($($fields:tt)*); $($rest:tt)*) => {
+        $(#[$outer])*
+        pub struct $type($($fields)*);
+        function!(@meta $type | $($rest)*);
+    };
+
     // Parse a struct with fields.
     ($(#[$outer:meta])* pub struct $type:ident { $($fields:tt)* } $($rest:tt)*) => {
         $(#[$outer])*
@@ -68,14 +75,17 @@ macro_rules! function {
             type Meta = $meta;
 
             fn parse(
-                header: &FuncHeader,
-                $body: Option<&str>,
+                args: FuncArgs,
+                $body: Option<Spanned<&str>>,
                 $ctx: ParseContext,
                 $metadata: Self::Meta,
             ) -> ParseResult<Self> where Self: Sized {
-                let mut $args = $crate::func::args::ArgParser::new(&header.args);
+                #[allow(unused_mut)]
+                let mut $args = args;
                 let val = $code;
-                $args.done()?;
+                if !$args.is_empty() {
+                    error!(unexpected_argument);
+                }
                 Ok(val)
             }
         }
@@ -117,7 +127,7 @@ macro_rules! parse {
 
     (optional: $body:expr, $ctx:expr) => (
         if let Some(body) = $body {
-            Some($crate::syntax::parse(body, $ctx)?)
+            Some($crate::syntax::parse(body.v, $ctx)?)
         } else {
             None
         }
@@ -125,7 +135,7 @@ macro_rules! parse {
 
     (expected: $body:expr, $ctx:expr) => (
         if let Some(body) = $body {
-            $crate::syntax::parse(body, $ctx)?
+            $crate::syntax::parse(body.v, $ctx)?
         } else {
             error!("expected body");
         }

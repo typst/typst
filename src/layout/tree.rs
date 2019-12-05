@@ -1,5 +1,5 @@
-use super::*;
 use smallvec::smallvec;
+use super::*;
 
 pub fn layout_tree(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<MultiLayout> {
     let mut layouter = TreeLayouter::new(ctx);
@@ -31,7 +31,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
     fn layout(&mut self, tree: &SyntaxTree) -> LayoutResult<()> {
         for node in &tree.nodes {
-            match &node.val {
+            match &node.v {
                 Node::Text(text) => self.layout_text(text)?,
 
                 Node::Space => self.layout_space(),
@@ -75,7 +75,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
         let spaces = self.flex.remaining();
 
-        let commands = func.body.val.layout(LayoutContext {
+        let commands = func.call.layout(LayoutContext {
             loader: self.ctx.loader,
             style: &self.style,
             top_level: false,

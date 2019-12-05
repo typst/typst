@@ -6,6 +6,9 @@ use toddle::query::FontClass;
 pub_use_mod!(align);
 pub_use_mod!(boxed);
 
+mod keys;
+use keys::*;
+
 /// Create a scope with all standard functions.
 pub fn std() -> Scope {
     let mut std = Scope::new();
@@ -33,7 +36,7 @@ pub fn std() -> Scope {
         ("italic", FontClass::Italic),
         ("mono", FontClass::Monospace),
     ] {
-        std.add_with_metadata::<StyleChange, FontClass>(name, *class);
+        std.add_with_metadata::<StyleChange, FontClass>(name, class.clone());
     }
 
     std
@@ -80,8 +83,8 @@ function! {
     parse(args, body) {
         parse!(forbidden: body);
         PageSize {
-            width: args.get_key_opt::<ArgSize>("width")?.map(|a| a.val),
-            height: args.get_key_opt::<ArgSize>("height")?.map(|a| a.val),
+            width: args.get_key_opt::<Size>("width")?.map(|s| s.v),
+            height: args.get_key_opt::<Size>("height")?.map(|s| s.v),
         }
     }
 
@@ -97,42 +100,18 @@ function! {
     /// `page.margins`: Set the margins of pages.
     #[derive(Debug, PartialEq)]
     pub struct PageMargins {
-        map: ArgMap<PaddingKey, Size>,
+        map: ConsistentMap<PaddingKey<AxisKey>, Size>,
     }
 
     parse(args, body) {
-        use PaddingKey::*;
-        use AlignmentKey::*;
-
-        let mut map = ArgMap::new();
-        map.add_opt(All, args.get_pos_opt::<ArgSize>()?);
+        let mut map = ConsistentMap::new();
+        map.add_opt_span(PaddingKey::All, args.get_pos_opt::<Size>()?)?;
 
         for arg in args.keys() {
-            let key = match arg.val.0.val {
-                "horizontal" => Axis(AxisKey::Horizontal),
-                "vertical" => Axis(AxisKey::Vertical),
-                "primary" => Axis(AxisKey::Primary),
-                "secondary" => Axis(AxisKey::Secondary),
+            let key = PaddingKey::from_ident(&arg.v.key)?;
+            let size = Size::from_expr(arg.v.value)?;
 
-                "left" => AxisAligned(AxisKey::Horizontal, Left),
-                "right" => AxisAligned(AxisKey::Horizontal, Right),
-                "top" => AxisAligned(AxisKey::Vertical, Top),
-                "bottom" => AxisAligned(AxisKey::Vertical, Bottom),
-
-                "primary-origin" => AxisAligned(AxisKey::Primary, Origin),
-                "primary-end" => AxisAligned(AxisKey::Primary, End),
-                "secondary-origin" => AxisAligned(AxisKey::Secondary, Origin),
-                "secondary-end" => AxisAligned(AxisKey::Secondary, End),
-                "horizontal-origin" => AxisAligned(AxisKey::Horizontal, Origin),
-                "horizontal-end" => AxisAligned(AxisKey::Horizontal, End),
-                "vertical-origin" => AxisAligned(AxisKey::Vertical, Origin),
-                "vertical-end" => AxisAligned(AxisKey::Vertical, End),
-
-                _ => error!(unexpected_argument),
-            };
-
-            let size = ArgParser::convert::<ArgSize>(arg.val.1.val)?;
-            map.add(key, size);
+            map.add(key, size)?;
         }
 
         parse!(forbidden: body);
@@ -144,25 +123,25 @@ function! {
 
         let axes = ctx.axes;
         let map = self.map.dedup(|key, val| {
-            match key {
+            Ok((match key {
                 All => All,
                 Axis(axis) => Axis(axis.specific(axes)),
                 AxisAligned(axis, alignment) => {
                     let axis = axis.specific(axes);
                     AxisAligned(axis, alignment.specific(axes, axis))
                 }
-            }
-        });
+            }, val))
+        })?;
 
-        let style = ctx.style.page;
+        let mut style = ctx.style.page;
         let padding = &mut style.margins;
 
-        map.with(All, |val| padding.set_all(val));
-        map.with(Axis(AxisKey::Horizontal), |val| padding.set_horizontal(val));
-        map.with(Axis(AxisKey::Vertical), |val| padding.set_vertical(val));
+        map.with(All, |&val| padding.set_all(val));
+        map.with(Axis(SpecificAxisKind::Horizontal), |&val| padding.set_horizontal(val));
+        map.with(Axis(SpecificAxisKind::Vertical), |&val| padding.set_vertical(val));
 
-        for (key, val) in map.iter() {
-            if let AxisAligned(axis, alignment) = key {
+        for (key, &val) in map.iter() {
+            if let AxisAligned(_, alignment) = key {
                 match alignment {
                     AlignmentKey::Left => padding.left = val,
                     AlignmentKey::Right => padding.right = val,
@@ -182,7 +161,7 @@ function! {
     #[derive(Debug, PartialEq)]
     pub struct Spacing {
         axis: AxisKey,
-        spacing: SpacingValue,
+        spacing: FSize,
     }
 
     type Meta = Option<AxisKey>;
@@ -191,19 +170,14 @@ function! {
         let spacing = if let Some(axis) = meta {
             Spacing {
                 axis,
-                spacing: SpacingValue::from_expr(args.get_pos::<ArgExpr>()?)?,
+                spacing: FSize::from_expr(args.get_pos::<Expression>()?)?,
             }
         } else {
             if let Some(arg) = args.get_key_next() {
-                let axis = match arg.val.0.val {
-                    "horizontal" => AxisKey::Horizontal,
-                    "vertical" => AxisKey::Vertical,
-                    "primary" => AxisKey::Primary,
-                    "secondary" => AxisKey::Secondary,
-                    _ => error!(unexpected_argument),
-                };
+                let axis = AxisKey::from_ident(&arg.v.key)
+                    .map_err(|_| error!(@unexpected_argument))?;
 
-                let spacing = SpacingValue::from_expr(arg.val.1.val)?;
+                let spacing = FSize::from_expr(arg.v.value)?;
                 Spacing { axis, spacing }
             } else {
                 error!("expected axis and expression")
@@ -217,27 +191,11 @@ function! {
     layout(self, ctx) {
         let axis = self.axis.generic(ctx.axes);
         let spacing = match self.spacing {
-            SpacingValue::Absolute(s) => s,
-            SpacingValue::Relative(f) => f * ctx.style.text.font_size,
+            FSize::Absolute(size) => size,
+            FSize::Scaled(scale) => scale * ctx.style.text.font_size,
         };
 
         vec![AddSpacing(spacing, SpacingKind::Hard, axis)]
-    }
-}
-
-#[derive(Debug, PartialEq)]
-enum SpacingValue {
-    Absolute(Size),
-    Relative(f32),
-}
-
-impl SpacingValue {
-    fn from_expr(expr: Spanned<&Expression>) -> ParseResult<SpacingValue> {
-        Ok(match expr.val {
-            Expression::Size(s) => SpacingValue::Absolute(*s),
-            Expression::Num(f) => SpacingValue::Relative(*f as f32),
-            _ => error!("invalid spacing: expected size or number"),
-        })
     }
 }
 
@@ -260,7 +218,7 @@ function! {
 
     layout(self, ctx) {
         let mut style = ctx.style.text.clone();
-        style.toggle_class(self.class);
+        style.toggle_class(self.class.clone());
 
         match &self.body {
             Some(body) => vec![

@@ -135,14 +135,14 @@ impl TypesetError {
 }
 
 error_type! {
-    err: TypesetError,
+    self: TypesetError,
     show: f => {
-        write!(f, "{}", err.message)?;
-        if let Some(span) = err.span {
+        write!(f, "{}", self.message)?;
+        if let Some(span) = self.span {
             write!(f, " at {}", span)?;
         }
         Ok(())
     },
-    from: (std::io::Error, TypesetError::with_message(err.to_string())),
-    from: (FontError, TypesetError::with_message(err.to_string())),
+    from: (err: std::io::Error, TypesetError::with_message(err.to_string())),
+    from: (err: FontError, TypesetError::with_message(err.to_string())),
 }

@@ -354,7 +354,7 @@ mod tests {
     /// Test if the source code tokenizes to the tokens.
     fn test(src: &str, tokens: Vec<Token>) {
         assert_eq!(Tokens::new(src)
-            .map(|token| token.val)
+            .map(|token| token.v)
             .collect::<Vec<_>>(), tokens);
     }
 

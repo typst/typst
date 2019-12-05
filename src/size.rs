@@ -35,6 +35,19 @@ pub struct SizeBox {
     pub bottom: Size,
 }
 
+/// A size or scale.
+#[derive(Copy, Clone, PartialEq)]
+pub enum ScaleSize {
+    Absolute(Size),
+    Scaled(f32),
+}
+
+/// A size that is possibly scaled by the font size.
+pub type FSize = ScaleSize;
+
+/// A size that is possibly scaled by the size of the padded parent container.
+pub type PSize = ScaleSize;
+
 impl Size {
     /// Create a zeroed size.
     #[inline]
@@ -241,7 +254,7 @@ debug_display!(Size);
 pub struct ParseSizeError;
 
 error_type! {
-    err: ParseSizeError,
+    self: ParseSizeError,
     show: f => write!(f, "failed to parse size"),
 }
 
@@ -469,3 +482,16 @@ impl Display for SizeBox {
 }
 
 debug_display!(SizeBox);
+
+//------------------------------------------------------------------------------------------------//
+
+impl Display for ScaleSize {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ScaleSize::Absolute(size) => write!(f, "{}", size),
+            ScaleSize::Scaled(scale) => write!(f, "x{}", scale),
+        }
+    }
+}
+
+debug_display!(ScaleSize);
