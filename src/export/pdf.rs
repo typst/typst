@@ -23,7 +23,6 @@ pub struct PdfExporter {}
 
 impl PdfExporter {
     /// Create a new exporter.
-    #[inline]
     pub fn new() -> PdfExporter {
         PdfExporter {}
     }
@@ -31,7 +30,6 @@ impl PdfExporter {
     /// Export a finished multi-layout. The layout needs to have been created with the same
     /// font loader passed in here since the indices must match. The PDF data is written into
     /// the target writable and the number of bytes written is returned.
-    #[inline]
     pub fn export<W: Write>(
         &self,
         layout: &MultiLayout,

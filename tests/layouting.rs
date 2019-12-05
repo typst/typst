@@ -2,12 +2,12 @@ use std::fs::{self, File};
 use std::io::{BufWriter, Read, Write};
 use std::process::Command;
 
-use typst::export::pdf::PdfExporter;
-use typst::layout::{LayoutAction, Serialize};
-use typst::size::{Size, Size2D, SizeBox};
-use typst::style::PageStyle;
-use typst::toddle::query::FileSystemFontProvider;
-use typst::Typesetter;
+use typstc::export::pdf::PdfExporter;
+use typstc::layout::{LayoutAction, Serialize};
+use typstc::size::{Size, Size2D, SizeBox};
+use typstc::style::PageStyle;
+use typstc::toddle::query::FileSystemFontProvider;
+use typstc::Typesetter;
 
 const CACHE_DIR: &str = "tests/cache";
 
@@ -98,9 +98,8 @@ fn test(name: &str, src: &str) {
             #[cfg(not(debug_assertions))]
             println!();
             return;
-        },
+        }
     };
-
 
     // Write the serialed layout file.
     let path = format!("{}/serialized/{}.tld", CACHE_DIR, name);

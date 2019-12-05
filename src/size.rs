@@ -7,14 +7,14 @@ use std::ops::*;
 use std::str::FromStr;
 
 /// A general space type.
-#[derive(Copy, Clone, PartialEq, Default)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Size {
     /// The size in typographic points (1/72 inches).
     points: f32,
 }
 
 /// A position or extent in 2-dimensional space.
-#[derive(Copy, Clone, PartialEq, Default)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Size2D {
     /// The horizontal coordinate.
     pub x: Size,
@@ -23,7 +23,7 @@ pub struct Size2D {
 }
 
 /// A size in four directions.
-#[derive(Copy, Clone, PartialEq, Default)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct SizeBox {
     /// The left extent.
     pub left: Size,
@@ -35,76 +35,48 @@ pub struct SizeBox {
     pub bottom: Size,
 }
 
-/// A size or scale.
+/// Either an absolute size or a factor of some metric.
 #[derive(Copy, Clone, PartialEq)]
 pub enum ScaleSize {
     Absolute(Size),
     Scaled(f32),
 }
 
-/// A size that is possibly scaled by the font size.
+/// A scale size that is scaled by the font size.
 pub type FSize = ScaleSize;
 
-/// A size that is possibly scaled by the size of the padded parent container.
+/// A scale size that is scaled by the size of the padded parent container.
 pub type PSize = ScaleSize;
 
 impl Size {
     /// Create a zeroed size.
-    #[inline]
-    pub fn zero() -> Size {
-        Size::default()
-    }
+    pub fn zero() -> Size { Size { points: 0.0 } }
 
     /// Create a size from an amount of points.
-    #[inline]
-    pub fn pt(points: f32) -> Size {
-        Size { points }
-    }
+    pub fn pt(points: f32) -> Size { Size { points } }
 
     /// Create a size from an amount of millimeters.
-    #[inline]
-    pub fn mm(mm: f32) -> Size {
-        Size { points: 2.83465 * mm }
-    }
+    pub fn mm(mm: f32) -> Size { Size { points: 2.83465 * mm } }
 
     /// Create a size from an amount of centimeters.
-    #[inline]
-    pub fn cm(cm: f32) -> Size {
-        Size { points: 28.3465 * cm }
-    }
+    pub fn cm(cm: f32) -> Size { Size { points: 28.3465 * cm } }
 
     /// Create a size from an amount of inches.
-    #[inline]
-    pub fn inches(inches: f32) -> Size {
-        Size { points: 72.0 * inches }
-    }
+    pub fn inches(inches: f32) -> Size { Size { points: 72.0 * inches } }
 
     /// Convert this size into points.
-    #[inline]
-    pub fn to_pt(&self) -> f32 {
-        self.points
-    }
+    pub fn to_pt(&self) -> f32 { self.points }
 
     /// Convert this size into millimeters.
-    #[inline]
-    pub fn to_mm(&self) -> f32 {
-        self.points * 0.352778
-    }
+    pub fn to_mm(&self) -> f32 { self.points * 0.352778 }
 
     /// Convert this size into centimeters.
-    #[inline]
-    pub fn to_cm(&self) -> f32 {
-        self.points * 0.0352778
-    }
+    pub fn to_cm(&self) -> f32 { self.points * 0.0352778 }
 
     /// Convert this size into inches.
-    #[inline]
-    pub fn to_inches(&self) -> f32 {
-        self.points * 0.0138889
-    }
+    pub fn to_inches(&self) -> f32 { self.points * 0.0138889 }
 
     /// Set this size to the maximum of itself and the other size.
-    #[inline]
     pub fn max_eq(&mut self, other: Size) {
         *self = max(*self, other);
     }
@@ -112,37 +84,31 @@ impl Size {
 
 impl Size2D {
     /// Create a new 2D-size from two sizes.
-    #[inline]
     pub fn new(x: Size, y: Size) -> Size2D {
         Size2D { x, y }
     }
 
     /// Create a 2D-size with both sizes set to zero.
-    #[inline]
     pub fn zero() -> Size2D {
-        Size2D::default()
+        Size2D { x: Size::zero(), y: Size::zero() }
     }
 
     /// Create a 2D-size with `x` and `y` set to the same value `s`.
-    #[inline]
     pub fn with_all(s: Size) -> Size2D {
         Size2D { x: s, y: s }
     }
 
     /// Create a new 2D-size with `x` set to a value and `y` zero.
-    #[inline]
     pub fn with_x(x: Size) -> Size2D {
         Size2D { x, y: Size::zero() }
     }
 
     /// Create a new 2D-size with `y` set to a value and `x` zero.
-    #[inline]
     pub fn with_y(y: Size) -> Size2D {
         Size2D { x: Size::zero(), y }
     }
 
     /// Return a 2D-size padded by the paddings of the given box.
-    #[inline]
     pub fn padded(&self, padding: SizeBox) -> Size2D {
         Size2D {
             x: self.x + padding.left + padding.right,
@@ -151,7 +117,6 @@ impl Size2D {
     }
 
     /// Return a 2D-size reduced by the paddings of the given box.
-    #[inline]
     pub fn unpadded(&self, padding: SizeBox) -> Size2D {
         Size2D {
             x: self.x - padding.left - padding.right,
@@ -161,14 +126,12 @@ impl Size2D {
 
     /// Whether the given 2D-size fits into this one, that is,
     /// both coordinate values are smaller or equal.
-    #[inline]
     pub fn fits(&self, other: Size2D) -> bool {
         self.x >= other.x && self.y >= other.y
     }
 
     /// Set this size to the maximum of itself and the other size
     /// (for both dimensions).
-    #[inline]
     pub fn max_eq(&mut self, other: Size2D) {
         self.x.max_eq(other.x);
         self.y.max_eq(other.y);
@@ -177,7 +140,6 @@ impl Size2D {
 
 impl SizeBox {
     /// Create a new box from four sizes.
-    #[inline]
     pub fn new(left: Size, top: Size, right: Size, bottom: Size) -> SizeBox {
         SizeBox {
             left,
@@ -188,32 +150,28 @@ impl SizeBox {
     }
 
     /// Create a box with all values set to zero.
-    #[inline]
     pub fn zero() -> SizeBox {
-        SizeBox::default()
+        let zero = Size::zero();
+        SizeBox::new(zero, zero, zero, zero)
     }
 
     /// Create a box with all four fields set to the same value `s`.
-    #[inline]
     pub fn with_all(value: Size) -> SizeBox {
         SizeBox { left: value, top: value, right: value, bottom: value }
     }
 
     /// Set the `left` and `right` values.
-    #[inline]
     pub fn set_all(&mut self, value: Size) {
         *self = SizeBox::with_all(value);
     }
 
     /// Set the `left` and `right` values.
-    #[inline]
     pub fn set_horizontal(&mut self, value: Size) {
         self.left = value;
         self.right = value;
     }
 
     /// Set the `top` and `bottom` values.
-    #[inline]
     pub fn set_vertical(&mut self, value: Size) {
         self.top = value;
         self.bottom = value;
@@ -221,23 +179,13 @@ impl SizeBox {
 }
 
 /// The maximum of two sizes.
-#[inline]
 pub fn max(a: Size, b: Size) -> Size {
-    if a >= b {
-        a
-    } else {
-        b
-    }
+    if a >= b { a } else { b }
 }
 
 /// The minimum of two sizes.
-#[inline]
 pub fn min(a: Size, b: Size) -> Size {
-    if a <= b {
-        a
-    } else {
-        b
-    }
+    if a <= b { a } else { b }
 }
 
 //------------------------------------------------------------------------------------------------//
@@ -281,7 +229,6 @@ impl FromStr for Size {
 }
 
 impl PartialOrd for Size {
-    #[inline]
     fn partial_cmp(&self, other: &Size) -> Option<Ordering> {
         self.points.partial_cmp(&other.points)
     }
@@ -290,16 +237,12 @@ impl PartialOrd for Size {
 impl Neg for Size {
     type Output = Size;
 
-    #[inline]
     fn neg(self) -> Size {
-        Size {
-            points: -self.points,
-        }
+        Size { points: -self.points }
     }
 }
 
 impl Sum for Size {
-    #[inline]
     fn sum<I>(iter: I) -> Size
     where I: Iterator<Item = Size> {
         iter.fold(Size::zero(), Add::add)
@@ -311,16 +254,12 @@ macro_rules! impl_reflexive {
         impl $trait for Size {
             type Output = Size;
 
-            #[inline]
             fn $func(self, other: Size) -> Size {
-                Size {
-                    points: $trait::$func(self.points, other.points),
-                }
+                Size { points: $trait::$func(self.points, other.points) }
             }
         }
 
         impl $assign_trait for Size {
-            #[inline]
             fn $assign_func(&mut self, other: Size) {
                 $assign_trait::$assign_func(&mut self.points, other.points);
             }
@@ -333,16 +272,12 @@ macro_rules! impl_num_back {
         impl $trait<$ty> for Size {
             type Output = Size;
 
-            #[inline]
             fn $func(self, other: $ty) -> Size {
-                Size {
-                    points: $trait::$func(self.points, other as f32),
-                }
+                Size { points: $trait::$func(self.points, other as f32) }
             }
         }
 
         impl $assign_trait<$ty> for Size {
-            #[inline]
             fn $assign_func(&mut self, other: $ty) {
                 $assign_trait::$assign_func(&mut self.points, other as f32);
             }
@@ -357,11 +292,8 @@ macro_rules! impl_num_both {
         impl $trait<Size> for $ty {
             type Output = Size;
 
-            #[inline]
             fn $func(self, other: Size) -> Size {
-                Size {
-                    points: $trait::$func(self as f32, other.points),
-                }
+                Size { points: $trait::$func(self as f32, other.points) }
             }
         }
     );
@@ -387,7 +319,6 @@ debug_display!(Size2D);
 impl Neg for Size2D {
     type Output = Size2D;
 
-    #[inline]
     fn neg(self) -> Size2D {
         Size2D {
             x: -self.x,
@@ -401,7 +332,6 @@ macro_rules! impl_reflexive2d {
         impl $trait for Size2D {
             type Output = Size2D;
 
-            #[inline]
             fn $func(self, other: Size2D) -> Size2D {
                 Size2D {
                     x: $trait::$func(self.x, other.x),
@@ -411,7 +341,6 @@ macro_rules! impl_reflexive2d {
         }
 
         impl $assign_trait for Size2D {
-            #[inline]
             fn $assign_func(&mut self, other: Size2D) {
                 $assign_trait::$assign_func(&mut self.x, other.x);
                 $assign_trait::$assign_func(&mut self.y, other.y);
@@ -425,7 +354,6 @@ macro_rules! impl_num_back2d {
         impl $trait<$ty> for Size2D {
             type Output = Size2D;
 
-            #[inline]
             fn $func(self, other: $ty) -> Size2D {
                 Size2D {
                     x: $trait::$func(self.x, other as f32),
@@ -435,7 +363,6 @@ macro_rules! impl_num_back2d {
         }
 
         impl $assign_trait<$ty> for Size2D {
-            #[inline]
             fn $assign_func(&mut self, other: $ty) {
                 $assign_trait::$assign_func(&mut self.x, other as f32);
                 $assign_trait::$assign_func(&mut self.y, other as f32);
@@ -451,7 +378,6 @@ macro_rules! impl_num_both2d {
         impl $trait<Size2D> for $ty {
             type Output = Size2D;
 
-            #[inline]
             fn $func(self, other: Size2D) -> Size2D {
                 Size2D {
                     x: $trait::$func(self as f32, other.x),
@@ -473,11 +399,8 @@ impl_num_back2d!(Div, div, DivAssign, div_assign, i32);
 
 impl Display for SizeBox {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(
-            f,
-            "[left: {}, top: {}, right: {}, bottom: {}]",
-            self.left, self.top, self.right, self.bottom
-        )
+        write!(f, "[left: {}, top: {}, right: {}, bottom: {}]",
+            self.left, self.top, self.right, self.bottom)
     }
 }
 

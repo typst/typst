@@ -63,7 +63,7 @@ debug_display!(LayoutAction);
 /// be added at a position, effectively translating all movement actions inside the layout
 /// by the position.
 #[derive(Debug, Clone)]
-pub struct LayoutActionList {
+pub struct LayoutActions {
     pub origin: Size2D,
     actions: Vec<LayoutAction>,
     active_font: (usize, Size),
@@ -71,10 +71,10 @@ pub struct LayoutActionList {
     next_font: Option<(usize, Size)>,
 }
 
-impl LayoutActionList {
+impl LayoutActions {
     /// Create a new action list.
-    pub fn new() -> LayoutActionList {
-        LayoutActionList {
+    pub fn new() -> LayoutActions {
+        LayoutActions {
             actions: vec![],
             origin: Size2D::zero(),
             active_font: (std::usize::MAX, Size::zero()),

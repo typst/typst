@@ -52,7 +52,6 @@ pub struct Typesetter<'p> {
 
 impl<'p> Typesetter<'p> {
     /// Create a new typesetter.
-    #[inline]
     pub fn new() -> Typesetter<'p> {
         Typesetter {
             loader: RefCell::new(FontLoader::new()),
@@ -61,26 +60,22 @@ impl<'p> Typesetter<'p> {
     }
 
     /// Set the base page style.
-    #[inline]
     pub fn set_page_style(&mut self, style: PageStyle) {
         self.style.page = style;
     }
 
     /// Set the base text style.
-    #[inline]
     pub fn set_text_style(&mut self, style: TextStyle) {
         self.style.text = style;
     }
 
     /// Add a font provider to the context of this typesetter.
-    #[inline]
     pub fn add_font_provider<P: 'p>(&mut self, provider: P)
     where P: FontProvider {
         self.loader.get_mut().add_provider(provider);
     }
 
     /// A reference to the backing font loader.
-    #[inline]
     pub fn loader(&self) -> &SharedFontLoader<'p> {
         &self.loader
     }
@@ -111,7 +106,7 @@ impl<'p> Typesetter<'p> {
     }
 
     /// Process source code directly into a layout.
-    pub fn typeset(&self, src: &str) -> Result<MultiLayout, TypesetError> {
+    pub fn typeset(&self, src: &str) -> TypesetResult<MultiLayout> {
         let tree = self.parse(src)?;
         let layout = self.layout(&tree)?;
         Ok(layout)
@@ -123,8 +118,8 @@ pub type TypesetResult<T> = Result<T, TypesetError>;
 
 /// The error type for typesetting.
 pub struct TypesetError {
-    message: String,
-    span: Option<Span>,
+    pub message: String,
+    pub span: Option<Span>,
 }
 
 impl TypesetError {

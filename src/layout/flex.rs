@@ -1,5 +1,7 @@
 use super::*;
 
+/// The flex layouter first arranges boxes along a primary and if necessary also
+/// along a secondary axis.
 #[derive(Debug, Clone)]
 pub struct FlexLayouter {
     axes: LayoutAxes,
@@ -22,7 +24,7 @@ enum FlexUnit {
 #[derive(Debug, Clone)]
 struct FlexLine {
     usable: Size,
-    actions: LayoutActionList,
+    actions: LayoutActions,
     combined_dimensions: Size2D,
 }
 
@@ -30,7 +32,7 @@ impl FlexLine {
     fn new(usable: Size) -> FlexLine {
         FlexLine {
             usable,
-            actions: LayoutActionList::new(),
+            actions: LayoutActions::new(),
             combined_dimensions: Size2D::zero(),
         }
     }

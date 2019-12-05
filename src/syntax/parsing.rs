@@ -6,7 +6,6 @@ use crate::size::Size;
 use super::*;
 
 /// Parses source code into a syntax tree given a context.
-#[inline]
 pub fn parse(src: &str, ctx: ParseContext) -> ParseResult<SyntaxTree> {
     Parser::new(src, ctx).parse()
 }
@@ -105,11 +104,11 @@ impl<'s> Parser<'s> {
             _ => error!("expected arguments or closing bracket"),
         };
 
-        let call = self.parse_func_call(name, args)?;
+        let func = FuncCall(self.parse_func_call(name, args)?);
         span.end = self.tokens.string_index();
 
         // Finally this function is parsed to the end.
-        self.append(Node::Func(FuncCall { call }), span);
+        self.append(Node::Func(func), span);
 
         Ok(())
     }
@@ -531,13 +530,13 @@ mod tests {
     /// Shortcut macro to create a function.
     macro_rules! func {
         () => (
-            FuncCall { call: Box::new(BodylessFn(vec![], vec![])) }
+            FuncCall(Box::new(BodylessFn(vec![], vec![])))
         );
         (body: $tree:expr $(,)*) => (
-            FuncCall { call: Box::new(TreeFn { tree: $tree }) }
+            FuncCall(Box::new(TreeFn { tree: $tree }))
         );
         (args: $pos:expr, $key:expr) => (
-            FuncCall { call: Box::new(BodylessFn($pos, $key)) }
+            FuncCall(Box::new(BodylessFn($pos, $key)))
         );
     }
 
@@ -710,7 +709,7 @@ mod tests {
         assert_eq!(tree[2].span.pair(), (5, 37));
 
         let func = if let Node::Func(f) = &tree[2].v { f } else { panic!() };
-        let body = &func.call.downcast::<TreeFn>().unwrap().tree.nodes;
+        let body = &func.0.downcast::<TreeFn>().unwrap().tree.nodes;
         assert_eq!(body[0].span.pair(), (0, 4));
         assert_eq!(body[1].span.pair(), (4, 5));
         assert_eq!(body[2].span.pair(), (5, 6));

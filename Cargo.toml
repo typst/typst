@@ -1,5 +1,5 @@
 [package]
-name = "typst"
+name = "typstc"
 version = "0.1.0"
 authors = ["Laurenz Mädje <laurmaedje@gmail.com>"]
 edition = "2018"
@@ -12,7 +12,7 @@ smallvec = "0.6.10"
 unicode-xid = "0.1.0"
 
 [[bin]]
-name = "typstc"
+name = "typst-bin"
 path = "src/bin/main.rs"
 
 [[test]]

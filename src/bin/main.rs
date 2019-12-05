@@ -5,9 +5,9 @@ use std::io::{BufWriter, Read};
 use std::path::{Path, PathBuf};
 use std::process;
 
-use typst::export::pdf::PdfExporter;
-use typst::toddle::query::FileSystemFontProvider;
-use typst::Typesetter;
+use typstc::export::pdf::PdfExporter;
+use typstc::toddle::query::FileSystemFontProvider;
+use typstc::Typesetter;
 
 fn main() {
     if let Err(err) = run() {

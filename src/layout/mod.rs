@@ -26,7 +26,7 @@ pub mod layouters {
     pub use super::text::{layout_text, TextContext};
 }
 
-pub use actions::{LayoutAction, LayoutActionList};
+pub use actions::{LayoutAction, LayoutActions};
 pub use layouters::*;
 
 /// A collection of layouts.
@@ -75,7 +75,7 @@ pub struct LayoutSpace {
     pub padding: SizeBox,
     /// Whether to expand the dimensions of the resulting layout to the full
     /// dimensions of this space or to shrink them to fit the content for the
-    /// vertical and horizontal axis.
+    /// horizontal and vertical axis.
     pub expand: (bool, bool),
 }
 
@@ -324,17 +324,6 @@ impl Alignment {
     }
 }
 
-/// The specialized anchor position for an item with the given alignment in a
-/// container with a given size along the given axis.
-pub fn anchor(axis: Axis, size: Size, alignment: Alignment) -> Size {
-    use Alignment::*;
-    match (axis.is_positive(), alignment) {
-        (true, Origin) | (false, End) => Size::zero(),
-        (_, Center) => size / 2,
-        (true, End) | (false, Origin) => size,
-    }
-}
-
 /// Whitespace between boxes with different interaction properties.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SpacingKind {
@@ -365,6 +354,18 @@ impl LastSpacing {
             LastSpacing::Soft(space, _) => *space,
             _ => Size::zero(),
         }
+    }
+}
+
+/// The specialized anchor position for an item with the given alignment in a
+/// container with a given size along the given axis.
+#[allow(dead_code)]
+fn anchor(axis: Axis, size: Size, alignment: Alignment) -> Size {
+    use Alignment::*;
+    match (axis.is_positive(), alignment) {
+        (true, Origin) | (false, End) => Size::zero(),
+        (_, Center) => size / 2,
+        (true, End) | (false, Origin) => size,
     }
 }
 

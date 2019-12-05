@@ -7,8 +7,10 @@ use std::fmt::{self, Debug, Formatter};
 use self::prelude::*;
 
 #[macro_use]
-pub mod macros;
-pub mod map;
+mod macros;
+mod map;
+
+pub use map::ConsistentMap;
 
 /// Useful imports for creating your own functions.
 pub mod prelude {

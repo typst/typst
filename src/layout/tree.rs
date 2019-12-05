@@ -1,6 +1,7 @@
 use smallvec::smallvec;
 use super::*;
 
+/// Layout a syntax tree into a multibox.
 pub fn layout_tree(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<MultiLayout> {
     let mut layouter = TreeLayouter::new(ctx);
     layouter.layout(tree)?;
@@ -75,7 +76,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
         let spaces = self.flex.remaining();
 
-        let commands = func.call.layout(LayoutContext {
+        let commands = func.0.layout(LayoutContext {
             loader: self.ctx.loader,
             style: &self.style,
             top_level: false,

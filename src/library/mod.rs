@@ -24,10 +24,8 @@ pub fn std() -> Scope {
     std.add::<PageBreak>("page.break");
 
     std.add_with_metadata::<Spacing, Option<AxisKey>>("spacing", None);
-    for (name, key) in &[
-        ("h", AxisKey::Horizontal),
-        ("v", AxisKey::Vertical),
-    ] {
+
+    for (name, key) in &[("h", AxisKey::Horizontal), ("v", AxisKey::Vertical)] {
         std.add_with_metadata::<Spacing, Option<AxisKey>>(name, Some(*key));
     }
 
@@ -200,7 +198,7 @@ function! {
 }
 
 function! {
-    /// Sets text with a different style.
+    /// `bold`, `italic`, `mono`: Sets text with a different style.
     #[derive(Debug, PartialEq)]
     pub struct StyleChange {
         body: Option<SyntaxTree>,

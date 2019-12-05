@@ -3,7 +3,6 @@ use smallvec::SmallVec;
 use super::*;
 
 /// Builds an iterator over the tokens of the source code.
-#[inline]
 pub fn tokenize(src: &str) -> Tokens {
     Tokens::new(src)
 }

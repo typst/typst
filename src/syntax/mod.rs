@@ -91,13 +91,11 @@ pub enum Node {
 
 /// An invocation of a function.
 #[derive(Debug)]
-pub struct FuncCall {
-    pub call: Box<dyn LayoutFunc>,
-}
+pub struct FuncCall(pub Box<dyn LayoutFunc>);
 
 impl PartialEq for FuncCall {
     fn eq(&self, other: &FuncCall) -> bool {
-        &self.call == &other.call
+        &self.0 == &other.0
     }
 }
 

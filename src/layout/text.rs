@@ -26,7 +26,7 @@ pub fn layout_text(text: &str, ctx: TextContext) -> LayoutResult<Layout> {
 struct TextLayouter<'a, 'p> {
     ctx: TextContext<'a, 'p>,
     text: &'a str,
-    actions: LayoutActionList,
+    actions: LayoutActions,
     buffer: String,
     active_font: usize,
     width: Size,
@@ -39,7 +39,7 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
         TextLayouter {
             ctx,
             text,
-            actions: LayoutActionList::new(),
+            actions: LayoutActions::new(),
             buffer: String::new(),
             active_font: std::usize::MAX,
             width: Size::zero(),
