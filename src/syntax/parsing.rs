@@ -1,7 +1,7 @@
 //! Parsing of token streams into syntax trees.
 
 use crate::TypesetResult;
-use crate::func::{LayoutFunc, Scope};
+use crate::func::Scope;
 use crate::size::Size;
 use super::*;
 
@@ -104,7 +104,7 @@ impl<'s> Parser<'s> {
             _ => error!("expected arguments or closing bracket"),
         };
 
-        let func = FuncCall(self.parse_func_call(name, args)?);
+        let func = self.parse_func_call(name, args)?;
         span.end = self.tokens.string_index();
 
         // Finally this function is parsed to the end.
@@ -132,16 +132,15 @@ impl<'s> Parser<'s> {
 
     /// Parse the arguments to a function.
     fn parse_func_args(&mut self) -> ParseResult<FuncArgs> {
-        let mut pos = Vec::new();
-        let mut key = Vec::new();
+        let mut args = FuncArgs::new();
 
         loop {
             self.skip_white();
 
             match self.parse_func_arg()? {
-                Some(DynArg::Pos(arg)) => pos.push(arg),
-                Some(DynArg::Key(arg)) => key.push(arg),
-                _ => {},
+                Some(DynArg::Pos(arg)) => args.add_pos(arg),
+                Some(DynArg::Key(arg)) => args.add_key(arg),
+                None => {},
             }
 
             match self.tokens.next().map(Spanned::value) {
@@ -151,7 +150,7 @@ impl<'s> Parser<'s> {
             }
         }
 
-        Ok(FuncArgs { pos, key })
+        Ok(args)
     }
 
     /// Parse one argument to a function.
@@ -198,8 +197,7 @@ impl<'s> Parser<'s> {
     }
 
     /// Parse a function call.
-    fn parse_func_call(&mut self, name: Spanned<Ident>, args: FuncArgs)
-    -> ParseResult<Box<dyn LayoutFunc>> {
+    fn parse_func_call(&mut self, name: Spanned<Ident>, args: FuncArgs) -> ParseResult<FuncCall> {
         // Now we want to parse this function dynamically.
         let parser = self
             .ctx
@@ -210,7 +208,7 @@ impl<'s> Parser<'s> {
         let has_body = self.tokens.peek().map(Spanned::value) == Some(Token::LeftBracket);
 
         // Do the parsing dependent on whether the function has a body.
-        Ok(if has_body {
+        Ok(FuncCall(if has_body {
             self.advance();
 
             // Find out the string which makes the body of this function.
@@ -235,7 +233,7 @@ impl<'s> Parser<'s> {
             body
         } else {
             parser(args, None, self.ctx)?
-        })
+        }))
     }
 
     /// Parse an expression.

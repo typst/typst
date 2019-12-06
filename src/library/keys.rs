@@ -1,4 +1,6 @@
-use crate::func::prelude::*;
+//! Keys for the consistent maps.
+
+use super::*;
 
 macro_rules! kind {
     ($type:ty, $name:expr, $($patterns:tt)*) => {
@@ -139,7 +141,7 @@ kind!(AlignmentKey, "alignment",
 
 /// An argument key which identifies a margin or padding target.
 ///
-/// A is the axis type used.
+/// A is the used axis type.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum PaddingKey<A> {
     /// All four sides should have the specified padding.
@@ -150,7 +152,7 @@ pub enum PaddingKey<A> {
     AxisAligned(A, AlignmentKey),
 }
 
-kind!(PaddingKey<AxisKey>, "axis or anchor",
+kind!(PaddingKey<AxisKey>, "axis or side",
     "horizontal" => PaddingKey::Axis(AxisKey::Horizontal),
     "vertical" => PaddingKey::Axis(AxisKey::Vertical),
     "primary" => PaddingKey::Axis(AxisKey::Primary),

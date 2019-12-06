@@ -29,6 +29,8 @@ fn main() {
     fs::create_dir_all(format!("{}/rendered", CACHE_DIR)).unwrap();
     fs::create_dir_all(format!("{}/pdf", CACHE_DIR)).unwrap();
 
+    let mut failed = 0;
+
     for entry in fs::read_dir("tests/layouts/").unwrap() {
         let path = entry.unwrap().path();
 
@@ -49,8 +51,16 @@ fn main() {
             let mut src = String::new();
             file.read_to_string(&mut src).unwrap();
 
-            test(name, &src);
+            if std::panic::catch_unwind(|| test(name, &src)).is_err() {
+                failed += 1;
+                println!();
+            }
         }
+    }
+
+    if failed > 0 {
+        println!("{} tests failed.", failed);
+        std::process::exit(-1);
     }
 }
 

@@ -29,7 +29,7 @@ macro_rules! function {
         function!(@parse $type $meta | $($rest)*);
     };
 
-    // Set the metadata to `()` if there is not type definition.
+    // Set the metadata to `()` if there is no type definition.
     (@meta $type:ident | $($rest:tt)*) => {
         function!(@parse $type () | $($rest)*);
     };

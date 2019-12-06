@@ -8,13 +8,9 @@ use self::prelude::*;
 
 #[macro_use]
 mod macros;
-mod map;
-
-pub use map::ConsistentMap;
 
 /// Useful imports for creating your own functions.
 pub mod prelude {
-    pub use super::map::ConsistentMap;
     pub use crate::func::{Scope, ParseFunc, LayoutFunc, Command, Commands};
     pub use crate::layout::{
         layout_tree, Layout, MultiLayout,

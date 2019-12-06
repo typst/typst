@@ -3,11 +3,15 @@
 use crate::func::prelude::*;
 use toddle::query::FontClass;
 
+use keys::*;
+use maps::*;
+
 pub_use_mod!(align);
 pub_use_mod!(boxed);
 
-mod keys;
-use keys::*;
+pub mod maps;
+pub mod keys;
+
 
 /// Create a scope with all standard functions.
 pub fn std() -> Scope {
@@ -74,22 +78,19 @@ function! {
     /// `page.size`: Set the size of pages.
     #[derive(Debug, PartialEq)]
     pub struct PageSize {
-        width: Option<Size>,
-        height: Option<Size>,
+        map: ExtentMap,
     }
 
     parse(args, body) {
         parse!(forbidden: body);
         PageSize {
-            width: args.get_key_opt::<Size>("width")?.map(|s| s.v),
-            height: args.get_key_opt::<Size>("height")?.map(|s| s.v),
+            map: ExtentMap::new(&mut args, true)?,
         }
     }
 
     layout(self, ctx) {
         let mut style = ctx.style.page;
-        if let Some(width) = self.width { style.dimensions.x = width; }
-        if let Some(height) = self.height { style.dimensions.y = height; }
+        self.map.apply(ctx.axes, &mut style.dimensions)?;
         vec![SetPageStyle(style)]
     }
 }
@@ -98,58 +99,19 @@ function! {
     /// `page.margins`: Set the margins of pages.
     #[derive(Debug, PartialEq)]
     pub struct PageMargins {
-        map: ConsistentMap<PaddingKey<AxisKey>, Size>,
+        map: PaddingMap,
     }
 
     parse(args, body) {
-        let mut map = ConsistentMap::new();
-        map.add_opt_span(PaddingKey::All, args.get_pos_opt::<Size>()?)?;
-
-        for arg in args.keys() {
-            let key = PaddingKey::from_ident(&arg.v.key)?;
-            let size = Size::from_expr(arg.v.value)?;
-
-            map.add(key, size)?;
-        }
-
         parse!(forbidden: body);
-        PageMargins { map }
+        PageMargins {
+            map: PaddingMap::new(&mut args, true)?,
+        }
     }
 
     layout(self, ctx) {
-        use PaddingKey::*;
-
-        let axes = ctx.axes;
-        let map = self.map.dedup(|key, val| {
-            Ok((match key {
-                All => All,
-                Axis(axis) => Axis(axis.specific(axes)),
-                AxisAligned(axis, alignment) => {
-                    let axis = axis.specific(axes);
-                    AxisAligned(axis, alignment.specific(axes, axis))
-                }
-            }, val))
-        })?;
-
         let mut style = ctx.style.page;
-        let padding = &mut style.margins;
-
-        map.with(All, |&val| padding.set_all(val));
-        map.with(Axis(SpecificAxisKind::Horizontal), |&val| padding.set_horizontal(val));
-        map.with(Axis(SpecificAxisKind::Vertical), |&val| padding.set_vertical(val));
-
-        for (key, &val) in map.iter() {
-            if let AxisAligned(_, alignment) = key {
-                match alignment {
-                    AlignmentKey::Left => padding.left = val,
-                    AlignmentKey::Right => padding.right = val,
-                    AlignmentKey::Top => padding.top = val,
-                    AlignmentKey::Bottom => padding.bottom = val,
-                    _ => {},
-                }
-            }
-        }
-
+        self.map.apply(ctx.axes, &mut style.margins)?;
         vec![SetPageStyle(style)]
     }
 }

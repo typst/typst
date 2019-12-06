@@ -1,5 +1,6 @@
 use crate::func::prelude::*;
-use super::keys::*;
+use super::maps::ConsistentMap;
+use super::keys::{AxisKey, AlignmentKey};
 
 function! {
     /// `align`: Aligns content along the layouting axes.
