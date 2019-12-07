@@ -204,7 +204,7 @@ impl<'s> Iterator for Tokens<'s> {
             '\\' => {
                 if let Some((index, c)) = self.chars.peek() {
                     let escapable = match c {
-                        '[' | ']' | '\\' | '*' | '_' | '`' | ':' | '=' | '/' => true,
+                        '[' | ']' | '\\' | '*' | '_' | '`' | ':' | '=' | ',' | '/' => true,
                         _ => false,
                     };
 

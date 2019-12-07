@@ -31,7 +31,7 @@ fn main() {
 
     let mut failed = 0;
 
-    for entry in fs::read_dir("tests/layouts/").unwrap() {
+    for entry in fs::read_dir("tests/layouting/").unwrap() {
         let path = entry.unwrap().path();
 
         if path.extension() != Some(std::ffi::OsStr::new("typ")) {
@@ -60,8 +60,11 @@ fn main() {
 
     if failed > 0 {
         println!("{} tests failed.", failed);
+        println!();
         std::process::exit(-1);
     }
+
+    println!();
 }
 
 /// Create a _PDF_ with a name from the source code.

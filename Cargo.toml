@@ -3,6 +3,7 @@ name = "typstc"
 version = "0.1.0"
 authors = ["Laurenz Mädje <laurmaedje@gmail.com>"]
 edition = "2018"
+build = "build.rs"
 
 [dependencies]
 tide = { path = "../tide" }
@@ -16,6 +17,11 @@ name = "typst-bin"
 path = "src/bin/main.rs"
 
 [[test]]
-name = "layouting"
-path = "tests/layouting.rs"
+name = "layout"
+path = "tests/layout.rs"
+harness = false
+
+[[test]]
+name = "parse"
+path = "tests/parse.rs"
 harness = false
