@@ -1,86 +1,114 @@
-use std::fs::{self, File};
-use std::io::{BufWriter, Read, Write};
+use std::collections::HashMap;
+use std::error::Error;
+use std::ffi::OsStr;
+use std::fs::{File, create_dir_all, read_dir, read_to_string};
+use std::io::{BufWriter, Write};
+use std::panic;
 use std::process::Command;
 
-use typstc::export::pdf::PdfExporter;
-use typstc::layout::{LayoutAction, Serialize};
+use typstc::Typesetter;
+use typstc::layout::{MultiLayout, Serialize};
 use typstc::size::{Size, Size2D, SizeBox};
 use typstc::style::PageStyle;
 use typstc::toddle::query::FileSystemFontProvider;
-use typstc::Typesetter;
+use typstc::export::pdf::PdfExporter;
 
-const CACHE_DIR: &str = "tests/cache";
+type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-fn main() {
-    let mut perfect_match = false;
-    let mut filter = Vec::new();
+fn main() -> Result<()> {
+    let opts = Options::parse();
 
-    for arg in std::env::args().skip(1) {
-        if arg.as_str() == "--nocapture" {
-            continue;
-        } else if arg.as_str() == "=" {
-            perfect_match = true;
-        } else {
-            filter.push(arg);
-        }
-    }
+    create_dir_all("tests/cache/serial")?;
+    create_dir_all("tests/cache/render")?;
+    create_dir_all("tests/cache/pdf")?;
 
-    fs::create_dir_all(format!("{}/serialized", CACHE_DIR)).unwrap();
-    fs::create_dir_all(format!("{}/rendered", CACHE_DIR)).unwrap();
-    fs::create_dir_all(format!("{}/pdf", CACHE_DIR)).unwrap();
+    let tests: Vec<_> = read_dir("tests/layouts/")?.collect();
 
-    let mut failed = 0;
+    let len = tests.len();
+    println!();
+    println!("Running {} test{}", len, if len > 1 { "s" } else { "" });
 
-    for entry in fs::read_dir("tests/layouting/").unwrap() {
-        let path = entry.unwrap().path();
-
-        if path.extension() != Some(std::ffi::OsStr::new("typ")) {
+    for entry in tests {
+        let path = entry?.path();
+        if path.extension() != Some(OsStr::new("typ")) {
             continue;
         }
 
-        let name = path.file_stem().unwrap().to_str().unwrap();
+        let name = path
+            .file_stem().ok_or("expected file stem")?
+            .to_string_lossy();
 
-        let matches = if perfect_match {
-            filter.iter().any(|pattern| name == pattern)
-        } else {
-            filter.is_empty() || filter.iter().any(|pattern| name.contains(pattern))
-        };
-
-        if matches {
-            let mut file = File::open(&path).unwrap();
-            let mut src = String::new();
-            file.read_to_string(&mut src).unwrap();
-
-            if std::panic::catch_unwind(|| test(name, &src)).is_err() {
-                failed += 1;
-                println!();
-            }
+        if opts.matches(&name) {
+            let src = read_to_string(&path)?;
+            panic::catch_unwind(|| test(&name, &src)).ok();
         }
-    }
-
-    if failed > 0 {
-        println!("{} tests failed.", failed);
-        println!();
-        std::process::exit(-1);
     }
 
     println!();
+
+    Ok(())
 }
 
 /// Create a _PDF_ with a name from the source code.
-fn test(name: &str, src: &str) {
+fn test(name: &str, src: &str) -> Result<()> {
     println!("Testing: {}.", name);
 
     let mut typesetter = Typesetter::new();
-
     typesetter.set_page_style(PageStyle {
         dimensions: Size2D::with_all(Size::pt(250.0)),
         margins: SizeBox::with_all(Size::pt(10.0)),
     });
 
-    let provider = FileSystemFontProvider::from_listing("fonts/fonts.toml").unwrap();
-    typesetter.add_font_provider(provider.clone());
+    let provider = FileSystemFontProvider::from_listing("fonts/fonts.toml")?;
+    let font_paths = provider.paths();
+    typesetter.add_font_provider(provider);
 
+    let layouts = match compile(&typesetter, src) {
+        Some(layouts) => layouts,
+        None => return Ok(()),
+    };
+
+    // Compute the font's paths.
+    let mut fonts = HashMap::new();
+    let loader = typesetter.loader().borrow();
+    for layout in &layouts {
+        for index in layout.find_used_fonts() {
+            fonts.entry(index).or_insert_with(|| {
+                let provider_index = loader.get_provider_and_index(index).1;
+                font_paths[provider_index].to_string_lossy()
+            });
+        }
+    }
+
+    // Write the serialized layout file.
+    let path = format!("tests/cache/serial/{}", name);
+    let mut file = BufWriter::new(File::create(path)?);
+
+    // Write the font mapping into the serialization file.
+    writeln!(file, "{}", fonts.len())?;
+    for (index, path) in fonts.iter() {
+        writeln!(file, "{} {}", index, path)?;
+    }
+    layouts.serialize(&mut file)?;
+
+    // Render the layout into a PNG.
+    Command::new("python")
+        .arg("tests/render.py")
+        .arg(name)
+        .spawn()
+        .expect("failed to run python renderer");
+
+    // Write the PDF file.
+    let path = format!("tests/cache/pdf/{}.pdf", name);
+    let file = BufWriter::new(File::create(path)?);
+    let exporter = PdfExporter::new();
+    exporter.export(&layouts, typesetter.loader(), file)?;
+
+    Ok(())
+}
+
+/// Compile the source code with the typesetter.
+fn compile(typesetter: &Typesetter, src: &str) -> Option<MultiLayout> {
     #[cfg(not(debug_assertions))] {
         use std::time::Instant;
 
@@ -89,6 +117,7 @@ fn test(name: &str, src: &str) {
         let is_ok = typesetter.typeset(&src).is_ok();
         let warmup_end = Instant::now();
 
+        // Only continue if the typesetting was successful.
         if is_ok {
             let start = Instant::now();
             let tree = typesetter.parse(&src).unwrap();
@@ -104,54 +133,46 @@ fn test(name: &str, src: &str) {
         }
     };
 
-    let layouts = match typesetter.typeset(&src) {
-        Ok(layouts) => layouts,
+    match typesetter.typeset(&src) {
+        Ok(layouts) => Some(layouts),
         Err(err) => {
             println!(" - compilation failed: {}", err);
             #[cfg(not(debug_assertions))]
             println!();
-            return;
+            None
         }
-    };
+    }
+}
 
-    // Write the serialed layout file.
-    let path = format!("{}/serialized/{}.tld", CACHE_DIR, name);
-    let mut file = File::create(path).unwrap();
+/// Command line options.
+struct Options {
+    filter: Vec<String>,
+    perfect: bool,
+}
 
-    // Find all used fonts and their filenames.
-    let mut map = Vec::new();
-    let mut loader = typesetter.loader().borrow_mut();
-    for layout in &layouts {
-        for action in &layout.actions {
-            if let LayoutAction::SetFont(index, _) = action {
-                if map.iter().find(|(i, _)| i == index).is_none() {
-                    let (_, provider_index) = loader.get_provider_and_index(*index);
-                    let filename = provider.get_path(provider_index).to_str().unwrap();
-                    map.push((*index, filename));
-                }
+impl Options {
+    /// Parse the options from the environment arguments.
+    fn parse() -> Options {
+        let mut perfect = false;
+        let mut filter = Vec::new();
+
+        for arg in std::env::args().skip(1) {
+            match arg.as_str() {
+                "--nocapture" => {},
+                "=" => perfect = true,
+                _ => filter.push(arg),
             }
         }
-    }
-    drop(loader);
 
-    // Write the font mapping into the serialization file.
-    writeln!(file, "{}", map.len()).unwrap();
-    for (index, path) in map {
-        writeln!(file, "{} {}", index, path).unwrap();
+        Options { filter, perfect }
     }
 
-    layouts.serialize(&mut file).unwrap();
-
-    // Render the layout into a PNG.
-    Command::new("python")
-        .arg("tests/render.py")
-        .arg(name)
-        .spawn()
-        .expect("failed to run python-based renderer");
-
-    // Write the PDF file.
-    let path = format!("{}/pdf/{}.pdf", CACHE_DIR, name);
-    let file = BufWriter::new(File::create(path).unwrap());
-    let exporter = PdfExporter::new();
-    exporter.export(&layouts, typesetter.loader(), file).unwrap();
+    /// Whether a given test should be executed.
+    fn matches(&self, name: &str) -> bool {
+        match self.perfect {
+            true => self.filter.iter().any(|p| name == p),
+            false => self.filter.is_empty()
+                || self.filter.iter().any(|p| name.contains(p))
+        }
+    }
 }

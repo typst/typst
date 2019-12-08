@@ -45,6 +45,21 @@ pub struct Layout {
     pub actions: Vec<LayoutAction>,
 }
 
+impl Layout {
+    /// Returns a vector with all used font indices.
+    pub fn find_used_fonts(&self) -> Vec<usize> {
+        let mut fonts = Vec::new();
+        for action in &self.actions {
+            if let LayoutAction::SetFont(index, _) = action {
+                if !fonts.contains(index) {
+                    fonts.push(*index);
+                }
+            }
+        }
+        fonts
+    }
+}
+
 /// The general context for layouting.
 #[derive(Debug, Clone)]
 pub struct LayoutContext<'a, 'p> {

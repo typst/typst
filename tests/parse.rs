@@ -1,10 +1,10 @@
 use typstc::syntax::*;
-
 use Token::{
     Space as S, Newline as N, LeftBracket as LB,
     RightBracket as RB, Text as T, *
 };
 
+/// Parses the test syntax.
 macro_rules! tokens {
     ($($src:expr =>($line:expr)=> $tokens:expr)*) => ({
         #[allow(unused_mut)]
@@ -15,18 +15,25 @@ macro_rules! tokens {
 }
 
 fn main() {
-    let tests = include!("cache/parsing.rs");
-
+    let tests = include!("cache/parse");
     let mut errors = false;
+
+    let len = tests.len();
+    println!();
+    println!("Running {} test{}", len, if len > 1 { "s" } else { "" });
+
+    // Go through all test files.
     for (file, cases) in tests.into_iter() {
         print!("Testing: {}. ", file);
 
         let mut okay = 0;
         let mut failed = 0;
 
+        // Go through all tests in a test file.
         for (line, src, expected) in cases.into_iter() {
             let found: Vec<_> = tokenize(src).map(Spanned::value).collect();
 
+            // Check whether the tokenization works correctly.
             if found == expected {
                 okay += 1;
             } else {
@@ -44,6 +51,7 @@ fn main() {
             }
         }
 
+        // Print a small summary.
         print!("{} okay, {} failed.", okay, failed);
         if failed == 0 {
             print!(" ✔")

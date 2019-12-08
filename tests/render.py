@@ -7,23 +7,25 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 BASE = os.path.dirname(__file__)
-CACHE_DIR = os.path.join(BASE, "cache/")
+CACHE = os.path.join(BASE, 'cache/')
+SERIAL = os.path.join(CACHE, 'serial/')
+RENDER = os.path.join(CACHE, 'render/')
 
 
 def main():
-    assert len(sys.argv) == 2, "usage: python render.py <name>"
+    assert len(sys.argv) == 2, 'usage: python render.py <name>'
     name = sys.argv[1]
 
-    filename = os.path.join(CACHE_DIR, f"serialized/{name}.tld")
-    with open(filename, encoding="utf-8") as file:
+    filename = os.path.join(SERIAL, f'{name}.tld')
+    with open(filename, encoding='utf-8') as file:
         lines = [line[:-1] for line in file.readlines()]
 
     renderer = MultiboxRenderer(lines)
     renderer.render()
     image = renderer.export()
 
-    pathlib.Path(os.path.join(CACHE_DIR, "rendered")).mkdir(parents=True, exist_ok=True)
-    image.save(CACHE_DIR + "rendered/" + name + ".png")
+    pathlib.Path(RENDER).mkdir(parents=True, exist_ok=True)
+    image.save(os.path.join(RENDER, f'{name}.png')
 
 
 class MultiboxRenderer:
@@ -36,7 +38,7 @@ class MultiboxRenderer:
             parts = lines[i + 1].split(' ', 1)
             index = int(parts[0])
             path = parts[1]
-            self.fonts[index] = os.path.join(BASE, "../fonts", path)
+            self.fonts[index] = os.path.join(BASE, '../fonts', path)
 
         self.content = lines[font_count + 1:]
 
@@ -100,14 +102,14 @@ class BoxRenderer:
         self.fonts = fonts
         self.size = (pix(width), pix(height))
 
-        img = Image.new("RGBA", self.size, (255, 255, 255, 255))
+        img = Image.new('RGBA', self.size, (255, 255, 255, 255))
         pixels = numpy.array(img)
         for i in range(0, int(height)):
             for j in range(0, int(width)):
                 if ((i // 2) % 2 == 0) == ((j // 2) % 2 == 0):
                     pixels[4*i:4*(i+1), 4*j:4*(j+1)] = (225, 225, 225, 255)
 
-        self.img = Image.fromarray(pixels, "RGBA")
+        self.img = Image.fromarray(pixels, 'RGBA')
         self.draw = ImageDraw.Draw(self.img)
         self.cursor = (0, 0)
 
@@ -159,7 +161,7 @@ class BoxRenderer:
                 if color not in forbidden_colors:
                     break
 
-            overlay = Image.new("RGBA", self.size, (0, 0, 0, 0))
+            overlay = Image.new('RGBA', self.size, (0, 0, 0, 0))
             draw = ImageDraw.Draw(overlay)
             draw.rectangle(rect, fill=color + (255,))
 
@@ -169,7 +171,7 @@ class BoxRenderer:
             self.rects.append((rect, color))
 
         else:
-            raise Exception("invalid command")
+            raise Exception('invalid command')
 
     def export(self):
         return self.img
@@ -182,5 +184,5 @@ def overlap(a, b):
     return (a[0] < b[2] and b[0] < a[2]) and (a[1] < b[3] and b[1] < a[3])
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
