@@ -6,6 +6,8 @@ use std::iter::Sum;
 use std::ops::*;
 use std::str::FromStr;
 
+use crate::layout::Alignment;
+
 /// A general space type.
 #[derive(Copy, Clone, PartialEq)]
 pub struct Size {
@@ -80,6 +82,18 @@ impl Size {
     pub fn max_eq(&mut self, other: Size) {
         *self = max(*self, other);
     }
+
+    /// The specialized anchor position for an item with the given alignment in a
+    /// container with a given size along the given axis.
+    pub fn anchor(&self, alignment: Alignment, positive: bool) -> Size {
+        use Alignment::*;
+        match (positive, alignment) {
+            (true, Origin) | (false, End) => Size::zero(),
+            (_, Center) => *self / 2,
+            (true, End) | (false, Origin) => *self,
+        }
+    }
+
 }
 
 impl Size2D {
@@ -178,6 +192,16 @@ impl SizeBox {
     }
 }
 
+impl ScaleSize {
+    /// Use the absolute value or scale the entity.
+    pub fn concretize(&self, entity: Size) -> Size {
+        match self {
+            ScaleSize::Absolute(s) => *s,
+            ScaleSize::Scaled(s) => *s * entity,
+        }
+    }
+}
+
 /// The maximum of two sizes.
 pub fn max(a: Size, b: Size) -> Size {
     if a >= b { a } else { b }
@@ -192,7 +216,7 @@ pub fn min(a: Size, b: Size) -> Size {
 
 impl Display for Size {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}pt", self.points)
+        write!(f, "{}cm", self.to_cm())
     }
 }
 

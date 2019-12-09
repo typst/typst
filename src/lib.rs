@@ -14,6 +14,8 @@
 //!   format. Submodules for these formats are located in the [export](crate::export)
 //!   module. Currently, the only supported output format is _PDF_.
 
+#![allow(unused)]
+
 pub extern crate toddle;
 
 use std::cell::RefCell;

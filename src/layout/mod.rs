@@ -248,6 +248,16 @@ impl Axis {
         }
     }
 
+    /// The inverse axis.
+    pub fn inv(&self) -> Axis {
+        match self {
+            Axis::LeftToRight => Axis::RightToLeft,
+            Axis::RightToLeft => Axis::LeftToRight,
+            Axis::TopToBottom => Axis::BottomToTop,
+            Axis::BottomToTop => Axis::TopToBottom,
+        }
+    }
+
     /// The direction factor for this axis.
     ///
     /// - 1 if the axis is positive.
@@ -363,24 +373,12 @@ enum LastSpacing {
 }
 
 impl LastSpacing {
-    #[allow(dead_code)]
+    /// The size of the soft space if this is a soft space or zero otherwise.
     fn soft_or_zero(&self) -> Size {
         match self {
             LastSpacing::Soft(space, _) => *space,
             _ => Size::zero(),
         }
-    }
-}
-
-/// The specialized anchor position for an item with the given alignment in a
-/// container with a given size along the given axis.
-#[allow(dead_code)]
-fn anchor(axis: Axis, size: Size, alignment: Alignment) -> Size {
-    use Alignment::*;
-    match (axis.is_positive(), alignment) {
-        (true, Origin) | (false, End) => Size::zero(),
-        (_, Center) => size / 2,
-        (true, End) | (false, Origin) => size,
     }
 }
 

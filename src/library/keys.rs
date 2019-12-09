@@ -66,7 +66,7 @@ kind!(AxisKey, "axis",
     "secondary" => AxisKey::Secondary,
 );
 
-/// An argument key which identifies a target alignment.
+/// An argument key which describes a target alignment.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum AlignmentKey {
     Left,
@@ -171,4 +171,11 @@ kind!(PaddingKey<AxisKey>, "axis or side",
     "horizontal-end" => PaddingKey::AxisAligned(AxisKey::Horizontal, AlignmentKey::End),
     "vertical-origin" => PaddingKey::AxisAligned(AxisKey::Vertical, AlignmentKey::Origin),
     "vertical-end" => PaddingKey::AxisAligned(AxisKey::Vertical, AlignmentKey::End),
+);
+
+kind!(Axis, "direction",
+    "ltr" => Axis::LeftToRight,
+    "rtl" => Axis::RightToLeft,
+    "ttb" => Axis::TopToBottom,
+    "btt" => Axis::BottomToTop,
 );

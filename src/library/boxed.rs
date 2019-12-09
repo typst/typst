@@ -6,7 +6,7 @@ function! {
     #[derive(Debug, PartialEq)]
     pub struct Boxed {
         body: SyntaxTree,
-        map: ExtentMap,
+        map: ExtentMap<PSize>,
     }
 
     parse(args, body, ctx) {
@@ -17,7 +17,18 @@ function! {
     }
 
     layout(self, mut ctx) {
-        self.map.apply(ctx.axes, &mut ctx.spaces[0].dimensions)?;
+        use SpecificAxisKind::*;
+
+        let space = &mut ctx.spaces[0];
+        self.map.apply_with(ctx.axes, |axis, p| {
+            let entity = match axis {
+                Horizontal => { space.expand.0 = true; &mut space.dimensions.x },
+                Vertical => { space.expand.1 = true; &mut space.dimensions.y },
+            };
+
+            *entity = p.concretize(*entity)
+        });
+
         vec![AddMultiple(layout_tree(&self.body, ctx)?)]
     }
 }

@@ -16,7 +16,7 @@ def main():
     assert len(sys.argv) == 2, 'usage: python render.py <name>'
     name = sys.argv[1]
 
-    filename = os.path.join(SERIAL, f'{name}.tld')
+    filename = os.path.join(SERIAL, name)
     with open(filename, encoding='utf-8') as file:
         lines = [line[:-1] for line in file.readlines()]
 
@@ -25,7 +25,7 @@ def main():
     image = renderer.export()
 
     pathlib.Path(RENDER).mkdir(parents=True, exist_ok=True)
-    image.save(os.path.join(RENDER, f'{name}.png')
+    image.save(os.path.join(RENDER, f'{name}.png'))
 
 
 class MultiboxRenderer:
@@ -56,6 +56,7 @@ class MultiboxRenderer:
 
             renderer = BoxRenderer(self.fonts, width, height)
             for i in range(action_count):
+                if i == 0: continue
                 command = self.content[start + i]
                 renderer.execute(command)
 
@@ -145,7 +146,8 @@ class BoxRenderer:
             self.draw.text(self.cursor, text, (0, 0, 0, 255), font=self.font)
 
         elif cmd == 'b':
-            x, y, w, h = (pix(float(s)) for s in parts)
+            x, y = self.cursor
+            w, h = (pix(float(s)) for s in parts)
             rect = [x, y, x+w-1, y+h-1]
 
             forbidden_colors = set()

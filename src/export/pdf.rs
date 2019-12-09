@@ -261,7 +261,7 @@ impl<'d, W: Write> ExportProcess<'d, W> {
                     text.tj(self.fonts[active_font.0].encode_text(&string)?);
                 },
 
-                LayoutAction::DebugBox(_, _) => {}
+                LayoutAction::DebugBox(_) => {}
             }
         }
 

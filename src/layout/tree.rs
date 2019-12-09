@@ -11,7 +11,7 @@ pub fn layout_tree(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<MultiL
 #[derive(Debug, Clone)]
 struct TreeLayouter<'a, 'p> {
     ctx: LayoutContext<'a, 'p>,
-    flex: FlexLayouter,
+    stack: StackLayouter,
     style: LayoutStyle,
 }
 
@@ -19,11 +19,10 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     /// Create a new syntax tree layouter.
     fn new(ctx: LayoutContext<'a, 'p>) -> TreeLayouter<'a, 'p> {
         TreeLayouter {
-            flex: FlexLayouter::new(FlexContext {
+            stack: StackLayouter::new(StackContext {
                 spaces: ctx.spaces.clone(),
                 axes: ctx.axes,
                 alignment: ctx.alignment,
-                flex_spacing: flex_spacing(&ctx.style.text),
             }),
             style: ctx.style.clone(),
             ctx,
@@ -56,25 +55,22 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             alignment: self.ctx.alignment,
         })?;
 
-        Ok(self.flex.add(layout))
+        self.stack.add(layout)
     }
 
     fn layout_space(&mut self) {
-        self.flex.add_primary_space(
-            word_spacing(&self.style.text),
-            SPACE_KIND,
-        );
+
     }
 
     fn layout_paragraph(&mut self) -> LayoutResult<()> {
-        self.flex.add_secondary_space(
+        Ok(self.stack.add_spacing(
             paragraph_spacing(&self.style.text),
             PARAGRAPH_KIND,
-        )
+        ))
     }
 
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
-        let spaces = self.flex.remaining();
+        let spaces = self.stack.remaining();
 
         let commands = func.0.layout(LayoutContext {
             loader: self.ctx.loader,
@@ -97,16 +93,16 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
         match command {
             LayoutTree(tree) => self.layout(tree)?,
 
-            Add(layout) => self.flex.add(layout),
-            AddMultiple(layouts) => self.flex.add_multiple(layouts),
+            Add(layout) => self.stack.add(layout)?,
+            AddMultiple(layouts) => self.stack.add_multiple(layouts)?,
             AddSpacing(space, kind, axis) => match axis {
-                GenericAxisKind::Primary => self.flex.add_primary_space(space, kind),
-                GenericAxisKind::Secondary => self.flex.add_secondary_space(space, kind)?,
+                GenericAxisKind::Primary => {},
+                GenericAxisKind::Secondary => self.stack.add_spacing(space, kind),
             }
 
-            FinishLine => self.flex.add_break(),
-            FinishRun => { self.flex.finish_run()?; },
-            FinishSpace => self.flex.finish_space(true)?,
+            FinishLine => {},
+            FinishRun => {},
+            FinishSpace => self.stack.finish_space(true),
             BreakParagraph => self.layout_paragraph()?,
 
             SetTextStyle(style) => self.style.text = style,
@@ -116,7 +112,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                 }
 
                 self.style.page = style;
-                self.flex.set_spaces(smallvec![
+                self.stack.set_spaces(smallvec![
                     LayoutSpace {
                         dimensions: style.dimensions,
                         padding: style.margins,
@@ -126,7 +122,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             }
             SetAlignment(alignment) => self.ctx.alignment = alignment,
             SetAxes(axes) => {
-                self.flex.set_axes(axes);
+                self.stack.set_axes(axes);
                 self.ctx.axes = axes;
             }
         }
@@ -135,7 +131,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     }
 
     fn finish(self) -> LayoutResult<MultiLayout> {
-        self.flex.finish()
+        Ok(self.stack.finish())
     }
 }
 

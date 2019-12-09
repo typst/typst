@@ -8,6 +8,7 @@ use maps::*;
 
 pub_use_mod!(align);
 pub_use_mod!(boxed);
+pub_use_mod!(direction);
 
 pub mod maps;
 pub mod keys;
@@ -19,6 +20,7 @@ pub fn std() -> Scope {
 
     std.add::<Align>("align");
     std.add::<Boxed>("box");
+    std.add::<Direction>("direction");
     std.add::<PageSize>("page.size");
     std.add::<PageMargins>("page.margins");
 
@@ -78,7 +80,7 @@ function! {
     /// `page.size`: Set the size of pages.
     #[derive(Debug, PartialEq)]
     pub struct PageSize {
-        map: ExtentMap,
+        map: ExtentMap<Size>,
     }
 
     parse(args, body) {
@@ -90,7 +92,7 @@ function! {
 
     layout(self, ctx) {
         let mut style = ctx.style.page;
-        self.map.apply(ctx.axes, &mut style.dimensions)?;
+        self.map.apply(ctx.axes, &mut style.dimensions, |&s| s)?;
         vec![SetPageStyle(style)]
     }
 }
@@ -150,11 +152,7 @@ function! {
 
     layout(self, ctx) {
         let axis = self.axis.generic(ctx.axes);
-        let spacing = match self.spacing {
-            FSize::Absolute(size) => size,
-            FSize::Scaled(scale) => scale * ctx.style.text.font_size,
-        };
-
+        let spacing = self.spacing.concretize(ctx.style.text.font_size);
         vec![AddSpacing(spacing, SpacingKind::Hard, axis)]
     }
 }

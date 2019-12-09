@@ -15,8 +15,7 @@ pub enum LayoutAction {
     /// Write text starting at the current position.
     WriteText(String),
     /// Visualize a box for debugging purposes.
-    /// The arguments are position and size.
-    DebugBox(Size2D, Size2D),
+    DebugBox(Size2D),
 }
 
 impl Serialize for LayoutAction {
@@ -25,14 +24,7 @@ impl Serialize for LayoutAction {
             MoveAbsolute(s) => write!(f, "m {:.4} {:.4}", s.x.to_pt(), s.y.to_pt()),
             SetFont(i, s) => write!(f, "f {} {}", i, s.to_pt()),
             WriteText(s) => write!(f, "w {}", s),
-            DebugBox(p, s) => write!(
-                f,
-                "b {} {} {} {}",
-                p.x.to_pt(),
-                p.y.to_pt(),
-                s.x.to_pt(),
-                s.y.to_pt()
-            ),
+            DebugBox(s) => write!(f, "b {} {}", s.x.to_pt(), s.y.to_pt()),
         }
     }
 }
@@ -44,7 +36,7 @@ impl Display for LayoutAction {
             MoveAbsolute(s) => write!(f, "move {} {}", s.x, s.y),
             SetFont(i, s) => write!(f, "font {} {}", i, s),
             WriteText(s) => write!(f, "write \"{}\"", s),
-            DebugBox(p, s) => write!(f, "box {} {}", p, s),
+            DebugBox(s) => write!(f, "box {}", s),
         }
     }
 }
@@ -87,8 +79,6 @@ impl LayoutActions {
     pub fn add(&mut self, action: LayoutAction) {
         match action {
             MoveAbsolute(pos) => self.next_pos = Some(self.origin + pos),
-            DebugBox(pos, size) => self.actions.push(DebugBox(self.origin + pos, size)),
-
             SetFont(index, size) => {
                 self.next_font = Some((index, size));
             }

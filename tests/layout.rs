@@ -23,10 +23,7 @@ fn main() -> Result<()> {
     create_dir_all("tests/cache/pdf")?;
 
     let tests: Vec<_> = read_dir("tests/layouts/")?.collect();
-
-    let len = tests.len();
-    println!();
-    println!("Running {} test{}", len, if len > 1 { "s" } else { "" });
+    let mut filtered = Vec::new();
 
     for entry in tests {
         let path = entry?.path();
@@ -36,12 +33,21 @@ fn main() -> Result<()> {
 
         let name = path
             .file_stem().ok_or("expected file stem")?
-            .to_string_lossy();
+            .to_string_lossy()
+            .to_string();
 
         if opts.matches(&name) {
             let src = read_to_string(&path)?;
-            panic::catch_unwind(|| test(&name, &src)).ok();
+            filtered.push((name, src));
         }
+    }
+
+    let len = filtered.len();
+    println!();
+    println!("Running {} test{}", len, if len > 1 { "s" } else { "" });
+
+    for (name, src) in filtered {
+        panic::catch_unwind(|| test(&name, &src)).ok();
     }
 
     println!();
@@ -79,6 +85,7 @@ fn test(name: &str, src: &str) -> Result<()> {
             });
         }
     }
+    drop(loader);
 
     // Write the serialized layout file.
     let path = format!("tests/cache/serial/{}", name);

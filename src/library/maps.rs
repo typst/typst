@@ -72,14 +72,14 @@ impl<K, V> ConsistentMap<K, V> where K: Hash + Eq {
 
 /// A map for storing extents along axes.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExtentMap(ConsistentMap<AxisKey, Size>);
+pub struct ExtentMap<E: ExpressionKind + Copy>(ConsistentMap<AxisKey, E>);
 
-impl ExtentMap {
+impl<E: ExpressionKind + Copy> ExtentMap<E> {
     /// Parse an extent map from the function args.
     ///
     /// If `enforce` is true other arguments will create an error, otherwise
     /// they are left intact.
-    pub fn new(args: &mut FuncArgs, enforce: bool) -> ParseResult<ExtentMap> {
+    pub fn new(args: &mut FuncArgs, enforce: bool) -> ParseResult<ExtentMap<E>> {
         let mut map = ConsistentMap::new();
 
         for arg in args.keys() {
@@ -96,21 +96,37 @@ impl ExtentMap {
                 }
             };
 
-            let size = Size::from_expr(arg.v.value)?;
-            map.add(key, size)?;
+            let e = E::from_expr(arg.v.value)?;
+            map.add(key, e)?;
         }
 
         Ok(ExtentMap(map))
     }
 
-    /// Map from any axis key to the specific axis kind.
-    pub fn apply(&self, axes: LayoutAxes, dimensions: &mut Size2D) -> LayoutResult<()> {
-        let map = self.0.dedup(|key, &val| Ok((key.specific(axes), val)))?;
-
-        map.with(SpecificAxisKind::Horizontal, |&val| dimensions.x = val);
-        map.with(SpecificAxisKind::Vertical, |&val| dimensions.y = val);
-
+    /// Apply the extents on the dimensions.
+    pub fn apply<F>(
+        &self,
+        axes: LayoutAxes,
+        dimensions: &mut Size2D,
+        size: F
+    ) -> LayoutResult<()> where F: Fn(&E) -> Size {
+        let map = self.dedup(axes)?;
+        map.with(SpecificAxisKind::Horizontal, |val| dimensions.x = size(val));
+        map.with(SpecificAxisKind::Vertical, |val| dimensions.y = size(val));
         Ok(())
+    }
+
+    /// Map from any axis key to the specific axis kind.
+    pub fn apply_with<F>(&self, axes: LayoutAxes, mut f: F) -> LayoutResult<()>
+    where F: FnMut(SpecificAxisKind, &E) {
+        for (&key, value) in self.dedup(axes)?.iter() {
+            f(key, value);
+        }
+        Ok(())
+    }
+
+    fn dedup(&self, axes: LayoutAxes) -> LayoutResult<ConsistentMap<SpecificAxisKind, E>> {
+        self.0.dedup(|key, &val| Ok((key.specific(axes), val)))
     }
 }
 

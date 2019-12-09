@@ -37,7 +37,7 @@ struct Space {
     /// Whether to add the layout for this space even if it would be empty.
     hard: bool,
     /// The so-far accumulated subspaces.
-    spaces: Vec<Subspace>,
+    subs: Vec<Subspace>,
 }
 
 /// A part of a space with fixed axes and secondary alignment.
@@ -88,8 +88,7 @@ impl StackLayouter {
     /// Add a layout to the stack.
     pub fn add(&mut self, layout: Layout) -> LayoutResult<()> {
         if layout.alignment.secondary != self.sub.alignment {
-            // self.finish_subspace();
-            // finish sub and start new with layout's alignment
+            self.finish_subspace(layout.alignment.secondary);
         }
 
         // Add a cached soft space if there is one.
@@ -174,13 +173,13 @@ impl StackLayouter {
         }
     }
 
-    /// Change the layouting axis used by this layouter.
+    /// Change the layouting axes used by this layouter.
     ///
     /// This starts a new subspace (if the axes are actually different from the
     /// current ones).
     pub fn set_axes(&mut self, axes: LayoutAxes) {
         if axes != self.ctx.axes {
-            self.finish_subspace();
+            self.finish_subspace(Alignment::Origin);
 
             let (origin, usable) = self.remaining_subspace();
             self.sub = Subspace::new(axes, Alignment::Origin, origin, usable);
@@ -226,9 +225,7 @@ impl StackLayouter {
 
     /// Whether the current layout space (not subspace) is empty.
     pub fn space_is_empty(&self) -> bool {
-        self.sub.layouts.is_empty()
-            && self.sub.size == Size2D::zero()
-            && self.space.spaces.is_empty()
+        self.subspace_is_empty() && self.space.subs.is_empty()
     }
 
     /// Whether the current layout space is the last is the followup list.
@@ -244,12 +241,127 @@ impl StackLayouter {
         self.layouts
     }
 
-    pub fn finish_space(&mut self, _hard: bool) {
-        unimplemented!()
-    }
+    /// Finish the current space and start a new one.
+    pub fn finish_space(&mut self, hard: bool) {
+        self.finish_subspace(Alignment::Origin);
 
-    fn finish_subspace(&mut self) {
-        unimplemented!()
+        println!();
+        println!("FINISHING SPACE:");
+        println!();
+
+        let space = self.ctx.spaces[self.space.index];
+        let mut subs = std::mem::replace(&mut self.space.subs, vec![]);
+
+        // ---------------------------------------------------------------------
+        // Compute the size of the whole space.
+        let usable = space.usable();
+        let mut max = Size2D {
+            x: if space.expand.0 { usable.x } else { Size::zero() },
+            y: if space.expand.1 { usable.y } else { Size::zero() },
+        };
+
+        // The total size is determined by the maximum position + extent of one
+        // of the boxes.
+        for sub in &subs {
+            max.max_eq(sub.origin + sub.axes.specialize(sub.size));
+        }
+
+        let dimensions = max.padded(space.padding);
+
+        println!("WITH DIMENSIONS: {}", dimensions);
+
+        println!("SUBS: {:#?}", subs);
+
+        // ---------------------------------------------------------------------
+        // Justify the boxes according to their alignment and give each box
+        // the appropriate origin and usable space.
+
+        // use Alignment::*;
+
+        for sub in &mut subs {
+            // The usable width should not exceed the total usable width
+            // (previous value) or the maximum width of the layout as a whole.
+            sub.usable.x = crate::size::min(
+                sub.usable.x,
+                sub.axes.specialize(max - sub.origin).x,
+            );
+
+            sub.usable.y = sub.size.y;
+        }
+
+        // if space.expand.1 {
+        //     let height = subs.iter().map(|sub| sub.size.y).sum();
+        //     let centers = subs.iter()
+        //         .filter(|sub| sub.alignment == Alignment::Center)
+        //         .count()
+        //         .max(1);
+
+        //     let grow = max.y - height;
+        //     let center_grow = grow / (centers as i32);
+
+        //     println!("center grow = {}", center_grow);
+
+        //     let mut offset = Size::zero();
+        //     for sub in &mut subs {
+        //         sub.origin.y += offset;
+        //         if sub.alignment == Center {
+        //             sub.usable.y += center_grow;
+        //             offset += center_grow;
+        //         }
+        //     }
+
+        //     if let Some(last) = subs.last_mut() {
+        //         last.usable.y += grow - offset;
+        //     }
+        // }
+
+        // ---------------------------------------------------------------------
+        // Do the thing
+
+        // Add a debug box with this boxes size.
+        let mut actions = LayoutActions::new();
+        actions.add(LayoutAction::DebugBox(dimensions));
+
+        for sub in subs {
+            let LayoutAxes { primary, secondary } = sub.axes;
+
+            // The factor is +1 if the axis is positive and -1 otherwise.
+            let factor = sub.axes.secondary.factor();
+
+            // The anchor is the position of the origin-most point of the
+            // layout.
+            let anchor =
+                sub.usable.y.anchor(sub.alignment, secondary.is_positive())
+                - factor * sub.size.y.anchor(sub.alignment, true);
+
+            for entry in sub.layouts {
+                let layout = entry.layout;
+                let alignment = layout.alignment.primary;
+                let size = sub.axes.generalize(layout.dimensions);
+
+                let x =
+                    sub.usable.x.anchor(alignment, primary.is_positive())
+                    - size.x.anchor(alignment, primary.is_positive());
+
+                let y = anchor
+                    + factor * entry.offset
+                    - size.y.anchor(Alignment::Origin, secondary.is_positive());
+
+                let pos = sub.origin + sub.axes.specialize(Size2D::new(x, y));
+                actions.add_layout(pos, layout);
+            }
+        }
+
+        // ---------------------------------------------------------------------
+
+        self.layouts.push(Layout {
+            dimensions,
+            baseline: None,
+            alignment: self.ctx.alignment,
+            actions: actions.to_vec(),
+        });
+
+        self.start_space(self.next_space(), hard);
     }
 
     /// Start a new space with the given index.
@@ -263,13 +375,45 @@ impl StackLayouter {
         self.sub = Subspace::new(axes, Alignment::Origin, space.start(), space.usable());
     }
 
-    /// The remaining sub
-    fn remaining_subspace(&self) -> (Size2D, Size2D) {
-        unimplemented!()
-    }
-
+    /// The index of the next space.
     fn next_space(&self) -> usize {
         (self.space.index + 1).min(self.ctx.spaces.len() - 1)
+    }
+
+    /// Finish the current subspace.
+    fn finish_subspace(&mut self, new_alignment: Alignment) {
+        let empty = self.subspace_is_empty();
+
+        let axes = self.ctx.axes;
+        let (origin, usable) = self.remaining_subspace();
+        let new_sub = Subspace::new(axes, new_alignment, origin, usable);
+        let sub = std::mem::replace(&mut self.sub, new_sub);
+
+        if !empty {
+            self.space.subs.push(sub);
+        }
+    }
+
+    /// The remaining sub
+    fn remaining_subspace(&self) -> (Size2D, Size2D) {
+        let offset = self.sub.size.y + self.sub.last_spacing.soft_or_zero();
+
+        let new_origin = self.sub.origin + match self.ctx.axes.secondary.is_positive() {
+            true => self.ctx.axes.specialize(Size2D::with_y(offset)),
+            false => Size2D::zero(),
+        };
+
+        let new_usable = self.ctx.axes.specialize(Size2D {
+            x: self.sub.usable.x,
+            y: self.sub.usable.y - offset,
+        });
+
+        (new_origin, new_usable)
+    }
+
+    /// Whether the current layout space (not subspace) is empty.
+    fn subspace_is_empty(&self) -> bool {
+        self.sub.layouts.is_empty() && self.sub.size == Size2D::zero()
     }
 }
 
@@ -278,7 +422,7 @@ impl Space {
         Space {
             index,
             hard,
-            spaces: vec![],
+            subs: vec![],
         }
     }
 }
