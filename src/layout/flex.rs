@@ -33,7 +33,7 @@ impl FlexLine {
         FlexLine {
             usable,
             actions: LayoutActions::new(),
-            combined_dimensions: Size2D::zero(),
+            combined_dimensions: Size2D::ZERO,
         }
     }
 }
@@ -51,7 +51,7 @@ impl PartialLine {
         PartialLine {
             usable,
             content: vec![],
-            dimensions: Size2D::zero(),
+            dimensions: Size2D::ZERO,
             space: LastSpacing::Hard,
         }
     }

@@ -105,10 +105,10 @@ class BoxRenderer:
 
         img = Image.new('RGBA', self.size, (255, 255, 255, 255))
         pixels = numpy.array(img)
-        for i in range(0, int(height)):
-            for j in range(0, int(width)):
-                if ((i // 2) % 2 == 0) == ((j // 2) % 2 == 0):
-                    pixels[4*i:4*(i+1), 4*j:4*(j+1)] = (225, 225, 225, 255)
+        # for i in range(0, int(height)):
+        #     for j in range(0, int(width)):
+        #         if ((i // 2) % 2 == 0) == ((j // 2) % 2 == 0):
+        #             pixels[4*i:4*(i+1), 4*j:4*(j+1)] = (225, 225, 225, 255)
 
         self.img = Image.fromarray(pixels, 'RGBA')
         self.draw = ImageDraw.Draw(self.img)

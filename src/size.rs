@@ -6,7 +6,7 @@ use std::iter::Sum;
 use std::ops::*;
 use std::str::FromStr;
 
-use crate::layout::Alignment;
+use crate::layout::{LayoutAxes, Alignment};
 
 /// A general space type.
 #[derive(Copy, Clone, PartialEq)]
@@ -51,8 +51,11 @@ pub type FSize = ScaleSize;
 pub type PSize = ScaleSize;
 
 impl Size {
+    /// The zeroed size.
+    pub const ZERO: Size = Size { points: 0.0 };
+
     /// Create a zeroed size.
-    pub fn zero() -> Size { Size { points: 0.0 } }
+    pub fn zero() -> Size { Size::ZERO }
 
     /// Create a size from an amount of points.
     pub fn pt(points: f32) -> Size { Size { points } }
@@ -83,12 +86,17 @@ impl Size {
         *self = max(*self, other);
     }
 
+    /// Set this size to the minimum of itself and the other size.
+    pub fn min_eq(&mut self, other: Size) {
+        *self = min(*self, other);
+    }
+
     /// The specialized anchor position for an item with the given alignment in a
     /// container with a given size along the given axis.
     pub fn anchor(&self, alignment: Alignment, positive: bool) -> Size {
         use Alignment::*;
         match (positive, alignment) {
-            (true, Origin) | (false, End) => Size::zero(),
+            (true, Origin) | (false, End) => Size::ZERO,
             (_, Center) => *self / 2,
             (true, End) | (false, Origin) => *self,
         }
@@ -97,6 +105,9 @@ impl Size {
 }
 
 impl Size2D {
+    /// The zeroed 2D-size.
+    pub const ZERO: Size2D = Size2D { x: Size::ZERO, y: Size::ZERO };
+
     /// Create a new 2D-size from two sizes.
     pub fn new(x: Size, y: Size) -> Size2D {
         Size2D { x, y }
@@ -104,7 +115,7 @@ impl Size2D {
 
     /// Create a 2D-size with both sizes set to zero.
     pub fn zero() -> Size2D {
-        Size2D { x: Size::zero(), y: Size::zero() }
+        Size2D::ZERO
     }
 
     /// Create a 2D-size with `x` and `y` set to the same value `s`.
@@ -114,12 +125,63 @@ impl Size2D {
 
     /// Create a new 2D-size with `x` set to a value and `y` zero.
     pub fn with_x(x: Size) -> Size2D {
-        Size2D { x, y: Size::zero() }
+        Size2D { x, y: Size::ZERO }
     }
 
     /// Create a new 2D-size with `y` set to a value and `x` zero.
     pub fn with_y(y: Size) -> Size2D {
-        Size2D { x: Size::zero(), y }
+        Size2D { x: Size::ZERO, y }
+    }
+
+    /// Access the primary size of this 2D-size.
+    pub fn primary(&self, axes: LayoutAxes) -> Size {
+        match axes.primary.is_horizontal() {
+            true => self.x,
+            false => self.y,
+        }
+    }
+
+    /// Access the secondary size of this 2D-size.
+    pub fn secondary(&self, axes: LayoutAxes) -> Size {
+        match axes.primary.is_horizontal() {
+            true => self.y,
+            false => self.x,
+        }
+    }
+
+    /// Access the primary size of this 2D-size.
+    pub fn primary_mut(&mut self, axes: LayoutAxes) -> &mut Size {
+        match axes.primary.is_horizontal() {
+            true => &mut self.x,
+            false => &mut self.y,
+        }
+    }
+
+    /// Access the secondary size of this 2D-size.
+    pub fn secondary_mut(&mut self, axes: LayoutAxes) -> &mut Size {
+        match axes.primary.is_horizontal() {
+            true => &mut self.y,
+            false => &mut self.x,
+        }
+    }
+
+    /// Returns the generalized version of a `Size2D` dependent on
+    /// the layouting axes, that is:
+    /// - The x coordinate describes the primary axis instead of the horizontal one.
+    /// - The y coordinate describes the secondary axis instead of the vertical one.
+    pub fn generalized(&self, axes: LayoutAxes) -> Size2D {
+        match axes.primary.is_horizontal() {
+            true => *self,
+            false => Size2D { x: self.y, y: self.x },
+        }
+    }
+
+    /// Returns the specialized version of this generalized Size2D.
+    /// (Inverse to `generalized`).
+    pub fn specialized(&self, axes: LayoutAxes) -> Size2D {
+        // In fact, generalized is its own inverse. For reasons of clarity
+        // at the call site, we still have this second function.
+        self.generalized(axes)
     }
 
     /// Return a 2D-size padded by the paddings of the given box.
@@ -150,9 +212,24 @@ impl Size2D {
         self.x.max_eq(other.x);
         self.y.max_eq(other.y);
     }
+
+    /// Set this size to the minimum of itself and the other size
+    /// (for both dimensions).
+    pub fn min_eq(&mut self, other: Size2D) {
+        self.x.min_eq(other.x);
+        self.y.min_eq(other.y);
+    }
 }
 
 impl SizeBox {
+    /// The zeroed size box.
+    pub const ZERO: SizeBox = SizeBox {
+        left: Size::ZERO,
+        top: Size::ZERO,
+        right: Size::ZERO,
+        bottom: Size::ZERO,
+    };
+
     /// Create a new box from four sizes.
     pub fn new(left: Size, top: Size, right: Size, bottom: Size) -> SizeBox {
         SizeBox {
@@ -165,8 +242,7 @@ impl SizeBox {
 
     /// Create a box with all values set to zero.
     pub fn zero() -> SizeBox {
-        let zero = Size::zero();
-        SizeBox::new(zero, zero, zero, zero)
+        SizeBox::ZERO
     }
 
     /// Create a box with all four fields set to the same value `s`.
@@ -269,7 +345,7 @@ impl Neg for Size {
 impl Sum for Size {
     fn sum<I>(iter: I) -> Size
     where I: Iterator<Item = Size> {
-        iter.fold(Size::zero(), Add::add)
+        iter.fold(Size::ZERO, Add::add)
     }
 }
 

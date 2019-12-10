@@ -11,7 +11,7 @@ function! {
 
     parse(args, body, ctx) {
         Boxed {
-            body: parse!(expected: body, ctx),
+            body: parse!(optional: body, ctx).unwrap_or(SyntaxTree::new()),
             map: ExtentMap::new(&mut args, false)?,
         }
     }
@@ -22,8 +22,8 @@ function! {
         let space = &mut ctx.spaces[0];
         self.map.apply_with(ctx.axes, |axis, p| {
             let entity = match axis {
-                Horizontal => { space.expand.0 = true; &mut space.dimensions.x },
-                Vertical => { space.expand.1 = true; &mut space.dimensions.y },
+                Horizontal => { space.expand.horizontal = true; &mut space.dimensions.x },
+                Vertical => { space.expand.vertical = true; &mut space.dimensions.y },
             };
 
             *entity = p.concretize(*entity)

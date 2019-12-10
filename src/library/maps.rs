@@ -86,8 +86,8 @@ impl<E: ExpressionKind + Copy> ExtentMap<E> {
             let key = match arg.v.key.v.0.as_str() {
                 "width" | "w" => AxisKey::Horizontal,
                 "height" | "h" => AxisKey::Vertical,
-                "primary-size" => AxisKey::Primary,
-                "secondary-size" => AxisKey::Secondary,
+                "primary-size" | "ps" => AxisKey::Primary,
+                "secondary-size" | "ss" => AxisKey::Secondary,
                 _ => if enforce {
                     error!("expected dimension")
                 } else {

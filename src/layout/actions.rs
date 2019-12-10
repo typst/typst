@@ -68,8 +68,8 @@ impl LayoutActions {
     pub fn new() -> LayoutActions {
         LayoutActions {
             actions: vec![],
-            origin: Size2D::zero(),
-            active_font: (std::usize::MAX, Size::zero()),
+            origin: Size2D::ZERO,
+            active_font: (std::usize::MAX, Size::ZERO),
             next_pos: None,
             next_font: None,
         }

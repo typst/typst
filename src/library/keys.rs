@@ -118,7 +118,7 @@ impl AlignmentKey {
         use AlignmentKey::*;
         use SpecificAxisKind::*;
 
-        let positive = axes.get_specific(axis).is_positive();
+        let positive = axes.specific(axis).is_positive();
         match (self, axis, positive) {
             (Origin, Horizontal, true) | (End, Horizontal, false) => Left,
             (End, Horizontal, true) | (Origin, Horizontal, false) => Right,

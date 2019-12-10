@@ -116,7 +116,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                     LayoutSpace {
                         dimensions: style.dimensions,
                         padding: style.margins,
-                        expand: (true, true),
+                        expand: LayoutExpansion::new(true, true),
                     }
                 ], true);
             }

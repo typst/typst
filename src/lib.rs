@@ -27,7 +27,7 @@ use toddle::Error as FontError;
 use crate::func::Scope;
 use crate::layout::{layout_tree, MultiLayout, LayoutContext};
 use crate::layout::{LayoutAxes, LayoutAlignment, Axis, Alignment};
-use crate::layout::{LayoutResult, LayoutSpace};
+use crate::layout::{LayoutResult, LayoutSpace, LayoutExpansion};
 use crate::syntax::{parse, SyntaxTree, ParseContext, Span, ParseResult};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 
@@ -98,11 +98,11 @@ impl<'p> Typesetter<'p> {
                 style: &self.style,
                 spaces: smallvec![LayoutSpace {
                     dimensions: self.style.page.dimensions,
-                    expand: (true, true),
+                    expand: LayoutExpansion::new(true, true),
                     padding: self.style.page.margins,
                 }],
-                axes: LayoutAxes::new(Axis::LeftToRight, Axis::TopToBottom),
-                alignment: LayoutAlignment::new(Alignment::Origin, Alignment::Origin),
+                axes: LayoutAxes::default(),
+                alignment: LayoutAlignment::default(),
             },
         )?)
     }

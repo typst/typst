@@ -14,7 +14,7 @@ pub mod prelude {
     pub use crate::func::{Scope, ParseFunc, LayoutFunc, Command, Commands};
     pub use crate::layout::{
         layout_tree, Layout, MultiLayout,
-        LayoutContext, LayoutSpace, LayoutSpaces,
+        LayoutContext, LayoutSpace, LayoutSpaces, LayoutExpansion,
         LayoutAxes, Axis, GenericAxisKind, SpecificAxisKind,
         LayoutAlignment, Alignment,
         SpacingKind, LayoutResult,

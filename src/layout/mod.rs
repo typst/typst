@@ -1,7 +1,6 @@
 //! The core layouting engine.
 
 use std::io::{self, Write};
-
 use smallvec::SmallVec;
 
 use toddle::query::{FontClass, SharedFontLoader};
@@ -91,7 +90,7 @@ pub struct LayoutSpace {
     /// Whether to expand the dimensions of the resulting layout to the full
     /// dimensions of this space or to shrink them to fit the content for the
     /// horizontal and vertical axis.
-    pub expand: (bool, bool),
+    pub expand: LayoutExpansion,
 }
 
 impl LayoutSpace {
@@ -110,9 +109,22 @@ impl LayoutSpace {
     pub fn usable_space(&self) -> LayoutSpace {
         LayoutSpace {
             dimensions: self.usable(),
-            padding: SizeBox::zero(),
-            expand: (false, false),
+            padding: SizeBox::ZERO,
+            expand: LayoutExpansion::new(false, false),
         }
+    }
+}
+
+/// Whether to fit to content or expand to the space's size.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct LayoutExpansion {
+    pub horizontal: bool,
+    pub vertical: bool,
+}
+
+impl LayoutExpansion {
+    pub fn new(horizontal: bool, vertical: bool) -> LayoutExpansion {
+        LayoutExpansion { horizontal, vertical }
     }
 }
 
@@ -132,28 +144,8 @@ impl LayoutAxes {
         LayoutAxes { primary, secondary }
     }
 
-    /// Returns the generalized version of a `Size2D` dependent on
-    /// the layouting axes, that is:
-    /// - The x coordinate describes the primary axis instead of the horizontal one.
-    /// - The y coordinate describes the secondary axis instead of the vertical one.
-    pub fn generalize(&self, size: Size2D) -> Size2D {
-        if self.primary.is_horizontal() {
-            size
-        } else {
-            Size2D { x: size.y, y: size.x }
-        }
-    }
-
-    /// Returns the specialized version of this generalized Size2D.
-    /// (Inverse to `generalized`).
-    pub fn specialize(&self, size: Size2D) -> Size2D {
-        // In fact, generalized is its own inverse. For reasons of clarity
-        // at the call site, we still have this second function.
-        self.generalize(size)
-    }
-
     /// Return the specified generic axis.
-    pub fn get_generic(&self, axis: GenericAxisKind) -> Axis {
+    pub fn generic(&self, axis: GenericAxisKind) -> Axis {
         match axis {
             GenericAxisKind::Primary => self.primary,
             GenericAxisKind::Secondary => self.secondary,
@@ -161,8 +153,8 @@ impl LayoutAxes {
     }
 
     /// Return the specified specific axis.
-    pub fn get_specific(&self, axis: SpecificAxisKind) -> Axis {
-        self.get_generic(axis.generic(*self))
+    pub fn specific(&self, axis: SpecificAxisKind) -> Axis {
+        self.generic(axis.generic(*self))
     }
 
     /// Returns the generic axis kind which is the horizontal axis.
@@ -219,6 +211,15 @@ impl LayoutAxes {
     /// Returns the generic alignment corresponding to bottom-alignment.
     pub fn bottom(&self) -> Alignment {
         self.top().inv()
+    }
+}
+
+impl Default for LayoutAxes {
+    fn default() -> LayoutAxes {
+        LayoutAxes {
+            primary: Axis::LeftToRight,
+            secondary: Axis::TopToBottom,
+        }
     }
 }
 
@@ -318,7 +319,7 @@ impl SpecificAxisKind {
 }
 
 /// The place to put a layout in a container.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct LayoutAlignment {
     pub primary: Alignment,
     pub secondary: Alignment,
@@ -331,7 +332,7 @@ impl LayoutAlignment {
 }
 
 /// Where to align content.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Alignment {
     Origin,
     Center,
@@ -346,6 +347,12 @@ impl Alignment {
             Alignment::Center => Alignment::Center,
             Alignment::End => Alignment::Origin,
         }
+    }
+}
+
+impl Default for Alignment {
+    fn default() -> Alignment {
+        Alignment::Origin
     }
 }
 
@@ -377,7 +384,7 @@ impl LastSpacing {
     fn soft_or_zero(&self) -> Size {
         match self {
             LastSpacing::Soft(space, _) => *space,
-            _ => Size::zero(),
+            _ => Size::ZERO,
         }
     }
 }

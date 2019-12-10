@@ -42,7 +42,7 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
             actions: LayoutActions::new(),
             buffer: String::new(),
             active_font: std::usize::MAX,
-            width: Size::zero(),
+            width: Size::ZERO,
             classes: ctx.style.classes.clone(),
         }
     }
