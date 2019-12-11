@@ -65,14 +65,16 @@ pub struct LayoutContext<'a, 'p> {
     pub loader: &'a SharedFontLoader<'p>,
     /// The style for pages and text.
     pub style: &'a LayoutStyle,
-    /// Whether this layouting process handles the top-level pages.
-    pub top_level: bool,
     /// The spaces to layout in.
     pub spaces: LayoutSpaces,
     /// The initial axes along which content is laid out.
     pub axes: LayoutAxes,
     /// The alignment of the finished layout.
     pub alignment: LayoutAlignment,
+    /// Whether this layouting process handles the top-level pages.
+    pub top_level: bool,
+    /// Whether to debug render a box around the layout.
+    pub debug: bool,
 }
 
 /// A possibly stack-allocated vector of layout spaces.

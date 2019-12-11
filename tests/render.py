@@ -56,7 +56,6 @@ class MultiboxRenderer:
 
             renderer = BoxRenderer(self.fonts, width, height)
             for i in range(action_count):
-                if i == 0: continue
                 command = self.content[start + i]
                 renderer.execute(command)
 
@@ -134,7 +133,7 @@ class BoxRenderer:
 
         if cmd == 'm':
             x, y = (pix(float(s)) for s in parts)
-            self.cursor = (x, y)
+            self.cursor = [x, y]
 
         elif cmd == 'f':
             index = int(parts[0])
@@ -143,7 +142,9 @@ class BoxRenderer:
 
         elif cmd == 'w':
             text = command[2:]
+            width = self.draw.textsize(text, font=self.font)[0]
             self.draw.text(self.cursor, text, (0, 0, 0, 255), font=self.font)
+            self.cursor[0] += width
 
         elif cmd == 'b':
             x, y = self.cursor

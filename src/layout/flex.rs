@@ -66,6 +66,7 @@ pub struct FlexContext {
     pub axes: LayoutAxes,
     pub alignment: LayoutAlignment,
     pub flex_spacing: Size,
+    pub debug: bool,
 }
 
 impl FlexLayouter {
@@ -75,6 +76,7 @@ impl FlexLayouter {
             spaces: ctx.spaces,
             axes: ctx.axes,
             alignment: ctx.alignment,
+            debug: ctx.debug,
         });
 
         let usable = stack.primary_usable();
@@ -176,7 +178,6 @@ impl FlexLayouter {
         unimplemented!()
     }
 
-    #[allow(dead_code)]
     fn finish_partial_line(&mut self) {
         unimplemented!()
     }

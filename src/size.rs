@@ -6,7 +6,7 @@ use std::iter::Sum;
 use std::ops::*;
 use std::str::FromStr;
 
-use crate::layout::{LayoutAxes, Axis, Alignment};
+use crate::layout::{LayoutAxes, LayoutAlignment, Axis, Alignment};
 
 /// A general space type.
 #[derive(Copy, Clone, PartialEq)]
@@ -91,11 +91,11 @@ impl Size {
         *self = min(*self, other);
     }
 
-    /// The specialized anchor position for an item with the given alignment in a
-    /// container with a given size along the given axis.
-    pub fn anchor(&self, alignment: Alignment, positive: bool) -> Size {
+    /// The anchor position along the given axis for an item with the given
+    /// alignment in a container with this size.
+    pub fn anchor(&self, alignment: Alignment, axis: Axis) -> Size {
         use Alignment::*;
-        match (positive, alignment) {
+        match (axis.is_positive(), alignment) {
             (true, Origin) | (false, End) => Size::ZERO,
             (_, Center) => *self / 2,
             (true, End) | (false, Origin) => *self,
@@ -219,9 +219,16 @@ impl Size2D {
         self.y.min_eq(other.y);
     }
 
-    /// Swap the two dimensions.
-    pub fn swap(&mut self) {
-        std::mem::swap(&mut self.x, &mut self.y);
+    /// The anchor position along the given axis for an item with the given
+    /// alignment in a container with this size.
+    ///
+    /// This assumes the size to be generalized such that `x` corresponds to the
+    /// primary axis.
+    pub fn anchor(&self, alignment: LayoutAlignment, axes: LayoutAxes) -> Size2D {
+        Size2D {
+            x: self.x.anchor(alignment.primary, axes.primary),
+            y: self.y.anchor(alignment.secondary, axes.secondary),
+        }
     }
 }
 

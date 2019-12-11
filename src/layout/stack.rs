@@ -1,14 +1,15 @@
 use smallvec::smallvec;
-use crate::size::{min, max};
+use crate::size::max;
 use super::*;
 
-/// The stack layouter arranges boxes stacked onto each other.
+/// The stack layouter stack boxes onto each other along the secondary layouting
+/// axis.
 ///
-/// The boxes are laid out in the direction of the secondary layouting axis and
-/// are aligned along both axes.
+/// The boxes are aligned along both axes according to their requested
+/// alignment.
 #[derive(Debug, Clone)]
 pub struct StackLayouter {
-    /// The context for layouter.
+    /// The context for layouting.
     ctx: StackContext,
     /// The output layouts.
     layouts: MultiLayout,
@@ -17,13 +18,19 @@ pub struct StackLayouter {
 }
 
 /// The context for stack layouting.
-///
-/// See [`LayoutContext`] for details about the fields.
 #[derive(Debug, Clone)]
 pub struct StackContext {
+    /// The spaces to layout in.
     pub spaces: LayoutSpaces,
+    /// The initial layouting axes, which can be updated by the
+    /// [`StackLayouter::set_axes`] method.
     pub axes: LayoutAxes,
+    /// Which alignment to set on the resulting layout. This affects how it will
+    /// be positioned in a parent box.
     pub alignment: LayoutAlignment,
+    /// Whether to output a command which renders a debugging box showing the
+    /// extent of the layout.
+    pub debug: bool,
 }
 
 /// A layout space composed of subspaces which can have different axes and
@@ -42,19 +49,26 @@ struct Space {
     usable: Size2D,
     /// The specialized extra-needed dimensions to affect the size at all.
     extra: Size2D,
-    /// The maximal secondary alignment for both specialized axes (horizontal,
-    /// vertical).
-    alignment: (Alignment, Alignment),
+    /// Dictates the valid alignments for new boxes in this space.
+    rulers: Rulers,
     /// The last added spacing if the last added thing was spacing.
     last_spacing: LastSpacing,
+}
+
+/// The rulers of a space dictate which alignments for new boxes are still
+/// allowed and which require a new space to be started.
+#[derive(Debug, Clone)]
+struct Rulers {
+    top: Alignment,
+    bottom: Alignment,
+    left: Alignment,
+    right: Alignment,
 }
 
 impl StackLayouter {
     /// Create a new stack layouter.
     pub fn new(ctx: StackContext) -> StackLayouter {
-        let axes = ctx.axes;
         let space = ctx.spaces[0];
-
         StackLayouter {
             ctx,
             layouts: MultiLayout::new(),
@@ -64,23 +78,15 @@ impl StackLayouter {
 
     /// Add a layout to the stack.
     pub fn add(&mut self, layout: Layout) -> LayoutResult<()> {
-        // If the layout's secondary alignment is less than what we have already
-        // seen, it needs to go into the next space.
-        if layout.alignment.secondary < *self.secondary_alignment() {
+        if !self.update_rulers(layout.alignment) {
             self.finish_space(true);
         }
 
-        if layout.alignment.secondary == *self.secondary_alignment() {
-            // Add a cached soft space if there is one and the alignment stayed
-            // the same. Soft spaces are discarded if the alignment changes.
-            if let LastSpacing::Soft(spacing, _) = self.space.last_spacing {
-                self.add_spacing(spacing, SpacingKind::Hard);
-            }
-        } else {
-            // We want the new maximal alignment and since the layout's
-            // secondary alignment is at least the previous maximum, we just
-            // take it.
-            *self.secondary_alignment() = layout.alignment.secondary;
+        // Now, we add a possibly cached soft space. If the secondary alignment
+        // changed before, a possibly cached space would have already been
+        // discarded.
+        if let LastSpacing::Soft(spacing, _) = self.space.last_spacing {
+            self.add_spacing(spacing, SpacingKind::Hard);
         }
 
         // Find the first space that fits the layout.
@@ -93,8 +99,11 @@ impl StackLayouter {
             self.finish_space(true);
         }
 
+        // Change the usable space and size of the space.
         self.update_metrics(layout.dimensions.generalized(self.ctx.axes));
 
+        // Add the box to the vector and remember that spacings are allowed
+        // again.
         self.space.layouts.push((self.ctx.axes, layout));
         self.space.last_spacing = LastSpacing::None;
 
@@ -103,7 +112,7 @@ impl StackLayouter {
 
     /// Add multiple layouts to the stack.
     ///
-    /// This function simply calls `add` for each layout.
+    /// This function simply calls `add` repeatedly for each layout.
     pub fn add_multiple(&mut self, layouts: MultiLayout) -> LayoutResult<()> {
         for layout in layouts {
             self.add(layout)?;
@@ -121,7 +130,6 @@ impl StackLayouter {
                 let dimensions = Size2D::with_y(spacing);
 
                 self.update_metrics(dimensions);
-
                 self.space.layouts.push((self.ctx.axes, Layout {
                     dimensions: dimensions.specialized(self.ctx.axes),
                     alignment: LayoutAlignment::default(),
@@ -145,6 +153,26 @@ impl StackLayouter {
                 }
             }
         }
+    }
+
+    /// Update the rulers to account for the new layout. Returns true if a
+    /// space break is necessary.
+    fn update_rulers(&mut self, alignment: LayoutAlignment) -> bool {
+        let axes = self.ctx.axes;
+        let allowed = self.alignment_allowed(axes.primary, alignment.primary)
+            && self.alignment_allowed(axes.secondary, alignment.secondary);
+
+        if allowed {
+            *self.space.rulers.get(axes.secondary) = alignment.secondary;
+        }
+
+        allowed
+    }
+
+    /// Whether the given alignment is still allowed according to the rulers.
+    fn alignment_allowed(&mut self, axis: Axis, alignment: Alignment) -> bool {
+        alignment >= *self.space.rulers.get(axis)
+        && alignment <= self.space.rulers.get(axis.inv()).inv()
     }
 
     /// Update the size metrics to reflect that a layout or spacing with the
@@ -196,8 +224,12 @@ impl StackLayouter {
     /// The remaining unpadded, unexpanding spaces. If a multi-layout is laid
     /// out into these spaces, it will fit into this stack.
     pub fn remaining(&self) -> LayoutSpaces {
+        let dimensions = self.space.usable
+            - Size2D::with_y(self.space.last_spacing.soft_or_zero())
+                .specialized(self.ctx.axes);
+
         let mut spaces = smallvec![LayoutSpace {
-            dimensions: self.space.usable,
+            dimensions,
             padding: SizeBox::ZERO,
             expand: LayoutExpansion::new(false, false),
         }];
@@ -280,18 +312,34 @@ impl StackLayouter {
         // Step 3: Backward pass. Reduce the bounding boxes from the previous
         // layouts by what is taken by the following ones.
 
-        let mut extent = Size::ZERO;
+        // The `x` field stores the maximal primary extent in one axis-aligned
+        // run, while the `y` fields stores the accumulated secondary extent.
+        let mut extent = Size2D::ZERO;
+        let mut rotated = false;
 
         for (bound, entry) in bounds.iter_mut().zip(&self.space.layouts).rev() {
             let (axes, layout) = entry;
 
+            // When the axes get rotated, the the maximal primary size
+            // (`extent.x`) dictates how much secondary extent the whole run
+            // had. This value is thus stored in `extent.y`. The primary extent
+            // is reset for this new axis-aligned run.
+            let is_horizontal = axes.secondary.is_horizontal();
+            if is_horizontal != rotated {
+                extent.y = extent.x;
+                extent.x = Size::ZERO;
+                rotated = is_horizontal;
+            }
+
             // We reduce the bounding box of this layout at it's end by the
             // accumulated secondary extent of all layouts we have seen so far,
             // which are the layouts after this one since we iterate reversed.
-            *bound.secondary_end_mut(*axes) -= axes.secondary.factor() * extent;
+            *bound.secondary_end_mut(*axes) -= axes.secondary.factor() * extent.y;
 
             // Then, we add this layout's secondary extent to the accumulator.
-            extent += layout.dimensions.secondary(*axes);
+            let size = layout.dimensions.generalized(*axes);
+            extent.x.max_eq(size.x);
+            extent.y += size.y;
         }
 
         // ------------------------------------------------------------------ //
@@ -299,38 +347,26 @@ impl StackLayouter {
         // into a single finished layout.
 
         let mut actions = LayoutActions::new();
-        actions.add(LayoutAction::DebugBox(dimensions));
+
+        if self.ctx.debug {
+            actions.add(LayoutAction::DebugBox(dimensions));
+        }
 
         let layouts = std::mem::replace(&mut self.space.layouts, vec![]);
-
         for ((axes, layout), bound) in layouts.into_iter().zip(bounds) {
-            let LayoutAxes { primary, secondary } = axes;
-
             let size = layout.dimensions.specialized(axes);
             let alignment = layout.alignment;
 
-            // The space in which this layout is aligned is given by it's
-            // corresponding bound box.
-            let usable = Size2D::new(
-                bound.right - bound.left,
-                bound.bottom - bound.top
-            ).generalized(axes);
+            // The space in which this layout is aligned is given by the
+            // distances between the borders of it's bounding box.
+            let usable =
+                Size2D::new(bound.right - bound.left, bound.bottom - bound.top)
+                    .generalized(axes);
 
-            let offsets = Size2D {
-                x: usable.x.anchor(alignment.primary, primary.is_positive())
-                    - size.x.anchor(alignment.primary, primary.is_positive()),
-                y: usable.y.anchor(alignment.secondary, secondary.is_positive())
-                    - size.y.anchor(alignment.secondary, secondary.is_positive()),
-            };
+            let local = usable.anchor(alignment, axes) - size.anchor(alignment, axes);
+            let pos = Size2D::new(bound.left, bound.top) + local.specialized(axes);
 
-            let position = Size2D::new(bound.left, bound.top)
-                + offsets.specialized(axes);
-
-            println!("pos: {}", position);
-            println!("usable: {}", usable);
-            println!("size: {}", size);
-
-            actions.add_layout(position, layout);
+            actions.add_layout(pos, layout);
         }
 
         self.layouts.push(Layout {
@@ -338,6 +374,9 @@ impl StackLayouter {
             alignment: self.ctx.alignment,
             actions: actions.to_vec(),
         });
+
+        // ------------------------------------------------------------------ //
+        // Step 5: Start the next space.
 
         self.start_space(self.next_space(), hard);
     }
@@ -352,14 +391,6 @@ impl StackLayouter {
     fn next_space(&self) -> usize {
         (self.space.index + 1).min(self.ctx.spaces.len() - 1)
     }
-
-    // Access the secondary alignment in the current system of axes.
-    fn secondary_alignment(&mut self) -> &mut Alignment {
-        match self.ctx.axes.primary.is_horizontal() {
-            true => &mut self.space.alignment.1,
-            false => &mut self.space.alignment.0,
-        }
-    }
 }
 
 impl Space {
@@ -371,8 +402,24 @@ impl Space {
             size: Size2D::ZERO,
             usable,
             extra: Size2D::ZERO,
-            alignment: (Alignment::Origin, Alignment::Origin),
+            rulers: Rulers {
+                top: Alignment::Origin,
+                bottom: Alignment::Origin,
+                left: Alignment::Origin,
+                right: Alignment::Origin,
+            },
             last_spacing: LastSpacing::Hard,
+        }
+    }
+}
+
+impl Rulers {
+    fn get(&mut self, axis: Axis) -> &mut Alignment {
+        match axis {
+            Axis::TopToBottom => &mut self.top,
+            Axis::BottomToTop => &mut self.bottom,
+            Axis::LeftToRight => &mut self.left,
+            Axis::RightToLeft => &mut self.right,
         }
     }
 }

@@ -23,6 +23,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                 spaces: ctx.spaces.clone(),
                 axes: ctx.axes,
                 alignment: ctx.alignment,
+                debug: ctx.debug,
             }),
             style: ctx.style.clone(),
             ctx,
@@ -75,8 +76,9 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
         let commands = func.0.layout(LayoutContext {
             loader: self.ctx.loader,
             style: &self.style,
-            top_level: false,
             spaces,
+            top_level: false,
+            debug: true,
             .. self.ctx
         })?;
 
