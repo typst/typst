@@ -36,8 +36,6 @@ pub type MultiLayout = Vec<Layout>;
 pub struct Layout {
     /// The size of the box.
     pub dimensions: Size2D,
-    /// The baseline of the layout (as an offset from the top-left).
-    pub baseline: Option<Size>,
     /// How to align this layout in a parent container.
     pub alignment: LayoutAlignment,
     /// The actions composing this layout.

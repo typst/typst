@@ -70,13 +70,17 @@ impl StackLayouter {
             self.finish_space(true);
         }
 
-        // We want the new maximal alignment and since the layout's secondary
-        // alignment is at least the previous maximum, we just take it.
-        *self.secondary_alignment() = layout.alignment.secondary;
-
-        // Add a cached soft space if there is one.
-        if let LastSpacing::Soft(spacing, _) = self.space.last_spacing {
-            self.add_spacing(spacing, SpacingKind::Hard);
+        if layout.alignment.secondary == *self.secondary_alignment() {
+            // Add a cached soft space if there is one and the alignment stayed
+            // the same. Soft spaces are discarded if the alignment changes.
+            if let LastSpacing::Soft(spacing, _) = self.space.last_spacing {
+                self.add_spacing(spacing, SpacingKind::Hard);
+            }
+        } else {
+            // We want the new maximal alignment and since the layout's
+            // secondary alignment is at least the previous maximum, we just
+            // take it.
+            *self.secondary_alignment() = layout.alignment.secondary;
         }
 
         // Find the first space that fits the layout.
@@ -89,21 +93,7 @@ impl StackLayouter {
             self.finish_space(true);
         }
 
-        let axes = self.ctx.axes;
-        let dimensions = layout.dimensions.generalized(axes);
-
-        let mut size = self.space.size.generalized(axes);
-        let mut extra = self.space.extra.generalized(axes);
-
-        size.x += max(dimensions.x - extra.x, Size::ZERO);
-        size.y += max(dimensions.y - extra.y, Size::ZERO);
-        extra.x = max(extra.x, dimensions.x);
-        extra.y = max(extra.y - dimensions.y, Size::ZERO);
-
-        self.space.size = size.specialized(axes);
-        self.space.extra = extra.specialized(axes);
-
-        *self.space.usable.secondary_mut(axes) -= dimensions.y;
+        self.update_metrics(layout.dimensions.generalized(self.ctx.axes));
 
         self.space.layouts.push((self.ctx.axes, layout));
         self.space.last_spacing = LastSpacing::None;
@@ -124,22 +114,24 @@ impl StackLayouter {
     /// Add secondary spacing to the stack.
     pub fn add_spacing(&mut self, mut spacing: Size, kind: SpacingKind) {
         match kind {
-            // A hard space is directly added to the sub's size.
+            // A hard space is simply an empty box.
             SpacingKind::Hard => {
-                // Reduce the spacing such that definitely fits.
+                // Reduce the spacing such that it definitely fits.
                 spacing.min_eq(self.space.usable.secondary(self.ctx.axes));
+                let dimensions = Size2D::with_y(spacing);
 
-                self.add(Layout {
-                    dimensions: Size2D::with_y(spacing).specialized(self.ctx.axes),
-                    baseline: None,
+                self.update_metrics(dimensions);
+
+                self.space.layouts.push((self.ctx.axes, Layout {
+                    dimensions: dimensions.specialized(self.ctx.axes),
                     alignment: LayoutAlignment::default(),
-                    actions: vec![],
-                }).expect("spacing should fit");
+                    actions: vec![]
+                }));
 
                 self.space.last_spacing = LastSpacing::Hard;
             }
 
-            // A hard space is cached if it is not consumed by a hard space or
+            // A soft space is cached if it is not consumed by a hard space or
             // previous soft space with higher level.
             SpacingKind::Soft(level) => {
                 let consumes = match self.space.last_spacing {
@@ -155,11 +147,34 @@ impl StackLayouter {
         }
     }
 
+    /// Update the size metrics to reflect that a layout or spacing with the
+    /// given generalized dimensions has been added.
+    fn update_metrics(&mut self, dimensions: Size2D) {
+        let axes = self.ctx.axes;
+
+        let mut size = self.space.size.generalized(axes);
+        let mut extra = self.space.extra.generalized(axes);
+
+        size.x += max(dimensions.x - extra.x, Size::ZERO);
+        size.y += max(dimensions.y - extra.y, Size::ZERO);
+        extra.x = max(extra.x, dimensions.x);
+        extra.y = max(extra.y - dimensions.y, Size::ZERO);
+
+        self.space.size = size.specialized(axes);
+        self.space.extra = extra.specialized(axes);
+        *self.space.usable.secondary_mut(axes) -= dimensions.y;
+    }
+
     /// Change the layouting axes used by this layouter.
     ///
     /// This starts a new subspace (if the axes are actually different from the
     /// current ones).
     pub fn set_axes(&mut self, axes: LayoutAxes) {
+        // Forget the spacing because it is not relevant anymore.
+        if axes.secondary != self.ctx.axes.secondary {
+            self.space.last_spacing = LastSpacing::Hard;
+        }
+
         self.ctx.axes = axes;
     }
 
@@ -221,37 +236,105 @@ impl StackLayouter {
     pub fn finish_space(&mut self, hard: bool) {
         let space = self.ctx.spaces[self.space.index];
 
+        // ------------------------------------------------------------------ //
+        // Step 1: Determine the full dimensions of the space.
+        // (Mostly done already while collecting the boxes, but here we
+        //  expand if necessary.)
+
         let usable = space.usable();
         if space.expand.horizontal { self.space.size.x = usable.x; }
         if space.expand.vertical   { self.space.size.y = usable.y; }
 
         let dimensions = self.space.size.padded(space.padding);
 
+        // ------------------------------------------------------------------ //
+        // Step 2: Forward pass. Create a bounding box for each layout in which
+        // it will be aligned. Then, go forwards through the boxes and remove
+        // what is taken by previous layouts from the following layouts.
+
+        let start = space.start();
+
+        let mut bounds = vec![];
+        let mut bound = SizeBox {
+            left: start.x,
+            top: start.y,
+            right: start.x + self.space.size.x,
+            bottom: start.y + self.space.size.y,
+        };
+
+        for (axes, layout) in &self.space.layouts {
+            // First, we store the bounds calculated so far (which were reduced
+            // by the predecessors of this layout) as the initial bounding box
+            // of this layout.
+            bounds.push(bound);
+
+            // Then, we reduce the bounding box for the following layouts. This
+            // layout uses up space from the origin to the end. Thus, it reduces
+            // the usable space for following layouts at it's origin by its
+            // extent along the secondary axis.
+            *bound.secondary_origin_mut(*axes)
+                += axes.secondary.factor() * layout.dimensions.secondary(*axes);
+        }
+
+        // ------------------------------------------------------------------ //
+        // Step 3: Backward pass. Reduce the bounding boxes from the previous
+        // layouts by what is taken by the following ones.
+
+        let mut extent = Size::ZERO;
+
+        for (bound, entry) in bounds.iter_mut().zip(&self.space.layouts).rev() {
+            let (axes, layout) = entry;
+
+            // We reduce the bounding box of this layout at it's end by the
+            // accumulated secondary extent of all layouts we have seen so far,
+            // which are the layouts after this one since we iterate reversed.
+            *bound.secondary_end_mut(*axes) -= axes.secondary.factor() * extent;
+
+            // Then, we add this layout's secondary extent to the accumulator.
+            extent += layout.dimensions.secondary(*axes);
+        }
+
+        // ------------------------------------------------------------------ //
+        // Step 4: Align each layout in its bounding box and collect everything
+        // into a single finished layout.
+
         let mut actions = LayoutActions::new();
         actions.add(LayoutAction::DebugBox(dimensions));
 
-        let mut cursor = space.start();
-        for (axes, layout) in std::mem::replace(&mut self.space.layouts, vec![]) {
+        let layouts = std::mem::replace(&mut self.space.layouts, vec![]);
+
+        for ((axes, layout), bound) in layouts.into_iter().zip(bounds) {
             let LayoutAxes { primary, secondary } = axes;
+
             let size = layout.dimensions.specialized(axes);
-            let alignment = layout.alignment.primary;
+            let alignment = layout.alignment;
 
-            let primary_usable = self.space.size.primary(axes) - cursor.primary(axes);
+            // The space in which this layout is aligned is given by it's
+            // corresponding bound box.
+            let usable = Size2D::new(
+                bound.right - bound.left,
+                bound.bottom - bound.top
+            ).generalized(axes);
 
-            let position = Size2D {
-                x: cursor.primary(axes)
-                   + primary_usable.anchor(alignment, primary.is_positive())
-                   - size.x.anchor(alignment, primary.is_positive()),
-                y: cursor.secondary(axes),
+            let offsets = Size2D {
+                x: usable.x.anchor(alignment.primary, primary.is_positive())
+                    - size.x.anchor(alignment.primary, primary.is_positive()),
+                y: usable.y.anchor(alignment.secondary, secondary.is_positive())
+                    - size.y.anchor(alignment.secondary, secondary.is_positive()),
             };
 
-            actions.add_layout(position.specialized(axes), layout);
-            *cursor.secondary_mut(axes) += size.y;
+            let position = Size2D::new(bound.left, bound.top)
+                + offsets.specialized(axes);
+
+            println!("pos: {}", position);
+            println!("usable: {}", usable);
+            println!("size: {}", size);
+
+            actions.add_layout(position, layout);
         }
 
         self.layouts.push(Layout {
             dimensions,
-            baseline: None,
             alignment: self.ctx.alignment,
             actions: actions.to_vec(),
         });

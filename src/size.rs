@@ -6,7 +6,7 @@ use std::iter::Sum;
 use std::ops::*;
 use std::str::FromStr;
 
-use crate::layout::{LayoutAxes, Alignment};
+use crate::layout::{LayoutAxes, Axis, Alignment};
 
 /// A general space type.
 #[derive(Copy, Clone, PartialEq)]
@@ -101,7 +101,6 @@ impl Size {
             (true, End) | (false, Origin) => *self,
         }
     }
-
 }
 
 impl Size2D {
@@ -219,6 +218,11 @@ impl Size2D {
         self.x.min_eq(other.x);
         self.y.min_eq(other.y);
     }
+
+    /// Swap the two dimensions.
+    pub fn swap(&mut self) {
+        std::mem::swap(&mut self.x, &mut self.y);
+    }
 }
 
 impl SizeBox {
@@ -248,6 +252,26 @@ impl SizeBox {
     /// Create a box with all four fields set to the same value `s`.
     pub fn with_all(value: Size) -> SizeBox {
         SizeBox { left: value, top: value, right: value, bottom: value }
+    }
+
+    /// Access the origin direction on the secondary axis of this box.
+    pub fn secondary_origin_mut(&mut self, axes: LayoutAxes) -> &mut Size {
+        match axes.secondary {
+            Axis::LeftToRight => &mut self.left,
+            Axis::RightToLeft => &mut self.right,
+            Axis::TopToBottom => &mut self.top,
+            Axis::BottomToTop => &mut self.bottom,
+        }
+    }
+
+    /// Access the end direction on the secondary axis of this box.
+    pub fn secondary_end_mut(&mut self, axes: LayoutAxes) -> &mut Size {
+        match axes.secondary {
+            Axis::LeftToRight => &mut self.right,
+            Axis::RightToLeft => &mut self.left,
+            Axis::TopToBottom => &mut self.bottom,
+            Axis::BottomToTop => &mut self.top,
+        }
     }
 
     /// Set the `left` and `right` values.
