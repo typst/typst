@@ -1,5 +1,4 @@
 use smallvec::smallvec;
-use crate::size::max;
 use super::*;
 
 /// The stack layouter stack boxes onto each other along the secondary layouting
@@ -183,10 +182,11 @@ impl StackLayouter {
         let mut size = self.space.size.generalized(axes);
         let mut extra = self.space.extra.generalized(axes);
 
-        size.x += max(dimensions.x - extra.x, Size::ZERO);
-        size.y += max(dimensions.y - extra.y, Size::ZERO);
-        extra.x = max(extra.x, dimensions.x);
-        extra.y = max(extra.y - dimensions.y, Size::ZERO);
+        size.x += (dimensions.x - extra.x).max(Size::ZERO);
+        size.y += (dimensions.y - extra.y).max(Size::ZERO);
+
+        extra.x.max_eq(dimensions.x);
+        extra.y = (extra.y - dimensions.y).max(Size::ZERO);
 
         self.space.size = size.specialized(axes);
         self.space.extra = extra.specialized(axes);
@@ -304,7 +304,7 @@ impl StackLayouter {
             // layout uses up space from the origin to the end. Thus, it reduces
             // the usable space for following layouts at it's origin by its
             // extent along the secondary axis.
-            *bound.secondary_origin_mut(*axes)
+            *bound.get_mut(*axes, GenericAxisKind::Secondary, Alignment::Origin)
                 += axes.secondary.factor() * layout.dimensions.secondary(*axes);
         }
 
@@ -334,7 +334,8 @@ impl StackLayouter {
             // We reduce the bounding box of this layout at it's end by the
             // accumulated secondary extent of all layouts we have seen so far,
             // which are the layouts after this one since we iterate reversed.
-            *bound.secondary_end_mut(*axes) -= axes.secondary.factor() * extent.y;
+            *bound.get_mut(*axes, GenericAxisKind::Secondary, Alignment::End)
+                -= axes.secondary.factor() * extent.y;
 
             // Then, we add this layout's secondary extent to the accumulator.
             let size = layout.dimensions.generalized(*axes);
