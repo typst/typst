@@ -5,8 +5,7 @@ use std::iter::Sum;
 use std::ops::*;
 use std::str::FromStr;
 
-use crate::layout::{LayoutAxes, Axis, GenericAxisKind, LayoutAlignment, Alignment};
-
+use crate::layout::prelude::*;
 
 /// A general spacing type.
 #[derive(Copy, Clone, PartialEq, PartialOrd)]
@@ -59,11 +58,10 @@ impl Size {
     /// Set this size to the minimum of itself and the other size.
     pub fn min_eq(&mut self, other: Size) { *self = self.min(other); }
 
-    /// The anchor position along the given axis for an item with the given
+    /// The anchor position along the given direction for an item with the given
     /// alignment in a container with this size.
-    pub fn anchor(self, alignment: Alignment, axis: Axis) -> Size {
-        use Alignment::*;
-        match (axis.is_positive(), alignment) {
+    pub fn anchor(self, alignment: Alignment, direction: Direction) -> Size {
+        match (direction.is_positive(), alignment) {
             (true, Origin) | (false, End) => Size::ZERO,
             (_, Center) => self / 2,
             (true, End) | (false, Origin) => self,
@@ -120,23 +118,23 @@ impl Size2D {
     pub fn with_all(s: Size) -> Size2D { Size2D { x: s, y: s } }
 
     /// Access the primary size of this specialized 2D-size.
-    pub fn primary(self, axes: LayoutAxes) -> Size {
-        if axes.primary.is_horizontal() { self.x } else { self.y }
+    pub fn get_primary(self, axes: LayoutAxes) -> Size {
+        if axes.primary.axis() == Horizontal { self.x } else { self.y }
     }
 
     /// Access the primary size of this specialized 2D-size mutably.
-    pub fn primary_mut(&mut self, axes: LayoutAxes) -> &mut Size {
-        if axes.primary.is_horizontal() { &mut self.x } else { &mut self.y }
+    pub fn get_primary_mut(&mut self, axes: LayoutAxes) -> &mut Size {
+        if axes.primary.axis() == Horizontal { &mut self.x } else { &mut self.y }
     }
 
     /// Access the secondary size of this specialized 2D-size.
-    pub fn secondary(self, axes: LayoutAxes) -> Size {
-        if axes.primary.is_horizontal() { self.y } else { self.x }
+    pub fn get_secondary(self, axes: LayoutAxes) -> Size {
+        if axes.primary.axis() == Horizontal { self.y } else { self.x }
     }
 
     /// Access the secondary size of this specialized 2D-size mutably.
-    pub fn secondary_mut(&mut self, axes: LayoutAxes) -> &mut Size {
-        if axes.primary.is_horizontal() { &mut self.y } else { &mut self.x }
+    pub fn get_secondary_mut(&mut self, axes: LayoutAxes) -> &mut Size {
+        if axes.primary.axis() == Horizontal { &mut self.y } else { &mut self.x }
     }
 
     /// Returns the generalized version of a `Size2D` dependent on the layouting
@@ -144,9 +142,9 @@ impl Size2D {
     /// - `x` describes the primary axis instead of the horizontal one.
     /// - `y` describes the secondary axis instead of the vertical one.
     pub fn generalized(self, axes: LayoutAxes) -> Size2D {
-        match axes.primary.is_horizontal() {
-            true => self,
-            false => Size2D { x: self.y, y: self.x },
+        match axes.primary.axis() {
+            Horizontal => self,
+            Vertical => Size2D { x: self.y, y: self.x },
         }
     }
 
@@ -249,19 +247,19 @@ impl SizeBox {
     /// alignment.
     pub fn get_mut(&mut self,
         axes: LayoutAxes,
-        axis: GenericAxisKind,
+        axis: GenericAxis,
         alignment: Alignment,
     ) -> &mut Size {
-        let mut normalized = axes.generic(axis);
-        if alignment == Alignment::End {
+        let mut normalized = axes.get_generic(axis);
+        if alignment == End {
             normalized = normalized.inv();
         }
 
         match normalized {
-            Axis::LeftToRight => &mut self.left,
-            Axis::RightToLeft => &mut self.right,
-            Axis::TopToBottom => &mut self.top,
-            Axis::BottomToTop => &mut self.bottom,
+            LeftToRight => &mut self.left,
+            RightToLeft => &mut self.right,
+            TopToBottom => &mut self.top,
+            BottomToTop => &mut self.bottom,
         }
     }
 

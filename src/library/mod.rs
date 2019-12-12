@@ -19,7 +19,7 @@ pub fn std() -> Scope {
 
     std.add::<Align>("align");
     std.add::<Boxed>("box");
-    std.add::<Direction>("direction");
+    std.add::<DirectionChange>("direction");
     std.add::<PageSize>("page.size");
     std.add::<PageMargins>("page.margins");
 
@@ -30,10 +30,10 @@ pub fn std() -> Scope {
 
     std.add::<FontSize>("font.size");
 
-    std.add_with_metadata::<Spacing, Option<AxisKey>>("spacing", None);
+    std.add_with_metadata::<Spacing>("spacing", None);
 
     for (name, key) in &[("h", AxisKey::Horizontal), ("v", AxisKey::Vertical)] {
-        std.add_with_metadata::<Spacing, Option<AxisKey>>(name, Some(*key));
+        std.add_with_metadata::<Spacing>(name, Some(*key));
     }
 
     for (name, class) in &[
@@ -41,7 +41,7 @@ pub fn std() -> Scope {
         ("italic", FontClass::Italic),
         ("mono", FontClass::Monospace),
     ] {
-        std.add_with_metadata::<StyleChange, FontClass>(name, class.clone());
+        std.add_with_metadata::<StyleChange>(name, class.clone());
     }
 
     std
@@ -152,7 +152,7 @@ function! {
     }
 
     layout(self, ctx) {
-        let axis = self.axis.generic(ctx.axes);
+        let axis = self.axis.to_generic(ctx.axes);
         let spacing = self.spacing.concretize(ctx.style.text.font_size);
         vec![AddSpacing(spacing, SpacingKind::Hard, axis)]
     }

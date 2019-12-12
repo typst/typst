@@ -21,15 +21,13 @@ function! {
     }
 
     layout(self, mut ctx) {
-        use SpecificAxisKind::*;
-
         ctx.debug = self.debug;
         let space = &mut ctx.spaces[0];
 
         self.map.apply_with(ctx.axes, |axis, p| {
             let entity = match axis {
-                Horizontal => { space.expand.horizontal = true; &mut space.dimensions.x },
-                Vertical => { space.expand.vertical = true; &mut space.dimensions.y },
+                Horizontal => { space.expansion.horizontal = true; &mut space.dimensions.x },
+                Vertical => { space.expansion.vertical = true; &mut space.dimensions.y },
             };
 
             *entity = p.concretize(*entity)

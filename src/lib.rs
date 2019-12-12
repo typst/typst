@@ -91,6 +91,7 @@ impl<'p> Typesetter<'p> {
 
     /// Layout a syntax tree and return the produced layout.
     pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<MultiLayout> {
+        use crate::layout::prelude::*;
         Ok(layout_tree(
             &tree,
             LayoutContext {
@@ -98,12 +99,13 @@ impl<'p> Typesetter<'p> {
                 style: &self.style,
                 spaces: smallvec![LayoutSpace {
                     dimensions: self.style.page.dimensions,
-                    expand: LayoutExpansion::new(true, true),
                     padding: self.style.page.margins,
+                    expansion: LayoutExpansion::new(true, true),
                 }],
-                axes: LayoutAxes::default(),
-                alignment: LayoutAlignment::default(),
-                top_level: true,
+                repeat: true,
+                axes: LayoutAxes::new(LeftToRight, TopToBottom),
+                alignment: LayoutAlignment::new(Origin, Origin),
+                nested: false,
                 debug: false,
             },
         )?)

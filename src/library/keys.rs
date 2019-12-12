@@ -39,32 +39,25 @@ pub enum AxisKey {
 
 impl AxisKey {
     /// The generic version of this axis key in the given system of axes.
-    pub fn generic(&self, axes: LayoutAxes) -> GenericAxisKind {
+    pub fn to_generic(self, axes: LayoutAxes) -> GenericAxis {
         match self {
-            AxisKey::Primary => GenericAxisKind::Primary,
-            AxisKey::Secondary => GenericAxisKind::Secondary,
-            AxisKey::Vertical => axes.vertical(),
-            AxisKey::Horizontal => axes.horizontal(),
+            AxisKey::Primary => Primary,
+            AxisKey::Secondary => Secondary,
+            AxisKey::Vertical => Vertical.to_generic(axes),
+            AxisKey::Horizontal => Horizontal.to_generic(axes),
         }
     }
 
     /// The specific version of this axis key in the given system of axes.
-    pub fn specific(&self, axes: LayoutAxes) -> SpecificAxisKind {
+    pub fn to_specific(self, axes: LayoutAxes) -> SpecificAxis {
         match self {
-            AxisKey::Primary => axes.primary(),
-            AxisKey::Secondary => axes.secondary(),
-            AxisKey::Vertical => SpecificAxisKind::Vertical,
-            AxisKey::Horizontal => SpecificAxisKind::Horizontal,
+            AxisKey::Primary => Primary.to_specific(axes),
+            AxisKey::Secondary => Secondary.to_specific(axes),
+            AxisKey::Vertical => Vertical,
+            AxisKey::Horizontal => Horizontal,
         }
     }
 }
-
-kind!(AxisKey, "axis",
-    "horizontal" => AxisKey::Horizontal,
-    "vertical" => AxisKey::Vertical,
-    "primary" => AxisKey::Primary,
-    "secondary" => AxisKey::Secondary,
-);
 
 /// An argument key which describes a target alignment.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -81,29 +74,35 @@ pub enum AlignmentKey {
 impl AlignmentKey {
     /// The generic axis this alignment key corresopnds to in the given system
     /// of layouting axes. Falls back to `default` if the alignment is generic.
-    pub fn axis(&self, axes: LayoutAxes, default: GenericAxisKind) -> GenericAxisKind {
+    pub fn axis(self, axes: LayoutAxes, default: GenericAxis) -> GenericAxis {
         use AlignmentKey::*;
         match self {
             Origin | Center | End => default,
-            Left | Right => axes.horizontal(),
-            Top | Bottom => axes.vertical(),
+            Left | Right => Horizontal.to_generic(axes),
+            Top | Bottom => Vertical.to_generic(axes),
         }
     }
 
     /// The generic version of this alignment in the given system of layouting
-    /// axes. Returns an error if the alignment is invalid for the given axis.
-    pub fn generic(&self, axes: LayoutAxes, axis: GenericAxisKind) -> LayoutResult<Alignment> {
-        use AlignmentKey::*;
+    /// axes.
+    ///
+    /// Returns an error if the alignment is invalid for the given axis.
+    pub fn to_generic(self, axes: LayoutAxes, axis: GenericAxis) -> LayoutResult<Alignment> {
+        let specific = axis.to_specific(axes);
 
-        let horizontal = axis == axes.horizontal();
-        Ok(match self {
-            Origin => Alignment::Origin,
-            Center => Alignment::Center,
-            End => Alignment::End,
-            Left if horizontal => axes.left(),
-            Right if horizontal => axes.right(),
-            Top if !horizontal => axes.top(),
-            Bottom if !horizontal => axes.bottom(),
+        Ok(match (self, specific) {
+            (AlignmentKey::Origin, _) => Origin,
+            (AlignmentKey::Center, _) => Center,
+            (AlignmentKey::End, _) => End,
+
+            (AlignmentKey::Left, Horizontal) | (AlignmentKey::Top, Vertical) => {
+                if axes.get_specific(specific).is_positive() { Origin } else { End }
+            }
+
+            (AlignmentKey::Right, Horizontal) | (AlignmentKey::Bottom, Vertical) => {
+                if axes.get_specific(specific).is_positive() { End } else { Origin }
+            }
+
             _ => error!(
                 "invalid alignment `{}` for {} axis",
                 format!("{:?}", self).to_lowercase(),
@@ -114,30 +113,19 @@ impl AlignmentKey {
 
     /// The specific version of this alignment in the given system of layouting
     /// axes.
-    pub fn specific(&self, axes: LayoutAxes, axis: SpecificAxisKind) -> AlignmentKey {
+    pub fn to_specific(self, axes: LayoutAxes, axis: SpecificAxis) -> AlignmentKey {
         use AlignmentKey::*;
-        use SpecificAxisKind::*;
 
-        let positive = axes.specific(axis).is_positive();
+        let positive = axes.get_specific(axis).is_positive();
         match (self, axis, positive) {
             (Origin, Horizontal, true) | (End, Horizontal, false) => Left,
             (End, Horizontal, true) | (Origin, Horizontal, false) => Right,
             (Origin, Vertical, true) | (End, Vertical, false) => Top,
             (End, Vertical, true) | (Origin, Vertical, false) => Bottom,
-            _ => *self,
+            _ => self,
         }
     }
 }
-
-kind!(AlignmentKey, "alignment",
-    "left" => AlignmentKey::Left,
-    "top" => AlignmentKey::Top,
-    "right" => AlignmentKey::Right,
-    "bottom" => AlignmentKey::Bottom,
-    "origin" => AlignmentKey::Origin,
-    "center" => AlignmentKey::Center,
-    "end" => AlignmentKey::End,
-);
 
 /// An argument key which identifies a margin or padding target.
 ///
@@ -152,30 +140,47 @@ pub enum PaddingKey<A> {
     AxisAligned(A, AlignmentKey),
 }
 
-kind!(PaddingKey<AxisKey>, "axis or side",
-    "horizontal" => PaddingKey::Axis(AxisKey::Horizontal),
-    "vertical" => PaddingKey::Axis(AxisKey::Vertical),
-    "primary" => PaddingKey::Axis(AxisKey::Primary),
-    "secondary" => PaddingKey::Axis(AxisKey::Secondary),
-
-    "left" => PaddingKey::AxisAligned(AxisKey::Horizontal, AlignmentKey::Left),
-    "right" => PaddingKey::AxisAligned(AxisKey::Horizontal, AlignmentKey::Right),
-    "top" => PaddingKey::AxisAligned(AxisKey::Vertical, AlignmentKey::Top),
-    "bottom" => PaddingKey::AxisAligned(AxisKey::Vertical, AlignmentKey::Bottom),
-
-    "primary-origin" => PaddingKey::AxisAligned(AxisKey::Primary, AlignmentKey::Origin),
-    "primary-end" => PaddingKey::AxisAligned(AxisKey::Primary, AlignmentKey::End),
-    "secondary-origin" => PaddingKey::AxisAligned(AxisKey::Secondary, AlignmentKey::Origin),
-    "secondary-end" => PaddingKey::AxisAligned(AxisKey::Secondary, AlignmentKey::End),
-    "horizontal-origin" => PaddingKey::AxisAligned(AxisKey::Horizontal, AlignmentKey::Origin),
-    "horizontal-end" => PaddingKey::AxisAligned(AxisKey::Horizontal, AlignmentKey::End),
-    "vertical-origin" => PaddingKey::AxisAligned(AxisKey::Vertical, AlignmentKey::Origin),
-    "vertical-end" => PaddingKey::AxisAligned(AxisKey::Vertical, AlignmentKey::End),
+kind!(AxisKey, "axis",
+    "horizontal" | "h" => AxisKey::Horizontal,
+    "vertical"   | "v" => AxisKey::Vertical,
+    "primary"    | "p" => AxisKey::Primary,
+    "secondary"  | "s" => AxisKey::Secondary,
 );
 
-kind!(Axis, "direction",
-    "ltr" => Axis::LeftToRight,
-    "rtl" => Axis::RightToLeft,
-    "ttb" => Axis::TopToBottom,
-    "btt" => Axis::BottomToTop,
+kind!(AlignmentKey, "alignment",
+    "left"   => AlignmentKey::Left,
+    "top"    => AlignmentKey::Top,
+    "right"  => AlignmentKey::Right,
+    "bottom" => AlignmentKey::Bottom,
+    "origin" => AlignmentKey::Origin,
+    "center" => AlignmentKey::Center,
+    "end"    => AlignmentKey::End,
+);
+
+kind!(PaddingKey<AxisKey>, "axis or side",
+    "horizontal" | "h" => PaddingKey::Axis(AxisKey::Horizontal),
+    "vertical"   | "v" => PaddingKey::Axis(AxisKey::Vertical),
+    "primary"    | "p" => PaddingKey::Axis(AxisKey::Primary),
+    "secondary"  | "s" => PaddingKey::Axis(AxisKey::Secondary),
+
+    "left"   => PaddingKey::AxisAligned(AxisKey::Horizontal, AlignmentKey::Left),
+    "right"  => PaddingKey::AxisAligned(AxisKey::Horizontal, AlignmentKey::Right),
+    "top"    => PaddingKey::AxisAligned(AxisKey::Vertical,   AlignmentKey::Top),
+    "bottom" => PaddingKey::AxisAligned(AxisKey::Vertical,   AlignmentKey::Bottom),
+
+    "primary-origin"    => PaddingKey::AxisAligned(AxisKey::Primary,    AlignmentKey::Origin),
+    "primary-end"       => PaddingKey::AxisAligned(AxisKey::Primary,    AlignmentKey::End),
+    "secondary-origin"  => PaddingKey::AxisAligned(AxisKey::Secondary,  AlignmentKey::Origin),
+    "secondary-end"     => PaddingKey::AxisAligned(AxisKey::Secondary,  AlignmentKey::End),
+    "horizontal-origin" => PaddingKey::AxisAligned(AxisKey::Horizontal, AlignmentKey::Origin),
+    "horizontal-end"    => PaddingKey::AxisAligned(AxisKey::Horizontal, AlignmentKey::End),
+    "vertical-origin"   => PaddingKey::AxisAligned(AxisKey::Vertical,   AlignmentKey::Origin),
+    "vertical-end"      => PaddingKey::AxisAligned(AxisKey::Vertical,   AlignmentKey::End),
+);
+
+kind!(Direction, "direction",
+    "left-to-right" | "ltr" => LeftToRight,
+    "right-to-left" | "rtl" => RightToLeft,
+    "top-to-bottom" | "ttb" => TopToBottom,
+    "bottom-to-top" | "btt" => BottomToTop,
 );

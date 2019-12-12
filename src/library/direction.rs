@@ -5,25 +5,25 @@ use super::keys::AxisKey;
 function! {
     /// `direction`: Sets the directions of the layouting axes.
     #[derive(Debug, PartialEq)]
-    pub struct Direction {
+    pub struct DirectionChange {
         body: Option<SyntaxTree>,
-        map: ConsistentMap<AxisKey, Axis>,
+        map: ConsistentMap<AxisKey, Direction>,
     }
 
     parse(args, body, ctx) {
         let mut map = ConsistentMap::new();
 
-        map.add_opt_span(AxisKey::Primary, args.get_pos_opt::<Axis>()?)?;
-        map.add_opt_span(AxisKey::Secondary, args.get_pos_opt::<Axis>()?)?;
+        map.add_opt_span(AxisKey::Primary, args.get_pos_opt::<Direction>()?)?;
+        map.add_opt_span(AxisKey::Secondary, args.get_pos_opt::<Direction>()?)?;
 
         for arg in args.keys() {
             let axis = AxisKey::from_ident(&arg.v.key)?;
-            let value = Axis::from_expr(arg.v.value)?;
+            let value = Direction::from_expr(arg.v.value)?;
 
             map.add(axis, value)?;
         }
 
-        Direction {
+        DirectionChange {
             body: parse!(optional: body, ctx),
             map,
         }
@@ -34,17 +34,17 @@ function! {
 
         let map = self.map.dedup(|key, &direction| {
             Ok((match key {
-                AxisKey::Primary => GenericAxisKind::Primary,
-                AxisKey::Secondary => GenericAxisKind::Secondary,
-                AxisKey::Horizontal => axes.horizontal(),
-                AxisKey::Vertical => axes.vertical(),
+                AxisKey::Primary => Primary,
+                AxisKey::Secondary => Secondary,
+                AxisKey::Horizontal => Horizontal.to_generic(axes),
+                AxisKey::Vertical => Vertical.to_generic(axes),
             }, direction))
         })?;
 
-        map.with(GenericAxisKind::Primary, |&val| ctx.axes.primary = val);
-        map.with(GenericAxisKind::Secondary, |&val| ctx.axes.secondary = val);
+        map.with(Primary, |&val| ctx.axes.primary = val);
+        map.with(Secondary, |&val| ctx.axes.secondary = val);
 
-        if ctx.axes.primary.is_horizontal() == ctx.axes.secondary.is_horizontal() {
+        if ctx.axes.primary.axis() == ctx.axes.secondary.axis() {
             error!(
                 "aligned primary and secondary axes: `{}`, `{}`",
                 format!("{:?}", ctx.axes.primary).to_lowercase(),

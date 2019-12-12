@@ -84,10 +84,11 @@ impl<E: ExpressionKind + Copy> ExtentMap<E> {
 
         for arg in args.keys() {
             let key = match arg.v.key.v.0.as_str() {
-                "width" | "w" => AxisKey::Horizontal,
-                "height" | "h" => AxisKey::Vertical,
-                "primary-size" | "ps" => AxisKey::Primary,
+                "width"          | "w" => AxisKey::Horizontal,
+                "height"         | "h" => AxisKey::Vertical,
+                "primary-size"   | "ps" => AxisKey::Primary,
                 "secondary-size" | "ss" => AxisKey::Secondary,
+
                 _ => if enforce {
                     error!("expected dimension")
                 } else {
@@ -111,22 +112,22 @@ impl<E: ExpressionKind + Copy> ExtentMap<E> {
         size: F
     ) -> LayoutResult<()> where F: Fn(&E) -> Size {
         let map = self.dedup(axes)?;
-        map.with(SpecificAxisKind::Horizontal, |val| dimensions.x = size(val));
-        map.with(SpecificAxisKind::Vertical, |val| dimensions.y = size(val));
+        map.with(Horizontal, |val| dimensions.x = size(val));
+        map.with(Vertical, |val| dimensions.y = size(val));
         Ok(())
     }
 
     /// Map from any axis key to the specific axis kind.
     pub fn apply_with<F>(&self, axes: LayoutAxes, mut f: F) -> LayoutResult<()>
-    where F: FnMut(SpecificAxisKind, &E) {
+    where F: FnMut(SpecificAxis, &E) {
         for (&key, value) in self.dedup(axes)?.iter() {
             f(key, value);
         }
         Ok(())
     }
 
-    fn dedup(&self, axes: LayoutAxes) -> LayoutResult<ConsistentMap<SpecificAxisKind, E>> {
-        self.0.dedup(|key, &val| Ok((key.specific(axes), val)))
+    fn dedup(&self, axes: LayoutAxes) -> LayoutResult<ConsistentMap<SpecificAxis, E>> {
+        self.0.dedup(|key, &val| Ok((key.to_specific(axes), val)))
     }
 }
 
@@ -165,17 +166,17 @@ impl PaddingMap {
         let map = self.0.dedup(|key, &val| {
             Ok((match key {
                 All => All,
-                Axis(axis) => Axis(axis.specific(axes)),
+                Axis(axis) => Axis(axis.to_specific(axes)),
                 AxisAligned(axis, alignment) => {
-                    let axis = axis.specific(axes);
-                    AxisAligned(axis, alignment.specific(axes, axis))
+                    let axis = axis.to_specific(axes);
+                    AxisAligned(axis, alignment.to_specific(axes, axis))
                 }
             }, val))
         })?;
 
         map.with(All, |&val| padding.set_all(val));
-        map.with(Axis(SpecificAxisKind::Horizontal), |&val| padding.set_horizontal(val));
-        map.with(Axis(SpecificAxisKind::Vertical), |&val| padding.set_vertical(val));
+        map.with(Axis(Horizontal), |&val| padding.set_horizontal(val));
+        map.with(Axis(Vertical), |&val| padding.set_vertical(val));
 
         for (key, &val) in map.iter() {
             if let AxisAligned(_, alignment) = key {

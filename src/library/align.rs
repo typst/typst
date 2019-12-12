@@ -34,20 +34,20 @@ function! {
 
         let map = self.map.dedup(|key, alignment| {
             let axis = match key {
-                Key::First => alignment.axis(axes, GenericAxisKind::Primary),
-                Key::Second => alignment.axis(axes, GenericAxisKind::Secondary),
-                Key::Axis(AxisKey::Primary) => GenericAxisKind::Primary,
-                Key::Axis(AxisKey::Secondary) => GenericAxisKind::Secondary,
-                Key::Axis(AxisKey::Horizontal) => axes.horizontal(),
-                Key::Axis(AxisKey::Vertical) => axes.vertical(),
+                Key::First => alignment.axis(axes, Primary),
+                Key::Second => alignment.axis(axes, Secondary),
+                Key::Axis(AxisKey::Primary) => Primary,
+                Key::Axis(AxisKey::Secondary) => Secondary,
+                Key::Axis(AxisKey::Horizontal) => Horizontal.to_generic(axes),
+                Key::Axis(AxisKey::Vertical) => Vertical.to_generic(axes),
             };
 
-            let alignment = alignment.generic(axes, axis)?;
+            let alignment = alignment.to_generic(axes, axis)?;
             Ok((axis, alignment))
         })?;
 
-        map.with(GenericAxisKind::Primary, |&val| ctx.alignment.primary = val);
-        map.with(GenericAxisKind::Secondary, |&val| ctx.alignment.secondary = val);
+        map.with(Primary, |&val| ctx.alignment.primary = val);
+        map.with(Secondary, |&val| ctx.alignment.secondary = val);
 
         match &self.body {
             Some(body) => vec![AddMultiple(layout_tree(&body, ctx)?)],

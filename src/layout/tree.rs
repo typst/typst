@@ -76,13 +76,10 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     }
 
     fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
-        let spaces = self.stack.remaining();
-
         let commands = func.0.layout(LayoutContext {
-            loader: self.ctx.loader,
             style: &self.style,
-            spaces,
-            top_level: false,
+            spaces: self.stack.remaining(),
+            nested: true,
             debug: true,
             .. self.ctx
         })?;
@@ -103,8 +100,8 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
             Add(layout) => self.stack.add(layout)?,
             AddMultiple(layouts) => self.stack.add_multiple(layouts)?,
             AddSpacing(space, kind, axis) => match axis {
-                GenericAxisKind::Primary => {},
-                GenericAxisKind::Secondary => self.stack.add_spacing(space, kind),
+                Primary => {},
+                Secondary => self.stack.add_spacing(space, kind),
             }
 
             FinishLine => {},
@@ -114,8 +111,8 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
             SetTextStyle(style) => self.style.text = style,
             SetPageStyle(style) => {
-                if !self.ctx.top_level {
-                    error!("the page style cannot only be altered from a top-level context");
+                if self.ctx.nested {
+                    error!("page style cannot be altered in nested context");
                 }
 
                 self.style.page = style;
@@ -123,7 +120,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                     LayoutSpace {
                         dimensions: style.dimensions,
                         padding: style.margins,
-                        expand: LayoutExpansion::new(true, true),
+                        expansion: LayoutExpansion::new(true, true),
                     }
                 ], true);
             }

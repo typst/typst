@@ -125,13 +125,13 @@ impl StackLayouter {
             // A hard space is simply an empty box.
             SpacingKind::Hard => {
                 // Reduce the spacing such that it definitely fits.
-                spacing.min_eq(self.space.usable.secondary(self.ctx.axes));
+                spacing.min_eq(self.space.usable.get_secondary(self.ctx.axes));
                 let dimensions = Size2D::with_y(spacing);
 
                 self.update_metrics(dimensions);
                 self.space.layouts.push((self.ctx.axes, Layout {
                     dimensions: dimensions.specialized(self.ctx.axes),
-                    alignment: LayoutAlignment::default(),
+                    alignment: LayoutAlignment::new(Origin, Origin),
                     actions: vec![]
                 }));
 
@@ -169,9 +169,9 @@ impl StackLayouter {
     }
 
     /// Whether the given alignment is still allowed according to the rulers.
-    fn alignment_allowed(&mut self, axis: Axis, alignment: Alignment) -> bool {
-        alignment >= *self.space.rulers.get(axis)
-        && alignment <= self.space.rulers.get(axis.inv()).inv()
+    fn alignment_allowed(&mut self, direction: Direction, alignment: Alignment) -> bool {
+        alignment >= *self.space.rulers.get(direction)
+        && alignment <= self.space.rulers.get(direction.inv()).inv()
     }
 
     /// Update the size metrics to reflect that a layout or spacing with the
@@ -190,7 +190,7 @@ impl StackLayouter {
 
         self.space.size = size.specialized(axes);
         self.space.extra = extra.specialized(axes);
-        *self.space.usable.secondary_mut(axes) -= dimensions.y;
+        *self.space.usable.get_secondary_mut(axes) -= dimensions.y;
     }
 
     /// Change the layouting axes used by this layouter.
@@ -231,7 +231,7 @@ impl StackLayouter {
         let mut spaces = smallvec![LayoutSpace {
             dimensions,
             padding: SizeBox::ZERO,
-            expand: LayoutExpansion::new(false, false),
+            expansion: LayoutExpansion::new(false, false),
         }];
 
         for space in &self.ctx.spaces[self.next_space()..] {
@@ -243,7 +243,7 @@ impl StackLayouter {
 
     /// The usable size along the primary axis.
     pub fn primary_usable(&self) -> Size {
-        self.space.usable.primary(self.ctx.axes)
+        self.space.usable.get_primary(self.ctx.axes)
     }
 
     /// Whether the current layout space (not subspace) is empty.
@@ -274,8 +274,8 @@ impl StackLayouter {
         //  expand if necessary.)
 
         let usable = space.usable();
-        if space.expand.horizontal { self.space.size.x = usable.x; }
-        if space.expand.vertical   { self.space.size.y = usable.y; }
+        if space.expansion.horizontal { self.space.size.x = usable.x; }
+        if space.expansion.vertical   { self.space.size.y = usable.y; }
 
         let dimensions = self.space.size.padded(space.padding);
 
@@ -304,8 +304,8 @@ impl StackLayouter {
             // layout uses up space from the origin to the end. Thus, it reduces
             // the usable space for following layouts at it's origin by its
             // extent along the secondary axis.
-            *bound.get_mut(*axes, GenericAxisKind::Secondary, Alignment::Origin)
-                += axes.secondary.factor() * layout.dimensions.secondary(*axes);
+            *bound.get_mut(*axes, Secondary, Origin)
+                += axes.secondary.factor() * layout.dimensions.get_secondary(*axes);
         }
 
         // ------------------------------------------------------------------ //
@@ -315,7 +315,7 @@ impl StackLayouter {
         // The `x` field stores the maximal primary extent in one axis-aligned
         // run, while the `y` fields stores the accumulated secondary extent.
         let mut extent = Size2D::ZERO;
-        let mut rotated = false;
+        let mut rotation = Vertical;
 
         for (bound, entry) in bounds.iter_mut().zip(&self.space.layouts).rev() {
             let (axes, layout) = entry;
@@ -324,17 +324,16 @@ impl StackLayouter {
             // (`extent.x`) dictates how much secondary extent the whole run
             // had. This value is thus stored in `extent.y`. The primary extent
             // is reset for this new axis-aligned run.
-            let is_horizontal = axes.secondary.is_horizontal();
-            if is_horizontal != rotated {
+            if rotation != axes.secondary.axis() {
                 extent.y = extent.x;
                 extent.x = Size::ZERO;
-                rotated = is_horizontal;
+                rotation = axes.secondary.axis();
             }
 
             // We reduce the bounding box of this layout at it's end by the
             // accumulated secondary extent of all layouts we have seen so far,
             // which are the layouts after this one since we iterate reversed.
-            *bound.get_mut(*axes, GenericAxisKind::Secondary, Alignment::End)
+            *bound.get_mut(*axes, Secondary, End)
                 -= axes.secondary.factor() * extent.y;
 
             // Then, we add this layout's secondary extent to the accumulator.
@@ -404,10 +403,10 @@ impl Space {
             usable,
             extra: Size2D::ZERO,
             rulers: Rulers {
-                top: Alignment::Origin,
-                bottom: Alignment::Origin,
-                left: Alignment::Origin,
-                right: Alignment::Origin,
+                top:    Origin,
+                bottom: Origin,
+                left:   Origin,
+                right:  Origin,
             },
             last_spacing: LastSpacing::Hard,
         }
@@ -415,12 +414,12 @@ impl Space {
 }
 
 impl Rulers {
-    fn get(&mut self, axis: Axis) -> &mut Alignment {
-        match axis {
-            Axis::TopToBottom => &mut self.top,
-            Axis::BottomToTop => &mut self.bottom,
-            Axis::LeftToRight => &mut self.left,
-            Axis::RightToLeft => &mut self.right,
+    fn get(&mut self, direction: Direction) -> &mut Alignment {
+        match direction {
+            TopToBottom => &mut self.top,
+            BottomToTop => &mut self.bottom,
+            LeftToRight => &mut self.left,
+            RightToLeft => &mut self.right,
         }
     }
 }

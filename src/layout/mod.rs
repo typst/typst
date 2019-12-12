@@ -13,6 +13,20 @@ mod flex;
 mod stack;
 mod text;
 
+/// Common types for layouting.
+pub mod prelude {
+    pub use super::{
+        layout_tree, LayoutResult,
+        MultiLayout, Layout, LayoutContext, LayoutSpaces, LayoutSpace,
+        LayoutExpansion, LayoutAxes, GenericAxis, SpecificAxis, Direction,
+        LayoutAlignment, Alignment, SpacingKind,
+    };
+    pub use GenericAxis::*;
+    pub use SpecificAxis::*;
+    pub use Direction::*;
+    pub use Alignment::*;
+}
+
 /// Different kinds of layouters (fully re-exported).
 pub mod layouters {
     pub use super::tree::layout_tree;
@@ -23,6 +37,7 @@ pub mod layouters {
 
 pub use self::actions::{LayoutAction, LayoutActions};
 pub use self::layouters::*;
+pub use self::prelude::*;
 
 /// The result type for layouting.
 pub type LayoutResult<T> = crate::TypesetResult<T>;
@@ -56,6 +71,34 @@ impl Layout {
     }
 }
 
+/// Layout components that can be serialized.
+pub trait Serialize {
+    /// Serialize the data structure into an output writable.
+    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()>;
+}
+
+impl Serialize for Layout {
+    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
+        writeln!(f, "{:.4} {:.4}", self.dimensions.x.to_pt(), self.dimensions.y.to_pt())?;
+        writeln!(f, "{}", self.actions.len())?;
+        for action in &self.actions {
+            action.serialize(f)?;
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+}
+
+impl Serialize for MultiLayout {
+    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
+        writeln!(f, "{}", self.len())?;
+        for layout in self {
+            layout.serialize(f)?;
+        }
+        Ok(())
+    }
+}
+
 /// The general context for layouting.
 #[derive(Debug, Clone)]
 pub struct LayoutContext<'a, 'p> {
@@ -66,12 +109,16 @@ pub struct LayoutContext<'a, 'p> {
     pub style: &'a LayoutStyle,
     /// The spaces to layout in.
     pub spaces: LayoutSpaces,
+    /// Whether to repeat the last space or quit with an error if more space
+    /// would be needed.
+    pub repeat: bool,
     /// The initial axes along which content is laid out.
     pub axes: LayoutAxes,
     /// The alignment of the finished layout.
     pub alignment: LayoutAlignment,
-    /// Whether this layouting process handles the top-level pages.
-    pub top_level: bool,
+    /// Whether the layout that is to be created will be nested in a parent
+    /// container.
+    pub nested: bool,
     /// Whether to debug render a box around the layout.
     pub debug: bool,
 }
@@ -89,7 +136,7 @@ pub struct LayoutSpace {
     /// Whether to expand the dimensions of the resulting layout to the full
     /// dimensions of this space or to shrink them to fit the content for the
     /// horizontal and vertical axis.
-    pub expand: LayoutExpansion,
+    pub expansion: LayoutExpansion,
 }
 
 impl LayoutSpace {
@@ -109,7 +156,7 @@ impl LayoutSpace {
         LayoutSpace {
             dimensions: self.usable(),
             padding: SizeBox::ZERO,
-            expand: LayoutExpansion::new(false, false),
+            expansion: LayoutExpansion::new(false, false),
         }
     }
 }
@@ -130,195 +177,125 @@ impl LayoutExpansion {
 /// The axes along which the content is laid out.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct LayoutAxes {
-    pub primary: Axis,
-    pub secondary: Axis,
+    pub primary: Direction,
+    pub secondary: Direction,
 }
 
 impl LayoutAxes {
-    pub fn new(primary: Axis, secondary: Axis) -> LayoutAxes {
-        if primary.is_horizontal() == secondary.is_horizontal() {
-            panic!("LayoutAxes::new: invalid parallel axes {:?} and {:?}", primary, secondary);
+    pub fn new(primary: Direction, secondary: Direction) -> LayoutAxes {
+        if primary.axis() == secondary.axis() {
+            panic!("LayoutAxes::new: invalid aligned axes {:?} and {:?}",
+                primary, secondary);
         }
 
         LayoutAxes { primary, secondary }
     }
 
-    /// Return the specified generic axis.
-    pub fn generic(&self, axis: GenericAxisKind) -> Axis {
+    /// Return the direction of the specified generic axis.
+    pub fn get_generic(self, axis: GenericAxis) -> Direction {
         match axis {
-            GenericAxisKind::Primary => self.primary,
-            GenericAxisKind::Secondary => self.secondary,
+            Primary => self.primary,
+            Secondary => self.secondary,
         }
     }
 
-    /// Return the specified specific axis.
-    pub fn specific(&self, axis: SpecificAxisKind) -> Axis {
-        self.generic(axis.generic(*self))
-    }
-
-    /// Returns the generic axis kind which is the horizontal axis.
-    pub fn horizontal(&self) -> GenericAxisKind {
-        match self.primary.is_horizontal() {
-            true => GenericAxisKind::Primary,
-            false => GenericAxisKind::Secondary,
-        }
-    }
-
-    /// Returns the generic axis kind which is the vertical axis.
-    pub fn vertical(&self) -> GenericAxisKind {
-        self.horizontal().inv()
-    }
-
-    /// Returns the specific axis kind which is the primary axis.
-    pub fn primary(&self) -> SpecificAxisKind {
-        match self.primary.is_horizontal() {
-            true => SpecificAxisKind::Horizontal,
-            false => SpecificAxisKind::Vertical,
-        }
-    }
-
-    /// Returns the specific axis kind which is the secondary axis.
-    pub fn secondary(&self) -> SpecificAxisKind {
-        self.primary().inv()
-    }
-
-    /// Returns the generic alignment corresponding to left-alignment.
-    pub fn left(&self) -> Alignment {
-        let positive = match self.primary.is_horizontal() {
-            true => self.primary.is_positive(),
-            false => self.secondary.is_positive(),
-        };
-
-        if positive { Alignment::Origin } else { Alignment::End }
-    }
-
-    /// Returns the generic alignment corresponding to right-alignment.
-    pub fn right(&self) -> Alignment {
-        self.left().inv()
-    }
-
-    /// Returns the generic alignment corresponding to top-alignment.
-    pub fn top(&self) -> Alignment {
-        let positive = match self.primary.is_horizontal() {
-            true => self.secondary.is_positive(),
-            false => self.primary.is_positive(),
-        };
-
-        if positive { Alignment::Origin } else { Alignment::End }
-    }
-
-    /// Returns the generic alignment corresponding to bottom-alignment.
-    pub fn bottom(&self) -> Alignment {
-        self.top().inv()
+    /// Return the direction of the specified specific axis.
+    pub fn get_specific(self, axis: SpecificAxis) -> Direction {
+        self.get_generic(axis.to_generic(self))
     }
 }
 
-impl Default for LayoutAxes {
-    fn default() -> LayoutAxes {
-        LayoutAxes {
-            primary: Axis::LeftToRight,
-            secondary: Axis::TopToBottom,
+/// The two generic layouting axes.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum GenericAxis {
+    Primary,
+    Secondary,
+}
+
+impl GenericAxis {
+    /// The specific version of this axis in the given system of axes.
+    pub fn to_specific(self, axes: LayoutAxes) -> SpecificAxis {
+        axes.get_generic(self).axis()
+    }
+
+    /// The other axis.
+    pub fn inv(self) -> GenericAxis {
+        match self {
+            Primary => Secondary,
+            Secondary => Primary,
+        }
+    }
+}
+
+/// The two specific layouting axes.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum SpecificAxis {
+    Horizontal,
+    Vertical,
+}
+
+impl SpecificAxis {
+    /// The generic version of this axis in the given system of axes.
+    pub fn to_generic(self, axes: LayoutAxes) -> GenericAxis {
+        if self == axes.primary.axis() { Primary } else { Secondary }
+    }
+
+    /// The other axis.
+    pub fn inv(self) -> SpecificAxis {
+        match self {
+            Horizontal => Vertical,
+            Vertical => Horizontal,
         }
     }
 }
 
 /// Directions along which content is laid out.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Axis {
+pub enum Direction {
     LeftToRight,
     RightToLeft,
     TopToBottom,
     BottomToTop,
 }
 
-impl Axis {
-    /// Whether this is a horizontal axis.
-    pub fn is_horizontal(&self) -> bool {
+impl Direction {
+    /// The specific axis this direction belongs to.
+    pub fn axis(self) -> SpecificAxis {
         match self {
-            Axis::LeftToRight | Axis::RightToLeft => true,
-            Axis::TopToBottom | Axis::BottomToTop => false,
+            LeftToRight | RightToLeft => Horizontal,
+            TopToBottom | BottomToTop => Vertical,
         }
     }
 
     /// Whether this axis points into the positive coordinate direction.
-    pub fn is_positive(&self) -> bool {
+    pub fn is_positive(self) -> bool {
         match self {
-            Axis::LeftToRight | Axis::TopToBottom => true,
-            Axis::RightToLeft | Axis::BottomToTop => false,
+            LeftToRight | TopToBottom => true,
+            RightToLeft | BottomToTop => false,
         }
     }
 
     /// The inverse axis.
-    pub fn inv(&self) -> Axis {
+    pub fn inv(self) -> Direction {
         match self {
-            Axis::LeftToRight => Axis::RightToLeft,
-            Axis::RightToLeft => Axis::LeftToRight,
-            Axis::TopToBottom => Axis::BottomToTop,
-            Axis::BottomToTop => Axis::TopToBottom,
+            LeftToRight => RightToLeft,
+            RightToLeft => LeftToRight,
+            TopToBottom => BottomToTop,
+            BottomToTop => TopToBottom,
         }
     }
 
-    /// The direction factor for this axis.
+    /// The factor for this direction.
     ///
-    /// - 1 if the axis is positive.
-    /// - -1 if the axis is negative.
-    pub fn factor(&self) -> i32 {
+    /// - `1` if the direction is positive.
+    /// - `-1` if the direction is negative.
+    pub fn factor(self) -> i32 {
         if self.is_positive() { 1 } else { -1 }
     }
 }
 
-/// The two generic kinds of layouting axes.
+/// Where to align a layout in a container.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum GenericAxisKind {
-    Primary,
-    Secondary,
-}
-
-impl GenericAxisKind {
-    /// The specific version of this axis in the given system of axes.
-    pub fn specific(&self, axes: LayoutAxes) -> SpecificAxisKind {
-        match self {
-            GenericAxisKind::Primary => axes.primary(),
-            GenericAxisKind::Secondary => axes.secondary(),
-        }
-    }
-
-    /// The other axis.
-    pub fn inv(&self) -> GenericAxisKind {
-        match self {
-            GenericAxisKind::Primary => GenericAxisKind::Secondary,
-            GenericAxisKind::Secondary => GenericAxisKind::Primary,
-        }
-    }
-}
-
-/// The two specific kinds of layouting axes.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum SpecificAxisKind {
-    Horizontal,
-    Vertical,
-}
-
-impl SpecificAxisKind {
-    /// The generic version of this axis in the given system of axes.
-    pub fn generic(&self, axes: LayoutAxes) -> GenericAxisKind {
-        match self {
-            SpecificAxisKind::Horizontal => axes.horizontal(),
-            SpecificAxisKind::Vertical => axes.vertical(),
-        }
-    }
-
-    /// The other axis.
-    pub fn inv(&self) -> SpecificAxisKind {
-        match self {
-            SpecificAxisKind::Horizontal => SpecificAxisKind::Vertical,
-            SpecificAxisKind::Vertical => SpecificAxisKind::Horizontal,
-        }
-    }
-}
-
-/// The place to put a layout in a container.
-#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct LayoutAlignment {
     pub primary: Alignment,
     pub secondary: Alignment,
@@ -327,6 +304,14 @@ pub struct LayoutAlignment {
 impl LayoutAlignment {
     pub fn new(primary: Alignment, secondary: Alignment) -> LayoutAlignment {
         LayoutAlignment { primary, secondary }
+    }
+
+    /// Return the alignment of the specified generic axis.
+    pub fn get(self, axis: GenericAxis) -> Alignment {
+        match axis {
+            Primary => self.primary,
+            Secondary => self.secondary,
+        }
     }
 }
 
@@ -340,18 +325,12 @@ pub enum Alignment {
 
 impl Alignment {
     /// The inverse alignment.
-    pub fn inv(&self) -> Alignment {
+    pub fn inv(self) -> Alignment {
         match self {
-            Alignment::Origin => Alignment::End,
-            Alignment::Center => Alignment::Center,
-            Alignment::End => Alignment::Origin,
+            Origin => End,
+            Center => Center,
+            End => Origin,
         }
-    }
-}
-
-impl Default for Alignment {
-    fn default() -> Alignment {
-        Alignment::Origin
     }
 }
 
@@ -380,38 +359,10 @@ enum LastSpacing {
 
 impl LastSpacing {
     /// The size of the soft space if this is a soft space or zero otherwise.
-    fn soft_or_zero(&self) -> Size {
+    fn soft_or_zero(self) -> Size {
         match self {
-            LastSpacing::Soft(space, _) => *space,
+            LastSpacing::Soft(space, _) => space,
             _ => Size::ZERO,
         }
-    }
-}
-
-/// Layout components that can be serialized.
-pub trait Serialize {
-    /// Serialize the data structure into an output writable.
-    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()>;
-}
-
-impl Serialize for Layout {
-    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
-        writeln!(f, "{:.4} {:.4}", self.dimensions.x.to_pt(), self.dimensions.y.to_pt())?;
-        writeln!(f, "{}", self.actions.len())?;
-        for action in &self.actions {
-            action.serialize(f)?;
-            writeln!(f)?;
-        }
-        Ok(())
-    }
-}
-
-impl Serialize for MultiLayout {
-    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
-        writeln!(f, "{}", self.len())?;
-        for layout in self {
-            layout.serialize(f)?;
-        }
-        Ok(())
     }
 }
