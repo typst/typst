@@ -6,14 +6,9 @@ use unicode_xid::UnicodeXID;
 use crate::func::LayoutFunc;
 use crate::size::{Size, ScaleSize};
 
-mod tokens;
-#[macro_use]
-mod parsing;
-mod span;
-
-pub use span::{Span, Spanned};
-pub use tokens::{tokenize, Tokens};
-pub use parsing::{parse, ParseContext, ParseResult};
+pub_use_mod!(tokens);
+pub_use_mod!(parsing);
+pub_use_mod!(span);
 
 /// A logical unit of the incoming text stream.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -185,6 +180,7 @@ impl FuncArgs {
     }
 }
 
+/// Extract the option expression kind from the option or return an error.
 fn expect<E: ExpressionKind>(opt: ParseResult<Option<Spanned<E>>>) -> ParseResult<Spanned<E>> {
     match opt {
         Ok(Some(spanned)) => Ok(spanned),

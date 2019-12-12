@@ -2,14 +2,10 @@
 
 use std::io::{self, Write};
 use smallvec::SmallVec;
+use toddle::query::SharedFontLoader;
 
-use toddle::query::{FontClass, SharedFontLoader};
-
-use crate::TypesetResult;
-use crate::func::Command;
 use crate::size::{Size, Size2D, SizeBox};
-use crate::style::{LayoutStyle, TextStyle};
-use crate::syntax::{Node, SyntaxTree, FuncCall};
+use crate::style::LayoutStyle;
 
 mod actions;
 mod tree;
@@ -25,8 +21,11 @@ pub mod layouters {
     pub use super::text::{layout_text, TextContext};
 }
 
-pub use actions::{LayoutAction, LayoutActions};
-pub use layouters::*;
+pub use self::actions::{LayoutAction, LayoutActions};
+pub use self::layouters::*;
+
+/// The result type for layouting.
+pub type LayoutResult<T> = crate::TypesetResult<T>;
 
 /// A collection of layouts.
 pub type MultiLayout = Vec<Layout>;
@@ -368,8 +367,8 @@ pub enum SpacingKind {
 /// The standard spacing kind used for paragraph spacing.
 const PARAGRAPH_KIND: SpacingKind = SpacingKind::Soft(1);
 
-/// The standard spacing kind used for normal spaces between boxes.
-const SPACE_KIND: SpacingKind = SpacingKind::Soft(2);
+/// The standard spacing kind used for line spacing.
+const LINE_KIND: SpacingKind = SpacingKind::Soft(2);
 
 /// The last appeared spacing.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -416,6 +415,3 @@ impl Serialize for MultiLayout {
         Ok(())
     }
 }
-
-/// The result type for layouting.
-pub type LayoutResult<T> = TypesetResult<T>;

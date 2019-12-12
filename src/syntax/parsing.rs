@@ -1,9 +1,11 @@
 //! Parsing of token streams into syntax trees.
 
-use crate::TypesetResult;
 use crate::func::Scope;
 use crate::size::Size;
 use super::*;
+
+/// The result type for parsing.
+pub type ParseResult<T> = crate::TypesetResult<T>;
 
 /// Parses source code into a syntax tree given a context.
 pub fn parse(src: &str, ctx: ParseContext) -> ParseResult<SyntaxTree> {
@@ -403,9 +405,6 @@ impl<'s> Iterator for PeekableTokens<'s> {
         }
     }
 }
-
-/// The result type for parsing.
-pub type ParseResult<T> = TypesetResult<T>;
 
 
 #[cfg(test)]

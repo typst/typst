@@ -3,19 +3,23 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 
+use tide::{PdfWriter, Rect, Ref, Trailer, Version};
 use tide::content::Content;
 use tide::doc::{Catalog, Page, PageTree, Resource, Text};
-use tide::font::{CIDFont, CIDFontType, CIDSystemInfo, FontDescriptor, FontFlags, Type0Font};
-use tide::font::{CMap, CMapEncoding, FontStream, GlyphUnit, WidthRecord};
-use tide::{PdfWriter, Rect, Ref, Trailer, Version};
+use tide::font::{
+    CIDFont, CIDFontType, CIDSystemInfo, FontDescriptor, FontFlags, Type0Font,
+    CMap, CMapEncoding, FontStream, GlyphUnit, WidthRecord
+};
 
+use toddle::Error as FontError;
 use toddle::font::OwnedFont;
 use toddle::query::SharedFontLoader;
-use toddle::tables::{CharMap, Header, HorizontalMetrics, MacStyleFlags};
-use toddle::tables::{Name, NameEntry, Post, OS2};
-use toddle::Error as FontError;
+use toddle::tables::{
+    CharMap, Header, HorizontalMetrics, MacStyleFlags,
+    Name, NameEntry, Post, OS2
+};
 
-use crate::layout::{Layout, LayoutAction, MultiLayout};
+use crate::layout::{MultiLayout, Layout, LayoutAction};
 use crate::size::Size;
 
 /// Exports layouts into _PDFs_.

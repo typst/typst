@@ -1,12 +1,11 @@
 //! Different-dimensional spacing types.
 
-use std::cmp::Ordering;
 use std::fmt::{self, Display, Formatter};
 use std::iter::Sum;
 use std::ops::*;
 use std::str::FromStr;
 
-use crate::layout::{LayoutAxes, LayoutAlignment, Axis, GenericAxisKind, Alignment};
+use crate::layout::{LayoutAxes, Axis, GenericAxisKind, LayoutAlignment, Alignment};
 
 
 /// A general spacing type.

@@ -1,8 +1,9 @@
 use toddle::query::{SharedFontLoader, FontQuery, FontClass};
 use toddle::tables::{CharMap, Header, HorizontalMetrics};
 
-use super::*;
 use crate::size::{Size, Size2D};
+use crate::style::TextStyle;
+use super::*;
 
 /// The context for text layouting.
 ///

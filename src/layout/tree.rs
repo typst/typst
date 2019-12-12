@@ -1,4 +1,9 @@
 use smallvec::smallvec;
+use toddle::query::FontClass;
+
+use crate::func::Command;
+use crate::syntax::{SyntaxTree, Node, FuncCall};
+use crate::style::TextStyle;
 use super::*;
 
 /// Layout a syntax tree into a multibox.

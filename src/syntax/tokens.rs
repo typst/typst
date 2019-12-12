@@ -1,5 +1,6 @@
 use std::str::CharIndices;
 use smallvec::SmallVec;
+
 use super::*;
 
 /// Builds an iterator over the tokens of the source code.
@@ -266,7 +267,7 @@ fn is_newline_char(character: char) -> bool {
 
 /// A (index, char) iterator with double lookahead.
 #[derive(Debug, Clone)]
-pub struct PeekableChars<'s> {
+struct PeekableChars<'s> {
     string: &'s str,
     chars: CharIndices<'s>,
     peeked: SmallVec<[Option<(usize, char)>; 2]>,
@@ -276,7 +277,7 @@ pub struct PeekableChars<'s> {
 
 impl<'s> PeekableChars<'s> {
     /// Create a new iterator from a string.
-    pub fn new(string: &'s str) -> PeekableChars<'s> {
+    fn new(string: &'s str) -> PeekableChars<'s> {
         PeekableChars {
             string,
             chars: string.char_indices(),
@@ -287,17 +288,17 @@ impl<'s> PeekableChars<'s> {
     }
 
     /// Peek at the next element.
-    pub fn peek(&mut self) -> Option<(usize, char)> {
+    fn peek(&mut self) -> Option<(usize, char)> {
         self.peekn(0)
     }
 
     /// Peek at the char of the next element.
-    pub fn peekc(&mut self) -> Option<char> {
+    fn peekc(&mut self) -> Option<char> {
         self.peekn(0).map(|p| p.1)
     }
 
     /// Peek at the element after the next element.
-    pub fn peekn(&mut self, n: usize) -> Option<(usize, char)> {
+    fn peekn(&mut self, n: usize) -> Option<(usize, char)> {
         while self.peeked.len() <= n {
             let next = self.next_inner();
             self.peeked.push(next);
@@ -307,15 +308,15 @@ impl<'s> PeekableChars<'s> {
     }
 
     /// Return the next value of the inner iterator mapped with the offset.
-    pub fn next_inner(&mut self) -> Option<(usize, char)> {
+    fn next_inner(&mut self) -> Option<(usize, char)> {
         self.chars.next().map(|(i, c)| (self.base + i, c))
     }
 
-    pub fn string_index(&mut self) -> usize {
+    fn string_index(&mut self) -> usize {
         self.index
     }
 
-    pub fn set_string_index(&mut self, index: usize) {
+    fn set_string_index(&mut self, index: usize) {
         self.chars = self.string[index..].char_indices();
         self.base = index;
         self.index = 0;

@@ -8,11 +8,13 @@
 //! - **Layouting:** The next step is to transform the syntax tree into a
 //!   portable representation of the typesetted document. Types for these can be
 //!   found in the [layout] module. A finished layout reading for exporting is a
-//!   [multi layout](crate::layout::MultiLayout) consisting of multiple boxes (or
-//!   pages).
-//! - **Exporting:** The finished document can finally be exported into a supported
-//!   format. Submodules for these formats are located in the [export](crate::export)
-//!   module. Currently, the only supported output format is _PDF_.
+//!   [multi-layout](crate::layout::MultiLayout) consisting of multiple boxes
+//!   (or pages).
+//! - **Exporting:** The finished layout can then be exported into a supported
+//!   format. Submodules for these formats are located in the
+//!   [export](crate::export) module. Currently, the only supported output
+//!   format is _PDF_. Alternatively, the layout can be serialized to pass it to
+//!   a suitable renderer.
 
 #![allow(unused)]
 
@@ -25,9 +27,8 @@ use toddle::query::{FontLoader, FontProvider, SharedFontLoader};
 use toddle::Error as FontError;
 
 use crate::func::Scope;
-use crate::layout::{layout_tree, MultiLayout, LayoutContext};
-use crate::layout::{LayoutAxes, LayoutAlignment};
-use crate::layout::{LayoutResult, LayoutSpace, LayoutExpansion};
+use crate::layout::{layout_tree, MultiLayout, LayoutContext, LayoutResult};
+use crate::layout::{LayoutSpace, LayoutExpansion, LayoutAxes, LayoutAlignment};
 use crate::syntax::{parse, SyntaxTree, ParseContext, Span, ParseResult};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 
@@ -38,9 +39,9 @@ pub mod export;
 pub mod func;
 pub mod layout;
 pub mod library;
+pub mod syntax;
 pub mod size;
 pub mod style;
-pub mod syntax;
 
 /// Transforms source code into typesetted layouts.
 ///

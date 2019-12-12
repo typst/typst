@@ -3,7 +3,7 @@ use super::maps::ConsistentMap;
 use super::keys::AxisKey;
 
 function! {
-    /// `direction`: Sets the directions for the layouting axes.
+    /// `direction`: Sets the directions of the layouting axes.
     #[derive(Debug, PartialEq)]
     pub struct Direction {
         body: Option<SyntaxTree>,

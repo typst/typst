@@ -1,18 +1,17 @@
-//! The standard library for the _Typst_ language.
+//! The standard library.
 
-use crate::func::prelude::*;
 use toddle::query::FontClass;
 
-use keys::*;
-use maps::*;
-
-pub_use_mod!(align);
-pub_use_mod!(boxed);
-pub_use_mod!(direction);
+use crate::func::prelude::*;
+use self::keys::*;
+use self::maps::*;
 
 pub mod maps;
 pub mod keys;
 
+pub_use_mod!(align);
+pub_use_mod!(boxed);
+pub_use_mod!(direction);
 
 /// Create a scope with all standard functions.
 pub fn std() -> Scope {
@@ -100,7 +99,7 @@ function! {
 }
 
 function! {
-    /// `page.margins`: Set the margins of pages.
+    /// `page.margins`: Sets the page margins.
     #[derive(Debug, PartialEq)]
     pub struct PageMargins {
         map: PaddingMap,
@@ -121,7 +120,7 @@ function! {
 }
 
 function! {
-    /// `spacing`, `h`, `v`: Add spacing along an axis.
+    /// `spacing`, `h`, `v`: Adds spacing along an axis.
     #[derive(Debug, PartialEq)]
     pub struct Spacing {
         axis: AxisKey,
@@ -192,7 +191,7 @@ function! {
 }
 
 function! {
-    /// `font.size`: Set the font size.
+    /// `font.size`: Sets the font size.
     #[derive(Debug, PartialEq)]
     pub struct FontSize {
         body: Option<SyntaxTree>,
@@ -206,7 +205,7 @@ function! {
         }
     }
 
-    layout(self, mut ctx) {
+    layout(self, ctx) {
         let mut style = ctx.style.text.clone();
         style.font_size = self.size;
 

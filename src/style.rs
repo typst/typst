@@ -2,6 +2,7 @@
 
 use toddle::query::FontClass;
 use FontClass::*;
+
 use crate::size::{Size, Size2D, SizeBox};
 
 /// Defines properties of pages and text.
@@ -58,8 +59,8 @@ impl TextStyle {
         } else {
             // If we add an Italic or Bold class, we remove
             // the Regular class.
-            if class == FontClass::Italic || class == FontClass::Bold {
-                self.classes.retain(|x| x != &FontClass::Regular);
+            if class == Italic || class == Bold {
+                self.classes.retain(|x| x != &Regular);
             }
 
             self.classes.push(class);
