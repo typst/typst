@@ -29,6 +29,8 @@ pub fn std() -> Scope {
     std.add::<ParBreak>("par.break");
     std.add::<PageBreak>("page.break");
 
+    std.add::<FontSize>("font.size");
+
     std.add_with_metadata::<Spacing, Option<AxisKey>>("spacing", None);
 
     for (name, key) in &[("h", AxisKey::Horizontal), ("v", AxisKey::Vertical)] {
@@ -177,6 +179,36 @@ function! {
     layout(self, ctx) {
         let mut style = ctx.style.text.clone();
         style.toggle_class(self.class.clone());
+
+        match &self.body {
+            Some(body) => vec![
+                SetTextStyle(style),
+                LayoutTree(body),
+                SetTextStyle(ctx.style.text.clone()),
+            ],
+            None => vec![SetTextStyle(style)]
+        }
+    }
+}
+
+function! {
+    /// `font.size`: Set the font size.
+    #[derive(Debug, PartialEq)]
+    pub struct FontSize {
+        body: Option<SyntaxTree>,
+        size: Size,
+    }
+
+    parse(args, body, ctx) {
+        FontSize {
+            body: parse!(optional: body, ctx),
+            size: args.get_pos::<Size>()?.v,
+        }
+    }
+
+    layout(self, mut ctx) {
+        let mut style = ctx.style.text.clone();
+        style.font_size = self.size;
 
         match &self.body {
             Some(body) => vec![
