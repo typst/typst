@@ -27,6 +27,8 @@ pub struct StackContext {
     /// Which alignment to set on the resulting layout. This affects how it will
     /// be positioned in a parent box.
     pub alignment: LayoutAlignment,
+    /// Whether to have repeated spaces or to use only the first and only once.
+    pub repeat: bool,
     /// Whether to output a command which renders a debugging box showing the
     /// extent of the layout.
     pub debug: bool,
@@ -77,8 +79,9 @@ impl StackLayouter {
 
     /// Add a layout to the stack.
     pub fn add(&mut self, layout: Layout) -> LayoutResult<()> {
+        // If the alignment cannot be fit in this space, finish it.
         if !self.update_rulers(layout.alignment) {
-            self.finish_space(true);
+            self.finish_space(true)?;
         }
 
         // Now, we add a possibly cached soft space. If the secondary alignment
@@ -91,11 +94,11 @@ impl StackLayouter {
         // Find the first space that fits the layout.
         while !self.space.usable.fits(layout.dimensions) {
             if self.space_is_last() && self.space_is_empty() {
-                error!("box of size {} does not fit into remaining usable size {}",
+                error!("cannot fit box of size {} into usable size of {}",
                     layout.dimensions, self.space.usable);
             }
 
-            self.finish_space(true);
+            self.finish_space(true)?;
         }
 
         // Change the usable space and size of the space.
@@ -257,15 +260,19 @@ impl StackLayouter {
     }
 
     /// Compute the finished multi-layout.
-    pub fn finish(mut self) -> MultiLayout {
+    pub fn finish(mut self) -> LayoutResult<MultiLayout> {
         if self.space.hard || !self.space_is_empty() {
-            self.finish_space(false);
+            self.finish_space(false)?;
         }
-        self.layouts
+        Ok(self.layouts)
     }
 
     /// Finish the current space and start a new one.
-    pub fn finish_space(&mut self, hard: bool) {
+    pub fn finish_space(&mut self, hard: bool) -> LayoutResult<()> {
+        if !self.ctx.repeat && hard {
+            error!("cannot create new space in a non-repeating context");
+        }
+
         let space = self.ctx.spaces[self.space.index];
 
         // ------------------------------------------------------------------ //
@@ -304,7 +311,7 @@ impl StackLayouter {
             // layout uses up space from the origin to the end. Thus, it reduces
             // the usable space for following layouts at it's origin by its
             // extent along the secondary axis.
-            *bound.get_mut(*axes, Secondary, Origin)
+            *bound.get_mut(axes.secondary, Origin)
                 += axes.secondary.factor() * layout.dimensions.get_secondary(*axes);
         }
 
@@ -333,7 +340,7 @@ impl StackLayouter {
             // We reduce the bounding box of this layout at it's end by the
             // accumulated secondary extent of all layouts we have seen so far,
             // which are the layouts after this one since we iterate reversed.
-            *bound.get_mut(*axes, Secondary, End)
+            *bound.get_mut(axes.secondary, End)
                 -= axes.secondary.factor() * extent.y;
 
             // Then, we add this layout's secondary extent to the accumulator.
@@ -378,7 +385,7 @@ impl StackLayouter {
         // ------------------------------------------------------------------ //
         // Step 5: Start the next space.
 
-        self.start_space(self.next_space(), hard);
+        Ok(self.start_space(self.next_space(), hard))
     }
 
     /// Start a new space with the given index.

@@ -61,7 +61,7 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
                     self.buffer = String::new();
                 }
 
-                self.actions.add(LayoutAction::SetFont(index, self.ctx.style.font_size));
+                self.actions.add(LayoutAction::SetFont(index, self.ctx.style.font_size()));
                 self.active_font = index;
             }
 
@@ -73,7 +73,7 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
         }
 
         Ok(Layout {
-            dimensions: Size2D::new(self.width, self.ctx.style.font_size),
+            dimensions: Size2D::new(self.width, self.ctx.style.font_size()),
             alignment: self.ctx.alignment,
             actions: self.actions.to_vec(),
         })
@@ -108,7 +108,7 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
                     .advance_width as f32;
 
                 let char_width = font_unit_to_size(glyph_width)
-                    * self.ctx.style.font_size.to_pt();
+                    * self.ctx.style.font_size().to_pt();
 
                 return Ok((index, char_width));
             }

@@ -3,11 +3,10 @@
 use toddle::query::FontClass;
 
 use crate::func::prelude::*;
-use self::keys::*;
-use self::maps::*;
+use crate::style::parse_paper_name;
+use self::maps::{ExtentMap, PaddingMap, AxisKey};
 
 pub mod maps;
-pub mod keys;
 
 pub_use_mod!(align);
 pub_use_mod!(boxed);
@@ -20,29 +19,23 @@ pub fn std() -> Scope {
     std.add::<Align>("align");
     std.add::<Boxed>("box");
     std.add::<DirectionChange>("direction");
-    std.add::<PageSize>("page.size");
-    std.add::<PageMargins>("page.margins");
 
     std.add::<LineBreak>("n");
     std.add::<LineBreak>("line.break");
     std.add::<ParBreak>("par.break");
     std.add::<PageBreak>("page.break");
-
-    std.add::<FontSize>("font.size");
+    std.add::<PageSize>("page.size");
+    std.add::<PageMargins>("page.margins");
 
     std.add_with_metadata::<Spacing>("spacing", None);
+    std.add_with_metadata::<Spacing>("h", Some(Horizontal));
+    std.add_with_metadata::<Spacing>("v", Some(Vertical));
 
-    for (name, key) in &[("h", AxisKey::Horizontal), ("v", AxisKey::Vertical)] {
-        std.add_with_metadata::<Spacing>(name, Some(*key));
-    }
+    std.add_with_metadata::<StyleChange>("bold", FontClass::Bold);
+    std.add_with_metadata::<StyleChange>("italic", FontClass::Italic);
+    std.add_with_metadata::<StyleChange>("mono", FontClass::Monospace);
 
-    for (name, class) in &[
-        ("bold", FontClass::Bold),
-        ("italic", FontClass::Italic),
-        ("mono", FontClass::Monospace),
-    ] {
-        std.add_with_metadata::<StyleChange>(name, class.clone());
-    }
+    std.add::<FontSize>("font.size");
 
     std
 }
@@ -67,33 +60,46 @@ function! {
     layout() { vec![BreakParagraph] }
 }
 
-
 function! {
     /// `page.break`: Ends the current page.
     #[derive(Debug, Default, PartialEq)]
     pub struct PageBreak;
 
     parse(default)
-    layout() { vec![FinishSpace] }
+    layout() { vec![BreakPage] }
 }
 
 function! {
     /// `page.size`: Set the size of pages.
     #[derive(Debug, PartialEq)]
-    pub struct PageSize {
-        map: ExtentMap<Size>,
+    pub enum PageSize {
+        Map(ExtentMap<PSize>),
+        Size(Size2D),
     }
 
     parse(args, body) {
         parse!(forbidden: body);
-        PageSize {
-            map: ExtentMap::new(&mut args, true)?,
+
+        if let Some(name) = args.get_pos_opt::<Ident>()? {
+            PageSize::Size(parse_paper_name(name.0.as_str())?)
+        } else {
+            PageSize::Map(ExtentMap::new(&mut args, true)?)
         }
     }
 
     layout(self, ctx) {
         let mut style = ctx.style.page;
-        self.map.apply(ctx.axes, &mut style.dimensions, |&s| s)?;
+        let dims = &mut style.dimensions;
+
+        match self {
+            PageSize::Map(map) => {
+                let map = map.dedup(ctx.axes)?;
+                map.with(Horizontal, |&psize| dims.x = psize.concretize(dims.x));
+                map.with(Vertical, |&psize| dims.y = psize.concretize(dims.y));
+            }
+            PageSize::Size(size) => *dims = *size,
+        }
+
         vec![SetPageStyle(style)]
     }
 }
@@ -108,7 +114,7 @@ function! {
     parse(args, body) {
         parse!(forbidden: body);
         PageMargins {
-            map: PaddingMap::new(&mut args, true)?,
+            map: PaddingMap::new(&mut args)?,
         }
     }
 
@@ -127,33 +133,30 @@ function! {
         spacing: FSize,
     }
 
-    type Meta = Option<AxisKey>;
+    type Meta = Option<SpecificAxis>;
 
     parse(args, body, _, meta) {
-        let spacing = if let Some(axis) = meta {
+        parse!(forbidden: body);
+
+        if let Some(axis) = meta {
             Spacing {
-                axis,
+                axis: AxisKey::Specific(axis),
                 spacing: FSize::from_expr(args.get_pos::<Spanned<Expression>>()?)?,
             }
+        } else if let Some(arg) = args.get_key_next() {
+            let axis = AxisKey::from_ident(&arg.v.key)
+                .map_err(|_| error!(@unexpected_argument))?;
+
+            let spacing = FSize::from_expr(arg.v.value)?;
+            Spacing { axis, spacing }
         } else {
-            if let Some(arg) = args.get_key_next() {
-                let axis = AxisKey::from_ident(&arg.v.key)
-                    .map_err(|_| error!(@unexpected_argument))?;
-
-                let spacing = FSize::from_expr(arg.v.value)?;
-                Spacing { axis, spacing }
-            } else {
-                error!("expected axis and expression")
-            }
-        };
-
-        parse!(forbidden: body);
-        spacing
+            error!("expected axis and spacing")
+        }
     }
 
     layout(self, ctx) {
         let axis = self.axis.to_generic(ctx.axes);
-        let spacing = self.spacing.concretize(ctx.style.text.font_size);
+        let spacing = self.spacing.concretize(ctx.style.text.font_size());
         vec![AddSpacing(spacing, SpacingKind::Hard, axis)]
     }
 }
@@ -187,19 +190,25 @@ function! {
     #[derive(Debug, PartialEq)]
     pub struct FontSize {
         body: Option<SyntaxTree>,
-        size: Size,
+        size: ScaleSize,
     }
 
     parse(args, body, ctx) {
         FontSize {
             body: parse!(optional: body, ctx),
-            size: args.get_pos::<Size>()?,
+            size: args.get_pos::<ScaleSize>()?,
         }
     }
 
     layout(self, ctx) {
         let mut style = ctx.style.text.clone();
-        style.font_size = self.size;
+        match self.size {
+            ScaleSize::Absolute(size) => {
+                style.base_font_size = size;
+                style.font_scale = 1.0;
+            }
+            ScaleSize::Scaled(scale) => style.font_scale = scale,
+        }
         styled(&self.body, &ctx, style)
     }
 }

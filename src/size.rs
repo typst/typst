@@ -11,7 +11,7 @@ use crate::layout::prelude::*;
 #[derive(Copy, Clone, PartialEq, PartialOrd)]
 pub struct Size {
     /// The size in typographic points (1/72 inches).
-    points: f32,
+    pub points: f32,
 }
 
 impl Size {
@@ -116,6 +116,22 @@ impl Size2D {
 
     /// Create a 2D-size with `x` and `y` set to the same value `s`.
     pub fn with_all(s: Size) -> Size2D { Size2D { x: s, y: s } }
+
+    /// Get the specificed component.
+    pub fn get(self, axis: SpecificAxis) -> Size {
+        match axis {
+            Horizontal => self.x,
+            Vertical => self.y,
+        }
+    }
+
+    /// Get the specificed component mutably.
+    pub fn get_mut(&mut self, axis: SpecificAxis) -> &mut Size {
+        match axis {
+            Horizontal => &mut self.x,
+            Vertical => &mut self.y,
+        }
+    }
 
     /// Access the primary size of this specialized 2D-size.
     pub fn get_primary(self, axes: LayoutAxes) -> Size {
@@ -242,20 +258,15 @@ impl SizeBox {
         SizeBox { left: value, top: value, right: value, bottom: value }
     }
 
-    /// Get a mutable reference to the value for the specified axis and
+    /// Get a mutable reference to the value for the specified direction and
     /// alignment. Center alignment will be treated the same as origin
     /// alignment.
-    pub fn get_mut(&mut self,
-        axes: LayoutAxes,
-        axis: GenericAxis,
-        alignment: Alignment,
-    ) -> &mut Size {
-        let mut normalized = axes.get_generic(axis);
+    pub fn get_mut(&mut self, mut direction: Direction, alignment: Alignment) -> &mut Size {
         if alignment == End {
-            normalized = normalized.inv();
+            direction = direction.inv();
         }
 
-        match normalized {
+        match direction {
             LeftToRight => &mut self.left,
             RightToLeft => &mut self.right,
             TopToBottom => &mut self.top,

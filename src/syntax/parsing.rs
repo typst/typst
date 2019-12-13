@@ -250,7 +250,16 @@ impl<'s> Parser<'s> {
                 } else if let Ok(size) = text.parse::<Size>() {
                     Expression::Size(size)
                 } else {
-                    Expression::Ident(Ident::new(text.to_string())?)
+                    // This loop does not actually loop, but is used for breaking.
+                    loop {
+                        if text.ends_with('%') {
+                            if let Ok(percent) = text[..text.len() - 1].parse::<f64>() {
+                                break Expression::Num(percent / 100.0);
+                            }
+                        }
+
+                        break Expression::Ident(Ident::new(text.to_string())?);
+                    }
                 }
             }
             _ => error!("expected expression"),

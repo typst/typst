@@ -7,6 +7,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Make sure the script reruns if this file changes or files are
     // added/deleted in the parsing folder.
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=tests/cache/parse");
     println!("cargo:rerun-if-changed=tests/parsing");
 
     // Compile all parser tests into a single giant vector.

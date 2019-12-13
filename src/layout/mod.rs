@@ -16,7 +16,7 @@ mod text;
 /// Common types for layouting.
 pub mod prelude {
     pub use super::{
-        layout_tree, LayoutResult,
+        layout, LayoutResult,
         MultiLayout, Layout, LayoutContext, LayoutSpaces, LayoutSpace,
         LayoutExpansion, LayoutAxes, GenericAxis, SpecificAxis, Direction,
         LayoutAlignment, Alignment, SpacingKind,
@@ -29,7 +29,7 @@ pub mod prelude {
 
 /// Different kinds of layouters (fully re-exported).
 pub mod layouters {
-    pub use super::tree::layout_tree;
+    pub use super::tree::layout;
     pub use super::flex::{FlexLayouter, FlexContext};
     pub use super::stack::{StackLayouter, StackContext};
     pub use super::text::{layout_text, TextContext};
@@ -107,10 +107,11 @@ pub struct LayoutContext<'a, 'p> {
     pub loader: &'a SharedFontLoader<'p>,
     /// The style for pages and text.
     pub style: &'a LayoutStyle,
+    /// The base unpadded dimensions of this container (for relative sizing).
+    pub base: Size2D,
     /// The spaces to layout in.
     pub spaces: LayoutSpaces,
-    /// Whether to repeat the last space or quit with an error if more space
-    /// would be needed.
+    /// Whether to have repeated spaces or to use only the first and only once.
     pub repeat: bool,
     /// The initial axes along which content is laid out.
     pub axes: LayoutAxes,
@@ -172,6 +173,14 @@ impl LayoutExpansion {
     pub fn new(horizontal: bool, vertical: bool) -> LayoutExpansion {
         LayoutExpansion { horizontal, vertical }
     }
+
+    /// Borrow the spcified component mutably.
+    pub fn get_mut(&mut self, axis: SpecificAxis) -> &mut bool {
+        match axis {
+            Horizontal => &mut self.horizontal,
+            Vertical => &mut self.vertical,
+        }
+    }
 }
 
 /// The axes along which the content is laid out.
@@ -192,16 +201,24 @@ impl LayoutAxes {
     }
 
     /// Return the direction of the specified generic axis.
-    pub fn get_generic(self, axis: GenericAxis) -> Direction {
+    pub fn get(self, axis: GenericAxis) -> Direction {
         match axis {
             Primary => self.primary,
             Secondary => self.secondary,
         }
     }
 
+    /// Borrow the direction of the specified generic axis mutably.
+    pub fn get_mut(&mut self, axis: GenericAxis) -> &mut Direction {
+        match axis {
+            Primary => &mut self.primary,
+            Secondary => &mut self.secondary,
+        }
+    }
+
     /// Return the direction of the specified specific axis.
     pub fn get_specific(self, axis: SpecificAxis) -> Direction {
-        self.get_generic(axis.to_generic(self))
+        self.get(axis.to_generic(self))
     }
 }
 
@@ -215,7 +232,7 @@ pub enum GenericAxis {
 impl GenericAxis {
     /// The specific version of this axis in the given system of axes.
     pub fn to_specific(self, axes: LayoutAxes) -> SpecificAxis {
-        axes.get_generic(self).axis()
+        axes.get(self).axis()
     }
 
     /// The other axis.
@@ -306,11 +323,11 @@ impl LayoutAlignment {
         LayoutAlignment { primary, secondary }
     }
 
-    /// Return the alignment of the specified generic axis.
-    pub fn get(self, axis: GenericAxis) -> Alignment {
+    /// Borrow the alignment of the specified generic axis mutably.
+    pub fn get_mut(&mut self, axis: GenericAxis) -> &mut Alignment {
         match axis {
-            Primary => self.primary,
-            Secondary => self.secondary,
+            Primary => &mut self.primary,
+            Secondary => &mut self.secondary,
         }
     }
 }

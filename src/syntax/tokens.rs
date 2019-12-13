@@ -1,3 +1,5 @@
+//! Tokenization of source code.
+
 use std::str::CharIndices;
 use smallvec::SmallVec;
 

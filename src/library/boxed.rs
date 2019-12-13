@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::func::prelude::*;
 use super::maps::ExtentMap;
 
@@ -19,18 +21,34 @@ function! {
     }
 
     layout(self, mut ctx) {
+        ctx.repeat = false;
         ctx.debug = self.debug;
-        let space = &mut ctx.spaces[0];
 
-        self.map.apply_with(ctx.axes, |axis, p| {
-            let entity = match axis {
-                Horizontal => { space.expansion.horizontal = true; &mut space.dimensions.x },
-                Vertical => { space.expansion.vertical = true; &mut space.dimensions.y },
-            };
+        let map = self.map.dedup(ctx.axes)?;
 
-            *entity = p.concretize(*entity)
-        })?;
+        // Try to layout this box in all spaces.
+        let mut error = None;
+        for &space in &ctx.spaces {
+            let mut ctx = ctx.clone();
+            let mut space = space;
 
-        vec![AddMultiple(layout_tree(&self.body, ctx)?)]
+            for &axis in &[Horizontal, Vertical] {
+                if let Some(psize) = map.get(axis) {
+                    let size = psize.concretize(ctx.base.get(axis));
+                    *ctx.base.get_mut(axis) = size;
+                    *space.dimensions.get_mut(axis) = size;
+                    *space.expansion.get_mut(axis) = true;
+                }
+            }
+
+            ctx.spaces = smallvec![space];
+
+            match layout(&self.body, ctx) {
+                Ok(layouts) => return Ok(vec![AddMultiple(layouts)]),
+                Err(err) => error = Some(err),
+            }
+        }
+
+        return Err(error.expect("expected at least one space"));
     }
 }

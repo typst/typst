@@ -7,7 +7,7 @@ use crate::style::TextStyle;
 use super::*;
 
 /// Layout a syntax tree into a multibox.
-pub fn layout_tree(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<MultiLayout> {
+pub fn layout(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<MultiLayout> {
     let mut layouter = TreeLayouter::new(ctx);
     layouter.layout(tree)?;
     layouter.finish()
@@ -28,6 +28,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                 spaces: ctx.spaces.clone(),
                 axes: ctx.axes,
                 alignment: ctx.alignment,
+                repeat: ctx.repeat,
                 debug: ctx.debug,
             }),
             style: ctx.style.clone(),
@@ -106,8 +107,15 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
             FinishLine => {},
             FinishRun => {},
-            FinishSpace => self.stack.finish_space(true),
+            FinishSpace => self.stack.finish_space(true)?,
             BreakParagraph => self.layout_paragraph()?,
+            BreakPage => {
+                if self.ctx.nested {
+                    error!("page break cannot be issued from nested context");
+                }
+
+                self.stack.finish_space(true)?
+            }
 
             SetTextStyle(style) => self.style.text = style,
             SetPageStyle(style) => {
@@ -116,6 +124,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                 }
 
                 self.style.page = style;
+                self.ctx.base = style.dimensions.unpadded(style.margins);
                 self.stack.set_spaces(smallvec![
                     LayoutSpace {
                         dimensions: style.dimensions,
@@ -135,18 +144,18 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
     }
 
     fn finish(self) -> LayoutResult<MultiLayout> {
-        Ok(self.stack.finish())
+        self.stack.finish()
     }
 }
 
 fn word_spacing(style: &TextStyle) -> Size {
-    style.word_spacing * style.font_size
+    style.word_spacing * style.font_size()
 }
 
 fn flex_spacing(style: &TextStyle) -> Size {
-    (style.line_spacing - 1.0) * style.font_size
+    (style.line_spacing - 1.0) * style.font_size()
 }
 
 fn paragraph_spacing(style: &TextStyle) -> Size {
-    (style.paragraph_spacing - 1.0) * style.font_size
+    (style.paragraph_spacing - 1.0) * style.font_size()
 }

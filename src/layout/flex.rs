@@ -66,6 +66,7 @@ pub struct FlexContext {
     pub axes: LayoutAxes,
     pub alignment: LayoutAlignment,
     pub flex_spacing: Size,
+    pub repeat: bool,
     pub debug: bool,
 }
 
@@ -76,6 +77,7 @@ impl FlexLayouter {
             spaces: ctx.spaces,
             axes: ctx.axes,
             alignment: ctx.alignment,
+            repeat: ctx.repeat,
             debug: ctx.debug,
         });
 
@@ -144,7 +146,7 @@ impl FlexLayouter {
 
     pub fn finish(mut self) -> LayoutResult<MultiLayout> {
         self.finish_space(false)?;
-        Ok(self.stack.finish())
+        self.stack.finish()
     }
 
     pub fn finish_space(&mut self, hard: bool) -> LayoutResult<()> {
@@ -152,7 +154,7 @@ impl FlexLayouter {
             self.finish_run()?;
         }
 
-        self.stack.finish_space(hard);
+        self.stack.finish_space(hard)?;
         Ok(self.start_line())
     }
 

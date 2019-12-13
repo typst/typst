@@ -5,22 +5,25 @@
 macro_rules! function {
     // Parse a unit struct.
     ($(#[$outer:meta])* pub struct $type:ident; $($rest:tt)*) => {
-        $(#[$outer])*
-        pub struct $type;
+        $(#[$outer])* pub struct $type;
         function!(@meta $type | $($rest)*);
     };
 
     // Parse a tuple struct.
     ($(#[$outer:meta])* pub struct $type:ident($($fields:tt)*); $($rest:tt)*) => {
-        $(#[$outer])*
-        pub struct $type($($fields)*);
+        $(#[$outer])* pub struct $type($($fields)*);
         function!(@meta $type | $($rest)*);
     };
 
     // Parse a struct with fields.
     ($(#[$outer:meta])* pub struct $type:ident { $($fields:tt)* } $($rest:tt)*) => {
-        $(#[$outer])*
-        pub struct $type { $($fields)* }
+        $(#[$outer])* pub struct $type { $($fields)* }
+        function!(@meta $type | $($rest)*);
+    };
+
+    // Parse an enum.
+    ($(#[$outer:meta])* pub enum $type:ident { $($fields:tt)* } $($rest:tt)*) => {
+        $(#[$outer])* pub enum $type { $($fields)* }
         function!(@meta $type | $($rest)*);
     };
 

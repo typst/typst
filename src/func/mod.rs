@@ -107,6 +107,7 @@ pub enum Command<'a> {
     FinishRun,
     FinishSpace,
     BreakParagraph,
+    BreakPage,
 
     SetTextStyle(TextStyle),
     SetPageStyle(PageStyle),

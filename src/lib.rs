@@ -27,8 +27,7 @@ use toddle::query::{FontLoader, FontProvider, SharedFontLoader};
 use toddle::Error as FontError;
 
 use crate::func::Scope;
-use crate::layout::{layout_tree, MultiLayout, LayoutContext, LayoutResult};
-use crate::layout::{LayoutSpace, LayoutExpansion, LayoutAxes, LayoutAlignment};
+use crate::layout::{MultiLayout, LayoutResult};
 use crate::syntax::{parse, SyntaxTree, ParseContext, Span, ParseResult};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 
@@ -92,11 +91,12 @@ impl<'p> Typesetter<'p> {
     /// Layout a syntax tree and return the produced layout.
     pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<MultiLayout> {
         use crate::layout::prelude::*;
-        Ok(layout_tree(
+        Ok(layout(
             &tree,
             LayoutContext {
                 loader: &self.loader,
                 style: &self.style,
+                base: self.style.page.dimensions.unpadded(self.style.page.margins),
                 spaces: smallvec![LayoutSpace {
                     dimensions: self.style.page.dimensions,
                     padding: self.style.page.margins,
