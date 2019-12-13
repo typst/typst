@@ -133,7 +133,7 @@ function! {
         let spacing = if let Some(axis) = meta {
             Spacing {
                 axis,
-                spacing: FSize::from_expr(args.get_pos::<Expression>()?)?,
+                spacing: FSize::from_expr(args.get_pos::<Spanned<Expression>>()?)?,
             }
         } else {
             if let Some(arg) = args.get_key_next() {
@@ -178,15 +178,7 @@ function! {
     layout(self, ctx) {
         let mut style = ctx.style.text.clone();
         style.toggle_class(self.class.clone());
-
-        match &self.body {
-            Some(body) => vec![
-                SetTextStyle(style),
-                LayoutTree(body),
-                SetTextStyle(ctx.style.text.clone()),
-            ],
-            None => vec![SetTextStyle(style)]
-        }
+        styled(&self.body, &ctx, style)
     }
 }
 
@@ -201,21 +193,29 @@ function! {
     parse(args, body, ctx) {
         FontSize {
             body: parse!(optional: body, ctx),
-            size: args.get_pos::<Size>()?.v,
+            size: args.get_pos::<Size>()?,
         }
     }
 
     layout(self, ctx) {
         let mut style = ctx.style.text.clone();
         style.font_size = self.size;
+        styled(&self.body, &ctx, style)
+    }
+}
 
-        match &self.body {
-            Some(body) => vec![
-                SetTextStyle(style),
-                LayoutTree(body),
-                SetTextStyle(ctx.style.text.clone()),
-            ],
-            None => vec![SetTextStyle(style)]
-        }
+/// Layout the body with the style or update the style if there is no body.
+fn styled<'a>(
+    body: &'a Option<SyntaxTree>,
+    ctx: &LayoutContext,
+    style: TextStyle
+) -> Commands<'a> {
+    match &body {
+        Some(body) => vec![
+            SetTextStyle(style),
+            LayoutTree(body),
+            SetTextStyle(ctx.style.text.clone()),
+        ],
+        None => vec![SetTextStyle(style)]
     }
 }

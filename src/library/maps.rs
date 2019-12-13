@@ -31,13 +31,6 @@ impl<K, V> ConsistentMap<K, V> where K: Hash + Eq {
         })
     }
 
-    /// Add a key-spanned-value pair the value is not `None`.
-    pub fn add_opt_span(&mut self, key: K, value: Option<Spanned<V>>) -> ParseResult<()> {
-        Ok(if let Some(spanned) = value {
-            self.add(key, spanned.v)?;
-        })
-    }
-
     /// Call a function with the value if the key is present.
     pub fn with<F>(&self, key: K, callback: F) where F: FnOnce(&V) {
         if let Some(value) = self.map.get(&key) {
@@ -143,7 +136,7 @@ impl PaddingMap {
     pub fn new(args: &mut FuncArgs, enforce: bool) -> ParseResult<PaddingMap> {
         let mut map = ConsistentMap::new();
 
-        map.add_opt_span(PaddingKey::All, args.get_pos_opt::<Size>()?)?;
+        map.add_opt(PaddingKey::All, args.get_pos_opt::<Size>()?)?;
 
         for arg in args.keys() {
             let key = match PaddingKey::from_ident(&arg.v.key) {

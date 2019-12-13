@@ -121,16 +121,15 @@ impl FuncArgs {
     }
 
     /// Force-extract the first positional argument.
-    pub fn get_pos<E: ExpressionKind>(&mut self) -> ParseResult<Spanned<E>> {
+    pub fn get_pos<E: ExpressionKind>(&mut self) -> ParseResult<E> {
         expect(self.get_pos_opt())
     }
 
     /// Extract the first positional argument.
-    pub fn get_pos_opt<E: ExpressionKind>(&mut self) -> ParseResult<Option<Spanned<E>>> {
+    pub fn get_pos_opt<E: ExpressionKind>(&mut self) -> ParseResult<Option<E>> {
         Ok(if !self.pos.is_empty() {
             let spanned = self.pos.remove(0);
-            let span = spanned.span;
-            Some(Spanned::new(E::from_expr(spanned)?, span))
+            Some(E::from_expr(spanned)?)
         } else {
             None
         })
@@ -143,15 +142,15 @@ impl FuncArgs {
     }
 
     /// Force-extract a keyword argument.
-    pub fn get_key<E: ExpressionKind>(&mut self, name: &str) -> ParseResult<Spanned<E>> {
+    pub fn get_key<E: ExpressionKind>(&mut self, name: &str) -> ParseResult<E> {
         expect(self.get_key_opt(name))
     }
 
     /// Extract a keyword argument.
-    pub fn get_key_opt<E: ExpressionKind>(&mut self, name: &str) -> ParseResult<Option<Spanned<E>>> {
+    pub fn get_key_opt<E: ExpressionKind>(&mut self, name: &str) -> ParseResult<Option<E>> {
         Ok(if let Some(index) = self.key.iter().position(|arg| arg.v.key.v.0 == name) {
-            let Spanned { v, span } = self.key.swap_remove(index);
-            Some(Spanned::new(E::from_expr(v.value)?, span))
+            let value = self.key.swap_remove(index).v.value;
+            Some(E::from_expr(value)?)
         } else {
             None
         })
@@ -181,7 +180,7 @@ impl FuncArgs {
 }
 
 /// Extract the option expression kind from the option or return an error.
-fn expect<E: ExpressionKind>(opt: ParseResult<Option<Spanned<E>>>) -> ParseResult<Spanned<E>> {
+fn expect<E: ExpressionKind>(opt: ParseResult<Option<E>>) -> ParseResult<E> {
     match opt {
         Ok(Some(spanned)) => Ok(spanned),
         Ok(None) => error!("expected {}", E::NAME),
@@ -308,3 +307,13 @@ kind!(ScaleSize,  "number or size",
     Expression::Size(size) => ScaleSize::Absolute(size),
     Expression::Num(scale) => ScaleSize::Scaled(scale as f32)
 );
+
+impl<T> ExpressionKind for Spanned<T> where T: ExpressionKind {
+    const NAME: &'static str = T::NAME;
+
+    fn from_expr(expr: Spanned<Expression>) -> ParseResult<Spanned<T>> {
+        let span = expr.span;
+        T::from_expr(expr)
+            .map(|v| Spanned::new(v, span))
+    }
+}

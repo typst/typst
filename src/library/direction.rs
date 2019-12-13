@@ -13,8 +13,8 @@ function! {
     parse(args, body, ctx) {
         let mut map = ConsistentMap::new();
 
-        map.add_opt_span(AxisKey::Primary, args.get_pos_opt::<Direction>()?)?;
-        map.add_opt_span(AxisKey::Secondary, args.get_pos_opt::<Direction>()?)?;
+        map.add_opt(AxisKey::Primary, args.get_pos_opt::<Direction>()?)?;
+        map.add_opt(AxisKey::Secondary, args.get_pos_opt::<Direction>()?)?;
 
         for arg in args.keys() {
             let axis = AxisKey::from_ident(&arg.v.key)?;

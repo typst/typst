@@ -14,9 +14,7 @@ function! {
         Boxed {
             body: parse!(optional: body, ctx).unwrap_or(SyntaxTree::new()),
             map: ExtentMap::new(&mut args, false)?,
-            debug: args.get_key_opt::<bool>("debug")?
-                .map(Spanned::value)
-                .unwrap_or(true),
+            debug: args.get_key_opt::<bool>("debug")?.unwrap_or(true),
         }
     }
 
