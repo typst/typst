@@ -144,7 +144,7 @@ impl LayoutSpace {
     /// The offset from the origin to the start of content, that is,
     /// `(padding.left, padding.top)`.
     pub fn start(&self) -> Size2D {
-        Size2D::new(self.padding.left, self.padding.right)
+        Size2D::new(self.padding.left, self.padding.top)
     }
 
     /// The actually usable area (dimensions minus padding).
