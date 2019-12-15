@@ -320,7 +320,7 @@ papers! {
     (PAPER_US_BUSINESS_CARD: 88.9, 50.8,   "us-business-card")
     (PAPER_JP_BUSINESS_CARD: 91.0, 55.0,   "jp-business-card")
     (PAPER_CN_BUSINESS_CARD: 90.0, 54.0,   "cn-business-card")
-    (PAPER_A4_16_9:          297.0, 148.5, "presentation-4-3")
-    (PAPER_A4_4_3:           280.0, 210.0, "presentation-16-9" | "presentation")
-    (PAPER_POSTCARD:         101.6, 152.4, "postcard")
+    (PAPER_A4_16_9:          297.0, 167.0625, "presentation-16-9" | "presentation")
+    (PAPER_A4_4_3:           280.0, 210.0, "presentation-4-3")
+    (PAPER_POSTCARD:         152.4, 101.6, "postcard")
 }
