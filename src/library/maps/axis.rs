@@ -46,7 +46,7 @@ impl<E: ExpressionKind + Copy> ExtentMap<E> {
         let mut map = ConsistentMap::new();
 
         for arg in args.keys() {
-            let key = match arg.v.key.v.0.as_str() {
+            let key = match arg.v.key.v.as_str() {
                 "width"          | "w"  => AxisKey::Specific(Horizontal),
                 "height"         | "h"  => AxisKey::Specific(Vertical),
                 "primary-size"   | "ps" => AxisKey::Generic(Primary),

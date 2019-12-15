@@ -91,15 +91,16 @@ impl<'p> Typesetter<'p> {
     /// Layout a syntax tree and return the produced layout.
     pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<MultiLayout> {
         use crate::layout::prelude::*;
+        let margins = self.style.page.margins();
         Ok(layout(
             &tree,
             LayoutContext {
                 loader: &self.loader,
                 style: &self.style,
-                base: self.style.page.dimensions.unpadded(self.style.page.margins),
+                base: self.style.page.dimensions.unpadded(margins),
                 spaces: smallvec![LayoutSpace {
                     dimensions: self.style.page.dimensions,
-                    padding: self.style.page.margins,
+                    padding: margins,
                     expansion: LayoutExpansion::new(true, true),
                 }],
                 repeat: true,

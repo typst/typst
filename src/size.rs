@@ -226,17 +226,20 @@ impl Neg for Size2D {
     }
 }
 
-/// A size in four directions.
+/// A size in four dimensions.
+pub type SizeBox = ValueBox<Size>;
+
+/// A value in four dimensions.
 #[derive(Copy, Clone, PartialEq)]
-pub struct SizeBox {
+pub struct ValueBox<T: Copy> {
     /// The left extent.
-    pub left: Size,
+    pub left: T,
     /// The top extent.
-    pub top: Size,
+    pub top: T,
     /// The right extent.
-    pub right: Size,
+    pub right: T,
     /// The bottom extent.
-    pub bottom: Size,
+    pub bottom: T,
 }
 
 impl SizeBox {
@@ -247,21 +250,23 @@ impl SizeBox {
         right: Size::ZERO,
         bottom: Size::ZERO,
     };
+}
 
+impl<T: Copy> ValueBox<T> {
     /// Create a new box from four sizes.
-    pub fn new(left: Size, top: Size, right: Size, bottom: Size) -> SizeBox {
-        SizeBox { left, top, right, bottom }
+    pub fn new(left: T, top: T, right: T, bottom: T) -> ValueBox<T> {
+        ValueBox { left, top, right, bottom }
     }
 
     /// Create a box with all four fields set to the same value `s`.
-    pub fn with_all(value: Size) -> SizeBox {
-        SizeBox { left: value, top: value, right: value, bottom: value }
+    pub fn with_all(value: T) -> ValueBox<T> {
+        ValueBox { left: value, top: value, right: value, bottom: value }
     }
 
     /// Get a mutable reference to the value for the specified direction and
     /// alignment. Center alignment will be treated the same as origin
     /// alignment.
-    pub fn get_mut(&mut self, mut direction: Direction, alignment: Alignment) -> &mut Size {
+    pub fn get_mut(&mut self, mut direction: Direction, alignment: Alignment) -> &mut T {
         if alignment == End {
             direction = direction.inv();
         }
@@ -274,32 +279,32 @@ impl SizeBox {
         }
     }
 
-    /// Set the `left` and `right` values.
-    pub fn set_all(&mut self, value: Size) {
-        *self = SizeBox::with_all(value);
+    /// Set all values to the given value.
+    pub fn set_all(&mut self, value: T) {
+        *self = ValueBox::with_all(value);
     }
 
     /// Set the `left` and `right` values.
-    pub fn set_horizontal(&mut self, value: Size) {
+    pub fn set_horizontal(&mut self, value: T) {
         self.left = value;
         self.right = value;
     }
 
     /// Set the `top` and `bottom` values.
-    pub fn set_vertical(&mut self, value: Size) {
+    pub fn set_vertical(&mut self, value: T) {
         self.top = value;
         self.bottom = value;
     }
 }
 
-impl Display for SizeBox {
+impl<T: Copy> Display for ValueBox<T> where T: std::fmt::Debug {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "[left: {}, top: {}, right: {}, bottom: {}]",
+        write!(f, "[left: {:?}, top: {:?}, right: {:?}, bottom: {:?}]",
             self.left, self.top, self.right, self.bottom)
     }
 }
 
-debug_display!(SizeBox);
+debug_display!(ValueBox; T where T: std::fmt::Debug + Copy);
 
 /// Either an absolute size or a factor of some metric.
 #[derive(Copy, Clone, PartialEq)]
@@ -316,7 +321,7 @@ pub type PSize = ScaleSize;
 
 impl ScaleSize {
     /// Use the absolute value or scale the entity.
-    pub fn concretize(&self, entity: Size) -> Size {
+    pub fn scaled(&self, entity: Size) -> Size {
         match self {
             ScaleSize::Absolute(s) => *s,
             ScaleSize::Scaled(s) => *s * entity,

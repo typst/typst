@@ -19,7 +19,7 @@ pub mod prelude {
         Expression, Ident, ExpressionKind,
         Spanned, Span
     };
-    pub use crate::size::{Size, Size2D, SizeBox, ScaleSize, FSize, PSize};
+    pub use crate::size::{Size, Size2D, SizeBox, ValueBox, ScaleSize, FSize, PSize};
     pub use crate::style::{LayoutStyle, PageStyle, TextStyle};
     pub use Command::*;
 }

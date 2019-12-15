@@ -34,7 +34,7 @@ function! {
 
             for &axis in &[Horizontal, Vertical] {
                 if let Some(psize) = map.get(axis) {
-                    let size = psize.concretize(ctx.base.get(axis));
+                    let size = psize.scaled(ctx.base.get(axis));
                     *ctx.base.get_mut(axis) = size;
                     *space.dimensions.get_mut(axis) = size;
                     *space.expansion.get_mut(axis) = true;

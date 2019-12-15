@@ -8,7 +8,7 @@ use std::process::Command;
 
 use typstc::Typesetter;
 use typstc::layout::{MultiLayout, Serialize};
-use typstc::size::{Size, Size2D, SizeBox};
+use typstc::size::{Size, Size2D};
 use typstc::style::PageStyle;
 use typstc::toddle::query::FileSystemFontProvider;
 use typstc::export::pdf::PdfExporter;
@@ -62,7 +62,7 @@ fn test(name: &str, src: &str) -> Result<()> {
     let mut typesetter = Typesetter::new();
     typesetter.set_page_style(PageStyle {
         dimensions: Size2D::with_all(Size::pt(250.0)),
-        margins: SizeBox::with_all(Size::pt(10.0)),
+        .. PageStyle::default()
     });
 
     let provider = FileSystemFontProvider::from_listing("fonts/fonts.toml")?;

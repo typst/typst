@@ -124,11 +124,13 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                 }
 
                 self.style.page = style;
-                self.ctx.base = style.dimensions.unpadded(style.margins);
+
+                let margins = style.margins();
+                self.ctx.base = style.dimensions.unpadded(margins);
                 self.stack.set_spaces(smallvec![
                     LayoutSpace {
                         dimensions: style.dimensions,
-                        padding: style.margins,
+                        padding: margins,
                         expansion: LayoutExpansion::new(true, true),
                     }
                 ], true);

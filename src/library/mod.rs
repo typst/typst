@@ -3,7 +3,7 @@
 use toddle::query::FontClass;
 
 use crate::func::prelude::*;
-use crate::style::parse_paper_name;
+use crate::style::{Paper, PaperClass};
 use self::maps::{ExtentMap, PaddingMap, AxisKey};
 
 pub mod maps;
@@ -73,31 +73,37 @@ function! {
     /// `page.size`: Set the size of pages.
     #[derive(Debug, PartialEq)]
     pub enum PageSize {
-        Map(ExtentMap<PSize>),
-        Size(Size2D),
+        Paper(Paper),
+        Custom(ExtentMap<PSize>),
     }
 
     parse(args, body) {
         parse!(forbidden: body);
 
         if let Some(name) = args.get_pos_opt::<Ident>()? {
-            PageSize::Size(parse_paper_name(name.0.as_str())?)
+            PageSize::Paper(Paper::from_name(name.as_str())?)
         } else {
-            PageSize::Map(ExtentMap::new(&mut args, true)?)
+            PageSize::Custom(ExtentMap::new(&mut args, true)?)
         }
     }
 
     layout(self, ctx) {
         let mut style = ctx.style.page;
-        let dims = &mut style.dimensions;
 
         match self {
-            PageSize::Map(map) => {
-                let map = map.dedup(ctx.axes)?;
-                map.with(Horizontal, |&psize| dims.x = psize.concretize(dims.x));
-                map.with(Vertical, |&psize| dims.y = psize.concretize(dims.y));
+            PageSize::Paper(paper) => {
+                style.class = paper.class;
+                style.dimensions = paper.dimensions;
             }
-            PageSize::Size(size) => *dims = *size,
+
+            PageSize::Custom(map) => {
+                style.class = PaperClass::Custom;
+
+                let map = map.dedup(ctx.axes)?;
+                let dims = &mut style.dimensions;
+                map.with(Horizontal, |&psize| dims.x = psize.scaled(dims.x));
+                map.with(Vertical, |&psize| dims.y = psize.scaled(dims.y));
+            }
         }
 
         vec![SetPageStyle(style)]
@@ -156,7 +162,7 @@ function! {
 
     layout(self, ctx) {
         let axis = self.axis.to_generic(ctx.axes);
-        let spacing = self.spacing.concretize(ctx.style.text.font_size());
+        let spacing = self.spacing.scaled(ctx.style.text.font_size());
         vec![AddSpacing(spacing, SpacingKind::Hard, axis)]
     }
 }

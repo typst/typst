@@ -39,17 +39,17 @@ key!(PaddingKey<AxisKey>, "axis or side",
 
 /// A map for storing padding at sides.
 #[derive(Debug, Clone, PartialEq)]
-pub struct PaddingMap(ConsistentMap<PaddingKey<AxisKey>, Size>);
+pub struct PaddingMap(ConsistentMap<PaddingKey<AxisKey>, Option<PSize>>);
 
 impl PaddingMap {
     /// Parse a padding map from the function args.
     pub fn new(args: &mut FuncArgs) -> ParseResult<PaddingMap> {
         let mut map = ConsistentMap::new();
-        map.add_opt(PaddingKey::All, args.get_pos_opt::<Size>()?)?;
+        map.add_opt(PaddingKey::All, args.get_pos_opt::<Option<PSize>>()?)?;
 
         for arg in args.keys() {
             let key = PaddingKey::from_ident(&arg.v.key)?;
-            let size = Size::from_expr(arg.v.value)?;
+            let size = Option::<PSize>::from_expr(arg.v.value)?;
             map.add(key, size)?;
         }
 
@@ -57,7 +57,8 @@ impl PaddingMap {
     }
 
     /// Apply the specified padding on the size box.
-    pub fn apply(&self, axes: LayoutAxes, padding: &mut SizeBox) -> LayoutResult<()> {
+    pub fn apply(&self, axes: LayoutAxes, padding: &mut ValueBox<Option<PSize>>)
+    -> LayoutResult<()> {
         use PaddingKey::*;
 
         let map = self.0.dedup(|key, &val| {

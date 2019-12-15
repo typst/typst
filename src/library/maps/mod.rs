@@ -10,7 +10,7 @@ macro_rules! key {
         impl $type {
             /// Parse this key from an identifier.
             pub fn from_ident(ident: &Spanned<Ident>) -> ParseResult<Self> {
-                Ok(match ident.v.0.as_str() {
+                Ok(match ident.v.as_str() {
                     $($patterns)*
                     _ => error!("expected {}", <Self as ExpressionKind>::NAME),
                 })

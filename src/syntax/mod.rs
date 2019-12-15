@@ -235,12 +235,16 @@ debug_display!(Expression);
 pub struct Ident(pub String);
 
 impl Ident {
-    fn new(string: String) -> ParseResult<Ident> {
+    pub fn new(string: String) -> ParseResult<Ident> {
         if is_identifier(&string) {
             Ok(Ident(string))
         } else {
             error!("invalid identifier: `{}`", string);
         }
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
     }
 }
 
@@ -315,5 +319,20 @@ impl<T> ExpressionKind for Spanned<T> where T: ExpressionKind {
         let span = expr.span;
         T::from_expr(expr)
             .map(|v| Spanned::new(v, span))
+    }
+}
+
+impl<T> ExpressionKind for Option<T> where T: ExpressionKind {
+    const NAME: &'static str = T::NAME;
+
+    fn from_expr(expr: Spanned<Expression>) -> ParseResult<Option<T>> {
+        if let Expression::Ident(ident) = &expr.v {
+            match ident.as_str() {
+                "default" | "none" => return Ok(None),
+                _ => {},
+            }
+        }
+
+        T::from_expr(expr).map(|v| Some(v))
     }
 }
