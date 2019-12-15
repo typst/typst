@@ -253,7 +253,7 @@ impl<'s> Parser<'s> {
                     // This loop does not actually loop, but is used for breaking.
                     loop {
                         if text.ends_with('%') {
-                            if let Ok(percent) = text[..text.len() - 1].parse::<f64>() {
+                            if let Ok(percent) = text[.. text.len()-1].parse::<f64>() {
                                 break Expression::Num(percent / 100.0);
                             }
                         }

@@ -352,21 +352,18 @@ impl FromStr for Size {
     type Err = ParseSizeError;
 
     fn from_str(src: &str) -> Result<Size, ParseSizeError> {
-        if src.len() < 2 {
-            return Err(ParseSizeError);
-        }
-
-        let value = src[..src.len() - 2]
-            .parse::<f32>()
-            .map_err(|_| ParseSizeError)?;
-
-        Ok(match &src[src.len() - 2..] {
-            "pt" => Size::pt(value),
-            "mm" => Size::mm(value),
-            "cm" => Size::cm(value),
-            "in" => Size::inches(value),
+        let func = match () {
+            _ if src.ends_with("pt") => Size::pt,
+            _ if src.ends_with("mm") => Size::mm,
+            _ if src.ends_with("cm") => Size::cm,
+            _ if src.ends_with("in") => Size::inches,
             _ => return Err(ParseSizeError),
-        })
+        };
+
+        Ok(func(src[..src.len() - 2]
+            .parse::<f32>()
+            .map_err(|_| ParseSizeError)?))
+
     }
 }
 
