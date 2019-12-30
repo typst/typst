@@ -108,6 +108,11 @@ impl LineLayouter {
             if !self.line_is_empty() {
                 self.finish_line()?;
             } else {
+                if self.stack.space_is_last() && self.stack.space_is_empty() {
+                    error!("cannot fit box of size {} into usable size of {}",
+                        layout.dimensions, self.usable());
+                }
+
                 self.finish_space(true)?;
             }
         }
