@@ -2,19 +2,19 @@
 [page.margins: 1cm]
 
 [box][
-    *Technical University Berlin* [n]
-    *Faculty II, Institute for Mathematics* [n]
-    Secretary Example [n]
-    Prof. Dr. Example [n]
-    Assistant #1, Assistant #2, Assistant #3
+    *Technische Universität Berlin* [n]
+    *Fakultät II, Institut for Mathematik* [n]
+    Sekretariat MA [n]
+    Dr. Max Mustermann [n]
+    Ola Nordmann, John Doe
 ]
-[align: right][*WiSe 2019/2020* [n] Week 1]
+[align: right][*WiSe 2019/2020* [n] Woche 3]
 
 [v: 6mm]
 
 [align: center][
-    *3. Ubungsblatt Computerorientierte Mathematik II* [v: 0.3mm]
-    *Abgabe: 03.05.2019* (bis 10:10 Uhr in MA 001) [v: 0.3mm]
+    *3. Ubungsblatt Computerorientierte Mathematik II* [v: 2mm]
+    *Abgabe: 03.05.2019* (bis 10:10 Uhr in MA 001) [v: 2mm]
     *Alle Antworten sind zu beweisen.*
 ]
 

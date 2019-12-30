@@ -9,28 +9,30 @@ function! {
     pub struct Boxed {
         body: SyntaxTree,
         map: ExtentMap<PSize>,
-        debug: bool,
+        debug: Option<bool>,
     }
 
     parse(args, body, ctx) {
         Boxed {
             body: parse!(optional: body, ctx).unwrap_or(SyntaxTree::new()),
             map: ExtentMap::new(&mut args, false)?,
-            debug: args.get_key_opt::<bool>("debug")?.unwrap_or(true),
+            debug: args.get_key_opt::<bool>("debug")?,
         }
     }
 
     layout(self, mut ctx) {
         ctx.repeat = false;
-        ctx.debug = self.debug;
+
+        if let Some(debug) = self.debug {
+            ctx.debug = debug;
+        }
 
         let map = self.map.dedup(ctx.axes)?;
 
-        // Try to layout this box in all spaces.
+        // Try to layout this box in all spaces until it fits into some space.
         let mut error = None;
-        for &space in &ctx.spaces {
+        for &(mut space) in &ctx.spaces {
             let mut ctx = ctx.clone();
-            let mut space = space;
 
             for &axis in &[Horizontal, Vertical] {
                 if let Some(psize) = map.get(axis) {

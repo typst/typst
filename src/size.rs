@@ -1,6 +1,6 @@
-//! Different-dimensional spacing types.
+//! Different-dimensional value and spacing types.
 
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::iter::Sum;
 use std::ops::*;
 use std::str::FromStr;
@@ -8,7 +8,7 @@ use std::str::FromStr;
 use crate::layout::prelude::*;
 
 /// A general spacing type.
-#[derive(Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Default, Copy, Clone, PartialEq, PartialOrd)]
 pub struct Size {
     /// The size in typographic points (1/72 inches).
     pub points: f32,
@@ -92,64 +92,111 @@ impl Sum for Size {
     }
 }
 
-/// A position or extent in 2-dimensional space.
+/// Either an absolute size or a factor of some entity.
 #[derive(Copy, Clone, PartialEq)]
-pub struct Size2D {
-    /// The horizontal coordinate.
-    pub x: Size,
-    /// The vertical coordinate.
-    pub y: Size,
+pub enum ScaleSize {
+    Absolute(Size),
+    Scaled(f32),
 }
 
-impl Size2D {
-    /// The zeroed 2D-size.
-    pub const ZERO: Size2D = Size2D { x: Size::ZERO, y: Size::ZERO };
+impl ScaleSize {
+    /// Use the absolute value or scale the entity.
+    pub fn scaled(&self, entity: Size) -> Size {
+        match self {
+            ScaleSize::Absolute(s) => *s,
+            ScaleSize::Scaled(s) => *s * entity,
+        }
+    }
+}
 
-    /// Create a new 2D-size from two sizes.
-    pub fn new(x: Size, y: Size) -> Size2D { Size2D { x, y } }
+impl Display for ScaleSize {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ScaleSize::Absolute(size) => write!(f, "{}", size),
+            ScaleSize::Scaled(scale) => write!(f, "x{}", scale),
+        }
+    }
+}
 
-    /// Create a new 2D-size with `x` set to a value and `y` zero.
-    pub fn with_x(x: Size) -> Size2D { Size2D { x, y: Size::ZERO } }
+debug_display!(ScaleSize);
 
-    /// Create a new 2D-size with `y` set to a value and `x` zero.
-    pub fn with_y(y: Size) -> Size2D { Size2D { x: Size::ZERO, y } }
+/// A scale size that is scaled by the font size.
+pub type FSize = ScaleSize;
 
-    /// Create a 2D-size with `x` and `y` set to the same value `s`.
-    pub fn with_all(s: Size) -> Size2D { Size2D { x: s, y: s } }
+/// A scale size that is scaled by the size of the padded parent container.
+pub type PSize = ScaleSize;
+
+/// A value in two dimensions.
+#[derive(Default, Copy, Clone, PartialEq)]
+pub struct Value2D<T: Copy> {
+    /// The horizontal component.
+    pub x: T,
+    /// The vertical component.
+    pub y: T,
+}
+
+impl<T: Copy> Value2D<T> {
+    /// Create a new 2D-value from two values.
+    pub fn new(x: T, y: T) -> Value2D<T> { Value2D { x, y } }
+
+    /// Create a new 2D-value with `x` set to a value and `y` to default.
+    pub fn with_x(x: T) -> Value2D<T> where T: Default {
+        Value2D { x, y: T::default() }
+    }
+
+    /// Create a new 2D-value with `y` set to a value and `x` to default.
+    pub fn with_y(y: T) -> Value2D<T> where T: Default {
+        Value2D { x: T::default(), y }
+    }
+
+    /// Create a new 2D-value with the primary axis set to a value and the other
+    /// one to default.
+    pub fn with_primary(v: T, axes: LayoutAxes) -> Value2D<T> where T: Default {
+        Value2D::with_x(v).generalized(axes)
+    }
+
+    /// Create a new 2D-value with the secondary axis set to a value and the
+    /// other one to default.
+    pub fn with_secondary(v: T, axes: LayoutAxes) -> Value2D<T> where T: Default {
+        Value2D::with_y(v).generalized(axes)
+    }
+
+    /// Create a 2D-value with `x` and `y` set to the same value `s`.
+    pub fn with_all(s: T) -> Value2D<T> { Value2D { x: s, y: s } }
 
     /// Get the specificed component.
-    pub fn get(self, axis: SpecificAxis) -> Size {
+    pub fn get(self, axis: SpecificAxis) -> T {
         match axis {
             Horizontal => self.x,
             Vertical => self.y,
         }
     }
 
-    /// Get the specificed component mutably.
-    pub fn get_mut(&mut self, axis: SpecificAxis) -> &mut Size {
+    /// Borrow the specificed component mutably.
+    pub fn get_mut(&mut self, axis: SpecificAxis) -> &mut T {
         match axis {
             Horizontal => &mut self.x,
             Vertical => &mut self.y,
         }
     }
 
-    /// Access the primary size of this specialized 2D-size.
-    pub fn get_primary(self, axes: LayoutAxes) -> Size {
+    /// Return the primary value of this specialized 2D-value.
+    pub fn get_primary(self, axes: LayoutAxes) -> T {
         if axes.primary.axis() == Horizontal { self.x } else { self.y }
     }
 
-    /// Access the primary size of this specialized 2D-size mutably.
-    pub fn get_primary_mut(&mut self, axes: LayoutAxes) -> &mut Size {
+    /// Borrow the primary value of this specialized 2D-value mutably.
+    pub fn get_primary_mut(&mut self, axes: LayoutAxes) -> &mut T {
         if axes.primary.axis() == Horizontal { &mut self.x } else { &mut self.y }
     }
 
-    /// Access the secondary size of this specialized 2D-size.
-    pub fn get_secondary(self, axes: LayoutAxes) -> Size {
+    /// Return the secondary value of this specialized 2D-value.
+    pub fn get_secondary(self, axes: LayoutAxes) -> T {
         if axes.primary.axis() == Horizontal { self.y } else { self.x }
     }
 
-    /// Access the secondary size of this specialized 2D-size mutably.
-    pub fn get_secondary_mut(&mut self, axes: LayoutAxes) -> &mut Size {
+    /// Borrow the secondary value of this specialized 2D-value mutably.
+    pub fn get_secondary_mut(&mut self, axes: LayoutAxes) -> &mut T {
         if axes.primary.axis() == Horizontal { &mut self.y } else { &mut self.x }
     }
 
@@ -157,20 +204,40 @@ impl Size2D {
     /// axes, that is:
     /// - `x` describes the primary axis instead of the horizontal one.
     /// - `y` describes the secondary axis instead of the vertical one.
-    pub fn generalized(self, axes: LayoutAxes) -> Size2D {
+    pub fn generalized(self, axes: LayoutAxes) -> Value2D<T> {
         match axes.primary.axis() {
             Horizontal => self,
-            Vertical => Size2D { x: self.y, y: self.x },
+            Vertical => Value2D { x: self.y, y: self.x },
         }
     }
 
     /// Returns the specialized version of this generalized Size2D (inverse to
     /// `generalized`).
-    pub fn specialized(self, axes: LayoutAxes) -> Size2D {
+    pub fn specialized(self, axes: LayoutAxes) -> Value2D<T> {
         // In fact, generalized is its own inverse. For reasons of clarity
         // at the call site, we still have this second function.
         self.generalized(axes)
     }
+}
+
+impl<T: Copy> Display for Value2D<T> where T: Display {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "[{}, {}]", self.x, self.y)
+    }
+}
+
+impl<T: Copy> Debug for Value2D<T> where T: Debug {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "[{:?}, {:?}]", self.x, self.y)
+    }
+}
+
+/// A position or extent in 2-dimensional space.
+pub type Size2D = Value2D<Size>;
+
+impl Size2D {
+    /// The zeroed 2D-size.
+    pub const ZERO: Size2D = Size2D { x: Size::ZERO, y: Size::ZERO };
 
     /// Whether the given 2D-size fits into this one, that is, both coordinate
     /// values are smaller or equal.
@@ -207,14 +274,6 @@ impl Size2D {
     }
 }
 
-impl Display for Size2D {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "[{}, {}]", self.x, self.y)
-    }
-}
-
-debug_display!(Size2D);
-
 impl Neg for Size2D {
     type Output = Size2D;
 
@@ -226,11 +285,41 @@ impl Neg for Size2D {
     }
 }
 
-/// A size in four dimensions.
-pub type SizeBox = ValueBox<Size>;
+/// A value that is stretchable in an interval from a minimal through an optimal
+/// to a maximal value.
+pub struct StretchValue<T: Copy> {
+    /// The minimum this value can be stretched to.
+    pub min: T,
+    /// The optimum for this value.
+    pub opt: T,
+    /// The maximum this value can be stretched to.
+    pub max: T,
+}
+
+impl<T: Copy> StretchValue<T> {
+    /// Create a new stretch size from minimum, optimal and maximum values.
+    pub fn new(min: T, opt: T, max: T) -> StretchValue<T> {
+        StretchValue { min, opt, max }
+    }
+}
+
+impl<T: Copy> Display for StretchValue<T> where T: Display {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "({}, {}, {})", self.min, self.opt, self.max)
+    }
+}
+
+impl<T: Copy> Debug for StretchValue<T> where T: Debug {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "({:?}, {:?}, {:?})", self.min, self.opt, self.max)
+    }
+}
+
+/// A size that is stretchable.
+pub type StretchSize = StretchValue<Size>;
 
 /// A value in four dimensions.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Default, Copy, Clone, PartialEq)]
 pub struct ValueBox<T: Copy> {
     /// The left extent.
     pub left: T,
@@ -240,16 +329,6 @@ pub struct ValueBox<T: Copy> {
     pub right: T,
     /// The bottom extent.
     pub bottom: T,
-}
-
-impl SizeBox {
-    /// The zeroed size box.
-    pub const ZERO: SizeBox = SizeBox {
-        left: Size::ZERO,
-        top: Size::ZERO,
-        right: Size::ZERO,
-        bottom: Size::ZERO,
-    };
 }
 
 impl<T: Copy> ValueBox<T> {
@@ -263,9 +342,10 @@ impl<T: Copy> ValueBox<T> {
         ValueBox { left: value, top: value, right: value, bottom: value }
     }
 
-    /// Get a mutable reference to the value for the specified direction and
-    /// alignment. Center alignment will be treated the same as origin
+    /// Get a mutable reference to the value for the specified direction at the
     /// alignment.
+    ///
+    /// Center alignment is treated the same as origin alignment.
     pub fn get_mut(&mut self, mut direction: Direction, alignment: Alignment) -> &mut T {
         if alignment == End {
             direction = direction.inv();
@@ -297,48 +377,32 @@ impl<T: Copy> ValueBox<T> {
     }
 }
 
-impl<T: Copy> Display for ValueBox<T> where T: std::fmt::Debug {
+impl<T: Copy> Display for ValueBox<T> where T: Display {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "[left: {}, top: {}, right: {}, bottom: {}]",
+            self.left, self.top, self.right, self.bottom)
+    }
+}
+
+impl<T: Copy> Debug for ValueBox<T> where T: Debug {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "[left: {:?}, top: {:?}, right: {:?}, bottom: {:?}]",
             self.left, self.top, self.right, self.bottom)
     }
 }
 
-debug_display!(ValueBox; T where T: std::fmt::Debug + Copy);
+/// A size in four dimensions.
+pub type SizeBox = ValueBox<Size>;
 
-/// Either an absolute size or a factor of some metric.
-#[derive(Copy, Clone, PartialEq)]
-pub enum ScaleSize {
-    Absolute(Size),
-    Scaled(f32),
+impl SizeBox {
+    /// The zeroed size box.
+    pub const ZERO: SizeBox = SizeBox {
+        left: Size::ZERO,
+        top: Size::ZERO,
+        right: Size::ZERO,
+        bottom: Size::ZERO,
+    };
 }
-
-/// A scale size that is scaled by the font size.
-pub type FSize = ScaleSize;
-
-/// A scale size that is scaled by the size of the padded parent container.
-pub type PSize = ScaleSize;
-
-impl ScaleSize {
-    /// Use the absolute value or scale the entity.
-    pub fn scaled(&self, entity: Size) -> Size {
-        match self {
-            ScaleSize::Absolute(s) => *s,
-            ScaleSize::Scaled(s) => *s * entity,
-        }
-    }
-}
-
-impl Display for ScaleSize {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            ScaleSize::Absolute(size) => write!(f, "{}", size),
-            ScaleSize::Scaled(scale) => write!(f, "x{}", scale),
-        }
-    }
-}
-
-debug_display!(ScaleSize);
 
 /// An error which can be returned when parsing a size.
 pub struct ParseSizeError;

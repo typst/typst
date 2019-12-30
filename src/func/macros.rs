@@ -117,6 +117,7 @@ macro_rules! function {
 }
 
 /// Parse the body of a function.
+///
 /// - If the function does not expect a body, use `parse!(forbidden: body)`.
 /// - If the function can have a body, use `parse!(optional: body, ctx)`.
 /// - If the function must have a body, use `parse!(expected: body, ctx)`.
@@ -146,7 +147,7 @@ macro_rules! parse {
 }
 
 /// Early-return with a formatted typesetting error or construct an error
-/// expression without returning when prefixed with `@`.
+/// expression.
 #[macro_export]
 macro_rules! error {
     (@unexpected_argument) => (error!(@"unexpected argument"));

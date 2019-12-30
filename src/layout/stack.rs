@@ -1,11 +1,9 @@
 use smallvec::smallvec;
+use crate::size::ValueBox;
 use super::*;
 
 /// The stack layouter stack boxes onto each other along the secondary layouting
 /// axis.
-///
-/// The boxes are aligned along both axes according to their requested
-/// alignment.
 #[derive(Debug, Clone)]
 pub struct StackLayouter {
     /// The context for layouting.
@@ -42,28 +40,19 @@ struct Space {
     index: usize,
     /// Whether to add the layout for this space even if it would be empty.
     hard: bool,
-    /// The so-far accumulated subspaces.
+    /// The so-far accumulated layouts.
     layouts: Vec<(LayoutAxes, Layout)>,
-    /// The specialized size of this subspace.
+    /// The specialized size of this space.
     size: Size2D,
     /// The specialized remaining space.
     usable: Size2D,
     /// The specialized extra-needed dimensions to affect the size at all.
     extra: Size2D,
-    /// Dictates the valid alignments for new boxes in this space.
-    rulers: Rulers,
+    /// The rulers of a space dictate which alignments for new boxes are still
+    /// allowed and which require a new space to be started.
+    rulers: ValueBox<Alignment>,
     /// The last added spacing if the last added thing was spacing.
     last_spacing: LastSpacing,
-}
-
-/// The rulers of a space dictate which alignments for new boxes are still
-/// allowed and which require a new space to be started.
-#[derive(Debug, Clone)]
-struct Rulers {
-    top: Alignment,
-    bottom: Alignment,
-    left: Alignment,
-    right: Alignment,
 }
 
 impl StackLayouter {
@@ -157,26 +146,6 @@ impl StackLayouter {
         }
     }
 
-    /// Update the rulers to account for the new layout. Returns true if a
-    /// space break is necessary.
-    fn update_rulers(&mut self, alignment: LayoutAlignment) -> bool {
-        let axes = self.ctx.axes;
-        let allowed = self.alignment_allowed(axes.primary, alignment.primary)
-            && self.alignment_allowed(axes.secondary, alignment.secondary);
-
-        if allowed {
-            *self.space.rulers.get(axes.secondary) = alignment.secondary;
-        }
-
-        allowed
-    }
-
-    /// Whether the given alignment is still allowed according to the rulers.
-    fn alignment_allowed(&mut self, direction: Direction, alignment: Alignment) -> bool {
-        alignment >= *self.space.rulers.get(direction)
-        && alignment <= self.space.rulers.get(direction.inv()).inv()
-    }
-
     /// Update the size metrics to reflect that a layout or spacing with the
     /// given generalized dimensions has been added.
     fn update_metrics(&mut self, dimensions: Size2D) {
@@ -196,10 +165,31 @@ impl StackLayouter {
         *self.space.usable.get_secondary_mut(axes) -= dimensions.y;
     }
 
+    /// Update the rulers to account for the new layout. Returns true if a
+    /// space break is necessary.
+    fn update_rulers(&mut self, alignment: LayoutAlignment) -> bool {
+        let allowed = self.is_fitting_alignment(alignment);
+        if allowed {
+            *self.space.rulers.get_mut(self.ctx.axes.secondary, Origin)
+                = alignment.secondary;
+        }
+        allowed
+    }
+
+    /// Whether a layout with the given alignment can still be layouted in the
+    /// active space.
+    pub fn is_fitting_alignment(&mut self, alignment: LayoutAlignment) -> bool {
+        self.is_fitting_axis(self.ctx.axes.primary, alignment.primary)
+            && self.is_fitting_axis(self.ctx.axes.secondary, alignment.secondary)
+    }
+
+    /// Whether the given alignment is still allowed according to the rulers.
+    fn is_fitting_axis(&mut self, direction: Direction, alignment: Alignment) -> bool {
+        alignment >= *self.space.rulers.get_mut(direction, Origin)
+        && alignment <= self.space.rulers.get_mut(direction, End).inv()
+    }
+
     /// Change the layouting axes used by this layouter.
-    ///
-    /// This starts a new subspace (if the axes are actually different from the
-    /// current ones).
     pub fn set_axes(&mut self, axes: LayoutAxes) {
         // Forget the spacing because it is not relevant anymore.
         if axes.secondary != self.ctx.axes.secondary {
@@ -227,9 +217,7 @@ impl StackLayouter {
     /// The remaining unpadded, unexpanding spaces. If a multi-layout is laid
     /// out into these spaces, it will fit into this stack.
     pub fn remaining(&self) -> LayoutSpaces {
-        let dimensions = self.space.usable
-            - Size2D::with_y(self.space.last_spacing.soft_or_zero())
-                .specialized(self.ctx.axes);
+        let dimensions = self.usable();
 
         let mut spaces = smallvec![LayoutSpace {
             dimensions,
@@ -244,9 +232,11 @@ impl StackLayouter {
         spaces
     }
 
-    /// The usable size along the primary axis.
-    pub fn primary_usable(&self) -> Size {
-        self.space.usable.get_primary(self.ctx.axes)
+    /// The remaining usable size.
+    pub fn usable(&self) -> Size2D {
+        self.space.usable
+            - Size2D::with_y(self.space.last_spacing.soft_or_zero())
+                .specialized(self.ctx.axes)
     }
 
     /// Whether the current layout space (not subspace) is empty.
@@ -409,24 +399,8 @@ impl Space {
             size: Size2D::ZERO,
             usable,
             extra: Size2D::ZERO,
-            rulers: Rulers {
-                top:    Origin,
-                bottom: Origin,
-                left:   Origin,
-                right:  Origin,
-            },
+            rulers: ValueBox::with_all(Origin),
             last_spacing: LastSpacing::Hard,
-        }
-    }
-}
-
-impl Rulers {
-    fn get(&mut self, direction: Direction) -> &mut Alignment {
-        match direction {
-            TopToBottom => &mut self.top,
-            BottomToTop => &mut self.bottom,
-            LeftToRight => &mut self.left,
-            RightToLeft => &mut self.right,
         }
     }
 }

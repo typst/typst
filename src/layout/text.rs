@@ -12,6 +12,7 @@ use super::*;
 pub struct TextContext<'a, 'p> {
     pub loader: &'a SharedFontLoader<'p>,
     pub style: &'a TextStyle,
+    pub axes: LayoutAxes,
     pub alignment: LayoutAlignment,
 }
 
@@ -50,22 +51,14 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
 
     /// Layout the text
     fn layout(mut self) -> LayoutResult<Layout> {
-        for c in self.text.chars() {
-            let (index, char_width) = self.select_font(c)?;
-
-            self.width += char_width;
-
-            if self.active_font != index {
-                if !self.buffer.is_empty() {
-                    self.actions.add(LayoutAction::WriteText(self.buffer));
-                    self.buffer = String::new();
-                }
-
-                self.actions.add(LayoutAction::SetFont(index, self.ctx.style.font_size()));
-                self.active_font = index;
+        if self.ctx.axes.primary.is_positive() {
+            for c in self.text.chars() {
+                self.layout_char(c)?;
             }
-
-            self.buffer.push(c);
+        } else {
+            for c in self.text.chars().rev() {
+                self.layout_char(c)?;
+            }
         }
 
         if !self.buffer.is_empty() {
@@ -77,6 +70,27 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
             alignment: self.ctx.alignment,
             actions: self.actions.to_vec(),
         })
+    }
+
+    /// Layout an individual character.
+    fn layout_char(&mut self, c: char) -> LayoutResult<()> {
+        let (index, char_width) = self.select_font(c)?;
+
+        self.width += char_width;
+
+        if self.active_font != index {
+            if !self.buffer.is_empty() {
+                let text = std::mem::replace(&mut self.buffer, String::new());
+                self.actions.add(LayoutAction::WriteText(text));
+            }
+
+            self.actions.add(LayoutAction::SetFont(index, self.ctx.style.font_size()));
+            self.active_font = index;
+        }
+
+        self.buffer.push(c);
+
+        Ok(())
     }
 
     /// Select the best font for a character and return its index along with

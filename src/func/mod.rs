@@ -104,7 +104,6 @@ pub enum Command<'a> {
     AddSpacing(Size, SpacingKind, GenericAxis),
 
     FinishLine,
-    FinishRun,
     FinishSpace,
     BreakParagraph,
     BreakPage,

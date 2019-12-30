@@ -26,17 +26,32 @@ pub struct TextStyle {
     /// The font scale to apply on the base font size.
     pub font_scale: f32,
     /// The word spacing (as a multiple of the font size).
-    pub word_spacing: f32,
+    pub word_spacing_scale: f32,
     /// The line spacing (as a multiple of the font size).
-    pub line_spacing: f32,
+    pub line_spacing_scale: f32,
     /// The paragraphs spacing (as a multiple of the font size).
-    pub paragraph_spacing: f32,
+    pub paragraph_spacing_scale: f32,
 }
 
 impl TextStyle {
     /// The scaled font size.
     pub fn font_size(&self) -> Size {
         self.base_font_size * self.font_scale
+    }
+
+    /// The absolute word spacing.
+    pub fn word_spacing(&self) -> Size {
+        self.word_spacing_scale * self.font_size()
+    }
+
+    /// The absolute line spacing.
+    pub fn line_spacing(&self) -> Size {
+        (self.line_spacing_scale - 1.0) * self.font_size()
+    }
+
+    /// The absolute paragraph spacing.
+    pub fn paragraph_spacing(&self) -> Size {
+        (self.paragraph_spacing_scale - 1.0) * self.font_size()
     }
 
     /// Toggle a class.
@@ -82,9 +97,9 @@ impl Default for TextStyle {
             fallback: vec![Serif],
             base_font_size: Size::pt(11.0),
             font_scale: 1.0,
-            word_spacing: 0.25,
-            line_spacing: 1.2,
-            paragraph_spacing: 1.5,
+            word_spacing_scale: 0.25,
+            line_spacing_scale: 1.2,
+            paragraph_spacing_scale: 1.5,
         }
     }
 }

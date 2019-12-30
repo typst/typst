@@ -9,7 +9,7 @@ use crate::style::LayoutStyle;
 
 mod actions;
 mod tree;
-mod flex;
+mod line;
 mod stack;
 mod text;
 
@@ -30,7 +30,7 @@ pub mod prelude {
 /// Different kinds of layouters (fully re-exported).
 pub mod layouters {
     pub use super::tree::layout;
-    pub use super::flex::{FlexLayouter, FlexContext};
+    pub use super::line::{LineLayouter, LineContext};
     pub use super::stack::{StackLayouter, StackContext};
     pub use super::text::{layout_text, TextContext};
 }
@@ -174,7 +174,7 @@ impl LayoutExpansion {
         LayoutExpansion { horizontal, vertical }
     }
 
-    /// Borrow the spcified component mutably.
+    /// Borrow the specified component mutably.
     pub fn get_mut(&mut self, axis: SpecificAxis) -> &mut bool {
         match axis {
             Horizontal => &mut self.horizontal,
@@ -365,6 +365,9 @@ const PARAGRAPH_KIND: SpacingKind = SpacingKind::Soft(1);
 
 /// The standard spacing kind used for line spacing.
 const LINE_KIND: SpacingKind = SpacingKind::Soft(2);
+
+/// The standard spacing kind used for word spacing.
+const WORD_KIND: SpacingKind = SpacingKind::Soft(1);
 
 /// The last appeared spacing.
 #[derive(Debug, Copy, Clone, PartialEq)]
