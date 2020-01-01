@@ -40,6 +40,7 @@ pub fn std() -> Scope {
     std.add_with_metadata::<StyleChange>("italic", FontClass::Italic);
     std.add_with_metadata::<StyleChange>("mono", FontClass::Monospace);
 
+    std.add::<FontFamily>("font.family");
     std.add::<FontSize>("font.size");
 
     std
@@ -79,17 +80,18 @@ function! {
     /// words, lines or paragraphs as a multiple of the font size.
     #[derive(Debug, PartialEq)]
     pub struct ContentSpacing {
-        spacing: f32,
+        body: Option<SyntaxTree>,
         content: ContentKind,
+        spacing: f32,
     }
 
     type Meta = ContentKind;
 
-    parse(args, body, _, meta) {
-        parse!(forbidden: body);
+    parse(args, body, ctx, meta) {
         ContentSpacing {
+            body: parse!(optional: body, ctx),
+            content: meta,
             spacing: args.get_pos::<f64>()? as f32,
-            content: meta
         }
     }
 
@@ -100,7 +102,7 @@ function! {
             ContentKind::Line => style.line_spacing_scale = self.spacing,
             ContentKind::Paragraph => style.paragraph_spacing_scale = self.spacing,
         }
-        vec![SetTextStyle(style)]
+        styled(&self.body, &ctx, style)
     }
 }
 
@@ -235,6 +237,28 @@ function! {
     layout(self, ctx) {
         let mut style = ctx.style.text.clone();
         style.toggle_class(self.class.clone());
+        styled(&self.body, &ctx, style)
+    }
+}
+
+function! {
+    /// `font.family`: Set the font family.
+    #[derive(Debug, PartialEq)]
+    pub struct FontFamily {
+        body: Option<SyntaxTree>,
+        family: String,
+    }
+
+    parse(args, body, ctx) {
+        FontFamily {
+            body: parse!(optional: body, ctx),
+            family: args.get_pos::<String>()?,
+        }
+    }
+
+    layout(self, ctx) {
+        let mut style = ctx.style.text.clone();
+        style.fallback.insert(0, FontClass::Family(self.family.clone()));
         styled(&self.body, &ctx, style)
     }
 }
