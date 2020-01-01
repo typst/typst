@@ -24,6 +24,11 @@ pub fn std() -> Scope {
     std.add::<LineBreak>("line.break");
     std.add::<ParBreak>("par.break");
     std.add::<PageBreak>("page.break");
+
+    std.add_with_metadata::<ContentSpacing>("word.spacing", ContentKind::Word);
+    std.add_with_metadata::<ContentSpacing>("line.spacing", ContentKind::Line);
+    std.add_with_metadata::<ContentSpacing>("par.spacing", ContentKind::Paragraph);
+
     std.add::<PageSize>("page.size");
     std.add::<PageMargins>("page.margins");
 
@@ -70,10 +75,48 @@ function! {
 }
 
 function! {
+    /// `word.spacing`, `line.spacing`, `par.spacing`: The spacing between
+    /// words, lines or paragraphs as a multiple of the font size.
+    #[derive(Debug, PartialEq)]
+    pub struct ContentSpacing {
+        spacing: f32,
+        content: ContentKind,
+    }
+
+    type Meta = ContentKind;
+
+    parse(args, body, _, meta) {
+        parse!(forbidden: body);
+        ContentSpacing {
+            spacing: args.get_pos::<f64>()? as f32,
+            content: meta
+        }
+    }
+
+    layout(self, mut ctx) {
+        let mut style = ctx.style.text.clone();
+        match self.content {
+            ContentKind::Word => style.word_spacing_scale = self.spacing,
+            ContentKind::Line => style.line_spacing_scale = self.spacing,
+            ContentKind::Paragraph => style.paragraph_spacing_scale = self.spacing,
+        }
+        vec![SetTextStyle(style)]
+    }
+}
+
+/// The different kinds of content that can be spaced.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ContentKind {
+    Word,
+    Line,
+    Paragraph,
+}
+
+function! {
     /// `page.size`: Set the size of pages.
     #[derive(Debug, PartialEq)]
     pub enum PageSize {
-        Paper(Paper),
+        Paper(Paper, bool),
         Custom(ExtentMap<PSize>),
     }
 
@@ -81,7 +124,9 @@ function! {
         parse!(forbidden: body);
 
         if let Some(name) = args.get_pos_opt::<Ident>()? {
-            PageSize::Paper(Paper::from_name(name.as_str())?)
+            let landscape = args.get_key_opt::<bool>("landscape")?
+                .unwrap_or(false);
+            PageSize::Paper(Paper::from_name(name.as_str())?, landscape)
         } else {
             PageSize::Custom(ExtentMap::new(&mut args, true)?)
         }
@@ -91,9 +136,12 @@ function! {
         let mut style = ctx.style.page;
 
         match self {
-            PageSize::Paper(paper) => {
+            PageSize::Paper(paper, landscape) => {
                 style.class = paper.class;
                 style.dimensions = paper.dimensions;
+                if *landscape {
+                    style.dimensions.swap();
+                }
             }
 
             PageSize::Custom(map) => {

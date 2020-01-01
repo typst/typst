@@ -218,6 +218,11 @@ impl<T: Copy> Value2D<T> {
         // at the call site, we still have this second function.
         self.generalized(axes)
     }
+
+    /// Swap the `x` and `y` values.
+    pub fn swap(&mut self) {
+        std::mem::swap(&mut self.x, &mut self.y);
+    }
 }
 
 impl<T: Copy> Display for Value2D<T> where T: Display {
