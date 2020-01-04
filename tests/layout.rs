@@ -47,7 +47,11 @@ fn main() -> Result<()> {
     println!("Running {} test{}", len, if len > 1 { "s" } else { "" });
 
     for (name, src) in filtered {
-        panic::catch_unwind(|| test(&name, &src)).ok();
+        panic::catch_unwind(|| {
+            if let Err(e) = test(&name, &src) {
+                println!("error: {}", e);
+            }
+        }).ok();
     }
 
     println!();
@@ -65,7 +69,7 @@ fn test(name: &str, src: &str) -> Result<()> {
         .. PageStyle::default()
     });
 
-    let provider = FileSystemFontProvider::from_listing("fonts/fonts.toml")?;
+    let provider = FileSystemFontProvider::from_index("../fonts/index.json")?;
     let font_paths = provider.paths();
     typesetter.add_font_provider(provider);
 
@@ -80,8 +84,8 @@ fn test(name: &str, src: &str) -> Result<()> {
     for layout in &layouts {
         for index in layout.find_used_fonts() {
             fonts.entry(index).or_insert_with(|| {
-                let provider_index = loader.get_provider_and_index(index).1;
-                font_paths[provider_index].to_string_lossy()
+                let p = loader.get_provider_and_index(index.id).1;
+                &font_paths[p][index.variant]
             });
         }
     }
@@ -94,7 +98,7 @@ fn test(name: &str, src: &str) -> Result<()> {
     // Write the font mapping into the serialization file.
     writeln!(file, "{}", fonts.len())?;
     for (index, path) in fonts.iter() {
-        writeln!(file, "{} {}", index, path)?;
+        writeln!(file, "{} {} {}", index.id, index.variant, path)?;
     }
     layouts.serialize(&mut file)?;
 

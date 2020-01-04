@@ -35,10 +35,10 @@ class MultiboxRenderer:
         self.fonts = {}
         font_count = int(lines[0])
         for i in range(font_count):
-            parts = lines[i + 1].split(' ', 1)
-            index = int(parts[0])
-            path = parts[1]
-            self.fonts[index] = os.path.join(BASE, '../fonts', path)
+            parts = lines[i + 1].split(' ', 2)
+            index = int(parts[0]), int(parts[1])
+            path = parts[2]
+            self.fonts[index] = os.path.join(BASE, '../../fonts', path)
 
         self.content = lines[font_count + 1:]
 
@@ -136,8 +136,8 @@ class BoxRenderer:
             self.cursor = [x, y]
 
         elif cmd == 'f':
-            index = int(parts[0])
-            size = pix(float(parts[1]))
+            index = int(parts[0]), int(parts[1])
+            size = pix(float(parts[2]))
             self.font = ImageFont.truetype(self.fonts[index], size)
 
         elif cmd == 'w':

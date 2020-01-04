@@ -1,6 +1,6 @@
 //! The standard library.
 
-use toddle::query::FontClass;
+use toddle::query::{FontWeight, FontStyle};
 
 use crate::func::prelude::*;
 use crate::style::{Paper, PaperClass};
@@ -36,11 +36,10 @@ pub fn std() -> Scope {
     std.add_with_metadata::<Spacing>("h", Some(Horizontal));
     std.add_with_metadata::<Spacing>("v", Some(Vertical));
 
-    std.add_with_metadata::<StyleChange>("bold", FontClass::Bold);
-    std.add_with_metadata::<StyleChange>("italic", FontClass::Italic);
-    std.add_with_metadata::<StyleChange>("mono", FontClass::Monospace);
-
-    std.add::<FontFamily>("font.family");
+    std.add_with_metadata::<FontFamily>("font.family", None);
+    std.add_with_metadata::<FontFamily>("mono", Some("monospace".to_string()));
+    std.add::<SetFontStyle>("font.style");
+    std.add::<SetFontWeight>("font.weight");
     std.add::<FontSize>("font.size");
 
     std
@@ -218,25 +217,66 @@ function! {
 }
 
 function! {
-    /// `bold`, `italic`, `mono`: Sets text with a different style.
+    /// `font.weight`, `bold`: Set text with a given weight.
     #[derive(Debug, PartialEq)]
-    pub struct StyleChange {
+    pub struct SetFontWeight {
         body: Option<SyntaxTree>,
-        class: FontClass,
+        weight: FontWeight,
     }
 
-    type Meta = FontClass;
-
     parse(args, body, ctx, meta) {
-        StyleChange {
+        SetFontWeight {
             body: parse!(optional: body, ctx),
-            class: meta,
+            weight: match args.get_pos::<Expression>()? {
+                Expression::Num(weight) => FontWeight(if weight < 0.0 {
+                    0
+                } else if weight < 1000.0 {
+                    weight.round() as u16
+                } else {
+                    1000
+                }),
+                Expression::Ident(Ident(s)) => {
+                    match FontWeight::from_str(&s) {
+                        Some(weight) => weight,
+                        None => error!("invalid font weight: `{}`", s),
+                    }
+                }
+                _ => error!("expected identifier or number"),
+            },
         }
     }
 
     layout(self, ctx) {
         let mut style = ctx.style.text.clone();
-        style.toggle_class(self.class.clone());
+        style.variant.style.toggle();
+        styled(&self.body, &ctx, style)
+    }
+}
+
+function! {
+    /// `font.style`: Set the font style (normal / italic).
+    #[derive(Debug, PartialEq)]
+    pub struct SetFontStyle {
+        body: Option<SyntaxTree>,
+        style: FontStyle,
+    }
+
+    parse(args, body, ctx) {
+        SetFontStyle {
+            body: parse!(optional: body, ctx),
+            style: {
+                let s = args.get_pos::<String>()?;
+                match FontStyle::from_str(&s) {
+                    Some(style) => style,
+                    None => error!("invalid font style: `{}`", s),
+                }
+            }
+        }
+    }
+
+    layout(self, ctx) {
+        let mut style = ctx.style.text.clone();
+        style.variant.style = self.style;
         styled(&self.body, &ctx, style)
     }
 }
@@ -249,16 +289,22 @@ function! {
         family: String,
     }
 
-    parse(args, body, ctx) {
+    type Meta = Option<String>;
+
+    parse(args, body, ctx, meta) {
         FontFamily {
             body: parse!(optional: body, ctx),
-            family: args.get_pos::<String>()?,
+            family: if let Some(family) = meta {
+                family
+            } else {
+                args.get_pos::<String>()?
+            },
         }
     }
 
     layout(self, ctx) {
         let mut style = ctx.style.text.clone();
-        style.fallback.insert(0, FontClass::Family(self.family.clone()));
+        style.fallback.list = vec![self.family.clone()];
         styled(&self.body, &ctx, style)
     }
 }

@@ -36,7 +36,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|_| "failed to read from source file")?;
 
     let mut typesetter = Typesetter::new();
-    let provider = FileSystemFontProvider::from_listing("fonts/fonts.toml").unwrap();
+    let provider = FileSystemFontProvider::from_index("../fonts/index.json").unwrap();
     typesetter.add_font_provider(provider);
 
     let layouts = typesetter.typeset(&src)?;

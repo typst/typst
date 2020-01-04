@@ -2,7 +2,7 @@
 
 use std::io::{self, Write};
 use smallvec::SmallVec;
-use toddle::query::SharedFontLoader;
+use toddle::query::{SharedFontLoader, FontIndex};
 
 use crate::size::{Size, Size2D, SizeBox};
 use crate::style::LayoutStyle;
@@ -58,7 +58,7 @@ pub struct Layout {
 
 impl Layout {
     /// Returns a vector with all used font indices.
-    pub fn find_used_fonts(&self) -> Vec<usize> {
+    pub fn find_used_fonts(&self) -> Vec<FontIndex> {
         let mut fonts = Vec::new();
         for action in &self.actions {
             if let LayoutAction::SetFont(index, _) = action {

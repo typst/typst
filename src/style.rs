@@ -1,10 +1,10 @@
 //! Styles for text and pages.
 
-use toddle::query::FontClass;
-use FontClass::*;
+use toddle::query::{FontFallbackTree, FontVariant, FontStyle, FontWeight};
 
 use crate::size::{Size, Size2D, SizeBox, ValueBox, PSize};
 use crate::syntax::ParseResult;
+
 
 /// Defines properties of pages and text.
 #[derive(Debug, Default, Clone)]
@@ -16,11 +16,10 @@ pub struct LayoutStyle {
 /// Defines which fonts to use and how to space text.
 #[derive(Debug, Clone)]
 pub struct TextStyle {
-    /// The classes the font has to be part of.
-    pub classes: Vec<FontClass>,
-    /// The fallback classes from which the font needs to match the leftmost
-    /// possible one.
-    pub fallback: Vec<FontClass>,
+    /// A tree of font names and generic family names.
+    pub fallback: FontFallbackTree,
+    /// The selected font variant.
+    pub variant: FontVariant,
     /// The base font size.
     pub base_font_size: Size,
     /// The font scale to apply on the base font size.
@@ -53,48 +52,34 @@ impl TextStyle {
     pub fn paragraph_spacing(&self) -> Size {
         (self.paragraph_spacing_scale - 1.0) * self.font_size()
     }
+}
 
-    /// Toggle a class.
-    ///
-    /// If the class was one of _italic_ or _bold_, then:
-    /// - If it was not present before, the _regular_ class will be removed.
-    /// - If it was present before, the _regular_ class will be added in case
-    ///   the other style class is not present.
-    pub fn toggle_class(&mut self, class: FontClass) {
-        if self.classes.contains(&class) {
-            // If we retain a Bold or Italic class, we will not add the Regular
-            // class.
-            let mut regular = true;
-            self.classes.retain(|x| {
-                if class == *x {
-                    false
-                } else {
-                    if class == Bold || class == Italic {
-                        regular = false;
-                    }
-                    true
-                }
-            });
-
-            if regular {
-                self.classes.push(Regular);
-            }
-        } else {
-            // If we add an Italic or Bold class, we remove the Regular class.
-            if class == Italic || class == Bold {
-                self.classes.retain(|x| x != &Regular);
-            }
-
-            self.classes.push(class);
-        }
-    }
+macro_rules! fallback {
+    (($($f:expr),*), $($c:expr => ($($cf:expr),*)),*) => ({
+        let mut fallback = FontFallbackTree::new(vec![$($f.to_string()),*]);
+        $(
+            fallback.set_class_list($c.to_string(), vec![$($cf.to_string()),*])
+                .expect("TextStyle::default: unexpected error \
+                         when setting class list");
+        )*
+        fallback
+    });
 }
 
 impl Default for TextStyle {
     fn default() -> TextStyle {
         TextStyle {
-            classes: vec![Regular],
-            fallback: vec![Serif],
+            fallback: fallback! {
+                ("sans-serif"),
+                "serif" => ("source serif pro", "noto serif", "noto emoji"),
+                "sans-serif" => ("source sans pro", "noto sans", "noto emoji"),
+                "monospace" => ("source code pro", "noto sans mono", "noto emoji"),
+                "math" => ("latin modern math", "serif")
+            },
+            variant: FontVariant {
+                style: FontStyle::Normal,
+                weight: FontWeight(400),
+            },
             base_font_size: Size::pt(11.0),
             font_scale: 1.0,
             word_spacing_scale: 0.25,

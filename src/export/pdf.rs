@@ -13,7 +13,7 @@ use tide::font::{
 
 use toddle::Error as FontError;
 use toddle::font::OwnedFont;
-use toddle::query::SharedFontLoader;
+use toddle::query::{SharedFontLoader, FontIndex};
 use toddle::tables::{
     CharMap, Header, HorizontalMetrics, MacStyleFlags,
     Name, NameEntry, Post, OS2
@@ -59,7 +59,7 @@ struct ExportProcess<'d, W: Write> {
     /// go through all font usages and assign a new index for each used font.
     /// This remapping is stored here because we need it when converting the
     /// layout actions in `ExportProcess::write_page`.
-    font_remap: HashMap<usize, usize>,
+    font_remap: HashMap<FontIndex, usize>,
 
     /// These are the fonts sorted by their *new* ids, that is, the values of `font_remap`.
     fonts: Vec<OwnedFont>,
@@ -99,13 +99,13 @@ impl<'d, W: Write> ExportProcess<'d, W> {
     fn subset_fonts(
         layouts: &'d MultiLayout,
         font_loader: &SharedFontLoader
-    ) -> PdfResult<(Vec<OwnedFont>, HashMap<usize, usize>)>
+    ) -> PdfResult<(Vec<OwnedFont>, HashMap<FontIndex, usize>)>
     {
         let mut fonts = Vec::new();
-        let mut font_chars: HashMap<usize, HashSet<char>> = HashMap::new();
-        let mut old_to_new: HashMap<usize, usize> = HashMap::new();
-        let mut new_to_old: HashMap<usize, usize> = HashMap::new();
-        let mut active_font = 0;
+        let mut font_chars: HashMap<FontIndex, HashSet<char>> = HashMap::new();
+        let mut old_to_new: HashMap<FontIndex, usize> = HashMap::new();
+        let mut new_to_old: HashMap<usize, FontIndex> = HashMap::new();
+        let mut active_font = FontIndex::MAX;
 
         // We want to find out which fonts are used at all and which are chars
         // are used for these. We use this information to create subsetted fonts.

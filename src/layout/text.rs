@@ -1,4 +1,4 @@
-use toddle::query::{SharedFontLoader, FontQuery, FontClass};
+use toddle::query::{SharedFontLoader, FontQuery, FontIndex};
 use toddle::tables::{CharMap, Header, HorizontalMetrics};
 
 use crate::size::{Size, Size2D};
@@ -30,9 +30,8 @@ struct TextLayouter<'a, 'p> {
     text: &'a str,
     actions: LayoutActions,
     buffer: String,
-    active_font: usize,
+    active_font: FontIndex,
     width: Size,
-    classes: Vec<FontClass>,
 }
 
 impl<'a, 'p> TextLayouter<'a, 'p> {
@@ -43,9 +42,8 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
             text,
             actions: LayoutActions::new(),
             buffer: String::new(),
-            active_font: std::usize::MAX,
+            active_font: FontIndex::MAX,
             width: Size::ZERO,
-            classes: ctx.style.classes.clone(),
         }
     }
 
@@ -95,39 +93,34 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
 
     /// Select the best font for a character and return its index along with
     /// the width of the char in the font.
-    fn select_font(&mut self, c: char) -> LayoutResult<(usize, Size)> {
+    fn select_font(&mut self, c: char) -> LayoutResult<(FontIndex, Size)> {
         let mut loader = self.ctx.loader.borrow_mut();
 
-        for class in &self.ctx.style.fallback {
-            self.classes.push(class.clone());
+        let query = FontQuery {
+            fallback: &self.ctx.style.fallback,
+            variant: self.ctx.style.variant,
+            c,
+        };
 
-            let query = FontQuery {
-                chars: &[c],
-                classes: &self.classes,
-            };
+        if let Some((font, index)) = loader.get(query) {
+            let font_unit_ratio = 1.0 / (font.read_table::<Header>()?.units_per_em as f32);
+            let font_unit_to_size = |x| Size::pt(font_unit_ratio * x);
 
-            if let Some((font, index)) = loader.get(query) {
-                let font_unit_ratio = 1.0 / (font.read_table::<Header>()?.units_per_em as f32);
-                let font_unit_to_size = |x| Size::pt(font_unit_ratio * x);
+            let glyph = font
+                .read_table::<CharMap>()?
+                .get(c)
+                .expect("select_font: font should have char");
 
-                let glyph = font
-                    .read_table::<CharMap>()?
-                    .get(c)
-                    .expect("select_font: font should have char");
+            let glyph_width = font
+                .read_table::<HorizontalMetrics>()?
+                .get(glyph)
+                .expect("select_font: font should have glyph")
+                .advance_width as f32;
 
-                let glyph_width = font
-                    .read_table::<HorizontalMetrics>()?
-                    .get(glyph)
-                    .expect("select_font: font should have glyph")
-                    .advance_width as f32;
+            let char_width = font_unit_to_size(glyph_width)
+                * self.ctx.style.font_size().to_pt();
 
-                let char_width = font_unit_to_size(glyph_width)
-                    * self.ctx.style.font_size().to_pt();
-
-                return Ok((index, char_width));
-            }
-
-            self.classes.pop();
+            return Ok((index, char_width));
         }
 
         error!("no suitable font for character `{}`", c);

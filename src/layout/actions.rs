@@ -1,6 +1,7 @@
 //! Drawing and cofiguration actions composing layouts.
 
 use std::fmt::{self, Display, Formatter};
+use toddle::query::FontIndex;
 
 use super::*;
 use LayoutAction::*;
@@ -11,7 +12,7 @@ pub enum LayoutAction {
     /// Move to an absolute position.
     MoveAbsolute(Size2D),
     /// Set the font by index and font size.
-    SetFont(usize, Size),
+    SetFont(FontIndex, Size),
     /// Write text starting at the current position.
     WriteText(String),
     /// Visualize a box for debugging purposes.
@@ -22,7 +23,7 @@ impl Serialize for LayoutAction {
     fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
         match self {
             MoveAbsolute(s) => write!(f, "m {:.4} {:.4}", s.x.to_pt(), s.y.to_pt()),
-            SetFont(i, s) => write!(f, "f {} {}", i, s.to_pt()),
+            SetFont(i, s) => write!(f, "f {} {} {}", i.id, i.variant, s.to_pt()),
             WriteText(s) => write!(f, "w {}", s),
             DebugBox(s) => write!(f, "b {} {}", s.x.to_pt(), s.y.to_pt()),
         }
@@ -34,7 +35,7 @@ impl Display for LayoutAction {
         use LayoutAction::*;
         match self {
             MoveAbsolute(s) => write!(f, "move {} {}", s.x, s.y),
-            SetFont(i, s) => write!(f, "font {} {}", i, s),
+            SetFont(i, s) => write!(f, "font {} {} {}", i.id, i.variant, s),
             WriteText(s) => write!(f, "write \"{}\"", s),
             DebugBox(s) => write!(f, "box {}", s),
         }
@@ -58,9 +59,9 @@ debug_display!(LayoutAction);
 pub struct LayoutActions {
     pub origin: Size2D,
     actions: Vec<LayoutAction>,
-    active_font: (usize, Size),
+    active_font: (FontIndex, Size),
     next_pos: Option<Size2D>,
-    next_font: Option<(usize, Size)>,
+    next_font: Option<(FontIndex, Size)>,
 }
 
 impl LayoutActions {
@@ -69,7 +70,7 @@ impl LayoutActions {
         LayoutActions {
             actions: vec![],
             origin: Size2D::ZERO,
-            active_font: (std::usize::MAX, Size::ZERO),
+            active_font: (FontIndex::MAX, Size::ZERO),
             next_pos: None,
             next_font: None,
         }

@@ -1,5 +1,4 @@
 use smallvec::smallvec;
-use toddle::query::FontClass;
 
 use crate::func::Command;
 use crate::syntax::{SyntaxTree, Node, FuncCall};
@@ -45,9 +44,9 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                 Node::Space => self.layout_space(),
                 Node::Newline => self.layout_paragraph()?,
 
-                Node::ToggleItalics => self.style.text.toggle_class(FontClass::Italic),
-                Node::ToggleBold => self.style.text.toggle_class(FontClass::Bold),
-                Node::ToggleMonospace => self.style.text.toggle_class(FontClass::Monospace),
+                Node::ToggleItalics => {},
+                Node::ToggleBold => {},
+                Node::ToggleMonospace => {},
 
                 Node::Func(func) => self.layout_func(func)?,
             }
