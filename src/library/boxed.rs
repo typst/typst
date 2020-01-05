@@ -3,17 +3,18 @@ use smallvec::smallvec;
 use crate::func::prelude::*;
 use super::maps::ExtentMap;
 
+
 function! {
     /// `box`: Layouts content into a box.
     #[derive(Debug, PartialEq)]
-    pub struct Boxed {
+    pub struct BoxFunc {
         body: SyntaxTree,
         map: ExtentMap<PSize>,
         debug: Option<bool>,
     }
 
     parse(args, body, ctx) {
-        Boxed {
+        BoxFunc {
             body: parse!(optional: body, ctx).unwrap_or(SyntaxTree::new()),
             map: ExtentMap::new(&mut args, false)?,
             debug: args.get_key_opt::<bool>("debug")?,

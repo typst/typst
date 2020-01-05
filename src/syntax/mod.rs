@@ -72,11 +72,11 @@ pub enum Node {
     Space,
     /// A line feed.
     Newline,
-    /// Indicates that italics were enabled / disabled.
+    /// Indicates that italics were toggled.
     ToggleItalics,
-    /// Indicates that boldface was enabled / disabled.
-    ToggleBold,
-    /// Indicates that monospace was enabled / disabled.
+    /// Indicates that bolder text was toggled.
+    ToggleBolder,
+    /// Indicates that monospace was toggled.
     ToggleMonospace,
     /// Literal text.
     Text(String),

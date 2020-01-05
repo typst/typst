@@ -20,6 +20,9 @@ pub struct TextStyle {
     pub fallback: FontFallbackTree,
     /// The selected font variant.
     pub variant: FontVariant,
+    /// Whether the bolder toggle is active or inactive. This determines
+    /// whether the next `*` adds or removes font weight.
+    pub bolder: bool,
     /// The base font size.
     pub base_font_size: Size,
     /// The font scale to apply on the base font size.
@@ -80,6 +83,7 @@ impl Default for TextStyle {
                 style: FontStyle::Normal,
                 weight: FontWeight(400),
             },
+            bolder: false,
             base_font_size: Size::pt(11.0),
             font_scale: 1.0,
             word_spacing_scale: 0.25,

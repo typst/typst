@@ -1,16 +1,17 @@
 use crate::func::prelude::*;
 use super::maps::{PosAxisMap, AlignmentKey};
 
+
 function! {
     /// `align`: Aligns content along the layouting axes.
     #[derive(Debug, PartialEq)]
-    pub struct Align {
+    pub struct AlignFunc {
         body: Option<SyntaxTree>,
         map: PosAxisMap<AlignmentKey>,
     }
 
     parse(args, body, ctx) {
-        Align {
+        AlignFunc {
             body: parse!(optional: body, ctx),
             map: PosAxisMap::new(&mut args)?,
         }
@@ -28,7 +29,7 @@ function! {
 
         match &self.body {
             Some(body) => vec![AddMultiple(layout(&body, ctx)?)],
-            None => vec![Command::SetAlignment(ctx.alignment)],
+            None => vec![SetAlignment(ctx.alignment)],
         }
     }
 }

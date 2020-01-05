@@ -1,16 +1,17 @@
 use crate::func::prelude::*;
 use super::maps::PosAxisMap;
 
+
 function! {
     /// `direction`: Sets the directions of the layouting axes.
     #[derive(Debug, PartialEq)]
-    pub struct DirectionChange {
+    pub struct DirectionFunc {
         body: Option<SyntaxTree>,
         map: PosAxisMap<Direction>,
     }
 
     parse(args, body, ctx) {
-        DirectionChange {
+        DirectionFunc {
             body: parse!(optional: body, ctx),
             map: PosAxisMap::new(&mut args)?,
         }

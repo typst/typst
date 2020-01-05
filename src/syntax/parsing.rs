@@ -73,7 +73,7 @@ impl<'s> Parser<'s> {
 
                 // Modifiers.
                 Underscore => self.append_consumed(Node::ToggleItalics, token.span),
-                Star => self.append_consumed(Node::ToggleBold, token.span),
+                Star => self.append_consumed(Node::ToggleBolder, token.span),
                 Backtick => self.append_consumed(Node::ToggleMonospace, token.span),
 
                 // Normal text.

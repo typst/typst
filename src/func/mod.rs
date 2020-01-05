@@ -101,7 +101,7 @@ pub enum Command<'a> {
 
     Add(Layout),
     AddMultiple(MultiLayout),
-    AddSpacing(Size, SpacingKind, GenericAxis),
+    SpacingFunc(Size, SpacingKind, GenericAxis),
 
     FinishLine,
     FinishSpace,

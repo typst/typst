@@ -44,9 +44,19 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                 Node::Space => self.layout_space(),
                 Node::Newline => self.layout_paragraph()?,
 
-                Node::ToggleItalics => {},
-                Node::ToggleBold => {},
-                Node::ToggleMonospace => {},
+                Node::ToggleItalics => self.style.text.variant.style.toggle(),
+                Node::ToggleBolder => {
+                    self.style.text.variant.weight.0 += 300 *
+                        if self.style.text.bolder { -1 } else { 1 };
+                    self.style.text.bolder = !self.style.text.bolder;
+                }
+                Node::ToggleMonospace => {
+                    let list = &mut self.style.text.fallback.list;
+                    match list.get(0).map(|s| s.as_str()) {
+                        Some("monospace") => { list.remove(0); },
+                        _ => list.insert(0, "monospace".to_string()),
+                    }
+                }
 
                 Node::Func(func) => self.layout_func(func)?,
             }
@@ -98,7 +108,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
 
             Add(layout) => self.layouter.add(layout)?,
             AddMultiple(layouts) => self.layouter.add_multiple(layouts)?,
-            AddSpacing(space, kind, axis) => match axis {
+            SpacingFunc(space, kind, axis) => match axis {
                 Primary => self.layouter.add_primary_spacing(space, kind),
                 Secondary => self.layouter.add_secondary_spacing(space, kind)?,
             }
