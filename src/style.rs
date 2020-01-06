@@ -58,8 +58,15 @@ impl TextStyle {
 }
 
 macro_rules! fallback {
-    (($($f:expr),*), $($c:expr => ($($cf:expr),*),)*) => ({
-        let mut fallback = FontFallbackTree::new(vec![$($f.to_string()),*]);
+    (
+        list: ($($f:expr),*),
+        classes: { $($c:expr => ($($cf:expr),*),)* },
+        base: ($($b:expr),*),
+    ) => ({
+        let mut fallback = FontFallbackTree::new(
+            vec![$($f.to_string()),*],
+            vec![$($b.to_string()),*],
+        );
         $(
             fallback.set_class_list($c.to_string(), vec![$($cf.to_string()),*])
                 .expect("TextStyle::default: unexpected error \
@@ -73,12 +80,15 @@ impl Default for TextStyle {
     fn default() -> TextStyle {
         TextStyle {
             fallback: fallback! {
-                ("sans-serif"),
-                "serif" => ("source serif pro", "noto serif", "__base"),
-                "sans-serif" => ("source sans pro", "noto sans", "__base"),
-                "monospace" => ("source code pro", "noto sans mono", "__base"),
-                "math" => ("latin modern math", "serif", "__base"),
-                "__base" => ("latin modern math", "noto emoji"),
+                list: ("sans-serif"),
+                classes: {
+                    "serif" => ("source serif pro", "noto serif"),
+                    "sans-serif" => ("source sans pro", "noto sans"),
+                    "monospace" => ("source code pro", "noto sans mono"),
+                    "math" => ("latin modern math", "serif"),
+                },
+                base: ("source sans pro", "noto sans",
+                       "noto emoji", "latin modern math"),
             },
             variant: FontVariant {
                 style: FontStyle::Normal,
