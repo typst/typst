@@ -1,12 +1,12 @@
 use std::fs::{File, read_to_string};
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
-
 use futures_executor::block_on;
 
 use typstc::Typesetter;
 use typstc::toddle::query::FileSystemFontProvider;
 use typstc::export::pdf::PdfExporter;
+
 
 fn main() {
     if let Err(err) = run() {

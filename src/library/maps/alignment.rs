@@ -1,6 +1,7 @@
 use super::*;
 use AlignmentKey::*;
 
+
 /// An argument key which describes a target alignment.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum AlignmentKey {

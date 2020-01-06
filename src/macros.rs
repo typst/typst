@@ -1,5 +1,6 @@
 //! Auxiliary macros.
 
+
 /// Create trait implementations for an error type.
 macro_rules! error_type {
     (
@@ -33,16 +34,6 @@ macro_rules! error_type {
                 $conv
             }
         })*
-    };
-}
-
-/// Shorthand for checking whether an expression matches a pattern.
-macro_rules! matches {
-    ($expr:expr, $($pattern:tt)*) => {
-        match $expr {
-            $($pattern)* => true,
-            _ => false,
-        }
     };
 }
 

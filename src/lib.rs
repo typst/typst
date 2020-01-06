@@ -16,7 +16,7 @@
 //!   format is _PDF_. Alternatively, the layout can be serialized to pass it to
 //!   a suitable renderer.
 
-#![allow(unused)]
+// #![allow(unused)]
 
 pub extern crate toddle;
 
@@ -41,6 +41,7 @@ pub mod library;
 pub mod syntax;
 pub mod size;
 pub mod style;
+
 
 /// Transforms source code into typesetted layouts.
 ///

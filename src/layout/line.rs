@@ -1,5 +1,6 @@
 use super::*;
 
+
 /// The line layouter arranges boxes next to each other along a primary axis
 /// and arranges the resulting lines using an underlying stack layouter.
 #[derive(Debug, Clone)]
@@ -181,7 +182,7 @@ impl LineLayouter {
     /// Finish the run and add secondary spacing to the underlying stack.
     pub fn add_secondary_spacing(
         &mut self,
-        mut spacing: Size,
+        spacing: Size,
         kind: SpacingKind
     ) -> LayoutResult<()> {
         self.finish_line_if_not_empty()?;

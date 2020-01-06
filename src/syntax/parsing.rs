@@ -4,6 +4,7 @@ use crate::func::Scope;
 use crate::size::Size;
 use super::*;
 
+
 /// The result type for parsing.
 pub type ParseResult<T> = crate::TypesetResult<T>;
 

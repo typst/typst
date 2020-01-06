@@ -39,6 +39,7 @@ pub use self::actions::{LayoutAction, LayoutActions};
 pub use self::layouters::*;
 pub use self::prelude::*;
 
+
 /// The result type for layouting.
 pub type LayoutResult<T> = crate::TypesetResult<T>;
 

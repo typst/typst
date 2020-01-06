@@ -4,7 +4,6 @@ use smallvec::smallvec;
 
 use crate::func::Command;
 use crate::syntax::{SyntaxTree, Node, FuncCall};
-use crate::style::TextStyle;
 use super::*;
 
 
@@ -148,7 +147,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                     }
                     SetAlignment(alignment) => self.ctx.alignment = alignment,
                     SetAxes(axes) => {
-                        self.layouter.set_axes(axes);
+                        self.layouter.set_axes(axes)?;
                         self.ctx.axes = axes;
                     }
                 }

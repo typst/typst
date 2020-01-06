@@ -5,6 +5,7 @@ use std::hash::Hash;
 
 use crate::func::prelude::*;
 
+
 macro_rules! key {
     ($type:ty, $name:expr, $($patterns:tt)*) => {
         impl $type {

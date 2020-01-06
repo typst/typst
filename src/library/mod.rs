@@ -58,7 +58,7 @@ function! {
         list: Vec<String>,
     }
 
-    parse(args, body, ctx, meta) {
+    parse(args, body, ctx) {
         FontFamilyFunc {
             body: parse!(optional: body, ctx),
             list: {
@@ -114,7 +114,7 @@ function! {
         weight: FontWeight,
     }
 
-    parse(args, body, ctx, meta) {
+    parse(args, body, ctx) {
         FontWeightFunc {
             body: parse!(optional: body, ctx),
             weight: match args.get_pos::<Expression>()? {
@@ -195,7 +195,7 @@ function! {
         }
     }
 
-    layout(self, mut ctx) {
+    layout(self, ctx) {
         let mut style = ctx.style.text.clone();
         match self.content {
             ContentKind::Word => style.word_spacing_scale = self.spacing,

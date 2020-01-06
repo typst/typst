@@ -2,6 +2,7 @@
 
 use std::fmt::{self, Display, Formatter};
 
+
 /// Annotates a value with the part of the source code it corresponds to.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Spanned<T> {

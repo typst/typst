@@ -1,5 +1,6 @@
 //! Helper types and macros for creating custom functions.
 
+
 /// Defines function types concisely.
 #[macro_export]
 macro_rules! function {
@@ -121,6 +122,7 @@ macro_rules! function {
                 'life1: 'async_trait,
                 Self: 'async_trait,
             {
+                #[allow(unreachable_code)]
                 Box::pin(async move { Ok($code) })
             }
         }
