@@ -28,7 +28,7 @@ function! {
         }
 
         match &self.body {
-            Some(body) => vec![AddMultiple(layout(&body, ctx)?)],
+            Some(body) => vec![AddMultiple(layout(&body, ctx).await?)],
             None => vec![SetAlignment(ctx.alignment)],
         }
     }

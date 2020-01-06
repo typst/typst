@@ -55,19 +55,25 @@ function! {
     #[derive(Debug, PartialEq)]
     pub struct FontFamilyFunc {
         body: Option<SyntaxTree>,
-        family: String,
+        list: Vec<String>,
     }
 
     parse(args, body, ctx, meta) {
         FontFamilyFunc {
             body: parse!(optional: body, ctx),
-            family: args.get_pos::<String>()?,
+            list: {
+                args.pos().map(|arg| match arg.v {
+                    Expression::Str(s) |
+                    Expression::Ident(Ident(s)) => Ok(s.to_lowercase()),
+                    _ => error!("expected identifier or string"),
+                }).collect::<LayoutResult<Vec<_>>>()?
+            }
         }
     }
 
     layout(self, ctx) {
         let mut style = ctx.style.text.clone();
-        style.fallback.list = vec![self.family.clone()];
+        style.fallback.list = self.list.clone();
         styled(&self.body, &ctx, style)
     }
 }

@@ -46,7 +46,7 @@ function! {
 
             ctx.spaces = smallvec![space];
 
-            match layout(&self.body, ctx) {
+            match layout(&self.body, ctx).await {
                 Ok(layouts) => return Ok(vec![AddMultiple(layouts)]),
                 Err(err) => error = Some(err),
             }

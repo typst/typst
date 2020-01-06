@@ -6,20 +6,28 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
+toddle = { path = "../toddle", default-features = false }
 tide = { path = "../tide" }
-toddle = { path = "../toddle" }
 byteorder = "1"
 smallvec = "0.6.10"
 unicode-xid = "0.1.0"
+async-trait = "0.1.22"
+futures-executor = { version = "0.3", optional = true }
+
+[features]
+default = ["fs-provider", "futures-executor"]
+fs-provider = ["toddle/fs-provider"]
 
 [[bin]]
 name = "typst-bin"
 path = "src/bin/main.rs"
+required-features = ["futures-executor"]
 
 [[test]]
 name = "layout"
 path = "tests/layout.rs"
 harness = false
+required-features = ["futures-executor"]
 
 [[test]]
 name = "parse"

@@ -189,9 +189,11 @@ impl<'s> Iterator for Tokens<'s> {
             // A string value.
             '"' if self.state == TS::Function => {
                 let start = self.string_index();
+                let mut end = start;
                 let mut escaped = false;
 
-                while let Some((_, c)) = self.chars.next() {
+                while let Some((index, c)) = self.chars.next() {
+                    end = index;
                     if c == '"' && !escaped {
                         break;
                     }
@@ -199,7 +201,6 @@ impl<'s> Iterator for Tokens<'s> {
                     escaped = c == '\\';
                 }
 
-                let end = self.string_index() - 1;
                 Token::Quoted(&self.src[start..end])
             }
 

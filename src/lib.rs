@@ -89,7 +89,7 @@ impl<'p> Typesetter<'p> {
     }
 
     /// Layout a syntax tree and return the produced layout.
-    pub fn layout(&self, tree: &SyntaxTree) -> LayoutResult<MultiLayout> {
+    pub async fn layout(&self, tree: &SyntaxTree) -> LayoutResult<MultiLayout> {
         use crate::layout::prelude::*;
         let margins = self.style.page.margins();
         Ok(layout(
@@ -109,13 +109,13 @@ impl<'p> Typesetter<'p> {
                 nested: false,
                 debug: false,
             },
-        )?)
+        ).await?)
     }
 
     /// Process source code directly into a layout.
-    pub fn typeset(&self, src: &str) -> TypesetResult<MultiLayout> {
+    pub async fn typeset(&self, src: &str) -> TypesetResult<MultiLayout> {
         let tree = self.parse(src)?;
-        let layout = self.layout(&tree)?;
+        let layout = self.layout(&tree).await?;
         Ok(layout)
     }
 }

@@ -108,9 +108,20 @@ macro_rules! function {
 
     // (2-arg) Parse a layout-definition with all arguments.
     (@layout $type:ident | layout($this:ident, $ctx:pat) $code:block) => {
-        impl $crate::func::LayoutFunc for $type {
-            fn layout(&$this, $ctx: LayoutContext) -> LayoutResult<Commands> {
-                Ok($code)
+        impl LayoutFunc for $type {
+            fn layout<'a, 'life0, 'life1, 'async_trait>(
+                &'a $this,
+                $ctx: LayoutContext<'life0, 'life1>
+            ) -> std::pin::Pin<Box<
+                dyn std::future::Future<Output = LayoutResult<Commands<'a>>> + 'async_trait
+            >>
+            where
+                'a: 'async_trait,
+                'life0: 'async_trait,
+                'life1: 'async_trait,
+                Self: 'async_trait,
+            {
+                Box::pin(async move { Ok($code) })
             }
         }
     };

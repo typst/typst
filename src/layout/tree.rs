@@ -1,3 +1,5 @@
+use std::pin::Pin;
+use std::future::Future;
 use smallvec::smallvec;
 
 use crate::func::Command;
@@ -5,10 +7,13 @@ use crate::syntax::{SyntaxTree, Node, FuncCall};
 use crate::style::TextStyle;
 use super::*;
 
+
+type RecursiveResult<'a, T> = Pin<Box<dyn Future<Output=LayoutResult<T>> + 'a>>;
+
 /// Layout a syntax tree into a multibox.
-pub fn layout(tree: &SyntaxTree, ctx: LayoutContext) -> LayoutResult<MultiLayout> {
+pub async fn layout(tree: &SyntaxTree, ctx: LayoutContext<'_, '_>) -> LayoutResult<MultiLayout> {
     let mut layouter = TreeLayouter::new(ctx);
-    layouter.layout(tree)?;
+    layouter.layout(tree).await?;
     layouter.finish()
 }
 
@@ -36,42 +41,44 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
         }
     }
 
-    fn layout(&mut self, tree: &SyntaxTree) -> LayoutResult<()> {
-        for node in &tree.nodes {
-            match &node.v {
-                Node::Text(text) => self.layout_text(text)?,
+    fn layout<'b>(&'b mut self, tree: &'b SyntaxTree) -> RecursiveResult<'b, ()> {
+        Box::pin(async move {
+            for node in &tree.nodes {
+                match &node.v {
+                    Node::Text(text) => self.layout_text(text).await?,
 
-                Node::Space => self.layout_space(),
-                Node::Newline => self.layout_paragraph()?,
+                    Node::Space => self.layout_space(),
+                    Node::Newline => self.layout_paragraph()?,
 
-                Node::ToggleItalics => self.style.text.variant.style.toggle(),
-                Node::ToggleBolder => {
-                    self.style.text.variant.weight.0 += 300 *
-                        if self.style.text.bolder { -1 } else { 1 };
-                    self.style.text.bolder = !self.style.text.bolder;
-                }
-                Node::ToggleMonospace => {
-                    let list = &mut self.style.text.fallback.list;
-                    match list.get(0).map(|s| s.as_str()) {
-                        Some("monospace") => { list.remove(0); },
-                        _ => list.insert(0, "monospace".to_string()),
+                    Node::ToggleItalics => self.style.text.variant.style.toggle(),
+                    Node::ToggleBolder => {
+                        self.style.text.variant.weight.0 += 300 *
+                            if self.style.text.bolder { -1 } else { 1 };
+                        self.style.text.bolder = !self.style.text.bolder;
                     }
+                    Node::ToggleMonospace => {
+                        let list = &mut self.style.text.fallback.list;
+                        match list.get(0).map(|s| s.as_str()) {
+                            Some("monospace") => { list.remove(0); },
+                            _ => list.insert(0, "monospace".to_string()),
+                        }
+                    }
+
+                    Node::Func(func) => self.layout_func(func).await?,
                 }
-
-                Node::Func(func) => self.layout_func(func)?,
             }
-        }
 
-        Ok(())
+            Ok(())
+        })
     }
 
-    fn layout_text(&mut self, text: &str) -> LayoutResult<()> {
+    async fn layout_text(&mut self, text: &str) -> LayoutResult<()> {
         let layout = layout_text(text, TextContext {
             loader: &self.ctx.loader,
             style: &self.style.text,
             axes: self.ctx.axes,
             alignment: self.ctx.alignment,
-        })?;
+        }).await?;
 
         self.layouter.add(layout)
     }
@@ -84,75 +91,71 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
         self.layouter.add_secondary_spacing(self.style.text.paragraph_spacing(), PARAGRAPH_KIND)
     }
 
-    fn layout_func(&mut self, func: &FuncCall) -> LayoutResult<()> {
-        let commands = func.0.layout(LayoutContext {
-            style: &self.style,
-            spaces: self.layouter.remaining(),
-            nested: true,
-            debug: false,
-            .. self.ctx
-        })?;
+    fn layout_func<'b>(&'b mut self, func: &'b FuncCall) -> RecursiveResult<'b, ()> {
+        Box::pin(async move {
+            let commands = func.0.layout(LayoutContext {
+                style: &self.style,
+                spaces: self.layouter.remaining(),
+                nested: true,
+                debug: false,
+                .. self.ctx
+            }).await?;
 
-        for command in commands {
-            self.execute(command)?;
-        }
+            for command in commands {
+                use Command::*;
 
-        Ok(())
-    }
+                match command {
+                    LayoutTree(tree) => self.layout(tree).await?,
 
-    fn execute(&mut self, command: Command) -> LayoutResult<()> {
-        use Command::*;
-
-        match command {
-            LayoutTree(tree) => self.layout(tree)?,
-
-            Add(layout) => self.layouter.add(layout)?,
-            AddMultiple(layouts) => self.layouter.add_multiple(layouts)?,
-            SpacingFunc(space, kind, axis) => match axis {
-                Primary => self.layouter.add_primary_spacing(space, kind),
-                Secondary => self.layouter.add_secondary_spacing(space, kind)?,
-            }
-
-            FinishLine => self.layouter.finish_line()?,
-            FinishSpace => self.layouter.finish_space(true)?,
-            BreakParagraph => self.layout_paragraph()?,
-            BreakPage => {
-                if self.ctx.nested {
-                    error!("page break cannot be issued from nested context");
-                }
-
-                self.layouter.finish_space(true)?
-            }
-
-            SetTextStyle(style) => {
-                self.layouter.set_line_spacing(style.line_spacing());
-                self.style.text = style;
-            }
-            SetPageStyle(style) => {
-                if self.ctx.nested {
-                    error!("page style cannot be altered in nested context");
-                }
-
-                self.style.page = style;
-
-                let margins = style.margins();
-                self.ctx.base = style.dimensions.unpadded(margins);
-                self.layouter.set_spaces(smallvec![
-                    LayoutSpace {
-                        dimensions: style.dimensions,
-                        padding: margins,
-                        expansion: LayoutExpansion::new(true, true),
+                    Add(layout) => self.layouter.add(layout)?,
+                    AddMultiple(layouts) => self.layouter.add_multiple(layouts)?,
+                    SpacingFunc(space, kind, axis) => match axis {
+                        Primary => self.layouter.add_primary_spacing(space, kind),
+                        Secondary => self.layouter.add_secondary_spacing(space, kind)?,
                     }
-                ], true);
-            }
-            SetAlignment(alignment) => self.ctx.alignment = alignment,
-            SetAxes(axes) => {
-                self.layouter.set_axes(axes);
-                self.ctx.axes = axes;
-            }
-        }
 
-        Ok(())
+                    FinishLine => self.layouter.finish_line()?,
+                    FinishSpace => self.layouter.finish_space(true)?,
+                    BreakParagraph => self.layout_paragraph()?,
+                    BreakPage => {
+                        if self.ctx.nested {
+                            error!("page break cannot be issued from nested context");
+                        }
+
+                        self.layouter.finish_space(true)?
+                    }
+
+                    SetTextStyle(style) => {
+                        self.layouter.set_line_spacing(style.line_spacing());
+                        self.style.text = style;
+                    }
+                    SetPageStyle(style) => {
+                        if self.ctx.nested {
+                            error!("page style cannot be altered in nested context");
+                        }
+
+                        self.style.page = style;
+
+                        let margins = style.margins();
+                        self.ctx.base = style.dimensions.unpadded(margins);
+                        self.layouter.set_spaces(smallvec![
+                            LayoutSpace {
+                                dimensions: style.dimensions,
+                                padding: margins,
+                                expansion: LayoutExpansion::new(true, true),
+                            }
+                        ], true);
+                    }
+                    SetAlignment(alignment) => self.ctx.alignment = alignment,
+                    SetAxes(axes) => {
+                        self.layouter.set_axes(axes);
+                        self.ctx.axes = axes;
+                    }
+                }
+            }
+
+            Ok(())
+        })
     }
 
     fn finish(self) -> LayoutResult<MultiLayout> {

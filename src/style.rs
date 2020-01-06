@@ -58,7 +58,7 @@ impl TextStyle {
 }
 
 macro_rules! fallback {
-    (($($f:expr),*), $($c:expr => ($($cf:expr),*)),*) => ({
+    (($($f:expr),*), $($c:expr => ($($cf:expr),*),)*) => ({
         let mut fallback = FontFallbackTree::new(vec![$($f.to_string()),*]);
         $(
             fallback.set_class_list($c.to_string(), vec![$($cf.to_string()),*])
@@ -74,10 +74,11 @@ impl Default for TextStyle {
         TextStyle {
             fallback: fallback! {
                 ("sans-serif"),
-                "serif" => ("source serif pro", "noto serif", "noto emoji"),
-                "sans-serif" => ("source sans pro", "noto sans", "noto emoji"),
-                "monospace" => ("source code pro", "noto sans mono", "noto emoji"),
-                "math" => ("latin modern math", "serif")
+                "serif" => ("source serif pro", "noto serif", "__base"),
+                "sans-serif" => ("source sans pro", "noto sans", "__base"),
+                "monospace" => ("source code pro", "noto sans mono", "__base"),
+                "math" => ("latin modern math", "serif", "__base"),
+                "__base" => ("latin modern math", "noto emoji"),
             },
             variant: FontVariant {
                 style: FontStyle::Normal,

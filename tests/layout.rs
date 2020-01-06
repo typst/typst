@@ -6,6 +6,8 @@ use std::io::{BufWriter, Write};
 use std::panic;
 use std::process::Command;
 
+use futures_executor::block_on;
+
 use typstc::Typesetter;
 use typstc::layout::{MultiLayout, Serialize};
 use typstc::size::{Size, Size2D};
@@ -125,7 +127,7 @@ fn compile(typesetter: &Typesetter, src: &str) -> Option<MultiLayout> {
 
         // Warmup.
         let warmup_start = Instant::now();
-        let is_ok = typesetter.typeset(&src).is_ok();
+        let is_ok = block_on(typesetter.typeset(&src)).is_ok();
         let warmup_end = Instant::now();
 
         // Only continue if the typesetting was successful.
@@ -133,7 +135,7 @@ fn compile(typesetter: &Typesetter, src: &str) -> Option<MultiLayout> {
             let start = Instant::now();
             let tree = typesetter.parse(&src).unwrap();
             let mid = Instant::now();
-            typesetter.layout(&tree).unwrap();
+            block_on(typesetter.layout(&tree)).unwrap();
             let end = Instant::now();
 
             println!(" - cold start:  {:?}", warmup_end - warmup_start);
@@ -144,7 +146,7 @@ fn compile(typesetter: &Typesetter, src: &str) -> Option<MultiLayout> {
         }
     };
 
-    match typesetter.typeset(&src) {
+    match block_on(typesetter.typeset(&src)) {
         Ok(layouts) => Some(layouts),
         Err(err) => {
             println!(" - compilation failed: {}", err);

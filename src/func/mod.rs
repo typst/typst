@@ -4,6 +4,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
+use async_trait::async_trait;
 use self::prelude::*;
 
 #[macro_use]
@@ -24,6 +25,7 @@ pub mod prelude {
     pub use Command::*;
 }
 
+
 /// Types representing functions that are parsed from source code.
 pub trait ParseFunc {
     type Meta: Clone;
@@ -43,12 +45,13 @@ pub trait ParseFunc {
 /// The trait `[LayoutFuncBounds]` is automatically implemented for types which
 /// can be used as functions, that is, all types which fulfill the bounds `Debug
 /// + PartialEq + 'static`.
+#[async_trait(?Send)]
 pub trait LayoutFunc: LayoutFuncBounds {
     /// Layout this function in a given context.
     ///
     /// Returns a sequence of layouting commands which describe what the
     /// function is doing.
-    fn layout(&self, ctx: LayoutContext) -> LayoutResult<Commands>;
+    async fn layout<'a>(&'a self, ctx: LayoutContext<'_, '_>) -> LayoutResult<Commands<'a>>;
 }
 
 impl dyn LayoutFunc {
