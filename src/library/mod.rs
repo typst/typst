@@ -139,7 +139,7 @@ function! {
 
     layout(self, ctx) {
         let mut style = ctx.style.text.clone();
-        style.variant.style.toggle();
+        style.variant.weight = self.weight;
         styled(&self.body, &ctx, style)
     }
 }
