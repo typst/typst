@@ -19,8 +19,8 @@ impl<T> Spanned<T> {
         self.v
     }
 
-    pub fn map<F, U>(self, f: F) -> Spanned<U> where F: FnOnce(T) -> U {
-        Spanned::new(f(self.v), self.span)
+    pub fn map<V>(&self, new_v: V) -> Spanned<V> {
+        Spanned { v: new_v, span: self.span }
     }
 }
 

@@ -85,6 +85,26 @@ pub enum Node {
     Func(FuncCall),
 }
 
+/// A thing to be syntax highlighted.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ColorToken {
+    Comment,
+    Bracket,
+    FuncName,
+    Colon,
+    KeyArg,
+    Equals,
+    Comma,
+    ExprNumber,
+    ExprSize,
+    ExprStr,
+    ExprIdent,
+    ExprBool,
+    Bold,
+    Italic,
+    Monospace,
+}
+
 /// An invocation of a function.
 #[derive(Debug)]
 pub struct FuncCall(pub Box<dyn LayoutFunc>);

@@ -27,6 +27,7 @@ struct Parser<'s> {
     tokens: PeekableTokens<'s>,
     ctx: ParseContext<'s>,
     tree: SyntaxTree,
+    color_tokens: Vec<Spanned<ColorToken>>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -49,6 +50,7 @@ impl<'s> Parser<'s> {
             tokens: PeekableTokens::new(tokenize(src)),
             ctx,
             tree: SyntaxTree::new(),
+            color_tokens: vec![],
         }
     }
 
@@ -73,12 +75,12 @@ impl<'s> Parser<'s> {
                 RightBracket => error!("unexpected closing bracket"),
 
                 // Modifiers.
-                Underscore => self.append_consumed(Node::ToggleItalics, token.span),
-                Star => self.append_consumed(Node::ToggleBolder, token.span),
-                Backtick => self.append_consumed(Node::ToggleMonospace, token.span),
+                Underscore => self.add_consumed(Node::ToggleItalics, token.span),
+                Star => self.add_consumed(Node::ToggleBolder, token.span),
+                Backtick => self.add_consumed(Node::ToggleMonospace, token.span),
 
                 // Normal text.
-                Text(word) => self.append_consumed(Node::Text(word.to_owned()), token.span),
+                Text(word) => self.add_consumed(Node::Text(word.to_owned()), token.span),
 
                 // The rest is handled elsewhere or should not happen, because
                 // the tokenizer does not yield these in a body.
@@ -97,13 +99,21 @@ impl<'s> Parser<'s> {
         let token = self.tokens.next().expect("parse_func: expected token");
         assert!(token.v == Token::LeftBracket);
 
+        self.add_color_token(ColorToken::Bracket, token.span);
+
         let mut span = token.span;
         let name = self.parse_func_name()?;
 
         // Check for arguments
-        let args = match self.tokens.next().map(Spanned::value) {
-            Some(Token::RightBracket) => FuncArgs::new(),
-            Some(Token::Colon) => self.parse_func_args()?,
+        let args = match self.tokens.next() {
+            Some(Spanned { v: Token::RightBracket, span }) => {
+                self.add_color_token(ColorToken::Bracket, span);
+                FuncArgs::new()
+            },
+            Some(Spanned { v: Token::Colon, span }) => {
+                self.add_color_token(ColorToken::Colon, span);
+                self.parse_func_args()?
+            }
             _ => error!("expected arguments or closing bracket"),
         };
 
@@ -111,7 +121,7 @@ impl<'s> Parser<'s> {
         span.end = self.tokens.string_index();
 
         // Finally this function is parsed to the end.
-        self.append(Node::Func(func), span);
+        self.add(Node::Func(func), span);
 
         Ok(())
     }
@@ -127,6 +137,8 @@ impl<'s> Parser<'s> {
             }
             _ => error!("expected identifier"),
         };
+
+        self.add_color_token(ColorToken::FuncName, name.span);
 
         self.skip_white();
 
@@ -146,9 +158,14 @@ impl<'s> Parser<'s> {
                 None => {},
             }
 
-            match self.tokens.next().map(Spanned::value) {
-                Some(Token::Comma) => {},
-                Some(Token::RightBracket) => break,
+            match self.tokens.next() {
+                Some(Spanned { v: Token::Comma, span }) => {
+                    self.add_color_token(ColorToken::Comma, span);
+                }
+                Some(Spanned { v: Token::RightBracket, span }) => {
+                    self.add_color_token(ColorToken::Bracket, span);
+                    break;
+                }
                 _ => error!("expected comma or closing bracket"),
             }
         }
@@ -168,17 +185,23 @@ impl<'s> Parser<'s> {
                 self.advance();
                 self.skip_white();
 
-                Some(match self.tokens.peek().map(Spanned::value) {
-                    Some(Token::Equals) => {
+                Some(match self.tokens.peek() {
+                    Some(Spanned { v: Token::Equals, span }) => {
                         self.advance();
                         self.skip_white();
 
                         let name = Ident::new(name.to_string())?;
                         let key = Spanned::new(name, token.span);
 
+                        self.add_color_token(ColorToken::KeyArg, key.span);
+                        self.add_color_token(ColorToken::Equals, span);
+
                         let next = self.tokens.next()
                             .ok_or_else(|| error!(@"expected expression"))?;
+
                         let value = Self::parse_expression(next)?;
+
+                        self.add_expr_token(&value);
 
                         let span = Span::merge(key.span, value.span);
                         let arg = KeyArg { key, value };
@@ -186,12 +209,20 @@ impl<'s> Parser<'s> {
                         DynArg::Key(Spanned::new(arg, span))
                     }
 
-                    _ => DynArg::Pos(Self::parse_expression(token)?),
+                    _ => {
+                        let expr = Self::parse_expression(token)?;
+                        self.add_expr_token(&expr);
+                        DynArg::Pos(expr)
+                    }
                 })
             }
 
             Token::Quoted(_) => {
                 self.advance();
+                self.skip_white();
+
+                self.add_color_token(ColorToken::ExprStr, token.span);
+
                 Some(DynArg::Pos(Self::parse_expression(token)?))
             }
 
@@ -277,7 +308,7 @@ impl<'s> Parser<'s> {
                     self.advance();
                     match state {
                         NewlineState::Zero | NewlineState::TwoOrMore => {
-                            self.append_space(token.span);
+                            self.add_space(token.span);
                         }
                         _ => {}
                     }
@@ -288,16 +319,16 @@ impl<'s> Parser<'s> {
                     match state {
                         NewlineState::Zero => state = NewlineState::One(token.span),
                         NewlineState::One(span) => {
-                            self.append(Node::Newline, Span::merge(span, token.span));
+                            self.add(Node::Newline, Span::merge(span, token.span));
                             state = NewlineState::TwoOrMore;
                         },
-                        NewlineState::TwoOrMore => self.append_space(token.span),
+                        NewlineState::TwoOrMore => self.add_space(token.span),
                     }
                 }
 
                 _ => {
                     if let NewlineState::One(span) = state {
-                        self.append_space(Span::new(span.start, token.span.start));
+                        self.add_space(Span::new(span.start, token.span.start));
                     }
 
                     state = NewlineState::Zero;
@@ -330,22 +361,40 @@ impl<'s> Parser<'s> {
     }
 
     /// Append a node to the tree.
-    fn append(&mut self, node: Node, span: Span) {
+    fn add(&mut self, node: Node, span: Span) {
         self.tree.nodes.push(Spanned::new(node, span));
     }
 
     /// Append a space, merging with a previous space if there is one.
-    fn append_space(&mut self, span: Span) {
+    fn add_space(&mut self, span: Span) {
         match self.tree.nodes.last_mut() {
             Some(ref mut node) if node.v == Node::Space => node.span.expand(span),
-            _ => self.append(Node::Space, span),
+            _ => self.add(Node::Space, span),
         }
     }
 
     /// Advance and return the given node.
-    fn append_consumed(&mut self, node: Node, span: Span) {
+    fn add_consumed(&mut self, node: Node, span: Span) {
         self.advance();
-        self.append(node, span);
+        self.add(node, span);
+    }
+
+    /// Add a color token to the list.
+    fn add_color_token(&mut self, token: ColorToken, span: Span) {
+        self.color_tokens.push(Spanned::new(token, span));
+    }
+
+    /// Add a color token for an expression.
+    fn add_expr_token(&mut self, expr: &Spanned<Expression>) {
+        let kind = match expr.v {
+            Expression::Bool(_) => ColorToken::ExprBool,
+            Expression::Ident(_) => ColorToken::ExprIdent,
+            Expression::Num(_) => ColorToken::ExprNumber,
+            Expression::Size(_) => ColorToken::ExprSize,
+            Expression::Str(_) => ColorToken::ExprStr,
+        };
+
+        self.add_color_token(kind, expr.span);
     }
 }
 
@@ -510,6 +559,16 @@ mod tests {
     fn test_err_scoped(scope: &Scope, src: &str, err: &str) {
         let ctx = ParseContext { scope };
         assert_eq!(parse(src, ctx).unwrap_err().to_string(), err);
+    }
+
+    fn test_color(scope: &Scope, src: &str, tokens: Vec<(usize, usize, ColorToken)>) {
+        let ctx = ParseContext { scope };
+        let tree = parse(src, ctx).unwrap();
+        // assert_eq!(tree.tokens,
+        //     tokens.into_iter()
+        //         .map(|(s, e, t)| Spanned::new(t, Span::new(s, e)))
+        //         .collect::<Vec<_>>()
+        // );
     }
 
     /// Create a text node.
@@ -736,5 +795,33 @@ mod tests {
         test_err("[hello world", "expected arguments or closing bracket");
         test_err("[ no^name][Why?]", "invalid identifier: `no^name`");
         test_err("Hello */", "unexpected end of block comment");
+    }
+
+    /// Tests syntax highlighting.
+    #[test]
+    #[rustfmt::skip]
+    fn test_highlighting() {
+        use ColorToken::{Bracket as B, FuncName as F, *};
+
+        let mut scope = Scope::new();
+        scope.add::<BodylessFn>("func");
+        scope.add::<TreeFn>("tree");
+
+        test_color(&scope, "[func]", vec![(0, 1, B), (1, 5, F), (5, 6, B)]);
+        test_color(&scope, "[func: 12pt]", vec![
+            (0, 1, B), (1, 5, F), (5, 6, Colon), (7, 11, ExprSize), (11, 12, B)
+        ]);
+        test_color(&scope, "[func: x=25.3, y=\"hi\"]", vec![
+            (0, 1, B), (1, 5, F), (5, 6, Colon),
+            (7, 8, KeyArg), (8, 9, Equals), (9, 13, ExprNumber),
+            (13, 14, Comma),
+            (15, 16, KeyArg), (16, 17, Equals), (17, 21, ExprStr),
+            (21, 22, B),
+        ]);
+
+        test_color(&scope, "Hello [tree][With [func: 3]]", vec![
+            (6, 7, B), (7, 11, F), (11, 12, B),
+            (12, 13, B), (18, 19, B)
+        ]);
     }
 }

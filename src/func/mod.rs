@@ -25,7 +25,6 @@ pub mod prelude {
     pub use Command::*;
 }
 
-
 /// Types representing functions that are parsed from source code.
 pub trait ParseFunc {
     type Meta: Clone;
@@ -39,7 +38,7 @@ pub trait ParseFunc {
     ) -> ParseResult<Self> where Self: Sized;
 }
 
-/// Types representing functions which can be laid out in a layout context.
+/// Function types which can be laid out in a layout context.
 ///
 /// This trait is a supertrait of `[LayoutFuncBounds]` for technical reasons.
 /// The trait `[LayoutFuncBounds]` is automatically implemented for types which
