@@ -18,6 +18,8 @@ pub struct Tokens<'s> {
     chars: PeekableChars<'s>,
     state: TokensState,
     stack: SmallVec<[TokensState; 1]>,
+    line: usize,
+    line_start_index: usize,
 }
 
 /// The state the tokenizer is in.
@@ -40,17 +42,24 @@ impl<'s> Tokens<'s> {
             chars: PeekableChars::new(src),
             state: TokensState::Body,
             stack: SmallVec::new(),
+            line: 1,
+            line_start_index: 0,
         }
     }
 
     /// The index of the first character of the next token in the source string.
-    pub fn string_index(&mut self) -> usize {
+    pub fn string_index(&self) -> usize {
         self.chars.string_index()
     }
 
     /// Go to a new position in the underlying string.
     pub fn set_string_index(&mut self, index: usize) {
         self.chars.set_string_index(index);
+    }
+
+    /// The current position in the source.
+    pub fn get_position(&self) -> Position {
+        self.line_position(self.string_index())
     }
 
     /// Advance the iterator by one step.
@@ -68,6 +77,14 @@ impl<'s> Tokens<'s> {
     fn unswitch(&mut self) {
         self.state = self.stack.pop().unwrap_or(TokensState::Body);
     }
+
+    /// The `Position` with line and column for a string index.
+    fn line_position(&self, index: usize) -> Position {
+        Position {
+            line: self.line,
+            column: index - self.line_start_index,
+        }
+    }
 }
 
 impl<'s> Iterator for Tokens<'s> {
@@ -83,7 +100,8 @@ impl<'s> Iterator for Tokens<'s> {
             if let Some((index, '[')) = self.chars.peek() {
                 self.advance();
                 self.state = TS::Body;
-                return Some(Spanned::new(Token::LeftBracket, Span::at(index)));
+                let span = Span::at(self.line_position(index));
+                return Some(Spanned::new(Token::LeftBracket, span));
             } else {
                 self.unswitch();
             }
@@ -92,6 +110,9 @@ impl<'s> Iterator for Tokens<'s> {
         // Take the next char and peek at the one behind.
         let (pos, next) = self.chars.next()?;
         let afterwards = self.chars.peekc();
+
+        /// The index at which the line ended, if it did.
+        let mut eol = None;
 
         let token = match next {
             // Functions
@@ -173,9 +194,13 @@ impl<'s> Iterator for Tokens<'s> {
             // Newlines
             '\r' if afterwards == Some('\n') => {
                 self.advance();
+                eol = Some(pos + "\r\n".len());
                 Token::Newline
-            },
-            c if is_newline_char(c) => Token::Newline,
+            }
+            c if is_newline_char(c) => {
+                eol = Some(pos + c.len_utf8());
+                Token::Newline
+            }
 
             // Star/Underscore/Backtick in bodies
             '*' if self.state == TS::Body => Token::Star,
@@ -257,12 +282,21 @@ impl<'s> Iterator for Tokens<'s> {
             }
         };
 
-        Some(Spanned::new(token, Span::new(pos, self.string_index())))
+        let start = self.line_position(pos);
+        let end = self.get_position();
+        let span = Span::new(start, end);
+
+        if let Some(index) = eol {
+            self.line += 1;
+            self.line_start_index = index;
+        }
+
+        Some(Spanned::new(token, span))
     }
 }
 
 /// Whether this character is a newline (or starts one).
-fn is_newline_char(character: char) -> bool {
+pub(crate) fn is_newline_char(character: char) -> bool {
     match character {
         '\n' | '\r' | '\u{000c}' | '\u{0085}' | '\u{2028}' | '\u{2029}' => true,
         _ => false,
@@ -316,7 +350,7 @@ impl<'s> PeekableChars<'s> {
         self.chars.next().map(|(i, c)| (self.base + i, c))
     }
 
-    fn string_index(&mut self) -> usize {
+    fn string_index(&self) -> usize {
         self.index
     }
 
@@ -363,9 +397,12 @@ mod tests {
     }
 
     /// Test if the tokens of the source code have the correct spans.
-    fn test_span(src: &str, spans: Vec<(usize, usize)>) {
+    fn test_span(src: &str, spans: Vec<(usize, usize, usize, usize)>) {
         assert_eq!(Tokens::new(src)
-            .map(|token| token.span.pair())
+            .map(|token| {
+                let Span { start, end } = token.span;
+                (start.line, start.column, end.line, end.column)
+            })
             .collect::<Vec<_>>(), spans);
     }
 
@@ -496,8 +533,12 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn tokenize_spans() {
-        test_span("Hello World", vec![(0, 5), (5, 6), (6, 11)]);
-        test_span("🌍_🎈", vec![(0, 4), (4, 5), (5, 9)]);
-        test_span("[hello: world]", vec![(0, 1), (1, 6), (6, 7), (7, 8), (8, 13), (13, 14)]);
+        test_span("Hello World", vec![(1, 0, 1, 5), (1, 5, 1, 6), (1, 6, 1, 11)]);
+        test_span("🌍_🎈", vec![(1, 0, 1, 4), (1, 4, 1, 5), (1, 5, 1, 9)]);
+        test_span("hello\nworld", vec![(1, 0, 1, 5), (1, 5, 1, 6), (2, 0, 2, 5)]);
+        test_span("[hello: world]", vec![
+            (1, 0, 1, 1), (1, 1, 1, 6), (1, 6, 1, 7),
+            (1, 7, 1, 8), (1, 8, 1, 13), (1, 13, 1, 14)
+        ]);
     }
 }

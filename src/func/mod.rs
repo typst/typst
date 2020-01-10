@@ -32,7 +32,7 @@ pub trait ParseFunc {
     /// Parse the header and body into this function given a context.
     fn parse(
         args: FuncArgs,
-        body: Option<Spanned<&str>>,
+        body: Option<&str>,
         ctx: ParseContext,
         metadata: Self::Meta,
     ) -> ParseResult<Self> where Self: Sized;
@@ -125,7 +125,7 @@ pub struct Scope {
 /// implements [`LayoutFunc`].
 type Parser = dyn Fn(
     FuncArgs,
-    Option<Spanned<&str>>,
+    Option<&str>,
     ParseContext
 ) -> ParseResult<Box<dyn LayoutFunc>>;
 

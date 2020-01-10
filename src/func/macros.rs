@@ -80,7 +80,7 @@ macro_rules! function {
 
             fn parse(
                 args: FuncArgs,
-                $body: Option<Spanned<&str>>,
+                $body: Option<&str>,
                 $ctx: ParseContext,
                 $metadata: Self::Meta,
             ) -> ParseResult<Self> where Self: Sized {
@@ -144,7 +144,7 @@ macro_rules! parse {
 
     (optional: $body:expr, $ctx:expr) => (
         if let Some(body) = $body {
-            Some($crate::syntax::parse(body.v, $ctx)?)
+            Some($crate::syntax::parse(body, $ctx)?)
         } else {
             None
         }
@@ -152,7 +152,7 @@ macro_rules! parse {
 
     (expected: $body:expr, $ctx:expr) => (
         if let Some(body) = $body {
-            $crate::syntax::parse(body.v, $ctx)?
+            $crate::syntax::parse(body, $ctx)?
         } else {
             error!("expected body");
         }

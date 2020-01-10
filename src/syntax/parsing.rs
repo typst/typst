@@ -117,8 +117,12 @@ impl<'s> Parser<'s> {
             _ => error!("expected arguments or closing bracket"),
         };
 
-        let func = self.parse_func_call(name, args)?;
-        span.end = self.tokens.string_index();
+        span.end = self.tokens.get_position();
+        let (func, body_span) = self.parse_func_call(name, args)?;
+
+        if let Some(body_span) = body_span {
+            span.expand(body_span);
+        }
 
         // Finally this function is parsed to the end.
         self.add(Node::Func(func), span);
@@ -139,7 +143,6 @@ impl<'s> Parser<'s> {
         };
 
         self.add_color_token(ColorToken::FuncName, name.span);
-
         self.skip_white();
 
         Ok(name)
@@ -231,7 +234,8 @@ impl<'s> Parser<'s> {
     }
 
     /// Parse a function call.
-    fn parse_func_call(&mut self, name: Spanned<Ident>, args: FuncArgs) -> ParseResult<FuncCall> {
+    fn parse_func_call(&mut self, name: Spanned<Ident>, args: FuncArgs)
+    -> ParseResult<(FuncCall, Option<Span>)> {
         // Now we want to parse this function dynamically.
         let parser = self
             .ctx
@@ -242,32 +246,38 @@ impl<'s> Parser<'s> {
         let has_body = self.tokens.peek().map(Spanned::value) == Some(Token::LeftBracket);
 
         // Do the parsing dependent on whether the function has a body.
-        Ok(FuncCall(if has_body {
+        Ok(if has_body {
             self.advance();
 
             // Find out the string which makes the body of this function.
-            let start = self.tokens.string_index();
-            let end = find_closing_bracket(&self.src[start..])
-                .map(|end| start + end)
-                .ok_or_else(|| error!(@"expected closing bracket"))?;
+            let start_index = self.tokens.string_index();
+            let mut start_pos = self.tokens.get_position();
+            start_pos.column -= 1;
 
-            let span = Span::new(start - 1, end + 1);
+            let (mut end_index, mut end_pos) =
+                find_closing_bracket(&self.src[start_index..])
+                    .ok_or_else(|| error!(@"expected closing bracket"))?;
+
+            end_index += start_index;
+            end_pos.column += 1;
+
+            let span = Span::new(start_pos, end_pos);
 
             // Parse the body.
-            let body_string = &self.src[start..end];
-            let body = parser(args, Some(Spanned::new(body_string, span)), self.ctx)?;
+            let body_string = &self.src[start_index..end_index];
+            let body = parser(args, Some(body_string), self.ctx)?;
 
             // Skip to the end of the function in the token stream.
-            self.tokens.set_string_index(end);
+            self.tokens.set_string_index(end_index);
 
             // Now the body should be closed.
             let token = self.tokens.next().expect("parse_func_body: expected token");
             assert!(token.v == Token::RightBracket);
 
-            body
+            (FuncCall(body), Some(span))
         } else {
-            parser(args, None, self.ctx)?
-        }))
+            (FuncCall(parser(args, None, self.ctx)?), None)
+        })
     }
 
     /// Parse an expression.
@@ -399,16 +409,30 @@ impl<'s> Parser<'s> {
 }
 
 /// Find the index of the first unbalanced and unescaped closing bracket.
-fn find_closing_bracket(src: &str) -> Option<usize> {
+fn find_closing_bracket(src: &str) -> Option<(usize, Position)> {
     let mut parens = 0;
     let mut escaped = false;
+    let mut line = 1;
+    let mut line_start_index = 0;
+
     for (index, c) in src.char_indices() {
         match c {
             '\\' => {
                 escaped = !escaped;
                 continue;
             }
-            ']' if !escaped && parens == 0 => return Some(index),
+            c if is_newline_char(c) => {
+                line += 1;
+                line_start_index = index + c.len_utf8();
+            }
+            ']' if !escaped && parens == 0 => {
+                let position = Position {
+                    line,
+                    column: index - line_start_index,
+                };
+
+                return Some((index, position))
+            }
             '[' if !escaped => parens += 1,
             ']' if !escaped => parens -= 1,
             _ => {}
@@ -441,9 +465,16 @@ impl<'s> PeekableTokens<'s> {
         *self.peeked.get_or_insert_with(|| iter.next())
     }
 
-    fn string_index(&mut self) -> usize {
+    fn get_position(&self) -> Position {
         match self.peeked {
             Some(Some(peeked)) => peeked.span.start,
+            _ => self.tokens.get_position(),
+        }
+    }
+
+    fn string_index(&self) -> usize {
+        match self.peeked {
+            Some(Some(peeked)) => peeked.span.start.line,
             _ => self.tokens.string_index(),
         }
     }
@@ -577,7 +608,7 @@ mod tests {
     }
 
     fn zerospan<T>(val: T) -> Spanned<T> {
-        Spanned::new(val, Span::new(0, 0))
+        Spanned::new(val, Span::new(Position::new(0, 0), Position::new(0, 0)))
     }
 
     /// Shortcut macro to create a syntax tree. Is `vec`-like and the elements
@@ -751,36 +782,29 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn parse_spans() {
-        let mut scope = Scope::new();
-        scope.add::<TreeFn>("hello");
+        fn test_span(src: &str, correct: Vec<(usize, usize, usize, usize)>) {
+            let mut scope = Scope::new();
+            scope.add::<TreeFn>("hello");
+            let tree = parse(src, ParseContext { scope: &scope }).unwrap();
+            let spans = tree.nodes.into_iter()
+                .map(|node| {
+                    let Span { start, end } = node.span;
+                    (start.line, start.column, end.line, end.column)
+                })
+                .collect::<Vec<_>>();
 
-        let parse = |string| {
-            parse(string, ParseContext { scope: &scope }).unwrap().nodes
-        };
+            assert_eq!(spans, correct);
+        }
 
-        let tree = parse("hello world");
-        assert_eq!(tree[0].span.pair(), (0, 5));
-        assert_eq!(tree[2].span.pair(), (6, 11));
+        test_span("hello world", vec![(1, 0, 1, 5), (1, 5, 1, 6), (1, 6, 1, 11)]);
+        test_span("p1\n \np2", vec![(1, 0, 1, 2), (1, 2, 2, 2), (3, 0, 3, 2)]);
 
-        let tree = parse("p1\n \np2");
-        assert_eq!(tree[1].span.pair(), (2, 5));
-
-        let tree = parse("p1\n p2");
-        assert_eq!(tree[1].span.pair(), (2, 4));
-
-        let src = "func [hello: pos, other][body _🌍_]";
-        let tree = parse(src);
-        assert_eq!(tree[0].span.pair(), (0, 4));
-        assert_eq!(tree[1].span.pair(), (4, 5));
-        assert_eq!(tree[2].span.pair(), (5, 37));
-
-        let func = if let Node::Func(f) = &tree[2].v { f } else { panic!() };
-        let body = &func.0.downcast::<TreeFn>().unwrap().tree.nodes;
-        assert_eq!(body[0].span.pair(), (0, 4));
-        assert_eq!(body[1].span.pair(), (4, 5));
-        assert_eq!(body[2].span.pair(), (5, 6));
-        assert_eq!(body[3].span.pair(), (6, 10));
-        assert_eq!(body[4].span.pair(), (10, 11));
+        let src = "func\n [hello: pos, other][body\r\n _🌍_\n]";
+        test_span(src, vec![
+            (1, 0, 1, 4),
+            (1, 4, 2, 1),
+            (2, 1, 4, 1)
+        ]);
     }
 
     /// Tests whether errors get reported correctly.

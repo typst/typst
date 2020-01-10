@@ -35,28 +35,26 @@ debug_display!(Spanned; T where T: std::fmt::Debug);
 /// Describes a slice of source code.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Span {
-    pub start: usize,
-    pub end: usize,
+    pub start: Position,
+    pub end: Position,
 }
 
 impl Span {
-    pub fn new(start: usize, end: usize) -> Span {
+    pub fn new(start: Position, end: Position) -> Span {
         Span { start, end }
     }
 
     pub fn merge(a: Span, b: Span) -> Span {
+        let start = a.start.min(b.start);
+
         Span {
             start: a.start.min(b.start),
             end: a.end.max(b.end),
         }
     }
 
-    pub fn at(index: usize) -> Span {
-        Span { start: index, end: index + 1 }
-    }
-
-    pub fn pair(&self) -> (usize, usize) {
-        (self.start, self.end)
+    pub fn at(pos: Position) -> Span {
+        Span { start: pos, end: pos }
     }
 
     pub fn expand(&mut self, other: Span) {
@@ -71,3 +69,26 @@ impl Display for Span {
 }
 
 debug_display!(Span);
+
+/// A line-column position in source code.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Position {
+    /// The 1-indexed line (inclusive).
+    pub line: usize,
+    /// The 0-indexed column (inclusive).
+    pub column: usize,
+}
+
+impl Position {
+    pub fn new(line: usize, column: usize) -> Position {
+        Position { line, column }
+    }
+}
+
+impl Display for Position {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}:{}", self.line, self.column)
+    }
+}
+
+debug_display!(Position);
