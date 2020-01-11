@@ -23,12 +23,31 @@ fn BOOL(b: bool) -> Token<'static> { E(Expr::Bool(b)) }
 
 /// Parses the test syntax.
 macro_rules! tokens {
-    ($($src:expr =>($line:expr)=> $tokens:expr)*) => ({
+    ($($task:ident $src:expr =>($line:expr)=> [$($target:tt)*])*) => ({
         #[allow(unused_mut)]
         let mut cases = Vec::new();
-        $(cases.push(($line, $src, $tokens.to_vec()));)*
+        $(cases.push(($line, $src, tokens!(@$task [$($target)*])));)*
         cases
     });
+
+    (@t $tokens:expr) => ({
+        Target::Tokenized($tokens.to_vec())
+    });
+
+    (@ts [$(($sl:tt:$sc:tt, $el:tt:$ec:tt, $t:expr)),* $(,)?]) => ({
+        Target::TokenizedSpanned(vec![
+            $(Spanned { v: $t, span: Span {
+                start: Position { line: $sl, column: $sc },
+                end:   Position { line: $el, column: $ec },
+            }}),*
+        ])
+    });
+}
+
+#[derive(Debug)]
+enum Target {
+    Tokenized(Vec<Token<'static>>),
+    TokenizedSpanned(Vec<Spanned<Token<'static>>>),
 }
 
 fn main() {
@@ -47,11 +66,11 @@ fn main() {
         let mut failed = 0;
 
         // Go through all tests in a test file.
-        for (line, src, expected) in cases.into_iter() {
-            let found: Vec<_> = tokenize(src).map(Spanned::value).collect();
+        for (line, src, target) in cases.into_iter() {
+            let (correct, expected, found) = test_case(src, target);
 
             // Check whether the tokenization works correctly.
-            if found == expected {
+            if correct {
                 okay += 1;
             } else {
                 if failed == 0 {
@@ -80,5 +99,19 @@ fn main() {
 
     if errors {
         std::process::exit(-1);
+    }
+}
+
+fn test_case(src: &str, target: Target) -> (bool, String, String) {
+    match target {
+        Target::Tokenized(tokens) => {
+            let found: Vec<_> = tokenize(src).map(Spanned::value).collect();
+            (found == tokens, format!("{:?}", tokens), format!("{:?}", found))
+        }
+
+        Target::TokenizedSpanned(tokens) => {
+            let found: Vec<_> = tokenize(src).collect();
+            (found == tokens, format!("{:?}", tokens), format!("{:?}", found))
+        }
     }
 }

@@ -71,7 +71,7 @@ debug_display!(Span);
 /// A line-column position in source code.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Position {
-    /// The 1-indexed line (inclusive).
+    /// The 0-indexed line (inclusive).
     pub line: usize,
     /// The 0-indexed column (inclusive).
     pub column: usize,

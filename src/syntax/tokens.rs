@@ -102,7 +102,7 @@ impl<'s> Iterator for Tokens<'s> {
             '*' if second == Some('/') => { self.eat(); StarSlash }
 
             // Whitespace.
-            c if c.is_whitespace() => self.parse_whitespace(c),
+            c if c.is_whitespace() => self.parse_whitespace(start),
 
             // Functions.
             '[' => { self.set_state(Header); LeftBracket }
@@ -196,20 +196,11 @@ impl<'s> Tokens<'s> {
         }, true, 0, -2))
     }
 
-    fn parse_whitespace(&mut self, c: char) -> Token<'s> {
-        let mut newlines = if is_newline_char(c) { 1 } else { 0 };
-        let mut last = c;
+    fn parse_whitespace(&mut self, start: Position) -> Token<'s> {
+        self.read_string_until(|n| !n.is_whitespace(), false, 0, 0);
+        let end = self.chars.position();
 
-        self.read_string_until(|n| {
-            if is_newline_char(n) && !(last == '\r' && n == '\n') {
-                newlines += 1;
-            }
-
-            last = n;
-            !n.is_whitespace()
-        }, false, 0, 0);
-
-        Whitespace(newlines)
+        Whitespace(end.line - start.line)
     }
 
     fn parse_string(&mut self) -> Token<'s> {
