@@ -15,7 +15,7 @@ pub mod prelude {
     pub use crate::func::{Scope, ParseFunc, LayoutFunc, Command, Commands};
     pub use crate::layout::prelude::*;
     pub use crate::syntax::{
-        parse, ParseContext, ParseResult,
+        ParseContext, ParseResult,
         SyntaxTree, FuncCall, FuncArgs, PosArg, KeyArg,
         Expression, Ident, ExpressionKind,
         Spanned, Span

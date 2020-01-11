@@ -3,7 +3,6 @@
 use toddle::query::{FontFallbackTree, FontVariant, FontStyle, FontWeight};
 
 use crate::size::{Size, Size2D, SizeBox, ValueBox, PSize};
-use crate::syntax::ParseResult;
 
 
 /// Defines properties of pages and text.
@@ -157,7 +156,7 @@ pub struct Paper {
 
 impl Paper {
     /// The paper with the given name.
-    pub fn from_name(name: &str) -> ParseResult<Paper> {
+    pub fn from_name(name: &str) -> Option<Paper> {
         parse_paper(name)
     }
 }
@@ -193,11 +192,11 @@ macro_rules! papers {
             class: $class,
         };)*
 
-        fn parse_paper(paper: &str) -> ParseResult<Paper> {
-            Ok(match paper.to_lowercase().as_str() {
-                $($($patterns)* => $var,)*
-                _ => error!("unknown paper size: `{}`", paper),
-            })
+        fn parse_paper(paper: &str) -> Option<Paper> {
+            match paper.to_lowercase().as_str() {
+                $($($patterns)* => Some($var),)*
+                _ => None,
+            }
         }
     };
 }

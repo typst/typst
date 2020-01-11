@@ -1,8 +1,25 @@
+#![allow(unused_imports)]
+#![allow(non_snake_case)]
+
+use typstc::size::Size;
 use typstc::syntax::*;
 use Token::{
-    Space as S, Newline as N, LeftBracket as LB,
-    RightBracket as RB, Text as T, *
+    Whitespace as W,
+    LineComment as LC, BlockComment as BC, StarSlash as SS,
+    LeftBracket as LB, RightBracket as RB,
+    LeftParen as LP, RightParen as RP,
+    LeftBrace as LBR, RightBrace as RBR,
+    Colon as CL, Comma as CM, Equals as EQ, Expr as E,
+    Star as ST, Underscore as U, Backtick as B, Text as T,
 };
+
+use Expression as Expr;
+fn ID(ident: &str) -> Token { E(Expr::Ident(Ident::new(ident.to_string()).unwrap())) }
+fn STR(ident: &str) -> Token { E(Expr::Str(ident.to_string())) }
+fn SIZE(size: Size) -> Token<'static> { E(Expr::Size(size)) }
+fn NUM(num: f64) -> Token<'static> { E(Expr::Num(num)) }
+fn BOOL(b: bool) -> Token<'static> { E(Expr::Bool(b)) }
+
 
 /// Parses the test syntax.
 macro_rules! tokens {

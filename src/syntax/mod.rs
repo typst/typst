@@ -11,48 +11,6 @@ pub_use_mod!(parsing);
 pub_use_mod!(span);
 
 
-/// A logical unit of the incoming text stream.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Token<'s> {
-    /// One or more whitespace (non-newline) codepoints.
-    Space,
-    /// A line feed (`\n`, `\r\n` and some more as defined by the Unicode standard).
-    Newline,
-    /// A left bracket: `[`.
-    LeftBracket,
-    /// A right bracket: `]`.
-    RightBracket,
-    /// A colon (`:`) indicating the beginning of function arguments (Function
-    /// header only).
-    ///
-    /// If a colon occurs outside of a function header, it will be tokenized as
-    /// [Text](Token::Text), just like the other tokens annotated with
-    /// _Header only_.
-    Colon,
-    /// An equals (`=`) sign assigning a function argument a value (Header only).
-    Equals,
-    /// A comma (`,`) separating two function arguments (Header only).
-    Comma,
-    /// Quoted text as a string value (Header only).
-    Quoted(&'s str),
-    /// An underscore, indicating text in italics (Body only).
-    Underscore,
-    /// A star, indicating bold text (Body only).
-    Star,
-    /// A backtick, indicating monospace text (Body only).
-    Backtick,
-    /// A line comment.
-    LineComment(&'s str),
-    /// A block comment.
-    BlockComment(&'s str),
-    /// A star followed by a slash unexpectedly ending a block comment
-    /// (the comment was not started before, otherwise a
-    /// [BlockComment](Token::BlockComment) would be returned).
-    StarSlash,
-    /// Any consecutive string which does not contain markup.
-    Text(&'s str),
-}
-
 /// A tree representation of source code.
 #[derive(Debug, PartialEq)]
 pub struct SyntaxTree {
@@ -256,11 +214,11 @@ debug_display!(Expression);
 pub struct Ident(pub String);
 
 impl Ident {
-    pub fn new(string: String) -> ParseResult<Ident> {
-        if is_identifier(&string) {
-            Ok(Ident(string))
+    pub fn new<S>(ident: S) -> Option<Ident> where S: AsRef<str> + Into<String> {
+        if is_identifier(ident.as_ref()) {
+            Some(Ident(ident.into()))
         } else {
-            error!("invalid identifier: `{}`", string);
+            None
         }
     }
 
@@ -277,20 +235,20 @@ impl Display for Ident {
 
 debug_display!(Ident);
 
-/// Whether this word is a valid unicode identifier.
+/// Whether this word is a valid identifier.
 fn is_identifier(string: &str) -> bool {
     let mut chars = string.chars();
 
     match chars.next() {
-        Some('-') => (),
-        Some(c) if UnicodeXID::is_xid_start(c) => (),
+        Some('-') => {}
+        Some(c) if UnicodeXID::is_xid_start(c) => {}
         _ => return false,
     }
 
     while let Some(c) = chars.next() {
         match c {
-            '.' | '-' => (),
-            c if UnicodeXID::is_xid_continue(c) => (),
+            '.' | '-' => {}
+            c if UnicodeXID::is_xid_continue(c) => {}
             _ => return false,
         }
     }

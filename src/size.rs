@@ -72,7 +72,7 @@ impl Size {
 
 impl Display for Size {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}cm", self.to_cm())
+        write!(f, "{}pt", self.points)
     }
 }
 

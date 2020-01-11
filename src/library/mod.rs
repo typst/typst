@@ -297,9 +297,10 @@ function! {
         parse!(forbidden: body);
 
         if let Some(name) = args.get_pos_opt::<Ident>()? {
-            let flip = args.get_key_opt::<bool>("flip")?
-                .unwrap_or(false);
-            PageSizeFunc::Paper(Paper::from_name(name.as_str())?, flip)
+            let flip = args.get_key_opt::<bool>("flip")?.unwrap_or(false);
+            let paper = Paper::from_name(name.as_str())
+                .ok_or_else(|| error!(@"invalid paper name: `{}`", name))?;
+            PageSizeFunc::Paper(paper, flip)
         } else {
             PageSizeFunc::Custom(ExtentMap::new(&mut args, true)?)
         }

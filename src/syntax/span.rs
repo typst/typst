@@ -45,8 +45,6 @@ impl Span {
     }
 
     pub fn merge(a: Span, b: Span) -> Span {
-        let start = a.start.min(b.start);
-
         Span {
             start: a.start.min(b.start),
             end: a.end.max(b.end),
