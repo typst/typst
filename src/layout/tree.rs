@@ -49,7 +49,7 @@ impl<'a, 'p> TreeLayouter<'a, 'p> {
                     Node::Space => self.layout_space(),
                     Node::Newline => self.layout_paragraph()?,
 
-                    Node::ToggleItalics => self.style.text.variant.style.toggle(),
+                    Node::ToggleItalic => self.style.text.variant.style.toggle(),
                     Node::ToggleBolder => {
                         self.style.text.variant.weight.0 += 300 *
                             if self.style.text.bolder { -1 } else { 1 };

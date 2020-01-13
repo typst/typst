@@ -6,12 +6,8 @@ use Token::*;
 use State::*;
 
 
-pub fn tokenize(src: &str) -> Tokens {
-    Tokens::new(src)
-}
-
 /// A minimal semantic entity of source code.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Token<'s> {
     /// One or more whitespace characters. The contained `usize` denotes the
     /// number of newlines that were contained in the whitespace.
@@ -46,8 +42,16 @@ pub enum Token<'s> {
     /// An equals sign in a function header: `=`.
     Equals,
 
-    /// An expression in a function header.
-    Expr(Expression),
+    /// An identifier in a function header: `center`.
+    ExprIdent(&'s str),
+    /// A quoted string in a function header: `"..."`.
+    ExprString(&'s str),
+    /// A number in a function header: `3.14`.
+    ExprNumber(f64),
+    /// A size in a function header: `12pt`.
+    ExprSize(Size),
+    /// A boolean in a function header: `true | false`.
+    ExprBool(bool),
 
     /// A star in body-text.
     Star,
@@ -58,6 +62,11 @@ pub enum Token<'s> {
 
     /// Any other consecutive string.
     Text(&'s str),
+}
+
+/// Decomposes text into a sequence of semantic tokens.
+pub fn tokenize(src: &str) -> Tokens {
+    Tokens::new(src)
 }
 
 /// An iterator over the tokens of a string of source code.
@@ -138,7 +147,7 @@ impl<'s> Iterator for Tokens<'s> {
 
             // Expressions or just strings.
             c => {
-                let word = self.read_string_until(|n| {
+                let text = self.read_string_until(|n| {
                     match n {
                         c if c.is_whitespace() => true,
                         '\\' | '[' | ']' | '*' | '_' | '`' | ':' | '=' |
@@ -148,9 +157,9 @@ impl<'s> Iterator for Tokens<'s> {
                 }, false, -(c.len_utf8() as isize), 0);
 
                 if self.state == Header {
-                    self.parse_expr(word)
+                    self.parse_expr(text)
                 } else {
-                    Text(word)
+                    Text(text)
                 }
             }
         };
@@ -169,7 +178,6 @@ impl<'s> Tokens<'s> {
 
     fn parse_block_comment(&mut self) -> Token<'s> {
         enum Last { Slash, Star, Other }
-        use Last::*;
 
         self.eat();
 
@@ -181,15 +189,15 @@ impl<'s> Tokens<'s> {
         BlockComment(self.read_string_until(|n| {
             match n {
                 '/' => match last {
-                    Star if depth == 0 => return true,
-                    Star => depth -= 1,
-                    _ => last = Slash
+                    Last::Star if depth == 0 => return true,
+                    Last::Star => depth -= 1,
+                    _ => last = Last::Slash
                 }
                 '*' => match last {
-                    Slash => depth += 1,
-                    _ => last = Star,
+                    Last::Slash => depth += 1,
+                    _ => last = Last::Star,
                 }
-                _ => last = Other,
+                _ => last = Last::Other,
             }
 
             false
@@ -205,7 +213,7 @@ impl<'s> Tokens<'s> {
 
     fn parse_string(&mut self) -> Token<'s> {
         let mut escaped = false;
-        Expr(Expression::Str(self.read_string_until(|n| {
+        ExprString(self.read_string_until(|n| {
             if n == '"' && !escaped {
                 return true;
             } else if n == '\\' {
@@ -215,7 +223,7 @@ impl<'s> Tokens<'s> {
             }
 
             false
-        }, true, 0, -1).to_string()))
+        }, true, 0, -1))
     }
 
     fn parse_escaped(&mut self) -> Token<'s> {
@@ -236,19 +244,19 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    fn parse_expr(&mut self, word: &'s str) -> Token<'s> {
-        if let Ok(b) = word.parse::<bool>() {
-            Expr(Expression::Bool(b))
-        } else if let Ok(num) = word.parse::<f64>() {
-            Expr(Expression::Num(num))
-        } else if let Ok(num) = parse_percentage(word) {
-            Expr(Expression::Num(num / 100.0))
-        } else if let Ok(size) = word.parse::<Size>() {
-            Expr(Expression::Size(size))
-        } else if let Some(ident) = Ident::new(word) {
-            Expr(Expression::Ident(ident))
+    fn parse_expr(&mut self, text: &'s str) -> Token<'s> {
+        if let Ok(b) = text.parse::<bool>() {
+            ExprBool(b)
+        } else if let Ok(num) = text.parse::<f64>() {
+            ExprNumber(num)
+        } else if let Some(num) = parse_percentage(text) {
+            ExprNumber(num / 100.0)
+        } else if let Ok(size) = text.parse::<Size>() {
+            ExprSize(size)
+        } else if is_identifier(text) {
+            ExprIdent(text)
         } else {
-            Text(word)
+            Text(text)
         }
     }
 
@@ -296,11 +304,11 @@ impl<'s> Tokens<'s> {
     }
 }
 
-fn parse_percentage(word: &str) -> Result<f64, ()> {
-    if word.ends_with('%') {
-        word[.. word.len() - 1].parse::<f64>().map_err(|_| ())
+fn parse_percentage(text: &str) -> Option<f64> {
+    if text.ends_with('%') {
+        text[.. text.len() - 1].parse::<f64>().ok()
     } else {
-        Err(())
+        None
     }
 }
 
@@ -325,7 +333,7 @@ impl<'s> Characters<'s> {
     fn new(src: &'s str) -> Characters<'s> {
         Characters {
             iter: src.chars().peekable(),
-            position: Position::new(0, 0),
+            position: Position::ZERO,
             index: 0,
         }
     }

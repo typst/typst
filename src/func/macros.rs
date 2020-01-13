@@ -144,7 +144,7 @@ macro_rules! parse {
 
     (optional: $body:expr, $ctx:expr) => (
         if let Some(body) = $body {
-            Some($crate::syntax::parse(body, $ctx)?)
+            Some($crate::syntax::parse(body, $ctx))
         } else {
             None
         }

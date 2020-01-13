@@ -84,7 +84,7 @@ impl<'p> Typesetter<'p> {
     }
 
     /// Parse source code into a syntax tree.
-    pub fn parse(&self, src: &str) -> ParseResult<SyntaxTree> {
+    pub fn parse(&self, src: &str) -> SyntaxTree {
         let scope = Scope::with_std();
         parse(src, ParseContext { scope: &scope })
     }
@@ -115,7 +115,7 @@ impl<'p> Typesetter<'p> {
 
     /// Process source code directly into a layout.
     pub async fn typeset(&self, src: &str) -> TypesetResult<MultiLayout> {
-        let tree = self.parse(src)?;
+        let tree = self.parse(src);
         let layout = self.layout(&tree).await?;
         Ok(layout)
     }

@@ -19,7 +19,11 @@ impl<T> Spanned<T> {
         self.v
     }
 
-    pub fn map<V>(&self, new_v: V) -> Spanned<V> {
+    pub fn map<F, V>(self, f: F) -> Spanned<V> where F: FnOnce(T) -> V {
+        Spanned { v: f(self.v), span: self.span }
+    }
+
+    pub fn map_v<V>(&self, new_v: V) -> Spanned<V> {
         Spanned { v: new_v, span: self.span }
     }
 }
@@ -40,6 +44,8 @@ pub struct Span {
 }
 
 impl Span {
+    pub const ZERO: Span = Span { start: Position::ZERO, end: Position::ZERO };
+
     pub fn new(start: Position, end: Position) -> Span {
         Span { start, end }
     }
@@ -78,6 +84,8 @@ pub struct Position {
 }
 
 impl Position {
+    pub const ZERO: Position = Position { line: 0, column: 0 };
+
     pub fn new(line: usize, column: usize) -> Position {
         Position { line, column }
     }
