@@ -72,9 +72,11 @@ pub fn tokenize(src: &str) -> Tokens {
 /// An iterator over the tokens of a string of source code.
 pub struct Tokens<'s> {
     src: &'s str,
-    chars: Characters<'s>,
     state: State,
     stack: Vec<State>,
+    iter: Peekable<Chars<'s>>,
+    position: Position,
+    index: usize,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -88,9 +90,11 @@ impl<'s> Tokens<'s> {
     pub fn new(src: &'s str) -> Tokens<'s> {
         Tokens {
             src,
-            chars: Characters::new(src),
             state: State::Body,
             stack: vec![],
+            iter: src.chars().peekable(),
+            position: Position::ZERO,
+            index: 0,
         }
     }
 }
@@ -100,26 +104,29 @@ impl<'s> Iterator for Tokens<'s> {
 
     /// Parse the next token in the source code.
     fn next(&mut self) -> Option<Spanned<Token<'s>>> {
-        let start = self.chars.position();
-        let first = self.chars.next()?;
-        let second = self.chars.peek();
+        let start = self.pos();
+        let first = self.eat()?;
 
         let token = match first {
             // Comments.
-            '/' if second == Some('/') => self.parse_line_comment(),
-            '/' if second == Some('*') => self.parse_block_comment(),
-            '*' if second == Some('/') => { self.eat(); StarSlash }
+            '/' if self.peek() == Some('/') => self.parse_line_comment(),
+            '/' if self.peek() == Some('*') => self.parse_block_comment(),
+            '*' if self.peek() == Some('/') => { self.eat(); StarSlash }
 
             // Whitespace.
             c if c.is_whitespace() => self.parse_whitespace(start),
 
             // Functions.
-            '[' => { self.set_state(Header); LeftBracket }
+            '[' => {
+                self.stack.push(self.state);
+                self.state = Header;
+                LeftBracket
+            }
             ']' => {
-                if self.state == Header && second == Some('[') {
+                if self.state == Header && self.peek() == Some('[') {
                     self.state = StartBody;
                 } else {
-                    self.pop_state();
+                    self.state = self.stack.pop().unwrap_or(Body);
                 }
 
                 RightBracket
@@ -164,7 +171,7 @@ impl<'s> Iterator for Tokens<'s> {
             }
         };
 
-        let end = self.chars.position();
+        let end = self.pos();
         let span = Span { start, end };
 
         Some(Spanned { v: token, span })
@@ -206,7 +213,7 @@ impl<'s> Tokens<'s> {
 
     fn parse_whitespace(&mut self, start: Position) -> Token<'s> {
         self.read_string_until(|n| !n.is_whitespace(), false, 0, 0);
-        let end = self.chars.position();
+        let end = self.pos();
 
         Whitespace(end.line - start.line)
     }
@@ -234,9 +241,9 @@ impl<'s> Tokens<'s> {
             }
         }
 
-        let c = self.chars.peek().unwrap_or('n');
+        let c = self.peek().unwrap_or('n');
         if self.state == Body && is_escapable(c) {
-            let index = self.chars.index();
+            let index = self.index();
             self.eat();
             Text(&self.src[index .. index + c.len_utf8()])
         } else {
@@ -267,22 +274,22 @@ impl<'s> Tokens<'s> {
         offset_start: isize,
         offset_end: isize,
     ) -> &'s str where F: FnMut(char) -> bool {
-        let start = ((self.chars.index() as isize) + offset_start) as usize;
+        let start = ((self.index() as isize) + offset_start) as usize;
         let mut matched = false;
 
-        while let Some(c) = self.chars.peek() {
+        while let Some(c) = self.peek() {
             if f(c) {
                 matched = true;
                 if eat_match {
-                    self.chars.next();
+                    self.eat();
                 }
                 break;
             }
 
-            self.chars.next();
+            self.eat();
         }
 
-        let mut end = self.chars.index();
+        let mut end = self.index();
         if matched {
             end = ((end as isize) + offset_end) as usize;
         }
@@ -290,55 +297,7 @@ impl<'s> Tokens<'s> {
         &self.src[start .. end]
     }
 
-    fn set_state(&mut self, state: State) {
-        self.stack.push(self.state);
-        self.state = state;
-    }
-
-    fn pop_state(&mut self) {
-        self.state = self.stack.pop().unwrap_or(Body);
-    }
-
-    fn eat(&mut self) {
-        self.chars.next();
-    }
-}
-
-fn parse_percentage(text: &str) -> Option<f64> {
-    if text.ends_with('%') {
-        text[.. text.len() - 1].parse::<f64>().ok()
-    } else {
-        None
-    }
-}
-
-/// Whether this character denotes a newline.
-fn is_newline_char(character: char) -> bool {
-    match character {
-        // Line Feed, Vertical Tab, Form Feed, Carriage Return.
-        '\x0A' ..= '\x0D' => true,
-        // Next Line, Line Separator, Paragraph Separator.
-        '\u{0085}' | '\u{2028}' | '\u{2029}' => true,
-        _ => false,
-    }
-}
-
-struct Characters<'s> {
-    iter: Peekable<Chars<'s>>,
-    position: Position,
-    index: usize,
-}
-
-impl<'s> Characters<'s> {
-    fn new(src: &'s str) -> Characters<'s> {
-        Characters {
-            iter: src.chars().peekable(),
-            position: Position::ZERO,
-            index: 0,
-        }
-    }
-
-    fn next(&mut self) -> Option<char> {
+    fn eat(&mut self) -> Option<char> {
         let c = self.iter.next()?;
         let len = c.len_utf8();
 
@@ -362,7 +321,47 @@ impl<'s> Characters<'s> {
         self.index
     }
 
-    fn position(&self) -> Position {
+    fn pos(&self) -> Position {
         self.position
     }
+}
+
+fn parse_percentage(text: &str) -> Option<f64> {
+    if text.ends_with('%') {
+        text[.. text.len() - 1].parse::<f64>().ok()
+    } else {
+        None
+    }
+}
+
+/// Whether this character denotes a newline.
+pub fn is_newline_char(character: char) -> bool {
+    match character {
+        // Line Feed, Vertical Tab, Form Feed, Carriage Return.
+        '\x0A' ..= '\x0D' => true,
+        // Next Line, Line Separator, Paragraph Separator.
+        '\u{0085}' | '\u{2028}' | '\u{2029}' => true,
+        _ => false,
+    }
+}
+
+/// Whether this word is a valid identifier.
+pub fn is_identifier(string: &str) -> bool {
+    let mut chars = string.chars();
+
+    match chars.next() {
+        Some('-') => {}
+        Some(c) if UnicodeXID::is_xid_start(c) => {}
+        _ => return false,
+    }
+
+    while let Some(c) = chars.next() {
+        match c {
+            '.' | '-' => {}
+            c if UnicodeXID::is_xid_continue(c) => {}
+            _ => return false,
+        }
+    }
+
+    true
 }

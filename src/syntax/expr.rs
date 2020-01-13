@@ -166,27 +166,6 @@ impl Display for Ident {
 
 debug_display!(Ident);
 
-/// Whether this word is a valid identifier.
-pub fn is_identifier(string: &str) -> bool {
-    let mut chars = string.chars();
-
-    match chars.next() {
-        Some('-') => {}
-        Some(c) if UnicodeXID::is_xid_start(c) => {}
-        _ => return false,
-    }
-
-    while let Some(c) = chars.next() {
-        match c {
-            '.' | '-' => {}
-            c if UnicodeXID::is_xid_continue(c) => {}
-            _ => return false,
-        }
-    }
-
-    true
-}
-
 /// Kinds of expressions.
 pub trait ExpressionKind: Sized {
     const NAME: &'static str;

@@ -9,17 +9,11 @@ use Token::{
     LeftBracket as LB, RightBracket as RB,
     LeftParen as LP, RightParen as RP,
     LeftBrace as LBR, RightBrace as RBR,
-    Colon as CL, Comma as CM, Equals as EQ, Expr as E,
+    Colon as CL, Comma as CM, Equals as EQ,
+    ExprIdent as ID, ExprString as STR, ExprSize as SIZE,
+    ExprNumber as NUM, ExprBool as BOOL,
     Star as ST, Underscore as U, Backtick as B, Text as T,
 };
-
-use Expression as Expr;
-fn ID(ident: &str) -> Token { E(Expr::Ident(Ident::new(ident.to_string()).unwrap())) }
-fn STR(ident: &str) -> Token { E(Expr::Str(ident.to_string())) }
-fn SIZE(size: Size) -> Token<'static> { E(Expr::Size(size)) }
-fn NUM(num: f64) -> Token<'static> { E(Expr::Num(num)) }
-fn BOOL(b: bool) -> Token<'static> { E(Expr::Bool(b)) }
-
 
 /// Parses the test syntax.
 macro_rules! tokens {
