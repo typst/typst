@@ -46,11 +46,12 @@ impl PaddingMap {
     /// Parse a padding map from the function args.
     pub fn new(args: &mut FuncArgs) -> ParseResult<PaddingMap> {
         let mut map = ConsistentMap::new();
-        map.add_opt(PaddingKey::All, args.get_pos_opt::<Option<PSize>>()?)?;
+        map.add_opt(PaddingKey::All,
+            args.get_pos_opt::<DefaultKey<PSize>>()?.map(Into::into))?;
 
-        for arg in args.keys() {
-            let key = PaddingKey::from_ident(&arg.v.key)?;
-            let size = Option::<PSize>::from_expr(arg.v.value)?;
+        for arg in args.iter_keys() {
+            let key = PaddingKey::from_ident(&arg.key)?;
+            let size = DefaultKey::<PSize>::from_expr(arg.value)?.into();
             map.add(key, size)?;
         }
 

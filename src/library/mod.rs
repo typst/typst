@@ -62,7 +62,7 @@ function! {
         FontFamilyFunc {
             body: parse!(optional: body, ctx),
             list: {
-                args.pos().map(|arg| match arg.v {
+                args.iter_pos().map(|arg| match arg.v {
                     Expression::Str(s) |
                     Expression::Ident(Ident(s)) => Ok(s.to_lowercase()),
                     _ => error!("expected identifier or string"),
@@ -118,7 +118,7 @@ function! {
         FontWeightFunc {
             body: parse!(optional: body, ctx),
             weight: match args.get_pos::<Expression>()? {
-                Expression::Num(weight) => {
+                Expression::Number(weight) => {
                     let weight = weight.round() as i16;
                     FontWeight(
                         if weight < 100 { 100 }
@@ -264,13 +264,15 @@ function! {
                 axis: AxisKey::Specific(axis),
                 spacing: FSize::from_expr(args.get_pos::<Spanned<Expression>>()?)?,
             }
-        } else if let Some(arg) = args.get_key_next() {
-            let axis = AxisKey::from_ident(&arg.v.key)
-                .map_err(|_| error!(@unexpected_argument))?;
-
-            let spacing = FSize::from_expr(arg.v.value)?;
-            SpacingFunc { axis, spacing }
         } else {
+            for arg in args.iter_keys() {
+                let axis = AxisKey::from_ident(&arg.key)
+                    .map_err(|_| error!(@unexpected_argument))?;
+
+                let spacing = FSize::from_expr(arg.value)?;
+                return Ok(SpacingFunc { axis, spacing });
+            }
+
             error!("expected axis and spacing")
         }
     }

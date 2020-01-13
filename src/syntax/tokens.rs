@@ -45,7 +45,7 @@ pub enum Token<'s> {
     /// An identifier in a function header: `center`.
     ExprIdent(&'s str),
     /// A quoted string in a function header: `"..."`.
-    ExprString(&'s str),
+    ExprStr(&'s str),
     /// A number in a function header: `3.14`.
     ExprNumber(f64),
     /// A size in a function header: `12pt`.
@@ -220,7 +220,7 @@ impl<'s> Tokens<'s> {
 
     fn parse_string(&mut self) -> Token<'s> {
         let mut escaped = false;
-        ExprString(self.read_string_until(|n| {
+        ExprStr(self.read_string_until(|n| {
             if n == '"' && !escaped {
                 return true;
             } else if n == '\\' {

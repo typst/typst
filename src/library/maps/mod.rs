@@ -36,6 +36,37 @@ pub_use_mod!(axis);
 pub_use_mod!(alignment);
 pub_use_mod!(padding);
 
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum DefaultKey<T> {
+    Some(T),
+    None,
+}
+
+impl<T> Into<Option<T>> for DefaultKey<T> {
+    fn into(self) -> Option<T> {
+        match self {
+            DefaultKey::Some(v) => Some(v),
+            DefaultKey::None => None,
+        }
+    }
+}
+
+impl<T> ExpressionKind for DefaultKey<T> where T: ExpressionKind {
+    const NAME: &'static str = T::NAME;
+
+    fn from_expr(expr: Spanned<Expression>) -> ParseResult<DefaultKey<T>> {
+        if let Expression::Ident(ident) = &expr.v {
+            match ident.as_str() {
+                "default" => return Ok(DefaultKey::None),
+                _ => {},
+            }
+        }
+
+        T::from_expr(expr).map(|v| DefaultKey::Some(v))
+    }
+}
+
 /// A deduplicating map type useful for storing possibly redundant arguments.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConsistentMap<K, V> where K: Hash + Eq {
@@ -95,10 +126,3 @@ impl<K, V> ConsistentMap<K, V> where K: Hash + Eq {
         self.map.iter()
     }
 }
-
-key!(Direction, "direction",
-    "left-to-right" | "ltr" => LeftToRight,
-    "right-to-left" | "rtl" => RightToLeft,
-    "top-to-bottom" | "ttb" => TopToBottom,
-    "bottom-to-top" | "btt" => BottomToTop,
-);

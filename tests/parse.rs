@@ -10,7 +10,7 @@ use Token::{
     LeftParen as LP, RightParen as RP,
     LeftBrace as LBR, RightBrace as RBR,
     Colon as CL, Comma as CM, Equals as EQ,
-    ExprIdent as ID, ExprString as STR, ExprSize as SIZE,
+    ExprIdent as ID, ExprStr as STR, ExprSize as SIZE,
     ExprNumber as NUM, ExprBool as BOOL,
     Star as ST, Underscore as U, Backtick as B, Text as T,
 };

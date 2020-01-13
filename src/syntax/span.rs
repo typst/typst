@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 
 
 /// Annotates a value with the part of the source code it corresponds to.
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Spanned<T> {
     pub v: T,
     pub span: Span,
@@ -37,7 +37,7 @@ impl<T> Display for Spanned<T> where T: std::fmt::Debug {
 debug_display!(Spanned; T where T: std::fmt::Debug);
 
 /// Describes a slice of source code.
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Span {
     pub start: Position,
     pub end: Position,

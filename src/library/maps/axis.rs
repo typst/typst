@@ -34,6 +34,13 @@ key!(AxisKey, "axis",
     "secondary"  | "s" => Generic(Secondary),
 );
 
+key!(Direction, "direction",
+    "left-to-right" | "ltr" => LeftToRight,
+    "right-to-left" | "rtl" => RightToLeft,
+    "top-to-bottom" | "ttb" => TopToBottom,
+    "bottom-to-top" | "btt" => BottomToTop,
+);
+
 /// A map for storing extents along axes.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExtentMap<E: ExpressionKind + Copy>(ConsistentMap<AxisKey, E>);
@@ -41,27 +48,27 @@ pub struct ExtentMap<E: ExpressionKind + Copy>(ConsistentMap<AxisKey, E>);
 impl<E: ExpressionKind + Copy> ExtentMap<E> {
     /// Parse an extent map from the function args.
     ///
-    /// If `enforce` is true other arguments will create an error, otherwise
+    /// If `all` is true other arguments will create an error, otherwise
     /// they are left intact.
-    pub fn new(args: &mut FuncArgs, enforce: bool) -> ParseResult<ExtentMap<E>> {
+    pub fn new(args: &mut FuncArgs, all: bool) -> ParseResult<ExtentMap<E>> {
         let mut map = ConsistentMap::new();
 
-        for arg in args.keys() {
-            let key = match arg.v.key.v.as_str() {
+        for arg in args.iter_keys() {
+            let key = match arg.key.v.as_str() {
                 "width"          | "w"  => AxisKey::Specific(Horizontal),
                 "height"         | "h"  => AxisKey::Specific(Vertical),
                 "primary-size"   | "ps" => AxisKey::Generic(Primary),
                 "secondary-size" | "ss" => AxisKey::Generic(Secondary),
 
-                _ => if enforce {
+                _ => if all {
                     error!("expected dimension")
                 } else {
-                    args.add_key(arg);
+                    args.add_key_pair(arg);
                     continue;
                 }
             };
 
-            let e = E::from_expr(arg.v.value)?;
+            let e = E::from_expr(arg.value)?;
             map.add(key, e)?;
         }
 
@@ -98,9 +105,9 @@ impl<E: ExpressionKind + Copy> PosAxisMap<E> {
         map.add_opt(PosAxisKey::First, args.get_pos_opt::<E>()?)?;
         map.add_opt(PosAxisKey::Second, args.get_pos_opt::<E>()?)?;
 
-        for arg in args.keys() {
-            let axis = AxisKey::from_ident(&arg.v.key)?;
-            let value = E::from_expr(arg.v.value)?;
+        for arg in args.iter_keys() {
+            let axis = AxisKey::from_ident(&arg.key)?;
+            let value = E::from_expr(arg.value)?;
 
             map.add(PosAxisKey::Keyword(axis), value)?;
         }

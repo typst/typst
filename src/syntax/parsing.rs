@@ -47,6 +47,99 @@ impl PartialEq for FuncCall {
     }
 }
 
+#[derive(Debug)]
+pub struct FuncArgs {
+    positional: Tuple,
+    keyword: Object,
+}
+
+impl FuncArgs {
+    fn new() -> FuncArgs {
+        FuncArgs {
+            positional: Tuple::new(),
+            keyword: Object::new(),
+        }
+    }
+
+    /// Add a positional argument.
+    pub fn add_pos(&mut self, item: Spanned<Expression>) {
+        self.positional.add(item);
+    }
+
+    /// Force-extract the first positional argument.
+    pub fn get_pos<E: ExpressionKind>(&mut self) -> ParseResult<E> {
+        expect(self.get_pos_opt())
+    }
+
+    /// Extract the first positional argument.
+    pub fn get_pos_opt<E: ExpressionKind>(&mut self) -> ParseResult<Option<E>> {
+        Ok(if !self.positional.items.is_empty() {
+            let spanned = self.positional.items.remove(0);
+            Some(E::from_expr(spanned)?)
+        } else {
+            None
+        })
+    }
+
+    /// Add a keyword argument.
+    pub fn add_key(&mut self, key: Spanned<Ident>, value: Spanned<Expression>) {
+        self.keyword.add(key, value);
+    }
+
+    /// Add a keyword argument from an existing pair.
+    pub fn add_key_pair(&mut self, pair: Pair) {
+        self.keyword.add_pair(pair);
+    }
+
+    /// Force-extract a keyword argument.
+    pub fn get_key<E: ExpressionKind>(&mut self, name: &str) -> ParseResult<E> {
+        expect(self.get_key_opt(name))
+    }
+
+    /// Extract a keyword argument.
+    pub fn get_key_opt<E: ExpressionKind>(&mut self, name: &str) -> ParseResult<Option<E>> {
+        self.keyword.pairs.iter()
+            .position(|p| p.key.v.0 == name)
+            .map(|index| {
+                let value = self.keyword.pairs.swap_remove(index).value;
+                E::from_expr(value)
+            })
+            .transpose()
+    }
+
+    /// Iterator over positional arguments.
+    pub fn iter_pos(&mut self) -> std::vec::IntoIter<Spanned<Expression>> {
+        let tuple = std::mem::replace(&mut self.positional, Tuple::new());
+        tuple.items.into_iter()
+    }
+
+    /// Iterator over all keyword arguments.
+    pub fn iter_keys(&mut self) -> std::vec::IntoIter<Pair> {
+        let object = std::mem::replace(&mut self.keyword, Object::new());
+        object.pairs.into_iter()
+    }
+
+    /// Clear the argument lists.
+    pub fn clear(&mut self) {
+        self.positional.items.clear();
+        self.keyword.pairs.clear();
+    }
+
+    /// Whether both the positional and keyword argument lists are empty.
+    pub fn is_empty(&self) -> bool {
+        self.positional.items.is_empty() && self.keyword.pairs.is_empty()
+    }
+}
+
+/// Extract the option expression kind from the option or return an error.
+fn expect<E: ExpressionKind>(opt: ParseResult<Option<E>>) -> ParseResult<E> {
+    match opt {
+        Ok(Some(spanned)) => Ok(spanned),
+        Ok(None) => error!("expected {}", E::NAME),
+        Err(e) => Err(e),
+    }
+}
+
 /// Parses source code into a syntax tree given a context.
 pub fn parse(src: &str, ctx: ParseContext) -> SyntaxTree {
     Parser::new(src, ctx).parse()
@@ -346,7 +439,7 @@ impl<'s> Parser<'s> {
             Comma  => Some(ColorToken::Comma),
             Equals => Some(ColorToken::Equals),
             ExprIdent(_)  =>  Some(ColorToken::ExprIdent),
-            ExprString(_) => Some(ColorToken::ExprString),
+            ExprStr(_) => Some(ColorToken::ExprStr),
             ExprNumber(_) => Some(ColorToken::ExprNumber),
             ExprSize(_)   => Some(ColorToken::ExprSize),
             ExprBool(_)   => Some(ColorToken::ExprBool),
@@ -387,7 +480,7 @@ fn name(token: Token) -> &'static str {
         Comma => "comma",
         Equals => "equals sign",
         ExprIdent(_) => "identifier",
-        ExprString(_) => "string",
+        ExprStr(_) => "string",
         ExprNumber(_) => "number",
         ExprSize(_) => "size",
         ExprBool(_) => "bool",

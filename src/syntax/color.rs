@@ -15,7 +15,7 @@ pub enum ColorToken {
     Brace,
 
     ExprIdent,
-    ExprString,
+    ExprStr,
     ExprNumber,
     ExprSize,
     ExprBool,
