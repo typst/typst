@@ -6,64 +6,6 @@ use Token::*;
 use State::*;
 
 
-/// A minimal semantic entity of source code.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Token<'s> {
-    /// One or more whitespace characters. The contained `usize` denotes the
-    /// number of newlines that were contained in the whitespace.
-    Whitespace(usize),
-
-    /// A line comment with inner string contents `//<&'s str>\n`.
-    LineComment(&'s str),
-    /// A block comment with inner string contents `/*<&'s str>*/`. The comment
-    /// can contain nested block comments.
-    BlockComment(&'s str),
-    /// An erroneous `*/` without an opening block comment.
-    StarSlash,
-
-    /// A left bracket: `[`.
-    LeftBracket,
-    /// A right bracket: `]`.
-    RightBracket,
-
-    /// A left parenthesis in a function header: `(`.
-    LeftParen,
-    /// A right parenthesis in a function header: `)`.
-    RightParen,
-    /// A left brace in a function header: `{`.
-    LeftBrace,
-    /// A right brace in a function header: `}`.
-    RightBrace,
-
-    /// A colon in a function header: `:`.
-    Colon,
-    /// A comma in a function header: `:`.
-    Comma,
-    /// An equals sign in a function header: `=`.
-    Equals,
-
-    /// An identifier in a function header: `center`.
-    ExprIdent(&'s str),
-    /// A quoted string in a function header: `"..."`.
-    ExprStr(&'s str),
-    /// A number in a function header: `3.14`.
-    ExprNumber(f64),
-    /// A size in a function header: `12pt`.
-    ExprSize(Size),
-    /// A boolean in a function header: `true | false`.
-    ExprBool(bool),
-
-    /// A star in body-text.
-    Star,
-    /// An underscore in body-text.
-    Underscore,
-    /// A backtick in body-text.
-    Backtick,
-
-    /// Any other consecutive string.
-    Text(&'s str),
-}
-
 /// Decomposes text into a sequence of semantic tokens.
 pub fn tokenize(src: &str) -> Tokens {
     Tokens::new(src)
@@ -97,6 +39,47 @@ impl<'s> Tokens<'s> {
             index: 0,
         }
     }
+
+    /// The index in the string at which the last token ends and next token will
+    /// start.
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
+    /// The line-colunn position in the source at which the last token ends and
+    /// next token will start.
+    pub fn pos(&self) -> Position {
+        self.position
+    }
+
+    /// Move through the string until an unbalanced closing bracket is found
+    /// without tokenizing the contents.
+    ///
+    /// Returns whether a closing bracket was found or the end of the string was
+    /// reached.
+    pub fn move_to_closing_bracket(&mut self) -> bool {
+        let mut escaped = false;
+        let mut depth = 0;
+
+        self.read_string_until(|n| {
+            match n {
+                '[' if !escaped => depth += 1,
+                ']' if !escaped => {
+                    if depth == 0 {
+                        return true;
+                    } else {
+                        depth -= 1;
+                    }
+                }
+                '\\' => escaped = !escaped,
+                _ => escaped = false,
+            }
+
+            false
+        }, false, 0, 0);
+
+        self.peek() == Some(']')
+    }
 }
 
 impl<'s> Iterator for Tokens<'s> {
@@ -118,8 +101,13 @@ impl<'s> Iterator for Tokens<'s> {
 
             // Functions.
             '[' => {
-                self.stack.push(self.state);
-                self.state = Header;
+                if self.state == Header || self.state == Body {
+                    self.stack.push(self.state);
+                    self.state = Header;
+                } else {
+                    self.state = Body;
+                }
+
                 LeftBracket
             }
             ']' => {
@@ -221,12 +209,10 @@ impl<'s> Tokens<'s> {
     fn parse_string(&mut self) -> Token<'s> {
         let mut escaped = false;
         ExprStr(self.read_string_until(|n| {
-            if n == '"' && !escaped {
-                return true;
-            } else if n == '\\' {
-                escaped = !escaped;
-            } else {
-                escaped = false;
+            match n {
+                '"' if !escaped => return true,
+                '\\' => escaped = !escaped,
+                _ => escaped = false,
             }
 
             false
@@ -315,14 +301,6 @@ impl<'s> Tokens<'s> {
 
     fn peek(&mut self) -> Option<char> {
         self.iter.peek().copied()
-    }
-
-    fn index(&self) -> usize {
-        self.index
-    }
-
-    fn pos(&self) -> Position {
-        self.position
     }
 }
 

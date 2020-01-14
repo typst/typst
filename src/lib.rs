@@ -28,7 +28,7 @@ use toddle::Error as FontError;
 
 use crate::func::Scope;
 use crate::layout::{MultiLayout, LayoutResult};
-use crate::syntax::{parse, SyntaxTree, ParseContext, Span, ParseResult};
+use crate::syntax::{parse, SyntaxTree, Colorization, ErrorMap, ParseContext, Span};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 
 #[macro_use]
@@ -84,7 +84,7 @@ impl<'p> Typesetter<'p> {
     }
 
     /// Parse source code into a syntax tree.
-    pub fn parse(&self, src: &str) -> SyntaxTree {
+    pub fn parse(&self, src: &str) -> (SyntaxTree, Colorization, ErrorMap) {
         let scope = Scope::with_std();
         parse(src, ParseContext { scope: &scope })
     }
@@ -115,7 +115,7 @@ impl<'p> Typesetter<'p> {
 
     /// Process source code directly into a layout.
     pub async fn typeset(&self, src: &str) -> TypesetResult<MultiLayout> {
-        let tree = self.parse(src);
+        let tree = self.parse(src).0;
         let layout = self.layout(&tree).await?;
         Ok(layout)
     }
@@ -132,8 +132,8 @@ pub struct TypesetError {
 
 impl TypesetError {
     /// Create a new typesetting error.
-    pub fn with_message(message: String) -> TypesetError {
-        TypesetError { message, span: None }
+    pub fn with_message(message: impl Into<String>) -> TypesetError {
+        TypesetError { message: message.into(), span: None }
     }
 }
 

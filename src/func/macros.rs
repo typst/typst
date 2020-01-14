@@ -75,6 +75,8 @@ macro_rules! function {
         parse($args:ident, $body:pat, $ctx:pat, $metadata:pat) $code:block
         $($rest:tt)*
     ) => {
+        use $crate::func::prelude::*;
+
         impl $crate::func::ParseFunc for $type {
             type Meta = $meta;
 
@@ -88,7 +90,8 @@ macro_rules! function {
                 let mut $args = args;
                 let val = $code;
                 if !$args.is_empty() {
-                    error!(unexpected_argument);
+                    return Err($crate::TypesetError
+                        ::with_message("unexpected arguments"));
                 }
                 Ok(val)
             }
@@ -109,6 +112,8 @@ macro_rules! function {
 
     // (2-arg) Parse a layout-definition with all arguments.
     (@layout $type:ident | layout($this:ident, $ctx:pat) $code:block) => {
+        use $crate::func::prelude::*;
+
         impl LayoutFunc for $type {
             fn layout<'a, 'life0, 'life1, 'async_trait>(
                 &'a $this,
@@ -138,13 +143,13 @@ macro_rules! function {
 macro_rules! parse {
     (forbidden: $body:expr) => {
         if $body.is_some() {
-            error!("unexpected body");
+            return Err($crate::TypesetError::with_message("unexpected body"));
         }
     };
 
     (optional: $body:expr, $ctx:expr) => (
         if let Some(body) = $body {
-            Some($crate::syntax::parse(body, $ctx))
+            Some($crate::syntax::parse(body, $ctx).0)
         } else {
             None
         }
@@ -152,9 +157,9 @@ macro_rules! parse {
 
     (expected: $body:expr, $ctx:expr) => (
         if let Some(body) = $body {
-            $crate::syntax::parse(body, $ctx)?
+            $crate::syntax::parse(body, $ctx).0
         } else {
-            error!("expected body");
+            Err($crate::TypesetError::with_message("unexpected body"))
         }
     )
 }

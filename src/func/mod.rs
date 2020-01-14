@@ -119,6 +119,7 @@ pub enum Command<'a> {
 /// A map from identifiers to function parsers.
 pub struct Scope {
     parsers: HashMap<String, Box<Parser>>,
+    debug: Option<Box<Parser>>
 }
 
 /// A function which parses the source of a function into a function type which
@@ -129,11 +130,30 @@ type Parser = dyn Fn(
     ParseContext
 ) -> ParseResult<Box<dyn LayoutFunc>>;
 
+fn make_parser<F>(metadata: <F as ParseFunc>::Meta) -> Box<Parser>
+where F: ParseFunc + LayoutFunc + 'static {
+    Box::new(move |a, b, c| {
+        F::parse(a, b, c, metadata.clone())
+            .map(|f| Box::new(f) as Box<dyn LayoutFunc>)
+    })
+}
+
 impl Scope {
     /// Create a new empty scope.
     pub fn new() -> Scope {
         Scope {
             parsers: HashMap::new(),
+            debug: None,
+        }
+    }
+
+    /// Create a new scope with a debug parser that is invoked if not other
+    /// match is found.
+    pub fn with_debug<F>() -> Scope
+    where F: ParseFunc<Meta=()> + LayoutFunc + 'static {
+        Scope {
+            parsers: HashMap::new(),
+            debug: Some(make_parser::<F>(())),
         }
     }
 
@@ -154,16 +174,14 @@ impl Scope {
     where F: ParseFunc + LayoutFunc + 'static {
         self.parsers.insert(
             name.to_owned(),
-            Box::new(move |a, b, c| {
-                F::parse(a, b, c, metadata.clone())
-                    .map(|f| Box::new(f) as Box<dyn LayoutFunc>)
-            })
+            make_parser::<F>(metadata),
         );
     }
 
     /// Return the parser with the given name if there is one.
     pub(crate) fn get_parser(&self, name: &str) -> Option<&Parser> {
         self.parsers.get(name).map(|x| &**x)
+            .or(self.debug.as_ref().map(|x| &**x))
     }
 }
 

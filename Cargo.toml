@@ -9,9 +9,9 @@ build = "build.rs"
 toddle = { path = "../toddle", default-features = false }
 tide = { path = "../tide" }
 byteorder = "1"
-smallvec = "0.6.10"
-unicode-xid = "0.1.0"
-async-trait = "0.1.22"
+smallvec = "1"
+unicode-xid = "0.2"
+async-trait = "0.1"
 futures-executor = { version = "0.3", optional = true }
 
 [features]

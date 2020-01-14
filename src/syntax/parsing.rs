@@ -1,147 +1,10 @@
-use std::iter::Peekable;
-
 use crate::func::Scope;
 use super::*;
 use Token::*;
 
 
-/// A tree representation of source code.
-#[derive(Debug, PartialEq)]
-pub struct SyntaxTree {
-    pub nodes: Vec<Spanned<Node>>,
-}
-
-impl SyntaxTree {
-    /// Create an empty syntax tree.
-    pub fn new() -> SyntaxTree {
-        SyntaxTree { nodes: vec![] }
-    }
-}
-
-/// A node in the syntax tree.
-#[derive(Debug, PartialEq)]
-pub enum Node {
-    /// A number of whitespace characters containing less than two newlines.
-    Space,
-    /// Whitespace characters with more than two newlines.
-    Newline,
-    /// Plain text.
-    Text(String),
-    /// Italics enabled / disabled.
-    ToggleItalic,
-    /// Bolder enabled / disabled.
-    ToggleBolder,
-    /// Monospace enabled / disabled.
-    ToggleMonospace,
-    /// A function invocation.
-    Func(FuncCall),
-}
-
-/// An invocation of a function.
-#[derive(Debug)]
-pub struct FuncCall(pub Box<dyn LayoutFunc>);
-
-impl PartialEq for FuncCall {
-    fn eq(&self, other: &FuncCall) -> bool {
-        &self.0 == &other.0
-    }
-}
-
-#[derive(Debug)]
-pub struct FuncArgs {
-    positional: Tuple,
-    keyword: Object,
-}
-
-impl FuncArgs {
-    fn new() -> FuncArgs {
-        FuncArgs {
-            positional: Tuple::new(),
-            keyword: Object::new(),
-        }
-    }
-
-    /// Add a positional argument.
-    pub fn add_pos(&mut self, item: Spanned<Expression>) {
-        self.positional.add(item);
-    }
-
-    /// Force-extract the first positional argument.
-    pub fn get_pos<E: ExpressionKind>(&mut self) -> ParseResult<E> {
-        expect(self.get_pos_opt())
-    }
-
-    /// Extract the first positional argument.
-    pub fn get_pos_opt<E: ExpressionKind>(&mut self) -> ParseResult<Option<E>> {
-        Ok(if !self.positional.items.is_empty() {
-            let spanned = self.positional.items.remove(0);
-            Some(E::from_expr(spanned)?)
-        } else {
-            None
-        })
-    }
-
-    /// Add a keyword argument.
-    pub fn add_key(&mut self, key: Spanned<Ident>, value: Spanned<Expression>) {
-        self.keyword.add(key, value);
-    }
-
-    /// Add a keyword argument from an existing pair.
-    pub fn add_key_pair(&mut self, pair: Pair) {
-        self.keyword.add_pair(pair);
-    }
-
-    /// Force-extract a keyword argument.
-    pub fn get_key<E: ExpressionKind>(&mut self, name: &str) -> ParseResult<E> {
-        expect(self.get_key_opt(name))
-    }
-
-    /// Extract a keyword argument.
-    pub fn get_key_opt<E: ExpressionKind>(&mut self, name: &str) -> ParseResult<Option<E>> {
-        self.keyword.pairs.iter()
-            .position(|p| p.key.v.0 == name)
-            .map(|index| {
-                let value = self.keyword.pairs.swap_remove(index).value;
-                E::from_expr(value)
-            })
-            .transpose()
-    }
-
-    /// Iterator over positional arguments.
-    pub fn iter_pos(&mut self) -> std::vec::IntoIter<Spanned<Expression>> {
-        let tuple = std::mem::replace(&mut self.positional, Tuple::new());
-        tuple.items.into_iter()
-    }
-
-    /// Iterator over all keyword arguments.
-    pub fn iter_keys(&mut self) -> std::vec::IntoIter<Pair> {
-        let object = std::mem::replace(&mut self.keyword, Object::new());
-        object.pairs.into_iter()
-    }
-
-    /// Clear the argument lists.
-    pub fn clear(&mut self) {
-        self.positional.items.clear();
-        self.keyword.pairs.clear();
-    }
-
-    /// Whether both the positional and keyword argument lists are empty.
-    pub fn is_empty(&self) -> bool {
-        self.positional.items.is_empty() && self.keyword.pairs.is_empty()
-    }
-}
-
-/// Extract the option expression kind from the option or return an error.
-fn expect<E: ExpressionKind>(opt: ParseResult<Option<E>>) -> ParseResult<E> {
-    match opt {
-        Ok(Some(spanned)) => Ok(spanned),
-        Ok(None) => error!("expected {}", E::NAME),
-        Err(e) => Err(e),
-    }
-}
-
 /// Parses source code into a syntax tree given a context.
-pub fn parse(src: &str, ctx: ParseContext) -> SyntaxTree {
+pub fn parse(src: &str, ctx: ParseContext) -> (SyntaxTree, Colorization, ErrorMap) {
     Parser::new(src, ctx).parse()
 }
 
@@ -155,16 +18,13 @@ pub struct ParseContext<'a> {
 struct Parser<'s> {
     src: &'s str,
     ctx: ParseContext<'s>,
-    tokens: Peekable<Tokens<'s>>,
-    errors: Vec<Spanned<String>>,
-    colored: Vec<Spanned<ColorToken>>,
-    span: Span,
-}
+    colorization: Colorization,
+    error_map: ErrorMap,
 
-macro_rules! defer {
-    ($($tts:tt)*) => (
-        unimplemented!()
-    );
+    tokens: Tokens<'s>,
+    peeked: Option<Option<Spanned<Token<'s>>>>,
+    position: Position,
+    last_position: Position,
 }
 
 impl<'s> Parser<'s> {
@@ -172,81 +32,128 @@ impl<'s> Parser<'s> {
         Parser {
             src,
             ctx,
-            tokens: Tokens::new(src).peekable(),
-            errors: vec![],
-            colored: vec![],
-            span: Span::ZERO,
+            error_map: ErrorMap { errors: vec![] },
+            colorization: Colorization { colors: vec![] },
+
+            tokens: Tokens::new(src),
+            peeked: None,
+            position: Position::ZERO,
+            last_position: Position::ZERO,
         }
     }
 
-    fn parse(mut self) -> SyntaxTree {
+    fn parse(mut self) -> (SyntaxTree, Colorization, ErrorMap) {
         let mut tree = SyntaxTree::new();
 
         loop {
-            self.skip_whitespace();
+            if let Some(spanned) = self.eat() {
+                match spanned.v {
+                    LineComment(_) | BlockComment(_) => {}
 
-            let start = self.position();
+                    Whitespace(newlines) => {
+                        tree.add(spanned.map_v(if newlines >= 2 {
+                            Node::Newline
+                        } else {
+                            Node::Space
+                        }));
+                    }
 
-            let node = match self.next() {
-                Some(LeftBracket) => self.parse_func().map(|f| Node::Func(f)),
-                Some(Star) => Some(Node::ToggleBolder),
-                Some(Underscore) => Some(Node::ToggleItalic),
-                Some(Backtick) => Some(Node::ToggleMonospace),
-                Some(Text(text)) => Some(Node::Text(text.to_owned())),
-                Some(other) => { self.unexpected(other); None },
-                None => break,
-            };
+                    LeftBracket => {
+                        if let Some(func) = self.parse_func() {
+                            tree.add(func);
+                        }
+                    }
 
-            if let Some(node) = node {
-                let end = self.position();
-                let span = Span { start, end };
+                    Star       => tree.add(spanned.map_v(Node::ToggleBolder)),
+                    Underscore => tree.add(spanned.map_v(Node::ToggleItalic)),
+                    Backtick   => tree.add(spanned.map_v(Node::ToggleMonospace)),
+                    Text(text) => tree.add(spanned.map_v(Node::Text(text.to_owned()))),
 
-                tree.nodes.push(Spanned { v: node, span });
+                    _ => self.unexpected(spanned),
+                }
+            } else {
+                break;
             }
         }
 
-        tree
+        (tree, self.colorization, self.error_map)
     }
 
-    fn parse_func(&mut self) -> Option<FuncCall> {
-        let (name, args) = self.parse_func_header()?;
-        self.parse_func_call(name, args)
+    fn parse_func(&mut self) -> Option<Spanned<Node>> {
+        let start = self.last_pos();
+
+        let header = self.parse_func_header();
+        let call = self.parse_func_call(header)?;
+
+        let end = self.pos();
+        let span = Span { start, end };
+
+        Some(Spanned { v: Node::Func(call), span })
     }
 
-    fn parse_func_header(&mut self) -> Option<(Spanned<Ident>, FuncArgs)> {
-        defer! { self.eat_until(|t| t == RightBracket, true); }
-
+    fn parse_func_header(&mut self) -> Option<FuncHeader> {
         self.skip_whitespace();
 
-        let name = self.parse_func_name()?;
+        let name = self.parse_func_name().or_else(|| {
+            self.eat_until(|t| t == RightBracket, true);
+            None
+        })?;
 
         self.skip_whitespace();
-
-        let args = match self.next() {
-            Some(Colon) => self.parse_func_args(),
-            Some(RightBracket) => FuncArgs::new(),
+        let args = match self.eat() {
+            Some(Spanned { v: Colon, .. }) => self.parse_func_args(),
+            Some(Spanned { v: RightBracket, .. }) => FuncArgs::new(),
             other => {
                 self.expected("colon or closing bracket", other);
+                self.eat_until(|t| t == RightBracket, true);
                 FuncArgs::new()
             }
         };
 
-        Some((name, args))
+        Some(FuncHeader { name, args })
     }
 
-    fn parse_func_call(
-        &mut self,
-        name: Spanned<Ident>,
-        args: FuncArgs,
-    ) -> Option<FuncCall> {
-        unimplemented!()
+    fn parse_func_call(&mut self, header: Option<FuncHeader>) -> Option<FuncCall> {
+        println!("peek: {:?}", self.peek());
+
+        let body = if self.peek() == Some(LeftBracket) {
+            self.eat();
+
+            let start = self.tokens.index();
+            let found = self.tokens.move_to_closing_bracket();
+            let end = self.tokens.index();
+
+            self.last_position = self.position;
+            self.position = self.tokens.pos();
+
+            let body = &self.src[start .. end];
+
+            if found {
+                assert_eq!(self.eat().map(Spanned::value), Some(RightBracket));
+            } else {
+                self.error_here("expected closing bracket");
+            }
+
+            Some(body)
+        } else {
+            None
+        };
+
+        let header = header?;
+        let name = header.name;
+        let parser = self.ctx.scope.get_parser(name.v.as_str()).or_else(|| {
+            self.error(format!("unknown function: `{}`", name.v), name.span);
+            None
+        })?;
+
+        Some(FuncCall(parser(header.args, body, self.ctx).unwrap()))
     }
 
     fn parse_func_name(&mut self) -> Option<Spanned<Ident>> {
-        match self.next() {
-            Some(ExprIdent(ident)) => {
-                self.color_span(ColorToken::FuncName, self.span(), true);
-                Some(Spanned { v: Ident(ident.to_string()), span: self.span() })
+        match self.eat() {
+            Some(Spanned { v: ExprIdent(ident), span }) => {
+                self.color(Spanned { v: ColorToken::FuncName, span }, true);
+                Some(Spanned { v: Ident(ident.to_string()), span })
             }
             other => {
                 self.expected("identifier", other);
@@ -256,119 +163,16 @@ impl<'s> Parser<'s> {
     }
 
     fn parse_func_args(&mut self) -> FuncArgs {
-        enum State {
-            Start,
-            Identifier(Spanned<Ident>),
-            Assignment(Spanned<Ident>),
-            Value,
-        }
-
-        impl State {
-            fn expected(&self) -> &'static str {
-                match self {
-                    State::Start => "value or key",
-                    State::Identifier(_) => "comma or assignment",
-                    State::Assignment(_) => "value",
-                    State::Value => "comma",
-                }
-            }
-        }
-
-        let mut args = FuncArgs::new();
-        let mut state = State::Start;
-
-        loop {
-            self.skip_whitespace();
-
-            /*
-            let token = self.next();
-            match token {
-                Some(ExprIdent(ident)) => match state {
-                    State::Start => {
-                        state = State::Identifier(Spanned {
-                            v: Ident(ident.to_string()),
-                            span: self.span(),
-                        });
-                    }
-                    State::Identifier(prev) => {
-                        self.expected(state.expected(), token);
-                        args.add_pos(prev.map(|id| Expression::Ident(id)));
-                        state = State::Identifier(Spanned {
-                            v: Ident(ident.to_string()),
-                            span: self.span(),
-                        });
-                    }
-                    State::Assignment(key) => {
-                        let span = Span::merge(key.span, self.span());
-                        args.add_key(Spanned::new(KeyArg {
-                            key,
-                            value: Spanned {
-                                v: Expression::Ident(Ident(ident.to_string())),
-                                span: self.span(),
-                            },
-                        }, span));
-                        state = State::Value;
-                    }
-                    State::Value => {
-                        self.expected(state.expected(), token);
-                        state = State::Identifier(Spanned {
-                            v: Ident(ident.to_string()),
-                            span: self.span(),
-                        });
-                    }
-                }
-
-                // Handle expressions.
-                Some(Expr(_)) | Some(LeftParen) | Some(LeftBrace) => {
-                    let expr = match token.unwrap() {
-                        Expr(e) => e,
-                        LeftParen => self.parse_tuple(),
-                        LeftBrace => self.parse_object(),
-                        _ => unreachable!(),
-                    }
-                }
-
-                // Handle commas after values.
-                Some(Comma) => match state {
-                    State::Identifier(ident) => {
-                        args.add_pos(ident.map(|id| Expression::Ident(id)));
-                        state = State::Start;
-                    }
-                    State::Value => state = State::Start,
-                    _ => self.expected(state.expected(), token),
-                }
-
-                // Handle the end of the function header.
-                Some(RightBracket) => {
-                    match state {
-                        State::Identifier(ident) => {
-                            args.add_pos(ident.map(|id| Expression::Ident(id)));
-                        }
-                        State::Assignment(_) => {
-                            self.expected(state.expected(), token);
-                        }
-                        _ => {}
-                    }
-
-                    break;
-                }
-            }
-            */
-        }
-
-        args
+        // unimplemented!()
+        FuncArgs::new()
     }
 
-    fn handle_expr(&mut self, expr: Spanned<Expression>) {
-
+    fn parse_tuple(&mut self) -> Spanned<Expression> {
+        unimplemented!("parse_tuple")
     }
 
-    fn parse_tuple(&mut self) -> Spanned<Tuple> {
-        unimplemented!()
-    }
-
-    fn parse_object(&mut self) -> Spanned<Object> {
-        unimplemented!()
+    fn parse_object(&mut self) -> Spanned<Expression> {
+        unimplemented!("parse_object")
     }
 
     fn skip_whitespace(&mut self) {
@@ -378,68 +182,52 @@ impl<'s> Parser<'s> {
         }, false)
     }
 
-    fn eat_until<F>(&mut self, mut f: F, eat_match: bool)
-    where F: FnMut(Token<'s>) -> bool {
-        while let Some(token) = self.tokens.peek() {
-            if f(token.v) {
-                if eat_match {
-                    self.next();
-                }
-                break;
-            }
-
-            self.next();
+    fn expected(&mut self, thing: &str, found: Option<Spanned<Token>>) {
+        if let Some(Spanned { v: found, span }) = found {
+            self.error(
+                format!("expected {}, found {}", thing, name(found)),
+                span
+            );
+        } else {
+            self.error_here(format!("expected {}", thing));
         }
     }
 
-    fn next(&mut self) -> Option<Token<'s>> {
-        self.tokens.next().map(|spanned| {
-            self.color_token(&spanned.v, spanned.span);
-            self.span = spanned.span;
-            spanned.v
-        })
+    fn unexpected(&mut self, found: Spanned<Token>) {
+        self.error_map.errors.push(found.map(|t| format!("unexpected {}", name(t))));
     }
 
-    fn span(&self) -> Span {
-        self.span
+    fn error(&mut self, message: impl Into<String>, span: Span) {
+        self.error_map.errors.push(Spanned { v: message.into(), span });
     }
 
-    fn position(&self) -> Position {
-        self.span.end
+    fn error_here(&mut self, message: impl Into<String>) {
+        self.error(message, Span::at(self.pos()));
     }
 
-    fn unexpected(&mut self, found: Token) {
-        self.errors.push(Spanned {
-            v: format!("unexpected {}", name(found)),
-            span: self.span(),
-        });
+    fn color(&mut self, token: Spanned<ColorToken>, replace_last: bool) {
+        if replace_last {
+            if let Some(last) = self.colorization.colors.last_mut() {
+                *last = token;
+                return;
+            }
+        }
+
+        self.colorization.colors.push(token);
     }
 
-    fn expected(&mut self, thing: &str, found: Option<Token>) {
-        let message = if let Some(found) = found {
-            format!("expected {}, found {}", thing, name(found))
-        } else {
-            format!("expected {}", thing)
-        };
-
-        self.errors.push(Spanned {
-            v: message,
-            span: self.span(),
-        });
-    }
-
-    fn color_token(&mut self, token: &Token<'s>, span: Span) {
-        let colored = match token {
+    fn color_token(&mut self, token: Spanned<Token<'s>>) {
+        let colored = match token.v {
             LineComment(_) | BlockComment(_) => Some(ColorToken::Comment),
-            StarSlash => Some(ColorToken::Invalid),
+            StarSlash                  => Some(ColorToken::Invalid),
             LeftBracket | RightBracket => Some(ColorToken::Bracket),
             LeftParen | RightParen     => Some(ColorToken::Paren),
             LeftBrace | RightBrace     => Some(ColorToken::Brace),
-            Colon  => Some(ColorToken::Colon),
-            Comma  => Some(ColorToken::Comma),
-            Equals => Some(ColorToken::Equals),
-            ExprIdent(_)  =>  Some(ColorToken::ExprIdent),
-            ExprStr(_) => Some(ColorToken::ExprStr),
+            Colon         => Some(ColorToken::Colon),
+            Comma         => Some(ColorToken::Comma),
+            Equals        => Some(ColorToken::Equals),
+            ExprIdent(_)  => Some(ColorToken::ExprIdent),
+            ExprStr(_)    => Some(ColorToken::ExprStr),
             ExprNumber(_) => Some(ColorToken::ExprNumber),
             ExprSize(_)   => Some(ColorToken::ExprSize),
             ExprBool(_)   => Some(ColorToken::ExprBool),
@@ -447,21 +235,49 @@ impl<'s> Parser<'s> {
         };
 
         if let Some(color) = colored {
-            self.colored.push(Spanned { v: color, span });
+            self.colorization.colors.push(Spanned { v: color, span: token.span });
         }
     }
 
-    fn color_span(&mut self, color: ColorToken, span: Span, replace_last: bool) {
-        let token = Spanned { v: color, span };
-
-        if replace_last {
-            if let Some(last) = self.colored.last_mut() {
-                *last = token;
-                return;
+    fn eat_until<F>(&mut self, mut f: F, eat_match: bool)
+    where F: FnMut(Token<'s>) -> bool {
+        while let Some(token) = self.peek() {
+            if f(token) {
+                if eat_match {
+                    self.eat();
+                }
+                break;
             }
+
+            self.eat();
+        }
+    }
+
+    fn eat(&mut self) -> Option<Spanned<Token<'s>>> {
+        let token = self.peeked.take().unwrap_or_else(|| self.tokens.next());
+
+        self.last_position = self.position;
+        if let Some(spanned) = token {
+            self.color_token(spanned);
+            self.position = spanned.span.end;
         }
 
-        self.colored.push(token);
+        token
+    }
+
+    fn peek(&mut self) -> Option<Token<'s>> {
+        let iter = &mut self.tokens;
+        self.peeked
+            .get_or_insert_with(|| iter.next())
+            .map(Spanned::value)
+    }
+
+    fn pos(&self) -> Position {
+        self.position
+    }
+
+    fn last_pos(&self) -> Position {
+        self.last_position
     }
 }
 

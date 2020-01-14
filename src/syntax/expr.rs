@@ -91,12 +91,6 @@ pub struct Object {
     pub pairs: Vec<Pair>,
 }
 
-#[derive(Clone, PartialEq)]
-pub struct Pair {
-    pub key: Spanned<Ident>,
-    pub value: Spanned<Expression>,
-}
-
 impl Object {
     pub fn new() -> Object {
         Object { pairs: vec![] }
@@ -120,7 +114,7 @@ impl Display for Object {
             if !first {
                 write!(f, ", ")?;
             }
-            write!(f, "{}: {}", pair.key.v, pair.value.v)?;
+            write!(f, "{}", pair)?;
             first = false;
         }
 
@@ -128,10 +122,23 @@ impl Display for Object {
     }
 }
 
+#[derive(Clone, PartialEq)]
+pub struct Pair {
+    pub key: Spanned<Ident>,
+    pub value: Spanned<Expression>,
+}
+
+impl Display for Pair {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}: {}", self.key.v, self.value.v)
+    }
+}
+
 debug_display!(Ident);
 debug_display!(Expression);
 debug_display!(Tuple);
 debug_display!(Object);
+debug_display!(Pair);
 
 
 /// Kinds of expressions.
