@@ -1,19 +1,20 @@
 use std::fs::{self, create_dir_all, read_dir, read_to_string};
 use std::ffi::OsStr;
 
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     create_dir_all("tests/cache")?;
 
     // Make sure the script reruns if this file changes or files are
     // added/deleted in the parsing folder.
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=tests/cache/parse");
-    println!("cargo:rerun-if-changed=tests/parsing");
+    println!("cargo:rerun-if-changed=tests/cache/parser-tests.rs");
+    println!("cargo:rerun-if-changed=tests/parser");
 
     // Compile all parser tests into a single giant vector.
     let mut code = "vec![".to_string();
 
-    for entry in read_dir("tests/parsing")? {
+    for entry in read_dir("tests/parser")? {
         let path = entry?.path();
         if path.extension() != Some(OsStr::new("rs")) {
             continue;
@@ -25,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Make sure this also reruns if the contents of a file in parsing
         // change. This is not ensured by rerunning only on the folder.
-        println!("cargo:rerun-if-changed=tests/parsing/{}.rs", name);
+        println!("cargo:rerun-if-changed=tests/parser/{}.rs", name);
 
         code.push_str(&format!("(\"{}\", tokens!{{", name));
 
@@ -44,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     code.push(']');
 
-    fs::write("tests/cache/parse", code)?;
+    fs::write("tests/cache/parser-tests.rs", code)?;
 
     Ok(())
 }

@@ -107,6 +107,10 @@ impl Object {
 
 impl Display for Object {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if self.pairs.len() == 0 {
+            return write!(f, "{{}}");
+        }
+
         write!(f, "{{ ")?;
 
         let mut first = true;

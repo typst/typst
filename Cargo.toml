@@ -19,17 +19,17 @@ default = ["fs-provider", "futures-executor"]
 fs-provider = ["toddle/fs-provider"]
 
 [[bin]]
-name = "typst-bin"
+name = "typst"
 path = "src/bin/main.rs"
 required-features = ["futures-executor"]
 
 [[test]]
-name = "layout"
-path = "tests/layout.rs"
+name = "layouter"
+path = "tests/src/layouter.rs"
 harness = false
 required-features = ["futures-executor"]
 
 [[test]]
-name = "parse"
-path = "tests/parse.rs"
+name = "parser"
+path = "tests/src/parser.rs"
 harness = false

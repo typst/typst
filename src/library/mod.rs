@@ -58,11 +58,11 @@ function! {
         list: Vec<String>,
     }
 
-    parse(args, body, ctx) {
+    parse(header, body, ctx) {
         FontFamilyFunc {
             body: parse!(optional: body, ctx),
             list: {
-                args.iter_pos().map(|arg| match arg.v {
+                header.args.iter_pos().map(|arg| match arg.v {
                     Expression::Str(s) |
                     Expression::Ident(Ident(s)) => Ok(s.to_lowercase()),
                     _ => error!("expected identifier or string"),
@@ -86,11 +86,11 @@ function! {
         style: FontStyle,
     }
 
-    parse(args, body, ctx) {
+    parse(header, body, ctx) {
         FontStyleFunc {
             body: parse!(optional: body, ctx),
             style: {
-                let s = args.get_pos::<String>()?;
+                let s = header.args.get_pos::<String>()?;
                 match FontStyle::from_str(&s) {
                     Some(style) => style,
                     None => error!("invalid font style: `{}`", s),
@@ -114,10 +114,10 @@ function! {
         weight: FontWeight,
     }
 
-    parse(args, body, ctx) {
+    parse(header, body, ctx) {
         FontWeightFunc {
             body: parse!(optional: body, ctx),
-            weight: match args.get_pos::<Expression>()? {
+            weight: match header.args.get_pos::<Expression>()? {
                 Expression::Number(weight) => {
                     let weight = weight.round() as i16;
                     FontWeight(
@@ -152,10 +152,10 @@ function! {
         size: ScaleSize,
     }
 
-    parse(args, body, ctx) {
+    parse(header, body, ctx) {
         FontSizeFunc {
             body: parse!(optional: body, ctx),
-            size: args.get_pos::<ScaleSize>()?,
+            size: header.args.get_pos::<ScaleSize>()?,
         }
     }
 
@@ -187,11 +187,11 @@ function! {
 
     type Meta = ContentKind;
 
-    parse(args, body, ctx, meta) {
+    parse(header, body, ctx, meta) {
         ContentSpacingFunc {
             body: parse!(optional: body, ctx),
             content: meta,
-            spacing: args.get_pos::<f64>()? as f32,
+            spacing: header.args.get_pos::<f64>()? as f32,
         }
     }
 
@@ -256,16 +256,18 @@ function! {
 
     type Meta = Option<SpecificAxis>;
 
-    parse(args, body, _, meta) {
+    parse(header, body, _, meta) {
         parse!(forbidden: body);
 
         if let Some(axis) = meta {
             SpacingFunc {
                 axis: AxisKey::Specific(axis),
-                spacing: FSize::from_expr(args.get_pos::<Spanned<Expression>>()?)?,
+                spacing: FSize::from_expr(
+                    header.args.get_pos::<Spanned<Expression>>()?
+                )?,
             }
         } else {
-            for arg in args.iter_keys() {
+            for arg in header.args.iter_keys() {
                 let axis = AxisKey::from_ident(&arg.key)
                     .map_err(|_| error!(@unexpected_argument))?;
 
@@ -295,16 +297,16 @@ function! {
         Custom(ExtentMap<PSize>),
     }
 
-    parse(args, body) {
+    parse(header, body) {
         parse!(forbidden: body);
 
-        if let Some(name) = args.get_pos_opt::<Ident>()? {
-            let flip = args.get_key_opt::<bool>("flip")?.unwrap_or(false);
+        if let Some(name) = header.args.get_pos_opt::<Ident>()? {
+            let flip = header.args.get_key_opt::<bool>("flip")?.unwrap_or(false);
             let paper = Paper::from_name(name.as_str())
                 .ok_or_else(|| error!(@"invalid paper name: `{}`", name))?;
             PageSizeFunc::Paper(paper, flip)
         } else {
-            PageSizeFunc::Custom(ExtentMap::new(&mut args, true)?)
+            PageSizeFunc::Custom(ExtentMap::new(&mut header.args, true)?)
         }
     }
 
@@ -341,10 +343,10 @@ function! {
         map: PaddingMap,
     }
 
-    parse(args, body) {
+    parse(header, body) {
         parse!(forbidden: body);
         PageMarginsFunc {
-            map: PaddingMap::new(&mut args)?,
+            map: PaddingMap::new(&mut header.args)?,
         }
     }
 

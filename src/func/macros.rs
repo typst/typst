@@ -52,46 +52,43 @@ macro_rules! function {
     };
 
     // (1-arg) Parse a parse-definition with only the first argument.
-    (@parse $type:ident $meta:ty | parse($args:ident) $code:block $($rest:tt)*) => {
-        function!(@parse $type $meta | parse($args, _body, _ctx, _meta) $code $($rest)*);
+    (@parse $type:ident $meta:ty | parse($header:ident) $code:block $($rest:tt)*) => {
+        function!(@parse $type $meta | parse($header, _body, _ctx, _meta) $code $($rest)*);
     };
 
     // (2-arg) Parse a parse-definition with only the first two arguments.
     (@parse $type:ident $meta:ty |
-        parse($args:ident, $body:pat) $code:block $($rest:tt)*
+        parse($header:ident, $body:pat) $code:block $($rest:tt)*
     ) => {
-        function!(@parse $type $meta | parse($args, $body, _ctx, _meta) $code $($rest)*);
+        function!(@parse $type $meta | parse($header, $body, _ctx, _meta) $code $($rest)*);
     };
 
     // (3-arg) Parse a parse-definition with only the first three arguments.
     (@parse $type:ident $meta:ty |
-        parse($args:ident, $body:pat, $ctx:pat) $code:block $($rest:tt)*
+        parse($header:ident, $body:pat, $ctx:pat) $code:block $($rest:tt)*
     ) => {
-        function!(@parse $type $meta | parse($args, $body, $ctx, _meta) $code $($rest)*);
+        function!(@parse $type $meta | parse($header, $body, $ctx, _meta) $code $($rest)*);
     };
 
     // (4-arg) Parse a parse-definition with all four arguments.
     (@parse $type:ident $meta:ty |
-        parse($args:ident, $body:pat, $ctx:pat, $metadata:pat) $code:block
+        parse($header:ident, $body:pat, $ctx:pat, $metadata:pat) $code:block
         $($rest:tt)*
     ) => {
-        use $crate::func::prelude::*;
-
         impl $crate::func::ParseFunc for $type {
             type Meta = $meta;
 
             fn parse(
-                args: FuncArgs,
+                header: $crate::syntax::FuncHeader,
                 $body: Option<&str>,
-                $ctx: ParseContext,
+                $ctx: $crate::syntax::ParseContext,
                 $metadata: Self::Meta,
-            ) -> ParseResult<Self> where Self: Sized {
+            ) -> $crate::syntax::ParseResult<Self> where Self: Sized {
                 #[allow(unused_mut)]
-                let mut $args = args;
+                let mut $header = header;
                 let val = $code;
-                if !$args.is_empty() {
-                    return Err($crate::TypesetError
-                        ::with_message("unexpected arguments"));
+                if !$header.args.is_empty() {
+                    return Err($crate::TypesetError::with_message("unexpected arguments"));
                 }
                 Ok(val)
             }
@@ -112,14 +109,14 @@ macro_rules! function {
 
     // (2-arg) Parse a layout-definition with all arguments.
     (@layout $type:ident | layout($this:ident, $ctx:pat) $code:block) => {
-        use $crate::func::prelude::*;
-
-        impl LayoutFunc for $type {
+        impl $crate::func::LayoutFunc for $type {
             fn layout<'a, 'life0, 'life1, 'async_trait>(
                 &'a $this,
-                $ctx: LayoutContext<'life0, 'life1>
-            ) -> std::pin::Pin<Box<
-                dyn std::future::Future<Output = LayoutResult<Commands<'a>>> + 'async_trait
+                $ctx: $crate::layout::LayoutContext<'life0, 'life1>
+            ) -> std::pin::Pin<Box<dyn std::future::Future<
+                Output = $crate::layout::LayoutResult<
+                    $crate::func::Commands<'a>>
+                > + 'async_trait
             >>
             where
                 'a: 'async_trait,

@@ -13,11 +13,11 @@ function! {
         debug: Option<bool>,
     }
 
-    parse(args, body, ctx) {
+    parse(header, body, ctx) {
         BoxFunc {
             body: parse!(optional: body, ctx).unwrap_or(SyntaxTree::new()),
-            map: ExtentMap::new(&mut args, false)?,
-            debug: args.get_key_opt::<bool>("debug")?,
+            map: ExtentMap::new(&mut header.args, false)?,
+            debug: header.args.get_key_opt::<bool>("debug")?,
         }
     }
 

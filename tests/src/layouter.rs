@@ -15,16 +15,17 @@ use typstc::style::PageStyle;
 use typstc::toddle::query::FileSystemFontProvider;
 use typstc::export::pdf::PdfExporter;
 
-type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-fn main() -> Result<()> {
+type DynResult<T> = Result<T, Box<dyn Error>>;
+
+fn main() -> DynResult<()> {
     let opts = Options::parse();
 
     create_dir_all("tests/cache/serial")?;
     create_dir_all("tests/cache/render")?;
     create_dir_all("tests/cache/pdf")?;
 
-    let tests: Vec<_> = read_dir("tests/layouts/")?.collect();
+    let tests: Vec<_> = read_dir("tests/layouter/")?.collect();
     let mut filtered = Vec::new();
 
     for entry in tests {
@@ -62,7 +63,7 @@ fn main() -> Result<()> {
 }
 
 /// Create a _PDF_ with a name from the source code.
-fn test(name: &str, src: &str) -> Result<()> {
+fn test(name: &str, src: &str) -> DynResult<()> {
     println!("Testing: {}.", name);
 
     let mut typesetter = Typesetter::new();

@@ -1,6 +1,6 @@
 //! Spans map elements to the part of source code they originate from.
 
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 
 
 /// Annotates a value with the part of the source code it corresponds to.
@@ -28,13 +28,21 @@ impl<T> Spanned<T> {
     }
 }
 
-impl<T> Display for Spanned<T> where T: std::fmt::Debug {
+impl<T> Display for Spanned<T> where T: std::fmt::Display {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "({:?}:{})", self.v, self.span)
+        write!(f, "({}, {}, ", self.span.start, self.span.end)?;
+        self.v.fmt(f)?;
+        write!(f, ")")
     }
 }
 
-debug_display!(Spanned; T where T: std::fmt::Debug);
+impl<T> Debug for Spanned<T> where T: std::fmt::Debug {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "({}, {}, ", self.span.start, self.span.end)?;
+        self.v.fmt(f)?;
+        write!(f, ")")
+    }
+}
 
 /// Describes a slice of source code.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -68,7 +76,7 @@ impl Span {
 
 impl Display for Span {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "[{}, {}]", self.start, self.end)
+        write!(f, "({}, {})", self.start, self.end)
     }
 }
 

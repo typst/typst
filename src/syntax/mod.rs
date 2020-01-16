@@ -9,7 +9,6 @@ use crate::size::{Size, ScaleSize};
 
 pub type ParseResult<T> = crate::TypesetResult<T>;
 
-pub_use_mod!(color);
 pub_use_mod!(expr);
 pub_use_mod!(tokens);
 pub_use_mod!(parsing);
@@ -93,7 +92,7 @@ impl SyntaxTree {
 }
 
 /// A node in the syntax tree.
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum Node {
     /// A number of whitespace characters containing less than two newlines.
     Space,
@@ -111,6 +110,28 @@ pub enum Node {
     Func(FuncCall),
 }
 
+impl Display for Node {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Node::Space => write!(f, "Space"),
+            Node::Newline => write!(f, "Newline"),
+            Node::Text(text) => write!(f, "{:?}", text),
+            Node::ToggleItalic => write!(f, "ToggleItalic"),
+            Node::ToggleBolder => write!(f, "ToggleBold"),
+            Node::ToggleMonospace => write!(f, "ToggleMonospace"),
+            Node::Func(func) => {
+                if f.alternate() {
+                    write!(f, "{:#?}", func.0)
+                } else {
+                    write!(f, "{:?}", func.0)
+                }
+            }
+        }
+    }
+}
+
+debug_display!(Node);
+
 /// An invocation of a function.
 #[derive(Debug)]
 pub struct FuncCall(pub Box<dyn LayoutFunc>);
@@ -121,59 +142,20 @@ impl PartialEq for FuncCall {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Colorization {
-    pub colors: Vec<Spanned<ColorToken>>,
-}
-
-/// Entities which can be colored by syntax highlighting.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum ColorToken {
-    Comment,
-
-    Bracket,
-    FuncName,
-    Colon,
-
-    Key,
-    Equals,
-    Comma,
-
-    Paren,
-    Brace,
-
-    ExprIdent,
-    ExprStr,
-    ExprNumber,
-    ExprSize,
-    ExprBool,
-
-    Bold,
-    Italic,
-    Monospace,
-
-    Invalid,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ErrorMap {
-    pub errors: Vec<Spanned<String>>,
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FuncHeader {
     pub name: Spanned<Ident>,
     pub args: FuncArgs,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FuncArgs {
-    positional: Tuple,
-    keyword: Object,
+    pub positional: Tuple,
+    pub keyword: Object,
 }
 
 impl FuncArgs {
-    fn new() -> FuncArgs {
+    pub fn new() -> FuncArgs {
         FuncArgs {
             positional: Tuple::new(),
             keyword: Object::new(),
@@ -257,4 +239,43 @@ fn expect<E: ExpressionKind>(opt: ParseResult<Option<E>>) -> ParseResult<E> {
         Ok(None) => error!("expected {}", E::NAME),
         Err(e) => Err(e),
     }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Colorization {
+    pub tokens: Vec<Spanned<ColorToken>>,
+}
+
+/// Entities which can be colored by syntax highlighting.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ColorToken {
+    Comment,
+
+    Bracket,
+    FuncName,
+    Colon,
+
+    Key,
+    Equals,
+    Comma,
+
+    Paren,
+    Brace,
+
+    ExprIdent,
+    ExprStr,
+    ExprNumber,
+    ExprSize,
+    ExprBool,
+
+    Bold,
+    Italic,
+    Monospace,
+
+    Invalid,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ErrorMap {
+    pub errors: Vec<Spanned<String>>,
 }

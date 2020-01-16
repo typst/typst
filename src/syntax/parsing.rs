@@ -33,7 +33,7 @@ impl<'s> Parser<'s> {
             src,
             ctx,
             error_map: ErrorMap { errors: vec![] },
-            colorization: Colorization { colors: vec![] },
+            colorization: Colorization { tokens: vec![] },
 
             tokens: Tokens::new(src),
             peeked: None,
@@ -114,8 +114,6 @@ impl<'s> Parser<'s> {
     }
 
     fn parse_func_call(&mut self, header: Option<FuncHeader>) -> Option<FuncCall> {
-        println!("peek: {:?}", self.peek());
-
         let body = if self.peek() == Some(LeftBracket) {
             self.eat();
 
@@ -140,13 +138,15 @@ impl<'s> Parser<'s> {
         };
 
         let header = header?;
-        let name = header.name;
-        let parser = self.ctx.scope.get_parser(name.v.as_str()).or_else(|| {
-            self.error(format!("unknown function: `{}`", name.v), name.span);
+        let parser = self.ctx.scope.get_parser(header.name.v.as_str()).or_else(|| {
+            self.error(
+                format!("unknown function: `{}`", header.name.v),
+                header.name.span
+            );
             None
         })?;
 
-        Some(FuncCall(parser(header.args, body, self.ctx).unwrap()))
+        Some(FuncCall(parser(header, body, self.ctx).unwrap()))
     }
 
     fn parse_func_name(&mut self) -> Option<Spanned<Ident>> {
@@ -163,16 +163,17 @@ impl<'s> Parser<'s> {
     }
 
     fn parse_func_args(&mut self) -> FuncArgs {
-        // unimplemented!()
+        // todo!()
+        self.eat_until(|t| t == RightBracket, true);
         FuncArgs::new()
     }
 
     fn parse_tuple(&mut self) -> Spanned<Expression> {
-        unimplemented!("parse_tuple")
+        todo!("parse_tuple")
     }
 
     fn parse_object(&mut self) -> Spanned<Expression> {
-        unimplemented!("parse_object")
+        todo!("parse_object")
     }
 
     fn skip_whitespace(&mut self) {
@@ -207,13 +208,13 @@ impl<'s> Parser<'s> {
 
     fn color(&mut self, token: Spanned<ColorToken>, replace_last: bool) {
         if replace_last {
-            if let Some(last) = self.colorization.colors.last_mut() {
+            if let Some(last) = self.colorization.tokens.last_mut() {
                 *last = token;
                 return;
             }
         }
 
-        self.colorization.colors.push(token);
+        self.colorization.tokens.push(token);
     }
 
     fn color_token(&mut self, token: Spanned<Token<'s>>) {
@@ -235,7 +236,7 @@ impl<'s> Parser<'s> {
         };
 
         if let Some(color) = colored {
-            self.colorization.colors.push(Spanned { v: color, span: token.span });
+            self.colorization.tokens.push(Spanned { v: color, span: token.span });
         }
     }
 

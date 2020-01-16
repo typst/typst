@@ -14,12 +14,7 @@ mod macros;
 pub mod prelude {
     pub use crate::func::{Scope, ParseFunc, LayoutFunc, Command, Commands};
     pub use crate::layout::prelude::*;
-    pub use crate::syntax::{
-        ParseContext, ParseResult,
-        SyntaxTree, FuncCall, FuncArgs,
-        Expression, Ident, ExpressionKind,
-        Spanned, Span
-    };
+    pub use crate::syntax::*;
     pub use crate::size::{Size, Size2D, SizeBox, ValueBox, ScaleSize, FSize, PSize};
     pub use crate::style::{LayoutStyle, PageStyle, TextStyle};
     pub use Command::*;
@@ -31,7 +26,7 @@ pub trait ParseFunc {
 
     /// Parse the header and body into this function given a context.
     fn parse(
-        args: FuncArgs,
+        header: FuncHeader,
         body: Option<&str>,
         ctx: ParseContext,
         metadata: Self::Meta,
@@ -125,7 +120,7 @@ pub struct Scope {
 /// A function which parses the source of a function into a function type which
 /// implements [`LayoutFunc`].
 type Parser = dyn Fn(
-    FuncArgs,
+    FuncHeader,
     Option<&str>,
     ParseContext
 ) -> ParseResult<Box<dyn LayoutFunc>>;

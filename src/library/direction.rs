@@ -10,10 +10,10 @@ function! {
         map: PosAxisMap<Direction>,
     }
 
-    parse(args, body, ctx) {
+    parse(header, body, ctx) {
         DirectionFunc {
             body: parse!(optional: body, ctx),
-            map: PosAxisMap::new(&mut args)?,
+            map: PosAxisMap::new(&mut header.args)?,
         }
     }
 
