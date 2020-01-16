@@ -40,7 +40,7 @@ fn test(tests: Vec<(&str, Vec<Case>)>) {
                 Case::Okay => okay += 1,
                 Case::Failed { line, src, expected, found } => {
                     println!();
-                    println!(" - Case failed in file {}.rs in line {}.", file, line);
+                    println!(" ❌  Case failed in file {}.rs in line {}.", file, line);
                     println!("   - Source:   {:?}", src);
                     println!("   - Expected: {}", expected);
                     println!("   - Found:    {}", found);
@@ -119,7 +119,11 @@ macro_rules! case {
     });
 
     (e $src:expr, [$($e:tt)*]) => ({
-        let expected = ErrorMap { errors: list!([$($e)*]) };
+        let errors = list!([$($e)*]).into_iter()
+            .map(|s| s.map(|m| m.to_string()))
+            .collect();
+
+        let expected = ErrorMap { errors };
         let found = parse($src, ParseContext { scope: &scope() }).2;
         (expected == found, expected, found)
     });
@@ -204,8 +208,10 @@ function! {
     }
 
     parse(header, body, ctx) {
+        let cloned = header.clone();
+        header.args.clear();
         DebugFn {
-            header: header.clone(),
+            header: cloned,
             body: parse!(optional: body, ctx),
         }
     }

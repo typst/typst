@@ -62,3 +62,13 @@ macro_rules! pub_use_mod {
         pub use $name::*;
     };
 }
+
+/// Whether an expression matches a set of patterns.
+macro_rules! matches {
+    ($expression:expr, $( $pattern:pat )|+ $( if $guard: expr )?) => {
+        match $expression {
+            $( $pattern )|+ $( if $guard )? => true,
+            _ => false
+        }
+    }
+}

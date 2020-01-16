@@ -154,6 +154,22 @@ pub struct FuncArgs {
     pub keyword: Object,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum Arg {
+    Pos(Spanned<Expression>),
+    Key(Pair),
+}
+
+impl Arg {
+    /// The span or the value or combined span of key and value.
+    pub fn span(&self) -> Span {
+        match self {
+            Arg::Pos(spanned) => spanned.span,
+            Arg::Key(Pair { key, value }) => Span::merge(key.span, value.span),
+        }
+    }
+}
+
 impl FuncArgs {
     pub fn new() -> FuncArgs {
         FuncArgs {
@@ -246,36 +262,58 @@ pub struct Colorization {
     pub tokens: Vec<Spanned<ColorToken>>,
 }
 
+impl Colorization {
+    pub fn new() -> Colorization {
+        Colorization { tokens: vec![] }
+    }
+
+    pub fn add(&mut self, token: ColorToken, span: Span) {
+        self.tokens.push(Spanned { v: token, span });
+    }
+
+    pub fn replace_last(&mut self, token: ColorToken) {
+        self.tokens.last_mut().expect("replace_last: no token").v = token;
+    }
+}
+
 /// Entities which can be colored by syntax highlighting.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ColorToken {
     Comment,
-
     Bracket,
     FuncName,
     Colon,
-
     Key,
     Equals,
     Comma,
-
     Paren,
     Brace,
-
     ExprIdent,
     ExprStr,
     ExprNumber,
     ExprSize,
     ExprBool,
-
     Bold,
     Italic,
     Monospace,
-
     Invalid,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ErrorMap {
     pub errors: Vec<Spanned<String>>,
+}
+
+impl ErrorMap {
+    pub fn new() -> ErrorMap {
+        ErrorMap { errors: vec![] }
+    }
+
+    pub fn add(&mut self, message: impl Into<String>, span: Span) {
+        self.errors.push(Spanned { v: message.into(), span });
+    }
+
+    pub fn add_at(&mut self, message: impl Into<String>, pos: Position) {
+        self.errors.push(Spanned { v: message.into(), span: Span::at(pos) })
+    }
 }
