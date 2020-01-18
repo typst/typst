@@ -104,8 +104,11 @@ impl<'s> Parser<'s> {
         let name = self.parse_func_name()?;
 
         self.skip_whitespace();
-        let args = match self.eat() {
-            Some(Spanned { v: Colon, .. }) => self.parse_func_args(),
+        let args = match self.peek() {
+            Some(Spanned { v: Colon, .. }) => {
+                self.eat();
+                self.parse_func_args()
+            }
             Some(Spanned { v: RightBracket, .. }) => FuncArgs::new(),
             other => {
                 self.expected_at("colon or closing bracket", name.span.end);
@@ -119,8 +122,9 @@ impl<'s> Parser<'s> {
     /// Parses the function name if is the next token. Otherwise, it adds an
     /// error and returns `None`.
     fn parse_func_name(&mut self) -> Option<Spanned<Ident>> {
-        match self.eat() {
+        match self.peek() {
             Some(Spanned { v: ExprIdent(ident), span }) => {
+                self.eat();
                 self.colorization.replace_last(ColorToken::FuncName);
                 return Some(Spanned { v: Ident(ident.to_string()), span });
             }
@@ -280,7 +284,7 @@ impl<'s> Parser<'s> {
             None
         })?;
 
-        Some(FuncCall(parser(header, body, self.ctx).unwrap()))
+        parser(header, body, self.ctx).ok().map(|f| FuncCall(f))
     }
 
     /// Skip all whitespace/comment tokens.

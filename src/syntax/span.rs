@@ -1,10 +1,11 @@
 //! Spans map elements to the part of source code they originate from.
 
 use std::fmt::{self, Debug, Display, Formatter};
+use serde::Serialize;
 
 
 /// Annotates a value with the part of the source code it corresponds to.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize)]
 pub struct Spanned<T> {
     pub v: T,
     pub span: Span,
@@ -45,7 +46,7 @@ impl<T> Debug for Spanned<T> where T: std::fmt::Debug {
 }
 
 /// Describes a slice of source code.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize)]
 pub struct Span {
     pub start: Position,
     pub end: Position,
@@ -83,7 +84,7 @@ impl Display for Span {
 debug_display!(Span);
 
 /// A line-column position in source code.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
 pub struct Position {
     /// The 0-indexed line (inclusive).
     pub line: usize,

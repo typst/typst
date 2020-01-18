@@ -107,7 +107,7 @@ fn test(name: &str, src: &str) -> DynResult<()> {
 
     // Render the layout into a PNG.
     Command::new("python")
-        .arg("tests/render.py")
+        .arg("tests/src/render.py")
         .arg(name)
         .spawn()
         .expect("failed to run python renderer");

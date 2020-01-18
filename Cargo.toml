@@ -12,6 +12,7 @@ byteorder = "1"
 smallvec = "1"
 unicode-xid = "0.2"
 async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
 futures-executor = { version = "0.3", optional = true }
 
 [features]

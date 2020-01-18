@@ -2,6 +2,7 @@
 
 use std::fmt::{self, Display, Formatter};
 use unicode_xid::UnicodeXID;
+use serde::Serialize;
 
 use crate::func::LayoutFunc;
 use crate::size::{Size, ScaleSize};
@@ -257,7 +258,7 @@ fn expect<E: ExpressionKind>(opt: ParseResult<Option<E>>) -> ParseResult<E> {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 pub struct Colorization {
     pub tokens: Vec<Spanned<ColorToken>>,
 }
@@ -277,7 +278,8 @@ impl Colorization {
 }
 
 /// Entities which can be colored by syntax highlighting.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum ColorToken {
     Comment,
     Bracket,
@@ -299,7 +301,7 @@ pub enum ColorToken {
     Invalid,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 pub struct ErrorMap {
     pub errors: Vec<Spanned<String>>,
 }
