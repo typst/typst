@@ -3,9 +3,8 @@ use super::*;
 use Token::*;
 
 
-/// Parses source code into a syntax tree given a context.
-pub fn parse(src: &str, ctx: ParseContext) -> (SyntaxTree, Colorization, ErrorMap) {
-    Parser::new(src, ctx).parse()
+pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Parsed<SyntaxModel> {
+    Parser::new(start, src, ctx).parse()
 }
 
 /// The context for parsing.
@@ -18,64 +17,68 @@ pub struct ParseContext<'a> {
 struct Parser<'s> {
     src: &'s str,
     ctx: ParseContext<'s>,
-    colorization: Colorization,
-    error_map: ErrorMap,
     tokens: Tokens<'s>,
     peeked: Option<Option<Spanned<Token<'s>>>>,
     position: Position,
     last_position: Position,
+    errors: SpanVec<Error>,
+    decorations: SpanVec<Decoration>,
 }
 
 impl<'s> Parser<'s> {
-    fn new(src: &'s str, ctx: ParseContext<'s>) -> Parser<'s> {
+    fn new(start: Position, src: &'s str, ctx: ParseContext<'s>) -> Parser<'s> {
         Parser {
             src,
             ctx,
-            error_map: ErrorMap::new(),
-            colorization: Colorization::new(),
-            tokens: Tokens::new(src),
+            tokens: tokenize(start, src),
             peeked: None,
             position: Position::ZERO,
             last_position: Position::ZERO,
+            errors: vec![],
+            decorations: vec![],
         }
     }
 
     /// The main parsing entrypoint.
-    fn parse(mut self) -> (SyntaxTree, Colorization, ErrorMap) {
-        let mut tree = SyntaxTree::new();
+    fn parse(mut self) -> Parsed<SyntaxModel> {
+        let mut model = SyntaxModel::new();
 
-        loop {
-            if let Some(spanned) = self.eat() {
-                match spanned.v {
-                    LineComment(_) | BlockComment(_) => {}
+        while let Some(token) = self.eat() {
+            let mut span = token.span;
+            let node = match token.v {
+                LineComment(_) | BlockComment(_) => None,
+                Whitespace(newlines) => Some(if newlines >= 2 {
+                    Node::Newline
+                } else {
+                    Node::Space
+                }),
 
-                    Whitespace(newlines) => {
-                        tree.add(spanned.map_v(if newlines >= 2 {
-                            Node::Newline
-                        } else {
-                            Node::Space
-                        }));
-                    }
+                LeftBracket => self.parse_func().map(|spanned| {
+                    span = spanned.span;
+                    spanned.v
+                }),
 
-                    LeftBracket => {
-                        if let Some(func) = self.parse_func() {
-                            tree.add(func);
-                        }
-                    }
+                Star       => Some(Node::ToggleBolder),
+                Underscore => Some(Node::ToggleItalic),
+                Backtick   => Some(Node::ToggleMonospace),
+                Text(text) => Some(Node::Text(text.to_owned())),
 
-                    Star       => tree.add(spanned.map_v(Node::ToggleBolder)),
-                    Underscore => tree.add(spanned.map_v(Node::ToggleItalic)),
-                    Backtick   => tree.add(spanned.map_v(Node::ToggleMonospace)),
-                    Text(text) => tree.add(spanned.map_v(Node::Text(text.to_owned()))),
-
-                    _ => self.unexpected(spanned),
+                _ => {
+                    self.unexpected(token);
+                    None
                 }
-            } else {
-                break;
+            };
+
+            if let Some(v) = node {
+                model.add(Spanned { v, span });
             }
         }
 
-        (tree, self.colorization, self.error_map)
+        Parsed {
+            output: model,
+            errors: self.errors,
+            decorations: self.decorations,
+        }
     }
 
     /// Parses a function including header and body with the cursor starting
@@ -90,12 +93,55 @@ impl<'s> Parser<'s> {
             self.expected_at("closing bracket", self.pos());
         }
 
-        let call = self.parse_func_call(header)?;
+        let body = if self.peekv() == Some(LeftBracket) {
+            self.eat();
+
+            let start_index = self.tokens.index();
+            let start_position = self.tokens.pos();
+
+            let found = self.tokens.move_to_closing_bracket();
+
+            let end_index = self.tokens.index();
+            let end_position = self.tokens.pos();
+
+            let body = &self.src[start_index .. end_index];
+
+            self.position = end_position;
+
+            if found {
+                let next = self.eat().map(Spanned::value);
+                debug_assert_eq!(next, Some(RightBracket));
+            } else {
+                self.expected_at("closing bracket", self.pos());
+            }
+
+            Some(Spanned::new(body, Span::new(start_position, end_position)))
+        } else {
+            None
+        };
+
+        let header = header?;
+        let (parser, decoration) = match self.ctx.scope.get_parser(header.name.v.as_str()) {
+            Ok(parser) => (parser, Decoration::ValidFuncName),
+            Err(parser) => {
+                let error = Error::new(format!("unknown function: `{}`", header.name.v));
+                self.errors.push(Spanned::new(error, header.name.span));
+                (parser, Decoration::InvalidFuncName)
+            }
+        };
+
+        self.decorations.push(Spanned::new(decoration, header.name.span));
+
+        let parsed = parser(header, body, self.ctx);
+        self.errors.extend(offset_spans(parsed.errors, start));
+        self.decorations.extend(offset_spans(parsed.decorations, start));
+
+        let node = Node::Model(parsed.output);
 
         let end = self.pos();
         let span = Span { start, end };
 
-        Some(Spanned { v: Node::Func(call), span })
+        Some(Spanned { v: node, span })
     }
 
     /// Parses a function header including the closing bracket.
@@ -125,7 +171,6 @@ impl<'s> Parser<'s> {
         match self.peek() {
             Some(Spanned { v: ExprIdent(ident), span }) => {
                 self.eat();
-                self.colorization.replace_last(ColorToken::FuncName);
                 return Some(Spanned { v: Ident(ident.to_string()), span });
             }
             other => self.expected_found_or_at("identifier", other, self.pos()),
@@ -144,8 +189,7 @@ impl<'s> Parser<'s> {
             match self.peekv() {
                 Some(RightBracket) | None => break,
                 _ => match self.parse_arg() {
-                    Some(Arg::Pos(item)) => args.add_pos(item),
-                    Some(Arg::Key(pair)) => args.add_key_pair(pair),
+                    Some(arg) => args.add(arg),
                     None => {}
                 }
             }
@@ -165,10 +209,10 @@ impl<'s> Parser<'s> {
 
             let ident = Ident(ident.to_string());
             if let Some(Equals) = self.peekv() {
-                self.colorization.replace_last(ColorToken::Key);
-
                 self.eat();
                 self.skip_whitespace();
+
+                self.decorations.push(Spanned::new(Decoration::ArgumentKey, span));
 
                 self.parse_expr().map(|value| {
                     Arg::Key(Pair {
@@ -251,42 +295,6 @@ impl<'s> Parser<'s> {
         Spanned { v: Expression::Object(Object::new()), span }
     }
 
-    /// Parse the body of a function invocation.
-    fn parse_func_call(&mut self, header: Option<FuncHeader>) -> Option<FuncCall> {
-        let body = if self.peekv() == Some(LeftBracket) {
-            self.eat();
-
-            let start = self.tokens.index();
-            let found = self.tokens.move_to_closing_bracket();
-            let end = self.tokens.index();
-
-            self.last_position = self.position;
-            self.position = self.tokens.pos();
-
-            let body = &self.src[start .. end];
-
-            if found {
-                let next = self.eat().map(Spanned::value);
-                debug_assert_eq!(next, Some(RightBracket));
-            } else {
-                self.expected_at("closing bracket", self.pos());
-            }
-
-            Some(body)
-        } else {
-            None
-        };
-
-        let header = header?;
-        let parser = self.ctx.scope.get_parser(header.name.v.as_str()).or_else(|| {
-            let message = format!("unknown function: `{}`", header.name.v);
-            self.error_map.add(message, header.name.span);
-            None
-        })?;
-
-        parser(header, body, self.ctx).ok().map(|f| FuncCall(f))
-    }
-
     /// Skip all whitespace/comment tokens.
     fn skip_whitespace(&mut self) {
         self.eat_until(|t|
@@ -296,14 +304,16 @@ impl<'s> Parser<'s> {
     /// Add an error about an `thing` which was expected but not found at the
     /// given position.
     fn expected_at(&mut self, thing: &str, pos: Position) {
-        self.error_map.add_at(format!("expected {}", thing), pos);
+        let error = Error::new(format!("expected {}", thing));
+        self.errors.push(Spanned::new(error, Span::at(pos)));
     }
 
     /// Add an error about an expected `thing` which was not found, showing
     /// what was found instead.
     fn expected_found(&mut self, thing: &str, found: Spanned<Token>) {
         let message = format!("expected {}, found {}", thing, name(found.v));
-        self.error_map.add(message, found.span);
+        let error = Error::new(message);
+        self.errors.push(Spanned::new(error, found.span));
     }
 
     /// Add a found-error if `found` is some and a positional error, otherwise.
@@ -321,7 +331,8 @@ impl<'s> Parser<'s> {
 
     /// Add an error about an unexpected token `found`.
     fn unexpected(&mut self, found: Spanned<Token>) {
-        self.error_map.add(format!("unexpected {}", name(found.v)), found.span);
+        let error = Error::new(format!("unexpected {}", name(found.v)));
+        self.errors.push(Spanned::new(error, found.span));
     }
 
     /// Consume tokens until the function returns true and only consume the last
@@ -348,10 +359,6 @@ impl<'s> Parser<'s> {
             .unwrap_or_else(|| self.tokens.next());
 
         if let Some(token) = token {
-            if let Some(color) = color(token.v) {
-                self.colorization.add(color, token.span);
-            }
-
             self.last_position = self.position;
             self.position = token.span.end;
         }
@@ -406,24 +413,4 @@ fn name(token: Token) -> &'static str {
         Backtick      => "backtick",
         Text(_)       => "invalid identifier",
     }
-}
-
-/// The color token corresponding to a token.
-fn color(token: Token) -> Option<ColorToken> {
-    Some(match token {
-        LineComment(_) | BlockComment(_) => ColorToken::Comment,
-        LeftBracket    | RightBracket    => ColorToken::Bracket,
-        LeftParen      | RightParen      => ColorToken::Paren,
-        LeftBrace      | RightBrace      => ColorToken::Brace,
-        Colon         => ColorToken::Colon,
-        Comma         => ColorToken::Comma,
-        Equals        => ColorToken::Equals,
-        ExprIdent(_)  => ColorToken::ExprIdent,
-        ExprStr(_)    => ColorToken::ExprStr,
-        ExprNumber(_) => ColorToken::ExprNumber,
-        ExprSize(_)   => ColorToken::ExprSize,
-        ExprBool(_)   => ColorToken::ExprBool,
-        StarSlash     => ColorToken::Invalid,
-        _ => return None,
-    })
 }

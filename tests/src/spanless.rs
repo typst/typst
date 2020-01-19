@@ -13,15 +13,17 @@ impl SpanlessEq<Vec<Spanned<Token<'_>>>> for Vec<Spanned<Token<'_>>> {
     }
 }
 
-impl SpanlessEq<SyntaxTree> for SyntaxTree {
-    fn spanless_eq(&self, other: &SyntaxTree) -> bool {
-        fn downcast(func: &FuncCall) -> &DebugFn {
-            func.0.downcast::<DebugFn>().expect("not a debug fn")
+impl SpanlessEq<SyntaxModel> for SyntaxModel {
+    fn spanless_eq(&self, other: &SyntaxModel) -> bool {
+        fn downcast(func: &dyn Model) -> &DebugFn {
+            func.downcast::<DebugFn>().expect("not a debug fn")
         }
 
         self.nodes.len() == other.nodes.len()
         && self.nodes.iter().zip(&other.nodes).all(|(x, y)| match (&x.v, &y.v) {
-            (Node::Func(a), Node::Func(b)) => downcast(a).spanless_eq(downcast(b)),
+            (Node::Model(a), Node::Model(b)) => {
+                downcast(a.as_ref()).spanless_eq(downcast(b.as_ref()))
+            }
             (a, b) => a == b,
         })
     }

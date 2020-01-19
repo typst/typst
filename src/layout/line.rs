@@ -67,18 +67,21 @@ impl LineLayouter {
     }
 
     /// Add a layout to the run.
-    pub fn add(&mut self, layout: Layout) -> LayoutResult<()> {
+    pub fn add(&mut self, layout: Layout) {
         let axes = self.ctx.axes;
 
         if let Some(alignment) = self.run.alignment {
             if layout.alignment.secondary != alignment.secondary {
-                if self.stack.is_fitting_alignment(layout.alignment) {
-                    self.finish_line()?;
+                // TODO: Issue warning for non-fitting alignment in
+                //       non-repeating context.
+                let fitting = self.stack.is_fitting_alignment(layout.alignment);
+                if !fitting && self.ctx.repeat {
+                    self.finish_space(true);
                 } else {
-                    self.finish_space(true)?;
+                    self.finish_line();
                 }
             } else if layout.alignment.primary < alignment.primary {
-                self.finish_line()?;
+                self.finish_line();
 
             } else if layout.alignment.primary > alignment.primary {
                 let mut rest_run = LineRun::new();
@@ -92,7 +95,7 @@ impl LineLayouter {
 
                 rest_run.size.y = self.run.size.y;
 
-                self.finish_line()?;
+                self.finish_line();
                 self.stack.add_spacing(-rest_run.size.y, SpacingKind::Hard);
 
                 self.run = rest_run;
@@ -105,16 +108,14 @@ impl LineLayouter {
 
         let size = layout.dimensions.generalized(axes);
 
-        while !self.usable().fits(size) {
+        if !self.usable().fits(size) {
             if !self.line_is_empty() {
-                self.finish_line()?;
-            } else {
-                if self.stack.space_is_last() && self.stack.space_is_empty() {
-                    error!("cannot fit box of size {} into usable size of {}",
-                        layout.dimensions, self.usable());
-                }
+                self.finish_line();
+            }
 
-                self.finish_space(true)?;
+            // TODO: Issue warning about overflow if there is overflow.
+            if !self.usable().fits(size) {
+                self.stack.skip_to_fitting_space(layout.dimensions);
             }
         }
 
@@ -124,18 +125,15 @@ impl LineLayouter {
         self.run.size.x += size.x;
         self.run.size.y.max_eq(size.y);
         self.run.last_spacing = LastSpacing::None;
-
-        Ok(())
     }
 
     /// Add multiple layouts to the run.
     ///
     /// This function simply calls `add` repeatedly for each layout.
-    pub fn add_multiple(&mut self, layouts: MultiLayout) -> LayoutResult<()> {
+    pub fn add_multiple(&mut self, layouts: MultiLayout) {
         for layout in layouts {
-            self.add(layout)?;
+            self.add(layout);
         }
-        Ok(())
     }
 
     /// The remaining usable size in the run.
@@ -180,20 +178,16 @@ impl LineLayouter {
     }
 
     /// Finish the run and add secondary spacing to the underlying stack.
-    pub fn add_secondary_spacing(
-        &mut self,
-        spacing: Size,
-        kind: SpacingKind
-    ) -> LayoutResult<()> {
-        self.finish_line_if_not_empty()?;
-        Ok(self.stack.add_spacing(spacing, kind))
+    pub fn add_secondary_spacing(&mut self, spacing: Size, kind: SpacingKind) {
+        self.finish_line_if_not_empty();
+        self.stack.add_spacing(spacing, kind)
     }
 
     /// Change the layouting axes used by this layouter.
-    pub fn set_axes(&mut self, axes: LayoutAxes) -> LayoutResult<()> {
-        self.finish_line_if_not_empty()?;
+    pub fn set_axes(&mut self, axes: LayoutAxes) {
+        self.finish_line_if_not_empty();
         self.ctx.axes = axes;
-        Ok(self.stack.set_axes(axes))
+        self.stack.set_axes(axes)
     }
 
     /// Change the layouting spaces to use.
@@ -224,19 +218,19 @@ impl LineLayouter {
     }
 
     /// Finish the last line and compute the final multi-layout.
-    pub fn finish(mut self) -> LayoutResult<MultiLayout> {
-        self.finish_line_if_not_empty()?;
+    pub fn finish(mut self) -> MultiLayout {
+        self.finish_line_if_not_empty();
         self.stack.finish()
     }
 
     /// Finish the currently active space and start a new one.
-    pub fn finish_space(&mut self, hard: bool) -> LayoutResult<()> {
-        self.finish_line_if_not_empty()?;
+    pub fn finish_space(&mut self, hard: bool) {
+        self.finish_line_if_not_empty();
         self.stack.finish_space(hard)
     }
 
     /// Add the current line to the stack and start a new line.
-    pub fn finish_line(&mut self) -> LayoutResult<()> {
+    pub fn finish_line(&mut self) {
         let mut actions = LayoutActions::new();
 
         let layouts = std::mem::replace(&mut self.run.layouts, vec![]);
@@ -257,21 +251,17 @@ impl LineLayouter {
             alignment: self.run.alignment
                 .unwrap_or(LayoutAlignment::new(Origin, Origin)),
             actions: actions.to_vec(),
-        })?;
+        });
 
         self.run = LineRun::new();
 
-        self.stack.add_spacing(self.ctx.line_spacing, LINE_KIND);
-
-        Ok(())
+        self.stack.add_spacing(self.ctx.line_spacing, SpacingKind::LINE);
     }
 
     /// Finish the current line if it is not empty.
-    fn finish_line_if_not_empty(&mut self) -> LayoutResult<()> {
+    fn finish_line_if_not_empty(&mut self) {
         if !self.line_is_empty() {
             self.finish_line()
-        } else {
-            Ok(())
         }
     }
 }

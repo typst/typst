@@ -6,6 +6,14 @@ use crate::style::TextStyle;
 use super::*;
 
 
+/// Layouts text into a box.
+///
+/// There is no complex layout involved. The text is simply laid out left-
+/// to-right using the correct font for each character.
+pub async fn layout_text(text: &str, ctx: TextContext<'_, '_>) -> Layout {
+    TextLayouter::new(text, ctx).layout().await
+}
+
 /// The context for text layouting.
 ///
 /// See [`LayoutContext`] for details about the fields.
@@ -15,14 +23,6 @@ pub struct TextContext<'a, 'p> {
     pub style: &'a TextStyle,
     pub axes: LayoutAxes,
     pub alignment: LayoutAlignment,
-}
-
-/// Layouts text into a box.
-///
-/// There is no complex layout involved. The text is simply laid out left-
-/// to-right using the correct font for each character.
-pub async fn layout_text(text: &str, ctx: TextContext<'_, '_>) -> LayoutResult<Layout> {
-    TextLayouter::new(text, ctx).layout().await
 }
 
 /// Layouts text into boxes.
@@ -49,14 +49,14 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
     }
 
     /// Layout the text
-    async fn layout(mut self) -> LayoutResult<Layout> {
+    async fn layout(mut self) -> Layout {
         if self.ctx.axes.primary.is_positive() {
             for c in self.text.chars() {
-                self.layout_char(c).await?;
+                self.layout_char(c).await;
             }
         } else {
             for c in self.text.chars().rev() {
-                self.layout_char(c).await?;
+                self.layout_char(c).await;
             }
         }
 
@@ -64,16 +64,20 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
             self.actions.add(LayoutAction::WriteText(self.buffer));
         }
 
-        Ok(Layout {
+        Layout {
             dimensions: Size2D::new(self.width, self.ctx.style.font_size()),
             alignment: self.ctx.alignment,
             actions: self.actions.to_vec(),
-        })
+        }
     }
 
     /// Layout an individual character.
-    async fn layout_char(&mut self, c: char) -> LayoutResult<()> {
-        let (index, char_width) = self.select_font(c).await?;
+    async fn layout_char(&mut self, c: char) {
+        let (index, char_width) = match self.select_font(c).await {
+            Some(selected) => selected,
+            // TODO: Issue warning about missing character.
+            None => return,
+        };
 
         self.width += char_width;
 
@@ -88,13 +92,11 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
         }
 
         self.buffer.push(c);
-
-        Ok(())
     }
 
     /// Select the best font for a character and return its index along with
     /// the width of the char in the font.
-    async fn select_font(&mut self, c: char) -> LayoutResult<(FontIndex, Size)> {
+    async fn select_font(&mut self, c: char) -> Option<(FontIndex, Size)> {
         let mut loader = self.ctx.loader.borrow_mut();
 
         let query = FontQuery {
@@ -104,26 +106,27 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
         };
 
         if let Some((font, index)) = loader.get(query).await {
-            let font_unit_ratio = 1.0 / (font.read_table::<Header>()?.units_per_em as f32);
+            let header = font.read_table::<Header>().ok()?;
+            let font_unit_ratio = 1.0 / (header.units_per_em as f32);
             let font_unit_to_size = |x| Size::pt(font_unit_ratio * x);
 
             let glyph = font
-                .read_table::<CharMap>()?
-                .get(c)
-                .expect("select_font: font should have char");
+                .read_table::<CharMap>()
+                .ok()?
+                .get(c)?;
 
             let glyph_width = font
-                .read_table::<HorizontalMetrics>()?
-                .get(glyph)
-                .expect("select_font: font should have glyph")
+                .read_table::<HorizontalMetrics>()
+                .ok()?
+                .get(glyph)?
                 .advance_width as f32;
 
             let char_width = font_unit_to_size(glyph_width)
                 * self.ctx.style.font_size().to_pt();
 
-            return Ok((index, char_width));
+            Some((index, char_width))
+        } else {
+            None
         }
-
-        error!("no suitable font for character `{}`", c);
     }
 }

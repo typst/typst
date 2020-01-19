@@ -27,13 +27,14 @@ use toddle::query::{FontLoader, FontProvider, SharedFontLoader};
 use toddle::Error as FontError;
 
 use crate::func::Scope;
-use crate::layout::{MultiLayout, LayoutResult};
-use crate::syntax::{parse, SyntaxTree, Colorization, ErrorMap, ParseContext, Span};
+use crate::layout::{Layouted, LayoutContext, MultiLayout};
+use crate::syntax::{parse, ParseContext, Parsed, SyntaxModel, Position};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 
 #[macro_use]
 mod macros;
 pub mod export;
+pub mod error;
 #[macro_use]
 pub mod func;
 pub mod layout;
@@ -51,6 +52,8 @@ pub struct Typesetter<'p> {
     loader: SharedFontLoader<'p>,
     /// The base layouting style.
     style: LayoutStyle,
+    /// The standard library scope.
+    scope: Scope,
 }
 
 impl<'p> Typesetter<'p> {
@@ -59,6 +62,7 @@ impl<'p> Typesetter<'p> {
         Typesetter {
             loader: RefCell::new(FontLoader::new()),
             style: LayoutStyle::default(),
+            scope: Scope::with_std(),
         }
     }
 
@@ -84,17 +88,16 @@ impl<'p> Typesetter<'p> {
     }
 
     /// Parse source code into a syntax tree.
-    pub fn parse(&self, src: &str) -> (SyntaxTree, Colorization, ErrorMap) {
-        let scope = Scope::with_std();
-        parse(src, ParseContext { scope: &scope })
+    pub fn parse(&self, src: &str) -> Parsed<SyntaxModel> {
+        parse(Position::ZERO, src, ParseContext { scope: &self.scope })
     }
 
     /// Layout a syntax tree and return the produced layout.
-    pub async fn layout(&self, tree: &SyntaxTree) -> LayoutResult<MultiLayout> {
+    pub async fn layout(&self, model: &SyntaxModel) -> Layouted<MultiLayout> {
         use crate::layout::prelude::*;
         let margins = self.style.page.margins();
-        Ok(layout(
-            &tree,
+        layout(
+            &model,
             LayoutContext {
                 loader: &self.loader,
                 style: &self.style,
@@ -110,42 +113,12 @@ impl<'p> Typesetter<'p> {
                 nested: false,
                 debug: false,
             },
-        ).await?)
+        ).await
     }
 
-    /// Process source code directly into a layout.
-    pub async fn typeset(&self, src: &str) -> TypesetResult<MultiLayout> {
-        let tree = self.parse(src).0;
-        let layout = self.layout(&tree).await?;
-        Ok(layout)
+    /// Process source code directly into a collection of layouts.
+    pub async fn typeset(&self, src: &str) -> MultiLayout {
+        let tree = self.parse(src).output;
+        self.layout(&tree).await.output
     }
-}
-
-/// The result type for typesetting.
-pub type TypesetResult<T> = Result<T, TypesetError>;
-
-/// The error type for typesetting.
-pub struct TypesetError {
-    pub message: String,
-    pub span: Option<Span>,
-}
-
-impl TypesetError {
-    /// Create a new typesetting error.
-    pub fn with_message(message: impl Into<String>) -> TypesetError {
-        TypesetError { message: message.into(), span: None }
-    }
-}
-
-error_type! {
-    self: TypesetError,
-    show: f => {
-        write!(f, "{}", self.message)?;
-        if let Some(span) = self.span {
-            write!(f, " at {}", span)?;
-        }
-        Ok(())
-    },
-    from: (err: std::io::Error, TypesetError::with_message(err.to_string())),
-    from: (err: FontError, TypesetError::with_message(err.to_string())),
 }

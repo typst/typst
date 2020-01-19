@@ -4,23 +4,20 @@ use std::io::{self, Write};
 use smallvec::SmallVec;
 use toddle::query::{SharedFontLoader, FontIndex};
 
+use crate::error::Error;
+use crate::syntax::SpanVec;
 use crate::size::{Size, Size2D, SizeBox};
 use crate::style::LayoutStyle;
 
 mod actions;
-mod tree;
+mod model;
 mod line;
 mod stack;
 mod text;
 
 /// Common types for layouting.
 pub mod prelude {
-    pub use super::{
-        layout, LayoutResult,
-        MultiLayout, Layout, LayoutContext, LayoutSpaces, LayoutSpace,
-        LayoutExpansion, LayoutAxes, GenericAxis, SpecificAxis, Direction,
-        LayoutAlignment, Alignment, SpacingKind,
-    };
+    pub use super::*;
     pub use GenericAxis::*;
     pub use SpecificAxis::*;
     pub use Direction::*;
@@ -29,7 +26,7 @@ pub mod prelude {
 
 /// Different kinds of layouters (fully re-exported).
 pub mod layouters {
-    pub use super::tree::layout;
+    pub use super::model::layout;
     pub use super::line::{LineLayouter, LineContext};
     pub use super::stack::{StackLayouter, StackContext};
     pub use super::text::{layout_text, TextContext};
@@ -40,8 +37,19 @@ pub use self::layouters::*;
 pub use self::prelude::*;
 
 
-/// The result type for layouting.
-pub type LayoutResult<T> = crate::TypesetResult<T>;
+pub struct Layouted<T> {
+    pub output: T,
+    pub errors: SpanVec<Error>,
+}
+
+impl<T> Layouted<T> {
+    pub fn map<F, U>(self, f: F) -> Layouted<U> where F: FnOnce(T) -> U {
+        Layouted {
+            output: f(self.output),
+            errors: self.errors,
+        }
+    }
+}
 
 /// A collection of layouts.
 pub type MultiLayout = Vec<Layout>;
@@ -361,14 +369,16 @@ pub enum SpacingKind {
     Soft(u32),
 }
 
-/// The standard spacing kind used for paragraph spacing.
-const PARAGRAPH_KIND: SpacingKind = SpacingKind::Soft(1);
+impl SpacingKind {
+    /// The standard spacing kind used for paragraph spacing.
+    pub const PARAGRAPH: SpacingKind = SpacingKind::Soft(1);
 
-/// The standard spacing kind used for line spacing.
-const LINE_KIND: SpacingKind = SpacingKind::Soft(2);
+    /// The standard spacing kind used for line spacing.
+    pub const LINE: SpacingKind = SpacingKind::Soft(2);
 
-/// The standard spacing kind used for word spacing.
-const WORD_KIND: SpacingKind = SpacingKind::Soft(1);
+    /// The standard spacing kind used for word spacing.
+    pub const WORD: SpacingKind = SpacingKind::Soft(1);
+}
 
 /// The last appeared spacing.
 #[derive(Debug, Copy, Clone, PartialEq)]

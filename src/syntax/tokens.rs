@@ -1,21 +1,80 @@
 use std::iter::Peekable;
 use std::str::Chars;
+use unicode_xid::UnicodeXID;
 
 use super::*;
 use Token::*;
 use State::*;
 
 
+/// A minimal semantic entity of source code.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Token<'s> {
+    /// One or more whitespace characters. The contained `usize` denotes the
+    /// number of newlines that were contained in the whitespace.
+    Whitespace(usize),
+
+    /// A line comment with inner string contents `//<&'s str>\n`.
+    LineComment(&'s str),
+    /// A block comment with inner string contents `/*<&'s str>*/`. The comment
+    /// can contain nested block comments.
+    BlockComment(&'s str),
+    /// An erroneous `*/` without an opening block comment.
+    StarSlash,
+
+    /// A left bracket: `[`.
+    LeftBracket,
+    /// A right bracket: `]`.
+    RightBracket,
+
+    /// A left parenthesis in a function header: `(`.
+    LeftParen,
+    /// A right parenthesis in a function header: `)`.
+    RightParen,
+    /// A left brace in a function header: `{`.
+    LeftBrace,
+    /// A right brace in a function header: `}`.
+    RightBrace,
+
+    /// A colon in a function header: `:`.
+    Colon,
+    /// A comma in a function header: `:`.
+    Comma,
+    /// An equals sign in a function header: `=`.
+    Equals,
+
+    /// An identifier in a function header: `center`.
+    ExprIdent(&'s str),
+    /// A quoted string in a function header: `"..."`.
+    ExprStr(&'s str),
+    /// A number in a function header: `3.14`.
+    ExprNumber(f64),
+    /// A size in a function header: `12pt`.
+    ExprSize(Size),
+    /// A boolean in a function header: `true | false`.
+    ExprBool(bool),
+
+    /// A star in body-text.
+    Star,
+    /// An underscore in body-text.
+    Underscore,
+    /// A backtick in body-text.
+    Backtick,
+
+    /// Any other consecutive string.
+    Text(&'s str),
+}
+
 /// Decomposes text into a sequence of semantic tokens.
-pub fn tokenize(src: &str) -> Tokens {
-    Tokens::new(src)
+pub fn tokenize(start: Position, src: &str) -> Tokens {
+    Tokens::new(start, src)
 }
 
 /// An iterator over the tokens of a string of source code.
 pub struct Tokens<'s> {
     src: &'s str,
     state: State,
-    stack: Vec<State>,
+    stack: Vec<(State, Position)>,
     iter: Peekable<Chars<'s>>,
     position: Position,
     index: usize,
@@ -29,13 +88,13 @@ enum State {
 }
 
 impl<'s> Tokens<'s> {
-    pub fn new(src: &'s str) -> Tokens<'s> {
+    pub fn new(start: Position, src: &'s str) -> Tokens<'s> {
         Tokens {
             src,
             state: State::Body,
             stack: vec![],
             iter: src.chars().peekable(),
-            position: Position::ZERO,
+            position: start,
             index: 0,
         }
     }
@@ -47,7 +106,7 @@ impl<'s> Tokens<'s> {
     }
 
     /// The line-colunn position in the source at which the last token ends and
-    /// next token will start.
+    /// next token will start. This position is
     pub fn pos(&self) -> Position {
         self.position
     }
@@ -101,11 +160,13 @@ impl<'s> Iterator for Tokens<'s> {
 
             // Functions.
             '[' => {
-                if self.state == Header || self.state == Body {
-                    self.stack.push(self.state);
-                    self.state = Header;
-                } else {
-                    self.state = Body;
+                match self.state {
+                    Header | Body => {
+                        self.stack.push((self.state, start));
+                        self.position = Position::new(0, '['.len_utf8());
+                        self.state = Header;
+                    }
+                    StartBody => self.state = Body,
                 }
 
                 LeftBracket
@@ -114,7 +175,12 @@ impl<'s> Iterator for Tokens<'s> {
                 if self.state == Header && self.peek() == Some('[') {
                     self.state = StartBody;
                 } else {
-                    self.state = self.stack.pop().unwrap_or(Body);
+                    if let Some((state, pos)) = self.stack.pop() {
+                        self.state = state;
+                        self.position = pos + self.position;
+                    } else {
+                        self.state = Body;
+                    }
                 }
 
                 RightBracket

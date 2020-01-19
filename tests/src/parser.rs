@@ -107,23 +107,22 @@ macro_rules! case {
     (ps $($rest:tt)*) => (case!(@parse PartialEq::eq, $($rest)*));
 
     (@parse $cmp:expr, $src:expr, [$($e:tt)*]) => ({
-        let expected = SyntaxTree { nodes: list!(nodes [$($e)*]) };
+        let expected = SyntaxModel { nodes: list!(nodes [$($e)*]) };
         let found = parse($src, ParseContext { scope: &scope() }).0;
         ($cmp(&found, &expected), expected, found)
     });
 
     (c $src:expr, [$($e:tt)*]) => ({
-        let expected = Colorization { tokens: list!(colors [$($e)*]) };
+        let expected = Colorization { tokens: list!(decorations [$($e)*]) };
         let found = parse($src, ParseContext { scope: &scope() }).1;
         (expected == found, expected, found)
     });
 
     (e $src:expr, [$($e:tt)*]) => ({
-        let errors = list!([$($e)*]).into_iter()
+        let expected = list!([$($e)*]).into_iter()
             .map(|s| s.map(|m| m.to_string()))
             .collect();
 
-        let expected = ErrorMap { errors };
         let found = parse($src, ParseContext { scope: &scope() }).2;
         (expected == found, expected, found)
     });
@@ -131,7 +130,7 @@ macro_rules! case {
 
 /// A scope containing the `DebugFn` as a fallback.
 fn scope() -> Scope {
-    Scope::with_debug::<DebugFn>()
+    Scope::with_fallback::<DebugFn>()
 }
 
 /// Parses possibly-spanned lists of token or node expressions.
@@ -182,7 +181,7 @@ macro_rules! func {
         $(positional = list!(expr [$($p)*]);)?
         $(keyword = list!(expr [$($k)*]);)?
 
-        Node::Func(FuncCall(Box::new(DebugFn {
+        Node::Model(Box::new(DebugFn {
             header: FuncHeader {
                 name: zspan(Ident($name.to_string())),
                 args: FuncArgs {
@@ -191,10 +190,10 @@ macro_rules! func {
                 },
             },
             body: func!(@body $($b)*),
-        })))
+        }))
     });
 
-    (@body Some($($b:tt)*)) => (Some(SyntaxTree { nodes: list!(nodes $($b)*) }));
+    (@body Some($($b:tt)*)) => (Some(SyntaxModel{ nodes: list!(nodes $($b)*) }));
     (@body None) => (None);
 }
 
@@ -270,27 +269,8 @@ mod cuts {
         }
     }
 
-    pub mod colors {
-        pub use typstc::syntax::ColorToken::{
-            Comment as C,
-            Bracket as B,
-            FuncName as FN,
-            Colon as CL,
-            Key as K,
-            Equals as EQ,
-            Comma as CM,
-            Paren as P,
-            Brace as BR,
-            ExprIdent as ID,
-            ExprStr as STR,
-            ExprNumber as NUM,
-            ExprSize as SIZE,
-            ExprBool as BOOL,
-            Bold as BD,
-            Italic as IT,
-            Monospace as MS,
-            Invalid as INV,
-        };
+    pub mod decorations {
+        pub use typstc::syntax::Decoration::*;
     }
 
     pub mod expr {

@@ -1,6 +1,7 @@
 //! Spans map elements to the part of source code they originate from.
 
 use std::fmt::{self, Debug, Display, Formatter};
+use std::ops::{Add, AddAssign};
 use serde::Serialize;
 
 
@@ -100,6 +101,30 @@ impl Position {
     }
 }
 
+impl Add for Position {
+    type Output = Position;
+
+    fn add(self, rhs: Position) -> Position {
+        if rhs.line == 0 {
+            Position {
+                line: self.line,
+                column: self.column + rhs.column
+            }
+        } else {
+            Position {
+                line: self.line + rhs.line,
+                column: rhs.column,
+            }
+        }
+    }
+}
+
+impl AddAssign for Position {
+    fn add_assign(&mut self, other: Position) {
+        *self = *self + other;
+    }
+}
+
 impl Display for Position {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}:{}", self.line, self.column)
@@ -107,3 +132,18 @@ impl Display for Position {
 }
 
 debug_display!(Position);
+
+/// A vector of spanned things.
+pub type SpanVec<T> = Vec<Spanned<T>>;
+
+pub fn offset_spans<T>(
+    vec: SpanVec<T>,
+    start: Position,
+) -> impl Iterator<Item=Spanned<T>> {
+    vec.into_iter()
+        .map(move |mut spanned| {
+            spanned.span.start += start;
+            spanned.span.end += start;
+            spanned
+        })
+}

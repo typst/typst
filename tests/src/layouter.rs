@@ -76,10 +76,7 @@ fn test(name: &str, src: &str) -> DynResult<()> {
     let font_paths = provider.paths();
     typesetter.add_font_provider(provider);
 
-    let layouts = match compile(&typesetter, src) {
-        Some(layouts) => layouts,
-        None => return Ok(()),
-    };
+    let layouts = compile(&typesetter, src);
 
     // Compute the font's paths.
     let mut fonts = HashMap::new();
@@ -122,40 +119,32 @@ fn test(name: &str, src: &str) -> DynResult<()> {
 }
 
 /// Compile the source code with the typesetter.
-fn compile(typesetter: &Typesetter, src: &str) -> Option<MultiLayout> {
+fn compile(typesetter: &Typesetter, src: &str) -> MultiLayout {
     #[cfg(not(debug_assertions))] {
         use std::time::Instant;
 
         // Warmup.
         let warmup_start = Instant::now();
-        let is_ok = block_on(typesetter.typeset(&src)).is_ok();
+        block_on(typesetter.typeset(&src));
         let warmup_end = Instant::now();
 
-        // Only continue if the typesetting was successful.
-        if is_ok {
-            let start = Instant::now();
-            let tree = typesetter.parse(&src).unwrap();
-            let mid = Instant::now();
-            block_on(typesetter.layout(&tree)).unwrap();
-            let end = Instant::now();
+        let start = Instant::now();
+        let tree = typesetter.parse(&src).output;
+        let mid = Instant::now();
+        let layouts = block_on(typesetter.layout(&tree)).output;
+        let end = Instant::now();
 
-            println!(" - cold start:  {:?}", warmup_end - warmup_start);
-            println!(" - warmed up:   {:?}", end - start);
-            println!("   - parsing:   {:?}", mid - start);
-            println!("   - layouting: {:?}", end - mid);
-            println!();
-        }
-    };
+        println!(" - cold start:  {:?}", warmup_end - warmup_start);
+        println!(" - warmed up:   {:?}", end - start);
+        println!("   - parsing:   {:?}", mid - start);
+        println!("   - layouting: {:?}", end - mid);
+        println!();
 
-    match block_on(typesetter.typeset(&src)) {
-        Ok(layouts) => Some(layouts),
-        Err(err) => {
-            println!(" - compilation failed: {}", err);
-            #[cfg(not(debug_assertions))]
-            println!();
-            None
-        }
+        layouts
     }
+
+    #[cfg(debug_assertions)]
+    block_on(typesetter.typeset(&src))
 }
 
 /// Command line options.

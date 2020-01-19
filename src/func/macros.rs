@@ -1,131 +1,76 @@
 //! Helper types and macros for creating custom functions.
 
 
-/// Defines function types concisely.
 #[macro_export]
 macro_rules! function {
-    // Parse a unit struct.
-    ($(#[$outer:meta])* pub struct $type:ident; $($rest:tt)*) => {
-        $(#[$outer])* pub struct $type;
-        function!(@meta $type | $($rest)*);
+    // Entry point.
+    ($(#[$outer:meta])* $v:vis $storage:ident $name:ident $($r:tt)*) => {
+        function!(@def($name) $(#[$outer])* $v $storage $name $($r)*);
+    };
+    (@def($name:ident) $definition:item $($r:tt)*) => {
+        $definition
+        function!(@meta($name) $($r)*);
     };
 
-    // Parse a tuple struct.
-    ($(#[$outer:meta])* pub struct $type:ident($($fields:tt)*); $($rest:tt)*) => {
-        $(#[$outer])* pub struct $type($($fields)*);
-        function!(@meta $type | $($rest)*);
+    // Metadata.
+    (@meta($name:ident) type Meta = $meta:ty; $($r:tt)*) => {
+        function!(@parse($name, $meta) $($r)*);
+    };
+    (@meta($name:ident) $($r:tt)*) => {
+        function!(@parse($name, ()) $($r)*);
     };
 
-    // Parse a struct with fields.
-    ($(#[$outer:meta])* pub struct $type:ident { $($fields:tt)* } $($rest:tt)*) => {
-        $(#[$outer])* pub struct $type { $($fields)* }
-        function!(@meta $type | $($rest)*);
+    // Parse trait.
+    (@parse($($a:tt)*) parse(default) $($r:tt)*) => {
+        function!(@parse($($a)*) parse() { Default::default() } $($r)*);
     };
-
-    // Parse an enum.
-    ($(#[$outer:meta])* pub enum $type:ident { $($fields:tt)* } $($rest:tt)*) => {
-        $(#[$outer])* pub enum $type { $($fields)* }
-        function!(@meta $type | $($rest)*);
+    (@parse($($a:tt)*) parse($h:ident, $b:ident, $c:ident, $e:ident, $d:ident) $($r:tt)* ) => {
+        function!(@parse($($a)*) parse($h, $b, $c, $e, $d, _metadata) $($r)*);
     };
-
-    // Parse a metadata type definition.
-    (@meta $type:ident | type Meta = $meta:ty; $($rest:tt)*) => {
-        function!(@parse $type $meta | $($rest)*);
-    };
-
-    // Set the metadata to `()` if there is no type definition.
-    (@meta $type:ident | $($rest:tt)*) => {
-        function!(@parse $type () | $($rest)*);
-    };
-
-    // Parse a `parse(default)`.
-    (@parse $type:ident $meta:ty | parse(default) $($rest:tt)*) => {
-        function!(@parse $type $meta |
-            parse(_args, _body, _ctx, _meta) { Default::default() }
-            $($rest)*
-        );
-    };
-
-    // (0-arg) Parse a parse-definition without arguments.
-    (@parse $type:ident $meta:ty | parse() $code:block $($rest:tt)*) => {
-        function!(@parse $type $meta | parse(_args, _body, _ctx, _meta) $code $($rest)*);
-    };
-
-    // (1-arg) Parse a parse-definition with only the first argument.
-    (@parse $type:ident $meta:ty | parse($header:ident) $code:block $($rest:tt)*) => {
-        function!(@parse $type $meta | parse($header, _body, _ctx, _meta) $code $($rest)*);
-    };
-
-    // (2-arg) Parse a parse-definition with only the first two arguments.
-    (@parse $type:ident $meta:ty |
-        parse($header:ident, $body:pat) $code:block $($rest:tt)*
-    ) => {
-        function!(@parse $type $meta | parse($header, $body, _ctx, _meta) $code $($rest)*);
-    };
-
-    // (3-arg) Parse a parse-definition with only the first three arguments.
-    (@parse $type:ident $meta:ty |
-        parse($header:ident, $body:pat, $ctx:pat) $code:block $($rest:tt)*
-    ) => {
-        function!(@parse $type $meta | parse($header, $body, $ctx, _meta) $code $($rest)*);
-    };
-
-    // (4-arg) Parse a parse-definition with all four arguments.
-    (@parse $type:ident $meta:ty |
-        parse($header:ident, $body:pat, $ctx:pat, $metadata:pat) $code:block
-        $($rest:tt)*
-    ) => {
-        impl $crate::func::ParseFunc for $type {
+    (@parse($name:ident, $meta:ty) parse(
+        $header:ident,
+        $body:ident,
+        $ctx:ident,
+        $errors:ident,
+        $decos:ident,
+        $metadata:ident
+    ) $code:block $($r:tt)*) => {
+        impl $crate::func::Parse for $name {
             type Meta = $meta;
 
             fn parse(
-                header: $crate::syntax::FuncHeader,
-                $body: Option<&str>,
-                $ctx: $crate::syntax::ParseContext,
-                $metadata: Self::Meta,
-            ) -> $crate::syntax::ParseResult<Self> where Self: Sized {
-                #[allow(unused_mut)]
-                let mut $header = header;
-                let val = $code;
-                if !$header.args.is_empty() {
-                    return Err($crate::TypesetError::with_message("unexpected arguments"));
-                }
-                Ok(val)
+                #[allow(unused)] mut $header: FuncHeader,
+                #[allow(unused)] $body: Option<Spanned<&str>>,
+                #[allow(unused)] $ctx: ParseContext,
+                #[allow(unused)] $metadata: Self::Meta,
+            ) -> Parsed<Self> where Self: Sized {
+                #[allow(unused)] let mut $errors = vec![];
+                #[allow(unused)] let mut $decos = vec![];
+                let output = $code;
+                $crate::syntax::Parsed { output, errors: $errors, decorations: $decos }
             }
         }
 
-        function!(@layout $type | $($rest)*);
+        function!(@layout($name) $($r)*);
     };
 
-    // (0-arg) Parse a layout-definition without arguments.
-    (@layout $type:ident | layout() $code:block) => {
-        function!(@layout $type | layout(self, _ctx) $code);
-    };
-
-    // (1-arg) Parse a layout-definition with only the first argument.
-    (@layout $type:ident | layout($this:ident) $code:block) => {
-        function!(@layout $type | layout($this, _ctx) $code);
-    };
-
-    // (2-arg) Parse a layout-definition with all arguments.
-    (@layout $type:ident | layout($this:ident, $ctx:pat) $code:block) => {
-        impl $crate::func::LayoutFunc for $type {
-            fn layout<'a, 'life0, 'life1, 'async_trait>(
-                &'a $this,
-                $ctx: $crate::layout::LayoutContext<'life0, 'life1>
-            ) -> std::pin::Pin<Box<dyn std::future::Future<
-                Output = $crate::layout::LayoutResult<
-                    $crate::func::Commands<'a>>
-                > + 'async_trait
-            >>
+    (@layout($name:ident) layout($this:ident, $ctx:ident, $errors:ident) $code:block) => {
+        impl $crate::syntax::Model for $name {
+            fn layout<'a, 'b, 'c, 't>(
+                #[allow(unused)] &'a $this,
+                #[allow(unused)] $ctx: $crate::layout::LayoutContext<'b, 'c>,
+            ) -> $crate::syntax::DynFuture<'t, $crate::layout::Layouted<$crate::func::Commands<'a>>>
             where
-                'a: 'async_trait,
-                'life0: 'async_trait,
-                'life1: 'async_trait,
-                Self: 'async_trait,
+                'a: 't,
+                'b: 't,
+                'c: 't,
+                Self: 't,
             {
-                #[allow(unreachable_code)]
-                Box::pin(async move { Ok($code) })
+                Box::pin(async move {
+                    #[allow(unused)] let mut $errors = vec![];
+                    let output = $code;
+                    $crate::layout::Layouted { output, errors: $errors }
+                })
             }
         }
     };
@@ -137,35 +82,30 @@ macro_rules! function {
 /// - If the function can have a body, use `parse!(optional: body, ctx)`.
 /// - If the function must have a body, use `parse!(expected: body, ctx)`.
 #[macro_export]
-macro_rules! parse {
-    (forbidden: $body:expr) => {
-        if $body.is_some() {
-            return Err($crate::TypesetError::with_message("unexpected body"));
+macro_rules! body {
+    (opt: $body:expr, $ctx:expr, $errors:expr, $decos:expr) => ({
+        $body.map(|body| {
+            let parsed = $crate::syntax::parse(body.span.start, body.v, $ctx);
+            $errors.extend(parsed.errors);
+            $decos.extend(parsed.decorations);
+            parsed.output
+        })
+    });
+
+    (nope: $body:expr, $errors:expr) => {
+        if let Some(body) = $body {
+            $errors.push($crate::err!(body.span, "unexpected body"));
         }
     };
-
-    (optional: $body:expr, $ctx:expr) => (
-        if let Some(body) = $body {
-            Some($crate::syntax::parse(body, $ctx).0)
-        } else {
-            None
-        }
-    );
-
-    (expected: $body:expr, $ctx:expr) => (
-        if let Some(body) = $body {
-            $crate::syntax::parse(body, $ctx).0
-        } else {
-            Err($crate::TypesetError::with_message("unexpected body"))
-        }
-    )
 }
 
-/// Early-return with a formatted typesetting error or construct an error
-/// expression.
+/// Construct a spanned error.
 #[macro_export]
-macro_rules! error {
-    (@unexpected_argument) => (error!(@"unexpected argument"));
-    (@$($tts:tt)*) => ($crate::TypesetError::with_message(format!($($tts)*)));
-    ($($tts:tt)*) => (return Err(error!(@$($tts)*)););
+macro_rules! err {
+    ($span:expr, $($args:tt)*) => {
+        $crate::syntax::Spanned {
+            v: $crate::error::Error::new(format!($($args)*)),
+            span: $span,
+        }
+    };
 }

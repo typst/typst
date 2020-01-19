@@ -68,10 +68,12 @@ impl StackLayouter {
     }
 
     /// Add a layout to the stack.
-    pub fn add(&mut self, layout: Layout) -> LayoutResult<()> {
-        // If the alignment cannot be fit in this space, finish it.
-        if !self.update_rulers(layout.alignment) {
-            self.finish_space(true)?;
+    pub fn add(&mut self, layout: Layout) {
+        // If the alignment cannot be fitted in this space, finish it.
+        // TODO: Issue warning for non-fitting alignment in
+        //       non-repeating context.
+        if !self.update_rulers(layout.alignment) && self.ctx.repeat {
+            self.finish_space(true);
         }
 
         // Now, we add a possibly cached soft space. If the secondary alignment
@@ -81,14 +83,9 @@ impl StackLayouter {
             self.add_spacing(spacing, SpacingKind::Hard);
         }
 
-        // Find the first space that fits the layout.
-        while !self.space.usable.fits(layout.dimensions) {
-            if self.space_is_last() && self.space_is_empty() {
-                error!("cannot fit box of size {} into usable size of {}",
-                    layout.dimensions, self.space.usable);
-            }
-
-            self.finish_space(true)?;
+        // TODO: Issue warning about overflow if there is overflow.
+        if !self.space.usable.fits(layout.dimensions) && self.ctx.repeat {
+            self.skip_to_fitting_space(layout.dimensions);
         }
 
         // Change the usable space and size of the space.
@@ -98,18 +95,15 @@ impl StackLayouter {
         // again.
         self.space.layouts.push((self.ctx.axes, layout));
         self.space.last_spacing = LastSpacing::None;
-
-        Ok(())
     }
 
     /// Add multiple layouts to the stack.
     ///
     /// This function simply calls `add` repeatedly for each layout.
-    pub fn add_multiple(&mut self, layouts: MultiLayout) -> LayoutResult<()> {
+    pub fn add_multiple(&mut self, layouts: MultiLayout) {
         for layout in layouts {
-            self.add(layout)?;
+            self.add(layout);
         }
-        Ok(())
     }
 
     /// Add secondary spacing to the stack.
@@ -215,6 +209,19 @@ impl StackLayouter {
         }
     }
 
+    /// Move to the first space that can fit the given dimensions or do nothing
+    /// if no space is capable of that.
+    pub fn skip_to_fitting_space(&mut self, dimensions: Size2D) {
+        let start = self.next_space();
+        for (index, space) in self.ctx.spaces[start..].iter().enumerate() {
+            if space.usable().fits(dimensions) {
+                self.finish_space(true);
+                self.start_space(start + index, true);
+                return;
+            }
+        }
+    }
+
     /// The remaining unpadded, unexpanding spaces. If a multi-layout is laid
     /// out into these spaces, it will fit into this stack.
     pub fn remaining(&self) -> LayoutSpaces {
@@ -251,19 +258,15 @@ impl StackLayouter {
     }
 
     /// Compute the finished multi-layout.
-    pub fn finish(mut self) -> LayoutResult<MultiLayout> {
+    pub fn finish(mut self) -> MultiLayout {
         if self.space.hard || !self.space_is_empty() {
-            self.finish_space(false)?;
+            self.finish_space(false);
         }
-        Ok(self.layouts)
+        self.layouts
     }
 
     /// Finish the current space and start a new one.
-    pub fn finish_space(&mut self, hard: bool) -> LayoutResult<()> {
-        if !self.ctx.repeat && hard {
-            error!("cannot create new space in a non-repeating context");
-        }
-
+    pub fn finish_space(&mut self, hard: bool) {
         let space = self.ctx.spaces[self.space.index];
 
         // ------------------------------------------------------------------ //
@@ -376,7 +379,7 @@ impl StackLayouter {
         // ------------------------------------------------------------------ //
         // Step 5: Start the next space.
 
-        Ok(self.start_space(self.next_space(), hard))
+        self.start_space(self.next_space(), hard)
     }
 
     /// Start a new space with the given index.

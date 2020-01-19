@@ -1,3 +1,4 @@
+use crate::size::ScaleSize;
 use super::*;
 
 
@@ -126,6 +127,7 @@ impl Display for Object {
     }
 }
 
+/// A key-value pair in an object.
 #[derive(Clone, PartialEq)]
 pub struct Pair {
     pub key: Spanned<Ident>,
@@ -143,7 +145,6 @@ debug_display!(Expression);
 debug_display!(Tuple);
 debug_display!(Object);
 debug_display!(Pair);
-
 
 /// Kinds of expressions.
 pub trait ExpressionKind: Sized {

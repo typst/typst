@@ -3,7 +3,6 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
-use async_trait::async_trait;
 
 use self::prelude::*;
 
@@ -12,81 +11,34 @@ mod macros;
 
 /// Useful imports for creating your own functions.
 pub mod prelude {
-    pub use crate::func::{Scope, ParseFunc, LayoutFunc, Command, Commands};
+    pub use super::{Scope, Parse, Command, Commands};
     pub use crate::layout::prelude::*;
-    pub use crate::syntax::*;
+    pub use crate::syntax::prelude::*;
     pub use crate::size::{Size, Size2D, SizeBox, ValueBox, ScaleSize, FSize, PSize};
     pub use crate::style::{LayoutStyle, PageStyle, TextStyle};
     pub use Command::*;
 }
 
-/// Types representing functions that are parsed from source code.
-pub trait ParseFunc {
+/// Parse a function from source code.
+pub trait Parse {
     type Meta: Clone;
 
     /// Parse the header and body into this function given a context.
     fn parse(
         header: FuncHeader,
-        body: Option<&str>,
+        body: Option<Spanned<&str>>,
         ctx: ParseContext,
         metadata: Self::Meta,
-    ) -> ParseResult<Self> where Self: Sized;
+    ) -> Parsed<Self> where Self: Sized;
 }
 
-/// Function types which can be laid out in a layout context.
-///
-/// This trait is a supertrait of `[LayoutFuncBounds]` for technical reasons.
-/// The trait `[LayoutFuncBounds]` is automatically implemented for types which
-/// can be used as functions, that is, all types which fulfill the bounds `Debug
-/// + PartialEq + 'static`.
-#[async_trait(?Send)]
-pub trait LayoutFunc: LayoutFuncBounds {
-    /// Layout this function in a given context.
-    ///
-    /// Returns a sequence of layouting commands which describe what the
-    /// function is doing.
-    async fn layout<'a>(&'a self, ctx: LayoutContext<'_, '_>) -> LayoutResult<Commands<'a>>;
-}
-
-impl dyn LayoutFunc {
-    /// Downcast a function trait object to a concrete function type.
-    pub fn downcast<F>(&self) -> Option<&F> where F: LayoutFunc + 'static {
-        self.help_cast_as_any().downcast_ref::<F>()
-    }
-}
-
-impl PartialEq for dyn LayoutFunc {
-    fn eq(&self, other: &dyn LayoutFunc) -> bool {
-        self.help_eq(other)
-    }
-}
-
-/// A helper trait that describes requirements for types that can implement
-/// [`Function`].
-///
-/// Automatically implemented for all types which fulfill to the bounds `Debug +
-/// PartialEq + 'static`. There should be no need to implement this manually.
-pub trait LayoutFuncBounds: Debug {
-    /// Cast self into `Any`.
-    fn help_cast_as_any(&self) -> &dyn Any;
-
-    /// Compare self with another function trait object.
-    fn help_eq(&self, other: &dyn LayoutFunc) -> bool;
-}
-
-impl<T> LayoutFuncBounds for T where T: Debug + PartialEq + 'static {
-    fn help_cast_as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn help_eq(&self, other: &dyn LayoutFunc) -> bool {
-        if let Some(other) = other.help_cast_as_any().downcast_ref::<Self>() {
-            self == other
-        } else {
-            false
-        }
-    }
-}
+/// A function which parses the source of a function into a model type which
+/// implements [`Model`].
+type Parser = dyn Fn(
+    FuncHeader,
+    Option<Spanned<&str>>,
+    ParseContext,
+) -> Parsed<Box<dyn Model>>;
 
 /// A sequence of layouting commands.
 pub type Commands<'a> = Vec<Command<'a>>;
@@ -94,7 +46,7 @@ pub type Commands<'a> = Vec<Command<'a>>;
 /// Layouting commands from functions to the typesetting engine.
 #[derive(Debug)]
 pub enum Command<'a> {
-    LayoutTree(&'a SyntaxTree),
+    LayoutSyntaxModel(&'a SyntaxModel),
 
     Add(Layout),
     AddMultiple(MultiLayout),
@@ -114,41 +66,17 @@ pub enum Command<'a> {
 /// A map from identifiers to function parsers.
 pub struct Scope {
     parsers: HashMap<String, Box<Parser>>,
-    debug: Option<Box<Parser>>
-}
-
-/// A function which parses the source of a function into a function type which
-/// implements [`LayoutFunc`].
-type Parser = dyn Fn(
-    FuncHeader,
-    Option<&str>,
-    ParseContext
-) -> ParseResult<Box<dyn LayoutFunc>>;
-
-fn make_parser<F>(metadata: <F as ParseFunc>::Meta) -> Box<Parser>
-where F: ParseFunc + LayoutFunc + 'static {
-    Box::new(move |a, b, c| {
-        F::parse(a, b, c, metadata.clone())
-            .map(|f| Box::new(f) as Box<dyn LayoutFunc>)
-    })
+    fallback: Box<Parser>
 }
 
 impl Scope {
-    /// Create a new empty scope.
-    pub fn new() -> Scope {
-        Scope {
-            parsers: HashMap::new(),
-            debug: None,
-        }
-    }
-
-    /// Create a new scope with a debug parser that is invoked if not other
+    /// Create a new empty scope with a fallback parser that is invoked when no
     /// match is found.
-    pub fn with_debug<F>() -> Scope
-    where F: ParseFunc<Meta=()> + LayoutFunc + 'static {
+    pub fn new<F>() -> Scope
+    where F: Parse<Meta=()> + Model + 'static {
         Scope {
             parsers: HashMap::new(),
-            debug: Some(make_parser::<F>(())),
+            fallback: parser::<F>(()),
         }
     }
 
@@ -159,24 +87,25 @@ impl Scope {
 
     /// Associate the given name with a type that is parseable into a function.
     pub fn add<F>(&mut self, name: &str)
-    where F: ParseFunc<Meta=()> + LayoutFunc + 'static {
+    where F: Parse<Meta=()> + Model + 'static {
         self.add_with_metadata::<F>(name, ());
     }
 
     /// Add a parseable type with additional metadata  that is given to the
     /// parser (other than the default of `()`).
-    pub fn add_with_metadata<F>(&mut self, name: &str, metadata: <F as ParseFunc>::Meta)
-    where F: ParseFunc + LayoutFunc + 'static {
+    pub fn add_with_metadata<F>(&mut self, name: &str, metadata: <F as Parse>::Meta)
+    where F: Parse + Model + 'static {
         self.parsers.insert(
             name.to_owned(),
-            make_parser::<F>(metadata),
+            parser::<F>(metadata),
         );
     }
 
     /// Return the parser with the given name if there is one.
-    pub(crate) fn get_parser(&self, name: &str) -> Option<&Parser> {
-        self.parsers.get(name).map(|x| &**x)
-            .or(self.debug.as_ref().map(|x| &**x))
+    pub(crate) fn get_parser(&self, name: &str) -> Result<&Parser, &Parser> {
+        self.parsers.get(name)
+            .map(|x| &**x)
+            .ok_or_else(|| &*self.fallback)
     }
 }
 
@@ -185,4 +114,11 @@ impl Debug for Scope {
         write!(f, "Scope ")?;
         write!(f, "{:?}", self.parsers.keys())
     }
+}
+
+fn parser<F>(metadata: <F as Parse>::Meta) -> Box<Parser> where F: Parse + Model + 'static {
+    Box::new(move |h, b, c| {
+        F::parse(h, b, c, metadata.clone())
+            .map(|model| Box::new(model) as Box<dyn Model>)
+    })
 }
