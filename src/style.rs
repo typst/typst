@@ -167,6 +167,9 @@ impl Paper {
 pub enum PaperClass {
     Custom,
     Base,
+    US,
+    Newspaper,
+    Book,
 }
 
 impl PaperClass {
@@ -175,7 +178,10 @@ impl PaperClass {
         use PaperClass::*;
         match self {
             Custom => ValueBox::with_all(PSize::Scaled(0.1)),
-            Base => ValueBox::with_all(PSize::Scaled(0.1)),
+            Base => ValueBox::new(PSize::Scaled(0.119), PSize::Scaled(0.0569), PSize::Scaled(0.0476), PSize::Scaled(0.0569)),
+            US => ValueBox::new(PSize::Scaled(0.176), PSize::Scaled(0.1092), PSize::Scaled(0.176), PSize::Scaled(0.091)),
+            Newspaper => ValueBox::new(PSize::Scaled(0.0455), PSize::Scaled(0.0587), PSize::Scaled(0.0455), PSize::Scaled(0.0294)),
+            Book => ValueBox::new(PSize::Scaled(0.12), PSize::Scaled(0.0852), PSize::Scaled(0.15), PSize::Scaled(0.0965)),
         }
     }
 }
@@ -214,7 +220,7 @@ papers! {
     (PAPER_A3:  Base, 297.0, 420.0,  "a3")
     (PAPER_A4:  Base, 210.0, 297.0,  "a4")
     (PAPER_A5:  Base, 148.0, 210.0,  "a5")
-    (PAPER_A6:  Base, 105.0, 148.0,  "a6")
+    (PAPER_A6:  Book, 105.0, 148.0,  "a6")
     (PAPER_A7:  Base, 74.0,  105.0,  "a7" | "iso-7810-id-2" | "id-2" | "visa" | "flyer")
     (PAPER_A8:  Base, 52.0,  74.0,   "a8")
     (PAPER_A9:  Base, 37.0,  52.0,   "a9")
@@ -226,8 +232,8 @@ papers! {
     (PAPER_B2: Base, 500.0, 707.0,  "b2")
     (PAPER_B3: Base, 353.0, 500.0,  "b3")
     (PAPER_B4: Base, 250.0, 353.0,  "b4" | "sheet-music")
-    (PAPER_B5: Base, 176.0, 250.0,  "b5" | "book")
-    (PAPER_B6: Base, 125.0, 176.0,  "b6")
+    (PAPER_B5: Book, 176.0, 250.0,  "b5")
+    (PAPER_B6: Book, 125.0, 176.0,  "b6" | "book")
     (PAPER_B7: Base, 88.0,  125.0,  "b7" | "passport" | "iso-7810-id-3" | "id-3")
     (PAPER_B8: Base, 62.0,  88.0,   "b8")
 
@@ -255,16 +261,16 @@ papers! {
     // Unites States
 
     // Customary
-    (PAPER_FOLIO:             Base, 210.0, 330.0, "folio" | "us-folio" | "us-f4")
-    (PAPER_LETTER:            Base, 216.0, 279.0, "letter" | "ansi-a" |
+    (PAPER_FOLIO:             US, 210.0, 330.0, "folio" | "us-folio" | "us-f4")
+    (PAPER_LETTER:            US, 216.0, 279.0, "letter" | "ansi-a" |
                                                       "american-quarto" | "carta")
-    (PAPER_LEGAL:             Base, 216.0, 356.0, "legal")
-    (PAPER_TABLOID:           Base, 279.0, 432.0, "tabloid" | "ansi-b")
+    (PAPER_LEGAL:             US, 216.0, 356.0, "legal")
+    (PAPER_TABLOID:           Newspaper, 279.0, 432.0, "tabloid" | "ansi-b")
     (PAPER_LEDGER:            Base, 432.0, 279.0, "ledger")
-    (PAPER_JUNIOR_LEGAL:      Base, 127.0, 203.0, "junior-legal" | "index-card")
+    (PAPER_JUNIOR_LEGAL:      US, 127.0, 203.0, "junior-legal" | "index-card")
     (PAPER_HALF_LETTER:       Base, 140.0, 216.0, "half-letter")
-    (PAPER_GOVERNMENT_LETTER: Base, 203.0, 267.0, "government-letter")
-    (PAPER_GOVERNMENT_LEGAL:  Base, 216.0, 330.0, "government-legal" | "officio")
+    (PAPER_GOVERNMENT_LETTER: US, 203.0, 267.0, "government-letter")
+    (PAPER_GOVERNMENT_LEGAL:  US, 216.0, 330.0, "government-legal" | "officio")
 
     // ANSI Extensions
     (PAPER_ANSI_C:        Base, 432.0, 559.0,  "ansi-c")
@@ -367,20 +373,20 @@ papers! {
     // ---------------------------------------------------------------------- //
     // Newspaper
 
-    (PAPER_COMPACT:        Base, 280.0, 430.0, "compact")
-    (PAPER_BERLINER:       Base, 315.0, 470.0, "berliner" | "midi")
-    (PAPER_RHENISH:        Base, 350.0, 520.0, "rhenish")
-    (PAPER_BROADSHEET:     Base, 381.0, 578.0, "broadsheet" | "newspaper")
-    (PAPER_NEW_YORK_TIMES: Base, 305.0, 559.0, "new-york-times" | "times")
+    (PAPER_COMPACT:        Newspaper, 280.0, 430.0, "compact")
+    (PAPER_BERLINER:       Newspaper, 315.0, 470.0, "berliner" | "midi")
+    (PAPER_RHENISH:        Newspaper, 350.0, 520.0, "rhenish")
+    (PAPER_BROADSHEET:     Newspaper, 381.0, 578.0, "broadsheet" | "newspaper")
+    (PAPER_NEW_YORK_TIMES: Newspaper, 305.0, 559.0, "new-york-times" | "times")
 
     // ---------------------------------------------------------------------- //
     // Books
 
-    (PAPER_FOLIO_BOOK:  Base, 304.8, 482.6,  "book-folio")
-    (PAPER_QUARTO_BOOK: Base, 241.3, 304.8,  "book-quarto")
-    (PAPER_OCTAVO_BOOK: Base, 152.4, 228.6,  "book-octavo")
-    (PAPER_16_MO_BOOK:  Base, 101.6, 171.45, "book-16mo")
-    (PAPER_32_MO_BOOK:  Base, 88.9, 139.7,   "book-32mo")
+    (PAPER_FOLIO_BOOK:  Book, 304.8, 482.6,  "book-folio")
+    (PAPER_QUARTO_BOOK: Book, 241.3, 304.8,  "book-quarto")
+    (PAPER_OCTAVO_BOOK: Book, 152.4, 228.6,  "book-octavo")
+    (PAPER_16_MO_BOOK:  Book, 101.6, 171.45, "book-16mo")
+    (PAPER_32_MO_BOOK:  Book, 88.9, 139.7,   "book-32mo")
 
     // ---------------------------------------------------------------------- //
     // Various
