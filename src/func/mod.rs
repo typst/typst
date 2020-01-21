@@ -1,6 +1,5 @@
 //! Dynamic typesetting functions.
 
-use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
@@ -12,6 +11,7 @@ mod macros;
 /// Useful imports for creating your own functions.
 pub mod prelude {
     pub use super::{Scope, Parse, Command, Commands};
+    pub use crate::error::Error;
     pub use crate::layout::prelude::*;
     pub use crate::syntax::prelude::*;
     pub use crate::size::{Size, Size2D, SizeBox, ValueBox, ScaleSize, FSize, PSize};
@@ -26,7 +26,7 @@ pub trait Parse {
     /// Parse the header and body into this function given a context.
     fn parse(
         header: FuncHeader,
-        body: Option<Spanned<&str>>,
+        body: Option<(Position, &str)>,
         ctx: ParseContext,
         metadata: Self::Meta,
     ) -> Parsed<Self> where Self: Sized;
@@ -36,7 +36,7 @@ pub trait Parse {
 /// implements [`Model`].
 type Parser = dyn Fn(
     FuncHeader,
-    Option<Spanned<&str>>,
+    Option<(Position, &str)>,
     ParseContext,
 ) -> Parsed<Box<dyn Model>>;
 
@@ -102,10 +102,15 @@ impl Scope {
     }
 
     /// Return the parser with the given name if there is one.
-    pub(crate) fn get_parser(&self, name: &str) -> Result<&Parser, &Parser> {
+    pub fn get_parser(&self, name: &str) -> Result<&Parser, &Parser> {
         self.parsers.get(name)
             .map(|x| &**x)
             .ok_or_else(|| &*self.fallback)
+    }
+
+    /// Return the fallback parser.
+    pub fn get_fallback_parser(&self) -> &Parser {
+        &*self.fallback
     }
 }
 

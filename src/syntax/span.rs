@@ -1,7 +1,7 @@
 //! Spans map elements to the part of source code they originate from.
 
 use std::fmt::{self, Debug, Display, Formatter};
-use std::ops::{Add, AddAssign};
+use std::ops::{Add, Sub};
 use serde::Serialize;
 
 
@@ -21,12 +21,13 @@ impl<T> Spanned<T> {
         self.v
     }
 
-    pub fn map<F, V>(self, f: F) -> Spanned<V> where F: FnOnce(T) -> V {
+    pub fn map<V, F>(self, f: F) -> Spanned<V> where F: FnOnce(T) -> V {
         Spanned { v: f(self.v), span: self.span }
     }
 
-    pub fn map_v<V>(&self, new_v: V) -> Spanned<V> {
-        Spanned { v: new_v, span: self.span }
+    pub fn map_span<F>(mut self, f: F) -> Spanned<T> where F: FnOnce(Span) -> Span {
+        self.span = f(self.span);
+        self
     }
 }
 
@@ -74,6 +75,13 @@ impl Span {
     pub fn expand(&mut self, other: Span) {
         *self = Span::merge(*self, other)
     }
+
+    pub fn offset(self, start: Position) -> Span {
+        Span {
+            start: start + self.start,
+            end: start + self.end,
+        }
+    }
 }
 
 impl Display for Span {
@@ -119,9 +127,21 @@ impl Add for Position {
     }
 }
 
-impl AddAssign for Position {
-    fn add_assign(&mut self, other: Position) {
-        *self = *self + other;
+impl Sub for Position {
+    type Output = Position;
+
+    fn sub(self, rhs: Position) -> Position {
+        if self.line == rhs.line {
+            Position {
+                line: 0,
+                column: self.column - rhs.column
+            }
+        } else {
+            Position {
+                line: self.line - rhs.line,
+                column: self.column,
+            }
+        }
     }
 }
 
@@ -136,14 +156,6 @@ debug_display!(Position);
 /// A vector of spanned things.
 pub type SpanVec<T> = Vec<Spanned<T>>;
 
-pub fn offset_spans<T>(
-    vec: SpanVec<T>,
-    start: Position,
-) -> impl Iterator<Item=Spanned<T>> {
-    vec.into_iter()
-        .map(move |mut spanned| {
-            spanned.span.start += start;
-            spanned.span.end += start;
-            spanned
-        })
+pub fn offset_spans<T>(vec: SpanVec<T>, start: Position) -> impl Iterator<Item=Spanned<T>> {
+    vec.into_iter().map(move |s| s.map_span(|span| span.offset(start)))
 }

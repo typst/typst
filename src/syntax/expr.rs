@@ -4,7 +4,7 @@ use super::*;
 
 /// An argument or return value.
 #[derive(Clone, PartialEq)]
-pub enum Expression {
+pub enum Expr {
     Ident(Ident),
     Str(String),
     Number(f64),
@@ -14,9 +14,24 @@ pub enum Expression {
     Object(Object),
 }
 
-impl Display for Expression {
+impl Expr {
+    pub fn name(&self) -> &'static str {
+        use Expr::*;
+        match self {
+            Ident(_) => "identifier",
+            Str(_) => "string",
+            Number(_) => "number",
+            Size(_) => "size",
+            Bool(_) => "boolean",
+            Tuple(_) => "tuple",
+            Object(_) => "object",
+        }
+    }
+}
+
+impl Display for Expr {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        use Expression::*;
+        use Expr::*;
         match self {
             Ident(i) => write!(f, "{}", i),
             Str(s) => write!(f, "{:?}", s),
@@ -28,6 +43,8 @@ impl Display for Expression {
         }
     }
 }
+
+debug_display!(Expr);
 
 /// An identifier.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -53,10 +70,15 @@ impl Display for Ident {
     }
 }
 
+debug_display!(Ident);
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct StringLike(pub String);
+
 /// A sequence of expressions.
 #[derive(Clone, PartialEq)]
 pub struct Tuple {
-    pub items: Vec<Spanned<Expression>>,
+    pub items: Vec<Spanned<Expr>>,
 }
 
 impl Tuple {
@@ -64,7 +86,7 @@ impl Tuple {
         Tuple { items: vec![] }
     }
 
-    pub fn add(&mut self, item: Spanned<Expression>) {
+    pub fn add(&mut self, item: Spanned<Expr>) {
         self.items.push(item);
     }
 }
@@ -86,6 +108,8 @@ impl Display for Tuple {
     }
 }
 
+debug_display!(Tuple);
+
 /// A key-value collection of identifiers and associated expressions.
 #[derive(Clone, PartialEq)]
 pub struct Object {
@@ -97,7 +121,7 @@ impl Object {
         Object { pairs: vec![] }
     }
 
-    pub fn add(&mut self, key: Spanned<Ident>, value: Spanned<Expression>) {
+    pub fn add(&mut self, key: Spanned<Ident>, value: Spanned<Expr>) {
         self.pairs.push(Pair { key, value });
     }
 
@@ -127,11 +151,13 @@ impl Display for Object {
     }
 }
 
+debug_display!(Object);
+
 /// A key-value pair in an object.
 #[derive(Clone, PartialEq)]
 pub struct Pair {
     pub key: Spanned<Ident>,
-    pub value: Spanned<Expression>,
+    pub value: Spanned<Expr>,
 }
 
 impl Display for Pair {
@@ -140,57 +166,56 @@ impl Display for Pair {
     }
 }
 
-debug_display!(Ident);
-debug_display!(Expression);
-debug_display!(Tuple);
-debug_display!(Object);
 debug_display!(Pair);
 
-/// Kinds of expressions.
-pub trait ExpressionKind: Sized {
+pub trait ExprKind: Sized {
     /// The name of the expression in an `expected <name>` error.
     const NAME: &'static str;
 
     /// Create from expression.
-    fn from_expr(expr: Spanned<Expression>) -> ParseResult<Self>;
+    fn from_expr(expr: Spanned<Expr>) -> Result<Self, Error>;
 }
 
+impl<T> ExprKind for Spanned<T> where T: ExprKind {
+    const NAME: &'static str = T::NAME;
+
+    fn from_expr(expr: Spanned<Expr>) -> Result<Self, Error> {
+        let span = expr.span;
+        T::from_expr(expr).map(|v| Spanned { v, span })
+    }
+}
 /// Implements the expression kind trait for a type.
 macro_rules! kind {
-    ($type:ty, $name:expr, $($patterns:tt)*) => {
-        impl ExpressionKind for $type {
+    ($type:ty, $name:expr, $($p:pat => $r:expr),* $(,)?) => {
+        impl ExprKind for $type {
             const NAME: &'static str = $name;
 
-            fn from_expr(expr: Spanned<Expression>) -> ParseResult<Self> {
+            fn from_expr(expr: Spanned<Expr>) -> Result<Self, Error> {
                 #[allow(unreachable_patterns)]
                 Ok(match expr.v {
-                    $($patterns)*,
-                    _ => error!("expected {}", Self::NAME),
+                    $($p => $r),*,
+                    _ => return Err(
+                        err!("expected {}, found {}", Self::NAME, expr.v.name())
+                    ),
                 })
             }
         }
     };
 }
 
-kind!(Expression, "expression", e                          => e);
-kind!(Ident,      "identifier", Expression::Ident(ident)   => ident);
-kind!(String,     "string",     Expression::Str(string)    => string);
-kind!(f64,        "number",     Expression::Number(num)    => num);
-kind!(bool,       "boolean",    Expression::Bool(boolean)  => boolean);
-kind!(Size,       "size",       Expression::Size(size)     => size);
-kind!(Tuple,      "tuple",      Expression::Tuple(tuple)   => tuple);
-kind!(Object,     "object",     Expression::Object(object) => object);
-
-kind!(ScaleSize,  "number or size",
-    Expression::Size(size)    => ScaleSize::Absolute(size),
-    Expression::Number(scale) => ScaleSize::Scaled(scale as f32)
+kind!(Expr, "expression", e => e);
+kind!(Ident, "identifier", Expr::Ident(i) => i);
+kind!(String, "string", Expr::Str(s) => s);
+kind!(f64, "number", Expr::Number(n) => n);
+kind!(bool, "boolean", Expr::Bool(b) => b);
+kind!(Size, "size", Expr::Size(s) => s);
+kind!(Tuple, "tuple", Expr::Tuple(t) => t);
+kind!(Object, "object", Expr::Object(o) => o);
+kind!(ScaleSize, "number or size",
+    Expr::Size(size)    => ScaleSize::Absolute(size),
+    Expr::Number(scale) => ScaleSize::Scaled(scale as f32),
 );
-
-impl<T> ExpressionKind for Spanned<T> where T: ExpressionKind {
-    const NAME: &'static str = T::NAME;
-
-    fn from_expr(expr: Spanned<Expression>) -> ParseResult<Spanned<T>> {
-        let span = expr.span;
-        T::from_expr(expr).map(|v| Spanned { v, span })
-    }
-}
+kind!(StringLike, "identifier or string",
+    Expr::Ident(Ident(s)) => StringLike(s),
+    Expr::Str(s) => StringLike(s),
+);

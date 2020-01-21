@@ -3,3 +3,4 @@
 **/*.rs.bk
 Cargo.lock
 tests/cache
+_things

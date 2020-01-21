@@ -41,7 +41,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let provider = FileSystemFontProvider::from_index("../fonts/index.json").unwrap();
     typesetter.add_font_provider(provider);
 
-    let layouts = block_on(typesetter.typeset(&src))?;
+    let layouts = block_on(typesetter.typeset(&src));
 
     let exporter = PdfExporter::new();
     let writer = BufWriter::new(File::create(&dest)?);

@@ -4,7 +4,7 @@ use unicode_xid::UnicodeXID;
 
 use super::*;
 use Token::*;
-use State::*;
+use TokenizationMode::*;
 
 
 /// A minimal semantic entity of source code.
@@ -12,20 +12,20 @@ use State::*;
 pub enum Token<'s> {
     /// One or more whitespace characters. The contained `usize` denotes the
     /// number of newlines that were contained in the whitespace.
-    Whitespace(usize),
+    Space(usize),
 
     /// A line comment with inner string contents `//<&'s str>\n`.
     LineComment(&'s str),
     /// A block comment with inner string contents `/*<&'s str>*/`. The comment
     /// can contain nested block comments.
     BlockComment(&'s str),
-    /// An erroneous `*/` without an opening block comment.
-    StarSlash,
 
-    /// A left bracket: `[`.
-    LeftBracket,
-    /// A right bracket: `]`.
-    RightBracket,
+    /// A function invocation `[<header>][<body>]`.
+    Function {
+        header: &'s str,
+        body: Option<(Position, &'s str)>,
+        terminated: bool,
+    },
 
     /// A left parenthesis in a function header: `(`.
     LeftParen,
@@ -46,7 +46,7 @@ pub enum Token<'s> {
     /// An identifier in a function header: `center`.
     ExprIdent(&'s str),
     /// A quoted string in a function header: `"..."`.
-    ExprStr(&'s str),
+    ExprStr { string: &'s str, terminated: bool },
     /// A number in a function header: `3.14`.
     ExprNumber(f64),
     /// A size in a function header: `12pt`.
@@ -63,36 +63,31 @@ pub enum Token<'s> {
 
     /// Any other consecutive string.
     Text(&'s str),
-}
 
-/// Decomposes text into a sequence of semantic tokens.
-pub fn tokenize(start: Position, src: &str) -> Tokens {
-    Tokens::new(start, src)
+    /// Things that are not valid in the context they appeared in.
+    Invalid(&'s str),
 }
 
 /// An iterator over the tokens of a string of source code.
 pub struct Tokens<'s> {
     src: &'s str,
-    state: State,
-    stack: Vec<(State, Position)>,
+    mode: TokenizationMode,
     iter: Peekable<Chars<'s>>,
     position: Position,
     index: usize,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum State {
+pub enum TokenizationMode {
     Header,
-    StartBody,
     Body,
 }
 
 impl<'s> Tokens<'s> {
-    pub fn new(start: Position, src: &'s str) -> Tokens<'s> {
+    pub fn new(start: Position, src: &'s str, mode: TokenizationMode) -> Tokens<'s> {
         Tokens {
             src,
-            state: State::Body,
-            stack: vec![],
+            mode,
             iter: src.chars().peekable(),
             position: start,
             index: 0,
@@ -110,35 +105,6 @@ impl<'s> Tokens<'s> {
     pub fn pos(&self) -> Position {
         self.position
     }
-
-    /// Move through the string until an unbalanced closing bracket is found
-    /// without tokenizing the contents.
-    ///
-    /// Returns whether a closing bracket was found or the end of the string was
-    /// reached.
-    pub fn move_to_closing_bracket(&mut self) -> bool {
-        let mut escaped = false;
-        let mut depth = 0;
-
-        self.read_string_until(|n| {
-            match n {
-                '[' if !escaped => depth += 1,
-                ']' if !escaped => {
-                    if depth == 0 {
-                        return true;
-                    } else {
-                        depth -= 1;
-                    }
-                }
-                '\\' => escaped = !escaped,
-                _ => escaped = false,
-            }
-
-            false
-        }, false, 0, 0);
-
-        self.peek() == Some(']')
-    }
 }
 
 impl<'s> Iterator for Tokens<'s> {
@@ -153,55 +119,31 @@ impl<'s> Iterator for Tokens<'s> {
             // Comments.
             '/' if self.peek() == Some('/') => self.parse_line_comment(),
             '/' if self.peek() == Some('*') => self.parse_block_comment(),
-            '*' if self.peek() == Some('/') => { self.eat(); StarSlash }
+            '*' if self.peek() == Some('/') => { self.eat(); Invalid("*/") }
 
             // Whitespace.
             c if c.is_whitespace() => self.parse_whitespace(start),
 
             // Functions.
-            '[' => {
-                match self.state {
-                    Header | Body => {
-                        self.stack.push((self.state, start));
-                        self.position = Position::new(0, '['.len_utf8());
-                        self.state = Header;
-                    }
-                    StartBody => self.state = Body,
-                }
-
-                LeftBracket
-            }
-            ']' => {
-                if self.state == Header && self.peek() == Some('[') {
-                    self.state = StartBody;
-                } else {
-                    if let Some((state, pos)) = self.stack.pop() {
-                        self.state = state;
-                        self.position = pos + self.position;
-                    } else {
-                        self.state = Body;
-                    }
-                }
-
-                RightBracket
-            }
+            '[' => self.parse_function(start),
+            ']' => Invalid("]"),
 
             // Syntactic elements in function headers.
-            '(' if self.state == Header => LeftParen,
-            ')' if self.state == Header => RightParen,
-            '{' if self.state == Header => LeftBrace,
-            '}' if self.state == Header => RightBrace,
-            ':' if self.state == Header => Colon,
-            ',' if self.state == Header => Comma,
-            '=' if self.state == Header => Equals,
+            '(' if self.mode == Header => LeftParen,
+            ')' if self.mode == Header => RightParen,
+            '{' if self.mode == Header => LeftBrace,
+            '}' if self.mode == Header => RightBrace,
+            ':' if self.mode == Header => Colon,
+            ',' if self.mode == Header => Comma,
+            '=' if self.mode == Header => Equals,
 
             // String values.
-            '"' if self.state == Header => self.parse_string(),
+            '"' if self.mode == Header => self.parse_string(),
 
             // Style toggles.
-            '*' if self.state == Body => Star,
-            '_' if self.state == Body => Underscore,
-            '`' if self.state == Body => Backtick,
+            '*' if self.mode == Body => Star,
+            '_' if self.mode == Body => Underscore,
+            '`' if self.mode == Body => Backtick,
 
             // An escaped thing.
             '\\' => self.parse_escaped(),
@@ -215,9 +157,9 @@ impl<'s> Iterator for Tokens<'s> {
                         ',' | '"' | '/' => true,
                         _ => false,
                     }
-                }, false, -(c.len_utf8() as isize), 0);
+                }, false, -(c.len_utf8() as isize), 0).0;
 
-                if self.state == Header {
+                if self.mode == Header {
                     self.parse_expr(text)
                 } else {
                     Text(text)
@@ -234,7 +176,7 @@ impl<'s> Iterator for Tokens<'s> {
 
 impl<'s> Tokens<'s> {
     fn parse_line_comment(&mut self) -> Token<'s> {
-        LineComment(self.read_string_until(is_newline_char, false, 1, 0))
+        LineComment(self.read_string_until(is_newline_char, false, 1, 0).0)
     }
 
     fn parse_block_comment(&mut self) -> Token<'s> {
@@ -262,19 +204,60 @@ impl<'s> Tokens<'s> {
             }
 
             false
-        }, true, 0, -2))
+        }, true, 0, -2).0)
     }
 
     fn parse_whitespace(&mut self, start: Position) -> Token<'s> {
         self.read_string_until(|n| !n.is_whitespace(), false, 0, 0);
         let end = self.pos();
 
-        Whitespace(end.line - start.line)
+        Space(end.line - start.line)
+    }
+
+    fn parse_function(&mut self, start: Position) -> Token<'s> {
+        let (header, terminated) = self.read_function_part();
+        self.eat();
+
+        if self.peek() != Some('[') {
+            return Function { header, body: None, terminated };
+        }
+
+        self.eat();
+
+        let offset = self.pos() - start;
+        let (body, terminated) = self.read_function_part();
+        self.eat();
+
+        Function { header, body: Some((offset, body)), terminated }
+    }
+
+    fn read_function_part(&mut self) -> (&'s str, bool) {
+        let mut escaped = false;
+        let mut in_string = false;
+        let mut depth = 0;
+
+        self.read_string_until(|n| {
+            match n {
+                '"' if !escaped => in_string = !in_string,
+                '[' if !escaped && !in_string => depth += 1,
+                ']' if !escaped && !in_string => {
+                    if depth == 0 {
+                        return true;
+                    } else {
+                        depth -= 1;
+                    }
+                }
+                '\\' => escaped = !escaped,
+                _ => escaped = false,
+            }
+
+            false
+        }, false, 0, 0)
     }
 
     fn parse_string(&mut self) -> Token<'s> {
         let mut escaped = false;
-        ExprStr(self.read_string_until(|n| {
+        let (string, terminated) = self.read_string_until(|n| {
             match n {
                 '"' if !escaped => return true,
                 '\\' => escaped = !escaped,
@@ -282,7 +265,8 @@ impl<'s> Tokens<'s> {
             }
 
             false
-        }, true, 0, -1))
+        }, true, 0, -1);
+        ExprStr { string, terminated }
     }
 
     fn parse_escaped(&mut self) -> Token<'s> {
@@ -294,7 +278,7 @@ impl<'s> Tokens<'s> {
         }
 
         let c = self.peek().unwrap_or('n');
-        if self.state == Body && is_escapable(c) {
+        if self.mode == Body && is_escapable(c) {
             let index = self.index();
             self.eat();
             Text(&self.src[index .. index + c.len_utf8()])
@@ -315,7 +299,7 @@ impl<'s> Tokens<'s> {
         } else if is_identifier(text) {
             ExprIdent(text)
         } else {
-            Text(text)
+            Invalid(text)
         }
     }
 
@@ -325,7 +309,7 @@ impl<'s> Tokens<'s> {
         eat_match: bool,
         offset_start: isize,
         offset_end: isize,
-    ) -> &'s str where F: FnMut(char) -> bool {
+    ) -> (&'s str, bool) where F: FnMut(char) -> bool {
         let start = ((self.index() as isize) + offset_start) as usize;
         let mut matched = false;
 
@@ -346,7 +330,7 @@ impl<'s> Tokens<'s> {
             end = ((end as isize) + offset_end) as usize;
         }
 
-        &self.src[start .. end]
+        (&self.src[start .. end], matched)
     }
 
     fn eat(&mut self) -> Option<char> {

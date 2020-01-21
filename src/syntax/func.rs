@@ -15,7 +15,7 @@ pub struct FuncArgs {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Arg {
-    Pos(Spanned<Expression>),
+    Pos(Spanned<Expr>),
     Key(Pair),
 }
 
@@ -46,12 +46,12 @@ impl FuncArgs {
     }
 
     /// Add a positional argument.
-    pub fn add_pos(&mut self, item: Spanned<Expression>) {
+    pub fn add_pos(&mut self, item: Spanned<Expr>) {
         self.pos.add(item);
     }
 
     /// Add a keyword argument.
-    pub fn add_key(&mut self, key: Spanned<Ident>, value: Spanned<Expression>) {
+    pub fn add_key(&mut self, key: Spanned<Ident>, value: Spanned<Expr>) {
         self.key.add(key, value);
     }
 
@@ -92,7 +92,7 @@ impl FuncArgs {
     // }
 
     // /// Iterator over positional arguments.
-    // pub fn iter_pos(&mut self) -> std::vec::IntoIter<Spanned<Expression>> {
+    // pub fn iter_pos(&mut self) -> std::vec::IntoIter<Spanned<Expr>> {
     //     let tuple = std::mem::replace(&mut self.positional, Tuple::new());
     //     tuple.items.into_iter()
     // }

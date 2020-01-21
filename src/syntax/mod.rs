@@ -23,22 +23,6 @@ pub mod prelude {
 }
 
 
-pub struct Parsed<T> {
-    pub output: T,
-    pub errors: SpanVec<Error>,
-    pub decorations: SpanVec<Decoration>,
-}
-
-impl<T> Parsed<T> {
-    pub fn map<F, U>(self, f: F) -> Parsed<U> where F: FnOnce(T) -> U {
-        Parsed {
-            output: f(self.output),
-            errors: self.errors,
-            decorations: self.decorations,
-        }
-    }
-}
-
 #[async_trait::async_trait(?Send)]
 pub trait Model: Debug + ModelBounds {
     async fn layout<'a>(
@@ -110,7 +94,7 @@ impl SyntaxModel {
 
 #[async_trait::async_trait(?Send)]
 impl Model for SyntaxModel {
-    async fn layout<'a>(&'a self, ctx: LayoutContext<'_, '_>) -> Layouted<Commands<'a>> {
+    async fn layout<'a>(&'a self, _: LayoutContext<'_, '_>) -> Layouted<Commands<'a>> {
         Layouted {
             output: vec![Command::LayoutSyntaxModel(self)],
             errors: vec![],
@@ -153,7 +137,8 @@ impl PartialEq for Node {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum Decoration {
     ValidFuncName,
     InvalidFuncName,

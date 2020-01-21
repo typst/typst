@@ -22,7 +22,7 @@ macro_rules! function {
 
     // Parse trait.
     (@parse($($a:tt)*) parse(default) $($r:tt)*) => {
-        function!(@parse($($a)*) parse() { Default::default() } $($r)*);
+        function!(@parse($($a)*) parse(_h, _b, _c, _e, _d, _m) {Default::default() } $($r)*);
     };
     (@parse($($a:tt)*) parse($h:ident, $b:ident, $c:ident, $e:ident, $d:ident) $($r:tt)* ) => {
         function!(@parse($($a)*) parse($h, $b, $c, $e, $d, _metadata) $($r)*);
@@ -40,7 +40,7 @@ macro_rules! function {
 
             fn parse(
                 #[allow(unused)] mut $header: FuncHeader,
-                #[allow(unused)] $body: Option<Spanned<&str>>,
+                #[allow(unused)] $body: Option<(Position, &str)>,
                 #[allow(unused)] $ctx: ParseContext,
                 #[allow(unused)] $metadata: Self::Meta,
             ) -> Parsed<Self> where Self: Sized {
@@ -85,7 +85,7 @@ macro_rules! function {
 macro_rules! body {
     (opt: $body:expr, $ctx:expr, $errors:expr, $decos:expr) => ({
         $body.map(|body| {
-            let parsed = $crate::syntax::parse(body.span.start, body.v, $ctx);
+            let parsed = $crate::syntax::parse(body.0, body.1, $ctx);
             $errors.extend(parsed.errors);
             $decos.extend(parsed.decorations);
             parsed.output
@@ -99,13 +99,19 @@ macro_rules! body {
     };
 }
 
-/// Construct a spanned error.
+/// Construct an error with an optional span.
 #[macro_export]
 macro_rules! err {
-    ($span:expr, $($args:tt)*) => {
-        $crate::syntax::Spanned {
-            v: $crate::error::Error::new(format!($($args)*)),
-            span: $span,
+    (@$severity:ident: $span:expr; $($args:tt)*) => {
+        $crate::syntax::Spanned { v: err!(@Error: $($args)*), span: $span }
+    };
+
+    (@$severity:ident: $($args:tt)*) => {
+        $crate::error::Error {
+            message: format!($($args)*),
+            severity: $crate::error::Severity::$severity,
         }
     };
+
+    ($($tts:tt)*) => { err!(@Error: $($tts)*) };
 }

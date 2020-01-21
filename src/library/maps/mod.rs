@@ -21,8 +21,8 @@ macro_rules! key {
         impl ExpressionKind for $type {
             const NAME: &'static str = $name;
 
-            fn from_expr(expr: Spanned<Expression>) -> ParseResult<Self> {
-                if let Expression::Ident(ident) = expr.v {
+            fn from_expr(expr: Spanned<Expr>) -> ParseResult<Self> {
+                if let Expr::Ident(ident) = expr.v {
                     Self::from_ident(&Spanned::new(ident, expr.span))
                 } else {
                     error!("expected {}", Self::NAME);
@@ -55,8 +55,8 @@ impl<T> Into<Option<T>> for DefaultKey<T> {
 impl<T> ExpressionKind for DefaultKey<T> where T: ExpressionKind {
     const NAME: &'static str = T::NAME;
 
-    fn from_expr(expr: Spanned<Expression>) -> ParseResult<DefaultKey<T>> {
-        if let Expression::Ident(ident) = &expr.v {
+    fn from_expr(expr: Spanned<Expr>) -> ParseResult<DefaultKey<T>> {
+        if let Expr::Ident(ident) = &expr.v {
             match ident.as_str() {
                 "default" => return Ok(DefaultKey::None),
                 _ => {},

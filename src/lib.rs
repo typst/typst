@@ -24,10 +24,9 @@ use std::cell::RefCell;
 use smallvec::smallvec;
 
 use toddle::query::{FontLoader, FontProvider, SharedFontLoader};
-use toddle::Error as FontError;
 
 use crate::func::Scope;
-use crate::layout::{Layouted, LayoutContext, MultiLayout};
+use crate::layout::{Layouted, MultiLayout};
 use crate::syntax::{parse, ParseContext, Parsed, SyntaxModel, Position};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 

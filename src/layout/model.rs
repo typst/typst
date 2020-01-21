@@ -1,5 +1,3 @@
-use std::pin::Pin;
-use std::future::Future;
 use smallvec::smallvec;
 
 use crate::error::Error;
@@ -9,17 +7,8 @@ use crate::syntax::{SpanVec, Spanned, Span, offset_spans};
 use super::*;
 
 
-pub async fn layout(
-    model: &SyntaxModel,
-    ctx: LayoutContext<'_, '_>
-) -> Layouted<MultiLayout> {
-    let mut layouter = ModelLayouter::new(ctx);
-    layouter.layout_syntax_model(model).await;
-    layouter.finish()
-}
-
 #[derive(Debug, Clone)]
-struct ModelLayouter<'a, 'p> {
+pub struct ModelLayouter<'a, 'p> {
     ctx: LayoutContext<'a, 'p>,
     layouter: LineLayouter,
     style: LayoutStyle,
@@ -28,7 +17,7 @@ struct ModelLayouter<'a, 'p> {
 
 impl<'a, 'p> ModelLayouter<'a, 'p> {
     /// Create a new syntax tree layouter.
-    fn new(ctx: LayoutContext<'a, 'p>) -> ModelLayouter<'a, 'p> {
+    pub fn new(ctx: LayoutContext<'a, 'p>) -> ModelLayouter<'a, 'p> {
         ModelLayouter {
             layouter: LineLayouter::new(LineContext {
                 spaces: ctx.spaces.clone(),
@@ -44,7 +33,7 @@ impl<'a, 'p> ModelLayouter<'a, 'p> {
         }
     }
 
-    fn layout<'r>(
+    pub fn layout<'r>(
         &'r mut self,
         model: Spanned<&'r dyn Model>
     ) -> DynFuture<'r, ()> { Box::pin(async move {
@@ -60,75 +49,11 @@ impl<'a, 'p> ModelLayouter<'a, 'p> {
         self.errors.extend(offset_spans(layouted.errors, model.span.start));
 
         for command in commands {
-            self.execute_command(command, model.span);
+            self.execute_command(command, model.span).await;
         }
     }) }
 
-    fn execute_command<'r>(
-        &'r mut self,
-        command: Command<'r>,
-        model_span: Span,
-    ) -> DynFuture<'r, ()> { Box::pin(async move {
-        use Command::*;
-
-        match command {
-            LayoutSyntaxModel(model) => self.layout_syntax_model(model).await,
-
-            Add(layout) => self.layouter.add(layout),
-            AddMultiple(layouts) => self.layouter.add_multiple(layouts),
-            SpacingFunc(space, kind, axis) => match axis {
-                Primary => self.layouter.add_primary_spacing(space, kind),
-                Secondary => self.layouter.add_secondary_spacing(space, kind),
-            }
-
-            FinishLine => self.layouter.finish_line(),
-            FinishSpace => self.layouter.finish_space(true),
-            BreakParagraph => self.layout_paragraph(),
-            BreakPage => {
-                if self.ctx.nested {
-                    self.errors.push(Spanned::new(
-                        Error::new( "page break cannot be issued from nested context"),
-                        model_span,
-                    ));
-                } else {
-                    self.layouter.finish_space(true)
-                }
-            }
-
-            SetTextStyle(style) => {
-                self.layouter.set_line_spacing(style.line_spacing());
-                self.style.text = style;
-            }
-            SetPageStyle(style) => {
-                if self.ctx.nested {
-                    self.errors.push(Spanned::new(
-                        Error::new("page style cannot be changed from nested context"),
-                        model_span,
-                    ));
-                } else {
-                    self.style.page = style;
-
-                    let margins = style.margins();
-                    self.ctx.base = style.dimensions.unpadded(margins);
-                    self.layouter.set_spaces(smallvec![
-                        LayoutSpace {
-                            dimensions: style.dimensions,
-                            padding: margins,
-                            expansion: LayoutExpansion::new(true, true),
-                        }
-                    ], true);
-                }
-            }
-
-            SetAlignment(alignment) => self.ctx.alignment = alignment,
-            SetAxes(axes) => {
-                self.layouter.set_axes(axes);
-                self.ctx.axes = axes;
-            }
-        }
-    }) }
-
-    fn layout_syntax_model<'r>(
+    pub fn layout_syntax_model<'r>(
         &'r mut self,
         model: &'r SyntaxModel
     ) -> DynFuture<'r, ()> { Box::pin(async move {
@@ -161,6 +86,73 @@ impl<'a, 'p> ModelLayouter<'a, 'p> {
         }
     }) }
 
+    pub fn finish(self) -> Layouted<MultiLayout> {
+        Layouted {
+            output: self.layouter.finish(),
+            errors: self.errors,
+        }
+    }
+
+    fn execute_command<'r>(
+        &'r mut self,
+        command: Command<'r>,
+        span: Span,
+    ) -> DynFuture<'r, ()> { Box::pin(async move {
+        use Command::*;
+
+        match command {
+            LayoutSyntaxModel(model) => self.layout_syntax_model(model).await,
+
+            Add(layout) => self.layouter.add(layout),
+            AddMultiple(layouts) => self.layouter.add_multiple(layouts),
+            SpacingFunc(space, kind, axis) => match axis {
+                Primary => self.layouter.add_primary_spacing(space, kind),
+                Secondary => self.layouter.add_secondary_spacing(space, kind),
+            }
+
+            FinishLine => self.layouter.finish_line(),
+            FinishSpace => self.layouter.finish_space(true),
+            BreakParagraph => self.layout_paragraph(),
+            BreakPage => {
+                if self.ctx.nested {
+                    self.errors.push(err!(span;
+                        "page break cannot be issued from nested context"));
+                } else {
+                    self.layouter.finish_space(true)
+                }
+            }
+
+            SetTextStyle(style) => {
+                self.layouter.set_line_spacing(style.line_spacing());
+                self.style.text = style;
+            }
+            SetPageStyle(style) => {
+                if self.ctx.nested {
+                    self.errors.push(err!(span;
+                        "page style cannot be changed from nested context"));
+                } else {
+                    self.style.page = style;
+
+                    let margins = style.margins();
+                    self.ctx.base = style.dimensions.unpadded(margins);
+                    self.layouter.set_spaces(smallvec![
+                        LayoutSpace {
+                            dimensions: style.dimensions,
+                            padding: margins,
+                            expansion: LayoutExpansion::new(true, true),
+                        }
+                    ], true);
+                }
+            }
+
+            SetAlignment(alignment) => self.ctx.alignment = alignment,
+            SetAxes(axes) => {
+                self.layouter.set_axes(axes);
+                self.ctx.axes = axes;
+            }
+        }
+    }) }
+
     async fn layout_text(&mut self, text: &str) {
         self.layouter.add(layout_text(text, TextContext {
             loader: &self.ctx.loader,
@@ -182,12 +174,5 @@ impl<'a, 'p> ModelLayouter<'a, 'p> {
             self.style.text.paragraph_spacing(),
             SpacingKind::PARAGRAPH,
         );
-    }
-
-    fn finish(self) -> Layouted<MultiLayout> {
-        Layouted {
-            output: self.layouter.finish(),
-            errors: self.errors,
-        }
     }
 }

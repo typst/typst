@@ -63,8 +63,8 @@ function! {
             body: parse!(optional: body, ctx),
             list: {
                 header.args.iter_pos().map(|arg| match arg.v {
-                    Expression::Str(s) |
-                    Expression::Ident(Ident(s)) => Ok(s.to_lowercase()),
+                    Expr::Str(s) |
+                    Expr::Ident(Ident(s)) => Ok(s.to_lowercase()),
                     _ => error!("expected identifier or string"),
                 }).collect::<LayoutResult<Vec<_>>>()?
             }
@@ -117,8 +117,8 @@ function! {
     parse(header, body, ctx) {
         FontWeightFunc {
             body: parse!(optional: body, ctx),
-            weight: match header.args.get_pos::<Expression>()? {
-                Expression::Number(weight) => {
+            weight: match header.args.get_pos::<Expr>()? {
+                Expr::Number(weight) => {
                     let weight = weight.round() as i16;
                     FontWeight(
                         if weight < 100 { 100 }
@@ -126,7 +126,7 @@ function! {
                         else { 900 }
                     )
                 }
-                Expression::Ident(Ident(s)) => {
+                Expr::Ident(Ident(s)) => {
                     match FontWeight::from_str(&s) {
                         Some(weight) => weight,
                         None => error!("invalid font weight: `{}`", s),
@@ -263,7 +263,7 @@ function! {
             SpacingFunc {
                 axis: AxisKey::Specific(axis),
                 spacing: FSize::from_expr(
-                    header.args.get_pos::<Spanned<Expression>>()?
+                    header.args.get_pos::<Spanned<Expr>>()?
                 )?,
             }
         } else {
