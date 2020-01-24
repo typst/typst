@@ -1,10 +1,11 @@
 //! The core layouting engine.
 
 use std::io::{self, Write};
+use std::fmt::{self, Display, Formatter};
 use smallvec::SmallVec;
 use toddle::query::{SharedFontLoader, FontIndex};
 
-use crate::error::Error;
+use crate::error::Errors;
 use crate::syntax::{SyntaxModel, SpanVec};
 use crate::size::{Size, Size2D, SizeBox};
 use crate::style::LayoutStyle;
@@ -93,7 +94,7 @@ pub struct LayoutContext<'a, 'p> {
 
 pub struct Layouted<T> {
     pub output: T,
-    pub errors: SpanVec<Error>,
+    pub errors: Errors,
 }
 
 impl<T> Layouted<T> {
@@ -231,6 +232,15 @@ impl GenericAxis {
     }
 }
 
+impl Display for GenericAxis {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Primary => write!(f, "primary"),
+            Secondary => write!(f, "secondary"),
+        }
+    }
+}
+
 /// The two specific layouting axes.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum SpecificAxis {
@@ -249,6 +259,15 @@ impl SpecificAxis {
         match self {
             Horizontal => Vertical,
             Vertical => Horizontal,
+        }
+    }
+}
+
+impl Display for SpecificAxis {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Horizontal => write!(f, "horizontal"),
+            Vertical => write!(f, "vertical"),
         }
     }
 }
@@ -295,6 +314,17 @@ impl Direction {
     /// - `-1` if the direction is negative.
     pub fn factor(self) -> i32 {
         if self.is_positive() { 1 } else { -1 }
+    }
+}
+
+impl Display for Direction {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            LeftToRight => write!(f, "left-to-right"),
+            RightToLeft => write!(f, "right-to-left"),
+            TopToBottom => write!(f, "top-to-bottom"),
+            BottomToTop => write!(f, "bottom-to-top"),
+        }
     }
 }
 

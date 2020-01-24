@@ -23,7 +23,7 @@ pub enum Token<'s> {
     /// A function invocation `[<header>][<body>]`.
     Function {
         header: &'s str,
-        body: Option<(Position, &'s str)>,
+        body: Option<Spanned<&'s str>>,
         terminated: bool,
     },
 
@@ -222,13 +222,16 @@ impl<'s> Tokens<'s> {
             return Function { header, body: None, terminated };
         }
 
+        let body_start = self.pos() - start;
         self.eat();
 
-        let offset = self.pos() - start;
         let (body, terminated) = self.read_function_part();
         self.eat();
 
-        Function { header, body: Some((offset, body)), terminated }
+        let body_end = self.pos();
+        let span = Span::new(body_start, body_end);
+
+        Function { header, body: Some(Spanned { v: body, span }), terminated }
     }
 
     fn read_function_part(&mut self) -> (&'s str, bool) {

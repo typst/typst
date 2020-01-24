@@ -26,7 +26,7 @@ pub trait Parse {
     /// Parse the header and body into this function given a context.
     fn parse(
         header: FuncHeader,
-        body: Option<(Position, &str)>,
+        body: Option<Spanned<&str>>,
         ctx: ParseContext,
         metadata: Self::Meta,
     ) -> Parsed<Self> where Self: Sized;
@@ -36,7 +36,7 @@ pub trait Parse {
 /// implements [`Model`].
 type Parser = dyn Fn(
     FuncHeader,
-    Option<(Position, &str)>,
+    Option<Spanned<&str>>,
     ParseContext,
 ) -> Parsed<Box<dyn Model>>;
 
@@ -50,7 +50,7 @@ pub enum Command<'a> {
 
     Add(Layout),
     AddMultiple(MultiLayout),
-    SpacingFunc(Size, SpacingKind, GenericAxis),
+    AddSpacing(Size, SpacingKind, GenericAxis),
 
     FinishLine,
     FinishSpace,
@@ -88,12 +88,12 @@ impl Scope {
     /// Associate the given name with a type that is parseable into a function.
     pub fn add<F>(&mut self, name: &str)
     where F: Parse<Meta=()> + Model + 'static {
-        self.add_with_metadata::<F>(name, ());
+        self.add_with_meta::<F>(name, ());
     }
 
     /// Add a parseable type with additional metadata  that is given to the
     /// parser (other than the default of `()`).
-    pub fn add_with_metadata<F>(&mut self, name: &str, metadata: <F as Parse>::Meta)
+    pub fn add_with_meta<F>(&mut self, name: &str, metadata: <F as Parse>::Meta)
     where F: Parse + Model + 'static {
         self.parsers.insert(
             name.to_owned(),

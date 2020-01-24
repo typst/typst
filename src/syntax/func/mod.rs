@@ -1,5 +1,9 @@
 use super::*;
 
+pub_use_mod!(maps);
+pub_use_mod!(keys);
+pub_use_mod!(values);
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuncHeader {
@@ -58,6 +62,11 @@ impl FuncArgs {
     /// Add a keyword argument from an existing pair.
     pub fn add_key_pair(&mut self, pair: Pair) {
         self.key.add_pair(pair);
+    }
+
+    pub fn into_iter(self) -> impl Iterator<Item=Arg> {
+        self.pos.items.into_iter().map(|item| Arg::Pos(item))
+            .chain(self.key.pairs.into_iter().map(|pair| Arg::Key(pair)))
     }
 
     // /// Force-extract the first positional argument.
@@ -123,3 +132,16 @@ impl FuncArgs {
 //         Err(e) => Err(e),
 //     }
 // }
+
+pub trait OptionExt: Sized {
+    fn or_missing(self, errors: &mut Errors, span: Span, what: &str) -> Self;
+}
+
+impl<T> OptionExt for Option<T> {
+    fn or_missing(self, errors: &mut Errors, span: Span, what: &str) -> Self {
+        if self.is_none() {
+            errors.push(err!(span; "missing argument: {}", what));
+        }
+        self
+    }
+}

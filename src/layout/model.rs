@@ -1,6 +1,6 @@
 use smallvec::smallvec;
 
-use crate::error::Error;
+use crate::error::Errors;
 use crate::func::Command;
 use crate::syntax::{Model, DynFuture, SyntaxModel, Node};
 use crate::syntax::{SpanVec, Spanned, Span, offset_spans};
@@ -12,7 +12,7 @@ pub struct ModelLayouter<'a, 'p> {
     ctx: LayoutContext<'a, 'p>,
     layouter: LineLayouter,
     style: LayoutStyle,
-    errors: SpanVec<Error>,
+    errors: Errors,
 }
 
 impl<'a, 'p> ModelLayouter<'a, 'p> {
@@ -105,7 +105,7 @@ impl<'a, 'p> ModelLayouter<'a, 'p> {
 
             Add(layout) => self.layouter.add(layout),
             AddMultiple(layouts) => self.layouter.add_multiple(layouts),
-            SpacingFunc(space, kind, axis) => match axis {
+            AddSpacing(space, kind, axis) => match axis {
                 Primary => self.layouter.add_primary_spacing(space, kind),
                 Secondary => self.layouter.add_secondary_spacing(space, kind),
             }

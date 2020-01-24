@@ -12,7 +12,7 @@ pub struct ParseContext<'a> {
 
 pub struct Parsed<T> {
     pub output: T,
-    pub errors: SpanVec<Error>,
+    pub errors: Errors,
     pub decorations: SpanVec<Decoration>,
 }
 
@@ -77,17 +77,17 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Parsed<SyntaxMode
 
 struct FuncParser<'s> {
     ctx: ParseContext<'s>,
-    errors: SpanVec<Error>,
+    errors: Errors,
     decorations: SpanVec<Decoration>,
     tokens: Tokens<'s>,
     peeked: Option<Option<Spanned<Token<'s>>>>,
-    body: Option<(Position, &'s str)>,
+    body: Option<Spanned<&'s str>>,
 }
 
 impl<'s> FuncParser<'s> {
     fn new(
         header: &'s str,
-        body: Option<(Position, &'s str)>,
+        body: Option<Spanned<&'s str>>,
         ctx: ParseContext<'s>
     ) -> FuncParser<'s> {
         FuncParser {

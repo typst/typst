@@ -1,4 +1,3 @@
-use crate::size::ScaleSize;
 use super::*;
 
 
@@ -22,29 +21,12 @@ impl Expr {
             Str(_) => "string",
             Number(_) => "number",
             Size(_) => "size",
-            Bool(_) => "boolean",
+            Bool(_) => "bool",
             Tuple(_) => "tuple",
             Object(_) => "object",
         }
     }
 }
-
-impl Display for Expr {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        use Expr::*;
-        match self {
-            Ident(i) => write!(f, "{}", i),
-            Str(s) => write!(f, "{:?}", s),
-            Number(n) => write!(f, "{}", n),
-            Size(s) => write!(f, "{}", s),
-            Bool(b) => write!(f, "{}", b),
-            Tuple(t) => write!(f, "{}", t),
-            Object(o) => write!(f, "{}", o),
-        }
-    }
-}
-
-debug_display!(Expr);
 
 /// An identifier.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -64,17 +46,6 @@ impl Ident {
     }
 }
 
-impl Display for Ident {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-debug_display!(Ident);
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct StringLike(pub String);
-
 /// A sequence of expressions.
 #[derive(Clone, PartialEq)]
 pub struct Tuple {
@@ -89,26 +60,30 @@ impl Tuple {
     pub fn add(&mut self, item: Spanned<Expr>) {
         self.items.push(item);
     }
-}
 
-impl Display for Tuple {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "(")?;
-
-        let mut first = true;
-        for item in &self.items {
-            if !first {
-                write!(f, ", ")?;
+    pub fn get<V: Value>(&mut self, errors: &mut Errors) -> Option<V::Output> {
+        while !self.items.is_empty() {
+            let expr = self.items.remove(0);
+            let span = expr.span;
+            match V::parse(expr) {
+                Ok(output) => return Some(output),
+                Err(err) => errors.push(Spanned { v: err, span }),
             }
-            write!(f, "{}", item.v)?;
-            first = false;
         }
+        None
+    }
 
-        write!(f, ")")
+    pub fn get_all<'a, V: Value>(&'a mut self, errors: &'a mut Errors)
+    -> impl Iterator<Item=V::Output> + 'a {
+        self.items.drain(..).filter_map(move |expr| {
+            let span = expr.span;
+            match V::parse(expr) {
+                Ok(output) => Some(output),
+                Err(err) => { errors.push(Spanned { v: err, span }); None }
+            }
+        })
     }
 }
-
-debug_display!(Tuple);
 
 /// A key-value collection of identifiers and associated expressions.
 #[derive(Clone, PartialEq)]
@@ -127,6 +102,108 @@ impl Object {
 
     pub fn add_pair(&mut self, pair: Pair) {
         self.pairs.push(pair);
+    }
+
+    pub fn get<V: Value>(&mut self, errors: &mut Errors, key: &str) -> Option<V::Output> {
+        let index = self.pairs.iter().position(|pair| pair.key.v.as_str() == key)?;
+        self.get_index::<V>(errors, index)
+    }
+
+    pub fn get_with_key<K: Key, V: Value>(
+        &mut self,
+        errors: &mut Errors,
+    ) -> Option<(K::Output, V::Output)> {
+        for (index, pair) in self.pairs.iter().enumerate() {
+            let key = Spanned { v: pair.key.v.as_str(), span: pair.key.span };
+            if let Some(key) = K::parse(key) {
+                return self.get_index::<V>(errors, index).map(|value| (key, value));
+            }
+        }
+        None
+    }
+
+    pub fn get_all<'a, K: Key, V: Value>(
+        &'a mut self,
+        errors: &'a mut Errors,
+    ) -> impl Iterator<Item=(K::Output, V::Output)> + 'a {
+        let mut index = 0;
+        std::iter::from_fn(move || {
+            if index < self.pairs.len() {
+                let key = &self.pairs[index].key;
+                let key = Spanned { v: key.v.as_str(), span: key.span };
+
+                Some(if let Some(key) = K::parse(key) {
+                    self.get_index::<V>(errors, index).map(|v| (key, v))
+                } else {
+                    index += 1;
+                    None
+                })
+            } else {
+                None
+            }
+        }).filter_map(|x| x)
+    }
+
+    pub fn get_all_spanned<'a, K: Key + 'a, V: Value + 'a>(
+        &'a mut self,
+        errors: &'a mut Errors,
+    ) -> impl Iterator<Item=Spanned<(K::Output, V::Output)>> + 'a {
+        self.get_all::<Spanned<K>, Spanned<V>>(errors)
+            .map(|(k, v)| Spanned::new((k.v, v.v), Span::merge(k.span, v.span)))
+    }
+
+    fn get_index<V: Value>(&mut self, errors: &mut Errors, index: usize) -> Option<V::Output> {
+        let expr = self.pairs.remove(index).value;
+        let span = expr.span;
+        match V::parse(expr) {
+            Ok(output) => Some(output),
+            Err(err) => { errors.push(Spanned { v: err, span }); None }
+        }
+    }
+}
+
+/// A key-value pair in an object.
+#[derive(Clone, PartialEq)]
+pub struct Pair {
+    pub key: Spanned<Ident>,
+    pub value: Spanned<Expr>,
+}
+
+impl Display for Expr {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        use Expr::*;
+        match self {
+            Ident(i) => write!(f, "{}", i),
+            Str(s) => write!(f, "{:?}", s),
+            Number(n) => write!(f, "{}", n),
+            Size(s) => write!(f, "{}", s),
+            Bool(b) => write!(f, "{}", b),
+            Tuple(t) => write!(f, "{}", t),
+            Object(o) => write!(f, "{}", o),
+        }
+    }
+}
+
+impl Display for Ident {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Display for Tuple {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "(")?;
+
+        let mut first = true;
+        for item in &self.items {
+            if !first {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", item.v)?;
+            first = false;
+        }
+
+        write!(f, ")")
     }
 }
 
@@ -151,71 +228,14 @@ impl Display for Object {
     }
 }
 
-debug_display!(Object);
-
-/// A key-value pair in an object.
-#[derive(Clone, PartialEq)]
-pub struct Pair {
-    pub key: Spanned<Ident>,
-    pub value: Spanned<Expr>,
-}
-
 impl Display for Pair {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}: {}", self.key.v, self.value.v)
     }
 }
 
+debug_display!(Expr);
+debug_display!(Ident);
+debug_display!(Tuple);
+debug_display!(Object);
 debug_display!(Pair);
-
-pub trait ExprKind: Sized {
-    /// The name of the expression in an `expected <name>` error.
-    const NAME: &'static str;
-
-    /// Create from expression.
-    fn from_expr(expr: Spanned<Expr>) -> Result<Self, Error>;
-}
-
-impl<T> ExprKind for Spanned<T> where T: ExprKind {
-    const NAME: &'static str = T::NAME;
-
-    fn from_expr(expr: Spanned<Expr>) -> Result<Self, Error> {
-        let span = expr.span;
-        T::from_expr(expr).map(|v| Spanned { v, span })
-    }
-}
-/// Implements the expression kind trait for a type.
-macro_rules! kind {
-    ($type:ty, $name:expr, $($p:pat => $r:expr),* $(,)?) => {
-        impl ExprKind for $type {
-            const NAME: &'static str = $name;
-
-            fn from_expr(expr: Spanned<Expr>) -> Result<Self, Error> {
-                #[allow(unreachable_patterns)]
-                Ok(match expr.v {
-                    $($p => $r),*,
-                    _ => return Err(
-                        err!("expected {}, found {}", Self::NAME, expr.v.name())
-                    ),
-                })
-            }
-        }
-    };
-}
-
-kind!(Expr, "expression", e => e);
-kind!(Ident, "identifier", Expr::Ident(i) => i);
-kind!(String, "string", Expr::Str(s) => s);
-kind!(f64, "number", Expr::Number(n) => n);
-kind!(bool, "boolean", Expr::Bool(b) => b);
-kind!(Size, "size", Expr::Size(s) => s);
-kind!(Tuple, "tuple", Expr::Tuple(t) => t);
-kind!(Object, "object", Expr::Object(o) => o);
-kind!(ScaleSize, "number or size",
-    Expr::Size(size)    => ScaleSize::Absolute(size),
-    Expr::Number(scale) => ScaleSize::Scaled(scale as f32),
-);
-kind!(StringLike, "identifier or string",
-    Expr::Ident(Ident(s)) => StringLike(s),
-    Expr::Str(s) => StringLike(s),
-);

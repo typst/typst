@@ -156,7 +156,7 @@ pub struct Paper {
 
 impl Paper {
     /// The paper with the given name.
-    pub fn from_name(name: &str) -> Option<Paper> {
+    pub fn from_str(name: &str) -> Option<Paper> {
         parse_paper(name)
     }
 }

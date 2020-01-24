@@ -39,15 +39,23 @@ macro_rules! function {
             type Meta = $meta;
 
             fn parse(
-                #[allow(unused)] mut $header: FuncHeader,
-                #[allow(unused)] $body: Option<(Position, &str)>,
+                #[allow(unused)] mut header: FuncHeader,
+                #[allow(unused)] $body: Option<Spanned<&str>>,
                 #[allow(unused)] $ctx: ParseContext,
                 #[allow(unused)] $metadata: Self::Meta,
             ) -> Parsed<Self> where Self: Sized {
-                #[allow(unused)] let mut $errors = vec![];
-                #[allow(unused)] let mut $decos = vec![];
+                let mut errors = vec![];
+                let mut decorations = vec![];
+                #[allow(unused)] let $header = &mut header;
+                #[allow(unused)] let $errors = &mut errors;
+                #[allow(unused)] let $decos = &mut decorations;
                 let output = $code;
-                $crate::syntax::Parsed { output, errors: $errors, decorations: $decos }
+
+                for arg in header.args.into_iter() {
+                    errors.push(err!(arg.span(); "unexpected argument"));
+                }
+
+                $crate::syntax::Parsed { output, errors, decorations }
             }
         }
 
@@ -58,7 +66,7 @@ macro_rules! function {
         impl $crate::syntax::Model for $name {
             fn layout<'a, 'b, 'c, 't>(
                 #[allow(unused)] &'a $this,
-                #[allow(unused)] $ctx: $crate::layout::LayoutContext<'b, 'c>,
+                #[allow(unused)] mut $ctx: $crate::layout::LayoutContext<'b, 'c>,
             ) -> $crate::syntax::DynFuture<'t, $crate::layout::Layouted<$crate::func::Commands<'a>>>
             where
                 'a: 't,
@@ -67,9 +75,10 @@ macro_rules! function {
                 Self: 't,
             {
                 Box::pin(async move {
-                    #[allow(unused)] let mut $errors = vec![];
+                    let mut errors = vec![];
+                    #[allow(unused)] let $errors = &mut errors;
                     let output = $code;
-                    $crate::layout::Layouted { output, errors: $errors }
+                    $crate::layout::Layouted { output, errors }
                 })
             }
         }
@@ -78,14 +87,17 @@ macro_rules! function {
 
 /// Parse the body of a function.
 ///
-/// - If the function does not expect a body, use `parse!(forbidden: body)`.
-/// - If the function can have a body, use `parse!(optional: body, ctx)`.
-/// - If the function must have a body, use `parse!(expected: body, ctx)`.
+/// - If the function does not expect a body, use `parse!(nope: body, errors)`.
+/// - If the function can have a body, use `parse!(opt: body, ctx, errors, decos)`.
 #[macro_export]
 macro_rules! body {
     (opt: $body:expr, $ctx:expr, $errors:expr, $decos:expr) => ({
         $body.map(|body| {
-            let parsed = $crate::syntax::parse(body.0, body.1, $ctx);
+            // Since the body span starts at the opening bracket of the body, we
+            // need to add 1 column to find out the start position of body
+            // content.
+            let start = body.span.start + Position::new(0, 1);
+            let parsed = $crate::syntax::parse(start, body.v, $ctx);
             $errors.extend(parsed.errors);
             $decos.extend(parsed.decorations);
             parsed.output
@@ -94,12 +106,19 @@ macro_rules! body {
 
     (nope: $body:expr, $errors:expr) => {
         if let Some(body) = $body {
-            $errors.push($crate::err!(body.span, "unexpected body"));
+            $errors.push($crate::err!(body.span; "unexpected body"));
         }
     };
 }
 
-/// Construct an error with an optional span.
+/// Construct an error with optional severity and span.
+///
+/// # Examples
+/// ```
+/// err!(span; "the wrong {}", value);
+/// err!(@Warning: span; "non-fatal!");
+/// err!("no spans here ...");
+/// ```
 #[macro_export]
 macro_rules! err {
     (@$severity:ident: $span:expr; $($args:tt)*) => {

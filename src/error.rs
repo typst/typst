@@ -1,5 +1,8 @@
 use serde::Serialize;
+use crate::syntax::SpanVec;
 
+
+pub type Errors = SpanVec<Error>;
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 pub struct Error {

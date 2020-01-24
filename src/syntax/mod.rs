@@ -6,7 +6,7 @@ use std::future::Future;
 use std::pin::Pin;
 use serde::Serialize;
 
-use crate::error::Error;
+use crate::error::{Error, Errors};
 use crate::func::{Commands, Command};
 use crate::layout::{Layouted, LayoutContext};
 use crate::size::Size;
