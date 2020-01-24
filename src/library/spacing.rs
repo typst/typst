@@ -1,5 +1,8 @@
+use crate::size::FSize;
+use crate::layout::SpacingKind;
+
 use super::*;
-use ContentKind::*;
+use self::ContentKind::*;
 
 
 function! {

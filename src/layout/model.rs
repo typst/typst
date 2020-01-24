@@ -1,9 +1,15 @@
+use std::future::Future;
+use std::pin::Pin;
 use smallvec::smallvec;
+use toddle::query::SharedFontLoader;
 
 use crate::error::Errors;
-use crate::func::Command;
-use crate::syntax::{Model, DynFuture, SyntaxModel, Node};
-use crate::syntax::{SpanVec, Spanned, Span, offset_spans};
+use crate::style::{LayoutStyle, PageStyle, TextStyle};
+use crate::size::{Size, Size2D};
+use crate::syntax::{Model, SyntaxModel, Node};
+use crate::syntax::span::{Spanned, Span, offset_spans};
+use super::line::{LineLayouter, LineContext};
+use super::text::{layout_text, TextContext};
 use super::*;
 
 
@@ -14,6 +20,76 @@ pub struct ModelLayouter<'a, 'p> {
     style: LayoutStyle,
     errors: Errors,
 }
+
+/// The general context for layouting.
+#[derive(Debug, Clone)]
+pub struct LayoutContext<'a, 'p> {
+    /// The font loader to retrieve fonts from when typesetting text
+    /// using [`layout_text`].
+    pub loader: &'a SharedFontLoader<'p>,
+    /// The style for pages and text.
+    pub style: &'a LayoutStyle,
+    /// The base unpadded dimensions of this container (for relative sizing).
+    pub base: Size2D,
+    /// The spaces to layout in.
+    pub spaces: LayoutSpaces,
+    /// Whether to have repeated spaces or to use only the first and only once.
+    pub repeat: bool,
+    /// The initial axes along which content is laid out.
+    pub axes: LayoutAxes,
+    /// The alignment of the finished layout.
+    pub alignment: LayoutAlignment,
+    /// Whether the layout that is to be created will be nested in a parent
+    /// container.
+    pub nested: bool,
+    /// Whether to debug render a box around the layout.
+    pub debug: bool,
+}
+
+pub struct Layouted<T> {
+    pub output: T,
+    pub errors: Errors,
+}
+
+impl<T> Layouted<T> {
+    pub fn map<F, U>(self, f: F) -> Layouted<U> where F: FnOnce(T) -> U {
+        Layouted {
+            output: f(self.output),
+            errors: self.errors,
+        }
+    }
+}
+
+/// A sequence of layouting commands.
+pub type Commands<'a> = Vec<Command<'a>>;
+
+/// Layouting commands from functions to the typesetting engine.
+#[derive(Debug)]
+pub enum Command<'a> {
+    LayoutSyntaxModel(&'a SyntaxModel),
+
+    Add(Layout),
+    AddMultiple(MultiLayout),
+    AddSpacing(Size, SpacingKind, GenericAxis),
+
+    FinishLine,
+    FinishSpace,
+    BreakParagraph,
+    BreakPage,
+
+    SetTextStyle(TextStyle),
+    SetPageStyle(PageStyle),
+    SetAlignment(LayoutAlignment),
+    SetAxes(LayoutAxes),
+}
+
+pub async fn layout(model: &SyntaxModel, ctx: LayoutContext<'_, '_>) -> Layouted<MultiLayout> {
+    let mut layouter = ModelLayouter::new(ctx);
+    layouter.layout_syntax_model(model).await;
+    layouter.finish()
+}
+
+pub type DynFuture<'a, T> = Pin<Box<dyn Future<Output=T> + 'a>>;
 
 impl<'a, 'p> ModelLayouter<'a, 'p> {
     /// Create a new syntax tree layouter.

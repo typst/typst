@@ -8,7 +8,7 @@ use tide::content::Content;
 use tide::doc::{Catalog, Page, PageTree, Resource, Text};
 use tide::font::{
     CIDFont, CIDFontType, CIDSystemInfo, FontDescriptor, FontFlags, Type0Font,
-    CMap, CMapEncoding, FontStream, GlyphUnit, WidthRecord
+    CMap, CMapEncoding, FontStream, GlyphUnit, WidthRecord,
 };
 
 use toddle::Error as FontError;
@@ -16,7 +16,7 @@ use toddle::font::OwnedFont;
 use toddle::query::{SharedFontLoader, FontIndex};
 use toddle::tables::{
     CharMap, Header, HorizontalMetrics, MacStyleFlags,
-    Name, NameEntry, Post, OS2
+    Name, NameEntry, Post, OS2,
 };
 
 use crate::layout::{MultiLayout, Layout, LayoutAction};

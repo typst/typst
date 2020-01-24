@@ -1,4 +1,5 @@
 use toddle::query::{FontWeight, FontStyle};
+use crate::size::FSize;
 use super::*;
 
 
@@ -79,7 +80,7 @@ function! {
     #[derive(Debug, Clone, PartialEq)]
     pub struct FontSizeFunc {
         body: Option<SyntaxModel>,
-        size: Option<ScaleSize>,
+        size: Option<FSize>,
     }
 
     parse(header, body, ctx, errors, decos) {
@@ -93,11 +94,11 @@ function! {
     layout(self, ctx, errors) {
         styled(&self.body, ctx, self.size, |t, s| {
             match s {
-                ScaleSize::Absolute(size) => {
+                FSize::Absolute(size) => {
                     t.base_font_size = size;
                     t.font_scale = 1.0;
                 }
-                ScaleSize::Scaled(scale) => t.font_scale = scale,
+                FSize::Scaled(scale) => t.font_scale = scale,
             }
         })
     }

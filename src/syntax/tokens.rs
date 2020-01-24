@@ -2,9 +2,11 @@ use std::iter::Peekable;
 use std::str::Chars;
 use unicode_xid::UnicodeXID;
 
-use super::*;
-use Token::*;
-use TokenizationMode::*;
+use crate::size::Size;
+use super::span::{Position, Span, Spanned};
+
+use self::Token::*;
+use self::TokenizationMode::*;
 
 
 /// A minimal semantic entity of source code.
@@ -66,6 +68,37 @@ pub enum Token<'s> {
 
     /// Things that are not valid in the context they appeared in.
     Invalid(&'s str),
+}
+
+impl<'s> Token<'s> {
+    /// The natural-language name for this token for use in error messages.
+    pub fn name(self) -> &'static str {
+        match self {
+            Space(_)        => "space",
+            LineComment(_)  => "line comment",
+            BlockComment(_) => "block comment",
+            Function { .. } => "function",
+            LeftParen       => "opening paren",
+            RightParen      => "closing paren",
+            LeftBrace       => "opening brace",
+            RightBrace      => "closing brace",
+            Colon           => "colon",
+            Comma           => "comma",
+            Equals          => "equals sign",
+            ExprIdent(_)    => "identifier",
+            ExprStr { .. }  => "string",
+            ExprNumber(_)   => "number",
+            ExprSize(_)     => "size",
+            ExprBool(_)     => "boolean",
+            Star            => "star",
+            Underscore      => "underscore",
+            Backtick        => "backtick",
+            Text(_)         => "invalid identifier",
+            Invalid("]")    => "closing bracket",
+            Invalid("*/")   => "end of block comment",
+            Invalid(_)      => "invalid token",
+        }
+    }
 }
 
 /// An iterator over the tokens of a string of source code.

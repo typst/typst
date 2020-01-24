@@ -1,5 +1,5 @@
 use serde::Serialize;
-use crate::syntax::SpanVec;
+use crate::syntax::span::SpanVec;
 
 
 pub type Errors = SpanVec<Error>;
@@ -10,14 +10,14 @@ pub struct Error {
     pub severity: Severity,
 }
 
-impl Error {
-    pub fn new(message: impl Into<String>, severity: Severity) -> Error {
-        Error { message: message.into(), severity }
-    }
-}
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize)]
 pub enum Severity {
     Warning,
     Error,
+}
+
+impl Error {
+    pub fn new(message: impl Into<String>, severity: Severity) -> Error {
+        Error { message: message.into(), severity }
+    }
 }

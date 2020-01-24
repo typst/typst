@@ -6,12 +6,14 @@ use crate::style::TextStyle;
 use super::*;
 
 
-/// Layouts text into a box.
-///
-/// There is no complex layout involved. The text is simply laid out left-
-/// to-right using the correct font for each character.
-pub async fn layout_text(text: &str, ctx: TextContext<'_, '_>) -> Layout {
-    TextLayouter::new(text, ctx).layout().await
+/// Layouts text into boxes.
+struct TextLayouter<'a, 'p> {
+    ctx: TextContext<'a, 'p>,
+    text: &'a str,
+    actions: LayoutActions,
+    buffer: String,
+    active_font: FontIndex,
+    width: Size,
 }
 
 /// The context for text layouting.
@@ -25,14 +27,12 @@ pub struct TextContext<'a, 'p> {
     pub alignment: LayoutAlignment,
 }
 
-/// Layouts text into boxes.
-struct TextLayouter<'a, 'p> {
-    ctx: TextContext<'a, 'p>,
-    text: &'a str,
-    actions: LayoutActions,
-    buffer: String,
-    active_font: FontIndex,
-    width: Size,
+/// Layouts text into a box.
+///
+/// There is no complex layout involved. The text is simply laid out left-
+/// to-right using the correct font for each character.
+pub async fn layout_text(text: &str, ctx: TextContext<'_, '_>) -> Layout {
+    TextLayouter::new(text, ctx).layout().await
 }
 
 impl<'a, 'p> TextLayouter<'a, 'p> {

@@ -1,5 +1,6 @@
 //! The standard library.
 
+use crate::syntax::Scope;
 use crate::func::prelude::*;
 
 pub_use_mod!(font);

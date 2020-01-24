@@ -1,9 +1,11 @@
 //! Deduplicating maps and keys for argument parsing.
 
-use std::collections::HashMap;
-use std::hash::Hash;
-use crate::layout::{LayoutAxes, SpecificAxis, GenericAxis};
+use crate::error::Errors;
+use crate::layout::prelude::*;
 use crate::size::{PSize, ValueBox};
+use crate::syntax::span::Spanned;
+use super::keys::*;
+use super::values::*;
 use super::*;
 
 
@@ -179,7 +181,6 @@ impl PaddingMap {
         padding: &mut ValueBox<Option<PSize>>
     ) {
         use PaddingKey::*;
-        use SpecificAxis::*;
 
         let map = self.0.dedup(errors, |key, &val| {
             (match key {

@@ -1,12 +1,13 @@
+use std::fmt::{self, Display, Formatter};
 use std::marker::PhantomData;
 use toddle::query::{FontStyle, FontWeight};
 
 use crate::layout::prelude::*;
-use crate::size::ScaleSize;
+use crate::size::{Size, ScaleSize};
 use crate::style::Paper;
 use super::*;
 
-use AlignmentValue::*;
+use self::AlignmentValue::*;
 
 
 pub trait Value {
@@ -76,20 +77,6 @@ impl<T: Value> Value for Defaultable<T> {
     }
 }
 
-impl Value for Direction {
-    type Output = Self;
-
-    fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
-        Ok(match Ident::parse(expr)?.as_str() {
-            "left-to-right" | "ltr" | "LTR" => Direction::LeftToRight,
-            "right-to-left" | "rtl" | "RTL" => Direction::RightToLeft,
-            "top-to-bottom" | "ttb" | "TTB" => Direction::TopToBottom,
-            "bottom-to-top" | "btt" | "BTT" => Direction::BottomToTop,
-            other => return Err(err!("invalid direction"))
-        })
-    }
-}
-
 impl Value for FontStyle {
     type Output = Self;
 
@@ -131,6 +118,20 @@ impl Value for Paper {
     fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
         Paper::from_str(Ident::parse(expr)?.as_str())
             .ok_or_else(|| err!("invalid paper type"))
+    }
+}
+
+impl Value for Direction {
+    type Output = Self;
+
+    fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
+        Ok(match Ident::parse(expr)?.as_str() {
+            "left-to-right" | "ltr" | "LTR" => LeftToRight,
+            "right-to-left" | "rtl" | "RTL" => RightToLeft,
+            "top-to-bottom" | "ttb" | "TTB" => TopToBottom,
+            "bottom-to-top" | "btt" | "BTT" => BottomToTop,
+            _ => return Err(err!("invalid direction"))
+        })
     }
 }
 
@@ -203,7 +204,7 @@ impl Value for AlignmentValue {
             "top"    => Top,
             "right"  => Right,
             "bottom" => Bottom,
-            other => return Err(err!("invalid alignment"))
+            _ => return Err(err!("invalid alignment"))
         })
     }
 }

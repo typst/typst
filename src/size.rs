@@ -129,7 +129,7 @@ pub type PSize = ScaleSize;
 
 /// A value in two dimensions.
 #[derive(Default, Copy, Clone, PartialEq)]
-pub struct Value2D<T: Copy> {
+pub struct Value2D<T> {
     /// The horizontal component.
     pub x: T,
     /// The vertical component.
@@ -226,13 +226,13 @@ impl<T: Copy> Value2D<T> {
     }
 }
 
-impl<T: Copy> Display for Value2D<T> where T: Display {
+impl<T> Display for Value2D<T> where T: Display {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "[{}, {}]", self.x, self.y)
     }
 }
 
-impl<T: Copy> Debug for Value2D<T> where T: Debug {
+impl<T> Debug for Value2D<T> where T: Debug {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "[{:?}, {:?}]", self.x, self.y)
     }
@@ -293,7 +293,7 @@ impl Neg for Size2D {
 
 /// A value that is stretchable in an interval from a minimal through an optimal
 /// to a maximal value.
-pub struct StretchValue<T: Copy> {
+pub struct StretchValue<T> {
     /// The minimum this value can be stretched to.
     pub min: T,
     /// The optimum for this value.
@@ -302,20 +302,20 @@ pub struct StretchValue<T: Copy> {
     pub max: T,
 }
 
-impl<T: Copy> StretchValue<T> {
+impl<T> StretchValue<T> {
     /// Create a new stretch size from minimum, optimal and maximum values.
     pub fn new(min: T, opt: T, max: T) -> StretchValue<T> {
         StretchValue { min, opt, max }
     }
 }
 
-impl<T: Copy> Display for StretchValue<T> where T: Display {
+impl<T> Display for StretchValue<T> where T: Display {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "({}, {}, {})", self.min, self.opt, self.max)
     }
 }
 
-impl<T: Copy> Debug for StretchValue<T> where T: Debug {
+impl<T> Debug for StretchValue<T> where T: Debug {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "({:?}, {:?}, {:?})", self.min, self.opt, self.max)
     }
@@ -326,7 +326,7 @@ pub type StretchSize = StretchValue<Size>;
 
 /// A value in four dimensions.
 #[derive(Default, Copy, Clone, PartialEq)]
-pub struct ValueBox<T: Copy> {
+pub struct ValueBox<T> {
     /// The left extent.
     pub left: T,
     /// The top extent.
@@ -337,7 +337,7 @@ pub struct ValueBox<T: Copy> {
     pub bottom: T,
 }
 
-impl<T: Copy> ValueBox<T> {
+impl<T: Clone> ValueBox<T> {
     /// Create a new box from four sizes.
     pub fn new(left: T, top: T, right: T, bottom: T) -> ValueBox<T> {
         ValueBox { left, top, right, bottom }
@@ -345,7 +345,12 @@ impl<T: Copy> ValueBox<T> {
 
     /// Create a box with all four fields set to the same value `s`.
     pub fn with_all(value: T) -> ValueBox<T> {
-        ValueBox { left: value, top: value, right: value, bottom: value }
+        ValueBox {
+            left: value.clone(),
+            top: value.clone(),
+            right: value.clone(),
+            bottom: value
+        }
     }
 
     /// Get a mutable reference to the value for the specified direction at the
@@ -372,25 +377,25 @@ impl<T: Copy> ValueBox<T> {
 
     /// Set the `left` and `right` values.
     pub fn set_horizontal(&mut self, value: T) {
-        self.left = value;
+        self.left = value.clone();
         self.right = value;
     }
 
     /// Set the `top` and `bottom` values.
     pub fn set_vertical(&mut self, value: T) {
-        self.top = value;
+        self.top = value.clone();
         self.bottom = value;
     }
 }
 
-impl<T: Copy> Display for ValueBox<T> where T: Display {
+impl<T> Display for ValueBox<T> where T: Display {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "[left: {}, top: {}, right: {}, bottom: {}]",
             self.left, self.top, self.right, self.bottom)
     }
 }
 
-impl<T: Copy> Debug for ValueBox<T> where T: Debug {
+impl<T> Debug for ValueBox<T> where T: Debug {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "[left: {:?}, top: {:?}, right: {:?}, bottom: {:?}]",
             self.left, self.top, self.right, self.bottom)

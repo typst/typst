@@ -1,4 +1,6 @@
+use crate::size::Size;
 use crate::style::{Paper, PaperClass};
+use crate::syntax::func::maps::{AxisMap, PaddingMap};
 use super::*;
 
 

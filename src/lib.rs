@@ -25,22 +25,24 @@ use smallvec::smallvec;
 
 use toddle::query::{FontLoader, FontProvider, SharedFontLoader};
 
-use crate::func::Scope;
-use crate::layout::{Layouted, MultiLayout};
-use crate::syntax::{parse, ParseContext, Parsed, SyntaxModel, Position};
+use crate::layout::MultiLayout;
+use crate::layout::prelude::*;
+use crate::layout::{LayoutContext, Layouted, layout};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
+use crate::syntax::{SyntaxModel, Scope, ParseContext, Parsed, parse};
+use crate::syntax::span::Position;
 
 #[macro_use]
 mod macros;
-pub mod export;
 pub mod error;
+pub mod export;
 #[macro_use]
 pub mod func;
 pub mod layout;
 pub mod library;
-pub mod syntax;
 pub mod size;
 pub mod style;
+pub mod syntax;
 
 
 /// Transforms source code into typesetted layouts.
@@ -93,7 +95,6 @@ impl<'p> Typesetter<'p> {
 
     /// Layout a syntax tree and return the produced layout.
     pub async fn layout(&self, model: &SyntaxModel) -> Layouted<MultiLayout> {
-        use crate::layout::prelude::*;
         let margins = self.style.page.margins();
         layout(
             &model,

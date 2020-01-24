@@ -1,4 +1,10 @@
-use super::*;
+use std::fmt::{self, Display, Formatter};
+
+use crate::error::Errors;
+use crate::size::Size;
+use super::func::{keys::Key, values::Value};
+use super::span::{Span, Spanned};
+use super::tokens::is_identifier;
 
 
 /// An argument or return value.
@@ -91,6 +97,13 @@ pub struct Object {
     pub pairs: Vec<Pair>,
 }
 
+/// A key-value pair in an object.
+#[derive(Clone, PartialEq)]
+pub struct Pair {
+    pub key: Spanned<Ident>,
+    pub value: Spanned<Expr>,
+}
+
 impl Object {
     pub fn new() -> Object {
         Object { pairs: vec![] }
@@ -160,13 +173,6 @@ impl Object {
             Err(err) => { errors.push(Spanned { v: err, span }); None }
         }
     }
-}
-
-/// A key-value pair in an object.
-#[derive(Clone, PartialEq)]
-pub struct Pair {
-    pub key: Spanned<Ident>,
-    pub value: Spanned<Expr>,
 }
 
 impl Display for Expr {

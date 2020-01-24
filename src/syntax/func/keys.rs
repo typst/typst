@@ -1,9 +1,10 @@
 use crate::layout::prelude::*;
+use super::values::AlignmentValue::{self, *};
 use super::*;
 
-use AxisKey::*;
-use PaddingKey::*;
-use AlignmentValue::*;
+use self::AxisKey::*;
+use self::PaddingKey::*;
+
 
 
 pub trait Key {
@@ -28,7 +29,7 @@ macro_rules! key {
             fn parse(key: Spanned<&str>) -> Option<Self::Output> {
                 match key.v {
                     $($($p)|* => Some($r)),*,
-                    other => None,
+                    _ => None,
                 }
             }
         }

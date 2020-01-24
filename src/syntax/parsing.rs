@@ -1,6 +1,10 @@
-use crate::func::Scope;
+use crate::error::Errors;
+use super::expr::*;
+use super::func::{FuncHeader, FuncArgs, FuncArg};
+use super::scope::Scope;
+use super::span::{Position, Span, Spanned, SpanVec, offset_spans};
+use super::tokens::{Token, Tokens, TokenizationMode};
 use super::*;
-use Token::*;
 
 
 /// The context for parsing.
@@ -37,13 +41,13 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Parsed<SyntaxMode
         let span = token.span;
 
         let node = match token.v {
-            Space(newlines) => if newlines >= 2 {
+            Token::Space(newlines) => if newlines >= 2 {
                 Node::Newline
             } else {
                 Node::Space
             },
 
-            Function { header, body, terminated } => {
+            Token::Function { header, body, terminated } => {
                 let parsed: Parsed<Node> = FuncParser::new(header, body, ctx).parse();
 
                 errors.extend(offset_spans(parsed.errors, span.start));
@@ -56,15 +60,15 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Parsed<SyntaxMode
                 parsed.output
             }
 
-            Star       => Node::ToggleBolder,
-            Underscore => Node::ToggleItalic,
-            Backtick   => Node::ToggleMonospace,
-            Text(text) => Node::Text(text.to_owned()),
+            Token::Star       => Node::ToggleBolder,
+            Token::Underscore => Node::ToggleItalic,
+            Token::Backtick   => Node::ToggleMonospace,
+            Token::Text(text) => Node::Text(text.to_owned()),
 
-            LineComment(_) | BlockComment(_) => continue,
+            Token::LineComment(_) | Token::BlockComment(_) => continue,
 
             other => {
-                errors.push(err!(span; "unexpected {}", name(other)));
+                errors.push(err!(span; "unexpected {}", other.name()));
                 continue;
             }
         };
@@ -140,7 +144,7 @@ impl<'s> FuncParser<'s> {
         self.skip_whitespace();
 
         let name = match self.eat() {
-            Some(Spanned { v: ExprIdent(ident), span }) => {
+            Some(Spanned { v: Token::ExprIdent(ident), span }) => {
                 Spanned { v: Ident(ident.to_string()), span }
             }
             other => {
@@ -151,7 +155,7 @@ impl<'s> FuncParser<'s> {
 
         self.skip_whitespace();
         let args = match self.eat().map(Spanned::value) {
-            Some(Colon) => self.parse_func_args(),
+            Some(Token::Colon) => self.parse_func_args(),
             Some(_) => {
                 self.expected_at("colon", name.span.end);
                 FuncArgs::new()
@@ -179,38 +183,38 @@ impl<'s> FuncParser<'s> {
     }
 
     /// Parse a positional or keyword argument.
-    fn parse_arg(&mut self) -> Option<Arg> {
+    fn parse_arg(&mut self) -> Option<FuncArg> {
         let first = self.peek()?;
         let span = first.span;
 
-        let arg = if let ExprIdent(ident) = first.v {
+        let arg = if let Token::ExprIdent(ident) = first.v {
             self.eat();
             self.skip_whitespace();
 
             let ident = Ident(ident.to_string());
-            if let Some(Equals) = self.peekv() {
+            if let Some(Token::Equals) = self.peekv() {
                 self.eat();
                 self.skip_whitespace();
 
                 self.decorations.push(Spanned::new(Decoration::ArgumentKey, span));
 
                 self.parse_expr().map(|value| {
-                    Arg::Key(Pair {
+                    FuncArg::Key(Pair {
                         key: Spanned { v: ident, span },
                         value,
                     })
                 })
             } else {
-                Some(Arg::Pos(Spanned::new(Expr::Ident(ident), span)))
+                Some(FuncArg::Pos(Spanned::new(Expr::Ident(ident), span)))
             }
         } else {
-            self.parse_expr().map(|expr| Arg::Pos(expr))
+            self.parse_expr().map(|expr| FuncArg::Pos(expr))
         };
 
         if let Some(arg) = &arg {
             self.skip_whitespace();
             match self.peekv() {
-                Some(Comma) => { self.eat(); }
+                Some(Token::Comma) => { self.eat(); }
                 Some(_) => self.expected_at("comma", arg.span().end),
                 _ => {}
             }
@@ -228,11 +232,11 @@ impl<'s> FuncParser<'s> {
         let spanned = |v| Spanned { v, span: first.span };
 
         Some(match first.v {
-            ExprIdent(i) => {
+            Token::ExprIdent(i) => {
                 self.eat();
                 spanned(Expr::Ident(Ident(i.to_string())))
             }
-            ExprStr { string, terminated } => {
+            Token::ExprStr { string, terminated } => {
                 if !terminated {
                     self.expected_at("quote", first.span.end);
                 }
@@ -240,12 +244,13 @@ impl<'s> FuncParser<'s> {
                 self.eat();
                 spanned(Expr::Str(string.to_string()))
             }
-            ExprNumber(n) => { self.eat(); spanned(Expr::Number(n)) }
-            ExprSize(s) => { self.eat(); spanned(Expr::Size(s)) }
-            ExprBool(b) => { self.eat(); spanned(Expr::Bool(b)) }
+            Token::ExprNumber(n) => { self.eat(); spanned(Expr::Number(n)) }
+            Token::ExprSize(s) => { self.eat(); spanned(Expr::Size(s)) }
+            Token::ExprBool(b) => { self.eat(); spanned(Expr::Bool(b)) }
 
-            LeftParen => self.parse_tuple(),
-            LeftBrace => self.parse_object(),
+            Token::LeftParen => self.parse_tuple(),
+            Token::LeftBrace => self.parse_object(),
+
             _ => return None,
         })
     }
@@ -255,7 +260,7 @@ impl<'s> FuncParser<'s> {
         let start = self.pos();
 
         // TODO: Do the thing.
-        self.eat_until(|t| t == RightParen, true);
+        self.eat_until(|t| t == Token::RightParen, true);
 
         let end = self.pos();
         let span = Span { start, end };
@@ -268,7 +273,7 @@ impl<'s> FuncParser<'s> {
         let start = self.pos();
 
         // TODO: Do the thing.
-        self.eat_until(|t| t == RightBrace, true);
+        self.eat_until(|t| t == Token::RightBrace, true);
 
         let end = self.pos();
         let span = Span { start, end };
@@ -278,15 +283,16 @@ impl<'s> FuncParser<'s> {
 
     /// Skip all whitespace/comment tokens.
     fn skip_whitespace(&mut self) {
-        self.eat_until(|t|
-            !matches!(t, Space(_) | LineComment(_) | BlockComment(_)), false)
+        self.eat_until(|t| !matches!(t,
+            Token::Space(_) | Token::LineComment(_) |
+            Token::BlockComment(_)), false)
     }
 
     /// Add an error about an expected `thing` which was not found, showing
     /// what was found instead.
     fn expected_found(&mut self, thing: &str, found: Spanned<Token>) {
         self.errors.push(err!(found.span;
-            "expected {}, found {}", thing, name(found.v)));
+            "expected {}, found {}", thing, found.v.name()));
     }
 
     /// Add an error about an `thing` which was expected but not found at the
@@ -346,33 +352,5 @@ impl<'s> FuncParser<'s> {
         self.peeked.flatten()
             .map(|s| s.span.start)
             .unwrap_or_else(|| self.tokens.pos())
-    }
-}
-
-/// The name of a token in an `(un)expected <...>` error.
-fn name(token: Token) -> &'static str {
-    match token {
-        Space(_)      => "space",
-        LineComment(_) | BlockComment(_) => "comment",
-        Function { .. } => "function",
-        LeftParen     => "opening paren",
-        RightParen    => "closing paren",
-        LeftBrace     => "opening brace",
-        RightBrace    => "closing brace",
-        Colon         => "colon",
-        Comma         => "comma",
-        Equals        => "equals sign",
-        ExprIdent(_)  => "identifier",
-        ExprStr { .. }    => "string",
-        ExprNumber(_) => "number",
-        ExprSize(_)   => "size",
-        ExprBool(_)   => "boolean",
-        Star          => "star",
-        Underscore    => "underscore",
-        Backtick      => "backtick",
-        Text(_)       => "invalid identifier",
-        Invalid("]")  => "closing bracket",
-        Invalid("*/") => "end of block comment",
-        Invalid(_)    => "invalid token",
     }
 }

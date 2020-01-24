@@ -1,77 +1,25 @@
 //! Tokenization and parsing of source code.
 
 use std::any::Any;
-use std::fmt::{self, Debug, Display, Formatter};
-use std::future::Future;
-use std::pin::Pin;
+use std::fmt::Debug;
+use async_trait::async_trait;
 use serde::Serialize;
 
-use crate::error::{Error, Errors};
-use crate::func::{Commands, Command};
-use crate::layout::{Layouted, LayoutContext};
-use crate::size::Size;
+use crate::layout::{LayoutContext, Layouted, Commands, Command};
+use self::span::{Spanned, SpanVec};
 
-pub_use_mod!(expr);
-pub_use_mod!(func);
-pub_use_mod!(tokens);
+pub mod expr;
+pub mod func;
+pub mod span;
+
+pub_use_mod!(scope);
 pub_use_mod!(parsing);
-pub_use_mod!(span);
-
-/// Common syntax types.
-pub mod prelude {
-    pub use super::*;
-}
+pub_use_mod!(tokens);
 
 
-#[async_trait::async_trait(?Send)]
+#[async_trait(?Send)]
 pub trait Model: Debug + ModelBounds {
-    async fn layout<'a>(
-        &'a self,
-        ctx: LayoutContext<'_, '_>
-    ) -> Layouted<Commands<'a>>;
-}
-
-pub type DynFuture<'a, T> = Pin<Box<dyn Future<Output=T> + 'a>>;
-
-impl dyn Model {
-    pub fn downcast<T>(&self) -> Option<&T> where T: Model + 'static {
-        self.as_any().downcast_ref::<T>()
-    }
-}
-
-impl PartialEq for dyn Model {
-    fn eq(&self, other: &dyn Model) -> bool {
-        self.bound_eq(other)
-    }
-}
-
-impl Clone for Box<dyn Model> {
-    fn clone(&self) -> Self {
-        self.bound_clone()
-    }
-}
-
-pub trait ModelBounds {
-    fn as_any(&self) -> &dyn Any;
-    fn bound_eq(&self, other: &dyn Model) -> bool;
-    fn bound_clone(&self) -> Box<dyn Model>;
-}
-
-impl<T> ModelBounds for T where T: Model + PartialEq + Clone + 'static {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn bound_eq(&self, other: &dyn Model) -> bool {
-        match other.as_any().downcast_ref::<Self>() {
-            Some(other) => self == other,
-            None => false,
-        }
-    }
-
-    fn bound_clone(&self) -> Box<dyn Model> {
-        Box::new(self.clone())
-    }
+    async fn layout<'a>(&'a self, ctx: LayoutContext<'_, '_>) -> Layouted<Commands<'a>>;
 }
 
 /// A tree representation of source code.
@@ -92,7 +40,7 @@ impl SyntaxModel {
     }
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait(?Send)]
 impl Model for SyntaxModel {
     async fn layout<'a>(&'a self, _: LayoutContext<'_, '_>) -> Layouted<Commands<'a>> {
         Layouted {
@@ -143,4 +91,45 @@ pub enum Decoration {
     ValidFuncName,
     InvalidFuncName,
     ArgumentKey,
+}
+
+impl dyn Model {
+    pub fn downcast<T>(&self) -> Option<&T> where T: Model + 'static {
+        self.as_any().downcast_ref::<T>()
+    }
+}
+
+impl PartialEq for dyn Model {
+    fn eq(&self, other: &dyn Model) -> bool {
+        self.bound_eq(other)
+    }
+}
+
+impl Clone for Box<dyn Model> {
+    fn clone(&self) -> Self {
+        self.bound_clone()
+    }
+}
+
+pub trait ModelBounds {
+    fn as_any(&self) -> &dyn Any;
+    fn bound_eq(&self, other: &dyn Model) -> bool;
+    fn bound_clone(&self) -> Box<dyn Model>;
+}
+
+impl<T> ModelBounds for T where T: Model + PartialEq + Clone + 'static {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn bound_eq(&self, other: &dyn Model) -> bool {
+        match other.as_any().downcast_ref::<Self>() {
+            Some(other) => self == other,
+            None => false,
+        }
+    }
+
+    fn bound_clone(&self) -> Box<dyn Model> {
+        Box::new(self.clone())
+    }
 }

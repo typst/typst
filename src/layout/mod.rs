@@ -3,39 +3,25 @@
 use std::io::{self, Write};
 use std::fmt::{self, Display, Formatter};
 use smallvec::SmallVec;
-use toddle::query::{SharedFontLoader, FontIndex};
+use toddle::query::FontIndex;
 
-use crate::error::Errors;
-use crate::syntax::{SyntaxModel, SpanVec};
 use crate::size::{Size, Size2D, SizeBox};
-use crate::style::LayoutStyle;
+use self::{GenericAxis::*, SpecificAxis::*, Direction::*, Alignment::*};
 
-mod actions;
-mod model;
-mod line;
-mod stack;
-mod text;
+pub mod line;
+pub mod stack;
+pub mod text;
 
-/// Common types for layouting.
+pub_use_mod!(actions);
+pub_use_mod!(model);
+
 pub mod prelude {
-    pub use super::*;
-    pub use GenericAxis::*;
-    pub use SpecificAxis::*;
-    pub use Direction::*;
-    pub use Alignment::*;
+    pub use super::{LayoutSpace, LayoutExpansion, LayoutAxes, LayoutAlignment};
+    pub use super::GenericAxis::{self, *};
+    pub use super::SpecificAxis::{self, *};
+    pub use super::Direction::{self, *};
+    pub use super::Alignment::{self, *};
 }
-
-/// Different kinds of layouters (fully re-exported).
-pub mod layouters {
-    pub use super::model::ModelLayouter;
-    pub use super::line::{LineLayouter, LineContext};
-    pub use super::stack::{StackLayouter, StackContext};
-    pub use super::text::{layout_text, TextContext};
-}
-
-pub use self::actions::{LayoutAction, LayoutActions};
-pub use self::layouters::*;
-pub use self::prelude::*;
 
 
 /// A collection of layouts.
@@ -67,49 +53,32 @@ impl Layout {
     }
 }
 
-/// The general context for layouting.
-#[derive(Debug, Clone)]
-pub struct LayoutContext<'a, 'p> {
-    /// The font loader to retrieve fonts from when typesetting text
-    /// using [`layout_text`].
-    pub loader: &'a SharedFontLoader<'p>,
-    /// The style for pages and text.
-    pub style: &'a LayoutStyle,
-    /// The base unpadded dimensions of this container (for relative sizing).
-    pub base: Size2D,
-    /// The spaces to layout in.
-    pub spaces: LayoutSpaces,
-    /// Whether to have repeated spaces or to use only the first and only once.
-    pub repeat: bool,
-    /// The initial axes along which content is laid out.
-    pub axes: LayoutAxes,
-    /// The alignment of the finished layout.
-    pub alignment: LayoutAlignment,
-    /// Whether the layout that is to be created will be nested in a parent
-    /// container.
-    pub nested: bool,
-    /// Whether to debug render a box around the layout.
-    pub debug: bool,
+/// Layout components that can be serialized.
+pub trait Serialize {
+    /// Serialize the data structure into an output writable.
+    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()>;
 }
 
-pub struct Layouted<T> {
-    pub output: T,
-    pub errors: Errors,
-}
-
-impl<T> Layouted<T> {
-    pub fn map<F, U>(self, f: F) -> Layouted<U> where F: FnOnce(T) -> U {
-        Layouted {
-            output: f(self.output),
-            errors: self.errors,
+impl Serialize for Layout {
+    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
+        writeln!(f, "{:.4} {:.4}", self.dimensions.x.to_pt(), self.dimensions.y.to_pt())?;
+        writeln!(f, "{}", self.actions.len())?;
+        for action in &self.actions {
+            action.serialize(f)?;
+            writeln!(f)?;
         }
+        Ok(())
     }
 }
 
-pub async fn layout(model: &SyntaxModel, ctx: LayoutContext<'_, '_>) -> Layouted<MultiLayout> {
-    let mut layouter = ModelLayouter::new(ctx);
-    layouter.layout_syntax_model(model).await;
-    layouter.finish()
+impl Serialize for MultiLayout {
+    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
+        writeln!(f, "{}", self.len())?;
+        for layout in self {
+            layout.serialize(f)?;
+        }
+        Ok(())
+    }
 }
 
 /// A possibly stack-allocated vector of layout spaces.
@@ -403,33 +372,5 @@ impl LastSpacing {
             LastSpacing::Soft(space, _) => space,
             _ => Size::ZERO,
         }
-    }
-}
-
-/// Layout components that can be serialized.
-pub trait Serialize {
-    /// Serialize the data structure into an output writable.
-    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()>;
-}
-
-impl Serialize for Layout {
-    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
-        writeln!(f, "{:.4} {:.4}", self.dimensions.x.to_pt(), self.dimensions.y.to_pt())?;
-        writeln!(f, "{}", self.actions.len())?;
-        for action in &self.actions {
-            action.serialize(f)?;
-            writeln!(f)?;
-        }
-        Ok(())
-    }
-}
-
-impl Serialize for MultiLayout {
-    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
-        writeln!(f, "{}", self.len())?;
-        for layout in self {
-            layout.serialize(f)?;
-        }
-        Ok(())
     }
 }

@@ -1,10 +1,12 @@
 //! Drawing and cofiguration actions composing layouts.
 
+use std::io::{self, Write};
 use std::fmt::{self, Display, Formatter};
 use toddle::query::FontIndex;
 
-use super::*;
-use LayoutAction::*;
+use crate::size::{Size, Size2D};
+use super::{Layout, Serialize};
+use self::LayoutAction::*;
 
 
 /// A layouting action.

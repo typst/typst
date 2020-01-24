@@ -1,7 +1,6 @@
 //! Styles for text and pages.
 
 use toddle::query::{FontFallbackTree, FontVariant, FontStyle, FontWeight};
-
 use crate::size::{Size, Size2D, SizeBox, ValueBox, PSize};
 
 
