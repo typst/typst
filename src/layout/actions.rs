@@ -1,4 +1,4 @@
-//! Drawing and cofiguration actions composing layouts.
+//! Drawing and configuration actions composing layouts.
 
 use std::io::{self, Write};
 use std::fmt::{self, Display, Formatter};
@@ -9,14 +9,15 @@ use super::{Layout, Serialize};
 use self::LayoutAction::*;
 
 
-/// A layouting action.
+/// A layouting action, which is the basic building block layouts are composed
+/// of.
 #[derive(Clone)]
 pub enum LayoutAction {
     /// Move to an absolute position.
     MoveAbsolute(Size2D),
-    /// Set the font by index and font size.
+    /// Set the font given the index from the font loader and font size.
     SetFont(FontIndex, Size),
-    /// Write text starting at the current position.
+    /// Write text at the current position.
     WriteText(String),
     /// Visualize a box for debugging purposes.
     DebugBox(Size2D),
@@ -50,17 +51,18 @@ debug_display!(LayoutAction);
 /// A sequence of layouting actions.
 ///
 /// The sequence of actions is optimized as the actions are added. For example,
-/// a font changing option will only be added if the selected font is not already active.
-/// All configuration actions (like moving, setting fonts, ...) are only flushed when
-/// content is written.
+/// a font changing option will only be added if the selected font is not
+/// already active. All configuration actions (like moving, setting fonts, ...)
+/// are only flushed when content is written.
 ///
-/// Furthermore, the action list can translate absolute position into a coordinate system
-/// with a different origin. This is realized in the `add_box` method, which allows a layout to
-/// be added at a position, effectively translating all movement actions inside the layout
-/// by the position.
+/// Furthermore, the action list can translate absolute position into a
+/// coordinate system with a different origin. This is realized in the
+/// `add_layout` method, which allows a layout to be added at a position,
+/// effectively translating all movement actions inside the layout by the
+/// position.
 #[derive(Debug, Clone)]
 pub struct LayoutActions {
-    pub origin: Size2D,
+    origin: Size2D,
     actions: Vec<LayoutAction>,
     active_font: (FontIndex, Size),
     next_pos: Option<Size2D>,
@@ -97,15 +99,14 @@ impl LayoutActions {
     }
 
     /// Add a series of actions.
-    pub fn extend<I>(&mut self, actions: I)
-    where I: IntoIterator<Item = LayoutAction> {
+    pub fn extend<I>(&mut self, actions: I) where I: IntoIterator<Item = LayoutAction> {
         for action in actions.into_iter() {
             self.add(action);
         }
     }
 
-    /// Add a layout at a position. All move actions inside the layout are translated
-    /// by the position.
+    /// Add a layout at a position. All move actions inside the layout are
+    /// translated by the position.
     pub fn add_layout(&mut self, position: Size2D, layout: Layout) {
         self.flush_position();
 
@@ -120,10 +121,9 @@ impl LayoutActions {
         self.actions.is_empty()
     }
 
-    /// Return the list of actions as a vector, leaving an empty
-    /// vector in its position.
-    pub fn to_vec(&mut self) -> Vec<LayoutAction> {
-        std::mem::replace(&mut self.actions, vec![])
+    /// Return the list of actions as a vector.
+    pub fn into_vec(self) -> Vec<LayoutAction> {
+        self.actions
     }
 
     /// Append a cached move action if one is cached.

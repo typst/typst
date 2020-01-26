@@ -1,3 +1,9 @@
+//! The text layouter layouts continous pieces of text into boxes.
+//!
+//! The layouter picks the most suitable font for each individual character.
+//! When the primary layouting axis horizontally inversed, the word is spelled
+//! backwards. Vertical word layout is not yet supported.
+
 use toddle::query::{SharedFontLoader, FontQuery, FontIndex};
 use toddle::tables::{CharMap, Header, HorizontalMetrics};
 
@@ -6,7 +12,7 @@ use crate::style::TextStyle;
 use super::*;
 
 
-/// Layouts text into boxes.
+/// Performs the text layouting.
 struct TextLayouter<'a, 'p> {
     ctx: TextContext<'a, 'p>,
     text: &'a str,
@@ -17,20 +23,22 @@ struct TextLayouter<'a, 'p> {
 }
 
 /// The context for text layouting.
-///
-/// See [`LayoutContext`] for details about the fields.
 #[derive(Copy, Clone)]
 pub struct TextContext<'a, 'p> {
+    /// The font loader to retrieve fonts from when typesetting text
+    /// using [`layout_text`].
     pub loader: &'a SharedFontLoader<'p>,
+    /// The style for text: Font selection with classes, weights and variants,
+    /// font sizes, spacing and so on.
     pub style: &'a TextStyle,
+    /// The axes along which the word is laid out. For now, only
+    /// primary-horizontal layouting is supported.
     pub axes: LayoutAxes,
+    /// The alignment of the finished layout.
     pub alignment: LayoutAlignment,
 }
 
 /// Layouts text into a box.
-///
-/// There is no complex layout involved. The text is simply laid out left-
-/// to-right using the correct font for each character.
 pub async fn layout_text(text: &str, ctx: TextContext<'_, '_>) -> Layout {
     TextLayouter::new(text, ctx).layout().await
 }
@@ -48,8 +56,9 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
         }
     }
 
-    /// Layout the text
+    /// Do the layouting.
     async fn layout(mut self) -> Layout {
+        // If the primary axis is negative, we layout the characters reversed.
         if self.ctx.axes.primary.is_positive() {
             for c in self.text.chars() {
                 self.layout_char(c).await;
@@ -60,6 +69,7 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
             }
         }
 
+        // Flush the last buffered parts of the word.
         if !self.buffer.is_empty() {
             self.actions.add(LayoutAction::WriteText(self.buffer));
         }
@@ -67,7 +77,7 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
         Layout {
             dimensions: Size2D::new(self.width, self.ctx.style.font_size()),
             alignment: self.ctx.alignment,
-            actions: self.actions.to_vec(),
+            actions: self.actions.into_vec(),
         }
     }
 
@@ -81,6 +91,8 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
 
         self.width += char_width;
 
+        // Flush the buffer and issue a font setting action if the font differs
+        // from the last character's one.
         if self.active_font != index {
             if !self.buffer.is_empty() {
                 let text = std::mem::replace(&mut self.buffer, String::new());
@@ -106,6 +118,7 @@ impl<'a, 'p> TextLayouter<'a, 'p> {
         };
 
         if let Some((font, index)) = loader.get(query).await {
+            // Determine the width of the char.
             let header = font.read_table::<Header>().ok()?;
             let font_unit_ratio = 1.0 / (header.units_per_em as f32);
             let font_unit_to_size = |x| Size::pt(font_unit_ratio * x);

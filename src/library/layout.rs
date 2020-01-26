@@ -1,5 +1,4 @@
 use crate::size::PSize;
-use crate::syntax::func::maps::{AxisMap, PosAxisMap};
 use super::*;
 
 
@@ -21,7 +20,10 @@ function! {
     layout(self, ctx, errors) {
         ctx.base = ctx.spaces[0].dimensions;
 
-        let map = self.map.dedup(errors, ctx.axes, |alignment| alignment.axis(ctx.axes));
+        let map = self.map.dedup(errors, ctx.axes, |alignment| {
+            alignment.axis().map(|s| s.to_generic(ctx.axes))
+        });
+
         for &axis in &[Primary, Secondary] {
             if let Some(Spanned { v: alignment, span }) = map.get_spanned(axis) {
                 if let Some(generic) = alignment.to_generic(ctx.axes, axis) {

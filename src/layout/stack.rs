@@ -1,10 +1,32 @@
+//! The stack layouter arranges boxes along the secondary layouting axis.
+//!
+//! Individual layouts can be aligned at origin / center / end on both axes and
+//! these alignments are with respect to the growable layout space and not the
+//! total possible size.
+//!
+//! This means that a later layout can have influence on the position of an
+//! earlier one. Consider, for example, the following code:
+//! ```typst
+//! [align: right][A word.]
+//! [align: left][A sentence with a couple more words.]
+//! ```
+//! The resulting layout looks like this:
+//! ```text
+//! |--------------------------------------|
+//! |                              A word. |
+//! |                                      |
+//! | A sentence with a couple more words. |
+//! |--------------------------------------|
+//! ```
+//! The position of the first aligned box thus depends on the length of the
+//! sentence in the second box.
+
 use smallvec::smallvec;
 use crate::size::ValueBox;
 use super::*;
 
 
-/// The stack layouter stack boxes onto each other along the secondary layouting
-/// axis.
+/// Performs the stack layouting.
 #[derive(Debug, Clone)]
 pub struct StackLayouter {
     /// The context for layouting.
@@ -222,8 +244,8 @@ impl StackLayouter {
         }
     }
 
-    /// The remaining unpadded, unexpanding spaces. If a multi-layout is laid
-    /// out into these spaces, it will fit into this stack.
+    /// The remaining unpadded, unexpanding spaces. If a function is laid out
+    /// into these spaces, it will fit into this stack.
     pub fn remaining(&self) -> LayoutSpaces {
         let dimensions = self.usable();
 
@@ -257,7 +279,7 @@ impl StackLayouter {
         self.space.index == self.ctx.spaces.len() - 1
     }
 
-    /// Compute the finished multi-layout.
+    /// Compute the finished list of boxes.
     pub fn finish(mut self) -> MultiLayout {
         if self.space.hard || !self.space_is_empty() {
             self.finish_space(false);
@@ -373,7 +395,7 @@ impl StackLayouter {
         self.layouts.push(Layout {
             dimensions,
             alignment: self.ctx.alignment,
-            actions: actions.to_vec(),
+            actions: actions.into_vec(),
         });
 
         // ------------------------------------------------------------------ //

@@ -1,3 +1,5 @@
+//! Parsing of source code into syntax models.
+
 use crate::error::Errors;
 use super::expr::*;
 use super::func::{FuncHeader, FuncArgs, FuncArg};
@@ -14,13 +16,19 @@ pub struct ParseContext<'a> {
     pub scope: &'a Scope,
 }
 
+/// The result of parsing: Some parsed thing, errors and decorations for syntax
+/// highlighting.
 pub struct Parsed<T> {
+    /// The result of the parsing process.
     pub output: T,
+    /// Errors that arose in the parsing process.
     pub errors: Errors,
+    /// Decorations for semantic syntax highlighting.
     pub decorations: SpanVec<Decoration>,
 }
 
 impl<T> Parsed<T> {
+    /// Map the output type and keep errors and decorations.
     pub fn map<F, U>(self, f: F) -> Parsed<U> where F: FnOnce(T) -> U {
         Parsed {
             output: f(self.output),
@@ -30,17 +38,24 @@ impl<T> Parsed<T> {
     }
 }
 
+/// Parse source code into a syntax model.
+///
+/// All errors and decorations are offset by the `start` position.
 pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Parsed<SyntaxModel> {
     let mut model = SyntaxModel::new();
     let mut errors = Vec::new();
     let mut decorations = Vec::new();
 
+    // We always start in body mode. The header tokenization mode is only used
+    // in the `FuncParser`.
     let mut tokens = Tokens::new(start, src, TokenizationMode::Body);
 
     while let Some(token) = tokens.next() {
         let span = token.span;
 
         let node = match token.v {
+            // Only at least two newlines mean a _real_ newline indicating a
+            // paragraph break.
             Token::Space(newlines) => if newlines >= 2 {
                 Node::Newline
             } else {
@@ -50,6 +65,9 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Parsed<SyntaxMode
             Token::Function { header, body, terminated } => {
                 let parsed: Parsed<Node> = FuncParser::new(header, body, ctx).parse();
 
+                // Collect the errors and decorations from the function parsing,
+                // but offset their spans by the start of the function since
+                // they are function-local.
                 errors.extend(offset_spans(parsed.errors, span.start));
                 decorations.extend(offset_spans(parsed.decorations, span.start));
 
@@ -79,16 +97,30 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Parsed<SyntaxMode
     Parsed { output: model, errors, decorations }
 }
 
+/// Performs the function parsing.
 struct FuncParser<'s> {
     ctx: ParseContext<'s>,
     errors: Errors,
     decorations: SpanVec<Decoration>,
+
+    /// ```typst
+    /// [tokens][body]
+    ///  ^^^^^^
+    /// ```
     tokens: Tokens<'s>,
     peeked: Option<Option<Spanned<Token<'s>>>>,
+
+    /// The spanned body string if there is a body. The string itself is just
+    /// the parsed without the brackets, while the span includes the brackets.
+    /// ```typst
+    /// [tokens][body]
+    ///         ^^^^^^
+    /// ```
     body: Option<Spanned<&'s str>>,
 }
 
 impl<'s> FuncParser<'s> {
+    /// Create a new function parser.
     fn new(
         header: &'s str,
         body: Option<Spanned<&'s str>>,
@@ -104,11 +136,15 @@ impl<'s> FuncParser<'s> {
         }
     }
 
+    /// Do the parsing.
     fn parse(mut self) -> Parsed<Node> {
         let parsed = if let Some(header) = self.parse_func_header() {
             let name = header.name.v.as_str();
             let (parser, deco) = match self.ctx.scope.get_parser(name) {
+                // A valid function.
                 Ok(parser) => (parser, Decoration::ValidFuncName),
+
+                // The fallback parser was returned. Invalid function.
                 Err(parser) => {
                     self.errors.push(err!(header.name.span; "unknown function"));
                     (parser, Decoration::InvalidFuncName)
@@ -139,6 +175,7 @@ impl<'s> FuncParser<'s> {
         }
     }
 
+    /// Parse the header tokens.
     fn parse_func_header(&mut self) -> Option<FuncHeader> {
         let start = self.pos();
         self.skip_whitespace();
@@ -166,6 +203,7 @@ impl<'s> FuncParser<'s> {
         Some(FuncHeader { name, args })
     }
 
+    /// Parse the function arguments after a colon.
     fn parse_func_args(&mut self) -> FuncArgs {
         let mut args = FuncArgs::new();
 
@@ -226,7 +264,7 @@ impl<'s> FuncParser<'s> {
         arg
     }
 
-    /// Parse a atomic or compound (tuple / object) expression.
+    /// Parse an atomic or compound (tuple / object) expression.
     fn parse_expr(&mut self) -> Option<Spanned<Expr>> {
         let first = self.peek()?;
         let spanned = |v| Spanned { v, span: first.span };
@@ -301,7 +339,8 @@ impl<'s> FuncParser<'s> {
         self.errors.push(err!(Span::at(pos); "expected {}", thing));
     }
 
-    /// Add a found-error if `found` is some and a positional error, otherwise.
+    /// Add a expected-found-error if `found` is `Some` and an expected-error
+    /// otherwise.
     fn expected_found_or_at(
         &mut self,
         thing: &str,
@@ -315,7 +354,7 @@ impl<'s> FuncParser<'s> {
     }
 
     /// Consume tokens until the function returns true and only consume the last
-    /// token if instructed to.
+    /// token if instructed to so by `eat_match`.
     fn eat_until<F>(&mut self, mut f: F, eat_match: bool)
     where F: FnMut(Token<'s>) -> bool {
         while let Some(token) = self.peek() {
@@ -342,11 +381,12 @@ impl<'s> FuncParser<'s> {
         *self.peeked.get_or_insert_with(|| iter.next())
     }
 
+    /// Peek at the unspanned value of the next token.
     fn peekv(&mut self) -> Option<Token<'s>> {
         self.peek().map(Spanned::value)
     }
 
-    /// The position at the end of the last eat token / start of the peekable
+    /// The position at the end of the last eaten token / start of the peekable
     /// token.
     fn pos(&self) -> Position {
         self.peeked.flatten()

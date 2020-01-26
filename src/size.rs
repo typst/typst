@@ -95,6 +95,7 @@ impl Sum for Size {
 
 /// Either an absolute size or a factor of some entity.
 #[derive(Copy, Clone, PartialEq)]
+#[allow(missing_docs)]
 pub enum ScaleSize {
     Absolute(Size),
     Scaled(f32),

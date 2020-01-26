@@ -1,3 +1,5 @@
+//! Value types for extracting function arguments.
+
 use std::fmt::{self, Display, Formatter};
 use std::marker::PhantomData;
 use toddle::query::{FontStyle, FontWeight};
@@ -10,9 +12,65 @@ use super::*;
 use self::AlignmentValue::*;
 
 
+/// Value types are used to extract the values of positional and keyword
+/// arguments from [`Tuples`](crate::syntax::expr::Tuple) and
+/// [`Objects`](crate::syntax::expr::Object). They represent the value part of
+/// an argument.
+/// ```typst
+/// [func: value, key=value]
+///        ^^^^^      ^^^^^
+/// ```
+///
+/// Similarly to the [`Key`] trait, this trait has an associated output type
+/// which the values are parsed into. Most of the time this is just `Self`, as
+/// in the implementation for `bool`:
+/// ```
+/// # use typstc::err;
+/// # use typstc::error::Error;
+/// # use typstc::syntax::expr::Expr;
+/// # use typstc::syntax::func::Value;
+/// # use typstc::syntax::span::Spanned;
+/// # struct Bool; /*
+/// impl Value for bool {
+/// # */ impl Value for Bool {
+///     # type Output = bool; /*
+///     type Output = Self;
+///     # */
+///
+///     fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
+///         match expr.v {
+///             Expr::Bool(b) => Ok(b),
+///             other => Err(err!("expected bool, found {}", other.name())),
+///         }
+///     }
+/// }
+/// ```
+///
+/// However, sometimes the `Output` type is not just `Self`. For example, there
+/// is a value called `Defaultable<V>` which acts as follows:
+/// ```
+/// # use typstc::syntax::func::{FuncArgs, Defaultable};
+/// # use typstc::size::Size;
+/// # let mut args = FuncArgs::new();
+/// # let mut errors = vec![];
+/// args.key.get::<Defaultable<Size>>(&mut errors, "size");
+/// ```
+/// This will yield.
+/// ```typst
+/// [func: size=2cm]     => Some(Size::cm(2.0))
+/// [func: size=default] => None
+/// ```
+///
+/// The type `Defaultable` has no fields and is only used for extracting the
+/// option value. This prevents us from having a `Defaultable<V>` type which is
+/// essentially simply a bad [`Option`] replacement without the good utility
+/// functions.
 pub trait Value {
+    /// The type to parse into.
     type Output;
 
+    /// Parse an expression into this value or return an error if the expression
+    /// is valid for this value type.
     fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error>;
 }
 
@@ -25,6 +83,7 @@ impl<V: Value> Value for Spanned<V> {
     }
 }
 
+/// Implements [`Value`] for types that just need to match on expressions.
 macro_rules! value {
     ($type:ty, $output:ty, $name:expr, $($p:pat => $r:expr),* $(,)?) => {
         impl Value for $type {
@@ -57,6 +116,8 @@ value!(ScaleSize, Self, "number or size",
     Expr::Number(scale) => ScaleSize::Scaled(scale as f32),
 );
 
+/// A value type that matches [`Expr::Ident`] and [`Expr::Str`] and returns a
+/// String.
 pub struct StringLike;
 
 value!(StringLike, String, "identifier or string",
@@ -64,15 +125,18 @@ value!(StringLike, String, "identifier or string",
     Expr::Str(s) => s,
 );
 
-pub struct Defaultable<T>(PhantomData<T>);
+/// A value type that matches the string `"default"` or a value type `V` and
+/// returns `Option::Some(V::Output)` for a value and `Option::None` for
+/// `"default"`.
+pub struct Defaultable<V>(PhantomData<V>);
 
-impl<T: Value> Value for Defaultable<T> {
-    type Output = Option<T::Output>;
+impl<V: Value> Value for Defaultable<V> {
+    type Output = Option<V::Output>;
 
     fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
         match expr.v {
             Expr::Ident(ident) if ident.as_str() == "default" => Ok(None),
-            _ => T::parse(expr).map(Some)
+            _ => V::parse(expr).map(Some)
         }
     }
 }
@@ -135,8 +199,12 @@ impl Value for Direction {
     }
 }
 
+/// A value type that matches identifiers that are valid alignments like
+/// `origin` or `right`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[allow(missing_docs)]
 pub enum AlignmentValue {
+    /// A generic alignment.
     Align(Alignment),
     Left,
     Top,
@@ -145,26 +213,26 @@ pub enum AlignmentValue {
 }
 
 impl AlignmentValue {
-    /// The generic axis this alignment corresponds to in the given system of
-    /// layouting axes. `None` if the alignment is generic.
-    pub fn axis(self, axes: LayoutAxes) -> Option<GenericAxis> {
+    /// The specific axis this alignment corresponds to. `None` if the alignment
+    /// is generic.
+    pub fn axis(self) -> Option<SpecificAxis> {
         match self {
-            Left | Right => Some(Horizontal.to_generic(axes)),
-            Top | Bottom => Some(Vertical.to_generic(axes)),
+            Left | Right => Some(Horizontal),
+            Top | Bottom => Some(Vertical),
             Align(_) => None,
         }
     }
 
-    /// The generic version of this alignment in the given system of layouting
-    /// axes.
+    /// The generic version of this alignment on the given axis in the given
+    /// system of layouting axes.
     ///
     /// Returns `None` if the alignment is invalid for the given axis.
     pub fn to_generic(self, axes: LayoutAxes, axis: GenericAxis) -> Option<Alignment> {
         let specific = axis.to_specific(axes);
-        let start = match axes.get(axis).is_positive() {
-            true => Origin,
-            false => End,
-        };
+        let positive = axes.get(axis).is_positive();
+
+        // The alignment matching the origin of the positive coordinate direction.
+        let start = if positive { Origin } else { End };
 
         match (self, specific) {
             (Align(alignment), _) => Some(alignment),
@@ -174,10 +242,10 @@ impl AlignmentValue {
         }
     }
 
-    /// The specific version of this alignment in the given system of layouting
-    /// axes.
-    pub fn to_specific(self, axes: LayoutAxes, axis: SpecificAxis) -> AlignmentValue {
-        let direction = axes.get_specific(axis);
+    /// The specific version of this alignment on the given axis in the given
+    /// system of layouting axes.
+    pub fn to_specific(self, axes: LayoutAxes, axis: GenericAxis) -> AlignmentValue {
+        let direction = axes.get(axis);
         if let Align(alignment) = self {
             match (direction, alignment) {
                 (LeftToRight, Origin) | (RightToLeft, End) => Left,

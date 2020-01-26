@@ -1,25 +1,38 @@
+//! Primitives for argument parsing in library functions.
+
 use crate::error::{Error, Errors};
 use super::expr::{Expr, Ident, Tuple, Object, Pair};
 use super::span::{Span, Spanned};
 
-pub mod maps;
-pub mod keys;
-pub mod values;
+pub_use_mod!(maps);
+pub_use_mod!(keys);
+pub_use_mod!(values);
 
 
+/// The parsed header of a function.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuncHeader {
+    /// The function name, that is:
+    /// ```typst
+    /// [box: w=5cm]
+    ///  ^^^
+    /// ```
     pub name: Spanned<Ident>,
+    /// The arguments passed to the function.
     pub args: FuncArgs,
 }
 
+/// The positional and keyword arguments passed to a function.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuncArgs {
+    /// The positional arguments.
     pub pos: Tuple,
+    /// They keyword arguments.
     pub key: Object,
 }
 
 impl FuncArgs {
+    /// Create new empty function arguments.
     pub fn new() -> FuncArgs {
         FuncArgs {
             pos: Tuple::new(),
@@ -30,40 +43,32 @@ impl FuncArgs {
     /// Add an argument.
     pub fn add(&mut self, arg: FuncArg) {
         match arg {
-            FuncArg::Pos(item) => self.add_pos(item),
-            FuncArg::Key(pair) => self.add_key_pair(pair),
+            FuncArg::Pos(item) => self.pos.add(item),
+            FuncArg::Key(pair) => self.key.add(pair),
         }
     }
 
-    /// Add a positional argument.
-    pub fn add_pos(&mut self, item: Spanned<Expr>) {
-        self.pos.add(item);
-    }
-
-    /// Add a keyword argument.
-    pub fn add_key(&mut self, key: Spanned<Ident>, value: Spanned<Expr>) {
-        self.key.add(key, value);
-    }
-
-    /// Add a keyword argument from an existing pair.
-    pub fn add_key_pair(&mut self, pair: Pair) {
-        self.key.add_pair(pair);
-    }
-
+    /// Iterate over all arguments.
     pub fn into_iter(self) -> impl Iterator<Item=FuncArg> {
         self.pos.items.into_iter().map(|item| FuncArg::Pos(item))
             .chain(self.key.pairs.into_iter().map(|pair| FuncArg::Key(pair)))
     }
 }
 
+/// Either a positional or keyword argument.
 #[derive(Debug, Clone, PartialEq)]
 pub enum FuncArg {
+    /// A positional argument.
     Pos(Spanned<Expr>),
+    /// A keyword argument.
     Key(Pair),
 }
 
 impl FuncArg {
-    /// The span or the value or combined span of key and value.
+    /// The full span of this argument.
+    ///
+    /// In case of a positional argument this is just the span of the expression
+    /// and in case of a keyword argument the combined span of key and value.
     pub fn span(&self) -> Span {
         match self {
             FuncArg::Pos(item) => item.span,
@@ -72,14 +77,17 @@ impl FuncArg {
     }
 }
 
+/// Extra methods on [`Options`](Option) used for argument parsing.
 pub trait OptionExt: Sized {
-    fn or_missing(self, errors: &mut Errors, span: Span, what: &str) -> Self;
+    /// Add an error about a missing argument `arg` with the given span if the
+    /// option is `None`.
+    fn or_missing(self, errors: &mut Errors, span: Span, arg: &str) -> Self;
 }
 
 impl<T> OptionExt for Option<T> {
-    fn or_missing(self, errors: &mut Errors, span: Span, what: &str) -> Self {
+    fn or_missing(self, errors: &mut Errors, span: Span, arg: &str) -> Self {
         if self.is_none() {
-            errors.push(err!(span; "missing argument: {}", what));
+            errors.push(err!(span; "missing argument: {}", arg));
         }
         self
     }

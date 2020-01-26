@@ -7,27 +7,24 @@
 //!   be found in the [syntax](crate::syntax) module.
 //! - **Layouting:** The next step is to transform the syntax tree into a
 //!   portable representation of the typesetted document. Types for these can be
-//!   found in the [layout] module. A finished layout reading for exporting is a
-//!   [multi-layout](crate::layout::MultiLayout) consisting of multiple boxes
-//!   (or pages).
+//!   found in the [layout](crate::layout) module. A finished layout reading for
+//!   exporting is a [MultiLayout](crate::layout::MultiLayout) consisting of
+//!   multiple boxes (or pages).
 //! - **Exporting:** The finished layout can then be exported into a supported
 //!   format. Submodules for these formats are located in the
 //!   [export](crate::export) module. Currently, the only supported output
-//!   format is _PDF_. Alternatively, the layout can be serialized to pass it to
-//!   a suitable renderer.
+//!   format is [_PDF_](crate::export::pdf). Alternatively, the layout can be
+//!   serialized to pass it to a suitable renderer.
 
 #![allow(unused)]
 
-pub extern crate toddle;
+pub use toddle;
 
 use std::cell::RefCell;
 use smallvec::smallvec;
-
 use toddle::query::{FontLoader, FontProvider, SharedFontLoader};
 
-use crate::layout::MultiLayout;
-use crate::layout::prelude::*;
-use crate::layout::{LayoutContext, Layouted, layout};
+use crate::layout::{Layouted, MultiLayout};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::syntax::{SyntaxModel, Scope, ParseContext, Parsed, parse};
 use crate::syntax::span::Position;
@@ -95,8 +92,10 @@ impl<'p> Typesetter<'p> {
 
     /// Layout a syntax tree and return the produced layout.
     pub async fn layout(&self, model: &SyntaxModel) -> Layouted<MultiLayout> {
+        use crate::layout::prelude::*;
+
         let margins = self.style.page.margins();
-        layout(
+        crate::layout::layout(
             &model,
             LayoutContext {
                 loader: &self.loader,

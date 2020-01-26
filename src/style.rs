@@ -7,7 +7,9 @@ use crate::size::{Size, Size2D, SizeBox, ValueBox, PSize};
 /// Defines properties of pages and text.
 #[derive(Debug, Default, Clone)]
 pub struct LayoutStyle {
+    /// The style for pages.
     pub page: PageStyle,
+    /// The style for text.
     pub text: TextStyle,
 }
 
@@ -160,8 +162,9 @@ impl Paper {
     }
 }
 
-/// What kind of page this is defines defaults for margins.
+/// Paper classes define default margins for a class of related papers.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[allow(missing_docs)]
 pub enum PaperClass {
     Custom,
     Base,
@@ -185,24 +188,28 @@ impl PaperClass {
 }
 
 macro_rules! papers {
-    ($(($var:ident: $class:expr, $width:expr, $height: expr, $($patterns:tt)*))*) => {
-        use PaperClass::*;
+    ($(($var:ident: $class:ident, $width:expr, $height: expr, $($pats:tt)*))*) => {
+        $(papers!(@$var, stringify!($($pats)*), $class, $width, $height);)*
 
-        $(/// The infos for the paper that's in the name.
+        fn parse_paper(paper: &str) -> Option<Paper> {
+            match paper.to_lowercase().as_str() {
+                $($($pats)* => Some($var),)*
+                _ => None,
+            }
+        }
+    };
+
+    (@$var:ident, $names:expr, $class:ident, $width:expr, $height:expr) => {
+        #[doc = "Paper with the names `"]
+        #[doc = $names]
+        #[doc = "`."]
         pub const $var: Paper = Paper {
             dimensions: Size2D {
                 x: Size { points: 2.83465 * $width },
                 y: Size { points: 2.83465 * $height },
             },
-            class: $class,
-        };)*
-
-        fn parse_paper(paper: &str) -> Option<Paper> {
-            match paper.to_lowercase().as_str() {
-                $($($patterns)* => Some($var),)*
-                _ => None,
-            }
-        }
+            class: PaperClass::$class,
+        };
     };
 }
 
@@ -259,23 +266,23 @@ papers! {
     // Unites States
 
     // Customary
-    (PAPER_FOLIO:             US, 210.0, 330.0, "folio" | "us-folio" | "us-f4")
-    (PAPER_LETTER:            US, 216.0, 279.0, "letter" | "ansi-a" |
-                                                      "american-quarto" | "carta")
-    (PAPER_LEGAL:             US, 216.0, 356.0, "legal")
+    (PAPER_FOLIO:             US,        210.0, 330.0, "folio" | "us-folio" | "us-f4")
+    (PAPER_LETTER:            US,        216.0, 279.0, "letter" | "ansi-a" |
+                                                       "american-quarto" | "carta")
+    (PAPER_LEGAL:             US,        216.0, 356.0, "legal")
     (PAPER_TABLOID:           Newspaper, 279.0, 432.0, "tabloid" | "ansi-b")
-    (PAPER_LEDGER:            Base, 432.0, 279.0, "ledger")
-    (PAPER_JUNIOR_LEGAL:      US, 127.0, 203.0, "junior-legal" | "index-card")
-    (PAPER_HALF_LETTER:       Base, 140.0, 216.0, "half-letter")
-    (PAPER_GOVERNMENT_LETTER: US, 203.0, 267.0, "government-letter")
-    (PAPER_GOVERNMENT_LEGAL:  US, 216.0, 330.0, "government-legal" | "officio")
+    (PAPER_LEDGER:            Base,      432.0, 279.0, "ledger")
+    (PAPER_JUNIOR_LEGAL:      US,        127.0, 203.0, "junior-legal" | "index-card")
+    (PAPER_HALF_LETTER:       Base,      140.0, 216.0, "half-letter")
+    (PAPER_GOVERNMENT_LETTER: US,        203.0, 267.0, "government-letter")
+    (PAPER_GOVERNMENT_LEGAL:  US,        216.0, 330.0, "government-legal" | "officio")
 
     // ANSI Extensions
     (PAPER_ANSI_C:        Base, 432.0, 559.0,  "ansi-c")
     (PAPER_ANSI_D:        Base, 559.0, 864.0,  "ansi-d")
     (PAPER_ANSI_E:        Base, 864.0, 1118.0, "ansi-e")
     (PAPER_ENGINEERING_F: Base, 711.0, 1016.0, "engineering-f" | "engineering" |
-                                                   "navfac" | "aerospace")
+                                               "navfac" | "aerospace")
 
     // Architectural Paper
     (PAPER_ARCH_A:  Base, 229.0, 305.0,  "arch-a" | "arch-1")
@@ -348,9 +355,9 @@ papers! {
     (PAPER_POT:                  Base, 310.0, 400.0,   "pot" | "ecolier" | "écolier")
     (PAPER_TELLIERE:             Base, 340.0, 440.0,   "telliere" | "tellière")
     (PAPER_COURONNE_ECRITURE:    Base, 360.0, 460.0,   "couronne-ecriture" |
-                                                           "couronne" | "couronne-écriture")
+                                                       "couronne" | "couronne-écriture")
     (PAPER_COURONNE_EDITION:     Base, 370.0, 470.0,   "couronne-edition" |
-                                                           "couronne-édition")
+                                                       "couronne-édition")
     (PAPER_ROBERTO:              Base, 390.0, 500.0,   "roberto")
     (PAPER_ECU:                  Base, 400.0, 520.0,   "ecu" | "écu")
     (PAPER_COQUILLE:             Base, 440.0, 560.0,   "coquille")

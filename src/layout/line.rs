@@ -1,9 +1,18 @@
+//! The line layouter arranges boxes into lines.
+//!
+//! Along the primary axis, the boxes are laid out next to each other while they
+//! fit into a line. When a line break is necessary, the line is finished and a
+//! new line is started offset on the secondary axis by the height of previous
+//! line and the extra line spacing.
+//!
+//! Internally, the line layouter uses a stack layouter to arrange the finished
+//! lines.
+
 use super::stack::{StackLayouter, StackContext};
 use super::*;
 
 
-/// The line layouter arranges boxes next to each other along a primary axis
-/// and arranges the resulting lines using an underlying stack layouter.
+/// Performs the line layouting.
 #[derive(Debug, Clone)]
 pub struct LineLayouter {
     /// The context for layouting.
@@ -34,7 +43,9 @@ pub struct LineContext {
     pub line_spacing: Size,
 }
 
-/// A simple line of boxes.
+/// A line run is a sequence of boxes with the same alignment that are arranged
+/// in a line. A real line can consist of multiple runs with different
+/// alignments.
 #[derive(Debug, Clone)]
 struct LineRun {
     /// The so-far accumulated layouts in the line.
@@ -43,9 +54,13 @@ struct LineRun {
     /// line.
     size: Size2D,
     /// The alignment of all layouts in the line.
+    ///
+    /// When a new run is created the alignment is yet to be determined. Once a
+    /// layout is added, it is decided which alignment the run has and all
+    /// further elements of the run must have this alignment.
     alignment: Option<LayoutAlignment>,
-    /// The remaining usable space if another differently aligned line run
-    /// already took up some space.
+    /// If another line run with different alignment already took up some space
+    /// of the line, this run has less space and how much is stored here.
     usable: Option<Size>,
     /// A possibly cached soft spacing or spacing state.
     last_spacing: LastSpacing,
@@ -137,7 +152,10 @@ impl LineLayouter {
         }
     }
 
-    /// The remaining usable size in the run.
+    /// The remaining usable size of the run.
+    ///
+    /// This specifies how much more fits before a line break needs to be
+    /// issued.
     fn usable(&self) -> Size2D {
         // The base is the usable space per stack layouter.
         let mut usable = self.stack.usable().generalized(self.ctx.axes);
@@ -152,7 +170,7 @@ impl LineLayouter {
         usable
     }
 
-    /// Add primary spacing to the line.
+    /// Add spacing along the primary axis to the line.
     pub fn add_primary_spacing(&mut self, mut spacing: Size, kind: SpacingKind) {
         match kind {
             // A hard space is simply an empty box.
@@ -178,20 +196,20 @@ impl LineLayouter {
         }
     }
 
-    /// Finish the run and add secondary spacing to the underlying stack.
+    /// Finish the line and add secondary spacing to the underlying stack.
     pub fn add_secondary_spacing(&mut self, spacing: Size, kind: SpacingKind) {
         self.finish_line_if_not_empty();
         self.stack.add_spacing(spacing, kind)
     }
 
-    /// Change the layouting axes used by this layouter.
+    /// Update the layouting axes used by this layouter.
     pub fn set_axes(&mut self, axes: LayoutAxes) {
         self.finish_line_if_not_empty();
         self.ctx.axes = axes;
         self.stack.set_axes(axes)
     }
 
-    /// Change the layouting spaces to use.
+    /// Update the layouting spaces to use.
     ///
     /// If `replace_empty` is true, the current space is replaced if there are
     /// no boxes laid into it yet. Otherwise, only the followup spaces are
@@ -200,12 +218,14 @@ impl LineLayouter {
         self.stack.set_spaces(spaces, replace_empty && self.line_is_empty());
     }
 
-    /// Change the line spacing.
+    /// Update the line spacing.
     pub fn set_line_spacing(&mut self, line_spacing: Size) {
         self.ctx.line_spacing = line_spacing;
     }
 
-    /// The remaining unpadded, unexpanding spaces.
+    /// The remaining inner layout spaces. Inner means, that padding is already
+    /// subtracted and the spaces are unexpanding. This can be used to signal
+    /// a function how much space it has to layout itself.
     pub fn remaining(&self) -> LayoutSpaces {
         let mut spaces = self.stack.remaining();
         *spaces[0].dimensions.get_secondary_mut(self.ctx.axes)
@@ -218,19 +238,21 @@ impl LineLayouter {
         self.run.size == Size2D::ZERO && self.run.layouts.is_empty()
     }
 
-    /// Finish the last line and compute the final multi-layout.
+    /// Finish the last line and compute the final list of boxes.
     pub fn finish(mut self) -> MultiLayout {
         self.finish_line_if_not_empty();
         self.stack.finish()
     }
 
     /// Finish the currently active space and start a new one.
+    ///
+    /// At the top level, this is a page break.
     pub fn finish_space(&mut self, hard: bool) {
         self.finish_line_if_not_empty();
         self.stack.finish_space(hard)
     }
 
-    /// Add the current line to the stack and start a new line.
+    /// Finish the line and start a new one.
     pub fn finish_line(&mut self) {
         let mut actions = LayoutActions::new();
 
@@ -251,7 +273,7 @@ impl LineLayouter {
             dimensions: self.run.size.specialized(self.ctx.axes),
             alignment: self.run.alignment
                 .unwrap_or(LayoutAlignment::new(Origin, Origin)),
-            actions: actions.to_vec(),
+            actions: actions.into_vec(),
         });
 
         self.run = LineRun::new();

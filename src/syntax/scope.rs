@@ -1,3 +1,5 @@
+//! Scopes containing function parsers.
+
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 

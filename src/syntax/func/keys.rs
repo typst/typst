@@ -1,3 +1,5 @@
+//! Key types for identifying keyword arguments.
+
 use crate::layout::prelude::*;
 use super::values::AlignmentValue::{self, *};
 use super::*;
@@ -6,10 +8,55 @@ use self::AxisKey::*;
 use self::PaddingKey::*;
 
 
-
+/// Key types are used to extract keyword arguments from
+/// [`Objects`](crate::syntax::expr::Object). They represent the key part of a
+/// keyword argument.
+/// ```typst
+/// [func: key=value]
+///        ^^^
+/// ```
+///
+/// A key type has an associated output type, which is returned when parsing
+/// this key from a string. Most of the time, the output type is simply the key
+/// itself, as in the implementation for the [`AxisKey`]:
+/// ```
+/// # use typstc::syntax::func::Key;
+/// # use typstc::syntax::span::Spanned;
+/// # #[derive(Eq, PartialEq)] enum Axis { Horizontal, Vertical, Primary, Secondary }
+/// # #[derive(Eq, PartialEq)] enum AxisKey { Specific(Axis), Generic(Axis) }
+/// # use Axis::*;
+/// # use AxisKey::*;
+/// impl Key for AxisKey {
+///     type Output = Self;
+///
+///     fn parse(key: Spanned<&str>) -> Option<Self::Output> {
+///         match key.v {
+///             "horizontal" | "h" => Some(Specific(Horizontal)),
+///             "vertical"   | "v" => Some(Specific(Vertical)),
+///             "primary"    | "p" => Some(Generic(Primary)),
+///             "secondary"  | "s" => Some(Generic(Secondary)),
+///             _ => None,
+///         }
+///     }
+/// }
+/// ```
+///
+/// The axis key would also be useful to identify axes when describing
+/// dimensions of objects, as in `width=3cm`, because these are also properties
+/// that are stored per axis. However, here the used keyword arguments are
+/// actually different (`width` instead of `horizontal`)! Therefore we cannot
+/// just use the axis key.
+///
+/// To fix this, there is another type [`ExtentKey`] which implements `Key` and
+/// has the associated output type axis key. The extent key struct itself has no
+/// fields and is only used to extract the axis key. This way, we can specify
+/// which argument kind we want without duplicating the type in the background.
 pub trait Key {
+    /// The type to parse into.
     type Output: Eq;
 
+    /// Parse a key string into the output type if the string is valid for this
+    /// key.
     fn parse(key: Spanned<&str>) -> Option<Self::Output>;
 }
 
@@ -21,6 +68,7 @@ impl<K: Key> Key for Spanned<K> {
     }
 }
 
+/// Implements [`Key`] for types that just need to match on strings.
 macro_rules! key {
     ($type:ty, $output:ty, $($($p:pat)|* => $r:expr),* $(,)?) => {
         impl Key for $type {
@@ -36,8 +84,9 @@ macro_rules! key {
     };
 }
 
-/// An argument key which identifies a layouting axis.
+/// A key which identifies a layouting axis.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[allow(missing_docs)]
 pub enum AxisKey {
     Generic(GenericAxis),
     Specific(SpecificAxis),
@@ -68,6 +117,8 @@ key!(AxisKey, Self,
     "secondary"  | "s" => Generic(Secondary),
 );
 
+/// A key which parses into an [`AxisKey`] but uses typical extent keywords
+/// instead of axis keywords, e.g. `width` instead of `horizontal`.
 pub struct ExtentKey;
 
 key!(ExtentKey, AxisKey,
@@ -77,8 +128,13 @@ key!(ExtentKey, AxisKey,
     "secondary-size" | "ss" => Generic(Secondary),
 );
 
-/// An argument key which identifies an axis, but allows for positional
+/// A key which identifies an axis, but alternatively allows for two positional
 /// arguments with unspecified axes.
+///
+/// This type does not implement `Key` in itself since it cannot be parsed from
+/// a string. Rather, [`AxisKeys`](AxisKey) and positional arguments should be
+/// parsed separately and mapped onto this key, as happening in the
+/// [`PosAxisMap`](super::maps::PosAxisMap).
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum PosAxisKey {
     /// The first positional argument.

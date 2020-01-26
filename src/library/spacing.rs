@@ -11,7 +11,7 @@ function! {
     pub struct LineBreakFunc;
 
     parse(default)
-    layout(self, ctx, errors) { vec![FinishLine] }
+    layout(self, ctx, errors) { vec![BreakLine] }
 }
 
 function! {
@@ -65,8 +65,10 @@ function! {
     }
 }
 
-/// The different kinds of content that can be spaced.
+/// The different kinds of content that can be spaced. Used as a metadata type
+/// for the [`ContentSpacingFunc`].
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[allow(missing_docs)]
 pub enum ContentKind {
     Word,
     Line,

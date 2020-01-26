@@ -16,16 +16,31 @@ pub enum Token<'s> {
     /// number of newlines that were contained in the whitespace.
     Space(usize),
 
-    /// A line comment with inner string contents `//<&'s str>\n`.
+    /// A line comment with inner string contents `//<str>\n`.
     LineComment(&'s str),
-    /// A block comment with inner string contents `/*<&'s str>*/`. The comment
+    /// A block comment with inner string contents `/*<str>*/`. The comment
     /// can contain nested block comments.
     BlockComment(&'s str),
 
-    /// A function invocation `[<header>][<body>]`.
+    /// A function invocation.
     Function {
+        /// The header string:
+        /// ```typst
+        /// [header: args][body]
+        ///  ^^^^^^^^^^^^
+        /// ```
         header: &'s str,
+        /// The spanned body string:
+        /// ```typst
+        /// [header][hello *world*]
+        ///          ^^^^^^^^^^^^^
+        /// ```
+        ///
+        /// The span includes the brackets while the string does not.
         body: Option<Spanned<&'s str>>,
+        /// Whether the last closing bracket was present.
+        /// - `[func]` or `[func][body]` => terminated
+        /// - `[func` or `[func][body` => not terminated
         terminated: bool,
     },
 
@@ -48,7 +63,12 @@ pub enum Token<'s> {
     /// An identifier in a function header: `center`.
     ExprIdent(&'s str),
     /// A quoted string in a function header: `"..."`.
-    ExprStr { string: &'s str, terminated: bool },
+    ExprStr {
+        /// The string inside the quotes.
+        string: &'s str,
+        /// Whether the closing quote was present.
+        terminated: bool
+    },
     /// A number in a function header: `3.14`.
     ExprNumber(f64),
     /// A size in a function header: `12pt`.
@@ -110,13 +130,19 @@ pub struct Tokens<'s> {
     index: usize,
 }
 
+/// Whether to tokenize in header mode which yields expression, comma and
+/// similar tokens or in body mode which yields text and star, underscore,
+/// backtick tokens.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[allow(missing_docs)]
 pub enum TokenizationMode {
     Header,
     Body,
 }
 
 impl<'s> Tokens<'s> {
+    /// Create a new token iterator with the given mode where the first token
+    /// span starts an the given `start` position.
     pub fn new(start: Position, src: &'s str, mode: TokenizationMode) -> Tokens<'s> {
         Tokens {
             src,

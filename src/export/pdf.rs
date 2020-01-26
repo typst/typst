@@ -32,20 +32,21 @@ impl PdfExporter {
         PdfExporter {}
     }
 
-    /// Export a finished multi-layout. The layout needs to have been created with the same
-    /// font loader passed in here since the indices must match. The PDF data is written into
-    /// the target writable and the number of bytes written is returned.
+    /// Export a layouted list of boxes. The same font loader as used for
+    /// layouting needs to be passed in here since the layout only contains
+    /// indices referencing the loaded fonts. The raw PDF ist written into the
+    /// target writable, returning the number of bytes written.
     pub fn export<W: Write>(
         &self,
         layout: &MultiLayout,
         loader: &SharedFontLoader,
         target: W,
-    ) -> PdfResult<usize>
-    {
+    ) -> PdfResult<usize> {
         ExportProcess::new(layout, loader, target)?.write()
     }
 }
 
+/// The data relevant to the export of one document.
 struct ExportProcess<'d, W: Write> {
     writer: PdfWriter<W>,
     layouts: &'d MultiLayout,
@@ -66,7 +67,7 @@ struct ExportProcess<'d, W: Write> {
     fonts: Vec<OwnedFont>,
 }
 
-/// Indicates which range of PDF IDs are used for which contents.
+/// Indicates which range of PDF IDs will be used for which contents.
 struct Offsets {
     catalog: Ref,
     page_tree: Ref,
@@ -76,12 +77,13 @@ struct Offsets {
 }
 
 impl<'d, W: Write> ExportProcess<'d, W> {
+    /// Prepare the export. Only once [`ExportProcess::write`] is called the
+    /// writing really happens.
     fn new(
         layouts: &'d MultiLayout,
         font_loader: &SharedFontLoader,
         target: W,
-    ) -> PdfResult<ExportProcess<'d, W>>
-    {
+    ) -> PdfResult<ExportProcess<'d, W>> {
         let (fonts, font_remap) = Self::subset_fonts(layouts, font_loader)?;
         let offsets = Self::calculate_offsets(layouts.len(), fonts.len());
 
@@ -94,22 +96,22 @@ impl<'d, W: Write> ExportProcess<'d, W> {
         })
     }
 
-    /// Subsets all fonts and assings each one a new index. The returned hash map
-    /// maps the old indices (used by the layouts) to the new one used in the PDF.
-    /// The new ones index into the returned vector.
+    /// Subsets all fonts and assign a new PDF-internal index to each one. The
+    /// returned hash map maps the old indices (used by the layouts) to the new
+    /// one used in the PDF. The new ones index into the returned vector of
+    /// owned fonts.
     fn subset_fonts(
         layouts: &'d MultiLayout,
         font_loader: &SharedFontLoader
-    ) -> PdfResult<(Vec<OwnedFont>, HashMap<FontIndex, usize>)>
-    {
+    ) -> PdfResult<(Vec<OwnedFont>, HashMap<FontIndex, usize>)> {
         let mut fonts = Vec::new();
         let mut font_chars: HashMap<FontIndex, HashSet<char>> = HashMap::new();
         let mut old_to_new: HashMap<FontIndex, usize> = HashMap::new();
         let mut new_to_old: HashMap<usize, FontIndex> = HashMap::new();
         let mut active_font = FontIndex::MAX;
 
-        // We want to find out which fonts are used at all and which are chars
-        // are used for these. We use this information to create subsetted fonts.
+        // We want to find out which fonts are used at all and which chars are
+        // used for those. We use this information to create subsetted fonts.
         for layout in layouts {
             for action in &layout.actions {
                 match action {
@@ -141,11 +143,13 @@ impl<'d, W: Write> ExportProcess<'d, W> {
         let num_fonts = old_to_new.len();
         let mut font_loader = font_loader.borrow_mut();
 
+        // All tables not listed here are dropped.
         const SUBSET_TABLES: [&str; 13] = [
             "name", "OS/2", "post", "head", "hhea", "hmtx", "maxp",
             "cmap", "cvt ", "fpgm", "prep", "loca", "glyf",
         ];
 
+        // Do the subsetting.
         for index in 0 .. num_fonts {
             let old_index = new_to_old[&index];
             let font = font_loader.get_with_index(old_index);
@@ -158,8 +162,9 @@ impl<'d, W: Write> ExportProcess<'d, W> {
         Ok((fonts, old_to_new))
     }
 
-    /// We need to know in advance which IDs to use for which objects to cross-reference them.
-    /// Therefore, we calculate them in the beginning.
+    /// We need to know in advance which IDs to use for which objects to
+    /// cross-reference them. Therefore, we calculate the indices in the
+    /// beginning.
     fn calculate_offsets(layout_count: usize, font_count: usize) -> Offsets {
         let catalog = 1;
         let page_tree = catalog + 1;
@@ -176,7 +181,7 @@ impl<'d, W: Write> ExportProcess<'d, W> {
         }
     }
 
-    /// Write everything (entry point).
+    /// Write everything (writing entry point).
     fn write(&mut self) -> PdfResult<usize> {
         self.writer.write_header(Version::new(1, 7))?;
         self.write_preface()?;
@@ -241,6 +246,8 @@ impl<'d, W: Write> ExportProcess<'d, W> {
 
     /// Write the content of a page.
     fn write_page(&mut self, id: u32, page: &Layout) -> PdfResult<()> {
+        // Moves and font switches are always cached and only flushed once
+        // needed.
         let mut text = Text::new();
         let mut active_font = (std::usize::MAX, 0.0);
         let mut next_pos = None;
@@ -280,6 +287,8 @@ impl<'d, W: Write> ExportProcess<'d, W> {
         let mut id = self.offsets.fonts.0;
 
         for font in &mut self.fonts {
+            // ---------------------------------------------
+            // Extract information from the name table.
             let name = font
                 .read_table::<Name>()?
                 .get_decoded(NameEntry::PostScriptName)
@@ -300,7 +309,7 @@ impl<'d, W: Write> ExportProcess<'d, W> {
             )?;
 
             // ---------------------------------------------
-            // Extract information from the head table.
+            // Extract information from the head and hmtx tables.
             let head = font.read_table::<Header>()?;
 
             let font_unit_ratio = 1.0 / (head.units_per_em as f32);
@@ -356,29 +365,33 @@ impl<'d, W: Write> ExportProcess<'d, W> {
             let os2 = font.read_table::<OS2>()?;
 
             // Write the font descriptor (contains the global information about the font).
-            self.writer.write_obj(
-                id + 2,
-                FontDescriptor::new(base_font, flags, italic_angle)
-                    .font_bbox(bounding_box)
-                    .ascent(font_unit_to_glyph_unit(os2.s_typo_ascender as f32))
-                    .descent(font_unit_to_glyph_unit(os2.s_typo_descender as f32))
-                    .cap_height(font_unit_to_glyph_unit(
-                        os2.s_cap_height.unwrap_or(os2.s_typo_ascender) as f32,
-                    ))
-                    .stem_v((10.0 + 0.244 * (os2.us_weight_class as f32 - 50.0)) as GlyphUnit)
-                    .font_file_2(id + 4),
+            self.writer.write_obj(id + 2, FontDescriptor::new(base_font, flags, italic_angle)
+                .font_bbox(bounding_box)
+                .ascent(font_unit_to_glyph_unit(os2.s_typo_ascender as f32))
+                .descent(font_unit_to_glyph_unit(os2.s_typo_descender as f32))
+                .cap_height(font_unit_to_glyph_unit(
+                    os2.s_cap_height.unwrap_or(os2.s_typo_ascender) as f32,
+                ))
+                .stem_v((10.0 + 0.244 * (os2.us_weight_class as f32 - 50.0)) as GlyphUnit)
+                .font_file_2(id + 4)
             )?;
 
-            // Write the CMap, which maps glyphs to unicode codepoints.
-            let mapping = font
+            // ---------------------------------------------
+            // Extract information from the cmap table.
+
+            let cmap = CMap::new("Custom", system_info, font
                 .read_table::<CharMap>()?
                 .mapping
                 .iter()
-                .map(|(&c, &cid)| (cid, c));
+                .map(|(&c, &cid)| (cid, c))
+            );
 
-            self.writer.write_obj(id + 3, &CMap::new("Custom", system_info, mapping))?;
+            // Write the CMap, which maps glyphs to unicode codepoints.
+            self.writer.write_obj(id + 3, &cmap)?;
 
+            // ---------------------------------------------
             // Finally write the subsetted font program.
+
             self.writer.write_obj(id + 4, &FontStream::new(font.data().get_ref()))?;
 
             id += 5;

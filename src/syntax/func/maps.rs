@@ -9,40 +9,46 @@ use super::values::*;
 use super::*;
 
 
-/// A deduplicating map type useful for storing possibly redundant arguments.
+/// A map which deduplicates redundant arguments.
+///
+/// Whenever a duplicate argument is inserted into the map, through the
+/// functions `from_iter`, `insert` or `extend` an errors is added to the error
+/// list that needs to be passed to those functions.
+///
+/// All entries need to have span information to enable the error reporting.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DedupMap<K, V> where K: Eq {
     map: Vec<Spanned<(K, V)>>,
 }
 
 impl<K, V> DedupMap<K, V> where K: Eq {
+    /// Create a new deduplicating map.
     pub fn new() -> DedupMap<K, V> {
         DedupMap { map: vec![] }
     }
 
+    /// Create a new map from an iterator of spanned keys and values.
     pub fn from_iter<I>(errors: &mut Errors, iter: I) -> DedupMap<K, V>
     where I: IntoIterator<Item=Spanned<(K, V)>> {
         let mut map = DedupMap::new();
-        for Spanned { v: (key, value), span } in iter.into_iter() {
-            map.insert(errors, key, value, span);
-        }
+        map.extend(errors, iter);
         map
     }
 
-    /// Add a key-value pair.
-    pub fn insert(&mut self, errors: &mut Errors, key: K, value: V, span: Span) {
-        if self.map.iter().any(|e| e.v.0 == key) {
-            errors.push(err!(span; "duplicate argument"));
+    /// Add a spanned key-value pair.
+    pub fn insert(&mut self, errors: &mut Errors, entry: Spanned<(K, V)>) {
+        if self.map.iter().any(|e| e.v.0 == entry.v.0) {
+            errors.push(err!(entry.span; "duplicate argument"));
         } else {
-            self.map.push(Spanned { v: (key, value), span });
+            self.map.push(entry);
         }
     }
 
-    /// Add multiple key-value pairs.
+    /// Add multiple spanned key-value pairs.
     pub fn extend<I>(&mut self, errors: &mut Errors, items: I)
     where I: IntoIterator<Item=Spanned<(K, V)>> {
-        for Spanned { v: (k, v), span } in items.into_iter() {
-            self.insert(errors, k, v, span);
+        for item in items.into_iter() {
+            self.insert(errors, item);
         }
     }
 
@@ -65,16 +71,15 @@ impl<K, V> DedupMap<K, V> where K: Eq {
     }
 
     /// Create a new map where keys and values are mapped to new keys and
-    /// values.
-    ///
-    /// Returns an error if a new key is duplicate.
+    /// values. When the mapping introduces new duplicates, errors are
+    /// generated.
     pub fn dedup<F, K2, V2>(&self, errors: &mut Errors, mut f: F) -> DedupMap<K2, V2>
     where F: FnMut(&K, &V) -> (K2, V2), K2: Eq {
         let mut map = DedupMap::new();
 
         for Spanned { v: (key, value), span } in self.map.iter() {
             let (key, value) = f(key, value);
-            map.insert(errors, key, value, *span);
+            map.insert(errors, Spanned { v: (key, value), span: *span });
         }
 
         map
@@ -86,11 +91,12 @@ impl<K, V> DedupMap<K, V> where K: Eq {
     }
 }
 
-/// A map for storing a value for two axes given by keyword arguments.
+/// A map for storing a value for axes given by keyword arguments.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AxisMap<V>(DedupMap<AxisKey, V>);
 
 impl<V: Clone> AxisMap<V> {
+    /// Parse an axis map from the object.
     pub fn parse<KT: Key<Output=AxisKey>, VT: Value<Output=V>>(
         errors: &mut Errors,
         object: &mut Object,
@@ -105,12 +111,13 @@ impl<V: Clone> AxisMap<V> {
     }
 }
 
-/// A map for extracting values for two axes that are given through two
-/// positional or keyword arguments.
+/// A map for storing values for axes that are given through a combination of
+/// (two) positional and keyword arguments.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PosAxisMap<V>(DedupMap<PosAxisKey, V>);
 
 impl<V: Clone> PosAxisMap<V> {
+    /// Parse a positional/axis map from the function arguments.
     pub fn parse<KT: Key<Output=AxisKey>, VT: Value<Output=V>>(
         errors: &mut Errors,
         args: &mut FuncArgs,
@@ -118,8 +125,8 @@ impl<V: Clone> PosAxisMap<V> {
         let mut map = DedupMap::new();
 
         for &key in &[PosAxisKey::First, PosAxisKey::Second] {
-            if let Some(value) = args.pos.get::<Spanned<VT>>(errors) {
-                map.insert(errors, key, value.v, value.span);
+            if let Some(Spanned { v, span }) = args.pos.get::<Spanned<VT>>(errors) {
+                map.insert(errors, Spanned { v: (key, v), span })
             }
         }
 
@@ -133,7 +140,8 @@ impl<V: Clone> PosAxisMap<V> {
         PosAxisMap(map)
     }
 
-    /// Deduplicate from positional or specific to generic axes.
+    /// Deduplicate from positional arguments and keyword arguments for generic
+    /// or specific axes to just generic axes.
     pub fn dedup<F>(
         &self,
         errors: &mut Errors,
@@ -151,17 +159,19 @@ impl<V: Clone> PosAxisMap<V> {
     }
 }
 
-/// A map for extracting padding for a set of specifications given for all
-/// sides, opposing sides or single sides.
+/// A map for storing padding given for a combination of all sides, opposing
+/// sides or single sides.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PaddingMap(DedupMap<PaddingKey<AxisKey>, Option<PSize>>);
 
 impl PaddingMap {
+    /// Parse a padding map from the function arguments.
     pub fn parse(errors: &mut Errors, args: &mut FuncArgs) -> PaddingMap {
         let mut map = DedupMap::new();
 
-        if let Some(psize) = args.pos.get::<Spanned<Defaultable<PSize>>>(errors) {
-            map.insert(errors, PaddingKey::All, psize.v, psize.span);
+        let all = args.pos.get::<Spanned<Defaultable<PSize>>>(errors);
+        if let Some(Spanned { v, span }) = all {
+            map.insert(errors, Spanned { v: (PaddingKey::All, v), span });
         }
 
         let paddings: Vec<_> = args.key
@@ -187,8 +197,9 @@ impl PaddingMap {
                 All => All,
                 Both(axis) => Both(axis.to_specific(axes)),
                 Side(axis, alignment) => {
+                    let generic = axis.to_generic(axes);
                     let axis = axis.to_specific(axes);
-                    Side(axis, alignment.to_specific(axes, axis))
+                    Side(axis, alignment.to_specific(axes, generic))
                 }
             }, val)
         });

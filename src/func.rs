@@ -1,25 +1,33 @@
-//! Helper types and macros for creating custom functions.
+//! Trait and prelude for custom functions.
 
 use crate::syntax::{ParseContext, Parsed};
 use crate::syntax::func::FuncHeader;
 use crate::syntax::span::Spanned;
 
+/// Types that are useful for creating your own functions.
 pub mod prelude {
+    pub use crate::{function, body, err};
     pub use crate::layout::prelude::*;
-    pub use crate::layout::{LayoutContext, Commands, layout};
     pub use crate::layout::Command::{self, *};
     pub use crate::style::{LayoutStyle, PageStyle, TextStyle};
     pub use crate::syntax::SyntaxModel;
     pub use crate::syntax::expr::*;
     pub use crate::syntax::func::*;
-    pub use crate::syntax::func::keys::*;
-    pub use crate::syntax::func::values::*;
     pub use crate::syntax::span::{Span, Spanned};
 }
 
 
 /// Parse a function from source code.
 pub trait ParseFunc {
+    /// A metadata type whose value is passed into the function parser. This
+    /// allows a single function to do different things depending on the value
+    /// that needs to be given when inserting the function into a
+    /// [scope](crate::syntax::Scope).
+    ///
+    /// For example, the functions `word.spacing`, `line.spacing` and
+    /// `par.spacing` are actually all the same function
+    /// [`ContentSpacingFunc`](crate::library::ContentSpacingFunc) with the
+    /// metadata specifiy which content should be spaced.
     type Meta: Clone;
 
     /// Parse the header and body into this function given a context.
@@ -31,6 +39,49 @@ pub trait ParseFunc {
     ) -> Parsed<Self> where Self: Sized;
 }
 
+/// Allows to implement a function type concisely.
+///
+/// # Example
+/// A function that hides its body depending on a boolean argument.
+/// ```
+/// use typstc::func::prelude::*;
+///
+/// function! {
+///     #[derive(Debug, Clone, PartialEq)]
+///     pub struct HiderFunc {
+///         body: Option<SyntaxModel>,
+///     }
+///
+///     parse(header, body, ctx, errors, decos) {
+///         let body = body!(opt: body, ctx, errors, decos);
+///         let hidden = header.args.pos.get::<bool>(errors)
+///             .or_missing(errors, header.name.span, "hidden")
+///             .unwrap_or(false);
+///
+///         HiderFunc { body: if hidden { None } else { body } }
+///     }
+///
+///     layout(self, ctx, errors) {
+///         match &self.body {
+///             Some(model) => vec![LayoutSyntaxModel(model)],
+///             None => vec![],
+///         }
+///     }
+/// }
+/// ```
+/// This function can be used as follows:
+/// ```typst
+/// [hider: true][Hi, you.]  => Nothing
+/// [hider: false][Hi, you.] => Text: "Hi, you."
+///
+/// [hider][Hi, you.]        => Text: "Hi, you."
+///  ^^^^^
+///  missing argument: hidden
+/// ```
+///
+/// # More examples
+/// Look at the source code of the [`library`](crate::library) module for more
+/// examples on how the macro works.
 #[macro_export]
 macro_rules! function {
     // Entry point.
@@ -118,8 +169,15 @@ macro_rules! function {
 
 /// Parse the body of a function.
 ///
-/// - If the function does not expect a body, use `parse!(nope: body, errors)`.
-/// - If the function can have a body, use `parse!(opt: body, ctx, errors, decos)`.
+/// - If the function does not expect a body, use `body!(nope: body, errors)`.
+/// - If the function can have a body, use `body!(opt: body, ctx, errors, decos)`.
+///
+/// # Arguments
+/// - The `$body` should be of type `Option<Spanned<&str>>`.
+/// - The `$ctx` is the [`ParseContext`](crate::syntax::ParseContext) to use for parsing.
+/// - The `$errors` and `$decos` should be mutable references to vectors of spanned
+///   errors / decorations which are filled with the errors and decorations arising
+///   from parsing.
 #[macro_export]
 macro_rules! body {
     (opt: $body:expr, $ctx:expr, $errors:expr, $decos:expr) => ({
@@ -142,12 +200,23 @@ macro_rules! body {
     };
 }
 
-/// Construct an error with optional severity and span.
+/// Construct an error with formatted message and optionally severity and / or
+/// span.
 ///
 /// # Examples
 /// ```
+/// # use typstc::err;
+/// # use typstc::syntax::span::Span;
+/// # let span = Span::ZERO;
+/// # let value = 0;
+///
+/// // With span and default severity `Error`.
 /// err!(span; "the wrong {}", value);
+///
+/// // With no span and severity `Warning`.
 /// err!(@Warning: span; "non-fatal!");
+///
+/// // Without span and default severity.
 /// err!("no spans here ...");
 /// ```
 #[macro_export]

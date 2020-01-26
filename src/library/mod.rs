@@ -1,4 +1,4 @@
-//! The standard library.
+//! The _Typst_ standard library.
 
 use crate::syntax::Scope;
 use crate::func::prelude::*;

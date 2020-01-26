@@ -1,4 +1,4 @@
-//! Tokenization and parsing of source code.
+//! Syntax models, parsing and tokenization.
 
 use std::any::Any;
 use std::fmt::Debug;
@@ -17,14 +17,19 @@ pub_use_mod!(parsing);
 pub_use_mod!(tokens);
 
 
+/// Represents a parsed piece of source that can be layouted and in the future
+/// also be queried for information used for refactorings, autocomplete, etc.
 #[async_trait(?Send)]
 pub trait Model: Debug + ModelBounds {
+    /// Layout the model into a sequence of commands processed by a
+    /// [`ModelLayouter`](crate::layout::ModelLayouter).
     async fn layout<'a>(&'a self, ctx: LayoutContext<'_, '_>) -> Layouted<Commands<'a>>;
 }
 
 /// A tree representation of source code.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SyntaxModel {
+    /// The syntactical elements making up this model.
     pub nodes: SpanVec<Node>,
 }
 
@@ -50,22 +55,22 @@ impl Model for SyntaxModel {
     }
 }
 
-/// A node in the syntax tree.
+/// A node in the [syntax model](SyntaxModel).
 #[derive(Debug, Clone)]
 pub enum Node {
-    /// A number of whitespace characters containing less than two newlines.
+    /// Whitespace containing less than two newlines.
     Space,
-    /// Whitespace characters with more than two newlines.
+    /// Whitespace with more than two newlines.
     Newline,
     /// Plain text.
     Text(String),
-    /// Italics enabled / disabled.
+    /// Italics were enabled / disabled.
     ToggleItalic,
-    /// Bolder enabled / disabled.
+    /// Bolder was enabled / disabled.
     ToggleBolder,
-    /// Monospace enabled / disabled.
+    /// Monospace was enabled / disabled.
     ToggleMonospace,
-    /// A submodel.
+    /// A submodel, typically a function invocation.
     Model(Box<dyn Model>),
 }
 
@@ -85,15 +90,34 @@ impl PartialEq for Node {
     }
 }
 
+/// Decorations for semantic syntax highlighting.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Decoration {
+    /// A valid function name:
+    /// ```typst
+    /// [box]
+    ///  ^^^
+    /// ```
     ValidFuncName,
+
+    /// An invalid function name:
+    /// ```typst
+    /// [blabla]
+    ///  ^^^^^^
+    /// ```
     InvalidFuncName,
+
+    /// The key of a keyword argument:
+    /// ```typst
+    /// [box: width=5cm]
+    ///       ^^^^^
+    /// ```
     ArgumentKey,
 }
 
 impl dyn Model {
+    /// Downcast this model to a concrete type implementing [`Model`].
     pub fn downcast<T>(&self) -> Option<&T> where T: Model + 'static {
         self.as_any().downcast_ref::<T>()
     }
@@ -111,9 +135,19 @@ impl Clone for Box<dyn Model> {
     }
 }
 
+/// This trait describes bounds necessary for types implementing [`Model`]. It is
+/// automatically implemented for all types that are [`Model`], [`PartialEq`],
+/// [`Clone`] and `'static`.
+///
+/// It is necessary to make models comparable and clonable.
 pub trait ModelBounds {
+    /// Convert into a `dyn Any`.
     fn as_any(&self) -> &dyn Any;
+
+    /// Check for equality with another model.
     fn bound_eq(&self, other: &dyn Model) -> bool;
+
+    /// Clone into a boxed model trait object.
     fn bound_clone(&self) -> Box<dyn Model>;
 }
 
