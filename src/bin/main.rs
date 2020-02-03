@@ -3,9 +3,9 @@ use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use futures_executor::block_on;
 
-use typstc::Typesetter;
-use typstc::toddle::query::FileSystemFontProvider;
-use typstc::export::pdf::PdfExporter;
+use typstc::{Typesetter, DynErrorProvider};
+use typstc::toddle::query::fs::EagerFsProvider;
+use typstc::export::pdf;
 
 
 fn main() {
@@ -37,15 +37,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let src = read_to_string(source)
         .map_err(|_| "failed to read from source file")?;
 
-    let mut typesetter = Typesetter::new();
-    let provider = FileSystemFontProvider::from_index("../fonts/index.json").unwrap();
-    typesetter.add_font_provider(provider);
+    let (fs, entries) = EagerFsProvider::from_index("../fonts", "index.json")?;
+    let provider = DynErrorProvider::new(fs);
+    let typesetter = Typesetter::new((Box::new(provider), entries));
 
     let layouts = block_on(typesetter.typeset(&src));
 
-    let exporter = PdfExporter::new();
     let writer = BufWriter::new(File::create(&dest)?);
-    exporter.export(&layouts, typesetter.loader(), writer)?;
+    pdf::export(&layouts, typesetter.loader(), writer)?;
 
     Ok(())
 }

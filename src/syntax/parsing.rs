@@ -81,7 +81,7 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Parsed<SyntaxMode
             Token::Star       => Node::ToggleBolder,
             Token::Underscore => Node::ToggleItalic,
             Token::Backtick   => Node::ToggleMonospace,
-            Token::Text(text) => Node::Text(text.to_owned()),
+            Token::Text(text) => Node::Text(text.to_string()),
 
             Token::LineComment(_) | Token::BlockComment(_) => continue,
 

@@ -145,15 +145,14 @@ macro_rules! function {
 
     (@layout($name:ident) layout($this:ident, $ctx:ident, $errors:ident) $code:block) => {
         impl $crate::syntax::Model for $name {
-            fn layout<'a, 'b, 'c, 't>(
+            fn layout<'a, 'b, 't>(
                 #[allow(unused)] &'a $this,
-                #[allow(unused)] mut $ctx: $crate::layout::LayoutContext<'b, 'c>,
+                #[allow(unused)] mut $ctx: $crate::layout::LayoutContext<'b>,
             ) -> $crate::layout::DynFuture<'t, $crate::layout::Layouted<
                 $crate::layout::Commands<'a>>
             > where
                 'a: 't,
                 'b: 't,
-                'c: 't,
                 Self: 't,
             {
                 Box::pin(async move {

@@ -11,45 +11,35 @@ use tide::font::{
     CMap, CMapEncoding, FontStream, GlyphUnit, WidthRecord,
 };
 
-use toddle::Error as FontError;
-use toddle::font::OwnedFont;
-use toddle::query::{SharedFontLoader, FontIndex};
+use toddle::{Font, OwnedFont, LoadError};
+use toddle::types::Tag;
+use toddle::query::FontIndex;
 use toddle::tables::{
     CharMap, Header, HorizontalMetrics, MacStyleFlags,
     Name, NameEntry, Post, OS2,
 };
 
+use crate::GlobalFontLoader;
 use crate::layout::{MultiLayout, Layout, LayoutAction};
 use crate::size::Size;
 
 
-/// Exports layouts into _PDFs_.
-pub struct PdfExporter {}
-
-impl PdfExporter {
-    /// Create a new exporter.
-    pub fn new() -> PdfExporter {
-        PdfExporter {}
-    }
-
-    /// Export a layouted list of boxes. The same font loader as used for
-    /// layouting needs to be passed in here since the layout only contains
-    /// indices referencing the loaded fonts. The raw PDF ist written into the
-    /// target writable, returning the number of bytes written.
-    pub fn export<W: Write>(
-        &self,
-        layout: &MultiLayout,
-        loader: &SharedFontLoader,
-        target: W,
-    ) -> PdfResult<usize> {
-        ExportProcess::new(layout, loader, target)?.write()
-    }
+/// Export a layouted list of boxes. The same font loader as used for
+/// layouting needs to be passed in here since the layout only contains
+/// indices referencing the loaded fonts. The raw PDF ist written into the
+/// target writable, returning the number of bytes written.
+pub fn export<W: Write>(
+    layout: &MultiLayout,
+    loader: &GlobalFontLoader,
+    target: W,
+) -> PdfResult<usize> {
+    PdfExporter::new(layout, loader, target)?.write()
 }
 
 /// The data relevant to the export of one document.
-struct ExportProcess<'d, W: Write> {
+struct PdfExporter<'a, W: Write> {
     writer: PdfWriter<W>,
-    layouts: &'d MultiLayout,
+    layouts: &'a MultiLayout,
 
     /// Since we cross-reference pages and fonts with their IDs already in the document
     /// catalog, we need to know exactly which ID is used for what from the beginning.
@@ -76,18 +66,18 @@ struct Offsets {
     fonts: (Ref, Ref),
 }
 
-impl<'d, W: Write> ExportProcess<'d, W> {
+impl<'a, W: Write> PdfExporter<'a, W> {
     /// Prepare the export. Only once [`ExportProcess::write`] is called the
     /// writing really happens.
     fn new(
-        layouts: &'d MultiLayout,
-        font_loader: &SharedFontLoader,
+        layouts: &'a MultiLayout,
+        font_loader: &GlobalFontLoader,
         target: W,
-    ) -> PdfResult<ExportProcess<'d, W>> {
+    ) -> PdfResult<PdfExporter<'a, W>> {
         let (fonts, font_remap) = Self::subset_fonts(layouts, font_loader)?;
         let offsets = Self::calculate_offsets(layouts.len(), fonts.len());
 
-        Ok(ExportProcess {
+        Ok(PdfExporter {
             writer: PdfWriter::new(target),
             layouts,
             offsets,
@@ -101,8 +91,8 @@ impl<'d, W: Write> ExportProcess<'d, W> {
     /// one used in the PDF. The new ones index into the returned vector of
     /// owned fonts.
     fn subset_fonts(
-        layouts: &'d MultiLayout,
-        font_loader: &SharedFontLoader
+        layouts: &'a MultiLayout,
+        font_loader: &GlobalFontLoader,
     ) -> PdfResult<(Vec<OwnedFont>, HashMap<FontIndex, usize>)> {
         let mut fonts = Vec::new();
         let mut font_chars: HashMap<FontIndex, HashSet<char>> = HashMap::new();
@@ -144,18 +134,22 @@ impl<'d, W: Write> ExportProcess<'d, W> {
         let mut font_loader = font_loader.borrow_mut();
 
         // All tables not listed here are dropped.
-        const SUBSET_TABLES: [&str; 13] = [
-            "name", "OS/2", "post", "head", "hhea", "hmtx", "maxp",
-            "cmap", "cvt ", "fpgm", "prep", "loca", "glyf",
-        ];
+        let tables: Vec<_> = [
+            b"name", b"OS/2", b"post", b"head", b"hhea", b"hmtx", b"maxp",
+            b"cmap", b"cvt ", b"fpgm", b"prep", b"loca", b"glyf",
+        ].iter().map(|&s| Tag(*s)).collect();
 
         // Do the subsetting.
         for index in 0 .. num_fonts {
             let old_index = new_to_old[&index];
             let font = font_loader.get_with_index(old_index);
-            let subsetted = font.subsetted(font_chars[&old_index].iter().cloned(), &SUBSET_TABLES)
-                .map(|bytes| OwnedFont::from_bytes(bytes))
-                .unwrap_or_else(|_| font.to_owned())?;
+
+            let chars = font_chars[&old_index].iter().cloned();
+            let subsetted = match font.subsetted(chars, tables.iter().copied()) {
+                Ok(data) => Font::from_bytes(data)?,
+                Err(_) => font.clone(),
+            };
+
             fonts.push(subsetted);
         }
 
@@ -302,7 +296,7 @@ impl<'d, W: Write> ExportProcess<'d, W> {
                 id,
                 Type0Font::new(
                     base_font.clone(),
-                    CMapEncoding::Predefined("Identity-H".to_owned()),
+                    CMapEncoding::Predefined("Identity-H".to_string()),
                     id + 1,
                 )
                 .to_unicode(id + 3),
@@ -409,7 +403,7 @@ fn ids((start, end): (Ref, Ref)) -> impl Iterator<Item = Ref> {
 /// The error type for _PDF_ exporting.
 pub enum PdfExportError {
     /// An error occured while subsetting the font for the _PDF_.
-    Font(FontError),
+    Font(LoadError),
     /// An I/O Error on the underlying writable.
     Io(io::Error),
 }
@@ -418,13 +412,13 @@ error_type! {
     self: PdfExportError,
     res: PdfResult,
     show: f => match self {
-        PdfExportError::Font(err) => write!(f, "font error: {}", err),
-        PdfExportError::Io(err) => write!(f, "io error: {}", err),
+        PdfExportError::Font(err) => err.fmt(f),
+        PdfExportError::Io(err) => err.fmt(f),
     },
     source: match self {
         PdfExportError::Font(err) => Some(err),
         PdfExportError::Io(err) => Some(err),
     },
     from: (err: io::Error, PdfExportError::Io(err)),
-    from: (err: FontError, PdfExportError::Font(err)),
+    from: (err: LoadError, PdfExportError::Font(err)),
 }

@@ -6,7 +6,7 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
-toddle = { path = "../toddle", default-features = false }
+toddle = { path = "../toddle", features = ["query"], default-features = false }
 tide = { path = "../tide" }
 byteorder = "1"
 smallvec = "1"

@@ -4,17 +4,18 @@
 //! When the primary layouting axis horizontally inversed, the word is spelled
 //! backwards. Vertical word layout is not yet supported.
 
-use toddle::query::{SharedFontLoader, FontQuery, FontIndex};
+use toddle::query::{FontQuery, FontIndex};
 use toddle::tables::{CharMap, Header, HorizontalMetrics};
 
+use crate::GlobalFontLoader;
 use crate::size::{Size, Size2D};
 use crate::style::TextStyle;
 use super::*;
 
 
 /// Performs the text layouting.
-struct TextLayouter<'a, 'p> {
-    ctx: TextContext<'a, 'p>,
+struct TextLayouter<'a> {
+    ctx: TextContext<'a>,
     text: &'a str,
     actions: LayoutActions,
     buffer: String,
@@ -24,10 +25,10 @@ struct TextLayouter<'a, 'p> {
 
 /// The context for text layouting.
 #[derive(Copy, Clone)]
-pub struct TextContext<'a, 'p> {
+pub struct TextContext<'a> {
     /// The font loader to retrieve fonts from when typesetting text
     /// using [`layout_text`].
-    pub loader: &'a SharedFontLoader<'p>,
+    pub loader: &'a GlobalFontLoader,
     /// The style for text: Font selection with classes, weights and variants,
     /// font sizes, spacing and so on.
     pub style: &'a TextStyle,
@@ -39,13 +40,13 @@ pub struct TextContext<'a, 'p> {
 }
 
 /// Layouts text into a box.
-pub async fn layout_text(text: &str, ctx: TextContext<'_, '_>) -> Layout {
+pub async fn layout_text(text: &str, ctx: TextContext<'_>) -> Layout {
     TextLayouter::new(text, ctx).layout().await
 }
 
-impl<'a, 'p> TextLayouter<'a, 'p> {
+impl<'a> TextLayouter<'a> {
     /// Create a new text layouter.
-    fn new(text: &'a str, ctx: TextContext<'a, 'p>) -> TextLayouter<'a, 'p> {
+    fn new(text: &'a str, ctx: TextContext<'a>) -> TextLayouter<'a> {
         TextLayouter {
             ctx,
             text,

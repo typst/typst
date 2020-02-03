@@ -43,7 +43,7 @@ impl Scope {
     pub fn add_with_meta<F>(&mut self, name: &str, metadata: <F as ParseFunc>::Meta)
     where F: ParseFunc + Model + 'static {
         self.parsers.insert(
-            name.to_owned(),
+            name.to_string(),
             parser::<F>(metadata),
         );
     }

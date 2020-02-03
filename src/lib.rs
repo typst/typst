@@ -21,8 +21,14 @@
 pub use toddle;
 
 use std::cell::RefCell;
+use std::error::Error;
+use std::fmt::{self, Debug, Formatter};
+use std::io::Cursor;
+use async_trait::async_trait;
 use smallvec::smallvec;
-use toddle::query::{FontLoader, FontProvider, SharedFontLoader};
+
+use toddle::{Font, OwnedData};
+use toddle::query::{FontLoader, FontProvider, SharedFontLoader, FontDescriptor};
 
 use crate::layout::{Layouted, MultiLayout};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
@@ -45,20 +51,29 @@ pub mod syntax;
 /// Transforms source code into typesetted layouts.
 ///
 /// A typesetter can be configured through various methods.
-pub struct Typesetter<'p> {
+pub struct Typesetter {
     /// The font loader shared by all typesetting processes.
-    loader: SharedFontLoader<'p>,
+    loader: GlobalFontLoader,
     /// The base layouting style.
     style: LayoutStyle,
     /// The standard library scope.
     scope: Scope,
 }
 
-impl<'p> Typesetter<'p> {
+/// The font loader type used in the [`Typesetter`].
+///
+/// This font loader is ref-cell protected and backed by a dynamic font
+/// provider.
+pub type GlobalFontLoader = SharedFontLoader<GlobalProvider>;
+
+/// The provider type of font loaders used in the [`Typesetter`].
+pub type GlobalProvider = Box<dyn FontProvider<Data=OwnedData, Error=Box<dyn Error>>>;
+
+impl Typesetter {
     /// Create a new typesetter.
-    pub fn new() -> Typesetter<'p> {
+    pub fn new(provider: (GlobalProvider, Vec<FontDescriptor>)) -> Typesetter {
         Typesetter {
-            loader: RefCell::new(FontLoader::new()),
+            loader: RefCell::new(FontLoader::new(provider)),
             style: LayoutStyle::default(),
             scope: Scope::with_std(),
         }
@@ -74,14 +89,8 @@ impl<'p> Typesetter<'p> {
         self.style.text = style;
     }
 
-    /// Add a font provider to the context of this typesetter.
-    pub fn add_font_provider<P: 'p>(&mut self, provider: P)
-    where P: FontProvider {
-        self.loader.get_mut().add_provider(provider);
-    }
-
     /// A reference to the backing font loader.
-    pub fn loader(&self) -> &SharedFontLoader<'p> {
+    pub fn loader(&self) -> &GlobalFontLoader {
         &self.loader
     }
 
@@ -119,5 +128,31 @@ impl<'p> Typesetter<'p> {
     pub async fn typeset(&self, src: &str) -> MultiLayout {
         let tree = self.parse(src).output;
         self.layout(&tree).await.output
+    }
+}
+
+/// Wraps a font provider and transforms its errors into boxed trait objects.
+/// This enables font providers that do not return boxed errors to be used with
+/// the typesetter.
+pub struct DynErrorProvider<P> {
+    provider: P,
+}
+
+impl<P> DynErrorProvider<P>
+where P: FontProvider, P::Error: Error + 'static {
+    /// Create a new dynamic error provider from any provider.
+    pub fn new(provider: P) -> DynErrorProvider<P> {
+        DynErrorProvider { provider }
+    }
+}
+
+#[async_trait(?Send)]
+impl<P> FontProvider for DynErrorProvider<P>
+where P: FontProvider, P::Error: Error + 'static {
+    type Data = P::Data;
+    type Error = Box<dyn Error>;
+
+    async fn load(&self, index: usize, variant: usize) -> Result<Font<P::Data>, Self::Error> {
+        Ok(self.provider.load(index, variant).await?)
     }
 }

@@ -145,7 +145,7 @@ impl Value for FontStyle {
     type Output = Self;
 
     fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
-        FontStyle::from_str(Ident::parse(expr)?.as_str())
+        FontStyle::from_name(Ident::parse(expr)?.as_str())
             .ok_or_else(|| err!("invalid font style"))
     }
 }
@@ -166,7 +166,7 @@ impl Value for FontWeight {
                 }
             }
             Expr::Ident(id) => {
-                FontWeight::from_str(id.as_str())
+                FontWeight::from_name(id.as_str())
                     .ok_or_else(|| err!("invalid font weight"))
                     .map(|weight| (weight, false))
             }
@@ -180,7 +180,7 @@ impl Value for Paper {
     type Output = Self;
 
     fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
-        Paper::from_str(Ident::parse(expr)?.as_str())
+        Paper::from_name(Ident::parse(expr)?.as_str())
             .ok_or_else(|| err!("invalid paper type"))
     }
 }

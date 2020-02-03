@@ -8,12 +8,12 @@ use std::process::Command;
 
 use futures_executor::block_on;
 
-use typstc::Typesetter;
+use typstc::{Typesetter, DynErrorProvider};
 use typstc::layout::{MultiLayout, Serialize};
 use typstc::size::{Size, Size2D, ValueBox};
 use typstc::style::{PageStyle, PaperClass};
-use typstc::toddle::query::FileSystemFontProvider;
-use typstc::export::pdf::PdfExporter;
+use typstc::export::pdf;
+use typstc::toddle::query::fs::EagerFsProvider;
 
 
 type DynResult<T> = Result<T, Box<dyn Error>>;
@@ -66,16 +66,16 @@ fn main() -> DynResult<()> {
 fn test(name: &str, src: &str) -> DynResult<()> {
     println!("Testing: {}.", name);
 
-    let mut typesetter = Typesetter::new();
+    let (fs, entries) = EagerFsProvider::from_index("../fonts", "index.json")?;
+    let paths = fs.paths();
+    let provider = DynErrorProvider::new(fs);
+    let mut typesetter = Typesetter::new((Box::new(provider), entries));
+
     typesetter.set_page_style(PageStyle {
         class: PaperClass::Custom,
         dimensions: Size2D::with_all(Size::pt(250.0)),
         margins: ValueBox::with_all(None),
     });
-
-    let provider = FileSystemFontProvider::from_index("../fonts/index.json")?;
-    let font_paths = provider.paths();
-    typesetter.add_font_provider(provider);
 
     let layouts = compile(&typesetter, src);
 
@@ -84,10 +84,8 @@ fn test(name: &str, src: &str) -> DynResult<()> {
     let loader = typesetter.loader().borrow();
     for layout in &layouts {
         for index in layout.find_used_fonts() {
-            fonts.entry(index).or_insert_with(|| {
-                let p = loader.get_provider_and_index(index.id).1;
-                &font_paths[p][index.variant]
-            });
+            fonts.entry(index)
+                .or_insert_with(|| &paths[index.id][index.variant]);
         }
     }
     drop(loader);
@@ -113,8 +111,7 @@ fn test(name: &str, src: &str) -> DynResult<()> {
     // Write the PDF file.
     let path = format!("tests/cache/pdf/{}.pdf", name);
     let file = BufWriter::new(File::create(path)?);
-    let exporter = PdfExporter::new();
-    exporter.export(&layouts, typesetter.loader(), file)?;
+    pdf::export(&layouts, typesetter.loader(), file)?;
 
     Ok(())
 }

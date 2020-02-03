@@ -5,8 +5,9 @@
 use std::future::Future;
 use std::pin::Pin;
 use smallvec::smallvec;
-use toddle::query::SharedFontLoader;
+use toddle::query::{SharedFontLoader, FontProvider};
 
+use crate::GlobalFontLoader;
 use crate::error::Errors;
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::size::{Size, Size2D};
@@ -18,8 +19,8 @@ use super::*;
 
 
 /// Performs the model layouting.
-pub struct ModelLayouter<'a, 'p> {
-    ctx: LayoutContext<'a, 'p>,
+pub struct ModelLayouter<'a> {
+    ctx: LayoutContext<'a>,
     layouter: LineLayouter,
     style: LayoutStyle,
     errors: Errors,
@@ -27,10 +28,10 @@ pub struct ModelLayouter<'a, 'p> {
 
 /// The context for layouting.
 #[derive(Debug, Clone)]
-pub struct LayoutContext<'a, 'p> {
+pub struct LayoutContext<'a> {
     /// The font loader to retrieve fonts from when typesetting text
     /// using [`layout_text`].
-    pub loader: &'a SharedFontLoader<'p>,
+    pub loader: &'a GlobalFontLoader,
     /// The style for pages and text.
     pub style: &'a LayoutStyle,
     /// The base unpadded dimensions of this container (for relative sizing).
@@ -105,7 +106,7 @@ pub enum Command<'a> {
 }
 
 /// Layout a syntax model into a list of boxes.
-pub async fn layout(model: &SyntaxModel, ctx: LayoutContext<'_, '_>) -> Layouted<MultiLayout> {
+pub async fn layout(model: &SyntaxModel, ctx: LayoutContext<'_>) -> Layouted<MultiLayout> {
     let mut layouter = ModelLayouter::new(ctx);
     layouter.layout_syntax_model(model).await;
     layouter.finish()
@@ -116,9 +117,9 @@ pub async fn layout(model: &SyntaxModel, ctx: LayoutContext<'_, '_>) -> Layouted
 /// work internally.
 pub type DynFuture<'a, T> = Pin<Box<dyn Future<Output=T> + 'a>>;
 
-impl<'a, 'p> ModelLayouter<'a, 'p> {
+impl<'a> ModelLayouter<'a> {
     /// Create a new model layouter.
-    pub fn new(ctx: LayoutContext<'a, 'p>) -> ModelLayouter<'a, 'p> {
+    pub fn new(ctx: LayoutContext<'a>) -> ModelLayouter<'a> {
         ModelLayouter {
             layouter: LineLayouter::new(LineContext {
                 spaces: ctx.spaces.clone(),
@@ -182,6 +183,7 @@ impl<'a, 'p> ModelLayouter<'a, 'p> {
                         Some("monospace") => { list.remove(0); },
                         _ => list.insert(0, "monospace".to_string()),
                     }
+                    self.style.text.fallback.flatten();
                 }
 
                 Node::Model(model) => {

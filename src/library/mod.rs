@@ -1,5 +1,6 @@
 //! The _Typst_ standard library.
 
+use toddle::query::FontProvider;
 use crate::syntax::Scope;
 use crate::func::prelude::*;
 
@@ -68,7 +69,7 @@ function! {
 /// Layout an optional body with a change of the text style.
 fn styled<'a, T, F>(
     body: &'a Option<SyntaxModel>,
-    ctx: LayoutContext,
+    ctx: LayoutContext<'_>,
     data: Option<T>,
     f: F,
 ) -> Commands<'a> where F: FnOnce(&mut TextStyle, T) {

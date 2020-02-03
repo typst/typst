@@ -23,7 +23,10 @@ pub_use_mod!(tokens);
 pub trait Model: Debug + ModelBounds {
     /// Layout the model into a sequence of commands processed by a
     /// [`ModelLayouter`](crate::layout::ModelLayouter).
-    async fn layout<'a>(&'a self, ctx: LayoutContext<'_, '_>) -> Layouted<Commands<'a>>;
+    async fn layout<'a>(
+        &'a self,
+        ctx: LayoutContext<'_>,
+    ) -> Layouted<Commands<'a>>;
 }
 
 /// A tree representation of source code.
@@ -47,7 +50,10 @@ impl SyntaxModel {
 
 #[async_trait(?Send)]
 impl Model for SyntaxModel {
-    async fn layout<'a>(&'a self, _: LayoutContext<'_, '_>) -> Layouted<Commands<'a>> {
+    async fn layout<'a>(
+        &'a self,
+        _: LayoutContext<'_>,
+    ) -> Layouted<Commands<'a>> {
         Layouted {
             output: vec![Command::LayoutSyntaxModel(self)],
             errors: vec![],

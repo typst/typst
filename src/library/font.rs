@@ -20,7 +20,10 @@ function! {
 
     layout(self, ctx, errors) {
         styled(&self.body, ctx, Some(&self.list),
-            |s, l| s.fallback.list = l.clone())
+            |s, list| {
+                s.fallback.list = list.clone();
+                s.fallback.flatten();
+            })
     }
 }
 

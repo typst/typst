@@ -1,6 +1,7 @@
 //! Styles for text and pages.
 
-use toddle::query::{FontFallbackTree, FontVariant, FontStyle, FontWeight};
+use toddle::fallback;
+use toddle::query::{FallbackTree, FontVariant, FontStyle, FontWeight};
 use crate::size::{Size, Size2D, SizeBox, ValueBox, PSize};
 
 
@@ -17,7 +18,7 @@ pub struct LayoutStyle {
 #[derive(Debug, Clone)]
 pub struct TextStyle {
     /// A tree of font names and generic family names.
-    pub fallback: FontFallbackTree,
+    pub fallback: FallbackTree,
     /// The selected font variant.
     pub variant: FontVariant,
     /// Whether the bolder toggle is active or inactive. This determines
@@ -57,38 +58,19 @@ impl TextStyle {
     }
 }
 
-macro_rules! fallback {
-    (
-        list: ($($f:expr),*),
-        classes: { $($c:expr => ($($cf:expr),*),)* },
-        base: ($($b:expr),*),
-    ) => ({
-        let mut fallback = FontFallbackTree::new(
-            vec![$($f.to_string()),*],
-            vec![$($b.to_string()),*],
-        );
-        $(
-            fallback.set_class_list($c.to_string(), vec![$($cf.to_string()),*])
-                .expect("TextStyle::default: unexpected error \
-                         when setting class list");
-        )*
-        fallback
-    });
-}
-
 impl Default for TextStyle {
     fn default() -> TextStyle {
         TextStyle {
             fallback: fallback! {
-                list: ("sans-serif"),
+                list: ["sans-serif"],
                 classes: {
-                    "serif" => ("source serif pro", "noto serif"),
-                    "sans-serif" => ("source sans pro", "noto sans"),
-                    "monospace" => ("source code pro", "noto sans mono"),
-                    "math" => ("latin modern math", "serif"),
+                    "serif" => ["source serif pro", "noto serif"],
+                    "sans-serif" => ["source sans pro", "noto sans"],
+                    "monospace" => ["source code pro", "noto sans mono"],
+                    "math" => ["latin modern math", "serif"],
                 },
-                base: ("source sans pro", "noto sans",
-                       "noto emoji", "latin modern math"),
+                base: ["source sans pro", "noto sans",
+                       "noto emoji", "latin modern math"],
             },
             variant: FontVariant {
                 style: FontStyle::Normal,
@@ -157,7 +139,7 @@ pub struct Paper {
 
 impl Paper {
     /// The paper with the given name.
-    pub fn from_str(name: &str) -> Option<Paper> {
+    pub fn from_name(name: &str) -> Option<Paper> {
         parse_paper(name)
     }
 }
