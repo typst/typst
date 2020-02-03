@@ -116,7 +116,7 @@ impl Debug for Span {
 }
 
 /// A value with the span it corresponds to in the source code.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize)]
 pub struct Spanned<T> {
     /// The value.
     pub v: T,
@@ -144,6 +144,14 @@ impl<T> Spanned<T> {
     pub fn map_span<F>(mut self, f: F) -> Spanned<T> where F: FnOnce(Span) -> Span {
         self.span = f(self.span);
         self
+    }
+}
+
+impl<T: Debug> Debug for Spanned<T> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.span.fmt(f)?;
+        f.write_str(": ")?;
+        self.v.fmt(f)
     }
 }
 

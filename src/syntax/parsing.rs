@@ -397,3 +397,193 @@ impl<'s> FuncParser<'s> {
             .unwrap_or_else(|| self.tokens.pos())
     }
 }
+
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod tests {
+    use crate::size::Size;
+    use super::super::test::{DebugFn, SpanlessEq};
+    use super::*;
+
+    use Node::{
+        Space as S, Newline as N,
+        ToggleItalic as Italic, ToggleBolder as Bold, ToggleMonospace as Mono,
+    };
+
+    pub use Expr::{Number as Num, Bool};
+    pub fn Id(text: &str) -> Expr { Expr::Ident(Ident(text.to_string())) }
+    pub fn Str(text: &str) -> Expr { Expr::Str(text.to_string()) }
+
+    fn T(text: &str) -> Node { Node::Text(text.to_string()) }
+
+    /// Test whether the given string parses into the given node list.
+    macro_rules! p {
+        ($s:expr => [$($b:tt)*]) => {
+            let ctx = ParseContext { scope: &scope() };
+            let model = parse(Position::ZERO, $s, ctx).output;
+            let (expected, cmp) = model!([$($b)*]);
+
+            if !cmp(&model, &expected) {
+                fail($s, model, expected);
+            }
+        };
+    }
+
+    /// Test whether the given string yields the given parse errors.
+    macro_rules! e {
+        ($s:expr => [$(($sl:tt:$sc:tt, $el:tt:$ec:tt, $e:expr)),* $(,)?]) => {
+            let ctx = ParseContext { scope: &scope() };
+            let errors = parse(Position::ZERO, $s, ctx).errors
+                .into_iter()
+                .map(|s| s.map(|e| e.message))
+                .collect::<Vec<_>>();
+
+            let expected = vec![
+                $(Spanned {
+                    v: $e.to_string(),
+                    span: Span {
+                        start: Position { line: $sl, column: $sc },
+                        end:   Position { line: $el, column: $ec },
+                    },
+                }),*
+            ];
+
+            if errors != expected {
+                fail($s, errors, expected);
+            }
+        };
+    }
+
+    fn scope() -> Scope {
+        let mut scope = Scope::new::<DebugFn>();
+        scope.add::<DebugFn>("f");
+        scope.add::<DebugFn>("box");
+        scope
+    }
+
+    fn fail(src: &str, found: impl Debug, expected: impl Debug) {
+        eprintln!("source:   {:?}", src);
+        eprintln!("found:    {:#?}", found);
+        eprintln!("expected: {:#?}", expected);
+        panic!("test failed");
+    }
+
+    /// Parse a list of optionally spanned nodes into a syntax model.
+    macro_rules! model {
+        ([$(($sl:tt:$sc:tt, $el:tt:$ec:tt, $n:expr)),* $(,)?]) => ((SyntaxModel {
+            nodes: vec![
+                $(Spanned { v: $n, span: Span {
+                    start: Position { line: $sl, column: $sc },
+                    end:   Position { line: $el, column: $ec },
+                }}),*
+            ]
+        }, <SyntaxModel as PartialEq>::eq));
+
+        ([$($e:tt)*]) => ((SyntaxModel {
+            nodes: vec![$($e)*].into_iter().map(zspan).collect::<Vec<_>>()
+        }, <SyntaxModel as SpanlessEq>::spanless_eq));
+    }
+
+    /// Build a `DebugFn` function model.
+    macro_rules! func {
+        ($name:expr
+         $(,pos: [$($item:expr),* $(,)?])?
+         $(,key: [$($key:expr => $value:expr),* $(,)?])?;
+         $($b:tt)*) => ({
+            #![allow(unused_mut, unused_assignments)]
+
+            let mut pos = Tuple::new();
+            let mut key = Object::new();
+            $(pos = Tuple { items: vec![$(zspan($item)),*] };)?
+            $(key = Object {
+                pairs: vec![$(Pair {
+                    key: zspan(Ident($key.to_string())),
+                    value: zspan($value),
+                }),*]
+            };)?
+
+            Node::Model(Box::new(DebugFn {
+                header: FuncHeader {
+                    name: zspan(Ident($name.to_string())),
+                    args: FuncArgs {
+                        pos,
+                        key,
+                    },
+                },
+                body: func!(@body $($b)*),
+            }))
+        });
+
+        (@body Some([$($b:tt)*])) => (Some(model!([$($b)*]).0));
+        (@body None) => (None);
+    }
+
+    /// Span an element with a zero span.
+    fn zspan<T>(v: T) -> Spanned<T> {
+        Spanned { v, span: Span::ZERO }
+    }
+
+    #[test]
+    fn parse_flat_nodes() {
+        p!(""           => []);
+        p!("hi"         => [T("hi")]);
+        p!("*hi"        => [Bold, T("hi")]);
+        p!("hi_"        => [T("hi"), Italic]);
+        p!("`py`"       => [Mono, T("py"), Mono]);
+        p!("hi you"     => [T("hi"), S, T("you")]);
+        p!("💜\n\n 🌍"  => [T("💜"), N, T("🌍")]);
+    }
+
+    #[test]
+    fn parse_functions() {
+        p!("[func]" => [func!("func"; None)]);
+        p!("[tree][hi *you*]" => [func!("tree"; Some([T("hi"), S, Bold, T("you"), Bold]))]);
+        p!("[f: , hi, * \"du\"]" => [func!("f", pos: [Id("hi"), Str("du")]; None)]);
+        p!("from [align: left] to" => [
+            T("from"), S, func!("align", pos: [Id("left")]; None), S, T("to")
+        ]);
+
+        p!("[f: left, 12pt, false]" => [
+            func!("f", pos: [Id("left"), Expr::Size(Size::pt(12.0)), Bool(false)]; None)
+        ]);
+
+        p!("[box: x=1.2pt, false][a b c] bye" => [
+            func!(
+                "box",
+                pos: [Bool(false)],
+                key: ["x" => Expr::Size(Size::pt(1.2))];
+                Some([T("a"), S, T("b"), S, T("c")])
+            ),
+            S, T("bye"),
+        ]);
+    }
+
+    #[test]
+    fn parse_spanned() {
+        p!("hi you" => [(0:0, 0:2, T("hi")), (0:2, 0:3, S), (0:3, 0:6, T("you"))]);
+    }
+
+    #[test]
+    fn parse_errors() {
+        e!("[f: , hi, * \"du\"]" => [
+            (0:4,  0:5,  "expected value, found comma"),
+            (0:10, 0:11, "expected value, found invalid token"),
+        ]);
+        e!("[f:, , ,]" => [
+            (0:3, 0:4, "expected value, found comma"),
+            (0:5, 0:6, "expected value, found comma"),
+            (0:7, 0:8, "expected value, found comma"),
+        ]);
+        e!("[f:" => [(0:3, 0:3, "expected closing bracket")]);
+        e!("[f: hi" => [(0:6, 0:6, "expected closing bracket")]);
+        e!("[f: hey   12pt]" => [(0:7, 0:7, "expected comma")]);
+        e!("[box: x=, false z=y=4" => [
+            (0:8,  0:9,  "expected value, found comma"),
+            (0:15, 0:15, "expected comma"),
+            (0:19, 0:19, "expected comma"),
+            (0:19, 0:20, "expected value, found equals sign"),
+            (0:21, 0:21, "expected closing bracket"),
+        ]);
+    }
+}

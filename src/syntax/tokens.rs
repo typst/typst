@@ -341,12 +341,17 @@ impl<'s> Tokens<'s> {
         }
 
         let c = self.peek().unwrap_or('n');
-        if self.mode == Body && is_escapable(c) {
+        let string = if is_escapable(c) {
             let index = self.index();
             self.eat();
-            Text(&self.src[index .. index + c.len_utf8()])
+            &self.src[index .. index + c.len_utf8()]
         } else {
-            Text("\\")
+            "\\"
+        };
+
+        match self.mode {
+            Header => Invalid(string),
+            Body => Text(string),
         }
     }
 
@@ -455,4 +460,156 @@ pub fn is_identifier(string: &str) -> bool {
     }
 
     true
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use Token::{
+        Space as S,
+        LineComment as LC, BlockComment as BC,
+        LeftParen as LP, RightParen as RP,
+        LeftBrace as LB, RightBrace as RB,
+        ExprIdent as Id, ExprNumber as Num, ExprBool as Bool,
+        Text as T,
+    };
+
+    #[allow(non_snake_case)]
+    fn Str(string: &'static str, terminated: bool) -> Token<'static> {
+        Token::ExprStr { string, terminated }
+    }
+
+    /// Test whether the given string tokenizes into the given list of tokens.
+    macro_rules! t {
+        ($m:expr, $s:expr => [$(($sl:tt:$sc:tt, $el:tt:$ec:tt, $t:expr)),* $(,)?]) => {
+            let tokens = Tokens::new(Position::ZERO, $s, $m).collect::<Vec<_>>();
+            assert_eq!(tokens, vec![$(Spanned {
+                span: Span::new(Position::new($sl, $sc), Position::new($el, $ec)),
+                v: $t
+            }),*]);
+
+        };
+
+        ($m:expr, $s:expr => [$($t:expr),* $(,)?]) => {
+            let tokens = Tokens::new(Position::ZERO, $s, $m)
+                .map(Spanned::value)
+                .collect::<Vec<_>>();
+            assert_eq!(tokens, vec![$($t),*]);
+        };
+    }
+
+    /// Parse a function token.
+    macro_rules! func {
+        ($header:expr, Some(($sl:tt:$sc:tt, $el:tt:$ec:tt, $body:expr)), $terminated:expr) => {
+            Function {
+                header: $header,
+                body: Some(Spanned {
+                    span: Span::new(Position::new($sl, $sc), Position::new($el, $ec)),
+                    v: $body,
+                }),
+                terminated: $terminated,
+            }
+        };
+        ($header:expr, None, $terminated:expr) => {
+            Function { header: $header, body: None, terminated: $terminated }
+        }
+    }
+
+    #[test]
+    fn tokenize_whitespace() {
+        t!(Body, ""             => []);
+        t!(Body, " "            => [S(0)]);
+        t!(Body, "    "         => [S(0)]);
+        t!(Body, "\t"           => [S(0)]);
+        t!(Body, "  \t"         => [S(0)]);
+        t!(Body, "\n"           => [S(1)]);
+        t!(Body, "\n "          => [S(1)]);
+        t!(Body, "  \n"         => [S(1)]);
+        t!(Body, "  \n   "      => [S(1)]);
+        t!(Body, "\r\n"         => [S(1)]);
+        t!(Body, "  \n\t \n  "  => [S(2)]);
+        t!(Body, "\n\r"         => [S(2)]);
+        t!(Body, " \r\r\n \x0D" => [S(3)]);
+    }
+
+    #[test]
+    fn tokenize_comments() {
+        t!(Body, "a // bc\n "        => [T("a"), S(0), LC(" bc"),  S(1)]);
+        t!(Body, "a //a//b\n "       => [T("a"), S(0), LC("a//b"), S(1)]);
+        t!(Body, "a //a//b\r\n"      => [T("a"), S(0), LC("a//b"), S(1)]);
+        t!(Body, "a //a//b\n\nhello" => [T("a"), S(0), LC("a//b"), S(2), T("hello")]);
+        t!(Body, "/**/"              => [BC("")]);
+        t!(Body, "_/*_/*a*/*/"       => [Underscore, BC("_/*a*/")]);
+        t!(Body, "/*/*/"             => [BC("/*/")]);
+        t!(Body, "abc*/"             => [T("abc"), Invalid("*/")]);
+    }
+
+    #[test]
+    fn tokenize_header_only_tokens() {
+        t!(Body, "\"hi\""              => [T("\"hi"), T("\"")]);
+        t!(Body, "a: b"                => [T("a"), T(":"), S(0), T("b")]);
+        t!(Body, "c=d, "               => [T("c"), T("=d"), T(","), S(0)]);
+        t!(Header, "["                 => [func!("", None, false)]);
+        t!(Header, "]"                 => [Invalid("]")]);
+        t!(Header, "(){}:=,"           => [LP, RP, LB, RB, Colon, Equals, Comma]);
+        t!(Header, "a:b"               => [Id("a"), Colon, Id("b")]);
+        t!(Header, "="                 => [Equals]);
+        t!(Header, ","                 => [Comma]);
+        t!(Header, r#""hello\"world""# => [Str(r#"hello\"world"#, true)]);
+        t!(Header, r#""hi", 12pt"#     => [Str("hi", true), Comma, S(0), ExprSize(Size::pt(12.0))]);
+        t!(Header, "a: true, x=1"      => [Id("a"), Colon, S(0), Bool(true), Comma, S(0), Id("x"), Equals, Num(1.0)]);
+        t!(Header, "120%"              => [Num(1.2)]);
+        t!(Header, "🌓, 🌍,"           => [Invalid("🌓"), Comma, S(0), Invalid("🌍"), Comma]);
+    }
+
+    #[test]
+    fn tokenize_body_only_tokens() {
+        t!(Body, "_*`"           => [Underscore, Star, Backtick]);
+        t!(Body, "[func]*bold*"  => [func!("func", None, true), Star, T("bold"), Star]);
+        t!(Body, "hi_you_ there" => [T("hi"), Underscore, T("you"), Underscore, S(0), T("there")]);
+        t!(Header, "_*`"         => [Invalid("_"), Invalid("*"), Invalid("`")]);
+    }
+
+    #[test]
+    fn tokenize_nested_functions() {
+        t!(Body, "[f: [=][*]]"    => [func!("f: [=][*]", None, true)]);
+        t!(Body, "[_][[,],],"     => [func!("_", Some((0:3, 0:9, "[,],")), true), T(",")]);
+        t!(Body, "[=][=][=]"      => [func!("=", Some((0:3, 0:6, "=")), true), func!("=", None, true)]);
+        t!(Body, "[=][[=][=][=]]" => [func!("=", Some((0:3, 0:14, "[=][=][=]")), true)]);
+    }
+
+    #[test]
+    fn tokenize_escaped_symbols() {
+        t!(Body, r"\\" => [T(r"\")]);
+        t!(Body, r"\[" => [T("[")]);
+        t!(Body, r"\]" => [T("]")]);
+        t!(Body, r"\*" => [T("*")]);
+        t!(Body, r"\_" => [T("_")]);
+        t!(Body, r"\`" => [T("`")]);
+        t!(Body, r"\/" => [T("/")]);
+    }
+
+    #[test]
+    fn tokenize_unescapable_symbols() {
+        t!(Body, r"\a"     => [T("\\"), T("a")]);
+        t!(Body, r"\:"     => [T(r"\"), T(":")]);
+        t!(Body, r"\="     => [T(r"\"), T("=")]);
+        t!(Header, r"\\\\" => [Invalid("\\"), Invalid("\\")]);
+        t!(Header, r"\a"   => [Invalid("\\"), Id("a")]);
+        t!(Header, r"\:"   => [Invalid(r"\"), Colon]);
+        t!(Header, r"\="   => [Invalid(r"\"), Equals]);
+        t!(Header, r"\,"   => [Invalid(r"\"), Comma]);
+    }
+
+    #[test]
+    fn tokenize_with_spans() {
+        t!(Body, "hello"          => [(0:0, 0:5, T("hello"))]);
+        t!(Body, "ab\r\nc"        => [(0:0, 0:2, T("ab")), (0:2, 1:0, S(1)), (1:0, 1:1, T("c"))]);
+        t!(Body, "[x = \"(1)\"]*" => [(0:0, 0:11, func!("x = \"(1)\"", None, true)), (0:11, 0:12, Star)]);
+        t!(Body, "// ab\r\n\nf"   => [(0:0, 0:5, LC(" ab")), (0:5, 2:0, S(2)), (2:0, 2:1, T("f"))]);
+        t!(Body, "/*b*/_"         => [(0:0, 0:5, BC("b")), (0:5, 0:6, Underscore)]);
+        t!(Header, "a=10"         => [(0:0, 0:1, Id("a")), (0:1, 0:2, Equals), (0:2, 0:4, Num(10.0))]);
+    }
 }

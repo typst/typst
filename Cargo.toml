@@ -3,7 +3,7 @@ name = "typstc"
 version = "0.1.0"
 authors = ["Laurenz Mädje <laurmaedje@gmail.com>"]
 edition = "2018"
-build = "build.rs"
+# build = "build.rs"
 
 [dependencies]
 toddle = { path = "../toddle", features = ["query"], default-features = false }
@@ -22,15 +22,10 @@ fs-provider = ["toddle/fs-provider"]
 [[bin]]
 name = "typst"
 path = "src/bin/main.rs"
-required-features = ["futures-executor"]
+required-features = ["fs-provider", "futures-executor"]
 
 [[test]]
-name = "layouter"
-path = "tests/src/layouter.rs"
+name = "typeset"
+path = "tests/src/typeset.rs"
 harness = false
-required-features = ["futures-executor"]
-
-[[test]]
-name = "parser"
-path = "tests/src/parser.rs"
-harness = false
+required-features = ["fs-provider", "futures-executor"]

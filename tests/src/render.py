@@ -8,15 +8,13 @@ from PIL import Image, ImageDraw, ImageFont
 
 BASE = os.path.dirname(__file__)
 CACHE = os.path.join(BASE, '../cache/')
-SERIAL = os.path.join(CACHE, 'serial/')
-RENDER = os.path.join(CACHE, 'render/')
 
 
 def main():
     assert len(sys.argv) == 2, 'usage: python render.py <name>'
     name = sys.argv[1]
 
-    filename = os.path.join(SERIAL, name)
+    filename = os.path.join(CACHE, f'{name}.serialized')
     with open(filename, encoding='utf-8') as file:
         lines = [line[:-1] for line in file.readlines()]
 
@@ -24,8 +22,7 @@ def main():
     renderer.render()
     image = renderer.export()
 
-    pathlib.Path(RENDER).mkdir(parents=True, exist_ok=True)
-    image.save(os.path.join(RENDER, f'{name}.png'))
+    image.save(os.path.join(CACHE, f'{name}.png'))
 
 
 class MultiboxRenderer:

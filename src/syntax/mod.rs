@@ -11,10 +11,12 @@ use self::span::{Spanned, SpanVec};
 pub mod expr;
 pub mod func;
 pub mod span;
-
 pub_use_mod!(scope);
 pub_use_mod!(parsing);
 pub_use_mod!(tokens);
+
+#[cfg(test)]
+mod test;
 
 
 /// Represents a parsed piece of source that can be layouted and in the future

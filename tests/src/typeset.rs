@@ -21,11 +21,9 @@ type DynResult<T> = Result<T, Box<dyn Error>>;
 fn main() -> DynResult<()> {
     let opts = Options::parse();
 
-    create_dir_all("tests/cache/serial")?;
-    create_dir_all("tests/cache/render")?;
-    create_dir_all("tests/cache/pdf")?;
+    create_dir_all("tests/cache")?;
 
-    let tests: Vec<_> = read_dir("tests/layouter/")?.collect();
+    let tests: Vec<_> = read_dir("tests/")?.collect();
     let mut filtered = Vec::new();
 
     for entry in tests {
@@ -79,6 +77,11 @@ fn test(name: &str, src: &str) -> DynResult<()> {
 
     let layouts = compile(&typesetter, src);
 
+    // Write the PDF file.
+    let path = format!("tests/cache/{}.pdf", name);
+    let file = BufWriter::new(File::create(path)?);
+    pdf::export(&layouts, typesetter.loader(), file)?;
+
     // Compute the font's paths.
     let mut fonts = HashMap::new();
     let loader = typesetter.loader().borrow();
@@ -91,27 +94,29 @@ fn test(name: &str, src: &str) -> DynResult<()> {
     drop(loader);
 
     // Write the serialized layout file.
-    let path = format!("tests/cache/serial/{}", name);
-    let mut file = BufWriter::new(File::create(path)?);
+    let path = format!("tests/cache/{}.serialized", name);
+    let mut file = BufWriter::new(File::create(&path)?);
 
     // Write the font mapping into the serialization file.
     writeln!(file, "{}", fonts.len())?;
     for (index, path) in fonts.iter() {
         writeln!(file, "{} {} {}", index.id, index.variant, path)?;
     }
+
     layouts.serialize(&mut file)?;
+    file.flush()?;
+    drop(file);
 
     // Render the layout into a PNG.
     Command::new("python")
         .arg("tests/src/render.py")
         .arg(name)
         .spawn()
-        .expect("failed to run python renderer");
+        .expect("failed to run python renderer")
+        .wait()
+        .expect("command did not run");
 
-    // Write the PDF file.
-    let path = format!("tests/cache/pdf/{}.pdf", name);
-    let file = BufWriter::new(File::create(path)?);
-    pdf::export(&layouts, typesetter.loader(), file)?;
+    std::fs::remove_file(path)?;
 
     Ok(())
 }
