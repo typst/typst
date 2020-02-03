@@ -67,7 +67,7 @@ function! {
 
 /// The different kinds of content that can be spaced. Used as a metadata type
 /// for the [`ContentSpacingFunc`].
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[allow(missing_docs)]
 pub enum ContentKind {
     Word,

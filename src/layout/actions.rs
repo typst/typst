@@ -1,7 +1,7 @@
 //! Drawing and configuration actions composing layouts.
 
 use std::io::{self, Write};
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Debug, Formatter};
 use toddle::query::FontIndex;
 
 use crate::size::{Size, Size2D};
@@ -11,7 +11,7 @@ use self::LayoutAction::*;
 
 /// A layouting action, which is the basic building block layouts are composed
 /// of.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum LayoutAction {
     /// Move to an absolute position.
     MoveAbsolute(Size2D),
@@ -34,19 +34,17 @@ impl Serialize for LayoutAction {
     }
 }
 
-impl Display for LayoutAction {
+impl Debug for LayoutAction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use LayoutAction::*;
         match self {
             MoveAbsolute(s) => write!(f, "move {} {}", s.x, s.y),
-            SetFont(i, s) => write!(f, "font {} {} {}", i.id, i.variant, s),
+            SetFont(i, s) => write!(f, "font {}_{} {}", i.id, i.variant, s),
             WriteText(s) => write!(f, "write \"{}\"", s),
-            DebugBox(s) => write!(f, "box {}", s),
+            DebugBox(s) => write!(f, "box {} {}", s.x, s.y),
         }
     }
 }
-
-debug_display!(LayoutAction);
 
 /// A sequence of layouting actions.
 ///
@@ -60,7 +58,7 @@ debug_display!(LayoutAction);
 /// `add_layout` method, which allows a layout to be added at a position,
 /// effectively translating all movement actions inside the layout by the
 /// position.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LayoutActions {
     origin: Size2D,
     actions: Vec<LayoutAction>,

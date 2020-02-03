@@ -52,7 +52,7 @@ fn main() -> DynResult<()> {
     for (name, src) in filtered {
         panic::catch_unwind(|| {
             if let Err(e) = test(&name, &src) {
-                println!("error: {}", e);
+                println!("error: {:?}", e);
             }
         }).ok();
     }

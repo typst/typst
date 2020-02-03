@@ -1,6 +1,5 @@
 //! The _Typst_ standard library.
 
-use toddle::query::FontProvider;
 use crate::syntax::Scope;
 use crate::func::prelude::*;
 

@@ -1,6 +1,6 @@
 //! Expressions in function headers.
 
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Debug, Formatter};
 
 use crate::error::Errors;
 use crate::size::Size;
@@ -44,6 +44,21 @@ impl Expr {
     }
 }
 
+impl Debug for Expr {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        use Expr::*;
+        match self {
+            Ident(i) => i.fmt(f),
+            Str(s) => s.fmt(f),
+            Number(n) => n.fmt(f),
+            Size(s) => s.fmt(f),
+            Bool(b) => b.fmt(f),
+            Tuple(t) => t.fmt(f),
+            Object(o) => o.fmt(f),
+        }
+    }
+}
+
 /// A unicode identifier.
 ///
 /// The identifier must be valid! This is checked in [`Ident::new`] or
@@ -73,13 +88,19 @@ impl Ident {
     }
 }
 
+impl Debug for Ident {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 /// An untyped sequence of expressions.
 ///
 /// # Example
 /// ```typst
 /// (false, 12cm, "hi")
 /// ```
-#[derive(Clone, PartialEq)]
+#[derive(Default, Clone, PartialEq)]
 pub struct Tuple {
     /// The elements of the tuple.
     pub items: Vec<Spanned<Expr>>,
@@ -124,6 +145,16 @@ impl Tuple {
     }
 }
 
+impl Debug for Tuple {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let mut tuple = f.debug_tuple("");
+        for item in &self.items {
+            tuple.field(item);
+        }
+        tuple.finish()
+    }
+}
+
 /// A key-value collection of identifiers and associated expressions.
 ///
 /// The pairs themselves are not spanned, but the combined spans can easily be
@@ -134,14 +165,14 @@ impl Tuple {
 /// ```typst
 /// { fit: false, size: 12cm, items: (1, 2, 3) }
 /// ```
-#[derive(Clone, PartialEq)]
+#[derive(Default, Clone, PartialEq)]
 pub struct Object {
     /// The key-value pairs of the object.
     pub pairs: Vec<Pair>,
 }
 
 /// A key-value pair in an object.
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Pair {
     /// The key part.
     /// ```typst
@@ -247,73 +278,10 @@ impl Object {
     }
 }
 
-impl Display for Expr {
+impl Debug for Object {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        use Expr::*;
-        match self {
-            Ident(i) => write!(f, "{}", i),
-            Str(s) => write!(f, "{:?}", s),
-            Number(n) => write!(f, "{}", n),
-            Size(s) => write!(f, "{}", s),
-            Bool(b) => write!(f, "{}", b),
-            Tuple(t) => write!(f, "{}", t),
-            Object(o) => write!(f, "{}", o),
-        }
+        f.debug_map()
+            .entries(self.pairs.iter().map(|p| (&p.key.v, &p.value.v)))
+            .finish()
     }
 }
-
-impl Display for Ident {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl Display for Tuple {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "(")?;
-
-        let mut first = true;
-        for item in &self.items {
-            if !first {
-                write!(f, ", ")?;
-            }
-            write!(f, "{}", item.v)?;
-            first = false;
-        }
-
-        write!(f, ")")
-    }
-}
-
-impl Display for Object {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if self.pairs.len() == 0 {
-            return write!(f, "{{}}");
-        }
-
-        write!(f, "{{ ")?;
-
-        let mut first = true;
-        for pair in &self.pairs {
-            if !first {
-                write!(f, ", ")?;
-            }
-            write!(f, "{}", pair)?;
-            first = false;
-        }
-
-        write!(f, " }}")
-    }
-}
-
-impl Display for Pair {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}: {}", self.key.v, self.value.v)
-    }
-}
-
-debug_display!(Expr);
-debug_display!(Ident);
-debug_display!(Tuple);
-debug_display!(Object);
-debug_display!(Pair);

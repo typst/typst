@@ -30,7 +30,7 @@ pub trait Model: Debug + ModelBounds {
 }
 
 /// A tree representation of source code.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct SyntaxModel {
     /// The syntactical elements making up this model.
     pub nodes: SpanVec<Node>,
@@ -97,7 +97,7 @@ impl PartialEq for Node {
 }
 
 /// Decorations for semantic syntax highlighting.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Decoration {
     /// A valid function name:

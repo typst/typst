@@ -27,7 +27,7 @@ use super::*;
 
 
 /// Performs the stack layouting.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct StackLayouter {
     /// The context for layouting.
     ctx: StackContext,
@@ -57,7 +57,7 @@ pub struct StackContext {
 
 /// A layout space composed of subspaces which can have different axes and
 /// alignments.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct Space {
     /// The index of this space in the list of spaces.
     index: usize,
@@ -134,7 +134,7 @@ impl StackLayouter {
             // A hard space is simply an empty box.
             SpacingKind::Hard => {
                 // Reduce the spacing such that it definitely fits.
-                spacing.min_eq(self.space.usable.get_secondary(self.ctx.axes));
+                spacing.min_eq(self.space.usable.secondary(self.ctx.axes));
                 let dimensions = Size2D::with_y(spacing);
 
                 self.update_metrics(dimensions);
@@ -179,7 +179,7 @@ impl StackLayouter {
 
         self.space.size = size.specialized(axes);
         self.space.extra = extra.specialized(axes);
-        *self.space.usable.get_secondary_mut(axes) -= dimensions.y;
+        *self.space.usable.secondary_mut(axes) -= dimensions.y;
     }
 
     /// Update the rulers to account for the new layout. Returns true if a
@@ -328,7 +328,7 @@ impl StackLayouter {
             // the usable space for following layouts at it's origin by its
             // extent along the secondary axis.
             *bound.get_mut(axes.secondary, Origin)
-                += axes.secondary.factor() * layout.dimensions.get_secondary(*axes);
+                += axes.secondary.factor() * layout.dimensions.secondary(*axes);
         }
 
         // ------------------------------------------------------------------ //

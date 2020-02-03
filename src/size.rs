@@ -76,7 +76,11 @@ impl Display for Size {
     }
 }
 
-debug_display!(Size);
+impl Debug for Size {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(self, f)
+    }
+}
 
 impl Neg for Size {
     type Output = Size;
@@ -115,12 +119,16 @@ impl Display for ScaleSize {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             ScaleSize::Absolute(size) => write!(f, "{}", size),
-            ScaleSize::Scaled(scale) => write!(f, "x{}", scale),
+            ScaleSize::Scaled(scale) => write!(f, "{}%", scale * 100.0),
         }
     }
 }
 
-debug_display!(ScaleSize);
+impl Debug for ScaleSize {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(self, f)
+    }
+}
 
 /// A scale size that is scaled by the font size.
 pub type FSize = ScaleSize;
@@ -129,7 +137,7 @@ pub type FSize = ScaleSize;
 pub type PSize = ScaleSize;
 
 /// A value in two dimensions.
-#[derive(Default, Copy, Clone, PartialEq)]
+#[derive(Default, Copy, Clone, Eq, PartialEq)]
 pub struct Value2D<T> {
     /// The horizontal component.
     pub x: T,
@@ -137,7 +145,7 @@ pub struct Value2D<T> {
     pub y: T,
 }
 
-impl<T: Copy> Value2D<T> {
+impl<T: Clone> Value2D<T> {
     /// Create a new 2D-value from two values.
     pub fn new(x: T, y: T) -> Value2D<T> { Value2D { x, y } }
 
@@ -164,7 +172,7 @@ impl<T: Copy> Value2D<T> {
     }
 
     /// Create a 2D-value with `x` and `y` set to the same value `s`.
-    pub fn with_all(s: T) -> Value2D<T> { Value2D { x: s, y: s } }
+    pub fn with_all(s: T) -> Value2D<T> { Value2D { x: s.clone(), y: s } }
 
     /// Get the specificed component.
     pub fn get(self, axis: SpecificAxis) -> T {
@@ -183,22 +191,22 @@ impl<T: Copy> Value2D<T> {
     }
 
     /// Return the primary value of this specialized 2D-value.
-    pub fn get_primary(self, axes: LayoutAxes) -> T {
+    pub fn primary(self, axes: LayoutAxes) -> T {
         if axes.primary.axis() == Horizontal { self.x } else { self.y }
     }
 
     /// Borrow the primary value of this specialized 2D-value mutably.
-    pub fn get_primary_mut(&mut self, axes: LayoutAxes) -> &mut T {
+    pub fn primary_mut(&mut self, axes: LayoutAxes) -> &mut T {
         if axes.primary.axis() == Horizontal { &mut self.x } else { &mut self.y }
     }
 
     /// Return the secondary value of this specialized 2D-value.
-    pub fn get_secondary(self, axes: LayoutAxes) -> T {
+    pub fn secondary(self, axes: LayoutAxes) -> T {
         if axes.primary.axis() == Horizontal { self.y } else { self.x }
     }
 
     /// Borrow the secondary value of this specialized 2D-value mutably.
-    pub fn get_secondary_mut(&mut self, axes: LayoutAxes) -> &mut T {
+    pub fn secondary_mut(&mut self, axes: LayoutAxes) -> &mut T {
         if axes.primary.axis() == Horizontal { &mut self.y } else { &mut self.x }
     }
 
@@ -227,15 +235,12 @@ impl<T: Copy> Value2D<T> {
     }
 }
 
-impl<T> Display for Value2D<T> where T: Display {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "[{}, {}]", self.x, self.y)
-    }
-}
-
 impl<T> Debug for Value2D<T> where T: Debug {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "[{:?}, {:?}]", self.x, self.y)
+        f.debug_list()
+            .entry(&self.x)
+            .entry(&self.y)
+            .finish()
     }
 }
 
@@ -294,6 +299,7 @@ impl Neg for Size2D {
 
 /// A value that is stretchable in an interval from a minimal through an optimal
 /// to a maximal value.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub struct StretchValue<T> {
     /// The minimum this value can be stretched to.
     pub min: T,
@@ -310,23 +316,11 @@ impl<T> StretchValue<T> {
     }
 }
 
-impl<T> Display for StretchValue<T> where T: Display {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "({}, {}, {})", self.min, self.opt, self.max)
-    }
-}
-
-impl<T> Debug for StretchValue<T> where T: Debug {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "({:?}, {:?}, {:?})", self.min, self.opt, self.max)
-    }
-}
-
 /// A size that is stretchable.
 pub type StretchSize = StretchValue<Size>;
 
 /// A value in four dimensions.
-#[derive(Default, Copy, Clone, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub struct ValueBox<T> {
     /// The left extent.
     pub left: T,
@@ -389,20 +383,6 @@ impl<T: Clone> ValueBox<T> {
     }
 }
 
-impl<T> Display for ValueBox<T> where T: Display {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "[left: {}, top: {}, right: {}, bottom: {}]",
-            self.left, self.top, self.right, self.bottom)
-    }
-}
-
-impl<T> Debug for ValueBox<T> where T: Debug {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "[left: {:?}, top: {:?}, right: {:?}, bottom: {:?}]",
-            self.left, self.top, self.right, self.bottom)
-    }
-}
-
 /// A size in four dimensions.
 pub type SizeBox = ValueBox<Size>;
 
@@ -416,14 +396,6 @@ impl SizeBox {
     };
 }
 
-/// An error which can be returned when parsing a size.
-pub struct ParseSizeError;
-
-error_type! {
-    self: ParseSizeError,
-    show: f => write!(f, "failed to parse size"),
-}
-
 impl FromStr for Size {
     type Err = ParseSizeError;
 
@@ -433,13 +405,25 @@ impl FromStr for Size {
             _ if src.ends_with("mm") => Size::mm,
             _ if src.ends_with("cm") => Size::cm,
             _ if src.ends_with("in") => Size::inches,
-            _ => return Err(ParseSizeError),
+            _ => return Err(ParseSizeError(())),
         };
 
         Ok(func(src[..src.len() - 2]
             .parse::<f32>()
-            .map_err(|_| ParseSizeError)?))
+            .map_err(|_| ParseSizeError(()))?))
 
+    }
+}
+
+/// An error which can be returned when parsing a size.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ParseSizeError(());
+
+impl std::error::Error for ParseSizeError {}
+
+impl Display for ParseSizeError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("invalid string for size")
     }
 }
 

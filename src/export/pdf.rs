@@ -1,6 +1,8 @@
 //! Exporting of layouts into _PDF_ documents.
 
 use std::collections::{HashMap, HashSet};
+use std::error::Error;
+use std::fmt::{self, Display, Formatter};
 use std::io::{self, Write};
 
 use tide::{PdfWriter, Rect, Ref, Trailer, Version};
@@ -74,8 +76,8 @@ impl<'a, W: Write> PdfExporter<'a, W> {
         font_loader: &GlobalFontLoader,
         target: W,
     ) -> PdfResult<PdfExporter<'a, W>> {
-        let (fonts, font_remap) = Self::subset_fonts(layouts, font_loader)?;
-        let offsets = Self::calculate_offsets(layouts.len(), fonts.len());
+        let (fonts, font_remap) = subset_fonts(layouts, font_loader)?;
+        let offsets = calculate_offsets(layouts.len(), fonts.len());
 
         Ok(PdfExporter {
             writer: PdfWriter::new(target),
@@ -84,95 +86,6 @@ impl<'a, W: Write> PdfExporter<'a, W> {
             font_remap,
             fonts,
         })
-    }
-
-    /// Subsets all fonts and assign a new PDF-internal index to each one. The
-    /// returned hash map maps the old indices (used by the layouts) to the new
-    /// one used in the PDF. The new ones index into the returned vector of
-    /// owned fonts.
-    fn subset_fonts(
-        layouts: &'a MultiLayout,
-        font_loader: &GlobalFontLoader,
-    ) -> PdfResult<(Vec<OwnedFont>, HashMap<FontIndex, usize>)> {
-        let mut fonts = Vec::new();
-        let mut font_chars: HashMap<FontIndex, HashSet<char>> = HashMap::new();
-        let mut old_to_new: HashMap<FontIndex, usize> = HashMap::new();
-        let mut new_to_old: HashMap<usize, FontIndex> = HashMap::new();
-        let mut active_font = FontIndex::MAX;
-
-        // We want to find out which fonts are used at all and which chars are
-        // used for those. We use this information to create subsetted fonts.
-        for layout in layouts {
-            for action in &layout.actions {
-                match action {
-                    LayoutAction::WriteText(text) => {
-                        font_chars
-                            .entry(active_font)
-                            .or_insert_with(HashSet::new)
-                            .extend(text.chars());
-                    },
-
-                    LayoutAction::SetFont(index, _) => {
-                        active_font = *index;
-
-                        let next_id = old_to_new.len();
-                        let new_id = *old_to_new
-                            .entry(active_font)
-                            .or_insert(next_id);
-
-                        new_to_old
-                            .entry(new_id)
-                            .or_insert(active_font);
-                    },
-
-                    _ => {}
-                }
-            }
-        }
-
-        let num_fonts = old_to_new.len();
-        let mut font_loader = font_loader.borrow_mut();
-
-        // All tables not listed here are dropped.
-        let tables: Vec<_> = [
-            b"name", b"OS/2", b"post", b"head", b"hhea", b"hmtx", b"maxp",
-            b"cmap", b"cvt ", b"fpgm", b"prep", b"loca", b"glyf",
-        ].iter().map(|&s| Tag(*s)).collect();
-
-        // Do the subsetting.
-        for index in 0 .. num_fonts {
-            let old_index = new_to_old[&index];
-            let font = font_loader.get_with_index(old_index);
-
-            let chars = font_chars[&old_index].iter().cloned();
-            let subsetted = match font.subsetted(chars, tables.iter().copied()) {
-                Ok(data) => Font::from_bytes(data)?,
-                Err(_) => font.clone(),
-            };
-
-            fonts.push(subsetted);
-        }
-
-        Ok((fonts, old_to_new))
-    }
-
-    /// We need to know in advance which IDs to use for which objects to
-    /// cross-reference them. Therefore, we calculate the indices in the
-    /// beginning.
-    fn calculate_offsets(layout_count: usize, font_count: usize) -> Offsets {
-        let catalog = 1;
-        let page_tree = catalog + 1;
-        let pages = (page_tree + 1, page_tree + layout_count as Ref);
-        let contents = (pages.1 + 1, pages.1 + layout_count as Ref);
-        let font_offsets = (contents.1 + 1, contents.1 + 5 * font_count as Ref);
-
-        Offsets {
-            catalog,
-            page_tree,
-            pages,
-            contents,
-            fonts: font_offsets,
-        }
     }
 
     /// Write everything (writing entry point).
@@ -395,12 +308,100 @@ impl<'a, W: Write> PdfExporter<'a, W> {
     }
 }
 
+/// Subsets all fonts and assign a new PDF-internal index to each one. The
+/// returned hash map maps the old indices (used by the layouts) to the new one
+/// used in the PDF. The new ones index into the returned vector of owned fonts.
+fn subset_fonts(
+    layouts: &MultiLayout,
+    font_loader: &GlobalFontLoader,
+) -> PdfResult<(Vec<OwnedFont>, HashMap<FontIndex, usize>)> {
+    let mut fonts = Vec::new();
+    let mut font_chars: HashMap<FontIndex, HashSet<char>> = HashMap::new();
+    let mut old_to_new: HashMap<FontIndex, usize> = HashMap::new();
+    let mut new_to_old: HashMap<usize, FontIndex> = HashMap::new();
+    let mut active_font = FontIndex::MAX;
+
+    // We want to find out which fonts are used at all and which chars are used
+    // for those. We use this information to create subsetted fonts.
+    for layout in layouts {
+        for action in &layout.actions {
+            match action {
+                LayoutAction::WriteText(text) => {
+                    font_chars
+                        .entry(active_font)
+                        .or_insert_with(HashSet::new)
+                        .extend(text.chars());
+                },
+
+                LayoutAction::SetFont(index, _) => {
+                    active_font = *index;
+
+                    let next_id = old_to_new.len();
+                    let new_id = *old_to_new
+                        .entry(active_font)
+                        .or_insert(next_id);
+
+                    new_to_old
+                        .entry(new_id)
+                        .or_insert(active_font);
+                },
+
+                _ => {}
+            }
+        }
+    }
+
+    let num_fonts = old_to_new.len();
+    let mut font_loader = font_loader.borrow_mut();
+
+    // All tables not listed here are dropped.
+    let tables: Vec<_> = [
+        b"name", b"OS/2", b"post", b"head", b"hhea", b"hmtx", b"maxp",
+        b"cmap", b"cvt ", b"fpgm", b"prep", b"loca", b"glyf",
+    ].iter().map(|&s| Tag(*s)).collect();
+
+    // Do the subsetting.
+    for index in 0 .. num_fonts {
+        let old_index = new_to_old[&index];
+        let font = font_loader.get_with_index(old_index);
+
+        let chars = font_chars[&old_index].iter().cloned();
+        let subsetted = match font.subsetted(chars, tables.iter().copied()) {
+            Ok(data) => Font::from_bytes(data)?,
+            Err(_) => font.clone(),
+        };
+
+        fonts.push(subsetted);
+    }
+
+    Ok((fonts, old_to_new))
+}
+
+/// We need to know in advance which IDs to use for which objects to
+/// cross-reference them. Therefore, we calculate the indices in the beginning.
+fn calculate_offsets(layout_count: usize, font_count: usize) -> Offsets {
+    let catalog = 1;
+    let page_tree = catalog + 1;
+    let pages = (page_tree + 1, page_tree + layout_count as Ref);
+    let contents = (pages.1 + 1, pages.1 + layout_count as Ref);
+    let font_offsets = (contents.1 + 1, contents.1 + 5 * font_count as Ref);
+
+    Offsets {
+        catalog,
+        page_tree,
+        pages,
+        contents,
+        fonts: font_offsets,
+    }
+}
+
 /// Create an iterator from a reference pair.
-fn ids((start, end): (Ref, Ref)) -> impl Iterator<Item = Ref> {
+fn ids((start, end): (Ref, Ref)) -> impl Iterator<Item=Ref> {
     start ..= end
 }
 
 /// The error type for _PDF_ exporting.
+#[derive(Debug)]
 pub enum PdfExportError {
     /// An error occured while subsetting the font for the _PDF_.
     Font(LoadError),
@@ -408,17 +409,34 @@ pub enum PdfExportError {
     Io(io::Error),
 }
 
-error_type! {
-    self: PdfExportError,
-    res: PdfResult,
-    show: f => match self {
-        PdfExportError::Font(err) => err.fmt(f),
-        PdfExportError::Io(err) => err.fmt(f),
-    },
-    source: match self {
-        PdfExportError::Font(err) => Some(err),
-        PdfExportError::Io(err) => Some(err),
-    },
-    from: (err: io::Error, PdfExportError::Io(err)),
-    from: (err: LoadError, PdfExportError::Font(err)),
+type PdfResult<T> = Result<T, PdfExportError>;
+
+impl Error for PdfExportError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            PdfExportError::Font(err) => Some(err),
+            PdfExportError::Io(err) => Some(err),
+        }
+    }
+}
+
+impl Display for PdfExportError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            PdfExportError::Font(err) => err.fmt(f),
+            PdfExportError::Io(err) => err.fmt(f),
+        }
+    }
+}
+
+impl From<LoadError> for PdfExportError {
+    fn from(err: LoadError) -> PdfExportError {
+        PdfExportError::Font(err)
+    }
+}
+
+impl From<io::Error> for PdfExportError {
+    fn from(err: io::Error) -> PdfExportError {
+        PdfExportError::Io(err)
+    }
 }

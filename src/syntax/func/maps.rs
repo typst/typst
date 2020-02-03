@@ -16,7 +16,7 @@ use super::*;
 /// list that needs to be passed to those functions.
 ///
 /// All entries need to have span information to enable the error reporting.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct DedupMap<K, V> where K: Eq {
     map: Vec<Spanned<(K, V)>>,
 }

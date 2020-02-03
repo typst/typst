@@ -6,16 +6,16 @@ use crate::size::{Size, Size2D, SizeBox, ValueBox, PSize};
 
 
 /// Defines properties of pages and text.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct LayoutStyle {
-    /// The style for pages.
-    pub page: PageStyle,
     /// The style for text.
     pub text: TextStyle,
+    /// The style for pages.
+    pub page: PageStyle,
 }
 
 /// Defines which fonts to use and how to space text.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TextStyle {
     /// A tree of font names and generic family names.
     pub fallback: FallbackTree,
@@ -87,7 +87,7 @@ impl Default for TextStyle {
 }
 
 /// Defines the size and margins of a page.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct PageStyle {
     /// The class of this page.
     pub class: PaperClass,
@@ -159,12 +159,19 @@ impl PaperClass {
     /// The default margins for this page class.
     pub fn default_margins(self) -> ValueBox<PSize> {
         use PaperClass::*;
+        let values = |l, t, r, b| ValueBox::new(
+            PSize::Scaled(l),
+            PSize::Scaled(t),
+            PSize::Scaled(r),
+            PSize::Scaled(b),
+        );
+
         match self {
-            Custom => ValueBox::with_all(PSize::Scaled(0.1)),
-            Base => ValueBox::new(PSize::Scaled(0.119), PSize::Scaled(0.0569), PSize::Scaled(0.0476), PSize::Scaled(0.0569)),
-            US => ValueBox::new(PSize::Scaled(0.176), PSize::Scaled(0.1092), PSize::Scaled(0.176), PSize::Scaled(0.091)),
-            Newspaper => ValueBox::new(PSize::Scaled(0.0455), PSize::Scaled(0.0587), PSize::Scaled(0.0455), PSize::Scaled(0.0294)),
-            Book => ValueBox::new(PSize::Scaled(0.12), PSize::Scaled(0.0852), PSize::Scaled(0.15), PSize::Scaled(0.0965)),
+            Custom    => values(0.1190, 0.0842, 0.1190, 0.0842),
+            Base      => values(0.1190, 0.0842, 0.1190, 0.0842),
+            US        => values(0.1760, 0.1092, 0.1760, 0.0910),
+            Newspaper => values(0.0455, 0.0587, 0.0455, 0.0294),
+            Book      => values(0.1200, 0.0852, 0.1500, 0.0965),
         }
     }
 }
@@ -182,7 +189,7 @@ macro_rules! papers {
     };
 
     (@$var:ident, $names:expr, $class:ident, $width:expr, $height:expr) => {
-        #[doc = "Paper with the names `"]
+        #[doc = "Paper with name `"]
         #[doc = $names]
         #[doc = "`."]
         pub const $var: Paper = Paper {

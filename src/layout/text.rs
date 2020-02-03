@@ -14,6 +14,7 @@ use super::*;
 
 
 /// Performs the text layouting.
+#[derive(Debug)]
 struct TextLayouter<'a> {
     ctx: TextContext<'a>,
     text: &'a str,
@@ -24,7 +25,7 @@ struct TextLayouter<'a> {
 }
 
 /// The context for text layouting.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct TextContext<'a> {
     /// The font loader to retrieve fonts from when typesetting text
     /// using [`layout_text`].

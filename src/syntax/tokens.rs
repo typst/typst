@@ -122,6 +122,7 @@ impl<'s> Token<'s> {
 }
 
 /// An iterator over the tokens of a string of source code.
+#[derive(Debug)]
 pub struct Tokens<'s> {
     src: &'s str,
     mode: TokenizationMode,
@@ -133,7 +134,7 @@ pub struct Tokens<'s> {
 /// Whether to tokenize in header mode which yields expression, comma and
 /// similar tokens or in body mode which yields text and star, underscore,
 /// backtick tokens.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[allow(missing_docs)]
 pub enum TokenizationMode {
     Header,

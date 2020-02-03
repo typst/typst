@@ -13,7 +13,7 @@ use super::Model;
 /// A map from identifiers to function parsers.
 pub struct Scope {
     parsers: HashMap<String, Box<Parser>>,
-    fallback: Box<Parser>
+    fallback: Box<Parser>,
 }
 
 impl Scope {
@@ -63,8 +63,9 @@ impl Scope {
 
 impl Debug for Scope {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Scope ")?;
-        write!(f, "{:?}", self.parsers.keys())
+        f.debug_set()
+            .entries(self.parsers.keys())
+            .finish()
     }
 }
 

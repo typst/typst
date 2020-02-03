@@ -1,6 +1,6 @@
 //! Spans map elements to the part of source code they originate from.
 
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Sub};
 use serde::Serialize;
 
@@ -60,6 +60,12 @@ impl Sub for Position {
     }
 }
 
+impl Debug for Position {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}:{}", self.line, self.column)
+    }
+}
+
 /// Locates a slice of source code.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize)]
 pub struct Span {
@@ -103,8 +109,14 @@ impl Span {
     }
 }
 
+impl Debug for Span {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "({:?} -> {:?})", self.start, self.end)
+    }
+}
+
 /// A value with the span it corresponds to in the source code.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize)]
 pub struct Spanned<T> {
     /// The value.
     pub v: T,
@@ -143,34 +155,3 @@ pub type SpanVec<T> = Vec<Spanned<T>>;
 pub fn offset_spans<T>(vec: SpanVec<T>, start: Position) -> impl Iterator<Item=Spanned<T>> {
     vec.into_iter().map(move |s| s.map_span(|span| span.offset(start)))
 }
-
-impl Display for Position {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}:{}", self.line, self.column)
-    }
-}
-
-impl Display for Span {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "({}, {})", self.start, self.end)
-    }
-}
-
-impl<T> Display for Spanned<T> where T: std::fmt::Display {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "({}, {}, ", self.span.start, self.span.end)?;
-        self.v.fmt(f)?;
-        write!(f, ")")
-    }
-}
-
-impl<T> Debug for Spanned<T> where T: std::fmt::Debug {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "({}, {}, ", self.span.start, self.span.end)?;
-        self.v.fmt(f)?;
-        write!(f, ")")
-    }
-}
-
-debug_display!(Position);
-debug_display!(Span);

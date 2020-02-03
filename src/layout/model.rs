@@ -5,7 +5,6 @@
 use std::future::Future;
 use std::pin::Pin;
 use smallvec::smallvec;
-use toddle::query::{SharedFontLoader, FontProvider};
 
 use crate::GlobalFontLoader;
 use crate::error::Errors;
@@ -19,6 +18,7 @@ use super::*;
 
 
 /// Performs the model layouting.
+#[derive(Debug)]
 pub struct ModelLayouter<'a> {
     ctx: LayoutContext<'a>,
     layouter: LineLayouter,
@@ -52,6 +52,7 @@ pub struct LayoutContext<'a> {
 }
 
 /// The result of layouting: Some layouted things and a list of errors.
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Layouted<T> {
     /// The result of the layouting process.
     pub output: T,
@@ -63,7 +64,7 @@ pub struct Layouted<T> {
 pub type Commands<'a> = Vec<Command<'a>>;
 
 /// Commands issued to the layouting engine by models.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Command<'a> {
     /// Layout the given model in the current context (i.e. not nested). The
     /// content of the model is not laid out into a separate box and then added,

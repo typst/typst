@@ -16,14 +16,10 @@
 //!   format is [_PDF_](crate::export::pdf). Alternatively, the layout can be
 //!   serialized to pass it to a suitable renderer.
 
-#![allow(unused)]
-
 pub use toddle;
 
 use std::cell::RefCell;
 use std::error::Error;
-use std::fmt::{self, Debug, Formatter};
-use std::io::Cursor;
 use async_trait::async_trait;
 use smallvec::smallvec;
 
@@ -35,8 +31,15 @@ use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::syntax::{SyntaxModel, Scope, ParseContext, Parsed, parse};
 use crate::syntax::span::Position;
 
-#[macro_use]
-mod macros;
+
+/// Declare a module and reexport all its contents.
+macro_rules! pub_use_mod {
+    ($name:ident) => {
+        mod $name;
+        pub use $name::*;
+    };
+}
+
 pub mod error;
 pub mod export;
 #[macro_use]
@@ -51,6 +54,7 @@ pub mod syntax;
 /// Transforms source code into typesetted layouts.
 ///
 /// A typesetter can be configured through various methods.
+#[derive(Debug)]
 pub struct Typesetter {
     /// The font loader shared by all typesetting processes.
     loader: GlobalFontLoader,
@@ -79,14 +83,14 @@ impl Typesetter {
         }
     }
 
-    /// Set the base page style.
-    pub fn set_page_style(&mut self, style: PageStyle) {
-        self.style.page = style;
-    }
-
     /// Set the base text style.
     pub fn set_text_style(&mut self, style: TextStyle) {
         self.style.text = style;
+    }
+
+    /// Set the base page style.
+    pub fn set_page_style(&mut self, style: PageStyle) {
+        self.style.page = style;
     }
 
     /// A reference to the backing font loader.
@@ -134,6 +138,7 @@ impl Typesetter {
 /// Wraps a font provider and transforms its errors into boxed trait objects.
 /// This enables font providers that do not return boxed errors to be used with
 /// the typesetter.
+#[derive(Debug)]
 pub struct DynErrorProvider<P> {
     provider: P,
 }

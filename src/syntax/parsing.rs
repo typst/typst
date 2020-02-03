@@ -18,6 +18,7 @@ pub struct ParseContext<'a> {
 
 /// The result of parsing: Some parsed thing, errors and decorations for syntax
 /// highlighting.
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Parsed<T> {
     /// The result of the parsing process.
     pub output: T,
@@ -321,9 +322,11 @@ impl<'s> FuncParser<'s> {
 
     /// Skip all whitespace/comment tokens.
     fn skip_whitespace(&mut self) {
-        self.eat_until(|t| !matches!(t,
+        self.eat_until(|t| match t {
             Token::Space(_) | Token::LineComment(_) |
-            Token::BlockComment(_)), false)
+            Token::BlockComment(_) => false,
+            _ => true,
+        }, false)
     }
 
     /// Add an error about an expected `thing` which was not found, showing

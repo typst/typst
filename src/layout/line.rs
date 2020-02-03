@@ -13,7 +13,7 @@ use super::*;
 
 
 /// Performs the line layouting.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct LineLayouter {
     /// The context for layouting.
     ctx: LineContext,
@@ -46,7 +46,7 @@ pub struct LineContext {
 /// A line run is a sequence of boxes with the same alignment that are arranged
 /// in a line. A real line can consist of multiple runs with different
 /// alignments.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct LineRun {
     /// The so-far accumulated layouts in the line.
     layouts: Vec<(Size, Layout)>,
@@ -102,7 +102,7 @@ impl LineLayouter {
             } else if layout.alignment.primary > alignment.primary {
                 let mut rest_run = LineRun::new();
 
-                let usable = self.stack.usable().get_primary(axes);
+                let usable = self.stack.usable().primary(axes);
                 rest_run.usable = Some(match layout.alignment.primary {
                     Alignment::Origin => unreachable!("origin > x"),
                     Alignment::Center => usable - 2 * self.run.size.x,
@@ -228,7 +228,7 @@ impl LineLayouter {
     /// a function how much space it has to layout itself.
     pub fn remaining(&self) -> LayoutSpaces {
         let mut spaces = self.stack.remaining();
-        *spaces[0].dimensions.get_secondary_mut(self.ctx.axes)
+        *spaces[0].dimensions.secondary_mut(self.ctx.axes)
             -= self.run.size.y;
         spaces
     }
@@ -262,7 +262,7 @@ impl LineLayouter {
                 true => offset,
                 false => self.run.size.x
                     - offset
-                    - layout.dimensions.get_primary(self.ctx.axes),
+                    - layout.dimensions.primary(self.ctx.axes),
             };
 
             let pos = Size2D::with_x(x);

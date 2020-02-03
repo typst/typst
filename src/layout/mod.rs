@@ -33,7 +33,7 @@ pub mod prelude {
 pub type MultiLayout = Vec<Layout>;
 
 /// A finished box with content at fixed positions.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Layout {
     /// The size of the box.
     pub dimensions: Size2D,
@@ -91,7 +91,7 @@ impl Serialize for MultiLayout {
 pub type LayoutSpaces = SmallVec<[LayoutSpace; 2]>;
 
 /// The space into which content is laid out.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct LayoutSpace {
     /// The maximum size of the box to layout in.
     pub dimensions: Size2D,
