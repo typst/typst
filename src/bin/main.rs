@@ -42,7 +42,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let provider = DebugErrorProvider::new(fs);
     let typesetter = Typesetter::new((Box::new(provider), entries));
 
-    let layouts = block_on(typesetter.typeset(&src));
+    let layouts = block_on(typesetter.typeset(&src)).output;
 
     let writer = BufWriter::new(File::create(&dest)?);
     pdf::export(&layouts, typesetter.loader(), writer)?;

@@ -1,6 +1,7 @@
 //! Trait and prelude for custom functions.
 
-use crate::syntax::{ParseContext, Parsed};
+use crate::Pass;
+use crate::syntax::ParseContext;
 use crate::syntax::func::FuncHeader;
 use crate::syntax::span::Spanned;
 
@@ -36,7 +37,7 @@ pub trait ParseFunc {
         body: Option<Spanned<&str>>,
         ctx: ParseContext,
         metadata: Self::Meta,
-    ) -> Parsed<Self> where Self: Sized;
+    ) -> Pass<Self> where Self: Sized;
 }
 
 /// Allows to implement a function type concisely.
@@ -103,17 +104,16 @@ macro_rules! function {
 
     // Parse trait.
     (@parse($($a:tt)*) parse(default) $($r:tt)*) => {
-        function!(@parse($($a)*) parse(_h, _b, _c, _e, _d, _m) {Default::default() } $($r)*);
+        function!(@parse($($a)*) parse(_h, _b, _c, _f, _m) {Default::default() } $($r)*);
     };
-    (@parse($($a:tt)*) parse($h:ident, $b:ident, $c:ident, $e:ident, $d:ident) $($r:tt)* ) => {
-        function!(@parse($($a)*) parse($h, $b, $c, $e, $d, _metadata) $($r)*);
+    (@parse($($a:tt)*) parse($h:ident, $b:ident, $c:ident, $f:ident) $($r:tt)* ) => {
+        function!(@parse($($a)*) parse($h, $b, $c, $f, _metadata) $($r)*);
     };
     (@parse($name:ident, $meta:ty) parse(
         $header:ident,
         $body:ident,
         $ctx:ident,
-        $errors:ident,
-        $decos:ident,
+        $feedback:ident,
         $metadata:ident
     ) $code:block $($r:tt)*) => {
         impl $crate::func::ParseFunc for $name {
@@ -124,42 +124,40 @@ macro_rules! function {
                 #[allow(unused)] $body: Option<$crate::syntax::span::Spanned<&str>>,
                 #[allow(unused)] $ctx: $crate::syntax::ParseContext,
                 #[allow(unused)] $metadata: Self::Meta,
-            ) -> $crate::syntax::Parsed<Self> where Self: Sized {
-                let mut errors = vec![];
-                let mut decorations = vec![];
+            ) -> $crate::Pass<Self> where Self: Sized {
+                let mut feedback = $crate::Feedback::new();
                 #[allow(unused)] let $header = &mut header;
-                #[allow(unused)] let $errors = &mut errors;
-                #[allow(unused)] let $decos = &mut decorations;
-                let output = $code;
+                #[allow(unused)] let $feedback = &mut feedback;
+
+                let func = $code;
 
                 for arg in header.args.into_iter() {
-                    errors.push(err!(arg.span(); "unexpected argument"));
+                    feedback.errors.push(err!(arg.span(); "unexpected argument"));
                 }
 
-                $crate::syntax::Parsed { output, errors, decorations }
+                $crate::Pass::new(func, feedback)
             }
         }
 
         function!(@layout($name) $($r)*);
     };
 
-    (@layout($name:ident) layout($this:ident, $ctx:ident, $errors:ident) $code:block) => {
+    (@layout($name:ident) layout($this:ident, $ctx:ident, $feedback:ident) $code:block) => {
         impl $crate::syntax::Model for $name {
             fn layout<'a, 'b, 't>(
                 #[allow(unused)] &'a $this,
                 #[allow(unused)] mut $ctx: $crate::layout::LayoutContext<'b>,
-            ) -> $crate::layout::DynFuture<'t, $crate::layout::Layouted<
-                $crate::layout::Commands<'a>>
-            > where
+            ) -> $crate::layout::DynFuture<'t, $crate::Pass<$crate::layout::Commands<'a>>>
+            where
                 'a: 't,
                 'b: 't,
                 Self: 't,
             {
                 Box::pin(async move {
-                    let mut errors = vec![];
-                    #[allow(unused)] let $errors = &mut errors;
-                    let output = $code;
-                    $crate::layout::Layouted { output, errors }
+                    let mut feedback = $crate::Feedback::new();
+                    #[allow(unused)] let $feedback = &mut feedback;
+                    let commands = $code;
+                    $crate::Pass::new(commands, feedback)
                 })
             }
         }
@@ -179,22 +177,21 @@ macro_rules! function {
 ///   from parsing.
 #[macro_export]
 macro_rules! body {
-    (opt: $body:expr, $ctx:expr, $errors:expr, $decos:expr) => ({
+    (opt: $body:expr, $ctx:expr, $feedback:expr) => ({
         $body.map(|body| {
             // Since the body span starts at the opening bracket of the body, we
             // need to add 1 column to find out the start position of body
             // content.
             let start = body.span.start + $crate::syntax::span::Position::new(0, 1);
             let parsed = $crate::syntax::parse(start, body.v, $ctx);
-            $errors.extend(parsed.errors);
-            $decos.extend(parsed.decorations);
+            $feedback.extend(parsed.feedback);
             parsed.output
         })
     });
 
-    (nope: $body:expr, $errors:expr) => {
+    (nope: $body:expr, $feedback:expr) => {
         if let Some(body) = $body {
-            $errors.push($crate::err!(body.span; "unexpected body"));
+            $feedback.errors.push($crate::err!(body.span; "unexpected body"));
         }
     };
 }

@@ -5,7 +5,8 @@ use std::fmt::Debug;
 use async_trait::async_trait;
 use serde::Serialize;
 
-use crate::layout::{LayoutContext, Layouted, Commands, Command};
+use crate::{Pass, Feedback};
+use crate::layout::{LayoutContext, Commands, Command};
 use self::span::{Spanned, SpanVec};
 
 pub mod expr;
@@ -25,10 +26,7 @@ mod test;
 pub trait Model: Debug + ModelBounds {
     /// Layout the model into a sequence of commands processed by a
     /// [`ModelLayouter`](crate::layout::ModelLayouter).
-    async fn layout<'a>(
-        &'a self,
-        ctx: LayoutContext<'_>,
-    ) -> Layouted<Commands<'a>>;
+    async fn layout<'a>(&'a self, ctx: LayoutContext<'_>) -> Pass<Commands<'a>>;
 }
 
 /// A tree representation of source code.
@@ -52,14 +50,8 @@ impl SyntaxModel {
 
 #[async_trait(?Send)]
 impl Model for SyntaxModel {
-    async fn layout<'a>(
-        &'a self,
-        _: LayoutContext<'_>,
-    ) -> Layouted<Commands<'a>> {
-        Layouted {
-            output: vec![Command::LayoutSyntaxModel(self)],
-            errors: vec![],
-        }
+    async fn layout<'a>(&'a self, _: LayoutContext<'_>) -> Pass<Commands<'a>> {
+        Pass::new(vec![Command::LayoutSyntaxModel(self)], Feedback::new())
     }
 }
 

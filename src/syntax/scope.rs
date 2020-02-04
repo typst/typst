@@ -3,9 +3,10 @@
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
+use crate::Pass;
 use crate::func::ParseFunc;
 use super::func::FuncHeader;
-use super::parsing::{ParseContext, Parsed};
+use super::parsing::ParseContext;
 use super::span::Spanned;
 use super::Model;
 
@@ -75,7 +76,7 @@ type Parser = dyn Fn(
     FuncHeader,
     Option<Spanned<&str>>,
     ParseContext,
-) -> Parsed<Box<dyn Model>>;
+) -> Pass<Box<dyn Model>>;
 
 fn parser<F>(metadata: <F as ParseFunc>::Meta) -> Box<Parser>
 where F: ParseFunc + Model + 'static {

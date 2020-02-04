@@ -10,17 +10,17 @@ function! {
         map: PosAxisMap<AlignmentValue>,
     }
 
-    parse(header, body, ctx, errors, decos) {
+    parse(header, body, ctx, f) {
         AlignFunc {
-            body: body!(opt: body, ctx, errors, decos),
-            map: PosAxisMap::parse::<AxisKey>(errors, &mut header.args),
+            body: body!(opt: body, ctx, f),
+            map: PosAxisMap::parse::<AxisKey>(&mut f.errors, &mut header.args),
         }
     }
 
-    layout(self, ctx, errors) {
+    layout(self, ctx, f) {
         ctx.base = ctx.spaces[0].dimensions;
 
-        let map = self.map.dedup(errors, ctx.axes, |alignment| {
+        let map = self.map.dedup(&mut f.errors, ctx.axes, |alignment| {
             alignment.axis().map(|s| s.to_generic(ctx.axes))
         });
 
@@ -29,7 +29,7 @@ function! {
                 if let Some(generic) = alignment.to_generic(ctx.axes, axis) {
                     *ctx.alignment.get_mut(axis) = generic;
                 } else {
-                    errors.push(err!(span;
+                    f.errors.push(err!(span;
                         "invalid alignment `{}` for {} axis", alignment, axis));
                 }
             }
@@ -38,7 +38,7 @@ function! {
         match &self.body {
             Some(body) => {
                 let layouted = layout(body, ctx).await;
-                errors.extend(layouted.errors);
+                f.extend(layouted.feedback);
                 vec![AddMultiple(layouted.output)]
             }
             None => vec![SetAlignment(ctx.alignment)],
@@ -55,18 +55,18 @@ function! {
         map: PosAxisMap<Direction>,
     }
 
-    parse(header, body, ctx, errors, decos) {
+    parse(header, body, ctx, f) {
         DirectionFunc {
             name_span: header.name.span,
-            body: body!(opt: body, ctx, errors, decos),
-            map: PosAxisMap::parse::<AxisKey>(errors, &mut header.args),
+            body: body!(opt: body, ctx, f),
+            map: PosAxisMap::parse::<AxisKey>(&mut f.errors, &mut header.args),
         }
     }
 
-    layout(self, ctx, errors) {
+    layout(self, ctx, f) {
         ctx.base = ctx.spaces[0].dimensions;
 
-        let map = self.map.dedup(errors, ctx.axes, |direction| {
+        let map = self.map.dedup(&mut f.errors, ctx.axes, |direction| {
             Some(direction.axis().to_generic(ctx.axes))
         });
 
@@ -76,7 +76,7 @@ function! {
         map.with(Secondary, |&dir| axes.secondary = dir);
 
         if axes.primary.axis() == axes.secondary.axis() {
-            errors.push(err!(self.name_span;
+            f.errors.push(err!(self.name_span;
                 "invalid aligned primary and secondary axes: `{}`, `{}`",
                 ctx.axes.primary, ctx.axes.secondary));
         } else {
@@ -86,7 +86,7 @@ function! {
         match &self.body {
             Some(body) => {
                 let layouted = layout(body, ctx).await;
-                errors.extend(layouted.errors);
+                f.extend(layouted.feedback);
                 vec![AddMultiple(layouted.output)]
             }
             None => vec![SetAxes(ctx.axes)],
@@ -103,15 +103,15 @@ function! {
         debug: Option<bool>,
     }
 
-    parse(header, body, ctx, errors, decos) {
+    parse(header, body, ctx, f) {
         BoxFunc {
-            body: body!(opt: body, ctx, errors, decos).unwrap_or(SyntaxModel::new()),
-            extents: AxisMap::parse::<ExtentKey>(errors, &mut header.args.key),
-            debug: header.args.key.get::<bool>(errors, "debug"),
+            body: body!(opt: body, ctx, f).unwrap_or(SyntaxModel::new()),
+            extents: AxisMap::parse::<ExtentKey>(&mut f.errors, &mut header.args.key),
+            debug: header.args.key.get::<bool>(&mut f.errors, "debug"),
         }
     }
 
-    layout(self, ctx, errors) {
+    layout(self, ctx, f) {
         ctx.repeat = false;
         ctx.spaces.truncate(1);
 
@@ -119,7 +119,7 @@ function! {
             ctx.debug = debug;
         }
 
-        let map = self.extents.dedup(errors, ctx.axes);
+        let map = self.extents.dedup(&mut f.errors, ctx.axes);
         for &axis in &[Horizontal, Vertical] {
             if let Some(psize) = map.get(axis) {
                 let size = psize.scaled(ctx.base.get(axis));
@@ -131,7 +131,7 @@ function! {
 
         let layouted = layout(&self.body, ctx).await;
         let layout = layouted.output.into_iter().next().unwrap();
-        errors.extend(layouted.errors);
+        f.extend(layouted.feedback);
 
         vec![Add(layout)]
     }

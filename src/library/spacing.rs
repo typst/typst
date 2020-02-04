@@ -46,13 +46,13 @@ function! {
 
     type Meta = ContentKind;
 
-    parse(header, body, ctx, errors, decos, meta) {
+    parse(header, body, ctx, f, meta) {
         ContentSpacingFunc {
-            body: body!(opt: body, ctx, errors, decos),
+            body: body!(opt: body, ctx, f),
             content: meta,
-            spacing: header.args.pos.get::<f64>(errors)
+            spacing: header.args.pos.get::<f64>(&mut f.errors)
                 .map(|num| num as f32)
-                .or_missing(errors, header.name.span, "spacing"),
+                .or_missing(&mut f.errors, header.name.span, "spacing"),
         }
     }
 
@@ -84,15 +84,15 @@ function! {
 
     type Meta = Option<SpecificAxis>;
 
-    parse(header, body, ctx, errors, decos, meta) {
-        body!(nope: body, errors);
+    parse(header, body, ctx, f, meta) {
+        body!(nope: body, f);
         SpacingFunc {
             spacing: if let Some(axis) = meta {
-                header.args.pos.get::<FSize>(errors)
+                header.args.pos.get::<FSize>(&mut f.errors)
                     .map(|s| (AxisKey::Specific(axis), s))
             } else {
-                header.args.key.get_with_key::<AxisKey, FSize>(errors)
-            }.or_missing(errors, header.name.span, "spacing"),
+                header.args.key.get_with_key::<AxisKey, FSize>(&mut f.errors)
+            }.or_missing(&mut f.errors, header.name.span, "spacing"),
         }
     }
 

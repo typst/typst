@@ -12,13 +12,13 @@ function! {
         pub body: Option<SyntaxModel>,
     }
 
-    parse(header, body, ctx, errors, decos) {
+    parse(header, body, ctx, f) {
         let cloned = header.clone();
         header.args.pos.items.clear();
         header.args.key.pairs.clear();
         DebugFn {
             header: cloned,
-            body: body!(opt: body, ctx, errors, decos),
+            body: body!(opt: body, ctx, f),
         }
     }
 

@@ -18,8 +18,7 @@ pub_use_mod!(model);
 /// Basic types used across the layouting engine.
 pub mod prelude {
     pub use super::{
-        LayoutContext, layout, LayoutSpace,
-        Layouted, Commands,
+        LayoutContext, layout, LayoutSpace, Commands,
         LayoutAxes, LayoutAlignment, LayoutExpansion
     };
     pub use super::GenericAxis::{self, *};

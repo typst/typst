@@ -26,10 +26,11 @@ use smallvec::smallvec;
 use toddle::{Font, OwnedData};
 use toddle::query::{FontLoader, FontProvider, SharedFontLoader, FontDescriptor};
 
-use crate::layout::{Layouted, MultiLayout};
+use crate::error::Error;
+use crate::layout::MultiLayout;
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
-use crate::syntax::{SyntaxModel, Scope, ParseContext, Parsed, parse};
-use crate::syntax::span::Position;
+use crate::syntax::{SyntaxModel, Scope, Decoration, ParseContext, parse};
+use crate::syntax::span::{Position, SpanVec, offset_spans};
 
 
 /// Declare a module and reexport all its contents.
@@ -100,12 +101,12 @@ impl Typesetter {
     }
 
     /// Parse source code into a syntax tree.
-    pub fn parse(&self, src: &str) -> Parsed<SyntaxModel> {
+    pub fn parse(&self, src: &str) -> Pass<SyntaxModel> {
         parse(Position::ZERO, src, ParseContext { scope: &self.scope })
     }
 
     /// Layout a syntax tree and return the produced layout.
-    pub async fn layout(&self, model: &SyntaxModel) -> Layouted<MultiLayout> {
+    pub async fn layout(&self, model: &SyntaxModel) -> Pass<MultiLayout> {
         use crate::layout::prelude::*;
 
         let margins = self.style.page.margins();
@@ -130,9 +131,73 @@ impl Typesetter {
     }
 
     /// Process source code directly into a collection of layouts.
-    pub async fn typeset(&self, src: &str) -> MultiLayout {
-        let tree = self.parse(src).output;
-        self.layout(&tree).await.output
+    pub async fn typeset(&self, src: &str) -> Pass<MultiLayout> {
+        let parsed = self.parse(src);
+        let layouted = self.layout(&parsed.output).await;
+        let feedback = Feedback::merge(parsed.feedback, layouted.feedback);
+        Pass::new(layouted.output, feedback)
+    }
+}
+
+/// The result of some pass: Some output `T` and feedback data.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Pass<T> {
+    /// The output of this compilation pass.
+    pub output: T,
+    /// User feedback data accumulated in this pass.
+    pub feedback: Feedback,
+}
+
+impl<T> Pass<T> {
+    /// Create a new pass from output and feedback data.
+    pub fn new(output: T, feedback: Feedback) -> Pass<T> {
+        Pass { output, feedback }
+    }
+
+    /// Map the output type and keep the feedback data.
+    pub fn map<F, U>(self, f: F) -> Pass<U> where F: FnOnce(T) -> U {
+        Pass {
+            output: f(self.output),
+            feedback: self.feedback,
+        }
+    }
+}
+
+/// User feedback data accumulated during a compilation pass.
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
+pub struct Feedback {
+    /// Errors in the source.
+    pub errors: SpanVec<Error>,
+    /// Decorations of the source code for semantic syntax highlighting.
+    pub decos: SpanVec<Decoration>,
+}
+
+impl Feedback {
+    /// Create a new feedback instance without errors and decos.
+    pub fn new() -> Feedback {
+        Feedback {
+            errors: vec![],
+            decos: vec![],
+        }
+    }
+
+    /// Merged two feedbacks into one.
+    pub fn merge(mut a: Feedback, b: Feedback) -> Feedback {
+        a.extend(b);
+        a
+    }
+
+    /// Add other feedback data to this feedback.
+    pub fn extend(&mut self, other: Feedback) {
+        self.errors.extend(other.errors);
+        self.decos.extend(other.decos);
+    }
+
+    /// Add more feedback whose spans are local and need to be offset by an
+    /// `offset` to be correct for this feedbacks context.
+    pub fn extend_offset(&mut self, offset: Position, other: Feedback) {
+        self.errors.extend(offset_spans(offset, other.errors));
+        self.decos.extend(offset_spans(offset, other.decos));
     }
 }
 

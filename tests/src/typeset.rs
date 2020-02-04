@@ -5,6 +5,7 @@ use std::fs::{File, create_dir_all, read_dir, read_to_string};
 use std::io::{BufWriter, Write};
 use std::panic;
 use std::process::Command;
+use std::time::{Instant, Duration};
 
 use futures_executor::block_on;
 
@@ -54,8 +55,6 @@ fn main() -> DynResult<()> {
             }
         }).ok();
     }
-
-    println!();
 
     Ok(())
 }
@@ -121,43 +120,40 @@ fn test(name: &str, src: &str) -> DynResult<()> {
 
 /// Compile the source code with the typesetter.
 fn compile(typesetter: &Typesetter, src: &str) -> MultiLayout {
-    #![allow(unused_variables)]
-    use std::time::Instant;
+    if cfg!(debug_assertions) {
+        let typeset = block_on(typesetter.typeset(src));
+        let errors = typeset.feedback.errors;
 
-    // Warmup.
-    #[cfg(not(debug_assertions))]
-    let warmup = {
-        let warmup_start = Instant::now();
-        block_on(typesetter.typeset(&src));
-        Instant::now() - warmup_start
-    };
+        if !errors.is_empty() {
+            for error in errors {
+                println!("  {:?} {:?}: {}",
+                    error.v.severity,
+                    error.span,
+                    error.v.message
+                );
+            }
+        }
 
-    let start = Instant::now();
-    let parsed = typesetter.parse(&src);
-    let parse = Instant::now() - start;
+        typeset.output
+    } else {
+        fn measure<T>(f: impl FnOnce() -> T) -> (T, Duration) {
+            let start = Instant::now();
+            let output = f();
+            let duration = Instant::now() - start;
+            (output, duration)
+        };
 
-    if !parsed.errors.is_empty() {
-        println!("parse errors: {:#?}", parsed.errors);
-    }
+        let (_, cold) = measure(|| block_on(typesetter.typeset(src)));
+        let (model, parse) = measure(|| typesetter.parse(src).output);
+        let (layouts, layout) = measure(|| block_on(typesetter.layout(&model)).output);
 
-    let start_layout = Instant::now();
-    let layouted = block_on(typesetter.layout(&parsed.output));
-    let layout = Instant::now() - start_layout;
-    let total = Instant::now() - start;
-
-    if !layouted.errors.is_empty() {
-        println!("layout errors: {:#?}", layouted.errors);
-    }
-
-    #[cfg(not(debug_assertions))] {
-        println!(" - cold start:  {:?}", warmup);
-        println!(" - warmed up:   {:?}", total);
+        println!(" - cold start:  {:?}", cold);
+        println!(" - warmed up:   {:?}", parse + layout);
         println!("   - parsing:   {:?}", parse);
         println!("   - layouting: {:?}", layout);
-        println!();
-    }
 
-    layouted.output
+        layouts
+    }
 }
 
 /// Command line options.

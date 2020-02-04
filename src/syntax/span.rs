@@ -160,6 +160,7 @@ pub type SpanVec<T> = Vec<Spanned<T>>;
 
 /// [Offset](Span::offset) all spans in a vector of spanned things by a start
 /// position.
-pub fn offset_spans<T>(vec: SpanVec<T>, start: Position) -> impl Iterator<Item=Spanned<T>> {
-    vec.into_iter().map(move |s| s.map_span(|span| span.offset(start)))
+pub fn offset_spans<T>(start: Position, vec: SpanVec<T>) -> impl Iterator<Item=Spanned<T>> {
+    vec.into_iter()
+        .map(move |s| s.map_span(|span| span.offset(start)))
 }

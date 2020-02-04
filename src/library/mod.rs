@@ -53,8 +53,8 @@ function! {
         body: Option<SyntaxModel>,
     }
 
-    parse(header, body, ctx, errors, decos) {
-        ValFunc { body: body!(opt: body, ctx, errors, decos) }
+    parse(header, body, ctx, f) {
+        ValFunc { body: body!(opt: body, ctx, f) }
     }
 
     layout(self, ctx, errors) {

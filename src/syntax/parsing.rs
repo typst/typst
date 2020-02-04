@@ -1,10 +1,10 @@
 //! Parsing of source code into syntax models.
 
-use crate::error::Errors;
+use crate::{Pass, Feedback};
 use super::expr::*;
 use super::func::{FuncHeader, FuncArgs, FuncArg};
 use super::scope::Scope;
-use super::span::{Position, Span, Spanned, SpanVec, offset_spans};
+use super::span::{Position, Span, Spanned};
 use super::tokens::{Token, Tokens, TokenizationMode};
 use super::*;
 
@@ -16,36 +16,12 @@ pub struct ParseContext<'a> {
     pub scope: &'a Scope,
 }
 
-/// The result of parsing: Some parsed thing, errors and decorations for syntax
-/// highlighting.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Parsed<T> {
-    /// The result of the parsing process.
-    pub output: T,
-    /// Errors that arose in the parsing process.
-    pub errors: Errors,
-    /// Decorations for semantic syntax highlighting.
-    pub decorations: SpanVec<Decoration>,
-}
-
-impl<T> Parsed<T> {
-    /// Map the output type and keep errors and decorations.
-    pub fn map<F, U>(self, f: F) -> Parsed<U> where F: FnOnce(T) -> U {
-        Parsed {
-            output: f(self.output),
-            errors: self.errors,
-            decorations: self.decorations,
-        }
-    }
-}
-
 /// Parse source code into a syntax model.
 ///
 /// All errors and decorations are offset by the `start` position.
-pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Parsed<SyntaxModel> {
+pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Pass<SyntaxModel> {
     let mut model = SyntaxModel::new();
-    let mut errors = Vec::new();
-    let mut decorations = Vec::new();
+    let mut feedback = Feedback::new();
 
     // We always start in body mode. The header tokenization mode is only used
     // in the `FuncParser`.
@@ -64,16 +40,12 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Parsed<SyntaxMode
             },
 
             Token::Function { header, body, terminated } => {
-                let parsed: Parsed<Node> = FuncParser::new(header, body, ctx).parse();
-
-                // Collect the errors and decorations from the function parsing,
-                // but offset their spans by the start of the function since
-                // they are function-local.
-                errors.extend(offset_spans(parsed.errors, span.start));
-                decorations.extend(offset_spans(parsed.decorations, span.start));
+                let parsed = FuncParser::new(header, body, ctx).parse();
+                feedback.extend_offset(span.start, parsed.feedback);
 
                 if !terminated {
-                    errors.push(err!(Span::at(span.end); "expected closing bracket"));
+                    feedback.errors.push(err!(Span::at(span.end);
+                        "expected closing bracket"));
                 }
 
                 parsed.output
@@ -87,7 +59,7 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Parsed<SyntaxMode
             Token::LineComment(_) | Token::BlockComment(_) => continue,
 
             other => {
-                errors.push(err!(span; "unexpected {}", other.name()));
+                feedback.errors.push(err!(span; "unexpected {}", other.name()));
                 continue;
             }
         };
@@ -95,14 +67,13 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Parsed<SyntaxMode
         model.add(Spanned { v: node, span: token.span });
     }
 
-    Parsed { output: model, errors, decorations }
+    Pass::new(model, feedback)
 }
 
 /// Performs the function parsing.
 struct FuncParser<'s> {
     ctx: ParseContext<'s>,
-    errors: Errors,
-    decorations: SpanVec<Decoration>,
+    feedback: Feedback,
 
     /// ```typst
     /// [tokens][body]
@@ -129,8 +100,7 @@ impl<'s> FuncParser<'s> {
     ) -> FuncParser<'s> {
         FuncParser {
             ctx,
-            errors: vec![],
-            decorations: vec![],
+            feedback: Feedback::new(),
             tokens: Tokens::new(Position::new(0, 1), header, TokenizationMode::Header),
             peeked: None,
             body,
@@ -138,7 +108,7 @@ impl<'s> FuncParser<'s> {
     }
 
     /// Do the parsing.
-    fn parse(mut self) -> Parsed<Node> {
+    fn parse(mut self) -> Pass<Node> {
         let parsed = if let Some(header) = self.parse_func_header() {
             let name = header.name.v.as_str();
             let (parser, deco) = match self.ctx.scope.get_parser(name) {
@@ -147,12 +117,12 @@ impl<'s> FuncParser<'s> {
 
                 // The fallback parser was returned. Invalid function.
                 Err(parser) => {
-                    self.errors.push(err!(header.name.span; "unknown function"));
+                    self.feedback.errors.push(err!(header.name.span; "unknown function"));
                     (parser, Decoration::InvalidFuncName)
                 }
             };
 
-            self.decorations.push(Spanned::new(deco, header.name.span));
+            self.feedback.decos.push(Spanned::new(deco, header.name.span));
 
             parser(header, self.body, self.ctx)
         } else {
@@ -166,14 +136,9 @@ impl<'s> FuncParser<'s> {
             self.ctx.scope.get_fallback_parser()(default, self.body, self.ctx)
         };
 
-        self.errors.extend(parsed.errors);
-        self.decorations.extend(parsed.decorations);
+        self.feedback.extend(parsed.feedback);
 
-        Parsed {
-            output: Node::Model(parsed.output),
-            errors: self.errors,
-            decorations: self.decorations,
-        }
+        Pass::new(Node::Model(parsed.output), self.feedback)
     }
 
     /// Parse the header tokens.
@@ -235,7 +200,7 @@ impl<'s> FuncParser<'s> {
                 self.eat();
                 self.skip_whitespace();
 
-                self.decorations.push(Spanned::new(Decoration::ArgumentKey, span));
+                self.feedback.decos.push(Spanned::new(Decoration::ArgumentKey, span));
 
                 self.parse_expr().map(|value| {
                     FuncArg::Key(Pair {
@@ -332,14 +297,14 @@ impl<'s> FuncParser<'s> {
     /// Add an error about an expected `thing` which was not found, showing
     /// what was found instead.
     fn expected_found(&mut self, thing: &str, found: Spanned<Token>) {
-        self.errors.push(err!(found.span;
+        self.feedback.errors.push(err!(found.span;
             "expected {}, found {}", thing, found.v.name()));
     }
 
     /// Add an error about an `thing` which was expected but not found at the
     /// given position.
     fn expected_at(&mut self, thing: &str, pos: Position) {
-        self.errors.push(err!(Span::at(pos); "expected {}", thing));
+        self.feedback.errors.push(err!(Span::at(pos); "expected {}", thing));
     }
 
     /// Add a expected-found-error if `found` is `Some` and an expected-error
@@ -434,7 +399,8 @@ mod tests {
     macro_rules! e {
         ($s:expr => [$(($sl:tt:$sc:tt, $el:tt:$ec:tt, $e:expr)),* $(,)?]) => {
             let ctx = ParseContext { scope: &scope() };
-            let errors = parse(Position::ZERO, $s, ctx).errors
+            let errors = parse(Position::ZERO, $s, ctx).feedback
+                .errors
                 .into_iter()
                 .map(|s| s.map(|e| e.message))
                 .collect::<Vec<_>>();

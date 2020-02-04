@@ -12,16 +12,16 @@ function! {
         flip: bool,
     }
 
-    parse(header, body, ctx, errors, decos) {
-        body!(nope: body, errors);
+    parse(header, body, ctx, f) {
+        body!(nope: body, f);
         PageSizeFunc {
-            paper: header.args.pos.get::<Paper>(errors),
-            extents: AxisMap::parse::<ExtentKey>(errors, &mut header.args.key),
-            flip: header.args.key.get::<bool>(errors, "flip").unwrap_or(false),
+            paper: header.args.pos.get::<Paper>(&mut f.errors),
+            extents: AxisMap::parse::<ExtentKey>(&mut f.errors, &mut header.args.key),
+            flip: header.args.key.get::<bool>(&mut f.errors, "flip").unwrap_or(false),
         }
     }
 
-    layout(self, ctx, errors) {
+    layout(self, ctx, f) {
         let mut style = ctx.style.page;
 
         if let Some(paper) = self.paper {
@@ -31,7 +31,7 @@ function! {
             style.class = PaperClass::Custom;
         }
 
-        let map = self.extents.dedup(errors, ctx.axes);
+        let map = self.extents.dedup(&mut f.errors, ctx.axes);
         map.with(Horizontal, |&width| style.dimensions.x = width);
         map.with(Vertical, |&height| style.dimensions.y = height);
 
@@ -50,16 +50,16 @@ function! {
         padding: PaddingMap,
     }
 
-    parse(header, body, ctx, errors, decos) {
-        body!(nope: body, errors);
+    parse(header, body, ctx, f) {
+        body!(nope: body, f);
         PageMarginsFunc {
-            padding: PaddingMap::parse(errors, &mut header.args),
+            padding: PaddingMap::parse(&mut f.errors, &mut header.args),
         }
     }
 
-    layout(self, ctx, errors) {
+    layout(self, ctx, f) {
         let mut style = ctx.style.page;
-        self.padding.apply(errors, ctx.axes, &mut style.margins);
+        self.padding.apply(&mut f.errors, ctx.axes, &mut style.margins);
         vec![SetPageStyle(style)]
     }
 }

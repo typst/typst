@@ -11,10 +11,10 @@ function! {
         list: Vec<String>,
     }
 
-    parse(header, body, ctx, errors, decos) {
+    parse(header, body, ctx, f) {
         FontFamilyFunc {
-            body: body!(opt: body, ctx, errors, decos),
-            list: header.args.pos.get_all::<StringLike>(errors)
+            body: body!(opt: body, ctx, f),
+            list: header.args.pos.get_all::<StringLike>(&mut f.errors)
                 .map(|s| s.0.to_lowercase())
                 .collect(),
         }
@@ -37,11 +37,11 @@ function! {
         style: Option<FontStyle>,
     }
 
-    parse(header, body, ctx, errors, decos) {
+    parse(header, body, ctx, f) {
         FontStyleFunc {
-            body: body!(opt: body, ctx, errors, decos),
-            style: header.args.pos.get::<FontStyle>(errors)
-                .or_missing(errors, header.name.span, "style"),
+            body: body!(opt: body, ctx, f),
+            style: header.args.pos.get::<FontStyle>(&mut f.errors)
+                .or_missing(&mut f.errors, header.name.span, "style"),
         }
     }
 
@@ -58,19 +58,19 @@ function! {
         weight: Option<FontWeight>,
     }
 
-    parse(header, body, ctx, errors, decos) {
-        let body = body!(opt: body, ctx, errors, decos);
-        let weight = header.args.pos.get::<Spanned<(FontWeight, bool)>>(errors)
+    parse(header, body, ctx, f) {
+        let body = body!(opt: body, ctx, f);
+        let weight = header.args.pos.get::<Spanned<(FontWeight, bool)>>(&mut f.errors)
             .map(|Spanned { v: (weight, is_clamped), span }| {
                 if is_clamped {
-                    errors.push(err!(@Warning: span;
+                    f.errors.push(err!(@Warning: span;
                         "weight should be between \
                          100 and 900, clamped to {}", weight.0));
                 }
 
                 weight
             })
-            .or_missing(errors, header.name.span, "weight");
+            .or_missing(&mut f.errors, header.name.span, "weight");
 
         FontWeightFunc { body, weight }
     }
@@ -88,11 +88,11 @@ function! {
         size: Option<FSize>,
     }
 
-    parse(header, body, ctx, errors, decos) {
+    parse(header, body, ctx, f) {
         FontSizeFunc {
-            body: body!(opt: body, ctx, errors, decos),
-            size: header.args.pos.get::<FSize>(errors)
-                .or_missing(errors, header.name.span, "size")
+            body: body!(opt: body, ctx, f),
+            size: header.args.pos.get::<FSize>(&mut f.errors)
+                .or_missing(&mut f.errors, header.name.span, "size")
         }
     }
 
