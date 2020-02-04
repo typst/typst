@@ -1,8 +1,8 @@
 //! Layouting types and engines.
 
-use std::io::{self, Write};
 use std::fmt::{self, Display, Formatter};
 use smallvec::SmallVec;
+use serde::Serialize;
 use toddle::query::FontIndex;
 
 use crate::size::{Size, Size2D, SizeBox};
@@ -32,11 +32,12 @@ pub mod prelude {
 pub type MultiLayout = Vec<Layout>;
 
 /// A finished box with content at fixed positions.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Layout {
     /// The size of the box.
     pub dimensions: Size2D,
     /// How to align this layout in a parent container.
+    #[serde(skip)]
     pub alignment: LayoutAlignment,
     /// The actions composing this layout.
     pub actions: Vec<LayoutAction>,
@@ -54,34 +55,6 @@ impl Layout {
             }
         }
         fonts
-    }
-}
-
-/// Layout components that can be serialized.
-pub trait Serialize {
-    /// Serialize the data structure into an output writable.
-    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()>;
-}
-
-impl Serialize for Layout {
-    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
-        writeln!(f, "{:.4} {:.4}", self.dimensions.x.to_pt(), self.dimensions.y.to_pt())?;
-        writeln!(f, "{}", self.actions.len())?;
-        for action in &self.actions {
-            action.serialize(f)?;
-            writeln!(f)?;
-        }
-        Ok(())
-    }
-}
-
-impl Serialize for MultiLayout {
-    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
-        writeln!(f, "{}", self.len())?;
-        for layout in self {
-            layout.serialize(f)?;
-        }
-        Ok(())
     }
 }
 

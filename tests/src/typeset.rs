@@ -2,19 +2,21 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fs::{File, create_dir_all, read_dir, read_to_string};
-use std::io::{BufWriter, Write};
+use std::io::BufWriter;
 use std::panic;
 use std::process::Command;
 use std::time::{Instant, Duration};
 
+use serde::Serialize;
 use futures_executor::block_on;
 
 use typstc::{Typesetter, DebugErrorProvider};
-use typstc::layout::{MultiLayout, Serialize};
+use typstc::layout::MultiLayout;
 use typstc::size::{Size, Size2D, ValueBox};
 use typstc::style::{PageStyle, PaperClass};
 use typstc::export::pdf;
-use typstc::toddle::query::fs::EagerFsProvider;
+use toddle::query::FontIndex;
+use toddle::query::fs::EagerFsProvider;
 
 
 type DynResult<T> = Result<T, Box<dyn Error>>;
@@ -86,23 +88,22 @@ fn test(name: &str, src: &str) -> DynResult<()> {
     for layout in &layouts {
         for index in layout.find_used_fonts() {
             fonts.entry(index)
-                .or_insert_with(|| &files[index.id][index.variant]);
+                .or_insert_with(|| files[index.id][index.variant].as_str());
         }
     }
 
-    // Write the serialized layout file.
-    let path = format!("tests/cache/{}.serialized", name);
-    let mut file = BufWriter::new(File::create(&path)?);
-
-    // Write the font mapping into the serialization file.
-    writeln!(file, "{}", fonts.len())?;
-    for (index, path) in fonts.iter() {
-        writeln!(file, "{} {} {}", index.id, index.variant, path)?;
+    #[derive(Serialize)]
+    struct Document<'a> {
+        fonts: Vec<(FontIndex, &'a str)>,
+        layouts: MultiLayout,
     }
 
-    layouts.serialize(&mut file)?;
-    file.flush()?;
-    drop(file);
+    let document = Document { fonts: fonts.into_iter().collect(), layouts};
+
+    // Serialize the document into JSON.
+    let path = format!("tests/cache/{}.serde.json", name);
+    let file = BufWriter::new(File::create(&path)?);
+    serde_json::to_writer(file, &document)?;
 
     // Render the layout into a PNG.
     Command::new("python")

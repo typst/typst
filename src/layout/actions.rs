@@ -1,11 +1,11 @@
 //! Drawing and configuration actions composing layouts.
 
-use std::io::{self, Write};
 use std::fmt::{self, Debug, Formatter};
+use serde::ser::{Serialize, Serializer, SerializeTuple};
 use toddle::query::FontIndex;
 
 use crate::size::{Size, Size2D};
-use super::{Layout, Serialize};
+use super::Layout;
 use self::LayoutAction::*;
 
 
@@ -24,12 +24,33 @@ pub enum LayoutAction {
 }
 
 impl Serialize for LayoutAction {
-    fn serialize<W: Write>(&self, f: &mut W) -> io::Result<()> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         match self {
-            MoveAbsolute(s) => write!(f, "m {:.4} {:.4}", s.x.to_pt(), s.y.to_pt()),
-            SetFont(i, s) => write!(f, "f {} {} {}", i.id, i.variant, s.to_pt()),
-            WriteText(s) => write!(f, "w {}", s),
-            DebugBox(s) => write!(f, "b {} {}", s.x.to_pt(), s.y.to_pt()),
+            LayoutAction::MoveAbsolute(pos) => {
+                let mut tup = serializer.serialize_tuple(2)?;
+                tup.serialize_element(&0u8)?;
+                tup.serialize_element(&pos)?;
+                tup.end()
+            }
+            LayoutAction::SetFont(index, size) => {
+                let mut tup = serializer.serialize_tuple(4)?;
+                tup.serialize_element(&1u8)?;
+                tup.serialize_element(index)?;
+                tup.serialize_element(size)?;
+                tup.end()
+            }
+            LayoutAction::WriteText(text) => {
+                let mut tup = serializer.serialize_tuple(2)?;
+                tup.serialize_element(&2u8)?;
+                tup.serialize_element(text)?;
+                tup.end()
+            }
+            LayoutAction::DebugBox(size) => {
+                let mut tup = serializer.serialize_tuple(2)?;
+                tup.serialize_element(&3u8)?;
+                tup.serialize_element(&size)?;
+                tup.end()
+            }
         }
     }
 }
@@ -40,7 +61,7 @@ impl Debug for LayoutAction {
         match self {
             MoveAbsolute(s) => write!(f, "move {} {}", s.x, s.y),
             SetFont(i, s) => write!(f, "font {}_{} {}", i.id, i.variant, s),
-            WriteText(s) => write!(f, "write \"{}\"", s),
+            WriteText(s) => write!(f, "write {:?}", s),
             DebugBox(s) => write!(f, "box {} {}", s.x, s.y),
         }
     }

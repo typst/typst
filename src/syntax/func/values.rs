@@ -100,9 +100,9 @@ impl From<StringLike> for String {
     }
 }
 
-/// A value type that matches the string `"default"` or a value type `V` and
-/// returns `Option::Some(V::Output)` for a value and `Option::None` for
-/// `"default"`.
+/// A value type that matches the identifier `default` or a value type `V` and
+/// implements `Into<Option>` yielding `Option::Some(V)` for a value and
+/// `Option::None` for `default`.
 ///
 /// # Example
 /// ```

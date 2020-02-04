@@ -53,16 +53,16 @@ pub trait ParseFunc {
 ///         body: Option<SyntaxModel>,
 ///     }
 ///
-///     parse(header, body, ctx, errors, decos) {
-///         let body = body!(opt: body, ctx, errors, decos);
-///         let hidden = header.args.pos.get::<bool>(errors)
-///             .or_missing(errors, header.name.span, "hidden")
+///     parse(header, body, ctx, f) {
+///         let body = body!(opt: body, ctx, f);
+///         let hidden = header.args.pos.get::<bool>(&mut f.errors)
+///             .or_missing(&mut f.errors, header.name.span, "hidden")
 ///             .unwrap_or(false);
 ///
 ///         HiderFunc { body: if hidden { None } else { body } }
 ///     }
 ///
-///     layout(self, ctx, errors) {
+///     layout(self, ctx, f) {
 ///         match &self.body {
 ///             Some(model) => vec![LayoutSyntaxModel(model)],
 ///             None => vec![],

@@ -1,8 +1,8 @@
 import sys
 import os
-import pathlib
 import math
 import numpy
+import json
 from PIL import Image, ImageDraw, ImageFont
 
 
@@ -14,11 +14,11 @@ def main():
     assert len(sys.argv) == 2, 'usage: python render.py <name>'
     name = sys.argv[1]
 
-    filename = os.path.join(CACHE, f'{name}.serialized')
+    filename = os.path.join(CACHE, f'{name}.serde.json')
     with open(filename, encoding='utf-8') as file:
-        lines = [line[:-1] for line in file.readlines()]
+        data = json.load(file)
 
-    renderer = MultiboxRenderer(lines)
+    renderer = MultiboxRenderer(data)
     renderer.render()
     image = renderer.export()
 
@@ -26,38 +26,30 @@ def main():
 
 
 class MultiboxRenderer:
-    def __init__(self, lines):
+    def __init__(self, data):
         self.combined = None
 
         self.fonts = {}
-        font_count = int(lines[0])
-        for i in range(font_count):
-            parts = lines[i + 1].split(' ', 2)
-            index = int(parts[0]), int(parts[1])
-            path = parts[2]
-            self.fonts[index] = os.path.join(BASE, '../../../fonts', path)
+        for entry in data["fonts"]:
+            index = int(entry[0]["id"]), int(entry[0]["variant"])
+            self.fonts[index] = os.path.join(BASE, '../../../fonts', entry[1])
 
-        self.content = lines[font_count + 1:]
+        self.layouts = data["layouts"]
 
     def render(self):
         images = []
 
-        layout_count = int(self.content[0])
-        horizontal = math.floor(math.sqrt(layout_count))
+        horizontal = math.floor(math.sqrt(len(self.layouts)))
         start = 1
 
-        for _ in range(layout_count):
-            width, height = (float(s) for s in self.content[start].split())
-            action_count = int(self.content[start + 1])
-            start += 2
+        for layout in self.layouts:
+            size = layout["dimensions"]
 
-            renderer = BoxRenderer(self.fonts, width, height)
-            for i in range(action_count):
-                command = self.content[start + i]
-                renderer.execute(command)
+            renderer = BoxRenderer(self.fonts, size["x"], size["y"])
+            for action in layout["actions"]:
+                renderer.execute(action)
 
             images.append(renderer.export())
-            start += action_count
 
         i = 0
         x = 10
@@ -128,26 +120,25 @@ class BoxRenderer:
 
     def execute(self, command):
         cmd = command[0]
-        parts = command.split()[1:]
+        args = command[1:]
 
-        if cmd == 'm':
-            x, y = (pix(float(s)) for s in parts)
-            self.cursor = [x, y]
+        if cmd == 0:
+            self.cursor = [pix(args[0]["x"]), pix(args[0]["y"])]
 
-        elif cmd == 'f':
-            index = int(parts[0]), int(parts[1])
-            size = pix(float(parts[2]))
+        elif cmd == 1:
+            index = int(args[0]["id"]), int(args[0]["variant"])
+            size = pix(args[1])
             self.font = ImageFont.truetype(self.fonts[index], size)
 
-        elif cmd == 'w':
-            text = command[2:]
+        elif cmd == 2:
+            text = args[0]
             width = self.draw.textsize(text, font=self.font)[0]
             self.draw.text(self.cursor, text, (0, 0, 0, 255), font=self.font)
             self.cursor[0] += width
 
-        elif cmd == 'b':
+        elif cmd == 3:
             x, y = self.cursor
-            w, h = (pix(float(s)) for s in parts)
+            w, h = pix(args[0]["x"]), pix(args[0]["y"])
             rect = [x, y, x+w-1, y+h-1]
 
             forbidden_colors = set()

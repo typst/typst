@@ -24,7 +24,8 @@ use async_trait::async_trait;
 use smallvec::smallvec;
 
 use toddle::{Font, OwnedData};
-use toddle::query::{FontLoader, FontProvider, SharedFontLoader, FontDescriptor};
+use toddle::query::{FontLoader, SharedFontLoader};
+use toddle::query::{FontProvider, FontIndex, FontDescriptor};
 
 use crate::error::Error;
 use crate::layout::MultiLayout;
@@ -223,8 +224,8 @@ where P: FontProvider, P::Error: Debug + 'static {
     type Data = P::Data;
     type Error = Box<dyn Debug>;
 
-    async fn load(&self, index: usize, variant: usize) -> Result<Font<P::Data>, Self::Error> {
-        self.provider.load(index, variant).await
+    async fn load(&self, index: FontIndex) -> Result<Font<P::Data>, Self::Error> {
+        self.provider.load(index).await
             .map_err(|d| Box::new(d) as Box<dyn Debug>)
     }
 }

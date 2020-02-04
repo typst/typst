@@ -4,12 +4,14 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::iter::Sum;
 use std::ops::*;
 use std::str::FromStr;
+use serde::Serialize;
 
 use crate::layout::prelude::*;
 
 
 /// A general spacing type.
-#[derive(Default, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Serialize)]
+#[serde(transparent)]
 pub struct Size {
     /// The size in typographic points (1/72 inches).
     pub points: f32,
@@ -137,7 +139,7 @@ pub type FSize = ScaleSize;
 pub type PSize = ScaleSize;
 
 /// A value in two dimensions.
-#[derive(Default, Copy, Clone, Eq, PartialEq)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Serialize)]
 pub struct Value2D<T> {
     /// The horizontal component.
     pub x: T,
@@ -299,7 +301,7 @@ impl Neg for Size2D {
 
 /// A value that is stretchable in an interval from a minimal through an optimal
 /// to a maximal value.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Serialize)]
 pub struct StretchValue<T> {
     /// The minimum this value can be stretched to.
     pub min: T,
@@ -320,7 +322,7 @@ impl<T> StretchValue<T> {
 pub type StretchSize = StretchValue<Size>;
 
 /// A value in four dimensions.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Serialize)]
 pub struct ValueBox<T> {
     /// The left extent.
     pub left: T,
