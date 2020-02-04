@@ -87,7 +87,7 @@ value!(ScaleSize, "number or size",
 
 /// A value type that matches [`Expr::Ident`] and [`Expr::Str`] and implements
 /// `Into<String>`.
-pub struct StringLike(String);
+pub struct StringLike(pub String);
 
 value!(StringLike, "identifier or string",
     Expr::Ident(Ident(s)) => StringLike(s),
@@ -117,7 +117,7 @@ impl From<StringLike> for String {
 /// [func: size=default] => None
 /// [func: size=2cm]     => Some(Size::cm(2.0))
 /// ```
-pub struct Defaultable<V>(Option<V>);
+pub struct Defaultable<V>(pub Option<V>);
 
 impl<V: Value> Value for Defaultable<V> {
     fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {

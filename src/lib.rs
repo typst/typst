@@ -19,7 +19,7 @@
 pub use toddle;
 
 use std::cell::RefCell;
-use std::error::Error;
+use std::fmt::Debug;
 use async_trait::async_trait;
 use smallvec::smallvec;
 
@@ -40,6 +40,7 @@ macro_rules! pub_use_mod {
     };
 }
 
+#[macro_use]
 pub mod error;
 pub mod export;
 #[macro_use]
@@ -71,7 +72,7 @@ pub struct Typesetter {
 pub type GlobalFontLoader = SharedFontLoader<GlobalProvider>;
 
 /// The provider type of font loaders used in the [`Typesetter`].
-pub type GlobalProvider = Box<dyn FontProvider<Data=OwnedData, Error=Box<dyn Error>>>;
+pub type GlobalProvider = Box<dyn FontProvider<Data=OwnedData, Error=Box<dyn Debug>>>;
 
 impl Typesetter {
     /// Create a new typesetter.
@@ -135,29 +136,30 @@ impl Typesetter {
     }
 }
 
-/// Wraps a font provider and transforms its errors into boxed trait objects.
-/// This enables font providers that do not return boxed errors to be used with
-/// the typesetter.
+/// Wraps a font provider and transforms its errors into boxed [`Debug`] trait
+/// objects. This enables font providers that do not return these boxed errors
+/// to be used with the typesetter.
 #[derive(Debug)]
-pub struct DynErrorProvider<P> {
+pub struct DebugErrorProvider<P> {
     provider: P,
 }
 
-impl<P> DynErrorProvider<P>
-where P: FontProvider, P::Error: Error + 'static {
-    /// Create a new dynamic error provider from any provider.
-    pub fn new(provider: P) -> DynErrorProvider<P> {
-        DynErrorProvider { provider }
+impl<P> DebugErrorProvider<P>
+where P: FontProvider, P::Error: Debug + 'static {
+    /// Create a new debug error provider from any provider.
+    pub fn new(provider: P) -> DebugErrorProvider<P> {
+        DebugErrorProvider { provider }
     }
 }
 
 #[async_trait(?Send)]
-impl<P> FontProvider for DynErrorProvider<P>
-where P: FontProvider, P::Error: Error + 'static {
+impl<P> FontProvider for DebugErrorProvider<P>
+where P: FontProvider, P::Error: Debug + 'static {
     type Data = P::Data;
-    type Error = Box<dyn Error>;
+    type Error = Box<dyn Debug>;
 
     async fn load(&self, index: usize, variant: usize) -> Result<Font<P::Data>, Self::Error> {
-        Ok(self.provider.load(index, variant).await?)
+        self.provider.load(index, variant).await
+            .map_err(|d| Box::new(d) as Box<dyn Debug>)
     }
 }

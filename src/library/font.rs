@@ -15,7 +15,7 @@ function! {
         FontFamilyFunc {
             body: body!(opt: body, ctx, errors, decos),
             list: header.args.pos.get_all::<StringLike>(errors)
-                .map(Into::into)
+                .map(|s| s.0.to_lowercase())
                 .collect(),
         }
     }

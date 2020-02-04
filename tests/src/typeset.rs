@@ -8,7 +8,7 @@ use std::process::Command;
 
 use futures_executor::block_on;
 
-use typstc::{Typesetter, DynErrorProvider};
+use typstc::{Typesetter, DebugErrorProvider};
 use typstc::layout::{MultiLayout, Serialize};
 use typstc::size::{Size, Size2D, ValueBox};
 use typstc::style::{PageStyle, PaperClass};
@@ -65,8 +65,8 @@ fn test(name: &str, src: &str) -> DynResult<()> {
     println!("Testing: {}.", name);
 
     let (fs, entries) = EagerFsProvider::from_index("../fonts", "index.json")?;
-    let paths = fs.paths();
-    let provider = DynErrorProvider::new(fs);
+    let files = fs.files().to_vec();
+    let provider = DebugErrorProvider::new(fs);
     let mut typesetter = Typesetter::new((Box::new(provider), entries));
 
     typesetter.set_page_style(PageStyle {
@@ -84,14 +84,12 @@ fn test(name: &str, src: &str) -> DynResult<()> {
 
     // Compute the font's paths.
     let mut fonts = HashMap::new();
-    let loader = typesetter.loader().borrow();
     for layout in &layouts {
         for index in layout.find_used_fonts() {
             fonts.entry(index)
-                .or_insert_with(|| &paths[index.id][index.variant]);
+                .or_insert_with(|| &files[index.id][index.variant]);
         }
     }
-    drop(loader);
 
     // Write the serialized layout file.
     let path = format!("tests/cache/{}.serialized", name);

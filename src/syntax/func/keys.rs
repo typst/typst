@@ -105,7 +105,7 @@ key!(AxisKey,
 /// A key which is equivalent to a [`AxisKey`] but uses typical extent keywords
 /// instead of axis keywords, e.g. `width` instead of `horizontal`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ExtentKey(AxisKey);
+pub struct ExtentKey(pub AxisKey);
 
 key!(ExtentKey,
     "width"          | "w"  => ExtentKey(Specific(Horizontal)),

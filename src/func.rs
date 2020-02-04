@@ -198,38 +198,3 @@ macro_rules! body {
         }
     };
 }
-
-/// Construct an error with formatted message and optionally severity and / or
-/// span.
-///
-/// # Examples
-/// ```
-/// # use typstc::err;
-/// # use typstc::syntax::span::Span;
-/// # let span = Span::ZERO;
-/// # let value = 0;
-///
-/// // With span and default severity `Error`.
-/// err!(span; "the wrong {}", value);
-///
-/// // With no span and severity `Warning`.
-/// err!(@Warning: span; "non-fatal!");
-///
-/// // Without span and default severity.
-/// err!("no spans here ...");
-/// ```
-#[macro_export]
-macro_rules! err {
-    (@$severity:ident: $span:expr; $($args:tt)*) => {
-        $crate::syntax::span::Spanned { v: err!(@Error: $($args)*), span: $span }
-    };
-
-    (@$severity:ident: $($args:tt)*) => {
-        $crate::error::Error {
-            message: format!($($args)*),
-            severity: $crate::error::Severity::$severity,
-        }
-    };
-
-    ($($tts:tt)*) => { err!(@Error: $($tts)*) };
-}
