@@ -95,18 +95,23 @@ impl<K, V> DedupMap<K, V> where K: Eq {
 #[derive(Debug, Clone, PartialEq)]
 pub struct AxisMap<V>(DedupMap<AxisKey, V>);
 
-impl<V: Clone> AxisMap<V> {
+impl<V: Value> AxisMap<V> {
     /// Parse an axis map from the object.
-    pub fn parse<KT: Key<Output=AxisKey>, VT: Value<Output=V>>(
+    pub fn parse<K>(
         errors: &mut Errors,
         object: &mut Object,
-    ) -> AxisMap<V> {
-        let values: Vec<_> = object.get_all_spanned::<KT, VT>(errors).collect();
+    ) -> AxisMap<V> where K: Key + Into<AxisKey> {
+        let values: Vec<_> = object
+            .get_all_spanned::<K, V>(errors)
+            .map(|s| s.map(|(k, v)| (k.into(), v)))
+            .collect();
+
         AxisMap(DedupMap::from_iter(errors, values))
     }
 
     /// Deduplicate from specific or generic to just specific axes.
-    pub fn dedup(&self, errors: &mut Errors, axes: LayoutAxes) -> DedupMap<SpecificAxis, V> {
+    pub fn dedup(&self, errors: &mut Errors, axes: LayoutAxes) -> DedupMap<SpecificAxis, V>
+    where V: Clone {
         self.0.dedup(errors, |key, val| (key.to_specific(axes), val.clone()))
     }
 }
@@ -116,23 +121,23 @@ impl<V: Clone> AxisMap<V> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PosAxisMap<V>(DedupMap<PosAxisKey, V>);
 
-impl<V: Clone> PosAxisMap<V> {
+impl<V: Value> PosAxisMap<V> {
     /// Parse a positional/axis map from the function arguments.
-    pub fn parse<KT: Key<Output=AxisKey>, VT: Value<Output=V>>(
+    pub fn parse<K>(
         errors: &mut Errors,
         args: &mut FuncArgs,
-    ) -> PosAxisMap<V> {
+    ) -> PosAxisMap<V> where K: Key + Into<AxisKey> {
         let mut map = DedupMap::new();
 
         for &key in &[PosAxisKey::First, PosAxisKey::Second] {
-            if let Some(Spanned { v, span }) = args.pos.get::<Spanned<VT>>(errors) {
+            if let Some(Spanned { v, span }) = args.pos.get::<Spanned<V>>(errors) {
                 map.insert(errors, Spanned { v: (key, v), span })
             }
         }
 
         let keywords: Vec<_> = args.key
-            .get_all_spanned::<KT, VT>(errors)
-            .map(|s| s.map(|(k, v)| (PosAxisKey::Keyword(k), v)))
+            .get_all_spanned::<K, V>(errors)
+            .map(|s| s.map(|(k, v)| (PosAxisKey::Keyword(k.into()), v)))
             .collect();
 
         map.extend(errors, keywords);
@@ -147,7 +152,11 @@ impl<V: Clone> PosAxisMap<V> {
         errors: &mut Errors,
         axes: LayoutAxes,
         mut f: F,
-    ) -> DedupMap<GenericAxis, V> where F: FnMut(&V) -> Option<GenericAxis> {
+    ) -> DedupMap<GenericAxis, V>
+    where
+        F: FnMut(&V) -> Option<GenericAxis>,
+        V: Clone,
+    {
         self.0.dedup(errors, |key, val| {
             (match key {
                 PosAxisKey::First => f(val).unwrap_or(GenericAxis::Primary),
@@ -171,11 +180,12 @@ impl PaddingMap {
 
         let all = args.pos.get::<Spanned<Defaultable<PSize>>>(errors);
         if let Some(Spanned { v, span }) = all {
-            map.insert(errors, Spanned { v: (PaddingKey::All, v), span });
+            map.insert(errors, Spanned { v: (PaddingKey::All, v.into()), span });
         }
 
         let paddings: Vec<_> = args.key
             .get_all_spanned::<PaddingKey<AxisKey>, Defaultable<PSize>>(errors)
+            .map(|s| s.map(|(k, v)| (k, v.into())))
             .collect();
 
         map.extend(errors, paddings);

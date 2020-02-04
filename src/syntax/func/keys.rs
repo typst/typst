@@ -16,9 +16,9 @@ use self::PaddingKey::*;
 ///        ^^^
 /// ```
 ///
-/// A key type has an associated output type, which is returned when parsing
-/// this key from a string. Most of the time, the output type is simply the key
-/// itself, as in the implementation for the [`AxisKey`]:
+/// # Example implementation
+/// An implementation for the `AxisKey` that identifies layouting axes might
+/// look as follows:
 /// ```
 /// # use typstc::syntax::func::Key;
 /// # use typstc::syntax::span::Spanned;
@@ -27,9 +27,7 @@ use self::PaddingKey::*;
 /// # use Axis::*;
 /// # use AxisKey::*;
 /// impl Key for AxisKey {
-///     type Output = Self;
-///
-///     fn parse(key: Spanned<&str>) -> Option<Self::Output> {
+///     fn parse(key: Spanned<&str>) -> Option<Self> {
 ///         match key.v {
 ///             "horizontal" | "h" => Some(Specific(Horizontal)),
 ///             "vertical"   | "v" => Some(Specific(Vertical)),
@@ -40,41 +38,28 @@ use self::PaddingKey::*;
 ///     }
 /// }
 /// ```
-///
-/// The axis key would also be useful to identify axes when describing
-/// dimensions of objects, as in `width=3cm`, because these are also properties
-/// that are stored per axis. However, here the used keyword arguments are
-/// actually different (`width` instead of `horizontal`)! Therefore we cannot
-/// just use the axis key.
-///
-/// To fix this, there is another type [`ExtentKey`] which implements `Key` and
-/// has the associated output type axis key. The extent key struct itself has no
-/// fields and is only used to extract the axis key. This way, we can specify
-/// which argument kind we want without duplicating the type in the background.
-pub trait Key {
-    /// The type to parse into.
-    type Output: Eq;
+pub trait Key: Sized + Eq {
+    /// Parse a key string into this type if it is valid for it.
+    fn parse(key: Spanned<&str>) -> Option<Self>;
+}
 
-    /// Parse a key string into the output type if the string is valid for this
-    /// key.
-    fn parse(key: Spanned<&str>) -> Option<Self::Output>;
+impl Key for String {
+    fn parse(key: Spanned<&str>) -> Option<Self> {
+        Some(key.v.to_string())
+    }
 }
 
 impl<K: Key> Key for Spanned<K> {
-    type Output = Spanned<K::Output>;
-
-    fn parse(key: Spanned<&str>) -> Option<Self::Output> {
+    fn parse(key: Spanned<&str>) -> Option<Self> {
         K::parse(key).map(|v| Spanned { v, span: key.span })
     }
 }
 
 /// Implements [`Key`] for types that just need to match on strings.
 macro_rules! key {
-    ($type:ty, $output:ty, $($($p:pat)|* => $r:expr),* $(,)?) => {
+    ($type:ty, $($($p:pat)|* => $r:expr),* $(,)?) => {
         impl Key for $type {
-            type Output = $output;
-
-            fn parse(key: Spanned<&str>) -> Option<Self::Output> {
+            fn parse(key: Spanned<&str>) -> Option<Self> {
                 match key.v {
                     $($($p)|* => Some($r)),*,
                     _ => None,
@@ -110,23 +95,30 @@ impl AxisKey {
     }
 }
 
-key!(AxisKey, Self,
+key!(AxisKey,
     "horizontal" | "h" => Specific(Horizontal),
     "vertical"   | "v" => Specific(Vertical),
     "primary"    | "p" => Generic(Primary),
     "secondary"  | "s" => Generic(Secondary),
 );
 
-/// A key which parses into an [`AxisKey`] but uses typical extent keywords
+/// A key which is equivalent to a [`AxisKey`] but uses typical extent keywords
 /// instead of axis keywords, e.g. `width` instead of `horizontal`.
-pub struct ExtentKey;
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct ExtentKey(AxisKey);
 
-key!(ExtentKey, AxisKey,
-    "width"          | "w"  => Specific(Horizontal),
-    "height"         | "h"  => Specific(Vertical),
-    "primary-size"   | "ps" => Generic(Primary),
-    "secondary-size" | "ss" => Generic(Secondary),
+key!(ExtentKey,
+    "width"          | "w"  => ExtentKey(Specific(Horizontal)),
+    "height"         | "h"  => ExtentKey(Specific(Vertical)),
+    "primary-size"   | "ps" => ExtentKey(Generic(Primary)),
+    "secondary-size" | "ss" => ExtentKey(Generic(Secondary)),
 );
+
+impl From<ExtentKey> for AxisKey {
+    fn from(key: ExtentKey) -> AxisKey {
+        key.0
+    }
+}
 
 /// A key which identifies an axis, but alternatively allows for two positional
 /// arguments with unspecified axes.
@@ -156,7 +148,7 @@ pub enum PaddingKey<Axis> {
     Side(Axis, AlignmentValue),
 }
 
-key!(PaddingKey<AxisKey>, Self,
+key!(PaddingKey<AxisKey>,
     "horizontal" | "h" => Both(Specific(Horizontal)),
     "vertical"   | "v" => Both(Specific(Vertical)),
     "primary"    | "p" => Both(Generic(Primary)),

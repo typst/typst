@@ -1,7 +1,6 @@
 //! Value types for extracting function arguments.
 
 use std::fmt::{self, Display, Formatter};
-use std::marker::PhantomData;
 use toddle::query::{FontStyle, FontWeight};
 
 use crate::layout::prelude::*;
@@ -21,9 +20,8 @@ use self::AlignmentValue::*;
 ///        ^^^^^      ^^^^^
 /// ```
 ///
-/// Similarly to the [`Key`] trait, this trait has an associated output type
-/// which the values are parsed into. Most of the time this is just `Self`, as
-/// in the implementation for `bool`:
+/// # Example implementation
+/// An implementation for `bool` might look as follows:
 /// ```
 /// # use typstc::err;
 /// # use typstc::error::Error;
@@ -33,51 +31,24 @@ use self::AlignmentValue::*;
 /// # struct Bool; /*
 /// impl Value for bool {
 /// # */ impl Value for Bool {
-///     # type Output = bool; /*
-///     type Output = Self;
-///     # */
-///
-///     fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
+///     fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
 ///         match expr.v {
+///             # /*
 ///             Expr::Bool(b) => Ok(b),
+///             # */ Expr::Bool(_) => Ok(Bool),
 ///             other => Err(err!("expected bool, found {}", other.name())),
 ///         }
 ///     }
 /// }
 /// ```
-///
-/// However, sometimes the `Output` type is not just `Self`. For example, there
-/// is a value called `Defaultable<V>` which acts as follows:
-/// ```
-/// # use typstc::syntax::func::{FuncArgs, Defaultable};
-/// # use typstc::size::Size;
-/// # let mut args = FuncArgs::new();
-/// # let mut errors = vec![];
-/// args.key.get::<Defaultable<Size>>(&mut errors, "size");
-/// ```
-/// This will yield.
-/// ```typst
-/// [func: size=2cm]     => Some(Size::cm(2.0))
-/// [func: size=default] => None
-/// ```
-///
-/// The type `Defaultable` has no fields and is only used for extracting the
-/// option value. This prevents us from having a `Defaultable<V>` type which is
-/// essentially simply a bad [`Option`] replacement without the good utility
-/// functions.
-pub trait Value {
-    /// The type to parse into.
-    type Output;
-
+pub trait Value: Sized {
     /// Parse an expression into this value or return an error if the expression
     /// is valid for this value type.
-    fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error>;
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Error>;
 }
 
 impl<V: Value> Value for Spanned<V> {
-    type Output = Spanned<V::Output>;
-
-    fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
         let span = expr.span;
         V::parse(expr).map(|v| Spanned { v, span })
     }
@@ -85,11 +56,9 @@ impl<V: Value> Value for Spanned<V> {
 
 /// Implements [`Value`] for types that just need to match on expressions.
 macro_rules! value {
-    ($type:ty, $output:ty, $name:expr, $($p:pat => $r:expr),* $(,)?) => {
+    ($type:ty, $name:expr, $($p:pat => $r:expr),* $(,)?) => {
         impl Value for $type {
-            type Output = $output;
-
-            fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
+            fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
                 #[allow(unreachable_patterns)]
                 match expr.v {
                     $($p => Ok($r)),*,
@@ -101,59 +70,81 @@ macro_rules! value {
     };
 }
 
-value!(Expr,   Self, "expression", e => e);
+value!(Expr,   "expression", e => e);
 
-value!(Ident,  Self, "identifier", Expr::Ident(i)  => i);
-value!(String, Self, "string",     Expr::Str(s)    => s);
-value!(f64,    Self, "number",     Expr::Number(n) => n);
-value!(bool,   Self, "bool",       Expr::Bool(b)   => b);
-value!(Size,   Self, "size",       Expr::Size(s)   => s);
-value!(Tuple,  Self, "tuple",      Expr::Tuple(t)  => t);
-value!(Object, Self, "object",     Expr::Object(o) => o);
+value!(Ident,  "identifier", Expr::Ident(i)  => i);
+value!(String, "string",     Expr::Str(s)    => s);
+value!(f64,    "number",     Expr::Number(n) => n);
+value!(bool,   "bool",       Expr::Bool(b)   => b);
+value!(Size,   "size",       Expr::Size(s)   => s);
+value!(Tuple,  "tuple",      Expr::Tuple(t)  => t);
+value!(Object, "object",     Expr::Object(o) => o);
 
-value!(ScaleSize, Self, "number or size",
+value!(ScaleSize, "number or size",
     Expr::Size(size)    => ScaleSize::Absolute(size),
     Expr::Number(scale) => ScaleSize::Scaled(scale as f32),
 );
 
-/// A value type that matches [`Expr::Ident`] and [`Expr::Str`] and returns a
-/// String.
-pub struct StringLike;
+/// A value type that matches [`Expr::Ident`] and [`Expr::Str`] and implements
+/// `Into<String>`.
+pub struct StringLike(String);
 
-value!(StringLike, String, "identifier or string",
-    Expr::Ident(Ident(s)) => s,
-    Expr::Str(s) => s,
+value!(StringLike, "identifier or string",
+    Expr::Ident(Ident(s)) => StringLike(s),
+    Expr::Str(s) => StringLike(s),
 );
+
+impl From<StringLike> for String {
+    fn from(like: StringLike) -> String {
+        like.0
+    }
+}
 
 /// A value type that matches the string `"default"` or a value type `V` and
 /// returns `Option::Some(V::Output)` for a value and `Option::None` for
 /// `"default"`.
-pub struct Defaultable<V>(PhantomData<V>);
+///
+/// # Example
+/// ```
+/// # use typstc::syntax::func::{FuncArgs, Defaultable};
+/// # use typstc::size::Size;
+/// # let mut args = FuncArgs::new();
+/// # let mut errors = vec![];
+/// args.key.get::<Defaultable<Size>>(&mut errors, "size");
+/// ```
+/// This will yield.
+/// ```typst
+/// [func: size=default] => None
+/// [func: size=2cm]     => Some(Size::cm(2.0))
+/// ```
+pub struct Defaultable<V>(Option<V>);
 
 impl<V: Value> Value for Defaultable<V> {
-    type Output = Option<V::Output>;
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
+        Ok(Defaultable(match expr.v {
+            Expr::Ident(ident) if ident.as_str() == "default" => None,
+            _ => Some(V::parse(expr)?)
+        }))
+    }
+}
 
-    fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
-        match expr.v {
-            Expr::Ident(ident) if ident.as_str() == "default" => Ok(None),
-            _ => V::parse(expr).map(Some)
-        }
+impl<V> From<Defaultable<V>> for Option<V> {
+    fn from(defaultable: Defaultable<V>) -> Option<V> {
+        defaultable.0
     }
 }
 
 impl Value for FontStyle {
-    type Output = Self;
-
-    fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
         FontStyle::from_name(Ident::parse(expr)?.as_str())
             .ok_or_else(|| err!("invalid font style"))
     }
 }
 
-impl Value for FontWeight {
-    type Output = (Self, bool);
-
-    fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
+/// The additional boolean specifies whether a number was clamped into the range
+/// 100 - 900 to make it a valid font weight.
+impl Value for (FontWeight, bool) {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
         match expr.v {
             Expr::Number(weight) => {
                 let weight = weight.round();
@@ -177,18 +168,14 @@ impl Value for FontWeight {
 }
 
 impl Value for Paper {
-    type Output = Self;
-
-    fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
         Paper::from_name(Ident::parse(expr)?.as_str())
             .ok_or_else(|| err!("invalid paper type"))
     }
 }
 
 impl Value for Direction {
-    type Output = Self;
-
-    fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
         Ok(match Ident::parse(expr)?.as_str() {
             "left-to-right" | "ltr" | "LTR" => LeftToRight,
             "right-to-left" | "rtl" | "RTL" => RightToLeft,
@@ -261,9 +248,7 @@ impl AlignmentValue {
 }
 
 impl Value for AlignmentValue {
-    type Output = Self;
-
-    fn parse(expr: Spanned<Expr>) -> Result<Self::Output, Error> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
         Ok(match Ident::parse(expr)?.as_str() {
             "origin" => Align(Origin),
             "center" => Align(Center),

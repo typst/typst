@@ -16,7 +16,7 @@ function! {
         body!(nope: body, errors);
         PageSizeFunc {
             paper: header.args.pos.get::<Paper>(errors),
-            extents: AxisMap::parse::<ExtentKey, Size>(errors, &mut header.args.key),
+            extents: AxisMap::parse::<ExtentKey>(errors, &mut header.args.key),
             flip: header.args.key.get::<bool>(errors, "flip").unwrap_or(false),
         }
     }

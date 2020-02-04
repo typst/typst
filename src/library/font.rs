@@ -14,7 +14,9 @@ function! {
     parse(header, body, ctx, errors, decos) {
         FontFamilyFunc {
             body: body!(opt: body, ctx, errors, decos),
-            list: header.args.pos.get_all::<StringLike>(errors).collect(),
+            list: header.args.pos.get_all::<StringLike>(errors)
+                .map(Into::into)
+                .collect(),
         }
     }
 
@@ -58,7 +60,7 @@ function! {
 
     parse(header, body, ctx, errors, decos) {
         let body = body!(opt: body, ctx, errors, decos);
-        let weight = header.args.pos.get::<Spanned<FontWeight>>(errors)
+        let weight = header.args.pos.get::<Spanned<(FontWeight, bool)>>(errors)
             .map(|Spanned { v: (weight, is_clamped), span }| {
                 if is_clamped {
                     errors.push(err!(@Warning: span;

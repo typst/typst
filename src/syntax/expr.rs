@@ -119,7 +119,7 @@ impl Tuple {
 
     /// Extract (and remove) the first matching value and remove and generate
     /// errors for all previous items that did not match.
-    pub fn get<V: Value>(&mut self, errors: &mut Errors) -> Option<V::Output> {
+    pub fn get<V: Value>(&mut self, errors: &mut Errors) -> Option<V> {
         while !self.items.is_empty() {
             let expr = self.items.remove(0);
             let span = expr.span;
@@ -134,7 +134,7 @@ impl Tuple {
     /// Extract and return an iterator over all values that match and generate
     /// errors for all items that do not match.
     pub fn get_all<'a, V: Value>(&'a mut self, errors: &'a mut Errors)
-    -> impl Iterator<Item=V::Output> + 'a {
+    -> impl Iterator<Item=V> + 'a {
         self.items.drain(..).filter_map(move |expr| {
             let span = expr.span;
             match V::parse(expr) {
@@ -204,7 +204,7 @@ impl Object {
     ///
     /// Inserts an error if the value does not match. If the key is not
     /// contained, no error is inserted.
-    pub fn get<V: Value>(&mut self, errors: &mut Errors, key: &str) -> Option<V::Output> {
+    pub fn get<V: Value>(&mut self, errors: &mut Errors, key: &str) -> Option<V> {
         let index = self.pairs.iter().position(|pair| pair.key.v.as_str() == key)?;
         self.get_index::<V>(errors, index)
     }
@@ -216,7 +216,7 @@ impl Object {
     pub fn get_with_key<K: Key, V: Value>(
         &mut self,
         errors: &mut Errors,
-    ) -> Option<(K::Output, V::Output)> {
+    ) -> Option<(K, V)> {
         for (index, pair) in self.pairs.iter().enumerate() {
             let key = Spanned { v: pair.key.v.as_str(), span: pair.key.span };
             if let Some(key) = K::parse(key) {
@@ -232,7 +232,7 @@ impl Object {
     pub fn get_all<'a, K: Key, V: Value>(
         &'a mut self,
         errors: &'a mut Errors,
-    ) -> impl Iterator<Item=(K::Output, V::Output)> + 'a {
+    ) -> impl Iterator<Item=(K, V)> + 'a {
         let mut index = 0;
         std::iter::from_fn(move || {
             if index < self.pairs.len() {
@@ -261,14 +261,14 @@ impl Object {
     pub fn get_all_spanned<'a, K: Key + 'a, V: Value + 'a>(
         &'a mut self,
         errors: &'a mut Errors,
-    ) -> impl Iterator<Item=Spanned<(K::Output, V::Output)>> + 'a {
+    ) -> impl Iterator<Item=Spanned<(K, V)>> + 'a {
         self.get_all::<Spanned<K>, Spanned<V>>(errors)
             .map(|(k, v)| Spanned::new((k.v, v.v), Span::merge(k.span, v.span)))
     }
 
     /// Extract the argument at the given index and insert an error if the value
     /// does not match.
-    fn get_index<V: Value>(&mut self, errors: &mut Errors, index: usize) -> Option<V::Output> {
+    fn get_index<V: Value>(&mut self, errors: &mut Errors, index: usize) -> Option<V> {
         let expr = self.pairs.remove(index).value;
         let span = expr.span;
         match V::parse(expr) {

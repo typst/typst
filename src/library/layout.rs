@@ -13,7 +13,7 @@ function! {
     parse(header, body, ctx, errors, decos) {
         AlignFunc {
             body: body!(opt: body, ctx, errors, decos),
-            map: PosAxisMap::parse::<AxisKey, AlignmentValue>(errors, &mut header.args),
+            map: PosAxisMap::parse::<AxisKey>(errors, &mut header.args),
         }
     }
 
@@ -59,7 +59,7 @@ function! {
         DirectionFunc {
             name_span: header.name.span,
             body: body!(opt: body, ctx, errors, decos),
-            map: PosAxisMap::parse::<AxisKey, Direction>(errors, &mut header.args),
+            map: PosAxisMap::parse::<AxisKey>(errors, &mut header.args),
         }
     }
 
@@ -106,7 +106,7 @@ function! {
     parse(header, body, ctx, errors, decos) {
         BoxFunc {
             body: body!(opt: body, ctx, errors, decos).unwrap_or(SyntaxModel::new()),
-            extents: AxisMap::parse::<ExtentKey, PSize>(errors, &mut header.args.key),
+            extents: AxisMap::parse::<ExtentKey>(errors, &mut header.args.key),
             debug: header.args.key.get::<bool>(errors, "debug"),
         }
     }
