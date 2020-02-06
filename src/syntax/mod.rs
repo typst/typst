@@ -100,7 +100,6 @@ pub enum Decoration {
     ///  ^^^
     /// ```
     ValidFuncName,
-
     /// An invalid function name:
     /// ```typst
     /// [blabla]
@@ -114,6 +113,13 @@ pub enum Decoration {
     ///       ^^^^^
     /// ```
     ArgumentKey,
+
+    /// Italic.
+    Italic,
+    /// Bold.
+    Bold,
+    /// Monospace.
+    Monospace,
 }
 
 impl dyn Model {

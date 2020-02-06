@@ -65,6 +65,8 @@ pub struct Typesetter {
     style: LayoutStyle,
     /// The standard library scope.
     scope: Scope,
+    /// Whether to render debug boxes.
+    debug: bool,
 }
 
 /// The font loader type used in the [`Typesetter`].
@@ -83,6 +85,7 @@ impl Typesetter {
             loader: RefCell::new(FontLoader::new(provider)),
             style: LayoutStyle::default(),
             scope: Scope::with_std(),
+            debug: false,
         }
     }
 
@@ -94,6 +97,11 @@ impl Typesetter {
     /// Set the base page style.
     pub fn set_page_style(&mut self, style: PageStyle) {
         self.style.page = style;
+    }
+
+    /// Set whether to render debug boxes.
+    pub fn set_debug(&mut self, debug: bool) {
+        self.debug = debug;
     }
 
     /// A reference to the backing font loader.
@@ -126,7 +134,7 @@ impl Typesetter {
                 axes: LayoutAxes::new(LeftToRight, TopToBottom),
                 alignment: LayoutAlignment::new(Origin, Origin),
                 nested: false,
-                debug: false,
+                debug: self.debug,
             },
         ).await
     }

@@ -5,12 +5,13 @@
 use std::future::Future;
 use std::pin::Pin;
 use smallvec::smallvec;
+use toddle::query::FontStyle;
 
 use crate::{Pass, Feedback};
 use crate::GlobalFontLoader;
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::size::{Size, Size2D};
-use crate::syntax::{Model, SyntaxModel, Node};
+use crate::syntax::{Model, SyntaxModel, Node, Decoration};
 use crate::syntax::span::{Span, Spanned};
 use super::line::{LineLayouter, LineContext};
 use super::text::{layout_text, TextContext};
@@ -47,7 +48,7 @@ pub struct LayoutContext<'a> {
     /// Whether the layout that is to be created will be nested in a parent
     /// container.
     pub nested: bool,
-    /// Whether to debug render a box around the layout.
+    /// Whether to render debug boxs around layouts if `nested` is true.
     pub debug: bool,
 }
 
@@ -118,7 +119,7 @@ impl<'a> ModelLayouter<'a> {
                 axes: ctx.axes,
                 alignment: ctx.alignment,
                 repeat: ctx.repeat,
-                debug: ctx.debug,
+                debug: ctx.debug && ctx.nested,
                 line_spacing: ctx.style.text.line_spacing(),
             }),
             style: ctx.style.clone(),
@@ -137,7 +138,6 @@ impl<'a> ModelLayouter<'a> {
             style: &self.style,
             spaces: self.layouter.remaining(),
             nested: true,
-            debug: false,
             .. self.ctx
         }).await;
 
@@ -157,29 +157,48 @@ impl<'a> ModelLayouter<'a> {
     ) -> DynFuture<'r, ()> { Box::pin(async move {
         use Node::*;
 
-        for node in &model.nodes {
-            match &node.v {
+        for Spanned { v: node, span } in &model.nodes {
+            let decorate = |this: &mut ModelLayouter, deco| {
+                this.feedback.decos.push(Spanned::new(deco, *span));
+            };
+
+            match node {
                 Space => self.layout_space(),
                 Newline => self.layout_paragraph(),
-                Text(text) => self.layout_text(text).await,
 
-                ToggleItalic => self.style.text.variant.style.toggle(),
-                ToggleBolder => {
-                    let fac = if self.style.text.bolder { -1 } else { 1 };
-                    self.style.text.variant.weight.0 += 300 * fac;
-                    self.style.text.bolder = !self.style.text.bolder;
-                }
-                ToggleMonospace => {
-                    let list = &mut self.style.text.fallback.list;
-                    match list.get(0).map(|s| s.as_str()) {
-                        Some("monospace") => { list.remove(0); },
-                        _ => list.insert(0, "monospace".to_string()),
+                Text(text) => {
+                    if self.style.text.variant.style == FontStyle::Italic {
+                        decorate(self, Decoration::Italic);
                     }
-                    self.style.text.fallback.flatten();
+
+                    if self.style.text.bolder {
+                        decorate(self, Decoration::Bold);
+                    }
+
+                    if self.style.text.monospace {
+                        decorate(self, Decoration::Monospace);
+                    }
+
+                    self.layout_text(text).await;
+                }
+
+                ToggleItalic => {
+                    self.style.text.variant.style.toggle();
+                    decorate(self, Decoration::Italic);
+                }
+
+                ToggleBolder => {
+                    self.style.text.bolder = !self.style.text.bolder;
+                    decorate(self, Decoration::Bold);
+                }
+
+                ToggleMonospace => {
+                    self.style.text.monospace = !self.style.text.monospace;
+                    decorate(self, Decoration::Monospace);
                 }
 
                 Node::Model(model) => {
-                    self.layout(Spanned::new(model.as_ref(), node.span)).await;
+                    self.layout(Spanned::new(model.as_ref(), *span)).await;
                 }
             }
         }
@@ -195,7 +214,7 @@ impl<'a> ModelLayouter<'a> {
     fn execute_command<'r>(
         &'r mut self,
         command: Command<'r>,
-        span: Span,
+        model_span: Span,
     ) -> DynFuture<'r, ()> { Box::pin(async move {
         use Command::*;
 
@@ -213,7 +232,7 @@ impl<'a> ModelLayouter<'a> {
             BreakParagraph => self.layout_paragraph(),
             BreakPage => {
                 if self.ctx.nested {
-                    self.feedback.errors.push(err!(span;
+                    self.feedback.errors.push(err!(model_span;
                         "page break cannot be issued from nested context"));
                 } else {
                     self.layouter.finish_space(true)
@@ -226,7 +245,7 @@ impl<'a> ModelLayouter<'a> {
             }
             SetPageStyle(style) => {
                 if self.ctx.nested {
-                    self.feedback.errors.push(err!(span;
+                    self.feedback.errors.push(err!(model_span;
                         "page style cannot be changed from nested context"));
                 } else {
                     self.style.page = style;

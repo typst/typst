@@ -22,6 +22,7 @@ pub struct Error {
 
 /// How severe / important an error is.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum Severity {
     /// Something in the code is not good.
     Warning,

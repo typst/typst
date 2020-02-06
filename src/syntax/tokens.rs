@@ -403,15 +403,13 @@ impl<'s> Tokens<'s> {
 
     fn eat(&mut self) -> Option<char> {
         let c = self.iter.next()?;
-        let len = c.len_utf8();
-
-        self.index += len;
+        self.index += c.len_utf8();
 
         if is_newline_char(c) && !(c == '\r' && self.peek() == Some('\n')) {
             self.position.line += 1;
             self.position.column = 0;
         } else {
-            self.position.column += len;
+            self.position.column += 1;
         }
 
         Some(c)

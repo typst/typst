@@ -54,6 +54,8 @@ function! {
     }
 
     parse(header, body, ctx, f) {
+        header.args.pos.items.clear();
+        header.args.key.pairs.clear();
         ValFunc { body: body!(opt: body, ctx, f) }
     }
 

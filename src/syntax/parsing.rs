@@ -375,6 +375,7 @@ mod tests {
         Space as S, Newline as N,
         ToggleItalic as Italic, ToggleBolder as Bold, ToggleMonospace as Mono,
     };
+    use Decoration::*;
 
     pub use Expr::{Number as Num, Bool};
     pub fn Id(text: &str) -> Expr { Expr::Ident(Ident(text.to_string())) }
@@ -421,9 +422,32 @@ mod tests {
         };
     }
 
+    /// Test whether the given string yields the given decorations.
+    macro_rules! d {
+        ($s:expr => [$(($sl:tt:$sc:tt, $el:tt:$ec:tt, $d:expr)),* $(,)?]) => {
+            let ctx = ParseContext { scope: &scope() };
+            let decos = parse(Position::ZERO, $s, ctx).feedback.decos;
+
+            let expected = vec![
+                $(Spanned {
+                    v: $d,
+                    span: Span {
+                        start: Position { line: $sl, column: $sc },
+                        end:   Position { line: $el, column: $ec },
+                    },
+                }),*
+            ];
+
+            if decos != expected {
+                fail($s, decos, expected);
+            }
+        };
+    }
+
     fn scope() -> Scope {
         let mut scope = Scope::new::<DebugFn>();
         scope.add::<DebugFn>("f");
+        scope.add::<DebugFn>("n");
         scope.add::<DebugFn>("box");
         scope
     }
@@ -551,5 +575,11 @@ mod tests {
             (0:19, 0:20, "expected value, found equals sign"),
             (0:21, 0:21, "expected closing bracket"),
         ]);
+    }
+
+    #[test]
+    fn parse_decos() {
+        d!("*Technische Universität Berlin* [n]\n                                [n]"
+            => [(0:33, 0:34, ValidFuncName), (1:33, 1:34, ValidFuncName)]);
     }
 }

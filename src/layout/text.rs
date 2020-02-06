@@ -113,13 +113,28 @@ impl<'a> TextLayouter<'a> {
     async fn select_font(&mut self, c: char) -> Option<(FontIndex, Size)> {
         let mut loader = self.ctx.loader.borrow_mut();
 
-        let query = FontQuery {
-            fallback: &self.ctx.style.fallback,
-            variant: self.ctx.style.variant,
-            c,
+        let mut variant = self.ctx.style.variant;
+        if self.ctx.style.bolder {
+            variant.weight.0 += 300;
+        }
+
+        let queried = if self.ctx.style.monospace {
+            loader.get(FontQuery {
+                // FIXME: This is a hack.
+                fallback: std::iter::once("source code pro")
+                    .chain(self.ctx.style.fallback.iter()),
+                variant,
+                c,
+            }).await
+        } else {
+            loader.get(FontQuery {
+                fallback: self.ctx.style.fallback.iter(),
+                variant,
+                c,
+            }).await
         };
 
-        if let Some((font, index)) = loader.get(query).await {
+        if let Some((font, index)) = queried {
             // Determine the width of the char.
             let header = font.read_table::<Header>().ok()?;
             let font_unit_ratio = 1.0 / (header.units_per_em as f32);
