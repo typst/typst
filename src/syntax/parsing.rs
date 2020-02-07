@@ -246,7 +246,7 @@ impl<'s> FuncParser<'s> {
                 }
 
                 self.eat();
-                spanned(Expr::Str(string.to_string()))
+                spanned(Expr::Str(unescape(string)))
             }
             Token::ExprNumber(n) => { self.eat(); spanned(Expr::Number(n)) }
             Token::ExprSize(s) => { self.eat(); spanned(Expr::Size(s)) }
@@ -363,130 +363,108 @@ impl<'s> FuncParser<'s> {
     }
 }
 
+/// Unescape a string.
+fn unescape(string: &str) -> String {
+    let mut s = String::with_capacity(string.len());
+    let mut escaped = false;
+
+    for c in string.chars() {
+        if c == '\\' {
+            if escaped {
+                s.push('\\');
+            }
+            escaped = !escaped;
+        } else {
+            if escaped {
+                match c {
+                    '"' => s.push('"'),
+                    'n' => s.push('\n'),
+                    't' => s.push('\t'),
+                    c => { s.push('\\'); s.push(c); }
+                }
+            } else {
+                s.push(c);
+            }
+
+            escaped = false;
+        }
+    }
+
+    s
+}
+
 
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
     use crate::size::Size;
-    use super::super::test::{DebugFn, SpanlessEq};
+    use super::super::test::{DebugFn, check, zspan};
     use super::*;
 
+    use Decoration::*;
     use Node::{
         Space as S, Newline as N,
         ToggleItalic as Italic, ToggleBolder as Bold, ToggleMonospace as Mono,
     };
-    use Decoration::*;
 
-    pub use Expr::{Number as Num, Bool};
-    pub fn Id(text: &str) -> Expr { Expr::Ident(Ident(text.to_string())) }
-    pub fn Str(text: &str) -> Expr { Expr::Str(text.to_string()) }
-
+    use Expr::{/*Number as Num,*/ Bool};
+    fn Id(text: &str) -> Expr { Expr::Ident(Ident(text.to_string())) }
+    fn Str(text: &str) -> Expr { Expr::Str(text.to_string()) }
     fn T(text: &str) -> Node { Node::Text(text.to_string()) }
+
+    /// Test whether the given string parses into the given transform pass.
+    macro_rules! test {
+        ($source:expr => [$($model:tt)*], $transform:expr) => {
+            let (exp, cmp) = spanned![vec $($model)*];
+
+            let mut scope = Scope::new::<DebugFn>();
+            scope.add::<DebugFn>("f");
+            scope.add::<DebugFn>("n");
+            scope.add::<DebugFn>("box");
+            let ctx = ParseContext { scope: &scope };
+
+            let found = parse(Position::ZERO, $source, ctx);
+            let (exp, found) = $transform(exp, found);
+
+            check($source, exp, found, cmp);
+        };
+    }
 
     /// Test whether the given string parses into the given node list.
     macro_rules! p {
-        ($s:expr => [$($b:tt)*]) => {
-            let ctx = ParseContext { scope: &scope() };
-            let model = parse(Position::ZERO, $s, ctx).output;
-            let (expected, cmp) = model!([$($b)*]);
-
-            if !cmp(&model, &expected) {
-                fail($s, model, expected);
-            }
+        ($($tts:tt)*) => {
+            test!($($tts)*, |exp, found: Pass<SyntaxModel>| (exp, found.output.nodes));
         };
     }
 
     /// Test whether the given string yields the given parse errors.
     macro_rules! e {
-        ($s:expr => [$(($sl:tt:$sc:tt, $el:tt:$ec:tt, $e:expr)),* $(,)?]) => {
-            let ctx = ParseContext { scope: &scope() };
-            let errors = parse(Position::ZERO, $s, ctx).feedback
-                .errors
-                .into_iter()
-                .map(|s| s.map(|e| e.message))
-                .collect::<Vec<_>>();
-
-            let expected = vec![
-                $(Spanned {
-                    v: $e.to_string(),
-                    span: Span {
-                        start: Position { line: $sl, column: $sc },
-                        end:   Position { line: $el, column: $ec },
-                    },
-                }),*
-            ];
-
-            if errors != expected {
-                fail($s, errors, expected);
-            }
+        ($($tts:tt)*) => {
+            test!($($tts)*, |exp: Vec<Spanned<&str>>, found: Pass<SyntaxModel>| (
+                exp.into_iter().map(|s| s.map(|e| e.to_string())).collect::<Vec<_>>(),
+                found.feedback.errors.into_iter().map(|s| s.map(|e| e.message))
+                    .collect::<Vec<_>>()
+            ));
         };
     }
 
     /// Test whether the given string yields the given decorations.
     macro_rules! d {
-        ($s:expr => [$(($sl:tt:$sc:tt, $el:tt:$ec:tt, $d:expr)),* $(,)?]) => {
-            let ctx = ParseContext { scope: &scope() };
-            let decos = parse(Position::ZERO, $s, ctx).feedback.decos;
-
-            let expected = vec![
-                $(Spanned {
-                    v: $d,
-                    span: Span {
-                        start: Position { line: $sl, column: $sc },
-                        end:   Position { line: $el, column: $ec },
-                    },
-                }),*
-            ];
-
-            if decos != expected {
-                fail($s, decos, expected);
-            }
+        ($($tts:tt)*) => {
+            test!($($tts)*, |exp, found: Pass<SyntaxModel>| (exp, found.feedback.decos));
         };
     }
 
-    fn scope() -> Scope {
-        let mut scope = Scope::new::<DebugFn>();
-        scope.add::<DebugFn>("f");
-        scope.add::<DebugFn>("n");
-        scope.add::<DebugFn>("box");
-        scope
-    }
-
-    fn fail(src: &str, found: impl Debug, expected: impl Debug) {
-        eprintln!("source:   {:?}", src);
-        eprintln!("found:    {:#?}", found);
-        eprintln!("expected: {:#?}", expected);
-        panic!("test failed");
-    }
-
-    /// Parse a list of optionally spanned nodes into a syntax model.
-    macro_rules! model {
-        ([$(($sl:tt:$sc:tt, $el:tt:$ec:tt, $n:expr)),* $(,)?]) => ((SyntaxModel {
-            nodes: vec![
-                $(Spanned { v: $n, span: Span {
-                    start: Position { line: $sl, column: $sc },
-                    end:   Position { line: $el, column: $ec },
-                }}),*
-            ]
-        }, <SyntaxModel as PartialEq>::eq));
-
-        ([$($e:tt)*]) => ((SyntaxModel {
-            nodes: vec![$($e)*].into_iter().map(zspan).collect::<Vec<_>>()
-        }, <SyntaxModel as SpanlessEq>::spanless_eq));
-    }
-
-    /// Build a `DebugFn` function model.
+    /// Write down a `DebugFn` function model compactly.
     macro_rules! func {
         ($name:expr
          $(,pos: [$($item:expr),* $(,)?])?
          $(,key: [$($key:expr => $value:expr),* $(,)?])?;
          $($b:tt)*) => ({
-            #![allow(unused_mut, unused_assignments)]
-
-            let mut pos = Tuple::new();
-            let mut key = Object::new();
-            $(pos = Tuple { items: vec![$(zspan($item)),*] };)?
-            $(key = Object {
+            #[allow(unused_mut)]
+            let mut args = FuncArgs::new();
+            $(args.pos = Tuple { items: spanned![vec $($item),*].0 };)?
+            $(args.key = Object {
                 pairs: vec![$(Pair {
                     key: zspan(Ident($key.to_string())),
                     value: zspan($value),
@@ -496,22 +474,32 @@ mod tests {
             Node::Model(Box::new(DebugFn {
                 header: FuncHeader {
                     name: zspan(Ident($name.to_string())),
-                    args: FuncArgs {
-                        pos,
-                        key,
-                    },
+                    args,
                 },
                 body: func!(@body $($b)*),
             }))
         });
 
-        (@body Some([$($b:tt)*])) => (Some(model!([$($b)*]).0));
+        (@body Some([$($body:tt)*])) => ({
+            Some(SyntaxModel { nodes: spanned![vec $($body)*].0 })
+        });
+
         (@body None) => (None);
     }
 
-    /// Span an element with a zero span.
-    fn zspan<T>(v: T) -> Spanned<T> {
-        Spanned { v, span: Span::ZERO }
+    #[test]
+    fn unescape_strings() {
+        fn test(string: &str, expected: &str) {
+            assert_eq!(unescape(string), expected.to_string());
+        }
+
+        test(r#"hello world"#,  "hello world");
+        test(r#"hello\nworld"#, "hello\nworld");
+        test(r#"a\"bc"#,        "a\"bc");
+        test(r#"a\\"#,          "a\\");
+        test(r#"a\\\nbc"#,      "a\\\nbc");
+        test(r#"a\tbc"#,        "a\tbc");
+        test("🌎",              "🌎");
     }
 
     #[test]

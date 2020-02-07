@@ -9,15 +9,16 @@ use crate::{Pass, Feedback};
 use crate::layout::{LayoutContext, Commands, Command};
 use self::span::{Spanned, SpanVec};
 
+#[cfg(test)]
+#[macro_use]
+mod test;
+
 pub mod expr;
 pub mod func;
 pub mod span;
 pub_use_mod!(scope);
 pub_use_mod!(parsing);
 pub_use_mod!(tokens);
-
-#[cfg(test)]
-mod test;
 
 
 /// Represents a parsed piece of source that can be layouted and in the future

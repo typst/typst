@@ -65,6 +65,10 @@ pub enum Token<'s> {
     /// A quoted string in a function header: `"..."`.
     ExprStr {
         /// The string inside the quotes.
+        ///
+        /// _Note_: If the string contains escape sequences these are not yet
+        /// applied to be able to just store a string slice here instead of
+        /// a String. The escaping is done later in the parser.
         string: &'s str,
         /// Whether the closing quote was present.
         terminated: bool
@@ -210,11 +214,13 @@ impl<'s> Iterator for Tokens<'s> {
 
             // Expressions or just strings.
             c => {
+                let body = self.mode == Body;
                 let text = self.read_string_until(|n| {
                     match n {
                         c if c.is_whitespace() => true,
-                        '\\' | '[' | ']' | '*' | '_' | '`' | ':' | '=' |
-                        ',' | '"' | '/' => true,
+                        '\\' | '[' | ']' | '/' => true,
+                        '*' | '_' | '`' if body => true,
+                        ':' | '=' | ',' | '"' if !body => true,
                         _ => false,
                     }
                 }, false, -(c.len_utf8() as isize), 0).0;
@@ -441,18 +447,19 @@ pub fn is_newline_char(character: char) -> bool {
 
 /// Whether this word is a valid identifier.
 pub fn is_identifier(string: &str) -> bool {
-    let mut chars = string.chars();
+    fn is_extra_allowed(c: char) -> bool {
+        c == '.' || c == '-' || c == '_'
+    }
 
+    let mut chars = string.chars();
     match chars.next() {
-        Some('-') => {}
-        Some(c) if UnicodeXID::is_xid_start(c) => {}
+        Some(c) if UnicodeXID::is_xid_start(c) || is_extra_allowed(c) => {}
         _ => return false,
     }
 
     while let Some(c) = chars.next() {
         match c {
-            '.' | '-' => {}
-            c if UnicodeXID::is_xid_continue(c) => {}
+            c if UnicodeXID::is_xid_continue(c) || is_extra_allowed(c) => {}
             _ => return false,
         }
     }
@@ -460,11 +467,10 @@ pub fn is_identifier(string: &str) -> bool {
     true
 }
 
-
 #[cfg(test)]
 mod tests {
+    use super::super::test::check;
     use super::*;
-
     use Token::{
         Space as S,
         LineComment as LC, BlockComment as BC,
@@ -481,32 +487,19 @@ mod tests {
 
     /// Test whether the given string tokenizes into the given list of tokens.
     macro_rules! t {
-        ($m:expr, $s:expr => [$(($sl:tt:$sc:tt, $el:tt:$ec:tt, $t:expr)),* $(,)?]) => {
-            let tokens = Tokens::new(Position::ZERO, $s, $m).collect::<Vec<_>>();
-            assert_eq!(tokens, vec![$(Spanned {
-                span: Span::new(Position::new($sl, $sc), Position::new($el, $ec)),
-                v: $t
-            }),*]);
-
-        };
-
-        ($m:expr, $s:expr => [$($t:expr),* $(,)?]) => {
-            let tokens = Tokens::new(Position::ZERO, $s, $m)
-                .map(Spanned::value)
-                .collect::<Vec<_>>();
-            assert_eq!(tokens, vec![$($t),*]);
-        };
+        ($mode:expr, $source:expr => [$($tokens:tt)*]) => {
+            let (exp, spans) = spanned![vec $($tokens)*];
+            let found = Tokens::new(Position::ZERO, $source, $mode).collect::<Vec<_>>();
+            check($source, exp, found, spans);
+        }
     }
 
-    /// Parse a function token.
+    /// Write down a function token compactly.
     macro_rules! func {
-        ($header:expr, Some(($sl:tt:$sc:tt, $el:tt:$ec:tt, $body:expr)), $terminated:expr) => {
+        ($header:expr, Some($($tokens:tt)*), $terminated:expr) => {
             Function {
                 header: $header,
-                body: Some(Spanned {
-                    span: Span::new(Position::new($sl, $sc), Position::new($el, $ec)),
-                    v: $body,
-                }),
+                body: Some(spanned![item $($tokens)*]),
                 terminated: $terminated,
             }
         };
@@ -542,40 +535,63 @@ mod tests {
         t!(Body, "_/*_/*a*/*/"       => [Underscore, BC("_/*a*/")]);
         t!(Body, "/*/*/"             => [BC("/*/")]);
         t!(Body, "abc*/"             => [T("abc"), Invalid("*/")]);
-    }
-
-    #[test]
-    fn tokenize_header_only_tokens() {
-        t!(Body, "\"hi\""              => [T("\"hi"), T("\"")]);
-        t!(Body, "a: b"                => [T("a"), T(":"), S(0), T("b")]);
-        t!(Body, "c=d, "               => [T("c"), T("=d"), T(","), S(0)]);
-        t!(Header, "["                 => [func!("", None, false)]);
-        t!(Header, "]"                 => [Invalid("]")]);
-        t!(Header, "(){}:=,"           => [LP, RP, LB, RB, Colon, Equals, Comma]);
-        t!(Header, "a:b"               => [Id("a"), Colon, Id("b")]);
-        t!(Header, "="                 => [Equals]);
-        t!(Header, ","                 => [Comma]);
-        t!(Header, r#""hello\"world""# => [Str(r#"hello\"world"#, true)]);
-        t!(Header, r#""hi", 12pt"#     => [Str("hi", true), Comma, S(0), ExprSize(Size::pt(12.0))]);
-        t!(Header, "a: true, x=1"      => [Id("a"), Colon, S(0), Bool(true), Comma, S(0), Id("x"), Equals, Num(1.0)]);
-        t!(Header, "120%"              => [Num(1.2)]);
-        t!(Header, "🌓, 🌍,"           => [Invalid("🌓"), Comma, S(0), Invalid("🌍"), Comma]);
+        t!(Body, "/***/"             => [BC("*")]);
+        t!(Body, "/**\\****/*/*/"    => [BC("*\\***"), Invalid("*/"), Invalid("*/")]);
+        t!(Body, "/*abc"             => [BC("abc")]);
     }
 
     #[test]
     fn tokenize_body_only_tokens() {
         t!(Body, "_*`"           => [Underscore, Star, Backtick]);
+        t!(Body, "***"           => [Star, Star, Star]);
         t!(Body, "[func]*bold*"  => [func!("func", None, true), Star, T("bold"), Star]);
         t!(Body, "hi_you_ there" => [T("hi"), Underscore, T("you"), Underscore, S(0), T("there")]);
-        t!(Header, "_*`"         => [Invalid("_"), Invalid("*"), Invalid("`")]);
+        t!(Header, "_*`"         => [Invalid("_*`")]);
     }
 
     #[test]
-    fn tokenize_nested_functions() {
+    fn tokenize_header_only_tokens() {
+        t!(Body, "a: b"                => [T("a:"), S(0), T("b")]);
+        t!(Body, "c=d, "               => [T("c=d,"), S(0)]);
+        t!(Header, "(){}:=,"           => [LP, RP, LB, RB, Colon, Equals, Comma]);
+        t!(Header, "a:b"               => [Id("a"), Colon, Id("b")]);
+        t!(Header, "a: true, x=1"      => [Id("a"), Colon, S(0), Bool(true), Comma, S(0), Id("x"), Equals, Num(1.0)]);
+        t!(Header, "=3.14"             => [Equals, Num(3.14)]);
+        t!(Header, "12.3e5"            => [Num(12.3e5)]);
+        t!(Header, "120%"              => [Num(1.2)]);
+        t!(Header, "12e4%"             => [Num(1200.0)]);
+        t!(Header, "__main__"          => [Id("__main__")]);
+        t!(Header, ".func.box"         => [Id(".func.box")]);
+        t!(Header, "--arg, _b, _1"     => [Id("--arg"), Comma, S(0), Id("_b"), Comma, S(0), Id("_1")]);
+        t!(Header, "12_pt, 12pt"       => [Invalid("12_pt"), Comma, S(0), ExprSize(Size::pt(12.0))]);
+        t!(Header, "1e5in"             => [ExprSize(Size::inches(100000.0))]);
+        t!(Header, "2.3cm"             => [ExprSize(Size::cm(2.3))]);
+        t!(Header, "02.4mm"            => [ExprSize(Size::mm(2.4))]);
+        t!(Header, "2.4.cm"            => [Invalid("2.4.cm")]);
+        t!(Header, "🌓, 🌍,"           => [Invalid("🌓"), Comma, S(0), Invalid("🌍"), Comma]);
+    }
+
+    #[test]
+    fn tokenize_strings() {
+        t!(Body, "a \"hi\" string"           => [T("a"), S(0), T("\"hi\""), S(0), T("string")]);
+        t!(Header, "\"hello"                 => [Str("hello", false)]);
+        t!(Header, "\"hello world\""         => [Str("hello world", true)]);
+        t!(Header, "\"hello\nworld\""        => [Str("hello\nworld", true)]);
+        t!(Header, r#"1"hello\nworld"false"# => [Num(1.0), Str("hello\\nworld", true), Bool(false)]);
+        t!(Header, r#""a\"bc""#              => [Str(r#"a\"bc"#, true)]);
+        t!(Header, r#""a\\"bc""#             => [Str(r#"a\\"#, true), Id("bc"), Str("", false)]);
+        t!(Header, r#""a\tbc"#               => [Str("a\\tbc", false)]);
+        t!(Header, "\"🌎\""                      => [Str("🌎", true)]);
+    }
+
+    #[test]
+    fn tokenize_functions() {
         t!(Body, "[f: [=][*]]"    => [func!("f: [=][*]", None, true)]);
         t!(Body, "[_][[,],],"     => [func!("_", Some((0:3, 0:9, "[,],")), true), T(",")]);
         t!(Body, "[=][=][=]"      => [func!("=", Some((0:3, 0:6, "=")), true), func!("=", None, true)]);
         t!(Body, "[=][[=][=][=]]" => [func!("=", Some((0:3, 0:14, "[=][=][=]")), true)]);
+        t!(Header, "["            => [func!("", None, false)]);
+        t!(Header, "]"            => [Invalid("]")]);
     }
 
     #[test]
