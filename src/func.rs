@@ -166,24 +166,22 @@ macro_rules! function {
 
 /// Parse the body of a function.
 ///
-/// - If the function does not expect a body, use `body!(nope: body, errors)`.
-/// - If the function can have a body, use `body!(opt: body, ctx, errors, decos)`.
+/// - If the function does not expect a body, use `body!(nope: body, feedback)`.
+/// - If the function can have a body, use `body!(opt: body, ctx, feedback,
+///   decos)`.
 ///
 /// # Arguments
 /// - The `$body` should be of type `Option<Spanned<&str>>`.
-/// - The `$ctx` is the [`ParseContext`](crate::syntax::ParseContext) to use for parsing.
-/// - The `$errors` and `$decos` should be mutable references to vectors of spanned
-///   errors / decorations which are filled with the errors and decorations arising
-///   from parsing.
+/// - The `$ctx` is the [`ParseContext`](crate::syntax::ParseContext) to use for
+///   parsing.
+/// - The `$feedback` should be a mutable references to a
+///   [`Feedback`](crate::Feedback) struct which is filled with the feedback
+///   information arising from parsing.
 #[macro_export]
 macro_rules! body {
     (opt: $body:expr, $ctx:expr, $feedback:expr) => ({
         $body.map(|body| {
-            // Since the body span starts at the opening bracket of the body, we
-            // need to add 1 column to find out the start position of body
-            // content.
-            let start = body.span.start + $crate::syntax::span::Position::new(0, 1);
-            let parsed = $crate::syntax::parse(start, body.v, $ctx);
+            let parsed = $crate::syntax::parse(body.span.start, body.v, $ctx);
             $feedback.extend(parsed.feedback);
             parsed.output
         })

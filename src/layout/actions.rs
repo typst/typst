@@ -60,7 +60,7 @@ impl Debug for LayoutAction {
         use LayoutAction::*;
         match self {
             MoveAbsolute(s) => write!(f, "move {} {}", s.x, s.y),
-            SetFont(i, s) => write!(f, "font {}_{} {}", i.id, i.variant, s),
+            SetFont(i, s) => write!(f, "font {}-{} {}", i.id, i.variant, s),
             WriteText(s) => write!(f, "write {:?}", s),
             DebugBox(s) => write!(f, "box {} {}", s.x, s.y),
         }

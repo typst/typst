@@ -43,6 +43,10 @@ macro_rules! spanned {
         }
     });
 
+    (item $v:expr) => {
+        $crate::syntax::test::zspan($v)
+    };
+
     (vec $(($sl:tt:$sc:tt, $el:tt:$ec:tt, $v:expr)),* $(,)?) => {
         (vec![$(spanned![item ($sl:$sc, $el:$ec, $v)]),*], true)
     };

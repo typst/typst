@@ -34,9 +34,8 @@ pub enum Token<'s> {
         /// ```typst
         /// [header][hello *world*]
         ///          ^^^^^^^^^^^^^
+        /// ^-- The span is relative to right before this bracket
         /// ```
-        ///
-        /// The span includes the brackets while the string does not.
         body: Option<Spanned<&'s str>>,
         /// Whether the last closing bracket was present.
         /// - `[func]` or `[func][body]` => terminated
@@ -288,14 +287,14 @@ impl<'s> Tokens<'s> {
             return Function { header, body: None, terminated };
         }
 
+        self.eat();
+
         let body_start = self.pos() - start;
-        self.eat();
-
         let (body, terminated) = self.read_function_part();
-        self.eat();
-
-        let body_end = self.pos();
+        let body_end = self.pos() - start;
         let span = Span::new(body_start, body_end);
+
+        self.eat();
 
         Function { header, body: Some(Spanned { v: body, span }), terminated }
     }
@@ -476,7 +475,10 @@ mod tests {
         LineComment as LC, BlockComment as BC,
         LeftParen as LP, RightParen as RP,
         LeftBrace as LB, RightBrace as RB,
-        ExprIdent as Id, ExprNumber as Num, ExprBool as Bool,
+        ExprIdent as Id,
+        ExprNumber as Num,
+        ExprSize as Sz,
+        ExprBool as Bool,
         Text as T,
     };
 
@@ -563,10 +565,10 @@ mod tests {
         t!(Header, "__main__"          => [Id("__main__")]);
         t!(Header, ".func.box"         => [Id(".func.box")]);
         t!(Header, "--arg, _b, _1"     => [Id("--arg"), Comma, S(0), Id("_b"), Comma, S(0), Id("_1")]);
-        t!(Header, "12_pt, 12pt"       => [Invalid("12_pt"), Comma, S(0), ExprSize(Size::pt(12.0))]);
-        t!(Header, "1e5in"             => [ExprSize(Size::inches(100000.0))]);
-        t!(Header, "2.3cm"             => [ExprSize(Size::cm(2.3))]);
-        t!(Header, "02.4mm"            => [ExprSize(Size::mm(2.4))]);
+        t!(Header, "12_pt, 12pt"       => [Invalid("12_pt"), Comma, S(0), Sz(Size::pt(12.0))]);
+        t!(Header, "1e5in"             => [Sz(Size::inches(100000.0))]);
+        t!(Header, "2.3cm"             => [Sz(Size::cm(2.3))]);
+        t!(Header, "02.4mm"            => [Sz(Size::mm(2.4))]);
         t!(Header, "2.4.cm"            => [Invalid("2.4.cm")]);
         t!(Header, "🌓, 🌍,"           => [Invalid("🌓"), Comma, S(0), Invalid("🌍"), Comma]);
     }
@@ -586,10 +588,14 @@ mod tests {
 
     #[test]
     fn tokenize_functions() {
+        t!(Body, "a[f]"           => [T("a"), func!("f", None, true)]);
+        t!(Body, "[f]a"           => [func!("f", None, true), T("a")]);
+        t!(Body, "\n\n[f][ ]"     => [S(2), func!("f", Some((0:4, 0:5, " ")), true)]);
+        t!(Body, "abc [f][ ]a"    => [T("abc"), S(0), func!("f", Some((0:4, 0:5, " ")), true), T("a")]);
         t!(Body, "[f: [=][*]]"    => [func!("f: [=][*]", None, true)]);
-        t!(Body, "[_][[,],],"     => [func!("_", Some((0:3, 0:9, "[,],")), true), T(",")]);
-        t!(Body, "[=][=][=]"      => [func!("=", Some((0:3, 0:6, "=")), true), func!("=", None, true)]);
-        t!(Body, "[=][[=][=][=]]" => [func!("=", Some((0:3, 0:14, "[=][=][=]")), true)]);
+        t!(Body, "[_][[,],],"     => [func!("_", Some((0:4, 0:8, "[,],")), true), T(",")]);
+        t!(Body, "[=][=][=]"      => [func!("=", Some((0:4, 0:5, "=")), true), func!("=", None, true)]);
+        t!(Body, "[=][[=][=][=]]" => [func!("=", Some((0:4, 0:13, "[=][=][=]")), true)]);
         t!(Header, "["            => [func!("", None, false)]);
         t!(Header, "]"            => [Invalid("]")]);
     }
