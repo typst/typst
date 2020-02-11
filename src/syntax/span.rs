@@ -149,9 +149,9 @@ impl<T> Spanned<T> {
 
 impl<T: Debug> Debug for Spanned<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.span.fmt(f)?;
-        f.write_str(": ")?;
-        self.v.fmt(f)
+        self.v.fmt(f)?;
+        f.write_str(" ")?;
+        self.span.fmt(f)
     }
 }
 

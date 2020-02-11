@@ -107,19 +107,23 @@ pub enum Decoration {
     ///  ^^^^^^
     /// ```
     InvalidFuncName,
-
-    /// The key of a keyword argument:
+    /// A key of a keyword argument:
     /// ```typst
     /// [box: width=5cm]
     ///       ^^^^^
     /// ```
     ArgumentKey,
-
-    /// Italic.
+    /// A key in an object.
+    /// ```typst
+    /// [box: padding={ left: 1cm, right: 2cm}]
+    ///                 ^^^^       ^^^^^
+    /// ```
+    ObjectKey,
+    /// An italic word.
     Italic,
-    /// Bold.
+    /// A bold word.
     Bold,
-    /// Monospace.
+    /// A monospace word.
     Monospace,
 }
 

@@ -1,5 +1,6 @@
 //! Primitives for argument parsing in library functions.
 
+use std::iter::FromIterator;
 use crate::error::{Error, Errors};
 use super::expr::{Expr, Ident, Tuple, Object, Pair};
 use super::span::{Span, Spanned};
@@ -52,6 +53,16 @@ impl FuncArgs {
     pub fn into_iter(self) -> impl Iterator<Item=FuncArg> {
         self.pos.items.into_iter().map(|item| FuncArg::Pos(item))
             .chain(self.key.pairs.into_iter().map(|pair| FuncArg::Key(pair)))
+    }
+}
+
+impl FromIterator<FuncArg> for FuncArgs {
+    fn from_iter<I: IntoIterator<Item=FuncArg>>(iter: I) -> Self {
+        let mut args = FuncArgs::new();
+        for item in iter.into_iter() {
+            args.add(item);
+        }
+        args
     }
 }
 

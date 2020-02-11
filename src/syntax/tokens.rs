@@ -112,7 +112,7 @@ impl<'s> Token<'s> {
             ExprStr { .. }  => "string",
             ExprNumber(_)   => "number",
             ExprSize(_)     => "size",
-            ExprBool(_)     => "boolean",
+            ExprBool(_)     => "bool",
             Star            => "star",
             Underscore      => "underscore",
             Backtick        => "backtick",
@@ -209,7 +209,7 @@ impl<'s> Iterator for Tokens<'s> {
             '`' if self.mode == Body => Backtick,
 
             // An escaped thing.
-            '\\' => self.parse_escaped(),
+            '\\' if self.mode == Body => self.parse_escaped(),
 
             // Expressions or just strings.
             c => {
@@ -217,9 +217,10 @@ impl<'s> Iterator for Tokens<'s> {
                 let text = self.read_string_until(|n| {
                     match n {
                         c if c.is_whitespace() => true,
-                        '\\' | '[' | ']' | '/' => true,
-                        '*' | '_' | '`' if body => true,
-                        ':' | '=' | ',' | '"' if !body => true,
+                        '['  | ']' | '/' => true,
+                        '\\' | '*' | '_' | '`' if body => true,
+                        ':'  | '=' | ',' | '"' |
+                        '('  | ')' | '{' | '}' if !body => true,
                         _ => false,
                     }
                 }, false, -(c.len_utf8() as isize), 0).0;
@@ -340,24 +341,19 @@ impl<'s> Tokens<'s> {
     fn parse_escaped(&mut self) -> Token<'s> {
         fn is_escapable(c: char) -> bool {
             match c {
-                '\\' | '[' | ']' | '*' | '_' | '`' | '/' => true,
+                '[' | ']' | '\\' | '/' | '*' | '_' | '`' => true,
                 _ => false,
             }
         }
 
-        let c = self.peek().unwrap_or('n');
-        let string = if is_escapable(c) {
-            let index = self.index();
-            self.eat();
-            &self.src[index .. index + c.len_utf8()]
-        } else {
-            "\\"
-        };
-
-        match self.mode {
-            Header => Invalid(string),
-            Body => Text(string),
-        }
+        Text(match self.peek() {
+            Some(c) if is_escapable(c) => {
+                let index = self.index();
+                self.eat();
+                &self.src[index .. index + c.len_utf8()]
+            }
+            _ => "\\"
+        })
     }
 
     fn parse_expr(&mut self, text: &'s str) -> Token<'s> {
@@ -570,6 +566,8 @@ mod tests {
         t!(Header, "2.3cm"             => [Sz(Size::cm(2.3))]);
         t!(Header, "02.4mm"            => [Sz(Size::mm(2.4))]);
         t!(Header, "2.4.cm"            => [Invalid("2.4.cm")]);
+        t!(Header, "(1,2)"             => [LP, Num(1.0), Comma, Num(2.0), RP]);
+        t!(Header, "{abc}"             => [LB, Id("abc"), RB]);
         t!(Header, "🌓, 🌍,"           => [Invalid("🌓"), Comma, S(0), Invalid("🌍"), Comma]);
     }
 
@@ -616,8 +614,8 @@ mod tests {
         t!(Body, r"\a"     => [T("\\"), T("a")]);
         t!(Body, r"\:"     => [T(r"\"), T(":")]);
         t!(Body, r"\="     => [T(r"\"), T("=")]);
-        t!(Header, r"\\\\" => [Invalid("\\"), Invalid("\\")]);
-        t!(Header, r"\a"   => [Invalid("\\"), Id("a")]);
+        t!(Header, r"\\\\" => [Invalid(r"\\\\")]);
+        t!(Header, r"\a"   => [Invalid(r"\a")]);
         t!(Header, r"\:"   => [Invalid(r"\"), Colon]);
         t!(Header, r"\="   => [Invalid(r"\"), Equals]);
         t!(Header, r"\,"   => [Invalid(r"\"), Comma]);

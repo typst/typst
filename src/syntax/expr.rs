@@ -1,6 +1,7 @@
 //! Expressions in function headers.
 
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Write, Debug, Formatter};
+use std::iter::FromIterator;
 
 use crate::error::Errors;
 use crate::size::Size;
@@ -90,7 +91,9 @@ impl Ident {
 
 impl Debug for Ident {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str(&self.0)
+        f.write_char('`')?;
+        f.write_str(&self.0)?;
+        f.write_char('`')
     }
 }
 
@@ -143,15 +146,42 @@ impl Tuple {
             }
         })
     }
+
+    /// Iterate over the items of this tuple.
+    pub fn iter<'a>(&'a self) -> std::slice::Iter<'a, Spanned<Expr>> {
+        self.items.iter()
+    }
+}
+
+impl IntoIterator for Tuple {
+    type Item = Spanned<Expr>;
+    type IntoIter = std::vec::IntoIter<Spanned<Expr>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Tuple {
+    type Item = &'a Spanned<Expr>;
+    type IntoIter = std::slice::Iter<'a, Spanned<Expr>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl FromIterator<Spanned<Expr>> for Tuple {
+    fn from_iter<I: IntoIterator<Item=Spanned<Expr>>>(iter: I) -> Self {
+        Tuple { items: iter.into_iter().collect() }
+    }
 }
 
 impl Debug for Tuple {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let mut tuple = f.debug_tuple("");
-        for item in &self.items {
-            tuple.field(item);
-        }
-        tuple.finish()
+        f.debug_list()
+            .entries(&self.items)
+            .finish()
     }
 }
 
@@ -275,6 +305,35 @@ impl Object {
             Ok(output) => Some(output),
             Err(err) => { errors.push(Spanned { v: err, span }); None }
         }
+    }
+
+    /// Iterate over the pairs of this object.
+    pub fn iter<'a>(&'a self) -> std::slice::Iter<'a, Pair> {
+        self.pairs.iter()
+    }
+}
+
+impl IntoIterator for Object {
+    type Item = Pair;
+    type IntoIter = std::vec::IntoIter<Pair>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.pairs.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Object {
+    type Item = &'a Pair;
+    type IntoIter = std::slice::Iter<'a, Pair>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl FromIterator<Pair> for Object {
+    fn from_iter<I: IntoIterator<Item=Pair>>(iter: I) -> Self {
+        Object { pairs: iter.into_iter().collect() }
     }
 }
 
