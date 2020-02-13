@@ -164,7 +164,8 @@ impl<'a> ModelLayouter<'a> {
 
             match node {
                 Space => self.layout_space(),
-                Newline => self.layout_paragraph(),
+                Parbreak => self.layout_paragraph(),
+                Linebreak => self.layouter.finish_line(),
 
                 Text(text) => {
                     if self.style.text.variant.style == FontStyle::Italic {
@@ -173,10 +174,6 @@ impl<'a> ModelLayouter<'a> {
 
                     if self.style.text.bolder {
                         decorate(self, Decoration::Bold);
-                    }
-
-                    if self.style.text.monospace {
-                        decorate(self, Decoration::Monospace);
                     }
 
                     self.layout_text(text).await;
@@ -192,12 +189,28 @@ impl<'a> ModelLayouter<'a> {
                     decorate(self, Decoration::Bold);
                 }
 
-                ToggleMonospace => {
-                    self.style.text.monospace = !self.style.text.monospace;
-                    decorate(self, Decoration::Monospace);
+                Raw(lines) => {
+                    // TODO: Make this more efficient.
+                    let fallback = self.style.text.fallback.clone();
+                    self.style.text.fallback.list.insert(0, "monospace".to_string());
+                    self.style.text.fallback.flatten();
+
+                    // Layout the first line.
+                    let mut iter = lines.iter();
+                    if let Some(line) = iter.next() {
+                        self.layout_text(line).await;
+                    }
+
+                    // Put a newline before each following line.
+                    for line in iter {
+                        self.layouter.finish_line();
+                        self.layout_text(line).await;
+                    }
+
+                    self.style.text.fallback = fallback;
                 }
 
-                Node::Model(model) => {
+                Model(model) => {
                     self.layout(Spanned::new(model.as_ref(), *span)).await;
                 }
             }

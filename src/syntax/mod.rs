@@ -62,15 +62,17 @@ pub enum Node {
     /// Whitespace containing less than two newlines.
     Space,
     /// Whitespace with more than two newlines.
-    Newline,
+    Parbreak,
+    /// A forced line break.
+    Linebreak,
     /// Plain text.
     Text(String),
+    /// Lines of raw text.
+    Raw(Vec<String>),
     /// Italics were enabled / disabled.
     ToggleItalic,
     /// Bolder was enabled / disabled.
     ToggleBolder,
-    /// Monospace was enabled / disabled.
-    ToggleMonospace,
     /// A submodel, typically a function invocation.
     Model(Box<dyn Model>),
 }
@@ -80,11 +82,12 @@ impl PartialEq for Node {
         use Node::*;
         match (self, other) {
             (Space, Space) => true,
-            (Newline, Newline) => true,
+            (Parbreak, Parbreak) => true,
+            (Linebreak, Linebreak) => true,
             (Text(a), Text(b)) => a == b,
+            (Raw(a), Raw(b)) => a == b,
             (ToggleItalic, ToggleItalic) => true,
             (ToggleBolder, ToggleBolder) => true,
-            (ToggleMonospace, ToggleMonospace) => true,
             (Model(a), Model(b)) => a == b,
             _ => false,
         }
@@ -107,6 +110,7 @@ pub enum Decoration {
     ///  ^^^^^^
     /// ```
     InvalidFuncName,
+
     /// A key of a keyword argument:
     /// ```typst
     /// [box: width=5cm]
@@ -119,12 +123,11 @@ pub enum Decoration {
     ///                 ^^^^       ^^^^^
     /// ```
     ObjectKey,
+
     /// An italic word.
     Italic,
     /// A bold word.
     Bold,
-    /// A monospace word.
-    Monospace,
 }
 
 impl dyn Model {

@@ -83,8 +83,17 @@ pub enum Token<'s> {
     Star,
     /// An underscore in body-text.
     Underscore,
-    /// A backtick in body-text.
-    Backtick,
+
+    /// A backslash followed by whitespace in text.
+    Backslash,
+
+    /// Raw text.
+    Raw {
+        /// The raw text (not yet unescaped as for strings).
+        raw: &'s str,
+        /// Whether the closing backtick was present.
+        terminated: bool,
+    },
 
     /// Any other consecutive string.
     Text(&'s str),
@@ -115,8 +124,9 @@ impl<'s> Token<'s> {
             ExprBool(_)     => "bool",
             Star            => "star",
             Underscore      => "underscore",
-            Backtick        => "backtick",
-            Text(_)         => "invalid identifier",
+            Backslash       => "backslash",
+            Raw { .. }      => "raw text",
+            Text(_)         => "text",
             Invalid("]")    => "closing bracket",
             Invalid("*/")   => "end of block comment",
             Invalid(_)      => "invalid token",
@@ -206,7 +216,7 @@ impl<'s> Iterator for Tokens<'s> {
             // Style toggles.
             '*' if self.mode == Body => Star,
             '_' if self.mode == Body => Underscore,
-            '`' if self.mode == Body => Backtick,
+            '`' if self.mode == Body => self.parse_raw(),
 
             // An escaped thing.
             '\\' if self.mode == Body => self.parse_escaped(),
@@ -281,7 +291,7 @@ impl<'s> Tokens<'s> {
     }
 
     fn parse_function(&mut self, start: Position) -> Token<'s> {
-        let (header, terminated) = self.read_function_part();
+        let (header, terminated) = self.read_function_part(Header);
         self.eat();
 
         if self.peek() != Some('[') {
@@ -291,7 +301,7 @@ impl<'s> Tokens<'s> {
         self.eat();
 
         let body_start = self.pos() - start;
-        let (body, terminated) = self.read_function_part();
+        let (body, terminated) = self.read_function_part(Body);
         let body_end = self.pos() - start;
         let span = Span::new(body_start, body_end);
 
@@ -300,60 +310,73 @@ impl<'s> Tokens<'s> {
         Function { header, body: Some(Spanned { v: body, span }), terminated }
     }
 
-    fn read_function_part(&mut self) -> (&'s str, bool) {
-        let mut escaped = false;
-        let mut in_string = false;
-        let mut depth = 0;
+    fn read_function_part(&mut self, mode: TokenizationMode) -> (&'s str, bool) {
+        let start = self.index();
+        let mut terminated = false;
 
-        self.read_string_until(|n| {
-            match n {
-                '"' if !escaped => in_string = !in_string,
-                '[' if !escaped && !in_string => depth += 1,
-                ']' if !escaped && !in_string => {
-                    if depth == 0 {
-                        return true;
-                    } else {
-                        depth -= 1;
-                    }
-                }
-                '\\' => escaped = !escaped,
-                _ => escaped = false,
+        while let Some(n) = self.peek() {
+            if n == ']' {
+                terminated = true;
+                break;
             }
 
-            false
-        }, false, 0, 0)
+            self.eat();
+            match n {
+                '[' => { self.parse_function(Position::ZERO); }
+                '/' if self.peek() == Some('/') => { self.parse_line_comment(); }
+                '/' if self.peek() == Some('*') => { self.parse_block_comment(); }
+                '"' if mode == Header => { self.parse_string(); }
+                '`' if mode == Body => { self.parse_raw(); }
+                '\\' => { self.eat(); }
+                _ => {}
+            }
+        }
+
+        let end = self.index();
+        (&self.src[start .. end], terminated)
     }
 
     fn parse_string(&mut self) -> Token<'s> {
+        let (string, terminated) = self.read_until_unescaped('"');
+        ExprStr { string, terminated }
+    }
+
+    fn parse_raw(&mut self) -> Token<'s> {
+        let (raw, terminated) = self.read_until_unescaped('`');
+        Raw { raw, terminated }
+    }
+
+    fn read_until_unescaped(&mut self, c: char) -> (&'s str, bool) {
         let mut escaped = false;
-        let (string, terminated) = self.read_string_until(|n| {
+        self.read_string_until(|n| {
             match n {
-                '"' if !escaped => return true,
+                n if n == c && !escaped => return true,
                 '\\' => escaped = !escaped,
                 _ => escaped = false,
             }
 
             false
-        }, true, 0, -1);
-        ExprStr { string, terminated }
+        }, true, 0, -1)
     }
 
     fn parse_escaped(&mut self) -> Token<'s> {
         fn is_escapable(c: char) -> bool {
             match c {
-                '[' | ']' | '\\' | '/' | '*' | '_' | '`' => true,
+                '[' | ']' | '\\' | '/' | '*' | '_' | '`' | '"' => true,
                 _ => false,
             }
         }
 
-        Text(match self.peek() {
+        match self.peek() {
             Some(c) if is_escapable(c) => {
                 let index = self.index();
                 self.eat();
-                &self.src[index .. index + c.len_utf8()]
+                Text(&self.src[index .. index + c.len_utf8()])
             }
-            _ => "\\"
-        })
+            Some(c) if c.is_whitespace() => Backslash,
+            Some(_) => Text("\\"),
+            None => Backslash,
+        }
     }
 
     fn parse_expr(&mut self, text: &'s str) -> Token<'s> {
@@ -462,6 +485,7 @@ pub fn is_identifier(string: &str) -> bool {
     true
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::super::test::check;
@@ -481,6 +505,11 @@ mod tests {
     #[allow(non_snake_case)]
     fn Str(string: &'static str, terminated: bool) -> Token<'static> {
         Token::ExprStr { string, terminated }
+    }
+
+    #[allow(non_snake_case)]
+    fn Raw(raw: &'static str, terminated: bool) -> Token<'static> {
+        Token::Raw { raw, terminated }
     }
 
     /// Test whether the given string tokenizes into the given list of tokens.
@@ -540,10 +569,15 @@ mod tests {
 
     #[test]
     fn tokenize_body_only_tokens() {
-        t!(Body, "_*`"           => [Underscore, Star, Backtick]);
+        t!(Body, "_*"            => [Underscore, Star]);
         t!(Body, "***"           => [Star, Star, Star]);
         t!(Body, "[func]*bold*"  => [func!("func", None, true), Star, T("bold"), Star]);
         t!(Body, "hi_you_ there" => [T("hi"), Underscore, T("you"), Underscore, S(0), T("there")]);
+        t!(Body, "`raw`"         => [Raw("raw", true)]);
+        t!(Body, "`[func]`"      => [Raw("[func]", true)]);
+        t!(Body, "`]"            => [Raw("]", false)]);
+        t!(Body, "`\\``"         => [Raw("\\`", true)]);
+        t!(Body, "\\ "           => [Backslash, S(0)]);
         t!(Header, "_*`"         => [Invalid("_*`")]);
     }
 
@@ -599,14 +633,45 @@ mod tests {
     }
 
     #[test]
+    fn tokenize_correct_end_of_function() {
+        // End of function with strings and carets in headers
+        t!(Body, r#"[f: "]"#      => [func!(r#"f: "]"#, None, false)]);
+        t!(Body, "[f: \"s\"]"     => [func!("f: \"s\"", None, true)]);
+        t!(Body, r#"[f: \"\"\"]"# => [func!(r#"f: \"\"\""#, None, true)]);
+        t!(Body, "[f: `]"         => [func!("f: `", None, true)]);
+
+        // End of function with strings and carets in bodies
+        t!(Body, "[f][\"]"        => [func!("f", Some((0:4, 0:5, "\"")), true)]);
+        t!(Body, r#"[f][\"]"#     => [func!("f", Some((0:4, 0:6, r#"\""#)), true)]);
+        t!(Body, "[f][`]"         => [func!("f", Some((0:4, 0:6, "`]")), false)]);
+        t!(Body, "[f][\\`]"       => [func!("f", Some((0:4, 0:6, "\\`")), true)]);
+        t!(Body, "[f][`raw`]"     => [func!("f", Some((0:4, 0:9, "`raw`")), true)]);
+        t!(Body, "[f][`raw]"      => [func!("f", Some((0:4, 0:9, "`raw]")), false)]);
+        t!(Body, "[f][`raw]`]"    => [func!("f", Some((0:4, 0:10, "`raw]`")), true)]);
+        t!(Body, "[f][`\\`]"      => [func!("f", Some((0:4, 0:8, "`\\`]")), false)]);
+        t!(Body, "[f][`\\\\`]"    => [func!("f", Some((0:4, 0:8, "`\\\\`")), true)]);
+
+        // End of function with comments
+        t!(Body, "[f][/*]"        => [func!("f", Some((0:4, 0:7, "/*]")), false)]);
+        t!(Body, "[f][/*`*/]"     => [func!("f", Some((0:4, 0:9, "/*`*/")), true)]);
+        t!(Body, "[f: //]\n]"     => [func!("f: //]\n", None, true)]);
+        t!(Body, "[f: \"//]\n]"   => [func!("f: \"//]\n]", None, false)]);
+
+        // End of function with escaped brackets
+        t!(Body, "[f][\\]]"       => [func!("f", Some((0:4, 0:6, "\\]")), true)]);
+        t!(Body, "[f][\\[]"       => [func!("f", Some((0:4, 0:6, "\\[")), true)]);
+    }
+
+    #[test]
     fn tokenize_escaped_symbols() {
-        t!(Body, r"\\" => [T(r"\")]);
-        t!(Body, r"\[" => [T("[")]);
-        t!(Body, r"\]" => [T("]")]);
-        t!(Body, r"\*" => [T("*")]);
-        t!(Body, r"\_" => [T("_")]);
-        t!(Body, r"\`" => [T("`")]);
-        t!(Body, r"\/" => [T("/")]);
+        t!(Body, r"\\"   => [T(r"\")]);
+        t!(Body, r"\["   => [T("[")]);
+        t!(Body, r"\]"   => [T("]")]);
+        t!(Body, r"\*"   => [T("*")]);
+        t!(Body, r"\_"   => [T("_")]);
+        t!(Body, r"\`"   => [T("`")]);
+        t!(Body, r"\/"   => [T("/")]);
+        t!(Body, r#"\""# => [T("\"")]);
     }
 
     #[test]

@@ -24,8 +24,6 @@ pub struct TextStyle {
     /// Whether the bolder toggle is active or inactive. This determines
     /// whether the next `*` adds or removes font weight.
     pub bolder: bool,
-    /// Whether the monospace toggle is active or inactive.
-    pub monospace: bool,
     /// The base font size.
     pub base_font_size: Size,
     /// The font scale to apply on the base font size.
@@ -79,7 +77,6 @@ impl Default for TextStyle {
                 weight: FontWeight(400),
             },
             bolder: false,
-            monospace: false,
             base_font_size: Size::pt(11.0),
             font_scale: 1.0,
             word_spacing_scale: 0.25,

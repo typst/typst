@@ -33,10 +33,12 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Pass<SyntaxModel>
         let span = token.span;
 
         let node = match token.v {
+            Token::LineComment(_) | Token::BlockComment(_) => continue,
+
             // Only at least two newlines mean a _real_ newline indicating a
             // paragraph break.
             Token::Space(newlines) => if newlines >= 2 {
-                Node::Newline
+                Node::Parbreak
             } else {
                 Node::Space
             },
@@ -55,10 +57,18 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Pass<SyntaxModel>
 
             Token::Star       => Node::ToggleBolder,
             Token::Underscore => Node::ToggleItalic,
-            Token::Backtick   => Node::ToggleMonospace,
-            Token::Text(text) => Node::Text(text.to_string()),
+            Token::Backslash  => Node::Linebreak,
 
-            Token::LineComment(_) | Token::BlockComment(_) => continue,
+            Token::Raw { raw, terminated } => {
+                if !terminated {
+                    feedback.errors.push(err!(Span::at(span.end);
+                        "expected backtick"));
+                }
+
+                Node::Raw(unescape_raw(raw))
+            }
+
+            Token::Text(text) => Node::Text(text.to_string()),
 
             other => {
                 feedback.errors.push(err!(span; "unexpected {}", other.name()));
@@ -219,7 +229,7 @@ impl<'s> FuncParser<'s> {
                     self.expected_at("quote", first.span.end);
                 }
 
-                take!(Expr::Str(unescape(string)))
+                take!(Expr::Str(unescape_string(string)))
             }
 
             Token::ExprNumber(n) => take!(Expr::Number(n)),
@@ -433,34 +443,55 @@ impl<'s> FuncParser<'s> {
     }
 }
 
-/// Unescape a string.
-fn unescape(string: &str) -> String {
+/// Unescape a string: `the string is \"this\"` => `the string is "this"`.
+fn unescape_string(string: &str) -> String {
     let mut s = String::with_capacity(string.len());
-    let mut escaped = false;
+    let mut iter = string.chars();
 
-    for c in string.chars() {
+    while let Some(c) = iter.next() {
         if c == '\\' {
-            if escaped {
-                s.push('\\');
+            match iter.next() {
+                Some('\\') => s.push('\\'),
+                Some('"') => s.push('"'),
+                Some('n') => s.push('\n'),
+                Some('t') => s.push('\t'),
+                Some(c) => { s.push('\\'); s.push(c); }
+                None => s.push('\\'),
             }
-            escaped = !escaped;
         } else {
-            if escaped {
-                match c {
-                    '"' => s.push('"'),
-                    'n' => s.push('\n'),
-                    't' => s.push('\t'),
-                    c => { s.push('\\'); s.push(c); }
-                }
-            } else {
-                s.push(c);
-            }
-
-            escaped = false;
+            s.push(c);
         }
     }
 
     s
+}
+
+/// Unescape raw markup into lines.
+fn unescape_raw(raw: &str) -> Vec<String> {
+    let mut lines = Vec::new();
+    let mut s = String::new();
+    let mut iter = raw.chars().peekable();
+
+    while let Some(c) = iter.next() {
+        if c == '\\' {
+            match iter.next() {
+                Some('`') => s.push('`'),
+                Some(c) => { s.push('\\'); s.push(c); }
+                None => s.push('\\'),
+            }
+        } else if is_newline_char(c) {
+            if c == '\r' && iter.peek() == Some(&'\n') {
+                iter.next();
+            }
+
+            lines.push(std::mem::replace(&mut s, String::new()));
+        } else {
+            s.push(c);
+        }
+    }
+
+    lines.push(s);
+    lines
 }
 
 
@@ -474,8 +505,8 @@ mod tests {
 
     use Decoration::*;
     use Node::{
-        Space as S, Newline as N,
-        ToggleItalic as Italic, ToggleBolder as Bold, ToggleMonospace as Mono,
+        Space as S, ToggleItalic as Italic, ToggleBolder as Bold,
+        Parbreak, Linebreak,
     };
 
     use Expr::{Number as Num, Size as Sz, Bool};
@@ -483,6 +514,13 @@ mod tests {
     fn Str(text: &str) -> Expr { Expr::Str(text.to_string()) }
     fn Pt(points: f32) -> Expr { Expr::Size(Size::pt(points)) }
     fn T(text: &str) -> Node { Node::Text(text.to_string()) }
+
+    /// Create a raw text node.
+    macro_rules! raw {
+        ($($line:expr),* $(,)?) => {
+            Node::Raw(vec![$($line.to_string()),*])
+        };
+    }
 
     /// Create a tuple expression.
     macro_rules! tuple {
@@ -568,7 +606,7 @@ mod tests {
     #[test]
     fn unescape_strings() {
         fn test(string: &str, expected: &str) {
-            assert_eq!(unescape(string), expected.to_string());
+            assert_eq!(unescape_string(string), expected.to_string());
         }
 
         test(r#"hello world"#,  "hello world");
@@ -577,24 +615,49 @@ mod tests {
         test(r#"a\\"#,          "a\\");
         test(r#"a\\\nbc"#,      "a\\\nbc");
         test(r#"a\tbc"#,        "a\tbc");
-        test("🌎",              "🌎");
+        test(r"🌎",             "🌎");
+        test(r"🌎\",            r"🌎\");
+        test(r"\🌎",            r"\🌎");
     }
 
     #[test]
-    fn parse_flat_nodes() {
+    fn unescape_raws() {
+        fn test(raw: &str, expected: Node) {
+            let vec = if let Node::Raw(v) = expected { v } else { panic!() };
+            assert_eq!(unescape_raw(raw), vec);
+        }
+
+        test("raw\\`",     raw!["raw`"]);
+        test("raw\ntext",  raw!["raw", "text"]);
+        test("a\r\nb",     raw!["a", "b"]);
+        test("a\n\nb",     raw!["a", "", "b"]);
+        test("a\r\x0Bb",   raw!["a", "", "b"]);
+        test("a\r\n\r\nb", raw!["a", "", "b"]);
+        test("raw\\a",     raw!["raw\\a"]);
+        test("raw\\",      raw!["raw\\"]);
+    }
+
+    #[test]
+    fn parse_basic_nodes() {
         // Basic nodes
         p!(""                     => []);
         p!("hi"                   => [T("hi")]);
         p!("*hi"                  => [Bold, T("hi")]);
         p!("hi_"                  => [T("hi"), Italic]);
-        p!("`py`"                 => [Mono, T("py"), Mono]);
         p!("hi you"               => [T("hi"), S, T("you")]);
         p!("hi// you\nw"          => [T("hi"), S, T("w")]);
-        p!("\n\n\nhello"          => [N, T("hello")]);
+        p!("\n\n\nhello"          => [Parbreak, T("hello")]);
         p!("first//\n//\nsecond"  => [T("first"), S, S, T("second")]);
-        p!("first//\n \nsecond"   => [T("first"), N, T("second")]);
+        p!("first//\n \nsecond"   => [T("first"), Parbreak, T("second")]);
         p!("first/*\n \n*/second" => [T("first"), T("second")]);
-        p!("💜\n\n 🌍"            => [T("💜"), N, T("🌍")]);
+        p!(r"a\ b"                => [T("a"), Linebreak, S, T("b")]);
+        p!("💜\n\n 🌍"            => [T("💜"), Parbreak, T("🌍")]);
+
+        // Raw markup
+        p!("`py`"         => [raw!["py"]]);
+        p!("[val][`hi]`]" => [func!("val"; [raw!["hi]"]])]);
+        p!("`hi\nyou"     => [raw!["hi", "you"]], [(1:3, 1:3, "expected backtick")]);
+        p!("`hi\\`du`"    => [raw!["hi`du"]]);
 
         // Spanned nodes
         p!("Hi"      => [(0:0, 0:2, T("Hi"))]);
@@ -924,7 +987,7 @@ mod tests {
 
         // Newline before function
         p!(" \n\r\n[val]" =>
-            [(0:0, 2:0, N), (2:0, 2:5, func!((0:1, 0:4, "val")))], [],
+            [(0:0, 2:0, Parbreak), (2:0, 2:5, func!((0:1, 0:4, "val")))], [],
             [(2:1, 2:4, ValidFuncName)],
         );
 

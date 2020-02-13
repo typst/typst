@@ -9,21 +9,45 @@ function! {
     pub struct FontFamilyFunc {
         body: Option<SyntaxModel>,
         list: Vec<String>,
+        classes: Vec<(String, Vec<String>)>,
     }
 
     parse(header, body, ctx, f) {
+        let list = header.args.pos.get_all::<StringLike>(&mut f.errors)
+            .map(|s| s.0.to_lowercase())
+            .collect();
+
+        let tuples: Vec<_> = header.args.key
+            .get_all::<String, Tuple>(&mut f.errors)
+            .collect();
+
+        let classes = tuples.into_iter()
+            .map(|(class, mut tuple)| {
+                let fallback = tuple.get_all::<StringLike>(&mut f.errors)
+                    .map(|s| s.0.to_lowercase())
+                    .collect();
+                (class.to_lowercase(), fallback)
+            })
+            .collect();
+
         FontFamilyFunc {
             body: body!(opt: body, ctx, f),
-            list: header.args.pos.get_all::<StringLike>(&mut f.errors)
-                .map(|s| s.0.to_lowercase())
-                .collect(),
+            list,
+            classes,
         }
     }
 
     layout(self, ctx, errors) {
-        styled(&self.body, ctx, Some(&self.list),
-            |s, list| {
-                s.fallback.list = list.clone();
+        styled(&self.body, ctx, Some(()),
+            |s, _| {
+                if !self.list.is_empty() {
+                    s.fallback.list = self.list.clone();
+                }
+
+                for (class, fallback) in &self.classes {
+                    s.fallback.set_class_list(class.clone(), fallback.clone());
+                }
+
                 s.fallback.flatten();
             })
     }

@@ -118,23 +118,13 @@ impl<'a> TextLayouter<'a> {
             variant.weight.0 += 300;
         }
 
-        let queried = if self.ctx.style.monospace {
-            loader.get(FontQuery {
-                // FIXME: This is a hack.
-                fallback: std::iter::once("source code pro")
-                    .chain(self.ctx.style.fallback.iter()),
-                variant,
-                c,
-            }).await
-        } else {
-            loader.get(FontQuery {
-                fallback: self.ctx.style.fallback.iter(),
-                variant,
-                c,
-            }).await
+        let query = FontQuery {
+            fallback: self.ctx.style.fallback.iter(),
+            variant,
+            c,
         };
 
-        if let Some((font, index)) = queried {
+        if let Some((font, index)) = loader.get(query).await {
             // Determine the width of the char.
             let header = font.read_table::<Header>().ok()?;
             let font_unit_ratio = 1.0 / (header.units_per_em as f32);
