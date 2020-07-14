@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use super::func::FuncHeader;
-use super::expr::{Expr, Tuple, Object};
+use super::expr::{Expr, Tuple, NamedTuple, Object};
 use super::span::{Span, Spanned};
 use super::tokens::Token;
 use super::*;
@@ -127,6 +127,7 @@ impl SpanlessEq for DebugFn {
 impl SpanlessEq for Expr {
     fn spanless_eq(&self, other: &Expr) -> bool {
         match (self, other) {
+            (Expr::NamedTuple(a), Expr::NamedTuple(b)) => a.spanless_eq(b),
             (Expr::Tuple(a), Expr::Tuple(b)) => a.spanless_eq(b),
             (Expr::Object(a), Expr::Object(b)) => a.spanless_eq(b),
             (a, b) => a == b,
@@ -139,6 +140,13 @@ impl SpanlessEq for Tuple {
         self.items.len() == other.items.len()
         && self.items.iter().zip(&other.items)
             .all(|(x, y)| x.v.spanless_eq(&y.v))
+    }
+}
+
+impl SpanlessEq for NamedTuple {
+    fn spanless_eq(&self, other: &NamedTuple) -> bool {
+        self.name.v == other.name.v
+        && self.tuple.v.spanless_eq(&other.tuple.v)
     }
 }
 

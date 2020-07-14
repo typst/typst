@@ -78,6 +78,8 @@ pub enum Token<'s> {
     ExprSize(Size),
     /// A boolean in a function header: `true | false`.
     ExprBool(bool),
+    /// A hex value in a function header: `#20d82a`
+    ExprHex(&'s str),
 
     /// A star in body-text.
     Star,
@@ -122,6 +124,7 @@ impl<'s> Token<'s> {
             ExprNumber(_)   => "number",
             ExprSize(_)     => "size",
             ExprBool(_)     => "bool",
+            ExprHex(_)      => "hex value",
             Star            => "star",
             Underscore      => "underscore",
             Backslash       => "backslash",
@@ -224,6 +227,21 @@ impl<'s> Iterator for Tokens<'s> {
             // Expressions or just strings.
             c => {
                 let body = self.mode == Body;
+                
+                // This may be a hex expression
+                let hex_expr = if c == '#' && !body {
+                    let payload = self.read_string_until(|n| {
+                        match n {
+                            '0'..='9' | 'a'..='f' | 'A'..='F' => false,
+                            _ => true,
+                        }
+                    }, false, 0, 0).0;
+
+                    Some(ExprHex(payload))
+                } else {
+                    None
+                };
+
                 let text = self.read_string_until(|n| {
                     match n {
                         c if c.is_whitespace() => true,
@@ -235,7 +253,9 @@ impl<'s> Iterator for Tokens<'s> {
                     }
                 }, false, -(c.len_utf8() as isize), 0).0;
 
-                if self.mode == Header {
+                if let Some(hex_expr) = hex_expr {
+                    hex_expr
+                } else if self.mode == Header {
                     self.parse_expr(text)
                 } else {
                     Text(text)
@@ -499,6 +519,7 @@ mod tests {
         ExprNumber as Num,
         ExprSize as Sz,
         ExprBool as Bool,
+        ExprHex as Hex,
         Text as T,
     };
 
@@ -587,6 +608,8 @@ mod tests {
         t!(Body, "c=d, "               => [T("c=d,"), S(0)]);
         t!(Header, "(){}:=,"           => [LP, RP, LB, RB, Colon, Equals, Comma]);
         t!(Header, "a:b"               => [Id("a"), Colon, Id("b")]);
+        t!(Header, "#6ae6dd"           => [Hex("6ae6dd")]);
+        t!(Header, "#8A083c"           => [Hex("8A083c")]);
         t!(Header, "a: true, x=1"      => [Id("a"), Colon, S(0), Bool(true), Comma, S(0), Id("x"), Equals, Num(1.0)]);
         t!(Header, "=3.14"             => [Equals, Num(3.14)]);
         t!(Header, "12.3e5"            => [Num(12.3e5)]);

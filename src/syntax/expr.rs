@@ -2,6 +2,8 @@
 
 use std::fmt::{self, Write, Debug, Formatter};
 use std::iter::FromIterator;
+use std::ops::Deref;
+use std::u8;
 
 use crate::error::Errors;
 use crate::size::Size;
@@ -23,8 +25,12 @@ pub enum Expr {
     Size(Size),
     /// A bool: `true, false`.
     Bool(bool),
+    /// A color value, including the alpha channel: `#f79143ff`
+    Color(RgbaColor),
     /// A tuple: `(false, 12cm, "hi")`.
     Tuple(Tuple),
+    /// A named tuple: `cmyk(37.7, 0, 3.9, 1.1)`.
+    NamedTuple(NamedTuple),
     /// An object: `{ fit: false, size: 12pt }`.
     Object(Object),
 }
@@ -39,7 +45,9 @@ impl Expr {
             Number(_) => "number",
             Size(_) => "size",
             Bool(_) => "bool",
+            Color(_) => "color",
             Tuple(_) => "tuple",
+            NamedTuple(_) => "named tuple",
             Object(_) => "object",
         }
     }
@@ -54,7 +62,9 @@ impl Debug for Expr {
             Number(n) => n.fmt(f),
             Size(s) => s.fmt(f),
             Bool(b) => b.fmt(f),
+            Color(c) => c.fmt(f),
             Tuple(t) => t.fmt(f),
+            NamedTuple(t) => t.fmt(f),
             Object(o) => o.fmt(f),
         }
     }
@@ -94,6 +104,81 @@ impl Debug for Ident {
         f.write_char('`')?;
         f.write_str(&self.0)?;
         f.write_char('`')
+    }
+}
+
+/// An 8-bit RGBA color.
+///
+/// # Example
+/// ```typst
+/// [box: background=#423abaff]
+///                   ^^^^^^^^
+/// ```
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub struct RgbaColor {
+    r: u8,
+    g: u8,
+    b: u8,
+    a: u8,
+}
+
+impl RgbaColor {
+    pub fn new(r: u8, g: u8, b: u8, a: u8) -> RgbaColor {
+        RgbaColor { r, g, b, a }
+    }
+
+    pub fn from_str(hex_str: &str) -> Option<RgbaColor> {
+        let len = hex_str.len();
+        let permissable = &[3, 4, 6, 8];
+        
+        if !permissable.contains(&len) {
+            return None;
+        }
+
+        let long = len == 6 || len == 8;
+        let alpha = len == 4 || len == 8;
+        let mut values: [u8; 4] = [255; 4];
+
+        for elem in if alpha { 0..4 } else { 0..3 } {
+            let item_len = if long { 2 } else { 1 };
+            let pos = elem * item_len;
+
+            if let Ok(val) = u8::from_str_radix(
+                &hex_str[pos..(pos+item_len)], 16) {
+                values[elem] = val;
+            } else {
+                // Some non-hexadecimal characters slipped into the color
+                return None;
+            }
+            
+            if !long {
+                // Duplicate number for shorthand notation, i.e. `a` -> `aa`
+                values[elem] += values[elem] * 16;
+            }
+        }
+
+        Some(
+            RgbaColor::new(values[0], values[1], values[2], values[3])
+        )
+    }
+}
+
+impl Debug for RgbaColor {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if f.alternate() {
+            f.write_str("rgba(")?;
+            f.write_fmt(format_args!("r: {:02}, ", self.r))?;
+            f.write_fmt(format_args!("g: {:02}, ", self.g))?;
+            f.write_fmt(format_args!("b: {:02}, ", self.b))?;
+            f.write_fmt(format_args!("a: {:02}",   self.a))?;
+            f.write_char(')')
+        } else {
+            f.write_char('#')?;
+            f.write_fmt(format_args!("{:02x}", self.r))?;
+            f.write_fmt(format_args!("{:02x}", self.g))?;
+            f.write_fmt(format_args!("{:02x}", self.b))?;
+            f.write_fmt(format_args!("{:02x}", self.a))
+        }
     }
 }
 
@@ -181,6 +266,43 @@ impl Debug for Tuple {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_list()
             .entries(&self.items)
+            .finish()
+    }
+}
+
+/// A named, untyped sequence of expressions.
+///
+/// # Example
+/// ```typst
+/// hsl(93, 10, 19.4)
+/// ```
+#[derive(Clone, PartialEq)]
+pub struct NamedTuple {
+    pub name: Spanned<Ident>,
+    /// The elements of the tuple.
+    pub tuple: Spanned<Tuple>,
+}
+
+impl NamedTuple {
+    /// Create a named tuple from a tuple.
+    pub fn new(name: Spanned<Ident>, tuple: Spanned<Tuple>) -> NamedTuple {
+        NamedTuple { name, tuple }
+    }
+}
+
+impl Deref for NamedTuple {
+    type Target = Tuple;
+
+    fn deref(&self) -> &Self::Target {
+        &self.tuple.v
+    }
+}
+
+impl Debug for NamedTuple {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("named tuple")
+            .field("name", &self.name)
+            .field("values", &self.tuple)
             .finish()
     }
 }
