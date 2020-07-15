@@ -1,6 +1,7 @@
 //! Parsing of source code into syntax models.
 
 use std::iter::FromIterator;
+use std::str::FromStr;
 
 use crate::{Pass, Feedback};
 use super::func::{FuncHeader, FuncArgs, FuncArg};
@@ -253,12 +254,11 @@ impl<'s> FuncParser<'s> {
             Token::ExprSize(s) => take!(Expr::Size(s)),
             Token::ExprBool(b) => take!(Expr::Bool(b)),
             Token::ExprHex(s) => {
-                if let Some(color) = RgbaColor::from_str(s) {
+                if let Ok(color) = RgbaColor::from_str(s) {
                     take!(Expr::Color(color))
                 } else {
                     // Heal color by assuming black
-                    self.feedback.errors.push(err!(first.span;
-                        "invalid color"));
+                    self.feedback.errors.push(err!(first.span; "invalid color"));
                     take!(Expr::Color(RgbaColor::new_healed(0, 0, 0, 255)))
                 }
             },
@@ -284,9 +284,8 @@ impl<'s> FuncParser<'s> {
     /// Parse a tuple expression: `name(<expr>, ...)` with a given identifier.
     fn parse_named_tuple(&mut self, name: Spanned<Ident>) -> Spanned<NamedTuple> {
         let tuple = self.parse_tuple();
-        let start = name.span.start;
-        let end = tuple.span.end;
-        Spanned::new(NamedTuple::new(name, tuple), Span::new(start, end))
+        let span = Span::merge(name.span, tuple.span);
+        Spanned::new(NamedTuple::new(name, tuple), span)
     }
 
     /// Parse an object expression: `{ <key>: <value>, ... }`.
@@ -548,19 +547,16 @@ mod tests {
     fn Str(text: &str) -> Expr { Expr::Str(text.to_string()) }
     fn Pt(points: f32) -> Expr { Expr::Size(Size::pt(points)) }
 
-    fn ClrS(color: &str) -> Expr {
-        Expr::Color(
-            RgbaColor::from_str(color).expect("Test color invalid")
-        )
-    }
-    fn ClrS_Healed() -> Expr {
-        let mut c = RgbaColor::from_str("000f")
-            .expect("Test color invalid");
-        c.healed = true;
-        Expr::Color(c)
-    }
     fn Clr(r: u8, g: u8, b: u8, a: u8) -> Expr {
         Expr::Color(RgbaColor::new(r, g, b, a))
+    }
+    fn ClrStr(color: &str) -> Expr {
+        Expr::Color(RgbaColor::from_str(color).expect("invalid test color"))
+    }
+    fn ClrStrHealed() -> Expr {
+        let mut c = RgbaColor::from_str("000f").expect("invalid test color");
+        c.healed = true;
+        Expr::Color(c)
     }
 
     fn T(text: &str) -> Node { Node::Text(text.to_string()) }
@@ -665,11 +661,11 @@ mod tests {
 
     #[test]
     fn parse_color_strings() {
-        assert_eq!(Clr(0xf6, 0x12, 0x43, 0xff), ClrS("f61243ff"));
-        assert_eq!(Clr(0xb3, 0xd8, 0xb3, 0xff), ClrS("b3d8b3"));
-        assert_eq!(Clr(0xfc, 0xd2, 0xa9, 0xad), ClrS("fCd2a9AD"));
-        assert_eq!(Clr(0x22, 0x33, 0x33, 0xff), ClrS("233"));
-        assert_eq!(Clr(0x11, 0x11, 0x11, 0xbb), ClrS("111b"));
+        assert_eq!(Clr(0xf6, 0x12, 0x43, 0xff), ClrStr("f61243ff"));
+        assert_eq!(Clr(0xb3, 0xd8, 0xb3, 0xff), ClrStr("b3d8b3"));
+        assert_eq!(Clr(0xfc, 0xd2, 0xa9, 0xad), ClrStr("fCd2a9AD"));
+        assert_eq!(Clr(0x22, 0x33, 0x33, 0xff), ClrStr("233"));
+        assert_eq!(Clr(0x11, 0x11, 0x11, 0xbb), ClrStr("111b"));
     }
 
     #[test]
@@ -816,7 +812,7 @@ mod tests {
         p!("[val: 3.14]"   => [func!("val": (Num(3.14)), {})]);
         p!("[val: 4.5cm]"  => [func!("val": (Sz(Size::cm(4.5))), {})]);
         p!("[val: 12e1pt]" => [func!("val": (Pt(12e1)), {})]);
-        p!("[val: #f7a20500]" => [func!("val": (ClrS("f7a20500")), {})]);
+        p!("[val: #f7a20500]" => [func!("val": (ClrStr("f7a20500")), {})]);
 
         // Unclosed string.
         p!("[val: \"hello]" => [func!("val": (Str("hello]")), {})], [
@@ -825,16 +821,16 @@ mod tests {
         ]);
 
         //Invalid colors
-        p!("[val: #12345]" => [func!("val": (ClrS_Healed()), {})], [
+        p!("[val: #12345]" => [func!("val": (ClrStrHealed()), {})], [
             (0:6, 0:12, "invalid color"),
         ]);
-        p!("[val: #a5]" => [func!("val": (ClrS_Healed()), {})], [
+        p!("[val: #a5]" => [func!("val": (ClrStrHealed()), {})], [
             (0:6, 0:9, "invalid color"),
         ]);
-        p!("[val: #14b2ah]" => [func!("val": (ClrS_Healed()), {})], [
+        p!("[val: #14b2ah]" => [func!("val": (ClrStrHealed()), {})], [
             (0:6, 0:13, "invalid color"),
         ]);
-        p!("[val: #f075ff011]" => [func!("val": (ClrS_Healed()), {})], [
+        p!("[val: #f075ff011]" => [func!("val": (ClrStrHealed()), {})], [
             (0:6, 0:16, "invalid color"),
         ]);
     }
@@ -874,19 +870,19 @@ mod tests {
         // Valid values
         p!("[val: (1, 2)]" => [func!("val": (tuple!(Num(1.0), Num(2.0))), {})]);
         p!("[val: (\"s\",)]" => [func!("val": (tuple!(Str("s"))), {})]);
-        p!("[val: cmyk(1, 46, 0, 0)]" => 
+        p!("[val: cmyk(1, 46, 0, 0)]" =>
             [func!("val": (named_tuple!(
                 "cmyk", Num(1.0), Num(46.0), Num(0.0), Num(0.0)
             )), {})]
         );
-        p!("[val: items(\"fire\", #f93a6d)]" => 
+        p!("[val: items(\"fire\", #f93a6d)]" =>
             [func!("val": (named_tuple!(
-                "items", Str("fire"), ClrS("f93a6d")
+                "items", Str("fire"), ClrStr("f93a6d")
             )), {})]
         );
-        
+
         // Nested tuples
-        p!("[val: (1, (2))]" => 
+        p!("[val: (1, (2))]" =>
             [func!("val": (tuple!(Num(1.0), tuple!(Num(2.0)))), {})]
         );
         p!("[val: css(1pt, rgb(90, 102, 254), \"solid\")]" =>
@@ -896,7 +892,7 @@ mod tests {
                 ), Str("solid")
             )), {})]
         );
-        
+
         // Invalid commas
         p!("[val: (,)]" =>
             [func!("val": (tuple!()), {})],

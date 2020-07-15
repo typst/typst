@@ -230,7 +230,7 @@ impl<'s> Iterator for Tokens<'s> {
             // Expressions or just strings.
             c => {
                 let body = self.mode == Body;
-                
+
                 let text = self.read_string_until(|n| {
                     match n {
                         c if c.is_whitespace() => true,
@@ -389,12 +389,10 @@ impl<'s> Tokens<'s> {
     fn parse_hex_value(&mut self) -> Token<'s> {
         // This will parse more than the permissable 0-9, a-f, A-F character
         // ranges to provide nicer error messages later.
-        let payload = self.read_string_until(
-            |n| !n.is_ascii_alphanumeric(), 
+        ExprHex(self.read_string_until(
+            |n| !n.is_ascii_alphanumeric(),
             false, 0, 0
-        ).0;
-
-        ExprHex(payload)
+        ).0)
     }
 
     fn parse_expr(&mut self, text: &'s str) -> Token<'s> {
