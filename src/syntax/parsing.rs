@@ -1,6 +1,7 @@
 //! Parsing of source code into syntax models.
 
 use std::iter::FromIterator;
+use std::str::FromStr;
 
 use crate::{Pass, Feedback};
 use super::func::{FuncHeader, FuncArgs, FuncArg};
@@ -187,6 +188,14 @@ impl<'s> FuncParser<'s> {
             // If we have an identifier we might have a keyword argument,
             // otherwise its for sure a postional argument.
             if let Some(ident) = p.parse_ident() {
+                // This could still be a named tuple
+                if let Some(Token::LeftParen) = p.peekv() {
+                    return Ok(FuncArg::Pos(
+                        p.parse_named_tuple(ident)
+                            .map(|t| Expr::NamedTuple(t))
+                    ));
+                }
+
                 p.skip_whitespace();
 
                 if let Some(Token::Equals) = p.peekv() {
@@ -223,7 +232,16 @@ impl<'s> FuncParser<'s> {
         }
 
         Some(match first.v {
-            Token::ExprIdent(i) => take!((Expr::Ident(Ident(i.to_string())))),
+            Token::ExprIdent(i) => {
+                let name = take!(Ident(i.to_string()));
+
+                // This could be a named tuple or an identifier
+                if let Some(Token::LeftParen) = self.peekv() {
+                    self.parse_named_tuple(name).map(|t| Expr::NamedTuple(t))
+                } else {
+                    name.map(|i| Expr::Ident(i))
+                }
+            },
             Token::ExprStr { string, terminated } => {
                 if !terminated {
                     self.expected_at("quote", first.span.end);
@@ -235,16 +253,25 @@ impl<'s> FuncParser<'s> {
             Token::ExprNumber(n) => take!(Expr::Number(n)),
             Token::ExprSize(s) => take!(Expr::Size(s)),
             Token::ExprBool(b) => take!(Expr::Bool(b)),
+            Token::ExprHex(s) => {
+                if let Ok(color) = RgbaColor::from_str(s) {
+                    take!(Expr::Color(color))
+                } else {
+                    // Heal color by assuming black
+                    self.feedback.errors.push(err!(first.span; "invalid color"));
+                    take!(Expr::Color(RgbaColor::new_healed(0, 0, 0, 255)))
+                }
+            },
 
-            Token::LeftParen => self.parse_tuple(),
-            Token::LeftBrace => self.parse_object(),
+            Token::LeftParen => self.parse_tuple().map(|t| Expr::Tuple(t)),
+            Token::LeftBrace => self.parse_object().map(|o| Expr::Object(o)),
 
             _ => return None,
         })
     }
 
     /// Parse a tuple expression: `(<expr>, ...)`.
-    fn parse_tuple(&mut self) -> Spanned<Expr> {
+    fn parse_tuple(&mut self) -> Spanned<Tuple> {
         let token = self.eat();
         debug_assert_eq!(token.map(Spanned::value), Some(Token::LeftParen));
 
@@ -252,11 +279,17 @@ impl<'s> FuncParser<'s> {
         // missing a `value` when an invalid token is encoutered.
         self.parse_collection(Some(Token::RightParen),
             |p| p.parse_expr().ok_or(("value", None)))
-            .map(|tuple| Expr::Tuple(tuple))
+    }
+
+    /// Parse a tuple expression: `name(<expr>, ...)` with a given identifier.
+    fn parse_named_tuple(&mut self, name: Spanned<Ident>) -> Spanned<NamedTuple> {
+        let tuple = self.parse_tuple();
+        let span = Span::merge(name.span, tuple.span);
+        Spanned::new(NamedTuple::new(name, tuple), span)
     }
 
     /// Parse an object expression: `{ <key>: <value>, ... }`.
-    fn parse_object(&mut self) -> Spanned<Expr> {
+    fn parse_object(&mut self) -> Spanned<Object> {
         let token = self.eat();
         debug_assert_eq!(token.map(Spanned::value), Some(Token::LeftBrace));
 
@@ -282,7 +315,7 @@ impl<'s> FuncParser<'s> {
             let value = p.parse_expr().ok_or(("value", None))?;
 
             Ok(Pair { key, value })
-        }).map(|object| Expr::Object(object))
+        })
     }
 
     /// Parse a comma-separated collection where each item is parsed through
@@ -513,6 +546,19 @@ mod tests {
     fn Id(text: &str) -> Expr { Expr::Ident(Ident(text.to_string())) }
     fn Str(text: &str) -> Expr { Expr::Str(text.to_string()) }
     fn Pt(points: f32) -> Expr { Expr::Size(Size::pt(points)) }
+
+    fn Clr(r: u8, g: u8, b: u8, a: u8) -> Expr {
+        Expr::Color(RgbaColor::new(r, g, b, a))
+    }
+    fn ClrStr(color: &str) -> Expr {
+        Expr::Color(RgbaColor::from_str(color).expect("invalid test color"))
+    }
+    fn ClrStrHealed() -> Expr {
+        let mut c = RgbaColor::from_str("000f").expect("invalid test color");
+        c.healed = true;
+        Expr::Color(c)
+    }
+
     fn T(text: &str) -> Node { Node::Text(text.to_string()) }
 
     /// Create a raw text node.
@@ -526,6 +572,16 @@ mod tests {
     macro_rules! tuple {
         ($($items:expr),* $(,)?) => {
             Expr::Tuple(Tuple { items: spanned![vec $($items),*].0 })
+        };
+    }
+
+    /// Create a named tuple expression.
+    macro_rules! named_tuple {
+        ($name:expr $(, $items:expr)* $(,)?) => {
+            Expr::NamedTuple(NamedTuple::new(
+                zspan(Ident($name.to_string())),
+                zspan(Tuple { items: spanned![vec $($items),*].0 })
+            ))
         };
     }
 
@@ -601,6 +657,15 @@ mod tests {
             Some(SyntaxModel { nodes: spanned![vec $($body)*].0 })
         });
         (@body) => (None);
+    }
+
+    #[test]
+    fn parse_color_strings() {
+        assert_eq!(Clr(0xf6, 0x12, 0x43, 0xff), ClrStr("f61243ff"));
+        assert_eq!(Clr(0xb3, 0xd8, 0xb3, 0xff), ClrStr("b3d8b3"));
+        assert_eq!(Clr(0xfc, 0xd2, 0xa9, 0xad), ClrStr("fCd2a9AD"));
+        assert_eq!(Clr(0x22, 0x33, 0x33, 0xff), ClrStr("233"));
+        assert_eq!(Clr(0x11, 0x11, 0x11, 0xbb), ClrStr("111b"));
     }
 
     #[test]
@@ -747,11 +812,26 @@ mod tests {
         p!("[val: 3.14]"   => [func!("val": (Num(3.14)), {})]);
         p!("[val: 4.5cm]"  => [func!("val": (Sz(Size::cm(4.5))), {})]);
         p!("[val: 12e1pt]" => [func!("val": (Pt(12e1)), {})]);
+        p!("[val: #f7a20500]" => [func!("val": (ClrStr("f7a20500")), {})]);
 
         // Unclosed string.
         p!("[val: \"hello]" => [func!("val": (Str("hello]")), {})], [
             (0:13, 0:13, "expected quote"),
             (0:13, 0:13, "expected closing bracket"),
+        ]);
+
+        //Invalid colors
+        p!("[val: #12345]" => [func!("val": (ClrStrHealed()), {})], [
+            (0:6, 0:12, "invalid color"),
+        ]);
+        p!("[val: #a5]" => [func!("val": (ClrStrHealed()), {})], [
+            (0:6, 0:9, "invalid color"),
+        ]);
+        p!("[val: #14b2ah]" => [func!("val": (ClrStrHealed()), {})], [
+            (0:6, 0:13, "invalid color"),
+        ]);
+        p!("[val: #f075ff011]" => [func!("val": (ClrStrHealed()), {})], [
+            (0:6, 0:16, "invalid color"),
         ]);
     }
 
@@ -759,11 +839,22 @@ mod tests {
     fn parse_tuples() {
         // Empty tuple
         p!("[val: ()]" => [func!("val": (tuple!()), {})]);
+        p!("[val: empty()]" => [func!("val": (named_tuple!("empty")), {})]);
 
         // Invalid value
         p!("[val: (🌎)]" =>
             [func!("val": (tuple!()), {})],
             [(0:7, 0:8, "expected value, found invalid token")],
+        );
+        p!("[val: sound(\x07)]" =>
+            [func!("val": (named_tuple!("sound")), {})],
+            [(0:12, 0:13, "expected value, found invalid token")],
+        );
+
+        // Invalid tuple name
+        p!("[val: 👠(\"abc\", 13e-5)]" =>
+            [func!("val": (tuple!(Str("abc"), Num(13.0e-5))), {})],
+            [(0:6, 0:7, "expected argument, found invalid token")],
         );
 
         // Unclosed tuple
@@ -771,18 +862,45 @@ mod tests {
             [func!("val": (tuple!(Id("hello"))), {})],
             [(0:12, 0:12, "expected closing paren")],
         );
+        p!("[val: lang(中文]" =>
+            [func!("val": (named_tuple!("lang", Id("中文"))), {})],
+            [(0:13, 0:13, "expected closing paren")],
+        );
 
         // Valid values
         p!("[val: (1, 2)]" => [func!("val": (tuple!(Num(1.0), Num(2.0))), {})]);
         p!("[val: (\"s\",)]" => [func!("val": (tuple!(Str("s"))), {})]);
+        p!("[val: cmyk(1, 46, 0, 0)]" =>
+            [func!("val": (named_tuple!(
+                "cmyk", Num(1.0), Num(46.0), Num(0.0), Num(0.0)
+            )), {})]
+        );
+        p!("[val: items(\"fire\", #f93a6d)]" =>
+            [func!("val": (named_tuple!(
+                "items", Str("fire"), ClrStr("f93a6d")
+            )), {})]
+        );
 
         // Nested tuples
-        p!("[val: (1, (2))]" => [func!("val": (tuple!(Num(1.0), tuple!(Num(2.0)))), {})]);
+        p!("[val: (1, (2))]" =>
+            [func!("val": (tuple!(Num(1.0), tuple!(Num(2.0)))), {})]
+        );
+        p!("[val: css(1pt, rgb(90, 102, 254), \"solid\")]" =>
+            [func!("val": (named_tuple!(
+                "css", Pt(1.0), named_tuple!(
+                    "rgb", Num(90.0), Num(102.0), Num(254.0)
+                ), Str("solid")
+            )), {})]
+        );
 
         // Invalid commas
         p!("[val: (,)]" =>
             [func!("val": (tuple!()), {})],
             [(0:7, 0:8, "expected value, found comma")],
+        );
+        p!("[val: nose(,)]" =>
+            [func!("val": (named_tuple!("nose")), {})],
+            [(0:11, 0:12, "expected value, found comma")],
         );
         p!("[val: (true false)]" =>
             [func!("val": (tuple!(Bool(true), Bool(false))), {})],

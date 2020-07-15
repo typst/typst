@@ -78,6 +78,8 @@ pub enum Token<'s> {
     ExprSize(Size),
     /// A boolean in a function header: `true | false`.
     ExprBool(bool),
+    /// A hex value in a function header: `#20d82a`
+    ExprHex(&'s str),
 
     /// A star in body-text.
     Star,
@@ -122,6 +124,7 @@ impl<'s> Token<'s> {
             ExprNumber(_)   => "number",
             ExprSize(_)     => "size",
             ExprBool(_)     => "bool",
+            ExprHex(_)      => "hex value",
             Star            => "star",
             Underscore      => "underscore",
             Backslash       => "backslash",
@@ -221,9 +224,13 @@ impl<'s> Iterator for Tokens<'s> {
             // An escaped thing.
             '\\' if self.mode == Body => self.parse_escaped(),
 
+            // A hex expression.
+            '#' if self.mode == Header => self.parse_hex_value(),
+
             // Expressions or just strings.
             c => {
                 let body = self.mode == Body;
+
                 let text = self.read_string_until(|n| {
                     match n {
                         c if c.is_whitespace() => true,
@@ -379,6 +386,15 @@ impl<'s> Tokens<'s> {
         }
     }
 
+    fn parse_hex_value(&mut self) -> Token<'s> {
+        // This will parse more than the permissable 0-9, a-f, A-F character
+        // ranges to provide nicer error messages later.
+        ExprHex(self.read_string_until(
+            |n| !n.is_ascii_alphanumeric(),
+            false, 0, 0
+        ).0)
+    }
+
     fn parse_expr(&mut self, text: &'s str) -> Token<'s> {
         if let Ok(b) = text.parse::<bool>() {
             ExprBool(b)
@@ -499,6 +515,7 @@ mod tests {
         ExprNumber as Num,
         ExprSize as Sz,
         ExprBool as Bool,
+        ExprHex as Hex,
         Text as T,
     };
 
@@ -587,6 +604,8 @@ mod tests {
         t!(Body, "c=d, "               => [T("c=d,"), S(0)]);
         t!(Header, "(){}:=,"           => [LP, RP, LB, RB, Colon, Equals, Comma]);
         t!(Header, "a:b"               => [Id("a"), Colon, Id("b")]);
+        t!(Header, "#6ae6dd"           => [Hex("6ae6dd")]);
+        t!(Header, "#8A083c"           => [Hex("8A083c")]);
         t!(Header, "a: true, x=1"      => [Id("a"), Colon, S(0), Bool(true), Comma, S(0), Id("x"), Equals, Num(1.0)]);
         t!(Header, "=3.14"             => [Equals, Num(3.14)]);
         t!(Header, "12.3e5"            => [Num(12.3e5)]);

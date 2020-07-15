@@ -2,6 +2,9 @@
 
 use std::fmt::{self, Write, Debug, Formatter};
 use std::iter::FromIterator;
+use std::ops::Deref;
+use std::str::FromStr;
+use std::u8;
 
 use crate::error::Errors;
 use crate::size::Size;
@@ -23,8 +26,12 @@ pub enum Expr {
     Size(Size),
     /// A bool: `true, false`.
     Bool(bool),
+    /// A color value, including the alpha channel: `#f79143ff`
+    Color(RgbaColor),
     /// A tuple: `(false, 12cm, "hi")`.
     Tuple(Tuple),
+    /// A named tuple: `cmyk(37.7, 0, 3.9, 1.1)`.
+    NamedTuple(NamedTuple),
     /// An object: `{ fit: false, size: 12pt }`.
     Object(Object),
 }
@@ -39,7 +46,9 @@ impl Expr {
             Number(_) => "number",
             Size(_) => "size",
             Bool(_) => "bool",
+            Color(_) => "color",
             Tuple(_) => "tuple",
+            NamedTuple(_) => "named tuple",
             Object(_) => "object",
         }
     }
@@ -54,7 +63,9 @@ impl Debug for Expr {
             Number(n) => n.fmt(f),
             Size(s) => s.fmt(f),
             Bool(b) => b.fmt(f),
+            Color(c) => c.fmt(f),
             Tuple(t) => t.fmt(f),
+            NamedTuple(t) => t.fmt(f),
             Object(o) => o.fmt(f),
         }
     }
@@ -94,6 +105,116 @@ impl Debug for Ident {
         f.write_char('`')?;
         f.write_str(&self.0)?;
         f.write_char('`')
+    }
+}
+
+/// An 8-bit RGBA color.
+///
+/// # Example
+/// ```typst
+/// [box: background=#423abaff]
+///                   ^^^^^^^^
+/// ```
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub struct RgbaColor {
+    /// Red channel.
+    pub r: u8,
+    /// Green channel.
+    pub g: u8,
+    /// Blue channel.
+    pub b: u8,
+    /// Alpha channel.
+    pub a: u8,
+    /// Indicates whether this is a user-provided value or a
+    /// default value provided as a fail-over by the parser.
+    /// This color may be overwritten if this property is true.
+    pub healed: bool,
+}
+
+impl RgbaColor {
+    /// Constructs a new color.
+    pub fn new(r: u8, g: u8, b: u8, a: u8) -> RgbaColor {
+        RgbaColor { r, g, b, a, healed: false }
+    }
+
+    /// Constructs a new color with the healed property set to true.
+    pub fn new_healed(r: u8, g: u8, b: u8, a: u8) -> RgbaColor {
+        RgbaColor { r, g, b, a, healed: true }
+    }
+
+}
+
+impl FromStr for RgbaColor {
+    type Err = ParseColorError;
+
+    /// Constructs a new color from a hex string like `7a03c2`.
+    /// Do not specify a leading `#`.
+    fn from_str(hex_str: &str) -> Result<RgbaColor, Self::Err> {
+        if !hex_str.is_ascii() {
+            return Err(ParseColorError);
+        }
+
+        let len = hex_str.len();
+        let long =  len == 6 || len == 8;
+        let short = len == 3 || len == 4;
+        let alpha = len == 4 || len == 8;
+
+        if !long && !short {
+            return Err(ParseColorError);
+        }
+
+        let mut values: [u8; 4] = [255; 4];
+
+        for elem in if alpha { 0..4 } else { 0..3 } {
+            let item_len = if long { 2 } else { 1 };
+            let pos = elem * item_len;
+
+            let item = &hex_str[pos..(pos+item_len)];
+            values[elem] = u8::from_str_radix(item, 16)
+                .map_err(|_| ParseColorError)?;
+
+            if short {
+                // Duplicate number for shorthand notation, i.e. `a` -> `aa`
+                values[elem] += values[elem] * 16;
+            }
+        }
+
+        Ok(RgbaColor::new(values[0], values[1], values[2], values[3]))
+    }
+}
+
+impl Debug for RgbaColor {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if f.alternate() {
+            f.write_str("rgba(")?;
+            write!(f, "r: {:02}, ", self.r)?;
+            write!(f, "g: {:02}, ", self.g)?;
+            write!(f, "b: {:02}, ", self.b)?;
+            write!(f, "a: {:02}",   self.a)?;
+            f.write_char(')')?;
+        } else {
+            f.write_char('#')?;
+            write!(f, "{:02x}", self.r)?;
+            write!(f, "{:02x}", self.g)?;
+            write!(f, "{:02x}", self.b)?;
+            write!(f, "{:02x}", self.a)?;
+        }
+        if self.healed {
+            f.write_fmt(format_args!(" [healed]"))?;
+        }
+        Ok(())
+    }
+}
+
+/// The error returned when parsing a [`RgbaColor`] from a string fails.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ParseColorError;
+
+impl std::error::Error for ParseColorError {}
+
+impl fmt::Display for ParseColorError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("invalid color")
     }
 }
 
@@ -182,6 +303,35 @@ impl Debug for Tuple {
         f.debug_list()
             .entries(&self.items)
             .finish()
+    }
+}
+
+/// A named, untyped sequence of expressions.
+///
+/// # Example
+/// ```typst
+/// hsl(93, 10, 19.4)
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct NamedTuple {
+    /// The name of the tuple and where it is in the user source.
+    pub name: Spanned<Ident>,
+    /// The elements of the tuple.
+    pub tuple: Spanned<Tuple>,
+}
+
+impl NamedTuple {
+    /// Create a named tuple from a tuple.
+    pub fn new(name: Spanned<Ident>, tuple: Spanned<Tuple>) -> NamedTuple {
+        NamedTuple { name, tuple }
+    }
+}
+
+impl Deref for NamedTuple {
+    type Target = Tuple;
+
+    fn deref(&self) -> &Self::Target {
+        &self.tuple.v
     }
 }
 
