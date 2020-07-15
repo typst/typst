@@ -253,15 +253,13 @@ impl<'s> FuncParser<'s> {
             Token::ExprSize(s) => take!(Expr::Size(s)),
             Token::ExprBool(b) => take!(Expr::Bool(b)),
             Token::ExprHex(s) => {
-                let color_opt = RgbaColor::from_str(s);
-
-                if let Some(color) = color_opt {
+                if let Some(color) = RgbaColor::from_str(s) {
                     take!(Expr::Color(color))
                 } else {
                     // Heal color by assuming black
                     self.feedback.errors.push(err!(first.span;
-                        "expected valid color, found invalid color #{}", s));
-                    take!(Expr::Color(RgbaColor::new(0, 0, 0, 255)))
+                        "invalid color"));
+                    take!(Expr::Color(RgbaColor::new_healed(0, 0, 0, 255)))
                 }
             },
 
@@ -286,8 +284,8 @@ impl<'s> FuncParser<'s> {
     /// Parse a tuple expression: `name(<expr>, ...)` with a given identifier.
     fn parse_named_tuple(&mut self, name: Spanned<Ident>) -> Spanned<NamedTuple> {
         let tuple = self.parse_tuple();
-        let start = name.span.start.clone();
-        let end = tuple.span.end.clone();
+        let start = name.span.start;
+        let end = tuple.span.end;
         Spanned::new(NamedTuple::new(name, tuple), Span::new(start, end))
     }
 
@@ -549,14 +547,22 @@ mod tests {
     fn Id(text: &str) -> Expr { Expr::Ident(Ident(text.to_string())) }
     fn Str(text: &str) -> Expr { Expr::Str(text.to_string()) }
     fn Pt(points: f32) -> Expr { Expr::Size(Size::pt(points)) }
+
     fn ClrS(color: &str) -> Expr {
         Expr::Color(
             RgbaColor::from_str(color).expect("Test color invalid")
         )
     }
+    fn ClrS_Healed() -> Expr {
+        let mut c = RgbaColor::from_str("000f")
+            .expect("Test color invalid");
+        c.healed = true;
+        Expr::Color(c)
+    }
     fn Clr(r: u8, g: u8, b: u8, a: u8) -> Expr {
         Expr::Color(RgbaColor::new(r, g, b, a))
     }
+
     fn T(text: &str) -> Node { Node::Text(text.to_string()) }
 
     /// Create a raw text node.
@@ -819,17 +825,17 @@ mod tests {
         ]);
 
         //Invalid colors
-        p!("[val: #12345]" => [func!("val": (ClrS("000f")), {})], [
-            (0:6, 0:12, "expected valid color, found invalid color #12345"),
+        p!("[val: #12345]" => [func!("val": (ClrS_Healed()), {})], [
+            (0:6, 0:12, "invalid color"),
         ]);
-        p!("[val: #a5]" => [func!("val": (ClrS("000f")), {})], [
-            (0:6, 0:9, "expected valid color, found invalid color #a5"),
+        p!("[val: #a5]" => [func!("val": (ClrS_Healed()), {})], [
+            (0:6, 0:9, "invalid color"),
         ]);
-        p!("[val: #14b2ah]" => [func!("val": (ClrS("000f")), {})], [
-            (0:6, 0:13, "expected valid color, found invalid color #14b2a"),
+        p!("[val: #14b2ah]" => [func!("val": (ClrS_Healed()), {})], [
+            (0:6, 0:13, "invalid color"),
         ]);
-        p!("[val: #f075ff011]" => [func!("val": (ClrS("000f")), {})], [
-            (0:6, 0:16, "expected valid color, found invalid color #f075ff011"),
+        p!("[val: #f075ff011]" => [func!("val": (ClrS_Healed()), {})], [
+            (0:6, 0:16, "invalid color"),
         ]);
     }
 

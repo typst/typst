@@ -224,24 +224,13 @@ impl<'s> Iterator for Tokens<'s> {
             // An escaped thing.
             '\\' if self.mode == Body => self.parse_escaped(),
 
+            // A hex expression.
+            '#' if self.mode == Header => self.parse_hex_value(),
+
             // Expressions or just strings.
             c => {
                 let body = self.mode == Body;
                 
-                // This may be a hex expression
-                let hex_expr = if c == '#' && !body {
-                    let payload = self.read_string_until(|n| {
-                        match n {
-                            '0'..='9' | 'a'..='f' | 'A'..='F' => false,
-                            _ => true,
-                        }
-                    }, false, 0, 0).0;
-
-                    Some(ExprHex(payload))
-                } else {
-                    None
-                };
-
                 let text = self.read_string_until(|n| {
                     match n {
                         c if c.is_whitespace() => true,
@@ -253,9 +242,7 @@ impl<'s> Iterator for Tokens<'s> {
                     }
                 }, false, -(c.len_utf8() as isize), 0).0;
 
-                if let Some(hex_expr) = hex_expr {
-                    hex_expr
-                } else if self.mode == Header {
+                if self.mode == Header {
                     self.parse_expr(text)
                 } else {
                     Text(text)
@@ -397,6 +384,17 @@ impl<'s> Tokens<'s> {
             Some(_) => Text("\\"),
             None => Backslash,
         }
+    }
+
+    fn parse_hex_value(&mut self) -> Token<'s> {
+        // This will parse more than the permissable 0-9, a-f, A-F character
+        // ranges to provide nicer error messages later.
+        let payload = self.read_string_until(
+            |n| !n.is_ascii_alphanumeric(), 
+            false, 0, 0
+        ).0;
+
+        ExprHex(payload)
     }
 
     fn parse_expr(&mut self, text: &'s str) -> Token<'s> {

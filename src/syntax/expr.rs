@@ -116,42 +116,57 @@ impl Debug for Ident {
 /// ```
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct RgbaColor {
-    r: u8,
-    g: u8,
-    b: u8,
-    a: u8,
+    /// Red channel.
+    pub r: u8,
+    /// Green channel.
+    pub g: u8,
+    /// Blue channel.
+    pub b: u8,
+    /// Alpha channel.
+    pub a: u8,
+    /// Indicates whether this is a user-provided value or a
+    /// default value provided as a fail-over by the parser.
+    /// This color may be overwritten if this property is true.
+    pub healed: bool,
 }
 
 impl RgbaColor {
+    /// Constructs a new color.
     pub fn new(r: u8, g: u8, b: u8, a: u8) -> RgbaColor {
-        RgbaColor { r, g, b, a }
+        RgbaColor { r, g, b, a, healed: false }
     }
 
+    /// Constructs a new color with the healed property set to true.
+    pub fn new_healed(r: u8, g: u8, b: u8, a: u8) -> RgbaColor {
+        RgbaColor { r, g, b, a, healed: true }
+    }
+
+    /// Constructs a new color from a hex string like `7a03c2`.
+    /// Do not specify a leading `#`.
     pub fn from_str(hex_str: &str) -> Option<RgbaColor> {
-        let len = hex_str.len();
-        let permissable = &[3, 4, 6, 8];
-        
-        if !permissable.contains(&len) {
+        if !hex_str.is_ascii() {
             return None;
         }
 
-        let long = len == 6 || len == 8;
+        let len = hex_str.len();
+        let long =  len == 6 || len == 8;
+        let short = len == 3 || len == 4;
         let alpha = len == 4 || len == 8;
+
+        if !long && !short {
+            return None;
+        }
+
         let mut values: [u8; 4] = [255; 4];
 
         for elem in if alpha { 0..4 } else { 0..3 } {
             let item_len = if long { 2 } else { 1 };
             let pos = elem * item_len;
 
-            if let Ok(val) = u8::from_str_radix(
-                &hex_str[pos..(pos+item_len)], 16) {
-                values[elem] = val;
-            } else {
-                // Some non-hexadecimal characters slipped into the color
-                return None;
-            }
+            let item = &hex_str[pos..(pos+item_len)];
+            values[elem] = u8::from_str_radix(item, 16).ok()?;
             
-            if !long {
+            if short {
                 // Duplicate number for shorthand notation, i.e. `a` -> `aa`
                 values[elem] += values[elem] * 16;
             }
@@ -171,13 +186,18 @@ impl Debug for RgbaColor {
             f.write_fmt(format_args!("g: {:02}, ", self.g))?;
             f.write_fmt(format_args!("b: {:02}, ", self.b))?;
             f.write_fmt(format_args!("a: {:02}",   self.a))?;
-            f.write_char(')')
+            f.write_char(')')?;
         } else {
             f.write_char('#')?;
             f.write_fmt(format_args!("{:02x}", self.r))?;
             f.write_fmt(format_args!("{:02x}", self.g))?;
             f.write_fmt(format_args!("{:02x}", self.b))?;
-            f.write_fmt(format_args!("{:02x}", self.a))
+            f.write_fmt(format_args!("{:02x}", self.a))?;
+        }
+        if self.healed {
+            f.write_fmt(format_args!(" [healed]"))
+        } else {
+            Ok(())
         }
     }
 }
@@ -276,8 +296,9 @@ impl Debug for Tuple {
 /// ```typst
 /// hsl(93, 10, 19.4)
 /// ```
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct NamedTuple {
+    /// The name of the tuple and where it is in the user source.
     pub name: Spanned<Ident>,
     /// The elements of the tuple.
     pub tuple: Spanned<Tuple>,
@@ -295,15 +316,6 @@ impl Deref for NamedTuple {
 
     fn deref(&self) -> &Self::Target {
         &self.tuple.v
-    }
-}
-
-impl Debug for NamedTuple {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("named tuple")
-            .field("name", &self.name)
-            .field("values", &self.tuple)
-            .finish()
     }
 }
 
