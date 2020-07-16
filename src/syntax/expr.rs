@@ -115,7 +115,7 @@ impl Debug for Ident {
 /// [box: background=#423abaff]
 ///                   ^^^^^^^^
 /// ```
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct RgbaColor {
     /// Red channel.
     pub r: u8,
@@ -141,7 +141,6 @@ impl RgbaColor {
     pub fn new_healed(r: u8, g: u8, b: u8, a: u8) -> RgbaColor {
         RgbaColor { r, g, b, a, healed: true }
     }
-
 }
 
 impl FromStr for RgbaColor {
@@ -186,21 +185,20 @@ impl FromStr for RgbaColor {
 impl Debug for RgbaColor {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if f.alternate() {
-            f.write_str("rgba(")?;
-            write!(f, "r: {:02}, ", self.r)?;
-            write!(f, "g: {:02}, ", self.g)?;
-            write!(f, "b: {:02}, ", self.b)?;
-            write!(f, "a: {:02}",   self.a)?;
-            f.write_char(')')?;
+            write!(
+                f,
+                "rgba({:02}, {:02}, {:02}, {:02})",
+                self.r, self.g, self.b, self.a,
+            )?;
         } else {
-            f.write_char('#')?;
-            write!(f, "{:02x}", self.r)?;
-            write!(f, "{:02x}", self.g)?;
-            write!(f, "{:02x}", self.b)?;
-            write!(f, "{:02x}", self.a)?;
+            write!(
+                f,
+                "#{:02x}{:02x}{:02x}{:02x}",
+                self.r, self.g, self.b, self.a,
+            )?;
         }
         if self.healed {
-            f.write_fmt(format_args!(" [healed]"))?;
+            f.write_str(" [healed]")?;
         }
         Ok(())
     }
