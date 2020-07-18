@@ -152,7 +152,7 @@ impl SpanlessEq for Object {
     fn spanless_eq(&self, other: &Object) -> bool {
         self.pairs.len() == other.pairs.len()
         && self.pairs.iter().zip(&other.pairs)
-            .all(|(x, y)| x.key.v == y.key.v && x.value.v.spanless_eq(&y.value.v))
+            .all(|(x, y)| x.v.key.v == y.v.key.v && x.v.value.v.spanless_eq(&y.v.value.v))
     }
 }
 

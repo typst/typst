@@ -190,10 +190,10 @@ impl<'s> FuncParser<'s> {
             if let Some(ident) = p.parse_ident() {
                 // This could still be a named tuple
                 if let Some(Token::LeftParen) = p.peekv() {
-                    return Ok(FuncArg::Pos(
-                        p.parse_named_tuple(ident)
-                            .map(|t| Expr::NamedTuple(t))
-                    ));
+                    let n_tuple = p.parse_named_tuple(ident)
+                        .map(|t| Expr::NamedTuple(t));
+                    let span = n_tuple.span;
+                    return Ok(Spanned::new(FuncArg::Pos(n_tuple), span));
                 }
 
                 p.skip_whitespace();
@@ -209,16 +209,22 @@ impl<'s> FuncParser<'s> {
                     let value = p.parse_expr().ok_or(("value", None))?;
 
                     // Add a keyword argument.
-                    Ok(FuncArg::Key(Pair { key: ident, value }))
+                    let span = Span::merge(ident.span, value.span);
+                    Ok(Spanned::new(
+                        FuncArg::Key(Spanned::new(Pair { key: ident, value }, span)),
+                        span,
+                        ))
                 } else {
                     // Add a positional argument because there was no equals
                     // sign after the identifier that could have been a key.
-                    Ok(FuncArg::Pos(ident.map(|id| Expr::Ident(id))))
+                    let ident = ident.map(|id| Expr::Ident(id));
+                    let span = ident.span;
+                    Ok(Spanned::new(FuncArg::Pos(ident), span))
                 }
             } else {
                 // Add a positional argument because we haven't got an
                 // identifier that could be an argument key.
-                p.parse_expr().map(|expr| FuncArg::Pos(expr))
+                p.parse_expr().map(|expr| Spanned { span: expr.span, v: FuncArg::Pos(expr) })
                     .ok_or(("argument", None))
             }
         }).v
@@ -231,78 +237,58 @@ impl<'s> FuncParser<'s> {
     /// we look for multiplication and division and here finally, for addition
     /// and subtraction.
     fn parse_expr(&mut self) -> Option<Spanned<Expr>> {
-        let term = self.parse_term()?;
-        self.skip_whitespace();
-
-        if let Some(next) = self.peek() {
-            match next.v {
-                Token::Plus | Token::Hyphen => {
-                    self.eat();
-                    self.skip_whitespace();
-                    let o2 = self.parse_expr();
-                    if o2.is_none() {
-                        self.feedback.errors.push(err!(
-                            Span::merge(next.span, term.span);
-                            "Missing right summand"
-                        ));
-                        return Some(term)
-                    }
-
-                    let o2 = o2.expect("Checked for None before");
-                    let span = Span::merge(term.span, o2.span);
-                    match next.v {
-                        Token::Plus => Some(Spanned::new(
-                            Expr::Add(Box::new(term), Box::new(o2)), span
-                        )),
-                        Token::Hyphen => Some(Spanned::new(
-                            Expr::Sub(Box::new(term), Box::new(o2)), span
-                        )),
-                        _ => unreachable!(),
-                    }
-                }, 
-                _ => Some(term)
-            }
-        } else {
-            Some(term)
-        }
+        let o1 = self.parse_term()?;
+        self.parse_binop(o1, "summand", Self::parse_expr, |token| match token {
+            Token::Plus => Some(Expr::Add),
+            Token::Hyphen => Some(Expr::Sub),
+            _ => None,
+        })
     }
 
     fn parse_term(&mut self) -> Option<Spanned<Expr>> {
-        // TODO: Deduplicate code here
-        let factor = self.parse_factor()?;
+        let o1 = self.parse_factor()?;
+        self.parse_binop(o1, "factor", Self::parse_term, |token| match token {
+            Token::Star => Some(Expr::Mul),
+            Token::Slash => Some(Expr::Div),
+            _ => None,
+        })
+    }
+
+    fn parse_binop<F, G>(
+        &mut self,
+        o1: Spanned<Expr>,
+        operand_name: &str,
+        mut parse_operand: F,
+        parse_op: G,
+    ) -> Option<Spanned<Expr>>
+    where
+        F: FnMut(&mut Self) -> Option<Spanned<Expr>>,
+        G: FnOnce(Token) -> Option<fn(Box<Spanned<Expr>>, Box<Spanned<Expr>>) -> Expr>,
+    {
         self.skip_whitespace();
 
         if let Some(next) = self.peek() {
-            match next.v {
-                Token::Star | Token::Slash => {
-                    self.eat();
-                    self.skip_whitespace();
-                    let o2 = self.parse_term();
-                    if o2.is_none() {
-                        self.feedback.errors.push(err!(
-                            Span::merge(next.span, factor.span);
-                            "Missing right factor"
-                        ));
-                        return Some(factor)
-                    }
+            let binop = match parse_op(next.v) {
+                Some(op) => op,
+                None => return Some(o1),
+            };
 
-                    let o2 = o2.expect("Checked for None before");
-                    let span = Span::merge(factor.span, o2.span);
-                    match next.v {
-                        Token::Star => Some(Spanned::new(
-                            Expr::Mul(Box::new(factor), Box::new(o2)), span
-                        )),
-                        Token::Slash => Some(Spanned::new(
-                            Expr::Div(Box::new(factor), Box::new(o2)), span
-                        )),
-                        _ => unreachable!(),
-                    }
-                }, 
-                _ => Some(factor)
+            self.eat();
+            self.skip_whitespace();
+
+            if let Some(o2) = parse_operand(self) {
+                let span = Span::merge(o1.span, o2.span);
+                let expr = binop(Box::new(o1), Box::new(o2));
+                return Some(Spanned::new(expr, span));
+            } else {
+                self.feedback.errors.push(err!(
+                    Span::merge(next.span, o1.span);
+                    "missing right {}", operand_name,
+                ));
             }
-        } else {
-            Some(factor)
         }
+
+        Some(o1)
     }
 
     /// Parse expressions that are of the form value or -value
@@ -310,16 +296,15 @@ impl<'s> FuncParser<'s> {
         let first = self.peek()?;
         if first.v == Token::Hyphen {
             self.eat();
-            let o2 = self.parse_value();
             self.skip_whitespace();
-            if o2.is_none() {
-                self.feedback.errors.push(err!(first.span; "Dangling minus"));
-                return None
+            
+            if let Some(factor) = self.parse_value() {
+                let span = Span::merge(first.span, factor.span);
+                Some(Spanned::new(Expr::Neg(Box::new(factor)), span))
+            } else {
+                self.feedback.errors.push(err!(first.span; "dangling minus"));
+                None
             }
-
-            let o2 = o2.expect("Checked for None before");
-            let span = Span::merge(first.span, o2.span);
-            Some(Spanned::new(Expr::Neg(Box::new(o2)), span))
         } else {
             self.parse_value()
         }
@@ -423,7 +408,8 @@ impl<'s> FuncParser<'s> {
 
             let value = p.parse_expr().ok_or(("value", None))?;
 
-            Ok(Pair { key, value })
+            let span = Span::merge(key.span, value.span);
+            Ok(Spanned::new(Pair { key, value }, span))
         })
     }
 
@@ -438,8 +424,8 @@ impl<'s> FuncParser<'s> {
         mut parse_item: F
     ) -> (Spanned<C>, bool)
     where
-        C: FromIterator<I>,
-        F: FnMut(&mut Self) -> Result<I, (&'static str, Option<Position>)>,
+        C: FromIterator<Spanned<I>>,
+        F: FnMut(&mut Self) -> Result<Spanned<I>, (&'static str, Option<Position>)>,
     {
         let start = self.pos();
         let mut can_be_coerced = true;
@@ -469,7 +455,6 @@ impl<'s> FuncParser<'s> {
                 Ok(item) => {
                     // Expect a comma behind the item (only separated by
                     // whitespace).
-                    let behind_item = self.pos();
                     self.skip_whitespace();
                     match self.peekv() {
                         Some(Token::Comma) => {
@@ -478,7 +463,7 @@ impl<'s> FuncParser<'s> {
                         }
                         t @ Some(_) if t != end => {
                             can_be_coerced = false;
-                            self.expected_at("comma", behind_item);
+                            self.expected_at("comma", item.span.end);
                         },
                         _ => {}
                     }
@@ -513,8 +498,8 @@ impl<'s> FuncParser<'s> {
         parse_item: F
     ) -> Spanned<C>
     where
-        C: FromIterator<I>,
-        F: FnMut(&mut Self) -> Result<I, (&'static str, Option<Position>)>,
+        C: FromIterator<Spanned<I>>,
+        F: FnMut(&mut Self) -> Result<Spanned<I>, (&'static str, Option<Position>)>,
     {
         self.parse_collection_bracket_aware(end, parse_item).0
     }
@@ -735,10 +720,10 @@ mod tests {
     macro_rules! object {
         ($($key:expr => $value:expr),* $(,)?) => {
             Expr::Object(Object {
-                pairs: vec![$(Pair {
+                pairs: vec![$(zspan(Pair {
                     key: zspan(Ident($key.to_string())),
                     value: zspan($value),
-                }),*]
+                })),*]
             })
         };
     }
@@ -995,9 +980,20 @@ mod tests {
                 Sub(Div(Num(5.0), Num(2.0)), Num(1.0))
             )
         ), {})]);
-        p!("[val: (6.3E+2+4*-3.2pt)/2]"  => [func!("val": (
+        p!("[val: (6.3E+2+4* - 3.2pt)/2]"  => [func!("val": (
             Div(Add(Num(6.3e2),Mul(Num(4.0), Neg(Pt(3.2)))), Num(2.0))
         ), {})]);
+        p!("[val: 4pt--]" =>
+            [func!("val": (Pt(4.0)), {})],
+            [
+                (0:10, 0:11, "dangling minus"),
+                (0:6, 0:10, "missing right summand")
+            ],
+        );
+        p!("[val: 3mm+4pt*]" =>
+            [func!("val": (Add(Sz(Size::mm(3.0)), Pt(4.0))), {})],
+            [(0:10, 0:14, "missing right factor")],
+        );
     }
 
     #[test]

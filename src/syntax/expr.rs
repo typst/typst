@@ -364,7 +364,7 @@ impl Deref for NamedTuple {
 #[derive(Default, Clone, PartialEq)]
 pub struct Object {
     /// The key-value pairs of the object.
-    pub pairs: Vec<Pair>,
+    pub pairs: Vec<Spanned<Pair>>,
 }
 
 /// A key-value pair in an object.
@@ -391,7 +391,7 @@ impl Object {
     }
 
     /// Add a pair to object.
-    pub fn add(&mut self, pair: Pair) {
+    pub fn add(&mut self, pair: Spanned<Pair>) {
         self.pairs.push(pair);
     }
 
@@ -401,7 +401,7 @@ impl Object {
     /// Inserts an error if the value does not match. If the key is not
     /// contained, no error is inserted.
     pub fn get<V: Value>(&mut self, errors: &mut Errors, key: &str) -> Option<V> {
-        let index = self.pairs.iter().position(|pair| pair.key.v.as_str() == key)?;
+        let index = self.pairs.iter().position(|pair| pair.v.key.v.as_str() == key)?;
         self.get_index::<V>(errors, index)
     }
 
@@ -414,7 +414,7 @@ impl Object {
         errors: &mut Errors,
     ) -> Option<(K, V)> {
         for (index, pair) in self.pairs.iter().enumerate() {
-            let key = Spanned { v: pair.key.v.as_str(), span: pair.key.span };
+            let key = Spanned { v: pair.v.key.v.as_str(), span: pair.v.key.span };
             if let Some(key) = K::parse(key) {
                 return self.get_index::<V>(errors, index).map(|value| (key, value));
             }
@@ -432,7 +432,7 @@ impl Object {
         let mut index = 0;
         std::iter::from_fn(move || {
             if index < self.pairs.len() {
-                let key = &self.pairs[index].key;
+                let key = &self.pairs[index].v.key;
                 let key = Spanned { v: key.v.as_str(), span: key.span };
 
                 Some(if let Some(key) = K::parse(key) {
@@ -465,7 +465,7 @@ impl Object {
     /// Extract the argument at the given index and insert an error if the value
     /// does not match.
     fn get_index<V: Value>(&mut self, errors: &mut Errors, index: usize) -> Option<V> {
-        let expr = self.pairs.remove(index).value;
+        let expr = self.pairs.remove(index).v.value;
         let span = expr.span;
         match V::parse(expr) {
             Ok(output) => Some(output),
@@ -474,14 +474,14 @@ impl Object {
     }
 
     /// Iterate over the pairs of this object.
-    pub fn iter<'a>(&'a self) -> std::slice::Iter<'a, Pair> {
+    pub fn iter<'a>(&'a self) -> std::slice::Iter<'a, Spanned<Pair>> {
         self.pairs.iter()
     }
 }
 
 impl IntoIterator for Object {
-    type Item = Pair;
-    type IntoIter = std::vec::IntoIter<Pair>;
+    type Item = Spanned<Pair>;
+    type IntoIter = std::vec::IntoIter<Spanned<Pair>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.pairs.into_iter()
@@ -489,16 +489,16 @@ impl IntoIterator for Object {
 }
 
 impl<'a> IntoIterator for &'a Object {
-    type Item = &'a Pair;
-    type IntoIter = std::slice::Iter<'a, Pair>;
+    type Item = &'a Spanned<Pair>;
+    type IntoIter = std::slice::Iter<'a, Spanned<Pair>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
 
-impl FromIterator<Pair> for Object {
-    fn from_iter<I: IntoIterator<Item=Pair>>(iter: I) -> Self {
+impl FromIterator<Spanned<Pair>> for Object {
+    fn from_iter<I: IntoIterator<Item=Spanned<Pair>>>(iter: I) -> Self {
         Object { pairs: iter.into_iter().collect() }
     }
 }
@@ -506,7 +506,7 @@ impl FromIterator<Pair> for Object {
 impl Debug for Object {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_map()
-            .entries(self.pairs.iter().map(|p| (&p.key.v, &p.value.v)))
+            .entries(self.pairs.iter().map(|p| (&p.v.key.v, &p.v.value.v)))
             .finish()
     }
 }

@@ -56,11 +56,11 @@ impl FuncArgs {
     }
 }
 
-impl FromIterator<FuncArg> for FuncArgs {
-    fn from_iter<I: IntoIterator<Item=FuncArg>>(iter: I) -> Self {
+impl FromIterator<Spanned<FuncArg>> for FuncArgs {
+    fn from_iter<I: IntoIterator<Item=Spanned<FuncArg>>>(iter: I) -> Self {
         let mut args = FuncArgs::new();
         for item in iter.into_iter() {
-            args.add(item);
+            args.add(item.v);
         }
         args
     }
@@ -72,7 +72,7 @@ pub enum FuncArg {
     /// A positional argument.
     Pos(Spanned<Expr>),
     /// A keyword argument.
-    Key(Pair),
+    Key(Spanned<Pair>),
 }
 
 impl FuncArg {
@@ -83,7 +83,7 @@ impl FuncArg {
     pub fn span(&self) -> Span {
         match self {
             FuncArg::Pos(item) => item.span,
-            FuncArg::Key(Pair { key, value }) => Span::merge(key.span, value.span),
+            FuncArg::Key(item) => item.span,
         }
     }
 }
