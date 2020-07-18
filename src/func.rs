@@ -132,7 +132,7 @@ macro_rules! function {
                 let func = $code;
 
                 for arg in header.args.into_iter() {
-                    feedback.errors.push(err!(arg.span(); "unexpected argument"));
+                    feedback.errors.push(err!(arg.span; "unexpected argument"));
                 }
 
                 $crate::Pass::new(func, feedback)

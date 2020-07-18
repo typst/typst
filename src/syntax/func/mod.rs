@@ -42,17 +42,22 @@ impl FuncArgs {
     }
 
     /// Add an argument.
-    pub fn add(&mut self, arg: FuncArg) {
-        match arg {
-            FuncArg::Pos(item) => self.pos.add(item),
-            FuncArg::Key(pair) => self.key.add(pair),
+    pub fn add(&mut self, arg: Spanned<FuncArg>) {
+        match arg.v {
+            FuncArg::Pos(item) => self.pos.add(Spanned::new(item, arg.span)),
+            FuncArg::Key(pair) => self.key.add(Spanned::new(pair, arg.span)),
         }
     }
 
     /// Iterate over all arguments.
-    pub fn into_iter(self) -> impl Iterator<Item=FuncArg> {
-        self.pos.items.into_iter().map(|item| FuncArg::Pos(item))
-            .chain(self.key.pairs.into_iter().map(|pair| FuncArg::Key(pair)))
+    pub fn into_iter(self) -> impl Iterator<Item=Spanned<FuncArg>> {
+        let pos = self.pos.items.into_iter()
+            .map(|spanned| spanned.map(|item| FuncArg::Pos(item)));
+
+        let key = self.key.pairs.into_iter()
+        .map(|spanned| spanned.map(|pair| FuncArg::Key(pair)));
+
+        pos.chain(key)
     }
 }
 
@@ -60,7 +65,7 @@ impl FromIterator<Spanned<FuncArg>> for FuncArgs {
     fn from_iter<I: IntoIterator<Item=Spanned<FuncArg>>>(iter: I) -> Self {
         let mut args = FuncArgs::new();
         for item in iter.into_iter() {
-            args.add(item.v);
+            args.add(item);
         }
         args
     }
@@ -70,22 +75,9 @@ impl FromIterator<Spanned<FuncArg>> for FuncArgs {
 #[derive(Debug, Clone, PartialEq)]
 pub enum FuncArg {
     /// A positional argument.
-    Pos(Spanned<Expr>),
+    Pos(Expr),
     /// A keyword argument.
-    Key(Spanned<Pair>),
-}
-
-impl FuncArg {
-    /// The full span of this argument.
-    ///
-    /// In case of a positional argument this is just the span of the expression
-    /// and in case of a keyword argument the combined span of key and value.
-    pub fn span(&self) -> Span {
-        match self {
-            FuncArg::Pos(item) => item.span,
-            FuncArg::Key(item) => item.span,
-        }
-    }
+    Key(Pair),
 }
 
 /// Extra methods on [`Options`](Option) used for argument parsing.

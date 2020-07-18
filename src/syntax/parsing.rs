@@ -190,10 +190,8 @@ impl<'s> FuncParser<'s> {
             if let Some(ident) = p.parse_ident() {
                 // This could still be a named tuple
                 if let Some(Token::LeftParen) = p.peekv() {
-                    let n_tuple = p.parse_named_tuple(ident)
-                        .map(|t| Expr::NamedTuple(t));
-                    let span = n_tuple.span;
-                    return Ok(Spanned::new(FuncArg::Pos(n_tuple), span));
+                    let tuple = p.parse_named_tuple(ident);
+                    return Ok(tuple.map(|t| FuncArg::Pos(Expr::NamedTuple(t))));
                 }
 
                 p.skip_whitespace();
@@ -210,22 +208,18 @@ impl<'s> FuncParser<'s> {
 
                     // Add a keyword argument.
                     let span = Span::merge(ident.span, value.span);
-                    Ok(Spanned::new(
-                        FuncArg::Key(Spanned::new(Pair { key: ident, value }, span)),
-                        span,
-                    ))
+                    let pair = Pair { key: ident, value };
+                    Ok(Spanned::new(FuncArg::Key(pair), span))
                 } else {
                     // Add a positional argument because there was no equals
                     // sign after the identifier that could have been a key.
-                    let ident = ident.map(|id| Expr::Ident(id));
-                    let span = ident.span;
-                    Ok(Spanned::new(FuncArg::Pos(ident), span))
+                    Ok(ident.map(|id| FuncArg::Pos(Expr::Ident(id))))
                 }
             } else {
                 // Add a positional argument because we haven't got an
                 // identifier that could be an argument key.
-                p.parse_expr().map(|expr| Spanned { span: expr.span, v: FuncArg::Pos(expr) })
-                    .ok_or(("argument", None))
+                let value = p.parse_expr().ok_or(("argument", None))?;
+                Ok(value.map(|expr| FuncArg::Pos(expr)))
             }
         }).v
     }
