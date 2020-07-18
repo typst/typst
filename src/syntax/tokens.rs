@@ -133,9 +133,9 @@ impl<'s> Token<'s> {
             ExprSize(_)     => "size",
             ExprBool(_)     => "bool",
             ExprHex(_)      => "hex value",
-            Plus     => "plus",
-            Hyphen   => "minus",
-            Slash    => "slash",
+            Plus            => "plus",
+            Hyphen          => "minus",
+            Slash           => "slash",
             Star            => "star",
             Underscore      => "underscore",
             Backslash       => "backslash",
@@ -223,7 +223,7 @@ impl<'s> Iterator for Tokens<'s> {
             ':' if self.mode == Header => Colon,
             ',' if self.mode == Header => Comma,
             '=' if self.mode == Header => Equals,
-            
+
             // Expression operators.
             '+' if self.mode == Header => Plus,
             '-' if self.mode == Header => Hyphen,

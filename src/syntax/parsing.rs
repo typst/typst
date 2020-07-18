@@ -213,7 +213,7 @@ impl<'s> FuncParser<'s> {
                     Ok(Spanned::new(
                         FuncArg::Key(Spanned::new(Pair { key: ident, value }, span)),
                         span,
-                        ))
+                    ))
                 } else {
                     // Add a positional argument because there was no equals
                     // sign after the identifier that could have been a key.
@@ -229,13 +229,12 @@ impl<'s> FuncParser<'s> {
             }
         }).v
     }
-    
-    /// Parse an expression which may contain math operands.
-    /// For this, this method looks for operators in
-    /// descending order of associativity, i.e. we first drill down to find all
-    /// negations, brackets and tuples, the next level,
-    /// we look for multiplication and division and here finally, for addition
-    /// and subtraction.
+
+    /// Parse an expression which may contain math operands. For this, this
+    /// method looks for operators in descending order of associativity, i.e. we
+    /// first drill down to find all negations, brackets and tuples, the next
+    /// level, we look for multiplication and division and here finally, for
+    /// addition and subtraction.
     fn parse_expr(&mut self) -> Option<Spanned<Expr>> {
         let o1 = self.parse_term()?;
         self.parse_binop(o1, "summand", Self::parse_expr, |token| match token {
@@ -258,46 +257,43 @@ impl<'s> FuncParser<'s> {
         &mut self,
         o1: Spanned<Expr>,
         operand_name: &str,
-        mut parse_operand: F,
+        parse_operand: F,
         parse_op: G,
     ) -> Option<Spanned<Expr>>
     where
-        F: FnMut(&mut Self) -> Option<Spanned<Expr>>,
+        F: FnOnce(&mut Self) -> Option<Spanned<Expr>>,
         G: FnOnce(Token) -> Option<fn(Box<Spanned<Expr>>, Box<Spanned<Expr>>) -> Expr>,
     {
         self.skip_whitespace();
 
         if let Some(next) = self.peek() {
-            let binop = match parse_op(next.v) {
-                Some(op) => op,
-                None => return Some(o1),
-            };
+            if let Some(binop) = parse_op(next.v) {
+                self.eat();
+                self.skip_whitespace();
 
-            self.eat();
-            self.skip_whitespace();
-
-            if let Some(o2) = parse_operand(self) {
-                let span = Span::merge(o1.span, o2.span);
-                let expr = binop(Box::new(o1), Box::new(o2));
-                return Some(Spanned::new(expr, span));
-            } else {
-                self.feedback.errors.push(err!(
-                    Span::merge(next.span, o1.span);
-                    "missing right {}", operand_name,
-                ));
+                if let Some(o2) = parse_operand(self) {
+                    let span = Span::merge(o1.span, o2.span);
+                    let expr = binop(Box::new(o1), Box::new(o2));
+                    return Some(Spanned::new(expr, span));
+                } else {
+                    self.feedback.errors.push(err!(
+                        Span::merge(next.span, o1.span);
+                        "missing right {}", operand_name,
+                    ));
+                }
             }
         }
 
         Some(o1)
     }
 
-    /// Parse expressions that are of the form value or -value
+    /// Parse expressions that are of the form value or -value.
     fn parse_factor(&mut self) -> Option<Spanned<Expr>> {
         let first = self.peek()?;
         if first.v == Token::Hyphen {
             self.eat();
             self.skip_whitespace();
-            
+
             if let Some(factor) = self.parse_value() {
                 let span = Span::merge(first.span, factor.span);
                 Some(Spanned::new(Expr::Neg(Box::new(factor)), span))
@@ -349,12 +345,12 @@ impl<'s> FuncParser<'s> {
             },
 
             Token::LeftParen => {
-                let mut tuple = self.parse_tuple();
+                let (mut tuple, can_be_coerced) = self.parse_tuple();
                 // Coerce 1-tuple into value
-                if tuple.1 && tuple.0.v.items.len() > 0 {
-                    tuple.0.v.items.pop().expect("Length is one")
+                if can_be_coerced && tuple.v.items.len() > 0 {
+                    tuple.v.items.pop().expect("length is at least one")
                 } else {
-                    tuple.0.map(|t| Expr::Tuple(t))
+                    tuple.map(|t| Expr::Tuple(t))
                 }
             },
             Token::LeftBrace => self.parse_object().map(|o| Expr::Object(o)),
@@ -363,15 +359,15 @@ impl<'s> FuncParser<'s> {
         })
     }
 
-    /// Parse a tuple expression: `(<expr>, ...)`. The boolean in the return 
-    /// values showes whether the tuple can be coerced into a single value
+    /// Parse a tuple expression: `(<expr>, ...)`. The boolean in the return
+    /// values showes whether the tuple can be coerced into a single value.
     fn parse_tuple(&mut self) -> (Spanned<Tuple>, bool) {
         let token = self.eat();
         debug_assert_eq!(token.map(Spanned::value), Some(Token::LeftParen));
 
         // Parse a collection until a right paren appears and complain about
         // missing a `value` when an invalid token is encoutered.
-        self.parse_collection_bracket_aware(Some(Token::RightParen),
+        self.parse_collection_comma_aware(Some(Token::RightParen),
             |p| p.parse_expr().ok_or(("value", None)))
     }
 
@@ -414,11 +410,24 @@ impl<'s> FuncParser<'s> {
     }
 
     /// Parse a comma-separated collection where each item is parsed through
+    /// `parse_item` until the `end` token is met.
+    fn parse_collection<C, I, F>(
+        &mut self,
+        end: Option<Token>,
+        parse_item: F
+    ) -> Spanned<C>
+    where
+        C: FromIterator<Spanned<I>>,
+        F: FnMut(&mut Self) -> Result<Spanned<I>, (&'static str, Option<Position>)>,
+    {
+        self.parse_collection_comma_aware(end, parse_item).0
+    }
+
+    /// Parse a comma-separated collection where each item is parsed through
     /// `parse_item` until the `end` token is met. The first item in the return
     /// tuple is the collection, the second item indicates whether the
-    /// collection can be coerced into a single item
-    /// (i.e. at least one comma appeared).
-    fn parse_collection_bracket_aware<C, I, F>(
+    /// collection can be coerced into a single item (i.e. no comma appeared).
+    fn parse_collection_comma_aware<C, I, F>(
         &mut self,
         end: Option<Token>,
         mut parse_item: F
@@ -488,20 +497,6 @@ impl<'s> FuncParser<'s> {
 
         let end = self.pos();
         (Spanned::new(collection, Span { start, end }), can_be_coerced)
-    }
-
-    /// Parse a comma-separated collection where each item is parsed through
-    /// `parse_item` until the `end` token is met.
-    fn parse_collection<C, I, F>(
-        &mut self,
-        end: Option<Token>,
-        parse_item: F
-    ) -> Spanned<C>
-    where
-        C: FromIterator<Spanned<I>>,
-        F: FnMut(&mut Self) -> Result<Spanned<I>, (&'static str, Option<Position>)>,
-    {
-        self.parse_collection_bracket_aware(end, parse_item).0
     }
 
     /// Try to parse an identifier and do nothing if the peekable token is no
@@ -665,16 +660,16 @@ mod tests {
     fn Str(text: &str) -> Expr { Expr::Str(text.to_string()) }
     fn Pt(points: f32) -> Expr { Expr::Size(Size::pt(points)) }
     fn Neg(e1: Expr) -> Expr { Expr::Neg(Box::new(zspan(e1))) }
-    fn Add(e1: Expr, e2: Expr) -> Expr { 
+    fn Add(e1: Expr, e2: Expr) -> Expr {
         Expr::Add(Box::new(zspan(e1)), Box::new(zspan(e2)))
     }
-    fn Sub(e1: Expr, e2: Expr) -> Expr { 
+    fn Sub(e1: Expr, e2: Expr) -> Expr {
         Expr::Sub(Box::new(zspan(e1)), Box::new(zspan(e2)))
     }
-    fn Mul(e1: Expr, e2: Expr) -> Expr { 
+    fn Mul(e1: Expr, e2: Expr) -> Expr {
         Expr::Mul(Box::new(zspan(e1)), Box::new(zspan(e2)))
     }
-    fn Div(e1: Expr, e2: Expr) -> Expr { 
+    fn Div(e1: Expr, e2: Expr) -> Expr {
         Expr::Div(Box::new(zspan(e1)), Box::new(zspan(e2)))
     }
 
