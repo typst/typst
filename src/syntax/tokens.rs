@@ -78,10 +78,18 @@ pub enum Token<'s> {
     ExprSize(Size),
     /// A boolean in a function header: `true | false`.
     ExprBool(bool),
-    /// A hex value in a function header: `#20d82a`
+    /// A hex value in a function header: `#20d82a`.
     ExprHex(&'s str),
+    /// A plus in a function header, signifying the addition of expressions.
+    Plus,
+    /// A hyphen in a function header,
+    /// signifying the subtraction of expressions.
+    Hyphen,
+    /// A slash in a function header, signifying the division of expressions.
+    Slash,
 
-    /// A star in body-text.
+    /// A star. It can appear in a function header where it signifies the
+    /// multiplication of expressions or the body where it modifies the styling.
     Star,
     /// An underscore in body-text.
     Underscore,
@@ -125,6 +133,9 @@ impl<'s> Token<'s> {
             ExprSize(_)     => "size",
             ExprBool(_)     => "bool",
             ExprHex(_)      => "hex value",
+            Plus            => "plus",
+            Hyphen          => "minus",
+            Slash           => "slash",
             Star            => "star",
             Underscore      => "underscore",
             Backslash       => "backslash",
@@ -213,11 +224,19 @@ impl<'s> Iterator for Tokens<'s> {
             ',' if self.mode == Header => Comma,
             '=' if self.mode == Header => Equals,
 
+            // Expression operators.
+            '+' if self.mode == Header => Plus,
+            '-' if self.mode == Header => Hyphen,
+            '/' if self.mode == Header => Slash,
+
             // String values.
             '"' if self.mode == Header => self.parse_string(),
 
+            // Star serves a double purpose as a style modifier
+            // and a expression operator in the header.
+            '*' => Star,
+
             // Style toggles.
-            '*' if self.mode == Body => Star,
             '_' if self.mode == Body => Underscore,
             '`' if self.mode == Body => self.parse_raw(),
 
@@ -231,15 +250,20 @@ impl<'s> Iterator for Tokens<'s> {
             c => {
                 let body = self.mode == Body;
 
+                let mut last_was_e = false;
                 let text = self.read_string_until(|n| {
-                    match n {
+                    let val = match n {
                         c if c.is_whitespace() => true,
-                        '['  | ']' | '/' => true,
-                        '\\' | '*' | '_' | '`' if body => true,
+                        '['  | ']' | '/' | '*' => true,
+                        '\\' | '_' | '`' if body => true,
                         ':'  | '=' | ',' | '"' |
                         '('  | ')' | '{' | '}' if !body => true,
+                        '+'  | '-' if !body && !last_was_e => true,
                         _ => false,
-                    }
+                    };
+
+                    last_was_e = n == 'e' || n == 'E';
+                    val
                 }, false, -(c.len_utf8() as isize), 0).0;
 
                 if self.mode == Header {
@@ -411,6 +435,8 @@ impl<'s> Tokens<'s> {
         }
     }
 
+    /// Will read the input stream until the argument F evaluates to `true`
+    /// for the current character.
     fn read_string_until<F>(
         &mut self,
         mut f: F,
@@ -517,6 +543,10 @@ mod tests {
         ExprBool as Bool,
         ExprHex as Hex,
         Text as T,
+        Plus,
+        Hyphen as Min,
+        Star,
+        Slash,
     };
 
     #[allow(non_snake_case)]
@@ -595,7 +625,7 @@ mod tests {
         t!(Body, "`]"            => [Raw("]", false)]);
         t!(Body, "`\\``"         => [Raw("\\`", true)]);
         t!(Body, "\\ "           => [Backslash, S(0)]);
-        t!(Header, "_*`"         => [Invalid("_*`")]);
+        t!(Header, "_`"          => [Invalid("_`")]);
     }
 
     #[test]
@@ -613,10 +643,13 @@ mod tests {
         t!(Header, "12e4%"             => [Num(1200.0)]);
         t!(Header, "__main__"          => [Id("__main__")]);
         t!(Header, ".func.box"         => [Id(".func.box")]);
-        t!(Header, "--arg, _b, _1"     => [Id("--arg"), Comma, S(0), Id("_b"), Comma, S(0), Id("_1")]);
+        t!(Header, "arg, _b, _1"       => [Id("arg"), Comma, S(0), Id("_b"), Comma, S(0), Id("_1")]);
         t!(Header, "12_pt, 12pt"       => [Invalid("12_pt"), Comma, S(0), Sz(Size::pt(12.0))]);
         t!(Header, "1e5in"             => [Sz(Size::inches(100000.0))]);
         t!(Header, "2.3cm"             => [Sz(Size::cm(2.3))]);
+        t!(Header, "12e-3in"           => [Sz(Size::inches(12e-3))]);
+        t!(Header, "6.1cm + 4pt,a=1*2" => [Sz(Size::cm(6.1)), S(0), Plus, S(0), Sz(Size::pt(4.0)), Comma, Id("a"), Equals, Num(1.0), Star, Num(2.0)]);
+        t!(Header, "(5 - 1) / 2.1"     => [LP, Num(5.0), S(0), Min, S(0), Num(1.0), RP, S(0), Slash, S(0), Num(2.1)]);
         t!(Header, "02.4mm"            => [Sz(Size::mm(2.4))]);
         t!(Header, "2.4.cm"            => [Invalid("2.4.cm")]);
         t!(Header, "(1,2)"             => [LP, Num(1.0), Comma, Num(2.0), RP]);
