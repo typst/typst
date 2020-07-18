@@ -223,9 +223,109 @@ impl<'s> FuncParser<'s> {
             }
         }).v
     }
-
-    /// Parse an atomic or compound (tuple / object) expression.
+    
+    /// Parse an expression which may contain math operands.
+    /// For this, this method looks for operators in
+    /// descending order of associativity, i.e. we first drill down to find all
+    /// negations, brackets and tuples, the next level,
+    /// we look for multiplication and division and here finally, for addition
+    /// and subtraction.
     fn parse_expr(&mut self) -> Option<Spanned<Expr>> {
+        let term = self.parse_term()?;
+        self.skip_whitespace();
+
+        if let Some(next) = self.peek() {
+            match next.v {
+                Token::Plus | Token::Hyphen => {
+                    self.eat();
+                    self.skip_whitespace();
+                    let o2 = self.parse_expr();
+                    if o2.is_none() {
+                        self.feedback.errors.push(err!(
+                            Span::merge(next.span, term.span);
+                            "Missing right summand"
+                        ));
+                        return Some(term)
+                    }
+
+                    let o2 = o2.expect("Checked for None before");
+                    let span = Span::merge(term.span, o2.span);
+                    match next.v {
+                        Token::Plus => Some(Spanned::new(
+                            Expr::Add(Box::new(term), Box::new(o2)), span
+                        )),
+                        Token::Hyphen => Some(Spanned::new(
+                            Expr::Sub(Box::new(term), Box::new(o2)), span
+                        )),
+                        _ => unreachable!(),
+                    }
+                }, 
+                _ => Some(term)
+            }
+        } else {
+            Some(term)
+        }
+    }
+
+    fn parse_term(&mut self) -> Option<Spanned<Expr>> {
+        // TODO: Deduplicate code here
+        let factor = self.parse_factor()?;
+        self.skip_whitespace();
+
+        if let Some(next) = self.peek() {
+            match next.v {
+                Token::Star | Token::Slash => {
+                    self.eat();
+                    self.skip_whitespace();
+                    let o2 = self.parse_term();
+                    if o2.is_none() {
+                        self.feedback.errors.push(err!(
+                            Span::merge(next.span, factor.span);
+                            "Missing right factor"
+                        ));
+                        return Some(factor)
+                    }
+
+                    let o2 = o2.expect("Checked for None before");
+                    let span = Span::merge(factor.span, o2.span);
+                    match next.v {
+                        Token::Star => Some(Spanned::new(
+                            Expr::Mul(Box::new(factor), Box::new(o2)), span
+                        )),
+                        Token::Slash => Some(Spanned::new(
+                            Expr::Div(Box::new(factor), Box::new(o2)), span
+                        )),
+                        _ => unreachable!(),
+                    }
+                }, 
+                _ => Some(factor)
+            }
+        } else {
+            Some(factor)
+        }
+    }
+
+    /// Parse expressions that are of the form value or -value
+    fn parse_factor(&mut self) -> Option<Spanned<Expr>> {
+        let first = self.peek()?;
+        if first.v == Token::Hyphen {
+            self.eat();
+            let o2 = self.parse_value();
+            self.skip_whitespace();
+            if o2.is_none() {
+                self.feedback.errors.push(err!(first.span; "Dangling minus"));
+                return None
+            }
+
+            let o2 = o2.expect("Checked for None before");
+            let span = Span::merge(first.span, o2.span);
+            Some(Spanned::new(Expr::Neg(Box::new(o2)), span))
+        } else {
+            self.parse_value()
+        }
+    }
+
+    fn parse_value(&mut self) -> Option<Spanned<Expr>> {
         let first = self.peek()?;
         macro_rules! take {
             ($v:expr) => ({ self.eat(); Spanned { v: $v, span: first.span } });
@@ -263,27 +363,36 @@ impl<'s> FuncParser<'s> {
                 }
             },
 
-            Token::LeftParen => self.parse_tuple().map(|t| Expr::Tuple(t)),
+            Token::LeftParen => {
+                let mut tuple = self.parse_tuple();
+                // Coerce 1-tuple into value
+                if tuple.1 && tuple.0.v.items.len() > 0 {
+                    tuple.0.v.items.pop().expect("Length is one")
+                } else {
+                    tuple.0.map(|t| Expr::Tuple(t))
+                }
+            },
             Token::LeftBrace => self.parse_object().map(|o| Expr::Object(o)),
 
             _ => return None,
         })
     }
 
-    /// Parse a tuple expression: `(<expr>, ...)`.
-    fn parse_tuple(&mut self) -> Spanned<Tuple> {
+    /// Parse a tuple expression: `(<expr>, ...)`. The boolean in the return 
+    /// values showes whether the tuple can be coerced into a single value
+    fn parse_tuple(&mut self) -> (Spanned<Tuple>, bool) {
         let token = self.eat();
         debug_assert_eq!(token.map(Spanned::value), Some(Token::LeftParen));
 
         // Parse a collection until a right paren appears and complain about
         // missing a `value` when an invalid token is encoutered.
-        self.parse_collection(Some(Token::RightParen),
+        self.parse_collection_bracket_aware(Some(Token::RightParen),
             |p| p.parse_expr().ok_or(("value", None)))
     }
 
     /// Parse a tuple expression: `name(<expr>, ...)` with a given identifier.
     fn parse_named_tuple(&mut self, name: Spanned<Ident>) -> Spanned<NamedTuple> {
-        let tuple = self.parse_tuple();
+        let tuple = self.parse_tuple().0;
         let span = Span::merge(name.span, tuple.span);
         Spanned::new(NamedTuple::new(name, tuple), span)
     }
@@ -319,17 +428,21 @@ impl<'s> FuncParser<'s> {
     }
 
     /// Parse a comma-separated collection where each item is parsed through
-    /// `parse_item` until the `end` token is met.
-    fn parse_collection<C, I, F>(
+    /// `parse_item` until the `end` token is met. The first item in the return
+    /// tuple is the collection, the second item indicates whether the
+    /// collection can be coerced into a single item
+    /// (i.e. at least one comma appeared).
+    fn parse_collection_bracket_aware<C, I, F>(
         &mut self,
         end: Option<Token>,
         mut parse_item: F
-    ) -> Spanned<C>
+    ) -> (Spanned<C>, bool)
     where
         C: FromIterator<I>,
         F: FnMut(&mut Self) -> Result<I, (&'static str, Option<Position>)>,
     {
         let start = self.pos();
+        let mut can_be_coerced = true;
 
         // Parse the comma separated items.
         let collection = std::iter::from_fn(|| {
@@ -359,8 +472,14 @@ impl<'s> FuncParser<'s> {
                     let behind_item = self.pos();
                     self.skip_whitespace();
                     match self.peekv() {
-                        Some(Token::Comma) => { self.eat(); }
-                        t @ Some(_) if t != end => self.expected_at("comma", behind_item),
+                        Some(Token::Comma) => {
+                            can_be_coerced = false;
+                            self.eat();
+                        }
+                        t @ Some(_) if t != end => {
+                            can_be_coerced = false;
+                            self.expected_at("comma", behind_item);
+                        },
                         _ => {}
                     }
 
@@ -383,7 +502,21 @@ impl<'s> FuncParser<'s> {
         }).filter_map(|x| x).collect();
 
         let end = self.pos();
-        Spanned::new(collection, Span { start, end })
+        (Spanned::new(collection, Span { start, end }), can_be_coerced)
+    }
+
+    /// Parse a comma-separated collection where each item is parsed through
+    /// `parse_item` until the `end` token is met.
+    fn parse_collection<C, I, F>(
+        &mut self,
+        end: Option<Token>,
+        parse_item: F
+    ) -> Spanned<C>
+    where
+        C: FromIterator<I>,
+        F: FnMut(&mut Self) -> Result<I, (&'static str, Option<Position>)>,
+    {
+        self.parse_collection_bracket_aware(end, parse_item).0
     }
 
     /// Try to parse an identifier and do nothing if the peekable token is no
@@ -546,6 +679,19 @@ mod tests {
     fn Id(text: &str) -> Expr { Expr::Ident(Ident(text.to_string())) }
     fn Str(text: &str) -> Expr { Expr::Str(text.to_string()) }
     fn Pt(points: f32) -> Expr { Expr::Size(Size::pt(points)) }
+    fn Neg(e1: Expr) -> Expr { Expr::Neg(Box::new(zspan(e1))) }
+    fn Add(e1: Expr, e2: Expr) -> Expr { 
+        Expr::Add(Box::new(zspan(e1)), Box::new(zspan(e2)))
+    }
+    fn Sub(e1: Expr, e2: Expr) -> Expr { 
+        Expr::Sub(Box::new(zspan(e1)), Box::new(zspan(e2)))
+    }
+    fn Mul(e1: Expr, e2: Expr) -> Expr { 
+        Expr::Mul(Box::new(zspan(e1)), Box::new(zspan(e2)))
+    }
+    fn Div(e1: Expr, e2: Expr) -> Expr { 
+        Expr::Div(Box::new(zspan(e1)), Box::new(zspan(e2)))
+    }
 
     fn Clr(r: u8, g: u8, b: u8, a: u8) -> Expr {
         Expr::Color(RgbaColor::new(r, g, b, a))
@@ -814,6 +960,12 @@ mod tests {
         p!("[val: 12e1pt]" => [func!("val": (Pt(12e1)), {})]);
         p!("[val: #f7a20500]" => [func!("val": (ClrStr("f7a20500")), {})]);
 
+        // Math
+        p!("[val: 3.2in + 6pt]" => [func!("val": (Add(Sz(Size::inches(3.2)), Sz(Size::pt(6.0)))), {})]);
+        p!("[val: 5 - 0.01]"    => [func!("val": (Sub(Num(5.0), Num(0.01))), {})]);
+        p!("[val: (3mm * 2)]"   => [func!("val": (Mul(Sz(Size::mm(3.0)), Num(2.0))), {})]);
+        p!("[val: 12e-3cm/1pt]" => [func!("val": (Div(Sz(Size::cm(12e-3)), Sz(Size::pt(1.0)))), {})]);
+
         // Unclosed string.
         p!("[val: \"hello]" => [func!("val": (Str("hello]")), {})], [
             (0:13, 0:13, "expected quote"),
@@ -833,6 +985,19 @@ mod tests {
         p!("[val: #f075ff011]" => [func!("val": (ClrStrHealed()), {})], [
             (0:6, 0:16, "invalid color"),
         ]);
+    }
+
+    #[test]
+    fn parse_complex_mathematical_expressions() {
+        p!("[val: (3.2in + 6pt)*(5/2-1)]" => [func!("val": (
+            Mul(
+                Add(Sz(Size::inches(3.2)), Sz(Size::pt(6.0))),
+                Sub(Div(Num(5.0), Num(2.0)), Num(1.0))
+            )
+        ), {})]);
+        p!("[val: (6.3E+2+4*-3.2pt)/2]"  => [func!("val": (
+            Div(Add(Num(6.3e2),Mul(Num(4.0), Neg(Pt(3.2)))), Num(2.0))
+        ), {})]);
     }
 
     #[test]
@@ -858,9 +1023,9 @@ mod tests {
         );
 
         // Unclosed tuple
-        p!("[val: (hello]" =>
-            [func!("val": (tuple!(Id("hello"))), {})],
-            [(0:12, 0:12, "expected closing paren")],
+        p!("[val: (hello,]" =>
+            [func!("val": (tuple!(Id("hello"),)), {})],
+            [(0:13, 0:13, "expected closing paren")],
         );
         p!("[val: lang(中文]" =>
             [func!("val": (named_tuple!("lang", Id("中文"))), {})],
@@ -882,8 +1047,8 @@ mod tests {
         );
 
         // Nested tuples
-        p!("[val: (1, (2))]" =>
-            [func!("val": (tuple!(Num(1.0), tuple!(Num(2.0)))), {})]
+        p!("[val: (1, (2, 3))]" =>
+            [func!("val": (tuple!(Num(1.0), tuple!(Num(2.0), Num(3.0)))), {})]
         );
         p!("[val: css(1pt, rgb(90, 102, 254), \"solid\")]" =>
             [func!("val": (named_tuple!(
@@ -1085,7 +1250,7 @@ mod tests {
         // Body nodes in bodies.
         p!("[val:*][*Hi*]" =>
             [func!("val"; [Bold, T("Hi"), Bold])],
-            [(0:5, 0:6, "expected argument, found invalid token")],
+            [(0:5, 0:6, "expected argument, found star")],
         );
 
         // Errors in bodies.

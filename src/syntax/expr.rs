@@ -1,6 +1,6 @@
 //! Expressions in function headers.
 
-use std::fmt::{self, Write, Debug, Formatter};
+use std::fmt::{self, Debug, Formatter};
 use std::iter::FromIterator;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -26,7 +26,7 @@ pub enum Expr {
     Size(Size),
     /// A bool: `true, false`.
     Bool(bool),
-    /// A color value, including the alpha channel: `#f79143ff`
+    /// A color value, including the alpha channel: `#f79143ff`.
     Color(RgbaColor),
     /// A tuple: `(false, 12cm, "hi")`.
     Tuple(Tuple),
@@ -34,6 +34,16 @@ pub enum Expr {
     NamedTuple(NamedTuple),
     /// An object: `{ fit: false, size: 12pt }`.
     Object(Object),
+    /// An operator that negates the contained expression.
+    Neg(Box<Spanned<Expr>>),
+    /// An operator that adds the contained expressions.
+    Add(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+    /// An operator that subtracts contained expressions.
+    Sub(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+    /// An operator that multiplies the contained expressions.
+    Mul(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+    /// An operator that divides the contained expressions.
+    Div(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 }
 
 impl Expr {
@@ -50,6 +60,11 @@ impl Expr {
             Tuple(_) => "tuple",
             NamedTuple(_) => "named tuple",
             Object(_) => "object",
+            Neg(_) => "negation",
+            Add(_, _) => "addition",
+            Sub(_, _) => "subtraction",
+            Mul(_, _) => "multiplication",
+            Div(_, _) => "division",
         }
     }
 }
@@ -67,6 +82,11 @@ impl Debug for Expr {
             Tuple(t) => t.fmt(f),
             NamedTuple(t) => t.fmt(f),
             Object(o) => o.fmt(f),
+            Neg(e) => write!(f, "-{:?}", e),
+            Add(a, b) => write!(f, "({:?} + {:?})", a, b),
+            Sub(a, b) => write!(f, "({:?} - {:?})", a, b),
+            Mul(a, b) => write!(f, "({:?} * {:?})", a, b),
+            Div(a, b) => write!(f, "({:?} / {:?})", a, b),
         }
     }
 }
@@ -102,9 +122,7 @@ impl Ident {
 
 impl Debug for Ident {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_char('`')?;
-        f.write_str(&self.0)?;
-        f.write_char('`')
+        write!(f, "`{}`", self.0)
     }
 }
 

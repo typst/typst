@@ -88,13 +88,6 @@ pub trait SpanlessEq<Rhs=Self> {
     fn spanless_eq(&self, other: &Rhs) -> bool;
 }
 
-impl<T: SpanlessEq> SpanlessEq for Vec<Spanned<T>> {
-    fn spanless_eq(&self, other: &Vec<Spanned<T>>) -> bool {
-        self.len() == other.len()
-        && self.iter().zip(other).all(|(x, y)| x.v.spanless_eq(&y.v))
-    }
-}
-
 impl SpanlessEq for SyntaxModel {
     fn spanless_eq(&self, other: &SyntaxModel) -> bool {
         self.nodes.spanless_eq(&other.nodes)
@@ -130,6 +123,11 @@ impl SpanlessEq for Expr {
             (Expr::NamedTuple(a), Expr::NamedTuple(b)) => a.spanless_eq(b),
             (Expr::Tuple(a), Expr::Tuple(b)) => a.spanless_eq(b),
             (Expr::Object(a), Expr::Object(b)) => a.spanless_eq(b),
+            (Expr::Neg(a), Expr::Neg(b)) => a.spanless_eq(&b),
+            (Expr::Add(a1, a2), Expr::Add(b1, b2)) => a1.spanless_eq(&b1) && a2.spanless_eq(&b2),
+            (Expr::Sub(a1, a2), Expr::Sub(b1, b2)) => a1.spanless_eq(&b1) && a2.spanless_eq(&b2),
+            (Expr::Mul(a1, a2), Expr::Mul(b1, b2)) => a1.spanless_eq(&b1) && a2.spanless_eq(&b2),
+            (Expr::Div(a1, a2), Expr::Div(b1, b2)) => a1.spanless_eq(&b1) && a2.spanless_eq(&b2),
             (a, b) => a == b,
         }
     }
@@ -155,6 +153,25 @@ impl SpanlessEq for Object {
         self.pairs.len() == other.pairs.len()
         && self.pairs.iter().zip(&other.pairs)
             .all(|(x, y)| x.key.v == y.key.v && x.value.v.spanless_eq(&y.value.v))
+    }
+}
+
+impl<T: SpanlessEq> SpanlessEq for Vec<T> {
+    fn spanless_eq(&self, other: &Vec<T>) -> bool {
+        self.len() == other.len()
+        && self.iter().zip(other).all(|(x, y)| x.spanless_eq(&y))
+    }
+}
+
+impl<T: SpanlessEq> SpanlessEq for Spanned<T> {
+    fn spanless_eq(&self, other: &Spanned<T>) -> bool {
+        self.v.spanless_eq(&other.v)
+    }
+}
+
+impl<T: SpanlessEq> SpanlessEq for Box<T> {
+    fn spanless_eq(&self, other: &Box<T>) -> bool {
+        (&**self).spanless_eq(&**other)
     }
 }
 
