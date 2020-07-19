@@ -24,16 +24,16 @@ jobs:
       uses: actions/checkout@v2
       with:
         path: typstc
-    - name: Checkout tide
+    - name: Checkout toddle
       uses: actions/checkout@v2
       with:
         repository: typst/toddle
         token: ${{ secrets.TYPSTC_ACTION_TOKEN }} # `GitHub_PAT` is a secret that contains your PAT
         path: toddle
-    - name: Checkout toddle
+    - name: Checkout tide
       uses: actions/checkout@v2
       with:
-        repository: typst/toddle
+        repository: typst/tide
         token: ${{ secrets.TYPSTC_ACTION_TOKEN }} # `GitHub_PAT` is a secret that contains your PAT
         path: tide
     - name: Build
