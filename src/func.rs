@@ -7,7 +7,7 @@ use crate::syntax::span::Spanned;
 
 /// Types that are useful for creating your own functions.
 pub mod prelude {
-    pub use crate::{function, body, err};
+    pub use crate::{function, body, error, warning};
     pub use crate::layout::prelude::*;
     pub use crate::layout::Command::{self, *};
     pub use crate::style::{LayoutStyle, PageStyle, TextStyle};
@@ -55,8 +55,8 @@ pub trait ParseFunc {
 ///
 ///     parse(header, body, ctx, f) {
 ///         let body = body!(opt: body, ctx, f);
-///         let hidden = header.args.pos.get::<bool>(&mut f.errors)
-///             .or_missing(&mut f.errors, header.name.span, "hidden")
+///         let hidden = header.args.pos.get::<bool>(&mut f.problems)
+///             .or_missing(&mut f.problems, header.name.span, "hidden")
 ///             .unwrap_or(false);
 ///
 ///         HiderFunc { body: if hidden { None } else { body } }
@@ -132,7 +132,7 @@ macro_rules! function {
                 let func = $code;
 
                 for arg in header.args.into_iter() {
-                    feedback.errors.push(err!(arg.span; "unexpected argument"));
+                    error!(@feedback, arg.span, "unexpected argument");
                 }
 
                 $crate::Pass::new(func, feedback)
@@ -189,7 +189,7 @@ macro_rules! body {
 
     (nope: $body:expr, $feedback:expr) => {
         if let Some(body) = $body {
-            $feedback.errors.push($crate::err!(body.span; "unexpected body"));
+            error!(@$feedback, body.span, "unexpected body");
         }
     };
 }

@@ -29,7 +29,7 @@ where T: Debug + PartialEq + SpanlessEq {
 /// spanned![(0:0, 0:5, "hello"), (0:5, 0:3, "world")]
 /// ```
 /// The span information can simply be omitted to create a vector with items
-/// that are spanned with dummy zero spans.
+/// that are spanned with zero spans.
 macro_rules! spanned {
     (item ($sl:tt:$sc:tt, $el:tt:$ec:tt, $v:expr)) => ({
         #[allow(unused_imports)]
@@ -80,7 +80,7 @@ function! {
         }
     }
 
-    layout(self, ctx, errors) { vec![] }
+    layout(self, ctx, f) { vec![] }
 }
 
 /// Compares elements by only looking at values and ignoring spans.

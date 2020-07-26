@@ -245,8 +245,10 @@ impl<'a> ModelLayouter<'a> {
             BreakParagraph => self.layout_paragraph(),
             BreakPage => {
                 if self.ctx.nested {
-                    self.feedback.errors.push(err!(model_span;
-                        "page break cannot be issued from nested context"));
+                    error!(
+                        @self.feedback, model_span,
+                        "page break cannot be issued from nested context",
+                    );
                 } else {
                     self.layouter.finish_space(true)
                 }
@@ -258,8 +260,10 @@ impl<'a> ModelLayouter<'a> {
             }
             SetPageStyle(style) => {
                 if self.ctx.nested {
-                    self.feedback.errors.push(err!(model_span;
-                        "page style cannot be changed from nested context"));
+                    error!(
+                        @self.feedback, model_span,
+                        "page style cannot be changed from nested context",
+                    );
                 } else {
                     self.style.page = style;
 

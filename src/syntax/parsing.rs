@@ -49,8 +49,7 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Pass<SyntaxModel>
                 feedback.extend_offset(span.start, parsed.feedback);
 
                 if !terminated {
-                    feedback.errors.push(err!(Span::at(span.end);
-                        "expected closing bracket"));
+                    error!(@feedback, Span::at(span.end), "expected closing bracket");
                 }
 
                 parsed.output
@@ -62,8 +61,7 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Pass<SyntaxModel>
 
             Token::Raw { raw, terminated } => {
                 if !terminated {
-                    feedback.errors.push(err!(Span::at(span.end);
-                        "expected backtick"));
+                    error!(@feedback, Span::at(span.end), "expected backtick");
                 }
 
                 Node::Raw(unescape_raw(raw))
@@ -72,7 +70,7 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Pass<SyntaxModel>
             Token::Text(text) => Node::Text(text.to_string()),
 
             other => {
-                feedback.errors.push(err!(span; "unexpected {}", other.name()));
+                error!(@feedback, span, "unexpected {}", other.name());
                 continue;
             }
         };
@@ -129,7 +127,7 @@ impl<'s> FuncParser<'s> {
 
                 // The fallback parser was returned. Invalid function.
                 Err(parser) => {
-                    self.feedback.errors.push(err!(header.name.span; "unknown function"));
+                    error!(@self.feedback, header.name.span, "unknown function");
                     (parser, Decoration::InvalidFuncName)
                 }
             };
@@ -270,10 +268,10 @@ impl<'s> FuncParser<'s> {
                     let expr = binop(Box::new(o1), Box::new(o2));
                     return Some(Spanned::new(expr, span));
                 } else {
-                    self.feedback.errors.push(err!(
-                        Span::merge(next.span, o1.span);
+                    error!(
+                        @self.feedback, Span::merge(next.span, o1.span),
                         "missing right {}", operand_name,
-                    ));
+                    );
                 }
             }
         }
@@ -292,7 +290,7 @@ impl<'s> FuncParser<'s> {
                 let span = Span::merge(first.span, factor.span);
                 Some(Spanned::new(Expr::Neg(Box::new(factor)), span))
             } else {
-                self.feedback.errors.push(err!(first.span; "dangling minus"));
+                error!(@self.feedback, first.span, "dangling minus");
                 None
             }
         } else {
@@ -333,7 +331,7 @@ impl<'s> FuncParser<'s> {
                     take!(Expr::Color(color))
                 } else {
                     // Heal color by assuming black
-                    self.feedback.errors.push(err!(first.span; "invalid color"));
+                    error!(@self.feedback, first.span, "invalid color");
                     take!(Expr::Color(RgbaColor::new_healed(0, 0, 0, 255)))
                 }
             },
@@ -517,14 +515,16 @@ impl<'s> FuncParser<'s> {
     /// Add an error about an expected `thing` which was not found, showing
     /// what was found instead.
     fn expected_found(&mut self, thing: &str, found: Spanned<Token>) {
-        self.feedback.errors.push(err!(found.span;
-            "expected {}, found {}", thing, found.v.name()));
+        error!(
+            @self.feedback, found.span,
+            "expected {}, found {}", thing, found.v.name(),
+        );
     }
 
     /// Add an error about an `thing` which was expected but not found at the
     /// given position.
     fn expected_at(&mut self, thing: &str, pos: Position) {
-        self.feedback.errors.push(err!(Span::at(pos); "expected {}", thing));
+        error!(@self.feedback, Span::at(pos), "expected {}", thing);
     }
 
     /// Add a expected-found-error if `found` is `Some` and an expected-error
@@ -726,7 +726,7 @@ mod tests {
             p!($source => [$($model)*], []);
         };
 
-        ($source:expr => [$($model:tt)*], [$($errors:tt)*] $(, [$($decos:tt)*])? $(,)?) => {
+        ($source:expr => [$($model:tt)*], [$($problems:tt)*] $(, [$($decos:tt)*])? $(,)?) => {
             let mut scope = Scope::new::<DebugFn>();
             scope.add::<DebugFn>("f");
             scope.add::<DebugFn>("n");
@@ -740,12 +740,12 @@ mod tests {
             let (exp, cmp) = spanned![vec $($model)*];
             check($source, exp, pass.output.nodes, cmp);
 
-            // Test errors
-            let (exp, cmp) = spanned![vec $($errors)*];
+            // Test problems
+            let (exp, cmp) = spanned![vec $($problems)*];
             let exp = exp.into_iter()
                 .map(|s: Spanned<&str>| s.map(|e| e.to_string()))
                 .collect::<Vec<_>>();
-            let found = pass.feedback.errors.into_iter()
+            let found = pass.feedback.problems.into_iter()
                 .map(|s| s.map(|e| e.message))
                 .collect::<Vec<_>>();
             check($source, exp, found, cmp);

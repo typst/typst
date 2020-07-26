@@ -123,14 +123,14 @@ fn test(name: &str, src: &str) -> DynResult<()> {
 fn compile(typesetter: &Typesetter, src: &str) -> MultiLayout {
     if cfg!(debug_assertions) {
         let typeset = block_on(typesetter.typeset(src));
-        let errors = typeset.feedback.errors;
+        let problems = typeset.feedback.problems;
 
-        if !errors.is_empty() {
-            for error in errors {
+        if !problems.is_empty() {
+            for problem in problems {
                 println!("  {:?} {:?}: {}",
-                    error.v.severity,
-                    error.span,
-                    error.v.message
+                    problem.v.severity,
+                    problem.span,
+                    problem.v.message
                 );
             }
         }
