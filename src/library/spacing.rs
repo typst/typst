@@ -11,7 +11,7 @@ function! {
     pub struct LineBreakFunc;
 
     parse(default)
-    layout(self, ctx, errors) { vec![BreakLine] }
+    layout(self, ctx, f) { vec![BreakLine] }
 }
 
 function! {
@@ -22,7 +22,7 @@ function! {
     pub struct ParBreakFunc;
 
     parse(default)
-    layout(self, ctx, errors) { vec![BreakParagraph] }
+    layout(self, ctx, f) { vec![BreakParagraph] }
 }
 
 function! {
@@ -31,7 +31,7 @@ function! {
     pub struct PageBreakFunc;
 
     parse(default)
-    layout(self, ctx, errors) { vec![BreakPage] }
+    layout(self, ctx, f) { vec![BreakPage] }
 }
 
 function! {
@@ -50,13 +50,13 @@ function! {
         ContentSpacingFunc {
             body: body!(opt: body, ctx, f),
             content: meta,
-            spacing: header.args.pos.get::<f64>(&mut f.errors)
+            spacing: header.args.pos.get::<f64>(&mut f.problems)
                 .map(|num| num as f32)
-                .or_missing(&mut f.errors, header.name.span, "spacing"),
+                .or_missing(&mut f.problems, header.name.span, "spacing"),
         }
     }
 
-    layout(self, ctx, errors) {
+    layout(self, ctx, f) {
         styled(&self.body, ctx, self.spacing, |t, s| match self.content {
             Word => t.word_spacing_scale = s,
             Line => t.line_spacing_scale = s,
@@ -88,15 +88,15 @@ function! {
         body!(nope: body, f);
         SpacingFunc {
             spacing: if let Some(axis) = meta {
-                header.args.pos.get::<FSize>(&mut f.errors)
+                header.args.pos.get::<FSize>(&mut f.problems)
                     .map(|s| (AxisKey::Specific(axis), s))
             } else {
-                header.args.key.get_with_key::<AxisKey, FSize>(&mut f.errors)
-            }.or_missing(&mut f.errors, header.name.span, "spacing"),
+                header.args.key.get_with_key::<AxisKey, FSize>(&mut f.problems)
+            }.or_missing(&mut f.problems, header.name.span, "spacing"),
         }
     }
 
-    layout(self, ctx, errors) {
+    layout(self, ctx, f) {
         if let Some((axis, spacing)) = self.spacing {
             let axis = axis.to_generic(ctx.axes);
             let spacing = spacing.scaled(ctx.style.text.font_size());

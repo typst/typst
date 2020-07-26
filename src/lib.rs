@@ -27,7 +27,7 @@ use toddle::{Font, OwnedData};
 use toddle::query::{FontLoader, SharedFontLoader};
 use toddle::query::{FontProvider, FontIndex, FontDescriptor};
 
-use crate::error::Error;
+use crate::problem::Problems;
 use crate::layout::MultiLayout;
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::syntax::{SyntaxModel, Scope, Decoration, ParseContext, parse};
@@ -43,7 +43,7 @@ macro_rules! pub_use_mod {
 }
 
 #[macro_use]
-pub mod error;
+pub mod problem;
 pub mod export;
 #[macro_use]
 pub mod func;
@@ -175,8 +175,8 @@ impl<T> Pass<T> {
 /// User feedback data accumulated during a compilation pass.
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Feedback {
-    /// Errors in the source.
-    pub errors: SpanVec<Error>,
+    /// Problems in the source code.
+    pub problems: Problems,
     /// Decorations of the source code for semantic syntax highlighting.
     pub decos: SpanVec<Decoration>,
 }
@@ -185,7 +185,7 @@ impl Feedback {
     /// Create a new feedback instance without errors and decos.
     pub fn new() -> Feedback {
         Feedback {
-            errors: vec![],
+            problems: vec![],
             decos: vec![],
         }
     }
@@ -198,14 +198,14 @@ impl Feedback {
 
     /// Add other feedback data to this feedback.
     pub fn extend(&mut self, other: Feedback) {
-        self.errors.extend(other.errors);
+        self.problems.extend(other.problems);
         self.decos.extend(other.decos);
     }
 
     /// Add more feedback whose spans are local and need to be offset by an
     /// `offset` to be correct for this feedbacks context.
     pub fn extend_offset(&mut self, offset: Position, other: Feedback) {
-        self.errors.extend(offset_spans(offset, other.errors));
+        self.problems.extend(offset_spans(offset, other.problems));
         self.decos.extend(offset_spans(offset, other.decos));
     }
 }

@@ -13,14 +13,14 @@ function! {
     parse(header, body, ctx, f) {
         AlignFunc {
             body: body!(opt: body, ctx, f),
-            map: PosAxisMap::parse::<AxisKey>(&mut f.errors, &mut header.args),
+            map: PosAxisMap::parse::<AxisKey>(&mut f.problems, &mut header.args),
         }
     }
 
     layout(self, ctx, f) {
         ctx.base = ctx.spaces[0].dimensions;
 
-        let map = self.map.dedup(&mut f.errors, ctx.axes, |alignment| {
+        let map = self.map.dedup(&mut f.problems, ctx.axes, |alignment| {
             alignment.axis().map(|s| s.to_generic(ctx.axes))
         });
 
@@ -29,8 +29,10 @@ function! {
                 if let Some(generic) = alignment.to_generic(ctx.axes, axis) {
                     *ctx.alignment.get_mut(axis) = generic;
                 } else {
-                    f.errors.push(err!(span;
-                        "invalid alignment `{}` for {} axis", alignment, axis));
+                    error!(
+                        @f, span,
+                        "invalid alignment `{}` for {} axis", alignment, axis,
+                    );
                 }
             }
         }
@@ -59,14 +61,14 @@ function! {
         DirectionFunc {
             name_span: header.name.span,
             body: body!(opt: body, ctx, f),
-            map: PosAxisMap::parse::<AxisKey>(&mut f.errors, &mut header.args),
+            map: PosAxisMap::parse::<AxisKey>(&mut f.problems, &mut header.args),
         }
     }
 
     layout(self, ctx, f) {
         ctx.base = ctx.spaces[0].dimensions;
 
-        let map = self.map.dedup(&mut f.errors, ctx.axes, |direction| {
+        let map = self.map.dedup(&mut f.problems, ctx.axes, |direction| {
             Some(direction.axis().to_generic(ctx.axes))
         });
 
@@ -76,9 +78,11 @@ function! {
         map.with(Secondary, |&dir| axes.secondary = dir);
 
         if axes.primary.axis() == axes.secondary.axis() {
-            f.errors.push(err!(self.name_span;
+            error!(
+                @f, self.name_span,
                 "invalid aligned primary and secondary axes: `{}`, `{}`",
-                ctx.axes.primary, ctx.axes.secondary));
+                ctx.axes.primary, ctx.axes.secondary,
+            );
         } else {
             ctx.axes = axes;
         }
@@ -106,8 +110,8 @@ function! {
     parse(header, body, ctx, f) {
         BoxFunc {
             body: body!(opt: body, ctx, f).unwrap_or(SyntaxModel::new()),
-            extents: AxisMap::parse::<ExtentKey>(&mut f.errors, &mut header.args.key),
-            debug: header.args.key.get::<bool>(&mut f.errors, "debug"),
+            extents: AxisMap::parse::<ExtentKey>(&mut f.problems, &mut header.args.key),
+            debug: header.args.key.get::<bool>(&mut f.problems, "debug"),
         }
     }
 
@@ -119,7 +123,7 @@ function! {
             ctx.debug = debug;
         }
 
-        let map = self.extents.dedup(&mut f.errors, ctx.axes);
+        let map = self.extents.dedup(&mut f.problems, ctx.axes);
         for &axis in &[Horizontal, Vertical] {
             if let Some(psize) = map.get(axis) {
                 let size = psize.scaled(ctx.base.get(axis));

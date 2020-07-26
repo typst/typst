@@ -59,7 +59,7 @@ function! {
         ValFunc { body: body!(opt: body, ctx, f) }
     }
 
-    layout(self, ctx, errors) {
+    layout(self, ctx, f) {
         match &self.body {
             Some(model) => vec![LayoutSyntaxModel(model)],
             None => vec![],

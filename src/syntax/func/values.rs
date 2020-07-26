@@ -23,20 +23,20 @@ use self::AlignmentValue::*;
 /// # Example implementation
 /// An implementation for `bool` might look as follows:
 /// ```
-/// # use typstc::err;
-/// # use typstc::error::Error;
+/// # use typstc::error;
+/// # use typstc::problem::Problem;
 /// # use typstc::syntax::expr::Expr;
 /// # use typstc::syntax::func::Value;
 /// # use typstc::syntax::span::Spanned;
 /// # struct Bool; /*
 /// impl Value for bool {
 /// # */ impl Value for Bool {
-///     fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
+///     fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
 ///         match expr.v {
 ///             # /*
 ///             Expr::Bool(b) => Ok(b),
 ///             # */ Expr::Bool(_) => Ok(Bool),
-///             other => Err(err!("expected bool, found {}", other.name())),
+///             other => Err(error!("expected bool, found {}", other.name())),
 ///         }
 ///     }
 /// }
@@ -44,11 +44,11 @@ use self::AlignmentValue::*;
 pub trait Value: Sized {
     /// Parse an expression into this value or return an error if the expression
     /// is valid for this value type.
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Error>;
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem>;
 }
 
 impl<V: Value> Value for Spanned<V> {
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
         let span = expr.span;
         V::parse(expr).map(|v| Spanned { v, span })
     }
@@ -58,12 +58,13 @@ impl<V: Value> Value for Spanned<V> {
 macro_rules! value {
     ($type:ty, $name:expr, $($p:pat => $r:expr),* $(,)?) => {
         impl Value for $type {
-            fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
+            fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
                 #[allow(unreachable_patterns)]
                 match expr.v {
                     $($p => Ok($r)),*,
-                    other => Err(err!("expected {}, found {}",
-                                      $name, other.name())),
+                    other => Err(
+                        error!("expected {}, found {}", $name, other.name())
+                    ),
                 }
             }
         }
@@ -120,7 +121,7 @@ impl From<StringLike> for String {
 pub struct Defaultable<V>(pub Option<V>);
 
 impl<V: Value> Value for Defaultable<V> {
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
         Ok(Defaultable(match expr.v {
             Expr::Ident(ident) if ident.as_str() == "default" => None,
             _ => Some(V::parse(expr)?)
@@ -135,16 +136,16 @@ impl<V> From<Defaultable<V>> for Option<V> {
 }
 
 impl Value for FontStyle {
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
         FontStyle::from_name(Ident::parse(expr)?.as_str())
-            .ok_or_else(|| err!("invalid font style"))
+            .ok_or_else(|| error!("invalid font style"))
     }
 }
 
 /// The additional boolean specifies whether a number was clamped into the range
 /// 100 - 900 to make it a valid font weight.
 impl Value for (FontWeight, bool) {
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
         match expr.v {
             Expr::Number(weight) => {
                 let weight = weight.round();
@@ -158,30 +159,31 @@ impl Value for (FontWeight, bool) {
             }
             Expr::Ident(id) => {
                 FontWeight::from_name(id.as_str())
-                    .ok_or_else(|| err!("invalid font weight"))
+                    .ok_or_else(|| error!("invalid font weight"))
                     .map(|weight| (weight, false))
             }
-            other => Err(err!("expected identifier or number, \
-                               found {}", other.name())),
+            other => Err(
+                error!("expected identifier or number, found {}", other.name())
+            ),
         }
     }
 }
 
 impl Value for Paper {
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
         Paper::from_name(Ident::parse(expr)?.as_str())
-            .ok_or_else(|| err!("invalid paper type"))
+            .ok_or_else(|| error!("invalid paper type"))
     }
 }
 
 impl Value for Direction {
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
         Ok(match Ident::parse(expr)?.as_str() {
             "left-to-right" | "ltr" | "LTR" => LeftToRight,
             "right-to-left" | "rtl" | "RTL" => RightToLeft,
             "top-to-bottom" | "ttb" | "TTB" => TopToBottom,
             "bottom-to-top" | "btt" | "BTT" => BottomToTop,
-            _ => return Err(err!("invalid direction"))
+            _ => return Err(error!("invalid direction"))
         })
     }
 }
@@ -248,7 +250,7 @@ impl AlignmentValue {
 }
 
 impl Value for AlignmentValue {
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Error> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
         Ok(match Ident::parse(expr)?.as_str() {
             "origin" => Align(Origin),
             "center" => Align(Center),
@@ -257,7 +259,7 @@ impl Value for AlignmentValue {
             "top"    => Top,
             "right"  => Right,
             "bottom" => Bottom,
-            _ => return Err(err!("invalid alignment"))
+            _ => return Err(error!("invalid alignment"))
         })
     }
 }

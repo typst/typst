@@ -76,7 +76,7 @@ pub struct Span {
 }
 
 impl Span {
-    /// A dummy span.
+    /// The zero span.
     pub const ZERO: Span = Span { start: Position::ZERO, end: Position::ZERO };
 
     /// Create a new span from start and end positions.
