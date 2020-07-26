@@ -1,17 +1,14 @@
 use std::fmt::Debug;
 
 use super::func::FuncHeader;
+use super::span::Spanned;
 use super::expr::{Expr, Tuple, NamedTuple, Object};
-use super::span::{Span, Spanned};
-use super::tokens::Token;
 use super::*;
 
-
-/// Check whether the expected and found results for the given source code
-/// match by the comparison function, and print them out otherwise.
-pub fn check<T>(src: &str, exp: T, found: T, spans: bool)
+/// Check whether the expected and found results are the same.
+pub fn check<T>(src: &str, exp: T, found: T, cmp_spans: bool)
 where T: Debug + PartialEq + SpanlessEq {
-    let cmp = if spans { PartialEq::eq } else { SpanlessEq::spanless_eq };
+    let cmp = if cmp_spans { PartialEq::eq } else { SpanlessEq::spanless_eq };
     if !cmp(&exp, &found) {
         println!("source:   {:?}", src);
         println!("expected: {:#?}", exp);
@@ -23,16 +20,25 @@ where T: Debug + PartialEq + SpanlessEq {
 /// Create a vector of optionally spanned expressions from a list description.
 ///
 /// # Examples
-/// When you want to add span information to the items, the format is as
-/// follows.
 /// ```
+/// // With spans
 /// spanned![(0:0, 0:5, "hello"), (0:5, 0:3, "world")]
+///
+/// // Without spans: Implicit zero spans.
+/// spanned!["hello", "world"]
 /// ```
-/// The span information can simply be omitted to create a vector with items
-/// that are spanned with zero spans.
-macro_rules! spanned {
-    (item ($sl:tt:$sc:tt, $el:tt:$ec:tt, $v:expr)) => ({
-        #[allow(unused_imports)]
+macro_rules! span_vec {
+    ($(($sl:tt:$sc:tt, $el:tt:$ec:tt, $v:expr)),* $(,)?) => {
+        (vec![$(span_item!(($sl:$sc, $el:$ec, $v))),*], true)
+    };
+
+    ($($v:expr),* $(,)?) => {
+        (vec![$(span_item!($v)),*], false)
+    };
+}
+
+macro_rules! span_item {
+    (($sl:tt:$sc:tt, $el:tt:$ec:tt, $v:expr)) => ({
         use $crate::syntax::span::{Position, Span, Spanned};
         Spanned {
             span: Span::new(
@@ -43,22 +49,9 @@ macro_rules! spanned {
         }
     });
 
-    (item $v:expr) => {
-        $crate::syntax::test::zspan($v)
+    ($v:expr) => {
+        $crate::syntax::span::Spanned::zero($v)
     };
-
-    (vec $(($sl:tt:$sc:tt, $el:tt:$ec:tt, $v:expr)),* $(,)?) => {
-        (vec![$(spanned![item ($sl:$sc, $el:$ec, $v)]),*], true)
-    };
-
-    (vec $($v:expr),* $(,)?) => {
-        (vec![$($crate::syntax::test::zspan($v)),*], false)
-    };
-}
-
-/// Span an element with a zero span.
-pub fn zspan<T>(v: T) -> Spanned<T> {
-    Spanned { v, span: Span::ZERO }
 }
 
 function! {
@@ -120,8 +113,8 @@ impl SpanlessEq for DebugFn {
 impl SpanlessEq for Expr {
     fn spanless_eq(&self, other: &Expr) -> bool {
         match (self, other) {
-            (Expr::NamedTuple(a), Expr::NamedTuple(b)) => a.spanless_eq(b),
             (Expr::Tuple(a), Expr::Tuple(b)) => a.spanless_eq(b),
+            (Expr::NamedTuple(a), Expr::NamedTuple(b)) => a.spanless_eq(b),
             (Expr::Object(a), Expr::Object(b)) => a.spanless_eq(b),
             (Expr::Neg(a), Expr::Neg(b)) => a.spanless_eq(&b),
             (Expr::Add(a1, a2), Expr::Add(b1, b2)) => a1.spanless_eq(&b1) && a2.spanless_eq(&b2),
@@ -175,8 +168,7 @@ impl<T: SpanlessEq> SpanlessEq for Box<T> {
     }
 }
 
-/// Implement `SpanlessEq` by just forwarding to `PartialEq`.
-macro_rules! forward {
+macro_rules! impl_through_partial_eq {
     ($type:ty) => {
         impl SpanlessEq for $type {
             fn spanless_eq(&self, other: &$type) -> bool {
@@ -186,6 +178,8 @@ macro_rules! forward {
     };
 }
 
-forward!(String);
-forward!(Token<'_>);
-forward!(Decoration);
+impl_through_partial_eq!(Token<'_>);
+
+// Implement for string and decoration to be able to compare feedback.
+impl_through_partial_eq!(String);
+impl_through_partial_eq!(Decoration);

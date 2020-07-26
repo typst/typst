@@ -639,83 +639,16 @@ fn unescape_raw(raw: &str) -> Vec<String> {
 #[allow(non_snake_case)]
 mod tests {
     use crate::size::Size;
-    use crate::syntax::test::{DebugFn, check, zspan};
+    use crate::syntax::test::{DebugFn, check};
     use crate::syntax::func::Value;
     use super::*;
 
     use Decoration::*;
+    use Expr::{Number as Num, Size as Sz, Bool};
     use Node::{
         Space as S, ToggleItalic as Italic, ToggleBolder as Bold,
         Parbreak, Linebreak,
     };
-
-    use Expr::{Number as Num, Size as Sz, Bool};
-    fn Id(text: &str) -> Expr { Expr::Ident(Ident(text.to_string())) }
-    fn Str(text: &str) -> Expr { Expr::Str(text.to_string()) }
-    fn Pt(points: f32) -> Expr { Expr::Size(Size::pt(points)) }
-    fn Neg(e1: Expr) -> Expr { Expr::Neg(Box::new(zspan(e1))) }
-    fn Add(e1: Expr, e2: Expr) -> Expr {
-        Expr::Add(Box::new(zspan(e1)), Box::new(zspan(e2)))
-    }
-    fn Sub(e1: Expr, e2: Expr) -> Expr {
-        Expr::Sub(Box::new(zspan(e1)), Box::new(zspan(e2)))
-    }
-    fn Mul(e1: Expr, e2: Expr) -> Expr {
-        Expr::Mul(Box::new(zspan(e1)), Box::new(zspan(e2)))
-    }
-    fn Div(e1: Expr, e2: Expr) -> Expr {
-        Expr::Div(Box::new(zspan(e1)), Box::new(zspan(e2)))
-    }
-
-    fn Clr(r: u8, g: u8, b: u8, a: u8) -> Expr {
-        Expr::Color(RgbaColor::new(r, g, b, a))
-    }
-    fn ClrStr(color: &str) -> Expr {
-        Expr::Color(RgbaColor::from_str(color).expect("invalid test color"))
-    }
-    fn ClrStrHealed() -> Expr {
-        let mut c = RgbaColor::from_str("000f").expect("invalid test color");
-        c.healed = true;
-        Expr::Color(c)
-    }
-
-    fn T(text: &str) -> Node { Node::Text(text.to_string()) }
-
-    /// Create a raw text node.
-    macro_rules! raw {
-        ($($line:expr),* $(,)?) => {
-            Node::Raw(vec![$($line.to_string()),*])
-        };
-    }
-
-    /// Create a tuple expression.
-    macro_rules! tuple {
-        ($($items:expr),* $(,)?) => {
-            Expr::Tuple(Tuple { items: spanned![vec $($items),*].0 })
-        };
-    }
-
-    /// Create a named tuple expression.
-    macro_rules! named_tuple {
-        ($name:expr $(, $items:expr)* $(,)?) => {
-            Expr::NamedTuple(NamedTuple::new(
-                zspan(Ident($name.to_string())),
-                zspan(Tuple { items: spanned![vec $($items),*].0 })
-            ))
-        };
-    }
-
-    /// Create an object expression.
-    macro_rules! object {
-        ($($key:expr => $value:expr),* $(,)?) => {
-            Expr::Object(Object {
-                pairs: vec![$(zspan(Pair {
-                    key: zspan(Ident($key.to_string())),
-                    value: zspan($value),
-                })),*]
-            })
-        };
-    }
 
     /// Test whether the given string parses into
     /// - the given node list (required).
@@ -736,12 +669,12 @@ mod tests {
             let ctx = ParseContext { scope: &scope };
             let pass = parse(Position::ZERO, $source, ctx);
 
-            // Test model
-            let (exp, cmp) = spanned![vec $($model)*];
+            // Test model.
+            let (exp, cmp) = span_vec![$($model)*];
             check($source, exp, pass.output.nodes, cmp);
 
-            // Test problems
-            let (exp, cmp) = spanned![vec $($problems)*];
+            // Test problems.
+            let (exp, cmp) = span_vec![$($problems)*];
             let exp = exp.into_iter()
                 .map(|s: Spanned<&str>| s.map(|e| e.to_string()))
                 .collect::<Vec<_>>();
@@ -750,42 +683,90 @@ mod tests {
                 .collect::<Vec<_>>();
             check($source, exp, found, cmp);
 
-            // Test decos
-            $(let (exp, cmp) = spanned![vec $($decos)*];
+            // Test decos.
+            $(let (exp, cmp) = span_vec![$($decos)*];
             check($source, exp, pass.feedback.decos, cmp);)?
         };
     }
 
-    /// Write down a `DebugFn` function model compactly.
+    /// Shorthand for `p!("[val: ...]" => func!("val", ...))`.
+    macro_rules! pval {
+        ($header:expr => $($tts:tt)*) => {
+            p!(concat!("[val: ", $header, "]") => [func!("val": $($tts)*)]);
+        }
+    }
+
+    fn Id(text: &str) -> Expr { Expr::Ident(Ident(text.to_string())) }
+    fn Str(text: &str) -> Expr { Expr::Str(text.to_string()) }
+    fn Pt(points: f32) -> Expr { Expr::Size(Size::pt(points)) }
+    fn Color(r: u8, g: u8, b: u8, a: u8) -> Expr { Expr::Color(RgbaColor::new(r, g, b, a)) }
+    fn ColorStr(color: &str) -> Expr { Expr::Color(RgbaColor::from_str(color).expect("invalid test color")) }
+    fn ColorHealed() -> Expr { Expr::Color(RgbaColor::new_healed(0, 0, 0, 255)) }
+    fn Neg(e1: Expr) -> Expr { Expr::Neg(Box::new(Z(e1))) }
+    fn Add(e1: Expr, e2: Expr) -> Expr { Expr::Add(Box::new(Z(e1)), Box::new(Z(e2))) }
+    fn Sub(e1: Expr, e2: Expr) -> Expr { Expr::Sub(Box::new(Z(e1)), Box::new(Z(e2))) }
+    fn Mul(e1: Expr, e2: Expr) -> Expr { Expr::Mul(Box::new(Z(e1)), Box::new(Z(e2))) }
+    fn Div(e1: Expr, e2: Expr) -> Expr { Expr::Div(Box::new(Z(e1)), Box::new(Z(e2)))  }
+    fn T(text: &str) -> Node { Node::Text(text.to_string()) }
+    fn Z<T>(v: T) -> Spanned<T> { Spanned::zero(v) }
+
+    macro_rules! tuple {
+        ($($items:expr),* $(,)?) => {
+            Expr::Tuple(Tuple { items: span_vec![$($items),*].0 })
+        };
+    }
+
+    macro_rules! named_tuple {
+        ($name:expr $(, $items:expr)* $(,)?) => {
+            Expr::NamedTuple(NamedTuple::new(
+                Z(Ident($name.to_string())),
+                Z(Tuple { items: span_vec![$($items),*].0 })
+            ))
+        };
+    }
+
+    macro_rules! object {
+        ($($key:expr => $value:expr),* $(,)?) => {
+            Expr::Object(Object {
+                pairs: vec![$(Z(Pair {
+                    key: Z(Ident($key.to_string())),
+                    value: Z($value),
+                })),*]
+            })
+        };
+    }
+
+    macro_rules! raw {
+        ($($line:expr),* $(,)?) => {
+            Node::Raw(vec![$($line.to_string()),*])
+        };
+    }
+
     macro_rules! func {
-        ($name:tt $(: ($($pos:tt)*), { $($key:tt)* } )? $(; $($body:tt)*)?) => ({
+        ($name:tt $(: ($($pos:tt)*) $(, { $($key:tt)* })? )? $(; $($body:tt)*)?) => {{
             #[allow(unused_mut)]
             let mut args = FuncArgs::new();
-            $(args.pos = Tuple::parse(zspan(tuple!($($pos)*))).unwrap();)?
-            $(args.key = Object::parse(zspan(object! { $($key)* })).unwrap();)?
-
+            $(args.pos = Tuple::parse(Z(tuple!($($pos)*))).unwrap();
+            $(args.key = Object::parse(Z(object! { $($key)* })).unwrap();)?)?
             Node::Model(Box::new(DebugFn {
                 header: FuncHeader {
-                    name: spanned!(item $name).map(|s| Ident(s.to_string())),
+                    name: span_item!($name).map(|s| Ident(s.to_string())),
                     args,
                 },
                 body: func!(@body $($($body)*)?),
             }))
-        });
-
-        (@body [$($body:tt)*]) => ({
-            Some(SyntaxModel { nodes: spanned![vec $($body)*].0 })
-        });
-        (@body) => (None);
+        }};
+        (@body [$($body:tt)*]) => { Some(SyntaxModel { nodes: span_vec![$($body)*].0 }) };
+        (@body) => { None };
     }
 
     #[test]
     fn parse_color_strings() {
-        assert_eq!(Clr(0xf6, 0x12, 0x43, 0xff), ClrStr("f61243ff"));
-        assert_eq!(Clr(0xb3, 0xd8, 0xb3, 0xff), ClrStr("b3d8b3"));
-        assert_eq!(Clr(0xfc, 0xd2, 0xa9, 0xad), ClrStr("fCd2a9AD"));
-        assert_eq!(Clr(0x22, 0x33, 0x33, 0xff), ClrStr("233"));
-        assert_eq!(Clr(0x11, 0x11, 0x11, 0xbb), ClrStr("111b"));
+        assert_eq!(Color(0xf6, 0x12, 0x43, 0xff), ColorStr("f61243ff"));
+        assert_eq!(Color(0xb3, 0xd8, 0xb3, 0xff), ColorStr("b3d8b3"));
+        assert_eq!(Color(0xfc, 0xd2, 0xa9, 0xad), ColorStr("fCd2a9AD"));
+        assert_eq!(Color(0x22, 0x33, 0x33, 0xff), ColorStr("233"));
+        assert_eq!(Color(0x11, 0x11, 0x11, 0xbb), ColorStr("111b"));
     }
 
     #[test]
@@ -824,7 +805,7 @@ mod tests {
 
     #[test]
     fn parse_basic_nodes() {
-        // Basic nodes
+        // Basic nodes.
         p!(""                     => []);
         p!("hi"                   => [T("hi")]);
         p!("*hi"                  => [Bold, T("hi")]);
@@ -838,13 +819,13 @@ mod tests {
         p!(r"a\ b"                => [T("a"), Linebreak, S, T("b")]);
         p!("💜\n\n 🌍"            => [T("💜"), Parbreak, T("🌍")]);
 
-        // Raw markup
+        // Raw markup.
         p!("`py`"         => [raw!["py"]]);
         p!("[val][`hi]`]" => [func!("val"; [raw!["hi]"]])]);
         p!("`hi\nyou"     => [raw!["hi", "you"]], [(1:3, 1:3, "expected backtick")]);
         p!("`hi\\`du`"    => [raw!["hi`du"]]);
 
-        // Spanned nodes
+        // Spanned nodes.
         p!("Hi"      => [(0:0, 0:2, T("Hi"))]);
         p!("*Hi*"    => [(0:0, 0:1, Bold), (0:1, 0:3, T("Hi")), (0:3, 0:4, Bold)]);
         p!("🌎\n*/[n]" =>
@@ -856,31 +837,31 @@ mod tests {
 
     #[test]
     fn parse_function_names() {
-        // No closing bracket
+        // No closing bracket.
         p!("[" => [func!("")], [
             (0:1, 0:1, "expected identifier"),
             (0:1, 0:1, "expected closing bracket")
         ]);
 
-        // No name
+        // No name.
         p!("[]" => [func!("")], [(0:1, 0:1, "expected identifier")]);
         p!("[\"]" => [func!("")], [
             (0:1, 0:3, "expected identifier, found string"),
             (0:3, 0:3, "expected closing bracket"),
         ]);
 
-        // An unknown name
+        // An unknown name.
         p!("[hi]" =>
             [func!("hi")],
             [(0:1, 0:3, "unknown function")],
             [(0:1, 0:3, InvalidFuncName)],
         );
 
-        // A valid name
+        // A valid name.
         p!("[f]"   => [func!("f")], [], [(0:1, 0:2, ValidFuncName)]);
         p!("[  f]" => [func!("f")], [], [(0:3, 0:4, ValidFuncName)]);
 
-        // An invalid token for a name
+        // An invalid token for a name.
         p!("[12]"   => [func!("")], [(0:1, 0:3, "expected identifier, found number")], []);
         p!("[🌎]"   => [func!("")], [(0:1, 0:2, "expected identifier, found invalid token")], []);
         p!("[  🌎]" => [func!("")], [(0:3, 0:4, "expected identifier, found invalid token")], []);
@@ -888,13 +869,19 @@ mod tests {
 
     #[test]
     fn parse_colon_starting_function_arguments() {
-        // No colon before arg
+        // Valid.
+        p!("[val: true]" =>
+            [func!["val": (Bool(true))]], [],
+            [(0:1, 0:4, ValidFuncName)],
+        );
+
+        // No colon before arg.
         p!("[val\"s\"]" => [func!("val")], [(0:4, 0:4, "expected colon")]);
 
-        // No colon before valid, but wrong token
+        // No colon before valid, but wrong token.
         p!("[val=]" => [func!("val")], [(0:4, 0:4, "expected colon")]);
 
-        // No colon before invalid tokens, which are ignored
+        // No colon before invalid tokens, which are ignored.
         p!("[val/🌎:$]" =>
             [func!("val")],
             [(0:4, 0:4, "expected colon")],
@@ -909,36 +896,38 @@ mod tests {
             (0:7, 0:7, "expected closing bracket"),
         ]);
 
-        // Just colon without args
+        // Just colon without args.
         p!("[val:]"         => [func!("val")]);
         p!("[val:/*12pt*/]" => [func!("val")]);
 
-        // Whitespace / comments around colon
-        p!("[val\n:\ntrue]"      => [func!("val": (Bool(true)), {})]);
-        p!("[val/*:*/://\ntrue]" => [func!("val": (Bool(true)), {})]);
+        // Whitespace / comments around colon.
+        p!("[val\n:\ntrue]"      => [func!("val": (Bool(true)))]);
+        p!("[val/*:*/://\ntrue]" => [func!("val": (Bool(true)))]);
     }
 
     #[test]
     fn parse_one_positional_argument() {
-        // Different expressions
-        p!("[val: true]"   =>
-            [func!("val": (Bool(true)), {})], [],
-            [(0:1, 0:4, ValidFuncName)],
-        );
-        p!("[val: _]"      => [func!("val": (Id("_")), {})]);
-        p!("[val: name]"   => [func!("val": (Id("name")), {})]);
-        p!("[val: \"hi\"]" => [func!("val": (Str("hi")), {})]);
-        p!("[val: \"a\n[]\\\"string\"]" => [func!("val": (Str("a\n[]\"string")), {})]);
-        p!("[val: 3.14]"   => [func!("val": (Num(3.14)), {})]);
-        p!("[val: 4.5cm]"  => [func!("val": (Sz(Size::cm(4.5))), {})]);
-        p!("[val: 12e1pt]" => [func!("val": (Pt(12e1)), {})]);
-        p!("[val: #f7a20500]" => [func!("val": (ClrStr("f7a20500")), {})]);
+        // Different expressions.
+        pval!("_"      => (Id("_")));
+        pval!("name"   => (Id("name")));
+        pval!("\"hi\"" => (Str("hi")));
+        pval!("3.14"   => (Num(3.14)));
+        pval!("4.5cm"  => (Sz(Size::cm(4.5))));
+        pval!("12e1pt" => (Pt(12e1)));
+        pval!("#f7a20500" => (ColorStr("f7a20500")));
+        pval!("\"a\n[]\\\"string\"" => (Str("a\n[]\"string")));
 
-        // Math
-        p!("[val: 3.2in + 6pt]" => [func!("val": (Add(Sz(Size::inches(3.2)), Sz(Size::pt(6.0)))), {})]);
-        p!("[val: 5 - 0.01]"    => [func!("val": (Sub(Num(5.0), Num(0.01))), {})]);
-        p!("[val: (3mm * 2)]"   => [func!("val": (Mul(Sz(Size::mm(3.0)), Num(2.0))), {})]);
-        p!("[val: 12e-3cm/1pt]" => [func!("val": (Div(Sz(Size::cm(12e-3)), Sz(Size::pt(1.0)))), {})]);
+        // Trailing comma.
+        pval!("a," => (Id("a")));
+
+        // Simple coerced tuple.
+        pval!("(hi)" => (Id("hi")));
+
+        // Math.
+        pval!("3.2in + 6pt" => (Add(Sz(Size::inches(3.2)), Sz(Size::pt(6.0)))));
+        pval!("5 - 0.01"    => (Sub(Num(5.0), Num(0.01))));
+        pval!("(3mm * 2)"   => (Mul(Sz(Size::mm(3.0)), Num(2.0))));
+        pval!("12e-3cm/1pt" => (Div(Sz(Size::cm(12e-3)), Sz(Size::pt(1.0)))));
 
         // Unclosed string.
         p!("[val: \"hello]" => [func!("val": (Str("hello]")), {})], [
@@ -946,111 +935,79 @@ mod tests {
             (0:13, 0:13, "expected closing bracket"),
         ]);
 
-        //Invalid colors
-        p!("[val: #12345]" => [func!("val": (ClrStrHealed()), {})], [
-            (0:6, 0:12, "invalid color"),
-        ]);
-        p!("[val: #a5]" => [func!("val": (ClrStrHealed()), {})], [
-            (0:6, 0:9, "invalid color"),
-        ]);
-        p!("[val: #14b2ah]" => [func!("val": (ClrStrHealed()), {})], [
-            (0:6, 0:13, "invalid color"),
-        ]);
-        p!("[val: #f075ff011]" => [func!("val": (ClrStrHealed()), {})], [
-            (0:6, 0:16, "invalid color"),
-        ]);
+        // Invalid, healed colors.
+        p!("[val: #12345]"     => [func!("val": (ColorHealed()))], [(0:6, 0:12, "invalid color")]);
+        p!("[val: #a5]"        => [func!("val": (ColorHealed()))], [(0:6, 0:9,  "invalid color")]);
+        p!("[val: #14b2ah]"    => [func!("val": (ColorHealed()))], [(0:6, 0:13, "invalid color")]);
+        p!("[val: #f075ff011]" => [func!("val": (ColorHealed()))], [(0:6, 0:16, "invalid color")]);
     }
 
     #[test]
     fn parse_complex_mathematical_expressions() {
-        p!("[val: (3.2in + 6pt)*(5/2-1)]" => [func!("val": (
-            Mul(
-                Add(Sz(Size::inches(3.2)), Sz(Size::pt(6.0))),
-                Sub(Div(Num(5.0), Num(2.0)), Num(1.0))
-            )
-        ), {})]);
-        p!("[val: (6.3E+2+4* - 3.2pt)/2]"  => [func!("val": (
-            Div(Add(Num(6.3e2),Mul(Num(4.0), Neg(Pt(3.2)))), Num(2.0))
-        ), {})]);
-        p!("[val: 4pt--]" =>
-            [func!("val": (Pt(4.0)), {})],
-            [
-                (0:10, 0:11, "dangling minus"),
-                (0:6, 0:10, "missing right summand")
-            ],
-        );
+        // Valid expressions.
+        pval!("(3.2in + 6pt)*(5/2-1)" => (Mul(
+            Add(Sz(Size::inches(3.2)), Sz(Size::pt(6.0))),
+            Sub(Div(Num(5.0), Num(2.0)), Num(1.0))
+        )));
+        pval!("(6.3E+2+4* - 3.2pt)/2" => (Div(
+            Add(Num(6.3e2),Mul(Num(4.0), Neg(Pt(3.2)))),
+            Num(2.0)
+        )));
+
+        // Invalid expressions.
+        p!("[val: 4pt--]" => [func!("val": (Pt(4.0)))], [
+            (0:10, 0:11, "dangling minus"),
+            (0:6, 0:10, "missing right summand")
+        ]);
         p!("[val: 3mm+4pt*]" =>
-            [func!("val": (Add(Sz(Size::mm(3.0)), Pt(4.0))), {})],
+            [func!("val": (Add(Sz(Size::mm(3.0)), Pt(4.0))))],
             [(0:10, 0:14, "missing right factor")],
         );
     }
 
     #[test]
     fn parse_tuples() {
-        // Empty tuple
-        p!("[val: ()]" => [func!("val": (tuple!()), {})]);
-        p!("[val: empty()]" => [func!("val": (named_tuple!("empty")), {})]);
+        // Empty tuple.
+        pval!("()" => (tuple!()));
+        pval!("empty()" => (named_tuple!("empty")));
 
-        // Invalid value
-        p!("[val: (🌎)]" =>
-            [func!("val": (tuple!()), {})],
-            [(0:7, 0:8, "expected value, found invalid token")],
-        );
+        // Invalid value.
         p!("[val: sound(\x07)]" =>
             [func!("val": (named_tuple!("sound")), {})],
             [(0:12, 0:13, "expected value, found invalid token")],
         );
 
-        // Invalid tuple name
+        // Invalid tuple name.
         p!("[val: 👠(\"abc\", 13e-5)]" =>
             [func!("val": (tuple!(Str("abc"), Num(13.0e-5))), {})],
             [(0:6, 0:7, "expected argument, found invalid token")],
         );
 
-        // Unclosed tuple
-        p!("[val: (hello,]" =>
-            [func!("val": (tuple!(Id("hello"),)), {})],
-            [(0:13, 0:13, "expected closing paren")],
-        );
+        // Unclosed tuple.
         p!("[val: lang(中文]" =>
             [func!("val": (named_tuple!("lang", Id("中文"))), {})],
             [(0:13, 0:13, "expected closing paren")],
         );
 
-        // Valid values
-        p!("[val: (1, 2)]" => [func!("val": (tuple!(Num(1.0), Num(2.0))), {})]);
-        p!("[val: (\"s\",)]" => [func!("val": (tuple!(Str("s"))), {})]);
-        p!("[val: cmyk(1, 46, 0, 0)]" =>
-            [func!("val": (named_tuple!(
-                "cmyk", Num(1.0), Num(46.0), Num(0.0), Num(0.0)
-            )), {})]
-        );
-        p!("[val: items(\"fire\", #f93a6d)]" =>
-            [func!("val": (named_tuple!(
-                "items", Str("fire"), ClrStr("f93a6d")
-            )), {})]
-        );
+        // Valid values.
+        pval!("(1, 2)" => (tuple!(Num(1.0), Num(2.0))));
+        pval!("(\"s\",)" => (tuple!(Str("s"))));
+        pval!("items(\"fire\", #f93a6d)" => (
+            named_tuple!("items", Str("fire"), ColorStr("f93a6d")
+        )));
 
-        // Nested tuples
-        p!("[val: (1, (2, 3))]" =>
-            [func!("val": (tuple!(Num(1.0), tuple!(Num(2.0), Num(3.0)))), {})]
-        );
-        p!("[val: css(1pt, rgb(90, 102, 254), \"solid\")]" =>
-            [func!("val": (named_tuple!(
-                "css", Pt(1.0), named_tuple!(
-                    "rgb", Num(90.0), Num(102.0), Num(254.0)
-                ), Str("solid")
-            )), {})]
-        );
+        // Nested tuples.
+        pval!("css(1pt, rgb(90, 102, 254), \"solid\")" => (named_tuple!(
+            "css",
+            Pt(1.0),
+            named_tuple!("rgb", Num(90.0), Num(102.0), Num(254.0)),
+            Str("solid"),
+        )));
 
-        // Invalid commas
+        // Invalid commas.
         p!("[val: (,)]" =>
             [func!("val": (tuple!()), {})],
             [(0:7, 0:8, "expected value, found comma")],
-        );
-        p!("[val: nose(,)]" =>
-            [func!("val": (named_tuple!("nose")), {})],
-            [(0:11, 0:12, "expected value, found comma")],
         );
         p!("[val: (true false)]" =>
             [func!("val": (tuple!(Bool(true), Bool(false))), {})],
@@ -1060,14 +1017,13 @@ mod tests {
 
     #[test]
     fn parse_objects() {
-        let f = || func!("val": (object! {}), {});
+        let val = || func!("val": (object! {}), {});
 
-        // Okay objects
-        p!("[val: {}]" => [f()]);
-        p!("[val: { key: value }]" =>
-            [func!("val": (object! { "key" => Id("value") }), {})]);
+        // Okay objects.
+        pval!("{}" => (object! {}));
+        pval!("{ key: value }" => (object! { "key" => Id("value") }));
 
-        // Unclosed object
+        // Unclosed object.
         p!("[val: {hello: world]" =>
             [func!("val": (object! { "hello" => Id("world") }), {})],
             [(0:19, 0:19, "expected closing brace")],
@@ -1077,14 +1033,14 @@ mod tests {
             [(0:9, 0:9, "expected colon"), (0:9, 0:9, "expected closing brace")],
         );
 
-        // Missing key
-        p!("[val: {,}]" => [f()], [(0:7, 0:8, "expected key, found comma")]);
-        p!("[val: { 12pt }]" => [f()], [(0:8, 0:12, "expected key, found size")]);
-        p!("[val: { : }]" => [f()], [(0:8, 0:9, "expected key, found colon")]);
+        // Missing key.
+        p!("[val: {,}]" => [val()], [(0:7, 0:8, "expected key, found comma")]);
+        p!("[val: { 12pt }]" => [val()], [(0:8, 0:12, "expected key, found size")]);
+        p!("[val: { : }]" => [val()], [(0:8, 0:9, "expected key, found colon")]);
 
-        // Missing colon
-        p!("[val: { key }]" => [f()], [(0:11, 0:11, "expected colon")]);
-        p!("[val: { key false }]" => [f()], [
+        // Missing colon.
+        p!("[val: { key }]" => [val()], [(0:11, 0:11, "expected colon")]);
+        p!("[val: { key false }]" => [val()], [
             (0:11, 0:11, "expected colon"),
             (0:12, 0:17, "expected key, found bool"),
         ]);
@@ -1093,14 +1049,14 @@ mod tests {
             [(0:9, 0:9, "expected colon")],
         );
 
-        // Missing value
-        p!("[val: { key: : }]" => [f()], [(0:13, 0:14, "expected value, found colon")]);
+        // Missing value.
+        p!("[val: { key: : }]" => [val()], [(0:13, 0:14, "expected value, found colon")]);
         p!("[val: { key: , k: \"s\" }]" =>
             [func!("val": (object! { "k" => Str("s") }), {})],
             [(0:13, 0:14, "expected value, found comma")],
         );
 
-        // Missing comma, invalid token
+        // Missing comma, invalid token.
         p!("[val: left={ a: 2, b: false 🌎 }]" =>
             [func!("val": (), {
                 "left" => object! {
@@ -1115,7 +1071,7 @@ mod tests {
 
     #[test]
     fn parse_nested_tuples_and_objects() {
-        p!("[val: (1, { ab: (), d: (3, 14pt) }), false]" => [func!("val": (
+        pval!("(1, { ab: (), d: (3, 14pt) }), false" => (
             tuple!(
                 Num(1.0),
                 object!(
@@ -1124,7 +1080,7 @@ mod tests {
                 ),
             ),
             Bool(false),
-        ), {})]);
+        ));
     }
 
     #[test]
@@ -1151,12 +1107,11 @@ mod tests {
 
     #[test]
     fn parse_multiple_mixed_arguments() {
-        p!("[val: a,]" => [func!("val": (Id("a")), {})]);
         p!("[val: 12pt, key=value]" =>
             [func!("val": (Pt(12.0)), { "key" => Id("value") })], [],
             [(0:12, 0:15, ArgumentKey), (0:1, 0:4, ValidFuncName)],
         );
-        p!("[val: a , \"b\" , c]" => [func!("val": (Id("a"), Str("b"), Id("c")), {})]);
+        pval!("a , x=\"b\" , c" => (Id("a"), Id("c")), { "x" => Str("b"),  });
     }
 
     #[test]
@@ -1177,7 +1132,7 @@ mod tests {
 
     #[test]
     fn parse_invalid_key_value_pairs() {
-        // Invalid keys
+        // Invalid keys.
         p!("[val: true=you]" =>
             [func!("val": (Bool(true), Id("you")), {})],
             [(0:10, 0:10, "expected comma"),
@@ -1185,13 +1140,14 @@ mod tests {
             [(0:1, 0:4, ValidFuncName)],
         );
 
+        // Unexpected equals.
         p!("[box: z=y=4]" =>
             [func!("box": (Num(4.0)), { "z" => Id("y") })],
             [(0:9, 0:9, "expected comma"),
              (0:9, 0:10, "expected argument, found equals sign")],
         );
 
-        // Invalid colon after keyable positional argument
+        // Invalid colon after keyable positional argument.
         p!("[val: key:12]" =>
             [func!("val": (Id("key"), Num(12.0)), {})],
             [(0:9, 0:9, "expected comma"),
@@ -1199,7 +1155,7 @@ mod tests {
             [(0:1, 0:4, ValidFuncName)],
         );
 
-        // Invalid colon after non-keyable positional argument
+        // Invalid colon after unkeyable positional argument.
         p!("[val: true:12]" => [func!("val": (Bool(true), Num(12.0)), {})],
             [(0:10, 0:10, "expected comma"),
              (0:10, 0:11, "expected argument, found colon")],
@@ -1209,7 +1165,7 @@ mod tests {
 
     #[test]
     fn parse_invalid_commas() {
-        // Missing commas
+        // Missing commas.
         p!("[val: 1pt 1]" =>
             [func!("val": (Pt(1.0), Num(1.0)), {})],
             [(0:9, 0:9, "expected comma")],
@@ -1219,7 +1175,7 @@ mod tests {
             [(0:7, 0:7, "expected comma")],
         );
 
-        // Unexpected commas
+        // Unexpected commas.
         p!("[val:,]" => [func!("val")], [(0:5, 0:6, "expected argument, found comma")]);
         p!("[val: key=,]" => [func!("val")], [(0:10, 0:11, "expected value, found comma")]);
         p!("[val:, true]" =>
@@ -1231,13 +1187,10 @@ mod tests {
     #[test]
     fn parse_bodies() {
         p!("[val][Hi]" => [func!("val"; [T("Hi")])]);
-
-        // Body nodes in bodies.
         p!("[val:*][*Hi*]" =>
             [func!("val"; [Bold, T("Hi"), Bold])],
             [(0:5, 0:6, "expected argument, found star")],
         );
-
         // Errors in bodies.
         p!(" [val][ */ ]" =>
             [S, func!("val"; [S, S])],
@@ -1267,7 +1220,8 @@ mod tests {
                 (0:6, 0:18, func!((0:1, 0:4, "val"); [(0:6, 0:11, T("world"))])),
                 (0:18, 0:19, S),
                 (0:19, 0:20, T("🌎"))
-            ], [],
+            ],
+            [],
             [(0:7, 0:10, ValidFuncName)],
         );
 
@@ -1281,7 +1235,8 @@ mod tests {
                     (1:4, 1:10, func!((0:2, 0:5, "box"))),
                     (1:10, 2:1, S),
                 ]))
-            ], [],
+            ],
+            [],
             [(0:2, 0:5, ValidFuncName), (1:6, 1:9, ValidFuncName)],
         );
     }

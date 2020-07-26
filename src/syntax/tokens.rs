@@ -532,6 +532,7 @@ pub fn is_identifier(string: &str) -> bool {
 
 
 #[cfg(test)]
+#[allow(non_snake_case)]
 mod tests {
     use super::super::test::check;
     use super::*;
@@ -552,31 +553,23 @@ mod tests {
         Slash,
     };
 
-    #[allow(non_snake_case)]
-    fn Str(string: &'static str, terminated: bool) -> Token<'static> {
-        Token::ExprStr { string, terminated }
-    }
-
-    #[allow(non_snake_case)]
-    fn Raw(raw: &'static str, terminated: bool) -> Token<'static> {
-        Token::Raw { raw, terminated }
-    }
-
     /// Test whether the given string tokenizes into the given list of tokens.
     macro_rules! t {
         ($mode:expr, $source:expr => [$($tokens:tt)*]) => {
-            let (exp, spans) = spanned![vec $($tokens)*];
+            let (exp, spans) = span_vec![$($tokens)*];
             let found = Tokens::new(Position::ZERO, $source, $mode).collect::<Vec<_>>();
             check($source, exp, found, spans);
         }
     }
 
-    /// Write down a function token compactly.
+    fn Str(string: &str, terminated: bool) -> Token { Token::ExprStr { string, terminated } }
+    fn Raw(raw: &str, terminated: bool) -> Token { Token::Raw { raw, terminated } }
+
     macro_rules! func {
         ($header:expr, Some($($tokens:tt)*), $terminated:expr) => {
             Function {
                 header: $header,
-                body: Some(spanned![item $($tokens)*]),
+                body: Some(span_item!(($($tokens)*))),
                 terminated: $terminated,
             }
         };
@@ -677,12 +670,12 @@ mod tests {
     fn tokenize_functions() {
         t!(Body, "a[f]"           => [T("a"), func!("f", None, true)]);
         t!(Body, "[f]a"           => [func!("f", None, true), T("a")]);
-        t!(Body, "\n\n[f][ ]"     => [S(2), func!("f", Some((0:4, 0:5, " ")), true)]);
-        t!(Body, "abc [f][ ]a"    => [T("abc"), S(0), func!("f", Some((0:4, 0:5, " ")), true), T("a")]);
+        t!(Body, "\n\n[f][ ]"     => [S(2), func!("f", Some(0:4, 0:5, " "), true)]);
+        t!(Body, "abc [f][ ]a"    => [T("abc"), S(0), func!("f", Some(0:4, 0:5, " "), true), T("a")]);
         t!(Body, "[f: [=][*]]"    => [func!("f: [=][*]", None, true)]);
-        t!(Body, "[_][[,],],"     => [func!("_", Some((0:4, 0:8, "[,],")), true), T(",")]);
-        t!(Body, "[=][=][=]"      => [func!("=", Some((0:4, 0:5, "=")), true), func!("=", None, true)]);
-        t!(Body, "[=][[=][=][=]]" => [func!("=", Some((0:4, 0:13, "[=][=][=]")), true)]);
+        t!(Body, "[_][[,],],"     => [func!("_", Some(0:4, 0:8, "[,],"), true), T(",")]);
+        t!(Body, "[=][=][=]"      => [func!("=", Some(0:4, 0:5, "="), true), func!("=", None, true)]);
+        t!(Body, "[=][[=][=][=]]" => [func!("=", Some(0:4, 0:13, "[=][=][=]"), true)]);
         t!(Header, "["            => [func!("", None, false)]);
         t!(Header, "]"            => [Invalid("]")]);
     }
@@ -696,25 +689,25 @@ mod tests {
         t!(Body, "[f: `]"         => [func!("f: `", None, true)]);
 
         // End of function with strings and carets in bodies
-        t!(Body, "[f][\"]"        => [func!("f", Some((0:4, 0:5, "\"")), true)]);
-        t!(Body, r#"[f][\"]"#     => [func!("f", Some((0:4, 0:6, r#"\""#)), true)]);
-        t!(Body, "[f][`]"         => [func!("f", Some((0:4, 0:6, "`]")), false)]);
-        t!(Body, "[f][\\`]"       => [func!("f", Some((0:4, 0:6, "\\`")), true)]);
-        t!(Body, "[f][`raw`]"     => [func!("f", Some((0:4, 0:9, "`raw`")), true)]);
-        t!(Body, "[f][`raw]"      => [func!("f", Some((0:4, 0:9, "`raw]")), false)]);
-        t!(Body, "[f][`raw]`]"    => [func!("f", Some((0:4, 0:10, "`raw]`")), true)]);
-        t!(Body, "[f][`\\`]"      => [func!("f", Some((0:4, 0:8, "`\\`]")), false)]);
-        t!(Body, "[f][`\\\\`]"    => [func!("f", Some((0:4, 0:8, "`\\\\`")), true)]);
+        t!(Body, "[f][\"]"        => [func!("f", Some(0:4, 0:5, "\""), true)]);
+        t!(Body, r#"[f][\"]"#     => [func!("f", Some(0:4, 0:6, r#"\""#), true)]);
+        t!(Body, "[f][`]"         => [func!("f", Some(0:4, 0:6, "`]"), false)]);
+        t!(Body, "[f][\\`]"       => [func!("f", Some(0:4, 0:6, "\\`"), true)]);
+        t!(Body, "[f][`raw`]"     => [func!("f", Some(0:4, 0:9, "`raw`"), true)]);
+        t!(Body, "[f][`raw]"      => [func!("f", Some(0:4, 0:9, "`raw]"), false)]);
+        t!(Body, "[f][`raw]`]"    => [func!("f", Some(0:4, 0:10, "`raw]`"), true)]);
+        t!(Body, "[f][`\\`]"      => [func!("f", Some(0:4, 0:8, "`\\`]"), false)]);
+        t!(Body, "[f][`\\\\`]"    => [func!("f", Some(0:4, 0:8, "`\\\\`"), true)]);
 
         // End of function with comments
-        t!(Body, "[f][/*]"        => [func!("f", Some((0:4, 0:7, "/*]")), false)]);
-        t!(Body, "[f][/*`*/]"     => [func!("f", Some((0:4, 0:9, "/*`*/")), true)]);
+        t!(Body, "[f][/*]"        => [func!("f", Some(0:4, 0:7, "/*]"), false)]);
+        t!(Body, "[f][/*`*/]"     => [func!("f", Some(0:4, 0:9, "/*`*/"), true)]);
         t!(Body, "[f: //]\n]"     => [func!("f: //]\n", None, true)]);
         t!(Body, "[f: \"//]\n]"   => [func!("f: \"//]\n]", None, false)]);
 
         // End of function with escaped brackets
-        t!(Body, "[f][\\]]"       => [func!("f", Some((0:4, 0:6, "\\]")), true)]);
-        t!(Body, "[f][\\[]"       => [func!("f", Some((0:4, 0:6, "\\[")), true)]);
+        t!(Body, "[f][\\]]"       => [func!("f", Some(0:4, 0:6, "\\]"), true)]);
+        t!(Body, "[f][\\[]"       => [func!("f", Some(0:4, 0:6, "\\["), true)]);
     }
 
     #[test]

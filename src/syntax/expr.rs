@@ -93,9 +93,6 @@ impl Debug for Expr {
 
 /// A unicode identifier.
 ///
-/// The identifier must be valid! This is checked in [`Ident::new`] or
-/// [`is_identifier`].
-///
 /// # Example
 /// ```typst
 /// [func: "hi", ident]
@@ -105,7 +102,8 @@ impl Debug for Expr {
 pub struct Ident(pub String);
 
 impl Ident {
-    /// Create a new identifier from a string checking that it is valid.
+    /// Create a new identifier from a string checking that it is a valid
+    /// unicode identifier.
     pub fn new<S>(ident: S) -> Option<Ident> where S: AsRef<str> + Into<String> {
         if is_identifier(ident.as_ref()) {
             Some(Ident(ident.into()))
