@@ -188,7 +188,7 @@ impl<'s> Tokens<'s> {
     }
 
     /// The line-colunn position in the source at which the last token ends and
-    /// next token will start. This position is
+    /// next token will start.
     pub fn pos(&self) -> Position {
         self.position
     }
@@ -204,15 +204,15 @@ impl<'s> Iterator for Tokens<'s> {
 
         let token = match first {
             // Comments.
-            '/' if self.peek() == Some('/') => self.parse_line_comment(),
-            '/' if self.peek() == Some('*') => self.parse_block_comment(),
+            '/' if self.peek() == Some('/') => self.read_line_comment(),
+            '/' if self.peek() == Some('*') => self.read_block_comment(),
             '*' if self.peek() == Some('/') => { self.eat(); Invalid("*/") }
 
             // Whitespace.
-            c if c.is_whitespace() => self.parse_whitespace(start),
+            c if c.is_whitespace() => self.read_whitespace(start),
 
             // Functions.
-            '[' => self.parse_function(start),
+            '[' => self.read_function(start),
             ']' => Invalid("]"),
 
             // Syntactic elements in function headers.
@@ -230,7 +230,7 @@ impl<'s> Iterator for Tokens<'s> {
             '/' if self.mode == Header => Slash,
 
             // String values.
-            '"' if self.mode == Header => self.parse_string(),
+            '"' if self.mode == Header => self.read_string(),
 
             // Star serves a double purpose as a style modifier
             // and a expression operator in the header.
@@ -238,13 +238,13 @@ impl<'s> Iterator for Tokens<'s> {
 
             // Style toggles.
             '_' if self.mode == Body => Underscore,
-            '`' if self.mode == Body => self.parse_raw(),
+            '`' if self.mode == Body => self.read_raw(),
 
             // An escaped thing.
-            '\\' if self.mode == Body => self.parse_escaped(),
+            '\\' if self.mode == Body => self.read_escaped(),
 
             // A hex expression.
-            '#' if self.mode == Header => self.parse_hex_value(),
+            '#' if self.mode == Header => self.read_hex(),
 
             // Expressions or just strings.
             c => {
@@ -267,7 +267,7 @@ impl<'s> Iterator for Tokens<'s> {
                 }, false, -(c.len_utf8() as isize), 0).0;
 
                 if self.mode == Header {
-                    self.parse_expr(text)
+                    self.read_expr(text)
                 } else {
                     Text(text)
                 }
@@ -282,11 +282,11 @@ impl<'s> Iterator for Tokens<'s> {
 }
 
 impl<'s> Tokens<'s> {
-    fn parse_line_comment(&mut self) -> Token<'s> {
+    fn read_line_comment(&mut self) -> Token<'s> {
         LineComment(self.read_string_until(is_newline_char, false, 1, 0).0)
     }
 
-    fn parse_block_comment(&mut self) -> Token<'s> {
+    fn read_block_comment(&mut self) -> Token<'s> {
         enum Last { Slash, Star, Other }
 
         self.eat();
@@ -314,14 +314,14 @@ impl<'s> Tokens<'s> {
         }, true, 0, -2).0)
     }
 
-    fn parse_whitespace(&mut self, start: Position) -> Token<'s> {
+    fn read_whitespace(&mut self, start: Position) -> Token<'s> {
         self.read_string_until(|n| !n.is_whitespace(), false, 0, 0);
         let end = self.pos();
 
         Space(end.line - start.line)
     }
 
-    fn parse_function(&mut self, start: Position) -> Token<'s> {
+    fn read_function(&mut self, start: Position) -> Token<'s> {
         let (header, terminated) = self.read_function_part(Header);
         self.eat();
 
@@ -353,11 +353,11 @@ impl<'s> Tokens<'s> {
 
             self.eat();
             match n {
-                '[' => { self.parse_function(Position::ZERO); }
-                '/' if self.peek() == Some('/') => { self.parse_line_comment(); }
-                '/' if self.peek() == Some('*') => { self.parse_block_comment(); }
-                '"' if mode == Header => { self.parse_string(); }
-                '`' if mode == Body => { self.parse_raw(); }
+                '[' => { self.read_function(Position::ZERO); }
+                '/' if self.peek() == Some('/') => { self.read_line_comment(); }
+                '/' if self.peek() == Some('*') => { self.read_block_comment(); }
+                '"' if mode == Header => { self.read_string(); }
+                '`' if mode == Body => { self.read_raw(); }
                 '\\' => { self.eat(); }
                 _ => {}
             }
@@ -367,12 +367,12 @@ impl<'s> Tokens<'s> {
         (&self.src[start .. end], terminated)
     }
 
-    fn parse_string(&mut self) -> Token<'s> {
+    fn read_string(&mut self) -> Token<'s> {
         let (string, terminated) = self.read_until_unescaped('"');
         ExprStr { string, terminated }
     }
 
-    fn parse_raw(&mut self) -> Token<'s> {
+    fn read_raw(&mut self) -> Token<'s> {
         let (raw, terminated) = self.read_until_unescaped('`');
         Raw { raw, terminated }
     }
@@ -390,7 +390,7 @@ impl<'s> Tokens<'s> {
         }, true, 0, -1)
     }
 
-    fn parse_escaped(&mut self) -> Token<'s> {
+    fn read_escaped(&mut self) -> Token<'s> {
         fn is_escapable(c: char) -> bool {
             match c {
                 '[' | ']' | '\\' | '/' | '*' | '_' | '`' | '"' => true,
@@ -410,7 +410,7 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    fn parse_hex_value(&mut self) -> Token<'s> {
+    fn read_hex(&mut self) -> Token<'s> {
         // This will parse more than the permissable 0-9, a-f, A-F character
         // ranges to provide nicer error messages later.
         ExprHex(self.read_string_until(
@@ -419,7 +419,7 @@ impl<'s> Tokens<'s> {
         ).0)
     }
 
-    fn parse_expr(&mut self, text: &'s str) -> Token<'s> {
+    fn read_expr(&mut self, text: &'s str) -> Token<'s> {
         if let Ok(b) = text.parse::<bool>() {
             ExprBool(b)
         } else if let Ok(num) = text.parse::<f64>() {
@@ -435,8 +435,11 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    /// Will read the input stream until the argument F evaluates to `true`
-    /// for the current character.
+    /// Will read the input stream until `f` evaluates to `true`. When
+    /// `eat_match` is true, the token for which `f` was true is consumed.
+    /// Returns the string from the index where this was called offset by
+    /// `offset_start` to the end offset by `offset_end`. The end is before or
+    /// after the match depending on `eat_match`.
     fn read_string_until<F>(
         &mut self,
         mut f: F,
