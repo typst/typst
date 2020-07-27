@@ -63,13 +63,13 @@ function! {
         pub body: Option<SyntaxModel>,
     }
 
-    parse(header, body, ctx, f) {
+    parse(header, body, state, f) {
         let cloned = header.clone();
         header.args.pos.items.clear();
         header.args.key.pairs.clear();
         DebugFn {
             header: cloned,
-            body: body!(opt: body, ctx, f),
+            body: body!(opt: body, state, f),
         }
     }
 

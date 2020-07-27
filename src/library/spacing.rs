@@ -46,9 +46,9 @@ function! {
 
     type Meta = ContentKind;
 
-    parse(header, body, ctx, f, meta) {
+    parse(header, body, state, f, meta) {
         ContentSpacingFunc {
-            body: body!(opt: body, ctx, f),
+            body: body!(opt: body, state, f),
             content: meta,
             spacing: header.args.pos.get::<f64>(&mut f.problems)
                 .map(|num| num as f32)
@@ -84,7 +84,7 @@ function! {
 
     type Meta = Option<SpecificAxis>;
 
-    parse(header, body, ctx, f, meta) {
+    parse(header, body, state, f, meta) {
         body!(nope: body, f);
         SpacingFunc {
             spacing: if let Some(axis) = meta {

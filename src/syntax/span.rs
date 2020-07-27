@@ -4,14 +4,14 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Sub};
 use serde::Serialize;
 
-/// A vector of spanned things.
+/// A vector of spanned values of type `T`.
 pub type SpanVec<T> = Vec<Spanned<T>>;
 
 /// [Offset](Span::offset) all spans in a vector of spanned things by a start
 /// position.
 pub fn offset_spans<T>(
-    start: Position,
     vec: SpanVec<T>,
+    start: Position,
 ) -> impl Iterator<Item=Spanned<T>> {
     vec.into_iter().map(move |s| s.map_span(|span| span.offset(start)))
 }
@@ -95,6 +95,11 @@ impl Span {
         Span { start: pos, end: pos }
     }
 
+    /// Expand a span by merging it with another span.
+    pub fn expand(&mut self, other: Span) {
+        *self = Span::merge(*self, other)
+    }
+
     /// Offset a span by a start position.
     ///
     /// This is, for example, used to translate error spans from function local
@@ -126,7 +131,7 @@ impl Position {
     /// The line 0, column 0 position.
     pub const ZERO: Position = Position { line: 0, column: 0 };
 
-    /// Crete a new instance from line and column.
+    /// Create a new position from line and column.
     pub fn new(line: usize, column: usize) -> Position {
         Position { line, column }
     }

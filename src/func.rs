@@ -1,9 +1,8 @@
 //! Trait and prelude for custom functions.
 
 use crate::Pass;
-use crate::syntax::ParseContext;
-use crate::syntax::func::FuncHeader;
-use crate::syntax::span::Spanned;
+use crate::syntax::ParseState;
+use crate::syntax::func::FuncCall;
 
 /// Types that are useful for creating your own functions.
 pub mod prelude {
@@ -16,7 +15,6 @@ pub mod prelude {
     pub use crate::syntax::func::*;
     pub use crate::syntax::span::{Span, Spanned};
 }
-
 
 /// Parse a function from source code.
 pub trait ParseFunc {
@@ -33,9 +31,8 @@ pub trait ParseFunc {
 
     /// Parse the header and body into this function given a context.
     fn parse(
-        header: FuncHeader,
-        body: Option<Spanned<&str>>,
-        ctx: ParseContext,
+        header: FuncCall,
+        state: &ParseState,
         metadata: Self::Meta,
     ) -> Pass<Self> where Self: Sized;
 }
@@ -53,8 +50,8 @@ pub trait ParseFunc {
 ///         body: Option<SyntaxModel>,
 ///     }
 ///
-///     parse(header, body, ctx, f) {
-///         let body = body!(opt: body, ctx, f);
+///     parse(header, body, state, f) {
+///         let body = body!(opt: body, state, f);
 ///         let hidden = header.args.pos.get::<bool>(&mut f.problems)
 ///             .or_missing(&mut f.problems, header.name.span, "hidden")
 ///             .unwrap_or(false);
@@ -112,7 +109,7 @@ macro_rules! function {
     (@parse($name:ident, $meta:ty) parse(
         $header:ident,
         $body:ident,
-        $ctx:ident,
+        $state:ident,
         $feedback:ident,
         $metadata:ident
     ) $code:block $($r:tt)*) => {
@@ -120,18 +117,18 @@ macro_rules! function {
             type Meta = $meta;
 
             fn parse(
-                #[allow(unused)] mut header: $crate::syntax::func::FuncHeader,
-                #[allow(unused)] $body: Option<$crate::syntax::span::Spanned<&str>>,
-                #[allow(unused)] $ctx: $crate::syntax::ParseContext,
+                #[allow(unused)] mut call: $crate::syntax::func::FuncCall,
+                #[allow(unused)] $state: &$crate::syntax::ParseState,
                 #[allow(unused)] $metadata: Self::Meta,
             ) -> $crate::Pass<Self> where Self: Sized {
                 let mut feedback = $crate::Feedback::new();
-                #[allow(unused)] let $header = &mut header;
+                #[allow(unused)] let $header = &mut call.header;
+                #[allow(unused)] let $body = &mut call.body;
                 #[allow(unused)] let $feedback = &mut feedback;
 
                 let func = $code;
 
-                for arg in header.args.into_iter() {
+                for arg in call.header.args.into_iter() {
                     error!(@feedback, arg.span, "unexpected argument");
                 }
 
@@ -167,21 +164,20 @@ macro_rules! function {
 /// Parse the body of a function.
 ///
 /// - If the function does not expect a body, use `body!(nope: body, feedback)`.
-/// - If the function can have a body, use `body!(opt: body, ctx, feedback,
+/// - If the function can have a body, use `body!(opt: body, state, feedback,
 ///   decos)`.
 ///
 /// # Arguments
 /// - The `$body` should be of type `Option<Spanned<&str>>`.
-/// - The `$ctx` is the [`ParseContext`](crate::syntax::ParseContext) to use for
-///   parsing.
+/// - The `$state` is the parse state to use.
 /// - The `$feedback` should be a mutable references to a
 ///   [`Feedback`](crate::Feedback) struct which is filled with the feedback
 ///   information arising from parsing.
 #[macro_export]
 macro_rules! body {
-    (opt: $body:expr, $ctx:expr, $feedback:expr) => ({
+    (opt: $body:expr, $state:expr, $feedback:expr) => ({
         $body.map(|body| {
-            let parsed = $crate::syntax::parse(body.span.start, body.v, $ctx);
+            let parsed = $crate::syntax::parse(body.v, body.span.start, $state);
             $feedback.extend(parsed.feedback);
             parsed.output
         })

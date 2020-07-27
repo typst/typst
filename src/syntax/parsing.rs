@@ -1,52 +1,45 @@
 //! Parsing of source code into syntax models.
 
-use std::iter::FromIterator;
 use std::str::FromStr;
 
-use crate::{Pass, Feedback};
-use super::func::{FuncHeader, FuncArgs, FuncArg};
 use super::expr::*;
-use super::scope::Scope;
+use super::func::{FuncCall, FuncHeader, FuncArgs, FuncArg};
 use super::span::{Position, Span, Spanned};
-use super::tokens::{Token, Tokens, TokenizationMode};
 use super::*;
 
-
-/// The context for parsing.
-#[derive(Debug, Copy, Clone)]
-pub struct ParseContext<'a> {
-    /// The scope containing function definitions.
-    pub scope: &'a Scope,
+/// The state which can influence how a string of source code is parsed.
+///
+/// Parsing is pure - when passed in the same state and source code, the output
+/// must be the same.
+pub struct ParseState {
+    /// The scope containing all function definitions.
+    pub scope: Scope,
 }
 
-/// Parse source code into a syntax model.
+/// Parse a string of source code.
 ///
-/// All errors and decorations are offset by the `start` position.
-pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Pass<SyntaxModel> {
+/// All spans in the resulting model and feedback are offset by the given
+/// `offset` position. This is used to make spans of a function body relative to
+/// the start of the function as a whole as opposed to the start of the
+/// function's body.
+pub fn parse(src: &str, offset: Position, state: &ParseState) -> Pass<SyntaxModel> {
     let mut model = SyntaxModel::new();
     let mut feedback = Feedback::new();
 
-    // We always start in body mode. The header tokenization mode is only used
-    // in the `FuncParser`.
-    let mut tokens = Tokens::new(start, src, TokenizationMode::Body);
-
-    while let Some(token) = tokens.next() {
+    for token in Tokens::new(src, offset, TokenMode::Body) {
         let span = token.span;
-
         let node = match token.v {
-            Token::LineComment(_) | Token::BlockComment(_) => continue,
-
-            // Only at least two newlines mean a _real_ newline indicating a
-            // paragraph break.
+            // Starting from two newlines counts as a paragraph break, a single
+            // newline not.
             Token::Space(newlines) => if newlines >= 2 {
                 Node::Parbreak
             } else {
                 Node::Space
-            },
+            }
 
             Token::Function { header, body, terminated } => {
-                let parsed = FuncParser::new(header, body, ctx).parse();
-                feedback.extend_offset(span.start, parsed.feedback);
+                let parsed = FuncParser::new(header, body, state).parse();
+                feedback.extend_offset(parsed.feedback, span.start);
 
                 if !terminated {
                     error!(@feedback, Span::at(span.end), "expected closing bracket");
@@ -55,9 +48,9 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Pass<SyntaxModel>
                 parsed.output
             }
 
-            Token::Star       => Node::ToggleBolder,
+            Token::Star => Node::ToggleBolder,
             Token::Underscore => Node::ToggleItalic,
-            Token::Backslash  => Node::Linebreak,
+            Token::Backslash => Node::Linebreak,
 
             Token::Raw { raw, terminated } => {
                 if !terminated {
@@ -69,103 +62,101 @@ pub fn parse(start: Position, src: &str, ctx: ParseContext) -> Pass<SyntaxModel>
 
             Token::Text(text) => Node::Text(text.to_string()),
 
-            other => {
-                error!(@feedback, span, "unexpected {}", other.name());
+            Token::LineComment(_) | Token::BlockComment(_) => continue,
+            unexpected => {
+                error!(@feedback, span, "unexpected {}", unexpected.name());
                 continue;
             }
         };
 
-        model.add(Spanned { v: node, span: token.span });
+        model.add(Spanned::new(node, span));
     }
 
     Pass::new(model, feedback)
 }
 
-/// Performs the function parsing.
 struct FuncParser<'s> {
-    ctx: ParseContext<'s>,
-    feedback: Feedback,
-
+    state: &'s ParseState,
     /// ```typst
     /// [tokens][body]
     ///  ^^^^^^
     /// ```
     tokens: Tokens<'s>,
     peeked: Option<Option<Spanned<Token<'s>>>>,
-
     /// The spanned body string if there is a body.
     /// ```typst
     /// [tokens][body]
     ///          ^^^^
     /// ```
     body: Option<Spanned<&'s str>>,
+    feedback: Feedback,
 }
 
 impl<'s> FuncParser<'s> {
-    /// Create a new function parser.
     fn new(
         header: &'s str,
         body: Option<Spanned<&'s str>>,
-        ctx: ParseContext<'s>
+        state: &'s ParseState,
     ) -> FuncParser<'s> {
         FuncParser {
-            ctx,
-            feedback: Feedback::new(),
-            tokens: Tokens::new(Position::new(0, 1), header, TokenizationMode::Header),
+            state,
+            // Start at column 1 because the opening bracket is also part of
+            // the function, but not part of the `header` string.
+            tokens: Tokens::new(header, Position::new(0, 1), TokenMode::Header),
             peeked: None,
             body,
+            feedback: Feedback::new(),
         }
     }
 
-    /// Do the parsing.
     fn parse(mut self) -> Pass<Node> {
-        let parsed = if let Some(header) = self.parse_func_header() {
+        let (parser, header) = if let Some(header) = self.parse_func_header() {
             let name = header.name.v.as_str();
-            let (parser, deco) = match self.ctx.scope.get_parser(name) {
-                // A valid function.
-                Ok(parser) => (parser, Decoration::ValidFuncName),
+            let (parser, deco) = match self.state.scope.get_parser(name) {
+                // The function exists in the scope.
+                Some(parser) => (parser, Decoration::ValidFuncName),
 
-                // The fallback parser was returned. Invalid function.
-                Err(parser) => {
+                // The function does not exist in the scope. The parser that is
+                // returned here is a fallback parser which exists to make sure
+                // the content of the function is not totally dropped (on a best
+                // effort basis).
+                None => {
                     error!(@self.feedback, header.name.span, "unknown function");
+                    let parser = self.state.scope.get_fallback_parser();
                     (parser, Decoration::InvalidFuncName)
                 }
             };
 
             self.feedback.decos.push(Spanned::new(deco, header.name.span));
-
-            parser(header, self.body, self.ctx)
+            (parser, header)
         } else {
-            let default = FuncHeader {
-                name: Spanned::new(Ident("".to_string()), Span::ZERO),
+            // Parse the body with the fallback parser even when the header is
+            // completely unparsable.
+            let parser = self.state.scope.get_fallback_parser();
+            let header = FuncHeader {
+                name: Spanned::new(Ident(String::new()), Span::ZERO),
                 args: FuncArgs::new(),
             };
-
-            // Use the fallback function such that the body is still rendered
-            // even if the header is completely unparsable.
-            self.ctx.scope.get_fallback_parser()(default, self.body, self.ctx)
+            (parser, header)
         };
 
-        self.feedback.extend(parsed.feedback);
+        let call = FuncCall { header, body: self.body };
+        let parsed = parser(call, self.state);
 
+        self.feedback.extend(parsed.feedback);
         Pass::new(Node::Model(parsed.output), self.feedback)
     }
 
-    /// Parse the header tokens.
     fn parse_func_header(&mut self) -> Option<FuncHeader> {
-        let start = self.pos();
-        self.skip_whitespace();
+        let after_bracket = self.pos();
 
-        let name = match self.parse_ident() {
-            Some(ident) => ident,
-            None => {
-                let other = self.eat();
-                self.expected_found_or_at("identifier", other, start);
-                return None;
-            }
-        };
+        self.skip_white();
+        let name = try_opt_or!(self.parse_ident(), {
+            self.expected_found_or_at("function name", after_bracket);
+            return None;
+        });
 
-        self.skip_whitespace();
+        self.skip_white();
         let args = match self.eat().map(Spanned::value) {
             Some(Token::Colon) => self.parse_func_args(),
             Some(_) => {
@@ -178,58 +169,74 @@ impl<'s> FuncParser<'s> {
         Some(FuncHeader { name, args })
     }
 
-    /// Parse the argument list between colons and end of the header.
     fn parse_func_args(&mut self) -> FuncArgs {
-        // Parse a collection until the token is `None`, that is, the end of the
-        // header.
-        self.parse_collection(None, |p| {
-            // If we have an identifier we might have a keyword argument,
-            // otherwise its for sure a postional argument.
-            if let Some(ident) = p.parse_ident() {
-                // This could still be a named tuple
-                if let Some(Token::LeftParen) = p.peekv() {
-                    let tuple = p.parse_named_tuple(ident);
-                    return Ok(tuple.map(|t| FuncArg::Pos(Expr::NamedTuple(t))));
-                }
+        let mut args = FuncArgs::new();
+        loop {
+            self.skip_white();
+            if self.eof() {
+                break;
+            }
 
-                p.skip_whitespace();
+            let arg = if let Some(ident) = self.parse_ident() {
+                self.skip_white();
 
-                if let Some(Token::Equals) = p.peekv() {
-                    p.eat();
-                    p.skip_whitespace();
+                // This could be a keyword argument, or a positional argument of
+                // type named tuple or identifier.
+                if self.check_eat(Token::Equals).is_some() {
+                    self.skip_white();
 
-                    // Semantic highlighting for argument keys.
-                    p.feedback.decos.push(
-                        Spanned::new(Decoration::ArgumentKey, ident.span));
+                    let key = ident;
+                    self.feedback.decos.push(
+                        Spanned::new(Decoration::ArgumentKey, key.span)
+                    );
 
-                    let value = p.parse_expr().ok_or(("value", None))?;
+                    let value = try_opt_or!(self.parse_expr(), {
+                        self.expected("value");
+                        continue;
+                    });
 
-                    // Add a keyword argument.
-                    let span = Span::merge(ident.span, value.span);
-                    let pair = Pair { key: ident, value };
-                    Ok(Spanned::new(FuncArg::Key(pair), span))
+                    let span = Span::merge(key.span, value.span);
+                    let arg = FuncArg::Key(Pair { key, value });
+                    Spanned::new(arg, span)
+                } else if self.check(Token::LeftParen) {
+                    let tuple = self.parse_named_tuple(ident);
+                    tuple.map(|tup| FuncArg::Pos(Expr::NamedTuple(tup)))
                 } else {
-                    // Add a positional argument because there was no equals
-                    // sign after the identifier that could have been a key.
-                    Ok(ident.map(|id| FuncArg::Pos(Expr::Ident(id))))
+                    ident.map(|id| FuncArg::Pos(Expr::Ident(id)))
                 }
             } else {
-                // Add a positional argument because we haven't got an
-                // identifier that could be an argument key.
-                let value = p.parse_expr().ok_or(("argument", None))?;
-                Ok(value.map(|expr| FuncArg::Pos(expr)))
+                // It's a positional argument.
+                try_opt_or!(self.parse_expr(), {
+                    self.expected("argument");
+                    continue;
+                }).map(|expr| FuncArg::Pos(expr))
+            };
+
+            let behind_arg = arg.span.end;
+            args.add(arg);
+
+            self.skip_white();
+            if self.eof() {
+                break;
             }
-        }).v
+
+            self.expect_at(Token::Comma, behind_arg);
+        }
+        args
+    }
+}
+
+// Parsing expressions and values
+impl FuncParser<'_> {
+    fn parse_ident(&mut self) -> Option<Spanned<Ident>> {
+        self.peek().and_then(|token| match token.v {
+            Token::ExprIdent(id) => self.eat_span(Ident(id.to_string())),
+            _ => None,
+        })
     }
 
-    /// Parse an expression which may contain math operands. For this, this
-    /// method looks for operators in descending order of associativity, i.e. we
-    /// first drill down to find all negations, brackets and tuples, the next
-    /// level, we look for multiplication and division and here finally, for
-    /// addition and subtraction.
     fn parse_expr(&mut self) -> Option<Spanned<Expr>> {
-        let o1 = self.parse_term()?;
-        self.parse_binop(o1, "summand", Self::parse_expr, |token| match token {
+        self.parse_binops("summand", Self::parse_term, |token| match token {
             Token::Plus => Some(Expr::Add),
             Token::Hyphen => Some(Expr::Sub),
             _ => None,
@@ -237,60 +244,57 @@ impl<'s> FuncParser<'s> {
     }
 
     fn parse_term(&mut self) -> Option<Spanned<Expr>> {
-        let o1 = self.parse_factor()?;
-        self.parse_binop(o1, "factor", Self::parse_term, |token| match token {
+        self.parse_binops("factor", Self::parse_factor, |token| match token {
             Token::Star => Some(Expr::Mul),
             Token::Slash => Some(Expr::Div),
             _ => None,
         })
     }
 
-    fn parse_binop<F, G>(
+    /// Parse expression of the form `<operand> (<op> <operand>)*`.
+    fn parse_binops(
         &mut self,
-        o1: Spanned<Expr>,
         operand_name: &str,
-        parse_operand: F,
-        parse_op: G,
-    ) -> Option<Spanned<Expr>>
-    where
-        F: FnOnce(&mut Self) -> Option<Spanned<Expr>>,
-        G: FnOnce(Token) -> Option<fn(Box<Spanned<Expr>>, Box<Spanned<Expr>>) -> Expr>,
-    {
-        self.skip_whitespace();
+        mut parse_operand: impl FnMut(&mut Self) -> Option<Spanned<Expr>>,
+        mut parse_op: impl FnMut(Token) -> Option<
+            fn(Box<Spanned<Expr>>, Box<Spanned<Expr>>) -> Expr
+        >,
+    ) -> Option<Spanned<Expr>> {
+        let mut left = parse_operand(self)?;
 
-        if let Some(next) = self.peek() {
-            if let Some(binop) = parse_op(next.v) {
+        self.skip_white();
+        while let Some(token) = self.peek() {
+            if let Some(op) = parse_op(token.v) {
                 self.eat();
-                self.skip_whitespace();
+                self.skip_white();
 
-                if let Some(o2) = parse_operand(self) {
-                    let span = Span::merge(o1.span, o2.span);
-                    let expr = binop(Box::new(o1), Box::new(o2));
-                    return Some(Spanned::new(expr, span));
-                } else {
-                    error!(
-                        @self.feedback, Span::merge(next.span, o1.span),
-                        "missing right {}", operand_name,
-                    );
+                if let Some(right) = parse_operand(self) {
+                    let span = Span::merge(left.span, right.span);
+                    let v = op(Box::new(left), Box::new(right));
+                    left = Spanned::new(v, span);
+                    self.skip_white();
+                    continue;
                 }
+
+                error!(
+                    @self.feedback, Span::merge(left.span, token.span),
+                    "missing right {}", operand_name,
+                );
             }
+            break;
         }
 
-        Some(o1)
+        Some(left)
     }
 
-    /// Parse expressions that are of the form value or -value.
     fn parse_factor(&mut self) -> Option<Spanned<Expr>> {
-        let first = self.peek()?;
-        if first.v == Token::Hyphen {
-            self.eat();
-            self.skip_whitespace();
-
-            if let Some(factor) = self.parse_value() {
-                let span = Span::merge(first.span, factor.span);
-                Some(Spanned::new(Expr::Neg(Box::new(factor)), span))
+        if let Some(hyph) = self.check_eat(Token::Hyphen) {
+            self.skip_white();
+            if let Some(value) = self.parse_value() {
+                let span = Span::merge(hyph.span, value.span);
+                Some(Spanned::new(Expr::Neg(Box::new(value)), span))
             } else {
-                error!(@self.feedback, first.span, "dangling minus");
+                error!(@self.feedback, hyph.span, "dangling minus");
                 None
             }
         } else {
@@ -299,283 +303,247 @@ impl<'s> FuncParser<'s> {
     }
 
     fn parse_value(&mut self) -> Option<Spanned<Expr>> {
-        let first = self.peek()?;
-        macro_rules! take {
-            ($v:expr) => ({ self.eat(); Spanned { v: $v, span: first.span } });
-        }
-
-        Some(match first.v {
-            Token::ExprIdent(i) => {
-                let name = take!(Ident(i.to_string()));
-
-                // This could be a named tuple or an identifier
-                if let Some(Token::LeftParen) = self.peekv() {
-                    self.parse_named_tuple(name).map(|t| Expr::NamedTuple(t))
+        let Spanned { v: token, span } = self.peek()?;
+        match token {
+            // This could be a named tuple or an identifier.
+            Token::ExprIdent(id) => {
+                let name = Spanned::new(Ident(id.to_string()), span);
+                self.eat();
+                self.skip_white();
+                Some(if self.check(Token::LeftParen) {
+                    self.parse_named_tuple(name).map(|tup| Expr::NamedTuple(tup))
                 } else {
-                    name.map(|i| Expr::Ident(i))
-                }
-            },
-            Token::ExprStr { string, terminated } => {
-                if !terminated {
-                    self.expected_at("quote", first.span.end);
-                }
-
-                take!(Expr::Str(unescape_string(string)))
+                    name.map(|id| Expr::Ident(id))
+                })
             }
 
-            Token::ExprNumber(n) => take!(Expr::Number(n)),
-            Token::ExprSize(s) => take!(Expr::Size(s)),
-            Token::ExprBool(b) => take!(Expr::Bool(b)),
+            Token::ExprStr { string, terminated } => {
+                if !terminated {
+                    self.expected_at("quote", span.end);
+                }
+                self.eat_span(Expr::Str(unescape_string(string)))
+            }
+
+            Token::ExprNumber(n) => self.eat_span(Expr::Number(n)),
+            Token::ExprSize(s) => self.eat_span(Expr::Size(s)),
+            Token::ExprBool(b) => self.eat_span(Expr::Bool(b)),
             Token::ExprHex(s) => {
                 if let Ok(color) = RgbaColor::from_str(s) {
-                    take!(Expr::Color(color))
+                    self.eat_span(Expr::Color(color))
                 } else {
-                    // Heal color by assuming black
-                    error!(@self.feedback, first.span, "invalid color");
-                    take!(Expr::Color(RgbaColor::new_healed(0, 0, 0, 255)))
+                    // Heal color by assuming black.
+                    error!(@self.feedback, span, "invalid color");
+                    let healed = RgbaColor::new_healed(0, 0, 0, 255);
+                    self.eat_span(Expr::Color(healed))
                 }
             },
 
+            // This could be a tuple or a parenthesized expression. We parse as
+            // a tuple in any case and coerce the tuple into a value if it is
+            // coercable (length 1 and no trailing comma).
             Token::LeftParen => {
-                let (mut tuple, can_be_coerced) = self.parse_tuple();
-                // Coerce 1-tuple into value
-                if can_be_coerced && tuple.v.items.len() > 0 {
-                    tuple.v.items.pop().expect("length is at least one")
+                let (mut tuple, coercable) = self.parse_tuple();
+                Some(if coercable {
+                    tuple.v.items.pop().expect("tuple is coercable")
                 } else {
-                    tuple.map(|t| Expr::Tuple(t))
-                }
-            },
-            Token::LeftBrace => self.parse_object().map(|o| Expr::Object(o)),
+                    tuple.map(|tup| Expr::Tuple(tup))
+                })
+            }
+            Token::LeftBrace => {
+                Some(self.parse_object().map(|obj| Expr::Object(obj)))
+            }
 
-            _ => return None,
-        })
+            _ => None,
+        }
     }
 
-    /// Parse a tuple expression: `(<expr>, ...)`. The boolean in the return
-    /// values showes whether the tuple can be coerced into a single value.
-    fn parse_tuple(&mut self) -> (Spanned<Tuple>, bool) {
-        let token = self.eat();
-        debug_assert_eq!(token.map(Spanned::value), Some(Token::LeftParen));
-
-        // Parse a collection until a right paren appears and complain about
-        // missing a `value` when an invalid token is encoutered.
-        self.parse_collection_comma_aware(Some(Token::RightParen),
-            |p| p.parse_expr().ok_or(("value", None)))
-    }
-
-    /// Parse a tuple expression: `name(<expr>, ...)` with a given identifier.
     fn parse_named_tuple(&mut self, name: Spanned<Ident>) -> Spanned<NamedTuple> {
         let tuple = self.parse_tuple().0;
         let span = Span::merge(name.span, tuple.span);
         Spanned::new(NamedTuple::new(name, tuple), span)
     }
 
-    /// Parse an object expression: `{ <key>: <value>, ... }`.
-    fn parse_object(&mut self) -> Spanned<Object> {
-        let token = self.eat();
-        debug_assert_eq!(token.map(Spanned::value), Some(Token::LeftBrace));
-
-        // Parse a collection until a right brace appears.
-        self.parse_collection(Some(Token::RightBrace), |p| {
-            // Expect an identifier as the key.
-            let key = p.parse_ident().ok_or(("key", None))?;
-
-            // Expect a colon behind the key (only separated by whitespace).
-            let behind_key = p.pos();
-            p.skip_whitespace();
-            if p.peekv() != Some(Token::Colon) {
-                return Err(("colon", Some(behind_key)));
-            }
-
-            p.eat();
-            p.skip_whitespace();
-
-            // Semantic highlighting for object keys.
-            p.feedback.decos.push(
-                Spanned::new(Decoration::ObjectKey, key.span));
-
-            let value = p.parse_expr().ok_or(("value", None))?;
-
-            let span = Span::merge(key.span, value.span);
-            Ok(Spanned::new(Pair { key, value }, span))
-        })
-    }
-
-    /// Parse a comma-separated collection where each item is parsed through
-    /// `parse_item` until the `end` token is met.
-    fn parse_collection<C, I, F>(
-        &mut self,
-        end: Option<Token>,
-        parse_item: F
-    ) -> Spanned<C>
-    where
-        C: FromIterator<Spanned<I>>,
-        F: FnMut(&mut Self) -> Result<Spanned<I>, (&'static str, Option<Position>)>,
-    {
-        self.parse_collection_comma_aware(end, parse_item).0
-    }
-
-    /// Parse a comma-separated collection where each item is parsed through
-    /// `parse_item` until the `end` token is met. The first item in the return
-    /// tuple is the collection, the second item indicates whether the
-    /// collection can be coerced into a single item (i.e. no comma appeared).
-    fn parse_collection_comma_aware<C, I, F>(
-        &mut self,
-        end: Option<Token>,
-        mut parse_item: F
-    ) -> (Spanned<C>, bool)
-    where
-        C: FromIterator<Spanned<I>>,
-        F: FnMut(&mut Self) -> Result<Spanned<I>, (&'static str, Option<Position>)>,
-    {
+    /// The boolean tells you whether the tuple can be coerced into a value
+    /// (this is the case when it's length 1 and has no trailing comma).
+    fn parse_tuple(&mut self) -> (Spanned<Tuple>, bool) {
         let start = self.pos();
-        let mut can_be_coerced = true;
+        self.assert(Token::LeftParen);
 
-        // Parse the comma separated items.
-        let collection = std::iter::from_fn(|| {
-            self.skip_whitespace();
-            let peeked = self.peekv();
-
-            // We finished as expected.
-            if peeked == end {
-                self.eat();
-                return None;
+        let mut tuple = Tuple::new();
+        let mut commaless = true;
+        loop {
+            self.skip_white();
+            if self.eof() || self.check(Token::RightParen) {
+                break;
             }
 
-            // We finished without the expected end token (which has to be a
-            // `Some` value at this point since otherwise we would have already
-            // returned in the previous case).
-            if peeked == None {
-                self.eat();
-                self.expected_at(end.unwrap().name(), self.pos());
-                return None;
+            let expr = try_opt_or!(self.parse_expr(), {
+                self.expected("value");
+                continue;
+            });
+
+            let behind_expr = expr.span.end;
+            tuple.add(expr);
+
+            self.skip_white();
+            if self.eof() || self.check(Token::RightParen) {
+                break;
             }
 
-            // Try to parse a collection item.
-            match parse_item(self) {
-                Ok(item) => {
-                    // Expect a comma behind the item (only separated by
-                    // whitespace).
-                    self.skip_whitespace();
-                    match self.peekv() {
-                        Some(Token::Comma) => {
-                            can_be_coerced = false;
-                            self.eat();
-                        }
-                        t @ Some(_) if t != end => {
-                            can_be_coerced = false;
-                            self.expected_at("comma", item.span.end);
-                        },
-                        _ => {}
-                    }
+            self.expect_at(Token::Comma, behind_expr);
+            commaless = false;
+        }
 
-                    return Some(Some(item));
-                }
-
-                // The item parser expected something different at either some
-                // given position or instead of the currently peekable token.
-                Err((expected, Some(pos))) => self.expected_at(expected, pos),
-                Err((expected, None)) => {
-                    let token = self.peek();
-                    if token.map(Spanned::value) != end {
-                        self.eat();
-                    }
-                    self.expected_found_or_at(expected, token, self.pos());
-                }
-            }
-
-            Some(None)
-        }).filter_map(|x| x).collect();
-
+        self.expect(Token::RightParen);
         let end = self.pos();
-        (Spanned::new(collection, Span { start, end }), can_be_coerced)
+        let coercable = commaless && !tuple.items.is_empty();
+
+        (Spanned::new(tuple, Span::new(start, end)), coercable)
     }
 
-    /// Try to parse an identifier and do nothing if the peekable token is no
-    /// identifier.
-    fn parse_ident(&mut self) -> Option<Spanned<Ident>> {
-        match self.peek() {
-            Some(Spanned { v: Token::ExprIdent(s), span }) => {
-                self.eat();
-                Some(Spanned { v: Ident(s.to_string()), span })
+    fn parse_object(&mut self) -> Spanned<Object> {
+        let start = self.pos();
+        self.assert(Token::LeftBrace);
+
+        let mut object = Object::new();
+        loop {
+            self.skip_white();
+            if self.eof() || self.check(Token::RightBrace) {
+                break;
             }
-            _ => None
+
+            let key = try_opt_or!(self.parse_ident(), {
+                self.expected("key");
+                continue;
+            });
+
+            let after_key = self.pos();
+            self.skip_white();
+            if !self.expect_at(Token::Colon, after_key) {
+                continue;
+            }
+
+            self.feedback.decos.push(
+                Spanned::new(Decoration::ObjectKey, key.span)
+            );
+
+            self.skip_white();
+            let value = try_opt_or!(self.parse_expr(), {
+                self.expected("value");
+                continue;
+            });
+
+            let behind_value = value.span.end;
+            let span = Span::merge(key.span, value.span);
+            object.add(Spanned::new(Pair { key, value }, span));
+
+            self.skip_white();
+            if self.eof() || self.check(Token::RightBrace) {
+                break;
+            }
+
+            self.expect_at(Token::Comma, behind_value);
+        }
+
+        self.expect(Token::RightBrace);
+        let end = self.pos();
+
+        Spanned::new(object, Span::new(start, end))
+    }
+}
+
+// Error handling
+impl FuncParser<'_> {
+    fn expect(&mut self, token: Token<'_>) -> bool {
+        if self.check(token) {
+            self.eat();
+            true
+        } else {
+            self.expected(token.name());
+            false
         }
     }
 
-    /// Skip all whitespace/comment tokens.
-    fn skip_whitespace(&mut self) {
-        self.eat_until(|t| match t {
-            Token::Space(_) | Token::LineComment(_) |
-            Token::BlockComment(_) => false,
-            _ => true,
-        }, false)
+    fn expect_at(&mut self, token: Token<'_>, pos: Position) -> bool {
+        if self.check(token) {
+            self.eat();
+            true
+        } else {
+            self.expected_at(token.name(), pos);
+            false
+        }
     }
 
-    /// Add an error about an expected `thing` which was not found, showing
-    /// what was found instead.
-    fn expected_found(&mut self, thing: &str, found: Spanned<Token>) {
-        error!(
-            @self.feedback, found.span,
-            "expected {}, found {}", thing, found.v.name(),
-        );
+    fn expected(&mut self, thing: &str) {
+        if let Some(found) = self.eat() {
+            error!(
+                @self.feedback, found.span,
+                "expected {}, found {}", thing, found.v.name(),
+            );
+        } else {
+            error!(@self.feedback, Span::at(self.pos()), "expected {}", thing);
+        }
     }
 
-    /// Add an error about an `thing` which was expected but not found at the
-    /// given position.
     fn expected_at(&mut self, thing: &str, pos: Position) {
         error!(@self.feedback, Span::at(pos), "expected {}", thing);
     }
 
-    /// Add a expected-found-error if `found` is `Some` and an expected-error
-    /// otherwise.
-    fn expected_found_or_at(
-        &mut self,
-        thing: &str,
-        found: Option<Spanned<Token>>,
-        pos: Position
-    ) {
-        match found {
-            Some(found) => self.expected_found(thing, found),
-            None => self.expected_at(thing, pos),
+    fn expected_found_or_at(&mut self, thing: &str, pos: Position) {
+        if self.eof() {
+            self.expected_at(thing, pos)
+        } else {
+            self.expected(thing);
         }
     }
+}
 
-    /// Consume tokens until the function returns true and only consume the last
-    /// token if instructed to so by `eat_match`.
-    fn eat_until<F>(&mut self, mut f: F, eat_match: bool)
-    where F: FnMut(Token<'s>) -> bool {
-        while let Some(token) = self.peek() {
-            if f(token.v) {
-                if eat_match {
-                    self.eat();
-                }
-                break;
+// Parsing primitives
+impl<'s> FuncParser<'s> {
+    fn skip_white(&mut self) {
+        loop {
+            match self.peek().map(Spanned::value) {
+                Some(Token::Space(_))
+                | Some(Token::LineComment(_))
+                | Some(Token::BlockComment(_)) => { self.eat(); }
+                _ => break,
             }
-
-            self.eat();
         }
     }
 
-    /// Consume and return the next token.
     fn eat(&mut self) -> Option<Spanned<Token<'s>>> {
-        self.peeked.take()
-            .unwrap_or_else(|| self.tokens.next())
+        self.peeked.take().unwrap_or_else(|| self.tokens.next())
     }
 
-    /// Peek at the next token without consuming it.
+    fn eat_span<T>(&mut self, v: T) -> Option<Spanned<T>> {
+        self.eat().map(|spanned| spanned.map(|_| v))
+    }
+
     fn peek(&mut self) -> Option<Spanned<Token<'s>>> {
-        let iter = &mut self.tokens;
-        *self.peeked.get_or_insert_with(|| iter.next())
+        let tokens = &mut self.tokens;
+        *self.peeked.get_or_insert_with(|| tokens.next())
     }
 
-    /// Peek at the unspanned value of the next token.
-    fn peekv(&mut self) -> Option<Token<'s>> {
-        self.peek().map(Spanned::value)
+    fn assert(&mut self, token: Token<'_>) {
+        assert!(self.check_eat(token).is_some());
     }
 
-    /// The position at the end of the last eaten token / start of the peekable
-    /// token.
+    fn check(&mut self, token: Token<'_>) -> bool {
+        self.peek().map(Spanned::value) == Some(token)
+    }
+
+    fn check_eat(&mut self, token: Token<'_>) -> Option<Spanned<Token<'s>>> {
+        if self.check(token) {
+            self.eat()
+        } else {
+            None
+        }
+    }
+
+    fn eof(&mut self) -> bool {
+        self.peek().is_none()
+    }
+
     fn pos(&self) -> Position {
         self.peeked.flatten()
             .map(|s| s.span.start)
@@ -583,64 +551,62 @@ impl<'s> FuncParser<'s> {
     }
 }
 
-/// Unescape a string: `the string is \"this\"` => `the string is "this"`.
 fn unescape_string(string: &str) -> String {
-    let mut s = String::with_capacity(string.len());
     let mut iter = string.chars();
+    let mut out = String::with_capacity(string.len());
 
     while let Some(c) = iter.next() {
         if c == '\\' {
             match iter.next() {
-                Some('\\') => s.push('\\'),
-                Some('"') => s.push('"'),
-                Some('n') => s.push('\n'),
-                Some('t') => s.push('\t'),
-                Some(c) => { s.push('\\'); s.push(c); }
-                None => s.push('\\'),
+                Some('\\') => out.push('\\'),
+                Some('"') => out.push('"'),
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some(c) => { out.push('\\'); out.push(c); }
+                None => out.push('\\'),
             }
         } else {
-            s.push(c);
+            out.push(c);
         }
     }
 
-    s
+    out
 }
 
-/// Unescape raw markup into lines.
+/// Unescape raw markup and split it into into lines.
 fn unescape_raw(raw: &str) -> Vec<String> {
-    let mut lines = Vec::new();
-    let mut s = String::new();
     let mut iter = raw.chars().peekable();
+    let mut line = String::new();
+    let mut lines = Vec::new();
 
     while let Some(c) = iter.next() {
         if c == '\\' {
             match iter.next() {
-                Some('`') => s.push('`'),
-                Some(c) => { s.push('\\'); s.push(c); }
-                None => s.push('\\'),
+                Some('`') => line.push('`'),
+                Some(c) => { line.push('\\'); line.push(c); }
+                None => line.push('\\'),
             }
         } else if is_newline_char(c) {
             if c == '\r' && iter.peek() == Some(&'\n') {
                 iter.next();
             }
 
-            lines.push(std::mem::replace(&mut s, String::new()));
+            lines.push(std::mem::take(&mut line));
         } else {
-            s.push(c);
+            line.push(c);
         }
     }
 
-    lines.push(s);
+    lines.push(line);
     lines
 }
-
 
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
     use crate::size::Size;
-    use crate::syntax::test::{DebugFn, check};
-    use crate::syntax::func::Value;
+    use super::super::test::{check, DebugFn};
+    use super::super::func::Value;
     use super::*;
 
     use Decoration::*;
@@ -666,8 +632,8 @@ mod tests {
             scope.add::<DebugFn>("box");
             scope.add::<DebugFn>("val");
 
-            let ctx = ParseContext { scope: &scope };
-            let pass = parse(Position::ZERO, $source, ctx);
+            let state = ParseState { scope };
+            let pass = parse($source, Position::ZERO, &state);
 
             // Test model.
             let (exp, cmp) = span_vec![$($model)*];
@@ -839,14 +805,14 @@ mod tests {
     fn parse_function_names() {
         // No closing bracket.
         p!("[" => [func!("")], [
-            (0:1, 0:1, "expected identifier"),
+            (0:1, 0:1, "expected function name"),
             (0:1, 0:1, "expected closing bracket")
         ]);
 
         // No name.
-        p!("[]" => [func!("")], [(0:1, 0:1, "expected identifier")]);
+        p!("[]" => [func!("")], [(0:1, 0:1, "expected function name")]);
         p!("[\"]" => [func!("")], [
-            (0:1, 0:3, "expected identifier, found string"),
+            (0:1, 0:3, "expected function name, found string"),
             (0:3, 0:3, "expected closing bracket"),
         ]);
 
@@ -862,9 +828,9 @@ mod tests {
         p!("[  f]" => [func!("f")], [], [(0:3, 0:4, ValidFuncName)]);
 
         // An invalid token for a name.
-        p!("[12]"   => [func!("")], [(0:1, 0:3, "expected identifier, found number")], []);
-        p!("[🌎]"   => [func!("")], [(0:1, 0:2, "expected identifier, found invalid token")], []);
-        p!("[  🌎]" => [func!("")], [(0:3, 0:4, "expected identifier, found invalid token")], []);
+        p!("[12]"   => [func!("")], [(0:1, 0:3, "expected function name, found number")], []);
+        p!("[🌎]"   => [func!("")], [(0:1, 0:2, "expected function name, found invalid token")], []);
+        p!("[  🌎]" => [func!("")], [(0:3, 0:4, "expected function name, found invalid token")], []);
     }
 
     #[test]
@@ -954,6 +920,11 @@ mod tests {
             Num(2.0)
         )));
 
+        // Associativity of multiplication and division.
+        p!("[val: 3/4*5]" =>
+            [func!("val": (Mul(Div(Num(3.0), Num(4.0)), Num(5.0))), {})]
+        );
+
         // Invalid expressions.
         p!("[val: 4pt--]" => [func!("val": (Pt(4.0)))], [
             (0:10, 0:11, "dangling minus"),
@@ -970,6 +941,12 @@ mod tests {
         // Empty tuple.
         pval!("()" => (tuple!()));
         pval!("empty()" => (named_tuple!("empty")));
+
+        // Space between name and tuple.
+        pval!("add ( 1 , 2 )" => (named_tuple!("add", Num(1.0), Num(2.0))));
+        pval!("num = add ( 1 , 2 )" => (), {
+            "num" => named_tuple!("add", Num(1.0), Num(2.0))
+        });
 
         // Invalid value.
         p!("[val: sound(\x07)]" =>

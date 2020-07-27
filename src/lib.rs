@@ -30,7 +30,7 @@ use toddle::query::{FontProvider, FontIndex, FontDescriptor};
 use crate::problem::Problems;
 use crate::layout::MultiLayout;
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
-use crate::syntax::{SyntaxModel, Scope, Decoration, ParseContext, parse};
+use crate::syntax::{SyntaxModel, Scope, Decoration, ParseState, parse};
 use crate::syntax::span::{Position, SpanVec, offset_spans};
 
 
@@ -42,6 +42,8 @@ macro_rules! pub_use_mod {
     };
 }
 
+#[macro_use]
+mod macros;
 #[macro_use]
 pub mod problem;
 pub mod export;
@@ -57,14 +59,13 @@ pub mod syntax;
 /// Transforms source code into typesetted layouts.
 ///
 /// A typesetter can be configured through various methods.
-#[derive(Debug)]
 pub struct Typesetter {
     /// The font loader shared by all typesetting processes.
     loader: GlobalFontLoader,
     /// The base layouting style.
     style: LayoutStyle,
-    /// The standard library scope.
-    scope: Scope,
+    /// The base parser state.
+    parse_state: ParseState,
     /// Whether to render debug boxes.
     debug: bool,
 }
@@ -84,7 +85,7 @@ impl Typesetter {
         Typesetter {
             loader: RefCell::new(FontLoader::new(provider)),
             style: LayoutStyle::default(),
-            scope: Scope::with_std(),
+            parse_state: ParseState { scope: Scope::with_std() },
             debug: false,
         }
     }
@@ -111,7 +112,7 @@ impl Typesetter {
 
     /// Parse source code into a syntax tree.
     pub fn parse(&self, src: &str) -> Pass<SyntaxModel> {
-        parse(Position::ZERO, src, ParseContext { scope: &self.scope })
+        parse(src, Position::ZERO, &self.parse_state)
     }
 
     /// Layout a syntax tree and return the produced layout.
@@ -204,9 +205,9 @@ impl Feedback {
 
     /// Add more feedback whose spans are local and need to be offset by an
     /// `offset` to be correct for this feedbacks context.
-    pub fn extend_offset(&mut self, offset: Position, other: Feedback) {
-        self.problems.extend(offset_spans(offset, other.problems));
-        self.decos.extend(offset_spans(offset, other.decos));
+    pub fn extend_offset(&mut self, other: Feedback, offset: Position) {
+        self.problems.extend(offset_spans(other.problems, offset));
+        self.decos.extend(offset_spans(other.decos, offset));
     }
 }
 

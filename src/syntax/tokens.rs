@@ -5,9 +5,8 @@ use unicode_xid::UnicodeXID;
 use crate::size::Size;
 use super::span::{Position, Span, Spanned};
 
-use self::Token::*;
-use self::TokenizationMode::*;
-
+use Token::*;
+use TokenMode::*;
 
 /// A minimal semantic entity of source code.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -152,7 +151,7 @@ impl<'s> Token<'s> {
 #[derive(Debug)]
 pub struct Tokens<'s> {
     src: &'s str,
-    mode: TokenizationMode,
+    mode: TokenMode,
     iter: Peekable<Chars<'s>>,
     position: Position,
     index: usize,
@@ -163,20 +162,22 @@ pub struct Tokens<'s> {
 /// backtick tokens.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[allow(missing_docs)]
-pub enum TokenizationMode {
+pub enum TokenMode {
     Header,
     Body,
 }
 
 impl<'s> Tokens<'s> {
-    /// Create a new token iterator with the given mode where the first token
-    /// span starts an the given `start` position.
-    pub fn new(start: Position, src: &'s str, mode: TokenizationMode) -> Tokens<'s> {
+    /// Create a new token iterator with the given mode.
+    ///
+    /// The first token's span starts an the given `offset` position instead of
+    /// the zero position.
+    pub fn new(src: &'s str, offset: Position, mode: TokenMode) -> Tokens<'s> {
         Tokens {
             src,
             mode,
             iter: src.chars().peekable(),
-            position: start,
+            position: offset,
             index: 0,
         }
     }
@@ -341,7 +342,7 @@ impl<'s> Tokens<'s> {
         Function { header, body: Some(Spanned { v: body, span }), terminated }
     }
 
-    fn read_function_part(&mut self, mode: TokenizationMode) -> (&'s str, bool) {
+    fn read_function_part(&mut self, mode: TokenMode) -> (&'s str, bool) {
         let start = self.index();
         let mut terminated = false;
 
@@ -530,7 +531,6 @@ pub fn is_identifier(string: &str) -> bool {
     true
 }
 
-
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
@@ -557,7 +557,7 @@ mod tests {
     macro_rules! t {
         ($mode:expr, $source:expr => [$($tokens:tt)*]) => {
             let (exp, spans) = span_vec![$($tokens)*];
-            let found = Tokens::new(Position::ZERO, $source, $mode).collect::<Vec<_>>();
+            let found = Tokens::new($source, Position::ZERO, $mode).collect::<Vec<_>>();
             check($source, exp, found, spans);
         }
     }
