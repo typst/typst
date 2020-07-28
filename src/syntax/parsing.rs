@@ -345,9 +345,11 @@ impl FuncParser<'_> {
             // a tuple in any case and coerce the tuple into a value if it is
             // coercable (length 1 and no trailing comma).
             Token::LeftParen => {
-                let (mut tuple, coercable) = self.parse_tuple();
+                let (tuple, coercable) = self.parse_tuple();
                 Some(if coercable {
-                    tuple.v.items.pop().expect("tuple is coercable")
+                    tuple.map(|v| {
+                        v.into_iter().next().expect("tuple is coercable").v
+                    })
                 } else {
                     tuple.map(|tup| Expr::Tuple(tup))
                 })
@@ -679,25 +681,25 @@ mod tests {
     fn Z<T>(v: T) -> Spanned<T> { Spanned::zero(v) }
 
     macro_rules! tuple {
-        ($($items:expr),* $(,)?) => {
-            Expr::Tuple(Tuple { items: span_vec![$($items),*].0 })
+        ($($tts:tt)*) => {
+            Expr::Tuple(Tuple { items: span_vec![$($tts)*].0 })
         };
     }
 
     macro_rules! named_tuple {
-        ($name:expr $(, $items:expr)* $(,)?) => {
+        ($name:tt $(, $($tts:tt)*)?) => {
             Expr::NamedTuple(NamedTuple::new(
-                Z(Ident($name.to_string())),
-                Z(Tuple { items: span_vec![$($items),*].0 })
+                span_item!($name).map(|n| Ident(n.to_string())),
+                Z(Tuple { items: span_vec![$($($tts)*)?].0 })
             ))
         };
     }
 
     macro_rules! object {
-        ($($key:expr => $value:expr),* $(,)?) => {
+        ($($key:tt => $value:expr),* $(,)?) => {
             Expr::Object(Object {
                 pairs: vec![$(Z(Pair {
-                    key: Z(Ident($key.to_string())),
+                    key: span_item!($key).map(|k| Ident(k.to_string())),
                     value: Z($value),
                 })),*]
             })
@@ -897,6 +899,14 @@ mod tests {
         pval!("(3mm * 2)"   => (Mul(Len(Length::mm(3.0)), Num(2.0))));
         pval!("12e-3cm/1pt" => (Div(Len(Length::cm(12e-3)), Len(Length::pt(1.0)))));
 
+        // Span of expression.
+        p!("[val: 1 + 3]" => [(0:0, 0:12, func!((0:1, 0:4, "val"): (
+            (0:6, 0:11, Expr::Add(
+                Box::new(span_item!((0:6, 0:7, Num(1.0)))),
+                Box::new(span_item!((0:10, 0:11, Num(3.0)))),
+            ))
+        )))]);
+
         // Unclosed string.
         p!("[val: \"hello]" => [func!("val": (Str("hello]")), {})], [
             (0:13, 0:13, "expected quote"),
@@ -924,6 +934,9 @@ mod tests {
 
         // Associativity of multiplication and division.
         pval!("3/4*5" => (Mul(Div(Num(3.0), Num(4.0)), Num(5.0))));
+
+        // Span of parenthesized expression contains parens.
+        p!("[val: (1)]" => [(0:0, 0:10, func!((0:1, 0:4, "val"): ((0:6, 0:9, Num(1.0)))))]);
 
         // Invalid expressions.
         p!("[val: 4pt--]" => [func!("val": (Len(Length::pt(4.0))))], [
