@@ -8,7 +8,6 @@ use typstc::{Typesetter, DebugErrorProvider};
 use typstc::toddle::query::fs::EagerFsProvider;
 use typstc::export::pdf;
 
-
 fn main() {
     if let Err(err) = run() {
         eprintln!("error: {}", err);

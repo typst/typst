@@ -6,12 +6,11 @@ use std::ops::Deref;
 use std::str::FromStr;
 use std::u8;
 
-use crate::problem::Problems;
-use crate::size::Size;
+use crate::diagnostic::Diagnostics;
+use crate::length::Length;
 use super::func::{Key, Value};
 use super::span::{Span, Spanned};
 use super::tokens::is_identifier;
-
 
 /// An argument or return value.
 #[derive(Clone, PartialEq)]
@@ -22,8 +21,8 @@ pub enum Expr {
     Str(String),
     /// A number: `1.2, 200%`.
     Number(f64),
-    /// A size: `2cm, 5.2in`.
-    Size(Size),
+    /// A length: `2cm, 5.2in`.
+    Length(Length),
     /// A bool: `true, false`.
     Bool(bool),
     /// A color value, including the alpha channel: `#f79143ff`.
@@ -32,7 +31,7 @@ pub enum Expr {
     Tuple(Tuple),
     /// A named tuple: `cmyk(37.7, 0, 3.9, 1.1)`.
     NamedTuple(NamedTuple),
-    /// An object: `{ fit: false, size: 12pt }`.
+    /// An object: `{ fit: false, width: 12pt }`.
     Object(Object),
     /// An operator that negates the contained expression.
     Neg(Box<Spanned<Expr>>),
@@ -54,7 +53,7 @@ impl Expr {
             Ident(_) => "identifier",
             Str(_) => "string",
             Number(_) => "number",
-            Size(_) => "size",
+            Length(_) => "length",
             Bool(_) => "bool",
             Color(_) => "color",
             Tuple(_) => "tuple",
@@ -76,7 +75,7 @@ impl Debug for Expr {
             Ident(i) => i.fmt(f),
             Str(s) => s.fmt(f),
             Number(n) => n.fmt(f),
-            Size(s) => s.fmt(f),
+            Length(s) => s.fmt(f),
             Bool(b) => b.fmt(f),
             Color(c) => c.fmt(f),
             Tuple(t) => t.fmt(f),
@@ -128,7 +127,7 @@ impl Debug for Ident {
 ///
 /// # Example
 /// ```typst
-/// [box: background=#423abaff]
+/// [page: background=#423abaff]
 ///                   ^^^^^^^^
 /// ```
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -256,28 +255,28 @@ impl Tuple {
     }
 
     /// Extract (and remove) the first matching value and remove and generate
-    /// problems for all previous items that did not match.
-    pub fn get<V: Value>(&mut self, problems: &mut Problems) -> Option<V> {
+    /// diagnostics for all previous items that did not match.
+    pub fn get<V: Value>(&mut self, diagnostics: &mut Diagnostics) -> Option<V> {
         while !self.items.is_empty() {
             let expr = self.items.remove(0);
             let span = expr.span;
             match V::parse(expr) {
                 Ok(output) => return Some(output),
-                Err(v) => problems.push(Spanned { v, span }),
+                Err(v) => diagnostics.push(Spanned { v, span }),
             }
         }
         None
     }
 
     /// Extract and return an iterator over all values that match and generate
-    /// problems for all items that do not match.
-    pub fn get_all<'a, V: Value>(&'a mut self, problems: &'a mut Problems)
+    /// diagnostics for all items that do not match.
+    pub fn get_all<'a, V: Value>(&'a mut self, diagnostics: &'a mut Diagnostics)
     -> impl Iterator<Item=V> + 'a {
         self.items.drain(..).filter_map(move |expr| {
             let span = expr.span;
             match V::parse(expr) {
                 Ok(output) => Some(output),
-                Err(v) => { problems.push(Spanned { v, span }); None }
+                Err(v) => { diagnostics.push(Spanned { v, span }); None }
             }
         })
     }
@@ -351,13 +350,9 @@ impl Deref for NamedTuple {
 
 /// A key-value collection of identifiers and associated expressions.
 ///
-/// The pairs themselves are not spanned, but the combined spans can easily be
-/// retrieved by merging the spans of key and value as happening in
-/// [`FuncArg::span`](super::func::FuncArg::span).
-///
 /// # Example
 /// ```typst
-/// { fit: false, size: 12cm, items: (1, 2, 3) }
+/// { fit: false, width: 12cm, items: (1, 2, 3) }
 /// ```
 #[derive(Default, Clone, PartialEq)]
 pub struct Object {
@@ -398,9 +393,9 @@ impl Object {
     ///
     /// Inserts an error if the value does not match. If the key is not
     /// contained, no error is inserted.
-    pub fn get<V: Value>(&mut self, problems: &mut Problems, key: &str) -> Option<V> {
+    pub fn get<V: Value>(&mut self, diagnostics: &mut Diagnostics, key: &str) -> Option<V> {
         let index = self.pairs.iter().position(|pair| pair.v.key.v.as_str() == key)?;
-        self.get_index::<V>(problems, index)
+        self.get_index::<V>(diagnostics, index)
     }
 
     /// Extract (and remove) a pair with a matching key and value.
@@ -409,12 +404,12 @@ impl Object {
     /// found, no error is inserted.
     pub fn get_with_key<K: Key, V: Value>(
         &mut self,
-        problems: &mut Problems,
+        diagnostics: &mut Diagnostics,
     ) -> Option<(K, V)> {
         for (index, pair) in self.pairs.iter().enumerate() {
             let key = Spanned { v: pair.v.key.v.as_str(), span: pair.v.key.span };
             if let Some(key) = K::parse(key) {
-                return self.get_index::<V>(problems, index).map(|value| (key, value));
+                return self.get_index::<V>(diagnostics, index).map(|value| (key, value));
             }
         }
         None
@@ -425,7 +420,7 @@ impl Object {
     /// Inserts errors for values that do not match.
     pub fn get_all<'a, K: Key, V: Value>(
         &'a mut self,
-        problems: &'a mut Problems,
+        diagnostics: &'a mut Diagnostics,
     ) -> impl Iterator<Item=(K, V)> + 'a {
         let mut index = 0;
         std::iter::from_fn(move || {
@@ -434,7 +429,7 @@ impl Object {
                 let key = Spanned { v: key.v.as_str(), span: key.span };
 
                 Some(if let Some(key) = K::parse(key) {
-                    self.get_index::<V>(problems, index).map(|v| (key, v))
+                    self.get_index::<V>(diagnostics, index).map(|v| (key, v))
                 } else {
                     index += 1;
                     None
@@ -454,20 +449,20 @@ impl Object {
     /// ```
     pub fn get_all_spanned<'a, K: Key + 'a, V: Value + 'a>(
         &'a mut self,
-        problems: &'a mut Problems,
+        diagnostics: &'a mut Diagnostics,
     ) -> impl Iterator<Item=Spanned<(K, V)>> + 'a {
-        self.get_all::<Spanned<K>, Spanned<V>>(problems)
+        self.get_all::<Spanned<K>, Spanned<V>>(diagnostics)
             .map(|(k, v)| Spanned::new((k.v, v.v), Span::merge(k.span, v.span)))
     }
 
     /// Extract the argument at the given index and insert an error if the value
     /// does not match.
-    fn get_index<V: Value>(&mut self, problems: &mut Problems, index: usize) -> Option<V> {
+    fn get_index<V: Value>(&mut self, diagnostics: &mut Diagnostics, index: usize) -> Option<V> {
         let expr = self.pairs.remove(index).v.value;
         let span = expr.span;
         match V::parse(expr) {
             Ok(output) => Some(output),
-            Err(v) => { problems.push(Spanned { v, span }); None }
+            Err(v) => { diagnostics.push(Spanned { v, span }); None }
         }
     }
 

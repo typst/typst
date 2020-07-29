@@ -8,10 +8,9 @@ use toddle::query::{FontQuery, FontIndex};
 use toddle::tables::{CharMap, Header, HorizontalMetrics};
 
 use crate::GlobalFontLoader;
-use crate::size::{Size, Size2D};
+use crate::length::{Length, Size};
 use crate::style::TextStyle;
 use super::*;
-
 
 /// Performs the text layouting.
 #[derive(Debug)]
@@ -21,7 +20,7 @@ struct TextLayouter<'a> {
     actions: LayoutActions,
     buffer: String,
     active_font: FontIndex,
-    width: Size,
+    width: Length,
 }
 
 /// The context for text layouting.
@@ -54,7 +53,7 @@ impl<'a> TextLayouter<'a> {
             actions: LayoutActions::new(),
             buffer: String::new(),
             active_font: FontIndex::MAX,
-            width: Size::ZERO,
+            width: Length::ZERO,
         }
     }
 
@@ -77,7 +76,7 @@ impl<'a> TextLayouter<'a> {
         }
 
         Layout {
-            dimensions: Size2D::new(self.width, self.ctx.style.font_size()),
+            dimensions: Size::new(self.width, self.ctx.style.font_size()),
             alignment: self.ctx.alignment,
             actions: self.actions.into_vec(),
         }
@@ -110,7 +109,7 @@ impl<'a> TextLayouter<'a> {
 
     /// Select the best font for a character and return its index along with
     /// the width of the char in the font.
-    async fn select_font(&mut self, c: char) -> Option<(FontIndex, Size)> {
+    async fn select_font(&mut self, c: char) -> Option<(FontIndex, Length)> {
         let mut loader = self.ctx.loader.borrow_mut();
 
         let mut variant = self.ctx.style.variant;
@@ -127,8 +126,8 @@ impl<'a> TextLayouter<'a> {
         if let Some((font, index)) = loader.get(query).await {
             // Determine the width of the char.
             let header = font.read_table::<Header>().ok()?;
-            let font_unit_ratio = 1.0 / (header.units_per_em as f32);
-            let font_unit_to_size = |x| Size::pt(font_unit_ratio * x);
+            let font_unit_ratio = 1.0 / (header.units_per_em as f64);
+            let font_unit_to_size = |x| Length::pt(font_unit_ratio * x);
 
             let glyph = font
                 .read_table::<CharMap>()
@@ -139,7 +138,7 @@ impl<'a> TextLayouter<'a> {
                 .read_table::<HorizontalMetrics>()
                 .ok()?
                 .get(glyph)?
-                .advance_width as f32;
+                .advance_width as f64;
 
             let char_width = font_unit_to_size(glyph_width)
                 * self.ctx.style.font_size().to_pt();

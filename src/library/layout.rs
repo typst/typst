@@ -1,6 +1,5 @@
-use crate::size::PSize;
+use crate::length::ScaleLength;
 use super::*;
-
 
 function! {
     /// `align`: Aligns content along the layouting axes.
@@ -13,14 +12,14 @@ function! {
     parse(header, body, ctx, f) {
         AlignFunc {
             body: body!(opt: body, ctx, f),
-            map: PosAxisMap::parse::<AxisKey>(&mut f.problems, &mut header.args),
+            map: PosAxisMap::parse::<AxisKey>(&mut f.diagnostics, &mut header.args),
         }
     }
 
     layout(self, ctx, f) {
         ctx.base = ctx.spaces[0].dimensions;
 
-        let map = self.map.dedup(&mut f.problems, ctx.axes, |alignment| {
+        let map = self.map.dedup(&mut f.diagnostics, ctx.axes, |alignment| {
             alignment.axis().map(|s| s.to_generic(ctx.axes))
         });
 
@@ -61,14 +60,14 @@ function! {
         DirectionFunc {
             name_span: header.name.span,
             body: body!(opt: body, ctx, f),
-            map: PosAxisMap::parse::<AxisKey>(&mut f.problems, &mut header.args),
+            map: PosAxisMap::parse::<AxisKey>(&mut f.diagnostics, &mut header.args),
         }
     }
 
     layout(self, ctx, f) {
         ctx.base = ctx.spaces[0].dimensions;
 
-        let map = self.map.dedup(&mut f.problems, ctx.axes, |direction| {
+        let map = self.map.dedup(&mut f.diagnostics, ctx.axes, |direction| {
             Some(direction.axis().to_generic(ctx.axes))
         });
 
@@ -103,15 +102,15 @@ function! {
     #[derive(Debug, Clone, PartialEq)]
     pub struct BoxFunc {
         body: SyntaxModel,
-        extents: AxisMap<PSize>,
+        extents: AxisMap<ScaleLength>,
         debug: Option<bool>,
     }
 
     parse(header, body, ctx, f) {
         BoxFunc {
             body: body!(opt: body, ctx, f).unwrap_or(SyntaxModel::new()),
-            extents: AxisMap::parse::<ExtentKey>(&mut f.problems, &mut header.args.key),
-            debug: header.args.key.get::<bool>(&mut f.problems, "debug"),
+            extents: AxisMap::parse::<ExtentKey>(&mut f.diagnostics, &mut header.args.key),
+            debug: header.args.key.get::<bool>(&mut f.diagnostics, "debug"),
         }
     }
 
@@ -123,12 +122,12 @@ function! {
             ctx.debug = debug;
         }
 
-        let map = self.extents.dedup(&mut f.problems, ctx.axes);
+        let map = self.extents.dedup(&mut f.diagnostics, ctx.axes);
         for &axis in &[Horizontal, Vertical] {
-            if let Some(psize) = map.get(axis) {
-                let size = psize.scaled(ctx.base.get(axis));
-                *ctx.base.get_mut(axis) = size;
-                *ctx.spaces[0].dimensions.get_mut(axis) = size;
+            if let Some(scale) = map.get(axis) {
+                let length = scale.scaled(ctx.base.get(axis));
+                *ctx.base.get_mut(axis) = length;
+                *ctx.spaces[0].dimensions.get_mut(axis) = length;
                 *ctx.spaces[0].expansion.get_mut(axis) = true;
             }
         }

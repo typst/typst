@@ -7,7 +7,6 @@ use super::*;
 use self::AxisKey::*;
 use self::PaddingKey::*;
 
-
 /// Key types are used to extract keyword arguments from
 /// [`Objects`](crate::syntax::expr::Object). They represent the key part of a
 /// keyword argument.

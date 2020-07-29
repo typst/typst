@@ -2,8 +2,8 @@ use std::iter::Peekable;
 use std::str::Chars;
 use unicode_xid::UnicodeXID;
 
-use crate::size::Size;
-use super::span::{Position, Span, Spanned};
+use crate::length::Length;
+use super::span::{Pos, Span, Spanned};
 
 use Token::*;
 use TokenMode::*;
@@ -73,8 +73,8 @@ pub enum Token<'s> {
     },
     /// A number in a function header: `3.14`.
     ExprNumber(f64),
-    /// A size in a function header: `12pt`.
-    ExprSize(Size),
+    /// A length in a function header: `12pt`.
+    ExprLength(Length),
     /// A boolean in a function header: `true | false`.
     ExprBool(bool),
     /// A hex value in a function header: `#20d82a`.
@@ -129,7 +129,7 @@ impl<'s> Token<'s> {
             ExprIdent(_)    => "identifier",
             ExprStr { .. }  => "string",
             ExprNumber(_)   => "number",
-            ExprSize(_)     => "size",
+            ExprLength(_)   => "length",
             ExprBool(_)     => "bool",
             ExprHex(_)      => "hex value",
             Plus            => "plus",
@@ -153,7 +153,7 @@ pub struct Tokens<'s> {
     src: &'s str,
     mode: TokenMode,
     iter: Peekable<Chars<'s>>,
-    position: Position,
+    pos: Pos,
     index: usize,
 }
 
@@ -172,12 +172,12 @@ impl<'s> Tokens<'s> {
     ///
     /// The first token's span starts an the given `offset` position instead of
     /// the zero position.
-    pub fn new(src: &'s str, offset: Position, mode: TokenMode) -> Tokens<'s> {
+    pub fn new(src: &'s str, offset: Pos, mode: TokenMode) -> Tokens<'s> {
         Tokens {
             src,
             mode,
             iter: src.chars().peekable(),
-            position: offset,
+            pos: offset,
             index: 0,
         }
     }
@@ -190,8 +190,8 @@ impl<'s> Tokens<'s> {
 
     /// The line-colunn position in the source at which the last token ends and
     /// next token will start.
-    pub fn pos(&self) -> Position {
-        self.position
+    pub fn pos(&self) -> Pos {
+        self.pos
     }
 }
 
@@ -315,14 +315,14 @@ impl<'s> Tokens<'s> {
         }, true, 0, -2).0)
     }
 
-    fn read_whitespace(&mut self, start: Position) -> Token<'s> {
+    fn read_whitespace(&mut self, start: Pos) -> Token<'s> {
         self.read_string_until(|n| !n.is_whitespace(), false, 0, 0);
         let end = self.pos();
 
         Space(end.line - start.line)
     }
 
-    fn read_function(&mut self, start: Position) -> Token<'s> {
+    fn read_function(&mut self, start: Pos) -> Token<'s> {
         let (header, terminated) = self.read_function_part(Header);
         self.eat();
 
@@ -354,7 +354,7 @@ impl<'s> Tokens<'s> {
 
             self.eat();
             match n {
-                '[' => { self.read_function(Position::ZERO); }
+                '[' => { self.read_function(Pos::ZERO); }
                 '/' if self.peek() == Some('/') => { self.read_line_comment(); }
                 '/' if self.peek() == Some('*') => { self.read_block_comment(); }
                 '"' if mode == Header => { self.read_string(); }
@@ -427,8 +427,8 @@ impl<'s> Tokens<'s> {
             ExprNumber(num)
         } else if let Some(num) = parse_percentage(text) {
             ExprNumber(num / 100.0)
-        } else if let Ok(size) = text.parse::<Size>() {
-            ExprSize(size)
+        } else if let Ok(length) = text.parse::<Length>() {
+            ExprLength(length)
         } else if is_identifier(text) {
             ExprIdent(text)
         } else {
@@ -476,10 +476,10 @@ impl<'s> Tokens<'s> {
         self.index += c.len_utf8();
 
         if is_newline_char(c) && !(c == '\r' && self.peek() == Some('\n')) {
-            self.position.line += 1;
-            self.position.column = 0;
+            self.pos.line += 1;
+            self.pos.column = 0;
         } else {
-            self.position.column += 1;
+            self.pos.column += 1;
         }
 
         Some(c)
@@ -543,7 +543,7 @@ mod tests {
         LeftBrace as LB, RightBrace as RB,
         ExprIdent as Id,
         ExprNumber as Num,
-        ExprSize as Sz,
+        ExprLength as Len,
         ExprBool as Bool,
         ExprHex as Hex,
         Text as T,
@@ -557,7 +557,7 @@ mod tests {
     macro_rules! t {
         ($mode:expr, $source:expr => [$($tokens:tt)*]) => {
             let (exp, spans) = span_vec![$($tokens)*];
-            let found = Tokens::new($source, Position::ZERO, $mode).collect::<Vec<_>>();
+            let found = Tokens::new($source, Pos::ZERO, $mode).collect::<Vec<_>>();
             check($source, exp, found, spans);
         }
     }
@@ -640,13 +640,13 @@ mod tests {
         t!(Header, "__main__"          => [Id("__main__")]);
         t!(Header, ".func.box"         => [Id(".func.box")]);
         t!(Header, "arg, _b, _1"       => [Id("arg"), Comma, S(0), Id("_b"), Comma, S(0), Id("_1")]);
-        t!(Header, "12_pt, 12pt"       => [Invalid("12_pt"), Comma, S(0), Sz(Size::pt(12.0))]);
-        t!(Header, "1e5in"             => [Sz(Size::inches(100000.0))]);
-        t!(Header, "2.3cm"             => [Sz(Size::cm(2.3))]);
-        t!(Header, "12e-3in"           => [Sz(Size::inches(12e-3))]);
-        t!(Header, "6.1cm + 4pt,a=1*2" => [Sz(Size::cm(6.1)), S(0), Plus, S(0), Sz(Size::pt(4.0)), Comma, Id("a"), Equals, Num(1.0), Star, Num(2.0)]);
+        t!(Header, "12_pt, 12pt"       => [Invalid("12_pt"), Comma, S(0), Len(Length::pt(12.0))]);
+        t!(Header, "1e5in"             => [Len(Length::inches(100000.0))]);
+        t!(Header, "2.3cm"             => [Len(Length::cm(2.3))]);
+        t!(Header, "12e-3in"           => [Len(Length::inches(12e-3))]);
+        t!(Header, "6.1cm + 4pt,a=1*2" => [Len(Length::cm(6.1)), S(0), Plus, S(0), Len(Length::pt(4.0)), Comma, Id("a"), Equals, Num(1.0), Star, Num(2.0)]);
         t!(Header, "(5 - 1) / 2.1"     => [LP, Num(5.0), S(0), Min, S(0), Num(1.0), RP, S(0), Slash, S(0), Num(2.1)]);
-        t!(Header, "02.4mm"            => [Sz(Size::mm(2.4))]);
+        t!(Header, "02.4mm"            => [Len(Length::mm(2.4))]);
         t!(Header, "2.4.cm"            => [Invalid("2.4.cm")]);
         t!(Header, "(1,2)"             => [LP, Num(1.0), Comma, Num(2.0), RP]);
         t!(Header, "{abc}"             => [LB, Id("abc"), RB]);

@@ -3,16 +3,14 @@
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
-use crate::Pass;
 use crate::func::ParseFunc;
-use super::func::FuncCall;
-use super::parsing::ParseState;
+use super::parsing::CallParser;
 use super::Model;
 
 /// A map from identifiers to function parsers.
 pub struct Scope {
-    parsers: HashMap<String, Box<Parser>>,
-    fallback: Box<Parser>,
+    parsers: HashMap<String, Box<CallParser>>,
+    fallback: Box<CallParser>,
 }
 
 impl Scope {
@@ -22,7 +20,7 @@ impl Scope {
     where F: ParseFunc<Meta=()> + Model + 'static {
         Scope {
             parsers: HashMap::new(),
-            fallback: parser::<F>(()),
+            fallback: make_parser::<F>(()),
         }
     }
 
@@ -43,17 +41,17 @@ impl Scope {
     where F: ParseFunc + Model + 'static {
         self.parsers.insert(
             name.to_string(),
-            parser::<F>(metadata),
+            make_parser::<F>(metadata),
         );
     }
 
     /// Return the parser with the given name if there is one.
-    pub fn get_parser(&self, name: &str) -> Option<&Parser> {
+    pub fn get_parser(&self, name: &str) -> Option<&CallParser> {
         self.parsers.get(name).map(AsRef::as_ref)
     }
 
     /// Return the fallback parser.
-    pub fn get_fallback_parser(&self) -> &Parser {
+    pub fn get_fallback_parser(&self) -> &CallParser {
         &*self.fallback
     }
 }
@@ -66,11 +64,7 @@ impl Debug for Scope {
     }
 }
 
-/// A function which parses the source of a function into a model type which
-/// implements [`Model`].
-type Parser = dyn Fn(FuncCall, &ParseState) -> Pass<Box<dyn Model>>;
-
-fn parser<F>(metadata: <F as ParseFunc>::Meta) -> Box<Parser>
+fn make_parser<F>(metadata: <F as ParseFunc>::Meta) -> Box<CallParser>
 where F: ParseFunc + Model + 'static {
     Box::new(move |f, s| {
         F::parse(f, s, metadata.clone())

@@ -11,7 +11,6 @@
 use super::stack::{StackLayouter, StackContext};
 use super::*;
 
-
 /// Performs the line layouting.
 #[derive(Debug)]
 pub struct LineLayouter {
@@ -40,7 +39,7 @@ pub struct LineContext {
     /// extent of the layout.
     pub debug: bool,
     /// The line spacing.
-    pub line_spacing: Size,
+    pub line_spacing: Length,
 }
 
 /// A line run is a sequence of boxes with the same alignment that are arranged
@@ -49,10 +48,10 @@ pub struct LineContext {
 #[derive(Debug)]
 struct LineRun {
     /// The so-far accumulated layouts in the line.
-    layouts: Vec<(Size, Layout)>,
-    /// The width (primary size) and maximal height (secondary size) of the
+    layouts: Vec<(Length, Layout)>,
+    /// The width (primary length) and maximal height (secondary length) of the
     /// line.
-    size: Size2D,
+    size: Size,
     /// The alignment of all layouts in the line.
     ///
     /// When a new run is created the alignment is yet to be determined. Once a
@@ -61,7 +60,7 @@ struct LineRun {
     alignment: Option<LayoutAlignment>,
     /// If another line run with different alignment already took up some space
     /// of the line, this run has less space and how much is stored here.
-    usable: Option<Size>,
+    usable: Option<Length>,
     /// A possibly cached soft spacing or spacing state.
     last_spacing: LastSpacing,
 }
@@ -156,7 +155,7 @@ impl LineLayouter {
     ///
     /// This specifies how much more fits before a line break needs to be
     /// issued.
-    fn usable(&self) -> Size2D {
+    fn usable(&self) -> Size {
         // The base is the usable space per stack layouter.
         let mut usable = self.stack.usable().generalized(self.ctx.axes);
 
@@ -171,7 +170,7 @@ impl LineLayouter {
     }
 
     /// Add spacing along the primary axis to the line.
-    pub fn add_primary_spacing(&mut self, mut spacing: Size, kind: SpacingKind) {
+    pub fn add_primary_spacing(&mut self, mut spacing: Length, kind: SpacingKind) {
         match kind {
             // A hard space is simply an empty box.
             SpacingKind::Hard => {
@@ -197,7 +196,7 @@ impl LineLayouter {
     }
 
     /// Finish the line and add secondary spacing to the underlying stack.
-    pub fn add_secondary_spacing(&mut self, spacing: Size, kind: SpacingKind) {
+    pub fn add_secondary_spacing(&mut self, spacing: Length, kind: SpacingKind) {
         self.finish_line_if_not_empty();
         self.stack.add_spacing(spacing, kind)
     }
@@ -219,7 +218,7 @@ impl LineLayouter {
     }
 
     /// Update the line spacing.
-    pub fn set_line_spacing(&mut self, line_spacing: Size) {
+    pub fn set_line_spacing(&mut self, line_spacing: Length) {
         self.ctx.line_spacing = line_spacing;
     }
 
@@ -235,7 +234,7 @@ impl LineLayouter {
 
     /// Whether the currently set line is empty.
     pub fn line_is_empty(&self) -> bool {
-        self.run.size == Size2D::ZERO && self.run.layouts.is_empty()
+        self.run.size == Size::ZERO && self.run.layouts.is_empty()
     }
 
     /// Finish the last line and compute the final list of boxes.
@@ -265,7 +264,7 @@ impl LineLayouter {
                     - layout.dimensions.primary(self.ctx.axes),
             };
 
-            let pos = Size2D::with_x(x);
+            let pos = Size::with_x(x);
             actions.add_layout(pos, layout);
         }
 
@@ -293,7 +292,7 @@ impl LineRun {
     fn new() -> LineRun {
         LineRun {
             layouts: vec![],
-            size: Size2D::ZERO,
+            size: Size::ZERO,
             alignment: None,
             usable: None,
             last_spacing: LastSpacing::Hard,

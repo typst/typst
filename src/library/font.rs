@@ -1,7 +1,6 @@
 use toddle::query::{FontWeight, FontStyle};
-use crate::size::FSize;
+use crate::length::ScaleLength;
 use super::*;
-
 
 function! {
     /// `font.family`: Set the font family.
@@ -13,17 +12,17 @@ function! {
     }
 
     parse(header, body, ctx, f) {
-        let list = header.args.pos.get_all::<StringLike>(&mut f.problems)
+        let list = header.args.pos.get_all::<StringLike>(&mut f.diagnostics)
             .map(|s| s.0.to_lowercase())
             .collect();
 
         let tuples: Vec<_> = header.args.key
-            .get_all::<String, Tuple>(&mut f.problems)
+            .get_all::<String, Tuple>(&mut f.diagnostics)
             .collect();
 
         let classes = tuples.into_iter()
             .map(|(class, mut tuple)| {
-                let fallback = tuple.get_all::<StringLike>(&mut f.problems)
+                let fallback = tuple.get_all::<StringLike>(&mut f.diagnostics)
                     .map(|s| s.0.to_lowercase())
                     .collect();
                 (class.to_lowercase(), fallback)
@@ -64,8 +63,8 @@ function! {
     parse(header, body, ctx, f) {
         FontStyleFunc {
             body: body!(opt: body, ctx, f),
-            style: header.args.pos.get::<FontStyle>(&mut f.problems)
-                .or_missing(&mut f.problems, header.name.span, "style"),
+            style: header.args.pos.get::<FontStyle>(&mut f.diagnostics)
+                .or_missing(&mut f.diagnostics, header.name.span, "style"),
         }
     }
 
@@ -84,7 +83,7 @@ function! {
 
     parse(header, body, ctx, f) {
         let body = body!(opt: body, ctx, f);
-        let weight = header.args.pos.get::<Spanned<(FontWeight, bool)>>(&mut f.problems)
+        let weight = header.args.pos.get::<Spanned<(FontWeight, bool)>>(&mut f.diagnostics)
             .map(|Spanned { v: (weight, is_clamped), span }| {
                 if is_clamped {
                     warning!(
@@ -96,7 +95,7 @@ function! {
 
                 weight
             })
-            .or_missing(&mut f.problems, header.name.span, "weight");
+            .or_missing(&mut f.diagnostics, header.name.span, "weight");
 
         FontWeightFunc { body, weight }
     }
@@ -111,25 +110,25 @@ function! {
     #[derive(Debug, Clone, PartialEq)]
     pub struct FontSizeFunc {
         body: Option<SyntaxModel>,
-        size: Option<FSize>,
+        size: Option<ScaleLength>,
     }
 
     parse(header, body, ctx, f) {
         FontSizeFunc {
             body: body!(opt: body, ctx, f),
-            size: header.args.pos.get::<FSize>(&mut f.problems)
-                .or_missing(&mut f.problems, header.name.span, "size")
+            size: header.args.pos.get::<ScaleLength>(&mut f.diagnostics)
+                .or_missing(&mut f.diagnostics, header.name.span, "size")
         }
     }
 
     layout(self, ctx, f) {
         styled(&self.body, ctx, self.size, |t, s| {
             match s {
-                FSize::Absolute(size) => {
+                ScaleLength::Absolute(size) => {
                     t.base_font_size = size;
                     t.font_scale = 1.0;
                 }
-                FSize::Scaled(scale) => t.font_scale = scale,
+                ScaleLength::Scaled(scale) => t.font_scale = scale,
             }
         })
     }

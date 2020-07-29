@@ -52,8 +52,8 @@ pub trait ParseFunc {
 ///
 ///     parse(header, body, state, f) {
 ///         let body = body!(opt: body, state, f);
-///         let hidden = header.args.pos.get::<bool>(&mut f.problems)
-///             .or_missing(&mut f.problems, header.name.span, "hidden")
+///         let hidden = header.args.pos.get::<bool>(&mut f.diagnostics)
+///             .or_missing(&mut f.diagnostics, header.name.span, "hidden")
 ///             .unwrap_or(false);
 ///
 ///         HiderFunc { body: if hidden { None } else { body } }

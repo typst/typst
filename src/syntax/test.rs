@@ -39,11 +39,11 @@ macro_rules! span_vec {
 
 macro_rules! span_item {
     (($sl:tt:$sc:tt, $el:tt:$ec:tt, $v:expr)) => ({
-        use $crate::syntax::span::{Position, Span, Spanned};
+        use $crate::syntax::span::{Pos, Span, Spanned};
         Spanned {
             span: Span::new(
-                Position::new($sl, $sc),
-                Position::new($el, $ec)
+                Pos::new($sl, $sc),
+                Pos::new($el, $ec)
             ),
             v: $v
         }

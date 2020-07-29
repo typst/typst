@@ -4,12 +4,11 @@ use std::fmt::{self, Display, Formatter};
 use toddle::query::{FontStyle, FontWeight};
 
 use crate::layout::prelude::*;
-use crate::size::{Size, ScaleSize};
-use crate::style::Paper;
+use crate::length::{Length, ScaleLength};
+use crate::paper::Paper;
 use super::*;
 
 use self::AlignmentValue::*;
-
 
 /// Value types are used to extract the values of positional and keyword
 /// arguments from [`Tuples`](crate::syntax::expr::Tuple) and
@@ -24,14 +23,14 @@ use self::AlignmentValue::*;
 /// An implementation for `bool` might look as follows:
 /// ```
 /// # use typstc::error;
-/// # use typstc::problem::Problem;
+/// # use typstc::diagnostic::Diagnostic;
 /// # use typstc::syntax::expr::Expr;
 /// # use typstc::syntax::func::Value;
 /// # use typstc::syntax::span::Spanned;
 /// # struct Bool; /*
 /// impl Value for bool {
 /// # */ impl Value for Bool {
-///     fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
+///     fn parse(expr: Spanned<Expr>) -> Result<Self, Diagnostic> {
 ///         match expr.v {
 ///             # /*
 ///             Expr::Bool(b) => Ok(b),
@@ -44,11 +43,11 @@ use self::AlignmentValue::*;
 pub trait Value: Sized {
     /// Parse an expression into this value or return an error if the expression
     /// is valid for this value type.
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem>;
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Diagnostic>;
 }
 
 impl<V: Value> Value for Spanned<V> {
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Diagnostic> {
         let span = expr.span;
         V::parse(expr).map(|v| Spanned { v, span })
     }
@@ -58,7 +57,7 @@ impl<V: Value> Value for Spanned<V> {
 macro_rules! value {
     ($type:ty, $name:expr, $($p:pat => $r:expr),* $(,)?) => {
         impl Value for $type {
-            fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
+            fn parse(expr: Spanned<Expr>) -> Result<Self, Diagnostic> {
                 #[allow(unreachable_patterns)]
                 match expr.v {
                     $($p => Ok($r)),*,
@@ -77,13 +76,13 @@ value!(Ident,  "identifier", Expr::Ident(i)  => i);
 value!(String, "string",     Expr::Str(s)    => s);
 value!(f64,    "number",     Expr::Number(n) => n);
 value!(bool,   "bool",       Expr::Bool(b)   => b);
-value!(Size,   "size",       Expr::Size(s)   => s);
+value!(Length, "length",     Expr::Length(s)   => s);
 value!(Tuple,  "tuple",      Expr::Tuple(t)  => t);
 value!(Object, "object",     Expr::Object(o) => o);
 
-value!(ScaleSize, "number or size",
-    Expr::Size(size)    => ScaleSize::Absolute(size),
-    Expr::Number(scale) => ScaleSize::Scaled(scale as f32),
+value!(ScaleLength, "number or length",
+    Expr::Length(length)    => ScaleLength::Absolute(length),
+    Expr::Number(scale) => ScaleLength::Scaled(scale as f64),
 );
 
 /// A value type that matches [`Expr::Ident`] and [`Expr::Str`] and implements
@@ -108,20 +107,20 @@ impl From<StringLike> for String {
 /// # Example
 /// ```
 /// # use typstc::syntax::func::{FuncArgs, Defaultable};
-/// # use typstc::size::Size;
+/// # use typstc::length::Length;
 /// # let mut args = FuncArgs::new();
 /// # let mut errors = vec![];
-/// args.key.get::<Defaultable<Size>>(&mut errors, "size");
+/// args.key.get::<Defaultable<Length>>(&mut errors, "length");
 /// ```
 /// This will yield.
 /// ```typst
-/// [func: size=default] => None
-/// [func: size=2cm]     => Some(Size::cm(2.0))
+/// [func: length=default] => None
+/// [func: length=2cm]     => Some(Length::cm(2.0))
 /// ```
 pub struct Defaultable<V>(pub Option<V>);
 
 impl<V: Value> Value for Defaultable<V> {
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Diagnostic> {
         Ok(Defaultable(match expr.v {
             Expr::Ident(ident) if ident.as_str() == "default" => None,
             _ => Some(V::parse(expr)?)
@@ -136,7 +135,7 @@ impl<V> From<Defaultable<V>> for Option<V> {
 }
 
 impl Value for FontStyle {
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Diagnostic> {
         FontStyle::from_name(Ident::parse(expr)?.as_str())
             .ok_or_else(|| error!("invalid font style"))
     }
@@ -145,7 +144,7 @@ impl Value for FontStyle {
 /// The additional boolean specifies whether a number was clamped into the range
 /// 100 - 900 to make it a valid font weight.
 impl Value for (FontWeight, bool) {
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Diagnostic> {
         match expr.v {
             Expr::Number(weight) => {
                 let weight = weight.round();
@@ -170,14 +169,14 @@ impl Value for (FontWeight, bool) {
 }
 
 impl Value for Paper {
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Diagnostic> {
         Paper::from_name(Ident::parse(expr)?.as_str())
             .ok_or_else(|| error!("invalid paper type"))
     }
 }
 
 impl Value for Direction {
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Diagnostic> {
         Ok(match Ident::parse(expr)?.as_str() {
             "left-to-right" | "ltr" | "LTR" => LeftToRight,
             "right-to-left" | "rtl" | "RTL" => RightToLeft,
@@ -250,7 +249,7 @@ impl AlignmentValue {
 }
 
 impl Value for AlignmentValue {
-    fn parse(expr: Spanned<Expr>) -> Result<Self, Problem> {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Diagnostic> {
         Ok(match Ident::parse(expr)?.as_str() {
             "origin" => Align(Origin),
             "center" => Align(Center),

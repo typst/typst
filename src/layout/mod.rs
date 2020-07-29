@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 use serde::Serialize;
 use toddle::query::FontIndex;
 
-use crate::size::{Size, Size2D, SizeBox};
+use crate::length::{Length, Size, Margins};
 use self::prelude::*;
 
 pub mod line;
@@ -27,7 +27,6 @@ pub mod prelude {
     pub use super::Alignment::{self, *};
 }
 
-
 /// A collection of layouts.
 pub type MultiLayout = Vec<Layout>;
 
@@ -35,7 +34,7 @@ pub type MultiLayout = Vec<Layout>;
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Layout {
     /// The size of the box.
-    pub dimensions: Size2D,
+    pub dimensions: Size,
     /// How to align this layout in a parent container.
     #[serde(skip)]
     pub alignment: LayoutAlignment,
@@ -66,9 +65,9 @@ pub type LayoutSpaces = SmallVec<[LayoutSpace; 2]>;
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct LayoutSpace {
     /// The maximum size of the box to layout in.
-    pub dimensions: Size2D,
+    pub dimensions: Size,
     /// Padding that should be respected on each side.
-    pub padding: SizeBox,
+    pub padding: Margins,
     /// Whether to expand the dimensions of the resulting layout to the full
     /// dimensions of this space or to shrink them to fit the content.
     pub expansion: LayoutExpansion,
@@ -77,12 +76,12 @@ pub struct LayoutSpace {
 impl LayoutSpace {
     /// The offset from the origin to the start of content, that is,
     /// `(padding.left, padding.top)`.
-    pub fn start(&self) -> Size2D {
-        Size2D::new(self.padding.left, self.padding.top)
+    pub fn start(&self) -> Size {
+        Size::new(self.padding.left, self.padding.top)
     }
 
     /// The actually usable area (dimensions minus padding).
-    pub fn usable(&self) -> Size2D {
+    pub fn usable(&self) -> Size {
         self.dimensions.unpadded(self.padding)
     }
 
@@ -90,7 +89,7 @@ impl LayoutSpace {
     pub fn usable_space(&self) -> LayoutSpace {
         LayoutSpace {
             dimensions: self.usable(),
-            padding: SizeBox::ZERO,
+            padding: Margins::ZERO,
             expansion: LayoutExpansion::new(false, false),
         }
     }
@@ -369,17 +368,17 @@ enum LastSpacing {
     /// The last item was hard spacing.
     Hard,
     /// The last item was soft spacing with the given width and level.
-    Soft(Size, u32),
+    Soft(Length, u32),
     /// The last item was not spacing.
     None,
 }
 
 impl LastSpacing {
-    /// The size of the soft space if this is a soft space or zero otherwise.
-    fn soft_or_zero(self) -> Size {
+    /// The length of the soft space if this is a soft space or zero otherwise.
+    fn soft_or_zero(self) -> Length {
         match self {
             LastSpacing::Soft(space, _) => space,
-            _ => Size::ZERO,
+            _ => Length::ZERO,
         }
     }
 }

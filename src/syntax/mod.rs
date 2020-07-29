@@ -20,7 +20,6 @@ pub_use_mod!(scope);
 pub_use_mod!(parsing);
 pub_use_mod!(tokens);
 
-
 /// Represents a parsed piece of source that can be layouted and in the future
 /// also be queried for information used for refactorings, autocomplete, etc.
 #[async_trait(?Send)]
@@ -94,6 +93,9 @@ impl PartialEq for Node {
     }
 }
 
+/// A list of spanned decorations.
+pub type Decorations = SpanVec<Decoration>;
+
 /// Decorations for semantic syntax highlighting.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -110,7 +112,6 @@ pub enum Decoration {
     ///  ^^^^^^
     /// ```
     InvalidFuncName,
-
     /// A key of a keyword argument:
     /// ```typst
     /// [box: width=5cm]
@@ -123,7 +124,6 @@ pub enum Decoration {
     ///                 ^^^^       ^^^^^
     /// ```
     ObjectKey,
-
     /// An italic word.
     Italic,
     /// A bold word.

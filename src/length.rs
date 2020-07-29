@@ -8,173 +8,166 @@ use serde::Serialize;
 
 use crate::layout::prelude::*;
 
-
 /// A general spacing type.
 #[derive(Default, Copy, Clone, PartialEq, PartialOrd, Serialize)]
 #[serde(transparent)]
-pub struct Size {
-    /// The size in typographic points (1/72 inches).
-    pub points: f32,
+pub struct Length {
+    /// The length in typographic points (1/72 inches).
+    pub points: f64,
 }
 
-impl Size {
-    /// The zeroed size.
-    pub const ZERO: Size = Size { points: 0.0 };
+impl Length {
+    /// The zeroed length.
+    pub const ZERO: Length = Length { points: 0.0 };
 
-    /// Create a size from an amount of points.
-    pub fn pt(points: f32) -> Size { Size { points } }
+    /// Create a length from an amount of points.
+    pub fn pt(points: f64) -> Length { Length { points } }
 
-    /// Create a size from an amount of millimeters.
-    pub fn mm(mm: f32) -> Size { Size { points: 2.83465 * mm } }
+    /// Create a length from an amount of millimeters.
+    pub fn mm(mm: f64) -> Length { Length { points: 2.83465 * mm } }
 
-    /// Create a size from an amount of centimeters.
-    pub fn cm(cm: f32) -> Size { Size { points: 28.3465 * cm } }
+    /// Create a length from an amount of centimeters.
+    pub fn cm(cm: f64) -> Length { Length { points: 28.3465 * cm } }
 
-    /// Create a size from an amount of inches.
-    pub fn inches(inches: f32) -> Size { Size { points: 72.0 * inches } }
+    /// Create a length from an amount of inches.
+    pub fn inches(inches: f64) -> Length { Length { points: 72.0 * inches } }
 
-    /// Convert this size into points.
-    pub fn to_pt(self) -> f32 { self.points }
+    /// Convert this length into points.
+    pub fn to_pt(self) -> f64 { self.points }
 
-    /// Convert this size into millimeters.
-    pub fn to_mm(self) -> f32 { self.points * 0.352778 }
+    /// Convert this length into millimeters.
+    pub fn to_mm(self) -> f64 { self.points * 0.352778 }
 
-    /// Convert this size into centimeters.
-    pub fn to_cm(self) -> f32 { self.points * 0.0352778 }
+    /// Convert this length into centimeters.
+    pub fn to_cm(self) -> f64 { self.points * 0.0352778 }
 
-    /// Convert this size into inches.
-    pub fn to_inches(self) -> f32 { self.points * 0.0138889 }
+    /// Convert this length into inches.
+    pub fn to_inches(self) -> f64 { self.points * 0.0138889 }
 
-    /// The maximum of this and the other size.
-    pub fn max(self, other: Size) -> Size {
+    /// The maximum of this and the other length.
+    pub fn max(self, other: Length) -> Length {
         if self > other { self } else { other }
     }
 
-    /// The minimum of this and the other size.
-    pub fn min(self, other: Size) -> Size {
+    /// The minimum of this and the other length.
+    pub fn min(self, other: Length) -> Length {
         if self <= other { self } else { other }
     }
 
-    /// Set this size to the maximum of itself and the other size.
-    pub fn max_eq(&mut self, other: Size) { *self = self.max(other); }
+    /// Set this length to the maximum of itself and the other length.
+    pub fn max_eq(&mut self, other: Length) { *self = self.max(other); }
 
-    /// Set this size to the minimum of itself and the other size.
-    pub fn min_eq(&mut self, other: Size) { *self = self.min(other); }
+    /// Set this length to the minimum of itself and the other length.
+    pub fn min_eq(&mut self, other: Length) { *self = self.min(other); }
 
     /// The anchor position along the given direction for an item with the given
-    /// alignment in a container with this size.
-    pub fn anchor(self, alignment: Alignment, direction: Direction) -> Size {
+    /// alignment in a container with this length.
+    pub fn anchor(self, alignment: Alignment, direction: Direction) -> Length {
         match (direction.is_positive(), alignment) {
-            (true, Origin) | (false, End) => Size::ZERO,
+            (true, Origin) | (false, End) => Length::ZERO,
             (_, Center) => self / 2,
             (true, End) | (false, Origin) => self,
         }
     }
 }
 
-impl Display for Size {
+impl Display for Length {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}pt", self.points)
     }
 }
 
-impl Debug for Size {
+impl Debug for Length {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(self, f)
     }
 }
 
-impl Neg for Size {
-    type Output = Size;
+impl Neg for Length {
+    type Output = Length;
 
-    fn neg(self) -> Size {
-        Size { points: -self.points }
+    fn neg(self) -> Length {
+        Length { points: -self.points }
     }
 }
 
-impl Sum for Size {
-    fn sum<I>(iter: I) -> Size
-    where I: Iterator<Item = Size> {
-        iter.fold(Size::ZERO, Add::add)
+impl Sum for Length {
+    fn sum<I>(iter: I) -> Length
+    where I: Iterator<Item = Length> {
+        iter.fold(Length::ZERO, Add::add)
     }
 }
 
-/// Either an absolute size or a factor of some entity.
+/// Either an absolute length or a factor of some entity.
 #[derive(Copy, Clone, PartialEq)]
 #[allow(missing_docs)]
-pub enum ScaleSize {
-    Absolute(Size),
-    Scaled(f32),
+pub enum ScaleLength {
+    Absolute(Length),
+    Scaled(f64),
 }
 
-impl ScaleSize {
+impl ScaleLength {
     /// Use the absolute value or scale the entity.
-    pub fn scaled(&self, entity: Size) -> Size {
+    pub fn scaled(&self, entity: Length) -> Length {
         match self {
-            ScaleSize::Absolute(s) => *s,
-            ScaleSize::Scaled(s) => *s * entity,
+            ScaleLength::Absolute(s) => *s,
+            ScaleLength::Scaled(s) => *s * entity,
         }
     }
 }
 
-impl Display for ScaleSize {
+impl Display for ScaleLength {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            ScaleSize::Absolute(size) => write!(f, "{}", size),
-            ScaleSize::Scaled(scale) => write!(f, "{}%", scale * 100.0),
+            ScaleLength::Absolute(length) => write!(f, "{}", length),
+            ScaleLength::Scaled(scale) => write!(f, "{}%", scale * 100.0),
         }
     }
 }
 
-impl Debug for ScaleSize {
+impl Debug for ScaleLength {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(self, f)
     }
 }
-
-/// A scale size that is scaled by the font size.
-pub type FSize = ScaleSize;
-
-/// A scale size that is scaled by the size of the padded parent container.
-pub type PSize = ScaleSize;
 
 /// A value in two dimensions.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Serialize)]
-pub struct Value2D<T> {
+pub struct Value2<T> {
     /// The horizontal component.
     pub x: T,
     /// The vertical component.
     pub y: T,
 }
 
-impl<T: Clone> Value2D<T> {
+impl<T: Clone> Value2<T> {
     /// Create a new 2D-value from two values.
-    pub fn new(x: T, y: T) -> Value2D<T> { Value2D { x, y } }
+    pub fn new(x: T, y: T) -> Value2<T> { Value2 { x, y } }
 
     /// Create a new 2D-value with `x` set to a value and `y` to default.
-    pub fn with_x(x: T) -> Value2D<T> where T: Default {
-        Value2D { x, y: T::default() }
+    pub fn with_x(x: T) -> Value2<T> where T: Default {
+        Value2 { x, y: T::default() }
     }
 
     /// Create a new 2D-value with `y` set to a value and `x` to default.
-    pub fn with_y(y: T) -> Value2D<T> where T: Default {
-        Value2D { x: T::default(), y }
+    pub fn with_y(y: T) -> Value2<T> where T: Default {
+        Value2 { x: T::default(), y }
     }
 
     /// Create a new 2D-value with the primary axis set to a value and the other
     /// one to default.
-    pub fn with_primary(v: T, axes: LayoutAxes) -> Value2D<T> where T: Default {
-        Value2D::with_x(v).generalized(axes)
+    pub fn with_primary(v: T, axes: LayoutAxes) -> Value2<T> where T: Default {
+        Value2::with_x(v).generalized(axes)
     }
 
     /// Create a new 2D-value with the secondary axis set to a value and the
     /// other one to default.
-    pub fn with_secondary(v: T, axes: LayoutAxes) -> Value2D<T> where T: Default {
-        Value2D::with_y(v).generalized(axes)
+    pub fn with_secondary(v: T, axes: LayoutAxes) -> Value2<T> where T: Default {
+        Value2::with_y(v).generalized(axes)
     }
 
     /// Create a 2D-value with `x` and `y` set to the same value `s`.
-    pub fn with_all(s: T) -> Value2D<T> { Value2D { x: s.clone(), y: s } }
+    pub fn with_all(s: T) -> Value2<T> { Value2 { x: s.clone(), y: s } }
 
     /// Get the specificed component.
     pub fn get(self, axis: SpecificAxis) -> T {
@@ -216,16 +209,16 @@ impl<T: Clone> Value2D<T> {
     /// axes, that is:
     /// - `x` describes the primary axis instead of the horizontal one.
     /// - `y` describes the secondary axis instead of the vertical one.
-    pub fn generalized(self, axes: LayoutAxes) -> Value2D<T> {
+    pub fn generalized(self, axes: LayoutAxes) -> Value2<T> {
         match axes.primary.axis() {
             Horizontal => self,
-            Vertical => Value2D { x: self.y, y: self.x },
+            Vertical => Value2 { x: self.y, y: self.x },
         }
     }
 
     /// Returns the specialized version of this generalized Size2D (inverse to
     /// `generalized`).
-    pub fn specialized(self, axes: LayoutAxes) -> Value2D<T> {
+    pub fn specialized(self, axes: LayoutAxes) -> Value2<T> {
         // In fact, generalized is its own inverse. For reasons of clarity
         // at the call site, we still have this second function.
         self.generalized(axes)
@@ -237,7 +230,7 @@ impl<T: Clone> Value2D<T> {
     }
 }
 
-impl<T> Debug for Value2D<T> where T: Debug {
+impl<T> Debug for Value2<T> where T: Debug {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_list()
             .entry(&self.x)
@@ -247,83 +240,61 @@ impl<T> Debug for Value2D<T> where T: Debug {
 }
 
 /// A position or extent in 2-dimensional space.
-pub type Size2D = Value2D<Size>;
+pub type Size = Value2<Length>;
 
-impl Size2D {
-    /// The zeroed 2D-size.
-    pub const ZERO: Size2D = Size2D { x: Size::ZERO, y: Size::ZERO };
+impl Size {
+    /// The zeroed 2D-length.
+    pub const ZERO: Size = Size { x: Length::ZERO, y: Length::ZERO };
 
-    /// Whether the given 2D-size fits into this one, that is, both coordinate
+    /// Whether the given 2D-length fits into this one, that is, both coordinate
     /// values are smaller or equal.
-    pub fn fits(self, other: Size2D) -> bool {
+    pub fn fits(self, other: Size) -> bool {
         self.x >= other.x && self.y >= other.y
     }
 
-    /// Return a 2D-size padded by the paddings of the given box.
-    pub fn padded(self, padding: SizeBox) -> Size2D {
-        Size2D {
+    /// Return a 2D-length padded by the paddings of the given box.
+    pub fn padded(self, padding: Margins) -> Size {
+        Size {
             x: self.x + padding.left + padding.right,
             y: self.y + padding.top + padding.bottom,
         }
     }
 
-    /// Return a 2D-size reduced by the paddings of the given box.
-    pub fn unpadded(self, padding: SizeBox) -> Size2D {
-        Size2D {
+    /// Return a 2D-length reduced by the paddings of the given box.
+    pub fn unpadded(self, padding: Margins) -> Size {
+        Size {
             x: self.x - padding.left - padding.right,
             y: self.y - padding.top - padding.bottom,
         }
     }
 
     /// The anchor position along the given axis for an item with the given
-    /// alignment in a container with this size.
+    /// alignment in a container with this length.
     ///
-    /// This assumes the size to be generalized such that `x` corresponds to the
+    /// This assumes the length to be generalized such that `x` corresponds to the
     /// primary axis.
-    pub fn anchor(self, alignment: LayoutAlignment, axes: LayoutAxes) -> Size2D {
-        Size2D {
+    pub fn anchor(self, alignment: LayoutAlignment, axes: LayoutAxes) -> Size {
+        Size {
             x: self.x.anchor(alignment.primary, axes.primary),
             y: self.y.anchor(alignment.secondary, axes.secondary),
         }
     }
 }
 
-impl Neg for Size2D {
-    type Output = Size2D;
+impl Neg for Size {
+    type Output = Size;
 
-    fn neg(self) -> Size2D {
-        Size2D {
+    fn neg(self) -> Size {
+        Size {
             x: -self.x,
             y: -self.y,
         }
     }
 }
 
-/// A value that is stretchable in an interval from a minimal through an optimal
-/// to a maximal value.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Serialize)]
-pub struct StretchValue<T> {
-    /// The minimum this value can be stretched to.
-    pub min: T,
-    /// The optimum for this value.
-    pub opt: T,
-    /// The maximum this value can be stretched to.
-    pub max: T,
-}
-
-impl<T> StretchValue<T> {
-    /// Create a new stretch size from minimum, optimal and maximum values.
-    pub fn new(min: T, opt: T, max: T) -> StretchValue<T> {
-        StretchValue { min, opt, max }
-    }
-}
-
-/// A size that is stretchable.
-pub type StretchSize = StretchValue<Size>;
-
 /// A value in four dimensions.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Serialize)]
-pub struct ValueBox<T> {
+pub struct Value4<T> {
     /// The left extent.
     pub left: T,
     /// The top extent.
@@ -334,15 +305,15 @@ pub struct ValueBox<T> {
     pub bottom: T,
 }
 
-impl<T: Clone> ValueBox<T> {
+impl<T: Clone> Value4<T> {
     /// Create a new box from four sizes.
-    pub fn new(left: T, top: T, right: T, bottom: T) -> ValueBox<T> {
-        ValueBox { left, top, right, bottom }
+    pub fn new(left: T, top: T, right: T, bottom: T) -> Value4<T> {
+        Value4 { left, top, right, bottom }
     }
 
     /// Create a box with all four fields set to the same value `s`.
-    pub fn with_all(value: T) -> ValueBox<T> {
-        ValueBox {
+    pub fn with_all(value: T) -> Value4<T> {
+        Value4 {
             left: value.clone(),
             top: value.clone(),
             right: value.clone(),
@@ -369,7 +340,7 @@ impl<T: Clone> ValueBox<T> {
 
     /// Set all values to the given value.
     pub fn set_all(&mut self, value: T) {
-        *self = ValueBox::with_all(value);
+        *self = Value4::with_all(value);
     }
 
     /// Set the `left` and `right` values.
@@ -385,47 +356,47 @@ impl<T: Clone> ValueBox<T> {
     }
 }
 
-/// A size in four dimensions.
-pub type SizeBox = ValueBox<Size>;
+/// A length in four dimensions.
+pub type Margins = Value4<Length>;
 
-impl SizeBox {
-    /// The zeroed size box.
-    pub const ZERO: SizeBox = SizeBox {
-        left: Size::ZERO,
-        top: Size::ZERO,
-        right: Size::ZERO,
-        bottom: Size::ZERO,
+impl Margins {
+    /// The zeroed length box.
+    pub const ZERO: Margins = Margins {
+        left: Length::ZERO,
+        top: Length::ZERO,
+        right: Length::ZERO,
+        bottom: Length::ZERO,
     };
 }
 
-impl FromStr for Size {
-    type Err = ParseSizeError;
+impl FromStr for Length {
+    type Err = ParseLengthError;
 
-    fn from_str(src: &str) -> Result<Size, ParseSizeError> {
+    fn from_str(src: &str) -> Result<Length, ParseLengthError> {
         let func = match () {
-            _ if src.ends_with("pt") => Size::pt,
-            _ if src.ends_with("mm") => Size::mm,
-            _ if src.ends_with("cm") => Size::cm,
-            _ if src.ends_with("in") => Size::inches,
-            _ => return Err(ParseSizeError(())),
+            _ if src.ends_with("pt") => Length::pt,
+            _ if src.ends_with("mm") => Length::mm,
+            _ if src.ends_with("cm") => Length::cm,
+            _ if src.ends_with("in") => Length::inches,
+            _ => return Err(ParseLengthError),
         };
 
         Ok(func(src[..src.len() - 2]
-            .parse::<f32>()
-            .map_err(|_| ParseSizeError(()))?))
+            .parse::<f64>()
+            .map_err(|_| ParseLengthError)?))
 
     }
 }
 
-/// An error which can be returned when parsing a size.
+/// An error which can be returned when parsing a length.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct ParseSizeError(());
+pub struct ParseLengthError;
 
-impl std::error::Error for ParseSizeError {}
+impl std::error::Error for ParseLengthError {}
 
-impl Display for ParseSizeError {
+impl Display for ParseLengthError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("invalid string for size")
+        f.write_str("invalid string for length")
     }
 }
 
@@ -448,7 +419,7 @@ macro_rules! implement_traits {
         })*
 
         $(implement_traits!(@$w i32, $ty $t $o $($rest)*);)*
-        $(implement_traits!(@$w f32, $ty $t $o $($rest)*);)*
+        $(implement_traits!(@$w f64, $ty $t $o $($rest)*);)*
     };
 
     (@front $num:ty, $ty:ident $t:ident $o:ident
@@ -458,7 +429,7 @@ macro_rules! implement_traits {
         impl $tr<$ty> for $num {
             type Output = $ty;
             fn $tf($t, $o: $ty) -> $ty {
-                $ty { $($f: $tr::$tf($t as f32, $o.$f),)* }
+                $ty { $($f: $tr::$tf($t as f64, $o.$f),)* }
             }
         }
     };
@@ -470,12 +441,12 @@ macro_rules! implement_traits {
         impl $tr<$num> for $ty {
             type Output = $ty;
             fn $tf($t, $o: $num) -> $ty {
-                $ty { $($f: $tr::$tf($t.$f, $o as f32),)* }
+                $ty { $($f: $tr::$tf($t.$f, $o as f64),)* }
             }
         }
 
         impl $at<$num> for $ty {
-            fn $af(&mut $t, $o: $num) { $($at::$af(&mut $t.$f, $o as f32);)* }
+            fn $af(&mut $t, $o: $num) { $($at::$af(&mut $t.$f, $o as f64);)* }
         }
     };
 }
@@ -499,5 +470,5 @@ macro_rules! implement_size {
     };
 }
 
-implement_size! { Size(self, other) [points] }
-implement_size! { Size2D(self, other) [x, y] }
+implement_size! { Length(self, other) [points] }
+implement_size! { Size(self, other) [x, y] }

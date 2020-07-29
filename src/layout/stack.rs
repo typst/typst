@@ -22,9 +22,8 @@
 //! sentence in the second box.
 
 use smallvec::smallvec;
-use crate::size::ValueBox;
+use crate::length::Value4;
 use super::*;
-
 
 /// Performs the stack layouting.
 #[derive(Debug)]
@@ -66,14 +65,14 @@ struct Space {
     /// The so-far accumulated layouts.
     layouts: Vec<(LayoutAxes, Layout)>,
     /// The specialized size of this space.
-    size: Size2D,
+    size: Size,
     /// The specialized remaining space.
-    usable: Size2D,
+    usable: Size,
     /// The specialized extra-needed dimensions to affect the size at all.
-    extra: Size2D,
+    extra: Size,
     /// The rulers of a space dictate which alignments for new boxes are still
     /// allowed and which require a new space to be started.
-    rulers: ValueBox<Alignment>,
+    rulers: Value4<Alignment>,
     /// The last added spacing if the last added thing was spacing.
     last_spacing: LastSpacing,
 }
@@ -129,13 +128,13 @@ impl StackLayouter {
     }
 
     /// Add secondary spacing to the stack.
-    pub fn add_spacing(&mut self, mut spacing: Size, kind: SpacingKind) {
+    pub fn add_spacing(&mut self, mut spacing: Length, kind: SpacingKind) {
         match kind {
             // A hard space is simply an empty box.
             SpacingKind::Hard => {
                 // Reduce the spacing such that it definitely fits.
                 spacing.min_eq(self.space.usable.secondary(self.ctx.axes));
-                let dimensions = Size2D::with_y(spacing);
+                let dimensions = Size::with_y(spacing);
 
                 self.update_metrics(dimensions);
                 self.space.layouts.push((self.ctx.axes, Layout {
@@ -165,17 +164,17 @@ impl StackLayouter {
 
     /// Update the size metrics to reflect that a layout or spacing with the
     /// given generalized dimensions has been added.
-    fn update_metrics(&mut self, dimensions: Size2D) {
+    fn update_metrics(&mut self, dimensions: Size) {
         let axes = self.ctx.axes;
 
         let mut size = self.space.size.generalized(axes);
         let mut extra = self.space.extra.generalized(axes);
 
-        size.x += (dimensions.x - extra.x).max(Size::ZERO);
-        size.y += (dimensions.y - extra.y).max(Size::ZERO);
+        size.x += (dimensions.x - extra.x).max(Length::ZERO);
+        size.y += (dimensions.y - extra.y).max(Length::ZERO);
 
         extra.x.max_eq(dimensions.x);
-        extra.y = (extra.y - dimensions.y).max(Size::ZERO);
+        extra.y = (extra.y - dimensions.y).max(Length::ZERO);
 
         self.space.size = size.specialized(axes);
         self.space.extra = extra.specialized(axes);
@@ -233,7 +232,7 @@ impl StackLayouter {
 
     /// Move to the first space that can fit the given dimensions or do nothing
     /// if no space is capable of that.
-    pub fn skip_to_fitting_space(&mut self, dimensions: Size2D) {
+    pub fn skip_to_fitting_space(&mut self, dimensions: Size) {
         let start = self.next_space();
         for (index, space) in self.ctx.spaces[start..].iter().enumerate() {
             if space.usable().fits(dimensions) {
@@ -251,7 +250,7 @@ impl StackLayouter {
 
         let mut spaces = smallvec![LayoutSpace {
             dimensions,
-            padding: SizeBox::ZERO,
+            padding: Margins::ZERO,
             expansion: LayoutExpansion::new(false, false),
         }];
 
@@ -263,15 +262,15 @@ impl StackLayouter {
     }
 
     /// The remaining usable size.
-    pub fn usable(&self) -> Size2D {
+    pub fn usable(&self) -> Size {
         self.space.usable
-            - Size2D::with_y(self.space.last_spacing.soft_or_zero())
+            - Size::with_y(self.space.last_spacing.soft_or_zero())
                 .specialized(self.ctx.axes)
     }
 
     /// Whether the current layout space (not subspace) is empty.
     pub fn space_is_empty(&self) -> bool {
-        self.space.size == Size2D::ZERO && self.space.layouts.is_empty()
+        self.space.size == Size::ZERO && self.space.layouts.is_empty()
     }
 
     /// Whether the current layout space is the last is the followup list.
@@ -310,7 +309,7 @@ impl StackLayouter {
         let start = space.start();
 
         let mut bounds = vec![];
-        let mut bound = SizeBox {
+        let mut bound = Margins {
             left: start.x,
             top: start.y,
             right: start.x + self.space.size.x,
@@ -337,7 +336,7 @@ impl StackLayouter {
 
         // The `x` field stores the maximal primary extent in one axis-aligned
         // run, while the `y` fields stores the accumulated secondary extent.
-        let mut extent = Size2D::ZERO;
+        let mut extent = Size::ZERO;
         let mut rotation = Vertical;
 
         for (bound, entry) in bounds.iter_mut().zip(&self.space.layouts).rev() {
@@ -349,7 +348,7 @@ impl StackLayouter {
             // is reset for this new axis-aligned run.
             if rotation != axes.secondary.axis() {
                 extent.y = extent.x;
-                extent.x = Size::ZERO;
+                extent.x = Length::ZERO;
                 rotation = axes.secondary.axis();
             }
 
@@ -383,11 +382,11 @@ impl StackLayouter {
             // The space in which this layout is aligned is given by the
             // distances between the borders of it's bounding box.
             let usable =
-                Size2D::new(bound.right - bound.left, bound.bottom - bound.top)
+                Size::new(bound.right - bound.left, bound.bottom - bound.top)
                     .generalized(axes);
 
             let local = usable.anchor(alignment, axes) - size.anchor(alignment, axes);
-            let pos = Size2D::new(bound.left, bound.top) + local.specialized(axes);
+            let pos = Size::new(bound.left, bound.top) + local.specialized(axes);
 
             actions.add_layout(pos, layout);
         }
@@ -417,15 +416,15 @@ impl StackLayouter {
 }
 
 impl Space {
-    fn new(index: usize, hard: bool, usable: Size2D) -> Space {
+    fn new(index: usize, hard: bool, usable: Size) -> Space {
         Space {
             index,
             hard,
             layouts: vec![],
-            size: Size2D::ZERO,
+            size: Size::ZERO,
             usable,
-            extra: Size2D::ZERO,
-            rulers: ValueBox::with_all(Origin),
+            extra: Size::ZERO,
+            rulers: Value4::with_all(Origin),
             last_spacing: LastSpacing::Hard,
         }
     }

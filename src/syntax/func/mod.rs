@@ -1,7 +1,7 @@
 //! Primitives for argument parsing in library functions.
 
 use std::iter::FromIterator;
-use crate::problem::{Problem, Problems};
+use crate::diagnostic::{Diagnostic, Diagnostics};
 use super::expr::{Expr, Ident, Tuple, Object, Pair};
 use super::span::{Span, Spanned};
 
@@ -85,13 +85,13 @@ pub enum FuncArg {
 pub trait OptionExt: Sized {
     /// Add an error about a missing argument `arg` with the given span if the
     /// option is `None`.
-    fn or_missing(self, problems: &mut Problems, span: Span, arg: &str) -> Self;
+    fn or_missing(self, diagnostics: &mut Diagnostics, span: Span, arg: &str) -> Self;
 }
 
 impl<T> OptionExt for Option<T> {
-    fn or_missing(self, problems: &mut Problems, span: Span, arg: &str) -> Self {
+    fn or_missing(self, diagnostics: &mut Diagnostics, span: Span, arg: &str) -> Self {
         if self.is_none() {
-            problems.push(error!(span, "missing argument: {}", arg));
+            diagnostics.push(error!(span, "missing argument: {}", arg));
         }
         self
     }

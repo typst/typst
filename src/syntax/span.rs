@@ -4,16 +4,22 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Sub};
 use serde::Serialize;
 
+/// Span offsetting.
+pub trait Offset {
+    /// Offset all spans contained in `Self` by the given position.
+    fn offset(self, by: Pos) -> Self;
+}
+
 /// A vector of spanned values of type `T`.
 pub type SpanVec<T> = Vec<Spanned<T>>;
 
-/// [Offset](Span::offset) all spans in a vector of spanned things by a start
-/// position.
-pub fn offset_spans<T>(
-    vec: SpanVec<T>,
-    start: Position,
-) -> impl Iterator<Item=Spanned<T>> {
-    vec.into_iter().map(move |s| s.map_span(|span| span.offset(start)))
+impl<T> Offset for SpanVec<T> {
+    fn offset(mut self, by: Pos) -> Self {
+        for spanned in &mut self {
+            spanned.span = spanned.span.offset(by);
+        }
+        self
+    }
 }
 
 /// A value with the span it corresponds to in the source code.
@@ -53,6 +59,12 @@ impl<T> Spanned<T> {
     }
 }
 
+impl<T> Offset for Spanned<T> {
+    fn offset(self, by: Pos) -> Self {
+        self.map_span(|span| span.offset(by))
+    }
+}
+
 impl<T: Debug> Debug for Spanned<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.v.fmt(f)?;
@@ -68,18 +80,23 @@ impl<T: Debug> Debug for Spanned<T> {
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize)]
 pub struct Span {
     /// The inclusive start position.
-    pub start: Position,
+    pub start: Pos,
     /// The inclusive end position.
-    pub end: Position,
+    pub end: Pos,
 }
 
 impl Span {
     /// The zero span.
-    pub const ZERO: Span = Span { start: Position::ZERO, end: Position::ZERO };
+    pub const ZERO: Span = Span { start: Pos::ZERO, end: Pos::ZERO };
 
     /// Create a new span from start and end positions.
-    pub fn new(start: Position, end: Position) -> Span {
+    pub fn new(start: Pos, end: Pos) -> Span {
         Span { start, end }
+    }
+
+    /// Create a span including just a single position.
+    pub fn at(pos: Pos) -> Span {
+        Span { start: pos, end: pos }
     }
 
     /// Create a new span with the earlier start and later end position.
@@ -90,24 +107,17 @@ impl Span {
         }
     }
 
-    /// Create a span including just a single position.
-    pub fn at(pos: Position) -> Span {
-        Span { start: pos, end: pos }
-    }
-
     /// Expand a span by merging it with another span.
     pub fn expand(&mut self, other: Span) {
         *self = Span::merge(*self, other)
     }
+}
 
-    /// Offset a span by a start position.
-    ///
-    /// This is, for example, used to translate error spans from function local
-    /// to global.
-    pub fn offset(self, start: Position) -> Span {
+impl Offset for Span {
+    fn offset(self, by: Pos) -> Self {
         Span {
-            start: start + self.start,
-            end: start + self.end,
+            start: self.start.offset(by),
+            end: self.end.offset(by),
         }
     }
 }
@@ -120,34 +130,40 @@ impl Debug for Span {
 
 /// Zero-indexed line-column position in source code.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
-pub struct Position {
+pub struct Pos {
     /// The zero-indexed line.
     pub line: usize,
     /// The zero-indexed column.
     pub column: usize,
 }
 
-impl Position {
+impl Pos {
     /// The line 0, column 0 position.
-    pub const ZERO: Position = Position { line: 0, column: 0 };
+    pub const ZERO: Pos = Pos { line: 0, column: 0 };
 
     /// Create a new position from line and column.
-    pub fn new(line: usize, column: usize) -> Position {
-        Position { line, column }
+    pub fn new(line: usize, column: usize) -> Pos {
+        Pos { line, column }
     }
 }
 
-impl Add for Position {
-    type Output = Position;
+impl Offset for Pos {
+    fn offset(self, by: Pos) -> Self {
+        by + self
+    }
+}
 
-    fn add(self, rhs: Position) -> Position {
+impl Add for Pos {
+    type Output = Pos;
+
+    fn add(self, rhs: Pos) -> Pos {
         if rhs.line == 0 {
-            Position {
+            Pos {
                 line: self.line,
                 column: self.column + rhs.column
             }
         } else {
-            Position {
+            Pos {
                 line: self.line + rhs.line,
                 column: rhs.column,
             }
@@ -155,17 +171,17 @@ impl Add for Position {
     }
 }
 
-impl Sub for Position {
-    type Output = Position;
+impl Sub for Pos {
+    type Output = Pos;
 
-    fn sub(self, rhs: Position) -> Position {
+    fn sub(self, rhs: Pos) -> Pos {
         if self.line == rhs.line {
-            Position {
+            Pos {
                 line: 0,
                 column: self.column - rhs.column
             }
         } else {
-            Position {
+            Pos {
                 line: self.line - rhs.line,
                 column: self.column,
             }
@@ -173,7 +189,7 @@ impl Sub for Position {
     }
 }
 
-impl Debug for Position {
+impl Debug for Pos {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}:{}", self.line, self.column)
     }

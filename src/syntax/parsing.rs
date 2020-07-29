@@ -4,8 +4,11 @@ use std::str::FromStr;
 
 use super::expr::*;
 use super::func::{FuncCall, FuncHeader, FuncArgs, FuncArg};
-use super::span::{Position, Span, Spanned};
+use super::span::{Pos, Span, Spanned};
 use super::*;
+
+/// A function which parses a function call into a model.
+pub type CallParser = dyn Fn(FuncCall, &ParseState) -> Pass<Box<dyn Model>>;
 
 /// The state which can influence how a string of source code is parsed.
 ///
@@ -22,7 +25,7 @@ pub struct ParseState {
 /// `offset` position. This is used to make spans of a function body relative to
 /// the start of the function as a whole as opposed to the start of the
 /// function's body.
-pub fn parse(src: &str, offset: Position, state: &ParseState) -> Pass<SyntaxModel> {
+pub fn parse(src: &str, offset: Pos, state: &ParseState) -> Pass<SyntaxModel> {
     let mut model = SyntaxModel::new();
     let mut feedback = Feedback::new();
 
@@ -102,7 +105,7 @@ impl<'s> FuncParser<'s> {
             state,
             // Start at column 1 because the opening bracket is also part of
             // the function, but not part of the `header` string.
-            tokens: Tokens::new(header, Position::new(0, 1), TokenMode::Header),
+            tokens: Tokens::new(header, Pos::new(0, 1), TokenMode::Header),
             peeked: None,
             body,
             feedback: Feedback::new(),
@@ -127,7 +130,7 @@ impl<'s> FuncParser<'s> {
                 }
             };
 
-            self.feedback.decos.push(Spanned::new(deco, header.name.span));
+            self.feedback.decorations.push(Spanned::new(deco, header.name.span));
             (parser, header)
         } else {
             // Parse the body with the fallback parser even when the header is
@@ -186,7 +189,7 @@ impl<'s> FuncParser<'s> {
                     self.skip_white();
 
                     let key = ident;
-                    self.feedback.decos.push(
+                    self.feedback.decorations.push(
                         Spanned::new(Decoration::ArgumentKey, key.span)
                     );
 
@@ -325,7 +328,7 @@ impl FuncParser<'_> {
             }
 
             Token::ExprNumber(n) => self.eat_span(Expr::Number(n)),
-            Token::ExprSize(s) => self.eat_span(Expr::Size(s)),
+            Token::ExprLength(s) => self.eat_span(Expr::Length(s)),
             Token::ExprBool(b) => self.eat_span(Expr::Bool(b)),
             Token::ExprHex(s) => {
                 if let Ok(color) = RgbaColor::from_str(s) {
@@ -423,7 +426,7 @@ impl FuncParser<'_> {
                 continue;
             }
 
-            self.feedback.decos.push(
+            self.feedback.decorations.push(
                 Spanned::new(Decoration::ObjectKey, key.span)
             );
 
@@ -464,7 +467,7 @@ impl FuncParser<'_> {
         }
     }
 
-    fn expect_at(&mut self, token: Token<'_>, pos: Position) -> bool {
+    fn expect_at(&mut self, token: Token<'_>, pos: Pos) -> bool {
         if self.check(token) {
             self.eat();
             true
@@ -485,11 +488,11 @@ impl FuncParser<'_> {
         }
     }
 
-    fn expected_at(&mut self, thing: &str, pos: Position) {
+    fn expected_at(&mut self, thing: &str, pos: Pos) {
         error!(@self.feedback, Span::at(pos), "expected {}", thing);
     }
 
-    fn expected_found_or_at(&mut self, thing: &str, pos: Position) {
+    fn expected_found_or_at(&mut self, thing: &str, pos: Pos) {
         if self.eof() {
             self.expected_at(thing, pos)
         } else {
@@ -544,7 +547,7 @@ impl<'s> FuncParser<'s> {
         self.peek().is_none()
     }
 
-    fn pos(&self) -> Position {
+    fn pos(&self) -> Pos {
         self.peeked.flatten()
             .map(|s| s.span.start)
             .unwrap_or_else(|| self.tokens.pos())
@@ -604,13 +607,13 @@ fn unescape_raw(raw: &str) -> Vec<String> {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
-    use crate::size::Size;
+    use crate::length::Length;
     use super::super::test::{check, DebugFn};
     use super::super::func::Value;
     use super::*;
 
     use Decoration::*;
-    use Expr::{Number as Num, Size as Sz, Bool};
+    use Expr::{Number as Num, Length as Len, Bool};
     use Node::{
         Space as S, ToggleItalic as Italic, ToggleBolder as Bold,
         Parbreak, Linebreak,
@@ -625,7 +628,7 @@ mod tests {
             p!($source => [$($model)*], []);
         };
 
-        ($source:expr => [$($model:tt)*], [$($problems:tt)*] $(, [$($decos:tt)*])? $(,)?) => {
+        ($source:expr => [$($model:tt)*], [$($diagnostics:tt)*] $(, [$($decos:tt)*])? $(,)?) => {
             let mut scope = Scope::new::<DebugFn>();
             scope.add::<DebugFn>("f");
             scope.add::<DebugFn>("n");
@@ -633,25 +636,25 @@ mod tests {
             scope.add::<DebugFn>("val");
 
             let state = ParseState { scope };
-            let pass = parse($source, Position::ZERO, &state);
+            let pass = parse($source, Pos::ZERO, &state);
 
             // Test model.
             let (exp, cmp) = span_vec![$($model)*];
             check($source, exp, pass.output.nodes, cmp);
 
-            // Test problems.
-            let (exp, cmp) = span_vec![$($problems)*];
+            // Test diagnostics.
+            let (exp, cmp) = span_vec![$($diagnostics)*];
             let exp = exp.into_iter()
                 .map(|s: Spanned<&str>| s.map(|e| e.to_string()))
                 .collect::<Vec<_>>();
-            let found = pass.feedback.problems.into_iter()
+            let found = pass.feedback.diagnostics.into_iter()
                 .map(|s| s.map(|e| e.message))
                 .collect::<Vec<_>>();
             check($source, exp, found, cmp);
 
             // Test decos.
             $(let (exp, cmp) = span_vec![$($decos)*];
-            check($source, exp, pass.feedback.decos, cmp);)?
+            check($source, exp, pass.feedback.decorations, cmp);)?
         };
     }
 
@@ -664,7 +667,6 @@ mod tests {
 
     fn Id(text: &str) -> Expr { Expr::Ident(Ident(text.to_string())) }
     fn Str(text: &str) -> Expr { Expr::Str(text.to_string()) }
-    fn Pt(points: f32) -> Expr { Expr::Size(Size::pt(points)) }
     fn Color(r: u8, g: u8, b: u8, a: u8) -> Expr { Expr::Color(RgbaColor::new(r, g, b, a)) }
     fn ColorStr(color: &str) -> Expr { Expr::Color(RgbaColor::from_str(color).expect("invalid test color")) }
     fn ColorHealed() -> Expr { Expr::Color(RgbaColor::new_healed(0, 0, 0, 255)) }
@@ -878,8 +880,8 @@ mod tests {
         pval!("name"   => (Id("name")));
         pval!("\"hi\"" => (Str("hi")));
         pval!("3.14"   => (Num(3.14)));
-        pval!("4.5cm"  => (Sz(Size::cm(4.5))));
-        pval!("12e1pt" => (Pt(12e1)));
+        pval!("4.5cm"  => (Len(Length::cm(4.5))));
+        pval!("12e1pt" => (Len(Length::pt(12e1))));
         pval!("#f7a20500" => (ColorStr("f7a20500")));
         pval!("\"a\n[]\\\"string\"" => (Str("a\n[]\"string")));
 
@@ -890,10 +892,10 @@ mod tests {
         pval!("(hi)" => (Id("hi")));
 
         // Math.
-        pval!("3.2in + 6pt" => (Add(Sz(Size::inches(3.2)), Sz(Size::pt(6.0)))));
+        pval!("3.2in + 6pt" => (Add(Len(Length::inches(3.2)), Len(Length::pt(6.0)))));
         pval!("5 - 0.01"    => (Sub(Num(5.0), Num(0.01))));
-        pval!("(3mm * 2)"   => (Mul(Sz(Size::mm(3.0)), Num(2.0))));
-        pval!("12e-3cm/1pt" => (Div(Sz(Size::cm(12e-3)), Sz(Size::pt(1.0)))));
+        pval!("(3mm * 2)"   => (Mul(Len(Length::mm(3.0)), Num(2.0))));
+        pval!("12e-3cm/1pt" => (Div(Len(Length::cm(12e-3)), Len(Length::pt(1.0)))));
 
         // Unclosed string.
         p!("[val: \"hello]" => [func!("val": (Str("hello]")), {})], [
@@ -912,26 +914,24 @@ mod tests {
     fn parse_complex_mathematical_expressions() {
         // Valid expressions.
         pval!("(3.2in + 6pt)*(5/2-1)" => (Mul(
-            Add(Sz(Size::inches(3.2)), Sz(Size::pt(6.0))),
+            Add(Len(Length::inches(3.2)), Len(Length::pt(6.0))),
             Sub(Div(Num(5.0), Num(2.0)), Num(1.0))
         )));
         pval!("(6.3E+2+4* - 3.2pt)/2" => (Div(
-            Add(Num(6.3e2),Mul(Num(4.0), Neg(Pt(3.2)))),
+            Add(Num(6.3e2), Mul(Num(4.0), Neg(Len(Length::pt(3.2))))),
             Num(2.0)
         )));
 
         // Associativity of multiplication and division.
-        p!("[val: 3/4*5]" =>
-            [func!("val": (Mul(Div(Num(3.0), Num(4.0)), Num(5.0))), {})]
-        );
+        pval!("3/4*5" => (Mul(Div(Num(3.0), Num(4.0)), Num(5.0))));
 
         // Invalid expressions.
-        p!("[val: 4pt--]" => [func!("val": (Pt(4.0)))], [
+        p!("[val: 4pt--]" => [func!("val": (Len(Length::pt(4.0))))], [
             (0:10, 0:11, "dangling minus"),
             (0:6, 0:10, "missing right summand")
         ]);
         p!("[val: 3mm+4pt*]" =>
-            [func!("val": (Add(Sz(Size::mm(3.0)), Pt(4.0))))],
+            [func!("val": (Add(Len(Length::mm(3.0)), Len(Length::pt(4.0)))))],
             [(0:10, 0:14, "missing right factor")],
         );
     }
@@ -976,7 +976,7 @@ mod tests {
         // Nested tuples.
         pval!("css(1pt, rgb(90, 102, 254), \"solid\")" => (named_tuple!(
             "css",
-            Pt(1.0),
+            Len(Length::pt(1.0)),
             named_tuple!("rgb", Num(90.0), Num(102.0), Num(254.0)),
             Str("solid"),
         )));
@@ -1012,7 +1012,7 @@ mod tests {
 
         // Missing key.
         p!("[val: {,}]" => [val()], [(0:7, 0:8, "expected key, found comma")]);
-        p!("[val: { 12pt }]" => [val()], [(0:8, 0:12, "expected key, found size")]);
+        p!("[val: { 12pt }]" => [val()], [(0:8, 0:12, "expected key, found length")]);
         p!("[val: { : }]" => [val()], [(0:8, 0:9, "expected key, found colon")]);
 
         // Missing colon.
@@ -1053,7 +1053,7 @@ mod tests {
                 Num(1.0),
                 object!(
                     "ab" => tuple!(),
-                    "d" => tuple!(Num(3.0), Pt(14.0)),
+                    "d" => tuple!(Num(3.0), Len(Length::pt(14.0))),
                 ),
             ),
             Bool(false),
@@ -1085,7 +1085,7 @@ mod tests {
     #[test]
     fn parse_multiple_mixed_arguments() {
         p!("[val: 12pt, key=value]" =>
-            [func!("val": (Pt(12.0)), { "key" => Id("value") })], [],
+            [func!("val": (Len(Length::pt(12.0))), { "key" => Id("value") })], [],
             [(0:12, 0:15, ArgumentKey), (0:1, 0:4, ValidFuncName)],
         );
         pval!("a , x=\"b\" , c" => (Id("a"), Id("c")), { "x" => Str("b"),  });
@@ -1144,7 +1144,7 @@ mod tests {
     fn parse_invalid_commas() {
         // Missing commas.
         p!("[val: 1pt 1]" =>
-            [func!("val": (Pt(1.0), Num(1.0)), {})],
+            [func!("val": (Len(Length::pt(1.0)), Num(1.0)), {})],
             [(0:9, 0:9, "expected comma")],
         );
         p!(r#"[val: _"s"]"# =>

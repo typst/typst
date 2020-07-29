@@ -1,9 +1,8 @@
-use crate::size::FSize;
+use crate::length::ScaleLength;
 use crate::layout::SpacingKind;
 
 use super::*;
 use self::ContentKind::*;
-
 
 function! {
     /// `line.break`, `n`: Ends the current line.
@@ -41,7 +40,7 @@ function! {
     pub struct ContentSpacingFunc {
         body: Option<SyntaxModel>,
         content: ContentKind,
-        spacing: Option<f32>,
+        spacing: Option<f64>,
     }
 
     type Meta = ContentKind;
@@ -50,9 +49,9 @@ function! {
         ContentSpacingFunc {
             body: body!(opt: body, state, f),
             content: meta,
-            spacing: header.args.pos.get::<f64>(&mut f.problems)
-                .map(|num| num as f32)
-                .or_missing(&mut f.problems, header.name.span, "spacing"),
+            spacing: header.args.pos.get::<f64>(&mut f.diagnostics)
+                .map(|num| num as f64)
+                .or_missing(&mut f.diagnostics, header.name.span, "spacing"),
         }
     }
 
@@ -79,7 +78,7 @@ function! {
     /// `spacing`, `h`, `v`: Adds spacing along an axis.
     #[derive(Debug, Clone, PartialEq)]
     pub struct SpacingFunc {
-        spacing: Option<(AxisKey, FSize)>,
+        spacing: Option<(AxisKey, ScaleLength)>,
     }
 
     type Meta = Option<SpecificAxis>;
@@ -88,11 +87,11 @@ function! {
         body!(nope: body, f);
         SpacingFunc {
             spacing: if let Some(axis) = meta {
-                header.args.pos.get::<FSize>(&mut f.problems)
+                header.args.pos.get::<ScaleLength>(&mut f.diagnostics)
                     .map(|s| (AxisKey::Specific(axis), s))
             } else {
-                header.args.key.get_with_key::<AxisKey, FSize>(&mut f.problems)
-            }.or_missing(&mut f.problems, header.name.span, "spacing"),
+                header.args.key.get_with_key::<AxisKey, ScaleLength>(&mut f.diagnostics)
+            }.or_missing(&mut f.diagnostics, header.name.span, "spacing"),
         }
     }
 

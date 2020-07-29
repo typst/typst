@@ -23,8 +23,7 @@ use toddle::tables::{
 
 use crate::GlobalFontLoader;
 use crate::layout::{MultiLayout, Layout, LayoutAction};
-use crate::size::Size;
-
+use crate::length::Length;
 
 /// Export a layouted list of boxes. The same font loader as used for
 /// layouting needs to be passed in here since the layout only contains
@@ -128,8 +127,8 @@ impl<'a, W: Write> PdfExporter<'a, W> {
             let rect = Rect::new(
                 0.0,
                 0.0,
-                page.dimensions.x.to_pt(),
-                page.dimensions.y.to_pt(),
+                page.dimensions.x.to_pt() as f32,
+                page.dimensions.y.to_pt() as f32,
             );
 
             self.writer.write_obj(
@@ -167,14 +166,14 @@ impl<'a, W: Write> PdfExporter<'a, W> {
 
                 LayoutAction::SetFont(id, size) => {
                     active_font = (self.font_remap[id], size.to_pt());
-                    text.tf(active_font.0 as u32 + 1, size.to_pt());
+                    text.tf(active_font.0 as u32 + 1, size.to_pt() as f32);
                 }
 
                 LayoutAction::WriteText(string) => {
                     if let Some(pos) = next_pos.take() {
                         let x = pos.x.to_pt();
-                        let y = (page.dimensions.y - pos.y - Size::pt(active_font.1)).to_pt();
-                        text.tm(1.0, 0.0, 0.0, 1.0, x, y);
+                        let y = (page.dimensions.y - pos.y - Length::pt(active_font.1)).to_pt();
+                        text.tm(1.0, 0.0, 0.0, 1.0, x as f32, y as f32);
                     }
 
                     text.tj(self.fonts[active_font.0].encode_text(&string)?);
@@ -219,8 +218,8 @@ impl<'a, W: Write> PdfExporter<'a, W> {
             // Extract information from the head and hmtx tables.
             let head = font.read_table::<Header>()?;
 
-            let font_unit_ratio = 1.0 / (head.units_per_em as f32);
-            let font_unit_to_size = |x| Size::pt(font_unit_ratio * x);
+            let font_unit_ratio = 1.0 / (head.units_per_em as f64);
+            let font_unit_to_size = |x| Length::pt(font_unit_ratio * x);
             let font_unit_to_glyph_unit = |fu| {
                 let size = font_unit_to_size(fu);
                 (1000.0 * size.to_pt()).round() as GlyphUnit
@@ -228,10 +227,10 @@ impl<'a, W: Write> PdfExporter<'a, W> {
 
             let italic = head.mac_style.contains(MacStyleFlags::ITALIC);
             let bounding_box = Rect::new(
-                font_unit_to_glyph_unit(head.x_min as f32),
-                font_unit_to_glyph_unit(head.y_min as f32),
-                font_unit_to_glyph_unit(head.x_max as f32),
-                font_unit_to_glyph_unit(head.y_max as f32),
+                font_unit_to_glyph_unit(head.x_min as f64),
+                font_unit_to_glyph_unit(head.y_min as f64),
+                font_unit_to_glyph_unit(head.x_max as f64),
+                font_unit_to_glyph_unit(head.y_max as f64),
             );
 
             // Transform the width into PDF units.
@@ -239,7 +238,7 @@ impl<'a, W: Write> PdfExporter<'a, W> {
                 .read_table::<HorizontalMetrics>()?
                 .metrics
                 .iter()
-                .map(|m| font_unit_to_glyph_unit(m.advance_width as f32))
+                .map(|m| font_unit_to_glyph_unit(m.advance_width as f64))
                 .collect();
 
             // Write the CID font referencing the font descriptor.
@@ -274,12 +273,12 @@ impl<'a, W: Write> PdfExporter<'a, W> {
             // Write the font descriptor (contains the global information about the font).
             self.writer.write_obj(id + 2, FontDescriptor::new(base_font, flags, italic_angle)
                 .font_bbox(bounding_box)
-                .ascent(font_unit_to_glyph_unit(os2.s_typo_ascender as f32))
-                .descent(font_unit_to_glyph_unit(os2.s_typo_descender as f32))
+                .ascent(font_unit_to_glyph_unit(os2.s_typo_ascender as f64))
+                .descent(font_unit_to_glyph_unit(os2.s_typo_descender as f64))
                 .cap_height(font_unit_to_glyph_unit(
-                    os2.s_cap_height.unwrap_or(os2.s_typo_ascender) as f32,
+                    os2.s_cap_height.unwrap_or(os2.s_typo_ascender) as f64,
                 ))
-                .stem_v((10.0 + 0.244 * (os2.us_weight_class as f32 - 50.0)) as GlyphUnit)
+                .stem_v((10.0 + 0.244 * (os2.us_weight_class as f64 - 50.0)) as GlyphUnit)
                 .font_file_2(id + 4)
             )?;
 

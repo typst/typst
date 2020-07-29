@@ -8,7 +8,6 @@ pub_use_mod!(layout);
 pub_use_mod!(page);
 pub_use_mod!(spacing);
 
-
 /// Create a scope with all standard functions.
 pub fn std() -> Scope {
     let mut std = Scope::new::<ValFunc>();

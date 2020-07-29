@@ -4,23 +4,22 @@ use std::fmt::{self, Debug, Formatter};
 use serde::ser::{Serialize, Serializer, SerializeTuple};
 use toddle::query::FontIndex;
 
-use crate::size::{Size, Size2D};
+use crate::length::{Length, Size};
 use super::Layout;
 use self::LayoutAction::*;
-
 
 /// A layouting action, which is the basic building block layouts are composed
 /// of.
 #[derive(Clone, PartialEq)]
 pub enum LayoutAction {
     /// Move to an absolute position.
-    MoveAbsolute(Size2D),
+    MoveAbsolute(Size),
     /// Set the font given the index from the font loader and font size.
-    SetFont(FontIndex, Size),
+    SetFont(FontIndex, Length),
     /// Write text at the current position.
     WriteText(String),
     /// Visualize a box for debugging purposes.
-    DebugBox(Size2D),
+    DebugBox(Size),
 }
 
 impl Serialize for LayoutAction {
@@ -81,11 +80,11 @@ impl Debug for LayoutAction {
 /// position.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LayoutActions {
-    origin: Size2D,
+    origin: Size,
     actions: Vec<LayoutAction>,
-    active_font: (FontIndex, Size),
-    next_pos: Option<Size2D>,
-    next_font: Option<(FontIndex, Size)>,
+    active_font: (FontIndex, Length),
+    next_pos: Option<Size>,
+    next_font: Option<(FontIndex, Length)>,
 }
 
 impl LayoutActions {
@@ -93,8 +92,8 @@ impl LayoutActions {
     pub fn new() -> LayoutActions {
         LayoutActions {
             actions: vec![],
-            origin: Size2D::ZERO,
-            active_font: (FontIndex::MAX, Size::ZERO),
+            origin: Size::ZERO,
+            active_font: (FontIndex::MAX, Length::ZERO),
             next_pos: None,
             next_font: None,
         }
@@ -126,7 +125,7 @@ impl LayoutActions {
 
     /// Add a layout at a position. All move actions inside the layout are
     /// translated by the position.
-    pub fn add_layout(&mut self, position: Size2D, layout: Layout) {
+    pub fn add_layout(&mut self, position: Size, layout: Layout) {
         self.flush_position();
 
         self.origin = position;

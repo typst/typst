@@ -12,12 +12,12 @@ use futures_executor::block_on;
 
 use typstc::{Typesetter, DebugErrorProvider};
 use typstc::layout::MultiLayout;
-use typstc::size::{Size, Size2D, ValueBox};
-use typstc::style::{PageStyle, PaperClass};
+use typstc::length::{Length, Size, Value4};
+use typstc::style::PageStyle;
+use typstc::paper::PaperClass;
 use typstc::export::pdf;
 use toddle::query::FontIndex;
 use toddle::query::fs::EagerFsProvider;
-
 
 type DynResult<T> = Result<T, Box<dyn Error>>;
 
@@ -72,8 +72,8 @@ fn test(name: &str, src: &str) -> DynResult<()> {
 
     typesetter.set_page_style(PageStyle {
         class: PaperClass::Custom,
-        dimensions: Size2D::with_all(Size::pt(250.0)),
-        margins: ValueBox::with_all(None),
+        dimensions: Size::with_all(Length::pt(250.0)),
+        margins: Value4::with_all(None),
     });
 
     let layouts = compile(&typesetter, src);
@@ -123,14 +123,14 @@ fn test(name: &str, src: &str) -> DynResult<()> {
 fn compile(typesetter: &Typesetter, src: &str) -> MultiLayout {
     if cfg!(debug_assertions) {
         let typeset = block_on(typesetter.typeset(src));
-        let problems = typeset.feedback.problems;
+        let diagnostics = typeset.feedback.diagnostics;
 
-        if !problems.is_empty() {
-            for problem in problems {
+        if !diagnostics.is_empty() {
+            for diagnostic in diagnostics {
                 println!("  {:?} {:?}: {}",
-                    problem.v.severity,
-                    problem.span,
-                    problem.v.message
+                    diagnostic.v.level,
+                    diagnostic.span,
+                    diagnostic.v.message
                 );
             }
         }

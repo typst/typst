@@ -10,13 +10,12 @@ use toddle::query::FontStyle;
 use crate::{Pass, Feedback};
 use crate::GlobalFontLoader;
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
-use crate::size::{Size, Size2D};
+use crate::length::{Length, Size};
 use crate::syntax::{Model, SyntaxModel, Node, Decoration};
 use crate::syntax::span::{Span, Spanned};
 use super::line::{LineLayouter, LineContext};
 use super::text::{layout_text, TextContext};
 use super::*;
-
 
 /// Performs the model layouting.
 #[derive(Debug)]
@@ -36,7 +35,7 @@ pub struct LayoutContext<'a> {
     /// The style for pages and text.
     pub style: &'a LayoutStyle,
     /// The base unpadded dimensions of this container (for relative sizing).
-    pub base: Size2D,
+    pub base: Size,
     /// The spaces to layout in.
     pub spaces: LayoutSpaces,
     /// Whether to have repeated spaces or to use only the first and only once.
@@ -76,7 +75,7 @@ pub enum Command<'a> {
     /// Add spacing of given [kind](super::SpacingKind) along the primary or
     /// secondary axis. The spacing kind defines how the spacing interacts with
     /// surrounding spacing.
-    AddSpacing(Size, SpacingKind, GenericAxis),
+    AddSpacing(Length, SpacingKind, GenericAxis),
 
     /// Start a new line.
     BreakLine,
@@ -159,7 +158,7 @@ impl<'a> ModelLayouter<'a> {
 
         for Spanned { v: node, span } in &model.nodes {
             let decorate = |this: &mut ModelLayouter, deco| {
-                this.feedback.decos.push(Spanned::new(deco, *span));
+                this.feedback.decorations.push(Spanned::new(deco, *span));
             };
 
             match node {

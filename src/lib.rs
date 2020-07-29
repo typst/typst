@@ -27,12 +27,11 @@ use toddle::{Font, OwnedData};
 use toddle::query::{FontLoader, SharedFontLoader};
 use toddle::query::{FontProvider, FontIndex, FontDescriptor};
 
-use crate::problem::Problems;
+use crate::diagnostic::Diagnostics;
 use crate::layout::MultiLayout;
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
-use crate::syntax::{SyntaxModel, Scope, Decoration, ParseState, parse};
-use crate::syntax::span::{Position, SpanVec, offset_spans};
-
+use crate::syntax::{Decorations, SyntaxModel, Scope, ParseState, parse};
+use crate::syntax::span::{Offset, Pos};
 
 /// Declare a module and reexport all its contents.
 macro_rules! pub_use_mod {
@@ -45,16 +44,16 @@ macro_rules! pub_use_mod {
 #[macro_use]
 mod macros;
 #[macro_use]
-pub mod problem;
+pub mod diagnostic;
 pub mod export;
 #[macro_use]
 pub mod func;
 pub mod layout;
 pub mod library;
-pub mod size;
+pub mod length;
+pub mod paper;
 pub mod style;
 pub mod syntax;
-
 
 /// Transforms source code into typesetted layouts.
 ///
@@ -112,7 +111,7 @@ impl Typesetter {
 
     /// Parse source code into a syntax tree.
     pub fn parse(&self, src: &str) -> Pass<SyntaxModel> {
-        parse(src, Position::ZERO, &self.parse_state)
+        parse(src, Pos::ZERO, &self.parse_state)
     }
 
     /// Layout a syntax tree and return the produced layout.
@@ -176,18 +175,18 @@ impl<T> Pass<T> {
 /// User feedback data accumulated during a compilation pass.
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Feedback {
-    /// Problems in the source code.
-    pub problems: Problems,
+    /// Diagnostics in the source code.
+    pub diagnostics: Diagnostics,
     /// Decorations of the source code for semantic syntax highlighting.
-    pub decos: SpanVec<Decoration>,
+    pub decorations: Decorations,
 }
 
 impl Feedback {
     /// Create a new feedback instance without errors and decos.
     pub fn new() -> Feedback {
         Feedback {
-            problems: vec![],
-            decos: vec![],
+            diagnostics: vec![],
+            decorations: vec![],
         }
     }
 
@@ -199,15 +198,15 @@ impl Feedback {
 
     /// Add other feedback data to this feedback.
     pub fn extend(&mut self, other: Feedback) {
-        self.problems.extend(other.problems);
-        self.decos.extend(other.decos);
+        self.diagnostics.extend(other.diagnostics);
+        self.decorations.extend(other.decorations);
     }
 
     /// Add more feedback whose spans are local and need to be offset by an
     /// `offset` to be correct in this feedback's context.
-    pub fn extend_offset(&mut self, more: Feedback, offset: Position) {
-        self.problems.extend(offset_spans(more.problems, offset));
-        self.decos.extend(offset_spans(more.decos, offset));
+    pub fn extend_offset(&mut self, more: Feedback, offset: Pos) {
+        self.diagnostics.extend(more.diagnostics.offset(offset));
+        self.decorations.extend(more.decorations.offset(offset));
     }
 }
 
