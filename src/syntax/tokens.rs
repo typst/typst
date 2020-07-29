@@ -5,9 +5,8 @@ use unicode_xid::UnicodeXID;
 use crate::size::Size;
 use super::span::{Position, Span, Spanned};
 
-use self::Token::*;
-use self::TokenizationMode::*;
-
+use Token::*;
+use TokenMode::*;
 
 /// A minimal semantic entity of source code.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -152,7 +151,7 @@ impl<'s> Token<'s> {
 #[derive(Debug)]
 pub struct Tokens<'s> {
     src: &'s str,
-    mode: TokenizationMode,
+    mode: TokenMode,
     iter: Peekable<Chars<'s>>,
     position: Position,
     index: usize,
@@ -163,20 +162,22 @@ pub struct Tokens<'s> {
 /// backtick tokens.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[allow(missing_docs)]
-pub enum TokenizationMode {
+pub enum TokenMode {
     Header,
     Body,
 }
 
 impl<'s> Tokens<'s> {
-    /// Create a new token iterator with the given mode where the first token
-    /// span starts an the given `start` position.
-    pub fn new(start: Position, src: &'s str, mode: TokenizationMode) -> Tokens<'s> {
+    /// Create a new token iterator with the given mode.
+    ///
+    /// The first token's span starts an the given `offset` position instead of
+    /// the zero position.
+    pub fn new(src: &'s str, offset: Position, mode: TokenMode) -> Tokens<'s> {
         Tokens {
             src,
             mode,
             iter: src.chars().peekable(),
-            position: start,
+            position: offset,
             index: 0,
         }
     }
@@ -188,7 +189,7 @@ impl<'s> Tokens<'s> {
     }
 
     /// The line-colunn position in the source at which the last token ends and
-    /// next token will start. This position is
+    /// next token will start.
     pub fn pos(&self) -> Position {
         self.position
     }
@@ -204,15 +205,15 @@ impl<'s> Iterator for Tokens<'s> {
 
         let token = match first {
             // Comments.
-            '/' if self.peek() == Some('/') => self.parse_line_comment(),
-            '/' if self.peek() == Some('*') => self.parse_block_comment(),
+            '/' if self.peek() == Some('/') => self.read_line_comment(),
+            '/' if self.peek() == Some('*') => self.read_block_comment(),
             '*' if self.peek() == Some('/') => { self.eat(); Invalid("*/") }
 
             // Whitespace.
-            c if c.is_whitespace() => self.parse_whitespace(start),
+            c if c.is_whitespace() => self.read_whitespace(start),
 
             // Functions.
-            '[' => self.parse_function(start),
+            '[' => self.read_function(start),
             ']' => Invalid("]"),
 
             // Syntactic elements in function headers.
@@ -230,7 +231,7 @@ impl<'s> Iterator for Tokens<'s> {
             '/' if self.mode == Header => Slash,
 
             // String values.
-            '"' if self.mode == Header => self.parse_string(),
+            '"' if self.mode == Header => self.read_string(),
 
             // Star serves a double purpose as a style modifier
             // and a expression operator in the header.
@@ -238,13 +239,13 @@ impl<'s> Iterator for Tokens<'s> {
 
             // Style toggles.
             '_' if self.mode == Body => Underscore,
-            '`' if self.mode == Body => self.parse_raw(),
+            '`' if self.mode == Body => self.read_raw(),
 
             // An escaped thing.
-            '\\' if self.mode == Body => self.parse_escaped(),
+            '\\' if self.mode == Body => self.read_escaped(),
 
             // A hex expression.
-            '#' if self.mode == Header => self.parse_hex_value(),
+            '#' if self.mode == Header => self.read_hex(),
 
             // Expressions or just strings.
             c => {
@@ -267,7 +268,7 @@ impl<'s> Iterator for Tokens<'s> {
                 }, false, -(c.len_utf8() as isize), 0).0;
 
                 if self.mode == Header {
-                    self.parse_expr(text)
+                    self.read_expr(text)
                 } else {
                     Text(text)
                 }
@@ -282,11 +283,11 @@ impl<'s> Iterator for Tokens<'s> {
 }
 
 impl<'s> Tokens<'s> {
-    fn parse_line_comment(&mut self) -> Token<'s> {
+    fn read_line_comment(&mut self) -> Token<'s> {
         LineComment(self.read_string_until(is_newline_char, false, 1, 0).0)
     }
 
-    fn parse_block_comment(&mut self) -> Token<'s> {
+    fn read_block_comment(&mut self) -> Token<'s> {
         enum Last { Slash, Star, Other }
 
         self.eat();
@@ -314,14 +315,14 @@ impl<'s> Tokens<'s> {
         }, true, 0, -2).0)
     }
 
-    fn parse_whitespace(&mut self, start: Position) -> Token<'s> {
+    fn read_whitespace(&mut self, start: Position) -> Token<'s> {
         self.read_string_until(|n| !n.is_whitespace(), false, 0, 0);
         let end = self.pos();
 
         Space(end.line - start.line)
     }
 
-    fn parse_function(&mut self, start: Position) -> Token<'s> {
+    fn read_function(&mut self, start: Position) -> Token<'s> {
         let (header, terminated) = self.read_function_part(Header);
         self.eat();
 
@@ -341,7 +342,7 @@ impl<'s> Tokens<'s> {
         Function { header, body: Some(Spanned { v: body, span }), terminated }
     }
 
-    fn read_function_part(&mut self, mode: TokenizationMode) -> (&'s str, bool) {
+    fn read_function_part(&mut self, mode: TokenMode) -> (&'s str, bool) {
         let start = self.index();
         let mut terminated = false;
 
@@ -353,11 +354,11 @@ impl<'s> Tokens<'s> {
 
             self.eat();
             match n {
-                '[' => { self.parse_function(Position::ZERO); }
-                '/' if self.peek() == Some('/') => { self.parse_line_comment(); }
-                '/' if self.peek() == Some('*') => { self.parse_block_comment(); }
-                '"' if mode == Header => { self.parse_string(); }
-                '`' if mode == Body => { self.parse_raw(); }
+                '[' => { self.read_function(Position::ZERO); }
+                '/' if self.peek() == Some('/') => { self.read_line_comment(); }
+                '/' if self.peek() == Some('*') => { self.read_block_comment(); }
+                '"' if mode == Header => { self.read_string(); }
+                '`' if mode == Body => { self.read_raw(); }
                 '\\' => { self.eat(); }
                 _ => {}
             }
@@ -367,12 +368,12 @@ impl<'s> Tokens<'s> {
         (&self.src[start .. end], terminated)
     }
 
-    fn parse_string(&mut self) -> Token<'s> {
+    fn read_string(&mut self) -> Token<'s> {
         let (string, terminated) = self.read_until_unescaped('"');
         ExprStr { string, terminated }
     }
 
-    fn parse_raw(&mut self) -> Token<'s> {
+    fn read_raw(&mut self) -> Token<'s> {
         let (raw, terminated) = self.read_until_unescaped('`');
         Raw { raw, terminated }
     }
@@ -390,7 +391,7 @@ impl<'s> Tokens<'s> {
         }, true, 0, -1)
     }
 
-    fn parse_escaped(&mut self) -> Token<'s> {
+    fn read_escaped(&mut self) -> Token<'s> {
         fn is_escapable(c: char) -> bool {
             match c {
                 '[' | ']' | '\\' | '/' | '*' | '_' | '`' | '"' => true,
@@ -410,7 +411,7 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    fn parse_hex_value(&mut self) -> Token<'s> {
+    fn read_hex(&mut self) -> Token<'s> {
         // This will parse more than the permissable 0-9, a-f, A-F character
         // ranges to provide nicer error messages later.
         ExprHex(self.read_string_until(
@@ -419,7 +420,7 @@ impl<'s> Tokens<'s> {
         ).0)
     }
 
-    fn parse_expr(&mut self, text: &'s str) -> Token<'s> {
+    fn read_expr(&mut self, text: &'s str) -> Token<'s> {
         if let Ok(b) = text.parse::<bool>() {
             ExprBool(b)
         } else if let Ok(num) = text.parse::<f64>() {
@@ -435,8 +436,11 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    /// Will read the input stream until the argument F evaluates to `true`
-    /// for the current character.
+    /// Will read the input stream until `f` evaluates to `true`. When
+    /// `eat_match` is true, the token for which `f` was true is consumed.
+    /// Returns the string from the index where this was called offset by
+    /// `offset_start` to the end offset by `offset_end`. The end is before or
+    /// after the match depending on `eat_match`.
     fn read_string_until<F>(
         &mut self,
         mut f: F,
@@ -527,8 +531,8 @@ pub fn is_identifier(string: &str) -> bool {
     true
 }
 
-
 #[cfg(test)]
+#[allow(non_snake_case)]
 mod tests {
     use super::super::test::check;
     use super::*;
@@ -549,31 +553,23 @@ mod tests {
         Slash,
     };
 
-    #[allow(non_snake_case)]
-    fn Str(string: &'static str, terminated: bool) -> Token<'static> {
-        Token::ExprStr { string, terminated }
-    }
-
-    #[allow(non_snake_case)]
-    fn Raw(raw: &'static str, terminated: bool) -> Token<'static> {
-        Token::Raw { raw, terminated }
-    }
-
     /// Test whether the given string tokenizes into the given list of tokens.
     macro_rules! t {
         ($mode:expr, $source:expr => [$($tokens:tt)*]) => {
-            let (exp, spans) = spanned![vec $($tokens)*];
-            let found = Tokens::new(Position::ZERO, $source, $mode).collect::<Vec<_>>();
+            let (exp, spans) = span_vec![$($tokens)*];
+            let found = Tokens::new($source, Position::ZERO, $mode).collect::<Vec<_>>();
             check($source, exp, found, spans);
         }
     }
 
-    /// Write down a function token compactly.
+    fn Str(string: &str, terminated: bool) -> Token { Token::ExprStr { string, terminated } }
+    fn Raw(raw: &str, terminated: bool) -> Token { Token::Raw { raw, terminated } }
+
     macro_rules! func {
         ($header:expr, Some($($tokens:tt)*), $terminated:expr) => {
             Function {
                 header: $header,
-                body: Some(spanned![item $($tokens)*]),
+                body: Some(span_item!(($($tokens)*))),
                 terminated: $terminated,
             }
         };
@@ -674,12 +670,12 @@ mod tests {
     fn tokenize_functions() {
         t!(Body, "a[f]"           => [T("a"), func!("f", None, true)]);
         t!(Body, "[f]a"           => [func!("f", None, true), T("a")]);
-        t!(Body, "\n\n[f][ ]"     => [S(2), func!("f", Some((0:4, 0:5, " ")), true)]);
-        t!(Body, "abc [f][ ]a"    => [T("abc"), S(0), func!("f", Some((0:4, 0:5, " ")), true), T("a")]);
+        t!(Body, "\n\n[f][ ]"     => [S(2), func!("f", Some(0:4, 0:5, " "), true)]);
+        t!(Body, "abc [f][ ]a"    => [T("abc"), S(0), func!("f", Some(0:4, 0:5, " "), true), T("a")]);
         t!(Body, "[f: [=][*]]"    => [func!("f: [=][*]", None, true)]);
-        t!(Body, "[_][[,],],"     => [func!("_", Some((0:4, 0:8, "[,],")), true), T(",")]);
-        t!(Body, "[=][=][=]"      => [func!("=", Some((0:4, 0:5, "=")), true), func!("=", None, true)]);
-        t!(Body, "[=][[=][=][=]]" => [func!("=", Some((0:4, 0:13, "[=][=][=]")), true)]);
+        t!(Body, "[_][[,],],"     => [func!("_", Some(0:4, 0:8, "[,],"), true), T(",")]);
+        t!(Body, "[=][=][=]"      => [func!("=", Some(0:4, 0:5, "="), true), func!("=", None, true)]);
+        t!(Body, "[=][[=][=][=]]" => [func!("=", Some(0:4, 0:13, "[=][=][=]"), true)]);
         t!(Header, "["            => [func!("", None, false)]);
         t!(Header, "]"            => [Invalid("]")]);
     }
@@ -693,25 +689,25 @@ mod tests {
         t!(Body, "[f: `]"         => [func!("f: `", None, true)]);
 
         // End of function with strings and carets in bodies
-        t!(Body, "[f][\"]"        => [func!("f", Some((0:4, 0:5, "\"")), true)]);
-        t!(Body, r#"[f][\"]"#     => [func!("f", Some((0:4, 0:6, r#"\""#)), true)]);
-        t!(Body, "[f][`]"         => [func!("f", Some((0:4, 0:6, "`]")), false)]);
-        t!(Body, "[f][\\`]"       => [func!("f", Some((0:4, 0:6, "\\`")), true)]);
-        t!(Body, "[f][`raw`]"     => [func!("f", Some((0:4, 0:9, "`raw`")), true)]);
-        t!(Body, "[f][`raw]"      => [func!("f", Some((0:4, 0:9, "`raw]")), false)]);
-        t!(Body, "[f][`raw]`]"    => [func!("f", Some((0:4, 0:10, "`raw]`")), true)]);
-        t!(Body, "[f][`\\`]"      => [func!("f", Some((0:4, 0:8, "`\\`]")), false)]);
-        t!(Body, "[f][`\\\\`]"    => [func!("f", Some((0:4, 0:8, "`\\\\`")), true)]);
+        t!(Body, "[f][\"]"        => [func!("f", Some(0:4, 0:5, "\""), true)]);
+        t!(Body, r#"[f][\"]"#     => [func!("f", Some(0:4, 0:6, r#"\""#), true)]);
+        t!(Body, "[f][`]"         => [func!("f", Some(0:4, 0:6, "`]"), false)]);
+        t!(Body, "[f][\\`]"       => [func!("f", Some(0:4, 0:6, "\\`"), true)]);
+        t!(Body, "[f][`raw`]"     => [func!("f", Some(0:4, 0:9, "`raw`"), true)]);
+        t!(Body, "[f][`raw]"      => [func!("f", Some(0:4, 0:9, "`raw]"), false)]);
+        t!(Body, "[f][`raw]`]"    => [func!("f", Some(0:4, 0:10, "`raw]`"), true)]);
+        t!(Body, "[f][`\\`]"      => [func!("f", Some(0:4, 0:8, "`\\`]"), false)]);
+        t!(Body, "[f][`\\\\`]"    => [func!("f", Some(0:4, 0:8, "`\\\\`"), true)]);
 
         // End of function with comments
-        t!(Body, "[f][/*]"        => [func!("f", Some((0:4, 0:7, "/*]")), false)]);
-        t!(Body, "[f][/*`*/]"     => [func!("f", Some((0:4, 0:9, "/*`*/")), true)]);
+        t!(Body, "[f][/*]"        => [func!("f", Some(0:4, 0:7, "/*]"), false)]);
+        t!(Body, "[f][/*`*/]"     => [func!("f", Some(0:4, 0:9, "/*`*/"), true)]);
         t!(Body, "[f: //]\n]"     => [func!("f: //]\n", None, true)]);
         t!(Body, "[f: \"//]\n]"   => [func!("f: \"//]\n]", None, false)]);
 
         // End of function with escaped brackets
-        t!(Body, "[f][\\]]"       => [func!("f", Some((0:4, 0:6, "\\]")), true)]);
-        t!(Body, "[f][\\[]"       => [func!("f", Some((0:4, 0:6, "\\[")), true)]);
+        t!(Body, "[f][\\]]"       => [func!("f", Some(0:4, 0:6, "\\]"), true)]);
+        t!(Body, "[f][\\[]"       => [func!("f", Some(0:4, 0:6, "\\["), true)]);
     }
 
     #[test]

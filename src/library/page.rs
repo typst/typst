@@ -12,7 +12,7 @@ function! {
         flip: bool,
     }
 
-    parse(header, body, ctx, f) {
+    parse(header, body, state, f) {
         body!(nope: body, f);
         PageSizeFunc {
             paper: header.args.pos.get::<Paper>(&mut f.problems),
@@ -50,7 +50,7 @@ function! {
         padding: PaddingMap,
     }
 
-    parse(header, body, ctx, f) {
+    parse(header, body, state, f) {
         body!(nope: body, f);
         PageMarginsFunc {
             padding: PaddingMap::parse(&mut f.problems, &mut header.args),

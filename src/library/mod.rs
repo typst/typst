@@ -53,10 +53,10 @@ function! {
         body: Option<SyntaxModel>,
     }
 
-    parse(header, body, ctx, f) {
+    parse(header, body, state, f) {
         header.args.pos.items.clear();
         header.args.key.pairs.clear();
-        ValFunc { body: body!(opt: body, ctx, f) }
+        ValFunc { body: body!(opt: body, state, f) }
     }
 
     layout(self, ctx, f) {

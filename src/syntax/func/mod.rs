@@ -9,22 +9,23 @@ pub_use_mod!(maps);
 pub_use_mod!(keys);
 pub_use_mod!(values);
 
+/// An invocation of a function.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FuncCall<'s> {
+    pub header: FuncHeader,
+    /// The body as a raw string containing what's inside of the brackets.
+    pub body: Option<Spanned<&'s str>>,
+}
 
-/// The parsed header of a function.
+/// The parsed header of a function (everything in the first set of brackets).
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuncHeader {
-    /// The function name, that is:
-    /// ```typst
-    /// [box: w=5cm]
-    ///  ^^^
-    /// ```
     pub name: Spanned<Ident>,
-    /// The arguments passed to the function.
     pub args: FuncArgs,
 }
 
 /// The positional and keyword arguments passed to a function.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct FuncArgs {
     /// The positional arguments.
     pub pos: Tuple,

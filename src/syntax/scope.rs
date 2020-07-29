@@ -5,11 +5,9 @@ use std::fmt::{self, Debug, Formatter};
 
 use crate::Pass;
 use crate::func::ParseFunc;
-use super::func::FuncHeader;
-use super::parsing::ParseContext;
-use super::span::Spanned;
+use super::func::FuncCall;
+use super::parsing::ParseState;
 use super::Model;
-
 
 /// A map from identifiers to function parsers.
 pub struct Scope {
@@ -50,10 +48,8 @@ impl Scope {
     }
 
     /// Return the parser with the given name if there is one.
-    pub fn get_parser(&self, name: &str) -> Result<&Parser, &Parser> {
-        self.parsers.get(name)
-            .map(|x| &**x)
-            .ok_or_else(|| &*self.fallback)
+    pub fn get_parser(&self, name: &str) -> Option<&Parser> {
+        self.parsers.get(name).map(AsRef::as_ref)
     }
 
     /// Return the fallback parser.
@@ -72,16 +68,12 @@ impl Debug for Scope {
 
 /// A function which parses the source of a function into a model type which
 /// implements [`Model`].
-type Parser = dyn Fn(
-    FuncHeader,
-    Option<Spanned<&str>>,
-    ParseContext,
-) -> Pass<Box<dyn Model>>;
+type Parser = dyn Fn(FuncCall, &ParseState) -> Pass<Box<dyn Model>>;
 
 fn parser<F>(metadata: <F as ParseFunc>::Meta) -> Box<Parser>
 where F: ParseFunc + Model + 'static {
-    Box::new(move |h, b, c| {
-        F::parse(h, b, c, metadata.clone())
+    Box::new(move |f, s| {
+        F::parse(f, s, metadata.clone())
             .map(|model| Box::new(model) as Box<dyn Model>)
     })
 }
