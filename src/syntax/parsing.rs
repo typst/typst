@@ -30,7 +30,7 @@ pub fn parse(src: &str, offset: Position, state: &ParseState) -> Pass<SyntaxMode
         let span = token.span;
         let node = match token.v {
             // Starting from two newlines counts as a paragraph break, a single
-            // newline not.
+            // newline does not.
             Token::Space(newlines) => if newlines >= 2 {
                 Node::Parbreak
             } else {

@@ -204,10 +204,10 @@ impl Feedback {
     }
 
     /// Add more feedback whose spans are local and need to be offset by an
-    /// `offset` to be correct for this feedbacks context.
-    pub fn extend_offset(&mut self, other: Feedback, offset: Position) {
-        self.problems.extend(offset_spans(other.problems, offset));
-        self.decos.extend(offset_spans(other.decos, offset));
+    /// `offset` to be correct in this feedback's context.
+    pub fn extend_offset(&mut self, more: Feedback, offset: Position) {
+        self.problems.extend(offset_spans(more.problems, offset));
+        self.decos.extend(offset_spans(more.decos, offset));
     }
 }
 
