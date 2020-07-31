@@ -16,18 +16,11 @@
 //!   format is [_PDF_](crate::export::pdf). Alternatively, the layout can be
 //!   serialized to pass it to a suitable renderer.
 
-pub use toddle;
-
-use std::cell::RefCell;
 use std::fmt::Debug;
-use async_trait::async_trait;
 use smallvec::smallvec;
 
-use toddle::{Font, OwnedData};
-use toddle::query::{FontLoader, SharedFontLoader};
-use toddle::query::{FontProvider, FontIndex, FontDescriptor};
-
 use crate::diagnostic::Diagnostics;
+use crate::font::SharedFontLoader;
 use crate::layout::MultiLayout;
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::syntax::{Decorations, SyntaxModel, Scope, ParseState, parse};
@@ -46,6 +39,7 @@ mod macros;
 #[macro_use]
 pub mod diagnostic;
 pub mod export;
+pub mod font;
 #[macro_use]
 pub mod func;
 pub mod layout;
@@ -60,7 +54,7 @@ pub mod syntax;
 /// A typesetter can be configured through various methods.
 pub struct Typesetter {
     /// The font loader shared by all typesetting processes.
-    loader: GlobalFontLoader,
+    loader: SharedFontLoader,
     /// The base layouting style.
     style: LayoutStyle,
     /// The base parser state.
@@ -69,20 +63,11 @@ pub struct Typesetter {
     debug: bool,
 }
 
-/// The font loader type used in the [`Typesetter`].
-///
-/// This font loader is ref-cell protected and backed by a dynamic font
-/// provider.
-pub type GlobalFontLoader = SharedFontLoader<GlobalProvider>;
-
-/// The provider type of font loaders used in the [`Typesetter`].
-pub type GlobalProvider = Box<dyn FontProvider<Data=OwnedData, Error=Box<dyn Debug>>>;
-
 impl Typesetter {
     /// Create a new typesetter.
-    pub fn new(provider: (GlobalProvider, Vec<FontDescriptor>)) -> Typesetter {
+    pub fn new(loader: SharedFontLoader) -> Typesetter {
         Typesetter {
-            loader: RefCell::new(FontLoader::new(provider)),
+            loader,
             style: LayoutStyle::default(),
             parse_state: ParseState { scope: Scope::with_std() },
             debug: false,
@@ -102,11 +87,6 @@ impl Typesetter {
     /// Set whether to render debug boxes.
     pub fn set_debug(&mut self, debug: bool) {
         self.debug = debug;
-    }
-
-    /// A reference to the backing font loader.
-    pub fn loader(&self) -> &GlobalFontLoader {
-        &self.loader
     }
 
     /// Parse source code into a syntax tree.
@@ -207,33 +187,5 @@ impl Feedback {
     pub fn extend_offset(&mut self, more: Feedback, offset: Pos) {
         self.diagnostics.extend(more.diagnostics.offset(offset));
         self.decorations.extend(more.decorations.offset(offset));
-    }
-}
-
-/// Wraps a font provider and transforms its errors into boxed [`Debug`] trait
-/// objects. This enables font providers that do not return these boxed errors
-/// to be used with the typesetter.
-#[derive(Debug)]
-pub struct DebugErrorProvider<P> {
-    provider: P,
-}
-
-impl<P> DebugErrorProvider<P>
-where P: FontProvider, P::Error: Debug + 'static {
-    /// Create a new debug error provider from any provider.
-    pub fn new(provider: P) -> DebugErrorProvider<P> {
-        DebugErrorProvider { provider }
-    }
-}
-
-#[async_trait(?Send)]
-impl<P> FontProvider for DebugErrorProvider<P>
-where P: FontProvider, P::Error: Debug + 'static {
-    type Data = P::Data;
-    type Error = Box<dyn Debug>;
-
-    async fn load(&self, index: FontIndex) -> Result<Font<P::Data>, Self::Error> {
-        self.provider.load(index).await
-            .map_err(|d| Box::new(d) as Box<dyn Debug>)
     }
 }

@@ -1,7 +1,7 @@
 //! Value types for extracting function arguments.
 
 use std::fmt::{self, Display, Formatter};
-use toddle::query::{FontStyle, FontWeight};
+use fontdock::{FontStyle, FontWeight, FontWidth};
 
 use crate::layout::prelude::*;
 use crate::length::{Length, ScaleLength};
@@ -148,18 +148,43 @@ impl Value for (FontWeight, bool) {
         match expr.v {
             Expr::Number(weight) => {
                 let weight = weight.round();
-
                 if weight >= 100.0 && weight <= 900.0 {
-                    Ok((FontWeight(weight as i16), false))
+                    Ok((FontWeight(weight as u16), false))
                 } else {
-                    let clamped = weight.min(900.0).max(100.0) as i16;
-                    Ok((FontWeight(clamped), true))
+                    let clamped = weight.min(900.0).max(100.0);
+                    Ok((FontWeight(clamped as u16), true))
                 }
             }
             Expr::Ident(id) => {
                 FontWeight::from_name(id.as_str())
                     .ok_or_else(|| error!("invalid font weight"))
                     .map(|weight| (weight, false))
+            }
+            other => Err(
+                error!("expected identifier or number, found {}", other.name())
+            ),
+        }
+    }
+}
+
+/// The additional boolean specifies whether a number was clamped into the range
+/// 1 - 9 to make it a valid font width.
+impl Value for (FontWidth, bool) {
+    fn parse(expr: Spanned<Expr>) -> Result<Self, Diagnostic> {
+        match expr.v {
+            Expr::Number(width) => {
+                let width = width.round();
+                if width >= 1.0 && width <= 9.0 {
+                    Ok((FontWidth::new(width as u16).unwrap(), false))
+                } else {
+                    let clamped = width.min(9.0).max(1.0);
+                    Ok((FontWidth::new(clamped as u16).unwrap(), true))
+                }
+            }
+            Expr::Ident(id) => {
+                FontWidth::from_name(id.as_str())
+                    .ok_or_else(|| error!("invalid font width"))
+                    .map(|width| (width, false))
             }
             other => Err(
                 error!("expected identifier or number, found {}", other.name())

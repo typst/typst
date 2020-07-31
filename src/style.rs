@@ -1,7 +1,6 @@
 //! Styles for text and pages.
 
-use toddle::fallback;
-use toddle::query::{FallbackTree, FontVariant, FontStyle, FontWeight};
+use fontdock::{fallback, FallbackTree, FontVariant, FontStyle, FontWeight, FontWidth};
 use crate::length::{Length, Size, Margins, Value4, ScaleLength};
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
@@ -17,13 +16,16 @@ pub struct LayoutStyle {
 /// Defines which fonts to use and how to space text.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextStyle {
-    /// A tree of font names and generic family names.
+    /// A tree of font family names and generic class names.
     pub fallback: FallbackTree,
     /// The selected font variant.
     pub variant: FontVariant,
     /// Whether the bolder toggle is active or inactive. This determines
     /// whether the next `*` adds or removes font weight.
     pub bolder: bool,
+    /// Whether the italic toggle is active or inactive. This determines
+    /// whether the next `_` makes italic or non-italic.
+    pub italic: bool,
     /// The base font size.
     pub base_font_size: Length,
     /// The font scale to apply on the base font size.
@@ -75,8 +77,10 @@ impl Default for TextStyle {
             variant: FontVariant {
                 style: FontStyle::Normal,
                 weight: FontWeight(400),
+                width: FontWidth::Medium,
             },
             bolder: false,
+            italic: false,
             base_font_size: Length::pt(11.0),
             font_scale: 1.0,
             word_spacing_scale: 0.25,

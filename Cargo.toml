@@ -5,27 +5,28 @@ authors = ["Laurenz Mädje <laurmaedje@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-toddle = { path = "../toddle", features = ["query"], default-features = false }
+fontdock = { path = "../fontdock", features = ["serialize"] }
 tide = { path = "../tide" }
 byteorder = "1"
 smallvec = "1"
 unicode-xid = "0.2"
 async-trait = "0.1"
+ttf-parser = "0.8.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", optional = true }
 futures-executor = { version = "0.3", optional = true }
 
 [features]
-default = ["fs-provider", "futures-executor", "serde_json"]
-fs-provider = ["toddle/fs-provider"]
+default = ["fs", "futures-executor", "serde_json"]
+fs = ["fontdock/fs"]
 
 [[bin]]
 name = "typst"
 path = "src/bin/main.rs"
-required-features = ["fs-provider", "futures-executor"]
+required-features = ["futures-executor"]
 
 [[test]]
 name = "typeset"
 path = "tests/src/typeset.rs"
 harness = false
-required-features = ["fs-provider", "futures-executor", "serde_json"]
+required-features = ["futures-executor", "serde_json"]

@@ -4,10 +4,8 @@
 //! When the primary layouting axis horizontally inversed, the word is spelled
 //! backwards. Vertical word layout is not yet supported.
 
-use toddle::query::{FontQuery, FontIndex};
-use toddle::tables::{CharMap, Header, HorizontalMetrics};
-
-use crate::GlobalFontLoader;
+use fontdock::{FaceId, FaceQuery, FontStyle};
+use crate::font::SharedFontLoader;
 use crate::length::{Length, Size};
 use crate::style::TextStyle;
 use super::*;
@@ -19,7 +17,7 @@ struct TextLayouter<'a> {
     text: &'a str,
     actions: LayoutActions,
     buffer: String,
-    active_font: FontIndex,
+    active_font: FaceId,
     width: Length,
 }
 
@@ -28,7 +26,7 @@ struct TextLayouter<'a> {
 pub struct TextContext<'a> {
     /// The font loader to retrieve fonts from when typesetting text
     /// using [`layout_text`].
-    pub loader: &'a GlobalFontLoader,
+    pub loader: &'a SharedFontLoader,
     /// The style for text: Font selection with classes, weights and variants,
     /// font sizes, spacing and so on.
     pub style: &'a TextStyle,
@@ -52,7 +50,7 @@ impl<'a> TextLayouter<'a> {
             text,
             actions: LayoutActions::new(),
             buffer: String::new(),
-            active_font: FontIndex::MAX,
+            active_font: FaceId::MAX,
             width: Length::ZERO,
         }
     }
@@ -109,41 +107,41 @@ impl<'a> TextLayouter<'a> {
 
     /// Select the best font for a character and return its index along with
     /// the width of the char in the font.
-    async fn select_font(&mut self, c: char) -> Option<(FontIndex, Length)> {
+    async fn select_font(&mut self, c: char) -> Option<(FaceId, Length)> {
         let mut loader = self.ctx.loader.borrow_mut();
 
         let mut variant = self.ctx.style.variant;
+
         if self.ctx.style.bolder {
             variant.weight.0 += 300;
         }
 
-        let query = FontQuery {
+        if self.ctx.style.italic {
+            variant.style = match variant.style {
+                FontStyle::Normal => FontStyle::Italic,
+                FontStyle::Italic => FontStyle::Normal,
+                FontStyle::Oblique => FontStyle::Normal,
+            }
+        }
+
+        let query = FaceQuery {
             fallback: self.ctx.style.fallback.iter(),
             variant,
             c,
         };
 
-        if let Some((font, index)) = loader.get(query).await {
+        if let Some((id, face)) = loader.query(query).await {
             // Determine the width of the char.
-            let header = font.read_table::<Header>().ok()?;
-            let font_unit_ratio = 1.0 / (header.units_per_em as f64);
-            let font_unit_to_size = |x| Length::pt(font_unit_ratio * x);
+            let units_per_em = face.units_per_em().unwrap_or(1000);
+            let ratio = 1.0 / (units_per_em as f64);
+            let to_length = |x| Length::pt(ratio * x as f64);
 
-            let glyph = font
-                .read_table::<CharMap>()
-                .ok()?
-                .get(c)?;
-
-            let glyph_width = font
-                .read_table::<HorizontalMetrics>()
-                .ok()?
-                .get(glyph)?
-                .advance_width as f64;
-
-            let char_width = font_unit_to_size(glyph_width)
+            let glyph = face.glyph_index(c)?;
+            let glyph_width = face.glyph_hor_advance(glyph)?;
+            let char_width = to_length(glyph_width)
                 * self.ctx.style.font_size().to_pt();
 
-            Some((index, char_width))
+            Some((id, char_width))
         } else {
             None
         }

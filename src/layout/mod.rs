@@ -3,7 +3,7 @@
 use std::fmt::{self, Display, Formatter};
 use smallvec::SmallVec;
 use serde::Serialize;
-use toddle::query::FontIndex;
+use fontdock::FaceId;
 
 use crate::length::{Length, Size, Margins};
 use self::prelude::*;
@@ -44,12 +44,12 @@ pub struct Layout {
 
 impl Layout {
     /// Returns a vector with all used font indices.
-    pub fn find_used_fonts(&self) -> Vec<FontIndex> {
+    pub fn find_used_fonts(&self) -> Vec<FaceId> {
         let mut fonts = Vec::new();
         for action in &self.actions {
-            if let LayoutAction::SetFont(index, _) = action {
-                if !fonts.contains(index) {
-                    fonts.push(*index);
+            if let &LayoutAction::SetFont(id, _) = action {
+                if !fonts.contains(&id) {
+                    fonts.push(id);
                 }
             }
         }

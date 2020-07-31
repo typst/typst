@@ -1,4 +1,4 @@
-use toddle::query::{FontWeight, FontStyle};
+use fontdock::{FontStyle, FontWeight, FontWidth};
 use crate::length::ScaleLength;
 use super::*;
 
@@ -40,7 +40,7 @@ function! {
         styled(&self.body, ctx, Some(()),
             |s, _| {
                 if !self.list.is_empty() {
-                    s.fallback.list = self.list.clone();
+                    *s.fallback.list_mut() = self.list.clone();
                 }
 
                 for (class, fallback) in &self.classes {
@@ -102,6 +102,39 @@ function! {
 
     layout(self, ctx, f) {
         styled(&self.body, ctx, self.weight, |t, w| t.variant.weight = w)
+    }
+}
+
+
+function! {
+    /// `font.width`: Set text with a given width.
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct FontWidthFunc {
+        body: Option<SyntaxModel>,
+        width: Option<FontWidth>,
+    }
+
+    parse(header, body, ctx, f) {
+        let body = body!(opt: body, ctx, f);
+        let width = header.args.pos.get::<Spanned<(FontWidth, bool)>>(&mut f.diagnostics)
+            .map(|Spanned { v: (width, is_clamped), span }| {
+                if is_clamped {
+                    warning!(
+                        @f, span,
+                        "width should be between 1 and 9, clamped to {}",
+                        width.to_number(),
+                    );
+                }
+
+                width
+            })
+            .or_missing(&mut f.diagnostics, header.name.span, "width");
+
+            FontWidthFunc { body, width }
+    }
+
+    layout(self, ctx, f) {
+        styled(&self.body, ctx, self.width, |t, w| t.variant.width = w)
     }
 }
 
