@@ -24,12 +24,12 @@ jobs:
       uses: actions/checkout@v2
       with:
         path: typstc
-    - name: Checkout toddle
+    - name: Checkout fontdock
       uses: actions/checkout@v2
       with:
-        repository: typst/toddle
+        repository: typst/fontdock
         token: ${{ secrets.TYPSTC_ACTION_TOKEN }} # `GitHub_PAT` is a secret that contains your PAT
-        path: toddle
+        path: fontdock
     - name: Checkout tide
       uses: actions/checkout@v2
       with:

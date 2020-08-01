@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::OsStr;
@@ -5,19 +6,21 @@ use std::fs::{File, create_dir_all, read_dir, read_to_string};
 use std::io::BufWriter;
 use std::panic;
 use std::process::Command;
+use std::rc::Rc;
 use std::time::{Instant, Duration};
 
 use serde::Serialize;
 use futures_executor::block_on;
 
-use typstc::{Typesetter, DebugErrorProvider};
+use typstc::Typesetter;
+use typstc::font::DynProvider;
 use typstc::layout::MultiLayout;
 use typstc::length::{Length, Size, Value4};
 use typstc::style::PageStyle;
 use typstc::paper::PaperClass;
 use typstc::export::pdf;
-use toddle::query::FontIndex;
-use toddle::query::fs::EagerFsProvider;
+use fontdock::{FaceId, FontLoader};
+use fontdock::fs::{FsIndex, FsProvider};
 
 type DynResult<T> = Result<T, Box<dyn Error>>;
 
@@ -47,12 +50,20 @@ fn main() -> DynResult<()> {
     }
 
     let len = filtered.len();
-    println!();
-    println!("Running {} test{}", len, if len > 1 { "s" } else { "" });
+    if len == 0 {
+        return Ok(());
+    } else if len == 1 {
+        println!("Running test ...");
+    } else {
+        println!("Running {} tests", len);
+    }
+
+    let mut index = FsIndex::new();
+    index.search_dir("../fonts");
 
     for (name, src) in filtered {
         panic::catch_unwind(|| {
-            if let Err(e) = test(&name, &src) {
+            if let Err(e) = test(&name, &src, &index) {
                 println!("error: {:?}", e);
             }
         }).ok();
@@ -62,13 +73,15 @@ fn main() -> DynResult<()> {
 }
 
 /// Create a _PDF_ and render with a name from the source code.
-fn test(name: &str, src: &str) -> DynResult<()> {
+fn test(name: &str, src: &str, index: &FsIndex) -> DynResult<()> {
     println!("Testing: {}.", name);
 
-    let (fs, entries) = EagerFsProvider::from_index("../fonts", "index.json")?;
-    let files = fs.files().to_vec();
-    let provider = DebugErrorProvider::new(fs);
-    let mut typesetter = Typesetter::new((Box::new(provider), entries));
+    let (descriptors, files) = index.clone().into_vecs();
+    let provider = FsProvider::new(files.clone());
+    let dynamic = Box::new(provider) as Box<DynProvider>;
+    let loader = FontLoader::new(dynamic, descriptors);
+    let loader = Rc::new(RefCell::new(loader));
+    let mut typesetter = Typesetter::new(loader.clone());
 
     typesetter.set_page_style(PageStyle {
         class: PaperClass::Custom,
@@ -81,24 +94,25 @@ fn test(name: &str, src: &str) -> DynResult<()> {
     // Write the PDF file.
     let path = format!("tests/cache/{}.pdf", name);
     let file = BufWriter::new(File::create(path)?);
-    pdf::export(&layouts, typesetter.loader(), file)?;
+    pdf::export(&layouts, &loader, file)?;
 
     // Compute the font's paths.
-    let mut fonts = HashMap::new();
+    let mut faces = HashMap::new();
     for layout in &layouts {
-        for index in layout.find_used_fonts() {
-            fonts.entry(index)
-                .or_insert_with(|| files[index.id][index.variant].as_str());
+        for id in layout.find_used_fonts() {
+            faces.entry(id).or_insert_with(|| {
+                files[id.index][id.variant].0.to_str().unwrap()
+            });
         }
     }
 
     #[derive(Serialize)]
     struct Document<'a> {
-        fonts: Vec<(FontIndex, &'a str)>,
+        faces: Vec<(FaceId, &'a str)>,
         layouts: MultiLayout,
     }
 
-    let document = Document { fonts: fonts.into_iter().collect(), layouts};
+    let document = Document { faces: faces.into_iter().collect(), layouts };
 
     // Serialize the document into JSON.
     let path = format!("tests/cache/{}.serde.json", name);

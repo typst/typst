@@ -1,11 +1,15 @@
+use std::cell::RefCell;
 use std::error::Error;
 use std::fs::{File, read_to_string};
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use futures_executor::block_on;
 
-use typstc::{Typesetter, DebugErrorProvider};
-use typstc::toddle::query::fs::EagerFsProvider;
+use fontdock::fs::{FsIndex, FsProvider};
+use fontdock::FontLoader;
+use typstc::Typesetter;
+use typstc::font::DynProvider;
 use typstc::export::pdf;
 
 fn main() {
@@ -18,6 +22,7 @@ fn main() {
 fn run() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 || args.len() > 3 {
+        println!("typst");
         println!("usage: {} source [destination]",
             args.first().map(|s| s.as_str()).unwrap_or("typst"));
         std::process::exit(0);
@@ -37,14 +42,22 @@ fn run() -> Result<(), Box<dyn Error>> {
     let src = read_to_string(source)
         .map_err(|_| "failed to read from source file")?;
 
-    let (fs, entries) = EagerFsProvider::from_index("../fonts", "index.json")?;
-    let provider = DebugErrorProvider::new(fs);
-    let typesetter = Typesetter::new((Box::new(provider), entries));
+    let mut index = FsIndex::new();
+    index.search_dir("fonts");
+    index.search_dir("../fonts");
+    index.search_os();
 
+    let (descriptors, files) = index.into_vecs();
+    let provider = FsProvider::new(files.clone());
+    let dynamic = Box::new(provider) as Box<DynProvider>;
+    let loader = FontLoader::new(dynamic, descriptors);
+    let loader = Rc::new(RefCell::new(loader));
+
+    let typesetter = Typesetter::new(loader.clone());
     let layouts = block_on(typesetter.typeset(&src)).output;
 
     let writer = BufWriter::new(File::create(&dest)?);
-    pdf::export(&layouts, typesetter.loader(), writer)?;
+    pdf::export(&layouts, &loader, writer)?;
 
     Ok(())
 }

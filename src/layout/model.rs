@@ -5,10 +5,9 @@
 use std::future::Future;
 use std::pin::Pin;
 use smallvec::smallvec;
-use toddle::query::FontStyle;
 
 use crate::{Pass, Feedback};
-use crate::GlobalFontLoader;
+use crate::SharedFontLoader;
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::length::{Length, Size};
 use crate::syntax::{Model, SyntaxModel, Node, Decoration};
@@ -31,7 +30,7 @@ pub struct ModelLayouter<'a> {
 pub struct LayoutContext<'a> {
     /// The font loader to retrieve fonts from when typesetting text
     /// using [`layout_text`].
-    pub loader: &'a GlobalFontLoader,
+    pub loader: &'a SharedFontLoader,
     /// The style for pages and text.
     pub style: &'a LayoutStyle,
     /// The base unpadded dimensions of this container (for relative sizing).
@@ -167,7 +166,7 @@ impl<'a> ModelLayouter<'a> {
                 Linebreak => self.layouter.finish_line(),
 
                 Text(text) => {
-                    if self.style.text.variant.style == FontStyle::Italic {
+                    if self.style.text.italic {
                         decorate(self, Decoration::Italic);
                     }
 
@@ -179,7 +178,7 @@ impl<'a> ModelLayouter<'a> {
                 }
 
                 ToggleItalic => {
-                    self.style.text.variant.style.toggle();
+                    self.style.text.italic = !self.style.text.italic;
                     decorate(self, Decoration::Italic);
                 }
 
@@ -191,7 +190,7 @@ impl<'a> ModelLayouter<'a> {
                 Raw(lines) => {
                     // TODO: Make this more efficient.
                     let fallback = self.style.text.fallback.clone();
-                    self.style.text.fallback.list.insert(0, "monospace".to_string());
+                    self.style.text.fallback.list_mut().insert(0, "monospace".to_string());
                     self.style.text.fallback.flatten();
 
                     // Layout the first line.

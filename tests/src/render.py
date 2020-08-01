@@ -29,10 +29,10 @@ class MultiboxRenderer:
     def __init__(self, data):
         self.combined = None
 
-        self.fonts = {}
-        for entry in data["fonts"]:
-            index = int(entry[0]["id"]), int(entry[0]["variant"])
-            self.fonts[index] = os.path.join(BASE, '../../../fonts', entry[1])
+        self.faces = {}
+        for entry in data["faces"]:
+            face_id = int(entry[0]["index"]), int(entry[0]["variant"])
+            self.faces[face_id] = os.path.join(BASE, '../../../fonts', entry[1])
 
         self.layouts = data["layouts"]
 
@@ -45,7 +45,7 @@ class MultiboxRenderer:
         for layout in self.layouts:
             size = layout["dimensions"]
 
-            renderer = BoxRenderer(self.fonts, size["x"], size["y"])
+            renderer = BoxRenderer(self.faces, size["x"], size["y"])
             for action in layout["actions"]:
                 renderer.execute(action)
 
@@ -87,8 +87,8 @@ class MultiboxRenderer:
 
 
 class BoxRenderer:
-    def __init__(self, fonts, width, height, grid=False):
-        self.fonts = fonts
+    def __init__(self, faces, width, height, grid=False):
+        self.faces = faces
         self.size = (pix(width), pix(height))
 
         img = Image.new('RGBA', self.size, (255, 255, 255, 255))
@@ -126,9 +126,9 @@ class BoxRenderer:
             self.cursor = [pix(args[0]["x"]), pix(args[0]["y"])]
 
         elif cmd == 1:
-            index = int(args[0]["id"]), int(args[0]["variant"])
+            face_id = int(args[0]["index"]), int(args[0]["variant"])
             size = pix(args[1])
-            self.font = ImageFont.truetype(self.fonts[index], size)
+            self.font = ImageFont.truetype(self.faces[face_id], size)
 
         elif cmd == 2:
             text = args[0]

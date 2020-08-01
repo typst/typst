@@ -19,6 +19,7 @@ pub fn std() -> Scope {
     std.add::<FontFamilyFunc>("font.family");
     std.add::<FontStyleFunc>("font.style");
     std.add::<FontWeightFunc>("font.weight");
+    std.add::<FontWidthFunc>("font.width");
     std.add::<FontSizeFunc>("font.size");
     std.add_with_meta::<ContentSpacingFunc>("word.spacing", ContentKind::Word);
 

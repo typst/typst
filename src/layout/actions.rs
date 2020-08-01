@@ -2,7 +2,7 @@
 
 use std::fmt::{self, Debug, Formatter};
 use serde::ser::{Serialize, Serializer, SerializeTuple};
-use toddle::query::FontIndex;
+use fontdock::FaceId;
 
 use crate::length::{Length, Size};
 use super::Layout;
@@ -15,7 +15,7 @@ pub enum LayoutAction {
     /// Move to an absolute position.
     MoveAbsolute(Size),
     /// Set the font given the index from the font loader and font size.
-    SetFont(FontIndex, Length),
+    SetFont(FaceId, Length),
     /// Write text at the current position.
     WriteText(String),
     /// Visualize a box for debugging purposes.
@@ -31,10 +31,10 @@ impl Serialize for LayoutAction {
                 tup.serialize_element(&pos)?;
                 tup.end()
             }
-            LayoutAction::SetFont(index, size) => {
+            LayoutAction::SetFont(id, size) => {
                 let mut tup = serializer.serialize_tuple(4)?;
                 tup.serialize_element(&1u8)?;
-                tup.serialize_element(index)?;
+                tup.serialize_element(id)?;
                 tup.serialize_element(size)?;
                 tup.end()
             }
@@ -59,7 +59,7 @@ impl Debug for LayoutAction {
         use LayoutAction::*;
         match self {
             MoveAbsolute(s) => write!(f, "move {} {}", s.x, s.y),
-            SetFont(i, s) => write!(f, "font {}-{} {}", i.id, i.variant, s),
+            SetFont(id, s) => write!(f, "font {}-{} {}", id.index, id.variant, s),
             WriteText(s) => write!(f, "write {:?}", s),
             DebugBox(s) => write!(f, "box {} {}", s.x, s.y),
         }
@@ -82,9 +82,9 @@ impl Debug for LayoutAction {
 pub struct LayoutActions {
     origin: Size,
     actions: Vec<LayoutAction>,
-    active_font: (FontIndex, Length),
+    active_font: (FaceId, Length),
     next_pos: Option<Size>,
-    next_font: Option<(FontIndex, Length)>,
+    next_font: Option<(FaceId, Length)>,
 }
 
 impl LayoutActions {
@@ -93,7 +93,7 @@ impl LayoutActions {
         LayoutActions {
             actions: vec![],
             origin: Size::ZERO,
-            active_font: (FontIndex::MAX, Length::ZERO),
+            active_font: (FaceId::MAX, Length::ZERO),
             next_pos: None,
             next_font: None,
         }
