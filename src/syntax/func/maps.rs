@@ -1,8 +1,9 @@
 //! Deduplicating maps and keys for argument parsing.
 
 use crate::diagnostic::Diagnostics;
+use crate::geom::Value4;
 use crate::layout::prelude::*;
-use crate::length::{ScaleLength, Value4};
+use crate::length::ScaleLength;
 use crate::syntax::span::Spanned;
 use super::keys::*;
 use super::values::*;

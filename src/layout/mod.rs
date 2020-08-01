@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 use serde::Serialize;
 use fontdock::FaceId;
 
-use crate::length::{Length, Size, Margins};
+use crate::geom::{Size, Margins};
 use self::prelude::*;
 
 pub mod line;
@@ -219,8 +219,8 @@ impl Direction {
     ///
     /// - `1` if the direction is positive.
     /// - `-1` if the direction is negative.
-    pub fn factor(self) -> i32 {
-        if self.is_positive() { 1 } else { -1 }
+    pub fn factor(self) -> f64 {
+        if self.is_positive() { 1.0 } else { -1.0 }
     }
 
     /// The inverse axis.
@@ -368,17 +368,17 @@ enum LastSpacing {
     /// The last item was hard spacing.
     Hard,
     /// The last item was soft spacing with the given width and level.
-    Soft(Length, u32),
+    Soft(f64, u32),
     /// The last item was not spacing.
     None,
 }
 
 impl LastSpacing {
-    /// The length of the soft space if this is a soft space or zero otherwise.
-    fn soft_or_zero(self) -> Length {
+    /// The width of the soft space if this is a soft space or zero otherwise.
+    fn soft_or_zero(self) -> f64 {
         match self {
             LastSpacing::Soft(space, _) => space,
-            _ => Length::ZERO,
+            _ => 0.0,
         }
     }
 }

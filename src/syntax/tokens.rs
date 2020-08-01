@@ -534,6 +534,7 @@ pub fn is_identifier(string: &str) -> bool {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
+    use crate::length::Length;
     use super::super::test::check;
     use super::*;
     use Token::{

@@ -39,7 +39,7 @@ pub struct LineContext {
     /// extent of the layout.
     pub debug: bool,
     /// The line spacing.
-    pub line_spacing: Length,
+    pub line_spacing: f64,
 }
 
 /// A line run is a sequence of boxes with the same alignment that are arranged
@@ -48,9 +48,8 @@ pub struct LineContext {
 #[derive(Debug)]
 struct LineRun {
     /// The so-far accumulated layouts in the line.
-    layouts: Vec<(Length, Layout)>,
-    /// The width (primary length) and maximal height (secondary length) of the
-    /// line.
+    layouts: Vec<(f64, Layout)>,
+    /// The width and maximal height of the line.
     size: Size,
     /// The alignment of all layouts in the line.
     ///
@@ -60,7 +59,7 @@ struct LineRun {
     alignment: Option<LayoutAlignment>,
     /// If another line run with different alignment already took up some space
     /// of the line, this run has less space and how much is stored here.
-    usable: Option<Length>,
+    usable: Option<f64>,
     /// A possibly cached soft spacing or spacing state.
     last_spacing: LastSpacing,
 }
@@ -104,7 +103,7 @@ impl LineLayouter {
                 let usable = self.stack.usable().primary(axes);
                 rest_run.usable = Some(match layout.alignment.primary {
                     Alignment::Origin => unreachable!("origin > x"),
-                    Alignment::Center => usable - 2 * self.run.size.x,
+                    Alignment::Center => usable - 2.0 * self.run.size.x,
                     Alignment::End => usable - self.run.size.x,
                 });
 
@@ -138,7 +137,7 @@ impl LineLayouter {
         self.run.layouts.push((self.run.size.x, layout));
 
         self.run.size.x += size.x;
-        self.run.size.y.max_eq(size.y);
+        self.run.size.y = self.run.size.y.max(size.y);
         self.run.last_spacing = LastSpacing::None;
     }
 
@@ -170,11 +169,11 @@ impl LineLayouter {
     }
 
     /// Add spacing along the primary axis to the line.
-    pub fn add_primary_spacing(&mut self, mut spacing: Length, kind: SpacingKind) {
+    pub fn add_primary_spacing(&mut self, mut spacing: f64, kind: SpacingKind) {
         match kind {
             // A hard space is simply an empty box.
             SpacingKind::Hard => {
-                spacing.min_eq(self.usable().x);
+                spacing = spacing.min(self.usable().x);
                 self.run.size.x += spacing;
                 self.run.last_spacing = LastSpacing::Hard;
             }
@@ -196,7 +195,7 @@ impl LineLayouter {
     }
 
     /// Finish the line and add secondary spacing to the underlying stack.
-    pub fn add_secondary_spacing(&mut self, spacing: Length, kind: SpacingKind) {
+    pub fn add_secondary_spacing(&mut self, spacing: f64, kind: SpacingKind) {
         self.finish_line_if_not_empty();
         self.stack.add_spacing(spacing, kind)
     }
@@ -218,7 +217,7 @@ impl LineLayouter {
     }
 
     /// Update the line spacing.
-    pub fn set_line_spacing(&mut self, line_spacing: Length) {
+    pub fn set_line_spacing(&mut self, line_spacing: f64) {
         self.ctx.line_spacing = line_spacing;
     }
 

@@ -1,7 +1,8 @@
 //! Styles for text and pages.
 
 use fontdock::{fallback, FallbackTree, FontVariant, FontStyle, FontWeight, FontWidth};
-use crate::length::{Length, Size, Margins, Value4, ScaleLength};
+use crate::geom::{Size, Margins, Value4};
+use crate::length::{Length, ScaleLength};
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
 /// Defines properties of pages and text.
@@ -27,7 +28,7 @@ pub struct TextStyle {
     /// whether the next `_` makes italic or non-italic.
     pub italic: bool,
     /// The base font size.
-    pub base_font_size: Length,
+    pub base_font_size: f64,
     /// The font scale to apply on the base font size.
     pub font_scale: f64,
     /// The word spacing (as a multiple of the font size).
@@ -40,22 +41,22 @@ pub struct TextStyle {
 
 impl TextStyle {
     /// The scaled font size.
-    pub fn font_size(&self) -> Length {
+    pub fn font_size(&self) -> f64 {
         self.base_font_size * self.font_scale
     }
 
     /// The absolute word spacing.
-    pub fn word_spacing(&self) -> Length {
+    pub fn word_spacing(&self) -> f64 {
         self.word_spacing_scale * self.font_size()
     }
 
     /// The absolute line spacing.
-    pub fn line_spacing(&self) -> Length {
+    pub fn line_spacing(&self) -> f64 {
         (self.line_spacing_scale - 1.0) * self.font_size()
     }
 
     /// The absolute paragraph spacing.
-    pub fn paragraph_spacing(&self) -> Length {
+    pub fn paragraph_spacing(&self) -> f64 {
         (self.paragraph_spacing_scale - 1.0) * self.font_size()
     }
 }
@@ -81,7 +82,7 @@ impl Default for TextStyle {
             },
             bolder: false,
             italic: false,
-            base_font_size: Length::pt(11.0),
+            base_font_size: Length::pt(11.0).as_raw(),
             font_scale: 1.0,
             word_spacing_scale: 0.25,
             line_spacing_scale: 1.2,
@@ -118,10 +119,10 @@ impl PageStyle {
         let default = self.class.default_margins();
 
         Margins {
-            left: self.margins.left.unwrap_or(default.left).scaled(dims.x),
-            top: self.margins.top.unwrap_or(default.top).scaled(dims.y),
-            right: self.margins.right.unwrap_or(default.right).scaled(dims.x),
-            bottom: self.margins.bottom.unwrap_or(default.bottom).scaled(dims.y),
+            left: self.margins.left.unwrap_or(default.left).raw_scaled(dims.x),
+            top: self.margins.top.unwrap_or(default.top).raw_scaled(dims.y),
+            right: self.margins.right.unwrap_or(default.right).raw_scaled(dims.x),
+            bottom: self.margins.bottom.unwrap_or(default.bottom).raw_scaled(dims.y),
         }
     }
 }

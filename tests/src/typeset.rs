@@ -14,8 +14,9 @@ use futures_executor::block_on;
 
 use typstc::Typesetter;
 use typstc::font::DynProvider;
+use typstc::geom::{Size, Value4};
 use typstc::layout::MultiLayout;
-use typstc::length::{Length, Size, Value4};
+use typstc::length::Length;
 use typstc::style::PageStyle;
 use typstc::paper::PaperClass;
 use typstc::export::pdf;
@@ -85,7 +86,7 @@ fn test(name: &str, src: &str, index: &FsIndex) -> DynResult<()> {
 
     typesetter.set_page_style(PageStyle {
         class: PaperClass::Custom,
-        dimensions: Size::with_all(Length::pt(250.0)),
+        dimensions: Size::with_all(Length::pt(250.0).as_raw()),
         margins: Value4::with_all(None),
     });
 

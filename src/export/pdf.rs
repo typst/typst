@@ -116,8 +116,8 @@ impl<'a, W: Write> PdfExporter<'a, W> {
             let rect = Rect::new(
                 0.0,
                 0.0,
-                page.dimensions.x.to_pt() as f32,
-                page.dimensions.y.to_pt() as f32,
+                Length::raw(page.dimensions.x).as_pt() as f32,
+                Length::raw(page.dimensions.y).as_pt() as f32,
             );
 
             self.writer.write_obj(
@@ -145,7 +145,7 @@ impl<'a, W: Write> PdfExporter<'a, W> {
         // needed.
         let mut text = Text::new();
         let mut face_id = FaceId::MAX;
-        let mut font_size = Length::ZERO;
+        let mut font_size = 0.0;
         let mut next_pos = None;
 
         for action in &page.actions {
@@ -157,13 +157,16 @@ impl<'a, W: Write> PdfExporter<'a, W> {
                 &LayoutAction::SetFont(id, size) => {
                     face_id = id;
                     font_size = size;
-                    text.tf(self.to_pdf[&id] as u32 + 1, font_size.to_pt() as f32);
+                    text.tf(
+                        self.to_pdf[&id] as u32 + 1,
+                        Length::raw(font_size).as_pt() as f32
+                    );
                 }
 
                 LayoutAction::WriteText(string) => {
                     if let Some(pos) = next_pos.take() {
-                        let x = pos.x.to_pt();
-                        let y = (page.dimensions.y - pos.y - font_size).to_pt();
+                        let x = Length::raw(pos.x).as_pt();
+                        let y = Length::raw(page.dimensions.y - pos.y - font_size).as_pt();
                         text.tm(1.0, 0.0, 0.0, 1.0, x as f32, y as f32);
                     }
 
@@ -202,12 +205,10 @@ impl<'a, W: Write> PdfExporter<'a, W> {
             let base_font = format!("ABCDEF+{}", name);
             let system_info = CIDSystemInfo::new("Adobe", "Identity", 0);
 
-            let units_per_em = face.units_per_em().unwrap_or(1000);
-            let ratio = 1.0 / (units_per_em as f64);
-            let to_length = |x| Length::pt(ratio * x as f64);
-            let to_glyph_unit = |font_unit| {
-                let length = to_length(font_unit);
-                (1000.0 * length.to_pt()).round() as GlyphUnit
+            let units_per_em = face.units_per_em().unwrap_or(1000) as f64;
+            let ratio = 1.0 / units_per_em;
+            let to_glyph_unit = |font_unit: f64| {
+                (1000.0 * ratio * font_unit).round() as GlyphUnit
             };
 
             let global_bbox = face.global_bounding_box();

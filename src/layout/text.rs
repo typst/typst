@@ -6,7 +6,7 @@
 
 use fontdock::{FaceId, FaceQuery, FontStyle};
 use crate::font::SharedFontLoader;
-use crate::length::{Length, Size};
+use crate::geom::Size;
 use crate::style::TextStyle;
 use super::*;
 
@@ -18,7 +18,7 @@ struct TextLayouter<'a> {
     actions: LayoutActions,
     buffer: String,
     active_font: FaceId,
-    width: Length,
+    width: f64,
 }
 
 /// The context for text layouting.
@@ -51,7 +51,7 @@ impl<'a> TextLayouter<'a> {
             actions: LayoutActions::new(),
             buffer: String::new(),
             active_font: FaceId::MAX,
-            width: Length::ZERO,
+            width: 0.0,
         }
     }
 
@@ -107,7 +107,7 @@ impl<'a> TextLayouter<'a> {
 
     /// Select the best font for a character and return its index along with
     /// the width of the char in the font.
-    async fn select_font(&mut self, c: char) -> Option<(FaceId, Length)> {
+    async fn select_font(&mut self, c: char) -> Option<(FaceId, f64)> {
         let mut loader = self.ctx.loader.borrow_mut();
 
         let mut variant = self.ctx.style.variant;
@@ -132,14 +132,13 @@ impl<'a> TextLayouter<'a> {
 
         if let Some((id, face)) = loader.query(query).await {
             // Determine the width of the char.
-            let units_per_em = face.units_per_em().unwrap_or(1000);
-            let ratio = 1.0 / (units_per_em as f64);
-            let to_length = |x| Length::pt(ratio * x as f64);
+            let units_per_em = face.units_per_em().unwrap_or(1000) as f64;
+            let ratio = 1.0 / units_per_em;
+            let to_raw = |x| ratio * x as f64;
 
             let glyph = face.glyph_index(c)?;
             let glyph_width = face.glyph_hor_advance(glyph)?;
-            let char_width = to_length(glyph_width)
-                * self.ctx.style.font_size().to_pt();
+            let char_width = to_raw(glyph_width) * self.ctx.style.font_size();
 
             Some((id, char_width))
         } else {

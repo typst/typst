@@ -76,13 +76,13 @@ value!(Ident,  "identifier", Expr::Ident(i)  => i);
 value!(String, "string",     Expr::Str(s)    => s);
 value!(f64,    "number",     Expr::Number(n) => n);
 value!(bool,   "bool",       Expr::Bool(b)   => b);
-value!(Length, "length",     Expr::Length(s)   => s);
+value!(Length, "length",     Expr::Length(l) => l);
 value!(Tuple,  "tuple",      Expr::Tuple(t)  => t);
 value!(Object, "object",     Expr::Object(o) => o);
 
 value!(ScaleLength, "number or length",
     Expr::Length(length)    => ScaleLength::Absolute(length),
-    Expr::Number(scale) => ScaleLength::Scaled(scale as f64),
+    Expr::Number(scale) => ScaleLength::Scaled(scale),
 );
 
 /// A value type that matches [`Expr::Ident`] and [`Expr::Str`] and implements

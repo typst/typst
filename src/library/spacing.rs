@@ -98,7 +98,7 @@ function! {
     layout(self, ctx, f) {
         if let Some((axis, spacing)) = self.spacing {
             let axis = axis.to_generic(ctx.axes);
-            let spacing = spacing.scaled(ctx.style.text.font_size());
+            let spacing = spacing.raw_scaled(ctx.style.text.font_size());
             vec![AddSpacing(spacing, SpacingKind::Hard, axis)]
         } else {
             vec![]

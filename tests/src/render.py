@@ -170,8 +170,9 @@ class BoxRenderer:
         return self.img
 
 
-def pix(points):
-    return int(4 * points)
+# the number of pixels per raw unit
+def pix(raw):
+    return int(4 * raw)
 
 def overlap(a, b):
     return (a[0] < b[2] and b[0] < a[2]) and (a[1] < b[3] and b[1] < a[3])

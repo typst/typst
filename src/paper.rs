@@ -1,6 +1,7 @@
 //! Predefined papers.
 
-use crate::length::{Length, Size, Value4, ScaleLength};
+use crate::geom::{Size, Value4};
+use crate::length::{Length, ScaleLength};
 
 /// Specification of a paper.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -21,7 +22,7 @@ impl Paper {
 
     /// The size of the paper.
     pub fn size(self) -> Size {
-        Size::new(self.width, self.height)
+        Size::new(self.width.as_raw(), self.height.as_raw())
     }
 }
 
@@ -74,8 +75,8 @@ macro_rules! papers {
         #[doc = $names]
         #[doc = "`."]
         pub const $var: Paper = Paper {
-            width: Length { points: 2.83465 * $width },
-            height: Length { points: 2.83465 * $height },
+            width: Length::mm($width),
+            height: Length::mm($height),
             class: PaperClass::$class,
         };
     };

@@ -42,6 +42,7 @@ pub mod export;
 pub mod font;
 #[macro_use]
 pub mod func;
+pub mod geom;
 pub mod layout;
 pub mod library;
 pub mod length;

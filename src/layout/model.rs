@@ -9,7 +9,7 @@ use smallvec::smallvec;
 use crate::{Pass, Feedback};
 use crate::SharedFontLoader;
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
-use crate::length::{Length, Size};
+use crate::geom::Size;
 use crate::syntax::{Model, SyntaxModel, Node, Decoration};
 use crate::syntax::span::{Span, Spanned};
 use super::line::{LineLayouter, LineContext};
@@ -74,7 +74,7 @@ pub enum Command<'a> {
     /// Add spacing of given [kind](super::SpacingKind) along the primary or
     /// secondary axis. The spacing kind defines how the spacing interacts with
     /// surrounding spacing.
-    AddSpacing(Length, SpacingKind, GenericAxis),
+    AddSpacing(f64, SpacingKind, GenericAxis),
 
     /// Start a new line.
     BreakLine,

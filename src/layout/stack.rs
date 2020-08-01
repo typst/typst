@@ -22,7 +22,7 @@
 //! sentence in the second box.
 
 use smallvec::smallvec;
-use crate::length::Value4;
+use crate::geom::Value4;
 use super::*;
 
 /// Performs the stack layouting.
@@ -128,12 +128,12 @@ impl StackLayouter {
     }
 
     /// Add secondary spacing to the stack.
-    pub fn add_spacing(&mut self, mut spacing: Length, kind: SpacingKind) {
+    pub fn add_spacing(&mut self, mut spacing: f64, kind: SpacingKind) {
         match kind {
             // A hard space is simply an empty box.
             SpacingKind::Hard => {
                 // Reduce the spacing such that it definitely fits.
-                spacing.min_eq(self.space.usable.secondary(self.ctx.axes));
+                spacing = spacing.min(self.space.usable.secondary(self.ctx.axes));
                 let dimensions = Size::with_y(spacing);
 
                 self.update_metrics(dimensions);
@@ -170,11 +170,11 @@ impl StackLayouter {
         let mut size = self.space.size.generalized(axes);
         let mut extra = self.space.extra.generalized(axes);
 
-        size.x += (dimensions.x - extra.x).max(Length::ZERO);
-        size.y += (dimensions.y - extra.y).max(Length::ZERO);
+        size.x += (dimensions.x - extra.x).max(0.0);
+        size.y += (dimensions.y - extra.y).max(0.0);
 
-        extra.x.max_eq(dimensions.x);
-        extra.y = (extra.y - dimensions.y).max(Length::ZERO);
+        extra.x = extra.x.max(dimensions.x);
+        extra.y = (extra.y - dimensions.y).max(0.0);
 
         self.space.size = size.specialized(axes);
         self.space.extra = extra.specialized(axes);
@@ -348,7 +348,7 @@ impl StackLayouter {
             // is reset for this new axis-aligned run.
             if rotation != axes.secondary.axis() {
                 extent.y = extent.x;
-                extent.x = Length::ZERO;
+                extent.x = 0.0;
                 rotation = axes.secondary.axis();
             }
 
@@ -360,7 +360,7 @@ impl StackLayouter {
 
             // Then, we add this layout's secondary extent to the accumulator.
             let size = layout.dimensions.generalized(*axes);
-            extent.x.max_eq(size.x);
+            extent.x = extent.x.max(size.x);
             extent.y += size.y;
         }
 

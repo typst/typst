@@ -157,8 +157,8 @@ function! {
     layout(self, ctx, f) {
         styled(&self.body, ctx, self.size, |t, s| {
             match s {
-                ScaleLength::Absolute(size) => {
-                    t.base_font_size = size;
+                ScaleLength::Absolute(length) => {
+                    t.base_font_size = length.as_raw();
                     t.font_scale = 1.0;
                 }
                 ScaleLength::Scaled(scale) => t.font_scale = scale,

@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use serde::ser::{Serialize, Serializer, SerializeTuple};
 use fontdock::FaceId;
 
-use crate::length::{Length, Size};
+use crate::geom::Size;
 use super::Layout;
 use self::LayoutAction::*;
 
@@ -15,7 +15,7 @@ pub enum LayoutAction {
     /// Move to an absolute position.
     MoveAbsolute(Size),
     /// Set the font given the index from the font loader and font size.
-    SetFont(FaceId, Length),
+    SetFont(FaceId, f64),
     /// Write text at the current position.
     WriteText(String),
     /// Visualize a box for debugging purposes.
@@ -82,9 +82,9 @@ impl Debug for LayoutAction {
 pub struct LayoutActions {
     origin: Size,
     actions: Vec<LayoutAction>,
-    active_font: (FaceId, Length),
+    active_font: (FaceId, f64),
     next_pos: Option<Size>,
-    next_font: Option<(FaceId, Length)>,
+    next_font: Option<(FaceId, f64)>,
 }
 
 impl LayoutActions {
@@ -93,7 +93,7 @@ impl LayoutActions {
         LayoutActions {
             actions: vec![],
             origin: Size::ZERO,
-            active_font: (FaceId::MAX, Length::ZERO),
+            active_font: (FaceId::MAX, 0.0),
             next_pos: None,
             next_font: None,
         }

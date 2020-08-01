@@ -125,7 +125,7 @@ function! {
         let map = self.extents.dedup(&mut f.diagnostics, ctx.axes);
         for &axis in &[Horizontal, Vertical] {
             if let Some(scale) = map.get(axis) {
-                let length = scale.scaled(ctx.base.get(axis));
+                let length = scale.raw_scaled(ctx.base.get(axis));
                 *ctx.base.get_mut(axis) = length;
                 *ctx.spaces[0].dimensions.get_mut(axis) = length;
                 *ctx.spaces[0].expansion.get_mut(axis) = true;

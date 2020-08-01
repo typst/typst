@@ -31,8 +31,8 @@ function! {
         }
 
         let map = self.extents.dedup(&mut f.diagnostics, ctx.axes);
-        map.with(Horizontal, |&width| style.dimensions.x = width);
-        map.with(Vertical, |&height| style.dimensions.y = height);
+        map.with(Horizontal, |&width| style.dimensions.x = width.as_raw());
+        map.with(Vertical, |&height| style.dimensions.y = height.as_raw());
 
         if self.flip {
             style.dimensions.swap();
