@@ -32,7 +32,7 @@ class MultiboxRenderer:
         self.faces = {}
         for entry in data["faces"]:
             face_id = int(entry[0]["index"]), int(entry[0]["variant"])
-            self.faces[face_id] = os.path.join(BASE, '../../../fonts', entry[1])
+            self.faces[face_id] = os.path.join(BASE, '../../', entry[1])
 
         self.layouts = data["layouts"]
 

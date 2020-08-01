@@ -44,7 +44,6 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     let mut index = FsIndex::new();
     index.search_dir("fonts");
-    index.search_dir("../fonts");
     index.search_os();
 
     let (descriptors, files) = index.into_vecs();

@@ -59,7 +59,7 @@ fn main() -> DynResult<()> {
     }
 
     let mut index = FsIndex::new();
-    index.search_dir("../fonts");
+    index.search_dir("fonts");
 
     for (name, src) in filtered {
         panic::catch_unwind(|| {
