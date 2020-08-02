@@ -11,20 +11,20 @@ use self::prelude::*;
 pub mod line;
 pub mod stack;
 pub mod text;
-
 pub_use_mod!(actions);
 pub_use_mod!(model);
 
 /// Basic types used across the layouting engine.
 pub mod prelude {
     pub use super::{
-        LayoutContext, layout, LayoutSpace, Commands,
-        LayoutAxes, LayoutAlignment, LayoutExpansion
+        layout, LayoutContext, LayoutSpace, Command, Commands,
+        LayoutAxes, LayoutAlign, LayoutExpansion,
     };
-    pub use super::GenericAxis::{self, *};
-    pub use super::SpecificAxis::{self, *};
-    pub use super::Direction::{self, *};
-    pub use super::Alignment::{self, *};
+    pub use super::Dir::{self, *};
+    pub use super::GenAxis::{self, *};
+    pub use super::SpecAxis::{self, *};
+    pub use super::GenAlign::{self, *};
+    pub use super::SpecAlign::{self, *};
 }
 
 /// A collection of layouts.
@@ -37,7 +37,7 @@ pub struct Layout {
     pub dimensions: Size,
     /// How to align this layout in a parent container.
     #[serde(skip)]
-    pub alignment: LayoutAlignment,
+    pub align: LayoutAlign,
     /// The actions composing this layout.
     pub actions: Vec<LayoutAction>,
 }
@@ -95,82 +95,31 @@ impl LayoutSpace {
     }
 }
 
-/// The two generic layouting axes.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum GenericAxis {
-    /// The primary axis along which words are laid out.
-    Primary,
-    /// The secondary axis along which lines and paragraphs are laid out.
-    Secondary,
-}
-
-impl GenericAxis {
-    /// The specific version of this axis in the given system of axes.
-    pub fn to_specific(self, axes: LayoutAxes) -> SpecificAxis {
-        axes.get(self).axis()
-    }
-}
-
-impl Display for GenericAxis {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Primary => write!(f, "primary"),
-            Secondary => write!(f, "secondary"),
-        }
-    }
-}
-
-/// The two specific layouting axes.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum SpecificAxis {
-    /// The horizontal layouting axis.
-    Horizontal,
-    /// The vertical layouting axis.
-    Vertical,
-}
-
-impl SpecificAxis {
-    /// The generic version of this axis in the given system of axes.
-    pub fn to_generic(self, axes: LayoutAxes) -> GenericAxis {
-        if self == axes.primary.axis() { Primary } else { Secondary }
-    }
-}
-
-impl Display for SpecificAxis {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Horizontal => write!(f, "horizontal"),
-            Vertical => write!(f, "vertical"),
-        }
-    }
-}
-
-/// Specifies along which directions content is laid out.
+/// Specifies along which axes content is laid out.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct LayoutAxes {
     /// The primary layouting direction.
-    pub primary: Direction,
+    pub primary: Dir,
     /// The secondary layouting direction.
-    pub secondary: Direction,
+    pub secondary: Dir,
 }
 
 impl LayoutAxes {
     /// Create a new instance from the two values.
     ///
     /// # Panics
-    /// This function panics if the directions are aligned, that is, they are
+    /// This function panics if the axes are aligned, that is, they are
     /// on the same axis.
-    pub fn new(primary: Direction, secondary: Direction) -> LayoutAxes {
+    pub fn new(primary: Dir, secondary: Dir) -> LayoutAxes {
         if primary.axis() == secondary.axis() {
-            panic!("LayoutAxes::new: invalid aligned axes \
-                    {} and {}", primary, secondary);
+            panic!("invalid aligned axes {} and {}", primary, secondary);
         }
 
         LayoutAxes { primary, secondary }
     }
 
     /// Return the direction of the specified generic axis.
-    pub fn get(self, axis: GenericAxis) -> Direction {
+    pub fn get(self, axis: GenAxis) -> Dir {
         match axis {
             Primary => self.primary,
             Secondary => self.secondary,
@@ -178,7 +127,7 @@ impl LayoutAxes {
     }
 
     /// Borrow the direction of the specified generic axis mutably.
-    pub fn get_mut(&mut self, axis: GenericAxis) -> &mut Direction {
+    pub fn get_mut(&mut self, axis: GenAxis) -> &mut Dir {
         match axis {
             Primary => &mut self.primary,
             Secondary => &mut self.secondary,
@@ -188,30 +137,29 @@ impl LayoutAxes {
 
 /// Directions along which content is laid out.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-#[allow(missing_docs)]
-pub enum Direction {
-    LeftToRight,
-    RightToLeft,
-    TopToBottom,
-    BottomToTop,
+pub enum Dir {
+    LTT,
+    RTL,
+    TTB,
+    BTT,
 }
 
-impl Direction {
+impl Dir {
     /// The specific axis this direction belongs to.
-    pub fn axis(self) -> SpecificAxis {
+    pub fn axis(self) -> SpecAxis {
         match self {
-            LeftToRight | RightToLeft => Horizontal,
-            TopToBottom | BottomToTop => Vertical,
+            LTT | RTL => Horizontal,
+            TTB | BTT => Vertical,
         }
     }
 
     /// Whether this axis points into the positive coordinate direction.
     ///
-    /// The positive directions are left-to-right and top-to-bottom.
+    /// The positive axes are left-to-right and top-to-bottom.
     pub fn is_positive(self) -> bool {
         match self {
-            LeftToRight | TopToBottom => true,
-            RightToLeft | BottomToTop => false,
+            LTT | TTB => true,
+            RTL | BTT => false,
         }
     }
 
@@ -224,44 +172,94 @@ impl Direction {
     }
 
     /// The inverse axis.
-    pub fn inv(self) -> Direction {
+    pub fn inv(self) -> Dir {
         match self {
-            LeftToRight => RightToLeft,
-            RightToLeft => LeftToRight,
-            TopToBottom => BottomToTop,
-            BottomToTop => TopToBottom,
+            LTT => RTL,
+            RTL => LTT,
+            TTB => BTT,
+            BTT => TTB,
         }
     }
 }
 
-impl Display for Direction {
+impl Display for Dir {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            LeftToRight => write!(f, "left-to-right"),
-            RightToLeft => write!(f, "right-to-left"),
-            TopToBottom => write!(f, "top-to-bottom"),
-            BottomToTop => write!(f, "bottom-to-top"),
-        }
+        f.pad(match self {
+            LTT => "ltr",
+            RTL => "rtl",
+            TTB => "ttb",
+            BTT => "btt",
+        })
+    }
+}
+
+/// The two generic layouting axes.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum GenAxis {
+    /// The primary axis along which words are laid out.
+    Primary,
+    /// The secondary axis along which lines and paragraphs are laid out.
+    Secondary,
+}
+
+impl GenAxis {
+    /// The specific version of this axis in the given system of axes.
+    pub fn to_specific(self, axes: LayoutAxes) -> SpecAxis {
+        axes.get(self).axis()
+    }
+}
+
+impl Display for GenAxis {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(match self {
+            Primary => "primary",
+            Secondary => "secondary",
+        })
+    }
+}
+
+/// The two specific layouting axes.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum SpecAxis {
+    /// The horizontal layouting axis.
+    Horizontal,
+    /// The vertical layouting axis.
+    Vertical,
+}
+
+impl SpecAxis {
+    /// The generic version of this axis in the given system of axes.
+    pub fn to_generic(self, axes: LayoutAxes) -> GenAxis {
+        if self == axes.primary.axis() { Primary } else { Secondary }
+    }
+}
+
+impl Display for SpecAxis {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(match self {
+            Horizontal => "horizontal",
+            Vertical => "vertical",
+        })
     }
 }
 
 /// Specifies where to align a layout in a parent container.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct LayoutAlignment {
+pub struct LayoutAlign {
     /// The alignment along the primary axis.
-    pub primary: Alignment,
+    pub primary: GenAlign,
     /// The alignment along the secondary axis.
-    pub secondary: Alignment,
+    pub secondary: GenAlign,
 }
 
-impl LayoutAlignment {
+impl LayoutAlign {
     /// Create a new instance from the two values.
-    pub fn new(primary: Alignment, secondary: Alignment) -> LayoutAlignment {
-        LayoutAlignment { primary, secondary }
+    pub fn new(primary: GenAlign, secondary: GenAlign) -> LayoutAlign {
+        LayoutAlign { primary, secondary }
     }
 
     /// Return the alignment of the specified generic axis.
-    pub fn get(self, axis: GenericAxis) -> Alignment {
+    pub fn get(self, axis: GenAxis) -> GenAlign {
         match axis {
             Primary => self.primary,
             Secondary => self.secondary,
@@ -269,7 +267,7 @@ impl LayoutAlignment {
     }
 
     /// Borrow the alignment of the specified generic axis mutably.
-    pub fn get_mut(&mut self, axis: GenericAxis) -> &mut Alignment {
+    pub fn get_mut(&mut self, axis: GenAxis) -> &mut GenAlign {
         match axis {
             Primary => &mut self.primary,
             Secondary => &mut self.secondary,
@@ -277,25 +275,85 @@ impl LayoutAlignment {
     }
 }
 
-/// Where to align content.
+/// Where to align content along a generic context.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum Alignment {
-    /// Align content at the start of the axis.
-    Origin,
-    /// Align content centered on the axis.
+pub enum GenAlign {
+    Start,
     Center,
-    /// Align content at the end of the axis.
     End,
 }
 
-impl Alignment {
+impl GenAlign {
     /// The inverse alignment.
-    pub fn inv(self) -> Alignment {
+    pub fn inv(self) -> GenAlign {
         match self {
-            Origin => End,
+            Start => End,
             Center => Center,
-            End => Origin,
+            End => Start,
         }
+    }
+}
+
+impl Display for GenAlign {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(match self {
+            Start => "start",
+            Center => "center",
+            End => "end",
+        })
+    }
+}
+
+/// Where to align content in a specific context.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum SpecAlign {
+    Left,
+    Right,
+    Top,
+    Bottom,
+    Center,
+}
+
+impl SpecAlign {
+    /// The specific axis this alignment refers to.
+    ///
+    /// Returns `None` if this is center.
+    pub fn axis(self) -> Option<SpecAxis> {
+        match self {
+            Self::Left => Some(Horizontal),
+            Self::Right => Some(Horizontal),
+            Self::Top => Some(Vertical),
+            Self::Bottom => Some(Vertical),
+            Self::Center => None,
+        }
+    }
+
+    /// Convert this to a generic alignment.
+    pub fn to_generic(self, axes: LayoutAxes) -> GenAlign {
+        let get = |spec: SpecAxis, align: GenAlign| {
+            let axis = spec.to_generic(axes);
+            if axes.get(axis).is_positive() { align } else { align.inv() }
+        };
+
+        match self {
+            Self::Left => get(Horizontal, Start),
+            Self::Right => get(Horizontal, End),
+            Self::Top => get(Vertical, Start),
+            Self::Bottom => get(Vertical, End),
+            Self::Center => GenAlign::Center,
+        }
+    }
+}
+
+impl Display for SpecAlign {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(match self {
+            Self::Left => "left",
+            Self::Right => "right",
+            Self::Top => "top",
+            Self::Bottom => "bottom",
+            Self::Center => "center",
+        })
     }
 }
 
@@ -316,7 +374,7 @@ impl LayoutExpansion {
     }
 
     /// Return the expansion value for the given specific axis.
-    pub fn get(self, axis: SpecificAxis) -> bool {
+    pub fn get(self, axis: SpecAxis) -> bool {
         match axis {
             Horizontal => self.horizontal,
             Vertical => self.vertical,
@@ -324,7 +382,7 @@ impl LayoutExpansion {
     }
 
     /// Borrow the expansion value for the given specific axis mutably.
-    pub fn get_mut(&mut self, axis: SpecificAxis) -> &mut bool {
+    pub fn get_mut(&mut self, axis: SpecAxis) -> &mut bool {
         match axis {
             Horizontal => &mut self.horizontal,
             Vertical => &mut self.vertical,

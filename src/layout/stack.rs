@@ -46,7 +46,7 @@ pub struct StackContext {
     pub axes: LayoutAxes,
     /// Which alignment to set on the resulting layout. This affects how it will
     /// be positioned in a parent box.
-    pub alignment: LayoutAlignment,
+    pub align: LayoutAlign,
     /// Whether to have repeated spaces or to use only the first and only once.
     pub repeat: bool,
     /// Whether to output a command which renders a debugging box showing the
@@ -72,7 +72,7 @@ struct Space {
     extra: Size,
     /// The rulers of a space dictate which alignments for new boxes are still
     /// allowed and which require a new space to be started.
-    rulers: Value4<Alignment>,
+    rulers: Value4<GenAlign>,
     /// The last added spacing if the last added thing was spacing.
     last_spacing: LastSpacing,
 }
@@ -93,7 +93,7 @@ impl StackLayouter {
         // If the alignment cannot be fitted in this space, finish it.
         // TODO: Issue warning for non-fitting alignment in
         //       non-repeating context.
-        if !self.update_rulers(layout.alignment) && self.ctx.repeat {
+        if !self.update_rulers(layout.align) && self.ctx.repeat {
             self.finish_space(true);
         }
 
@@ -139,7 +139,7 @@ impl StackLayouter {
                 self.update_metrics(dimensions);
                 self.space.layouts.push((self.ctx.axes, Layout {
                     dimensions: dimensions.specialized(self.ctx.axes),
-                    alignment: LayoutAlignment::new(Origin, Origin),
+                    align: LayoutAlign::new(Start, Start),
                     actions: vec![]
                 }));
 
@@ -183,26 +183,26 @@ impl StackLayouter {
 
     /// Update the rulers to account for the new layout. Returns true if a
     /// space break is necessary.
-    fn update_rulers(&mut self, alignment: LayoutAlignment) -> bool {
-        let allowed = self.is_fitting_alignment(alignment);
+    fn update_rulers(&mut self, align: LayoutAlign) -> bool {
+        let allowed = self.is_fitting_alignment(align);
         if allowed {
-            *self.space.rulers.get_mut(self.ctx.axes.secondary, Origin)
-                = alignment.secondary;
+            *self.space.rulers.get_mut(self.ctx.axes.secondary, Start)
+                = align.secondary;
         }
         allowed
     }
 
     /// Whether a layout with the given alignment can still be layouted in the
     /// active space.
-    pub fn is_fitting_alignment(&mut self, alignment: LayoutAlignment) -> bool {
-        self.is_fitting_axis(self.ctx.axes.primary, alignment.primary)
-            && self.is_fitting_axis(self.ctx.axes.secondary, alignment.secondary)
+    pub fn is_fitting_alignment(&mut self, align: LayoutAlign) -> bool {
+        self.is_fitting_axis(self.ctx.axes.primary, align.primary)
+            && self.is_fitting_axis(self.ctx.axes.secondary, align.secondary)
     }
 
     /// Whether the given alignment is still allowed according to the rulers.
-    fn is_fitting_axis(&mut self, direction: Direction, alignment: Alignment) -> bool {
-        alignment >= *self.space.rulers.get_mut(direction, Origin)
-        && alignment <= self.space.rulers.get_mut(direction, End).inv()
+    fn is_fitting_axis(&mut self, dir: Dir, align: GenAlign) -> bool {
+        align >= *self.space.rulers.get_mut(dir, Start)
+        && align <= self.space.rulers.get_mut(dir, End).inv()
     }
 
     /// Change the layouting axes used by this layouter.
@@ -326,7 +326,7 @@ impl StackLayouter {
             // layout uses up space from the origin to the end. Thus, it reduces
             // the usable space for following layouts at it's origin by its
             // extent along the secondary axis.
-            *bound.get_mut(axes.secondary, Origin)
+            *bound.get_mut(axes.secondary, Start)
                 += axes.secondary.factor() * layout.dimensions.secondary(*axes);
         }
 
@@ -342,7 +342,7 @@ impl StackLayouter {
         for (bound, entry) in bounds.iter_mut().zip(&self.space.layouts).rev() {
             let (axes, layout) = entry;
 
-            // When the axes get rotated, the the maximal primary size
+            // When the axes are rotated, the the maximal primary size
             // (`extent.x`) dictates how much secondary extent the whole run
             // had. This value is thus stored in `extent.y`. The primary extent
             // is reset for this new axis-aligned run.
@@ -377,7 +377,7 @@ impl StackLayouter {
         let layouts = std::mem::replace(&mut self.space.layouts, vec![]);
         for ((axes, layout), bound) in layouts.into_iter().zip(bounds) {
             let size = layout.dimensions.specialized(axes);
-            let alignment = layout.alignment;
+            let align = layout.align;
 
             // The space in which this layout is aligned is given by the
             // distances between the borders of it's bounding box.
@@ -385,7 +385,7 @@ impl StackLayouter {
                 Size::new(bound.right - bound.left, bound.bottom - bound.top)
                     .generalized(axes);
 
-            let local = usable.anchor(alignment, axes) - size.anchor(alignment, axes);
+            let local = usable.anchor(align, axes) - size.anchor(align, axes);
             let pos = Size::new(bound.left, bound.top) + local.specialized(axes);
 
             actions.add_layout(pos, layout);
@@ -393,7 +393,7 @@ impl StackLayouter {
 
         self.layouts.push(Layout {
             dimensions,
-            alignment: self.ctx.alignment,
+            align: self.ctx.align,
             actions: actions.into_vec(),
         });
 
@@ -424,7 +424,7 @@ impl Space {
             size: Size::ZERO,
             usable,
             extra: Size::ZERO,
-            rulers: Value4::with_all(Origin),
+            rulers: Value4::with_all(Start),
             last_spacing: LastSpacing::Hard,
         }
     }

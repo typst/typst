@@ -28,7 +28,6 @@ impl Paper {
 
 /// Paper classes define default margins for a class of related papers.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-#[allow(missing_docs)]
 pub enum PaperClass {
     Custom,
     Base,

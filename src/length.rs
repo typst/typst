@@ -179,7 +179,6 @@ impl Display for ParseLengthError {
 
 /// Either an absolute length or a factor of some entity.
 #[derive(Copy, Clone, PartialEq)]
-#[allow(missing_docs)]
 pub enum ScaleLength {
     Absolute(Length),
     Scaled(f64),

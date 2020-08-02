@@ -1,9 +1,11 @@
 use std::fmt::Debug;
 
-use super::func::FuncHeader;
+use super::decoration::Decoration;
+use super::expr::{Expr, Ident, Tuple, NamedTuple, Object, Pair};
+use super::parsing::{FuncHeader, FuncArgs, FuncArg};
 use super::span::Spanned;
-use super::expr::{Expr, Tuple, NamedTuple, Object};
-use super::*;
+use super::tokens::Token;
+use super::model::{SyntaxModel, Model, Node};
 
 /// Check whether the expected and found results are the same.
 pub fn check<T>(src: &str, exp: T, found: T, cmp_spans: bool)
@@ -65,8 +67,8 @@ function! {
 
     parse(header, body, state, f) {
         let cloned = header.clone();
-        header.args.pos.items.clear();
-        header.args.key.pairs.clear();
+        header.args.pos.0.clear();
+        header.args.key.0.clear();
         DebugFn {
             header: cloned,
             body: body!(opt: body, state, f),
@@ -104,9 +106,31 @@ impl SpanlessEq for Node {
 
 impl SpanlessEq for DebugFn {
     fn spanless_eq(&self, other: &DebugFn) -> bool {
-        self.header.name.v == other.header.name.v
-        && self.header.args.pos.spanless_eq(&other.header.args.pos)
-        && self.header.args.key.spanless_eq(&other.header.args.key)
+        self.header.spanless_eq(&other.header)
+        && self.body.spanless_eq(&other.body)
+    }
+}
+
+impl SpanlessEq for FuncHeader {
+    fn spanless_eq(&self, other: &Self) -> bool {
+        self.name.spanless_eq(&other.name) && self.args.spanless_eq(&other.args)
+    }
+}
+
+impl SpanlessEq for FuncArgs {
+    fn spanless_eq(&self, other: &Self) -> bool {
+        self.key.spanless_eq(&other.key)
+        && self.pos.spanless_eq(&other.pos)
+    }
+}
+
+impl SpanlessEq for FuncArg {
+    fn spanless_eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (FuncArg::Pos(a), FuncArg::Pos(b)) => a.spanless_eq(b),
+            (FuncArg::Key(a), FuncArg::Key(b)) => a.spanless_eq(b),
+            _ => false,
+        }
     }
 }
 
@@ -128,9 +152,7 @@ impl SpanlessEq for Expr {
 
 impl SpanlessEq for Tuple {
     fn spanless_eq(&self, other: &Tuple) -> bool {
-        self.items.len() == other.items.len()
-        && self.items.iter().zip(&other.items)
-            .all(|(x, y)| x.v.spanless_eq(&y.v))
+        self.0.spanless_eq(&other.0)
     }
 }
 
@@ -143,9 +165,13 @@ impl SpanlessEq for NamedTuple {
 
 impl SpanlessEq for Object {
     fn spanless_eq(&self, other: &Object) -> bool {
-        self.pairs.len() == other.pairs.len()
-        && self.pairs.iter().zip(&other.pairs)
-            .all(|(x, y)| x.v.key.v == y.v.key.v && x.v.value.v.spanless_eq(&y.v.value.v))
+        self.0.spanless_eq(&other.0)
+    }
+}
+
+impl SpanlessEq for Pair {
+    fn spanless_eq(&self, other: &Self) -> bool {
+        self.key.spanless_eq(&other.key) && self.value.spanless_eq(&other.value)
     }
 }
 
@@ -168,6 +194,16 @@ impl<T: SpanlessEq> SpanlessEq for Box<T> {
     }
 }
 
+impl<T: SpanlessEq> SpanlessEq for Option<T> {
+    fn spanless_eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Some(a), Some(b)) => a.spanless_eq(b),
+            (None, None) => true,
+            _ => false,
+        }
+    }
+}
+
 macro_rules! impl_through_partial_eq {
     ($type:ty) => {
         impl SpanlessEq for $type {
@@ -179,6 +215,7 @@ macro_rules! impl_through_partial_eq {
 }
 
 impl_through_partial_eq!(Token<'_>);
+impl_through_partial_eq!(Ident);
 
 // Implement for string and decoration to be able to compare feedback.
 impl_through_partial_eq!(String);

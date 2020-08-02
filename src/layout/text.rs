@@ -34,7 +34,7 @@ pub struct TextContext<'a> {
     /// primary-horizontal layouting is supported.
     pub axes: LayoutAxes,
     /// The alignment of the finished layout.
-    pub alignment: LayoutAlignment,
+    pub align: LayoutAlign,
 }
 
 /// Layouts text into a box.
@@ -75,7 +75,7 @@ impl<'a> TextLayouter<'a> {
 
         Layout {
             dimensions: Size::new(self.width, self.ctx.style.font_size()),
-            alignment: self.ctx.alignment,
+            align: self.ctx.align,
             actions: self.actions.into_vec(),
         }
     }

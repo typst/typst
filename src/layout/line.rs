@@ -32,7 +32,7 @@ pub struct LineContext {
     pub axes: LayoutAxes,
     /// Which alignment to set on the resulting layout. This affects how it will
     /// be positioned in a parent box.
-    pub alignment: LayoutAlignment,
+    pub align: LayoutAlign,
     /// Whether to have repeated spaces or to use only the first and only once.
     pub repeat: bool,
     /// Whether to output a command which renders a debugging box showing the
@@ -56,7 +56,7 @@ struct LineRun {
     /// When a new run is created the alignment is yet to be determined. Once a
     /// layout is added, it is decided which alignment the run has and all
     /// further elements of the run must have this alignment.
-    alignment: Option<LayoutAlignment>,
+    align: Option<LayoutAlign>,
     /// If another line run with different alignment already took up some space
     /// of the line, this run has less space and how much is stored here.
     usable: Option<f64>,
@@ -71,7 +71,7 @@ impl LineLayouter {
             stack: StackLayouter::new(StackContext {
                 spaces: ctx.spaces.clone(),
                 axes: ctx.axes,
-                alignment: ctx.alignment,
+                align: ctx.align,
                 repeat: ctx.repeat,
                 debug: ctx.debug,
             }),
@@ -84,27 +84,27 @@ impl LineLayouter {
     pub fn add(&mut self, layout: Layout) {
         let axes = self.ctx.axes;
 
-        if let Some(alignment) = self.run.alignment {
-            if layout.alignment.secondary != alignment.secondary {
+        if let Some(align) = self.run.align {
+            if layout.align.secondary != align.secondary {
                 // TODO: Issue warning for non-fitting alignment in
                 //       non-repeating context.
-                let fitting = self.stack.is_fitting_alignment(layout.alignment);
+                let fitting = self.stack.is_fitting_alignment(layout.align);
                 if !fitting && self.ctx.repeat {
                     self.finish_space(true);
                 } else {
                     self.finish_line();
                 }
-            } else if layout.alignment.primary < alignment.primary {
+            } else if layout.align.primary < align.primary {
                 self.finish_line();
 
-            } else if layout.alignment.primary > alignment.primary {
+            } else if layout.align.primary > align.primary {
                 let mut rest_run = LineRun::new();
 
                 let usable = self.stack.usable().primary(axes);
-                rest_run.usable = Some(match layout.alignment.primary {
-                    Alignment::Origin => unreachable!("origin > x"),
-                    Alignment::Center => usable - 2.0 * self.run.size.x,
-                    Alignment::End => usable - self.run.size.x,
+                rest_run.usable = Some(match layout.align.primary {
+                    GenAlign::Start => unreachable!("start > x"),
+                    GenAlign::Center => usable - 2.0 * self.run.size.x,
+                    GenAlign::End => usable - self.run.size.x,
                 });
 
                 rest_run.size.y = self.run.size.y;
@@ -133,7 +133,7 @@ impl LineLayouter {
             }
         }
 
-        self.run.alignment = Some(layout.alignment);
+        self.run.align = Some(layout.align);
         self.run.layouts.push((self.run.size.x, layout));
 
         self.run.size.x += size.x;
@@ -269,8 +269,8 @@ impl LineLayouter {
 
         self.stack.add(Layout {
             dimensions: self.run.size.specialized(self.ctx.axes),
-            alignment: self.run.alignment
-                .unwrap_or(LayoutAlignment::new(Origin, Origin)),
+            align: self.run.align
+                .unwrap_or(LayoutAlign::new(Start, Start)),
             actions: actions.into_vec(),
         });
 
@@ -292,7 +292,7 @@ impl LineRun {
         LineRun {
             layouts: vec![],
             size: Size::ZERO,
-            alignment: None,
+            align: None,
             usable: None,
             last_spacing: LastSpacing::Hard,
         }

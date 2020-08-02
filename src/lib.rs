@@ -23,7 +23,10 @@ use crate::diagnostic::Diagnostics;
 use crate::font::SharedFontLoader;
 use crate::layout::MultiLayout;
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
-use crate::syntax::{Decorations, SyntaxModel, Scope, ParseState, parse};
+use crate::syntax::decoration::Decorations;
+use crate::syntax::model::SyntaxModel;
+use crate::syntax::parsing::{parse, ParseState};
+use crate::syntax::scope::Scope;
 use crate::syntax::span::{Offset, Pos};
 
 /// Declare a module and reexport all its contents.
@@ -112,8 +115,8 @@ impl Typesetter {
                     expansion: LayoutExpansion::new(true, true),
                 }],
                 repeat: true,
-                axes: LayoutAxes::new(LeftToRight, TopToBottom),
-                alignment: LayoutAlignment::new(Origin, Origin),
+                axes: LayoutAxes::new(LTT, TTB),
+                align: LayoutAlign::new(Start, Start),
                 nested: false,
                 debug: self.debug,
             },

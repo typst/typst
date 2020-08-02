@@ -10,7 +10,8 @@ use crate::{Pass, Feedback};
 use crate::SharedFontLoader;
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::geom::Size;
-use crate::syntax::{Model, SyntaxModel, Node, Decoration};
+use crate::syntax::decoration::Decoration;
+use crate::syntax::model::{Model, SyntaxModel, Node};
 use crate::syntax::span::{Span, Spanned};
 use super::line::{LineLayouter, LineContext};
 use super::text::{layout_text, TextContext};
@@ -42,7 +43,7 @@ pub struct LayoutContext<'a> {
     /// The initial axes along which content is laid out.
     pub axes: LayoutAxes,
     /// The alignment of the finished layout.
-    pub alignment: LayoutAlignment,
+    pub align: LayoutAlign,
     /// Whether the layout that is to be created will be nested in a parent
     /// container.
     pub nested: bool,
@@ -74,7 +75,7 @@ pub enum Command<'a> {
     /// Add spacing of given [kind](super::SpacingKind) along the primary or
     /// secondary axis. The spacing kind defines how the spacing interacts with
     /// surrounding spacing.
-    AddSpacing(f64, SpacingKind, GenericAxis),
+    AddSpacing(f64, SpacingKind, GenAxis),
 
     /// Start a new line.
     BreakLine,
@@ -90,9 +91,9 @@ pub enum Command<'a> {
     SetPageStyle(PageStyle),
 
     /// Update the alignment for future boxes added to this layouting process.
-    SetAlignment(LayoutAlignment),
-    /// Update the layouting axes along which future boxes will be laid out.
-    /// This finishes the current line.
+    SetAlignment(LayoutAlign),
+    /// Update the layouting axes along which future boxes will be laid
+    /// out. This finishes the current line.
     SetAxes(LayoutAxes),
 }
 
@@ -115,7 +116,7 @@ impl<'a> ModelLayouter<'a> {
             layouter: LineLayouter::new(LineContext {
                 spaces: ctx.spaces.clone(),
                 axes: ctx.axes,
-                alignment: ctx.alignment,
+                align: ctx.align,
                 repeat: ctx.repeat,
                 debug: ctx.debug && ctx.nested,
                 line_spacing: ctx.style.text.line_spacing(),
@@ -127,10 +128,10 @@ impl<'a> ModelLayouter<'a> {
     }
 
     /// Flatly layout a model into this layouting process.
-    pub fn layout<'r>(
+    pub async fn layout<'r>(
         &'r mut self,
         model: Spanned<&'r dyn Model>
-    ) -> DynFuture<'r, ()> { Box::pin(async move {
+    ) {
         // Execute the model's layout function which generates the commands.
         let layouted = model.v.layout(LayoutContext {
             style: &self.style,
@@ -145,14 +146,14 @@ impl<'a> ModelLayouter<'a> {
         for command in layouted.output {
             self.execute_command(command, model.span).await;
         }
-    }) }
+    }
 
     /// Layout a syntax model by directly processing the nodes instead of using
     /// the command based architecture.
-    pub fn layout_syntax_model<'r>(
+    pub async fn layout_syntax_model<'r>(
         &'r mut self,
         model: &'r SyntaxModel
-    ) -> DynFuture<'r, ()> { Box::pin(async move {
+    ) {
         use Node::*;
 
         for Spanned { v: node, span } in &model.nodes {
@@ -213,7 +214,7 @@ impl<'a> ModelLayouter<'a> {
                 }
             }
         }
-    }) }
+    }
 
     /// Compute the finished list of boxes.
     pub fn finish(self) -> Pass<MultiLayout> {
@@ -280,7 +281,7 @@ impl<'a> ModelLayouter<'a> {
                 }
             }
 
-            SetAlignment(alignment) => self.ctx.alignment = alignment,
+            SetAlignment(align) => self.ctx.align = align,
             SetAxes(axes) => {
                 self.layouter.set_axes(axes);
                 self.ctx.axes = axes;
@@ -294,7 +295,7 @@ impl<'a> ModelLayouter<'a> {
             loader: &self.ctx.loader,
             style: &self.style.text,
             axes: self.ctx.axes,
-            alignment: self.ctx.alignment,
+            align: self.ctx.align,
         }).await)
     }
 

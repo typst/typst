@@ -45,7 +45,7 @@ impl<T: Clone> Value2<T> {
     pub fn with_all(s: T) -> Value2<T> { Value2 { x: s.clone(), y: s } }
 
     /// Get the specificed component.
-    pub fn get(self, axis: SpecificAxis) -> T {
+    pub fn get(self, axis: SpecAxis) -> T {
         match axis {
             Horizontal => self.x,
             Vertical => self.y,
@@ -53,7 +53,7 @@ impl<T: Clone> Value2<T> {
     }
 
     /// Borrow the specificed component mutably.
-    pub fn get_mut(&mut self, axis: SpecificAxis) -> &mut T {
+    pub fn get_mut(&mut self, axis: SpecAxis) -> &mut T {
         match axis {
             Horizontal => &mut self.x,
             Vertical => &mut self.y,
@@ -148,19 +148,19 @@ impl Size {
     ///
     /// This assumes the size to be generalized such that `x` corresponds to the
     /// primary axis.
-    pub fn anchor(self, alignment: LayoutAlignment, axes: LayoutAxes) -> Size {
+    pub fn anchor(self, align: LayoutAlign, axes: LayoutAxes) -> Size {
         Size {
-            x: anchor(self.x, alignment.primary, axes.primary),
-            y: anchor(self.x, alignment.secondary, axes.secondary),
+            x: anchor(self.x, align.primary, axes.primary),
+            y: anchor(self.y, align.secondary, axes.secondary),
         }
     }
 }
 
-fn anchor(length: f64, alignment: Alignment, direction: Direction) -> f64 {
-    match (direction.is_positive(), alignment) {
-        (true, Origin) | (false, End) => 0.0,
+fn anchor(length: f64, align: GenAlign, dir: Dir) -> f64 {
+    match (dir.is_positive(), align) {
+        (true, Start) | (false, End) => 0.0,
         (_, Center) => length / 2.0,
-        (true, End) | (false, Origin) => length,
+        (true, End) | (false, Start) => length,
     }
 }
 
@@ -208,16 +208,16 @@ impl<T: Clone> Value4<T> {
     /// alignment.
     ///
     /// Center alignment is treated the same as origin alignment.
-    pub fn get_mut(&mut self, mut direction: Direction, alignment: Alignment) -> &mut T {
-        if alignment == End {
-            direction = direction.inv();
+    pub fn get_mut(&mut self, mut dir: Dir, align: GenAlign) -> &mut T {
+        if align == End {
+            dir = dir.inv();
         }
 
-        match direction {
-            LeftToRight => &mut self.left,
-            RightToLeft => &mut self.right,
-            TopToBottom => &mut self.top,
-            BottomToTop => &mut self.bottom,
+        match dir {
+            LTT => &mut self.left,
+            RTL => &mut self.right,
+            TTB => &mut self.top,
+            BTT => &mut self.bottom,
         }
     }
 

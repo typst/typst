@@ -1,8 +1,8 @@
 //! Trait and prelude for custom functions.
 
-use crate::Pass;
-use crate::syntax::ParseState;
-use crate::syntax::func::FuncCall;
+use crate::{Pass, Feedback};
+use crate::syntax::parsing::{FuncCall, ParseState};
+use crate::syntax::span::Span;
 
 /// Types that are useful for creating your own functions.
 pub mod prelude {
@@ -10,10 +10,11 @@ pub mod prelude {
     pub use crate::layout::prelude::*;
     pub use crate::layout::Command::{self, *};
     pub use crate::style::{LayoutStyle, PageStyle, TextStyle};
-    pub use crate::syntax::SyntaxModel;
     pub use crate::syntax::expr::*;
-    pub use crate::syntax::func::*;
+    pub use crate::syntax::model::SyntaxModel;
     pub use crate::syntax::span::{Span, Spanned};
+    pub use crate::syntax::value::*;
+    pub use super::OptionExt;
 }
 
 /// Parse a function from source code.
@@ -37,47 +38,34 @@ pub trait ParseFunc {
     ) -> Pass<Self> where Self: Sized;
 }
 
+/// Extra methods on [`Options`](Option) used for argument parsing.
+pub trait OptionExt<T>: Sized {
+    /// Calls `f` with `val` if this is `Some(val)`.
+    fn with(self, f: impl FnOnce(T));
+
+    /// Reports an error about a missing argument with the given name and span
+    /// if the option is `None`.
+    fn or_missing(self, span: Span, arg: &str, f: &mut Feedback) -> Self;
+}
+
+impl<T> OptionExt<T> for Option<T> {
+    fn with(self, f: impl FnOnce(T)) {
+        if let Some(val) = self {
+            f(val);
+        }
+    }
+
+    fn or_missing(self, span: Span, arg: &str, f: &mut Feedback) -> Self {
+        if self.is_none() {
+            error!(@f, span, "missing argument: {}", arg);
+        }
+        self
+    }
+}
+
 /// Allows to implement a function type concisely.
 ///
-/// # Example
-/// A function that hides its body depending on a boolean argument.
-/// ```
-/// use typstc::func::prelude::*;
-///
-/// function! {
-///     #[derive(Debug, Clone, PartialEq)]
-///     pub struct HiderFunc {
-///         body: Option<SyntaxModel>,
-///     }
-///
-///     parse(header, body, state, f) {
-///         let body = body!(opt: body, state, f);
-///         let hidden = header.args.pos.get::<bool>(&mut f.diagnostics)
-///             .or_missing(&mut f.diagnostics, header.name.span, "hidden")
-///             .unwrap_or(false);
-///
-///         HiderFunc { body: if hidden { None } else { body } }
-///     }
-///
-///     layout(self, ctx, f) {
-///         match &self.body {
-///             Some(model) => vec![LayoutSyntaxModel(model)],
-///             None => vec![],
-///         }
-///     }
-/// }
-/// ```
-/// This function can be used as follows:
-/// ```typst
-/// [hider: true][Hi, you.]  => Nothing
-/// [hider: false][Hi, you.] => Text: "Hi, you."
-///
-/// [hider][Hi, you.]        => Text: "Hi, you."
-///  ^^^^^
-///  missing argument: hidden
-/// ```
-///
-/// # More examples
+/// # Examples
 /// Look at the source code of the [`library`](crate::library) module for more
 /// examples on how the macro works.
 #[macro_export]
@@ -117,8 +105,8 @@ macro_rules! function {
             type Meta = $meta;
 
             fn parse(
-                #[allow(unused)] mut call: $crate::syntax::func::FuncCall,
-                #[allow(unused)] $state: &$crate::syntax::ParseState,
+                #[allow(unused)] mut call: $crate::syntax::parsing::FuncCall,
+                #[allow(unused)] $state: &$crate::syntax::parsing::ParseState,
                 #[allow(unused)] $metadata: Self::Meta,
             ) -> $crate::Pass<Self> where Self: Sized {
                 let mut feedback = $crate::Feedback::new();
@@ -128,7 +116,11 @@ macro_rules! function {
 
                 let func = $code;
 
-                for arg in call.header.args.into_iter() {
+                for arg in call.header.args.pos.0 {
+                    error!(@feedback, arg.span, "unexpected argument");
+                }
+
+                for arg in call.header.args.key.0 {
                     error!(@feedback, arg.span, "unexpected argument");
                 }
 
@@ -140,7 +132,7 @@ macro_rules! function {
     };
 
     (@layout($name:ident) layout($this:ident, $ctx:ident, $feedback:ident) $code:block) => {
-        impl $crate::syntax::Model for $name {
+        impl $crate::syntax::model::Model for $name {
             fn layout<'a, 'b, 't>(
                 #[allow(unused)] &'a $this,
                 #[allow(unused)] mut $ctx: $crate::layout::LayoutContext<'b>,
@@ -177,7 +169,7 @@ macro_rules! function {
 macro_rules! body {
     (opt: $body:expr, $state:expr, $feedback:expr) => ({
         $body.map(|body| {
-            let parsed = $crate::syntax::parse(body.v, body.span.start, $state);
+            let parsed = $crate::syntax::parsing::parse(body.v, body.span.start, $state);
             $feedback.extend(parsed.feedback);
             parsed.output
         })

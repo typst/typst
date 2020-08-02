@@ -1,3 +1,5 @@
+//! Tokenization.
+
 use std::iter::Peekable;
 use std::str::Chars;
 use unicode_xid::UnicodeXID;
@@ -161,7 +163,6 @@ pub struct Tokens<'s> {
 /// similar tokens or in body mode which yields text and star, underscore,
 /// backtick tokens.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-#[allow(missing_docs)]
 pub enum TokenMode {
     Header,
     Body,

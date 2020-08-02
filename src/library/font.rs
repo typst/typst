@@ -16,63 +16,64 @@ function! {
     }
 
     parse(header, body, ctx, f) {
-        let size = header.args.pos.get_first::<ScaleLength>(&mut f.diagnostics);
+        let size = header.args.pos.get::<ScaleLength>();
 
-        let style = header.args.key.get::<FontStyle>(&mut f.diagnostics, "style");
-        let weight = header.args.key.get::<FontWeight>(&mut f.diagnostics, "weight");
-        let width = header.args.key.get::<FontWidth>(&mut f.diagnostics, "width");
+        let style = header.args.key.get::<FontStyle>("style", f);
+        let weight = header.args.key.get::<FontWeight>("weight", f);
+        let width = header.args.key.get::<FontWidth>("width", f);
 
-        let list = header.args.pos.get_all::<StringLike>(&mut f.diagnostics)
+        let list = header.args.pos.all::<StringLike>()
             .map(|s| s.0.to_lowercase())
             .collect();
 
         let classes = header.args.key
-            .get_all::<String, Tuple>(&mut f.diagnostics)
+            .all::<Tuple>()
             .collect::<Vec<_>>()
             .into_iter()
             .map(|(class, mut tuple)| {
-                let fallback = tuple.get_all::<StringLike>(&mut f.diagnostics)
+                let fallback = tuple.all::<StringLike>()
                     .map(|s| s.0.to_lowercase())
                     .collect();
-                (class.to_lowercase(), fallback)
+                (class.v.0, fallback)
             })
             .collect();
 
         FontFunc {
             body: body!(opt: body, ctx, f),
             size,
-            list,
-            classes,
             style,
             weight,
             width,
+            list,
+            classes,
         }
     }
 
     layout(self, ctx, f) {
-        styled(&self.body, ctx, Some(()),
-            |t, _| {
-                self.size.with(|s| match s {
-                    ScaleLength::Absolute(length) => {
-                        t.base_font_size = length.as_raw();
-                        t.font_scale = 1.0;
-                    }
-                    ScaleLength::Scaled(scale) => t.font_scale = scale,
-                });
-
-                self.style.with(|s| t.variant.style = s);
-                self.weight.with(|w| t.variant.weight = w);
-                self.width.with(|w| t.variant.width = w);
-
-                if !self.list.is_empty() {
-                    *t.fallback.list_mut() = self.list.clone();
+        styled(&self.body, ctx, Some(()), |t, _| {
+            self.size.with(|s| match s {
+                ScaleLength::Absolute(length) => {
+                    t.base_font_size = length.as_raw();
+                    t.font_scale = 1.0;
                 }
+                ScaleLength::Scaled(scale) => t.font_scale = scale,
+            });
 
-                for (class, fallback) in &self.classes {
-                    t.fallback.set_class_list(class.clone(), fallback.clone());
-                }
+            self.style.with(|s| t.variant.style = s);
+            self.weight.with(|w| t.variant.weight = w);
+            self.width.with(|w| t.variant.width = w);
 
-                t.fallback.flatten();
-            })
+            if !self.list.is_empty() {
+                *t.fallback.list_mut() = self.list.iter()
+                    .map(|s| s.to_lowercase())
+                    .collect();
+            }
+
+            for (class, fallback) in &self.classes {
+                t.fallback.set_class_list(class.clone(), fallback.clone());
+            }
+
+            t.fallback.flatten();
+        })
     }
 }

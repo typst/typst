@@ -5,7 +5,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use crate::func::ParseFunc;
 use super::parsing::CallParser;
-use super::Model;
+use super::model::Model;
 
 /// A map from identifiers to function parsers.
 pub struct Scope {

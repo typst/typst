@@ -1,13 +1,16 @@
 [page: width=450pt, height=300pt, margins=1cm]
 
 [box][
-    *Technische Universität Berlin* [n]
-    *Fakultät II, Institut for Mathematik* [n]
-    Sekretariat MA [n]
-    Dr. Max Mustermann [n]
+    *Technische Universität Berlin* \
+    *Fakultät II, Institut for Mathematik* \
+    Sekretariat MA \
+    Dr. Max Mustermann \
     Ola Nordmann, John Doe
 ]
-[align: right][*WiSe 2019/2020* [n] Woche 3]
+[align: right][
+    *WiSe 2019/2020* \
+    Woche 3
+]
 
 [v: 6mm]
 

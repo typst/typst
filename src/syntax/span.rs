@@ -1,4 +1,4 @@
-//! Spans map elements to the part of source code they originate from.
+//! Mapping of values to the locations they originate from in source code.
 
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Sub};

@@ -1,16 +1,15 @@
 //! Expressions in function headers.
 
 use std::fmt::{self, Debug, Formatter};
-use std::iter::FromIterator;
 use std::ops::Deref;
 use std::str::FromStr;
 use std::u8;
 
-use crate::diagnostic::Diagnostics;
+use crate::Feedback;
 use crate::length::Length;
-use super::func::{Key, Value};
-use super::span::{Span, Spanned};
+use super::span::Spanned;
 use super::tokens::is_identifier;
+use super::value::Value;
 
 /// An argument or return value.
 #[derive(Clone, PartialEq)]
@@ -238,103 +237,63 @@ impl fmt::Display for ParseColorError {
 /// (false, 12cm, "hi")
 /// ```
 #[derive(Default, Clone, PartialEq)]
-pub struct Tuple {
-    /// The elements of the tuple.
-    pub items: Vec<Spanned<Expr>>,
-}
+pub struct Tuple(pub Vec<Spanned<Expr>>);
 
 impl Tuple {
     /// Create an empty tuple.
     pub fn new() -> Tuple {
-        Tuple { items: vec![] }
+        Tuple(vec![])
     }
 
     /// Add an element.
-    pub fn add(&mut self, item: Spanned<Expr>) {
-        self.items.push(item);
+    pub fn push(&mut self, item: Spanned<Expr>) {
+        self.0.push(item);
     }
 
-    /// Extract (and remove) the first matching value and remove and generate
-    /// diagnostics for all previous items that did not match.
-    pub fn get<V: Value>(&mut self, diagnostics: &mut Diagnostics) -> Option<V> {
-        while !self.items.is_empty() {
-            let expr = self.items.remove(0);
-            let span = expr.span;
-            match V::parse(expr) {
-                Ok(output) => return Some(output),
-                Err(v) => diagnostics.push(Spanned { v, span }),
+    /// Expect a specific value type and generate errors for every argument
+    /// until an argument of the value type is found.
+    pub fn expect<V: Value>(&mut self, f: &mut Feedback) -> Option<V> {
+        while !self.0.is_empty() {
+            let item = self.0.remove(0);
+            if let Some(val) = V::parse(item, f) {
+                return Some(val);
             }
         }
         None
     }
 
-    /// Extract (and remove) the first matching value without removing and
-    /// generating diagnostics for all previous items that did not match.
-    pub fn get_first<V: Value>(&mut self, _: &mut Diagnostics) -> Option<V> {
+    /// Extract the first argument of the value type if there is any.
+    pub fn get<V: Value>(&mut self) -> Option<V> {
+        for (i, item) in self.0.iter().enumerate() {
+            if let Some(val) = V::parse(item.clone(), &mut Feedback::new()) {
+                self.0.remove(i);
+                return Some(val);
+            }
+        }
+        None
+    }
+
+    /// Extract all arguments of the value type.
+    pub fn all<'a, V: Value>(&'a mut self) -> impl Iterator<Item = V> + 'a {
         let mut i = 0;
-        while i < self.items.len() {
-            let expr = self.items[i].clone();
-            match V::parse(expr) {
-                Ok(output) => {
-                    self.items.remove(i);
-                    return Some(output)
-                }
-                Err(_) => {},
+        std::iter::from_fn(move || {
+            while i < self.0.len() {
+               let val = V::parse(self.0[i].clone(), &mut Feedback::new());
+               if val.is_some() {
+                   self.0.remove(i);
+                   return val;
+               } else {
+                   i += 1;
+               }
             }
-            i += 1;
-        }
-
-        None
-    }
-
-    /// Extract and return an iterator over all values that match and generate
-    /// diagnostics for all items that do not match.
-    pub fn get_all<'a, V: Value>(&'a mut self, diagnostics: &'a mut Diagnostics)
-    -> impl Iterator<Item=V> + 'a {
-        self.items.drain(..).filter_map(move |expr| {
-            let span = expr.span;
-            match V::parse(expr) {
-                Ok(output) => Some(output),
-                Err(v) => { diagnostics.push(Spanned { v, span }); None }
-            }
+            None
         })
-    }
-
-    /// Iterate over the items of this tuple.
-    pub fn iter<'a>(&'a self) -> std::slice::Iter<'a, Spanned<Expr>> {
-        self.items.iter()
-    }
-}
-
-impl IntoIterator for Tuple {
-    type Item = Spanned<Expr>;
-    type IntoIter = std::vec::IntoIter<Spanned<Expr>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.items.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a Tuple {
-    type Item = &'a Spanned<Expr>;
-    type IntoIter = std::slice::Iter<'a, Spanned<Expr>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-impl FromIterator<Spanned<Expr>> for Tuple {
-    fn from_iter<I: IntoIterator<Item=Spanned<Expr>>>(iter: I) -> Self {
-        Tuple { items: iter.into_iter().collect() }
     }
 }
 
 impl Debug for Tuple {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_list()
-            .entries(&self.items)
-            .finish()
+        f.debug_list().entries(&self.0).finish()
     }
 }
 
@@ -374,10 +333,7 @@ impl Deref for NamedTuple {
 /// { fit: false, width: 12cm, items: (1, 2, 3) }
 /// ```
 #[derive(Default, Clone, PartialEq)]
-pub struct Object {
-    /// The key-value pairs of the object.
-    pub pairs: Vec<Spanned<Pair>>,
-}
+pub struct Object(pub Vec<Spanned<Pair>>);
 
 /// A key-value pair in an object.
 #[derive(Debug, Clone, PartialEq)]
@@ -399,126 +355,52 @@ pub struct Pair {
 impl Object {
     /// Create an empty object.
     pub fn new() -> Object {
-        Object { pairs: vec![] }
+        Object(vec![])
     }
 
     /// Add a pair to object.
-    pub fn add(&mut self, pair: Spanned<Pair>) {
-        self.pairs.push(pair);
+    pub fn push(&mut self, pair: Spanned<Pair>) {
+        self.0.push(pair);
     }
 
-    /// Extract (and remove) a pair with the given key string and matching
-    /// value.
+    /// Extract an argument with the given key if there is any.
     ///
-    /// Inserts an error if the value does not match. If the key is not
-    /// contained, no error is inserted.
-    pub fn get<V: Value>(&mut self, diagnostics: &mut Diagnostics, key: &str) -> Option<V> {
-        let index = self.pairs.iter().position(|pair| pair.v.key.v.as_str() == key)?;
-        self.get_index::<V>(diagnostics, index)
-    }
-
-    /// Extract (and remove) a pair with a matching key and value.
-    ///
-    /// Inserts an error if the value does not match. If no matching key is
-    /// found, no error is inserted.
-    pub fn get_with_key<K: Key, V: Value>(
-        &mut self,
-        diagnostics: &mut Diagnostics,
-    ) -> Option<(K, V)> {
-        for (index, pair) in self.pairs.iter().enumerate() {
-            let key = Spanned { v: pair.v.key.v.as_str(), span: pair.v.key.span };
-            if let Some(key) = K::parse(key) {
-                return self.get_index::<V>(diagnostics, index).map(|value| (key, value));
+    /// Generates an error if there is a matching key, but the value is of the
+    /// wrong type.
+    pub fn get<V: Value>(&mut self, key: &str, f: &mut Feedback) -> Option<V> {
+        for (i, pair) in self.0.iter().enumerate() {
+            if pair.v.key.v.as_str() == key {
+                let pair = self.0.remove(i);
+                return V::parse(pair.v.value, f);
             }
         }
         None
     }
 
-    /// Extract (and remove) all pairs with matching keys and values.
-    ///
-    /// Inserts errors for values that do not match.
-    pub fn get_all<'a, K: Key, V: Value>(
-        &'a mut self,
-        diagnostics: &'a mut Diagnostics,
-    ) -> impl Iterator<Item=(K, V)> + 'a {
-        let mut index = 0;
+    /// Extract all key-value pairs where the value is of the given type.
+    pub fn all<'a, V: Value>(&'a mut self)
+        -> impl Iterator<Item = (Spanned<Ident>, V)> + 'a
+    {
+        let mut i = 0;
         std::iter::from_fn(move || {
-            if index < self.pairs.len() {
-                let key = &self.pairs[index].v.key;
-                let key = Spanned { v: key.v.as_str(), span: key.span };
-
-                Some(if let Some(key) = K::parse(key) {
-                    self.get_index::<V>(diagnostics, index).map(|v| (key, v))
-                } else {
-                    index += 1;
-                    None
-                })
-            } else {
-                None
+            while i < self.0.len() {
+               let val = V::parse(self.0[i].v.value.clone(), &mut Feedback::new());
+               if let Some(val) = val {
+                   let pair = self.0.remove(i);
+                   return Some((pair.v.key, val));
+               } else {
+                   i += 1;
+               }
             }
-        }).filter_map(|x| x)
-    }
-
-    /// Extract all key value pairs with span information.
-    ///
-    /// The spans are over both key and value, like so:
-    /// ```typst
-    /// { key: value }
-    ///   ^^^^^^^^^^
-    /// ```
-    pub fn get_all_spanned<'a, K: Key + 'a, V: Value + 'a>(
-        &'a mut self,
-        diagnostics: &'a mut Diagnostics,
-    ) -> impl Iterator<Item=Spanned<(K, V)>> + 'a {
-        self.get_all::<Spanned<K>, Spanned<V>>(diagnostics)
-            .map(|(k, v)| Spanned::new((k.v, v.v), Span::merge(k.span, v.span)))
-    }
-
-    /// Extract the argument at the given index and insert an error if the value
-    /// does not match.
-    fn get_index<V: Value>(&mut self, diagnostics: &mut Diagnostics, index: usize) -> Option<V> {
-        let expr = self.pairs.remove(index).v.value;
-        let span = expr.span;
-        match V::parse(expr) {
-            Ok(output) => Some(output),
-            Err(v) => { diagnostics.push(Spanned { v, span }); None }
-        }
-    }
-
-    /// Iterate over the pairs of this object.
-    pub fn iter<'a>(&'a self) -> std::slice::Iter<'a, Spanned<Pair>> {
-        self.pairs.iter()
-    }
-}
-
-impl IntoIterator for Object {
-    type Item = Spanned<Pair>;
-    type IntoIter = std::vec::IntoIter<Spanned<Pair>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.pairs.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a Object {
-    type Item = &'a Spanned<Pair>;
-    type IntoIter = std::slice::Iter<'a, Spanned<Pair>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-impl FromIterator<Spanned<Pair>> for Object {
-    fn from_iter<I: IntoIterator<Item=Spanned<Pair>>>(iter: I) -> Self {
-        Object { pairs: iter.into_iter().collect() }
+            None
+        })
     }
 }
 
 impl Debug for Object {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_map()
-            .entries(self.pairs.iter().map(|p| (&p.v.key.v, &p.v.value.v)))
+            .entries(self.0.iter().map(|p| (&p.v.key.v, &p.v.value.v)))
             .finish()
     }
 }

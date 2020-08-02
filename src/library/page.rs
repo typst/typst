@@ -1,4 +1,4 @@
-use crate::length::Length;
+use crate::length::{Length, ScaleLength};
 use crate::paper::{Paper, PaperClass};
 use super::*;
 
@@ -7,18 +7,28 @@ function! {
     #[derive(Debug, Clone, PartialEq)]
     pub struct PageFunc {
         paper: Option<Paper>,
-        extents: AxisMap<Length>,
-        padding: PaddingMap,
+        width: Option<Length>,
+        height: Option<Length>,
+        margins: Option<ScaleLength>,
+        left: Option<ScaleLength>,
+        right: Option<ScaleLength>,
+        top: Option<ScaleLength>,
+        bottom: Option<ScaleLength>,
         flip: bool,
     }
 
     parse(header, body, state, f) {
         body!(nope: body, f);
         PageFunc {
-            paper: header.args.pos.get::<Paper>(&mut f.diagnostics),
-            extents: AxisMap::parse::<ExtentKey>(&mut f.diagnostics, &mut header.args.key),
-            padding: PaddingMap::parse(&mut f.diagnostics, &mut header.args),
-            flip: header.args.key.get::<bool>(&mut f.diagnostics, "flip").unwrap_or(false),
+            paper: header.args.pos.get::<Paper>(),
+            width: header.args.key.get::<Length>("width", f),
+            height: header.args.key.get::<Length>("height", f),
+            margins: header.args.key.get::<ScaleLength>("margins", f),
+            left: header.args.key.get::<ScaleLength>("left", f),
+            right: header.args.key.get::<ScaleLength>("right", f),
+            top: header.args.key.get::<ScaleLength>("top", f),
+            bottom: header.args.key.get::<ScaleLength>("bottom", f),
+            flip: header.args.key.get::<bool>("flip", f).unwrap_or(false),
         }
     }
 
@@ -28,19 +38,21 @@ function! {
         if let Some(paper) = self.paper {
             style.class = paper.class;
             style.dimensions = paper.size();
-        } else {
+        } else if self.width.is_some() || self.height.is_some() {
             style.class = PaperClass::Custom;
         }
 
-        let map = self.extents.dedup(&mut f.diagnostics, ctx.axes);
-        map.with(Horizontal, |&width| style.dimensions.x = width.as_raw());
-        map.with(Vertical, |&height| style.dimensions.y = height.as_raw());
+        self.width.with(|v| style.dimensions.x = v.as_raw());
+        self.height.with(|v| style.dimensions.y = v.as_raw());
+        self.margins.with(|v| style.margins.set_all(Some(v)));
+        self.left.with(|v| style.margins.left = Some(v));
+        self.right.with(|v| style.margins.right = Some(v));
+        self.top.with(|v| style.margins.top = Some(v));
+        self.bottom.with(|v| style.margins.bottom = Some(v));
 
         if self.flip {
             style.dimensions.swap();
         }
-
-        self.padding.apply(&mut f.diagnostics, ctx.axes, &mut style.margins);
 
         vec![SetPageStyle(style)]
     }

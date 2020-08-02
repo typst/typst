@@ -1,6 +1,6 @@
 //! The _Typst_ standard library.
 
-use crate::syntax::Scope;
+use crate::syntax::scope::Scope;
 use crate::func::prelude::*;
 
 pub_use_mod!(font);
@@ -12,31 +12,15 @@ pub_use_mod!(spacing);
 pub fn std() -> Scope {
     let mut std = Scope::new::<ValFunc>();
 
-    // Basics
     std.add::<ValFunc>("val");
-
-    // Font setup
     std.add::<FontFunc>("font");
-    std.add_with_meta::<ContentSpacingFunc>("word.spacing", ContentKind::Word);
-
-    // Layout
-    std.add_with_meta::<ContentSpacingFunc>("line.spacing", ContentKind::Line);
-    std.add_with_meta::<ContentSpacingFunc>("par.spacing", ContentKind::Paragraph);
-    std.add::<AlignFunc>("align");
-    std.add::<DirectionFunc>("direction");
-    std.add::<BoxFunc>("box");
-
-    // Spacing
-    std.add::<LineBreakFunc>("n");
-    std.add::<LineBreakFunc>("line.break");
-    std.add::<ParBreakFunc>("par.break");
-    std.add::<PageBreakFunc>("page.break");
-    std.add_with_meta::<SpacingFunc>("spacing", None);
-    std.add_with_meta::<SpacingFunc>("h", Some(Horizontal));
-    std.add_with_meta::<SpacingFunc>("v", Some(Vertical));
-
-    // Page setup
     std.add::<PageFunc>("page");
+    std.add::<AlignFunc>("align");
+    std.add::<BoxFunc>("box");
+    std.add_with_meta::<SpacingFunc>("h", Horizontal);
+    std.add_with_meta::<SpacingFunc>("v", Vertical);
+    std.add::<ParBreakFunc>("parbreak");
+    std.add::<PageBreakFunc>("pagebreak");
 
     std
 }
@@ -49,8 +33,8 @@ function! {
     }
 
     parse(header, body, state, f) {
-        header.args.pos.items.clear();
-        header.args.key.pairs.clear();
+        header.args.pos.0.clear();
+        header.args.key.0.clear();
         ValFunc { body: body!(opt: body, state, f) }
     }
 

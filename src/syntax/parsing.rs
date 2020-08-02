@@ -2,13 +2,65 @@
 
 use std::str::FromStr;
 
+use crate::{Pass, Feedback};
+use super::decoration::Decoration;
 use super::expr::*;
-use super::func::{FuncCall, FuncHeader, FuncArgs, FuncArg};
+use super::scope::Scope;
 use super::span::{Pos, Span, Spanned};
-use super::*;
+use super::tokens::{is_newline_char, Token, Tokens, TokenMode};
+use super::model::{SyntaxModel, Node, Model};
 
 /// A function which parses a function call into a model.
 pub type CallParser = dyn Fn(FuncCall, &ParseState) -> Pass<Box<dyn Model>>;
+
+/// An invocation of a function.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FuncCall<'s> {
+    pub header: FuncHeader,
+    /// The body as a raw string containing what's inside of the brackets.
+    pub body: Option<Spanned<&'s str>>,
+}
+
+/// The parsed header of a function (everything in the first set of brackets).
+#[derive(Debug, Clone, PartialEq)]
+pub struct FuncHeader {
+    pub name: Spanned<Ident>,
+    pub args: FuncArgs,
+}
+
+/// The positional and keyword arguments passed to a function.
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct FuncArgs {
+    pub pos: Tuple,
+    pub key: Object,
+}
+
+impl FuncArgs {
+    /// Create new empty function arguments.
+    pub fn new() -> FuncArgs {
+        FuncArgs {
+            pos: Tuple::new(),
+            key: Object::new(),
+        }
+    }
+
+    /// Add an argument.
+    pub fn push(&mut self, arg: Spanned<FuncArg>) {
+        match arg.v {
+            FuncArg::Pos(item) => self.pos.push(Spanned::new(item, arg.span)),
+            FuncArg::Key(pair) => self.key.push(Spanned::new(pair, arg.span)),
+        }
+    }
+}
+
+/// Either a positional or keyword argument.
+#[derive(Debug, Clone, PartialEq)]
+pub enum FuncArg {
+    /// A positional argument.
+    Pos(Expr),
+    /// A keyword argument.
+    Key(Pair),
+}
 
 /// The state which can influence how a string of source code is parsed.
 ///
@@ -216,7 +268,7 @@ impl<'s> FuncParser<'s> {
             };
 
             let behind_arg = arg.span.end;
-            args.add(arg);
+            args.push(arg);
 
             self.skip_white();
             if self.eof() {
@@ -348,7 +400,7 @@ impl FuncParser<'_> {
                 let (tuple, coercable) = self.parse_tuple();
                 Some(if coercable {
                     tuple.map(|v| {
-                        v.into_iter().next().expect("tuple is coercable").v
+                        v.0.into_iter().next().expect("tuple is coercable").v
                     })
                 } else {
                     tuple.map(|tup| Expr::Tuple(tup))
@@ -388,7 +440,7 @@ impl FuncParser<'_> {
             });
 
             let behind_expr = expr.span.end;
-            tuple.add(expr);
+            tuple.push(expr);
 
             self.skip_white();
             if self.eof() || self.check(Token::RightParen) {
@@ -401,7 +453,7 @@ impl FuncParser<'_> {
 
         self.expect(Token::RightParen);
         let end = self.pos();
-        let coercable = commaless && !tuple.items.is_empty();
+        let coercable = commaless && !tuple.0.is_empty();
 
         (Spanned::new(tuple, Span::new(start, end)), coercable)
     }
@@ -440,7 +492,7 @@ impl FuncParser<'_> {
 
             let behind_value = value.span.end;
             let span = Span::merge(key.span, value.span);
-            object.add(Spanned::new(Pair { key, value }, span));
+            object.push(Spanned::new(Pair { key, value }, span));
 
             self.skip_white();
             if self.eof() || self.check(Token::RightBrace) {
@@ -611,7 +663,6 @@ fn unescape_raw(raw: &str) -> Vec<String> {
 mod tests {
     use crate::length::Length;
     use super::super::test::{check, DebugFn};
-    use super::super::func::Value;
     use super::*;
 
     use Decoration::*;
@@ -682,7 +733,7 @@ mod tests {
 
     macro_rules! tuple {
         ($($tts:tt)*) => {
-            Expr::Tuple(Tuple { items: span_vec![$($tts)*].0 })
+            Expr::Tuple(Tuple(span_vec![$($tts)*].0))
         };
     }
 
@@ -690,19 +741,17 @@ mod tests {
         ($name:tt $(, $($tts:tt)*)?) => {
             Expr::NamedTuple(NamedTuple::new(
                 span_item!($name).map(|n| Ident(n.to_string())),
-                Z(Tuple { items: span_vec![$($($tts)*)?].0 })
+                Z(Tuple(span_vec![$($($tts)*)?].0))
             ))
         };
     }
 
     macro_rules! object {
         ($($key:tt => $value:expr),* $(,)?) => {
-            Expr::Object(Object {
-                pairs: vec![$(Z(Pair {
-                    key: span_item!($key).map(|k| Ident(k.to_string())),
-                    value: Z($value),
-                })),*]
-            })
+            Expr::Object(Object(vec![$(Z(Pair {
+                key: span_item!($key).map(|k| Ident(k.to_string())),
+                value: Z($value),
+            })),*]))
         };
     }
 
@@ -713,11 +762,22 @@ mod tests {
     }
 
     macro_rules! func {
-        ($name:tt $(: ($($pos:tt)*) $(, { $($key:tt)* })? )? $(; $($body:tt)*)?) => {{
+        ($name:tt
+            $(: ($($pos:tt)*) $(, { $($key:tt => $value:expr),* })? )?
+            $(; $($body:tt)*)?
+        ) => {{
             #[allow(unused_mut)]
             let mut args = FuncArgs::new();
-            $(args.pos = Tuple::parse(Z(tuple!($($pos)*))).unwrap();
-            $(args.key = Object::parse(Z(object! { $($key)* })).unwrap();)?)?
+            $(
+                let items: Vec<Spanned<Expr>> = span_vec![$($pos)*].0;
+                for item in items {
+                    args.push(item.map(|v| FuncArg::Pos(v)));
+                }
+                $($(args.push(Z(FuncArg::Key(Pair {
+                    key: span_item!($key).map(|k| Ident(k.to_string())),
+                    value: Z($value),
+                })));)*)?
+            )?
             Node::Model(Box::new(DebugFn {
                 header: FuncHeader {
                     name: span_item!($name).map(|s| Ident(s.to_string())),
@@ -1101,7 +1161,7 @@ mod tests {
             [func!("val": (Len(Length::pt(12.0))), { "key" => Id("value") })], [],
             [(0:12, 0:15, ArgumentKey), (0:1, 0:4, ValidFuncName)],
         );
-        pval!("a , x=\"b\" , c" => (Id("a"), Id("c")), { "x" => Str("b"),  });
+        pval!("a , x=\"b\" , c" => (Id("a"), Id("c")), { "x" => Str("b") });
     }
 
     #[test]
