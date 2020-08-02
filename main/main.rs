@@ -22,9 +22,7 @@ fn main() {
 fn run() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 || args.len() > 3 {
-        println!("typst");
-        println!("usage: {} source [destination]",
-            args.first().map(|s| s.as_str()).unwrap_or("typst"));
+        println!("Usage: typst src.typ [out.pdf]");
         std::process::exit(0);
     }
 

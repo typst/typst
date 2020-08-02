@@ -4,14 +4,17 @@
 //! layout. However, this is a best effort process and bad things will still
 //! generate errors and warnings.
 
+#[cfg(feature = "serialize")]
 use serde::Serialize;
+
 use crate::syntax::span::SpanVec;
 
 /// A list of spanned diagnostics.
 pub type Diagnostics = SpanVec<Diagnostic>;
 
 /// A diagnostic that arose in parsing or layouting.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
 pub struct Diagnostic {
     /// How severe / important the diagnostic is.
     pub level: Level,
@@ -20,8 +23,9 @@ pub struct Diagnostic {
 }
 
 /// How severe / important a diagnostic is.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
 pub enum Level {
     Warning,
     Error,

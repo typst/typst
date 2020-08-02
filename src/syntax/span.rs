@@ -2,6 +2,8 @@
 
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Sub};
+
+#[cfg(feature = "serialize")]
 use serde::Serialize;
 
 /// Span offsetting.
@@ -23,7 +25,8 @@ impl<T> Offset for SpanVec<T> {
 }
 
 /// A value with the span it corresponds to in the source code.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
 pub struct Spanned<T> {
     /// The value.
     pub v: T,
@@ -77,7 +80,8 @@ impl<T: Debug> Debug for Spanned<T> {
 }
 
 /// Locates a slice of source code.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
 pub struct Span {
     /// The inclusive start position.
     pub start: Pos,
@@ -129,7 +133,8 @@ impl Debug for Span {
 }
 
 /// Zero-indexed line-column position in source code.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
 pub struct Pos {
     /// The zero-indexed line.
     pub line: usize,

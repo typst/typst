@@ -3,11 +3,14 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::*;
 
+#[cfg(feature = "serialize")]
 use serde::Serialize;
+
 use crate::layout::prelude::*;
 
 /// A value in two dimensions.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Serialize)]
+#[derive(Default, Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
 pub struct Value2<T> {
     /// The horizontal component.
     pub x: T,
@@ -176,7 +179,8 @@ impl Neg for Size {
 }
 
 /// A value in four dimensions.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Serialize)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
 pub struct Value4<T> {
     /// The left extent.
     pub left: T,

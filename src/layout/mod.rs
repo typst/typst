@@ -1,10 +1,11 @@
 //! Layouting types and engines.
 
 use std::fmt::{self, Display, Formatter};
-use smallvec::SmallVec;
-use serde::Serialize;
-use fontdock::FaceId;
 
+#[cfg(feature = "serialize")]
+use serde::Serialize;
+
+use fontdock::FaceId;
 use crate::geom::{Size, Margins};
 use self::prelude::*;
 
@@ -31,12 +32,13 @@ pub mod prelude {
 pub type MultiLayout = Vec<Layout>;
 
 /// A finished box with content at fixed positions.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
 pub struct Layout {
     /// The size of the box.
     pub dimensions: Size,
     /// How to align this layout in a parent container.
-    #[serde(skip)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
     pub align: LayoutAlign,
     /// The actions composing this layout.
     pub actions: Vec<LayoutAction>,
@@ -59,7 +61,7 @@ impl Layout {
 
 /// A vector of layout spaces, that is stack allocated as long as it only
 /// contains at most 2 spaces.
-pub type LayoutSpaces = SmallVec<[LayoutSpace; 2]>;
+pub type LayoutSpaces = Vec<LayoutSpace>;
 
 /// The space into which content is laid out.
 #[derive(Debug, Copy, Clone, PartialEq)]

@@ -1,0 +1,14 @@
+[package]
+name = "typstc-main"
+version = "0.1.0"
+authors = ["The Typst Project Developers"]
+edition = "2018"
+
+[dependencies]
+typstc = { path = ".." }
+fontdock = { path = "../../fontdock", features = ["fs"] }
+futures-executor = "0.3"
+
+[[bin]]
+name = "typstc-main"
+path = "main.rs"

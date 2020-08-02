@@ -1,14 +1,17 @@
 //! Decorations for semantic syntax highlighting.
 
+#[cfg(feature = "serialize")]
 use serde::Serialize;
+
 use super::span::SpanVec;
 
 /// A list of spanned decorations.
 pub type Decorations = SpanVec<Decoration>;
 
 /// Decorations for semantic syntax highlighting.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
 pub enum Decoration {
     /// A valid function name.
     /// ```typst

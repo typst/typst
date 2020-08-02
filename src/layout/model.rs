@@ -4,7 +4,6 @@
 
 use std::future::Future;
 use std::pin::Pin;
-use smallvec::smallvec;
 
 use crate::{Pass, Feedback};
 use crate::SharedFontLoader;
@@ -271,7 +270,7 @@ impl<'a> ModelLayouter<'a> {
                     // new page style and update it within the layouter.
                     let margins = style.margins();
                     self.ctx.base = style.dimensions.unpadded(margins);
-                    self.layouter.set_spaces(smallvec![
+                    self.layouter.set_spaces(vec![
                         LayoutSpace {
                             dimensions: style.dimensions,
                             padding: margins,

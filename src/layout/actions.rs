@@ -1,9 +1,11 @@
 //! Drawing and configuration actions composing layouts.
 
 use std::fmt::{self, Debug, Formatter};
-use serde::ser::{Serialize, Serializer, SerializeTuple};
-use fontdock::FaceId;
 
+#[cfg(feature = "serialize")]
+use serde::ser::{Serialize, Serializer, SerializeTuple};
+
+use fontdock::FaceId;
 use crate::geom::Size;
 use super::Layout;
 use self::LayoutAction::*;
@@ -22,6 +24,7 @@ pub enum LayoutAction {
     DebugBox(Size),
 }
 
+#[cfg(feature = "serialize")]
 impl Serialize for LayoutAction {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         match self {

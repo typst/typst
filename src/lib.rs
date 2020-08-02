@@ -17,7 +17,6 @@
 //!   serialized to pass it to a suitable renderer.
 
 use std::fmt::Debug;
-use smallvec::smallvec;
 
 use crate::diagnostic::Diagnostics;
 use crate::font::SharedFontLoader;
@@ -109,7 +108,7 @@ impl Typesetter {
                 loader: &self.loader,
                 style: &self.style,
                 base: self.style.page.dimensions.unpadded(margins),
-                spaces: smallvec![LayoutSpace {
+                spaces: vec![LayoutSpace {
                     dimensions: self.style.page.dimensions,
                     padding: margins,
                     expansion: LayoutExpansion::new(true, true),

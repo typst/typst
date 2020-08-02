@@ -21,7 +21,6 @@
 //! The position of the first aligned box thus depends on the length of the
 //! sentence in the second box.
 
-use smallvec::smallvec;
 use crate::geom::Value4;
 use super::*;
 
@@ -248,7 +247,7 @@ impl StackLayouter {
     pub fn remaining(&self) -> LayoutSpaces {
         let dimensions = self.usable();
 
-        let mut spaces = smallvec![LayoutSpace {
+        let mut spaces = vec![LayoutSpace {
             dimensions,
             padding: Margins::ZERO,
             expansion: LayoutExpansion::new(false, false),
