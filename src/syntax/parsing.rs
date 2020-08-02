@@ -13,6 +13,27 @@ use super::tree::{SyntaxTree, SyntaxNode, DynamicNode};
 /// A function which parses a function call into a tree.
 pub type CallParser = dyn Fn(FuncCall, &ParseState) -> Pass<Box<dyn DynamicNode>>;
 
+/// Parse a function call.
+pub trait ParseCall {
+    /// A metadata type whose value is passed into the function parser. This
+    /// allows a single function to do different things depending on the value
+    /// that needs to be given when inserting the function into a
+    /// [scope](crate::syntax::Scope).
+    ///
+    /// For example, the functions `word.spacing`, `line.spacing` and
+    /// `par.spacing` are actually all the same function
+    /// [`ContentSpacingFunc`](crate::library::ContentSpacingFunc) with the
+    /// metadata specifiy which content should be spaced.
+    type Meta: Clone;
+
+    /// Parse the header and body into this function given a context.
+    fn parse(
+        header: FuncCall,
+        state: &ParseState,
+        metadata: Self::Meta,
+    ) -> Pass<Self> where Self: Sized;
+}
+
 /// An invocation of a function.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuncCall<'s> {

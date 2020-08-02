@@ -12,9 +12,9 @@ function! {
         height: Option<ScaleLength>,
     }
 
-    parse(header, body, ctx, f) {
+    parse(header, body, state, f) {
         BoxFunc {
-            body: body!(opt: body, ctx, f).unwrap_or(SyntaxTree::new()),
+            body: parse_maybe_body(body, state, f).unwrap_or(SyntaxTree::new()),
             width: header.args.key.get::<ScaleLength>("width", f),
             height: header.args.key.get::<ScaleLength>("height", f),
         }
@@ -56,9 +56,9 @@ function! {
         v: Option<Spanned<SpecAlign>>,
     }
 
-    parse(header, body, ctx, f) {
+    parse(header, body, state, f) {
         AlignFunc {
-            body: body!(opt: body, ctx, f),
+            body: parse_maybe_body(body, state, f),
             aligns: header.args.pos.all::<Spanned<SpecAlign>>().collect(),
             h: header.args.key.get::<Spanned<SpecAlign>>("horizontal", f),
             v: header.args.key.get::<Spanned<SpecAlign>>("vertical", f),

@@ -34,7 +34,7 @@ function! {
     type Meta = SpecAxis;
 
     parse(header, body, state, f, meta) {
-        body!(nope: body, f);
+        expect_no_body(body, f);
         SpacingFunc {
             spacing: header.args.pos.expect::<ScaleLength>(f)
                 .map(|s| (meta, s))

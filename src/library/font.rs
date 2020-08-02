@@ -17,7 +17,7 @@ function! {
         classes: Vec<(String, Vec<String>)>,
     }
 
-    parse(header, body, ctx, f) {
+    parse(header, body, state, f) {
         let size = header.args.pos.get::<ScaleLength>();
 
         let style = header.args.key.get::<FontStyle>("style", f);
@@ -41,7 +41,7 @@ function! {
             .collect();
 
         FontFunc {
-            body: body!(opt: body, ctx, f),
+            body: parse_maybe_body(body, state, f),
             size,
             style,
             weight,

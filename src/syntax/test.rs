@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use crate::func::parse_maybe_body;
 use super::decoration::Decoration;
 use super::expr::{Expr, Ident, Tuple, NamedTuple, Object, Pair};
 use super::parsing::{FuncHeader, FuncArgs, FuncArg};
@@ -71,7 +72,7 @@ function! {
         header.args.key.0.clear();
         DebugFn {
             header: cloned,
-            body: body!(opt: body, state, f),
+            body: parse_maybe_body(body, state, f),
         }
     }
 

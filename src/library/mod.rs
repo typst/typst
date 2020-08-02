@@ -1,4 +1,4 @@
-//! The _Typst_ standard library.
+//! The standard library.
 
 use crate::func::prelude::*;
 use crate::layout::{LayoutContext, Commands};
@@ -37,7 +37,7 @@ function! {
     parse(header, body, state, f) {
         header.args.pos.0.clear();
         header.args.key.0.clear();
-        ValFunc { body: body!(opt: body, state, f) }
+        ValFunc { body: parse_maybe_body(body, state, f), }
     }
 
     layout(self, ctx, f) {

@@ -1,44 +1,20 @@
-//! Trait and prelude for custom functions.
+//! Tools for building custom functions.
 
-use crate::{Pass, Feedback};
-use crate::syntax::parsing::{FuncCall, ParseState};
-use crate::syntax::span::Span;
+use crate::Feedback;
+use crate::syntax::span::{Span, Spanned};
+use crate::syntax::parsing::{parse, ParseState};
+use crate::syntax::tree::SyntaxTree;
 
-/// Types that are useful for creating your own functions.
+/// Useful things for creating functions.
 pub mod prelude {
-    pub use crate::{function, body, error, warning};
     pub use crate::layout::prelude::*;
     pub use crate::layout::Command::{self, *};
-    pub use crate::style::{LayoutStyle, PageStyle, TextStyle};
-    pub use crate::syntax::expr::*;
-    pub use crate::syntax::tree::SyntaxTree;
-    pub use crate::syntax::span::{Span, Spanned};
-    pub use crate::syntax::value::*;
-    pub use super::OptionExt;
+    pub use crate::syntax::prelude::*;
+    pub use crate::style::*;
+    pub use super::{OptionExt, parse_maybe_body, expect_no_body};
 }
 
-/// Parse a function from source code.
-pub trait ParseFunc {
-    /// A metadata type whose value is passed into the function parser. This
-    /// allows a single function to do different things depending on the value
-    /// that needs to be given when inserting the function into a
-    /// [scope](crate::syntax::Scope).
-    ///
-    /// For example, the functions `word.spacing`, `line.spacing` and
-    /// `par.spacing` are actually all the same function
-    /// [`ContentSpacingFunc`](crate::library::ContentSpacingFunc) with the
-    /// metadata specifiy which content should be spaced.
-    type Meta: Clone;
-
-    /// Parse the header and body into this function given a context.
-    fn parse(
-        header: FuncCall,
-        state: &ParseState,
-        metadata: Self::Meta,
-    ) -> Pass<Self> where Self: Sized;
-}
-
-/// Extra methods on [`Options`](Option) used for argument parsing.
+/// Extra methods on [`Options`](Option) used for function argument parsing.
 pub trait OptionExt<T>: Sized {
     /// Calls `f` with `val` if this is `Some(val)`.
     fn with(self, f: impl FnOnce(T));
@@ -63,10 +39,30 @@ impl<T> OptionExt<T> for Option<T> {
     }
 }
 
-/// Allows to implement a function type concisely.
+/// Parses a function's body if there is one or returns `None` otherwise.
+pub fn parse_maybe_body(
+    body: Option<Spanned<&str>>,
+    state: &ParseState,
+    f: &mut Feedback,
+) -> Option<SyntaxTree> {
+    body.map(|body| {
+        let parsed = parse(body.v, body.span.start, state);
+        f.extend(parsed.feedback);
+        parsed.output
+    })
+}
+
+/// Generates an error if there is function body even though none was expected.
+pub fn expect_no_body(body: Option<Spanned<&str>>, f: &mut Feedback) {
+    if let Some(body) = body {
+        error!(@f, body.span, "unexpected body");
+    }
+}
+
+/// Implement a custom function concisely.
 ///
 /// # Examples
-/// Look at the source code of the [`library`](crate::library) module for more
+/// Look at the source code of the [`library`](crate::library) module for
 /// examples on how the macro works.
 #[macro_export]
 macro_rules! function {
@@ -101,7 +97,7 @@ macro_rules! function {
         $feedback:ident,
         $metadata:ident
     ) $code:block $($r:tt)*) => {
-        impl $crate::func::ParseFunc for $name {
+        impl $crate::syntax::parsing::ParseCall for $name {
             type Meta = $meta;
 
             fn parse(
@@ -111,7 +107,7 @@ macro_rules! function {
             ) -> $crate::Pass<Self> where Self: Sized {
                 let mut feedback = $crate::Feedback::new();
                 #[allow(unused)] let $header = &mut call.header;
-                #[allow(unused)] let $body = &mut call.body;
+                #[allow(unused)] let $body = call.body;
                 #[allow(unused)] let $feedback = &mut feedback;
 
                 let func = $code;
@@ -131,7 +127,11 @@ macro_rules! function {
         function!(@layout($name) $($r)*);
     };
 
-    (@layout($name:ident) layout($this:ident, $ctx:ident, $feedback:ident) $code:block) => {
+    (@layout($name:ident) layout(
+        $this:ident,
+        $ctx:ident,
+        $feedback:ident
+    ) $code:block) => {
         impl $crate::layout::Layout for $name {
             fn layout<'a, 'b, 't>(
                 #[allow(unused)] &'a $this,
@@ -149,35 +149,6 @@ macro_rules! function {
                     $crate::Pass::new(commands, feedback)
                 })
             }
-        }
-    };
-}
-
-/// Parse the body of a function.
-///
-/// - If the function does not expect a body, use `body!(nope: body, feedback)`.
-/// - If the function can have a body, use `body!(opt: body, state, feedback,
-///   decos)`.
-///
-/// # Arguments
-/// - The `$body` should be of type `Option<Spanned<&str>>`.
-/// - The `$state` is the parse state to use.
-/// - The `$feedback` should be a mutable references to a
-///   [`Feedback`](crate::Feedback) struct which is filled with the feedback
-///   information arising from parsing.
-#[macro_export]
-macro_rules! body {
-    (opt: $body:expr, $state:expr, $feedback:expr) => ({
-        $body.map(|body| {
-            let parsed = $crate::syntax::parsing::parse(body.v, body.span.start, $state);
-            $feedback.extend(parsed.feedback);
-            parsed.output
-        })
-    });
-
-    (nope: $body:expr, $feedback:expr) => {
-        if let Some(body) = $body {
-            error!(@$feedback, body.span, "unexpected body");
         }
     };
 }

@@ -20,7 +20,7 @@ function! {
     }
 
     parse(header, body, state, f) {
-        body!(nope: body, f);
+        expect_no_body(body, f);
         PageFunc {
             paper: header.args.pos.get::<Paper>(),
             width: header.args.key.get::<Length>("width", f),
