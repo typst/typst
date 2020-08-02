@@ -40,7 +40,7 @@ pub struct TextContext<'a> {
 }
 
 /// Layouts text into a box.
-pub async fn layout_text(text: &str, ctx: TextContext<'_>) -> Layout {
+pub async fn layout_text(text: &str, ctx: TextContext<'_>) -> BoxLayout {
     TextLayouter::new(text, ctx).layout().await
 }
 
@@ -58,7 +58,7 @@ impl<'a> TextLayouter<'a> {
     }
 
     /// Do the layouting.
-    async fn layout(mut self) -> Layout {
+    async fn layout(mut self) -> BoxLayout {
         // If the primary axis is negative, we layout the characters reversed.
         if self.ctx.axes.primary.is_positive() {
             for c in self.text.chars() {
@@ -76,8 +76,8 @@ impl<'a> TextLayouter<'a> {
             self.elements.push(pos, LayoutElement::Text(self.shaped));
         }
 
-        Layout {
-            dimensions: Size::new(self.width, self.ctx.style.font_size()),
+        BoxLayout {
+            size: Size::new(self.width, self.ctx.style.font_size()),
             align: self.ctx.align,
             elements: self.elements,
         }

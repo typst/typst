@@ -7,7 +7,7 @@ use std::u8;
 
 use crate::Feedback;
 use crate::length::Length;
-use super::span::Spanned;
+use super::span::{Spanned, SpanVec};
 use super::tokens::is_identifier;
 use super::value::Value;
 
@@ -237,7 +237,7 @@ impl fmt::Display for ParseColorError {
 /// (false, 12cm, "hi")
 /// ```
 #[derive(Default, Clone, PartialEq)]
-pub struct Tuple(pub Vec<Spanned<Expr>>);
+pub struct Tuple(pub SpanVec<Expr>);
 
 impl Tuple {
     /// Create an empty tuple.
@@ -333,7 +333,7 @@ impl Deref for NamedTuple {
 /// { fit: false, width: 12cm, items: (1, 2, 3) }
 /// ```
 #[derive(Default, Clone, PartialEq)]
-pub struct Object(pub Vec<Spanned<Pair>>);
+pub struct Object(pub SpanVec<Pair>);
 
 /// A key-value pair in an object.
 #[derive(Debug, Clone, PartialEq)]

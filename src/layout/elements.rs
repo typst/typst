@@ -35,8 +35,7 @@ impl Default for LayoutElements {
     }
 }
 
-/// A layouting action, which is the basic building block layouts are composed
-/// of.
+/// A layout element, which is the basic building block layouts are composed of.
 #[derive(Debug, Clone, PartialEq)]
 pub enum LayoutElement {
     /// Shaped text.

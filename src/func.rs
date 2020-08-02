@@ -11,7 +11,7 @@ pub mod prelude {
     pub use crate::layout::Command::{self, *};
     pub use crate::style::{LayoutStyle, PageStyle, TextStyle};
     pub use crate::syntax::expr::*;
-    pub use crate::syntax::model::SyntaxModel;
+    pub use crate::syntax::tree::SyntaxTree;
     pub use crate::syntax::span::{Span, Spanned};
     pub use crate::syntax::value::*;
     pub use super::OptionExt;
@@ -132,11 +132,11 @@ macro_rules! function {
     };
 
     (@layout($name:ident) layout($this:ident, $ctx:ident, $feedback:ident) $code:block) => {
-        impl $crate::syntax::model::Model for $name {
+        impl $crate::layout::Layout for $name {
             fn layout<'a, 'b, 't>(
                 #[allow(unused)] &'a $this,
                 #[allow(unused)] mut $ctx: $crate::layout::LayoutContext<'b>,
-            ) -> $crate::layout::DynFuture<'t, $crate::Pass<$crate::layout::Commands<'a>>>
+            ) -> $crate::DynFuture<'t, $crate::Pass<$crate::layout::Commands<'a>>>
             where
                 'a: 't,
                 'b: 't,

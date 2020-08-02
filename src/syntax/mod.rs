@@ -1,4 +1,4 @@
-//! Syntax models, parsing and tokenization.
+//! Syntax trees, parsing and tokenization.
 
 #[cfg(test)]
 #[macro_use]
@@ -6,7 +6,7 @@ mod test;
 
 pub mod decoration;
 pub mod expr;
-pub mod model;
+pub mod tree;
 pub mod parsing;
 pub mod span;
 pub mod scope;

@@ -1,3 +1,5 @@
+//! Spacing.
+
 use crate::length::ScaleLength;
 use crate::layout::SpacingKind;
 use super::*;

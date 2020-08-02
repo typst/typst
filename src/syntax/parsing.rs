@@ -1,4 +1,4 @@
-//! Parsing of source code into syntax models.
+//! Parsing of source code into syntax trees.
 
 use std::str::FromStr;
 
@@ -8,10 +8,10 @@ use super::expr::*;
 use super::scope::Scope;
 use super::span::{Pos, Span, Spanned};
 use super::tokens::{is_newline_char, Token, Tokens, TokenMode};
-use super::model::{SyntaxModel, Node, Model};
+use super::tree::{SyntaxTree, SyntaxNode, DynamicNode};
 
-/// A function which parses a function call into a model.
-pub type CallParser = dyn Fn(FuncCall, &ParseState) -> Pass<Box<dyn Model>>;
+/// A function which parses a function call into a tree.
+pub type CallParser = dyn Fn(FuncCall, &ParseState) -> Pass<Box<dyn DynamicNode>>;
 
 /// An invocation of a function.
 #[derive(Debug, Clone, PartialEq)]
@@ -73,12 +73,12 @@ pub struct ParseState {
 
 /// Parse a string of source code.
 ///
-/// All spans in the resulting model and feedback are offset by the given
+/// All spans in the resulting tree and feedback are offset by the given
 /// `offset` position. This is used to make spans of a function body relative to
 /// the start of the function as a whole as opposed to the start of the
 /// function's body.
-pub fn parse(src: &str, offset: Pos, state: &ParseState) -> Pass<SyntaxModel> {
-    let mut model = SyntaxModel::new();
+pub fn parse(src: &str, offset: Pos, state: &ParseState) -> Pass<SyntaxTree> {
+    let mut tree = SyntaxTree::new();
     let mut feedback = Feedback::new();
 
     for token in Tokens::new(src, offset, TokenMode::Body) {
@@ -87,9 +87,9 @@ pub fn parse(src: &str, offset: Pos, state: &ParseState) -> Pass<SyntaxModel> {
             // Starting from two newlines counts as a paragraph break, a single
             // newline does not.
             Token::Space(newlines) => if newlines >= 2 {
-                Node::Parbreak
+                SyntaxNode::Parbreak
             } else {
-                Node::Space
+                SyntaxNode::Space
             }
 
             Token::Function { header, body, terminated } => {
@@ -103,19 +103,19 @@ pub fn parse(src: &str, offset: Pos, state: &ParseState) -> Pass<SyntaxModel> {
                 parsed.output
             }
 
-            Token::Star => Node::ToggleBolder,
-            Token::Underscore => Node::ToggleItalic,
-            Token::Backslash => Node::Linebreak,
+            Token::Star => SyntaxNode::ToggleBolder,
+            Token::Underscore => SyntaxNode::ToggleItalic,
+            Token::Backslash => SyntaxNode::Linebreak,
 
             Token::Raw { raw, terminated } => {
                 if !terminated {
                     error!(@feedback, Span::at(span.end), "expected backtick");
                 }
 
-                Node::Raw(unescape_raw(raw))
+                SyntaxNode::Raw(unescape_raw(raw))
             }
 
-            Token::Text(text) => Node::Text(text.to_string()),
+            Token::Text(text) => SyntaxNode::Text(text.to_string()),
 
             Token::LineComment(_) | Token::BlockComment(_) => continue,
             unexpected => {
@@ -124,10 +124,10 @@ pub fn parse(src: &str, offset: Pos, state: &ParseState) -> Pass<SyntaxModel> {
             }
         };
 
-        model.add(Spanned::new(node, span));
+        tree.push(Spanned::new(node, span));
     }
 
-    Pass::new(model, feedback)
+    Pass::new(tree, feedback)
 }
 
 struct FuncParser<'s> {
@@ -164,7 +164,7 @@ impl<'s> FuncParser<'s> {
         }
     }
 
-    fn parse(mut self) -> Pass<Node> {
+    fn parse(mut self) -> Pass<SyntaxNode> {
         let (parser, header) = if let Some(header) = self.parse_func_header() {
             let name = header.name.v.as_str();
             let (parser, deco) = match self.state.scope.get_parser(name) {
@@ -197,9 +197,8 @@ impl<'s> FuncParser<'s> {
 
         let call = FuncCall { header, body: self.body };
         let parsed = parser(call, self.state);
-
         self.feedback.extend(parsed.feedback);
-        Pass::new(Node::Model(parsed.output), self.feedback)
+        Pass::new(SyntaxNode::Dyn(parsed.output), self.feedback)
     }
 
     fn parse_func_header(&mut self) -> Option<FuncHeader> {
@@ -662,26 +661,27 @@ fn unescape_raw(raw: &str) -> Vec<String> {
 #[allow(non_snake_case)]
 mod tests {
     use crate::length::Length;
-    use super::super::test::{check, DebugFn};
+    use crate::syntax::span::SpanVec;
+    use crate::syntax::test::{check, DebugFn};
     use super::*;
 
     use Decoration::*;
     use Expr::{Number as Num, Length as Len, Bool};
-    use Node::{
+    use SyntaxNode::{
         Space as S, ToggleItalic as Italic, ToggleBolder as Bold,
         Parbreak, Linebreak,
     };
 
     /// Test whether the given string parses into
-    /// - the given node list (required).
+    /// - the given SyntaxNode list (required).
     /// - the given error list (optional, if omitted checks against empty list).
     /// - the given decoration list (optional, if omitted it is not tested).
     macro_rules! p {
-        ($source:expr => [$($model:tt)*]) => {
-            p!($source => [$($model)*], []);
+        ($source:expr => [$($tree:tt)*]) => {
+            p!($source => [$($tree)*], []);
         };
 
-        ($source:expr => [$($model:tt)*], [$($diagnostics:tt)*] $(, [$($decos:tt)*])? $(,)?) => {
+        ($source:expr => [$($tree:tt)*], [$($diagnostics:tt)*] $(, [$($decos:tt)*])? $(,)?) => {
             let mut scope = Scope::new::<DebugFn>();
             scope.add::<DebugFn>("f");
             scope.add::<DebugFn>("n");
@@ -691,9 +691,9 @@ mod tests {
             let state = ParseState { scope };
             let pass = parse($source, Pos::ZERO, &state);
 
-            // Test model.
-            let (exp, cmp) = span_vec![$($model)*];
-            check($source, exp, pass.output.nodes, cmp);
+            // Test tree.
+            let (exp, cmp) = span_vec![$($tree)*];
+            check($source, exp, pass.output, cmp);
 
             // Test diagnostics.
             let (exp, cmp) = span_vec![$($diagnostics)*];
@@ -728,7 +728,7 @@ mod tests {
     fn Sub(e1: Expr, e2: Expr) -> Expr { Expr::Sub(Box::new(Z(e1)), Box::new(Z(e2))) }
     fn Mul(e1: Expr, e2: Expr) -> Expr { Expr::Mul(Box::new(Z(e1)), Box::new(Z(e2))) }
     fn Div(e1: Expr, e2: Expr) -> Expr { Expr::Div(Box::new(Z(e1)), Box::new(Z(e2)))  }
-    fn T(text: &str) -> Node { Node::Text(text.to_string()) }
+    fn T(text: &str) -> SyntaxNode { SyntaxNode::Text(text.to_string()) }
     fn Z<T>(v: T) -> Spanned<T> { Spanned::zero(v) }
 
     macro_rules! tuple {
@@ -757,7 +757,7 @@ mod tests {
 
     macro_rules! raw {
         ($($line:expr),* $(,)?) => {
-            Node::Raw(vec![$($line.to_string()),*])
+            SyntaxNode::Raw(vec![$($line.to_string()),*])
         };
     }
 
@@ -769,7 +769,7 @@ mod tests {
             #[allow(unused_mut)]
             let mut args = FuncArgs::new();
             $(
-                let items: Vec<Spanned<Expr>> = span_vec![$($pos)*].0;
+                let items: SpanVec<Expr> = span_vec![$($pos)*].0;
                 for item in items {
                     args.push(item.map(|v| FuncArg::Pos(v)));
                 }
@@ -778,7 +778,7 @@ mod tests {
                     value: Z($value),
                 })));)*)?
             )?
-            Node::Model(Box::new(DebugFn {
+            SyntaxNode::Dyn(Box::new(DebugFn {
                 header: FuncHeader {
                     name: span_item!($name).map(|s| Ident(s.to_string())),
                     args,
@@ -786,7 +786,7 @@ mod tests {
                 body: func!(@body $($($body)*)?),
             }))
         }};
-        (@body [$($body:tt)*]) => { Some(SyntaxModel { nodes: span_vec![$($body)*].0 }) };
+        (@body [$($body:tt)*]) => { Some(span_vec![$($body)*].0) };
         (@body) => { None };
     }
 
@@ -818,8 +818,8 @@ mod tests {
 
     #[test]
     fn unescape_raws() {
-        fn test(raw: &str, expected: Node) {
-            let vec = if let Node::Raw(v) = expected { v } else { panic!() };
+        fn test(raw: &str, expected: SyntaxNode) {
+            let vec = if let SyntaxNode::Raw(v) = expected { v } else { panic!() };
             assert_eq!(unescape_raw(raw), vec);
         }
 
@@ -834,8 +834,8 @@ mod tests {
     }
 
     #[test]
-    fn parse_basic_nodes() {
-        // Basic nodes.
+    fn parse_basic_SyntaxNodes() {
+        // Basic SyntaxNodes.
         p!(""                     => []);
         p!("hi"                   => [T("hi")]);
         p!("*hi"                  => [Bold, T("hi")]);
@@ -855,7 +855,7 @@ mod tests {
         p!("`hi\nyou"     => [raw!["hi", "you"]], [(1:3, 1:3, "expected backtick")]);
         p!("`hi\\`du`"    => [raw!["hi`du"]]);
 
-        // Spanned nodes.
+        // Spanned SyntaxNodes.
         p!("Hi"      => [(0:0, 0:2, T("Hi"))]);
         p!("*Hi*"    => [(0:0, 0:1, Bold), (0:1, 0:3, T("Hi")), (0:3, 0:4, Bold)]);
         p!("🌎\n*/[n]" =>

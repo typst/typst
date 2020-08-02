@@ -16,24 +16,18 @@
 //!   format is [_PDF_](crate::export::pdf).
 
 use std::fmt::Debug;
+use std::future::Future;
+use std::pin::Pin;
 
 use crate::diagnostic::Diagnostics;
 use crate::font::SharedFontLoader;
 use crate::layout::MultiLayout;
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::syntax::decoration::Decorations;
-use crate::syntax::model::SyntaxModel;
+use crate::syntax::tree::SyntaxTree;
 use crate::syntax::parsing::{parse, ParseState};
 use crate::syntax::scope::Scope;
 use crate::syntax::span::{Offset, Pos};
-
-/// Declare a module and reexport all its contents.
-macro_rules! pub_use_mod {
-    ($name:ident) => {
-        mod $name;
-        pub use $name::*;
-    };
-}
 
 #[macro_use]
 mod macros;
@@ -84,23 +78,24 @@ impl Typesetter {
     }
 
     /// Parse source code into a syntax tree.
-    pub fn parse(&self, src: &str) -> Pass<SyntaxModel> {
+    pub fn parse(&self, src: &str) -> Pass<SyntaxTree> {
         parse(src, Pos::ZERO, &self.parse_state)
     }
 
     /// Layout a syntax tree and return the produced layout.
-    pub async fn layout(&self, model: &SyntaxModel) -> Pass<MultiLayout> {
+    pub async fn layout(&self, tree: &SyntaxTree) -> Pass<MultiLayout> {
         use crate::layout::prelude::*;
+        use crate::layout::{LayoutContext, LayoutSpace};
 
         let margins = self.style.page.margins();
-        crate::layout::layout(
-            &model,
+        layout(
+            &tree,
             LayoutContext {
                 loader: &self.loader,
                 style: &self.style,
-                base: self.style.page.dimensions.unpadded(margins),
+                base: self.style.page.size.unpadded(margins),
                 spaces: vec![LayoutSpace {
-                    dimensions: self.style.page.dimensions,
+                    size: self.style.page.size,
                     padding: margins,
                     expansion: LayoutExpansion::new(true, true),
                 }],
@@ -120,6 +115,11 @@ impl Typesetter {
         Pass::new(layouted.output, feedback)
     }
 }
+
+/// A dynamic future type which allows recursive invocation of async functions
+/// when used as the return type. This is also how the async trait functions
+/// work internally.
+pub type DynFuture<'a, T> = Pin<Box<dyn Future<Output=T> + 'a>>;
 
 /// The result of some pass: Some output `T` and feedback data.
 #[derive(Debug, Clone, Eq, PartialEq)]

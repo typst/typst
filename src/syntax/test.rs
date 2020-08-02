@@ -5,7 +5,7 @@ use super::expr::{Expr, Ident, Tuple, NamedTuple, Object, Pair};
 use super::parsing::{FuncHeader, FuncArgs, FuncArg};
 use super::span::Spanned;
 use super::tokens::Token;
-use super::model::{SyntaxModel, Model, Node};
+use super::tree::{SyntaxTree, SyntaxNode, DynamicNode};
 
 /// Check whether the expected and found results are the same.
 pub fn check<T>(src: &str, exp: T, found: T, cmp_spans: bool)
@@ -62,7 +62,7 @@ function! {
     #[derive(Debug, Clone, PartialEq)]
     pub struct DebugFn {
         pub header: FuncHeader,
-        pub body: Option<SyntaxModel>,
+        pub body: Option<SyntaxTree>,
     }
 
     parse(header, body, state, f) {
@@ -83,20 +83,14 @@ pub trait SpanlessEq<Rhs=Self> {
     fn spanless_eq(&self, other: &Rhs) -> bool;
 }
 
-impl SpanlessEq for SyntaxModel {
-    fn spanless_eq(&self, other: &SyntaxModel) -> bool {
-        self.nodes.spanless_eq(&other.nodes)
-    }
-}
-
-impl SpanlessEq for Node {
-    fn spanless_eq(&self, other: &Node) -> bool {
-        fn downcast<'a>(func: &'a (dyn Model + 'static)) -> &'a DebugFn {
+impl SpanlessEq for SyntaxNode {
+    fn spanless_eq(&self, other: &SyntaxNode) -> bool {
+        fn downcast<'a>(func: &'a (dyn DynamicNode + 'static)) -> &'a DebugFn {
             func.downcast::<DebugFn>().expect("not a debug fn")
         }
 
         match (self, other) {
-            (Node::Model(a), Node::Model(b)) => {
+            (SyntaxNode::Dyn(a), SyntaxNode::Dyn(b)) => {
                 downcast(a.as_ref()).spanless_eq(downcast(b.as_ref()))
             }
             (a, b) => a == b,

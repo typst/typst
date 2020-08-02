@@ -15,7 +15,7 @@ use fontdock::FaceId;
 use ttf_parser::{name_id, GlyphId};
 
 use crate::SharedFontLoader;
-use crate::layout::{MultiLayout, Layout};
+use crate::layout::{MultiLayout, BoxLayout};
 use crate::layout::elements::LayoutElement;
 use crate::length::Length;
 
@@ -117,8 +117,8 @@ impl<'a, W: Write> PdfExporter<'a, W> {
             let rect = Rect::new(
                 0.0,
                 0.0,
-                Length::raw(page.dimensions.x).as_pt() as f32,
-                Length::raw(page.dimensions.y).as_pt() as f32,
+                Length::raw(page.size.x).as_pt() as f32,
+                Length::raw(page.size.y).as_pt() as f32,
             );
 
             self.writer.write_obj(
@@ -141,7 +141,7 @@ impl<'a, W: Write> PdfExporter<'a, W> {
     }
 
     /// Write the content of a page.
-    fn write_page(&mut self, id: u32, page: &Layout) -> io::Result<()> {
+    fn write_page(&mut self, id: u32, page: &BoxLayout) -> io::Result<()> {
         // Moves and face switches are always cached and only flushed once
         // needed.
         let mut text = Text::new();
@@ -161,7 +161,7 @@ impl<'a, W: Write> PdfExporter<'a, W> {
                     }
 
                     let x = Length::raw(pos.x).as_pt();
-                    let y = Length::raw(page.dimensions.y - pos.y - size).as_pt();
+                    let y = Length::raw(page.size.y - pos.y - size).as_pt();
                     text.tm(1.0, 0.0, 0.0, 1.0, x as f32, y as f32);
                     text.tj(shaped.encode_glyphs());
                 }

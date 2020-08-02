@@ -1,12 +1,14 @@
 //! The _Typst_ standard library.
 
-use crate::syntax::scope::Scope;
 use crate::func::prelude::*;
+use crate::layout::{LayoutContext, Commands};
+use crate::syntax::scope::Scope;
 
-pub_use_mod!(font);
-pub_use_mod!(layout);
-pub_use_mod!(page);
-pub_use_mod!(spacing);
+macro_rules! lib { ($name:ident) => { mod $name; pub use $name::*; }}
+lib!(font);
+lib!(layout);
+lib!(page);
+lib!(spacing);
 
 /// Create a scope with all standard functions.
 pub fn std() -> Scope {
@@ -17,10 +19,10 @@ pub fn std() -> Scope {
     std.add::<PageFunc>("page");
     std.add::<AlignFunc>("align");
     std.add::<BoxFunc>("box");
-    std.add_with_meta::<SpacingFunc>("h", Horizontal);
-    std.add_with_meta::<SpacingFunc>("v", Vertical);
     std.add::<ParBreakFunc>("parbreak");
     std.add::<PageBreakFunc>("pagebreak");
+    std.add_with_meta::<SpacingFunc>("h", Horizontal);
+    std.add_with_meta::<SpacingFunc>("v", Vertical);
 
     std
 }
@@ -29,7 +31,7 @@ function! {
     /// `val`: Layouts the body with no special effect.
     #[derive(Debug, Clone, PartialEq)]
     pub struct ValFunc {
-        body: Option<SyntaxModel>,
+        body: Option<SyntaxTree>,
     }
 
     parse(header, body, state, f) {
@@ -40,7 +42,7 @@ function! {
 
     layout(self, ctx, f) {
         match &self.body {
-            Some(model) => vec![LayoutSyntaxModel(model)],
+            Some(tree) => vec![LayoutSyntaxTree(tree)],
             None => vec![],
         }
     }
@@ -48,7 +50,7 @@ function! {
 
 /// Layout an optional body with a change of the text style.
 fn styled<'a, T, F>(
-    body: &'a Option<SyntaxModel>,
+    body: &'a Option<SyntaxTree>,
     ctx: LayoutContext<'_>,
     data: Option<T>,
     f: F,
@@ -58,9 +60,9 @@ fn styled<'a, T, F>(
         f(&mut style, data);
 
         match body {
-            Some(model) => vec![
+            Some(tree) => vec![
                 SetTextStyle(style),
-                LayoutSyntaxModel(model),
+                LayoutSyntaxTree(tree),
                 SetTextStyle(ctx.style.text.clone()),
             ],
             None => vec![SetTextStyle(style)],

@@ -59,12 +59,12 @@ struct Space {
     /// Whether to add the layout for this space even if it would be empty.
     hard: bool,
     /// The so-far accumulated layouts.
-    layouts: Vec<(LayoutAxes, Layout)>,
+    layouts: Vec<(LayoutAxes, BoxLayout)>,
     /// The specialized size of this space.
     size: Size,
     /// The specialized remaining space.
     usable: Size,
-    /// The specialized extra-needed dimensions to affect the size at all.
+    /// The specialized extra-needed size to affect the size at all.
     extra: Size,
     /// The rulers of a space dictate which alignments for new boxes are still
     /// allowed and which require a new space to be started.
@@ -85,7 +85,7 @@ impl StackLayouter {
     }
 
     /// Add a layout to the stack.
-    pub fn add(&mut self, layout: Layout) {
+    pub fn add(&mut self, layout: BoxLayout) {
         // If the alignment cannot be fitted in this space, finish it.
         // TODO: Issue warning for non-fitting alignment in
         //       non-repeating context.
@@ -101,12 +101,12 @@ impl StackLayouter {
         }
 
         // TODO: Issue warning about overflow if there is overflow.
-        if !self.space.usable.fits(layout.dimensions) && self.ctx.repeat {
-            self.skip_to_fitting_space(layout.dimensions);
+        if !self.space.usable.fits(layout.size) && self.ctx.repeat {
+            self.skip_to_fitting_space(layout.size);
         }
 
         // Change the usable space and size of the space.
-        self.update_metrics(layout.dimensions.generalized(self.ctx.axes));
+        self.update_metrics(layout.size.generalized(self.ctx.axes));
 
         // Add the box to the vector and remember that spacings are allowed
         // again.
@@ -130,11 +130,11 @@ impl StackLayouter {
             SpacingKind::Hard => {
                 // Reduce the spacing such that it definitely fits.
                 spacing = spacing.min(self.space.usable.secondary(self.ctx.axes));
-                let dimensions = Size::with_y(spacing);
+                let size = Size::with_y(spacing);
 
-                self.update_metrics(dimensions);
-                self.space.layouts.push((self.ctx.axes, Layout {
-                    dimensions: dimensions.specialized(self.ctx.axes),
+                self.update_metrics(size);
+                self.space.layouts.push((self.ctx.axes, BoxLayout {
+                    size: size.specialized(self.ctx.axes),
                     align: LayoutAlign::new(Start, Start),
                     elements: LayoutElements::new(),
                 }));
@@ -159,22 +159,22 @@ impl StackLayouter {
     }
 
     /// Update the size metrics to reflect that a layout or spacing with the
-    /// given generalized dimensions has been added.
-    fn update_metrics(&mut self, dimensions: Size) {
+    /// given generalized size has been added.
+    fn update_metrics(&mut self, added: Size) {
         let axes = self.ctx.axes;
 
         let mut size = self.space.size.generalized(axes);
         let mut extra = self.space.extra.generalized(axes);
 
-        size.x += (dimensions.x - extra.x).max(0.0);
-        size.y += (dimensions.y - extra.y).max(0.0);
+        size.x += (added.x - extra.x).max(0.0);
+        size.y += (added.y - extra.y).max(0.0);
 
-        extra.x = extra.x.max(dimensions.x);
-        extra.y = (extra.y - dimensions.y).max(0.0);
+        extra.x = extra.x.max(added.x);
+        extra.y = (extra.y - added.y).max(0.0);
 
         self.space.size = size.specialized(axes);
         self.space.extra = extra.specialized(axes);
-        *self.space.usable.secondary_mut(axes) -= dimensions.y;
+        *self.space.usable.secondary_mut(axes) -= added.y;
     }
 
     /// Update the rulers to account for the new layout. Returns true if a
@@ -226,12 +226,12 @@ impl StackLayouter {
         }
     }
 
-    /// Move to the first space that can fit the given dimensions or do nothing
+    /// Move to the first space that can fit the given size or do nothing
     /// if no space is capable of that.
-    pub fn skip_to_fitting_space(&mut self, dimensions: Size) {
+    pub fn skip_to_fitting_space(&mut self, size: Size) {
         let start = self.next_space();
         for (index, space) in self.ctx.spaces[start..].iter().enumerate() {
-            if space.usable().fits(dimensions) {
+            if space.usable().fits(size) {
                 self.finish_space(true);
                 self.start_space(start + index, true);
                 return;
@@ -242,10 +242,10 @@ impl StackLayouter {
     /// The remaining unpadded, unexpanding spaces. If a function is laid out
     /// into these spaces, it will fit into this stack.
     pub fn remaining(&self) -> LayoutSpaces {
-        let dimensions = self.usable();
+        let size = self.usable();
 
         let mut spaces = vec![LayoutSpace {
-            dimensions,
+            size,
             padding: Margins::ZERO,
             expansion: LayoutExpansion::new(false, false),
         }];
@@ -287,7 +287,7 @@ impl StackLayouter {
         let space = self.ctx.spaces[self.space.index];
 
         // ------------------------------------------------------------------ //
-        // Step 1: Determine the full dimensions of the space.
+        // Step 1: Determine the full size of the space.
         // (Mostly done already while collecting the boxes, but here we
         //  expand if necessary.)
 
@@ -295,7 +295,7 @@ impl StackLayouter {
         if space.expansion.horizontal { self.space.size.x = usable.x; }
         if space.expansion.vertical   { self.space.size.y = usable.y; }
 
-        let dimensions = self.space.size.padded(space.padding);
+        let size = self.space.size.padded(space.padding);
 
         // ------------------------------------------------------------------ //
         // Step 2: Forward pass. Create a bounding box for each layout in which
@@ -323,7 +323,7 @@ impl StackLayouter {
             // the usable space for following layouts at it's origin by its
             // extent along the secondary axis.
             *bound.get_mut(axes.secondary, Start)
-                += axes.secondary.factor() * layout.dimensions.secondary(*axes);
+                += axes.secondary.factor() * layout.size.secondary(*axes);
         }
 
         // ------------------------------------------------------------------ //
@@ -355,7 +355,7 @@ impl StackLayouter {
                 -= axes.secondary.factor() * extent.y;
 
             // Then, we add this layout's secondary extent to the accumulator.
-            let size = layout.dimensions.generalized(*axes);
+            let size = layout.size.generalized(*axes);
             extent.x = extent.x.max(size.x);
             extent.y += size.y;
         }
@@ -368,7 +368,7 @@ impl StackLayouter {
 
         let layouts = std::mem::take(&mut self.space.layouts);
         for ((axes, layout), bound) in layouts.into_iter().zip(bounds) {
-            let size = layout.dimensions.specialized(axes);
+            let size = layout.size.specialized(axes);
             let align = layout.align;
 
             // The space in which this layout is aligned is given by the
@@ -383,8 +383,8 @@ impl StackLayouter {
             elements.extend_offset(pos, layout.elements);
         }
 
-        self.layouts.push(Layout {
-            dimensions,
+        self.layouts.push(BoxLayout {
+            size,
             align: self.ctx.align,
             elements,
         });

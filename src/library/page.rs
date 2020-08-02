@@ -1,3 +1,5 @@
+//! Page setup.
+
 use crate::length::{Length, ScaleLength};
 use crate::paper::{Paper, PaperClass};
 use super::*;
@@ -37,13 +39,13 @@ function! {
 
         if let Some(paper) = self.paper {
             style.class = paper.class;
-            style.dimensions = paper.size();
+            style.size = paper.size();
         } else if self.width.is_some() || self.height.is_some() {
             style.class = PaperClass::Custom;
         }
 
-        self.width.with(|v| style.dimensions.x = v.as_raw());
-        self.height.with(|v| style.dimensions.y = v.as_raw());
+        self.width.with(|v| style.size.x = v.as_raw());
+        self.height.with(|v| style.size.y = v.as_raw());
         self.margins.with(|v| style.margins.set_all(Some(v)));
         self.left.with(|v| style.margins.left = Some(v));
         self.right.with(|v| style.margins.right = Some(v));
@@ -51,7 +53,7 @@ function! {
         self.bottom.with(|v| style.margins.bottom = Some(v));
 
         if self.flip {
-            style.dimensions.swap();
+            style.size.swap();
         }
 
         vec![SetPageStyle(style)]

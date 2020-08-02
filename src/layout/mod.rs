@@ -1,57 +1,100 @@
 //! Layouting types and engines.
 
-use std::fmt::{self, Display, Formatter};
+use async_trait::async_trait;
 
+use crate::Pass;
+use crate::font::SharedFontLoader;
 use crate::geom::{Size, Margins};
+use crate::style::{LayoutStyle, TextStyle, PageStyle};
+use crate::syntax::tree::SyntaxTree;
+
 use elements::LayoutElements;
+use tree::TreeLayouter;
 use prelude::*;
 
+pub mod elements;
 pub mod line;
+pub mod primitive;
 pub mod stack;
 pub mod text;
-pub mod elements;
-pub_use_mod!(model);
+pub mod tree;
+
+pub use primitive::*;
 
 /// Basic types used across the layouting engine.
 pub mod prelude {
-    pub use super::{
-        layout, LayoutContext, LayoutSpace, Command, Commands,
-        LayoutAxes, LayoutAlign, LayoutExpansion,
-    };
-    pub use super::Dir::{self, *};
-    pub use super::GenAxis::{self, *};
-    pub use super::SpecAxis::{self, *};
-    pub use super::GenAlign::{self, *};
-    pub use super::SpecAlign::{self, *};
+    pub use super::layout;
+    pub use super::primitive::*;
+    pub use Dir::*;
+    pub use GenAxis::*;
+    pub use SpecAxis::*;
+    pub use GenAlign::*;
+    pub use SpecAlign::*;
 }
 
 /// A collection of layouts.
-pub type MultiLayout = Vec<Layout>;
+pub type MultiLayout = Vec<BoxLayout>;
 
 /// A finished box with content at fixed positions.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Layout {
+pub struct BoxLayout {
     /// The size of the box.
-    pub dimensions: Size,
+    pub size: Size,
     /// How to align this layout in a parent container.
     pub align: LayoutAlign,
-    /// The actions composing this layout.
+    /// The elements composing this layout.
     pub elements: LayoutElements,
 }
 
-/// A vector of layout spaces, that is stack allocated as long as it only
-/// contains at most 2 spaces.
+/// Layouting of elements.
+#[async_trait(?Send)]
+pub trait Layout {
+    /// Layout self into a sequence of layouting commands.
+    async fn layout<'a>(&'a self, _: LayoutContext<'_>) -> Pass<Commands<'a>>;
+}
+
+/// Layout a syntax tree into a list of boxes.
+pub async fn layout(tree: &SyntaxTree, ctx: LayoutContext<'_>) -> Pass<MultiLayout> {
+    let mut layouter = TreeLayouter::new(ctx);
+    layouter.layout_tree(tree).await;
+    layouter.finish()
+}
+
+/// The context for layouting.
+#[derive(Debug, Clone)]
+pub struct LayoutContext<'a> {
+    /// The font loader to retrieve fonts from when typesetting text
+    /// using [`layout_text`].
+    pub loader: &'a SharedFontLoader,
+    /// The style for pages and text.
+    pub style: &'a LayoutStyle,
+    /// The base unpadded size of this container (for relative sizing).
+    pub base: Size,
+    /// The spaces to layout in.
+    pub spaces: LayoutSpaces,
+    /// Whether to have repeated spaces or to use only the first and only once.
+    pub repeat: bool,
+    /// The initial axes along which content is laid out.
+    pub axes: LayoutAxes,
+    /// The alignment of the finished layout.
+    pub align: LayoutAlign,
+    /// Whether the layout that is to be created will be nested in a parent
+    /// container.
+    pub nested: bool,
+}
+
+/// A collection of layout spaces.
 pub type LayoutSpaces = Vec<LayoutSpace>;
 
 /// The space into which content is laid out.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct LayoutSpace {
     /// The maximum size of the box to layout in.
-    pub dimensions: Size,
+    pub size: Size,
     /// Padding that should be respected on each side.
     pub padding: Margins,
-    /// Whether to expand the dimensions of the resulting layout to the full
-    /// dimensions of this space or to shrink them to fit the content.
+    /// Whether to expand the size of the resulting layout to the full size of
+    /// this space or to shrink them to fit the content.
     pub expansion: LayoutExpansion,
 }
 
@@ -62,363 +105,63 @@ impl LayoutSpace {
         Size::new(self.padding.left, self.padding.top)
     }
 
-    /// The actually usable area (dimensions minus padding).
+    /// The actually usable area (size minus padding).
     pub fn usable(&self) -> Size {
-        self.dimensions.unpadded(self.padding)
+        self.size.unpadded(self.padding)
     }
 
-    /// A layout space without padding and dimensions reduced by the padding.
+    /// A layout space without padding and size reduced by the padding.
     pub fn usable_space(&self) -> LayoutSpace {
         LayoutSpace {
-            dimensions: self.usable(),
+            size: self.usable(),
             padding: Margins::ZERO,
             expansion: LayoutExpansion::new(false, false),
         }
     }
 }
 
-/// Specifies along which axes content is laid out.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct LayoutAxes {
-    /// The primary layouting direction.
-    pub primary: Dir,
-    /// The secondary layouting direction.
-    pub secondary: Dir,
-}
+/// A sequence of layouting commands.
+pub type Commands<'a> = Vec<Command<'a>>;
 
-impl LayoutAxes {
-    /// Create a new instance from the two values.
+/// Commands issued to the layouting engine by trees.
+#[derive(Debug, Clone)]
+pub enum Command<'a> {
+    /// Layout the given tree in the current context (i.e. not nested). The
+    /// content of the tree is not laid out into a separate box and then added,
+    /// but simply laid out flat in the active layouting process.
     ///
-    /// # Panics
-    /// This function panics if the axes are aligned, that is, they are
-    /// on the same axis.
-    pub fn new(primary: Dir, secondary: Dir) -> LayoutAxes {
-        if primary.axis() == secondary.axis() {
-            panic!("invalid aligned axes {} and {}", primary, secondary);
-        }
+    /// This has the effect that the content fits nicely into the active line
+    /// layouting, enabling functions to e.g. change the style of some piece of
+    /// text while keeping it integrated in the current paragraph.
+    LayoutSyntaxTree(&'a SyntaxTree),
 
-        LayoutAxes { primary, secondary }
-    }
+    /// Add a already computed layout.
+    Add(BoxLayout),
+    /// Add multiple layouts, one after another. This is equivalent to multiple
+    /// [Add](Command::Add) commands.
+    AddMultiple(MultiLayout),
 
-    /// Return the direction of the specified generic axis.
-    pub fn get(self, axis: GenAxis) -> Dir {
-        match axis {
-            Primary => self.primary,
-            Secondary => self.secondary,
-        }
-    }
+    /// Add spacing of given [kind](super::SpacingKind) along the primary or
+    /// secondary axis. The spacing kind defines how the spacing interacts with
+    /// surrounding spacing.
+    AddSpacing(f64, SpacingKind, GenAxis),
 
-    /// Borrow the direction of the specified generic axis mutably.
-    pub fn get_mut(&mut self, axis: GenAxis) -> &mut Dir {
-        match axis {
-            Primary => &mut self.primary,
-            Secondary => &mut self.secondary,
-        }
-    }
-}
+    /// Start a new line.
+    BreakLine,
+    /// Start a new paragraph.
+    BreakParagraph,
+    /// Start a new page, which will exist in the finished layout even if it
+    /// stays empty (since the page break is a _hard_ space break).
+    BreakPage,
 
-/// Directions along which content is laid out.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Dir {
-    LTT,
-    RTL,
-    TTB,
-    BTT,
-}
+    /// Update the text style.
+    SetTextStyle(TextStyle),
+    /// Update the page style.
+    SetPageStyle(PageStyle),
 
-impl Dir {
-    /// The specific axis this direction belongs to.
-    pub fn axis(self) -> SpecAxis {
-        match self {
-            LTT | RTL => Horizontal,
-            TTB | BTT => Vertical,
-        }
-    }
-
-    /// Whether this axis points into the positive coordinate direction.
-    ///
-    /// The positive axes are left-to-right and top-to-bottom.
-    pub fn is_positive(self) -> bool {
-        match self {
-            LTT | TTB => true,
-            RTL | BTT => false,
-        }
-    }
-
-    /// The factor for this direction.
-    ///
-    /// - `1` if the direction is positive.
-    /// - `-1` if the direction is negative.
-    pub fn factor(self) -> f64 {
-        if self.is_positive() { 1.0 } else { -1.0 }
-    }
-
-    /// The inverse axis.
-    pub fn inv(self) -> Dir {
-        match self {
-            LTT => RTL,
-            RTL => LTT,
-            TTB => BTT,
-            BTT => TTB,
-        }
-    }
-}
-
-impl Display for Dir {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            LTT => "ltr",
-            RTL => "rtl",
-            TTB => "ttb",
-            BTT => "btt",
-        })
-    }
-}
-
-/// The two generic layouting axes.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum GenAxis {
-    /// The primary axis along which words are laid out.
-    Primary,
-    /// The secondary axis along which lines and paragraphs are laid out.
-    Secondary,
-}
-
-impl GenAxis {
-    /// The specific version of this axis in the given system of axes.
-    pub fn to_specific(self, axes: LayoutAxes) -> SpecAxis {
-        axes.get(self).axis()
-    }
-}
-
-impl Display for GenAxis {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Primary => "primary",
-            Secondary => "secondary",
-        })
-    }
-}
-
-/// The two specific layouting axes.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum SpecAxis {
-    /// The horizontal layouting axis.
-    Horizontal,
-    /// The vertical layouting axis.
-    Vertical,
-}
-
-impl SpecAxis {
-    /// The generic version of this axis in the given system of axes.
-    pub fn to_generic(self, axes: LayoutAxes) -> GenAxis {
-        if self == axes.primary.axis() { Primary } else { Secondary }
-    }
-}
-
-impl Display for SpecAxis {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Horizontal => "horizontal",
-            Vertical => "vertical",
-        })
-    }
-}
-
-/// Specifies where to align a layout in a parent container.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct LayoutAlign {
-    /// The alignment along the primary axis.
-    pub primary: GenAlign,
-    /// The alignment along the secondary axis.
-    pub secondary: GenAlign,
-}
-
-impl LayoutAlign {
-    /// Create a new instance from the two values.
-    pub fn new(primary: GenAlign, secondary: GenAlign) -> LayoutAlign {
-        LayoutAlign { primary, secondary }
-    }
-
-    /// Return the alignment of the specified generic axis.
-    pub fn get(self, axis: GenAxis) -> GenAlign {
-        match axis {
-            Primary => self.primary,
-            Secondary => self.secondary,
-        }
-    }
-
-    /// Borrow the alignment of the specified generic axis mutably.
-    pub fn get_mut(&mut self, axis: GenAxis) -> &mut GenAlign {
-        match axis {
-            Primary => &mut self.primary,
-            Secondary => &mut self.secondary,
-        }
-    }
-}
-
-/// Where to align content along a generic context.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum GenAlign {
-    Start,
-    Center,
-    End,
-}
-
-impl GenAlign {
-    /// The inverse alignment.
-    pub fn inv(self) -> GenAlign {
-        match self {
-            Start => End,
-            Center => Center,
-            End => Start,
-        }
-    }
-}
-
-impl Display for GenAlign {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Start => "start",
-            Center => "center",
-            End => "end",
-        })
-    }
-}
-
-/// Where to align content in a specific context.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum SpecAlign {
-    Left,
-    Right,
-    Top,
-    Bottom,
-    Center,
-}
-
-impl SpecAlign {
-    /// The specific axis this alignment refers to.
-    ///
-    /// Returns `None` if this is center.
-    pub fn axis(self) -> Option<SpecAxis> {
-        match self {
-            Self::Left => Some(Horizontal),
-            Self::Right => Some(Horizontal),
-            Self::Top => Some(Vertical),
-            Self::Bottom => Some(Vertical),
-            Self::Center => None,
-        }
-    }
-
-    /// Convert this to a generic alignment.
-    pub fn to_generic(self, axes: LayoutAxes) -> GenAlign {
-        let get = |spec: SpecAxis, align: GenAlign| {
-            let axis = spec.to_generic(axes);
-            if axes.get(axis).is_positive() { align } else { align.inv() }
-        };
-
-        match self {
-            Self::Left => get(Horizontal, Start),
-            Self::Right => get(Horizontal, End),
-            Self::Top => get(Vertical, Start),
-            Self::Bottom => get(Vertical, End),
-            Self::Center => GenAlign::Center,
-        }
-    }
-}
-
-impl Display for SpecAlign {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Left => "left",
-            Self::Right => "right",
-            Self::Top => "top",
-            Self::Bottom => "bottom",
-            Self::Center => "center",
-        })
-    }
-}
-
-/// Specifies whether to expand a layout to the full size of the space it is
-/// laid out in or to shrink it to fit the content.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct LayoutExpansion {
-    /// Whether to expand on the horizontal axis.
-    pub horizontal: bool,
-    /// Whether to expand on the vertical axis.
-    pub vertical: bool,
-}
-
-impl LayoutExpansion {
-    /// Create a new instance from the two values.
-    pub fn new(horizontal: bool, vertical: bool) -> LayoutExpansion {
-        LayoutExpansion { horizontal, vertical }
-    }
-
-    /// Return the expansion value for the given specific axis.
-    pub fn get(self, axis: SpecAxis) -> bool {
-        match axis {
-            Horizontal => self.horizontal,
-            Vertical => self.vertical,
-        }
-    }
-
-    /// Borrow the expansion value for the given specific axis mutably.
-    pub fn get_mut(&mut self, axis: SpecAxis) -> &mut bool {
-        match axis {
-            Horizontal => &mut self.horizontal,
-            Vertical => &mut self.vertical,
-        }
-    }
-}
-
-/// Defines how a given spacing interacts with (possibly existing) surrounding
-/// spacing.
-///
-/// There are two options for interaction: Hard and soft spacing. Typically,
-/// hard spacing is used when a fixed amount of space needs to be inserted no
-/// matter what. In contrast, soft spacing can be used to insert a default
-/// spacing between e.g. two words or paragraphs that can still be overridden by
-/// a hard space.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum SpacingKind {
-    /// Hard spaces are always laid out and consume surrounding soft space.
-    Hard,
-    /// Soft spaces are not laid out if they are touching a hard space and
-    /// consume neighbouring soft spaces with higher levels.
-    Soft(u32),
-}
-
-impl SpacingKind {
-    /// The standard spacing kind used for paragraph spacing.
-    pub const PARAGRAPH: SpacingKind = SpacingKind::Soft(1);
-
-    /// The standard spacing kind used for line spacing.
-    pub const LINE: SpacingKind = SpacingKind::Soft(2);
-
-    /// The standard spacing kind used for word spacing.
-    pub const WORD: SpacingKind = SpacingKind::Soft(1);
-}
-
-/// The spacing kind of the most recently inserted item in a layouting process.
-/// This is not about the last _spacing item_, but the last _item_, which is why
-/// this can be `None`.
-#[derive(Debug, Copy, Clone, PartialEq)]
-enum LastSpacing {
-    /// The last item was hard spacing.
-    Hard,
-    /// The last item was soft spacing with the given width and level.
-    Soft(f64, u32),
-    /// The last item was not spacing.
-    None,
-}
-
-impl LastSpacing {
-    /// The width of the soft space if this is a soft space or zero otherwise.
-    fn soft_or_zero(self) -> f64 {
-        match self {
-            LastSpacing::Soft(space, _) => space,
-            _ => 0.0,
-        }
-    }
+    /// Update the alignment for future boxes added to this layouting process.
+    SetAlignment(LayoutAlign),
+    /// Update the layouting axes along which future boxes will be laid
+    /// out. This finishes the current line.
+    SetAxes(LayoutAxes),
 }

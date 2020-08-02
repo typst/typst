@@ -83,8 +83,8 @@ pub enum Token<'s> {
     ExprHex(&'s str),
     /// A plus in a function header, signifying the addition of expressions.
     Plus,
-    /// A hyphen in a function header,
-    /// signifying the subtraction of expressions.
+    /// A hyphen in a function header, signifying the subtraction of
+    /// expressions.
     Hyphen,
     /// A slash in a function header, signifying the division of expressions.
     Slash,

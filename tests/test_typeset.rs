@@ -73,7 +73,7 @@ fn main() {
 
     typesetter.set_page_style(PageStyle {
         class: PaperClass::Custom,
-        dimensions: Size::with_all(Length::pt(250.0).as_raw()),
+        size: Size::with_all(Length::pt(250.0).as_raw()),
         margins: Value4::with_all(None),
     });
 
@@ -148,13 +148,13 @@ fn render(
 ) -> DrawTarget {
     let pad = scale * 10.0;
     let width = 2.0 * pad + layouts.iter()
-        .map(|l| scale * l.dimensions.x)
+        .map(|l| scale * l.size.x)
         .max_by(|a, b| a.partial_cmp(&b).unwrap())
         .unwrap()
         .round();
 
     let height = pad + layouts.iter()
-        .map(|l| scale * l.dimensions.y + pad)
+        .map(|l| scale * l.size.y + pad)
         .sum::<f64>()
         .round();
 
@@ -166,8 +166,8 @@ fn render(
         surface.fill_rect(
             offset.x as f32,
             offset.y as f32,
-            (scale * layout.dimensions.x) as f32,
-            (scale * layout.dimensions.y) as f32,
+            (scale * layout.size.x) as f32,
+            (scale * layout.size.y) as f32,
             &Source::Solid(WHITE),
             &Default::default(),
         );
@@ -186,7 +186,7 @@ fn render(
             }
         }
 
-        offset.y += scale * layout.dimensions.y + pad;
+        offset.y += scale * layout.size.y + pad;
     }
 
     surface

@@ -45,7 +45,7 @@ pub struct LineContext {
 #[derive(Debug)]
 struct LineRun {
     /// The so-far accumulated layouts in the line.
-    layouts: Vec<(f64, Layout)>,
+    layouts: Vec<(f64, BoxLayout)>,
     /// The width and maximal height of the line.
     size: Size,
     /// The alignment of all layouts in the line.
@@ -77,7 +77,7 @@ impl LineLayouter {
     }
 
     /// Add a layout to the run.
-    pub fn add(&mut self, layout: Layout) {
+    pub fn add(&mut self, layout: BoxLayout) {
         let axes = self.ctx.axes;
 
         if let Some(align) = self.run.align {
@@ -116,7 +116,7 @@ impl LineLayouter {
             self.add_primary_spacing(spacing, SpacingKind::Hard);
         }
 
-        let size = layout.dimensions.generalized(axes);
+        let size = layout.size.generalized(axes);
 
         if !self.usable().fits(size) {
             if !self.line_is_empty() {
@@ -125,7 +125,7 @@ impl LineLayouter {
 
             // TODO: Issue warning about overflow if there is overflow.
             if !self.usable().fits(size) {
-                self.stack.skip_to_fitting_space(layout.dimensions);
+                self.stack.skip_to_fitting_space(layout.size);
             }
         }
 
@@ -222,7 +222,7 @@ impl LineLayouter {
     /// a function how much space it has to layout itself.
     pub fn remaining(&self) -> LayoutSpaces {
         let mut spaces = self.stack.remaining();
-        *spaces[0].dimensions.secondary_mut(self.ctx.axes)
+        *spaces[0].size.secondary_mut(self.ctx.axes)
             -= self.run.size.y;
         spaces
     }
@@ -256,15 +256,15 @@ impl LineLayouter {
                 true => offset,
                 false => self.run.size.x
                     - offset
-                    - layout.dimensions.primary(self.ctx.axes),
+                    - layout.size.primary(self.ctx.axes),
             };
 
             let pos = Size::with_x(x);
             elements.extend_offset(pos, layout.elements);
         }
 
-        self.stack.add(Layout {
-            dimensions: self.run.size.specialized(self.ctx.axes),
+        self.stack.add(BoxLayout {
+            size: self.run.size.specialized(self.ctx.axes),
             align: self.run.align
                 .unwrap_or(LayoutAlign::new(Start, Start)),
                 elements

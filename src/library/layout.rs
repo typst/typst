@@ -1,3 +1,5 @@
+//! Layout building blocks.
+
 use crate::length::ScaleLength;
 use super::*;
 
@@ -5,14 +7,14 @@ function! {
     /// `box`: Layouts content into a box.
     #[derive(Debug, Clone, PartialEq)]
     pub struct BoxFunc {
-        body: SyntaxModel,
+        body: SyntaxTree,
         width: Option<ScaleLength>,
         height: Option<ScaleLength>,
     }
 
     parse(header, body, ctx, f) {
         BoxFunc {
-            body: body!(opt: body, ctx, f).unwrap_or(SyntaxModel::new()),
+            body: body!(opt: body, ctx, f).unwrap_or(SyntaxTree::new()),
             width: header.args.key.get::<ScaleLength>("width", f),
             height: header.args.key.get::<ScaleLength>("height", f),
         }
@@ -25,14 +27,14 @@ function! {
         self.width.with(|v| {
             let length = v.raw_scaled(ctx.base.x);
             ctx.base.x = length;
-            ctx.spaces[0].dimensions.x = length;
+            ctx.spaces[0].size.x = length;
             ctx.spaces[0].expansion.horizontal = true;
         });
 
         self.height.with(|v| {
             let length = v.raw_scaled(ctx.base.y);
             ctx.base.y = length;
-            ctx.spaces[0].dimensions.y = length;
+            ctx.spaces[0].size.y = length;
             ctx.spaces[0].expansion.vertical = true;
         });
 
@@ -48,7 +50,7 @@ function! {
     /// `align`: Aligns content along the layouting axes.
     #[derive(Debug, Clone, PartialEq)]
     pub struct AlignFunc {
-        body: Option<SyntaxModel>,
+        body: Option<SyntaxTree>,
         aligns: Vec<Spanned<SpecAlign>>,
         h: Option<Spanned<SpecAlign>>,
         v: Option<Spanned<SpecAlign>>,
@@ -64,7 +66,7 @@ function! {
     }
 
     layout(self, ctx, f) {
-        ctx.base = ctx.spaces[0].dimensions;
+        ctx.base = ctx.spaces[0].size;
 
         let axes = ctx.axes;
         let all = self.aligns.iter()

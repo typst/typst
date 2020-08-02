@@ -97,7 +97,7 @@ pub struct PageStyle {
     /// The class of this page.
     pub class: PaperClass,
     /// The width and height of the page.
-    pub dimensions: Size,
+    pub size: Size,
     /// The amount of white space on each side. If a side is set to `None`, the
     /// default for the paper class is used.
     pub margins: Value4<Option<ScaleLength>>,
@@ -108,21 +108,20 @@ impl PageStyle {
     pub fn new(paper: Paper) -> PageStyle {
         PageStyle {
             class: paper.class,
-            dimensions: paper.size(),
+            size: paper.size(),
             margins: Value4::with_all(None),
         }
     }
 
     /// The absolute margins.
     pub fn margins(&self) -> Margins {
-        let dims = self.dimensions;
+        let size = self.size;
         let default = self.class.default_margins();
-
         Margins {
-            left: self.margins.left.unwrap_or(default.left).raw_scaled(dims.x),
-            top: self.margins.top.unwrap_or(default.top).raw_scaled(dims.y),
-            right: self.margins.right.unwrap_or(default.right).raw_scaled(dims.x),
-            bottom: self.margins.bottom.unwrap_or(default.bottom).raw_scaled(dims.y),
+            left: self.margins.left.unwrap_or(default.left).raw_scaled(size.x),
+            top: self.margins.top.unwrap_or(default.top).raw_scaled(size.y),
+            right: self.margins.right.unwrap_or(default.right).raw_scaled(size.x),
+            bottom: self.margins.bottom.unwrap_or(default.bottom).raw_scaled(size.y),
         }
     }
 }

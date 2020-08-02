@@ -1,3 +1,5 @@
+//! Font configuration.
+
 use fontdock::{FontStyle, FontWeight, FontWidth};
 use crate::length::ScaleLength;
 use super::*;
@@ -6,7 +8,7 @@ function! {
     /// `font`: Configure the font.
     #[derive(Debug, Clone, PartialEq)]
     pub struct FontFunc {
-        body: Option<SyntaxModel>,
+        body: Option<SyntaxTree>,
         size: Option<ScaleLength>,
         style: Option<FontStyle>,
         weight: Option<FontWeight>,
