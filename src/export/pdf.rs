@@ -15,7 +15,8 @@ use fontdock::FaceId;
 use ttf_parser::{name_id, GlyphId};
 
 use crate::SharedFontLoader;
-use crate::layout::{MultiLayout, Layout, LayoutAction};
+use crate::layout::{MultiLayout, Layout};
+use crate::layout::elements::LayoutElement;
 use crate::length::Length;
 
 /// Export a layouted list of boxes. The same font loader as used for
@@ -144,38 +145,26 @@ impl<'a, W: Write> PdfExporter<'a, W> {
         // Moves and face switches are always cached and only flushed once
         // needed.
         let mut text = Text::new();
-        let mut face_id = FaceId::MAX;
-        let mut font_size = 0.0;
-        let mut next_pos = None;
+        let mut face = FaceId::MAX;
+        let mut size = 0.0;
 
-        for action in &page.actions {
-            match action {
-                LayoutAction::MoveAbsolute(pos) => {
-                    next_pos = Some(*pos);
-                },
-
-                &LayoutAction::SetFont(id, size) => {
-                    face_id = id;
-                    font_size = size;
-                    text.tf(
-                        self.to_pdf[&id] as u32 + 1,
-                        Length::raw(font_size).as_pt() as f32
-                    );
-                }
-
-                LayoutAction::WriteText(string) => {
-                    if let Some(pos) = next_pos.take() {
-                        let x = Length::raw(pos.x).as_pt();
-                        let y = Length::raw(page.dimensions.y - pos.y - font_size).as_pt();
-                        text.tm(1.0, 0.0, 0.0, 1.0, x as f32, y as f32);
+        for (pos, element) in &page.elements.0 {
+            match element {
+                LayoutElement::Text(shaped) => {
+                    if shaped.face != face || shaped.size != size {
+                        face = shaped.face;
+                        size = shaped.size;
+                        text.tf(
+                            self.to_pdf[&shaped.face] as u32 + 1,
+                            Length::raw(size).as_pt() as f32
+                        );
                     }
 
-                    let loader = self.loader.borrow();
-                    let face = loader.get_loaded(face_id);
-                    text.tj(face.encode_text(&string));
-                },
-
-                LayoutAction::DebugBox(_) => {}
+                    let x = Length::raw(pos.x).as_pt();
+                    let y = Length::raw(page.dimensions.y - pos.y - size).as_pt();
+                    text.tm(1.0, 0.0, 0.0, 1.0, x as f32, y as f32);
+                    text.tj(shaped.encode_glyphs());
+                }
             }
         }
 
@@ -313,14 +302,13 @@ fn remap_fonts(layouts: &MultiLayout) -> (HashMap<FaceId, usize>, Vec<FaceId>) {
     // We want to find out which fonts are used at all. To do that, look at each
     // text element to find out which font is uses.
     for layout in layouts {
-        for action in &layout.actions {
-            if let &LayoutAction::SetFont(id, _) = action {
-                to_pdf.entry(id).or_insert_with(|| {
-                    let next_id = to_fontdock.len();
-                    to_fontdock.push(id);
-                    next_id
-                });
-            }
+        for (_, element) in &layout.elements.0 {
+            let LayoutElement::Text(shaped) = element;
+            to_pdf.entry(shaped.face).or_insert_with(|| {
+                let next_id = to_fontdock.len();
+                to_fontdock.push(shaped.face);
+                next_id
+            });
         }
     }
 

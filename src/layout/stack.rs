@@ -48,9 +48,6 @@ pub struct StackContext {
     pub align: LayoutAlign,
     /// Whether to have repeated spaces or to use only the first and only once.
     pub repeat: bool,
-    /// Whether to output a command which renders a debugging box showing the
-    /// extent of the layout.
-    pub debug: bool,
 }
 
 /// A layout space composed of subspaces which can have different axes and
@@ -139,7 +136,7 @@ impl StackLayouter {
                 self.space.layouts.push((self.ctx.axes, Layout {
                     dimensions: dimensions.specialized(self.ctx.axes),
                     align: LayoutAlign::new(Start, Start),
-                    actions: vec![]
+                    elements: LayoutElements::new(),
                 }));
 
                 self.space.last_spacing = LastSpacing::Hard;
@@ -367,13 +364,9 @@ impl StackLayouter {
         // Step 4: Align each layout in its bounding box and collect everything
         // into a single finished layout.
 
-        let mut actions = LayoutActions::new();
+        let mut elements = LayoutElements::new();
 
-        if self.ctx.debug {
-            actions.add(LayoutAction::DebugBox(dimensions));
-        }
-
-        let layouts = std::mem::replace(&mut self.space.layouts, vec![]);
+        let layouts = std::mem::take(&mut self.space.layouts);
         for ((axes, layout), bound) in layouts.into_iter().zip(bounds) {
             let size = layout.dimensions.specialized(axes);
             let align = layout.align;
@@ -387,13 +380,13 @@ impl StackLayouter {
             let local = usable.anchor(align, axes) - size.anchor(align, axes);
             let pos = Size::new(bound.left, bound.top) + local.specialized(axes);
 
-            actions.add_layout(pos, layout);
+            elements.extend_offset(pos, layout.elements);
         }
 
         self.layouts.push(Layout {
             dimensions,
             align: self.ctx.align,
-            actions: actions.into_vec(),
+            elements,
         });
 
         // ------------------------------------------------------------------ //

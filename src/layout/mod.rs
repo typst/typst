@@ -2,17 +2,14 @@
 
 use std::fmt::{self, Display, Formatter};
 
-#[cfg(feature = "serialize")]
-use serde::Serialize;
-
-use fontdock::FaceId;
 use crate::geom::{Size, Margins};
-use self::prelude::*;
+use elements::LayoutElements;
+use prelude::*;
 
 pub mod line;
 pub mod stack;
 pub mod text;
-pub_use_mod!(actions);
+pub mod elements;
 pub_use_mod!(model);
 
 /// Basic types used across the layouting engine.
@@ -33,30 +30,13 @@ pub type MultiLayout = Vec<Layout>;
 
 /// A finished box with content at fixed positions.
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(Serialize))]
 pub struct Layout {
     /// The size of the box.
     pub dimensions: Size,
     /// How to align this layout in a parent container.
-    #[cfg_attr(feature = "serialize", serde(skip))]
     pub align: LayoutAlign,
     /// The actions composing this layout.
-    pub actions: Vec<LayoutAction>,
-}
-
-impl Layout {
-    /// Returns a vector with all used font indices.
-    pub fn find_used_fonts(&self) -> Vec<FaceId> {
-        let mut fonts = Vec::new();
-        for action in &self.actions {
-            if let &LayoutAction::SetFont(id, _) = action {
-                if !fonts.contains(&id) {
-                    fonts.push(id);
-                }
-            }
-        }
-        fonts
-    }
+    pub elements: LayoutElements,
 }
 
 /// A vector of layout spaces, that is stack allocated as long as it only

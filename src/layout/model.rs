@@ -46,8 +46,6 @@ pub struct LayoutContext<'a> {
     /// Whether the layout that is to be created will be nested in a parent
     /// container.
     pub nested: bool,
-    /// Whether to render debug boxs around layouts if `nested` is true.
-    pub debug: bool,
 }
 
 /// A sequence of layouting commands.
@@ -117,7 +115,6 @@ impl<'a> ModelLayouter<'a> {
                 axes: ctx.axes,
                 align: ctx.align,
                 repeat: ctx.repeat,
-                debug: ctx.debug && ctx.nested,
                 line_spacing: ctx.style.text.line_spacing(),
             }),
             style: ctx.style.clone(),

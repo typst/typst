@@ -13,8 +13,7 @@
 //! - **Exporting:** The finished layout can then be exported into a supported
 //!   format. Submodules for these formats are located in the
 //!   [export](crate::export) module. Currently, the only supported output
-//!   format is [_PDF_](crate::export::pdf). Alternatively, the layout can be
-//!   serialized to pass it to a suitable renderer.
+//!   format is [_PDF_](crate::export::pdf).
 
 use std::fmt::Debug;
 
@@ -62,8 +61,6 @@ pub struct Typesetter {
     style: LayoutStyle,
     /// The base parser state.
     parse_state: ParseState,
-    /// Whether to render debug boxes.
-    debug: bool,
 }
 
 impl Typesetter {
@@ -73,7 +70,6 @@ impl Typesetter {
             loader,
             style: LayoutStyle::default(),
             parse_state: ParseState { scope: Scope::with_std() },
-            debug: false,
         }
     }
 
@@ -85,11 +81,6 @@ impl Typesetter {
     /// Set the base page style.
     pub fn set_page_style(&mut self, style: PageStyle) {
         self.style.page = style;
-    }
-
-    /// Set whether to render debug boxes.
-    pub fn set_debug(&mut self, debug: bool) {
-        self.debug = debug;
     }
 
     /// Parse source code into a syntax tree.
@@ -117,7 +108,6 @@ impl Typesetter {
                 axes: LayoutAxes::new(LTT, TTB),
                 align: LayoutAlign::new(Start, Start),
                 nested: false,
-                debug: self.debug,
             },
         ).await
     }

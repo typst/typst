@@ -4,10 +4,12 @@
 //! When the primary layouting axis horizontally inversed, the word is spelled
 //! backwards. Vertical word layout is not yet supported.
 
+use ttf_parser::GlyphId;
 use fontdock::{FaceId, FaceQuery, FontStyle};
 use crate::font::SharedFontLoader;
 use crate::geom::Size;
 use crate::style::TextStyle;
+use super::elements::{LayoutElement, Shaped};
 use super::*;
 
 /// Performs the text layouting.
@@ -15,9 +17,9 @@ use super::*;
 struct TextLayouter<'a> {
     ctx: TextContext<'a>,
     text: &'a str,
-    actions: LayoutActions,
-    buffer: String,
-    active_font: FaceId,
+    shaped: Shaped,
+    elements: LayoutElements,
+    start: f64,
     width: f64,
 }
 
@@ -48,9 +50,9 @@ impl<'a> TextLayouter<'a> {
         TextLayouter {
             ctx,
             text,
-            actions: LayoutActions::new(),
-            buffer: String::new(),
-            active_font: FaceId::MAX,
+            shaped: Shaped::new(FaceId::MAX, ctx.style.font_size()),
+            elements: LayoutElements::new(),
+            start: 0.0,
             width: 0.0,
         }
     }
@@ -69,45 +71,53 @@ impl<'a> TextLayouter<'a> {
         }
 
         // Flush the last buffered parts of the word.
-        if !self.buffer.is_empty() {
-            self.actions.add(LayoutAction::WriteText(self.buffer));
+        if !self.shaped.text.is_empty() {
+            let pos = Size::new(self.start, 0.0);
+            self.elements.push(pos, LayoutElement::Text(self.shaped));
         }
 
         Layout {
             dimensions: Size::new(self.width, self.ctx.style.font_size()),
             align: self.ctx.align,
-            actions: self.actions.into_vec(),
+            elements: self.elements,
         }
     }
 
     /// Layout an individual character.
     async fn layout_char(&mut self, c: char) {
-        let (index, char_width) = match self.select_font(c).await {
+        let (index, glyph, char_width) = match self.select_font(c).await {
             Some(selected) => selected,
             // TODO: Issue warning about missing character.
             None => return,
         };
 
-        self.width += char_width;
-
         // Flush the buffer and issue a font setting action if the font differs
         // from the last character's one.
-        if self.active_font != index {
-            if !self.buffer.is_empty() {
-                let text = std::mem::replace(&mut self.buffer, String::new());
-                self.actions.add(LayoutAction::WriteText(text));
+        if self.shaped.face != index {
+            if !self.shaped.text.is_empty() {
+                let pos = Size::new(self.start, 0.0);
+                let shaped = std::mem::replace(
+                    &mut self.shaped,
+                    Shaped::new(FaceId::MAX, self.ctx.style.font_size()),
+                );
+
+                self.elements.push(pos, LayoutElement::Text(shaped));
+                self.start = self.width;
             }
 
-            self.actions.add(LayoutAction::SetFont(index, self.ctx.style.font_size()));
-            self.active_font = index;
+            self.shaped.face = index;
         }
 
-        self.buffer.push(c);
+        self.shaped.text.push(c);
+        self.shaped.glyphs.push(glyph);
+        self.shaped.offsets.push(self.width);
+
+        self.width += char_width;
     }
 
     /// Select the best font for a character and return its index along with
     /// the width of the char in the font.
-    async fn select_font(&mut self, c: char) -> Option<(FaceId, f64)> {
+    async fn select_font(&mut self, c: char) -> Option<(FaceId, GlyphId, f64)> {
         let mut loader = self.ctx.loader.borrow_mut();
 
         let mut variant = self.ctx.style.variant;
@@ -140,7 +150,7 @@ impl<'a> TextLayouter<'a> {
             let glyph_width = face.glyph_hor_advance(glyph)?;
             let char_width = to_raw(glyph_width) * self.ctx.style.font_size();
 
-            Some((id, char_width))
+            Some((id, glyph, char_width))
         } else {
             None
         }

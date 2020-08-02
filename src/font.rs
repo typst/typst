@@ -38,20 +38,6 @@ impl OwnedFace {
     pub fn data(&self) -> &[u8] {
         &self.data
     }
-
-    /// Encode the text into glyph ids and encode these into a big-endian byte
-    /// buffer.
-    pub fn encode_text(&self, text: &str) -> Vec<u8> {
-        const BYTES_PER_GLYPH: usize = 2;
-        let mut bytes = Vec::with_capacity(BYTES_PER_GLYPH * text.len());
-        for c in text.chars() {
-            if let Some(glyph) = self.glyph_index(c) {
-                bytes.push((glyph.0 >> 8) as u8);
-                bytes.push((glyph.0 & 0xff) as u8);
-            }
-        }
-        bytes
-    }
 }
 
 impl ContainsChar for OwnedFace {

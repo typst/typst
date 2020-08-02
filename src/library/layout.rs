@@ -8,7 +8,6 @@ function! {
         body: SyntaxModel,
         width: Option<ScaleLength>,
         height: Option<ScaleLength>,
-        debug: Option<bool>,
     }
 
     parse(header, body, ctx, f) {
@@ -16,17 +15,12 @@ function! {
             body: body!(opt: body, ctx, f).unwrap_or(SyntaxModel::new()),
             width: header.args.key.get::<ScaleLength>("width", f),
             height: header.args.key.get::<ScaleLength>("height", f),
-            debug: header.args.key.get::<bool>("debug", f),
         }
     }
 
     layout(self, ctx, f) {
         ctx.repeat = false;
         ctx.spaces.truncate(1);
-
-        if let Some(debug) = self.debug {
-            ctx.debug = debug;
-        }
 
         self.width.with(|v| {
             let length = v.raw_scaled(ctx.base.x);

@@ -35,9 +35,6 @@ pub struct LineContext {
     pub align: LayoutAlign,
     /// Whether to have repeated spaces or to use only the first and only once.
     pub repeat: bool,
-    /// Whether to output a command which renders a debugging box showing the
-    /// extent of the layout.
-    pub debug: bool,
     /// The line spacing.
     pub line_spacing: f64,
 }
@@ -73,7 +70,6 @@ impl LineLayouter {
                 axes: ctx.axes,
                 align: ctx.align,
                 repeat: ctx.repeat,
-                debug: ctx.debug,
             }),
             ctx,
             run: LineRun::new(),
@@ -252,9 +248,9 @@ impl LineLayouter {
 
     /// Finish the line and start a new one.
     pub fn finish_line(&mut self) {
-        let mut actions = LayoutActions::new();
+        let mut elements = LayoutElements::new();
 
-        let layouts = std::mem::replace(&mut self.run.layouts, vec![]);
+        let layouts = std::mem::take(&mut self.run.layouts);
         for (offset, layout) in layouts {
             let x = match self.ctx.axes.primary.is_positive() {
                 true => offset,
@@ -264,14 +260,14 @@ impl LineLayouter {
             };
 
             let pos = Size::with_x(x);
-            actions.add_layout(pos, layout);
+            elements.extend_offset(pos, layout.elements);
         }
 
         self.stack.add(Layout {
             dimensions: self.run.size.specialized(self.ctx.axes),
             align: self.run.align
                 .unwrap_or(LayoutAlign::new(Start, Start)),
-            actions: actions.into_vec(),
+                elements
         });
 
         self.run = LineRun::new();
