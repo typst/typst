@@ -178,7 +178,7 @@ impl PaddingMap {
     pub fn parse(diagnostics: &mut Diagnostics, args: &mut FuncArgs) -> PaddingMap {
         let mut map = DedupMap::new();
 
-        let all = args.pos.get::<Spanned<Defaultable<ScaleLength>>>(diagnostics);
+        let all = args.key.get::<Spanned<Defaultable<ScaleLength>>>(diagnostics, "margins");
         if let Some(Spanned { v, span }) = all {
             map.insert(diagnostics, Spanned { v: (PaddingKey::All, v.into()), span });
         }

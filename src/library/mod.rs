@@ -16,11 +16,7 @@ pub fn std() -> Scope {
     std.add::<ValFunc>("val");
 
     // Font setup
-    std.add::<FontFamilyFunc>("font.family");
-    std.add::<FontStyleFunc>("font.style");
-    std.add::<FontWeightFunc>("font.weight");
-    std.add::<FontWidthFunc>("font.width");
-    std.add::<FontSizeFunc>("font.size");
+    std.add::<FontFunc>("font");
     std.add_with_meta::<ContentSpacingFunc>("word.spacing", ContentKind::Word);
 
     // Layout
@@ -40,8 +36,7 @@ pub fn std() -> Scope {
     std.add_with_meta::<SpacingFunc>("v", Some(Vertical));
 
     // Page setup
-    std.add::<PageSizeFunc>("page.size");
-    std.add::<PageMarginsFunc>("page.margins");
+    std.add::<PageFunc>("page");
 
     std
 }

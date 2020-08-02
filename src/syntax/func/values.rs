@@ -143,22 +143,21 @@ impl Value for FontStyle {
 
 /// The additional boolean specifies whether a number was clamped into the range
 /// 100 - 900 to make it a valid font weight.
-impl Value for (FontWeight, bool) {
+impl Value for FontWeight {
     fn parse(expr: Spanned<Expr>) -> Result<Self, Diagnostic> {
         match expr.v {
             Expr::Number(weight) => {
                 let weight = weight.round();
                 if weight >= 100.0 && weight <= 900.0 {
-                    Ok((FontWeight(weight as u16), false))
+                    Ok(FontWeight(weight as u16))
                 } else {
                     let clamped = weight.min(900.0).max(100.0);
-                    Ok((FontWeight(clamped as u16), true))
+                    Ok(FontWeight(clamped as u16))
                 }
             }
             Expr::Ident(id) => {
                 FontWeight::from_name(id.as_str())
                     .ok_or_else(|| error!("invalid font weight"))
-                    .map(|weight| (weight, false))
             }
             other => Err(
                 error!("expected identifier or number, found {}", other.name())
@@ -169,22 +168,21 @@ impl Value for (FontWeight, bool) {
 
 /// The additional boolean specifies whether a number was clamped into the range
 /// 1 - 9 to make it a valid font width.
-impl Value for (FontWidth, bool) {
+impl Value for FontWidth {
     fn parse(expr: Spanned<Expr>) -> Result<Self, Diagnostic> {
         match expr.v {
             Expr::Number(width) => {
                 let width = width.round();
                 if width >= 1.0 && width <= 9.0 {
-                    Ok((FontWidth::new(width as u16).unwrap(), false))
+                    Ok(FontWidth::new(width as u16).unwrap())
                 } else {
                     let clamped = width.min(9.0).max(1.0);
-                    Ok((FontWidth::new(clamped as u16).unwrap(), true))
+                    Ok(FontWidth::new(clamped as u16).unwrap())
                 }
             }
             Expr::Ident(id) => {
                 FontWidth::from_name(id.as_str())
                     .ok_or_else(|| error!("invalid font width"))
-                    .map(|width| (width, false))
             }
             other => Err(
                 error!("expected identifier or number, found {}", other.name())

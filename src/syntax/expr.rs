@@ -268,6 +268,25 @@ impl Tuple {
         None
     }
 
+    /// Extract (and remove) the first matching value without removing and
+    /// generating diagnostics for all previous items that did not match.
+    pub fn get_first<V: Value>(&mut self, _: &mut Diagnostics) -> Option<V> {
+        let mut i = 0;
+        while i < self.items.len() {
+            let expr = self.items[i].clone();
+            match V::parse(expr) {
+                Ok(output) => {
+                    self.items.remove(i);
+                    return Some(output)
+                }
+                Err(_) => {},
+            }
+            i += 1;
+        }
+
+        None
+    }
+
     /// Extract and return an iterator over all values that match and generate
     /// diagnostics for all items that do not match.
     pub fn get_all<'a, V: Value>(&'a mut self, diagnostics: &'a mut Diagnostics)

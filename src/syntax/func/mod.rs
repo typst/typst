@@ -82,13 +82,22 @@ pub enum FuncArg {
 }
 
 /// Extra methods on [`Options`](Option) used for argument parsing.
-pub trait OptionExt: Sized {
+pub trait OptionExt<T>: Sized {
+    /// Calls `f` with `val` if this is `Some(val)`.
+    fn with(self, f: impl FnOnce(T));
+
     /// Add an error about a missing argument `arg` with the given span if the
     /// option is `None`.
     fn or_missing(self, diagnostics: &mut Diagnostics, span: Span, arg: &str) -> Self;
 }
 
-impl<T> OptionExt for Option<T> {
+impl<T> OptionExt<T> for Option<T> {
+    fn with(self, f: impl FnOnce(T)) {
+        if let Some(val) = self {
+            f(val);
+        }
+    }
+
     fn or_missing(self, diagnostics: &mut Diagnostics, span: Span, arg: &str) -> Self {
         if self.is_none() {
             diagnostics.push(error!(span, "missing argument: {}", arg));

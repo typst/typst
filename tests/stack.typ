@@ -1,5 +1,4 @@
-[page.size: w=5cm, h=5cm]
-[page.margins: 0cm]
+[page: w=5cm, h=5cm, margins=0cm]
 
 // Test 1
 [box: w=1, h=1, debug=false][

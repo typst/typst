@@ -3,19 +3,21 @@ use crate::paper::{Paper, PaperClass};
 use super::*;
 
 function! {
-    /// `page.size`: Set the size of pages.
+    /// `page`: Configure pages.
     #[derive(Debug, Clone, PartialEq)]
-    pub struct PageSizeFunc {
+    pub struct PageFunc {
         paper: Option<Paper>,
         extents: AxisMap<Length>,
+        padding: PaddingMap,
         flip: bool,
     }
 
     parse(header, body, state, f) {
         body!(nope: body, f);
-        PageSizeFunc {
+        PageFunc {
             paper: header.args.pos.get::<Paper>(&mut f.diagnostics),
             extents: AxisMap::parse::<ExtentKey>(&mut f.diagnostics, &mut header.args.key),
+            padding: PaddingMap::parse(&mut f.diagnostics, &mut header.args),
             flip: header.args.key.get::<bool>(&mut f.diagnostics, "flip").unwrap_or(false),
         }
     }
@@ -38,27 +40,8 @@ function! {
             style.dimensions.swap();
         }
 
-        vec![SetPageStyle(style)]
-    }
-}
-
-function! {
-    /// `page.margins`: Sets the page margins.
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct PageMarginsFunc {
-        padding: PaddingMap,
-    }
-
-    parse(header, body, state, f) {
-        body!(nope: body, f);
-        PageMarginsFunc {
-            padding: PaddingMap::parse(&mut f.diagnostics, &mut header.args),
-        }
-    }
-
-    layout(self, ctx, f) {
-        let mut style = ctx.style.page;
         self.padding.apply(&mut f.diagnostics, ctx.axes, &mut style.margins);
+
         vec![SetPageStyle(style)]
     }
 }
