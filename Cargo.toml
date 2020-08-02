@@ -5,20 +5,15 @@ authors = ["Laurenz Mädje <laurmaedje@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-fontdock = { path = "../fontdock", features = ["serialize"] }
-tide = { path = "../tide" }
-byteorder = "1"
-smallvec = "1"
-unicode-xid = "0.2"
 async-trait = "0.1"
-ttf-parser = "0.8.2"
+fontdock = { path = "../fontdock", features = ["fs", "serialize"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", optional = true }
+serde_json = "1"
+smallvec = "1"
+tide = { path = "../tide" }
+ttf-parser = "0.8.2"
+unicode-xid = "0.2"
 futures-executor = { version = "0.3", optional = true }
-
-[features]
-default = ["fs", "futures-executor", "serde_json"]
-fs = ["fontdock/fs"]
 
 [[bin]]
 name = "typst"
@@ -29,4 +24,4 @@ required-features = ["futures-executor"]
 name = "typeset"
 path = "tests/src/typeset.rs"
 harness = false
-required-features = ["futures-executor", "serde_json"]
+required-features = ["futures-executor"]

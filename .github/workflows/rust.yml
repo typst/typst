@@ -1,42 +1,53 @@
-name: Rust
+name: Continuous integration
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
-
-env:
-  CARGO_TERM_COLOR: always
-
-defaults:
-  run:
-    shell: bash
-    working-directory: typstc
+    branches: [master]
 
 jobs:
-  build:
-
+  ci:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [stable]
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-      with:
-        path: typstc
-    - name: Checkout fontdock
-      uses: actions/checkout@v2
-      with:
-        repository: typst/fontdock
-        token: ${{ secrets.TYPSTC_ACTION_TOKEN }} # `GitHub_PAT` is a secret that contains your PAT
-        path: fontdock
-    - name: Checkout tide
-      uses: actions/checkout@v2
-      with:
-        repository: typst/tide
-        token: ${{ secrets.TYPSTC_ACTION_TOKEN }} # `GitHub_PAT` is a secret that contains your PAT
-        path: tide
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+      - name: Checkout source code
+        uses: actions/checkout@v2
+        with:
+          path: typstc
+
+      - name: Checkout fontdock
+        uses: actions/checkout@v2
+        with:
+          repository: typst/fontdock
+          token: ${{ secrets.TYPSTC_ACTION_TOKEN }}
+          path: fontdock
+
+      - name: Checkout tide
+        uses: actions/checkout@v2
+        with:
+          repository: typst/tide
+          token: ${{ secrets.TYPSTC_ACTION_TOKEN }}
+          path: tide
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path typstc/Cargo.toml --all-features
+
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path typstc/Cargo.toml --all-features
