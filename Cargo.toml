@@ -25,7 +25,7 @@ fs = ["fontdock/fs"]
 [dev-dependencies]
 futures-executor = "0.3"
 serde_json = "1"
-raqote = { version = "0.7", default-features = false }
+raqote = { version = "0.8", default-features = false }
 
 [[test]]
 name = "test-typeset"

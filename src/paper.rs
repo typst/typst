@@ -16,7 +16,7 @@ pub struct Paper {
 
 impl Paper {
     /// The paper with the given name.
-    pub fn from_name(name: &str) -> Option<Paper> {
+    pub fn from_name(name: &str) -> Option<Self> {
         parse_paper(name)
     }
 
@@ -39,7 +39,6 @@ pub enum PaperClass {
 impl PaperClass {
     /// The default margins for this page class.
     pub fn default_margins(self) -> Value4<ScaleLength> {
-        use PaperClass::*;
         let values = |l, t, r, b| Value4::new(
             ScaleLength::Scaled(l),
             ScaleLength::Scaled(t),
@@ -48,11 +47,11 @@ impl PaperClass {
         );
 
         match self {
-            Custom    => values(0.1190, 0.0842, 0.1190, 0.0842),
-            Base      => values(0.1190, 0.0842, 0.1190, 0.0842),
-            US        => values(0.1760, 0.1092, 0.1760, 0.0910),
-            Newspaper => values(0.0455, 0.0587, 0.0455, 0.0294),
-            Book      => values(0.1200, 0.0852, 0.1500, 0.0965),
+            Self::Custom    => values(0.1190, 0.0842, 0.1190, 0.0842),
+            Self::Base      => values(0.1190, 0.0842, 0.1190, 0.0842),
+            Self::US        => values(0.1760, 0.1092, 0.1760, 0.0910),
+            Self::Newspaper => values(0.0455, 0.0587, 0.0455, 0.0294),
+            Self::Book      => values(0.1200, 0.0852, 0.1500, 0.0965),
         }
     }
 }

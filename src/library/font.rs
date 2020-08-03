@@ -1,6 +1,5 @@
-//! Font configuration.
-
 use fontdock::{FontStyle, FontWeight, FontWidth};
+
 use crate::length::ScaleLength;
 use super::*;
 
@@ -19,7 +18,6 @@ function! {
 
     parse(header, body, state, f) {
         let size = header.args.pos.get::<ScaleLength>();
-
         let style = header.args.key.get::<FontStyle>("style", f);
         let weight = header.args.key.get::<FontWeight>("weight", f);
         let width = header.args.key.get::<FontWidth>("width", f);
@@ -40,7 +38,7 @@ function! {
             })
             .collect();
 
-        FontFunc {
+        Self {
             body: parse_maybe_body(body, state, f),
             size,
             style,
@@ -52,30 +50,39 @@ function! {
     }
 
     layout(self, ctx, f) {
-        styled(&self.body, ctx, Some(()), |t, _| {
-            self.size.with(|s| match s {
-                ScaleLength::Absolute(length) => {
-                    t.base_font_size = length.as_raw();
-                    t.font_scale = 1.0;
-                }
-                ScaleLength::Scaled(scale) => t.font_scale = scale,
-            });
+        let mut text = ctx.style.text.clone();
 
-            self.style.with(|s| t.variant.style = s);
-            self.weight.with(|w| t.variant.weight = w);
-            self.width.with(|w| t.variant.width = w);
-
-            if !self.list.is_empty() {
-                *t.fallback.list_mut() = self.list.iter()
-                    .map(|s| s.to_lowercase())
-                    .collect();
+        self.size.with(|s| match s {
+            ScaleLength::Absolute(length) => {
+                text.base_font_size = length.as_raw();
+                text.font_scale = 1.0;
             }
+            ScaleLength::Scaled(scale) => text.font_scale = scale,
+        });
 
-            for (class, fallback) in &self.classes {
-                t.fallback.set_class_list(class.clone(), fallback.clone());
-            }
+        self.style.with(|s| text.variant.style = s);
+        self.weight.with(|w| text.variant.weight = w);
+        self.width.with(|w| text.variant.width = w);
 
-            t.fallback.flatten();
-        })
+        if !self.list.is_empty() {
+            *text.fallback.list_mut() = self.list.iter()
+                .map(|s| s.to_lowercase())
+                .collect();
+        }
+
+        for (class, fallback) in &self.classes {
+            text.fallback.set_class_list(class.clone(), fallback.clone());
+        }
+
+        text.fallback.flatten();
+
+        match &self.body {
+            Some(tree) => vec![
+                SetTextStyle(text),
+                LayoutSyntaxTree(tree),
+                SetTextStyle(ctx.style.text.clone()),
+            ],
+            None => vec![SetTextStyle(text)],
+        }
     }
 }

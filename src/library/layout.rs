@@ -1,5 +1,3 @@
-//! Layout building blocks.
-
 use crate::length::ScaleLength;
 use super::*;
 
@@ -13,7 +11,7 @@ function! {
     }
 
     parse(header, body, state, f) {
-        BoxFunc {
+        Self {
             body: parse_maybe_body(body, state, f).unwrap_or(SyntaxTree::new()),
             width: header.args.key.get::<ScaleLength>("width", f),
             height: header.args.key.get::<ScaleLength>("height", f),
@@ -21,8 +19,8 @@ function! {
     }
 
     layout(self, ctx, f) {
-        ctx.repeat = false;
         ctx.spaces.truncate(1);
+        ctx.repeat = false;
 
         self.width.with(|v| {
             let length = v.raw_scaled(ctx.base.x);
@@ -51,13 +49,13 @@ function! {
     #[derive(Debug, Clone, PartialEq)]
     pub struct AlignFunc {
         body: Option<SyntaxTree>,
-        aligns: Vec<Spanned<SpecAlign>>,
+        aligns: SpanVec<SpecAlign>,
         h: Option<Spanned<SpecAlign>>,
         v: Option<Spanned<SpecAlign>>,
     }
 
     parse(header, body, state, f) {
-        AlignFunc {
+        Self {
             body: parse_maybe_body(body, state, f),
             aligns: header.args.pos.all::<Spanned<SpecAlign>>().collect(),
             h: header.args.key.get::<Spanned<SpecAlign>>("horizontal", f),

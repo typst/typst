@@ -1,29 +1,27 @@
 //! Layouting primitives.
 
 use std::fmt::{self, Display, Formatter};
+
 use super::prelude::*;
 
-/// Specifies along which axes content is laid out.
+/// Specifies the axes along content is laid out.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct LayoutAxes {
-    /// The primary layouting direction.
     pub primary: Dir,
-    /// The secondary layouting direction.
     pub secondary: Dir,
 }
 
 impl LayoutAxes {
-    /// Create a new instance from the two values.
+    /// Create a new instance from the two directions.
     ///
     /// # Panics
-    /// This function panics if the axes are aligned, that is, they are
+    /// This function panics if the directions are aligned, i.e. if they are
     /// on the same axis.
-    pub fn new(primary: Dir, secondary: Dir) -> LayoutAxes {
+    pub fn new(primary: Dir, secondary: Dir) -> Self {
         if primary.axis() == secondary.axis() {
-            panic!("invalid aligned axes {} and {}", primary, secondary);
+            panic!("directions {} and {} are aligned", primary, secondary);
         }
-
-        LayoutAxes { primary, secondary }
+        Self { primary, secondary }
     }
 
     /// Return the direction of the specified generic axis.
@@ -46,9 +44,13 @@ impl LayoutAxes {
 /// Directions along which content is laid out.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Dir {
-    LTT,
+    /// Left to right.
+    LTR,
+    /// Right to left.
     RTL,
+    /// Top to bottom.
     TTB,
+    /// Bottom to top.
     BTT,
 }
 
@@ -56,34 +58,34 @@ impl Dir {
     /// The specific axis this direction belongs to.
     pub fn axis(self) -> SpecAxis {
         match self {
-            LTT | RTL => Horizontal,
+            LTR | RTL => Horizontal,
             TTB | BTT => Vertical,
         }
     }
 
-    /// Whether this axis points into the positive coordinate direction.
+    /// Whether this direction points into the positive coordinate direction.
     ///
-    /// The positive axes are left-to-right and top-to-bottom.
+    /// The positive directions are left-to-right and top-to-bottom.
     pub fn is_positive(self) -> bool {
         match self {
-            LTT | TTB => true,
+            LTR | TTB => true,
             RTL | BTT => false,
         }
     }
 
     /// The factor for this direction.
     ///
-    /// - `1` if the direction is positive.
-    /// - `-1` if the direction is negative.
+    /// - `1.0` if the direction is positive.
+    /// - `-1.0` if the direction is negative.
     pub fn factor(self) -> f64 {
         if self.is_positive() { 1.0 } else { -1.0 }
     }
 
-    /// The inverse axis.
-    pub fn inv(self) -> Dir {
+    /// The inverse direction.
+    pub fn inv(self) -> Self {
         match self {
-            LTT => RTL,
-            RTL => LTT,
+            LTR => RTL,
+            RTL => LTR,
             TTB => BTT,
             BTT => TTB,
         }
@@ -93,7 +95,7 @@ impl Dir {
 impl Display for Dir {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
-            LTT => "ltr",
+            LTR => "ltr",
             RTL => "rtl",
             TTB => "ttb",
             BTT => "btt",
@@ -104,9 +106,9 @@ impl Display for Dir {
 /// The two generic layouting axes.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum GenAxis {
-    /// The primary axis along which words are laid out.
+    /// The primary layouting direction along which text and lines flow.
     Primary,
-    /// The secondary axis along which lines and paragraphs are laid out.
+    /// The secondary layouting direction along which paragraphs grow.
     Secondary,
 }
 
@@ -154,19 +156,17 @@ impl Display for SpecAxis {
 /// Specifies where to align a layout in a parent container.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct LayoutAlign {
-    /// The alignment along the primary axis.
     pub primary: GenAlign,
-    /// The alignment along the secondary axis.
     pub secondary: GenAlign,
 }
 
 impl LayoutAlign {
-    /// Create a new instance from the two values.
-    pub fn new(primary: GenAlign, secondary: GenAlign) -> LayoutAlign {
-        LayoutAlign { primary, secondary }
+    /// Create a new instance from the two alignments.
+    pub fn new(primary: GenAlign, secondary: GenAlign) -> Self {
+        Self { primary, secondary }
     }
 
-    /// Return the alignment of the specified generic axis.
+    /// Return the alignment for the specified generic axis.
     pub fn get(self, axis: GenAxis) -> GenAlign {
         match axis {
             Primary => self.primary,
@@ -174,7 +174,7 @@ impl LayoutAlign {
         }
     }
 
-    /// Borrow the alignment of the specified generic axis mutably.
+    /// Borrow the alignment for the specified generic axis mutably.
     pub fn get_mut(&mut self, axis: GenAxis) -> &mut GenAlign {
         match axis {
             Primary => &mut self.primary,
@@ -183,7 +183,7 @@ impl LayoutAlign {
     }
 }
 
-/// Where to align content along a generic context.
+/// Where to align content along an axis in a generic context.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum GenAlign {
     Start,
@@ -193,7 +193,7 @@ pub enum GenAlign {
 
 impl GenAlign {
     /// The inverse alignment.
-    pub fn inv(self) -> GenAlign {
+    pub fn inv(self) -> Self {
         match self {
             Start => End,
             Center => Center,
@@ -212,7 +212,7 @@ impl Display for GenAlign {
     }
 }
 
-/// Where to align content in a specific context.
+/// Where to align content along an axis in a specific context.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum SpecAlign {
     Left,
@@ -225,7 +225,7 @@ pub enum SpecAlign {
 impl SpecAlign {
     /// The specific axis this alignment refers to.
     ///
-    /// Returns `None` if this is center.
+    /// Returns `None` if this is `Center` since the axis is unknown.
     pub fn axis(self) -> Option<SpecAxis> {
         match self {
             Self::Left => Some(Horizontal),
@@ -236,7 +236,7 @@ impl SpecAlign {
         }
     }
 
-    /// Convert this to a generic alignment.
+    /// The generic version of this alignment in the given system of axes.
     pub fn to_generic(self, axes: LayoutAxes) -> GenAlign {
         let get = |spec: SpecAxis, align: GenAlign| {
             let axis = spec.to_generic(axes);
@@ -277,8 +277,8 @@ pub struct LayoutExpansion {
 
 impl LayoutExpansion {
     /// Create a new instance from the two values.
-    pub fn new(horizontal: bool, vertical: bool) -> LayoutExpansion {
-        LayoutExpansion { horizontal, vertical }
+    pub fn new(horizontal: bool, vertical: bool) -> Self {
+        Self { horizontal, vertical }
     }
 
     /// Return the expansion value for the given specific axis.
@@ -298,8 +298,7 @@ impl LayoutExpansion {
     }
 }
 
-/// Defines how a given spacing interacts with (possibly existing) surrounding
-/// spacing.
+/// Defines how spacing interacts with surrounding spacing.
 ///
 /// There are two options for interaction: Hard and soft spacing. Typically,
 /// hard spacing is used when a fixed amount of space needs to be inserted no
@@ -317,31 +316,31 @@ pub enum SpacingKind {
 
 impl SpacingKind {
     /// The standard spacing kind used for paragraph spacing.
-    pub const PARAGRAPH: SpacingKind = SpacingKind::Soft(1);
+    pub const PARAGRAPH: Self = Self::Soft(1);
 
     /// The standard spacing kind used for line spacing.
-    pub const LINE: SpacingKind = SpacingKind::Soft(2);
+    pub const LINE: Self = Self::Soft(2);
 
     /// The standard spacing kind used for word spacing.
-    pub const WORD: SpacingKind = SpacingKind::Soft(1);
+    pub const WORD: Self = Self::Soft(1);
 }
 
 /// The spacing kind of the most recently inserted item in a layouting process.
-/// This is not about the last _spacing item_, but the last _item_, which is why
-/// this can be `None`.
+///
+/// Since the last inserted item may not be spacing at all, this can be `None`.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub(crate) enum LastSpacing {
     /// The last item was hard spacing.
     Hard,
     /// The last item was soft spacing with the given width and level.
     Soft(f64, u32),
-    /// The last item was not spacing.
+    /// The last item wasn't spacing.
     None,
 }
 
 impl LastSpacing {
     /// The width of the soft space if this is a soft space or zero otherwise.
-    pub(crate) fn soft_or_zero(self) -> f64 {
+    pub fn soft_or_zero(self) -> f64 {
         match self {
             LastSpacing::Soft(space, _) => space,
             _ => 0.0,

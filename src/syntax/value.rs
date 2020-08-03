@@ -2,18 +2,20 @@
 
 use fontdock::{FontStyle, FontWeight, FontWidth};
 
-use crate::Feedback;
 use crate::layout::prelude::*;
 use crate::length::{Length, ScaleLength};
 use crate::paper::Paper;
-use super::span::Spanned;
+use crate::Feedback;
 use super::expr::*;
+use super::span::Spanned;
 
 /// Value types are used to extract values from functions, tuples and
 /// objects. They represent the value part of an argument.
+///
+/// # Example
 /// ```typst
-/// [func: value, key=value]
-///        ^^^^^      ^^^^^
+/// [func: 12pt, key="these are both values"]
+///        ^^^^      ^^^^^^^^^^^^^^^^^^^^^^^
 /// ```
 pub trait Value: Sized {
     /// Try to parse this value from an expression.
@@ -53,8 +55,8 @@ macro_rules! match_value {
 match_value!(Expr,   "expression", e => e);
 match_value!(Ident,  "identifier", Expr::Ident(i)  => i);
 match_value!(String, "string",     Expr::Str(s)    => s);
-match_value!(f64,    "number",     Expr::Number(n) => n);
 match_value!(bool,   "bool",       Expr::Bool(b)   => b);
+match_value!(f64,    "number",     Expr::Number(n) => n);
 match_value!(Length, "length",     Expr::Length(l) => l);
 match_value!(Tuple,  "tuple",      Expr::Tuple(t)  => t);
 match_value!(Object, "object",     Expr::Object(o) => o);
@@ -63,7 +65,7 @@ match_value!(ScaleLength, "number or length",
     Expr::Number(scale) => ScaleLength::Scaled(scale),
 );
 
-/// A value type that matches [`Expr::Ident`] and [`Expr::Str`] and implements
+/// A value type that matches identifiers and strings and implements
 /// `Into<String>`.
 pub struct StringLike(pub String);
 
@@ -101,7 +103,7 @@ macro_rules! ident_value {
 }
 
 ident_value!(Dir, "direction", |s| match s {
-    "ltr" => Some(LTT),
+    "ltr" => Some(LTR),
     "rtl" => Some(RTL),
     "ttb" => Some(TTB),
     "btt" => Some(BTT),
@@ -109,11 +111,11 @@ ident_value!(Dir, "direction", |s| match s {
 });
 
 ident_value!(SpecAlign, "alignment", |s| match s {
-    "left" => Some(SpecAlign::Left),
-    "right" => Some(SpecAlign::Right),
-    "top" => Some(SpecAlign::Top),
-    "bottom" => Some(SpecAlign::Bottom),
-    "center" => Some(SpecAlign::Center),
+    "left" => Some(Self::Left),
+    "right" => Some(Self::Right),
+    "top" => Some(Self::Top),
+    "bottom" => Some(Self::Bottom),
+    "center" => Some(Self::Center),
     _ => None,
 });
 
@@ -127,7 +129,7 @@ impl Value for FontWeight {
                 const MIN: u16 = 100;
                 const MAX: u16 = 900;
 
-                Some(FontWeight(if weight < MIN as f64 {
+                Some(Self(if weight < MIN as f64 {
                     error!(@f, expr.span, "the minimum font weight is {}", MIN);
                     MIN
                 } else if weight > MAX as f64 {
@@ -163,7 +165,7 @@ impl Value for FontWidth {
                 const MIN: u16 = 1;
                 const MAX: u16 = 9;
 
-                FontWidth::new(if width < MIN as f64 {
+                Self::new(if width < MIN as f64 {
                     error!(@f, expr.span, "the minimum font width is {}", MIN);
                     MIN
                 } else if width > MAX as f64 {

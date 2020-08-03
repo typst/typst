@@ -36,13 +36,13 @@ pub struct Spanned<T> {
 
 impl<T> Spanned<T> {
     /// Create a new instance from a value and its span.
-    pub fn new(v: T, span: Span) -> Spanned<T> {
-        Spanned { v, span }
+    pub fn new(v: T, span: Span) -> Self {
+        Self { v, span }
     }
 
     /// Create a new instance from a value with the zero span.
-    pub fn zero(v: T) -> Spanned<T> {
-        Spanned { v, span: Span::ZERO }
+    pub fn zero(v: T) -> Self {
+        Self { v, span: Span::ZERO }
     }
 
     /// Access the value.
@@ -51,12 +51,12 @@ impl<T> Spanned<T> {
     }
 
     /// Map the value using a function while keeping the span.
-    pub fn map<V, F>(self, f: F) -> Spanned<V> where F: FnOnce(T) -> V {
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Spanned<U> {
         Spanned { v: f(self.v), span: self.span }
     }
 
     /// Maps the span while keeping the value.
-    pub fn map_span<F>(mut self, f: F) -> Spanned<T> where F: FnOnce(Span) -> Span {
+    pub fn map_span(mut self, f: impl FnOnce(Span) -> Span) -> Self {
         self.span = f(self.span);
         self
     }
@@ -91,35 +91,35 @@ pub struct Span {
 
 impl Span {
     /// The zero span.
-    pub const ZERO: Span = Span { start: Pos::ZERO, end: Pos::ZERO };
+    pub const ZERO: Self = Self { start: Pos::ZERO, end: Pos::ZERO };
 
     /// Create a new span from start and end positions.
-    pub fn new(start: Pos, end: Pos) -> Span {
-        Span { start, end }
+    pub fn new(start: Pos, end: Pos) -> Self {
+        Self { start, end }
     }
 
     /// Create a span including just a single position.
-    pub fn at(pos: Pos) -> Span {
-        Span { start: pos, end: pos }
+    pub fn at(pos: Pos) -> Self {
+        Self { start: pos, end: pos }
     }
 
     /// Create a new span with the earlier start and later end position.
-    pub fn merge(a: Span, b: Span) -> Span {
-        Span {
+    pub fn merge(a: Self, b: Self) -> Self {
+        Self {
             start: a.start.min(b.start),
             end: a.end.max(b.end),
         }
     }
 
     /// Expand a span by merging it with another span.
-    pub fn expand(&mut self, other: Span) {
-        *self = Span::merge(*self, other)
+    pub fn expand(&mut self, other: Self) {
+        *self = Self::merge(*self, other)
     }
 }
 
 impl Offset for Span {
     fn offset(self, by: Pos) -> Self {
-        Span {
+        Self {
             start: self.start.offset(by),
             end: self.end.offset(by),
         }
@@ -144,31 +144,31 @@ pub struct Pos {
 
 impl Pos {
     /// The line 0, column 0 position.
-    pub const ZERO: Pos = Pos { line: 0, column: 0 };
+    pub const ZERO: Self = Self { line: 0, column: 0 };
 
     /// Create a new position from line and column.
-    pub fn new(line: usize, column: usize) -> Pos {
-        Pos { line, column }
+    pub fn new(line: usize, column: usize) -> Self {
+        Self { line, column }
     }
 }
 
 impl Offset for Pos {
-    fn offset(self, by: Pos) -> Self {
+    fn offset(self, by: Self) -> Self {
         by + self
     }
 }
 
 impl Add for Pos {
-    type Output = Pos;
+    type Output = Self;
 
-    fn add(self, rhs: Pos) -> Pos {
+    fn add(self, rhs: Self) -> Self {
         if rhs.line == 0 {
-            Pos {
+            Self {
                 line: self.line,
-                column: self.column + rhs.column
+                column: self.column + rhs.column,
             }
         } else {
-            Pos {
+            Self {
                 line: self.line + rhs.line,
                 column: rhs.column,
             }
@@ -177,16 +177,16 @@ impl Add for Pos {
 }
 
 impl Sub for Pos {
-    type Output = Pos;
+    type Output = Self;
 
-    fn sub(self, rhs: Pos) -> Pos {
+    fn sub(self, rhs: Self) -> Self {
         if self.line == rhs.line {
-            Pos {
+            Self {
                 line: 0,
-                column: self.column - rhs.column
+                column: self.column - rhs.column,
             }
         } else {
-            Pos {
+            Self {
                 line: self.line - rhs.line,
                 column: self.column,
             }

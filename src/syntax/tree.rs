@@ -6,7 +6,7 @@ use std::fmt::Debug;
 use crate::layout::Layout;
 use super::span::SpanVec;
 
-/// A list of nodes which forms a tree together with the nodes' children.
+/// A collection of nodes which form a tree together with the nodes' children.
 pub type SyntaxTree = SpanVec<SyntaxNode>;
 
 /// A syntax node, which encompasses a single logical entity of parsed source
@@ -27,7 +27,7 @@ pub enum SyntaxNode {
     ToggleItalic,
     /// Bolder was enabled / disabled.
     ToggleBolder,
-    /// A subtree, typically a function invocation.
+    /// A dynamic node, create through function invocations in source code.
     Dyn(Box<dyn DynamicNode>),
 }
 
@@ -65,13 +65,16 @@ pub trait DynamicNode: Debug + Layout {
 
 impl dyn DynamicNode {
     /// Downcast this dynamic node to a concrete node.
-    pub fn downcast<N>(&self) -> Option<&N> where N: DynamicNode + 'static {
-        self.as_any().downcast_ref::<N>()
+    pub fn downcast<T>(&self) -> Option<&T>
+    where
+        T: DynamicNode + 'static,
+    {
+        self.as_any().downcast_ref::<T>()
     }
 }
 
 impl PartialEq for dyn DynamicNode {
-    fn eq(&self, other: &dyn DynamicNode) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         self.dyn_eq(other)
     }
 }
@@ -82,7 +85,10 @@ impl Clone for Box<dyn DynamicNode> {
     }
 }
 
-impl<T> DynamicNode for T where T: Debug + PartialEq + Clone + Layout + 'static {
+impl<T> DynamicNode for T
+where
+    T: Debug + PartialEq + Clone + Layout + 'static,
+{
     fn as_any(&self) -> &dyn Any {
         self
     }

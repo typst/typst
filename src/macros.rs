@@ -9,7 +9,7 @@ macro_rules! try_or {
     ($result:expr, $or:expr $(,)?) => {
         match $result {
             Ok(v) => v,
-            Err(_) => { $or }
+            Err(_) => $or,
         }
     };
 }
@@ -19,7 +19,7 @@ macro_rules! try_opt_or {
     ($option:expr, $or:expr $(,)?) => {
         match $option {
             Some(v) => v,
-            None => { $or }
+            None => $or,
         }
     };
 }

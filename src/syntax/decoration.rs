@@ -13,32 +13,16 @@ pub type Decorations = SpanVec<Decoration>;
 #[cfg_attr(feature = "serialize", derive(Serialize))]
 #[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
 pub enum Decoration {
-    /// A valid function name.
-    /// ```typst
-    /// [box]
-    ///  ^^^
-    /// ```
-    ValidFuncName,
-    /// An invalid function name.
-    /// ```typst
-    /// [blabla]
-    ///  ^^^^^^
-    /// ```
-    InvalidFuncName,
-    /// A key of a keyword argument.
-    /// ```typst
-    /// [box: width=5cm]
-    ///       ^^^^^
-    /// ```
+    /// A valid, successfully resolved function name.
+    ResolvedFunc,
+    /// An invalid, unresolved function name.
+    UnresolvedFunc,
+    /// A key part of a keyword argument.
     ArgumentKey,
-    /// A key in an object.
-    /// ```typst
-    /// [box: padding={ left: 1cm, right: 2cm}]
-    ///                 ^^^^       ^^^^^
-    /// ```
+    /// A key part of a pair in an object.
     ObjectKey,
-    /// An italic word.
+    /// Text in italics.
     Italic,
-    /// A bold word.
+    /// Text in bold.
     Bold,
 }

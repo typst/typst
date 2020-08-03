@@ -2,15 +2,16 @@ use std::fmt::Debug;
 
 use crate::func::parse_maybe_body;
 use super::decoration::Decoration;
-use super::expr::{Expr, Ident, Tuple, NamedTuple, Object, Pair};
-use super::parsing::{FuncHeader, FuncArgs, FuncArg};
+use super::expr::{Expr, Ident, NamedTuple, Object, Pair, Tuple};
+use super::parsing::{FuncArg, FuncArgs, FuncHeader};
 use super::span::Spanned;
 use super::tokens::Token;
-use super::tree::{SyntaxTree, SyntaxNode, DynamicNode};
+use super::tree::{DynamicNode, SyntaxNode, SyntaxTree};
 
-/// Check whether the expected and found results are the same.
 pub fn check<T>(src: &str, exp: T, found: T, cmp_spans: bool)
-where T: Debug + PartialEq + SpanlessEq {
+where
+    T: Debug + PartialEq + SpanlessEq,
+{
     let cmp = if cmp_spans { PartialEq::eq } else { SpanlessEq::spanless_eq };
     if !cmp(&exp, &found) {
         println!("source:   {:?}", src);
@@ -41,7 +42,7 @@ macro_rules! span_vec {
 }
 
 macro_rules! span_item {
-    (($sl:tt:$sc:tt, $el:tt:$ec:tt, $v:expr)) => ({
+    (($sl:tt:$sc:tt, $el:tt:$ec:tt, $v:expr)) => {{
         use $crate::syntax::span::{Pos, Span, Spanned};
         Spanned {
             span: Span::new(
@@ -50,7 +51,7 @@ macro_rules! span_item {
             ),
             v: $v
         }
-    });
+    }};
 
     ($v:expr) => {
         $crate::syntax::span::Spanned::zero($v)
@@ -70,7 +71,7 @@ function! {
         let cloned = header.clone();
         header.args.pos.0.clear();
         header.args.key.0.clear();
-        DebugFn {
+        Self {
             header: cloned,
             body: parse_maybe_body(body, state, f),
         }
@@ -80,7 +81,7 @@ function! {
 }
 
 /// Compares elements by only looking at values and ignoring spans.
-pub trait SpanlessEq<Rhs=Self> {
+pub trait SpanlessEq<Rhs = Self> {
     fn spanless_eq(&self, other: &Rhs) -> bool;
 }
 
@@ -102,20 +103,21 @@ impl SpanlessEq for SyntaxNode {
 impl SpanlessEq for DebugFn {
     fn spanless_eq(&self, other: &DebugFn) -> bool {
         self.header.spanless_eq(&other.header)
-        && self.body.spanless_eq(&other.body)
+            && self.body.spanless_eq(&other.body)
     }
 }
 
 impl SpanlessEq for FuncHeader {
     fn spanless_eq(&self, other: &Self) -> bool {
-        self.name.spanless_eq(&other.name) && self.args.spanless_eq(&other.args)
+        self.name.spanless_eq(&other.name)
+            && self.args.spanless_eq(&other.args)
     }
 }
 
 impl SpanlessEq for FuncArgs {
     fn spanless_eq(&self, other: &Self) -> bool {
         self.key.spanless_eq(&other.key)
-        && self.pos.spanless_eq(&other.pos)
+            && self.pos.spanless_eq(&other.pos)
     }
 }
 
@@ -154,7 +156,7 @@ impl SpanlessEq for Tuple {
 impl SpanlessEq for NamedTuple {
     fn spanless_eq(&self, other: &NamedTuple) -> bool {
         self.name.v == other.name.v
-        && self.tuple.v.spanless_eq(&other.tuple.v)
+            && self.tuple.v.spanless_eq(&other.tuple.v)
     }
 }
 
@@ -173,7 +175,7 @@ impl SpanlessEq for Pair {
 impl<T: SpanlessEq> SpanlessEq for Vec<T> {
     fn spanless_eq(&self, other: &Vec<T>) -> bool {
         self.len() == other.len()
-        && self.iter().zip(other).all(|(x, y)| x.spanless_eq(&y))
+            && self.iter().zip(other).all(|(x, y)| x.spanless_eq(&y))
     }
 }
 

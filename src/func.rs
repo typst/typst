@@ -1,20 +1,20 @@
 //! Tools for building custom functions.
 
-use crate::Feedback;
-use crate::syntax::span::{Span, Spanned};
-use crate::syntax::parsing::{parse, ParseState};
-use crate::syntax::tree::SyntaxTree;
-
 /// Useful things for creating functions.
 pub mod prelude {
     pub use crate::layout::prelude::*;
     pub use crate::layout::Command::{self, *};
-    pub use crate::syntax::prelude::*;
     pub use crate::style::*;
-    pub use super::{OptionExt, parse_maybe_body, expect_no_body};
+    pub use crate::syntax::prelude::*;
+    pub use super::{expect_no_body, parse_maybe_body, OptionExt};
 }
 
-/// Extra methods on [`Options`](Option) used for function argument parsing.
+use crate::syntax::parsing::{parse, ParseState};
+use crate::syntax::span::{Span, Spanned};
+use crate::syntax::tree::SyntaxTree;
+use crate::Feedback;
+
+/// Extra methods on `Option`s used for function argument parsing.
 pub trait OptionExt<T>: Sized {
     /// Calls `f` with `val` if this is `Some(val)`.
     fn with(self, f: impl FnOnce(T));
@@ -62,8 +62,8 @@ pub fn expect_no_body(body: Option<Spanned<&str>>, f: &mut Feedback) {
 /// Implement a custom function concisely.
 ///
 /// # Examples
-/// Look at the source code of the [`library`](crate::library) module for
-/// examples on how the macro works.
+/// Look at the source code of the `library` module for examples on how the
+/// macro works.
 #[macro_export]
 macro_rules! function {
     // Entry point.
@@ -85,7 +85,7 @@ macro_rules! function {
 
     // Parse trait.
     (@parse($($a:tt)*) parse(default) $($r:tt)*) => {
-        function!(@parse($($a)*) parse(_h, _b, _c, _f, _m) {Default::default() } $($r)*);
+        function!(@parse($($a)*) parse(_h, _b, _c, _f, _m) { Default::default() } $($r)*);
     };
     (@parse($($a:tt)*) parse($h:ident, $b:ident, $c:ident, $f:ident) $($r:tt)* ) => {
         function!(@parse($($a)*) parse($h, $b, $c, $f, _metadata) $($r)*);
@@ -104,7 +104,10 @@ macro_rules! function {
                 #[allow(unused)] mut call: $crate::syntax::parsing::FuncCall,
                 #[allow(unused)] $state: &$crate::syntax::parsing::ParseState,
                 #[allow(unused)] $metadata: Self::Meta,
-            ) -> $crate::Pass<Self> where Self: Sized {
+            ) -> $crate::Pass<Self>
+            where
+                Self: Sized,
+            {
                 let mut feedback = $crate::Feedback::new();
                 #[allow(unused)] let $header = &mut call.header;
                 #[allow(unused)] let $body = call.body;

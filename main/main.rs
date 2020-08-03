@@ -1,44 +1,37 @@
 use std::cell::RefCell;
-use std::error::Error;
-use std::fs::{File, read_to_string};
+use std::fs::{read_to_string, File};
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use futures_executor::block_on;
 
 use fontdock::fs::{FsIndex, FsProvider};
 use fontdock::FontLoader;
-use typstc::Typesetter;
-use typstc::font::DynProvider;
+use futures_executor::block_on;
+
 use typstc::export::pdf;
+use typstc::font::DynProvider;
+use typstc::Typesetter;
 
 fn main() {
-    if let Err(err) = run() {
-        eprintln!("error: {}", err);
-        std::process::exit(1);
-    }
-}
-
-fn run() -> Result<(), Box<dyn Error>> {
-    let args: Vec<String> = std::env::args().collect();
+    let args: Vec<_> = std::env::args().collect();
     if args.len() < 2 || args.len() > 3 {
         println!("Usage: typst src.typ [out.pdf]");
-        std::process::exit(0);
+        return;
     }
 
-    let source = Path::new(&args[1]);
-    let dest = if args.len() <= 2 {
-        source.with_extension("pdf")
+    let src_path = Path::new(&args[1]);
+    let dest_path = if args.len() <= 2 {
+        src_path.with_extension("pdf")
     } else {
         PathBuf::from(&args[2])
     };
 
-    if source == dest {
-        Err("source and destination path are the same")?;
+    if src_path == dest_path {
+        panic!("source and destination path are the same");
     }
 
-    let src = read_to_string(source)
-        .map_err(|_| "failed to read from source file")?;
+    let src = read_to_string(src_path)
+        .expect("failed to read from source file");
 
     let mut index = FsIndex::new();
     index.search_dir("fonts");
@@ -53,8 +46,10 @@ fn run() -> Result<(), Box<dyn Error>> {
     let typesetter = Typesetter::new(loader.clone());
     let layouts = block_on(typesetter.typeset(&src)).output;
 
-    let writer = BufWriter::new(File::create(&dest)?);
-    pdf::export(&layouts, &loader, writer)?;
+    let file = File::create(&dest_path)
+        .expect("failed to create output file");
 
-    Ok(())
+    let writer = BufWriter::new(file);
+    pdf::export(&layouts, &loader, writer)
+        .expect("failed to export pdf");
 }

@@ -1,5 +1,3 @@
-//! Page setup.
-
 use crate::length::{Length, ScaleLength};
 use crate::paper::{Paper, PaperClass};
 use super::*;
@@ -21,7 +19,7 @@ function! {
 
     parse(header, body, state, f) {
         expect_no_body(body, f);
-        PageFunc {
+        Self {
             paper: header.args.pos.get::<Paper>(),
             width: header.args.key.get::<Length>("width", f),
             height: header.args.key.get::<Length>("height", f),

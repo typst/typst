@@ -1,16 +1,22 @@
-//! The text layouter layouts continous pieces of text into boxes.
+//! Layouting of continous pieces of text into boxes.
 //!
 //! The layouter picks the most suitable font for each individual character.
 //! When the primary layouting axis horizontally inversed, the word is spelled
 //! backwards. Vertical word layout is not yet supported.
 
-use ttf_parser::GlyphId;
 use fontdock::{FaceId, FaceQuery, FontStyle};
+use ttf_parser::GlyphId;
+
 use crate::font::SharedFontLoader;
 use crate::geom::Size;
 use crate::style::TextStyle;
 use super::elements::{LayoutElement, Shaped};
 use super::*;
+
+/// Layouts text into a box.
+pub async fn layout_text(text: &str, ctx: TextContext<'_>) -> BoxLayout {
+    TextLayouter::new(text, ctx).layout().await
+}
 
 /// Performs the text layouting.
 #[derive(Debug)]
@@ -26,28 +32,24 @@ struct TextLayouter<'a> {
 /// The context for text layouting.
 #[derive(Debug, Copy, Clone)]
 pub struct TextContext<'a> {
-    /// The font loader to retrieve fonts from when typesetting text
-    /// using [`layout_text`].
+    /// The font loader to retrieve fonts from when typesetting text with
+    /// `layout_text`.
     pub loader: &'a SharedFontLoader,
     /// The style for text: Font selection with classes, weights and variants,
     /// font sizes, spacing and so on.
     pub style: &'a TextStyle,
-    /// The axes along which the word is laid out. For now, only
-    /// primary-horizontal layouting is supported.
-    pub axes: LayoutAxes,
-    /// The alignment of the finished layout.
+    /// The direction into which the word is laid out. For now, only horizontal
+    /// directions are supported.
+    pub dir: Dir,
+    /// The alignment of the _resulting_ layout. This does not effect the line
+    /// layouting itself, but rather how the finished layout will be positioned
+    /// in a parent layout.
     pub align: LayoutAlign,
 }
 
-/// Layouts text into a box.
-pub async fn layout_text(text: &str, ctx: TextContext<'_>) -> BoxLayout {
-    TextLayouter::new(text, ctx).layout().await
-}
-
 impl<'a> TextLayouter<'a> {
-    /// Create a new text layouter.
-    fn new(text: &'a str, ctx: TextContext<'a>) -> TextLayouter<'a> {
-        TextLayouter {
+    fn new(text: &'a str, ctx: TextContext<'a>) -> Self {
+        Self {
             ctx,
             text,
             shaped: Shaped::new(FaceId::MAX, ctx.style.font_size()),
@@ -57,10 +59,9 @@ impl<'a> TextLayouter<'a> {
         }
     }
 
-    /// Do the layouting.
     async fn layout(mut self) -> BoxLayout {
         // If the primary axis is negative, we layout the characters reversed.
-        if self.ctx.axes.primary.is_positive() {
+        if self.ctx.dir.is_positive() {
             for c in self.text.chars() {
                 self.layout_char(c).await;
             }
@@ -83,7 +84,6 @@ impl<'a> TextLayouter<'a> {
         }
     }
 
-    /// Layout an individual character.
     async fn layout_char(&mut self, c: char) {
         let (index, glyph, char_width) = match self.select_font(c).await {
             Some(selected) => selected,
@@ -115,11 +115,8 @@ impl<'a> TextLayouter<'a> {
         self.width += char_width;
     }
 
-    /// Select the best font for a character and return its index along with
-    /// the width of the char in the font.
     async fn select_font(&mut self, c: char) -> Option<(FaceId, GlyphId, f64)> {
         let mut loader = self.ctx.loader.borrow_mut();
-
         let mut variant = self.ctx.style.variant;
 
         if self.ctx.style.bolder {

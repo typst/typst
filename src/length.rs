@@ -84,7 +84,7 @@ impl Length {
     }
 
     /// Convert this to a length with a different unit.
-    pub fn with_unit(self, unit: Unit) -> Length {
+    pub fn with_unit(self, unit: Unit) -> Self {
         Self {
             val: self.val * self.unit.raw_scale() / unit.raw_scale(),
             unit,
@@ -160,7 +160,7 @@ impl FromStr for Length {
 
         src[..split]
             .parse::<f64>()
-            .map(|val| Length::new(val, unit))
+            .map(|val| Self::new(val, unit))
             .map_err(|_| ParseLengthError)
     }
 }

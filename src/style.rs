@@ -1,7 +1,10 @@
 //! Styles for text and pages.
 
-use fontdock::{fallback, FallbackTree, FontVariant, FontStyle, FontWeight, FontWidth};
-use crate::geom::{Size, Margins, Value4};
+use fontdock::{
+    fallback, FallbackTree, FontStyle, FontVariant, FontWeight, FontWidth,
+};
+
+use crate::geom::{Margins, Size, Value4};
 use crate::length::{Length, ScaleLength};
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
@@ -62,8 +65,8 @@ impl TextStyle {
 }
 
 impl Default for TextStyle {
-    fn default() -> TextStyle {
-        TextStyle {
+    fn default() -> Self {
+        Self {
             fallback: fallback! {
                 list: ["sans-serif"],
                 classes: {
@@ -105,8 +108,8 @@ pub struct PageStyle {
 
 impl PageStyle {
     /// The default page style for the given paper.
-    pub fn new(paper: Paper) -> PageStyle {
-        PageStyle {
+    pub fn new(paper: Paper) -> Self {
+        Self {
             class: paper.class,
             size: paper.size(),
             margins: Value4::with_all(None),
@@ -127,7 +130,7 @@ impl PageStyle {
 }
 
 impl Default for PageStyle {
-    fn default() -> PageStyle {
-        PageStyle::new(PAPER_A4)
+    fn default() -> Self {
+        Self::new(PAPER_A4)
     }
 }

@@ -1,8 +1,8 @@
-//! Diagnostics (errors / warnings) in source code.
+//! Diagnostics for source code.
 //!
 //! There are no fatal errors. The document will always compile and yield a
-//! layout. However, this is a best effort process and bad things will still
-//! generate errors and warnings.
+//! layout on a best effort process, generating diagnostics for incorrect
+//! things.
 
 #[cfg(feature = "serialize")]
 use serde::Serialize;

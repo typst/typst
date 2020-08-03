@@ -1,19 +1,20 @@
-//! The elements layouts are composed of.
+//! Basic building blocks of layouts.
 
 use std::fmt::{self, Debug, Formatter};
 
-use ttf_parser::GlyphId;
 use fontdock::FaceId;
+use ttf_parser::GlyphId;
+
 use crate::geom::Size;
 
-/// A sequence of positioned layout elements.
-#[derive(Debug, Clone, PartialEq)]
+/// A collection of absolutely positioned layout elements.
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct LayoutElements(pub Vec<(Size, LayoutElement)>);
 
 impl LayoutElements {
-    /// Create an empty sequence.
+    /// Create an new empty collection.
     pub fn new() -> Self {
-        LayoutElements(vec![])
+        Self(vec![])
     }
 
     /// Add an element at a position.
@@ -21,7 +22,9 @@ impl LayoutElements {
         self.0.push((pos, element));
     }
 
-    /// Add a sequence of elements offset by an `offset`.
+    /// Add all elements of another collection, offsetting each by the given
+    /// `offset`. This can be used to place a sublayout at a position in another
+    /// layout.
     pub fn extend_offset(&mut self, offset: Size, more: Self) {
         for (subpos, element) in more.0 {
             self.0.push((subpos + offset, element));
@@ -29,16 +32,9 @@ impl LayoutElements {
     }
 }
 
-impl Default for LayoutElements {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// A layout element, which is the basic building block layouts are composed of.
+/// A layout element, the basic building block layouts are composed of.
 #[derive(Debug, Clone, PartialEq)]
 pub enum LayoutElement {
-    /// Shaped text.
     Text(Shaped),
 }
 
@@ -48,14 +44,17 @@ pub struct Shaped {
     pub text: String,
     pub face: FaceId,
     pub glyphs: Vec<GlyphId>,
+    /// The horizontal offsets of the glyphs with the same indices. Vertical
+    /// offets are not yet supported.
     pub offsets: Vec<f64>,
+    /// The font size.
     pub size: f64,
 }
 
 impl Shaped {
-    /// Create an empty shape run.
-    pub fn new(face: FaceId, size: f64) -> Shaped {
-        Shaped {
+    /// Create a new shape run with empty `text`, `glyphs` and `offsets`.
+    pub fn new(face: FaceId, size: f64) -> Self {
+        Self {
             text: String::new(),
             face,
             glyphs: vec![],
@@ -65,12 +64,11 @@ impl Shaped {
     }
 
     /// Encode the glyph ids into a big-endian byte buffer.
-    pub fn encode_glyphs(&self) -> Vec<u8> {
-        const BYTES_PER_GLYPH: usize = 2;
-        let mut bytes = Vec::with_capacity(BYTES_PER_GLYPH * self.glyphs.len());
-        for g in &self.glyphs {
-            bytes.push((g.0 >> 8) as u8);
-            bytes.push((g.0 & 0xff) as u8);
+    pub fn encode_glyphs_be(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(2 * self.glyphs.len());
+        for &GlyphId(g) in &self.glyphs {
+            bytes.push((g >> 8) as u8);
+            bytes.push((g & 0xff) as u8);
         }
         bytes
     }

@@ -5,21 +5,21 @@ use std::fs::{self, File};
 use std::io::BufWriter;
 use std::rc::Rc;
 
+use fontdock::fs::{FsIndex, FsProvider};
+use fontdock::FontLoader;
 use futures_executor::block_on;
-use raqote::{DrawTarget, Source, SolidSource, PathBuilder, Vector, Transform};
+use raqote::{DrawTarget, PathBuilder, SolidSource, Source, Transform, Vector};
 use ttf_parser::OutlineBuilder;
 
-use typstc::Typesetter;
+use typstc::export::pdf;
 use typstc::font::{DynProvider, SharedFontLoader};
 use typstc::geom::{Size, Value4};
-use typstc::layout::MultiLayout;
 use typstc::layout::elements::{LayoutElement, Shaped};
+use typstc::layout::MultiLayout;
 use typstc::length::Length;
-use typstc::style::PageStyle;
 use typstc::paper::PaperClass;
-use typstc::export::pdf;
-use fontdock::FontLoader;
-use fontdock::fs::{FsIndex, FsProvider};
+use typstc::style::PageStyle;
+use typstc::Typesetter;
 
 const TEST_DIR: &str = "tests";
 const OUT_DIR: &str = "tests/out";
@@ -38,12 +38,7 @@ fn main() {
             continue;
         }
 
-        let name = path
-            .file_stem()
-            .unwrap()
-            .to_string_lossy()
-            .to_string();
-
+        let name = path.file_stem().unwrap().to_string_lossy().to_string();
         if filter.matches(&name) {
             let src = fs::read_to_string(&path).unwrap();
             filtered.push((name, src));
@@ -93,18 +88,15 @@ fn test(
     let typeset = block_on(typesetter.typeset(src));
     let layouts = typeset.output;
     for diagnostic in typeset.feedback.diagnostics {
-        println!("  {:?} {:?}: {}",
-            diagnostic.v.level,
-            diagnostic.span,
-            diagnostic.v.message
+        println!(
+            "  {:?} {:?}: {}",
+            diagnostic.v.level, diagnostic.span, diagnostic.v.message,
         );
     }
 
-    // Render the PNG file.
     let png_path = format!("{}/{}.png", OUT_DIR, name);
     render(&layouts, &loader, 3.0).write_png(png_path).unwrap();
 
-    // Write the PDF file.
     let pdf_path = format!("{}/{}.pdf", OUT_DIR, name);
     let file = BufWriter::new(File::create(pdf_path).unwrap());
     pdf::export(&layouts, &loader, file).unwrap();
@@ -116,19 +108,19 @@ struct TestFilter {
 }
 
 impl TestFilter {
-    fn new(args: impl Iterator<Item=String>) -> TestFilter {
+    fn new(args: impl Iterator<Item = String>) -> Self {
         let mut filter = Vec::new();
         let mut perfect = false;
 
         for arg in args {
             match arg.as_str() {
-                "--nocapture" => {},
+                "--nocapture" => {}
                 "=" => perfect = true,
                 _ => filter.push(arg),
             }
         }
 
-        TestFilter { filter, perfect }
+        Self { filter, perfect }
     }
 
     fn matches(&self, name: &str) -> bool {
@@ -136,7 +128,7 @@ impl TestFilter {
             self.filter.iter().any(|p| name == p)
         } else {
             self.filter.is_empty()
-            || self.filter.iter().any(|p| name.contains(p))
+                || self.filter.iter().any(|p| name.contains(p))
         }
     }
 }
@@ -174,15 +166,13 @@ fn render(
 
         for &(pos, ref element) in &layout.elements.0 {
             match element {
-                LayoutElement::Text(shaped) => {
-                    render_shaped(
-                        &mut surface,
-                        loader,
-                        shaped,
-                        scale * pos + offset,
-                        scale,
-                    );
-                },
+                LayoutElement::Text(shaped) => render_shaped(
+                    &mut surface,
+                    loader,
+                    shaped,
+                    scale * pos + offset,
+                    scale,
+                ),
             }
         }
 
@@ -215,7 +205,7 @@ fn render_shaped(
         let t = Transform::create_scale(s as f32, -s as f32)
             .post_translate(Vector::new(x as f32, y as f32));
 
-            surface.fill(
+        surface.fill(
             &path.transform(&t),
             &Source::Solid(SolidSource { r: 0, g: 0, b: 0, a: 255 }),
             &Default::default(),

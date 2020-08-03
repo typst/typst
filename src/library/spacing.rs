@@ -1,13 +1,11 @@
-//! Spacing.
-
-use crate::length::ScaleLength;
 use crate::layout::SpacingKind;
+use crate::length::ScaleLength;
 use super::*;
 
 function! {
     /// `parbreak`: Ends the current paragraph.
     ///
-    /// self has the same effect as two subsequent newlines.
+    /// This has the same effect as two subsequent newlines.
     #[derive(Debug, Default, Clone, PartialEq)]
     pub struct ParBreakFunc;
 
@@ -25,7 +23,7 @@ function! {
 }
 
 function! {
-    /// `h` and `v`: Add spacing along an axis.
+    /// `h` and `v`: Add horizontal or vertical spacing.
     #[derive(Debug, Clone, PartialEq)]
     pub struct SpacingFunc {
         spacing: Option<(SpecAxis, ScaleLength)>,
@@ -35,7 +33,7 @@ function! {
 
     parse(header, body, state, f, meta) {
         expect_no_body(body, f);
-        SpacingFunc {
+        Self {
             spacing: header.args.pos.expect::<ScaleLength>(f)
                 .map(|s| (meta, s))
                 .or_missing(header.name.span, "spacing", f),

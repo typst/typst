@@ -9,7 +9,6 @@ use super::span::{Pos, Span, Spanned};
 
 use Token::*;
 use TokenMode::*;
-
 /// A minimal semantic entity of source code.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Token<'s> {
@@ -71,14 +70,14 @@ pub enum Token<'s> {
         /// a String. The escaping is done later in the parser.
         string: &'s str,
         /// Whether the closing quote was present.
-        terminated: bool
+        terminated: bool,
     },
+    /// A boolean in a function header: `true | false`.
+    ExprBool(bool),
     /// A number in a function header: `3.14`.
     ExprNumber(f64),
     /// A length in a function header: `12pt`.
     ExprLength(Length),
-    /// A boolean in a function header: `true | false`.
-    ExprBool(bool),
     /// A hex value in a function header: `#20d82a`.
     ExprHex(&'s str),
     /// A plus in a function header, signifying the addition of expressions.
@@ -130,9 +129,9 @@ impl<'s> Token<'s> {
             Equals          => "equals sign",
             ExprIdent(_)    => "identifier",
             ExprStr { .. }  => "string",
+            ExprBool(_)     => "bool",
             ExprNumber(_)   => "number",
             ExprLength(_)   => "length",
-            ExprBool(_)     => "bool",
             ExprHex(_)      => "hex value",
             Plus            => "plus",
             Hyphen          => "minus",
@@ -173,8 +172,8 @@ impl<'s> Tokens<'s> {
     ///
     /// The first token's span starts an the given `offset` position instead of
     /// the zero position.
-    pub fn new(src: &'s str, offset: Pos, mode: TokenMode) -> Tokens<'s> {
-        Tokens {
+    pub fn new(src: &'s str, offset: Pos, mode: TokenMode) -> Self {
+        Self {
             src,
             mode,
             iter: src.chars().peekable(),
@@ -200,7 +199,7 @@ impl<'s> Iterator for Tokens<'s> {
     type Item = Spanned<Token<'s>>;
 
     /// Parse the next token in the source code.
-    fn next(&mut self) -> Option<Spanned<Token<'s>>> {
+    fn next(&mut self) -> Option<Self::Item> {
         let start = self.pos();
         let first = self.eat()?;
 
@@ -366,7 +365,7 @@ impl<'s> Tokens<'s> {
         }
 
         let end = self.index();
-        (&self.src[start .. end], terminated)
+        (&self.src[start..end], terminated)
     }
 
     fn read_string(&mut self) -> Token<'s> {
@@ -404,7 +403,7 @@ impl<'s> Tokens<'s> {
             Some(c) if is_escapable(c) => {
                 let index = self.index();
                 self.eat();
-                Text(&self.src[index .. index + c.len_utf8()])
+                Text(&self.src[index..index + c.len_utf8()])
             }
             Some(c) if c.is_whitespace() => Backslash,
             Some(_) => Text("\\"),
@@ -442,13 +441,13 @@ impl<'s> Tokens<'s> {
     /// Returns the string from the index where this was called offset by
     /// `offset_start` to the end offset by `offset_end`. The end is before or
     /// after the match depending on `eat_match`.
-    fn read_string_until<F>(
+    fn read_string_until(
         &mut self,
-        mut f: F,
+        mut f: impl FnMut(char) -> bool,
         eat_match: bool,
         offset_start: isize,
         offset_end: isize,
-    ) -> (&'s str, bool) where F: FnMut(char) -> bool {
+    ) -> (&'s str, bool) {
         let start = ((self.index() as isize) + offset_start) as usize;
         let mut matched = false;
 
@@ -469,7 +468,7 @@ impl<'s> Tokens<'s> {
             end = ((end as isize) + offset_end) as usize;
         }
 
-        (&self.src[start .. end], matched)
+        (&self.src[start..end], matched)
     }
 
     fn eat(&mut self) -> Option<char> {
@@ -493,7 +492,7 @@ impl<'s> Tokens<'s> {
 
 fn parse_percentage(text: &str) -> Option<f64> {
     if text.ends_with('%') {
-        text[.. text.len() - 1].parse::<f64>().ok()
+        text[..text.len() - 1].parse::<f64>().ok()
     } else {
         None
     }
@@ -503,7 +502,7 @@ fn parse_percentage(text: &str) -> Option<f64> {
 pub fn is_newline_char(character: char) -> bool {
     match character {
         // Line Feed, Vertical Tab, Form Feed, Carriage Return.
-        '\x0A' ..= '\x0D' => true,
+        '\x0A'..='\x0D' => true,
         // Next Line, Line Separator, Paragraph Separator.
         '\u{0085}' | '\u{2028}' | '\u{2029}' => true,
         _ => false,
@@ -544,15 +543,15 @@ mod tests {
         LeftParen as LP, RightParen as RP,
         LeftBrace as LB, RightBrace as RB,
         ExprIdent as Id,
+        ExprBool as Bool,
         ExprNumber as Num,
         ExprLength as Len,
-        ExprBool as Bool,
         ExprHex as Hex,
-        Text as T,
         Plus,
         Hyphen as Min,
-        Star,
         Slash,
+        Star,
+        Text as T,
     };
 
     /// Test whether the given string tokenizes into the given list of tokens.

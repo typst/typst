@@ -2,36 +2,34 @@
 
 use std::str::FromStr;
 
-use crate::{Pass, Feedback};
+use crate::{Feedback, Pass};
 use super::decoration::Decoration;
 use super::expr::*;
 use super::scope::Scope;
 use super::span::{Pos, Span, Spanned};
-use super::tokens::{is_newline_char, Token, Tokens, TokenMode};
-use super::tree::{SyntaxTree, SyntaxNode, DynamicNode};
+use super::tokens::{is_newline_char, Token, TokenMode, Tokens};
+use super::tree::{DynamicNode, SyntaxNode, SyntaxTree};
 
-/// A function which parses a function call into a tree.
+/// A function which parses a function call into a dynamic node.
 pub type CallParser = dyn Fn(FuncCall, &ParseState) -> Pass<Box<dyn DynamicNode>>;
 
 /// Parse a function call.
 pub trait ParseCall {
-    /// A metadata type whose value is passed into the function parser. This
-    /// allows a single function to do different things depending on the value
-    /// that needs to be given when inserting the function into a
-    /// [scope](crate::syntax::Scope).
+    /// Metadata whose value is passed to `parse`. This allows a single function
+    /// to do different things depending on the value that needs to be given
+    /// when inserting the function into a scope.
     ///
-    /// For example, the functions `word.spacing`, `line.spacing` and
-    /// `par.spacing` are actually all the same function
-    /// [`ContentSpacingFunc`](crate::library::ContentSpacingFunc) with the
-    /// metadata specifiy which content should be spaced.
+    /// For example, the functions `h` and `v` are built on the same type.
     type Meta: Clone;
 
-    /// Parse the header and body into this function given a context.
+    /// Parse the function call.
     fn parse(
-        header: FuncCall,
+        call: FuncCall,
         state: &ParseState,
         metadata: Self::Meta,
-    ) -> Pass<Self> where Self: Sized;
+    ) -> Pass<Self>
+    where
+        Self: Sized;
 }
 
 /// An invocation of a function.
@@ -58,8 +56,8 @@ pub struct FuncArgs {
 
 impl FuncArgs {
     /// Create new empty function arguments.
-    pub fn new() -> FuncArgs {
-        FuncArgs {
+    pub fn new() -> Self {
+        Self {
             pos: Tuple::new(),
             key: Object::new(),
         }
@@ -77,9 +75,7 @@ impl FuncArgs {
 /// Either a positional or keyword argument.
 #[derive(Debug, Clone, PartialEq)]
 pub enum FuncArg {
-    /// A positional argument.
     Pos(Expr),
-    /// A keyword argument.
     Key(Pair),
 }
 
@@ -116,26 +112,21 @@ pub fn parse(src: &str, offset: Pos, state: &ParseState) -> Pass<SyntaxTree> {
             Token::Function { header, body, terminated } => {
                 let parsed = FuncParser::new(header, body, state).parse();
                 feedback.extend_offset(parsed.feedback, span.start);
-
                 if !terminated {
                     error!(@feedback, Span::at(span.end), "expected closing bracket");
                 }
-
                 parsed.output
             }
 
             Token::Star => SyntaxNode::ToggleBolder,
             Token::Underscore => SyntaxNode::ToggleItalic,
             Token::Backslash => SyntaxNode::Linebreak,
-
             Token::Raw { raw, terminated } => {
                 if !terminated {
                     error!(@feedback, Span::at(span.end), "expected backtick");
                 }
-
                 SyntaxNode::Raw(unescape_raw(raw))
             }
-
             Token::Text(text) => SyntaxNode::Text(text.to_string()),
 
             Token::LineComment(_) | Token::BlockComment(_) => continue,
@@ -153,17 +144,9 @@ pub fn parse(src: &str, offset: Pos, state: &ParseState) -> Pass<SyntaxTree> {
 
 struct FuncParser<'s> {
     state: &'s ParseState,
-    /// ```typst
-    /// [tokens][body]
-    ///  ^^^^^^
-    /// ```
+    /// The tokens inside the header.
     tokens: Tokens<'s>,
     peeked: Option<Option<Spanned<Token<'s>>>>,
-    /// The spanned body string if there is a body.
-    /// ```typst
-    /// [tokens][body]
-    ///          ^^^^
-    /// ```
     body: Option<Spanned<&'s str>>,
     feedback: Feedback,
 }
@@ -173,8 +156,8 @@ impl<'s> FuncParser<'s> {
         header: &'s str,
         body: Option<Spanned<&'s str>>,
         state: &'s ParseState,
-    ) -> FuncParser<'s> {
-        FuncParser {
+    ) -> Self {
+        Self {
             state,
             // Start at column 1 because the opening bracket is also part of
             // the function, but not part of the `header` string.
@@ -190,7 +173,7 @@ impl<'s> FuncParser<'s> {
             let name = header.name.v.as_str();
             let (parser, deco) = match self.state.scope.get_parser(name) {
                 // The function exists in the scope.
-                Some(parser) => (parser, Decoration::ValidFuncName),
+                Some(parser) => (parser, Decoration::ResolvedFunc),
 
                 // The function does not exist in the scope. The parser that is
                 // returned here is a fallback parser which exists to make sure
@@ -199,7 +182,7 @@ impl<'s> FuncParser<'s> {
                 None => {
                     error!(@self.feedback, header.name.span, "unknown function");
                     let parser = self.state.scope.get_fallback_parser();
-                    (parser, Decoration::InvalidFuncName)
+                    (parser, Decoration::UnresolvedFunc)
                 }
             };
 
@@ -261,9 +244,8 @@ impl<'s> FuncParser<'s> {
                     self.skip_white();
 
                     let key = ident;
-                    self.feedback.decorations.push(
-                        Spanned::new(Decoration::ArgumentKey, key.span)
-                    );
+                    self.feedback.decorations
+                        .push(Spanned::new(Decoration::ArgumentKey, key.span));
 
                     let value = try_opt_or!(self.parse_expr(), {
                         self.expected("value");
@@ -399,9 +381,9 @@ impl FuncParser<'_> {
                 self.eat_span(Expr::Str(unescape_string(string)))
             }
 
+            Token::ExprBool(b) => self.eat_span(Expr::Bool(b)),
             Token::ExprNumber(n) => self.eat_span(Expr::Number(n)),
             Token::ExprLength(s) => self.eat_span(Expr::Length(s)),
-            Token::ExprBool(b) => self.eat_span(Expr::Bool(b)),
             Token::ExprHex(s) => {
                 if let Ok(color) = RgbaColor::from_str(s) {
                     self.eat_span(Expr::Color(color))
@@ -411,7 +393,7 @@ impl FuncParser<'_> {
                     let healed = RgbaColor::new_healed(0, 0, 0, 255);
                     self.eat_span(Expr::Color(healed))
                 }
-            },
+            }
 
             // This could be a tuple or a parenthesized expression. We parse as
             // a tuple in any case and coerce the tuple into a value if it is
@@ -500,9 +482,8 @@ impl FuncParser<'_> {
                 continue;
             }
 
-            self.feedback.decorations.push(
-                Spanned::new(Decoration::ObjectKey, key.span)
-            );
+            self.feedback.decorations
+                .push(Spanned::new(Decoration::ObjectKey, key.span));
 
             self.skip_white();
             let value = try_opt_or!(self.parse_expr(), {
@@ -622,7 +603,8 @@ impl<'s> FuncParser<'s> {
     }
 
     fn pos(&self) -> Pos {
-        self.peeked.flatten()
+        self.peeked
+            .flatten()
             .map(|s| s.span.start)
             .unwrap_or_else(|| self.tokens.pos())
     }
@@ -687,10 +669,10 @@ mod tests {
     use super::*;
 
     use Decoration::*;
-    use Expr::{Number as Num, Length as Len, Bool};
+    use Expr::{Bool, Length as Len, Number as Num};
     use SyntaxNode::{
-        Space as S, ToggleItalic as Italic, ToggleBolder as Bold,
-        Parbreak, Linebreak,
+        Space as S, Parbreak, Linebreak, ToggleItalic as Italic,
+        ToggleBolder as Bold,
     };
 
     /// Test whether the given string parses into
@@ -882,7 +864,7 @@ mod tests {
         p!("🌎\n*/[n]" =>
             [(0:0, 0:1, T("🌎")), (0:1, 1:0, S), (1:2, 1:5, func!((0:1, 0:2, "n")))],
             [(1:0, 1:2, "unexpected end of block comment")],
-            [(1:3, 1:4, ValidFuncName)],
+            [(1:3, 1:4, ResolvedFunc)],
         );
     }
 
@@ -905,12 +887,12 @@ mod tests {
         p!("[hi]" =>
             [func!("hi")],
             [(0:1, 0:3, "unknown function")],
-            [(0:1, 0:3, InvalidFuncName)],
+            [(0:1, 0:3, UnresolvedFunc)],
         );
 
         // A valid name.
-        p!("[f]"   => [func!("f")], [], [(0:1, 0:2, ValidFuncName)]);
-        p!("[  f]" => [func!("f")], [], [(0:3, 0:4, ValidFuncName)]);
+        p!("[f]"   => [func!("f")], [], [(0:1, 0:2, ResolvedFunc)]);
+        p!("[  f]" => [func!("f")], [], [(0:3, 0:4, ResolvedFunc)]);
 
         // An invalid token for a name.
         p!("[12]"   => [func!("")], [(0:1, 0:3, "expected function name, found number")], []);
@@ -923,7 +905,7 @@ mod tests {
         // Valid.
         p!("[val: true]" =>
             [func!["val": (Bool(true))]], [],
-            [(0:1, 0:4, ValidFuncName)],
+            [(0:1, 0:4, ResolvedFunc)],
         );
 
         // No colon before arg.
@@ -936,7 +918,7 @@ mod tests {
         p!("[val/🌎:$]" =>
             [func!("val")],
             [(0:4, 0:4, "expected colon")],
-            [(0:1, 0:4, ValidFuncName)],
+            [(0:1, 0:4, ResolvedFunc)],
         );
 
         // String in invalid header without colon still parsed as string
@@ -1159,20 +1141,20 @@ mod tests {
         // Correct
         p!("[val: x=true]" =>
             [func!("val": (), { "x" => Bool(true) })], [],
-            [(0:6, 0:7, ArgumentKey), (0:1, 0:4, ValidFuncName)],
+            [(0:6, 0:7, ArgumentKey), (0:1, 0:4, ResolvedFunc)],
         );
 
         // Spacing around keyword arguments
         p!("\n [val: \n hi \n = /* //\n */ \"s\n\"]" =>
             [S, func!("val": (), { "hi" => Str("s\n") })], [],
-            [(2:1, 2:3, ArgumentKey), (1:2, 1:5, ValidFuncName)],
+            [(2:1, 2:3, ArgumentKey), (1:2, 1:5, ResolvedFunc)],
         );
 
         // Missing value
         p!("[val: x=]" =>
             [func!("val")],
             [(0:8, 0:8, "expected value")],
-            [(0:6, 0:7, ArgumentKey), (0:1, 0:4, ValidFuncName)],
+            [(0:6, 0:7, ArgumentKey), (0:1, 0:4, ResolvedFunc)],
         );
     }
 
@@ -1180,7 +1162,7 @@ mod tests {
     fn parse_multiple_mixed_arguments() {
         p!("[val: 12pt, key=value]" =>
             [func!("val": (Len(Length::pt(12.0))), { "key" => Id("value") })], [],
-            [(0:12, 0:15, ArgumentKey), (0:1, 0:4, ValidFuncName)],
+            [(0:12, 0:15, ArgumentKey), (0:1, 0:4, ResolvedFunc)],
         );
         pval!("a , x=\"b\" , c" => (Id("a"), Id("c")), { "x" => Str("b") });
     }
@@ -1197,7 +1179,7 @@ mod tests {
         p!("[val: [hi]]"  =>
             [func!("val")],
             [(0:6, 0:10, "expected argument, found function")],
-            [(0:1, 0:4, ValidFuncName)],
+            [(0:1, 0:4, ResolvedFunc)],
         );
     }
 
@@ -1208,7 +1190,7 @@ mod tests {
             [func!("val": (Bool(true), Id("you")), {})],
             [(0:10, 0:10, "expected comma"),
              (0:10, 0:11, "expected argument, found equals sign")],
-            [(0:1, 0:4, ValidFuncName)],
+            [(0:1, 0:4, ResolvedFunc)],
         );
 
         // Unexpected equals.
@@ -1223,14 +1205,14 @@ mod tests {
             [func!("val": (Id("key"), Num(12.0)), {})],
             [(0:9, 0:9, "expected comma"),
              (0:9, 0:10, "expected argument, found colon")],
-            [(0:1, 0:4, ValidFuncName)],
+            [(0:1, 0:4, ResolvedFunc)],
         );
 
         // Invalid colon after unkeyable positional argument.
         p!("[val: true:12]" => [func!("val": (Bool(true), Num(12.0)), {})],
             [(0:10, 0:10, "expected comma"),
              (0:10, 0:11, "expected argument, found colon")],
-            [(0:1, 0:4, ValidFuncName)],
+            [(0:1, 0:4, ResolvedFunc)],
         );
     }
 
@@ -1274,13 +1256,13 @@ mod tests {
         // Space before function
         p!(" [val]" =>
             [(0:0, 0:1, S), (0:1, 0:6, func!((0:1, 0:4, "val")))], [],
-            [(0:2, 0:5, ValidFuncName)],
+            [(0:2, 0:5, ResolvedFunc)],
         );
 
         // Newline before function
         p!(" \n\r\n[val]" =>
             [(0:0, 2:0, Parbreak), (2:0, 2:5, func!((0:1, 0:4, "val")))], [],
-            [(2:1, 2:4, ValidFuncName)],
+            [(2:1, 2:4, ResolvedFunc)],
         );
 
         // Content before function
@@ -1293,7 +1275,7 @@ mod tests {
                 (0:19, 0:20, T("🌎"))
             ],
             [],
-            [(0:7, 0:10, ValidFuncName)],
+            [(0:7, 0:10, ResolvedFunc)],
         );
 
         // Nested function
@@ -1308,7 +1290,7 @@ mod tests {
                 ]))
             ],
             [],
-            [(0:2, 0:5, ValidFuncName), (1:6, 1:9, ValidFuncName)],
+            [(0:2, 0:5, ResolvedFunc), (1:6, 1:9, ResolvedFunc)],
         );
     }
 }

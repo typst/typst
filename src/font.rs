@@ -3,19 +3,27 @@
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
+
+use fontdock::{ContainsChar, FaceFromVec, FontLoader, FontProvider};
 use ttf_parser::Face;
-use fontdock::{FontLoader, FontProvider, ContainsChar, FaceFromVec};
 
 /// A referenced-count shared font loader backed by a dynamic provider.
 pub type SharedFontLoader = Rc<RefCell<FontLoader<Box<DynProvider>>>>;
 
 /// The dynamic font provider type backing the font loader.
-pub type DynProvider = dyn FontProvider<Face=OwnedFace>;
+pub type DynProvider = dyn FontProvider<Face = OwnedFace>;
 
 /// An owned font face.
 pub struct OwnedFace {
     data: Vec<u8>,
     face: Face<'static>,
+}
+
+impl OwnedFace {
+    /// The raw face data.
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
 }
 
 impl FaceFromVec for OwnedFace {
@@ -26,17 +34,10 @@ impl FaceFromVec for OwnedFace {
             std::slice::from_raw_parts(vec.as_ptr(), vec.len())
         };
 
-        Some(OwnedFace {
+        Some(Self {
             data: vec,
             face: Face::from_slice(slice, i).ok()?,
         })
-    }
-}
-
-impl OwnedFace {
-    /// The raw face data.
-    pub fn data(&self) -> &[u8] {
-        &self.data
     }
 }
 

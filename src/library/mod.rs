@@ -1,16 +1,19 @@
 //! The standard library.
 
+mod font;
+mod layout;
+mod page;
+mod spacing;
+
+pub use font::*;
+pub use layout::*;
+pub use page::*;
+pub use spacing::*;
+
 use crate::func::prelude::*;
-use crate::layout::{LayoutContext, Commands};
 use crate::syntax::scope::Scope;
 
-macro_rules! lib { ($name:ident) => { mod $name; pub use $name::*; }}
-lib!(font);
-lib!(layout);
-lib!(page);
-lib!(spacing);
-
-/// Create a scope with all standard functions.
+/// Create a scope with all standard library functions.
 pub fn std() -> Scope {
     let mut std = Scope::new::<ValFunc>();
 
@@ -28,7 +31,10 @@ pub fn std() -> Scope {
 }
 
 function! {
-    /// `val`: Layouts the body with no special effect.
+    /// `val`: Ignores all arguments and layouts the body flatly.
+    ///
+    /// This is also the fallback function, which is used when a function name
+    /// could not be resolved.
     #[derive(Debug, Clone, PartialEq)]
     pub struct ValFunc {
         body: Option<SyntaxTree>,
@@ -37,7 +43,7 @@ function! {
     parse(header, body, state, f) {
         header.args.pos.0.clear();
         header.args.key.0.clear();
-        ValFunc { body: parse_maybe_body(body, state, f), }
+        Self { body: parse_maybe_body(body, state, f), }
     }
 
     layout(self, ctx, f) {
@@ -45,29 +51,5 @@ function! {
             Some(tree) => vec![LayoutSyntaxTree(tree)],
             None => vec![],
         }
-    }
-}
-
-/// Layout an optional body with a change of the text style.
-fn styled<'a, T, F>(
-    body: &'a Option<SyntaxTree>,
-    ctx: LayoutContext<'_>,
-    data: Option<T>,
-    f: F,
-) -> Commands<'a> where F: FnOnce(&mut TextStyle, T) {
-    if let Some(data) = data {
-        let mut style = ctx.style.text.clone();
-        f(&mut style, data);
-
-        match body {
-            Some(tree) => vec![
-                SetTextStyle(style),
-                LayoutSyntaxTree(tree),
-                SetTextStyle(ctx.style.text.clone()),
-            ],
-            None => vec![SetTextStyle(style)],
-        }
-    } else {
-        vec![]
     }
 }

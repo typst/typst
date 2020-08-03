@@ -5,26 +5,26 @@ use std::ops::Deref;
 use std::str::FromStr;
 use std::u8;
 
-use crate::Feedback;
 use crate::length::Length;
-use super::span::{Spanned, SpanVec};
+use crate::Feedback;
+use super::span::{SpanVec, Spanned};
 use super::tokens::is_identifier;
 use super::value::Value;
 
-/// An argument or return value.
+/// An expression.
 #[derive(Clone, PartialEq)]
 pub enum Expr {
     /// An identifier: `ident`.
     Ident(Ident),
     /// A string: `"string"`.
     Str(String),
+    /// A boolean: `true, false`.
+    Bool(bool),
     /// A number: `1.2, 200%`.
     Number(f64),
     /// A length: `2cm, 5.2in`.
     Length(Length),
-    /// A bool: `true, false`.
-    Bool(bool),
-    /// A color value, including the alpha channel: `#f79143ff`.
+    /// A color value with alpha channel: `#f79143ff`.
     Color(RgbaColor),
     /// A tuple: `(false, 12cm, "hi")`.
     Tuple(Tuple),
@@ -32,37 +32,38 @@ pub enum Expr {
     NamedTuple(NamedTuple),
     /// An object: `{ fit: false, width: 12pt }`.
     Object(Object),
-    /// An operator that negates the contained expression.
+    /// An operation that negates the contained expression.
     Neg(Box<Spanned<Expr>>),
-    /// An operator that adds the contained expressions.
+    /// An operation that adds the contained expressions.
     Add(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
-    /// An operator that subtracts contained expressions.
+    /// An operation that subtracts the contained expressions.
     Sub(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
-    /// An operator that multiplies the contained expressions.
+    /// An operation that multiplies the contained expressions.
     Mul(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
-    /// An operator that divides the contained expressions.
+    /// An operation that divides the contained expressions.
     Div(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 }
 
 impl Expr {
-    /// A natural-language name of the type of this expression, e.g. "identifier".
+    /// A natural-language name of the type of this expression, e.g.
+    /// "identifier".
     pub fn name(&self) -> &'static str {
         use Expr::*;
         match self {
-            Ident(_) => "identifier",
-            Str(_) => "string",
-            Number(_) => "number",
-            Length(_) => "length",
-            Bool(_) => "bool",
-            Color(_) => "color",
-            Tuple(_) => "tuple",
+            Ident(_)      => "identifier",
+            Str(_)        => "string",
+            Bool(_)       => "bool",
+            Number(_)     => "number",
+            Length(_)     => "length",
+            Color(_)      => "color",
+            Tuple(_)      => "tuple",
             NamedTuple(_) => "named tuple",
-            Object(_) => "object",
-            Neg(_) => "negation",
-            Add(_, _) => "addition",
-            Sub(_, _) => "subtraction",
-            Mul(_, _) => "multiplication",
-            Div(_, _) => "division",
+            Object(_)     => "object",
+            Neg(_)        => "negation",
+            Add(_, _)     => "addition",
+            Sub(_, _)     => "subtraction",
+            Mul(_, _)     => "multiplication",
+            Div(_, _)     => "division",
         }
     }
 }
@@ -73,9 +74,9 @@ impl Debug for Expr {
         match self {
             Ident(i) => i.fmt(f),
             Str(s) => s.fmt(f),
+            Bool(b) => b.fmt(f),
             Number(n) => n.fmt(f),
             Length(s) => s.fmt(f),
-            Bool(b) => b.fmt(f),
             Color(c) => c.fmt(f),
             Tuple(t) => t.fmt(f),
             NamedTuple(t) => t.fmt(f),
@@ -89,22 +90,15 @@ impl Debug for Expr {
     }
 }
 
-/// A unicode identifier.
-///
-/// # Example
-/// ```typst
-/// [func: "hi", ident]
-///  ^^^^        ^^^^^
-/// ```
+/// An identifier as defined by unicode with a few extra permissible characters.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Ident(pub String);
 
 impl Ident {
-    /// Create a new identifier from a string checking that it is a valid
-    /// unicode identifier.
-    pub fn new<S>(ident: S) -> Option<Ident> where S: AsRef<str> + Into<String> {
+    /// Create a new identifier from a string checking that it is a valid.
+    pub fn new(ident: impl AsRef<str> + Into<String>) -> Option<Self> {
         if is_identifier(ident.as_ref()) {
-            Some(Ident(ident.into()))
+            Some(Self(ident.into()))
         } else {
             None
         }
@@ -139,36 +133,36 @@ pub struct RgbaColor {
     pub b: u8,
     /// Alpha channel.
     pub a: u8,
-    /// Indicates whether this is a user-provided value or a
-    /// default value provided as a fail-over by the parser.
-    /// This color may be overwritten if this property is true.
+    /// This is true if this value was provided as a fail-over by the parser
+    /// because the user-defined value was invalid. This color may be
+    /// overwritten if this property is true.
     pub healed: bool,
 }
 
 impl RgbaColor {
     /// Constructs a new color.
-    pub fn new(r: u8, g: u8, b: u8, a: u8) -> RgbaColor {
-        RgbaColor { r, g, b, a, healed: false }
+    pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self { r, g, b, a, healed: false }
     }
 
     /// Constructs a new color with the healed property set to true.
-    pub fn new_healed(r: u8, g: u8, b: u8, a: u8) -> RgbaColor {
-        RgbaColor { r, g, b, a, healed: true }
+    pub fn new_healed(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self { r, g, b, a, healed: true }
     }
 }
 
 impl FromStr for RgbaColor {
     type Err = ParseColorError;
 
-    /// Constructs a new color from a hex string like `7a03c2`.
-    /// Do not specify a leading `#`.
-    fn from_str(hex_str: &str) -> Result<RgbaColor, Self::Err> {
+    /// Constructs a new color from a hex string like `7a03c2`. Do not specify a
+    /// leading `#`.
+    fn from_str(hex_str: &str) -> Result<Self, Self::Err> {
         if !hex_str.is_ascii() {
             return Err(ParseColorError);
         }
 
         let len = hex_str.len();
-        let long =  len == 6 || len == 8;
+        let long  = len == 6 || len == 8;
         let short = len == 3 || len == 4;
         let alpha = len == 4 || len == 8;
 
@@ -192,7 +186,7 @@ impl FromStr for RgbaColor {
             }
         }
 
-        Ok(RgbaColor::new(values[0], values[1], values[2], values[3]))
+        Ok(Self::new(values[0], values[1], values[2], values[3]))
     }
 }
 
@@ -200,14 +194,12 @@ impl Debug for RgbaColor {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if f.alternate() {
             write!(
-                f,
-                "rgba({:02}, {:02}, {:02}, {:02})",
+                f, "rgba({:02}, {:02}, {:02}, {:02})",
                 self.r, self.g, self.b, self.a,
             )?;
         } else {
             write!(
-                f,
-                "#{:02x}{:02x}{:02x}{:02x}",
+                f, "#{:02x}{:02x}{:02x}{:02x}",
                 self.r, self.g, self.b, self.a,
             )?;
         }
@@ -218,7 +210,7 @@ impl Debug for RgbaColor {
     }
 }
 
-/// The error returned when parsing a [`RgbaColor`] from a string fails.
+/// The error when parsing an `RgbaColor` fails.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct ParseColorError;
 
@@ -226,7 +218,7 @@ impl std::error::Error for ParseColorError {}
 
 impl fmt::Display for ParseColorError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("invalid color")
+        f.pad("invalid color")
     }
 }
 
@@ -241,8 +233,8 @@ pub struct Tuple(pub SpanVec<Expr>);
 
 impl Tuple {
     /// Create an empty tuple.
-    pub fn new() -> Tuple {
-        Tuple(vec![])
+    pub fn new() -> Self {
+        Self(vec![])
     }
 
     /// Add an element.
@@ -278,13 +270,13 @@ impl Tuple {
         let mut i = 0;
         std::iter::from_fn(move || {
             while i < self.0.len() {
-               let val = V::parse(self.0[i].clone(), &mut Feedback::new());
-               if val.is_some() {
-                   self.0.remove(i);
-                   return val;
-               } else {
-                   i += 1;
-               }
+                let val = V::parse(self.0[i].clone(), &mut Feedback::new());
+                if val.is_some() {
+                    self.0.remove(i);
+                    return val;
+                } else {
+                    i += 1;
+                }
             }
             None
         })
@@ -305,16 +297,16 @@ impl Debug for Tuple {
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct NamedTuple {
-    /// The name of the tuple and where it is in the user source.
+    /// The name of the tuple.
     pub name: Spanned<Ident>,
     /// The elements of the tuple.
     pub tuple: Spanned<Tuple>,
 }
 
 impl NamedTuple {
-    /// Create a named tuple from a tuple.
-    pub fn new(name: Spanned<Ident>, tuple: Spanned<Tuple>) -> NamedTuple {
-        NamedTuple { name, tuple }
+    /// Create a named tuple from a name and a tuple.
+    pub fn new(name: Spanned<Ident>, tuple: Spanned<Tuple>) -> Self {
+        Self { name, tuple }
     }
 }
 
@@ -338,24 +330,14 @@ pub struct Object(pub SpanVec<Pair>);
 /// A key-value pair in an object.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pair {
-    /// The key part.
-    /// ```typst
-    /// key: value
-    /// ^^^
-    /// ```
     pub key: Spanned<Ident>,
-    /// The value part.
-    /// ```typst
-    /// key: value
-    ///      ^^^^^
-    /// ```
     pub value: Spanned<Expr>,
 }
 
 impl Object {
     /// Create an empty object.
-    pub fn new() -> Object {
-        Object(vec![])
+    pub fn new() -> Self {
+        Self(vec![])
     }
 
     /// Add a pair to object.
@@ -384,13 +366,13 @@ impl Object {
         let mut i = 0;
         std::iter::from_fn(move || {
             while i < self.0.len() {
-               let val = V::parse(self.0[i].v.value.clone(), &mut Feedback::new());
-               if let Some(val) = val {
-                   let pair = self.0.remove(i);
-                   return Some((pair.v.key, val));
-               } else {
-                   i += 1;
-               }
+                let val = V::parse(self.0[i].v.value.clone(), &mut Feedback::new());
+                if let Some(val) = val {
+                    let pair = self.0.remove(i);
+                    return Some((pair.v.key, val));
+                } else {
+                    i += 1;
+                }
             }
             None
         })
