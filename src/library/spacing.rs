@@ -3,26 +3,6 @@ use crate::length::ScaleLength;
 use super::*;
 
 function! {
-    /// `parbreak`: Ends the current paragraph.
-    ///
-    /// This has the same effect as two subsequent newlines.
-    #[derive(Debug, Default, Clone, PartialEq)]
-    pub struct ParBreakFunc;
-
-    parse(default)
-    layout(self, ctx, f) { vec![BreakParagraph] }
-}
-
-function! {
-    /// `pagebreak`: Ends the current page.
-    #[derive(Debug, Default, Clone, PartialEq)]
-    pub struct PageBreakFunc;
-
-    parse(default)
-    layout(self, ctx, f) { vec![BreakPage] }
-}
-
-function! {
     /// `h` and `v`: Add horizontal or vertical spacing.
     #[derive(Debug, Clone, PartialEq)]
     pub struct SpacingFunc {

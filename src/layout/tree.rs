@@ -43,25 +43,42 @@ impl<'a> TreeLayouter<'a> {
         }
     }
 
-    async fn layout_tree(&mut self, tree: &SyntaxTree) {
-        for node in tree {
-            self.layout_node(node).await;
-        }
-    }
-
     fn finish(self) -> Pass<MultiLayout> {
         Pass::new(self.layouter.finish(), self.feedback)
     }
 
+    fn layout_tree<'t>(&'t mut self, tree: &'t SyntaxTree) -> DynFuture<'t, ()> {
+        Box::pin(async move {
+            for node in tree {
+                self.layout_node(node).await;
+            }
+        })
+    }
+
     async fn layout_node(&mut self, node: &Spanned<SyntaxNode>) {
-        let decorate = |this: &mut TreeLayouter, deco| {
+        let decorate = |this: &mut Self, deco| {
             this.feedback.decorations.push(Spanned::new(deco, node.span));
         };
 
         match &node.v {
-            SyntaxNode::Space => self.layout_space(),
-            SyntaxNode::Parbreak => self.layout_paragraph(),
+            SyntaxNode::Spacing => {
+                self.layouter.add_primary_spacing(
+                    self.style.text.word_spacing(),
+                    SpacingKind::WORD,
+                );
+            },
+
             SyntaxNode::Linebreak => self.layouter.finish_line(),
+
+            SyntaxNode::ToggleItalic => {
+                self.style.text.italic = !self.style.text.italic;
+                decorate(self, Decoration::Italic);
+            }
+
+            SyntaxNode::ToggleBolder => {
+                self.style.text.bolder = !self.style.text.bolder;
+                decorate(self, Decoration::Bold);
+            }
 
             SyntaxNode::Text(text) => {
                 if self.style.text.italic {
@@ -73,16 +90,6 @@ impl<'a> TreeLayouter<'a> {
                 }
 
                 self.layout_text(text).await;
-            }
-
-            SyntaxNode::ToggleItalic => {
-                self.style.text.italic = !self.style.text.italic;
-                decorate(self, Decoration::Italic);
-            }
-
-            SyntaxNode::ToggleBolder => {
-                self.style.text.bolder = !self.style.text.bolder;
-                decorate(self, Decoration::Bold);
             }
 
             SyntaxNode::Raw(lines) => {
@@ -109,14 +116,25 @@ impl<'a> TreeLayouter<'a> {
                 self.style.text.fallback = fallback;
             }
 
+            SyntaxNode::Par(par) => self.layout_par(par).await,
+
             SyntaxNode::Dyn(dynamic) => {
                 self.layout_dyn(Spanned::new(dynamic.as_ref(), node.span)).await;
             }
         }
     }
 
+    async fn layout_par(&mut self, par: &SyntaxTree) {
+        self.layouter.add_secondary_spacing(
+            self.style.text.paragraph_spacing(),
+            SpacingKind::PARAGRAPH,
+        );
+
+        self.layout_tree(par).await;
+    }
+
     async fn layout_dyn(&mut self, dynamic: Spanned<&dyn DynamicNode>) {
-        // Execute the tree's command-generating layout function.
+        // Execute the dynamic node's command-generating layout function.
         let layouted = dynamic.v.layout(LayoutContext {
             style: &self.style,
             spaces: self.layouter.remaining(),
@@ -131,11 +149,21 @@ impl<'a> TreeLayouter<'a> {
         }
     }
 
-    fn execute_command<'r>(
-        &'r mut self,
-        command: Command<'r>,
-        tree_span: Span,
-    ) -> DynFuture<'r, ()> { Box::pin(async move {
+    async fn layout_text(&mut self, text: &str) {
+        self.layouter.add(
+            layout_text(
+                text,
+                TextContext {
+                    loader: &self.ctx.loader,
+                    style: &self.style.text,
+                    dir: self.ctx.axes.primary,
+                    align: self.ctx.align,
+                }
+            ).await
+        );
+    }
+
+    async fn execute_command(&mut self, command: Command<'_>, span: Span) {
         use Command::*;
 
         match command {
@@ -149,13 +177,12 @@ impl<'a> TreeLayouter<'a> {
             }
 
             BreakLine => self.layouter.finish_line(),
-            BreakParagraph => self.layout_paragraph(),
             BreakPage => {
                 if self.ctx.root {
                     self.layouter.finish_space(true)
                 } else {
                     error!(
-                        @self.feedback, tree_span,
+                        @self.feedback, span,
                         "page break cannot only be issued from root context",
                     );
                 }
@@ -183,7 +210,7 @@ impl<'a> TreeLayouter<'a> {
                     ], true);
                 } else {
                     error!(
-                        @self.feedback, tree_span,
+                        @self.feedback, span,
                         "page style cannot only be changed from root context",
                     );
                 }
@@ -195,33 +222,5 @@ impl<'a> TreeLayouter<'a> {
                 self.ctx.axes = axes;
             }
         }
-    }) }
-
-    async fn layout_text(&mut self, text: &str) {
-        self.layouter.add(
-            layout_text(
-                text,
-                TextContext {
-                    loader: &self.ctx.loader,
-                    style: &self.style.text,
-                    dir: self.ctx.axes.primary,
-                    align: self.ctx.align,
-                }
-            ).await
-        );
-    }
-
-    fn layout_space(&mut self) {
-        self.layouter.add_primary_spacing(
-            self.style.text.word_spacing(),
-            SpacingKind::WORD,
-        );
-    }
-
-    fn layout_paragraph(&mut self) {
-        self.layouter.add_secondary_spacing(
-            self.style.text.paragraph_spacing(),
-            SpacingKind::PARAGRAPH,
-        );
     }
 }

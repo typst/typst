@@ -22,7 +22,6 @@ pub fn std() -> Scope {
     std.add::<PageFunc>("page");
     std.add::<AlignFunc>("align");
     std.add::<BoxFunc>("box");
-    std.add::<ParBreakFunc>("parbreak");
     std.add::<PageBreakFunc>("pagebreak");
     std.add_with_meta::<SpacingFunc>("h", Horizontal);
     std.add_with_meta::<SpacingFunc>("v", Vertical);

@@ -75,8 +75,10 @@ impl Default for TextStyle {
                     "monospace" => ["source code pro", "noto sans mono"],
                     "math" => ["latin modern math", "serif"],
                 },
-                base: ["source sans pro", "noto sans",
-                       "noto emoji", "latin modern math"],
+                base: [
+                    "source sans pro", "noto sans", "segoe ui emoji",
+                    "noto emoji", "latin modern math",
+                ],
             },
             variant: FontVariant {
                 style: FontStyle::Normal,

@@ -14,20 +14,20 @@ pub type SyntaxTree = SpanVec<SyntaxNode>;
 #[derive(Debug, Clone)]
 pub enum SyntaxNode {
     /// Whitespace containing less than two newlines.
-    Space,
-    /// Whitespace with more than two newlines.
-    Parbreak,
+    Spacing,
     /// A forced line break.
     Linebreak,
-    /// Plain text.
-    Text(String),
-    /// Lines of raw text.
-    Raw(Vec<String>),
     /// Italics were enabled / disabled.
     ToggleItalic,
     /// Bolder was enabled / disabled.
     ToggleBolder,
-    /// A dynamic node, create through function invocations in source code.
+    /// Plain text.
+    Text(String),
+    /// Lines of raw text.
+    Raw(Vec<String>),
+    /// A paragraph of child nodes.
+    Par(SyntaxTree),
+    /// A dynamic node, created through function invocations in source code.
     Dyn(Box<dyn DynamicNode>),
 }
 
@@ -35,13 +35,13 @@ impl PartialEq for SyntaxNode {
     fn eq(&self, other: &SyntaxNode) -> bool {
         use SyntaxNode::*;
         match (self, other) {
-            (Space, Space) => true,
-            (Parbreak, Parbreak) => true,
+            (Spacing, Spacing) => true,
             (Linebreak, Linebreak) => true,
-            (Text(a), Text(b)) => a == b,
-            (Raw(a), Raw(b)) => a == b,
             (ToggleItalic, ToggleItalic) => true,
             (ToggleBolder, ToggleBolder) => true,
+            (Text(a), Text(b)) => a == b,
+            (Raw(a), Raw(b)) => a == b,
+            (Par(a), Par(b)) => a == b,
             (Dyn(a), Dyn(b)) => a == b,
             _ => false,
         }

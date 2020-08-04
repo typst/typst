@@ -57,3 +57,12 @@ function! {
         vec![SetPageStyle(style)]
     }
 }
+
+function! {
+    /// `pagebreak`: Ends the current page.
+    #[derive(Debug, Default, Clone, PartialEq)]
+    pub struct PageBreakFunc;
+
+    parse(default)
+    layout(self, ctx, f) { vec![BreakPage] }
+}

@@ -142,8 +142,6 @@ pub enum Command<'a> {
 
     /// Start a new line.
     BreakLine,
-    /// Start a new paragraph.
-    BreakParagraph,
     /// Start a new page, which will be part of the finished layout even if it
     /// stays empty (since the page break is a _hard_ space break).
     BreakPage,

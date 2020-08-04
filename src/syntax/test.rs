@@ -86,22 +86,23 @@ pub trait SpanlessEq<Rhs = Self> {
 }
 
 impl SpanlessEq for SyntaxNode {
-    fn spanless_eq(&self, other: &SyntaxNode) -> bool {
+    fn spanless_eq(&self, other: &Self) -> bool {
         fn downcast<'a>(func: &'a (dyn DynamicNode + 'static)) -> &'a DebugFn {
             func.downcast::<DebugFn>().expect("not a debug fn")
         }
 
         match (self, other) {
-            (SyntaxNode::Dyn(a), SyntaxNode::Dyn(b)) => {
+            (Self::Dyn(a), Self::Dyn(b)) => {
                 downcast(a.as_ref()).spanless_eq(downcast(b.as_ref()))
             }
+            (Self::Par(a), Self::Par(b)) => a.spanless_eq(b),
             (a, b) => a == b,
         }
     }
 }
 
 impl SpanlessEq for DebugFn {
-    fn spanless_eq(&self, other: &DebugFn) -> bool {
+    fn spanless_eq(&self, other: &Self) -> bool {
         self.header.spanless_eq(&other.header)
             && self.body.spanless_eq(&other.body)
     }
@@ -132,7 +133,7 @@ impl SpanlessEq for FuncArg {
 }
 
 impl SpanlessEq for Expr {
-    fn spanless_eq(&self, other: &Expr) -> bool {
+    fn spanless_eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Expr::Tuple(a), Expr::Tuple(b)) => a.spanless_eq(b),
             (Expr::NamedTuple(a), Expr::NamedTuple(b)) => a.spanless_eq(b),
@@ -148,20 +149,20 @@ impl SpanlessEq for Expr {
 }
 
 impl SpanlessEq for Tuple {
-    fn spanless_eq(&self, other: &Tuple) -> bool {
+    fn spanless_eq(&self, other: &Self) -> bool {
         self.0.spanless_eq(&other.0)
     }
 }
 
 impl SpanlessEq for NamedTuple {
-    fn spanless_eq(&self, other: &NamedTuple) -> bool {
+    fn spanless_eq(&self, other: &Self) -> bool {
         self.name.v == other.name.v
             && self.tuple.v.spanless_eq(&other.tuple.v)
     }
 }
 
 impl SpanlessEq for Object {
-    fn spanless_eq(&self, other: &Object) -> bool {
+    fn spanless_eq(&self, other: &Self) -> bool {
         self.0.spanless_eq(&other.0)
     }
 }
@@ -173,20 +174,20 @@ impl SpanlessEq for Pair {
 }
 
 impl<T: SpanlessEq> SpanlessEq for Vec<T> {
-    fn spanless_eq(&self, other: &Vec<T>) -> bool {
+    fn spanless_eq(&self, other: &Self) -> bool {
         self.len() == other.len()
             && self.iter().zip(other).all(|(x, y)| x.spanless_eq(&y))
     }
 }
 
 impl<T: SpanlessEq> SpanlessEq for Spanned<T> {
-    fn spanless_eq(&self, other: &Spanned<T>) -> bool {
+    fn spanless_eq(&self, other: &Self) -> bool {
         self.v.spanless_eq(&other.v)
     }
 }
 
 impl<T: SpanlessEq> SpanlessEq for Box<T> {
-    fn spanless_eq(&self, other: &Box<T>) -> bool {
+    fn spanless_eq(&self, other: &Self) -> bool {
         (&**self).spanless_eq(&**other)
     }
 }
