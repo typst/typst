@@ -2,31 +2,49 @@ use crate::layout::SpacingKind;
 use crate::length::ScaleLength;
 use super::*;
 
-function! {
-    /// `h` and `v`: Add horizontal or vertical spacing.
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct SpacingFunc {
-        spacing: Option<(SpecAxis, ScaleLength)>,
-    }
+/// `h`: Add horizontal spacing.
+///
+/// # Positional arguments
+/// - The spacing (length or relative to font size).
+pub fn h(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
+    spacing(call, Horizontal)
+}
 
-    type Meta = SpecAxis;
+/// `v`: Add vertical spacing.
+///
+/// # Positional arguments
+/// - The spacing (length or relative to font size).
+pub fn v(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
+    spacing(call, Vertical)
+}
 
-    parse(header, body, state, f, meta) {
-        expect_no_body(body, f);
-        Self {
-            spacing: header.args.pos.expect::<ScaleLength>(f)
-                .map(|s| (meta, s))
-                .or_missing(header.name.span, "spacing", f),
-        }
-    }
+fn spacing(call: FuncCall, axis: SpecAxis) -> Pass<SyntaxNode> {
+    let mut f = Feedback::new();
+    let mut args = call.header.args;
+    expect_no_body(call.body, &mut f);
+    let node = SpacingNode {
+        spacing: args.pos.expect::<ScaleLength>(&mut f)
+            .map(|s| (axis, s))
+            .or_missing(call.header.name.span, "spacing", &mut f),
+    };
+    drain_args(args, &mut f);
+    Pass::node(node, f)
+}
 
-    layout(self, ctx, f) {
-        if let Some((axis, spacing)) = self.spacing {
+#[derive(Debug, Clone, PartialEq)]
+struct SpacingNode {
+    spacing: Option<(SpecAxis, ScaleLength)>,
+}
+
+#[async_trait(?Send)]
+impl Layout for SpacingNode {
+    async fn layout<'a>(&'a self, ctx: LayoutContext<'_>) -> Pass<Commands<'a>> {
+        Pass::okay(if let Some((axis, spacing)) = self.spacing {
             let axis = axis.to_generic(ctx.axes);
             let spacing = spacing.raw_scaled(ctx.style.text.font_size());
             vec![AddSpacing(spacing, SpacingKind::Hard, axis)]
         } else {
             vec![]
-        }
+        })
     }
 }

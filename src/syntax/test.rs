@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::func::parse_maybe_body;
+use crate::func::prelude::*;
 use super::decoration::Decoration;
 use super::expr::{Expr, Ident, NamedTuple, Object, Pair, Tuple};
 use super::parsing::{FuncArg, FuncArgs, FuncHeader};
@@ -58,26 +58,26 @@ macro_rules! span_item {
     };
 }
 
-function! {
-    /// Most functions in the tests are parsed into the debug function for easy
-    /// inspection of arguments and body.
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct DebugFn {
-        pub header: FuncHeader,
-        pub body: Option<SyntaxTree>,
-    }
+pub fn debug_func(call: FuncCall, state: &ParseState) -> Pass<SyntaxNode> {
+    let mut f = Feedback::new();
+    let node = DebugNode {
+        header: call.header,
+        body: parse_body_maybe(call.body, state, &mut f),
+    };
+    Pass::node(node, f)
+}
 
-    parse(header, body, state, f) {
-        let cloned = header.clone();
-        header.args.pos.0.clear();
-        header.args.key.0.clear();
-        Self {
-            header: cloned,
-            body: parse_maybe_body(body, state, f),
-        }
-    }
+#[derive(Debug, Clone, PartialEq)]
+pub struct DebugNode {
+    pub header: FuncHeader,
+    pub body: Option<SyntaxTree>,
+}
 
-    layout(self, ctx, f) { vec![] }
+#[async_trait(?Send)]
+impl Layout for DebugNode {
+    async fn layout<'a>(&'a self, _: LayoutContext<'_>) -> Pass<Commands<'a>> {
+        unimplemented!()
+    }
 }
 
 /// Compares elements by only looking at values and ignoring spans.
@@ -87,8 +87,8 @@ pub trait SpanlessEq<Rhs = Self> {
 
 impl SpanlessEq for SyntaxNode {
     fn spanless_eq(&self, other: &Self) -> bool {
-        fn downcast<'a>(func: &'a (dyn DynamicNode + 'static)) -> &'a DebugFn {
-            func.downcast::<DebugFn>().expect("not a debug fn")
+        fn downcast<'a>(func: &'a (dyn DynamicNode + 'static)) -> &'a DebugNode {
+            func.downcast::<DebugNode>().expect("not a debug node")
         }
 
         match (self, other) {
@@ -101,7 +101,7 @@ impl SpanlessEq for SyntaxNode {
     }
 }
 
-impl SpanlessEq for DebugFn {
+impl SpanlessEq for DebugNode {
     fn spanless_eq(&self, other: &Self) -> bool {
         self.header.spanless_eq(&other.header)
             && self.body.spanless_eq(&other.body)

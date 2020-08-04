@@ -48,7 +48,7 @@ use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::syntax::decoration::Decorations;
 use crate::syntax::parsing::{parse, ParseState};
 use crate::syntax::span::{Offset, Pos};
-use crate::syntax::tree::SyntaxTree;
+use crate::syntax::tree::{DynamicNode, SyntaxNode, SyntaxTree};
 
 /// Transforms source code into typesetted layouts.
 ///
@@ -68,7 +68,7 @@ impl Typesetter {
         Self {
             loader,
             style: LayoutStyle::default(),
-            parse_state: ParseState { scope: crate::library::std() },
+            parse_state: ParseState { scope: crate::library::_std() },
         }
     }
 
@@ -90,7 +90,6 @@ impl Typesetter {
     /// Layout a syntax tree and return the produced layout.
     pub async fn layout(&self, tree: &SyntaxTree) -> Pass<MultiLayout> {
         use crate::layout::prelude::*;
-        use crate::layout::{LayoutContext, LayoutSpace};
 
         let margins = self.style.page.margins();
         layout(
@@ -141,12 +140,24 @@ impl<T> Pass<T> {
         Self { output, feedback }
     }
 
+    /// Create a new pass with empty feedback.
+    pub fn okay(output: T) -> Self {
+        Self { output, feedback: Feedback::new() }
+    }
+
     /// Map the output type and keep the feedback data.
     pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Pass<U> {
         Pass {
             output: f(self.output),
             feedback: self.feedback,
         }
+    }
+}
+
+impl Pass<SyntaxNode> {
+    /// Create a new pass from an unboxed dynamic node and feedback data..
+    pub fn node<T: DynamicNode + 'static>(node: T, feedback: Feedback) -> Self {
+        Pass::new(SyntaxNode::boxed(node), feedback)
     }
 }
 

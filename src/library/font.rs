@@ -3,53 +3,68 @@ use fontdock::{FontStyle, FontWeight, FontWidth};
 use crate::length::ScaleLength;
 use super::*;
 
-function! {
-    /// `font`: Configure the font.
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct FontFunc {
-        body: Option<SyntaxTree>,
-        size: Option<ScaleLength>,
-        style: Option<FontStyle>,
-        weight: Option<FontWeight>,
-        width: Option<FontWidth>,
-        list: Vec<String>,
-        classes: Vec<(String, Vec<String>)>,
-    }
+/// `font`: Configure the font.
+///
+/// # Positional arguments
+/// - The font size (optional, length or relative to previous font size).
+/// - A font family fallback list (optional, identifiers or strings).
+///
+/// # Keyword arguments
+/// - `style`: `normal`, `italic` or `oblique`.
+/// - `weight`: `100` - `900` or a name like `thin`.
+/// - `width`: `1` - `9` or a name like `condensed`.
+/// - Any other keyword argument whose value is a tuple of strings is a class
+///   fallback definition like:
+///   ```typst
+///   serif = ("Source Serif Pro", "Noto Serif")
+///   ```
+pub fn font(call: FuncCall, state: &ParseState) -> Pass<SyntaxNode> {
+    let mut f = Feedback::new();
+    let mut args = call.header.args;
 
-    parse(header, body, state, f) {
-        let size = header.args.pos.get::<ScaleLength>();
-        let style = header.args.key.get::<FontStyle>("style", f);
-        let weight = header.args.key.get::<FontWeight>("weight", f);
-        let width = header.args.key.get::<FontWidth>("width", f);
+    let node = FontNode {
+        body: parse_body_maybe(call.body, state, &mut f),
+        size: args.pos.get::<ScaleLength>(),
+        style: args.key.get::<FontStyle>("style", &mut f),
+        weight: args.key.get::<FontWeight>("weight", &mut f),
+        width: args.key.get::<FontWidth>("width", &mut f),
+        list: {
+            args.pos.all::<StringLike>()
+                .map(|s| s.0.to_lowercase())
+                .collect()
+        },
+        classes: {
+            args.key.all::<Tuple>()
+                .collect::<Vec<_>>()
+                .into_iter()
+                .map(|(class, mut tuple)| {
+                    let fallback = tuple.all::<StringLike>()
+                        .map(|s| s.0.to_lowercase())
+                        .collect();
+                    (class.v.0, fallback)
+                })
+                .collect()
+        },
+    };
 
-        let list = header.args.pos.all::<StringLike>()
-            .map(|s| s.0.to_lowercase())
-            .collect();
+    drain_args(args, &mut f);
+    Pass::node(node, f)
+}
 
-        let classes = header.args.key
-            .all::<Tuple>()
-            .collect::<Vec<_>>()
-            .into_iter()
-            .map(|(class, mut tuple)| {
-                let fallback = tuple.all::<StringLike>()
-                    .map(|s| s.0.to_lowercase())
-                    .collect();
-                (class.v.0, fallback)
-            })
-            .collect();
+#[derive(Debug, Clone, PartialEq)]
+struct FontNode {
+    body: Option<SyntaxTree>,
+    size: Option<ScaleLength>,
+    style: Option<FontStyle>,
+    weight: Option<FontWeight>,
+    width: Option<FontWidth>,
+    list: Vec<String>,
+    classes: Vec<(String, Vec<String>)>,
+}
 
-        Self {
-            body: parse_maybe_body(body, state, f),
-            size,
-            style,
-            weight,
-            width,
-            list,
-            classes,
-        }
-    }
-
-    layout(self, ctx, f) {
+#[async_trait(?Send)]
+impl Layout for FontNode {
+    async fn layout<'a>(&'a self, ctx: LayoutContext<'_>) -> Pass<Commands<'a>> {
         let mut text = ctx.style.text.clone();
 
         self.size.with(|s| match s {
@@ -76,13 +91,13 @@ function! {
 
         text.fallback.flatten();
 
-        match &self.body {
+        Pass::okay(match &self.body {
             Some(tree) => vec![
                 SetTextStyle(text),
                 LayoutSyntaxTree(tree),
                 SetTextStyle(ctx.style.text.clone()),
             ],
             None => vec![SetTextStyle(text)],
-        }
+        })
     }
 }

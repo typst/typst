@@ -12,11 +12,3 @@ pub mod span;
 pub mod tokens;
 pub mod tree;
 pub mod value;
-
-/// Basic types used around the syntax side.
-pub mod prelude {
-    pub use super::expr::*;
-    pub use super::span::{Span, SpanVec, Spanned};
-    pub use super::tree::{DynamicNode, SyntaxNode, SyntaxTree};
-    pub use super::value::*;
-}

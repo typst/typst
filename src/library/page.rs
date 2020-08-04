@@ -2,37 +2,55 @@ use crate::length::{Length, ScaleLength};
 use crate::paper::{Paper, PaperClass};
 use super::*;
 
-function! {
-    /// `page`: Configure pages.
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct PageFunc {
-        paper: Option<Paper>,
-        width: Option<Length>,
-        height: Option<Length>,
-        margins: Option<ScaleLength>,
-        left: Option<ScaleLength>,
-        right: Option<ScaleLength>,
-        top: Option<ScaleLength>,
-        bottom: Option<ScaleLength>,
-        flip: bool,
-    }
+/// `page`: Configure pages.
+///
+/// # Positional arguments
+/// - The name of a paper, e.g. `a4` (optional).
+///
+/// # Keyword arguments
+/// - `width`: The width of pages (length).
+/// - `height`: The height of pages (length).
+/// - `margins`: The margins for all sides (length or relative to side lengths).
+/// - `left`: The left margin (length or relative to width).
+/// - `right`: The right margin (length or relative to width).
+/// - `top`: The top margin (length or relative to height).
+/// - `bottom`: The bottom margin (length or relative to height).
+/// - `flip`: Flips custom or paper-defined width and height (boolean).
+pub fn page(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
+    let mut f = Feedback::new();
+    let mut args = call.header.args;
+    expect_no_body(call.body, &mut f);
+    let node = PageNode {
+        paper: args.pos.get::<Paper>(),
+        width: args.key.get::<Length>("width", &mut f),
+        height: args.key.get::<Length>("height", &mut f),
+        margins: args.key.get::<ScaleLength>("margins", &mut f),
+        left: args.key.get::<ScaleLength>("left", &mut f),
+        right: args.key.get::<ScaleLength>("right", &mut f),
+        top: args.key.get::<ScaleLength>("top", &mut f),
+        bottom: args.key.get::<ScaleLength>("bottom", &mut f),
+        flip: args.key.get::<bool>("flip", &mut f).unwrap_or(false),
+    };
+    drain_args(args, &mut f);
+    Pass::node(node, f)
+}
 
-    parse(header, body, state, f) {
-        expect_no_body(body, f);
-        Self {
-            paper: header.args.pos.get::<Paper>(),
-            width: header.args.key.get::<Length>("width", f),
-            height: header.args.key.get::<Length>("height", f),
-            margins: header.args.key.get::<ScaleLength>("margins", f),
-            left: header.args.key.get::<ScaleLength>("left", f),
-            right: header.args.key.get::<ScaleLength>("right", f),
-            top: header.args.key.get::<ScaleLength>("top", f),
-            bottom: header.args.key.get::<ScaleLength>("bottom", f),
-            flip: header.args.key.get::<bool>("flip", f).unwrap_or(false),
-        }
-    }
+#[derive(Debug, Clone, PartialEq)]
+struct PageNode {
+    paper: Option<Paper>,
+    width: Option<Length>,
+    height: Option<Length>,
+    margins: Option<ScaleLength>,
+    left: Option<ScaleLength>,
+    right: Option<ScaleLength>,
+    top: Option<ScaleLength>,
+    bottom: Option<ScaleLength>,
+    flip: bool,
+}
 
-    layout(self, ctx, f) {
+#[async_trait(?Send)]
+impl Layout for PageNode {
+    async fn layout<'a>(&'a self, ctx: LayoutContext<'_>) -> Pass<Commands<'a>> {
         let mut style = ctx.style.page;
 
         if let Some(paper) = self.paper {
@@ -54,15 +72,23 @@ function! {
             style.size.swap();
         }
 
-        vec![SetPageStyle(style)]
+        Pass::okay(vec![SetPageStyle(style)])
     }
 }
 
-function! {
-    /// `pagebreak`: Ends the current page.
-    #[derive(Debug, Default, Clone, PartialEq)]
-    pub struct PageBreakFunc;
+/// `pagebreak`: Ends the current page.
+pub fn pagebreak(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
+    let mut f = Feedback::new();
+    drain_args(call.header.args, &mut f);
+    Pass::node(PageBreakNode, f)
+}
 
-    parse(default)
-    layout(self, ctx, f) { vec![BreakPage] }
+#[derive(Debug, Default, Clone, PartialEq)]
+struct PageBreakNode;
+
+#[async_trait(?Send)]
+impl Layout for PageBreakNode {
+    async fn layout<'a>(&'a self, _: LayoutContext<'_>) -> Pass<Commands<'a>> {
+        Pass::okay(vec![BreakPage])
+    }
 }

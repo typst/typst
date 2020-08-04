@@ -8,36 +8,16 @@ use super::expr::*;
 use super::scope::Scope;
 use super::span::{Pos, Span, Spanned};
 use super::tokens::{is_newline_char, Token, TokenMode, Tokens};
-use super::tree::{DynamicNode, SyntaxNode, SyntaxTree};
+use super::tree::{SyntaxNode, SyntaxTree};
 
 /// A function which parses a function call into a dynamic node.
-pub type CallParser = dyn Fn(FuncCall, &ParseState) -> Pass<Box<dyn DynamicNode>>;
-
-/// Parse a function call.
-pub trait ParseCall {
-    /// Metadata whose value is passed to `parse`. This allows a single function
-    /// to do different things depending on the value that needs to be given
-    /// when inserting the function into a scope.
-    ///
-    /// For example, the functions `h` and `v` are built on the same type.
-    type Meta: Clone;
-
-    /// Parse the function call.
-    fn parse(
-        call: FuncCall,
-        state: &ParseState,
-        metadata: Self::Meta,
-    ) -> Pass<Self>
-    where
-        Self: Sized;
-}
+pub type CallParser = dyn Fn(FuncCall, &ParseState) -> Pass<SyntaxNode>;
 
 /// An invocation of a function.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuncCall<'s> {
     pub header: FuncHeader,
-    /// The body as a raw string containing what's inside of the brackets.
-    pub body: Option<Spanned<&'s str>>,
+    pub body: FuncBody<'s>,
 }
 
 /// The parsed header of a function (everything in the first set of brackets).
@@ -46,6 +26,10 @@ pub struct FuncHeader {
     pub name: Spanned<Ident>,
     pub args: FuncArgs,
 }
+
+/// The body of a function as a raw spanned string containing what's inside of
+/// the brackets.
+pub type FuncBody<'s> = Option<Spanned<&'s str>>;
 
 /// The positional and keyword arguments passed to a function.
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -215,7 +199,7 @@ impl<'s> FuncParser<'s> {
         let call = FuncCall { header, body: self.body };
         let parsed = parser(call, self.state);
         self.feedback.extend(parsed.feedback);
-        Pass::new(SyntaxNode::Dyn(parsed.output), self.feedback)
+        Pass::new(parsed.output, self.feedback)
     }
 
     fn parse_func_header(&mut self) -> Option<FuncHeader> {
@@ -678,7 +662,7 @@ fn unescape_raw(raw: &str) -> Vec<String> {
 mod tests {
     use crate::length::Length;
     use crate::syntax::span::SpanVec;
-    use crate::syntax::test::{check, DebugFn};
+    use crate::syntax::test::{check, debug_func, DebugNode};
     use super::*;
 
     use Decoration::*;
@@ -697,11 +681,11 @@ mod tests {
         };
 
         ($source:expr => [$($tree:tt)*], [$($diagnostics:tt)*] $(, [$($decos:tt)*])? $(,)?) => {
-            let mut scope = Scope::new::<DebugFn>();
-            scope.add::<DebugFn>("f");
-            scope.add::<DebugFn>("n");
-            scope.add::<DebugFn>("box");
-            scope.add::<DebugFn>("val");
+            let mut scope = Scope::new(Box::new(debug_func));
+            scope.insert("f", Box::new(debug_func));
+            scope.insert("n", Box::new(debug_func));
+            scope.insert("box", Box::new(debug_func));
+            scope.insert("val", Box::new(debug_func));
 
             let state = ParseState { scope };
             let pass = parse($source, Pos::ZERO, &state);
@@ -798,13 +782,13 @@ mod tests {
                     value: Z($value),
                 })));)*)?
             )?
-            SyntaxNode::Dyn(Box::new(DebugFn {
+            SyntaxNode::boxed(DebugNode {
                 header: FuncHeader {
                     name: span_item!($name).map(|s| Ident(s.to_string())),
                     args,
                 },
                 body: func!(@body $($($body)*)?),
-            }))
+            })
         }};
         (@body [$($body:tt)*]) => { Some(span_vec![$($body)*].0) };
         (@body) => { None };

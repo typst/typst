@@ -2,7 +2,7 @@
 
 use fontdock::{FontStyle, FontWeight, FontWidth};
 
-use crate::layout::prelude::*;
+use crate::layout::{Dir, SpecAlign};
 use crate::length::{Length, ScaleLength};
 use crate::paper::Paper;
 use crate::Feedback;
@@ -103,10 +103,10 @@ macro_rules! ident_value {
 }
 
 ident_value!(Dir, "direction", |s| match s {
-    "ltr" => Some(LTR),
-    "rtl" => Some(RTL),
-    "ttb" => Some(TTB),
-    "btt" => Some(BTT),
+    "ltr" => Some(Self::LTR),
+    "rtl" => Some(Self::RTL),
+    "ttb" => Some(Self::TTB),
+    "btt" => Some(Self::BTT),
     _ => None,
 });
 

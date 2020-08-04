@@ -31,6 +31,13 @@ pub enum SyntaxNode {
     Dyn(Box<dyn DynamicNode>),
 }
 
+impl SyntaxNode {
+    /// Create a `Dyn` variant from an unboxed dynamic node.
+    pub fn boxed<T: DynamicNode + 'static>(node: T) -> SyntaxNode {
+        SyntaxNode::Dyn(Box::new(node))
+    }
+}
+
 impl PartialEq for SyntaxNode {
     fn eq(&self, other: &SyntaxNode) -> bool {
         use SyntaxNode::*;
@@ -65,10 +72,7 @@ pub trait DynamicNode: Debug + Layout {
 
 impl dyn DynamicNode {
     /// Downcast this dynamic node to a concrete node.
-    pub fn downcast<T>(&self) -> Option<&T>
-    where
-        T: DynamicNode + 'static,
-    {
+    pub fn downcast<T: DynamicNode + 'static>(&self) -> Option<&T> {
         self.as_any().downcast_ref::<T>()
     }
 }

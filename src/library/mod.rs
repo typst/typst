@@ -1,54 +1,34 @@
 //! The standard library.
 
+mod align;
+mod boxed;
 mod font;
-mod layout;
 mod page;
 mod spacing;
+mod val;
 
+pub use align::*;
+pub use boxed::*;
 pub use font::*;
-pub use layout::*;
 pub use page::*;
 pub use spacing::*;
+pub use val::*;
 
 use crate::func::prelude::*;
 use crate::syntax::scope::Scope;
 
 /// Create a scope with all standard library functions.
-pub fn std() -> Scope {
-    let mut std = Scope::new::<ValFunc>();
+pub fn _std() -> Scope {
+    let mut std = Scope::new(Box::new(val));
 
-    std.add::<ValFunc>("val");
-    std.add::<FontFunc>("font");
-    std.add::<PageFunc>("page");
-    std.add::<AlignFunc>("align");
-    std.add::<BoxFunc>("box");
-    std.add::<PageBreakFunc>("pagebreak");
-    std.add_with_meta::<SpacingFunc>("h", Horizontal);
-    std.add_with_meta::<SpacingFunc>("v", Vertical);
+    std.insert("val", Box::new(val));
+    std.insert("font", Box::new(font));
+    std.insert("page", Box::new(page));
+    std.insert("align", Box::new(align));
+    std.insert("box", Box::new(boxed));
+    std.insert("pagebreak", Box::new(pagebreak));
+    std.insert("h", Box::new(h));
+    std.insert("v", Box::new(v));
 
     std
-}
-
-function! {
-    /// `val`: Ignores all arguments and layouts the body flatly.
-    ///
-    /// This is also the fallback function, which is used when a function name
-    /// could not be resolved.
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct ValFunc {
-        body: Option<SyntaxTree>,
-    }
-
-    parse(header, body, state, f) {
-        header.args.pos.0.clear();
-        header.args.key.0.clear();
-        Self { body: parse_maybe_body(body, state, f), }
-    }
-
-    layout(self, ctx, f) {
-        match &self.body {
-            Some(tree) => vec![LayoutSyntaxTree(tree)],
-            None => vec![],
-        }
-    }
 }

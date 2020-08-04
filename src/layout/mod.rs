@@ -10,7 +10,9 @@ mod tree;
 /// Basic types used across the layouting engine.
 pub mod prelude {
     pub use super::primitive::*;
-    pub use super::layout;
+    pub use super::{
+        BoxLayout, layout, Layout, LayoutContext, LayoutSpace, MultiLayout,
+    };
     pub use Dir::*;
     pub use GenAlign::*;
     pub use GenAxis::*;
@@ -46,7 +48,7 @@ pub struct BoxLayout {
     pub elements: LayoutElements,
 }
 
-/// Comamnd-based layout.
+/// Command-based layouting.
 #[async_trait(?Send)]
 pub trait Layout {
     /// Create a sequence of layouting commands to execute.
