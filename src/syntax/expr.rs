@@ -30,7 +30,7 @@ pub enum Expr {
     Tuple(Tuple),
     /// A named tuple: `cmyk(37.7, 0, 3.9, 1.1)`.
     NamedTuple(NamedTuple),
-    /// An object: `{ fit: false, width: 12pt }`.
+    /// An object: `{ fit=false, width=12pt }`.
     Object(Object),
     /// An operation that negates the contained expression.
     Neg(Box<Spanned<Expr>>),
@@ -322,7 +322,7 @@ impl Deref for NamedTuple {
 ///
 /// # Example
 /// ```typst
-/// { fit: false, width: 12cm, items: (1, 2, 3) }
+/// { fit = false, width = 12cm, items = (1, 2, 3) }
 /// ```
 #[derive(Default, Clone, PartialEq)]
 pub struct Object(pub SpanVec<Pair>);

@@ -475,7 +475,7 @@ impl FuncParser<'_> {
 
             let after_key = self.pos();
             self.skip_white();
-            if !self.expect_at(Token::Colon, after_key) {
+            if !self.expect_at(Token::Equals, after_key) {
                 continue;
             }
 
@@ -1078,16 +1078,16 @@ mod tests {
 
         // Okay objects.
         pval!("{}" => (object! {}));
-        pval!("{ key: value }" => (object! { "key" => Id("value") }));
+        pval!("{ key = value }" => (object! { "key" => Id("value") }));
 
         // Unclosed object.
-        p!("[val: {hello: world]" =>
+        p!("[val: {hello = world]" =>
             [par![func!("val": (object! { "hello" => Id("world") }), {})]],
-            [(0:19, 0:19, "expected closing brace")],
+            [(0:20, 0:20, "expected closing brace")],
         );
         p!("[val: { a]" =>
             [par![func!("val": (object! {}), {})]],
-            [(0:9, 0:9, "expected colon"), (0:9, 0:9, "expected closing brace")],
+            [(0:9, 0:9, "expected equals sign"), (0:9, 0:9, "expected closing brace")],
         );
 
         // Missing key.
@@ -1096,39 +1096,39 @@ mod tests {
         p!("[val: { : }]" => [val()], [(0:8, 0:9, "expected key, found colon")]);
 
         // Missing colon.
-        p!("[val: { key }]" => [val()], [(0:11, 0:11, "expected colon")]);
+        p!("[val: { key }]" => [val()], [(0:11, 0:11, "expected equals sign")]);
         p!("[val: { key false }]" => [val()], [
-            (0:11, 0:11, "expected colon"),
+            (0:11, 0:11, "expected equals sign"),
             (0:12, 0:17, "expected key, found bool"),
         ]);
-        p!("[val: { a b:c }]" =>
+        p!("[val: { a b=c }]" =>
             [par![func!("val": (object! { "b" => Id("c") }), {})]],
-            [(0:9, 0:9, "expected colon")],
+            [(0:9, 0:9, "expected equals sign")],
         );
 
         // Missing value.
-        p!("[val: { key: : }]" => [val()], [(0:13, 0:14, "expected value, found colon")]);
-        p!("[val: { key: , k: \"s\" }]" =>
+        p!("[val: { key= : }]" => [val()], [(0:13, 0:14, "expected value, found colon")]);
+        p!("[val: { key= , k= \"s\" }]" =>
             [par![func!("val": (object! { "k" => Str("s") }), {})]],
             [(0:13, 0:14, "expected value, found comma")],
         );
 
         // Missing comma, invalid token.
-        p!("[val: left={ a: 2, b: false 🌎 }]" =>
+        p!("[val: left={ a=2, b=false 🌎 }]" =>
             [par![func!("val": (), {
                 "left" => object! {
                     "a" => Num(2.0),
                     "b" => Bool(false),
                 }
             })]],
-            [(0:27, 0:27, "expected comma"),
-             (0:28, 0:29, "expected key, found invalid token")],
+            [(0:25, 0:25, "expected comma"),
+             (0:26, 0:27, "expected key, found invalid token")],
         );
     }
 
     #[test]
     fn parse_nested_tuples_and_objects() {
-        pval!("(1, { ab: (), d: (3, 14pt) }), false" => (
+        pval!("(1, { ab=(), d = (3, 14pt) }), false" => (
             tuple!(
                 Num(1.0),
                 object!(
