@@ -54,15 +54,15 @@ pub enum Token<'s> {
 
     /// A colon in a function header: `:`.
     Colon,
-    /// A comma in a function header: `:`.
+    /// A comma in a function header: `,`.
     Comma,
     /// An equals sign in a function header: `=`.
     Equals,
 
     /// An identifier in a function header: `center`.
-    ExprIdent(&'s str),
+    Ident(&'s str),
     /// A quoted string in a function header: `"..."`.
-    ExprStr {
+    Str {
         /// The string inside the quotes.
         ///
         /// _Note_: If the string contains escape sequences these are not yet
@@ -73,13 +73,13 @@ pub enum Token<'s> {
         terminated: bool,
     },
     /// A boolean in a function header: `true | false`.
-    ExprBool(bool),
+    Bool(bool),
     /// A number in a function header: `3.14`.
-    ExprNumber(f64),
+    Number(f64),
     /// A length in a function header: `12pt`.
-    ExprLength(Length),
+    Length(Length),
     /// A hex value in a function header: `#20d82a`.
-    ExprHex(&'s str),
+    Hex(&'s str),
     /// A plus in a function header, signifying the addition of expressions.
     Plus,
     /// A hyphen in a function header, signifying the subtraction of
@@ -127,12 +127,12 @@ impl<'s> Token<'s> {
             Colon           => "colon",
             Comma           => "comma",
             Equals          => "equals sign",
-            ExprIdent(_)    => "identifier",
-            ExprStr { .. }  => "string",
-            ExprBool(_)     => "bool",
-            ExprNumber(_)   => "number",
-            ExprLength(_)   => "length",
-            ExprHex(_)      => "hex value",
+            Ident(_)    => "identifier",
+            Str { .. }  => "string",
+            Bool(_)     => "bool",
+            Number(_)   => "number",
+            Length(_)   => "length",
+            Hex(_)      => "hex value",
             Plus            => "plus",
             Hyphen          => "minus",
             Slash           => "slash",
@@ -370,7 +370,7 @@ impl<'s> Tokens<'s> {
 
     fn read_string(&mut self) -> Token<'s> {
         let (string, terminated) = self.read_until_unescaped('"');
-        ExprStr { string, terminated }
+        Str { string, terminated }
     }
 
     fn read_raw(&mut self) -> Token<'s> {
@@ -414,7 +414,7 @@ impl<'s> Tokens<'s> {
     fn read_hex(&mut self) -> Token<'s> {
         // This will parse more than the permissable 0-9, a-f, A-F character
         // ranges to provide nicer error messages later.
-        ExprHex(self.read_string_until(
+        Hex(self.read_string_until(
             |n| !n.is_ascii_alphanumeric(),
             false, 0, 0
         ).0)
@@ -422,15 +422,15 @@ impl<'s> Tokens<'s> {
 
     fn read_expr(&mut self, text: &'s str) -> Token<'s> {
         if let Ok(b) = text.parse::<bool>() {
-            ExprBool(b)
+            Bool(b)
         } else if let Ok(num) = text.parse::<f64>() {
-            ExprNumber(num)
+            Number(num)
         } else if let Some(num) = parse_percentage(text) {
-            ExprNumber(num / 100.0)
+            Number(num / 100.0)
         } else if let Ok(length) = text.parse::<Length>() {
-            ExprLength(length)
+            Length(length)
         } else if is_identifier(text) {
-            ExprIdent(text)
+            Ident(text)
         } else {
             Invalid(text)
         }
@@ -542,11 +542,11 @@ mod tests {
         LineComment as LC, BlockComment as BC,
         LeftParen as LP, RightParen as RP,
         LeftBrace as LB, RightBrace as RB,
-        ExprIdent as Id,
-        ExprBool as Bool,
-        ExprNumber as Num,
-        ExprLength as Len,
-        ExprHex as Hex,
+        Ident as Id,
+        Bool,
+        Number as Num,
+        Length as Len,
+        Hex,
         Plus,
         Hyphen as Min,
         Slash,
@@ -563,7 +563,7 @@ mod tests {
         }
     }
 
-    fn Str(string: &str, terminated: bool) -> Token { Token::ExprStr { string, terminated } }
+    fn Str(string: &str, terminated: bool) -> Token { Token::Str { string, terminated } }
     fn Raw(raw: &str, terminated: bool) -> Token { Token::Raw { raw, terminated } }
 
     macro_rules! func {

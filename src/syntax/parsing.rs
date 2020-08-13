@@ -284,7 +284,7 @@ impl<'s> FuncParser<'s> {
 impl FuncParser<'_> {
     fn parse_ident(&mut self) -> Option<Spanned<Ident>> {
         self.peek().and_then(|token| match token.v {
-            Token::ExprIdent(id) => self.eat_span(Ident(id.to_string())),
+            Token::Ident(id) => self.eat_span(Ident(id.to_string())),
             _ => None,
         })
     }
@@ -360,7 +360,7 @@ impl FuncParser<'_> {
         let Spanned { v: token, span } = self.peek()?;
         match token {
             // This could be a named tuple or an identifier.
-            Token::ExprIdent(id) => {
+            Token::Ident(id) => {
                 let name = Spanned::new(Ident(id.to_string()), span);
                 self.eat();
                 self.skip_white();
@@ -371,17 +371,17 @@ impl FuncParser<'_> {
                 })
             }
 
-            Token::ExprStr { string, terminated } => {
+            Token::Str { string, terminated } => {
                 if !terminated {
                     self.expected_at("quote", span.end);
                 }
                 self.eat_span(Expr::Str(unescape_string(string)))
             }
 
-            Token::ExprBool(b) => self.eat_span(Expr::Bool(b)),
-            Token::ExprNumber(n) => self.eat_span(Expr::Number(n)),
-            Token::ExprLength(s) => self.eat_span(Expr::Length(s)),
-            Token::ExprHex(s) => {
+            Token::Bool(b) => self.eat_span(Expr::Bool(b)),
+            Token::Number(n) => self.eat_span(Expr::Number(n)),
+            Token::Length(s) => self.eat_span(Expr::Length(s)),
+            Token::Hex(s) => {
                 if let Ok(color) = RgbaColor::from_str(s) {
                     self.eat_span(Expr::Color(color))
                 } else {
