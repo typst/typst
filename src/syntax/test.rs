@@ -58,13 +58,12 @@ macro_rules! span_item {
     };
 }
 
-pub fn debug_func(call: FuncCall, state: &ParseState) -> Pass<SyntaxNode> {
-    let mut f = Feedback::new();
+pub fn debug_func(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let node = DebugNode {
         header: call.header,
-        body: parse_body_maybe(call.body, state, &mut f),
+        body: call.body.map(|s| s.v),
     };
-    Pass::node(node, f)
+    Pass::node(node, Feedback::new())
 }
 
 #[derive(Debug, Clone, PartialEq)]

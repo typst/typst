@@ -18,12 +18,12 @@ use super::*;
 ///   ```typst
 ///   serif = ("Source Serif Pro", "Noto Serif")
 ///   ```
-pub fn font(call: FuncCall, state: &ParseState) -> Pass<SyntaxNode> {
+pub fn font(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let mut f = Feedback::new();
     let mut args = call.header.args;
 
     let node = FontNode {
-        body: parse_body_maybe(call.body, state, &mut f),
+        body: call.body.map(|s| s.v),
         size: args.pos.get::<ScaleLength>(),
         style: args.key.get::<FontStyle>("style", &mut f),
         weight: args.key.get::<FontWeight>("weight", &mut f),

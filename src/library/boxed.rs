@@ -6,11 +6,11 @@ use super::*;
 /// # Keyword arguments
 /// - `width`: The width of the box (length of relative to parent's width).
 /// - `height`: The height of the box (length of relative to parent's height).
-pub fn boxed(call: FuncCall, state: &ParseState) -> Pass<SyntaxNode> {
+pub fn boxed(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let mut f = Feedback::new();
     let mut args = call.header.args;
     let node = BoxNode {
-        body: parse_body_maybe(call.body, state, &mut f).unwrap_or(SyntaxTree::new()),
+        body: call.body.map(|s| s.v).unwrap_or(SyntaxTree::new()),
         width: args.key.get::<ScaleLength>("width", &mut f),
         height: args.key.get::<ScaleLength>("height", &mut f),
     };

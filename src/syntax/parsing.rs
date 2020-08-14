@@ -15,9 +15,9 @@ pub type CallParser = dyn Fn(FuncCall, &ParseState) -> Pass<SyntaxNode>;
 
 /// An invocation of a function.
 #[derive(Debug, Clone, PartialEq)]
-pub struct FuncCall<'s> {
+pub struct FuncCall {
     pub header: FuncHeader,
-    pub body: FuncBody<'s>,
+    pub body: FuncBody,
 }
 
 /// The parsed header of a function (everything in the first set of brackets).
@@ -29,7 +29,7 @@ pub struct FuncHeader {
 
 /// The body of a function as a raw spanned string containing what's inside of
 /// the brackets.
-pub type FuncBody<'s> = Option<Spanned<&'s str>>;
+pub type FuncBody = Option<Spanned<SyntaxTree>>;
 
 /// The positional and keyword arguments passed to a function.
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -196,9 +196,17 @@ impl<'s> FuncParser<'s> {
             (parser, header)
         };
 
-        let call = FuncCall { header, body: self.body };
+        let body = self.body.map(|body| body.map(|src| {
+            let parsed = parse(src, body.span.start, &self.state);
+            self.feedback.extend(parsed.feedback);
+            parsed.output
+        }));
+
+        let call = FuncCall { header, body };
+
         let parsed = parser(call, self.state);
         self.feedback.extend(parsed.feedback);
+
         Pass::new(parsed.output, self.feedback)
     }
 

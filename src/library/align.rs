@@ -10,11 +10,11 @@ use super::*;
 /// - `vertical`: Any of `top`, `bottom` or `center`.
 ///
 /// There may not be two alignment specifications for the same axis.
-pub fn align(call: FuncCall, state: &ParseState) -> Pass<SyntaxNode> {
+pub fn align(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let mut f = Feedback::new();
     let mut args = call.header.args;
     let node = AlignNode {
-        body: parse_body_maybe(call.body, state, &mut f),
+        body: call.body.map(|s| s.v),
         aligns: args.pos.all::<Spanned<SpecAlign>>().collect(),
         h: args.key.get::<Spanned<SpecAlign>>("horizontal", &mut f),
         v: args.key.get::<Spanned<SpecAlign>>("vertical", &mut f),

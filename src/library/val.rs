@@ -4,12 +4,11 @@ use super::*;
 ///
 /// This is also the fallback function, which is used when a function name
 /// cannot be resolved.
-pub fn val(call: FuncCall, state: &ParseState) -> Pass<SyntaxNode> {
-    let mut f = Feedback::new();
+pub fn val(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let node = ValNode {
-        body: parse_body_maybe(call.body, state, &mut f),
+        body: call.body.map(|s| s.v),
     };
-    Pass::node(node, f)
+    Pass::node(node, Feedback::new())
 }
 
 #[derive(Debug, Clone, PartialEq)]

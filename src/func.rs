@@ -56,21 +56,8 @@ pub fn drain_args(args: FuncArgs, f: &mut Feedback) {
     }
 }
 
-/// Parse a function's body if there is one or return `None` otherwise.
-pub fn parse_body_maybe(
-    body: Option<Spanned<&str>>,
-    state: &ParseState,
-    f: &mut Feedback,
-) -> Option<SyntaxTree> {
-    body.map(|body| {
-        let parsed = parse(body.v, body.span.start, state);
-        f.extend(parsed.feedback);
-        parsed.output
-    })
-}
-
 /// Generate an error if there is function body even though none was expected.
-pub fn expect_no_body(body: Option<Spanned<&str>>, f: &mut Feedback) {
+pub fn expect_no_body(body: FuncBody, f: &mut Feedback) {
     if let Some(body) = body {
         error!(@f, body.span, "unexpected body");
     }
