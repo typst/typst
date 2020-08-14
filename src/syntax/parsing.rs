@@ -16,20 +16,9 @@ pub type CallParser = dyn Fn(FuncCall, &ParseState) -> Pass<SyntaxNode>;
 /// An invocation of a function.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuncCall {
-    pub header: FuncHeader,
-    pub body: FuncBody,
-}
-
-/// The parsed header of a function (everything in the first set of brackets).
-#[derive(Debug, Clone, PartialEq)]
-pub struct FuncHeader {
     pub name: Spanned<Ident>,
     pub args: FuncArgs,
 }
-
-/// The body of a function as a raw spanned string containing what's inside of
-/// the brackets.
-pub type FuncBody = Option<Spanned<SyntaxTree>>;
 
 /// The positional and keyword arguments passed to a function.
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -166,8 +155,8 @@ impl<'s> FuncParser<'s> {
     }
 
     fn parse(mut self) -> Pass<SyntaxNode> {
-        let (parser, header) = if let Some(header) = self.parse_func_header() {
-            let name = header.name.v.as_str();
+        let (parser, mut call) = if let Some(call) = self.parse_func_call() {
+            let name = call.name.v.as_str();
             let (parser, deco) = match self.state.scope.get_parser(name) {
                 // The function exists in the scope.
                 Some(parser) => (parser, Decoration::ResolvedFunc),
@@ -177,32 +166,34 @@ impl<'s> FuncParser<'s> {
                 // the content of the function is not totally dropped (on a best
                 // effort basis).
                 None => {
-                    error!(@self.feedback, header.name.span, "unknown function");
+                    error!(@self.feedback, call.name.span, "unknown function");
                     let parser = self.state.scope.get_fallback_parser();
                     (parser, Decoration::UnresolvedFunc)
                 }
             };
 
-            self.feedback.decorations.push(Spanned::new(deco, header.name.span));
-            (parser, header)
+            self.feedback.decorations.push(Spanned::new(deco, call.name.span));
+            (parser, call)
         } else {
-            // Parse the body with the fallback parser even when the header is
+            // Parse the call with the fallback parser even when the header is
             // completely unparsable.
             let parser = self.state.scope.get_fallback_parser();
-            let header = FuncHeader {
+            let call = FuncCall {
                 name: Spanned::new(Ident(String::new()), Span::ZERO),
                 args: FuncArgs::new(),
             };
-            (parser, header)
+            (parser, call)
         };
 
-        let body = self.body.map(|body| body.map(|src| {
-            let parsed = parse(src, body.span.start, &self.state);
-            self.feedback.extend(parsed.feedback);
-            parsed.output
-        }));
+        if let Some(body) = self.body {
+            let tree = body.map(|src| {
+                let parsed = parse(src, body.span.start, &self.state);
+                self.feedback.extend(parsed.feedback);
+                Expr::Tree(parsed.output)
+            });
 
-        let call = FuncCall { header, body };
+            call.args.pos.push(tree);
+        }
 
         let parsed = parser(call, self.state);
         self.feedback.extend(parsed.feedback);
@@ -210,7 +201,7 @@ impl<'s> FuncParser<'s> {
         Pass::new(parsed.output, self.feedback)
     }
 
-    fn parse_func_header(&mut self) -> Option<FuncHeader> {
+    fn parse_func_call(&mut self) -> Option<FuncCall> {
         let after_bracket = self.pos();
 
         self.skip_white();
@@ -229,7 +220,7 @@ impl<'s> FuncParser<'s> {
             None => FuncArgs::new(),
         };
 
-        Some(FuncHeader { name, args })
+        Some(FuncCall { name, args })
     }
 
     fn parse_func_args(&mut self) -> FuncArgs {
@@ -790,13 +781,13 @@ mod tests {
                     value: Z($value),
                 })));)*)?
             )?
-            SyntaxNode::boxed(DebugNode {
-                header: FuncHeader {
+            SyntaxNode::boxed(DebugNode(
+                FuncCall {
                     name: span_item!($name).map(|s| Ident(s.to_string())),
                     args,
                 },
-                body: func!(@body $($($body)*)?),
-            })
+                func!(@body $($($body)*)?),
+            ))
         }};
         (@body [$($body:tt)*]) => { Some(span_vec![$($body)*].0) };
         (@body) => { None };

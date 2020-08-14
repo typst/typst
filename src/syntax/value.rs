@@ -8,6 +8,7 @@ use crate::paper::Paper;
 use crate::Feedback;
 use super::expr::*;
 use super::span::Spanned;
+use super::tree::SyntaxTree;
 
 /// Value types are used to extract values from functions, tuples and
 /// objects. They represent the value part of an argument.
@@ -58,6 +59,7 @@ match_value!(String, "string",     Expr::Str(s)    => s);
 match_value!(bool,   "bool",       Expr::Bool(b)   => b);
 match_value!(f64,    "number",     Expr::Number(n) => n);
 match_value!(Length, "length",     Expr::Length(l) => l);
+match_value!(SyntaxTree, "tree",   Expr::Tree(t)   => t);
 match_value!(Tuple,  "tuple",      Expr::Tuple(t)  => t);
 match_value!(Object, "object",     Expr::Object(o) => o);
 match_value!(ScaleLength, "number or length",

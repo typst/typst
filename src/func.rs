@@ -8,9 +8,7 @@ pub mod prelude {
     pub use crate::layout::Command::{self, *};
     pub use crate::style::*;
     pub use crate::syntax::expr::*;
-    pub use crate::syntax::parsing::{
-        parse, FuncArgs, FuncBody, FuncCall, FuncHeader, ParseState,
-    };
+    pub use crate::syntax::parsing::{parse, FuncArgs, FuncCall, ParseState};
     pub use crate::syntax::span::{Span, SpanVec, Spanned};
     pub use crate::syntax::tree::{DynamicNode, SyntaxNode, SyntaxTree};
     pub use crate::syntax::value::*;
@@ -53,12 +51,5 @@ pub fn drain_args(args: FuncArgs, f: &mut Feedback) {
 
     for arg in args.key.0 {
         error!(@f, arg.span, "unexpected argument");
-    }
-}
-
-/// Generate an error if there is function body even though none was expected.
-pub fn expect_no_body(body: FuncBody, f: &mut Feedback) {
-    if let Some(body) = body {
-        error!(@f, body.span, "unexpected body");
     }
 }

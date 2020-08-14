@@ -20,12 +20,11 @@ pub fn v(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
 
 fn spacing(call: FuncCall, axis: SpecAxis) -> Pass<SyntaxNode> {
     let mut f = Feedback::new();
-    let mut args = call.header.args;
-    expect_no_body(call.body, &mut f);
+    let mut args = call.args;
     let node = SpacingNode {
         spacing: args.pos.expect::<ScaleLength>(&mut f)
             .map(|s| (axis, s))
-            .or_missing(call.header.name.span, "spacing", &mut f),
+            .or_missing(call.name.span, "spacing", &mut f),
     };
     drain_args(args, &mut f);
     Pass::node(node, f)

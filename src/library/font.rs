@@ -20,10 +20,10 @@ use super::*;
 ///   ```
 pub fn font(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let mut f = Feedback::new();
-    let mut args = call.header.args;
+    let mut args = call.args;
 
     let node = FontNode {
-        body: call.body.map(|s| s.v),
+        content: args.pos.get::<SyntaxTree>(),
         size: args.pos.get::<ScaleLength>(),
         style: args.key.get::<FontStyle>("style", &mut f),
         weight: args.key.get::<FontWeight>("weight", &mut f),
@@ -53,7 +53,7 @@ pub fn font(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
 
 #[derive(Debug, Clone, PartialEq)]
 struct FontNode {
-    body: Option<SyntaxTree>,
+    content: Option<SyntaxTree>,
     size: Option<ScaleLength>,
     style: Option<FontStyle>,
     weight: Option<FontWeight>,
@@ -91,7 +91,7 @@ impl Layout for FontNode {
 
         text.fallback.flatten();
 
-        Pass::okay(match &self.body {
+        Pass::okay(match &self.content {
             Some(tree) => vec![
                 SetTextStyle(text),
                 LayoutSyntaxTree(tree),

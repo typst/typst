@@ -12,9 +12,9 @@ use super::*;
 /// There may not be two alignment specifications for the same axis.
 pub fn align(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let mut f = Feedback::new();
-    let mut args = call.header.args;
+    let mut args = call.args;
     let node = AlignNode {
-        body: call.body.map(|s| s.v),
+        content: args.pos.get::<SyntaxTree>(),
         aligns: args.pos.all::<Spanned<SpecAlign>>().collect(),
         h: args.key.get::<Spanned<SpecAlign>>("horizontal", &mut f),
         v: args.key.get::<Spanned<SpecAlign>>("vertical", &mut f),
@@ -25,7 +25,7 @@ pub fn align(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
 
 #[derive(Debug, Clone, PartialEq)]
 struct AlignNode {
-    body: Option<SyntaxTree>,
+    content: Option<SyntaxTree>,
     aligns: SpanVec<SpecAlign>,
     h: Option<Spanned<SpecAlign>>,
     v: Option<Spanned<SpecAlign>>,
@@ -64,9 +64,9 @@ impl Layout for AlignNode {
             }
         }
 
-        Pass::new(match &self.body {
-            Some(body) => {
-                let layouted = layout(body, ctx).await;
+        Pass::new(match &self.content {
+            Some(tree) => {
+                let layouted = layout(tree, ctx).await;
                 f.extend(layouted.feedback);
                 vec![AddMultiple(layouted.output)]
             }

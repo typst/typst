@@ -18,8 +18,7 @@ use super::*;
 /// - `flip`: Flips custom or paper-defined width and height (boolean).
 pub fn page(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let mut f = Feedback::new();
-    let mut args = call.header.args;
-    expect_no_body(call.body, &mut f);
+    let mut args = call.args;
     let node = PageNode {
         paper: args.pos.get::<Paper>(),
         width: args.key.get::<Length>("width", &mut f),
@@ -79,7 +78,7 @@ impl Layout for PageNode {
 /// `pagebreak`: Ends the current page.
 pub fn pagebreak(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let mut f = Feedback::new();
-    drain_args(call.header.args, &mut f);
+    drain_args(call.args, &mut f);
     Pass::node(PageBreakNode, f)
 }
 

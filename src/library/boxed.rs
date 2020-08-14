@@ -8,9 +8,9 @@ use super::*;
 /// - `height`: The height of the box (length of relative to parent's height).
 pub fn boxed(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let mut f = Feedback::new();
-    let mut args = call.header.args;
+    let mut args = call.args;
     let node = BoxNode {
-        body: call.body.map(|s| s.v).unwrap_or(SyntaxTree::new()),
+        content: args.pos.get::<SyntaxTree>().unwrap_or(SyntaxTree::new()),
         width: args.key.get::<ScaleLength>("width", &mut f),
         height: args.key.get::<ScaleLength>("height", &mut f),
     };
@@ -20,7 +20,7 @@ pub fn boxed(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
 
 #[derive(Debug, Clone, PartialEq)]
 struct BoxNode {
-    body: SyntaxTree,
+    content: SyntaxTree,
     width: Option<ScaleLength>,
     height: Option<ScaleLength>,
 }
@@ -45,7 +45,7 @@ impl Layout for BoxNode {
             ctx.spaces[0].expansion.vertical = true;
         });
 
-        layout(&self.body, ctx).await.map(|out| {
+        layout(&self.content, ctx).await.map(|out| {
             let layout = out.into_iter().next().unwrap();
             vec![Add(layout)]
         })

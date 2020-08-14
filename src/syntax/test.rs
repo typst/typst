@@ -3,10 +3,10 @@ use std::fmt::Debug;
 use crate::func::prelude::*;
 use super::decoration::Decoration;
 use super::expr::{Expr, Ident, NamedTuple, Object, Pair, Tuple};
-use super::parsing::{FuncArg, FuncArgs, FuncHeader};
+use super::parsing::{FuncArg, FuncArgs};
 use super::span::Spanned;
 use super::tokens::Token;
-use super::tree::{DynamicNode, SyntaxNode, SyntaxTree};
+use super::tree::{DynamicNode, SyntaxNode};
 
 pub fn check<T>(src: &str, exp: T, found: T, cmp_spans: bool)
 where
@@ -58,19 +58,13 @@ macro_rules! span_item {
     };
 }
 
-pub fn debug_func(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
-    let node = DebugNode {
-        header: call.header,
-        body: call.body.map(|s| s.v),
-    };
-    Pass::node(node, Feedback::new())
+pub fn debug_func(mut call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
+    let tree = call.args.pos.get::<SyntaxTree>();
+    Pass::node(DebugNode(call, tree), Feedback::new())
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct DebugNode {
-    pub header: FuncHeader,
-    pub body: Option<SyntaxTree>,
-}
+pub struct DebugNode(pub FuncCall, pub Option<SyntaxTree>);
 
 #[async_trait(?Send)]
 impl Layout for DebugNode {
@@ -102,12 +96,12 @@ impl SpanlessEq for SyntaxNode {
 
 impl SpanlessEq for DebugNode {
     fn spanless_eq(&self, other: &Self) -> bool {
-        self.header.spanless_eq(&other.header)
-            && self.body.spanless_eq(&other.body)
+        self.0.spanless_eq(&other.0)
+            && self.1.spanless_eq(&other.1)
     }
 }
 
-impl SpanlessEq for FuncHeader {
+impl SpanlessEq for FuncCall {
     fn spanless_eq(&self, other: &Self) -> bool {
         self.name.spanless_eq(&other.name)
             && self.args.spanless_eq(&other.args)
