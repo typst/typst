@@ -36,6 +36,7 @@ pub mod library;
 pub mod paper;
 pub mod style;
 pub mod syntax;
+pub mod table;
 
 use std::fmt::Debug;
 use std::future::Future;
