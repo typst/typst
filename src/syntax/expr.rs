@@ -9,6 +9,7 @@ use crate::length::Length;
 use crate::Feedback;
 use super::span::{SpanVec, Spanned};
 use super::tokens::is_identifier;
+use super::tree::SyntaxTree;
 use super::value::Value;
 
 /// An expression.
@@ -26,6 +27,8 @@ pub enum Expr {
     Length(Length),
     /// A color value with alpha channel: `#f79143ff`.
     Color(RgbaColor),
+    /// A syntax tree containing typesetting content.
+    Tree(SyntaxTree),
     /// A tuple: `(false, 12cm, "hi")`.
     Tuple(Tuple),
     /// A named tuple: `cmyk(37.7, 0, 3.9, 1.1)`.
@@ -56,6 +59,7 @@ impl Expr {
             Number(_)     => "number",
             Length(_)     => "length",
             Color(_)      => "color",
+            Tree(_)       => "syntax tree",
             Tuple(_)      => "tuple",
             NamedTuple(_) => "named tuple",
             Object(_)     => "object",
@@ -78,6 +82,7 @@ impl Debug for Expr {
             Number(n) => n.fmt(f),
             Length(s) => s.fmt(f),
             Color(c) => c.fmt(f),
+            Tree(t) => t.fmt(f),
             Tuple(t) => t.fmt(f),
             NamedTuple(t) => t.fmt(f),
             Object(o) => o.fmt(f),
