@@ -2,5 +2,5 @@
 /target
 **/*.rs.bk
 Cargo.lock
-tests/cache
+tests/out
 _things
