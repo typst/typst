@@ -23,12 +23,18 @@ serialize = []
 fs = ["fontdock/fs"]
 
 [dev-dependencies]
+criterion = "0.3"
 futures-executor = "0.3"
 serde_json = "1"
 raqote = { version = "0.8", default-features = false }
 
 [[test]]
-name = "test-typeset"
+name = "typeset"
 path = "tests/test_typeset.rs"
 required-features = ["fs"]
+harness = false
+
+[[bench]]
+name = "bench-parsing"
+path = "benches/bench_parsing.rs"
 harness = false
