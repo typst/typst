@@ -255,7 +255,7 @@ impl Tuple {
     pub fn expect<T: TryFromExpr>(&mut self, f: &mut Feedback) -> Option<T> {
         while !self.0.is_empty() {
             let item = self.0.remove(0);
-            if let Some(val) = T::try_from_expr(item, f) {
+            if let Some(val) = T::try_from_expr(item.as_ref(), f) {
                 return Some(val);
             }
         }
@@ -265,7 +265,8 @@ impl Tuple {
     /// Extract the first argument of the value type if there is any.
     pub fn get<T: TryFromExpr>(&mut self) -> Option<T> {
         for (i, item) in self.0.iter().enumerate() {
-            if let Some(val) = T::try_from_expr(item.clone(), &mut Feedback::new()) {
+            let expr = item.as_ref();
+            if let Some(val) = T::try_from_expr(expr, &mut Feedback::new()) {
                 self.0.remove(i);
                 return Some(val);
             }
@@ -278,7 +279,8 @@ impl Tuple {
         let mut i = 0;
         std::iter::from_fn(move || {
             while i < self.0.len() {
-                let val = T::try_from_expr(self.0[i].clone(), &mut Feedback::new());
+                let expr = self.0[i].as_ref();
+                let val = T::try_from_expr(expr, &mut Feedback::new());
                 if val.is_some() {
                     self.0.remove(i);
                     return val;
@@ -361,7 +363,7 @@ impl Object {
         for (i, pair) in self.0.iter().enumerate() {
             if pair.v.key.v.as_str() == key {
                 let pair = self.0.remove(i);
-                return T::try_from_expr(pair.v.value, f);
+                return T::try_from_expr(pair.v.value.as_ref(), f);
             }
         }
         None
@@ -374,7 +376,8 @@ impl Object {
         let mut i = 0;
         std::iter::from_fn(move || {
             while i < self.0.len() {
-                let val = T::try_from_expr(self.0[i].v.value.clone(), &mut Feedback::new());
+                let expr = self.0[i].v.value.as_ref();
+                let val = T::try_from_expr(expr, &mut Feedback::new());
                 if let Some(val) = val {
                     let pair = self.0.remove(i);
                     return Some((pair.v.key, val));
@@ -395,19 +398,24 @@ impl Debug for Object {
     }
 }
 
-/// A trait for converting expression into specific types.
+/// A trait for converting expressions into specific types.
 pub trait TryFromExpr: Sized {
+    // This trait takes references because we don't want to move the expression
+    // out of its origin in case this returns `None`. This solution is not
+    // perfect because we need to do some cloning in the impls for this trait,
+    // but I haven't got a better solution, for now.
+
     /// Try to convert an expression into this type.
     ///
     /// Returns `None` and generates an appropriate error if the expression is
     /// not valid for this type.
-    fn try_from_expr(expr: Spanned<Expr>, f: &mut Feedback) -> Option<Self>;
+    fn try_from_expr(expr: Spanned<&Expr>, f: &mut Feedback) -> Option<Self>;
 }
 
 macro_rules! impl_match {
     ($type:ty, $name:expr, $($p:pat => $r:expr),* $(,)?) => {
         impl TryFromExpr for $type {
-            fn try_from_expr(expr: Spanned<Expr>, f: &mut Feedback) -> Option<Self> {
+            fn try_from_expr(expr: Spanned<&Expr>, f: &mut Feedback) -> Option<Self> {
                 #[allow(unreachable_patterns)]
                 match expr.v {
                     $($p => Some($r)),*,
@@ -427,7 +435,7 @@ macro_rules! impl_match {
 macro_rules! impl_ident {
     ($type:ty, $name:expr, $parse:expr) => {
         impl TryFromExpr for $type {
-            fn try_from_expr(expr: Spanned<Expr>, f: &mut Feedback) -> Option<Self> {
+            fn try_from_expr(expr: Spanned<&Expr>, f: &mut Feedback) -> Option<Self> {
                 if let Expr::Ident(ident) = expr.v {
                     let val = $parse(ident.as_str());
                     if val.is_none() {
@@ -447,24 +455,24 @@ macro_rules! impl_ident {
 }
 
 impl<T: TryFromExpr> TryFromExpr for Spanned<T> {
-    fn try_from_expr(expr: Spanned<Expr>, f: &mut Feedback) -> Option<Self> {
+    fn try_from_expr(expr: Spanned<&Expr>, f: &mut Feedback) -> Option<Self> {
         let span = expr.span;
         T::try_from_expr(expr, f).map(|v| Spanned { v, span })
     }
 }
 
-impl_match!(Expr, "expression", e => e);
-impl_match!(Ident, "identifier", Expr::Ident(i) => i);
-impl_match!(String, "string", Expr::Str(s) => s);
-impl_match!(bool, "bool", Expr::Bool(b) => b);
-impl_match!(f64, "number", Expr::Number(n) => n);
-impl_match!(Length, "length", Expr::Length(l) => l);
-impl_match!(SyntaxTree, "tree", Expr::Tree(t) => t);
-impl_match!(Tuple, "tuple", Expr::Tuple(t) => t);
-impl_match!(Object, "object", Expr::Object(o) => o);
+impl_match!(Expr, "expression", e => e.clone());
+impl_match!(Ident, "identifier", Expr::Ident(i) => i.clone());
+impl_match!(String, "string", Expr::Str(s) => s.clone());
+impl_match!(bool, "bool", Expr::Bool(b) => b.clone());
+impl_match!(f64, "number", Expr::Number(n) => n.clone());
+impl_match!(Length, "length", Expr::Length(l) => l.clone());
+impl_match!(SyntaxTree, "tree", Expr::Tree(t) => t.clone());
+impl_match!(Tuple, "tuple", Expr::Tuple(t) => t.clone());
+impl_match!(Object, "object", Expr::Object(o) => o.clone());
 impl_match!(ScaleLength, "number or length",
-    Expr::Length(length) => ScaleLength::Absolute(length),
-    Expr::Number(scale) => ScaleLength::Scaled(scale),
+    &Expr::Length(length) => ScaleLength::Absolute(length),
+    &Expr::Number(scale) => ScaleLength::Scaled(scale),
 );
 
 /// A value type that matches identifiers and strings and implements
@@ -478,8 +486,8 @@ impl From<StringLike> for String {
 }
 
 impl_match!(StringLike, "identifier or string",
-    Expr::Ident(Ident(s)) => StringLike(s),
-    Expr::Str(s) => StringLike(s),
+    Expr::Ident(Ident(s)) => StringLike(s.clone()),
+    Expr::Str(s) => StringLike(s.clone()),
 );
 
 impl_ident!(Dir, "direction", |s| match s {
@@ -503,9 +511,9 @@ impl_ident!(FontStyle, "font style", FontStyle::from_name);
 impl_ident!(Paper, "paper", Paper::from_name);
 
 impl TryFromExpr for FontWeight {
-    fn try_from_expr(expr: Spanned<Expr>, f: &mut Feedback) -> Option<Self> {
+    fn try_from_expr(expr: Spanned<&Expr>, f: &mut Feedback) -> Option<Self> {
         match expr.v {
-            Expr::Number(weight) => {
+            &Expr::Number(weight) => {
                 const MIN: u16 = 100;
                 const MAX: u16 = 900;
 
@@ -539,9 +547,9 @@ impl TryFromExpr for FontWeight {
 }
 
 impl TryFromExpr for FontWidth {
-    fn try_from_expr(expr: Spanned<Expr>, f: &mut Feedback) -> Option<Self> {
+    fn try_from_expr(expr: Spanned<&Expr>, f: &mut Feedback) -> Option<Self> {
         match expr.v {
-            Expr::Number(width) => {
+            &Expr::Number(width) => {
                 const MIN: u16 = 1;
                 const MAX: u16 = 9;
 

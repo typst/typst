@@ -50,6 +50,11 @@ impl<T> Spanned<T> {
         self.v
     }
 
+    /// Convert from `&Spanned<T>` to `Spanned<&T>`
+    pub fn as_ref(&self) -> Spanned<&T> {
+        Spanned { v: &self.v, span: self.span }
+    }
+
     /// Map the value using a function while keeping the span.
     pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Spanned<U> {
         Spanned { v: f(self.v), span: self.span }
