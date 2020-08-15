@@ -11,4 +11,3 @@ pub mod scope;
 pub mod span;
 pub mod tokens;
 pub mod tree;
-pub mod value;

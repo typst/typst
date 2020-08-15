@@ -11,7 +11,6 @@ pub mod prelude {
     pub use crate::syntax::parsing::{parse, FuncArgs, FuncCall, ParseState};
     pub use crate::syntax::span::{Span, SpanVec, Spanned};
     pub use crate::syntax::tree::{DynamicNode, SyntaxNode, SyntaxTree};
-    pub use crate::syntax::value::*;
     pub use crate::{Pass, Feedback};
     pub use super::*;
 }
