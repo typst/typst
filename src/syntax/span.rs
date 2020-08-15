@@ -3,8 +3,22 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Sub};
 
+#[cfg(test)]
+use std::cell::Cell;
+
 #[cfg(feature = "serialize")]
 use serde::Serialize;
+
+#[cfg(test)]
+thread_local! {
+    static CMP_SPANS: Cell<bool> = Cell::new(true);
+}
+
+/// When set to `false` comparisons with `PartialEq` ignore spans.
+#[cfg(test)]
+pub(crate) fn set_cmp(cmp: bool) {
+    CMP_SPANS.with(|cell| cell.set(cmp));
+}
 
 /// Span offsetting.
 pub trait Offset {
@@ -85,7 +99,7 @@ impl<T: Debug> Debug for Spanned<T> {
 }
 
 /// Locates a slice of source code.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize))]
 pub struct Span {
     /// The inclusive start position.
@@ -128,6 +142,19 @@ impl Offset for Span {
             start: self.start.offset(by),
             end: self.end.offset(by),
         }
+    }
+}
+
+impl Eq for Span {}
+
+impl PartialEq for Span {
+    fn eq(&self, other: &Self) -> bool {
+        #[cfg(test)]
+        if !CMP_SPANS.with(Cell::get) {
+            return true;
+        }
+
+        self.start == other.start && self.end == other.end
     }
 }
 
