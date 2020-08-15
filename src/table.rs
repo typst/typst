@@ -15,7 +15,7 @@ use std::ops::Index;
 #[derive(Default, Clone, PartialEq)]
 pub struct Table<V> {
     nums: BTreeMap<u64, V>,
-    strings: BTreeMap<String, V>,
+    strs: BTreeMap<String, V>,
     lowest_free: u64,
 }
 
@@ -24,14 +24,19 @@ impl<V> Table<V> {
     pub fn new() -> Self {
         Self {
             nums: BTreeMap::new(),
-            strings: BTreeMap::new(),
+            strs: BTreeMap::new(),
             lowest_free: 0,
         }
     }
 
     /// The total number of entries in the table.
     pub fn len(&self) -> usize {
-        self.nums.len() + self.strings.len()
+        self.nums.len() + self.strs.len()
+    }
+
+    /// Whether the table contains no entries.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// The first number key-value pair (with lowest number).
@@ -50,8 +55,8 @@ impl<V> Table<V> {
         K: Into<BorrowedKey<'a>>,
     {
         match key.into() {
-            BorrowedKey::Number(num) => self.nums.get(&num),
-            BorrowedKey::Str(string) => self.strings.get(string),
+            BorrowedKey::Num(num) => self.nums.get(&num),
+            BorrowedKey::Str(string) => self.strs.get(string),
         }
     }
 
@@ -61,8 +66,8 @@ impl<V> Table<V> {
         K: Into<BorrowedKey<'a>>,
     {
         match key.into() {
-            BorrowedKey::Number(num) => self.nums.get_mut(&num),
-            BorrowedKey::Str(string) => self.strings.get_mut(string),
+            BorrowedKey::Num(num) => self.nums.get_mut(&num),
+            BorrowedKey::Str(string) => self.strs.get_mut(string),
         }
     }
 
@@ -72,14 +77,14 @@ impl<V> Table<V> {
         K: Into<OwnedKey>,
     {
         match key.into() {
-            OwnedKey::Number(num) => {
+            OwnedKey::Num(num) => {
                 self.nums.insert(num, value);
                 if self.lowest_free == num {
                     self.lowest_free += 1;
                 }
             }
             OwnedKey::Str(string) => {
-                self.strings.insert(string, value);
+                self.strs.insert(string, value);
             }
         }
     }
@@ -90,11 +95,11 @@ impl<V> Table<V> {
         K: Into<BorrowedKey<'a>>,
     {
         match key.into() {
-            BorrowedKey::Number(num) => {
+            BorrowedKey::Num(num) => {
                 self.lowest_free = self.lowest_free.min(num);
                 self.nums.remove(&num)
             }
-            BorrowedKey::Str(string) => self.strings.remove(string),
+            BorrowedKey::Str(string) => self.strs.remove(string),
         }
     }
 
@@ -108,6 +113,21 @@ impl<V> Table<V> {
         }
         self.nums.insert(self.lowest_free, value);
         self.lowest_free += 1;
+    }
+
+    /// Iterate over the number key-value pairs.
+    pub fn nums(&self) -> std::collections::btree_map::Iter<u64, V> {
+        self.nums.iter()
+    }
+
+    /// Iterate over the string key-value pairs.
+    pub fn strs(&self) -> std::collections::btree_map::Iter<String, V> {
+        self.strs.iter()
+    }
+
+    /// Iterate over all values in the table.
+    pub fn values(&self) -> impl Iterator<Item = &V> {
+        self.nums().map(|(_, v)| v).chain(self.strs().map(|(_, v)| v))
     }
 }
 
@@ -125,13 +145,13 @@ where
 impl<V: Debug> Debug for Table<V> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("(")?;
-        if f.alternate() && (!self.nums.is_empty() || !self.strings.is_empty()) {
+        if f.alternate() && (!self.nums.is_empty() || !self.strs.is_empty()) {
             f.write_str("\n")?;
         }
 
         let len = self.len();
-        let nums = self.nums.iter().map(|(k, v)| (k as &dyn Debug, v));
-        let strings = self.strings.iter().map(|(k, v)| (k as &dyn Debug, v));
+        let nums = self.nums().map(|(k, v)| (k as &dyn Debug, v));
+        let strings = self.strs().map(|(k, v)| (k as &dyn Debug, v));
         let pairs = nums.chain(strings);
 
         for (i, (key, value)) in pairs.enumerate() {
@@ -159,13 +179,13 @@ impl<V: Debug> Debug for Table<V> {
 /// The owned variant of a table key.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum OwnedKey {
-    Number(u64),
+    Num(u64),
     Str(String),
 }
 
 impl From<u64> for OwnedKey {
     fn from(num: u64) -> Self {
-        Self::Number(num)
+        Self::Num(num)
     }
 }
 
@@ -184,13 +204,19 @@ impl From<&str> for OwnedKey {
 /// The borrowed variant of a table key.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum BorrowedKey<'a> {
-    Number(u64),
+    Num(u64),
     Str(&'a str),
 }
 
 impl From<u64> for BorrowedKey<'static> {
     fn from(num: u64) -> Self {
-        Self::Number(num)
+        Self::Num(num)
+    }
+}
+
+impl<'a> From<&'a String> for BorrowedKey<'a> {
+    fn from(string: &'a String) -> Self {
+        Self::Str(&string)
     }
 }
 

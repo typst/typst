@@ -10,8 +10,9 @@ use fontdock::{FontStyle, FontWeight, FontWidth};
 use crate::layout::{Dir, SpecAlign};
 use crate::length::{Length, ScaleLength};
 use crate::paper::Paper;
+use crate::table::{BorrowedKey, Table};
 use crate::Feedback;
-use super::span::{SpanVec, Spanned};
+use super::span::{Span, SpanVec, Spanned};
 use super::tokens::is_identifier;
 use super::tree::SyntaxTree;
 
@@ -398,6 +399,120 @@ impl Debug for Object {
     }
 }
 
+/// A table expression.
+///
+/// # Example
+/// ```typst
+/// (false, 12cm, greeting="hi")
+/// ```
+pub type TableExpr = Table<TableExprEntry>;
+
+/// An entry in a table expression.
+///
+/// Contains the key's span and the value.
+pub struct TableExprEntry {
+    pub key: Span,
+    pub val: Spanned<Expr>,
+}
+
+impl TableExpr {
+    /// Retrieve and remove the matching value with the lowest number key,
+    /// skipping and ignoring all non-matching entries with lower keys.
+    pub fn take<T: TryFromExpr>(&mut self) -> Option<T> {
+        for (&key, entry) in self.nums() {
+            let expr = entry.val.as_ref();
+            if let Some(val) = T::try_from_expr(expr, &mut Feedback::new()) {
+                self.remove(key);
+                return Some(val);
+            }
+        }
+        None
+    }
+
+    /// Retrieve and remove the matching value with the lowest number key,
+    /// removing and generating errors for all non-matching entries with lower
+    /// keys.
+    pub fn expect<T: TryFromExpr>(&mut self, f: &mut Feedback) -> Option<T> {
+        while let Some((num, _)) = self.first() {
+            let entry = self.remove(num).unwrap();
+            if let Some(val) = T::try_from_expr(entry.val.as_ref(), f) {
+                return Some(val);
+            }
+        }
+        None
+    }
+
+    /// Retrieve and remove a matching value associated with the given key if
+    /// there is any.
+    ///
+    /// Generates an error if the key exists but the value does not match.
+    pub fn take_with_key<'a, T, K>(&mut self, key: K, f: &mut Feedback) -> Option<T>
+    where
+        T: TryFromExpr,
+        K: Into<BorrowedKey<'a>>,
+    {
+        self.remove(key).and_then(|entry| {
+            let expr = entry.val.as_ref();
+            T::try_from_expr(expr, f)
+        })
+    }
+
+    /// Retrieve and remove all matching pairs with number keys, skipping and
+    /// ignoring non-matching entries.
+    ///
+    /// The pairs are returned in order of increasing keys.
+    pub fn take_all_num<'a, T>(&'a mut self) -> impl Iterator<Item = (u64, T)> + 'a
+    where
+        T: TryFromExpr,
+    {
+        let mut skip = 0;
+        std::iter::from_fn(move || {
+            for (&key, entry) in self.nums().skip(skip) {
+                let expr = entry.val.as_ref();
+                if let Some(val) = T::try_from_expr(expr, &mut Feedback::new()) {
+                    self.remove(key);
+                    return Some((key, val));
+                }
+                skip += 1;
+            }
+
+            None
+        })
+    }
+
+    /// Retrieve and remove all matching pairs with string keys, skipping and
+    /// ignoring non-matching entries.
+    ///
+    /// The pairs are returned in order of increasing keys.
+    pub fn take_all_str<'a, T>(&'a mut self) -> impl Iterator<Item = (String, T)> + 'a
+    where
+        T: TryFromExpr,
+    {
+        let mut skip = 0;
+        std::iter::from_fn(move || {
+            for (key, entry) in self.strs().skip(skip) {
+                let expr = entry.val.as_ref();
+                if let Some(val) = T::try_from_expr(expr, &mut Feedback::new()) {
+                    let key = key.clone();
+                    self.remove(&key);
+                    return Some((key, val));
+                }
+                skip += 1;
+            }
+
+            None
+        })
+    }
+
+    /// Generated `"unexpected argument"` errors for all remaining entries.
+    pub fn unexpected(&self, f: &mut Feedback) {
+        for entry in self.values() {
+            let span = Span::merge(entry.key, entry.val.span);
+            error!(@f, span, "unexpected argument");
+        }
+    }
+}
+
 /// A trait for converting expressions into specific types.
 pub trait TryFromExpr: Sized {
     // This trait takes references because we don't want to move the expression
@@ -579,5 +694,66 @@ impl TryFromExpr for FontWidth {
                 None
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry(expr: Expr) -> TableExprEntry {
+        TableExprEntry {
+            key: Span::ZERO,
+            val: Spanned::zero(expr),
+        }
+    }
+
+    #[test]
+    fn test_table_take_removes_correct_entry() {
+        let mut table = TableExpr::new();
+        table.insert(1, entry(Expr::Bool(false)));
+        table.insert(2, entry(Expr::Str("hi".to_string())));
+        assert_eq!(table.take::<String>(), Some("hi".to_string()));
+        assert_eq!(table.len(), 1);
+        assert_eq!(table.take::<bool>(), Some(false));
+        assert!(table.is_empty());
+    }
+
+    #[test]
+    fn test_table_expect_errors_about_previous_entries() {
+        let mut f = Feedback::new();
+        let mut table = TableExpr::new();
+        table.insert(1, entry(Expr::Bool(false)));
+        table.insert(3, entry(Expr::Str("hi".to_string())));
+        table.insert(5, entry(Expr::Bool(true)));
+        assert_eq!(table.expect::<String>(&mut f), Some("hi".to_string()));
+        assert_eq!(f.diagnostics, [error!(Span::ZERO, "expected string, found bool")]);
+        assert_eq!(table.len(), 1);
+    }
+
+    #[test]
+    fn test_table_take_with_key_removes_the_entry() {
+        let mut f = Feedback::new();
+        let mut table = TableExpr::new();
+        table.insert(1, entry(Expr::Bool(false)));
+        table.insert("hi", entry(Expr::Bool(true)));
+        assert_eq!(table.take_with_key::<bool, _>(1, &mut f), Some(false));
+        assert_eq!(table.take_with_key::<f64, _>("hi", &mut f), None);
+        assert_eq!(f.diagnostics, [error!(Span::ZERO, "expected number, found bool")]);
+        assert!(table.is_empty());
+    }
+
+    #[test]
+    fn test_table_take_all_removes_the_correct_entries() {
+        let mut table = TableExpr::new();
+        table.insert(1, entry(Expr::Bool(false)));
+        table.insert(3, entry(Expr::Number(0.0)));
+        table.insert(7, entry(Expr::Bool(true)));
+        assert_eq!(
+            table.take_all_num::<bool>().collect::<Vec<_>>(),
+            [(1, false), (7, true)],
+        );
+        assert_eq!(table.len(), 1);
+        assert_eq!(table[3].val.v, Expr::Number(0.0));
     }
 }
