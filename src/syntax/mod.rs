@@ -1,17 +1,44 @@
 //! Syntax trees, parsing and tokenization.
 
 pub mod decoration;
-pub mod expr;
 pub mod parsing;
-pub mod scope;
 pub mod span;
 pub mod tokens;
 pub mod tree;
 
+use std::fmt::{self, Debug, Formatter};
+use tokens::is_identifier;
+
+/// An identifier as defined by unicode with a few extra permissible characters.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Ident(pub String);
+
+impl Ident {
+    /// Create a new identifier from a string checking that it is a valid.
+    pub fn new(ident: impl AsRef<str> + Into<String>) -> Option<Self> {
+        if is_identifier(ident.as_ref()) {
+            Some(Self(ident.into()))
+        } else {
+            None
+        }
+    }
+
+    /// Return a reference to the underlying string.
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl Debug for Ident {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "`{}`", self.0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::fmt::Debug;
-    use crate::func::prelude::*;
+    use crate::prelude::*;
     use super::span;
 
     /// Assert that expected and found are equal, printing both and panicking
@@ -47,20 +74,6 @@ mod tests {
     impl<T> From<T> for Spanned<T> {
         fn from(t: T) -> Self {
             Spanned::zero(t)
-        }
-    }
-
-    pub fn debug_func(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
-        Pass::node(DebugNode(call), Feedback::new())
-    }
-
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct DebugNode(pub FuncCall);
-
-    #[async_trait(?Send)]
-    impl Layout for DebugNode {
-        async fn layout<'a>(&'a self, _: LayoutContext<'_>) -> Pass<Commands<'a>> {
-            unimplemented!()
         }
     }
 }

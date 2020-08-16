@@ -10,9 +10,7 @@ mod tree;
 /// Basic types used across the layouting engine.
 pub mod prelude {
     pub use super::primitive::*;
-    pub use super::{
-        BoxLayout, layout, Layout, LayoutContext, LayoutSpace, MultiLayout,
-    };
+    pub use super::{BoxLayout, layout, LayoutContext, LayoutSpace, MultiLayout};
     pub use Dir::*;
     pub use GenAlign::*;
     pub use GenAxis::*;
@@ -23,13 +21,11 @@ pub mod prelude {
 pub use primitive::*;
 pub use tree::layout_tree as layout;
 
-use async_trait::async_trait;
-
+use crate::compute::scope::Scope;
 use crate::font::SharedFontLoader;
 use crate::geom::{Margins, Size};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::syntax::tree::SyntaxTree;
-use crate::Pass;
 
 use elements::LayoutElements;
 use prelude::*;
@@ -48,18 +44,13 @@ pub struct BoxLayout {
     pub elements: LayoutElements,
 }
 
-/// Command-based layouting.
-#[async_trait(?Send)]
-pub trait Layout {
-    /// Create a sequence of layouting commands to execute.
-    async fn layout<'a>(&'a self, ctx: LayoutContext<'_>) -> Pass<Commands<'a>>;
-}
-
 /// The context for layouting.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct LayoutContext<'a> {
     /// The font loader to query fonts from when typesetting text.
     pub loader: &'a SharedFontLoader,
+    /// The function scope.
+    pub scope: &'a Scope,
     /// The style for pages and text.
     pub style: &'a LayoutStyle,
     /// The unpadded size of this container (the base 100% for relative sizes).
@@ -118,11 +109,11 @@ impl LayoutSpace {
 }
 
 /// A sequence of layouting commands.
-pub type Commands<'a> = Vec<Command<'a>>;
+pub type Commands = Vec<Command>;
 
 /// Commands executable by the layouting engine.
-#[derive(Debug, Clone)]
-pub enum Command<'a> {
+#[derive(Debug, Clone, PartialEq)]
+pub enum Command {
     /// Layout the given tree in the current context (i.e. not nested). The
     /// content of the tree is not laid out into a separate box and then added,
     /// but simply laid out flatly in the active layouting process.
@@ -130,7 +121,7 @@ pub enum Command<'a> {
     /// This has the effect that the content fits nicely into the active line
     /// layouting, enabling functions to e.g. change the style of some piece of
     /// text while keeping it part of the current paragraph.
-    LayoutSyntaxTree(&'a SyntaxTree),
+    LayoutSyntaxTree(SyntaxTree),
 
     /// Add a finished layout.
     Add(BoxLayout),

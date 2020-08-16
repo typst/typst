@@ -39,13 +39,11 @@ impl<T> Offset for SpanVec<T> {
 }
 
 /// A value with the span it corresponds to in the source code.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize))]
 pub struct Spanned<T> {
-    /// The value.
-    pub v: T,
-    /// The corresponding span.
     pub span: Span,
+    pub v: T,
 }
 
 impl<T> Spanned<T> {
@@ -99,7 +97,7 @@ impl<T: Debug> Debug for Spanned<T> {
 }
 
 /// Locates a slice of source code.
-#[derive(Copy, Clone, Hash)]
+#[derive(Copy, Clone, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize))]
 pub struct Span {
     /// The inclusive start position.

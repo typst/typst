@@ -1,17 +1,17 @@
-//! A table data structure.
+//! A key-value map that can also model array-like structures.
 
 use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Index;
 
-/// A table is a key-value map that can also model array-like structures.
+use crate::syntax::span::{Span, Spanned};
+
+/// A table data structure, which maps from integers (`u64`) or strings to a
+/// generic value type.
 ///
-/// An array-like table assigns value to successive indices from `0..n`. The
-/// table type offers special support for this pattern through the `push`
-/// method.
-///
-/// The keys of a table may be strings or integers (`u64`). The table is generic
-/// over the value type.
+/// The table can be used to model arrays by assigns values to successive
+/// indices from `0..n`. The table type offers special support for this pattern
+/// through the `push` method.
 #[derive(Clone)]
 pub struct Table<V> {
     nums: BTreeMap<u64, V>,
@@ -224,8 +224,8 @@ impl From<String> for OwnedKey {
     }
 }
 
-impl From<&str> for OwnedKey {
-    fn from(string: &str) -> Self {
+impl From<&'static str> for OwnedKey {
+    fn from(string: &'static str) -> Self {
         Self::Str(string.to_string())
     }
 }
@@ -252,6 +252,46 @@ impl<'a> From<&'a String> for BorrowedKey<'a> {
 impl<'a> From<&'a str> for BorrowedKey<'a> {
     fn from(string: &'a str) -> Self {
         Self::Str(string)
+    }
+}
+
+/// An table entry which tracks key and value span.
+#[derive(Clone, PartialEq)]
+pub struct SpannedEntry<V> {
+    pub key: Span,
+    pub val: Spanned<V>,
+}
+
+impl<V> SpannedEntry<V> {
+    /// Create a new entry.
+    pub fn new(key: Span, val: Spanned<V>) -> Self {
+        Self { key, val }
+    }
+
+    /// Create an entry with the same span for key and value.
+    pub fn val(val: Spanned<V>) -> Self {
+        Self { key: Span::ZERO, val }
+    }
+
+    /// Convert from `&SpannedEntry<T>` to `SpannedEntry<&T>`
+    pub fn as_ref(&self) -> SpannedEntry<&V> {
+        SpannedEntry { key: self.key, val: self.val.as_ref() }
+    }
+
+    /// Map the entry to a different value type.
+    pub fn map<U>(self, f: impl FnOnce(V) -> U) -> SpannedEntry<U> {
+        SpannedEntry { key: self.key, val: self.val.map(f) }
+    }
+}
+
+impl<V: Debug> Debug for SpannedEntry<V> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if f.alternate() {
+            f.write_str("key")?;
+            self.key.fmt(f)?;
+            f.write_str(" ")?;
+        }
+        self.val.fmt(f)
     }
 }
 

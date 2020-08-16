@@ -1,21 +1,15 @@
-//! Tools for building custom functions.
+//! A prelude for building custom functions.
 
-/// Useful things for creating functions.
-pub mod prelude {
-    pub use async_trait::async_trait;
-    pub use crate::layout::prelude::*;
-    pub use crate::layout::Commands;
-    pub use crate::layout::Command::{self, *};
-    pub use crate::style::*;
-    pub use crate::syntax::expr::*;
-    pub use crate::syntax::parsing::{parse, FuncCall, ParseState};
-    pub use crate::syntax::span::{Pos, Span, SpanVec, Spanned};
-    pub use crate::syntax::tree::{DynamicNode, SyntaxNode, SyntaxTree};
-    pub use crate::{Pass, Feedback};
-    pub use super::*;
-}
-
-use prelude::*;
+pub use crate::compute::value::*;
+pub use crate::layout::prelude::*;
+pub use crate::layout::Commands;
+pub use crate::layout::Command::{self, *};
+pub use crate::style::*;
+pub use crate::syntax::parsing::parse;
+pub use crate::syntax::span::{Pos, Span, SpanVec, Spanned};
+pub use crate::syntax::tree::*;
+pub use crate::{Pass, Feedback};
+pub use super::*;
 
 /// Extra methods on `Option`s used for function argument parsing.
 pub trait OptionExt<T>: Sized {

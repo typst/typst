@@ -24,9 +24,9 @@
 mod macros;
 #[macro_use]
 pub mod diagnostic;
-#[macro_use]
-pub mod func;
 
+pub mod color;
+pub mod compute;
 pub mod export;
 pub mod font;
 pub mod geom;
@@ -34,22 +34,24 @@ pub mod layout;
 pub mod length;
 pub mod library;
 pub mod paper;
+pub mod prelude;
 pub mod style;
 pub mod syntax;
-pub mod table;
 
 use std::fmt::Debug;
 use std::future::Future;
 use std::pin::Pin;
 
+use crate::compute::scope::Scope;
+use crate::compute::value::Value;
 use crate::diagnostic::Diagnostics;
 use crate::font::SharedFontLoader;
-use crate::layout::MultiLayout;
+use crate::layout::{Commands, MultiLayout};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::syntax::decoration::Decorations;
-use crate::syntax::parsing::{parse, ParseState};
+use crate::syntax::parsing::parse;
 use crate::syntax::span::{Offset, Pos};
-use crate::syntax::tree::{DynamicNode, SyntaxNode, SyntaxTree};
+use crate::syntax::tree::SyntaxTree;
 
 /// Transforms source code into typesetted layouts.
 ///
@@ -57,10 +59,10 @@ use crate::syntax::tree::{DynamicNode, SyntaxNode, SyntaxTree};
 pub struct Typesetter {
     /// The font loader shared by all typesetting processes.
     loader: SharedFontLoader,
+    /// A scope that contains the standard library function definitions.
+    std: Scope,
     /// The base layouting style.
     style: LayoutStyle,
-    /// The base parser state.
-    parse_state: ParseState,
 }
 
 impl Typesetter {
@@ -68,8 +70,8 @@ impl Typesetter {
     pub fn new(loader: SharedFontLoader) -> Self {
         Self {
             loader,
+            std: crate::library::_std(),
             style: LayoutStyle::default(),
-            parse_state: ParseState { scope: crate::library::_std() },
         }
     }
 
@@ -85,7 +87,7 @@ impl Typesetter {
 
     /// Parse source code into a syntax tree.
     pub fn parse(&self, src: &str) -> Pass<SyntaxTree> {
-        parse(src, Pos::ZERO, &self.parse_state)
+        parse(src, Pos::ZERO)
     }
 
     /// Layout a syntax tree and return the produced layout.
@@ -97,6 +99,7 @@ impl Typesetter {
             &tree,
             LayoutContext {
                 loader: &self.loader,
+                scope: &self.std,
                 style: &self.style,
                 base: self.style.page.size.unpadded(margins),
                 spaces: vec![LayoutSpace {
@@ -155,10 +158,10 @@ impl<T> Pass<T> {
     }
 }
 
-impl Pass<SyntaxNode> {
-    /// Create a new pass from an unboxed dynamic node and feedback data..
-    pub fn node<T: DynamicNode + 'static>(node: T, feedback: Feedback) -> Self {
-        Pass::new(SyntaxNode::boxed(node), feedback)
+impl Pass<Value> {
+    /// Create a new pass with a list of layouting commands.
+    pub fn commands(commands: Commands, feedback: Feedback) -> Self {
+        Pass::new(Value::Commands(commands), feedback)
     }
 }
 

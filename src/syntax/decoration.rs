@@ -9,18 +9,18 @@ use super::span::SpanVec;
 pub type Decorations = SpanVec<Decoration>;
 
 /// Decorations for semantic syntax highlighting.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize))]
 #[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
 pub enum Decoration {
-    /// A valid, successfully resolved function name.
-    ResolvedFunc,
-    /// An invalid, unresolved function name.
-    UnresolvedFunc,
-    /// The key part of a key-value entry in a table.
-    TableKey,
     /// Text in italics.
     Italic,
     /// Text in bold.
     Bold,
+    /// A valid, successfully resolved name.
+    Resolved,
+    /// An invalid, unresolved name.
+    Unresolved,
+    /// The key part of a key-value entry in a table.
+    TableKey,
 }

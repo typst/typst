@@ -11,7 +11,6 @@ members = ["main"]
 opt-level = 2
 
 [dependencies]
-async-trait = "0.1"
 fontdock = { path = "../fontdock" }
 tide = { path = "../tide" }
 ttf-parser = "0.8.2"

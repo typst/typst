@@ -1,9 +1,10 @@
 //! Layouting of syntax trees.
 
+use crate::compute::value::Value;
 use crate::style::LayoutStyle;
 use crate::syntax::decoration::Decoration;
-use crate::syntax::span::{Span, Spanned};
-use crate::syntax::tree::{DynamicNode, SyntaxNode, SyntaxTree};
+use crate::syntax::span::{Offset, Span, Spanned};
+use crate::syntax::tree::{CallExpr, SyntaxNode, SyntaxTree};
 use crate::{DynFuture, Feedback, Pass};
 use super::line::{LineContext, LineLayouter};
 use super::text::{layout_text, TextContext};
@@ -66,60 +67,28 @@ impl<'a> TreeLayouter<'a> {
                     self.style.text.word_spacing(),
                     SpacingKind::WORD,
                 );
-            },
-
+            }
             SyntaxNode::Linebreak => self.layouter.finish_line(),
 
             SyntaxNode::ToggleItalic => {
                 self.style.text.italic = !self.style.text.italic;
                 decorate(self, Decoration::Italic);
             }
-
             SyntaxNode::ToggleBolder => {
                 self.style.text.bolder = !self.style.text.bolder;
                 decorate(self, Decoration::Bold);
             }
 
             SyntaxNode::Text(text) => {
-                if self.style.text.italic {
-                    decorate(self, Decoration::Italic);
-                }
-
-                if self.style.text.bolder {
-                    decorate(self, Decoration::Bold);
-                }
-
+                if self.style.text.italic { decorate(self, Decoration::Italic); }
+                if self.style.text.bolder { decorate(self, Decoration::Bold); }
                 self.layout_text(text).await;
             }
 
-            SyntaxNode::Raw(lines) => {
-                // TODO: Make this more efficient.
-                let fallback = self.style.text.fallback.clone();
-                self.style.text.fallback
-                    .list_mut()
-                    .insert(0, "monospace".to_string());
-
-                self.style.text.fallback.flatten();
-
-                // Layout the first line.
-                let mut iter = lines.iter();
-                if let Some(line) = iter.next() {
-                    self.layout_text(line).await;
-                }
-
-                // Put a newline before each following line.
-                for line in iter {
-                    self.layouter.finish_line();
-                    self.layout_text(line).await;
-                }
-
-                self.style.text.fallback = fallback;
-            }
-
+            SyntaxNode::Raw(lines) => self.layout_raw(lines).await,
             SyntaxNode::Par(par) => self.layout_par(par).await,
-
-            SyntaxNode::Dyn(dynamic) => {
-                self.layout_dyn(Spanned::new(dynamic.as_ref(), node.span)).await;
+            SyntaxNode::Call(call) => {
+                self.layout_call(Spanned::new(call, node.span)).await;
             }
         }
     }
@@ -133,19 +102,35 @@ impl<'a> TreeLayouter<'a> {
         self.layout_tree(par).await;
     }
 
-    async fn layout_dyn(&mut self, dynamic: Spanned<&dyn DynamicNode>) {
-        // Execute the dynamic node's command-generating layout function.
-        let layouted = dynamic.v.layout(LayoutContext {
+    async fn layout_call(&mut self, call: Spanned<&CallExpr>) {
+        let name = call.v.name.v.as_str();
+        let span = call.v.name.span.offset(call.span.start);
+
+        let (func, deco) = if let Some(func) = self.ctx.scope.func(name) {
+            (func, Decoration::Resolved)
+        } else {
+            error!(@self.feedback, span, "unknown function");
+            (self.ctx.scope.fallback(), Decoration::Unresolved)
+        };
+
+        self.feedback.decorations.push(Spanned::new(deco, span));
+
+        let args = call.v.args.eval();
+        let pass = func(args, LayoutContext {
             style: &self.style,
             spaces: self.layouter.remaining(),
             root: true,
             ..self.ctx
         }).await;
 
-        self.feedback.extend_offset(layouted.feedback, dynamic.span.start);
+        self.feedback.extend_offset(pass.feedback, call.span.start);
 
-        for command in layouted.output {
-            self.execute_command(command, dynamic.span).await;
+        if let Value::Commands(commands) = pass.output {
+            for command in commands {
+                self.execute_command(command, call.span).await;
+            }
+        } else {
+            self.layout_raw(&[format!("{:?}", pass.output)]).await;
         }
     }
 
@@ -163,11 +148,35 @@ impl<'a> TreeLayouter<'a> {
         );
     }
 
-    async fn execute_command(&mut self, command: Command<'_>, span: Span) {
+    async fn layout_raw(&mut self, lines: &[String]) {
+        // TODO: Make this more efficient.
+        let fallback = self.style.text.fallback.clone();
+        self.style.text.fallback
+            .list_mut()
+            .insert(0, "monospace".to_string());
+
+        self.style.text.fallback.flatten();
+
+        // Layout the first line.
+        let mut iter = lines.iter();
+        if let Some(line) = iter.next() {
+            self.layout_text(line).await;
+        }
+
+        // Put a newline before each following line.
+        for line in iter {
+            self.layouter.finish_line();
+            self.layout_text(line).await;
+        }
+
+        self.style.text.fallback = fallback;
+    }
+
+    async fn execute_command(&mut self, command: Command, span: Span) {
         use Command::*;
 
         match command {
-            LayoutSyntaxTree(tree) => self.layout_tree(tree).await,
+            LayoutSyntaxTree(tree) => self.layout_tree(&tree).await,
 
             Add(layout) => self.layouter.add(layout),
             AddMultiple(layouts) => self.layouter.add_multiple(layouts),

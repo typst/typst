@@ -87,7 +87,10 @@ fn test(
 
     let typeset = block_on(typesetter.typeset(src));
     let layouts = typeset.output;
-    for diagnostic in typeset.feedback.diagnostics {
+    let mut feedback = typeset.feedback;
+
+    feedback.diagnostics.sort();
+    for diagnostic in feedback.diagnostics {
         println!(
             "  {:?} {:?}: {}",
             diagnostic.v.level, diagnostic.span, diagnostic.v.message,

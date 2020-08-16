@@ -3,31 +3,13 @@
 use std::str::FromStr;
 
 use crate::{Feedback, Pass};
+use crate::color::RgbaColor;
+use crate::compute::table::SpannedEntry;
 use super::decoration::Decoration;
-use super::expr::*;
-use super::scope::Scope;
 use super::span::{Pos, Span, Spanned};
 use super::tokens::{is_newline_char, Token, TokenMode, Tokens};
-use super::tree::{SyntaxNode, SyntaxTree};
-
-/// A function which parses a function call into a dynamic node.
-pub type CallParser = dyn Fn(FuncCall, &ParseState) -> Pass<SyntaxNode>;
-
-/// An invocation of a function.
-#[derive(Debug, Clone, PartialEq)]
-pub struct FuncCall {
-    pub name: Spanned<Ident>,
-    pub args: TableExpr,
-}
-
-/// The state which can influence how a string of source code is parsed.
-///
-/// Parsing is pure - when passed in the same state and source code, the output
-/// must be the same.
-pub struct ParseState {
-    /// The scope containing all function definitions.
-    pub scope: Scope,
-}
+use super::tree::{CallExpr, Expr, SyntaxNode, SyntaxTree, TableExpr};
+use super::Ident;
 
 /// Parse a string of source code.
 ///
@@ -35,7 +17,7 @@ pub struct ParseState {
 /// `offset` position. This is used to make spans of a function body relative to
 /// the start of the function as a whole as opposed to the start of the
 /// function's body.
-pub fn parse(src: &str, offset: Pos, state: &ParseState) -> Pass<SyntaxTree> {
+pub fn parse(src: &str, offset: Pos) -> Pass<SyntaxTree> {
     let mut tree = SyntaxTree::new();
     let mut par = SyntaxTree::new();
     let mut feedback = Feedback::new();
@@ -58,12 +40,12 @@ pub fn parse(src: &str, offset: Pos, state: &ParseState) -> Pass<SyntaxTree> {
             }
 
             Token::Function { header, body, terminated } => {
-                let parsed = FuncParser::new(header, body, state).parse();
+                let parsed = FuncParser::new(header, body).parse();
                 feedback.extend_offset(parsed.feedback, span.start);
                 if !terminated {
                     error!(@feedback, Span::at(span.end), "expected closing bracket");
                 }
-                parsed.output
+                SyntaxNode::Call(parsed.output)
             }
 
             Token::Star => SyntaxNode::ToggleBolder,
@@ -97,8 +79,6 @@ pub fn parse(src: &str, offset: Pos, state: &ParseState) -> Pass<SyntaxTree> {
 }
 
 struct FuncParser<'s> {
-    state: &'s ParseState,
-    /// The tokens inside the header.
     tokens: Tokens<'s>,
     peeked: Option<Option<Spanned<Token<'s>>>>,
     body: Option<Spanned<&'s str>>,
@@ -106,13 +86,8 @@ struct FuncParser<'s> {
 }
 
 impl<'s> FuncParser<'s> {
-    fn new(
-        header: &'s str,
-        body: Option<Spanned<&'s str>>,
-        state: &'s ParseState,
-    ) -> Self {
+    fn new(header: &'s str, body: Option<Spanned<&'s str>>) -> Self {
         Self {
-            state,
             // Start at column 1 because the opening bracket is also part of
             // the function, but not part of the `header` string.
             tokens: Tokens::new(header, Pos::new(0, 1), TokenMode::Header),
@@ -122,65 +97,17 @@ impl<'s> FuncParser<'s> {
         }
     }
 
-    fn parse(mut self) -> Pass<SyntaxNode> {
-        let (parser, mut call) = if let Some(call) = self.parse_func_header() {
-            let name = call.name.v.as_str();
-            let (parser, deco) = match self.state.scope.get_parser(name) {
-                // The function exists in the scope.
-                Some(parser) => (parser, Decoration::ResolvedFunc),
-
-                // The function does not exist in the scope. The parser that is
-                // returned here is a fallback parser which exists to make sure
-                // the content of the function is not totally dropped (on a best
-                // effort basis).
-                None => {
-                    error!(@self.feedback, call.name.span, "unknown function");
-                    let parser = self.state.scope.get_fallback_parser();
-                    (parser, Decoration::UnresolvedFunc)
-                }
-            };
-
-            self.feedback.decorations.push(Spanned::new(deco, call.name.span));
-            (parser, call)
-        } else {
-            // Parse the call with the fallback parser even when the header is
-            // completely unparsable.
-            let parser = self.state.scope.get_fallback_parser();
-            let call = FuncCall {
-                name: Spanned::new(Ident(String::new()), Span::ZERO),
-                args: TableExpr::new(),
-            };
-            (parser, call)
-        };
-
-        if let Some(body) = self.body {
-            call.args.push(TableExprEntry {
-                key: Span::ZERO,
-                val: body.map(|src| {
-                    let parsed = parse(src, body.span.start, &self.state);
-                    self.feedback.extend(parsed.feedback);
-                    Expr::Tree(parsed.output)
-                }),
-            });
-        }
-
-        let parsed = parser(call, self.state);
-        self.feedback.extend(parsed.feedback);
-
-        Pass::new(parsed.output, self.feedback)
-    }
-
-    fn parse_func_header(&mut self) -> Option<FuncCall> {
+    fn parse(mut self) -> Pass<CallExpr> {
         let after_bracket = self.pos();
 
         self.skip_white();
-        let name = try_opt_or!(self.parse_ident(), {
+        let name = self.parse_ident().unwrap_or_else(|| {
             self.expected_found_or_at("function name", after_bracket);
-            return None;
+            Spanned::zero(Ident(String::new()))
         });
 
         self.skip_white();
-        let args = match self.eat().map(Spanned::value) {
+        let mut args = match self.eat().map(Spanned::value) {
             Some(Token::Colon) => self.parse_table(false).0.v,
             Some(_) => {
                 self.expected_at("colon", name.span.end);
@@ -189,7 +116,15 @@ impl<'s> FuncParser<'s> {
             None => TableExpr::new(),
         };
 
-        Some(FuncCall { name, args })
+        if let Some(body) = self.body {
+            args.push(SpannedEntry::val(body.map(|src| {
+                let parsed = parse(src, body.span.start);
+                self.feedback.extend(parsed.feedback);
+                Expr::Tree(parsed.output)
+            })));
+        }
+
+        Pass::new(CallExpr { name, args }, self.feedback)
     }
 }
 
@@ -325,14 +260,20 @@ impl FuncParser<'_> {
         }
     }
 
-    fn parse_func_call(&mut self, name: Spanned<Ident>) -> Spanned<FuncCall> {
+    fn parse_func_call(&mut self, name: Spanned<Ident>) -> Spanned<CallExpr> {
         let args = self.parse_table(true).0;
         let span = Span::merge(name.span, args.span);
-        Spanned::new(FuncCall { name, args: args.v }, span)
+        Spanned::new(CallExpr { name, args: args.v }, span)
     }
 
-    /// The boolean tells you whether the table can be coerced into an expression
-    /// (this is the case when it's length 1 and has no trailing comma).
+    /// Set `parens` to true, when this should expect an opening paren and stop
+    /// at the balanced closing paren (this is the case for normal tables and
+    /// round-paren function calls). Set it to false, when this is used to parse
+    /// the top-level function arguments.
+    ///
+    /// The returned boolean tells you whether the table can be coerced into an
+    /// expression (this is the case when it's length 1 and has no trailing
+    /// comma).
     fn parse_table(&mut self, parens: bool) -> (Spanned<TableExpr>, bool) {
         let start = self.pos();
         if parens {
@@ -369,19 +310,19 @@ impl FuncParser<'_> {
 
                     coercable = false;
                     behind_arg = val.span.end;
-                    table.insert(key.v.0, TableExprEntry::new(key.span, val));
+                    table.insert(key.v.0, SpannedEntry::new(key.span, val));
 
                 } else if self.check(Token::LeftParen) {
                     let call = self.parse_func_call(ident);
                     let expr = call.map(|call| Expr::Call(call));
 
                     behind_arg = expr.span.end;
-                    table.push(TableExprEntry::val(expr));
+                    table.push(SpannedEntry::val(expr));
                 } else {
                     let expr = ident.map(|id| Expr::Ident(id));
 
                     behind_arg = expr.span.end;
-                    table.push(TableExprEntry::val(expr));
+                    table.push(SpannedEntry::val(expr));
                 }
             } else {
                 // It's a positional argument.
@@ -390,7 +331,7 @@ impl FuncParser<'_> {
                     continue;
                 });
                 behind_arg = expr.span.end;
-                table.push(TableExprEntry::val(expr));
+                table.push(SpannedEntry::val(expr));
             }
 
             self.skip_white();
@@ -593,7 +534,7 @@ mod tests {
     }
 
     macro_rules! F {
-        ($($tts:tt)*) => { SyntaxNode::boxed(DebugNode(Call!(@$($tts)*))) }
+        ($($tts:tt)*) => { SyntaxNode::Call(Call!(@$($tts)*)) }
     }
 
     // ------------------------ Construct Expressions ----------------------- //
@@ -603,24 +544,17 @@ mod tests {
     fn Id(ident: &str) -> Expr { Expr::Ident(Ident(ident.to_string())) }
     fn Str(string: &str) -> Expr { Expr::Str(string.to_string()) }
 
-    macro_rules! Tree {
-        (@$($node:expr),* $(,)?) => {
-            vec![$(Into::<Spanned<SyntaxNode>>::into($node)),*]
-        };
-        ($($tts:tt)*) => { Expr::Tree(Tree![@$($tts)*]) };
-    }
-
     macro_rules! Table {
         (@table=$table:expr,) => {};
         (@table=$table:expr, $key:expr => $value:expr $(, $($tts:tt)*)?) => {{
             let key = Into::<Spanned<&str>>::into($key);
             let val = Into::<Spanned<Expr>>::into($value);
-            $table.insert(key.v, TableExprEntry::new(key.span, val));
+            $table.insert(key.v, SpannedEntry::new(key.span, val));
             Table![@table=$table, $($($tts)*)?];
         }};
         (@table=$table:expr, $value:expr $(, $($tts:tt)*)?) => {
             let val = Into::<Spanned<Expr>>::into($value);
-            $table.push(TableExprEntry::val(val));
+            $table.push(SpannedEntry::val(val));
             Table![@table=$table, $($($tts)*)?];
         };
         (@$($tts:tt)*) => {{
@@ -630,6 +564,24 @@ mod tests {
             table
         }};
         ($($tts:tt)*) => { Expr::Table(Table![@$($tts)*]) };
+    }
+
+    macro_rules! Tree {
+        (@$($node:expr),* $(,)?) => {
+            vec![$(Into::<Spanned<SyntaxNode>>::into($node)),*]
+        };
+        ($($tts:tt)*) => { Expr::Tree(Tree![@$($tts)*]) };
+    }
+
+    macro_rules! Call {
+        (@$name:expr $(; $($tts:tt)*)?) => {{
+            let name = Into::<Spanned<&str>>::into($name);
+            CallExpr {
+                name: name.map(|n| Ident(n.to_string())),
+                args: Table![@$($($tts)*)?],
+            }
+        }};
+        ($($tts:tt)*) => { Expr::Call(Call![@$($tts)*]) };
     }
 
     fn Neg<T: Into<Spanned<Expr>>>(e1: T) -> Expr {
@@ -648,17 +600,6 @@ mod tests {
         Expr::Div(Box::new(e1.into()), Box::new(e2.into()))
     }
 
-    macro_rules! Call {
-        (@$name:expr $(; $($tts:tt)*)?) => {{
-            let name = Into::<Spanned<&str>>::into($name);
-            FuncCall {
-                name: name.map(|n| Ident(n.to_string())),
-                args: Table![@$($($tts)*)?],
-            }
-        }};
-        ($($tts:tt)*) => { Expr::Call(Call![@$($tts)*]) };
-    }
-
     // ----------------------------- Test Macros ---------------------------- //
 
     // Test syntax trees with or without spans.
@@ -667,7 +608,7 @@ mod tests {
     macro_rules! test {
         (@spans=$spans:expr, $src:expr => $($tts:tt)*) => {
             let exp = Tree![@$($tts)*];
-            let pass = parse_default($src);
+            let pass = parse($src, Pos::ZERO);
             check($src, exp, pass.output, $spans);
         };
     }
@@ -683,7 +624,7 @@ mod tests {
     macro_rules! e {
         ($src:expr => $($tts:tt)*) => {
             let exp = vec![$($tts)*];
-            let pass = parse_default($src);
+            let pass = parse($src, Pos::ZERO);
             let found = pass.feedback.diagnostics.iter()
                 .map(|s| s.as_ref().map(|e| e.message.as_str()))
                 .collect::<Vec<_>>();
@@ -695,18 +636,9 @@ mod tests {
     macro_rules! d {
         ($src:expr => $($tts:tt)*) => {
             let exp = vec![$($tts)*];
-            let pass = parse_default($src);
+            let pass = parse($src, Pos::ZERO);
             check($src, exp, pass.feedback.decorations, true);
         };
-    }
-
-    fn parse_default(src: &str) -> Pass<SyntaxTree> {
-        let mut scope = Scope::new(Box::new(debug_func));
-        scope.insert("box", Box::new(debug_func));
-        scope.insert("val", Box::new(debug_func));
-        scope.insert("f", Box::new(debug_func));
-        let state = ParseState { scope };
-        parse(src, Pos::ZERO, &state)
     }
 
     // -------------------------------- Tests ------------------------------- //
@@ -797,15 +729,9 @@ mod tests {
         e!("[\"]" => s(0,1, 0,3, "expected function name, found string"),
                      s(0,3, 0,3, "expected closing bracket"));
 
-        // An unknown name.
-        t!("[hi]" => P![F!("hi")]);
-        e!("[hi]" => s(0,1, 0,3, "unknown function"));
-        d!("[hi]" => s(0,1, 0,3, UnresolvedFunc));
-
         // A valid name.
-        t!("[f]"   => P![F!("f")]);
+        t!("[hi]"  => P![F!("hi")]);
         t!("[  f]" => P![F!("f")]);
-        d!("[  f]" => s(0,3, 0,4, ResolvedFunc));
 
         // An invalid name.
         e!("[12]"   => s(0,1, 0,3, "expected function name, found number"));
@@ -821,7 +747,6 @@ mod tests {
         t!("[val=]"     => P![F!("val")]);
         e!("[val=]"     => s(0,4, 0,4, "expected colon"));
         e!("[val/🌎:$]" => s(0,4, 0,4, "expected colon"));
-        d!("[val=]"     => s(0,1, 0,4, ResolvedFunc));
 
         // String in invalid header without colon still parsed as string
         // Note: No "expected quote" error because not even the string was
@@ -939,9 +864,9 @@ mod tests {
         v!("(1, key=\"value\")" => Table![Num(1.0), "key" => Str("value")]);
 
         // Decorations.
-        d!("[val: key=hi]"    => s(0,6, 0,9, TableKey), s(0,1, 0,4, ResolvedFunc));
-        d!("[val: (key=hi)]"  => s(0,7, 0,10, TableKey), s(0,1, 0,4, ResolvedFunc));
-        d!("[val: f(key=hi)]" => s(0,8, 0,11, TableKey), s(0,1, 0,4, ResolvedFunc));
+        d!("[val: key=hi]"    => s(0,6, 0,9, TableKey));
+        d!("[val: (key=hi)]"  => s(0,7, 0,10, TableKey));
+        d!("[val: f(key=hi)]" => s(0,8, 0,11, TableKey));
 
         // Spanned with spacing around keyword arguments.
         ts!("[val: \n hi \n = /* //\n */ \"s\n\"]" => s(0,0, 4,2, P![
