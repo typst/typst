@@ -14,12 +14,12 @@ pub fn align(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let mut f = Feedback::new();
     let mut args = call.args;
     let node = AlignNode {
-        content: args.pos.get::<SyntaxTree>(),
-        aligns: args.pos.all::<Spanned<SpecAlign>>().collect(),
-        h: args.key.get::<Spanned<SpecAlign>>("horizontal", &mut f),
-        v: args.key.get::<Spanned<SpecAlign>>("vertical", &mut f),
+        content: args.take::<SyntaxTree>(),
+        aligns: args.take_all_num_vals::<Spanned<SpecAlign>>().collect(),
+        h: args.take_with_key::<_, Spanned<SpecAlign>>("horizontal", &mut f),
+        v: args.take_with_key::<_, Spanned<SpecAlign>>("vertical", &mut f),
     };
-    drain_args(args, &mut f);
+    args.unexpected(&mut f);
     Pass::node(node, f)
 }
 

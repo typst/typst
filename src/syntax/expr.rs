@@ -1,7 +1,6 @@
 //! Expressions in function headers.
 
 use std::fmt::{self, Debug, Formatter};
-use std::ops::Deref;
 use std::str::FromStr;
 use std::u8;
 
@@ -12,7 +11,8 @@ use crate::length::{Length, ScaleLength};
 use crate::paper::Paper;
 use crate::table::{BorrowedKey, Table};
 use crate::Feedback;
-use super::span::{Span, SpanVec, Spanned};
+use super::parsing::FuncCall;
+use super::span::{Span, Spanned};
 use super::tokens::is_identifier;
 use super::tree::SyntaxTree;
 
@@ -33,12 +33,8 @@ pub enum Expr {
     Color(RgbaColor),
     /// A syntax tree containing typesetting content.
     Tree(SyntaxTree),
-    /// A tuple: `(false, 12cm, "hi")`.
-    Tuple(Tuple),
-    /// A named tuple: `cmyk(37.7, 0, 3.9, 1.1)`.
-    NamedTuple(NamedTuple),
-    /// An object: `{ fit=false, width=12pt }`.
-    Object(Object),
+    /// A table: `(false, 12cm, greeting="hi")`.
+    Table(TableExpr),
     /// An operation that negates the contained expression.
     Neg(Box<Spanned<Expr>>),
     /// An operation that adds the contained expressions.
@@ -49,6 +45,8 @@ pub enum Expr {
     Mul(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
     /// An operation that divides the contained expressions.
     Div(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+    /// A function call: `cmyk(37.7, 0, 3.9, 1.1)`.
+    Call(FuncCall),
 }
 
 impl Expr {
@@ -57,21 +55,20 @@ impl Expr {
     pub fn name(&self) -> &'static str {
         use Expr::*;
         match self {
-            Ident(_)      => "identifier",
-            Str(_)        => "string",
-            Bool(_)       => "bool",
-            Number(_)     => "number",
-            Length(_)     => "length",
-            Color(_)      => "color",
-            Tree(_)       => "syntax tree",
-            Tuple(_)      => "tuple",
-            NamedTuple(_) => "named tuple",
-            Object(_)     => "object",
-            Neg(_)        => "negation",
-            Add(_, _)     => "addition",
-            Sub(_, _)     => "subtraction",
-            Mul(_, _)     => "multiplication",
-            Div(_, _)     => "division",
+            Ident(_) => "identifier",
+            Str(_) => "string",
+            Bool(_) => "bool",
+            Number(_) => "number",
+            Length(_) => "length",
+            Color(_) => "color",
+            Tree(_) => "syntax tree",
+            Table(_) => "table",
+            Neg(_) => "negation",
+            Add(_, _) => "addition",
+            Sub(_, _) => "subtraction",
+            Mul(_, _) => "multiplication",
+            Div(_, _) => "division",
+            Call(_) => "function call",
         }
     }
 }
@@ -87,14 +84,13 @@ impl Debug for Expr {
             Length(s) => s.fmt(f),
             Color(c) => c.fmt(f),
             Tree(t) => t.fmt(f),
-            Tuple(t) => t.fmt(f),
-            NamedTuple(t) => t.fmt(f),
-            Object(o) => o.fmt(f),
+            Table(t) => t.fmt(f),
             Neg(e) => write!(f, "-{:?}", e),
             Add(a, b) => write!(f, "({:?} + {:?})", a, b),
             Sub(a, b) => write!(f, "({:?} - {:?})", a, b),
             Mul(a, b) => write!(f, "({:?} * {:?})", a, b),
             Div(a, b) => write!(f, "({:?} / {:?})", a, b),
+            Call(c) => c.fmt(f),
         }
     }
 }
@@ -231,174 +227,6 @@ impl fmt::Display for ParseColorError {
     }
 }
 
-/// An untyped sequence of expressions.
-///
-/// # Example
-/// ```typst
-/// (false, 12cm, "hi")
-/// ```
-#[derive(Default, Clone, PartialEq)]
-pub struct Tuple(pub SpanVec<Expr>);
-
-impl Tuple {
-    /// Create an empty tuple.
-    pub fn new() -> Self {
-        Self(vec![])
-    }
-
-    /// Add an element.
-    pub fn push(&mut self, item: Spanned<Expr>) {
-        self.0.push(item);
-    }
-
-    /// Expect a specific value type and generate errors for every argument
-    /// until an argument of the value type is found.
-    pub fn expect<T: TryFromExpr>(&mut self, f: &mut Feedback) -> Option<T> {
-        while !self.0.is_empty() {
-            let item = self.0.remove(0);
-            if let Some(val) = T::try_from_expr(item.as_ref(), f) {
-                return Some(val);
-            }
-        }
-        None
-    }
-
-    /// Extract the first argument of the value type if there is any.
-    pub fn get<T: TryFromExpr>(&mut self) -> Option<T> {
-        for (i, item) in self.0.iter().enumerate() {
-            let expr = item.as_ref();
-            if let Some(val) = T::try_from_expr(expr, &mut Feedback::new()) {
-                self.0.remove(i);
-                return Some(val);
-            }
-        }
-        None
-    }
-
-    /// Extract all arguments of the value type.
-    pub fn all<'a, T: TryFromExpr>(&'a mut self) -> impl Iterator<Item = T> + 'a {
-        let mut i = 0;
-        std::iter::from_fn(move || {
-            while i < self.0.len() {
-                let expr = self.0[i].as_ref();
-                let val = T::try_from_expr(expr, &mut Feedback::new());
-                if val.is_some() {
-                    self.0.remove(i);
-                    return val;
-                } else {
-                    i += 1;
-                }
-            }
-            None
-        })
-    }
-}
-
-impl Debug for Tuple {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_list().entries(&self.0).finish()
-    }
-}
-
-/// A named, untyped sequence of expressions.
-///
-/// # Example
-/// ```typst
-/// hsl(93, 10, 19.4)
-/// ```
-#[derive(Debug, Clone, PartialEq)]
-pub struct NamedTuple {
-    /// The name of the tuple.
-    pub name: Spanned<Ident>,
-    /// The elements of the tuple.
-    pub tuple: Spanned<Tuple>,
-}
-
-impl NamedTuple {
-    /// Create a named tuple from a name and a tuple.
-    pub fn new(name: Spanned<Ident>, tuple: Spanned<Tuple>) -> Self {
-        Self { name, tuple }
-    }
-}
-
-impl Deref for NamedTuple {
-    type Target = Tuple;
-
-    fn deref(&self) -> &Self::Target {
-        &self.tuple.v
-    }
-}
-
-/// A key-value collection of identifiers and associated expressions.
-///
-/// # Example
-/// ```typst
-/// { fit = false, width = 12cm, items = (1, 2, 3) }
-/// ```
-#[derive(Default, Clone, PartialEq)]
-pub struct Object(pub SpanVec<Pair>);
-
-/// A key-value pair in an object.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Pair {
-    pub key: Spanned<Ident>,
-    pub value: Spanned<Expr>,
-}
-
-impl Object {
-    /// Create an empty object.
-    pub fn new() -> Self {
-        Self(vec![])
-    }
-
-    /// Add a pair to object.
-    pub fn push(&mut self, pair: Spanned<Pair>) {
-        self.0.push(pair);
-    }
-
-    /// Extract an argument with the given key if there is any.
-    ///
-    /// Generates an error if there is a matching key, but the value is of the
-    /// wrong type.
-    pub fn get<T: TryFromExpr>(&mut self, key: &str, f: &mut Feedback) -> Option<T> {
-        for (i, pair) in self.0.iter().enumerate() {
-            if pair.v.key.v.as_str() == key {
-                let pair = self.0.remove(i);
-                return T::try_from_expr(pair.v.value.as_ref(), f);
-            }
-        }
-        None
-    }
-
-    /// Extract all key-value pairs where the value is of the given type.
-    pub fn all<'a, T: TryFromExpr>(&'a mut self)
-        -> impl Iterator<Item = (Spanned<Ident>, T)> + 'a
-    {
-        let mut i = 0;
-        std::iter::from_fn(move || {
-            while i < self.0.len() {
-                let expr = self.0[i].v.value.as_ref();
-                let val = T::try_from_expr(expr, &mut Feedback::new());
-                if let Some(val) = val {
-                    let pair = self.0.remove(i);
-                    return Some((pair.v.key, val));
-                } else {
-                    i += 1;
-                }
-            }
-            None
-        })
-    }
-}
-
-impl Debug for Object {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_map()
-            .entries(self.0.iter().map(|p| (&p.v.key.v, &p.v.value.v)))
-            .finish()
-    }
-}
-
 /// A table expression.
 ///
 /// # Example
@@ -406,14 +234,6 @@ impl Debug for Object {
 /// (false, 12cm, greeting="hi")
 /// ```
 pub type TableExpr = Table<TableExprEntry>;
-
-/// An entry in a table expression.
-///
-/// Contains the key's span and the value.
-pub struct TableExprEntry {
-    pub key: Span,
-    pub val: Spanned<Expr>,
-}
 
 impl TableExpr {
     /// Retrieve and remove the matching value with the lowest number key,
@@ -446,10 +266,10 @@ impl TableExpr {
     /// there is any.
     ///
     /// Generates an error if the key exists but the value does not match.
-    pub fn take_with_key<'a, T, K>(&mut self, key: K, f: &mut Feedback) -> Option<T>
+    pub fn take_with_key<'a, K, T>(&mut self, key: K, f: &mut Feedback) -> Option<T>
     where
-        T: TryFromExpr,
         K: Into<BorrowedKey<'a>>,
+        T: TryFromExpr,
     {
         self.remove(key).and_then(|entry| {
             let expr = entry.val.as_ref();
@@ -478,6 +298,18 @@ impl TableExpr {
 
             None
         })
+    }
+
+
+    /// Retrieve and remove all matching values with number keys, skipping and
+    /// ignoring non-matching entries.
+    ///
+    /// The values are returned in order of increasing keys.
+    pub fn take_all_num_vals<'a, T: 'a>(&'a mut self) -> impl Iterator<Item = T> + 'a
+    where
+        T: TryFromExpr,
+    {
+        self.take_all_num::<T>().map(|(_, v)| v)
     }
 
     /// Retrieve and remove all matching pairs with string keys, skipping and
@@ -510,6 +342,39 @@ impl TableExpr {
             let span = Span::merge(entry.key, entry.val.span);
             error!(@f, span, "unexpected argument");
         }
+    }
+}
+
+/// An entry in a table expression.
+///
+/// Contains the key's span and the value.
+#[derive(Clone, PartialEq)]
+pub struct TableExprEntry {
+    pub key: Span,
+    pub val: Spanned<Expr>,
+}
+
+impl TableExprEntry {
+    /// Create a new entry.
+    pub fn new(key: Span, val: Spanned<Expr>) -> Self {
+        Self { key, val }
+    }
+
+    /// Create an entry for a positional argument with the same span for key and
+    /// value.
+    pub fn val(val: Spanned<Expr>) -> Self {
+        Self { key: Span::ZERO, val }
+    }
+}
+
+impl Debug for TableExprEntry {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if f.alternate() {
+            f.write_str("key")?;
+            self.key.fmt(f)?;
+            f.write_str(" ")?;
+        }
+        self.val.fmt(f)
     }
 }
 
@@ -583,8 +448,7 @@ impl_match!(bool, "bool", Expr::Bool(b) => b.clone());
 impl_match!(f64, "number", Expr::Number(n) => n.clone());
 impl_match!(Length, "length", Expr::Length(l) => l.clone());
 impl_match!(SyntaxTree, "tree", Expr::Tree(t) => t.clone());
-impl_match!(Tuple, "tuple", Expr::Tuple(t) => t.clone());
-impl_match!(Object, "object", Expr::Object(o) => o.clone());
+impl_match!(TableExpr, "table", Expr::Table(t) => t.clone());
 impl_match!(ScaleLength, "number or length",
     &Expr::Length(length) => ScaleLength::Absolute(length),
     &Expr::Number(scale) => ScaleLength::Scaled(scale),
@@ -701,6 +565,22 @@ impl TryFromExpr for FontWidth {
 mod tests {
     use super::*;
 
+    #[test]
+    fn parse_color_strings() {
+        fn test(hex: &str, r: u8, g: u8, b: u8, a: u8) {
+            assert_eq!(
+                RgbaColor::from_str(hex),
+                Ok(RgbaColor::new(r, g, b, a)),
+            );
+        }
+
+        test("f61243ff", 0xf6, 0x12, 0x43, 0xff);
+        test("b3d8b3", 0xb3, 0xd8, 0xb3, 0xff);
+        test("fCd2a9AD", 0xfc, 0xd2, 0xa9, 0xad);
+        test("233", 0x22, 0x33, 0x33, 0xff);
+        test("111b", 0x11, 0x11, 0x11, 0xbb);
+    }
+
     fn entry(expr: Expr) -> TableExprEntry {
         TableExprEntry {
             key: Span::ZERO,
@@ -737,8 +617,8 @@ mod tests {
         let mut table = TableExpr::new();
         table.insert(1, entry(Expr::Bool(false)));
         table.insert("hi", entry(Expr::Bool(true)));
-        assert_eq!(table.take_with_key::<bool, _>(1, &mut f), Some(false));
-        assert_eq!(table.take_with_key::<f64, _>("hi", &mut f), None);
+        assert_eq!(table.take_with_key::<_, bool>(1, &mut f), Some(false));
+        assert_eq!(table.take_with_key::<_, f64>("hi", &mut f), None);
         assert_eq!(f.diagnostics, [error!(Span::ZERO, "expected number, found bool")]);
         assert!(table.is_empty());
     }

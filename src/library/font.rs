@@ -13,7 +13,7 @@ use super::*;
 /// - `style`: `normal`, `italic` or `oblique`.
 /// - `weight`: `100` - `900` or a name like `thin`.
 /// - `width`: `1` - `9` or a name like `condensed`.
-/// - Any other keyword argument whose value is a tuple of strings is a class
+/// - Any other keyword argument whose value is a table of strings is a class
 ///   fallback definition like:
 ///   ```typst
 ///   serif = ("Source Serif Pro", "Noto Serif")
@@ -23,31 +23,25 @@ pub fn font(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let mut args = call.args;
 
     let node = FontNode {
-        content: args.pos.get::<SyntaxTree>(),
-        size: args.pos.get::<ScaleLength>(),
-        style: args.key.get::<FontStyle>("style", &mut f),
-        weight: args.key.get::<FontWeight>("weight", &mut f),
-        width: args.key.get::<FontWidth>("width", &mut f),
-        list: {
-            args.pos.all::<StringLike>()
-                .map(|s| s.0.to_lowercase())
-                .collect()
-        },
-        classes: {
-            args.key.all::<Tuple>()
-                .collect::<Vec<_>>()
-                .into_iter()
-                .map(|(class, mut tuple)| {
-                    let fallback = tuple.all::<StringLike>()
-                        .map(|s| s.0.to_lowercase())
-                        .collect();
-                    (class.v.0, fallback)
-                })
-                .collect()
-        },
+        content: args.take::<SyntaxTree>(),
+        size: args.take::<ScaleLength>(),
+        style: args.take_with_key::<_, FontStyle>("style", &mut f),
+        weight: args.take_with_key::<_, FontWeight>("weight", &mut f),
+        width: args.take_with_key::<_, FontWidth>("width", &mut f),
+        list: args.take_all_num_vals::<StringLike>()
+            .map(|s| s.0.to_lowercase())
+            .collect(),
+        classes: args.take_all_str::<TableExpr>()
+            .map(|(class, mut table)| {
+                let fallback = table.take_all_num_vals::<StringLike>()
+                    .map(|s| s.0.to_lowercase())
+                    .collect();
+                (class, fallback)
+            })
+            .collect()
     };
 
-    drain_args(args, &mut f);
+    args.unexpected(&mut f);
     Pass::node(node, f)
 }
 

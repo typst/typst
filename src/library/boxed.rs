@@ -10,11 +10,11 @@ pub fn boxed(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let mut f = Feedback::new();
     let mut args = call.args;
     let node = BoxNode {
-        content: args.pos.get::<SyntaxTree>().unwrap_or(SyntaxTree::new()),
-        width: args.key.get::<ScaleLength>("width", &mut f),
-        height: args.key.get::<ScaleLength>("height", &mut f),
+        content: args.take::<SyntaxTree>().unwrap_or(SyntaxTree::new()),
+        width: args.take_with_key::<_, ScaleLength>("width", &mut f),
+        height: args.take_with_key::<_, ScaleLength>("height", &mut f),
     };
-    drain_args(args, &mut f);
+    args.unexpected(&mut f);
     Pass::node(node, f)
 }
 

@@ -8,8 +8,8 @@ pub mod prelude {
     pub use crate::layout::Command::{self, *};
     pub use crate::style::*;
     pub use crate::syntax::expr::*;
-    pub use crate::syntax::parsing::{parse, FuncArgs, FuncCall, ParseState};
-    pub use crate::syntax::span::{Span, SpanVec, Spanned};
+    pub use crate::syntax::parsing::{parse, FuncCall, ParseState};
+    pub use crate::syntax::span::{Pos, Span, SpanVec, Spanned};
     pub use crate::syntax::tree::{DynamicNode, SyntaxNode, SyntaxTree};
     pub use crate::{Pass, Feedback};
     pub use super::*;
@@ -39,16 +39,5 @@ impl<T> OptionExt<T> for Option<T> {
             error!(@f, span, "missing argument: {}", arg);
         }
         self
-    }
-}
-
-/// Generate `unexpected argument` errors for all remaining arguments.
-pub fn drain_args(args: FuncArgs, f: &mut Feedback) {
-    for arg in args.pos.0 {
-        error!(@f, arg.span, "unexpected argument");
-    }
-
-    for arg in args.key.0 {
-        error!(@f, arg.span, "unexpected argument");
     }
 }

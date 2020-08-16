@@ -20,17 +20,17 @@ pub fn page(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let mut f = Feedback::new();
     let mut args = call.args;
     let node = PageNode {
-        paper: args.pos.get::<Paper>(),
-        width: args.key.get::<Length>("width", &mut f),
-        height: args.key.get::<Length>("height", &mut f),
-        margins: args.key.get::<ScaleLength>("margins", &mut f),
-        left: args.key.get::<ScaleLength>("left", &mut f),
-        right: args.key.get::<ScaleLength>("right", &mut f),
-        top: args.key.get::<ScaleLength>("top", &mut f),
-        bottom: args.key.get::<ScaleLength>("bottom", &mut f),
-        flip: args.key.get::<bool>("flip", &mut f).unwrap_or(false),
+        paper: args.take::<Paper>(),
+        width: args.take_with_key::<_, Length>("width", &mut f),
+        height: args.take_with_key::<_, Length>("height", &mut f),
+        margins: args.take_with_key::<_, ScaleLength>("margins", &mut f),
+        left: args.take_with_key::<_, ScaleLength>("left", &mut f),
+        right: args.take_with_key::<_, ScaleLength>("right", &mut f),
+        top: args.take_with_key::<_, ScaleLength>("top", &mut f),
+        bottom: args.take_with_key::<_, ScaleLength>("bottom", &mut f),
+        flip: args.take_with_key::<_, bool>("flip", &mut f).unwrap_or(false),
     };
-    drain_args(args, &mut f);
+    args.unexpected(&mut f);
     Pass::node(node, f)
 }
 
@@ -78,7 +78,7 @@ impl Layout for PageNode {
 /// `pagebreak`: Ends the current page.
 pub fn pagebreak(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let mut f = Feedback::new();
-    drain_args(call.args, &mut f);
+    call.args.unexpected(&mut f);
     Pass::node(PageBreakNode, f)
 }
 

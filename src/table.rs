@@ -12,7 +12,7 @@ use std::ops::Index;
 ///
 /// The keys of a table may be strings or integers (`u64`). The table is generic
 /// over the value type.
-#[derive(Default, Clone, PartialEq)]
+#[derive(Clone)]
 pub struct Table<V> {
     nums: BTreeMap<u64, V>,
     strs: BTreeMap<String, V>,
@@ -129,6 +129,22 @@ impl<V> Table<V> {
     pub fn values(&self) -> impl Iterator<Item = &V> {
         self.nums().map(|(_, v)| v).chain(self.strs().map(|(_, v)| v))
     }
+
+    /// Iterate over the number key-value pairs.
+    pub fn into_nums(self) -> std::collections::btree_map::IntoIter<u64, V> {
+        self.nums.into_iter()
+    }
+
+    /// Iterate over the string key-value pairs.
+    pub fn into_strs(self) -> std::collections::btree_map::IntoIter<String, V> {
+        self.strs.into_iter()
+    }
+
+    /// Move into an owned iterator over all values in the table.
+    pub fn into_values(self) -> impl Iterator<Item = V> {
+        self.nums.into_iter().map(|(_, v)| v)
+            .chain(self.strs.into_iter().map(|(_, v)| v))
+    }
 }
 
 impl<'a, K, V> Index<K> for Table<V>
@@ -142,37 +158,50 @@ where
     }
 }
 
+impl<V> Default for Table<V> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<V: Eq> Eq for Table<V> {}
+
+impl<V: PartialEq> PartialEq for Table<V> {
+    fn eq(&self, other: &Self) -> bool {
+        self.nums().eq(other.nums()) && self.strs().eq(other.strs())
+    }
+}
+
 impl<V: Debug> Debug for Table<V> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("(")?;
-        if f.alternate() && (!self.nums.is_empty() || !self.strs.is_empty()) {
-            f.write_str("\n")?;
+        if self.is_empty() {
+            return f.write_str("()");
         }
 
-        let len = self.len();
-        let nums = self.nums().map(|(k, v)| (k as &dyn Debug, v));
-        let strings = self.strs().map(|(k, v)| (k as &dyn Debug, v));
-        let pairs = nums.chain(strings);
+        let mut builder = f.debug_tuple("");
 
-        for (i, (key, value)) in pairs.enumerate() {
-            if f.alternate() {
-                f.write_str("    ")?;
-            }
-            key.fmt(f)?;
-            if f.alternate() {
-                f.write_str(" = ")?;
-            } else {
-                f.write_str("=")?;
-            }
-            value.fmt(f)?;
-            if f.alternate() {
-                f.write_str(",\n")?;
-            } else if i + 1 < len {
-                f.write_str(", ")?;
+        struct Entry<'a>(&'a dyn Debug, &'a dyn Debug);
+        impl<'a> Debug for Entry<'a> {
+            fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+                self.0.fmt(f)?;
+                if f.alternate() {
+                    f.write_str(" = ")?;
+                } else {
+                    f.write_str("=")?;
+                }
+                self.1.fmt(f)
             }
         }
 
-        f.write_str(")")
+        for (key, value) in self.nums() {
+            builder.field(&Entry(&key, &value));
+        }
+
+        for (key, value) in self.strs() {
+            builder.field(&Entry(&key, &value));
+        }
+
+        builder.finish()
     }
 }
 

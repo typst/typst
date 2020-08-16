@@ -17,10 +17,8 @@ pub enum Decoration {
     ResolvedFunc,
     /// An invalid, unresolved function name.
     UnresolvedFunc,
-    /// A key part of a keyword argument.
-    ArgumentKey,
-    /// A key part of a pair in an object.
-    ObjectKey,
+    /// The key part of a key-value entry in a table.
+    TableKey,
     /// Text in italics.
     Italic,
     /// Text in bold.

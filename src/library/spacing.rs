@@ -22,11 +22,11 @@ fn spacing(call: FuncCall, axis: SpecAxis) -> Pass<SyntaxNode> {
     let mut f = Feedback::new();
     let mut args = call.args;
     let node = SpacingNode {
-        spacing: args.pos.expect::<ScaleLength>(&mut f)
+        spacing: args.expect::<ScaleLength>(&mut f)
             .map(|s| (axis, s))
             .or_missing(call.name.span, "spacing", &mut f),
     };
-    drain_args(args, &mut f);
+    args.unexpected(&mut f);
     Pass::node(node, f)
 }
 

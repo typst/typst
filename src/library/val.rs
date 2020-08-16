@@ -7,7 +7,7 @@ use super::*;
 pub fn val(call: FuncCall, _: &ParseState) -> Pass<SyntaxNode> {
     let mut args = call.args;
     let node = ValNode {
-        content: args.pos.get::<SyntaxTree>(),
+        content: args.take::<SyntaxTree>(),
     };
     Pass::node(node, Feedback::new())
 }
