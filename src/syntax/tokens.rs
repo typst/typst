@@ -22,27 +22,10 @@ pub enum Token<'s> {
     /// can contain nested block comments.
     BlockComment(&'s str),
 
-    /// A function invocation.
-    Function {
-        /// The header string:
-        /// ```typst
-        /// [header: args][body]
-        ///  ^^^^^^^^^^^^
-        /// ```
-        header: &'s str,
-        /// The spanned body string:
-        /// ```typst
-        /// [header][hello *world*]
-        ///          ^^^^^^^^^^^^^
-        /// ^-- The span is relative to right before this bracket
-        /// ```
-        body: Option<Spanned<&'s str>>,
-        /// Whether the last closing bracket was present.
-        /// - `[func]` or `[func][body]` => terminated
-        /// - `[func` or `[func][body` => not terminated
-        terminated: bool,
-    },
-
+    /// A left bracket starting a function invocation or body: `[`.
+    LeftBracket,
+    /// A right bracket ending a function invocation or body: `]`.
+    RightBracket,
     /// A left parenthesis in a function header: `(`.
     LeftParen,
     /// A right parenthesis in a function header: `)`.
@@ -119,7 +102,8 @@ impl<'s> Token<'s> {
             Space(_) => "space",
             LineComment(_) => "line comment",
             BlockComment(_) => "block comment",
-            Function { .. } => "function",
+            LeftBracket => "opening bracket",
+            RightBracket => "closing bracket",
             LeftParen => "opening paren",
             RightParen => "closing paren",
             LeftBrace => "opening brace",
@@ -141,7 +125,6 @@ impl<'s> Token<'s> {
             Backslash => "backslash",
             Raw { .. } => "raw text",
             Text(_) => "text",
-            Invalid("]") => "closing bracket",
             Invalid("*/") => "end of block comment",
             Invalid(_) => "invalid token",
         }
@@ -152,8 +135,9 @@ impl<'s> Token<'s> {
 #[derive(Debug)]
 pub struct Tokens<'s> {
     src: &'s str,
-    mode: TokenMode,
     iter: Peekable<Chars<'s>>,
+    mode: TokenMode,
+    stack: Vec<TokenMode>,
     pos: Pos,
     index: usize,
 }
@@ -172,14 +156,27 @@ impl<'s> Tokens<'s> {
     ///
     /// The first token's span starts an the given `offset` position instead of
     /// the zero position.
-    pub fn new(src: &'s str, offset: Pos, mode: TokenMode) -> Self {
+    pub fn new(src: &'s str, mode: TokenMode) -> Self {
         Self {
             src,
-            mode,
             iter: src.chars().peekable(),
-            pos: offset,
+            mode,
+            stack: vec![],
+            pos: Pos::ZERO,
             index: 0,
         }
+    }
+
+    /// Change the token mode and push the old one on a stack.
+    pub fn push_mode(&mut self, mode: TokenMode) {
+        self.stack.push(self.mode);
+        self.mode = mode;
+    }
+
+    /// Pop the old token mode from the stack. This panics if there is no mode
+    /// on the stack.
+    pub fn pop_mode(&mut self) {
+        self.mode = self.stack.pop().expect("no pushed mode");
     }
 
     /// The index in the string at which the last token ends and next token will
@@ -212,15 +209,15 @@ impl<'s> Iterator for Tokens<'s> {
             // Whitespace.
             c if c.is_whitespace() => self.read_whitespace(start),
 
-            // Functions.
-            '[' => self.read_function(start),
-            ']' => Invalid("]"),
+            // Functions and blocks.
+            '[' => LeftBracket,
+            ']' => RightBracket,
+            '{' => LeftBrace,
+            '}' => RightBrace,
 
             // Syntactic elements in function headers.
             '(' if self.mode == Header => LeftParen,
             ')' if self.mode == Header => RightParen,
-            '{' if self.mode == Header => LeftBrace,
-            '}' if self.mode == Header => RightBrace,
             ':' if self.mode == Header => Colon,
             ',' if self.mode == Header => Comma,
             '=' if self.mode == Header => Equals,
@@ -320,52 +317,6 @@ impl<'s> Tokens<'s> {
         let end = self.pos();
 
         Space(end.line - start.line)
-    }
-
-    fn read_function(&mut self, start: Pos) -> Token<'s> {
-        let (header, terminated) = self.read_function_part(Header);
-        self.eat();
-
-        if self.peek() != Some('[') {
-            return Function { header, body: None, terminated };
-        }
-
-        self.eat();
-
-        let body_start = self.pos() - start;
-        let (body, terminated) = self.read_function_part(Body);
-        let body_end = self.pos() - start;
-        let span = Span::new(body_start, body_end);
-
-        self.eat();
-
-        Function { header, body: Some(Spanned { v: body, span }), terminated }
-    }
-
-    fn read_function_part(&mut self, mode: TokenMode) -> (&'s str, bool) {
-        let start = self.index();
-        let mut terminated = false;
-
-        while let Some(n) = self.peek() {
-            if n == ']' {
-                terminated = true;
-                break;
-            }
-
-            self.eat();
-            match n {
-                '[' => { self.read_function(Pos::ZERO); }
-                '/' if self.peek() == Some('/') => { self.read_line_comment(); }
-                '/' if self.peek() == Some('*') => { self.read_block_comment(); }
-                '"' if mode == Header => { self.read_string(); }
-                '`' if mode == Body => { self.read_raw(); }
-                '\\' => { self.eat(); }
-                _ => {}
-            }
-        }
-
-        let end = self.index();
-        (&self.src[start..end], terminated)
     }
 
     fn read_string(&mut self) -> Token<'s> {
@@ -540,6 +491,7 @@ mod tests {
     use Token::{
         Space as S,
         LineComment as LC, BlockComment as BC,
+        LeftBracket as L, RightBracket as R,
         LeftParen as LP, RightParen as RP,
         LeftBrace as LB, RightBrace as RB,
         Ident as Id,
@@ -557,25 +509,12 @@ mod tests {
     fn Str(string: &str, terminated: bool) -> Token { Token::Str { string, terminated } }
     fn Raw(raw: &str, terminated: bool) -> Token { Token::Raw { raw, terminated } }
 
-    macro_rules! F {
-        ($h:expr, None, $t:expr) => {
-            Token::Function { header: $h, body: None, terminated: $t }
-        };
-        ($h:expr, $b:expr, $t:expr) => {
-            Token::Function {
-                header: $h,
-                body: Some(Into::<Spanned<&str>>::into($b)),
-                terminated: $t,
-            }
-        };
-    }
-
     macro_rules! t { ($($tts:tt)*) => {test!(@spans=false, $($tts)*)} }
     macro_rules! ts { ($($tts:tt)*) => {test!(@spans=true, $($tts)*)} }
     macro_rules! test {
         (@spans=$spans:expr, $mode:expr, $src:expr => $($token:expr),*) => {
             let exp = vec![$(Into::<Spanned<Token>>::into($token)),*];
-            let found = Tokens::new($src, Pos::ZERO, $mode).collect::<Vec<_>>();
+            let found = Tokens::new($src, $mode).collect::<Vec<_>>();
             check($src, exp, found, $spans);
         }
     }
@@ -616,7 +555,7 @@ mod tests {
     fn tokenize_body_only_tokens() {
         t!(Body, "_*"            => Underscore, Star);
         t!(Body, "***"           => Star, Star, Star);
-        t!(Body, "[func]*bold*"  => F!("func", None, true), Star, T("bold"), Star);
+        t!(Body, "[func]*bold*"  => L, T("func"), R, Star, T("bold"), Star);
         t!(Body, "hi_you_ there" => T("hi"), Underscore, T("you"), Underscore, S(0), T("there"));
         t!(Body, "`raw`"         => Raw("raw", true));
         t!(Body, "`[func]`"      => Raw("[func]", true));
@@ -675,50 +614,6 @@ mod tests {
     }
 
     #[test]
-    fn tokenize_functions() {
-        t!(Body, "a[f]"           => T("a"), F!("f", None, true));
-        t!(Body, "[f]a"           => F!("f", None, true), T("a"));
-        t!(Body, "\n\n[f][ ]"     => S(2), F!("f", " ", true));
-        t!(Body, "abc [f][ ]a"    => T("abc"), S(0), F!("f", " ", true), T("a"));
-        t!(Body, "[f: [=][*]]"    => F!("f: [=][*]", None, true));
-        t!(Body, "[_][[,],],"     => F!("_", "[,],", true), T(","));
-        t!(Body, "[=][=][=]"      => F!("=", "=", true), F!("=", None, true));
-        t!(Body, "[=][[=][=][=]]" => F!("=", "[=][=][=]", true));
-        t!(Header, "["            => F!("", None, false));
-        t!(Header, "]"            => Invalid("]"));
-    }
-
-    #[test]
-    fn tokenize_correct_end_of_function() {
-        // End of function with strings and carets in headers
-        t!(Body, r#"[f: "]"#      => F!(r#"f: "]"#, None, false));
-        t!(Body, "[f: \"s\"]"     => F!("f: \"s\"", None, true));
-        t!(Body, r#"[f: \"\"\"]"# => F!(r#"f: \"\"\""#, None, true));
-        t!(Body, "[f: `]"         => F!("f: `", None, true));
-
-        // End of function with strings and carets in bodies
-        t!(Body, "[f][\"]"        => F!("f", s(0,4, 0,5, "\""), true));
-        t!(Body, r#"[f][\"]"#     => F!("f", s(0,4, 0,6, r#"\""#), true));
-        t!(Body, "[f][`]"         => F!("f", s(0,4, 0,6, "`]"), false));
-        t!(Body, "[f][\\`]"       => F!("f", s(0,4, 0,6, "\\`"), true));
-        t!(Body, "[f][`raw`]"     => F!("f", s(0,4, 0,9, "`raw`"), true));
-        t!(Body, "[f][`raw]"      => F!("f", s(0,4, 0,9, "`raw]"), false));
-        t!(Body, "[f][`raw]`]"    => F!("f", s(0,4, 0,10, "`raw]`"), true));
-        t!(Body, "[f][`\\`]"      => F!("f", s(0,4, 0,8, "`\\`]"), false));
-        t!(Body, "[f][`\\\\`]"    => F!("f", s(0,4, 0,8, "`\\\\`"), true));
-
-        // End of function with comments
-        t!(Body, "[f][/*]"        => F!("f", s(0,4, 0,7, "/*]"), false));
-        t!(Body, "[f][/*`*/]"     => F!("f", s(0,4, 0,9, "/*`*/"), true));
-        t!(Body, "[f: //]\n]"     => F!("f: //]\n", None, true));
-        t!(Body, "[f: \"//]\n]"   => F!("f: \"//]\n]", None, false));
-
-        // End of function with escaped brackets
-        t!(Body, "[f][\\]]"       => F!("f", s(0,4, 0,6, "\\]"), true));
-        t!(Body, "[f][\\[]"       => F!("f", s(0,4, 0,6, "\\["), true));
-    }
-
-    #[test]
     fn tokenize_escaped_symbols() {
         t!(Body, r"\\"   => T(r"\"));
         t!(Body, r"\["   => T("["));
@@ -746,7 +641,6 @@ mod tests {
     fn tokenize_with_spans() {
         ts!(Body, "hello"          => s(0,0, 0,5, T("hello")));
         ts!(Body, "ab\r\nc"        => s(0,0, 0,2, T("ab")), s(0,2, 1,0, S(1)), s(1,0, 1,1, T("c")));
-        ts!(Body, "[x = \"(1)\"]*" => s(0,0, 0,11, F!("x = \"(1)\"", None, true)), s(0,11, 0,12, Star));
         ts!(Body, "// ab\r\n\nf"   => s(0,0, 0,5, LC(" ab")), s(0,5, 2,0, S(2)), s(2,0, 2,1, T("f")));
         ts!(Body, "/*b*/_"         => s(0,0, 0,5, BC("b")), s(0,5, 0,6, Underscore));
         ts!(Header, "a=10"         => s(0,0, 0,1, Id("a")), s(0,1, 0,2, Equals), s(0,2, 0,4, Num(10.0)));

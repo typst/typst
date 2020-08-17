@@ -123,7 +123,7 @@ impl<'a> TreeLayouter<'a> {
             ..self.ctx
         }).await;
 
-        self.feedback.extend_offset(pass.feedback, call.span.start);
+        self.feedback.extend(pass.feedback);
 
         if let Value::Commands(commands) = pass.output {
             for command in commands {

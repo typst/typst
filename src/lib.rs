@@ -87,7 +87,7 @@ impl Typesetter {
 
     /// Parse source code into a syntax tree.
     pub fn parse(&self, src: &str) -> Pass<SyntaxTree> {
-        parse(src, Pos::ZERO)
+        parse(src)
     }
 
     /// Layout a syntax tree and return the produced layout.

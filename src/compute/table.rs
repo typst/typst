@@ -270,7 +270,7 @@ impl<V> SpannedEntry<V> {
 
     /// Create an entry with the same span for key and value.
     pub fn val(val: Spanned<V>) -> Self {
-        Self { key: Span::ZERO, val }
+        Self { key: val.span, val }
     }
 
     /// Convert from `&SpannedEntry<T>` to `SpannedEntry<&T>`

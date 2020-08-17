@@ -12,94 +12,110 @@ use super::tree::{CallExpr, Expr, SyntaxNode, SyntaxTree, TableExpr};
 use super::Ident;
 
 /// Parse a string of source code.
-///
-/// All spans in the resulting tree and feedback are offset by the given
-/// `offset` position. This is used to make spans of a function body relative to
-/// the start of the function as a whole as opposed to the start of the
-/// function's body.
-pub fn parse(src: &str, offset: Pos) -> Pass<SyntaxTree> {
-    let mut tree = SyntaxTree::new();
-    let mut par = SyntaxTree::new();
-    let mut feedback = Feedback::new();
-
-    for token in Tokens::new(src, offset, TokenMode::Body) {
-        let span = token.span;
-        let node = match token.v {
-            // Starting from two newlines counts as a paragraph break, a single
-            // newline does not.
-            Token::Space(newlines) => if newlines < 2 {
-                SyntaxNode::Spacing
-            } else {
-                // End the current paragraph if it is not empty.
-                if let (Some(first), Some(last)) = (par.first(), par.last()) {
-                    let span = Span::merge(first.span, last.span);
-                    let node = SyntaxNode::Par(std::mem::take(&mut par));
-                    tree.push(Spanned::new(node, span));
-                }
-                continue;
-            }
-
-            Token::Function { header, body, terminated } => {
-                let parsed = FuncParser::new(header, body).parse();
-                feedback.extend_offset(parsed.feedback, span.start);
-                if !terminated {
-                    error!(@feedback, Span::at(span.end), "expected closing bracket");
-                }
-                SyntaxNode::Call(parsed.output)
-            }
-
-            Token::Star => SyntaxNode::ToggleBolder,
-            Token::Underscore => SyntaxNode::ToggleItalic,
-            Token::Backslash => SyntaxNode::Linebreak,
-            Token::Raw { raw, terminated } => {
-                if !terminated {
-                    error!(@feedback, Span::at(span.end), "expected backtick");
-                }
-                SyntaxNode::Raw(unescape_raw(raw))
-            }
-            Token::Text(text) => SyntaxNode::Text(text.to_string()),
-
-            Token::LineComment(_) | Token::BlockComment(_) => continue,
-            unexpected => {
-                error!(@feedback, span, "unexpected {}", unexpected.name());
-                continue;
-            }
-        };
-
-        par.push(Spanned::new(node, span));
-    }
-
-    if let (Some(first), Some(last)) = (par.first(), par.last()) {
-        let span = Span::merge(first.span, last.span);
-        let node = SyntaxNode::Par(par);
-        tree.push(Spanned::new(node, span));
-    }
-
-    Pass::new(tree, feedback)
+pub fn parse(src: &str) -> Pass<SyntaxTree> {
+    Parser::new(src).parse()
 }
 
-struct FuncParser<'s> {
+struct Parser<'s> {
     tokens: Tokens<'s>,
     peeked: Option<Option<Spanned<Token<'s>>>>,
-    body: Option<Spanned<&'s str>>,
+    delimiters: Vec<(Pos, Token<'static>)>,
     feedback: Feedback,
 }
 
-impl<'s> FuncParser<'s> {
-    fn new(header: &'s str, body: Option<Spanned<&'s str>>) -> Self {
+impl<'s> Parser<'s> {
+    fn new(src: &'s str) -> Self {
         Self {
-            // Start at column 1 because the opening bracket is also part of
-            // the function, but not part of the `header` string.
-            tokens: Tokens::new(header, Pos::new(0, 1), TokenMode::Header),
+            tokens: Tokens::new(src, TokenMode::Body),
             peeked: None,
-            body,
+            delimiters: vec![],
             feedback: Feedback::new(),
         }
     }
 
-    fn parse(mut self) -> Pass<CallExpr> {
-        let after_bracket = self.pos();
+    fn parse(mut self) -> Pass<SyntaxTree> {
+        let tree = self.parse_body_contents();
+        Pass::new(tree, self.feedback)
+    }
+}
 
+// Typesetting content.
+impl Parser<'_> {
+    fn parse_body_contents(&mut self) -> SyntaxTree {
+        let mut tree = SyntaxTree::new();
+        let mut par = SyntaxTree::new();
+
+        while let Some(token) = self.peek() {
+            par.push(match token.v {
+                // Starting from two newlines counts as a paragraph break, a single
+                // newline does not.
+                Token::Space(newlines) => if newlines < 2 {
+                    self.with_span(SyntaxNode::Spacing)
+                } else {
+                    // End the current paragraph if it is not empty.
+                    if let (Some(first), Some(last)) = (par.first(), par.last()) {
+                        let span = Span::merge(first.span, last.span);
+                        let node = SyntaxNode::Par(std::mem::take(&mut par));
+                        tree.push(Spanned::new(node, span));
+                    }
+                    self.eat();
+                    continue;
+                }
+                Token::LineComment(_) | Token::BlockComment(_) => {
+                    self.eat();
+                    continue
+                }
+
+                Token::LeftBracket => {
+                    self.parse_bracket_call().map(|c| SyntaxNode::Call(c))
+                }
+
+                Token::Star => self.with_span(SyntaxNode::ToggleBolder),
+                Token::Underscore => self.with_span(SyntaxNode::ToggleItalic),
+                Token::Backslash => self.with_span(SyntaxNode::Linebreak),
+
+                Token::Raw { raw, terminated } => {
+                    if !terminated {
+                        error!(
+                            @self.feedback, Span::at(token.span.end),
+                            "expected backtick",
+                        );
+                    }
+                    self.with_span(SyntaxNode::Raw(unescape_raw(raw)))
+                }
+
+                Token::Text(text) => {
+                    self.with_span(SyntaxNode::Text(text.to_string()))
+                }
+
+                unexpected => {
+                    self.eat();
+                    error!(
+                        @self.feedback, token.span,
+                        "unexpected {}", unexpected.name(),
+                    );
+                    continue;
+                }
+            });
+        }
+
+        if let (Some(first), Some(last)) = (par.first(), par.last()) {
+            let span = Span::merge(first.span, last.span);
+            let node = SyntaxNode::Par(par);
+            tree.push(Spanned::new(node, span));
+        }
+
+        tree
+    }
+}
+
+// Function calls.
+impl Parser<'_> {
+    fn parse_bracket_call(&mut self) -> Spanned<CallExpr> {
+        self.start_group(Delimiter::Bracket);
+        self.tokens.push_mode(TokenMode::Header);
+
+        let after_bracket = self.pos();
         self.skip_white();
         let name = self.parse_ident().unwrap_or_else(|| {
             self.expected_found_or_at("function name", after_bracket);
@@ -107,36 +123,105 @@ impl<'s> FuncParser<'s> {
         });
 
         self.skip_white();
-        let mut args = match self.eat().map(Spanned::value) {
-            Some(Token::Colon) => self.parse_table(false).0.v,
+        let mut args = match self.eatv() {
+            Some(Token::Colon) => self.parse_table_contents().0,
             Some(_) => {
                 self.expected_at("colon", name.span.end);
+                while self.eat().is_some() {}
                 TableExpr::new()
             }
             None => TableExpr::new(),
         };
 
-        if let Some(body) = self.body {
-            args.push(SpannedEntry::val(body.map(|src| {
-                let parsed = parse(src, body.span.start);
-                self.feedback.extend(parsed.feedback);
-                Expr::Tree(parsed.output)
-            })));
+        self.tokens.pop_mode();
+        let mut span = self.end_group();
+
+        if self.check(Token::LeftBracket) {
+            self.start_group(Delimiter::Bracket);
+            self.tokens.push_mode(TokenMode::Body);
+
+            let body = self.parse_body_contents();
+
+            self.tokens.pop_mode();
+            let body_span = self.end_group();
+
+            let expr = Expr::Tree(body);
+            args.push(SpannedEntry::val(Spanned::new(expr, body_span)));
+            span.expand(body_span);
         }
 
-        Pass::new(CallExpr { name, args }, self.feedback)
+        Spanned::new(CallExpr { name, args }, span)
+    }
+
+    fn parse_paren_call(&mut self, name: Spanned<Ident>) -> Spanned<CallExpr> {
+        self.start_group(Delimiter::Paren);
+        let args = self.parse_table_contents().0;
+        let args_span = self.end_group();
+        let span = Span::merge(name.span, args_span);
+        Spanned::new(CallExpr { name, args }, span)
     }
 }
 
-// Parsing expressions and values
-impl FuncParser<'_> {
-    fn parse_ident(&mut self) -> Option<Spanned<Ident>> {
-        self.peek().and_then(|token| match token.v {
-            Token::Ident(id) => self.eat_span(Ident(id.to_string())),
-            _ => None,
-        })
-    }
+// Tables.
+impl Parser<'_> {
+    fn parse_table_contents(&mut self) -> (TableExpr, bool) {
+        let mut table = TableExpr::new();
+        let mut comma_and_keyless = true;
 
+        while { self.skip_white(); !self.eof() } {
+            let (key, val) = if let Some(ident) = self.parse_ident() {
+                self.skip_white();
+
+                match self.peekv() {
+                    Some(Token::Equals) => {
+                        self.eat();
+                        self.skip_white();
+
+                        (Some(ident), try_opt_or!(self.parse_expr(), {
+                            self.expected("value");
+                            continue;
+                        }))
+                    }
+
+                    Some(Token::LeftParen) => {
+                        let call = self.parse_paren_call(ident);
+                        (None, call.map(|c| Expr::Call(c)))
+                    }
+
+                    _ => (None, ident.map(|id| Expr::Ident(id)))
+                }
+            } else {
+                (None, try_opt_or!(self.parse_expr(), {
+                    self.expected("value");
+                    continue;
+                }))
+            };
+
+            let behind = val.span.end;
+            if let Some(key) = key {
+                comma_and_keyless = false;
+                table.insert(key.v.0, SpannedEntry::new(key.span, val));
+                self.feedback.decorations
+                    .push(Spanned::new(Decoration::TableKey, key.span));
+            } else {
+                table.push(SpannedEntry::val(val));
+            }
+
+            if { self.skip_white(); self.eof() } {
+                break;
+            }
+
+            self.expect_at(Token::Comma, behind);
+            comma_and_keyless = false;
+        }
+
+        let coercable = comma_and_keyless && !table.is_empty();
+        (table, coercable)
+    }
+}
+
+// Expressions and values.
+impl Parser<'_> {
     fn parse_expr(&mut self) -> Option<Spanned<Expr>> {
         self.parse_binops("summand", Self::parse_term, |token| match token {
             Token::Plus => Some(Expr::Add),
@@ -206,37 +291,37 @@ impl FuncParser<'_> {
 
     fn parse_value(&mut self) -> Option<Spanned<Expr>> {
         let Spanned { v: token, span } = self.peek()?;
-        match token {
+        Some(match token {
             // This could be a function call or an identifier.
             Token::Ident(id) => {
                 let name = Spanned::new(Ident(id.to_string()), span);
                 self.eat();
                 self.skip_white();
-                Some(if self.check(Token::LeftParen) {
-                    self.parse_func_call(name).map(|call| Expr::Call(call))
+                if self.check(Token::LeftParen) {
+                    self.parse_paren_call(name).map(|call| Expr::Call(call))
                 } else {
                     name.map(|id| Expr::Ident(id))
-                })
+                }
             }
 
             Token::Str { string, terminated } => {
                 if !terminated {
                     self.expected_at("quote", span.end);
                 }
-                self.eat_span(Expr::Str(unescape_string(string)))
+                self.with_span(Expr::Str(unescape_string(string)))
             }
 
-            Token::Bool(b) => self.eat_span(Expr::Bool(b)),
-            Token::Number(n) => self.eat_span(Expr::Number(n)),
-            Token::Length(s) => self.eat_span(Expr::Length(s)),
+            Token::Bool(b) => self.with_span(Expr::Bool(b)),
+            Token::Number(n) => self.with_span(Expr::Number(n)),
+            Token::Length(s) => self.with_span(Expr::Length(s)),
             Token::Hex(s) => {
                 if let Ok(color) = RgbaColor::from_str(s) {
-                    self.eat_span(Expr::Color(color))
+                    self.with_span(Expr::Color(color))
                 } else {
                     // Heal color by assuming black.
                     error!(@self.feedback, span, "invalid color");
                     let healed = RgbaColor::new_healed(0, 0, 0, 255);
-                    self.eat_span(Expr::Color(healed))
+                    self.with_span(Expr::Color(healed))
                 }
             }
 
@@ -244,128 +329,54 @@ impl FuncParser<'_> {
             // a table in any case and coerce the table into a value if it is
             // coercable (length 1 and no trailing comma).
             Token::LeftParen => {
-                let (table, coercable) = self.parse_table(true);
-                Some(if coercable {
-                    table.map(|v| {
-                        v.into_values()
-                            .next()
-                            .expect("table is coercable").val.v
-                    })
+                self.start_group(Delimiter::Paren);
+                let (table, coercable) = self.parse_table_contents();
+                let span = self.end_group();
+
+                let expr = if coercable {
+                    table.into_values()
+                        .next()
+                        .expect("table is coercable").val.v
                 } else {
-                    table.map(|tab| Expr::Table(tab))
-                })
+                    Expr::Table(table)
+                };
+
+                Spanned::new(expr, span)
             }
 
+            // This is a content expression.
+            Token::LeftBrace => {
+                self.start_group(Delimiter::Brace);
+                self.tokens.push_mode(TokenMode::Body);
+
+                let tree = self.parse_body_contents();
+
+                self.tokens.pop_mode();
+                let span = self.end_group();
+                Spanned::new(Expr::Tree(tree), span)
+            }
+
+            // This is a bracketed function call.
+            Token::LeftBracket => {
+                let call = self.parse_bracket_call();
+                let tree = vec![call.map(|c| SyntaxNode::Call(c))];
+                Spanned::new(Expr::Tree(tree), span)
+            }
+
+            _ => return None,
+        })
+    }
+
+    fn parse_ident(&mut self) -> Option<Spanned<Ident>> {
+        self.peek().and_then(|token| match token.v {
+            Token::Ident(id) => Some(self.with_span(Ident(id.to_string()))),
             _ => None,
-        }
-    }
-
-    fn parse_func_call(&mut self, name: Spanned<Ident>) -> Spanned<CallExpr> {
-        let args = self.parse_table(true).0;
-        let span = Span::merge(name.span, args.span);
-        Spanned::new(CallExpr { name, args: args.v }, span)
-    }
-
-    /// Set `parens` to true, when this should expect an opening paren and stop
-    /// at the balanced closing paren (this is the case for normal tables and
-    /// round-paren function calls). Set it to false, when this is used to parse
-    /// the top-level function arguments.
-    ///
-    /// The returned boolean tells you whether the table can be coerced into an
-    /// expression (this is the case when it's length 1 and has no trailing
-    /// comma).
-    fn parse_table(&mut self, parens: bool) -> (Spanned<TableExpr>, bool) {
-        let start = self.pos();
-        if parens {
-            self.assert(Token::LeftParen);
-        }
-
-        let mut table = TableExpr::new();
-        let mut coercable = true;
-
-        loop {
-            self.skip_white();
-            if self.eof() || (parens && self.check(Token::RightParen)) {
-                break;
-            }
-
-            let behind_arg;
-
-            if let Some(ident) = self.parse_ident() {
-                // This could be a keyword argument, a function call or a simple
-                // identifier.
-                self.skip_white();
-
-                if self.check_eat(Token::Equals).is_some() {
-                    self.skip_white();
-
-                    let key = ident;
-                    self.feedback.decorations
-                        .push(Spanned::new(Decoration::TableKey, key.span));
-
-                    let val = try_opt_or!(self.parse_expr(), {
-                        self.expected("value");
-                        continue;
-                    });
-
-                    coercable = false;
-                    behind_arg = val.span.end;
-                    table.insert(key.v.0, SpannedEntry::new(key.span, val));
-
-                } else if self.check(Token::LeftParen) {
-                    let call = self.parse_func_call(ident);
-                    let expr = call.map(|call| Expr::Call(call));
-
-                    behind_arg = expr.span.end;
-                    table.push(SpannedEntry::val(expr));
-                } else {
-                    let expr = ident.map(|id| Expr::Ident(id));
-
-                    behind_arg = expr.span.end;
-                    table.push(SpannedEntry::val(expr));
-                }
-            } else {
-                // It's a positional argument.
-                let expr = try_opt_or!(self.parse_expr(), {
-                    self.expected("value");
-                    continue;
-                });
-                behind_arg = expr.span.end;
-                table.push(SpannedEntry::val(expr));
-            }
-
-            self.skip_white();
-            if self.eof() || (parens && self.check(Token::RightParen)) {
-                break;
-            }
-
-            self.expect_at(Token::Comma, behind_arg);
-            coercable = false;
-        }
-
-        if parens {
-            self.expect(Token::RightParen);
-        }
-
-        coercable = coercable && !table.is_empty();
-
-        let end = self.pos();
-        (Spanned::new(table, Span::new(start, end)), coercable)
+        })
     }
 }
 
-// Error handling
-impl FuncParser<'_> {
-    fn expect(&mut self, token: Token<'_>) -> bool {
-        if self.check(token) {
-            self.eat();
-            true
-        } else {
-            self.expected(token.name());
-            false
-        }
-    }
-
+// Error handling.
+impl Parser<'_> {
     fn expect_at(&mut self, token: Token<'_>, pos: Pos) -> bool {
         if self.check(token) {
             self.eat();
@@ -400,38 +411,56 @@ impl FuncParser<'_> {
     }
 }
 
-// Parsing primitives
-impl<'s> FuncParser<'s> {
-    fn skip_white(&mut self) {
-        loop {
-            match self.peek().map(Spanned::value) {
-                Some(Token::Space(_))
-                | Some(Token::LineComment(_))
-                | Some(Token::BlockComment(_)) => { self.eat(); }
-                _ => break,
+// Parsing primitives.
+impl<'s> Parser<'s> {
+    fn start_group(&mut self, delimiter: Delimiter) {
+        let start = self.pos();
+        self.assert(delimiter.start());
+        self.delimiters.push((start, delimiter.end()));
+    }
+
+    fn end_group(&mut self) -> Span {
+        assert_eq!(self.peek(), None, "unfinished group");
+        let (start, end_token) = self.delimiters.pop()
+            .expect("group was not started");
+
+        match self.peeked.unwrap() {
+            Some(token) if token.v == end_token => {
+                self.peeked = None;
+                Span::new(start, token.span.end)
+            }
+            _ => {
+                let end = self.pos();
+                error!(
+                    @self.feedback, Span::at(end),
+                    "expected {}", end_token.name(),
+                );
+                Span::new(start, end)
             }
         }
     }
 
-    fn eat(&mut self) -> Option<Spanned<Token<'s>>> {
-        self.peeked.take().unwrap_or_else(|| self.tokens.next())
+    fn skip_white(&mut self) {
+        while matches!(
+            self.peekv(),
+            Some(Token::Space(_)) |
+            Some(Token::LineComment(_)) |
+            Some(Token::BlockComment(_))
+        ) {
+            self.eat();
+        }
     }
 
-    fn eat_span<T>(&mut self, v: T) -> Option<Spanned<T>> {
-        self.eat().map(|spanned| spanned.map(|_| v))
+    fn eatv(&mut self) -> Option<Token<'s>> {
+        self.eat().map(Spanned::value)
     }
 
-    fn peek(&mut self) -> Option<Spanned<Token<'s>>> {
-        let tokens = &mut self.tokens;
-        *self.peeked.get_or_insert_with(|| tokens.next())
+    fn peekv(&mut self) -> Option<Token<'s>> {
+        self.peek().map(Spanned::value)
     }
 
     fn assert(&mut self, token: Token<'_>) {
         assert!(self.check_eat(token).is_some());
-    }
-
-    fn check(&mut self, token: Token<'_>) -> bool {
-        self.peek().map(Spanned::value) == Some(token)
     }
 
     fn check_eat(&mut self, token: Token<'_>) -> Option<Spanned<Token<'s>>> {
@@ -442,8 +471,37 @@ impl<'s> FuncParser<'s> {
         }
     }
 
+    fn check(&mut self, token: Token<'_>) -> bool {
+        self.peekv() == Some(token)
+    }
+
+    fn with_span<T>(&mut self, v: T) -> Spanned<T> {
+        let span = self.eat().expect("expected token").span;
+        Spanned::new(v, span)
+    }
+
     fn eof(&mut self) -> bool {
         self.peek().is_none()
+    }
+
+    fn eat(&mut self) -> Option<Spanned<Token<'s>>> {
+        let token = self.peek()?;
+        self.peeked = None;
+        Some(token)
+    }
+
+    fn peek(&mut self) -> Option<Spanned<Token<'s>>> {
+        let tokens = &mut self.tokens;
+        let token = (*self.peeked.get_or_insert_with(|| tokens.next()))?;
+
+        // Check for unclosed groups.
+        if Delimiter::is_delimiter(token.v) {
+            if self.delimiters.iter().rev().any(|&(_, end)| token.v == end) {
+                return None;
+            }
+        }
+
+        Some(token)
     }
 
     fn pos(&self) -> Pos {
@@ -451,6 +509,38 @@ impl<'s> FuncParser<'s> {
             .flatten()
             .map(|s| s.span.start)
             .unwrap_or_else(|| self.tokens.pos())
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum Delimiter {
+    Paren,
+    Bracket,
+    Brace,
+}
+
+impl Delimiter {
+    fn is_delimiter(token: Token<'_>) -> bool {
+        matches!(
+            token,
+            Token::RightParen | Token::RightBracket | Token::RightBrace
+        )
+    }
+
+    fn start(self) -> Token<'static> {
+        match self {
+            Self::Paren => Token::LeftParen,
+            Self::Bracket => Token::LeftBracket,
+            Self::Brace => Token::LeftBrace,
+        }
+    }
+
+    fn end(self) -> Token<'static> {
+        match self {
+            Self::Paren => Token::RightParen,
+            Self::Bracket => Token::RightBracket,
+            Self::Brace => Token::RightBrace,
+        }
     }
 }
 
@@ -608,7 +698,7 @@ mod tests {
     macro_rules! test {
         (@spans=$spans:expr, $src:expr => $($tts:tt)*) => {
             let exp = Tree![@$($tts)*];
-            let pass = parse($src, Pos::ZERO);
+            let pass = parse($src);
             check($src, exp, pass.output, $spans);
         };
     }
@@ -624,7 +714,7 @@ mod tests {
     macro_rules! e {
         ($src:expr => $($tts:tt)*) => {
             let exp = vec![$($tts)*];
-            let pass = parse($src, Pos::ZERO);
+            let pass = parse($src);
             let found = pass.feedback.diagnostics.iter()
                 .map(|s| s.as_ref().map(|e| e.message.as_str()))
                 .collect::<Vec<_>>();
@@ -636,7 +726,7 @@ mod tests {
     macro_rules! d {
         ($src:expr => $($tts:tt)*) => {
             let exp = vec![$($tts)*];
-            let pass = parse($src, Pos::ZERO);
+            let pass = parse($src);
             check($src, exp, pass.feedback.decorations, true);
         };
     }
@@ -718,6 +808,15 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_groups() {
+        e!("[)" => s(0,1, 0,2, "expected function name, found closing paren"),
+                   s(0,2, 0,2, "expected closing bracket"));
+
+        e!("[v:{]}" => s(0,4, 0,4, "expected closing brace"),
+                       s(0,5, 0,6, "unexpected closing brace"));
+    }
+
+    #[test]
     fn test_parse_function_names() {
         // No closing bracket.
         t!("[" => P![F!("")]);
@@ -760,19 +859,29 @@ mod tests {
         t!("[val: 1][*Hi*]" => P![F!("val"; Num(1.0), Tree![P![B, T("Hi"), B]])]);
         e!(" [val][ */ ]" => s(0,8, 0,10, "unexpected end of block comment"));
 
+        // Raw in body.
+        t!("[val][`Hi]`" => P![F!("val"; Tree![P![R!["Hi]"]]])]);
+        e!("[val][`Hi]`" => s(0,11, 0,11, "expected closing bracket"));
+
+        // Crazy.
+        t!("[v][[v][v][v]]" => P![F!("v"; Tree![P![
+            F!("v"; Tree![P![T("v")]]), F!("v")
+        ]])]);
+
         // Spanned.
         ts!(" [box][Oh my]" => s(0,0, 0,13, P![
             s(0,0, 0,1, S),
-            s(0,1, 0,13, F!(s(0,1, 0,4, "box");
-                s(0,6, 0,11, Tree![s(0,6, 0,11, P![
-                    s(0,6, 0,8, T("Oh")), s(0,8, 0,9, S), s(0,9, 0,11, T("my"))
+            s(0,1, 0,13, F!(s(0,2, 0,5, "box");
+                s(0,6, 0,13, Tree![s(0,7, 0,12, P![
+                    s(0,7, 0,9, T("Oh")), s(0,9, 0,10, S), s(0,10, 0,12, T("my"))
                 ])])
             ))
         ]));
     }
 
     #[test]
-    fn test_parse_simple_values() {
+    fn test_parse_values() {
+        // Simple.
         v!("_"         => Id("_"));
         v!("name"      => Id("name"));
         v!("α"         => Id("α"));
@@ -786,6 +895,12 @@ mod tests {
         v!("12e1pt"    => Len(Length::pt(12e1)));
         v!("#f7a20500" => Color(RgbaColor::new(0xf7, 0xa2, 0x05, 0x00)));
         v!("\"a\n[]\\\"string\"" => Str("a\n[]\"string"));
+
+        // Content.
+        v!("{_hi_}"              => Tree![P![I, T("hi"), I]]);
+        e!("[val: {_hi_}]"       => );
+        v!("[hi]"                => Tree![F!["hi"]]);
+        e!("[val: [hi]]"         => );
 
         // Healed colors.
         v!("#12345"            => Color(RgbaColor::new_healed(0, 0, 0, 0xff)));
@@ -925,7 +1040,7 @@ mod tests {
         v!("(\x07 abc,)"        => Table![Id("abc")]);
         e!("[val: (\x07 abc,)]" => s(0,7, 0,8, "expected value, found invalid token"));
         e!("[val: (key=,)]"     => s(0,11, 0,12, "expected value, found comma"));
-        e!("[val: [hi]]"        => s(0,6, 0,10, "expected value, found function"));
+        e!("[val: hi,)]"        => s(0,9, 0,10, "expected value, found closing paren"));
 
         // Expected comma.
         v!("(true false)"        => Table![Bool(true), Bool(false)]);
