@@ -3,6 +3,7 @@ use std::env;
 use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::BufWriter;
+use std::path::Path;
 use std::rc::Rc;
 
 use fontdock::fs::{FsIndex, FsProvider};
@@ -41,7 +42,7 @@ fn main() {
         let name = path.file_stem().unwrap().to_string_lossy().to_string();
         if filter.matches(&name) {
             let src = fs::read_to_string(&path).unwrap();
-            filtered.push((name, src));
+            filtered.push((name, path, src));
         }
     }
 
@@ -72,14 +73,15 @@ fn main() {
         margins: Value4::with_all(None),
     });
 
-    for (name, src) in filtered {
-        test(&name, &src, &mut typesetter, &loader)
+    for (name, path, src) in filtered {
+        test(&name, &src, &path, &mut typesetter, &loader)
     }
 }
 
 fn test(
     name: &str,
     src: &str,
+    path: &Path,
     typesetter: &mut Typesetter,
     loader: &SharedFontLoader,
 ) {
@@ -91,9 +93,14 @@ fn test(
 
     feedback.diagnostics.sort();
     for diagnostic in feedback.diagnostics {
+        let span = diagnostic.span;
         println!(
-            "  {:?} {:?}: {}",
-            diagnostic.v.level, diagnostic.span, diagnostic.v.message,
+            "  {:?}: {}:{}:{} - {}:{}: {}",
+            diagnostic.v.level,
+            path.display(),
+            span.start.line + 1, span.start.column + 1,
+            span.end.line + 1, span.end.column + 1,
+            diagnostic.v.message,
         );
     }
 

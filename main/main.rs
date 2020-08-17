@@ -44,7 +44,22 @@ fn main() {
     let loader = Rc::new(RefCell::new(loader));
 
     let typesetter = Typesetter::new(loader.clone());
-    let layouts = block_on(typesetter.typeset(&src)).output;
+    let pass = block_on(typesetter.typeset(&src));
+    let layouts = pass.output;
+
+    let mut feedback = pass.feedback;
+    feedback.diagnostics.sort();
+    for diagnostic in feedback.diagnostics {
+        let span = diagnostic.span;
+        println!(
+            "{}: {}:{}:{} - {}:{}: {}",
+            format!("{:?}", diagnostic.v.level).to_lowercase(),
+            src_path.display(),
+            span.start.line + 1, span.start.column + 1,
+            span.end.line + 1, span.end.column + 1,
+            diagnostic.v.message,
+        );
+    }
 
     let file = File::create(&dest_path)
         .expect("failed to create output file");
