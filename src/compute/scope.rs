@@ -31,12 +31,6 @@ impl Scope {
         self.functions.get(name)
     }
 
-    /// Return the function with the given name or the fallback if there is no
-    /// such function.
-    pub fn func_or_fallback(&self, name: &str) -> &FuncValue {
-        self.func(name).unwrap_or_else(|| self.fallback())
-    }
-
     /// Return the fallback function.
     pub fn fallback(&self) -> &FuncValue {
         &self.fallback

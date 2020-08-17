@@ -18,60 +18,66 @@ use super::*;
 ///   ```typst
 ///   serif = ("Source Serif Pro", "Noto Serif")
 ///   ```
-pub async fn font(mut args: TableValue, ctx: LayoutContext<'_>) -> Pass<Value> {
+pub async fn font(_: Span, mut args: TableValue, ctx: LayoutContext<'_>) -> Pass<Value> {
     let mut f = Feedback::new();
+    let mut text = ctx.style.text.clone();
+    let mut updated_fallback = false;
 
     let content = args.take::<SyntaxTree>();
-    let size = args.take::<ScaleLength>();
-    let style = args.take_with_key::<_, FontStyle>("style", &mut f);
-    let weight = args.take_with_key::<_, FontWeight>("weight", &mut f);
-    let width = args.take_with_key::<_, FontWidth>("width", &mut f);
-    let list: Vec<_> = args.take_all_num_vals::<StringLike>()
-        .map(|s| s.0.to_lowercase())
-        .collect();
-    let classes: Vec<(_, Vec<_>)> = args.take_all_str::<TableValue>()
-        .map(|(class, mut table)| {
-            let fallback = table.take_all_num_vals::<StringLike>()
-                .map(|s| s.0.to_lowercase())
-                .collect();
-            (class, fallback)
-        })
-        .collect();
 
-    args.unexpected(&mut f);
-
-    let mut text = ctx.style.text.clone();
-
-    size.with(|s| match s {
-        ScaleLength::Absolute(length) => {
-            text.base_font_size = length.as_raw();
-            text.font_scale = 1.0;
+    if let Some(s) = args.take::<ScaleLength>() {
+        match s {
+            ScaleLength::Absolute(length) => {
+                text.base_font_size = length.as_raw();
+                text.font_scale = 1.0;
+            }
+            ScaleLength::Scaled(scale) => text.font_scale = scale,
         }
-        ScaleLength::Scaled(scale) => text.font_scale = scale,
-    });
+    }
 
-    style.with(|s| text.variant.style = s);
-    weight.with(|w| text.variant.weight = w);
-    width.with(|w| text.variant.width = w);
+    let list: Vec<_> = args.take_all_num_vals::<StringLike>()
+        .map(|s| s.to_lowercase())
+        .collect();
 
     if !list.is_empty() {
-        *text.fallback.list_mut() = list.iter()
+        *text.fallback.list_mut() = list;
+        updated_fallback = true;
+    }
+
+    if let Some(style) = args.take_key::<FontStyle>("style", &mut f) {
+        text.variant.style = style;
+    }
+
+    if let Some(weight) = args.take_key::<FontWeight>("weight", &mut f) {
+        text.variant.weight = weight;
+    }
+
+    if let Some(width) = args.take_key::<FontWidth>("width", &mut f) {
+        text.variant.width = width;
+    }
+
+    for (class, mut table) in args.take_all_str::<TableValue>() {
+        let fallback = table.take_all_num_vals::<StringLike>()
             .map(|s| s.to_lowercase())
             .collect();
+
+        text.fallback.set_class_list(class, fallback);
+        updated_fallback = true;
     }
 
-    for (class, fallback) in classes {
-        text.fallback.set_class_list(class.clone(), fallback.clone());
+    if updated_fallback {
+        text.fallback.flatten();
     }
 
-    text.fallback.flatten();
-
-    Pass::commands(match content {
+    let commands = match content {
         Some(tree) => vec![
             SetTextStyle(text),
             LayoutSyntaxTree(tree),
             SetTextStyle(ctx.style.text.clone()),
         ],
         None => vec![SetTextStyle(text)],
-    }, f)
+    };
+
+    args.unexpected(&mut f);
+    Pass::commands(commands, f)
 }

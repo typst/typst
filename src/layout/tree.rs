@@ -3,7 +3,7 @@
 use crate::compute::value::Value;
 use crate::style::LayoutStyle;
 use crate::syntax::decoration::Decoration;
-use crate::syntax::span::{Offset, Span, Spanned};
+use crate::syntax::span::{Span, Spanned};
 use crate::syntax::tree::{CallExpr, SyntaxNode, SyntaxTree};
 use crate::{DynFuture, Feedback, Pass};
 use super::line::{LineContext, LineLayouter};
@@ -104,7 +104,7 @@ impl<'a> TreeLayouter<'a> {
 
     async fn layout_call(&mut self, call: Spanned<&CallExpr>) {
         let name = call.v.name.v.as_str();
-        let span = call.v.name.span.offset(call.span.start);
+        let span = call.v.name.span;
 
         let (func, deco) = if let Some(func) = self.ctx.scope.func(name) {
             (func, Decoration::Resolved)
@@ -116,7 +116,7 @@ impl<'a> TreeLayouter<'a> {
         self.feedback.decorations.push(Spanned::new(deco, span));
 
         let args = call.v.args.eval();
-        let pass = func(args, LayoutContext {
+        let pass = func(span, args, LayoutContext {
             style: &self.style,
             spaces: self.layouter.remaining(),
             root: true,

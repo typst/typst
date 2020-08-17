@@ -16,45 +16,55 @@ use super::*;
 /// - `top`: The top margin (length or relative to height).
 /// - `bottom`: The bottom margin (length or relative to height).
 /// - `flip`: Flips custom or paper-defined width and height (boolean).
-pub async fn page(mut args: TableValue, ctx: LayoutContext<'_>) -> Pass<Value> {
+pub async fn page(_: Span, mut args: TableValue, ctx: LayoutContext<'_>) -> Pass<Value> {
     let mut f = Feedback::new();
-    let paper = args.take::<Paper>();
-    let width = args.take_with_key::<_, Length>("width", &mut f);
-    let height = args.take_with_key::<_, Length>("height", &mut f);
-    let margins = args.take_with_key::<_, ScaleLength>("margins", &mut f);
-    let left = args.take_with_key::<_, ScaleLength>("left", &mut f);
-    let right = args.take_with_key::<_, ScaleLength>("right", &mut f);
-    let top = args.take_with_key::<_, ScaleLength>("top", &mut f);
-    let bottom = args.take_with_key::<_, ScaleLength>("bottom", &mut f);
-    let flip = args.take_with_key::<_, bool>("flip", &mut f).unwrap_or(false);
-    args.unexpected(&mut f);
-
     let mut style = ctx.style.page;
 
-    if let Some(paper) = paper {
+    if let Some(paper) = args.take::<Paper>() {
         style.class = paper.class;
         style.size = paper.size();
-    } else if width.is_some() || height.is_some() {
-        style.class = PaperClass::Custom;
     }
 
-    width.with(|v| style.size.x = v.as_raw());
-    height.with(|v| style.size.y = v.as_raw());
-    margins.with(|v| style.margins.set_all(Some(v)));
-    left.with(|v| style.margins.left = Some(v));
-    right.with(|v| style.margins.right = Some(v));
-    top.with(|v| style.margins.top = Some(v));
-    bottom.with(|v| style.margins.bottom = Some(v));
+    if let Some(width) = args.take_key::<Length>("width", &mut f) {
+        style.class = PaperClass::Custom;
+        style.size.x = width.as_raw();
+    }
 
-    if flip {
+    if let Some(height) = args.take_key::<Length>("height", &mut f) {
+        style.class = PaperClass::Custom;
+        style.size.y = height.as_raw();
+    }
+
+    if let Some(margins) = args.take_key::<ScaleLength>("margins", &mut f) {
+        style.margins.set_all(Some(margins));
+    }
+
+    if let Some(left) = args.take_key::<ScaleLength>("left", &mut f) {
+        style.margins.left = Some(left);
+    }
+
+    if let Some(right) = args.take_key::<ScaleLength>("right", &mut f) {
+        style.margins.right = Some(right);
+    }
+
+    if let Some(top) = args.take_key::<ScaleLength>("top", &mut f) {
+        style.margins.top = Some(top);
+    }
+
+    if let Some(bottom) = args.take_key::<ScaleLength>("bottom", &mut f) {
+        style.margins.bottom = Some(bottom);
+    }
+
+    if args.take_key::<bool>("flip", &mut f).unwrap_or(false) {
         style.size.swap();
     }
 
+    args.unexpected(&mut f);
     Pass::commands(vec![SetPageStyle(style)], f)
 }
 
 /// `pagebreak`: Ends the current page.
-pub async fn pagebreak(args: TableValue, _: LayoutContext<'_>) -> Pass<Value> {
+pub async fn pagebreak(_: Span, args: TableValue, _: LayoutContext<'_>) -> Pass<Value> {
     let mut f = Feedback::new();
     args.unexpected(&mut f);
     Pass::commands(vec![BreakPage], f)

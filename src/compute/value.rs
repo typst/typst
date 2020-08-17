@@ -1,6 +1,7 @@
 //! Computational values: Syntactical expressions can be evaluated into these.
 
 use std::fmt::{self, Debug, Formatter};
+use std::ops::Deref;
 use std::rc::Rc;
 
 use fontdock::{FontStyle, FontWeight, FontWidth};
@@ -13,7 +14,7 @@ use crate::syntax::span::{Span, Spanned};
 use crate::syntax::tree::SyntaxTree;
 use crate::syntax::Ident;
 use crate::{DynFuture, Feedback, Pass};
-use super::table::{BorrowedKey, SpannedEntry, Table};
+use super::table::{SpannedEntry, Table};
 
 /// A computational value.
 #[derive(Clone)]
@@ -110,7 +111,7 @@ impl PartialEq for Value {
 ///
 /// The dynamic function object is wrapped in an `Rc` to keep `Value` clonable.
 pub type FuncValue = Rc<
-    dyn Fn(TableValue, LayoutContext<'_>) -> DynFuture<Pass<Value>>
+    dyn Fn(Span, TableValue, LayoutContext<'_>) -> DynFuture<Pass<Value>>
 >;
 
 /// A table of values.
@@ -138,13 +139,21 @@ impl TableValue {
     /// Retrieve and remove the matching value with the lowest number key,
     /// removing and generating errors for all non-matching entries with lower
     /// keys.
-    pub fn expect<T: TryFromValue>(&mut self, f: &mut Feedback) -> Option<T> {
+    ///
+    /// Generates an error at `err_span` when no matching value was found.
+    pub fn expect<T: TryFromValue>(
+        &mut self,
+        name: &str,
+        span: Span,
+        f: &mut Feedback,
+    ) -> Option<T> {
         while let Some((num, _)) = self.first() {
             let entry = self.remove(num).unwrap();
             if let Some(val) = T::try_from_value(entry.val.as_ref(), f) {
                 return Some(val);
             }
         }
+        error!(@f, span, "missing argument: {}", name);
         None
     }
 
@@ -152,9 +161,8 @@ impl TableValue {
     /// there is any.
     ///
     /// Generates an error if the key exists but the value does not match.
-    pub fn take_with_key<'a, K, T>(&mut self, key: K, f: &mut Feedback) -> Option<T>
+    pub fn take_key<'a, T>(&mut self, key: &str, f: &mut Feedback) -> Option<T>
     where
-        K: Into<BorrowedKey<'a>>,
         T: TryFromValue,
     {
         self.remove(key).and_then(|entry| {
@@ -312,6 +320,14 @@ impl_match!(ScaleLength, "number or length",
 /// `Into<String>`.
 pub struct StringLike(pub String);
 
+impl Deref for StringLike {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
 impl From<StringLike> for String {
     fn from(like: StringLike) -> String {
         like.0
@@ -441,7 +457,10 @@ mod tests {
         table.insert(1, entry(Value::Bool(false)));
         table.insert(3, entry(Value::Str("hi".to_string())));
         table.insert(5, entry(Value::Bool(true)));
-        assert_eq!(table.expect::<String>(&mut f), Some("hi".to_string()));
+        assert_eq!(
+            table.expect::<String>("", Span::ZERO, &mut f),
+            Some("hi".to_string())
+        );
         assert_eq!(f.diagnostics, [error!(Span::ZERO, "expected string, found bool")]);
         assert_eq!(table.len(), 1);
     }
@@ -452,8 +471,8 @@ mod tests {
         let mut table = Table::new();
         table.insert(1, entry(Value::Bool(false)));
         table.insert("hi", entry(Value::Bool(true)));
-        assert_eq!(table.take_with_key::<_, bool>(1, &mut f), Some(false));
-        assert_eq!(table.take_with_key::<_, f64>("hi", &mut f), None);
+        assert_eq!(table.take::<bool>(), Some(false));
+        assert_eq!(table.take_key::<f64>("hi", &mut f), None);
         assert_eq!(f.diagnostics, [error!(Span::ZERO, "expected number, found bool")]);
         assert!(table.is_empty());
     }

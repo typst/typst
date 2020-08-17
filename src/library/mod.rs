@@ -30,7 +30,7 @@ macro_rules! std {
 
 macro_rules! wrap {
     ($func:expr) => {
-        Rc::new(|args, ctx| Box::pin($func(args, ctx)))
+        Rc::new(|name, args, ctx| Box::pin($func(name, args, ctx)))
     };
 }
 
@@ -51,14 +51,16 @@ std! {
 ///
 /// This is also the fallback function, which is used when a function name
 /// cannot be resolved.
-pub async fn val(mut args: TableValue, _: LayoutContext<'_>) -> Pass<Value> {
-    Pass::commands(match args.take::<SyntaxTree>() {
+pub async fn val(_: Span, mut args: TableValue, _: LayoutContext<'_>) -> Pass<Value> {
+    let commands = match args.take::<SyntaxTree>() {
         Some(tree) => vec![LayoutSyntaxTree(tree)],
         None => vec![],
-    }, Feedback::new())
+    };
+
+    Pass::commands(commands, Feedback::new())
 }
 
-/// `dump`: Dumps its arguments.
-pub async fn dump(args: TableValue, _: LayoutContext<'_>) -> Pass<Value> {
+/// `dump`: Dumps its arguments into the document.
+pub async fn dump(_: Span, args: TableValue, _: LayoutContext<'_>) -> Pass<Value> {
     Pass::okay(Value::Table(args))
 }

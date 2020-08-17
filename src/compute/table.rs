@@ -1,7 +1,7 @@
 //! A key-value map that can also model array-like structures.
 
 use std::collections::BTreeMap;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Index;
 
 use crate::syntax::span::{Span, Spanned};
@@ -180,25 +180,31 @@ impl<V: Debug> Debug for Table<V> {
 
         let mut builder = f.debug_tuple("");
 
-        struct Entry<'a>(&'a dyn Debug, &'a dyn Debug);
+        struct Entry<'a>(bool, &'a dyn Display, &'a dyn Debug);
         impl<'a> Debug for Entry<'a> {
             fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-                self.0.fmt(f)?;
+                if self.0 {
+                    f.write_str("\"")?;
+                }
+                self.1.fmt(f)?;
+                if self.0 {
+                    f.write_str("\"")?;
+                }
                 if f.alternate() {
                     f.write_str(" = ")?;
                 } else {
                     f.write_str("=")?;
                 }
-                self.1.fmt(f)
+                self.2.fmt(f)
             }
         }
 
         for (key, value) in self.nums() {
-            builder.field(&Entry(&key, &value));
+            builder.field(&Entry(false, &key, &value));
         }
 
         for (key, value) in self.strs() {
-            builder.field(&Entry(&key, &value));
+            builder.field(&Entry(key.contains(' '), &key, &value));
         }
 
         builder.finish()
@@ -358,21 +364,21 @@ mod tests {
     #[test]
     fn test_table_format_debug() {
         let mut table = Table::new();
-        assert_eq!(format!("{:?}", table), r#"()"#);
-        assert_eq!(format!("{:#?}", table), r#"()"#);
+        assert_eq!(format!("{:?}", table), "()");
+        assert_eq!(format!("{:#?}", table), "()");
 
         table.insert(10, "hello");
         table.insert("twenty", "there");
         table.insert("sp ace", "quotes");
         assert_eq!(
             format!("{:?}", table),
-            r#"(10="hello", "sp ace"="quotes", "twenty"="there")"#,
+            r#"(10="hello", "sp ace"="quotes", twenty="there")"#,
         );
         assert_eq!(format!("{:#?}", table).lines().collect::<Vec<_>>(), [
             "(",
             r#"    10 = "hello","#,
             r#"    "sp ace" = "quotes","#,
-            r#"    "twenty" = "there","#,
+            r#"    twenty = "there","#,
             ")",
         ]);
     }
