@@ -115,6 +115,17 @@ impl<V> Table<V> {
         self.lowest_free += 1;
     }
 
+    /// Iterator over all borrowed keys and values.
+    pub fn iter(&self) -> impl Iterator<Item = (BorrowedKey, &V)> {
+        self.nums().map(|(&k, v)| (BorrowedKey::Num(k), v))
+            .chain(self.strs().map(|(k, v)| (BorrowedKey::Str(k), v)))
+    }
+
+    /// Iterate over all values in the table.
+    pub fn values(&self) -> impl Iterator<Item = &V> {
+        self.nums().map(|(_, v)| v).chain(self.strs().map(|(_, v)| v))
+    }
+
     /// Iterate over the number key-value pairs.
     pub fn nums(&self) -> std::collections::btree_map::Iter<u64, V> {
         self.nums.iter()
@@ -125,9 +136,16 @@ impl<V> Table<V> {
         self.strs.iter()
     }
 
-    /// Iterate over all values in the table.
-    pub fn values(&self) -> impl Iterator<Item = &V> {
-        self.nums().map(|(_, v)| v).chain(self.strs().map(|(_, v)| v))
+    /// Move into an owned iterator over owned keys and values.
+    pub fn into_iter(self) -> impl Iterator<Item = (OwnedKey, V)> {
+        self.nums.into_iter().map(|(k, v)| (OwnedKey::Num(k), v))
+            .chain(self.strs.into_iter().map(|(k, v)| (OwnedKey::Str(k), v)))
+    }
+
+    /// Move into an owned iterator over all values in the table.
+    pub fn into_values(self) -> impl Iterator<Item = V> {
+        self.nums.into_iter().map(|(_, v)| v)
+            .chain(self.strs.into_iter().map(|(_, v)| v))
     }
 
     /// Iterate over the number key-value pairs.
@@ -138,12 +156,6 @@ impl<V> Table<V> {
     /// Iterate over the string key-value pairs.
     pub fn into_strs(self) -> std::collections::btree_map::IntoIter<String, V> {
         self.strs.into_iter()
-    }
-
-    /// Move into an owned iterator over all values in the table.
-    pub fn into_values(self) -> impl Iterator<Item = V> {
-        self.nums.into_iter().map(|(_, v)| v)
-            .chain(self.strs.into_iter().map(|(_, v)| v))
     }
 }
 
@@ -168,7 +180,7 @@ impl<V: Eq> Eq for Table<V> {}
 
 impl<V: PartialEq> PartialEq for Table<V> {
     fn eq(&self, other: &Self) -> bool {
-        self.nums().eq(other.nums()) && self.strs().eq(other.strs())
+        self.iter().eq(other.iter())
     }
 }
 
@@ -216,6 +228,15 @@ impl<V: Debug> Debug for Table<V> {
 pub enum OwnedKey {
     Num(u64),
     Str(String),
+}
+
+impl From<BorrowedKey<'_>> for OwnedKey {
+    fn from(key: BorrowedKey<'_>) -> Self {
+        match key {
+            BorrowedKey::Num(num) => Self::Num(num),
+            BorrowedKey::Str(string) => Self::Str(string.to_string()),
+        }
+    }
 }
 
 impl From<u64> for OwnedKey {

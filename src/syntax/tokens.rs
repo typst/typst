@@ -252,10 +252,9 @@ impl<'s> Iterator for Tokens<'s> {
                 let text = self.read_string_until(|n| {
                     let val = match n {
                         c if c.is_whitespace() => true,
-                        '['  | ']' | '/' | '*' => true,
+                        '['  | ']' | '{' | '}' | '/' | '*' => true,
                         '\\' | '_' | '`' if body => true,
-                        ':'  | '=' | ',' | '"' |
-                        '('  | ')' | '{' | '}' if !body => true,
+                        ':'  | '=' | ',' | '"' | '('  | ')' if !body => true,
                         '+'  | '-' if !body && !last_was_e => true,
                         _ => false,
                     };

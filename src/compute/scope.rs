@@ -8,16 +8,14 @@ use super::value::FuncValue;
 /// A map from identifiers to functions.
 pub struct Scope {
     functions: HashMap<String, FuncValue>,
-    fallback: FuncValue,
 }
 
 impl Scope {
     // Create a new empty scope with a fallback function that is invoked when no
     // match is found.
-    pub fn new(fallback: FuncValue) -> Self {
+    pub fn new() -> Self {
         Self {
             functions: HashMap::new(),
-            fallback,
         }
     }
 
@@ -29,11 +27,6 @@ impl Scope {
     /// Return the function with the given name if there is one.
     pub fn func(&self, name: &str) -> Option<&FuncValue> {
         self.functions.get(name)
-    }
-
-    /// Return the fallback function.
-    pub fn fallback(&self) -> &FuncValue {
-        &self.fallback
     }
 }
 

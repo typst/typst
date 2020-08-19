@@ -7,11 +7,11 @@ use std::rc::Rc;
 use fontdock::{FontStyle, FontWeight, FontWidth};
 
 use crate::color::RgbaColor;
-use crate::layout::{Commands, Dir, LayoutContext, SpecAlign};
+use crate::layout::{Command, Commands, Dir, LayoutContext, SpecAlign};
 use crate::length::{Length, ScaleLength};
 use crate::paper::Paper;
 use crate::syntax::span::{Span, Spanned};
-use crate::syntax::tree::SyntaxTree;
+use crate::syntax::tree::{SyntaxTree, SyntaxNode};
 use crate::syntax::Ident;
 use crate::{DynFuture, Feedback, Pass};
 use super::table::{SpannedEntry, Table};
@@ -57,6 +57,47 @@ impl Value {
             Tree(_) => "syntax tree",
             Func(_) => "function",
             Commands(_) => "commands",
+        }
+    }
+}
+
+impl Spanned<Value> {
+    /// Transform this value into something layoutable.
+    ///
+    /// If this is already a command-value, it is simply unwrapped, otherwise
+    /// the value is represented as layoutable content in a reasonable way.
+    pub fn into_commands(self) -> Commands {
+        match self.v {
+            Value::Commands(commands) => commands,
+            Value::Tree(tree) => vec![Command::LayoutSyntaxTree(tree)],
+
+            // Forward to each entry, separated with spaces.
+            Value::Table(table) => {
+                let mut commands = vec![];
+                let mut end = None;
+                for entry in table.into_values() {
+                    if let Some(last_end) = end {
+                        let span = Span::new(last_end, entry.key.start);
+                        commands.push(Command::LayoutSyntaxTree(vec![
+                            Spanned::new(SyntaxNode::Spacing, span)
+                        ]));
+                    }
+
+                    end = Some(entry.val.span.end);
+                    commands.extend(entry.val.into_commands());
+                }
+                commands
+            }
+
+            // Format with debug.
+            val => vec![
+                Command::LayoutSyntaxTree(vec![
+                    Spanned::new(
+                        SyntaxNode::Text(format!("{:?}", val)),
+                        self.span,
+                    )
+                ])
+            ],
         }
     }
 }

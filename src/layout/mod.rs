@@ -45,7 +45,7 @@ pub struct BoxLayout {
 }
 
 /// The context for layouting.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LayoutContext<'a> {
     /// The font loader to query fonts from when typesetting text.
     pub loader: &'a SharedFontLoader,

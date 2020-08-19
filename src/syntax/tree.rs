@@ -5,7 +5,10 @@ use std::fmt::{self, Debug, Formatter};
 use crate::color::RgbaColor;
 use crate::compute::table::{SpannedEntry, Table};
 use crate::compute::value::{TableValue, Value};
+use crate::layout::LayoutContext;
 use crate::length::Length;
+use crate::{DynFuture, Feedback};
+use super::decoration::Decoration;
 use super::span::{Spanned, SpanVec};
 use super::Ident;
 
@@ -91,7 +94,11 @@ impl Expr {
     }
 
     /// Evaluate the expression to a value.
-    pub fn eval(&self) -> Value {
+    pub async fn eval(
+        &self,
+        ctx: &LayoutContext<'_>,
+        f: &mut Feedback,
+    ) -> Value {
         use Expr::*;
         match self {
             Ident(i) => Value::Ident(i.clone()),
@@ -100,9 +107,9 @@ impl Expr {
             &Number(n) => Value::Number(n),
             &Length(s) => Value::Length(s),
             &Color(c) => Value::Color(c),
-            Table(t) => Value::Table(t.eval()),
+            Table(t) => Value::Table(t.eval(ctx, f).await),
             Tree(t) => Value::Tree(t.clone()),
-            Call(_) => todo!("eval call"),
+            Call(call) => call.eval(ctx, f).await,
             Neg(_) => todo!("eval neg"),
             Add(_, _) => todo!("eval add"),
             Sub(_, _) => todo!("eval sub"),
@@ -144,18 +151,23 @@ pub type TableExpr = Table<SpannedEntry<Expr>>;
 
 impl TableExpr {
     /// Evaluate the table expression to a table value.
-    pub fn eval(&self) -> TableValue {
-        let mut table = TableValue::new();
+    pub fn eval<'a>(
+        &'a self,
+        ctx: &'a LayoutContext<'a>,
+        f: &'a mut Feedback,
+    ) -> DynFuture<'a, TableValue> {
+        Box::pin(async move {
+            let mut table = TableValue::new();
 
-        for (&key, entry) in self.nums() {
-            table.insert(key, entry.as_ref().map(|val| val.eval()));
-        }
+            for (key, entry) in self.iter() {
+                let val = entry.val.v.eval(ctx, f).await;
+                let spanned = Spanned::new(val, entry.val.span);
+                let entry = SpannedEntry::new(entry.key, spanned);
+                table.insert(key, entry);
+            }
 
-        for (key, entry) in self.strs() {
-            table.insert(key.clone(), entry.as_ref().map(|val| val.eval()));
-        }
-
-        table
+            table
+        })
     }
 }
 
@@ -164,4 +176,24 @@ impl TableExpr {
 pub struct CallExpr {
     pub name: Spanned<Ident>,
     pub args: TableExpr,
+}
+
+impl CallExpr {
+    /// Evaluate the call expression to a value.
+    pub async fn eval(&self, ctx: &LayoutContext<'_>, f: &mut Feedback) -> Value {
+        let name = self.name.v.as_str();
+        let span = self.name.span;
+        let args = self.args.eval(ctx, f).await;
+
+        if let Some(func) = ctx.scope.func(name) {
+            let pass = func(span, args, ctx.clone()).await;
+            f.extend(pass.feedback);
+            f.decorations.push(Spanned::new(Decoration::Resolved, span));
+            pass.output
+        } else {
+            error!(@f, span, "unknown function");
+            f.decorations.push(Spanned::new(Decoration::Unresolved, span));
+            Value::Table(args)
+        }
+    }
 }
