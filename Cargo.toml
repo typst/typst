@@ -34,6 +34,7 @@ required-features = ["fs"]
 harness = false
 
 [[bench]]
-name = "bench-parsing"
-path = "benches/bench_parsing.rs"
+name = "benchmarks"
+path = "benches/benchmarks.rs"
+required-features = ["fs"]
 harness = false
