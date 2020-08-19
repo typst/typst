@@ -153,9 +153,6 @@ pub enum TokenMode {
 
 impl<'s> Tokens<'s> {
     /// Create a new token iterator with the given mode.
-    ///
-    /// The first token's span starts an the given `offset` position instead of
-    /// the zero position.
     pub fn new(src: &'s str, mode: TokenMode) -> Self {
         Self {
             src,

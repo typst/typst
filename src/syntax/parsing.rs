@@ -177,7 +177,7 @@ impl Parser<'_> {
                         self.eat();
                         self.skip_white();
 
-                        (Some(ident), try_opt_or!(self.parse_expr(), {
+                        (Some(ident), try_or!(self.parse_expr(), {
                             self.expected("value");
                             continue;
                         }))
@@ -191,7 +191,7 @@ impl Parser<'_> {
                     _ => (None, ident.map(|id| Expr::Ident(id)))
                 }
             } else {
-                (None, try_opt_or!(self.parse_expr(), {
+                (None, try_or!(self.parse_expr(), {
                     self.expected("value");
                     continue;
                 }))
