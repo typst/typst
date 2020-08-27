@@ -191,8 +191,10 @@ impl CallExpr {
             f.decorations.push(Spanned::new(Decoration::Resolved, span));
             pass.output
         } else {
-            error!(@f, span, "unknown function");
-            f.decorations.push(Spanned::new(Decoration::Unresolved, span));
+            if !name.is_empty() {
+                error!(@f, span, "unknown function");
+                f.decorations.push(Spanned::new(Decoration::Unresolved, span));
+            }
             Value::Table(args)
         }
     }

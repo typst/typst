@@ -123,7 +123,7 @@ impl Parser<'_> {
         self.skip_white();
         let name = self.parse_ident().unwrap_or_else(|| {
             self.expected_found_or_at("function name", before_name);
-            Spanned::zero(Ident(String::new()))
+            Spanned::new(Ident(String::new()), Span::at(before_name))
         });
 
         self.skip_white();
