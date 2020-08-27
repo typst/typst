@@ -478,7 +478,7 @@ pub fn is_identifier(string: &str) -> bool {
         _ => return false,
     }
 
-    while let Some(c) = chars.next() {
+    for c in chars {
         match c {
             c if UnicodeXID::is_xid_continue(c) || is_extra_allowed(c) => {}
             _ => return false,

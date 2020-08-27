@@ -14,7 +14,7 @@ use tide::{PdfWriter, Rect, Ref, Trailer, Version};
 use ttf_parser::{name_id, GlyphId};
 
 use crate::layout::elements::LayoutElement;
-use crate::layout::{BoxLayout, MultiLayout};
+use crate::layout::BoxLayout;
 use crate::length::Length;
 use crate::SharedFontLoader;
 
@@ -27,7 +27,7 @@ use crate::SharedFontLoader;
 /// The raw _PDF_ is written into the `target` writable, returning the number of
 /// bytes written.
 pub fn export<W: Write>(
-    layout: &MultiLayout,
+    layout: &[BoxLayout],
     loader: &SharedFontLoader,
     target: W,
 ) -> io::Result<usize> {
@@ -36,7 +36,7 @@ pub fn export<W: Write>(
 
 struct PdfExporter<'a, W: Write> {
     writer: PdfWriter<W>,
-    layouts: &'a MultiLayout,
+    layouts: &'a [BoxLayout],
     loader: &'a SharedFontLoader,
     /// We need to know exactly which indirect reference id will be used for
     /// which objects up-front to correctly declare the document catalogue, page
@@ -60,7 +60,7 @@ const NUM_OBJECTS_PER_FONT: u32 = 5;
 
 impl<'a, W: Write> PdfExporter<'a, W> {
     fn new(
-        layouts: &'a MultiLayout,
+        layouts: &'a [BoxLayout],
         loader: &'a SharedFontLoader,
         target: W,
     ) -> io::Result<Self> {
@@ -289,7 +289,7 @@ impl<'a, W: Write> PdfExporter<'a, W> {
 /// Assigns a new PDF-internal index to each used face and returns two mappings:
 /// - Forwards from the old face ids to the new pdf indices (hash map)
 /// - Backwards from the pdf indices to the old face ids (vec)
-fn remap_fonts(layouts: &MultiLayout) -> (HashMap<FaceId, usize>, Vec<FaceId>) {
+fn remap_fonts(layouts: &[BoxLayout]) -> (HashMap<FaceId, usize>, Vec<FaceId>) {
     let mut to_pdf = HashMap::new();
     let mut to_layout = vec![];
 

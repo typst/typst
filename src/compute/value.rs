@@ -132,9 +132,7 @@ impl PartialEq for Value {
             (Color(a), Color(b)) => a == b,
             (Table(a), Table(b)) => a == b,
             (Tree(a), Tree(b)) => a == b,
-            (Func(a), Func(b)) => {
-                a.as_ref() as *const _ == b.as_ref() as *const _
-            }
+            (Func(a), Func(b)) => Rc::ptr_eq(a, b),
             (Commands(a), Commands(b)) => a == b,
             _ => false,
         }
@@ -202,7 +200,7 @@ impl TableValue {
     /// there is any.
     ///
     /// Generates an error if the key exists but the value does not match.
-    pub fn take_key<'a, T>(&mut self, key: &str, f: &mut Feedback) -> Option<T>
+    pub fn take_key<T>(&mut self, key: &str, f: &mut Feedback) -> Option<T>
     where
         T: TryFromValue,
     {

@@ -67,7 +67,7 @@ impl Parser<'_> {
                 }
 
                 Token::LeftBracket => {
-                    self.parse_bracket_call(false).map(|c| SyntaxNode::Call(c))
+                    self.parse_bracket_call(false).map(SyntaxNode::Call)
                 }
 
                 Token::Star => self.with_span(SyntaxNode::ToggleBolder),
@@ -143,7 +143,7 @@ impl Parser<'_> {
         let (has_chained_child, end) = if self.peek().is_some() {
             let item = self.parse_bracket_call(true);
             let span = item.span;
-            let t = vec![item.map(|f| SyntaxNode::Call(f))];
+            let t = vec![item.map(SyntaxNode::Call)];
             args.push(SpannedEntry::val(Spanned::new(Expr::Tree(t), span)));
             (true, span.end)
         } else {
@@ -203,10 +203,10 @@ impl Parser<'_> {
 
                     Some(Token::LeftParen) => {
                         let call = self.parse_paren_call(ident);
-                        (None, call.map(|c| Expr::Call(c)))
+                        (None, call.map(Expr::Call))
                     }
 
-                    _ => (None, ident.map(|id| Expr::Ident(id)))
+                    _ => (None, ident.map(Expr::Ident))
                 }
             } else {
                 (None, try_or!(self.parse_expr(), {
@@ -316,9 +316,9 @@ impl Parser<'_> {
                 self.eat();
                 self.skip_white();
                 if self.check(Token::LeftParen) {
-                    self.parse_paren_call(name).map(|call| Expr::Call(call))
+                    self.parse_paren_call(name).map(Expr::Call)
                 } else {
-                    name.map(|id| Expr::Ident(id))
+                    name.map(Expr::Ident)
                 }
             }
 
@@ -377,7 +377,7 @@ impl Parser<'_> {
             // This is a bracketed function call.
             Token::LeftBracket => {
                 let call = self.parse_bracket_call(false);
-                let tree = vec![call.map(|c| SyntaxNode::Call(c))];
+                let tree = vec![call.map(SyntaxNode::Call)];
                 Spanned::new(Expr::Tree(tree), span)
             }
 
