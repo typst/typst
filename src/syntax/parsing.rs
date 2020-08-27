@@ -67,7 +67,7 @@ impl Parser<'_> {
                 }
 
                 Token::LeftBracket => {
-                    self.parse_bracket_call().map(|c| SyntaxNode::Call(c))
+                    self.parse_bracket_call(false).map(|c| SyntaxNode::Call(c))
                 }
 
                 Token::Star => self.with_span(SyntaxNode::ToggleBolder),
@@ -111,11 +111,15 @@ impl Parser<'_> {
 
 // Function calls.
 impl Parser<'_> {
-    fn parse_bracket_call(&mut self) -> Spanned<CallExpr> {
-        self.start_group(Delimiter::Bracket);
-        self.tokens.push_mode(TokenMode::Header);
+    fn parse_bracket_call(&mut self, chained: bool) -> Spanned<CallExpr> {
+        let before_bracket = self.pos();
+        if !chained {
+            self.start_group(Delimiter::Bracket);
+            self.tokens.push_mode(TokenMode::Header);
+        }
 
         let after_bracket = self.pos();
+        self.start_group(Delimiter::Subheader);
         self.skip_white();
         let name = self.parse_ident().unwrap_or_else(|| {
             self.expected_found_or_at("function name", after_bracket);
@@ -123,8 +127,12 @@ impl Parser<'_> {
         });
 
         self.skip_white();
+        let mut last_was_chain = false;
+
         let mut args = match self.eatv() {
-            Some(Token::Colon) => self.parse_table_contents().0,
+            Some(Token::Colon) => {
+                self.parse_table_contents().0
+            },
             Some(_) => {
                 self.expected_at("colon", name.span.end);
                 while self.eat().is_some() {}
@@ -133,10 +141,30 @@ impl Parser<'_> {
             None => TableExpr::new(),
         };
 
-        self.tokens.pop_mode();
-        let mut span = self.end_group();
+        self.end_group();
+        self.skip_white();
+        if self.peek().is_some() {
+            last_was_chain = true;
+            let item = self.parse_bracket_call(true);
+            let span = item.span;
+            let t = vec![item.map(|f| SyntaxNode::Call(f))];
+            args.push(SpannedEntry::val(Spanned::new(Expr::Tree(t), span)));
+        }
 
-        if self.check(Token::LeftBracket) {
+        let end = if !last_was_chain {
+            self.tokens.pop_mode();
+            self.end_group().end
+        } else {
+            args.last()
+                .expect("last_was_chain set, call expected")
+                .1.val.span.end
+        };
+
+        let start = if chained { after_bracket } else { before_bracket };
+        let mut span = Span::new(start, end);
+
+
+        if self.check(Token::LeftBracket) && !last_was_chain {
             self.start_group(Delimiter::Bracket);
             self.tokens.push_mode(TokenMode::Body);
 
@@ -358,7 +386,7 @@ impl Parser<'_> {
 
             // This is a bracketed function call.
             Token::LeftBracket => {
-                let call = self.parse_bracket_call();
+                let call = self.parse_bracket_call(false);
                 let tree = vec![call.map(|c| SyntaxNode::Call(c))];
                 Spanned::new(Expr::Tree(tree), span)
             }
@@ -415,12 +443,18 @@ impl Parser<'_> {
 impl<'s> Parser<'s> {
     fn start_group(&mut self, delimiter: Delimiter) {
         let start = self.pos();
-        self.assert(delimiter.start());
+        if let Some(start_token) = delimiter.start() {
+            self.assert(start_token);
+        }
         self.delimiters.push((start, delimiter.end()));
     }
 
     fn end_group(&mut self) -> Span {
-        assert_eq!(self.peek(), None, "unfinished group");
+        if self.delimiters.last()
+        .expect("group was not started").1 != Token::FunctionLink {
+            assert_eq!(self.peek(), None, "unfinished group");
+        }
+
         let (start, end_token) = self.delimiters.pop()
             .expect("group was not started");
 
@@ -431,10 +465,12 @@ impl<'s> Parser<'s> {
             }
             _ => {
                 let end = self.pos();
-                error!(
-                    @self.feedback, Span::at(end),
-                    "expected {}", end_token.name(),
-                );
+                if end_token != Token::FunctionLink {
+                    error!(
+                        @self.feedback, Span::at(end),
+                        "expected {}", end_token.name(),
+                    );
+                }
                 Span::new(start, end)
             }
         }
@@ -471,6 +507,7 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// Checks if the next token is of some kind
     fn check(&mut self, token: Token<'_>) -> bool {
         self.peekv() == Some(token)
     }
@@ -517,21 +554,24 @@ enum Delimiter {
     Paren,
     Bracket,
     Brace,
+    Subheader,
 }
 
 impl Delimiter {
     fn is_delimiter(token: Token<'_>) -> bool {
         matches!(
             token,
-            Token::RightParen | Token::RightBracket | Token::RightBrace
+            Token::RightParen | Token::RightBracket
+            | Token::RightBrace | Token::FunctionLink
         )
     }
 
-    fn start(self) -> Token<'static> {
+    fn start(self) -> Option<Token<'static>> {
         match self {
-            Self::Paren => Token::LeftParen,
-            Self::Bracket => Token::LeftBracket,
-            Self::Brace => Token::LeftBrace,
+            Self::Paren => Some(Token::LeftParen),
+            Self::Bracket => Some(Token::LeftBracket),
+            Self::Brace => Some(Token::LeftBrace),
+            Self::Subheader => None,
         }
     }
 
@@ -540,6 +580,7 @@ impl Delimiter {
             Self::Paren => Token::RightParen,
             Self::Bracket => Token::RightBracket,
             Self::Brace => Token::RightBrace,
+            Self::Subheader => Token::FunctionLink,
         }
     }
 }
@@ -835,6 +876,18 @@ mod tests {
         // An invalid name.
         e!("[12]"   => s(0,1, 0,3, "expected function name, found number"));
         e!("[  🌎]" => s(0,3, 0,4, "expected function name, found invalid token"));
+    }
+
+    #[test]
+    fn test_parse_subgroups() {
+        // Things the parser has to make sense of
+        t!("[hi: (5.0, 2.1 >> you]" => P![F!("hi"; Table![Num(5.0), Num(2.1)], Tree![F!("you")])]);
+        t!("[bold: 400, >> emph >> sub: 1cm]" => P![F!("bold"; Num(400.0), Tree![F!("emph"; Tree!(F!("sub"; Len(Length::cm(1.0)))))])]);
+        t!("[box >> pad: 1pt][Hi]" => P![F!("box"; Tree![F!("pad"; Len(Length::pt(1.0)), Tree!(P![T("Hi")]))])]);
+
+        // Errors for unclosed / empty predecessor groups
+        e!("[hi: (5.0, 2.1 >> you]" => s(0, 15, 0, 15, "expected closing paren"));
+        e!("[>> abc]" => s(0, 1, 0, 1, "expected function name"));
     }
 
     #[test]

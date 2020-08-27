@@ -34,6 +34,8 @@ pub enum Token<'s> {
     LeftBrace,
     /// A right brace in a function header: `}`.
     RightBrace,
+    /// A double forward chevron in a function header: `>>`.
+    FunctionLink,
 
     /// A colon in a function header: `:`.
     Colon,
@@ -108,6 +110,7 @@ impl<'s> Token<'s> {
             RightParen => "closing paren",
             LeftBrace => "opening brace",
             RightBrace => "closing brace",
+            FunctionLink => "function chain operator",
             Colon => "colon",
             Comma => "comma",
             Equals => "equals sign",
@@ -218,6 +221,8 @@ impl<'s> Iterator for Tokens<'s> {
             ':' if self.mode == Header => Colon,
             ',' if self.mode == Header => Comma,
             '=' if self.mode == Header => Equals,
+            '>' if self.mode == Header && self.peek() == Some('>') =>
+                self.read_function_chain(),
 
             // Expression operators.
             '+' if self.mode == Header => Plus,
@@ -306,6 +311,12 @@ impl<'s> Tokens<'s> {
 
             false
         }, true, 0, -2).0)
+    }
+
+    fn read_function_chain(&mut self) -> Token<'s> {
+        let second = self.eat();
+        debug_assert!(second == Some('>'));
+        FunctionLink
     }
 
     fn read_whitespace(&mut self, start: Pos) -> Token<'s> {
@@ -490,6 +501,7 @@ mod tests {
         LeftBracket as L, RightBracket as R,
         LeftParen as LP, RightParen as RP,
         LeftBrace as LB, RightBrace as RB,
+        FunctionLink,
         Ident as Id,
         Bool,
         Number as Num,
@@ -576,8 +588,10 @@ mod tests {
         t!(Header, "120%"              => Num(1.2));
         t!(Header, "12e4%"             => Num(1200.0));
         t!(Header, "__main__"          => Id("__main__"));
+        t!(Header, ">main"             => Invalid(">main"));
         t!(Header, ".func.box"         => Id(".func.box"));
         t!(Header, "arg, _b, _1"       => Id("arg"), Comma, S(0), Id("_b"), Comma, S(0), Id("_1"));
+        t!(Header, "f: arg >> g"       => Id("f"), Colon, S(0), Id("arg"), S(0), FunctionLink, S(0), Id("g"));
         t!(Header, "12_pt, 12pt"       => Invalid("12_pt"), Comma, S(0), Len(Length::pt(12.0)));
         t!(Header, "1e5in"             => Len(Length::inches(100000.0)));
         t!(Header, "2.3cm"             => Len(Length::cm(2.3)));
