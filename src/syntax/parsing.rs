@@ -431,23 +431,23 @@ impl Parser<'_> {
 
 // Parsing primitives.
 impl<'s> Parser<'s> {
-    fn start_group(&mut self, delimiter: Group) {
+    fn start_group(&mut self, group: Group) {
         let start = self.pos();
-        if let Some(start_token) = delimiter.start() {
+        if let Some(start_token) = group.start() {
             self.assert(start_token);
         }
-        self.delimiters.push((start, delimiter.end()));
+        self.delimiters.push((start, group.end()));
     }
 
     fn end_group(&mut self) -> Span {
+        let peeked = self.peek();
+
         let (start, end_token) = self.delimiters.pop()
             .expect("group was not started");
 
-        if end_token != Token::Chain {
-            if self.peek() != None {
-                self.delimiters.push((start, end_token));
-                assert_eq!(self.peek(), None, "unfinished group");
-            }
+        if end_token != Token::Chain && peeked != None {
+            self.delimiters.push((start, end_token));
+            assert_eq!(peeked, None, "unfinished group");
         }
 
         match self.peeked.unwrap() {
