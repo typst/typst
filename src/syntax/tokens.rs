@@ -90,6 +90,16 @@ pub enum Token<'s> {
         terminated: bool,
     },
 
+    /// Multi-line code block.
+    Code {
+        /// The language of the code block, if specified.
+        lang: Option<Spanned<&'s str>>,
+        /// The raw text (not yet unescaped as for strings).
+        raw: &'s str,
+        /// Whether the closing backticks were present.
+        terminated: bool,
+    },
+
     /// Any other consecutive string.
     Text(&'s str),
 
@@ -127,6 +137,7 @@ impl<'s> Token<'s> {
             Underscore => "underscore",
             Backslash => "backslash",
             Raw { .. } => "raw text",
+            Code { .. } => "code block",
             Text(_) => "text",
             Invalid("*/") => "end of block comment",
             Invalid(_) => "invalid token",
@@ -241,7 +252,7 @@ impl<'s> Iterator for Tokens<'s> {
 
             // Style toggles.
             '_' if self.mode == Body => Underscore,
-            '`' if self.mode == Body => self.read_raw(),
+            '`' if self.mode == Body => self.read_raw_and_code(),
 
             // An escaped thing.
             '\\' if self.mode == Body => self.read_escaped(),
@@ -330,8 +341,65 @@ impl<'s> Tokens<'s> {
         Str { string, terminated }
     }
 
-    fn read_raw(&mut self) -> Token<'s> {
+    fn read_raw_and_code(&mut self) -> Token<'s> {
         let (raw, terminated) = self.read_until_unescaped('`');
+        if raw.len() == 0 && terminated && self.peek() == Some('`') {
+            // Third tick found; this is a code block
+            self.eat();
+            let mut backticks = 0;
+            let mut terminated = true;
+            // Reads the lang tag (until newline or whitespace)
+            let lang_start = self.pos();
+            let (lang_opt, _) = self.read_string_until(
+                |c| c == '`' || c.is_whitespace() || is_newline_char(c),
+                 false, 0, 0);
+            let lang_end = self.pos();
+
+            #[derive(Debug, PartialEq)]
+            enum WhitespaceIngestion { All, ExceptNewline, Never }
+            let mut ingest_whitespace = WhitespaceIngestion::Never;
+            let mut start = self.index();
+
+            while backticks < 3 {
+                match self.eat() {
+                    Some('`') => backticks += 1,
+                    Some('\\') if backticks == 1 && self.peek() == Some('`') => {
+                        backticks = 0;
+                    }
+                    Some(c) => {
+                        // Remove whitespace between language and content or
+                        // first line break, deal with CRLF and CR line endings.
+                        if ingest_whitespace != WhitespaceIngestion::All
+                        && c == '\n' {
+                            start += 1;
+                            ingest_whitespace = WhitespaceIngestion::All;
+                        } else if ingest_whitespace != WhitespaceIngestion::All
+                        && c == '\r' {
+                            start += 1;
+                            ingest_whitespace = WhitespaceIngestion::ExceptNewline;
+                        } else if ingest_whitespace == WhitespaceIngestion::Never
+                        && c.is_whitespace() {
+                            start += 1;
+                        } else {
+                            ingest_whitespace = WhitespaceIngestion::All;
+                        }
+                    }
+                    None => {
+                        terminated = false;
+                        break;
+                    }
+                }
+            }
+            let end = self.index() - (if terminated { 3 } else { 0 });
+
+            return Code {
+                lang: if lang_opt.len() == 0 { None } else {
+                    Some(Spanned::new(lang_opt, Span::new(lang_start, lang_end)))
+                },
+                raw: &self.src[start..end],
+                terminated
+            }
+        }
         Raw { raw, terminated }
     }
 
@@ -494,6 +562,7 @@ mod tests {
     use crate::length::Length;
     use crate::syntax::tests::*;
     use super::*;
+    use super::super::span::Spanned;
     use Token::{
         Space as S,
         LineComment as LC, BlockComment as BC,
@@ -515,6 +584,9 @@ mod tests {
 
     fn Str(string: &str, terminated: bool) -> Token { Token::Str { string, terminated } }
     fn Raw(raw: &str, terminated: bool) -> Token { Token::Raw { raw, terminated } }
+    fn Code<'a>(lang: Option<&'a str>, raw: &'a str, terminated: bool) -> Token<'a> {
+        Token::Code { lang: lang.map(Spanned::zero), raw, terminated }
+    }
 
     macro_rules! t { ($($tts:tt)*) => {test!(@spans=false, $($tts)*)} }
     macro_rules! ts { ($($tts:tt)*) => {test!(@spans=true, $($tts)*)} }
@@ -568,6 +640,10 @@ mod tests {
         t!(Body, "`[func]`"      => Raw("[func]", true));
         t!(Body, "`]"            => Raw("]", false));
         t!(Body, "`\\``"         => Raw("\\`", true));
+        t!(Body, "``not code`"   => Raw("", true), T("not"), S(0), T("code"), Raw("", false));
+        t!(Body, "```rust hi```" => Code(Some("rust"), "hi", true));
+        t!(Body, "``` hi`\\``"   => Code(None, "hi`\\``", false));
+        t!(Body, "```js   \r\n  document.write(\"go\")" => Code(Some("js"), "  document.write(\"go\")", false));
         t!(Body, "\\ "           => Backslash, S(0));
         t!(Header, "_`"          => Invalid("_`"));
     }

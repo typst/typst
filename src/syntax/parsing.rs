@@ -7,8 +7,15 @@ use crate::color::RgbaColor;
 use crate::compute::table::SpannedEntry;
 use super::decoration::Decoration;
 use super::span::{Pos, Span, Spanned};
-use super::tokens::{is_newline_char, Token, TokenMode, Tokens};
-use super::tree::{CallExpr, Expr, SyntaxNode, SyntaxTree, TableExpr};
+use super::tokens::{is_newline_char, Token, TokenMode, Tokens, is_identifier};
+use super::tree::{
+    CallExpr,
+    Expr,
+    SyntaxNode,
+    SyntaxTree,
+    TableExpr,
+    CodeBlockExpr,
+};
 use super::Ident;
 
 /// Parse a string of source code.
@@ -82,6 +89,34 @@ impl Parser<'_> {
                         );
                     }
                     self.with_span(SyntaxNode::Raw(unescape_raw(raw)))
+                }
+
+                Token::Code { lang, raw, terminated } => {
+                    if !terminated {
+                        error!(
+                            @self.feedback, Span::at(token.span.end),
+                            "expected code block to close",
+                        );
+                    }
+                    let mut valid_ident = false;
+                    let mut lang = lang.map(|s| s.map(|v| {
+                        if is_identifier(v) {
+                            valid_ident = true;
+                        }
+                        Ident(v.to_string())
+                    }));
+
+                    if !valid_ident {
+                        if let Some(l) = lang {
+                            error!(
+                                @self.feedback, l.span,
+                                "expected language to be a valid identifier",
+                            );
+                        }
+                        lang = None;
+                    }
+
+                    self.with_span(SyntaxNode::CodeBlock(CodeBlockExpr { raw: unescape_code(raw), lang }))
                 }
 
                 Token::Text(text) => {
@@ -627,6 +662,84 @@ fn unescape_raw(raw: &str) -> Vec<String> {
     lines
 }
 
+/// Unescape raw markup and split it into into lines.
+fn unescape_code(raw: &str) -> Vec<String> {
+    let mut iter = raw.chars().peekable();
+    let mut line = String::new();
+    let mut lines = Vec::new();
+    let mut backticks: usize = 0;
+
+    // This assignment is used in line 731, 733;
+    // the compiler does not want to acknowledge that, however.
+    #[allow(unused_assignments)]
+    let mut update_backtick_count = true;
+
+    while let Some(c) = iter.next() {
+        update_backtick_count = true;
+        if is_newline_char(c) {
+            if c == '\r' && iter.peek() == Some(&'\n') {
+                iter.next();
+            }
+
+            lines.push(std::mem::take(&mut line));
+        } else {
+            if c == '\\' && backticks > 0 {
+                let mut tail = String::new();
+                let mut escape_success = false;
+
+                let mut backticks_after_slash: u8 = 0;
+
+                while let Some(&s) = iter.peek() {
+                    match s {
+                        '\\' => {
+                            if backticks_after_slash == 0 {
+                                tail.push(s);
+                            } else {
+                                // Pattern like `\`\` should fail
+                                // escape and just be printed verbantim.
+                                break;
+                            }
+                        }
+                        '`'  => {
+                            tail.push(s);
+                            backticks_after_slash += 1;
+                            if backticks_after_slash == 2 {
+                                escape_success = true;
+                                iter.next();
+                                break;
+                            }
+                        }
+                        _    => { break }
+                    }
+
+                    iter.next();
+                }
+
+                if !escape_success {
+                    line.push(c);
+                    backticks = backticks_after_slash as usize;
+                    update_backtick_count = false;
+                } else {
+                    backticks = 0;
+                }
+
+                line.push_str(&tail);
+            } else {
+                line.push(c);
+            }
+        }
+
+        if update_backtick_count && c == '`' {
+            backticks += 1;
+        } else if update_backtick_count {
+            backticks = 0;
+        }
+    }
+
+    lines.push(line);
+    lines
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
@@ -649,6 +762,14 @@ mod tests {
     macro_rules! R {
         ($($line:expr),* $(,)?) => {
             SyntaxNode::Raw(vec![$($line.to_string()),*])
+        };
+    }
+
+    fn Lang(text: &str) -> Option<Spanned<Ident>> { Some(Spanned::zero(Ident(text.to_string()))) }
+
+    macro_rules! C {
+        ($lang:expr, $($line:expr),* $(,)?) => {
+            SyntaxNode::CodeBlock(CodeBlockExpr { raw: vec![$($line.to_string()) ,*], lang: $lang })
         };
     }
 
@@ -800,6 +921,28 @@ mod tests {
     }
 
     #[test]
+    fn test_unescape_code() {
+        fn test(raw: &str, expected: Vec<&str>) {
+            assert_eq!(unescape_code(raw), expected);
+        }
+
+        test("code\\`",       vec!["code\\`"]);
+        test("code`\\``",     vec!["code```"]);
+        test("code`\\`a",     vec!["code`\\`a"]);
+        test("code``hi`\\``", vec!["code``hi```"]);
+        test("code`\\\\``",   vec!["code`\\``"]);
+        test("code`\\`\\`go", vec!["code`\\`\\`go"]);
+        test("code`\\`\\``",  vec!["code`\\```"]);
+        test("code\ntext",    vec!["code", "text"]);
+        test("a\r\nb",        vec!["a", "b"]);
+        test("a\n\nb",        vec!["a", "", "b"]);
+        test("a\r\x0Bb",      vec!["a", "", "b"]);
+        test("a\r\n\r\nb",    vec!["a", "", "b"]);
+        test("code\\a",       vec!["code\\a"]);
+        test("code\\",        vec!["code\\"]);
+    }
+
+    #[test]
     fn test_parse_simple_nodes() {
         t!(""            => );
         t!("hi"          => P![T("hi")]);
@@ -811,8 +954,19 @@ mod tests {
         t!("`py`"        => P![R!["py"]]);
         t!("`hi\nyou"    => P![R!["hi", "you"]]);
         e!("`hi\nyou"    => s(1,3, 1,3, "expected backtick"));
-        t!("`hi\\`du`"   => P![R!["hi`du"]]);
-        t!("💜\n\n 🌍"  => P![T("💜")], P![T("🌍")]);
+        t!("`hi\\`du`"        => P![R!["hi`du"]]);
+        t!("```java System.out.print```" => P![
+            C![Lang("java"), "System.out.print"]
+            ]);
+        t!("``` console.log(\n\"alert\"\n)" => P![
+            C![None, "console.log(", "\"alert\"", ")"]
+            ]);
+        t!("```typst \r\n Typst uses `\\`` to indicate code blocks" => P![
+            C![Lang("typst"), " Typst uses ``` to indicate code blocks"]
+            ]);
+        e!("``` hi\nyou"      => s(1,3, 1,3, "expected code block to close"));
+        e!("```🌍 hi\nyou```" => s(0,3, 0,4, "expected language to be a valid identifier"));
+        t!("💜\n\n 🌍"       => P![T("💜")], P![T("🌍")]);
 
         ts!("hi"   => s(0,0, 0,2, P![s(0,0, 0,2, T("hi"))]));
         ts!("*Hi*" => s(0,0, 0,4, P![

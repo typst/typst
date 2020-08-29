@@ -3,7 +3,7 @@
 use crate::style::LayoutStyle;
 use crate::syntax::decoration::Decoration;
 use crate::syntax::span::{Span, Spanned};
-use crate::syntax::tree::{CallExpr, SyntaxNode, SyntaxTree};
+use crate::syntax::tree::{CallExpr, SyntaxNode, SyntaxTree, CodeBlockExpr};
 use crate::{DynFuture, Feedback, Pass};
 use super::line::{LineContext, LineLayouter};
 use super::text::{layout_text, TextContext};
@@ -80,6 +80,7 @@ impl<'a> TreeLayouter<'a> {
             }
 
             SyntaxNode::Raw(lines) => self.layout_raw(lines).await,
+            SyntaxNode::CodeBlock(block) => self.layout_code(block).await,
             SyntaxNode::Par(par) => self.layout_par(par).await,
             SyntaxNode::Call(call) => {
                 self.layout_call(Spanned::new(call, node.span)).await;
@@ -123,6 +124,21 @@ impl<'a> TreeLayouter<'a> {
             }
             first = false;
             self.layout_text(line).await;
+        }
+
+        self.style.text.fallback = fallback;
+    }
+
+    async fn layout_code(&mut self, block: &CodeBlockExpr) {
+        let fallback = self.style.text.fallback.clone();
+        self.style.text.fallback
+            .list_mut()
+            .insert(0, "monospace".to_string());
+        self.style.text.fallback.flatten();
+
+        for line in &block.raw {
+            self.layout_text(line).await;
+            self.layouter.finish_line();
         }
 
         self.style.text.fallback = fallback;

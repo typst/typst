@@ -31,6 +31,8 @@ pub enum SyntaxNode {
     Text(String),
     /// Lines of raw text.
     Raw(Vec<String>),
+    /// An optionally highlighted multi-line code block.
+    CodeBlock(CodeBlockExpr),
     /// A paragraph of child nodes.
     Par(SyntaxTree),
     /// A function call.
@@ -198,4 +200,10 @@ impl CallExpr {
             Value::Table(args)
         }
     }
+}
+/// An code block.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CodeBlockExpr {
+    pub lang: Option<Spanned<Ident>>,
+    pub raw: Vec<String>,
 }
