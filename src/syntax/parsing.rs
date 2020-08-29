@@ -43,27 +43,20 @@ impl<'s> Parser<'s> {
 impl Parser<'_> {
     fn parse_body_contents(&mut self) -> SyntaxTree {
         let mut tree = SyntaxTree::new();
-        let mut par = SyntaxTree::new();
 
         while let Some(token) = self.peek() {
-            par.push(match token.v {
+            tree.push(match token.v {
                 // Starting from two newlines counts as a paragraph break, a single
                 // newline does not.
-                Token::Space(newlines) => if newlines < 2 {
-                    self.with_span(SyntaxNode::Spacing)
+                Token::Space(newlines) => self.with_span(if newlines < 2 {
+                    SyntaxNode::Spacing
                 } else {
-                    // End the current paragraph if it is not empty.
-                    if let (Some(first), Some(last)) = (par.first(), par.last()) {
-                        let span = Span::merge(first.span, last.span);
-                        let node = SyntaxNode::Par(std::mem::take(&mut par));
-                        tree.push(Spanned::new(node, span));
-                    }
-                    self.eat();
-                    continue;
-                }
+                    SyntaxNode::Parbreak
+                }),
+
                 Token::LineComment(_) | Token::BlockComment(_) => {
                     self.eat();
-                    continue
+                    continue;
                 }
 
                 Token::LeftBracket => {
@@ -97,12 +90,6 @@ impl Parser<'_> {
                     continue;
                 }
             });
-        }
-
-        if let (Some(first), Some(last)) = (par.first(), par.last()) {
-            let span = Span::merge(first.span, last.span);
-            let node = SyntaxNode::Par(par);
-            tree.push(Spanned::new(node, span));
         }
 
         tree
@@ -640,6 +627,7 @@ mod tests {
     use SyntaxNode::{
         Spacing as S,
         Linebreak as L,
+        Parbreak as P,
         ToggleItalic as I,
         ToggleBolder as B,
     };
@@ -650,10 +638,6 @@ mod tests {
         ($($line:expr),* $(,)?) => {
             SyntaxNode::Raw(vec![$($line.to_string()),*])
         };
-    }
-
-    macro_rules! P {
-        ($($tts:tt)*) => { SyntaxNode::Par(Tree![@$($tts)*]) };
     }
 
     macro_rules! F {
@@ -739,7 +723,7 @@ mod tests {
     // Test expressions.
     macro_rules! v {
         ($src:expr => $($tts:tt)*) => {
-            t!(concat!("[val: ", $src, "]") => P![F!("val"; $($tts)*)]);
+            t!(concat!("[val: ", $src, "]") => F!("val"; $($tts)*));
         }
     }
 
@@ -802,40 +786,34 @@ mod tests {
     #[test]
     fn test_parse_simple_nodes() {
         t!(""            => );
-        t!("hi"          => P![T("hi")]);
-        t!("*hi"         => P![B, T("hi")]);
-        t!("hi_"         => P![T("hi"), I]);
-        t!("hi you"      => P![T("hi"), S, T("you")]);
-        t!("\n\n\nhello" => P![T("hello")]);
-        t!(r"a\ b"       => P![T("a"), L, S, T("b")]);
-        t!("`py`"        => P![R!["py"]]);
-        t!("`hi\nyou"    => P![R!["hi", "you"]]);
+        t!("hi"          => T("hi"));
+        t!("*hi"         => B, T("hi"));
+        t!("hi_"         => T("hi"), I);
+        t!("hi you"      => T("hi"), S, T("you"));
+        t!("\n\n\nhello" => P, T("hello"));
+        t!(r"a\ b"       => T("a"), L, S, T("b"));
+        t!("`py`"        => R!["py"]);
+        t!("`hi\nyou"    => R!["hi", "you"]);
         e!("`hi\nyou"    => s(1,3, 1,3, "expected backtick"));
-        t!("`hi\\`du`"   => P![R!["hi`du"]]);
-        t!("💜\n\n 🌍"  => P![T("💜")], P![T("🌍")]);
+        t!("`hi\\`du`"   => R!["hi`du"]);
 
-        ts!("hi"   => s(0,0, 0,2, P![s(0,0, 0,2, T("hi"))]));
-        ts!("*Hi*" => s(0,0, 0,4, P![
-            s(0,0, 0,1, B), s(0,1, 0,3, T("Hi")), s(0,3, 0,4, B),
-        ]));
-        ts!("💜\n\n 🌍"  =>
-            s(0,0, 0,1, P![s(0,0, 0,1, T("💜"))]),
-            s(2,1, 2,2, P![s(2,1, 2,2, T("🌍"))]),
-        );
+        ts!("hi"   => s(0,0, 0,2, T("hi")));
+        ts!("*Hi*" => s(0,0, 0,1, B), s(0,1, 0,3, T("Hi")), s(0,3, 0,4, B));
+        ts!("💜\n\n 🌍" => s(0,0, 0,1, T("💜")), s(0,1, 2,1, P), s(2,1, 2,2, T("🌍")));
     }
 
     #[test]
     fn test_parse_comments() {
         // In body.
-        t!("hi// you\nw"          => P![T("hi"), S, T("w")]);
-        t!("first//\n//\nsecond"  => P![T("first"), S, S, T("second")]);
-        t!("first//\n \nsecond"   => P![T("first")], P![T("second")]);
-        t!("first/*\n \n*/second" => P![T("first"), T("second")]);
+        t!("hi// you\nw"          => T("hi"), S, T("w"));
+        t!("first//\n//\nsecond"  => T("first"), S, S, T("second"));
+        t!("first//\n \nsecond"   => T("first"), P, T("second"));
+        t!("first/*\n \n*/second" => T("first"), T("second"));
         e!("🌎\n*/n" => s(1,0, 1,2, "unexpected end of block comment"));
 
         // In header.
-        t!("[val:/*12pt*/]" => P![F!("val")]);
-        t!("[val \n /* \n */:]" => P![F!("val")]);
+        t!("[val:/*12pt*/]" => F!("val"));
+        t!("[val \n /* \n */:]" => F!("val"));
         e!("[val \n /* \n */:]" => );
         e!("[val : 12, /* \n */ 14]" => );
     }
@@ -852,7 +830,7 @@ mod tests {
     #[test]
     fn test_parse_function_names() {
         // No closing bracket.
-        t!("[" => P![F!("")]);
+        t!("[" => F!(""));
         e!("[" => s(0,1, 0,1, "expected function name"),
                   s(0,1, 0,1, "expected closing bracket"));
 
@@ -862,8 +840,8 @@ mod tests {
                      s(0,3, 0,3, "expected closing bracket"));
 
         // A valid name.
-        t!("[hi]"  => P![F!("hi")]);
-        t!("[  f]" => P![F!("f")]);
+        t!("[hi]"  => F!("hi"));
+        t!("[  f]" => F!("f"));
 
         // An invalid name.
         e!("[12]"   => s(0,1, 0,3, "expected function name, found number"));
@@ -871,12 +849,16 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_subgroups() {
+    fn test_parse_chaining() {
         // Things the parser has to make sense of
-        t!("[hi: (5.0, 2.1 >> you]" => P![F!("hi"; Table![Num(5.0), Num(2.1)], Tree![F!("you")])]);
-        t!("[bold: 400, >> emph >> sub: 1cm]" => P![F!("bold"; Num(400.0), Tree![F!("emph"; Tree!(F!("sub"; Len(Length::cm(1.0)))))])]);
-        t!("[box >> pad: 1pt][Hi]" => P![F!("box"; Tree![F!("pad"; Len(Length::pt(1.0)), Tree!(P![T("Hi")]))])]);
-        t!("[box >>][Hi]" => P![F!("box"; Tree![P![T("Hi")]])]);
+        t!("[hi: (5.0, 2.1 >> you]" => F!("hi"; Table![Num(5.0), Num(2.1)], Tree![F!("you")]));
+        t!("[box >>][Hi]" => F!("box"; Tree![T("Hi")]));
+        t!("[box >> pad: 1pt][Hi]" => F!("box"; Tree![
+            F!("pad"; Len(Length::pt(1.0)), Tree!(T("Hi")))
+        ]));
+        t!("[bold: 400, >> emph >> sub: 1cm]" => F!("bold"; Num(400.0), Tree![
+            F!("emph"; Tree!(F!("sub"; Len(Length::cm(1.0)))))
+        ]));
 
         // Errors for unclosed / empty predecessor groups
         e!("[hi: (5.0, 2.1 >> you]" => s(0, 15, 0, 15, "expected closing paren"));
@@ -889,7 +871,7 @@ mod tests {
         e!("[val:]" => );
 
         // Wrong token.
-        t!("[val=]"     => P![F!("val")]);
+        t!("[val=]"     => F!("val"));
         e!("[val=]"     => s(0,4, 0,4, "expected colon"));
         e!("[val/🌎:$]" => s(0,4, 0,4, "expected colon"));
 
@@ -902,27 +884,25 @@ mod tests {
 
     #[test]
     fn test_parse_function_bodies() {
-        t!("[val: 1][*Hi*]" => P![F!("val"; Num(1.0), Tree![P![B, T("Hi"), B]])]);
+        t!("[val: 1][*Hi*]" => F!("val"; Num(1.0), Tree![B, T("Hi"), B]));
         e!(" [val][ */ ]" => s(0,8, 0,10, "unexpected end of block comment"));
 
         // Raw in body.
-        t!("[val][`Hi]`" => P![F!("val"; Tree![P![R!["Hi]"]]])]);
+        t!("[val][`Hi]`" => F!("val"; Tree![R!["Hi]"]]));
         e!("[val][`Hi]`" => s(0,11, 0,11, "expected closing bracket"));
 
         // Crazy.
-        t!("[v][[v][v][v]]" => P![F!("v"; Tree![P![
-            F!("v"; Tree![P![T("v")]]), F!("v")
-        ]])]);
+        t!("[v][[v][v][v]]" => F!("v"; Tree![F!("v"; Tree![T("v")]), F!("v")]));
 
         // Spanned.
-        ts!(" [box][Oh my]" => s(0,0, 0,13, P![
+        ts!(" [box][Oh my]" =>
             s(0,0, 0,1, S),
             s(0,1, 0,13, F!(s(0,2, 0,5, "box");
-                s(0,6, 0,13, Tree![s(0,7, 0,12, P![
+                s(0,6, 0,13, Tree![
                     s(0,7, 0,9, T("Oh")), s(0,9, 0,10, S), s(0,10, 0,12, T("my"))
-                ])])
+                ])
             ))
-        ]));
+        );
     }
 
     #[test]
@@ -943,7 +923,7 @@ mod tests {
         v!("\"a\n[]\\\"string\"" => Str("a\n[]\"string"));
 
         // Content.
-        v!("{_hi_}"              => Tree![P![I, T("hi"), I]]);
+        v!("{_hi_}"              => Tree![I, T("hi"), I]);
         e!("[val: {_hi_}]"       => );
         v!("[hi]"                => Tree![F!["hi"]]);
         e!("[val: [hi]]"         => );
@@ -961,9 +941,7 @@ mod tests {
                                s(0,13, 0,13, "expected closing bracket"));
 
         // Spanned.
-        ts!("[val: 1.4]" => s(0,0, 0,10, P![
-            s(0,0, 0,10, F!(s(0,1, 0,4, "val"); s(0,6, 0,9, Num(1.4))))
-        ]));
+        ts!("[val: 1.4]" => s(0,0, 0,10, F!(s(0,1, 0,4, "val"); s(0,6, 0,9, Num(1.4)))));
     }
 
     #[test]
@@ -993,17 +971,15 @@ mod tests {
         v!("3/4*5" => Mul(Div(Num(3.0), Num(4.0)), Num(5.0)));
 
         // Spanned.
-        ts!("[val: 1 + 3]" => s(0,0, 0,12, P![s(0,0, 0,12, F!(
+        ts!("[val: 1 + 3]" => s(0,0, 0,12, F!(
             s(0,1, 0,4, "val"); s(0,6, 0,11, Add(
                 s(0,6, 0,7, Num(1.0)),
                 s(0,10, 0,11, Num(3.0)),
             ))
-        ))]));
+        )));
 
         // Span of parenthesized expression contains parens.
-        ts!("[val: (1)]" => s(0,0, 0,10, P![
-            s(0,0, 0,10, F!(s(0,1, 0,4, "val"); s(0,6, 0,9, Num(1.0))))
-        ]));
+        ts!("[val: (1)]" => s(0,0, 0,10, F!(s(0,1, 0,4, "val"); s(0,6, 0,9, Num(1.0)))));
 
         // Invalid expressions.
         v!("4pt--"        => Len(Length::pt(4.0)));
@@ -1030,12 +1006,10 @@ mod tests {
         d!("[val: f(key=hi)]" => s(0,8, 0,11, TableKey));
 
         // Spanned with spacing around keyword arguments.
-        ts!("[val: \n hi \n = /* //\n */ \"s\n\"]" => s(0,0, 4,2, P![
-            s(0,0, 4,2, F!(
-                s(0,1, 0,4, "val");
-                s(1,1, 1,3, "hi") => s(3,4, 4,1, Str("s\n"))
-            ))
-        ]));
+        ts!("[val: \n hi \n = /* //\n */ \"s\n\"]" => s(0,0, 4,2, F!(
+            s(0,1, 0,4, "val");
+            s(1,1, 1,3, "hi") => s(3,4, 4,1, Str("s\n"))
+        )));
         e!("[val: \n hi \n = /* //\n */ \"s\n\"]" => );
     }
 

@@ -63,6 +63,10 @@ impl<'a> TreeLayouter<'a> {
         match &node.v {
             SyntaxNode::Spacing => self.layout_space(),
             SyntaxNode::Linebreak => self.layouter.finish_line(),
+            SyntaxNode::Parbreak => self.layouter.add_secondary_spacing(
+                self.style.text.paragraph_spacing(),
+                SpacingKind::PARAGRAPH,
+            ),
 
             SyntaxNode::ToggleItalic => {
                 self.style.text.italic = !self.style.text.italic;
@@ -80,7 +84,6 @@ impl<'a> TreeLayouter<'a> {
             }
 
             SyntaxNode::Raw(lines) => self.layout_raw(lines).await,
-            SyntaxNode::Par(par) => self.layout_par(par).await,
             SyntaxNode::Call(call) => {
                 self.layout_call(Spanned::new(call, node.span)).await;
             }
@@ -126,14 +129,6 @@ impl<'a> TreeLayouter<'a> {
         }
 
         self.style.text.fallback = fallback;
-    }
-
-    async fn layout_par(&mut self, par: &SyntaxTree) {
-        self.layout_tree(par).await;
-        self.layouter.add_secondary_spacing(
-            self.style.text.paragraph_spacing(),
-            SpacingKind::PARAGRAPH,
-        );
     }
 
     async fn layout_call(&mut self, call: Spanned<&CallExpr>) {
