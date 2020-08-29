@@ -3,7 +3,7 @@
 use crate::style::LayoutStyle;
 use crate::syntax::decoration::Decoration;
 use crate::syntax::span::{Span, Spanned};
-use crate::syntax::tree::{CallExpr, SyntaxNode, SyntaxTree, CodeBlockExpr};
+use crate::syntax::tree::{CallExpr, SyntaxNode, SyntaxTree, Code};
 use crate::{DynFuture, Feedback, Pass};
 use super::line::{LineContext, LineLayouter};
 use super::text::{layout_text, TextContext};
@@ -63,10 +63,7 @@ impl<'a> TreeLayouter<'a> {
         match &node.v {
             SyntaxNode::Spacing => self.layout_space(),
             SyntaxNode::Linebreak => self.layouter.finish_line(),
-            SyntaxNode::Parbreak => self.layouter.add_secondary_spacing(
-                self.style.text.paragraph_spacing(),
-                SpacingKind::PARAGRAPH,
-            ),
+            SyntaxNode::Parbreak => self.layout_parbreak(),
 
             SyntaxNode::ToggleItalic => {
                 self.style.text.italic = !self.style.text.italic;
@@ -84,7 +81,7 @@ impl<'a> TreeLayouter<'a> {
             }
 
             SyntaxNode::Raw(lines) => self.layout_raw(lines).await,
-            SyntaxNode::CodeBlock(block) => self.layout_code(block).await,
+            SyntaxNode::Code(block) => self.layout_code(block).await,
 
             SyntaxNode::Call(call) => {
                 self.layout_call(Spanned::new(call, node.span)).await;
@@ -96,6 +93,13 @@ impl<'a> TreeLayouter<'a> {
         self.layouter.add_primary_spacing(
             self.style.text.word_spacing(),
             SpacingKind::WORD,
+        );
+    }
+
+    fn layout_parbreak(&mut self) {
+        self.layouter.add_secondary_spacing(
+            self.style.text.paragraph_spacing(),
+            SpacingKind::PARAGRAPH,
         );
     }
 
@@ -133,19 +137,16 @@ impl<'a> TreeLayouter<'a> {
         self.style.text.fallback = fallback;
     }
 
-    async fn layout_code(&mut self, block: &CodeBlockExpr) {
-        let fallback = self.style.text.fallback.clone();
-        self.style.text.fallback
-            .list_mut()
-            .insert(0, "monospace".to_string());
-        self.style.text.fallback.flatten();
-
-        for line in &block.raw {
-            self.layout_text(line).await;
-            self.layouter.finish_line();
+    async fn layout_code(&mut self, code: &Code) {
+        if code.block {
+            self.layout_parbreak();
         }
 
-        self.style.text.fallback = fallback;
+        self.layout_raw(&code.lines).await;
+
+        if code.block {
+            self.layout_parbreak()
+        }
     }
 
     async fn layout_call(&mut self, call: Spanned<&CallExpr>) {

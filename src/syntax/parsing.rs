@@ -7,14 +7,9 @@ use crate::color::RgbaColor;
 use crate::compute::table::SpannedEntry;
 use super::decoration::Decoration;
 use super::span::{Pos, Span, Spanned};
-use super::tokens::{is_newline_char, Token, TokenMode, Tokens, is_identifier};
+use super::tokens::{is_newline_char, Token, TokenMode, Tokens};
 use super::tree::{
-    CallExpr,
-    Expr,
-    SyntaxNode,
-    SyntaxTree,
-    TableExpr,
-    CodeBlockExpr,
+    CallExpr, Expr, SyntaxNode, SyntaxTree, TableExpr, Code,
 };
 use super::Ident;
 
@@ -88,28 +83,27 @@ impl Parser<'_> {
                     if !terminated {
                         error!(
                             @self.feedback, Span::at(token.span.end),
-                            "expected code block to close",
+                            "expected backticks",
                         );
                     }
-                    let mut valid_ident = false;
-                    let mut lang = lang.map(|s| s.map(|v| {
-                        if is_identifier(v) {
-                            valid_ident = true;
-                        }
-                        Ident(v.to_string())
-                    }));
 
-                    if !valid_ident {
-                        if let Some(l) = lang {
-                            error!(
-                                @self.feedback, l.span,
-                                "expected language to be a valid identifier",
-                            );
+                    let lang = lang.and_then(|lang| {
+                        if let Some(ident) = Ident::new(lang.v) {
+                            Some(Spanned::new(ident, lang.span))
+                        } else {
+                            error!(@self.feedback, lang.span, "invalid identifier");
+                            None
                         }
-                        lang = None;
+                    });
+
+                    let mut lines = unescape_code(raw);
+                    let block = lines.len() > 1;
+
+                    if lines.last().map(|s| s.is_empty()).unwrap_or(false) {
+                        lines.pop();
                     }
 
-                    self.with_span(SyntaxNode::CodeBlock(CodeBlockExpr { raw: unescape_code(raw), lang }))
+                    self.with_span(SyntaxNode::Code(Code { lang, lines, block }))
                 }
 
                 Token::Text(text) => {
@@ -624,45 +618,99 @@ fn unescape_string(string: &str) -> String {
 /// Unescape raw markup and split it into into lines.
 fn unescape_raw(raw: &str) -> Vec<String> {
     let mut iter = raw.chars().peekable();
-    let mut line = String::new();
-    let mut lines = Vec::new();
+    let mut text = String::new();
 
     while let Some(c) = iter.next() {
         if c == '\\' {
-            match iter.next() {
-                Some('`') => line.push('`'),
-                Some(c) => { line.push('\\'); line.push(c); }
-                None => line.push('\\'),
-            }
-        } else if is_newline_char(c) {
-            if c == '\r' && iter.peek() == Some(&'\n') {
-                iter.next();
-            }
+            if let Some(c) = iter.next() {
+                if c != '\\' && c != '`' {
+                    text.push('\\');
+                }
 
-            lines.push(std::mem::take(&mut line));
+                text.push(c);
+            } else {
+                text.push('\\');
+            }
         } else {
-            line.push(c);
+            text.push(c);
         }
     }
 
-    lines.push(line);
-    lines
+    split_lines(&text)
 }
 
 /// Unescape raw markup and split it into into lines.
 fn unescape_code(raw: &str) -> Vec<String> {
     let mut iter = raw.chars().peekable();
-    let mut line = String::new();
-    let mut lines = Vec::new();
-    let mut backticks: usize = 0;
-
-    // This assignment is used in line 731, 733;
-    // the compiler does not want to acknowledge that, however.
-    #[allow(unused_assignments)]
-    let mut update_backtick_count = true;
+    let mut text = String::new();
+    let mut backticks = 0u32;
+    let mut update_backtick_count;
 
     while let Some(c) = iter.next() {
         update_backtick_count = true;
+
+        if c == '\\' && backticks > 0 {
+            let mut tail = String::new();
+            let mut escape_success = false;
+            let mut backticks_after_slash = 0u32;
+
+            while let Some(&s) = iter.peek() {
+                match s {
+                    '\\' => {
+                        if backticks_after_slash == 0 {
+                            tail.push('\\');
+                        } else {
+                            // Pattern like `\`\` should fail
+                            // escape and just be printed verbantim.
+                            break;
+                        }
+                    }
+                    '`' => {
+                        tail.push(s);
+                        backticks_after_slash += 1;
+                        if backticks_after_slash == 2 {
+                            escape_success = true;
+                            iter.next();
+                            break;
+                        }
+                    }
+                    _ => break,
+                }
+
+                iter.next();
+            }
+
+            if !escape_success {
+                text.push(c);
+                backticks = backticks_after_slash;
+                update_backtick_count = false;
+            } else {
+                backticks = 0;
+            }
+
+            text.push_str(&tail);
+        } else {
+            text.push(c);
+        }
+
+        if update_backtick_count {
+            if c == '`' {
+                backticks += 1;
+            } else {
+                backticks = 0;
+            }
+        }
+    }
+
+    split_lines(&text)
+}
+
+fn split_lines(text: &str) -> Vec<String> {
+    let mut iter = text.chars().peekable();
+    let mut line = String::new();
+    let mut lines = Vec::new();
+
+    while let Some(c) = iter.next() {
         if is_newline_char(c) {
             if c == '\r' && iter.peek() == Some(&'\n') {
                 iter.next();
@@ -670,56 +718,7 @@ fn unescape_code(raw: &str) -> Vec<String> {
 
             lines.push(std::mem::take(&mut line));
         } else {
-            if c == '\\' && backticks > 0 {
-                let mut tail = String::new();
-                let mut escape_success = false;
-
-                let mut backticks_after_slash: u8 = 0;
-
-                while let Some(&s) = iter.peek() {
-                    match s {
-                        '\\' => {
-                            if backticks_after_slash == 0 {
-                                tail.push(s);
-                            } else {
-                                // Pattern like `\`\` should fail
-                                // escape and just be printed verbantim.
-                                break;
-                            }
-                        }
-                        '`'  => {
-                            tail.push(s);
-                            backticks_after_slash += 1;
-                            if backticks_after_slash == 2 {
-                                escape_success = true;
-                                iter.next();
-                                break;
-                            }
-                        }
-                        _    => { break }
-                    }
-
-                    iter.next();
-                }
-
-                if !escape_success {
-                    line.push(c);
-                    backticks = backticks_after_slash as usize;
-                    update_backtick_count = false;
-                } else {
-                    backticks = 0;
-                }
-
-                line.push_str(&tail);
-            } else {
-                line.push(c);
-            }
-        }
-
-        if update_backtick_count && c == '`' {
-            backticks += 1;
-        } else if update_backtick_count {
-            backticks = 0;
+            line.push(c);
         }
     }
 
@@ -753,13 +752,23 @@ mod tests {
         };
     }
 
-
-    fn Lang(text: &str) -> Option<Spanned<Ident>> { Some(Spanned::zero(Ident(text.to_string()))) }
-
     macro_rules! C {
-        ($lang:expr, $($line:expr),* $(,)?) => {
-            SyntaxNode::CodeBlock(CodeBlockExpr { raw: vec![$($line.to_string()) ,*], lang: $lang })
-        };
+        (None, $($line:expr),* $(,)?) => {{
+            let lines = vec![$($line.to_string()) ,*];
+            SyntaxNode::Code(Code {
+                lang: None,
+                block: lines.len() > 1,
+                lines,
+            })
+        }};
+        (Some($lang:expr), $($line:expr),* $(,)?) => {{
+            let lines = vec![$($line.to_string()) ,*];
+            SyntaxNode::Code(Code {
+                lang: Some(Into::<Spanned<&str>>::into($lang).map(|s| Ident(s.to_string()))),
+                block: lines.len() > 1,
+                lines,
+            })
+        }};
     }
 
     macro_rules! F {
@@ -896,6 +905,7 @@ mod tests {
         }
 
         test("raw\\`",     vec!["raw`"]);
+        test("raw\\\\`",   vec!["raw\\`"]);
         test("raw\ntext",  vec!["raw", "text"]);
         test("a\r\nb",     vec!["a", "b"]);
         test("a\n\nb",     vec!["a", "", "b"]);
@@ -942,16 +952,16 @@ mod tests {
         t!("`hi\\`du`"   => R!["hi`du"]);
 
         t!("```java System.out.print```" => C![
-            Lang("java"), "System.out.print"
-            ]);
+            Some("java"), "System.out.print"
+        ]);
         t!("``` console.log(\n\"alert\"\n)" => C![
             None, "console.log(", "\"alert\"", ")"
-            ]);
+        ]);
         t!("```typst \r\n Typst uses `\\`` to indicate code blocks" => C![
-            Lang("typst"), " Typst uses ``` to indicate code blocks"
-            ]);
-        e!("``` hi\nyou"      => s(1,3, 1,3, "expected code block to close"));
-        e!("```🌍 hi\nyou```" => s(0,3, 0,4, "expected language to be a valid identifier"));
+            Some("typst"), " Typst uses ``` to indicate code blocks"
+        ]);
+        e!("``` hi\nyou"      => s(1,3, 1,3, "expected backticks"));
+        e!("```🌍 hi\nyou```" => s(0,3, 0,4, "invalid identifier"));
         t!("💜\n\n 🌍"       => T("💜"), P, T("🌍"));
 
         ts!("hi"   => s(0,0, 0,2, T("hi")));

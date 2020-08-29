@@ -252,7 +252,7 @@ impl<'s> Iterator for Tokens<'s> {
 
             // Style toggles.
             '_' if self.mode == Body => Underscore,
-            '`' if self.mode == Body => self.read_raw_and_code(),
+            '`' if self.mode == Body => self.read_raw_or_code(),
 
             // An escaped thing.
             '\\' if self.mode == Body => self.read_escaped(),
@@ -341,66 +341,67 @@ impl<'s> Tokens<'s> {
         Str { string, terminated }
     }
 
-    fn read_raw_and_code(&mut self) -> Token<'s> {
+    fn read_raw_or_code(&mut self) -> Token<'s> {
         let (raw, terminated) = self.read_until_unescaped('`');
-        if raw.len() == 0 && terminated && self.peek() == Some('`') {
-            // Third tick found; this is a code block
+        if raw.is_empty() && terminated && self.peek() == Some('`') {
+            // Third tick found; this is a code block.
             self.eat();
-            let mut backticks = 0;
-            let mut terminated = true;
-            // Reads the lang tag (until newline or whitespace)
-            let lang_start = self.pos();
-            let (lang_opt, _) = self.read_string_until(
-                |c| c == '`' || c.is_whitespace() || is_newline_char(c),
-                 false, 0, 0);
-            let lang_end = self.pos();
 
-            #[derive(Debug, PartialEq)]
-            enum WhitespaceIngestion { All, ExceptNewline, Never }
-            let mut ingest_whitespace = WhitespaceIngestion::Never;
-            let mut start = self.index();
+            // Reads the lang tag (until newline or whitespace).
+            let start = self.pos();
+            let lang = self.read_string_until(
+                |c| c == '`' || c.is_whitespace() || is_newline_char(c),
+                false, 0, 0,
+            ).0;
+            let end = self.pos();
+            let lang = if !lang.is_empty() {
+                Some(Spanned::new(lang, Span::new(start, end)))
+            } else {
+                None
+            };
+
+            // Skip to start of raw contents.
+            while let Some(c) = self.peek() {
+                if is_newline_char(c) {
+                    self.eat();
+                    if c == '\r' && self.peek() == Some('\n') {
+                        self.eat();
+                    }
+
+                    break;
+                } else if c.is_whitespace() {
+                    self.eat();
+                } else {
+                    break;
+                }
+            }
+
+            let start = self.index();
+            let mut backticks = 0u32;
 
             while backticks < 3 {
                 match self.eat() {
                     Some('`') => backticks += 1,
+                    // Escaping of triple backticks.
                     Some('\\') if backticks == 1 && self.peek() == Some('`') => {
                         backticks = 0;
                     }
-                    Some(c) => {
-                        // Remove whitespace between language and content or
-                        // first line break, deal with CRLF and CR line endings.
-                        if ingest_whitespace != WhitespaceIngestion::All
-                        && c == '\n' {
-                            start += 1;
-                            ingest_whitespace = WhitespaceIngestion::All;
-                        } else if ingest_whitespace != WhitespaceIngestion::All
-                        && c == '\r' {
-                            start += 1;
-                            ingest_whitespace = WhitespaceIngestion::ExceptNewline;
-                        } else if ingest_whitespace == WhitespaceIngestion::Never
-                        && c.is_whitespace() {
-                            start += 1;
-                        } else {
-                            ingest_whitespace = WhitespaceIngestion::All;
-                        }
-                    }
-                    None => {
-                        terminated = false;
-                        break;
-                    }
+                    Some(_) => {}
+                    None => break,
                 }
             }
-            let end = self.index() - (if terminated { 3 } else { 0 });
 
-            return Code {
-                lang: if lang_opt.len() == 0 { None } else {
-                    Some(Spanned::new(lang_opt, Span::new(lang_start, lang_end)))
-                },
+            let terminated = backticks == 3;
+            let end = self.index() - if terminated { 3 } else { 0 };
+
+            Code {
+                lang,
                 raw: &self.src[start..end],
                 terminated
             }
+        } else {
+            Raw { raw, terminated }
         }
-        Raw { raw, terminated }
     }
 
     fn read_until_unescaped(&mut self, c: char) -> (&'s str, bool) {
