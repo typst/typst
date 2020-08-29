@@ -23,6 +23,8 @@ pub enum SyntaxNode {
     Spacing,
     /// A forced line break.
     Linebreak,
+    /// A paragraph break.
+    Parbreak,
     /// Italics were enabled / disabled.
     ToggleItalic,
     /// Bolder was enabled / disabled.
@@ -33,8 +35,6 @@ pub enum SyntaxNode {
     Raw(Vec<String>),
     /// An optionally highlighted multi-line code block.
     CodeBlock(CodeBlockExpr),
-    /// A paragraph of child nodes.
-    Par(SyntaxTree),
     /// A function call.
     Call(CallExpr),
 }
