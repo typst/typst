@@ -761,7 +761,7 @@ mod tests {
             SyntaxNode::CodeBlock(CodeBlockExpr { raw: vec![$($line.to_string()) ,*], lang: $lang })
         };
     }
-  
+
     macro_rules! F {
         ($($tts:tt)*) => { SyntaxNode::Call(Call!(@$($tts)*)) }
     }
@@ -941,18 +941,18 @@ mod tests {
         e!("`hi\nyou"    => s(1,3, 1,3, "expected backtick"));
         t!("`hi\\`du`"   => R!["hi`du"]);
 
-        t!("```java System.out.print```" => P![
-            C![Lang("java"), "System.out.print"]
+        t!("```java System.out.print```" => C![
+            Lang("java"), "System.out.print"
             ]);
-        t!("``` console.log(\n\"alert\"\n)" => P![
-            C![None, "console.log(", "\"alert\"", ")"]
+        t!("``` console.log(\n\"alert\"\n)" => C![
+            None, "console.log(", "\"alert\"", ")"
             ]);
-        t!("```typst \r\n Typst uses `\\`` to indicate code blocks" => P![
-            C![Lang("typst"), " Typst uses ``` to indicate code blocks"]
+        t!("```typst \r\n Typst uses `\\`` to indicate code blocks" => C![
+            Lang("typst"), " Typst uses ``` to indicate code blocks"
             ]);
         e!("``` hi\nyou"      => s(1,3, 1,3, "expected code block to close"));
         e!("```🌍 hi\nyou```" => s(0,3, 0,4, "expected language to be a valid identifier"));
-        t!("💜\n\n 🌍"       => P![T("💜")], P![T("🌍")]);
+        t!("💜\n\n 🌍"       => T("💜"), P, T("🌍"));
 
         ts!("hi"   => s(0,0, 0,2, T("hi")));
         ts!("*Hi*" => s(0,0, 0,1, B), s(0,1, 0,3, T("Hi")), s(0,3, 0,4, B));
