@@ -7,7 +7,7 @@
     Dr. Max Mustermann \
     Ola Nordmann, John Doe
 ]
-[align: right][
+[align: right >> box][
     *WiSe 2019/2020* \
     Woche 3
 ]
