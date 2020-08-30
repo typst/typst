@@ -110,6 +110,20 @@ impl Parser<'_> {
                     self.with_span(SyntaxNode::Text(text.to_string()))
                 }
 
+                Token::UnicodeEscape(ues) => {
+                    if let Some(c) = std::char::from_u32(
+                        u32::from_str_radix(ues, 16)
+                        .expect("Unicode escape string not convertible to int")
+                    ) {
+                        let mut s = String::with_capacity(1);
+                        s.push(c);
+                        self.with_span(SyntaxNode::Text(s))
+                    } else {
+                        error!(@self.feedback, token.span, "invalid unicode codepoint");
+                        self.with_span(SyntaxNode::Text("".to_string()))
+                    }
+                }
+
                 unexpected => {
                     self.eat();
                     error!(
@@ -944,6 +958,7 @@ mod tests {
         t!("*hi"         => B, T("hi"));
         t!("hi_"         => T("hi"), I);
         t!("hi you"      => T("hi"), S, T("you"));
+        t!("\\u{1f303}"  => T("🌃"));
         t!("\n\n\nhello" => P, T("hello"));
         t!(r"a\ b"       => T("a"), L, S, T("b"));
         t!("`py`"        => R!["py"]);
@@ -960,8 +975,9 @@ mod tests {
         t!("```typst \r\n Typst uses `\\`` to indicate code blocks" => C![
             Some("typst"), " Typst uses ``` to indicate code blocks"
         ]);
-        e!("``` hi\nyou"      => s(1,3, 1,3, "expected backticks"));
-        e!("```🌍 hi\nyou```" => s(0,3, 0,4, "invalid identifier"));
+        e!("``` hi\nyou"      => s(1,3, 1,3,  "expected backticks"));
+        e!("```🌍 hi\nyou```" => s(0,3, 0,4,  "invalid identifier"));
+        e!("\\u{d421c809}"    => s(0,0, 0,12, "invalid unicode codepoint"));
         t!("💜\n\n 🌍"       => T("💜"), P, T("🌍"));
 
         ts!("hi"   => s(0,0, 0,2, T("hi")));
