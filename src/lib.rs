@@ -95,24 +95,22 @@ impl Typesetter {
         use crate::layout::prelude::*;
 
         let margins = self.style.page.margins();
-        layout(
-            &tree,
-            LayoutContext {
-                loader: &self.loader,
-                scope: &self.std,
-                style: &self.style,
-                base: self.style.page.size.unpadded(margins),
-                spaces: vec![LayoutSpace {
-                    size: self.style.page.size,
-                    padding: margins,
-                    expansion: LayoutExpansion::new(true, true),
-                }],
-                repeat: true,
-                axes: LayoutAxes::new(LTR, TTB),
-                align: LayoutAlign::new(Start, Start),
-                root: true,
-            },
-        ).await
+        layout(&tree, LayoutContext {
+            loader: &self.loader,
+            scope: &self.std,
+            style: &self.style,
+            base: self.style.page.size.unpadded(margins),
+            spaces: vec![LayoutSpace {
+                size: self.style.page.size,
+                padding: margins,
+                expansion: LayoutExpansion::new(true, true),
+            }],
+            repeat: true,
+            axes: LayoutAxes::new(LTR, TTB),
+            align: LayoutAlign::new(Start, Start),
+            root: true,
+        })
+        .await
     }
 
     /// Process source code directly into a collection of layouts.
@@ -177,10 +175,7 @@ pub struct Feedback {
 impl Feedback {
     /// Create a new feedback instance without errors and decos.
     pub fn new() -> Self {
-        Self {
-            diagnostics: vec![],
-            decorations: vec![],
-        }
+        Self { diagnostics: vec![], decorations: vec![] }
     }
 
     /// Merged two feedbacks into one.

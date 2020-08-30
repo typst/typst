@@ -98,8 +98,10 @@ fn test(
             "  {:?}: {}:{}:{} - {}:{}: {}",
             diagnostic.v.level,
             path.display(),
-            span.start.line + 1, span.start.column + 1,
-            span.end.line + 1, span.end.column + 1,
+            span.start.line + 1,
+            span.start.column + 1,
+            span.end.line + 1,
+            span.end.column + 1,
             diagnostic.v.message,
         );
     }
@@ -137,28 +139,23 @@ impl TestFilter {
         if self.perfect {
             self.filter.iter().any(|p| name == p)
         } else {
-            self.filter.is_empty()
-                || self.filter.iter().any(|p| name.contains(p))
+            self.filter.is_empty() || self.filter.iter().any(|p| name.contains(p))
         }
     }
 }
 
-fn render(
-    layouts: &MultiLayout,
-    loader: &SharedFontLoader,
-    scale: f64,
-) -> DrawTarget {
+fn render(layouts: &MultiLayout, loader: &SharedFontLoader, scale: f64) -> DrawTarget {
     let pad = scale * 10.0;
-    let width = 2.0 * pad + layouts.iter()
-        .map(|l| scale * l.size.x)
-        .max_by(|a, b| a.partial_cmp(&b).unwrap())
-        .unwrap()
-        .round();
+    let width = 2.0 * pad
+        + layouts
+            .iter()
+            .map(|l| scale * l.size.x)
+            .max_by(|a, b| a.partial_cmp(&b).unwrap())
+            .unwrap()
+            .round();
 
-    let height = pad + layouts.iter()
-        .map(|l| scale * l.size.y + pad)
-        .sum::<f64>()
-        .round();
+    let height =
+        pad + layouts.iter().map(|l| scale * l.size.y + pad).sum::<f64>().round();
 
     let mut surface = DrawTarget::new(width as i32, height as i32);
     surface.clear(BLACK);

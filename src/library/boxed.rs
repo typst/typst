@@ -1,12 +1,16 @@
-use crate::length::ScaleLength;
 use super::*;
+use crate::length::ScaleLength;
 
 /// `box`: Layouts its contents into a box.
 ///
 /// # Keyword arguments
 /// - `width`: The width of the box (length of relative to parent's width).
 /// - `height`: The height of the box (length of relative to parent's height).
-pub async fn boxed(_: Span, mut args: TableValue, mut ctx: LayoutContext<'_>) -> Pass<Value> {
+pub async fn boxed(
+    _: Span,
+    mut args: TableValue,
+    mut ctx: LayoutContext<'_>,
+) -> Pass<Value> {
     let mut f = Feedback::new();
 
     let content = args.take::<SyntaxTree>().unwrap_or(SyntaxTree::new());

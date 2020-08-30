@@ -1,6 +1,6 @@
+use super::*;
 use crate::layout::SpacingKind;
 use crate::length::ScaleLength;
-use super::*;
 
 /// `h`: Add horizontal spacing.
 ///

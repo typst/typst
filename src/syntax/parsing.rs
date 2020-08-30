@@ -2,16 +2,14 @@
 
 use std::str::FromStr;
 
-use crate::{Feedback, Pass};
-use crate::color::RgbaColor;
-use crate::compute::table::SpannedEntry;
 use super::decoration::Decoration;
 use super::span::{Pos, Span, Spanned};
 use super::tokens::{is_newline_char, Token, TokenMode, Tokens};
-use super::tree::{
-    CallExpr, Expr, SyntaxNode, SyntaxTree, TableExpr, Code,
-};
+use super::tree::{CallExpr, Code, Expr, SyntaxNode, SyntaxTree, TableExpr};
 use super::Ident;
+use crate::color::RgbaColor;
+use crate::compute::table::SpannedEntry;
+use crate::{Feedback, Pass};
 
 /// Parse a string of source code.
 pub fn parse(src: &str) -> Pass<SyntaxTree> {
@@ -106,9 +104,7 @@ impl Parser<'_> {
                     self.with_span(SyntaxNode::Code(Code { lang, lines, block }))
                 }
 
-                Token::Text(text) => {
-                    self.with_span(SyntaxNode::Text(text.to_string()))
-                }
+                Token::Text(text) => self.with_span(SyntaxNode::Text(text.to_string())),
 
                 Token::UnicodeEscape { sequence, terminated } => {
                     if !terminated {
@@ -222,7 +218,10 @@ impl Parser<'_> {
         let mut table = TableExpr::new();
         let mut comma_and_keyless = true;
 
-        while { self.skip_white(); !self.eof() } {
+        while {
+            self.skip_white();
+            !self.eof()
+        } {
             let (key, val) = if let Some(ident) = self.parse_ident() {
                 self.skip_white();
 
@@ -243,7 +242,7 @@ impl Parser<'_> {
                         (None, call.map(Expr::Call))
                     }
 
-                    _ => (None, ident.map(Expr::Ident))
+                    _ => (None, ident.map(Expr::Ident)),
                 }
             } else if let Some(value) = self.parse_expr() {
                 (None, value)
@@ -256,13 +255,17 @@ impl Parser<'_> {
             if let Some(key) = key {
                 comma_and_keyless = false;
                 table.insert(key.v.0, SpannedEntry::new(key.span, val));
-                self.feedback.decorations
+                self.feedback
+                    .decorations
                     .push(Spanned::new(Decoration::TableKey, key.span));
             } else {
                 table.push(SpannedEntry::val(val));
             }
 
-            if { self.skip_white(); self.eof() } {
+            if {
+                self.skip_white();
+                self.eof()
+            } {
                 break;
             }
 
@@ -389,9 +392,7 @@ impl Parser<'_> {
                 let span = self.end_group();
 
                 let expr = if coercable {
-                    table.into_values()
-                        .next()
-                        .expect("table is coercable").val.v
+                    table.into_values().next().expect("table is coercable").val.v
                 } else {
                     Expr::Table(table)
                 };
@@ -479,8 +480,7 @@ impl<'s> Parser<'s> {
     fn end_group(&mut self) -> Span {
         let peeked = self.peek();
 
-        let (start, end_token) = self.delimiters.pop()
-            .expect("group was not started");
+        let (start, end_token) = self.delimiters.pop().expect("group was not started");
 
         if end_token != Token::Chain && peeked != None {
             self.delimiters.push((start, end_token));
@@ -529,11 +529,7 @@ impl<'s> Parser<'s> {
     }
 
     fn check_eat(&mut self, token: Token<'_>) -> Option<Spanned<Token<'s>>> {
-        if self.check(token) {
-            self.eat()
-        } else {
-            None
-        }
+        if self.check(token) { self.eat() } else { None }
     }
 
     /// Checks if the next token is of some kind
@@ -590,8 +586,7 @@ impl Group {
     fn is_delimiter(token: Token<'_>) -> bool {
         matches!(
             token,
-            Token::RightParen | Token::RightBracket
-            | Token::RightBrace | Token::Chain
+            Token::RightParen | Token::RightBracket | Token::RightBrace | Token::Chain
         )
     }
 
@@ -655,7 +650,10 @@ fn unescape_string(string: &str) -> String {
                 }
                 Some('n') => out.push('\n'),
                 Some('t') => out.push('\t'),
-                Some(c) => { out.push('\\'); out.push(c); }
+                Some(c) => {
+                    out.push('\\');
+                    out.push(c);
+                }
                 None => out.push('\\'),
             }
         } else {
@@ -785,22 +783,20 @@ fn split_lines(text: &str) -> Vec<String> {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
-    use crate::syntax::tests::*;
-    use crate::length::Length;
     use super::*;
+    use crate::length::Length;
+    use crate::syntax::tests::*;
     use Decoration::*;
 
     // ----------------------- Construct Syntax Nodes ----------------------- //
 
     use SyntaxNode::{
-        Spacing as S,
-        Linebreak as L,
-        Parbreak as P,
-        ToggleItalic as I,
-        ToggleBolder as B,
+        Linebreak as L, Parbreak as P, Spacing as S, ToggleBolder as B, ToggleItalic as I,
     };
 
-    fn T(text: &str) -> SyntaxNode { SyntaxNode::Text(text.to_string()) }
+    fn T(text: &str) -> SyntaxNode {
+        SyntaxNode::Text(text.to_string())
+    }
 
     macro_rules! R {
         ($($line:expr),* $(,)?) => {
@@ -833,10 +829,14 @@ mod tests {
 
     // ------------------------ Construct Expressions ----------------------- //
 
-    use Expr::{Bool, Number as Num, Length as Len, Color};
+    use Expr::{Bool, Color, Length as Len, Number as Num};
 
-    fn Id(ident: &str) -> Expr { Expr::Ident(Ident(ident.to_string())) }
-    fn Str(string: &str) -> Expr { Expr::Str(string.to_string()) }
+    fn Id(ident: &str) -> Expr {
+        Expr::Ident(Ident(ident.to_string()))
+    }
+    fn Str(string: &str) -> Expr {
+        Expr::Str(string.to_string())
+    }
 
     macro_rules! Table {
         (@table=$table:expr,) => {};

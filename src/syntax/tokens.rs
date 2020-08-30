@@ -4,8 +4,8 @@ use std::iter::Peekable;
 use std::str::Chars;
 use unicode_xid::UnicodeXID;
 
-use crate::length::Length;
 use super::span::{Pos, Span, Spanned};
+use crate::length::Length;
 
 use Token::*;
 use TokenMode::*;
@@ -224,7 +224,10 @@ impl<'s> Iterator for Tokens<'s> {
             // Comments.
             '/' if self.peek() == Some('/') => self.read_line_comment(),
             '/' if self.peek() == Some('*') => self.read_block_comment(),
-            '*' if self.peek() == Some('/') => { self.eat(); Invalid("*/") }
+            '*' if self.peek() == Some('/') => {
+                self.eat();
+                Invalid("*/")
+            }
 
             // Whitespace.
             c if c.is_whitespace() => self.read_whitespace(start),
@@ -241,8 +244,7 @@ impl<'s> Iterator for Tokens<'s> {
             ':' if self.mode == Header => Colon,
             ',' if self.mode == Header => Comma,
             '=' if self.mode == Header => Equals,
-            '>' if self.mode == Header && self.peek() == Some('>') =>
-                self.read_chain(),
+            '>' if self.mode == Header && self.peek() == Some('>') => self.read_chain(),
 
             // Expression operators.
             '+' if self.mode == Header => Plus,
@@ -276,10 +278,10 @@ impl<'s> Iterator for Tokens<'s> {
                 let (text, _) = self.read_string_until(false, start_offset, 0, |n| {
                     let val = match n {
                         c if c.is_whitespace() => true,
-                        '['  | ']' | '{' | '}' | '/' | '*' => true,
+                        '[' | ']' | '{' | '}' | '/' | '*' => true,
                         '\\' | '_' | '`' if body => true,
-                        ':'  | '=' | ',' | '"' | '('  | ')' if !body => true,
-                        '+'  | '-' if !body && !last_was_e => true,
+                        ':' | '=' | ',' | '"' | '(' | ')' if !body => true,
+                        '+' | '-' if !body && !last_was_e => true,
                         _ => false,
                     };
 
@@ -309,7 +311,11 @@ impl<'s> Tokens<'s> {
     }
 
     fn read_block_comment(&mut self) -> Token<'s> {
-        enum Last { Slash, Star, Other }
+        enum Last {
+            Slash,
+            Star,
+            Other,
+        }
 
         let mut depth = 0;
         let mut last = Last::Other;
@@ -322,12 +328,12 @@ impl<'s> Tokens<'s> {
                 '/' => match last {
                     Last::Star if depth == 0 => return true,
                     Last::Star => depth -= 1,
-                    _ => last = Last::Slash
-                }
+                    _ => last = Last::Slash,
+                },
                 '*' => match last {
                     Last::Slash => depth += 1,
                     _ => last = Last::Star,
-                }
+                },
                 _ => last = Last::Other,
             }
 
@@ -409,8 +415,8 @@ impl<'s> Tokens<'s> {
 
             Code {
                 lang,
-                raw: &self.src[start..end],
-                terminated
+                raw: &self.src[start .. end],
+                terminated,
             }
         } else {
             Raw { raw, terminated }
@@ -443,9 +449,8 @@ impl<'s> Tokens<'s> {
                 self.eat();
                 if self.peek() == Some('{') {
                     self.eat();
-                    let (sequence, _) = self.read_string_until(false, 0, 0, |c| {
-                        !c.is_ascii_hexdigit()
-                    });
+                    let (sequence, _) =
+                        self.read_string_until(false, 0, 0, |c| !c.is_ascii_hexdigit());
 
                     let terminated = self.peek() == Some('}');
                     if terminated {
@@ -460,7 +465,7 @@ impl<'s> Tokens<'s> {
             Some(c) if is_escapable(c) => {
                 let index = self.index();
                 self.eat();
-                Text(&self.src[index..index + c.len_utf8()])
+                Text(&self.src[index .. index + c.len_utf8()])
             }
             Some(c) if c.is_whitespace() => Backslash,
             Some(_) => Text("\\"),
@@ -522,7 +527,7 @@ impl<'s> Tokens<'s> {
             end = ((end as isize) + offset_end) as usize;
         }
 
-        (&self.src[start..end], matched)
+        (&self.src[start .. end], matched)
     }
 
     fn eat(&mut self) -> Option<char> {
@@ -546,7 +551,7 @@ impl<'s> Tokens<'s> {
 
 fn parse_percentage(text: &str) -> Option<f64> {
     if text.ends_with('%') {
-        text[..text.len() - 1].parse::<f64>().ok()
+        text[.. text.len() - 1].parse::<f64>().ok()
     } else {
         None
     }
@@ -556,7 +561,7 @@ fn parse_percentage(text: &str) -> Option<f64> {
 pub fn is_newline_char(character: char) -> bool {
     match character {
         // Line Feed, Vertical Tab, Form Feed, Carriage Return.
-        '\x0A'..='\x0D' => true,
+        '\x0A' ..= '\x0D' => true,
         // Next Line, Line Separator, Paragraph Separator.
         '\u{0085}' | '\u{2028}' | '\u{2029}' => true,
         _ => false,
@@ -588,35 +593,33 @@ pub fn is_identifier(string: &str) -> bool {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
+    use super::super::span::Spanned;
+    use super::*;
     use crate::length::Length;
     use crate::syntax::tests::*;
-    use super::*;
-    use super::super::span::Spanned;
     use Token::{
-        Space as S,
-        LineComment as LC, BlockComment as BC,
-        LeftBracket as L, RightBracket as R,
-        LeftParen as LP, RightParen as RP,
-        LeftBrace as LB, RightBrace as RB,
-        Chain,
-        Ident as Id,
-        Bool,
-        Number as Num,
-        Length as Len,
-        Hex,
-        Plus,
-        Hyphen as Min,
-        Slash,
-        Star,
-        Text as T,
+        BlockComment as BC, Bool, Chain, Hex, Hyphen as Min, Ident as Id,
+        LeftBrace as LB, LeftBracket as L, LeftParen as LP, Length as Len,
+        LineComment as LC, Number as Num, Plus, RightBrace as RB, RightBracket as R,
+        RightParen as RP, Slash, Space as S, Star, Text as T,
     };
 
-    fn Str(string: &str, terminated: bool) -> Token { Token::Str { string, terminated } }
-    fn Raw(raw: &str, terminated: bool) -> Token { Token::Raw { raw, terminated } }
-    fn Code<'a>(lang: Option<&'a str>, raw: &'a str, terminated: bool) -> Token<'a> {
-        Token::Code { lang: lang.map(Spanned::zero), raw, terminated }
+    fn Str(string: &str, terminated: bool) -> Token {
+        Token::Str { string, terminated }
     }
-    fn UE(sequence: &str, terminated: bool) -> Token { Token::UnicodeEscape { sequence, terminated } }
+    fn Raw(raw: &str, terminated: bool) -> Token {
+        Token::Raw { raw, terminated }
+    }
+    fn Code<'a>(lang: Option<&'a str>, raw: &'a str, terminated: bool) -> Token<'a> {
+        Token::Code {
+            lang: lang.map(Spanned::zero),
+            raw,
+            terminated,
+        }
+    }
+    fn UE(sequence: &str, terminated: bool) -> Token {
+        Token::UnicodeEscape { sequence, terminated }
+    }
 
     macro_rules! t { ($($tts:tt)*) => {test!(@spans=false, $($tts)*)} }
     macro_rules! ts { ($($tts:tt)*) => {test!(@spans=true, $($tts)*)} }

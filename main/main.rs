@@ -30,8 +30,7 @@ fn main() {
         panic!("source and destination path are the same");
     }
 
-    let src = read_to_string(src_path)
-        .expect("failed to read from source file");
+    let src = read_to_string(src_path).expect("failed to read from source file");
 
     let mut index = FsIndex::new();
     index.search_dir("fonts");
@@ -55,16 +54,16 @@ fn main() {
             "{}: {}:{}:{} - {}:{}: {}",
             format!("{:?}", diagnostic.v.level).to_lowercase(),
             src_path.display(),
-            span.start.line + 1, span.start.column + 1,
-            span.end.line + 1, span.end.column + 1,
+            span.start.line + 1,
+            span.start.column + 1,
+            span.end.line + 1,
+            span.end.column + 1,
             diagnostic.v.message,
         );
     }
 
-    let file = File::create(&dest_path)
-        .expect("failed to create output file");
+    let file = File::create(&dest_path).expect("failed to create output file");
 
     let writer = BufWriter::new(file);
-    pdf::export(&layouts, &loader, writer)
-        .expect("failed to export pdf");
+    pdf::export(&layouts, &loader, writer).expect("failed to export pdf");
 }

@@ -2,15 +2,15 @@
 
 use std::fmt::{self, Debug, Formatter};
 
+use super::decoration::Decoration;
+use super::span::{SpanVec, Spanned};
+use super::Ident;
 use crate::color::RgbaColor;
 use crate::compute::table::{SpannedEntry, Table};
 use crate::compute::value::{TableValue, Value};
 use crate::layout::LayoutContext;
 use crate::length::Length;
 use crate::{DynFuture, Feedback};
-use super::decoration::Decoration;
-use super::span::{Spanned, SpanVec};
-use super::Ident;
 
 /// A collection of nodes which form a tree together with the nodes' children.
 pub type SyntaxTree = SpanVec<SyntaxNode>;
@@ -96,11 +96,7 @@ impl Expr {
     }
 
     /// Evaluate the expression to a value.
-    pub async fn eval(
-        &self,
-        ctx: &LayoutContext<'_>,
-        f: &mut Feedback,
-    ) -> Value {
+    pub async fn eval(&self, ctx: &LayoutContext<'_>, f: &mut Feedback) -> Value {
         use Expr::*;
         match self {
             Ident(i) => Value::Ident(i.clone()),

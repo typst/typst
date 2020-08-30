@@ -150,7 +150,7 @@ impl FromStr for Length {
         // have valid ASCII chars as subbytes.
         let split = len - 2;
         let bytes = src.as_bytes();
-        let unit = match &bytes[split..] {
+        let unit = match &bytes[split ..] {
             b"pt" => Unit::Pt,
             b"mm" => Unit::Mm,
             b"cm" => Unit::Cm,
@@ -158,7 +158,7 @@ impl FromStr for Length {
             _ => return Err(ParseLengthError),
         };
 
-        src[..split]
+        src[.. split]
             .parse::<f64>()
             .map(|val| Self::new(val, unit))
             .map_err(|_| ParseLengthError)

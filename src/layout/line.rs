@@ -246,9 +246,7 @@ impl LineLayouter {
         for (offset, layout) in layouts {
             let x = match self.ctx.axes.primary.is_positive() {
                 true => offset,
-                false => self.run.size.x
-                    - offset
-                    - layout.size.primary(self.ctx.axes),
+                false => self.run.size.x - offset - layout.size.primary(self.ctx.axes),
             };
 
             let pos = Size::with_x(x);
@@ -258,7 +256,7 @@ impl LineLayouter {
         self.stack.add(BoxLayout {
             size: self.run.size.specialized(self.ctx.axes),
             align: self.run.align.unwrap_or(LayoutAlign::new(Start, Start)),
-            elements
+            elements,
         });
 
         self.run = LineRun::new();

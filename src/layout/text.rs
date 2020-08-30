@@ -7,11 +7,11 @@
 use fontdock::{FaceId, FaceQuery, FontStyle};
 use ttf_parser::GlyphId;
 
+use super::elements::{LayoutElement, Shaped};
+use super::*;
 use crate::font::SharedFontLoader;
 use crate::geom::Size;
 use crate::style::TextStyle;
-use super::elements::{LayoutElement, Shaped};
-use super::*;
 
 /// Layouts text into a box.
 pub async fn layout_text(text: &str, ctx: TextContext<'_>) -> BoxLayout {

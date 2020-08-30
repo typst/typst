@@ -10,7 +10,7 @@ mod tree;
 /// Basic types used across the layouting engine.
 pub mod prelude {
     pub use super::primitive::*;
-    pub use super::{BoxLayout, layout, LayoutContext, LayoutSpace, MultiLayout};
+    pub use super::{layout, BoxLayout, LayoutContext, LayoutSpace, MultiLayout};
     pub use Dir::*;
     pub use GenAlign::*;
     pub use GenAxis::*;

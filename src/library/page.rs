@@ -1,6 +1,6 @@
+use super::*;
 use crate::length::{Length, ScaleLength};
 use crate::paper::{Paper, PaperClass};
-use super::*;
 
 /// `page`: Configure pages.
 ///

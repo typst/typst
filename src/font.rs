@@ -30,9 +30,8 @@ impl FaceFromVec for OwnedFace {
     fn from_vec(vec: Vec<u8>, i: u32) -> Option<Self> {
         // The vec's location is stable in memory since we don't touch it and
         // it can't be touched from outside this type.
-        let slice: &'static [u8] = unsafe {
-            std::slice::from_raw_parts(vec.as_ptr(), vec.len())
-        };
+        let slice: &'static [u8] =
+            unsafe { std::slice::from_raw_parts(vec.as_ptr(), vec.len()) };
 
         Some(Self {
             data: vec,

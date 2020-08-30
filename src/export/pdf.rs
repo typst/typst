@@ -7,8 +7,8 @@ use fontdock::FaceId;
 use tide::content::Content;
 use tide::doc::{Catalog, Page, PageTree, Resource, Text};
 use tide::font::{
-    CIDFont, CIDFontType, CIDSystemInfo, CMap, CMapEncoding, FontDescriptor,
-    FontFlags, FontStream, GlyphUnit, Type0Font, WidthRecord,
+    CIDFont, CIDFontType, CIDSystemInfo, CMap, CMapEncoding, FontDescriptor, FontFlags,
+    FontStream, GlyphUnit, Type0Font, WidthRecord,
 };
 use tide::{PdfWriter, Rect, Ref, Trailer, Version};
 use ttf_parser::{name_id, GlyphId};
@@ -89,20 +89,18 @@ impl<'a, W: Write> PdfExporter<'a, W> {
 
     fn write_preface(&mut self) -> io::Result<()> {
         // The document catalog.
-        self.writer.write_obj(self.offsets.catalog, &Catalog::new(self.offsets.page_tree))?;
+        self.writer
+            .write_obj(self.offsets.catalog, &Catalog::new(self.offsets.page_tree))?;
 
         // The font resources.
         let start = self.offsets.fonts.0;
-        let fonts = (0..self.to_pdf.len() as u32).map(|i| {
-            Resource::Font(i + 1, start + (NUM_OBJECTS_PER_FONT * i))
-        });
+        let fonts = (0 .. self.to_pdf.len() as u32)
+            .map(|i| Resource::Font(i + 1, start + (NUM_OBJECTS_PER_FONT * i)));
 
         // The root page tree.
         self.writer.write_obj(
             self.offsets.page_tree,
-            PageTree::new()
-                .kids(ids(self.offsets.pages))
-                .resources(fonts),
+            PageTree::new().kids(ids(self.offsets.pages)).resources(fonts),
         )?;
 
         // The page objects (non-root nodes in the page tree).
@@ -119,9 +117,7 @@ impl<'a, W: Write> PdfExporter<'a, W> {
 
             self.writer.write_obj(
                 page_id,
-                Page::new(self.offsets.page_tree)
-                    .media_box(rect)
-                    .content(content_id),
+                Page::new(self.offsets.page_tree).media_box(rect).content(content_id),
             )?;
         }
 
@@ -151,7 +147,7 @@ impl<'a, W: Write> PdfExporter<'a, W> {
                         size = shaped.size;
                         text.tf(
                             self.to_pdf[&shaped.face] as u32 + 1,
-                            Length::raw(size).as_pt() as f32
+                            Length::raw(size).as_pt() as f32,
                         );
                     }
 
@@ -178,8 +174,7 @@ impl<'a, W: Write> PdfExporter<'a, W> {
             let name = face
                 .names()
                 .find(|entry| {
-                    entry.name_id() == name_id::POST_SCRIPT_NAME
-                    && entry.is_unicode()
+                    entry.name_id() == name_id::POST_SCRIPT_NAME && entry.is_unicode()
                 })
                 .map(|entry| entry.to_string())
                 .flatten()
@@ -190,9 +185,8 @@ impl<'a, W: Write> PdfExporter<'a, W> {
 
             let units_per_em = face.units_per_em().unwrap_or(1000) as f64;
             let ratio = 1.0 / units_per_em;
-            let to_glyph_unit = |font_unit: f64| {
-                (1000.0 * ratio * font_unit).round() as GlyphUnit
-            };
+            let to_glyph_unit =
+                |font_unit: f64| (1000.0 * ratio * font_unit).round() as GlyphUnit;
 
             let global_bbox = face.global_bounding_box();
             let bbox = Rect::new(
@@ -218,7 +212,7 @@ impl<'a, W: Write> PdfExporter<'a, W> {
             flags.insert(FontFlags::SMALL_CAP);
 
             let num_glyphs = face.number_of_glyphs();
-            let widths: Vec<_> = (0..num_glyphs)
+            let widths: Vec<_> = (0 .. num_glyphs)
                 .map(|g| face.glyph_hor_advance(GlyphId(g)).unwrap_or(0))
                 .map(|w| to_glyph_unit(w as f64))
                 .collect();
@@ -258,23 +252,21 @@ impl<'a, W: Write> PdfExporter<'a, W> {
             )?;
 
             // Write the font descriptor (contains metrics about the font).
-            self.writer.write_obj(id + 2,
+            self.writer.write_obj(
+                id + 2,
                 FontDescriptor::new(base_font, flags, italic_angle)
                     .font_bbox(bbox)
                     .ascent(to_glyph_unit(ascender as f64))
                     .descent(to_glyph_unit(descender as f64))
                     .cap_height(to_glyph_unit(cap_height as f64))
                     .stem_v(stem_v as GlyphUnit)
-                    .font_file_2(id + 4)
+                    .font_file_2(id + 4),
             )?;
 
             // Write the CMap, which maps glyph ids back to unicode codepoints
             // to enable copying out of the PDF.
-            self.writer.write_obj(id + 3, &CMap::new(
-                "Custom",
-                system_info,
-                mapping,
-            ))?;
+            self.writer
+                .write_obj(id + 3, &CMap::new("Custom", system_info, mapping))?;
 
             // Write the face's bytes.
             self.writer.write_obj(id + 4, &FontStream::new(face.data()))?;
@@ -328,5 +320,5 @@ fn calculate_offsets(layout_count: usize, font_count: usize) -> Offsets {
 }
 
 fn ids((start, end): (Ref, Ref)) -> impl Iterator<Item = Ref> {
-    start..=end
+    start ..= end
 }
