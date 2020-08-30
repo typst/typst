@@ -110,6 +110,26 @@ impl Parser<'_> {
                     self.with_span(SyntaxNode::Text(text.to_string()))
                 }
 
+                Token::UnicodeEscape { sequence, terminated } => {
+                    if !terminated {
+                        error!(
+                            @self.feedback, Span::at(token.span.end),
+                            "expected closing brace",
+                        );
+                    }
+
+                    if let Some(c) = unescape_char(sequence) {
+                        self.with_span(SyntaxNode::Text(c.to_string()))
+                    } else {
+                        self.eat();
+                        error!(
+                            @self.feedback, token.span,
+                            "invalid unicode escape sequence",
+                        );
+                        continue;
+                    }
+                }
+
                 unexpected => {
                     self.eat();
                     error!(
@@ -594,7 +614,7 @@ impl Group {
 }
 
 fn unescape_string(string: &str) -> String {
-    let mut iter = string.chars();
+    let mut iter = string.chars().peekable();
     let mut out = String::with_capacity(string.len());
 
     while let Some(c) = iter.next() {
@@ -602,6 +622,36 @@ fn unescape_string(string: &str) -> String {
             match iter.next() {
                 Some('\\') => out.push('\\'),
                 Some('"') => out.push('"'),
+                Some('u') if iter.peek() == Some(&'{') => {
+                    iter.next();
+
+                    let mut sequence = String::new();
+                    let terminated = loop {
+                        match iter.peek() {
+                            // TODO: Feedback that closing brace is missing.
+                            Some('}') => {
+                                iter.next();
+                                break true;
+                            }
+                            Some(&c) if c.is_ascii_hexdigit() => {
+                                iter.next();
+                                sequence.push(c);
+                            }
+                            _ => break false,
+                        }
+                    };
+
+                    // TODO: Feedback that escape sequence is wrong.
+                    if let Some(c) = unescape_char(&sequence) {
+                        out.push(c);
+                    } else {
+                        out.push_str("\\u{");
+                        out.push_str(&sequence);
+                        if terminated {
+                            out.push('}');
+                        }
+                    }
+                }
                 Some('n') => out.push('\n'),
                 Some('t') => out.push('\t'),
                 Some(c) => { out.push('\\'); out.push(c); }
@@ -617,7 +667,7 @@ fn unescape_string(string: &str) -> String {
 
 /// Unescape raw markup and split it into into lines.
 fn unescape_raw(raw: &str) -> Vec<String> {
-    let mut iter = raw.chars().peekable();
+    let mut iter = raw.chars();
     let mut text = String::new();
 
     while let Some(c) = iter.next() {
@@ -703,6 +753,11 @@ fn unescape_code(raw: &str) -> Vec<String> {
     }
 
     split_lines(&text)
+}
+
+/// Converts a hexademical sequence (without braces or "\u") into a character.
+fn unescape_char(sequence: &str) -> Option<char> {
+    u32::from_str_radix(sequence, 16).ok().and_then(std::char::from_u32)
 }
 
 fn split_lines(text: &str) -> Vec<String> {
@@ -890,6 +945,9 @@ mod tests {
         test(r#"hello world"#,  "hello world");
         test(r#"hello\nworld"#, "hello\nworld");
         test(r#"a\"bc"#,        "a\"bc");
+        test(r#"a\u{2603}bc"#,  "a☃bc");
+        test(r#"a\u{26c3bg"#,   "a𦰻g");
+        test(r#"av\u{6797"#,    "av林");
         test(r#"a\\"#,          "a\\");
         test(r#"a\\\nbc"#,      "a\\\nbc");
         test(r#"a\tbc"#,        "a\tbc");
@@ -944,6 +1002,7 @@ mod tests {
         t!("*hi"         => B, T("hi"));
         t!("hi_"         => T("hi"), I);
         t!("hi you"      => T("hi"), S, T("you"));
+        t!("\\u{1f303}"  => T("🌃"));
         t!("\n\n\nhello" => P, T("hello"));
         t!(r"a\ b"       => T("a"), L, S, T("b"));
         t!("`py`"        => R!["py"]);
@@ -951,17 +1010,16 @@ mod tests {
         e!("`hi\nyou"    => s(1,3, 1,3, "expected backtick"));
         t!("`hi\\`du`"   => R!["hi`du"]);
 
-        t!("```java System.out.print```" => C![
-            Some("java"), "System.out.print"
-        ]);
-        t!("``` console.log(\n\"alert\"\n)" => C![
-            None, "console.log(", "\"alert\"", ")"
-        ]);
+        t!("```java System.out.print```" => C![Some("java"), "System.out.print"]);
+        t!("``` console.log(\n\"alert\"\n)" => C![None, "console.log(", "\"alert\"", ")"]);
         t!("```typst \r\n Typst uses `\\`` to indicate code blocks" => C![
             Some("typst"), " Typst uses ``` to indicate code blocks"
         ]);
-        e!("``` hi\nyou"      => s(1,3, 1,3, "expected backticks"));
-        e!("```🌍 hi\nyou```" => s(0,3, 0,4, "invalid identifier"));
+
+        e!("``` hi\nyou"      => s(1,3, 1,3,  "expected backticks"));
+        e!("```🌍 hi\nyou```" => s(0,3, 0,4,  "invalid identifier"));
+        e!("\\u{d421c809}"    => s(0,0, 0,12, "invalid unicode escape sequence"));
+        e!("\\u{abc"          => s(0,6, 0,6, "expected closing brace"));
         t!("💜\n\n 🌍"       => T("💜"), P, T("🌍"));
 
         ts!("hi"   => s(0,0, 0,2, T("hi")));

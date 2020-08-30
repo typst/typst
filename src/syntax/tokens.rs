@@ -82,6 +82,14 @@ pub enum Token<'s> {
     /// A backslash followed by whitespace in text.
     Backslash,
 
+    /// A unicode escape sequence.
+    UnicodeEscape {
+        /// The escape sequence between two braces.
+        sequence: &'s str,
+        /// Whether the closing brace was present.
+        terminated: bool,
+    },
+
     /// Raw text.
     Raw {
         /// The raw text (not yet unescaped as for strings).
@@ -136,6 +144,7 @@ impl<'s> Token<'s> {
             Star => "star",
             Underscore => "underscore",
             Backslash => "backslash",
+            UnicodeEscape { .. } => "unicode escape sequence",
             Raw { .. } => "raw text",
             Code { .. } => "code block",
             Text(_) => "text",
@@ -426,6 +435,25 @@ impl<'s> Tokens<'s> {
         }
 
         match self.peek() {
+            Some('u') => {
+                self.eat();
+                if self.peek() == Some('{') {
+                    self.eat();
+                    let sequence = self.read_string_until(
+                        |c| !c.is_ascii_hexdigit(),
+                        false, 0, 0,
+                    ).0;
+
+                    let terminated = self.peek() == Some('}');
+                    if terminated {
+                        self.eat();
+                    }
+
+                    UnicodeEscape { sequence, terminated }
+                } else {
+                    Text("\\u")
+                }
+            }
             Some(c) if is_escapable(c) => {
                 let index = self.index();
                 self.eat();
@@ -588,6 +616,7 @@ mod tests {
     fn Code<'a>(lang: Option<&'a str>, raw: &'a str, terminated: bool) -> Token<'a> {
         Token::Code { lang: lang.map(Spanned::zero), raw, terminated }
     }
+    fn UE(sequence: &str, terminated: bool) -> Token { Token::UnicodeEscape { sequence, terminated } }
 
     macro_rules! t { ($($tts:tt)*) => {test!(@spans=false, $($tts)*)} }
     macro_rules! ts { ($($tts:tt)*) => {test!(@spans=true, $($tts)*)} }
@@ -701,14 +730,16 @@ mod tests {
 
     #[test]
     fn tokenize_escaped_symbols() {
-        t!(Body, r"\\"   => T(r"\"));
-        t!(Body, r"\["   => T("["));
-        t!(Body, r"\]"   => T("]"));
-        t!(Body, r"\*"   => T("*"));
-        t!(Body, r"\_"   => T("_"));
-        t!(Body, r"\`"   => T("`"));
-        t!(Body, r"\/"   => T("/"));
-        t!(Body, r#"\""# => T("\""));
+        t!(Body, r"\\"       => T(r"\"));
+        t!(Body, r"\["       => T("["));
+        t!(Body, r"\]"       => T("]"));
+        t!(Body, r"\*"       => T("*"));
+        t!(Body, r"\_"       => T("_"));
+        t!(Body, r"\`"       => T("`"));
+        t!(Body, r"\/"       => T("/"));
+        t!(Body, r"\u{2603}" => UE("2603", true));
+        t!(Body, r"\u{26A4"  => UE("26A4", false));
+        t!(Body, r#"\""#     => T("\""));
     }
 
     #[test]
@@ -716,6 +747,9 @@ mod tests {
         t!(Body, r"\a"     => T("\\"), T("a"));
         t!(Body, r"\:"     => T(r"\"), T(":"));
         t!(Body, r"\="     => T(r"\"), T("="));
+        t!(Body, r"\u{2GA4"=> UE("2", false), T("GA4"));
+        t!(Body, r"\u{ "   => UE("", false), Space(0));
+        t!(Body, r"\u"     => T(r"\u"));
         t!(Header, r"\\\\" => Invalid(r"\\\\"));
         t!(Header, r"\a"   => Invalid(r"\a"));
         t!(Header, r"\:"   => Invalid(r"\"), Colon);
