@@ -270,8 +270,10 @@ impl<'s> Iterator for Tokens<'s> {
             c => {
                 let body = self.mode == Body;
 
+                let start_offset = -(c.len_utf8() as isize);
                 let mut last_was_e = false;
-                let text = self.read_string_until(|n| {
+
+                let (text, _) = self.read_string_until(false, start_offset, 0, |n| {
                     let val = match n {
                         c if c.is_whitespace() => true,
                         '['  | ']' | '{' | '}' | '/' | '*' => true,
@@ -283,7 +285,7 @@ impl<'s> Iterator for Tokens<'s> {
 
                     last_was_e = n == 'e' || n == 'E';
                     val
-                }, false, -(c.len_utf8() as isize), 0).0;
+                });
 
                 if self.mode == Header {
                     self.read_expr(text)
@@ -302,21 +304,21 @@ impl<'s> Iterator for Tokens<'s> {
 
 impl<'s> Tokens<'s> {
     fn read_line_comment(&mut self) -> Token<'s> {
-        LineComment(self.read_string_until(is_newline_char, false, 1, 0).0)
+        self.eat();
+        LineComment(self.read_string_until(false, 0, 0, is_newline_char).0)
     }
 
     fn read_block_comment(&mut self) -> Token<'s> {
         enum Last { Slash, Star, Other }
-
-        self.eat();
 
         let mut depth = 0;
         let mut last = Last::Other;
 
         // Find the first `*/` that does not correspond to a nested `/*`.
         // Remove the last two bytes to obtain the raw inner text without `*/`.
-        BlockComment(self.read_string_until(|n| {
-            match n {
+        self.eat();
+        let (content, _) = self.read_string_until(true, 0, -2, |c| {
+            match c {
                 '/' => match last {
                     Last::Star if depth == 0 => return true,
                     Last::Star => depth -= 1,
@@ -330,7 +332,9 @@ impl<'s> Tokens<'s> {
             }
 
             false
-        }, true, 0, -2).0)
+        });
+
+        BlockComment(content)
     }
 
     fn read_chain(&mut self) -> Token<'s> {
@@ -339,7 +343,7 @@ impl<'s> Tokens<'s> {
     }
 
     fn read_whitespace(&mut self, start: Pos) -> Token<'s> {
-        self.read_string_until(|n| !n.is_whitespace(), false, 0, 0);
+        self.read_string_until(false, 0, 0, |n| !n.is_whitespace());
         let end = self.pos();
 
         Space(end.line - start.line)
@@ -358,11 +362,11 @@ impl<'s> Tokens<'s> {
 
             // Reads the lang tag (until newline or whitespace).
             let start = self.pos();
-            let lang = self.read_string_until(
-                |c| c == '`' || c.is_whitespace() || is_newline_char(c),
-                false, 0, 0,
-            ).0;
+            let (lang, _) = self.read_string_until(false, 0, 0, |c| {
+                c == '`' || c.is_whitespace() || is_newline_char(c)
+            });
             let end = self.pos();
+
             let lang = if !lang.is_empty() {
                 Some(Spanned::new(lang, Span::new(start, end)))
             } else {
@@ -413,17 +417,17 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    fn read_until_unescaped(&mut self, c: char) -> (&'s str, bool) {
+    fn read_until_unescaped(&mut self, end: char) -> (&'s str, bool) {
         let mut escaped = false;
-        self.read_string_until(|n| {
-            match n {
-                n if n == c && !escaped => return true,
+        self.read_string_until(true, 0, -1, |c| {
+            match c {
+                c if c == end && !escaped => return true,
                 '\\' => escaped = !escaped,
                 _ => escaped = false,
             }
 
             false
-        }, true, 0, -1)
+        })
     }
 
     fn read_escaped(&mut self) -> Token<'s> {
@@ -439,10 +443,9 @@ impl<'s> Tokens<'s> {
                 self.eat();
                 if self.peek() == Some('{') {
                     self.eat();
-                    let sequence = self.read_string_until(
-                        |c| !c.is_ascii_hexdigit(),
-                        false, 0, 0,
-                    ).0;
+                    let (sequence, _) = self.read_string_until(false, 0, 0, |c| {
+                        !c.is_ascii_hexdigit()
+                    });
 
                     let terminated = self.peek() == Some('}');
                     if terminated {
@@ -468,10 +471,7 @@ impl<'s> Tokens<'s> {
     fn read_hex(&mut self) -> Token<'s> {
         // This will parse more than the permissable 0-9, a-f, A-F character
         // ranges to provide nicer error messages later.
-        Hex(self.read_string_until(
-            |n| !n.is_ascii_alphanumeric(),
-            false, 0, 0
-        ).0)
+        Hex(self.read_string_until(false, 0, 0, |n| !n.is_ascii_alphanumeric()).0)
     }
 
     fn read_expr(&mut self, text: &'s str) -> Token<'s> {
@@ -497,10 +497,10 @@ impl<'s> Tokens<'s> {
     /// after the match depending on `eat_match`.
     fn read_string_until(
         &mut self,
-        mut f: impl FnMut(char) -> bool,
         eat_match: bool,
         offset_start: isize,
         offset_end: isize,
+        mut f: impl FnMut(char) -> bool,
     ) -> (&'s str, bool) {
         let start = ((self.index() as isize) + offset_start) as usize;
         let mut matched = false;

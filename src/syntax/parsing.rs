@@ -230,11 +230,12 @@ impl Parser<'_> {
                     Some(Token::Equals) => {
                         self.eat();
                         self.skip_white();
-
-                        (Some(ident), try_or!(self.parse_expr(), {
+                        if let Some(value) = self.parse_expr() {
+                            (Some(ident), value)
+                        } else {
                             self.expected("value");
                             continue;
-                        }))
+                        }
                     }
 
                     Some(Token::LeftParen) => {
@@ -244,11 +245,11 @@ impl Parser<'_> {
 
                     _ => (None, ident.map(Expr::Ident))
                 }
+            } else if let Some(value) = self.parse_expr() {
+                (None, value)
             } else {
-                (None, try_or!(self.parse_expr(), {
-                    self.expected("value");
-                    continue;
-                }))
+                self.expected("value");
+                continue;
             };
 
             let behind = val.span.end;
@@ -274,6 +275,8 @@ impl Parser<'_> {
     }
 }
 
+type Binop = fn(Box<Spanned<Expr>>, Box<Spanned<Expr>>) -> Expr;
+
 // Expressions and values.
 impl Parser<'_> {
     fn parse_expr(&mut self) -> Option<Spanned<Expr>> {
@@ -297,9 +300,7 @@ impl Parser<'_> {
         &mut self,
         operand_name: &str,
         mut parse_operand: impl FnMut(&mut Self) -> Option<Spanned<Expr>>,
-        mut parse_op: impl FnMut(Token) -> Option<
-            fn(Box<Spanned<Expr>>, Box<Spanned<Expr>>) -> Expr
-        >,
+        mut parse_op: impl FnMut(Token) -> Option<Binop>,
     ) -> Option<Spanned<Expr>> {
         let mut left = parse_operand(self)?;
 
