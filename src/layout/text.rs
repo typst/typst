@@ -110,7 +110,7 @@ impl<'a> TextLayouter<'a> {
 
         self.shaped.text.push(c);
         self.shaped.glyphs.push(glyph);
-        self.shaped.offsets.push(self.width);
+        self.shaped.offsets.push(self.width - self.start);
 
         self.width += char_width;
     }
