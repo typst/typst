@@ -938,6 +938,7 @@ mod tests {
     // -------------------------------- Tests ------------------------------- //
 
     #[test]
+    #[rustfmt::skip]
     fn test_unescape_strings() {
         fn test(string: &str, expected: &str) {
             assert_eq!(unescape_string(string), expected.to_string());
@@ -958,6 +959,7 @@ mod tests {
     }
 
     #[test]
+    #[rustfmt::skip]
     fn test_unescape_raws() {
         fn test(raw: &str, expected: Vec<&str>) {
             assert_eq!(unescape_raw(raw), expected);
@@ -975,6 +977,7 @@ mod tests {
     }
 
     #[test]
+    #[rustfmt::skip]
     fn test_unescape_code() {
         fn test(raw: &str, expected: Vec<&str>) {
             assert_eq!(unescape_code(raw), expected);
@@ -1061,7 +1064,7 @@ mod tests {
                   s(0,1, 0,1, "expected closing bracket"));
 
         // No name.
-        e!("[]" => s(0,1, 0,1, "expected function name"));
+        e!("[]"   => s(0,1, 0,1, "expected function name"));
         e!("[\"]" => s(0,1, 0,3, "expected function name, found string"),
                      s(0,3, 0,3, "expected closing bracket"));
 
@@ -1078,8 +1081,8 @@ mod tests {
     fn test_parse_chaining() {
         // Things the parser has to make sense of
         t!("[hi: (5.0, 2.1 >> you]" => F!("hi"; Table![Num(5.0), Num(2.1)], Tree![F!("you")]));
-        t!("[box >>][Hi]" => F!("box"; Tree![T("Hi")]));
-        t!("[box >> pad: 1pt][Hi]" => F!("box"; Tree![
+        t!("[box >>][Hi]"           => F!("box"; Tree![T("Hi")]));
+        t!("[box >> pad: 1pt][Hi]"  => F!("box"; Tree![
             F!("pad"; Len(Length::pt(1.0)), Tree!(T("Hi")))
         ]));
         t!("[bold: 400, >> emph >> sub: 1cm]" => F!("bold"; Num(400.0), Tree![
@@ -1111,7 +1114,7 @@ mod tests {
     #[test]
     fn test_parse_function_bodies() {
         t!("[val: 1][*Hi*]" => F!("val"; Num(1.0), Tree![B, T("Hi"), B]));
-        e!(" [val][ */ ]" => s(0,8, 0,10, "unexpected end of block comment"));
+        e!(" [val][ */ ]"   => s(0,8, 0,10, "unexpected end of block comment"));
 
         // Raw in body.
         t!("[val][`Hi]`" => F!("val"; Tree![R!["Hi]"]]));
@@ -1149,10 +1152,10 @@ mod tests {
         v!("\"a\n[]\\\"string\"" => Str("a\n[]\"string"));
 
         // Content.
-        v!("{_hi_}"              => Tree![I, T("hi"), I]);
-        e!("[val: {_hi_}]"       => );
-        v!("[hi]"                => Tree![F!["hi"]]);
-        e!("[val: [hi]]"         => );
+        v!("{_hi_}"        => Tree![I, T("hi"), I]);
+        e!("[val: {_hi_}]" => );
+        v!("[hi]"          => Tree![F!("hi")]);
+        e!("[val: [hi]]"   => );
 
         // Healed colors.
         v!("#12345"            => Color(RgbaColor::new_healed(0, 0, 0, 0xff)));
@@ -1233,8 +1236,7 @@ mod tests {
 
         // Spanned with spacing around keyword arguments.
         ts!("[val: \n hi \n = /* //\n */ \"s\n\"]" => s(0,0, 4,2, F!(
-            s(0,1, 0,4, "val");
-            s(1,1, 1,3, "hi") => s(3,4, 4,1, Str("s\n"))
+            s(0,1, 0,4, "val"); s(1,1, 1,3, "hi") => s(3,4, 4,1, Str("s\n"))
         )));
         e!("[val: \n hi \n = /* //\n */ \"s\n\"]" => );
     }
