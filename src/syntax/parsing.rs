@@ -616,6 +616,48 @@ fn unescape_string(string: &str) -> String {
             match iter.next() {
                 Some('\\') => out.push('\\'),
                 Some('"') => out.push('"'),
+                Some('u') => {
+                    // Index which points to start of escape sequence
+                    let mut seen = "\\u".to_string();
+
+                    let next = iter.next();
+                    if next == Some('{') {
+                        seen.push('{');
+
+                        let mut valid = true;
+                        let mut closed = false;
+                        while let Some(c) = iter.next() {
+                            seen.push(c);
+                            if c == '}' {
+                                closed = true;
+                                break;
+                            }
+
+                            if !c.is_ascii_hexdigit() {
+                                valid = false;
+                                break;
+                            }
+                        }
+                        if valid != false && seen.len() >= 3 {
+                            if let Some(c) = std::char::from_u32(
+                                u32::from_str_radix(&seen[3..seen.len() - if closed { 1 } else { 0 }], 16)
+                                .expect("Unicode escape string not convertible to int")
+                            ) {
+                                out.push(c);
+                            } else {
+                                // Somehow provide feedback here that conversion failed?
+                                out.push_str(&seen);
+                            }
+                        } else {
+                            out.push_str(&seen);
+                        }
+                    } else {
+                        out.push_str("\\u");
+                        if let Some(c) = next {
+                            out.push(c);
+                        }
+                    }
+                }
                 Some('n') => out.push('\n'),
                 Some('t') => out.push('\t'),
                 Some(c) => { out.push('\\'); out.push(c); }
@@ -904,6 +946,9 @@ mod tests {
         test(r#"hello world"#,  "hello world");
         test(r#"hello\nworld"#, "hello\nworld");
         test(r#"a\"bc"#,        "a\"bc");
+        test(r#"a\u{2603}bc"#,  "a☃bc");
+        test(r#"a\u{26c3bg"#,   "a\\u{26c3bg");
+        test(r#"av\u{6797"#,    "av林");
         test(r#"a\\"#,          "a\\");
         test(r#"a\\\nbc"#,      "a\\\nbc");
         test(r#"a\tbc"#,        "a\tbc");

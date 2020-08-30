@@ -430,7 +430,7 @@ impl<'s> Tokens<'s> {
         }
 
         match self.peek() {
-            Some(c) if c == 'u' => {
+            Some('u') => {
                 // Index which points to start of escape sequence
                 let index = self.index() - 1;
                 self.eat();
