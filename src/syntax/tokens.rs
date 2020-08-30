@@ -82,8 +82,13 @@ pub enum Token<'s> {
     /// A backslash followed by whitespace in text.
     Backslash,
 
-    /// A unicode escape sequence
-    UnicodeEscape(&'s str),
+    /// A unicode escape sequence.
+    UnicodeEscape {
+        /// The escape sequence between two braces.
+        sequence: &'s str,
+        /// Whether the closing brace was present.
+        terminated: bool,
+    },
 
     /// Raw text.
     Raw {
@@ -139,7 +144,7 @@ impl<'s> Token<'s> {
             Star => "star",
             Underscore => "underscore",
             Backslash => "backslash",
-            UnicodeEscape(_) => "unicode escape sequence",
+            UnicodeEscape { .. } => "unicode escape sequence",
             Raw { .. } => "raw text",
             Code { .. } => "code block",
             Text(_) => "text",
@@ -431,36 +436,20 @@ impl<'s> Tokens<'s> {
 
         match self.peek() {
             Some('u') => {
-                // Index which points to start of escape sequence
-                let index = self.index() - 1;
                 self.eat();
-
                 if self.peek() == Some('{') {
                     self.eat();
-                    // This loop will eat all hexadecimal chars and an
-                    // optional closing brace (brace not in end index range).
-                    let mut end = self.index();
-                    let mut valid = true;
-                    while let Some(c) = self.peek() {
-                        if c == '}' {
-                            self.eat();
-                            break;
-                        }
+                    let sequence = self.read_string_until(
+                        |c| !c.is_ascii_hexdigit(),
+                        false, 0, 0,
+                    ).0;
 
-                        if !c.is_ascii_hexdigit() {
-                            valid = false;
-                            break;
-                        }
-
+                    let terminated = self.peek() == Some('}');
+                    if terminated {
                         self.eat();
-                        end = self.index();
                     }
-                    if valid == false {
-                        // There are only 8-bit ASCII chars in that range
-                        Text(&self.src[index..end])
-                    } else {
-                        UnicodeEscape(&self.src[index + 3..end])
-                    }
+
+                    UnicodeEscape { sequence, terminated }
                 } else {
                     Text("\\u")
                 }
@@ -618,7 +607,6 @@ mod tests {
         Plus,
         Hyphen as Min,
         Slash,
-        UnicodeEscape as UE,
         Star,
         Text as T,
     };
@@ -628,6 +616,7 @@ mod tests {
     fn Code<'a>(lang: Option<&'a str>, raw: &'a str, terminated: bool) -> Token<'a> {
         Token::Code { lang: lang.map(Spanned::zero), raw, terminated }
     }
+    fn UE(sequence: &str, terminated: bool) -> Token { Token::UnicodeEscape { sequence, terminated } }
 
     macro_rules! t { ($($tts:tt)*) => {test!(@spans=false, $($tts)*)} }
     macro_rules! ts { ($($tts:tt)*) => {test!(@spans=true, $($tts)*)} }
@@ -748,8 +737,8 @@ mod tests {
         t!(Body, r"\_"       => T("_"));
         t!(Body, r"\`"       => T("`"));
         t!(Body, r"\/"       => T("/"));
-        t!(Body, r"\u{2603}" => UE("2603"));
-        t!(Body, r"\u{26A4"  => UE("26A4"));
+        t!(Body, r"\u{2603}" => UE("2603", true));
+        t!(Body, r"\u{26A4"  => UE("26A4", false));
         t!(Body, r#"\""#     => T("\""));
     }
 
@@ -758,8 +747,8 @@ mod tests {
         t!(Body, r"\a"     => T("\\"), T("a"));
         t!(Body, r"\:"     => T(r"\"), T(":"));
         t!(Body, r"\="     => T(r"\"), T("="));
-        t!(Body, r"\u{2GA4"=> T(r"\u{2"), Text("GA4"));
-        t!(Body, r"\u{ "   => T(r"\u{"), Space(0));
+        t!(Body, r"\u{2GA4"=> UE("2", false), T("GA4"));
+        t!(Body, r"\u{ "   => UE("", false), Space(0));
         t!(Body, r"\u"     => T(r"\u"));
         t!(Header, r"\\\\" => Invalid(r"\\\\"));
         t!(Header, r"\a"   => Invalid(r"\a"));
