@@ -1,0 +1,10 @@
+unstable_features = true
+
+overflow_delimited_expr = true
+spaces_around_ranges = true
+use_field_init_shorthand = true
+
+max_width = 90
+struct_lit_width = 40
+chain_width = 70
+single_line_if_else_max_width = 60
