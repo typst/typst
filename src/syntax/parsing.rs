@@ -109,7 +109,16 @@ impl Parser<'_> {
                     let mut iter = text.chars();
                     while let Some(c) = iter.next() {
                         match c {
-                            '~' => text_s.push('\u{00A0}'),
+                            '~' => {
+                                // The escape sequence will separate
+                                // the ~ into its own text node, therefore
+                                // check the length here.
+                                if text.len() == 1 {
+                                    text_s.push('~');
+                                } else {
+                                    text_s.push('\u{00A0}');
+                                }
+                            },
                             _ => text_s.push(c),
                         }
                     }
@@ -1017,6 +1026,7 @@ mod tests {
         t!("hi_"          => T("hi"), I);
         t!("hi you"       => T("hi"), S, T("you"));
         t!("special~name" => T("special\u{00A0}name"));
+        t!("special\\~name" => T("special"), T("~"), T("name"));
         t!("\\u{1f303}"   => T("🌃"));
         t!("\n\n\nhello"  => P, T("hello"));
         t!(r"a\ b"        => T("a"), L, S, T("b"));

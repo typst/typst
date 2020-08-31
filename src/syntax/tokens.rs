@@ -439,7 +439,7 @@ impl<'s> Tokens<'s> {
     fn read_escaped(&mut self) -> Token<'s> {
         fn is_escapable(c: char) -> bool {
             match c {
-                '[' | ']' | '\\' | '/' | '*' | '_' | '`' | '"' => true,
+                '[' | ']' | '\\' | '/' | '*' | '_' | '`' | '"' | '~' => true,
                 _ => false,
             }
         }
