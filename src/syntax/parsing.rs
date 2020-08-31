@@ -1001,18 +1001,20 @@ mod tests {
 
     #[test]
     fn test_parse_simple_nodes() {
-        t!(""            => );
-        t!("hi"          => T("hi"));
-        t!("*hi"         => B, T("hi"));
-        t!("hi_"         => T("hi"), I);
-        t!("hi you"      => T("hi"), S, T("you"));
-        t!("\\u{1f303}"  => T("🌃"));
-        t!("\n\n\nhello" => P, T("hello"));
-        t!(r"a\ b"       => T("a"), L, S, T("b"));
-        t!("`py`"        => R!["py"]);
-        t!("`hi\nyou"    => R!["hi", "you"]);
-        e!("`hi\nyou"    => s(1,3, 1,3, "expected backtick"));
-        t!("`hi\\`du`"   => R!["hi`du"]);
+        t!(""             => );
+        t!("hi"           => T("hi"));
+        t!("*hi"          => B, T("hi"));
+        t!("hi_"          => T("hi"), I);
+        t!("hi you"       => T("hi"), S, T("you"));
+        t!("special~name" => T("special"), T("\u{00A0}"), T("name"));
+        t!("special\\~name" => T("special"), T("~"), T("name"));
+        t!("\\u{1f303}"   => T("🌃"));
+        t!("\n\n\nhello"  => P, T("hello"));
+        t!(r"a\ b"        => T("a"), L, S, T("b"));
+        t!("`py`"         => R!["py"]);
+        t!("`hi\nyou"     => R!["hi", "you"]);
+        e!("`hi\nyou"     => s(1,3, 1,3, "expected backtick"));
+        t!("`hi\\`du`"    => R!["hi`du"]);
 
         t!("```java System.out.print```" => C![Some("java"), "System.out.print"]);
         t!("``` console.log(\n\"alert\"\n)" => C![None, "console.log(", "\"alert\"", ")"]);
