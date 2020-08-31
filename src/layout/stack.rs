@@ -19,8 +19,8 @@
 //! The position of the first aligned box thus depends on the length of the
 //! sentence in the second box.
 
-use crate::geom::Value4;
 use super::*;
+use crate::geom::Value4;
 
 /// Performs the stack layouting.
 pub struct StackLayouter {
@@ -130,14 +130,11 @@ impl StackLayouter {
                 let size = Size::with_y(spacing);
 
                 self.update_metrics(size);
-                self.space.layouts.push((
-                    self.ctx.axes,
-                    BoxLayout {
-                        size: size.specialized(self.ctx.axes),
-                        align: LayoutAlign::new(Start, Start),
-                        elements: LayoutElements::new(),
-                    }
-                ));
+                self.space.layouts.push((self.ctx.axes, BoxLayout {
+                    size: size.specialized(self.ctx.axes),
+                    align: LayoutAlign::new(Start, Start),
+                    elements: LayoutElements::new(),
+                }));
 
                 self.space.last_spacing = LastSpacing::Hard;
             }
@@ -179,8 +176,7 @@ impl StackLayouter {
     fn update_rulers(&mut self, align: LayoutAlign) -> bool {
         let allowed = self.is_fitting_alignment(align);
         if allowed {
-            *self.space.rulers.get_mut(self.ctx.axes.secondary, Start) =
-                align.secondary;
+            *self.space.rulers.get_mut(self.ctx.axes.secondary, Start) = align.secondary;
         }
         allowed
     }
@@ -226,7 +222,7 @@ impl StackLayouter {
     /// if no space is capable of that.
     pub fn skip_to_fitting_space(&mut self, size: Size) {
         let start = self.next_space();
-        for (index, space) in self.ctx.spaces[start..].iter().enumerate() {
+        for (index, space) in self.ctx.spaces[start ..].iter().enumerate() {
             if space.usable().fits(size) {
                 self.finish_space(true);
                 self.start_space(start + index, true);
@@ -246,7 +242,7 @@ impl StackLayouter {
             expansion: LayoutExpansion::new(false, false),
         }];
 
-        for space in &self.ctx.spaces[self.next_space()..] {
+        for space in &self.ctx.spaces[self.next_space() ..] {
             spaces.push(space.inner());
         }
 
@@ -288,8 +284,12 @@ impl StackLayouter {
         //  expand if necessary.)
 
         let usable = space.usable();
-        if space.expansion.horizontal { self.space.size.x = usable.x; }
-        if space.expansion.vertical   { self.space.size.y = usable.y; }
+        if space.expansion.horizontal {
+            self.space.size.x = usable.x;
+        }
+        if space.expansion.vertical {
+            self.space.size.y = usable.y;
+        }
 
         let size = self.space.size.padded(space.padding);
 
@@ -347,8 +347,7 @@ impl StackLayouter {
             // We reduce the bounding box of this layout at it's end by the
             // accumulated secondary extent of all layouts we have seen so far,
             // which are the layouts after this one since we iterate reversed.
-            *bound.get_mut(axes.secondary, End) -=
-                axes.secondary.factor() * extent.y;
+            *bound.get_mut(axes.secondary, End) -= axes.secondary.factor() * extent.y;
 
             // Then, we add this layout's secondary extent to the accumulator.
             let size = layout.size.generalized(*axes);
@@ -369,9 +368,8 @@ impl StackLayouter {
 
             // The space in which this layout is aligned is given by the
             // distances between the borders of it's bounding box.
-            let usable =
-                Size::new(bound.right - bound.left, bound.bottom - bound.top)
-                    .generalized(axes);
+            let usable = Size::new(bound.right - bound.left, bound.bottom - bound.top)
+                .generalized(axes);
 
             let local = usable.anchor(align, axes) - size.anchor(align, axes);
             let pos = Size::new(bound.left, bound.top) + local.specialized(axes);
@@ -379,11 +377,7 @@ impl StackLayouter {
             elements.extend_offset(pos, layout.elements);
         }
 
-        self.layouts.push(BoxLayout {
-            size,
-            align: self.ctx.align,
-            elements,
-        });
+        self.layouts.push(BoxLayout { size, align: self.ctx.align, elements });
 
         // ------------------------------------------------------------------ //
         // Step 5: Start the next space.

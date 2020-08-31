@@ -6,15 +6,15 @@ use std::rc::Rc;
 
 use fontdock::{FontStyle, FontWeight, FontWidth};
 
+use super::table::{SpannedEntry, Table};
 use crate::color::RgbaColor;
 use crate::layout::{Command, Commands, Dir, LayoutContext, SpecAlign};
 use crate::length::{Length, ScaleLength};
 use crate::paper::Paper;
 use crate::syntax::span::{Span, Spanned};
-use crate::syntax::tree::{SyntaxTree, SyntaxNode};
+use crate::syntax::tree::{SyntaxNode, SyntaxTree};
 use crate::syntax::Ident;
 use crate::{DynFuture, Feedback, Pass};
-use super::table::{SpannedEntry, Table};
 
 /// A computational value.
 #[derive(Clone)]
@@ -78,9 +78,10 @@ impl Spanned<Value> {
                 for entry in table.into_values() {
                     if let Some(last_end) = end {
                         let span = Span::new(last_end, entry.key.start);
-                        commands.push(Command::LayoutSyntaxTree(vec![
-                            Spanned::new(SyntaxNode::Spacing, span)
-                        ]));
+                        commands.push(Command::LayoutSyntaxTree(vec![Spanned::new(
+                            SyntaxNode::Spacing,
+                            span,
+                        )]));
                     }
 
                     end = Some(entry.val.span.end);
@@ -90,14 +91,10 @@ impl Spanned<Value> {
             }
 
             // Format with debug.
-            val => vec![
-                Command::LayoutSyntaxTree(vec![
-                    Spanned::new(
-                        SyntaxNode::Text(format!("{:?}", val)),
-                        self.span,
-                    )
-                ])
-            ],
+            val => vec![Command::LayoutSyntaxTree(vec![Spanned::new(
+                SyntaxNode::Text(format!("{:?}", val)),
+                self.span,
+            )])],
         }
     }
 }
@@ -149,9 +146,8 @@ impl PartialEq for Value {
 /// layouting engine to do what the function pleases.
 ///
 /// The dynamic function object is wrapped in an `Rc` to keep `Value` clonable.
-pub type FuncValue = Rc<
-    dyn Fn(Span, TableValue, LayoutContext<'_>) -> DynFuture<Pass<Value>>
->;
+pub type FuncValue =
+    Rc<dyn Fn(Span, TableValue, LayoutContext<'_>) -> DynFuture<Pass<Value>>>;
 
 /// A table of values.
 ///
@@ -500,7 +496,10 @@ mod tests {
             table.expect::<String>("", Span::ZERO, &mut f),
             Some("hi".to_string())
         );
-        assert_eq!(f.diagnostics, [error!(Span::ZERO, "expected string, found bool")]);
+        assert_eq!(f.diagnostics, [error!(
+            Span::ZERO,
+            "expected string, found bool"
+        )]);
         assert_eq!(table.len(), 1);
     }
 
@@ -512,7 +511,10 @@ mod tests {
         table.insert("hi", entry(Value::Bool(true)));
         assert_eq!(table.take::<bool>(), Some(false));
         assert_eq!(table.take_key::<f64>("hi", &mut f), None);
-        assert_eq!(f.diagnostics, [error!(Span::ZERO, "expected number, found bool")]);
+        assert_eq!(f.diagnostics, [error!(
+            Span::ZERO,
+            "expected number, found bool"
+        )]);
         assert!(table.is_empty());
     }
 
@@ -522,10 +524,10 @@ mod tests {
         table.insert(1, entry(Value::Bool(false)));
         table.insert(3, entry(Value::Number(0.0)));
         table.insert(7, entry(Value::Bool(true)));
-        assert_eq!(
-            table.take_all_num::<bool>().collect::<Vec<_>>(),
-            [(1, false), (7, true)],
-        );
+        assert_eq!(table.take_all_num::<bool>().collect::<Vec<_>>(), [
+            (1, false),
+            (7, true)
+        ],);
         assert_eq!(table.len(), 1);
         assert_eq!(table[3].val.v, Value::Number(0.0));
     }

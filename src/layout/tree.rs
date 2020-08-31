@@ -1,19 +1,16 @@
 //! Layouting of syntax trees.
 
-use crate::style::LayoutStyle;
-use crate::syntax::decoration::Decoration;
-use crate::syntax::span::{Span, Spanned};
-use crate::syntax::tree::{CallExpr, SyntaxNode, SyntaxTree, Code};
-use crate::{DynFuture, Feedback, Pass};
 use super::line::{LineContext, LineLayouter};
 use super::text::{layout_text, TextContext};
 use super::*;
+use crate::style::LayoutStyle;
+use crate::syntax::decoration::Decoration;
+use crate::syntax::span::{Span, Spanned};
+use crate::syntax::tree::{CallExpr, Code, SyntaxNode, SyntaxTree};
+use crate::{DynFuture, Feedback, Pass};
 
 /// Layout a syntax tree into a collection of boxes.
-pub async fn layout_tree(
-    tree: &SyntaxTree,
-    ctx: LayoutContext<'_>,
-) -> Pass<MultiLayout> {
+pub async fn layout_tree(tree: &SyntaxTree, ctx: LayoutContext<'_>) -> Pass<MultiLayout> {
     let mut layouter = TreeLayouter::new(ctx);
     layouter.layout_tree(tree).await;
     layouter.finish()
@@ -75,8 +72,12 @@ impl<'a> TreeLayouter<'a> {
             }
 
             SyntaxNode::Text(text) => {
-                if self.style.text.italic { decorate(self, Decoration::Italic); }
-                if self.style.text.bolder { decorate(self, Decoration::Bold); }
+                if self.style.text.italic {
+                    decorate(self, Decoration::Italic);
+                }
+                if self.style.text.bolder {
+                    decorate(self, Decoration::Bold);
+                }
                 self.layout_text(text).await;
             }
 
@@ -90,10 +91,8 @@ impl<'a> TreeLayouter<'a> {
     }
 
     fn layout_space(&mut self) {
-        self.layouter.add_primary_spacing(
-            self.style.text.word_spacing(),
-            SpacingKind::WORD,
-        );
+        self.layouter
+            .add_primary_spacing(self.style.text.word_spacing(), SpacingKind::WORD);
     }
 
     fn layout_parbreak(&mut self) {
@@ -105,24 +104,20 @@ impl<'a> TreeLayouter<'a> {
 
     async fn layout_text(&mut self, text: &str) {
         self.layouter.add(
-            layout_text(
-                text,
-                TextContext {
-                    loader: &self.ctx.loader,
-                    style: &self.style.text,
-                    dir: self.ctx.axes.primary,
-                    align: self.ctx.align,
-                }
-            ).await
+            layout_text(text, TextContext {
+                loader: &self.ctx.loader,
+                style: &self.style.text,
+                dir: self.ctx.axes.primary,
+                align: self.ctx.align,
+            })
+            .await,
         );
     }
 
     async fn layout_raw(&mut self, lines: &[String]) {
         // TODO: Make this more efficient.
         let fallback = self.style.text.fallback.clone();
-        self.style.text.fallback
-            .list_mut()
-            .insert(0, "monospace".to_string());
+        self.style.text.fallback.list_mut().insert(0, "monospace".to_string());
         self.style.text.fallback.flatten();
 
         let mut first = true;
@@ -176,7 +171,7 @@ impl<'a> TreeLayouter<'a> {
             AddSpacing(space, kind, axis) => match axis {
                 Primary => self.layouter.add_primary_spacing(space, kind),
                 Secondary => self.layouter.add_secondary_spacing(space, kind),
-            }
+            },
 
             BreakLine => self.layouter.finish_line(),
             BreakPage => {
@@ -203,13 +198,14 @@ impl<'a> TreeLayouter<'a> {
                     // new page style and update it within the layouter.
                     let margins = style.margins();
                     self.ctx.base = style.size.unpadded(margins);
-                    self.layouter.set_spaces(vec![
-                        LayoutSpace {
+                    self.layouter.set_spaces(
+                        vec![LayoutSpace {
                             size: style.size,
                             padding: margins,
                             expansion: LayoutExpansion::new(true, true),
-                        }
-                    ], true);
+                        }],
+                        true,
+                    );
                 } else {
                     error!(
                         @self.feedback, span,

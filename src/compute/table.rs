@@ -117,7 +117,8 @@ impl<V> Table<V> {
 
     /// Iterator over all borrowed keys and values.
     pub fn iter(&self) -> impl Iterator<Item = (BorrowedKey, &V)> {
-        self.nums().map(|(&k, v)| (BorrowedKey::Num(k), v))
+        self.nums()
+            .map(|(&k, v)| (BorrowedKey::Num(k), v))
             .chain(self.strs().map(|(k, v)| (BorrowedKey::Str(k), v)))
     }
 
@@ -138,13 +139,17 @@ impl<V> Table<V> {
 
     /// Move into an owned iterator over owned keys and values.
     pub fn into_iter(self) -> impl Iterator<Item = (OwnedKey, V)> {
-        self.nums.into_iter().map(|(k, v)| (OwnedKey::Num(k), v))
+        self.nums
+            .into_iter()
+            .map(|(k, v)| (OwnedKey::Num(k), v))
             .chain(self.strs.into_iter().map(|(k, v)| (OwnedKey::Str(k), v)))
     }
 
     /// Move into an owned iterator over all values in the table.
     pub fn into_values(self) -> impl Iterator<Item = V> {
-        self.nums.into_iter().map(|(_, v)| v)
+        self.nums
+            .into_iter()
+            .map(|(_, v)| v)
             .chain(self.strs.into_iter().map(|(_, v)| v))
     }
 

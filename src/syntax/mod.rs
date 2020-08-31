@@ -37,9 +37,9 @@ impl Debug for Ident {
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::Debug;
-    use crate::prelude::*;
     use super::span;
+    use crate::prelude::*;
+    use std::fmt::Debug;
 
     /// Assert that expected and found are equal, printing both and panicking
     /// and the source of their test case if they aren't.

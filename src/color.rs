@@ -49,7 +49,7 @@ impl FromStr for RgbaColor {
         }
 
         let len = hex_str.len();
-        let long  = len == 6 || len == 8;
+        let long = len == 6 || len == 8;
         let short = len == 3 || len == 4;
         let alpha = len == 4 || len == 8;
 
@@ -59,13 +59,12 @@ impl FromStr for RgbaColor {
 
         let mut values: [u8; 4] = [255; 4];
 
-        for elem in if alpha { 0..4 } else { 0..3 } {
+        for elem in if alpha { 0 .. 4 } else { 0 .. 3 } {
             let item_len = if long { 2 } else { 1 };
             let pos = elem * item_len;
 
-            let item = &hex_str[pos..(pos+item_len)];
-            values[elem] = u8::from_str_radix(item, 16)
-                .map_err(|_| ParseColorError)?;
+            let item = &hex_str[pos .. (pos + item_len)];
+            values[elem] = u8::from_str_radix(item, 16).map_err(|_| ParseColorError)?;
 
             if short {
                 // Duplicate number for shorthand notation, i.e. `a` -> `aa`
@@ -81,12 +80,14 @@ impl Debug for RgbaColor {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if f.alternate() {
             write!(
-                f, "rgba({:02}, {:02}, {:02}, {:02})",
+                f,
+                "rgba({:02}, {:02}, {:02}, {:02})",
                 self.r, self.g, self.b, self.a,
             )?;
         } else {
             write!(
-                f, "#{:02x}{:02x}{:02x}{:02x}",
+                f,
+                "#{:02x}{:02x}{:02x}{:02x}",
                 self.r, self.g, self.b, self.a,
             )?;
         }
@@ -116,10 +117,7 @@ mod tests {
     #[test]
     fn parse_color_strings() {
         fn test(hex: &str, r: u8, g: u8, b: u8, a: u8) {
-            assert_eq!(
-                RgbaColor::from_str(hex),
-                Ok(RgbaColor::new(r, g, b, a)),
-            );
+            assert_eq!(RgbaColor::from_str(hex), Ok(RgbaColor::new(r, g, b, a)));
         }
 
         test("f61243ff", 0xf6, 0x12, 0x43, 0xff);

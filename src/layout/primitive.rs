@@ -140,7 +140,11 @@ pub enum SpecAxis {
 impl SpecAxis {
     /// The generic version of this axis in the given system of axes.
     pub fn to_generic(self, axes: LayoutAxes) -> GenAxis {
-        if self == axes.primary.axis() { Primary } else { Secondary }
+        if self == axes.primary.axis() {
+            Primary
+        } else {
+            Secondary
+        }
     }
 }
 
@@ -240,7 +244,11 @@ impl SpecAlign {
     pub fn to_generic(self, axes: LayoutAxes) -> GenAlign {
         let get = |spec: SpecAxis, align: GenAlign| {
             let axis = spec.to_generic(axes);
-            if axes.get(axis).is_positive() { align } else { align.inv() }
+            if axes.get(axis).is_positive() {
+                align
+            } else {
+                align.inv()
+            }
         };
 
         match self {

@@ -21,12 +21,18 @@ impl<T: Clone> Value2<T> {
     }
 
     /// Create a new 2D-value with `x` set to a value and `y` to default.
-    pub fn with_x(x: T) -> Self where T: Default {
+    pub fn with_x(x: T) -> Self
+    where
+        T: Default,
+    {
         Self { x, y: T::default() }
     }
 
     /// Create a new 2D-value with `y` set to a value and `x` to default.
-    pub fn with_y(y: T) -> Self where T: Default {
+    pub fn with_y(y: T) -> Self
+    where
+        T: Default,
+    {
         Self { x: T::default(), y }
     }
 
@@ -53,22 +59,38 @@ impl<T: Clone> Value2<T> {
 
     /// Return the primary value of this specialized 2D-value.
     pub fn primary(self, axes: LayoutAxes) -> T {
-        if axes.primary.axis() == Horizontal { self.x } else { self.y }
+        if axes.primary.axis() == Horizontal {
+            self.x
+        } else {
+            self.y
+        }
     }
 
     /// Borrow the primary value of this specialized 2D-value mutably.
     pub fn primary_mut(&mut self, axes: LayoutAxes) -> &mut T {
-        if axes.primary.axis() == Horizontal { &mut self.x } else { &mut self.y }
+        if axes.primary.axis() == Horizontal {
+            &mut self.x
+        } else {
+            &mut self.y
+        }
     }
 
     /// Return the secondary value of this specialized 2D-value.
     pub fn secondary(self, axes: LayoutAxes) -> T {
-        if axes.primary.axis() == Horizontal { self.y } else { self.x }
+        if axes.primary.axis() == Horizontal {
+            self.y
+        } else {
+            self.x
+        }
     }
 
     /// Borrow the secondary value of this specialized 2D-value mutably.
     pub fn secondary_mut(&mut self, axes: LayoutAxes) -> &mut T {
-        if axes.primary.axis() == Horizontal { &mut self.y } else { &mut self.x }
+        if axes.primary.axis() == Horizontal {
+            &mut self.y
+        } else {
+            &mut self.x
+        }
     }
 
     /// Returns the generalized version of a `Size2D` dependent on the layouting
@@ -98,10 +120,7 @@ impl<T: Clone> Value2<T> {
 
 impl<T: Debug> Debug for Value2<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_list()
-            .entry(&self.x)
-            .entry(&self.y)
-            .finish()
+        f.debug_list().entry(&self.x).entry(&self.y).finish()
     }
 }
 
@@ -159,10 +178,7 @@ impl Neg for Size {
     type Output = Size;
 
     fn neg(self) -> Size {
-        Size {
-            x: -self.x,
-            y: -self.y,
-        }
+        Size { x: -self.x, y: -self.y }
     }
 }
 

@@ -1,7 +1,7 @@
 use fontdock::{FontStyle, FontWeight, FontWidth};
 
-use crate::length::ScaleLength;
 use super::*;
+use crate::length::ScaleLength;
 
 /// `font`: Configure the font.
 ///
@@ -35,7 +35,8 @@ pub async fn font(_: Span, mut args: TableValue, ctx: LayoutContext<'_>) -> Pass
         }
     }
 
-    let list: Vec<_> = args.take_all_num_vals::<StringLike>()
+    let list: Vec<_> = args
+        .take_all_num_vals::<StringLike>()
         .map(|s| s.to_lowercase())
         .collect();
 
@@ -57,7 +58,8 @@ pub async fn font(_: Span, mut args: TableValue, ctx: LayoutContext<'_>) -> Pass
     }
 
     for (class, mut table) in args.take_all_str::<TableValue>() {
-        let fallback = table.take_all_num_vals::<StringLike>()
+        let fallback = table
+            .take_all_num_vals::<StringLike>()
             .map(|s| s.to_lowercase())
             .collect();
 

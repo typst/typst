@@ -2,16 +2,14 @@
 
 use std::str::FromStr;
 
-use crate::{Feedback, Pass};
-use crate::color::RgbaColor;
-use crate::compute::table::SpannedEntry;
 use super::decoration::Decoration;
 use super::span::{Pos, Span, Spanned};
 use super::tokens::{is_newline_char, Token, TokenMode, Tokens};
-use super::tree::{
-    CallExpr, Expr, SyntaxNode, SyntaxTree, TableExpr, Code,
-};
+use super::tree::{CallExpr, Code, Expr, SyntaxNode, SyntaxTree, TableExpr};
 use super::Ident;
+use crate::color::RgbaColor;
+use crate::compute::table::SpannedEntry;
+use crate::{Feedback, Pass};
 
 /// Parse a string of source code.
 pub fn parse(src: &str) -> Pass<SyntaxTree> {
@@ -106,9 +104,7 @@ impl Parser<'_> {
                     self.with_span(SyntaxNode::Code(Code { lang, lines, block }))
                 }
 
-                Token::Text(text) => {
-                    self.with_span(SyntaxNode::Text(text.to_string()))
-                }
+                Token::Text(text) => self.with_span(SyntaxNode::Text(text.to_string())),
 
                 Token::UnicodeEscape { sequence, terminated } => {
                     if !terminated {
@@ -222,7 +218,10 @@ impl Parser<'_> {
         let mut table = TableExpr::new();
         let mut comma_and_keyless = true;
 
-        while { self.skip_white(); !self.eof() } {
+        while {
+            self.skip_white();
+            !self.eof()
+        } {
             let (key, val) = if let Some(ident) = self.parse_ident() {
                 self.skip_white();
 
@@ -230,11 +229,12 @@ impl Parser<'_> {
                     Some(Token::Equals) => {
                         self.eat();
                         self.skip_white();
-
-                        (Some(ident), try_or!(self.parse_expr(), {
+                        if let Some(value) = self.parse_expr() {
+                            (Some(ident), value)
+                        } else {
                             self.expected("value");
                             continue;
-                        }))
+                        }
                     }
 
                     Some(Token::LeftParen) => {
@@ -242,26 +242,30 @@ impl Parser<'_> {
                         (None, call.map(Expr::Call))
                     }
 
-                    _ => (None, ident.map(Expr::Ident))
+                    _ => (None, ident.map(Expr::Ident)),
                 }
+            } else if let Some(value) = self.parse_expr() {
+                (None, value)
             } else {
-                (None, try_or!(self.parse_expr(), {
-                    self.expected("value");
-                    continue;
-                }))
+                self.expected("value");
+                continue;
             };
 
             let behind = val.span.end;
             if let Some(key) = key {
                 comma_and_keyless = false;
                 table.insert(key.v.0, SpannedEntry::new(key.span, val));
-                self.feedback.decorations
+                self.feedback
+                    .decorations
                     .push(Spanned::new(Decoration::TableKey, key.span));
             } else {
                 table.push(SpannedEntry::val(val));
             }
 
-            if { self.skip_white(); self.eof() } {
+            if {
+                self.skip_white();
+                self.eof()
+            } {
                 break;
             }
 
@@ -273,6 +277,8 @@ impl Parser<'_> {
         (table, coercable)
     }
 }
+
+type Binop = fn(Box<Spanned<Expr>>, Box<Spanned<Expr>>) -> Expr;
 
 // Expressions and values.
 impl Parser<'_> {
@@ -297,9 +303,7 @@ impl Parser<'_> {
         &mut self,
         operand_name: &str,
         mut parse_operand: impl FnMut(&mut Self) -> Option<Spanned<Expr>>,
-        mut parse_op: impl FnMut(Token) -> Option<
-            fn(Box<Spanned<Expr>>, Box<Spanned<Expr>>) -> Expr
-        >,
+        mut parse_op: impl FnMut(Token) -> Option<Binop>,
     ) -> Option<Spanned<Expr>> {
         let mut left = parse_operand(self)?;
 
@@ -388,9 +392,7 @@ impl Parser<'_> {
                 let span = self.end_group();
 
                 let expr = if coercable {
-                    table.into_values()
-                        .next()
-                        .expect("table is coercable").val.v
+                    table.into_values().next().expect("table is coercable").val.v
                 } else {
                     Expr::Table(table)
                 };
@@ -478,8 +480,7 @@ impl<'s> Parser<'s> {
     fn end_group(&mut self) -> Span {
         let peeked = self.peek();
 
-        let (start, end_token) = self.delimiters.pop()
-            .expect("group was not started");
+        let (start, end_token) = self.delimiters.pop().expect("group was not started");
 
         if end_token != Token::Chain && peeked != None {
             self.delimiters.push((start, end_token));
@@ -528,11 +529,7 @@ impl<'s> Parser<'s> {
     }
 
     fn check_eat(&mut self, token: Token<'_>) -> Option<Spanned<Token<'s>>> {
-        if self.check(token) {
-            self.eat()
-        } else {
-            None
-        }
+        if self.check(token) { self.eat() } else { None }
     }
 
     /// Checks if the next token is of some kind
@@ -589,8 +586,7 @@ impl Group {
     fn is_delimiter(token: Token<'_>) -> bool {
         matches!(
             token,
-            Token::RightParen | Token::RightBracket
-            | Token::RightBrace | Token::Chain
+            Token::RightParen | Token::RightBracket | Token::RightBrace | Token::Chain
         )
     }
 
@@ -654,7 +650,10 @@ fn unescape_string(string: &str) -> String {
                 }
                 Some('n') => out.push('\n'),
                 Some('t') => out.push('\t'),
-                Some(c) => { out.push('\\'); out.push(c); }
+                Some(c) => {
+                    out.push('\\');
+                    out.push(c);
+                }
                 None => out.push('\\'),
             }
         } else {
@@ -784,22 +783,20 @@ fn split_lines(text: &str) -> Vec<String> {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
-    use crate::syntax::tests::*;
-    use crate::length::Length;
     use super::*;
+    use crate::length::Length;
+    use crate::syntax::tests::*;
     use Decoration::*;
 
     // ----------------------- Construct Syntax Nodes ----------------------- //
 
     use SyntaxNode::{
-        Spacing as S,
-        Linebreak as L,
-        Parbreak as P,
-        ToggleItalic as I,
-        ToggleBolder as B,
+        Linebreak as L, Parbreak as P, Spacing as S, ToggleBolder as B, ToggleItalic as I,
     };
 
-    fn T(text: &str) -> SyntaxNode { SyntaxNode::Text(text.to_string()) }
+    fn T(text: &str) -> SyntaxNode {
+        SyntaxNode::Text(text.to_string())
+    }
 
     macro_rules! R {
         ($($line:expr),* $(,)?) => {
@@ -832,10 +829,14 @@ mod tests {
 
     // ------------------------ Construct Expressions ----------------------- //
 
-    use Expr::{Bool, Number as Num, Length as Len, Color};
+    use Expr::{Bool, Color, Length as Len, Number as Num};
 
-    fn Id(ident: &str) -> Expr { Expr::Ident(Ident(ident.to_string())) }
-    fn Str(string: &str) -> Expr { Expr::Str(string.to_string()) }
+    fn Id(ident: &str) -> Expr {
+        Expr::Ident(Ident(ident.to_string()))
+    }
+    fn Str(string: &str) -> Expr {
+        Expr::Str(string.to_string())
+    }
 
     macro_rules! Table {
         (@table=$table:expr,) => {};
@@ -937,6 +938,7 @@ mod tests {
     // -------------------------------- Tests ------------------------------- //
 
     #[test]
+    #[rustfmt::skip]
     fn test_unescape_strings() {
         fn test(string: &str, expected: &str) {
             assert_eq!(unescape_string(string), expected.to_string());
@@ -957,6 +959,7 @@ mod tests {
     }
 
     #[test]
+    #[rustfmt::skip]
     fn test_unescape_raws() {
         fn test(raw: &str, expected: Vec<&str>) {
             assert_eq!(unescape_raw(raw), expected);
@@ -974,6 +977,7 @@ mod tests {
     }
 
     #[test]
+    #[rustfmt::skip]
     fn test_unescape_code() {
         fn test(raw: &str, expected: Vec<&str>) {
             assert_eq!(unescape_code(raw), expected);
@@ -1060,7 +1064,7 @@ mod tests {
                   s(0,1, 0,1, "expected closing bracket"));
 
         // No name.
-        e!("[]" => s(0,1, 0,1, "expected function name"));
+        e!("[]"   => s(0,1, 0,1, "expected function name"));
         e!("[\"]" => s(0,1, 0,3, "expected function name, found string"),
                      s(0,3, 0,3, "expected closing bracket"));
 
@@ -1077,8 +1081,8 @@ mod tests {
     fn test_parse_chaining() {
         // Things the parser has to make sense of
         t!("[hi: (5.0, 2.1 >> you]" => F!("hi"; Table![Num(5.0), Num(2.1)], Tree![F!("you")]));
-        t!("[box >>][Hi]" => F!("box"; Tree![T("Hi")]));
-        t!("[box >> pad: 1pt][Hi]" => F!("box"; Tree![
+        t!("[box >>][Hi]"           => F!("box"; Tree![T("Hi")]));
+        t!("[box >> pad: 1pt][Hi]"  => F!("box"; Tree![
             F!("pad"; Len(Length::pt(1.0)), Tree!(T("Hi")))
         ]));
         t!("[bold: 400, >> emph >> sub: 1cm]" => F!("bold"; Num(400.0), Tree![
@@ -1110,7 +1114,7 @@ mod tests {
     #[test]
     fn test_parse_function_bodies() {
         t!("[val: 1][*Hi*]" => F!("val"; Num(1.0), Tree![B, T("Hi"), B]));
-        e!(" [val][ */ ]" => s(0,8, 0,10, "unexpected end of block comment"));
+        e!(" [val][ */ ]"   => s(0,8, 0,10, "unexpected end of block comment"));
 
         // Raw in body.
         t!("[val][`Hi]`" => F!("val"; Tree![R!["Hi]"]]));
@@ -1148,10 +1152,10 @@ mod tests {
         v!("\"a\n[]\\\"string\"" => Str("a\n[]\"string"));
 
         // Content.
-        v!("{_hi_}"              => Tree![I, T("hi"), I]);
-        e!("[val: {_hi_}]"       => );
-        v!("[hi]"                => Tree![F!["hi"]]);
-        e!("[val: [hi]]"         => );
+        v!("{_hi_}"        => Tree![I, T("hi"), I]);
+        e!("[val: {_hi_}]" => );
+        v!("[hi]"          => Tree![F!("hi")]);
+        e!("[val: [hi]]"   => );
 
         // Healed colors.
         v!("#12345"            => Color(RgbaColor::new_healed(0, 0, 0, 0xff)));
@@ -1232,8 +1236,7 @@ mod tests {
 
         // Spanned with spacing around keyword arguments.
         ts!("[val: \n hi \n = /* //\n */ \"s\n\"]" => s(0,0, 4,2, F!(
-            s(0,1, 0,4, "val");
-            s(1,1, 1,3, "hi") => s(3,4, 4,1, Str("s\n"))
+            s(0,1, 0,4, "val"); s(1,1, 1,3, "hi") => s(3,4, 4,1, Str("s\n"))
         )));
         e!("[val: \n hi \n = /* //\n */ \"s\n\"]" => );
     }

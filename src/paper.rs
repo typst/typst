@@ -39,19 +39,21 @@ pub enum PaperClass {
 impl PaperClass {
     /// The default margins for this page class.
     pub fn default_margins(self) -> Value4<ScaleLength> {
-        let values = |l, t, r, b| Value4::new(
-            ScaleLength::Scaled(l),
-            ScaleLength::Scaled(t),
-            ScaleLength::Scaled(r),
-            ScaleLength::Scaled(b),
-        );
+        let values = |l, t, r, b| {
+            Value4::new(
+                ScaleLength::Scaled(l),
+                ScaleLength::Scaled(t),
+                ScaleLength::Scaled(r),
+                ScaleLength::Scaled(b),
+            )
+        };
 
         match self {
-            Self::Custom    => values(0.1190, 0.0842, 0.1190, 0.0842),
-            Self::Base      => values(0.1190, 0.0842, 0.1190, 0.0842),
-            Self::US        => values(0.1760, 0.1092, 0.1760, 0.0910),
+            Self::Custom => values(0.1190, 0.0842, 0.1190, 0.0842),
+            Self::Base => values(0.1190, 0.0842, 0.1190, 0.0842),
+            Self::US => values(0.1760, 0.1092, 0.1760, 0.0910),
             Self::Newspaper => values(0.0455, 0.0587, 0.0455, 0.0294),
-            Self::Book      => values(0.1200, 0.0852, 0.1500, 0.0965),
+            Self::Book => values(0.1200, 0.0852, 0.1500, 0.0965),
         }
     }
 }

@@ -14,9 +14,7 @@ impl Scope {
     // Create a new empty scope with a fallback function that is invoked when no
     // match is found.
     pub fn new() -> Self {
-        Self {
-            functions: HashMap::new(),
-        }
+        Self { functions: HashMap::new() }
     }
 
     /// Associate the given name with the function.
