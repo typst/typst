@@ -265,6 +265,9 @@ impl<'s> Iterator for Tokens<'s> {
             '_' if self.mode == Body => Underscore,
             '`' if self.mode == Body => self.read_raw_or_code(),
 
+            // Non-breaking spaces.
+            '~' if self.mode == Body => Text("\u{00A0}"),
+
             // An escaped thing.
             '\\' if self.mode == Body => self.read_escaped(),
 
@@ -279,7 +282,7 @@ impl<'s> Iterator for Tokens<'s> {
                     let val = match n {
                         c if c.is_whitespace() => true,
                         '[' | ']' | '{' | '}' | '/' | '*' => true,
-                        '\\' | '_' | '`' if body => true,
+                        '\\' | '_' | '`' | '~' if body => true,
                         ':' | '=' | ',' | '"' | '(' | ')' if !body => true,
                         '+' | '-' if !body && !last_was_e => true,
                         _ => false,
@@ -646,6 +649,7 @@ mod tests {
         t!(Body, "  \n\t \n  "  => S(2));
         t!(Body, "\n\r"         => S(2));
         t!(Body, " \r\r\n \x0D" => S(3));
+        t!(Body, "a~b"          => T("a"), T("\u{00A0}"), T("b"));
     }
 
     #[test]

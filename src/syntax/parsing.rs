@@ -104,26 +104,7 @@ impl Parser<'_> {
                     self.with_span(SyntaxNode::Code(Code { lang, lines, block }))
                 }
 
-                Token::Text(text) => {
-                    let mut text_s = String::with_capacity(text.len());
-                    let mut iter = text.chars();
-                    while let Some(c) = iter.next() {
-                        match c {
-                            '~' => {
-                                // The escape sequence will separate
-                                // the ~ into its own text node, therefore
-                                // check the length here.
-                                if text.len() == 1 {
-                                    text_s.push('~');
-                                } else {
-                                    text_s.push('\u{00A0}');
-                                }
-                            },
-                            _ => text_s.push(c),
-                        }
-                    }
-                    self.with_span(SyntaxNode::Text(text_s.to_string()))
-                },
+                Token::Text(text) => self.with_span(SyntaxNode::Text(text.to_string())),
 
                 Token::UnicodeEscape { sequence, terminated } => {
                     if !terminated {
@@ -1025,7 +1006,7 @@ mod tests {
         t!("*hi"          => B, T("hi"));
         t!("hi_"          => T("hi"), I);
         t!("hi you"       => T("hi"), S, T("you"));
-        t!("special~name" => T("special\u{00A0}name"));
+        t!("special~name" => T("special"), T("\u{00A0}"), T("name"));
         t!("special\\~name" => T("special"), T("~"), T("name"));
         t!("\\u{1f303}"   => T("🌃"));
         t!("\n\n\nhello"  => P, T("hello"));
