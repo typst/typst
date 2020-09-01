@@ -6,7 +6,7 @@ use super::*;
 use crate::style::LayoutStyle;
 use crate::syntax::decoration::Decoration;
 use crate::syntax::span::{Span, Spanned};
-use crate::syntax::tree::{CallExpr, Code, SyntaxNode, SyntaxTree};
+use crate::syntax::tree::{CallExpr, Code, Heading, SyntaxNode, SyntaxTree};
 use crate::{DynFuture, Feedback, Pass};
 
 /// Layout a syntax tree into a collection of boxes.
@@ -81,6 +81,8 @@ impl<'a> TreeLayouter<'a> {
                 self.layout_text(text).await;
             }
 
+            SyntaxNode::Heading(heading) => self.layout_heading(heading).await,
+
             SyntaxNode::Raw(lines) => self.layout_raw(lines).await,
             SyntaxNode::Code(block) => self.layout_code(block).await,
 
@@ -112,6 +114,18 @@ impl<'a> TreeLayouter<'a> {
             })
             .await,
         );
+    }
+
+    async fn layout_heading(&mut self, heading: &Heading) {
+        let style = self.style.text.clone();
+        self.style.text.font_scale *= 1.5 - 0.1 * heading.level.v.min(5) as f64;
+        self.style.text.bolder = true;
+
+        self.layout_parbreak();
+        self.layout_tree(&heading.tree).await;
+        self.layout_parbreak();
+
+        self.style.text = style;
     }
 
     async fn layout_raw(&mut self, lines: &[String]) {

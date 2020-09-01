@@ -15,7 +15,7 @@
 [v: 6mm]
 
 [align: center][
-    *3. Übungsblatt Computerorientierte Mathematik II* [v: 2mm]
+    #### 3. Übungsblatt Computerorientierte Mathematik II* [v: 2mm]
     *Abgabe: 03.05.2019* (bis 10:10 Uhr in MA 001) [v: 2mm]
     *Alle Antworten sind zu beweisen.*
 ]
