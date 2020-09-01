@@ -78,9 +78,11 @@ pub enum Token<'s> {
     Star,
     /// An underscore in body-text.
     Underscore,
-
     /// A backslash followed by whitespace in text.
     Backslash,
+
+    /// A hashtag token in the body can indicate compute mode or headings.
+    Hashtag,
 
     /// A unicode escape sequence.
     UnicodeEscape {
@@ -144,6 +146,7 @@ impl<'s> Token<'s> {
             Star => "star",
             Underscore => "underscore",
             Backslash => "backslash",
+            Hashtag => "hashtag",
             UnicodeEscape { .. } => "unicode escape sequence",
             Raw { .. } => "raw text",
             Code { .. } => "code block",
@@ -265,6 +268,9 @@ impl<'s> Iterator for Tokens<'s> {
             '_' if self.mode == Body => Underscore,
             '`' if self.mode == Body => self.read_raw_or_code(),
 
+            // Sections.
+            '#' if self.mode == Body => Hashtag,
+
             // Non-breaking spaces.
             '~' if self.mode == Body => Text("\u{00A0}"),
 
@@ -282,7 +288,7 @@ impl<'s> Iterator for Tokens<'s> {
                     let val = match n {
                         c if c.is_whitespace() => true,
                         '[' | ']' | '{' | '}' | '/' | '*' => true,
-                        '\\' | '_' | '`' | '~' if body => true,
+                        '\\' | '_' | '`' | '#' | '~' if body => true,
                         ':' | '=' | ',' | '"' | '(' | ')' if !body => true,
                         '+' | '-' if !body && !last_was_e => true,
                         _ => false,
@@ -442,7 +448,7 @@ impl<'s> Tokens<'s> {
     fn read_escaped(&mut self) -> Token<'s> {
         fn is_escapable(c: char) -> bool {
             match c {
-                '[' | ']' | '\\' | '/' | '*' | '_' | '`' | '"' | '~' => true,
+                '[' | ']' | '\\' | '/' | '*' | '_' | '`' | '"' | '#' | '~' => true,
                 _ => false,
             }
         }
@@ -674,6 +680,8 @@ mod tests {
         t!(Body, "[func]*bold*"  => L, T("func"), R, Star, T("bold"), Star);
         t!(Body, "hi_you_ there" => T("hi"), Underscore, T("you"), Underscore, S(0), T("there"));
         t!(Body, "`raw`"         => Raw("raw", true));
+        t!(Body, "# hi"          => Hashtag, S(0), T("hi"));
+        t!(Body, "#()"           => Hashtag, T("()"));
         t!(Body, "`[func]`"      => Raw("[func]", true));
         t!(Body, "`]"            => Raw("]", false));
         t!(Body, "`\\``"         => Raw("\\`", true));

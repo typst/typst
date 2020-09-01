@@ -31,12 +31,30 @@ pub enum SyntaxNode {
     ToggleBolder,
     /// Plain text.
     Text(String),
+    /// Section headings.
+    Heading(Heading),
     /// Lines of raw text.
     Raw(Vec<String>),
     /// An optionally highlighted (multi-line) code block.
     Code(Code),
     /// A function call.
     Call(CallExpr),
+}
+
+/// A section heading.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Heading {
+    /// The section depth (how many hashtags minus 1).
+    pub level: Spanned<u8>,
+    pub tree: SyntaxTree,
+}
+
+/// A code block.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Code {
+    pub lang: Option<Spanned<Ident>>,
+    pub lines: Vec<String>,
+    pub block: bool,
 }
 
 /// An expression.
@@ -196,11 +214,4 @@ impl CallExpr {
             Value::Table(args)
         }
     }
-}
-/// A code block.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Code {
-    pub lang: Option<Spanned<Ident>>,
-    pub lines: Vec<String>,
-    pub block: bool,
 }

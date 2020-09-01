@@ -5,7 +5,7 @@ use std::str::FromStr;
 use super::decoration::Decoration;
 use super::span::{Pos, Span, Spanned};
 use super::tokens::{is_newline_char, Token, TokenMode, Tokens};
-use super::tree::{CallExpr, Code, Expr, SyntaxNode, SyntaxTree, TableExpr};
+use super::tree::{CallExpr, Code, Expr, Heading, SyntaxNode, SyntaxTree, TableExpr};
 use super::Ident;
 use crate::color::RgbaColor;
 use crate::compute::table::SpannedEntry;
@@ -20,6 +20,7 @@ struct Parser<'s> {
     tokens: Tokens<'s>,
     peeked: Option<Option<Spanned<Token<'s>>>>,
     delimiters: Vec<(Pos, Token<'static>)>,
+    at_block_or_line_start: bool,
     feedback: Feedback,
 }
 
@@ -29,6 +30,7 @@ impl<'s> Parser<'s> {
             tokens: Tokens::new(src, TokenMode::Body),
             peeked: None,
             delimiters: vec![],
+            at_block_or_line_start: true,
             feedback: Feedback::new(),
         }
     }
@@ -44,100 +46,150 @@ impl Parser<'_> {
     fn parse_body_contents(&mut self) -> SyntaxTree {
         let mut tree = SyntaxTree::new();
 
-        while let Some(token) = self.peek() {
-            tree.push(match token.v {
-                // Starting from two newlines counts as a paragraph break, a single
-                // newline does not.
-                Token::Space(newlines) => self.with_span(if newlines < 2 {
-                    SyntaxNode::Spacing
-                } else {
-                    SyntaxNode::Parbreak
-                }),
-
-                Token::LineComment(_) | Token::BlockComment(_) => {
-                    self.eat();
-                    continue;
-                }
-
-                Token::LeftBracket => {
-                    self.parse_bracket_call(false).map(SyntaxNode::Call)
-                }
-
-                Token::Star => self.with_span(SyntaxNode::ToggleBolder),
-                Token::Underscore => self.with_span(SyntaxNode::ToggleItalic),
-                Token::Backslash => self.with_span(SyntaxNode::Linebreak),
-
-                Token::Raw { raw, terminated } => {
-                    if !terminated {
-                        error!(
-                            @self.feedback, Span::at(token.span.end),
-                            "expected backtick",
-                        );
-                    }
-                    self.with_span(SyntaxNode::Raw(unescape_raw(raw)))
-                }
-
-                Token::Code { lang, raw, terminated } => {
-                    if !terminated {
-                        error!(
-                            @self.feedback, Span::at(token.span.end),
-                            "expected backticks",
-                        );
-                    }
-
-                    let lang = lang.and_then(|lang| {
-                        if let Some(ident) = Ident::new(lang.v) {
-                            Some(Spanned::new(ident, lang.span))
-                        } else {
-                            error!(@self.feedback, lang.span, "invalid identifier");
-                            None
-                        }
-                    });
-
-                    let mut lines = unescape_code(raw);
-                    let block = lines.len() > 1;
-
-                    if lines.last().map(|s| s.is_empty()).unwrap_or(false) {
-                        lines.pop();
-                    }
-
-                    self.with_span(SyntaxNode::Code(Code { lang, lines, block }))
-                }
-
-                Token::Text(text) => self.with_span(SyntaxNode::Text(text.to_string())),
-
-                Token::UnicodeEscape { sequence, terminated } => {
-                    if !terminated {
-                        error!(
-                            @self.feedback, Span::at(token.span.end),
-                            "expected closing brace",
-                        );
-                    }
-
-                    if let Some(c) = unescape_char(sequence) {
-                        self.with_span(SyntaxNode::Text(c.to_string()))
-                    } else {
-                        self.eat();
-                        error!(
-                            @self.feedback, token.span,
-                            "invalid unicode escape sequence",
-                        );
-                        continue;
-                    }
-                }
-
-                unexpected => {
-                    self.eat();
-                    error!(
-                        @self.feedback, token.span,
-                        "unexpected {}", unexpected.name(),
-                    );
-                    continue;
-                }
-            });
+        self.at_block_or_line_start = true;
+        while !self.eof() {
+            if let Some(node) = self.parse_node() {
+                tree.push(node);
+            }
         }
 
         tree
+    }
+
+    fn parse_node(&mut self) -> Option<Spanned<SyntaxNode>> {
+        let token = self.peek()?;
+        let end = Span::at(token.span.end);
+
+        // Set block or line start to false because most nodes have that effect, but
+        // remember the old value to actually check it for hashtags and because comments
+        // and spaces want to retain it.
+        let was_at_block_or_line_start = self.at_block_or_line_start;
+        self.at_block_or_line_start = false;
+
+        Some(match token.v {
+            // Starting from two newlines counts as a paragraph break, a single
+            // newline does not.
+            Token::Space(n) => {
+                if n == 0 {
+                    self.at_block_or_line_start = was_at_block_or_line_start;
+                } else if n >= 1 {
+                    self.at_block_or_line_start = true;
+                }
+
+                self.with_span(if n >= 2 {
+                    SyntaxNode::Parbreak
+                } else {
+                    SyntaxNode::Spacing
+                })
+            }
+
+            Token::LineComment(_) | Token::BlockComment(_) => {
+                self.at_block_or_line_start = was_at_block_or_line_start;
+                self.eat();
+                return None;
+            }
+
+            Token::LeftBracket => {
+                let call = self.parse_bracket_call(false);
+                self.at_block_or_line_start = false;
+                call.map(SyntaxNode::Call)
+            }
+
+            Token::Star => self.with_span(SyntaxNode::ToggleBolder),
+            Token::Underscore => self.with_span(SyntaxNode::ToggleItalic),
+            Token::Backslash => self.with_span(SyntaxNode::Linebreak),
+
+            Token::Hashtag if was_at_block_or_line_start => {
+                self.parse_heading().map(SyntaxNode::Heading)
+            }
+
+            Token::Raw { raw, terminated } => {
+                if !terminated {
+                    error!(@self.feedback, end, "expected backtick");
+                }
+                self.with_span(SyntaxNode::Raw(unescape_raw(raw)))
+            }
+
+            Token::Code { lang, raw, terminated } => {
+                if !terminated {
+                    error!(@self.feedback, end, "expected backticks");
+                }
+
+                let lang = lang.and_then(|lang| {
+                    if let Some(ident) = Ident::new(lang.v) {
+                        Some(Spanned::new(ident, lang.span))
+                    } else {
+                        error!(@self.feedback, lang.span, "invalid identifier");
+                        None
+                    }
+                });
+
+                let mut lines = unescape_code(raw);
+                let block = lines.len() > 1;
+
+                if lines.last().map(|s| s.is_empty()).unwrap_or(false) {
+                    lines.pop();
+                }
+
+                self.with_span(SyntaxNode::Code(Code { lang, lines, block }))
+            }
+
+            Token::Text(text) => self.with_span(SyntaxNode::Text(text.to_string())),
+            Token::Hashtag => self.with_span(SyntaxNode::Text("#".to_string())),
+
+            Token::UnicodeEscape { sequence, terminated } => {
+                if !terminated {
+                    error!(@self.feedback, end, "expected closing brace");
+                }
+
+                if let Some(c) = unescape_char(sequence) {
+                    self.with_span(SyntaxNode::Text(c.to_string()))
+                } else {
+                    error!(@self.feedback, token.span, "invalid unicode escape sequence");
+                    self.eat();
+                    return None;
+                }
+            }
+
+            unexpected => {
+                error!(@self.feedback, token.span, "unexpected {}", unexpected.name());
+                self.eat();
+                return None;
+            }
+        })
+    }
+
+    fn parse_heading(&mut self) -> Spanned<Heading> {
+        let start = self.pos();
+        self.assert(Token::Hashtag);
+
+        let mut level = 0;
+        while self.peekv() == Some(Token::Hashtag) {
+            level += 1;
+            self.eat();
+        }
+
+        let span = Span::new(start, self.pos());
+        let level = Spanned::new(level, span);
+
+        if level.v > 5 {
+            warning!(
+                @self.feedback, level.span,
+                "section depth larger than 6 has no effect",
+            );
+        }
+
+        self.skip_white();
+
+        let mut tree = SyntaxTree::new();
+        while !self.eof() && !matches!(self.peekv(), Some(Token::Space(n)) if n >= 1) {
+            if let Some(node) = self.parse_node() {
+                tree.push(node);
+            }
+        }
+
+        let span = Span::new(start, self.pos());
+        Spanned::new(Heading { level, tree }, span)
     }
 }
 
@@ -798,6 +850,15 @@ mod tests {
         SyntaxNode::Text(text.to_string())
     }
 
+    macro_rules! H {
+        ($level:expr, $($tts:tt)*) => {
+            SyntaxNode::Heading(Heading {
+                level: Spanned::zero($level),
+                tree: Tree![@$($tts)*],
+            })
+        };
+    }
+
     macro_rules! R {
         ($($line:expr),* $(,)?) => {
             SyntaxNode::Raw(vec![$($line.to_string()),*])
@@ -1000,6 +1061,15 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_groups() {
+        e!("[)" => s(0,1, 0,2, "expected function name, found closing paren"),
+                   s(0,2, 0,2, "expected closing bracket"));
+
+        e!("[v:{]}" => s(0,4, 0,4, "expected closing brace"),
+                       s(0,5, 0,6, "unexpected closing brace"));
+    }
+
+    #[test]
     fn test_parse_simple_nodes() {
         t!(""             => );
         t!("hi"           => T("hi"));
@@ -1050,12 +1120,32 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_groups() {
-        e!("[)" => s(0,1, 0,2, "expected function name, found closing paren"),
-                   s(0,2, 0,2, "expected closing bracket"));
+    fn test_parse_headings() {
+        t!("## Hello world!" => H![1, T("Hello"), S, T("world!")]);
 
-        e!("[v:{]}" => s(0,4, 0,4, "expected closing brace"),
-                       s(0,5, 0,6, "unexpected closing brace"));
+        // Handle various whitespace usages.
+        t!("####Simple" => H![3, T("Simple")]);
+        t!("  #    Whitespace!" => S, H![0, T("Whitespace!")]);
+        t!("  /* TODO: Improve */  ## Analysis" => S, S, H!(1, T("Analysis")));
+
+        // Complex heading contents.
+        t!("Some text [box][### Valuable facts]" => T("Some"), S, T("text"), S,
+            F!("box"; Tree![H!(2, T("Valuable"), S, T("facts"))])
+        );
+        t!("### Grandiose stuff [box][Get it \n\n straight]" => H![2,
+            T("Grandiose"), S, T("stuff"), S,
+            F!("box"; Tree![T("Get"), S, T("it"), P, T("straight")])
+        ]);
+        t!("###### Multiline \\ headings" => H![5, T("Multiline"), S, L, S, T("headings")]);
+
+        // Things that should not become headings.
+        t!("\\## Text" => T("#"), T("#"), S, T("Text"));
+        t!(" ###### # Text" => S, H!(5, T("#"), S, T("Text")));
+        t!("I am #1" => T("I"), S, T("am"), S, T("#"), T("1"));
+        t!("[box][\n] # hi" => F!("box"; Tree![S]), S, T("#"), S, T("hi"));
+
+        // Depth warnings.
+        e!("########" => s(0,0, 0,8, "section depth larger than 6 has no effect"));
     }
 
     #[test]
