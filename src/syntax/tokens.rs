@@ -269,7 +269,7 @@ impl<'s> Iterator for Tokens<'s> {
             '`' if self.mode == Body => self.read_raw_or_code(),
 
             // Sections.
-            '#'  if self.mode == Body => Hashtag,
+            '#' if self.mode == Body => Hashtag,
 
             // Non-breaking spaces.
             '~' if self.mode == Body => Text("\u{00A0}"),

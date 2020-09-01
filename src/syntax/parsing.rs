@@ -81,7 +81,7 @@ impl Parser<'_> {
                 } else {
                     SyntaxNode::Spacing
                 })
-            },
+            }
 
             Token::LineComment(_) | Token::BlockComment(_) => {
                 self.at_block_or_line_start = was_at_block_or_line_start;
@@ -182,9 +182,7 @@ impl Parser<'_> {
         self.skip_white();
 
         let mut tree = SyntaxTree::new();
-        while !self.eof()
-            && !matches!(self.peekv(), Some(Token::Space(n)) if n >= 1)
-        {
+        while !self.eof() && !matches!(self.peekv(), Some(Token::Space(n)) if n >= 1) {
             if let Some(node) = self.parse_node() {
                 tree.push(node);
             }
