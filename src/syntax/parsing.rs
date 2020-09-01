@@ -866,22 +866,18 @@ mod tests {
     }
 
     macro_rules! C {
-        (None, $($line:expr),* $(,)?) => {{
+        ($lang:expr, $($line:expr),* $(,)?) => {{
             let lines = vec![$($line.to_string()) ,*];
             SyntaxNode::Code(Code {
-                lang: None,
+                lang: $lang,
                 block: lines.len() > 1,
                 lines,
             })
         }};
-        (Some($lang:expr), $($line:expr),* $(,)?) => {{
-            let lines = vec![$($line.to_string()) ,*];
-            SyntaxNode::Code(Code {
-                lang: Some(Into::<Spanned<&str>>::into($lang).map(|s| Ident(s.to_string()))),
-                block: lines.len() > 1,
-                lines,
-            })
-        }};
+    }
+
+    fn Lang<'a, T: Into<Spanned<&'a str>>>(lang: T) -> Option<Spanned<Ident>> {
+        Some(Into::<Spanned<&str>>::into(lang).map(|s| Ident(s.to_string())))
     }
 
     macro_rules! F {
@@ -1086,10 +1082,10 @@ mod tests {
         e!("`hi\nyou"     => s(1,3, 1,3, "expected backtick"));
         t!("`hi\\`du`"    => R!["hi`du"]);
 
-        t!("```java System.out.print```" => C![Some("java"), "System.out.print"]);
+        ts!("```java out```" => s(0,0, 0,14, C![Lang(s(0,3, 0,7, "java")), "out"]));
         t!("``` console.log(\n\"alert\"\n)" => C![None, "console.log(", "\"alert\"", ")"]);
         t!("```typst \r\n Typst uses `\\`` to indicate code blocks" => C![
-            Some("typst"), " Typst uses ``` to indicate code blocks"
+            Lang("typst"), " Typst uses ``` to indicate code blocks"
         ]);
 
         e!("``` hi\nyou"      => s(1,3, 1,3,  "expected backticks"));

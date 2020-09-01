@@ -619,12 +619,15 @@ mod tests {
     fn Raw(raw: &str, terminated: bool) -> Token {
         Token::Raw { raw, terminated }
     }
-    fn Code<'a>(lang: Option<&'a str>, raw: &'a str, terminated: bool) -> Token<'a> {
-        Token::Code {
-            lang: lang.map(Spanned::zero),
-            raw,
-            terminated,
-        }
+    fn Code<'a>(
+        lang: Option<Spanned<&'a str>>,
+        raw: &'a str,
+        terminated: bool,
+    ) -> Token<'a> {
+        Token::Code { lang, raw, terminated }
+    }
+    fn Lang<'a, T: Into<Spanned<&'a str>>>(lang: T) -> Option<Spanned<&'a str>> {
+        Some(Into::<Spanned<&str>>::into(lang))
     }
     fn UE(sequence: &str, terminated: bool) -> Token {
         Token::UnicodeEscape { sequence, terminated }
@@ -684,12 +687,12 @@ mod tests {
         t!(Body, "#()"           => Hashtag, T("()"));
         t!(Body, "`[func]`"      => Raw("[func]", true));
         t!(Body, "`]"            => Raw("]", false));
+        t!(Body, "\\ "           => Backslash, S(0));
         t!(Body, "`\\``"         => Raw("\\`", true));
         t!(Body, "``not code`"   => Raw("", true), T("not"), S(0), T("code"), Raw("", false));
-        t!(Body, "```rust hi```" => Code(Some("rust"), "hi", true));
+        t!(Body, "```rust hi```" => Code(Lang("rust"), "hi", true));
         t!(Body, "``` hi`\\``"   => Code(None, "hi`\\``", false));
-        t!(Body, "```js   \r\n  document.write(\"go\")" => Code(Some("js"), "  document.write(\"go\")", false));
-        t!(Body, "\\ "           => Backslash, S(0));
+        t!(Body, "```js   \r\n  document.write(\"go\")" => Code(Lang("js"), "  document.write(\"go\")", false));
         t!(Header, "_`"          => Invalid("_`"));
     }
 
