@@ -179,7 +179,7 @@ impl Parser<'_> {
             );
         }
 
-        self.skip_white();
+        self.skip_ws();
 
         let mut tree = SyntaxTree::new();
         while !self.eof() && !matches!(self.peekv(), Some(Token::Space(n)) if n >= 1) {
@@ -204,13 +204,13 @@ impl Parser<'_> {
 
         let before_name = self.pos();
         self.start_group(Group::Subheader);
-        self.skip_white();
+        self.skip_ws();
         let name = self.parse_ident().unwrap_or_else(|| {
             self.expected_found_or_at("function name", before_name);
             Spanned::new(Ident(String::new()), Span::at(before_name))
         });
 
-        self.skip_white();
+        self.skip_ws();
 
         let mut args = match self.eatv() {
             Some(Token::Colon) => self.parse_table_contents().0,
@@ -223,7 +223,7 @@ impl Parser<'_> {
         };
 
         self.end_group();
-        self.skip_white();
+        self.skip_ws();
         let (has_chained_child, end) = if self.peek().is_some() {
             let item = self.parse_bracket_call(true);
             let span = item.span;
@@ -271,16 +271,16 @@ impl Parser<'_> {
         let mut comma_and_keyless = true;
 
         while {
-            self.skip_white();
+            self.skip_ws();
             !self.eof()
         } {
             let (key, val) = if let Some(ident) = self.parse_ident() {
-                self.skip_white();
+                self.skip_ws();
 
                 match self.peekv() {
                     Some(Token::Equals) => {
                         self.eat();
-                        self.skip_white();
+                        self.skip_ws();
                         if let Some(value) = self.parse_expr() {
                             (Some(ident), value)
                         } else {
@@ -315,7 +315,7 @@ impl Parser<'_> {
             }
 
             if {
-                self.skip_white();
+                self.skip_ws();
                 self.eof()
             } {
                 break;
@@ -359,17 +359,17 @@ impl Parser<'_> {
     ) -> Option<Spanned<Expr>> {
         let mut left = parse_operand(self)?;
 
-        self.skip_white();
+        self.skip_ws();
         while let Some(token) = self.peek() {
             if let Some(op) = parse_op(token.v) {
                 self.eat();
-                self.skip_white();
+                self.skip_ws();
 
                 if let Some(right) = parse_operand(self) {
                     let span = Span::merge(left.span, right.span);
                     let v = op(Box::new(left), Box::new(right));
                     left = Spanned::new(v, span);
-                    self.skip_white();
+                    self.skip_ws();
                     continue;
                 }
 
@@ -386,7 +386,7 @@ impl Parser<'_> {
 
     fn parse_factor(&mut self) -> Option<Spanned<Expr>> {
         if let Some(hyph) = self.check_eat(Token::Hyphen) {
-            self.skip_white();
+            self.skip_ws();
             if let Some(factor) = self.parse_factor() {
                 let span = Span::merge(hyph.span, factor.span);
                 Some(Spanned::new(Expr::Neg(Box::new(factor)), span))
@@ -406,7 +406,7 @@ impl Parser<'_> {
             Token::Ident(id) => {
                 let name = Spanned::new(Ident(id.to_string()), span);
                 self.eat();
-                self.skip_white();
+                self.skip_ws();
                 if self.check(Token::LeftParen) {
                     self.parse_paren_call(name).map(Expr::Call)
                 } else {
@@ -557,7 +557,7 @@ impl<'s> Parser<'s> {
         }
     }
 
-    fn skip_white(&mut self) {
+    fn skip_ws(&mut self) {
         while matches!(
             self.peekv(),
             Some(Token::Space(_)) |
