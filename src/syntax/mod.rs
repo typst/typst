@@ -6,35 +6,6 @@ pub mod span;
 pub mod tokens;
 pub mod tree;
 
-use std::fmt::{self, Debug, Formatter};
-use tokens::is_identifier;
-
-/// An identifier as defined by unicode with a few extra permissible characters.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Ident(pub String);
-
-impl Ident {
-    /// Create a new identifier from a string checking that it is a valid.
-    pub fn new(ident: impl AsRef<str> + Into<String>) -> Option<Self> {
-        if is_identifier(ident.as_ref()) {
-            Some(Self(ident.into()))
-        } else {
-            None
-        }
-    }
-
-    /// Return a reference to the underlying string.
-    pub fn as_str(&self) -> &str {
-        self.0.as_str()
-    }
-}
-
-impl Debug for Ident {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "`{}`", self.0)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::span;
