@@ -12,8 +12,7 @@ use crate::layout::{Command, Commands, Dir, LayoutContext, SpecAlign};
 use crate::length::{Length, ScaleLength};
 use crate::paper::Paper;
 use crate::syntax::span::{Span, Spanned};
-use crate::syntax::tree::{SyntaxNode, SyntaxTree};
-use crate::syntax::Ident;
+use crate::syntax::tree::{Ident, SyntaxNode, SyntaxTree};
 use crate::{DynFuture, Feedback, Pass};
 
 /// A computational value.

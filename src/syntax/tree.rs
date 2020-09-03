@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use super::decoration::Decoration;
 use super::span::{SpanVec, Spanned};
-use super::Ident;
+use super::tokens::is_identifier;
 use crate::color::RgbaColor;
 use crate::compute::table::{SpannedEntry, Table};
 use crate::compute::value::{TableValue, Value};
@@ -154,6 +154,32 @@ impl Debug for Expr {
             Mul(a, b) => write!(f, "({:?} * {:?})", a, b),
             Div(a, b) => write!(f, "({:?} / {:?})", a, b),
         }
+    }
+}
+
+/// An identifier as defined by unicode with a few extra permissible characters.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Ident(pub String);
+
+impl Ident {
+    /// Create a new identifier from a string checking that it is a valid.
+    pub fn new(ident: impl AsRef<str> + Into<String>) -> Option<Self> {
+        if is_identifier(ident.as_ref()) {
+            Some(Self(ident.into()))
+        } else {
+            None
+        }
+    }
+
+    /// Return a reference to the underlying string.
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl Debug for Ident {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "`{}`", self.0)
     }
 }
 
