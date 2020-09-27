@@ -1,6 +1,6 @@
 //! Styles for text and pages.
 
-use fontdock::{fallback, FallbackTree, FontStyle, FontVariant, FontWeight, FontWidth};
+use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
 
 use crate::geom::{Margins, Size, Value4};
 use crate::length::{Length, ScaleLength};
@@ -80,8 +80,8 @@ impl Default for TextStyle {
             },
             variant: FontVariant {
                 style: FontStyle::Normal,
-                weight: FontWeight(400),
-                width: FontWidth::Medium,
+                weight: FontWeight::REGULAR,
+                stretch: FontStretch::Normal,
             },
             bolder: false,
             italic: false,

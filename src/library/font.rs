@@ -1,4 +1,4 @@
-use fontdock::{FontStyle, FontWeight, FontWidth};
+use fontdock::{FontStretch, FontStyle, FontWeight};
 
 use super::*;
 use crate::length::ScaleLength;
@@ -12,7 +12,7 @@ use crate::length::ScaleLength;
 /// # Keyword arguments
 /// - `style`: `normal`, `italic` or `oblique`.
 /// - `weight`: `100` - `900` or a name like `thin`.
-/// - `width`: `1` - `9` or a name like `condensed`.
+/// - `width`: `normal`, `condensed`, `expanded`, ...
 /// - Any other keyword argument whose value is a table of strings is a class
 ///   fallback definition like:
 ///   ```typst
@@ -41,7 +41,7 @@ pub async fn font(_: Span, mut args: TableValue, ctx: LayoutContext<'_>) -> Pass
         .collect();
 
     if !list.is_empty() {
-        *text.fallback.list_mut() = list;
+        text.fallback.list = list;
         updated_fallback = true;
     }
 
@@ -53,8 +53,8 @@ pub async fn font(_: Span, mut args: TableValue, ctx: LayoutContext<'_>) -> Pass
         text.variant.weight = weight;
     }
 
-    if let Some(width) = args.take_key::<FontWidth>("width", &mut f) {
-        text.variant.width = width;
+    if let Some(stretch) = args.take_key::<FontStretch>("stretch", &mut f) {
+        text.variant.stretch = stretch;
     }
 
     for (class, mut table) in args.take_all_str::<TableValue>() {
@@ -63,7 +63,7 @@ pub async fn font(_: Span, mut args: TableValue, ctx: LayoutContext<'_>) -> Pass
             .map(|s| s.to_lowercase())
             .collect();
 
-        text.fallback.set_class_list(class, fallback);
+        text.fallback.update_class_list(class, fallback);
         updated_fallback = true;
     }
 

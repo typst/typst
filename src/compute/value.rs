@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 
-use fontdock::{FontStyle, FontWeight, FontWidth};
+use fontdock::{FontStretch, FontStyle, FontWeight};
 
 use super::table::{SpannedEntry, Table};
 use crate::color::RgbaColor;
@@ -390,8 +390,9 @@ impl_ident!(SpecAlign, "alignment", |s| match s {
     _ => None,
 });
 
-impl_ident!(FontStyle, "font style", FontStyle::from_name);
-impl_ident!(Paper, "paper", Paper::from_name);
+impl_ident!(FontStyle, "font style", Self::from_str);
+impl_ident!(FontStretch, "font stretch", Self::from_str);
+impl_ident!(Paper, "paper", Self::from_name);
 
 impl TryFromValue for FontWeight {
     fn try_from_value(value: Spanned<&Value>, f: &mut Feedback) -> Option<Self> {
@@ -400,18 +401,18 @@ impl TryFromValue for FontWeight {
                 const MIN: u16 = 100;
                 const MAX: u16 = 900;
 
-                Some(Self(if weight < MIN as f64 {
+                if weight < MIN as f64 {
                     error!(@f, value.span, "the minimum font weight is {}", MIN);
-                    MIN
+                    Some(Self::THIN)
                 } else if weight > MAX as f64 {
                     error!(@f, value.span, "the maximum font weight is {}", MAX);
-                    MAX
+                    Some(Self::BLACK)
                 } else {
-                    weight.round() as u16
-                }))
+                    FontWeight::from_number(weight.round() as u16)
+                }
             }
             Value::Ident(ident) => {
-                let weight = Self::from_name(ident.as_str());
+                let weight = Self::from_str(ident.as_str());
                 if weight.is_none() {
                     error!(@f, value.span, "invalid font weight");
                 }
@@ -421,42 +422,6 @@ impl TryFromValue for FontWeight {
                 error!(
                     @f, value.span,
                     "expected font weight (name or number), found {}",
-                    other.name(),
-                );
-                None
-            }
-        }
-    }
-}
-
-impl TryFromValue for FontWidth {
-    fn try_from_value(value: Spanned<&Value>, f: &mut Feedback) -> Option<Self> {
-        match value.v {
-            &Value::Number(width) => {
-                const MIN: u16 = 1;
-                const MAX: u16 = 9;
-
-                Self::new(if width < MIN as f64 {
-                    error!(@f, value.span, "the minimum font width is {}", MIN);
-                    MIN
-                } else if width > MAX as f64 {
-                    error!(@f, value.span, "the maximum font width is {}", MAX);
-                    MAX
-                } else {
-                    width.round() as u16
-                })
-            }
-            Value::Ident(ident) => {
-                let width = Self::from_name(ident.as_str());
-                if width.is_none() {
-                    error!(@f, value.span, "invalid font width");
-                }
-                width
-            }
-            other => {
-                error!(
-                    @f, value.span,
-                    "expected font width (name or number), found {}",
                     other.name(),
                 );
                 None

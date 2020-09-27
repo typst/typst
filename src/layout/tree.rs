@@ -131,7 +131,7 @@ impl<'a> TreeLayouter<'a> {
     async fn layout_raw(&mut self, lines: &[String]) {
         // TODO: Make this more efficient.
         let fallback = self.style.text.fallback.clone();
-        self.style.text.fallback.list_mut().insert(0, "monospace".to_string());
+        self.style.text.fallback.list.insert(0, "monospace".to_string());
         self.style.text.fallback.flatten();
 
         let mut first = true;

@@ -120,7 +120,7 @@ impl<'a> TextLayouter<'a> {
         let mut variant = self.ctx.style.variant;
 
         if self.ctx.style.bolder {
-            variant.weight.0 += 300;
+            variant.weight = variant.weight.thicken(300);
         }
 
         if self.ctx.style.italic {
