@@ -1,8 +1,11 @@
 //! Parsing and tokenization.
 
-mod postprocess;
+mod chars;
+mod resolve;
 mod tokens;
 
+pub use chars::*;
+pub use resolve::*;
 pub use tokens::*;
 
 use std::str::FromStr;
@@ -110,16 +113,7 @@ impl Parser<'_> {
                     error!(@self.feedback, end, "expected backtick(s)");
                 }
 
-                let raw = if backticks > 1 {
-                    postprocess::process_raw(raw)
-                } else {
-                    Raw {
-                        lang: None,
-                        lines: postprocess::split_lines(raw),
-                        inline: true,
-                    }
-                };
-
+                let raw = resolve::resolve_raw(raw, backticks);
                 self.with_span(SyntaxNode::Raw(raw))
             }
 
@@ -131,10 +125,11 @@ impl Parser<'_> {
                     error!(@self.feedback, end, "expected closing brace");
                 }
 
-                if let Some(c) = postprocess::hex_to_char(sequence) {
+                if let Some(c) = resolve::resolve_hex(sequence) {
                     self.with_span(SyntaxNode::Text(c.to_string()))
                 } else {
                     error!(@self.feedback, token.span, "invalid unicode escape sequence");
+                    // TODO: Decide whether to render the escape sequence.
                     self.eat();
                     return None;
                 }
@@ -407,7 +402,7 @@ impl Parser<'_> {
                 if !terminated {
                     self.expected_at("quote", span.end);
                 }
-                self.with_span(Expr::Str(postprocess::unescape_string(string)))
+                self.with_span(Expr::Str(resolve::resolve_string(string)))
             }
 
             Token::Bool(b) => self.with_span(Expr::Bool(b)),

@@ -2,6 +2,8 @@
 
 use std::fmt::{self, Debug, Formatter};
 
+use unicode_xid::UnicodeXID;
+
 use super::span::{SpanVec, SpanWith, Spanned};
 use super::Decoration;
 use crate::color::RgbaColor;
@@ -9,7 +11,6 @@ use crate::compute::table::{SpannedEntry, Table};
 use crate::compute::value::{TableValue, Value};
 use crate::layout::LayoutContext;
 use crate::length::Length;
-use crate::parse::is_identifier;
 use crate::{DynFuture, Feedback};
 
 /// A collection of nodes which form a tree together with the nodes' children.
@@ -233,7 +234,7 @@ pub struct Ident(pub String);
 impl Ident {
     /// Create a new identifier from a string checking that it is a valid.
     pub fn new(ident: impl AsRef<str> + Into<String>) -> Option<Self> {
-        if is_identifier(ident.as_ref()) {
+        if Self::is_ident(ident.as_ref()) {
             Some(Self(ident.into()))
         } else {
             None
@@ -243,6 +244,20 @@ impl Ident {
     /// Return a reference to the underlying string.
     pub fn as_str(&self) -> &str {
         self.0.as_str()
+    }
+
+    /// Whether the string is a valid identifier.
+    pub fn is_ident(string: &str) -> bool {
+        fn is_ok(c: char) -> bool {
+            c == '-' || c == '_'
+        }
+
+        let mut chars = string.chars();
+        if matches!(chars.next(), Some(c) if c.is_xid_start() || is_ok(c)) {
+            chars.all(|c| c.is_xid_continue() || is_ok(c))
+        } else {
+            false
+        }
     }
 }
 

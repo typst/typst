@@ -1,23 +1,17 @@
 //! Tokenization.
 
-use std::iter::Peekable;
-use std::str::Chars;
-use unicode_xid::UnicodeXID;
-
+use super::{is_newline_char, CharParser};
 use crate::length::Length;
-use crate::syntax::{Pos, Span, SpanWith, Spanned, Token};
+use crate::syntax::{Ident, Pos, Span, SpanWith, Spanned, Token};
 
-use Token::*;
 use TokenMode::*;
 
 /// An iterator over the tokens of a string of source code.
 #[derive(Debug)]
 pub struct Tokens<'s> {
-    src: &'s str,
-    iter: Peekable<Chars<'s>>,
+    p: CharParser<'s>,
     mode: TokenMode,
     stack: Vec<TokenMode>,
-    index: usize,
 }
 
 /// Whether to tokenize in header mode which yields expression, comma and
@@ -33,11 +27,9 @@ impl<'s> Tokens<'s> {
     /// Create a new token iterator with the given mode.
     pub fn new(src: &'s str, mode: TokenMode) -> Self {
         Self {
-            src,
-            iter: src.chars().peekable(),
+            p: CharParser::new(src),
             mode,
             stack: vec![],
-            index: 0,
         }
     }
 
@@ -56,7 +48,7 @@ impl<'s> Tokens<'s> {
     /// The position in the string at which the last token ends and next token
     /// will start.
     pub fn pos(&self) -> Pos {
-        self.index.into()
+        self.p.index().into()
     }
 }
 
@@ -65,183 +57,153 @@ impl<'s> Iterator for Tokens<'s> {
 
     /// Parse the next token in the source code.
     fn next(&mut self) -> Option<Self::Item> {
-        let start = self.pos();
-        let first = self.eat()?;
-
-        let token = match first {
-            // Comments.
-            '/' if self.peek() == Some('/') => self.read_line_comment(),
-            '/' if self.peek() == Some('*') => self.read_block_comment(),
-            '*' if self.peek() == Some('/') => {
-                self.eat();
-                Invalid("*/")
-            }
-
+        let start = self.p.index();
+        let token = match self.p.eat()? {
             // Whitespace.
             c if c.is_whitespace() => self.read_whitespace(c),
 
-            // Functions and blocks.
-            '[' => LeftBracket,
-            ']' => RightBracket,
-            '{' => LeftBrace,
-            '}' => RightBrace,
+            // Comments.
+            '/' if self.p.eat_if('/') => self.read_line_comment(),
+            '/' if self.p.eat_if('*') => self.read_block_comment(),
+            '*' if self.p.eat_if('/') => Token::Invalid("*/"),
 
-            // Syntactic elements in function headers.
-            '(' if self.mode == Header => LeftParen,
-            ')' if self.mode == Header => RightParen,
-            ':' if self.mode == Header => Colon,
-            ',' if self.mode == Header => Comma,
-            '=' if self.mode == Header => Equals,
-            '>' if self.mode == Header && self.peek() == Some('>') => self.read_chain(),
+            // Functions.
+            '[' => Token::LeftBracket,
+            ']' => Token::RightBracket,
+            '{' => Token::LeftBrace,
+            '}' => Token::RightBrace,
 
-            // Expression operators.
-            '+' if self.mode == Header => Plus,
-            '-' if self.mode == Header => Hyphen,
-            '/' if self.mode == Header => Slash,
+            // Syntactic elements in body text.
+            '_' if self.mode == Body => Token::Underscore,
+            '`' if self.mode == Body => self.read_raw(),
+            '#' if self.mode == Body => Token::Hashtag,
+            '~' if self.mode == Body => Token::Text("\u{00A0}"),
+            '\\' if self.mode == Body => self.read_escaped(),
+
+            // Syntactic elements in headers.
+            '(' if self.mode == Header => Token::LeftParen,
+            ')' if self.mode == Header => Token::RightParen,
+            ':' if self.mode == Header => Token::Colon,
+            ',' if self.mode == Header => Token::Comma,
+            '=' if self.mode == Header => Token::Equals,
+            '>' if self.mode == Header && self.p.eat_if('>') => Token::Chain,
+
+            // Expressions.
+            '+' if self.mode == Header => Token::Plus,
+            '-' if self.mode == Header => Token::Hyphen,
+            '/' if self.mode == Header => Token::Slash,
+            '#' if self.mode == Header => self.read_hex(),
+            '"' if self.mode == Header => self.read_string(),
 
             // Star serves a double purpose as a style modifier
             // and a expression operator in the header.
-            '*' => Star,
+            '*' => Token::Star,
 
-            // A hex expression.
-            '#' if self.mode == Header => self.read_hex(),
-
-            // String values.
-            '"' if self.mode == Header => self.read_string(),
-
-            // Style toggles.
-            '_' if self.mode == Body => Underscore,
-            '`' if self.mode == Body => self.read_raw(),
-
-            // Sections.
-            '#' if self.mode == Body => Hashtag,
-
-            // Non-breaking spaces.
-            '~' if self.mode == Body => Text("\u{00A0}"),
-
-            // An escaped thing.
-            '\\' if self.mode == Body => self.read_escaped(),
-
-            // Expressions or just strings.
-            c => {
-                let body = self.mode == Body;
-
-                let start_offset = -(c.len_utf8() as isize);
-                let mut last_was_e = false;
-
-                let (text, _) = self.read_string_until(false, start_offset, 0, |n| {
-                    let val = match n {
-                        c if c.is_whitespace() => true,
-                        '[' | ']' | '{' | '}' | '/' | '*' => true,
-                        '\\' | '_' | '`' | '#' | '~' if body => true,
-                        ':' | '=' | ',' | '"' | '(' | ')' if !body => true,
-                        '+' | '-' if !body && !last_was_e => true,
-                        _ => false,
-                    };
-
-                    last_was_e = n == 'e' || n == 'E';
-                    val
-                });
-
-                if self.mode == Header {
-                    self.read_expr(text)
-                } else {
-                    Text(text)
-                }
-            }
+            // Expressions or just plain text.
+            _ => self.read_text_or_expr(start),
         };
 
-        let end = self.pos();
-
+        let end = self.p.index();
         Some(token.span_with(Span::new(start, end)))
     }
 }
 
 impl<'s> Tokens<'s> {
+    fn read_whitespace(&mut self, first: char) -> Token<'s> {
+        // Shortcut for common case of exactly one space.
+        if first == ' ' && !self.p.check(|c| c.is_whitespace()) {
+            return Token::Space(0);
+        }
+
+        // Uneat the first char if it's a newline, so it's counted in the loop.
+        if is_newline_char(first) {
+            self.p.uneat();
+        }
+
+        // Count the number of newlines.
+        let mut newlines = 0;
+        while let Some(c) = self.p.eat_merging_crlf() {
+            if !c.is_whitespace() {
+                self.p.uneat();
+                break;
+            }
+
+            if is_newline_char(c) {
+                newlines += 1;
+            }
+        }
+
+        Token::Space(newlines)
+    }
+
     fn read_line_comment(&mut self) -> Token<'s> {
-        self.eat();
-        LineComment(self.read_string_until(false, 0, 0, is_newline_char).0)
+        Token::LineComment(self.p.eat_until(is_newline_char))
     }
 
     fn read_block_comment(&mut self) -> Token<'s> {
-        enum Last {
-            Slash,
-            Star,
-            Other,
-        }
+        let start = self.p.index();
 
-        let mut depth = 0;
-        let mut last = Last::Other;
+        let mut depth = 1;
+        let mut state = ' ';
 
         // Find the first `*/` that does not correspond to a nested `/*`.
-        // Remove the last two bytes to obtain the raw inner text without `*/`.
-        self.eat();
-        let (content, _) = self.read_string_until(true, 0, -2, |c| {
-            match c {
-                '/' => match last {
-                    Last::Star if depth == 0 => return true,
-                    Last::Star => depth -= 1,
-                    _ => last = Last::Slash,
-                },
-                '*' => match last {
-                    Last::Slash => depth += 1,
-                    _ => last = Last::Star,
-                },
-                _ => last = Last::Other,
-            }
-
-            false
-        });
-
-        BlockComment(content)
-    }
-
-    fn read_chain(&mut self) -> Token<'s> {
-        assert!(self.eat() == Some('>'));
-        Chain
-    }
-
-    fn read_whitespace(&mut self, mut c: char) -> Token<'s> {
-        let mut newlines = 0;
-
-        loop {
-            if is_newline_char(c) {
-                if c == '\r' && self.peek() == Some('\n') {
-                    self.eat();
+        while let Some(c) = self.p.eat() {
+            state = match (state, c) {
+                ('*', '/') if depth == 1 => {
+                    depth = 0;
+                    break;
                 }
-
-                newlines += 1;
-            }
-
-            match self.peek() {
-                Some(n) if n.is_whitespace() => {
-                    self.eat();
-                    c = n;
+                ('*', '/') => {
+                    depth -= 1;
+                    ' '
                 }
-                _ => break,
+                ('/', '*') => {
+                    depth += 1;
+                    ' '
+                }
+                _ => c,
             }
         }
 
-        Space(newlines)
+        let mut read = self.p.eaten_from(start);
+        if depth == 0 {
+            read = read.strip_suffix("*/").unwrap_or(read);
+        }
+
+        Token::BlockComment(read)
+    }
+
+    fn read_hex(&mut self) -> Token<'s> {
+        // This parses more than the permissable 0-9, a-f, A-F character ranges
+        // to provide nicer error messages later.
+        Token::Hex(self.p.eat_while(|c| c.is_ascii_alphanumeric()))
     }
 
     fn read_string(&mut self) -> Token<'s> {
-        let (string, terminated) = self.read_until_unescaped('"');
-        Str { string, terminated }
+        let mut escaped = false;
+        Token::Str {
+            string: self.p.eat_until(|c| {
+                if c == '"' && !escaped {
+                    true
+                } else {
+                    escaped = c == '\\' && !escaped;
+                    false
+                }
+            }),
+            terminated: self.p.eat_if('"'),
+        }
     }
 
     fn read_raw(&mut self) -> Token<'s> {
         let mut backticks = 1;
-        while self.peek() == Some('`') {
-            self.eat();
+        while self.p.eat_if('`') {
             backticks += 1;
         }
 
-        let start = self.index;
-
+        let start = self.p.index();
         let mut found = 0;
         while found < backticks {
-            match self.eat() {
+            match self.p.eat() {
                 Some('`') => found += 1,
                 Some(_) => found = 0,
                 None => break,
@@ -249,172 +211,88 @@ impl<'s> Tokens<'s> {
         }
 
         let terminated = found == backticks;
-        let end = self.index - if terminated { found } else { 0 };
+        let end = self.p.index() - if terminated { found } else { 0 };
 
-        Raw {
-            raw: &self.src[start .. end],
+        Token::Raw {
+            raw: self.p.get(start .. end),
             backticks,
             terminated,
         }
     }
 
-    fn read_until_unescaped(&mut self, end: char) -> (&'s str, bool) {
-        let mut escaped = false;
-        self.read_string_until(true, 0, -1, |c| {
-            match c {
-                c if c == end && !escaped => return true,
-                '\\' => escaped = !escaped,
-                _ => escaped = false,
-            }
-
-            false
-        })
-    }
-
     fn read_escaped(&mut self) -> Token<'s> {
-        fn is_escapable(c: char) -> bool {
+        if let Some(c) = self.p.peek() {
             match c {
-                '[' | ']' | '\\' | '/' | '*' | '_' | '`' | '"' | '#' | '~' => true,
-                _ => false,
-            }
-        }
-
-        match self.peek() {
-            Some('u') => {
-                self.eat();
-                if self.peek() == Some('{') {
-                    self.eat();
-                    let (sequence, _) =
-                        self.read_string_until(false, 0, 0, |c| !c.is_ascii_hexdigit());
-
-                    let terminated = self.peek() == Some('}');
-                    if terminated {
-                        self.eat();
+                '[' | ']' | '\\' | '/' | '*' | '_' | '`' | '"' | '#' | '~' => {
+                    let start = self.p.index();
+                    self.p.eat_assert(c);
+                    Token::Text(&self.p.eaten_from(start))
+                }
+                'u' if self.p.peek_nth(1) == Some('{') => {
+                    self.p.eat_assert('u');
+                    self.p.eat_assert('{');
+                    Token::UnicodeEscape {
+                        sequence: self.p.eat_while(|c| c.is_ascii_hexdigit()),
+                        terminated: self.p.eat_if('}'),
                     }
-
-                    UnicodeEscape { sequence, terminated }
-                } else {
-                    Text("\\u")
                 }
+                c if c.is_whitespace() => Token::Backslash,
+                _ => Token::Text("\\"),
             }
-            Some(c) if is_escapable(c) => {
-                let index = self.index;
-                self.eat();
-                Text(&self.src[index .. index + c.len_utf8()])
-            }
-            Some(c) if c.is_whitespace() => Backslash,
-            Some(_) => Text("\\"),
-            None => Backslash,
-        }
-    }
-
-    fn read_hex(&mut self) -> Token<'s> {
-        // This will parse more than the permissable 0-9, a-f, A-F character
-        // ranges to provide nicer error messages later.
-        Hex(self.read_string_until(false, 0, 0, |n| !n.is_ascii_alphanumeric()).0)
-    }
-
-    fn read_expr(&mut self, text: &'s str) -> Token<'s> {
-        if let Ok(b) = text.parse::<bool>() {
-            Bool(b)
-        } else if let Ok(num) = text.parse::<f64>() {
-            Number(num)
-        } else if let Some(num) = parse_percentage(text) {
-            Number(num / 100.0)
-        } else if let Ok(length) = text.parse::<Length>() {
-            Length(length)
-        } else if is_identifier(text) {
-            Ident(text)
         } else {
-            Invalid(text)
+            Token::Backslash
         }
     }
 
-    /// Will read the input stream until `f` evaluates to `true`. When
-    /// `eat_match` is true, the token for which `f` was true is consumed.
-    /// Returns the string from the index where this was called offset by
-    /// `offset_start` to the end offset by `offset_end`. The end is before or
-    /// after the match depending on `eat_match`.
-    fn read_string_until(
-        &mut self,
-        eat_match: bool,
-        offset_start: isize,
-        offset_end: isize,
-        mut f: impl FnMut(char) -> bool,
-    ) -> (&'s str, bool) {
-        let start = ((self.index as isize) + offset_start) as usize;
-        let mut matched = false;
+    fn read_text_or_expr(&mut self, start: usize) -> Token<'s> {
+        let body = self.mode == Body;
+        let header = self.mode == Header;
 
-        while let Some(c) = self.peek() {
-            if f(c) {
-                matched = true;
-                if eat_match {
-                    self.eat();
-                }
-                break;
-            }
+        let mut last_was_e = false;
+        self.p.eat_until(|c| {
+            let end = match c {
+                c if c.is_whitespace() => true,
+                '[' | ']' | '*' | '/' => true,
+                '_' | '`' | '~' | '\\' if body => true,
+                '(' | ')' | '{' | '}' | ':' | ',' | '=' | '"' | '#' if header => true,
+                '+' | '-' if header && !last_was_e => true,
+                _ => false,
+            };
+            last_was_e = c == 'e' || c == 'E';
+            end
+        });
 
-            self.eat();
+        let read = self.p.eaten_from(start);
+        if self.mode == Header {
+            parse_expr(read)
+        } else {
+            Token::Text(read)
         }
-
-        let mut end = self.index;
-        if matched {
-            end = ((end as isize) + offset_end) as usize;
-        }
-
-        (&self.src[start .. end], matched)
-    }
-
-    fn eat(&mut self) -> Option<char> {
-        let c = self.iter.next()?;
-        self.index += c.len_utf8();
-        Some(c)
-    }
-
-    fn peek(&mut self) -> Option<char> {
-        self.iter.peek().copied()
     }
 }
 
-fn parse_percentage(text: &str) -> Option<f64> {
+fn parse_expr(text: &str) -> Token<'_> {
+    if let Ok(b) = text.parse::<bool>() {
+        Token::Bool(b)
+    } else if let Ok(num) = text.parse::<f64>() {
+        Token::Number(num)
+    } else if let Some(num) = parse_percent(text) {
+        Token::Number(num / 100.0)
+    } else if let Ok(length) = text.parse::<Length>() {
+        Token::Length(length)
+    } else if Ident::is_ident(text) {
+        Token::Ident(text)
+    } else {
+        Token::Invalid(text)
+    }
+}
+
+fn parse_percent(text: &str) -> Option<f64> {
     if text.ends_with('%') {
         text[.. text.len() - 1].parse::<f64>().ok()
     } else {
         None
     }
-}
-
-/// Whether this character denotes a newline.
-pub fn is_newline_char(character: char) -> bool {
-    match character {
-        // Line Feed, Vertical Tab, Form Feed, Carriage Return.
-        '\x0A' ..= '\x0D' => true,
-        // Next Line, Line Separator, Paragraph Separator.
-        '\u{0085}' | '\u{2028}' | '\u{2029}' => true,
-        _ => false,
-    }
-}
-
-/// Whether this word is a valid identifier.
-pub fn is_identifier(string: &str) -> bool {
-    fn is_extra_allowed(c: char) -> bool {
-        c == '.' || c == '-' || c == '_'
-    }
-
-    let mut chars = string.chars();
-    match chars.next() {
-        Some(c) if UnicodeXID::is_xid_start(c) || is_extra_allowed(c) => {}
-        _ => return false,
-    }
-
-    for c in chars {
-        match c {
-            c if UnicodeXID::is_xid_continue(c) || is_extra_allowed(c) => {}
-            _ => return false,
-        }
-    }
-
-    true
 }
 
 #[cfg(test)]
@@ -428,7 +306,7 @@ mod tests {
         BlockComment as BC, Bool, Chain, Hex, Hyphen as Min, Ident as Id,
         LeftBrace as LB, LeftBracket as L, LeftParen as LP, Length as Len,
         LineComment as LC, Number as Num, Plus, RightBrace as RB, RightBracket as R,
-        RightParen as RP, Slash, Space as S, Star, Text as T,
+        RightParen as RP, Slash, Space as S, Star, Text as T, *,
     };
 
     fn Str(string: &str, terminated: bool) -> Token {
@@ -482,10 +360,11 @@ mod tests {
         t!(Body, "/***/"             => BC("*"));
         t!(Body, "/**\\****/*/*/"    => BC("*\\***"), Invalid("*/"), Invalid("*/"));
         t!(Body, "/*abc"             => BC("abc"));
+        t!(Body, "/*/*abc*/"         => BC("/*abc*/"));
     }
 
     #[test]
-    fn tokenize_body_only_tokens() {
+    fn tokenize_body_tokens() {
         t!(Body, "_*"            => Underscore, Star);
         t!(Body, "***"           => Star, Star, Star);
         t!(Body, "[func]*bold*"  => L, T("func"), R, Star, T("bold"), Star);
@@ -517,40 +396,36 @@ mod tests {
     }
 
     #[test]
-    fn tokenize_header_only_tokens() {
-        t!(Body, "a: b"                => T("a:"), S(0), T("b"));
-        t!(Body, "c=d, "               => T("c=d,"), S(0));
-        t!(Header, "(){}:=,"           => LP, RP, LB, RB, Colon, Equals, Comma);
+    fn tokenize_header_tokens() {
+        t!(Header, "__main__"          => Id("__main__"));
+        t!(Header, "_func_box"         => Id("_func_box"));
+        t!(Header, ">main"             => Invalid(">main"));
+        t!(Header, "🌓, 🌍,"          => Invalid("🌓"), Comma, S(0), Invalid("🌍"), Comma);
+        t!(Header, "{abc}"             => LB, Id("abc"), RB);
+        t!(Header, "(1,2)"             => LP, Num(1.0), Comma, Num(2.0), RP);
+        t!(Header, "12_pt, 12pt"       => Invalid("12_pt"), Comma, S(0), Len(Length::pt(12.0)));
+        t!(Header, "f: arg >> g"       => Id("f"), Colon, S(0), Id("arg"), S(0), Chain, S(0), Id("g"));
+        t!(Header, "=3.14"             => Equals, Num(3.14));
+        t!(Header, "arg, _b, _1"       => Id("arg"), Comma, S(0), Id("_b"), Comma, S(0), Id("_1"));
         t!(Header, "a:b"               => Id("a"), Colon, Id("b"));
-        t!(Header, "#6ae6dd"           => Hex("6ae6dd"));
-        t!(Header, "#8A083c"           => Hex("8A083c"));
+        t!(Header, "(){}:=,"           => LP, RP, LB, RB, Colon, Equals, Comma);
+        t!(Body,   "c=d, "             => T("c=d,"), S(0));
+        t!(Body,   "a: b"              => T("a:"), S(0), T("b"));
         t!(Header, "a: true, x=1"      => Id("a"), Colon, S(0), Bool(true), Comma, S(0),
                                           Id("x"), Equals, Num(1.0));
-        t!(Header, "=3.14"             => Equals, Num(3.14));
+    }
+
+    #[test]
+    fn tokenize_numeric_values() {
         t!(Header, "12.3e5"            => Num(12.3e5));
         t!(Header, "120%"              => Num(1.2));
         t!(Header, "12e4%"             => Num(1200.0));
-        t!(Header, "__main__"          => Id("__main__"));
-        t!(Header, ">main"             => Invalid(">main"));
-        t!(Header, ".func.box"         => Id(".func.box"));
-        t!(Header, "arg, _b, _1"       => Id("arg"), Comma, S(0), Id("_b"), Comma, S(0), Id("_1"));
-        t!(Header, "f: arg >> g"       => Id("f"), Colon, S(0), Id("arg"), S(0), Chain, S(0), Id("g"));
-        t!(Header, "12_pt, 12pt"       => Invalid("12_pt"), Comma, S(0), Len(Length::pt(12.0)));
         t!(Header, "1e5in"             => Len(Length::inches(100000.0)));
         t!(Header, "2.3cm"             => Len(Length::cm(2.3)));
-        t!(Header, "12e-3in"           => Len(Length::inches(12e-3)));
-        t!(Header, "6.1cm + 4pt,a=1*2" => Len(Length::cm(6.1)), S(0), Plus, S(0), Len(Length::pt(4.0)),
-                                          Comma, Id("a"), Equals, Num(1.0), Star, Num(2.0));
-        t!(Header, "(5 - 1) / 2.1"     => LP, Num(5.0), S(0), Min, S(0), Num(1.0), RP,
-                                          S(0), Slash, S(0), Num(2.1));
-        t!(Header, "-1"                => Min, Num(1.0));
-        t!(Header, "--1"               => Min, Min, Num(1.0));
-        t!(Header, "- 1"               => Min, S(0), Num(1.0));
         t!(Header, "02.4mm"            => Len(Length::mm(2.4)));
         t!(Header, "2.4.cm"            => Invalid("2.4.cm"));
-        t!(Header, "(1,2)"             => LP, Num(1.0), Comma, Num(2.0), RP);
-        t!(Header, "{abc}"             => LB, Id("abc"), RB);
-        t!(Header, "🌓, 🌍,"          => Invalid("🌓"), Comma, S(0), Invalid("🌍"), Comma);
+        t!(Header, "#6ae6dd"           => Hex("6ae6dd"));
+        t!(Header, "#8A083c"           => Hex("8A083c"));
     }
 
     #[test]
@@ -564,6 +439,18 @@ mod tests {
         t!(Header, r#""a\\"bc""#             => Str(r#"a\\"#, true), Id("bc"), Str("", false));
         t!(Header, r#""a\tbc"#               => Str("a\\tbc", false));
         t!(Header, "\"🌎\""                  => Str("🌎", true));
+    }
+
+    #[test]
+    fn tokenize_math() {
+        t!(Header, "12e-3in"           => Len(Length::inches(12e-3)));
+        t!(Header, "-1"                => Min, Num(1.0));
+        t!(Header, "--1"               => Min, Min, Num(1.0));
+        t!(Header, "- 1"               => Min, S(0), Num(1.0));
+        t!(Header, "6.1cm + 4pt,a=1*2" => Len(Length::cm(6.1)), S(0), Plus, S(0), Len(Length::pt(4.0)),
+                                          Comma, Id("a"), Equals, Num(1.0), Star, Num(2.0));
+        t!(Header, "(5 - 1) / 2.1"     => LP, Num(5.0), S(0), Min, S(0), Num(1.0), RP,
+                                          S(0), Slash, S(0), Num(2.1));
     }
 
     #[test]
@@ -587,7 +474,7 @@ mod tests {
         t!(Body, r"\="      => T(r"\"), T("="));
         t!(Body, r"\u{2GA4" => UE("2", false), T("GA4"));
         t!(Body, r"\u{ "    => UE("", false), Space(0));
-        t!(Body, r"\u"      => T(r"\u"));
+        t!(Body, r"\u"      => T("\\"), T("u"));
         t!(Header, r"\\\\"  => Invalid(r"\\\\"));
         t!(Header, r"\a"    => Invalid(r"\a"));
         t!(Header, r"\:"    => Invalid(r"\"), Colon);

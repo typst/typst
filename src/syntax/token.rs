@@ -19,14 +19,15 @@ pub enum Token<'s> {
     LeftBracket,
     /// A right bracket ending a function invocation or body: `]`.
     RightBracket,
+    /// A left brace indicating the start of content: `{`.
+    LeftBrace,
+    /// A right brace indicating the end of content: `}`.
+    RightBrace,
     /// A left parenthesis in a function header: `(`.
     LeftParen,
     /// A right parenthesis in a function header: `)`.
     RightParen,
-    /// A left brace in a function header: `{`.
-    LeftBrace,
-    /// A right brace in a function header: `}`.
-    RightBrace,
+
     /// A double forward chevron in a function header: `>>`.
     Chain,
 

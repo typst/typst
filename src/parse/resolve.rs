@@ -1,95 +1,79 @@
-//! Post-processing of strings and raw blocks.
+//! Resolve strings and raw blocks.
 
-use super::is_newline_char;
+use super::{is_newline_char, CharParser};
 use crate::syntax::{Ident, Raw};
 
 /// Resolves all escape sequences in a string.
-pub fn unescape_string(string: &str) -> String {
-    let mut iter = string.chars().peekable();
+pub fn resolve_string(string: &str) -> String {
     let mut out = String::with_capacity(string.len());
+    let mut p = CharParser::new(string);
 
-    while let Some(c) = iter.next() {
+    while let Some(c) = p.eat() {
         if c != '\\' {
             out.push(c);
             continue;
         }
 
-        match iter.next() {
+        let start = p.prev_index();
+        match p.eat() {
             Some('\\') => out.push('\\'),
             Some('"') => out.push('"'),
 
             Some('n') => out.push('\n'),
             Some('t') => out.push('\t'),
-            Some('u') if iter.peek() == Some(&'{') => {
-                iter.next();
-
+            Some('u') if p.eat_if('{') => {
                 // TODO: Feedback if closing brace is missing.
-                let mut sequence = String::new();
-                let terminated = loop {
-                    match iter.peek() {
-                        Some('}') => {
-                            iter.next();
-                            break true;
-                        }
-                        Some(&c) if c.is_ascii_hexdigit() => {
-                            iter.next();
-                            sequence.push(c);
-                        }
-                        _ => break false,
-                    }
-                };
+                let sequence = p.eat_while(|c| c.is_ascii_hexdigit());
+                let _terminated = p.eat_if('}');
 
-                if let Some(c) = hex_to_char(&sequence) {
+                if let Some(c) = resolve_hex(sequence) {
                     out.push(c);
                 } else {
                     // TODO: Feedback that escape sequence is wrong.
-                    out.push_str("\\u{");
-                    out.push_str(&sequence);
-                    if terminated {
-                        out.push('}');
-                    }
+                    out += p.eaten_from(start);
                 }
             }
 
-            other => {
-                out.push('\\');
-                out.extend(other);
-            }
+            // TODO: Feedback about invalid escape sequence.
+            _ => out += p.eaten_from(start),
         }
     }
 
     out
 }
 
+/// Resolve a hexademical escape sequence (only the inner hex letters without
+/// braces or `\u`) into a character.
+pub fn resolve_hex(sequence: &str) -> Option<char> {
+    u32::from_str_radix(sequence, 16).ok().and_then(std::char::from_u32)
+}
+
 /// Resolves the language tag and trims the raw text.
-///
-/// Returns:
-/// - The language tag
-/// - The raw lines
-/// - Whether at least one newline was present in the untrimmed text.
-pub fn process_raw(raw: &str) -> Raw {
-    let (lang, inner) = split_after_lang_tag(raw);
-    let (lines, had_newline) = trim_and_split_raw(inner);
-    Raw { lang, lines, inline: !had_newline }
+pub fn resolve_raw(raw: &str, backticks: usize) -> Raw {
+    if backticks > 1 {
+        let (tag, inner) = split_at_lang_tag(raw);
+        let (lines, had_newline) = trim_and_split_raw(inner);
+        Raw {
+            lang: Ident::new(tag),
+            lines,
+            inline: !had_newline,
+        }
+    } else {
+        Raw {
+            lang: None,
+            lines: split_lines(raw),
+            inline: true,
+        }
+    }
 }
 
 /// Parse the lang tag and return it alongside the remaining inner raw text.
-fn split_after_lang_tag(raw: &str) -> (Option<Ident>, &str) {
-    let mut lang = String::new();
-
-    let mut inner = raw;
-    let mut iter = raw.chars();
-
-    while let Some(c) = iter.next() {
-        if c == '`' || c.is_whitespace() || is_newline_char(c) {
-            break;
-        }
-
-        inner = iter.as_str();
-        lang.push(c);
-    }
-
-    (Ident::new(lang), inner)
+fn split_at_lang_tag(raw: &str) -> (&str, &str) {
+    let mut p = CharParser::new(raw);
+    (
+        p.eat_until(|c| c == '`' || c.is_whitespace() || is_newline_char(c)),
+        p.rest(),
+    )
 }
 
 /// Trims raw text and splits it into lines.
@@ -117,18 +101,15 @@ fn trim_and_split_raw(raw: &str) -> (Vec<String>, bool) {
     (lines, had_newline)
 }
 
-/// Splits a string into a vector of lines (respecting Unicode & Windows line breaks).
+/// Splits a string into a vector of lines (respecting Unicode & Windows line
+/// breaks).
 pub fn split_lines(text: &str) -> Vec<String> {
-    let mut iter = text.chars().peekable();
+    let mut p = CharParser::new(text);
     let mut line = String::new();
     let mut lines = Vec::new();
 
-    while let Some(c) = iter.next() {
+    while let Some(c) = p.eat_merging_crlf() {
         if is_newline_char(c) {
-            if c == '\r' && iter.peek() == Some(&'\n') {
-                iter.next();
-            }
-
             lines.push(std::mem::take(&mut line));
         } else {
             line.push(c);
@@ -139,11 +120,6 @@ pub fn split_lines(text: &str) -> Vec<String> {
     lines
 }
 
-/// Converts a hexademical sequence (without braces or "\u") into a character.
-pub fn hex_to_char(sequence: &str) -> Option<char> {
-    u32::from_str_radix(sequence, 16).ok().and_then(std::char::from_u32)
-}
-
 #[cfg(test)]
 #[rustfmt::skip]
 mod tests {
@@ -152,7 +128,7 @@ mod tests {
     #[test]
     fn test_unescape_strings() {
         fn test(string: &str, expected: &str) {
-            assert_eq!(unescape_string(string), expected.to_string());
+            assert_eq!(resolve_string(string), expected.to_string());
         }
 
         test(r#"hello world"#,  "hello world");
@@ -170,19 +146,17 @@ mod tests {
     }
 
     #[test]
-    fn test_split_after_lang_tag() {
-        fn test(raw: &str, lang: Option<&str>, inner: &str) {
-            let (found_lang, found_inner) = split_after_lang_tag(raw);
-            assert_eq!(found_lang.as_ref().map(|id| id.as_str()), lang);
-            assert_eq!(found_inner, inner);
+    fn test_split_at_lang_tag() {
+        fn test(raw: &str, lang: &str, inner: &str) {
+            assert_eq!(split_at_lang_tag(raw), (lang, inner));
         }
 
-        test("typst it!",   Some("typst"), " it!");
-        test("typst\n it!", Some("typst"), "\n it!");
-        test("typst\n it!", Some("typst"), "\n it!");
-        test("abc`",        Some("abc"),   "`");
-        test(" hi",         None,          " hi");
-        test("`",           None,          "`");
+        test("typst it!",   "typst", " it!");
+        test("typst\n it!", "typst", "\n it!");
+        test("typst\n it!", "typst", "\n it!");
+        test("abc`",        "abc",   "`");
+        test(" hi",         "",      " hi");
+        test("`",           "",      "`");
     }
 
     #[test]

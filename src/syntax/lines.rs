@@ -3,7 +3,7 @@
 use std::fmt::{self, Debug, Display, Formatter};
 
 use super::Pos;
-use crate::parse::is_newline_char;
+use crate::parse::{is_newline_char, CharParser};
 
 /// Enables conversion of byte position to locations.
 pub struct LineMap<'s> {
@@ -15,17 +15,11 @@ impl<'s> LineMap<'s> {
     /// Create a new line map for a source string.
     pub fn new(src: &'s str) -> Self {
         let mut line_starts = vec![Pos::ZERO];
-        let mut iter = src.char_indices().peekable();
+        let mut p = CharParser::new(src);
 
-        while let Some((mut i, c)) = iter.next() {
+        while let Some(c) = p.eat_merging_crlf() {
             if is_newline_char(c) {
-                i += c.len_utf8();
-                if c == '\r' && matches!(iter.peek(), Some((_, '\n'))) {
-                    i += '\n'.len_utf8();
-                    iter.next();
-                }
-
-                line_starts.push(Pos(i as u32));
+                line_starts.push(p.index().into());
             }
         }
 
