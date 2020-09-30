@@ -14,12 +14,6 @@ thread_local! {
     static CMP_SPANS: Cell<bool> = Cell::new(true);
 }
 
-/// When set to `false` comparisons with `PartialEq` ignore spans.
-#[cfg(test)]
-pub(crate) fn set_cmp(cmp: bool) {
-    CMP_SPANS.with(|cell| cell.set(cmp));
-}
-
 /// Span offsetting.
 pub trait Offset {
     /// Offset all spans contained in `Self` by the given position.
@@ -131,6 +125,12 @@ impl Span {
     /// Expand a span by merging it with another span.
     pub fn expand(&mut self, other: Self) {
         *self = Self::merge(*self, other)
+    }
+
+    /// When set to `false` comparisons with `PartialEq` ignore spans.
+    #[cfg(test)]
+    pub(crate) fn set_cmp(cmp: bool) {
+        CMP_SPANS.with(|cell| cell.set(cmp));
     }
 }
 

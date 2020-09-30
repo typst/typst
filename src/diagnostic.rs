@@ -7,7 +7,7 @@
 #[cfg(feature = "serialize")]
 use serde::Serialize;
 
-use crate::syntax::span::SpanVec;
+use crate::syntax::SpanVec;
 
 /// A list of spanned diagnostics.
 pub type Diagnostics = SpanVec<Diagnostic>;
@@ -42,7 +42,7 @@ impl Diagnostic {
 ///
 /// ```
 /// # use typstc::error;
-/// # use typstc::syntax::span::Span;
+/// # use typstc::syntax::Span;
 /// # use typstc::Feedback;
 /// # let span = Span::ZERO;
 /// # let mut feedback = Feedback::new();
@@ -87,7 +87,7 @@ macro_rules! __impl_diagnostic {
     };
 
     ($level:expr; $span:expr, $fmt:literal $($tts:tt)*) => {
-        $crate::syntax::span::Spanned::new(
+        $crate::syntax::Spanned::new(
             $crate::__impl_diagnostic!($level; $fmt $($tts)*),
             $span,
         )

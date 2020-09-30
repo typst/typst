@@ -2,9 +2,9 @@
 //!
 //! # Steps
 //! - **Parsing:** The parsing step first transforms a plain string into an
-//!   [iterator of tokens][tokens]. Then, a parser constructs a syntax tree from
-//!   the token stream. The structures describing the tree can be found in the
-//!   [syntax] module.
+//!   [iterator of tokens][tokens]. Then, a [parser] constructs a syntax tree
+//!   from the token stream. The structures describing the tree can be found in
+//!   the [syntax] module.
 //! - **Layouting:** The next step is to transform the syntax tree into a
 //!   portable representation of the typesetted document. Types for these can be
 //!   found in the [layout] module. A finished layout ready for exporting is a
@@ -13,7 +13,8 @@
 //!   format. Submodules for these formats are located in the [export] module.
 //!   Currently, the only supported output format is [_PDF_].
 //!
-//! [tokens]: syntax/tokens/struct.Tokens.html
+//! [tokens]: parse/struct.Tokens.html
+//! [parser]: parse/fn.parse.html
 //! [syntax]: syntax/index.html
 //! [layout]: layout/index.html
 //! [export]: export/index.html
@@ -34,6 +35,7 @@ pub mod layout;
 pub mod length;
 pub mod library;
 pub mod paper;
+pub mod parse;
 pub mod prelude;
 pub mod style;
 pub mod syntax;
@@ -48,10 +50,7 @@ use crate::diagnostic::Diagnostics;
 use crate::font::SharedFontLoader;
 use crate::layout::{Commands, MultiLayout};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
-use crate::syntax::decoration::Decorations;
-use crate::syntax::parsing::parse;
-use crate::syntax::span::{Offset, Pos};
-use crate::syntax::tree::SyntaxTree;
+use crate::syntax::{Decorations, Offset, Pos, SyntaxTree};
 
 /// Transforms source code into typesetted layouts.
 ///
@@ -87,7 +86,7 @@ impl Typesetter {
 
     /// Parse source code into a syntax tree.
     pub fn parse(&self, src: &str) -> Pass<SyntaxTree> {
-        parse(src)
+        parse::parse(src)
     }
 
     /// Layout a syntax tree and return the produced layout.

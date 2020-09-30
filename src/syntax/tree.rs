@@ -4,12 +4,12 @@ use std::fmt::{self, Debug, Formatter};
 
 use super::decoration::Decoration;
 use super::span::{SpanVec, Spanned};
-use super::tokens::is_identifier;
 use crate::color::RgbaColor;
 use crate::compute::table::{SpannedEntry, Table};
 use crate::compute::value::{TableValue, Value};
 use crate::layout::LayoutContext;
 use crate::length::Length;
+use crate::parse::is_identifier;
 use crate::{DynFuture, Feedback};
 
 /// A collection of nodes which form a tree together with the nodes' children.

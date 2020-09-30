@@ -4,9 +4,9 @@ use super::line::{LineContext, LineLayouter};
 use super::text::{layout_text, TextContext};
 use super::*;
 use crate::style::LayoutStyle;
-use crate::syntax::decoration::Decoration;
-use crate::syntax::span::{Span, Spanned};
-use crate::syntax::tree::{CallExpr, Code, Heading, SyntaxNode, SyntaxTree};
+use crate::syntax::{
+    CallExpr, Code, Decoration, Heading, Span, Spanned, SyntaxNode, SyntaxTree,
+};
 use crate::{DynFuture, Feedback, Pass};
 
 /// Layout a syntax tree into a collection of boxes.

@@ -1,16 +1,16 @@
 #![allow(non_snake_case)]
 
+use std::fmt::Debug;
+
 use super::parse;
 use crate::color::RgbaColor;
 use crate::compute::table::SpannedEntry;
 use crate::length::Length;
-use crate::syntax::decoration::Decoration::*;
-use crate::syntax::span::Spanned;
-use crate::syntax::tests::*;
-use crate::syntax::tree::*;
+use crate::syntax::*;
 
 // ------------------------------ Construct Syntax Nodes ------------------------------ //
 
+use Decoration::*;
 use SyntaxNode::{
     Linebreak as L, Parbreak as P, Spacing as S, ToggleBolder as B, ToggleItalic as I,
 };
@@ -159,6 +159,42 @@ macro_rules! d {
         let pass = parse($src);
         check($src, exp, pass.feedback.decorations, true);
     };
+}
+
+/// Assert that expected and found are equal, printing both and panicking
+/// and the source of their test case if they aren't.
+///
+/// When `cmp_spans` is false, spans are ignored.
+pub fn check<T>(src: &str, exp: T, found: T, cmp_spans: bool)
+where
+    T: Debug + PartialEq,
+{
+    Span::set_cmp(cmp_spans);
+    let equal = exp == found;
+    Span::set_cmp(true);
+
+    if !equal {
+        println!("source:   {:?}", src);
+        if cmp_spans {
+            println!("expected: {:#?}", exp);
+            println!("found:    {:#?}", found);
+        } else {
+            println!("expected: {:?}", exp);
+            println!("found:    {:?}", found);
+        }
+        panic!("test failed");
+    }
+}
+
+pub fn s<T>(sl: usize, sc: usize, el: usize, ec: usize, v: T) -> Spanned<T> {
+    Spanned::new(v, Span::new(Pos::new(sl, sc), Pos::new(el, ec)))
+}
+
+// Enables tests to optionally specify spans.
+impl<T> From<T> for Spanned<T> {
+    fn from(t: T) -> Self {
+        Spanned::zero(t)
+    }
 }
 
 // --------------------------------------- Tests -------------------------------------- //

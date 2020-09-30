@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Index;
 
-use crate::syntax::span::{Span, Spanned};
+use crate::syntax::{Span, Spanned};
 
 /// A table data structure, which maps from integers (`u64`) or strings to a
 /// generic value type.

@@ -1,12 +1,10 @@
 use std::str::FromStr;
 
 use super::escaping::*;
+use super::*;
 use crate::color::RgbaColor;
 use crate::compute::table::SpannedEntry;
-use crate::syntax::decoration::Decoration;
-use crate::syntax::span::{Pos, Span, Spanned};
-use crate::syntax::tokens::{Token, TokenMode, Tokens};
-use crate::syntax::tree::*;
+use crate::syntax::*;
 use crate::{Feedback, Pass};
 
 /// Parse a string of source code.

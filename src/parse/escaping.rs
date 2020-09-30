@@ -1,4 +1,4 @@
-use crate::syntax::tokens::is_newline_char;
+use super::is_newline_char;
 
 /// Resolves all escape sequences in a string.
 pub fn unescape_string(string: &str) -> String {

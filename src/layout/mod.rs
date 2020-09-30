@@ -25,7 +25,7 @@ use crate::compute::scope::Scope;
 use crate::font::SharedFontLoader;
 use crate::geom::{Margins, Size};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
-use crate::syntax::tree::SyntaxTree;
+use crate::syntax::SyntaxTree;
 
 use elements::LayoutElements;
 use prelude::*;
