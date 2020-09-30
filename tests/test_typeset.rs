@@ -7,13 +7,12 @@ use std::path::Path;
 use std::rc::Rc;
 
 use fontdock::fs::{FsIndex, FsProvider};
-use fontdock::FontLoader;
 use futures_executor::block_on;
 use raqote::{DrawTarget, PathBuilder, SolidSource, Source, Transform, Vector};
 use ttf_parser::OutlineBuilder;
 
 use typstc::export::pdf;
-use typstc::font::{DynProvider, SharedFontLoader};
+use typstc::font::{FontLoader, SharedFontLoader};
 use typstc::geom::{Size, Value4};
 use typstc::layout::elements::{LayoutElement, Shaped};
 use typstc::layout::MultiLayout;
@@ -60,13 +59,12 @@ fn main() {
     let mut index = FsIndex::new();
     index.search_dir(FONT_DIR);
 
-    let (descriptors, files) = index.clone().into_vecs();
-    let provider = FsProvider::new(files.clone());
-    let dynamic = Box::new(provider) as Box<DynProvider>;
-    let loader = FontLoader::new(dynamic, descriptors);
+    let (descriptors, files) = index.into_vecs();
+    let provider = FsProvider::new(files);
+    let loader = FontLoader::new(Box::new(provider), descriptors);
     let loader = Rc::new(RefCell::new(loader));
-    let mut typesetter = Typesetter::new(loader.clone());
 
+    let mut typesetter = Typesetter::new(loader.clone());
     typesetter.set_page_style(PageStyle {
         class: PaperClass::Custom,
         size: Size::with_all(Length::pt(250.0).as_raw()),
@@ -106,6 +104,8 @@ fn test(
         );
     }
 
+    let loader = loader.borrow();
+
     let png_path = format!("{}/{}.png", OUT_DIR, name);
     render(&layouts, &loader, 3.0).write_png(png_path).unwrap();
 
@@ -144,7 +144,7 @@ impl TestFilter {
     }
 }
 
-fn render(layouts: &MultiLayout, loader: &SharedFontLoader, scale: f64) -> DrawTarget {
+fn render(layouts: &MultiLayout, loader: &FontLoader, scale: f64) -> DrawTarget {
     let pad = scale * 10.0;
     let width = 2.0 * pad
         + layouts
@@ -191,13 +191,12 @@ fn render(layouts: &MultiLayout, loader: &SharedFontLoader, scale: f64) -> DrawT
 
 fn render_shaped(
     surface: &mut DrawTarget,
-    loader: &SharedFontLoader,
+    loader: &FontLoader,
     shaped: &Shaped,
     pos: Size,
     scale: f64,
 ) {
-    let loader = loader.borrow();
-    let face = loader.get_loaded(shaped.face);
+    let face = loader.get_loaded(shaped.face).get();
 
     for (&glyph, &offset) in shaped.glyphs.iter().zip(&shaped.offsets) {
         let mut builder = WrappedPathBuilder(PathBuilder::new());

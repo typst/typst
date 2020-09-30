@@ -3,10 +3,9 @@ use std::rc::Rc;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use fontdock::fs::{FsIndex, FsProvider};
-use fontdock::FontLoader;
 
-use typstc::font::DynProvider;
-use typstc::syntax::parsing::parse;
+use typstc::font::FontLoader;
+use typstc::parse::parse;
 use typstc::Typesetter;
 
 const FONT_DIR: &str = "fonts";
@@ -25,10 +24,9 @@ fn typesetting_benchmark(c: &mut Criterion) {
     let mut index = FsIndex::new();
     index.search_dir(FONT_DIR);
 
-    let (descriptors, files) = index.clone().into_vecs();
-    let provider = FsProvider::new(files.clone());
-    let dynamic = Box::new(provider) as Box<DynProvider>;
-    let loader = FontLoader::new(dynamic, descriptors);
+    let (descriptors, files) = index.into_vecs();
+    let provider = FsProvider::new(files);
+    let loader = FontLoader::new(Box::new(provider), descriptors);
     let loader = Rc::new(RefCell::new(loader));
     let typesetter = Typesetter::new(loader.clone());
 

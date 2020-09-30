@@ -9,7 +9,7 @@ use ttf_parser::GlyphId;
 
 use super::elements::{LayoutElement, Shaped};
 use super::*;
-use crate::font::SharedFontLoader;
+use crate::font::FontLoader;
 use crate::geom::Size;
 use crate::style::TextStyle;
 
@@ -30,11 +30,11 @@ struct TextLayouter<'a> {
 }
 
 /// The context for text layouting.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct TextContext<'a> {
     /// The font loader to retrieve fonts from when typesetting text with
     /// `layout_text`.
-    pub loader: &'a SharedFontLoader,
+    pub loader: &'a mut FontLoader,
     /// The style for text: Font selection with classes, weights and variants,
     /// font sizes, spacing and so on.
     pub style: &'a TextStyle,
@@ -50,12 +50,12 @@ pub struct TextContext<'a> {
 impl<'a> TextLayouter<'a> {
     fn new(text: &'a str, ctx: TextContext<'a>) -> Self {
         Self {
-            ctx,
             text,
             shaped: Shaped::new(FaceId::MAX, ctx.style.font_size()),
             elements: LayoutElements::new(),
             start: 0.0,
             width: 0.0,
+            ctx,
         }
     }
 
@@ -116,7 +116,6 @@ impl<'a> TextLayouter<'a> {
     }
 
     async fn select_font(&mut self, c: char) -> Option<(FaceId, GlyphId, f64)> {
-        let mut loader = self.ctx.loader.borrow_mut();
         let mut variant = self.ctx.style.variant;
 
         if self.ctx.style.bolder {
@@ -137,7 +136,9 @@ impl<'a> TextLayouter<'a> {
             c,
         };
 
-        if let Some((id, face)) = loader.query(query).await {
+        if let Some((id, owned_face)) = self.ctx.loader.query(query).await {
+            let face = owned_face.get();
+
             // Determine the width of the char.
             let units_per_em = face.units_per_em().unwrap_or(1000) as f64;
             let ratio = 1.0 / units_per_em;

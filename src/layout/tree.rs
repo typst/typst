@@ -107,7 +107,7 @@ impl<'a> TreeLayouter<'a> {
     async fn layout_text(&mut self, text: &str) {
         self.layouter.add(
             layout_text(text, TextContext {
-                loader: &self.ctx.loader,
+                loader: &mut self.ctx.loader.borrow_mut(),
                 style: &self.style.text,
                 dir: self.ctx.axes.primary,
                 align: self.ctx.align,

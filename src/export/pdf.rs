@@ -13,10 +13,10 @@ use tide::font::{
 use tide::{PdfWriter, Rect, Ref, Trailer, Version};
 use ttf_parser::{name_id, GlyphId};
 
+use crate::font::FontLoader;
 use crate::layout::elements::LayoutElement;
 use crate::layout::BoxLayout;
 use crate::length::Length;
-use crate::SharedFontLoader;
 
 /// Export a list of layouts into a _PDF_ document.
 ///
@@ -28,7 +28,7 @@ use crate::SharedFontLoader;
 /// bytes written.
 pub fn export<W: Write>(
     layout: &[BoxLayout],
-    loader: &SharedFontLoader,
+    loader: &FontLoader,
     target: W,
 ) -> io::Result<usize> {
     PdfExporter::new(layout, loader, target)?.write()
@@ -37,7 +37,7 @@ pub fn export<W: Write>(
 struct PdfExporter<'a, W: Write> {
     writer: PdfWriter<W>,
     layouts: &'a [BoxLayout],
-    loader: &'a SharedFontLoader,
+    loader: &'a FontLoader,
     /// We need to know exactly which indirect reference id will be used for
     /// which objects up-front to correctly declare the document catalogue, page
     /// tree and so on. These offsets are computed in the beginning and stored
@@ -61,7 +61,7 @@ const NUM_OBJECTS_PER_FONT: u32 = 5;
 impl<'a, W: Write> PdfExporter<'a, W> {
     fn new(
         layouts: &'a [BoxLayout],
-        loader: &'a SharedFontLoader,
+        loader: &'a FontLoader,
         target: W,
     ) -> io::Result<Self> {
         let (to_pdf, to_fontdock) = remap_fonts(layouts);
@@ -168,8 +168,8 @@ impl<'a, W: Write> PdfExporter<'a, W> {
         let mut id = self.offsets.fonts.0;
 
         for &face_id in &self.to_layout {
-            let loader = self.loader.borrow();
-            let face = loader.get_loaded(face_id);
+            let owned_face = self.loader.get_loaded(face_id);
+            let face = owned_face.get();
 
             let name = face
                 .names()
@@ -269,7 +269,7 @@ impl<'a, W: Write> PdfExporter<'a, W> {
                 .write_obj(id + 3, &CMap::new("Custom", system_info, mapping))?;
 
             // Write the face's bytes.
-            self.writer.write_obj(id + 4, &FontStream::new(face.data()))?;
+            self.writer.write_obj(id + 4, &FontStream::new(owned_face.data()))?;
 
             id += NUM_OBJECTS_PER_FONT;
         }

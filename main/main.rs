@@ -5,11 +5,10 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use fontdock::fs::{FsIndex, FsProvider};
-use fontdock::FontLoader;
 use futures_executor::block_on;
 
 use typstc::export::pdf;
-use typstc::font::DynProvider;
+use typstc::font::FontLoader;
 use typstc::Typesetter;
 
 fn main() {
@@ -37,9 +36,8 @@ fn main() {
     index.search_os();
 
     let (descriptors, files) = index.into_vecs();
-    let provider = FsProvider::new(files.clone());
-    let dynamic = Box::new(provider) as Box<DynProvider>;
-    let loader = FontLoader::new(dynamic, descriptors);
+    let provider = FsProvider::new(files);
+    let loader = FontLoader::new(Box::new(provider), descriptors);
     let loader = Rc::new(RefCell::new(loader));
 
     let typesetter = Typesetter::new(loader.clone());
@@ -62,8 +60,8 @@ fn main() {
         );
     }
 
+    let loader = loader.borrow();
     let file = File::create(&dest_path).expect("failed to create output file");
-
     let writer = BufWriter::new(file);
     pdf::export(&layouts, &loader, writer).expect("failed to export pdf");
 }
