@@ -46,11 +46,11 @@ use std::pin::Pin;
 
 use crate::compute::scope::Scope;
 use crate::compute::value::Value;
-use crate::diagnostic::Diagnostics;
+use crate::diagnostic::Diagnostic;
 use crate::font::SharedFontLoader;
 use crate::layout::{Commands, MultiLayout};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
-use crate::syntax::{Decorations, Offset, Pos, SyntaxTree};
+use crate::syntax::{Decoration, Offset, Pos, SpanVec, SyntaxTree};
 
 /// Transforms source code into typesetted layouts.
 ///
@@ -166,9 +166,9 @@ impl Pass<Value> {
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Feedback {
     /// Diagnostics about the source code.
-    pub diagnostics: Diagnostics,
+    pub diagnostics: SpanVec<Diagnostic>,
     /// Decorations of the source code for semantic syntax highlighting.
-    pub decorations: Decorations,
+    pub decorations: SpanVec<Decoration>,
 }
 
 impl Feedback {

@@ -2,8 +2,8 @@
 
 use std::fmt::{self, Debug, Formatter};
 
-use super::decoration::Decoration;
 use super::span::{SpanVec, Spanned};
+use super::Decoration;
 use crate::color::RgbaColor;
 use crate::compute::table::{SpannedEntry, Table};
 use crate::compute::value::{TableValue, Value};
