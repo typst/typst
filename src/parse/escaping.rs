@@ -7,50 +7,52 @@ pub fn unescape_string(string: &str) -> String {
     let mut out = String::with_capacity(string.len());
 
     while let Some(c) = iter.next() {
-        if c == '\\' {
-            match iter.next() {
-                Some('\\') => out.push('\\'),
-                Some('"') => out.push('"'),
-                Some('u') if iter.peek() == Some(&'{') => {
-                    iter.next();
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
 
-                    let mut sequence = String::new();
-                    let terminated = loop {
-                        match iter.peek() {
-                            // TODO: Feedback that closing brace is missing.
-                            Some('}') => {
-                                iter.next();
-                                break true;
-                            }
-                            Some(&c) if c.is_ascii_hexdigit() => {
-                                iter.next();
-                                sequence.push(c);
-                            }
-                            _ => break false,
+        match iter.next() {
+            Some('\\') => out.push('\\'),
+            Some('"') => out.push('"'),
+
+            Some('n') => out.push('\n'),
+            Some('t') => out.push('\t'),
+            Some('u') if iter.peek() == Some(&'{') => {
+                iter.next();
+
+                // TODO: Feedback if closing brace is missing.
+                let mut sequence = String::new();
+                let terminated = loop {
+                    match iter.peek() {
+                        Some('}') => {
+                            iter.next();
+                            break true;
                         }
-                    };
+                        Some(&c) if c.is_ascii_hexdigit() => {
+                            iter.next();
+                            sequence.push(c);
+                        }
+                        _ => break false,
+                    }
+                };
 
+                if let Some(c) = hex_to_char(&sequence) {
+                    out.push(c);
+                } else {
                     // TODO: Feedback that escape sequence is wrong.
-                    if let Some(c) = hex_to_char(&sequence) {
-                        out.push(c);
-                    } else {
-                        out.push_str("\\u{");
-                        out.push_str(&sequence);
-                        if terminated {
-                            out.push('}');
-                        }
+                    out.push_str("\\u{");
+                    out.push_str(&sequence);
+                    if terminated {
+                        out.push('}');
                     }
                 }
-                Some('n') => out.push('\n'),
-                Some('t') => out.push('\t'),
-                Some(c) => {
-                    out.push('\\');
-                    out.push(c);
-                }
-                None => out.push('\\'),
             }
-        } else {
-            out.push(c);
+
+            other => {
+                out.push('\\');
+                out.extend(other);
+            }
         }
     }
 
