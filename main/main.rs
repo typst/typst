@@ -9,7 +9,8 @@ use futures_executor::block_on;
 
 use typstc::export::pdf;
 use typstc::font::FontLoader;
-use typstc::Typesetter;
+use typstc::syntax::LineMap;
+use typstc::{Feedback, Pass, Typesetter};
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
@@ -41,23 +42,29 @@ fn main() {
     let loader = Rc::new(RefCell::new(loader));
 
     let typesetter = Typesetter::new(loader.clone());
-    let pass = block_on(typesetter.typeset(&src));
-    let layouts = pass.output;
+    let Pass {
+        output: layouts,
+        feedback: Feedback { mut diagnostics, .. },
+    } = block_on(typesetter.typeset(&src));
 
-    let mut feedback = pass.feedback;
-    feedback.diagnostics.sort();
-    for diagnostic in feedback.diagnostics {
-        let span = diagnostic.span;
-        println!(
-            "{}: {}:{}:{} - {}:{}: {}",
-            format!("{:?}", diagnostic.v.level).to_lowercase(),
-            src_path.display(),
-            span.start.line + 1,
-            span.start.column + 1,
-            span.end.line + 1,
-            span.end.column + 1,
-            diagnostic.v.message,
-        );
+    if !diagnostics.is_empty() {
+        diagnostics.sort();
+
+        let map = LineMap::new(&src);
+        for diagnostic in diagnostics {
+            let span = diagnostic.span;
+            let start = map.location(span.start);
+            let end = map.location(span.end);
+
+            println!(
+                "  {}: {}:{}-{}: {}",
+                diagnostic.v.level,
+                src_path.display(),
+                start,
+                end,
+                diagnostic.v.message,
+            );
+        }
     }
 
     let loader = loader.borrow();

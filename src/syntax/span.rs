@@ -1,7 +1,6 @@
 //! Mapping of values to the locations they originate from in source code.
 
 use std::fmt::{self, Debug, Formatter};
-use std::ops::{Add, Sub};
 
 #[cfg(test)]
 use std::cell::Cell;
@@ -9,12 +8,6 @@ use std::cell::Cell;
 #[cfg(test)]
 thread_local! {
     static CMP_SPANS: Cell<bool> = Cell::new(true);
-}
-
-/// Span offsetting.
-pub trait Offset {
-    /// Offset all spans contained in `Self` by the given position.
-    fn offset(self, by: Pos) -> Self;
 }
 
 /// Annotate a value with a span.
@@ -26,6 +19,12 @@ pub trait SpanWith: Sized {
 }
 
 impl<T> SpanWith for T {}
+
+/// Span offsetting.
+pub trait Offset {
+    /// Offset all spans contained in `Self` by the given position.
+    fn offset(self, by: Pos) -> Self;
+}
 
 /// A vector of spanned values of type `T`.
 pub type SpanVec<T> = Vec<Spanned<T>>;
@@ -112,13 +111,13 @@ impl Span {
     pub const ZERO: Self = Self { start: Pos::ZERO, end: Pos::ZERO };
 
     /// Create a new span from start and end positions.
-    pub fn new(start: Pos, end: Pos) -> Self {
-        Self { start, end }
+    pub fn new(start: impl Into<Pos>, end: impl Into<Pos>) -> Self {
+        Self { start: start.into(), end: end.into() }
     }
 
     /// Create a span including just a single position.
-    pub fn at(pos: Pos) -> Self {
-        Self { start: pos, end: pos }
+    pub fn at(pos: impl Into<Pos> + Copy) -> Self {
+        Self::new(pos, pos)
     }
 
     /// Create a new span with the earlier start and later end position.
@@ -169,70 +168,35 @@ impl Debug for Span {
     }
 }
 
-/// Zero-indexed line-column position in source code.
+/// A byte position.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
-pub struct Pos {
-    /// The zero-indexed line.
-    pub line: usize,
-    /// The zero-indexed column.
-    pub column: usize,
-}
+pub struct Pos(pub u32);
 
 impl Pos {
-    /// The line 0, column 0 position.
-    pub const ZERO: Self = Self { line: 0, column: 0 };
+    /// The zero position.
+    pub const ZERO: Self = Self(0);
 
-    /// Create a new position from line and column.
-    pub fn new(line: usize, column: usize) -> Self {
-        Self { line, column }
+    /// Convert to a usize for indexing.
+    pub fn to_usize(self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl From<u32> for Pos {
+    fn from(index: u32) -> Self {
+        Self(index)
     }
 }
 
 impl Offset for Pos {
     fn offset(self, by: Self) -> Self {
-        by + self
-    }
-}
-
-impl Add for Pos {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self {
-        if rhs.line == 0 {
-            Self {
-                line: self.line,
-                column: self.column + rhs.column,
-            }
-        } else {
-            Self {
-                line: self.line + rhs.line,
-                column: rhs.column,
-            }
-        }
-    }
-}
-
-impl Sub for Pos {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self {
-        if self.line == rhs.line {
-            Self {
-                line: 0,
-                column: self.column - rhs.column,
-            }
-        } else {
-            Self {
-                line: self.line - rhs.line,
-                column: self.column,
-            }
-        }
+        Pos(self.0 + by.0)
     }
 }
 
 impl Debug for Pos {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}:{}", self.line, self.column)
+        self.0.fmt(f)
     }
 }

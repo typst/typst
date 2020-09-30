@@ -4,6 +4,8 @@
 //! layout on a best effort process, generating diagnostics for incorrect
 //! things.
 
+use std::fmt::{self, Display, Formatter};
+
 /// A diagnostic that arose in parsing or layouting.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
@@ -27,6 +29,15 @@ impl Diagnostic {
     /// Create a new diagnostic from message and level.
     pub fn new(message: impl Into<String>, level: Level) -> Self {
         Self { message: message.into(), level }
+    }
+}
+
+impl Display for Level {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(match self {
+            Self::Warning => "warning",
+            Self::Error => "error",
+        })
     }
 }
 

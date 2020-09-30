@@ -1,9 +1,11 @@
 //! Syntax types.
 
+mod lines;
 mod span;
 mod token;
 mod tree;
 
+pub use lines::*;
 pub use span::*;
 pub use token::*;
 pub use tree::*;

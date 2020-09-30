@@ -17,7 +17,6 @@ pub struct Tokens<'s> {
     iter: Peekable<Chars<'s>>,
     mode: TokenMode,
     stack: Vec<TokenMode>,
-    pos: Pos,
     index: usize,
 }
 
@@ -38,7 +37,6 @@ impl<'s> Tokens<'s> {
             iter: src.chars().peekable(),
             mode,
             stack: vec![],
-            pos: Pos::ZERO,
             index: 0,
         }
     }
@@ -55,16 +53,10 @@ impl<'s> Tokens<'s> {
         self.mode = self.stack.pop().expect("no pushed mode");
     }
 
-    /// The index in the string at which the last token ends and next token will
-    /// start.
-    pub fn index(&self) -> usize {
-        self.index
-    }
-
-    /// The line-colunn position in the source at which the last token ends and
-    /// next token will start.
+    /// The position in the string at which the last token ends and next token
+    /// will start.
     pub fn pos(&self) -> Pos {
-        self.pos
+        Pos(self.index as u32)
     }
 }
 
@@ -86,7 +78,7 @@ impl<'s> Iterator for Tokens<'s> {
             }
 
             // Whitespace.
-            c if c.is_whitespace() => self.read_whitespace(start),
+            c if c.is_whitespace() => self.read_whitespace(c),
 
             // Functions and blocks.
             '[' => LeftBracket,
@@ -160,9 +152,8 @@ impl<'s> Iterator for Tokens<'s> {
         };
 
         let end = self.pos();
-        let span = Span { start, end };
 
-        Some(Spanned { v: token, span })
+        Some(token.span_with(Span::new(start, end)))
     }
 }
 
@@ -210,11 +201,28 @@ impl<'s> Tokens<'s> {
         Chain
     }
 
-    fn read_whitespace(&mut self, start: Pos) -> Token<'s> {
-        self.read_string_until(false, 0, 0, |n| !n.is_whitespace());
-        let end = self.pos();
+    fn read_whitespace(&mut self, mut c: char) -> Token<'s> {
+        let mut newlines = 0;
 
-        Space(end.line - start.line)
+        loop {
+            if is_newline_char(c) {
+                if c == '\r' && self.peek() == Some('\n') {
+                    self.eat();
+                }
+
+                newlines += 1;
+            }
+
+            match self.peek() {
+                Some(n) if n.is_whitespace() => {
+                    self.eat();
+                    c = n;
+                }
+                _ => break,
+            }
+        }
+
+        Space(newlines)
     }
 
     fn read_string(&mut self) -> Token<'s> {
@@ -257,7 +265,7 @@ impl<'s> Tokens<'s> {
                 }
             }
 
-            let start = self.index();
+            let start = self.index;
             let mut backticks = 0u32;
 
             while backticks < 3 {
@@ -273,7 +281,7 @@ impl<'s> Tokens<'s> {
             }
 
             let terminated = backticks == 3;
-            let end = self.index() - if terminated { 3 } else { 0 };
+            let end = self.index - if terminated { 3 } else { 0 };
 
             Code {
                 lang,
@@ -325,7 +333,7 @@ impl<'s> Tokens<'s> {
                 }
             }
             Some(c) if is_escapable(c) => {
-                let index = self.index();
+                let index = self.index;
                 self.eat();
                 Text(&self.src[index .. index + c.len_utf8()])
             }
@@ -369,7 +377,7 @@ impl<'s> Tokens<'s> {
         offset_end: isize,
         mut f: impl FnMut(char) -> bool,
     ) -> (&'s str, bool) {
-        let start = ((self.index() as isize) + offset_start) as usize;
+        let start = ((self.index as isize) + offset_start) as usize;
         let mut matched = false;
 
         while let Some(c) = self.peek() {
@@ -384,7 +392,7 @@ impl<'s> Tokens<'s> {
             self.eat();
         }
 
-        let mut end = self.index();
+        let mut end = self.index;
         if matched {
             end = ((end as isize) + offset_end) as usize;
         }
@@ -395,14 +403,6 @@ impl<'s> Tokens<'s> {
     fn eat(&mut self) -> Option<char> {
         let c = self.iter.next()?;
         self.index += c.len_utf8();
-
-        if is_newline_char(c) && !(c == '\r' && self.peek() == Some('\n')) {
-            self.pos.line += 1;
-            self.pos.column = 0;
-        } else {
-            self.pos.column += 1;
-        }
-
         Some(c)
     }
 
@@ -615,25 +615,25 @@ mod tests {
 
     #[test]
     fn tokenize_unescapable_symbols() {
-        t!(Body, r"\a"     => T("\\"), T("a"));
-        t!(Body, r"\:"     => T(r"\"), T(":"));
-        t!(Body, r"\="     => T(r"\"), T("="));
-        t!(Body, r"\u{2GA4"=> UE("2", false), T("GA4"));
-        t!(Body, r"\u{ "   => UE("", false), Space(0));
-        t!(Body, r"\u"     => T(r"\u"));
-        t!(Header, r"\\\\" => Invalid(r"\\\\"));
-        t!(Header, r"\a"   => Invalid(r"\a"));
-        t!(Header, r"\:"   => Invalid(r"\"), Colon);
-        t!(Header, r"\="   => Invalid(r"\"), Equals);
-        t!(Header, r"\,"   => Invalid(r"\"), Comma);
+        t!(Body, r"\a"      => T("\\"), T("a"));
+        t!(Body, r"\:"      => T(r"\"), T(":"));
+        t!(Body, r"\="      => T(r"\"), T("="));
+        t!(Body, r"\u{2GA4" => UE("2", false), T("GA4"));
+        t!(Body, r"\u{ "    => UE("", false), Space(0));
+        t!(Body, r"\u"      => T(r"\u"));
+        t!(Header, r"\\\\"  => Invalid(r"\\\\"));
+        t!(Header, r"\a"    => Invalid(r"\a"));
+        t!(Header, r"\:"    => Invalid(r"\"), Colon);
+        t!(Header, r"\="    => Invalid(r"\"), Equals);
+        t!(Header, r"\,"    => Invalid(r"\"), Comma);
     }
 
     #[test]
     fn tokenize_with_spans() {
-        ts!(Body, "hello"          => s(0,0, 0,5, T("hello")));
-        ts!(Body, "ab\r\nc"        => s(0,0, 0,2, T("ab")), s(0,2, 1,0, S(1)), s(1,0, 1,1, T("c")));
-        ts!(Body, "// ab\r\n\nf"   => s(0,0, 0,5, LC(" ab")), s(0,5, 2,0, S(2)), s(2,0, 2,1, T("f")));
-        ts!(Body, "/*b*/_"         => s(0,0, 0,5, BC("b")), s(0,5, 0,6, Underscore));
-        ts!(Header, "a=10"         => s(0,0, 0,1, Id("a")), s(0,1, 0,2, Equals), s(0,2, 0,4, Num(10.0)));
+        ts!(Body, "hello"        => s(0, 5, T("hello")));
+        ts!(Body, "ab\r\nc"      => s(0, 2, T("ab")), s(2, 4, S(1)), s(4, 5, T("c")));
+        ts!(Body, "// ab\r\n\nf" => s(0, 5, LC(" ab")), s(5, 8, S(2)), s(8, 9, T("f")));
+        ts!(Body, "/*b*/_"       => s(0, 5, BC("b")), s(5, 6, Underscore));
+        ts!(Header, "a=10"       => s(0, 1, Id("a")), s(1, 2, Equals), s(2, 4, Num(10.0)));
     }
 }
