@@ -1,3 +1,5 @@
+//! Parser tests.
+
 #![allow(non_snake_case)]
 
 use std::fmt::Debug;

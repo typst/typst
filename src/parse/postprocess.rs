@@ -1,3 +1,5 @@
+//! Post-processing of strings and raw blocks.
+
 use super::is_newline_char;
 use crate::syntax::{Ident, Raw};
 
