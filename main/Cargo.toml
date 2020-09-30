@@ -6,9 +6,5 @@ edition = "2018"
 
 [dependencies]
 typstc = { path = ".." }
-fontdock = { path = "../../fontdock", features = ["fs"] }
+fontdock = { path = "../../fontdock" }
 futures-executor = "0.3"
-
-[[bin]]
-name = "typstc-main"
-path = "main.rs"
