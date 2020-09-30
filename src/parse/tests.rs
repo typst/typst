@@ -29,24 +29,17 @@ macro_rules! H {
 }
 
 macro_rules! R {
-    ($($line:expr),* $(,)?) => {
-        SyntaxNode::Raw(vec![$($line.to_string()),*])
-    };
-}
-
-macro_rules! C {
-    ($lang:expr, $($line:expr),* $(,)?) => {{
-        let lines = vec![$($line.to_string()) ,*];
-        SyntaxNode::Code(Code {
+    ($lang:expr, $inline:expr, $($line:expr),* $(,)?) => {{
+        SyntaxNode::Raw(Raw {
             lang: $lang,
-            block: lines.len() > 1,
-            lines,
+            lines: vec![$($line.to_string()) ,*],
+            inline: $inline,
         })
     }};
 }
 
-fn Lang<'a, T: Into<Spanned<&'a str>>>(lang: T) -> Option<Spanned<Ident>> {
-    Some(Into::<Spanned<&str>>::into(lang).map(|s| Ident(s.to_string())))
+fn Lang(lang: &str) -> Option<Ident> {
+    Some(Ident(lang.to_string()))
 }
 
 macro_rules! F {
@@ -220,19 +213,7 @@ fn test_parse_simple_nodes() {
     t!("\\u{1f303}"     => T("🌃"));
     t!("\n\n\nhello"    => P, T("hello"));
     t!(r"a\ b"          => T("a"), L, S, T("b"));
-    t!("`py`"           => R!["py"]);
-    t!("`hi\nyou"       => R!["hi", "you"]);
-    e!("`hi\nyou"       => s(7, 7, "expected backtick"));
-    t!("`hi\\`du`"      => R!["hi`du"]);
 
-    ts!("```java out```" => s(0, 14, C![Lang(s(3, 7, "java")), "out"]));
-    t!("``` console.log(\n\"alert\"\n)" => C![None, "console.log(", "\"alert\"", ")"]);
-    t!("```typst \r\n Typst uses `\\`` to indicate code blocks" => C![
-        Lang("typst"), " Typst uses ``` to indicate code blocks"
-    ]);
-
-    e!("``` hi\nyou"      => s(10, 10, "expected backticks"));
-    e!("```🌍 hi\nyou```" => s(3, 7, "invalid identifier"));
     e!("\\u{d421c809}"    => s(0, 12, "invalid unicode escape sequence"));
     e!("\\u{abc"          => s(6, 6, "expected closing brace"));
     t!("💜\n\n 🌍"       => T("💜"), P, T("🌍"));
@@ -240,6 +221,33 @@ fn test_parse_simple_nodes() {
     ts!("hi"   => s(0, 2, T("hi")));
     ts!("*Hi*" => s(0, 1, B), s(1, 3, T("Hi")), s(3, 4, B));
     ts!("💜\n\n 🌍" => s(0, 4, T("💜")), s(4, 7, P), s(7, 11, T("🌍")));
+}
+
+#[test]
+fn test_parse_raw() {
+    t!("`py`"            => R![None, true, "py"]);
+    t!("`hi\nyou"        => R![None, true, "hi", "you"]);
+    t!(r"`` hi\`du``"    => R![None, true, r"hi\`du"]);
+
+    // More than one backtick with optional language tag.
+    t!("``` console.log(\n\"alert\"\n)" => R![None, false, "console.log(", "\"alert\"", ")"]);
+    t!("````typst \r\n Typst uses ``` to indicate code blocks````!"
+        => R![Lang("typst"), false, " Typst uses ``` to indicate code blocks"], T("!"));
+
+    // Trimming of whitespace.
+    t!("`` a ``"         => R![None, true, "a"]);
+    t!("`` a  ``"        => R![None, true, "a "]);
+    t!("`` ` ``"         => R![None, true, "`"]);
+    t!("```  `   ```"    => R![None, true, " `  "]);
+    t!("```  `   \n ```" => R![None, false, " `   "]);
+
+    // Errors.
+    e!("`hi\nyou"         => s(7, 7, "expected backtick(s)"));
+    e!("``` hi\nyou"      => s(10, 10, "expected backtick(s)"));
+
+    // TODO: Bring back when spans/errors are in place.
+    // ts!("``java out``" => s(0, 12, R![Lang(s(2, 6, "java")), true, "out"]));
+    // e!("```🌍 hi\nyou```" => s(3, 7, "invalid identifier"));
 }
 
 #[test]
@@ -348,7 +356,7 @@ fn test_parse_function_bodies() {
     e!(" [val][ */]"    => s(8, 10, "unexpected end of block comment"));
 
     // Raw in body.
-    t!("[val][`Hi]`" => F!("val"; Tree![R!["Hi]"]]));
+    t!("[val][`Hi]`" => F!("val"; Tree![R![None, true, "Hi]"]]));
     e!("[val][`Hi]`" => s(11, 11, "expected closing bracket"));
 
     // Crazy.

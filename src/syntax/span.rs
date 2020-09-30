@@ -189,6 +189,12 @@ impl From<u32> for Pos {
     }
 }
 
+impl From<usize> for Pos {
+    fn from(index: usize) -> Self {
+        Self(index as u32)
+    }
+}
+
 impl Offset for Pos {
     fn offset(self, by: Self) -> Self {
         Pos(self.0 + by.0)

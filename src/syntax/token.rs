@@ -1,6 +1,5 @@
 //! Tokenization.
 
-use super::span::Spanned;
 use crate::length::Length;
 
 /// A minimal semantic entity of source code.
@@ -86,21 +85,13 @@ pub enum Token<'s> {
         terminated: bool,
     },
 
-    /// Raw text.
+    /// Raw block.
     Raw {
-        /// The raw text (not yet unescaped as for strings).
+        /// The raw text between the backticks.
         raw: &'s str,
-        /// Whether the closing backtick was present.
-        terminated: bool,
-    },
-
-    /// Multi-line code block.
-    Code {
-        /// The language of the code block, if specified.
-        lang: Option<Spanned<&'s str>>,
-        /// The raw text (not yet unescaped as for strings).
-        raw: &'s str,
-        /// Whether the closing backticks were present.
+        /// The number of opening backticks.
+        backticks: usize,
+        /// Whether all closing backticks were present.
         terminated: bool,
     },
 
@@ -142,8 +133,7 @@ impl<'s> Token<'s> {
             Self::Backslash => "backslash",
             Self::Hashtag => "hashtag",
             Self::UnicodeEscape { .. } => "unicode escape sequence",
-            Self::Raw { .. } => "raw text",
-            Self::Code { .. } => "code block",
+            Self::Raw { .. } => "raw block",
             Self::Text(_) => "text",
             Self::Invalid("*/") => "end of block comment",
             Self::Invalid(_) => "invalid token",

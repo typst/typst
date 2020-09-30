@@ -99,35 +99,22 @@ impl Parser<'_> {
                 self.parse_heading().map(SyntaxNode::Heading)
             }
 
-            Token::Raw { raw, terminated } => {
+            Token::Raw { raw, backticks, terminated } => {
                 if !terminated {
-                    error!(@self.feedback, end, "expected backtick");
-                }
-                self.with_span(SyntaxNode::Raw(unescape_raw(raw)))
-            }
-
-            Token::Code { lang, raw, terminated } => {
-                if !terminated {
-                    error!(@self.feedback, end, "expected backticks");
+                    error!(@self.feedback, end, "expected backtick(s)");
                 }
 
-                let lang = lang.and_then(|lang| {
-                    if let Some(ident) = Ident::new(lang.v) {
-                        Some(ident.span_with(lang.span))
-                    } else {
-                        error!(@self.feedback, lang.span, "invalid identifier");
-                        None
+                let raw = if backticks > 1 {
+                    process_raw(raw)
+                } else {
+                    Raw {
+                        lang: None,
+                        lines: split_lines(raw),
+                        inline: true,
                     }
-                });
+                };
 
-                let mut lines = unescape_code(raw);
-                let block = lines.len() > 1;
-
-                if lines.last().map(|s| s.is_empty()).unwrap_or(false) {
-                    lines.pop();
-                }
-
-                self.with_span(SyntaxNode::Code(Code { lang, lines, block }))
+                self.with_span(SyntaxNode::Raw(raw))
             }
 
             Token::Text(text) => self.with_span(SyntaxNode::Text(text.to_string())),

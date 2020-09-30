@@ -56,7 +56,7 @@ impl<'s> Tokens<'s> {
     /// The position in the string at which the last token ends and next token
     /// will start.
     pub fn pos(&self) -> Pos {
-        Pos(self.index as u32)
+        self.index.into()
     }
 }
 
@@ -111,7 +111,7 @@ impl<'s> Iterator for Tokens<'s> {
 
             // Style toggles.
             '_' if self.mode == Body => Underscore,
-            '`' if self.mode == Body => self.read_raw_or_code(),
+            '`' if self.mode == Body => self.read_raw(),
 
             // Sections.
             '#' if self.mode == Body => Hashtag,
@@ -230,66 +230,31 @@ impl<'s> Tokens<'s> {
         Str { string, terminated }
     }
 
-    fn read_raw_or_code(&mut self) -> Token<'s> {
-        let (raw, terminated) = self.read_until_unescaped('`');
-        if raw.is_empty() && terminated && self.peek() == Some('`') {
-            // Third tick found; this is a code block.
+    fn read_raw(&mut self) -> Token<'s> {
+        let mut backticks = 1;
+        while self.peek() == Some('`') {
             self.eat();
+            backticks += 1;
+        }
 
-            // Reads the lang tag (until newline or whitespace).
-            let start = self.pos();
-            let (lang, _) = self.read_string_until(false, 0, 0, |c| {
-                c == '`' || c.is_whitespace() || is_newline_char(c)
-            });
-            let end = self.pos();
+        let start = self.index;
 
-            let lang = if !lang.is_empty() {
-                Some(lang.span_with(Span::new(start, end)))
-            } else {
-                None
-            };
-
-            // Skip to start of raw contents.
-            while let Some(c) = self.peek() {
-                if is_newline_char(c) {
-                    self.eat();
-                    if c == '\r' && self.peek() == Some('\n') {
-                        self.eat();
-                    }
-
-                    break;
-                } else if c.is_whitespace() {
-                    self.eat();
-                } else {
-                    break;
-                }
+        let mut found = 0;
+        while found < backticks {
+            match self.eat() {
+                Some('`') => found += 1,
+                Some(_) => found = 0,
+                None => break,
             }
+        }
 
-            let start = self.index;
-            let mut backticks = 0u32;
+        let terminated = found == backticks;
+        let end = self.index - if terminated { found } else { 0 };
 
-            while backticks < 3 {
-                match self.eat() {
-                    Some('`') => backticks += 1,
-                    // Escaping of triple backticks.
-                    Some('\\') if backticks == 1 && self.peek() == Some('`') => {
-                        backticks = 0;
-                    }
-                    Some(_) => {}
-                    None => break,
-                }
-            }
-
-            let terminated = backticks == 3;
-            let end = self.index - if terminated { 3 } else { 0 };
-
-            Code {
-                lang,
-                raw: &self.src[start .. end],
-                terminated,
-            }
-        } else {
-            Raw { raw, terminated }
+        Raw {
+            raw: &self.src[start .. end],
+            backticks,
+            terminated,
         }
     }
 
@@ -469,18 +434,8 @@ mod tests {
     fn Str(string: &str, terminated: bool) -> Token {
         Token::Str { string, terminated }
     }
-    fn Raw(raw: &str, terminated: bool) -> Token {
-        Token::Raw { raw, terminated }
-    }
-    fn Code<'a>(
-        lang: Option<Spanned<&'a str>>,
-        raw: &'a str,
-        terminated: bool,
-    ) -> Token<'a> {
-        Token::Code { lang, raw, terminated }
-    }
-    fn Lang<'a, T: Into<Spanned<&'a str>>>(lang: T) -> Option<Spanned<&'a str>> {
-        Some(Into::<Spanned<&str>>::into(lang))
+    fn Raw(raw: &str, backticks: usize, terminated: bool) -> Token {
+        Token::Raw { raw, backticks, terminated }
     }
     fn UE(sequence: &str, terminated: bool) -> Token {
         Token::UnicodeEscape { sequence, terminated }
@@ -535,18 +490,30 @@ mod tests {
         t!(Body, "***"           => Star, Star, Star);
         t!(Body, "[func]*bold*"  => L, T("func"), R, Star, T("bold"), Star);
         t!(Body, "hi_you_ there" => T("hi"), Underscore, T("you"), Underscore, S(0), T("there"));
-        t!(Body, "`raw`"         => Raw("raw", true));
         t!(Body, "# hi"          => Hashtag, S(0), T("hi"));
         t!(Body, "#()"           => Hashtag, T("()"));
-        t!(Body, "`[func]`"      => Raw("[func]", true));
-        t!(Body, "`]"            => Raw("]", false));
-        t!(Body, "\\ "           => Backslash, S(0));
-        t!(Body, "`\\``"         => Raw("\\`", true));
-        t!(Body, "``not code`"   => Raw("", true), T("not"), S(0), T("code"), Raw("", false));
-        t!(Body, "```rust hi```" => Code(Lang("rust"), "hi", true));
-        t!(Body, "``` hi`\\``"   => Code(None, "hi`\\``", false));
-        t!(Body, "```js   \r\n  document.write(\"go\")" => Code(Lang("js"), "  document.write(\"go\")", false));
         t!(Header, "_`"          => Invalid("_`"));
+    }
+
+    #[test]
+    fn test_tokenize_raw() {
+        // Basics.
+        t!(Body, "`raw`"    => Raw("raw", 1, true));
+        t!(Body, "`[func]`" => Raw("[func]", 1, true));
+        t!(Body, "`]"       => Raw("]", 1, false));
+        t!(Body, r"`\`` "   => Raw(r"\", 1, true), Raw(" ", 1, false));
+
+        // Language tag.
+        t!(Body, "``` hi```"     => Raw(" hi", 3, true));
+        t!(Body, "```rust hi```" => Raw("rust hi", 3, true));
+        t!(Body, r"``` hi\````"  => Raw(r" hi\", 3, true), Raw("", 1, false));
+        t!(Body, "``` not `y`e`t finished```" => Raw(" not `y`e`t finished", 3, true));
+        t!(Body, "```js   \r\n  document.write(\"go\")`"
+            => Raw("js   \r\n  document.write(\"go\")`", 3, false));
+
+        // More backticks.
+        t!(Body, "`````` ``````hi"  => Raw(" ", 6, true), T("hi"));
+        t!(Body, "````\n```js\nalert()\n```\n````" => Raw("\n```js\nalert()\n```\n", 4, true));
     }
 
     #[test]

@@ -5,7 +5,7 @@ use super::text::{layout_text, TextContext};
 use super::*;
 use crate::style::LayoutStyle;
 use crate::syntax::{
-    CallExpr, Code, Decoration, Heading, Span, SpanWith, Spanned, SyntaxNode, SyntaxTree,
+    CallExpr, Decoration, Heading, Raw, Span, SpanWith, Spanned, SyntaxNode, SyntaxTree,
 };
 use crate::{DynFuture, Feedback, Pass};
 
@@ -83,8 +83,7 @@ impl<'a> TreeLayouter<'a> {
 
             SyntaxNode::Heading(heading) => self.layout_heading(heading).await,
 
-            SyntaxNode::Raw(lines) => self.layout_raw(lines).await,
-            SyntaxNode::Code(block) => self.layout_code(block).await,
+            SyntaxNode::Raw(raw) => self.layout_raw(raw).await,
 
             SyntaxNode::Call(call) => {
                 self.layout_call(call.span_with(node.span)).await;
@@ -128,14 +127,18 @@ impl<'a> TreeLayouter<'a> {
         self.style.text = style;
     }
 
-    async fn layout_raw(&mut self, lines: &[String]) {
+    async fn layout_raw(&mut self, raw: &Raw) {
+        if !raw.inline {
+            self.layout_parbreak();
+        }
+
         // TODO: Make this more efficient.
         let fallback = self.style.text.fallback.clone();
         self.style.text.fallback.list.insert(0, "monospace".to_string());
         self.style.text.fallback.flatten();
 
         let mut first = true;
-        for line in lines {
+        for line in &raw.lines {
             if !first {
                 self.layouter.finish_line();
             }
@@ -144,17 +147,9 @@ impl<'a> TreeLayouter<'a> {
         }
 
         self.style.text.fallback = fallback;
-    }
 
-    async fn layout_code(&mut self, code: &Code) {
-        if code.block {
+        if !raw.inline {
             self.layout_parbreak();
-        }
-
-        self.layout_raw(&code.lines).await;
-
-        if code.block {
-            self.layout_parbreak()
         }
     }
 
