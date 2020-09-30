@@ -11,14 +11,15 @@ members = ["main"]
 opt-level = 2
 
 [dependencies]
-fontdock = { path = "../fontdock" }
+fontdock = { path = "../fontdock", default-features = false }
 tide = { path = "../tide" }
 ttf-parser = "0.8.2"
 unicode-xid = "0.2"
 serde = { version = "1", features = ["derive"], optional = true }
 
 [features]
-serialize = []
+default = ["serialize", "fs"]
+serialize = ["serde"]
 fs = ["fontdock/fs"]
 
 [dev-dependencies]
