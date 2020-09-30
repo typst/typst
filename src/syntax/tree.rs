@@ -2,7 +2,7 @@
 
 use std::fmt::{self, Debug, Formatter};
 
-use super::span::{SpanVec, Spanned};
+use super::span::{SpanVec, SpanWith, Spanned};
 use super::Decoration;
 use crate::color::RgbaColor;
 use crate::compute::table::{SpannedEntry, Table};
@@ -203,7 +203,7 @@ impl TableExpr {
 
             for (key, entry) in self.iter() {
                 let val = entry.val.v.eval(ctx, f).await;
-                let spanned = Spanned::new(val, entry.val.span);
+                let spanned = val.span_with(entry.val.span);
                 let entry = SpannedEntry::new(entry.key, spanned);
                 table.insert(key, entry);
             }
@@ -230,12 +230,12 @@ impl CallExpr {
         if let Some(func) = ctx.scope.func(name) {
             let pass = func(span, args, ctx.clone()).await;
             f.extend(pass.feedback);
-            f.decorations.push(Spanned::new(Decoration::Resolved, span));
+            f.decorations.push(Decoration::Resolved.span_with(span));
             pass.output
         } else {
             if !name.is_empty() {
                 error!(@f, span, "unknown function");
-                f.decorations.push(Spanned::new(Decoration::Unresolved, span));
+                f.decorations.push(Decoration::Unresolved.span_with(span));
             }
             Value::Table(args)
         }

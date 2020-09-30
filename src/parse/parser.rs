@@ -113,7 +113,7 @@ impl Parser<'_> {
 
                 let lang = lang.and_then(|lang| {
                     if let Some(ident) = Ident::new(lang.v) {
-                        Some(Spanned::new(ident, lang.span))
+                        Some(ident.span_with(lang.span))
                     } else {
                         error!(@self.feedback, lang.span, "invalid identifier");
                         None
@@ -166,7 +166,7 @@ impl Parser<'_> {
         }
 
         let span = Span::new(start, self.pos());
-        let level = Spanned::new(level, span);
+        let level = level.span_with(span);
 
         if level.v > 5 {
             warning!(
@@ -185,7 +185,7 @@ impl Parser<'_> {
         }
 
         let span = Span::new(start, self.pos());
-        Spanned::new(Heading { level, tree }, span)
+        Heading { level, tree }.span_with(span)
     }
 }
 
@@ -203,7 +203,7 @@ impl Parser<'_> {
         self.skip_ws();
         let name = self.parse_ident().unwrap_or_else(|| {
             self.expected_found_or_at("function name", before_name);
-            Spanned::new(Ident(String::new()), Span::at(before_name))
+            Ident(String::new()).span_with(Span::at(before_name))
         });
 
         self.skip_ws();
@@ -224,7 +224,7 @@ impl Parser<'_> {
             let item = self.parse_bracket_call(true);
             let span = item.span;
             let t = vec![item.map(SyntaxNode::Call)];
-            args.push(SpannedEntry::val(Spanned::new(Expr::Tree(t), span)));
+            args.push(SpannedEntry::val(Expr::Tree(t).span_with(span)));
             (true, span.end)
         } else {
             self.tokens.pop_mode();
@@ -244,11 +244,11 @@ impl Parser<'_> {
             let body_span = self.end_group();
 
             let expr = Expr::Tree(body);
-            args.push(SpannedEntry::val(Spanned::new(expr, body_span)));
+            args.push(SpannedEntry::val(expr.span_with(body_span)));
             span.expand(body_span);
         }
 
-        Spanned::new(CallExpr { name, args }, span)
+        CallExpr { name, args }.span_with(span)
     }
 
     fn parse_paren_call(&mut self, name: Spanned<Ident>) -> Spanned<CallExpr> {
@@ -256,7 +256,7 @@ impl Parser<'_> {
         let args = self.parse_table_contents().0;
         let args_span = self.end_group();
         let span = Span::merge(name.span, args_span);
-        Spanned::new(CallExpr { name, args }, span)
+        CallExpr { name, args }.span_with(span)
     }
 }
 
@@ -305,7 +305,7 @@ impl Parser<'_> {
                 table.insert(key.v.0, SpannedEntry::new(key.span, val));
                 self.feedback
                     .decorations
-                    .push(Spanned::new(Decoration::TableKey, key.span));
+                    .push(Decoration::TableKey.span_with(key.span));
             } else {
                 table.push(SpannedEntry::val(val));
             }
@@ -364,7 +364,7 @@ impl Parser<'_> {
                 if let Some(right) = parse_operand(self) {
                     let span = Span::merge(left.span, right.span);
                     let v = op(Box::new(left), Box::new(right));
-                    left = Spanned::new(v, span);
+                    left = v.span_with(span);
                     self.skip_ws();
                     continue;
                 }
@@ -385,7 +385,7 @@ impl Parser<'_> {
             self.skip_ws();
             if let Some(factor) = self.parse_factor() {
                 let span = Span::merge(hyph.span, factor.span);
-                Some(Spanned::new(Expr::Neg(Box::new(factor)), span))
+                Some(Expr::Neg(Box::new(factor)).span_with(span))
             } else {
                 error!(@self.feedback, hyph.span, "dangling minus");
                 None
@@ -400,7 +400,7 @@ impl Parser<'_> {
         Some(match token {
             // This could be a function call or an identifier.
             Token::Ident(id) => {
-                let name = Spanned::new(Ident(id.to_string()), span);
+                let name = Ident(id.to_string()).span_with(span);
                 self.eat();
                 self.skip_ws();
                 if self.check(Token::LeftParen) {
@@ -445,7 +445,7 @@ impl Parser<'_> {
                     Expr::Table(table)
                 };
 
-                Spanned::new(expr, span)
+                expr.span_with(span)
             }
 
             // This is a content expression.
@@ -457,14 +457,14 @@ impl Parser<'_> {
 
                 self.tokens.pop_mode();
                 let span = self.end_group();
-                Spanned::new(Expr::Tree(tree), span)
+                Expr::Tree(tree).span_with(span)
             }
 
             // This is a bracketed function call.
             Token::LeftBracket => {
                 let call = self.parse_bracket_call(false);
                 let tree = vec![call.map(SyntaxNode::Call)];
-                Spanned::new(Expr::Tree(tree), span)
+                Expr::Tree(tree).span_with(span)
             }
 
             _ => return None,
@@ -587,7 +587,7 @@ impl<'s> Parser<'s> {
 
     fn with_span<T>(&mut self, v: T) -> Spanned<T> {
         let span = self.eat().expect("expected token").span;
-        Spanned::new(v, span)
+        v.span_with(span)
     }
 
     fn eof(&mut self) -> bool {

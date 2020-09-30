@@ -17,6 +17,16 @@ pub trait Offset {
     fn offset(self, by: Pos) -> Self;
 }
 
+/// Annotate a value with a span.
+pub trait SpanWith: Sized {
+    /// Wraps `self` in a `Spanned` with the given span.
+    fn span_with(self, span: Span) -> Spanned<Self> {
+        Spanned::new(self, span)
+    }
+}
+
+impl<T> SpanWith for T {}
+
 /// A vector of spanned values of type `T`.
 pub type SpanVec<T> = Vec<Spanned<T>>;
 

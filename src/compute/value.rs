@@ -11,7 +11,7 @@ use crate::color::RgbaColor;
 use crate::layout::{Command, Commands, Dir, LayoutContext, SpecAlign};
 use crate::length::{Length, ScaleLength};
 use crate::paper::Paper;
-use crate::syntax::{Ident, Span, Spanned, SyntaxNode, SyntaxTree};
+use crate::syntax::{Ident, Span, SpanWith, Spanned, SyntaxNode, SyntaxTree};
 use crate::{DynFuture, Feedback, Pass};
 
 /// A computational value.
@@ -76,10 +76,8 @@ impl Spanned<Value> {
                 for entry in table.into_values() {
                     if let Some(last_end) = end {
                         let span = Span::new(last_end, entry.key.start);
-                        commands.push(Command::LayoutSyntaxTree(vec![Spanned::new(
-                            SyntaxNode::Spacing,
-                            span,
-                        )]));
+                        let tree = vec![SyntaxNode::Spacing.span_with(span)];
+                        commands.push(Command::LayoutSyntaxTree(tree));
                     }
 
                     end = Some(entry.val.span.end);
@@ -89,10 +87,11 @@ impl Spanned<Value> {
             }
 
             // Format with debug.
-            val => vec![Command::LayoutSyntaxTree(vec![Spanned::new(
-                SyntaxNode::Text(format!("{:?}", val)),
-                self.span,
-            )])],
+            val => {
+                let fmt = format!("{:?}", val);
+                let tree = vec![SyntaxNode::Text(fmt).span_with(self.span)];
+                vec![Command::LayoutSyntaxTree(tree)]
+            }
         }
     }
 }

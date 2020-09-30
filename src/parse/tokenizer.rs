@@ -5,7 +5,7 @@ use std::str::Chars;
 use unicode_xid::UnicodeXID;
 
 use crate::length::Length;
-use crate::syntax::{Pos, Span, Spanned, Token};
+use crate::syntax::{Pos, Span, SpanWith, Spanned, Token};
 
 use Token::*;
 use TokenMode::*;
@@ -236,7 +236,7 @@ impl<'s> Tokens<'s> {
             let end = self.pos();
 
             let lang = if !lang.is_empty() {
-                Some(Spanned::new(lang, Span::new(start, end)))
+                Some(lang.span_with(Span::new(start, end)))
             } else {
                 None
             };

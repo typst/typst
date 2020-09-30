@@ -5,7 +5,7 @@ use super::text::{layout_text, TextContext};
 use super::*;
 use crate::style::LayoutStyle;
 use crate::syntax::{
-    CallExpr, Code, Decoration, Heading, Span, Spanned, SyntaxNode, SyntaxTree,
+    CallExpr, Code, Decoration, Heading, Span, SpanWith, Spanned, SyntaxNode, SyntaxTree,
 };
 use crate::{DynFuture, Feedback, Pass};
 
@@ -53,8 +53,8 @@ impl<'a> TreeLayouter<'a> {
     }
 
     async fn layout_node(&mut self, node: &Spanned<SyntaxNode>) {
-        let decorate = |this: &mut Self, deco| {
-            this.feedback.decorations.push(Spanned::new(deco, node.span));
+        let decorate = |this: &mut Self, deco: Decoration| {
+            this.feedback.decorations.push(deco.span_with(node.span));
         };
 
         match &node.v {
@@ -87,7 +87,7 @@ impl<'a> TreeLayouter<'a> {
             SyntaxNode::Code(block) => self.layout_code(block).await,
 
             SyntaxNode::Call(call) => {
-                self.layout_call(Spanned::new(call, node.span)).await;
+                self.layout_call(call.span_with(node.span)).await;
             }
         }
     }
@@ -167,7 +167,7 @@ impl<'a> TreeLayouter<'a> {
         };
 
         let val = call.v.eval(&ctx, &mut self.feedback).await;
-        let commands = Spanned::new(val, call.span).into_commands();
+        let commands = val.span_with(call.span).into_commands();
 
         for command in commands {
             self.execute_command(command, call.span).await;

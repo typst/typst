@@ -187,7 +187,7 @@ where
 }
 
 pub fn s<T>(sl: usize, sc: usize, el: usize, ec: usize, v: T) -> Spanned<T> {
-    Spanned::new(v, Span::new(Pos::new(sl, sc), Pos::new(el, ec)))
+    v.span_with(Span::new(Pos::new(sl, sc), Pos::new(el, ec)))
 }
 
 // Enables tests to optionally specify spans.
