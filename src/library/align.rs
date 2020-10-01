@@ -23,8 +23,8 @@ pub async fn align(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass
     let all = args
         .take_all_num_vals::<Spanned<SpecAlign>>()
         .map(|align| (align.v.axis(), align))
-        .chain(h.into_iter().map(|align| (Some(Horizontal), align)))
-        .chain(v.into_iter().map(|align| (Some(Vertical), align)));
+        .chain(h.into_iter().map(|align| (Some(SpecAxis::Horizontal), align)))
+        .chain(v.into_iter().map(|align| (Some(SpecAxis::Vertical), align)));
 
     let mut aligns = ctx.align;
     let mut had = [false; 2];
@@ -43,8 +43,8 @@ pub async fn align(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass
             } else if had[axis as usize] {
                 error!(@f, align.span, "duplicate alignment for {} axis", axis);
             } else {
-                let gen_align = align.v.to_generic(ctx.axes);
-                *aligns.get_mut(axis.to_generic(ctx.axes)) = gen_align;
+                let gen_align = align.v.to_gen(ctx.sys);
+                *aligns.get_mut(axis.to_gen(ctx.sys)) = gen_align;
                 had[axis as usize] = true;
             }
         } else {
@@ -54,7 +54,7 @@ pub async fn align(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass
                 // We have two unflushed centers, meaning we know that both axes
                 // are to be centered.
                 had = [true, true];
-                aligns = LayoutAlign::new(Center, Center);
+                aligns = LayoutAlign::new(GenAlign::Center, GenAlign::Center);
             } else {
                 deferred_center = true;
             }
@@ -63,13 +63,13 @@ pub async fn align(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass
         // Flush a deferred center alignment if we know have had at least one
         // known alignment.
         if deferred_center && had != [false, false] {
-            let axis = if !had[Horizontal as usize] {
-                Horizontal
+            let axis = if !had[SpecAxis::Horizontal as usize] {
+                SpecAxis::Horizontal
             } else {
-                Vertical
+                SpecAxis::Vertical
             };
 
-            *aligns.get_mut(axis.to_generic(ctx.axes)) = Center;
+            *aligns.get_mut(axis.to_gen(ctx.sys)) = GenAlign::Center;
 
             had[axis as usize] = true;
             deferred_center = false;
@@ -79,7 +79,7 @@ pub async fn align(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass
     // If center has not been flushed by known, it is the only argument and then
     // we default to applying it to the primary axis.
     if deferred_center {
-        aligns.primary = Center;
+        aligns.primary = GenAlign::Center;
     }
 
     let commands = match content {

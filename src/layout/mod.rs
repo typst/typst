@@ -7,17 +7,6 @@ pub mod stack;
 pub mod text;
 mod tree;
 
-/// Basic types used across the layouting engine.
-pub mod prelude {
-    pub use super::primitive::*;
-    pub use super::{layout, BoxLayout, LayoutContext, LayoutSpace, MultiLayout};
-    pub use Dir::*;
-    pub use GenAlign::*;
-    pub use GenAxis::*;
-    pub use SpecAlign::*;
-    pub use SpecAxis::*;
-}
-
 pub use primitive::*;
 pub use tree::layout_tree as layout;
 
@@ -28,7 +17,6 @@ use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::syntax::SynTree;
 
 use elements::LayoutElements;
-use prelude::*;
 
 /// A collection of layouts.
 pub type MultiLayout = Vec<BoxLayout>;
@@ -60,8 +48,8 @@ pub struct LayoutContext<'a> {
     /// Whether to spill over into copies of the last space or finish layouting
     /// when the last space is used up.
     pub repeat: bool,
-    /// The axes along which content is laid out.
-    pub axes: LayoutAxes,
+    /// The system into which content is laid out.
+    pub sys: LayoutSystem,
     /// The alignment of the _resulting_ layout. This does not effect the line
     /// layouting itself, but rather how the finished layout will be positioned
     /// in a parent layout.
@@ -146,7 +134,57 @@ pub enum Command {
 
     /// Update the alignment for future boxes added to this layouting process.
     SetAlignment(LayoutAlign),
-    /// Update the layouting axes along which future boxes will be laid
+    /// Update the layouting system along which future boxes will be laid
     /// out. This ends the current line.
-    SetAxes(LayoutAxes),
+    SetSystem(LayoutSystem),
+}
+
+/// Defines how spacing interacts with surrounding spacing.
+///
+/// There are two options for interaction: Hard and soft spacing. Typically,
+/// hard spacing is used when a fixed amount of space needs to be inserted no
+/// matter what. In contrast, soft spacing can be used to insert a default
+/// spacing between e.g. two words or paragraphs that can still be overridden by
+/// a hard space.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum SpacingKind {
+    /// Hard spaces are always laid out and consume surrounding soft space.
+    Hard,
+    /// Soft spaces are not laid out if they are touching a hard space and
+    /// consume neighbouring soft spaces with higher levels.
+    Soft(u32),
+}
+
+impl SpacingKind {
+    /// The standard spacing kind used for paragraph spacing.
+    pub const PARAGRAPH: Self = Self::Soft(1);
+
+    /// The standard spacing kind used for line spacing.
+    pub const LINE: Self = Self::Soft(2);
+
+    /// The standard spacing kind used for word spacing.
+    pub const WORD: Self = Self::Soft(1);
+}
+
+/// The spacing kind of the most recently inserted item in a layouting process.
+///
+/// Since the last inserted item may not be spacing at all, this can be `None`.
+#[derive(Debug, Copy, Clone, PartialEq)]
+enum LastSpacing {
+    /// The last item was hard spacing.
+    Hard,
+    /// The last item was soft spacing with the given width and level.
+    Soft(f64, u32),
+    /// The last item wasn't spacing.
+    None,
+}
+
+impl LastSpacing {
+    /// The width of the soft space if this is a soft space or zero otherwise.
+    fn soft_or_zero(self) -> f64 {
+        match self {
+            LastSpacing::Soft(space, _) => space,
+            _ => 0.0,
+        }
+    }
 }

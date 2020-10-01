@@ -24,8 +24,8 @@ pub struct LineLayouter {
 pub struct LineContext {
     /// The spaces to layout into.
     pub spaces: LayoutSpaces,
-    /// The initial layouting axes, which can be updated through `set_axes`.
-    pub axes: LayoutAxes,
+    /// The initial layouting system, which can be updated through `set_sys`.
+    pub sys: LayoutSystem,
     /// The alignment of the _resulting_ layout. This does not effect the line
     /// layouting itself, but rather how the finished layout will be positioned
     /// in a parent layout.
@@ -64,7 +64,7 @@ impl LineLayouter {
         Self {
             stack: StackLayouter::new(StackContext {
                 spaces: ctx.spaces.clone(),
-                axes: ctx.axes,
+                sys: ctx.sys,
                 align: ctx.align,
                 repeat: ctx.repeat,
             }),
@@ -75,7 +75,7 @@ impl LineLayouter {
 
     /// Add a layout.
     pub fn add(&mut self, layout: BoxLayout) {
-        let axes = self.ctx.axes;
+        let sys = self.ctx.sys;
 
         if let Some(align) = self.run.align {
             if layout.align.secondary != align.secondary {
@@ -92,7 +92,7 @@ impl LineLayouter {
             } else if layout.align.primary > align.primary {
                 let mut rest_run = LineRun::new();
 
-                let usable = self.stack.usable().primary(axes);
+                let usable = self.stack.usable().primary(sys);
                 rest_run.usable = Some(match layout.align.primary {
                     GenAlign::Start => unreachable!("start > x"),
                     GenAlign::Center => usable - 2.0 * self.run.size.x,
@@ -112,7 +112,7 @@ impl LineLayouter {
             self.add_primary_spacing(spacing, SpacingKind::Hard);
         }
 
-        let size = layout.size.generalized(axes);
+        let size = layout.size.generalized(sys);
 
         if !self.usable().fits(size) {
             if !self.line_is_empty() {
@@ -148,7 +148,7 @@ impl LineLayouter {
     /// needed.
     fn usable(&self) -> Size {
         // The base is the usable space of the stack layouter.
-        let mut usable = self.stack.usable().generalized(self.ctx.axes);
+        let mut usable = self.stack.usable().generalized(self.ctx.sys);
 
         // If there was another run already, override the stack's size.
         if let Some(primary) = self.run.usable {
@@ -190,11 +190,11 @@ impl LineLayouter {
         self.stack.add_spacing(spacing, kind)
     }
 
-    /// Update the layouting axes.
-    pub fn set_axes(&mut self, axes: LayoutAxes) {
+    /// Update the layouting system.
+    pub fn set_sys(&mut self, sys: LayoutSystem) {
         self.finish_line_if_not_empty();
-        self.ctx.axes = axes;
-        self.stack.set_axes(axes)
+        self.ctx.sys = sys;
+        self.stack.set_sys(sys)
     }
 
     /// Update the layouting spaces.
@@ -215,7 +215,7 @@ impl LineLayouter {
     /// it will fit into this layouter's underlying stack.
     pub fn remaining(&self) -> LayoutSpaces {
         let mut spaces = self.stack.remaining();
-        *spaces[0].size.secondary_mut(self.ctx.axes) -= self.run.size.y;
+        *spaces[0].size.secondary_mut(self.ctx.sys) -= self.run.size.y;
         spaces
     }
 
@@ -244,9 +244,9 @@ impl LineLayouter {
 
         let layouts = std::mem::take(&mut self.run.layouts);
         for (offset, layout) in layouts {
-            let x = match self.ctx.axes.primary.is_positive() {
+            let x = match self.ctx.sys.primary.is_positive() {
                 true => offset,
-                false => self.run.size.x - offset - layout.size.primary(self.ctx.axes),
+                false => self.run.size.x - offset - layout.size.primary(self.ctx.sys),
             };
 
             let pos = Size::with_x(x);
@@ -254,8 +254,8 @@ impl LineLayouter {
         }
 
         self.stack.add(BoxLayout {
-            size: self.run.size.specialized(self.ctx.axes),
-            align: self.run.align.unwrap_or(LayoutAlign::new(Start, Start)),
+            size: self.run.size.specialized(self.ctx.sys),
+            align: self.run.align.unwrap_or(LayoutAlign::START),
             elements,
         });
 

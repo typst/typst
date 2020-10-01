@@ -47,7 +47,10 @@ use std::pin::Pin;
 use crate::diagnostic::Diagnostic;
 use crate::eval::{Scope, Value};
 use crate::font::SharedFontLoader;
-use crate::layout::{Commands, MultiLayout};
+use crate::layout::{
+    layout, Commands, Dir, GenAlign, LayoutAlign, LayoutContext, LayoutExpansion,
+    LayoutSpace, LayoutSystem, MultiLayout,
+};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::syntax::{Decoration, Offset, Pos, SpanVec, SynTree};
 
@@ -90,8 +93,6 @@ impl Typesetter {
 
     /// Layout a syntax tree and return the produced layout.
     pub async fn layout(&self, tree: &SynTree) -> Pass<MultiLayout> {
-        use crate::layout::prelude::*;
-
         let margins = self.style.page.margins();
         layout(&tree, LayoutContext {
             loader: &self.loader,
@@ -104,8 +105,8 @@ impl Typesetter {
                 expansion: LayoutExpansion::new(true, true),
             }],
             repeat: true,
-            axes: LayoutAxes::new(LTR, TTB),
-            align: LayoutAlign::new(Start, Start),
+            sys: LayoutSystem::new(Dir::LTR, Dir::TTB),
+            align: LayoutAlign::new(GenAlign::Start, GenAlign::Start),
             root: true,
         })
         .await

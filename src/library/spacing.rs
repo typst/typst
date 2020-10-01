@@ -7,7 +7,7 @@ use crate::length::ScaleLength;
 /// # Positional arguments
 /// - The spacing (length or relative to font size).
 pub async fn h(name: Span, args: DictValue, ctx: LayoutContext<'_>) -> Pass<Value> {
-    spacing(name, args, ctx, Horizontal)
+    spacing(name, args, ctx, SpecAxis::Horizontal)
 }
 
 /// `v`: Add vertical spacing.
@@ -15,7 +15,7 @@ pub async fn h(name: Span, args: DictValue, ctx: LayoutContext<'_>) -> Pass<Valu
 /// # Positional arguments
 /// - The spacing (length or relative to font size).
 pub async fn v(name: Span, args: DictValue, ctx: LayoutContext<'_>) -> Pass<Value> {
-    spacing(name, args, ctx, Vertical)
+    spacing(name, args, ctx, SpecAxis::Vertical)
 }
 
 fn spacing(
@@ -28,7 +28,7 @@ fn spacing(
 
     let spacing = args.expect::<ScaleLength>("spacing", name, &mut f);
     let commands = if let Some(spacing) = spacing {
-        let axis = axis.to_generic(ctx.axes);
+        let axis = axis.to_gen(ctx.sys);
         let spacing = spacing.raw_scaled(ctx.style.text.font_size());
         vec![AddSpacing(spacing, SpacingKind::Hard, axis)]
     } else {

@@ -29,7 +29,7 @@ impl<'a> TreeLayouter<'a> {
         Self {
             layouter: LineLayouter::new(LineContext {
                 spaces: ctx.spaces.clone(),
-                axes: ctx.axes,
+                sys: ctx.sys,
                 align: ctx.align,
                 repeat: ctx.repeat,
                 line_spacing: ctx.style.text.line_spacing(),
@@ -107,7 +107,7 @@ impl<'a> TreeLayouter<'a> {
             layout_text(text, TextContext {
                 loader: &mut self.ctx.loader.borrow_mut(),
                 style: &self.style.text,
-                dir: self.ctx.axes.primary,
+                dir: self.ctx.sys.primary,
                 align: self.ctx.align,
             })
             .await,
@@ -170,15 +170,14 @@ impl<'a> TreeLayouter<'a> {
 
     async fn execute_command(&mut self, command: Command, span: Span) {
         use Command::*;
-
         match command {
             LayoutSyntaxTree(tree) => self.layout_tree(&tree).await,
 
             Add(layout) => self.layouter.add(layout),
             AddMultiple(layouts) => self.layouter.add_multiple(layouts),
             AddSpacing(space, kind, axis) => match axis {
-                Primary => self.layouter.add_primary_spacing(space, kind),
-                Secondary => self.layouter.add_secondary_spacing(space, kind),
+                GenAxis::Primary => self.layouter.add_primary_spacing(space, kind),
+                GenAxis::Secondary => self.layouter.add_secondary_spacing(space, kind),
             },
 
             BreakLine => self.layouter.finish_line(),
@@ -223,9 +222,9 @@ impl<'a> TreeLayouter<'a> {
             }
 
             SetAlignment(align) => self.ctx.align = align,
-            SetAxes(axes) => {
-                self.layouter.set_axes(axes);
-                self.ctx.axes = axes;
+            SetSystem(sys) => {
+                self.layouter.set_sys(sys);
+                self.ctx.sys = sys;
             }
         }
     }

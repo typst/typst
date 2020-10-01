@@ -3,7 +3,7 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::*;
 
-use crate::layout::prelude::*;
+use crate::layout::primitive::*;
 
 /// A value in two dimensions.
 #[derive(Default, Copy, Clone, Eq, PartialEq)]
@@ -44,22 +44,22 @@ impl<T: Clone> Value2<T> {
     /// Get the specificed component.
     pub fn get(self, axis: SpecAxis) -> T {
         match axis {
-            Horizontal => self.x,
-            Vertical => self.y,
+            SpecAxis::Horizontal => self.x,
+            SpecAxis::Vertical => self.y,
         }
     }
 
     /// Borrow the specificed component mutably.
     pub fn get_mut(&mut self, axis: SpecAxis) -> &mut T {
         match axis {
-            Horizontal => &mut self.x,
-            Vertical => &mut self.y,
+            SpecAxis::Horizontal => &mut self.x,
+            SpecAxis::Vertical => &mut self.y,
         }
     }
 
     /// Return the primary value of this specialized 2D-value.
-    pub fn primary(self, axes: LayoutAxes) -> T {
-        if axes.primary.axis() == Horizontal {
+    pub fn primary(self, sys: LayoutSystem) -> T {
+        if sys.primary.axis() == SpecAxis::Horizontal {
             self.x
         } else {
             self.y
@@ -67,8 +67,8 @@ impl<T: Clone> Value2<T> {
     }
 
     /// Borrow the primary value of this specialized 2D-value mutably.
-    pub fn primary_mut(&mut self, axes: LayoutAxes) -> &mut T {
-        if axes.primary.axis() == Horizontal {
+    pub fn primary_mut(&mut self, sys: LayoutSystem) -> &mut T {
+        if sys.primary.axis() == SpecAxis::Horizontal {
             &mut self.x
         } else {
             &mut self.y
@@ -76,8 +76,8 @@ impl<T: Clone> Value2<T> {
     }
 
     /// Return the secondary value of this specialized 2D-value.
-    pub fn secondary(self, axes: LayoutAxes) -> T {
-        if axes.primary.axis() == Horizontal {
+    pub fn secondary(self, sys: LayoutSystem) -> T {
+        if sys.primary.axis() == SpecAxis::Horizontal {
             self.y
         } else {
             self.x
@@ -85,8 +85,8 @@ impl<T: Clone> Value2<T> {
     }
 
     /// Borrow the secondary value of this specialized 2D-value mutably.
-    pub fn secondary_mut(&mut self, axes: LayoutAxes) -> &mut T {
-        if axes.primary.axis() == Horizontal {
+    pub fn secondary_mut(&mut self, sys: LayoutSystem) -> &mut T {
+        if sys.primary.axis() == SpecAxis::Horizontal {
             &mut self.y
         } else {
             &mut self.x
@@ -94,22 +94,22 @@ impl<T: Clone> Value2<T> {
     }
 
     /// Returns the generalized version of a `Size2D` dependent on the layouting
-    /// axes, that is:
+    /// system, that is:
     /// - `x` describes the primary axis instead of the horizontal one.
     /// - `y` describes the secondary axis instead of the vertical one.
-    pub fn generalized(self, axes: LayoutAxes) -> Self {
-        match axes.primary.axis() {
-            Horizontal => self,
-            Vertical => Self { x: self.y, y: self.x },
+    pub fn generalized(self, sys: LayoutSystem) -> Self {
+        match sys.primary.axis() {
+            SpecAxis::Horizontal => self,
+            SpecAxis::Vertical => Self { x: self.y, y: self.x },
         }
     }
 
     /// Returns the specialized version of this generalized Size2D (inverse to
     /// `generalized`).
-    pub fn specialized(self, axes: LayoutAxes) -> Self {
+    pub fn specialized(self, sys: LayoutSystem) -> Self {
         // In fact, generalized is its own inverse. For reasons of clarity
         // at the call site, we still have this second function.
-        self.generalized(axes)
+        self.generalized(sys)
     }
 
     /// Swap the `x` and `y` values.
@@ -158,19 +158,19 @@ impl Size {
     ///
     /// This assumes the size to be generalized such that `x` corresponds to the
     /// primary axis.
-    pub fn anchor(self, align: LayoutAlign, axes: LayoutAxes) -> Self {
+    pub fn anchor(self, align: LayoutAlign, sys: LayoutSystem) -> Self {
         Size {
-            x: anchor(self.x, align.primary, axes.primary),
-            y: anchor(self.y, align.secondary, axes.secondary),
+            x: anchor(self.x, align.primary, sys.primary),
+            y: anchor(self.y, align.secondary, sys.secondary),
         }
     }
 }
 
 fn anchor(length: f64, align: GenAlign, dir: Dir) -> f64 {
     match (dir.is_positive(), align) {
-        (true, Start) | (false, End) => 0.0,
-        (_, Center) => length / 2.0,
-        (true, End) | (false, Start) => length,
+        (true, GenAlign::Start) | (false, GenAlign::End) => 0.0,
+        (_, GenAlign::Center) => length / 2.0,
+        (true, GenAlign::End) | (false, GenAlign::Start) => length,
     }
 }
 
@@ -216,15 +216,15 @@ impl<T: Clone> Value4<T> {
     ///
     /// Center alignment is treated the same as origin alignment.
     pub fn get_mut(&mut self, mut dir: Dir, align: GenAlign) -> &mut T {
-        if align == End {
+        if align == GenAlign::End {
             dir = dir.inv();
         }
 
         match dir {
-            LTR => &mut self.left,
-            RTL => &mut self.right,
-            TTB => &mut self.top,
-            BTT => &mut self.bottom,
+            Dir::LTR => &mut self.left,
+            Dir::RTL => &mut self.right,
+            Dir::TTB => &mut self.top,
+            Dir::BTT => &mut self.bottom,
         }
     }
 

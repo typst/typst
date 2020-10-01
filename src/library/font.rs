@@ -1,6 +1,7 @@
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
 use super::*;
+use crate::eval::StringLike;
 use crate::length::ScaleLength;
 
 /// `font`: Configure the font.

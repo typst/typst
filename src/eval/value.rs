@@ -43,18 +43,17 @@ impl Value {
     /// A natural-language name of the type of this expression, e.g.
     /// "identifier".
     pub fn name(&self) -> &'static str {
-        use Value::*;
         match self {
-            Ident(_) => "identifier",
-            Str(_) => "string",
-            Bool(_) => "bool",
-            Number(_) => "number",
-            Length(_) => "length",
-            Color(_) => "color",
-            Dict(_) => "dict",
-            Tree(_) => "syntax tree",
-            Func(_) => "function",
-            Commands(_) => "commands",
+            Self::Ident(_) => "identifier",
+            Self::Str(_) => "string",
+            Self::Bool(_) => "bool",
+            Self::Number(_) => "number",
+            Self::Length(_) => "length",
+            Self::Color(_) => "color",
+            Self::Dict(_) => "dict",
+            Self::Tree(_) => "syntax tree",
+            Self::Func(_) => "function",
+            Self::Commands(_) => "commands",
         }
     }
 }
@@ -98,36 +97,34 @@ impl Spanned<Value> {
 
 impl Debug for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        use Value::*;
         match self {
-            Ident(i) => i.fmt(f),
-            Str(s) => s.fmt(f),
-            Bool(b) => b.fmt(f),
-            Number(n) => n.fmt(f),
-            Length(s) => s.fmt(f),
-            Color(c) => c.fmt(f),
-            Dict(t) => t.fmt(f),
-            Tree(t) => t.fmt(f),
-            Func(_) => f.pad("<function>"),
-            Commands(c) => c.fmt(f),
+            Self::Ident(i) => i.fmt(f),
+            Self::Str(s) => s.fmt(f),
+            Self::Bool(b) => b.fmt(f),
+            Self::Number(n) => n.fmt(f),
+            Self::Length(s) => s.fmt(f),
+            Self::Color(c) => c.fmt(f),
+            Self::Dict(t) => t.fmt(f),
+            Self::Tree(t) => t.fmt(f),
+            Self::Func(_) => f.pad("<function>"),
+            Self::Commands(c) => c.fmt(f),
         }
     }
 }
 
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        use Value::*;
         match (self, other) {
-            (Ident(a), Ident(b)) => a == b,
-            (Str(a), Str(b)) => a == b,
-            (Bool(a), Bool(b)) => a == b,
-            (Number(a), Number(b)) => a == b,
-            (Length(a), Length(b)) => a == b,
-            (Color(a), Color(b)) => a == b,
-            (Dict(a), Dict(b)) => a == b,
-            (Tree(a), Tree(b)) => a == b,
-            (Func(a), Func(b)) => Rc::ptr_eq(a, b),
-            (Commands(a), Commands(b)) => a == b,
+            (Self::Ident(a), Self::Ident(b)) => a == b,
+            (Self::Str(a), Self::Str(b)) => a == b,
+            (Self::Bool(a), Self::Bool(b)) => a == b,
+            (Self::Number(a), Self::Number(b)) => a == b,
+            (Self::Length(a), Self::Length(b)) => a == b,
+            (Self::Color(a), Self::Color(b)) => a == b,
+            (Self::Dict(a), Self::Dict(b)) => a == b,
+            (Self::Tree(a), Self::Tree(b)) => a == b,
+            (Self::Func(a), Self::Func(b)) => Rc::ptr_eq(a, b),
+            (Self::Commands(a), Self::Commands(b)) => a == b,
             _ => false,
         }
     }
