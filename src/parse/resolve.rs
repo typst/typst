@@ -1,7 +1,7 @@
 //! Resolve strings and raw blocks.
 
 use super::{is_newline, Scanner};
-use crate::syntax::{Ident, Raw};
+use crate::syntax::{Ident, NodeRaw};
 
 /// Resolves all escape sequences in a string.
 pub fn resolve_string(string: &str) -> String {
@@ -49,17 +49,17 @@ pub fn resolve_hex(sequence: &str) -> Option<char> {
 }
 
 /// Resolves the language tag and trims the raw text.
-pub fn resolve_raw(raw: &str, backticks: usize) -> Raw {
+pub fn resolve_raw(raw: &str, backticks: usize) -> NodeRaw {
     if backticks > 1 {
         let (tag, inner) = split_at_lang_tag(raw);
         let (lines, had_newline) = trim_and_split_raw(inner);
-        Raw {
+        NodeRaw {
             lang: Ident::new(tag),
             lines,
             inline: !had_newline,
         }
     } else {
-        Raw {
+        NodeRaw {
             lang: None,
             lines: split_lines(raw),
             inline: true,

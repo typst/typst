@@ -52,38 +52,38 @@ impl<V> Dict<V> {
     /// Get a reference to the value with the given key.
     pub fn get<'a, K>(&self, key: K) -> Option<&V>
     where
-        K: Into<BorrowedKey<'a>>,
+        K: Into<RefKey<'a>>,
     {
         match key.into() {
-            BorrowedKey::Num(num) => self.nums.get(&num),
-            BorrowedKey::Str(string) => self.strs.get(string),
+            RefKey::Num(num) => self.nums.get(&num),
+            RefKey::Str(string) => self.strs.get(string),
         }
     }
 
     /// Borrow the value with the given key mutably.
     pub fn get_mut<'a, K>(&mut self, key: K) -> Option<&mut V>
     where
-        K: Into<BorrowedKey<'a>>,
+        K: Into<RefKey<'a>>,
     {
         match key.into() {
-            BorrowedKey::Num(num) => self.nums.get_mut(&num),
-            BorrowedKey::Str(string) => self.strs.get_mut(string),
+            RefKey::Num(num) => self.nums.get_mut(&num),
+            RefKey::Str(string) => self.strs.get_mut(string),
         }
     }
 
     /// Insert a value into the dictionary.
     pub fn insert<K>(&mut self, key: K, value: V)
     where
-        K: Into<OwnedKey>,
+        K: Into<DictKey>,
     {
         match key.into() {
-            OwnedKey::Num(num) => {
+            DictKey::Num(num) => {
                 self.nums.insert(num, value);
                 if self.lowest_free == num {
                     self.lowest_free += 1;
                 }
             }
-            OwnedKey::Str(string) => {
+            DictKey::Str(string) => {
                 self.strs.insert(string, value);
             }
         }
@@ -92,14 +92,14 @@ impl<V> Dict<V> {
     /// Remove the value with the given key from the dictionary.
     pub fn remove<'a, K>(&mut self, key: K) -> Option<V>
     where
-        K: Into<BorrowedKey<'a>>,
+        K: Into<RefKey<'a>>,
     {
         match key.into() {
-            BorrowedKey::Num(num) => {
+            RefKey::Num(num) => {
                 self.lowest_free = self.lowest_free.min(num);
                 self.nums.remove(&num)
             }
-            BorrowedKey::Str(string) => self.strs.remove(string),
+            RefKey::Str(string) => self.strs.remove(string),
         }
     }
 
@@ -116,10 +116,10 @@ impl<V> Dict<V> {
     }
 
     /// Iterator over all borrowed keys and values.
-    pub fn iter(&self) -> impl Iterator<Item = (BorrowedKey, &V)> {
+    pub fn iter(&self) -> impl Iterator<Item = (RefKey, &V)> {
         self.nums()
-            .map(|(&k, v)| (BorrowedKey::Num(k), v))
-            .chain(self.strs().map(|(k, v)| (BorrowedKey::Str(k), v)))
+            .map(|(&k, v)| (RefKey::Num(k), v))
+            .chain(self.strs().map(|(k, v)| (RefKey::Str(k), v)))
     }
 
     /// Iterate over all values in the dictionary.
@@ -138,11 +138,11 @@ impl<V> Dict<V> {
     }
 
     /// Move into an owned iterator over owned keys and values.
-    pub fn into_iter(self) -> impl Iterator<Item = (OwnedKey, V)> {
+    pub fn into_iter(self) -> impl Iterator<Item = (DictKey, V)> {
         self.nums
             .into_iter()
-            .map(|(k, v)| (OwnedKey::Num(k), v))
-            .chain(self.strs.into_iter().map(|(k, v)| (OwnedKey::Str(k), v)))
+            .map(|(k, v)| (DictKey::Num(k), v))
+            .chain(self.strs.into_iter().map(|(k, v)| (DictKey::Str(k), v)))
     }
 
     /// Move into an owned iterator over all values in the dictionary.
@@ -166,7 +166,7 @@ impl<V> Dict<V> {
 
 impl<'a, K, V> Index<K> for Dict<V>
 where
-    K: Into<BorrowedKey<'a>>,
+    K: Into<RefKey<'a>>,
 {
     type Output = V;
 
@@ -230,33 +230,39 @@ impl<V: Debug> Debug for Dict<V> {
 
 /// The owned variant of a dictionary key.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum OwnedKey {
+pub enum DictKey {
     Num(u64),
     Str(String),
 }
 
-impl From<BorrowedKey<'_>> for OwnedKey {
-    fn from(key: BorrowedKey<'_>) -> Self {
+impl From<&Self> for DictKey {
+    fn from(key: &Self) -> Self {
+        key.clone()
+    }
+}
+
+impl From<RefKey<'_>> for DictKey {
+    fn from(key: RefKey<'_>) -> Self {
         match key {
-            BorrowedKey::Num(num) => Self::Num(num),
-            BorrowedKey::Str(string) => Self::Str(string.to_string()),
+            RefKey::Num(num) => Self::Num(num),
+            RefKey::Str(string) => Self::Str(string.to_string()),
         }
     }
 }
 
-impl From<u64> for OwnedKey {
+impl From<u64> for DictKey {
     fn from(num: u64) -> Self {
         Self::Num(num)
     }
 }
 
-impl From<String> for OwnedKey {
+impl From<String> for DictKey {
     fn from(string: String) -> Self {
         Self::Str(string)
     }
 }
 
-impl From<&'static str> for OwnedKey {
+impl From<&'static str> for DictKey {
     fn from(string: &'static str) -> Self {
         Self::Str(string.to_string())
     }
@@ -264,24 +270,24 @@ impl From<&'static str> for OwnedKey {
 
 /// The borrowed variant of a dictionary key.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum BorrowedKey<'a> {
+pub enum RefKey<'a> {
     Num(u64),
     Str(&'a str),
 }
 
-impl From<u64> for BorrowedKey<'static> {
+impl From<u64> for RefKey<'static> {
     fn from(num: u64) -> Self {
         Self::Num(num)
     }
 }
 
-impl<'a> From<&'a String> for BorrowedKey<'a> {
+impl<'a> From<&'a String> for RefKey<'a> {
     fn from(string: &'a String) -> Self {
         Self::Str(&string)
     }
 }
 
-impl<'a> From<&'a str> for BorrowedKey<'a> {
+impl<'a> From<&'a str> for RefKey<'a> {
     fn from(string: &'a str) -> Self {
         Self::Str(string)
     }

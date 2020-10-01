@@ -1,12 +1,24 @@
 //! Syntax types.
 
+mod expr;
+mod ident;
+mod lit;
 mod span;
 mod token;
 mod tree;
 
+/// Abstract syntax tree definition.
+pub mod ast {
+    use super::*;
+    pub use expr::*;
+    pub use lit::*;
+    pub use tree::*;
+}
+
+pub use ast::*;
+pub use ident::*;
 pub use span::*;
 pub use token::*;
-pub use tree::*;
 
 /// Decorations for semantic syntax highlighting.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]

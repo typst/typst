@@ -50,7 +50,7 @@ use crate::diagnostic::Diagnostic;
 use crate::font::SharedFontLoader;
 use crate::layout::{Commands, MultiLayout};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
-use crate::syntax::{Decoration, Offset, Pos, SpanVec, SyntaxTree};
+use crate::syntax::{Decoration, Offset, Pos, SpanVec, SynTree};
 
 /// Transforms source code into typesetted layouts.
 ///
@@ -85,12 +85,12 @@ impl Typesetter {
     }
 
     /// Parse source code into a syntax tree.
-    pub fn parse(&self, src: &str) -> Pass<SyntaxTree> {
+    pub fn parse(&self, src: &str) -> Pass<SynTree> {
         parse::parse(src)
     }
 
     /// Layout a syntax tree and return the produced layout.
-    pub async fn layout(&self, tree: &SyntaxTree) -> Pass<MultiLayout> {
+    pub async fn layout(&self, tree: &SynTree) -> Pass<MultiLayout> {
         use crate::layout::prelude::*;
 
         let margins = self.style.page.margins();

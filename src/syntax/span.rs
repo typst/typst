@@ -42,8 +42,10 @@ impl<T> Offset for SpanVec<T> {
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Spanned<T> {
-    pub span: Span,
+    /// The spanned value.
     pub v: T,
+    /// The location in source code of the value.
+    pub span: Span,
 }
 
 impl<T> Spanned<T> {

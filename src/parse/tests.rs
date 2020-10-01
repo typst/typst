@@ -6,33 +6,33 @@ use std::fmt::Debug;
 
 use super::parse;
 use crate::color::RgbaColor;
-use crate::compute::dict::SpannedEntry;
+use crate::compute::dict::DictKey;
 use crate::length::Length;
 use crate::syntax::*;
 
 // ------------------------------ Construct Syntax Nodes ------------------------------ //
 
 use Decoration::*;
-use SyntaxNode::{
+use SynNode::{
     Linebreak as L, Parbreak as P, Spacing as S, ToggleBolder as B, ToggleItalic as I,
 };
 
-fn T(text: &str) -> SyntaxNode {
-    SyntaxNode::Text(text.to_string())
+fn T(text: &str) -> SynNode {
+    SynNode::Text(text.to_string())
 }
 
 macro_rules! H {
     ($level:expr, $($tts:tt)*) => {
-        SyntaxNode::Heading(Heading {
+        SynNode::Heading(NodeHeading {
             level: Spanned::zero($level),
-            tree: Tree![@$($tts)*],
+            contents: Tree![@$($tts)*],
         })
     };
 }
 
 macro_rules! R {
     ($lang:expr, $inline:expr, $($line:expr),* $(,)?) => {{
-        SyntaxNode::Raw(Raw {
+        SynNode::Raw(NodeRaw {
             lang: $lang,
             lines: vec![$($line.to_string()) ,*],
             inline: $inline,
@@ -45,53 +45,73 @@ fn Lang(lang: &str) -> Option<Ident> {
 }
 
 macro_rules! F {
-    ($($tts:tt)*) => { SyntaxNode::Call(Call!(@$($tts)*)) }
+    ($($tts:tt)*) => { SynNode::Expr(Expr::Call(Call!(@$($tts)*))) }
 }
 
 // ------------------------------- Construct Expressions ------------------------------ //
 
-use Expr::{Bool, Color, Length as Len, Number as Num};
+use BinOp::*;
+use UnOp::*;
 
 fn Id(ident: &str) -> Expr {
-    Expr::Ident(Ident(ident.to_string()))
+    Expr::Lit(Lit::Ident(Ident(ident.to_string())))
+}
+fn Bool(b: bool) -> Expr {
+    Expr::Lit(Lit::Bool(b))
+}
+fn _Int(int: i64) -> Expr {
+    Expr::Lit(Lit::Int(int))
+}
+fn Float(float: f64) -> Expr {
+    Expr::Lit(Lit::Float(float))
+}
+fn _Percent(percent: f64) -> Expr {
+    Expr::Lit(Lit::Percent(percent))
+}
+fn Len(length: Length) -> Expr {
+    Expr::Lit(Lit::Length(length))
+}
+fn Color(color: RgbaColor) -> Expr {
+    Expr::Lit(Lit::Color(color))
 }
 fn Str(string: &str) -> Expr {
-    Expr::Str(string.to_string())
+    Expr::Lit(Lit::Str(string.to_string()))
 }
 
 macro_rules! Dict {
     (@dict=$dict:expr,) => {};
     (@dict=$dict:expr, $key:expr => $value:expr $(, $($tts:tt)*)?) => {{
         let key = Into::<Spanned<&str>>::into($key);
-        let val = Into::<Spanned<Expr>>::into($value);
-        $dict.insert(key.v, SpannedEntry::new(key.span, val));
+        let key = key.map(Into::<DictKey>::into);
+        let value = Into::<Spanned<Expr>>::into($value);
+        $dict.0.push(LitDictEntry { key: Some(key), value });
         Dict![@dict=$dict, $($($tts)*)?];
     }};
     (@dict=$dict:expr, $value:expr $(, $($tts:tt)*)?) => {
-        let val = Into::<Spanned<Expr>>::into($value);
-        $dict.push(SpannedEntry::val(val));
+        let value = Into::<Spanned<Expr>>::into($value);
+        $dict.0.push(LitDictEntry { key: None, value });
         Dict![@dict=$dict, $($($tts)*)?];
     };
     (@$($tts:tt)*) => {{
         #[allow(unused_mut)]
-        let mut dict = DictExpr::new();
+        let mut dict = LitDict::default();
         Dict![@dict=dict, $($tts)*];
         dict
     }};
-    ($($tts:tt)*) => { Expr::Dict(Dict![@$($tts)*]) };
+    ($($tts:tt)*) => { Expr::Lit(Lit::Dict(Dict![@$($tts)*])) };
 }
 
 macro_rules! Tree {
     (@$($node:expr),* $(,)?) => {
-        vec![$(Into::<Spanned<SyntaxNode>>::into($node)),*]
+        vec![$(Into::<Spanned<SynNode>>::into($node)),*]
     };
-    ($($tts:tt)*) => { Expr::Tree(Tree![@$($tts)*]) };
+    ($($tts:tt)*) => { Expr::Lit(Lit::Content(Tree![@$($tts)*])) };
 }
 
 macro_rules! Call {
     (@$name:expr $(; $($tts:tt)*)?) => {{
         let name = Into::<Spanned<&str>>::into($name);
-        CallExpr {
+        ExprCall {
             name: name.map(|n| Ident(n.to_string())),
             args: Dict![@$($($tts)*)?],
         }
@@ -99,20 +119,22 @@ macro_rules! Call {
     ($($tts:tt)*) => { Expr::Call(Call![@$($tts)*]) };
 }
 
-fn Neg<T: Into<Spanned<Expr>>>(e1: T) -> Expr {
-    Expr::Neg(Box::new(e1.into()))
+fn Unary(op: impl Into<Spanned<UnOp>>, expr: impl Into<Spanned<Expr>>) -> Expr {
+    Expr::Unary(ExprUnary {
+        op: op.into(),
+        expr: expr.into().map(Box::new),
+    })
 }
-fn Add<T: Into<Spanned<Expr>>>(e1: T, e2: T) -> Expr {
-    Expr::Add(Box::new(e1.into()), Box::new(e2.into()))
-}
-fn Sub<T: Into<Spanned<Expr>>>(e1: T, e2: T) -> Expr {
-    Expr::Sub(Box::new(e1.into()), Box::new(e2.into()))
-}
-fn Mul<T: Into<Spanned<Expr>>>(e1: T, e2: T) -> Expr {
-    Expr::Mul(Box::new(e1.into()), Box::new(e2.into()))
-}
-fn Div<T: Into<Spanned<Expr>>>(e1: T, e2: T) -> Expr {
-    Expr::Div(Box::new(e1.into()), Box::new(e2.into()))
+fn Binary(
+    op: impl Into<Spanned<BinOp>>,
+    lhs: impl Into<Spanned<Expr>>,
+    rhs: impl Into<Spanned<Expr>>,
+) -> Expr {
+    Expr::Binary(ExprBinary {
+        lhs: lhs.into().map(Box::new),
+        op: op.into(),
+        rhs: rhs.into().map(Box::new),
+    })
 }
 
 // ------------------------------------ Test Macros ----------------------------------- //
@@ -321,12 +343,12 @@ fn test_parse_function_names() {
 #[test]
 fn test_parse_chaining() {
     // Things the parser has to make sense of
-    t!("[hi: (5.0, 2.1 >> you]" => F!("hi"; Dict![Num(5.0), Num(2.1)], Tree![F!("you")]));
+    t!("[hi: (5.0, 2.1 >> you]" => F!("hi"; Dict![Float(5.0), Float(2.1)], Tree![F!("you")]));
     t!("[box >>][Hi]"           => F!("box"; Tree![T("Hi")]));
     t!("[box >> pad: 1pt][Hi]"  => F!("box"; Tree![
         F!("pad"; Len(Length::pt(1.0)), Tree!(T("Hi")))
     ]));
-    t!("[bold: 400, >> emph >> sub: 1cm]" => F!("bold"; Num(400.0), Tree![
+    t!("[bold: 400, >> emph >> sub: 1cm]" => F!("bold"; Float(400.0), Tree![
         F!("emph"; Tree!(F!("sub"; Len(Length::cm(1.0)))))
     ]));
 
@@ -354,7 +376,7 @@ fn test_parse_colon_starting_func_args() {
 
 #[test]
 fn test_parse_function_bodies() {
-    t!("[val: 1][*Hi*]" => F!("val"; Num(1.0), Tree![B, T("Hi"), B]));
+    t!("[val: 1][*Hi*]" => F!("val"; Float(1.0), Tree![B, T("Hi"), B]));
     e!(" [val][ */]"    => s(8, 10, "unexpected end of block comment"));
 
     // Raw in body.
@@ -384,9 +406,9 @@ fn test_parse_values() {
     v!("\"hi\""    => Str("hi"));
     v!("true"      => Bool(true));
     v!("false"     => Bool(false));
-    v!("1.0e-4"    => Num(1e-4));
-    v!("3.14"      => Num(3.14));
-    v!("50%"       => Num(0.5));
+    v!("1.0e-4"    => Float(1e-4));
+    v!("3.14"      => Float(3.14));
+    v!("50%"       => Float(0.5));
     v!("4.5cm"     => Len(Length::cm(4.5)));
     v!("12e1pt"    => Len(Length::pt(12e1)));
     v!("#f7a20500" => Color(RgbaColor::new(0xf7, 0xa2, 0x05, 0x00)));
@@ -411,7 +433,7 @@ fn test_parse_values() {
                            s(13, 13, "expected closing bracket"));
 
     // Spanned.
-    ts!("[val: 1.4]" => s(0, 10, F!(s(1, 4, "val"); s(6, 9, Num(1.4)))));
+    ts!("[val: 1.4]" => s(0, 10, F!(s(1, 4, "val"); s(6, 9, Float(1.4)))));
 }
 
 #[test]
@@ -420,40 +442,50 @@ fn test_parse_expressions() {
     v!("(hi)" => Id("hi"));
 
     // Operations.
-    v!("-1"          => Neg(Num(1.0)));
-    v!("-- 1"        => Neg(Neg(Num(1.0))));
-    v!("3.2in + 6pt" => Add(Len(Length::inches(3.2)), Len(Length::pt(6.0))));
-    v!("5 - 0.01"    => Sub(Num(5.0), Num(0.01)));
-    v!("(3mm * 2)"   => Mul(Len(Length::mm(3.0)), Num(2.0)));
-    v!("12e-3cm/1pt" => Div(Len(Length::cm(12e-3)), Len(Length::pt(1.0))));
+    v!("-1"          => Unary(Neg, Float(1.0)));
+    v!("-- 1"        => Unary(Neg, Unary(Neg, Float(1.0))));
+    v!("3.2in + 6pt" => Binary(Add, Len(Length::inches(3.2)), Len(Length::pt(6.0))));
+    v!("5 - 0.01"    => Binary(Sub, Float(5.0), Float(0.01)));
+    v!("(3mm * 2)"   => Binary(Mul, Len(Length::mm(3.0)), Float(2.0)));
+    v!("12e-3cm/1pt" => Binary(Div, Len(Length::cm(12e-3)), Len(Length::pt(1.0))));
 
     // More complex.
-    v!("(3.2in + 6pt)*(5/2-1)" => Mul(
-        Add(Len(Length::inches(3.2)), Len(Length::pt(6.0))),
-        Sub(Div(Num(5.0), Num(2.0)), Num(1.0))
+    v!("(3.2in + 6pt)*(5/2-1)" => Binary(
+        Mul,
+        Binary(Add, Len(Length::inches(3.2)), Len(Length::pt(6.0))),
+        Binary(Sub, Binary(Div, Float(5.0), Float(2.0)), Float(1.0))
     ));
-    v!("(6.3E+2+4* - 3.2pt)/2" => Div(
-        Add(Num(6.3e2), Mul(Num(4.0), Neg(Len(Length::pt(3.2))))),
-        Num(2.0)
+    v!("(6.3E+2+4* - 3.2pt)/2" => Binary(
+        Div,
+        Binary(Add, Float(6.3e2), Binary(
+            Mul,
+            Float(4.0),
+            Unary(Neg, Len(Length::pt(3.2)))
+        )),
+        Float(2.0)
     ));
 
     // Associativity of multiplication and division.
-    v!("3/4*5" => Mul(Div(Num(3.0), Num(4.0)), Num(5.0)));
+    v!("3/4*5" => Binary(Mul, Binary(Div, Float(3.0), Float(4.0)), Float(5.0)));
 
     // Spanned.
     ts!("[val: 1 + 3]" => s(0, 12, F!(
-        s(1, 4, "val"); s(6, 11, Add(s(6, 7, Num(1.0)), s(10, 11, Num(3.0))))
+        s(1, 4, "val"); s(6, 11, Binary(
+            s(8, 9, Add),
+            s(6, 7, Float(1.0)),
+            s(10, 11, Float(3.0))
+        ))
     )));
 
     // Span of parenthesized expression contains parens.
-    ts!("[val: (1)]" => s(0, 10, F!(s(1, 4, "val"); s(6, 9, Num(1.0)))));
+    ts!("[val: (1)]" => s(0, 10, F!(s(1, 4, "val"); s(6, 9, Float(1.0)))));
 
     // Invalid expressions.
     v!("4pt--"        => Len(Length::pt(4.0)));
     e!("[val: 4pt--]" => s(10, 11, "dangling minus"),
                          s(6, 10, "missing right summand"));
 
-    v!("3mm+4pt*"        => Add(Len(Length::mm(3.0)), Len(Length::pt(4.0))));
+    v!("3mm+4pt*"        => Binary(Add, Len(Length::mm(3.0)), Len(Length::pt(4.0))));
     e!("[val: 3mm+4pt*]" => s(10, 14, "missing right factor"));
 }
 
@@ -464,8 +496,8 @@ fn test_parse_dicts() {
     v!("(false)"            => Bool(false));
     v!("(true,)"            => Dict![Bool(true)]);
     v!("(key=val)"          => Dict!["key" => Id("val")]);
-    v!("(1, 2)"             => Dict![Num(1.0), Num(2.0)]);
-    v!("(1, key=\"value\")" => Dict![Num(1.0), "key" => Str("value")]);
+    v!("(1, 2)"             => Dict![Float(1.0), Float(2.0)]);
+    v!("(1, key=\"value\")" => Dict![Float(1.0), "key" => Str("value")]);
 
     // Decorations.
     d!("[val: key=hi]"    => s(6, 9, DictKey));
@@ -483,7 +515,7 @@ fn test_parse_dicts() {
 #[test]
 fn test_parse_dicts_compute_func_calls() {
     v!("empty()"                  => Call!("empty"));
-    v!("add ( 1 , 2 )"            => Call!("add"; Num(1.0), Num(2.0)));
+    v!("add ( 1 , 2 )"            => Call!("add"; Float(1.0), Float(2.0)));
     v!("items(\"fire\", #f93a6d)" => Call!("items";
         Str("fire"), Color(RgbaColor::new(0xf9, 0x3a, 0x6d, 0xff))
     ));
@@ -492,7 +524,7 @@ fn test_parse_dicts_compute_func_calls() {
     v!("css(1pt, rgb(90, 102, 254), \"solid\")" => Call!(
         "css";
         Len(Length::pt(1.0)),
-        Call!("rgb"; Num(90.0), Num(102.0), Num(254.0)),
+        Call!("rgb"; Float(90.0), Float(102.0), Float(254.0)),
         Str("solid"),
     ));
 
@@ -501,7 +533,7 @@ fn test_parse_dicts_compute_func_calls() {
     e!("[val: lang(中文]" => s(17, 17, "expected closing paren"));
 
     // Invalid name.
-    v!("👠(\"abc\", 13e-5)"        => Dict!(Str("abc"), Num(13.0e-5)));
+    v!("👠(\"abc\", 13e-5)"        => Dict!(Str("abc"), Float(13.0e-5)));
     e!("[val: 👠(\"abc\", 13e-5)]" => s(6, 10, "expected value, found invalid token"));
 }
 
@@ -509,10 +541,10 @@ fn test_parse_dicts_compute_func_calls() {
 fn test_parse_dicts_nested() {
     v!("(1, ( ab=(), d = (3, 14pt) )), false" =>
         Dict![
-            Num(1.0),
+            Float(1.0),
             Dict!(
                 "ab" => Dict![],
-                "d"  => Dict!(Num(3.0), Len(Length::pt(14.0))),
+                "d"  => Dict!(Float(3.0), Len(Length::pt(14.0))),
             ),
         ],
         Bool(false),
@@ -546,7 +578,7 @@ fn test_parse_dicts_errors() {
         s(10, 11, "expected value, found equals sign"));
 
     // Unexpected equals sign.
-    v!("z=y=4"        => Num(4.0), "z" => Id("y"));
+    v!("z=y=4"        => "z" => Id("y"), Float(4.0));
     e!("[val: z=y=4]" =>
         s(9, 9, "expected comma"),
         s(9, 10, "expected value, found equals sign"));

@@ -17,7 +17,7 @@ use super::*;
 pub async fn align(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass<Value> {
     let mut f = Feedback::new();
 
-    let content = args.take::<SyntaxTree>();
+    let content = args.take::<SynTree>();
     let h = args.take_key::<Spanned<SpecAlign>>("horizontal", &mut f);
     let v = args.take_key::<Spanned<SpecAlign>>("vertical", &mut f);
     let all = args

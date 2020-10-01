@@ -12,14 +12,13 @@ pub use tokens::*;
 
 use std::str::FromStr;
 
-use super::*;
 use crate::color::RgbaColor;
-use crate::compute::dict::SpannedEntry;
+use crate::compute::dict::DictKey;
 use crate::syntax::*;
 use crate::{Feedback, Pass};
 
 /// Parse a string of source code.
-pub fn parse(src: &str) -> Pass<SyntaxTree> {
+pub fn parse(src: &str) -> Pass<SynTree> {
     Parser::new(src).parse()
 }
 
@@ -42,7 +41,7 @@ impl<'s> Parser<'s> {
         }
     }
 
-    fn parse(mut self) -> Pass<SyntaxTree> {
+    fn parse(mut self) -> Pass<SynTree> {
         let tree = self.parse_body_contents();
         Pass::new(tree, self.feedback)
     }
@@ -50,8 +49,8 @@ impl<'s> Parser<'s> {
 
 // Typesetting content.
 impl Parser<'_> {
-    fn parse_body_contents(&mut self) -> SyntaxTree {
-        let mut tree = SyntaxTree::new();
+    fn parse_body_contents(&mut self) -> SynTree {
+        let mut tree = SynTree::new();
 
         self.at_block_or_line_start = true;
         while !self.eof() {
@@ -63,7 +62,7 @@ impl Parser<'_> {
         tree
     }
 
-    fn parse_node(&mut self) -> Option<Spanned<SyntaxNode>> {
+    fn parse_node(&mut self) -> Option<Spanned<SynNode>> {
         let token = self.peek()?;
         let end = Span::at(token.span.end);
 
@@ -83,11 +82,7 @@ impl Parser<'_> {
                     self.at_block_or_line_start = true;
                 }
 
-                self.with_span(if n >= 2 {
-                    SyntaxNode::Parbreak
-                } else {
-                    SyntaxNode::Spacing
-                })
+                self.with_span(if n >= 2 { SynNode::Parbreak } else { SynNode::Spacing })
             }
 
             Token::LineComment(_) | Token::BlockComment(_) => {
@@ -99,15 +94,15 @@ impl Parser<'_> {
             Token::LeftBracket => {
                 let call = self.parse_bracket_call(false);
                 self.at_block_or_line_start = false;
-                call.map(SyntaxNode::Call)
+                call.map(|c| SynNode::Expr(Expr::Call(c)))
             }
 
-            Token::Star => self.with_span(SyntaxNode::ToggleBolder),
-            Token::Underscore => self.with_span(SyntaxNode::ToggleItalic),
-            Token::Backslash => self.with_span(SyntaxNode::Linebreak),
+            Token::Star => self.with_span(SynNode::ToggleBolder),
+            Token::Underscore => self.with_span(SynNode::ToggleItalic),
+            Token::Backslash => self.with_span(SynNode::Linebreak),
 
             Token::Hashtag if was_at_block_or_line_start => {
-                self.parse_heading().map(SyntaxNode::Heading)
+                self.parse_heading().map(SynNode::Heading)
             }
 
             Token::Raw { raw, backticks, terminated } => {
@@ -116,11 +111,11 @@ impl Parser<'_> {
                 }
 
                 let raw = resolve::resolve_raw(raw, backticks);
-                self.with_span(SyntaxNode::Raw(raw))
+                self.with_span(SynNode::Raw(raw))
             }
 
-            Token::Text(text) => self.with_span(SyntaxNode::Text(text.to_string())),
-            Token::Hashtag => self.with_span(SyntaxNode::Text("#".to_string())),
+            Token::Text(text) => self.with_span(SynNode::Text(text.to_string())),
+            Token::Hashtag => self.with_span(SynNode::Text("#".to_string())),
 
             Token::UnicodeEscape { sequence, terminated } => {
                 if !terminated {
@@ -128,7 +123,7 @@ impl Parser<'_> {
                 }
 
                 if let Some(c) = resolve::resolve_hex(sequence) {
-                    self.with_span(SyntaxNode::Text(c.to_string()))
+                    self.with_span(SynNode::Text(c.to_string()))
                 } else {
                     error!(@self.feedback, token.span, "invalid unicode escape sequence");
                     // TODO: Decide whether to render the escape sequence.
@@ -145,7 +140,7 @@ impl Parser<'_> {
         })
     }
 
-    fn parse_heading(&mut self) -> Spanned<Heading> {
+    fn parse_heading(&mut self) -> Spanned<NodeHeading> {
         let start = self.pos();
         self.assert(Token::Hashtag);
 
@@ -167,7 +162,7 @@ impl Parser<'_> {
 
         self.skip_ws();
 
-        let mut tree = SyntaxTree::new();
+        let mut tree = SynTree::new();
         while !self.eof() && !matches!(self.peekv(), Some(Token::Space(n)) if n >= 1) {
             if let Some(node) = self.parse_node() {
                 tree.push(node);
@@ -175,13 +170,13 @@ impl Parser<'_> {
         }
 
         let span = Span::new(start, self.pos());
-        Heading { level, tree }.span_with(span)
+        NodeHeading { level, contents: tree }.span_with(span)
     }
 }
 
 // Function calls.
 impl Parser<'_> {
-    fn parse_bracket_call(&mut self, chained: bool) -> Spanned<CallExpr> {
+    fn parse_bracket_call(&mut self, chained: bool) -> Spanned<ExprCall> {
         let before_bracket = self.pos();
         if !chained {
             self.start_group(Group::Bracket);
@@ -203,9 +198,9 @@ impl Parser<'_> {
             Some(_) => {
                 self.expected_at("colon", name.span.end);
                 while self.eat().is_some() {}
-                DictExpr::new()
+                LitDict::default()
             }
-            None => DictExpr::new(),
+            None => LitDict::default(),
         };
 
         self.end_group();
@@ -213,8 +208,9 @@ impl Parser<'_> {
         let (has_chained_child, end) = if self.peek().is_some() {
             let item = self.parse_bracket_call(true);
             let span = item.span;
-            let t = vec![item.map(SyntaxNode::Call)];
-            args.push(SpannedEntry::val(Expr::Tree(t).span_with(span)));
+            let tree = vec![item.map(|c| SynNode::Expr(Expr::Call(c)))];
+            let expr = Expr::Lit(Lit::Content(tree));
+            args.0.push(LitDictEntry { key: None, value: expr.span_with(span) });
             (true, span.end)
         } else {
             self.tokens.pop_mode();
@@ -227,40 +223,41 @@ impl Parser<'_> {
         if self.check(Token::LeftBracket) && !has_chained_child {
             self.start_group(Group::Bracket);
             self.tokens.push_mode(TokenMode::Body);
-
             let body = self.parse_body_contents();
-
             self.tokens.pop_mode();
             let body_span = self.end_group();
 
-            let expr = Expr::Tree(body);
-            args.push(SpannedEntry::val(expr.span_with(body_span)));
+            let expr = Expr::Lit(Lit::Content(body));
+            args.0.push(LitDictEntry {
+                key: None,
+                value: expr.span_with(body_span),
+            });
             span.expand(body_span);
         }
 
-        CallExpr { name, args }.span_with(span)
+        ExprCall { name, args }.span_with(span)
     }
 
-    fn parse_paren_call(&mut self, name: Spanned<Ident>) -> Spanned<CallExpr> {
+    fn parse_paren_call(&mut self, name: Spanned<Ident>) -> Spanned<ExprCall> {
         self.start_group(Group::Paren);
         let args = self.parse_dict_contents().0;
         let args_span = self.end_group();
         let span = Span::merge(name.span, args_span);
-        CallExpr { name, args }.span_with(span)
+        ExprCall { name, args }.span_with(span)
     }
 }
 
 // Dicts.
 impl Parser<'_> {
-    fn parse_dict_contents(&mut self) -> (DictExpr, bool) {
-        let mut dict = DictExpr::new();
+    fn parse_dict_contents(&mut self) -> (LitDict, bool) {
+        let mut dict = LitDict::default();
         let mut comma_and_keyless = true;
 
         while {
             self.skip_ws();
             !self.eof()
         } {
-            let (key, val) = if let Some(ident) = self.parse_ident() {
+            let (key, value) = if let Some(ident) = self.parse_ident() {
                 self.skip_ws();
 
                 match self.peekv() {
@@ -268,7 +265,7 @@ impl Parser<'_> {
                         self.eat();
                         self.skip_ws();
                         if let Some(value) = self.parse_expr() {
-                            (Some(ident), value)
+                            (Some(ident.map(|id| DictKey::Str(id.0))), value)
                         } else {
                             self.expected("value");
                             continue;
@@ -280,7 +277,7 @@ impl Parser<'_> {
                         (None, call.map(Expr::Call))
                     }
 
-                    _ => (None, ident.map(Expr::Ident)),
+                    _ => (None, ident.map(|id| Expr::Lit(Lit::Ident(id)))),
                 }
             } else if let Some(value) = self.parse_expr() {
                 (None, value)
@@ -289,16 +286,15 @@ impl Parser<'_> {
                 continue;
             };
 
-            let behind = val.span.end;
-            if let Some(key) = key {
+            if let Some(key) = &key {
                 comma_and_keyless = false;
-                dict.insert(key.v.0, SpannedEntry::new(key.span, val));
                 self.feedback
                     .decorations
                     .push(Decoration::DictKey.span_with(key.span));
-            } else {
-                dict.push(SpannedEntry::val(val));
             }
+
+            let behind = value.span.end;
+            dict.0.push(LitDictEntry { key, value });
 
             if {
                 self.skip_ws();
@@ -311,27 +307,25 @@ impl Parser<'_> {
             comma_and_keyless = false;
         }
 
-        let coercable = comma_and_keyless && !dict.is_empty();
+        let coercable = comma_and_keyless && !dict.0.is_empty();
         (dict, coercable)
     }
 }
-
-type Binop = fn(Box<Spanned<Expr>>, Box<Spanned<Expr>>) -> Expr;
 
 // Expressions and values.
 impl Parser<'_> {
     fn parse_expr(&mut self) -> Option<Spanned<Expr>> {
         self.parse_binops("summand", Self::parse_term, |token| match token {
-            Token::Plus => Some(Expr::Add),
-            Token::Hyphen => Some(Expr::Sub),
+            Token::Plus => Some(BinOp::Add),
+            Token::Hyphen => Some(BinOp::Sub),
             _ => None,
         })
     }
 
     fn parse_term(&mut self) -> Option<Spanned<Expr>> {
         self.parse_binops("factor", Self::parse_factor, |token| match token {
-            Token::Star => Some(Expr::Mul),
-            Token::Slash => Some(Expr::Div),
+            Token::Star => Some(BinOp::Mul),
+            Token::Slash => Some(BinOp::Div),
             _ => None,
         })
     }
@@ -341,7 +335,7 @@ impl Parser<'_> {
         &mut self,
         operand_name: &str,
         mut parse_operand: impl FnMut(&mut Self) -> Option<Spanned<Expr>>,
-        mut parse_op: impl FnMut(Token) -> Option<Binop>,
+        mut parse_op: impl FnMut(Token) -> Option<BinOp>,
     ) -> Option<Spanned<Expr>> {
         let mut left = parse_operand(self)?;
 
@@ -353,8 +347,12 @@ impl Parser<'_> {
 
                 if let Some(right) = parse_operand(self) {
                     let span = Span::merge(left.span, right.span);
-                    let v = op(Box::new(left), Box::new(right));
-                    left = v.span_with(span);
+                    let expr = Expr::Binary(ExprBinary {
+                        lhs: left.map(Box::new),
+                        op: op.span_with(token.span),
+                        rhs: right.map(Box::new),
+                    });
+                    left = expr.span_with(span);
                     self.skip_ws();
                     continue;
                 }
@@ -375,7 +373,11 @@ impl Parser<'_> {
             self.skip_ws();
             if let Some(factor) = self.parse_factor() {
                 let span = Span::merge(hyph.span, factor.span);
-                Some(Expr::Neg(Box::new(factor)).span_with(span))
+                let expr = Expr::Unary(ExprUnary {
+                    op: UnOp::Neg.span_with(hyph.span),
+                    expr: factor.map(Box::new),
+                });
+                Some(expr.span_with(span))
             } else {
                 error!(@self.feedback, hyph.span, "dangling minus");
                 None
@@ -396,7 +398,7 @@ impl Parser<'_> {
                 if self.check(Token::LeftParen) {
                     self.parse_paren_call(name).map(Expr::Call)
                 } else {
-                    name.map(Expr::Ident)
+                    name.map(|n| Expr::Lit(Lit::Ident(n)))
                 }
             }
 
@@ -404,21 +406,19 @@ impl Parser<'_> {
                 if !terminated {
                     self.expected_at("quote", span.end);
                 }
-                self.with_span(Expr::Str(resolve::resolve_string(string)))
+                self.with_span(Expr::Lit(Lit::Str(resolve::resolve_string(string))))
             }
 
-            Token::Bool(b) => self.with_span(Expr::Bool(b)),
-            Token::Number(n) => self.with_span(Expr::Number(n)),
-            Token::Length(s) => self.with_span(Expr::Length(s)),
+            Token::Bool(b) => self.with_span(Expr::Lit(Lit::Bool(b))),
+            Token::Number(n) => self.with_span(Expr::Lit(Lit::Float(n))),
+            Token::Length(s) => self.with_span(Expr::Lit(Lit::Length(s))),
             Token::Hex(s) => {
-                if let Ok(color) = RgbaColor::from_str(s) {
-                    self.with_span(Expr::Color(color))
-                } else {
+                let color = RgbaColor::from_str(s).unwrap_or_else(|_| {
                     // Heal color by assuming black.
                     error!(@self.feedback, span, "invalid color");
-                    let healed = RgbaColor::new_healed(0, 0, 0, 255);
-                    self.with_span(Expr::Color(healed))
-                }
+                    RgbaColor::new_healed(0, 0, 0, 255)
+                });
+                self.with_span(Expr::Lit(Lit::Color(color)))
             }
 
             // This could be a dictionary or a parenthesized expression. We
@@ -430,9 +430,9 @@ impl Parser<'_> {
                 let span = self.end_group();
 
                 let expr = if coercable {
-                    dict.into_values().next().expect("dict is coercable").val.v
+                    dict.0.into_iter().next().expect("dict is coercable").value.v
                 } else {
-                    Expr::Dict(dict)
+                    Expr::Lit(Lit::Dict(dict))
                 };
 
                 expr.span_with(span)
@@ -442,19 +442,17 @@ impl Parser<'_> {
             Token::LeftBrace => {
                 self.start_group(Group::Brace);
                 self.tokens.push_mode(TokenMode::Body);
-
                 let tree = self.parse_body_contents();
-
                 self.tokens.pop_mode();
                 let span = self.end_group();
-                Expr::Tree(tree).span_with(span)
+                Expr::Lit(Lit::Content(tree)).span_with(span)
             }
 
             // This is a bracketed function call.
             Token::LeftBracket => {
                 let call = self.parse_bracket_call(false);
-                let tree = vec![call.map(SyntaxNode::Call)];
-                Expr::Tree(tree).span_with(span)
+                let tree = vec![call.map(|c| SynNode::Expr(Expr::Call(c)))];
+                Expr::Lit(Lit::Content(tree)).span_with(span)
             }
 
             _ => return None,

@@ -11,7 +11,7 @@ use crate::color::RgbaColor;
 use crate::layout::{Command, Commands, Dir, LayoutContext, SpecAlign};
 use crate::length::{Length, ScaleLength};
 use crate::paper::Paper;
-use crate::syntax::{Ident, Span, SpanWith, Spanned, SyntaxNode, SyntaxTree};
+use crate::syntax::{Ident, Span, SpanWith, Spanned, SynNode, SynTree};
 use crate::{DynFuture, Feedback, Pass};
 
 /// A computational value.
@@ -32,7 +32,7 @@ pub enum Value {
     /// A dictionary value: `(false, 12cm, greeting="hi")`.
     Dict(DictValue),
     /// A syntax tree containing typesetting content.
-    Tree(SyntaxTree),
+    Tree(SynTree),
     /// An executable function.
     Func(FuncValue),
     /// Layouting commands.
@@ -76,7 +76,7 @@ impl Spanned<Value> {
                 for entry in dict.into_values() {
                     if let Some(last_end) = end {
                         let span = Span::new(last_end, entry.key.start);
-                        let tree = vec![SyntaxNode::Spacing.span_with(span)];
+                        let tree = vec![SynNode::Spacing.span_with(span)];
                         commands.push(Command::LayoutSyntaxTree(tree));
                     }
 
@@ -89,7 +89,7 @@ impl Spanned<Value> {
             // Format with debug.
             val => {
                 let fmt = format!("{:?}", val);
-                let tree = vec![SyntaxNode::Text(fmt).span_with(self.span)];
+                let tree = vec![SynNode::Text(fmt).span_with(self.span)];
                 vec![Command::LayoutSyntaxTree(tree)]
             }
         }
@@ -340,7 +340,7 @@ impl_match!(String, "string", Value::Str(s) => s.clone());
 impl_match!(bool, "bool", &Value::Bool(b) => b);
 impl_match!(f64, "number", &Value::Number(n) => n);
 impl_match!(Length, "length", &Value::Length(l) => l);
-impl_match!(SyntaxTree, "tree", Value::Tree(t) => t.clone());
+impl_match!(SynTree, "tree", Value::Tree(t) => t.clone());
 impl_match!(DictValue, "dict", Value::Dict(t) => t.clone());
 impl_match!(FuncValue, "function", Value::Func(f) => f.clone());
 impl_match!(ScaleLength, "number or length",

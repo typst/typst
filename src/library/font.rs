@@ -28,7 +28,7 @@ pub async fn font(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass<
     let mut text = ctx.style.text.clone();
     let mut updated_fallback = false;
 
-    let content = args.take::<SyntaxTree>();
+    let content = args.take::<SynTree>();
 
     if let Some(s) = args.take::<ScaleLength>() {
         match s {

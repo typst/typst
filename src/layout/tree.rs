@@ -5,12 +5,12 @@ use super::text::{layout_text, TextContext};
 use super::*;
 use crate::style::LayoutStyle;
 use crate::syntax::{
-    CallExpr, Decoration, Heading, Raw, Span, SpanWith, Spanned, SyntaxNode, SyntaxTree,
+    Decoration, Expr, NodeHeading, NodeRaw, Span, SpanWith, Spanned, SynNode, SynTree,
 };
 use crate::{DynFuture, Feedback, Pass};
 
 /// Layout a syntax tree into a collection of boxes.
-pub async fn layout_tree(tree: &SyntaxTree, ctx: LayoutContext<'_>) -> Pass<MultiLayout> {
+pub async fn layout_tree(tree: &SynTree, ctx: LayoutContext<'_>) -> Pass<MultiLayout> {
     let mut layouter = TreeLayouter::new(ctx);
     layouter.layout_tree(tree).await;
     layouter.finish()
@@ -44,7 +44,7 @@ impl<'a> TreeLayouter<'a> {
         Pass::new(self.layouter.finish(), self.feedback)
     }
 
-    fn layout_tree<'t>(&'t mut self, tree: &'t SyntaxTree) -> DynFuture<'t, ()> {
+    fn layout_tree<'t>(&'t mut self, tree: &'t SynTree) -> DynFuture<'t, ()> {
         Box::pin(async move {
             for node in tree {
                 self.layout_node(node).await;
@@ -52,26 +52,26 @@ impl<'a> TreeLayouter<'a> {
         })
     }
 
-    async fn layout_node(&mut self, node: &Spanned<SyntaxNode>) {
+    async fn layout_node(&mut self, node: &Spanned<SynNode>) {
         let decorate = |this: &mut Self, deco: Decoration| {
             this.feedback.decorations.push(deco.span_with(node.span));
         };
 
         match &node.v {
-            SyntaxNode::Spacing => self.layout_space(),
-            SyntaxNode::Linebreak => self.layouter.finish_line(),
-            SyntaxNode::Parbreak => self.layout_parbreak(),
+            SynNode::Spacing => self.layout_space(),
+            SynNode::Linebreak => self.layouter.finish_line(),
+            SynNode::Parbreak => self.layout_parbreak(),
 
-            SyntaxNode::ToggleItalic => {
+            SynNode::ToggleItalic => {
                 self.style.text.italic = !self.style.text.italic;
                 decorate(self, Decoration::Italic);
             }
-            SyntaxNode::ToggleBolder => {
+            SynNode::ToggleBolder => {
                 self.style.text.bolder = !self.style.text.bolder;
                 decorate(self, Decoration::Bold);
             }
 
-            SyntaxNode::Text(text) => {
+            SynNode::Text(text) => {
                 if self.style.text.italic {
                     decorate(self, Decoration::Italic);
                 }
@@ -81,12 +81,11 @@ impl<'a> TreeLayouter<'a> {
                 self.layout_text(text).await;
             }
 
-            SyntaxNode::Heading(heading) => self.layout_heading(heading).await,
+            SynNode::Raw(raw) => self.layout_raw(raw).await,
+            SynNode::Heading(heading) => self.layout_heading(heading).await,
 
-            SyntaxNode::Raw(raw) => self.layout_raw(raw).await,
-
-            SyntaxNode::Call(call) => {
-                self.layout_call(call.span_with(node.span)).await;
+            SynNode::Expr(expr) => {
+                self.layout_expr(expr.span_with(node.span)).await;
             }
         }
     }
@@ -115,19 +114,19 @@ impl<'a> TreeLayouter<'a> {
         );
     }
 
-    async fn layout_heading(&mut self, heading: &Heading) {
+    async fn layout_heading(&mut self, heading: &NodeHeading) {
         let style = self.style.text.clone();
         self.style.text.font_scale *= 1.5 - 0.1 * heading.level.v.min(5) as f64;
         self.style.text.bolder = true;
 
         self.layout_parbreak();
-        self.layout_tree(&heading.tree).await;
+        self.layout_tree(&heading.contents).await;
         self.layout_parbreak();
 
         self.style.text = style;
     }
 
-    async fn layout_raw(&mut self, raw: &Raw) {
+    async fn layout_raw(&mut self, raw: &NodeRaw) {
         if !raw.inline {
             self.layout_parbreak();
         }
@@ -153,7 +152,7 @@ impl<'a> TreeLayouter<'a> {
         }
     }
 
-    async fn layout_call(&mut self, call: Spanned<&CallExpr>) {
+    async fn layout_expr(&mut self, expr: Spanned<&Expr>) {
         let ctx = LayoutContext {
             style: &self.style,
             spaces: self.layouter.remaining(),
@@ -161,11 +160,11 @@ impl<'a> TreeLayouter<'a> {
             ..self.ctx
         };
 
-        let val = call.v.eval(&ctx, &mut self.feedback).await;
-        let commands = val.span_with(call.span).into_commands();
+        let val = expr.v.eval(&ctx, &mut self.feedback).await;
+        let commands = val.span_with(expr.span).into_commands();
 
         for command in commands {
-            self.execute_command(command, call.span).await;
+            self.execute_command(command, expr.span).await;
         }
     }
 

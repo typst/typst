@@ -1,26 +1,15 @@
 //! The syntax tree.
 
-use std::fmt::{self, Debug, Formatter};
-use std::ops::Deref;
-
-use unicode_xid::UnicodeXID;
-
-use super::span::{SpanVec, SpanWith, Spanned};
-use super::Decoration;
-use crate::color::RgbaColor;
-use crate::compute::dict::{Dict, SpannedEntry};
-use crate::compute::value::{DictValue, Value};
-use crate::layout::LayoutContext;
-use crate::length::Length;
-use crate::{DynFuture, Feedback};
+use super::span::{SpanVec, Spanned};
+use super::{Expr, Ident};
 
 /// A collection of nodes which form a tree together with the nodes' children.
-pub type SyntaxTree = SpanVec<SyntaxNode>;
+pub type SynTree = SpanVec<SynNode>;
 
 /// A syntax node, which encompasses a single logical entity of parsed source
 /// code.
 #[derive(Debug, Clone, PartialEq)]
-pub enum SyntaxNode {
+pub enum SynNode {
     /// Whitespace containing less than two newlines.
     Spacing,
     /// A forced line break.
@@ -34,11 +23,11 @@ pub enum SyntaxNode {
     /// Plain text.
     Text(String),
     /// An optionally syntax-highlighted raw block.
-    Raw(Raw),
-    /// Section headings.
-    Heading(Heading),
-    /// A function call.
-    Call(CallExpr),
+    Raw(NodeRaw),
+    /// A section heading.
+    Heading(NodeHeading),
+    /// An expression.
+    Expr(Expr),
 }
 
 /// A raw block, rendered in monospace with optional syntax highlighting.
@@ -103,7 +92,7 @@ pub enum SyntaxNode {
 ///   you can always force leading or trailing whitespace simply by adding more
 ///   spaces.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Raw {
+pub struct NodeRaw {
     /// An optional identifier specifying the language to syntax-highlight in.
     pub lang: Option<Ident>,
     /// The lines of raw text, determined as the raw string between the
@@ -122,221 +111,9 @@ pub struct Raw {
 
 /// A section heading.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Heading {
+pub struct NodeHeading {
     /// The section depth (how many hashtags minus 1).
     pub level: Spanned<u8>,
-    pub tree: SyntaxTree,
-}
-
-/// An expression.
-#[derive(Clone, PartialEq)]
-pub enum Expr {
-    /// An identifier: `ident`.
-    Ident(Ident),
-    /// A string: `"string"`.
-    Str(String),
-    /// A boolean: `true, false`.
-    Bool(bool),
-    /// A number: `1.2, 200%`.
-    Number(f64),
-    /// A length: `2cm, 5.2in`.
-    Length(Length),
-    /// A color value with alpha channel: `#f79143ff`.
-    Color(RgbaColor),
-    /// A dictionary expression: `(false, 12cm, greeting="hi")`.
-    Dict(DictExpr),
-    /// A syntax tree containing typesetting content.
-    Tree(SyntaxTree),
-    /// A function call expression: `cmyk(37.7, 0, 3.9, 1.1)`.
-    Call(CallExpr),
-    /// An operation that negates the contained expression.
-    Neg(Box<Spanned<Expr>>),
-    /// An operation that adds the contained expressions.
-    Add(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
-    /// An operation that subtracts the contained expressions.
-    Sub(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
-    /// An operation that multiplies the contained expressions.
-    Mul(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
-    /// An operation that divides the contained expressions.
-    Div(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
-}
-
-impl Expr {
-    /// A natural-language name of the type of this expression, e.g.
-    /// "identifier".
-    pub fn name(&self) -> &'static str {
-        use Expr::*;
-        match self {
-            Ident(_) => "identifier",
-            Str(_) => "string",
-            Bool(_) => "bool",
-            Number(_) => "number",
-            Length(_) => "length",
-            Color(_) => "color",
-            Dict(_) => "dictg",
-            Tree(_) => "syntax tree",
-            Call(_) => "function call",
-            Neg(_) => "negation",
-            Add(_, _) => "addition",
-            Sub(_, _) => "subtraction",
-            Mul(_, _) => "multiplication",
-            Div(_, _) => "division",
-        }
-    }
-
-    /// Evaluate the expression to a value.
-    pub async fn eval(&self, ctx: &LayoutContext<'_>, f: &mut Feedback) -> Value {
-        use Expr::*;
-        match self {
-            Ident(i) => Value::Ident(i.clone()),
-            Str(s) => Value::Str(s.clone()),
-            &Bool(b) => Value::Bool(b),
-            &Number(n) => Value::Number(n),
-            &Length(s) => Value::Length(s),
-            &Color(c) => Value::Color(c),
-            Dict(t) => Value::Dict(t.eval(ctx, f).await),
-            Tree(t) => Value::Tree(t.clone()),
-            Call(call) => call.eval(ctx, f).await,
-            Neg(_) => todo!("eval neg"),
-            Add(_, _) => todo!("eval add"),
-            Sub(_, _) => todo!("eval sub"),
-            Mul(_, _) => todo!("eval mul"),
-            Div(_, _) => todo!("eval div"),
-        }
-    }
-}
-
-impl Debug for Expr {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        use Expr::*;
-        match self {
-            Ident(i) => i.fmt(f),
-            Str(s) => s.fmt(f),
-            Bool(b) => b.fmt(f),
-            Number(n) => n.fmt(f),
-            Length(s) => s.fmt(f),
-            Color(c) => c.fmt(f),
-            Dict(t) => t.fmt(f),
-            Tree(t) => t.fmt(f),
-            Call(c) => c.fmt(f),
-            Neg(e) => write!(f, "-{:?}", e),
-            Add(a, b) => write!(f, "({:?} + {:?})", a, b),
-            Sub(a, b) => write!(f, "({:?} - {:?})", a, b),
-            Mul(a, b) => write!(f, "({:?} * {:?})", a, b),
-            Div(a, b) => write!(f, "({:?} / {:?})", a, b),
-        }
-    }
-}
-
-/// An identifier as defined by unicode with a few extra permissible characters.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Ident(pub String);
-
-impl Ident {
-    /// Create a new identifier from a string checking that it is a valid.
-    pub fn new(ident: impl AsRef<str> + Into<String>) -> Option<Self> {
-        if is_ident(ident.as_ref()) {
-            Some(Self(ident.into()))
-        } else {
-            None
-        }
-    }
-
-    /// Return a reference to the underlying string.
-    pub fn as_str(&self) -> &str {
-        self
-    }
-}
-
-impl AsRef<str> for Ident {
-    fn as_ref(&self) -> &str {
-        self
-    }
-}
-
-impl Deref for Ident {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        self.0.as_str()
-    }
-}
-
-impl Debug for Ident {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "`{}`", self.0)
-    }
-}
-
-/// Whether the string is a valid identifier.
-pub fn is_ident(string: &str) -> bool {
-    fn is_ok(c: char) -> bool {
-        c == '-' || c == '_'
-    }
-
-    let mut chars = string.chars();
-    if matches!(chars.next(), Some(c) if c.is_xid_start() || is_ok(c)) {
-        chars.all(|c| c.is_xid_continue() || is_ok(c))
-    } else {
-        false
-    }
-}
-
-/// A dictionary of expressions.
-///
-/// # Example
-/// ```typst
-/// (false, 12cm, greeting="hi")
-/// ```
-pub type DictExpr = Dict<SpannedEntry<Expr>>;
-
-impl DictExpr {
-    /// Evaluate the dictionary expression to a dictionary value.
-    pub fn eval<'a>(
-        &'a self,
-        ctx: &'a LayoutContext<'a>,
-        f: &'a mut Feedback,
-    ) -> DynFuture<'a, DictValue> {
-        Box::pin(async move {
-            let mut dict = DictValue::new();
-
-            for (key, entry) in self.iter() {
-                let val = entry.val.v.eval(ctx, f).await;
-                let spanned = val.span_with(entry.val.span);
-                let entry = SpannedEntry::new(entry.key, spanned);
-                dict.insert(key, entry);
-            }
-
-            dict
-        })
-    }
-}
-
-/// An invocation of a function.
-#[derive(Debug, Clone, PartialEq)]
-pub struct CallExpr {
-    pub name: Spanned<Ident>,
-    pub args: DictExpr,
-}
-
-impl CallExpr {
-    /// Evaluate the call expression to a value.
-    pub async fn eval(&self, ctx: &LayoutContext<'_>, f: &mut Feedback) -> Value {
-        let name = &self.name.v;
-        let span = self.name.span;
-        let args = self.args.eval(ctx, f).await;
-
-        if let Some(func) = ctx.scope.func(name) {
-            let pass = func(span, args, ctx.clone()).await;
-            f.extend(pass.feedback);
-            f.decorations.push(Decoration::Resolved.span_with(span));
-            pass.output
-        } else {
-            if !name.is_empty() {
-                error!(@f, span, "unknown function");
-                f.decorations.push(Decoration::Unresolved.span_with(span));
-            }
-            Value::Dict(args)
-        }
-    }
+    /// The contents of the heading.
+    pub contents: SynTree,
 }

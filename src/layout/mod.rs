@@ -25,7 +25,7 @@ use crate::compute::scope::Scope;
 use crate::font::SharedFontLoader;
 use crate::geom::{Margins, Size};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
-use crate::syntax::SyntaxTree;
+use crate::syntax::SynTree;
 
 use elements::LayoutElements;
 use prelude::*;
@@ -121,7 +121,7 @@ pub enum Command {
     /// This has the effect that the content fits nicely into the active line
     /// layouting, enabling functions to e.g. change the style of some piece of
     /// text while keeping it part of the current paragraph.
-    LayoutSyntaxTree(SyntaxTree),
+    LayoutSyntaxTree(SynTree),
 
     /// Add a finished layout.
     Add(BoxLayout),
