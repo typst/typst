@@ -1,6 +1,6 @@
 //! Mapping of values to the locations they originate from in source code.
 
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 
 #[cfg(test)]
 use std::cell::Cell;
@@ -168,7 +168,7 @@ impl Debug for Span {
     }
 }
 
-/// A byte position.
+/// A byte position in source code.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Pos(pub u32);
@@ -203,6 +203,35 @@ impl Offset for Pos {
 
 impl Debug for Pos {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
+        Debug::fmt(&self.0, f)
+    }
+}
+
+/// A one-indexed line-column position in source code.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+pub struct Location {
+    /// The one-indexed line.
+    pub line: u32,
+    /// The one-indexed column.
+    pub column: u32,
+}
+
+impl Location {
+    /// Create a new location from line and column.
+    pub fn new(line: u32, column: u32) -> Self {
+        Self { line, column }
+    }
+}
+
+impl Debug for Location {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
+impl Display for Location {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}:{}", self.line, self.column)
     }
 }

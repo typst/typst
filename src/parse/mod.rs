@@ -1,9 +1,11 @@
 //! Parsing and tokenization.
 
+mod lines;
 mod resolve;
 mod scanner;
 mod tokens;
 
+pub use lines::*;
 pub use resolve::*;
 pub use scanner::*;
 pub use tokens::*;

@@ -1,8 +1,8 @@
 //! Tokenization.
 
-use super::{is_newline_char, Scanner};
+use super::{is_newline, Scanner};
 use crate::length::Length;
-use crate::syntax::{Ident, Pos, Span, SpanWith, Spanned, Token};
+use crate::syntax::{is_ident, Pos, Span, SpanWith, Spanned, Token};
 
 use TokenMode::*;
 
@@ -115,7 +115,7 @@ impl<'s> Tokens<'s> {
 
         // Uneat the first char if it's a newline, so that it's counted in the
         // loop.
-        if is_newline_char(first) {
+        if is_newline(first) {
             self.s.uneat();
         }
 
@@ -127,7 +127,7 @@ impl<'s> Tokens<'s> {
                 break;
             }
 
-            if is_newline_char(c) {
+            if is_newline(c) {
                 newlines += 1;
             }
         }
@@ -136,7 +136,7 @@ impl<'s> Tokens<'s> {
     }
 
     fn read_line_comment(&mut self) -> Token<'s> {
-        Token::LineComment(self.s.eat_until(is_newline_char))
+        Token::LineComment(self.s.eat_until(is_newline))
     }
 
     fn read_block_comment(&mut self) -> Token<'s> {
@@ -277,7 +277,7 @@ fn parse_expr(text: &str) -> Token<'_> {
         Token::Number(num / 100.0)
     } else if let Ok(length) = text.parse::<Length>() {
         Token::Length(length)
-    } else if Ident::is_ident(text) {
+    } else if is_ident(text) {
         Token::Ident(text)
     } else {
         Token::Invalid(text)

@@ -1,9 +1,7 @@
 //! Conversion of byte positions to line/column locations.
 
-use std::fmt::{self, Debug, Display, Formatter};
-
-use super::Pos;
-use crate::parse::{is_newline_char, Scanner};
+use super::Scanner;
+use crate::syntax::{Location, Pos};
 
 /// Enables conversion of byte position to locations.
 pub struct LineMap<'s> {
@@ -18,7 +16,7 @@ impl<'s> LineMap<'s> {
         let mut s = Scanner::new(src);
 
         while let Some(c) = s.eat_merging_crlf() {
-            if is_newline_char(c) {
+            if is_newline(c) {
                 line_starts.push(s.index().into());
             }
         }
@@ -47,32 +45,14 @@ impl<'s> LineMap<'s> {
     }
 }
 
-/// One-indexed line-column position in source code.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
-pub struct Location {
-    /// The one-indexed line.
-    pub line: u32,
-    /// The one-indexed column.
-    pub column: u32,
-}
-
-impl Location {
-    /// Create a new location from line and column.
-    pub fn new(line: u32, column: u32) -> Self {
-        Self { line, column }
-    }
-}
-
-impl Debug for Location {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
-    }
-}
-
-impl Display for Location {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}:{}", self.line, self.column)
+/// Whether this character denotes a newline.
+pub fn is_newline(character: char) -> bool {
+    match character {
+        // Line Feed, Vertical Tab, Form Feed, Carriage Return.
+        '\n' | '\x0B' | '\x0C' | '\r' |
+        // Next Line, Line Separator, Paragraph Separator.
+        '\u{0085}' | '\u{2028}' | '\u{2029}' => true,
+        _ => false,
     }
 }
 

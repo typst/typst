@@ -1,6 +1,6 @@
 //! Resolve strings and raw blocks.
 
-use super::{is_newline_char, Scanner};
+use super::{is_newline, Scanner};
 use crate::syntax::{Ident, Raw};
 
 /// Resolves all escape sequences in a string.
@@ -42,8 +42,8 @@ pub fn resolve_string(string: &str) -> String {
     out
 }
 
-/// Resolve a hexademical escape sequence (only the inner hex letters without
-/// braces or `\u`) into a character.
+/// Resolve a hexademical escape sequence into a character
+/// (only the inner hex letters without braces or `\u`).
 pub fn resolve_hex(sequence: &str) -> Option<char> {
     u32::from_str_radix(sequence, 16).ok().and_then(std::char::from_u32)
 }
@@ -71,7 +71,7 @@ pub fn resolve_raw(raw: &str, backticks: usize) -> Raw {
 fn split_at_lang_tag(raw: &str) -> (&str, &str) {
     let mut s = Scanner::new(raw);
     (
-        s.eat_until(|c| c == '`' || c.is_whitespace() || is_newline_char(c)),
+        s.eat_until(|c| c == '`' || c.is_whitespace() || is_newline(c)),
         s.rest(),
     )
 }
@@ -101,15 +101,15 @@ fn trim_and_split_raw(raw: &str) -> (Vec<String>, bool) {
     (lines, had_newline)
 }
 
-/// Splits a string into a vector of lines (respecting Unicode & Windows line
-/// breaks).
+/// Splits a string into a vector of lines
+/// (respecting Unicode, Unix, Mac and Windows line breaks).
 pub fn split_lines(text: &str) -> Vec<String> {
     let mut s = Scanner::new(text);
     let mut line = String::new();
     let mut lines = Vec::new();
 
     while let Some(c) = s.eat_merging_crlf() {
-        if is_newline_char(c) {
+        if is_newline(c) {
             lines.push(std::mem::take(&mut line));
         } else {
             line.push(c);

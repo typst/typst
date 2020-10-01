@@ -18,8 +18,8 @@ use typstc::layout::elements::{LayoutElement, Shaped};
 use typstc::layout::MultiLayout;
 use typstc::length::Length;
 use typstc::paper::PaperClass;
+use typstc::parse::LineMap;
 use typstc::style::PageStyle;
-use typstc::syntax::LineMap;
 use typstc::{Feedback, Pass, Typesetter};
 
 const TEST_DIR: &str = "tests";

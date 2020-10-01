@@ -102,37 +102,14 @@ impl<'s> Scanner<'s> {
     pub fn check(&self, f: impl FnMut(char) -> bool) -> bool {
         self.peek().map(f).unwrap_or(false)
     }
+
+    /// Go back to the where the index says.
+    fn reset(&mut self) {
+        self.iter = self.src[self.index ..].chars();
+    }
 }
 
 impl<'s> Scanner<'s> {
-    /// Slice a part out of the source string.
-    pub fn get<I>(&self, index: I) -> &'s str
-    where
-        I: SliceIndex<str, Output = str>,
-    {
-        &self.src[index]
-    }
-
-    /// The full source string.
-    pub fn src(&self) -> &'s str {
-        self.src
-    }
-
-    /// The full string up to the current index.
-    pub fn eaten(&self) -> &'s str {
-        &self.src[.. self.index]
-    }
-
-    /// The string from `start` to the current index.
-    pub fn eaten_from(&self, start: usize) -> &'s str {
-        &self.src[start .. self.index]
-    }
-
-    /// The remaining string after the current index.
-    pub fn rest(&self) -> &'s str {
-        &self.src[self.index ..]
-    }
-
     /// The current index in the string.
     pub fn index(&self) -> usize {
         self.index
@@ -147,25 +124,37 @@ impl<'s> Scanner<'s> {
             .unwrap_or(0)
     }
 
-    /// Go back to the where the index says.
-    fn reset(&mut self) {
-        self.iter = self.src[self.index ..].chars();
+    /// Slice a part out of the source string.
+    pub fn get<I>(&self, index: I) -> &'s str
+    where
+        I: SliceIndex<str, Output = str>,
+    {
+        &self.src[index]
+    }
+
+    /// The full source string.
+    pub fn src(&self) -> &'s str {
+        self.src
+    }
+
+    /// The full source string up to the current index.
+    pub fn eaten(&self) -> &'s str {
+        &self.src[.. self.index]
+    }
+
+    /// The source string from `start` to the current index.
+    pub fn eaten_from(&self, start: usize) -> &'s str {
+        &self.src[start .. self.index]
+    }
+
+    /// The remaining source string after the current index.
+    pub fn rest(&self) -> &'s str {
+        &self.src[self.index ..]
     }
 }
 
 impl Debug for Scanner<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Scanner({}|{})", self.eaten(), self.rest())
-    }
-}
-
-/// Whether this character denotes a newline.
-pub fn is_newline_char(character: char) -> bool {
-    match character {
-        // Line Feed, Vertical Tab, Form Feed, Carriage Return.
-        '\n' | '\x0B' | '\x0C' | '\r' |
-        // Next Line, Line Separator, Paragraph Separator.
-        '\u{0085}' | '\u{2028}' | '\u{2029}' => true,
-        _ => false,
     }
 }

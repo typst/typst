@@ -9,7 +9,7 @@ use futures_executor::block_on;
 
 use typstc::export::pdf;
 use typstc::font::FontLoader;
-use typstc::syntax::LineMap;
+use typstc::parse::LineMap;
 use typstc::{Feedback, Pass, Typesetter};
 
 fn main() {

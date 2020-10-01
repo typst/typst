@@ -1,6 +1,7 @@
 //! The syntax tree.
 
 use std::fmt::{self, Debug, Formatter};
+use std::ops::Deref;
 
 use unicode_xid::UnicodeXID;
 
@@ -234,7 +235,7 @@ pub struct Ident(pub String);
 impl Ident {
     /// Create a new identifier from a string checking that it is a valid.
     pub fn new(ident: impl AsRef<str> + Into<String>) -> Option<Self> {
-        if Self::is_ident(ident.as_ref()) {
+        if is_ident(ident.as_ref()) {
             Some(Self(ident.into()))
         } else {
             None
@@ -243,27 +244,41 @@ impl Ident {
 
     /// Return a reference to the underlying string.
     pub fn as_str(&self) -> &str {
-        self.0.as_str()
+        self
     }
+}
 
-    /// Whether the string is a valid identifier.
-    pub fn is_ident(string: &str) -> bool {
-        fn is_ok(c: char) -> bool {
-            c == '-' || c == '_'
-        }
+impl AsRef<str> for Ident {
+    fn as_ref(&self) -> &str {
+        self
+    }
+}
 
-        let mut chars = string.chars();
-        if matches!(chars.next(), Some(c) if c.is_xid_start() || is_ok(c)) {
-            chars.all(|c| c.is_xid_continue() || is_ok(c))
-        } else {
-            false
-        }
+impl Deref for Ident {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_str()
     }
 }
 
 impl Debug for Ident {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "`{}`", self.0)
+    }
+}
+
+/// Whether the string is a valid identifier.
+pub fn is_ident(string: &str) -> bool {
+    fn is_ok(c: char) -> bool {
+        c == '-' || c == '_'
+    }
+
+    let mut chars = string.chars();
+    if matches!(chars.next(), Some(c) if c.is_xid_start() || is_ok(c)) {
+        chars.all(|c| c.is_xid_continue() || is_ok(c))
+    } else {
+        false
     }
 }
 
@@ -307,7 +322,7 @@ pub struct CallExpr {
 impl CallExpr {
     /// Evaluate the call expression to a value.
     pub async fn eval(&self, ctx: &LayoutContext<'_>, f: &mut Feedback) -> Value {
-        let name = self.name.v.as_str();
+        let name = &self.name.v;
         let span = self.name.span;
         let args = self.args.eval(ctx, f).await;
 

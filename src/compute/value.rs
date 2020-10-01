@@ -310,7 +310,7 @@ macro_rules! impl_ident {
         impl TryFromValue for $type {
             fn try_from_value(value: Spanned<&Value>, f: &mut Feedback) -> Option<Self> {
                 if let Value::Ident(ident) = value.v {
-                    let val = $parse(ident.as_str());
+                    let val = $parse(ident);
                     if val.is_none() {
                         error!(@f, value.span, "invalid {}", $name);
                     }
@@ -352,17 +352,17 @@ impl_match!(ScaleLength, "number or length",
 /// `Into<String>`.
 pub struct StringLike(pub String);
 
+impl From<StringLike> for String {
+    fn from(like: StringLike) -> String {
+        like.0
+    }
+}
+
 impl Deref for StringLike {
     type Target = str;
 
     fn deref(&self) -> &str {
         self.0.as_str()
-    }
-}
-
-impl From<StringLike> for String {
-    fn from(like: StringLike) -> String {
-        like.0
     }
 }
 
@@ -410,7 +410,7 @@ impl TryFromValue for FontWeight {
                 }
             }
             Value::Ident(ident) => {
-                let weight = Self::from_str(ident.as_str());
+                let weight = Self::from_str(ident);
                 if weight.is_none() {
                     error!(@f, value.span, "invalid font weight");
                 }
