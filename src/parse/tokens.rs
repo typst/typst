@@ -74,6 +74,7 @@ impl<'s> Iterator for Tokens<'s> {
             '}' => Token::RightBrace,
 
             // Syntactic elements in body text.
+            '*' if self.mode == Body => Token::Star,
             '_' if self.mode == Body => Token::Underscore,
             '`' if self.mode == Body => self.read_raw(),
             '#' if self.mode == Body => Token::Hashtag,
@@ -88,16 +89,13 @@ impl<'s> Iterator for Tokens<'s> {
             '=' if self.mode == Header => Token::Equals,
             '>' if self.mode == Header && self.p.eat_if('>') => Token::Chain,
 
-            // Expressions.
+            // Expressions in headers.
             '+' if self.mode == Header => Token::Plus,
             '-' if self.mode == Header => Token::Hyphen,
+            '*' if self.mode == Header => Token::Star,
             '/' if self.mode == Header => Token::Slash,
             '#' if self.mode == Header => self.read_hex(),
             '"' if self.mode == Header => self.read_string(),
-
-            // Star serves a double purpose as a style modifier
-            // and a expression operator in the header.
-            '*' => Token::Star,
 
             // Expressions or just plain text.
             _ => self.read_text_or_expr(start),
@@ -115,7 +113,8 @@ impl<'s> Tokens<'s> {
             return Token::Space(0);
         }
 
-        // Uneat the first char if it's a newline, so it's counted in the loop.
+        // Uneat the first char if it's a newline, so that it's counted in the
+        // loop.
         if is_newline_char(first) {
             self.p.uneat();
         }
@@ -143,34 +142,31 @@ impl<'s> Tokens<'s> {
     fn read_block_comment(&mut self) -> Token<'s> {
         let start = self.p.index();
 
+        let mut state = '_';
         let mut depth = 1;
-        let mut state = ' ';
 
         // Find the first `*/` that does not correspond to a nested `/*`.
         while let Some(c) = self.p.eat() {
             state = match (state, c) {
-                ('*', '/') if depth == 1 => {
-                    depth = 0;
-                    break;
-                }
                 ('*', '/') => {
                     depth -= 1;
-                    ' '
+                    if depth == 0 {
+                        break;
+                    }
+                    '_'
                 }
                 ('/', '*') => {
                     depth += 1;
-                    ' '
+                    '_'
                 }
                 _ => c,
             }
         }
 
-        let mut read = self.p.eaten_from(start);
-        if depth == 0 {
-            read = read.strip_suffix("*/").unwrap_or(read);
-        }
+        let terminated = depth == 0;
+        let end = self.p.index() - if terminated { 2 } else { 0 };
 
-        Token::BlockComment(read)
+        Token::BlockComment(self.p.get(start .. end))
     }
 
     fn read_hex(&mut self) -> Token<'s> {
@@ -201,6 +197,7 @@ impl<'s> Tokens<'s> {
         }
 
         let start = self.p.index();
+
         let mut found = 0;
         while found < backticks {
             match self.p.eat() {
@@ -288,11 +285,7 @@ fn parse_expr(text: &str) -> Token<'_> {
 }
 
 fn parse_percent(text: &str) -> Option<f64> {
-    if text.ends_with('%') {
-        text[.. text.len() - 1].parse::<f64>().ok()
-    } else {
-        None
-    }
+    text.strip_suffix('%').and_then(|num| num.parse::<f64>().ok())
 }
 
 #[cfg(test)]
