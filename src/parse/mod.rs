@@ -1,11 +1,11 @@
 //! Parsing and tokenization.
 
-mod chars;
 mod resolve;
+mod scanner;
 mod tokens;
 
-pub use chars::*;
 pub use resolve::*;
+pub use scanner::*;
 pub use tokens::*;
 
 use std::str::FromStr;

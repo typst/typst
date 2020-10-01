@@ -1,41 +1,41 @@
 //! Resolve strings and raw blocks.
 
-use super::{is_newline_char, CharParser};
+use super::{is_newline_char, Scanner};
 use crate::syntax::{Ident, Raw};
 
 /// Resolves all escape sequences in a string.
 pub fn resolve_string(string: &str) -> String {
     let mut out = String::with_capacity(string.len());
-    let mut p = CharParser::new(string);
+    let mut s = Scanner::new(string);
 
-    while let Some(c) = p.eat() {
+    while let Some(c) = s.eat() {
         if c != '\\' {
             out.push(c);
             continue;
         }
 
-        let start = p.prev_index();
-        match p.eat() {
+        let start = s.prev_index();
+        match s.eat() {
             Some('\\') => out.push('\\'),
             Some('"') => out.push('"'),
 
             Some('n') => out.push('\n'),
             Some('t') => out.push('\t'),
-            Some('u') if p.eat_if('{') => {
+            Some('u') if s.eat_if('{') => {
                 // TODO: Feedback if closing brace is missing.
-                let sequence = p.eat_while(|c| c.is_ascii_hexdigit());
-                let _terminated = p.eat_if('}');
+                let sequence = s.eat_while(|c| c.is_ascii_hexdigit());
+                let _terminated = s.eat_if('}');
 
                 if let Some(c) = resolve_hex(sequence) {
                     out.push(c);
                 } else {
                     // TODO: Feedback that escape sequence is wrong.
-                    out += p.eaten_from(start);
+                    out += s.eaten_from(start);
                 }
             }
 
             // TODO: Feedback about invalid escape sequence.
-            _ => out += p.eaten_from(start),
+            _ => out += s.eaten_from(start),
         }
     }
 
@@ -69,10 +69,10 @@ pub fn resolve_raw(raw: &str, backticks: usize) -> Raw {
 
 /// Parse the lang tag and return it alongside the remaining inner raw text.
 fn split_at_lang_tag(raw: &str) -> (&str, &str) {
-    let mut p = CharParser::new(raw);
+    let mut s = Scanner::new(raw);
     (
-        p.eat_until(|c| c == '`' || c.is_whitespace() || is_newline_char(c)),
-        p.rest(),
+        s.eat_until(|c| c == '`' || c.is_whitespace() || is_newline_char(c)),
+        s.rest(),
     )
 }
 
@@ -104,11 +104,11 @@ fn trim_and_split_raw(raw: &str) -> (Vec<String>, bool) {
 /// Splits a string into a vector of lines (respecting Unicode & Windows line
 /// breaks).
 pub fn split_lines(text: &str) -> Vec<String> {
-    let mut p = CharParser::new(text);
+    let mut s = Scanner::new(text);
     let mut line = String::new();
     let mut lines = Vec::new();
 
-    while let Some(c) = p.eat_merging_crlf() {
+    while let Some(c) = s.eat_merging_crlf() {
         if is_newline_char(c) {
             lines.push(std::mem::take(&mut line));
         } else {

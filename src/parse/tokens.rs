@@ -1,6 +1,6 @@
 //! Tokenization.
 
-use super::{is_newline_char, CharParser};
+use super::{is_newline_char, Scanner};
 use crate::length::Length;
 use crate::syntax::{Ident, Pos, Span, SpanWith, Spanned, Token};
 
@@ -9,7 +9,7 @@ use TokenMode::*;
 /// An iterator over the tokens of a string of source code.
 #[derive(Debug)]
 pub struct Tokens<'s> {
-    p: CharParser<'s>,
+    s: Scanner<'s>,
     mode: TokenMode,
     stack: Vec<TokenMode>,
 }
@@ -27,7 +27,7 @@ impl<'s> Tokens<'s> {
     /// Create a new token iterator with the given mode.
     pub fn new(src: &'s str, mode: TokenMode) -> Self {
         Self {
-            p: CharParser::new(src),
+            s: Scanner::new(src),
             mode,
             stack: vec![],
         }
@@ -48,7 +48,7 @@ impl<'s> Tokens<'s> {
     /// The position in the string at which the last token ends and next token
     /// will start.
     pub fn pos(&self) -> Pos {
-        self.p.index().into()
+        self.s.index().into()
     }
 }
 
@@ -57,15 +57,15 @@ impl<'s> Iterator for Tokens<'s> {
 
     /// Parse the next token in the source code.
     fn next(&mut self) -> Option<Self::Item> {
-        let start = self.p.index();
-        let token = match self.p.eat()? {
+        let start = self.s.index();
+        let token = match self.s.eat()? {
             // Whitespace.
             c if c.is_whitespace() => self.read_whitespace(c),
 
             // Comments.
-            '/' if self.p.eat_if('/') => self.read_line_comment(),
-            '/' if self.p.eat_if('*') => self.read_block_comment(),
-            '*' if self.p.eat_if('/') => Token::Invalid("*/"),
+            '/' if self.s.eat_if('/') => self.read_line_comment(),
+            '/' if self.s.eat_if('*') => self.read_block_comment(),
+            '*' if self.s.eat_if('/') => Token::Invalid("*/"),
 
             // Functions.
             '[' => Token::LeftBracket,
@@ -87,7 +87,7 @@ impl<'s> Iterator for Tokens<'s> {
             ':' if self.mode == Header => Token::Colon,
             ',' if self.mode == Header => Token::Comma,
             '=' if self.mode == Header => Token::Equals,
-            '>' if self.mode == Header && self.p.eat_if('>') => Token::Chain,
+            '>' if self.mode == Header && self.s.eat_if('>') => Token::Chain,
 
             // Expressions in headers.
             '+' if self.mode == Header => Token::Plus,
@@ -101,7 +101,7 @@ impl<'s> Iterator for Tokens<'s> {
             _ => self.read_text_or_expr(start),
         };
 
-        let end = self.p.index();
+        let end = self.s.index();
         Some(token.span_with(Span::new(start, end)))
     }
 }
@@ -109,21 +109,21 @@ impl<'s> Iterator for Tokens<'s> {
 impl<'s> Tokens<'s> {
     fn read_whitespace(&mut self, first: char) -> Token<'s> {
         // Shortcut for common case of exactly one space.
-        if first == ' ' && !self.p.check(|c| c.is_whitespace()) {
+        if first == ' ' && !self.s.check(|c| c.is_whitespace()) {
             return Token::Space(0);
         }
 
         // Uneat the first char if it's a newline, so that it's counted in the
         // loop.
         if is_newline_char(first) {
-            self.p.uneat();
+            self.s.uneat();
         }
 
         // Count the number of newlines.
         let mut newlines = 0;
-        while let Some(c) = self.p.eat_merging_crlf() {
+        while let Some(c) = self.s.eat_merging_crlf() {
             if !c.is_whitespace() {
-                self.p.uneat();
+                self.s.uneat();
                 break;
             }
 
@@ -136,17 +136,17 @@ impl<'s> Tokens<'s> {
     }
 
     fn read_line_comment(&mut self) -> Token<'s> {
-        Token::LineComment(self.p.eat_until(is_newline_char))
+        Token::LineComment(self.s.eat_until(is_newline_char))
     }
 
     fn read_block_comment(&mut self) -> Token<'s> {
-        let start = self.p.index();
+        let start = self.s.index();
 
         let mut state = '_';
         let mut depth = 1;
 
         // Find the first `*/` that does not correspond to a nested `/*`.
-        while let Some(c) = self.p.eat() {
+        while let Some(c) = self.s.eat() {
             state = match (state, c) {
                 ('*', '/') => {
                     depth -= 1;
@@ -164,21 +164,21 @@ impl<'s> Tokens<'s> {
         }
 
         let terminated = depth == 0;
-        let end = self.p.index() - if terminated { 2 } else { 0 };
+        let end = self.s.index() - if terminated { 2 } else { 0 };
 
-        Token::BlockComment(self.p.get(start .. end))
+        Token::BlockComment(self.s.get(start .. end))
     }
 
     fn read_hex(&mut self) -> Token<'s> {
         // This parses more than the permissable 0-9, a-f, A-F character ranges
         // to provide nicer error messages later.
-        Token::Hex(self.p.eat_while(|c| c.is_ascii_alphanumeric()))
+        Token::Hex(self.s.eat_while(|c| c.is_ascii_alphanumeric()))
     }
 
     fn read_string(&mut self) -> Token<'s> {
         let mut escaped = false;
         Token::Str {
-            string: self.p.eat_until(|c| {
+            string: self.s.eat_until(|c| {
                 if c == '"' && !escaped {
                     true
                 } else {
@@ -186,21 +186,21 @@ impl<'s> Tokens<'s> {
                     false
                 }
             }),
-            terminated: self.p.eat_if('"'),
+            terminated: self.s.eat_if('"'),
         }
     }
 
     fn read_raw(&mut self) -> Token<'s> {
         let mut backticks = 1;
-        while self.p.eat_if('`') {
+        while self.s.eat_if('`') {
             backticks += 1;
         }
 
-        let start = self.p.index();
+        let start = self.s.index();
 
         let mut found = 0;
         while found < backticks {
-            match self.p.eat() {
+            match self.s.eat() {
                 Some('`') => found += 1,
                 Some(_) => found = 0,
                 None => break,
@@ -208,29 +208,29 @@ impl<'s> Tokens<'s> {
         }
 
         let terminated = found == backticks;
-        let end = self.p.index() - if terminated { found } else { 0 };
+        let end = self.s.index() - if terminated { found } else { 0 };
 
         Token::Raw {
-            raw: self.p.get(start .. end),
+            raw: self.s.get(start .. end),
             backticks,
             terminated,
         }
     }
 
     fn read_escaped(&mut self) -> Token<'s> {
-        if let Some(c) = self.p.peek() {
+        if let Some(c) = self.s.peek() {
             match c {
                 '[' | ']' | '\\' | '/' | '*' | '_' | '`' | '"' | '#' | '~' => {
-                    let start = self.p.index();
-                    self.p.eat_assert(c);
-                    Token::Text(&self.p.eaten_from(start))
+                    let start = self.s.index();
+                    self.s.eat_assert(c);
+                    Token::Text(&self.s.eaten_from(start))
                 }
-                'u' if self.p.peek_nth(1) == Some('{') => {
-                    self.p.eat_assert('u');
-                    self.p.eat_assert('{');
+                'u' if self.s.peek_nth(1) == Some('{') => {
+                    self.s.eat_assert('u');
+                    self.s.eat_assert('{');
                     Token::UnicodeEscape {
-                        sequence: self.p.eat_while(|c| c.is_ascii_hexdigit()),
-                        terminated: self.p.eat_if('}'),
+                        sequence: self.s.eat_while(|c| c.is_ascii_hexdigit()),
+                        terminated: self.s.eat_if('}'),
                     }
                 }
                 c if c.is_whitespace() => Token::Backslash,
@@ -246,7 +246,7 @@ impl<'s> Tokens<'s> {
         let header = self.mode == Header;
 
         let mut last_was_e = false;
-        self.p.eat_until(|c| {
+        self.s.eat_until(|c| {
             let end = match c {
                 c if c.is_whitespace() => true,
                 '[' | ']' | '*' | '/' => true,
@@ -259,7 +259,7 @@ impl<'s> Tokens<'s> {
             end
         });
 
-        let read = self.p.eaten_from(start);
+        let read = self.s.eaten_from(start);
         if self.mode == Header {
             parse_expr(read)
         } else {

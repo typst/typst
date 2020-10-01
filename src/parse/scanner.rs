@@ -1,18 +1,18 @@
-//! Low-level char parser.
+//! Low-level char-based scanner.
 
 use std::fmt::{self, Debug, Formatter};
 use std::slice::SliceIndex;
 use std::str::Chars;
 
-/// A low-level featureful char parser.
-pub struct CharParser<'s> {
+/// A low-level featureful char scanner.
+pub struct Scanner<'s> {
     src: &'s str,
     iter: Chars<'s>,
     index: usize,
 }
 
-impl<'s> CharParser<'s> {
-    /// Create a new char parser.
+impl<'s> Scanner<'s> {
+    /// Create a new char scanner.
     pub fn new(src: &'s str) -> Self {
         Self { src, iter: src.chars(), index: 0 }
     }
@@ -104,7 +104,7 @@ impl<'s> CharParser<'s> {
     }
 }
 
-impl<'s> CharParser<'s> {
+impl<'s> Scanner<'s> {
     /// Slice a part out of the source string.
     pub fn get<I>(&self, index: I) -> &'s str
     where
@@ -153,9 +153,9 @@ impl<'s> CharParser<'s> {
     }
 }
 
-impl Debug for CharParser<'_> {
+impl Debug for Scanner<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "CharParser({}|{})", self.eaten(), self.rest())
+        write!(f, "Scanner({}|{})", self.eaten(), self.rest())
     }
 }
 
