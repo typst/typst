@@ -2,7 +2,7 @@ use super::*;
 use crate::color::RgbaColor;
 
 /// `rgb`: Create an RGB(A) color.
-pub async fn rgb(span: Span, mut args: TableValue, _: LayoutContext<'_>) -> Pass<Value> {
+pub async fn rgb(span: Span, mut args: DictValue, _: LayoutContext<'_>) -> Pass<Value> {
     let mut f = Feedback::new();
 
     let r = args.expect::<Spanned<f64>>("red value", span, &mut f);

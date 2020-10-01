@@ -21,6 +21,6 @@ pub enum Decoration {
     Resolved,
     /// An invalid, unresolved name.
     Unresolved,
-    /// The key part of a key-value entry in a table.
-    TableKey,
+    /// A key in a dictionary.
+    DictKey,
 }

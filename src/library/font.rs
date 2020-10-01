@@ -12,13 +12,18 @@ use crate::length::ScaleLength;
 /// # Keyword arguments
 /// - `style`: `normal`, `italic` or `oblique`.
 /// - `weight`: `100` - `900` or a name like `thin`.
-/// - `width`: `normal`, `condensed`, `expanded`, ...
-/// - Any other keyword argument whose value is a table of strings is a class
-///   fallback definition like:
+/// - `width`: `1` - `9` or a name like `condensed`.
+/// - Any other keyword argument whose value is a dictionary of strings defines
+///   a fallback class, for example:
 ///   ```typst
-///   serif = ("Source Serif Pro", "Noto Serif")
+///   [font: serif = ("Source Serif Pro", "Noto Serif")]
 ///   ```
-pub async fn font(_: Span, mut args: TableValue, ctx: LayoutContext<'_>) -> Pass<Value> {
+///   This class can be used in the fallback list or other fallback classes as
+///   long as the resulting fallback tree is acylic.
+///   ```typst
+///   [font: "My Serif", serif]
+///   ```
+pub async fn font(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass<Value> {
     let mut f = Feedback::new();
     let mut text = ctx.style.text.clone();
     let mut updated_fallback = false;
@@ -57,8 +62,8 @@ pub async fn font(_: Span, mut args: TableValue, ctx: LayoutContext<'_>) -> Pass
         text.variant.stretch = stretch;
     }
 
-    for (class, mut table) in args.take_all_str::<TableValue>() {
-        let fallback = table
+    for (class, mut dict) in args.take_all_str::<DictValue>() {
+        let fallback = dict
             .take_all_num_vals::<StringLike>()
             .map(|s| s.to_lowercase())
             .collect();

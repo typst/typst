@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
-use super::table::{SpannedEntry, Table};
+use super::dict::{Dict, SpannedEntry};
 use crate::color::RgbaColor;
 use crate::layout::{Command, Commands, Dir, LayoutContext, SpecAlign};
 use crate::length::{Length, ScaleLength};
@@ -29,8 +29,8 @@ pub enum Value {
     Length(Length),
     /// A color value with alpha channel: `#f79143ff`.
     Color(RgbaColor),
-    /// A table value: `(false, 12cm, greeting="hi")`.
-    Table(TableValue),
+    /// A dictionary value: `(false, 12cm, greeting="hi")`.
+    Dict(DictValue),
     /// A syntax tree containing typesetting content.
     Tree(SyntaxTree),
     /// An executable function.
@@ -51,7 +51,7 @@ impl Value {
             Number(_) => "number",
             Length(_) => "length",
             Color(_) => "color",
-            Table(_) => "table",
+            Dict(_) => "dict",
             Tree(_) => "syntax tree",
             Func(_) => "function",
             Commands(_) => "commands",
@@ -70,10 +70,10 @@ impl Spanned<Value> {
             Value::Tree(tree) => vec![Command::LayoutSyntaxTree(tree)],
 
             // Forward to each entry, separated with spaces.
-            Value::Table(table) => {
+            Value::Dict(dict) => {
                 let mut commands = vec![];
                 let mut end = None;
-                for entry in table.into_values() {
+                for entry in dict.into_values() {
                     if let Some(last_end) = end {
                         let span = Span::new(last_end, entry.key.start);
                         let tree = vec![SyntaxNode::Spacing.span_with(span)];
@@ -106,7 +106,7 @@ impl Debug for Value {
             Number(n) => n.fmt(f),
             Length(s) => s.fmt(f),
             Color(c) => c.fmt(f),
-            Table(t) => t.fmt(f),
+            Dict(t) => t.fmt(f),
             Tree(t) => t.fmt(f),
             Func(_) => f.pad("<function>"),
             Commands(c) => c.fmt(f),
@@ -124,7 +124,7 @@ impl PartialEq for Value {
             (Number(a), Number(b)) => a == b,
             (Length(a), Length(b)) => a == b,
             (Color(a), Color(b)) => a == b,
-            (Table(a), Table(b)) => a == b,
+            (Dict(a), Dict(b)) => a == b,
             (Tree(a), Tree(b)) => a == b,
             (Func(a), Func(b)) => Rc::ptr_eq(a, b),
             (Commands(a), Commands(b)) => a == b,
@@ -135,7 +135,7 @@ impl PartialEq for Value {
 
 /// An executable function value.
 ///
-/// The first argument is a table containing the arguments passed to the
+/// The first argument is a dictionary containing the arguments passed to the
 /// function. The function may be asynchronous (as such it returns a dynamic
 /// future) and it may emit diagnostics, which are contained in the returned
 /// `Pass`. In the end, the function must evaluate to `Value`. Your typical
@@ -144,17 +144,17 @@ impl PartialEq for Value {
 ///
 /// The dynamic function object is wrapped in an `Rc` to keep `Value` clonable.
 pub type FuncValue =
-    Rc<dyn Fn(Span, TableValue, LayoutContext<'_>) -> DynFuture<Pass<Value>>>;
+    Rc<dyn Fn(Span, DictValue, LayoutContext<'_>) -> DynFuture<Pass<Value>>>;
 
-/// A table of values.
+/// A dictionary of values.
 ///
 /// # Example
 /// ```typst
 /// (false, 12cm, greeting="hi")
 /// ```
-pub type TableValue = Table<SpannedEntry<Value>>;
+pub type DictValue = Dict<SpannedEntry<Value>>;
 
-impl TableValue {
+impl DictValue {
     /// Retrieve and remove the matching value with the lowest number key,
     /// skipping and ignoring all non-matching entries with lower keys.
     pub fn take<T: TryFromValue>(&mut self) -> Option<T> {
@@ -341,7 +341,7 @@ impl_match!(bool, "bool", &Value::Bool(b) => b);
 impl_match!(f64, "number", &Value::Number(n) => n);
 impl_match!(Length, "length", &Value::Length(l) => l);
 impl_match!(SyntaxTree, "tree", Value::Tree(t) => t.clone());
-impl_match!(TableValue, "table", Value::Table(t) => t.clone());
+impl_match!(DictValue, "dict", Value::Dict(t) => t.clone());
 impl_match!(FuncValue, "function", Value::Func(f) => f.clone());
 impl_match!(ScaleLength, "number or length",
     &Value::Length(length) => ScaleLength::Absolute(length),
@@ -437,60 +437,60 @@ mod tests {
     }
 
     #[test]
-    fn test_table_take_removes_correct_entry() {
-        let mut table = Table::new();
-        table.insert(1, entry(Value::Bool(false)));
-        table.insert(2, entry(Value::Str("hi".to_string())));
-        assert_eq!(table.take::<String>(), Some("hi".to_string()));
-        assert_eq!(table.len(), 1);
-        assert_eq!(table.take::<bool>(), Some(false));
-        assert!(table.is_empty());
+    fn test_dict_take_removes_correct_entry() {
+        let mut dict = Dict::new();
+        dict.insert(1, entry(Value::Bool(false)));
+        dict.insert(2, entry(Value::Str("hi".to_string())));
+        assert_eq!(dict.take::<String>(), Some("hi".to_string()));
+        assert_eq!(dict.len(), 1);
+        assert_eq!(dict.take::<bool>(), Some(false));
+        assert!(dict.is_empty());
     }
 
     #[test]
-    fn test_table_expect_errors_about_previous_entries() {
+    fn test_dict_expect_errors_about_previous_entries() {
         let mut f = Feedback::new();
-        let mut table = Table::new();
-        table.insert(1, entry(Value::Bool(false)));
-        table.insert(3, entry(Value::Str("hi".to_string())));
-        table.insert(5, entry(Value::Bool(true)));
+        let mut dict = Dict::new();
+        dict.insert(1, entry(Value::Bool(false)));
+        dict.insert(3, entry(Value::Str("hi".to_string())));
+        dict.insert(5, entry(Value::Bool(true)));
         assert_eq!(
-            table.expect::<String>("", Span::ZERO, &mut f),
+            dict.expect::<String>("", Span::ZERO, &mut f),
             Some("hi".to_string())
         );
         assert_eq!(f.diagnostics, [error!(
             Span::ZERO,
             "expected string, found bool"
         )]);
-        assert_eq!(table.len(), 1);
+        assert_eq!(dict.len(), 1);
     }
 
     #[test]
-    fn test_table_take_with_key_removes_the_entry() {
+    fn test_dict_take_with_key_removes_the_entry() {
         let mut f = Feedback::new();
-        let mut table = Table::new();
-        table.insert(1, entry(Value::Bool(false)));
-        table.insert("hi", entry(Value::Bool(true)));
-        assert_eq!(table.take::<bool>(), Some(false));
-        assert_eq!(table.take_key::<f64>("hi", &mut f), None);
+        let mut dict = Dict::new();
+        dict.insert(1, entry(Value::Bool(false)));
+        dict.insert("hi", entry(Value::Bool(true)));
+        assert_eq!(dict.take::<bool>(), Some(false));
+        assert_eq!(dict.take_key::<f64>("hi", &mut f), None);
         assert_eq!(f.diagnostics, [error!(
             Span::ZERO,
             "expected number, found bool"
         )]);
-        assert!(table.is_empty());
+        assert!(dict.is_empty());
     }
 
     #[test]
-    fn test_table_take_all_removes_the_correct_entries() {
-        let mut table = Table::new();
-        table.insert(1, entry(Value::Bool(false)));
-        table.insert(3, entry(Value::Number(0.0)));
-        table.insert(7, entry(Value::Bool(true)));
-        assert_eq!(table.take_all_num::<bool>().collect::<Vec<_>>(), [
+    fn test_dict_take_all_removes_the_correct_entries() {
+        let mut dict = Dict::new();
+        dict.insert(1, entry(Value::Bool(false)));
+        dict.insert(3, entry(Value::Number(0.0)));
+        dict.insert(7, entry(Value::Bool(true)));
+        assert_eq!(dict.take_all_num::<bool>().collect::<Vec<_>>(), [
             (1, false),
             (7, true)
         ],);
-        assert_eq!(table.len(), 1);
-        assert_eq!(table[3].val.v, Value::Number(0.0));
+        assert_eq!(dict.len(), 1);
+        assert_eq!(dict[3].val.v, Value::Number(0.0));
     }
 }

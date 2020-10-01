@@ -6,7 +6,7 @@ use std::fmt::Debug;
 
 use super::parse;
 use crate::color::RgbaColor;
-use crate::compute::table::SpannedEntry;
+use crate::compute::dict::SpannedEntry;
 use crate::length::Length;
 use crate::syntax::*;
 
@@ -59,26 +59,26 @@ fn Str(string: &str) -> Expr {
     Expr::Str(string.to_string())
 }
 
-macro_rules! Table {
-    (@table=$table:expr,) => {};
-    (@table=$table:expr, $key:expr => $value:expr $(, $($tts:tt)*)?) => {{
+macro_rules! Dict {
+    (@dict=$dict:expr,) => {};
+    (@dict=$dict:expr, $key:expr => $value:expr $(, $($tts:tt)*)?) => {{
         let key = Into::<Spanned<&str>>::into($key);
         let val = Into::<Spanned<Expr>>::into($value);
-        $table.insert(key.v, SpannedEntry::new(key.span, val));
-        Table![@table=$table, $($($tts)*)?];
+        $dict.insert(key.v, SpannedEntry::new(key.span, val));
+        Dict![@dict=$dict, $($($tts)*)?];
     }};
-    (@table=$table:expr, $value:expr $(, $($tts:tt)*)?) => {
+    (@dict=$dict:expr, $value:expr $(, $($tts:tt)*)?) => {
         let val = Into::<Spanned<Expr>>::into($value);
-        $table.push(SpannedEntry::val(val));
-        Table![@table=$table, $($($tts)*)?];
+        $dict.push(SpannedEntry::val(val));
+        Dict![@dict=$dict, $($($tts)*)?];
     };
     (@$($tts:tt)*) => {{
         #[allow(unused_mut)]
-        let mut table = TableExpr::new();
-        Table![@table=table, $($tts)*];
-        table
+        let mut dict = DictExpr::new();
+        Dict![@dict=dict, $($tts)*];
+        dict
     }};
-    ($($tts:tt)*) => { Expr::Table(Table![@$($tts)*]) };
+    ($($tts:tt)*) => { Expr::Dict(Dict![@$($tts)*]) };
 }
 
 macro_rules! Tree {
@@ -93,7 +93,7 @@ macro_rules! Call {
         let name = Into::<Spanned<&str>>::into($name);
         CallExpr {
             name: name.map(|n| Ident(n.to_string())),
-            args: Table![@$($($tts)*)?],
+            args: Dict![@$($($tts)*)?],
         }
     }};
     ($($tts:tt)*) => { Expr::Call(Call![@$($tts)*]) };
@@ -321,7 +321,7 @@ fn test_parse_function_names() {
 #[test]
 fn test_parse_chaining() {
     // Things the parser has to make sense of
-    t!("[hi: (5.0, 2.1 >> you]" => F!("hi"; Table![Num(5.0), Num(2.1)], Tree![F!("you")]));
+    t!("[hi: (5.0, 2.1 >> you]" => F!("hi"; Dict![Num(5.0), Num(2.1)], Tree![F!("you")]));
     t!("[box >>][Hi]"           => F!("box"; Tree![T("Hi")]));
     t!("[box >> pad: 1pt][Hi]"  => F!("box"; Tree![
         F!("pad"; Len(Length::pt(1.0)), Tree!(T("Hi")))
@@ -416,7 +416,7 @@ fn test_parse_values() {
 
 #[test]
 fn test_parse_expressions() {
-    // Coerced table.
+    // Coerced dict.
     v!("(hi)" => Id("hi"));
 
     // Operations.
@@ -458,19 +458,19 @@ fn test_parse_expressions() {
 }
 
 #[test]
-fn test_parse_tables() {
+fn test_parse_dicts() {
     // Okay.
-    v!("()"                 => Table![]);
+    v!("()"                 => Dict![]);
     v!("(false)"            => Bool(false));
-    v!("(true,)"            => Table![Bool(true)]);
-    v!("(key=val)"          => Table!["key" => Id("val")]);
-    v!("(1, 2)"             => Table![Num(1.0), Num(2.0)]);
-    v!("(1, key=\"value\")" => Table![Num(1.0), "key" => Str("value")]);
+    v!("(true,)"            => Dict![Bool(true)]);
+    v!("(key=val)"          => Dict!["key" => Id("val")]);
+    v!("(1, 2)"             => Dict![Num(1.0), Num(2.0)]);
+    v!("(1, key=\"value\")" => Dict![Num(1.0), "key" => Str("value")]);
 
     // Decorations.
-    d!("[val: key=hi]"    => s(6, 9, TableKey));
-    d!("[val: (key=hi)]"  => s(7, 10, TableKey));
-    d!("[val: f(key=hi)]" => s(8, 11, TableKey));
+    d!("[val: key=hi]"    => s(6, 9, DictKey));
+    d!("[val: (key=hi)]"  => s(7, 10, DictKey));
+    d!("[val: f(key=hi)]" => s(8, 11, DictKey));
 
     // Spanned with spacing around keyword arguments.
     ts!("[val: \n hi \n = /* //\n */ \"s\n\"]" => s(0, 30, F!(
@@ -481,7 +481,7 @@ fn test_parse_tables() {
 }
 
 #[test]
-fn test_parse_tables_compute_func_calls() {
+fn test_parse_dicts_compute_func_calls() {
     v!("empty()"                  => Call!("empty"));
     v!("add ( 1 , 2 )"            => Call!("add"; Num(1.0), Num(2.0)));
     v!("items(\"fire\", #f93a6d)" => Call!("items";
@@ -501,18 +501,18 @@ fn test_parse_tables_compute_func_calls() {
     e!("[val: lang(中文]" => s(17, 17, "expected closing paren"));
 
     // Invalid name.
-    v!("👠(\"abc\", 13e-5)"        => Table!(Str("abc"), Num(13.0e-5)));
+    v!("👠(\"abc\", 13e-5)"        => Dict!(Str("abc"), Num(13.0e-5)));
     e!("[val: 👠(\"abc\", 13e-5)]" => s(6, 10, "expected value, found invalid token"));
 }
 
 #[test]
-fn test_parse_tables_nested() {
+fn test_parse_dicts_nested() {
     v!("(1, ( ab=(), d = (3, 14pt) )), false" =>
-        Table![
+        Dict![
             Num(1.0),
-            Table!(
-                "ab" => Table![],
-                "d"  => Table!(Num(3.0), Len(Length::pt(14.0))),
+            Dict!(
+                "ab" => Dict![],
+                "d"  => Dict!(Num(3.0), Len(Length::pt(14.0))),
             ),
         ],
         Bool(false),
@@ -520,17 +520,17 @@ fn test_parse_tables_nested() {
 }
 
 #[test]
-fn test_parse_tables_errors() {
+fn test_parse_dicts_errors() {
     // Expected value.
     e!("[val: (=)]"         => s(7, 8, "expected value, found equals sign"));
     e!("[val: (,)]"         => s(7, 8, "expected value, found comma"));
-    v!("(\x07 abc,)"        => Table![Id("abc")]);
+    v!("(\x07 abc,)"        => Dict![Id("abc")]);
     e!("[val: (\x07 abc,)]" => s(7, 8, "expected value, found invalid token"));
     e!("[val: (key=,)]"     => s(11, 12, "expected value, found comma"));
     e!("[val: hi,)]"        => s(9, 10, "expected value, found closing paren"));
 
     // Expected comma.
-    v!("(true false)"        => Table![Bool(true), Bool(false)]);
+    v!("(true false)"        => Dict![Bool(true), Bool(false)]);
     e!("[val: (true false)]" => s(11, 11, "expected comma"));
 
     // Expected closing paren.

@@ -8,8 +8,8 @@ use unicode_xid::UnicodeXID;
 use super::span::{SpanVec, SpanWith, Spanned};
 use super::Decoration;
 use crate::color::RgbaColor;
-use crate::compute::table::{SpannedEntry, Table};
-use crate::compute::value::{TableValue, Value};
+use crate::compute::dict::{Dict, SpannedEntry};
+use crate::compute::value::{DictValue, Value};
 use crate::layout::LayoutContext;
 use crate::length::Length;
 use crate::{DynFuture, Feedback};
@@ -143,8 +143,8 @@ pub enum Expr {
     Length(Length),
     /// A color value with alpha channel: `#f79143ff`.
     Color(RgbaColor),
-    /// A table expression: `(false, 12cm, greeting="hi")`.
-    Table(TableExpr),
+    /// A dictionary expression: `(false, 12cm, greeting="hi")`.
+    Dict(DictExpr),
     /// A syntax tree containing typesetting content.
     Tree(SyntaxTree),
     /// A function call expression: `cmyk(37.7, 0, 3.9, 1.1)`.
@@ -173,7 +173,7 @@ impl Expr {
             Number(_) => "number",
             Length(_) => "length",
             Color(_) => "color",
-            Table(_) => "table",
+            Dict(_) => "dictg",
             Tree(_) => "syntax tree",
             Call(_) => "function call",
             Neg(_) => "negation",
@@ -194,7 +194,7 @@ impl Expr {
             &Number(n) => Value::Number(n),
             &Length(s) => Value::Length(s),
             &Color(c) => Value::Color(c),
-            Table(t) => Value::Table(t.eval(ctx, f).await),
+            Dict(t) => Value::Dict(t.eval(ctx, f).await),
             Tree(t) => Value::Tree(t.clone()),
             Call(call) => call.eval(ctx, f).await,
             Neg(_) => todo!("eval neg"),
@@ -216,7 +216,7 @@ impl Debug for Expr {
             Number(n) => n.fmt(f),
             Length(s) => s.fmt(f),
             Color(c) => c.fmt(f),
-            Table(t) => t.fmt(f),
+            Dict(t) => t.fmt(f),
             Tree(t) => t.fmt(f),
             Call(c) => c.fmt(f),
             Neg(e) => write!(f, "-{:?}", e),
@@ -282,32 +282,32 @@ pub fn is_ident(string: &str) -> bool {
     }
 }
 
-/// A table of expressions.
+/// A dictionary of expressions.
 ///
 /// # Example
 /// ```typst
 /// (false, 12cm, greeting="hi")
 /// ```
-pub type TableExpr = Table<SpannedEntry<Expr>>;
+pub type DictExpr = Dict<SpannedEntry<Expr>>;
 
-impl TableExpr {
-    /// Evaluate the table expression to a table value.
+impl DictExpr {
+    /// Evaluate the dictionary expression to a dictionary value.
     pub fn eval<'a>(
         &'a self,
         ctx: &'a LayoutContext<'a>,
         f: &'a mut Feedback,
-    ) -> DynFuture<'a, TableValue> {
+    ) -> DynFuture<'a, DictValue> {
         Box::pin(async move {
-            let mut table = TableValue::new();
+            let mut dict = DictValue::new();
 
             for (key, entry) in self.iter() {
                 let val = entry.val.v.eval(ctx, f).await;
                 let spanned = val.span_with(entry.val.span);
                 let entry = SpannedEntry::new(entry.key, spanned);
-                table.insert(key, entry);
+                dict.insert(key, entry);
             }
 
-            table
+            dict
         })
     }
 }
@@ -316,7 +316,7 @@ impl TableExpr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CallExpr {
     pub name: Spanned<Ident>,
-    pub args: TableExpr,
+    pub args: DictExpr,
 }
 
 impl CallExpr {
@@ -336,7 +336,7 @@ impl CallExpr {
                 error!(@f, span, "unknown function");
                 f.decorations.push(Decoration::Unresolved.span_with(span));
             }
-            Value::Table(args)
+            Value::Dict(args)
         }
     }
 }

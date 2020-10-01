@@ -6,7 +6,7 @@ use crate::length::ScaleLength;
 ///
 /// # Positional arguments
 /// - The spacing (length or relative to font size).
-pub async fn h(name: Span, args: TableValue, ctx: LayoutContext<'_>) -> Pass<Value> {
+pub async fn h(name: Span, args: DictValue, ctx: LayoutContext<'_>) -> Pass<Value> {
     spacing(name, args, ctx, Horizontal)
 }
 
@@ -14,13 +14,13 @@ pub async fn h(name: Span, args: TableValue, ctx: LayoutContext<'_>) -> Pass<Val
 ///
 /// # Positional arguments
 /// - The spacing (length or relative to font size).
-pub async fn v(name: Span, args: TableValue, ctx: LayoutContext<'_>) -> Pass<Value> {
+pub async fn v(name: Span, args: DictValue, ctx: LayoutContext<'_>) -> Pass<Value> {
     spacing(name, args, ctx, Vertical)
 }
 
 fn spacing(
     name: Span,
-    mut args: TableValue,
+    mut args: DictValue,
     ctx: LayoutContext<'_>,
     axis: SpecAxis,
 ) -> Pass<Value> {

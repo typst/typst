@@ -6,21 +6,21 @@ use std::ops::Index;
 
 use crate::syntax::{Span, Spanned};
 
-/// A table data structure, which maps from integers (`u64`) or strings to a
-/// generic value type.
+/// A dictionary data structure, which maps from integers (`u64`) or strings to
+/// a generic value type.
 ///
-/// The table can be used to model arrays by assigns values to successive
-/// indices from `0..n`. The table type offers special support for this pattern
-/// through the `push` method.
+/// The dictionary can be used to model arrays by assigning values to successive
+/// indices from `0..n`. The `push` method offers special support for this
+/// pattern.
 #[derive(Clone)]
-pub struct Table<V> {
+pub struct Dict<V> {
     nums: BTreeMap<u64, V>,
     strs: BTreeMap<String, V>,
     lowest_free: u64,
 }
 
-impl<V> Table<V> {
-    /// Create a new empty table.
+impl<V> Dict<V> {
+    /// Create a new empty dictionary.
     pub fn new() -> Self {
         Self {
             nums: BTreeMap::new(),
@@ -29,12 +29,12 @@ impl<V> Table<V> {
         }
     }
 
-    /// The total number of entries in the table.
+    /// The total number of entries in the dictionary.
     pub fn len(&self) -> usize {
         self.nums.len() + self.strs.len()
     }
 
-    /// Whether the table contains no entries.
+    /// Whether the dictionary contains no entries.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -71,7 +71,7 @@ impl<V> Table<V> {
         }
     }
 
-    /// Insert a value into the table.
+    /// Insert a value into the dictionary.
     pub fn insert<K>(&mut self, key: K, value: V)
     where
         K: Into<OwnedKey>,
@@ -89,7 +89,7 @@ impl<V> Table<V> {
         }
     }
 
-    /// Remove the value with the given key from the table.
+    /// Remove the value with the given key from the dictionary.
     pub fn remove<'a, K>(&mut self, key: K) -> Option<V>
     where
         K: Into<BorrowedKey<'a>>,
@@ -103,7 +103,7 @@ impl<V> Table<V> {
         }
     }
 
-    /// Append a value to the table.
+    /// Append a value to the dictionary.
     ///
     /// This will associate the `value` with the lowest free number key (zero if
     /// there is no number key so far).
@@ -122,7 +122,7 @@ impl<V> Table<V> {
             .chain(self.strs().map(|(k, v)| (BorrowedKey::Str(k), v)))
     }
 
-    /// Iterate over all values in the table.
+    /// Iterate over all values in the dictionary.
     pub fn values(&self) -> impl Iterator<Item = &V> {
         self.nums().map(|(_, v)| v).chain(self.strs().map(|(_, v)| v))
     }
@@ -145,7 +145,7 @@ impl<V> Table<V> {
             .chain(self.strs.into_iter().map(|(k, v)| (OwnedKey::Str(k), v)))
     }
 
-    /// Move into an owned iterator over all values in the table.
+    /// Move into an owned iterator over all values in the dictionary.
     pub fn into_values(self) -> impl Iterator<Item = V> {
         self.nums
             .into_iter()
@@ -164,32 +164,32 @@ impl<V> Table<V> {
     }
 }
 
-impl<'a, K, V> Index<K> for Table<V>
+impl<'a, K, V> Index<K> for Dict<V>
 where
     K: Into<BorrowedKey<'a>>,
 {
     type Output = V;
 
     fn index(&self, index: K) -> &Self::Output {
-        self.get(index).expect("key not in table")
+        self.get(index).expect("key not in dict")
     }
 }
 
-impl<V> Default for Table<V> {
+impl<V> Default for Dict<V> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<V: Eq> Eq for Table<V> {}
+impl<V: Eq> Eq for Dict<V> {}
 
-impl<V: PartialEq> PartialEq for Table<V> {
+impl<V: PartialEq> PartialEq for Dict<V> {
     fn eq(&self, other: &Self) -> bool {
         self.iter().eq(other.iter())
     }
 }
 
-impl<V: Debug> Debug for Table<V> {
+impl<V: Debug> Debug for Dict<V> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if self.is_empty() {
             return f.write_str("()");
@@ -228,7 +228,7 @@ impl<V: Debug> Debug for Table<V> {
     }
 }
 
-/// The owned variant of a table key.
+/// The owned variant of a dictionary key.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum OwnedKey {
     Num(u64),
@@ -262,7 +262,7 @@ impl From<&'static str> for OwnedKey {
     }
 }
 
-/// The borrowed variant of a table key.
+/// The borrowed variant of a dictionary key.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum BorrowedKey<'a> {
     Num(u64),
@@ -287,7 +287,7 @@ impl<'a> From<&'a str> for BorrowedKey<'a> {
     }
 }
 
-/// An table entry which tracks key and value span.
+/// A dictionary entry which tracks key and value span.
 #[derive(Clone, PartialEq)]
 pub struct SpannedEntry<V> {
     pub key: Span,
@@ -329,78 +329,78 @@ impl<V: Debug> Debug for SpannedEntry<V> {
 
 #[cfg(test)]
 mod tests {
-    use super::Table;
+    use super::Dict;
 
     #[test]
-    fn test_table_different_key_types_dont_interfere() {
-        let mut table = Table::new();
-        table.insert(10, "hello");
-        table.insert("twenty", "there");
-        assert_eq!(table.len(), 2);
-        assert_eq!(table[10], "hello");
-        assert_eq!(table["twenty"], "there");
+    fn test_dict_different_key_types_dont_interfere() {
+        let mut dict = Dict::new();
+        dict.insert(10, "hello");
+        dict.insert("twenty", "there");
+        assert_eq!(dict.len(), 2);
+        assert_eq!(dict[10], "hello");
+        assert_eq!(dict["twenty"], "there");
     }
 
     #[test]
-    fn test_table_push_skips_already_inserted_keys() {
-        let mut table = Table::new();
-        table.insert(2, "2");
-        table.push("0");
-        table.insert(3, "3");
-        table.push("1");
-        table.push("4");
-        assert_eq!(table.len(), 5);
-        assert_eq!(table[0], "0");
-        assert_eq!(table[1], "1");
-        assert_eq!(table[2], "2");
-        assert_eq!(table[3], "3");
-        assert_eq!(table[4], "4");
+    fn test_dict_push_skips_already_inserted_keys() {
+        let mut dict = Dict::new();
+        dict.insert(2, "2");
+        dict.push("0");
+        dict.insert(3, "3");
+        dict.push("1");
+        dict.push("4");
+        assert_eq!(dict.len(), 5);
+        assert_eq!(dict[0], "0");
+        assert_eq!(dict[1], "1");
+        assert_eq!(dict[2], "2");
+        assert_eq!(dict[3], "3");
+        assert_eq!(dict[4], "4");
     }
 
     #[test]
-    fn test_table_push_remove_push_reuses_index() {
-        let mut table = Table::new();
-        table.push("0");
-        table.push("1");
-        table.push("2");
-        table.remove(1);
-        table.push("a");
-        table.push("3");
-        assert_eq!(table.len(), 4);
-        assert_eq!(table[0], "0");
-        assert_eq!(table[1], "a");
-        assert_eq!(table[2], "2");
-        assert_eq!(table[3], "3");
+    fn test_dict_push_remove_push_reuses_index() {
+        let mut dict = Dict::new();
+        dict.push("0");
+        dict.push("1");
+        dict.push("2");
+        dict.remove(1);
+        dict.push("a");
+        dict.push("3");
+        assert_eq!(dict.len(), 4);
+        assert_eq!(dict[0], "0");
+        assert_eq!(dict[1], "a");
+        assert_eq!(dict[2], "2");
+        assert_eq!(dict[3], "3");
     }
 
     #[test]
-    fn test_table_first_and_last_are_correct() {
-        let mut table = Table::new();
-        assert_eq!(table.first(), None);
-        assert_eq!(table.last(), None);
-        table.insert(4, "hi");
-        table.insert("string", "hi");
-        assert_eq!(table.first(), Some((4, &"hi")));
-        assert_eq!(table.last(), Some((4, &"hi")));
-        table.insert(2, "bye");
-        assert_eq!(table.first(), Some((2, &"bye")));
-        assert_eq!(table.last(), Some((4, &"hi")));
+    fn test_dict_first_and_last_are_correct() {
+        let mut dict = Dict::new();
+        assert_eq!(dict.first(), None);
+        assert_eq!(dict.last(), None);
+        dict.insert(4, "hi");
+        dict.insert("string", "hi");
+        assert_eq!(dict.first(), Some((4, &"hi")));
+        assert_eq!(dict.last(), Some((4, &"hi")));
+        dict.insert(2, "bye");
+        assert_eq!(dict.first(), Some((2, &"bye")));
+        assert_eq!(dict.last(), Some((4, &"hi")));
     }
 
     #[test]
-    fn test_table_format_debug() {
-        let mut table = Table::new();
-        assert_eq!(format!("{:?}", table), "()");
-        assert_eq!(format!("{:#?}", table), "()");
+    fn test_dict_format_debug() {
+        let mut dict = Dict::new();
+        assert_eq!(format!("{:?}", dict), "()");
+        assert_eq!(format!("{:#?}", dict), "()");
 
-        table.insert(10, "hello");
-        table.insert("twenty", "there");
-        table.insert("sp ace", "quotes");
+        dict.insert(10, "hello");
+        dict.insert("twenty", "there");
+        dict.insert("sp ace", "quotes");
         assert_eq!(
-            format!("{:?}", table),
+            format!("{:?}", dict),
             r#"(10="hello", "sp ace"="quotes", twenty="there")"#,
         );
-        assert_eq!(format!("{:#?}", table).lines().collect::<Vec<_>>(), [
+        assert_eq!(format!("{:#?}", dict).lines().collect::<Vec<_>>(), [
             "(",
             r#"    10 = "hello","#,
             r#"    "sp ace" = "quotes","#,

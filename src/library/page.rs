@@ -16,7 +16,7 @@ use crate::paper::{Paper, PaperClass};
 /// - `top`: The top margin (length or relative to height).
 /// - `bottom`: The bottom margin (length or relative to height).
 /// - `flip`: Flips custom or paper-defined width and height (boolean).
-pub async fn page(_: Span, mut args: TableValue, ctx: LayoutContext<'_>) -> Pass<Value> {
+pub async fn page(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass<Value> {
     let mut f = Feedback::new();
     let mut style = ctx.style.page;
 
@@ -64,7 +64,7 @@ pub async fn page(_: Span, mut args: TableValue, ctx: LayoutContext<'_>) -> Pass
 }
 
 /// `pagebreak`: Ends the current page.
-pub async fn pagebreak(_: Span, args: TableValue, _: LayoutContext<'_>) -> Pass<Value> {
+pub async fn pagebreak(_: Span, args: DictValue, _: LayoutContext<'_>) -> Pass<Value> {
     let mut f = Feedback::new();
     args.unexpected(&mut f);
     Pass::commands(vec![BreakPage], f)

@@ -14,7 +14,7 @@ use super::*;
 /// - `vertical`: Any of `top`, `bottom` or `center`.
 ///
 /// There may not be two alignment specifications for the same axis.
-pub async fn align(_: Span, mut args: TableValue, ctx: LayoutContext<'_>) -> Pass<Value> {
+pub async fn align(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass<Value> {
     let mut f = Feedback::new();
 
     let content = args.take::<SyntaxTree>();

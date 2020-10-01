@@ -8,7 +8,7 @@ use crate::length::ScaleLength;
 /// - `height`: The height of the box (length of relative to parent's height).
 pub async fn boxed(
     _: Span,
-    mut args: TableValue,
+    mut args: DictValue,
     mut ctx: LayoutContext<'_>,
 ) -> Pass<Value> {
     let mut f = Feedback::new();
