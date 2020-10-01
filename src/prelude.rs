@@ -1,7 +1,7 @@
 //! A prelude for building custom functions.
 
 pub use super::*;
-pub use crate::compute::value::*;
+pub use crate::compute::*;
 pub use crate::layout::prelude::*;
 pub use crate::layout::Command::{self, *};
 pub use crate::layout::Commands;

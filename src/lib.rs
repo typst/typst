@@ -44,8 +44,7 @@ use std::fmt::Debug;
 use std::future::Future;
 use std::pin::Pin;
 
-use crate::compute::scope::Scope;
-use crate::compute::value::Value;
+use crate::compute::{Scope, Value};
 use crate::diagnostic::Diagnostic;
 use crate::font::SharedFontLoader;
 use crate::layout::{Commands, MultiLayout};

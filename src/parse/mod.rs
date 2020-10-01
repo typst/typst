@@ -13,7 +13,7 @@ pub use tokens::*;
 use std::str::FromStr;
 
 use crate::color::RgbaColor;
-use crate::compute::dict::DictKey;
+use crate::compute::DictKey;
 use crate::syntax::*;
 use crate::{Feedback, Pass};
 
