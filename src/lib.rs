@@ -27,7 +27,7 @@ mod macros;
 pub mod diagnostic;
 
 pub mod color;
-pub mod compute;
+pub mod eval;
 pub mod export;
 pub mod font;
 pub mod geom;
@@ -44,8 +44,8 @@ use std::fmt::Debug;
 use std::future::Future;
 use std::pin::Pin;
 
-use crate::compute::{Scope, Value};
 use crate::diagnostic::Diagnostic;
+use crate::eval::{Scope, Value};
 use crate::font::SharedFontLoader;
 use crate::layout::{Commands, MultiLayout};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};

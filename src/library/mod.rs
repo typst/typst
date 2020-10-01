@@ -16,7 +16,7 @@ pub use spacing::*;
 
 use std::rc::Rc;
 
-use crate::compute::Scope;
+use crate::eval::Scope;
 use crate::prelude::*;
 
 macro_rules! std {

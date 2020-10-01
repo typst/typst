@@ -2,7 +2,7 @@
 
 use super::span::{SpanWith, Spanned};
 use super::{Decoration, Ident, Lit, LitDict};
-use crate::compute::Value;
+use crate::eval::Value;
 use crate::layout::LayoutContext;
 use crate::Feedback;
 

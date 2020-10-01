@@ -6,7 +6,7 @@ use std::fmt::Debug;
 
 use super::parse;
 use crate::color::RgbaColor;
-use crate::compute::DictKey;
+use crate::eval::DictKey;
 use crate::length::Length;
 use crate::syntax::*;
 

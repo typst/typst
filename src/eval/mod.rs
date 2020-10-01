@@ -1,4 +1,4 @@
-//! Building blocks for the computational part.
+//! Evaluation of syntax trees.
 
 mod dict;
 mod scope;

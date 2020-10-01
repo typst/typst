@@ -21,7 +21,7 @@ pub mod prelude {
 pub use primitive::*;
 pub use tree::layout_tree as layout;
 
-use crate::compute::Scope;
+use crate::eval::Scope;
 use crate::font::SharedFontLoader;
 use crate::geom::{Margins, Size};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};

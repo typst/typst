@@ -2,7 +2,7 @@
 
 use super::{Expr, Ident, SpanWith, Spanned, SynTree};
 use crate::color::RgbaColor;
-use crate::compute::{DictKey, DictValue, SpannedEntry, Value};
+use crate::eval::{DictKey, DictValue, SpannedEntry, Value};
 use crate::layout::LayoutContext;
 use crate::length::Length;
 use crate::{DynFuture, Feedback};
