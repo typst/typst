@@ -53,8 +53,8 @@ impl<'s> Tokens<'s> {
     }
 
     /// The underlying scanner.
-    pub fn scanner(&self) -> &Scanner<'s> {
-        &self.s
+    pub fn scanner(&self) -> Scanner<'s> {
+        self.s.clone()
     }
 }
 

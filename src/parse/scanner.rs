@@ -81,9 +81,9 @@ impl<'s> Scanner<'s> {
         &self.src[start .. self.index]
     }
 
-    /// Uneat the last eaten character.
+    /// Uneat the last eaten char.
     pub fn uneat(&mut self) {
-        self.index = self.prev_index();
+        self.index = self.last_index();
         self.reset();
     }
 
@@ -97,9 +97,9 @@ impl<'s> Scanner<'s> {
         self.iter.clone().nth(n)
     }
 
-    /// Checks whether the next character fulfills a condition.
+    /// Checks whether the next char fulfills a condition.
     ///
-    /// Returns `false` if there is no next character.
+    /// Returns `false` if there is no next char.
     pub fn check(&self, f: impl FnMut(char) -> bool) -> bool {
         self.peek().map(f).unwrap_or(false)
     }
@@ -109,18 +109,18 @@ impl<'s> Scanner<'s> {
         self.iter.as_str().is_empty()
     }
 
-    /// The current index in the source string.
-    pub fn index(&self) -> usize {
-        self.index
-    }
-
     /// The previous index in the source string.
-    pub fn prev_index(&self) -> usize {
+    pub fn last_index(&self) -> usize {
         self.src[.. self.index]
             .chars()
             .next_back()
             .map(|c| self.index - c.len_utf8())
             .unwrap_or(0)
+    }
+
+    /// The current index in the source string.
+    pub fn index(&self) -> usize {
+        self.index
     }
 
     /// Jump to an index in the source string.

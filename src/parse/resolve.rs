@@ -14,7 +14,7 @@ pub fn resolve_string(string: &str) -> String {
             continue;
         }
 
-        let start = s.prev_index();
+        let start = s.last_index();
         match s.eat() {
             Some('\\') => out.push('\\'),
             Some('"') => out.push('"'),
