@@ -100,7 +100,7 @@ impl<'s> Scanner<'s> {
     /// Checks whether the next char fulfills a condition.
     ///
     /// Returns `false` if there is no next char.
-    pub fn check(&self, f: impl FnMut(char) -> bool) -> bool {
+    pub fn check(&self, f: impl FnOnce(char) -> bool) -> bool {
         self.peek().map(f).unwrap_or(false)
     }
 

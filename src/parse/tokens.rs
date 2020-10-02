@@ -5,7 +5,7 @@ use std::fmt::{self, Debug, Formatter};
 use super::{is_newline, Scanner};
 use crate::length::Length;
 use crate::syntax::token::*;
-use crate::syntax::{is_ident, Pos, Span, SpanWith, Spanned};
+use crate::syntax::{is_ident, Pos};
 
 use TokenMode::*;
 
@@ -53,18 +53,18 @@ impl<'s> Tokens<'s> {
     }
 
     /// The underlying scanner.
-    pub fn scanner(&self) -> Scanner<'s> {
-        self.s.clone()
+    pub fn scanner(&self) -> &Scanner<'s> {
+        &self.s
     }
 }
 
 impl<'s> Iterator for Tokens<'s> {
-    type Item = Spanned<Token<'s>>;
+    type Item = Token<'s>;
 
     /// Parse the next token in the source code.
     fn next(&mut self) -> Option<Self::Item> {
         let start = self.s.index();
-        let token = match self.s.eat()? {
+        Some(match self.s.eat()? {
             // Whitespace with fast path for just a single space.
             ' ' if !self.s.check(|c| c.is_whitespace()) => Token::Space(0),
             c if c.is_whitespace() => {
@@ -109,10 +109,7 @@ impl<'s> Iterator for Tokens<'s> {
 
             // Expressions or just plain text.
             _ => self.read_text_or_expr(start),
-        };
-
-        let end = self.s.index();
-        Some(token.span_with(Span::new(start, end)))
+        })
     }
 }
 
@@ -298,7 +295,7 @@ fn parse_percent(text: &str) -> Option<f64> {
 mod tests {
     use super::*;
     use crate::length::Length;
-    use crate::parse::tests::{check, s};
+    use crate::parse::tests::check;
 
     use Token::{
         BlockComment as BC, Bool, Chain, Hex, Hyphen as Min, Ident as Id,
@@ -317,13 +314,11 @@ mod tests {
         Token::UnicodeEscape(TokenUnicodeEscape { sequence, terminated })
     }
 
-    macro_rules! t { ($($tts:tt)*) => {test!(@spans=false, $($tts)*)} }
-    macro_rules! ts { ($($tts:tt)*) => {test!(@spans=true, $($tts)*)} }
-    macro_rules! test {
-        (@spans=$spans:expr, $mode:expr, $src:expr => $($token:expr),*) => {
-            let exp = vec![$(Into::<Spanned<Token>>::into($token)),*];
+    macro_rules! t {
+        ($mode:expr, $src:expr => $($token:expr),*) => {
+            let exp = vec![$($token),*];
             let found = Tokens::new($src, $mode).collect::<Vec<_>>();
-            check($src, exp, found, $spans);
+            check($src, exp, found, false);
         }
     }
 
@@ -478,14 +473,5 @@ mod tests {
                                           Comma, Id("a"), Equals, Num(1.0), Star, Num(2.0));
         t!(Header, "(5 - 1) / 2.1"     => LP, Num(5.0), S(0), Min, S(0), Num(1.0), RP,
                                           S(0), Slash, S(0), Num(2.1));
-    }
-
-    #[test]
-    fn tokenize_with_spans() {
-        ts!(Body, "hello"        => s(0, 5, T("hello")));
-        ts!(Body, "ab\r\nc"      => s(0, 2, T("ab")), s(2, 4, S(1)), s(4, 5, T("c")));
-        ts!(Body, "// ab\r\n\nf" => s(0, 5, LC(" ab")), s(5, 8, S(2)), s(8, 9, T("f")));
-        ts!(Body, "/*b*/_"       => s(0, 5, BC("b")), s(5, 6, Underscore));
-        ts!(Header, "a=10"       => s(0, 1, Id("a")), s(1, 2, Equals), s(2, 4, Num(10.0)));
     }
 }

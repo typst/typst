@@ -2,15 +2,16 @@ use std::fmt::{self, Debug, Formatter};
 
 use super::{Scanner, TokenMode, Tokens};
 use crate::diagnostic::Diagnostic;
-use crate::syntax::{Decoration, Pos, Span, Spanned, Token};
+use crate::syntax::{Decoration, Pos, Span, SpanWith, Spanned, Token};
 use crate::Feedback;
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
     tokens: Tokens<'s>,
-    peeked: Option<Spanned<Token<'s>>>,
+    peeked: Option<Token<'s>>,
     modes: Vec<TokenMode>,
-    groups: Vec<(Pos, Group)>,
+    groups: Vec<Group>,
+    pos: Pos,
     f: Feedback,
 }
 
@@ -22,6 +23,7 @@ impl<'s> Parser<'s> {
             peeked: None,
             modes: vec![],
             groups: vec![],
+            pos: Pos::ZERO,
             f: Feedback::new(),
         }
     }
@@ -39,12 +41,14 @@ impl<'s> Parser<'s> {
     /// Eat the next token and add a diagnostic that it was not the expected
     /// `thing`.
     pub fn diag_expected(&mut self, thing: &str) {
+        let before = self.pos();
         if let Some(found) = self.eat() {
+            let after = self.pos();
             self.diag(error!(
-                found.span,
+                before .. after,
                 "expected {}, found {}",
                 thing,
-                found.v.name(),
+                found.name(),
             ));
         } else {
             self.diag_expected_at(thing, self.pos());
@@ -89,25 +93,24 @@ impl<'s> Parser<'s> {
     /// # Panics
     /// This panics if the next token does not start the given group.
     pub fn start_group(&mut self, group: Group) {
-        let start = self.pos();
         match group {
             Group::Paren => self.eat_assert(Token::LeftParen),
             Group::Bracket => self.eat_assert(Token::LeftBracket),
             Group::Brace => self.eat_assert(Token::LeftBrace),
             Group::Subheader => {}
         }
-        self.groups.push((start, group));
+        self.groups.push(group);
     }
 
     /// Ends the parsing of a group and returns the span of the whole group.
     ///
     /// # Panics
     /// This panics if no group was started.
-    pub fn end_group(&mut self) -> Span {
+    pub fn end_group(&mut self) {
         // Check that we are indeed at the end of the group.
         debug_assert_eq!(self.peek(), None, "unfinished group");
 
-        let (start, group) = self.groups.pop().expect("unstarted group");
+        let group = self.groups.pop().expect("unstarted group");
         let end = match group {
             Group::Paren => Some(Token::RightParen),
             Group::Bracket => Some(Token::RightBracket),
@@ -119,14 +122,12 @@ impl<'s> Parser<'s> {
             // This `peek()` can't be used directly because it hides the end of
             // group token. To circumvent this, we drop down to `self.peeked`.
             self.peek();
-            if self.peeked.map(|s| s.v) == Some(token) {
-                self.peeked = None;
+            if self.peeked == Some(token) {
+                self.bump();
             } else {
                 self.diag(error!(self.pos(), "expected {}", token.name()));
             }
         }
-
-        Span::new(start, self.pos())
     }
 
     /// Skip whitespace tokens.
@@ -136,34 +137,43 @@ impl<'s> Parser<'s> {
         });
     }
 
+    /// Execute `f` and return the result alongside the span of everything `f`
+    /// ate.
+    pub fn span<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> Spanned<T> {
+        let start = self.pos;
+        f(self).span_with(start .. self.pos)
+    }
+
     /// Consume the next token.
-    pub fn eat(&mut self) -> Option<Spanned<Token<'s>>> {
+    pub fn eat(&mut self) -> Option<Token<'s>> {
         self.peek()?;
-        self.peeked.take()
+        self.bump()
     }
 
     /// Consume the next token if it is the given one.
-    pub fn eat_if(&mut self, t: Token) -> Option<Spanned<Token<'s>>> {
-        if self.peek()? == t { self.peeked.take() } else { None }
+    pub fn eat_if(&mut self, t: Token) -> bool {
+        if self.peek() == Some(t) {
+            self.bump();
+            true
+        } else {
+            false
+        }
     }
 
     /// Consume the next token if the closure maps it a to `Some`-variant.
-    pub fn eat_map<T>(
-        &mut self,
-        mut f: impl FnMut(Token<'s>) -> Option<T>,
-    ) -> Option<Spanned<T>> {
+    pub fn eat_map<T>(&mut self, f: impl FnOnce(Token<'s>) -> Option<T>) -> Option<T> {
         let token = self.peek()?;
-        if let Some(t) = f(token) {
-            self.peeked.take().map(|spanned| spanned.map(|_| t))
-        } else {
-            None
+        let out = f(token);
+        if out.is_some() {
+            self.bump();
         }
+        out
     }
 
     /// Consume the next token, debug-asserting that it is the given one.
     pub fn eat_assert(&mut self, t: Token) {
         let next = self.eat();
-        debug_assert_eq!(next.map(|s| s.v), Some(t));
+        debug_assert_eq!(next, Some(t));
     }
 
     /// Consume tokens while the condition is true.
@@ -182,7 +192,7 @@ impl<'s> Parser<'s> {
             if f(t) {
                 break;
             }
-            self.peeked = None;
+            self.bump();
             count += 1;
         }
         count
@@ -191,11 +201,11 @@ impl<'s> Parser<'s> {
     /// Peek at the next token without consuming it.
     pub fn peek(&mut self) -> Option<Token<'s>> {
         let token = match self.peeked {
-            Some(token) => token.v,
+            Some(token) => token,
             None => {
                 let token = self.tokens.next()?;
                 self.peeked = Some(token);
-                token.v
+                token
             }
         };
 
@@ -207,7 +217,7 @@ impl<'s> Parser<'s> {
             _ => return Some(token),
         };
 
-        if self.groups.iter().rev().any(|&(_, g)| g == group) {
+        if self.groups.contains(&group) {
             None
         } else {
             Some(token)
@@ -217,7 +227,7 @@ impl<'s> Parser<'s> {
     /// Checks whether the next token fulfills a condition.
     ///
     /// Returns `false` if there is no next token.
-    pub fn check(&mut self, f: impl FnMut(Token<'s>) -> bool) -> bool {
+    pub fn check(&mut self, f: impl FnOnce(Token<'s>) -> bool) -> bool {
         self.peek().map(f).unwrap_or(false)
     }
 
@@ -229,30 +239,52 @@ impl<'s> Parser<'s> {
     /// The position in the string at which the last token ends and next token
     /// will start.
     pub fn pos(&self) -> Pos {
-        self.peeked.map(|s| s.span.start).unwrap_or_else(|| self.tokens.pos())
+        self.pos
     }
 
     /// Jump to a position in the source string.
     pub fn jump(&mut self, pos: Pos) {
         self.tokens.jump(pos);
-        self.peeked = None;
+        self.bump();
     }
 
-    /// Returns the part of the source string that is spanned by the given span.
-    pub fn get(&self, span: Span) -> &'s str {
-        self.scanner().get(span.start.to_usize() .. span.end.to_usize())
+    /// Slice a part out of the source string.
+    pub fn get(&self, span: impl Into<Span>) -> &'s str {
+        self.tokens.scanner().get(span.into().to_range())
+    }
+
+    /// The full source string up to the current index.
+    pub fn eaten(&self) -> &'s str {
+        self.tokens.scanner().get(.. self.pos.to_usize())
+    }
+
+    /// The source string from `start` to the current index.
+    pub fn eaten_from(&self, start: Pos) -> &'s str {
+        self.tokens.scanner().get(start.to_usize() .. self.pos.to_usize())
+    }
+
+    /// The remaining source string after the current index.
+    pub fn rest(&self) -> &'s str {
+        self.tokens.scanner().get(self.pos.to_usize() ..)
     }
 
     /// The underlying scanner.
     pub fn scanner(&self) -> Scanner<'s> {
-        self.tokens.scanner()
+        let mut scanner = self.tokens.scanner().clone();
+        scanner.jump(self.pos.to_usize());
+        scanner
+    }
+
+    /// Set the position to the tokenizer's position and take the peeked token.
+    fn bump(&mut self) -> Option<Token<'s>> {
+        self.pos = self.tokens.pos();
+        self.peeked.take()
     }
 }
 
 impl Debug for Parser<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let s = self.scanner();
-        write!(f, "Parser({}|{})", s.eaten(), s.rest())
+        write!(f, "Parser({}|{})", self.eaten(), self.rest())
     }
 }
 

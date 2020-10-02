@@ -1,6 +1,7 @@
 //! Mapping of values to the locations they originate from in source code.
 
 use std::fmt::{self, Debug, Display, Formatter};
+use std::ops::Range;
 
 #[cfg(test)]
 use std::cell::Cell;
@@ -81,6 +82,14 @@ impl<T> Spanned<T> {
     }
 }
 
+impl<T> Spanned<Option<T>> {
+    /// Swap the spanned and option.
+    pub fn transpose(self) -> Option<Spanned<T>> {
+        let Spanned { v, span } = self;
+        v.map(|v| v.span_with(span))
+    }
+}
+
 impl<T> Offset for Spanned<T> {
     fn offset(self, by: Pos) -> Self {
         self.map_span(|span| span.offset(by))
@@ -135,6 +144,11 @@ impl Span {
         *self = self.join(other)
     }
 
+    /// Convert to a `Range<usize>` for indexing.
+    pub fn to_range(self) -> Range<usize> {
+        self.start.to_usize() .. self.end.to_usize()
+    }
+
     /// When set to `false` comparisons with `PartialEq` ignore spans.
     #[cfg(test)]
     pub(crate) fn set_cmp(cmp: bool) {
@@ -173,12 +187,12 @@ where
     }
 }
 
-impl<T> From<(T, T)> for Span
+impl<T> From<Range<T>> for Span
 where
     T: Into<Pos>,
 {
-    fn from((start, end): (T, T)) -> Self {
-        Self::new(start, end)
+    fn from(range: Range<T>) -> Self {
+        Self::new(range.start, range.end)
     }
 }
 

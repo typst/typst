@@ -317,7 +317,7 @@ impl StackLayouter {
 
             // Then, we reduce the bounding box for the following layouts. This
             // layout uses up space from the origin to the end. Thus, it reduces
-            // the usable space for following layouts at it's origin by its
+            // the usable space for following layouts at its origin by its
             // extent along the secondary axis.
             *bound.get_mut(sys.secondary, GenAlign::Start) +=
                 sys.secondary.factor() * layout.size.secondary(*sys);
@@ -345,7 +345,7 @@ impl StackLayouter {
                 rotation = sys.secondary.axis();
             }
 
-            // We reduce the bounding box of this layout at it's end by the
+            // We reduce the bounding box of this layout at its end by the
             // accumulated secondary extent of all layouts we have seen so far,
             // which are the layouts after this one since we iterate reversed.
             *bound.get_mut(sys.secondary, GenAlign::End) -=
@@ -369,7 +369,7 @@ impl StackLayouter {
             let align = layout.align;
 
             // The space in which this layout is aligned is given by the
-            // distances between the borders of it's bounding box.
+            // distances between the borders of its bounding box.
             let usable = Size::new(bound.right - bound.left, bound.bottom - bound.top)
                 .generalized(sys);
 
