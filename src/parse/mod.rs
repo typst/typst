@@ -1,11 +1,13 @@
 //! Parsing and tokenization.
 
 mod lines;
+mod parser;
 mod resolve;
 mod scanner;
 mod tokens;
 
 pub use lines::*;
+pub use parser::*;
 pub use resolve::*;
 pub use scanner::*;
 pub use tokens::*;
@@ -15,634 +17,469 @@ use std::str::FromStr;
 use crate::color::RgbaColor;
 use crate::eval::DictKey;
 use crate::syntax::*;
-use crate::{Feedback, Pass};
+use crate::Pass;
 
 /// Parse a string of source code.
 pub fn parse(src: &str) -> Pass<SynTree> {
-    Parser::new(src).parse()
+    let mut p = Parser::new(src);
+    Pass::new(tree(&mut p), p.finish())
 }
 
-struct Parser<'s> {
-    tokens: Tokens<'s>,
-    peeked: Option<Option<Spanned<Token<'s>>>>,
-    delimiters: Vec<(Pos, Token<'static>)>,
-    at_block_or_line_start: bool,
-    feedback: Feedback,
+/// Parse a syntax tree.
+fn tree(p: &mut Parser) -> SynTree {
+    // We keep track of whether we are at the start of a block or paragraph
+    // to know whether headings are allowed.
+    let mut at_start = true;
+    let mut tree = vec![];
+    while !p.eof() {
+        if let Some(node) = node(p, at_start) {
+            if node.v == SynNode::Parbreak {
+                at_start = true;
+            } else if node.v != SynNode::Space {
+                at_start = false;
+            }
+            tree.push(node);
+        }
+    }
+    tree
 }
 
-impl<'s> Parser<'s> {
-    fn new(src: &'s str) -> Self {
-        Self {
-            tokens: Tokens::new(src, TokenMode::Body),
-            peeked: None,
-            delimiters: vec![],
-            at_block_or_line_start: true,
-            feedback: Feedback::new(),
-        }
-    }
-
-    fn parse(mut self) -> Pass<SynTree> {
-        let tree = self.parse_body_contents();
-        Pass::new(tree, self.feedback)
-    }
-}
-
-// Typesetting content.
-impl Parser<'_> {
-    fn parse_body_contents(&mut self) -> SynTree {
-        let mut tree = SynTree::new();
-
-        self.at_block_or_line_start = true;
-        while !self.eof() {
-            if let Some(node) = self.parse_node() {
-                tree.push(node);
-            }
-        }
-
-        tree
-    }
-
-    fn parse_node(&mut self) -> Option<Spanned<SynNode>> {
-        let token = self.peek()?;
-        let end = Span::at(token.span.end);
-
-        // Set block or line start to false because most nodes have that effect, but
-        // remember the old value to actually check it for hashtags and because comments
-        // and spaces want to retain it.
-        let was_at_block_or_line_start = self.at_block_or_line_start;
-        self.at_block_or_line_start = false;
-
-        Some(match token.v {
-            // Starting from two newlines counts as a paragraph break, a single
-            // newline does not.
-            Token::Space(n) => {
-                if n == 0 {
-                    self.at_block_or_line_start = was_at_block_or_line_start;
-                } else if n >= 1 {
-                    self.at_block_or_line_start = true;
-                }
-
-                self.with_span(if n >= 2 { SynNode::Parbreak } else { SynNode::Spacing })
-            }
-
-            Token::LineComment(_) | Token::BlockComment(_) => {
-                self.at_block_or_line_start = was_at_block_or_line_start;
-                self.eat();
-                return None;
-            }
-
-            Token::LeftBracket => {
-                let call = self.parse_bracket_call(false);
-                self.at_block_or_line_start = false;
-                call.map(|c| SynNode::Expr(Expr::Call(c)))
-            }
-
-            Token::Star => self.with_span(SynNode::ToggleBolder),
-            Token::Underscore => self.with_span(SynNode::ToggleItalic),
-            Token::Backslash => self.with_span(SynNode::Linebreak),
-
-            Token::Hashtag if was_at_block_or_line_start => {
-                self.parse_heading().map(SynNode::Heading)
-            }
-
-            Token::Raw { raw, backticks, terminated } => {
-                if !terminated {
-                    error!(@self.feedback, end, "expected backtick(s)");
-                }
-
-                let raw = resolve::resolve_raw(raw, backticks);
-                self.with_span(SynNode::Raw(raw))
-            }
-
-            Token::Text(text) => self.with_span(SynNode::Text(text.to_string())),
-            Token::Hashtag => self.with_span(SynNode::Text("#".to_string())),
-
-            Token::UnicodeEscape { sequence, terminated } => {
-                if !terminated {
-                    error!(@self.feedback, end, "expected closing brace");
-                }
-
-                if let Some(c) = resolve::resolve_hex(sequence) {
-                    self.with_span(SynNode::Text(c.to_string()))
-                } else {
-                    error!(@self.feedback, token.span, "invalid unicode escape sequence");
-                    // TODO: Decide whether to render the escape sequence.
-                    self.eat();
-                    return None;
-                }
-            }
-
-            unexpected => {
-                error!(@self.feedback, token.span, "unexpected {}", unexpected.name());
-                self.eat();
-                return None;
-            }
-        })
-    }
-
-    fn parse_heading(&mut self) -> Spanned<NodeHeading> {
-        let start = self.pos();
-        self.assert(Token::Hashtag);
-
-        let mut level = 0;
-        while self.peekv() == Some(Token::Hashtag) {
-            level += 1;
-            self.eat();
-        }
-
-        let span = Span::new(start, self.pos());
-        let level = level.span_with(span);
-
-        if level.v > 5 {
-            warning!(
-                @self.feedback, level.span,
-                "section depth larger than 6 has no effect",
-            );
-        }
-
-        self.skip_ws();
-
-        let mut tree = SynTree::new();
-        while !self.eof() && !matches!(self.peekv(), Some(Token::Space(n)) if n >= 1) {
-            if let Some(node) = self.parse_node() {
-                tree.push(node);
-            }
-        }
-
-        let span = Span::new(start, self.pos());
-        NodeHeading { level, contents: tree }.span_with(span)
-    }
-}
-
-// Function calls.
-impl Parser<'_> {
-    fn parse_bracket_call(&mut self, chained: bool) -> Spanned<ExprCall> {
-        let before_bracket = self.pos();
-        if !chained {
-            self.start_group(Group::Bracket);
-            self.tokens.push_mode(TokenMode::Header);
-        }
-
-        let before_name = self.pos();
-        self.start_group(Group::Subheader);
-        self.skip_ws();
-        let name = self.parse_ident().unwrap_or_else(|| {
-            self.expected_found_or_at("function name", before_name);
-            Ident(String::new()).span_with(Span::at(before_name))
-        });
-
-        self.skip_ws();
-
-        let mut args = match self.eatv() {
-            Some(Token::Colon) => self.parse_dict_contents().0,
-            Some(_) => {
-                self.expected_at("colon", name.span.end);
-                while self.eat().is_some() {}
-                LitDict::default()
-            }
-            None => LitDict::default(),
-        };
-
-        self.end_group();
-        self.skip_ws();
-        let (has_chained_child, end) = if self.peek().is_some() {
-            let item = self.parse_bracket_call(true);
-            let span = item.span;
-            let tree = vec![item.map(|c| SynNode::Expr(Expr::Call(c)))];
-            let expr = Expr::Lit(Lit::Content(tree));
-            args.0.push(LitDictEntry { key: None, value: expr.span_with(span) });
-            (true, span.end)
-        } else {
-            self.tokens.pop_mode();
-            (false, self.end_group().end)
-        };
-
-        let start = if chained { before_name } else { before_bracket };
-        let mut span = Span::new(start, end);
-
-        if self.check(Token::LeftBracket) && !has_chained_child {
-            self.start_group(Group::Bracket);
-            self.tokens.push_mode(TokenMode::Body);
-            let body = self.parse_body_contents();
-            self.tokens.pop_mode();
-            let body_span = self.end_group();
-
-            let expr = Expr::Lit(Lit::Content(body));
-            args.0.push(LitDictEntry {
-                key: None,
-                value: expr.span_with(body_span),
-            });
-            span.expand(body_span);
-        }
-
-        ExprCall { name, args }.span_with(span)
-    }
-
-    fn parse_paren_call(&mut self, name: Spanned<Ident>) -> Spanned<ExprCall> {
-        self.start_group(Group::Paren);
-        let args = self.parse_dict_contents().0;
-        let args_span = self.end_group();
-        let span = Span::merge(name.span, args_span);
-        ExprCall { name, args }.span_with(span)
-    }
-}
-
-// Dicts.
-impl Parser<'_> {
-    fn parse_dict_contents(&mut self) -> (LitDict, bool) {
-        let mut dict = LitDict::default();
-        let mut comma_and_keyless = true;
-
-        while {
-            self.skip_ws();
-            !self.eof()
-        } {
-            let (key, value) = if let Some(ident) = self.parse_ident() {
-                self.skip_ws();
-
-                match self.peekv() {
-                    Some(Token::Equals) => {
-                        self.eat();
-                        self.skip_ws();
-                        if let Some(value) = self.parse_expr() {
-                            (Some(ident.map(|id| DictKey::Str(id.0))), value)
-                        } else {
-                            self.expected("value");
-                            continue;
-                        }
-                    }
-
-                    Some(Token::LeftParen) => {
-                        let call = self.parse_paren_call(ident);
-                        (None, call.map(Expr::Call))
-                    }
-
-                    _ => (None, ident.map(|id| Expr::Lit(Lit::Ident(id)))),
-                }
-            } else if let Some(value) = self.parse_expr() {
-                (None, value)
+/// Parse a syntax node.
+fn node(p: &mut Parser, at_start: bool) -> Option<Spanned<SynNode>> {
+    let token = p.eat()?;
+    let span = token.span;
+    Some(match token.v {
+        // Spaces.
+        Token::Space(newlines) => {
+            if newlines < 2 {
+                SynNode::Space.span_with(span)
             } else {
-                self.expected("value");
-                continue;
-            };
-
-            if let Some(key) = &key {
-                comma_and_keyless = false;
-                self.feedback
-                    .decorations
-                    .push(Decoration::DictKey.span_with(key.span));
+                SynNode::Parbreak.span_with(span)
             }
+        }
+        Token::Text(text) => SynNode::Text(text.into()).span_with(span),
 
-            let behind = value.span.end;
-            dict.0.push(LitDictEntry { key, value });
+        // Comments.
+        Token::LineComment(_) | Token::BlockComment(_) => return None,
 
-            if {
-                self.skip_ws();
-                self.eof()
-            } {
+        // Markup.
+        Token::Star => SynNode::ToggleBolder.span_with(span),
+        Token::Underscore => SynNode::ToggleItalic.span_with(span),
+        Token::Backslash => SynNode::Linebreak.span_with(span),
+        Token::Hashtag => {
+            if at_start {
+                heading(p, span.start).map(SynNode::Heading)
+            } else {
+                SynNode::Text(p.get(span).into()).span_with(span)
+            }
+        }
+        Token::Raw(token) => raw(p, token, span).map(SynNode::Raw),
+        Token::UnicodeEscape(token) => unicode_escape(p, token, span).map(SynNode::Text),
+
+        // Functions.
+        Token::LeftBracket => {
+            p.jump(span.start);
+            bracket_call(p).map(Expr::Call).map(SynNode::Expr)
+        }
+
+        // Bad tokens.
+        _ => {
+            p.diag_unexpected(token);
+            return None;
+        }
+    })
+}
+
+/// Parse a heading.
+fn heading(p: &mut Parser, start: Pos) -> Spanned<NodeHeading> {
+    // Parse the section depth.
+    let count = p.eat_while(|c| c == Token::Hashtag);
+    let span = (start, p.pos());
+    let level = (count.min(5) as u8).span_with(span);
+    if count > 5 {
+        p.diag(warning!(span, "section depth larger than 6 has no effect"));
+    }
+
+    // Parse the heading contents.
+    p.skip_white();
+    let mut contents = vec![];
+    while p.check(|t| !matches!(t, Token::Space(n) if n >= 1)) {
+        if let Some(node) = node(p, false) {
+            contents.push(node);
+        }
+    }
+
+    NodeHeading { level, contents }.span_with((start, p.pos()))
+}
+
+/// Parse a raw block.
+fn raw(p: &mut Parser, token: TokenRaw, span: Span) -> Spanned<NodeRaw> {
+    let raw = resolve::resolve_raw(token.text, token.backticks);
+
+    if !token.terminated {
+        p.diag(error!(span.end, "expected backtick(s)"));
+    }
+
+    raw.span_with(span)
+}
+
+/// Parse a unicode escape sequence.
+fn unicode_escape(
+    p: &mut Parser,
+    token: TokenUnicodeEscape,
+    span: Span,
+) -> Spanned<String> {
+    let text = if let Some(c) = resolve::resolve_hex(token.sequence) {
+        c.to_string()
+    } else {
+        // Print out the escape sequence verbatim if it is
+        // invalid.
+        p.diag(error!(span, "invalid unicode escape sequence"));
+        p.get(span).into()
+    };
+
+    if !token.terminated {
+        p.diag(error!(span.end, "expected closing brace"));
+    }
+
+    text.span_with(span)
+}
+
+/// Parse a bracketed function call.
+fn bracket_call(p: &mut Parser) -> Spanned<ExprCall> {
+    let before_bracket = p.pos();
+    p.start_group(Group::Bracket);
+    p.push_mode(TokenMode::Header);
+
+    // One header is guaranteed, but there may be more (through chaining).
+    let mut outer = vec![];
+    let mut inner = bracket_subheader(p);
+
+    while p.eat_if(Token::Chain).is_some() {
+        outer.push(inner);
+        inner = bracket_subheader(p);
+    }
+
+    p.pop_mode();
+    p.end_group();
+
+    if p.peek() == Some(Token::LeftBracket) {
+        let expr = bracket_body(p).map(Lit::Content).map(Expr::Lit);
+        inner.span.expand(expr.span);
+        inner.v.args.0.push(LitDictEntry { key: None, expr });
+    }
+
+    while let Some(mut top) = outer.pop() {
+        let span = inner.span;
+        let node = inner.map(Expr::Call).map(SynNode::Expr);
+        let expr = Expr::Lit(Lit::Content(vec![node])).span_with(span);
+        top.v.args.0.push(LitDictEntry { key: None, expr });
+        inner = top;
+    }
+
+    inner.v.span_with((before_bracket, p.pos()))
+}
+
+/// Parse one subheader of a bracketed function call.
+fn bracket_subheader(p: &mut Parser) -> Spanned<ExprCall> {
+    p.start_group(Group::Subheader);
+    let before_name = p.pos();
+
+    p.skip_white();
+    let name = ident(p).unwrap_or_else(|| {
+        if p.eof() {
+            p.diag_expected_at("function name", before_name);
+        } else {
+            p.diag_expected("function name");
+        }
+        Ident(String::new()).span_with(before_name)
+    });
+
+    p.skip_white();
+    let args = if p.eat_if(Token::Colon).is_some() {
+        dict_contents(p).0
+    } else {
+        // Ignore the rest if there's no colon.
+        if !p.eof() {
+            p.diag_expected_at("colon", p.pos());
+        }
+        p.eat_while(|_| true);
+        LitDict::new()
+    };
+
+    ExprCall { name, args }.span_with(p.end_group())
+}
+
+/// Parse the body of a bracketed function call.
+fn bracket_body(p: &mut Parser) -> Spanned<SynTree> {
+    p.start_group(Group::Bracket);
+    p.push_mode(TokenMode::Body);
+    let tree = tree(p);
+    p.pop_mode();
+    tree.span_with(p.end_group())
+}
+
+/// Parse an expression: `term (+ term)*`.
+fn expr(p: &mut Parser) -> Option<Spanned<Expr>> {
+    binops(p, "summand", term, |token| match token {
+        Token::Plus => Some(BinOp::Add),
+        Token::Hyphen => Some(BinOp::Sub),
+        _ => None,
+    })
+}
+
+/// Parse a term: `factor (* factor)*`.
+fn term(p: &mut Parser) -> Option<Spanned<Expr>> {
+    binops(p, "factor", factor, |token| match token {
+        Token::Star => Some(BinOp::Mul),
+        Token::Slash => Some(BinOp::Div),
+        _ => None,
+    })
+}
+
+/// Parse binary operations of the from `a (<op> b)*`.
+fn binops(
+    p: &mut Parser,
+    operand_name: &str,
+    operand: fn(&mut Parser) -> Option<Spanned<Expr>>,
+    op: fn(Token) -> Option<BinOp>,
+) -> Option<Spanned<Expr>> {
+    let mut lhs = operand(p)?;
+
+    loop {
+        p.skip_white();
+        if let Some(op) = p.eat_map(op) {
+            p.skip_white();
+
+            if let Some(rhs) = operand(p) {
+                let span = lhs.span.join(rhs.span);
+                let expr = Expr::Binary(ExprBinary {
+                    lhs: lhs.map(Box::new),
+                    op,
+                    rhs: rhs.map(Box::new),
+                });
+                lhs = expr.span_with(span);
+                p.skip_white();
+            } else {
+                let span = lhs.span.join(op.span);
+                p.diag(error!(span, "missing right {}", operand_name));
                 break;
             }
-
-            self.expect_at(Token::Comma, behind);
-            comma_and_keyless = false;
+        } else {
+            break;
         }
+    }
 
-        let coercable = comma_and_keyless && !dict.0.is_empty();
-        (dict, coercable)
+    Some(lhs)
+}
+
+/// Parse a factor of the form `-?value`.
+fn factor(p: &mut Parser) -> Option<Spanned<Expr>> {
+    if let Some(op) = p.eat_map(|token| match token {
+        Token::Hyphen => Some(UnOp::Neg),
+        _ => None,
+    }) {
+        p.skip_white();
+        if let Some(expr) = factor(p) {
+            let span = op.span.join(expr.span);
+            let expr = Expr::Unary(ExprUnary { op, expr: expr.map(Box::new) });
+            Some(expr.span_with(span))
+        } else {
+            p.diag(error!(op.span, "missing factor"));
+            None
+        }
+    } else {
+        value(p)
     }
 }
 
-// Expressions and values.
-impl Parser<'_> {
-    fn parse_expr(&mut self) -> Option<Spanned<Expr>> {
-        self.parse_binops("summand", Self::parse_term, |token| match token {
-            Token::Plus => Some(BinOp::Add),
-            Token::Hyphen => Some(BinOp::Sub),
-            _ => None,
-        })
-    }
+/// Parse a value.
+fn value(p: &mut Parser) -> Option<Spanned<Expr>> {
+    let Spanned { v: token, span } = p.eat()?;
+    Some(match token {
+        // Bracketed function call.
+        Token::LeftBracket => {
+            p.jump(span.start);
+            let call = bracket_call(p);
+            let span = call.span;
+            let node = call.map(Expr::Call).map(SynNode::Expr);
+            Expr::Lit(Lit::Content(vec![node])).span_with(span)
+        }
 
-    fn parse_term(&mut self) -> Option<Spanned<Expr>> {
-        self.parse_binops("factor", Self::parse_factor, |token| match token {
-            Token::Star => Some(BinOp::Mul),
-            Token::Slash => Some(BinOp::Div),
-            _ => None,
-        })
-    }
+        // Content expression.
+        Token::LeftBrace => {
+            p.jump(span.start);
+            content(p).map(Lit::Content).map(Expr::Lit)
+        }
 
-    /// Parse expression of the form `<operand> (<op> <operand>)*`.
-    fn parse_binops(
-        &mut self,
-        operand_name: &str,
-        mut parse_operand: impl FnMut(&mut Self) -> Option<Spanned<Expr>>,
-        mut parse_op: impl FnMut(Token) -> Option<BinOp>,
-    ) -> Option<Spanned<Expr>> {
-        let mut left = parse_operand(self)?;
+        // Dictionary or just a parenthesized expression.
+        Token::LeftParen => {
+            p.jump(span.start);
+            parenthesized(p)
+        }
 
-        self.skip_ws();
-        while let Some(token) = self.peek() {
-            if let Some(op) = parse_op(token.v) {
-                self.eat();
-                self.skip_ws();
+        // Function or just ident.
+        Token::Ident(id) => {
+            let ident = Ident(id.into()).span_with(span);
 
-                if let Some(right) = parse_operand(self) {
-                    let span = Span::merge(left.span, right.span);
-                    let expr = Expr::Binary(ExprBinary {
-                        lhs: left.map(Box::new),
-                        op: op.span_with(token.span),
-                        rhs: right.map(Box::new),
-                    });
-                    left = expr.span_with(span);
-                    self.skip_ws();
-                    continue;
-                }
-
-                error!(
-                    @self.feedback, Span::merge(left.span, token.span),
-                    "missing right {}", operand_name,
-                );
+            p.skip_white();
+            if p.peek() == Some(Token::LeftParen) {
+                paren_call(p, ident).map(Expr::Call)
+            } else {
+                ident.map(Lit::Ident).map(Expr::Lit)
             }
+        }
+
+        // Atomic values.
+        Token::Bool(b) => Expr::Lit(Lit::Bool(b)).span_with(span),
+        Token::Number(f) => Expr::Lit(Lit::Float(f)).span_with(span),
+        Token::Length(l) => Expr::Lit(Lit::Length(l)).span_with(span),
+        Token::Hex(hex) => color(p, hex, span).map(Lit::Color).map(Expr::Lit),
+        Token::Str(token) => string(p, token, span).map(Lit::Str).map(Expr::Lit),
+
+        // No value.
+        _ => {
+            p.jump(span.start);
+            return None;
+        }
+    })
+}
+
+// Parse a content expression: `{...}`.
+fn content(p: &mut Parser) -> Spanned<SynTree> {
+    p.start_group(Group::Brace);
+    p.push_mode(TokenMode::Body);
+    let tree = tree(p);
+    p.pop_mode();
+    tree.span_with(p.end_group())
+}
+
+/// Parse a parenthesized expression: `(a + b)`, `(1, key="value").
+fn parenthesized(p: &mut Parser) -> Spanned<Expr> {
+    p.start_group(Group::Paren);
+    let (dict, coercable) = dict_contents(p);
+    let expr = if coercable {
+        dict.0.into_iter().next().expect("dict is coercable").expr.v
+    } else {
+        Expr::Lit(Lit::Dict(dict))
+    };
+    expr.span_with(p.end_group())
+}
+
+/// Parse a parenthesized function call.
+fn paren_call(p: &mut Parser, name: Spanned<Ident>) -> Spanned<ExprCall> {
+    p.start_group(Group::Paren);
+    let args = dict_contents(p).0;
+    let span = name.span.join(p.end_group());
+    ExprCall { name, args }.span_with(span)
+}
+
+/// Parse the contents of a dictionary.
+fn dict_contents(p: &mut Parser) -> (LitDict, bool) {
+    let mut dict = LitDict::new();
+    let mut comma_and_keyless = true;
+
+    loop {
+        p.skip_white();
+        if p.eof() {
             break;
         }
 
-        Some(left)
-    }
-
-    fn parse_factor(&mut self) -> Option<Spanned<Expr>> {
-        if let Some(hyph) = self.check_eat(Token::Hyphen) {
-            self.skip_ws();
-            if let Some(factor) = self.parse_factor() {
-                let span = Span::merge(hyph.span, factor.span);
-                let expr = Expr::Unary(ExprUnary {
-                    op: UnOp::Neg.span_with(hyph.span),
-                    expr: factor.map(Box::new),
-                });
-                Some(expr.span_with(span))
-            } else {
-                error!(@self.feedback, hyph.span, "dangling minus");
-                None
-            }
+        let entry = if let Some(entry) = dict_entry(p) {
+            entry
         } else {
-            self.parse_value()
+            p.diag_expected("value");
+            continue;
+        };
+
+        if let Some(key) = &entry.key {
+            comma_and_keyless = false;
+            p.deco(Decoration::DictKey.span_with(key.span));
         }
+
+        let behind = entry.expr.span.end;
+        dict.0.push(entry);
+
+        p.skip_white();
+        if p.eof() {
+            break;
+        }
+
+        if p.eat_if(Token::Comma).is_none() {
+            p.diag_expected_at("comma", behind);
+        }
+
+        comma_and_keyless = false;
     }
 
-    fn parse_value(&mut self) -> Option<Spanned<Expr>> {
-        let Spanned { v: token, span } = self.peek()?;
-        Some(match token {
-            // This could be a function call or an identifier.
-            Token::Ident(id) => {
-                let name = Ident(id.to_string()).span_with(span);
-                self.eat();
-                self.skip_ws();
-                if self.check(Token::LeftParen) {
-                    self.parse_paren_call(name).map(Expr::Call)
+    let coercable = comma_and_keyless && !dict.0.is_empty();
+    (dict, coercable)
+}
+
+/// Parse a single entry in a dictionary.
+fn dict_entry(p: &mut Parser) -> Option<LitDictEntry> {
+    if let Some(ident) = ident(p) {
+        p.skip_white();
+        match p.peek() {
+            // Key-value pair.
+            Some(Token::Equals) => {
+                p.eat_assert(Token::Equals);
+                p.skip_white();
+                if let Some(expr) = expr(p) {
+                    Some(LitDictEntry {
+                        key: Some(ident.map(|id| DictKey::Str(id.0))),
+                        expr,
+                    })
                 } else {
-                    name.map(|n| Expr::Lit(Lit::Ident(n)))
+                    None
                 }
             }
 
-            Token::Str { string, terminated } => {
-                if !terminated {
-                    self.expected_at("quote", span.end);
-                }
-                self.with_span(Expr::Lit(Lit::Str(resolve::resolve_string(string))))
-            }
+            // Function call.
+            Some(Token::LeftParen) => Some(LitDictEntry {
+                key: None,
+                expr: paren_call(p, ident).map(Expr::Call),
+            }),
 
-            Token::Bool(b) => self.with_span(Expr::Lit(Lit::Bool(b))),
-            Token::Number(n) => self.with_span(Expr::Lit(Lit::Float(n))),
-            Token::Length(s) => self.with_span(Expr::Lit(Lit::Length(s))),
-            Token::Hex(s) => {
-                let color = RgbaColor::from_str(s).unwrap_or_else(|_| {
-                    // Heal color by assuming black.
-                    error!(@self.feedback, span, "invalid color");
-                    RgbaColor::new_healed(0, 0, 0, 255)
-                });
-                self.with_span(Expr::Lit(Lit::Color(color)))
-            }
+            // Just an identifier.
+            _ => Some(LitDictEntry {
+                key: None,
+                expr: ident.map(|id| Expr::Lit(Lit::Ident(id))),
+            }),
+        }
+    } else if let Some(expr) = expr(p) {
+        Some(LitDictEntry { key: None, expr })
+    } else {
+        None
+    }
+}
 
-            // This could be a dictionary or a parenthesized expression. We
-            // parse as a dictionary in any case and coerce  into a value if
-            // that's coercable (length 1 and no trailing comma).
-            Token::LeftParen => {
-                self.start_group(Group::Paren);
-                let (dict, coercable) = self.parse_dict_contents();
-                let span = self.end_group();
+/// Parse an identifier.
+fn ident(p: &mut Parser) -> Option<Spanned<Ident>> {
+    p.eat_map(|token| match token {
+        Token::Ident(id) => Some(Ident(id.into())),
+        _ => None,
+    })
+}
 
-                let expr = if coercable {
-                    dict.0.into_iter().next().expect("dict is coercable").value.v
-                } else {
-                    Expr::Lit(Lit::Dict(dict))
-                };
-
-                expr.span_with(span)
-            }
-
-            // This is a content expression.
-            Token::LeftBrace => {
-                self.start_group(Group::Brace);
-                self.tokens.push_mode(TokenMode::Body);
-                let tree = self.parse_body_contents();
-                self.tokens.pop_mode();
-                let span = self.end_group();
-                Expr::Lit(Lit::Content(tree)).span_with(span)
-            }
-
-            // This is a bracketed function call.
-            Token::LeftBracket => {
-                let call = self.parse_bracket_call(false);
-                let tree = vec![call.map(|c| SynNode::Expr(Expr::Call(c)))];
-                Expr::Lit(Lit::Content(tree)).span_with(span)
-            }
-
-            _ => return None,
+/// Parse a color.
+fn color(p: &mut Parser, hex: &str, span: Span) -> Spanned<RgbaColor> {
+    RgbaColor::from_str(hex)
+        .unwrap_or_else(|_| {
+            // Heal color by assuming black.
+            p.diag(error!(span, "invalid color"));
+            RgbaColor::new_healed(0, 0, 0, 255)
         })
-    }
-
-    fn parse_ident(&mut self) -> Option<Spanned<Ident>> {
-        self.peek().and_then(|token| match token.v {
-            Token::Ident(id) => Some(self.with_span(Ident(id.to_string()))),
-            _ => None,
-        })
-    }
+        .span_with(span)
 }
 
-// Error handling.
-impl Parser<'_> {
-    fn expect_at(&mut self, token: Token<'_>, pos: Pos) -> bool {
-        if self.check(token) {
-            self.eat();
-            true
-        } else {
-            self.expected_at(token.name(), pos);
-            false
-        }
+/// Parse a string.
+fn string(p: &mut Parser, token: TokenStr, span: Span) -> Spanned<String> {
+    if !token.terminated {
+        p.diag_expected_at("quote", span.end);
     }
 
-    fn expected(&mut self, thing: &str) {
-        if let Some(found) = self.eat() {
-            error!(
-                @self.feedback, found.span,
-                "expected {}, found {}", thing, found.v.name(),
-            );
-        } else {
-            error!(@self.feedback, Span::at(self.pos()), "expected {}", thing);
-        }
-    }
-
-    fn expected_at(&mut self, thing: &str, pos: Pos) {
-        error!(@self.feedback, Span::at(pos), "expected {}", thing);
-    }
-
-    fn expected_found_or_at(&mut self, thing: &str, pos: Pos) {
-        if self.eof() {
-            self.expected_at(thing, pos)
-        } else {
-            self.expected(thing);
-        }
-    }
-}
-
-// Parsing primitives.
-impl<'s> Parser<'s> {
-    fn start_group(&mut self, group: Group) {
-        let start = self.pos();
-        if let Some(start_token) = group.start() {
-            self.assert(start_token);
-        }
-        self.delimiters.push((start, group.end()));
-    }
-
-    fn end_group(&mut self) -> Span {
-        let peeked = self.peek();
-
-        let (start, end_token) = self.delimiters.pop().expect("group was not started");
-
-        if end_token != Token::Chain && peeked != None {
-            self.delimiters.push((start, end_token));
-            assert_eq!(peeked, None, "unfinished group");
-        }
-
-        match self.peeked.unwrap() {
-            Some(token) if token.v == end_token => {
-                self.peeked = None;
-                Span::new(start, token.span.end)
-            }
-            _ => {
-                let end = self.pos();
-                if end_token != Token::Chain {
-                    error!(
-                        @self.feedback, Span::at(end),
-                        "expected {}", end_token.name(),
-                    );
-                }
-                Span::new(start, end)
-            }
-        }
-    }
-
-    fn skip_ws(&mut self) {
-        while matches!(
-            self.peekv(),
-            Some(Token::Space(_)) |
-            Some(Token::LineComment(_)) |
-            Some(Token::BlockComment(_))
-        ) {
-            self.eat();
-        }
-    }
-
-    fn eatv(&mut self) -> Option<Token<'s>> {
-        self.eat().map(Spanned::value)
-    }
-
-    fn peekv(&mut self) -> Option<Token<'s>> {
-        self.peek().map(Spanned::value)
-    }
-
-    fn assert(&mut self, token: Token<'_>) {
-        assert!(self.check_eat(token).is_some());
-    }
-
-    fn check_eat(&mut self, token: Token<'_>) -> Option<Spanned<Token<'s>>> {
-        if self.check(token) { self.eat() } else { None }
-    }
-
-    /// Checks if the next token is of some kind
-    fn check(&mut self, token: Token<'_>) -> bool {
-        self.peekv() == Some(token)
-    }
-
-    fn with_span<T>(&mut self, v: T) -> Spanned<T> {
-        let span = self.eat().expect("expected token").span;
-        v.span_with(span)
-    }
-
-    fn eof(&mut self) -> bool {
-        self.peek().is_none()
-    }
-
-    fn eat(&mut self) -> Option<Spanned<Token<'s>>> {
-        let token = self.peek()?;
-        self.peeked = None;
-        Some(token)
-    }
-
-    fn peek(&mut self) -> Option<Spanned<Token<'s>>> {
-        let tokens = &mut self.tokens;
-        let token = (*self.peeked.get_or_insert_with(|| tokens.next()))?;
-
-        // Check for unclosed groups.
-        if Group::is_delimiter(token.v) {
-            if self.delimiters.iter().rev().any(|&(_, end)| token.v == end) {
-                return None;
-            }
-        }
-
-        Some(token)
-    }
-
-    fn pos(&self) -> Pos {
-        self.peeked
-            .flatten()
-            .map(|s| s.span.start)
-            .unwrap_or_else(|| self.tokens.pos())
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Group {
-    Paren,
-    Bracket,
-    Brace,
-    Subheader,
-}
-
-impl Group {
-    fn is_delimiter(token: Token<'_>) -> bool {
-        matches!(
-            token,
-            Token::RightParen | Token::RightBracket | Token::RightBrace | Token::Chain
-        )
-    }
-
-    fn start(self) -> Option<Token<'static>> {
-        match self {
-            Self::Paren => Some(Token::LeftParen),
-            Self::Bracket => Some(Token::LeftBracket),
-            Self::Brace => Some(Token::LeftBrace),
-            Self::Subheader => None,
-        }
-    }
-
-    fn end(self) -> Token<'static> {
-        match self {
-            Self::Paren => Token::RightParen,
-            Self::Bracket => Token::RightBracket,
-            Self::Brace => Token::RightBrace,
-            Self::Subheader => Token::Chain,
-        }
-    }
+    resolve::resolve_string(token.string).span_with(span)
 }
 
 #[cfg(test)]

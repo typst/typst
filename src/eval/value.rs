@@ -15,12 +15,10 @@ use crate::syntax::{Ident, Span, SpanWith, Spanned, SynNode, SynTree};
 use crate::{DynFuture, Feedback, Pass};
 
 /// A computational value.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum Value {
     /// An identifier: `ident`.
     Ident(Ident),
-    /// A string: `"string"`.
-    Str(String),
     /// A boolean: `true, false`.
     Bool(bool),
     /// A number: `1.2, 200%`.
@@ -29,6 +27,8 @@ pub enum Value {
     Length(Length),
     /// A color value with alpha channel: `#f79143ff`.
     Color(RgbaColor),
+    /// A string: `"string"`.
+    Str(String),
     /// A dictionary value: `(false, 12cm, greeting="hi")`.
     Dict(DictValue),
     /// A syntax tree containing typesetting content.
@@ -45,11 +45,11 @@ impl Value {
     pub fn name(&self) -> &'static str {
         match self {
             Self::Ident(_) => "identifier",
-            Self::Str(_) => "string",
             Self::Bool(_) => "bool",
             Self::Number(_) => "number",
             Self::Length(_) => "length",
             Self::Color(_) => "color",
+            Self::Str(_) => "string",
             Self::Dict(_) => "dict",
             Self::Tree(_) => "syntax tree",
             Self::Func(_) => "function",
@@ -65,9 +65,6 @@ impl Spanned<Value> {
     /// the value is represented as layoutable content in a reasonable way.
     pub fn into_commands(self) -> Commands {
         match self.v {
-            Value::Commands(commands) => commands,
-            Value::Tree(tree) => vec![Command::LayoutSyntaxTree(tree)],
-
             // Forward to each entry, separated with spaces.
             Value::Dict(dict) => {
                 let mut commands = vec![];
@@ -75,7 +72,7 @@ impl Spanned<Value> {
                 for entry in dict.into_values() {
                     if let Some(last_end) = end {
                         let span = Span::new(last_end, entry.key.start);
-                        let tree = vec![SynNode::Spacing.span_with(span)];
+                        let tree = vec![SynNode::Space.span_with(span)];
                         commands.push(Command::LayoutSyntaxTree(tree));
                     }
 
@@ -84,6 +81,9 @@ impl Spanned<Value> {
                 }
                 commands
             }
+
+            Value::Tree(tree) => vec![Command::LayoutSyntaxTree(tree)],
+            Value::Commands(commands) => commands,
 
             // Format with debug.
             val => {
@@ -99,33 +99,15 @@ impl Debug for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Ident(i) => i.fmt(f),
-            Self::Str(s) => s.fmt(f),
             Self::Bool(b) => b.fmt(f),
             Self::Number(n) => n.fmt(f),
             Self::Length(s) => s.fmt(f),
             Self::Color(c) => c.fmt(f),
+            Self::Str(s) => s.fmt(f),
             Self::Dict(t) => t.fmt(f),
             Self::Tree(t) => t.fmt(f),
-            Self::Func(_) => f.pad("<function>"),
+            Self::Func(c) => c.fmt(f),
             Self::Commands(c) => c.fmt(f),
-        }
-    }
-}
-
-impl PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Ident(a), Self::Ident(b)) => a == b,
-            (Self::Str(a), Self::Str(b)) => a == b,
-            (Self::Bool(a), Self::Bool(b)) => a == b,
-            (Self::Number(a), Self::Number(b)) => a == b,
-            (Self::Length(a), Self::Length(b)) => a == b,
-            (Self::Color(a), Self::Color(b)) => a == b,
-            (Self::Dict(a), Self::Dict(b)) => a == b,
-            (Self::Tree(a), Self::Tree(b)) => a == b,
-            (Self::Func(a), Self::Func(b)) => Rc::ptr_eq(a, b),
-            (Self::Commands(a), Self::Commands(b)) => a == b,
-            _ => false,
         }
     }
 }
@@ -140,8 +122,45 @@ impl PartialEq for Value {
 /// layouting engine to do what the function pleases.
 ///
 /// The dynamic function object is wrapped in an `Rc` to keep `Value` clonable.
-pub type FuncValue =
-    Rc<dyn Fn(Span, DictValue, LayoutContext<'_>) -> DynFuture<Pass<Value>>>;
+#[derive(Clone)]
+pub struct FuncValue(pub Rc<FuncType>);
+
+/// The dynamic function type backtick [`FuncValue`].
+///
+/// [`FuncValue`]: struct.FuncValue.html
+pub type FuncType = dyn Fn(Span, DictValue, LayoutContext<'_>) -> DynFuture<Pass<Value>>;
+
+impl FuncValue {
+    /// Create a new function value from a rust function or closure.
+    pub fn new<F: 'static>(f: F) -> Self
+    where
+        F: Fn(Span, DictValue, LayoutContext<'_>) -> DynFuture<Pass<Value>>,
+    {
+        Self(Rc::new(f))
+    }
+}
+
+impl Eq for FuncValue {}
+
+impl PartialEq for FuncValue {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Deref for FuncValue {
+    type Target = FuncType;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
+    }
+}
+
+impl Debug for FuncValue {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad("<function>")
+    }
+}
 
 /// A dictionary of values.
 ///
@@ -262,8 +281,7 @@ impl DictValue {
     /// Generated `"unexpected argument"` errors for all remaining entries.
     pub fn unexpected(&self, f: &mut Feedback) {
         for entry in self.values() {
-            let span = Span::merge(entry.key, entry.val.span);
-            error!(@f, span, "unexpected argument");
+            error!(@f, entry.key.join(entry.val.span), "unexpected argument");
         }
     }
 }

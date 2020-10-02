@@ -13,7 +13,7 @@ thread_local! {
 /// Annotate a value with a span.
 pub trait SpanWith: Sized {
     /// Wraps `self` in a `Spanned` with the given span.
-    fn span_with(self, span: Span) -> Spanned<Self> {
+    fn span_with(self, span: impl Into<Span>) -> Spanned<Self> {
         Spanned::new(self, span)
     }
 }
@@ -50,8 +50,8 @@ pub struct Spanned<T> {
 
 impl<T> Spanned<T> {
     /// Create a new instance from a value and its span.
-    pub fn new(v: T, span: Span) -> Self {
-        Self { v, span }
+    pub fn new(v: T, span: impl Into<Span>) -> Self {
+        Self { v, span: span.into() }
     }
 
     /// Create a new instance from a value with the zero span.
@@ -123,16 +123,16 @@ impl Span {
     }
 
     /// Create a new span with the earlier start and later end position.
-    pub fn merge(a: Self, b: Self) -> Self {
+    pub fn join(self, other: Self) -> Self {
         Self {
-            start: a.start.min(b.start),
-            end: a.end.max(b.end),
+            start: self.start.min(other.start),
+            end: self.end.max(other.end),
         }
     }
 
     /// Expand a span by merging it with another span.
     pub fn expand(&mut self, other: Self) {
-        *self = Self::merge(*self, other)
+        *self = self.join(other)
     }
 
     /// When set to `false` comparisons with `PartialEq` ignore spans.
@@ -164,6 +164,24 @@ impl PartialEq for Span {
     }
 }
 
+impl<T> From<T> for Span
+where
+    T: Into<Pos> + Copy,
+{
+    fn from(pos: T) -> Self {
+        Self::at(pos)
+    }
+}
+
+impl<T> From<(T, T)> for Span
+where
+    T: Into<Pos>,
+{
+    fn from((start, end): (T, T)) -> Self {
+        Self::new(start, end)
+    }
+}
+
 impl Debug for Span {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "<{:?}-{:?}>", self.start, self.end)
@@ -185,6 +203,12 @@ impl Pos {
     }
 }
 
+impl Offset for Pos {
+    fn offset(self, by: Self) -> Self {
+        Pos(self.0 + by.0)
+    }
+}
+
 impl From<u32> for Pos {
     fn from(index: u32) -> Self {
         Self(index)
@@ -194,12 +218,6 @@ impl From<u32> for Pos {
 impl From<usize> for Pos {
     fn from(index: usize) -> Self {
         Self(index as u32)
-    }
-}
-
-impl Offset for Pos {
-    fn offset(self, by: Self) -> Self {
-        Pos(self.0 + by.0)
     }
 }
 

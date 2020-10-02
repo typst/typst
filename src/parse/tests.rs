@@ -14,7 +14,7 @@ use crate::syntax::*;
 
 use Decoration::*;
 use SynNode::{
-    Linebreak as L, Parbreak as P, Spacing as S, ToggleBolder as B, ToggleItalic as I,
+    Linebreak as L, Parbreak as P, Space as S, ToggleBolder as B, ToggleItalic as I,
 };
 
 fn T(text: &str) -> SynNode {
@@ -80,21 +80,21 @@ fn Str(string: &str) -> Expr {
 
 macro_rules! Dict {
     (@dict=$dict:expr,) => {};
-    (@dict=$dict:expr, $key:expr => $value:expr $(, $($tts:tt)*)?) => {{
+    (@dict=$dict:expr, $key:expr => $expr:expr $(, $($tts:tt)*)?) => {{
         let key = Into::<Spanned<&str>>::into($key);
         let key = key.map(Into::<DictKey>::into);
-        let value = Into::<Spanned<Expr>>::into($value);
-        $dict.0.push(LitDictEntry { key: Some(key), value });
+        let expr = Into::<Spanned<Expr>>::into($expr);
+        $dict.0.push(LitDictEntry { key: Some(key), expr });
         Dict![@dict=$dict, $($($tts)*)?];
     }};
-    (@dict=$dict:expr, $value:expr $(, $($tts:tt)*)?) => {
-        let value = Into::<Spanned<Expr>>::into($value);
-        $dict.0.push(LitDictEntry { key: None, value });
+    (@dict=$dict:expr, $expr:expr $(, $($tts:tt)*)?) => {
+        let expr = Into::<Spanned<Expr>>::into($expr);
+        $dict.0.push(LitDictEntry { key: None, expr });
         Dict![@dict=$dict, $($($tts)*)?];
     };
     (@$($tts:tt)*) => {{
         #[allow(unused_mut)]
-        let mut dict = LitDict::default();
+        let mut dict = LitDict::new();
         Dict![@dict=dict, $($tts)*];
         dict
     }};
@@ -344,7 +344,6 @@ fn test_parse_function_names() {
 fn test_parse_chaining() {
     // Things the parser has to make sense of
     t!("[hi: (5.0, 2.1 >> you]" => F!("hi"; Dict![Float(5.0), Float(2.1)], Tree![F!("you")]));
-    t!("[box >>][Hi]"           => F!("box"; Tree![T("Hi")]));
     t!("[box >> pad: 1pt][Hi]"  => F!("box"; Tree![
         F!("pad"; Len(Length::pt(1.0)), Tree!(T("Hi")))
     ]));
@@ -354,7 +353,8 @@ fn test_parse_chaining() {
 
     // Errors for unclosed / empty predecessor groups
     e!("[hi: (5.0, 2.1 >> you]" => s(15, 15, "expected closing paren"));
-    e!("[>> abc]" => s(1, 1, "expected function name"));
+    e!("[>> abc]"               => s(1, 1, "expected function name"));
+    e!("[box >>][Hi]"           => s(7, 7, "expected function name"));
 }
 
 #[test]
@@ -482,7 +482,7 @@ fn test_parse_expressions() {
 
     // Invalid expressions.
     v!("4pt--"        => Len(Length::pt(4.0)));
-    e!("[val: 4pt--]" => s(10, 11, "dangling minus"),
+    e!("[val: 4pt--]" => s(10, 11, "missing factor"),
                          s(6, 10, "missing right summand"));
 
     v!("3mm+4pt*"        => Binary(Add, Len(Length::mm(3.0)), Len(Length::pt(4.0))));

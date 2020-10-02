@@ -13,7 +13,7 @@ pub async fn boxed(
 ) -> Pass<Value> {
     let mut f = Feedback::new();
 
-    let content = args.take::<SynTree>().unwrap_or(SynTree::new());
+    let content = args.take::<SynTree>().unwrap_or_default();
 
     ctx.base = ctx.spaces[0].size;
     ctx.spaces.truncate(1);

@@ -58,19 +58,7 @@ impl<'a> TreeLayouter<'a> {
         };
 
         match &node.v {
-            SynNode::Spacing => self.layout_space(),
-            SynNode::Linebreak => self.layouter.finish_line(),
-            SynNode::Parbreak => self.layout_parbreak(),
-
-            SynNode::ToggleItalic => {
-                self.style.text.italic = !self.style.text.italic;
-                decorate(self, Decoration::Italic);
-            }
-            SynNode::ToggleBolder => {
-                self.style.text.bolder = !self.style.text.bolder;
-                decorate(self, Decoration::Bold);
-            }
-
+            SynNode::Space => self.layout_space(),
             SynNode::Text(text) => {
                 if self.style.text.italic {
                     decorate(self, Decoration::Italic);
@@ -81,8 +69,19 @@ impl<'a> TreeLayouter<'a> {
                 self.layout_text(text).await;
             }
 
-            SynNode::Raw(raw) => self.layout_raw(raw).await,
+            SynNode::Linebreak => self.layouter.finish_line(),
+            SynNode::Parbreak => self.layout_parbreak(),
+            SynNode::ToggleItalic => {
+                self.style.text.italic = !self.style.text.italic;
+                decorate(self, Decoration::Italic);
+            }
+            SynNode::ToggleBolder => {
+                self.style.text.bolder = !self.style.text.bolder;
+                decorate(self, Decoration::Bold);
+            }
+
             SynNode::Heading(heading) => self.layout_heading(heading).await,
+            SynNode::Raw(raw) => self.layout_raw(raw).await,
 
             SynNode::Expr(expr) => {
                 self.layout_expr(expr.span_with(node.span)).await;
@@ -116,7 +115,7 @@ impl<'a> TreeLayouter<'a> {
 
     async fn layout_heading(&mut self, heading: &NodeHeading) {
         let style = self.style.text.clone();
-        self.style.text.font_scale *= 1.5 - 0.1 * heading.level.v.min(5) as f64;
+        self.style.text.font_scale *= 1.5 - 0.1 * heading.level.v as f64;
         self.style.text.bolder = true;
 
         self.layout_parbreak();

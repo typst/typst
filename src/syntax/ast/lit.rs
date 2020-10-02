@@ -1,10 +1,10 @@
 //! Literals.
 
-use super::{Expr, Ident, SpanWith, Spanned, SynTree};
 use crate::color::RgbaColor;
 use crate::eval::{DictKey, DictValue, SpannedEntry, Value};
 use crate::layout::LayoutContext;
 use crate::length::Length;
+use crate::syntax::{Expr, Ident, SpanWith, Spanned, SynTree};
 use crate::{DynFuture, Feedback};
 
 /// A literal.
@@ -55,7 +55,7 @@ impl Lit {
 }
 
 /// A dictionary literal: `(false, 12cm, greeting = "hi")`.
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LitDict(pub Vec<LitDictEntry>);
 
 impl LitDict {
@@ -74,8 +74,8 @@ impl LitDict {
             let mut dict = DictValue::new();
 
             for entry in &self.0 {
-                let val = entry.value.v.eval(ctx, f).await;
-                let spanned = val.span_with(entry.value.span);
+                let val = entry.expr.v.eval(ctx, f).await;
+                let spanned = val.span_with(entry.expr.span);
                 if let Some(key) = &entry.key {
                     dict.insert(&key.v, SpannedEntry::new(key.span, spanned));
                 } else {
@@ -94,5 +94,5 @@ pub struct LitDictEntry {
     /// The key of the entry if there was one: `greeting`.
     pub key: Option<Spanned<DictKey>>,
     /// The value of the entry: `"hi"`.
-    pub value: Spanned<Expr>,
+    pub expr: Spanned<Expr>,
 }

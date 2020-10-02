@@ -1,7 +1,6 @@
 //! The syntax tree.
 
-use super::span::{SpanVec, Spanned};
-use super::{Expr, Ident};
+use crate::syntax::{Expr, Ident, SpanVec, Spanned};
 
 /// A collection of nodes which form a tree together with the nodes' children.
 pub type SynTree = SpanVec<SynNode>;
@@ -11,7 +10,10 @@ pub type SynTree = SpanVec<SynNode>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum SynNode {
     /// Whitespace containing less than two newlines.
-    Spacing,
+    Space,
+    /// Plain text.
+    Text(String),
+
     /// A forced line break.
     Linebreak,
     /// A paragraph break.
@@ -20,14 +22,23 @@ pub enum SynNode {
     ToggleItalic,
     /// Bolder was enabled / disabled.
     ToggleBolder,
-    /// Plain text.
-    Text(String),
-    /// An optionally syntax-highlighted raw block.
-    Raw(NodeRaw),
+
     /// A section heading.
     Heading(NodeHeading),
+    /// An optionally syntax-highlighted raw block.
+    Raw(NodeRaw),
+
     /// An expression.
     Expr(Expr),
+}
+
+/// A section heading.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NodeHeading {
+    /// The section depth (how many hashtags minus 1).
+    pub level: Spanned<u8>,
+    /// The contents of the heading.
+    pub contents: SynTree,
 }
 
 /// A raw block, rendered in monospace with optional syntax highlighting.
@@ -107,13 +118,4 @@ pub struct NodeRaw {
     /// Single-backtick blocks are always inline-level. Multi-backtick blocks
     /// are inline-level when they contain no newlines.
     pub inline: bool,
-}
-
-/// A section heading.
-#[derive(Debug, Clone, PartialEq)]
-pub struct NodeHeading {
-    /// The section depth (how many hashtags minus 1).
-    pub level: Spanned<u8>,
-    /// The contents of the heading.
-    pub contents: SynTree,
 }

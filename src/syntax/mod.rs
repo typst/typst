@@ -1,19 +1,10 @@
 //! Syntax types.
 
-mod expr;
-mod ident;
-mod lit;
-mod span;
-mod token;
-mod tree;
+pub mod ast;
+pub mod token;
 
-/// Abstract syntax tree definition.
-pub mod ast {
-    use super::*;
-    pub use expr::*;
-    pub use lit::*;
-    pub use tree::*;
-}
+mod ident;
+mod span;
 
 pub use ast::*;
 pub use ident::*;

@@ -3,7 +3,7 @@
 use super::{is_newline, Scanner};
 use crate::syntax::{Ident, NodeRaw};
 
-/// Resolves all escape sequences in a string.
+/// Resolve all escape sequences in a string.
 pub fn resolve_string(string: &str) -> String {
     let mut out = String::with_capacity(string.len());
     let mut s = Scanner::new(string);
@@ -48,10 +48,10 @@ pub fn resolve_hex(sequence: &str) -> Option<char> {
     u32::from_str_radix(sequence, 16).ok().and_then(std::char::from_u32)
 }
 
-/// Resolves the language tag and trims the raw text.
-pub fn resolve_raw(raw: &str, backticks: usize) -> NodeRaw {
+/// Resolve the language tag and trims the raw text.
+pub fn resolve_raw(text: &str, backticks: usize) -> NodeRaw {
     if backticks > 1 {
-        let (tag, inner) = split_at_lang_tag(raw);
+        let (tag, inner) = split_at_lang_tag(text);
         let (lines, had_newline) = trim_and_split_raw(inner);
         NodeRaw {
             lang: Ident::new(tag),
@@ -61,7 +61,7 @@ pub fn resolve_raw(raw: &str, backticks: usize) -> NodeRaw {
     } else {
         NodeRaw {
             lang: None,
-            lines: split_lines(raw),
+            lines: split_lines(text),
             inline: true,
         }
     }
@@ -76,7 +76,7 @@ fn split_at_lang_tag(raw: &str) -> (&str, &str) {
     )
 }
 
-/// Trims raw text and splits it into lines.
+/// Trim raw text and splits it into lines.
 ///
 /// Returns whether at least one newline was contained in `raw`.
 fn trim_and_split_raw(raw: &str) -> (Vec<String>, bool) {
@@ -101,7 +101,7 @@ fn trim_and_split_raw(raw: &str) -> (Vec<String>, bool) {
     (lines, had_newline)
 }
 
-/// Splits a string into a vector of lines
+/// Split a string into a vector of lines
 /// (respecting Unicode, Unix, Mac and Windows line breaks).
 pub fn split_lines(text: &str) -> Vec<String> {
     let mut s = Scanner::new(text);
@@ -147,8 +147,8 @@ mod tests {
 
     #[test]
     fn test_split_at_lang_tag() {
-        fn test(raw: &str, lang: &str, inner: &str) {
-            assert_eq!(split_at_lang_tag(raw), (lang, inner));
+        fn test(text: &str, lang: &str, inner: &str) {
+            assert_eq!(split_at_lang_tag(text), (lang, inner));
         }
 
         test("typst it!",   "typst", " it!");
@@ -161,8 +161,8 @@ mod tests {
 
     #[test]
     fn test_trim_raw() {
-        fn test(raw: &str, expected: Vec<&str>) {
-            assert_eq!(trim_and_split_raw(raw).0, expected);
+        fn test(text: &str, expected: Vec<&str>) {
+            assert_eq!(trim_and_split_raw(text).0, expected);
         }
 
         test(" hi",          vec!["hi"]);
@@ -178,8 +178,8 @@ mod tests {
 
     #[test]
     fn test_split_lines() {
-        fn test(raw: &str, expected: Vec<&str>) {
-            assert_eq!(split_lines(raw), expected);
+        fn test(text: &str, expected: Vec<&str>) {
+            assert_eq!(split_lines(text), expected);
         }
 
         test("raw\ntext",  vec!["raw", "text"]);

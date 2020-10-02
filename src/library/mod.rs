@@ -14,9 +14,7 @@ pub use font::*;
 pub use page::*;
 pub use spacing::*;
 
-use std::rc::Rc;
-
-use crate::eval::Scope;
+use crate::eval::{FuncValue, Scope};
 use crate::prelude::*;
 
 macro_rules! std {
@@ -32,7 +30,7 @@ macro_rules! std {
 
 macro_rules! wrap {
     ($func:expr) => {
-        Rc::new(|name, args, ctx| Box::pin($func(name, args, ctx)))
+        FuncValue::new(|name, args, ctx| Box::pin($func(name, args, ctx)))
     };
 }
 

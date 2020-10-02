@@ -4,7 +4,8 @@ use std::fmt::{self, Debug, Formatter};
 use std::slice::SliceIndex;
 use std::str::Chars;
 
-/// A low-level featureful char scanner.
+/// A low-level featureful char-based scanner.
+#[derive(Clone)]
 pub struct Scanner<'s> {
     src: &'s str,
     iter: Chars<'s>,
@@ -98,24 +99,22 @@ impl<'s> Scanner<'s> {
 
     /// Checks whether the next character fulfills a condition.
     ///
-    /// Returns `false` is there is no next character.
+    /// Returns `false` if there is no next character.
     pub fn check(&self, f: impl FnMut(char) -> bool) -> bool {
         self.peek().map(f).unwrap_or(false)
     }
 
-    /// Go back to the where the index says.
-    fn reset(&mut self) {
-        self.iter = self.src[self.index ..].chars();
+    /// Whether the end of the source string is reached.
+    pub fn eof(&self) -> bool {
+        self.iter.as_str().is_empty()
     }
-}
 
-impl<'s> Scanner<'s> {
-    /// The current index in the string.
+    /// The current index in the source string.
     pub fn index(&self) -> usize {
         self.index
     }
 
-    /// The previous index in the string.
+    /// The previous index in the source string.
     pub fn prev_index(&self) -> usize {
         self.src[.. self.index]
             .chars()
@@ -124,17 +123,23 @@ impl<'s> Scanner<'s> {
             .unwrap_or(0)
     }
 
+    /// Jump to an index in the source string.
+    pub fn jump(&mut self, index: usize) {
+        self.index = index;
+        self.reset();
+    }
+
+    /// The full source string.
+    pub fn src(&self) -> &'s str {
+        self.src
+    }
+
     /// Slice a part out of the source string.
     pub fn get<I>(&self, index: I) -> &'s str
     where
         I: SliceIndex<str, Output = str>,
     {
         &self.src[index]
-    }
-
-    /// The full source string.
-    pub fn src(&self) -> &'s str {
-        self.src
     }
 
     /// The full source string up to the current index.
@@ -150,6 +155,11 @@ impl<'s> Scanner<'s> {
     /// The remaining source string after the current index.
     pub fn rest(&self) -> &'s str {
         &self.src[self.index ..]
+    }
+
+    /// Go back to the where the index says.
+    fn reset(&mut self) {
+        self.iter = self.src[self.index ..].chars();
     }
 }
 

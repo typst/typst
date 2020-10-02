@@ -1,9 +1,8 @@
 //! Expressions.
 
-use super::span::{SpanWith, Spanned};
-use super::{Decoration, Ident, Lit, LitDict};
 use crate::eval::Value;
 use crate::layout::LayoutContext;
+use crate::syntax::{Decoration, Ident, Lit, LitDict, SpanWith, Spanned};
 use crate::Feedback;
 
 /// An expression.
@@ -50,7 +49,7 @@ impl ExprUnary {
 }
 
 /// A unary operator.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum UnOp {
     /// The negation operator: `-`.
     Neg,
@@ -80,7 +79,7 @@ impl ExprBinary {
 }
 
 /// A binary operator.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum BinOp {
     /// The addition operator: `+`.
     Add,
