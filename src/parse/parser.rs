@@ -228,7 +228,7 @@ impl<'s> Parser<'s> {
     ///
     /// Returns `false` if there is no next token.
     pub fn check(&mut self, f: impl FnOnce(Token<'s>) -> bool) -> bool {
-        self.peek().map(f).unwrap_or(false)
+        self.peek().map_or(false, f)
     }
 
     /// Whether the end of the source string or group is reached.
@@ -278,7 +278,9 @@ impl<'s> Parser<'s> {
     /// Set the position to the tokenizer's position and take the peeked token.
     fn bump(&mut self) -> Option<Token<'s>> {
         self.pos = self.tokens.pos();
-        self.peeked.take()
+        let token = self.peeked;
+        self.peeked = None;
+        token
     }
 }
 

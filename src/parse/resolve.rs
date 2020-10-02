@@ -89,12 +89,12 @@ fn trim_and_split_raw(raw: &str) -> (Vec<String>, bool) {
     let is_whitespace = |line: &String| line.chars().all(char::is_whitespace);
 
     // Trims a sequence of whitespace followed by a newline at the start.
-    if lines.first().map(is_whitespace).unwrap_or(false) {
+    if lines.first().map_or(false, is_whitespace) {
         lines.remove(0);
     }
 
     // Trims a newline followed by a sequence of whitespace at the end.
-    if lines.last().map(is_whitespace).unwrap_or(false) {
+    if lines.last().map_or(false, is_whitespace) {
         lines.pop();
     }
 

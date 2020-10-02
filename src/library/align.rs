@@ -35,7 +35,7 @@ pub async fn align(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass
         // if the alignment is `center` for a positional argument. Then we set
         // `deferred_center` to true and handle the situation once we know more.
         if let Some(axis) = axis {
-            if align.v.axis().map(|a| a != axis).unwrap_or(false) {
+            if align.v.axis().map_or(false, |a| a != axis) {
                 error!(
                     @f, align.span,
                     "invalid alignment {} for {} axis", align.v, axis,

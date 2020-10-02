@@ -32,8 +32,6 @@ impl<'s> Scanner<'s> {
     /// Returns whether the char was consumed.
     pub fn eat_if(&mut self, c: char) -> bool {
         // Don't decode the char twice through peek() and eat().
-        //
-        // TODO: Benchmark this vs. the naive version.
         if self.iter.next() == Some(c) {
             self.index += c.len_utf8();
             true
@@ -71,8 +69,6 @@ impl<'s> Scanner<'s> {
             if f(c) {
                 // Undo the previous `next()` without peeking all the time
                 // during iteration.
-                //
-                // TODO: Benchmark this vs. the naive peeking version.
                 self.reset();
                 break;
             }
