@@ -1,5 +1,5 @@
 use super::*;
-use crate::length::ScaleLength;
+use crate::geom::Linear;
 
 /// `box`: Layouts its contents into a box.
 ///
@@ -19,17 +19,17 @@ pub async fn boxed(
     ctx.spaces.truncate(1);
     ctx.repeat = false;
 
-    if let Some(width) = args.take_key::<ScaleLength>("width", &mut f) {
-        let length = width.raw_scaled(ctx.base.width);
-        ctx.base.width = length;
-        ctx.spaces[0].size.width = length;
+    if let Some(width) = args.take_key::<Linear>("width", &mut f) {
+        let abs = width.eval(ctx.base.width);
+        ctx.base.width = abs;
+        ctx.spaces[0].size.width = abs;
         ctx.spaces[0].expansion.horizontal = true;
     }
 
-    if let Some(height) = args.take_key::<ScaleLength>("height", &mut f) {
-        let length = height.raw_scaled(ctx.base.height);
-        ctx.base.height = length;
-        ctx.spaces[0].size.height = length;
+    if let Some(height) = args.take_key::<Linear>("height", &mut f) {
+        let abs = height.eval(ctx.base.height);
+        ctx.base.height = abs;
+        ctx.spaces[0].size.height = abs;
         ctx.spaces[0].expansion.vertical = true;
     }
 

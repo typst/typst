@@ -18,10 +18,15 @@ pub enum Lit {
     Int(i64),
     /// A floating-point literal: `1.2`, `10e-4`.
     Float(f64),
-    /// A percent literal: `50%`.
-    Percent(f64),
     /// A length literal: `12pt`, `3cm`.
     Length(Length),
+    /// A percent literal: `50%`.
+    ///
+    /// Note: `50%` is represented as `50.0` here, but as `0.5` in the
+    /// corresponding [value].
+    ///
+    /// [value]: ../../eval/enum.Value.html#variant.Relative
+    Percent(f64),
     /// A color literal: `#ffccee`.
     Color(RgbaColor),
     /// A string literal: `"hello!"`.
@@ -42,10 +47,10 @@ impl Lit {
         match *self {
             Lit::Ident(ref i) => Value::Ident(i.clone()),
             Lit::Bool(b) => Value::Bool(b),
-            Lit::Int(i) => Value::Number(i as f64),
-            Lit::Float(f) => Value::Number(f as f64),
-            Lit::Percent(p) => Value::Number(p as f64 / 100.0),
-            Lit::Length(l) => Value::Length(l),
+            Lit::Int(i) => Value::Int(i),
+            Lit::Float(f) => Value::Float(f),
+            Lit::Length(l) => Value::Length(l.as_raw()),
+            Lit::Percent(p) => Value::Relative(p / 100.0),
             Lit::Color(c) => Value::Color(c),
             Lit::Str(ref s) => Value::Str(s.clone()),
             Lit::Dict(ref d) => Value::Dict(d.eval(ctx, f).await),

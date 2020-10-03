@@ -57,13 +57,13 @@ fn Id(ident: &str) -> Expr {
 fn Bool(b: bool) -> Expr {
     Expr::Lit(Lit::Bool(b))
 }
-fn _Int(int: i64) -> Expr {
+fn Int(int: i64) -> Expr {
     Expr::Lit(Lit::Int(int))
 }
 fn Float(float: f64) -> Expr {
     Expr::Lit(Lit::Float(float))
 }
-fn _Percent(percent: f64) -> Expr {
+fn Percent(percent: f64) -> Expr {
     Expr::Lit(Lit::Percent(percent))
 }
 fn Len(length: Length) -> Expr {
@@ -334,7 +334,7 @@ fn test_parse_function_names() {
     t!("[  f]" => F!("f"));
 
     // An invalid name.
-    e!("[12]"   => s(1, 3, "expected function name, found number"));
+    e!("[12]"   => s(1, 3, "expected function name, found integer"));
     e!("[  🌎]" => s(3, 7, "expected function name, found invalid token"));
 }
 
@@ -345,7 +345,7 @@ fn test_parse_chaining() {
     t!("[box >> pad: 1pt][Hi]"  => F!("box"; Tree![
         F!("pad"; Len(Length::pt(1.0)), Tree!(T("Hi")))
     ]));
-    t!("[bold: 400, >> emph >> sub: 1cm]" => F!("bold"; Float(400.0), Tree![
+    t!("[bold: 400, >> emph >> sub: 1cm]" => F!("bold"; Int(400), Tree![
         F!("emph"; Tree!(F!("sub"; Len(Length::cm(1.0)))))
     ]));
 
@@ -374,7 +374,7 @@ fn test_parse_colon_starting_func_args() {
 
 #[test]
 fn test_parse_function_bodies() {
-    t!("[val: 1][*Hi*]" => F!("val"; Float(1.0), Tree![B, T("Hi"), B]));
+    t!("[val: 1][*Hi*]" => F!("val"; Int(1), Tree![B, T("Hi"), B]));
     e!(" [val][ */]"    => s(8, 10, "unexpected end of block comment"));
 
     // Raw in body.
@@ -406,7 +406,7 @@ fn test_parse_values() {
     v!("false"     => Bool(false));
     v!("1.0e-4"    => Float(1e-4));
     v!("3.14"      => Float(3.14));
-    v!("50%"       => Float(0.5));
+    v!("50%"       => Percent(50.0));
     v!("4.5cm"     => Len(Length::cm(4.5)));
     v!("12e1pt"    => Len(Length::pt(12e1)));
     v!("#f7a20500" => Color(RgbaColor::new(0xf7, 0xa2, 0x05, 0x00)));
@@ -440,43 +440,43 @@ fn test_parse_expressions() {
     v!("(hi)" => Id("hi"));
 
     // Operations.
-    v!("-1"          => Unary(Neg, Float(1.0)));
-    v!("-- 1"        => Unary(Neg, Unary(Neg, Float(1.0))));
+    v!("-1"          => Unary(Neg, Int(1)));
+    v!("-- 1"        => Unary(Neg, Unary(Neg, Int(1))));
     v!("3.2in + 6pt" => Binary(Add, Len(Length::inches(3.2)), Len(Length::pt(6.0))));
-    v!("5 - 0.01"    => Binary(Sub, Float(5.0), Float(0.01)));
-    v!("(3mm * 2)"   => Binary(Mul, Len(Length::mm(3.0)), Float(2.0)));
+    v!("5 - 0.01"    => Binary(Sub, Int(5), Float(0.01)));
+    v!("(3mm * 2)"   => Binary(Mul, Len(Length::mm(3.0)), Int(2)));
     v!("12e-3cm/1pt" => Binary(Div, Len(Length::cm(12e-3)), Len(Length::pt(1.0))));
 
     // More complex.
     v!("(3.2in + 6pt)*(5/2-1)" => Binary(
         Mul,
         Binary(Add, Len(Length::inches(3.2)), Len(Length::pt(6.0))),
-        Binary(Sub, Binary(Div, Float(5.0), Float(2.0)), Float(1.0))
+        Binary(Sub, Binary(Div, Int(5), Int(2)), Int(1))
     ));
     v!("(6.3E+2+4* - 3.2pt)/2" => Binary(
         Div,
         Binary(Add, Float(6.3e2), Binary(
             Mul,
-            Float(4.0),
+            Int(4),
             Unary(Neg, Len(Length::pt(3.2)))
         )),
-        Float(2.0)
+        Int(2)
     ));
 
     // Associativity of multiplication and division.
-    v!("3/4*5" => Binary(Mul, Binary(Div, Float(3.0), Float(4.0)), Float(5.0)));
+    v!("3/4*5" => Binary(Mul, Binary(Div, Int(3), Int(4)), Int(5)));
 
     // Spanned.
     ts!("[val: 1 + 3]" => s(0, 12, F!(
         s(1, 4, "val"); s(6, 11, Binary(
             s(8, 9, Add),
-            s(6, 7, Float(1.0)),
-            s(10, 11, Float(3.0))
+            s(6, 7, Int(1)),
+            s(10, 11, Int(3))
         ))
     )));
 
     // Span of parenthesized expression contains parens.
-    ts!("[val: (1)]" => s(0, 10, F!(s(1, 4, "val"); s(6, 9, Float(1.0)))));
+    ts!("[val: (1)]" => s(0, 10, F!(s(1, 4, "val"); s(6, 9, Int(1)))));
 
     // Invalid expressions.
     v!("4pt--"        => Len(Length::pt(4.0)));
@@ -494,8 +494,8 @@ fn test_parse_dicts() {
     v!("(false)"            => Bool(false));
     v!("(true,)"            => Dict![Bool(true)]);
     v!("(key=val)"          => Dict!["key" => Id("val")]);
-    v!("(1, 2)"             => Dict![Float(1.0), Float(2.0)]);
-    v!("(1, key=\"value\")" => Dict![Float(1.0), "key" => Str("value")]);
+    v!("(1, 2)"             => Dict![Int(1), Int(2)]);
+    v!("(1, key=\"value\")" => Dict![Int(1), "key" => Str("value")]);
 
     // Decorations.
     d!("[val: key=hi]"    => s(6, 9, DictKey));
@@ -513,7 +513,7 @@ fn test_parse_dicts() {
 #[test]
 fn test_parse_dicts_compute_func_calls() {
     v!("empty()"                  => Call!("empty"));
-    v!("add ( 1 , 2 )"            => Call!("add"; Float(1.0), Float(2.0)));
+    v!("add ( 1 , 2 )"            => Call!("add"; Int(1), Int(2)));
     v!("items(\"fire\", #f93a6d)" => Call!("items";
         Str("fire"), Color(RgbaColor::new(0xf9, 0x3a, 0x6d, 0xff))
     ));
@@ -522,7 +522,7 @@ fn test_parse_dicts_compute_func_calls() {
     v!("css(1pt, rgb(90, 102, 254), \"solid\")" => Call!(
         "css";
         Len(Length::pt(1.0)),
-        Call!("rgb"; Float(90.0), Float(102.0), Float(254.0)),
+        Call!("rgb"; Int(90), Int(102), Int(254)),
         Str("solid"),
     ));
 
@@ -539,10 +539,10 @@ fn test_parse_dicts_compute_func_calls() {
 fn test_parse_dicts_nested() {
     v!("(1, ( ab=(), d = (3, 14pt) )), false" =>
         Dict![
-            Float(1.0),
+            Int(1),
             Dict!(
                 "ab" => Dict![],
-                "d"  => Dict!(Float(3.0), Len(Length::pt(14.0))),
+                "d"  => Dict!(Int(3), Len(Length::pt(14.0))),
             ),
         ],
         Bool(false),
@@ -576,7 +576,7 @@ fn test_parse_dicts_errors() {
         s(10, 11, "expected value, found equals sign"));
 
     // Unexpected equals sign.
-    v!("z=y=4"        => "z" => Id("y"), Float(4.0));
+    v!("z=y=4"        => "z" => Id("y"), Int(4));
     e!("[val: z=y=4]" =>
         s(9, 9, "expected comma"),
         s(9, 10, "expected value, found equals sign"));

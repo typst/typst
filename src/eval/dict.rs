@@ -6,8 +6,8 @@ use std::ops::Index;
 
 use crate::syntax::{Span, Spanned};
 
-/// A dictionary data structure, which maps from integers (`u64`) or strings to
-/// a generic value type.
+/// A dictionary data structure, which maps from integers and strings to a
+/// generic value type.
 ///
 /// The dictionary can be used to model arrays by assigning values to successive
 /// indices from `0..n`. The `push` method offers special support for this
@@ -293,32 +293,40 @@ impl<'a> From<&'a str> for RefKey<'a> {
     }
 }
 
-/// A dictionary entry which tracks key and value span.
+/// A dictionary entry which combines key span and value.
+///
+/// This exists because a key in a directory can't track its span by itself.
 #[derive(Clone, PartialEq)]
 pub struct SpannedEntry<V> {
-    pub key: Span,
-    pub val: Spanned<V>,
+    pub key_span: Span,
+    pub value: Spanned<V>,
 }
 
 impl<V> SpannedEntry<V> {
     /// Create a new entry.
     pub fn new(key: Span, val: Spanned<V>) -> Self {
-        Self { key, val }
+        Self { key_span: key, value: val }
     }
 
     /// Create an entry with the same span for key and value.
     pub fn val(val: Spanned<V>) -> Self {
-        Self { key: val.span, val }
+        Self { key_span: val.span, value: val }
     }
 
     /// Convert from `&SpannedEntry<T>` to `SpannedEntry<&T>`
     pub fn as_ref(&self) -> SpannedEntry<&V> {
-        SpannedEntry { key: self.key, val: self.val.as_ref() }
+        SpannedEntry {
+            key_span: self.key_span,
+            value: self.value.as_ref(),
+        }
     }
 
     /// Map the entry to a different value type.
     pub fn map<U>(self, f: impl FnOnce(V) -> U) -> SpannedEntry<U> {
-        SpannedEntry { key: self.key, val: self.val.map(f) }
+        SpannedEntry {
+            key_span: self.key_span,
+            value: self.value.map(f),
+        }
     }
 }
 
@@ -326,10 +334,10 @@ impl<V: Debug> Debug for SpannedEntry<V> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if f.alternate() {
             f.write_str("key")?;
-            self.key.fmt(f)?;
+            self.key_span.fmt(f)?;
             f.write_str(" ")?;
         }
-        self.val.fmt(f)
+        self.value.fmt(f)
     }
 }
 

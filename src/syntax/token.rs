@@ -5,79 +5,91 @@ use crate::length::Length;
 /// A minimal semantic entity of source code.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Token<'s> {
-    /// One or more whitespace characters. The contained `usize` denotes the
-    /// number of newlines that were contained in the whitespace.
+    /// One or more whitespace characters.
+    ///
+    /// The contained `usize` denotes the number of newlines that were contained
+    /// in the whitespace.
     Space(usize),
     /// A consecutive non-markup string.
     Text(&'s str),
 
     /// A line comment with inner string contents `//<str>\n`.
     LineComment(&'s str),
-    /// A block comment with inner string contents `/*<str>*/`. The comment
-    /// can contain nested block comments.
+    /// A block comment with inner string contents `/*<str>*/`.
+    ///
+    /// The comment can contain nested block comments.
     BlockComment(&'s str),
 
-    /// A star. It can appear in a function header where it signifies the
-    /// multiplication of expressions or the body where it modifies the styling.
+    /// A star: `*`.
     Star,
-    /// An underscore in body-text.
+    /// An underscore: `_`.
     Underscore,
-    /// A backslash followed by whitespace in text.
+    /// A backslash followed by whitespace: `\`.
     Backslash,
-    /// A hashtag indicating a section heading.
+    /// A hashtag indicating a section heading: `#`.
     Hashtag,
-    /// A raw block.
+    /// A non-breaking space: `~`.
+    NonBreakingSpace,
+    /// A raw block: `` `...` ``.
     Raw(TokenRaw<'s>),
-    /// A unicode escape sequence.
+    /// A unicode escape sequence: `\u{1F5FA}`.
     UnicodeEscape(TokenUnicodeEscape<'s>),
 
-    /// A left bracket starting a function invocation or body: `[`.
+    /// A left bracket: `[`.
     LeftBracket,
-    /// A right bracket ending a function invocation or body: `]`.
+    /// A right bracket: `]`.
     RightBracket,
-    /// A left brace indicating the start of content: `{`.
+    /// A left brace: `{`.
     LeftBrace,
-    /// A right brace indicating the end of content: `}`.
+    /// A right brace: `}`.
     RightBrace,
-    /// A left parenthesis in a function header: `(`.
+    /// A left parenthesis: `(`.
     LeftParen,
-    /// A right parenthesis in a function header: `)`.
+    /// A right parenthesis: `)`.
     RightParen,
 
-    /// A colon in a function header: `:`.
+    /// A colon: `:`.
     Colon,
-    /// A comma in a function header: `,`.
+    /// A comma: `,`.
     Comma,
-    /// An equals sign in a function header: `=`.
+    /// An equals sign: `=`.
     Equals,
-    /// A double forward chevron in a function header: `>>`.
+    /// A double forward chevron: `>>`.
     Chain,
-    /// A plus in a function header, signifying the addition of expressions.
+    /// A plus: `+`.
     Plus,
-    /// A hyphen in a function header, signifying the subtraction of
-    /// expressions.
+    /// A hyphen: `-`.
     Hyphen,
-    /// A slash in a function header, signifying the division of expressions.
+    /// A slash: `/`.
     Slash,
 
-    /// An identifier in a function header: `center`.
+    /// An identifier: `center`.
     Ident(&'s str),
-    /// A boolean in a function header: `true | false`.
+    /// A boolean: `true`, `false`.
     Bool(bool),
-    /// A number in a function header: `3.14`.
-    Number(f64),
-    /// A length in a function header: `12pt`.
+    /// An integer: `120`.
+    Int(i64),
+    /// A floating-point number: `1.2`, `10e-4`.
+    Float(f64),
+    /// A length: `12pt`, `3cm`.
     Length(Length),
-    /// A hex value in a function header: `#20d82a`.
+    /// A percentage: `50%`.
+    ///
+    /// Note: `50%` is represented as `50.0` here, as in the corresponding
+    /// [literal].
+    ///
+    /// [literal]: ../ast/enum.Lit.html#variant.Percent
+    Percent(f64),
+    /// A hex value: `#20d82a`.
     Hex(&'s str),
-    /// A quoted string in a function header: `"..."`.
+    /// A quoted string: `"..."`.
     Str(TokenStr<'s>),
 
     /// Things that are not valid in the context they appeared in.
     Invalid(&'s str),
 }
 
-/// A quoted string in a function header: `"..."`.
+/// A quoted string: `"..."`.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct TokenStr<'s> {
     /// The string inside the quotes.
@@ -90,7 +102,7 @@ pub struct TokenStr<'s> {
     pub terminated: bool,
 }
 
-/// A unicode escape sequence.
+/// A unicode escape sequence: `\u{1F5FA}`.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct TokenUnicodeEscape<'s> {
     /// The escape sequence between two braces.
@@ -99,7 +111,7 @@ pub struct TokenUnicodeEscape<'s> {
     pub terminated: bool,
 }
 
-/// A raw block.
+/// A raw block: `` `...` ``.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct TokenRaw<'s> {
     /// The raw text between the backticks.
@@ -111,7 +123,7 @@ pub struct TokenRaw<'s> {
 }
 
 impl<'s> Token<'s> {
-    /// The natural-language name for this token for use in error messages.
+    /// The natural-language name of this token for use in error messages.
     pub fn name(self) -> &'static str {
         match self {
             Self::Space(_) => "space",
@@ -124,6 +136,7 @@ impl<'s> Token<'s> {
             Self::Underscore => "underscore",
             Self::Backslash => "backslash",
             Self::Hashtag => "hashtag",
+            Self::NonBreakingSpace => "non-breaking space",
             Self::Raw { .. } => "raw block",
             Self::UnicodeEscape { .. } => "unicode escape sequence",
 
@@ -144,8 +157,10 @@ impl<'s> Token<'s> {
 
             Self::Ident(_) => "identifier",
             Self::Bool(_) => "bool",
-            Self::Number(_) => "number",
+            Self::Int(_) => "integer",
+            Self::Float(_) => "float",
             Self::Length(_) => "length",
+            Self::Percent(_) => "percentage",
             Self::Hex(_) => "hex value",
             Self::Str { .. } => "string",
 

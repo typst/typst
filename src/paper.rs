@@ -1,7 +1,7 @@
 //! Predefined papers.
 
-use crate::geom::{Sides, Size};
-use crate::length::{Length, ScaleLength};
+use crate::geom::{Linear, Sides, Size};
+use crate::length::Length;
 
 /// Specification of a paper.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -38,15 +38,15 @@ pub enum PaperClass {
 
 impl PaperClass {
     /// The default margin ratios for this page class.
-    pub fn default_margins(self) -> Sides<ScaleLength> {
-        let s = ScaleLength::Scaled;
-        let f = |l, r, t, b| Sides::new(s(l), s(r), s(t), s(b));
+    pub fn default_margins(self) -> Sides<Linear> {
+        let f = Linear::rel;
+        let s = |l, r, t, b| Sides::new(f(l), f(r), f(t), f(b));
         match self {
-            Self::Custom => f(0.1190, 0.0842, 0.1190, 0.0842),
-            Self::Base => f(0.1190, 0.0842, 0.1190, 0.0842),
-            Self::US => f(0.1760, 0.1092, 0.1760, 0.0910),
-            Self::Newspaper => f(0.0455, 0.0587, 0.0455, 0.0294),
-            Self::Book => f(0.1200, 0.0852, 0.1500, 0.0965),
+            Self::Custom => s(0.1190, 0.0842, 0.1190, 0.0842),
+            Self::Base => s(0.1190, 0.0842, 0.1190, 0.0842),
+            Self::US => s(0.1760, 0.1092, 0.1760, 0.0910),
+            Self::Newspaper => s(0.0455, 0.0587, 0.0455, 0.0294),
+            Self::Book => s(0.1200, 0.0852, 0.1500, 0.0965),
         }
     }
 }

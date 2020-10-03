@@ -72,6 +72,7 @@ fn node(p: &mut Parser, at_start: bool) -> Option<Spanned<SynNode>> {
                 SynNode::Text(p.eaten_from(start).into())
             }
         }
+        Token::NonBreakingSpace => SynNode::Text("\u{00A0}".into()),
         Token::Raw(token) => SynNode::Raw(raw(p, token)),
         Token::UnicodeEscape(token) => SynNode::Text(unicode_escape(p, token, start)),
 
@@ -425,8 +426,10 @@ fn value(p: &mut Parser) -> Option<Expr> {
 
         // Atomic values.
         Token::Bool(b) => Expr::Lit(Lit::Bool(b)),
-        Token::Number(f) => Expr::Lit(Lit::Float(f)),
+        Token::Int(i) => Expr::Lit(Lit::Int(i)),
+        Token::Float(f) => Expr::Lit(Lit::Float(f)),
         Token::Length(l) => Expr::Lit(Lit::Length(l)),
+        Token::Percent(p) => Expr::Lit(Lit::Percent(p)),
         Token::Hex(hex) => Expr::Lit(Lit::Color(color(p, hex, start))),
         Token::Str(token) => Expr::Lit(Lit::Str(string(p, token))),
 

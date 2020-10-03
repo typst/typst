@@ -177,38 +177,6 @@ impl Display for ParseLengthError {
     }
 }
 
-/// Either an absolute length or a factor of some entity.
-#[derive(Copy, Clone, PartialEq)]
-pub enum ScaleLength {
-    Absolute(Length),
-    Scaled(f64),
-}
-
-impl ScaleLength {
-    /// Use the absolute value or scale the entity.
-    pub fn raw_scaled(&self, entity: f64) -> f64 {
-        match *self {
-            ScaleLength::Absolute(l) => l.as_raw(),
-            ScaleLength::Scaled(s) => s * entity,
-        }
-    }
-}
-
-impl Display for ScaleLength {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            ScaleLength::Absolute(length) => write!(f, "{}", length),
-            ScaleLength::Scaled(scale) => write!(f, "{}%", scale * 100.0),
-        }
-    }
-}
-
-impl Debug for ScaleLength {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

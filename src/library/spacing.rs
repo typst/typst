@@ -1,6 +1,6 @@
 use super::*;
+use crate::geom::Linear;
 use crate::layout::SpacingKind;
-use crate::length::ScaleLength;
 
 /// `h`: Add horizontal spacing.
 ///
@@ -26,10 +26,10 @@ fn spacing(
 ) -> Pass<Value> {
     let mut f = Feedback::new();
 
-    let spacing = args.expect::<ScaleLength>("spacing", name, &mut f);
+    let spacing = args.expect::<Linear>("spacing", name, &mut f);
     let commands = if let Some(spacing) = spacing {
         let axis = axis.to_gen(ctx.sys);
-        let spacing = spacing.raw_scaled(ctx.style.text.font_size());
+        let spacing = spacing.eval(ctx.style.text.font_size());
         vec![AddSpacing(spacing, SpacingKind::Hard, axis)]
     } else {
         vec![]

@@ -2,7 +2,7 @@ use fontdock::{FontStretch, FontStyle, FontWeight};
 
 use super::*;
 use crate::eval::StringLike;
-use crate::length::ScaleLength;
+use crate::geom::Linear;
 
 /// `font`: Configure the font.
 ///
@@ -56,13 +56,12 @@ pub async fn font(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass<
 
     let content = args.take::<SynTree>();
 
-    if let Some(s) = args.take::<ScaleLength>() {
-        match s {
-            ScaleLength::Absolute(length) => {
-                text.base_font_size = length.as_raw();
-                text.font_scale = 1.0;
-            }
-            ScaleLength::Scaled(scale) => text.font_scale = scale,
+    if let Some(linear) = args.take::<Linear>() {
+        if linear.rel == 0.0 {
+            text.font_size.base = linear.abs;
+            text.font_size.scale = Linear::rel(1.0);
+        } else {
+            text.font_size.scale = linear;
         }
     }
 

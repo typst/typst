@@ -87,8 +87,8 @@ impl<'s> Iterator for Tokens<'s> {
             '*' if self.mode == Body => Token::Star,
             '_' if self.mode == Body => Token::Underscore,
             '#' if self.mode == Body => Token::Hashtag,
+            '~' if self.mode == Body => Token::NonBreakingSpace,
             '`' if self.mode == Body => self.read_raw(),
-            '~' if self.mode == Body => Token::Text("\u{00A0}"),
             '\\' if self.mode == Body => self.read_escaped(),
 
             // Syntactic elements in headers.
@@ -273,10 +273,12 @@ impl Debug for Tokens<'_> {
 fn parse_expr(text: &str) -> Token<'_> {
     if let Ok(b) = text.parse::<bool>() {
         Token::Bool(b)
+    } else if let Ok(int) = text.parse::<i64>() {
+        Token::Int(int)
     } else if let Ok(num) = text.parse::<f64>() {
-        Token::Number(num)
-    } else if let Some(num) = parse_percent(text) {
-        Token::Number(num / 100.0)
+        Token::Float(num)
+    } else if let Some(percent) = parse_percent(text) {
+        Token::Percent(percent)
     } else if let Ok(length) = text.parse::<Length>() {
         Token::Length(length)
     } else if is_ident(text) {
@@ -298,10 +300,10 @@ mod tests {
     use crate::parse::tests::check;
 
     use Token::{
-        BlockComment as BC, Bool, Chain, Hex, Hyphen as Min, Ident as Id,
+        BlockComment as BC, Bool, Chain, Float, Hex, Hyphen as Min, Ident as Id, Int,
         LeftBrace as LB, LeftBracket as L, LeftParen as LP, Length as Len,
-        LineComment as LC, Number as Num, Plus, RightBrace as RB, RightBracket as R,
-        RightParen as RP, Slash, Space as S, Star, Text as T, *,
+        LineComment as LC, NonBreakingSpace as Nbsp, Percent, Plus, RightBrace as RB,
+        RightBracket as R, RightParen as RP, Slash, Space as S, Star, Text as T, *,
     };
 
     fn Str(string: &str, terminated: bool) -> Token {
@@ -337,7 +339,7 @@ mod tests {
         t!(Body, "  \n\t \n  "  => S(2));
         t!(Body, "\n\r"         => S(2));
         t!(Body, " \r\r\n \x0D" => S(3));
-        t!(Body, "a~b"          => T("a"), T("\u{00A0}"), T("b"));
+        t!(Body, "a~b"          => T("a"), Nbsp, T("b"));
     }
 
     #[test]
@@ -424,24 +426,24 @@ mod tests {
         t!(Header, ">main"        => Invalid(">main"));
         t!(Header, "🌓, 🌍,"     => Invalid("🌓"), Comma, S(0), Invalid("🌍"), Comma);
         t!(Header, "{abc}"        => LB, Id("abc"), RB);
-        t!(Header, "(1,2)"        => LP, Num(1.0), Comma, Num(2.0), RP);
+        t!(Header, "(1,2)"        => LP, Int(1), Comma, Int(2), RP);
         t!(Header, "12_pt, 12pt"  => Invalid("12_pt"), Comma, S(0), Len(Length::pt(12.0)));
         t!(Header, "f: arg >> g"  => Id("f"), Colon, S(0), Id("arg"), S(0), Chain, S(0), Id("g"));
-        t!(Header, "=3.14"        => Equals, Num(3.14));
+        t!(Header, "=3.14"        => Equals, Float(3.14));
         t!(Header, "arg, _b, _1"  => Id("arg"), Comma, S(0), Id("_b"), Comma, S(0), Id("_1"));
         t!(Header, "a:b"          => Id("a"), Colon, Id("b"));
         t!(Header, "(){}:=,"      => LP, RP, LB, RB, Colon, Equals, Comma);
         t!(Body,   "c=d, "        => T("c=d,"), S(0));
         t!(Body,   "a: b"         => T("a:"), S(0), T("b"));
         t!(Header, "a: true, x=1" => Id("a"), Colon, S(0), Bool(true), Comma, S(0),
-                                     Id("x"), Equals, Num(1.0));
+                                     Id("x"), Equals, Int(1));
     }
 
     #[test]
     fn tokenize_numeric_values() {
-        t!(Header, "12.3e5"  => Num(12.3e5));
-        t!(Header, "120%"    => Num(1.2));
-        t!(Header, "12e4%"   => Num(1200.0));
+        t!(Header, "12.3e5"  => Float(12.3e5));
+        t!(Header, "120%"    => Percent(120.0));
+        t!(Header, "12e4%"   => Percent(120000.0));
         t!(Header, "1e5in"   => Len(Length::inches(100000.0)));
         t!(Header, "2.3cm"   => Len(Length::cm(2.3)));
         t!(Header, "02.4mm"  => Len(Length::mm(2.4)));
@@ -456,7 +458,7 @@ mod tests {
         t!(Header, "\"hello"                 => Str("hello", false));
         t!(Header, "\"hello world\""         => Str("hello world", true));
         t!(Header, "\"hello\nworld\""        => Str("hello\nworld", true));
-        t!(Header, r#"1"hello\nworld"false"# => Num(1.0), Str("hello\\nworld", true), Bool(false));
+        t!(Header, r#"1"hello\nworld"false"# => Int(1), Str("hello\\nworld", true), Bool(false));
         t!(Header, r#""a\"bc""#              => Str(r#"a\"bc"#, true));
         t!(Header, r#""a\\"bc""#             => Str(r#"a\\"#, true), Id("bc"), Str("", false));
         t!(Header, r#""a\tbc"#               => Str("a\\tbc", false));
@@ -466,12 +468,12 @@ mod tests {
     #[test]
     fn tokenize_math() {
         t!(Header, "12e-3in"           => Len(Length::inches(12e-3)));
-        t!(Header, "-1"                => Min, Num(1.0));
-        t!(Header, "--1"               => Min, Min, Num(1.0));
-        t!(Header, "- 1"               => Min, S(0), Num(1.0));
+        t!(Header, "-1"                => Min, Int(1));
+        t!(Header, "--1"               => Min, Min, Int(1));
+        t!(Header, "- 1"               => Min, S(0), Int(1));
         t!(Header, "6.1cm + 4pt,a=1*2" => Len(Length::cm(6.1)), S(0), Plus, S(0), Len(Length::pt(4.0)),
-                                          Comma, Id("a"), Equals, Num(1.0), Star, Num(2.0));
-        t!(Header, "(5 - 1) / 2.1"     => LP, Num(5.0), S(0), Min, S(0), Num(1.0), RP,
-                                          S(0), Slash, S(0), Num(2.1));
+                                          Comma, Id("a"), Equals, Int(1), Star, Int(2));
+        t!(Header, "(5 - 1) / 2.1"     => LP, Int(5), S(0), Min, S(0), Int(1), RP,
+                                          S(0), Slash, S(0), Float(2.1));
     }
 }

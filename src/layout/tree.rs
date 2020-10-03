@@ -115,7 +115,9 @@ impl<'a> TreeLayouter<'a> {
 
     async fn layout_heading(&mut self, heading: &NodeHeading) {
         let style = self.style.text.clone();
-        self.style.text.font_scale *= 1.5 - 0.1 * heading.level.v as f64;
+
+        let factor = 1.5 - 0.1 * heading.level.v as f64;
+        self.style.text.font_size.scale *= factor;
         self.style.text.strong = true;
 
         self.layout_parbreak();
