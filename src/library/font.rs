@@ -11,9 +11,34 @@ use crate::length::ScaleLength;
 /// - A font family fallback list (optional, identifiers or strings).
 ///
 /// # Keyword arguments
-/// - `style`: `normal`, `italic` or `oblique`.
-/// - `weight`: `100` - `900` or a name like `thin`.
-/// - `width`: `1` - `9` or a name like `condensed`.
+/// - `style`
+///     - `normal`
+///     - `italic`
+///     - `oblique`
+///
+/// - `weight`
+///     - `thin` or `hairline` (`100`)
+///     - `extralight`         (`200`)
+///     - `light`              (`300`)
+///     - `regular`            (`400`)
+///     - `medium`             (`500`)
+///     - `semibold`           (`600`)
+///     - `bold`               (`700`)
+///     - `extrabold`          (`800`)
+///     - `black`              (`900`)
+///     - any integer from the range `100` - `900` (inclusive)
+///
+/// - `stretch`
+///     - `ultra-condensed`
+///     - `extra-condensed`
+///     - `condensed`
+///     - `semi-condensed`
+///     - `normal`
+///     - `semi-expanded`
+///     - `expanded`
+///     - `extra-expanded`
+///     - `ultra-expanded`
+///
 /// - Any other keyword argument whose value is a dictionary of strings defines
 ///   a fallback class, for example:
 ///   ```typst
