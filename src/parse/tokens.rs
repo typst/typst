@@ -245,9 +245,9 @@ impl<'s> Tokens<'s> {
         self.s.eat_until(|c| {
             let end = match c {
                 c if c.is_whitespace() => true,
-                '[' | ']' | '*' | '/' => true,
+                '[' | ']' | '{' | '}' | '*' | '/' | '#' => true,
                 '_' | '`' | '~' | '\\' if body => true,
-                '(' | ')' | '{' | '}' | ':' | ',' | '=' | '"' | '#' if header => true,
+                '(' | ')' | ':' | ',' | '=' | '"' if header => true,
                 '+' | '-' if header && !last_was_e => true,
                 _ => false,
             };
@@ -360,19 +360,21 @@ mod tests {
 
     #[test]
     fn tokenize_body_tokens() {
-        t!(Body, "_*"            => Underscore, Star);
-        t!(Body, "***"           => Star, Star, Star);
+        t!(Body, "a_*"           => T("a"), Underscore, Star);
+        t!(Body, "a***"          => T("a"), Star, Star, Star);
         t!(Body, "[func]*bold*"  => L, T("func"), R, Star, T("bold"), Star);
         t!(Body, "hi_you_ there" => T("hi"), Underscore, T("you"), Underscore, S(0), T("there"));
         t!(Body, "# hi"          => Hashtag, S(0), T("hi"));
-        t!(Body, "#()"           => Hashtag, T("()"));
+        t!(Body, "ab# hi"        => T("ab"), Hashtag, S(0), T("hi"));
+        t!(Body, "#{}"           => Hashtag, LB, RB);
+        t!(Body, "{text}"        => LB, Text("text"), RB);
         t!(Header, "_`"          => Invalid("_`"));
     }
 
     #[test]
     fn test_tokenize_raw() {
         // Basics.
-        t!(Body, "`raw`"    => Raw("raw", 1, true));
+        t!(Body, "a`raw`"   => T("a"), Raw("raw", 1, true));
         t!(Body, "`[func]`" => Raw("[func]", 1, true));
         t!(Body, "`]"       => Raw("]", 1, false));
         t!(Body, r"`\`` "   => Raw(r"\", 1, true), Raw(" ", 1, false));

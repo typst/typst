@@ -39,11 +39,7 @@ pub enum Lit {
 
 impl Lit {
     /// Evaluate the dictionary literal to a dictionary value.
-    pub async fn eval<'a>(
-        &'a self,
-        ctx: &'a LayoutContext<'a>,
-        f: &'a mut Feedback,
-    ) -> Value {
+    pub async fn eval(&self, ctx: &LayoutContext<'_>, f: &mut Feedback) -> Value {
         match *self {
             Lit::Ident(ref i) => Value::Ident(i.clone()),
             Lit::Bool(b) => Value::Bool(b),

@@ -299,6 +299,14 @@ impl DivAssign<f64> for Linear {
     }
 }
 
+impl Neg for Linear {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        Self { rel: -self.rel, abs: -self.abs }
+    }
+}
+
 impl Debug for Linear {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}x + {}", self.rel, self.abs)

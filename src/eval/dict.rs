@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Display, Formatter};
+use std::iter::Extend;
 use std::ops::Index;
 
 use crate::syntax::{Span, Spanned};
@@ -117,9 +118,7 @@ impl<V> Dict<V> {
 
     /// Iterator over all borrowed keys and values.
     pub fn iter(&self) -> impl Iterator<Item = (RefKey, &V)> {
-        self.nums()
-            .map(|(&k, v)| (RefKey::Num(k), v))
-            .chain(self.strs().map(|(k, v)| (RefKey::Str(k), v)))
+        self.into_iter()
     }
 
     /// Iterate over all values in the dictionary.
@@ -135,14 +134,6 @@ impl<V> Dict<V> {
     /// Iterate over the string key-value pairs.
     pub fn strs(&self) -> std::collections::btree_map::Iter<String, V> {
         self.strs.iter()
-    }
-
-    /// Move into an owned iterator over owned keys and values.
-    pub fn into_iter(self) -> impl Iterator<Item = (DictKey, V)> {
-        self.nums
-            .into_iter()
-            .map(|(k, v)| (DictKey::Num(k), v))
-            .chain(self.strs.into_iter().map(|(k, v)| (DictKey::Str(k), v)))
     }
 
     /// Move into an owned iterator over all values in the dictionary.
@@ -164,17 +155,6 @@ impl<V> Dict<V> {
     }
 }
 
-impl<'a, K, V> Index<K> for Dict<V>
-where
-    K: Into<RefKey<'a>>,
-{
-    type Output = V;
-
-    fn index(&self, index: K) -> &Self::Output {
-        self.get(index).expect("key not in dict")
-    }
-}
-
 impl<V> Default for Dict<V> {
     fn default() -> Self {
         Self::new()
@@ -186,6 +166,68 @@ impl<V: Eq> Eq for Dict<V> {}
 impl<V: PartialEq> PartialEq for Dict<V> {
     fn eq(&self, other: &Self) -> bool {
         self.iter().eq(other.iter())
+    }
+}
+
+impl<V> IntoIterator for Dict<V> {
+    type Item = (DictKey, V);
+    type IntoIter = std::iter::Chain<
+        std::iter::Map<
+            std::collections::btree_map::IntoIter<u64, V>,
+            fn((u64, V)) -> (DictKey, V),
+        >,
+        std::iter::Map<
+            std::collections::btree_map::IntoIter<String, V>,
+            fn((String, V)) -> (DictKey, V),
+        >,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let nums = self.nums.into_iter().map((|(k, v)| (DictKey::Num(k), v)) as _);
+        let strs = self.strs.into_iter().map((|(k, v)| (DictKey::Str(k), v)) as _);
+        nums.chain(strs)
+    }
+}
+
+impl<'a, V> IntoIterator for &'a Dict<V> {
+    type Item = (RefKey<'a>, &'a V);
+    type IntoIter = std::iter::Chain<
+        std::iter::Map<
+            std::collections::btree_map::Iter<'a, u64, V>,
+            fn((&'a u64, &'a V)) -> (RefKey<'a>, &'a V),
+        >,
+        std::iter::Map<
+            std::collections::btree_map::Iter<'a, String, V>,
+            fn((&'a String, &'a V)) -> (RefKey<'a>, &'a V),
+        >,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let strs = self.strs().map((|(k, v): (&'a String, _)| (RefKey::Str(k), v)) as _);
+        let nums = self.nums().map((|(k, v): (&u64, _)| (RefKey::Num(*k), v)) as _);
+        nums.chain(strs)
+    }
+}
+
+impl<V> Extend<(DictKey, V)> for Dict<V> {
+    fn extend<T>(&mut self, iter: T)
+    where
+        T: IntoIterator<Item = (DictKey, V)>,
+    {
+        for (key, value) in iter.into_iter() {
+            self.insert(key, value);
+        }
+    }
+}
+
+impl<'a, K, V> Index<K> for Dict<V>
+where
+    K: Into<RefKey<'a>>,
+{
+    type Output = V;
+
+    fn index(&self, index: K) -> &Self::Output {
+        self.get(index).expect("key not in dict")
     }
 }
 

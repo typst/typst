@@ -17,6 +17,8 @@ use crate::{DynFuture, Feedback, Pass};
 /// A computational value.
 #[derive(Clone, PartialEq)]
 pub enum Value {
+    /// The result of invalid operations.
+    Error,
     /// An identifier: `ident`.
     Ident(Ident),
     /// A boolean: `true, false`.
@@ -54,6 +56,7 @@ impl Value {
     /// The natural-language name of this value for use in error messages.
     pub fn name(&self) -> &'static str {
         match self {
+            Self::Error => "error",
             Self::Ident(_) => "identifier",
             Self::Bool(_) => "bool",
             Self::Int(_) => "integer",
@@ -111,6 +114,7 @@ impl Spanned<Value> {
 impl Debug for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Self::Error => f.pad("<error>"),
             Self::Ident(i) => i.fmt(f),
             Self::Bool(b) => b.fmt(f),
             Self::Int(i) => i.fmt(f),
