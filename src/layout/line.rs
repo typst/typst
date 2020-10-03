@@ -95,14 +95,14 @@ impl LineLayouter {
                 let usable = self.stack.usable().primary(sys);
                 rest_run.usable = Some(match layout.align.primary {
                     GenAlign::Start => unreachable!("start > x"),
-                    GenAlign::Center => usable - 2.0 * self.run.size.x,
-                    GenAlign::End => usable - self.run.size.x,
+                    GenAlign::Center => usable - 2.0 * self.run.size.width,
+                    GenAlign::End => usable - self.run.size.width,
                 });
 
-                rest_run.size.y = self.run.size.y;
+                rest_run.size.height = self.run.size.height;
 
                 self.finish_line();
-                self.stack.add_spacing(-rest_run.size.y, SpacingKind::Hard);
+                self.stack.add_spacing(-rest_run.size.height, SpacingKind::Hard);
 
                 self.run = rest_run;
             }
@@ -126,10 +126,10 @@ impl LineLayouter {
         }
 
         self.run.align = Some(layout.align);
-        self.run.layouts.push((self.run.size.x, layout));
+        self.run.layouts.push((self.run.size.width, layout));
 
-        self.run.size.x += size.x;
-        self.run.size.y = self.run.size.y.max(size.y);
+        self.run.size.width += size.width;
+        self.run.size.height = self.run.size.height.max(size.height);
         self.run.last_spacing = LastSpacing::None;
     }
 
@@ -152,10 +152,10 @@ impl LineLayouter {
 
         // If there was another run already, override the stack's size.
         if let Some(primary) = self.run.usable {
-            usable.x = primary;
+            usable.width = primary;
         }
 
-        usable.x -= self.run.size.x;
+        usable.width -= self.run.size.width;
         usable
     }
 
@@ -163,8 +163,8 @@ impl LineLayouter {
     pub fn add_primary_spacing(&mut self, mut spacing: f64, kind: SpacingKind) {
         match kind {
             SpacingKind::Hard => {
-                spacing = spacing.min(self.usable().x);
-                self.run.size.x += spacing;
+                spacing = spacing.min(self.usable().width);
+                self.run.size.width += spacing;
                 self.run.last_spacing = LastSpacing::Hard;
             }
 
@@ -215,7 +215,7 @@ impl LineLayouter {
     /// it will fit into this layouter's underlying stack.
     pub fn remaining(&self) -> LayoutSpaces {
         let mut spaces = self.stack.remaining();
-        *spaces[0].size.secondary_mut(self.ctx.sys) -= self.run.size.y;
+        *spaces[0].size.secondary_mut(self.ctx.sys) -= self.run.size.height;
         spaces
     }
 
@@ -246,11 +246,11 @@ impl LineLayouter {
         for (offset, layout) in layouts {
             let x = match self.ctx.sys.primary.is_positive() {
                 true => offset,
-                false => self.run.size.x - offset - layout.size.primary(self.ctx.sys),
+                false => self.run.size.width - offset - layout.size.primary(self.ctx.sys),
             };
 
-            let pos = Size::with_x(x);
-            elements.extend_offset(pos, layout.elements);
+            let pos = Point::new(x, 0.0);
+            elements.push_elements(pos, layout.elements);
         }
 
         self.stack.add(BoxLayout {

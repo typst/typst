@@ -20,7 +20,6 @@
 //! sentence in the second box.
 
 use super::*;
-use crate::geom::Value4;
 
 /// Performs the stack layouting.
 pub struct StackLayouter {
@@ -64,7 +63,7 @@ struct Space {
     /// Dictate which alignments for new boxes are still allowed and which
     /// require a new space to be started. For example, after an `End`-aligned
     /// item, no `Start`-aligned one can follow.
-    rulers: Value4<GenAlign>,
+    rulers: Sides<GenAlign>,
     /// The spacing state. This influences how new spacing is handled, e.g. hard
     /// spacing may override soft spacing.
     last_spacing: LastSpacing,
@@ -127,7 +126,7 @@ impl StackLayouter {
             SpacingKind::Hard => {
                 // Reduce the spacing such that it definitely fits.
                 spacing = spacing.min(self.space.usable.secondary(self.ctx.sys));
-                let size = Size::with_y(spacing);
+                let size = Size::new(0.0, spacing);
 
                 self.update_metrics(size);
                 self.space.layouts.push((self.ctx.sys, BoxLayout {
@@ -161,15 +160,15 @@ impl StackLayouter {
         let mut size = self.space.size.generalized(sys);
         let mut extra = self.space.extra.generalized(sys);
 
-        size.x += (added.x - extra.x).max(0.0);
-        size.y += (added.y - extra.y).max(0.0);
+        size.width += (added.width - extra.width).max(0.0);
+        size.height += (added.height - extra.height).max(0.0);
 
-        extra.x = extra.x.max(added.x);
-        extra.y = (extra.y - added.y).max(0.0);
+        extra.width = extra.width.max(added.width);
+        extra.height = (extra.height - added.height).max(0.0);
 
         self.space.size = size.specialized(sys);
         self.space.extra = extra.specialized(sys);
-        *self.space.usable.secondary_mut(sys) -= added.y;
+        *self.space.usable.secondary_mut(sys) -= added.height;
     }
 
     /// Returns true if a space break is necessary.
@@ -239,7 +238,7 @@ impl StackLayouter {
 
         let mut spaces = vec![LayoutSpace {
             size,
-            padding: Margins::ZERO,
+            insets: Insets::ZERO,
             expansion: LayoutExpansion::new(false, false),
         }];
 
@@ -253,7 +252,7 @@ impl StackLayouter {
     /// The remaining usable size.
     pub fn usable(&self) -> Size {
         self.space.usable
-            - Size::with_y(self.space.last_spacing.soft_or_zero())
+            - Size::new(0.0, self.space.last_spacing.soft_or_zero())
                 .specialized(self.ctx.sys)
     }
 
@@ -286,13 +285,13 @@ impl StackLayouter {
 
         let usable = space.usable();
         if space.expansion.horizontal {
-            self.space.size.x = usable.x;
+            self.space.size.width = usable.width;
         }
         if space.expansion.vertical {
-            self.space.size.y = usable.y;
+            self.space.size.height = usable.height;
         }
 
-        let size = self.space.size.padded(space.padding);
+        let size = self.space.size - space.insets.size();
 
         // ------------------------------------------------------------------ //
         // Step 2: Forward pass. Create a bounding box for each layout in which
@@ -302,11 +301,11 @@ impl StackLayouter {
         let start = space.start();
 
         let mut bounds = vec![];
-        let mut bound = Margins {
-            left: start.x,
-            top: start.y,
-            right: start.x + self.space.size.x,
-            bottom: start.y + self.space.size.y,
+        let mut bound = Rect {
+            x0: start.x,
+            y0: start.y,
+            x1: start.x + self.space.size.width,
+            y1: start.y + self.space.size.height,
         };
 
         for (sys, layout) in &self.space.layouts {
@@ -340,8 +339,8 @@ impl StackLayouter {
             // is thus stored in `extent.y`. The primary extent is reset for
             // this new axis-aligned run.
             if rotation != sys.secondary.axis() {
-                extent.y = extent.x;
-                extent.x = 0.0;
+                extent.height = extent.width;
+                extent.width = 0.0;
                 rotation = sys.secondary.axis();
             }
 
@@ -349,12 +348,12 @@ impl StackLayouter {
             // accumulated secondary extent of all layouts we have seen so far,
             // which are the layouts after this one since we iterate reversed.
             *bound.get_mut(sys.secondary, GenAlign::End) -=
-                sys.secondary.factor() * extent.y;
+                sys.secondary.factor() * extent.height;
 
             // Then, we add this layout's secondary extent to the accumulator.
             let size = layout.size.generalized(*sys);
-            extent.x = extent.x.max(size.x);
-            extent.y += size.y;
+            extent.width = extent.width.max(size.width);
+            extent.height += size.height;
         }
 
         // ------------------------------------------------------------------ //
@@ -370,13 +369,11 @@ impl StackLayouter {
 
             // The space in which this layout is aligned is given by the
             // distances between the borders of its bounding box.
-            let usable = Size::new(bound.right - bound.left, bound.bottom - bound.top)
-                .generalized(sys);
-
+            let usable = bound.size().generalized(sys);
             let local = usable.anchor(align, sys) - size.anchor(align, sys);
-            let pos = Size::new(bound.left, bound.top) + local.specialized(sys);
+            let pos = bound.origin() + local.to_size().specialized(sys).to_vec2();
 
-            elements.extend_offset(pos, layout.elements);
+            elements.push_elements(pos, layout.elements);
         }
 
         self.layouts.push(BoxLayout { size, align: self.ctx.align, elements });
@@ -406,7 +403,7 @@ impl Space {
             size: Size::ZERO,
             usable,
             extra: Size::ZERO,
-            rulers: Value4::with_all(GenAlign::Start),
+            rulers: Sides::uniform(GenAlign::Start),
             last_spacing: LastSpacing::Hard,
         }
     }

@@ -1,4 +1,7 @@
+use std::mem;
+
 use super::*;
+use crate::geom::Sides;
 use crate::length::{Length, ScaleLength};
 use crate::paper::{Paper, PaperClass};
 
@@ -27,28 +30,28 @@ pub async fn page(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass<
 
     if let Some(width) = args.take_key::<Length>("width", &mut f) {
         style.class = PaperClass::Custom;
-        style.size.x = width.as_raw();
+        style.size.width = width.as_raw();
     }
 
     if let Some(height) = args.take_key::<Length>("height", &mut f) {
         style.class = PaperClass::Custom;
-        style.size.y = height.as_raw();
+        style.size.height = height.as_raw();
     }
 
     if let Some(margins) = args.take_key::<ScaleLength>("margins", &mut f) {
-        style.margins.set_all(Some(margins));
+        style.margins = Sides::uniform(Some(margins));
     }
 
     if let Some(left) = args.take_key::<ScaleLength>("left", &mut f) {
         style.margins.left = Some(left);
     }
 
-    if let Some(right) = args.take_key::<ScaleLength>("right", &mut f) {
-        style.margins.right = Some(right);
-    }
-
     if let Some(top) = args.take_key::<ScaleLength>("top", &mut f) {
         style.margins.top = Some(top);
+    }
+
+    if let Some(right) = args.take_key::<ScaleLength>("right", &mut f) {
+        style.margins.right = Some(right);
     }
 
     if let Some(bottom) = args.take_key::<ScaleLength>("bottom", &mut f) {
@@ -56,7 +59,7 @@ pub async fn page(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass<
     }
 
     if args.take_key::<bool>("flip", &mut f).unwrap_or(false) {
-        style.size.swap();
+        mem::swap(&mut style.size.width, &mut style.size.height);
     }
 
     args.unexpected(&mut f);

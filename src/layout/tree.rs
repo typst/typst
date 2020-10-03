@@ -202,16 +202,13 @@ impl<'a> TreeLayouter<'a> {
                     // The line layouter has no idea of page styles and thus we
                     // need to recompute the layouting space resulting of the
                     // new page style and update it within the layouter.
-                    let margins = style.margins();
-                    self.ctx.base = style.size.unpadded(margins);
-                    self.layouter.set_spaces(
-                        vec![LayoutSpace {
-                            size: style.size,
-                            padding: margins,
-                            expansion: LayoutExpansion::new(true, true),
-                        }],
-                        true,
-                    );
+                    let space = LayoutSpace {
+                        size: style.size,
+                        insets: style.insets(),
+                        expansion: LayoutExpansion::new(true, true),
+                    };
+                    self.ctx.base = space.usable();
+                    self.layouter.set_spaces(vec![space], true);
                 } else {
                     error!(
                         @self.feedback, span,

@@ -5,11 +5,11 @@ use std::fmt::{self, Debug, Formatter};
 use fontdock::FaceId;
 use ttf_parser::GlyphId;
 
-use crate::geom::Size;
+use crate::geom::Point;
 
 /// A collection of absolutely positioned layout elements.
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct LayoutElements(pub Vec<(Size, LayoutElement)>);
+pub struct LayoutElements(pub Vec<(Point, LayoutElement)>);
 
 impl LayoutElements {
     /// Create an new empty collection.
@@ -18,16 +18,15 @@ impl LayoutElements {
     }
 
     /// Add an element at a position.
-    pub fn push(&mut self, pos: Size, element: LayoutElement) {
+    pub fn push(&mut self, pos: Point, element: LayoutElement) {
         self.0.push((pos, element));
     }
 
-    /// Add all elements of another collection, offsetting each by the given
-    /// `offset`. This can be used to place a sublayout at a position in another
-    /// layout.
-    pub fn extend_offset(&mut self, offset: Size, more: Self) {
+    /// Add all elements of another collection, placing them relative to the
+    /// given position.
+    pub fn push_elements(&mut self, pos: Point, more: Self) {
         for (subpos, element) in more.0 {
-            self.0.push((subpos + offset, element));
+            self.0.push((pos + subpos.to_vec2(), element));
         }
     }
 }

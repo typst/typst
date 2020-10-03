@@ -111,8 +111,8 @@ impl<'a, W: Write> PdfExporter<'a, W> {
             let rect = Rect::new(
                 0.0,
                 0.0,
-                Length::raw(page.size.x).as_pt() as f32,
-                Length::raw(page.size.y).as_pt() as f32,
+                Length::raw(page.size.width).as_pt() as f32,
+                Length::raw(page.size.height).as_pt() as f32,
             );
 
             self.writer.write_obj(
@@ -152,7 +152,7 @@ impl<'a, W: Write> PdfExporter<'a, W> {
                     }
 
                     let x = Length::raw(pos.x).as_pt();
-                    let y = Length::raw(page.size.y - pos.y - size).as_pt();
+                    let y = Length::raw(page.size.height - pos.y - size).as_pt();
                     text.tm(1.0, 0.0, 0.0, 1.0, x as f32, y as f32);
                     text.tj(shaped.encode_glyphs_be());
                 }

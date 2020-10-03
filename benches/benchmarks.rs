@@ -9,15 +9,10 @@ use typstc::parse::parse;
 use typstc::Typesetter;
 
 const FONT_DIR: &str = "fonts";
-
-// 28 not too dense lines.
 const COMA: &str = include_str!("../tests/coma.typ");
 
 fn parsing_benchmark(c: &mut Criterion) {
-    c.bench_function("parse-coma-28-lines", |b| b.iter(|| parse(COMA)));
-
-    let long = COMA.repeat(100);
-    c.bench_function("parse-coma-2800-lines", |b| b.iter(|| parse(&long)));
+    c.bench_function("parse-coma", |b| b.iter(|| parse(COMA)));
 }
 
 fn typesetting_benchmark(c: &mut Criterion) {
@@ -29,14 +24,8 @@ fn typesetting_benchmark(c: &mut Criterion) {
     let loader = FontLoader::new(Box::new(provider), descriptors);
     let loader = Rc::new(RefCell::new(loader));
     let typesetter = Typesetter::new(loader.clone());
-
-    c.bench_function("typeset-coma-28-lines", |b| {
+    c.bench_function("typeset-coma", |b| {
         b.iter(|| futures_executor::block_on(typesetter.typeset(COMA)))
-    });
-
-    let long = COMA.repeat(100);
-    c.bench_function("typeset-coma-2800-lines", |b| {
-        b.iter(|| futures_executor::block_on(typesetter.typeset(&long)))
     });
 }
 

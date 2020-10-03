@@ -1,209 +1,161 @@
 //! Geometrical types.
 
-use std::fmt::{self, Debug, Formatter};
-use std::ops::*;
+#[doc(no_inline)]
+pub use kurbo::*;
 
-use crate::layout::primitive::*;
+use crate::layout::primitive::{Dir, GenAlign, LayoutAlign, LayoutSystem, SpecAxis};
 
-/// A value in two dimensions.
-#[derive(Default, Copy, Clone, Eq, PartialEq)]
-pub struct Value2<T> {
-    /// The horizontal component.
-    pub x: T,
-    /// The vertical component.
-    pub y: T,
-}
+/// Additional methods for [sizes].
+///
+/// [sizes]: ../../kurbo/struct.Size.html
+pub trait SizeExt {
+    /// Return the primary component of this specialized size.
+    fn primary(self, sys: LayoutSystem) -> f64;
 
-impl<T: Clone> Value2<T> {
-    /// Create a new 2D-value from two values.
-    pub fn new(x: T, y: T) -> Self {
-        Self { x, y }
-    }
+    /// Borrow the primary component of this specialized size mutably.
+    fn primary_mut(&mut self, sys: LayoutSystem) -> &mut f64;
 
-    /// Create a new 2D-value with `x` set to a value and `y` to default.
-    pub fn with_x(x: T) -> Self
-    where
-        T: Default,
-    {
-        Self { x, y: T::default() }
-    }
+    /// Return the secondary component of this specialized size.
+    fn secondary(self, sys: LayoutSystem) -> f64;
 
-    /// Create a new 2D-value with `y` set to a value and `x` to default.
-    pub fn with_y(y: T) -> Self
-    where
-        T: Default,
-    {
-        Self { x: T::default(), y }
-    }
+    /// Borrow the secondary component of this specialized size mutably.
+    fn secondary_mut(&mut self, sys: LayoutSystem) -> &mut f64;
 
-    /// Create a 2D-value with `x` and `y` set to the same value `s`.
-    pub fn with_all(s: T) -> Self {
-        Self { x: s.clone(), y: s }
-    }
-
-    /// Get the specificed component.
-    pub fn get(self, axis: SpecAxis) -> T {
-        match axis {
-            SpecAxis::Horizontal => self.x,
-            SpecAxis::Vertical => self.y,
-        }
-    }
-
-    /// Borrow the specificed component mutably.
-    pub fn get_mut(&mut self, axis: SpecAxis) -> &mut T {
-        match axis {
-            SpecAxis::Horizontal => &mut self.x,
-            SpecAxis::Vertical => &mut self.y,
-        }
-    }
-
-    /// Return the primary value of this specialized 2D-value.
-    pub fn primary(self, sys: LayoutSystem) -> T {
-        if sys.primary.axis() == SpecAxis::Horizontal {
-            self.x
-        } else {
-            self.y
-        }
-    }
-
-    /// Borrow the primary value of this specialized 2D-value mutably.
-    pub fn primary_mut(&mut self, sys: LayoutSystem) -> &mut T {
-        if sys.primary.axis() == SpecAxis::Horizontal {
-            &mut self.x
-        } else {
-            &mut self.y
-        }
-    }
-
-    /// Return the secondary value of this specialized 2D-value.
-    pub fn secondary(self, sys: LayoutSystem) -> T {
-        if sys.primary.axis() == SpecAxis::Horizontal {
-            self.y
-        } else {
-            self.x
-        }
-    }
-
-    /// Borrow the secondary value of this specialized 2D-value mutably.
-    pub fn secondary_mut(&mut self, sys: LayoutSystem) -> &mut T {
-        if sys.primary.axis() == SpecAxis::Horizontal {
-            &mut self.y
-        } else {
-            &mut self.x
-        }
-    }
-
-    /// Returns the generalized version of a `Size2D` dependent on the layouting
+    /// Returns the generalized version of a `Size` based on the layouting
     /// system, that is:
     /// - `x` describes the primary axis instead of the horizontal one.
     /// - `y` describes the secondary axis instead of the vertical one.
-    pub fn generalized(self, sys: LayoutSystem) -> Self {
-        match sys.primary.axis() {
-            SpecAxis::Horizontal => self,
-            SpecAxis::Vertical => Self { x: self.y, y: self.x },
-        }
-    }
+    fn generalized(self, sys: LayoutSystem) -> Self;
 
     /// Returns the specialized version of this generalized Size2D (inverse to
     /// `generalized`).
-    pub fn specialized(self, sys: LayoutSystem) -> Self {
-        // In fact, generalized is its own inverse. For reasons of clarity
-        // at the call site, we still have this second function.
-        self.generalized(sys)
-    }
-
-    /// Swap the `x` and `y` values.
-    pub fn swap(&mut self) {
-        std::mem::swap(&mut self.x, &mut self.y);
-    }
-}
-
-impl<T: Debug> Debug for Value2<T> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_list().entry(&self.x).entry(&self.y).finish()
-    }
-}
-
-/// A position or extent in 2-dimensional space.
-pub type Size = Value2<f64>;
-
-impl Size {
-    /// The zeroed size.
-    pub const ZERO: Self = Self { x: 0.0, y: 0.0 };
+    fn specialized(self, sys: LayoutSystem) -> Self;
 
     /// Whether the given size fits into this one, that is, both coordinate
     /// values are smaller or equal.
-    pub fn fits(self, other: Self) -> bool {
-        self.x >= other.x && self.y >= other.y
-    }
-
-    /// Return a size padded by the paddings of the given box.
-    pub fn padded(self, padding: Margins) -> Self {
-        Size {
-            x: self.x + padding.left + padding.right,
-            y: self.y + padding.top + padding.bottom,
-        }
-    }
-
-    /// Return a size reduced by the paddings of the given box.
-    pub fn unpadded(self, padding: Margins) -> Self {
-        Size {
-            x: self.x - padding.left - padding.right,
-            y: self.y - padding.top - padding.bottom,
-        }
-    }
+    fn fits(self, other: Self) -> bool;
 
     /// The anchor position along the given axis for an item with the given
     /// alignment in a container with this size.
     ///
     /// This assumes the size to be generalized such that `x` corresponds to the
     /// primary axis.
-    pub fn anchor(self, align: LayoutAlign, sys: LayoutSystem) -> Self {
-        Size {
-            x: anchor(self.x, align.primary, sys.primary),
-            y: anchor(self.y, align.secondary, sys.secondary),
+    fn anchor(self, align: LayoutAlign, sys: LayoutSystem) -> Point;
+}
+
+impl SizeExt for Size {
+    fn primary(self, sys: LayoutSystem) -> f64 {
+        if sys.primary.axis() == SpecAxis::Horizontal {
+            self.width
+        } else {
+            self.height
+        }
+    }
+
+    fn primary_mut(&mut self, sys: LayoutSystem) -> &mut f64 {
+        if sys.primary.axis() == SpecAxis::Horizontal {
+            &mut self.width
+        } else {
+            &mut self.height
+        }
+    }
+
+    fn secondary(self, sys: LayoutSystem) -> f64 {
+        if sys.primary.axis() == SpecAxis::Horizontal {
+            self.height
+        } else {
+            self.width
+        }
+    }
+
+    fn secondary_mut(&mut self, sys: LayoutSystem) -> &mut f64 {
+        if sys.primary.axis() == SpecAxis::Horizontal {
+            &mut self.height
+        } else {
+            &mut self.width
+        }
+    }
+
+    fn generalized(self, sys: LayoutSystem) -> Self {
+        match sys.primary.axis() {
+            SpecAxis::Horizontal => self,
+            SpecAxis::Vertical => Self::new(self.height, self.width),
+        }
+    }
+
+    fn specialized(self, sys: LayoutSystem) -> Self {
+        // In fact, generalized is its own inverse. For reasons of clarity
+        // at the call site, we still have this second function.
+        self.generalized(sys)
+    }
+
+    fn fits(self, other: Self) -> bool {
+        self.width >= other.width && self.height >= other.height
+    }
+
+    fn anchor(self, align: LayoutAlign, sys: LayoutSystem) -> Point {
+        fn length_anchor(length: f64, align: GenAlign, dir: Dir) -> f64 {
+            match (dir.is_positive(), align) {
+                (true, GenAlign::Start) | (false, GenAlign::End) => 0.0,
+                (_, GenAlign::Center) => length / 2.0,
+                (true, GenAlign::End) | (false, GenAlign::Start) => length,
+            }
+        }
+
+        Point::new(
+            length_anchor(self.width, align.primary, sys.primary),
+            length_anchor(self.height, align.secondary, sys.secondary),
+        )
+    }
+}
+
+/// Additional methods for [rectangles].
+///
+/// [rectangles]: ../../kurbo/struct.Rect.html
+pub trait RectExt {
+    /// Get a mutable reference to the value for the specified direction at the
+    /// alignment.
+    ///
+    /// Center alignment is treated the same as origin alignment.
+    fn get_mut(&mut self, dir: Dir, align: GenAlign) -> &mut f64;
+}
+
+impl RectExt for Rect {
+    fn get_mut(&mut self, dir: Dir, align: GenAlign) -> &mut f64 {
+        match if align == GenAlign::End { dir.inv() } else { dir } {
+            Dir::LTR => &mut self.x0,
+            Dir::TTB => &mut self.y0,
+            Dir::RTL => &mut self.x1,
+            Dir::BTT => &mut self.y1,
         }
     }
 }
 
-fn anchor(length: f64, align: GenAlign, dir: Dir) -> f64 {
-    match (dir.is_positive(), align) {
-        (true, GenAlign::Start) | (false, GenAlign::End) => 0.0,
-        (_, GenAlign::Center) => length / 2.0,
-        (true, GenAlign::End) | (false, GenAlign::Start) => length,
-    }
-}
-
-impl Neg for Size {
-    type Output = Size;
-
-    fn neg(self) -> Size {
-        Size { x: -self.x, y: -self.y }
-    }
-}
-
-/// A value in four dimensions.
+/// A generic container for `[left, top, right, bottom]` values.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
-pub struct Value4<T> {
-    /// The left extent.
+pub struct Sides<T> {
+    /// The value for the left side.
     pub left: T,
-    /// The top extent.
+    /// The value for the top side.
     pub top: T,
-    /// The right extent.
+    /// The value for the right side.
     pub right: T,
-    /// The bottom extent.
+    /// The value for the bottom side.
     pub bottom: T,
 }
 
-impl<T: Clone> Value4<T> {
+impl<T> Sides<T> {
     /// Create a new box from four sizes.
     pub fn new(left: T, top: T, right: T, bottom: T) -> Self {
-        Value4 { left, top, right, bottom }
+        Self { left, top, right, bottom }
     }
 
-    /// Create a box with all four fields set to the same value `s`.
-    pub fn with_all(value: T) -> Self {
-        Value4 {
+    /// Create an instance with all four components set to the same `value`.
+    pub fn uniform(value: T) -> Self
+    where
+        T: Clone,
+    {
+        Self {
             left: value.clone(),
             top: value.clone(),
             right: value.clone(),
@@ -215,105 +167,12 @@ impl<T: Clone> Value4<T> {
     /// alignment.
     ///
     /// Center alignment is treated the same as origin alignment.
-    pub fn get_mut(&mut self, mut dir: Dir, align: GenAlign) -> &mut T {
-        if align == GenAlign::End {
-            dir = dir.inv();
-        }
-
-        match dir {
+    pub fn get_mut(&mut self, dir: Dir, align: GenAlign) -> &mut T {
+        match if align == GenAlign::End { dir.inv() } else { dir } {
             Dir::LTR => &mut self.left,
             Dir::RTL => &mut self.right,
             Dir::TTB => &mut self.top,
             Dir::BTT => &mut self.bottom,
         }
     }
-
-    /// Set all values to the given value.
-    pub fn set_all(&mut self, value: T) {
-        *self = Value4::with_all(value);
-    }
 }
-
-/// A length in four dimensions.
-pub type Margins = Value4<f64>;
-
-impl Margins {
-    /// The zero margins.
-    pub const ZERO: Margins = Margins {
-        left: 0.0,
-        top: 0.0,
-        right: 0.0,
-        bottom: 0.0,
-    };
-}
-
-macro_rules! implement_traits {
-    ($ty:ident, $t:ident, $o:ident
-        reflexive {$(
-            ($tr:ident($tf:ident), $at:ident($af:ident), [$($f:ident),*])
-        )*}
-        numbers { $(($w:ident: $($rest:tt)*))* }
-    ) => {
-        $(impl $tr for $ty {
-            type Output = $ty;
-            fn $tf($t, $o: $ty) -> $ty {
-                $ty { $($f: $tr::$tf($t.$f, $o.$f),)* }
-            }
-        }
-
-        impl $at for $ty {
-            fn $af(&mut $t, $o: $ty) { $($at::$af(&mut $t.$f, $o.$f);)* }
-        })*
-
-        $(implement_traits!(@$w f64, $ty $t $o $($rest)*);)*
-    };
-
-    (@front $num:ty, $ty:ident $t:ident $o:ident
-        $tr:ident($tf:ident),
-        [$($f:ident),*]
-    ) => {
-        impl $tr<$ty> for $num {
-            type Output = $ty;
-            fn $tf($t, $o: $ty) -> $ty {
-                $ty { $($f: $tr::$tf($t as f64, $o.$f),)* }
-            }
-        }
-    };
-
-    (@back $num:ty, $ty:ident $t:ident $o:ident
-        $tr:ident($tf:ident), $at:ident($af:ident),
-        [$($f:ident),*]
-    ) => {
-        impl $tr<$num> for $ty {
-            type Output = $ty;
-            fn $tf($t, $o: $num) -> $ty {
-                $ty { $($f: $tr::$tf($t.$f, $o as f64),)* }
-            }
-        }
-
-        impl $at<$num> for $ty {
-            fn $af(&mut $t, $o: $num) { $($at::$af(&mut $t.$f, $o as f64);)* }
-        }
-    };
-}
-
-macro_rules! implement_size {
-    ($ty:ident($t:ident, $o:ident) [$($f:ident),*]) => {
-        implement_traits! {
-            $ty, $t, $o
-
-            reflexive {
-                (Add(add), AddAssign(add_assign), [$($f),*])
-                (Sub(sub), SubAssign(sub_assign), [$($f),*])
-            }
-
-            numbers {
-                (front: Mul(mul), [$($f),*])
-                (back:  Mul(mul), MulAssign(mul_assign), [$($f),*])
-                (back:  Div(div), DivAssign(div_assign), [$($f),*])
-            }
-        }
-    };
-}
-
-implement_size! { Size(self, other) [x, y] }

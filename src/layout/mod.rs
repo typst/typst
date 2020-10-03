@@ -10,9 +10,10 @@ mod tree;
 pub use primitive::*;
 pub use tree::layout_tree as layout;
 
+use crate::geom::{Insets, Point, Rect, RectExt, Sides, Size, SizeExt};
+
 use crate::eval::Scope;
 use crate::font::SharedFontLoader;
-use crate::geom::{Margins, Size};
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::syntax::SynTree;
 
@@ -67,22 +68,21 @@ pub struct LayoutSpace {
     /// The maximum size of the rectangle to layout into.
     pub size: Size,
     /// Padding that should be respected on each side.
-    pub padding: Margins,
+    pub insets: Insets,
     /// Whether to expand the size of the resulting layout to the full size of
     /// this space or to shrink it to fit the content.
     pub expansion: LayoutExpansion,
 }
 
 impl LayoutSpace {
-    /// The offset from the origin to the start of content, i.e.
-    /// `(padding.left, padding.top)`.
-    pub fn start(&self) -> Size {
-        Size::new(self.padding.left, self.padding.top)
+    /// The position of the padded start in the space.
+    pub fn start(&self) -> Point {
+        Point::new(-self.insets.x0, -self.insets.y0)
     }
 
     /// The actually usable area (size minus padding).
     pub fn usable(&self) -> Size {
-        self.size.unpadded(self.padding)
+        self.size + self.insets.size()
     }
 
     /// The inner layout space with size reduced by the padding, zero padding of
@@ -90,7 +90,7 @@ impl LayoutSpace {
     pub fn inner(&self) -> Self {
         Self {
             size: self.usable(),
-            padding: Margins::ZERO,
+            insets: Insets::ZERO,
             expansion: LayoutExpansion::new(false, false),
         }
     }

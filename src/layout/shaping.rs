@@ -11,7 +11,6 @@ use super::elements::{LayoutElement, Shaped};
 use super::BoxLayout as Layout;
 use super::*;
 use crate::font::FontLoader;
-use crate::geom::Size;
 use crate::style::TextStyle;
 
 /// Shape text into a box.
@@ -74,7 +73,7 @@ impl<'a> Shaper<'a> {
 
         // Flush the last buffered parts of the word.
         if !self.shaped.text.is_empty() {
-            let pos = Size::new(self.offset, 0.0);
+            let pos = Point::new(self.offset, 0.0);
             self.layout.elements.push(pos, LayoutElement::Text(self.shaped));
         }
 
@@ -97,9 +96,9 @@ impl<'a> Shaper<'a> {
                     Shaped::new(FaceId::MAX, self.opts.style.font_size()),
                 );
 
-                let pos = Size::new(self.offset, 0.0);
+                let pos = Point::new(self.offset, 0.0);
                 self.layout.elements.push(pos, LayoutElement::Text(shaped));
-                self.offset = self.layout.size.x;
+                self.offset = self.layout.size.width;
             }
 
             self.shaped.face = index;
@@ -107,9 +106,9 @@ impl<'a> Shaper<'a> {
 
         self.shaped.text.push(c);
         self.shaped.glyphs.push(glyph);
-        self.shaped.offsets.push(self.layout.size.x - self.offset);
+        self.shaped.offsets.push(self.layout.size.width - self.offset);
 
-        self.layout.size.x += char_width;
+        self.layout.size.width += char_width;
     }
 
     async fn select_font(&mut self, c: char) -> Option<(FaceId, GlyphId, f64)> {

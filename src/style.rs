@@ -2,7 +2,7 @@
 
 use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
 
-use crate::geom::{Margins, Size, Value4};
+use crate::geom::{Insets, Sides, Size};
 use crate::length::{Length, ScaleLength};
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
@@ -101,9 +101,9 @@ pub struct PageStyle {
     pub class: PaperClass,
     /// The width and height of the page.
     pub size: Size,
-    /// The amount of white space on each side. If a side is set to `None`, the
-    /// default for the paper class is used.
-    pub margins: Value4<Option<ScaleLength>>,
+    /// The amount of white space in the order [left, top, right, bottom]. If a
+    /// side is set to `None`, the default for the paper class is used.
+    pub margins: Sides<Option<ScaleLength>>,
 }
 
 impl PageStyle {
@@ -112,19 +112,19 @@ impl PageStyle {
         Self {
             class: paper.class,
             size: paper.size(),
-            margins: Value4::with_all(None),
+            margins: Sides::uniform(None),
         }
     }
 
-    /// The absolute margins.
-    pub fn margins(&self) -> Margins {
-        let size = self.size;
+    /// The absolute insets.
+    pub fn insets(&self) -> Insets {
+        let Size { width, height } = self.size;
         let default = self.class.default_margins();
-        Margins {
-            left: self.margins.left.unwrap_or(default.left).raw_scaled(size.x),
-            top: self.margins.top.unwrap_or(default.top).raw_scaled(size.y),
-            right: self.margins.right.unwrap_or(default.right).raw_scaled(size.x),
-            bottom: self.margins.bottom.unwrap_or(default.bottom).raw_scaled(size.y),
+        Insets {
+            x0: -self.margins.left.unwrap_or(default.left).raw_scaled(width),
+            y0: -self.margins.top.unwrap_or(default.top).raw_scaled(height),
+            x1: -self.margins.right.unwrap_or(default.right).raw_scaled(width),
+            y1: -self.margins.bottom.unwrap_or(default.bottom).raw_scaled(height),
         }
     }
 }

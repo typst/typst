@@ -93,17 +93,17 @@ impl Typesetter {
 
     /// Layout a syntax tree and return the produced layout.
     pub async fn layout(&self, tree: &SynTree) -> Pass<MultiLayout> {
-        let margins = self.style.page.margins();
+        let space = LayoutSpace {
+            size: self.style.page.size,
+            insets: self.style.page.insets(),
+            expansion: LayoutExpansion::new(true, true),
+        };
         layout(&tree, LayoutContext {
             loader: &self.loader,
             scope: &self.std,
             style: &self.style,
-            base: self.style.page.size.unpadded(margins),
-            spaces: vec![LayoutSpace {
-                size: self.style.page.size,
-                padding: margins,
-                expansion: LayoutExpansion::new(true, true),
-            }],
+            base: space.usable(),
+            spaces: vec![space],
             repeat: true,
             sys: LayoutSystem::new(Dir::LTR, Dir::TTB),
             align: LayoutAlign::new(GenAlign::Start, GenAlign::Start),

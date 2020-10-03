@@ -4,8 +4,8 @@ use crate::length::ScaleLength;
 /// `box`: Layouts its contents into a box.
 ///
 /// # Keyword arguments
-/// - `width`: The width of the box (length of relative to parent's width).
-/// - `height`: The height of the box (length of relative to parent's height).
+/// - `width`: The width of the box (length or relative to parent's width).
+/// - `height`: The height of the box (length or relative to parent's height).
 pub async fn boxed(
     _: Span,
     mut args: DictValue,
@@ -19,17 +19,17 @@ pub async fn boxed(
     ctx.spaces.truncate(1);
     ctx.repeat = false;
 
-    if let Some(w) = args.take_key::<ScaleLength>("width", &mut f) {
-        let length = w.raw_scaled(ctx.base.x);
-        ctx.base.x = length;
-        ctx.spaces[0].size.x = length;
+    if let Some(width) = args.take_key::<ScaleLength>("width", &mut f) {
+        let length = width.raw_scaled(ctx.base.width);
+        ctx.base.width = length;
+        ctx.spaces[0].size.width = length;
         ctx.spaces[0].expansion.horizontal = true;
     }
 
-    if let Some(h) = args.take_key::<ScaleLength>("height", &mut f) {
-        let length = h.raw_scaled(ctx.base.y);
-        ctx.base.y = length;
-        ctx.spaces[0].size.y = length;
+    if let Some(height) = args.take_key::<ScaleLength>("height", &mut f) {
+        let length = height.raw_scaled(ctx.base.height);
+        ctx.base.height = length;
+        ctx.spaces[0].size.height = length;
         ctx.spaces[0].expansion.vertical = true;
     }
 

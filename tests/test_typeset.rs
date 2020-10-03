@@ -13,7 +13,7 @@ use ttf_parser::OutlineBuilder;
 
 use typstc::export::pdf;
 use typstc::font::{FontLoader, SharedFontLoader};
-use typstc::geom::{Size, Value4};
+use typstc::geom::{Point, Sides, Size, Vec2};
 use typstc::layout::elements::{LayoutElement, Shaped};
 use typstc::layout::MultiLayout;
 use typstc::length::Length;
@@ -66,10 +66,11 @@ fn main() {
     let loader = Rc::new(RefCell::new(loader));
 
     let mut typesetter = Typesetter::new(loader.clone());
+    let edge = Length::pt(250.0).as_raw();
     typesetter.set_page_style(PageStyle {
         class: PaperClass::Custom,
-        size: Size::with_all(Length::pt(250.0).as_raw()),
-        margins: Value4::with_all(None),
+        size: Size::new(edge, edge),
+        margins: Sides::uniform(None),
     });
 
     for (name, path, src) in filtered {
@@ -156,24 +157,28 @@ fn render(layouts: &MultiLayout, loader: &FontLoader, scale: f64) -> DrawTarget 
     let width = 2.0 * pad
         + layouts
             .iter()
-            .map(|l| scale * l.size.x)
+            .map(|l| scale * l.size.width)
             .max_by(|a, b| a.partial_cmp(&b).unwrap())
             .unwrap()
             .round();
 
-    let height =
-        pad + layouts.iter().map(|l| scale * l.size.y + pad).sum::<f64>().round();
+    let height = pad
+        + layouts
+            .iter()
+            .map(|l| scale * l.size.height + pad)
+            .sum::<f64>()
+            .round();
 
     let mut surface = DrawTarget::new(width as i32, height as i32);
     surface.clear(BLACK);
 
-    let mut offset = Size::new(pad, pad);
+    let mut offset = Vec2::new(pad, pad);
     for layout in layouts {
         surface.fill_rect(
             offset.x as f32,
             offset.y as f32,
-            (scale * layout.size.x) as f32,
-            (scale * layout.size.y) as f32,
+            (scale * layout.size.width) as f32,
+            (scale * layout.size.height) as f32,
             &Source::Solid(WHITE),
             &Default::default(),
         );
@@ -184,13 +189,13 @@ fn render(layouts: &MultiLayout, loader: &FontLoader, scale: f64) -> DrawTarget 
                     &mut surface,
                     loader,
                     shaped,
-                    scale * pos + offset,
+                    (scale * pos.to_vec2() + offset).to_point(),
                     scale,
                 ),
             }
         }
 
-        offset.y += scale * layout.size.y + pad;
+        offset.y += scale * layout.size.height + pad;
     }
 
     surface
@@ -200,7 +205,7 @@ fn render_shaped(
     surface: &mut DrawTarget,
     loader: &FontLoader,
     shaped: &Shaped,
-    pos: Size,
+    pos: Point,
     scale: f64,
 ) {
     let face = loader.get_loaded(shaped.face).get();
