@@ -60,24 +60,24 @@ impl<'a> TreeLayouter<'a> {
         match &node.v {
             SynNode::Space => self.layout_space(),
             SynNode::Text(text) => {
-                if self.style.text.italic {
-                    decorate(self, Decoration::Italic);
+                if self.style.text.emph {
+                    decorate(self, Decoration::Emph);
                 }
-                if self.style.text.bolder {
-                    decorate(self, Decoration::Bold);
+                if self.style.text.strong {
+                    decorate(self, Decoration::Strong);
                 }
                 self.layout_text(text).await;
             }
 
             SynNode::Linebreak => self.layouter.finish_line(),
             SynNode::Parbreak => self.layout_parbreak(),
-            SynNode::ToggleItalic => {
-                self.style.text.italic = !self.style.text.italic;
-                decorate(self, Decoration::Italic);
+            SynNode::Emph => {
+                self.style.text.emph = !self.style.text.emph;
+                decorate(self, Decoration::Emph);
             }
-            SynNode::ToggleBolder => {
-                self.style.text.bolder = !self.style.text.bolder;
-                decorate(self, Decoration::Bold);
+            SynNode::Strong => {
+                self.style.text.strong = !self.style.text.strong;
+                decorate(self, Decoration::Strong);
             }
 
             SynNode::Heading(heading) => self.layout_heading(heading).await,
@@ -116,7 +116,7 @@ impl<'a> TreeLayouter<'a> {
     async fn layout_heading(&mut self, heading: &NodeHeading) {
         let style = self.style.text.clone();
         self.style.text.font_scale *= 1.5 - 0.1 * heading.level.v as f64;
-        self.style.text.bolder = true;
+        self.style.text.strong = true;
 
         self.layout_parbreak();
         self.layout_tree(&heading.contents).await;

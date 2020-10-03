@@ -22,12 +22,12 @@ pub struct TextStyle {
     pub fallback: FallbackTree,
     /// The selected font variant.
     pub variant: FontVariant,
-    /// Whether the bolder toggle is active or inactive. This determines
+    /// Whether the strong toggle is active or inactive. This determines
     /// whether the next `*` adds or removes font weight.
-    pub bolder: bool,
-    /// Whether the italic toggle is active or inactive. This determines
+    pub strong: bool,
+    /// Whether the emphasis toggle is active or inactive. This determines
     /// whether the next `_` makes italic or non-italic.
-    pub italic: bool,
+    pub emph: bool,
     /// The base font size.
     pub base_font_size: f64,
     /// The font scale to apply on the base font size.
@@ -83,8 +83,8 @@ impl Default for TextStyle {
                 weight: FontWeight::REGULAR,
                 stretch: FontStretch::Normal,
             },
-            bolder: false,
-            italic: false,
+            strong: false,
+            emph: false,
             base_font_size: Length::pt(11.0).as_raw(),
             font_scale: 1.0,
             word_spacing_scale: 0.25,

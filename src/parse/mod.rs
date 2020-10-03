@@ -62,8 +62,8 @@ fn node(p: &mut Parser, at_start: bool) -> Option<Spanned<SynNode>> {
         Token::LineComment(_) | Token::BlockComment(_) => return None,
 
         // Markup.
-        Token::Star => SynNode::ToggleBolder,
-        Token::Underscore => SynNode::ToggleItalic,
+        Token::Star => SynNode::Strong,
+        Token::Underscore => SynNode::Emph,
         Token::Backslash => SynNode::Linebreak,
         Token::Hashtag => {
             if at_start {

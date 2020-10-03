@@ -13,9 +13,7 @@ use crate::syntax::*;
 // ------------------------------ Construct Syntax Nodes ------------------------------ //
 
 use Decoration::*;
-use SynNode::{
-    Linebreak as L, Parbreak as P, Space as S, ToggleBolder as B, ToggleItalic as I,
-};
+use SynNode::{Emph as E, Linebreak as L, Parbreak as P, Space as S, Strong as B};
 
 fn T(text: &str) -> SynNode {
     SynNode::Text(text.to_string())
@@ -230,7 +228,7 @@ fn test_parse_simple_nodes() {
     t!(""               => );
     t!("hi"             => T("hi"));
     t!("*hi"            => B, T("hi"));
-    t!("hi_"            => T("hi"), I);
+    t!("hi_"            => T("hi"), E);
     t!("hi you"         => T("hi"), S, T("you"));
     t!("special~name"   => T("special"), T("\u{00A0}"), T("name"));
     t!("special\\~name" => T("special"), T("~"), T("name"));
@@ -415,7 +413,7 @@ fn test_parse_values() {
     v!("\"a\n[]\\\"string\"" => Str("a\n[]\"string"));
 
     // Content.
-    v!("{_hi_}"        => Tree![I, T("hi"), I]);
+    v!("{_hi_}"        => Tree![E, T("hi"), E]);
     e!("[val: {_hi_}]" => );
     v!("[hi]"          => Tree![F!("hi")]);
     e!("[val: [hi]]"   => );

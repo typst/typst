@@ -16,10 +16,10 @@ pub use token::*;
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 #[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
 pub enum Decoration {
-    /// Text in italics.
-    Italic,
-    /// Text in bold.
-    Bold,
+    /// Emphasized text.
+    Emph,
+    /// Strong text.
+    Strong,
     /// A valid, successfully resolved name.
     Resolved,
     /// An invalid, unresolved name.

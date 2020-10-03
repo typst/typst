@@ -14,7 +14,7 @@ use crate::font::FontLoader;
 use crate::geom::Size;
 use crate::style::TextStyle;
 
-/// Layouts text into a box.
+/// Shape text into a box.
 pub async fn shape(text: &str, ctx: ShapeOptions<'_>) -> BoxLayout {
     Shaper::new(text, ctx).layout().await
 }
@@ -115,11 +115,11 @@ impl<'a> Shaper<'a> {
     async fn select_font(&mut self, c: char) -> Option<(FaceId, GlyphId, f64)> {
         let mut variant = self.opts.style.variant;
 
-        if self.opts.style.bolder {
+        if self.opts.style.strong {
             variant.weight = variant.weight.thicken(300);
         }
 
-        if self.opts.style.italic {
+        if self.opts.style.emph {
             variant.style = match variant.style {
                 FontStyle::Normal => FontStyle::Italic,
                 FontStyle::Italic => FontStyle::Normal,

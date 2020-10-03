@@ -18,10 +18,10 @@ pub enum SynNode {
     Linebreak,
     /// A paragraph break.
     Parbreak,
-    /// Italics were enabled / disabled.
-    ToggleItalic,
-    /// Bolder was enabled / disabled.
-    ToggleBolder,
+    /// Emphasized text was enabled / disabled.
+    Emph,
+    /// Strong text was enabled / disabled.
+    Strong,
 
     /// A section heading.
     Heading(NodeHeading),
