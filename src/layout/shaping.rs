@@ -1,44 +1,33 @@
-//! Layouting of continous pieces of text into boxes.
+//! Super-basic text shaping.
 //!
-//! The layouter picks the most suitable font for each individual character.
-//! When the primary layouting axis horizontally inversed, the word is spelled
-//! backwards. Vertical word layout is not yet supported.
+//! The layouter picks the most suitable font for each individual character. When the
+//! direction is right-to-left, the word is spelled backwards. Vertical shaping is not yet
+//! supported.
 
 use fontdock::{FaceId, FaceQuery, FontStyle};
 use ttf_parser::GlyphId;
 
 use super::elements::{LayoutElement, Shaped};
+use super::BoxLayout as Layout;
 use super::*;
 use crate::font::FontLoader;
 use crate::geom::Size;
 use crate::style::TextStyle;
 
 /// Layouts text into a box.
-pub async fn layout_text(text: &str, ctx: TextContext<'_>) -> BoxLayout {
-    TextLayouter::new(text, ctx).layout().await
+pub async fn shape(text: &str, ctx: ShapeOptions<'_>) -> BoxLayout {
+    Shaper::new(text, ctx).layout().await
 }
 
-/// Performs the text layouting.
+/// Options for text shaping.
 #[derive(Debug)]
-struct TextLayouter<'a> {
-    ctx: TextContext<'a>,
-    text: &'a str,
-    shaped: Shaped,
-    elements: LayoutElements,
-    start: f64,
-    width: f64,
-}
-
-/// The context for text layouting.
-#[derive(Debug)]
-pub struct TextContext<'a> {
-    /// The font loader to retrieve fonts from when typesetting text with
-    /// `layout_text`.
+pub struct ShapeOptions<'a> {
+    /// The font loader to retrieve fonts from.
     pub loader: &'a mut FontLoader,
     /// The style for text: Font selection with classes, weights and variants,
     /// font sizes, spacing and so on.
     pub style: &'a TextStyle,
-    /// The direction into which the word is laid out. For now, only horizontal
+    /// The direction into which the text is laid out. Currently, only horizontal
     /// directions are supported.
     pub dir: Dir,
     /// The alignment of the _resulting_ layout. This does not effect the line
@@ -47,21 +36,33 @@ pub struct TextContext<'a> {
     pub align: LayoutAlign,
 }
 
-impl<'a> TextLayouter<'a> {
-    fn new(text: &'a str, ctx: TextContext<'a>) -> Self {
+/// Performs super-basic text shaping.
+struct Shaper<'a> {
+    opts: ShapeOptions<'a>,
+    text: &'a str,
+    shaped: Shaped,
+    layout: Layout,
+    offset: f64,
+}
+
+impl<'a> Shaper<'a> {
+    fn new(text: &'a str, opts: ShapeOptions<'a>) -> Self {
         Self {
             text,
-            shaped: Shaped::new(FaceId::MAX, ctx.style.font_size()),
-            elements: LayoutElements::new(),
-            start: 0.0,
-            width: 0.0,
-            ctx,
+            shaped: Shaped::new(FaceId::MAX, opts.style.font_size()),
+            layout: BoxLayout {
+                size: Size::new(0.0, opts.style.font_size()),
+                align: opts.align,
+                elements: LayoutElements::new(),
+            },
+            offset: 0.0,
+            opts,
         }
     }
 
-    async fn layout(mut self) -> BoxLayout {
+    async fn layout(mut self) -> Layout {
         // If the primary axis is negative, we layout the characters reversed.
-        if self.ctx.dir.is_positive() {
+        if self.opts.dir.is_positive() {
             for c in self.text.chars() {
                 self.layout_char(c).await;
             }
@@ -73,15 +74,11 @@ impl<'a> TextLayouter<'a> {
 
         // Flush the last buffered parts of the word.
         if !self.shaped.text.is_empty() {
-            let pos = Size::new(self.start, 0.0);
-            self.elements.push(pos, LayoutElement::Text(self.shaped));
+            let pos = Size::new(self.offset, 0.0);
+            self.layout.elements.push(pos, LayoutElement::Text(self.shaped));
         }
 
-        BoxLayout {
-            size: Size::new(self.width, self.ctx.style.font_size()),
-            align: self.ctx.align,
-            elements: self.elements,
-        }
+        self.layout
     }
 
     async fn layout_char(&mut self, c: char) {
@@ -95,14 +92,14 @@ impl<'a> TextLayouter<'a> {
         // from the last character's one.
         if self.shaped.face != index {
             if !self.shaped.text.is_empty() {
-                let pos = Size::new(self.start, 0.0);
                 let shaped = std::mem::replace(
                     &mut self.shaped,
-                    Shaped::new(FaceId::MAX, self.ctx.style.font_size()),
+                    Shaped::new(FaceId::MAX, self.opts.style.font_size()),
                 );
 
-                self.elements.push(pos, LayoutElement::Text(shaped));
-                self.start = self.width;
+                let pos = Size::new(self.offset, 0.0);
+                self.layout.elements.push(pos, LayoutElement::Text(shaped));
+                self.offset = self.layout.size.x;
             }
 
             self.shaped.face = index;
@@ -110,19 +107,19 @@ impl<'a> TextLayouter<'a> {
 
         self.shaped.text.push(c);
         self.shaped.glyphs.push(glyph);
-        self.shaped.offsets.push(self.width - self.start);
+        self.shaped.offsets.push(self.layout.size.x - self.offset);
 
-        self.width += char_width;
+        self.layout.size.x += char_width;
     }
 
     async fn select_font(&mut self, c: char) -> Option<(FaceId, GlyphId, f64)> {
-        let mut variant = self.ctx.style.variant;
+        let mut variant = self.opts.style.variant;
 
-        if self.ctx.style.bolder {
+        if self.opts.style.bolder {
             variant.weight = variant.weight.thicken(300);
         }
 
-        if self.ctx.style.italic {
+        if self.opts.style.italic {
             variant.style = match variant.style {
                 FontStyle::Normal => FontStyle::Italic,
                 FontStyle::Italic => FontStyle::Normal,
@@ -131,24 +128,24 @@ impl<'a> TextLayouter<'a> {
         }
 
         let query = FaceQuery {
-            fallback: self.ctx.style.fallback.iter(),
+            fallback: self.opts.style.fallback.iter(),
             variant,
             c,
         };
 
-        if let Some((id, owned_face)) = self.ctx.loader.query(query).await {
+        if let Some((id, owned_face)) = self.opts.loader.query(query).await {
             let face = owned_face.get();
+            let font_size = self.opts.style.font_size();
 
-            // Determine the width of the char.
             let units_per_em = face.units_per_em().unwrap_or(1000) as f64;
             let ratio = 1.0 / units_per_em;
-            let to_raw = |x| ratio * x as f64;
+            let to_raw = |x| ratio * x as f64 * font_size;
 
+            // Determine the width of the char.
             let glyph = face.glyph_index(c)?;
-            let glyph_width = face.glyph_hor_advance(glyph)?;
-            let char_width = to_raw(glyph_width) * self.ctx.style.font_size();
+            let glyph_width = to_raw(face.glyph_hor_advance(glyph)? as i32);
 
-            Some((id, glyph, char_width))
+            Some((id, glyph, glyph_width))
         } else {
             None
         }

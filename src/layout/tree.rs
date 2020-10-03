@@ -1,7 +1,7 @@
 //! Layouting of syntax trees.
 
 use super::line::{LineContext, LineLayouter};
-use super::text::{layout_text, TextContext};
+use super::shaping::{shape, ShapeOptions};
 use super::*;
 use crate::style::LayoutStyle;
 use crate::syntax::{
@@ -103,7 +103,7 @@ impl<'a> TreeLayouter<'a> {
 
     async fn layout_text(&mut self, text: &str) {
         self.layouter.add(
-            layout_text(text, TextContext {
+            shape(text, ShapeOptions {
                 loader: &mut self.ctx.loader.borrow_mut(),
                 style: &self.style.text,
                 dir: self.ctx.sys.primary,

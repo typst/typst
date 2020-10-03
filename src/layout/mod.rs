@@ -3,8 +3,8 @@
 pub mod elements;
 pub mod line;
 pub mod primitive;
+pub mod shaping;
 pub mod stack;
-pub mod text;
 mod tree;
 
 pub use primitive::*;

@@ -41,11 +41,14 @@ pub enum LayoutElement {
 /// A shaped run of text.
 #[derive(Clone, PartialEq)]
 pub struct Shaped {
+    /// The shaped text.
     pub text: String,
+    /// The font face the text was shaped with.
     pub face: FaceId,
+    /// The shaped glyphs.
     pub glyphs: Vec<GlyphId>,
-    /// The horizontal offsets of the glyphs with the same indices. Vertical
-    /// offets are not yet supported.
+    /// The horizontal offsets of the glyphs. This is indexed parallel to `glyphs`.
+    /// Vertical offets are not yet supported.
     pub offsets: Vec<f64>,
     /// The font size.
     pub size: f64,
