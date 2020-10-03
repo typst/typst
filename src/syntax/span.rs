@@ -83,7 +83,7 @@ impl<T> Spanned<T> {
 }
 
 impl<T> Spanned<Option<T>> {
-    /// Swap the spanned and option.
+    /// Swap the spanned and the option.
     pub fn transpose(self) -> Option<Spanned<T>> {
         let Spanned { v, span } = self;
         v.map(|v| v.span_with(span))

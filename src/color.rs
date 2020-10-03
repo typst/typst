@@ -20,9 +20,11 @@ pub struct RgbaColor {
     pub b: u8,
     /// Alpha channel.
     pub a: u8,
-    /// This is true if this value was provided as a fail-over by the parser
-    /// because the user-defined value was invalid. This color may be
-    /// overwritten if this property is true.
+    /// Whether the color was provided as a fail-over by the parser because the
+    /// user-defined value was invalid.
+    ///
+    /// If this is true, the color may be replaced with any color deemed
+    /// approriate at the use-site.
     pub healed: bool,
 }
 

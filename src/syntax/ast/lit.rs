@@ -22,7 +22,7 @@ pub enum Lit {
     Length(Length),
     /// A percent literal: `50%`.
     ///
-    /// Note: `50%` is represented as `50.0` here, but as `0.5` in the
+    /// _Note_: `50%` is represented as `50.0` here, but as `0.5` in the
     /// corresponding [value].
     ///
     /// [value]: ../../eval/enum.Value.html#variant.Relative

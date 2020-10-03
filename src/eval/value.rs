@@ -31,7 +31,7 @@ pub enum Value {
     Length(f64),
     /// A relative value: `50%`.
     ///
-    /// Note: `50%` is represented as `0.5` here, but as `50.0` in the
+    /// _Note_: `50%` is represented as `0.5` here, but as `50.0` in the
     /// corresponding [literal].
     ///
     /// [literal]: ../syntax/ast/enum.Lit.html#variant.Percent

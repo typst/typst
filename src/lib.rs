@@ -22,8 +22,6 @@
 //! [`MultiLayout`]: layout/type.MultiLayout.html
 
 #[macro_use]
-mod macros;
-#[macro_use]
 pub mod diagnostic;
 
 pub mod color;
@@ -122,8 +120,7 @@ impl Typesetter {
 }
 
 /// A dynamic future type which allows recursive invocation of async functions
-/// when used as the return type. This is also how the async trait functions
-/// work internally.
+/// when used as the return type.
 pub type DynFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
 /// The result of some pass: Some output `T` and feedback data.

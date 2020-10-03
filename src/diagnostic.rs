@@ -41,7 +41,7 @@ impl Display for Level {
     }
 }
 
-/// Construct a diagnostic with `Error` level.
+/// Construct a diagnostic with [`Error`] level.
 ///
 /// ```
 /// # use typstc::error;
@@ -59,6 +59,8 @@ impl Display for Level {
 /// // Create an error and directly add it to existing feedback.
 /// error!(@feedback, span, "oh no!");
 /// ```
+///
+/// [`Error`]: diagnostic/enum.Level.html#variant.Error
 #[macro_export]
 macro_rules! error {
     ($($tts:tt)*) => {
@@ -66,10 +68,12 @@ macro_rules! error {
     };
 }
 
-/// Construct a diagnostic with `Warning` level.
+/// Construct a diagnostic with [`Warning`] level.
 ///
 /// This works exactly like `error!`. See its documentation for more
 /// information.
+///
+/// [`Warning`]: diagnostic/enum.Level.html#variant.Warning
 #[macro_export]
 macro_rules! warning {
     ($($tts:tt)*) => {

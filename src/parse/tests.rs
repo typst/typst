@@ -366,7 +366,7 @@ fn test_parse_colon_starting_func_args() {
     e!("[val/🌎:$]" => s(4, 4, "expected colon"));
 
     // String in invalid header without colon still parsed as string
-    // Note: No "expected quote" error because not even the string was
+    // _Note_: No "expected quote" error because not even the string was
     //       expected.
     e!("[val/\"]" => s(4, 4, "expected colon"),
                      s(7, 7, "expected closing bracket"));

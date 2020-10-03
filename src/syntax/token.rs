@@ -75,7 +75,7 @@ pub enum Token<'s> {
     Length(Length),
     /// A percentage: `50%`.
     ///
-    /// Note: `50%` is represented as `50.0` here, as in the corresponding
+    /// _Note_: `50%` is represented as `50.0` here, as in the corresponding
     /// [literal].
     ///
     /// [literal]: ../ast/enum.Lit.html#variant.Percent
