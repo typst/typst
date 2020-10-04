@@ -43,9 +43,9 @@ use std::future::Future;
 use std::pin::Pin;
 
 use crate::diagnostic::Diagnostic;
-use crate::eval::{State, Value};
+use crate::eval::State;
 use crate::font::SharedFontLoader;
-use crate::layout::{Commands, MultiLayout};
+use crate::layout::BoxLayout;
 use crate::syntax::{Decoration, Offset, Pos, SpanVec};
 
 /// Process source code directly into a collection of layouts.
@@ -53,7 +53,7 @@ pub async fn typeset(
     src: &str,
     state: State,
     loader: SharedFontLoader,
-) -> Pass<MultiLayout> {
+) -> Pass<Vec<BoxLayout>> {
     let parsed = parse::parse(src);
     let layouted = layout::layout(&parsed.output, state, loader).await;
     let feedback = Feedback::merge(parsed.feedback, layouted.feedback);
@@ -90,13 +90,6 @@ impl<T> Pass<T> {
             output: f(self.output),
             feedback: self.feedback,
         }
-    }
-}
-
-impl Pass<Value> {
-    /// Create a new pass with a list of layouting commands.
-    pub fn commands(commands: Commands, feedback: Feedback) -> Self {
-        Pass::new(Value::Commands(commands), feedback)
     }
 }
 

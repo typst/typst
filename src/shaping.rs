@@ -4,15 +4,17 @@
 //! font for each individual character. When the direction is right-to-left, the
 //! word is spelled backwards. Vertical shaping is not supported.
 
+use std::fmt::{self, Debug, Formatter};
+
 use fontdock::{FaceId, FaceQuery, FallbackTree, FontStyle, FontVariant};
 use ttf_parser::GlyphId;
 
 use crate::eval::TextState;
 use crate::font::FontLoader;
 use crate::geom::{Point, Size};
-use crate::layout::{BoxLayout, Dir, LayoutAlign, LayoutElement, LayoutElements, Shaped};
+use crate::layout::{BoxLayout, Dir, LayoutAlign, LayoutElement};
 
-/// Shape text into a box.
+/// Shape text into a box containing shaped runs.
 pub async fn shape(
     text: &str,
     dir: Dir,
@@ -21,6 +23,51 @@ pub async fn shape(
     loader: &mut FontLoader,
 ) -> BoxLayout {
     Shaper::new(text, dir, align, state, loader).shape().await
+}
+
+/// A shaped run of text.
+#[derive(Clone, PartialEq)]
+pub struct Shaped {
+    /// The shaped text.
+    pub text: String,
+    /// The font face the text was shaped with.
+    pub face: FaceId,
+    /// The shaped glyphs.
+    pub glyphs: Vec<GlyphId>,
+    /// The horizontal offsets of the glyphs. This is indexed parallel to `glyphs`.
+    /// Vertical offets are not yet supported.
+    pub offsets: Vec<f64>,
+    /// The font size.
+    pub size: f64,
+}
+
+impl Shaped {
+    /// Create a new shape run with empty `text`, `glyphs` and `offsets`.
+    pub fn new(face: FaceId, size: f64) -> Self {
+        Self {
+            text: String::new(),
+            face,
+            glyphs: vec![],
+            offsets: vec![],
+            size,
+        }
+    }
+
+    /// Encode the glyph ids into a big-endian byte buffer.
+    pub fn encode_glyphs_be(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(2 * self.glyphs.len());
+        for &GlyphId(g) in &self.glyphs {
+            bytes.push((g >> 8) as u8);
+            bytes.push((g & 0xff) as u8);
+        }
+        bytes
+    }
+}
+
+impl Debug for Shaped {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Shaped({})", self.text)
+    }
 }
 
 /// Performs super-basic text shaping.
@@ -64,11 +111,7 @@ impl<'a> Shaper<'a> {
             fallback: &state.fallback,
             loader,
             shaped: Shaped::new(FaceId::MAX, state.font_size()),
-            layout: BoxLayout {
-                size: Size::new(0.0, state.font_size()),
-                align,
-                elements: LayoutElements::new(),
-            },
+            layout: BoxLayout::new(Size::new(0.0, state.font_size()), align),
             offset: 0.0,
         }
     }
@@ -88,7 +131,7 @@ impl<'a> Shaper<'a> {
         // Flush the last buffered parts of the word.
         if !self.shaped.text.is_empty() {
             let pos = Point::new(self.offset, 0.0);
-            self.layout.elements.push(pos, LayoutElement::Text(self.shaped));
+            self.layout.push(pos, LayoutElement::Text(self.shaped));
         }
 
         self.layout
@@ -111,7 +154,7 @@ impl<'a> Shaper<'a> {
                 );
 
                 let pos = Point::new(self.offset, 0.0);
-                self.layout.elements.push(pos, LayoutElement::Text(shaped));
+                self.layout.push(pos, LayoutElement::Text(shaped));
                 self.offset = self.layout.size.width;
             }
 

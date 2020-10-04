@@ -17,12 +17,10 @@ impl Default for LayoutSystem {
 /// Specifies where to align a layout in a parent container.
 pub type LayoutAlign = Gen2<GenAlign>;
 
-impl LayoutAlign {
-    /// The layout alignment that has both components set to `Start`.
-    pub const START: Self = Self {
-        primary: GenAlign::Start,
-        secondary: GenAlign::Start,
-    };
+impl Default for LayoutAlign {
+    fn default() -> Self {
+        Self::new(GenAlign::Start, GenAlign::Start)
+    }
 }
 
 /// Whether to expand a layout to an area's full size or shrink it to fit its content.

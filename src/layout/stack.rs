@@ -24,7 +24,7 @@ use super::*;
 /// Performs the stack layouting.
 pub struct StackLayouter {
     ctx: StackContext,
-    layouts: MultiLayout,
+    layouts: Vec<BoxLayout>,
     /// The in-progress space.
     space: Space,
 }
@@ -33,7 +33,7 @@ pub struct StackLayouter {
 #[derive(Debug, Clone)]
 pub struct StackContext {
     /// The spaces to layout into.
-    pub spaces: LayoutSpaces,
+    pub spaces: Vec<LayoutSpace>,
     /// The initial layouting system, which can be updated through `set_sys`.
     pub sys: LayoutSystem,
     /// The alignment of the _resulting_ layout. This does not effect the line
@@ -75,7 +75,7 @@ impl StackLayouter {
         let space = ctx.spaces[0];
         Self {
             ctx,
-            layouts: MultiLayout::new(),
+            layouts: vec![],
             space: Space::new(0, true, space.usable()),
         }
     }
@@ -110,15 +110,6 @@ impl StackLayouter {
         self.space.last_spacing = LastSpacing::None;
     }
 
-    /// Add multiple layouts to the stack.
-    ///
-    /// This is equivalent to calling `add` repeatedly for each layout.
-    pub fn add_multiple(&mut self, layouts: MultiLayout) {
-        for layout in layouts {
-            self.add(layout);
-        }
-    }
-
     /// Add spacing to the stack.
     pub fn add_spacing(&mut self, mut spacing: f64, kind: SpacingKind) {
         match kind {
@@ -129,11 +120,13 @@ impl StackLayouter {
                 let size = Size::new(0.0, spacing);
 
                 self.update_metrics(size);
-                self.space.layouts.push((self.ctx.sys, BoxLayout {
-                    size: size.specialized(self.ctx.sys),
-                    align: LayoutAlign::START,
-                    elements: LayoutElements::new(),
-                }));
+                self.space.layouts.push((
+                    self.ctx.sys,
+                    BoxLayout::new(
+                        size.specialized(self.ctx.sys),
+                        LayoutAlign::default(),
+                    ),
+                ));
 
                 self.space.last_spacing = LastSpacing::Hard;
             }
@@ -208,7 +201,7 @@ impl StackLayouter {
     /// If `replace_empty` is true, the current space is replaced if there are
     /// no boxes laid out into it yet. Otherwise, the followup spaces are
     /// replaced.
-    pub fn set_spaces(&mut self, spaces: LayoutSpaces, replace_empty: bool) {
+    pub fn set_spaces(&mut self, spaces: Vec<LayoutSpace>, replace_empty: bool) {
         if replace_empty && self.space_is_empty() {
             self.ctx.spaces = spaces;
             self.start_space(0, self.space.hard);
@@ -233,7 +226,7 @@ impl StackLayouter {
 
     /// The remaining inner spaces. If something is laid out into these spaces,
     /// it will fit into this stack.
-    pub fn remaining(&self) -> LayoutSpaces {
+    pub fn remaining(&self) -> Vec<LayoutSpace> {
         let size = self.usable();
 
         let mut spaces = vec![LayoutSpace {
@@ -267,7 +260,7 @@ impl StackLayouter {
     }
 
     /// Finish everything up and return the final collection of boxes.
-    pub fn finish(mut self) -> MultiLayout {
+    pub fn finish(mut self) -> Vec<BoxLayout> {
         if self.space.hard || !self.space_is_empty() {
             self.finish_space(false);
         }
@@ -360,12 +353,12 @@ impl StackLayouter {
         // Step 4: Align each layout in its bounding box and collect everything
         // into a single finished layout.
 
-        let mut elements = LayoutElements::new();
+        let mut layout = BoxLayout::new(size, self.ctx.align);
 
         let layouts = std::mem::take(&mut self.space.layouts);
-        for ((sys, layout), bound) in layouts.into_iter().zip(bounds) {
-            let size = layout.size.specialized(sys);
-            let align = layout.align;
+        for ((sys, child), bound) in layouts.into_iter().zip(bounds) {
+            let size = child.size.specialized(sys);
+            let align = child.align;
 
             // The space in which this layout is aligned is given by the
             // distances between the borders of its bounding box.
@@ -373,10 +366,10 @@ impl StackLayouter {
             let local = usable.anchor(align, sys) - size.anchor(align, sys);
             let pos = bound.origin() + local.to_size().specialized(sys).to_vec2();
 
-            elements.push_elements(pos, layout.elements);
+            layout.push_layout(pos, child);
         }
 
-        self.layouts.push(BoxLayout { size, align: self.ctx.align, elements });
+        self.layouts.push(layout);
 
         // ------------------------------------------------------------------ //
         // Step 5: Start the next space.

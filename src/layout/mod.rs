@@ -1,13 +1,11 @@
-//! Layouting of syntax trees into box layouts.
+//! Layouting of syntax trees.
 
 pub mod primitive;
 
-mod elements;
 mod line;
 mod stack;
 mod tree;
 
-pub use elements::*;
 pub use line::*;
 pub use primitive::*;
 pub use stack::*;
@@ -17,6 +15,7 @@ use crate::geom::{Insets, Point, Rect, RectExt, Sides, Size, SizeExt};
 
 use crate::eval::{PageState, State, TextState};
 use crate::font::SharedFontLoader;
+use crate::shaping::Shaped;
 use crate::syntax::SynTree;
 use crate::{Feedback, Pass};
 
@@ -25,7 +24,7 @@ pub async fn layout(
     tree: &SynTree,
     state: State,
     loader: SharedFontLoader,
-) -> Pass<MultiLayout> {
+) -> Pass<Vec<BoxLayout>> {
     let space = LayoutSpace {
         size: state.page.size,
         insets: state.page.insets(),
@@ -51,9 +50,6 @@ pub async fn layout(
     Pass::new(layouts, ctx.f)
 }
 
-/// A collection of layouts.
-pub type MultiLayout = Vec<BoxLayout>;
-
 /// A finished box with content at fixed positions.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BoxLayout {
@@ -62,7 +58,34 @@ pub struct BoxLayout {
     /// How to align this box in a parent container.
     pub align: LayoutAlign,
     /// The elements composing this layout.
-    pub elements: LayoutElements,
+    pub elements: Vec<(Point, LayoutElement)>,
+}
+
+impl BoxLayout {
+    /// Create an new empty collection.
+    pub fn new(size: Size, align: LayoutAlign) -> Self {
+        Self { size, align, elements: vec![] }
+    }
+
+    /// Add an element at a position.
+    pub fn push(&mut self, pos: Point, element: LayoutElement) {
+        self.elements.push((pos, element));
+    }
+
+    /// Add all elements of another collection, placing them relative to the
+    /// given position.
+    pub fn push_layout(&mut self, pos: Point, more: Self) {
+        for (subpos, element) in more.elements {
+            self.push(pos + subpos.to_vec2(), element);
+        }
+    }
+}
+
+/// A layout element, the basic building block layouts are composed of.
+#[derive(Debug, Clone, PartialEq)]
+pub enum LayoutElement {
+    /// Shaped text.
+    Text(Shaped),
 }
 
 /// The context for layouting.
@@ -86,14 +109,11 @@ pub struct LayoutConstraints {
     /// The unpadded size of this container (the base 100% for relative sizes).
     pub base: Size,
     /// The spaces to layout into.
-    pub spaces: LayoutSpaces,
+    pub spaces: Vec<LayoutSpace>,
     /// Whether to spill over into copies of the last space or finish layouting
     /// when the last space is used up.
     pub repeat: bool,
 }
-
-/// A collection of layout spaces.
-pub type LayoutSpaces = Vec<LayoutSpace>;
 
 /// The space into which content is laid out.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -129,9 +149,6 @@ impl LayoutSpace {
     }
 }
 
-/// A sequence of layouting commands.
-pub type Commands = Vec<Command>;
-
 /// Commands executable by the layouting engine.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
@@ -146,10 +163,6 @@ pub enum Command {
 
     /// Add a finished layout.
     Add(BoxLayout),
-    /// Add multiple layouts, one after another. This is equivalent to multiple
-    /// `Add` commands.
-    AddMultiple(MultiLayout),
-
     /// Add spacing of the given kind along the primary or secondary axis. The
     /// kind defines how the spacing interacts with surrounding spacing.
     AddSpacing(f64, SpacingKind, GenAxis),

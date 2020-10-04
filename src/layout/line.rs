@@ -22,7 +22,7 @@ pub struct LineLayouter {
 #[derive(Debug, Clone)]
 pub struct LineContext {
     /// The spaces to layout into.
-    pub spaces: LayoutSpaces,
+    pub spaces: Vec<LayoutSpace>,
     /// The initial layouting system, which can be updated through `set_sys`.
     pub sys: LayoutSystem,
     /// The alignment of the _resulting_ layout. This does not effect the line
@@ -132,15 +132,6 @@ impl LineLayouter {
         self.run.last_spacing = LastSpacing::None;
     }
 
-    /// Add multiple layouts.
-    ///
-    /// This is equivalent to calling `add` repeatedly for each layout.
-    pub fn add_multiple(&mut self, layouts: MultiLayout) {
-        for layout in layouts {
-            self.add(layout);
-        }
-    }
-
     /// The remaining usable size of the line.
     ///
     /// This specifies how much more would fit before a line break would be
@@ -201,7 +192,7 @@ impl LineLayouter {
     /// If `replace_empty` is true, the current space is replaced if there are
     /// no boxes laid out into it yet. Otherwise, the followup spaces are
     /// replaced.
-    pub fn set_spaces(&mut self, spaces: LayoutSpaces, replace_empty: bool) {
+    pub fn set_spaces(&mut self, spaces: Vec<LayoutSpace>, replace_empty: bool) {
         self.stack.set_spaces(spaces, replace_empty && self.line_is_empty());
     }
 
@@ -212,7 +203,7 @@ impl LineLayouter {
 
     /// The remaining inner spaces. If something is laid out into these spaces,
     /// it will fit into this layouter's underlying stack.
-    pub fn remaining(&self) -> LayoutSpaces {
+    pub fn remaining(&self) -> Vec<LayoutSpace> {
         let mut spaces = self.stack.remaining();
         *spaces[0].size.secondary_mut(self.ctx.sys) -= self.run.size.height;
         spaces
@@ -224,7 +215,7 @@ impl LineLayouter {
     }
 
     /// Finish everything up and return the final collection of boxes.
-    pub fn finish(mut self) -> MultiLayout {
+    pub fn finish(mut self) -> Vec<BoxLayout> {
         self.finish_line_if_not_empty();
         self.stack.finish()
     }
@@ -239,27 +230,25 @@ impl LineLayouter {
 
     /// Finish the active line and start a new one.
     pub fn finish_line(&mut self) {
-        let mut elements = LayoutElements::new();
+        let mut layout = BoxLayout::new(
+            self.run.size.specialized(self.ctx.sys),
+            self.run.align.unwrap_or_default(),
+        );
 
         let layouts = std::mem::take(&mut self.run.layouts);
-        for (offset, layout) in layouts {
+        for (offset, child) in layouts {
             let x = match self.ctx.sys.primary.is_positive() {
                 true => offset,
-                false => self.run.size.width - offset - layout.size.primary(self.ctx.sys),
+                false => self.run.size.width - offset - child.size.primary(self.ctx.sys),
             };
 
             let pos = Point::new(x, 0.0);
-            elements.push_elements(pos, layout.elements);
+            layout.push_layout(pos, child);
         }
 
-        self.stack.add(BoxLayout {
-            size: self.run.size.specialized(self.ctx.sys),
-            align: self.run.align.unwrap_or(LayoutAlign::START),
-            elements,
-        });
+        self.stack.add(layout);
 
         self.run = LineRun::new();
-
         self.stack.add_spacing(self.ctx.line_spacing, SpacingKind::LINE);
     }
 

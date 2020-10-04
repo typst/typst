@@ -8,7 +8,7 @@ use crate::syntax::{
 use crate::DynFuture;
 
 /// Layout a syntax tree in a given context.
-pub async fn layout_tree(tree: &SynTree, ctx: &mut LayoutContext) -> MultiLayout {
+pub async fn layout_tree(tree: &SynTree, ctx: &mut LayoutContext) -> Vec<BoxLayout> {
     let mut layouter = TreeLayouter::new(ctx);
     layouter.layout_tree(tree).await;
     layouter.finish()
@@ -38,7 +38,7 @@ impl<'a> TreeLayouter<'a> {
         }
     }
 
-    fn finish(self) -> MultiLayout {
+    fn finish(self) -> Vec<BoxLayout> {
         self.layouter.finish()
     }
 
@@ -175,7 +175,6 @@ impl<'a> TreeLayouter<'a> {
             LayoutSyntaxTree(tree) => self.layout_tree(&tree).await,
 
             Add(layout) => self.layouter.add(layout),
-            AddMultiple(layouts) => self.layouter.add_multiple(layouts),
             AddSpacing(space, kind, axis) => match axis {
                 GenAxis::Primary => self.layouter.add_primary_spacing(space, kind),
                 GenAxis::Secondary => self.layouter.add_secondary_spacing(space, kind),

@@ -9,7 +9,7 @@ use fontdock::{FontStretch, FontStyle, FontWeight};
 use super::dict::{Dict, SpannedEntry};
 use crate::color::RgbaColor;
 use crate::geom::Linear;
-use crate::layout::{Command, Commands, Dir, LayoutContext, SpecAlign};
+use crate::layout::{Command, Dir, LayoutContext, SpecAlign};
 use crate::paper::Paper;
 use crate::syntax::{Ident, Span, SpanWith, Spanned, SynNode, SynTree};
 use crate::{DynFuture, Feedback};
@@ -49,7 +49,7 @@ pub enum Value {
     /// An executable function.
     Func(ValueFunc),
     /// Layouting commands.
-    Commands(Commands),
+    Commands(Vec<Command>),
     /// The result of invalid operations.
     Error,
 }
@@ -83,7 +83,7 @@ impl Spanned<Value> {
     ///
     /// If this is already a command-value, it is simply unwrapped, otherwise
     /// the value is represented as layoutable content in a reasonable way.
-    pub fn into_commands(self) -> Commands {
+    pub fn into_commands(self) -> Vec<Command> {
         match self.v {
             // Pass-through.
             Value::Commands(commands) => commands,

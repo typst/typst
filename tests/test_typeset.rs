@@ -15,8 +15,9 @@ use typstc::eval::State;
 use typstc::export::pdf;
 use typstc::font::{FontLoader, SharedFontLoader};
 use typstc::geom::{Point, Vec2};
-use typstc::layout::{LayoutElement, MultiLayout, Shaped};
+use typstc::layout::{BoxLayout, LayoutElement};
 use typstc::parse::LineMap;
+use typstc::shaping::Shaped;
 use typstc::{typeset, Feedback, Pass};
 
 const TEST_DIR: &str = "tests";
@@ -136,7 +137,7 @@ impl TestFilter {
     }
 }
 
-fn render(layouts: &MultiLayout, loader: &FontLoader, scale: f64) -> DrawTarget {
+fn render(layouts: &[BoxLayout], loader: &FontLoader, scale: f64) -> DrawTarget {
     let pad = scale * 10.0;
     let width = 2.0 * pad
         + layouts
@@ -167,7 +168,7 @@ fn render(layouts: &MultiLayout, loader: &FontLoader, scale: f64) -> DrawTarget 
             &Default::default(),
         );
 
-        for &(pos, ref element) in &layout.elements.0 {
+        for (pos, element) in &layout.elements {
             match element {
                 LayoutElement::Text(shaped) => render_shaped(
                     &mut surface,

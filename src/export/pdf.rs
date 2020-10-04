@@ -138,7 +138,7 @@ impl<'a, W: Write> PdfExporter<'a, W> {
         let mut face = FaceId::MAX;
         let mut size = 0.0;
 
-        for (pos, element) in &page.elements.0 {
+        for (pos, element) in &page.elements {
             match element {
                 LayoutElement::Text(shaped) => {
                     if shaped.face != face || shaped.size != size {
@@ -287,7 +287,7 @@ fn remap_fonts(layouts: &[BoxLayout]) -> (HashMap<FaceId, usize>, Vec<FaceId>) {
     // We want to find out which font faces are used at all. To do that, look at
     // each text element to find out which face is uses.
     for layout in layouts {
-        for (_, element) in &layout.elements.0 {
+        for (_, element) in &layout.elements {
             let LayoutElement::Text(shaped) = element;
             to_pdf.entry(shaped.face).or_insert_with(|| {
                 let next_id = to_layout.len();
