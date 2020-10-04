@@ -35,6 +35,7 @@ pub mod library;
 pub mod paper;
 pub mod parse;
 pub mod prelude;
+pub mod shaping;
 pub mod style;
 pub mod syntax;
 

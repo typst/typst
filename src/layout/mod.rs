@@ -3,7 +3,6 @@
 pub mod elements;
 pub mod line;
 pub mod primitive;
-pub mod shaping;
 pub mod stack;
 mod tree;
 

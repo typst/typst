@@ -1,8 +1,8 @@
 //! Layouting of syntax trees.
 
 use super::line::{LineContext, LineLayouter};
-use super::shaping::{shape, ShapeOptions};
 use super::*;
+use crate::shaping;
 use crate::style::LayoutStyle;
 use crate::syntax::{
     Decoration, Expr, NodeHeading, NodeRaw, Span, SpanWith, Spanned, SynNode, SynTree,
@@ -103,12 +103,13 @@ impl<'a> TreeLayouter<'a> {
 
     async fn layout_text(&mut self, text: &str) {
         self.layouter.add(
-            shape(text, ShapeOptions {
-                loader: &mut self.ctx.loader.borrow_mut(),
-                style: &self.style.text,
-                dir: self.ctx.sys.primary,
-                align: self.ctx.align,
-            })
+            shaping::shape(
+                text,
+                self.ctx.sys.primary,
+                self.ctx.align,
+                &self.style.text,
+                &mut self.ctx.loader.borrow_mut(),
+            )
             .await,
         );
     }

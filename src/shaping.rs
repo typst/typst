@@ -1,73 +1,88 @@
 //! Super-basic text shaping.
 //!
-//! The layouter picks the most suitable font for each individual character. When the
-//! direction is right-to-left, the word is spelled backwards. Vertical shaping is not yet
-//! supported.
+//! This is really only suited for simple Latin text. It picks the most suitable
+//! font for each individual character. When the direction is right-to-left, the
+//! word is spelled backwards. Vertical shaping is not supported.
 
-use fontdock::{FaceId, FaceQuery, FontStyle};
+use fontdock::{FaceId, FaceQuery, FallbackTree, FontStyle, FontVariant};
 use ttf_parser::GlyphId;
 
-use super::elements::{LayoutElement, Shaped};
-use super::BoxLayout as Layout;
-use super::*;
 use crate::font::FontLoader;
+use crate::geom::{Point, Size};
+use crate::layout::elements::{LayoutElement, LayoutElements, Shaped};
+use crate::layout::{BoxLayout, Dir, LayoutAlign};
 use crate::style::TextStyle;
 
 /// Shape text into a box.
-pub async fn shape(text: &str, ctx: ShapeOptions<'_>) -> BoxLayout {
-    Shaper::new(text, ctx).layout().await
-}
-
-/// Options for text shaping.
-#[derive(Debug)]
-pub struct ShapeOptions<'a> {
-    /// The font loader to retrieve fonts from.
-    pub loader: &'a mut FontLoader,
-    /// The style for text: Font selection with classes, weights and variants,
-    /// font sizes, spacing and so on.
-    pub style: &'a TextStyle,
-    /// The direction into which the text is laid out. Currently, only horizontal
-    /// directions are supported.
-    pub dir: Dir,
-    /// The alignment of the _resulting_ layout. This does not effect the line
-    /// layouting itself, but rather how the finished layout will be positioned
-    /// in a parent layout.
-    pub align: LayoutAlign,
+pub async fn shape(
+    text: &str,
+    dir: Dir,
+    align: LayoutAlign,
+    style: &TextStyle,
+    loader: &mut FontLoader,
+) -> BoxLayout {
+    Shaper::new(text, dir, align, style, loader).shape().await
 }
 
 /// Performs super-basic text shaping.
 struct Shaper<'a> {
-    opts: ShapeOptions<'a>,
     text: &'a str,
+    dir: Dir,
+    variant: FontVariant,
+    fallback: &'a FallbackTree,
+    loader: &'a mut FontLoader,
     shaped: Shaped,
-    layout: Layout,
+    layout: BoxLayout,
     offset: f64,
 }
 
 impl<'a> Shaper<'a> {
-    fn new(text: &'a str, opts: ShapeOptions<'a>) -> Self {
+    fn new(
+        text: &'a str,
+        dir: Dir,
+        align: LayoutAlign,
+        style: &'a TextStyle,
+        loader: &'a mut FontLoader,
+    ) -> Self {
+        let mut variant = style.variant;
+
+        if style.strong {
+            variant.weight = variant.weight.thicken(300);
+        }
+
+        if style.emph {
+            variant.style = match variant.style {
+                FontStyle::Normal => FontStyle::Italic,
+                FontStyle::Italic => FontStyle::Normal,
+                FontStyle::Oblique => FontStyle::Normal,
+            }
+        }
+
         Self {
             text,
-            shaped: Shaped::new(FaceId::MAX, opts.style.font_size()),
+            dir,
+            variant,
+            fallback: &style.fallback,
+            loader,
+            shaped: Shaped::new(FaceId::MAX, style.font_size()),
             layout: BoxLayout {
-                size: Size::new(0.0, opts.style.font_size()),
-                align: opts.align,
+                size: Size::new(0.0, style.font_size()),
+                align,
                 elements: LayoutElements::new(),
             },
             offset: 0.0,
-            opts,
         }
     }
 
-    async fn layout(mut self) -> Layout {
+    async fn shape(mut self) -> BoxLayout {
         // If the primary axis is negative, we layout the characters reversed.
-        if self.opts.dir.is_positive() {
+        if self.dir.is_positive() {
             for c in self.text.chars() {
-                self.layout_char(c).await;
+                self.shape_char(c).await;
             }
         } else {
             for c in self.text.chars().rev() {
-                self.layout_char(c).await;
+                self.shape_char(c).await;
             }
         }
 
@@ -80,7 +95,7 @@ impl<'a> Shaper<'a> {
         self.layout
     }
 
-    async fn layout_char(&mut self, c: char) {
+    async fn shape_char(&mut self, c: char) {
         let (index, glyph, char_width) = match self.select_font(c).await {
             Some(selected) => selected,
             // TODO: Issue warning about missing character.
@@ -93,7 +108,7 @@ impl<'a> Shaper<'a> {
             if !self.shaped.text.is_empty() {
                 let shaped = std::mem::replace(
                     &mut self.shaped,
-                    Shaped::new(FaceId::MAX, self.opts.style.font_size()),
+                    Shaped::new(FaceId::MAX, self.layout.size.height),
                 );
 
                 let pos = Point::new(self.offset, 0.0);
@@ -112,32 +127,18 @@ impl<'a> Shaper<'a> {
     }
 
     async fn select_font(&mut self, c: char) -> Option<(FaceId, GlyphId, f64)> {
-        let mut variant = self.opts.style.variant;
-
-        if self.opts.style.strong {
-            variant.weight = variant.weight.thicken(300);
-        }
-
-        if self.opts.style.emph {
-            variant.style = match variant.style {
-                FontStyle::Normal => FontStyle::Italic,
-                FontStyle::Italic => FontStyle::Normal,
-                FontStyle::Oblique => FontStyle::Normal,
-            }
-        }
-
         let query = FaceQuery {
-            fallback: self.opts.style.fallback.iter(),
-            variant,
+            fallback: self.fallback.iter(),
+            variant: self.variant,
             c,
         };
 
-        if let Some((id, owned_face)) = self.opts.loader.query(query).await {
+        if let Some((id, owned_face)) = self.loader.query(query).await {
             let face = owned_face.get();
-            let font_size = self.opts.style.font_size();
 
             let units_per_em = face.units_per_em().unwrap_or(1000) as f64;
             let ratio = 1.0 / units_per_em;
+            let font_size = self.layout.size.height;
             let to_raw = |x| ratio * x as f64 * font_size;
 
             // Determine the width of the char.
