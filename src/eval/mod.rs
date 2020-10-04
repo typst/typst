@@ -90,13 +90,13 @@ impl Eval for ExprCall {
         let span = self.name.span;
         let args = self.args.eval(ctx).await;
 
-        if let Some(func) = ctx.state.scope.func(name) {
-            ctx.f.decorations.push(Decoration::Resolved.span_with(span));
+        if let Some(func) = ctx.state.scope.get(name) {
+            ctx.f.decos.push(Deco::Resolved.span_with(span));
             (func.clone())(args, ctx).await
         } else {
             if !name.is_empty() {
                 error!(@ctx.f, span, "unknown function");
-                ctx.f.decorations.push(Decoration::Unresolved.span_with(span));
+                ctx.f.decos.push(Deco::Unresolved.span_with(span));
             }
             Value::Dict(args)
         }

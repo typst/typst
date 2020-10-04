@@ -74,25 +74,24 @@ fn test(name: &str, src: &str, src_path: &Path, loader: &SharedFontLoader) {
     let state = State::default();
     let Pass {
         output: layouts,
-        feedback: Feedback { mut diagnostics, .. },
+        feedback: Feedback { mut diags, .. },
     } = block_on(typeset(&src, state, Rc::clone(loader)));
 
-    if !diagnostics.is_empty() {
-        diagnostics.sort();
+    if !diags.is_empty() {
+        diags.sort();
 
         let map = LineMap::new(&src);
-        for diagnostic in diagnostics {
-            let span = diagnostic.span;
+        for diag in diags {
+            let span = diag.span;
             let start = map.location(span.start);
             let end = map.location(span.end);
-
             println!(
                 "  {}: {}:{}-{}: {}",
-                diagnostic.v.level,
+                diag.v.level,
                 src_path.display(),
                 start,
                 end,
-                diagnostic.v.message,
+                diag.v.message,
             );
         }
     }

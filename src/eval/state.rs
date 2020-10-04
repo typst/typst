@@ -75,7 +75,7 @@ impl TextState {
     }
 
     /// The absolute paragraph spacing.
-    pub fn paragraph_spacing(&self) -> f64 {
+    pub fn par_spacing(&self) -> f64 {
         self.par_spacing.eval(self.font_size())
     }
 }

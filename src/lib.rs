@@ -22,7 +22,7 @@
 //! [`MultiLayout`]: layout/type.MultiLayout.html
 
 #[macro_use]
-pub mod diagnostic;
+pub mod diag;
 
 pub mod color;
 pub mod eval;
@@ -42,11 +42,11 @@ use std::fmt::Debug;
 use std::future::Future;
 use std::pin::Pin;
 
-use crate::diagnostic::Diagnostic;
+use crate::diag::Diag;
 use crate::eval::State;
 use crate::font::SharedFontLoader;
 use crate::layout::BoxLayout;
-use crate::syntax::{Decoration, Offset, Pos, SpanVec};
+use crate::syntax::{Deco, Offset, Pos, SpanVec};
 
 /// Process source code directly into a collection of layouts.
 pub async fn typeset(
@@ -97,15 +97,15 @@ impl<T> Pass<T> {
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Feedback {
     /// Diagnostics about the source code.
-    pub diagnostics: SpanVec<Diagnostic>,
+    pub diags: SpanVec<Diag>,
     /// Decorations of the source code for semantic syntax highlighting.
-    pub decorations: SpanVec<Decoration>,
+    pub decos: SpanVec<Deco>,
 }
 
 impl Feedback {
     /// Create a new feedback instance without errors and decos.
     pub fn new() -> Self {
-        Self { diagnostics: vec![], decorations: vec![] }
+        Self { diags: vec![], decos: vec![] }
     }
 
     /// Merged two feedbacks into one.
@@ -116,14 +116,14 @@ impl Feedback {
 
     /// Add other feedback data to this feedback.
     pub fn extend(&mut self, more: Self) {
-        self.diagnostics.extend(more.diagnostics);
-        self.decorations.extend(more.decorations);
+        self.diags.extend(more.diags);
+        self.decos.extend(more.decos);
     }
 
     /// Add more feedback whose spans are local and need to be offset by an
     /// `offset` to be correct in this feedback's context.
     pub fn extend_offset(&mut self, more: Self, offset: Pos) {
-        self.diagnostics.extend(more.diagnostics.offset(offset));
-        self.decorations.extend(more.decorations.offset(offset));
+        self.diags.extend(more.diags.offset(offset));
+        self.decos.extend(more.decos.offset(offset));
     }
 }

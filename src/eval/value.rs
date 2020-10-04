@@ -530,10 +530,7 @@ mod tests {
             dict.expect::<String>("", Span::ZERO, &mut f),
             Some("hi".to_string())
         );
-        assert_eq!(f.diagnostics, [error!(
-            Span::ZERO,
-            "expected string, found bool"
-        )]);
+        assert_eq!(f.diags, [error!(Span::ZERO, "expected string, found bool")]);
         assert_eq!(dict.len(), 1);
     }
 
@@ -545,10 +542,7 @@ mod tests {
         dict.insert("hi", entry(Value::Bool(true)));
         assert_eq!(dict.take::<bool>(), Some(false));
         assert_eq!(dict.take_key::<f64>("hi", &mut f), None);
-        assert_eq!(f.diagnostics, [error!(
-            Span::ZERO,
-            "expected float, found bool"
-        )]);
+        assert_eq!(f.diags, [error!(Span::ZERO, "expected float, found bool")]);
         assert!(dict.is_empty());
     }
 

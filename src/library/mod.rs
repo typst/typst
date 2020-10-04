@@ -22,15 +22,9 @@ macro_rules! std {
         /// Create a scope with all standard library functions.
         pub fn _std() -> Scope {
             let mut std = Scope::new();
-            $(std.insert($name, wrap!($func));)*
+            $(std.set($name, ValueFunc::new(|args, ctx| Box::pin($func(args, ctx))));)*
             std
         }
-    };
-}
-
-macro_rules! wrap {
-    ($func:expr) => {
-        ValueFunc::new(|args, ctx| Box::pin($func(args, ctx)))
     };
 }
 

@@ -18,14 +18,14 @@ impl Scope {
         Self { functions: HashMap::new() }
     }
 
-    /// Associate the given name with the function.
-    pub fn insert(&mut self, name: impl Into<String>, function: ValueFunc) {
-        self.functions.insert(name.into(), function);
+    /// Return the function with the given name if there is one.
+    pub fn get(&self, name: &str) -> Option<&ValueFunc> {
+        self.functions.get(name)
     }
 
-    /// Return the function with the given name if there is one.
-    pub fn func(&self, name: &str) -> Option<&ValueFunc> {
-        self.functions.get(name)
+    /// Associate the given name with the function.
+    pub fn set(&mut self, name: impl Into<String>, function: ValueFunc) {
+        self.functions.insert(name.into(), function);
     }
 }
 

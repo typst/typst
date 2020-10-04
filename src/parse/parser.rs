@@ -1,8 +1,8 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::{Scanner, TokenMode, Tokens};
-use crate::diagnostic::Diagnostic;
-use crate::syntax::{Decoration, Pos, Span, SpanWith, Spanned, Token};
+use crate::diag::Diag;
+use crate::syntax::{Deco, Pos, Span, SpanWith, Spanned, Token};
 use crate::Feedback;
 
 /// A convenient token-based parser.
@@ -34,8 +34,8 @@ impl<'s> Parser<'s> {
     }
 
     /// Add a diagnostic to the feedback.
-    pub fn diag(&mut self, diag: Spanned<Diagnostic>) {
-        self.f.diagnostics.push(diag);
+    pub fn diag(&mut self, diag: Spanned<Diag>) {
+        self.f.diags.push(diag);
     }
 
     /// Eat the next token and add a diagnostic that it was not the expected
@@ -66,8 +66,8 @@ impl<'s> Parser<'s> {
     }
 
     /// Add a decoration to the feedback.
-    pub fn deco(&mut self, deco: Spanned<Decoration>) {
-        self.f.decorations.push(deco);
+    pub fn deco(&mut self, deco: Spanned<Deco>) {
+        self.f.decos.push(deco);
     }
 
     /// Update the token mode and push the previous mode onto a stack.

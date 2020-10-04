@@ -246,7 +246,7 @@ fn dict_contents(p: &mut Parser) -> (LitDict, bool) {
 
         if let Some(key) = &entry.key {
             comma_and_keyless = false;
-            p.deco(Decoration::DictKey.span_with(key.span));
+            p.deco(Deco::DictKey.span_with(key.span));
         }
 
         let behind = entry.expr.span.end;

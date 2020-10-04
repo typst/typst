@@ -4,7 +4,7 @@ use super::*;
 use crate::eval::Eval;
 use crate::shaping;
 use crate::syntax::{
-    Decoration, Expr, NodeHeading, NodeRaw, Span, SpanWith, Spanned, SynNode, SynTree,
+    Deco, Expr, NodeHeading, NodeRaw, Span, SpanWith, Spanned, SynNode, SynTree,
 };
 use crate::DynFuture;
 
@@ -52,18 +52,18 @@ impl<'a> TreeLayouter<'a> {
     }
 
     async fn layout_node(&mut self, node: &Spanned<SynNode>) {
-        let decorate = |this: &mut Self, deco: Decoration| {
-            this.ctx.f.decorations.push(deco.span_with(node.span));
+        let decorate = |this: &mut Self, deco: Deco| {
+            this.ctx.f.decos.push(deco.span_with(node.span));
         };
 
         match &node.v {
             SynNode::Space => self.layout_space(),
             SynNode::Text(text) => {
                 if self.ctx.state.text.emph {
-                    decorate(self, Decoration::Emph);
+                    decorate(self, Deco::Emph);
                 }
                 if self.ctx.state.text.strong {
-                    decorate(self, Decoration::Strong);
+                    decorate(self, Deco::Strong);
                 }
                 self.layout_text(text).await;
             }
@@ -72,11 +72,11 @@ impl<'a> TreeLayouter<'a> {
             SynNode::Parbreak => self.layout_parbreak(),
             SynNode::Emph => {
                 self.ctx.state.text.emph ^= true;
-                decorate(self, Decoration::Emph);
+                decorate(self, Deco::Emph);
             }
             SynNode::Strong => {
                 self.ctx.state.text.strong ^= true;
-                decorate(self, Decoration::Strong);
+                decorate(self, Deco::Strong);
             }
 
             SynNode::Heading(heading) => self.layout_heading(heading).await,
@@ -95,7 +95,7 @@ impl<'a> TreeLayouter<'a> {
 
     fn layout_parbreak(&mut self) {
         self.layouter.add_secondary_spacing(
-            self.ctx.state.text.paragraph_spacing(),
+            self.ctx.state.text.par_spacing(),
             SpacingKind::PARAGRAPH,
         );
     }
@@ -188,7 +188,7 @@ impl<'a> TreeLayouter<'a> {
                 } else {
                     error!(
                         @self.ctx.f, span,
-                        "page break cannot only be issued from root context",
+                        "page break can only be issued from root context",
                     );
                 }
             }
@@ -214,7 +214,7 @@ impl<'a> TreeLayouter<'a> {
                 } else {
                     error!(
                         @self.ctx.f, span,
-                        "page style cannot only be changed from root context",
+                        "page style can only be changed from root context",
                     );
                 }
             }

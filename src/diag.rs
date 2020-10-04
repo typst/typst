@@ -1,15 +1,15 @@
 //! Diagnostics for source code.
 //!
 //! There are no fatal errors. The document will always compile and yield a
-//! layout on a best effort process, generating diagnostics for incorrect
-//! things.
+//! layout on a best effort process, but diagnostics are nevertheless generated
+//! for incorrect things.
 
 use std::fmt::{self, Display, Formatter};
 
 /// A diagnostic that arose in parsing or layouting.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
-pub struct Diagnostic {
+pub struct Diag {
     /// How severe / important the diagnostic is.
     pub level: Level,
     /// A message describing the diagnostic.
@@ -25,10 +25,10 @@ pub enum Level {
     Error,
 }
 
-impl Diagnostic {
+impl Diag {
     /// Create a new diagnostic from message and level.
-    pub fn new(message: impl Into<String>, level: Level) -> Self {
-        Self { message: message.into(), level }
+    pub fn new(level: Level, message: impl Into<String>) -> Self {
+        Self { level, message: message.into() }
     }
 }
 
@@ -64,7 +64,7 @@ impl Display for Level {
 #[macro_export]
 macro_rules! error {
     ($($tts:tt)*) => {
-        $crate::__impl_diagnostic!($crate::diagnostic::Level::Error; $($tts)*)
+        $crate::__impl_diagnostic!($crate::diag::Level::Error; $($tts)*)
     };
 }
 
@@ -77,7 +77,7 @@ macro_rules! error {
 #[macro_export]
 macro_rules! warning {
     ($($tts:tt)*) => {
-        $crate::__impl_diagnostic!($crate::diagnostic::Level::Warning; $($tts)*)
+        $crate::__impl_diagnostic!($crate::diag::Level::Warning; $($tts)*)
     };
 }
 
@@ -86,11 +86,11 @@ macro_rules! warning {
 #[doc(hidden)]
 macro_rules! __impl_diagnostic {
     ($level:expr; @$feedback:expr, $($tts:tt)*) => {
-        $feedback.diagnostics.push($crate::__impl_diagnostic!($level; $($tts)*));
+        $feedback.diags.push($crate::__impl_diagnostic!($level; $($tts)*));
     };
 
     ($level:expr; $fmt:literal $($tts:tt)*) => {
-        $crate::diagnostic::Diagnostic::new(format!($fmt $($tts)*), $level)
+        $crate::diag::Diag::new($level, format!($fmt $($tts)*))
     };
 
     ($level:expr; $span:expr, $fmt:literal $($tts:tt)*) => {

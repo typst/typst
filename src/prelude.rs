@@ -2,9 +2,8 @@
 
 #[doc(no_inline)]
 pub use crate::eval::{Dict, Value, ValueDict};
-pub use crate::layout::primitive::*;
 #[doc(no_inline)]
-pub use crate::layout::{layout_tree, Command, LayoutContext};
+pub use crate::layout::{layout_tree, primitive::*, Command, LayoutContext};
 #[doc(no_inline)]
 pub use crate::syntax::{Span, Spanned, SynTree};
 pub use crate::{Feedback, Pass};

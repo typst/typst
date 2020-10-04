@@ -12,7 +12,7 @@ use crate::syntax::*;
 
 // ------------------------------ Construct Syntax Nodes ------------------------------ //
 
-use Decoration::*;
+use Deco::*;
 use SynNode::{Emph as E, Linebreak as L, Parbreak as P, Space as S, Strong as B};
 
 fn T(text: &str) -> SynNode {
@@ -160,7 +160,7 @@ macro_rules! e {
     ($src:expr => $($tts:tt)*) => {
         let exp = vec![$($tts)*];
         let pass = parse($src);
-        let found = pass.feedback.diagnostics.iter()
+        let found = pass.feedback.diags.iter()
             .map(|s| s.as_ref().map(|e| e.message.as_str()))
             .collect::<Vec<_>>();
         check($src, exp, found, true);
@@ -172,7 +172,7 @@ macro_rules! d {
     ($src:expr => $($tts:tt)*) => {
         let exp = vec![$($tts)*];
         let pass = parse($src);
-        check($src, exp, pass.feedback.decorations, true);
+        check($src, exp, pass.feedback.decos, true);
     };
 }
 

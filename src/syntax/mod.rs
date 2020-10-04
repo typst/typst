@@ -15,7 +15,7 @@ pub use token::*;
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 #[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
-pub enum Decoration {
+pub enum Deco {
     /// Emphasized text.
     Emph,
     /// Strong text.
