@@ -12,7 +12,7 @@ use crate::geom::Linear;
 use crate::layout::{Command, Commands, Dir, LayoutContext, SpecAlign};
 use crate::paper::Paper;
 use crate::syntax::{Ident, Span, SpanWith, Spanned, SynNode, SynTree};
-use crate::{DynFuture, Feedback, Pass};
+use crate::{DynFuture, Feedback};
 
 /// A computational value.
 #[derive(Clone, PartialEq)]
@@ -149,13 +149,13 @@ impl Debug for Value {
 pub struct FuncValue(pub Rc<FuncType>);
 
 /// The signature of executable functions.
-type FuncType = dyn Fn(Span, DictValue, LayoutContext<'_>) -> DynFuture<Pass<Value>>;
+type FuncType = dyn Fn(DictValue, &mut LayoutContext) -> DynFuture<Value>;
 
 impl FuncValue {
     /// Create a new function value from a rust function or closure.
     pub fn new<F: 'static>(f: F) -> Self
     where
-        F: Fn(Span, DictValue, LayoutContext<'_>) -> DynFuture<Pass<Value>>,
+        F: Fn(DictValue, &mut LayoutContext) -> DynFuture<Value>,
     {
         Self(Rc::new(f))
     }

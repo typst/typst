@@ -5,6 +5,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use fontdock::fs::{FsIndex, FsProvider};
 use futures_executor::block_on;
 
+use typstc::eval::State;
 use typstc::font::FontLoader;
 use typstc::parse::parse;
 use typstc::typeset;
@@ -25,10 +26,9 @@ fn typesetting_benchmark(c: &mut Criterion) {
     let loader = FontLoader::new(Box::new(provider), descriptors);
     let loader = Rc::new(RefCell::new(loader));
 
-    let style = Default::default();
-    let scope = typstc::library::_std();
+    let state = State::default();
     c.bench_function("typeset-coma", |b| {
-        b.iter(|| block_on(typeset(COMA, &style, &scope, Rc::clone(&loader))))
+        b.iter(|| block_on(typeset(COMA, state.clone(), Rc::clone(&loader))))
     });
 }
 

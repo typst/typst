@@ -15,36 +15,40 @@ pub use tree::*;
 
 use crate::geom::{Insets, Point, Rect, RectExt, Sides, Size, SizeExt};
 
-use crate::eval::Scope;
+use crate::eval::{PageState, State, TextState};
 use crate::font::SharedFontLoader;
-use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::syntax::SynTree;
-use crate::Pass;
+use crate::{Feedback, Pass};
 
 /// Layout a syntax tree and return the produced layout.
 pub async fn layout(
     tree: &SynTree,
-    style: &LayoutStyle,
-    scope: &Scope,
+    state: State,
     loader: SharedFontLoader,
 ) -> Pass<MultiLayout> {
     let space = LayoutSpace {
-        size: style.page.size,
-        insets: style.page.insets(),
+        size: state.page.size,
+        insets: state.page.insets(),
         expansion: LayoutExpansion::new(true, true),
     };
-    tree::layout_tree(&tree, LayoutContext {
-        loader,
-        scope,
-        style,
+
+    let constraints = LayoutConstraints {
+        root: true,
         base: space.usable(),
         spaces: vec![space],
         repeat: true,
-        sys: LayoutSystem::new(Dir::LTR, Dir::TTB),
-        align: LayoutAlign::new(GenAlign::Start, GenAlign::Start),
-        root: true,
-    })
-    .await
+    };
+
+    let mut ctx = LayoutContext {
+        loader,
+        state,
+        constraints,
+        f: Feedback::new(),
+    };
+
+    let layouts = layout_tree(&tree, &mut ctx).await;
+
+    Pass::new(layouts, ctx.f)
 }
 
 /// A collection of layouts.
@@ -63,13 +67,22 @@ pub struct BoxLayout {
 
 /// The context for layouting.
 #[derive(Debug, Clone)]
-pub struct LayoutContext<'a> {
+pub struct LayoutContext {
     /// The font loader to query fonts from when typesetting text.
     pub loader: SharedFontLoader,
-    /// The function scope.
-    pub scope: &'a Scope,
-    /// The style for pages and text.
-    pub style: &'a LayoutStyle,
+    /// The active state.
+    pub state: State,
+    /// The active constraints.
+    pub constraints: LayoutConstraints,
+    /// The accumulated feedback.
+    pub f: Feedback,
+}
+
+/// The constraints for layouting a single node.
+#[derive(Debug, Clone)]
+pub struct LayoutConstraints {
+    /// Whether this layouting process is the root page-building process.
+    pub root: bool,
     /// The unpadded size of this container (the base 100% for relative sizes).
     pub base: Size,
     /// The spaces to layout into.
@@ -77,14 +90,6 @@ pub struct LayoutContext<'a> {
     /// Whether to spill over into copies of the last space or finish layouting
     /// when the last space is used up.
     pub repeat: bool,
-    /// The system into which content is laid out.
-    pub sys: LayoutSystem,
-    /// The alignment of the _resulting_ layout. This does not effect the line
-    /// layouting itself, but rather how the finished layout will be positioned
-    /// in a parent layout.
-    pub align: LayoutAlign,
-    /// Whether this layouting process is the root page-building process.
-    pub root: bool,
 }
 
 /// A collection of layout spaces.
@@ -156,9 +161,9 @@ pub enum Command {
     BreakPage,
 
     /// Update the text style.
-    SetTextStyle(TextStyle),
+    SetTextState(TextState),
     /// Update the page style.
-    SetPageStyle(PageStyle),
+    SetPageState(PageState),
 
     /// Update the alignment for future boxes added to this layouting process.
     SetAlignment(LayoutAlign),

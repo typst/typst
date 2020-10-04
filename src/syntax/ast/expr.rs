@@ -3,7 +3,7 @@
 use crate::eval::Value;
 use crate::layout::LayoutContext;
 use crate::syntax::{Decoration, Ident, Lit, LitDict, SpanWith, Spanned};
-use crate::{DynFuture, Feedback};
+use crate::DynFuture;
 
 /// An expression.
 #[derive(Debug, Clone, PartialEq)]
@@ -20,17 +20,13 @@ pub enum Expr {
 
 impl Expr {
     /// Evaluate the expression to a value.
-    pub fn eval<'a>(
-        &'a self,
-        ctx: &'a LayoutContext<'a>,
-        f: &'a mut Feedback,
-    ) -> DynFuture<'a, Value> {
+    pub fn eval<'a>(&'a self, ctx: &'a mut LayoutContext) -> DynFuture<'a, Value> {
         Box::pin(async move {
             match self {
-                Self::Lit(lit) => lit.eval(ctx, f).await,
-                Self::Unary(unary) => unary.eval(ctx, f).await,
-                Self::Binary(binary) => binary.eval(ctx, f).await,
-                Self::Call(call) => call.eval(ctx, f).await,
+                Self::Lit(lit) => lit.eval(ctx).await,
+                Self::Unary(unary) => unary.eval(ctx).await,
+                Self::Binary(binary) => binary.eval(ctx).await,
+                Self::Call(call) => call.eval(ctx).await,
             }
         })
     }
@@ -47,10 +43,10 @@ pub struct ExprUnary {
 
 impl ExprUnary {
     /// Evaluate the expression to a value.
-    pub async fn eval(&self, ctx: &LayoutContext<'_>, f: &mut Feedback) -> Value {
+    pub async fn eval(&self, ctx: &mut LayoutContext) -> Value {
         use Value::*;
 
-        let value = self.expr.v.eval(ctx, f).await;
+        let value = self.expr.v.eval(ctx).await;
         if value == Error {
             return Error;
         }
@@ -64,7 +60,7 @@ impl ExprUnary {
                 Relative(x) => Relative(-x),
                 Linear(x) => Linear(-x),
                 v => {
-                    error!(@f, span, "cannot negate {}", v.name());
+                    error!(@ctx.f, span, "cannot negate {}", v.name());
                     Value::Error
                 }
             },
@@ -92,12 +88,12 @@ pub struct ExprBinary {
 
 impl ExprBinary {
     /// Evaluate the expression to a value.
-    pub async fn eval(&self, ctx: &LayoutContext<'_>, f: &mut Feedback) -> Value {
+    pub async fn eval(&self, ctx: &mut LayoutContext) -> Value {
         use crate::geom::Linear as Lin;
         use Value::*;
 
-        let lhs = self.lhs.v.eval(ctx, f).await;
-        let rhs = self.rhs.v.eval(ctx, f).await;
+        let lhs = self.lhs.v.eval(ctx).await;
+        let rhs = self.rhs.v.eval(ctx).await;
 
         if lhs == Error || rhs == Error {
             return Error;
@@ -131,7 +127,7 @@ impl ExprBinary {
                 (Commands(a), Commands(b)) => Commands(concat(a, b)),
 
                 (a, b) => {
-                    error!(@f, span, "cannot add {} and {}", a.name(), b.name());
+                    error!(@ctx.f, span, "cannot add {} and {}", a.name(), b.name());
                     Value::Error
                 }
             },
@@ -155,7 +151,7 @@ impl ExprBinary {
                 (Linear(a), Linear(b)) => Linear(a - b),
 
                 (a, b) => {
-                    error!(@f, span, "cannot subtract {1} from {0}", a.name(), b.name());
+                    error!(@ctx.f, span, "cannot subtract {1} from {0}", a.name(), b.name());
                     Value::Error
                 }
             },
@@ -186,7 +182,7 @@ impl ExprBinary {
                 (Str(a), Int(b)) => Str(a.repeat(b.max(0) as usize)),
 
                 (a, b) => {
-                    error!(@f, span, "cannot multiply {} with {}", a.name(), b.name());
+                    error!(@ctx.f, span, "cannot multiply {} with {}", a.name(), b.name());
                     Value::Error
                 }
             },
@@ -207,7 +203,7 @@ impl ExprBinary {
                 (Linear(a), Float(b)) => Linear(a / b),
 
                 (a, b) => {
-                    error!(@f, span, "cannot divide {} by {}", a.name(), b.name());
+                    error!(@ctx.f, span, "cannot divide {} by {}", a.name(), b.name());
                     Value::Error
                 }
             },
@@ -248,20 +244,18 @@ pub struct ExprCall {
 
 impl ExprCall {
     /// Evaluate the call expression to a value.
-    pub async fn eval(&self, ctx: &LayoutContext<'_>, f: &mut Feedback) -> Value {
+    pub async fn eval(&self, ctx: &mut LayoutContext) -> Value {
         let name = &self.name.v;
         let span = self.name.span;
-        let args = self.args.eval(ctx, f).await;
+        let args = self.args.eval(ctx).await;
 
-        if let Some(func) = ctx.scope.func(name) {
-            let pass = func(span, args, ctx.clone()).await;
-            f.extend(pass.feedback);
-            f.decorations.push(Decoration::Resolved.span_with(span));
-            pass.output
+        if let Some(func) = ctx.state.scope.func(name) {
+            ctx.f.decorations.push(Decoration::Resolved.span_with(span));
+            (func.clone())(args, ctx).await
         } else {
             if !name.is_empty() {
-                error!(@f, span, "unknown function");
-                f.decorations.push(Decoration::Unresolved.span_with(span));
+                error!(@ctx.f, span, "unknown function");
+                ctx.f.decorations.push(Decoration::Unresolved.span_with(span));
             }
             Value::Dict(args)
         }

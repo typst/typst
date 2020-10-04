@@ -11,6 +11,7 @@ use futures_executor::block_on;
 use raqote::{DrawTarget, PathBuilder, SolidSource, Source, Transform, Vector};
 use ttf_parser::OutlineBuilder;
 
+use typstc::eval::State;
 use typstc::export::pdf;
 use typstc::font::{FontLoader, SharedFontLoader};
 use typstc::geom::{Point, Vec2};
@@ -69,12 +70,11 @@ fn main() {
 fn test(name: &str, src: &str, src_path: &Path, loader: &SharedFontLoader) {
     println!("Testing {}.", name);
 
-    let style = Default::default();
-    let scope = typstc::library::_std();
+    let state = State::default();
     let Pass {
         output: layouts,
         feedback: Feedback { mut diagnostics, .. },
-    } = block_on(typeset(&src, &style, &scope, Rc::clone(loader)));
+    } = block_on(typeset(&src, state, Rc::clone(loader)));
 
     if !diagnostics.is_empty() {
         diagnostics.sort();

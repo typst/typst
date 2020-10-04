@@ -6,35 +6,26 @@ use crate::layout::SpacingKind;
 ///
 /// # Positional arguments
 /// - The spacing (length or relative to font size).
-pub async fn h(name: Span, args: DictValue, ctx: LayoutContext<'_>) -> Pass<Value> {
-    spacing(name, args, ctx, SpecAxis::Horizontal)
+pub async fn h(args: DictValue, ctx: &mut LayoutContext) -> Value {
+    spacing(args, ctx, SpecAxis::Horizontal)
 }
 
 /// `v`: Add vertical spacing.
 ///
 /// # Positional arguments
 /// - The spacing (length or relative to font size).
-pub async fn v(name: Span, args: DictValue, ctx: LayoutContext<'_>) -> Pass<Value> {
-    spacing(name, args, ctx, SpecAxis::Vertical)
+pub async fn v(args: DictValue, ctx: &mut LayoutContext) -> Value {
+    spacing(args, ctx, SpecAxis::Vertical)
 }
 
-fn spacing(
-    name: Span,
-    mut args: DictValue,
-    ctx: LayoutContext<'_>,
-    axis: SpecAxis,
-) -> Pass<Value> {
-    let mut f = Feedback::new();
-
-    let spacing = args.expect::<Linear>("spacing", name, &mut f);
-    let commands = if let Some(spacing) = spacing {
-        let axis = axis.to_gen(ctx.sys);
-        let spacing = spacing.eval(ctx.style.text.font_size());
+fn spacing(mut args: DictValue, ctx: &mut LayoutContext, axis: SpecAxis) -> Value {
+    let spacing = args.expect::<Linear>("spacing", Span::ZERO, &mut ctx.f);
+    args.unexpected(&mut ctx.f);
+    Value::Commands(if let Some(spacing) = spacing {
+        let axis = axis.to_gen(ctx.state.sys);
+        let spacing = spacing.eval(ctx.state.text.font_size());
         vec![AddSpacing(spacing, SpacingKind::Hard, axis)]
     } else {
         vec![]
-    };
-
-    args.unexpected(&mut f);
-    Pass::commands(commands, f)
+    })
 }

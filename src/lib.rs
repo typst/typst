@@ -36,7 +36,6 @@ pub mod paper;
 pub mod parse;
 pub mod prelude;
 pub mod shaping;
-pub mod style;
 pub mod syntax;
 
 use std::fmt::Debug;
@@ -44,21 +43,19 @@ use std::future::Future;
 use std::pin::Pin;
 
 use crate::diagnostic::Diagnostic;
-use crate::eval::{Scope, Value};
+use crate::eval::{State, Value};
 use crate::font::SharedFontLoader;
 use crate::layout::{Commands, MultiLayout};
-use crate::style::LayoutStyle;
 use crate::syntax::{Decoration, Offset, Pos, SpanVec};
 
 /// Process source code directly into a collection of layouts.
 pub async fn typeset(
     src: &str,
-    style: &LayoutStyle,
-    scope: &Scope,
+    state: State,
     loader: SharedFontLoader,
 ) -> Pass<MultiLayout> {
     let parsed = parse::parse(src);
-    let layouted = layout::layout(&parsed.output, style, scope, loader).await;
+    let layouted = layout::layout(&parsed.output, state, loader).await;
     let feedback = Feedback::merge(parsed.feedback, layouted.feedback);
     Pass::new(layouted.output, feedback)
 }

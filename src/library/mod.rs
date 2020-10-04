@@ -30,7 +30,7 @@ macro_rules! std {
 
 macro_rules! wrap {
     ($func:expr) => {
-        FuncValue::new(|name, args, ctx| Box::pin($func(name, args, ctx)))
+        FuncValue::new(|args, ctx| Box::pin($func(args, ctx)))
     };
 }
 

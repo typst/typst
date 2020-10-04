@@ -7,6 +7,7 @@ use std::rc::Rc;
 use fontdock::fs::{FsIndex, FsProvider};
 use futures_executor::block_on;
 
+use typstc::eval::State;
 use typstc::export::pdf;
 use typstc::font::FontLoader;
 use typstc::parse::LineMap;
@@ -41,12 +42,11 @@ fn main() {
     let loader = FontLoader::new(Box::new(provider), descriptors);
     let loader = Rc::new(RefCell::new(loader));
 
-    let style = Default::default();
-    let scope = typstc::library::_std();
+    let state = State::default();
     let Pass {
         output: layouts,
         feedback: Feedback { mut diagnostics, .. },
-    } = block_on(typeset(&src, &style, &scope, Rc::clone(&loader)));
+    } = block_on(typeset(&src, state, Rc::clone(&loader)));
 
     if !diagnostics.is_empty() {
         diagnostics.sort();

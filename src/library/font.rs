@@ -49,9 +49,8 @@ use crate::geom::Linear;
 ///   ```typst
 ///   [font: "My Serif", serif]
 ///   ```
-pub async fn font(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass<Value> {
-    let mut f = Feedback::new();
-    let mut text = ctx.style.text.clone();
+pub async fn font(mut args: DictValue, ctx: &mut LayoutContext) -> Value {
+    let mut text = ctx.state.text.clone();
     let mut updated_fallback = false;
 
     let content = args.take::<SynTree>();
@@ -75,15 +74,15 @@ pub async fn font(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass<
         updated_fallback = true;
     }
 
-    if let Some(style) = args.take_key::<FontStyle>("style", &mut f) {
+    if let Some(style) = args.take_key::<FontStyle>("style", &mut ctx.f) {
         text.variant.style = style;
     }
 
-    if let Some(weight) = args.take_key::<FontWeight>("weight", &mut f) {
+    if let Some(weight) = args.take_key::<FontWeight>("weight", &mut ctx.f) {
         text.variant.weight = weight;
     }
 
-    if let Some(stretch) = args.take_key::<FontStretch>("stretch", &mut f) {
+    if let Some(stretch) = args.take_key::<FontStretch>("stretch", &mut ctx.f) {
         text.variant.stretch = stretch;
     }
 
@@ -101,15 +100,13 @@ pub async fn font(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass<
         text.fallback.flatten();
     }
 
-    let commands = match content {
+    args.unexpected(&mut ctx.f);
+    Value::Commands(match content {
         Some(tree) => vec![
-            SetTextStyle(text),
+            SetTextState(text),
             LayoutSyntaxTree(tree),
-            SetTextStyle(ctx.style.text.clone()),
+            SetTextState(ctx.state.text.clone()),
         ],
-        None => vec![SetTextStyle(text)],
-    };
-
-    args.unexpected(&mut f);
-    Pass::commands(commands, f)
+        None => vec![SetTextState(text)],
+    })
 }

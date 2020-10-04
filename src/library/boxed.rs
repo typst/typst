@@ -6,37 +6,32 @@ use crate::geom::Linear;
 /// # Keyword arguments
 /// - `width`: The width of the box (length or relative to parent's width).
 /// - `height`: The height of the box (length or relative to parent's height).
-pub async fn boxed(
-    _: Span,
-    mut args: DictValue,
-    mut ctx: LayoutContext<'_>,
-) -> Pass<Value> {
-    let mut f = Feedback::new();
-
+pub async fn boxed(mut args: DictValue, ctx: &mut LayoutContext) -> Value {
     let content = args.take::<SynTree>().unwrap_or_default();
 
-    ctx.base = ctx.spaces[0].size;
-    ctx.spaces.truncate(1);
-    ctx.repeat = false;
+    let constraints = &mut ctx.constraints;
+    constraints.base = constraints.spaces[0].size;
+    constraints.spaces.truncate(1);
+    constraints.repeat = false;
 
-    if let Some(width) = args.take_key::<Linear>("width", &mut f) {
-        let abs = width.eval(ctx.base.width);
-        ctx.base.width = abs;
-        ctx.spaces[0].size.width = abs;
-        ctx.spaces[0].expansion.horizontal = true;
+    if let Some(width) = args.take_key::<Linear>("width", &mut ctx.f) {
+        let abs = width.eval(constraints.base.width);
+        constraints.base.width = abs;
+        constraints.spaces[0].size.width = abs;
+        constraints.spaces[0].expansion.horizontal = true;
     }
 
-    if let Some(height) = args.take_key::<Linear>("height", &mut f) {
-        let abs = height.eval(ctx.base.height);
-        ctx.base.height = abs;
-        ctx.spaces[0].size.height = abs;
-        ctx.spaces[0].expansion.vertical = true;
+    if let Some(height) = args.take_key::<Linear>("height", &mut ctx.f) {
+        let abs = height.eval(constraints.base.height);
+        constraints.base.height = abs;
+        constraints.spaces[0].size.height = abs;
+        constraints.spaces[0].expansion.vertical = true;
     }
+
+    args.unexpected(&mut ctx.f);
 
     let layouted = layout_tree(&content, ctx).await;
-    let layout = layouted.output.into_iter().next().unwrap();
-    f.extend(layouted.feedback);
+    let layout = layouted.into_iter().next().unwrap();
 
-    args.unexpected(&mut f);
-    Pass::commands(vec![Add(layout)], f)
+    Value::Commands(vec![Add(layout)])
 }

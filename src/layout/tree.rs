@@ -1,48 +1,45 @@
 //! Layouting of syntax trees.
 
-use std::rc::Rc;
-
 use super::*;
 use crate::shaping;
-use crate::style::LayoutStyle;
 use crate::syntax::{
     Decoration, Expr, NodeHeading, NodeRaw, Span, SpanWith, Spanned, SynNode, SynTree,
 };
-use crate::{DynFuture, Feedback, Pass};
+use crate::DynFuture;
 
 /// Layout a syntax tree in a given context.
-pub async fn layout_tree(tree: &SynTree, ctx: LayoutContext<'_>) -> Pass<MultiLayout> {
+pub async fn layout_tree(tree: &SynTree, ctx: &mut LayoutContext) -> MultiLayout {
     let mut layouter = TreeLayouter::new(ctx);
     layouter.layout_tree(tree).await;
     layouter.finish()
 }
 
-/// Performs the tree layouting.
+/// Layouts trees.
 struct TreeLayouter<'a> {
-    ctx: LayoutContext<'a>,
+    ctx: &'a mut LayoutContext,
+    constraints: LayoutConstraints,
     layouter: LineLayouter,
-    style: LayoutStyle,
-    feedback: Feedback,
 }
 
 impl<'a> TreeLayouter<'a> {
-    fn new(ctx: LayoutContext<'a>) -> Self {
+    fn new(ctx: &'a mut LayoutContext) -> Self {
+        let layouter = LineLayouter::new(LineContext {
+            spaces: ctx.constraints.spaces.clone(),
+            sys: ctx.state.sys,
+            align: ctx.state.align,
+            repeat: ctx.constraints.repeat,
+            line_spacing: ctx.state.text.line_spacing(),
+        });
+
         Self {
-            layouter: LineLayouter::new(LineContext {
-                spaces: ctx.spaces.clone(),
-                sys: ctx.sys,
-                align: ctx.align,
-                repeat: ctx.repeat,
-                line_spacing: ctx.style.text.line_spacing(),
-            }),
-            style: ctx.style.clone(),
+            layouter,
+            constraints: ctx.constraints.clone(),
             ctx,
-            feedback: Feedback::new(),
         }
     }
 
-    fn finish(self) -> Pass<MultiLayout> {
-        Pass::new(self.layouter.finish(), self.feedback)
+    fn finish(self) -> MultiLayout {
+        self.layouter.finish()
     }
 
     fn layout_tree<'t>(&'t mut self, tree: &'t SynTree) -> DynFuture<'t, ()> {
@@ -55,16 +52,16 @@ impl<'a> TreeLayouter<'a> {
 
     async fn layout_node(&mut self, node: &Spanned<SynNode>) {
         let decorate = |this: &mut Self, deco: Decoration| {
-            this.feedback.decorations.push(deco.span_with(node.span));
+            this.ctx.f.decorations.push(deco.span_with(node.span));
         };
 
         match &node.v {
             SynNode::Space => self.layout_space(),
             SynNode::Text(text) => {
-                if self.style.text.emph {
+                if self.ctx.state.text.emph {
                     decorate(self, Decoration::Emph);
                 }
-                if self.style.text.strong {
+                if self.ctx.state.text.strong {
                     decorate(self, Decoration::Strong);
                 }
                 self.layout_text(text).await;
@@ -73,11 +70,11 @@ impl<'a> TreeLayouter<'a> {
             SynNode::Linebreak => self.layouter.finish_line(),
             SynNode::Parbreak => self.layout_parbreak(),
             SynNode::Emph => {
-                self.style.text.emph = !self.style.text.emph;
+                self.ctx.state.text.emph ^= true;
                 decorate(self, Decoration::Emph);
             }
             SynNode::Strong => {
-                self.style.text.strong = !self.style.text.strong;
+                self.ctx.state.text.strong ^= true;
                 decorate(self, Decoration::Strong);
             }
 
@@ -92,12 +89,12 @@ impl<'a> TreeLayouter<'a> {
 
     fn layout_space(&mut self) {
         self.layouter
-            .add_primary_spacing(self.style.text.word_spacing(), SpacingKind::WORD);
+            .add_primary_spacing(self.ctx.state.text.word_spacing(), SpacingKind::WORD);
     }
 
     fn layout_parbreak(&mut self) {
         self.layouter.add_secondary_spacing(
-            self.style.text.paragraph_spacing(),
+            self.ctx.state.text.paragraph_spacing(),
             SpacingKind::PARAGRAPH,
         );
     }
@@ -106,9 +103,9 @@ impl<'a> TreeLayouter<'a> {
         self.layouter.add(
             shaping::shape(
                 text,
-                self.ctx.sys.primary,
-                self.ctx.align,
-                &self.style.text,
+                self.ctx.state.sys.primary,
+                self.ctx.state.align,
+                &self.ctx.state.text,
                 &mut self.ctx.loader.borrow_mut(),
             )
             .await,
@@ -116,17 +113,17 @@ impl<'a> TreeLayouter<'a> {
     }
 
     async fn layout_heading(&mut self, heading: &NodeHeading) {
-        let style = self.style.text.clone();
+        let style = self.ctx.state.text.clone();
 
         let factor = 1.5 - 0.1 * heading.level.v as f64;
-        self.style.text.font_size.scale *= factor;
-        self.style.text.strong = true;
+        self.ctx.state.text.font_size.scale *= factor;
+        self.ctx.state.text.strong = true;
 
         self.layout_parbreak();
         self.layout_tree(&heading.contents).await;
         self.layout_parbreak();
 
-        self.style.text = style;
+        self.ctx.state.text = style;
     }
 
     async fn layout_raw(&mut self, raw: &NodeRaw) {
@@ -135,9 +132,9 @@ impl<'a> TreeLayouter<'a> {
         }
 
         // TODO: Make this more efficient.
-        let fallback = self.style.text.fallback.clone();
-        self.style.text.fallback.list.insert(0, "monospace".to_string());
-        self.style.text.fallback.flatten();
+        let fallback = self.ctx.state.text.fallback.clone();
+        self.ctx.state.text.fallback.list.insert(0, "monospace".to_string());
+        self.ctx.state.text.fallback.flatten();
 
         let mut first = true;
         for line in &raw.lines {
@@ -148,7 +145,7 @@ impl<'a> TreeLayouter<'a> {
             self.layout_text(line).await;
         }
 
-        self.style.text.fallback = fallback;
+        self.ctx.state.text.fallback = fallback;
 
         if !raw.inline {
             self.layout_parbreak();
@@ -156,15 +153,15 @@ impl<'a> TreeLayouter<'a> {
     }
 
     async fn layout_expr(&mut self, expr: Spanned<&Expr>) {
-        let ctx = LayoutContext {
-            style: &self.style,
-            spaces: self.layouter.remaining(),
+        self.ctx.constraints = LayoutConstraints {
             root: false,
-            loader: Rc::clone(&self.ctx.loader),
-            ..self.ctx
+            base: self.constraints.base,
+            spaces: self.layouter.remaining(),
+            repeat: self.constraints.repeat,
         };
 
-        let val = expr.v.eval(&ctx, &mut self.feedback).await;
+        let val = expr.v.eval(self.ctx).await;
+
         let commands = val.span_with(expr.span).into_commands();
 
         for command in commands {
@@ -186,23 +183,23 @@ impl<'a> TreeLayouter<'a> {
 
             BreakLine => self.layouter.finish_line(),
             BreakPage => {
-                if self.ctx.root {
+                if self.constraints.root {
                     self.layouter.finish_space(true)
                 } else {
                     error!(
-                        @self.feedback, span,
+                        @self.ctx.f, span,
                         "page break cannot only be issued from root context",
                     );
                 }
             }
 
-            SetTextStyle(style) => {
+            SetTextState(style) => {
                 self.layouter.set_line_spacing(style.line_spacing());
-                self.style.text = style;
+                self.ctx.state.text = style;
             }
-            SetPageStyle(style) => {
-                if self.ctx.root {
-                    self.style.page = style;
+            SetPageState(style) => {
+                if self.constraints.root {
+                    self.ctx.state.page = style;
 
                     // The line layouter has no idea of page styles and thus we
                     // need to recompute the layouting space resulting of the
@@ -212,20 +209,20 @@ impl<'a> TreeLayouter<'a> {
                         insets: style.insets(),
                         expansion: LayoutExpansion::new(true, true),
                     };
-                    self.ctx.base = space.usable();
+                    self.constraints.base = space.usable();
                     self.layouter.set_spaces(vec![space], true);
                 } else {
                     error!(
-                        @self.feedback, span,
+                        @self.ctx.f, span,
                         "page style cannot only be changed from root context",
                     );
                 }
             }
 
-            SetAlignment(align) => self.ctx.align = align,
+            SetAlignment(align) => self.ctx.state.align = align,
             SetSystem(sys) => {
                 self.layouter.set_sys(sys);
-                self.ctx.sys = sys;
+                self.ctx.state.sys = sys;
             }
         }
     }

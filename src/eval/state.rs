@@ -1,23 +1,43 @@
-//! Styles for text and pages.
+//! State.
 
 use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
 
+use super::Scope;
 use crate::geom::{Insets, Linear, Sides, Size};
+use crate::layout::{Dir, GenAlign, LayoutAlign, LayoutSystem};
 use crate::length::Length;
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
-/// Defines properties of pages and text.
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct LayoutStyle {
-    /// The style for text.
-    pub text: TextStyle,
-    /// The style for pages.
-    pub page: PageStyle,
+/// The active evaluation state.
+#[derive(Debug, Clone, PartialEq)]
+pub struct State {
+    /// The scope that contains function definitions.
+    pub scope: Scope,
+    /// The text state.
+    pub text: TextState,
+    /// The page state.
+    pub page: PageState,
+    /// The active layouting system.
+    pub sys: LayoutSystem,
+    /// The active alignments.
+    pub align: LayoutAlign,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            scope: crate::library::_std(),
+            text: TextState::default(),
+            page: PageState::default(),
+            sys: LayoutSystem::new(Dir::LTR, Dir::TTB),
+            align: LayoutAlign::new(GenAlign::Start, GenAlign::Start),
+        }
+    }
 }
 
 /// Defines which fonts to use and how to space text.
 #[derive(Debug, Clone, PartialEq)]
-pub struct TextStyle {
+pub struct TextState {
     /// A tree of font family names and generic class names.
     pub fallback: FallbackTree,
     /// The selected font variant.
@@ -38,7 +58,7 @@ pub struct TextStyle {
     pub par_spacing: Linear,
 }
 
-impl TextStyle {
+impl TextState {
     /// The absolute font size.
     pub fn font_size(&self) -> f64 {
         self.font_size.eval()
@@ -60,7 +80,7 @@ impl TextStyle {
     }
 }
 
-impl Default for TextStyle {
+impl Default for TextState {
     fn default() -> Self {
         Self {
             fallback: fallback! {
@@ -120,7 +140,7 @@ impl FontSize {
 
 /// Defines the size and margins of a page.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct PageStyle {
+pub struct PageState {
     /// The class of this page.
     pub class: PaperClass,
     /// The width and height of the page.
@@ -130,7 +150,7 @@ pub struct PageStyle {
     pub margins: Sides<Option<Linear>>,
 }
 
-impl PageStyle {
+impl PageState {
     /// The default page style for the given paper.
     pub fn new(paper: Paper) -> Self {
         Self {
@@ -153,7 +173,7 @@ impl PageStyle {
     }
 }
 
-impl Default for PageStyle {
+impl Default for PageState {
     fn default() -> Self {
         Self::new(PAPER_A4)
     }

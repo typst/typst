@@ -6,6 +6,7 @@ use std::fmt::{self, Debug, Formatter};
 use super::value::FuncValue;
 
 /// A map from identifiers to functions.
+#[derive(Clone, PartialEq)]
 pub struct Scope {
     functions: HashMap<String, FuncValue>,
 }

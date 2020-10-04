@@ -14,19 +14,17 @@ use super::*;
 /// - `vertical`: Any of `top`, `bottom` or `center`.
 ///
 /// There may not be two alignment specifications for the same axis.
-pub async fn align(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass<Value> {
-    let mut f = Feedback::new();
-
+pub async fn align(mut args: DictValue, ctx: &mut LayoutContext) -> Value {
     let content = args.take::<SynTree>();
-    let h = args.take_key::<Spanned<SpecAlign>>("horizontal", &mut f);
-    let v = args.take_key::<Spanned<SpecAlign>>("vertical", &mut f);
+    let h = args.take_key::<Spanned<SpecAlign>>("horizontal", &mut ctx.f);
+    let v = args.take_key::<Spanned<SpecAlign>>("vertical", &mut ctx.f);
     let all = args
         .take_all_num_vals::<Spanned<SpecAlign>>()
         .map(|align| (align.v.axis(), align))
         .chain(h.into_iter().map(|align| (Some(SpecAxis::Horizontal), align)))
         .chain(v.into_iter().map(|align| (Some(SpecAxis::Vertical), align)));
 
-    let mut aligns = ctx.align;
+    let mut aligns = ctx.state.align;
     let mut had = [false; 2];
     let mut deferred_center = false;
 
@@ -37,19 +35,19 @@ pub async fn align(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass
         if let Some(axis) = axis {
             if align.v.axis().map_or(false, |a| a != axis) {
                 error!(
-                    @f, align.span,
+                    @ctx.f, align.span,
                     "invalid alignment {} for {} axis", align.v, axis,
                 );
             } else if had[axis as usize] {
-                error!(@f, align.span, "duplicate alignment for {} axis", axis);
+                error!(@ctx.f, align.span, "duplicate alignment for {} axis", axis);
             } else {
-                let gen_align = align.v.to_gen(ctx.sys);
-                *aligns.get_mut(axis.to_gen(ctx.sys)) = gen_align;
+                let gen_align = align.v.to_gen(ctx.state.sys);
+                *aligns.get_mut(axis.to_gen(ctx.state.sys)) = gen_align;
                 had[axis as usize] = true;
             }
         } else {
             if had == [true, true] {
-                error!(@f, align.span, "duplicate alignment");
+                error!(@ctx.f, align.span, "duplicate alignment");
             } else if deferred_center {
                 // We have two unflushed centers, meaning we know that both axes
                 // are to be centered.
@@ -69,7 +67,7 @@ pub async fn align(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass
                 SpecAxis::Vertical
             };
 
-            *aligns.get_mut(axis.to_gen(ctx.sys)) = GenAlign::Center;
+            *aligns.get_mut(axis.to_gen(ctx.state.sys)) = GenAlign::Center;
 
             had[axis as usize] = true;
             deferred_center = false;
@@ -82,15 +80,13 @@ pub async fn align(_: Span, mut args: DictValue, ctx: LayoutContext<'_>) -> Pass
         aligns.primary = GenAlign::Center;
     }
 
-    let commands = match content {
+    args.unexpected(&mut ctx.f);
+    Value::Commands(match content {
         Some(tree) => vec![
             SetAlignment(aligns),
             LayoutSyntaxTree(tree),
-            SetAlignment(ctx.align),
+            SetAlignment(ctx.state.align),
         ],
         None => vec![SetAlignment(aligns)],
-    };
-
-    args.unexpected(&mut f);
-    Pass::commands(commands, f)
+    })
 }

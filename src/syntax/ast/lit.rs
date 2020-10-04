@@ -5,7 +5,7 @@ use crate::eval::{DictKey, DictValue, SpannedEntry, Value};
 use crate::layout::LayoutContext;
 use crate::length::Length;
 use crate::syntax::{Expr, Ident, SpanWith, Spanned, SynTree};
-use crate::{DynFuture, Feedback};
+use crate::DynFuture;
 
 /// A literal.
 #[derive(Debug, Clone, PartialEq)]
@@ -39,7 +39,7 @@ pub enum Lit {
 
 impl Lit {
     /// Evaluate the dictionary literal to a dictionary value.
-    pub async fn eval(&self, ctx: &LayoutContext<'_>, f: &mut Feedback) -> Value {
+    pub async fn eval(&self, ctx: &mut LayoutContext) -> Value {
         match *self {
             Lit::Ident(ref i) => Value::Ident(i.clone()),
             Lit::Bool(b) => Value::Bool(b),
@@ -49,7 +49,7 @@ impl Lit {
             Lit::Percent(p) => Value::Relative(p / 100.0),
             Lit::Color(c) => Value::Color(c),
             Lit::Str(ref s) => Value::Str(s.clone()),
-            Lit::Dict(ref d) => Value::Dict(d.eval(ctx, f).await),
+            Lit::Dict(ref d) => Value::Dict(d.eval(ctx).await),
             Lit::Content(ref c) => Value::Tree(c.clone()),
         }
     }
@@ -66,16 +66,12 @@ impl LitDict {
     }
 
     /// Evaluate the dictionary literal to a dictionary value.
-    pub fn eval<'a>(
-        &'a self,
-        ctx: &'a LayoutContext<'a>,
-        f: &'a mut Feedback,
-    ) -> DynFuture<'a, DictValue> {
+    pub fn eval<'a>(&'a self, ctx: &'a mut LayoutContext) -> DynFuture<'a, DictValue> {
         Box::pin(async move {
             let mut dict = DictValue::new();
 
             for entry in &self.0 {
-                let val = entry.expr.v.eval(ctx, f).await;
+                let val = entry.expr.v.eval(ctx).await;
                 let spanned = val.span_with(entry.expr.span);
                 if let Some(key) = &entry.key {
                     dict.insert(&key.v, SpannedEntry::new(key.span, spanned));
