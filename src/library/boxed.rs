@@ -6,7 +6,7 @@ use crate::geom::Linear;
 /// # Keyword arguments
 /// - `width`: The width of the box (length or relative to parent's width).
 /// - `height`: The height of the box (length or relative to parent's height).
-pub async fn boxed(mut args: DictValue, ctx: &mut LayoutContext) -> Value {
+pub async fn boxed(mut args: ValueDict, ctx: &mut LayoutContext) -> Value {
     let content = args.take::<SynTree>().unwrap_or_default();
 
     let constraints = &mut ctx.constraints;

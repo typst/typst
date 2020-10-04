@@ -1,8 +1,8 @@
 //! Expressions.
 
+use super::*;
 use crate::eval::Value;
 use crate::layout::LayoutContext;
-use crate::syntax::{Decoration, Ident, Lit, LitDict, SpanWith, Spanned};
 use crate::DynFuture;
 
 /// An expression.
@@ -10,12 +10,12 @@ use crate::DynFuture;
 pub enum Expr {
     /// A literal: `true`, `1cm`, `"hi"`, `{_Hey!_}`.
     Lit(Lit),
+    /// An invocation of a function: `[foo: ...]`, `foo(...)`.
+    Call(ExprCall),
     /// A unary operation: `-x`.
     Unary(ExprUnary),
     /// A binary operation: `a + b`, `a / b`.
     Binary(ExprBinary),
-    /// An invocation of a function: `[foo: ...]`, `foo(...)`.
-    Call(ExprCall),
 }
 
 impl Expr {
@@ -24,11 +24,40 @@ impl Expr {
         Box::pin(async move {
             match self {
                 Self::Lit(lit) => lit.eval(ctx).await,
+                Self::Call(call) => call.eval(ctx).await,
                 Self::Unary(unary) => unary.eval(ctx).await,
                 Self::Binary(binary) => binary.eval(ctx).await,
-                Self::Call(call) => call.eval(ctx).await,
             }
         })
+    }
+}
+
+/// An invocation of a function: `[foo: ...]`, `foo(...)`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprCall {
+    /// The name of the function.
+    pub name: Spanned<Ident>,
+    /// The arguments to the function.
+    pub args: LitDict,
+}
+
+impl ExprCall {
+    /// Evaluate the call expression to a value.
+    pub async fn eval(&self, ctx: &mut LayoutContext) -> Value {
+        let name = &self.name.v;
+        let span = self.name.span;
+        let args = self.args.eval(ctx).await;
+
+        if let Some(func) = ctx.state.scope.func(name) {
+            ctx.f.decorations.push(Decoration::Resolved.span_with(span));
+            (func.clone())(args, ctx).await
+        } else {
+            if !name.is_empty() {
+                error!(@ctx.f, span, "unknown function");
+                ctx.f.decorations.push(Decoration::Unresolved.span_with(span));
+            }
+            Value::Dict(args)
+        }
     }
 }
 
@@ -54,13 +83,13 @@ impl ExprUnary {
         let span = self.op.span.join(self.expr.span);
         match self.op.v {
             UnOp::Neg => match value {
-                Int(x) => Int(-x),
-                Float(x) => Float(-x),
-                Length(x) => Length(-x),
-                Relative(x) => Relative(-x),
-                Linear(x) => Linear(-x),
+                Int(v) => Int(-v),
+                Float(v) => Float(-v),
+                Length(v) => Length(-v),
+                Relative(v) => Relative(-v),
+                Linear(v) => Linear(-v),
                 v => {
-                    error!(@ctx.f, span, "cannot negate {}", v.name());
+                    error!(@ctx.f, span, "cannot negate {}", v.ty());
                     Value::Error
                 }
             },
@@ -104,7 +133,8 @@ impl ExprBinary {
             BinOp::Add => match (lhs, rhs) {
                 // Numbers to themselves.
                 (Int(a), Int(b)) => Int(a + b),
-                (Int(i), Float(f)) | (Float(f), Int(i)) => Float(i as f64 + f),
+                (Int(a), Float(b)) => Float(a as f64 + b),
+                (Float(a), Int(b)) => Float(a + b as f64),
                 (Float(a), Float(b)) => Float(a + b),
 
                 // Lengths, relatives and linears to themselves.
@@ -123,11 +153,11 @@ impl ExprBinary {
                 // Complex data types to themselves.
                 (Str(a), Str(b)) => Str(a + &b),
                 (Dict(a), Dict(b)) => Dict(concat(a, b)),
-                (Tree(a), Tree(b)) => Tree(concat(a, b)),
+                (Content(a), Content(b)) => Content(concat(a, b)),
                 (Commands(a), Commands(b)) => Commands(concat(a, b)),
 
                 (a, b) => {
-                    error!(@ctx.f, span, "cannot add {} and {}", a.name(), b.name());
+                    error!(@ctx.f, span, "cannot add {} and {}", a.ty(), b.ty());
                     Value::Error
                 }
             },
@@ -151,7 +181,7 @@ impl ExprBinary {
                 (Linear(a), Linear(b)) => Linear(a - b),
 
                 (a, b) => {
-                    error!(@ctx.f, span, "cannot subtract {1} from {0}", a.name(), b.name());
+                    error!(@ctx.f, span, "cannot subtract {1} from {0}", a.ty(), b.ty());
                     Value::Error
                 }
             },
@@ -182,7 +212,7 @@ impl ExprBinary {
                 (Str(a), Int(b)) => Str(a.repeat(b.max(0) as usize)),
 
                 (a, b) => {
-                    error!(@ctx.f, span, "cannot multiply {} with {}", a.name(), b.name());
+                    error!(@ctx.f, span, "cannot multiply {} with {}", a.ty(), b.ty());
                     Value::Error
                 }
             },
@@ -203,7 +233,7 @@ impl ExprBinary {
                 (Linear(a), Float(b)) => Linear(a / b),
 
                 (a, b) => {
-                    error!(@ctx.f, span, "cannot divide {} by {}", a.name(), b.name());
+                    error!(@ctx.f, span, "cannot divide {} by {}", a.ty(), b.ty());
                     Value::Error
                 }
             },
@@ -231,33 +261,4 @@ pub enum BinOp {
     Mul,
     /// The division operator: `/`.
     Div,
-}
-
-/// An invocation of a function: `[foo: ...]`, `foo(...)`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ExprCall {
-    /// The name of the function.
-    pub name: Spanned<Ident>,
-    /// The arguments to the function.
-    pub args: LitDict,
-}
-
-impl ExprCall {
-    /// Evaluate the call expression to a value.
-    pub async fn eval(&self, ctx: &mut LayoutContext) -> Value {
-        let name = &self.name.v;
-        let span = self.name.span;
-        let args = self.args.eval(ctx).await;
-
-        if let Some(func) = ctx.state.scope.func(name) {
-            ctx.f.decorations.push(Decoration::Resolved.span_with(span));
-            (func.clone())(args, ctx).await
-        } else {
-            if !name.is_empty() {
-                error!(@ctx.f, span, "unknown function");
-                ctx.f.decorations.push(Decoration::Unresolved.span_with(span));
-            }
-            Value::Dict(args)
-        }
-    }
 }

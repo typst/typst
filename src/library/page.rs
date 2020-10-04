@@ -1,7 +1,7 @@
 use std::mem;
 
 use super::*;
-use crate::eval::Abs;
+use crate::eval::Absolute;
 use crate::geom::{Linear, Sides};
 use crate::paper::{Paper, PaperClass};
 
@@ -19,7 +19,7 @@ use crate::paper::{Paper, PaperClass};
 /// - `top`: The top margin (length or relative to height).
 /// - `bottom`: The bottom margin (length or relative to height).
 /// - `flip`: Flips custom or paper-defined width and height (boolean).
-pub async fn page(mut args: DictValue, ctx: &mut LayoutContext) -> Value {
+pub async fn page(mut args: ValueDict, ctx: &mut LayoutContext) -> Value {
     let mut page = ctx.state.page.clone();
 
     if let Some(paper) = args.take::<Paper>() {
@@ -27,12 +27,12 @@ pub async fn page(mut args: DictValue, ctx: &mut LayoutContext) -> Value {
         page.size = paper.size();
     }
 
-    if let Some(Abs(width)) = args.take_key::<Abs>("width", &mut ctx.f) {
+    if let Some(Absolute(width)) = args.take_key::<Absolute>("width", &mut ctx.f) {
         page.class = PaperClass::Custom;
         page.size.width = width;
     }
 
-    if let Some(Abs(height)) = args.take_key::<Abs>("height", &mut ctx.f) {
+    if let Some(Absolute(height)) = args.take_key::<Absolute>("height", &mut ctx.f) {
         page.class = PaperClass::Custom;
         page.size.height = height;
     }
@@ -66,7 +66,7 @@ pub async fn page(mut args: DictValue, ctx: &mut LayoutContext) -> Value {
 }
 
 /// `pagebreak`: Ends the current page.
-pub async fn pagebreak(args: DictValue, ctx: &mut LayoutContext) -> Value {
+pub async fn pagebreak(args: ValueDict, ctx: &mut LayoutContext) -> Value {
     args.unexpected(&mut ctx.f);
     Value::Commands(vec![BreakPage])
 }

@@ -14,7 +14,7 @@ pub use font::*;
 pub use page::*;
 pub use spacing::*;
 
-use crate::eval::{FuncValue, Scope};
+use crate::eval::{Scope, ValueFunc};
 use crate::prelude::*;
 
 macro_rules! std {
@@ -30,7 +30,7 @@ macro_rules! std {
 
 macro_rules! wrap {
     ($func:expr) => {
-        FuncValue::new(|args, ctx| Box::pin($func(args, ctx)))
+        ValueFunc::new(|args, ctx| Box::pin($func(args, ctx)))
     };
 }
 

@@ -6,7 +6,7 @@ use crate::layout::SpacingKind;
 ///
 /// # Positional arguments
 /// - The spacing (length or relative to font size).
-pub async fn h(args: DictValue, ctx: &mut LayoutContext) -> Value {
+pub async fn h(args: ValueDict, ctx: &mut LayoutContext) -> Value {
     spacing(args, ctx, SpecAxis::Horizontal)
 }
 
@@ -14,11 +14,11 @@ pub async fn h(args: DictValue, ctx: &mut LayoutContext) -> Value {
 ///
 /// # Positional arguments
 /// - The spacing (length or relative to font size).
-pub async fn v(args: DictValue, ctx: &mut LayoutContext) -> Value {
+pub async fn v(args: ValueDict, ctx: &mut LayoutContext) -> Value {
     spacing(args, ctx, SpecAxis::Vertical)
 }
 
-fn spacing(mut args: DictValue, ctx: &mut LayoutContext, axis: SpecAxis) -> Value {
+fn spacing(mut args: ValueDict, ctx: &mut LayoutContext, axis: SpecAxis) -> Value {
     let spacing = args.expect::<Linear>("spacing", Span::ZERO, &mut ctx.f);
     args.unexpected(&mut ctx.f);
     Value::Commands(if let Some(spacing) = spacing {

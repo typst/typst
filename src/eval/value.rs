@@ -17,8 +17,6 @@ use crate::{DynFuture, Feedback};
 /// A computational value.
 #[derive(Clone, PartialEq)]
 pub enum Value {
-    /// The result of invalid operations.
-    Error,
     /// An identifier: `ident`.
     Ident(Ident),
     /// A boolean: `true, false`.
@@ -36,27 +34,29 @@ pub enum Value {
     ///
     /// [literal]: ../syntax/ast/enum.Lit.html#variant.Percent
     Relative(f64),
-    /// A combination of an absolute length and a relative value.
+    /// A combination of an absolute length and a relative value: `20% + 5cm`.
     Linear(Linear),
     /// A color value with alpha channel: `#f79143ff`.
     Color(RgbaColor),
     /// A string: `"string"`.
     Str(String),
     /// A dictionary value: `(false, 12cm, greeting="hi")`.
-    Dict(DictValue),
-    /// A syntax tree containing typesetting content.
-    Tree(SynTree),
+    Dict(ValueDict),
+    /// A content value: `{*Hi* there}`.
+    Content(SynTree),
     /// An executable function.
-    Func(FuncValue),
+    Func(ValueFunc),
     /// Layouting commands.
     Commands(Commands),
+    /// The result of invalid operations.
+    Error,
 }
 
 impl Value {
-    /// The natural-language name of this value for use in error messages.
-    pub fn name(&self) -> &'static str {
+    /// The natural-language name of this value's type for use in error
+    /// messages.
+    pub fn ty(&self) -> &'static str {
         match self {
-            Self::Error => "error",
             Self::Ident(_) => "identifier",
             Self::Bool(_) => "bool",
             Self::Int(_) => "integer",
@@ -67,9 +67,10 @@ impl Value {
             Self::Color(_) => "color",
             Self::Str(_) => "string",
             Self::Dict(_) => "dict",
-            Self::Tree(_) => "syntax tree",
+            Self::Content(_) => "content",
             Self::Func(_) => "function",
             Self::Commands(_) => "commands",
+            Self::Error => "error",
         }
     }
 }
@@ -98,7 +99,7 @@ impl Spanned<Value> {
                 commands
             }
 
-            Value::Tree(tree) => vec![Command::LayoutSyntaxTree(tree)],
+            Value::Content(tree) => vec![Command::LayoutSyntaxTree(tree)],
             Value::Commands(commands) => commands,
 
             // Format with debug.
@@ -115,69 +116,67 @@ impl Debug for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Error => f.pad("<error>"),
-            Self::Ident(i) => i.fmt(f),
-            Self::Bool(b) => b.fmt(f),
-            Self::Int(i) => i.fmt(f),
-            Self::Float(n) => n.fmt(f),
-            Self::Length(l) => l.fmt(f),
-            Self::Relative(r) => r.fmt(f),
-            Self::Linear(l) => l.fmt(f),
-            Self::Color(c) => c.fmt(f),
-            Self::Str(s) => s.fmt(f),
-            Self::Dict(d) => d.fmt(f),
-            Self::Tree(t) => t.fmt(f),
-            Self::Func(c) => c.fmt(f),
-            Self::Commands(c) => c.fmt(f),
+            Self::Ident(v) => v.fmt(f),
+            Self::Bool(v) => v.fmt(f),
+            Self::Int(v) => v.fmt(f),
+            Self::Float(v) => v.fmt(f),
+            Self::Length(v) => v.fmt(f),
+            Self::Relative(v) => v.fmt(f),
+            Self::Linear(v) => v.fmt(f),
+            Self::Color(v) => v.fmt(f),
+            Self::Str(v) => v.fmt(f),
+            Self::Dict(v) => v.fmt(f),
+            Self::Content(v) => v.fmt(f),
+            Self::Func(v) => v.fmt(f),
+            Self::Commands(v) => v.fmt(f),
         }
     }
 }
 
-/// An executable function value.
-///
-/// The first argument is a dictionary containing the arguments passed to the
-/// function. The function may be asynchronous (as such it returns a dynamic
-/// future) and it may emit diagnostics, which are contained in the returned
-/// `Pass`. In the end, the function must evaluate to [`Value`]. A typical
-/// typesetting function will return a `Commands` value which will instruct the
-/// layouting engine to do what the function pleases.
+/// An wrapper around a reference-counted executable function value.
 ///
 /// The dynamic function object is wrapped in an `Rc` to keep [`Value`]
 /// clonable.
 ///
+/// _Note_: This is needed because the compiler can't `derive(PartialEq)`
+///         for `Value` when directly putting the boxed function in there,
+///         see the [Rust Issue].
+///
 /// [`Value`]: enum.Value.html
+/// [Rust Issue]: https://github.com/rust-lang/rust/issues/31740
 #[derive(Clone)]
-pub struct FuncValue(pub Rc<FuncType>);
+pub struct ValueFunc(pub Rc<Func>);
 
 /// The signature of executable functions.
-type FuncType = dyn Fn(DictValue, &mut LayoutContext) -> DynFuture<Value>;
+pub type Func = dyn Fn(ValueDict, &mut LayoutContext) -> DynFuture<Value>;
 
-impl FuncValue {
+impl ValueFunc {
     /// Create a new function value from a rust function or closure.
     pub fn new<F: 'static>(f: F) -> Self
     where
-        F: Fn(DictValue, &mut LayoutContext) -> DynFuture<Value>,
+        F: Fn(ValueDict, &mut LayoutContext) -> DynFuture<Value>,
     {
         Self(Rc::new(f))
     }
 }
 
-impl Eq for FuncValue {}
+impl Eq for ValueFunc {}
 
-impl PartialEq for FuncValue {
+impl PartialEq for ValueFunc {
     fn eq(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.0, &other.0)
     }
 }
 
-impl Deref for FuncValue {
-    type Target = FuncType;
+impl Deref for ValueFunc {
+    type Target = Func;
 
     fn deref(&self) -> &Self::Target {
         self.0.as_ref()
     }
 }
 
-impl Debug for FuncValue {
+impl Debug for ValueFunc {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("<function>")
     }
@@ -189,9 +188,9 @@ impl Debug for FuncValue {
 /// ```typst
 /// (false, 12cm, greeting="hi")
 /// ```
-pub type DictValue = Dict<SpannedEntry<Value>>;
+pub type ValueDict = Dict<SpannedEntry<Value>>;
 
-impl DictValue {
+impl ValueDict {
     /// Retrieve and remove the matching value with the lowest number key,
     /// skipping and ignoring all non-matching entries with lower keys.
     pub fn take<T: TryFromValue>(&mut self) -> Option<T> {
@@ -331,7 +330,7 @@ macro_rules! impl_match {
                     other => {
                         error!(
                             @f, value.span,
-                            "expected {}, found {}", $name, other.name()
+                            "expected {}, found {}", $name, other.ty()
                         );
                         None
                     }
@@ -354,7 +353,7 @@ macro_rules! impl_ident {
                 } else {
                     error!(
                         @f, value.span,
-                        "expected {}, found {}", $name, value.v.name()
+                        "expected {}, found {}", $name, value.v.ty()
                     );
                     None
                 }
@@ -370,33 +369,13 @@ impl<T: TryFromValue> TryFromValue for Spanned<T> {
     }
 }
 
-impl_match!(Value, "value", v => v.clone());
-impl_match!(Ident, "identifier", Value::Ident(i) => i.clone());
-impl_match!(bool, "bool", &Value::Bool(b) => b);
-impl_match!(i64, "integer", &Value::Int(i) => i);
-impl_match!(f64, "float",
-    &Value::Int(i) => i as f64,
-    &Value::Float(f) => f,
-);
-impl_match!(Abs, "length", &Value::Length(l) => Abs(l));
-impl_match!(Rel, "relative", &Value::Relative(r) => Rel(r));
-impl_match!(Linear, "linear",
-    &Value::Linear(l) => l,
-    &Value::Length(l) => Linear::abs(l),
-    &Value::Relative(r) => Linear::rel(r),
-);
-impl_match!(String, "string", Value::Str(s) => s.clone());
-impl_match!(SynTree, "tree", Value::Tree(t) => t.clone());
-impl_match!(DictValue, "dict", Value::Dict(t) => t.clone());
-impl_match!(FuncValue, "function", Value::Func(f) => f.clone());
-
 /// A value type that matches [length] values.
 ///
 /// [length]: enum.Value.html#variant.Length
-pub struct Abs(pub f64);
+pub struct Absolute(pub f64);
 
-impl From<Abs> for f64 {
-    fn from(abs: Abs) -> f64 {
+impl From<Absolute> for f64 {
+    fn from(abs: Absolute) -> f64 {
         abs.0
     }
 }
@@ -404,10 +383,10 @@ impl From<Abs> for f64 {
 /// A value type that matches [relative] values.
 ///
 /// [relative]: enum.Value.html#variant.Relative
-pub struct Rel(pub f64);
+pub struct Relative(pub f64);
 
-impl From<Rel> for f64 {
-    fn from(rel: Rel) -> f64 {
+impl From<Relative> for f64 {
+    fn from(rel: Relative) -> f64 {
         rel.0
     }
 }
@@ -432,12 +411,31 @@ impl Deref for StringLike {
     }
 }
 
+impl_match!(Value, "value", v => v.clone());
+impl_match!(Ident, "identifier", Value::Ident(v) => v.clone());
+impl_match!(bool, "bool", &Value::Bool(v) => v);
+impl_match!(i64, "integer", &Value::Int(v) => v);
+impl_match!(f64, "float",
+    &Value::Int(v) => v as f64,
+    &Value::Float(v) => v,
+);
+impl_match!(Absolute, "length", &Value::Length(v) => Absolute(v));
+impl_match!(Relative, "relative", &Value::Relative(v) => Relative(v));
+impl_match!(Linear, "linear",
+    &Value::Linear(v) => v,
+    &Value::Length(v) => Linear::abs(v),
+    &Value::Relative(v) => Linear::rel(v),
+);
+impl_match!(String, "string", Value::Str(v) => v.clone());
+impl_match!(SynTree, "tree", Value::Content(v) => v.clone());
+impl_match!(ValueDict, "dict", Value::Dict(v) => v.clone());
+impl_match!(ValueFunc, "function", Value::Func(v) => v.clone());
 impl_match!(StringLike, "identifier or string",
-    Value::Ident(Ident(s)) => StringLike(s.clone()),
-    Value::Str(s) => StringLike(s.clone()),
+    Value::Ident(Ident(v)) => StringLike(v.clone()),
+    Value::Str(v) => StringLike(v.clone()),
 );
 
-impl_ident!(Dir, "direction", |s| match s {
+impl_ident!(Dir, "direction", |v| match v {
     "ltr" => Some(Self::LTR),
     "rtl" => Some(Self::RTL),
     "ttb" => Some(Self::TTB),
@@ -445,7 +443,7 @@ impl_ident!(Dir, "direction", |s| match s {
     _ => None,
 });
 
-impl_ident!(SpecAlign, "alignment", |s| match s {
+impl_ident!(SpecAlign, "alignment", |v| match v {
     "left" => Some(Self::Left),
     "right" => Some(Self::Right),
     "top" => Some(Self::Top),
@@ -486,7 +484,7 @@ impl TryFromValue for FontWeight {
                 error!(
                     @f, value.span,
                     "expected font weight (name or integer), found {}",
-                    other.name(),
+                    other.ty(),
                 );
                 None
             }
@@ -499,7 +497,7 @@ mod tests {
     use super::*;
 
     fn entry(value: Value) -> SpannedEntry<Value> {
-        SpannedEntry::val(Spanned::zero(value))
+        SpannedEntry::value(Spanned::zero(value))
     }
 
     #[test]

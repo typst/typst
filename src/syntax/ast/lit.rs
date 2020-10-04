@@ -1,10 +1,10 @@
 //! Literals.
 
+use super::*;
 use crate::color::RgbaColor;
-use crate::eval::{DictKey, DictValue, SpannedEntry, Value};
+use crate::eval::{DictKey, SpannedEntry, Value, ValueDict};
 use crate::layout::LayoutContext;
 use crate::length::Length;
-use crate::syntax::{Expr, Ident, SpanWith, Spanned, SynTree};
 use crate::DynFuture;
 
 /// A literal.
@@ -41,16 +41,16 @@ impl Lit {
     /// Evaluate the dictionary literal to a dictionary value.
     pub async fn eval(&self, ctx: &mut LayoutContext) -> Value {
         match *self {
-            Lit::Ident(ref i) => Value::Ident(i.clone()),
-            Lit::Bool(b) => Value::Bool(b),
-            Lit::Int(i) => Value::Int(i),
-            Lit::Float(f) => Value::Float(f),
-            Lit::Length(l) => Value::Length(l.as_raw()),
-            Lit::Percent(p) => Value::Relative(p / 100.0),
-            Lit::Color(c) => Value::Color(c),
-            Lit::Str(ref s) => Value::Str(s.clone()),
-            Lit::Dict(ref d) => Value::Dict(d.eval(ctx).await),
-            Lit::Content(ref c) => Value::Tree(c.clone()),
+            Lit::Ident(ref v) => Value::Ident(v.clone()),
+            Lit::Bool(v) => Value::Bool(v),
+            Lit::Int(v) => Value::Int(v),
+            Lit::Float(v) => Value::Float(v),
+            Lit::Length(v) => Value::Length(v.as_raw()),
+            Lit::Percent(v) => Value::Relative(v / 100.0),
+            Lit::Color(v) => Value::Color(v),
+            Lit::Str(ref v) => Value::Str(v.clone()),
+            Lit::Dict(ref v) => Value::Dict(v.eval(ctx).await),
+            Lit::Content(ref v) => Value::Content(v.clone()),
         }
     }
 }
@@ -66,9 +66,9 @@ impl LitDict {
     }
 
     /// Evaluate the dictionary literal to a dictionary value.
-    pub fn eval<'a>(&'a self, ctx: &'a mut LayoutContext) -> DynFuture<'a, DictValue> {
+    pub fn eval<'a>(&'a self, ctx: &'a mut LayoutContext) -> DynFuture<'a, ValueDict> {
         Box::pin(async move {
-            let mut dict = DictValue::new();
+            let mut dict = ValueDict::new();
 
             for entry in &self.0 {
                 let val = entry.expr.v.eval(ctx).await;
@@ -76,7 +76,7 @@ impl LitDict {
                 if let Some(key) = &entry.key {
                     dict.insert(&key.v, SpannedEntry::new(key.span, spanned));
                 } else {
-                    dict.push(SpannedEntry::val(spanned));
+                    dict.push(SpannedEntry::value(spanned));
                 }
             }
 

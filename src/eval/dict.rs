@@ -351,7 +351,7 @@ impl<V> SpannedEntry<V> {
     }
 
     /// Create an entry with the same span for key and value.
-    pub fn val(val: Spanned<V>) -> Self {
+    pub fn value(val: Spanned<V>) -> Self {
         Self { key_span: val.span, value: val }
     }
 

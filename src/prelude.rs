@@ -1,7 +1,7 @@
 //! A prelude for building custom functions.
 
 #[doc(no_inline)]
-pub use crate::eval::{Dict, DictValue, Value};
+pub use crate::eval::{Dict, Value, ValueDict};
 pub use crate::layout::primitive::*;
 #[doc(no_inline)]
 pub use crate::layout::{layout_tree, Command, Commands, LayoutContext};

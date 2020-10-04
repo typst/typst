@@ -1,6 +1,6 @@
 //! The syntax tree.
 
-use crate::syntax::{Expr, Ident, SpanVec, Spanned};
+use super::*;
 
 /// A collection of nodes which form a tree together with the nodes' children.
 pub type SynTree = SpanVec<SynNode>;

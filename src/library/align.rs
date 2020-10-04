@@ -14,7 +14,7 @@ use super::*;
 /// - `vertical`: Any of `top`, `bottom` or `center`.
 ///
 /// There may not be two alignment specifications for the same axis.
-pub async fn align(mut args: DictValue, ctx: &mut LayoutContext) -> Value {
+pub async fn align(mut args: ValueDict, ctx: &mut LayoutContext) -> Value {
     let content = args.take::<SynTree>();
     let h = args.take_key::<Spanned<SpecAlign>>("horizontal", &mut ctx.f);
     let v = args.take_key::<Spanned<SpecAlign>>("vertical", &mut ctx.f);

@@ -49,7 +49,7 @@ use crate::geom::Linear;
 ///   ```typst
 ///   [font: "My Serif", serif]
 ///   ```
-pub async fn font(mut args: DictValue, ctx: &mut LayoutContext) -> Value {
+pub async fn font(mut args: ValueDict, ctx: &mut LayoutContext) -> Value {
     let mut text = ctx.state.text.clone();
     let mut updated_fallback = false;
 
@@ -86,7 +86,7 @@ pub async fn font(mut args: DictValue, ctx: &mut LayoutContext) -> Value {
         text.variant.stretch = stretch;
     }
 
-    for (class, mut dict) in args.take_all_str::<DictValue>() {
+    for (class, mut dict) in args.take_all_str::<ValueDict>() {
         let fallback = dict
             .take_all_num_vals::<StringLike>()
             .map(|s| s.to_lowercase())
