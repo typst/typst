@@ -14,8 +14,7 @@ use tide::{PdfWriter, Rect, Ref, Trailer, Version};
 use ttf_parser::{name_id, GlyphId};
 
 use crate::font::FontLoader;
-use crate::layout::elements::LayoutElement;
-use crate::layout::BoxLayout;
+use crate::layout::{BoxLayout, LayoutElement};
 use crate::length::Length;
 
 /// Export a list of layouts into a _PDF_ document.

@@ -8,7 +8,6 @@
 //! Internally, the line layouter uses a stack layouter to stack the finished
 //! lines on top of each.
 
-use super::stack::{StackContext, StackLayouter};
 use super::*;
 
 /// Performs the line layouting.

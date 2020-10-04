@@ -9,8 +9,7 @@ use ttf_parser::GlyphId;
 
 use crate::font::FontLoader;
 use crate::geom::{Point, Size};
-use crate::layout::elements::{LayoutElement, LayoutElements, Shaped};
-use crate::layout::{BoxLayout, Dir, LayoutAlign};
+use crate::layout::{BoxLayout, Dir, LayoutAlign, LayoutElement, LayoutElements, Shaped};
 use crate::style::TextStyle;
 
 /// Shape text into a box.

@@ -10,7 +10,7 @@ use futures_executor::block_on;
 use typstc::export::pdf;
 use typstc::font::FontLoader;
 use typstc::parse::LineMap;
-use typstc::{Feedback, Pass, Typesetter};
+use typstc::{typeset, Feedback, Pass};
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
@@ -41,11 +41,12 @@ fn main() {
     let loader = FontLoader::new(Box::new(provider), descriptors);
     let loader = Rc::new(RefCell::new(loader));
 
-    let typesetter = Typesetter::new(loader.clone());
+    let style = Default::default();
+    let scope = typstc::library::_std();
     let Pass {
         output: layouts,
         feedback: Feedback { mut diagnostics, .. },
-    } = block_on(typesetter.typeset(&src));
+    } = block_on(typeset(&src, &style, &scope, Rc::clone(&loader)));
 
     if !diagnostics.is_empty() {
         diagnostics.sort();

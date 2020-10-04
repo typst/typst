@@ -13,14 +13,10 @@ use ttf_parser::OutlineBuilder;
 
 use typstc::export::pdf;
 use typstc::font::{FontLoader, SharedFontLoader};
-use typstc::geom::{Point, Sides, Size, Vec2};
-use typstc::layout::elements::{LayoutElement, Shaped};
-use typstc::layout::MultiLayout;
-use typstc::length::Length;
-use typstc::paper::PaperClass;
+use typstc::geom::{Point, Vec2};
+use typstc::layout::{LayoutElement, MultiLayout, Shaped};
 use typstc::parse::LineMap;
-use typstc::style::PageStyle;
-use typstc::{Feedback, Pass, Typesetter};
+use typstc::{typeset, Feedback, Pass};
 
 const TEST_DIR: &str = "tests";
 const OUT_DIR: &str = "tests/out";
@@ -65,32 +61,20 @@ fn main() {
     let loader = FontLoader::new(Box::new(provider), descriptors);
     let loader = Rc::new(RefCell::new(loader));
 
-    let mut typesetter = Typesetter::new(loader.clone());
-    let edge = Length::pt(250.0).as_raw();
-    typesetter.set_page_style(PageStyle {
-        class: PaperClass::Custom,
-        size: Size::new(edge, edge),
-        margins: Sides::uniform(None),
-    });
-
     for (name, path, src) in filtered {
-        test(&name, &src, &path, &mut typesetter, &loader)
+        test(&name, &src, &path, &loader)
     }
 }
 
-fn test(
-    name: &str,
-    src: &str,
-    src_path: &Path,
-    typesetter: &mut Typesetter,
-    loader: &SharedFontLoader,
-) {
+fn test(name: &str, src: &str, src_path: &Path, loader: &SharedFontLoader) {
     println!("Testing {}.", name);
 
+    let style = Default::default();
+    let scope = typstc::library::_std();
     let Pass {
         output: layouts,
         feedback: Feedback { mut diagnostics, .. },
-    } = block_on(typesetter.typeset(&src));
+    } = block_on(typeset(&src, &style, &scope, Rc::clone(loader)));
 
     if !diagnostics.is_empty() {
         diagnostics.sort();

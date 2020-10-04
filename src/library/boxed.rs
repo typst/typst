@@ -33,7 +33,7 @@ pub async fn boxed(
         ctx.spaces[0].expansion.vertical = true;
     }
 
-    let layouted = layout(&content, ctx).await;
+    let layouted = layout_tree(&content, ctx).await;
     let layout = layouted.output.into_iter().next().unwrap();
     f.extend(layouted.feedback);
 

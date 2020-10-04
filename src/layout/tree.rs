@@ -1,6 +1,7 @@
 //! Layouting of syntax trees.
 
-use super::line::{LineContext, LineLayouter};
+use std::rc::Rc;
+
 use super::*;
 use crate::shaping;
 use crate::style::LayoutStyle;
@@ -9,7 +10,7 @@ use crate::syntax::{
 };
 use crate::{DynFuture, Feedback, Pass};
 
-/// Layout a syntax tree into a collection of boxes.
+/// Layout a syntax tree in a given context.
 pub async fn layout_tree(tree: &SynTree, ctx: LayoutContext<'_>) -> Pass<MultiLayout> {
     let mut layouter = TreeLayouter::new(ctx);
     layouter.layout_tree(tree).await;
@@ -159,6 +160,7 @@ impl<'a> TreeLayouter<'a> {
             style: &self.style,
             spaces: self.layouter.remaining(),
             root: false,
+            loader: Rc::clone(&self.ctx.loader),
             ..self.ctx
         };
 

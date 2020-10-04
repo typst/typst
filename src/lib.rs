@@ -46,78 +46,21 @@ use std::pin::Pin;
 use crate::diagnostic::Diagnostic;
 use crate::eval::{Scope, Value};
 use crate::font::SharedFontLoader;
-use crate::layout::{
-    layout, Commands, Dir, GenAlign, LayoutAlign, LayoutContext, LayoutExpansion,
-    LayoutSpace, LayoutSystem, MultiLayout,
-};
-use crate::style::{LayoutStyle, PageStyle, TextStyle};
-use crate::syntax::{Decoration, Offset, Pos, SpanVec, SynTree};
+use crate::layout::{Commands, MultiLayout};
+use crate::style::LayoutStyle;
+use crate::syntax::{Decoration, Offset, Pos, SpanVec};
 
-/// Transforms source code into typesetted layouts.
-///
-/// A typesetter can be configured through various methods.
-pub struct Typesetter {
-    /// The font loader shared by all typesetting processes.
+/// Process source code directly into a collection of layouts.
+pub async fn typeset(
+    src: &str,
+    style: &LayoutStyle,
+    scope: &Scope,
     loader: SharedFontLoader,
-    /// A scope that contains the standard library function definitions.
-    std: Scope,
-    /// The base layouting style.
-    style: LayoutStyle,
-}
-
-impl Typesetter {
-    /// Create a new typesetter.
-    pub fn new(loader: SharedFontLoader) -> Self {
-        Self {
-            loader,
-            std: crate::library::_std(),
-            style: LayoutStyle::default(),
-        }
-    }
-
-    /// Set the base text style.
-    pub fn set_text_style(&mut self, style: TextStyle) {
-        self.style.text = style;
-    }
-
-    /// Set the base page style.
-    pub fn set_page_style(&mut self, style: PageStyle) {
-        self.style.page = style;
-    }
-
-    /// Parse source code into a syntax tree.
-    pub fn parse(&self, src: &str) -> Pass<SynTree> {
-        parse::parse(src)
-    }
-
-    /// Layout a syntax tree and return the produced layout.
-    pub async fn layout(&self, tree: &SynTree) -> Pass<MultiLayout> {
-        let space = LayoutSpace {
-            size: self.style.page.size,
-            insets: self.style.page.insets(),
-            expansion: LayoutExpansion::new(true, true),
-        };
-        layout(&tree, LayoutContext {
-            loader: &self.loader,
-            scope: &self.std,
-            style: &self.style,
-            base: space.usable(),
-            spaces: vec![space],
-            repeat: true,
-            sys: LayoutSystem::new(Dir::LTR, Dir::TTB),
-            align: LayoutAlign::new(GenAlign::Start, GenAlign::Start),
-            root: true,
-        })
-        .await
-    }
-
-    /// Process source code directly into a collection of layouts.
-    pub async fn typeset(&self, src: &str) -> Pass<MultiLayout> {
-        let parsed = self.parse(src);
-        let layouted = self.layout(&parsed.output).await;
-        let feedback = Feedback::merge(parsed.feedback, layouted.feedback);
-        Pass::new(layouted.output, feedback)
-    }
+) -> Pass<MultiLayout> {
+    let parsed = parse::parse(src);
+    let layouted = layout::layout(&parsed.output, style, scope, loader).await;
+    let feedback = Feedback::merge(parsed.feedback, layouted.feedback);
+    Pass::new(layouted.output, feedback)
 }
 
 /// A dynamic future type which allows recursive invocation of async functions

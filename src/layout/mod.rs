@@ -1,13 +1,17 @@
 //! Layouting of syntax trees into box layouts.
 
-pub mod elements;
-pub mod line;
 pub mod primitive;
-pub mod stack;
+
+mod elements;
+mod line;
+mod stack;
 mod tree;
 
+pub use elements::*;
+pub use line::*;
 pub use primitive::*;
-pub use tree::layout_tree as layout;
+pub use stack::*;
+pub use tree::*;
 
 use crate::geom::{Insets, Point, Rect, RectExt, Sides, Size, SizeExt};
 
@@ -15,8 +19,33 @@ use crate::eval::Scope;
 use crate::font::SharedFontLoader;
 use crate::style::{LayoutStyle, PageStyle, TextStyle};
 use crate::syntax::SynTree;
+use crate::Pass;
 
-use elements::LayoutElements;
+/// Layout a syntax tree and return the produced layout.
+pub async fn layout(
+    tree: &SynTree,
+    style: &LayoutStyle,
+    scope: &Scope,
+    loader: SharedFontLoader,
+) -> Pass<MultiLayout> {
+    let space = LayoutSpace {
+        size: style.page.size,
+        insets: style.page.insets(),
+        expansion: LayoutExpansion::new(true, true),
+    };
+    tree::layout_tree(&tree, LayoutContext {
+        loader,
+        scope,
+        style,
+        base: space.usable(),
+        spaces: vec![space],
+        repeat: true,
+        sys: LayoutSystem::new(Dir::LTR, Dir::TTB),
+        align: LayoutAlign::new(GenAlign::Start, GenAlign::Start),
+        root: true,
+    })
+    .await
+}
 
 /// A collection of layouts.
 pub type MultiLayout = Vec<BoxLayout>;
@@ -36,7 +65,7 @@ pub struct BoxLayout {
 #[derive(Debug, Clone)]
 pub struct LayoutContext<'a> {
     /// The font loader to query fonts from when typesetting text.
-    pub loader: &'a SharedFontLoader,
+    pub loader: SharedFontLoader,
     /// The function scope.
     pub scope: &'a Scope,
     /// The style for pages and text.
