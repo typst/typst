@@ -1,8 +1,8 @@
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
-use super::*;
 use crate::eval::StringLike;
 use crate::geom::Linear;
+use crate::prelude::*;
 
 /// `font`: Configure the font.
 ///

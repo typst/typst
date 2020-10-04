@@ -12,7 +12,9 @@ use super::*;
 
 /// Performs the line layouting.
 pub struct LineLayouter {
+    /// The context used for line layouting.
     ctx: LineContext,
+    /// The underlying layouter that stacks the finished lines.
     stack: StackLayouter,
     /// The in-progress line.
     run: LineRun,
@@ -34,27 +36,6 @@ pub struct LineContext {
     pub repeat: bool,
     /// The spacing to be inserted between each pair of lines.
     pub line_spacing: f64,
-}
-
-/// A sequence of boxes with the same alignment. A real line can consist of
-/// multiple runs with different alignments.
-struct LineRun {
-    /// The so-far accumulated items of the run.
-    layouts: Vec<(f64, BoxLayout)>,
-    /// The summed width and maximal height of the run.
-    size: Size,
-    /// The alignment of all layouts in the line.
-    ///
-    /// When a new run is created the alignment is yet to be determined and
-    /// `None` as such. Once a layout is added, its alignment decides the
-    /// alignment for the whole run.
-    align: Option<LayoutAlign>,
-    /// The amount of space left by another run on the same line or `None` if
-    /// this is the only run so far.
-    usable: Option<f64>,
-    /// The spacing state. This influences how new spacing is handled, e.g. hard
-    /// spacing may override soft spacing.
-    last_spacing: LastSpacing,
 }
 
 impl LineLayouter {
@@ -257,6 +238,27 @@ impl LineLayouter {
             self.finish_line()
         }
     }
+}
+
+/// A sequence of boxes with the same alignment. A real line can consist of
+/// multiple runs with different alignments.
+struct LineRun {
+    /// The so-far accumulated items of the run.
+    layouts: Vec<(f64, BoxLayout)>,
+    /// The summed width and maximal height of the run.
+    size: Size,
+    /// The alignment of all layouts in the line.
+    ///
+    /// When a new run is created the alignment is yet to be determined and
+    /// `None` as such. Once a layout is added, its alignment decides the
+    /// alignment for the whole run.
+    align: Option<LayoutAlign>,
+    /// The amount of space left by another run on the same line or `None` if
+    /// this is the only run so far.
+    usable: Option<f64>,
+    /// The spacing state. This influences how new spacing is handled, e.g. hard
+    /// spacing may override soft spacing.
+    last_spacing: LastSpacing,
 }
 
 impl LineRun {

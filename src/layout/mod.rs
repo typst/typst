@@ -46,7 +46,6 @@ pub async fn layout(
     };
 
     let layouts = layout_tree(&tree, &mut ctx).await;
-
     Pass::new(layouts, ctx.f)
 }
 
@@ -177,12 +176,11 @@ pub enum Command {
     SetTextState(TextState),
     /// Update the page style.
     SetPageState(PageState),
-
-    /// Update the alignment for future boxes added to this layouting process.
-    SetAlignment(LayoutAlign),
     /// Update the layouting system along which future boxes will be laid
     /// out. This ends the current line.
     SetSystem(LayoutSystem),
+    /// Update the alignment for future boxes added to this layouting process.
+    SetAlignment(LayoutAlign),
 }
 
 /// Defines how spacing interacts with surrounding spacing.
@@ -210,27 +208,4 @@ impl SpacingKind {
 
     /// The standard spacing kind used for word spacing.
     pub const WORD: Self = Self::Soft(1);
-}
-
-/// The spacing kind of the most recently inserted item in a layouting process.
-///
-/// Since the last inserted item may not be spacing at all, this can be `None`.
-#[derive(Debug, Copy, Clone, PartialEq)]
-enum LastSpacing {
-    /// The last item was hard spacing.
-    Hard,
-    /// The last item was soft spacing with the given width and level.
-    Soft(f64, u32),
-    /// The last item wasn't spacing.
-    None,
-}
-
-impl LastSpacing {
-    /// The width of the soft space if this is a soft space or zero otherwise.
-    fn soft_or_zero(self) -> f64 {
-        match self {
-            LastSpacing::Soft(space, _) => space,
-            _ => 0.0,
-        }
-    }
 }

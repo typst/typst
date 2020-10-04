@@ -1,4 +1,4 @@
-//! Computational values: Syntactical expressions can be evaluated into these.
+//! Computational values.
 
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Deref;
@@ -57,9 +57,9 @@ impl Value {
     pub fn ty(&self) -> &'static str {
         match self {
             Self::None => "none",
-            Self::Ident(_) => "ident",
+            Self::Ident(_) => "identifier",
             Self::Bool(_) => "bool",
-            Self::Int(_) => "int",
+            Self::Int(_) => "integer",
             Self::Float(_) => "float",
             Self::Relative(_) => "relative",
             Self::Length(_) => "length",
@@ -88,6 +88,9 @@ impl Spanned<Value> {
     /// the value is represented as layoutable content in a reasonable way.
     pub fn into_commands(self) -> Vec<Command> {
         match self.v {
+            // Don't print out none values.
+            Value::None => vec![],
+
             // Pass-through.
             Value::Commands(commands) => commands,
             Value::Content(tree) => vec![Command::LayoutSyntaxTree(tree)],
@@ -108,9 +111,6 @@ impl Spanned<Value> {
                 }
                 commands
             }
-
-            // Don't print out none values.
-            Value::None => vec![],
 
             // Format with debug.
             val => {
@@ -143,6 +143,14 @@ impl Debug for Value {
         }
     }
 }
+
+/// A dictionary of values.
+///
+/// # Example
+/// ```typst
+/// (false, 12cm, greeting="hi")
+/// ```
+pub type ValueDict = Dict<SpannedEntry<Value>>;
 
 /// An wrapper around a reference-counted executable function value.
 ///
@@ -192,11 +200,3 @@ impl Debug for ValueFunc {
         f.pad("<function>")
     }
 }
-
-/// A dictionary of values.
-///
-/// # Example
-/// ```typst
-/// (false, 12cm, greeting="hi")
-/// ```
-pub type ValueDict = Dict<SpannedEntry<Value>>;

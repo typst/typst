@@ -4,11 +4,12 @@ use std::ops::Deref;
 
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
-use super::*;
+use super::{Value, ValueDict, ValueFunc};
 use crate::diag::Diag;
 use crate::geom::Linear;
 use crate::layout::{Dir, SpecAlign};
 use crate::paper::Paper;
+use crate::syntax::{Ident, SpanWith, Spanned, SynTree};
 
 /// Types that values can be converted into.
 pub trait Convert: Sized {
@@ -96,9 +97,9 @@ macro_rules! impl_match {
 }
 
 impl_match!(Value, "value", v => v);
-impl_match!(Ident, "ident", Value::Ident(v) => v);
+impl_match!(Ident, "identifier", Value::Ident(v) => v);
 impl_match!(bool, "bool", Value::Bool(v) => v);
-impl_match!(i64, "int", Value::Int(v) => v);
+impl_match!(i64, "integer", Value::Int(v) => v);
 impl_match!(f64, "float",
     Value::Int(v) => v as f64,
     Value::Float(v) => v,
@@ -112,9 +113,9 @@ impl_match!(Linear, "linear",
 );
 impl_match!(String, "string", Value::Str(v) => v);
 impl_match!(SynTree, "tree", Value::Content(v) => v);
-impl_match!(ValueDict, "dict", Value::Dict(v) => v);
+impl_match!(ValueDict, "dictionary", Value::Dict(v) => v);
 impl_match!(ValueFunc, "function", Value::Func(v) => v);
-impl_match!(StringLike, "ident or string",
+impl_match!(StringLike, "identifier or string",
     Value::Ident(Ident(v)) => StringLike(v),
     Value::Str(v) => StringLike(v),
 );

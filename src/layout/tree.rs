@@ -3,9 +3,7 @@
 use super::*;
 use crate::eval::Eval;
 use crate::shaping;
-use crate::syntax::{
-    Deco, Expr, NodeHeading, NodeRaw, Span, SpanWith, Spanned, SynNode, SynTree,
-};
+use crate::syntax::*;
 use crate::DynFuture;
 
 /// Layout a syntax tree in a given context.

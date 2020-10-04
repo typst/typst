@@ -2,24 +2,25 @@
 //!
 //! # Steps
 //! - **Parsing:** The parsing step first transforms a plain string into an
-//!   [iterator of tokens][tokens]. Then, a [parser] constructs a syntax tree
-//!   from the token stream. The structures describing the tree can be found in
-//!   the [syntax] module.
+//!   [iterator of tokens][tokens]. This token stream is [parsed] into a [syntax
+//!   tree]. The structures describing the tree can be found in the [ast]
+//!   module.
 //! - **Layouting:** The next step is to transform the syntax tree into a
-//!   portable representation of the typesetted document. Types for these can be
-//!   found in the [layout] module. A finished layout ready for exporting is a
-//!   [`MultiLayout`] consisting of multiple boxes (or pages).
+//!   portable representation of the typesetted document. The final output
+//!   consists of a vector of [`BoxLayouts`] (corresponding to pages), ready for
+//!   exporting.
 //! - **Exporting:** The finished layout can then be exported into a supported
 //!   format. Submodules for these formats are located in the [export] module.
 //!   Currently, the only supported output format is [_PDF_].
 //!
-//! [tokens]: parse/struct.Tokens.html
-//! [parser]: parse/fn.parse.html
-//! [syntax]: syntax/index.html
+//! [tokens]: parsing/struct.Tokens.html
+//! [parsed]: parsing/fn.parse.html
+//! [syntax tree]: syntax/ast/type.SynTree.html
+//! [ast]: syntax/ast/index.html
 //! [layout]: layout/index.html
+//! [`BoxLayouts`]: layout/struct.BoxLayout.html
 //! [export]: export/index.html
 //! [_PDF_]: export/pdf/index.html
-//! [`MultiLayout`]: layout/type.MultiLayout.html
 
 #[macro_use]
 pub mod diag;
@@ -56,7 +57,7 @@ pub async fn typeset(
 ) -> Pass<Vec<BoxLayout>> {
     let parsed = parse::parse(src);
     let layouted = layout::layout(&parsed.output, state, loader).await;
-    let feedback = Feedback::merge(parsed.feedback, layouted.feedback);
+    let feedback = Feedback::join(parsed.feedback, layouted.feedback);
     Pass::new(layouted.output, feedback)
 }
 
@@ -108,8 +109,8 @@ impl Feedback {
         Self { diags: vec![], decos: vec![] }
     }
 
-    /// Merged two feedbacks into one.
-    pub fn merge(mut a: Self, b: Self) -> Self {
+    /// Merge two feedbacks into one.
+    pub fn join(mut a: Self, b: Self) -> Self {
         a.extend(b);
         a
     }
@@ -120,7 +121,7 @@ impl Feedback {
         self.decos.extend(more.decos);
     }
 
-    /// Add more feedback whose spans are local and need to be offset by an
+    /// Add more feedback whose spans are local and need to be translated by an
     /// `offset` to be correct in this feedback's context.
     pub fn extend_offset(&mut self, more: Self, offset: Pos) {
         self.diags.extend(more.diags.offset(offset));

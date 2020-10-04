@@ -21,6 +21,9 @@ pub struct ExprCall {
     /// The name of the function.
     pub name: Spanned<Ident>,
     /// The arguments to the function.
+    ///
+    /// In case of a bracketed invocation with a body, the body is _not_
+    /// included in the span for the sake of clearer error messages.
     pub args: Spanned<LitDict>,
 }
 

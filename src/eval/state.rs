@@ -1,4 +1,4 @@
-//! State.
+//! Evaluation state.
 
 use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
 

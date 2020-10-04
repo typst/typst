@@ -1,5 +1,5 @@
-use super::*;
 use crate::geom::Linear;
+use crate::prelude::*;
 
 /// `box`: Layouts its contents into a box.
 ///

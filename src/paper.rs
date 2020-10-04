@@ -37,7 +37,7 @@ pub enum PaperClass {
 }
 
 impl PaperClass {
-    /// The default margin ratios for this page class.
+    /// The default margins for this page class.
     pub fn default_margins(self) -> Sides<Linear> {
         let f = Linear::rel;
         let s = |l, r, t, b| Sides::new(f(l), f(r), f(t), f(b));

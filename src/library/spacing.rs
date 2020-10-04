@@ -1,6 +1,6 @@
-use super::*;
 use crate::geom::Linear;
 use crate::layout::SpacingKind;
+use crate::prelude::*;
 
 /// `h`: Add horizontal spacing.
 ///
@@ -19,7 +19,7 @@ pub async fn v(args: Args, ctx: &mut LayoutContext) -> Value {
 }
 
 fn spacing(mut args: Args, ctx: &mut LayoutContext, axis: SpecAxis) -> Value {
-    let spacing = args.get::<_, Linear>(ctx, 0);
+    let spacing = args.need::<_, Linear>(ctx, 0, "spacing");
     args.done(ctx);
 
     Value::Commands(if let Some(spacing) = spacing {

@@ -2,7 +2,9 @@
 
 use std::mem;
 
-use super::*;
+use super::{Convert, RefKey, ValueDict};
+use crate::layout::LayoutContext;
+use crate::syntax::{SpanWith, Spanned};
 
 /// A wrapper around a dictionary value that simplifies argument parsing in
 /// functions.
@@ -21,12 +23,42 @@ impl Args {
     {
         self.0.v.remove(key).and_then(|entry| {
             let span = entry.value.span;
-            let (t, diag) = T::convert(entry.value);
+            let (result, diag) = T::convert(entry.value);
             if let Some(diag) = diag {
                 ctx.f.diags.push(diag.span_with(span))
             }
-            t.ok()
+            result.ok()
         })
+    }
+
+    /// This is the same as [`get`], except that it generates an error about a
+    /// missing argument with the given `name` if the key does not exist.
+    ///
+    /// [`get`]: #method.get
+    pub fn need<'a, K, T>(
+        &mut self,
+        ctx: &mut LayoutContext,
+        key: K,
+        name: &str,
+    ) -> Option<T>
+    where
+        K: Into<RefKey<'a>>,
+        T: Convert,
+    {
+        match self.0.v.remove(key) {
+            Some(entry) => {
+                let span = entry.value.span;
+                let (result, diag) = T::convert(entry.value);
+                if let Some(diag) = diag {
+                    ctx.f.diags.push(diag.span_with(span))
+                }
+                result.ok()
+            }
+            None => {
+                ctx.f.diags.push(error!(self.0.span, "missing argument: {}", name));
+                None
+            }
+        }
     }
 
     /// Retrieve and remove the first matching positional argument.
@@ -104,6 +136,7 @@ impl Args {
 
 #[cfg(test)]
 mod tests {
+    use super::super::{Dict, SpannedEntry, Value};
     use super::*;
 
     fn entry(value: Value) -> SpannedEntry<Value> {

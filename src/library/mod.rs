@@ -15,7 +15,6 @@ pub use page::*;
 pub use spacing::*;
 
 use crate::eval::{Scope, ValueFunc};
-use crate::prelude::*;
 
 macro_rules! std {
     ($($name:literal => $func:expr),* $(,)?) => {

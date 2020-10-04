@@ -26,11 +26,11 @@ use crate::length::Length;
 /// The raw _PDF_ is written into the `target` writable, returning the number of
 /// bytes written.
 pub fn export<W: Write>(
-    layout: &[BoxLayout],
+    layouts: &[BoxLayout],
     loader: &FontLoader,
     target: W,
 ) -> io::Result<usize> {
-    PdfExporter::new(layout, loader, target)?.write()
+    PdfExporter::new(layouts, loader, target)?.write()
 }
 
 struct PdfExporter<'a, W: Write> {
@@ -42,7 +42,7 @@ struct PdfExporter<'a, W: Write> {
     /// tree and so on. These offsets are computed in the beginning and stored
     /// here.
     offsets: Offsets,
-    // Font remapping, see below at `remap_fonts`.
+    // Font remapping, for more information see `remap_fonts`.
     to_pdf: HashMap<FaceId, usize>,
     to_layout: Vec<FaceId>,
 }

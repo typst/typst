@@ -23,7 +23,9 @@ use super::*;
 
 /// Performs the stack layouting.
 pub struct StackLayouter {
+    /// The context used for stack layouting.
     ctx: StackContext,
+    /// The finished layouts.
     layouts: Vec<BoxLayout>,
     /// The in-progress space.
     space: Space,
@@ -43,30 +45,6 @@ pub struct StackContext {
     /// Whether to spill over into copies of the last space or finish layouting
     /// when the last space is used up.
     pub repeat: bool,
-}
-
-/// A layout space composed of subspaces which can have different systems and
-/// alignments.
-struct Space {
-    /// The index of this space in `ctx.spaces`.
-    index: usize,
-    /// Whether to include a layout for this space even if it would be empty.
-    hard: bool,
-    /// The so-far accumulated layouts.
-    layouts: Vec<(LayoutSystem, BoxLayout)>,
-    /// The specialized size of this space.
-    size: Size,
-    /// The specialized remaining space.
-    usable: Size,
-    /// The specialized extra-needed size to affect the size at all.
-    extra: Size,
-    /// Dictate which alignments for new boxes are still allowed and which
-    /// require a new space to be started. For example, after an `End`-aligned
-    /// item, no `Start`-aligned one can follow.
-    rulers: Sides<GenAlign>,
-    /// The spacing state. This influences how new spacing is handled, e.g. hard
-    /// spacing may override soft spacing.
-    last_spacing: LastSpacing,
 }
 
 impl StackLayouter {
@@ -387,6 +365,30 @@ impl StackLayouter {
     }
 }
 
+/// A layout space composed of subspaces which can have different systems and
+/// alignments.
+struct Space {
+    /// The index of this space in `ctx.spaces`.
+    index: usize,
+    /// Whether to include a layout for this space even if it would be empty.
+    hard: bool,
+    /// The so-far accumulated layouts.
+    layouts: Vec<(LayoutSystem, BoxLayout)>,
+    /// The specialized size of this space.
+    size: Size,
+    /// The specialized remaining space.
+    usable: Size,
+    /// The specialized extra-needed size to affect the size at all.
+    extra: Size,
+    /// Dictate which alignments for new boxes are still allowed and which
+    /// require a new space to be started. For example, after an `End`-aligned
+    /// item, no `Start`-aligned one can follow.
+    rulers: Sides<GenAlign>,
+    /// The spacing state. This influences how new spacing is handled, e.g. hard
+    /// spacing may override soft spacing.
+    last_spacing: LastSpacing,
+}
+
 impl Space {
     fn new(index: usize, hard: bool, usable: Size) -> Self {
         Self {
@@ -398,6 +400,29 @@ impl Space {
             extra: Size::ZERO,
             rulers: Sides::uniform(GenAlign::Start),
             last_spacing: LastSpacing::Hard,
+        }
+    }
+}
+
+/// The spacing kind of the most recently inserted item in a layouting process.
+///
+/// Since the last inserted item may not be spacing at all, this can be `None`.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub(crate) enum LastSpacing {
+    /// The last item was hard spacing.
+    Hard,
+    /// The last item was soft spacing with the given width and level.
+    Soft(f64, u32),
+    /// The last item wasn't spacing.
+    None,
+}
+
+impl LastSpacing {
+    /// The width of the soft space if this is a soft space or zero otherwise.
+    fn soft_or_zero(self) -> f64 {
+        match self {
+            LastSpacing::Soft(space, _) => space,
+            _ => 0.0,
         }
     }
 }
