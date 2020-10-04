@@ -17,6 +17,8 @@ use crate::{DynFuture, Feedback};
 /// A computational value.
 #[derive(Clone, PartialEq)]
 pub enum Value {
+    /// The value that indicates the absence of a meaningful value.
+    None,
     /// An identifier: `ident`.
     Ident(Ident),
     /// A boolean: `true, false`.
@@ -57,9 +59,10 @@ impl Value {
     /// messages.
     pub fn ty(&self) -> &'static str {
         match self {
-            Self::Ident(_) => "identifier",
+            Self::None => "none",
+            Self::Ident(_) => "ident",
             Self::Bool(_) => "bool",
-            Self::Int(_) => "integer",
+            Self::Int(_) => "int",
             Self::Float(_) => "float",
             Self::Relative(_) => "relative",
             Self::Length(_) => "length",
@@ -82,6 +85,10 @@ impl Spanned<Value> {
     /// the value is represented as layoutable content in a reasonable way.
     pub fn into_commands(self) -> Commands {
         match self.v {
+            // Pass-through.
+            Value::Commands(commands) => commands,
+            Value::Content(tree) => vec![Command::LayoutSyntaxTree(tree)],
+
             // Forward to each entry, separated with spaces.
             Value::Dict(dict) => {
                 let mut commands = vec![];
@@ -99,8 +106,8 @@ impl Spanned<Value> {
                 commands
             }
 
-            Value::Content(tree) => vec![Command::LayoutSyntaxTree(tree)],
-            Value::Commands(commands) => commands,
+            // Don't print out none values.
+            Value::None => vec![],
 
             // Format with debug.
             val => {
@@ -115,7 +122,7 @@ impl Spanned<Value> {
 impl Debug for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Error => f.pad("<error>"),
+            Self::None => f.pad("none"),
             Self::Ident(v) => v.fmt(f),
             Self::Bool(v) => v.fmt(f),
             Self::Int(v) => v.fmt(f),
@@ -129,6 +136,7 @@ impl Debug for Value {
             Self::Content(v) => v.fmt(f),
             Self::Func(v) => v.fmt(f),
             Self::Commands(v) => v.fmt(f),
+            Self::Error => f.pad("<error>"),
         }
     }
 }
