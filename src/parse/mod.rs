@@ -163,14 +163,14 @@ fn bracket_call(p: &mut Parser) -> ExprCall {
     if p.peek() == Some(Token::LeftBracket) {
         let expr = p.span(|p| Expr::Lit(Lit::Content(bracket_body(p))));
         inner.span.expand(expr.span);
-        inner.v.args.0.push(LitDictEntry { key: None, expr });
+        inner.v.args.v.0.push(LitDictEntry { key: None, expr });
     }
 
     while let Some(mut top) = outer.pop() {
         let span = inner.span;
         let node = inner.map(Expr::Call).map(SynNode::Expr);
         let expr = Expr::Lit(Lit::Content(vec![node])).span_with(span);
-        top.v.args.0.push(LitDictEntry { key: None, expr });
+        top.v.args.v.0.push(LitDictEntry { key: None, expr });
         inner = top;
     }
 
@@ -194,14 +194,16 @@ fn bracket_subheader(p: &mut Parser) -> ExprCall {
 
     p.skip_white();
     let args = if p.eat_if(Token::Colon) {
-        dict_contents(p).0
+        p.span(|p| dict_contents(p).0)
     } else {
         // Ignore the rest if there's no colon.
-        if !p.eof() {
-            p.diag_expected_at("colon", p.pos());
-        }
-        p.eat_while(|_| true);
-        LitDict::new()
+        p.span(|p| {
+            if !p.eof() {
+                p.diag_expected_at("colon", p.pos());
+            }
+            p.eat_while(|_| true);
+            LitDict::new()
+        })
     };
 
     p.end_group();
@@ -221,7 +223,7 @@ fn bracket_body(p: &mut Parser) -> SynTree {
 /// Parse a parenthesized function call.
 fn paren_call(p: &mut Parser, name: Spanned<Ident>) -> ExprCall {
     p.start_group(Group::Paren);
-    let args = dict_contents(p).0;
+    let args = p.span(|p| dict_contents(p).0);
     p.end_group();
     ExprCall { name, args }
 }

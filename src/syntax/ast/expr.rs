@@ -21,7 +21,7 @@ pub struct ExprCall {
     /// The name of the function.
     pub name: Spanned<Ident>,
     /// The arguments to the function.
-    pub args: LitDict,
+    pub args: Spanned<LitDict>,
 }
 
 /// A unary operation: `-x`.

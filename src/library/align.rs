@@ -14,21 +14,41 @@ use super::*;
 /// - `vertical`: Any of `top`, `bottom` or `center`.
 ///
 /// There may not be two alignment specifications for the same axis.
-pub async fn align(mut args: ValueDict, ctx: &mut LayoutContext) -> Value {
-    let content = args.take::<SynTree>();
-    let h = args.take_key::<Spanned<SpecAlign>>("horizontal", &mut ctx.f);
-    let v = args.take_key::<Spanned<SpecAlign>>("vertical", &mut ctx.f);
-    let all = args
-        .take_all_num_vals::<Spanned<SpecAlign>>()
+pub async fn align(mut args: Args, ctx: &mut LayoutContext) -> Value {
+    let body = args.find::<SynTree>();
+
+    let h = args.get::<_, Spanned<SpecAlign>>(ctx, "horizontal");
+    let v = args.get::<_, Spanned<SpecAlign>>(ctx, "vertical");
+    let pos = args.find_all::<Spanned<SpecAlign>>();
+
+    let iter = pos
         .map(|align| (align.v.axis(), align))
         .chain(h.into_iter().map(|align| (Some(SpecAxis::Horizontal), align)))
         .chain(v.into_iter().map(|align| (Some(SpecAxis::Vertical), align)));
 
+    let aligns = parse_aligns(ctx, iter);
+
+    args.done(ctx);
+    Value::Commands(match body {
+        Some(tree) => vec![
+            SetAlignment(aligns),
+            LayoutSyntaxTree(tree),
+            SetAlignment(ctx.state.align),
+        ],
+        None => vec![SetAlignment(aligns)],
+    })
+}
+
+/// Deduplicate alignments and deduce to which axes they apply.
+fn parse_aligns(
+    ctx: &mut LayoutContext,
+    iter: impl Iterator<Item = (Option<SpecAxis>, Spanned<SpecAlign>)>,
+) -> LayoutAlign {
     let mut aligns = ctx.state.align;
     let mut had = [false; 2];
     let mut deferred_center = false;
 
-    for (axis, align) in all {
+    for (axis, align) in iter {
         // Check whether we know which axis this alignment belongs to. We don't
         // if the alignment is `center` for a positional argument. Then we set
         // `deferred_center` to true and handle the situation once we know more.
@@ -80,13 +100,5 @@ pub async fn align(mut args: ValueDict, ctx: &mut LayoutContext) -> Value {
         aligns.primary = GenAlign::Center;
     }
 
-    args.unexpected(&mut ctx.f);
-    Value::Commands(match content {
-        Some(tree) => vec![
-            SetAlignment(aligns),
-            LayoutSyntaxTree(tree),
-            SetAlignment(ctx.state.align),
-        ],
-        None => vec![SetAlignment(aligns)],
-    })
+    aligns
 }

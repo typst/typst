@@ -40,7 +40,7 @@ impl<T> Offset for SpanVec<T> {
 }
 
 /// A value with the span it corresponds to in the source code.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Spanned<T> {
     /// The spanned value.
@@ -178,6 +178,12 @@ impl PartialEq for Span {
     }
 }
 
+impl Default for Span {
+    fn default() -> Self {
+        Span::ZERO
+    }
+}
+
 impl<T> From<T> for Span
 where
     T: Into<Pos> + Copy,
@@ -226,6 +232,12 @@ impl Offset for Pos {
 impl From<u32> for Pos {
     fn from(index: u32) -> Self {
         Self(index)
+    }
+}
+
+impl From<i32> for Pos {
+    fn from(index: i32) -> Self {
+        Self(index as u32)
     }
 }
 

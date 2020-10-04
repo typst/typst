@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Display, Formatter};
-use std::iter::Extend;
+use std::iter::{Extend, FromIterator};
 use std::ops::Index;
 
 use crate::syntax::{Span, Spanned};
@@ -115,49 +115,16 @@ impl<V> Dict<V> {
         self.nums.insert(self.lowest_free, value);
         self.lowest_free += 1;
     }
-
-    /// Iterator over all borrowed keys and values.
-    pub fn iter(&self) -> impl Iterator<Item = (RefKey, &V)> {
-        self.into_iter()
-    }
-
-    /// Iterate over all values in the dictionary.
-    pub fn values(&self) -> impl Iterator<Item = &V> {
-        self.nums().map(|(_, v)| v).chain(self.strs().map(|(_, v)| v))
-    }
-
-    /// Iterate over the number key-value pairs.
-    pub fn nums(&self) -> std::collections::btree_map::Iter<u64, V> {
-        self.nums.iter()
-    }
-
-    /// Iterate over the string key-value pairs.
-    pub fn strs(&self) -> std::collections::btree_map::Iter<String, V> {
-        self.strs.iter()
-    }
-
-    /// Move into an owned iterator over all values in the dictionary.
-    pub fn into_values(self) -> impl Iterator<Item = V> {
-        self.nums
-            .into_iter()
-            .map(|(_, v)| v)
-            .chain(self.strs.into_iter().map(|(_, v)| v))
-    }
-
-    /// Iterate over the number key-value pairs.
-    pub fn into_nums(self) -> std::collections::btree_map::IntoIter<u64, V> {
-        self.nums.into_iter()
-    }
-
-    /// Iterate over the string key-value pairs.
-    pub fn into_strs(self) -> std::collections::btree_map::IntoIter<String, V> {
-        self.strs.into_iter()
-    }
 }
 
-impl<V> Default for Dict<V> {
-    fn default() -> Self {
-        Self::new()
+impl<'a, K, V> Index<K> for Dict<V>
+where
+    K: Into<RefKey<'a>>,
+{
+    type Output = V;
+
+    fn index(&self, index: K) -> &Self::Output {
+        self.get(index).expect("key not in dict")
     }
 }
 
@@ -169,65 +136,9 @@ impl<V: PartialEq> PartialEq for Dict<V> {
     }
 }
 
-impl<V> IntoIterator for Dict<V> {
-    type Item = (DictKey, V);
-    type IntoIter = std::iter::Chain<
-        std::iter::Map<
-            std::collections::btree_map::IntoIter<u64, V>,
-            fn((u64, V)) -> (DictKey, V),
-        >,
-        std::iter::Map<
-            std::collections::btree_map::IntoIter<String, V>,
-            fn((String, V)) -> (DictKey, V),
-        >,
-    >;
-
-    fn into_iter(self) -> Self::IntoIter {
-        let nums = self.nums.into_iter().map((|(k, v)| (DictKey::Num(k), v)) as _);
-        let strs = self.strs.into_iter().map((|(k, v)| (DictKey::Str(k), v)) as _);
-        nums.chain(strs)
-    }
-}
-
-impl<'a, V> IntoIterator for &'a Dict<V> {
-    type Item = (RefKey<'a>, &'a V);
-    type IntoIter = std::iter::Chain<
-        std::iter::Map<
-            std::collections::btree_map::Iter<'a, u64, V>,
-            fn((&'a u64, &'a V)) -> (RefKey<'a>, &'a V),
-        >,
-        std::iter::Map<
-            std::collections::btree_map::Iter<'a, String, V>,
-            fn((&'a String, &'a V)) -> (RefKey<'a>, &'a V),
-        >,
-    >;
-
-    fn into_iter(self) -> Self::IntoIter {
-        let strs = self.strs().map((|(k, v): (&'a String, _)| (RefKey::Str(k), v)) as _);
-        let nums = self.nums().map((|(k, v): (&u64, _)| (RefKey::Num(*k), v)) as _);
-        nums.chain(strs)
-    }
-}
-
-impl<V> Extend<(DictKey, V)> for Dict<V> {
-    fn extend<T>(&mut self, iter: T)
-    where
-        T: IntoIterator<Item = (DictKey, V)>,
-    {
-        for (key, value) in iter.into_iter() {
-            self.insert(key, value);
-        }
-    }
-}
-
-impl<'a, K, V> Index<K> for Dict<V>
-where
-    K: Into<RefKey<'a>>,
-{
-    type Output = V;
-
-    fn index(&self, index: K) -> &Self::Output {
-        self.get(index).expect("key not in dict")
+impl<V> Default for Dict<V> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -267,6 +178,152 @@ impl<V: Debug> Debug for Dict<V> {
         }
 
         builder.finish()
+    }
+}
+
+/// Iteration.
+impl<V> Dict<V> {
+    /// Iterator over all borrowed keys and values.
+    pub fn iter(&self) -> impl Iterator<Item = (RefKey, &V)> {
+        self.into_iter()
+    }
+
+    /// Iterator over all borrowed keys and values.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (RefKey, &mut V)> {
+        self.into_iter()
+    }
+
+    /// Iterate over all values in the dictionary.
+    pub fn values(&self) -> impl Iterator<Item = &V> {
+        self.nums().map(|(_, v)| v).chain(self.strs().map(|(_, v)| v))
+    }
+
+    /// Iterate over all values in the dictionary.
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
+        self.nums
+            .iter_mut()
+            .map(|(_, v)| v)
+            .chain(self.strs.iter_mut().map(|(_, v)| v))
+    }
+
+    /// Move into an owned iterator over all values in the dictionary.
+    pub fn into_values(self) -> impl Iterator<Item = V> {
+        self.nums
+            .into_iter()
+            .map(|(_, v)| v)
+            .chain(self.strs.into_iter().map(|(_, v)| v))
+    }
+
+    /// Iterate over the number key-value pairs.
+    pub fn nums(&self) -> std::collections::btree_map::Iter<u64, V> {
+        self.nums.iter()
+    }
+
+    /// Iterate mutably over the number key-value pairs.
+    pub fn nums_mut(&mut self) -> std::collections::btree_map::IterMut<u64, V> {
+        self.nums.iter_mut()
+    }
+
+    /// Iterate over the number key-value pairs.
+    pub fn into_nums(self) -> std::collections::btree_map::IntoIter<u64, V> {
+        self.nums.into_iter()
+    }
+
+    /// Iterate over the string key-value pairs.
+    pub fn strs(&self) -> std::collections::btree_map::Iter<String, V> {
+        self.strs.iter()
+    }
+
+    /// Iterate mutably over the string key-value pairs.
+    pub fn strs_mut(&mut self) -> std::collections::btree_map::IterMut<String, V> {
+        self.strs.iter_mut()
+    }
+
+    /// Iterate over the string key-value pairs.
+    pub fn into_strs(self) -> std::collections::btree_map::IntoIter<String, V> {
+        self.strs.into_iter()
+    }
+}
+
+impl<V> Extend<(DictKey, V)> for Dict<V> {
+    fn extend<T: IntoIterator<Item = (DictKey, V)>>(&mut self, iter: T) {
+        for (key, value) in iter.into_iter() {
+            self.insert(key, value);
+        }
+    }
+}
+
+impl<V> FromIterator<(DictKey, V)> for Dict<V> {
+    fn from_iter<T: IntoIterator<Item = (DictKey, V)>>(iter: T) -> Self {
+        let mut v = Self::new();
+        v.extend(iter);
+        v
+    }
+}
+
+impl<V> IntoIterator for Dict<V> {
+    type Item = (DictKey, V);
+    type IntoIter = std::iter::Chain<
+        std::iter::Map<
+            std::collections::btree_map::IntoIter<u64, V>,
+            fn((u64, V)) -> (DictKey, V),
+        >,
+        std::iter::Map<
+            std::collections::btree_map::IntoIter<String, V>,
+            fn((String, V)) -> (DictKey, V),
+        >,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let nums = self.nums.into_iter().map((|(k, v)| (DictKey::Num(k), v)) as _);
+        let strs = self.strs.into_iter().map((|(k, v)| (DictKey::Str(k), v)) as _);
+        nums.chain(strs)
+    }
+}
+
+impl<'a, V> IntoIterator for &'a Dict<V> {
+    type Item = (RefKey<'a>, &'a V);
+    type IntoIter = std::iter::Chain<
+        std::iter::Map<
+            std::collections::btree_map::Iter<'a, u64, V>,
+            fn((&'a u64, &'a V)) -> (RefKey<'a>, &'a V),
+        >,
+        std::iter::Map<
+            std::collections::btree_map::Iter<'a, String, V>,
+            fn((&'a String, &'a V)) -> (RefKey<'a>, &'a V),
+        >,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let nums = self.nums().map((|(k, v): (&u64, _)| (RefKey::Num(*k), v)) as _);
+        let strs = self.strs().map((|(k, v): (&'a String, _)| (RefKey::Str(k), v)) as _);
+        nums.chain(strs)
+    }
+}
+
+impl<'a, V> IntoIterator for &'a mut Dict<V> {
+    type Item = (RefKey<'a>, &'a mut V);
+    type IntoIter = std::iter::Chain<
+        std::iter::Map<
+            std::collections::btree_map::IterMut<'a, u64, V>,
+            fn((&'a u64, &'a mut V)) -> (RefKey<'a>, &'a mut V),
+        >,
+        std::iter::Map<
+            std::collections::btree_map::IterMut<'a, String, V>,
+            fn((&'a String, &'a mut V)) -> (RefKey<'a>, &'a mut V),
+        >,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let nums = self
+            .nums
+            .iter_mut()
+            .map((|(k, v): (&u64, _)| (RefKey::Num(*k), v)) as _);
+        let strs = self
+            .strs
+            .iter_mut()
+            .map((|(k, v): (&'a String, _)| (RefKey::Str(k), v)) as _);
+        nums.chain(strs)
     }
 }
 

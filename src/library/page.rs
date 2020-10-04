@@ -19,54 +19,54 @@ use crate::paper::{Paper, PaperClass};
 /// - `top`: The top margin (length or relative to height).
 /// - `bottom`: The bottom margin (length or relative to height).
 /// - `flip`: Flips custom or paper-defined width and height (boolean).
-pub async fn page(mut args: ValueDict, ctx: &mut LayoutContext) -> Value {
+pub async fn page(mut args: Args, ctx: &mut LayoutContext) -> Value {
     let mut page = ctx.state.page.clone();
 
-    if let Some(paper) = args.take::<Paper>() {
+    if let Some(paper) = args.find::<Paper>() {
         page.class = paper.class;
         page.size = paper.size();
     }
 
-    if let Some(Absolute(width)) = args.take_key::<Absolute>("width", &mut ctx.f) {
+    if let Some(Absolute(width)) = args.get::<_, Absolute>(ctx, "width") {
         page.class = PaperClass::Custom;
         page.size.width = width;
     }
 
-    if let Some(Absolute(height)) = args.take_key::<Absolute>("height", &mut ctx.f) {
+    if let Some(Absolute(height)) = args.get::<_, Absolute>(ctx, "height") {
         page.class = PaperClass::Custom;
         page.size.height = height;
     }
 
-    if let Some(margins) = args.take_key::<Linear>("margins", &mut ctx.f) {
+    if let Some(margins) = args.get::<_, Linear>(ctx, "margins") {
         page.margins = Sides::uniform(Some(margins));
     }
 
-    if let Some(left) = args.take_key::<Linear>("left", &mut ctx.f) {
+    if let Some(left) = args.get::<_, Linear>(ctx, "left") {
         page.margins.left = Some(left);
     }
 
-    if let Some(top) = args.take_key::<Linear>("top", &mut ctx.f) {
+    if let Some(top) = args.get::<_, Linear>(ctx, "top") {
         page.margins.top = Some(top);
     }
 
-    if let Some(right) = args.take_key::<Linear>("right", &mut ctx.f) {
+    if let Some(right) = args.get::<_, Linear>(ctx, "right") {
         page.margins.right = Some(right);
     }
 
-    if let Some(bottom) = args.take_key::<Linear>("bottom", &mut ctx.f) {
+    if let Some(bottom) = args.get::<_, Linear>(ctx, "bottom") {
         page.margins.bottom = Some(bottom);
     }
 
-    if args.take_key::<bool>("flip", &mut ctx.f).unwrap_or(false) {
+    if args.get::<_, bool>(ctx, "flip").unwrap_or(false) {
         mem::swap(&mut page.size.width, &mut page.size.height);
     }
 
-    args.unexpected(&mut ctx.f);
+    args.done(ctx);
     Value::Commands(vec![SetPageState(page)])
 }
 
 /// `pagebreak`: Ends the current page.
-pub async fn pagebreak(args: ValueDict, ctx: &mut LayoutContext) -> Value {
-    args.unexpected(&mut ctx.f);
+pub async fn pagebreak(args: Args, ctx: &mut LayoutContext) -> Value {
+    args.done(ctx);
     Value::Commands(vec![BreakPage])
 }

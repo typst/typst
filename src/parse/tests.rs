@@ -76,47 +76,19 @@ fn Str(string: &str) -> Expr {
     Expr::Lit(Lit::Str(string.to_string()))
 }
 
-macro_rules! Dict {
-    (@dict=$dict:expr,) => {};
-    (@dict=$dict:expr, $key:expr => $expr:expr $(, $($tts:tt)*)?) => {{
-        let key = Into::<Spanned<&str>>::into($key);
-        let key = key.map(Into::<DictKey>::into);
-        let expr = Into::<Spanned<Expr>>::into($expr);
-        $dict.0.push(LitDictEntry { key: Some(key), expr });
-        Dict![@dict=$dict, $($($tts)*)?];
-    }};
-    (@dict=$dict:expr, $expr:expr $(, $($tts:tt)*)?) => {
-        let expr = Into::<Spanned<Expr>>::into($expr);
-        $dict.0.push(LitDictEntry { key: None, expr });
-        Dict![@dict=$dict, $($($tts)*)?];
-    };
-    (@$($tts:tt)*) => {{
-        #[allow(unused_mut)]
-        let mut dict = LitDict::new();
-        Dict![@dict=dict, $($tts)*];
-        dict
-    }};
-    ($($tts:tt)*) => { Expr::Lit(Lit::Dict(Dict![@$($tts)*])) };
-}
-
-macro_rules! Tree {
-    (@$($node:expr),* $(,)?) => {
-        vec![$(Into::<Spanned<SynNode>>::into($node)),*]
-    };
-    ($($tts:tt)*) => { Expr::Lit(Lit::Content(Tree![@$($tts)*])) };
-}
-
 macro_rules! Call {
-    (@$name:expr $(; $($tts:tt)*)?) => {{
+    (@$name:expr $(, $span:expr)? $(; $($tts:tt)*)?) => {{
         let name = Into::<Spanned<&str>>::into($name);
+        #[allow(unused)]
+        let mut span = Span::ZERO;
+        $(span = $span.into();)?
         ExprCall {
             name: name.map(|n| Ident(n.to_string())),
-            args: Dict![@$($($tts)*)?],
+            args: Dict![@$($($tts)*)?].span_with(span),
         }
     }};
     ($($tts:tt)*) => { Expr::Call(Call![@$($tts)*]) };
 }
-
 fn Unary(op: impl Into<Spanned<UnOp>>, expr: impl Into<Spanned<Expr>>) -> Expr {
     Expr::Unary(ExprUnary {
         op: op.into(),
@@ -133,6 +105,36 @@ fn Binary(
         op: op.into(),
         rhs: rhs.into().map(Box::new),
     })
+}
+
+macro_rules! Dict {
+    (@dict=$dict:expr,) => {};
+    (@dict=$dict:expr, $key:expr => $expr:expr $(, $($tts:tt)*)?) => {{
+        let key = Into::<Spanned<&str>>::into($key);
+        let key = key.map(Into::<DictKey>::into);
+        let expr = Into::<Spanned<Expr>>::into($expr);
+        $dict.0.push(LitDictEntry { key: Some(key), expr });
+        Dict![@dict=$dict, $($($tts)*)?];
+    }};
+    (@dict=$dict:expr, $expr:expr $(, $($tts:tt)*)?) => {
+        let expr = Into::<Spanned<Expr>>::into($expr);
+        $dict.0.push(LitDictEntry { key: None, expr });
+        Dict![@dict=$dict, $($($tts)*)?];
+    };
+    (@$($tts:tt)*) => {{
+        #[allow(unused)]
+        let mut dict = LitDict::new();
+        Dict![@dict=dict, $($tts)*];
+        dict
+    }};
+    ($($tts:tt)*) => { Expr::Lit(Lit::Dict(Dict![@$($tts)*])) };
+}
+
+macro_rules! Tree {
+    (@$($node:expr),* $(,)?) => {
+        vec![$(Into::<Spanned<SynNode>>::into($node)),*]
+    };
+    ($($tts:tt)*) => { Expr::Lit(Lit::Content(Tree![@$($tts)*])) };
 }
 
 // ------------------------------------ Test Macros ----------------------------------- //
@@ -387,7 +389,7 @@ fn test_parse_function_bodies() {
     // Spanned.
     ts!(" [box][Oh my]" =>
         s(0, 1, S),
-        s(1, 13, F!(s(2, 5, "box");
+        s(1, 13, F!(s(2, 5, "box"), 5 .. 5;
             s(6, 13, Tree![
                 s(7, 9, T("Oh")), s(9, 10, S), s(10, 12, T("my")),
             ])
@@ -431,7 +433,7 @@ fn test_parse_values() {
                            s(13, 13, "expected closing bracket"));
 
     // Spanned.
-    ts!("[val: 1.4]" => s(0, 10, F!(s(1, 4, "val"); s(6, 9, Float(1.4)))));
+    ts!("[val: 1.4]" => s(0, 10, F!(s(1, 4, "val"), 5 .. 9; s(6, 9, Float(1.4)))));
 }
 
 #[test]
@@ -468,7 +470,7 @@ fn test_parse_expressions() {
 
     // Spanned.
     ts!("[val: 1 + 3]" => s(0, 12, F!(
-        s(1, 4, "val"); s(6, 11, Binary(
+        s(1, 4, "val"), 5 .. 11; s(6, 11, Binary(
             s(8, 9, Add),
             s(6, 7, Int(1)),
             s(10, 11, Int(3))
@@ -476,7 +478,7 @@ fn test_parse_expressions() {
     )));
 
     // Span of parenthesized expression contains parens.
-    ts!("[val: (1)]" => s(0, 10, F!(s(1, 4, "val"); s(6, 9, Int(1)))));
+    ts!("[val: (1)]" => s(0, 10, F!(s(1, 4, "val"), 5 .. 9; s(6, 9, Int(1)))));
 
     // Invalid expressions.
     v!("4pt--"        => Len(Length::pt(4.0)));
@@ -504,8 +506,8 @@ fn test_parse_dicts() {
 
     // Spanned with spacing around keyword arguments.
     ts!("[val: \n hi \n = /* //\n */ \"s\n\"]" => s(0, 30, F!(
-        s(1, 4, "val");
-        s(8, 10, "hi") => s(25, 29, Str("s\n"))
+        s(1, 4, "val"),
+        5 .. 29; s(8, 10, "hi") => s(25, 29, Str("s\n"))
     )));
     e!("[val: \n hi \n = /* //\n */ \"s\n\"]" => );
 }

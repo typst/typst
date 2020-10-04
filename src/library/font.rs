@@ -49,13 +49,13 @@ use crate::geom::Linear;
 ///   ```typst
 ///   [font: "My Serif", serif]
 ///   ```
-pub async fn font(mut args: ValueDict, ctx: &mut LayoutContext) -> Value {
+pub async fn font(mut args: Args, ctx: &mut LayoutContext) -> Value {
     let mut text = ctx.state.text.clone();
-    let mut updated_fallback = false;
+    let mut needs_flatten = false;
 
-    let content = args.take::<SynTree>();
+    let body = args.find::<SynTree>();
 
-    if let Some(linear) = args.take::<Linear>() {
+    if let Some(linear) = args.find::<Linear>() {
         if linear.rel == 0.0 {
             text.font_size.base = linear.abs;
             text.font_size.scale = Linear::rel(1.0);
@@ -64,44 +64,41 @@ pub async fn font(mut args: ValueDict, ctx: &mut LayoutContext) -> Value {
         }
     }
 
-    let list: Vec<_> = args
-        .take_all_num_vals::<StringLike>()
-        .map(|s| s.to_lowercase())
-        .collect();
-
+    let list: Vec<_> = args.find_all::<StringLike>().map(|s| s.to_lowercase()).collect();
     if !list.is_empty() {
         text.fallback.list = list;
-        updated_fallback = true;
+        needs_flatten = true;
     }
 
-    if let Some(style) = args.take_key::<FontStyle>("style", &mut ctx.f) {
+    if let Some(style) = args.get::<_, FontStyle>(ctx, "style") {
         text.variant.style = style;
     }
 
-    if let Some(weight) = args.take_key::<FontWeight>("weight", &mut ctx.f) {
+    if let Some(weight) = args.get::<_, FontWeight>(ctx, "weight") {
         text.variant.weight = weight;
     }
 
-    if let Some(stretch) = args.take_key::<FontStretch>("stretch", &mut ctx.f) {
+    if let Some(stretch) = args.get::<_, FontStretch>(ctx, "stretch") {
         text.variant.stretch = stretch;
     }
 
-    for (class, mut dict) in args.take_all_str::<ValueDict>() {
-        let fallback = dict
-            .take_all_num_vals::<StringLike>()
+    for (class, dict) in args.find_all_str::<Spanned<ValueDict>>() {
+        let fallback = Args(dict)
+            .find_all::<StringLike>()
             .map(|s| s.to_lowercase())
             .collect();
 
         text.fallback.update_class_list(class, fallback);
-        updated_fallback = true;
+        needs_flatten = true;
     }
 
-    if updated_fallback {
+    args.done(ctx);
+
+    if needs_flatten {
         text.fallback.flatten();
     }
 
-    args.unexpected(&mut ctx.f);
-    Value::Commands(match content {
+    Value::Commands(match body {
         Some(tree) => vec![
             SetTextState(text),
             LayoutSyntaxTree(tree),

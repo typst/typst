@@ -1,10 +1,14 @@
 //! Evaluation of syntax trees.
 
+mod args;
+mod convert;
 mod dict;
 mod scope;
 mod state;
 mod value;
 
+pub use args::*;
+pub use convert::*;
 pub use dict::*;
 pub use scope::*;
 pub use state::*;
@@ -88,9 +92,10 @@ impl Eval for ExprCall {
     async fn eval(&self, ctx: &mut LayoutContext) -> Self::Output {
         let name = &self.name.v;
         let span = self.name.span;
-        let args = self.args.eval(ctx).await;
+        let dict = self.args.v.eval(ctx).await;
 
         if let Some(func) = ctx.state.scope.get(name) {
+            let args = Args(dict.span_with(self.args.span));
             ctx.f.decos.push(Deco::Resolved.span_with(span));
             (func.clone())(args, ctx).await
         } else {
@@ -98,7 +103,7 @@ impl Eval for ExprCall {
                 error!(@ctx.f, span, "unknown function");
                 ctx.f.decos.push(Deco::Unresolved.span_with(span));
             }
-            Value::Dict(args)
+            Value::Dict(dict)
         }
     }
 }
