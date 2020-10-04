@@ -1,6 +1,7 @@
 //! Layouting of syntax trees.
 
 use super::*;
+use crate::eval::Eval;
 use crate::shaping;
 use crate::syntax::{
     Decoration, Expr, NodeHeading, NodeRaw, Span, SpanWith, Spanned, SynNode, SynTree,

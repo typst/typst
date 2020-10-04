@@ -22,6 +22,7 @@ opt-level = 2
 lto = true
 
 [dependencies]
+async-trait = "0.1"
 fontdock = { path = "../fontdock", default-features = false }
 kurbo = "0.6.3"
 tide = { path = "../tide" }

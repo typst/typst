@@ -2,10 +2,8 @@
 
 use super::*;
 use crate::color::RgbaColor;
-use crate::eval::{DictKey, SpannedEntry, Value, ValueDict};
-use crate::layout::LayoutContext;
+use crate::eval::DictKey;
 use crate::length::Length;
-use crate::DynFuture;
 
 /// A literal.
 #[derive(Debug, Clone, PartialEq)]
@@ -37,53 +35,9 @@ pub enum Lit {
     Content(SynTree),
 }
 
-impl Lit {
-    /// Evaluate the dictionary literal to a dictionary value.
-    pub async fn eval(&self, ctx: &mut LayoutContext) -> Value {
-        match *self {
-            Lit::Ident(ref v) => Value::Ident(v.clone()),
-            Lit::Bool(v) => Value::Bool(v),
-            Lit::Int(v) => Value::Int(v),
-            Lit::Float(v) => Value::Float(v),
-            Lit::Length(v) => Value::Length(v.as_raw()),
-            Lit::Percent(v) => Value::Relative(v / 100.0),
-            Lit::Color(v) => Value::Color(v),
-            Lit::Str(ref v) => Value::Str(v.clone()),
-            Lit::Dict(ref v) => Value::Dict(v.eval(ctx).await),
-            Lit::Content(ref v) => Value::Content(v.clone()),
-        }
-    }
-}
-
 /// A dictionary literal: `(false, 12cm, greeting = "hi")`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LitDict(pub Vec<LitDictEntry>);
-
-impl LitDict {
-    /// Create an empty dict literal.
-    pub fn new() -> Self {
-        Self(vec![])
-    }
-
-    /// Evaluate the dictionary literal to a dictionary value.
-    pub fn eval<'a>(&'a self, ctx: &'a mut LayoutContext) -> DynFuture<'a, ValueDict> {
-        Box::pin(async move {
-            let mut dict = ValueDict::new();
-
-            for entry in &self.0 {
-                let val = entry.expr.v.eval(ctx).await;
-                let spanned = val.span_with(entry.expr.span);
-                if let Some(key) = &entry.key {
-                    dict.insert(&key.v, SpannedEntry::new(key.span, spanned));
-                } else {
-                    dict.push(SpannedEntry::value(spanned));
-                }
-            }
-
-            dict
-        })
-    }
-}
 
 /// An entry in a dictionary literal: `false` or `greeting = "hi"`.
 #[derive(Debug, Clone, PartialEq)]
@@ -92,4 +46,11 @@ pub struct LitDictEntry {
     pub key: Option<Spanned<DictKey>>,
     /// The value of the entry: `"hi"`.
     pub expr: Spanned<Expr>,
+}
+
+impl LitDict {
+    /// Create an empty dict literal.
+    pub fn new() -> Self {
+        Self(vec![])
+    }
 }
