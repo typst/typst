@@ -34,14 +34,10 @@ pub struct StackLayouter {
 /// The context for stack layouting.
 #[derive(Debug, Clone)]
 pub struct StackContext {
-    /// The spaces to layout into.
-    pub spaces: Vec<LayoutSpace>,
     /// The initial layouting system, which can be updated through `set_sys`.
     pub sys: LayoutSystem,
-    /// The alignment of the _resulting_ layout. This does not effect the line
-    /// layouting itself, but rather how the finished layout will be positioned
-    /// in a parent layout.
-    pub align: LayoutAlign,
+    /// The spaces to layout into.
+    pub spaces: Vec<LayoutSpace>,
     /// Whether to spill over into copies of the last space or finish layouting
     /// when the last space is used up.
     pub repeat: bool,
@@ -59,11 +55,11 @@ impl StackLayouter {
     }
 
     /// Add a layout to the stack.
-    pub fn add(&mut self, layout: BoxLayout) {
+    pub fn add(&mut self, layout: BoxLayout, align: LayoutAlign) {
         // If the alignment cannot be fitted in this space, finish it.
         // TODO: Issue warning for non-fitting alignment in non-repeating
         // context.
-        if !self.update_rulers(layout.align) && self.ctx.repeat {
+        if !self.update_rulers(align) && self.ctx.repeat {
             self.finish_space(true);
         }
 
@@ -84,7 +80,7 @@ impl StackLayouter {
 
         // Add the box to the vector and remember that spacings are allowed
         // again.
-        self.space.layouts.push((self.ctx.sys, layout));
+        self.space.layouts.push((self.ctx.sys, align, layout));
         self.space.last_spacing = LastSpacing::None;
     }
 
@@ -100,10 +96,8 @@ impl StackLayouter {
                 self.update_metrics(size);
                 self.space.layouts.push((
                     self.ctx.sys,
-                    BoxLayout::new(
-                        size.specialized(self.ctx.sys),
-                        LayoutAlign::default(),
-                    ),
+                    LayoutAlign::default(),
+                    BoxLayout::new(size.specialized(self.ctx.sys)),
                 ));
 
                 self.space.last_spacing = LastSpacing::Hard;
@@ -279,7 +273,7 @@ impl StackLayouter {
             y1: start.y + self.space.size.height,
         };
 
-        for (sys, layout) in &self.space.layouts {
+        for (sys, _, layout) in &self.space.layouts {
             // First, we store the bounds calculated so far (which were reduced
             // by the predecessors of this layout) as the initial bounding box
             // of this layout.
@@ -303,7 +297,7 @@ impl StackLayouter {
         let mut rotation = SpecAxis::Vertical;
 
         for (bound, entry) in bounds.iter_mut().zip(&self.space.layouts).rev() {
-            let (sys, layout) = entry;
+            let (sys, _, layout) = entry;
 
             // When the axes are rotated, the maximal primary size (`extent.x`)
             // dictates how much secondary extent the whole run had. This value
@@ -331,12 +325,11 @@ impl StackLayouter {
         // Step 4: Align each layout in its bounding box and collect everything
         // into a single finished layout.
 
-        let mut layout = BoxLayout::new(size, self.ctx.align);
+        let mut layout = BoxLayout::new(size);
 
         let layouts = std::mem::take(&mut self.space.layouts);
-        for ((sys, child), bound) in layouts.into_iter().zip(bounds) {
+        for ((sys, align, child), bound) in layouts.into_iter().zip(bounds) {
             let size = child.size.specialized(sys);
-            let align = child.align;
 
             // The space in which this layout is aligned is given by the
             // distances between the borders of its bounding box.
@@ -373,7 +366,7 @@ struct Space {
     /// Whether to include a layout for this space even if it would be empty.
     hard: bool,
     /// The so-far accumulated layouts.
-    layouts: Vec<(LayoutSystem, BoxLayout)>,
+    layouts: Vec<(LayoutSystem, LayoutAlign, BoxLayout)>,
     /// The specialized size of this space.
     size: Size,
     /// The specialized remaining space.

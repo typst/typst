@@ -1,5 +1,7 @@
 //! Layouting of syntax trees.
 
+use fontdock::FontStyle;
+
 use super::*;
 use crate::eval::Eval;
 use crate::shaping;
@@ -25,7 +27,6 @@ impl<'a> TreeLayouter<'a> {
         let layouter = LineLayouter::new(LineContext {
             spaces: ctx.constraints.spaces.clone(),
             sys: ctx.state.sys,
-            align: ctx.state.align,
             repeat: ctx.constraints.repeat,
             line_spacing: ctx.state.text.line_spacing(),
         });
@@ -99,16 +100,31 @@ impl<'a> TreeLayouter<'a> {
     }
 
     async fn layout_text(&mut self, text: &str) {
-        self.layouter.add(
-            shaping::shape(
-                text,
-                self.ctx.state.sys.primary,
-                self.ctx.state.align,
-                &self.ctx.state.text,
-                &mut self.ctx.loader.borrow_mut(),
-            )
-            .await,
-        );
+        let mut variant = self.ctx.state.text.variant;
+
+        if self.ctx.state.text.strong {
+            variant.weight = variant.weight.thicken(300);
+        }
+
+        if self.ctx.state.text.emph {
+            variant.style = match variant.style {
+                FontStyle::Normal => FontStyle::Italic,
+                FontStyle::Italic => FontStyle::Normal,
+                FontStyle::Oblique => FontStyle::Normal,
+            }
+        }
+
+        let boxed = shaping::shape(
+            text,
+            self.ctx.state.sys.primary,
+            self.ctx.state.text.font_size(),
+            variant,
+            &self.ctx.state.text.fallback,
+            &mut self.ctx.loader.borrow_mut(),
+        )
+        .await;
+
+        self.layouter.add(boxed, self.ctx.state.align);
     }
 
     async fn layout_heading(&mut self, heading: &NodeHeading) {
@@ -160,9 +176,7 @@ impl<'a> TreeLayouter<'a> {
         };
 
         let val = expr.v.eval(self.ctx).await;
-
         let commands = val.span_with(expr.span).into_commands();
-
         for command in commands {
             self.execute_command(command, expr.span).await;
         }
@@ -173,7 +187,7 @@ impl<'a> TreeLayouter<'a> {
         match command {
             LayoutSyntaxTree(tree) => self.layout_tree(&tree).await,
 
-            Add(layout) => self.layouter.add(layout),
+            Add(layout, align) => self.layouter.add(layout, align),
             AddSpacing(space, kind, axis) => match axis {
                 GenAxis::Primary => self.layouter.add_primary_spacing(space, kind),
                 GenAxis::Secondary => self.layouter.add_secondary_spacing(space, kind),

@@ -54,16 +54,14 @@ pub async fn layout(
 pub struct BoxLayout {
     /// The size of the box.
     pub size: Size,
-    /// How to align this box in a parent container.
-    pub align: LayoutAlign,
     /// The elements composing this layout.
     pub elements: Vec<(Point, LayoutElement)>,
 }
 
 impl BoxLayout {
-    /// Create an new empty collection.
-    pub fn new(size: Size, align: LayoutAlign) -> Self {
-        Self { size, align, elements: vec![] }
+    /// Create a new empty collection.
+    pub fn new(size: Size) -> Self {
+        Self { size, elements: vec![] }
     }
 
     /// Add an element at a position.
@@ -161,7 +159,7 @@ pub enum Command {
     LayoutSyntaxTree(SynTree),
 
     /// Add a finished layout.
-    Add(BoxLayout),
+    Add(BoxLayout, LayoutAlign),
     /// Add spacing of the given kind along the primary or secondary axis. The
     /// kind defines how the spacing interacts with surrounding spacing.
     AddSpacing(f64, SpacingKind, GenAxis),

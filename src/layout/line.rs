@@ -23,14 +23,10 @@ pub struct LineLayouter {
 /// The context for line layouting.
 #[derive(Debug, Clone)]
 pub struct LineContext {
-    /// The spaces to layout into.
-    pub spaces: Vec<LayoutSpace>,
     /// The initial layouting system, which can be updated through `set_sys`.
     pub sys: LayoutSystem,
-    /// The alignment of the _resulting_ layout. This does not effect the line
-    /// layouting itself, but rather how the finished layout will be positioned
-    /// in a parent layout.
-    pub align: LayoutAlign,
+    /// The spaces to layout into.
+    pub spaces: Vec<LayoutSpace>,
     /// Whether to spill over into copies of the last space or finish layouting
     /// when the last space is used up.
     pub repeat: bool,
@@ -45,7 +41,6 @@ impl LineLayouter {
             stack: StackLayouter::new(StackContext {
                 spaces: ctx.spaces.clone(),
                 sys: ctx.sys,
-                align: ctx.align,
                 repeat: ctx.repeat,
             }),
             ctx,
@@ -54,26 +49,26 @@ impl LineLayouter {
     }
 
     /// Add a layout.
-    pub fn add(&mut self, layout: BoxLayout) {
+    pub fn add(&mut self, layout: BoxLayout, align: LayoutAlign) {
         let sys = self.ctx.sys;
 
-        if let Some(align) = self.run.align {
-            if layout.align.secondary != align.secondary {
+        if let Some(prev) = self.run.align {
+            if align.secondary != prev.secondary {
                 // TODO: Issue warning for non-fitting alignment in
                 // non-repeating context.
-                let fitting = self.stack.is_fitting_alignment(layout.align);
+                let fitting = self.stack.is_fitting_alignment(align);
                 if !fitting && self.ctx.repeat {
                     self.finish_space(true);
                 } else {
                     self.finish_line();
                 }
-            } else if layout.align.primary < align.primary {
+            } else if align.primary < prev.primary {
                 self.finish_line();
-            } else if layout.align.primary > align.primary {
+            } else if align.primary > prev.primary {
                 let mut rest_run = LineRun::new();
 
                 let usable = self.stack.usable().primary(sys);
-                rest_run.usable = Some(match layout.align.primary {
+                rest_run.usable = Some(match align.primary {
                     GenAlign::Start => unreachable!("start > x"),
                     GenAlign::Center => usable - 2.0 * self.run.size.width,
                     GenAlign::End => usable - self.run.size.width,
@@ -105,7 +100,7 @@ impl LineLayouter {
             }
         }
 
-        self.run.align = Some(layout.align);
+        self.run.align = Some(align);
         self.run.layouts.push((self.run.size.width, layout));
 
         self.run.size.width += size.width;
@@ -211,10 +206,8 @@ impl LineLayouter {
 
     /// Finish the active line and start a new one.
     pub fn finish_line(&mut self) {
-        let mut layout = BoxLayout::new(
-            self.run.size.specialized(self.ctx.sys),
-            self.run.align.unwrap_or_default(),
-        );
+        let mut layout = BoxLayout::new(self.run.size.specialized(self.ctx.sys));
+        let align = self.run.align.unwrap_or_default();
 
         let layouts = std::mem::take(&mut self.run.layouts);
         for (offset, child) in layouts {
@@ -227,7 +220,7 @@ impl LineLayouter {
             layout.push_layout(pos, child);
         }
 
-        self.stack.add(layout);
+        self.stack.add(layout, align);
 
         self.run = LineRun::new();
         self.stack.add_spacing(self.ctx.line_spacing, SpacingKind::LINE);

@@ -6,23 +6,23 @@
 
 use std::fmt::{self, Debug, Formatter};
 
-use fontdock::{FaceId, FaceQuery, FallbackTree, FontStyle, FontVariant};
+use fontdock::{FaceId, FaceQuery, FallbackTree, FontVariant};
 use ttf_parser::GlyphId;
 
-use crate::eval::TextState;
 use crate::font::FontLoader;
 use crate::geom::{Point, Size};
-use crate::layout::{BoxLayout, Dir, LayoutAlign, LayoutElement};
+use crate::layout::{BoxLayout, Dir, LayoutElement};
 
 /// Shape text into a box containing shaped runs.
 pub async fn shape(
     text: &str,
     dir: Dir,
-    align: LayoutAlign,
-    state: &TextState,
+    size: f64,
+    variant: FontVariant,
+    fallback: &FallbackTree,
     loader: &mut FontLoader,
 ) -> BoxLayout {
-    Shaper::new(text, dir, align, state, loader).shape().await
+    Shaper::new(text, dir, size, variant, fallback, loader).shape().await
 }
 
 /// A shaped run of text.
@@ -86,32 +86,19 @@ impl<'a> Shaper<'a> {
     fn new(
         text: &'a str,
         dir: Dir,
-        align: LayoutAlign,
-        state: &'a TextState,
+        size: f64,
+        variant: FontVariant,
+        fallback: &'a FallbackTree,
         loader: &'a mut FontLoader,
     ) -> Self {
-        let mut variant = state.variant;
-
-        if state.strong {
-            variant.weight = variant.weight.thicken(300);
-        }
-
-        if state.emph {
-            variant.style = match variant.style {
-                FontStyle::Normal => FontStyle::Italic,
-                FontStyle::Italic => FontStyle::Normal,
-                FontStyle::Oblique => FontStyle::Normal,
-            }
-        }
-
         Self {
             text,
             dir,
             variant,
-            fallback: &state.fallback,
+            fallback,
             loader,
-            shaped: Shaped::new(FaceId::MAX, state.font_size()),
-            layout: BoxLayout::new(Size::new(0.0, state.font_size()), align),
+            shaped: Shaped::new(FaceId::MAX, size),
+            layout: BoxLayout::new(Size::new(0.0, size)),
             offset: 0.0,
         }
     }
