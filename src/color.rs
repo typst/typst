@@ -10,7 +10,7 @@ use std::str::FromStr;
 /// [page: background=#423abaff]
 ///                   ^^^^^^^^
 /// ```
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct RgbaColor {
     /// Red channel.
     pub r: u8,

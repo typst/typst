@@ -19,7 +19,7 @@ pub struct Tokens<'s> {
 /// Whether to tokenize in header mode which yields expression, comma and
 /// similar tokens or in body mode which yields text and star, underscore,
 /// backtick tokens.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TokenMode {
     Header,
     Body,

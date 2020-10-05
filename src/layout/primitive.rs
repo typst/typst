@@ -27,7 +27,7 @@ impl Default for LayoutAlign {
 pub type LayoutExpansion = Spec2<bool>;
 
 /// The four directions into which content can be laid out.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Dir {
     /// Left to right.
     LTR,
@@ -40,26 +40,6 @@ pub enum Dir {
 }
 
 impl Dir {
-    /// The side this direction starts at.
-    pub fn start(self) -> Side {
-        match self {
-            Self::LTR => Side::Left,
-            Self::RTL => Side::Right,
-            Self::TTB => Side::Top,
-            Self::BTT => Side::Bottom,
-        }
-    }
-
-    /// The side this direction ends at.
-    pub fn end(self) -> Side {
-        match self {
-            Self::LTR => Side::Right,
-            Self::RTL => Side::Left,
-            Self::TTB => Side::Bottom,
-            Self::BTT => Side::Top,
-        }
-    }
-
     /// The specific axis this direction belongs to.
     pub fn axis(self) -> SpecAxis {
         match self {
@@ -95,6 +75,18 @@ impl Dir {
             Self::BTT => Self::TTB,
         }
     }
+
+    /// The side of this direction the alignment identifies.
+    ///
+    /// `Center` alignment is treated the same as `Start` alignment.
+    pub fn side(self, align: GenAlign) -> Side {
+        match if align == GenAlign::End { self.inv() } else { self } {
+            Self::LTR => Side::Left,
+            Self::RTL => Side::Right,
+            Self::TTB => Side::Top,
+            Self::BTT => Side::Bottom,
+        }
+    }
 }
 
 impl Display for Dir {
@@ -109,7 +101,7 @@ impl Display for Dir {
 }
 
 /// The two generic layouting axes.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum GenAxis {
     /// The primary layouting direction into which text and lines flow.
     Primary,
@@ -134,7 +126,7 @@ impl Display for GenAxis {
 }
 
 /// The two specific layouting axes.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SpecAxis {
     /// The horizontal layouting axis.
     Horizontal,
@@ -162,17 +154,8 @@ impl Display for SpecAxis {
     }
 }
 
-/// A side of a container.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Side {
-    Left,
-    Top,
-    Right,
-    Bottom,
-}
-
 /// Where to align content along an axis in a generic context.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum GenAlign {
     Start,
     Center,
@@ -201,7 +184,7 @@ impl Display for GenAlign {
 }
 
 /// Where to align content along an axis in a specific context.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum SpecAlign {
     Left,
     Right,
@@ -256,8 +239,29 @@ impl Display for SpecAlign {
     }
 }
 
+/// A side of a container.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Side {
+    Left,
+    Top,
+    Right,
+    Bottom,
+}
+
+impl Side {
+    /// The opposite side.
+    pub fn inv(self) -> Self {
+        match self {
+            Self::Left => Self::Right,
+            Self::Top => Self::Bottom,
+            Self::Right => Self::Left,
+            Self::Bottom => Self::Top,
+        }
+    }
+}
+
 /// A generic container with two components for the two generic axes.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub struct Gen2<T> {
     /// The primary component.
     pub primary: T,
@@ -279,14 +283,6 @@ impl<T> Gen2<T> {
         }
     }
 
-    /// Borrow the component for the specified generic axis.
-    pub fn get_ref(&mut self, axis: GenAxis) -> &T {
-        match axis {
-            GenAxis::Primary => &mut self.primary,
-            GenAxis::Secondary => &mut self.secondary,
-        }
-    }
-
     /// Borrow the component for the specified generic axis mutably.
     pub fn get_mut(&mut self, axis: GenAxis) -> &mut T {
         match axis {
@@ -297,7 +293,7 @@ impl<T> Gen2<T> {
 }
 
 /// A generic container with two components for the two specific axes.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub struct Spec2<T> {
     /// The horizontal component.
     pub horizontal: T,
@@ -319,19 +315,64 @@ impl<T> Spec2<T> {
         }
     }
 
-    /// Borrow the component for the given specific axis.
-    pub fn get_ref(&mut self, axis: SpecAxis) -> &T {
-        match axis {
-            SpecAxis::Horizontal => &mut self.horizontal,
-            SpecAxis::Vertical => &mut self.vertical,
-        }
-    }
-
     /// Borrow the component for the given specific axis mutably.
     pub fn get_mut(&mut self, axis: SpecAxis) -> &mut T {
         match axis {
             SpecAxis::Horizontal => &mut self.horizontal,
             SpecAxis::Vertical => &mut self.vertical,
+        }
+    }
+}
+
+/// A generic container with left, top, right and bottom components.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+pub struct Sides<T> {
+    /// The value for the left side.
+    pub left: T,
+    /// The value for the top side.
+    pub top: T,
+    /// The value for the right side.
+    pub right: T,
+    /// The value for the bottom side.
+    pub bottom: T,
+}
+
+impl<T> Sides<T> {
+    /// Create a new box from four sizes.
+    pub fn new(left: T, top: T, right: T, bottom: T) -> Self {
+        Self { left, top, right, bottom }
+    }
+
+    /// Create an instance with all four components set to the same `value`.
+    pub fn uniform(value: T) -> Self
+    where
+        T: Clone,
+    {
+        Self {
+            left: value.clone(),
+            top: value.clone(),
+            right: value.clone(),
+            bottom: value,
+        }
+    }
+
+    /// Return the component for the given side.
+    pub fn get(self, side: Side) -> T {
+        match side {
+            Side::Left => self.left,
+            Side::Right => self.right,
+            Side::Top => self.top,
+            Side::Bottom => self.bottom,
+        }
+    }
+
+    /// Borrow the component for the given side mutably.
+    pub fn get_mut(&mut self, side: Side) -> &mut T {
+        match side {
+            Side::Left => &mut self.left,
+            Side::Right => &mut self.right,
+            Side::Top => &mut self.top,
+            Side::Bottom => &mut self.bottom,
         }
     }
 }

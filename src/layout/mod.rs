@@ -11,7 +11,7 @@ pub use primitive::*;
 pub use stack::*;
 pub use tree::*;
 
-use crate::geom::{Insets, Point, Rect, RectExt, Sides, Size, SizeExt};
+use crate::geom::{Insets, Point, Rect, RectExt, Size, SizeExt};
 
 use crate::diag::Diag;
 use crate::eval::{PageState, State, TextState};

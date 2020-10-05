@@ -90,9 +90,10 @@ impl StackLayouter {
             // A hard space is simply an empty box.
             SpacingKind::Hard => {
                 // Reduce the spacing such that it definitely fits.
-                spacing = spacing.min(self.space.usable.secondary(self.ctx.sys));
-                let size = Size::new(0.0, spacing);
+                let axis = self.ctx.sys.secondary.axis();
+                spacing = spacing.min(self.space.usable.get(axis));
 
+                let size = Size::new(0.0, spacing);
                 self.update_metrics(size);
                 self.space.layouts.push((
                     self.ctx.sys,
@@ -133,29 +134,29 @@ impl StackLayouter {
 
         self.space.size = size.specialized(sys);
         self.space.extra = extra.specialized(sys);
-        *self.space.usable.secondary_mut(sys) -= added.height;
+        *self.space.usable.get_mut(sys.secondary.axis()) -= added.height;
     }
 
     /// Returns true if a space break is necessary.
     fn update_rulers(&mut self, align: LayoutAlign) -> bool {
         let allowed = self.is_fitting_alignment(align);
         if allowed {
-            *self.space.rulers.get_mut(self.ctx.sys.secondary, GenAlign::Start) =
-                align.secondary;
+            let side = self.ctx.sys.secondary.side(GenAlign::Start);
+            *self.space.rulers.get_mut(side) = align.secondary;
         }
         allowed
     }
 
     /// Whether a layout with the given alignment can still be layouted into the
     /// active space or a space break is necessary.
-    pub(crate) fn is_fitting_alignment(&mut self, align: LayoutAlign) -> bool {
+    pub(crate) fn is_fitting_alignment(&self, align: LayoutAlign) -> bool {
         self.is_fitting_axis(self.ctx.sys.primary, align.primary)
             && self.is_fitting_axis(self.ctx.sys.secondary, align.secondary)
     }
 
-    fn is_fitting_axis(&mut self, dir: Dir, align: GenAlign) -> bool {
-        align >= *self.space.rulers.get_mut(dir, GenAlign::Start)
-            && align <= self.space.rulers.get_mut(dir, GenAlign::End).inv()
+    fn is_fitting_axis(&self, dir: Dir, align: GenAlign) -> bool {
+        align >= self.space.rulers.get(dir.side(GenAlign::Start))
+            && align <= self.space.rulers.get(dir.side(GenAlign::End)).inv()
     }
 
     /// Update the layouting system.
@@ -284,7 +285,7 @@ impl StackLayouter {
             // the usable space for following layouts at its origin by its
             // extent along the secondary axis.
             *bound.get_mut(sys.secondary, GenAlign::Start) +=
-                sys.secondary.factor() * layout.size.secondary(*sys);
+                sys.secondary.factor() * layout.size.get(sys.secondary.axis());
         }
 
         // ------------------------------------------------------------------ //

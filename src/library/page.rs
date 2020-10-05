@@ -1,7 +1,7 @@
 use std::mem;
 
 use crate::eval::Absolute;
-use crate::geom::{Linear, Sides};
+use crate::geom::Linear;
 use crate::paper::{Paper, PaperClass};
 use crate::prelude::*;
 

@@ -67,7 +67,7 @@ impl LineLayouter {
             } else if align.primary > prev.primary {
                 let mut rest_run = LineRun::new();
 
-                let usable = self.stack.usable().primary(sys);
+                let usable = self.stack.usable().get(sys.primary.axis());
                 rest_run.usable = Some(match align.primary {
                     GenAlign::Start => unreachable!("start > x"),
                     GenAlign::Center => usable - 2.0 * self.run.size.width,
@@ -181,7 +181,7 @@ impl LineLayouter {
     /// it will fit into this layouter's underlying stack.
     pub fn remaining(&self) -> Vec<LayoutSpace> {
         let mut spaces = self.stack.remaining();
-        *spaces[0].size.secondary_mut(self.ctx.sys) -= self.run.size.height;
+        *spaces[0].size.get_mut(self.ctx.sys.secondary.axis()) -= self.run.size.height;
         spaces
     }
 
@@ -213,7 +213,11 @@ impl LineLayouter {
         for (offset, child) in layouts {
             let x = match self.ctx.sys.primary.is_positive() {
                 true => offset,
-                false => self.run.size.width - offset - child.size.primary(self.ctx.sys),
+                false => {
+                    self.run.size.width
+                        - offset
+                        - child.size.get(self.ctx.sys.primary.axis())
+                }
             };
 
             let pos = Point::new(x, 0.0);

@@ -1,6 +1,7 @@
 //! Predefined papers.
 
-use crate::geom::{Linear, Sides, Size};
+use crate::geom::{Linear, Size};
+use crate::layout::Sides;
 use crate::length::Length;
 
 /// Specification of a paper.

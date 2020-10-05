@@ -3,8 +3,8 @@
 use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
 
 use super::Scope;
-use crate::geom::{Insets, Linear, Sides, Size};
-use crate::layout::{Dir, GenAlign, LayoutAlign, LayoutSystem};
+use crate::geom::{Insets, Linear, Size};
+use crate::layout::{Dir, GenAlign, LayoutAlign, LayoutSystem, Sides};
 use crate::length::Length;
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 

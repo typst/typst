@@ -10,7 +10,7 @@ use unicode_xid::UnicodeXID;
 /// `-` and `_` as starting and continuing characters.
 ///
 /// [Unicode Standard]: http://www.unicode.org/reports/tr31/
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Ident(pub String);
 
 impl Ident {
