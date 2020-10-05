@@ -116,11 +116,11 @@ impl<'a> TreeLayouter<'a> {
 
         let boxed = shaping::shape(
             text,
-            self.ctx.state.sys.primary,
             self.ctx.state.text.font_size(),
-            variant,
-            &self.ctx.state.text.fallback,
+            self.ctx.state.sys.primary,
             &mut self.ctx.loader.borrow_mut(),
+            &self.ctx.state.text.fallback,
+            variant,
         )
         .await;
 
