@@ -13,10 +13,11 @@ pub use tree::*;
 
 use crate::geom::{Insets, Point, Rect, RectExt, Sides, Size, SizeExt};
 
+use crate::diag::Diag;
 use crate::eval::{PageState, State, TextState};
 use crate::font::SharedFontLoader;
 use crate::shaping::Shaped;
-use crate::syntax::SynTree;
+use crate::syntax::{Deco, Spanned, SynTree};
 use crate::{Feedback, Pass};
 
 /// Layout a syntax tree and return the produced layout.
@@ -96,6 +97,18 @@ pub struct LayoutContext {
     pub constraints: LayoutConstraints,
     /// The accumulated feedback.
     pub f: Feedback,
+}
+
+impl LayoutContext {
+    /// Add a diagnostic to the feedback.
+    pub fn diag(&mut self, diag: Spanned<Diag>) {
+        self.f.diags.push(diag);
+    }
+
+    /// Add a decoration to the feedback.
+    pub fn deco(&mut self, deco: Spanned<Deco>) {
+        self.f.decos.push(deco);
+    }
 }
 
 /// The constraints for layouting a single node.

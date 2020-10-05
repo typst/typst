@@ -100,7 +100,7 @@ impl Eval for ExprCall {
             (func.clone())(args, ctx).await
         } else {
             if !name.is_empty() {
-                error!(@ctx.f, span, "unknown function");
+                ctx.diag(error!(span, "unknown function"));
                 ctx.f.decos.push(Deco::Unresolved.span_with(span));
             }
             Value::Dict(dict)
@@ -159,7 +159,7 @@ fn neg(ctx: &mut LayoutContext, span: Span, value: Value) -> Value {
         Relative(v) => Relative(-v),
         Linear(v) => Linear(-v),
         v => {
-            error!(@ctx.f, span, "cannot negate {}", v.ty());
+            ctx.diag(error!(span, "cannot negate {}", v.ty()));
             Value::Error
         }
     }
@@ -196,7 +196,7 @@ fn add(ctx: &mut LayoutContext, span: Span, lhs: Value, rhs: Value) -> Value {
         (Commands(a), Commands(b)) => Commands(concat(a, b)),
 
         (a, b) => {
-            error!(@ctx.f, span, "cannot add {} and {}", a.ty(), b.ty());
+            ctx.diag(error!(span, "cannot add {} and {}", a.ty(), b.ty()));
             Value::Error
         }
     }
@@ -225,7 +225,7 @@ fn sub(ctx: &mut LayoutContext, span: Span, lhs: Value, rhs: Value) -> Value {
         (Linear(a), Linear(b)) => Linear(a - b),
 
         (a, b) => {
-            error!(@ctx.f, span, "cannot subtract {1} from {0}", a.ty(), b.ty());
+            ctx.diag(error!(span, "cannot subtract {1} from {0}", a.ty(), b.ty()));
             Value::Error
         }
     }
@@ -260,7 +260,7 @@ fn mul(ctx: &mut LayoutContext, span: Span, lhs: Value, rhs: Value) -> Value {
         (Str(a), Int(b)) => Str(a.repeat(b.max(0) as usize)),
 
         (a, b) => {
-            error!(@ctx.f, span, "cannot multiply {} with {}", a.ty(), b.ty());
+            ctx.diag(error!(span, "cannot multiply {} with {}", a.ty(), b.ty()));
             Value::Error
         }
     }
@@ -285,7 +285,7 @@ fn div(ctx: &mut LayoutContext, span: Span, lhs: Value, rhs: Value) -> Value {
         (Linear(a), Float(b)) => Linear(a / b),
 
         (a, b) => {
-            error!(@ctx.f, span, "cannot divide {} by {}", a.ty(), b.ty());
+            ctx.diag(error!(span, "cannot divide {} by {}", a.ty(), b.ty()));
             Value::Error
         }
     }

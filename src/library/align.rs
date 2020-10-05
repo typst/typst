@@ -53,12 +53,12 @@ fn parse_aligns(
         // `deferred_center` to true and handle the situation once we know more.
         if let Some(axis) = axis {
             if align.v.axis().map_or(false, |a| a != axis) {
-                error!(
-                    @ctx.f, align.span,
+                ctx.diag(error!(
+                    align.span,
                     "invalid alignment {} for {} axis", align.v, axis,
-                );
+                ));
             } else if had[axis as usize] {
-                error!(@ctx.f, align.span, "duplicate alignment for {} axis", axis);
+                ctx.diag(error!(align.span, "duplicate alignment for {} axis", axis));
             } else {
                 let gen_align = align.v.to_gen(ctx.state.sys);
                 *aligns.get_mut(axis.to_gen(ctx.state.sys)) = gen_align;
@@ -66,7 +66,7 @@ fn parse_aligns(
             }
         } else {
             if had == [true, true] {
-                error!(@ctx.f, align.span, "duplicate alignment");
+                ctx.diag(error!(align.span, "duplicate alignment"));
             } else if deferred_center {
                 // We have two unflushed centers, meaning we know that both axes
                 // are to be centered.

@@ -198,10 +198,10 @@ impl<'a> TreeLayouter<'a> {
                 if self.constraints.root {
                     self.layouter.finish_space(true)
                 } else {
-                    error!(
-                        @self.ctx.f, span,
+                    self.ctx.diag(error!(
+                        span,
                         "page break can only be issued from root context",
-                    );
+                    ));
                 }
             }
 
@@ -224,10 +224,10 @@ impl<'a> TreeLayouter<'a> {
                     self.constraints.base = space.usable();
                     self.layouter.set_spaces(vec![space], true);
                 } else {
-                    error!(
-                        @self.ctx.f, span,
+                    self.ctx.diag(error!(
+                        span,
                         "page style can only be changed from root context",
-                    );
+                    ));
                 }
             }
 

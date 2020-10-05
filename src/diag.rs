@@ -46,18 +46,13 @@ impl Display for Level {
 /// ```
 /// # use typstc::error;
 /// # use typstc::syntax::Span;
-/// # use typstc::Feedback;
 /// # let span = Span::ZERO;
-/// # let mut feedback = Feedback::new();
 /// # let name = "";
 /// // Create formatted error values.
 /// let error = error!("expected {}", name);
 ///
 /// // Create spanned errors.
 /// let spanned = error!(span, "there is an error here");
-///
-/// // Create an error and directly add it to existing feedback.
-/// error!(@feedback, span, "oh no!");
 /// ```
 ///
 /// [`Error`]: diagnostic/enum.Level.html#variant.Error
@@ -85,10 +80,6 @@ macro_rules! warning {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __impl_diagnostic {
-    ($level:expr; @$feedback:expr, $($tts:tt)*) => {
-        $feedback.diags.push($crate::__impl_diagnostic!($level; $($tts)*));
-    };
-
     ($level:expr; $fmt:literal $($tts:tt)*) => {
         $crate::diag::Diag::new($level, format!($fmt $($tts)*))
     };

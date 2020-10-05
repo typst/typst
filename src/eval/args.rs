@@ -129,7 +129,7 @@ impl Args {
     pub fn done(&self, ctx: &mut LayoutContext) {
         for entry in self.0.v.values() {
             let span = entry.key_span.join(entry.value.span);
-            error!(@ctx.f, span, "unexpected argument");
+            ctx.diag(error!(span, "unexpected argument"));
         }
     }
 }

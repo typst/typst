@@ -12,7 +12,7 @@ pub async fn rgb(mut args: Args, ctx: &mut LayoutContext) -> Value {
     let mut clamp = |component: Option<Spanned<i64>>, default| {
         component.map_or(default, |c| {
             if c.v < 0 || c.v > 255 {
-                error!(@ctx.f, c.span, "should be between 0 and 255")
+                ctx.diag(error!(c.span, "should be between 0 and 255"));
             }
             c.v.max(0).min(255) as u8
         })
