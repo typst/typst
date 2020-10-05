@@ -51,7 +51,7 @@ use crate::prelude::*;
 ///   ```
 pub async fn font(mut args: Args, ctx: &mut LayoutContext) -> Value {
     let mut text = ctx.state.text.clone();
-    let mut needs_flatten = false;
+    let mut needs_flattening = false;
 
     let body = args.find::<SynTree>();
 
@@ -67,7 +67,7 @@ pub async fn font(mut args: Args, ctx: &mut LayoutContext) -> Value {
     let list: Vec<_> = args.find_all::<StringLike>().map(|s| s.to_lowercase()).collect();
     if !list.is_empty() {
         text.fallback.list = list;
-        needs_flatten = true;
+        needs_flattening = true;
     }
 
     if let Some(style) = args.get::<_, FontStyle>(ctx, "style") {
@@ -89,12 +89,12 @@ pub async fn font(mut args: Args, ctx: &mut LayoutContext) -> Value {
             .collect();
 
         text.fallback.update_class_list(class, fallback);
-        needs_flatten = true;
+        needs_flattening = true;
     }
 
     args.done(ctx);
 
-    if needs_flatten {
+    if needs_flattening {
         text.fallback.flatten();
     }
 
