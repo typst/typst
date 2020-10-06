@@ -1,9 +1,6 @@
-//! The syntax tree.
+//! Syntax tree nodes.
 
 use super::*;
-
-/// A collection of nodes which form a tree together with the nodes' children.
-pub type SynTree = SpanVec<SynNode>;
 
 /// A syntax node, which encompasses a single logical entity of parsed source
 /// code.
