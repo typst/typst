@@ -24,7 +24,7 @@ fn spacing(mut args: Args, ctx: &mut LayoutContext, axis: SpecAxis) -> Value {
 
     Value::Commands(if let Some(spacing) = spacing {
         let spacing = spacing.eval(ctx.state.text.font_size());
-        let axis = axis.to_gen(ctx.state.dirs);
+        let axis = axis.switch(ctx.state.dirs);
         vec![AddSpacing(spacing, SpacingKind::Hard, axis)]
     } else {
         vec![]

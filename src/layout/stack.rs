@@ -28,7 +28,7 @@ pub struct StackLayouter {
     /// The finished layouts.
     layouts: Vec<BoxLayout>,
     /// The in-progress space.
-    space: Space,
+    pub(super) space: Space,
 }
 
 /// The context for stack layouting.
@@ -57,30 +57,31 @@ impl StackLayouter {
     /// Add a layout to the stack.
     pub fn add(&mut self, layout: BoxLayout, aligns: Gen2<GenAlign>) {
         // If the alignment cannot be fitted in this space, finish it.
+        //
         // TODO: Issue warning for non-fitting alignment in non-repeating
-        // context.
-        if !self.update_rulers(aligns) && self.ctx.repeat {
+        //       context.
+        if aligns.main < self.space.allowed_align && self.ctx.repeat {
             self.finish_space(true);
         }
 
-        // Now, we add a possibly cached soft space. If the main alignment
-        // changed before, a possibly cached space would have already been
-        // discarded.
+        // Add a possibly cached soft spacing.
         if let LastSpacing::Soft(spacing, _) = self.space.last_spacing {
             self.add_spacing(spacing, SpacingKind::Hard);
         }
 
-        // TODO: Issue warning about overflow if there is overflow.
+        // TODO: Issue warning about overflow if there is overflow in a
+        //       non-repeating context.
         if !self.space.usable.fits(layout.size) && self.ctx.repeat {
             self.skip_to_fitting_space(layout.size);
         }
 
         // Change the usable space and size of the space.
-        self.update_metrics(layout.size.generalized(self.ctx.dirs));
+        self.update_metrics(layout.size.switch(self.ctx.dirs));
 
         // Add the box to the vector and remember that spacings are allowed
         // again.
         self.space.layouts.push((layout, aligns));
+        self.space.allowed_align = aligns.main;
         self.space.last_spacing = LastSpacing::None;
     }
 
@@ -93,10 +94,10 @@ impl StackLayouter {
                 let axis = self.ctx.dirs.main.axis();
                 spacing = spacing.min(self.space.usable.get(axis));
 
-                let size = Size::new(0.0, spacing);
+                let size = Gen2::new(spacing, 0.0);
                 self.update_metrics(size);
                 self.space.layouts.push((
-                    BoxLayout::new(size.specialized(self.ctx.dirs)),
+                    BoxLayout::new(size.switch(self.ctx.dirs).to_size()),
                     Gen2::default(),
                 ));
 
@@ -119,40 +120,18 @@ impl StackLayouter {
         }
     }
 
-    fn update_metrics(&mut self, added: Size) {
-        let mut size = self.space.size.generalized(self.ctx.dirs);
-        let mut extra = self.space.extra.generalized(self.ctx.dirs);
+    fn update_metrics(&mut self, added: Gen2<f64>) {
+        let mut size = self.space.size.switch(self.ctx.dirs);
+        let mut extra = self.space.extra.switch(self.ctx.dirs);
 
-        size.width += (added.width - extra.width).max(0.0);
-        size.height += (added.height - extra.height).max(0.0);
-        extra.width = extra.width.max(added.width);
-        extra.height = (extra.height - added.height).max(0.0);
+        size.cross += (added.cross - extra.cross).max(0.0);
+        size.main += (added.main - extra.main).max(0.0);
+        extra.cross = extra.cross.max(added.cross);
+        extra.main = (extra.main - added.main).max(0.0);
 
-        self.space.size = size.specialized(self.ctx.dirs);
-        self.space.extra = extra.specialized(self.ctx.dirs);
-        *self.space.usable.get_mut(self.ctx.dirs.main.axis()) -= added.height;
-    }
-
-    /// Returns true if a space break is necessary.
-    fn update_rulers(&mut self, aligns: Gen2<GenAlign>) -> bool {
-        let allowed = self.is_fitting_alignment(aligns);
-        if allowed {
-            let side = self.ctx.dirs.main.side(GenAlign::Start);
-            *self.space.rulers.get_mut(side) = aligns.main;
-        }
-        allowed
-    }
-
-    /// Whether a layout with the given alignment can still be layouted into the
-    /// active space or a space break is necessary.
-    pub(crate) fn is_fitting_alignment(&self, aligns: Gen2<GenAlign>) -> bool {
-        self.is_fitting_axis(self.ctx.dirs.main, aligns.main)
-            && self.is_fitting_axis(self.ctx.dirs.cross, aligns.cross)
-    }
-
-    fn is_fitting_axis(&self, dir: Dir, align: GenAlign) -> bool {
-        align >= self.space.rulers.get(dir.side(GenAlign::Start))
-            && align <= self.space.rulers.get(dir.side(GenAlign::End)).inv()
+        self.space.size = size.switch(self.ctx.dirs).to_size();
+        self.space.extra = extra.switch(self.ctx.dirs).to_size();
+        *self.space.usable.get_mut(self.ctx.dirs.main.axis()) -= added.main;
     }
 
     /// Update the layouting spaces.
@@ -202,8 +181,9 @@ impl StackLayouter {
     /// The remaining usable size.
     pub fn usable(&self) -> Size {
         self.space.usable
-            - Size::new(0.0, self.space.last_spacing.soft_or_zero())
-                .specialized(self.ctx.dirs)
+            - Gen2::new(self.space.last_spacing.soft_or_zero(), 0.0)
+                .switch(self.ctx.dirs)
+                .to_size()
     }
 
     /// Whether the current layout space is empty.
@@ -227,29 +207,35 @@ impl StackLayouter {
     /// Finish active current space and start a new one.
     pub fn finish_space(&mut self, hard: bool) {
         let dirs = self.ctx.dirs;
-        let space = self.ctx.spaces[self.space.index];
 
         // ------------------------------------------------------------------ //
         // Step 1: Determine the full size of the space.
         // (Mostly done already while collecting the boxes, but here we
         //  expand if necessary.)
 
-        let usable = space.usable();
-        if space.expansion.horizontal {
-            self.space.size.width = usable.width;
-        }
-        if space.expansion.vertical {
-            self.space.size.height = usable.height;
-        }
+        let space = self.ctx.spaces[self.space.index];
+        let start = space.start();
+        let padded_size = {
+            let mut used_size = self.space.size;
 
-        let size = self.space.size - space.insets.size();
+            let usable = space.usable();
+            if space.expansion.horizontal {
+                used_size.width = usable.width;
+            }
+            if space.expansion.vertical {
+                used_size.height = usable.height;
+            }
+
+            used_size
+        };
+
+        let unpadded_size = padded_size - space.insets.size();
+        let mut layout = BoxLayout::new(unpadded_size);
 
         // ------------------------------------------------------------------ //
         // Step 2: Forward pass. Create a bounding box for each layout in which
         // it will be aligned. Then, go forwards through the boxes and remove
         // what is taken by previous layouts from the following layouts.
-
-        let start = space.start();
 
         let mut bounds = vec![];
         let mut bound = Rect {
@@ -260,16 +246,16 @@ impl StackLayouter {
         };
 
         for (layout, _) in &self.space.layouts {
-            // First, we store the bounds calculated so far (which were reduced
+            // First, store the bounds calculated so far (which were reduced
             // by the predecessors of this layout) as the initial bounding box
             // of this layout.
             bounds.push(bound);
 
-            // Then, we reduce the bounding box for the following layouts. This
+            // Then, reduce the bounding box for the following layouts. This
             // layout uses up space from the origin to the end. Thus, it reduces
             // the usable space for following layouts at its origin by its
             // main-axis extent.
-            *bound.get_mut(dirs.main.side(GenAlign::Start)) +=
+            *bound.get_mut(dirs.main.start()) +=
                 dirs.main.factor() * layout.size.get(dirs.main.axis());
         }
 
@@ -277,37 +263,30 @@ impl StackLayouter {
         // Step 3: Backward pass. Reduce the bounding boxes from the previous
         // layouts by what is taken by the following ones.
 
-        // The `x` field stores the maximal cross-axis extent in one
-        // axis-aligned run, while the `y` fields stores the accumulated
-        // main-axis extent.
         let mut main_extent = 0.0;
         for (child, bound) in self.space.layouts.iter().zip(&mut bounds).rev() {
-            // We reduce the bounding box of this layout at its end by the
-            // accumulated main-axis extent of all layouts we have seen so far
-            // (which are the layouts after this one since we iterate reversed).
-            *bound.get_mut(dirs.main.side(GenAlign::End)) -=
-                dirs.main.factor() * main_extent;
+            let (layout, _) = child;
 
-            // And then, we include this layout's main-axis extent.
-            main_extent += child.0.size.get(dirs.main.axis());
+            // Reduce the bounding box of this layout by the following one's
+            // main-axis extents.
+            *bound.get_mut(dirs.main.end()) -= dirs.main.factor() * main_extent;
+
+            // And then, include this layout's main-axis extent.
+            main_extent += layout.size.get(dirs.main.axis());
         }
 
         // ------------------------------------------------------------------ //
         // Step 4: Align each layout in its bounding box and collect everything
         // into a single finished layout.
 
-        let mut layout = BoxLayout::new(size);
-
         let children = std::mem::take(&mut self.space.layouts);
         for ((child, aligns), bound) in children.into_iter().zip(bounds) {
-            let size = child.size.specialized(dirs);
+            // Align the child in its own bounds.
+            let local =
+                bound.size().anchor(dirs, aligns) - child.size.anchor(dirs, aligns);
 
-            // The space in which this layout is aligned is given by the
-            // distances between the borders of its bounding box.
-            let usable = bound.size().generalized(dirs);
-            let local = usable.anchor(dirs, aligns) - size.anchor(dirs, aligns);
-            let pos = bound.origin() + local.to_size().specialized(dirs).to_vec2();
-
+            // Make the local position in the bounds global.
+            let pos = bound.origin() + local;
             layout.push_layout(pos, child);
         }
 
@@ -331,23 +310,21 @@ impl StackLayouter {
 
 /// A layout space composed of subspaces which can have different directions and
 /// alignments.
-struct Space {
+pub(super) struct Space {
     /// The index of this space in `ctx.spaces`.
     index: usize,
     /// Whether to include a layout for this space even if it would be empty.
     hard: bool,
     /// The so-far accumulated layouts.
     layouts: Vec<(BoxLayout, Gen2<GenAlign>)>,
-    /// The specialized size of this space.
+    /// The size of this space.
     size: Size,
-    /// The specialized remaining space.
+    /// The remaining space.
     usable: Size,
-    /// The specialized extra-needed size to affect the size at all.
+    /// The extra-needed size to affect the size at all.
     extra: Size,
-    /// Dictate which alignments for new boxes are still allowed and which
-    /// require a new space to be started. For example, after an `End`-aligned
-    /// item, no `Start`-aligned one can follow.
-    rulers: Sides<GenAlign>,
+    /// Which alignments for new boxes are still allowed.
+    pub(super) allowed_align: GenAlign,
     /// The spacing state. This influences how new spacing is handled, e.g. hard
     /// spacing may override soft spacing.
     last_spacing: LastSpacing,
@@ -362,7 +339,7 @@ impl Space {
             size: Size::ZERO,
             usable,
             extra: Size::ZERO,
-            rulers: Sides::uniform(GenAlign::Start),
+            allowed_align: GenAlign::Start,
             last_spacing: LastSpacing::Hard,
         }
     }

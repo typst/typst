@@ -2,6 +2,8 @@
 
 use std::fmt::{self, Display, Formatter};
 
+use crate::geom::{Point, Size, Vec2};
+
 /// Generic access to a structure's components.
 pub trait Get<Index> {
     /// The structure's component type.
@@ -14,36 +16,16 @@ pub trait Get<Index> {
     fn get_mut(&mut self, index: Index) -> &mut Self::Component;
 }
 
-/// Convert a type into its generic representation.
+/// Switch between the specific and generic representations of a type.
 ///
 /// The generic representation deals with main and cross axes while the specific
 /// representation deals with horizontal and vertical axes.
-///
-/// See also [`ToSpec`] for the inverse conversion.
-///
-/// [`ToSpec`]: trait.ToSpec.html
-pub trait ToGen {
-    /// The generic version of this type.
-    type Output;
+pub trait Switch {
+    /// The type of the other version.
+    type Other;
 
-    /// The generic version of this type based on the current directions.
-    fn to_gen(self, dirs: Gen2<Dir>) -> Self::Output;
-}
-
-/// Convert a type into its specific representation.
-///
-/// The specific representation deals with horizontal and vertical axes while
-/// the generic representation deals with main and cross axes.
-///
-/// See also [`ToGen`] for the inverse conversion.
-///
-/// [`ToGen`]: trait.ToGen.html
-pub trait ToSpec {
-    /// The specific version of this type.
-    type Output;
-
-    /// The specific version of this type based on the current directions.
-    fn to_spec(self, dirs: Gen2<Dir>) -> Self::Output;
+    /// The other version of this type based on the current directions.
+    fn switch(self, dirs: Gen2<Dir>) -> Self::Other;
 }
 
 /// The four directions into which content can be laid out.
@@ -68,6 +50,26 @@ impl Dir {
         }
     }
 
+    /// The side this direction starts at.
+    pub fn start(self) -> Side {
+        match self {
+            Self::LTR => Side::Left,
+            Self::RTL => Side::Right,
+            Self::TTB => Side::Top,
+            Self::BTT => Side::Bottom,
+        }
+    }
+
+    /// The side this direction ends at.
+    pub fn end(self) -> Side {
+        match self {
+            Self::LTR => Side::Right,
+            Self::RTL => Side::Left,
+            Self::TTB => Side::Bottom,
+            Self::BTT => Side::Top,
+        }
+    }
+
     /// Whether this direction points into the positive coordinate direction.
     ///
     /// The positive directions are left-to-right and top-to-bottom.
@@ -84,23 +86,6 @@ impl Dir {
     /// - `-1.0` if the direction is negative.
     pub fn factor(self) -> f64 {
         if self.is_positive() { 1.0 } else { -1.0 }
-    }
-
-    /// The side of this direction the alignment identifies.
-    ///
-    /// `Center` alignment is treated the same as `Start` alignment.
-    pub fn side(self, align: GenAlign) -> Side {
-        let start = match self {
-            Self::LTR => Side::Left,
-            Self::RTL => Side::Right,
-            Self::TTB => Side::Top,
-            Self::BTT => Side::Bottom,
-        };
-
-        match align {
-            GenAlign::Start | GenAlign::Center => start,
-            GenAlign::End => start.inv(),
-        }
     }
 
     /// The inverse direction.
@@ -159,15 +144,20 @@ impl<T> Get<GenAxis> for Gen2<T> {
     }
 }
 
-impl<T> ToSpec for Gen2<T> {
-    type Output = Spec2<T>;
+impl<T> Switch for Gen2<T> {
+    type Other = Spec2<T>;
 
-    fn to_spec(self, dirs: Gen2<Dir>) -> Self::Output {
+    fn switch(self, dirs: Gen2<Dir>) -> Self::Other {
         match dirs.main.axis() {
             SpecAxis::Horizontal => Spec2::new(self.main, self.cross),
             SpecAxis::Vertical => Spec2::new(self.cross, self.main),
         }
     }
+}
+
+impl Gen2<f64> {
+    /// The instance that has both components set to zero.
+    pub const ZERO: Self = Self { main: 0.0, cross: 0.0 };
 }
 
 /// A generic container with two components for the two specific axes.
@@ -204,14 +194,34 @@ impl<T> Get<SpecAxis> for Spec2<T> {
     }
 }
 
-impl<T> ToGen for Spec2<T> {
-    type Output = Gen2<T>;
+impl<T> Switch for Spec2<T> {
+    type Other = Gen2<T>;
 
-    fn to_gen(self, dirs: Gen2<Dir>) -> Self::Output {
+    fn switch(self, dirs: Gen2<Dir>) -> Self::Other {
         match dirs.main.axis() {
             SpecAxis::Horizontal => Gen2::new(self.horizontal, self.vertical),
             SpecAxis::Vertical => Gen2::new(self.vertical, self.horizontal),
         }
+    }
+}
+
+impl Spec2<f64> {
+    /// The instance that has both components set to zero.
+    pub const ZERO: Self = Self { horizontal: 0.0, vertical: 0.0 };
+
+    /// Convert to a 2D vector.
+    pub fn to_vec2(self) -> Vec2 {
+        Vec2::new(self.horizontal, self.vertical)
+    }
+
+    /// Convert to a point.
+    pub fn to_point(self) -> Point {
+        Point::new(self.horizontal, self.vertical)
+    }
+
+    /// Convert to a size.
+    pub fn to_size(self) -> Size {
+        Size::new(self.horizontal, self.vertical)
     }
 }
 
@@ -234,10 +244,10 @@ impl GenAxis {
     }
 }
 
-impl ToSpec for GenAxis {
-    type Output = SpecAxis;
+impl Switch for GenAxis {
+    type Other = SpecAxis;
 
-    fn to_spec(self, dirs: Gen2<Dir>) -> Self::Output {
+    fn switch(self, dirs: Gen2<Dir>) -> Self::Other {
         match self {
             Self::Main => dirs.main.axis(),
             Self::Cross => dirs.cross.axis(),
@@ -273,10 +283,10 @@ impl SpecAxis {
     }
 }
 
-impl ToGen for SpecAxis {
-    type Output = GenAxis;
+impl Switch for SpecAxis {
+    type Other = GenAxis;
 
-    fn to_gen(self, dirs: Gen2<Dir>) -> Self::Output {
+    fn switch(self, dirs: Gen2<Dir>) -> Self::Other {
         if self == dirs.main.axis() {
             GenAxis::Main
         } else {
@@ -366,11 +376,10 @@ impl SpecAlign {
     }
 }
 
-impl ToGen for SpecAlign {
-    type Output = GenAlign;
+impl Switch for SpecAlign {
+    type Other = GenAlign;
 
-    fn to_gen(self, dirs: Gen2<Dir>) -> Self::Output {
-        let dirs = dirs.to_spec(dirs);
+    fn switch(self, dirs: Gen2<Dir>) -> Self::Other {
         let get = |dir: Dir, at_positive_start| {
             if dir.is_positive() == at_positive_start {
                 GenAlign::Start
@@ -379,6 +388,7 @@ impl ToGen for SpecAlign {
             }
         };
 
+        let dirs = dirs.switch(dirs);
         match self {
             Self::Left => get(dirs.horizontal, true),
             Self::Right => get(dirs.horizontal, false),

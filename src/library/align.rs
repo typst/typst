@@ -54,8 +54,8 @@ fn dedup_aligns(
         // Check whether we know which axis this alignment belongs to.
         if let Some(axis) = axis {
             // We know the axis.
-            let gen_axis = axis.to_gen(ctx.state.dirs);
-            let gen_align = align.to_gen(ctx.state.dirs);
+            let gen_axis = axis.switch(ctx.state.dirs);
+            let gen_align = align.switch(ctx.state.dirs);
 
             if align.axis().map_or(false, |a| a != axis) {
                 ctx.diag(error!(

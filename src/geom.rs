@@ -6,9 +6,9 @@ pub use kurbo::*;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::*;
 
-use crate::layout::primitive::{Dir, Gen2, GenAlign, Get, Side, SpecAxis};
+use crate::layout::{Dir, Gen2, GenAlign, Get, Side, Spec2, SpecAxis, Switch};
 
-macro_rules! impl_get_2d {
+macro_rules! impl_2d {
     ($t:ty, $x:ident, $y:ident) => {
         impl Get<SpecAxis> for $t {
             type Component = f64;
@@ -27,12 +27,20 @@ macro_rules! impl_get_2d {
                 }
             }
         }
+
+        impl Switch for $t {
+            type Other = Gen2<f64>;
+
+            fn switch(self, dirs: Gen2<Dir>) -> Self::Other {
+                Spec2::new(self.$x, self.$y).switch(dirs)
+            }
+        }
     };
 }
 
-impl_get_2d!(Point, x, y);
-impl_get_2d!(Vec2, x, y);
-impl_get_2d!(Size, width, height);
+impl_2d!(Point, x, y);
+impl_2d!(Vec2, x, y);
+impl_2d!(Size, width, height);
 
 impl Get<Side> for Rect {
     type Component = f64;
@@ -60,61 +68,36 @@ impl Get<Side> for Rect {
 ///
 /// [sizes]: ../../kurbo/struct.Size.html
 pub trait SizeExt {
-    /// Returns the generalized version of a `Size` based on the current
-    /// directions.
-    ///
-    /// In the generalized version:
-    /// - `x` describes the cross axis instead of the horizontal one.
-    /// - `y` describes the main axis instead of the vertical one.
-    fn generalized(self, dirs: Gen2<Dir>) -> Self;
-
-    /// Returns the specialized version of this generalized `Size` (inverse to
-    /// `generalized`).
-    fn specialized(self, dirs: Gen2<Dir>) -> Self;
-
     /// Whether the given size fits into this one, that is, both coordinate
     /// values are smaller or equal.
     fn fits(self, other: Self) -> bool;
 
     /// The anchor position for an object to be aligned in a container with this
     /// size and the given directions.
-    ///
-    /// This assumes the size to be generalized such that `width` corresponds to
-    /// the cross and `height` to the main axis.
     fn anchor(self, dirs: Gen2<Dir>, aligns: Gen2<GenAlign>) -> Point;
 }
 
 impl SizeExt for Size {
-    fn generalized(self, dirs: Gen2<Dir>) -> Self {
-        match dirs.main.axis() {
-            SpecAxis::Horizontal => Self::new(self.height, self.width),
-            SpecAxis::Vertical => self,
-        }
-    }
-
-    fn specialized(self, dirs: Gen2<Dir>) -> Self {
-        // Even though generalized is its own inverse, we still have this second
-        // function, for clarity at the call-site.
-        self.generalized(dirs)
-    }
-
     fn fits(self, other: Self) -> bool {
         self.width >= other.width && self.height >= other.height
     }
 
     fn anchor(self, dirs: Gen2<Dir>, aligns: Gen2<GenAlign>) -> Point {
         fn anchor(length: f64, dir: Dir, align: GenAlign) -> f64 {
-            match (dir.is_positive(), align) {
-                (true, GenAlign::Start) | (false, GenAlign::End) => 0.0,
-                (_, GenAlign::Center) => length / 2.0,
-                (true, GenAlign::End) | (false, GenAlign::Start) => length,
+            match if dir.is_positive() { align } else { align.inv() } {
+                GenAlign::Start => 0.0,
+                GenAlign::Center => length / 2.0,
+                GenAlign::End => length,
             }
         }
 
-        Point::new(
-            anchor(self.width, dirs.cross, aligns.cross),
-            anchor(self.height, dirs.main, aligns.main),
-        )
+        let switched = self.switch(dirs);
+        let generic = Gen2::new(
+            anchor(switched.main, dirs.main, aligns.main),
+            anchor(switched.cross, dirs.cross, aligns.cross),
+        );
+
+        generic.switch(dirs).to_point()
     }
 }
 
