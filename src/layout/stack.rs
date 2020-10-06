@@ -71,7 +71,7 @@ impl StackLayouter {
 
         // TODO: Issue warning about overflow if there is overflow in a
         //       non-repeating context.
-        if !self.space.usable.fits(layout.size) && self.ctx.repeat {
+        if !self.usable().fits(layout.size) && self.ctx.repeat {
             self.skip_to_fitting_space(layout.size);
         }
 
@@ -90,9 +90,11 @@ impl StackLayouter {
         match kind {
             // A hard space is simply an empty box.
             SpacingKind::Hard => {
+                self.space.last_spacing = LastSpacing::Hard;
+
                 // Reduce the spacing such that it definitely fits.
                 let axis = self.ctx.dirs.main.axis();
-                spacing = spacing.min(self.space.usable.get(axis));
+                spacing = spacing.min(self.usable().get(axis));
 
                 let size = Gen2::new(spacing, 0.0);
                 self.update_metrics(size);
@@ -100,8 +102,6 @@ impl StackLayouter {
                     BoxLayout::new(size.switch(self.ctx.dirs).to_size()),
                     Gen2::default(),
                 ));
-
-                self.space.last_spacing = LastSpacing::Hard;
             }
 
             // A soft space is cached if it is not consumed by a hard space or
@@ -122,15 +122,9 @@ impl StackLayouter {
 
     fn update_metrics(&mut self, added: Gen2<f64>) {
         let mut size = self.space.size.switch(self.ctx.dirs);
-        let mut extra = self.space.extra.switch(self.ctx.dirs);
-
-        size.cross += (added.cross - extra.cross).max(0.0);
-        size.main += (added.main - extra.main).max(0.0);
-        extra.cross = extra.cross.max(added.cross);
-        extra.main = (extra.main - added.main).max(0.0);
-
+        size.cross = size.cross.max(added.cross);
+        size.main += added.main;
         self.space.size = size.switch(self.ctx.dirs).to_size();
-        self.space.extra = extra.switch(self.ctx.dirs).to_size();
         *self.space.usable.get_mut(self.ctx.dirs.main.axis()) -= added.main;
     }
 
@@ -321,8 +315,6 @@ pub(super) struct Space {
     size: Size,
     /// The remaining space.
     usable: Size,
-    /// The extra-needed size to affect the size at all.
-    extra: Size,
     /// Which alignments for new boxes are still allowed.
     pub(super) allowed_align: GenAlign,
     /// The spacing state. This influences how new spacing is handled, e.g. hard
@@ -338,7 +330,6 @@ impl Space {
             layouts: vec![],
             size: Size::ZERO,
             usable,
-            extra: Size::ZERO,
             allowed_align: GenAlign::Start,
             last_spacing: LastSpacing::Hard,
         }
