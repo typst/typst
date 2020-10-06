@@ -198,19 +198,17 @@ impl LineLayouter {
     pub fn finish_line(&mut self) {
         let mut layout = BoxLayout::new(self.run.size.specialized(self.ctx.dirs));
         let aligns = self.run.aligns.unwrap_or_default();
+        let cross = self.ctx.dirs.cross;
 
         let layouts = std::mem::take(&mut self.run.layouts);
         for (offset, child) in layouts {
-            let x = match self.ctx.dirs.cross.is_positive() {
-                true => offset,
-                false => {
-                    self.run.size.width
-                        - offset
-                        - child.size.get(self.ctx.dirs.cross.axis())
-                }
+            let mut pos = Point::ZERO;
+            *pos.get_mut(cross.axis()) = if cross.is_positive() {
+                offset
+            } else {
+                self.run.size.width - offset - child.size.get(cross.axis())
             };
 
-            let pos = Point::new(x, 0.0);
             layout.push_layout(pos, child);
         }
 

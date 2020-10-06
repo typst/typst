@@ -6,18 +6,60 @@ pub use kurbo::*;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::*;
 
-use crate::layout::primitive::{Dir, Gen2, GenAlign, Side, SpecAxis};
+use crate::layout::primitive::{Dir, Gen2, GenAlign, Get, Side, SpecAxis};
+
+macro_rules! impl_get_2d {
+    ($t:ty, $x:ident, $y:ident) => {
+        impl Get<SpecAxis> for $t {
+            type Component = f64;
+
+            fn get(self, axis: SpecAxis) -> f64 {
+                match axis {
+                    SpecAxis::Horizontal => self.$x,
+                    SpecAxis::Vertical => self.$y,
+                }
+            }
+
+            fn get_mut(&mut self, axis: SpecAxis) -> &mut f64 {
+                match axis {
+                    SpecAxis::Horizontal => &mut self.$x,
+                    SpecAxis::Vertical => &mut self.$y,
+                }
+            }
+        }
+    };
+}
+
+impl_get_2d!(Point, x, y);
+impl_get_2d!(Vec2, x, y);
+impl_get_2d!(Size, width, height);
+
+impl Get<Side> for Rect {
+    type Component = f64;
+
+    fn get(self, side: Side) -> f64 {
+        match side {
+            Side::Left => self.x0,
+            Side::Top => self.y0,
+            Side::Right => self.x1,
+            Side::Bottom => self.y1,
+        }
+    }
+
+    fn get_mut(&mut self, side: Side) -> &mut f64 {
+        match side {
+            Side::Left => &mut self.x0,
+            Side::Top => &mut self.y0,
+            Side::Right => &mut self.x1,
+            Side::Bottom => &mut self.y1,
+        }
+    }
+}
 
 /// Additional methods for [sizes].
 ///
 /// [sizes]: ../../kurbo/struct.Size.html
 pub trait SizeExt {
-    /// Return the component for the specified axis.
-    fn get(self, axis: SpecAxis) -> f64;
-
-    /// Borrow the component for the specified axis mutably.
-    fn get_mut(&mut self, axis: SpecAxis) -> &mut f64;
-
     /// Returns the generalized version of a `Size` based on the current
     /// directions.
     ///
@@ -43,20 +85,6 @@ pub trait SizeExt {
 }
 
 impl SizeExt for Size {
-    fn get(self, axis: SpecAxis) -> f64 {
-        match axis {
-            SpecAxis::Horizontal => self.width,
-            SpecAxis::Vertical => self.height,
-        }
-    }
-
-    fn get_mut(&mut self, axis: SpecAxis) -> &mut f64 {
-        match axis {
-            SpecAxis::Horizontal => &mut self.width,
-            SpecAxis::Vertical => &mut self.height,
-        }
-    }
-
     fn generalized(self, dirs: Gen2<Dir>) -> Self {
         match dirs.main.axis() {
             SpecAxis::Horizontal => Self::new(self.height, self.width),
@@ -87,37 +115,6 @@ impl SizeExt for Size {
             anchor(self.width, dirs.cross, aligns.cross),
             anchor(self.height, dirs.main, aligns.main),
         )
-    }
-}
-
-/// Additional methods for [rectangles].
-///
-/// [rectangles]: ../../kurbo/struct.Rect.html
-pub trait RectExt {
-    /// Return the value for the given side.
-    fn get(self, side: Side) -> f64;
-
-    /// Borrow the value for the given side mutably.
-    fn get_mut(&mut self, side: Side) -> &mut f64;
-}
-
-impl RectExt for Rect {
-    fn get(self, side: Side) -> f64 {
-        match side {
-            Side::Left => self.x0,
-            Side::Top => self.y0,
-            Side::Right => self.x1,
-            Side::Bottom => self.y1,
-        }
-    }
-
-    fn get_mut(&mut self, side: Side) -> &mut f64 {
-        match side {
-            Side::Left => &mut self.x0,
-            Side::Top => &mut self.y0,
-            Side::Right => &mut self.x1,
-            Side::Bottom => &mut self.y1,
-        }
     }
 }
 

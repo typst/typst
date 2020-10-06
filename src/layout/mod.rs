@@ -14,7 +14,7 @@ pub use tree::*;
 use crate::diag::Diag;
 use crate::eval::{PageState, State, TextState};
 use crate::font::SharedFontLoader;
-use crate::geom::{Insets, Point, Rect, RectExt, Size, SizeExt};
+use crate::geom::{Insets, Point, Rect, Size, SizeExt};
 use crate::shaping::Shaped;
 use crate::syntax::{Deco, Spanned, SynTree};
 use crate::{Feedback, Pass};

@@ -2,6 +2,50 @@
 
 use std::fmt::{self, Display, Formatter};
 
+/// Generic access to a structure's components.
+pub trait Get<Index> {
+    /// The structure's component type.
+    type Component;
+
+    /// Return the component for the specified index.
+    fn get(self, index: Index) -> Self::Component;
+
+    /// Borrow the component for the specified index mutably.
+    fn get_mut(&mut self, index: Index) -> &mut Self::Component;
+}
+
+/// Convert a type into its generic representation.
+///
+/// The generic representation deals with main and cross axes while the specific
+/// representation deals with horizontal and vertical axes.
+///
+/// See also [`ToSpec`] for the inverse conversion.
+///
+/// [`ToSpec`]: trait.ToSpec.html
+pub trait ToGen {
+    /// The generic version of this type.
+    type Output;
+
+    /// The generic version of this type based on the current directions.
+    fn to_gen(self, dirs: Gen2<Dir>) -> Self::Output;
+}
+
+/// Convert a type into its specific representation.
+///
+/// The specific representation deals with horizontal and vertical axes while
+/// the generic representation deals with main and cross axes.
+///
+/// See also [`ToGen`] for the inverse conversion.
+///
+/// [`ToGen`]: trait.ToGen.html
+pub trait ToSpec {
+    /// The specific version of this type.
+    type Output;
+
+    /// The specific version of this type based on the current directions.
+    fn to_spec(self, dirs: Gen2<Dir>) -> Self::Output;
+}
+
 /// The four directions into which content can be laid out.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Dir {
@@ -81,38 +125,6 @@ impl Display for Dir {
     }
 }
 
-/// Convert a type into its generic representation.
-///
-/// The generic representation deals with main and cross axes while the specific
-/// representation deals with horizontal and vertical axes.
-///
-/// See also [`ToSpec`] for the inverse conversion.
-///
-/// [`ToSpec`]: trait.ToSpec.html
-pub trait ToGen {
-    /// The generic version of this type.
-    type Output;
-
-    /// The generic version of this type based on the current directions.
-    fn to_gen(self, dirs: Gen2<Dir>) -> Self::Output;
-}
-
-/// Convert a type into its specific representation.
-///
-/// The specific representation deals with horizontal and vertical axes while
-/// the generic representation deals with main and cross axes.
-///
-/// See also [`ToGen`] for the inverse conversion.
-///
-/// [`ToGen`]: trait.ToGen.html
-pub trait ToSpec {
-    /// The specific version of this type.
-    type Output;
-
-    /// The specific version of this type based on the current directions.
-    fn to_spec(self, dirs: Gen2<Dir>) -> Self::Output;
-}
-
 /// A generic container with two components for the two generic axes.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub struct Gen2<T> {
@@ -127,17 +139,19 @@ impl<T> Gen2<T> {
     pub fn new(main: T, cross: T) -> Self {
         Self { main, cross }
     }
+}
 
-    /// Return the component for the specified generic axis.
-    pub fn get(self, axis: GenAxis) -> T {
+impl<T> Get<GenAxis> for Gen2<T> {
+    type Component = T;
+
+    fn get(self, axis: GenAxis) -> T {
         match axis {
             GenAxis::Main => self.main,
             GenAxis::Cross => self.cross,
         }
     }
 
-    /// Borrow the component for the specified generic axis mutably.
-    pub fn get_mut(&mut self, axis: GenAxis) -> &mut T {
+    fn get_mut(&mut self, axis: GenAxis) -> &mut T {
         match axis {
             GenAxis::Main => &mut self.main,
             GenAxis::Cross => &mut self.cross,
@@ -170,17 +184,19 @@ impl<T> Spec2<T> {
     pub fn new(horizontal: T, vertical: T) -> Self {
         Self { horizontal, vertical }
     }
+}
 
-    /// Return the component for the given specific axis.
-    pub fn get(self, axis: SpecAxis) -> T {
+impl<T> Get<SpecAxis> for Spec2<T> {
+    type Component = T;
+
+    fn get(self, axis: SpecAxis) -> T {
         match axis {
             SpecAxis::Horizontal => self.horizontal,
             SpecAxis::Vertical => self.vertical,
         }
     }
 
-    /// Borrow the component for the given specific axis mutably.
-    pub fn get_mut(&mut self, axis: SpecAxis) -> &mut T {
+    fn get_mut(&mut self, axis: SpecAxis) -> &mut T {
         match axis {
             SpecAxis::Horizontal => &mut self.horizontal,
             SpecAxis::Vertical => &mut self.vertical,
@@ -416,9 +432,12 @@ impl<T> Sides<T> {
             bottom: value,
         }
     }
+}
 
-    /// Return the component for the given side.
-    pub fn get(self, side: Side) -> T {
+impl<T> Get<Side> for Sides<T> {
+    type Component = T;
+
+    fn get(self, side: Side) -> T {
         match side {
             Side::Left => self.left,
             Side::Top => self.top,
@@ -427,8 +446,7 @@ impl<T> Sides<T> {
         }
     }
 
-    /// Borrow the component for the given side mutably.
-    pub fn get_mut(&mut self, side: Side) -> &mut T {
+    fn get_mut(&mut self, side: Side) -> &mut T {
         match side {
             Side::Left => &mut self.left,
             Side::Top => &mut self.top,
