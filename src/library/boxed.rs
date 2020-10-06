@@ -12,7 +12,7 @@ pub async fn boxed(mut args: Args, ctx: &mut LayoutContext) -> Value {
     let height = args.get::<_, Linear>(ctx, "height");
     args.done(ctx);
 
-    let align = ctx.state.align;
+    let aligns = ctx.state.aligns;
     let constraints = &mut ctx.constraints;
     constraints.base = constraints.spaces[0].size;
     constraints.spaces.truncate(1);
@@ -35,5 +35,5 @@ pub async fn boxed(mut args: Args, ctx: &mut LayoutContext) -> Value {
     let layouted = layout_tree(&body, ctx).await;
     let layout = layouted.into_iter().next().unwrap();
 
-    Value::Commands(vec![Add(layout, align)])
+    Value::Commands(vec![Add(layout, aligns)])
 }

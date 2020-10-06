@@ -2,30 +2,6 @@
 
 use std::fmt::{self, Display, Formatter};
 
-/// Specifies the directions into which content is laid out.
-///
-/// The primary component defines into which direction text and lines flow and the
-/// secondary into which paragraphs and pages grow.
-pub type LayoutSystem = Gen2<Dir>;
-
-impl Default for LayoutSystem {
-    fn default() -> Self {
-        Self::new(Dir::LTR, Dir::TTB)
-    }
-}
-
-/// Specifies where to align a layout in a parent container.
-pub type LayoutAlign = Gen2<GenAlign>;
-
-impl Default for LayoutAlign {
-    fn default() -> Self {
-        Self::new(GenAlign::Start, GenAlign::Start)
-    }
-}
-
-/// Whether to expand a layout to an area's full size or shrink it to fit its content.
-pub type LayoutExpansion = Spec2<bool>;
-
 /// The four directions into which content can be laid out.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Dir {
@@ -66,6 +42,23 @@ impl Dir {
         if self.is_positive() { 1.0 } else { -1.0 }
     }
 
+    /// The side of this direction the alignment identifies.
+    ///
+    /// `Center` alignment is treated the same as `Start` alignment.
+    pub fn side(self, align: GenAlign) -> Side {
+        let start = match self {
+            Self::LTR => Side::Left,
+            Self::RTL => Side::Right,
+            Self::TTB => Side::Top,
+            Self::BTT => Side::Bottom,
+        };
+
+        match align {
+            GenAlign::Start | GenAlign::Center => start,
+            GenAlign::End => start.inv(),
+        }
+    }
+
     /// The inverse direction.
     pub fn inv(self) -> Self {
         match self {
@@ -73,18 +66,6 @@ impl Dir {
             Self::RTL => Self::LTR,
             Self::TTB => Self::BTT,
             Self::BTT => Self::TTB,
-        }
-    }
-
-    /// The side of this direction the alignment identifies.
-    ///
-    /// `Center` alignment is treated the same as `Start` alignment.
-    pub fn side(self, align: GenAlign) -> Side {
-        match if align == GenAlign::End { self.inv() } else { self } {
-            Self::LTR => Side::Left,
-            Self::RTL => Side::Right,
-            Self::TTB => Side::Top,
-            Self::BTT => Side::Bottom,
         }
     }
 }
@@ -100,27 +81,159 @@ impl Display for Dir {
     }
 }
 
+/// Convert a type into its generic representation.
+///
+/// The generic representation deals with main and cross axes while the specific
+/// representation deals with horizontal and vertical axes.
+///
+/// See also [`ToSpec`] for the inverse conversion.
+///
+/// [`ToSpec`]: trait.ToSpec.html
+pub trait ToGen {
+    /// The generic version of this type.
+    type Output;
+
+    /// The generic version of this type based on the current directions.
+    fn to_gen(self, dirs: Gen2<Dir>) -> Self::Output;
+}
+
+/// Convert a type into its specific representation.
+///
+/// The specific representation deals with horizontal and vertical axes while
+/// the generic representation deals with main and cross axes.
+///
+/// See also [`ToGen`] for the inverse conversion.
+///
+/// [`ToGen`]: trait.ToGen.html
+pub trait ToSpec {
+    /// The specific version of this type.
+    type Output;
+
+    /// The specific version of this type based on the current directions.
+    fn to_spec(self, dirs: Gen2<Dir>) -> Self::Output;
+}
+
+/// A generic container with two components for the two generic axes.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+pub struct Gen2<T> {
+    /// The main component.
+    pub main: T,
+    /// The cross component.
+    pub cross: T,
+}
+
+impl<T> Gen2<T> {
+    /// Create a new instance from the two components.
+    pub fn new(main: T, cross: T) -> Self {
+        Self { main, cross }
+    }
+
+    /// Return the component for the specified generic axis.
+    pub fn get(self, axis: GenAxis) -> T {
+        match axis {
+            GenAxis::Main => self.main,
+            GenAxis::Cross => self.cross,
+        }
+    }
+
+    /// Borrow the component for the specified generic axis mutably.
+    pub fn get_mut(&mut self, axis: GenAxis) -> &mut T {
+        match axis {
+            GenAxis::Main => &mut self.main,
+            GenAxis::Cross => &mut self.cross,
+        }
+    }
+}
+
+impl<T> ToSpec for Gen2<T> {
+    type Output = Spec2<T>;
+
+    fn to_spec(self, dirs: Gen2<Dir>) -> Self::Output {
+        match dirs.main.axis() {
+            SpecAxis::Horizontal => Spec2::new(self.main, self.cross),
+            SpecAxis::Vertical => Spec2::new(self.cross, self.main),
+        }
+    }
+}
+
+/// A generic container with two components for the two specific axes.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+pub struct Spec2<T> {
+    /// The horizontal component.
+    pub horizontal: T,
+    /// The vertical component.
+    pub vertical: T,
+}
+
+impl<T> Spec2<T> {
+    /// Create a new instance from the two components.
+    pub fn new(horizontal: T, vertical: T) -> Self {
+        Self { horizontal, vertical }
+    }
+
+    /// Return the component for the given specific axis.
+    pub fn get(self, axis: SpecAxis) -> T {
+        match axis {
+            SpecAxis::Horizontal => self.horizontal,
+            SpecAxis::Vertical => self.vertical,
+        }
+    }
+
+    /// Borrow the component for the given specific axis mutably.
+    pub fn get_mut(&mut self, axis: SpecAxis) -> &mut T {
+        match axis {
+            SpecAxis::Horizontal => &mut self.horizontal,
+            SpecAxis::Vertical => &mut self.vertical,
+        }
+    }
+}
+
+impl<T> ToGen for Spec2<T> {
+    type Output = Gen2<T>;
+
+    fn to_gen(self, dirs: Gen2<Dir>) -> Self::Output {
+        match dirs.main.axis() {
+            SpecAxis::Horizontal => Gen2::new(self.horizontal, self.vertical),
+            SpecAxis::Vertical => Gen2::new(self.vertical, self.horizontal),
+        }
+    }
+}
+
 /// The two generic layouting axes.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum GenAxis {
-    /// The primary layouting direction into which text and lines flow.
-    Primary,
-    /// The secondary layouting direction into which paragraphs grow.
-    Secondary,
+    /// The axis pages and paragraphs are set along.
+    Main,
+    /// The axis words and lines are set along.
+    Cross,
 }
 
 impl GenAxis {
-    /// The specific version of this axis in the given layout system.
-    pub fn to_spec(self, sys: LayoutSystem) -> SpecAxis {
-        sys.get(self).axis()
+    /// The other axis.
+    pub fn other(self) -> Self {
+        match self {
+            Self::Main => Self::Cross,
+            Self::Cross => Self::Main,
+        }
+    }
+}
+
+impl ToSpec for GenAxis {
+    type Output = SpecAxis;
+
+    fn to_spec(self, dirs: Gen2<Dir>) -> Self::Output {
+        match self {
+            Self::Main => dirs.main.axis(),
+            Self::Cross => dirs.cross.axis(),
+        }
     }
 }
 
 impl Display for GenAxis {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
-            Self::Primary => "primary",
-            Self::Secondary => "secondary",
+            Self::Main => "main",
+            Self::Cross => "cross",
         })
     }
 }
@@ -128,19 +241,31 @@ impl Display for GenAxis {
 /// The two specific layouting axes.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SpecAxis {
-    /// The horizontal layouting axis.
-    Horizontal,
     /// The vertical layouting axis.
     Vertical,
+    /// The horizontal layouting axis.
+    Horizontal,
 }
 
 impl SpecAxis {
-    /// The generic version of this axis in the given layout system.
-    pub fn to_gen(self, sys: LayoutSystem) -> GenAxis {
-        if self == sys.primary.axis() {
-            GenAxis::Primary
+    /// The other axis.
+    pub fn other(self) -> Self {
+        match self {
+            Self::Horizontal => Self::Vertical,
+            Self::Vertical => Self::Horizontal,
+        }
+    }
+}
+
+impl ToGen for SpecAxis {
+    type Output = GenAxis;
+
+    fn to_gen(self, dirs: Gen2<Dir>) -> Self::Output {
+        if self == dirs.main.axis() {
+            GenAxis::Main
         } else {
-            GenAxis::Secondary
+            debug_assert_eq!(self, dirs.cross.axis());
+            GenAxis::Cross
         }
     }
 }
@@ -148,8 +273,8 @@ impl SpecAxis {
 impl Display for SpecAxis {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
-            Self::Horizontal => "horizontal",
             Self::Vertical => "vertical",
+            Self::Horizontal => "horizontal",
         })
     }
 }
@@ -170,6 +295,12 @@ impl GenAlign {
             Self::Center => Self::Center,
             Self::End => Self::Start,
         }
+    }
+}
+
+impl Default for GenAlign {
+    fn default() -> Self {
+        Self::Start
     }
 }
 
@@ -207,21 +338,36 @@ impl SpecAlign {
         }
     }
 
-    /// The generic version of this alignment in the given layout system.
-    pub fn to_gen(self, sys: LayoutSystem) -> GenAlign {
-        let get = |spec: SpecAxis, positive: GenAlign| {
-            if sys.get(spec.to_gen(sys)).is_positive() {
-                positive
+    /// The inverse alignment.
+    pub fn inv(self) -> Self {
+        match self {
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
+            Self::Top => Self::Bottom,
+            Self::Bottom => Self::Top,
+            Self::Center => Self::Center,
+        }
+    }
+}
+
+impl ToGen for SpecAlign {
+    type Output = GenAlign;
+
+    fn to_gen(self, dirs: Gen2<Dir>) -> Self::Output {
+        let dirs = dirs.to_spec(dirs);
+        let get = |dir: Dir, at_positive_start| {
+            if dir.is_positive() == at_positive_start {
+                GenAlign::Start
             } else {
-                positive.inv()
+                GenAlign::End
             }
         };
 
         match self {
-            Self::Left => get(SpecAxis::Horizontal, GenAlign::Start),
-            Self::Right => get(SpecAxis::Horizontal, GenAlign::End),
-            Self::Top => get(SpecAxis::Vertical, GenAlign::Start),
-            Self::Bottom => get(SpecAxis::Vertical, GenAlign::End),
+            Self::Left => get(dirs.horizontal, true),
+            Self::Right => get(dirs.horizontal, false),
+            Self::Top => get(dirs.vertical, true),
+            Self::Bottom => get(dirs.vertical, false),
             Self::Center => GenAlign::Center,
         }
     }
@@ -236,91 +382,6 @@ impl Display for SpecAlign {
             Self::Bottom => "bottom",
             Self::Center => "center",
         })
-    }
-}
-
-/// A side of a container.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Side {
-    Left,
-    Top,
-    Right,
-    Bottom,
-}
-
-impl Side {
-    /// The opposite side.
-    pub fn inv(self) -> Self {
-        match self {
-            Self::Left => Self::Right,
-            Self::Top => Self::Bottom,
-            Self::Right => Self::Left,
-            Self::Bottom => Self::Top,
-        }
-    }
-}
-
-/// A generic container with two components for the two generic axes.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
-pub struct Gen2<T> {
-    /// The primary component.
-    pub primary: T,
-    /// The secondary component.
-    pub secondary: T,
-}
-
-impl<T> Gen2<T> {
-    /// Create a new instance from the two components.
-    pub fn new(primary: T, secondary: T) -> Self {
-        Self { primary, secondary }
-    }
-
-    /// Return the component for the specified generic axis.
-    pub fn get(self, axis: GenAxis) -> T {
-        match axis {
-            GenAxis::Primary => self.primary,
-            GenAxis::Secondary => self.secondary,
-        }
-    }
-
-    /// Borrow the component for the specified generic axis mutably.
-    pub fn get_mut(&mut self, axis: GenAxis) -> &mut T {
-        match axis {
-            GenAxis::Primary => &mut self.primary,
-            GenAxis::Secondary => &mut self.secondary,
-        }
-    }
-}
-
-/// A generic container with two components for the two specific axes.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
-pub struct Spec2<T> {
-    /// The horizontal component.
-    pub horizontal: T,
-    /// The vertical component.
-    pub vertical: T,
-}
-
-impl<T> Spec2<T> {
-    /// Create a new instance from the two components.
-    pub fn new(horizontal: T, vertical: T) -> Self {
-        Self { horizontal, vertical }
-    }
-
-    /// Return the component for the given specific axis.
-    pub fn get(self, axis: SpecAxis) -> T {
-        match axis {
-            SpecAxis::Horizontal => self.horizontal,
-            SpecAxis::Vertical => self.vertical,
-        }
-    }
-
-    /// Borrow the component for the given specific axis mutably.
-    pub fn get_mut(&mut self, axis: SpecAxis) -> &mut T {
-        match axis {
-            SpecAxis::Horizontal => &mut self.horizontal,
-            SpecAxis::Vertical => &mut self.vertical,
-        }
     }
 }
 
@@ -360,8 +421,8 @@ impl<T> Sides<T> {
     pub fn get(self, side: Side) -> T {
         match side {
             Side::Left => self.left,
-            Side::Right => self.right,
             Side::Top => self.top,
+            Side::Right => self.right,
             Side::Bottom => self.bottom,
         }
     }
@@ -370,9 +431,30 @@ impl<T> Sides<T> {
     pub fn get_mut(&mut self, side: Side) -> &mut T {
         match side {
             Side::Left => &mut self.left,
-            Side::Right => &mut self.right,
             Side::Top => &mut self.top,
+            Side::Right => &mut self.right,
             Side::Bottom => &mut self.bottom,
+        }
+    }
+}
+
+/// A side of a container.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Side {
+    Left,
+    Top,
+    Right,
+    Bottom,
+}
+
+impl Side {
+    /// The opposite side.
+    pub fn inv(self) -> Self {
+        match self {
+            Self::Left => Self::Right,
+            Self::Top => Self::Bottom,
+            Self::Right => Self::Left,
+            Self::Bottom => Self::Top,
         }
     }
 }

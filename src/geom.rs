@@ -6,7 +6,7 @@ pub use kurbo::*;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::*;
 
-use crate::layout::primitive::{Dir, GenAlign, LayoutAlign, LayoutSystem, SpecAxis};
+use crate::layout::primitive::{Dir, Gen2, GenAlign, Side, SpecAxis};
 
 /// Additional methods for [sizes].
 ///
@@ -18,26 +18,28 @@ pub trait SizeExt {
     /// Borrow the component for the specified axis mutably.
     fn get_mut(&mut self, axis: SpecAxis) -> &mut f64;
 
-    /// Returns the generalized version of a `Size` based on the layouting
-    /// system, that is:
-    /// - `x` describes the primary axis instead of the horizontal one.
-    /// - `y` describes the secondary axis instead of the vertical one.
-    fn generalized(self, sys: LayoutSystem) -> Self;
+    /// Returns the generalized version of a `Size` based on the current
+    /// directions.
+    ///
+    /// In the generalized version:
+    /// - `x` describes the cross axis instead of the horizontal one.
+    /// - `y` describes the main axis instead of the vertical one.
+    fn generalized(self, dirs: Gen2<Dir>) -> Self;
 
-    /// Returns the specialized version of this generalized Size2D (inverse to
+    /// Returns the specialized version of this generalized `Size` (inverse to
     /// `generalized`).
-    fn specialized(self, sys: LayoutSystem) -> Self;
+    fn specialized(self, dirs: Gen2<Dir>) -> Self;
 
     /// Whether the given size fits into this one, that is, both coordinate
     /// values are smaller or equal.
     fn fits(self, other: Self) -> bool;
 
-    /// The anchor position for an object to be aligned according to `align` in
-    /// a container with this size.
+    /// The anchor position for an object to be aligned in a container with this
+    /// size and the given directions.
     ///
     /// This assumes the size to be generalized such that `width` corresponds to
-    /// the primary and `height` to the secondary axis.
-    fn anchor(self, align: LayoutAlign, sys: LayoutSystem) -> Point;
+    /// the cross and `height` to the main axis.
+    fn anchor(self, dirs: Gen2<Dir>, aligns: Gen2<GenAlign>) -> Point;
 }
 
 impl SizeExt for Size {
@@ -55,25 +57,25 @@ impl SizeExt for Size {
         }
     }
 
-    fn generalized(self, sys: LayoutSystem) -> Self {
-        match sys.primary.axis() {
-            SpecAxis::Horizontal => self,
-            SpecAxis::Vertical => Self::new(self.height, self.width),
+    fn generalized(self, dirs: Gen2<Dir>) -> Self {
+        match dirs.main.axis() {
+            SpecAxis::Horizontal => Self::new(self.height, self.width),
+            SpecAxis::Vertical => self,
         }
     }
 
-    fn specialized(self, sys: LayoutSystem) -> Self {
+    fn specialized(self, dirs: Gen2<Dir>) -> Self {
         // Even though generalized is its own inverse, we still have this second
         // function, for clarity at the call-site.
-        self.generalized(sys)
+        self.generalized(dirs)
     }
 
     fn fits(self, other: Self) -> bool {
         self.width >= other.width && self.height >= other.height
     }
 
-    fn anchor(self, align: LayoutAlign, sys: LayoutSystem) -> Point {
-        fn anchor(length: f64, align: GenAlign, dir: Dir) -> f64 {
+    fn anchor(self, dirs: Gen2<Dir>, aligns: Gen2<GenAlign>) -> Point {
+        fn anchor(length: f64, dir: Dir, align: GenAlign) -> f64 {
             match (dir.is_positive(), align) {
                 (true, GenAlign::Start) | (false, GenAlign::End) => 0.0,
                 (_, GenAlign::Center) => length / 2.0,
@@ -82,8 +84,8 @@ impl SizeExt for Size {
         }
 
         Point::new(
-            anchor(self.width, align.primary, sys.primary),
-            anchor(self.height, align.secondary, sys.secondary),
+            anchor(self.width, dirs.cross, aligns.cross),
+            anchor(self.height, dirs.main, aligns.main),
         )
     }
 }
@@ -92,34 +94,29 @@ impl SizeExt for Size {
 ///
 /// [rectangles]: ../../kurbo/struct.Rect.html
 pub trait RectExt {
-    /// Return the side identified by direction and alignment.
-    ///
-    /// Center alignment is treated the same as origin alignment.
-    fn get(&mut self, dir: Dir, align: GenAlign) -> f64;
+    /// Return the value for the given side.
+    fn get(self, side: Side) -> f64;
 
-    /// Get a mutable reference to the side identified by direction and
-    /// alignment.
-    ///
-    /// Center alignment is treated the same as origin alignment.
-    fn get_mut(&mut self, dir: Dir, align: GenAlign) -> &mut f64;
+    /// Borrow the value for the given side mutably.
+    fn get_mut(&mut self, side: Side) -> &mut f64;
 }
 
 impl RectExt for Rect {
-    fn get(&mut self, dir: Dir, align: GenAlign) -> f64 {
-        match if align == GenAlign::End { dir.inv() } else { dir } {
-            Dir::LTR => self.x0,
-            Dir::TTB => self.y0,
-            Dir::RTL => self.x1,
-            Dir::BTT => self.y1,
+    fn get(self, side: Side) -> f64 {
+        match side {
+            Side::Left => self.x0,
+            Side::Top => self.y0,
+            Side::Right => self.x1,
+            Side::Bottom => self.y1,
         }
     }
 
-    fn get_mut(&mut self, dir: Dir, align: GenAlign) -> &mut f64 {
-        match if align == GenAlign::End { dir.inv() } else { dir } {
-            Dir::LTR => &mut self.x0,
-            Dir::TTB => &mut self.y0,
-            Dir::RTL => &mut self.x1,
-            Dir::BTT => &mut self.y1,
+    fn get_mut(&mut self, side: Side) -> &mut f64 {
+        match side {
+            Side::Left => &mut self.x0,
+            Side::Top => &mut self.y0,
+            Side::Right => &mut self.x1,
+            Side::Bottom => &mut self.y1,
         }
     }
 }

@@ -1,9 +1,8 @@
 //! Arranging boxes into lines.
 //!
-//! Along the primary axis, the boxes are laid out next to each other as long as
-//! they fit into a line. When necessary, a line break is inserted and the new
-//! line is offset along the secondary axis by the height of the previous line
-//! plus extra line spacing.
+//! The boxes are laid out along the cross axis as long as they fit into a line.
+//! When necessary, a line break is inserted and the new line is offset along
+//! the main axis by the height of the previous line plus extra line spacing.
 //!
 //! Internally, the line layouter uses a stack layouter to stack the finished
 //! lines on top of each.
@@ -23,8 +22,8 @@ pub struct LineLayouter {
 /// The context for line layouting.
 #[derive(Debug, Clone)]
 pub struct LineContext {
-    /// The initial layouting system, which can be updated through `set_sys`.
-    pub sys: LayoutSystem,
+    /// The layout directions.
+    pub dirs: Gen2<Dir>,
     /// The spaces to layout into.
     pub spaces: Vec<LayoutSpace>,
     /// Whether to spill over into copies of the last space or finish layouting
@@ -40,7 +39,7 @@ impl LineLayouter {
         Self {
             stack: StackLayouter::new(StackContext {
                 spaces: ctx.spaces.clone(),
-                sys: ctx.sys,
+                dirs: ctx.dirs,
                 repeat: ctx.repeat,
             }),
             ctx,
@@ -49,26 +48,24 @@ impl LineLayouter {
     }
 
     /// Add a layout.
-    pub fn add(&mut self, layout: BoxLayout, align: LayoutAlign) {
-        let sys = self.ctx.sys;
-
-        if let Some(prev) = self.run.align {
-            if align.secondary != prev.secondary {
+    pub fn add(&mut self, layout: BoxLayout, aligns: Gen2<GenAlign>) {
+        if let Some(prev) = self.run.aligns {
+            if aligns.main != prev.main {
                 // TODO: Issue warning for non-fitting alignment in
                 // non-repeating context.
-                let fitting = self.stack.is_fitting_alignment(align);
+                let fitting = self.stack.is_fitting_alignment(aligns);
                 if !fitting && self.ctx.repeat {
                     self.finish_space(true);
                 } else {
                     self.finish_line();
                 }
-            } else if align.primary < prev.primary {
+            } else if aligns.cross < prev.cross {
                 self.finish_line();
-            } else if align.primary > prev.primary {
+            } else if aligns.cross > prev.cross {
                 let mut rest_run = LineRun::new();
 
-                let usable = self.stack.usable().get(sys.primary.axis());
-                rest_run.usable = Some(match align.primary {
+                let usable = self.stack.usable().get(self.ctx.dirs.cross.axis());
+                rest_run.usable = Some(match aligns.cross {
                     GenAlign::Start => unreachable!("start > x"),
                     GenAlign::Center => usable - 2.0 * self.run.size.width,
                     GenAlign::End => usable - self.run.size.width,
@@ -84,10 +81,10 @@ impl LineLayouter {
         }
 
         if let LastSpacing::Soft(spacing, _) = self.run.last_spacing {
-            self.add_primary_spacing(spacing, SpacingKind::Hard);
+            self.add_cross_spacing(spacing, SpacingKind::Hard);
         }
 
-        let size = layout.size.generalized(sys);
+        let size = layout.size.generalized(self.ctx.dirs);
 
         if !self.usable().fits(size) {
             if !self.line_is_empty() {
@@ -100,7 +97,7 @@ impl LineLayouter {
             }
         }
 
-        self.run.align = Some(align);
+        self.run.aligns = Some(aligns);
         self.run.layouts.push((self.run.size.width, layout));
 
         self.run.size.width += size.width;
@@ -114,19 +111,25 @@ impl LineLayouter {
     /// needed.
     fn usable(&self) -> Size {
         // The base is the usable space of the stack layouter.
-        let mut usable = self.stack.usable().generalized(self.ctx.sys);
+        let mut usable = self.stack.usable().generalized(self.ctx.dirs);
 
         // If there was another run already, override the stack's size.
-        if let Some(primary) = self.run.usable {
-            usable.width = primary;
+        if let Some(cross) = self.run.usable {
+            usable.width = cross;
         }
 
         usable.width -= self.run.size.width;
         usable
     }
 
+    /// Finish the line and add spacing to the underlying stack.
+    pub fn add_main_spacing(&mut self, spacing: f64, kind: SpacingKind) {
+        self.finish_line_if_not_empty();
+        self.stack.add_spacing(spacing, kind)
+    }
+
     /// Add spacing to the line.
-    pub fn add_primary_spacing(&mut self, mut spacing: f64, kind: SpacingKind) {
+    pub fn add_cross_spacing(&mut self, mut spacing: f64, kind: SpacingKind) {
         match kind {
             SpacingKind::Hard => {
                 spacing = spacing.min(self.usable().width);
@@ -150,19 +153,6 @@ impl LineLayouter {
         }
     }
 
-    /// Finish the line and add spacing to the underlying stack.
-    pub fn add_secondary_spacing(&mut self, spacing: f64, kind: SpacingKind) {
-        self.finish_line_if_not_empty();
-        self.stack.add_spacing(spacing, kind)
-    }
-
-    /// Update the layouting system.
-    pub fn set_sys(&mut self, sys: LayoutSystem) {
-        self.finish_line_if_not_empty();
-        self.ctx.sys = sys;
-        self.stack.set_sys(sys)
-    }
-
     /// Update the layouting spaces.
     ///
     /// If `replace_empty` is true, the current space is replaced if there are
@@ -181,7 +171,7 @@ impl LineLayouter {
     /// it will fit into this layouter's underlying stack.
     pub fn remaining(&self) -> Vec<LayoutSpace> {
         let mut spaces = self.stack.remaining();
-        *spaces[0].size.get_mut(self.ctx.sys.secondary.axis()) -= self.run.size.height;
+        *spaces[0].size.get_mut(self.ctx.dirs.main.axis()) -= self.run.size.height;
         spaces
     }
 
@@ -206,17 +196,17 @@ impl LineLayouter {
 
     /// Finish the active line and start a new one.
     pub fn finish_line(&mut self) {
-        let mut layout = BoxLayout::new(self.run.size.specialized(self.ctx.sys));
-        let align = self.run.align.unwrap_or_default();
+        let mut layout = BoxLayout::new(self.run.size.specialized(self.ctx.dirs));
+        let aligns = self.run.aligns.unwrap_or_default();
 
         let layouts = std::mem::take(&mut self.run.layouts);
         for (offset, child) in layouts {
-            let x = match self.ctx.sys.primary.is_positive() {
+            let x = match self.ctx.dirs.cross.is_positive() {
                 true => offset,
                 false => {
                     self.run.size.width
                         - offset
-                        - child.size.get(self.ctx.sys.primary.axis())
+                        - child.size.get(self.ctx.dirs.cross.axis())
                 }
             };
 
@@ -224,7 +214,7 @@ impl LineLayouter {
             layout.push_layout(pos, child);
         }
 
-        self.stack.add(layout, align);
+        self.stack.add(layout, aligns);
 
         self.run = LineRun::new();
         self.stack.add_spacing(self.ctx.line_spacing, SpacingKind::LINE);
@@ -249,7 +239,7 @@ struct LineRun {
     /// When a new run is created the alignment is yet to be determined and
     /// `None` as such. Once a layout is added, its alignment decides the
     /// alignment for the whole run.
-    align: Option<LayoutAlign>,
+    aligns: Option<Gen2<GenAlign>>,
     /// The amount of space left by another run on the same line or `None` if
     /// this is the only run so far.
     usable: Option<f64>,
@@ -263,7 +253,7 @@ impl LineRun {
         Self {
             layouts: vec![],
             size: Size::ZERO,
-            align: None,
+            aligns: None,
             usable: None,
             last_spacing: LastSpacing::Hard,
         }

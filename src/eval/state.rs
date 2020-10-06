@@ -4,7 +4,7 @@ use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, Font
 
 use super::Scope;
 use crate::geom::{Insets, Linear, Size};
-use crate::layout::{Dir, GenAlign, LayoutAlign, LayoutSystem, Sides};
+use crate::layout::{Dir, Gen2, GenAlign, Sides};
 use crate::length::Length;
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
@@ -17,10 +17,10 @@ pub struct State {
     pub text: TextState,
     /// The page state.
     pub page: PageState,
-    /// The active layouting system.
-    pub sys: LayoutSystem,
+    /// The active layouting directions.
+    pub dirs: Gen2<Dir>,
     /// The active alignments.
-    pub align: LayoutAlign,
+    pub aligns: Gen2<GenAlign>,
 }
 
 impl Default for State {
@@ -29,8 +29,8 @@ impl Default for State {
             scope: crate::library::_std(),
             text: TextState::default(),
             page: PageState::default(),
-            sys: LayoutSystem::new(Dir::LTR, Dir::TTB),
-            align: LayoutAlign::new(GenAlign::Start, GenAlign::Start),
+            dirs: Gen2::new(Dir::TTB, Dir::LTR),
+            aligns: Gen2::new(GenAlign::Start, GenAlign::Start),
         }
     }
 }

@@ -35,7 +35,7 @@ pub async fn align(mut args: Args, ctx: &mut LayoutContext) -> Value {
         Some(tree) => vec![
             SetAlignment(aligns),
             LayoutSyntaxTree(tree),
-            SetAlignment(ctx.state.align),
+            SetAlignment(ctx.state.aligns),
         ],
         None => vec![SetAlignment(aligns)],
     })
@@ -45,8 +45,8 @@ pub async fn align(mut args: Args, ctx: &mut LayoutContext) -> Value {
 fn dedup_aligns(
     ctx: &mut LayoutContext,
     iter: impl Iterator<Item = (Option<SpecAxis>, Spanned<SpecAlign>)>,
-) -> LayoutAlign {
-    let mut aligns = ctx.state.align;
+) -> Gen2<GenAlign> {
+    let mut aligns = ctx.state.aligns;
     let mut had = Gen2::new(false, false);
     let mut had_center = false;
 
@@ -54,8 +54,8 @@ fn dedup_aligns(
         // Check whether we know which axis this alignment belongs to.
         if let Some(axis) = axis {
             // We know the axis.
-            let gen_axis = axis.to_gen(ctx.state.sys);
-            let gen_align = align.to_gen(ctx.state.sys);
+            let gen_axis = axis.to_gen(ctx.state.dirs);
+            let gen_align = align.to_gen(ctx.state.dirs);
 
             if align.axis().map_or(false, |a| a != axis) {
                 ctx.diag(error!(
@@ -73,14 +73,13 @@ fn dedup_aligns(
             // positional argument.
             debug_assert_eq!(align, SpecAlign::Center);
 
-            if had.primary && had.secondary {
+            if had.main && had.cross {
                 ctx.diag(error!(span, "duplicate alignment"));
             } else if had_center {
                 // Both this and the previous one are unspecified `center`
                 // alignments. Both axes should be centered.
-                aligns = LayoutAlign::new(GenAlign::Center, GenAlign::Center);
-                had.primary = true;
-                had.secondary = true;
+                aligns = Gen2::new(GenAlign::Center, GenAlign::Center);
+                had = Gen2::new(true, true);
             } else {
                 had_center = true;
             }
@@ -88,22 +87,22 @@ fn dedup_aligns(
 
         // If we we know one alignment, we can handle the unspecified `center`
         // alignment.
-        if had_center && (had.primary || had.secondary) {
-            if had.primary {
-                aligns.secondary = GenAlign::Center;
-                had.secondary = true;
+        if had_center && (had.main || had.cross) {
+            if had.main {
+                aligns.cross = GenAlign::Center;
+                had.cross = true;
             } else {
-                aligns.primary = GenAlign::Center;
-                had.primary = true;
+                aligns.main = GenAlign::Center;
+                had.main = true;
             }
             had_center = false;
         }
     }
 
     // If center has not been flushed by now, it is the only argument and then
-    // we default to applying it to the primary axis.
+    // we default to applying it to the cross axis.
     if had_center {
-        aligns.primary = GenAlign::Center;
+        aligns.cross = GenAlign::Center;
     }
 
     aligns

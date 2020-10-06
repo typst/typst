@@ -26,7 +26,7 @@ impl<'a> TreeLayouter<'a> {
     fn new(ctx: &'a mut LayoutContext) -> Self {
         let layouter = LineLayouter::new(LineContext {
             spaces: ctx.constraints.spaces.clone(),
-            sys: ctx.state.sys,
+            dirs: ctx.state.dirs,
             repeat: ctx.constraints.repeat,
             line_spacing: ctx.state.text.line_spacing(),
         });
@@ -89,14 +89,12 @@ impl<'a> TreeLayouter<'a> {
 
     fn layout_space(&mut self) {
         self.layouter
-            .add_primary_spacing(self.ctx.state.text.word_spacing(), SpacingKind::WORD);
+            .add_cross_spacing(self.ctx.state.text.word_spacing(), SpacingKind::WORD);
     }
 
     fn layout_parbreak(&mut self) {
-        self.layouter.add_secondary_spacing(
-            self.ctx.state.text.par_spacing(),
-            SpacingKind::PARAGRAPH,
-        );
+        self.layouter
+            .add_main_spacing(self.ctx.state.text.par_spacing(), SpacingKind::PARAGRAPH);
     }
 
     async fn layout_text(&mut self, text: &str) {
@@ -117,14 +115,14 @@ impl<'a> TreeLayouter<'a> {
         let boxed = shaping::shape(
             text,
             self.ctx.state.text.font_size(),
-            self.ctx.state.sys.primary,
+            self.ctx.state.dirs.cross,
             &mut self.ctx.loader.borrow_mut(),
             &self.ctx.state.text.fallback,
             variant,
         )
         .await;
 
-        self.layouter.add(boxed, self.ctx.state.align);
+        self.layouter.add(boxed, self.ctx.state.aligns);
     }
 
     async fn layout_heading(&mut self, heading: &NodeHeading) {
@@ -187,10 +185,10 @@ impl<'a> TreeLayouter<'a> {
         match command {
             LayoutSyntaxTree(tree) => self.layout_tree(&tree).await,
 
-            Add(layout, align) => self.layouter.add(layout, align),
+            Add(layout, aligns) => self.layouter.add(layout, aligns),
             AddSpacing(space, kind, axis) => match axis {
-                GenAxis::Primary => self.layouter.add_primary_spacing(space, kind),
-                GenAxis::Secondary => self.layouter.add_secondary_spacing(space, kind),
+                GenAxis::Main => self.layouter.add_main_spacing(space, kind),
+                GenAxis::Cross => self.layouter.add_cross_spacing(space, kind),
             },
 
             BreakLine => self.layouter.finish_line(),
@@ -219,7 +217,7 @@ impl<'a> TreeLayouter<'a> {
                     let space = LayoutSpace {
                         size: style.size,
                         insets: style.insets(),
-                        expansion: LayoutExpansion::new(true, true),
+                        expansion: Spec2::new(true, true),
                     };
                     self.constraints.base = space.usable();
                     self.layouter.set_spaces(vec![space], true);
@@ -230,12 +228,7 @@ impl<'a> TreeLayouter<'a> {
                     ));
                 }
             }
-
-            SetAlignment(align) => self.ctx.state.align = align,
-            SetSystem(sys) => {
-                self.layouter.set_sys(sys);
-                self.ctx.state.sys = sys;
-            }
+            SetAlignment(aligns) => self.ctx.state.aligns = aligns,
         }
     }
 }

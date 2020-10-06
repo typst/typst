@@ -11,11 +11,10 @@ pub use primitive::*;
 pub use stack::*;
 pub use tree::*;
 
-use crate::geom::{Insets, Point, Rect, RectExt, Size, SizeExt};
-
 use crate::diag::Diag;
 use crate::eval::{PageState, State, TextState};
 use crate::font::SharedFontLoader;
+use crate::geom::{Insets, Point, Rect, RectExt, Size, SizeExt};
 use crate::shaping::Shaped;
 use crate::syntax::{Deco, Spanned, SynTree};
 use crate::{Feedback, Pass};
@@ -29,7 +28,7 @@ pub async fn layout(
     let space = LayoutSpace {
         size: state.page.size,
         insets: state.page.insets(),
-        expansion: LayoutExpansion::new(true, true),
+        expansion: Spec2::new(true, true),
     };
 
     let constraints = LayoutConstraints {
@@ -134,7 +133,7 @@ pub struct LayoutSpace {
     pub insets: Insets,
     /// Whether to expand the size of the resulting layout to the full size of
     /// this space or to shrink it to fit the content.
-    pub expansion: LayoutExpansion,
+    pub expansion: Spec2<bool>,
 }
 
 impl LayoutSpace {
@@ -154,7 +153,7 @@ impl LayoutSpace {
         Self {
             size: self.usable(),
             insets: Insets::ZERO,
-            expansion: LayoutExpansion::new(false, false),
+            expansion: Spec2::new(false, false),
         }
     }
 }
@@ -172,8 +171,8 @@ pub enum Command {
     LayoutSyntaxTree(SynTree),
 
     /// Add a finished layout.
-    Add(BoxLayout, LayoutAlign),
-    /// Add spacing of the given kind along the primary or secondary axis. The
+    Add(BoxLayout, Gen2<GenAlign>),
+    /// Add spacing of the given kind along the given axis. The
     /// kind defines how the spacing interacts with surrounding spacing.
     AddSpacing(f64, SpacingKind, GenAxis),
 
@@ -187,11 +186,8 @@ pub enum Command {
     SetTextState(TextState),
     /// Update the page style.
     SetPageState(PageState),
-    /// Update the layouting system along which future boxes will be laid
-    /// out. This ends the current line.
-    SetSystem(LayoutSystem),
     /// Update the alignment for future boxes added to this layouting process.
-    SetAlignment(LayoutAlign),
+    SetAlignment(Gen2<GenAlign>),
 }
 
 /// Defines how spacing interacts with surrounding spacing.
