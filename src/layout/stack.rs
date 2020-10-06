@@ -80,7 +80,7 @@ impl StackLayouter {
 
         // Add the box to the vector and remember that spacings are allowed
         // again.
-        self.space.layouts.push((self.ctx.dirs, aligns, layout));
+        self.space.layouts.push((layout, aligns));
         self.space.last_spacing = LastSpacing::None;
     }
 
@@ -96,9 +96,8 @@ impl StackLayouter {
                 let size = Size::new(0.0, spacing);
                 self.update_metrics(size);
                 self.space.layouts.push((
-                    self.ctx.dirs,
-                    Gen2::default(),
                     BoxLayout::new(size.specialized(self.ctx.dirs)),
+                    Gen2::default(),
                 ));
 
                 self.space.last_spacing = LastSpacing::Hard;
@@ -227,6 +226,7 @@ impl StackLayouter {
 
     /// Finish active current space and start a new one.
     pub fn finish_space(&mut self, hard: bool) {
+        let dirs = self.ctx.dirs;
         let space = self.ctx.spaces[self.space.index];
 
         // ------------------------------------------------------------------ //
@@ -259,7 +259,7 @@ impl StackLayouter {
             y1: start.y + self.space.size.height,
         };
 
-        for &(dirs, _, ref layout) in &self.space.layouts {
+        for (layout, _) in &self.space.layouts {
             // First, we store the bounds calculated so far (which were reduced
             // by the predecessors of this layout) as the initial bounding box
             // of this layout.
@@ -280,32 +280,16 @@ impl StackLayouter {
         // The `x` field stores the maximal cross-axis extent in one
         // axis-aligned run, while the `y` fields stores the accumulated
         // main-axis extent.
-        let mut extent = Size::ZERO;
-        let mut rotation = SpecAxis::Vertical;
-
-        for (bound, entry) in bounds.iter_mut().zip(&self.space.layouts).rev() {
-            let &(dirs, _, ref layout) = entry;
-
-            // When the axes are rotated, the maximal cross-axis size
-            // (`extent.x`) dictates how much main-axis extent the whole run
-            // had. This value is thus stored in `extent.y`. The cross-axis
-            // extent is reset for this new axis-aligned run.
-            if rotation != dirs.main.axis() {
-                extent.height = extent.width;
-                extent.width = 0.0;
-                rotation = dirs.main.axis();
-            }
-
+        let mut main_extent = 0.0;
+        for (child, bound) in self.space.layouts.iter().zip(&mut bounds).rev() {
             // We reduce the bounding box of this layout at its end by the
-            // accumulated main-axis extent of all layouts we have seen so far,
-            // which are the layouts after this one since we iterate reversed.
+            // accumulated main-axis extent of all layouts we have seen so far
+            // (which are the layouts after this one since we iterate reversed).
             *bound.get_mut(dirs.main.side(GenAlign::End)) -=
-                dirs.main.factor() * extent.height;
+                dirs.main.factor() * main_extent;
 
-            // Then, we add this layout's main-axis extent to the accumulator.
-            let size = layout.size.generalized(dirs);
-            extent.width = extent.width.max(size.width);
-            extent.height += size.height;
+            // And then, we include this layout's main-axis extent.
+            main_extent += child.0.size.get(dirs.main.axis());
         }
 
         // ------------------------------------------------------------------ //
@@ -314,8 +298,8 @@ impl StackLayouter {
 
         let mut layout = BoxLayout::new(size);
 
-        let layouts = std::mem::take(&mut self.space.layouts);
-        for ((dirs, aligns, child), bound) in layouts.into_iter().zip(bounds) {
+        let children = std::mem::take(&mut self.space.layouts);
+        for ((child, aligns), bound) in children.into_iter().zip(bounds) {
             let size = child.size.specialized(dirs);
 
             // The space in which this layout is aligned is given by the
@@ -353,7 +337,7 @@ struct Space {
     /// Whether to include a layout for this space even if it would be empty.
     hard: bool,
     /// The so-far accumulated layouts.
-    layouts: Vec<(Gen2<Dir>, Gen2<GenAlign>, BoxLayout)>,
+    layouts: Vec<(BoxLayout, Gen2<GenAlign>)>,
     /// The specialized size of this space.
     size: Size,
     /// The specialized remaining space.
