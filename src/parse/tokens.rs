@@ -431,7 +431,7 @@ mod tests {
         t!(Header, "(1,2)"        => LP, Int(1), Comma, Int(2), RP);
         t!(Header, "12_pt, 12pt"  => Invalid("12_pt"), Comma, S(0), Len(Length::pt(12.0)));
         t!(Header, "f: arg >> g"  => Id("f"), Colon, S(0), Id("arg"), S(0), Chain, S(0), Id("g"));
-        t!(Header, "=3.14"        => Equals, Float(3.14));
+        t!(Header, "=3.15"        => Equals, Float(3.15));
         t!(Header, "arg, _b, _1"  => Id("arg"), Comma, S(0), Id("_b"), Comma, S(0), Id("_1"));
         t!(Header, "a:b"          => Id("a"), Colon, Id("b"));
         t!(Header, "(){}:=,"      => LP, RP, LB, RB, Colon, Equals, Comma);

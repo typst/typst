@@ -75,19 +75,12 @@ impl Layout for LayoutNode {
 ///
 /// [`LayoutNode`]: enum.LayoutNode.html
 /// [Rust Issue]: https://github.com/rust-lang/rust/issues/31740
-#[derive(Clone)]
 pub struct Dynamic(pub Box<dyn DynNode>);
 
 impl Dynamic {
     /// Wrap a type implementing `DynNode`.
     pub fn new<T: DynNode>(inner: T) -> Self {
         Self(Box::new(inner))
-    }
-}
-
-impl PartialEq for Dynamic {
-    fn eq(&self, other: &Self) -> bool {
-        &self.0 == &other.0
     }
 }
 
@@ -102,6 +95,18 @@ impl Deref for Dynamic {
 impl Debug for Dynamic {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+impl Clone for Dynamic {
+    fn clone(&self) -> Self {
+        Self(self.0.dyn_clone())
+    }
+}
+
+impl PartialEq for Dynamic {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.dyn_eq(other.0.as_ref())
     }
 }
 
@@ -151,17 +156,5 @@ where
 
     fn dyn_clone(&self) -> Box<dyn DynNode> {
         Box::new(self.clone())
-    }
-}
-
-impl Clone for Box<dyn DynNode> {
-    fn clone(&self) -> Self {
-        self.dyn_clone()
-    }
-}
-
-impl PartialEq for Box<dyn DynNode> {
-    fn eq(&self, other: &Self) -> bool {
-        self.dyn_eq(other.as_ref())
     }
 }

@@ -141,6 +141,7 @@ impl<'a, W: Write> PdfExporter<'a, W> {
         for (pos, element) in &page.elements {
             match element {
                 LayoutElement::Text(shaped) => {
+                    // Check if we need to issue a font switching action.
                     if shaped.face != face || shaped.size != size {
                         face = shaped.face;
                         size = shaped.size;

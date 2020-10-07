@@ -421,11 +421,10 @@ impl Eval for ExprUnary {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        use Value::*;
-
         let value = self.expr.v.eval(ctx);
-        if value == Error {
-            return Error;
+
+        if let Value::Error = value {
+            return Value::Error;
         }
 
         let span = self.op.span.join(self.expr.span);

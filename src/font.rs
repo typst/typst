@@ -23,7 +23,7 @@ pub struct OwnedFace {
 
 impl OwnedFace {
     /// Get a reference to the underlying face.
-    pub fn get<'a>(&'a self) -> &'a Face<'a> {
+    pub fn get(&self) -> &Face<'_> {
         // We can't implement Deref because that would leak the internal 'static
         // lifetime.
         &self.face

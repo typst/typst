@@ -409,7 +409,7 @@ fn test_parse_values() {
     v!("true"      => Bool(true));
     v!("false"     => Bool(false));
     v!("1.0e-4"    => Float(1e-4));
-    v!("3.14"      => Float(3.14));
+    v!("3.15"      => Float(3.15));
     v!("50%"       => Percent(50.0));
     v!("4.5cm"     => Len(Length::cm(4.5)));
     v!("12e1pt"    => Len(Length::pt(12e1)));

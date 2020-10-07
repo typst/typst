@@ -157,11 +157,9 @@ impl ValueFunc {
     }
 }
 
-impl Eq for ValueFunc {}
-
 impl PartialEq for ValueFunc {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
+    fn eq(&self, _: &Self) -> bool {
+        false
     }
 }
 

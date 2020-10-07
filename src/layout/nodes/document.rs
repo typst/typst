@@ -7,11 +7,6 @@ pub struct Document {
 }
 
 impl Document {
-    /// Create a new document.
-    pub fn new() -> Self {
-        Self { runs: vec![] }
-    }
-
     /// Layout the document.
     pub async fn layout(&self, ctx: &mut LayoutContext) -> Vec<BoxLayout> {
         let mut layouts = vec![];

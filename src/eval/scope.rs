@@ -6,7 +6,7 @@ use std::fmt::{self, Debug, Formatter};
 use super::value::ValueFunc;
 
 /// A map from identifiers to functions.
-#[derive(Clone, PartialEq)]
+#[derive(Default, Clone, PartialEq)]
 pub struct Scope {
     functions: HashMap<String, ValueFunc>,
 }
@@ -15,7 +15,7 @@ impl Scope {
     // Create a new empty scope with a fallback function that is invoked when no
     // match is found.
     pub fn new() -> Self {
-        Self { functions: HashMap::new() }
+        Self::default()
     }
 
     /// Return the function with the given name if there is one.

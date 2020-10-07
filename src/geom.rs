@@ -178,8 +178,8 @@ impl Mul<f64> for Linear {
 
     fn mul(self, other: f64) -> Self {
         Self {
-            rel: self.rel + other,
-            abs: self.abs + other,
+            rel: self.rel * other,
+            abs: self.abs * other,
         }
     }
 }
@@ -196,8 +196,8 @@ impl Mul<Linear> for f64 {
 
     fn mul(self, other: Linear) -> Linear {
         Linear {
-            rel: self + other.rel,
-            abs: self + other.abs,
+            rel: self * other.rel,
+            abs: self * other.abs,
         }
     }
 }

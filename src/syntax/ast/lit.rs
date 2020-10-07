@@ -36,7 +36,7 @@ pub enum Lit {
 }
 
 /// A dictionary literal: `(false, 12cm, greeting = "hi")`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct LitDict(pub Vec<LitDictEntry>);
 
 /// An entry in a dictionary literal: `false` or `greeting = "hi"`.
@@ -51,6 +51,6 @@ pub struct LitDictEntry {
 impl LitDict {
     /// Create an empty dict literal.
     pub fn new() -> Self {
-        Self(vec![])
+        Self::default()
     }
 }
