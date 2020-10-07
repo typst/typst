@@ -1,39 +1,93 @@
-//! Arranging boxes into a stack along the main axis.
-//!
-//! Individual layouts can be aligned at `Start`, `Center` or  `End` along both
-//! axes. These alignments are with respect to the size of the finished layout
-//! and not the total usable size. This means that a later layout can have
-//! influence on the position of an earlier one. Consider the following example.
-//! ```typst
-//! [align: right][A word.]
-//! [align: left][A sentence with a couple more words.]
-//! ```
-//! The resulting layout looks like this:
-//! ```text
-//! |--------------------------------------|
-//! |                              A word. |
-//! |                                      |
-//! | A sentence with a couple more words. |
-//! |--------------------------------------|
-//! ```
-//! The position of the first aligned box thus depends on the length of the
-//! sentence in the second box.
-
 use super::*;
+use crate::geom::Linear;
+
+/// A node that stacks and aligns its children.
+///
+/// # Alignment
+/// Individual layouts can be aligned at `Start`, `Center` or  `End` along both
+/// axes. These alignments are with processed with respect to the size of the
+/// finished layout and not the total usable size. This means that a later
+/// layout can have influence on the position of an earlier one. Consider the
+/// following example.
+/// ```typst
+/// [align: right][A word.]
+/// [align: left][A sentence with a couple more words.]
+/// ```
+/// The resulting layout looks like this:
+/// ```text
+/// |--------------------------------------|
+/// |                              A word. |
+/// |                                      |
+/// | A sentence with a couple more words. |
+/// |--------------------------------------|
+/// ```
+/// The position of the first aligned box thus depends on the length of the
+/// sentence in the second box.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Stack {
+    pub dirs: Gen2<Dir>,
+    pub children: Vec<LayoutNode>,
+    pub aligns: Gen2<GenAlign>,
+    pub expand: Spec2<bool>,
+}
+
+#[async_trait(?Send)]
+impl Layout for Stack {
+    async fn layout(
+        &self,
+        ctx: &mut LayoutContext,
+        constraints: LayoutConstraints,
+    ) -> Vec<LayoutItem> {
+        let mut layouter = StackLayouter::new(StackContext {
+            dirs: self.dirs,
+            spaces: constraints.spaces,
+            repeat: constraints.repeat,
+            expand: self.expand,
+        });
+
+        for child in &self.children {
+            let items = child
+                .layout(ctx, LayoutConstraints {
+                    spaces: layouter.remaining(),
+                    repeat: constraints.repeat,
+                })
+                .await;
+
+            for item in items {
+                match item {
+                    LayoutItem::Spacing(amount) => layouter.push_spacing(amount),
+                    LayoutItem::Box(boxed, aligns) => layouter.push_box(boxed, aligns),
+                }
+            }
+        }
+
+        layouter
+            .finish()
+            .into_iter()
+            .map(|boxed| LayoutItem::Box(boxed, self.aligns))
+            .collect()
+    }
+}
+
+impl From<Stack> for LayoutNode {
+    fn from(stack: Stack) -> Self {
+        Self::dynamic(stack)
+    }
+}
 
 /// Performs the stack layouting.
-pub struct StackLayouter {
+pub(super) struct StackLayouter {
     /// The context used for stack layouting.
-    ctx: StackContext,
+    pub ctx: StackContext,
     /// The finished layouts.
-    layouts: Vec<BoxLayout>,
+    pub layouts: Vec<BoxLayout>,
     /// The in-progress space.
-    pub(super) space: Space,
+    pub space: Space,
 }
 
 /// The context for stack layouting.
 #[derive(Debug, Clone)]
-pub struct StackContext {
+pub(super) struct StackContext {
     /// The layouting directions.
     pub dirs: Gen2<Dir>,
     /// The spaces to layout into.
@@ -41,6 +95,9 @@ pub struct StackContext {
     /// Whether to spill over into copies of the last space or finish layouting
     /// when the last space is used up.
     pub repeat: bool,
+    /// Whether to expand the size of the resulting layout to the full size of
+    /// this space or to shrink it to fit the content.
+    pub expand: Spec2<bool>,
 }
 
 impl StackLayouter {
@@ -50,12 +107,12 @@ impl StackLayouter {
         Self {
             ctx,
             layouts: vec![],
-            space: Space::new(0, true, space.usable()),
+            space: Space::new(0, true, space.size),
         }
     }
 
     /// Add a layout to the stack.
-    pub fn add(&mut self, layout: BoxLayout, aligns: Gen2<GenAlign>) {
+    pub fn push_box(&mut self, layout: BoxLayout, aligns: Gen2<GenAlign>) {
         // If the alignment cannot be fitted in this space, finish it.
         //
         // TODO: Issue warning for non-fitting alignment in non-repeating
@@ -64,14 +121,9 @@ impl StackLayouter {
             self.finish_space(true);
         }
 
-        // Add a possibly cached soft spacing.
-        if let LastSpacing::Soft(spacing, _) = self.space.last_spacing {
-            self.add_spacing(spacing, SpacingKind::Hard);
-        }
-
         // TODO: Issue warning about overflow if there is overflow in a
         //       non-repeating context.
-        if !self.usable().fits(layout.size) && self.ctx.repeat {
+        if !self.space.usable.fits(layout.size) && self.ctx.repeat {
             self.skip_to_fitting_space(layout.size);
         }
 
@@ -82,49 +134,27 @@ impl StackLayouter {
         // again.
         self.space.layouts.push((layout, aligns));
         self.space.allowed_align = aligns.main;
-        self.space.last_spacing = LastSpacing::None;
     }
 
     /// Add spacing to the stack.
-    pub fn add_spacing(&mut self, mut spacing: f64, kind: SpacingKind) {
-        match kind {
-            // A hard space is simply an empty box.
-            SpacingKind::Hard => {
-                self.space.last_spacing = LastSpacing::Hard;
+    pub fn push_spacing(&mut self, mut spacing: f64) {
+        // Reduce the spacing such that it definitely fits.
+        let axis = self.ctx.dirs.main.axis();
+        spacing = spacing.min(self.space.usable.get(axis));
 
-                // Reduce the spacing such that it definitely fits.
-                let axis = self.ctx.dirs.main.axis();
-                spacing = spacing.min(self.usable().get(axis));
-
-                let size = Gen2::new(spacing, 0.0);
-                self.update_metrics(size);
-                self.space.layouts.push((
-                    BoxLayout::new(size.switch(self.ctx.dirs).to_size()),
-                    Gen2::default(),
-                ));
-            }
-
-            // A soft space is cached if it is not consumed by a hard space or
-            // previous soft space with higher level.
-            SpacingKind::Soft(level) => {
-                let consumes = match self.space.last_spacing {
-                    LastSpacing::None => true,
-                    LastSpacing::Soft(_, prev) if level < prev => true,
-                    _ => false,
-                };
-
-                if consumes {
-                    self.space.last_spacing = LastSpacing::Soft(spacing, level);
-                }
-            }
-        }
+        let size = Gen2::new(spacing, 0.0);
+        self.update_metrics(size);
+        self.space.layouts.push((
+            BoxLayout::new(size.switch(self.ctx.dirs).to_size()),
+            Gen2::default(),
+        ));
     }
 
     fn update_metrics(&mut self, added: Gen2<f64>) {
-        let mut size = self.space.size.switch(self.ctx.dirs);
-        size.cross = size.cross.max(added.cross);
-        size.main += added.main;
-        self.space.size = size.switch(self.ctx.dirs).to_size();
+        let mut used = self.space.used.switch(self.ctx.dirs);
+        used.cross = used.cross.max(added.cross);
+        used.main += added.main;
+        self.space.used = used.switch(self.ctx.dirs).to_size();
         *self.space.usable.get_mut(self.ctx.dirs.main.axis()) -= added.main;
     }
 
@@ -148,7 +178,7 @@ impl StackLayouter {
     pub fn skip_to_fitting_space(&mut self, size: Size) {
         let start = self.next_space();
         for (index, space) in self.ctx.spaces[start ..].iter().enumerate() {
-            if space.usable().fits(size) {
+            if space.size.fits(size) {
                 self.finish_space(true);
                 self.start_space(start + index, true);
                 break;
@@ -160,29 +190,22 @@ impl StackLayouter {
     /// it will fit into this stack.
     pub fn remaining(&self) -> Vec<LayoutSpace> {
         let mut spaces = vec![LayoutSpace {
-            size: self.usable(),
-            insets: Insets::ZERO,
-            expansion: Spec2::new(false, false),
+            base: self.space.size,
+            size: self.space.usable,
         }];
 
-        for space in &self.ctx.spaces[self.next_space() ..] {
-            spaces.push(space.inner());
-        }
-
+        spaces.extend(&self.ctx.spaces[self.next_space() ..]);
         spaces
     }
 
     /// The remaining usable size.
     pub fn usable(&self) -> Size {
         self.space.usable
-            - Gen2::new(self.space.last_spacing.soft_or_zero(), 0.0)
-                .switch(self.ctx.dirs)
-                .to_size()
     }
 
     /// Whether the current layout space is empty.
     pub fn space_is_empty(&self) -> bool {
-        self.space.size == Size::ZERO && self.space.layouts.is_empty()
+        self.space.used == Size::ZERO && self.space.layouts.is_empty()
     }
 
     /// Whether the current layout space is the last in the followup list.
@@ -208,23 +231,18 @@ impl StackLayouter {
         //  expand if necessary.)
 
         let space = self.ctx.spaces[self.space.index];
-        let start = space.start();
-        let padded_size = {
-            let mut used_size = self.space.size;
-
-            let usable = space.usable();
-            if space.expansion.horizontal {
-                used_size.width = usable.width;
+        let layout_size = {
+            let mut used_size = self.space.used;
+            if self.ctx.expand.horizontal {
+                used_size.width = space.size.width;
             }
-            if space.expansion.vertical {
-                used_size.height = usable.height;
+            if self.ctx.expand.vertical {
+                used_size.height = space.size.height;
             }
-
             used_size
         };
 
-        let unpadded_size = padded_size - space.insets.size();
-        let mut layout = BoxLayout::new(unpadded_size);
+        let mut layout = BoxLayout::new(layout_size);
 
         // ------------------------------------------------------------------ //
         // Step 2: Forward pass. Create a bounding box for each layout in which
@@ -233,10 +251,10 @@ impl StackLayouter {
 
         let mut bounds = vec![];
         let mut bound = Rect {
-            x0: start.x,
-            y0: start.y,
-            x1: start.x + self.space.size.width,
-            y1: start.y + self.space.size.height,
+            x0: 0.0,
+            y0: 0.0,
+            x1: layout_size.width,
+            y1: layout_size.height,
         };
 
         for (layout, _) in &self.space.layouts {
@@ -294,7 +312,7 @@ impl StackLayouter {
 
     fn start_space(&mut self, index: usize, hard: bool) {
         let space = self.ctx.spaces[index];
-        self.space = Space::new(index, hard, space.usable());
+        self.space = Space::new(index, hard, space.size);
     }
 
     fn next_space(&self) -> usize {
@@ -304,6 +322,7 @@ impl StackLayouter {
 
 /// A layout space composed of subspaces which can have different directions and
 /// alignments.
+#[derive(Debug)]
 pub(super) struct Space {
     /// The index of this space in `ctx.spaces`.
     index: usize,
@@ -311,50 +330,26 @@ pub(super) struct Space {
     hard: bool,
     /// The so-far accumulated layouts.
     layouts: Vec<(BoxLayout, Gen2<GenAlign>)>,
-    /// The size of this space.
+    /// The full size of this space.
     size: Size,
+    /// The used size of this space.
+    used: Size,
     /// The remaining space.
     usable: Size,
     /// Which alignments for new boxes are still allowed.
     pub(super) allowed_align: GenAlign,
-    /// The spacing state. This influences how new spacing is handled, e.g. hard
-    /// spacing may override soft spacing.
-    last_spacing: LastSpacing,
 }
 
 impl Space {
-    fn new(index: usize, hard: bool, usable: Size) -> Self {
+    fn new(index: usize, hard: bool, size: Size) -> Self {
         Self {
             index,
             hard,
             layouts: vec![],
-            size: Size::ZERO,
-            usable,
+            size,
+            used: Size::ZERO,
+            usable: size,
             allowed_align: GenAlign::Start,
-            last_spacing: LastSpacing::Hard,
-        }
-    }
-}
-
-/// The spacing kind of the most recently inserted item in a layouting process.
-///
-/// Since the last inserted item may not be spacing at all, this can be `None`.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub(crate) enum LastSpacing {
-    /// The last item was hard spacing.
-    Hard,
-    /// The last item was soft spacing with the given width and level.
-    Soft(f64, u32),
-    /// The last item wasn't spacing.
-    None,
-}
-
-impl LastSpacing {
-    /// The width of the soft space if this is a soft space or zero otherwise.
-    fn soft_or_zero(self) -> f64 {
-        match self {
-            LastSpacing::Soft(space, _) => space,
-            _ => 0.0,
         }
     }
 }

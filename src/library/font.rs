@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
 use crate::eval::StringLike;
@@ -49,37 +51,38 @@ use crate::prelude::*;
 ///   ```typst
 ///   [font: "My Serif", serif]
 ///   ```
-pub async fn font(mut args: Args, ctx: &mut LayoutContext) -> Value {
-    let mut text = ctx.state.text.clone();
-    let mut needs_flattening = false;
+pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
+    let snapshot = ctx.state.clone();
 
     let body = args.find::<SynTree>();
 
     if let Some(linear) = args.find::<Linear>() {
         if linear.rel == 0.0 {
-            text.font_size.base = linear.abs;
-            text.font_size.scale = Linear::rel(1.0);
+            ctx.state.text.font_size.base = linear.abs;
+            ctx.state.text.font_size.scale = Linear::rel(1.0);
         } else {
-            text.font_size.scale = linear;
+            ctx.state.text.font_size.scale = linear;
         }
     }
 
+    let mut needs_flattening = false;
     let list: Vec<_> = args.find_all::<StringLike>().map(|s| s.to_lowercase()).collect();
+
     if !list.is_empty() {
-        text.fallback.list = list;
+        Rc::make_mut(&mut ctx.state.text.fallback).list = list;
         needs_flattening = true;
     }
 
     if let Some(style) = args.get::<_, FontStyle>(ctx, "style") {
-        text.variant.style = style;
+        ctx.state.text.variant.style = style;
     }
 
     if let Some(weight) = args.get::<_, FontWeight>(ctx, "weight") {
-        text.variant.weight = weight;
+        ctx.state.text.variant.weight = weight;
     }
 
     if let Some(stretch) = args.get::<_, FontStretch>(ctx, "stretch") {
-        text.variant.stretch = stretch;
+        ctx.state.text.variant.stretch = stretch;
     }
 
     for (class, dict) in args.find_all_str::<Spanned<ValueDict>>() {
@@ -88,22 +91,20 @@ pub async fn font(mut args: Args, ctx: &mut LayoutContext) -> Value {
             .map(|s| s.to_lowercase())
             .collect();
 
-        text.fallback.update_class_list(class, fallback);
+        Rc::make_mut(&mut ctx.state.text.fallback).update_class_list(class, fallback);
         needs_flattening = true;
     }
 
     args.done(ctx);
 
     if needs_flattening {
-        text.fallback.flatten();
+        Rc::make_mut(&mut ctx.state.text.fallback).flatten();
     }
 
-    Value::Commands(match body {
-        Some(tree) => vec![
-            SetTextState(text),
-            LayoutSyntaxTree(tree),
-            SetTextState(ctx.state.text.clone()),
-        ],
-        None => vec![SetTextState(text)],
-    })
+    if let Some(body) = body {
+        body.eval(ctx);
+        ctx.state = snapshot;
+    }
+
+    Value::None
 }

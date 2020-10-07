@@ -55,7 +55,7 @@ impl Display for Level {
 /// let spanned = error!(span, "there is an error here");
 /// ```
 ///
-/// [`Error`]: diagnostic/enum.Level.html#variant.Error
+/// [`Error`]: diag/enum.Level.html#variant.Error
 #[macro_export]
 macro_rules! error {
     ($($tts:tt)*) => {
@@ -68,7 +68,7 @@ macro_rules! error {
 /// This works exactly like `error!`. See its documentation for more
 /// information.
 ///
-/// [`Warning`]: diagnostic/enum.Level.html#variant.Warning
+/// [`Warning`]: diag/enum.Level.html#variant.Warning
 #[macro_export]
 macro_rules! warning {
     ($($tts:tt)*) => {

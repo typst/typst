@@ -14,7 +14,9 @@ use crate::prelude::*;
 /// - `vertical`: Any of `top`, `bottom` or `center`.
 ///
 /// There may not be two alignment specifications for the same axis.
-pub async fn align(mut args: Args, ctx: &mut LayoutContext) -> Value {
+pub fn align(mut args: Args, ctx: &mut EvalContext) -> Value {
+    let snapshot = ctx.state.clone();
+
     let body = args.find::<SynTree>();
     let first = args.get::<_, Spanned<SpecAlign>>(ctx, 0);
     let second = args.get::<_, Spanned<SpecAlign>>(ctx, 1);
@@ -29,21 +31,25 @@ pub async fn align(mut args: Args, ctx: &mut LayoutContext) -> Value {
         .chain(hor.into_iter().map(|align| (Some(SpecAxis::Horizontal), align)))
         .chain(ver.into_iter().map(|align| (Some(SpecAxis::Vertical), align)));
 
-    let aligns = dedup_aligns(ctx, iter);
+    let prev_main = ctx.state.aligns.main;
+    ctx.state.aligns = dedup_aligns(ctx, iter);
 
-    Value::Commands(match body {
-        Some(tree) => vec![
-            SetAlignment(aligns),
-            LayoutSyntaxTree(tree),
-            SetAlignment(ctx.state.aligns),
-        ],
-        None => vec![SetAlignment(aligns)],
-    })
+    if prev_main != ctx.state.aligns.main {
+        ctx.end_par_group();
+        ctx.start_par_group();
+    }
+
+    if let Some(body) = body {
+        body.eval(ctx);
+        ctx.state = snapshot;
+    }
+
+    Value::None
 }
 
 /// Deduplicate alignments and deduce to which axes they apply.
 fn dedup_aligns(
-    ctx: &mut LayoutContext,
+    ctx: &mut EvalContext,
     iter: impl Iterator<Item = (Option<SpecAxis>, Spanned<SpecAlign>)>,
 ) -> Gen2<GenAlign> {
     let mut aligns = ctx.state.aligns;

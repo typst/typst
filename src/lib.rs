@@ -3,24 +3,32 @@
 //! # Steps
 //! - **Parsing:** The parsing step first transforms a plain string into an
 //!   [iterator of tokens][tokens]. This token stream is [parsed] into a [syntax
-//!   tree]. The structures describing the tree can be found in the [ast]
+//!   tree]. The structures describing the tree can be found in the [AST]
 //!   module.
-//! - **Layouting:** The next step is to transform the syntax tree into a
-//!   portable representation of the typesetted document. The final output
-//!   consists of a vector of [`BoxLayouts`] (corresponding to pages), ready for
-//!   exporting.
-//! - **Exporting:** The finished layout can then be exported into a supported
+//! - **Evaluation:** The next step is to [evaluate] the parsed "script" to a
+//!   [document], a high-level, fully styled representation. The [nodes] of the
+//!   document tree are fully self-contained and order-independent and thus much
+//!   better suited for layouting than the syntax tree.
+//! - **Layouting:** The next step is to [layout] the document into a portable
+//!   version of the typesetted document. The output of this is a vector of
+//!   [`BoxLayouts`] (corresponding to pages), ready for exporting.
+//! - **Exporting:** The finished layout can be exported into a supported
 //!   format. Submodules for these formats are located in the [export] module.
 //!   Currently, the only supported output format is [_PDF_].
 //!
-//! [tokens]: parsing/struct.Tokens.html
-//! [parsed]: parsing/fn.parse.html
+//! [tokens]: parse/struct.Tokens.html
+//! [parsed]: parse/fn.parse.html
 //! [syntax tree]: syntax/ast/type.SynTree.html
-//! [ast]: syntax/ast/index.html
-//! [layout]: layout/index.html
+//! [AST]: syntax/ast/index.html
+//! [evaluate]: eval/fn.eval.html
+//! [document]: layout/nodes/struct.Document.html
+//! [nodes]: layout/nodes/index.html
+//! [layout]: layout/fn.layout.html
 //! [`BoxLayouts`]: layout/struct.BoxLayout.html
 //! [export]: export/index.html
 //! [_PDF_]: export/pdf/index.html
+
+#![allow(unused)]
 
 #[macro_use]
 pub mod diag;
@@ -55,10 +63,10 @@ pub async fn typeset(
     state: State,
     loader: SharedFontLoader,
 ) -> Pass<Vec<BoxLayout>> {
-    let parsed = parse::parse(src);
-    let layouted = layout::layout(&parsed.output, state, loader).await;
-    let feedback = Feedback::join(parsed.feedback, layouted.feedback);
-    Pass::new(layouted.output, feedback)
+    let Pass { output: tree, feedback: f1 } = parse::parse(src);
+    let Pass { output: document, feedback: f2 } = eval::eval(&tree, state);
+    let layouts = layout::layout(&document, loader).await;
+    Pass::new(layouts, Feedback::join(f1, f2))
 }
 
 /// A dynamic future type which allows recursive invocation of async functions

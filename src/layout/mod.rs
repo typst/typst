@@ -1,52 +1,82 @@
-//! Layouting of syntax trees.
+//! Layouting of documents.
 
+pub mod nodes;
 pub mod primitive;
 
-mod line;
-mod stack;
-mod tree;
-
-pub use line::*;
 pub use primitive::*;
-pub use stack::*;
-pub use tree::*;
 
-use crate::diag::Diag;
+use async_trait::async_trait;
+
 use crate::eval::{PageState, State, TextState};
 use crate::font::SharedFontLoader;
 use crate::geom::{Insets, Point, Rect, Size, SizeExt};
 use crate::shaping::Shaped;
-use crate::syntax::{Deco, Spanned, SynTree};
-use crate::{Feedback, Pass};
+use crate::syntax::SynTree;
 
-/// Layout a syntax tree and return the produced layout.
-pub async fn layout(
-    tree: &SynTree,
-    state: State,
-    loader: SharedFontLoader,
-) -> Pass<Vec<BoxLayout>> {
-    let space = LayoutSpace {
-        size: state.page.size,
-        insets: state.page.insets(),
-        expansion: Spec2::new(true, true),
-    };
+use nodes::Document;
 
-    let constraints = LayoutConstraints {
-        root: true,
-        base: space.usable(),
-        spaces: vec![space],
-        repeat: true,
-    };
+/// Layout a document and return the produced layouts.
+pub async fn layout(document: &Document, loader: SharedFontLoader) -> Vec<BoxLayout> {
+    let mut ctx = LayoutContext { loader };
+    document.layout(&mut ctx).await
+}
 
-    let mut ctx = LayoutContext {
-        loader,
-        state,
-        constraints,
-        f: Feedback::new(),
-    };
+/// The context for layouting.
+#[derive(Debug, Clone)]
+pub struct LayoutContext {
+    /// The font loader to query fonts from when typesetting text.
+    pub loader: SharedFontLoader,
+}
 
-    let layouts = layout_tree(&tree, &mut ctx).await;
-    Pass::new(layouts, ctx.f)
+/// Layout a node.
+#[async_trait(?Send)]
+pub trait Layout {
+    /// Layout the node in the given layout context.
+    ///
+    /// This signature looks pretty horrible due to async in trait methods, but
+    /// it's actually just the following:
+    /// ```rust,ignore
+    /// async fn layout(
+    ///     &self,
+    ///     ctx: &mut LayoutContext,
+    ///     constraints: LayoutConstraints,
+    /// ) -> Vec<LayoutItem>;
+    /// ```
+    async fn layout(
+        &self,
+        ctx: &mut LayoutContext,
+        constraints: LayoutConstraints,
+    ) -> Vec<LayoutItem>;
+}
+
+/// An item that is produced by [layouting] a node.
+///
+/// [layouting]: trait.Layout.html#method.layout
+#[derive(Debug, Clone, PartialEq)]
+pub enum LayoutItem {
+    /// Spacing that should be added to the parent.
+    Spacing(f64),
+    /// A box that should be aligned in the parent.
+    Box(BoxLayout, Gen2<GenAlign>),
+}
+
+/// The constraints for layouting a single node.
+#[derive(Debug, Clone)]
+pub struct LayoutConstraints {
+    /// The spaces to layout into.
+    pub spaces: Vec<LayoutSpace>,
+    /// Whether to spill over into copies of the last space or finish layouting
+    /// when the last space is used up.
+    pub repeat: bool,
+}
+
+/// The space into which content is laid out.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct LayoutSpace {
+    /// The full size of this container (the base for relative sizes).
+    pub base: Size,
+    /// The maximum size of the rectangle to layout into.
+    pub size: Size,
 }
 
 /// A finished box with content at fixed positions.
@@ -83,136 +113,4 @@ impl BoxLayout {
 pub enum LayoutElement {
     /// Shaped text.
     Text(Shaped),
-}
-
-/// The context for layouting.
-#[derive(Debug, Clone)]
-pub struct LayoutContext {
-    /// The font loader to query fonts from when typesetting text.
-    pub loader: SharedFontLoader,
-    /// The active state.
-    pub state: State,
-    /// The active constraints.
-    pub constraints: LayoutConstraints,
-    /// The accumulated feedback.
-    pub f: Feedback,
-}
-
-impl LayoutContext {
-    /// Add a diagnostic to the feedback.
-    pub fn diag(&mut self, diag: Spanned<Diag>) {
-        self.f.diags.push(diag);
-    }
-
-    /// Add a decoration to the feedback.
-    pub fn deco(&mut self, deco: Spanned<Deco>) {
-        self.f.decos.push(deco);
-    }
-}
-
-/// The constraints for layouting a single node.
-#[derive(Debug, Clone)]
-pub struct LayoutConstraints {
-    /// Whether this layouting process is the root page-building process.
-    pub root: bool,
-    /// The unpadded size of this container (the base 100% for relative sizes).
-    pub base: Size,
-    /// The spaces to layout into.
-    pub spaces: Vec<LayoutSpace>,
-    /// Whether to spill over into copies of the last space or finish layouting
-    /// when the last space is used up.
-    pub repeat: bool,
-}
-
-/// The space into which content is laid out.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct LayoutSpace {
-    /// The maximum size of the rectangle to layout into.
-    pub size: Size,
-    /// Padding that should be respected on each side.
-    pub insets: Insets,
-    /// Whether to expand the size of the resulting layout to the full size of
-    /// this space or to shrink it to fit the content.
-    pub expansion: Spec2<bool>,
-}
-
-impl LayoutSpace {
-    /// The position of the padded start in the space.
-    pub fn start(&self) -> Point {
-        Point::new(-self.insets.x0, -self.insets.y0)
-    }
-
-    /// The actually usable area (size minus padding).
-    pub fn usable(&self) -> Size {
-        self.size + self.insets.size()
-    }
-
-    /// The inner layout space with size reduced by the padding, zero padding of
-    /// its own and no layout expansion.
-    pub fn inner(&self) -> Self {
-        Self {
-            size: self.usable(),
-            insets: Insets::ZERO,
-            expansion: Spec2::new(false, false),
-        }
-    }
-}
-
-/// Commands executable by the layouting engine.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Command {
-    /// Layout the given tree in the current context (i.e. not nested). The
-    /// content of the tree is not laid out into a separate box and then added,
-    /// but simply laid out flatly in the active layouting process.
-    ///
-    /// This has the effect that the content fits nicely into the active line
-    /// layouting, enabling functions to e.g. change the style of some piece of
-    /// text while keeping it part of the current paragraph.
-    LayoutSyntaxTree(SynTree),
-
-    /// Add a finished layout.
-    Add(BoxLayout, Gen2<GenAlign>),
-    /// Add spacing of the given kind along the given axis. The
-    /// kind defines how the spacing interacts with surrounding spacing.
-    AddSpacing(f64, SpacingKind, GenAxis),
-
-    /// Start a new line.
-    BreakLine,
-    /// Start a new page, which will be part of the finished layout even if it
-    /// stays empty (since the page break is a _hard_ space break).
-    BreakPage,
-
-    /// Update the text style.
-    SetTextState(TextState),
-    /// Update the page style.
-    SetPageState(PageState),
-    /// Update the alignment for future boxes added to this layouting process.
-    SetAlignment(Gen2<GenAlign>),
-}
-
-/// Defines how spacing interacts with surrounding spacing.
-///
-/// There are two options for interaction: Hard and soft spacing. Typically,
-/// hard spacing is used when a fixed amount of space needs to be inserted no
-/// matter what. In contrast, soft spacing can be used to insert a default
-/// spacing between e.g. two words or paragraphs that can still be overridden by
-/// a hard space.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum SpacingKind {
-    /// Hard spaces are always laid out and consume surrounding soft space.
-    Hard,
-    /// Soft spaces are not laid out if they are touching a hard space and
-    /// consume neighbouring soft spaces with higher levels.
-    Soft(u32),
-}
-
-impl SpacingKind {
-    /// The standard spacing kind used for paragraph spacing.
-    pub const PARAGRAPH: Self = Self::Soft(1);
-
-    /// The standard spacing kind used for line spacing.
-    pub const LINE: Self = Self::Soft(2);
-
-    /// The standard spacing kind used for word spacing.
-    pub const WORD: Self = Self::Soft(1);
 }

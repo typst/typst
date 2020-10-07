@@ -4,10 +4,9 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 
-use super::{Args, Dict, SpannedEntry};
+use super::{Args, Dict, Eval, EvalContext, SpannedEntry};
 use crate::color::RgbaColor;
 use crate::geom::Linear;
-use crate::layout::{Command, LayoutContext};
 use crate::syntax::{Ident, Span, SpanWith, Spanned, SynNode, SynTree};
 use crate::DynFuture;
 
@@ -45,8 +44,6 @@ pub enum Value {
     Content(SynTree),
     /// An executable function.
     Func(ValueFunc),
-    /// Layouting commands.
-    Commands(Vec<Command>),
     /// The result of invalid operations.
     Error,
 }
@@ -69,8 +66,32 @@ impl Value {
             Self::Dict(_) => "dict",
             Self::Content(_) => "content",
             Self::Func(_) => "function",
-            Self::Commands(_) => "commands",
             Self::Error => "error",
+        }
+    }
+}
+
+impl Eval for Value {
+    type Output = ();
+
+    /// Evaluate everything contained in this value.
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        match self {
+            // Don't print out none values.
+            Value::None => {}
+
+            // Pass through.
+            Value::Content(tree) => tree.eval(ctx),
+
+            // Forward to each dictionary entry.
+            Value::Dict(dict) => {
+                for entry in dict.values() {
+                    entry.value.v.eval(ctx);
+                }
+            }
+
+            // Format with debug.
+            val => ctx.push(ctx.make_text_node(format!("{:?}", val))),
         }
     }
 }
@@ -78,47 +99,6 @@ impl Value {
 impl Default for Value {
     fn default() -> Self {
         Value::None
-    }
-}
-
-impl Spanned<Value> {
-    /// Transform this value into something layoutable.
-    ///
-    /// If this is already a command-value, it is simply unwrapped, otherwise
-    /// the value is represented as layoutable content in a reasonable way.
-    pub fn into_commands(self) -> Vec<Command> {
-        match self.v {
-            // Don't print out none values.
-            Value::None => vec![],
-
-            // Pass-through.
-            Value::Commands(commands) => commands,
-            Value::Content(tree) => vec![Command::LayoutSyntaxTree(tree)],
-
-            // Forward to each entry, separated with spaces.
-            Value::Dict(dict) => {
-                let mut commands = vec![];
-                let mut end = None;
-                for entry in dict.into_values() {
-                    if let Some(last_end) = end {
-                        let span = Span::new(last_end, entry.key_span.start);
-                        let tree = vec![SynNode::Space.span_with(span)];
-                        commands.push(Command::LayoutSyntaxTree(tree));
-                    }
-
-                    end = Some(entry.value.span.end);
-                    commands.extend(entry.value.into_commands());
-                }
-                commands
-            }
-
-            // Format with debug.
-            val => {
-                let fmt = format!("{:?}", val);
-                let tree = vec![SynNode::Text(fmt).span_with(self.span)];
-                vec![Command::LayoutSyntaxTree(tree)]
-            }
-        }
     }
 }
 
@@ -138,7 +118,6 @@ impl Debug for Value {
             Self::Dict(v) => v.fmt(f),
             Self::Content(v) => v.fmt(f),
             Self::Func(v) => v.fmt(f),
-            Self::Commands(v) => v.fmt(f),
             Self::Error => f.pad("<error>"),
         }
     }
@@ -157,9 +136,9 @@ pub type ValueDict = Dict<SpannedEntry<Value>>;
 /// The dynamic function object is wrapped in an `Rc` to keep [`Value`]
 /// clonable.
 ///
-/// _Note_: This is needed because the compiler can't `derive(PartialEq)`
-///         for `Value` when directly putting the boxed function in there,
-///         see the [Rust Issue].
+/// _Note_: This is needed because the compiler can't `derive(PartialEq)` for
+///         [`Value`] when directly putting the boxed function in there, see the
+///         [Rust Issue].
 ///
 /// [`Value`]: enum.Value.html
 /// [Rust Issue]: https://github.com/rust-lang/rust/issues/31740
@@ -167,13 +146,13 @@ pub type ValueDict = Dict<SpannedEntry<Value>>;
 pub struct ValueFunc(pub Rc<Func>);
 
 /// The signature of executable functions.
-pub type Func = dyn Fn(Args, &mut LayoutContext) -> DynFuture<Value>;
+type Func = dyn Fn(Args, &mut EvalContext) -> Value;
 
 impl ValueFunc {
     /// Create a new function value from a rust function or closure.
-    pub fn new<F: 'static>(f: F) -> Self
+    pub fn new<F>(f: F) -> Self
     where
-        F: Fn(Args, &mut LayoutContext) -> DynFuture<Value>,
+        F: Fn(Args, &mut EvalContext) -> Value + 'static,
     {
         Self(Rc::new(f))
     }

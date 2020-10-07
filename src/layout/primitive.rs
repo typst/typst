@@ -2,7 +2,7 @@
 
 use std::fmt::{self, Display, Formatter};
 
-use crate::geom::{Point, Size, Vec2};
+use crate::geom::{Insets, Linear, Point, Size, Vec2};
 
 /// Generic access to a structure's components.
 pub trait Get<Index> {
@@ -126,6 +126,11 @@ impl<T> Gen2<T> {
     }
 }
 
+impl Gen2<f64> {
+    /// The instance that has both components set to zero.
+    pub const ZERO: Self = Self { main: 0.0, cross: 0.0 };
+}
+
 impl<T> Get<GenAxis> for Gen2<T> {
     type Component = T;
 
@@ -155,11 +160,6 @@ impl<T> Switch for Gen2<T> {
     }
 }
 
-impl Gen2<f64> {
-    /// The instance that has both components set to zero.
-    pub const ZERO: Self = Self { main: 0.0, cross: 0.0 };
-}
-
 /// A generic container with two components for the two specific axes.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub struct Spec2<T> {
@@ -173,6 +173,26 @@ impl<T> Spec2<T> {
     /// Create a new instance from the two components.
     pub fn new(horizontal: T, vertical: T) -> Self {
         Self { horizontal, vertical }
+    }
+}
+
+impl Spec2<f64> {
+    /// The instance that has both components set to zero.
+    pub const ZERO: Self = Self { horizontal: 0.0, vertical: 0.0 };
+
+    /// Convert to a 2D vector.
+    pub fn to_vec2(self) -> Vec2 {
+        Vec2::new(self.horizontal, self.vertical)
+    }
+
+    /// Convert to a point.
+    pub fn to_point(self) -> Point {
+        Point::new(self.horizontal, self.vertical)
+    }
+
+    /// Convert to a size.
+    pub fn to_size(self) -> Size {
+        Size::new(self.horizontal, self.vertical)
     }
 }
 
@@ -202,26 +222,6 @@ impl<T> Switch for Spec2<T> {
             SpecAxis::Horizontal => Gen2::new(self.horizontal, self.vertical),
             SpecAxis::Vertical => Gen2::new(self.vertical, self.horizontal),
         }
-    }
-}
-
-impl Spec2<f64> {
-    /// The instance that has both components set to zero.
-    pub const ZERO: Self = Self { horizontal: 0.0, vertical: 0.0 };
-
-    /// Convert to a 2D vector.
-    pub fn to_vec2(self) -> Vec2 {
-        Vec2::new(self.horizontal, self.vertical)
-    }
-
-    /// Convert to a point.
-    pub fn to_point(self) -> Point {
-        Point::new(self.horizontal, self.vertical)
-    }
-
-    /// Convert to a size.
-    pub fn to_size(self) -> Size {
-        Size::new(self.horizontal, self.vertical)
     }
 }
 
@@ -440,6 +440,18 @@ impl<T> Sides<T> {
             top: value.clone(),
             right: value.clone(),
             bottom: value,
+        }
+    }
+}
+
+impl Sides<Linear> {
+    /// The absolute insets.
+    pub fn insets(self, Size { width, height }: Size) -> Insets {
+        Insets {
+            x0: -self.left.eval(width),
+            y0: -self.top.eval(height),
+            x1: -self.right.eval(width),
+            y1: -self.bottom.eval(height),
         }
     }
 }

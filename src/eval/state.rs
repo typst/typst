@@ -1,5 +1,7 @@
 //! Evaluation state.
 
+use std::rc::Rc;
+
 use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
 
 use super::Scope;
@@ -39,7 +41,7 @@ impl Default for State {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextState {
     /// A tree of font family names and generic class names.
-    pub fallback: FallbackTree,
+    pub fallback: Rc<FallbackTree>,
     /// The selected font variant.
     pub variant: FontVariant,
     /// Whether the strong toggle is active or inactive. This determines
@@ -83,7 +85,7 @@ impl TextState {
 impl Default for TextState {
     fn default() -> Self {
         Self {
-            fallback: fallback! {
+            fallback: Rc::new(fallback! {
                 list: ["sans-serif"],
                 classes: {
                     "serif" => ["source serif pro", "noto serif"],
@@ -95,7 +97,7 @@ impl Default for TextState {
                     "source sans pro", "noto sans", "segoe ui emoji",
                     "noto emoji", "latin modern math",
                 ],
-            },
+            }),
             variant: FontVariant {
                 style: FontStyle::Normal,
                 weight: FontWeight::REGULAR,
@@ -160,15 +162,14 @@ impl PageState {
         }
     }
 
-    /// The absolute insets.
-    pub fn insets(&self) -> Insets {
-        let Size { width, height } = self.size;
+    /// The margins.
+    pub fn margins(&self) -> Sides<Linear> {
         let default = self.class.default_margins();
-        Insets {
-            x0: -self.margins.left.unwrap_or(default.left).eval(width),
-            y0: -self.margins.top.unwrap_or(default.top).eval(height),
-            x1: -self.margins.right.unwrap_or(default.right).eval(width),
-            y1: -self.margins.bottom.unwrap_or(default.bottom).eval(height),
+        Sides {
+            left: self.margins.left.unwrap_or(default.left),
+            top: self.margins.top.unwrap_or(default.top),
+            right: self.margins.right.unwrap_or(default.right),
+            bottom: self.margins.bottom.unwrap_or(default.bottom),
         }
     }
 }

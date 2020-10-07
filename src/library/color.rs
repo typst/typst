@@ -2,7 +2,7 @@ use crate::color::RgbaColor;
 use crate::prelude::*;
 
 /// `rgb`: Create an RGB(A) color.
-pub async fn rgb(mut args: Args, ctx: &mut LayoutContext) -> Value {
+pub fn rgb(mut args: Args, ctx: &mut EvalContext) -> Value {
     let r = args.need::<_, Spanned<i64>>(ctx, 0, "red value");
     let g = args.need::<_, Spanned<i64>>(ctx, 1, "green value");
     let b = args.need::<_, Spanned<i64>>(ctx, 2, "blue value");

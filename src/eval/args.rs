@@ -2,8 +2,7 @@
 
 use std::mem;
 
-use super::{Convert, RefKey, ValueDict};
-use crate::layout::LayoutContext;
+use super::{Convert, EvalContext, RefKey, ValueDict};
 use crate::syntax::{SpanWith, Spanned};
 
 /// A wrapper around a dictionary value that simplifies argument parsing in
@@ -16,7 +15,7 @@ impl Args {
     ///
     /// Generates an error if the key exists, but the value can't be converted
     /// into the type `T`.
-    pub fn get<'a, K, T>(&mut self, ctx: &mut LayoutContext, key: K) -> Option<T>
+    pub fn get<'a, K, T>(&mut self, ctx: &mut EvalContext, key: K) -> Option<T>
     where
         K: Into<RefKey<'a>>,
         T: Convert,
@@ -37,7 +36,7 @@ impl Args {
     /// [`get`]: #method.get
     pub fn need<'a, K, T>(
         &mut self,
-        ctx: &mut LayoutContext,
+        ctx: &mut EvalContext,
         key: K,
         name: &str,
     ) -> Option<T>
@@ -126,7 +125,7 @@ impl Args {
     }
 
     /// Generated _unexpected argument_ errors for all remaining entries.
-    pub fn done(&self, ctx: &mut LayoutContext) {
+    pub fn done(&self, ctx: &mut EvalContext) {
         for entry in self.0.v.values() {
             let span = entry.key_span.join(entry.value.span);
             ctx.diag(error!(span, "unexpected argument"));
