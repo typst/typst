@@ -13,8 +13,8 @@ pub struct Spacing {
 impl Layout for Spacing {
     async fn layout(
         &self,
-        ctx: &mut LayoutContext,
-        constraints: LayoutConstraints,
+        _: &mut LayoutContext,
+        _: LayoutConstraints,
     ) -> Vec<LayoutItem> {
         vec![LayoutItem::Spacing(self.amount)]
     }

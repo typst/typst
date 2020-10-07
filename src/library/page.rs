@@ -20,8 +20,6 @@ use crate::prelude::*;
 /// - `bottom`: The bottom margin (length or relative to height).
 /// - `flip`: Flips custom or paper-defined width and height (boolean).
 pub fn page(mut args: Args, ctx: &mut EvalContext) -> Value {
-    let snapshot = ctx.state.clone();
-
     if let Some(paper) = args.find::<Paper>() {
         ctx.state.page.class = paper.class;
         ctx.state.page.size = paper.size();
@@ -71,7 +69,7 @@ pub fn page(mut args: Args, ctx: &mut EvalContext) -> Value {
 }
 
 /// `pagebreak`: Starts a new page.
-pub fn pagebreak(mut args: Args, ctx: &mut EvalContext) -> Value {
+pub fn pagebreak(args: Args, ctx: &mut EvalContext) -> Value {
     args.done(ctx);
     ctx.end_page_group();
     ctx.start_page_group(true);

@@ -1,5 +1,4 @@
 use super::*;
-use crate::geom::Linear;
 
 /// A node that stacks and aligns its children.
 ///
@@ -158,21 +157,6 @@ impl StackLayouter {
         *self.space.usable.get_mut(self.ctx.dirs.main.axis()) -= added.main;
     }
 
-    /// Update the layouting spaces.
-    ///
-    /// If `replace_empty` is true, the current space is replaced if there are
-    /// no boxes laid out into it yet. Otherwise, the followup spaces are
-    /// replaced.
-    pub fn set_spaces(&mut self, spaces: Vec<LayoutSpace>, replace_empty: bool) {
-        if replace_empty && self.space_is_empty() {
-            self.ctx.spaces = spaces;
-            self.start_space(0, self.space.hard);
-        } else {
-            self.ctx.spaces.truncate(self.space.index + 1);
-            self.ctx.spaces.extend(spaces);
-        }
-    }
-
     /// Move to the first space that can fit the given size or do nothing
     /// if no space is capable of that.
     pub fn skip_to_fitting_space(&mut self, size: Size) {
@@ -206,11 +190,6 @@ impl StackLayouter {
     /// Whether the current layout space is empty.
     pub fn space_is_empty(&self) -> bool {
         self.space.used == Size::ZERO && self.space.layouts.is_empty()
-    }
-
-    /// Whether the current layout space is the last in the followup list.
-    pub fn space_is_last(&self) -> bool {
-        self.space.index == self.ctx.spaces.len() - 1
     }
 
     /// Finish everything up and return the final collection of boxes.

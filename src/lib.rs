@@ -28,11 +28,8 @@
 //! [export]: export/index.html
 //! [_PDF_]: export/pdf/index.html
 
-#![allow(unused)]
-
 #[macro_use]
 pub mod diag;
-
 pub mod color;
 pub mod eval;
 pub mod export;
@@ -47,17 +44,12 @@ pub mod prelude;
 pub mod shaping;
 pub mod syntax;
 
-use std::fmt::Debug;
-use std::future::Future;
-use std::pin::Pin;
-
-use crate::diag::Diag;
+use crate::diag::{Feedback, Pass};
 use crate::eval::State;
 use crate::font::SharedFontLoader;
 use crate::layout::BoxLayout;
-use crate::syntax::{Deco, Offset, Pos, SpanVec};
 
-/// Process source code directly into a collection of layouts.
+/// Process _Typst_ source code directly into a collection of layouts.
 pub async fn typeset(
     src: &str,
     state: State,
@@ -67,72 +59,4 @@ pub async fn typeset(
     let Pass { output: document, feedback: f2 } = eval::eval(&tree, state);
     let layouts = layout::layout(&document, loader).await;
     Pass::new(layouts, Feedback::join(f1, f2))
-}
-
-/// A dynamic future type which allows recursive invocation of async functions
-/// when used as the return type.
-pub type DynFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
-
-/// The result of some pass: Some output `T` and feedback data.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Pass<T> {
-    /// The output of this compilation pass.
-    pub output: T,
-    /// User feedback data accumulated in this pass.
-    pub feedback: Feedback,
-}
-
-impl<T> Pass<T> {
-    /// Create a new pass from output and feedback data.
-    pub fn new(output: T, feedback: Feedback) -> Self {
-        Self { output, feedback }
-    }
-
-    /// Create a new pass with empty feedback.
-    pub fn okay(output: T) -> Self {
-        Self { output, feedback: Feedback::new() }
-    }
-
-    /// Map the output type and keep the feedback data.
-    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Pass<U> {
-        Pass {
-            output: f(self.output),
-            feedback: self.feedback,
-        }
-    }
-}
-
-/// Diagnostic and semantic syntax highlighting data.
-#[derive(Debug, Default, Clone, Eq, PartialEq)]
-pub struct Feedback {
-    /// Diagnostics about the source code.
-    pub diags: SpanVec<Diag>,
-    /// Decorations of the source code for semantic syntax highlighting.
-    pub decos: SpanVec<Deco>,
-}
-
-impl Feedback {
-    /// Create a new feedback instance without errors and decos.
-    pub fn new() -> Self {
-        Self { diags: vec![], decos: vec![] }
-    }
-
-    /// Merge two feedbacks into one.
-    pub fn join(mut a: Self, b: Self) -> Self {
-        a.extend(b);
-        a
-    }
-
-    /// Add other feedback data to this feedback.
-    pub fn extend(&mut self, more: Self) {
-        self.diags.extend(more.diags);
-        self.decos.extend(more.decos);
-    }
-
-    /// Add more feedback whose spans are local and need to be translated by an
-    /// `offset` to be correct in this feedback's context.
-    pub fn extend_offset(&mut self, more: Self, offset: Pos) {
-        self.diags.extend(more.diags.offset(offset));
-        self.decos.extend(more.decos.offset(offset));
-    }
 }

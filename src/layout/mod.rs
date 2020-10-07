@@ -7,11 +7,9 @@ pub use primitive::*;
 
 use async_trait::async_trait;
 
-use crate::eval::{PageState, State, TextState};
 use crate::font::SharedFontLoader;
-use crate::geom::{Insets, Point, Rect, Size, SizeExt};
+use crate::geom::{Point, Rect, Size, SizeExt};
 use crate::shaping::Shaped;
-use crate::syntax::SynTree;
 
 use nodes::Document;
 

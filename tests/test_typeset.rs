@@ -11,6 +11,7 @@ use futures_executor::block_on;
 use raqote::{DrawTarget, PathBuilder, SolidSource, Source, Transform, Vector};
 use ttf_parser::OutlineBuilder;
 
+use typstc::diag::{Feedback, Pass};
 use typstc::eval::State;
 use typstc::export::pdf;
 use typstc::font::{FontLoader, SharedFontLoader};
@@ -18,7 +19,7 @@ use typstc::geom::{Point, Vec2};
 use typstc::layout::{BoxLayout, LayoutElement};
 use typstc::parse::LineMap;
 use typstc::shaping::Shaped;
-use typstc::{typeset, Feedback, Pass};
+use typstc::typeset;
 
 const TEST_DIR: &str = "tests";
 const OUT_DIR: &str = "tests/out";

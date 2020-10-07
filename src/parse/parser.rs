@@ -2,8 +2,8 @@ use std::fmt::{self, Debug, Formatter};
 
 use super::{Scanner, TokenMode, Tokens};
 use crate::diag::Diag;
-use crate::syntax::{Deco, Pos, Span, SpanWith, Spanned, Token};
-use crate::Feedback;
+use crate::diag::{Deco, Feedback};
+use crate::syntax::{Pos, Span, SpanWith, Spanned, Token};
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {

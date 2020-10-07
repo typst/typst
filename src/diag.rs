@@ -1,10 +1,70 @@
-//! Diagnostics for source code.
+//! Diagnostics and decorations for source code.
 //!
 //! There are no fatal errors. The document will always compile and yield a
 //! layout on a best effort process, but diagnostics are nevertheless generated
 //! for incorrect things.
 
+use crate::syntax::SpanVec;
 use std::fmt::{self, Display, Formatter};
+
+/// The result of some pass: Some output `T` and [feedback] data.
+///
+/// [feedback]: struct.Feedback.html
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Pass<T> {
+    /// The output of this compilation pass.
+    pub output: T,
+    /// User feedback data accumulated in this pass.
+    pub feedback: Feedback,
+}
+
+impl<T> Pass<T> {
+    /// Create a new pass from output and feedback data.
+    pub fn new(output: T, feedback: Feedback) -> Self {
+        Self { output, feedback }
+    }
+
+    /// Create a new pass with empty feedback.
+    pub fn okay(output: T) -> Self {
+        Self { output, feedback: Feedback::new() }
+    }
+
+    /// Map the output type and keep the feedback data.
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Pass<U> {
+        Pass {
+            output: f(self.output),
+            feedback: self.feedback,
+        }
+    }
+}
+
+/// Diagnostic and semantic syntax highlighting data.
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
+pub struct Feedback {
+    /// Diagnostics about the source code.
+    pub diags: SpanVec<Diag>,
+    /// Decorations of the source code for semantic syntax highlighting.
+    pub decos: SpanVec<Deco>,
+}
+
+impl Feedback {
+    /// Create a new feedback instance without errors and decos.
+    pub fn new() -> Self {
+        Self { diags: vec![], decos: vec![] }
+    }
+
+    /// Merge two feedbacks into one.
+    pub fn join(mut a: Self, b: Self) -> Self {
+        a.extend(b);
+        a
+    }
+
+    /// Add other feedback data to this feedback.
+    pub fn extend(&mut self, more: Self) {
+        self.diags.extend(more.diags);
+        self.decos.extend(more.decos);
+    }
+}
 
 /// A diagnostic that arose in parsing or layouting.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -39,6 +99,23 @@ impl Display for Level {
             Self::Error => "error",
         })
     }
+}
+
+/// Decorations for semantic syntax highlighting.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+#[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
+pub enum Deco {
+    /// Emphasized text.
+    Emph,
+    /// Strong text.
+    Strong,
+    /// A valid, successfully resolved name.
+    Resolved,
+    /// An invalid, unresolved name.
+    Unresolved,
+    /// A key in a dictionary.
+    DictKey,
 }
 
 /// Construct a diagnostic with [`Error`] level.

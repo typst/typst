@@ -7,11 +7,12 @@ use std::rc::Rc;
 use fontdock::fs::{FsIndex, FsProvider};
 use futures_executor::block_on;
 
+use typstc::diag::{Feedback, Pass};
 use typstc::eval::State;
 use typstc::export::pdf;
 use typstc::font::FontLoader;
 use typstc::parse::LineMap;
-use typstc::{typeset, Feedback, Pass};
+use typstc::typeset;
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();

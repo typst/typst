@@ -15,9 +15,9 @@ pub use tokens::*;
 use std::str::FromStr;
 
 use crate::color::RgbaColor;
+use crate::diag::{Deco, Pass};
 use crate::eval::DictKey;
 use crate::syntax::*;
-use crate::Pass;
 
 /// Parse a string of source code.
 pub fn parse(src: &str) -> Pass<SynTree> {
@@ -56,6 +56,8 @@ fn node(p: &mut Parser, at_start: bool) -> Option<Spanned<SynNode>> {
                 SynNode::Parbreak
             }
         }
+
+        // Text.
         Token::Text(text) => SynNode::Text(text.into()),
 
         // Comments.

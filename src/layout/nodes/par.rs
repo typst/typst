@@ -182,20 +182,6 @@ impl LineLayouter {
         usable
     }
 
-    /// Update the layouting spaces.
-    ///
-    /// If `replace_empty` is true, the current space is replaced if there are
-    /// no boxes laid out into it yet. Otherwise, the followup spaces are
-    /// replaced.
-    fn set_spaces(&mut self, spaces: Vec<LayoutSpace>, replace_empty: bool) {
-        self.stack.set_spaces(spaces, replace_empty && self.line_is_empty());
-    }
-
-    /// Update the line spacing.
-    fn set_line_spacing(&mut self, line_spacing: f64) {
-        self.ctx.line_spacing = line_spacing;
-    }
-
     /// The remaining inner spaces. If something is laid out into these spaces,
     /// it will fit into this layouter's underlying stack.
     fn remaining(&self) -> Vec<LayoutSpace> {

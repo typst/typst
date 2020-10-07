@@ -18,17 +18,15 @@ use std::any::Any;
 use std::mem;
 use std::rc::Rc;
 
-use async_trait::async_trait;
 use fontdock::FontStyle;
 
 use crate::diag::Diag;
-use crate::geom::Size;
+use crate::diag::{Deco, Feedback, Pass};
 use crate::layout::nodes::{
     Document, LayoutNode, Pad, Pages, Par, Softness, Spacing, Stack, Text,
 };
 use crate::layout::{Gen2, Spec2, Switch};
 use crate::syntax::*;
-use crate::{Feedback, Pass};
 
 /// Evaluate a syntax tree into a document.
 ///

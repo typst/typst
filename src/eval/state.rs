@@ -5,7 +5,7 @@ use std::rc::Rc;
 use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
 
 use super::Scope;
-use crate::geom::{Insets, Linear, Size};
+use crate::geom::{Linear, Size};
 use crate::layout::{Dir, Gen2, GenAlign, Sides};
 use crate::length::Length;
 use crate::paper::{Paper, PaperClass, PAPER_A4};

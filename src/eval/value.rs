@@ -7,8 +7,7 @@ use std::rc::Rc;
 use super::{Args, Dict, Eval, EvalContext, SpannedEntry};
 use crate::color::RgbaColor;
 use crate::geom::Linear;
-use crate::syntax::{Ident, Span, SpanWith, Spanned, SynNode, SynTree};
-use crate::DynFuture;
+use crate::syntax::{Ident, SynTree};
 
 /// A computational value.
 #[derive(Clone, PartialEq)]
