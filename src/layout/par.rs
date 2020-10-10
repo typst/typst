@@ -7,11 +7,11 @@ use super::*;
 /// the main axis by the height of the previous line plus extra line spacing.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Par {
-    pub dirs: Gen2<Dir>,
-    pub line_spacing: f64,
+    pub dirs: Gen<Dir>,
+    pub line_spacing: Length,
     pub children: Vec<LayoutNode>,
-    pub aligns: Gen2<GenAlign>,
-    pub expand: Spec2<bool>,
+    pub aligns: Gen<Align>,
+    pub expand: Spec<bool>,
 }
 
 #[async_trait(?Send)]
@@ -73,17 +73,17 @@ struct LineLayouter {
 #[derive(Debug, Clone)]
 struct LineContext {
     /// The layout directions.
-    dirs: Gen2<Dir>,
+    dirs: Gen<Dir>,
     /// The spaces to layout into.
     spaces: Vec<LayoutSpace>,
     /// Whether to spill over into copies of the last space or finish layouting
     /// when the last space is used up.
     repeat: bool,
     /// The spacing to be inserted between each pair of lines.
-    line_spacing: f64,
+    line_spacing: Length,
     /// Whether to expand the size of the resulting layout to the full size of
     /// this space or to shrink it to fit the content.
-    expand: Spec2<bool>,
+    expand: Spec<bool>,
 }
 
 impl LineLayouter {
@@ -102,7 +102,7 @@ impl LineLayouter {
     }
 
     /// Add a layout.
-    fn push_box(&mut self, layout: BoxLayout, aligns: Gen2<GenAlign>) {
+    fn push_box(&mut self, layout: BoxLayout, aligns: Gen<Align>) {
         let dirs = self.ctx.dirs;
         if let Some(prev) = self.run.aligns {
             if aligns.main != prev.main {
@@ -124,9 +124,9 @@ impl LineLayouter {
 
                 // FIXME: Alignment in non-expanding parent.
                 rest_run.usable = Some(match aligns.cross {
-                    GenAlign::Start => unreachable!("start > x"),
-                    GenAlign::Center => usable - 2.0 * self.run.size.cross,
-                    GenAlign::End => usable - self.run.size.cross,
+                    Align::Start => unreachable!("start > x"),
+                    Align::Center => usable - 2.0 * self.run.size.cross,
+                    Align::End => usable - self.run.size.cross,
                 });
 
                 self.finish_line();
@@ -160,7 +160,7 @@ impl LineLayouter {
     }
 
     /// Add spacing to the line.
-    fn push_spacing(&mut self, mut spacing: f64) {
+    fn push_spacing(&mut self, mut spacing: Length) {
         spacing = spacing.min(self.usable().cross);
         self.run.size.cross += spacing;
     }
@@ -169,7 +169,7 @@ impl LineLayouter {
     ///
     /// This specifies how much more would fit before a line break would be
     /// needed.
-    fn usable(&self) -> Gen2<f64> {
+    fn usable(&self) -> Gen<Length> {
         // The base is the usable space of the stack layouter.
         let mut usable = self.stack.usable().switch(self.ctx.dirs);
 
@@ -192,7 +192,7 @@ impl LineLayouter {
 
     /// Whether the currently set line is empty.
     fn line_is_empty(&self) -> bool {
-        self.run.size == Gen2::ZERO && self.run.layouts.is_empty()
+        self.run.size == Gen::ZERO && self.run.layouts.is_empty()
     }
 
     /// Finish everything up and return the final collection of boxes.
@@ -224,7 +224,7 @@ impl LineLayouter {
                 self.run.size.cross - offset - child.size.get(dirs.cross.axis())
             };
 
-            let pos = Gen2::new(0.0, cross).switch(dirs).to_point();
+            let pos = Gen::new(Length::ZERO, cross).switch(dirs).to_point();
             layout.push_layout(pos, child);
         }
 
@@ -244,25 +244,25 @@ impl LineLayouter {
 /// multiple runs with different alignments.
 struct LineRun {
     /// The so-far accumulated items of the run.
-    layouts: Vec<(f64, BoxLayout)>,
+    layouts: Vec<(Length, BoxLayout)>,
     /// The summed width and maximal height of the run.
-    size: Gen2<f64>,
+    size: Gen<Length>,
     /// The alignment of all layouts in the line.
     ///
     /// When a new run is created the alignment is yet to be determined and
     /// `None` as such. Once a layout is added, its alignment decides the
     /// alignment for the whole run.
-    aligns: Option<Gen2<GenAlign>>,
+    aligns: Option<Gen<Align>>,
     /// The amount of cross-space left by another run on the same line or `None`
     /// if this is the only run so far.
-    usable: Option<f64>,
+    usable: Option<Length>,
 }
 
 impl LineRun {
     fn new() -> Self {
         Self {
             layouts: vec![],
-            size: Gen2::ZERO,
+            size: Gen::ZERO,
             aligns: None,
             usable: None,
         }
@@ -283,7 +283,7 @@ pub(super) struct StackLayouter {
 #[derive(Debug, Clone)]
 pub(super) struct StackContext {
     /// The layouting directions.
-    pub dirs: Gen2<Dir>,
+    pub dirs: Gen<Dir>,
     /// The spaces to layout into.
     pub spaces: Vec<LayoutSpace>,
     /// Whether to spill over into copies of the last space or finish layouting
@@ -291,7 +291,7 @@ pub(super) struct StackContext {
     pub repeat: bool,
     /// Whether to expand the size of the resulting layout to the full size of
     /// this space or to shrink it to fit the content.
-    pub expand: Spec2<bool>,
+    pub expand: Spec<bool>,
 }
 
 impl StackLayouter {
@@ -306,7 +306,7 @@ impl StackLayouter {
     }
 
     /// Add a layout to the stack.
-    pub fn push_box(&mut self, layout: BoxLayout, aligns: Gen2<GenAlign>) {
+    pub fn push_box(&mut self, layout: BoxLayout, aligns: Gen<Align>) {
         // If the alignment cannot be fitted in this space, finish it.
         //
         // TODO: Issue warning for non-fitting alignment in non-repeating
@@ -331,20 +331,20 @@ impl StackLayouter {
     }
 
     /// Add spacing to the stack.
-    pub fn push_spacing(&mut self, mut spacing: f64) {
+    pub fn push_spacing(&mut self, mut spacing: Length) {
         // Reduce the spacing such that it definitely fits.
         let axis = self.ctx.dirs.main.axis();
         spacing = spacing.min(self.space.usable.get(axis));
 
-        let size = Gen2::new(spacing, 0.0);
+        let size = Gen::new(spacing, Length::ZERO);
         self.update_metrics(size);
         self.space.layouts.push((
             BoxLayout::new(size.switch(self.ctx.dirs).to_size()),
-            Gen2::default(),
+            Gen::default(),
         ));
     }
 
-    fn update_metrics(&mut self, added: Gen2<f64>) {
+    fn update_metrics(&mut self, added: Gen<Length>) {
         let mut used = self.space.used.switch(self.ctx.dirs);
         used.cross = used.cross.max(added.cross);
         used.main += added.main;
@@ -398,11 +398,7 @@ impl StackLayouter {
     /// Finish active current space and start a new one.
     pub fn finish_space(&mut self, hard: bool) {
         let dirs = self.ctx.dirs;
-
-        // ------------------------------------------------------------------ //
-        // Step 1: Determine the full size of the space.
-        // (Mostly done already while collecting the boxes, but here we
-        //  expand if necessary.)
+        let main = dirs.main.axis();
 
         let space = self.ctx.spaces[self.space.index];
         let layout_size = {
@@ -416,64 +412,44 @@ impl StackLayouter {
             used_size
         };
 
+        let mut sum = Length::ZERO;
+        let mut sums = Vec::with_capacity(self.space.layouts.len() + 1);
+
+        for (boxed, _) in &self.space.layouts {
+            sums.push(sum);
+            sum += boxed.size.get(main);
+        }
+
+        sums.push(sum);
+
         let mut layout = BoxLayout::new(layout_size);
-
-        // ------------------------------------------------------------------ //
-        // Step 2: Forward pass. Create a bounding box for each layout in which
-        // it will be aligned. Then, go forwards through the boxes and remove
-        // what is taken by previous layouts from the following layouts.
-
-        let mut bounds = vec![];
-        let mut bound = Rect {
-            x0: 0.0,
-            y0: 0.0,
-            x1: layout_size.width,
-            y1: layout_size.height,
-        };
-
-        for (layout, _) in &self.space.layouts {
-            // First, store the bounds calculated so far (which were reduced
-            // by the predecessors of this layout) as the initial bounding box
-            // of this layout.
-            bounds.push(bound);
-
-            // Then, reduce the bounding box for the following layouts. This
-            // layout uses up space from the origin to the end. Thus, it reduces
-            // the usable space for following layouts at its origin by its
-            // main-axis extent.
-            *bound.get_mut(dirs.main.start()) +=
-                dirs.main.factor() * layout.size.get(dirs.main.axis());
-        }
-
-        // ------------------------------------------------------------------ //
-        // Step 3: Backward pass. Reduce the bounding boxes from the previous
-        // layouts by what is taken by the following ones.
-
-        let mut main_extent = 0.0;
-        for (child, bound) in self.space.layouts.iter().zip(&mut bounds).rev() {
-            let (layout, _) = child;
-
-            // Reduce the bounding box of this layout by the following one's
-            // main-axis extents.
-            *bound.get_mut(dirs.main.end()) -= dirs.main.factor() * main_extent;
-
-            // And then, include this layout's main-axis extent.
-            main_extent += layout.size.get(dirs.main.axis());
-        }
-
-        // ------------------------------------------------------------------ //
-        // Step 4: Align each layout in its bounding box and collect everything
-        // into a single finished layout.
+        let used = layout_size.switch(dirs);
 
         let children = std::mem::take(&mut self.space.layouts);
-        for ((child, aligns), bound) in children.into_iter().zip(bounds) {
-            // Align the child in its own bounds.
-            let local =
-                bound.size().anchor(dirs, aligns) - child.size.anchor(dirs, aligns);
+        for (i, (boxed, aligns)) in children.into_iter().enumerate() {
+            let size = boxed.size.switch(dirs);
 
-            // Make the local position in the bounds global.
-            let pos = bound.origin() + local;
-            layout.push_layout(pos, child);
+            let before = sums[i];
+            let after = sum - sums[i + 1];
+            let main_len = used.main - size.main;
+            let main_range = if dirs.main.is_positive() {
+                before .. main_len - after
+            } else {
+                main_len - before .. after
+            };
+
+            let cross_len = used.cross - size.cross;
+            let cross_range = if dirs.cross.is_positive() {
+                Length::ZERO .. cross_len
+            } else {
+                cross_len .. Length::ZERO
+            };
+
+            let main = aligns.main.apply(main_range);
+            let cross = aligns.cross.apply(cross_range);
+            let pos = Gen::new(main, cross).switch(dirs).to_point();
+
+            layout.push_layout(pos, boxed);
         }
 
         self.layouts.push(layout);
@@ -503,7 +479,7 @@ pub(super) struct Space {
     /// Whether to include a layout for this space even if it would be empty.
     hard: bool,
     /// The so-far accumulated layouts.
-    layouts: Vec<(BoxLayout, Gen2<GenAlign>)>,
+    layouts: Vec<(BoxLayout, Gen<Align>)>,
     /// The full size of this space.
     size: Size,
     /// The used size of this space.
@@ -511,7 +487,7 @@ pub(super) struct Space {
     /// The remaining space.
     usable: Size,
     /// Which alignments for new boxes are still allowed.
-    pub(super) allowed_align: GenAlign,
+    pub(super) allowed_align: Align,
 }
 
 impl Space {
@@ -523,7 +499,7 @@ impl Space {
             size,
             used: Size::ZERO,
             usable: size,
-            allowed_align: GenAlign::Start,
+            allowed_align: Align::Start,
         }
     }
 }

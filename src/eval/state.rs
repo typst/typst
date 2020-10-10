@@ -5,9 +5,7 @@ use std::rc::Rc;
 use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
 
 use super::Scope;
-use crate::geom::{Linear, Size};
-use crate::layout::{Dir, Gen2, GenAlign, Sides};
-use crate::length::Length;
+use crate::geom::{Align, Dir, Gen, Length, Linear, Relative, Sides, Size};
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
 /// The active evaluation state.
@@ -20,9 +18,9 @@ pub struct State {
     /// The page state.
     pub page: PageState,
     /// The active layouting directions.
-    pub dirs: Gen2<Dir>,
+    pub dirs: Gen<Dir>,
     /// The active alignments.
-    pub aligns: Gen2<GenAlign>,
+    pub aligns: Gen<Align>,
 }
 
 impl Default for State {
@@ -31,8 +29,8 @@ impl Default for State {
             scope: crate::library::_std(),
             text: TextState::default(),
             page: PageState::default(),
-            dirs: Gen2::new(Dir::TTB, Dir::LTR),
-            aligns: Gen2::new(GenAlign::Start, GenAlign::Start),
+            dirs: Gen::new(Dir::TTB, Dir::LTR),
+            aligns: Gen::new(Align::Start, Align::Start),
         }
     }
 }
@@ -62,22 +60,22 @@ pub struct TextState {
 
 impl TextState {
     /// The absolute font size.
-    pub fn font_size(&self) -> f64 {
+    pub fn font_size(&self) -> Length {
         self.font_size.eval()
     }
 
     /// The absolute word spacing.
-    pub fn word_spacing(&self) -> f64 {
+    pub fn word_spacing(&self) -> Length {
         self.word_spacing.eval(self.font_size())
     }
 
     /// The absolute line spacing.
-    pub fn line_spacing(&self) -> f64 {
+    pub fn line_spacing(&self) -> Length {
         self.line_spacing.eval(self.font_size())
     }
 
     /// The absolute paragraph spacing.
-    pub fn par_spacing(&self) -> f64 {
+    pub fn par_spacing(&self) -> Length {
         self.par_spacing.eval(self.font_size())
     }
 }
@@ -105,10 +103,10 @@ impl Default for TextState {
             },
             strong: false,
             emph: false,
-            font_size: FontSize::abs(Length::pt(11.0).as_raw()),
-            word_spacing: Linear::rel(0.25),
-            line_spacing: Linear::rel(0.2),
-            par_spacing: Linear::rel(0.5),
+            font_size: FontSize::abs(Length::pt(11.0)),
+            word_spacing: Relative::new(0.25).into(),
+            line_spacing: Relative::new(0.2).into(),
+            par_spacing: Relative::new(0.5).into(),
         }
     }
 }
@@ -117,7 +115,7 @@ impl Default for TextState {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FontSize {
     /// The base font size, updated whenever the font size is set absolutely.
-    pub base: f64,
+    pub base: Length,
     /// The scale to apply on the base font size, updated when the font size
     /// is set relatively.
     pub scale: Linear,
@@ -125,17 +123,17 @@ pub struct FontSize {
 
 impl FontSize {
     /// Create a new font size.
-    pub fn new(base: f64, scale: Linear) -> Self {
-        Self { base, scale }
+    pub fn new(base: Length, scale: impl Into<Linear>) -> Self {
+        Self { base, scale: scale.into() }
     }
 
     /// Create a new font size with the given `base` and a scale of `1.0`.
-    pub fn abs(base: f64) -> Self {
-        Self::new(base, Linear::rel(1.0))
+    pub fn abs(base: Length) -> Self {
+        Self::new(base, Relative::ONE)
     }
 
     /// Compute the absolute font size.
-    pub fn eval(&self) -> f64 {
+    pub fn eval(&self) -> Length {
         self.scale.eval(self.base)
     }
 }

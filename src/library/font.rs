@@ -57,9 +57,9 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
     let body = args.find::<SynTree>();
 
     if let Some(linear) = args.find::<Linear>() {
-        if linear.rel == 0.0 {
+        if linear.is_absolute() {
             ctx.state.text.font_size.base = linear.abs;
-            ctx.state.text.font_size.scale = Linear::rel(1.0);
+            ctx.state.text.font_size.scale = Relative::ONE.into();
         } else {
             ctx.state.text.font_size.scale = linear;
         }

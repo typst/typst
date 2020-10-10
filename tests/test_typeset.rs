@@ -15,7 +15,7 @@ use typstc::diag::{Feedback, Pass};
 use typstc::eval::State;
 use typstc::export::pdf;
 use typstc::font::{FontLoader, SharedFontLoader};
-use typstc::geom::{Point, Vec2};
+use typstc::geom::{Length, Point};
 use typstc::layout::{BoxLayout, LayoutElement};
 use typstc::parse::LineMap;
 use typstc::shaping::Shaped;
@@ -138,43 +138,40 @@ impl TestFilter {
 }
 
 fn render(layouts: &[BoxLayout], loader: &FontLoader, scale: f64) -> DrawTarget {
-    let pad = scale * 10.0;
+    let pad = Length::pt(scale * 10.0);
     let width = 2.0 * pad
         + layouts
             .iter()
             .map(|l| scale * l.size.width)
             .max_by(|a, b| a.partial_cmp(&b).unwrap())
-            .unwrap()
-            .round();
+            .unwrap();
 
-    let height = pad
-        + layouts
-            .iter()
-            .map(|l| scale * l.size.height + pad)
-            .sum::<f64>()
-            .round();
+    let height =
+        pad + layouts.iter().map(|l| scale * l.size.height + pad).sum::<Length>();
 
-    let mut surface = DrawTarget::new(width as i32, height as i32);
+    let int_width = width.to_pt().round() as i32;
+    let int_height = height.to_pt().round() as i32;
+    let mut surface = DrawTarget::new(int_width, int_height);
     surface.clear(BLACK);
 
-    let mut offset = Vec2::new(pad, pad);
+    let mut offset = Point::new(pad, pad);
     for layout in layouts {
         surface.fill_rect(
-            offset.x as f32,
-            offset.y as f32,
-            (scale * layout.size.width) as f32,
-            (scale * layout.size.height) as f32,
+            offset.x.to_pt() as f32,
+            offset.y.to_pt() as f32,
+            (scale * layout.size.width).to_pt() as f32,
+            (scale * layout.size.height).to_pt() as f32,
             &Source::Solid(WHITE),
             &Default::default(),
         );
 
-        for (pos, element) in &layout.elements {
+        for &(pos, ref element) in &layout.elements {
             match element {
                 LayoutElement::Text(shaped) => render_shaped(
                     &mut surface,
                     loader,
                     shaped,
-                    (scale * pos.to_vec2() + offset).to_point(),
+                    scale * pos + offset,
                     scale,
                 ),
             }
@@ -205,8 +202,8 @@ fn render_shaped(
         let x = pos.x + scale * offset;
         let y = pos.y + scale * shaped.size;
 
-        let t = Transform::create_scale(s as f32, -s as f32)
-            .post_translate(Vector::new(x as f32, y as f32));
+        let t = Transform::create_scale(s.to_pt() as f32, -s.to_pt() as f32)
+            .post_translate(Vector::new(x.to_pt() as f32, y.to_pt() as f32));
 
         surface.fill(
             &path.transform(&t),

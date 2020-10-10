@@ -5,7 +5,7 @@ use super::*;
 /// A node that inserts spacing.
 #[derive(Copy, Clone, PartialEq)]
 pub struct Spacing {
-    pub amount: f64,
+    pub amount: Length,
     pub softness: Softness,
 }
 

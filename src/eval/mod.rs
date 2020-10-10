@@ -1,7 +1,8 @@
 //! Evaluation of syntax trees.
 
-mod args;
+#[macro_use]
 mod convert;
+mod args;
 mod dict;
 mod scope;
 mod state;
@@ -22,10 +23,10 @@ use fontdock::FontStyle;
 
 use crate::diag::Diag;
 use crate::diag::{Deco, Feedback, Pass};
-use crate::layout::nodes::{
+use crate::geom::{Gen, Length, Relative, Spec, Switch};
+use crate::layout::{
     Document, LayoutNode, Pad, Pages, Par, Softness, Spacing, Stack, Text,
 };
-use crate::layout::{Gen2, Spec2, Switch};
 use crate::syntax::*;
 
 /// Evaluate a syntax tree into a document.
@@ -168,7 +169,7 @@ impl EvalContext {
                         dirs,
                         children,
                         aligns,
-                        expand: Spec2::new(true, true),
+                        expand: Spec::new(true, true),
                     }),
                 }),
             })
@@ -195,7 +196,7 @@ impl EvalContext {
                 line_spacing,
                 children,
                 aligns,
-                expand: Gen2::new(false, expand_cross).switch(dirs),
+                expand: Gen::new(false, expand_cross).switch(dirs),
             });
         }
     }
@@ -337,7 +338,7 @@ impl Eval for NodeRaw {
             dirs: ctx.state.dirs,
             children,
             aligns: ctx.state.aligns,
-            expand: Spec2::new(false, false),
+            expand: Spec::new(false, false),
         });
 
         ctx.state.text.fallback = prev;
@@ -366,8 +367,8 @@ impl Eval for Lit {
             Lit::Bool(v) => Value::Bool(v),
             Lit::Int(v) => Value::Int(v),
             Lit::Float(v) => Value::Float(v),
-            Lit::Length(v) => Value::Length(v.as_raw()),
-            Lit::Percent(v) => Value::Relative(v / 100.0),
+            Lit::Length(v, unit) => Value::Length(Length::with_unit(v, unit)),
+            Lit::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
             Lit::Color(v) => Value::Color(v),
             Lit::Str(ref v) => Value::Str(v.clone()),
             Lit::Dict(ref v) => Value::Dict(v.eval(ctx)),
@@ -473,7 +474,6 @@ fn neg(ctx: &mut EvalContext, span: Span, value: Value) -> Value {
 
 /// Compute the sum of two values.
 fn add(ctx: &mut EvalContext, span: Span, lhs: Value, rhs: Value) -> Value {
-    use crate::geom::Linear as Lin;
     use Value::*;
     match (lhs, rhs) {
         // Numbers to themselves.
@@ -484,15 +484,15 @@ fn add(ctx: &mut EvalContext, span: Span, lhs: Value, rhs: Value) -> Value {
 
         // Lengths, relatives and linears to themselves.
         (Length(a), Length(b)) => Length(a + b),
-        (Length(a), Relative(b)) => Linear(Lin::abs(a) + Lin::rel(b)),
-        (Length(a), Linear(b)) => Linear(Lin::abs(a) + b),
+        (Length(a), Relative(b)) => Linear(a + b),
+        (Length(a), Linear(b)) => Linear(a + b),
 
-        (Relative(a), Length(b)) => Linear(Lin::rel(a) + Lin::abs(b)),
+        (Relative(a), Length(b)) => Linear(a + b),
         (Relative(a), Relative(b)) => Relative(a + b),
-        (Relative(a), Linear(b)) => Linear(Lin::rel(a) + b),
+        (Relative(a), Linear(b)) => Linear(a + b),
 
-        (Linear(a), Length(b)) => Linear(a + Lin::abs(b)),
-        (Linear(a), Relative(b)) => Linear(a + Lin::rel(b)),
+        (Linear(a), Length(b)) => Linear(a + b),
+        (Linear(a), Relative(b)) => Linear(a + b),
         (Linear(a), Linear(b)) => Linear(a + b),
 
         // Complex data types to themselves.
@@ -509,7 +509,6 @@ fn add(ctx: &mut EvalContext, span: Span, lhs: Value, rhs: Value) -> Value {
 
 /// Compute the difference of two values.
 fn sub(ctx: &mut EvalContext, span: Span, lhs: Value, rhs: Value) -> Value {
-    use crate::geom::Linear as Lin;
     use Value::*;
     match (lhs, rhs) {
         // Numbers from themselves.
@@ -520,13 +519,13 @@ fn sub(ctx: &mut EvalContext, span: Span, lhs: Value, rhs: Value) -> Value {
 
         // Lengths, relatives and linears from themselves.
         (Length(a), Length(b)) => Length(a - b),
-        (Length(a), Relative(b)) => Linear(Lin::abs(a) - Lin::rel(b)),
-        (Length(a), Linear(b)) => Linear(Lin::abs(a) - b),
-        (Relative(a), Length(b)) => Linear(Lin::rel(a) - Lin::abs(b)),
+        (Length(a), Relative(b)) => Linear(a - b),
+        (Length(a), Linear(b)) => Linear(a - b),
+        (Relative(a), Length(b)) => Linear(a - b),
         (Relative(a), Relative(b)) => Relative(a - b),
-        (Relative(a), Linear(b)) => Linear(Lin::rel(a) - b),
-        (Linear(a), Length(b)) => Linear(a - Lin::abs(b)),
-        (Linear(a), Relative(b)) => Linear(a - Lin::rel(b)),
+        (Relative(a), Linear(b)) => Linear(a - b),
+        (Linear(a), Length(b)) => Linear(a - b),
+        (Linear(a), Relative(b)) => Linear(a - b),
         (Linear(a), Linear(b)) => Linear(a - b),
 
         (a, b) => {
@@ -561,8 +560,8 @@ fn mul(ctx: &mut EvalContext, span: Span, lhs: Value, rhs: Value) -> Value {
         (Float(a), Linear(b)) => Linear(a * b),
 
         // Integers with strings.
-        (Int(a), Str(b)) => Str(b.repeat(a.max(0) as usize)),
-        (Str(a), Int(b)) => Str(a.repeat(b.max(0) as usize)),
+        (Int(a), Str(b)) => Str(b.repeat(0.max(a) as usize)),
+        (Str(a), Int(b)) => Str(a.repeat(0.max(b) as usize)),
 
         (a, b) => {
             ctx.diag(error!(span, "cannot multiply {} with {}", a.ty(), b.ty()));

@@ -30,13 +30,13 @@
 
 #[macro_use]
 pub mod diag;
-pub mod color;
+#[macro_use]
 pub mod eval;
+pub mod color;
 pub mod export;
 pub mod font;
 pub mod geom;
 pub mod layout;
-pub mod length;
 pub mod library;
 pub mod paper;
 pub mod parse;

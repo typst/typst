@@ -24,10 +24,10 @@ use super::*;
 /// sentence in the second box.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Stack {
-    pub dirs: Gen2<Dir>,
+    pub dirs: Gen<Dir>,
     pub children: Vec<LayoutNode>,
-    pub aligns: Gen2<GenAlign>,
-    pub expand: Spec2<bool>,
+    pub aligns: Gen<Align>,
+    pub expand: Spec<bool>,
 }
 
 #[async_trait(?Send)]
@@ -90,17 +90,17 @@ impl Layout for Stack {
 }
 
 struct StackSpace {
-    dirs: Gen2<Dir>,
-    expand: Spec2<bool>,
-    boxes: Vec<(BoxLayout, Gen2<GenAlign>)>,
+    dirs: Gen<Dir>,
+    expand: Spec<bool>,
+    boxes: Vec<(BoxLayout, Gen<Align>)>,
     full_size: Size,
     usable: Size,
     used: Size,
-    ruler: GenAlign,
+    ruler: Align,
 }
 
 impl StackSpace {
-    fn new(dirs: Gen2<Dir>, expand: Spec2<bool>, size: Size) -> Self {
+    fn new(dirs: Gen<Dir>, expand: Spec<bool>, size: Size) -> Self {
         Self {
             dirs,
             expand,
@@ -108,14 +108,14 @@ impl StackSpace {
             full_size: size,
             usable: size,
             used: Size::ZERO,
-            ruler: GenAlign::Start,
+            ruler: Align::Start,
         }
     }
 
     fn push_box(
         &mut self,
         boxed: BoxLayout,
-        aligns: Gen2<GenAlign>,
+        aligns: Gen<Align>,
     ) -> Result<(), BoxLayout> {
         let main = self.dirs.main.axis();
         let cross = self.dirs.cross.axis();
@@ -133,15 +133,15 @@ impl StackSpace {
         Ok(())
     }
 
-    fn push_spacing(&mut self, spacing: f64) {
+    fn push_spacing(&mut self, spacing: Length) {
         let main = self.dirs.main.axis();
         let max = self.usable.get(main);
         let trimmed = spacing.min(max);
         *self.used.get_mut(main) += trimmed;
         *self.usable.get_mut(main) -= trimmed;
 
-        let size = Gen2::new(trimmed, 0.0).switch(self.dirs);
-        self.boxes.push((BoxLayout::new(size.to_size()), Gen2::default()));
+        let size = Gen::new(trimmed, Length::ZERO).switch(self.dirs);
+        self.boxes.push((BoxLayout::new(size.to_size()), Gen::default()));
     }
 
     fn finish(mut self) -> BoxLayout {
@@ -156,7 +156,7 @@ impl StackSpace {
             self.used.height = self.full_size.height;
         }
 
-        let mut sum = 0.0;
+        let mut sum = Length::ZERO;
         let mut sums = Vec::with_capacity(self.boxes.len() + 1);
 
         for (boxed, _) in &self.boxes {
@@ -183,14 +183,14 @@ impl StackSpace {
 
             let cross_len = used.cross - size.cross;
             let cross_range = if dirs.cross.is_positive() {
-                0.0 .. cross_len
+                Length::ZERO .. cross_len
             } else {
-                cross_len .. 0.0
+                cross_len .. Length::ZERO
             };
 
             let main = aligns.main.apply(main_range);
             let cross = aligns.cross.apply(cross_range);
-            let pos = Gen2::new(main, cross).switch(dirs).to_point();
+            let pos = Gen::new(main, cross).switch(dirs).to_point();
 
             layout.push_layout(pos, boxed);
         }

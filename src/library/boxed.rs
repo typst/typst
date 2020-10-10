@@ -1,5 +1,5 @@
 use crate::geom::Linear;
-use crate::layout::nodes::{Fixed, Stack};
+use crate::layout::{Fixed, Stack};
 use crate::prelude::*;
 
 /// `box`: Layouts its contents into a box.
@@ -33,7 +33,7 @@ pub fn boxed(mut args: Args, ctx: &mut EvalContext) -> Value {
             dirs,
             children,
             aligns,
-            expand: Spec2::new(width.is_some(), height.is_some()),
+            expand: Spec::new(width.is_some(), height.is_some()),
         }),
     });
 

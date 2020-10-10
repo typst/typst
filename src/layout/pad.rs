@@ -21,8 +21,8 @@ impl Layout for Pad {
                     .spaces
                     .into_iter()
                     .map(|space| LayoutSpace {
-                        base: space.base + self.padding.insets(space.base).size(),
-                        size: space.size + self.padding.insets(space.size).size(),
+                        base: space.base - self.padding.eval(space.base).size(),
+                        size: space.size - self.padding.eval(space.size).size(),
                     })
                     .collect(),
                 repeat: constraints.repeat,
@@ -31,11 +31,11 @@ impl Layout for Pad {
             .into_iter()
             .map(|item| match item {
                 LayoutItem::Box(boxed, align) => {
-                    let padding = self.padding.insets(boxed.size);
-                    let padded = boxed.size - padding.size();
+                    let padding = self.padding.eval(boxed.size);
+                    let padded = boxed.size + padding.size();
 
                     let mut outer = BoxLayout::new(padded);
-                    let start = Point::new(-padding.x0, -padding.y0);
+                    let start = Point::new(padding.left, padding.top);
                     outer.push_layout(start, boxed);
 
                     LayoutItem::Box(outer, align)

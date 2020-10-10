@@ -1,18 +1,16 @@
 //! Predefined papers.
 
-use crate::geom::{Linear, Size};
-use crate::layout::Sides;
-use crate::length::Length;
+use crate::geom::{Length, Linear, Relative, Sides, Size};
 
 /// Specification of a paper.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Paper {
     /// The kind of paper, which defines the default margins.
     pub class: PaperClass,
-    /// The width of the paper.
-    pub width: Length,
-    /// The height of the paper.
-    pub height: Length,
+    /// The width of the paper in millimeters.
+    pub width: f64,
+    /// The height of the paper in millimeters.
+    pub height: f64,
 }
 
 impl Paper {
@@ -23,7 +21,7 @@ impl Paper {
 
     /// The size of the paper.
     pub fn size(self) -> Size {
-        Size::new(self.width.as_raw(), self.height.as_raw())
+        Size::new(Length::mm(self.width), Length::mm(self.height))
     }
 }
 
@@ -40,7 +38,7 @@ pub enum PaperClass {
 impl PaperClass {
     /// The default margins for this page class.
     pub fn default_margins(self) -> Sides<Linear> {
-        let f = Linear::rel;
+        let f = |r| Relative::new(r).into();
         let s = |l, r, t, b| Sides::new(f(l), f(r), f(t), f(b));
         match self {
             Self::Custom => s(0.1190, 0.0842, 0.1190, 0.0842),
@@ -69,9 +67,9 @@ macro_rules! papers {
         #[doc = $names]
         #[doc = "`."]
         pub const $var: Paper = Paper {
-            width: Length::mm($width),
-            height: Length::mm($height),
             class: PaperClass::$class,
+            width: $width,
+            height: $height,
         };
     };
 }

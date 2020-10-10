@@ -14,8 +14,8 @@ use tide::{PdfWriter, Rect, Ref, Trailer, Version};
 use ttf_parser::{name_id, GlyphId};
 
 use crate::font::FontLoader;
+use crate::geom::Length;
 use crate::layout::{BoxLayout, LayoutElement};
-use crate::length::Length;
 
 /// Export a list of layouts into a _PDF_ document.
 ///
@@ -110,8 +110,8 @@ impl<'a, W: Write> PdfExporter<'a, W> {
             let rect = Rect::new(
                 0.0,
                 0.0,
-                Length::raw(page.size.width).as_pt() as f32,
-                Length::raw(page.size.height).as_pt() as f32,
+                page.size.width.to_pt() as f32,
+                page.size.height.to_pt() as f32,
             );
 
             self.writer.write_obj(
@@ -136,7 +136,7 @@ impl<'a, W: Write> PdfExporter<'a, W> {
         // Font switching actions are only written when the face used for
         // shaped text changes. Hence, we need to remember the active face.
         let mut face = FaceId::MAX;
-        let mut size = 0.0;
+        let mut size = Length::ZERO;
 
         for (pos, element) in &page.elements {
             match element {
@@ -147,12 +147,12 @@ impl<'a, W: Write> PdfExporter<'a, W> {
                         size = shaped.size;
                         text.tf(
                             self.to_pdf[&shaped.face] as u32 + 1,
-                            Length::raw(size).as_pt() as f32,
+                            size.to_pt() as f32,
                         );
                     }
 
-                    let x = Length::raw(pos.x).as_pt();
-                    let y = Length::raw(page.size.height - pos.y - size).as_pt();
+                    let x = pos.x.to_pt();
+                    let y = (page.size.height - pos.y - size).to_pt();
                     text.tm(1.0, 0.0, 0.0, 1.0, x as f32, y as f32);
                     text.tj(shaped.encode_glyphs_be());
                 }

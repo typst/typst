@@ -1,5 +1,5 @@
 use crate::geom::Linear;
-use crate::layout::nodes::{Softness, Spacing};
+use crate::layout::{Softness, Spacing};
 use crate::prelude::*;
 
 /// `h`: Add horizontal spacing.

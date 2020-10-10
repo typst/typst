@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use super::{Args, Dict, Eval, EvalContext, SpannedEntry};
 use crate::color::RgbaColor;
-use crate::geom::Linear;
+use crate::geom::{Length, Linear, Relative};
 use crate::syntax::{Ident, SynTree};
 
 /// A computational value.
@@ -23,14 +23,9 @@ pub enum Value {
     /// A floating-point number: `1.2, 200%`.
     Float(f64),
     /// A length: `2cm, 5.2in`.
-    Length(f64),
+    Length(Length),
     /// A relative value: `50%`.
-    ///
-    /// _Note_: `50%` is represented as `0.5` here, but as `50.0` in the
-    /// corresponding [literal].
-    ///
-    /// [literal]: ../syntax/ast/enum.Lit.html#variant.Percent
-    Relative(f64),
+    Relative(Relative),
     /// A combination of an absolute length and a relative value: `20% + 5cm`.
     Linear(Linear),
     /// A color value with alpha channel: `#f79143ff`.

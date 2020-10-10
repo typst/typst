@@ -6,8 +6,7 @@ use fontdock::{FontStretch, FontStyle, FontWeight};
 
 use super::{Value, ValueDict, ValueFunc};
 use crate::diag::Diag;
-use crate::geom::Linear;
-use crate::layout::{Dir, SpecAlign};
+use crate::geom::{Dir, Length, Linear, Relative};
 use crate::paper::Paper;
 use crate::syntax::{Ident, SpanWith, Spanned, SynTree};
 
@@ -37,26 +36,53 @@ impl<T: Convert> Convert for Spanned<T> {
     }
 }
 
-/// A value type that matches [length] values.
-///
-/// [length]: enum.Value.html#variant.Length
-pub struct Absolute(pub f64);
-
-impl From<Absolute> for f64 {
-    fn from(abs: Absolute) -> f64 {
-        abs.0
-    }
+macro_rules! convert_match {
+    ($type:ty, $name:expr, $($p:pat => $r:expr),* $(,)?) => {
+        impl $crate::eval::Convert for $type {
+            fn convert(
+                value: $crate::syntax::Spanned<$crate::eval::Value>
+            ) -> (Result<Self, $crate::eval::Value>, Option<$crate::diag::Diag>) {
+                #[allow(unreachable_patterns)]
+                match value.v {
+                    $($p => (Ok($r), None)),*,
+                    v => {
+                        let err = $crate::error!("expected {}, found {}", $name, v.ty());
+                        (Err(v), Some(err))
+                    },
+                }
+            }
+        }
+    };
 }
 
-/// A value type that matches [relative] values.
-///
-/// [relative]: enum.Value.html#variant.Relative
-pub struct Relative(pub f64);
-
-impl From<Relative> for f64 {
-    fn from(rel: Relative) -> f64 {
-        rel.0
-    }
+macro_rules! convert_ident {
+    ($type:ty, $name:expr, $parse:expr) => {
+        impl $crate::eval::Convert for $type {
+            fn convert(
+                value: $crate::syntax::Spanned<$crate::eval::Value>,
+            ) -> (
+                Result<Self, $crate::eval::Value>,
+                Option<$crate::diag::Diag>,
+            ) {
+                match value.v {
+                    Value::Ident(id) => {
+                        if let Some(thing) = $parse(&id) {
+                            (Ok(thing), None)
+                        } else {
+                            (
+                                Err($crate::eval::Value::Ident(id)),
+                                Some($crate::error!("invalid {}", $name)),
+                            )
+                        }
+                    }
+                    v => {
+                        let err = $crate::error!("expected {}, found {}", $name, v.ty());
+                        (Err(v), Some(err))
+                    }
+                }
+            }
+        }
+    };
 }
 
 /// A value type that matches [identifier] and [string] values.
@@ -79,70 +105,31 @@ impl Deref for StringLike {
     }
 }
 
-macro_rules! impl_match {
-    ($type:ty, $name:expr, $($p:pat => $r:expr),* $(,)?) => {
-        impl Convert for $type {
-            fn convert(value: Spanned<Value>) -> (Result<Self, Value>, Option<Diag>) {
-                #[allow(unreachable_patterns)]
-                match value.v {
-                    $($p => (Ok($r), None)),*,
-                    v => {
-                        let err = error!("expected {}, found {}", $name, v.ty());
-                        (Err(v), Some(err))
-                    },
-                }
-            }
-        }
-    };
-}
-
-impl_match!(Value, "value", v => v);
-impl_match!(Ident, "identifier", Value::Ident(v) => v);
-impl_match!(bool, "bool", Value::Bool(v) => v);
-impl_match!(i64, "integer", Value::Int(v) => v);
-impl_match!(f64, "float",
+convert_match!(Value, "value", v => v);
+convert_match!(Ident, "identifier", Value::Ident(v) => v);
+convert_match!(bool, "bool", Value::Bool(v) => v);
+convert_match!(i64, "integer", Value::Int(v) => v);
+convert_match!(f64, "float",
     Value::Int(v) => v as f64,
     Value::Float(v) => v,
 );
-impl_match!(Absolute, "length", Value::Length(v) => Absolute(v));
-impl_match!(Relative, "relative", Value::Relative(v) => Relative(v));
-impl_match!(Linear, "linear",
+convert_match!(Length, "length", Value::Length(v) => v);
+convert_match!(Relative, "relative", Value::Relative(v) => v);
+convert_match!(Linear, "linear",
     Value::Linear(v) => v,
-    Value::Length(v) => Linear::abs(v),
-    Value::Relative(v) => Linear::rel(v),
+    Value::Length(v) => v.into(),
+    Value::Relative(v) => v.into(),
 );
-impl_match!(String, "string", Value::Str(v) => v);
-impl_match!(SynTree, "tree", Value::Content(v) => v);
-impl_match!(ValueDict, "dictionary", Value::Dict(v) => v);
-impl_match!(ValueFunc, "function", Value::Func(v) => v);
-impl_match!(StringLike, "identifier or string",
+convert_match!(String, "string", Value::Str(v) => v);
+convert_match!(SynTree, "tree", Value::Content(v) => v);
+convert_match!(ValueDict, "dictionary", Value::Dict(v) => v);
+convert_match!(ValueFunc, "function", Value::Func(v) => v);
+convert_match!(StringLike, "identifier or string",
     Value::Ident(Ident(v)) => StringLike(v),
     Value::Str(v) => StringLike(v),
 );
 
-macro_rules! impl_ident {
-    ($type:ty, $name:expr, $parse:expr) => {
-        impl Convert for $type {
-            fn convert(value: Spanned<Value>) -> (Result<Self, Value>, Option<Diag>) {
-                match value.v {
-                    Value::Ident(id) => {
-                        if let Some(thing) = $parse(&id) {
-                            (Ok(thing), None)
-                        } else {
-                            (Err(Value::Ident(id)), Some(error!("invalid {}", $name)))
-                        }
-                    }
-                    v => {
-                        let err = error!("expected {}, found {}", $name, v.ty());
-                        (Err(v), Some(err))
-                    }
-                }
-            }
-        }
-    };
-}
-
-impl_ident!(Dir, "direction", |v| match v {
+convert_ident!(Dir, "direction", |v| match v {
     "ltr" => Some(Self::LTR),
     "rtl" => Some(Self::RTL),
     "ttb" => Some(Self::TTB),
@@ -150,18 +137,9 @@ impl_ident!(Dir, "direction", |v| match v {
     _ => None,
 });
 
-impl_ident!(SpecAlign, "alignment", |v| match v {
-    "left" => Some(Self::Left),
-    "right" => Some(Self::Right),
-    "top" => Some(Self::Top),
-    "bottom" => Some(Self::Bottom),
-    "center" => Some(Self::Center),
-    _ => None,
-});
-
-impl_ident!(FontStyle, "font style", Self::from_str);
-impl_ident!(FontStretch, "font stretch", Self::from_str);
-impl_ident!(Paper, "paper", Self::from_name);
+convert_ident!(FontStyle, "font style", Self::from_str);
+convert_ident!(FontStretch, "font stretch", Self::from_str);
+convert_ident!(Paper, "paper", Self::from_name);
 
 impl Convert for FontWeight {
     fn convert(value: Spanned<Value>) -> (Result<Self, Value>, Option<Diag>) {

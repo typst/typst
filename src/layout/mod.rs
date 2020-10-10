@@ -1,17 +1,28 @@
 //! Layouting of documents.
 
-pub mod nodes;
-pub mod primitive;
-
-pub use primitive::*;
+mod document;
+mod fixed;
+mod node;
+mod pad;
+mod par;
+mod spacing;
+mod stack;
+mod text;
 
 use async_trait::async_trait;
 
 use crate::font::SharedFontLoader;
-use crate::geom::{Point, Rect, Size, SizeExt};
+use crate::geom::*;
 use crate::shaping::Shaped;
 
-use nodes::Document;
+pub use document::*;
+pub use fixed::*;
+pub use node::*;
+pub use pad::*;
+pub use par::*;
+pub use spacing::*;
+pub use stack::*;
+pub use text::*;
 
 /// Layout a document and return the produced layouts.
 pub async fn layout(document: &Document, loader: SharedFontLoader) -> Vec<BoxLayout> {
@@ -53,9 +64,9 @@ pub trait Layout {
 #[derive(Debug, Clone, PartialEq)]
 pub enum LayoutItem {
     /// Spacing that should be added to the parent.
-    Spacing(f64),
+    Spacing(Length),
     /// A box that should be aligned in the parent.
-    Box(BoxLayout, Gen2<GenAlign>),
+    Box(BoxLayout, Gen<Align>),
 }
 
 /// The constraints for layouting a single node.
@@ -101,7 +112,7 @@ impl BoxLayout {
     /// given position.
     pub fn push_layout(&mut self, pos: Point, more: Self) {
         for (subpos, element) in more.elements {
-            self.push(pos + subpos.to_vec2(), element);
+            self.push(pos + subpos, element);
         }
     }
 }

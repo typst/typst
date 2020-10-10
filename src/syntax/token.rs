@@ -1,6 +1,6 @@
 //! Token definition.
 
-use crate::length::Length;
+use crate::geom::Unit;
 
 /// A minimal semantic entity of source code.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -72,10 +72,10 @@ pub enum Token<'s> {
     /// A floating-point number: `1.2`, `10e-4`.
     Float(f64),
     /// A length: `12pt`, `3cm`.
-    Length(Length),
+    Length(f64, Unit),
     /// A percentage: `50%`.
     ///
-    /// _Note_: `50%` is represented as `50.0` here, as in the corresponding
+    /// _Note_: `50%` is stored as `50.0` here, as in the corresponding
     /// [literal].
     ///
     /// [literal]: ../ast/enum.Lit.html#variant.Percent
@@ -159,7 +159,7 @@ impl<'s> Token<'s> {
             Self::Bool(_) => "bool",
             Self::Int(_) => "integer",
             Self::Float(_) => "float",
-            Self::Length(_) => "length",
+            Self::Length(..) => "length",
             Self::Percent(_) => "percentage",
             Self::Hex(_) => "hex value",
             Self::Str { .. } => "string",

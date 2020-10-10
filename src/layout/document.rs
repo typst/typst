@@ -1,6 +1,6 @@
 use super::*;
 
-/// The top-level layouting node.
+/// The top-level layout node.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Document {
     pub runs: Vec<Pages>,

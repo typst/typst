@@ -10,11 +10,11 @@ use crate::shaping;
 #[derive(Clone, PartialEq)]
 pub struct Text {
     pub text: String,
-    pub size: f64,
+    pub size: Length,
     pub dir: Dir,
     pub fallback: Rc<FallbackTree>,
     pub variant: FontVariant,
-    pub aligns: Gen2<GenAlign>,
+    pub aligns: Gen<Align>,
 }
 
 #[async_trait(?Send)]

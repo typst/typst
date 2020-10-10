@@ -8,7 +8,7 @@ use super::parse;
 use crate::color::RgbaColor;
 use crate::diag::Deco;
 use crate::eval::DictKey;
-use crate::length::Length;
+use crate::geom::Unit;
 use crate::syntax::*;
 
 // ------------------------------ Construct Syntax Nodes ------------------------------ //
@@ -51,6 +51,7 @@ macro_rules! F {
 
 use BinOp::*;
 use UnOp::*;
+use Unit::*;
 
 fn Id(ident: &str) -> Expr {
     Expr::Lit(Lit::Ident(Ident(ident.to_string())))
@@ -67,8 +68,8 @@ fn Float(float: f64) -> Expr {
 fn Percent(percent: f64) -> Expr {
     Expr::Lit(Lit::Percent(percent))
 }
-fn Len(length: Length) -> Expr {
-    Expr::Lit(Lit::Length(length))
+fn Length(val: f64, unit: Unit) -> Expr {
+    Expr::Lit(Lit::Length(val, unit))
 }
 fn Color(color: RgbaColor) -> Expr {
     Expr::Lit(Lit::Color(color))
@@ -347,10 +348,10 @@ fn test_parse_chaining() {
     // Things the parser has to make sense of
     t!("[hi: (5.0, 2.1 >> you]" => F!("hi"; Dict![Float(5.0), Float(2.1)], Tree![F!("you")]));
     t!("[box >> pad: 1pt][Hi]"  => F!("box"; Tree![
-        F!("pad"; Len(Length::pt(1.0)), Tree!(T("Hi")))
+        F!("pad"; Length(1.0, Pt), Tree!(T("Hi")))
     ]));
     t!("[bold: 400, >> emph >> sub: 1cm]" => F!("bold"; Int(400), Tree![
-        F!("emph"; Tree!(F!("sub"; Len(Length::cm(1.0)))))
+        F!("emph"; Tree!(F!("sub"; Length(1.0, Cm))))
     ]));
 
     // Errors for unclosed / empty predecessor groups
@@ -411,8 +412,8 @@ fn test_parse_values() {
     v!("1.0e-4"    => Float(1e-4));
     v!("3.15"      => Float(3.15));
     v!("50%"       => Percent(50.0));
-    v!("4.5cm"     => Len(Length::cm(4.5)));
-    v!("12e1pt"    => Len(Length::pt(12e1)));
+    v!("4.5cm"     => Length(4.5, Cm));
+    v!("12e1pt"    => Length(12e1, Pt));
     v!("#f7a20500" => Color(RgbaColor::new(0xf7, 0xa2, 0x05, 0x00)));
     v!("\"a\n[]\\\"string\"" => Str("a\n[]\"string"));
 
@@ -446,15 +447,15 @@ fn test_parse_expressions() {
     // Operations.
     v!("-1"          => Unary(Neg, Int(1)));
     v!("-- 1"        => Unary(Neg, Unary(Neg, Int(1))));
-    v!("3.2in + 6pt" => Binary(Add, Len(Length::inches(3.2)), Len(Length::pt(6.0))));
+    v!("3.2in + 6pt" => Binary(Add, Length(3.2, In), Length(6.0, Pt)));
     v!("5 - 0.01"    => Binary(Sub, Int(5), Float(0.01)));
-    v!("(3mm * 2)"   => Binary(Mul, Len(Length::mm(3.0)), Int(2)));
-    v!("12e-3cm/1pt" => Binary(Div, Len(Length::cm(12e-3)), Len(Length::pt(1.0))));
+    v!("(3mm * 2)"   => Binary(Mul, Length(3.0, Mm), Int(2)));
+    v!("12e-3cm/1pt" => Binary(Div, Length(12e-3, Cm), Length(1.0, Pt)));
 
     // More complex.
     v!("(3.2in + 6pt)*(5/2-1)" => Binary(
         Mul,
-        Binary(Add, Len(Length::inches(3.2)), Len(Length::pt(6.0))),
+        Binary(Add, Length(3.2, In), Length(6.0, Pt)),
         Binary(Sub, Binary(Div, Int(5), Int(2)), Int(1))
     ));
     v!("(6.3E+2+4* - 3.2pt)/2" => Binary(
@@ -462,7 +463,7 @@ fn test_parse_expressions() {
         Binary(Add, Float(6.3e2), Binary(
             Mul,
             Int(4),
-            Unary(Neg, Len(Length::pt(3.2)))
+            Unary(Neg, Length(3.2, Pt))
         )),
         Int(2)
     ));
@@ -483,11 +484,11 @@ fn test_parse_expressions() {
     ts!("[val: (1)]" => s(0, 10, F!(s(1, 4, "val"), 5 .. 9; s(6, 9, Int(1)))));
 
     // Invalid expressions.
-    v!("4pt--"        => Len(Length::pt(4.0)));
+    v!("4pt--"        => Length(4.0, Pt));
     e!("[val: 4pt--]" => s(10, 11, "missing factor"),
                          s(6, 10, "missing right summand"));
 
-    v!("3mm+4pt*"        => Binary(Add, Len(Length::mm(3.0)), Len(Length::pt(4.0))));
+    v!("3mm+4pt*"        => Binary(Add, Length(3.0, Mm), Length(4.0, Pt)));
     e!("[val: 3mm+4pt*]" => s(10, 14, "missing right factor"));
 }
 
@@ -525,7 +526,7 @@ fn test_parse_dicts_compute_func_calls() {
     // More complex.
     v!("css(1pt, rgb(90, 102, 254), \"solid\")" => Call!(
         "css";
-        Len(Length::pt(1.0)),
+        Length(1.0, Pt),
         Call!("rgb"; Int(90), Int(102), Int(254)),
         Str("solid"),
     ));
@@ -546,7 +547,7 @@ fn test_parse_dicts_nested() {
             Int(1),
             Dict!(
                 "ab" => Dict![],
-                "d"  => Dict!(Int(3), Len(Length::pt(14.0))),
+                "d"  => Dict!(Int(3), Length(14.0, Pt)),
             ),
         ],
         Bool(false),

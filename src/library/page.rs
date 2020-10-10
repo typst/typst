@@ -1,7 +1,6 @@
 use std::mem;
 
-use crate::eval::Absolute;
-use crate::geom::Linear;
+use crate::geom::{Length, Linear};
 use crate::paper::{Paper, PaperClass};
 use crate::prelude::*;
 
@@ -25,12 +24,12 @@ pub fn page(mut args: Args, ctx: &mut EvalContext) -> Value {
         ctx.state.page.size = paper.size();
     }
 
-    if let Some(Absolute(width)) = args.get::<_, Absolute>(ctx, "width") {
+    if let Some(width) = args.get::<_, Length>(ctx, "width") {
         ctx.state.page.class = PaperClass::Custom;
         ctx.state.page.size.width = width;
     }
 
-    if let Some(Absolute(height)) = args.get::<_, Absolute>(ctx, "height") {
+    if let Some(height) = args.get::<_, Length>(ctx, "height") {
         ctx.state.page.class = PaperClass::Custom;
         ctx.state.page.size.height = height;
     }

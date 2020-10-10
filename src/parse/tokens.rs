@@ -3,7 +3,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::{is_newline, Scanner};
-use crate::length::Length;
+use crate::geom::Unit;
 use crate::syntax::token::*;
 use crate::syntax::{is_ident, Pos};
 
@@ -279,8 +279,8 @@ fn parse_expr(text: &str) -> Token<'_> {
         Token::Float(num)
     } else if let Some(percent) = parse_percent(text) {
         Token::Percent(percent)
-    } else if let Ok(length) = text.parse::<Length>() {
-        Token::Length(length)
+    } else if let Some((val, unit)) = parse_length(text) {
+        Token::Length(val, unit)
     } else if is_ident(text) {
         Token::Ident(text)
     } else {
@@ -292,19 +292,41 @@ fn parse_percent(text: &str) -> Option<f64> {
     text.strip_suffix('%').and_then(|num| num.parse::<f64>().ok())
 }
 
+fn parse_length(text: &str) -> Option<(f64, Unit)> {
+    let len = text.len();
+
+    // We need at least some number and the unit.
+    if len <= 2 {
+        return None;
+    }
+
+    // We can view the string as bytes since a multibyte UTF-8 char cannot
+    // have valid ASCII chars as subbytes.
+    let split = len - 2;
+    let bytes = text.as_bytes();
+    let unit = match &bytes[split ..] {
+        b"pt" => Unit::Pt,
+        b"mm" => Unit::Mm,
+        b"cm" => Unit::Cm,
+        b"in" => Unit::In,
+        _ => return None,
+    };
+
+    text[.. split].parse::<f64>().ok().map(|val| (val, unit))
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
-    use crate::length::Length;
     use crate::parse::tests::check;
 
     use Token::{
-        BlockComment as BC, Bool, Chain, Float, Hex, Hyphen as Min, Ident as Id, Int,
-        LeftBrace as LB, LeftBracket as L, LeftParen as LP, Length as Len,
-        LineComment as LC, NonBreakingSpace as Nbsp, Percent, Plus, RightBrace as RB,
-        RightBracket as R, RightParen as RP, Slash, Space as S, Star, Text as T, *,
+        BlockComment as BC, Hyphen as Min, Ident as Id, LeftBrace as LB,
+        LeftBracket as L, LeftParen as LP, LineComment as LC, NonBreakingSpace as Nbsp,
+        RightBrace as RB, RightBracket as R, RightParen as RP, Space as S, Text as T, *,
     };
+    use Unit::*;
 
     fn Str(string: &str, terminated: bool) -> Token {
         Token::Str(TokenStr { string, terminated })
@@ -322,6 +344,16 @@ mod tests {
             let found = Tokens::new($src, $mode).collect::<Vec<_>>();
             check($src, exp, found, false);
         }
+    }
+
+    #[test]
+    fn test_length_from_str_parses_correct_value_and_unit() {
+        assert_eq!(parse_length("2.5cm"), Some((2.5, Cm)));
+    }
+
+    #[test]
+    fn test_length_from_str_works_with_non_ascii_chars() {
+        assert_eq!(parse_length("123🚚"), None);
     }
 
     #[test]
@@ -429,7 +461,7 @@ mod tests {
         t!(Header, "🌓, 🌍,"     => Invalid("🌓"), Comma, S(0), Invalid("🌍"), Comma);
         t!(Header, "{abc}"        => LB, Id("abc"), RB);
         t!(Header, "(1,2)"        => LP, Int(1), Comma, Int(2), RP);
-        t!(Header, "12_pt, 12pt"  => Invalid("12_pt"), Comma, S(0), Len(Length::pt(12.0)));
+        t!(Header, "12_pt, 12pt"  => Invalid("12_pt"), Comma, S(0), Length(12.0, Pt));
         t!(Header, "f: arg >> g"  => Id("f"), Colon, S(0), Id("arg"), S(0), Chain, S(0), Id("g"));
         t!(Header, "=3.15"        => Equals, Float(3.15));
         t!(Header, "arg, _b, _1"  => Id("arg"), Comma, S(0), Id("_b"), Comma, S(0), Id("_1"));
@@ -446,9 +478,9 @@ mod tests {
         t!(Header, "12.3e5"  => Float(12.3e5));
         t!(Header, "120%"    => Percent(120.0));
         t!(Header, "12e4%"   => Percent(120000.0));
-        t!(Header, "1e5in"   => Len(Length::inches(100000.0)));
-        t!(Header, "2.3cm"   => Len(Length::cm(2.3)));
-        t!(Header, "02.4mm"  => Len(Length::mm(2.4)));
+        t!(Header, "1e5in"   => Length(100000.0, In));
+        t!(Header, "2.3cm"   => Length(2.3, Cm));
+        t!(Header, "02.4mm"  => Length(2.4, Mm));
         t!(Header, "2.4.cm"  => Invalid("2.4.cm"));
         t!(Header, "#6ae6dd" => Hex("6ae6dd"));
         t!(Header, "#8A083c" => Hex("8A083c"));
@@ -469,11 +501,11 @@ mod tests {
 
     #[test]
     fn tokenize_math() {
-        t!(Header, "12e-3in"           => Len(Length::inches(12e-3)));
+        t!(Header, "12e-3in"           => Length(12e-3, In));
         t!(Header, "-1"                => Min, Int(1));
         t!(Header, "--1"               => Min, Min, Int(1));
         t!(Header, "- 1"               => Min, S(0), Int(1));
-        t!(Header, "6.1cm + 4pt,a=1*2" => Len(Length::cm(6.1)), S(0), Plus, S(0), Len(Length::pt(4.0)),
+        t!(Header, "6.1cm + 4pt,a=1*2" => Length(6.1, Cm), S(0), Plus, S(0), Length(4.0, Pt),
                                           Comma, Id("a"), Equals, Int(1), Star, Int(2));
         t!(Header, "(5 - 1) / 2.1"     => LP, Int(5), S(0), Min, S(0), Int(1), RP,
                                           S(0), Slash, S(0), Float(2.1));

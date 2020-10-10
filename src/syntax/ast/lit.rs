@@ -3,7 +3,7 @@
 use super::*;
 use crate::color::RgbaColor;
 use crate::eval::DictKey;
-use crate::length::Length;
+use crate::geom::Unit;
 
 /// A literal.
 #[derive(Debug, Clone, PartialEq)]
@@ -17,13 +17,13 @@ pub enum Lit {
     /// A floating-point literal: `1.2`, `10e-4`.
     Float(f64),
     /// A length literal: `12pt`, `3cm`.
-    Length(Length),
+    Length(f64, Unit),
     /// A percent literal: `50%`.
     ///
-    /// _Note_: `50%` is represented as `50.0` here, but as `0.5` in the
+    /// _Note_: `50%` is stored as `50.0` here, but as `0.5` in the
     /// corresponding [value].
     ///
-    /// [value]: ../../eval/enum.Value.html#variant.Relative
+    /// [value]: ../../geom/struct.Relative.html
     Percent(f64),
     /// A color literal: `#ffccee`.
     Color(RgbaColor),

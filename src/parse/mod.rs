@@ -432,7 +432,7 @@ fn value(p: &mut Parser) -> Option<Expr> {
         Token::Bool(b) => Expr::Lit(Lit::Bool(b)),
         Token::Int(i) => Expr::Lit(Lit::Int(i)),
         Token::Float(f) => Expr::Lit(Lit::Float(f)),
-        Token::Length(l) => Expr::Lit(Lit::Length(l)),
+        Token::Length(val, unit) => Expr::Lit(Lit::Length(val, unit)),
         Token::Percent(p) => Expr::Lit(Lit::Percent(p)),
         Token::Hex(hex) => Expr::Lit(Lit::Color(color(p, hex, start))),
         Token::Str(token) => Expr::Lit(Lit::Str(string(p, token))),

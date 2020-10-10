@@ -10,8 +10,8 @@ use fontdock::{FaceId, FaceQuery, FallbackTree, FontVariant};
 use ttf_parser::{Face, GlyphId};
 
 use crate::font::FontLoader;
-use crate::geom::{Point, Size};
-use crate::layout::{BoxLayout, Dir, LayoutElement};
+use crate::geom::{Dir, Length, Point, Size};
+use crate::layout::{BoxLayout, LayoutElement};
 
 /// A shaped run of text.
 #[derive(Clone, PartialEq)]
@@ -24,14 +24,14 @@ pub struct Shaped {
     pub glyphs: Vec<GlyphId>,
     /// The horizontal offsets of the glyphs. This is indexed parallel to `glyphs`.
     /// Vertical offets are not yet supported.
-    pub offsets: Vec<f64>,
+    pub offsets: Vec<Length>,
     /// The font size.
-    pub size: f64,
+    pub size: Length,
 }
 
 impl Shaped {
     /// Create a new shape run with empty `text`, `glyphs` and `offsets`.
-    pub fn new(face: FaceId, size: f64) -> Self {
+    pub fn new(face: FaceId, size: Length) -> Self {
         Self {
             text: String::new(),
             face,
@@ -63,15 +63,15 @@ impl Debug for Shaped {
 /// [`Shaped`]: struct.Shaped.html
 pub async fn shape(
     text: &str,
-    size: f64,
+    size: Length,
     dir: Dir,
     loader: &mut FontLoader,
     fallback: &FallbackTree,
     variant: FontVariant,
 ) -> BoxLayout {
-    let mut layout = BoxLayout::new(Size::new(0.0, size));
+    let mut layout = BoxLayout::new(Size::new(Length::ZERO, size));
     let mut shaped = Shaped::new(FaceId::MAX, size);
-    let mut offset = 0.0;
+    let mut offset = Length::ZERO;
 
     // Create an iterator with conditional direction.
     let mut forwards = text.chars();
@@ -93,11 +93,11 @@ pub async fn shape(
 
             // Flush the buffer if we change the font face.
             if shaped.face != id && !shaped.text.is_empty() {
-                let pos = Point::new(layout.size.width, 0.0);
+                let pos = Point::new(layout.size.width, Length::ZERO);
                 layout.push(pos, LayoutElement::Text(shaped));
                 layout.size.width += offset;
                 shaped = Shaped::new(FaceId::MAX, size);
-                offset = 0.0;
+                offset = Length::ZERO;
             }
 
             shaped.face = id;
@@ -110,7 +110,7 @@ pub async fn shape(
 
     // Flush the last buffered parts of the word.
     if !shaped.text.is_empty() {
-        let pos = Point::new(layout.size.width, 0.0);
+        let pos = Point::new(layout.size.width, Length::ZERO);
         layout.push(pos, LayoutElement::Text(shaped));
         layout.size.width += offset;
     }
@@ -120,7 +120,7 @@ pub async fn shape(
 
 /// Looks up the glyph for `c` and returns its index alongside its width at the
 /// given `size`.
-fn lookup_glyph(face: &Face, c: char, size: f64) -> Option<(GlyphId, f64)> {
+fn lookup_glyph(face: &Face, c: char, size: Length) -> Option<(GlyphId, Length)> {
     let glyph = face.glyph_index(c)?;
 
     // Determine the width of the char.
