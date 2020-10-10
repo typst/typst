@@ -4,8 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use super::{is_newline, Scanner};
 use crate::geom::Unit;
-use crate::syntax::token::*;
-use crate::syntax::{is_ident, Pos};
+use crate::syntax::*;
 
 use TokenMode::*;
 
