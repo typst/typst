@@ -58,10 +58,10 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
 
     if let Some(linear) = args.find::<Linear>() {
         if linear.is_absolute() {
-            ctx.state.text.font_size.base = linear.abs;
-            ctx.state.text.font_size.scale = Relative::ONE.into();
+            ctx.state.font.size = linear.abs;
+            ctx.state.font.scale = Relative::ONE.into();
         } else {
-            ctx.state.text.font_size.scale = linear;
+            ctx.state.font.scale = linear;
         }
     }
 
@@ -69,20 +69,20 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
     let list: Vec<_> = args.find_all::<StringLike>().map(|s| s.to_lowercase()).collect();
 
     if !list.is_empty() {
-        Rc::make_mut(&mut ctx.state.text.fallback).list = list;
+        Rc::make_mut(&mut ctx.state.font.families).list = list;
         needs_flattening = true;
     }
 
     if let Some(style) = args.get::<_, FontStyle>(ctx, "style") {
-        ctx.state.text.variant.style = style;
+        ctx.state.font.variant.style = style;
     }
 
     if let Some(weight) = args.get::<_, FontWeight>(ctx, "weight") {
-        ctx.state.text.variant.weight = weight;
+        ctx.state.font.variant.weight = weight;
     }
 
     if let Some(stretch) = args.get::<_, FontStretch>(ctx, "stretch") {
-        ctx.state.text.variant.stretch = stretch;
+        ctx.state.font.variant.stretch = stretch;
     }
 
     for (class, dict) in args.find_all_str::<Spanned<ValueDict>>() {
@@ -91,14 +91,14 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
             .map(|s| s.to_lowercase())
             .collect();
 
-        Rc::make_mut(&mut ctx.state.text.fallback).update_class_list(class, fallback);
+        Rc::make_mut(&mut ctx.state.font.families).update_class_list(class, fallback);
         needs_flattening = true;
     }
 
     args.done(ctx);
 
     if needs_flattening {
-        Rc::make_mut(&mut ctx.state.text.fallback).flatten();
+        Rc::make_mut(&mut ctx.state.font.families).flatten();
     }
 
     if let Some(body) = body {

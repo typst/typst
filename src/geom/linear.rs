@@ -11,7 +11,10 @@ pub struct Linear {
 
 impl Linear {
     /// The zero linear.
-    pub const ZERO: Linear = Linear { rel: Relative::ZERO, abs: Length::ZERO };
+    pub const ZERO: Self = Self { rel: Relative::ZERO, abs: Length::ZERO };
+
+    /// The linear with a relative part of `100%` and no absolute part.
+    pub const ONE: Self = Self { rel: Relative::ONE, abs: Length::ZERO };
 
     /// Create a new linear.
     pub fn new(rel: Relative, abs: Length) -> Self {
@@ -24,7 +27,7 @@ impl Linear {
         self.rel.eval(one) + self.abs
     }
 
-    /// Whether this linear's relative component is zero.
+    /// Whether this linear's relative part is zero.
     pub fn is_absolute(self) -> bool {
         self.rel == Relative::ZERO
     }

@@ -12,7 +12,7 @@ pub struct Text {
     pub text: String,
     pub size: Length,
     pub dir: Dir,
-    pub fallback: Rc<FallbackTree>,
+    pub families: Rc<FallbackTree>,
     pub variant: FontVariant,
     pub aligns: Gen<Align>,
 }
@@ -30,7 +30,7 @@ impl Layout for Text {
             self.size,
             self.dir,
             &mut loader,
-            &self.fallback,
+            &self.families,
             self.variant,
         )
         .await;

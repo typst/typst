@@ -179,7 +179,8 @@ impl EvalContext {
     /// Start a paragraph group based on the active text state.
     pub fn start_par_group(&mut self) {
         let dirs = self.state.dirs;
-        let line_spacing = self.state.text.line_spacing();
+        let em = self.state.font.font_size();
+        let line_spacing = self.state.par.line_spacing.eval(em);
         let aligns = self.state.aligns;
         self.start_group((dirs, line_spacing, aligns));
     }
@@ -204,13 +205,13 @@ impl EvalContext {
     /// Construct a text node from the given string based on the active text
     /// state.
     pub fn make_text_node(&self, text: String) -> Text {
-        let mut variant = self.state.text.variant;
+        let mut variant = self.state.font.variant;
 
-        if self.state.text.strong {
+        if self.state.font.strong {
             variant.weight = variant.weight.thicken(300);
         }
 
-        if self.state.text.emph {
+        if self.state.font.emph {
             variant.style = match variant.style {
                 FontStyle::Normal => FontStyle::Italic,
                 FontStyle::Italic => FontStyle::Normal,
@@ -221,8 +222,8 @@ impl EvalContext {
         Text {
             text,
             dir: self.state.dirs.cross,
-            size: self.state.text.font_size(),
-            fallback: Rc::clone(&self.state.text.fallback),
+            size: self.state.font.font_size(),
+            families: Rc::clone(&self.state.font.families),
             variant,
             aligns: self.state.aligns,
         }
@@ -256,8 +257,9 @@ impl Eval for SynNode {
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         match self {
             SynNode::Space => {
+                let em = ctx.state.font.font_size();
                 ctx.push(Spacing {
-                    amount: ctx.state.text.word_spacing(),
+                    amount: ctx.state.par.word_spacing.eval(em),
                     softness: Softness::Soft,
                 });
             }
@@ -274,19 +276,20 @@ impl Eval for SynNode {
 
             SynNode::Parbreak => {
                 ctx.end_par_group();
+                let em = ctx.state.font.font_size();
                 ctx.push(Spacing {
-                    amount: ctx.state.text.par_spacing(),
+                    amount: ctx.state.par.par_spacing.eval(em),
                     softness: Softness::Soft,
                 });
                 ctx.start_par_group();
             }
 
             SynNode::Emph => {
-                ctx.state.text.emph ^= true;
+                ctx.state.font.emph ^= true;
             }
 
             SynNode::Strong => {
-                ctx.state.text.strong ^= true;
+                ctx.state.font.strong ^= true;
             }
 
             SynNode::Heading(heading) => {
@@ -311,8 +314,8 @@ impl Eval for NodeHeading {
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         let prev = ctx.state.clone();
         let upscale = 1.5 - 0.1 * self.level.v as f64;
-        ctx.state.text.font_size.scale *= upscale;
-        ctx.state.text.strong = true;
+        ctx.state.font.scale *= upscale;
+        ctx.state.font.strong = true;
 
         self.contents.eval(ctx);
 
@@ -324,10 +327,10 @@ impl Eval for NodeRaw {
     type Output = ();
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let prev = Rc::clone(&ctx.state.text.fallback);
-        let fallback = Rc::make_mut(&mut ctx.state.text.fallback);
-        fallback.list.insert(0, "monospace".to_string());
-        fallback.flatten();
+        let prev = Rc::clone(&ctx.state.font.families);
+        let families = Rc::make_mut(&mut ctx.state.font.families);
+        families.list.insert(0, "monospace".to_string());
+        families.flatten();
 
         let mut children = vec![];
         for line in &self.lines {
@@ -341,7 +344,7 @@ impl Eval for NodeRaw {
             expand: Spec::new(false, false),
         });
 
-        ctx.state.text.fallback = prev;
+        ctx.state.font.families = prev;
     }
 }
 

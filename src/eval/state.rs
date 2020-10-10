@@ -13,10 +13,12 @@ use crate::paper::{Paper, PaperClass, PAPER_A4};
 pub struct State {
     /// The scope that contains function definitions.
     pub scope: Scope,
-    /// The text state.
-    pub text: TextState,
     /// The page state.
     pub page: PageState,
+    /// The paragraph state.
+    pub par: ParState,
+    /// The font state.
+    pub font: FontState,
     /// The active layouting directions.
     pub dirs: Gen<Dir>,
     /// The active alignments.
@@ -27,118 +29,16 @@ impl Default for State {
     fn default() -> Self {
         Self {
             scope: crate::library::_std(),
-            text: TextState::default(),
             page: PageState::default(),
+            par: ParState::default(),
+            font: FontState::default(),
             dirs: Gen::new(Dir::TTB, Dir::LTR),
             aligns: Gen::new(Align::Start, Align::Start),
         }
     }
 }
 
-/// Defines which fonts to use and how to space text.
-#[derive(Debug, Clone, PartialEq)]
-pub struct TextState {
-    /// A tree of font family names and generic class names.
-    pub fallback: Rc<FallbackTree>,
-    /// The selected font variant.
-    pub variant: FontVariant,
-    /// Whether the strong toggle is active or inactive. This determines
-    /// whether the next `*` adds or removes font weight.
-    pub strong: bool,
-    /// Whether the emphasis toggle is active or inactive. This determines
-    /// whether the next `_` makes italic or non-italic.
-    pub emph: bool,
-    /// The font size.
-    pub font_size: FontSize,
-    /// The word spacing (relative to the the font size).
-    pub word_spacing: Linear,
-    /// The line spacing (relative to the the font size).
-    pub line_spacing: Linear,
-    /// The paragraphs spacing (relative to the the font size).
-    pub par_spacing: Linear,
-}
-
-impl TextState {
-    /// The absolute font size.
-    pub fn font_size(&self) -> Length {
-        self.font_size.eval()
-    }
-
-    /// The absolute word spacing.
-    pub fn word_spacing(&self) -> Length {
-        self.word_spacing.eval(self.font_size())
-    }
-
-    /// The absolute line spacing.
-    pub fn line_spacing(&self) -> Length {
-        self.line_spacing.eval(self.font_size())
-    }
-
-    /// The absolute paragraph spacing.
-    pub fn par_spacing(&self) -> Length {
-        self.par_spacing.eval(self.font_size())
-    }
-}
-
-impl Default for TextState {
-    fn default() -> Self {
-        Self {
-            fallback: Rc::new(fallback! {
-                list: ["sans-serif"],
-                classes: {
-                    "serif" => ["source serif pro", "noto serif"],
-                    "sans-serif" => ["source sans pro", "noto sans"],
-                    "monospace" => ["source code pro", "noto sans mono"],
-                    "math" => ["latin modern math", "serif"],
-                },
-                base: [
-                    "source sans pro", "noto sans", "segoe ui emoji",
-                    "noto emoji", "latin modern math",
-                ],
-            }),
-            variant: FontVariant {
-                style: FontStyle::Normal,
-                weight: FontWeight::REGULAR,
-                stretch: FontStretch::Normal,
-            },
-            strong: false,
-            emph: false,
-            font_size: FontSize::abs(Length::pt(11.0)),
-            word_spacing: Relative::new(0.25).into(),
-            line_spacing: Relative::new(0.2).into(),
-            par_spacing: Relative::new(0.5).into(),
-        }
-    }
-}
-
-/// The font size, defined by base and scale.
-#[derive(Debug, Clone, PartialEq)]
-pub struct FontSize {
-    /// The base font size, updated whenever the font size is set absolutely.
-    pub base: Length,
-    /// The scale to apply on the base font size, updated when the font size
-    /// is set relatively.
-    pub scale: Linear,
-}
-
-impl FontSize {
-    /// Create a new font size.
-    pub fn new(base: Length, scale: impl Into<Linear>) -> Self {
-        Self { base, scale: scale.into() }
-    }
-
-    /// Create a new font size with the given `base` and a scale of `1.0`.
-    pub fn abs(base: Length) -> Self {
-        Self::new(base, Relative::ONE)
-    }
-
-    /// Compute the absolute font size.
-    pub fn eval(&self) -> Length {
-        self.scale.eval(self.base)
-    }
-}
-
-/// Defines the size and margins of a page.
+/// Defines page properties.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct PageState {
     /// The class of this page.
@@ -175,5 +75,89 @@ impl PageState {
 impl Default for PageState {
     fn default() -> Self {
         Self::new(PAPER_A4)
+    }
+}
+
+/// Defines paragraph properties.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct ParState {
+    /// The spacing between words (dependent on scaled font size).
+    pub word_spacing: Linear,
+    /// The spacing between lines (dependent on scaled font size).
+    pub line_spacing: Linear,
+    /// The spacing between paragraphs (dependent on scaled font size).
+    pub par_spacing: Linear,
+}
+
+impl Default for ParState {
+    fn default() -> Self {
+        Self {
+            word_spacing: Relative::new(0.25).into(),
+            line_spacing: Relative::new(0.2).into(),
+            par_spacing: Relative::new(0.5).into(),
+        }
+    }
+}
+
+/// Defines font properties.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FontState {
+    /// A tree of font family names and generic class names.
+    pub families: Rc<FallbackTree>,
+    /// The selected font variant.
+    pub variant: FontVariant,
+    /// The font size.
+    pub size: Length,
+    /// The linear to apply on the base font size.
+    pub scale: Linear,
+    /// Whether the strong toggle is active or inactive. This determines
+    /// whether the next `*` adds or removes font weight.
+    pub strong: bool,
+    /// Whether the emphasis toggle is active or inactive. This determines
+    /// whether the next `_` makes italic or non-italic.
+    pub emph: bool,
+}
+
+impl FontState {
+    /// The absolute font size.
+    pub fn font_size(&self) -> Length {
+        self.scale.eval(self.size)
+    }
+}
+
+impl Default for FontState {
+    fn default() -> Self {
+        Self {
+            families: Rc::new(default_font_families()),
+            variant: FontVariant {
+                style: FontStyle::Normal,
+                weight: FontWeight::REGULAR,
+                stretch: FontStretch::Normal,
+            },
+            size: Length::pt(11.0),
+            scale: Linear::ONE,
+            strong: false,
+            emph: false,
+        }
+    }
+}
+
+/// The default tree of font fallbacks.
+fn default_font_families() -> FallbackTree {
+    fallback! {
+        list: ["sans-serif"],
+        classes: {
+            "serif"      => ["source serif pro", "noto serif"],
+            "sans-serif" => ["source sans pro", "noto sans"],
+            "monospace"  => ["source code pro", "noto sans mono"],
+            "math"       => ["latin modern math", "serif"],
+        },
+        base: [
+            "source sans pro",
+            "noto sans",
+            "segoe ui emoji",
+            "noto emoji",
+            "latin modern math",
+        ],
     }
 }
