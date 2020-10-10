@@ -1,6 +1,7 @@
 //! Layouting primitives.
 
 use std::fmt::{self, Display, Formatter};
+use std::ops::Range;
 
 use crate::geom::{Insets, Linear, Point, Size, Vec2};
 
@@ -314,6 +315,15 @@ pub enum GenAlign {
 }
 
 impl GenAlign {
+    /// Returns the position of this alignment in the given length.
+    pub fn apply(self, range: Range<f64>) -> f64 {
+        match self {
+            Self::Start => range.start,
+            Self::Center => (range.start + range.end) / 2.0,
+            Self::End => range.end,
+        }
+    }
+
     /// The inverse alignment.
     pub fn inv(self) -> Self {
         match self {
