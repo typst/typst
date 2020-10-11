@@ -55,14 +55,14 @@ pub trait Layout {
         &self,
         ctx: &mut LayoutContext,
         constraints: LayoutConstraints,
-    ) -> Vec<LayoutItem>;
+    ) -> Vec<Layouted>;
 }
 
 /// An item that is produced by [layouting] a node.
 ///
 /// [layouting]: trait.Layout.html#method.layout
 #[derive(Debug, Clone, PartialEq)]
-pub enum LayoutItem {
+pub enum Layouted {
     /// Spacing that should be added to the parent.
     Spacing(Length),
     /// A box that should be aligned in the parent.

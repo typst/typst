@@ -40,7 +40,7 @@ impl Layout for LayoutNode {
         &self,
         ctx: &mut LayoutContext,
         constraints: LayoutConstraints,
-    ) -> Vec<LayoutItem> {
+    ) -> Vec<Layouted> {
         match self {
             Self::Spacing(spacing) => spacing.layout(ctx, constraints).await,
             Self::Text(text) => text.layout(ctx, constraints).await,

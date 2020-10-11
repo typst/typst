@@ -39,8 +39,8 @@ impl Pages {
             .await
             .into_iter()
             .filter_map(|item| match item {
-                LayoutItem::Spacing(_) => None,
-                LayoutItem::Box(layout, _) => Some(layout),
+                Layouted::Spacing(_) => None,
+                Layouted::Box(layout, _) => Some(layout),
             })
             .collect()
     }

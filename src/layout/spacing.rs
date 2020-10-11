@@ -11,12 +11,8 @@ pub struct Spacing {
 
 #[async_trait(?Send)]
 impl Layout for Spacing {
-    async fn layout(
-        &self,
-        _: &mut LayoutContext,
-        _: LayoutConstraints,
-    ) -> Vec<LayoutItem> {
-        vec![LayoutItem::Spacing(self.amount)]
+    async fn layout(&self, _: &mut LayoutContext, _: LayoutConstraints) -> Vec<Layouted> {
+        vec![Layouted::Spacing(self.amount)]
     }
 }
 

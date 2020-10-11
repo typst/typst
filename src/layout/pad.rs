@@ -14,7 +14,7 @@ impl Layout for Pad {
         &self,
         ctx: &mut LayoutContext,
         constraints: LayoutConstraints,
-    ) -> Vec<LayoutItem> {
+    ) -> Vec<Layouted> {
         self.child
             .layout(ctx, LayoutConstraints {
                 spaces: constraints
@@ -30,7 +30,7 @@ impl Layout for Pad {
             .await
             .into_iter()
             .map(|item| match item {
-                LayoutItem::Box(boxed, align) => {
+                Layouted::Box(boxed, align) => {
                     let padding = self.padding.eval(boxed.size);
                     let padded = boxed.size + padding.size();
 
@@ -38,7 +38,7 @@ impl Layout for Pad {
                     let start = Point::new(padding.left, padding.top);
                     outer.push_layout(start, boxed);
 
-                    LayoutItem::Box(outer, align)
+                    Layouted::Box(outer, align)
                 }
                 item => item,
             })

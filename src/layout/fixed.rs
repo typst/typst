@@ -15,7 +15,7 @@ impl Layout for Fixed {
         &self,
         ctx: &mut LayoutContext,
         constraints: LayoutConstraints,
-    ) -> Vec<LayoutItem> {
+    ) -> Vec<Layouted> {
         let space = constraints.spaces[0];
         let size = Size::new(
             self.width

@@ -23,7 +23,7 @@ impl Layout for Text {
         &self,
         ctx: &mut LayoutContext,
         _constraints: LayoutConstraints,
-    ) -> Vec<LayoutItem> {
+    ) -> Vec<Layouted> {
         let mut loader = ctx.loader.borrow_mut();
         let boxed = shaping::shape(
             &self.text,
@@ -34,7 +34,7 @@ impl Layout for Text {
             self.variant,
         )
         .await;
-        vec![LayoutItem::Box(boxed, self.aligns)]
+        vec![Layouted::Box(boxed, self.aligns)]
     }
 }
 

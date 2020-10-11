@@ -36,7 +36,7 @@ impl Layout for Stack {
         &self,
         ctx: &mut LayoutContext,
         constraints: LayoutConstraints,
-    ) -> Vec<LayoutItem> {
+    ) -> Vec<Layouted> {
         let mut items = vec![];
 
         let size = constraints.spaces[0].size;
@@ -59,8 +59,8 @@ impl Layout for Stack {
 
             for item in child.layout(ctx, child_constraints).await {
                 match item {
-                    LayoutItem::Spacing(spacing) => space.push_spacing(spacing),
-                    LayoutItem::Box(mut boxed, aligns) => {
+                    Layouted::Spacing(spacing) => space.push_spacing(spacing),
+                    Layouted::Box(mut boxed, aligns) => {
                         let mut last = false;
                         while let Err(back) = space.push_box(boxed, aligns) {
                             boxed = back;
@@ -68,7 +68,7 @@ impl Layout for Stack {
                                 break;
                             }
 
-                            items.push(LayoutItem::Box(space.finish(), self.aligns));
+                            items.push(Layouted::Box(space.finish(), self.aligns));
 
                             if i + 1 < constraints.spaces.len() {
                                 i += 1;
@@ -84,7 +84,7 @@ impl Layout for Stack {
             }
         }
 
-        items.push(LayoutItem::Box(space.finish(), self.aligns));
+        items.push(Layouted::Box(space.finish(), self.aligns));
         items
     }
 }

@@ -20,7 +20,7 @@ impl Layout for Par {
         &self,
         ctx: &mut LayoutContext,
         constraints: LayoutConstraints,
-    ) -> Vec<LayoutItem> {
+    ) -> Vec<Layouted> {
         let mut layouter = LineLayouter::new(LineContext {
             dirs: self.dirs,
             spaces: constraints.spaces,
@@ -39,8 +39,8 @@ impl Layout for Par {
 
             for item in items {
                 match item {
-                    LayoutItem::Spacing(amount) => layouter.push_spacing(amount),
-                    LayoutItem::Box(boxed, aligns) => layouter.push_box(boxed, aligns),
+                    Layouted::Spacing(amount) => layouter.push_spacing(amount),
+                    Layouted::Box(boxed, aligns) => layouter.push_box(boxed, aligns),
                 }
             }
         }
@@ -48,7 +48,7 @@ impl Layout for Par {
         layouter
             .finish()
             .into_iter()
-            .map(|boxed| LayoutItem::Box(boxed, self.aligns))
+            .map(|boxed| Layouted::Box(boxed, self.aligns))
             .collect()
     }
 }
