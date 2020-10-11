@@ -18,9 +18,20 @@ pub enum LayoutNode {
 }
 
 impl LayoutNode {
-    /// Create a new model node form a type implementing `DynNode`.
+    /// Create a new dynamic node.
     pub fn dynamic<T: DynNode>(inner: T) -> Self {
         Self::Dyn(Dynamic::new(inner))
+    }
+}
+
+#[async_trait(?Send)]
+impl Layout for LayoutNode {
+    async fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted> {
+        match self {
+            Self::Spacing(spacing) => spacing.layout(ctx, areas).await,
+            Self::Text(text) => text.layout(ctx, areas).await,
+            Self::Dyn(boxed) => boxed.layout(ctx, areas).await,
+        }
     }
 }
 
@@ -30,21 +41,6 @@ impl Debug for LayoutNode {
             Self::Spacing(spacing) => spacing.fmt(f),
             Self::Text(text) => text.fmt(f),
             Self::Dyn(boxed) => boxed.fmt(f),
-        }
-    }
-}
-
-#[async_trait(?Send)]
-impl Layout for LayoutNode {
-    async fn layout(
-        &self,
-        ctx: &mut LayoutContext,
-        constraints: LayoutConstraints,
-    ) -> Vec<Layouted> {
-        match self {
-            Self::Spacing(spacing) => spacing.layout(ctx, constraints).await,
-            Self::Text(text) => text.layout(ctx, constraints).await,
-            Self::Dyn(boxed) => boxed.layout(ctx, constraints).await,
         }
     }
 }
@@ -80,6 +76,12 @@ impl Debug for Dynamic {
     }
 }
 
+impl From<Dynamic> for LayoutNode {
+    fn from(dynamic: Dynamic) -> Self {
+        Self::Dyn(dynamic)
+    }
+}
+
 impl Clone for Dynamic {
     fn clone(&self) -> Self {
         Self(self.0.dyn_clone())
@@ -89,12 +91,6 @@ impl Clone for Dynamic {
 impl PartialEq for Dynamic {
     fn eq(&self, other: &Self) -> bool {
         self.0.dyn_eq(other.0.as_ref())
-    }
-}
-
-impl From<Dynamic> for LayoutNode {
-    fn from(dynamic: Dynamic) -> Self {
-        Self::Dyn(dynamic)
     }
 }
 

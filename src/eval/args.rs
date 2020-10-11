@@ -1,7 +1,5 @@
 //! Simplifies argument parsing.
 
-use std::mem;
-
 use super::{Convert, EvalContext, RefKey, ValueDict};
 use crate::syntax::{SpanWith, Spanned};
 
@@ -67,7 +65,7 @@ impl Args {
     {
         for (&key, entry) in self.0.v.nums_mut() {
             let span = entry.value.span;
-            match T::convert(mem::take(&mut entry.value)).0 {
+            match T::convert(std::mem::take(&mut entry.value)).0 {
                 Ok(t) => {
                     self.0.v.remove(key);
                     return Some(t);
@@ -87,7 +85,7 @@ impl Args {
         std::iter::from_fn(move || {
             for (&key, entry) in self.0.v.nums_mut().skip(skip) {
                 let span = entry.value.span;
-                match T::convert(mem::take(&mut entry.value)).0 {
+                match T::convert(std::mem::take(&mut entry.value)).0 {
                     Ok(t) => {
                         self.0.v.remove(key);
                         return Some(t);
@@ -109,7 +107,7 @@ impl Args {
         std::iter::from_fn(move || {
             for (key, entry) in self.0.v.strs_mut().skip(skip) {
                 let span = entry.value.span;
-                match T::convert(mem::take(&mut entry.value)).0 {
+                match T::convert(std::mem::take(&mut entry.value)).0 {
                     Ok(t) => {
                         let key = key.clone();
                         self.0.v.remove(&key);

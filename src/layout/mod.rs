@@ -51,11 +51,86 @@ pub trait Layout {
     ///     constraints: LayoutConstraints,
     /// ) -> Vec<LayoutItem>;
     /// ```
-    async fn layout(
-        &self,
-        ctx: &mut LayoutContext,
-        constraints: LayoutConstraints,
-    ) -> Vec<Layouted>;
+    async fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted>;
+}
+
+/// A sequence of areas to layout into.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Areas {
+    /// The current area.
+    pub current: Area,
+    /// The backlog of followup areas.
+    ///
+    /// _Note_: This works stack-like and not queue-like!
+    pub backlog: Vec<Size>,
+    /// The last area that is repeated when the backlog is empty.
+    pub last: Option<Size>,
+}
+
+impl Areas {
+    /// Create a new length-1 sequence of areas with just one `area`.
+    pub fn once(size: Size) -> Self {
+        Self {
+            current: Area::new(size),
+            backlog: vec![],
+            last: None,
+        }
+    }
+
+    /// Create a new sequence of areas that repeats `area` indefinitely.
+    pub fn repeat(size: Size) -> Self {
+        Self {
+            current: Area::new(size),
+            backlog: vec![],
+            last: Some(size),
+        }
+    }
+
+    /// Advance to the next area if there is any.
+    pub fn next(&mut self) {
+        if let Some(size) = self.backlog.pop().or(self.last) {
+            self.current = Area::new(size);
+        }
+    }
+
+    /// Whether `current` is a fully sized (untouched) copy of the last area.
+    ///
+    /// If this is false calling `next()` will have no effect.
+    pub fn in_full_last(&self) -> bool {
+        self.backlog.is_empty() && self.last.map_or(true, |size| self.current.rem == size)
+    }
+}
+
+/// The area into which content can be laid out.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Area {
+    /// The remaining size of this area.
+    pub rem: Size,
+    /// The full size this area once had (used for relative sizing).
+    pub full: Size,
+}
+
+impl Area {
+    /// Create a new area.
+    pub fn new(size: Size) -> Self {
+        Self { rem: size, full: size }
+    }
+}
+
+/// How to determine a container's size along an axis.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Expansion {
+    /// Fit the content.
+    Fit,
+    /// Fill the available space.
+    Fill,
+}
+
+impl Expansion {
+    /// Returns `Fill` if the condition is true and `Fit` otherwise.
+    pub fn fill_if(condition: bool) -> Self {
+        if condition { Self::Fill } else { Self::Fit }
+    }
 }
 
 /// An item that is produced by [layouting] a node.
@@ -65,27 +140,18 @@ pub trait Layout {
 pub enum Layouted {
     /// Spacing that should be added to the parent.
     Spacing(Length),
-    /// A box that should be aligned in the parent.
-    Box(BoxLayout, Gen<Align>),
+    /// A box that should be added to and aligned in the parent.
+    Boxed(BoxLayout, Gen<Align>),
 }
 
-/// The constraints for layouting a single node.
-#[derive(Debug, Clone)]
-pub struct LayoutConstraints {
-    /// The spaces to layout into.
-    pub spaces: Vec<LayoutSpace>,
-    /// Whether to spill over into copies of the last space or finish layouting
-    /// when the last space is used up.
-    pub repeat: bool,
-}
-
-/// The space into which content is laid out.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct LayoutSpace {
-    /// The full size of this container (the base for relative sizes).
-    pub base: Size,
-    /// The maximum size of the rectangle to layout into.
-    pub size: Size,
+impl Layouted {
+    /// Return the box if this if its a box variant.
+    pub fn into_boxed(self) -> Option<BoxLayout> {
+        match self {
+            Self::Spacing(_) => None,
+            Self::Boxed(boxed, _) => Some(boxed),
+        }
+    }
 }
 
 /// A finished box with content at fixed positions.

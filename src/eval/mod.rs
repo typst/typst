@@ -16,16 +16,15 @@ pub use state::*;
 pub use value::*;
 
 use std::any::Any;
-use std::mem;
 use std::rc::Rc;
 
 use fontdock::FontStyle;
 
 use crate::diag::Diag;
 use crate::diag::{Deco, Feedback, Pass};
-use crate::geom::{Gen, Length, Relative, Spec, Switch};
+use crate::geom::{Gen, Length, Relative};
 use crate::layout::{
-    Document, LayoutNode, Pad, Pages, Par, Softness, Spacing, Stack, Text,
+    Document, Expansion, LayoutNode, Pad, Pages, Par, Softness, Spacing, Stack, Text,
 };
 use crate::syntax::*;
 
@@ -35,11 +34,9 @@ use crate::syntax::*;
 /// evaluation.
 pub fn eval(tree: &SynTree, state: State) -> Pass<Document> {
     let mut ctx = EvalContext::new(state);
-
     ctx.start_page_group(false);
     tree.eval(&mut ctx);
     ctx.end_page_group();
-
     ctx.finish()
 }
 
@@ -125,7 +122,7 @@ impl EvalContext {
     /// [`push`]: #method.push
     /// [`end_group`]: #method.end_group
     pub fn start_group<T: 'static>(&mut self, meta: T) {
-        self.groups.push((Box::new(meta), mem::take(&mut self.inner)));
+        self.groups.push((Box::new(meta), std::mem::take(&mut self.inner)));
     }
 
     /// End a layouting group started with [`start_group`].
@@ -134,9 +131,15 @@ impl EvalContext {
     ///
     /// [`start_group`]: #method.start_group
     pub fn end_group<T: 'static>(&mut self) -> (T, Vec<LayoutNode>) {
+        if let Some(&LayoutNode::Spacing(spacing)) = self.inner.last() {
+            if spacing.softness == Softness::Soft {
+                self.inner.pop();
+            }
+        }
+
         let (any, outer) = self.groups.pop().expect("no pushed group");
         let group = *any.downcast::<T>().expect("bad group type");
-        (group, mem::replace(&mut self.inner, outer))
+        (group, std::mem::replace(&mut self.inner, outer))
     }
 
     /// Start a page run group based on the active page state.
@@ -167,9 +170,9 @@ impl EvalContext {
                     padding,
                     child: LayoutNode::dynamic(Stack {
                         dirs,
-                        children,
                         aligns,
-                        expand: Spec::new(true, true),
+                        expansion: Gen::new(Expansion::Fill, Expansion::Fill),
+                        children,
                     }),
                 }),
             })
@@ -191,13 +194,13 @@ impl EvalContext {
         if !children.is_empty() {
             // FIXME: This is a hack and should be superseded by constraints
             //        having min and max size.
-            let expand_cross = self.groups.len() <= 1;
+            let cross_expansion = Expansion::fill_if(self.groups.len() <= 1);
             self.push(Par {
                 dirs,
+                aligns,
+                cross_expansion,
                 line_spacing,
                 children,
-                aligns,
-                expand: Gen::new(false, expand_cross).switch(dirs),
             });
         }
     }
@@ -222,7 +225,7 @@ impl EvalContext {
         Text {
             text,
             dir: self.state.dirs.cross,
-            size: self.state.font.font_size(),
+            font_size: self.state.font.font_size(),
             families: Rc::clone(&self.state.font.families),
             variant,
             aligns: self.state.aligns,
@@ -284,26 +287,11 @@ impl Eval for SynNode {
                 ctx.start_par_group();
             }
 
-            SynNode::Emph => {
-                ctx.state.font.emph ^= true;
-            }
-
-            SynNode::Strong => {
-                ctx.state.font.strong ^= true;
-            }
-
-            SynNode::Heading(heading) => {
-                heading.eval(ctx);
-            }
-
-            SynNode::Raw(raw) => {
-                raw.eval(ctx);
-            }
-
-            SynNode::Expr(expr) => {
-                let value = expr.eval(ctx);
-                value.eval(ctx);
-            }
+            SynNode::Emph => ctx.state.font.emph ^= true,
+            SynNode::Strong => ctx.state.font.strong ^= true,
+            SynNode::Heading(heading) => heading.eval(ctx),
+            SynNode::Raw(raw) => raw.eval(ctx),
+            SynNode::Expr(expr) => expr.eval(ctx).eval(ctx),
         }
     }
 }
@@ -339,9 +327,9 @@ impl Eval for NodeRaw {
 
         ctx.push(Stack {
             dirs: ctx.state.dirs,
-            children,
             aligns: ctx.state.aligns,
-            expand: Spec::new(false, false),
+            expansion: Gen::new(Expansion::Fit, Expansion::Fit),
+            children,
         });
 
         ctx.state.font.families = prev;

@@ -22,11 +22,11 @@ pub struct Shaped {
     pub face: FaceId,
     /// The shaped glyphs.
     pub glyphs: Vec<GlyphId>,
-    /// The horizontal offsets of the glyphs. This is indexed parallel to `glyphs`.
-    /// Vertical offets are not yet supported.
+    /// The horizontal offsets of the glyphs. This is indexed parallel to
+    /// `glyphs`. Vertical offets are not yet supported.
     pub offsets: Vec<Length>,
     /// The font size.
-    pub size: Length,
+    pub font_size: Length,
 }
 
 impl Shaped {
@@ -37,7 +37,7 @@ impl Shaped {
             face,
             glyphs: vec![],
             offsets: vec![],
-            size,
+            font_size: size,
         }
     }
 
@@ -62,15 +62,15 @@ impl Debug for Shaped {
 ///
 /// [`Shaped`]: struct.Shaped.html
 pub async fn shape(
-    text: &str,
-    size: Length,
-    dir: Dir,
     loader: &mut FontLoader,
+    text: &str,
+    font_size: Length,
+    dir: Dir,
     fallback: &FallbackTree,
     variant: FontVariant,
 ) -> BoxLayout {
-    let mut layout = BoxLayout::new(Size::new(Length::ZERO, size));
-    let mut shaped = Shaped::new(FaceId::MAX, size);
+    let mut layout = BoxLayout::new(Size::new(Length::ZERO, font_size));
+    let mut shaped = Shaped::new(FaceId::MAX, font_size);
     let mut offset = Length::ZERO;
 
     // Create an iterator with conditional direction.
@@ -86,7 +86,7 @@ pub async fn shape(
         let query = FaceQuery { fallback: fallback.iter(), variant, c };
         if let Some((id, owned_face)) = loader.query(query).await {
             let face = owned_face.get();
-            let (glyph, width) = match lookup_glyph(face, c, size) {
+            let (glyph, width) = match lookup_glyph(face, c, font_size) {
                 Some(v) => v,
                 None => continue,
             };
@@ -96,7 +96,7 @@ pub async fn shape(
                 let pos = Point::new(layout.size.width, Length::ZERO);
                 layout.push(pos, LayoutElement::Text(shaped));
                 layout.size.width += offset;
-                shaped = Shaped::new(FaceId::MAX, size);
+                shaped = Shaped::new(FaceId::MAX, font_size);
                 offset = Length::ZERO;
             }
 

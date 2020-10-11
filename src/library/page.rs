@@ -1,5 +1,3 @@
-use std::mem;
-
 use crate::geom::{Length, Linear};
 use crate::paper::{Paper, PaperClass};
 use crate::prelude::*;
@@ -56,7 +54,7 @@ pub fn page(mut args: Args, ctx: &mut EvalContext) -> Value {
 
     if args.get::<_, bool>(ctx, "flip").unwrap_or(false) {
         let size = &mut ctx.state.page.size;
-        mem::swap(&mut size.width, &mut size.height);
+        std::mem::swap(&mut size.width, &mut size.height);
     }
 
     args.done(ctx);

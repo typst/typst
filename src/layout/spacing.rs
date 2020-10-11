@@ -2,16 +2,21 @@ use std::fmt::{self, Debug, Formatter};
 
 use super::*;
 
-/// A node that inserts spacing.
+/// A  spacing node.
 #[derive(Copy, Clone, PartialEq)]
 pub struct Spacing {
+    /// The amount of spacing to insert.
     pub amount: Length,
+    /// Spacing interaction, see [Softness's] documentation for more
+    /// information.
+    ///
+    /// [Softness's]: enum.Softness.html
     pub softness: Softness,
 }
 
 #[async_trait(?Send)]
 impl Layout for Spacing {
-    async fn layout(&self, _: &mut LayoutContext, _: LayoutConstraints) -> Vec<Layouted> {
+    async fn layout(&self, _: &mut LayoutContext, _: &Areas) -> Vec<Layouted> {
         vec![Layouted::Spacing(self.amount)]
     }
 }

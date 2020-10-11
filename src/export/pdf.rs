@@ -142,9 +142,9 @@ impl<'a, W: Write> PdfExporter<'a, W> {
             match element {
                 LayoutElement::Text(shaped) => {
                     // Check if we need to issue a font switching action.
-                    if shaped.face != face || shaped.size != size {
+                    if shaped.face != face || shaped.font_size != size {
                         face = shaped.face;
-                        size = shaped.size;
+                        size = shaped.font_size;
                         text.tf(
                             self.to_pdf[&shaped.face] as u32 + 1,
                             size.to_pt() as f32,

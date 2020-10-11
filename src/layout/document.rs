@@ -3,6 +3,7 @@ use super::*;
 /// The top-level layout node.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Document {
+    /// The runs of pages with same properties.
     pub runs: Vec<Pages>,
 }
 
@@ -22,26 +23,17 @@ impl Document {
 pub struct Pages {
     /// The size of the pages.
     pub size: Size,
-    /// The layout node that produces the actual pages.
+    /// The layout node that produces the actual pages (typically a [stack]).
+    ///
+    /// [stack]: struct.Stack.html
     pub child: LayoutNode,
 }
 
 impl Pages {
     /// Layout the page run.
     pub async fn layout(&self, ctx: &mut LayoutContext) -> Vec<BoxLayout> {
-        let constraints = LayoutConstraints {
-            spaces: vec![LayoutSpace { base: self.size, size: self.size }],
-            repeat: true,
-        };
-
-        self.child
-            .layout(ctx, constraints)
-            .await
-            .into_iter()
-            .filter_map(|item| match item {
-                Layouted::Spacing(_) => None,
-                Layouted::Box(layout, _) => Some(layout),
-            })
-            .collect()
+        let areas = Areas::repeat(self.size);
+        let layouted = self.child.layout(ctx, &areas).await;
+        layouted.into_iter().filter_map(Layouted::into_boxed).collect()
     }
 }

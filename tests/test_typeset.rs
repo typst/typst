@@ -198,9 +198,9 @@ fn render_shaped(
         let path = builder.0.finish();
 
         let units_per_em = face.units_per_em().unwrap_or(1000);
-        let s = scale * (shaped.size / units_per_em as f64);
+        let s = scale * (shaped.font_size / units_per_em as f64);
         let x = pos.x + scale * offset;
-        let y = pos.y + scale * shaped.size;
+        let y = pos.y + scale * shaped.font_size;
 
         let t = Transform::create_scale(s.to_pt() as f32, -s.to_pt() as f32)
             .post_translate(Vector::new(x.to_pt() as f32, y.to_pt() as f32));
