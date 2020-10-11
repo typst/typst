@@ -8,7 +8,7 @@ pub struct Par {
     /// The children are placed in lines along the `cross` direction. The lines
     /// are stacked along the `main` direction.
     pub dirs: Gen<Dir>,
-    /// How to align _this_ paragraph in _its_ parent.
+    /// How to align this paragraph in _its_ parent.
     pub aligns: Gen<Align>,
     /// Whether to expand the cross axis to fill the area or to fit the content.
     pub cross_expansion: Expansion,

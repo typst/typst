@@ -8,7 +8,7 @@ pub struct Stack {
     /// The children are stacked along the `main` direction. The `cross`
     /// direction is required for aligning the children.
     pub dirs: Gen<Dir>,
-    /// How to align _this_ stack in _its_ parent.
+    /// How to align this stack in _its_ parent.
     pub aligns: Gen<Align>,
     /// Whether to expand the axes to fill the area or to fit the content.
     pub expansion: Gen<Expansion>,
