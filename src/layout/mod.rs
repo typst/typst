@@ -38,7 +38,7 @@ pub struct LayoutContext {
 /// Layout a node.
 pub trait Layout {
     /// Layout the node in the given layout context.
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted>;
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted;
 }
 
 /// A sequence of areas to layout into.
@@ -129,14 +129,17 @@ pub enum Layouted {
     Spacing(Length),
     /// A box that should be added to and aligned in the parent.
     Boxed(BoxLayout, Gen<Align>),
+    /// Multiple boxes.
+    Boxes(Vec<(BoxLayout, Gen<Align>)>),
 }
 
 impl Layouted {
     /// Return the box if this if its a box variant.
-    pub fn into_boxed(self) -> Option<BoxLayout> {
+    pub fn into_boxes(self) -> Vec<BoxLayout> {
         match self {
-            Self::Spacing(_) => None,
-            Self::Boxed(boxed, _) => Some(boxed),
+            Self::Spacing(_) => vec![],
+            Self::Boxed(boxed, _) => vec![boxed],
+            Self::Boxes(boxes) => boxes.into_iter().map(|p| p.0).collect(),
         }
     }
 }

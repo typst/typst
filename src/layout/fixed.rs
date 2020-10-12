@@ -13,7 +13,7 @@ pub struct Fixed {
 }
 
 impl Layout for Fixed {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted> {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted {
         let Area { rem, full } = areas.current;
         let size = Size::new(
             self.width.map(|w| w.eval(full.width)).unwrap_or(rem.width),

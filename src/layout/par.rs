@@ -19,17 +19,20 @@ pub struct Par {
 }
 
 impl Layout for Par {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted> {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted {
         let mut layouter = ParLayouter::new(self, areas.clone());
         for child in &self.children {
-            for layouted in child.layout(ctx, &layouter.areas) {
-                match layouted {
-                    Layouted::Spacing(spacing) => layouter.spacing(spacing),
-                    Layouted::Boxed(boxed, aligns) => layouter.boxed(boxed, aligns.cross),
+            match child.layout(ctx, &layouter.areas) {
+                Layouted::Spacing(spacing) => layouter.spacing(spacing),
+                Layouted::Boxed(boxed, aligns) => layouter.boxed(boxed, aligns.cross),
+                Layouted::Boxes(boxes) => {
+                    for (boxed, aligns) in boxes {
+                        layouter.boxed(boxed, aligns.cross);
+                    }
                 }
             }
         }
-        layouter.finish()
+        Layouted::Boxes(layouter.finish())
     }
 }
 
@@ -45,7 +48,7 @@ struct ParLayouter<'a> {
     cross: SpecAxis,
     dirs: Gen<Dir>,
     areas: Areas,
-    layouted: Vec<Layouted>,
+    layouted: Vec<(BoxLayout, Gen<Align>)>,
     lines: Vec<(Length, BoxLayout, Align)>,
     lines_size: Gen<Length>,
     run: Vec<(Length, BoxLayout, Align)>,
@@ -169,13 +172,13 @@ impl<'a> ParLayouter<'a> {
             output.push_layout(pos, run);
         }
 
-        self.layouted.push(Layouted::Boxed(output, self.par.aligns));
+        self.layouted.push((output, self.par.aligns));
 
         self.areas.next();
         self.lines_size = Gen::ZERO;
     }
 
-    fn finish(mut self) -> Vec<Layouted> {
+    fn finish(mut self) -> Vec<(BoxLayout, Gen<Align>)> {
         self.finish_run();
         self.finish_area();
         self.layouted

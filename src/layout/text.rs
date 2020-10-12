@@ -24,9 +24,9 @@ pub struct Text {
 }
 
 impl Layout for Text {
-    fn layout(&self, ctx: &mut LayoutContext, _: &Areas) -> Vec<Layouted> {
+    fn layout(&self, ctx: &mut LayoutContext, _: &Areas) -> Layouted {
         let mut loader = ctx.loader.borrow_mut();
-        vec![Layouted::Boxed(
+        Layouted::Boxed(
             shaping::shape(
                 &mut loader,
                 &self.text,
@@ -36,7 +36,7 @@ impl Layout for Text {
                 self.variant,
             ),
             self.aligns,
-        )]
+        )
     }
 }
 

@@ -17,17 +17,20 @@ pub struct Stack {
 }
 
 impl Layout for Stack {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted> {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted {
         let mut layouter = StackLayouter::new(self, areas.clone());
         for child in &self.children {
-            for layouted in child.layout(ctx, &layouter.areas) {
-                match layouted {
-                    Layouted::Spacing(spacing) => layouter.spacing(spacing),
-                    Layouted::Boxed(boxed, aligns) => layouter.boxed(boxed, aligns),
+            match child.layout(ctx, &layouter.areas) {
+                Layouted::Spacing(spacing) => layouter.spacing(spacing),
+                Layouted::Boxed(boxed, aligns) => layouter.boxed(boxed, aligns),
+                Layouted::Boxes(boxes) => {
+                    for (boxed, aligns) in boxes {
+                        layouter.boxed(boxed, aligns);
+                    }
                 }
             }
         }
-        layouter.finish()
+        Layouted::Boxes(layouter.finish())
     }
 }
 
@@ -42,7 +45,7 @@ struct StackLayouter<'a> {
     main: SpecAxis,
     dirs: Gen<Dir>,
     areas: Areas,
-    layouted: Vec<Layouted>,
+    layouted: Vec<(BoxLayout, Gen<Align>)>,
     boxes: Vec<(Length, BoxLayout, Gen<Align>)>,
     used: Gen<Length>,
     ruler: Align,
@@ -134,14 +137,14 @@ impl<'a> StackLayouter<'a> {
             output.push_layout(pos, layout);
         }
 
-        self.layouted.push(Layouted::Boxed(output, self.stack.aligns));
+        self.layouted.push((output, self.stack.aligns));
 
         self.areas.next();
         self.used = Gen::ZERO;
         self.ruler = Align::Start;
     }
 
-    fn finish(mut self) -> Vec<Layouted> {
+    fn finish(mut self) -> Vec<(BoxLayout, Gen<Align>)> {
         self.finish_area();
         self.layouted
     }

@@ -25,7 +25,7 @@ impl LayoutNode {
 }
 
 impl Layout for LayoutNode {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted> {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted {
         match self {
             Self::Spacing(spacing) => spacing.layout(ctx, areas),
             Self::Text(text) => text.layout(ctx, areas),

@@ -34,6 +34,6 @@ impl Pages {
     pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<BoxLayout> {
         let areas = Areas::repeat(self.size);
         let layouted = self.child.layout(ctx, &areas);
-        layouted.into_iter().filter_map(Layouted::into_boxed).collect()
+        layouted.into_boxes()
     }
 }

@@ -15,8 +15,8 @@ pub struct Spacing {
 }
 
 impl Layout for Spacing {
-    fn layout(&self, _: &mut LayoutContext, _: &Areas) -> Vec<Layouted> {
-        vec![Layouted::Spacing(self.amount)]
+    fn layout(&self, _: &mut LayoutContext, _: &Areas) -> Layouted {
+        Layouted::Spacing(self.amount)
     }
 }
 
