@@ -35,8 +35,7 @@ impl Layout for Text {
                 self.dir,
                 &self.families,
                 self.variant,
-            )
-            .await,
+            ),
             self.aligns,
         )]
     }

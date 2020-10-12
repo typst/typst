@@ -61,7 +61,7 @@ impl Debug for Shaped {
 /// Shape text into a box containing [`Shaped`] runs.
 ///
 /// [`Shaped`]: struct.Shaped.html
-pub async fn shape(
+pub fn shape(
     loader: &mut FontLoader,
     text: &str,
     font_size: Length,
@@ -84,7 +84,7 @@ pub async fn shape(
 
     for c in chars {
         let query = FaceQuery { fallback: fallback.iter(), variant, c };
-        if let Some((id, owned_face)) = loader.query(query).await {
+        if let Some((id, owned_face)) = loader.query(query) {
             let face = owned_face.get();
             let (glyph, width) = match lookup_glyph(face, c, font_size) {
                 Some(v) => v,

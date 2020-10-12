@@ -4,7 +4,7 @@ use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use fontdock::fs::{FsIndex, FsProvider};
+use fontdock::fs::{FsIndex, FsSource};
 use futures_executor::block_on;
 
 use typstc::diag::{Feedback, Pass};
@@ -38,10 +38,11 @@ fn main() {
     index.search_dir("fonts");
     index.search_os();
 
-    let (descriptors, files) = index.into_vecs();
-    let provider = FsProvider::new(files);
-    let loader = FontLoader::new(Box::new(provider), descriptors);
-    let loader = Rc::new(RefCell::new(loader));
+    let (files, descriptors) = index.into_vecs();
+    let loader = Rc::new(RefCell::new(FontLoader::new(
+        Box::new(FsSource::new(files)),
+        descriptors,
+    )));
 
     let state = State::default();
     let Pass {

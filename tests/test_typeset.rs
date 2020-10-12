@@ -6,7 +6,7 @@ use std::io::BufWriter;
 use std::path::Path;
 use std::rc::Rc;
 
-use fontdock::fs::{FsIndex, FsProvider};
+use fontdock::fs::{FsIndex, FsSource};
 use futures_executor::block_on;
 use raqote::{DrawTarget, PathBuilder, SolidSource, Source, Transform, Vector};
 use ttf_parser::OutlineBuilder;
@@ -59,10 +59,11 @@ fn main() {
     let mut index = FsIndex::new();
     index.search_dir(FONT_DIR);
 
-    let (descriptors, files) = index.into_vecs();
-    let provider = FsProvider::new(files);
-    let loader = FontLoader::new(Box::new(provider), descriptors);
-    let loader = Rc::new(RefCell::new(loader));
+    let (files, descriptors) = index.into_vecs();
+    let loader = Rc::new(RefCell::new(FontLoader::new(
+        Box::new(FsSource::new(files)),
+        descriptors,
+    )));
 
     for (name, path, src) in filtered {
         test(&name, &src, &path, &loader)

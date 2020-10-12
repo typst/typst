@@ -3,17 +3,17 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use fontdock::{ContainsChar, FaceFromVec, FontProvider};
+use fontdock::{ContainsChar, FaceFromVec, FontSource};
 use ttf_parser::Face;
 
-/// A reference-counted shared font loader backed by a dynamic font provider.
+/// A reference-counted shared font loader backed by a dynamic font source.
 pub type SharedFontLoader = Rc<RefCell<FontLoader>>;
 
-/// A font loader backed by a dynamic provider.
-pub type FontLoader = fontdock::FontLoader<Box<DynProvider>>;
+/// A font loader backed by a dynamic source.
+pub type FontLoader = fontdock::FontLoader<Box<DynSource>>;
 
-/// The dynamic font provider backing the font loader.
-pub type DynProvider = dyn FontProvider<Face = OwnedFace>;
+/// The dynamic font source.
+pub type DynSource = dyn FontSource<Face = OwnedFace>;
 
 /// An owned font face.
 pub struct OwnedFace {
