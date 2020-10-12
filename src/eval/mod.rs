@@ -22,7 +22,7 @@ use fontdock::FontStyle;
 
 use crate::diag::Diag;
 use crate::diag::{Deco, Feedback, Pass};
-use crate::geom::{Gen, Length, Relative};
+use crate::geom::{Align, Dir, Gen, Length, Linear, Relative, Sides, Size};
 use crate::layout::{
     Document, Expansion, LayoutNode, Pad, Pages, Par, Softness, Spacing, Stack, Text,
 };
@@ -113,6 +113,87 @@ impl EvalContext {
         self.inner.push(node);
     }
 
+    /// Start a page group based on the active page state.
+    ///
+    /// If `hard` is false, empty page runs will be omitted from the output.
+    ///
+    /// This also starts an inner paragraph.
+    pub fn start_page_group(&mut self, hard: bool) {
+        self.start_group(PageGroup {
+            size: self.state.page.size,
+            padding: self.state.page.margins(),
+            dirs: self.state.dirs,
+            aligns: self.state.aligns,
+            hard,
+        });
+        self.start_par_group();
+    }
+
+    /// End a page group and push it to the finished page runs.
+    ///
+    /// This also ends an inner paragraph.
+    pub fn end_page_group(&mut self) {
+        self.end_par_group();
+        let (group, children) = self.end_group::<PageGroup>();
+        if group.hard || !children.is_empty() {
+            self.runs.push(Pages {
+                size: group.size,
+                child: LayoutNode::dynamic(Pad {
+                    padding: group.padding,
+                    child: LayoutNode::dynamic(Stack {
+                        dirs: group.dirs,
+                        aligns: group.aligns,
+                        expansion: Gen::new(Expansion::Fill, Expansion::Fill),
+                        children,
+                    }),
+                }),
+            })
+        }
+    }
+
+    /// Start a content group.
+    ///
+    /// This also starts an inner paragraph.
+    pub fn start_content_group(&mut self) {
+        self.start_group(ContentGroup);
+        self.start_par_group();
+    }
+
+    /// End a content group and return the resulting nodes.
+    ///
+    /// This also ends an inner paragraph.
+    pub fn end_content_group(&mut self) -> Vec<LayoutNode> {
+        self.end_par_group();
+        self.end_group::<ContentGroup>().1
+    }
+
+    /// Start a paragraph group based on the active text state.
+    pub fn start_par_group(&mut self) {
+        let em = self.state.font.font_size();
+        self.start_group(ParGroup {
+            dirs: self.state.dirs,
+            aligns: self.state.aligns,
+            line_spacing: self.state.par.line_spacing.eval(em),
+        });
+    }
+
+    /// End a paragraph group and push it to its parent group if it's not empty.
+    pub fn end_par_group(&mut self) {
+        let (group, children) = self.end_group::<ParGroup>();
+        if !children.is_empty() {
+            // FIXME: This is a hack and should be superseded by something
+            //        better.
+            let cross_expansion = Expansion::fill_if(self.groups.len() <= 1);
+            self.push(Par {
+                dirs: group.dirs,
+                aligns: group.aligns,
+                cross_expansion,
+                line_spacing: group.line_spacing,
+                children,
+            });
+        }
+    }
+
     /// Start a layouting group.
     ///
     /// All further calls to [`push`] will collect nodes for this group.
@@ -121,7 +202,7 @@ impl EvalContext {
     ///
     /// [`push`]: #method.push
     /// [`end_group`]: #method.end_group
-    pub fn start_group<T: 'static>(&mut self, meta: T) {
+    fn start_group<T: 'static>(&mut self, meta: T) {
         self.groups.push((Box::new(meta), std::mem::take(&mut self.inner)));
     }
 
@@ -130,7 +211,7 @@ impl EvalContext {
     /// This returns the stored metadata and the collected nodes.
     ///
     /// [`start_group`]: #method.start_group
-    pub fn end_group<T: 'static>(&mut self) -> (T, Vec<LayoutNode>) {
+    fn end_group<T: 'static>(&mut self) -> (T, Vec<LayoutNode>) {
         if let Some(&LayoutNode::Spacing(spacing)) = self.inner.last() {
             if spacing.softness == Softness::Soft {
                 self.inner.pop();
@@ -140,69 +221,6 @@ impl EvalContext {
         let (any, outer) = self.groups.pop().expect("no pushed group");
         let group = *any.downcast::<T>().expect("bad group type");
         (group, std::mem::replace(&mut self.inner, outer))
-    }
-
-    /// Start a page run group based on the active page state.
-    ///
-    /// If `hard` is false, empty page runs will be omitted from the output.
-    ///
-    /// This also starts an inner paragraph.
-    pub fn start_page_group(&mut self, hard: bool) {
-        let size = self.state.page.size;
-        let margins = self.state.page.margins();
-        let dirs = self.state.dirs;
-        let aligns = self.state.aligns;
-        self.start_group((size, margins, dirs, aligns, hard));
-        self.start_par_group();
-    }
-
-    /// End a page run group and push it to its parent group.
-    ///
-    /// This also ends an inner paragraph.
-    pub fn end_page_group(&mut self) {
-        self.end_par_group();
-        let ((size, padding, dirs, aligns, hard), children) = self.end_group();
-        let hard: bool = hard;
-        if hard || !children.is_empty() {
-            self.runs.push(Pages {
-                size,
-                child: LayoutNode::dynamic(Pad {
-                    padding,
-                    child: LayoutNode::dynamic(Stack {
-                        dirs,
-                        aligns,
-                        expansion: Gen::new(Expansion::Fill, Expansion::Fill),
-                        children,
-                    }),
-                }),
-            })
-        }
-    }
-
-    /// Start a paragraph group based on the active text state.
-    pub fn start_par_group(&mut self) {
-        let dirs = self.state.dirs;
-        let em = self.state.font.font_size();
-        let line_spacing = self.state.par.line_spacing.eval(em);
-        let aligns = self.state.aligns;
-        self.start_group((dirs, line_spacing, aligns));
-    }
-
-    /// End a paragraph group and push it to its parent group if its not empty.
-    pub fn end_par_group(&mut self) {
-        let ((dirs, line_spacing, aligns), children) = self.end_group();
-        if !children.is_empty() {
-            // FIXME: This is a hack and should be superseded by constraints
-            //        having min and max size.
-            let cross_expansion = Expansion::fill_if(self.groups.len() <= 1);
-            self.push(Par {
-                dirs,
-                aligns,
-                cross_expansion,
-                line_spacing,
-                children,
-            });
-        }
     }
 
     /// Construct a text node from the given string based on the active text
@@ -231,6 +249,25 @@ impl EvalContext {
             aligns: self.state.aligns,
         }
     }
+}
+
+/// A group for page runs.
+struct PageGroup {
+    size: Size,
+    padding: Sides<Linear>,
+    dirs: Gen<Dir>,
+    aligns: Gen<Align>,
+    hard: bool,
+}
+
+/// A group for generic content.
+struct ContentGroup;
+
+/// A group for paragraphs.
+struct ParGroup {
+    dirs: Gen<Dir>,
+    aligns: Gen<Align>,
+    line_spacing: Length,
 }
 
 /// Evaluate an item.
@@ -320,9 +357,16 @@ impl Eval for NodeRaw {
         families.list.insert(0, "monospace".to_string());
         families.flatten();
 
+        let em = ctx.state.font.font_size();
+        let line_spacing = ctx.state.par.line_spacing.eval(em);
+
         let mut children = vec![];
         for line in &self.lines {
             children.push(LayoutNode::Text(ctx.make_text_node(line.clone())));
+            children.push(LayoutNode::Spacing(Spacing {
+                amount: line_spacing,
+                softness: Softness::Hard,
+            }));
         }
 
         ctx.push(Stack {

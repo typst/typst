@@ -8,6 +8,8 @@ use crate::prelude::*;
 /// - `width`: The width of the box (length or relative to parent's width).
 /// - `height`: The height of the box (length or relative to parent's height).
 pub fn boxed(mut args: Args, ctx: &mut EvalContext) -> Value {
+    let snapshot = ctx.state.clone();
+
     let body = args.find::<SynTree>().unwrap_or_default();
     let width = args.get::<_, Linear>(ctx, "width");
     let height = args.get::<_, Linear>(ctx, "height");
@@ -16,13 +18,9 @@ pub fn boxed(mut args: Args, ctx: &mut EvalContext) -> Value {
     let dirs = ctx.state.dirs;
     let aligns = ctx.state.aligns;
 
-    let snapshot = ctx.state.clone();
-
-    ctx.start_group(());
-    ctx.start_par_group();
+    ctx.start_content_group();
     body.eval(ctx);
-    ctx.end_par_group();
-    let ((), children) = ctx.end_group();
+    let children = ctx.end_content_group();
 
     ctx.push(Fixed {
         width,
@@ -40,6 +38,5 @@ pub fn boxed(mut args: Args, ctx: &mut EvalContext) -> Value {
     });
 
     ctx.state = snapshot;
-
     Value::None
 }

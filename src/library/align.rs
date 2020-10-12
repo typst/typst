@@ -32,13 +32,13 @@ pub fn align(mut args: Args, ctx: &mut EvalContext) -> Value {
         .chain(hor.into_iter().map(|align| (Some(SpecAxis::Horizontal), align)))
         .chain(ver.into_iter().map(|align| (Some(SpecAxis::Vertical), align)));
 
-    let prev_main = ctx.state.aligns.main;
-    ctx.state.aligns = dedup_aligns(ctx, iter);
-
-    if prev_main != ctx.state.aligns.main {
+    let aligns = dedup_aligns(ctx, iter);
+    if aligns.main != ctx.state.aligns.main {
         ctx.end_par_group();
         ctx.start_par_group();
     }
+
+    ctx.state.aligns = aligns;
 
     if let Some(body) = body {
         body.eval(ctx);
