@@ -7,11 +7,6 @@ edition = "2018"
 [workspace]
 members = ["main"]
 
-[features]
-default = ["serialize", "fs"]
-serialize = ["serde"]
-fs = ["fontdock/fs"]
-
 [lib]
 bench = false
 
@@ -21,19 +16,22 @@ opt-level = 2
 [profile.release]
 lto = true
 
+[features]
+default = ["fs"]
+fs = ["fontdock/fs"]
+
 [dependencies]
-async-trait = "0.1"
 fontdock = { path = "../fontdock", default-features = false }
 tide = { path = "../tide" }
 ttf-parser = "0.8.2"
 unicode-xid = "0.2"
+
+# feature = "serde"
 serde = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 criterion = "0.3"
-futures-executor = "0.3"
 kurbo = "0.6.3"
-serde_json = "1"
 raqote = { version = "0.8", default-features = false }
 
 [[test]]

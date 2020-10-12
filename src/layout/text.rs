@@ -23,9 +23,8 @@ pub struct Text {
     pub aligns: Gen<Align>,
 }
 
-#[async_trait(?Send)]
 impl Layout for Text {
-    async fn layout(&self, ctx: &mut LayoutContext, _: &Areas) -> Vec<Layouted> {
+    fn layout(&self, ctx: &mut LayoutContext, _: &Areas) -> Vec<Layouted> {
         let mut loader = ctx.loader.borrow_mut();
         vec![Layouted::Boxed(
             shaping::shape(

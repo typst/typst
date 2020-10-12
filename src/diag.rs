@@ -68,7 +68,7 @@ impl Feedback {
 
 /// A diagnostic that arose in parsing or layouting.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Diag {
     /// How severe / important the diagnostic is.
     pub level: Level,
@@ -78,8 +78,8 @@ pub struct Diag {
 
 /// How severe / important a diagnostic is.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
-#[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub enum Level {
     Warning,
     Error,
@@ -103,8 +103,8 @@ impl Display for Level {
 
 /// Decorations for semantic syntax highlighting.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
-#[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub enum Deco {
     /// Emphasized text.
     Emph,

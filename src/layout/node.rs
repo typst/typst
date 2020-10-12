@@ -24,13 +24,12 @@ impl LayoutNode {
     }
 }
 
-#[async_trait(?Send)]
 impl Layout for LayoutNode {
-    async fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted> {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted> {
         match self {
-            Self::Spacing(spacing) => spacing.layout(ctx, areas).await,
-            Self::Text(text) => text.layout(ctx, areas).await,
-            Self::Dyn(boxed) => boxed.layout(ctx, areas).await,
+            Self::Spacing(spacing) => spacing.layout(ctx, areas),
+            Self::Text(text) => text.layout(ctx, areas),
+            Self::Dyn(boxed) => boxed.layout(ctx, areas),
         }
     }
 }

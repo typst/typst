@@ -10,9 +10,8 @@ pub struct Pad {
     pub child: LayoutNode,
 }
 
-#[async_trait(?Send)]
 impl Layout for Pad {
-    async fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted> {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted> {
         let shrink = |size| size - self.padding.eval(size).size();
         let areas = Areas {
             current: Area {
@@ -23,7 +22,7 @@ impl Layout for Pad {
             last: areas.last.map(shrink),
         };
 
-        let mut layouted = self.child.layout(ctx, &areas).await;
+        let mut layouted = self.child.layout(ctx, &areas);
 
         for item in &mut layouted {
             if let Layouted::Boxed(boxed, _) = item {

@@ -9,10 +9,10 @@ pub struct Document {
 
 impl Document {
     /// Layout the document.
-    pub async fn layout(&self, ctx: &mut LayoutContext) -> Vec<BoxLayout> {
+    pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<BoxLayout> {
         let mut layouts = vec![];
         for run in &self.runs {
-            layouts.extend(run.layout(ctx).await);
+            layouts.extend(run.layout(ctx));
         }
         layouts
     }
@@ -31,9 +31,9 @@ pub struct Pages {
 
 impl Pages {
     /// Layout the page run.
-    pub async fn layout(&self, ctx: &mut LayoutContext) -> Vec<BoxLayout> {
+    pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<BoxLayout> {
         let areas = Areas::repeat(self.size);
-        let layouted = self.child.layout(ctx, &areas).await;
+        let layouted = self.child.layout(ctx, &areas);
         layouted.into_iter().filter_map(Layouted::into_boxed).collect()
     }
 }

@@ -14,9 +14,8 @@ pub struct Spacing {
     pub softness: Softness,
 }
 
-#[async_trait(?Send)]
 impl Layout for Spacing {
-    async fn layout(&self, _: &mut LayoutContext, _: &Areas) -> Vec<Layouted> {
+    fn layout(&self, _: &mut LayoutContext, _: &Areas) -> Vec<Layouted> {
         vec![Layouted::Spacing(self.amount)]
     }
 }

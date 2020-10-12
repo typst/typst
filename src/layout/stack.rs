@@ -16,12 +16,11 @@ pub struct Stack {
     pub children: Vec<LayoutNode>,
 }
 
-#[async_trait(?Send)]
 impl Layout for Stack {
-    async fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted> {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted> {
         let mut layouter = StackLayouter::new(self, areas.clone());
         for child in &self.children {
-            for layouted in child.layout(ctx, &layouter.areas).await {
+            for layouted in child.layout(ctx, &layouter.areas) {
                 match layouted {
                     Layouted::Spacing(spacing) => layouter.spacing(spacing),
                     Layouted::Boxed(boxed, aligns) => layouter.boxed(boxed, aligns),

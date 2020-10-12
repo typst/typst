@@ -12,9 +12,8 @@ pub struct Fixed {
     pub child: LayoutNode,
 }
 
-#[async_trait(?Send)]
 impl Layout for Fixed {
-    async fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted> {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted> {
         let Area { rem, full } = areas.current;
         let size = Size::new(
             self.width.map(|w| w.eval(full.width)).unwrap_or(rem.width),
@@ -22,7 +21,7 @@ impl Layout for Fixed {
         );
 
         let areas = Areas::once(size);
-        self.child.layout(ctx, &areas).await
+        self.child.layout(ctx, &areas)
     }
 }
 

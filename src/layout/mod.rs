@@ -9,8 +9,6 @@ mod spacing;
 mod stack;
 mod text;
 
-use async_trait::async_trait;
-
 use crate::font::SharedFontLoader;
 use crate::geom::*;
 use crate::shaping::Shaped;
@@ -25,9 +23,9 @@ pub use stack::*;
 pub use text::*;
 
 /// Layout a document and return the produced layouts.
-pub async fn layout(document: &Document, loader: SharedFontLoader) -> Vec<BoxLayout> {
+pub fn layout(document: &Document, loader: SharedFontLoader) -> Vec<BoxLayout> {
     let mut ctx = LayoutContext { loader };
-    document.layout(&mut ctx).await
+    document.layout(&mut ctx)
 }
 
 /// The context for layouting.
@@ -38,20 +36,9 @@ pub struct LayoutContext {
 }
 
 /// Layout a node.
-#[async_trait(?Send)]
 pub trait Layout {
     /// Layout the node in the given layout context.
-    ///
-    /// This signature looks pretty horrible due to async in trait methods, but
-    /// it's actually just the following:
-    /// ```rust,ignore
-    /// async fn layout(
-    ///     &self,
-    ///     ctx: &mut LayoutContext,
-    ///     constraints: LayoutConstraints,
-    /// ) -> Vec<LayoutItem>;
-    /// ```
-    async fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted>;
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Layouted>;
 }
 
 /// A sequence of areas to layout into.

@@ -7,7 +7,6 @@ use std::path::Path;
 use std::rc::Rc;
 
 use fontdock::fs::{FsIndex, FsSource};
-use futures_executor::block_on;
 use raqote::{DrawTarget, PathBuilder, SolidSource, Source, Transform, Vector};
 use ttf_parser::OutlineBuilder;
 
@@ -77,7 +76,7 @@ fn test(name: &str, src: &str, src_path: &Path, loader: &SharedFontLoader) {
     let Pass {
         output: layouts,
         feedback: Feedback { mut diags, .. },
-    } = block_on(typeset(&src, state, Rc::clone(loader)));
+    } = typeset(&src, state, Rc::clone(loader));
 
     if !diags.is_empty() {
         diags.sort();

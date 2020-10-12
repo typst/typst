@@ -50,13 +50,13 @@ use crate::font::SharedFontLoader;
 use crate::layout::BoxLayout;
 
 /// Process _Typst_ source code directly into a collection of layouts.
-pub async fn typeset(
+pub fn typeset(
     src: &str,
     state: State,
     loader: SharedFontLoader,
 ) -> Pass<Vec<BoxLayout>> {
     let Pass { output: tree, feedback: f1 } = parse::parse(src);
     let Pass { output: document, feedback: f2 } = eval::eval(&tree, state);
-    let layouts = layout::layout(&document, loader).await;
+    let layouts = layout::layout(&document, loader);
     Pass::new(layouts, Feedback::join(f1, f2))
 }

@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use fontdock::fs::{FsIndex, FsSource};
-use futures_executor::block_on;
 
 use typstc::diag::{Feedback, Pass};
 use typstc::eval::State;
@@ -48,7 +47,7 @@ fn main() {
     let Pass {
         output: layouts,
         feedback: Feedback { mut diags, .. },
-    } = block_on(typeset(&src, state, Rc::clone(&loader)));
+    } = typeset(&src, state, Rc::clone(&loader));
 
     if !diags.is_empty() {
         diags.sort();

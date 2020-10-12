@@ -41,7 +41,7 @@ impl<T> Offset for SpanVec<T> {
 
 /// A value with the span it corresponds to in the source code.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Spanned<T> {
     /// The spanned value.
     pub v: T,
@@ -109,7 +109,7 @@ impl<T: Debug> Debug for Spanned<T> {
 
 /// Locates a slice of source code.
 #[derive(Copy, Clone, Ord, PartialOrd)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Span {
     /// The inclusive start position.
     pub start: Pos,
@@ -210,7 +210,7 @@ impl Debug for Span {
 
 /// A byte position in source code.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Pos(pub u32);
 
 impl Pos {
@@ -255,7 +255,7 @@ impl Debug for Pos {
 
 /// A one-indexed line-column position in source code.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Location {
     /// The one-indexed line.
     pub line: u32,

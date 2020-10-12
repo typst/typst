@@ -3,7 +3,6 @@ use std::rc::Rc;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use fontdock::fs::{FsIndex, FsSource};
-use futures_executor::block_on;
 
 use typstc::eval::{eval, State};
 use typstc::font::FontLoader;
@@ -28,15 +27,15 @@ fn benchmarks(c: &mut Criterion) {
 
     let tree = parse(COMA).output;
     let document = eval(&tree, state.clone()).output;
-    let _ = block_on(layout(&document, Rc::clone(&loader)));
+    let _ = layout(&document, Rc::clone(&loader));
 
     c.bench_function("parse-coma", |b| b.iter(|| parse(COMA)));
     c.bench_function("eval-coma", |b| b.iter(|| eval(&tree, state.clone())));
     c.bench_function("layout-coma", |b| {
-        b.iter(|| block_on(layout(&document, Rc::clone(&loader))))
+        b.iter(|| layout(&document, Rc::clone(&loader)))
     });
     c.bench_function("typeset-coma", |b| {
-        b.iter(|| block_on(typeset(COMA, state.clone(), Rc::clone(&loader))))
+        b.iter(|| typeset(COMA, state.clone(), Rc::clone(&loader)))
     });
 }
 
