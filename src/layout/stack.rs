@@ -21,16 +21,16 @@ impl Layout for Stack {
         let mut layouter = StackLayouter::new(self, areas.clone());
         for child in &self.children {
             match child.layout(ctx, &layouter.areas) {
-                Layouted::Spacing(spacing) => layouter.spacing(spacing),
-                Layouted::Boxed(boxed, aligns) => layouter.boxed(boxed, aligns),
-                Layouted::Boxes(boxes) => {
-                    for (boxed, aligns) in boxes {
-                        layouter.boxed(boxed, aligns);
+                Layouted::Spacing(spacing) => layouter.push_spacing(spacing),
+                Layouted::Layout(layout, aligns) => layouter.push_layout(layout, aligns),
+                Layouted::Layouts(layouts, aligns) => {
+                    for layout in layouts {
+                        layouter.push_layout(layout, aligns);
                     }
                 }
             }
         }
-        Layouted::Boxes(layouter.finish())
+        Layouted::Layouts(layouter.finish(), self.aligns)
     }
 }
 
@@ -45,8 +45,8 @@ struct StackLayouter<'a> {
     main: SpecAxis,
     dirs: Gen<Dir>,
     areas: Areas,
-    layouted: Vec<(BoxLayout, Gen<Align>)>,
-    boxes: Vec<(Length, BoxLayout, Gen<Align>)>,
+    finished: Vec<BoxLayout>,
+    layouts: Vec<(Length, BoxLayout, Gen<Align>)>,
     used: Gen<Length>,
     ruler: Align,
 }
@@ -58,21 +58,21 @@ impl<'a> StackLayouter<'a> {
             main: stack.dirs.main.axis(),
             dirs: stack.dirs,
             areas,
-            layouted: vec![],
-            boxes: vec![],
+            finished: vec![],
+            layouts: vec![],
             used: Gen::ZERO,
             ruler: Align::Start,
         }
     }
 
-    fn spacing(&mut self, amount: Length) {
+    fn push_spacing(&mut self, amount: Length) {
         let main_rest = self.areas.current.rem.get_mut(self.main);
         let capped = amount.min(*main_rest);
         *main_rest -= capped;
         self.used.main += capped;
     }
 
-    fn boxed(&mut self, layout: BoxLayout, aligns: Gen<Align>) {
+    fn push_layout(&mut self, layout: BoxLayout, aligns: Gen<Align>) {
         if self.ruler > aligns.main {
             self.finish_area();
         }
@@ -88,7 +88,7 @@ impl<'a> StackLayouter<'a> {
         }
 
         let size = layout.size.switch(self.dirs);
-        self.boxes.push((self.used.main, layout, aligns));
+        self.layouts.push((self.used.main, layout, aligns));
 
         *self.areas.current.rem.get_mut(self.main) -= size.main;
         self.used.main += size.main;
@@ -97,7 +97,7 @@ impl<'a> StackLayouter<'a> {
     }
 
     fn finish_area(&mut self) {
-        let size = {
+        let full_size = {
             let full = self.areas.current.full.switch(self.dirs);
             Gen::new(
                 match self.stack.expansion.main {
@@ -111,41 +111,41 @@ impl<'a> StackLayouter<'a> {
             )
         };
 
-        let mut output = BoxLayout::new(size.switch(self.dirs).to_size());
+        let mut output = BoxLayout::new(full_size.switch(self.dirs).to_size());
 
-        for (before, layout, aligns) in std::mem::take(&mut self.boxes) {
+        for (before, layout, aligns) in std::mem::take(&mut self.layouts) {
             let child_size = layout.size.switch(self.dirs);
 
             // Align along the main axis.
             let main = aligns.main.apply(if self.dirs.main.is_positive() {
                 let after_with_self = self.used.main - before;
-                before .. size.main - after_with_self
+                before .. full_size.main - after_with_self
             } else {
                 let before_with_self = before + child_size.main;
                 let after = self.used.main - (before + child_size.main);
-                size.main - before_with_self .. after
+                full_size.main - before_with_self .. after
             });
 
             // Align along the cross axis.
             let cross = aligns.cross.apply(if self.dirs.cross.is_positive() {
-                Length::ZERO .. size.cross - child_size.cross
+                Length::ZERO .. full_size.cross - child_size.cross
             } else {
-                size.cross - child_size.cross .. Length::ZERO
+                full_size.cross - child_size.cross .. Length::ZERO
             });
 
             let pos = Gen::new(main, cross).switch(self.dirs).to_point();
             output.push_layout(pos, layout);
         }
 
-        self.layouted.push((output, self.stack.aligns));
+        self.finished.push(output);
 
         self.areas.next();
         self.used = Gen::ZERO;
         self.ruler = Align::Start;
     }
 
-    fn finish(mut self) -> Vec<(BoxLayout, Gen<Align>)> {
+    fn finish(mut self) -> Vec<BoxLayout> {
         self.finish_area();
-        self.layouted
+        self.finished
     }
 }

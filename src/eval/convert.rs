@@ -19,7 +19,7 @@ pub trait Convert: Sized {
     /// back the original value.
     ///
     /// In addition to the result, the method can return an optional diagnostic
-    /// to warn even when the conversion suceeded or to explain the problem when
+    /// to warn even when the conversion succeeded or to explain the problem when
     /// the conversion failed.
     ///
     /// The function takes a `Spanned<Value>` instead of just a `Value` so that

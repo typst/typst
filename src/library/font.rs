@@ -47,7 +47,7 @@ use crate::prelude::*;
 ///   [font: serif = ("Source Serif Pro", "Noto Serif")]
 ///   ```
 ///   This class can be used in the fallback list or other fallback classes as
-///   long as the resulting fallback tree is acylic.
+///   long as the resulting fallback tree is acyclic.
 ///   ```typst
 ///   [font: "My Serif", serif]
 ///   ```

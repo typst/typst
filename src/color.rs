@@ -24,7 +24,7 @@ pub struct RgbaColor {
     /// user-defined value was invalid.
     ///
     /// If this is true, the color may be replaced with any color deemed
-    /// approriate at the use-site.
+    /// appropriate at the use-site.
     pub healed: bool,
 }
 

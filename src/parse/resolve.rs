@@ -42,7 +42,7 @@ pub fn resolve_string(string: &str) -> String {
     out
 }
 
-/// Resolve a hexademical escape sequence into a character
+/// Resolve a hexadecimal escape sequence into a character
 /// (only the inner hex letters without braces or `\u`).
 pub fn resolve_hex(sequence: &str) -> Option<char> {
     u32::from_str_radix(sequence, 16).ok().and_then(std::char::from_u32)

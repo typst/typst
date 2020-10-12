@@ -1,4 +1,4 @@
-//! Geometrical primitivies.
+//! Geometrical primitives.
 
 #[macro_use]
 mod macros;

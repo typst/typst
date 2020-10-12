@@ -110,7 +110,7 @@ impl<'s> Parser<'s> {
         // Check that we are indeed at the end of the group.
         debug_assert_eq!(self.peek(), None, "unfinished group");
 
-        let group = self.groups.pop().expect("unstarted group");
+        let group = self.groups.pop().expect("no started group");
         let end = match group {
             Group::Paren => Some(Token::RightParen),
             Group::Bracket => Some(Token::RightBracket),

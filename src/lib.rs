@@ -10,7 +10,7 @@
 //!   document tree are fully self-contained and order-independent and thus much
 //!   better suited for layouting than the syntax tree.
 //! - **Layouting:** The next step is to [layout] the document into a portable
-//!   version of the typesetted document. The output of this is a vector of
+//!   version of the typeset document. The output of this is a vector of
 //!   [`BoxLayouts`] (corresponding to pages), ready for exporting.
 //! - **Exporting:** The finished layout can be exported into a supported
 //!   format. Submodules for these formats are located in the [export] module.

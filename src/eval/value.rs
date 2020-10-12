@@ -125,14 +125,14 @@ impl Debug for Value {
 /// ```
 pub type ValueDict = Dict<SpannedEntry<Value>>;
 
-/// An wrapper around a reference-counted executable function value.
+/// An wrapper around a reference-counted function trait object.
 ///
 /// The dynamic function object is wrapped in an `Rc` to keep [`Value`]
-/// clonable.
+/// cloneable.
 ///
 /// _Note_: This is needed because the compiler can't `derive(PartialEq)` for
-///         [`Value`] when directly putting the boxed function in there, see the
-///         [Rust Issue].
+///         [`Value`] when directly putting the `Rc` in there, see the [Rust
+///         Issue].
 ///
 /// [`Value`]: enum.Value.html
 /// [Rust Issue]: https://github.com/rust-lang/rust/issues/31740

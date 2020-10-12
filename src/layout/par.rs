@@ -23,16 +23,18 @@ impl Layout for Par {
         let mut layouter = ParLayouter::new(self, areas.clone());
         for child in &self.children {
             match child.layout(ctx, &layouter.areas) {
-                Layouted::Spacing(spacing) => layouter.spacing(spacing),
-                Layouted::Boxed(boxed, aligns) => layouter.boxed(boxed, aligns.cross),
-                Layouted::Boxes(boxes) => {
-                    for (boxed, aligns) in boxes {
-                        layouter.boxed(boxed, aligns.cross);
+                Layouted::Spacing(spacing) => layouter.push_spacing(spacing),
+                Layouted::Layout(layout, aligns) => {
+                    layouter.push_layout(layout, aligns.cross)
+                }
+                Layouted::Layouts(layouts, aligns) => {
+                    for layout in layouts {
+                        layouter.push_layout(layout, aligns.cross);
                     }
                 }
             }
         }
-        Layouted::Boxes(layouter.finish())
+        Layouted::Layouts(layouter.finish(), self.aligns)
     }
 }
 
@@ -48,7 +50,7 @@ struct ParLayouter<'a> {
     cross: SpecAxis,
     dirs: Gen<Dir>,
     areas: Areas,
-    layouted: Vec<(BoxLayout, Gen<Align>)>,
+    finished: Vec<BoxLayout>,
     lines: Vec<(Length, BoxLayout, Align)>,
     lines_size: Gen<Length>,
     run: Vec<(Length, BoxLayout, Align)>,
@@ -64,7 +66,7 @@ impl<'a> ParLayouter<'a> {
             cross: par.dirs.cross.axis(),
             dirs: par.dirs,
             areas,
-            layouted: vec![],
+            finished: vec![],
             lines: vec![],
             lines_size: Gen::ZERO,
             run: vec![],
@@ -73,12 +75,12 @@ impl<'a> ParLayouter<'a> {
         }
     }
 
-    fn spacing(&mut self, amount: Length) {
-        let cross_full = self.areas.current.rem.get(self.cross);
-        self.run_size.cross = (self.run_size.cross + amount).min(cross_full);
+    fn push_spacing(&mut self, amount: Length) {
+        let cross_max = self.areas.current.rem.get(self.cross);
+        self.run_size.cross = (self.run_size.cross + amount).min(cross_max);
     }
 
-    fn boxed(&mut self, layout: BoxLayout, align: Align) {
+    fn push_layout(&mut self, layout: BoxLayout, align: Align) {
         if self.run_ruler > align {
             self.finish_run();
         }
@@ -112,12 +114,12 @@ impl<'a> ParLayouter<'a> {
     }
 
     fn finish_run(&mut self) {
-        let size = Gen::new(self.run_size.main, match self.par.cross_expansion {
+        let full_size = Gen::new(self.run_size.main, match self.par.cross_expansion {
             Expansion::Fill => self.areas.current.full.get(self.cross),
             Expansion::Fit => self.run_size.cross,
         });
 
-        let mut output = BoxLayout::new(size.switch(self.dirs).to_size());
+        let mut output = BoxLayout::new(full_size.switch(self.dirs).to_size());
 
         for (before, layout, align) in std::mem::take(&mut self.run) {
             let child_cross_size = layout.size.get(self.cross);
@@ -125,11 +127,11 @@ impl<'a> ParLayouter<'a> {
             // Position along the cross axis.
             let cross = align.apply(if self.dirs.cross.is_positive() {
                 let after_with_self = self.run_size.cross - before;
-                before .. size.cross - after_with_self
+                before .. full_size.cross - after_with_self
             } else {
                 let before_with_self = before + child_cross_size;
                 let after = self.run_size.cross - (before + child_cross_size);
-                size.cross - before_with_self .. after
+                full_size.cross - before_with_self .. after
             });
 
             let pos = Gen::new(Length::ZERO, cross).switch(self.dirs).to_point();
@@ -138,10 +140,10 @@ impl<'a> ParLayouter<'a> {
 
         self.lines.push((self.lines_size.main, output, self.run_ruler));
 
-        let main_offset = size.main + self.par.line_spacing;
+        let main_offset = full_size.main + self.par.line_spacing;
         *self.areas.current.rem.get_mut(self.main) -= main_offset;
         self.lines_size.main += main_offset;
-        self.lines_size.cross = self.lines_size.cross.max(size.cross);
+        self.lines_size.cross = self.lines_size.cross.max(full_size.cross);
 
         self.run_size = Gen::ZERO;
         self.run_ruler = Align::Start;
@@ -172,15 +174,15 @@ impl<'a> ParLayouter<'a> {
             output.push_layout(pos, run);
         }
 
-        self.layouted.push((output, self.par.aligns));
+        self.finished.push(output);
 
         self.areas.next();
         self.lines_size = Gen::ZERO;
     }
 
-    fn finish(mut self) -> Vec<(BoxLayout, Gen<Align>)> {
+    fn finish(mut self) -> Vec<BoxLayout> {
         self.finish_run();
         self.finish_area();
-        self.layouted
+        self.finished
     }
 }

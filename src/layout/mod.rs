@@ -37,7 +37,7 @@ pub struct LayoutContext {
 
 /// Layout a node.
 pub trait Layout {
-    /// Layout the node in the given layout context.
+    /// Layout the node into the given areas.
     fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted;
 }
 
@@ -120,26 +120,27 @@ impl Expansion {
     }
 }
 
-/// An item that is produced by [layouting] a node.
+/// The result of [layouting] a node.
 ///
 /// [layouting]: trait.Layout.html#method.layout
 #[derive(Debug, Clone, PartialEq)]
 pub enum Layouted {
     /// Spacing that should be added to the parent.
     Spacing(Length),
-    /// A box that should be added to and aligned in the parent.
-    Boxed(BoxLayout, Gen<Align>),
-    /// Multiple boxes.
-    Boxes(Vec<(BoxLayout, Gen<Align>)>),
+    /// A layout that should be added to and aligned in the parent.
+    Layout(BoxLayout, Gen<Align>),
+    /// Multiple layouts.
+    Layouts(Vec<BoxLayout>, Gen<Align>),
 }
 
 impl Layouted {
-    /// Return the box if this if its a box variant.
-    pub fn into_boxes(self) -> Vec<BoxLayout> {
+    /// Return all layouts contained in this variant (zero, one or arbitrarily
+    /// many).
+    pub fn into_layouts(self) -> Vec<BoxLayout> {
         match self {
             Self::Spacing(_) => vec![],
-            Self::Boxed(boxed, _) => vec![boxed],
-            Self::Boxes(boxes) => boxes.into_iter().map(|p| p.0).collect(),
+            Self::Layout(layout, _) => vec![layout],
+            Self::Layouts(layouts, _) => layouts,
         }
     }
 }

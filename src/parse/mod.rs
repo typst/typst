@@ -268,8 +268,8 @@ fn dict_contents(p: &mut Parser) -> (LitDict, bool) {
         comma_and_keyless = false;
     }
 
-    let coercable = comma_and_keyless && !dict.0.is_empty();
-    (dict, coercable)
+    let coercible = comma_and_keyless && !dict.0.is_empty();
+    (dict, coercible)
 }
 
 /// Parse a single entry in a dictionary.
@@ -458,9 +458,9 @@ fn content(p: &mut Parser) -> SynTree {
 /// Parse a parenthesized expression: `(a + b)`, `(1, key="value").
 fn parenthesized(p: &mut Parser) -> Expr {
     p.start_group(Group::Paren);
-    let (dict, coercable) = dict_contents(p);
-    let expr = if coercable {
-        dict.0.into_iter().next().expect("dict is coercable").expr.v
+    let (dict, coercible) = dict_contents(p);
+    let expr = if coercible {
+        dict.0.into_iter().next().expect("dict is coercible").expr.v
     } else {
         Expr::Lit(Lit::Dict(dict))
     };

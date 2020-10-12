@@ -17,10 +17,10 @@ impl Layout for Pad {
         let mut layouted = self.child.layout(ctx, &areas);
         match &mut layouted {
             Layouted::Spacing(_) => {}
-            Layouted::Boxed(boxed, _) => pad_box(boxed, self.padding),
-            Layouted::Boxes(boxes) => {
-                for (boxed, _) in boxes {
-                    pad_box(boxed, self.padding);
+            Layouted::Layout(layout, _) => pad_layout(layout, self.padding),
+            Layouted::Layouts(layouts, _) => {
+                for layout in layouts {
+                    pad_layout(layout, self.padding);
                 }
             }
         }
@@ -43,12 +43,12 @@ fn shrink_areas(areas: &Areas, padding: Sides<Linear>) -> Areas {
 }
 
 /// Enlarge the box and move all elements inwards.
-fn pad_box(boxed: &mut BoxLayout, padding: Sides<Linear>) {
-    let padding = padding.eval(boxed.size);
+fn pad_layout(layout: &mut BoxLayout, padding: Sides<Linear>) {
+    let padding = padding.eval(layout.size);
     let origin = Point::new(padding.left, padding.top);
 
-    boxed.size += padding.size();
-    for (point, _) in &mut boxed.elements {
+    layout.size += padding.size();
+    for (point, _) in &mut layout.elements {
         *point += origin;
     }
 }

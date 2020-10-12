@@ -29,7 +29,7 @@ impl Layout for LayoutNode {
         match self {
             Self::Spacing(spacing) => spacing.layout(ctx, areas),
             Self::Text(text) => text.layout(ctx, areas),
-            Self::Dyn(boxed) => boxed.layout(ctx, areas),
+            Self::Dyn(dynamic) => dynamic.layout(ctx, areas),
         }
     }
 }
@@ -39,16 +39,16 @@ impl Debug for LayoutNode {
         match self {
             Self::Spacing(spacing) => spacing.fmt(f),
             Self::Text(text) => text.fmt(f),
-            Self::Dyn(boxed) => boxed.fmt(f),
+            Self::Dyn(dynamic) => dynamic.fmt(f),
         }
     }
 }
 
-/// A wrapper around a boxed dynamic node.
+/// A wrapper around a boxed node trait object.
 ///
 /// _Note_: This is needed because the compiler can't `derive(PartialEq)` for
-///         [`LayoutNode`] when directly putting the boxed node in there, see
-///         the [Rust Issue].
+///         [`LayoutNode`] when directly putting the `Box` in there, see the
+///         [Rust Issue].
 ///
 /// [`LayoutNode`]: enum.LayoutNode.html
 /// [Rust Issue]: https://github.com/rust-lang/rust/issues/31740

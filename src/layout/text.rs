@@ -26,7 +26,7 @@ pub struct Text {
 impl Layout for Text {
     fn layout(&self, ctx: &mut LayoutContext, _: &Areas) -> Layouted {
         let mut loader = ctx.loader.borrow_mut();
-        Layouted::Boxed(
+        Layouted::Layout(
             shaping::shape(
                 &mut loader,
                 &self.text,

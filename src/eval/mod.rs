@@ -45,7 +45,7 @@ pub fn eval(tree: &SynTree, state: State) -> Pass<Document> {
 pub struct EvalContext {
     /// The active evaluation state.
     pub state: State,
-    /// The accumualted feedback.
+    /// The accumulated feedback.
     f: Feedback,
     /// The finished page runs.
     runs: Vec<Pages>,
@@ -74,7 +74,7 @@ impl EvalContext {
 
     /// Finish evaluation and return the created document.
     pub fn finish(self) -> Pass<Document> {
-        assert!(self.groups.is_empty(), "unpoped group");
+        assert!(self.groups.is_empty(), "unfinished group");
         Pass::new(Document { runs: self.runs }, self.f)
     }
 

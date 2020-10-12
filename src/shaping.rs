@@ -23,7 +23,7 @@ pub struct Shaped {
     /// The shaped glyphs.
     pub glyphs: Vec<GlyphId>,
     /// The horizontal offsets of the glyphs. This is indexed parallel to
-    /// `glyphs`. Vertical offets are not yet supported.
+    /// `glyphs`. Vertical offsets are not yet supported.
     pub offsets: Vec<Length>,
     /// The font size.
     pub font_size: Length,
