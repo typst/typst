@@ -100,7 +100,8 @@ fn test(name: &str, src: &str, src_path: &Path, loader: &SharedFontLoader) {
     let loader = loader.borrow();
 
     let png_path = format!("{}/{}.png", OUT_DIR, name);
-    render(&layouts, &loader, 3.0).write_png(png_path).unwrap();
+    let surface = render(&layouts, &loader, 3.0);
+    surface.write_png(png_path).unwrap();
 
     let pdf_path = format!("{}/{}.pdf", OUT_DIR, name);
     let file = BufWriter::new(File::create(pdf_path).unwrap());
