@@ -11,16 +11,16 @@ use crate::shaping;
 pub struct Text {
     /// The text.
     pub text: String,
-    /// The font size.
-    pub font_size: Length,
+    /// How to align this text node in its parent.
+    pub align: BoxAlign,
     /// The text direction.
     pub dir: Dir,
+    /// The font size.
+    pub font_size: Length,
     /// The families used for font fallback.
     pub families: Rc<FallbackTree>,
     /// The font variant,
     pub variant: FontVariant,
-    /// How to align this text node in its parent.
-    pub aligns: Gen<Align>,
 }
 
 impl Layout for Text {
@@ -30,12 +30,12 @@ impl Layout for Text {
             shaping::shape(
                 &mut loader,
                 &self.text,
-                self.font_size,
                 self.dir,
+                self.font_size,
                 &self.families,
                 self.variant,
             ),
-            self.aligns,
+            self.align,
         )
     }
 }

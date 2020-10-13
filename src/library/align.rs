@@ -32,13 +32,13 @@ pub fn align(mut args: Args, ctx: &mut EvalContext) -> Value {
         .chain(hor.into_iter().map(|align| (Some(SpecAxis::Horizontal), align)))
         .chain(ver.into_iter().map(|align| (Some(SpecAxis::Vertical), align)));
 
-    let aligns = dedup_aligns(ctx, iter);
-    if aligns.main != ctx.state.aligns.main {
+    let align = dedup_aligns(ctx, iter);
+    if align.main != ctx.state.align.main {
         ctx.end_par_group();
         ctx.start_par_group();
     }
 
-    ctx.state.aligns = aligns;
+    ctx.state.align = align;
 
     if let Some(body) = body {
         body.eval(ctx);
@@ -52,17 +52,17 @@ pub fn align(mut args: Args, ctx: &mut EvalContext) -> Value {
 fn dedup_aligns(
     ctx: &mut EvalContext,
     iter: impl Iterator<Item = (Option<SpecAxis>, Spanned<AlignArg>)>,
-) -> Gen<Align> {
-    let mut aligns = ctx.state.aligns;
-    let mut had = Gen::new(false, false);
+) -> BoxAlign {
+    let mut alignments = ctx.state.align;
+    let mut had = Gen::uniform(false);
     let mut had_center = false;
 
     for (axis, Spanned { v: align, span }) in iter {
         // Check whether we know which axis this alignment belongs to.
         if let Some(axis) = axis {
             // We know the axis.
-            let gen_axis = axis.switch(ctx.state.dirs);
-            let gen_align = align.switch(ctx.state.dirs);
+            let gen_axis = axis.switch(ctx.state.flow);
+            let gen_align = align.switch(ctx.state.flow);
 
             if align.axis().map_or(false, |a| a != axis) {
                 ctx.diag(error!(
@@ -72,7 +72,7 @@ fn dedup_aligns(
             } else if had.get(gen_axis) {
                 ctx.diag(error!(span, "duplicate alignment for {} axis", axis));
             } else {
-                *aligns.get_mut(gen_axis) = gen_align;
+                *alignments.get_mut(gen_axis) = gen_align;
                 *had.get_mut(gen_axis) = true;
             }
         } else {
@@ -85,8 +85,8 @@ fn dedup_aligns(
             } else if had_center {
                 // Both this and the previous one are unspecified `center`
                 // alignments. Both axes should be centered.
-                aligns = Gen::new(Align::Center, Align::Center);
-                had = Gen::new(true, true);
+                alignments = BoxAlign::new(Align::Center, Align::Center);
+                had = Gen::uniform(true);
             } else {
                 had_center = true;
             }
@@ -96,10 +96,10 @@ fn dedup_aligns(
         // alignment.
         if had_center && (had.main || had.cross) {
             if had.main {
-                aligns.cross = Align::Center;
+                alignments.cross = Align::Center;
                 had.cross = true;
             } else {
-                aligns.main = Align::Center;
+                alignments.main = Align::Center;
                 had.main = true;
             }
             had_center = false;
@@ -109,10 +109,10 @@ fn dedup_aligns(
     // If center has not been flushed by now, it is the only argument and then
     // we default to applying it to the cross axis.
     if had_center {
-        aligns.cross = Align::Center;
+        alignments.cross = Align::Center;
     }
 
-    aligns
+    alignments
 }
 
 /// An alignment argument.
@@ -143,7 +143,7 @@ impl AlignArg {
 impl Switch for AlignArg {
     type Other = Align;
 
-    fn switch(self, dirs: Gen<Dir>) -> Self::Other {
+    fn switch(self, flow: Flow) -> Self::Other {
         let get = |dir: Dir, at_positive_start| {
             if dir.is_positive() == at_positive_start {
                 Align::Start
@@ -152,12 +152,12 @@ impl Switch for AlignArg {
             }
         };
 
-        let dirs = dirs.switch(dirs);
+        let flow = flow.switch(flow);
         match self {
-            Self::Left => get(dirs.horizontal, true),
-            Self::Right => get(dirs.horizontal, false),
-            Self::Top => get(dirs.vertical, true),
-            Self::Bottom => get(dirs.vertical, false),
+            Self::Left => get(flow.horizontal, true),
+            Self::Right => get(flow.horizontal, false),
+            Self::Top => get(flow.vertical, true),
+            Self::Bottom => get(flow.vertical, false),
             Self::Center => Align::Center,
         }
     }

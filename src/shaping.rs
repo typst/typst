@@ -64,8 +64,8 @@ impl Debug for Shaped {
 pub fn shape(
     loader: &mut FontLoader,
     text: &str,
-    font_size: Length,
     dir: Dir,
+    font_size: Length,
     fallback: &FallbackTree,
     variant: FontVariant,
 ) -> BoxLayout {

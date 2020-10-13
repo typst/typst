@@ -48,8 +48,8 @@ impl Get<SpecAxis> for Size {
 impl Switch for Size {
     type Other = Gen<Length>;
 
-    fn switch(self, dirs: Gen<Dir>) -> Self::Other {
-        match dirs.main.axis() {
+    fn switch(self, flow: Flow) -> Self::Other {
+        match flow.main.axis() {
             SpecAxis::Horizontal => Gen::new(self.width, self.height),
             SpecAxis::Vertical => Gen::new(self.height, self.width),
         }

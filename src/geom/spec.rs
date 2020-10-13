@@ -14,6 +14,17 @@ impl<T> Spec<T> {
     pub fn new(horizontal: T, vertical: T) -> Self {
         Self { horizontal, vertical }
     }
+
+    /// Create a new instance with two equal components.
+    pub fn uniform(value: T) -> Self
+    where
+        T: Clone,
+    {
+        Self {
+            horizontal: value.clone(),
+            vertical: value,
+        }
+    }
 }
 
 impl Spec<Length> {
@@ -55,8 +66,8 @@ impl<T> Get<SpecAxis> for Spec<T> {
 impl<T> Switch for Spec<T> {
     type Other = Gen<T>;
 
-    fn switch(self, dirs: Gen<Dir>) -> Self::Other {
-        match dirs.main.axis() {
+    fn switch(self, flow: Flow) -> Self::Other {
+        match flow.main.axis() {
             SpecAxis::Horizontal => Gen::new(self.horizontal, self.vertical),
             SpecAxis::Vertical => Gen::new(self.vertical, self.horizontal),
         }
@@ -85,11 +96,11 @@ impl SpecAxis {
 impl Switch for SpecAxis {
     type Other = GenAxis;
 
-    fn switch(self, dirs: Gen<Dir>) -> Self::Other {
-        if self == dirs.main.axis() {
+    fn switch(self, flow: Flow) -> Self::Other {
+        if self == flow.main.axis() {
             GenAxis::Main
         } else {
-            debug_assert_eq!(self, dirs.cross.axis());
+            debug_assert_eq!(self, flow.cross.axis());
             GenAxis::Cross
         }
     }

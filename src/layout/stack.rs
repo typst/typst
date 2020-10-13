@@ -1,15 +1,15 @@
 use super::*;
 
-/// A node that stacks and aligns its children.
+/// A node that stacks and align its children.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Stack {
     /// The `main` and `cross` directions of this stack.
     ///
     /// The children are stacked along the `main` direction. The `cross`
     /// direction is required for aligning the children.
-    pub dirs: Gen<Dir>,
+    pub flow: Flow,
     /// How to align this stack in _its_ parent.
-    pub aligns: Gen<Align>,
+    pub align: BoxAlign,
     /// Whether to expand the axes to fill the area or to fit the content.
     pub expansion: Gen<Expansion>,
     /// The nodes to be stacked.
@@ -22,15 +22,15 @@ impl Layout for Stack {
         for child in &self.children {
             match child.layout(ctx, &layouter.areas) {
                 Layouted::Spacing(spacing) => layouter.push_spacing(spacing),
-                Layouted::Layout(layout, aligns) => layouter.push_layout(layout, aligns),
-                Layouted::Layouts(layouts, aligns) => {
+                Layouted::Layout(layout, align) => layouter.push_layout(layout, align),
+                Layouted::Layouts(layouts, align) => {
                     for layout in layouts {
-                        layouter.push_layout(layout, aligns);
+                        layouter.push_layout(layout, align);
                     }
                 }
             }
         }
-        Layouted::Layouts(layouter.finish(), self.aligns)
+        Layouted::Layouts(layouter.finish(), self.align)
     }
 }
 
@@ -43,10 +43,10 @@ impl From<Stack> for LayoutNode {
 struct StackLayouter<'a> {
     stack: &'a Stack,
     main: SpecAxis,
-    dirs: Gen<Dir>,
+    flow: Flow,
     areas: Areas,
     finished: Vec<BoxLayout>,
-    layouts: Vec<(Length, BoxLayout, Gen<Align>)>,
+    layouts: Vec<(Length, BoxLayout, BoxAlign)>,
     used: Gen<Length>,
     ruler: Align,
 }
@@ -55,8 +55,8 @@ impl<'a> StackLayouter<'a> {
     fn new(stack: &'a Stack, areas: Areas) -> Self {
         Self {
             stack,
-            main: stack.dirs.main.axis(),
-            dirs: stack.dirs,
+            main: stack.flow.main.axis(),
+            flow: stack.flow,
             areas,
             finished: vec![],
             layouts: vec![],
@@ -72,8 +72,8 @@ impl<'a> StackLayouter<'a> {
         self.used.main += capped;
     }
 
-    fn push_layout(&mut self, layout: BoxLayout, aligns: Gen<Align>) {
-        if self.ruler > aligns.main {
+    fn push_layout(&mut self, layout: BoxLayout, align: BoxAlign) {
+        if self.ruler > align.main {
             self.finish_area();
         }
 
@@ -87,18 +87,18 @@ impl<'a> StackLayouter<'a> {
             }
         }
 
-        let size = layout.size.switch(self.dirs);
-        self.layouts.push((self.used.main, layout, aligns));
+        let size = layout.size.switch(self.flow);
+        self.layouts.push((self.used.main, layout, align));
 
         *self.areas.current.rem.get_mut(self.main) -= size.main;
         self.used.main += size.main;
         self.used.cross = self.used.cross.max(size.cross);
-        self.ruler = aligns.main;
+        self.ruler = align.main;
     }
 
     fn finish_area(&mut self) {
         let full_size = {
-            let full = self.areas.current.full.switch(self.dirs);
+            let full = self.areas.current.full.switch(self.flow);
             Gen::new(
                 match self.stack.expansion.main {
                     Expansion::Fill => full.main,
@@ -111,13 +111,13 @@ impl<'a> StackLayouter<'a> {
             )
         };
 
-        let mut output = BoxLayout::new(full_size.switch(self.dirs).to_size());
+        let mut output = BoxLayout::new(full_size.switch(self.flow).to_size());
 
-        for (before, layout, aligns) in std::mem::take(&mut self.layouts) {
-            let child_size = layout.size.switch(self.dirs);
+        for (before, layout, align) in std::mem::take(&mut self.layouts) {
+            let child_size = layout.size.switch(self.flow);
 
             // Align along the main axis.
-            let main = aligns.main.resolve(if self.dirs.main.is_positive() {
+            let main = align.main.resolve(if self.flow.main.is_positive() {
                 let after_with_self = self.used.main - before;
                 before .. full_size.main - after_with_self
             } else {
@@ -127,13 +127,13 @@ impl<'a> StackLayouter<'a> {
             });
 
             // Align along the cross axis.
-            let cross = aligns.cross.resolve(if self.dirs.cross.is_positive() {
+            let cross = align.cross.resolve(if self.flow.cross.is_positive() {
                 Length::ZERO .. full_size.cross - child_size.cross
             } else {
                 full_size.cross - child_size.cross .. Length::ZERO
             });
 
-            let pos = Gen::new(main, cross).switch(self.dirs).to_point();
+            let pos = Gen::new(main, cross).switch(self.flow).to_point();
             output.push_layout(pos, layout);
         }
 

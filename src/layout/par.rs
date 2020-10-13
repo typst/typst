@@ -7,15 +7,15 @@ pub struct Par {
     ///
     /// The children are placed in lines along the `cross` direction. The lines
     /// are stacked along the `main` direction.
-    pub dirs: Gen<Dir>,
-    /// How to align this paragraph in _its_ parent.
-    pub aligns: Gen<Align>,
+    pub flow: Flow,
     /// Whether to expand the cross axis to fill the area or to fit the content.
     pub cross_expansion: Expansion,
     /// The spacing to insert after each line.
     pub line_spacing: Length,
     /// The nodes to be arranged in a paragraph.
     pub children: Vec<LayoutNode>,
+    /// How to align this paragraph in _its_ parent.
+    pub align: BoxAlign,
 }
 
 impl Layout for Par {
@@ -24,17 +24,17 @@ impl Layout for Par {
         for child in &self.children {
             match child.layout(ctx, &layouter.areas) {
                 Layouted::Spacing(spacing) => layouter.push_spacing(spacing),
-                Layouted::Layout(layout, aligns) => {
-                    layouter.push_layout(layout, aligns.cross)
+                Layouted::Layout(layout, align) => {
+                    layouter.push_layout(layout, align.cross)
                 }
-                Layouted::Layouts(layouts, aligns) => {
+                Layouted::Layouts(layouts, align) => {
                     for layout in layouts {
-                        layouter.push_layout(layout, aligns.cross);
+                        layouter.push_layout(layout, align.cross);
                     }
                 }
             }
         }
-        Layouted::Layouts(layouter.finish(), self.aligns)
+        Layouted::Layouts(layouter.finish(), self.align)
     }
 }
 
@@ -48,7 +48,7 @@ struct ParLayouter<'a> {
     par: &'a Par,
     main: SpecAxis,
     cross: SpecAxis,
-    dirs: Gen<Dir>,
+    flow: Flow,
     areas: Areas,
     finished: Vec<BoxLayout>,
     lines: Vec<(Length, BoxLayout, Align)>,
@@ -62,9 +62,9 @@ impl<'a> ParLayouter<'a> {
     fn new(par: &'a Par, areas: Areas) -> Self {
         Self {
             par,
-            main: par.dirs.main.axis(),
-            cross: par.dirs.cross.axis(),
-            dirs: par.dirs,
+            main: par.flow.main.axis(),
+            cross: par.flow.cross.axis(),
+            flow: par.flow,
             areas,
             finished: vec![],
             lines: vec![],
@@ -105,7 +105,7 @@ impl<'a> ParLayouter<'a> {
             }
         }
 
-        let size = layout.size.switch(self.dirs);
+        let size = layout.size.switch(self.flow);
         self.run.push((self.run_size.cross, layout, align));
 
         self.run_size.cross += size.cross;
@@ -119,13 +119,13 @@ impl<'a> ParLayouter<'a> {
             Expansion::Fit => self.run_size.cross,
         });
 
-        let mut output = BoxLayout::new(full_size.switch(self.dirs).to_size());
+        let mut output = BoxLayout::new(full_size.switch(self.flow).to_size());
 
         for (before, layout, align) in std::mem::take(&mut self.run) {
             let child_cross_size = layout.size.get(self.cross);
 
             // Position along the cross axis.
-            let cross = align.resolve(if self.dirs.cross.is_positive() {
+            let cross = align.resolve(if self.flow.cross.is_positive() {
                 let after_with_self = self.run_size.cross - before;
                 before .. full_size.cross - after_with_self
             } else {
@@ -134,7 +134,7 @@ impl<'a> ParLayouter<'a> {
                 full_size.cross - before_with_self .. after
             });
 
-            let pos = Gen::new(Length::ZERO, cross).switch(self.dirs).to_point();
+            let pos = Gen::new(Length::ZERO, cross).switch(self.flow).to_point();
             output.push_layout(pos, layout);
         }
 
@@ -151,26 +151,26 @@ impl<'a> ParLayouter<'a> {
 
     fn finish_area(&mut self) {
         let size = self.lines_size;
-        let mut output = BoxLayout::new(size.switch(self.dirs).to_size());
+        let mut output = BoxLayout::new(size.switch(self.flow).to_size());
 
         for (before, run, cross_align) in std::mem::take(&mut self.lines) {
-            let child_size = run.size.switch(self.dirs);
+            let child_size = run.size.switch(self.flow);
 
             // Position along the main axis.
-            let main = if self.dirs.main.is_positive() {
+            let main = if self.flow.main.is_positive() {
                 before
             } else {
                 size.main - (before + child_size.main)
             };
 
             // Align along the cross axis.
-            let cross = cross_align.resolve(if self.dirs.cross.is_positive() {
+            let cross = cross_align.resolve(if self.flow.cross.is_positive() {
                 Length::ZERO .. size.cross - child_size.cross
             } else {
                 size.cross - child_size.cross .. Length::ZERO
             });
 
-            let pos = Gen::new(main, cross).switch(self.dirs).to_point();
+            let pos = Gen::new(main, cross).switch(self.flow).to_point();
             output.push_layout(pos, run);
         }
 

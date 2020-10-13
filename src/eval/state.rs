@@ -5,7 +5,7 @@ use std::rc::Rc;
 use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
 
 use super::Scope;
-use crate::geom::{Align, Dir, Gen, Length, Linear, Relative, Sides, Size};
+use crate::geom::{Align, BoxAlign, Dir, Flow, Length, Linear, Relative, Sides, Size};
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
 /// The active evaluation state.
@@ -20,9 +20,9 @@ pub struct State {
     /// The font state.
     pub font: FontState,
     /// The active layouting directions.
-    pub dirs: Gen<Dir>,
-    /// The active alignments.
-    pub aligns: Gen<Align>,
+    pub flow: Flow,
+    /// The active box alignments.
+    pub align: BoxAlign,
 }
 
 impl Default for State {
@@ -32,8 +32,8 @@ impl Default for State {
             page: PageState::default(),
             par: ParState::default(),
             font: FontState::default(),
-            dirs: Gen::new(Dir::TTB, Dir::LTR),
-            aligns: Gen::new(Align::Start, Align::Start),
+            flow: Flow::new(Dir::TTB, Dir::LTR),
+            align: BoxAlign::new(Align::Start, Align::Start),
         }
     }
 }

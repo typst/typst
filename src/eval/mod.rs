@@ -22,7 +22,7 @@ use fontdock::FontStyle;
 
 use crate::diag::Diag;
 use crate::diag::{Deco, Feedback, Pass};
-use crate::geom::{Align, Dir, Gen, Length, Linear, Relative, Sides, Size};
+use crate::geom::{BoxAlign, Flow, Gen, Length, Linear, Relative, Sides, Size};
 use crate::layout::{
     Document, Expansion, LayoutNode, Pad, Pages, Par, Softness, Spacing, Stack, Text,
 };
@@ -122,8 +122,8 @@ impl EvalContext {
         self.start_group(PageGroup {
             size: self.state.page.size,
             padding: self.state.page.margins(),
-            dirs: self.state.dirs,
-            aligns: self.state.aligns,
+            flow: self.state.flow,
+            align: self.state.align,
             hard,
         });
         self.start_par_group();
@@ -141,9 +141,9 @@ impl EvalContext {
                 child: LayoutNode::dynamic(Pad {
                     padding: group.padding,
                     child: LayoutNode::dynamic(Stack {
-                        dirs: group.dirs,
-                        aligns: group.aligns,
-                        expansion: Gen::new(Expansion::Fill, Expansion::Fill),
+                        flow: group.flow,
+                        align: group.align,
+                        expansion: Gen::uniform(Expansion::Fill),
                         children,
                     }),
                 }),
@@ -171,8 +171,8 @@ impl EvalContext {
     pub fn start_par_group(&mut self) {
         let em = self.state.font.font_size();
         self.start_group(ParGroup {
-            dirs: self.state.dirs,
-            aligns: self.state.aligns,
+            flow: self.state.flow,
+            align: self.state.align,
             line_spacing: self.state.par.line_spacing.resolve(em),
         });
     }
@@ -185,8 +185,8 @@ impl EvalContext {
             //        better.
             let cross_expansion = Expansion::fill_if(self.groups.len() <= 1);
             self.push(Par {
-                dirs: group.dirs,
-                aligns: group.aligns,
+                flow: group.flow,
+                align: group.align,
                 cross_expansion,
                 line_spacing: group.line_spacing,
                 children,
@@ -242,11 +242,11 @@ impl EvalContext {
 
         Text {
             text,
-            dir: self.state.dirs.cross,
+            align: self.state.align,
+            dir: self.state.flow.cross,
             font_size: self.state.font.font_size(),
             families: Rc::clone(&self.state.font.families),
             variant,
-            aligns: self.state.aligns,
         }
     }
 }
@@ -255,8 +255,8 @@ impl EvalContext {
 struct PageGroup {
     size: Size,
     padding: Sides<Linear>,
-    dirs: Gen<Dir>,
-    aligns: Gen<Align>,
+    flow: Flow,
+    align: BoxAlign,
     hard: bool,
 }
 
@@ -265,8 +265,8 @@ struct ContentGroup;
 
 /// A group for paragraphs.
 struct ParGroup {
-    dirs: Gen<Dir>,
-    aligns: Gen<Align>,
+    flow: Flow,
+    align: BoxAlign,
     line_spacing: Length,
 }
 
@@ -370,9 +370,9 @@ impl Eval for NodeRaw {
         }
 
         ctx.push(Stack {
-            dirs: ctx.state.dirs,
-            aligns: ctx.state.aligns,
-            expansion: Gen::new(Expansion::Fit, Expansion::Fit),
+            flow: ctx.state.flow,
+            align: ctx.state.align,
+            expansion: Gen::uniform(Expansion::Fit),
             children,
         });
 

@@ -48,6 +48,7 @@ pub trait Switch {
     /// The type of the other version.
     type Other;
 
-    /// The other version of this type based on the current directions.
-    fn switch(self, dirs: Gen<Dir>) -> Self::Other;
+    /// The other version of this type based on the current layouting
+    /// directions.
+    fn switch(self, flow: Flow) -> Self::Other;
 }

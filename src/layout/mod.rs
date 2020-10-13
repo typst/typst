@@ -128,9 +128,9 @@ pub enum Layouted {
     /// Spacing that should be added to the parent.
     Spacing(Length),
     /// A layout that should be added to and aligned in the parent.
-    Layout(BoxLayout, Gen<Align>),
+    Layout(BoxLayout, BoxAlign),
     /// Multiple layouts.
-    Layouts(Vec<BoxLayout>, Gen<Align>),
+    Layouts(Vec<BoxLayout>, BoxAlign),
 }
 
 impl Layouted {

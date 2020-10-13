@@ -14,12 +14,12 @@ pub struct Sides<T> {
 }
 
 impl<T> Sides<T> {
-    /// Create a new box from four sizes.
+    /// Create a new instance from the four components.
     pub fn new(left: T, top: T, right: T, bottom: T) -> Self {
         Self { left, top, right, bottom }
     }
 
-    /// Create an instance with all four components set to the same `value`.
+    /// Create an instance with four equal components.
     pub fn uniform(value: T) -> Self
     where
         T: Clone,
