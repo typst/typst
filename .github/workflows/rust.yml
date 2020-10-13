@@ -20,7 +20,7 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v2
         with:
-          path: typstc
+          path: typst
 
       - name: Checkout fontdock
         uses: actions/checkout@v2
@@ -47,10 +47,10 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --manifest-path typstc/Cargo.toml --all-features
+          args: --manifest-path typst/Cargo.toml --all-features
 
       - name: Test
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --manifest-path typstc/Cargo.toml --all-features
+          args: --manifest-path typst/Cargo.toml --all-features

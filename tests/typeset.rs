@@ -10,15 +10,15 @@ use fontdock::fs::{FsIndex, FsSource};
 use raqote::{DrawTarget, PathBuilder, SolidSource, Source, Transform, Vector};
 use ttf_parser::OutlineBuilder;
 
-use typstc::diag::{Feedback, Pass};
-use typstc::eval::State;
-use typstc::export::pdf;
-use typstc::font::{FontLoader, SharedFontLoader};
-use typstc::geom::{Length, Point};
-use typstc::layout::{BoxLayout, LayoutElement};
-use typstc::parse::LineMap;
-use typstc::shaping::Shaped;
-use typstc::typeset;
+use typst::diag::{Feedback, Pass};
+use typst::eval::State;
+use typst::export::pdf;
+use typst::font::{FontLoader, SharedFontLoader};
+use typst::geom::{Length, Point};
+use typst::layout::{BoxLayout, LayoutElement};
+use typst::parse::LineMap;
+use typst::shaping::Shaped;
+use typst::typeset;
 
 const TEST_DIR: &str = "tests";
 const OUT_DIR: &str = "tests/out";

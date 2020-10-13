@@ -1,5 +1,5 @@
 [package]
-name = "typstc"
+name = "typst"
 version = "0.1.0"
 authors = ["The Typst Project Developers"]
 edition = "2018"
@@ -31,7 +31,7 @@ lto = true
 bench = false
 
 [[bin]]
-name = "typstc"
+name = "typst"
 required-features = ["fs"]
 
 [[test]]

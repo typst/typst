@@ -121,8 +121,8 @@ pub enum Deco {
 /// Construct a diagnostic with [`Error`] level.
 ///
 /// ```
-/// # use typstc::error;
-/// # use typstc::syntax::Span;
+/// # use typst::error;
+/// # use typst::syntax::Span;
 /// # let span = Span::ZERO;
 /// # let name = "";
 /// // Create formatted error values.

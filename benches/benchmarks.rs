@@ -4,11 +4,11 @@ use std::rc::Rc;
 use criterion::{criterion_group, criterion_main, Criterion};
 use fontdock::fs::{FsIndex, FsSource};
 
-use typstc::eval::{eval, State};
-use typstc::font::FontLoader;
-use typstc::layout::layout;
-use typstc::parse::parse;
-use typstc::typeset;
+use typst::eval::{eval, State};
+use typst::font::FontLoader;
+use typst::layout::layout;
+use typst::parse::parse;
+use typst::typeset;
 
 const FONT_DIR: &str = "fonts";
 const COMA: &str = include_str!("../tests/coma.typ");
