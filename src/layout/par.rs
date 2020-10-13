@@ -125,7 +125,7 @@ impl<'a> ParLayouter<'a> {
             let child_cross_size = layout.size.get(self.cross);
 
             // Position along the cross axis.
-            let cross = align.apply(if self.dirs.cross.is_positive() {
+            let cross = align.resolve(if self.dirs.cross.is_positive() {
                 let after_with_self = self.run_size.cross - before;
                 before .. full_size.cross - after_with_self
             } else {
@@ -164,7 +164,7 @@ impl<'a> ParLayouter<'a> {
             };
 
             // Align along the cross axis.
-            let cross = cross_align.apply(if self.dirs.cross.is_positive() {
+            let cross = cross_align.resolve(if self.dirs.cross.is_positive() {
                 Length::ZERO .. size.cross - child_size.cross
             } else {
                 size.cross - child_size.cross .. Length::ZERO

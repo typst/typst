@@ -173,7 +173,7 @@ impl EvalContext {
         self.start_group(ParGroup {
             dirs: self.state.dirs,
             aligns: self.state.aligns,
-            line_spacing: self.state.par.line_spacing.eval(em),
+            line_spacing: self.state.par.line_spacing.resolve(em),
         });
     }
 
@@ -299,7 +299,7 @@ impl Eval for SynNode {
             SynNode::Space => {
                 let em = ctx.state.font.font_size();
                 ctx.push(Spacing {
-                    amount: ctx.state.par.word_spacing.eval(em),
+                    amount: ctx.state.par.word_spacing.resolve(em),
                     softness: Softness::Soft,
                 });
             }
@@ -318,7 +318,7 @@ impl Eval for SynNode {
                 ctx.end_par_group();
                 let em = ctx.state.font.font_size();
                 ctx.push(Spacing {
-                    amount: ctx.state.par.par_spacing.eval(em),
+                    amount: ctx.state.par.par_spacing.resolve(em),
                     softness: Softness::Soft,
                 });
                 ctx.start_par_group();
@@ -358,7 +358,7 @@ impl Eval for NodeRaw {
         families.flatten();
 
         let em = ctx.state.font.font_size();
-        let line_spacing = ctx.state.par.line_spacing.eval(em);
+        let line_spacing = ctx.state.par.line_spacing.resolve(em);
 
         let mut children = vec![];
         for line in &self.lines {

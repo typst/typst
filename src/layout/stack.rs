@@ -117,7 +117,7 @@ impl<'a> StackLayouter<'a> {
             let child_size = layout.size.switch(self.dirs);
 
             // Align along the main axis.
-            let main = aligns.main.apply(if self.dirs.main.is_positive() {
+            let main = aligns.main.resolve(if self.dirs.main.is_positive() {
                 let after_with_self = self.used.main - before;
                 before .. full_size.main - after_with_self
             } else {
@@ -127,7 +127,7 @@ impl<'a> StackLayouter<'a> {
             });
 
             // Align along the cross axis.
-            let cross = aligns.cross.apply(if self.dirs.cross.is_positive() {
+            let cross = aligns.cross.resolve(if self.dirs.cross.is_positive() {
                 Length::ZERO .. full_size.cross - child_size.cross
             } else {
                 full_size.cross - child_size.cross .. Length::ZERO

@@ -21,10 +21,9 @@ impl Linear {
         Self { rel, abs }
     }
 
-    /// Evaluate the linear length with `one` being `100%` for the relative
-    /// part.
-    pub fn eval(self, one: Length) -> Length {
-        self.rel.eval(one) + self.abs
+    /// Resolve this relative to the given `length`.
+    pub fn resolve(self, length: Length) -> Length {
+        self.rel.resolve(length) + self.abs
     }
 
     /// Whether this linear's relative part is zero.

@@ -31,7 +31,7 @@ impl Layout for Pad {
 
 /// Shrink all areas by the padding.
 fn shrink_areas(areas: &Areas, padding: Sides<Linear>) -> Areas {
-    let shrink = |size| size - padding.eval(size).size();
+    let shrink = |size| size - padding.resolve(size).size();
     Areas {
         current: Area {
             rem: shrink(areas.current.rem),
@@ -44,7 +44,7 @@ fn shrink_areas(areas: &Areas, padding: Sides<Linear>) -> Areas {
 
 /// Enlarge the box and move all elements inwards.
 fn pad_layout(layout: &mut BoxLayout, padding: Sides<Linear>) {
-    let padding = padding.eval(layout.size);
+    let padding = padding.resolve(layout.size);
     let origin = Point::new(padding.left, padding.top);
 
     layout.size += padding.size();

@@ -121,7 +121,7 @@ pub struct FontState {
 impl FontState {
     /// The absolute font size.
     pub fn font_size(&self) -> Length {
-        self.scale.eval(self.size)
+        self.scale.resolve(self.size)
     }
 }
 

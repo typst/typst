@@ -34,13 +34,13 @@ impl<T> Sides<T> {
 }
 
 impl Sides<Linear> {
-    /// Evaluate the linear values in this container.
-    pub fn eval(self, size: Size) -> Sides<Length> {
+    /// Resolve the linear margins relative to the given `size`.
+    pub fn resolve(self, size: Size) -> Sides<Length> {
         Sides {
-            left: self.left.eval(size.width),
-            top: self.top.eval(size.height),
-            right: self.right.eval(size.width),
-            bottom: self.bottom.eval(size.height),
+            left: self.left.resolve(size.width),
+            top: self.top.resolve(size.height),
+            right: self.right.resolve(size.width),
+            bottom: self.bottom.resolve(size.height),
         }
     }
 }

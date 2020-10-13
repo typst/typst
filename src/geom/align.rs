@@ -13,7 +13,7 @@ pub enum Align {
 
 impl Align {
     /// Returns the position of this alignment in the given range.
-    pub fn apply(self, range: Range<Length>) -> Length {
+    pub fn resolve(self, range: Range<Length>) -> Length {
         match self {
             Self::Start => range.start,
             Self::Center => (range.start + range.end) / 2.0,

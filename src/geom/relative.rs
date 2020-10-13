@@ -26,9 +26,9 @@ impl Relative {
         self.0
     }
 
-    /// Evaluate the relative length with `one` being `100%`.
-    pub fn eval(self, one: Length) -> Length {
-        self.get() * one
+    /// Resolve this relative to the given `length`.
+    pub fn resolve(self, length: Length) -> Length {
+        self.get() * length
     }
 }
 

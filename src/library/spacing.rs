@@ -24,7 +24,7 @@ fn spacing(mut args: Args, ctx: &mut EvalContext, axis: SpecAxis) -> Value {
     args.done(ctx);
 
     if let Some(linear) = spacing {
-        let amount = linear.eval(ctx.state.font.font_size());
+        let amount = linear.resolve(ctx.state.font.font_size());
         let spacing = Spacing { amount, softness: Softness::Hard };
         if ctx.state.dirs.main.axis() == axis {
             ctx.end_par_group();
