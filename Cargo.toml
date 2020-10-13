@@ -19,6 +19,7 @@ serde = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 criterion = "0.3"
+memmap = "0.7"
 raqote = { version = "0.8", default-features = false }
 
 [profile.dev.package."*"]

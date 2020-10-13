@@ -11,7 +11,7 @@ use typst::parse::parse;
 use typst::typeset;
 
 const FONT_DIR: &str = "fonts";
-const COMA: &str = include_str!("../tests/coma.typ");
+const COMA: &str = include_str!("../tests/typ/coma.typ");
 
 fn benchmarks(c: &mut Criterion) {
     let state = State::default();

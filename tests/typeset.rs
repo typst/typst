@@ -7,6 +7,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 use fontdock::fs::{FsIndex, FsSource};
+use memmap::Mmap;
 use raqote::{DrawTarget, PathBuilder, SolidSource, Source, Transform, Vector};
 use ttf_parser::OutlineBuilder;
 
@@ -20,9 +21,11 @@ use typst::parse::LineMap;
 use typst::shaping::Shaped;
 use typst::typeset;
 
-const TEST_DIR: &str = "tests";
-const OUT_DIR: &str = "tests/out";
 const FONT_DIR: &str = "fonts";
+const TYP_DIR: &str = "tests/typ";
+const PDF_DIR: &str = "tests/pdf";
+const PNG_DIR: &str = "tests/png";
+const REF_DIR: &str = "tests/ref";
 
 const BLACK: SolidSource = SolidSource { r: 0, g: 0, b: 0, a: 255 };
 const WHITE: SolidSource = SolidSource { r: 255, g: 255, b: 255, a: 255 };
@@ -31,16 +34,19 @@ fn main() {
     let filter = TestFilter::new(env::args().skip(1));
     let mut filtered = Vec::new();
 
-    for entry in fs::read_dir(TEST_DIR).unwrap() {
-        let path = entry.unwrap().path();
-        if path.extension() != Some(OsStr::new("typ")) {
+    for entry in fs::read_dir(TYP_DIR).unwrap() {
+        let src_path = entry.unwrap().path();
+        if src_path.extension() != Some(OsStr::new("typ")) {
             continue;
         }
 
-        let name = path.file_stem().unwrap().to_string_lossy().to_string();
+        let name = src_path.file_stem().unwrap().to_string_lossy().to_string();
+        let pdf_path = Path::new(PDF_DIR).join(&name).with_extension("pdf");
+        let png_path = Path::new(PNG_DIR).join(&name).with_extension("png");
+        let ref_path = Path::new(REF_DIR).join(&name).with_extension("png");
+
         if filter.matches(&name) {
-            let src = fs::read_to_string(&path).unwrap();
-            filtered.push((name, path, src));
+            filtered.push((name, src_path, pdf_path, png_path, ref_path));
         }
     }
 
@@ -53,7 +59,8 @@ fn main() {
         println!("Running {} tests", len);
     }
 
-    fs::create_dir_all(OUT_DIR).unwrap();
+    fs::create_dir_all(PDF_DIR).unwrap();
+    fs::create_dir_all(PNG_DIR).unwrap();
 
     let mut index = FsIndex::new();
     index.search_dir(FONT_DIR);
@@ -64,14 +71,40 @@ fn main() {
         descriptors,
     )));
 
-    for (name, path, src) in filtered {
-        test(&name, &src, &path, &loader)
+    let mut ok = true;
+
+    for (name, src_path, pdf_path, png_path, ref_path) in filtered {
+        print!("Testing {}.", name);
+        test(&src_path, &pdf_path, &png_path, &loader);
+
+        let png_file = File::open(&png_path).unwrap();
+        let ref_file = match File::open(&ref_path) {
+            Ok(file) => file,
+            Err(_) => {
+                println!(" Failed to open reference image. ❌");
+                ok = false;
+                continue;
+            }
+        };
+
+        let a = unsafe { Mmap::map(&png_file).unwrap() };
+        let b = unsafe { Mmap::map(&ref_file).unwrap() };
+
+        if *a != *b {
+            println!(" Does not match reference image. ❌");
+            ok = false;
+        } else {
+            println!(" Okay. ✔");
+        }
+    }
+
+    if !ok {
+        std::process::exit(1);
     }
 }
 
-fn test(name: &str, src: &str, src_path: &Path, loader: &SharedFontLoader) {
-    println!("Testing {}.", name);
-
+fn test(src_path: &Path, pdf_path: &Path, png_path: &Path, loader: &SharedFontLoader) {
+    let src = fs::read_to_string(src_path).unwrap();
     let state = State::default();
     let Pass {
         output: layouts,
@@ -99,11 +132,9 @@ fn test(name: &str, src: &str, src_path: &Path, loader: &SharedFontLoader) {
 
     let loader = loader.borrow();
 
-    let png_path = format!("{}/{}.png", OUT_DIR, name);
     let surface = render(&layouts, &loader, 3.0);
     surface.write_png(png_path).unwrap();
 
-    let pdf_path = format!("{}/{}.pdf", OUT_DIR, name);
     let file = BufWriter::new(File::create(pdf_path).unwrap());
     pdf::export(&layouts, &loader, file).unwrap();
 }
