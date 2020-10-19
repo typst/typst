@@ -53,7 +53,6 @@ use crate::prelude::*;
 ///   ```
 pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
     let snapshot = ctx.state.clone();
-
     let body = args.find::<SynTree>();
 
     if let Some(linear) = args.find::<Linear>() {
@@ -67,7 +66,6 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
 
     let mut needs_flattening = false;
     let list: Vec<_> = args.find_all::<StringLike>().map(|s| s.to_lowercase()).collect();
-
     if !list.is_empty() {
         Rc::make_mut(&mut ctx.state.font.families).list = list;
         needs_flattening = true;

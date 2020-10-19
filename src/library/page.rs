@@ -17,6 +17,9 @@ use crate::prelude::*;
 /// - `bottom`: The bottom margin (length or relative to height).
 /// - `flip`: Flips custom or paper-defined width and height (boolean).
 pub fn page(mut args: Args, ctx: &mut EvalContext) -> Value {
+    let snapshot = ctx.state.clone();
+    let body = args.find::<SynTree>();
+
     if let Some(paper) = args.find::<Paper>() {
         ctx.state.page.class = paper.class;
         ctx.state.page.size = paper.size();
@@ -57,7 +60,18 @@ pub fn page(mut args: Args, ctx: &mut EvalContext) -> Value {
         std::mem::swap(&mut size.width, &mut size.height);
     }
 
+    let main = args.get::<_, Spanned<Dir>>(ctx, "main");
+    let cross = args.get::<_, Spanned<Dir>>(ctx, "cross");
+    ctx.set_flow(Gen::new(main, cross));
+
     args.done(ctx);
+
+    if let Some(body) = body {
+        ctx.end_page_group();
+        ctx.start_page_group(true);
+        body.eval(ctx);
+        ctx.state = snapshot;
+    }
 
     ctx.end_page_group();
     ctx.start_page_group(false);

@@ -22,7 +22,7 @@ use fontdock::FontStyle;
 
 use crate::diag::Diag;
 use crate::diag::{Deco, Feedback, Pass};
-use crate::geom::{BoxAlign, Flow, Gen, Length, Linear, Relative, Sides, Size};
+use crate::geom::{BoxAlign, Dir, Flow, Gen, Length, Linear, Relative, Sides, Size};
 use crate::layout::{
     Document, Expansion, LayoutNode, Pad, Pages, Par, Softness, Spacing, Stack, Text,
 };
@@ -221,6 +221,23 @@ impl EvalContext {
         let (any, outer) = self.groups.pop().expect("no pushed group");
         let group = *any.downcast::<T>().expect("bad group type");
         (group, std::mem::replace(&mut self.inner, outer))
+    }
+
+    /// Updates the flow directions if the resulting main and cross directions
+    /// apply to different axes. Generates an appropriate error, otherwise.
+    pub fn set_flow(&mut self, new: Gen<Option<Spanned<Dir>>>) {
+        let flow = Gen::new(
+            new.main.map(|s| s.v).unwrap_or(self.state.flow.main),
+            new.cross.map(|s| s.v).unwrap_or(self.state.flow.cross),
+        );
+
+        if flow.main.axis() != flow.cross.axis() {
+            self.state.flow = flow;
+        } else {
+            for dir in new.main.iter().chain(new.cross.iter()) {
+                self.diag(error!(dir.span, "aligned axis"));
+            }
+        }
     }
 
     /// Construct a text node from the given string based on the active text

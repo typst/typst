@@ -9,10 +9,12 @@ use crate::prelude::*;
 /// - `height`: The height of the box (length or relative to parent's height).
 pub fn boxed(mut args: Args, ctx: &mut EvalContext) -> Value {
     let snapshot = ctx.state.clone();
-
     let body = args.find::<SynTree>().unwrap_or_default();
     let width = args.get::<_, Linear>(ctx, "width");
     let height = args.get::<_, Linear>(ctx, "height");
+    let main = args.get::<_, Spanned<Dir>>(ctx, "main");
+    let cross = args.get::<_, Spanned<Dir>>(ctx, "cross");
+    ctx.set_flow(Gen::new(main, cross));
     args.done(ctx);
 
     let flow = ctx.state.flow;

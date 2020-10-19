@@ -17,7 +17,6 @@ use std::fmt::{self, Display, Formatter};
 /// There may not be two alignment specifications for the same axis.
 pub fn align(mut args: Args, ctx: &mut EvalContext) -> Value {
     let snapshot = ctx.state.clone();
-
     let body = args.find::<SynTree>();
     let first = args.get::<_, Spanned<AlignArg>>(ctx, 0);
     let second = args.get::<_, Spanned<AlignArg>>(ctx, 1);
@@ -33,12 +32,13 @@ pub fn align(mut args: Args, ctx: &mut EvalContext) -> Value {
         .chain(ver.into_iter().map(|align| (Some(SpecAxis::Vertical), align)));
 
     let align = dedup_aligns(ctx, iter);
-    if align.main != ctx.state.align.main {
+    let ends_par = align.main != ctx.state.align.main;
+    ctx.state.align = align;
+
+    if ends_par {
         ctx.end_par_group();
         ctx.start_par_group();
     }
-
-    ctx.state.align = align;
 
     if let Some(body) = body {
         body.eval(ctx);
