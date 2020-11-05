@@ -4,6 +4,7 @@ use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
+use anyhow::{anyhow, bail, Context};
 use fontdock::fs::{FsIndex, FsSource};
 
 use typst::diag::{Feedback, Pass};
@@ -13,28 +14,28 @@ use typst::font::FontLoader;
 use typst::parse::LineMap;
 use typst::typeset;
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let args: Vec<_> = std::env::args().collect();
     if args.len() < 2 || args.len() > 3 {
         println!("Usage: typst src.typ [out.pdf]");
-        return;
+        return Ok(());
     }
 
     let src_path = Path::new(&args[1]);
     let dest_path = if args.len() <= 2 {
         let name = src_path
             .file_name()
-            .expect("source path is not a file");
+            .ok_or_else(|| anyhow!("Source path is not a file."))?;
         Path::new(name).with_extension("pdf")
     } else {
         PathBuf::from(&args[2])
     };
 
     if src_path == dest_path {
-        panic!("source and destination path are the same");
+        bail!("Source and destination path are the same.");
     }
 
-    let src = read_to_string(src_path).expect("failed to read from source file");
+    let src = read_to_string(src_path).context("Failed to read from source file.")?;
 
     let mut index = FsIndex::new();
     index.search_dir("fonts");
@@ -72,7 +73,9 @@ fn main() {
     }
 
     let loader = loader.borrow();
-    let file = File::create(&dest_path).expect("failed to create output file");
+    let file = File::create(&dest_path).context("Failed to create output file.")?;
     let writer = BufWriter::new(file);
-    pdf::export(&layouts, &loader, writer).expect("failed to export pdf");
+    pdf::export(&layouts, &loader, writer).context("Failed to export pdf.")?;
+
+    Ok(())
 }

@@ -5,7 +5,7 @@ authors = ["The Typst Project Developers"]
 edition = "2018"
 
 [features]
-default = ["fs"]
+default = ["fs", "anyhow"]
 fs = ["fontdock/fs"]
 
 [dependencies]
@@ -16,6 +16,7 @@ unicode-xid = "0.2"
 
 # feature = "serde"
 serde = { version = "1", features = ["derive"], optional = true }
+anyhow = { version = "1", optional = true }
 
 [dev-dependencies]
 criterion = "0.3"
@@ -33,7 +34,7 @@ bench = false
 
 [[bin]]
 name = "typst"
-required-features = ["fs"]
+required-features = ["fs", "anyhow"]
 
 [[test]]
 name = "typeset"
