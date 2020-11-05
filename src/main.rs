@@ -22,7 +22,10 @@ fn main() {
 
     let src_path = Path::new(&args[1]);
     let dest_path = if args.len() <= 2 {
-        src_path.with_extension("pdf")
+        let name = src_path
+            .file_name()
+            .expect("source path is not a file");
+        Path::new(name).with_extension("pdf")
     } else {
         PathBuf::from(&args[2])
     };
