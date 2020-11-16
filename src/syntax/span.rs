@@ -60,11 +60,6 @@ impl<T> Spanned<T> {
         Self { v, span: Span::ZERO }
     }
 
-    /// Access the value.
-    pub fn value(self) -> T {
-        self.v
-    }
-
     /// Convert from `&Spanned<T>` to `Spanned<&T>`
     pub fn as_ref(&self) -> Spanned<&T> {
         Spanned { v: &self.v, span: self.span }
