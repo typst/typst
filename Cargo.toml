@@ -10,7 +10,8 @@ fs = ["fontdock/fs"]
 
 [dependencies]
 fontdock = { path = "../fontdock", default-features = false }
-tide = { path = "../tide" }
+pdf-writer = { path = "../pdf-writer" }
+itoa = "0.4"
 ttf-parser = "0.8.2"
 unicode-xid = "0.2"
 

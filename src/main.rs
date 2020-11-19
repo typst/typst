@@ -1,6 +1,5 @@
 use std::cell::RefCell;
-use std::fs::{read_to_string, File};
-use std::io::BufWriter;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -35,7 +34,7 @@ fn main() -> anyhow::Result<()> {
         bail!("Source and destination path are the same.");
     }
 
-    let src = read_to_string(src_path).context("Failed to read from source file.")?;
+    let src = fs::read_to_string(src_path).context("Failed to read from source file.")?;
 
     let mut index = FsIndex::new();
     index.search_dir("fonts");
@@ -72,10 +71,8 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    let loader = loader.borrow();
-    let file = File::create(&dest_path).context("Failed to create output file.")?;
-    let writer = BufWriter::new(file);
-    pdf::export(&layouts, &loader, writer).context("Failed to export pdf.")?;
+    let pdf_data = pdf::export(&layouts, &loader.borrow());
+    fs::write(&dest_path, pdf_data).context("Failed to write PDF file.")?;
 
     Ok(())
 }

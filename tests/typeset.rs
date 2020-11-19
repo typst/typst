@@ -2,7 +2,6 @@ use std::cell::RefCell;
 use std::env;
 use std::ffi::OsStr;
 use std::fs::{self, File};
-use std::io::BufWriter;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -135,8 +134,8 @@ fn test(src_path: &Path, pdf_path: &Path, png_path: &Path, loader: &SharedFontLo
     let surface = render(&layouts, &loader, 3.0);
     surface.write_png(png_path).unwrap();
 
-    let file = BufWriter::new(File::create(pdf_path).unwrap());
-    pdf::export(&layouts, &loader, file).unwrap();
+    let pdf_data = pdf::export(&layouts, &loader);
+    fs::write(pdf_path, pdf_data).unwrap();
 }
 
 struct TestFilter {

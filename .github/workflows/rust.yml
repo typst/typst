@@ -29,12 +29,12 @@ jobs:
           token: ${{ secrets.TYPSTC_ACTION_TOKEN }}
           path: fontdock
 
-      - name: Checkout tide
+      - name: Checkout pdf-writer
         uses: actions/checkout@v2
         with:
-          repository: typst/tide
+          repository: typst/pdf-writer
           token: ${{ secrets.TYPSTC_ACTION_TOKEN }}
-          path: tide
+          path: pdf-writer
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
