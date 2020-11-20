@@ -2,6 +2,7 @@
 
 mod document;
 mod fixed;
+mod graphics;
 mod node;
 mod pad;
 mod par;
@@ -9,12 +10,15 @@ mod spacing;
 mod stack;
 mod text;
 
+use image::RgbaImage;
+
 use crate::font::SharedFontLoader;
 use crate::geom::*;
 use crate::shaping::Shaped;
 
 pub use document::*;
 pub use fixed::*;
+pub use graphics::*;
 pub use node::*;
 pub use pad::*;
 pub use par::*;
@@ -179,4 +183,15 @@ impl BoxLayout {
 pub enum LayoutElement {
     /// Shaped text.
     Text(Shaped),
+    /// An image.
+    Image(ImageElement),
+}
+
+/// An image.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImageElement {
+    /// The image.
+    pub buf: RgbaImage,
+    /// The document size of the image.
+    pub size: Size,
 }

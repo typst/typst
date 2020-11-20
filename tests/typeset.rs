@@ -15,21 +15,23 @@ use typst::eval::State;
 use typst::export::pdf;
 use typst::font::{FontLoader, SharedFontLoader};
 use typst::geom::{Length, Point};
-use typst::layout::{BoxLayout, LayoutElement};
+use typst::layout::{BoxLayout, ImageElement, LayoutElement};
 use typst::parse::LineMap;
 use typst::shaping::Shaped;
 use typst::typeset;
 
-const FONT_DIR: &str = "fonts";
-const TYP_DIR: &str = "tests/typ";
-const PDF_DIR: &str = "tests/pdf";
-const PNG_DIR: &str = "tests/png";
-const REF_DIR: &str = "tests/ref";
+const FONT_DIR: &str = "../fonts";
+const TYP_DIR: &str = "typ";
+const PDF_DIR: &str = "pdf";
+const PNG_DIR: &str = "png";
+const REF_DIR: &str = "ref";
 
 const BLACK: SolidSource = SolidSource { r: 0, g: 0, b: 0, a: 255 };
 const WHITE: SolidSource = SolidSource { r: 255, g: 255, b: 255, a: 255 };
 
 fn main() {
+    env::set_current_dir(env::current_dir().unwrap().join("tests")).unwrap();
+
     let filter = TestFilter::new(env::args().skip(1));
     let mut filtered = Vec::new();
 
@@ -131,7 +133,7 @@ fn test(src_path: &Path, pdf_path: &Path, png_path: &Path, loader: &SharedFontLo
 
     let loader = loader.borrow();
 
-    let surface = render(&layouts, &loader, 3.0);
+    let surface = render(&layouts, &loader, 2.0);
     surface.write_png(png_path).unwrap();
 
     let pdf_data = pdf::export(&layouts, &loader);
@@ -197,14 +199,15 @@ fn render(layouts: &[BoxLayout], loader: &FontLoader, scale: f64) -> DrawTarget 
         );
 
         for &(pos, ref element) in &layout.elements {
+            let pos = scale * pos + offset;
+
             match element {
-                LayoutElement::Text(shaped) => render_shaped(
-                    &mut surface,
-                    loader,
-                    shaped,
-                    scale * pos + offset,
-                    scale,
-                ),
+                LayoutElement::Text(shaped) => {
+                    render_shaped(&mut surface, loader, shaped, pos, scale)
+                }
+                LayoutElement::Image(image) => {
+                    render_image(&mut surface, image, pos, scale)
+                }
             }
         }
 
@@ -242,6 +245,32 @@ fn render_shaped(
             &Default::default(),
         )
     }
+}
+
+fn render_image(surface: &mut DrawTarget, image: &ImageElement, pos: Point, scale: f64) {
+    let mut data = vec![];
+    for pixel in image.buf.pixels() {
+        let [r, g, b, a] = pixel.0;
+        data.push(
+            ((a as u32) << 24)
+                | ((r as u32) << 16)
+                | ((g as u32) << 8)
+                | ((b as u32) << 0),
+        );
+    }
+
+    surface.draw_image_with_size_at(
+        (scale * image.size.width.to_pt()) as f32,
+        (scale * image.size.height.to_pt()) as f32,
+        pos.x.to_pt() as f32,
+        pos.y.to_pt() as f32,
+        &raqote::Image {
+            width: image.buf.dimensions().0 as i32,
+            height: image.buf.dimensions().1 as i32,
+            data: &data,
+        },
+        &Default::default(),
+    );
 }
 
 struct WrappedPathBuilder(PathBuilder);

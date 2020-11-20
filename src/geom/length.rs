@@ -142,6 +142,14 @@ impl Div<f64> for Length {
     }
 }
 
+impl Div for Length {
+    type Output = f64;
+
+    fn div(self, other: Self) -> f64 {
+        self.raw / other.raw
+    }
+}
+
 assign_impl!(Length += Length);
 assign_impl!(Length -= Length);
 assign_impl!(Length *= f64);

@@ -11,6 +11,7 @@ fs = ["fontdock/fs"]
 [dependencies]
 fontdock = { path = "../fontdock", default-features = false }
 pdf-writer = { path = "../pdf-writer" }
+image = { version = "0.23", default-features = false, features = ["jpeg", "png"] }
 itoa = "0.4"
 ttf-parser = "0.8.2"
 unicode-xid = "0.2"
@@ -24,7 +25,7 @@ criterion = "0.3"
 memmap = "0.7"
 raqote = { version = "0.8", default-features = false }
 
-[profile.dev.package."*"]
+[profile.dev]
 opt-level = 2
 
 [profile.release]

@@ -148,6 +148,10 @@ impl<'a> PdfExporter<'a> {
                     text = text.tm(1.0, 0.0, 0.0, 1.0, x as f32, y as f32);
                     text = text.tj(&shaped.encode_glyphs_be());
                 }
+
+                LayoutElement::Image(_image) => {
+                    // TODO: Write image.
+                }
             }
         }
 
@@ -280,12 +284,13 @@ fn remap_fonts(layouts: &[BoxLayout]) -> (HashMap<FaceId, usize>, Vec<FaceId>) {
     // each text element to find out which face is uses.
     for layout in layouts {
         for (_, element) in &layout.elements {
-            let LayoutElement::Text(shaped) = element;
-            to_pdf.entry(shaped.face).or_insert_with(|| {
-                let next_id = to_layout.len();
-                to_layout.push(shaped.face);
-                next_id
-            });
+            if let LayoutElement::Text(shaped) = element {
+                to_pdf.entry(shaped.face).or_insert_with(|| {
+                    let next_id = to_layout.len();
+                    to_layout.push(shaped.face);
+                    next_id
+                });
+            }
         }
     }
 
