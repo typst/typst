@@ -85,10 +85,7 @@ macro_rules! convert_ident {
     };
 }
 
-/// A value type that matches [identifier] and [string] values.
-///
-/// [identifier]: enum.Value.html#variant.Ident
-/// [string]: enum.Value.html#variant.Str
+/// A value type that matches [identifier](Value::Ident) and [string](Value::Str) values.
 pub struct StringLike(pub String);
 
 impl From<StringLike> for String {

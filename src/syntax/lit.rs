@@ -21,9 +21,7 @@ pub enum Lit {
     /// A percent literal: `50%`.
     ///
     /// _Note_: `50%` is stored as `50.0` here, but as `0.5` in the
-    /// corresponding [value].
-    ///
-    /// [value]: ../../geom/struct.Relative.html
+    /// corresponding [value](crate::geom::Relative).
     Percent(f64),
     /// A color literal: `#ffccee`.
     Color(RgbaColor),

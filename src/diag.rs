@@ -7,9 +7,7 @@
 use crate::syntax::SpanVec;
 use std::fmt::{self, Display, Formatter};
 
-/// The result of some pass: Some output `T` and [feedback] data.
-///
-/// [feedback]: struct.Feedback.html
+/// The result of some pass: Some output `T` and [`Feedback`] data.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Pass<T> {
     /// The output of this compilation pass.
@@ -118,7 +116,7 @@ pub enum Deco {
     DictKey,
 }
 
-/// Construct a diagnostic with [`Error`] level.
+/// Construct a diagnostic with [`Error`](Level::Error) level.
 ///
 /// ```
 /// # use typst::error;
@@ -131,8 +129,6 @@ pub enum Deco {
 /// // Create spanned errors.
 /// let spanned = error!(span, "there is an error here");
 /// ```
-///
-/// [`Error`]: diag/enum.Level.html#variant.Error
 #[macro_export]
 macro_rules! error {
     ($($tts:tt)*) => {
@@ -140,12 +136,10 @@ macro_rules! error {
     };
 }
 
-/// Construct a diagnostic with [`Warning`] level.
+/// Construct a diagnostic with [`Warning`](Level::Warning) level.
 ///
 /// This works exactly like `error!`. See its documentation for more
 /// information.
-///
-/// [`Warning`]: diag/enum.Level.html#variant.Warning
 #[macro_export]
 macro_rules! warning {
     ($($tts:tt)*) => {

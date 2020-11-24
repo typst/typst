@@ -134,7 +134,6 @@ pub type ValueDict = Dict<SpannedEntry<Value>>;
 ///         [`Value`] when directly putting the `Rc` in there, see the [Rust
 ///         Issue].
 ///
-/// [`Value`]: enum.Value.html
 /// [Rust Issue]: https://github.com/rust-lang/rust/issues/31740
 #[derive(Clone)]
 pub struct ValueFunc(pub Rc<Func>);

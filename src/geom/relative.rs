@@ -3,9 +3,7 @@ use super::*;
 /// A relative length.
 ///
 /// _Note_: `50%` is represented as `0.5` here, but stored as `50.0` in the
-/// corresponding [literal].
-///
-/// [literal]: ../syntax/ast/enum.Lit.html#variant.Percent
+/// corresponding [literal](crate::syntax::Lit::Percent).
 #[derive(Default, Copy, Clone, PartialEq, PartialOrd)]
 pub struct Relative(f64);
 

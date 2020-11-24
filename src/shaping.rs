@@ -59,8 +59,6 @@ impl Debug for Shaped {
 }
 
 /// Shape text into a box containing [`Shaped`] runs.
-///
-/// [`Shaped`]: struct.Shaped.html
 pub fn shape(
     loader: &mut FontLoader,
     text: &str,

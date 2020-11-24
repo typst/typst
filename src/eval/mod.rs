@@ -91,8 +91,6 @@ impl EvalContext {
     /// Push a layout node to the active group.
     ///
     /// Spacing nodes will be handled according to their [`Softness`].
-    ///
-    /// [`Softness`]: ../layout/nodes/enum.Softness.html
     pub fn push(&mut self, node: impl Into<LayoutNode>) {
         let node = node.into();
 
@@ -196,21 +194,16 @@ impl EvalContext {
 
     /// Start a layouting group.
     ///
-    /// All further calls to [`push`] will collect nodes for this group.
+    /// All further calls to [`push`](Self::push) will collect nodes for this group.
     /// The given metadata will be returned alongside the collected nodes
-    /// in a matching call to [`end_group`].
-    ///
-    /// [`push`]: #method.push
-    /// [`end_group`]: #method.end_group
+    /// in a matching call to [`end_group`](Self::end_group).
     fn start_group<T: 'static>(&mut self, meta: T) {
         self.groups.push((Box::new(meta), std::mem::take(&mut self.inner)));
     }
 
-    /// End a layouting group started with [`start_group`].
+    /// End a layouting group started with [`start_group`](Self::start_group).
     ///
     /// This returns the stored metadata and the collected nodes.
-    ///
-    /// [`start_group`]: #method.start_group
     fn end_group<T: 'static>(&mut self) -> (T, Vec<LayoutNode>) {
         if let Some(&LayoutNode::Spacing(spacing)) = self.inner.last() {
             if spacing.softness == Softness::Soft {

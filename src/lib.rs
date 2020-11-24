@@ -3,30 +3,26 @@
 //! # Steps
 //! - **Parsing:** The parsing step first transforms a plain string into an
 //!   [iterator of tokens][tokens]. This token stream is [parsed] into a [syntax
-//!   tree]. The structures describing the tree can be found in the [AST]
+//!   tree]. The structures describing the tree can be found in the [syntax]
 //!   module.
 //! - **Evaluation:** The next step is to [evaluate] the parsed "script" to a
-//!   [document], a high-level, fully styled representation. The [nodes] of the
+//!   [document], a high-level, fully styled representation. The nodes of the
 //!   document tree are fully self-contained and order-independent and thus much
 //!   better suited for layouting than the syntax tree.
 //! - **Layouting:** The next step is to [layout] the document into a portable
 //!   version of the typeset document. The output of this is a vector of
-//!   [`BoxLayouts`] (corresponding to pages), ready for exporting.
+//!   [`BoxLayout`]s (corresponding to pages), ready for exporting.
 //! - **Exporting:** The finished layout can be exported into a supported
 //!   format. Submodules for these formats are located in the [export] module.
 //!   Currently, the only supported output format is [_PDF_].
 //!
-//! [tokens]: parse/struct.Tokens.html
-//! [parsed]: parse/fn.parse.html
-//! [syntax tree]: syntax/ast/type.SynTree.html
-//! [AST]: syntax/ast/index.html
-//! [evaluate]: eval/fn.eval.html
-//! [document]: layout/nodes/struct.Document.html
-//! [nodes]: layout/nodes/index.html
-//! [layout]: layout/fn.layout.html
-//! [`BoxLayouts`]: layout/struct.BoxLayout.html
-//! [export]: export/index.html
-//! [_PDF_]: export/pdf/index.html
+//! [tokens]: parse::Tokens
+//! [parsed]: parse::parse
+//! [syntax tree]: syntax::SynTree
+//! [evaluate]: eval::eval
+//! [document]: layout::Document
+//! [layout]: layout::layout
+//! [_PDF_]: export::pdf
 
 #[macro_use]
 pub mod diag;

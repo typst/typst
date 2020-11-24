@@ -76,9 +76,7 @@ pub enum Token<'s> {
     /// A percentage: `50%`.
     ///
     /// _Note_: `50%` is stored as `50.0` here, as in the corresponding
-    /// [literal].
-    ///
-    /// [literal]: ../ast/enum.Lit.html#variant.Percent
+    /// [literal](super::Lit::Percent).
     Percent(f64),
     /// A hex value: `#20d82a`.
     Hex(&'s str),

@@ -23,9 +23,7 @@ impl Document {
 pub struct Pages {
     /// The size of the pages.
     pub size: Size,
-    /// The layout node that produces the actual pages (typically a [stack]).
-    ///
-    /// [stack]: struct.Stack.html
+    /// The layout node that produces the actual pages (typically a [`Stack`]).
     pub child: LayoutNode,
 }
 

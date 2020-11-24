@@ -18,8 +18,7 @@ use crate::layout::{BoxLayout, LayoutElement};
 /// pass in the font loader used for typesetting such that the fonts can be
 /// included in the _PDF_.
 ///
-/// The raw _PDF_ is written into the `target` writable, returning the number of
-/// bytes written.
+/// Returns the raw bytes making up the _PDF_ document.
 pub fn export(layouts: &[BoxLayout], loader: &FontLoader) -> Vec<u8> {
     PdfExporter::new(layouts, loader).write()
 }

@@ -50,7 +50,6 @@ impl Debug for LayoutNode {
 ///         [`LayoutNode`] when directly putting the `Box` in there, see the
 ///         [Rust Issue].
 ///
-/// [`LayoutNode`]: enum.LayoutNode.html
 /// [Rust Issue]: https://github.com/rust-lang/rust/issues/31740
 pub struct Dynamic(pub Box<dyn DynNode>);
 
@@ -102,8 +101,6 @@ impl PartialEq for Dynamic {
 /// DynNode>` able to implement `Clone` and `PartialEq`. However, these are
 /// automatically provided by a blanket impl as long as the type in question
 /// implements[`Layout`],  `Debug`, `PartialEq`, `Clone` and is `'static`.
-///
-/// [`Layout`]: ../trait.Layout.html
 pub trait DynNode: Debug + Layout + 'static {
     /// Convert into a `dyn Any` to enable downcasting.
     fn as_any(&self) -> &dyn Any;

@@ -124,9 +124,7 @@ impl Expansion {
     }
 }
 
-/// The result of [layouting] a node.
-///
-/// [layouting]: trait.Layout.html#method.layout
+/// The result of [layouting](Layout::layout) a node.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Layouted {
     /// Spacing that should be added to the parent.

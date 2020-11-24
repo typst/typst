@@ -28,10 +28,8 @@ impl Args {
         })
     }
 
-    /// This is the same as [`get`], except that it generates an error about a
+    /// This is the same as [`get`](Self::get), except that it generates an error about a
     /// missing argument with the given `name` if the key does not exist.
-    ///
-    /// [`get`]: #method.get
     pub fn need<'a, K, T>(
         &mut self,
         ctx: &mut EvalContext,

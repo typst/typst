@@ -7,10 +7,8 @@ use super::*;
 pub struct Spacing {
     /// The amount of spacing to insert.
     pub amount: Length,
-    /// Spacing interaction, see [Softness's] documentation for more
+    /// Spacing interaction, see [`Softness`]'s documentation for more
     /// information.
-    ///
-    /// [Softness's]: enum.Softness.html
     pub softness: Softness,
 }
 
