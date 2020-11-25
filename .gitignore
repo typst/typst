@@ -2,6 +2,7 @@
 /target
 **/*.rs.bk
 Cargo.lock
+bench/target
 tests/png
 tests/pdf
 _things

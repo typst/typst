@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["The Typst Project Developers"]
 edition = "2018"
 
+[workspace]
+members = ["bench"]
+
 [features]
 default = ["fs", "anyhow"]
 fs = ["fontdock/fs"]
@@ -23,7 +26,6 @@ serde = { version = "1", features = ["derive"], optional = true }
 anyhow = { version = "1", optional = true }
 
 [dev-dependencies]
-criterion = "0.3"
 memmap = "0.7"
 tiny-skia = "0.2"
 
@@ -33,19 +35,11 @@ opt-level = 2
 [profile.release]
 lto = true
 
-[lib]
-bench = false
-
 [[bin]]
 name = "typst"
 required-features = ["fs", "anyhow"]
 
 [[test]]
 name = "typeset"
-required-features = ["fs"]
-harness = false
-
-[[bench]]
-name = "benchmarks"
 required-features = ["fs"]
 harness = false

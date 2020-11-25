@@ -1,0 +1,16 @@
+[package]
+name = "typst-bench"
+version = "0.0.1"
+authors = ["The Typst Project Developers"]
+edition = "2018"
+publish = false
+
+[dependencies]
+fontdock = { path = "../../fontdock" }
+typst = { path = ".." }
+criterion = "0.3"
+
+[[bench]]
+name = "typst"
+path = "src/bench.rs"
+harness = false
