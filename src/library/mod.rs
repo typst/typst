@@ -1,20 +1,12 @@
 //! The standard library.
 
-mod align;
-mod boxed;
-mod color;
-mod font;
-mod graphics;
-mod page;
-mod spacing;
+mod insert;
+mod layout;
+mod style;
 
-pub use align::*;
-pub use boxed::*;
-pub use color::*;
-pub use font::*;
-pub use graphics::*;
-pub use page::*;
-pub use spacing::*;
+pub use insert::*;
+pub use layout::*;
+pub use style::*;
 
 use crate::eval::{Scope, ValueFunc};
 

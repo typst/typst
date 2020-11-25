@@ -1,8 +1,6 @@
 //! Layouting of documents.
 
-mod document;
 mod fixed;
-mod graphics;
 mod node;
 mod pad;
 mod par;
@@ -16,9 +14,7 @@ use crate::font::SharedFontLoader;
 use crate::geom::*;
 use crate::shaping::Shaped;
 
-pub use document::*;
 pub use fixed::*;
-pub use graphics::*;
 pub use node::*;
 pub use pad::*;
 pub use par::*;
@@ -192,4 +188,36 @@ pub struct ImageElement {
     pub buf: RgbaImage,
     /// The document size of the image.
     pub size: Size,
+}
+
+/// The top-level layout node.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Document {
+    /// The runs of pages with same properties.
+    pub runs: Vec<Pages>,
+}
+
+impl Document {
+    /// Layout the document.
+    pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<BoxLayout> {
+        self.runs.iter().flat_map(|run| run.layout(ctx)).collect()
+    }
+}
+
+/// A variable-length run of pages that all have the same properties.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Pages {
+    /// The size of each page.
+    pub size: Size,
+    /// The layout node that produces the actual pages (typically a [`Stack`]).
+    pub child: LayoutNode,
+}
+
+impl Pages {
+    /// Layout the page run.
+    pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<BoxLayout> {
+        let areas = Areas::repeat(self.size);
+        let layouted = self.child.layout(ctx, &areas);
+        layouted.into_layouts()
+    }
 }

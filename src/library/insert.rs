@@ -1,18 +1,59 @@
 use std::fmt::{self, Debug, Formatter};
+use std::fs::File;
+use std::io::BufReader;
 
-use super::*;
+use image::io::Reader;
+use image::RgbaImage;
+
+use crate::layout::*;
+use crate::prelude::*;
+
+/// `image`: Insert an image.
+///
+/// # Positional arguments
+/// - The path to the image (string)
+pub fn image(mut args: Args, ctx: &mut EvalContext) -> Value {
+    let path = args.need::<_, Spanned<String>>(ctx, 0, "path");
+    let width = args.get::<_, Linear>(ctx, "width");
+    let height = args.get::<_, Linear>(ctx, "height");
+
+    if let Some(path) = path {
+        if let Ok(file) = File::open(path.v) {
+            match Reader::new(BufReader::new(file))
+                .with_guessed_format()
+                .map_err(|err| err.into())
+                .and_then(|reader| reader.decode())
+                .map(|img| img.into_rgba8())
+            {
+                Ok(buf) => {
+                    ctx.push(Image {
+                        buf,
+                        width,
+                        height,
+                        align: ctx.state.align,
+                    });
+                }
+                Err(err) => ctx.diag(error!(path.span, "invalid image: {}", err)),
+            }
+        } else {
+            ctx.diag(error!(path.span, "failed to open image file"));
+        }
+    }
+
+    Value::None
+}
 
 /// An image node.
 #[derive(Clone, PartialEq)]
-pub struct Image {
+struct Image {
     /// The image.
-    pub buf: RgbaImage,
+    buf: RgbaImage,
     /// The fixed width, if any.
-    pub width: Option<Linear>,
+    width: Option<Linear>,
     /// The fixed height, if any.
-    pub height: Option<Linear>,
+    height: Option<Linear>,
     /// How to align this image node in its parent.
-    pub align: BoxAlign,
+    align: BoxAlign,
 }
 
 impl Layout for Image {

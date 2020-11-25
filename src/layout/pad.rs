@@ -29,6 +29,12 @@ impl Layout for Pad {
     }
 }
 
+impl From<Pad> for LayoutNode {
+    fn from(pad: Pad) -> Self {
+        Self::dynamic(pad)
+    }
+}
+
 /// Shrink all areas by the padding.
 fn shrink_areas(areas: &Areas, padding: Sides<Linear>) -> Areas {
     let shrink = |size| size - padding.resolve(size).size();
@@ -50,11 +56,5 @@ fn pad_layout(layout: &mut BoxLayout, padding: Sides<Linear>) {
     layout.size += padding.size();
     for (point, _) in &mut layout.elements {
         *point += origin;
-    }
-}
-
-impl From<Pad> for LayoutNode {
-    fn from(pad: Pad) -> Self {
-        Self::dynamic(pad)
     }
 }

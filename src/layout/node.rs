@@ -74,12 +74,6 @@ impl Debug for Dynamic {
     }
 }
 
-impl From<Dynamic> for LayoutNode {
-    fn from(dynamic: Dynamic) -> Self {
-        Self::Dyn(dynamic)
-    }
-}
-
 impl Clone for Dynamic {
     fn clone(&self) -> Self {
         Self(self.0.dyn_clone())
@@ -89,6 +83,12 @@ impl Clone for Dynamic {
 impl PartialEq for Dynamic {
     fn eq(&self, other: &Self) -> bool {
         self.0.dyn_eq(other.0.as_ref())
+    }
+}
+
+impl From<Dynamic> for LayoutNode {
+    fn from(dynamic: Dynamic) -> Self {
+        Self::Dyn(dynamic)
     }
 }
 

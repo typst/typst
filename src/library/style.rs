@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
+use crate::color::RgbaColor;
 use crate::eval::StringLike;
 use crate::geom::Linear;
 use crate::prelude::*;
@@ -9,8 +10,14 @@ use crate::prelude::*;
 /// `font`: Configure the font.
 ///
 /// # Positional arguments
-/// - The font size (optional, length or relative to previous font size).
-/// - A font family fallback list (optional, identifiers or strings).
+/// - The font size (optional, length or relative to current font size).
+/// - All identifier and string arguments are interpreted as an ordered list of
+///   fallback font families.
+///
+/// An example invocation could look like this:
+/// ```typst
+/// [font: 12pt, Arial, "Noto Sans", sans-serif]
+/// ```
 ///
 /// # Keyword arguments
 /// - `style`
@@ -28,7 +35,7 @@ use crate::prelude::*;
 ///     - `bold`               (`700`)
 ///     - `extrabold`          (`800`)
 ///     - `black`              (`900`)
-///     - any integer from the range `100` - `900` (inclusive)
+///     - integer between `100` and `900`
 ///
 /// - `stretch`
 ///     - `ultra-condensed`
@@ -105,4 +112,35 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
     }
 
     Value::None
+}
+
+/// `rgb`: Create an RGB(A) color.
+///
+/// # Positional arguments
+/// - The red component (integer between 0 and 255).
+/// - The green component (integer between 0 and 255).
+/// - The blue component (integer between 0 and 255).
+/// - The alpha component (optional, integer between 0 and 255).
+pub fn rgb(mut args: Args, ctx: &mut EvalContext) -> Value {
+    let r = args.need::<_, Spanned<i64>>(ctx, 0, "red value");
+    let g = args.need::<_, Spanned<i64>>(ctx, 1, "green value");
+    let b = args.need::<_, Spanned<i64>>(ctx, 2, "blue value");
+    let a = args.get::<_, Spanned<i64>>(ctx, 3);
+    args.done(ctx);
+
+    let mut clamp = |component: Option<Spanned<i64>>, default| {
+        component.map_or(default, |c| {
+            if c.v < 0 || c.v > 255 {
+                ctx.diag(error!(c.span, "should be between 0 and 255"));
+            }
+            c.v.max(0).min(255) as u8
+        })
+    };
+
+    Value::Color(RgbaColor::new(
+        clamp(r, 0),
+        clamp(g, 0),
+        clamp(b, 0),
+        clamp(a, 255),
+    ))
 }
