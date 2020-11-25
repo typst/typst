@@ -7,7 +7,10 @@ use std::rc::Rc;
 
 use fontdock::fs::{FsIndex, FsSource};
 use memmap::Mmap;
-use raqote::{DrawTarget, PathBuilder, SolidSource, Source, Transform, Vector};
+use tiny_skia::{
+    Canvas, Color, ColorU8, FillRule, FilterQuality, Paint, PathBuilder, Pattern, Pixmap,
+    Rect, SpreadMode, Transform,
+};
 use ttf_parser::OutlineBuilder;
 
 use typst::diag::{Feedback, Pass};
@@ -25,9 +28,6 @@ const TYP_DIR: &str = "typ";
 const PDF_DIR: &str = "pdf";
 const PNG_DIR: &str = "png";
 const REF_DIR: &str = "ref";
-
-const BLACK: SolidSource = SolidSource { r: 0, g: 0, b: 0, a: 255 };
-const WHITE: SolidSource = SolidSource { r: 255, g: 255, b: 255, a: 255 };
 
 fn main() {
     env::set_current_dir(env::current_dir().unwrap().join("tests")).unwrap();
@@ -133,8 +133,8 @@ fn test(src_path: &Path, pdf_path: &Path, png_path: &Path, loader: &SharedFontLo
 
     let loader = loader.borrow();
 
-    let surface = render(&layouts, &loader, 2.0);
-    surface.write_png(png_path).unwrap();
+    let canvas = draw(&layouts, &loader, 2.0);
+    canvas.pixmap.save_png(png_path).unwrap();
 
     let pdf_data = pdf::export(&layouts, &loader);
     fs::write(pdf_path, pdf_data).unwrap();
@@ -170,106 +170,107 @@ impl TestFilter {
     }
 }
 
-fn render(layouts: &[BoxLayout], loader: &FontLoader, scale: f64) -> DrawTarget {
-    let pad = Length::pt(scale * 10.0);
+fn draw(layouts: &[BoxLayout], loader: &FontLoader, pixel_per_pt: f32) -> Canvas {
+    let pad = Length::pt(5.0);
+
+    let height = pad + layouts.iter().map(|l| l.size.height + pad).sum::<Length>();
     let width = 2.0 * pad
         + layouts
             .iter()
-            .map(|l| scale * l.size.width)
+            .map(|l| l.size.width)
             .max_by(|a, b| a.partial_cmp(&b).unwrap())
             .unwrap();
 
-    let height =
-        pad + layouts.iter().map(|l| scale * l.size.height + pad).sum::<Length>();
+    let pixel_width = (pixel_per_pt * width.to_pt() as f32) as u32;
+    let pixel_height = (pixel_per_pt * height.to_pt() as f32) as u32;
+    let mut canvas = Canvas::new(pixel_width, pixel_height).unwrap();
+    canvas.scale(pixel_per_pt, pixel_per_pt);
+    canvas.pixmap.fill(Color::BLACK);
 
-    let int_width = width.to_pt().round() as i32;
-    let int_height = height.to_pt().round() as i32;
-    let mut surface = DrawTarget::new(int_width, int_height);
-    surface.clear(BLACK);
-
-    let mut offset = Point::new(pad, pad);
+    let mut origin = Point::new(pad, pad);
     for layout in layouts {
-        surface.fill_rect(
-            offset.x.to_pt() as f32,
-            offset.y.to_pt() as f32,
-            (scale * layout.size.width).to_pt() as f32,
-            (scale * layout.size.height).to_pt() as f32,
-            &Source::Solid(WHITE),
-            &Default::default(),
+        let mut paint = Paint::default();
+        paint.set_color(Color::WHITE);
+
+        canvas.fill_rect(
+            Rect::from_xywh(
+                origin.x.to_pt() as f32,
+                origin.y.to_pt() as f32,
+                layout.size.width.to_pt() as f32,
+                layout.size.height.to_pt() as f32,
+            )
+            .unwrap(),
+            &paint,
         );
 
         for &(pos, ref element) in &layout.elements {
-            let pos = scale * pos + offset;
-
+            let pos = origin + pos;
             match element {
                 LayoutElement::Text(shaped) => {
-                    render_shaped(&mut surface, loader, shaped, pos, scale)
+                    draw_text(&mut canvas, loader, shaped, pos)
                 }
-                LayoutElement::Image(image) => {
-                    render_image(&mut surface, image, pos, scale)
-                }
+                LayoutElement::Image(image) => draw_image(&mut canvas, image, pos),
             }
         }
 
-        offset.y += scale * layout.size.height + pad;
+        origin.y += layout.size.height + pad;
     }
 
-    surface
+    canvas
 }
 
-fn render_shaped(
-    surface: &mut DrawTarget,
-    loader: &FontLoader,
-    shaped: &Shaped,
-    pos: Point,
-    scale: f64,
-) {
+fn draw_text(canvas: &mut Canvas, loader: &FontLoader, shaped: &Shaped, pos: Point) {
     let face = loader.get_loaded(shaped.face).get();
 
     for (&glyph, &offset) in shaped.glyphs.iter().zip(&shaped.offsets) {
+        let units_per_em = face.units_per_em().unwrap_or(1000);
+
+        let x = (pos.x + offset).to_pt() as f32;
+        let y = (pos.y + shaped.font_size).to_pt() as f32;
+        let scale = (shaped.font_size / units_per_em as f64).to_pt() as f32;
+
         let mut builder = WrappedPathBuilder(PathBuilder::new());
         face.outline_glyph(glyph, &mut builder);
-        let path = builder.0.finish();
 
-        let units_per_em = face.units_per_em().unwrap_or(1000);
-        let s = scale * (shaped.font_size / units_per_em as f64);
-        let x = pos.x + scale * offset;
-        let y = pos.y + scale * shaped.font_size;
+        let path = builder.0.finish().unwrap();
+        let placed = path
+            .transform(&Transform::from_row(scale, 0.0, 0.0, -scale, x, y).unwrap())
+            .unwrap();
 
-        let t = Transform::create_scale(s.to_pt() as f32, -s.to_pt() as f32)
-            .post_translate(Vector::new(x.to_pt() as f32, y.to_pt() as f32));
+        let mut paint = Paint::default();
+        paint.anti_alias = true;
 
-        surface.fill(
-            &path.transform(&t),
-            &Source::Solid(SolidSource { r: 0, g: 0, b: 0, a: 255 }),
-            &Default::default(),
-        )
+        canvas.fill_path(&placed, &paint, FillRule::default());
     }
 }
 
-fn render_image(surface: &mut DrawTarget, image: &ImageElement, pos: Point, scale: f64) {
-    let mut data = vec![];
-    for pixel in image.buf.pixels() {
-        let [r, g, b, a] = pixel.0;
-        data.push(
-            ((a as u32) << 24)
-                | ((r as u32) << 16)
-                | ((g as u32) << 8)
-                | ((b as u32) << 0),
-        );
+fn draw_image(canvas: &mut Canvas, image: &ImageElement, pos: Point) {
+    let mut pixmap = Pixmap::new(image.buf.width(), image.buf.height()).unwrap();
+    for (src, dest) in image.buf.pixels().zip(pixmap.pixels_mut()) {
+        let [r, g, b, a] = src.0;
+        *dest = ColorU8::from_rgba(r, g, b, a).premultiply();
     }
 
-    surface.draw_image_with_size_at(
-        (scale * image.size.width.to_pt()) as f32,
-        (scale * image.size.height.to_pt()) as f32,
-        pos.x.to_pt() as f32,
-        pos.y.to_pt() as f32,
-        &raqote::Image {
-            width: image.buf.dimensions().0 as i32,
-            height: image.buf.dimensions().1 as i32,
-            data: &data,
-        },
-        &Default::default(),
+    let view_width = image.size.width.to_pt() as f32;
+    let view_height = image.size.height.to_pt() as f32;
+
+    let x = pos.x.to_pt() as f32;
+    let y = pos.y.to_pt() as f32;
+    let scale_x = view_width as f32 / pixmap.width() as f32;
+    let scale_y = view_height as f32 / pixmap.height() as f32;
+
+    let mut paint = Paint::default();
+    paint.shader = Pattern::new(
+        &pixmap,
+        SpreadMode::Pad,
+        FilterQuality::Bilinear,
+        1.0,
+        Transform::from_row(scale_x, 0.0, 0.0, scale_y, x, y).unwrap(),
+    );
+
+    canvas.fill_rect(
+        Rect::from_xywh(x, y, view_width, view_height).unwrap(),
+        &paint,
     );
 }
 

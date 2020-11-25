@@ -12,6 +12,8 @@ use crate::prelude::*;
 ///
 /// # Positional arguments
 /// - The path to the image (string)
+///
+/// Supports PNG and JPEG files.
 pub fn image(mut args: Args, ctx: &mut EvalContext) -> Value {
     let path = args.need::<_, Spanned<String>>(ctx, 0, "path");
     let width = args.get::<_, Linear>(ctx, "width");
@@ -92,7 +94,11 @@ impl Layout for Image {
 
 impl Debug for Image {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("Image")
+        f.debug_struct("Image")
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .field("align", &self.align)
+            .finish()
     }
 }
 
