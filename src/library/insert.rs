@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::BufReader;
 
 use image::io::Reader;
-use image::RgbaImage;
+use image::RgbImage;
 
 use crate::layout::*;
 use crate::prelude::*;
@@ -25,7 +25,7 @@ pub fn image(mut args: Args, ctx: &mut EvalContext) -> Value {
                 .with_guessed_format()
                 .map_err(|err| err.into())
                 .and_then(|reader| reader.decode())
-                .map(|img| img.into_rgba8())
+                .map(|img| img.into_rgb8())
             {
                 Ok(buf) => {
                     ctx.push(Image {
@@ -49,7 +49,7 @@ pub fn image(mut args: Args, ctx: &mut EvalContext) -> Value {
 #[derive(Clone, PartialEq)]
 struct Image {
     /// The image.
-    buf: RgbaImage,
+    buf: RgbImage,
     /// The fixed width, if any.
     width: Option<Linear>,
     /// The fixed height, if any.

@@ -247,8 +247,8 @@ fn draw_text(canvas: &mut Canvas, loader: &FontLoader, shaped: &Shaped, pos: Poi
 fn draw_image(canvas: &mut Canvas, image: &ImageElement, pos: Point) {
     let mut pixmap = Pixmap::new(image.buf.width(), image.buf.height()).unwrap();
     for (src, dest) in image.buf.pixels().zip(pixmap.pixels_mut()) {
-        let [r, g, b, a] = src.0;
-        *dest = ColorU8::from_rgba(r, g, b, a).premultiply();
+        let [r, g, b] = src.0;
+        *dest = ColorU8::from_rgba(r, g, b, 255).premultiply();
     }
 
     let view_width = image.size.width.to_pt() as f32;

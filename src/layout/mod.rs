@@ -8,7 +8,7 @@ mod spacing;
 mod stack;
 mod text;
 
-use image::RgbaImage;
+use image::RgbImage;
 
 use crate::font::SharedFontLoader;
 use crate::geom::*;
@@ -185,7 +185,7 @@ pub enum LayoutElement {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageElement {
     /// The image.
-    pub buf: RgbaImage,
+    pub buf: RgbImage,
     /// The document size of the image.
     pub size: Size,
 }
