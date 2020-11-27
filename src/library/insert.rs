@@ -1,10 +1,9 @@
-use std::fmt::{self, Debug, Formatter};
-use std::fs::File;
-use std::io::BufReader;
+use std::io::Cursor;
 
 use image::io::Reader;
-use image::RgbImage;
+use image::GenericImageView;
 
+use crate::env::ResourceId;
 use crate::layout::*;
 use crate::prelude::*;
 
@@ -20,25 +19,27 @@ pub fn image(mut args: Args, ctx: &mut EvalContext) -> Value {
     let height = args.get::<_, Linear>(ctx, "height");
 
     if let Some(path) = path {
-        if let Ok(file) = File::open(path.v) {
-            match Reader::new(BufReader::new(file))
+        let mut env = ctx.env.borrow_mut();
+        let loaded = env.resources.load(path.v, |data| {
+            Reader::new(Cursor::new(data))
                 .with_guessed_format()
-                .map_err(|err| err.into())
-                .and_then(|reader| reader.decode())
-                .map(|img| img.into_rgb8())
-            {
-                Ok(buf) => {
-                    ctx.push(Image {
-                        buf,
-                        width,
-                        height,
-                        align: ctx.state.align,
-                    });
-                }
-                Err(err) => ctx.diag(error!(path.span, "invalid image: {}", err)),
-            }
+                .ok()
+                .and_then(|reader| reader.decode().ok())
+        });
+
+        if let Some((resource, buf)) = loaded {
+            let dimensions = buf.dimensions();
+            drop(env);
+            ctx.push(Image {
+                resource,
+                dimensions,
+                width,
+                height,
+                align: ctx.state.align,
+            });
         } else {
-            ctx.diag(error!(path.span, "failed to open image file"));
+            drop(env);
+            ctx.diag(error!(path.span, "failed to load image"));
         }
     }
 
@@ -46,10 +47,12 @@ pub fn image(mut args: Args, ctx: &mut EvalContext) -> Value {
 }
 
 /// An image node.
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 struct Image {
-    /// The image.
-    buf: RgbImage,
+    /// The resource id of the image file.
+    resource: ResourceId,
+    /// The pixel dimensions of the image.
+    dimensions: (u32, u32),
     /// The fixed width, if any.
     width: Option<Linear>,
     /// The fixed height, if any.
@@ -61,8 +64,7 @@ struct Image {
 impl Layout for Image {
     fn layout(&self, _: &mut LayoutContext, areas: &Areas) -> Layouted {
         let Area { rem, full } = areas.current;
-        let (pixel_width, pixel_height) = self.buf.dimensions();
-        let pixel_ratio = (pixel_width as f64) / (pixel_height as f64);
+        let pixel_ratio = (self.dimensions.0 as f64) / (self.dimensions.1 as f64);
 
         let width = self.width.map(|w| w.resolve(full.width));
         let height = self.height.map(|w| w.resolve(full.height));
@@ -85,20 +87,10 @@ impl Layout for Image {
         let mut boxed = BoxLayout::new(size);
         boxed.push(
             Point::ZERO,
-            LayoutElement::Image(ImageElement { buf: self.buf.clone(), size }),
+            LayoutElement::Image(ImageElement { resource: self.resource, size }),
         );
 
         Layouted::Layout(boxed, self.align)
-    }
-}
-
-impl Debug for Image {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("Image")
-            .field("width", &self.width)
-            .field("height", &self.height)
-            .field("align", &self.align)
-            .finish()
     }
 }
 

@@ -8,9 +8,7 @@ mod spacing;
 mod stack;
 mod text;
 
-use image::RgbImage;
-
-use crate::font::SharedFontLoader;
+use crate::env::{ResourceId, SharedEnv};
 use crate::geom::*;
 use crate::shaping::Shaped;
 
@@ -23,16 +21,16 @@ pub use stack::*;
 pub use text::*;
 
 /// Layout a document and return the produced layouts.
-pub fn layout(document: &Document, loader: SharedFontLoader) -> Vec<BoxLayout> {
-    let mut ctx = LayoutContext { loader };
+pub fn layout(document: &Document, env: SharedEnv) -> Vec<BoxLayout> {
+    let mut ctx = LayoutContext { env };
     document.layout(&mut ctx)
 }
 
 /// The context for layouting.
 #[derive(Debug, Clone)]
 pub struct LayoutContext {
-    /// The font loader to query fonts from when typesetting text.
-    pub loader: SharedFontLoader,
+    /// The environment from which fonts are gathered.
+    pub env: SharedEnv,
 }
 
 /// Layout a node.
@@ -185,7 +183,7 @@ pub enum LayoutElement {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageElement {
     /// The image.
-    pub buf: RgbImage,
+    pub resource: ResourceId,
     /// The document size of the image.
     pub size: Size,
 }

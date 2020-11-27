@@ -1,13 +1,7 @@
 //! Font handling.
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use fontdock::{ContainsChar, FaceFromVec, FontSource};
 use ttf_parser::Face;
-
-/// A reference-counted shared font loader backed by a dynamic font source.
-pub type SharedFontLoader = Rc<RefCell<FontLoader>>;
 
 /// A font loader backed by a dynamic source.
 pub type FontLoader = fontdock::FontLoader<Box<DynSource>>;

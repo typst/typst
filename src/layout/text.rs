@@ -25,10 +25,10 @@ pub struct Text {
 
 impl Layout for Text {
     fn layout(&self, ctx: &mut LayoutContext, _: &Areas) -> Layouted {
-        let mut loader = ctx.loader.borrow_mut();
+        let mut env = ctx.env.borrow_mut();
         Layouted::Layout(
             shaping::shape(
-                &mut loader,
+                &mut env.fonts,
                 &self.text,
                 self.dir,
                 self.font_size,

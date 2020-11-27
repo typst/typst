@@ -4,6 +4,7 @@ use std::rc::Rc;
 use criterion::{criterion_group, criterion_main, Criterion};
 use fontdock::fs::{FsIndex, FsSource};
 
+use typst::env::{Env, ResourceLoader};
 use typst::eval::{eval, State};
 use typst::export::pdf;
 use typst::font::FontLoader;
@@ -25,23 +26,25 @@ fn benchmarks(c: &mut Criterion) {
     index.search_dir(FONT_DIR);
 
     let (files, descriptors) = index.into_vecs();
-    let loader = Rc::new(RefCell::new(FontLoader::new(
-        Box::new(FsSource::new(files)),
-        descriptors,
-    )));
+    let env = Rc::new(RefCell::new(Env {
+        fonts: FontLoader::new(Box::new(FsSource::new(files)), descriptors),
+        resources: ResourceLoader::new(),
+    }));
 
     // Prepare intermediate results and run warm.
     let state = State::default();
     let tree = parse(COMA).output;
-    let document = eval(&tree, state.clone()).output;
-    let layouts = layout(&document, Rc::clone(&loader));
+    let document = eval(&tree, Rc::clone(&env), state.clone()).output;
+    let layouts = layout(&document, Rc::clone(&env));
 
     // Bench!
     bench!("parse-coma": parse(COMA));
-    bench!("eval-coma": eval(&tree, state.clone()));
-    bench!("layout-coma": layout(&document, Rc::clone(&loader)));
-    bench!("typeset-coma": typeset(COMA, state.clone(), Rc::clone(&loader)));
-    bench!("export-pdf-coma": pdf::export(&layouts, &loader.borrow()));
+    bench!("eval-coma": eval(&tree, Rc::clone(&env), state.clone()));
+    bench!("layout-coma": layout(&document, Rc::clone(&env)));
+    bench!("typeset-coma": typeset(COMA, Rc::clone(&env), state.clone()));
+
+    let env = env.borrow();
+    bench!("export-pdf-coma": pdf::export(&layouts, &env));
 }
 
 criterion_group!(benches, benchmarks);

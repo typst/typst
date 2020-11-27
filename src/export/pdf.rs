@@ -3,14 +3,14 @@
 use std::collections::HashMap;
 
 use fontdock::FaceId;
-use image::RgbImage;
+use image::{DynamicImage, GenericImageView};
 use pdf_writer::{
     CidFontType, ColorSpace, Content, FontFlags, Name, PdfWriter, Rect, Ref, Str,
     SystemInfo, UnicodeCmap,
 };
 use ttf_parser::{name_id, GlyphId};
 
-use crate::font::FontLoader;
+use crate::env::{Env, ResourceId};
 use crate::geom::Length;
 use crate::layout::{BoxLayout, LayoutElement};
 
@@ -21,14 +21,14 @@ use crate::layout::{BoxLayout, LayoutElement};
 /// included in the _PDF_.
 ///
 /// Returns the raw bytes making up the _PDF_ document.
-pub fn export(layouts: &[BoxLayout], loader: &FontLoader) -> Vec<u8> {
-    PdfExporter::new(layouts, loader).write()
+pub fn export(layouts: &[BoxLayout], env: &Env) -> Vec<u8> {
+    PdfExporter::new(layouts, env).write()
 }
 
 struct PdfExporter<'a> {
     writer: PdfWriter,
     layouts: &'a [BoxLayout],
-    loader: &'a FontLoader,
+    env: &'a Env,
     /// We need to know exactly which indirect reference id will be used for
     /// which objects up-front to correctly declare the document catalogue, page
     /// tree and so on. These offsets are computed in the beginning and stored
@@ -41,13 +41,13 @@ struct PdfExporter<'a> {
     /// Backwards from the pdf indices to the old face ids.
     fonts_to_layout: Vec<FaceId>,
     /// The already visited images.
-    images: Vec<&'a RgbImage>,
+    images: Vec<ResourceId>,
     /// The total number of images.
     image_count: usize,
 }
 
 impl<'a> PdfExporter<'a> {
-    fn new(layouts: &'a [BoxLayout], loader: &'a FontLoader) -> Self {
+    fn new(layouts: &'a [BoxLayout], env: &'a Env) -> Self {
         let mut writer = PdfWriter::new(1, 7);
         writer.set_indent(2);
 
@@ -75,7 +75,7 @@ impl<'a> PdfExporter<'a> {
         Self {
             writer,
             layouts,
-            loader,
+            env,
             refs,
             fonts_to_pdf,
             fonts_to_layout,
@@ -185,7 +185,7 @@ impl<'a> PdfExporter<'a> {
                 content.x_object(Name(name.as_bytes()));
                 content.restore_state();
 
-                self.images.push(&image.buf);
+                self.images.push(image.resource);
             }
         }
 
@@ -194,7 +194,7 @@ impl<'a> PdfExporter<'a> {
 
     fn write_fonts(&mut self) {
         for (refs, &face_id) in self.refs.fonts().zip(&self.fonts_to_layout) {
-            let owned_face = self.loader.get_loaded(face_id);
+            let owned_face = self.env.fonts.get_loaded(face_id);
             let face = owned_face.get();
 
             let name = face
@@ -302,9 +302,11 @@ impl<'a> PdfExporter<'a> {
     }
 
     fn write_images(&mut self) {
-        for (id, image) in self.refs.images().zip(&self.images) {
+        for (id, &resource) in self.refs.images().zip(&self.images) {
+            let image = self.env.resources.get_loaded::<DynamicImage>(resource);
+            let data = image.to_rgb8().into_raw();
             self.writer
-                .image_stream(id, &image.as_raw())
+                .image_stream(id, &data)
                 .width(image.width() as i32)
                 .height(image.height() as i32)
                 .color_space(ColorSpace::DeviceRGB)

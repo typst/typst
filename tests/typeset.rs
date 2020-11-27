@@ -6,6 +6,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 use fontdock::fs::{FsIndex, FsSource};
+use image::{DynamicImage, GenericImageView, Rgba};
 use memmap::Mmap;
 use tiny_skia::{
     Canvas, Color, ColorU8, FillRule, FilterQuality, Paint, PathBuilder, Pattern, Pixmap,
@@ -14,9 +15,10 @@ use tiny_skia::{
 use ttf_parser::OutlineBuilder;
 
 use typst::diag::{Feedback, Pass};
+use typst::env::{Env, ResourceLoader, SharedEnv};
 use typst::eval::State;
 use typst::export::pdf;
-use typst::font::{FontLoader, SharedFontLoader};
+use typst::font::FontLoader;
 use typst::geom::{Length, Point};
 use typst::layout::{BoxLayout, ImageElement, LayoutElement};
 use typst::parse::LineMap;
@@ -67,16 +69,16 @@ fn main() {
     index.search_dir(FONT_DIR);
 
     let (files, descriptors) = index.into_vecs();
-    let loader = Rc::new(RefCell::new(FontLoader::new(
-        Box::new(FsSource::new(files)),
-        descriptors,
-    )));
+    let env = Rc::new(RefCell::new(Env {
+        fonts: FontLoader::new(Box::new(FsSource::new(files)), descriptors),
+        resources: ResourceLoader::new(),
+    }));
 
     let mut ok = true;
 
     for (name, src_path, pdf_path, png_path, ref_path) in filtered {
         print!("Testing {}.", name);
-        test(&src_path, &pdf_path, &png_path, &loader);
+        test(&src_path, &pdf_path, &png_path, &env);
 
         let png_file = File::open(&png_path).unwrap();
         let ref_file = match File::open(&ref_path) {
@@ -104,13 +106,13 @@ fn main() {
     }
 }
 
-fn test(src_path: &Path, pdf_path: &Path, png_path: &Path, loader: &SharedFontLoader) {
+fn test(src_path: &Path, pdf_path: &Path, png_path: &Path, env: &SharedEnv) {
     let src = fs::read_to_string(src_path).unwrap();
     let state = State::default();
     let Pass {
         output: layouts,
         feedback: Feedback { mut diags, .. },
-    } = typeset(&src, state, Rc::clone(loader));
+    } = typeset(&src, Rc::clone(env), state);
 
     if !diags.is_empty() {
         diags.sort();
@@ -131,12 +133,11 @@ fn test(src_path: &Path, pdf_path: &Path, png_path: &Path, loader: &SharedFontLo
         }
     }
 
-    let loader = loader.borrow();
-
-    let canvas = draw(&layouts, &loader, 2.0);
+    let env = env.borrow();
+    let canvas = draw(&layouts, &env, 2.0);
     canvas.pixmap.save_png(png_path).unwrap();
 
-    let pdf_data = pdf::export(&layouts, &loader);
+    let pdf_data = pdf::export(&layouts, &env);
     fs::write(pdf_path, pdf_data).unwrap();
 }
 
@@ -170,7 +171,7 @@ impl TestFilter {
     }
 }
 
-fn draw(layouts: &[BoxLayout], loader: &FontLoader, pixel_per_pt: f32) -> Canvas {
+fn draw(layouts: &[BoxLayout], env: &Env, pixel_per_pt: f32) -> Canvas {
     let pad = Length::pt(5.0);
 
     let height = pad + layouts.iter().map(|l| l.size.height + pad).sum::<Length>();
@@ -207,9 +208,11 @@ fn draw(layouts: &[BoxLayout], loader: &FontLoader, pixel_per_pt: f32) -> Canvas
             let pos = origin + pos;
             match element {
                 LayoutElement::Text(shaped) => {
-                    draw_text(&mut canvas, loader, shaped, pos)
+                    draw_text(&mut canvas, pos, env, shaped);
                 }
-                LayoutElement::Image(image) => draw_image(&mut canvas, image, pos),
+                LayoutElement::Image(image) => {
+                    draw_image(&mut canvas, pos, env, image);
+                }
             }
         }
 
@@ -219,8 +222,8 @@ fn draw(layouts: &[BoxLayout], loader: &FontLoader, pixel_per_pt: f32) -> Canvas
     canvas
 }
 
-fn draw_text(canvas: &mut Canvas, loader: &FontLoader, shaped: &Shaped, pos: Point) {
-    let face = loader.get_loaded(shaped.face).get();
+fn draw_text(canvas: &mut Canvas, pos: Point, env: &Env, shaped: &Shaped) {
+    let face = env.fonts.get_loaded(shaped.face).get();
 
     for (&glyph, &offset) in shaped.glyphs.iter().zip(&shaped.offsets) {
         let units_per_em = face.units_per_em().unwrap_or(1000);
@@ -244,11 +247,13 @@ fn draw_text(canvas: &mut Canvas, loader: &FontLoader, shaped: &Shaped, pos: Poi
     }
 }
 
-fn draw_image(canvas: &mut Canvas, image: &ImageElement, pos: Point) {
-    let mut pixmap = Pixmap::new(image.buf.width(), image.buf.height()).unwrap();
-    for (src, dest) in image.buf.pixels().zip(pixmap.pixels_mut()) {
-        let [r, g, b] = src.0;
-        *dest = ColorU8::from_rgba(r, g, b, 255).premultiply();
+fn draw_image(canvas: &mut Canvas, pos: Point, env: &Env, image: &ImageElement) {
+    let buf = env.resources.get_loaded::<DynamicImage>(image.resource);
+
+    let mut pixmap = Pixmap::new(buf.width(), buf.height()).unwrap();
+    for ((_, _, src), dest) in buf.pixels().zip(pixmap.pixels_mut()) {
+        let Rgba([r, g, b, a]) = src;
+        *dest = ColorU8::from_rgba(r, g, b, a).premultiply();
     }
 
     let view_width = image.size.width.to_pt() as f32;

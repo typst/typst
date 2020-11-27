@@ -7,6 +7,7 @@ use anyhow::{anyhow, bail, Context};
 use fontdock::fs::{FsIndex, FsSource};
 
 use typst::diag::{Feedback, Pass};
+use typst::env::{Env, ResourceLoader};
 use typst::eval::State;
 use typst::export::pdf;
 use typst::font::FontLoader;
@@ -41,16 +42,16 @@ fn main() -> anyhow::Result<()> {
     index.search_os();
 
     let (files, descriptors) = index.into_vecs();
-    let loader = Rc::new(RefCell::new(FontLoader::new(
-        Box::new(FsSource::new(files)),
-        descriptors,
-    )));
+    let env = Rc::new(RefCell::new(Env {
+        fonts: FontLoader::new(Box::new(FsSource::new(files)), descriptors),
+        resources: ResourceLoader::new(),
+    }));
 
     let state = State::default();
     let Pass {
         output: layouts,
         feedback: Feedback { mut diags, .. },
-    } = typeset(&src, state, Rc::clone(&loader));
+    } = typeset(&src, Rc::clone(&env), state);
 
     if !diags.is_empty() {
         diags.sort();
@@ -71,7 +72,7 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    let pdf_data = pdf::export(&layouts, &loader.borrow());
+    let pdf_data = pdf::export(&layouts, &env.borrow());
     fs::write(&dest_path, pdf_data).context("Failed to write PDF file.")?;
 
     Ok(())

@@ -29,6 +29,7 @@ pub mod diag;
 #[macro_use]
 pub mod eval;
 pub mod color;
+pub mod env;
 pub mod export;
 pub mod font;
 pub mod geom;
@@ -40,19 +41,18 @@ pub mod prelude;
 pub mod shaping;
 pub mod syntax;
 
+use std::rc::Rc;
+
 use crate::diag::{Feedback, Pass};
+use crate::env::SharedEnv;
 use crate::eval::State;
-use crate::font::SharedFontLoader;
 use crate::layout::BoxLayout;
 
 /// Process _Typst_ source code directly into a collection of layouts.
-pub fn typeset(
-    src: &str,
-    state: State,
-    loader: SharedFontLoader,
-) -> Pass<Vec<BoxLayout>> {
+pub fn typeset(src: &str, env: SharedEnv, state: State) -> Pass<Vec<BoxLayout>> {
     let Pass { output: tree, feedback: f1 } = parse::parse(src);
-    let Pass { output: document, feedback: f2 } = eval::eval(&tree, state);
-    let layouts = layout::layout(&document, loader);
+    let Pass { output: document, feedback: f2 } =
+        eval::eval(&tree, Rc::clone(&env), state);
+    let layouts = layout::layout(&document, env);
     Pass::new(layouts, Feedback::join(f1, f2))
 }

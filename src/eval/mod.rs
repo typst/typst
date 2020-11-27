@@ -22,6 +22,7 @@ use fontdock::FontStyle;
 
 use crate::diag::Diag;
 use crate::diag::{Deco, Feedback, Pass};
+use crate::env::SharedEnv;
 use crate::geom::{BoxAlign, Dir, Flow, Gen, Length, Linear, Relative, Sides, Size};
 use crate::layout::{
     Document, Expansion, LayoutNode, Pad, Pages, Par, Softness, Spacing, Stack, Text,
@@ -30,10 +31,10 @@ use crate::syntax::*;
 
 /// Evaluate a syntax tree into a document.
 ///
-/// The given `state` the base state that may be updated over the course of
+/// The given `state` is the base state that may be updated over the course of
 /// evaluation.
-pub fn eval(tree: &SynTree, state: State) -> Pass<Document> {
-    let mut ctx = EvalContext::new(state);
+pub fn eval(tree: &SynTree, env: SharedEnv, state: State) -> Pass<Document> {
+    let mut ctx = EvalContext::new(env, state);
     ctx.start_page_group(false);
     tree.eval(&mut ctx);
     ctx.end_page_group();
@@ -43,6 +44,8 @@ pub fn eval(tree: &SynTree, state: State) -> Pass<Document> {
 /// The context for evaluation.
 #[derive(Debug)]
 pub struct EvalContext {
+    /// The environment from which resources are gathered.
+    pub env: SharedEnv,
     /// The active evaluation state.
     pub state: State,
     /// The accumulated feedback.
@@ -62,8 +65,9 @@ pub struct EvalContext {
 
 impl EvalContext {
     /// Create a new evaluation context with a base state.
-    pub fn new(state: State) -> Self {
+    pub fn new(env: SharedEnv, state: State) -> Self {
         Self {
+            env,
             state,
             groups: vec![],
             inner: vec![],
