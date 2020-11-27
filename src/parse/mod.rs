@@ -100,11 +100,10 @@ fn heading(p: &mut Parser, start: Pos) -> NodeHeading {
     let span = Span::new(start, p.pos());
     let level = (count.min(5) as u8).span_with(span);
     if count > 5 {
-        p.diag(warning!(span, "section depth larger than 6 has no effect"));
+        p.diag(warning!(span, "section depth should be at most 6"));
     }
 
     // Parse the heading contents.
-    p.skip_white();
     let mut contents = vec![];
     while p.check(|t| !matches!(t, Token::Space(n) if n >= 1)) {
         if let Some(node) = node(p, false) {

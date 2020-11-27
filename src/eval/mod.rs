@@ -357,6 +357,7 @@ impl Eval for NodeHeading {
         ctx.state.font.strong = true;
 
         self.contents.eval(ctx);
+        SynNode::Parbreak.eval(ctx);
 
         ctx.state = prev;
     }

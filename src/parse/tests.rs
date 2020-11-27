@@ -295,31 +295,33 @@ fn test_parse_comments() {
 
 #[test]
 fn test_parse_headings() {
-    t!("## Hello world!" => H![1, T("Hello"), S, T("world!")]);
+    t!("## Hello world!" => H![1, S, T("Hello"), S, T("world!")]);
 
     // Handle various whitespace usages.
     t!("####Simple"                         => H![3, T("Simple")]);
-    t!("  #    Whitespace!"                 => S, H![0, T("Whitespace!")]);
-    t!("  /* TODO: Improve */  ## Analysis" => S, S, H!(1, T("Analysis")));
+    t!("  #    Whitespace!"                 => S, H![0, S, T("Whitespace!")]);
+    t!("  /* TODO: Improve */  ## Analysis" => S, S, H!(1, S, T("Analysis")));
+    t!("# Heading \n ends"                  => H![0, S, T("Heading")], S, T("ends"));
 
     // Complex heading contents.
     t!("Some text [box][### Valuable facts]" => T("Some"), S, T("text"), S,
-        F!("box"; Tree![H!(2, T("Valuable"), S, T("facts"))])
+        F!("box"; Tree![H!(2, S, T("Valuable"), S, T("facts"))])
     );
-    t!("### Grandiose stuff [box][Get it \n\n straight]" => H![2,
-        T("Grandiose"), S, T("stuff"), S,
+    t!("### Grandiose stuff [box][Get it \n\n straight]" => H![
+        2,
+        S, T("Grandiose"), S, T("stuff"), S,
         F!("box"; Tree![T("Get"), S, T("it"), P, T("straight")])
     ]);
-    t!("###### Multiline \\ headings" => H![5, T("Multiline"), S, L, S, T("headings")]);
+    t!("###### Multiline \\ headings" => H![5, S, T("Multiline"), S, L, S, T("headings")]);
 
     // Things that should not become headings.
     t!("\\## Text"      => T("#"), T("#"), S, T("Text"));
-    t!(" ###### # Text" => S, H!(5, T("#"), S, T("Text")));
+    t!(" ###### # Text" => S, H![5, S, T("#"), S, T("Text")]);
     t!("I am #1"        => T("I"), S, T("am"), S, T("#"), T("1"));
     t!("[box][\n] # hi" => F!("box"; Tree![S]), S, T("#"), S, T("hi"));
 
     // Depth warnings.
-    e!("########" => s(0, 8, "section depth larger than 6 has no effect"));
+    e!("########" => s(0, 8, "section depth should be at most 6"));
 }
 
 #[test]
