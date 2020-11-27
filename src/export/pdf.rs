@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 use fontdock::FaceId;
-use image::{DynamicImage, GenericImageView};
+use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{
     CidFontType, ColorSpace, Content, FontFlags, Name, PdfWriter, Rect, Ref, Str,
     SystemInfo, UnicodeCmap,
@@ -43,17 +43,24 @@ impl<'a> PdfExporter<'a> {
 
         let mut fonts = Remapper::new();
         let mut images = Remapper::new();
+        let mut alpha_masks = 0;
 
         for layout in layouts {
             for (_, element) in &layout.elements {
                 match element {
                     LayoutElement::Text(shaped) => fonts.insert(shaped.face),
-                    LayoutElement::Image(image) => images.insert(image.resource),
+                    LayoutElement::Image(image) => {
+                        let buf = env.resources.get_loaded::<DynamicImage>(image.res);
+                        if buf.color().has_alpha() {
+                            alpha_masks += 1;
+                        }
+                        images.insert(image.res);
+                    }
                 }
             }
         }
 
-        let refs = Refs::new(layouts.len(), fonts.len(), images.len());
+        let refs = Refs::new(layouts.len(), fonts.len(), images.len(), alpha_masks);
 
         Self {
             writer,
@@ -154,7 +161,7 @@ impl<'a> PdfExporter<'a> {
 
         for (pos, element) in &page.elements {
             if let LayoutElement::Image(image) = element {
-                let name = format!("Im{}", self.images.map(image.resource));
+                let name = format!("Im{}", self.images.map(image.res));
                 let size = image.size;
                 let x = pos.x.to_pt() as f32;
                 let y = (page.size.height - pos.y - size.height).to_pt() as f32;
@@ -281,15 +288,40 @@ impl<'a> PdfExporter<'a> {
     }
 
     fn write_images(&mut self) {
+        let mut mask = 0;
+
         for (id, resource) in self.refs.images().zip(self.images.layout_indices()) {
-            let image = self.env.resources.get_loaded::<DynamicImage>(resource);
-            let data = image.to_rgb8().into_raw();
-            self.writer
-                .image_stream(id, &data)
-                .width(image.width() as i32)
-                .height(image.height() as i32)
-                .color_space(ColorSpace::DeviceRGB)
-                .bits_per_component(8);
+            let buf = self.env.resources.get_loaded::<DynamicImage>(resource);
+            let data = buf.to_rgb8().into_raw();
+
+            let mut image = self.writer.image_stream(id, &data);
+            image.width(buf.width() as i32);
+            image.height(buf.height() as i32);
+            image.color_space(ColorSpace::DeviceRGB);
+            image.bits_per_component(8);
+
+            // Add a second gray-scale image containing the alpha values if this
+            // is image has an alpha channel.
+            if buf.color().has_alpha() {
+                let mask_id = self.refs.alpha_mask(mask);
+
+                image.s_mask(mask_id);
+                drop(image);
+
+                let mut samples = vec![];
+                for (_, _, Rgba([_, _, _, a])) in buf.pixels() {
+                    samples.push(a);
+                }
+
+                self.writer
+                    .image_stream(mask_id, &samples)
+                    .width(buf.width() as i32)
+                    .height(buf.height() as i32)
+                    .color_space(ColorSpace::DeviceGray)
+                    .bits_per_component(8);
+
+                mask += 1;
+            }
         }
     }
 }
@@ -304,6 +336,7 @@ struct Refs {
     contents_start: i32,
     fonts_start: i32,
     images_start: i32,
+    alpha_masks_start: i32,
     end: i32,
 }
 
@@ -318,14 +351,15 @@ struct FontRefs {
 impl Refs {
     const OBJECTS_PER_FONT: usize = 5;
 
-    fn new(layouts: usize, fonts: usize, images: usize) -> Self {
+    fn new(layouts: usize, fonts: usize, images: usize, alpha_masks: usize) -> Self {
         let catalog = 1;
         let page_tree = catalog + 1;
         let pages_start = page_tree + 1;
         let contents_start = pages_start + layouts as i32;
         let fonts_start = contents_start + layouts as i32;
         let images_start = fonts_start + (Self::OBJECTS_PER_FONT * fonts) as i32;
-        let end = images_start + images as i32;
+        let alpha_masks_start = images_start + images as i32;
+        let end = alpha_masks_start + alpha_masks as i32;
 
         Self {
             catalog: Ref::new(catalog),
@@ -334,6 +368,7 @@ impl Refs {
             contents_start,
             fonts_start,
             images_start,
+            alpha_masks_start,
             end,
         }
     }
@@ -360,6 +395,10 @@ impl Refs {
 
     fn images(&self) -> impl Iterator<Item = Ref> {
         (self.images_start .. self.end).map(Ref::new)
+    }
+
+    fn alpha_mask(&self, i: usize) -> Ref {
+        Ref::new(self.alpha_masks_start + i as i32)
     }
 }
 

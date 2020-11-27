@@ -183,7 +183,7 @@ pub enum LayoutElement {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageElement {
     /// The image.
-    pub resource: ResourceId,
+    pub res: ResourceId,
     /// The document size of the image.
     pub size: Size,
 }

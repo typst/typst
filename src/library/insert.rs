@@ -27,11 +27,11 @@ pub fn image(mut args: Args, ctx: &mut EvalContext) -> Value {
                 .and_then(|reader| reader.decode().ok())
         });
 
-        if let Some((resource, buf)) = loaded {
+        if let Some((res, buf)) = loaded {
             let dimensions = buf.dimensions();
             drop(env);
             ctx.push(Image {
-                resource,
+                res,
                 dimensions,
                 width,
                 height,
@@ -50,7 +50,7 @@ pub fn image(mut args: Args, ctx: &mut EvalContext) -> Value {
 #[derive(Debug, Clone, PartialEq)]
 struct Image {
     /// The resource id of the image file.
-    resource: ResourceId,
+    res: ResourceId,
     /// The pixel dimensions of the image.
     dimensions: (u32, u32),
     /// The fixed width, if any.
@@ -87,7 +87,7 @@ impl Layout for Image {
         let mut boxed = BoxLayout::new(size);
         boxed.push(
             Point::ZERO,
-            LayoutElement::Image(ImageElement { resource: self.resource, size }),
+            LayoutElement::Image(ImageElement { res: self.res, size }),
         );
 
         Layouted::Layout(boxed, self.align)

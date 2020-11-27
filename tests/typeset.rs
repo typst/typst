@@ -248,7 +248,7 @@ fn draw_text(canvas: &mut Canvas, pos: Point, env: &Env, shaped: &Shaped) {
 }
 
 fn draw_image(canvas: &mut Canvas, pos: Point, env: &Env, image: &ImageElement) {
-    let buf = env.resources.get_loaded::<DynamicImage>(image.resource);
+    let buf = env.resources.get_loaded::<DynamicImage>(image.res);
 
     let mut pixmap = Pixmap::new(buf.width(), buf.height()).unwrap();
     for ((_, _, src), dest) in buf.pixels().zip(pixmap.pixels_mut()) {
