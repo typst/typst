@@ -1,6 +1,8 @@
 //! Exporting into _PDF_ documents.
 
+use std::cmp::Eq;
 use std::collections::HashMap;
+use std::hash::Hash;
 
 use fontdock::FaceId;
 use image::{DynamicImage, GenericImageView};
@@ -29,21 +31,9 @@ struct PdfExporter<'a> {
     writer: PdfWriter,
     layouts: &'a [BoxLayout],
     env: &'a Env,
-    /// We need to know exactly which indirect reference id will be used for
-    /// which objects up-front to correctly declare the document catalogue, page
-    /// tree and so on. These offsets are computed in the beginning and stored
-    /// here.
     refs: Refs,
-    /// We assign a new PDF-internal index to each used face.
-    /// There are two mappings:
-    /// Forwards from the old face ids to the new pdf indices.
-    fonts_to_pdf: HashMap<FaceId, usize>,
-    /// Backwards from the pdf indices to the old face ids.
-    fonts_to_layout: Vec<FaceId>,
-    /// The already visited images.
-    images: Vec<ResourceId>,
-    /// The total number of images.
-    image_count: usize,
+    fonts: Remapper<FaceId>,
+    images: Remapper<ResourceId>,
 }
 
 impl<'a> PdfExporter<'a> {
@@ -51,36 +41,27 @@ impl<'a> PdfExporter<'a> {
         let mut writer = PdfWriter::new(1, 7);
         writer.set_indent(2);
 
-        let mut fonts_to_pdf = HashMap::new();
-        let mut fonts_to_layout = vec![];
-        let mut image_count = 0;
+        let mut fonts = Remapper::new();
+        let mut images = Remapper::new();
 
         for layout in layouts {
             for (_, element) in &layout.elements {
                 match element {
-                    LayoutElement::Text(shaped) => {
-                        fonts_to_pdf.entry(shaped.face).or_insert_with(|| {
-                            let next_id = fonts_to_layout.len();
-                            fonts_to_layout.push(shaped.face);
-                            next_id
-                        });
-                    }
-                    LayoutElement::Image(_) => image_count += 1,
+                    LayoutElement::Text(shaped) => fonts.insert(shaped.face),
+                    LayoutElement::Image(image) => images.insert(image.resource),
                 }
             }
         }
 
-        let refs = Refs::new(layouts.len(), fonts_to_pdf.len(), image_count);
+        let refs = Refs::new(layouts.len(), fonts.len(), images.len());
 
         Self {
             writer,
             layouts,
             env,
             refs,
-            fonts_to_pdf,
-            fonts_to_layout,
-            images: vec![],
-            image_count,
+            fonts,
+            images,
         }
     }
 
@@ -102,7 +83,7 @@ impl<'a> PdfExporter<'a> {
 
         let mut resources = pages.resources();
         let mut fonts = resources.fonts();
-        for (refs, f) in self.refs.fonts().zip(0 .. self.fonts_to_pdf.len()) {
+        for (refs, f) in self.refs.fonts().zip(self.fonts.pdf_indices()) {
             let name = format!("F{}", f);
             fonts.pair(Name(name.as_bytes()), refs.type0_font);
         }
@@ -110,7 +91,7 @@ impl<'a> PdfExporter<'a> {
         drop(fonts);
 
         let mut images = resources.x_objects();
-        for (id, im) in self.refs.images().zip(0 .. self.image_count) {
+        for (id, im) in self.refs.images().zip(self.images.pdf_indices()) {
             let name = format!("Im{}", im);
             images.pair(Name(name.as_bytes()), id);
         }
@@ -158,7 +139,7 @@ impl<'a> PdfExporter<'a> {
                     face = shaped.face;
                     size = shaped.font_size;
 
-                    let name = format!("F{}", self.fonts_to_pdf[&shaped.face]);
+                    let name = format!("F{}", self.fonts.map(shaped.face));
                     text.font(Name(name.as_bytes()), size.to_pt() as f32);
                 }
 
@@ -173,7 +154,7 @@ impl<'a> PdfExporter<'a> {
 
         for (pos, element) in &page.elements {
             if let LayoutElement::Image(image) = element {
-                let name = format!("Im{}", self.images.len());
+                let name = format!("Im{}", self.images.map(image.resource));
                 let size = image.size;
                 let x = pos.x.to_pt() as f32;
                 let y = (page.size.height - pos.y - size.height).to_pt() as f32;
@@ -184,8 +165,6 @@ impl<'a> PdfExporter<'a> {
                 content.matrix(w, 0.0, 0.0, h, x, y);
                 content.x_object(Name(name.as_bytes()));
                 content.restore_state();
-
-                self.images.push(image.resource);
             }
         }
 
@@ -193,7 +172,7 @@ impl<'a> PdfExporter<'a> {
     }
 
     fn write_fonts(&mut self) {
-        for (refs, &face_id) in self.refs.fonts().zip(&self.fonts_to_layout) {
+        for (refs, face_id) in self.refs.fonts().zip(self.fonts.layout_indices()) {
             let owned_face = self.env.fonts.get_loaded(face_id);
             let face = owned_face.get();
 
@@ -302,7 +281,7 @@ impl<'a> PdfExporter<'a> {
     }
 
     fn write_images(&mut self) {
-        for (id, &resource) in self.refs.images().zip(&self.images) {
+        for (id, resource) in self.refs.images().zip(self.images.layout_indices()) {
             let image = self.env.resources.get_loaded::<DynamicImage>(resource);
             let data = image.to_rgb8().into_raw();
             self.writer
@@ -315,6 +294,9 @@ impl<'a> PdfExporter<'a> {
     }
 }
 
+/// We need to know exactly which indirect reference id will be used for which
+/// objects up-front to correctly declare the document catalogue, page tree and
+/// so on. These offsets are computed in the beginning and stored here.
 struct Refs {
     catalog: Ref,
     page_tree: Ref,
@@ -378,5 +360,50 @@ impl Refs {
 
     fn images(&self) -> impl Iterator<Item = Ref> {
         (self.images_start .. self.end).map(Ref::new)
+    }
+}
+
+/// Used to assign new, consecutive PDF-internal indices to things.
+struct Remapper<Index> {
+    /// Forwards from the old indices to the new pdf indices.
+    to_pdf: HashMap<Index, usize>,
+    /// Backwards from the pdf indices to the old indices.
+    to_layout: Vec<Index>,
+}
+
+impl<Index> Remapper<Index>
+where
+    Index: Copy + Eq + Hash,
+{
+    fn new() -> Self {
+        Self {
+            to_pdf: HashMap::new(),
+            to_layout: vec![],
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.to_layout.len()
+    }
+
+    fn insert(&mut self, index: Index) {
+        let to_layout = &mut self.to_layout;
+        self.to_pdf.entry(index).or_insert_with(|| {
+            let pdf_index = to_layout.len();
+            to_layout.push(index);
+            pdf_index
+        });
+    }
+
+    fn map(&self, index: Index) -> usize {
+        self.to_pdf[&index]
+    }
+
+    fn pdf_indices(&self) -> impl Iterator<Item = usize> {
+        0 .. self.to_pdf.len()
+    }
+
+    fn layout_indices(&self) -> impl Iterator<Item = Index> + '_ {
+        self.to_layout.iter().copied()
     }
 }
