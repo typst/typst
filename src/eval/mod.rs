@@ -37,7 +37,7 @@ pub fn eval(tree: &SynTree, env: SharedEnv, state: State) -> Pass<Document> {
     let mut ctx = EvalContext::new(env, state);
     ctx.start_page_group(false);
     tree.eval(&mut ctx);
-    ctx.end_page_group();
+    ctx.end_page_group(true);
     ctx.finish()
 }
 
@@ -117,7 +117,8 @@ impl EvalContext {
 
     /// Start a page group based on the active page state.
     ///
-    /// If `hard` is false, empty page runs will be omitted from the output.
+    /// If both this `hard` and the one in the matching call to `end_page_group`
+    /// are false, empty page runs will be omitted from the output.
     ///
     /// This also starts an inner paragraph.
     pub fn start_page_group(&mut self, hard: bool) {
@@ -134,10 +135,10 @@ impl EvalContext {
     /// End a page group and push it to the finished page runs.
     ///
     /// This also ends an inner paragraph.
-    pub fn end_page_group(&mut self) {
+    pub fn end_page_group(&mut self, hard: bool) {
         self.end_par_group();
         let (group, children) = self.end_group::<PageGroup>();
-        if group.hard || !children.is_empty() {
+        if hard || group.hard || !children.is_empty() {
             self.runs.push(Pages {
                 size: group.size,
                 child: LayoutNode::dynamic(Pad {
@@ -208,6 +209,7 @@ impl EvalContext {
     /// End a layouting group started with [`start_group`](Self::start_group).
     ///
     /// This returns the stored metadata and the collected nodes.
+    #[track_caller]
     fn end_group<T: 'static>(&mut self) -> (T, Vec<LayoutNode>) {
         if let Some(&LayoutNode::Spacing(spacing)) = self.inner.last() {
             if spacing.softness == Softness::Soft {

@@ -5,8 +5,12 @@ use std::cell::RefCell;
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt::{self, Debug, Formatter};
 use std::fs;
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+
+use image::io::Reader as ImageReader;
+use image::{DynamicImage, GenericImageView, ImageFormat};
 
 use crate::font::FontLoader;
 
@@ -48,11 +52,11 @@ impl ResourceLoader {
         let id = match self.paths.entry(path.to_owned()) {
             Entry::Occupied(entry) => *entry.get(),
             Entry::Vacant(entry) => {
-                let id = *entry.insert(ResourceId(self.entries.len()));
                 let data = fs::read(path).ok()?;
                 let resource = parse(data)?;
+                let len = self.entries.len();
                 self.entries.push(Box::new(resource));
-                id
+                *entry.insert(ResourceId(len))
             }
         };
 
@@ -63,6 +67,7 @@ impl ResourceLoader {
     ///
     /// # Panics
     /// This panics if no resource with this id was loaded.
+    #[track_caller]
     pub fn get_loaded<R: 'static>(&self, id: ResourceId) -> &R {
         self.entries[id.0].downcast_ref().expect("bad resource type")
     }
@@ -71,5 +76,34 @@ impl ResourceLoader {
 impl Debug for ResourceLoader {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_set().entries(self.paths.keys()).finish()
+    }
+}
+
+/// A loaded image resource.
+pub struct ImageResource {
+    /// The original format the image was encoded in.
+    pub format: ImageFormat,
+    /// The decoded image.
+    pub buf: DynamicImage,
+}
+
+impl ImageResource {
+    pub fn parse(data: Vec<u8>) -> Option<Self> {
+        let reader = ImageReader::new(Cursor::new(data)).with_guessed_format().ok()?;
+        let format = reader.format()?;
+        let buf = reader.decode().ok()?;
+        Some(Self { format, buf })
+    }
+}
+
+impl Debug for ImageResource {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let (width, height) = self.buf.dimensions();
+        f.debug_struct("ImageResource")
+            .field("format", &self.format)
+            .field("color", &self.buf.color())
+            .field("width", &width)
+            .field("height", &height)
+            .finish()
     }
 }

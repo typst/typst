@@ -14,6 +14,7 @@ fs = ["fontdock/fs"]
 [dependencies]
 fontdock = { path = "../fontdock", default-features = false }
 pdf-writer = { path = "../pdf-writer" }
+deflate = { version = "0.8.6" }
 image = { version = "0.23", default-features = false, features = ["jpeg", "png"] }
 itoa = "0.4"
 ttf-parser = "0.8.2"

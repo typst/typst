@@ -3,16 +3,19 @@
 use std::cmp::Eq;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::io::Write;
 
+use deflate::write::ZlibEncoder;
+use deflate::Compression;
 use fontdock::FaceId;
-use image::{DynamicImage, GenericImageView, Rgba};
+use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Luma, Rgba};
 use pdf_writer::{
-    CidFontType, ColorSpace, Content, FontFlags, Name, PdfWriter, Rect, Ref, Str,
+    CidFontType, ColorSpace, Content, Filter, FontFlags, Name, PdfWriter, Rect, Ref, Str,
     SystemInfo, UnicodeCmap,
 };
 use ttf_parser::{name_id, GlyphId};
 
-use crate::env::{Env, ResourceId};
+use crate::env::{Env, ImageResource, ResourceId};
 use crate::geom::Length;
 use crate::layout::{BoxLayout, LayoutElement};
 
@@ -50,8 +53,8 @@ impl<'a> PdfExporter<'a> {
                 match element {
                     LayoutElement::Text(shaped) => fonts.insert(shaped.face),
                     LayoutElement::Image(image) => {
-                        let buf = env.resources.get_loaded::<DynamicImage>(image.res);
-                        if buf.color().has_alpha() {
+                        let img = env.resources.get_loaded::<ImageResource>(image.res);
+                        if img.buf.color().has_alpha() {
                             alpha_masks += 1;
                         }
                         images.insert(image.res);
@@ -266,7 +269,7 @@ impl<'a> PdfExporter<'a> {
             // Write the to-unicode character map, which maps glyph ids back to
             // unicode codepoints to enable copying out of the PDF.
             self.writer
-                .cmap_stream(refs.cmap, &{
+                .cmap(refs.cmap, &{
                     let mut cmap = UnicodeCmap::new(cmap_name, system_info);
                     for subtable in face.character_mapping_subtables() {
                         subtable.codepoints(|n| {
@@ -288,39 +291,49 @@ impl<'a> PdfExporter<'a> {
     }
 
     fn write_images(&mut self) {
-        let mut mask = 0;
+        let mut masks_seen = 0;
 
         for (id, resource) in self.refs.images().zip(self.images.layout_indices()) {
-            let buf = self.env.resources.get_loaded::<DynamicImage>(resource);
-            let data = buf.to_rgb8().into_raw();
+            let img = self.env.resources.get_loaded::<ImageResource>(resource);
+            let (width, height) = img.buf.dimensions();
 
-            let mut image = self.writer.image_stream(id, &data);
-            image.width(buf.width() as i32);
-            image.height(buf.height() as i32);
-            image.color_space(ColorSpace::DeviceRGB);
-            image.bits_per_component(8);
+            // Add the primary image.
+            if let Ok((data, filter, color_space)) = encode_image(img) {
+                let mut image = self.writer.image(id, &data);
+                image.inner().filter(filter);
+                image.width(width as i32);
+                image.height(height as i32);
+                image.color_space(color_space);
+                image.bits_per_component(8);
 
-            // Add a second gray-scale image containing the alpha values if this
-            // is image has an alpha channel.
-            if buf.color().has_alpha() {
-                let mask_id = self.refs.alpha_mask(mask);
+                // Add a second gray-scale image containing the alpha values if
+                // this image has an alpha channel.
+                if img.buf.color().has_alpha() {
+                    if let Ok((alpha_data, alpha_filter)) = encode_alpha(img) {
+                        let mask_id = self.refs.alpha_mask(masks_seen);
+                        image.s_mask(mask_id);
+                        drop(image);
 
-                image.s_mask(mask_id);
-                drop(image);
+                        let mut mask = self.writer.image(mask_id, &alpha_data);
+                        mask.inner().filter(alpha_filter);
+                        mask.width(width as i32);
+                        mask.height(height as i32);
+                        mask.color_space(ColorSpace::DeviceGray);
+                        mask.bits_per_component(8);
+                    } else {
+                        // TODO: Warn that alpha channel could not be encoded.
+                    }
 
-                let mut samples = vec![];
-                for (_, _, Rgba([_, _, _, a])) in buf.pixels() {
-                    samples.push(a);
+                    masks_seen += 1;
                 }
-
+            } else {
+                // TODO: Warn that image could not be encoded.
                 self.writer
-                    .image_stream(mask_id, &samples)
-                    .width(buf.width() as i32)
-                    .height(buf.height() as i32)
+                    .image(id, &[])
+                    .width(0)
+                    .height(0)
                     .color_space(ColorSpace::DeviceGray)
-                    .bits_per_component(8);
-
-                mask += 1;
+                    .bits_per_component(1);
             }
         }
     }
@@ -445,4 +458,58 @@ where
     fn layout_indices(&self) -> impl Iterator<Item = Index> + '_ {
         self.to_layout.iter().copied()
     }
+}
+
+/// Encode an image with a suitable filter.
+///
+/// Skips the alpha channel as that's encoded separately.
+fn encode_image(img: &ImageResource) -> ImageResult<(Vec<u8>, Filter, ColorSpace)> {
+    let mut data = vec![];
+    let (filter, space) = match (img.format, &img.buf) {
+        // 8-bit gray JPEG.
+        (ImageFormat::Jpeg, DynamicImage::ImageLuma8(_)) => {
+            img.buf.write_to(&mut data, img.format)?;
+            (Filter::DctDecode, ColorSpace::DeviceGray)
+        }
+
+        // 8-bit Rgb JPEG (Cmyk JPEGs get converted to Rgb earlier).
+        (ImageFormat::Jpeg, DynamicImage::ImageRgb8(_)) => {
+            img.buf.write_to(&mut data, img.format)?;
+            (Filter::DctDecode, ColorSpace::DeviceRgb)
+        }
+
+        // TODO: Encode flate streams with PNG-predictor?
+
+        // 8-bit gray PNG.
+        (ImageFormat::Png, DynamicImage::ImageLuma8(luma)) => {
+            let mut enc = ZlibEncoder::new(&mut data, Compression::default());
+            for &Luma([value]) in luma.pixels() {
+                enc.write_all(&[value])?;
+            }
+            enc.finish()?;
+            (Filter::FlateDecode, ColorSpace::DeviceGray)
+        }
+
+        // Anything else (including Rgb(a) PNGs).
+        (_, buf) => {
+            let mut enc = ZlibEncoder::new(&mut data, Compression::default());
+            for (_, _, Rgba([r, g, b, _])) in buf.pixels() {
+                enc.write_all(&[r, g, b])?;
+            }
+            enc.finish()?;
+            (Filter::FlateDecode, ColorSpace::DeviceRgb)
+        }
+    };
+    Ok((data, filter, space))
+}
+
+/// Encode an image's alpha channel if present.
+fn encode_alpha(img: &ImageResource) -> ImageResult<(Vec<u8>, Filter)> {
+    let mut data = vec![];
+    let mut enc = ZlibEncoder::new(&mut data, Compression::default());
+    for (_, _, Rgba([_, _, _, a])) in img.buf.pixels() {
+        enc.write_all(&[a])?;
+    }
+    enc.finish()?;
+    Ok((data, Filter::FlateDecode))
 }

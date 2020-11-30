@@ -6,8 +6,8 @@
 
 # Tiger
 [image: "res/tiger.jpg", width=2cm]
-[image: "res/tiger-alpha.png", width=1cm]
-[image: "res/tiger-alpha.png", height=2cm]
+[image: "res/rhino.png", width=1cm]
+[image: "res/rhino.png", height=2cm]
 
 [pagebreak]
 

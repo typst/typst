@@ -6,7 +6,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 use fontdock::fs::{FsIndex, FsSource};
-use image::{DynamicImage, GenericImageView, Rgba};
+use image::{GenericImageView, Rgba};
 use memmap::Mmap;
 use tiny_skia::{
     Canvas, Color, ColorU8, FillRule, FilterQuality, Paint, PathBuilder, Pattern, Pixmap,
@@ -15,7 +15,7 @@ use tiny_skia::{
 use ttf_parser::OutlineBuilder;
 
 use typst::diag::{Feedback, Pass};
-use typst::env::{Env, ResourceLoader, SharedEnv};
+use typst::env::{Env, ImageResource, ResourceLoader, SharedEnv};
 use typst::eval::State;
 use typst::export::pdf;
 use typst::font::FontLoader;
@@ -29,7 +29,7 @@ const FONT_DIR: &str = "../fonts";
 const TYP_DIR: &str = "typ";
 const PDF_DIR: &str = "pdf";
 const PNG_DIR: &str = "png";
-const REF_DIR: &str = "ref";
+const CMP_DIR: &str = "cmp";
 
 fn main() {
     env::set_current_dir(env::current_dir().unwrap().join("tests")).unwrap();
@@ -46,7 +46,7 @@ fn main() {
         let name = src_path.file_stem().unwrap().to_string_lossy().to_string();
         let pdf_path = Path::new(PDF_DIR).join(&name).with_extension("pdf");
         let png_path = Path::new(PNG_DIR).join(&name).with_extension("png");
-        let ref_path = Path::new(REF_DIR).join(&name).with_extension("png");
+        let ref_path = Path::new(CMP_DIR).join(&name).with_extension("png");
 
         if filter.matches(&name) {
             filtered.push((name, src_path, pdf_path, png_path, ref_path));
@@ -247,8 +247,8 @@ fn draw_text(canvas: &mut Canvas, pos: Point, env: &Env, shaped: &Shaped) {
     }
 }
 
-fn draw_image(canvas: &mut Canvas, pos: Point, env: &Env, image: &ImageElement) {
-    let buf = env.resources.get_loaded::<DynamicImage>(image.res);
+fn draw_image(canvas: &mut Canvas, pos: Point, env: &Env, img: &ImageElement) {
+    let buf = &env.resources.get_loaded::<ImageResource>(img.res).buf;
 
     let mut pixmap = Pixmap::new(buf.width(), buf.height()).unwrap();
     for ((_, _, src), dest) in buf.pixels().zip(pixmap.pixels_mut()) {
@@ -256,8 +256,8 @@ fn draw_image(canvas: &mut Canvas, pos: Point, env: &Env, image: &ImageElement) 
         *dest = ColorU8::from_rgba(r, g, b, a).premultiply();
     }
 
-    let view_width = image.size.width.to_pt() as f32;
-    let view_height = image.size.height.to_pt() as f32;
+    let view_width = img.size.width.to_pt() as f32;
+    let view_height = img.size.height.to_pt() as f32;
 
     let x = pos.x.to_pt() as f32;
     let y = pos.y.to_pt() as f32;

@@ -316,13 +316,13 @@ pub fn page(mut args: Args, ctx: &mut EvalContext) -> Value {
     args.done(ctx);
 
     if let Some(body) = body {
-        ctx.end_page_group();
+        ctx.end_page_group(false);
         ctx.start_page_group(true);
         body.eval(ctx);
         ctx.state = snapshot;
     }
 
-    ctx.end_page_group();
+    ctx.end_page_group(false);
     ctx.start_page_group(false);
 
     Value::None
@@ -331,7 +331,7 @@ pub fn page(mut args: Args, ctx: &mut EvalContext) -> Value {
 /// `pagebreak`: Start a new page.
 pub fn pagebreak(args: Args, ctx: &mut EvalContext) -> Value {
     args.done(ctx);
-    ctx.end_page_group();
+    ctx.end_page_group(false);
     ctx.start_page_group(true);
     Value::None
 }

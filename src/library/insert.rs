@@ -1,9 +1,6 @@
-use std::io::Cursor;
-
-use image::io::Reader;
 use image::GenericImageView;
 
-use crate::env::ResourceId;
+use crate::env::{ImageResource, ResourceId};
 use crate::layout::*;
 use crate::prelude::*;
 
@@ -20,15 +17,10 @@ pub fn image(mut args: Args, ctx: &mut EvalContext) -> Value {
 
     if let Some(path) = path {
         let mut env = ctx.env.borrow_mut();
-        let loaded = env.resources.load(path.v, |data| {
-            Reader::new(Cursor::new(data))
-                .with_guessed_format()
-                .ok()
-                .and_then(|reader| reader.decode().ok())
-        });
+        let loaded = env.resources.load(path.v, ImageResource::parse);
 
-        if let Some((res, buf)) = loaded {
-            let dimensions = buf.dimensions();
+        if let Some((res, img)) = loaded {
+            let dimensions = img.buf.dimensions();
             drop(env);
             ctx.push(Image {
                 res,
