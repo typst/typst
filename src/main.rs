@@ -59,10 +59,10 @@ fn main() -> anyhow::Result<()> {
         let map = LineMap::new(&src);
         for diag in diags {
             let span = diag.span;
-            let start = map.location(span.start);
-            let end = map.location(span.end);
+            let start = map.location(span.start).unwrap();
+            let end = map.location(span.end).unwrap();
             println!(
-                "  {}: {}:{}-{}: {}",
+                "{}: {}:{}-{}: {}",
                 diag.v.level,
                 src_path.display(),
                 start,

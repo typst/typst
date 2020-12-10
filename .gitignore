@@ -3,6 +3,5 @@
 **/*.rs.bk
 Cargo.lock
 bench/target
-tests/png
-tests/pdf
+tests/out
 _things

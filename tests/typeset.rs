@@ -1,35 +1,35 @@
 use std::cell::RefCell;
 use std::env;
 use std::ffi::OsStr;
-use std::fs::{self, File};
+use std::fs;
 use std::path::Path;
 use std::rc::Rc;
 
 use fontdock::fs::{FsIndex, FsSource};
 use image::{GenericImageView, Rgba};
-use memmap::Mmap;
 use tiny_skia::{
     Canvas, Color, ColorU8, FillRule, FilterQuality, Paint, PathBuilder, Pattern, Pixmap,
     Rect, SpreadMode, Transform,
 };
 use ttf_parser::OutlineBuilder;
 
-use typst::diag::{Feedback, Pass};
+use typst::diag::{Diag, Feedback, Level, Pass};
 use typst::env::{Env, ImageResource, ResourceLoader, SharedEnv};
 use typst::eval::State;
 use typst::export::pdf;
 use typst::font::FontLoader;
-use typst::geom::{Length, Point};
+use typst::geom::{Length, Point, Sides, Size};
 use typst::layout::{BoxLayout, ImageElement, LayoutElement};
-use typst::parse::LineMap;
+use typst::parse::{LineMap, Scanner};
 use typst::shaping::Shaped;
+use typst::syntax::{Location, Pos, SpanVec, SpanWith, Spanned};
 use typst::typeset;
 
-const FONT_DIR: &str = "../fonts";
 const TYP_DIR: &str = "typ";
-const PDF_DIR: &str = "pdf";
-const PNG_DIR: &str = "png";
-const CMP_DIR: &str = "cmp";
+const REF_DIR: &str = "ref";
+const PNG_DIR: &str = "out/png";
+const PDF_DIR: &str = "out/pdf";
+const FONT_DIR: &str = "../fonts";
 
 fn main() {
     env::set_current_dir(env::current_dir().unwrap().join("tests")).unwrap();
@@ -44,12 +44,8 @@ fn main() {
         }
 
         let name = src_path.file_stem().unwrap().to_string_lossy().to_string();
-        let pdf_path = Path::new(PDF_DIR).join(&name).with_extension("pdf");
-        let png_path = Path::new(PNG_DIR).join(&name).with_extension("png");
-        let ref_path = Path::new(CMP_DIR).join(&name).with_extension("png");
-
         if filter.matches(&name) {
-            filtered.push((name, src_path, pdf_path, png_path, ref_path));
+            filtered.push((name, src_path));
         }
     }
 
@@ -62,8 +58,8 @@ fn main() {
         println!("Running {} tests", len);
     }
 
-    fs::create_dir_all(PDF_DIR).unwrap();
     fs::create_dir_all(PNG_DIR).unwrap();
+    fs::create_dir_all(PDF_DIR).unwrap();
 
     let mut index = FsIndex::new();
     index.search_dir(FONT_DIR);
@@ -76,69 +72,17 @@ fn main() {
 
     let mut ok = true;
 
-    for (name, src_path, pdf_path, png_path, ref_path) in filtered {
-        print!("Testing {}.", name);
-        test(&src_path, &pdf_path, &png_path, &env);
+    for (name, src_path) in filtered {
+        let png_path = Path::new(PNG_DIR).join(&name).with_extension("png");
+        let pdf_path = Path::new(PDF_DIR).join(&name).with_extension("pdf");
+        let ref_path = Path::new(REF_DIR).join(&name).with_extension("png");
 
-        let png_file = File::open(&png_path).unwrap();
-        let ref_file = match File::open(&ref_path) {
-            Ok(file) => file,
-            Err(_) => {
-                println!(" Failed to open reference image. ❌");
-                ok = false;
-                continue;
-            }
-        };
-
-        let a = unsafe { Mmap::map(&png_file).unwrap() };
-        let b = unsafe { Mmap::map(&ref_file).unwrap() };
-
-        if *a != *b {
-            println!(" Does not match reference image. ❌");
-            ok = false;
-        } else {
-            println!(" Okay. ✔");
-        }
+        ok &= test(&name, &src_path, &pdf_path, &png_path, &ref_path, &env);
     }
 
     if !ok {
         std::process::exit(1);
     }
-}
-
-fn test(src_path: &Path, pdf_path: &Path, png_path: &Path, env: &SharedEnv) {
-    let src = fs::read_to_string(src_path).unwrap();
-    let state = State::default();
-    let Pass {
-        output: layouts,
-        feedback: Feedback { mut diags, .. },
-    } = typeset(&src, Rc::clone(env), state);
-
-    if !diags.is_empty() {
-        diags.sort();
-
-        let map = LineMap::new(&src);
-        for diag in diags {
-            let span = diag.span;
-            let start = map.location(span.start);
-            let end = map.location(span.end);
-            println!(
-                "  {}: {}:{}-{}: {}",
-                diag.v.level,
-                src_path.display(),
-                start,
-                end,
-                diag.v.message,
-            );
-        }
-    }
-
-    let env = env.borrow();
-    let canvas = draw(&layouts, &env, 2.0);
-    canvas.pixmap.save_png(png_path).unwrap();
-
-    let pdf_data = pdf::export(&layouts, &env);
-    fs::write(pdf_path, pdf_data).unwrap();
 }
 
 struct TestFilter {
@@ -169,6 +113,111 @@ impl TestFilter {
             self.filter.is_empty() || self.filter.iter().any(|p| name.contains(p))
         }
     }
+}
+
+fn test(
+    name: &str,
+    src_path: &Path,
+    pdf_path: &Path,
+    png_path: &Path,
+    ref_path: &Path,
+    env: &SharedEnv,
+) -> bool {
+    println!("Testing {}.", name);
+
+    let src = fs::read_to_string(src_path).unwrap();
+    let map = LineMap::new(&src);
+    let ref_diags = parse_diags(&src, &map);
+
+    let mut state = State::default();
+    state.page.size = Size::uniform(Length::pt(120.0));
+    state.page.margins = Sides::uniform(Some(Length::pt(10.0).into()));
+
+    let Pass {
+        output: layouts,
+        feedback: Feedback { mut diags, .. },
+    } = typeset(&src, Rc::clone(env), state);
+    diags.sort();
+
+    let env = env.borrow();
+    let canvas = draw(&layouts, &env, 2.0);
+    canvas.pixmap.save_png(png_path).unwrap();
+
+    let pdf_data = pdf::export(&layouts, &env);
+    fs::write(pdf_path, pdf_data).unwrap();
+
+    let mut ok = true;
+
+    if diags != ref_diags {
+        println!("  Does not match expected diagnostics. ❌");
+        ok = false;
+
+        for diag in &diags {
+            if ref_diags.binary_search(diag).is_err() {
+                print!("    Unexpected | ");
+                print_diag(diag, &map);
+            }
+        }
+
+        for diag in &ref_diags {
+            if diags.binary_search(diag).is_err() {
+                print!("    Missing    | ");
+                print_diag(diag, &map);
+            }
+        }
+    }
+
+    if let Ok(ref_pixmap) = Pixmap::load_png(&ref_path) {
+        if canvas.pixmap != ref_pixmap {
+            println!("  Does not match reference image. ❌");
+            ok = false;
+        }
+    } else {
+        println!("  Failed to open reference image. ❌");
+        ok = false;
+    }
+
+    if ok {
+        println!("\x1b[1ATesting {}. ✔", name);
+    }
+
+    ok
+}
+
+fn parse_diags(src: &str, map: &LineMap) -> SpanVec<Diag> {
+    let mut diags = vec![];
+
+    for line in src.lines() {
+        let (level, rest) = if let Some(rest) = line.strip_prefix("// error: ") {
+            (Level::Error, rest)
+        } else if let Some(rest) = line.strip_prefix("// warning: ") {
+            (Level::Warning, rest)
+        } else {
+            continue;
+        };
+
+        fn pos(s: &mut Scanner, map: &LineMap) -> Pos {
+            let (line, _, column) = (num(s), s.eat_assert(':'), num(s));
+            map.pos(Location { line, column }).unwrap()
+        }
+
+        fn num(s: &mut Scanner) -> u32 {
+            s.eat_while(|c| c.is_numeric()).parse().unwrap()
+        }
+
+        let mut s = Scanner::new(rest);
+        let (start, _, end) = (pos(&mut s, map), s.eat_assert('-'), pos(&mut s, map));
+        diags.push(Diag::new(level, s.rest().trim()).span_with(start .. end));
+    }
+
+    diags.sort();
+    diags
+}
+
+fn print_diag(diag: &Spanned<Diag>, map: &LineMap) {
+    let start = map.location(diag.span.start).unwrap();
+    let end = map.location(diag.span.end).unwrap();
+    println!("{}: {}-{}: {}", diag.v.level, start, end, diag.v.message,);
 }
 
 fn draw(layouts: &[BoxLayout], env: &Env, pixel_per_pt: f32) -> Canvas {

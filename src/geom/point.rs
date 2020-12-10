@@ -17,6 +17,11 @@ impl Point {
     pub fn new(x: Length, y: Length) -> Self {
         Self { x, y }
     }
+
+    /// Create an instance with two equal components.
+    pub fn uniform(value: Length) -> Self {
+        Self { x: value, y: value }
+    }
 }
 
 impl Get<SpecAxis> for Point {

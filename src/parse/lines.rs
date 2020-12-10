@@ -1,7 +1,7 @@
 //! Conversion of byte positions to line/column locations.
 
 use super::Scanner;
-use crate::syntax::{Location, Pos};
+use crate::syntax::{Location, Offset, Pos};
 
 /// Enables conversion of byte position to locations.
 pub struct LineMap<'s> {
@@ -25,23 +25,48 @@ impl<'s> LineMap<'s> {
     }
 
     /// Convert a byte position to a location.
-    ///
-    /// # Panics
-    /// This panics if the position is out of bounds.
-    pub fn location(&self, pos: Pos) -> Location {
+    pub fn location(&self, pos: Pos) -> Option<Location> {
+        // Find the line which contains the position.
         let line_index = match self.line_starts.binary_search(&pos) {
             Ok(i) => i,
             Err(i) => i - 1,
         };
 
-        let line_start = self.line_starts[line_index];
-        let head = &self.src[line_start.to_usize() .. pos.to_usize()];
+        let start = self.line_starts.get(line_index)?;
+        let head = self.src.get(start.to_usize() .. pos.to_usize())?;
         let column_index = head.chars().count();
 
-        Location {
+        Some(Location {
             line: 1 + line_index as u32,
             column: 1 + column_index as u32,
-        }
+        })
+    }
+
+    /// Convert a location to a byte position.
+    pub fn pos(&self, location: Location) -> Option<Pos> {
+        // Determine the boundaries of the line.
+        let line_idx = location.line.checked_sub(1)? as usize;
+        let line_start = self.line_starts.get(line_idx)?;
+        let line_end = self
+            .line_starts
+            .get(location.line as usize)
+            .map_or(self.src.len(), |pos| pos.to_usize());
+
+        let line = self.src.get(line_start.to_usize() .. line_end)?;
+
+        // Find the index in the line. For the first column, the index is always zero. For
+        // other columns, we have to look at which byte the char directly before the
+        // column in question ends. We can't do `nth(column_idx)` directly since the
+        // column may be behind the last char.
+        let column_idx = location.column.checked_sub(1)? as usize;
+        let line_offset = if let Some(prev_idx) = column_idx.checked_sub(1) {
+            let (idx, prev) = line.char_indices().nth(prev_idx)?;
+            idx + prev.len_utf8()
+        } else {
+            0
+        };
+
+        Some(line_start.offset(Pos(line_offset as u32)))
     }
 }
 
@@ -71,18 +96,26 @@ mod tests {
     #[test]
     fn test_line_map_location() {
         let map = LineMap::new(TEST);
-        assert_eq!(map.location(Pos(0)), Location::new(1, 1));
-        assert_eq!(map.location(Pos(2)), Location::new(1, 2));
-        assert_eq!(map.location(Pos(6)), Location::new(1, 6));
-        assert_eq!(map.location(Pos(7)), Location::new(2, 1));
-        assert_eq!(map.location(Pos(8)), Location::new(2, 2));
-        assert_eq!(map.location(Pos(12)), Location::new(2, 3));
-        assert_eq!(map.location(Pos(21)), Location::new(4, 4));
+        assert_eq!(map.location(Pos(0)), Some(Location::new(1, 1)));
+        assert_eq!(map.location(Pos(2)), Some(Location::new(1, 2)));
+        assert_eq!(map.location(Pos(6)), Some(Location::new(1, 6)));
+        assert_eq!(map.location(Pos(7)), Some(Location::new(2, 1)));
+        assert_eq!(map.location(Pos(8)), Some(Location::new(2, 2)));
+        assert_eq!(map.location(Pos(12)), Some(Location::new(2, 3)));
+        assert_eq!(map.location(Pos(21)), Some(Location::new(4, 4)));
+        assert_eq!(map.location(Pos(22)), None);
     }
 
     #[test]
-    #[should_panic]
-    fn test_line_map_panics_out_of_bounds() {
-        LineMap::new(TEST).location(Pos(22));
+    fn test_line_map_pos() {
+        fn assert_round_trip(map: &LineMap, pos: Pos) {
+            assert_eq!(map.location(pos).and_then(|loc| map.pos(loc)), Some(pos));
+        }
+
+        let map = LineMap::new(TEST);
+        assert_round_trip(&map, Pos(0));
+        assert_round_trip(&map, Pos(7));
+        assert_round_trip(&map, Pos(12));
+        assert_round_trip(&map, Pos(21));
     }
 }

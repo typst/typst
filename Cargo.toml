@@ -8,26 +8,22 @@ edition = "2018"
 members = ["bench"]
 
 [features]
-default = ["fs", "anyhow"]
+default = ["cli", "fs"]
+cli = ["fs", "anyhow"]
 fs = ["fontdock/fs"]
 
 [dependencies]
-fontdock = { path = "../fontdock", default-features = false }
-pdf-writer = { path = "../pdf-writer" }
 deflate = { version = "0.8.6" }
+fontdock = { path = "../fontdock", default-features = false }
 image = { version = "0.23", default-features = false, features = ["jpeg", "png"] }
 itoa = "0.4"
+pdf-writer = { path = "../pdf-writer" }
 ttf-parser = "0.8.2"
 unicode-xid = "0.2"
-
-# feature = "serde"
+anyhow = { version = "1", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 
-# for the CLI
-anyhow = { version = "1", optional = true }
-
 [dev-dependencies]
-memmap = "0.7"
 tiny-skia = "0.2"
 
 [profile.dev]
@@ -38,7 +34,7 @@ lto = true
 
 [[bin]]
 name = "typst"
-required-features = ["fs", "anyhow"]
+required-features = ["cli"]
 
 [[test]]
 name = "typeset"

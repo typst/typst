@@ -56,24 +56,31 @@ use Unit::*;
 fn Id(ident: &str) -> Expr {
     Expr::Lit(Lit::Ident(Ident(ident.to_string())))
 }
+
 fn Bool(b: bool) -> Expr {
     Expr::Lit(Lit::Bool(b))
 }
+
 fn Int(int: i64) -> Expr {
     Expr::Lit(Lit::Int(int))
 }
+
 fn Float(float: f64) -> Expr {
     Expr::Lit(Lit::Float(float))
 }
+
 fn Percent(percent: f64) -> Expr {
     Expr::Lit(Lit::Percent(percent))
 }
+
 fn Length(val: f64, unit: Unit) -> Expr {
     Expr::Lit(Lit::Length(val, unit))
 }
+
 fn Color(color: RgbaColor) -> Expr {
     Expr::Lit(Lit::Color(color))
 }
+
 fn Str(string: &str) -> Expr {
     Expr::Lit(Lit::Str(string.to_string()))
 }
@@ -98,6 +105,7 @@ fn Unary(op: impl Into<Spanned<UnOp>>, expr: impl Into<Spanned<Expr>>) -> Expr {
         expr: expr.into().map(Box::new),
     })
 }
+
 fn Binary(
     op: impl Into<Spanned<BinOp>>,
     lhs: impl Into<Spanned<Expr>>,

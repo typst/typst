@@ -21,6 +21,11 @@ impl Size {
         Self { width, height }
     }
 
+    /// Create an instance with two equal components.
+    pub fn uniform(value: Length) -> Self {
+        Self { width: value, height: value }
+    }
+
     /// Whether the other size fits into this one (smaller width and height).
     pub fn fits(self, other: Self) -> bool {
         self.width >= other.width && self.height >= other.height
