@@ -13,10 +13,10 @@ cli = ["fs", "anyhow"]
 fs = ["fontdock/fs"]
 
 [dependencies]
-deflate = { version = "0.8.6" }
 fontdock = { path = "../fontdock", default-features = false }
 image = { version = "0.23", default-features = false, features = ["jpeg", "png"] }
 itoa = "0.4"
+miniz_oxide = "0.3"
 pdf-writer = { path = "../pdf-writer" }
 ttf-parser = "0.8.2"
 unicode-xid = "0.2"

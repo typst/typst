@@ -217,7 +217,7 @@ fn parse_diags(src: &str, map: &LineMap) -> SpanVec<Diag> {
 fn print_diag(diag: &Spanned<Diag>, map: &LineMap) {
     let start = map.location(diag.span.start).unwrap();
     let end = map.location(diag.span.end).unwrap();
-    println!("{}: {}-{}: {}", diag.v.level, start, end, diag.v.message,);
+    println!("{}: {}-{}: {}", diag.v.level, start, end, diag.v.message);
 }
 
 fn draw(layouts: &[BoxLayout], env: &Env, pixel_per_pt: f32) -> Canvas {

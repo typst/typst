@@ -3,12 +3,10 @@
 use std::cmp::Eq;
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::io::Write;
 
-use deflate::write::ZlibEncoder;
-use deflate::Compression;
 use fontdock::FaceId;
-use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Luma, Rgba};
+use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Rgba};
+use miniz_oxide::deflate;
 use pdf_writer::{
     CidFontType, ColorSpace, Content, Filter, FontFlags, Name, PdfWriter, Rect, Ref, Str,
     SystemInfo, UnicodeCmap,
@@ -309,20 +307,17 @@ impl<'a> PdfExporter<'a> {
                 // Add a second gray-scale image containing the alpha values if
                 // this image has an alpha channel.
                 if img.buf.color().has_alpha() {
-                    if let Ok((alpha_data, alpha_filter)) = encode_alpha(img) {
-                        let mask_id = self.refs.alpha_mask(masks_seen);
-                        image.s_mask(mask_id);
-                        drop(image);
+                    let (alpha_data, alpha_filter) = encode_alpha(img);
+                    let mask_id = self.refs.alpha_mask(masks_seen);
+                    image.s_mask(mask_id);
+                    drop(image);
 
-                        let mut mask = self.writer.image(mask_id, &alpha_data);
-                        mask.inner().filter(alpha_filter);
-                        mask.width(width as i32);
-                        mask.height(height as i32);
-                        mask.color_space(ColorSpace::DeviceGray);
-                        mask.bits_per_component(8);
-                    } else {
-                        // TODO: Warn that alpha channel could not be encoded.
-                    }
+                    let mut mask = self.writer.image(mask_id, &alpha_data);
+                    mask.inner().filter(alpha_filter);
+                    mask.width(width as i32);
+                    mask.height(height as i32);
+                    mask.color_space(ColorSpace::DeviceGray);
+                    mask.bits_per_component(8);
 
                     masks_seen += 1;
                 }
@@ -460,6 +455,9 @@ where
     }
 }
 
+/// The compression level for the deflating.
+const DEFLATE_LEVEL: u8 = 6;
+
 /// Encode an image with a suitable filter.
 ///
 /// Skips the alpha channel as that's encoded separately.
@@ -482,21 +480,21 @@ fn encode_image(img: &ImageResource) -> ImageResult<(Vec<u8>, Filter, ColorSpace
 
         // 8-bit gray PNG.
         (ImageFormat::Png, DynamicImage::ImageLuma8(luma)) => {
-            let mut enc = ZlibEncoder::new(&mut data, Compression::default());
-            for &Luma([value]) in luma.pixels() {
-                enc.write_all(&[value])?;
-            }
-            enc.finish()?;
+            data = deflate::compress_to_vec_zlib(&luma.as_raw(), DEFLATE_LEVEL);
             (Filter::FlateDecode, ColorSpace::DeviceGray)
         }
 
         // Anything else (including Rgb(a) PNGs).
         (_, buf) => {
-            let mut enc = ZlibEncoder::new(&mut data, Compression::default());
+            let (width, height) = buf.dimensions();
+            let mut pixels = Vec::with_capacity(3 * width as usize * height as usize);
             for (_, _, Rgba([r, g, b, _])) in buf.pixels() {
-                enc.write_all(&[r, g, b])?;
+                pixels.push(r);
+                pixels.push(g);
+                pixels.push(b);
             }
-            enc.finish()?;
+
+            data = deflate::compress_to_vec_zlib(&pixels, DEFLATE_LEVEL);
             (Filter::FlateDecode, ColorSpace::DeviceRgb)
         }
     };
@@ -504,12 +502,8 @@ fn encode_image(img: &ImageResource) -> ImageResult<(Vec<u8>, Filter, ColorSpace
 }
 
 /// Encode an image's alpha channel if present.
-fn encode_alpha(img: &ImageResource) -> ImageResult<(Vec<u8>, Filter)> {
-    let mut data = vec![];
-    let mut enc = ZlibEncoder::new(&mut data, Compression::default());
-    for (_, _, Rgba([_, _, _, a])) in img.buf.pixels() {
-        enc.write_all(&[a])?;
-    }
-    enc.finish()?;
-    Ok((data, Filter::FlateDecode))
+fn encode_alpha(img: &ImageResource) -> (Vec<u8>, Filter) {
+    let pixels: Vec<_> = img.buf.pixels().map(|(_, _, Rgba([_, _, _, a]))| a).collect();
+    let data = deflate::compress_to_vec_zlib(&pixels, DEFLATE_LEVEL);
+    (data, Filter::FlateDecode)
 }
