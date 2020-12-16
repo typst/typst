@@ -415,6 +415,7 @@ fn test_parse_values() {
     // Simple.
     v!("_"         => Id("_"));
     v!("name"      => Id("name"));
+    v!("ke-bab"    => Id("ke-bab"));
     v!("α"         => Id("α"));
     v!("\"hi\""    => Str("hi"));
     v!("true"      => Bool(true));
@@ -457,6 +458,7 @@ fn test_parse_expressions() {
     // Operations.
     v!("-1"          => Unary(Neg, Int(1)));
     v!("-- 1"        => Unary(Neg, Unary(Neg, Int(1))));
+    v!("--css"       => Unary(Neg, Unary(Neg, Id("css"))));
     v!("3.2in + 6pt" => Binary(Add, Length(3.2, In), Length(6.0, Pt)));
     v!("5 - 0.01"    => Binary(Sub, Int(5), Float(0.01)));
     v!("(3mm * 2)"   => Binary(Mul, Length(3.0, Mm), Int(2)));
@@ -547,7 +549,7 @@ fn test_parse_dicts_compute_func_calls() {
 
     // Invalid name.
     v!("👠(\"abc\", 13e-5)"        => Dict!(Str("abc"), Float(13.0e-5)));
-    e!("[val: 👠(\"abc\", 13e-5)]" => s(6, 10, "expected value, found invalid token"));
+    e!("[val: 👠(\"abc\", 13e-5)]" => s(6, 10, "invalid token"));
 }
 
 #[test]
@@ -567,12 +569,12 @@ fn test_parse_dicts_nested() {
 #[test]
 fn test_parse_dicts_errors() {
     // Expected value.
-    e!("[val: (=)]"         => s(7, 8, "expected value, found equals sign"));
-    e!("[val: (,)]"         => s(7, 8, "expected value, found comma"));
+    e!("[val: (=)]"         => s(7, 8, "unexpected equals sign"));
+    e!("[val: (,)]"         => s(7, 8, "unexpected comma"));
     v!("(\x07 abc,)"        => Dict![Id("abc")]);
-    e!("[val: (\x07 abc,)]" => s(7, 8, "expected value, found invalid token"));
+    e!("[val: (\x07 abc,)]" => s(7, 8, "invalid token"));
     e!("[val: (key=,)]"     => s(11, 12, "expected value, found comma"));
-    e!("[val: hi,)]"        => s(9, 10, "expected value, found closing paren"));
+    e!("[val: hi,)]"        => s(9, 10, "unexpected closing paren"));
 
     // Expected comma.
     v!("(true false)"        => Dict![Bool(true), Bool(false)]);
@@ -586,13 +588,9 @@ fn test_parse_dicts_errors() {
 
     // Bad key.
     v!("true=you"        => Bool(true), Id("you"));
-    e!("[val: true=you]" =>
-        s(10, 10, "expected comma"),
-        s(10, 11, "expected value, found equals sign"));
+    e!("[val: true=you]" => s(10, 11, "unexpected equals sign"));
 
     // Unexpected equals sign.
     v!("z=y=4"        => "z" => Id("y"), Int(4));
-    e!("[val: z=y=4]" =>
-        s(9, 9, "expected comma"),
-        s(9, 10, "expected value, found equals sign"));
+    e!("[val: z=y=4]" => s(9, 10, "unexpected equals sign"));
 }

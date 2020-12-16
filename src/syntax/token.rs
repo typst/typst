@@ -19,6 +19,8 @@ pub enum Token<'s> {
     ///
     /// The comment can contain nested block comments.
     BlockComment(&'s str),
+    /// An end of a block comment that was not started.
+    StarSlash,
 
     /// A star: `*`.
     Star,
@@ -83,7 +85,7 @@ pub enum Token<'s> {
     /// A quoted string: `"..."`.
     Str(TokenStr<'s>),
 
-    /// Things that are not valid in the context they appeared in.
+    /// Things that are not valid tokens.
     Invalid(&'s str),
 }
 
@@ -129,6 +131,7 @@ impl<'s> Token<'s> {
 
             Self::LineComment(_) => "line comment",
             Self::BlockComment(_) => "block comment",
+            Self::StarSlash => "end of block comment",
 
             Self::Star => "star",
             Self::Underscore => "underscore",
@@ -162,7 +165,6 @@ impl<'s> Token<'s> {
             Self::Hex(_) => "hex value",
             Self::Str { .. } => "string",
 
-            Self::Invalid("*/") => "end of block comment",
             Self::Invalid(_) => "invalid token",
         }
     }

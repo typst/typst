@@ -85,8 +85,9 @@ fn node(p: &mut Parser, at_start: bool) -> Option<Spanned<SynNode>> {
         }
 
         // Bad tokens.
-        token => {
-            p.diag_unexpected(token.span_with(start .. p.pos()));
+        _ => {
+            p.jump(start);
+            p.diag_unexpected();
             return None;
         }
     };
@@ -233,6 +234,7 @@ fn paren_call(p: &mut Parser, name: Spanned<Ident>) -> ExprCall {
 fn dict_contents(p: &mut Parser) -> (LitDict, bool) {
     let mut dict = LitDict::new();
     let mut comma_and_keyless = true;
+    let mut expected_comma = None;
 
     loop {
         p.skip_white();
@@ -243,9 +245,14 @@ fn dict_contents(p: &mut Parser) -> (LitDict, bool) {
         let entry = if let Some(entry) = dict_entry(p) {
             entry
         } else {
-            p.diag_expected("value");
+            expected_comma = None;
+            p.diag_unexpected();
             continue;
         };
+
+        if let Some(pos) = expected_comma.take() {
+            p.diag_expected_at("comma", pos);
+        }
 
         if let Some(key) = &entry.key {
             comma_and_keyless = false;
@@ -261,7 +268,7 @@ fn dict_contents(p: &mut Parser) -> (LitDict, bool) {
         }
 
         if !p.eat_if(Token::Comma) {
-            p.diag_expected_at("comma", behind);
+            expected_comma = Some(behind);
         }
 
         comma_and_keyless = false;
@@ -286,6 +293,7 @@ fn dict_entry(p: &mut Parser) -> Option<LitDictEntry> {
                         expr,
                     })
                 } else {
+                    p.diag_expected("value");
                     None
                 }
             }

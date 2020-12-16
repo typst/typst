@@ -38,7 +38,7 @@ impl<'s> Parser<'s> {
         self.f.diags.push(diag);
     }
 
-    /// Eat the next token and add a diagnostic that it was not the expected
+    /// Eat the next token and add a diagnostic that it is not the expected
     /// `thing`.
     pub fn diag_expected(&mut self, thing: &str) {
         let before = self.pos();
@@ -60,9 +60,16 @@ impl<'s> Parser<'s> {
         self.diag(error!(pos, "expected {}", thing));
     }
 
-    /// Add a diagnostic that the given `token` was unexpected.
-    pub fn diag_unexpected(&mut self, token: Spanned<Token>) {
-        self.diag(error!(token.span, "unexpected {}", token.v.name()));
+    /// Eat the next token and add a diagnostic that it is unexpected.
+    pub fn diag_unexpected(&mut self) {
+        let before = self.pos();
+        if let Some(found) = self.eat() {
+            let after = self.pos();
+            self.diag(match found {
+                Token::Invalid(_) => error!(before .. after, "invalid token"),
+                _ => error!(before .. after, "unexpected {}", found.name()),
+            });
+        }
     }
 
     /// Add a decoration to the feedback.
