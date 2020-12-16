@@ -5,3 +5,4 @@ Cargo.lock
 bench/target
 tests/out
 _things
+tarpaulin-report.html

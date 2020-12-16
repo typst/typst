@@ -24,16 +24,16 @@ pub enum Token<'s> {
     Star,
     /// An underscore: `_`.
     Underscore,
-    /// A backslash followed by whitespace: `\`.
-    Backslash,
     /// A hashtag indicating a section heading: `#`.
     Hashtag,
-    /// A non-breaking space: `~`.
-    NonBreakingSpace,
-    /// A raw block: `` `...` ``.
-    Raw(TokenRaw<'s>),
+    /// A tilde: `~`.
+    Tilde,
+    /// A backslash followed by whitespace: `\`.
+    Backslash,
     /// A unicode escape sequence: `\u{1F5FA}`.
     UnicodeEscape(TokenUnicodeEscape<'s>),
+    /// A raw block: `` `...` ``.
+    Raw(TokenRaw<'s>),
 
     /// A left bracket: `[`.
     LeftBracket,
@@ -134,7 +134,7 @@ impl<'s> Token<'s> {
             Self::Underscore => "underscore",
             Self::Backslash => "backslash",
             Self::Hashtag => "hashtag",
-            Self::NonBreakingSpace => "non-breaking space",
+            Self::Tilde => "tidle",
             Self::Raw { .. } => "raw block",
             Self::UnicodeEscape { .. } => "unicode escape sequence",
 

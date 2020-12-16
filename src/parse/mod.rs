@@ -66,7 +66,6 @@ fn node(p: &mut Parser, at_start: bool) -> Option<Spanned<SynNode>> {
         // Markup.
         Token::Star => SynNode::Strong,
         Token::Underscore => SynNode::Emph,
-        Token::Backslash => SynNode::Linebreak,
         Token::Hashtag => {
             if at_start {
                 SynNode::Heading(heading(p, start))
@@ -74,9 +73,10 @@ fn node(p: &mut Parser, at_start: bool) -> Option<Spanned<SynNode>> {
                 SynNode::Text(p.eaten_from(start).into())
             }
         }
-        Token::NonBreakingSpace => SynNode::Text("\u{00A0}".into()),
-        Token::Raw(token) => SynNode::Raw(raw(p, token)),
+        Token::Tilde => SynNode::Text("\u{00A0}".into()),
+        Token::Backslash => SynNode::Linebreak,
         Token::UnicodeEscape(token) => SynNode::Text(unicode_escape(p, token, start)),
+        Token::Raw(token) => SynNode::Raw(raw(p, token)),
 
         // Functions.
         Token::LeftBracket => {
