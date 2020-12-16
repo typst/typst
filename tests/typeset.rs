@@ -127,7 +127,7 @@ fn test(
 
     let src = fs::read_to_string(src_path).unwrap();
     let map = LineMap::new(&src);
-    let ref_diags = parse_diags(&src, &map);
+    let (ref_diags, compare_ref) = parse_metadata(&src, &map);
 
     let mut state = State::default();
     state.page.size = Size::uniform(Length::pt(120.0));
@@ -167,14 +167,16 @@ fn test(
         }
     }
 
-    if let Ok(ref_pixmap) = Pixmap::load_png(&ref_path) {
-        if canvas.pixmap != ref_pixmap {
-            println!("  Does not match reference image. ❌");
+    if compare_ref {
+        if let Ok(ref_pixmap) = Pixmap::load_png(&ref_path) {
+            if canvas.pixmap != ref_pixmap {
+                println!("  Does not match reference image. ❌");
+                ok = false;
+            }
+        } else {
+            println!("  Failed to open reference image. ❌");
             ok = false;
         }
-    } else {
-        println!("  Failed to open reference image. ❌");
-        ok = false;
     }
 
     if ok {
@@ -184,10 +186,13 @@ fn test(
     ok
 }
 
-fn parse_diags(src: &str, map: &LineMap) -> SpanVec<Diag> {
+fn parse_metadata(src: &str, map: &LineMap) -> (SpanVec<Diag>, bool) {
     let mut diags = vec![];
+    let mut compare_ref = true;
 
     for line in src.lines() {
+        compare_ref &= !line.starts_with("// compare-ref: false");
+
         let (level, rest) = if let Some(rest) = line.strip_prefix("// error: ") {
             (Level::Error, rest)
         } else if let Some(rest) = line.strip_prefix("// warning: ") {
@@ -211,7 +216,8 @@ fn parse_diags(src: &str, map: &LineMap) -> SpanVec<Diag> {
     }
 
     diags.sort();
-    diags
+
+    (diags, compare_ref)
 }
 
 fn print_diag(diag: &Spanned<Diag>, map: &LineMap) {

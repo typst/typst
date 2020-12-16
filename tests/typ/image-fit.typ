@@ -1,3 +1,5 @@
+// Test configuring the size and fitting behaviour of images.
+
 // Fit to width of page.
 [image: "res/rhino.png"]
 

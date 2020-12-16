@@ -1,7 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 
+use crate::eval::Softness;
 use crate::geom::{Length, Linear};
-use crate::layout::{Expansion, Fixed, Softness, Spacing, Stack};
+use crate::layout::{Expansion, Fixed, Spacing, Stack};
 use crate::paper::{Paper, PaperClass};
 use crate::prelude::*;
 
@@ -184,8 +185,8 @@ pub fn boxed(mut args: Args, ctx: &mut EvalContext) -> Value {
     let body = args.find::<SynTree>().unwrap_or_default();
     let width = args.get::<_, Linear>(ctx, "width");
     let height = args.get::<_, Linear>(ctx, "height");
-    let main = args.get::<_, Spanned<Dir>>(ctx, "main");
-    let cross = args.get::<_, Spanned<Dir>>(ctx, "cross");
+    let main = args.get::<_, Spanned<Dir>>(ctx, "main-dir");
+    let cross = args.get::<_, Spanned<Dir>>(ctx, "cross-dir");
     ctx.set_flow(Gen::new(main, cross));
     args.done(ctx);
 
@@ -269,7 +270,7 @@ pub fn page(mut args: Args, ctx: &mut EvalContext) -> Value {
     let snapshot = ctx.state.clone();
     let body = args.find::<SynTree>();
 
-    if let Some(paper) = args.find::<Paper>() {
+    if let Some(paper) = args.get::<_, Paper>(ctx, 0) {
         ctx.state.page.class = paper.class;
         ctx.state.page.size = paper.size();
     }
@@ -309,21 +310,24 @@ pub fn page(mut args: Args, ctx: &mut EvalContext) -> Value {
         std::mem::swap(&mut size.width, &mut size.height);
     }
 
-    let main = args.get::<_, Spanned<Dir>>(ctx, "main");
-    let cross = args.get::<_, Spanned<Dir>>(ctx, "cross");
+    let main = args.get::<_, Spanned<Dir>>(ctx, "main-dir");
+    let cross = args.get::<_, Spanned<Dir>>(ctx, "cross-dir");
     ctx.set_flow(Gen::new(main, cross));
 
     args.done(ctx);
 
+    let mut softness = ctx.end_page_group(|_| false);
+
     if let Some(body) = body {
-        ctx.end_page_group(false);
-        ctx.start_page_group(true);
+        // TODO: Restrict body to a single page?
+        ctx.start_page_group(Softness::Hard);
         body.eval(ctx);
+        ctx.end_page_group(|s| s == Softness::Hard);
         ctx.state = snapshot;
+        softness = Softness::Soft;
     }
 
-    ctx.end_page_group(false);
-    ctx.start_page_group(false);
+    ctx.start_page_group(softness);
 
     Value::None
 }
@@ -331,7 +335,7 @@ pub fn page(mut args: Args, ctx: &mut EvalContext) -> Value {
 /// `pagebreak`: Start a new page.
 pub fn pagebreak(args: Args, ctx: &mut EvalContext) -> Value {
     args.done(ctx);
-    ctx.end_page_group(false);
-    ctx.start_page_group(true);
+    ctx.end_page_group(|_| true);
+    ctx.start_page_group(Softness::Hard);
     Value::None
 }

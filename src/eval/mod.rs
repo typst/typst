@@ -25,7 +25,7 @@ use crate::diag::{Deco, Feedback, Pass};
 use crate::env::SharedEnv;
 use crate::geom::{BoxAlign, Dir, Flow, Gen, Length, Linear, Relative, Sides, Size};
 use crate::layout::{
-    Document, Expansion, LayoutNode, Pad, Pages, Par, Softness, Spacing, Stack, Text,
+    Document, Expansion, LayoutNode, Pad, Pages, Par, Spacing, Stack, Text,
 };
 use crate::syntax::*;
 
@@ -35,9 +35,9 @@ use crate::syntax::*;
 /// evaluation.
 pub fn eval(tree: &SynTree, env: SharedEnv, state: State) -> Pass<Document> {
     let mut ctx = EvalContext::new(env, state);
-    ctx.start_page_group(false);
+    ctx.start_page_group(Softness::Hard);
     tree.eval(&mut ctx);
-    ctx.end_page_group(true);
+    ctx.end_page_group(|s| s == Softness::Hard);
     ctx.finish()
 }
 
@@ -117,28 +117,35 @@ impl EvalContext {
 
     /// Start a page group based on the active page state.
     ///
-    /// If both this `hard` and the one in the matching call to `end_page_group`
-    /// are false, empty page runs will be omitted from the output.
+    /// The `softness` is a hint on whether empty pages should be kept in the
+    /// output.
     ///
     /// This also starts an inner paragraph.
-    pub fn start_page_group(&mut self, hard: bool) {
+    pub fn start_page_group(&mut self, softness: Softness) {
         self.start_group(PageGroup {
             size: self.state.page.size,
             padding: self.state.page.margins(),
             flow: self.state.flow,
             align: self.state.align,
-            hard,
+            softness,
         });
         self.start_par_group();
     }
 
-    /// End a page group and push it to the finished page runs.
+    /// End a page group, returning its [`Softness`].
+    ///
+    /// Whether the page is kept when it's empty is decided by `keep_empty`
+    /// based on its softness. If kept, the page is pushed to the finished page
+    /// runs.
     ///
     /// This also ends an inner paragraph.
-    pub fn end_page_group(&mut self, hard: bool) {
+    pub fn end_page_group(
+        &mut self,
+        keep_empty: impl FnOnce(Softness) -> bool,
+    ) -> Softness {
         self.end_par_group();
         let (group, children) = self.end_group::<PageGroup>();
-        if hard || group.hard || !children.is_empty() {
+        if !children.is_empty() || keep_empty(group.softness) {
             self.runs.push(Pages {
                 size: group.size,
                 child: LayoutNode::dynamic(Pad {
@@ -152,6 +159,7 @@ impl EvalContext {
                 }),
             })
         }
+        group.softness
     }
 
     /// Start a content group.
@@ -273,7 +281,7 @@ struct PageGroup {
     padding: Sides<Linear>,
     flow: Flow,
     align: BoxAlign,
-    hard: bool,
+    softness: Softness,
 }
 
 /// A group for generic content.
@@ -284,6 +292,15 @@ struct ParGroup {
     flow: Flow,
     align: BoxAlign,
     line_spacing: Length,
+}
+
+/// Defines how items interact with surrounding items.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum Softness {
+    /// Soft items can be skipped in some circumstances.
+    Soft,
+    /// Hard items are always retained.
+    Hard,
 }
 
 /// Evaluate an item.

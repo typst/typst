@@ -5,10 +5,10 @@ authors = ["The Typst Project Developers"]
 edition = "2018"
 publish = false
 
-[dependencies]
+[dev-dependencies]
+criterion = "0.3"
 fontdock = { path = "../../fontdock" }
 typst = { path = ".." }
-criterion = "0.3"
 
 [[bench]]
 name = "typst"
