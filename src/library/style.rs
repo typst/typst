@@ -71,13 +71,6 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
         }
     }
 
-    let mut needs_flattening = false;
-    let list: Vec<_> = args.find_all::<StringLike>().map(|s| s.to_lowercase()).collect();
-    if !list.is_empty() {
-        Rc::make_mut(&mut ctx.state.font.families).list = list;
-        needs_flattening = true;
-    }
-
     if let Some(style) = args.get::<_, FontStyle>(ctx, "style") {
         ctx.state.font.variant.style = style;
     }
@@ -90,6 +83,13 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
         ctx.state.font.variant.stretch = stretch;
     }
 
+    let mut needs_flattening = false;
+    let list: Vec<_> = args.find_all::<StringLike>().map(|s| s.to_lowercase()).collect();
+    if !list.is_empty() {
+        Rc::make_mut(&mut ctx.state.font.families).list = list;
+        needs_flattening = true;
+    }
+
     for (class, dict) in args.find_all_str::<Spanned<ValueDict>>() {
         let fallback = Args(dict)
             .find_all::<StringLike>()
@@ -100,11 +100,11 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
         needs_flattening = true;
     }
 
-    args.done(ctx);
-
     if needs_flattening {
         Rc::make_mut(&mut ctx.state.font.families).flatten();
     }
+
+    args.done(ctx);
 
     if let Some(body) = body {
         body.eval(ctx);

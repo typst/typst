@@ -60,7 +60,7 @@ impl ResourceLoader {
             }
         };
 
-        Some((id, self.get_loaded(id)))
+        Some((id, self.loaded(id)))
     }
 
     /// Retrieve a previously loaded resource by its id.
@@ -68,7 +68,7 @@ impl ResourceLoader {
     /// # Panics
     /// This panics if no resource with this id was loaded.
     #[track_caller]
-    pub fn get_loaded<R: 'static>(&self, id: ResourceId) -> &R {
+    pub fn loaded<R: 'static>(&self, id: ResourceId) -> &R {
         self.entries[id.0].downcast_ref().expect("bad resource type")
     }
 }

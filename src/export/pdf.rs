@@ -51,7 +51,7 @@ impl<'a> PdfExporter<'a> {
                 match element {
                     LayoutElement::Text(shaped) => fonts.insert(shaped.face),
                     LayoutElement::Image(image) => {
-                        let img = env.resources.get_loaded::<ImageResource>(image.res);
+                        let img = env.resources.loaded::<ImageResource>(image.res);
                         if img.buf.color().has_alpha() {
                             alpha_masks += 1;
                         }
@@ -181,7 +181,7 @@ impl<'a> PdfExporter<'a> {
 
     fn write_fonts(&mut self) {
         for (refs, face_id) in self.refs.fonts().zip(self.fonts.layout_indices()) {
-            let owned_face = self.env.fonts.get_loaded(face_id);
+            let owned_face = self.env.fonts.face(face_id);
             let face = owned_face.get();
 
             let name = face
@@ -292,7 +292,7 @@ impl<'a> PdfExporter<'a> {
         let mut masks_seen = 0;
 
         for (id, resource) in self.refs.images().zip(self.images.layout_indices()) {
-            let img = self.env.resources.get_loaded::<ImageResource>(resource);
+            let img = self.env.resources.loaded::<ImageResource>(resource);
             let (width, height) = img.buf.dimensions();
 
             // Add the primary image.

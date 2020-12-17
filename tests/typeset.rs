@@ -278,7 +278,7 @@ fn draw(layouts: &[BoxLayout], env: &Env, pixel_per_pt: f32) -> Canvas {
 }
 
 fn draw_text(canvas: &mut Canvas, pos: Point, env: &Env, shaped: &Shaped) {
-    let face = env.fonts.get_loaded(shaped.face).get();
+    let face = env.fonts.face(shaped.face).get();
 
     for (&glyph, &offset) in shaped.glyphs.iter().zip(&shaped.offsets) {
         let units_per_em = face.units_per_em().unwrap_or(1000);
@@ -304,7 +304,7 @@ fn draw_text(canvas: &mut Canvas, pos: Point, env: &Env, shaped: &Shaped) {
 }
 
 fn draw_image(canvas: &mut Canvas, pos: Point, env: &Env, img: &ImageElement) {
-    let buf = &env.resources.get_loaded::<ImageResource>(img.res).buf;
+    let buf = &env.resources.loaded::<ImageResource>(img.res).buf;
 
     let mut pixmap = Pixmap::new(buf.width(), buf.height()).unwrap();
     for ((_, _, src), dest) in buf.pixels().zip(pixmap.pixels_mut()) {

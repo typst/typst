@@ -21,10 +21,10 @@ use crate::prelude::*;
 pub fn align(mut args: Args, ctx: &mut EvalContext) -> Value {
     let snapshot = ctx.state.clone();
     let body = args.find::<SynTree>();
-    let first = args.get::<_, Spanned<AlignArg>>(ctx, 0);
-    let second = args.get::<_, Spanned<AlignArg>>(ctx, 1);
-    let hor = args.get::<_, Spanned<AlignArg>>(ctx, "horizontal");
-    let ver = args.get::<_, Spanned<AlignArg>>(ctx, "vertical");
+    let first = args.get::<_, Spanned<SpecAlign>>(ctx, 0);
+    let second = args.get::<_, Spanned<SpecAlign>>(ctx, 1);
+    let hor = args.get::<_, Spanned<SpecAlign>>(ctx, "horizontal");
+    let ver = args.get::<_, Spanned<SpecAlign>>(ctx, "vertical");
     args.done(ctx);
 
     let prev_main = ctx.state.align.main;
@@ -58,7 +58,7 @@ pub fn align(mut args: Args, ctx: &mut EvalContext) -> Value {
         } else {
             // We don't know the axis: This has to be a `center` alignment for a
             // positional argument.
-            debug_assert_eq!(arg, AlignArg::Center);
+            debug_assert_eq!(arg, SpecAlign::Center);
 
             if had.main && had.cross {
                 ctx.diag(error!(span, "duplicate alignment"));
@@ -108,7 +108,7 @@ pub fn align(mut args: Args, ctx: &mut EvalContext) -> Value {
 
 /// An argument to `[align]`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-enum AlignArg {
+enum SpecAlign {
     Left,
     Right,
     Top,
@@ -116,7 +116,7 @@ enum AlignArg {
     Center,
 }
 
-convert_ident!(AlignArg, "alignment", |v| match v {
+convert_ident!(SpecAlign, "alignment", |v| match v {
     "left" => Some(Self::Left),
     "right" => Some(Self::Right),
     "top" => Some(Self::Top),
@@ -125,7 +125,7 @@ convert_ident!(AlignArg, "alignment", |v| match v {
     _ => None,
 });
 
-impl AlignArg {
+impl SpecAlign {
     /// The specific axis this alignment refers to.
     ///
     /// Returns `None` if this is `Center` since the axis is unknown.
@@ -140,7 +140,7 @@ impl AlignArg {
     }
 }
 
-impl Switch for AlignArg {
+impl Switch for SpecAlign {
     type Other = Align;
 
     fn switch(self, flow: Flow) -> Self::Other {
@@ -163,7 +163,7 @@ impl Switch for AlignArg {
     }
 }
 
-impl Display for AlignArg {
+impl Display for SpecAlign {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
             Self::Left => "left",

@@ -82,8 +82,8 @@ pub fn shape(
 
     for c in chars {
         let query = FaceQuery { fallback: fallback.iter(), variant, c };
-        if let Some((id, owned_face)) = loader.query(query) {
-            let face = owned_face.get();
+        if let Some(id) = loader.query(query) {
+            let face = loader.face(id).get();
             let (glyph, width) = match lookup_glyph(face, c, font_size) {
                 Some(v) => v,
                 None => continue,
