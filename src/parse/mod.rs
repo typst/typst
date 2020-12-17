@@ -196,6 +196,7 @@ fn bracket_subheader(p: &mut Parser) -> ExprCall {
 
     p.skip_white();
     let args = if p.eat_if(Token::Colon) {
+        p.skip_white();
         p.span(|p| dict_contents(p).0)
     } else {
         // Ignore the rest if there's no colon.
@@ -488,7 +489,7 @@ fn color(p: &mut Parser, hex: &str, start: Pos) -> RgbaColor {
     RgbaColor::from_str(hex).unwrap_or_else(|_| {
         // Heal color by assuming black.
         p.diag(error!(start .. p.pos(), "invalid color"));
-        RgbaColor::new_healed(0, 0, 0, 255)
+        RgbaColor::with_healed(0, 0, 0, 255, true)
     })
 }
 

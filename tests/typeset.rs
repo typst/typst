@@ -290,15 +290,16 @@ fn draw_text(canvas: &mut Canvas, pos: Point, env: &Env, shaped: &Shaped) {
         let mut builder = WrappedPathBuilder(PathBuilder::new());
         face.outline_glyph(glyph, &mut builder);
 
-        let path = builder.0.finish().unwrap();
-        let placed = path
-            .transform(&Transform::from_row(scale, 0.0, 0.0, -scale, x, y).unwrap())
-            .unwrap();
+        if let Some(path) = builder.0.finish() {
+            let placed = path
+                .transform(&Transform::from_row(scale, 0.0, 0.0, -scale, x, y).unwrap())
+                .unwrap();
 
-        let mut paint = Paint::default();
-        paint.anti_alias = true;
+            let mut paint = Paint::default();
+            paint.anti_alias = true;
 
-        canvas.fill_path(&placed, &paint, FillRule::default());
+            canvas.fill_path(&placed, &paint, FillRule::default());
+        }
     }
 }
 

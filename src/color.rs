@@ -29,14 +29,14 @@ pub struct RgbaColor {
 }
 
 impl RgbaColor {
-    /// Constructs a new color.
+    /// Constructs a new, unhealed color.
     pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self { r, g, b, a, healed: false }
     }
 
-    /// Constructs a new color with the healed property set to true.
-    pub fn new_healed(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self { r, g, b, a, healed: true }
+    /// Constructs a new color with a configurable healed status.
+    pub fn with_healed(r: u8, g: u8, b: u8, a: u8, healed: bool) -> Self {
+        Self { r, g, b, a, healed }
     }
 }
 
@@ -87,11 +87,10 @@ impl Debug for RgbaColor {
                 self.r, self.g, self.b, self.a,
             )?;
         } else {
-            write!(
-                f,
-                "#{:02x}{:02x}{:02x}{:02x}",
-                self.r, self.g, self.b, self.a,
-            )?;
+            write!(f, "#{:02x}{:02x}{:02x}", self.r, self.g, self.b)?;
+            if self.a != 255 {
+                write!(f, "{:02x}", self.a)?;
+            }
         }
         if self.healed {
             f.write_str(" [healed]")?;

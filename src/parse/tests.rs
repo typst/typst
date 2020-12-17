@@ -193,6 +193,7 @@ macro_rules! d {
 /// and the source of their test case if they aren't.
 ///
 /// When `cmp_spans` is false, spans are ignored.
+#[track_caller]
 pub fn check<T>(src: &str, exp: T, found: T, cmp_spans: bool)
 where
     T: Debug + PartialEq,
@@ -435,7 +436,7 @@ fn test_parse_values() {
     e!("[val: [hi]]"   => );
 
     // Healed colors.
-    v!("#12345"            => Color(RgbaColor::new_healed(0, 0, 0, 0xff)));
+    v!("#12345"            => Color(RgbaColor::with_healed(0, 0, 0, 0xff, true)));
     e!("[val: #12345]"     => s(6, 12, "invalid color"));
     e!("[val: #a5]"        => s(6, 9,  "invalid color"));
     e!("[val: #14b2ah]"    => s(6, 13, "invalid color"));
@@ -447,7 +448,7 @@ fn test_parse_values() {
                            s(13, 13, "expected closing bracket"));
 
     // Spanned.
-    ts!("[val: 1.4]" => s(0, 10, F!(s(1, 4, "val"), 5 .. 9; s(6, 9, Float(1.4)))));
+    ts!("[val: 1.4]" => s(0, 10, F!(s(1, 4, "val"), 6 .. 9; s(6, 9, Float(1.4)))));
 }
 
 #[test]
@@ -485,7 +486,7 @@ fn test_parse_expressions() {
 
     // Spanned.
     ts!("[val: 1 + 3]" => s(0, 12, F!(
-        s(1, 4, "val"), 5 .. 11; s(6, 11, Binary(
+        s(1, 4, "val"), 6 .. 11; s(6, 11, Binary(
             s(8, 9, Add),
             s(6, 7, Int(1)),
             s(10, 11, Int(3))
@@ -493,7 +494,7 @@ fn test_parse_expressions() {
     )));
 
     // Span of parenthesized expression contains parens.
-    ts!("[val: (1)]" => s(0, 10, F!(s(1, 4, "val"), 5 .. 9; s(6, 9, Int(1)))));
+    ts!("[val: (1)]" => s(0, 10, F!(s(1, 4, "val"), 6 .. 9; s(6, 9, Int(1)))));
 
     // Invalid expressions.
     v!("4pt--"        => Length(4.0, Pt));
@@ -522,7 +523,7 @@ fn test_parse_dicts() {
     // Spanned with spacing around keyword arguments.
     ts!("[val: \n hi \n = /* //\n */ \"s\n\"]" => s(0, 30, F!(
         s(1, 4, "val"),
-        5 .. 29; s(8, 10, "hi") => s(25, 29, Str("s\n"))
+        8 .. 29; s(8, 10, "hi") => s(25, 29, Str("s\n"))
     )));
     e!("[val: \n hi \n = /* //\n */ \"s\n\"]" => );
 }
