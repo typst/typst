@@ -4,10 +4,14 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 
+use fontdock::{FontStretch, FontStyle, FontWeight};
+
 use super::{Args, Dict, Eval, EvalContext, SpannedEntry};
 use crate::color::RgbaColor;
-use crate::geom::{Length, Linear, Relative};
-use crate::syntax::{Ident, SynTree};
+use crate::diag::Diag;
+use crate::geom::{Dir, Length, Linear, Relative};
+use crate::paper::Paper;
+use crate::syntax::{Ident, SpanWith, Spanned, SynTree};
 
 /// A computational value.
 #[derive(Clone, PartialEq)]
@@ -168,5 +172,162 @@ impl Deref for ValueFunc {
 impl Debug for ValueFunc {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("<function>")
+    }
+}
+
+/// Try to convert a value into a more specific type.
+pub trait TryFromValue: Sized {
+    /// Try to convert the value into yourself.
+    fn try_from_value(value: Spanned<Value>) -> Conv<Self>;
+}
+
+/// The result of a conversion.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Conv<T> {
+    /// Success conversion.
+    Ok(T),
+    /// Sucessful conversion with a warning.
+    Warn(T, Diag),
+    /// Unsucessful conversion, gives back the value alongside the error.
+    Err(Value, Diag),
+}
+
+impl<T> Conv<T> {
+    /// Map the conversion result.
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Conv<U> {
+        match self {
+            Conv::Ok(t) => Conv::Ok(f(t)),
+            Conv::Warn(t, warn) => Conv::Warn(f(t), warn),
+            Conv::Err(v, err) => Conv::Err(v, err),
+        }
+    }
+}
+
+impl<T: TryFromValue> TryFromValue for Spanned<T> {
+    fn try_from_value(value: Spanned<Value>) -> Conv<Self> {
+        let span = value.span;
+        T::try_from_value(value).map(|v| v.span_with(span))
+    }
+}
+
+/// A value type that matches [identifier](Value::Ident) and [string](Value::Str) values.
+pub struct StringLike(pub String);
+
+impl From<StringLike> for String {
+    fn from(like: StringLike) -> String {
+        like.0
+    }
+}
+
+impl Deref for StringLike {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+/// Implement [`TryFromValue`] through a match.
+macro_rules! try_from_match {
+    ($type:ty[$name:literal] $(@ $span:ident)?: $($pattern:pat => $output:expr),* $(,)?) => {
+        impl $crate::eval::TryFromValue for $type {
+            fn try_from_value(value: Spanned<Value>) -> $crate::eval::Conv<Self> {
+                use $crate::eval::Conv;
+                #[allow(unused)]
+                $(let $span = value.span;)?
+                #[allow(unreachable_patterns)]
+                match value.v {
+                    $($pattern => Conv::Ok($output)),*,
+                    v => {
+                        let e = error!("expected {}, found {}", $name, v.ty());
+                        Conv::Err(v, e)
+                    }
+                }
+            }
+        }
+    };
+}
+
+/// Implement [`TryFromValue`] through a function parsing an identifier.
+macro_rules! try_from_id {
+    ($type:ty[$name:literal]: $from_str:expr) => {
+        impl $crate::eval::TryFromValue for $type {
+            fn try_from_value(value: Spanned<Value>) -> $crate::eval::Conv<Self> {
+                use $crate::eval::Conv;
+                let v = value.v;
+                if let Value::Ident(id) = v {
+                    if let Some(v) = $from_str(&id) {
+                        Conv::Ok(v)
+                    } else {
+                        Conv::Err(Value::Ident(id), error!("invalid {}", $name))
+                    }
+                } else {
+                    let e = error!("expected identifier, found {}", v.ty());
+                    Conv::Err(v, e)
+                }
+            }
+        }
+    };
+}
+
+try_from_match!(Value["value"]: v => v);
+try_from_match!(Ident["identifier"]: Value::Ident(v) => v);
+try_from_match!(bool["bool"]: Value::Bool(v) => v);
+try_from_match!(i64["integer"]: Value::Int(v) => v);
+try_from_match!(f64["float"]:
+    Value::Int(v) => v as f64,
+    Value::Float(v) => v,
+);
+try_from_match!(Length["length"]: Value::Length(v) => v);
+try_from_match!(Relative["relative"]: Value::Relative(v) => v);
+try_from_match!(Linear["linear"]:
+    Value::Linear(v) => v,
+    Value::Length(v) => v.into(),
+    Value::Relative(v) => v.into(),
+);
+try_from_match!(String["string"]: Value::Str(v) => v);
+try_from_match!(SynTree["tree"]: Value::Content(v) => v);
+try_from_match!(ValueDict["dictionary"]: Value::Dict(v) => v);
+try_from_match!(ValueFunc["function"]: Value::Func(v) => v);
+try_from_match!(StringLike["identifier or string"]:
+    Value::Ident(Ident(v)) => Self(v),
+    Value::Str(v) => Self(v),
+);
+try_from_id!(Dir["direction"]: |v| match v {
+    "ltr" | "left-to-right" => Some(Self::LTR),
+    "rtl" | "right-to-left" => Some(Self::RTL),
+    "ttb" | "top-to-bottom" => Some(Self::TTB),
+    "btt" | "bottom-to-top" => Some(Self::BTT),
+    _ => None,
+});
+try_from_id!(FontStyle["font style"]: Self::from_str);
+try_from_id!(FontStretch["font stretch"]: Self::from_str);
+try_from_id!(Paper["paper"]: Self::from_name);
+
+impl TryFromValue for FontWeight {
+    fn try_from_value(value: Spanned<Value>) -> Conv<Self> {
+        match value.v {
+            Value::Int(number) => {
+                let [min, max] = [Self::THIN, Self::BLACK];
+                if number < i64::from(min.to_number()) {
+                    Conv::Warn(min, warning!("the minimum font weight is {:#?}", min))
+                } else if number > i64::from(max.to_number()) {
+                    Conv::Warn(max, warning!("the maximum font weight is {:#?}", max))
+                } else {
+                    Conv::Ok(Self::from_number(number as u16))
+                }
+            }
+            Value::Ident(id) => {
+                if let Some(weight) = Self::from_str(&id) {
+                    Conv::Ok(weight)
+                } else {
+                    Conv::Err(Value::Ident(id), error!("invalid font weight"))
+                }
+            }
+            v => {
+                let e = error!("expected font weight, found {}", v.ty());
+                Conv::Err(v, e)
+            }
+        }
     }
 }

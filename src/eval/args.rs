@@ -1,7 +1,10 @@
 //! Simplifies argument parsing.
 
-use super::{Convert, EvalContext, RefKey, ValueDict};
-use crate::syntax::{SpanWith, Spanned};
+use std::mem;
+
+use super::{Conv, EvalContext, RefKey, TryFromValue, Value, ValueDict};
+use crate::diag::Diag;
+use crate::syntax::{Span, SpanVec, SpanWith, Spanned};
 
 /// A wrapper around a dictionary value that simplifies argument parsing in
 /// functions.
@@ -16,15 +19,11 @@ impl Args {
     pub fn get<'a, K, T>(&mut self, ctx: &mut EvalContext, key: K) -> Option<T>
     where
         K: Into<RefKey<'a>>,
-        T: Convert,
+        T: TryFromValue,
     {
         self.0.v.remove(key).and_then(|entry| {
             let span = entry.value.span;
-            let (result, diag) = T::convert(entry.value);
-            if let Some(diag) = diag {
-                ctx.f.diags.push(diag.span_with(span))
-            }
-            result.ok()
+            conv_diag(T::try_from_value(entry.value), &mut ctx.f.diags, span)
         })
     }
 
@@ -38,37 +37,29 @@ impl Args {
     ) -> Option<T>
     where
         K: Into<RefKey<'a>>,
-        T: Convert,
+        T: TryFromValue,
     {
-        match self.0.v.remove(key) {
-            Some(entry) => {
-                let span = entry.value.span;
-                let (result, diag) = T::convert(entry.value);
-                if let Some(diag) = diag {
-                    ctx.f.diags.push(diag.span_with(span))
-                }
-                result.ok()
-            }
-            None => {
-                ctx.f.diags.push(error!(self.0.span, "missing argument: {}", name));
-                None
-            }
+        if let Some(entry) = self.0.v.remove(key) {
+            let span = entry.value.span;
+            conv_diag(T::try_from_value(entry.value), &mut ctx.f.diags, span)
+        } else {
+            ctx.f.diags.push(error!(self.0.span, "missing argument: {}", name));
+            None
         }
     }
 
     /// Retrieve and remove the first matching positional argument.
     pub fn find<T>(&mut self) -> Option<T>
     where
-        T: Convert,
+        T: TryFromValue,
     {
         for (&key, entry) in self.0.v.nums_mut() {
             let span = entry.value.span;
-            match T::convert(std::mem::take(&mut entry.value)).0 {
-                Ok(t) => {
-                    self.0.v.remove(key);
-                    return Some(t);
-                }
-                Err(v) => entry.value = v.span_with(span),
+            let slot = &mut entry.value;
+            let conv = conv_put_back(T::try_from_value(mem::take(slot)), slot, span);
+            if let Some(t) = conv {
+                self.0.v.remove(key);
+                return Some(t);
             }
         }
         None
@@ -77,18 +68,17 @@ impl Args {
     /// Retrieve and remove all matching positional arguments.
     pub fn find_all<T>(&mut self) -> impl Iterator<Item = T> + '_
     where
-        T: Convert,
+        T: TryFromValue,
     {
         let mut skip = 0;
         std::iter::from_fn(move || {
             for (&key, entry) in self.0.v.nums_mut().skip(skip) {
                 let span = entry.value.span;
-                match T::convert(std::mem::take(&mut entry.value)).0 {
-                    Ok(t) => {
-                        self.0.v.remove(key);
-                        return Some(t);
-                    }
-                    Err(v) => entry.value = v.span_with(span),
+                let slot = &mut entry.value;
+                let conv = conv_put_back(T::try_from_value(mem::take(slot)), slot, span);
+                if let Some(t) = conv {
+                    self.0.v.remove(key);
+                    return Some(t);
                 }
                 skip += 1;
             }
@@ -99,19 +89,18 @@ impl Args {
     /// Retrieve and remove all matching keyword arguments.
     pub fn find_all_str<T>(&mut self) -> impl Iterator<Item = (String, T)> + '_
     where
-        T: Convert,
+        T: TryFromValue,
     {
         let mut skip = 0;
         std::iter::from_fn(move || {
             for (key, entry) in self.0.v.strs_mut().skip(skip) {
                 let span = entry.value.span;
-                match T::convert(std::mem::take(&mut entry.value)).0 {
-                    Ok(t) => {
-                        let key = key.clone();
-                        self.0.v.remove(&key);
-                        return Some((key, t));
-                    }
-                    Err(v) => entry.value = v.span_with(span),
+                let slot = &mut entry.value;
+                let conv = conv_put_back(T::try_from_value(mem::take(slot)), slot, span);
+                if let Some(t) = conv {
+                    let key = key.clone();
+                    self.0.v.remove(&key);
+                    return Some((key, t));
                 }
                 skip += 1;
             }
@@ -125,6 +114,31 @@ impl Args {
         for entry in self.0.v.values() {
             let span = entry.key_span.join(entry.value.span);
             ctx.diag(error!(span, "unexpected argument"));
+        }
+    }
+}
+
+fn conv_diag<T>(conv: Conv<T>, diags: &mut SpanVec<Diag>, span: Span) -> Option<T> {
+    match conv {
+        Conv::Ok(t) => Some(t),
+        Conv::Warn(t, warn) => {
+            diags.push(warn.span_with(span));
+            Some(t)
+        }
+        Conv::Err(_, err) => {
+            diags.push(err.span_with(span));
+            None
+        }
+    }
+}
+
+fn conv_put_back<T>(conv: Conv<T>, slot: &mut Spanned<Value>, span: Span) -> Option<T> {
+    match conv {
+        Conv::Ok(t) => Some(t),
+        Conv::Warn(t, _) => Some(t),
+        Conv::Err(v, _) => {
+            *slot = v.span_with(span);
+            None
         }
     }
 }

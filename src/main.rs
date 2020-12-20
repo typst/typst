@@ -39,7 +39,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut index = FsIndex::new();
     index.search_dir("fonts");
-    index.search_os();
+    index.search_system();
 
     let (files, descriptors) = index.into_vecs();
     let env = Rc::new(RefCell::new(Env {

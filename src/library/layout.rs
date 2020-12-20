@@ -116,7 +116,7 @@ enum SpecAlign {
     Center,
 }
 
-convert_ident!(SpecAlign, "alignment", |v| match v {
+try_from_id!(SpecAlign["alignment"]: |v| match v {
     "left" => Some(Self::Left),
     "right" => Some(Self::Right),
     "top" => Some(Self::Top),

@@ -99,7 +99,7 @@ impl Debug for RgbaColor {
     }
 }
 
-/// The error when parsing an `RgbaColor` fails.
+/// The error when parsing an [`RgbaColor`] fails.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct ParseColorError;
 

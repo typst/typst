@@ -1,15 +1,13 @@
 //! Evaluation of syntax trees.
 
 #[macro_use]
-mod convert;
+mod value;
 mod args;
 mod dict;
 mod scope;
 mod state;
-mod value;
 
 pub use args::*;
-pub use convert::*;
 pub use dict::*;
 pub use scope::*;
 pub use state::*;
