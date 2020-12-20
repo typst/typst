@@ -105,9 +105,9 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
         ctx.state.font.variant.stretch = stretch;
     }
 
-    struct FontList(Vec<String>);
+    struct FamilyList(Vec<String>);
 
-    try_from_match!(FontList["font or list of fonts"] @ span:
+    try_from_match!(FamilyList["family or list of families"] @ span:
         Value::Str(v) => Self(vec![v.to_lowercase()]),
         Value::Dict(v) => Self(Args(v.span_with(span))
             .find_all::<StringLike>()
@@ -117,7 +117,7 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
     );
 
     for &class in &["serif", "sans-serif", "monospace", "emoji", "math"] {
-        if let Some(list) = args.get::<_, FontList>(ctx, class) {
+        if let Some(list) = args.get::<_, FamilyList>(ctx, class) {
             Rc::make_mut(&mut ctx.state.font.families)
                 .update_class_list(class.to_string(), list.0);
             needs_flattening = true;
