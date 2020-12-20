@@ -7,7 +7,7 @@ use crate::prelude::*;
 /// `image`: Insert an image.
 ///
 /// # Positional arguments
-/// - The path to the image (string)
+/// - Path (`string`): The path to the image file.
 ///
 /// Supports PNG and JPEG files.
 pub fn image(mut args: Args, ctx: &mut EvalContext) -> Value {

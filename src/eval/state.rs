@@ -150,6 +150,7 @@ fn default_font_families() -> FallbackTree {
             "serif"      => ["source serif pro", "noto serif"],
             "sans-serif" => ["source sans pro", "noto sans"],
             "monospace"  => ["source code pro", "noto sans mono"],
+            "emoji"      => ["segoe ui emoji", "noto emoji"],
             "math"       => ["latin modern math", "serif"],
         },
         base: [

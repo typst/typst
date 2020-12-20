@@ -12,7 +12,7 @@ use crate::eval::{Scope, ValueFunc};
 
 macro_rules! std {
     ($($func:expr $(=> $name:expr)?),* $(,)?) => {
-        /// Create a scope with all standard library functions.
+        /// The scope containing all standard library functions.
         pub fn _std() -> Scope {
             let mut std = Scope::new();
             $(

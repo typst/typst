@@ -11,7 +11,7 @@ Emoji: 🏀
 [font: math][Math: ∫ α + β ➗ 3]
 
 // Class redefinition.
-[font: sans-serif=("Noto Emoji",)]
+[font: sans-serif="Noto Emoji"]
 [font: sans-serif=("Archivo", sans-serif)]
 New sans-serif. 🚀
 

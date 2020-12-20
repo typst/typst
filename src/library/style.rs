@@ -10,34 +10,59 @@ use crate::prelude::*;
 /// `font`: Configure the font.
 ///
 /// # Positional arguments
-/// - The font size (optional, length or relative to current font size).
-/// - All identifier and string arguments are interpreted as an ordered list of
-///   fallback font families.
-///
-/// An example invocation could look like this:
-/// ```typst
-/// [font: 12pt, Arial, "Noto Sans", sans-serif]
-/// ```
+/// - Font size (optional, `linear` relative to current font size).
+/// - Font families ... (optional, variadic, `Family`)
 ///
 /// # Keyword arguments
-/// - `style`
+/// - `style` (`Style`): The font style.
+/// - `weight` (`Weight`): The font weight.
+/// - `stretch` (`Stretch`): The font stretch.
+/// - `serif` (`Family` or `dict` of type `Family`): The serif family.
+/// - `sans-serif` (`Family` or `dict` of type `Family`): The new sansserif family.
+/// - `monospace` (`Family` or `dict` of type `Family`): The monospace family.
+/// - `emoji` (`Family` or `dict` of type `Family`): The emoji family.
+/// - `math` (`Family` or `dict` of type `Family`): The math family.
+///
+/// # Examples
+/// Set font size and font families.
+/// ```typst
+/// [font: 12pt, "Arial", "Noto Sans", sans-serif]
+/// ```
+///
+/// Redefine the default sans-serif family to a single font family.
+/// ```typst
+/// [font: sans-serif="Source Sans Pro"]
+/// ```
+///
+/// Redefine the default emoji family with a fallback.
+/// ```typst
+/// [font: emoji=("Segoe UI Emoji", "Noto Emoji")]
+/// ```
+///
+/// # Enumerations
+/// - `Family`
+///     - `serif`
+///     - `sans-serif`
+///     - `monospace`
+///     - `emoji`
+///     - `math`
+///     - any string
+/// - `Style`
 ///     - `normal`
 ///     - `italic`
 ///     - `oblique`
-///
-/// - `weight`
-///     - `thin` or `hairline` (`100`)
-///     - `extralight`         (`200`)
-///     - `light`              (`300`)
-///     - `regular`            (`400`)
-///     - `medium`             (`500`)
-///     - `semibold`           (`600`)
-///     - `bold`               (`700`)
-///     - `extrabold`          (`800`)
-///     - `black`              (`900`)
-///     - integer between `100` and `900`
-///
-/// - `stretch`
+/// - `Weight`
+///     - `thin` or `hairline` (100)
+///     - `extralight` (200)
+///     - `light` (300)
+///     - `regular` (400)
+///     - `medium` (500)
+///     - `semibold` (600)
+///     - `bold` (700)
+///     - `extrabold` (800)
+///     - `black` (900)
+///     - any integer between 100 and 900
+/// - `Stretch`
 ///     - `ultra-condensed`
 ///     - `extra-condensed`
 ///     - `condensed`
@@ -47,17 +72,6 @@ use crate::prelude::*;
 ///     - `expanded`
 ///     - `extra-expanded`
 ///     - `ultra-expanded`
-///
-/// - Any other keyword argument whose value is a dictionary of strings defines
-///   a fallback class, for example:
-///   ```typst
-///   [font: serif = ("Source Serif Pro", "Noto Serif")]
-///   ```
-///   This class can be used in the fallback list or other fallback classes as
-///   long as the resulting fallback tree is acyclic.
-///   ```typst
-///   [font: "My Serif", serif]
-///   ```
 pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
     let snapshot = ctx.state.clone();
     let body = args.find::<SynTree>();
@@ -69,6 +83,14 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
         } else {
             ctx.state.font.scale = linear;
         }
+    }
+
+    let mut needs_flattening = false;
+    let list: Vec<_> = args.find_all::<StringLike>().map(|s| s.to_lowercase()).collect();
+
+    if !list.is_empty() {
+        Rc::make_mut(&mut ctx.state.font.families).list = list;
+        needs_flattening = true;
     }
 
     if let Some(style) = args.get::<_, FontStyle>(ctx, "style") {
@@ -83,21 +105,23 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
         ctx.state.font.variant.stretch = stretch;
     }
 
-    let mut needs_flattening = false;
-    let list: Vec<_> = args.find_all::<StringLike>().map(|s| s.to_lowercase()).collect();
-    if !list.is_empty() {
-        Rc::make_mut(&mut ctx.state.font.families).list = list;
-        needs_flattening = true;
-    }
+    struct FontList(Vec<String>);
 
-    for (class, dict) in args.find_all_str::<Spanned<ValueDict>>() {
-        let fallback = Args(dict)
+    try_from_match!(FontList["font or list of fonts"] @ span:
+        Value::Str(v) => Self(vec![v.to_lowercase()]),
+        Value::Dict(v) => Self(Args(v.span_with(span))
             .find_all::<StringLike>()
             .map(|s| s.to_lowercase())
-            .collect();
+            .collect()
+        ),
+    );
 
-        Rc::make_mut(&mut ctx.state.font.families).update_class_list(class, fallback);
-        needs_flattening = true;
+    for &class in &["serif", "sans-serif", "monospace", "emoji", "math"] {
+        if let Some(list) = args.get::<_, FontList>(ctx, class) {
+            Rc::make_mut(&mut ctx.state.font.families)
+                .update_class_list(class.to_string(), list.0);
+            needs_flattening = true;
+        }
     }
 
     if needs_flattening {
@@ -117,10 +141,10 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
 /// `rgb`: Create an RGB(A) color.
 ///
 /// # Positional arguments
-/// - The red component (float between 0.0 and 1.0).
-/// - The green component (float between 0.0 and 1.0).
-/// - The blue component (float between 0.0 and 1.0).
-/// - The alpha component (optional, float between 0.0 and 1.0).
+/// - Red component (`float` between 0.0 and 1.0).
+/// - Green component (`float` between 0.0 and 1.0).
+/// - Blue component (`float` between 0.0 and 1.0).
+/// - Alpha component (optional, `float` between 0.0 and 1.0).
 pub fn rgb(mut args: Args, ctx: &mut EvalContext) -> Value {
     let r = args.need::<_, Spanned<f64>>(ctx, 0, "red component");
     let g = args.need::<_, Spanned<f64>>(ctx, 1, "green component");

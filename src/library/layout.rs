@@ -9,15 +9,26 @@ use crate::prelude::*;
 /// `align`: Align content along the layouting axes.
 ///
 /// # Positional arguments
-/// - At most two of `left`, `right`, `top`, `bottom`, `center`.
-///
-/// When `center` is used as a positional argument, it is automatically inferred
-/// which axis it should apply to depending on further arguments, defaulting
-/// to the cross axis.
+/// - first (optional, `Alignment`): An alignment for any of the two axes.
+/// - second (optional, `Alignment`): An alignment for the other axis.
 ///
 /// # Keyword arguments
-/// - `horizontal`: Any of `left`, `right` or `center`.
-/// - `vertical`: Any of `top`, `bottom` or `center`.
+/// - `horizontal` (`Alignment`): An alignment for the horizontal axis.
+/// - `vertical` (`Alignment`): An alignment for the vertical axis.
+///
+/// # Enumerations
+/// - `Alignment`
+///     - `left`
+///     - `right`
+///     - `top`
+///     - `bottom`
+///     - `center`
+///
+/// # Notes
+/// Which axis an alignment should apply to (main or cross) is inferred from
+/// either the argument itself (for anything other than `center`) or from the
+/// second argument if present, defaulting to the cross axis for a single
+/// `center` alignment.
 pub fn align(mut args: Args, ctx: &mut EvalContext) -> Value {
     let snapshot = ctx.state.clone();
     let body = args.find::<SynTree>();
@@ -178,8 +189,8 @@ impl Display for SpecAlign {
 /// `box`: Layout content into a box.
 ///
 /// # Keyword arguments
-/// - `width`: The width of the box (length or relative to parent's width).
-/// - `height`: The height of the box (length or relative to parent's height).
+/// - `width` (`linear` relative to parent width): The width of the box.
+/// - `height` (`linear` relative to parent height): The height of the box.
 pub fn boxed(mut args: Args, ctx: &mut EvalContext) -> Value {
     let snapshot = ctx.state.clone();
     let body = args.find::<SynTree>().unwrap_or_default();
@@ -219,7 +230,7 @@ pub fn boxed(mut args: Args, ctx: &mut EvalContext) -> Value {
 /// `h`: Add horizontal spacing.
 ///
 /// # Positional arguments
-/// - The spacing (length or relative to font size).
+/// - Spacing (`linear` relative to font size): The amount of spacing.
 pub fn h(args: Args, ctx: &mut EvalContext) -> Value {
     spacing(args, ctx, SpecAxis::Horizontal)
 }
@@ -227,7 +238,7 @@ pub fn h(args: Args, ctx: &mut EvalContext) -> Value {
 /// `v`: Add vertical spacing.
 ///
 /// # Positional arguments
-/// - The spacing (length or relative to font size).
+/// - Spacing (`linear` relative to font size): The amount of spacing.
 pub fn v(args: Args, ctx: &mut EvalContext) -> Value {
     spacing(args, ctx, SpecAxis::Vertical)
 }
@@ -255,17 +266,20 @@ fn spacing(mut args: Args, ctx: &mut EvalContext, axis: SpecAxis) -> Value {
 /// `page`: Configure pages.
 ///
 /// # Positional arguments
-/// - The name of a paper, e.g. `a4` (optional).
+/// - Paper name (optional, `Paper`).
 ///
 /// # Keyword arguments
-/// - `width`: The width of pages (length).
-/// - `height`: The height of pages (length).
-/// - `margins`: The margins for all sides (length or relative to side lengths).
-/// - `left`: The left margin (length or relative to width).
-/// - `right`: The right margin (length or relative to width).
-/// - `top`: The top margin (length or relative to height).
-/// - `bottom`: The bottom margin (length or relative to height).
-/// - `flip`: Flips custom or paper-defined width and height (boolean).
+/// - `width` (`length`): The width of pages.
+/// - `height` (`length`): The height of pages.
+/// - `margins` (`linear` relative to sides): The margins for all sides.
+/// - `left` (`linear` relative to width): The left margin.
+/// - `right` (`linear` relative to width): The right margin.
+/// - `top` (`linear` relative to height): The top margin.
+/// - `bottom` (`linear` relative to height): The bottom margin.
+/// - `flip` (`bool`): Flips custom or paper-defined width and height.
+///
+/// # Enumerations
+/// - `Paper`: See [here](crate::paper) for a full list.
 pub fn page(mut args: Args, ctx: &mut EvalContext) -> Value {
     let snapshot = ctx.state.clone();
     let body = args.find::<SynTree>();
