@@ -27,17 +27,17 @@ pub enum Lit {
     Color(RgbaColor),
     /// A string literal: `"hello!"`.
     Str(String),
-    /// A dictionary literal: `(false, 12cm, greeting = "hi")`.
+    /// A dictionary literal: `(false, 12cm, greeting: "hi")`.
     Dict(LitDict),
     /// A content literal: `{*Hello* there!}`.
     Content(SynTree),
 }
 
-/// A dictionary literal: `(false, 12cm, greeting = "hi")`.
+/// A dictionary literal: `(false, 12cm, greeting: "hi")`.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct LitDict(pub Vec<LitDictEntry>);
 
-/// An entry in a dictionary literal: `false` or `greeting = "hi"`.
+/// An entry in a dictionary literal: `false` or `greeting: "hi"`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LitDictEntry {
     /// The key of the entry if there was one: `greeting`.

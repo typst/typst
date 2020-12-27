@@ -86,7 +86,7 @@ impl Args {
         })
     }
 
-    /// Retrieve and remove all matching keyword arguments.
+    /// Retrieve and remove all matching named arguments.
     pub fn find_all_str<T>(&mut self) -> impl Iterator<Item = (String, T)> + '_
     where
         T: TryFromValue,

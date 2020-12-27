@@ -6,7 +6,7 @@ use std::str::FromStr;
 /// A color in a dynamic format.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Color {
-    /// An 8-bit RGBA color.
+    /// An 8-bit RGBA color: `#423abaff`.
     Rgba(RgbaColor),
 }
 
@@ -18,13 +18,7 @@ impl Debug for Color {
     }
 }
 
-/// An 8-bit RGBA color.
-///
-/// # Example
-/// ```typst
-/// [page: background=#423abaff]
-///                   ^^^^^^^^
-/// ```
+/// An 8-bit RGBA color: `#423abaff`.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct RgbaColor {
     /// Red channel.

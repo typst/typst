@@ -154,7 +154,7 @@ fn bracket_call(p: &mut Parser) -> ExprCall {
     let mut outer = vec![];
     let mut inner = p.span(|p| bracket_subheader(p));
 
-    while p.eat_if(Token::Chain) {
+    while p.eat_if(Token::Pipe) {
         outer.push(inner);
         inner = p.span(|p| bracket_subheader(p));
     }
@@ -186,28 +186,17 @@ fn bracket_subheader(p: &mut Parser) -> ExprCall {
 
     p.skip_white();
     let name = p.span(|p| ident(p)).transpose().unwrap_or_else(|| {
+        let what = "function name";
         if p.eof() {
-            p.diag_expected_at("function name", start);
+            p.diag_expected_at(what, start);
         } else {
-            p.diag_expected("function name");
+            p.diag_expected(what);
         }
         Ident(String::new()).span_with(start)
     });
 
     p.skip_white();
-    let args = if p.eat_if(Token::Colon) {
-        p.skip_white();
-        p.span(|p| dict_contents(p).0)
-    } else {
-        // Ignore the rest if there's no colon.
-        p.span(|p| {
-            if !p.eof() {
-                p.diag_expected_at("colon", p.pos());
-            }
-            p.eat_while(|_| true);
-            LitDict::new()
-        })
-    };
+    let args = p.span(|p| dict_contents(p).0);
 
     p.end_group();
     ExprCall { name, args }
@@ -285,8 +274,8 @@ fn dict_entry(p: &mut Parser) -> Option<LitDictEntry> {
         p.skip_white();
         match p.peek() {
             // Key-value pair.
-            Some(Token::Equals) => {
-                p.eat_assert(Token::Equals);
+            Some(Token::Colon) => {
+                p.eat_assert(Token::Colon);
                 p.skip_white();
                 if let Some(expr) = expr(p) {
                     Some(LitDictEntry {
@@ -463,7 +452,7 @@ fn content(p: &mut Parser) -> SynTree {
     tree
 }
 
-/// Parse a parenthesized expression: `(a + b)`, `(1, key="value").
+/// Parse a parenthesized expression: `(a + b)`, `(1, name: "value").
 fn parenthesized(p: &mut Parser) -> Expr {
     p.start_group(Group::Paren);
     let (dict, coercible) = dict_contents(p);

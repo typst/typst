@@ -160,11 +160,9 @@ impl<V: Debug> Debug for Dict<V> {
                 if self.0 {
                     f.write_str("\"")?;
                 }
-                if f.alternate() {
-                    f.write_str(" = ")?;
-                } else {
-                    f.write_str("=")?;
-                }
+
+                f.write_str(": ")?;
+
                 self.2.fmt(f)
             }
         }
@@ -511,13 +509,13 @@ mod tests {
         dict.insert("sp ace", "quotes");
         assert_eq!(
             format!("{:?}", dict),
-            r#"(10="hello", "sp ace"="quotes", twenty="there")"#,
+            r#"(10: "hello", "sp ace": "quotes", twenty: "there")"#,
         );
         assert_eq!(format!("{:#?}", dict).lines().collect::<Vec<_>>(), [
             "(",
-            r#"    10 = "hello","#,
-            r#"    "sp ace" = "quotes","#,
-            r#"    twenty = "there","#,
+            r#"    10: "hello","#,
+            r#"    "sp ace": "quotes","#,
+            r#"    twenty: "there","#,
             ")",
         ]);
     }

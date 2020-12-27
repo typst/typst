@@ -7,7 +7,7 @@ use super::*;
 pub enum Expr {
     /// A literal: `true`, `1cm`, `"hi"`, `{_Hey!_}`.
     Lit(Lit),
-    /// An invocation of a function: `[foo: ...]`, `foo(...)`.
+    /// An invocation of a function: `[foo ...]`, `foo(...)`.
     Call(ExprCall),
     /// A unary operation: `-x`.
     Unary(ExprUnary),
@@ -15,7 +15,7 @@ pub enum Expr {
     Binary(ExprBinary),
 }
 
-/// An invocation of a function: `[foo: ...]`, `foo(...)`.
+/// An invocation of a function: `[foo ...]`, `foo(...)`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprCall {
     /// The name of the function.

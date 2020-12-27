@@ -54,10 +54,8 @@ pub enum Token<'s> {
     Colon,
     /// A comma: `,`.
     Comma,
-    /// An equals sign: `=`.
-    Equals,
-    /// A double forward chevron: `>>`.
-    Chain,
+    /// A pipe: `|`.
+    Pipe,
     /// A plus: `+`.
     Plus,
     /// A hyphen: `-`.
@@ -150,8 +148,7 @@ impl<'s> Token<'s> {
 
             Self::Colon => "colon",
             Self::Comma => "comma",
-            Self::Equals => "equals sign",
-            Self::Chain => "function chaining operator",
+            Self::Pipe => "pipe",
             Self::Plus => "plus sign",
             Self::Hyphen => "minus sign",
             Self::Slash => "slash",

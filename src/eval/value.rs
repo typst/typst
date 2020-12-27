@@ -36,7 +36,7 @@ pub enum Value {
     Color(Color),
     /// A string: `"string"`.
     Str(String),
-    /// A dictionary value: `(false, 12cm, greeting="hi")`.
+    /// A dictionary value: `(false, 12cm, greeting: "hi")`.
     Dict(ValueDict),
     /// A content value: `{*Hi* there}`.
     Content(SynTree),
@@ -125,7 +125,7 @@ impl Debug for Value {
 ///
 /// # Example
 /// ```typst
-/// (false, 12cm, greeting="hi")
+/// (false, 12cm, greeting: "hi")
 /// ```
 pub type ValueDict = Dict<SpannedEntry<Value>>;
 

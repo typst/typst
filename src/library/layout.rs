@@ -12,7 +12,7 @@ use crate::prelude::*;
 /// - first (optional, `Alignment`): An alignment for any of the two axes.
 /// - second (optional, `Alignment`): An alignment for the other axis.
 ///
-/// # Keyword arguments
+/// # Named arguments
 /// - `horizontal` (`Alignment`): An alignment for the horizontal axis.
 /// - `vertical` (`Alignment`): An alignment for the vertical axis.
 ///
@@ -188,7 +188,7 @@ impl Display for SpecAlign {
 
 /// `box`: Layout content into a box.
 ///
-/// # Keyword arguments
+/// # Named arguments
 /// - `width` (`linear` relative to parent width): The width of the box.
 /// - `height` (`linear` relative to parent height): The height of the box.
 pub fn boxed(mut args: Args, ctx: &mut EvalContext) -> Value {
@@ -268,7 +268,7 @@ fn spacing(mut args: Args, ctx: &mut EvalContext, axis: SpecAxis) -> Value {
 /// # Positional arguments
 /// - Paper name (optional, `Paper`).
 ///
-/// # Keyword arguments
+/// # Named arguments
 /// - `width` (`length`): The width of pages.
 /// - `height` (`length`): The height of pages.
 /// - `margins` (`linear` relative to sides): The margins for all sides.

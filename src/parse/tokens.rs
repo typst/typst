@@ -109,8 +109,7 @@ impl<'s> Iterator for Tokens<'s> {
                 ')' => Token::RightParen,
                 ':' => Token::Colon,
                 ',' => Token::Comma,
-                '=' => Token::Equals,
-                '>' if self.s.eat_if('>') => Token::Chain,
+                '|' => Token::Pipe,
                 '+' => Token::Plus,
                 '-' => Token::Hyphen,
                 '*' => Token::Star,
@@ -567,7 +566,7 @@ mod tests {
         t!(Body[" "]: r"\"  => Backslash);
 
         // Test header symbols.
-        t!(Body[" /"]: ":,=>>/+-" => T(":,=>>/+-"));
+        t!(Body[" /"]: ":,=|/+-" => T(":,=|/+-"));
     }
 
     #[test]
@@ -652,8 +651,7 @@ mod tests {
         // Test structural tokens.
         t!(Header: ":"        => Colon);
         t!(Header: ","        => Comma);
-        t!(Header: "="        => Equals);
-        t!(Header: ">>"       => Chain);
+        t!(Header: "|"        => Pipe);
         t!(Header: "+"        => Plus);
         t!(Header: "-"        => Hyphen);
         t!(Header[" a1"]: "*" => Star);

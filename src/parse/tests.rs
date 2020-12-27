@@ -164,7 +164,7 @@ macro_rules! test {
 // Test expressions.
 macro_rules! v {
     ($src:expr => $($tts:tt)*) => {
-        t!(concat!("[val: ", $src, "]") => F!("val"; $($tts)*));
+        t!(concat!("[val ", $src, "]") => F!("val"; $($tts)*));
     }
 }
 
@@ -233,7 +233,7 @@ fn test_parse_groups() {
     e!("[)" => s(1, 2, "expected function name, found closing paren"),
                s(2, 2, "expected closing bracket"));
 
-    e!("[v:{]}" => s(4, 4, "expected closing brace"),
+    e!("[v {]}" => s(4, 4, "expected closing brace"),
                    s(5, 6, "unexpected closing brace"));
 }
 
@@ -250,9 +250,9 @@ fn test_parse_simple_nodes() {
     t!("\n\n\nhello"    => P, T("hello"));
     t!(r"a\ b"          => T("a"), L, S, T("b"));
 
-    e!("\\u{d421c809}"    => s(0, 12, "invalid unicode escape sequence"));
-    e!("\\u{abc"          => s(6, 6, "expected closing brace"));
-    t!("💜\n\n 🌍"       => T("💜"), P, T("🌍"));
+    e!("\\u{d421c809}" => s(0, 12, "invalid unicode escape sequence"));
+    e!("\\u{abc"       => s(6, 6, "expected closing brace"));
+    t!("💜\n\n 🌍"    => T("💜"), P, T("🌍"));
 
     ts!("hi"   => s(0, 2, T("hi")));
     ts!("*Hi*" => s(0, 1, B), s(1, 3, T("Hi")), s(3, 4, B));
@@ -296,10 +296,10 @@ fn test_parse_comments() {
     e!("🌎\n*/n" => s(5, 7, "unexpected end of block comment"));
 
     // In header.
-    t!("[val:/*12pt*/]"          => F!("val"));
-    t!("[val \n /* \n */:]"      => F!("val"));
-    e!("[val \n /* \n */:]"      => );
-    e!("[val : 12, /* \n */ 14]" => );
+    t!("[val /*12pt*/]"        => F!("val"));
+    t!("[val \n /* \n */]"     => F!("val"));
+    e!("[val \n /* \n */]"     => );
+    e!("[val 12, /* \n */ 14]" => );
 }
 
 #[test]
@@ -357,40 +357,23 @@ fn test_parse_function_names() {
 #[test]
 fn test_parse_chaining() {
     // Things the parser has to make sense of
-    t!("[hi: (5.0, 2.1 >> you]" => F!("hi"; Dict![Float(5.0), Float(2.1)], Tree![F!("you")]));
-    t!("[box >> pad: 1pt][Hi]"  => F!("box"; Tree![
+    t!("[hi (5.0, 2.1 | you]" => F!("hi"; Dict![Float(5.0), Float(2.1)], Tree![F!("you")]));
+    t!("[box | pad: 1pt][Hi]"  => F!("box"; Tree![
         F!("pad"; Length(1.0, Pt), Tree!(T("Hi")))
     ]));
-    t!("[bold: 400, >> emph >> sub: 1cm]" => F!("bold"; Int(400), Tree![
+    t!("[bold 400, | emph | sub: 1cm]" => F!("bold"; Int(400), Tree![
         F!("emph"; Tree!(F!("sub"; Length(1.0, Cm))))
     ]));
 
     // Errors for unclosed / empty predecessor groups
-    e!("[hi: (5.0, 2.1 >> you]" => s(15, 15, "expected closing paren"));
-    e!("[>> abc]"               => s(1, 1, "expected function name"));
-    e!("[box >>][Hi]"           => s(7, 7, "expected function name"));
-}
-
-#[test]
-fn test_parse_colon_starting_func_args() {
-    // Just colon without args.
-    e!("[val:]" => );
-
-    // Wrong token.
-    t!("[val=]"     => F!("val"));
-    e!("[val=]"     => s(4, 4, "expected colon"));
-    e!("[val/🌎:$]" => s(4, 4, "expected colon"));
-
-    // String in invalid header without colon still parsed as string
-    // _Note_: No "expected quote" error because not even the string was
-    //       expected.
-    e!("[val/\"]" => s(4, 4, "expected colon"),
-                     s(7, 7, "expected closing bracket"));
+    e!("[hi (5.0, 2.1 | you]" => s(14, 14, "expected closing paren"));
+    e!("[| abc]"              => s(1, 1, "expected function name"));
+    e!("[box |][Hi]"          => s(6, 6, "expected function name"));
 }
 
 #[test]
 fn test_parse_function_bodies() {
-    t!("[val: 1][*Hi*]" => F!("val"; Int(1), Tree![B, T("Hi"), B]));
+    t!("[val 1][*Hi*]" => F!("val"; Int(1), Tree![B, T("Hi"), B]));
     e!(" [val][ */]"    => s(8, 10, "unexpected end of block comment"));
 
     // Raw in body.
@@ -431,24 +414,24 @@ fn test_parse_values() {
 
     // Content.
     v!("{_hi_}"        => Tree![E, T("hi"), E]);
-    e!("[val: {_hi_}]" => );
+    e!("[val {_hi_}]" => );
     v!("[hi]"          => Tree![F!("hi")]);
-    e!("[val: [hi]]"   => );
+    e!("[val [hi]]"   => );
 
     // Healed colors.
     v!("#12345"            => Color(RgbaColor::new(0, 0, 0, 0xff)));
-    e!("[val: #12345]"     => s(6, 12, "invalid color"));
-    e!("[val: #a5]"        => s(6, 9,  "invalid color"));
-    e!("[val: #14b2ah]"    => s(6, 13, "invalid color"));
-    e!("[val: #f075ff011]" => s(6, 16, "invalid color"));
+    e!("[val #12345]"     => s(5, 11, "invalid color"));
+    e!("[val #a5]"        => s(5, 8,  "invalid color"));
+    e!("[val #14b2ah]"    => s(5, 12, "invalid color"));
+    e!("[val #f075ff011]" => s(5, 15, "invalid color"));
 
     // Unclosed string.
     v!("\"hello"        => Str("hello]"));
-    e!("[val: \"hello]" => s(13, 13, "expected quote"),
-                           s(13, 13, "expected closing bracket"));
+    e!("[val \"hello]" => s(12, 12, "expected quote"),
+                          s(12, 12, "expected closing bracket"));
 
     // Spanned.
-    ts!("[val: 1.4]" => s(0, 10, F!(s(1, 4, "val"), 6 .. 9; s(6, 9, Float(1.4)))));
+    ts!("[val 1.4]" => s(0, 9, F!(s(1, 4, "val"), 5 .. 8; s(5, 8, Float(1.4)))));
 }
 
 #[test]
@@ -485,24 +468,24 @@ fn test_parse_expressions() {
     v!("3/4*5" => Binary(Mul, Binary(Div, Int(3), Int(4)), Int(5)));
 
     // Spanned.
-    ts!("[val: 1 + 3]" => s(0, 12, F!(
-        s(1, 4, "val"), 6 .. 11; s(6, 11, Binary(
-            s(8, 9, Add),
-            s(6, 7, Int(1)),
-            s(10, 11, Int(3))
+    ts!("[val 1 + 3]" => s(0, 11, F!(
+        s(1, 4, "val"), 5 .. 10; s(5, 10, Binary(
+            s(7, 8, Add),
+            s(5, 6, Int(1)),
+            s(9, 10, Int(3))
         ))
     )));
 
     // Span of parenthesized expression contains parens.
-    ts!("[val: (1)]" => s(0, 10, F!(s(1, 4, "val"), 6 .. 9; s(6, 9, Int(1)))));
+    ts!("[val (1)]" => s(0, 9, F!(s(1, 4, "val"), 5 .. 8; s(5, 8, Int(1)))));
 
     // Invalid expressions.
-    v!("4pt--"        => Length(4.0, Pt));
-    e!("[val: 4pt--]" => s(10, 11, "missing factor"),
-                         s(6, 10, "missing right summand"));
+    v!("4pt--"       => Length(4.0, Pt));
+    e!("[val 4pt--]" => s(9, 10, "missing factor"),
+                        s(5, 9, "missing right summand"));
 
-    v!("3mm+4pt*"        => Binary(Add, Length(3.0, Mm), Length(4.0, Pt)));
-    e!("[val: 3mm+4pt*]" => s(10, 14, "missing right factor"));
+    v!("3mm+4pt*"       => Binary(Add, Length(3.0, Mm), Length(4.0, Pt)));
+    e!("[val 3mm+4pt*]" => s(9, 13, "missing right factor"));
 }
 
 #[test]
@@ -511,25 +494,25 @@ fn test_parse_dicts() {
     v!("()"                 => Dict![]);
     v!("(false)"            => Bool(false));
     v!("(true,)"            => Dict![Bool(true)]);
-    v!("(key=val)"          => Dict!["key" => Id("val")]);
+    v!("(key: val)"          => Dict!["key" => Id("val")]);
     v!("(1, 2)"             => Dict![Int(1), Int(2)]);
-    v!("(1, key=\"value\")" => Dict![Int(1), "key" => Str("value")]);
+    v!("(1, key: \"value\")" => Dict![Int(1), "key" => Str("value")]);
 
     // Decorations.
-    d!("[val: key=hi]"    => s(6, 9, DictKey));
-    d!("[val: (key=hi)]"  => s(7, 10, DictKey));
-    d!("[val: f(key=hi)]" => s(8, 11, DictKey));
+    d!("[val key: hi]"    => s(5, 8, DictKey));
+    d!("[val (key: hi)]"  => s(6, 9, DictKey));
+    d!("[val f(key: hi)]" => s(7, 10, DictKey));
 
-    // Spanned with spacing around keyword arguments.
-    ts!("[val: \n hi \n = /* //\n */ \"s\n\"]" => s(0, 30, F!(
+    // Spanned with spacing around named arguments.
+    ts!("[val  \n hi \n : /* //\n */ \"s\n\"]" => s(0, 30, F!(
         s(1, 4, "val"),
         8 .. 29; s(8, 10, "hi") => s(25, 29, Str("s\n"))
     )));
-    e!("[val: \n hi \n = /* //\n */ \"s\n\"]" => );
+    e!("[val  \n hi \n : /* //\n */ \"s\n\"]" => );
 }
 
 #[test]
-fn test_parse_dicts_compute_func_calls() {
+fn test_parse_dicts_paren_func_calls() {
     v!("empty()"                  => Call!("empty"));
     v!("add ( 1 , 2 )"            => Call!("add"; Int(1), Int(2)));
     v!("items(\"fire\", #f93a6d)" => Call!("items";
@@ -537,25 +520,25 @@ fn test_parse_dicts_compute_func_calls() {
     ));
 
     // More complex.
-    v!("css(1pt, rgb(90, 102, 254), \"solid\")" => Call!(
+    v!(r#"css(1pt, color: rgb(90, 102, 254), stroke: "solid")"# => Call!(
         "css";
         Length(1.0, Pt),
-        Call!("rgb"; Int(90), Int(102), Int(254)),
-        Str("solid"),
+        "color" => Call!("rgb"; Int(90), Int(102), Int(254)),
+        "stroke" => Str("solid"),
     ));
 
     // Unclosed.
-    v!("lang(中文]"       => Call!("lang"; Id("中文")));
-    e!("[val: lang(中文]" => s(17, 17, "expected closing paren"));
+    v!("lang(中文]"      => Call!("lang"; Id("中文")));
+    e!("[val lang(中文]" => s(16, 16, "expected closing paren"));
 
     // Invalid name.
-    v!("👠(\"abc\", 13e-5)"        => Dict!(Str("abc"), Float(13.0e-5)));
-    e!("[val: 👠(\"abc\", 13e-5)]" => s(6, 10, "invalid token"));
+    v!("👠(\"abc\", 13e-5)"       => Dict!(Str("abc"), Float(13.0e-5)));
+    e!("[val 👠(\"abc\", 13e-5)]" => s(5, 9, "invalid token"));
 }
 
 #[test]
 fn test_parse_dicts_nested() {
-    v!("(1, ( ab=(), d = (3, 14pt) )), false" =>
+    v!("(1, ( ab:(), d : (3, 14pt) )), false" =>
         Dict![
             Int(1),
             Dict!(
@@ -570,28 +553,28 @@ fn test_parse_dicts_nested() {
 #[test]
 fn test_parse_dicts_errors() {
     // Expected value.
-    e!("[val: (=)]"         => s(7, 8, "unexpected equals sign"));
-    e!("[val: (,)]"         => s(7, 8, "unexpected comma"));
-    v!("(\x07 abc,)"        => Dict![Id("abc")]);
-    e!("[val: (\x07 abc,)]" => s(7, 8, "invalid token"));
-    e!("[val: (key=,)]"     => s(11, 12, "expected value, found comma"));
-    e!("[val: hi,)]"        => s(9, 10, "unexpected closing paren"));
+    e!("[val (:)]"         => s(6, 7, "unexpected colon"));
+    e!("[val (,)]"         => s(6, 7, "unexpected comma"));
+    v!("(\x07 abc,)"       => Dict![Id("abc")]);
+    e!("[val (\x07 abc,)]" => s(6, 7, "invalid token"));
+    e!("[val (key:,)]"     => s(10, 11, "expected value, found comma"));
+    e!("[val hi,)]"        => s(8, 9, "unexpected closing paren"));
 
     // Expected comma.
-    v!("(true false)"        => Dict![Bool(true), Bool(false)]);
-    e!("[val: (true false)]" => s(11, 11, "expected comma"));
+    v!("(true false)"       => Dict![Bool(true), Bool(false)]);
+    e!("[val (true false)]" => s(10, 10, "expected comma"));
 
     // Expected closing paren.
-    e!("[val: (#000]" => s(11, 11, "expected closing paren"));
-    e!("[val: (key]"  => s(10, 10, "expected closing paren"));
-    e!("[val: (key=]" => s(11, 11, "expected value"),
-                         s(11, 11, "expected closing paren"));
+    e!("[val (#000]" => s(10, 10, "expected closing paren"));
+    e!("[val (key]"  => s(9, 9, "expected closing paren"));
+    e!("[val (key:]" => s(10, 10, "expected value"),
+                        s(10, 10, "expected closing paren"));
 
     // Bad key.
-    v!("true=you"        => Bool(true), Id("you"));
-    e!("[val: true=you]" => s(10, 11, "unexpected equals sign"));
+    v!("true:you"       => Bool(true), Id("you"));
+    e!("[val true:you]" => s(9, 10, "unexpected colon"));
 
-    // Unexpected equals sign.
-    v!("z=y=4"        => "z" => Id("y"), Int(4));
-    e!("[val: z=y=4]" => s(9, 10, "unexpected equals sign"));
+    // Unexpected colon.
+    v!("z:y:4"       => "z" => Id("y"), Int(4));
+    e!("[val z:y:4]" => s(8, 9, "unexpected colon"));
 }

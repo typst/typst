@@ -40,24 +40,24 @@ impl<'s> Parser<'s> {
 
     /// Eat the next token and add a diagnostic that it is not the expected
     /// `thing`.
-    pub fn diag_expected(&mut self, thing: &str) {
+    pub fn diag_expected(&mut self, what: &str) {
         let before = self.pos();
         if let Some(found) = self.eat() {
             let after = self.pos();
             self.diag(error!(
                 before .. after,
                 "expected {}, found {}",
-                thing,
+                what,
                 found.name(),
             ));
         } else {
-            self.diag_expected_at(thing, self.pos());
+            self.diag_expected_at(what, self.pos());
         }
     }
 
     /// Add a diagnostic that the `thing` was expected at the given position.
-    pub fn diag_expected_at(&mut self, thing: &str, pos: Pos) {
-        self.diag(error!(pos, "expected {}", thing));
+    pub fn diag_expected_at(&mut self, what: &str, pos: Pos) {
+        self.diag(error!(pos, "expected {}", what));
     }
 
     /// Eat the next token and add a diagnostic that it is unexpected.
@@ -220,7 +220,7 @@ impl<'s> Parser<'s> {
             Token::RightParen => Group::Paren,
             Token::RightBracket => Group::Bracket,
             Token::RightBrace => Group::Brace,
-            Token::Chain => Group::Subheader,
+            Token::Pipe => Group::Subheader,
             _ => return Some(token),
         };
 

@@ -2,9 +2,9 @@ use std::rc::Rc;
 
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
+use crate::color::{Color, RgbaColor};
 use crate::eval::StringLike;
 use crate::geom::Linear;
-use crate::color::{Color, RgbaColor};
 use crate::prelude::*;
 
 /// `font`: Configure the font.
@@ -13,7 +13,7 @@ use crate::prelude::*;
 /// - Font size (optional, `linear` relative to current font size).
 /// - Font families ... (optional, variadic, `Family`)
 ///
-/// # Keyword arguments
+/// # Named arguments
 /// - `style` (`Style`): The font style.
 /// - `weight` (`Weight`): The font weight.
 /// - `stretch` (`Stretch`): The font stretch.
@@ -26,17 +26,17 @@ use crate::prelude::*;
 /// # Examples
 /// Set font size and font families.
 /// ```typst
-/// [font: 12pt, "Arial", "Noto Sans", sans-serif]
+/// [font 12pt, "Arial", "Noto Sans", sans-serif]
 /// ```
 ///
 /// Redefine the default sans-serif family to a single font family.
 /// ```typst
-/// [font: sans-serif="Source Sans Pro"]
+/// [font sans-serif: "Source Sans Pro"]
 /// ```
 ///
 /// Redefine the default emoji family with a fallback.
 /// ```typst
-/// [font: emoji=("Segoe UI Emoji", "Noto Emoji")]
+/// [font emoji: ("Segoe UI Emoji", "Noto Emoji")]
 /// ```
 ///
 /// # Enumerations
