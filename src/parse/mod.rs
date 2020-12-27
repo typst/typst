@@ -487,9 +487,9 @@ fn ident(p: &mut Parser) -> Option<Ident> {
 /// Parse a color.
 fn color(p: &mut Parser, hex: &str, start: Pos) -> RgbaColor {
     RgbaColor::from_str(hex).unwrap_or_else(|_| {
-        // Heal color by assuming black.
+        // Replace color with black.
         p.diag(error!(start .. p.pos(), "invalid color"));
-        RgbaColor::with_healed(0, 0, 0, 255, true)
+        RgbaColor::new(0, 0, 0, 255)
     })
 }
 

@@ -3,6 +3,21 @@
 use std::fmt::{self, Debug, Formatter};
 use std::str::FromStr;
 
+/// A color in a dynamic format.
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum Color {
+    /// An 8-bit RGBA color.
+    Rgba(RgbaColor),
+}
+
+impl Debug for Color {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Rgba(c) => c.fmt(f),
+        }
+    }
+}
+
 /// An 8-bit RGBA color.
 ///
 /// # Example
@@ -20,34 +35,23 @@ pub struct RgbaColor {
     pub b: u8,
     /// Alpha channel.
     pub a: u8,
-    /// Whether the color was provided as a fail-over by the parser because the
-    /// user-defined value was invalid.
-    ///
-    /// If this is true, the color may be replaced with any color deemed
-    /// appropriate at the use-site.
-    pub healed: bool,
 }
 
 impl RgbaColor {
-    /// Constructs a new, unhealed color.
+    /// Constructs a new RGBA color.
     pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self { r, g, b, a, healed: false }
-    }
-
-    /// Constructs a new color with a configurable healed status.
-    pub fn with_healed(r: u8, g: u8, b: u8, a: u8, healed: bool) -> Self {
-        Self { r, g, b, a, healed }
+        Self { r, g, b, a }
     }
 }
 
 impl FromStr for RgbaColor {
-    type Err = ParseColorError;
+    type Err = ParseRgbaError;
 
     /// Constructs a new color from a hex string like `7a03c2`. Do not specify a
     /// leading `#`.
     fn from_str(hex_str: &str) -> Result<Self, Self::Err> {
         if !hex_str.is_ascii() {
-            return Err(ParseColorError);
+            return Err(ParseRgbaError);
         }
 
         let len = hex_str.len();
@@ -56,7 +60,7 @@ impl FromStr for RgbaColor {
         let alpha = len == 4 || len == 8;
 
         if !long && !short {
-            return Err(ParseColorError);
+            return Err(ParseRgbaError);
         }
 
         let mut values: [u8; 4] = [255; 4];
@@ -66,7 +70,7 @@ impl FromStr for RgbaColor {
             let pos = elem * item_len;
 
             let item = &hex_str[pos .. (pos + item_len)];
-            values[elem] = u8::from_str_radix(item, 16).map_err(|_| ParseColorError)?;
+            values[elem] = u8::from_str_radix(item, 16).map_err(|_| ParseRgbaError)?;
 
             if short {
                 // Duplicate number for shorthand notation, i.e. `a` -> `aa`
@@ -92,20 +96,17 @@ impl Debug for RgbaColor {
                 write!(f, "{:02x}", self.a)?;
             }
         }
-        if self.healed {
-            f.write_str(" [healed]")?;
-        }
         Ok(())
     }
 }
 
-/// The error when parsing an [`RgbaColor`] fails.
+/// The error when parsing an [`RgbaColor`] from a string fails.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct ParseColorError;
+pub struct ParseRgbaError;
 
-impl std::error::Error for ParseColorError {}
+impl std::error::Error for ParseRgbaError {}
 
-impl fmt::Display for ParseColorError {
+impl fmt::Display for ParseRgbaError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("invalid color")
     }

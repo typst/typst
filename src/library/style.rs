@@ -2,9 +2,9 @@ use std::rc::Rc;
 
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
-use crate::color::RgbaColor;
 use crate::eval::StringLike;
 use crate::geom::Linear;
+use crate::color::{Color, RgbaColor};
 use crate::prelude::*;
 
 /// `font`: Configure the font.
@@ -152,22 +152,19 @@ pub fn rgb(mut args: Args, ctx: &mut EvalContext) -> Value {
     let a = args.get::<_, Spanned<f64>>(ctx, 3);
     args.done(ctx);
 
-    let mut healed = r.is_none() || g.is_none() || b.is_none();
     let mut clamp = |component: Option<Spanned<f64>>, default| {
         component.map_or(default, |c| {
             if c.v < 0.0 || c.v > 1.0 {
                 ctx.diag(error!(c.span, "should be between 0.0 and 1.0"));
-                healed = true;
             }
             (c.v.max(0.0).min(1.0) * 255.0).round() as u8
         })
     };
 
-    Value::Color(RgbaColor::with_healed(
+    Value::Color(Color::Rgba(RgbaColor::new(
         clamp(r, 0),
         clamp(g, 0),
         clamp(b, 0),
         clamp(a, 255),
-        healed,
-    ))
+    )))
 }

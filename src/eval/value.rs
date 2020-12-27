@@ -7,7 +7,7 @@ use std::rc::Rc;
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
 use super::{Args, Dict, Eval, EvalContext, SpannedEntry};
-use crate::color::RgbaColor;
+use crate::color::Color;
 use crate::diag::Diag;
 use crate::geom::{Dir, Length, Linear, Relative};
 use crate::paper::Paper;
@@ -32,8 +32,8 @@ pub enum Value {
     Relative(Relative),
     /// A combination of an absolute length and a relative value: `20% + 5cm`.
     Linear(Linear),
-    /// A color value with alpha channel: `#f79143ff`.
-    Color(RgbaColor),
+    /// A color value: `#f79143ff`.
+    Color(Color),
     /// A string: `"string"`.
     Str(String),
     /// A dictionary value: `(false, 12cm, greeting="hi")`.
@@ -285,6 +285,7 @@ try_from_match!(Linear["linear"]:
     Value::Length(v) => v.into(),
     Value::Relative(v) => v.into(),
 );
+try_from_match!(Color["color"]: Value::Color(v) => v);
 try_from_match!(String["string"]: Value::Str(v) => v);
 try_from_match!(SynTree["tree"]: Value::Content(v) => v);
 try_from_match!(ValueDict["dictionary"]: Value::Dict(v) => v);

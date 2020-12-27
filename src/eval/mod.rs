@@ -20,6 +20,7 @@ use fontdock::FontStyle;
 
 use crate::diag::Diag;
 use crate::diag::{Deco, Feedback, Pass};
+use crate::color::Color;
 use crate::env::SharedEnv;
 use crate::geom::{BoxAlign, Dir, Flow, Gen, Length, Linear, Relative, Sides, Size};
 use crate::layout::{
@@ -436,7 +437,7 @@ impl Eval for Lit {
             Lit::Float(v) => Value::Float(v),
             Lit::Length(v, unit) => Value::Length(Length::with_unit(v, unit)),
             Lit::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
-            Lit::Color(v) => Value::Color(v),
+            Lit::Color(v) => Value::Color(Color::Rgba(v)),
             Lit::Str(ref v) => Value::Str(v.clone()),
             Lit::Dict(ref v) => Value::Dict(v.eval(ctx)),
             Lit::Content(ref v) => Value::Content(v.clone()),

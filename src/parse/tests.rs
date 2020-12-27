@@ -436,7 +436,7 @@ fn test_parse_values() {
     e!("[val: [hi]]"   => );
 
     // Healed colors.
-    v!("#12345"            => Color(RgbaColor::with_healed(0, 0, 0, 0xff, true)));
+    v!("#12345"            => Color(RgbaColor::new(0, 0, 0, 0xff)));
     e!("[val: #12345]"     => s(6, 12, "invalid color"));
     e!("[val: #a5]"        => s(6, 9,  "invalid color"));
     e!("[val: #14b2ah]"    => s(6, 13, "invalid color"));
