@@ -102,7 +102,7 @@ macro_rules! Call {
 fn Unary(op: impl Into<Spanned<UnOp>>, expr: impl Into<Spanned<Expr>>) -> Expr {
     Expr::Unary(ExprUnary {
         op: op.into(),
-        expr: expr.into().map(Box::new),
+        expr: Box::new(expr.into()),
     })
 }
 
@@ -112,9 +112,9 @@ fn Binary(
     rhs: impl Into<Spanned<Expr>>,
 ) -> Expr {
     Expr::Binary(ExprBinary {
-        lhs: lhs.into().map(Box::new),
+        lhs: Box::new(lhs.into()),
         op: op.into(),
-        rhs: rhs.into().map(Box::new),
+        rhs: Box::new(rhs.into()),
     })
 }
 

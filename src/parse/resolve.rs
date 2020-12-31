@@ -160,6 +160,38 @@ mod tests {
     }
 
     #[test]
+    fn test_resolve_raw() {
+        fn test(
+            raw: &str,
+            backticks: usize,
+            lang: Option<&str>,
+            lines: &[&str],
+            inline: bool,
+        ) {
+            assert_eq!(resolve_raw(raw, backticks), NodeRaw {
+                lang: lang.map(|id| Ident(id.into())),
+                lines: lines.iter().map(ToString::to_string).collect(),
+                inline,
+            });
+        }
+
+        // Just one backtick.
+        test("py",     1, None, &["py"],     true);
+        test("1\n2",   1, None, &["1", "2"], true);
+        test("1\r\n2", 1, None, &["1", "2"], true);
+
+        // More than one backtick with lang tag.
+        test("js alert()",     2, Some("js"), &["alert()"],        true);
+        test("py quit(\n\n) ", 3, Some("py"), &["quit(", "", ")"], false);
+        test("♥",              2, None,       &[],                 true);
+
+        // Trimming of whitespace (tested more thoroughly in separate test).
+        test(" a",   2, None, &["a"],  true);
+        test("  a",  2, None, &[" a"], true);
+        test(" \na", 2, None, &["a"],  false);
+    }
+
+    #[test]
     fn test_trim_raw() {
         fn test(text: &str, expected: Vec<&str>) {
             assert_eq!(trim_and_split_raw(text).0, expected);

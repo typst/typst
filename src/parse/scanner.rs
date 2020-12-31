@@ -2,25 +2,23 @@
 
 use std::fmt::{self, Debug, Formatter};
 use std::slice::SliceIndex;
-use std::str::Chars;
 
 /// A low-level featureful char-based scanner.
 #[derive(Clone)]
 pub struct Scanner<'s> {
     src: &'s str,
-    iter: Chars<'s>,
     index: usize,
 }
 
 impl<'s> Scanner<'s> {
     /// Create a new char scanner.
     pub fn new(src: &'s str) -> Self {
-        Self { src, iter: src.chars(), index: 0 }
+        Self { src, index: 0 }
     }
 
     /// Consume the next char.
     pub fn eat(&mut self) -> Option<char> {
-        let next = self.iter.next();
+        let next = self.peek();
         if let Some(c) = next {
             self.index += c.len_utf8();
         }
@@ -32,11 +30,10 @@ impl<'s> Scanner<'s> {
     /// Returns whether the char was consumed.
     pub fn eat_if(&mut self, c: char) -> bool {
         // Don't decode the char twice through peek() and eat().
-        if self.iter.next() == Some(c) {
+        if self.peek() == Some(c) {
             self.index += c.len_utf8();
             true
         } else {
-            self.reset();
             false
         }
     }
@@ -58,18 +55,21 @@ impl<'s> Scanner<'s> {
     }
 
     /// Eat chars while the condition is true.
-    pub fn eat_while(&mut self, mut f: impl FnMut(char) -> bool) -> &'s str {
+    pub fn eat_while<F>(&mut self, mut f: F) -> &'s str
+    where
+        F: FnMut(char) -> bool,
+    {
         self.eat_until(|c| !f(c))
     }
 
     /// Eat chars until the condition is true.
-    pub fn eat_until(&mut self, mut f: impl FnMut(char) -> bool) -> &'s str {
+    pub fn eat_until<F>(&mut self, mut f: F) -> &'s str
+    where
+        F: FnMut(char) -> bool,
+    {
         let start = self.index;
-        while let Some(c) = self.iter.next() {
+        while let Some(c) = self.peek() {
             if f(c) {
-                // Undo the previous `next()` without peeking all the time
-                // during iteration.
-                self.reset();
                 break;
             }
             self.index += c.len_utf8();
@@ -80,29 +80,31 @@ impl<'s> Scanner<'s> {
     /// Uneat the last eaten char.
     pub fn uneat(&mut self) {
         self.index = self.last_index();
-        self.reset();
     }
 
     /// Peek at the next char without consuming it.
     pub fn peek(&self) -> Option<char> {
-        self.iter.clone().next()
+        self.src[self.index ..].chars().next()
     }
 
     /// Peek at the nth-next char without consuming anything.
     pub fn peek_nth(&self, n: usize) -> Option<char> {
-        self.iter.clone().nth(n)
+        self.src[self.index ..].chars().nth(n)
     }
 
     /// Checks whether the next char fulfills a condition.
     ///
     /// Returns `false` if there is no next char.
-    pub fn check(&self, f: impl FnOnce(char) -> bool) -> bool {
+    pub fn check<F>(&self, f: F) -> bool
+    where
+        F: FnOnce(char) -> bool,
+    {
         self.peek().map(f).unwrap_or(false)
     }
 
     /// Whether the end of the source string is reached.
     pub fn eof(&self) -> bool {
-        self.iter.as_str().is_empty()
+        self.index == self.src.len()
     }
 
     /// The previous index in the source string.
@@ -122,7 +124,6 @@ impl<'s> Scanner<'s> {
     /// Jump to an index in the source string.
     pub fn jump(&mut self, index: usize) {
         self.index = index;
-        self.reset();
     }
 
     /// The full source string.
@@ -151,11 +152,6 @@ impl<'s> Scanner<'s> {
     /// The remaining source string after the current index.
     pub fn rest(&self) -> &'s str {
         &self.src[self.index ..]
-    }
-
-    /// Go back to the where the index says.
-    fn reset(&mut self) {
-        self.iter = self.src[self.index ..].chars();
     }
 }
 
