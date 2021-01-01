@@ -10,7 +10,9 @@ pub struct Parser<'s> {
     /// An iterator over the source tokens.
     tokens: Tokens<'s>,
     /// The next token.
-    /// (Only `None` if we are at the end of group or end of file).
+    next: Option<Token<'s>>,
+    /// The peeked token.
+    /// (Same as `next` except if we are at the end of group, then `None`).
     peeked: Option<Token<'s>>,
     /// The start position of the peeked token.
     next_start: Pos,
@@ -28,10 +30,11 @@ impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
     pub fn new(src: &'s str) -> Self {
         let mut tokens = Tokens::new(src, TokenMode::Body);
-        let peeked = tokens.next();
+        let next = tokens.next();
         Self {
             tokens,
-            peeked,
+            next,
+            peeked: next,
             next_start: Pos::ZERO,
             last_end: Pos::ZERO,
             modes: vec![],
@@ -118,7 +121,9 @@ impl<'s> Parser<'s> {
             Group::Brace => self.eat_assert(Token::LeftBrace),
             Group::Subheader => {}
         }
+
         self.groups.push(group);
+        self.repeek();
     }
 
     /// Ends the parsing of a group and returns the span of the whole group.
@@ -130,6 +135,8 @@ impl<'s> Parser<'s> {
         debug_assert_eq!(self.peek(), None, "unfinished group");
 
         let group = self.groups.pop().expect("no started group");
+        self.repeek();
+
         let end = match group {
             Group::Paren => Some(Token::RightParen),
             Group::Bracket => Some(Token::RightBracket),
@@ -138,7 +145,7 @@ impl<'s> Parser<'s> {
         };
 
         if let Some(token) = end {
-            if self.peeked == Some(token) {
+            if self.next == Some(token) {
                 self.bump();
             } else {
                 self.diag(error!(self.next_start, "expected {}", token.name()));
@@ -203,26 +210,24 @@ impl<'s> Parser<'s> {
     }
 
     /// Peek at the next token without consuming it.
-    pub fn peek(&mut self) -> Option<Token<'s>> {
-        let group = match self.peeked {
-            Some(Token::RightParen) => Group::Paren,
-            Some(Token::RightBracket) => Group::Bracket,
-            Some(Token::RightBrace) => Group::Brace,
-            Some(Token::Pipe) => Group::Subheader,
-            other => return other,
-        };
-
-        if self.groups.contains(&group) {
-            return None;
-        }
-
+    pub fn peek(&self) -> Option<Token<'s>> {
         self.peeked
+    }
+
+    /// Peek at the span of the next token.
+    ///
+    /// Has length zero if `peek()` returns `None`.
+    pub fn peek_span(&self) -> Span {
+        Span::new(
+            self.next_start,
+            if self.eof() { self.next_start } else { self.tokens.pos() },
+        )
     }
 
     /// Checks whether the next token fulfills a condition.
     ///
     /// Returns `false` if there is no next token.
-    pub fn check<F>(&mut self, f: F) -> bool
+    pub fn check<F>(&self, f: F) -> bool
     where
         F: FnOnce(Token<'s>) -> bool,
     {
@@ -230,7 +235,7 @@ impl<'s> Parser<'s> {
     }
 
     /// Whether the end of the source string or group is reached.
-    pub fn eof(&mut self) -> bool {
+    pub fn eof(&self) -> bool {
         self.peek().is_none()
     }
 
@@ -284,21 +289,36 @@ impl<'s> Parser<'s> {
     fn bump(&mut self) {
         self.last_end = self.tokens.pos();
         self.next_start = self.tokens.pos();
-        self.peeked = self.tokens.next();
+        self.next = self.tokens.next();
 
         match self.tokens.mode() {
             TokenMode::Body => {}
             TokenMode::Header => {
                 while matches!(
-                    self.peeked,
+                    self.next,
                     Some(Token::Space(_)) |
                     Some(Token::LineComment(_)) |
                     Some(Token::BlockComment(_))
                 ) {
                     self.next_start = self.tokens.pos();
-                    self.peeked = self.tokens.next();
+                    self.next = self.tokens.next();
                 }
             }
+        }
+
+        self.repeek();
+    }
+
+    fn repeek(&mut self) {
+        self.peeked = self.next;
+        if self.groups.contains(&match self.next {
+            Some(Token::RightParen) => Group::Paren,
+            Some(Token::RightBracket) => Group::Bracket,
+            Some(Token::RightBrace) => Group::Brace,
+            Some(Token::Pipe) => Group::Subheader,
+            _ => return,
+        }) {
+            self.peeked = None;
         }
     }
 }

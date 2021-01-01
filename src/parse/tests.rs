@@ -1,57 +1,103 @@
-//! Parser tests.
-
 #![allow(non_snake_case)]
 
 use std::fmt::Debug;
 
 use super::parse;
 use crate::color::RgbaColor;
-use crate::diag::Deco;
+use crate::diag::{Diag, Level, Pass};
 use crate::eval::DictKey;
 use crate::geom::Unit;
 use crate::syntax::*;
 
-// ------------------------------ Construct Syntax Nodes ------------------------------ //
+use BinOp::*;
+use SynNode::{Emph, Linebreak, Parbreak, Space, Strong};
+use UnOp::*;
 
-use Deco::*;
-use SynNode::{Emph as E, Linebreak as L, Parbreak as P, Space as S, Strong as B};
+macro_rules! t {
+    ($src:literal
+        nodes: [$($node:expr),* $(,)?]
+        $(, errors: [$($err:expr),* $(,)?])?
+        $(, warnings: [$($warn:expr),* $(,)?])?
+        $(, spans: $spans:expr)?
+        $(,)?
+    ) => {{
+        #[allow(unused)]
+        let mut spans = false;
+        $(spans = $spans;)?
 
-fn T(text: &str) -> SynNode {
-    SynNode::Text(text.to_string())
-}
+        let Pass { output, feedback } = parse($src);
+        check($src, Content![@$($node),*], output, spans);
+        check(
+            $src,
+            vec![
+                $($(into!($err).map(|s: &str| Diag::new(Level::Error, s)),)*)?
+                $($(into!($warn).map(|s: &str| Diag::new(Level::Warning, s)),)*)?
+            ],
+            feedback.diags,
+            true,
+        );
+    }};
 
-macro_rules! H {
-    ($level:expr, $($tts:tt)*) => {
-        SynNode::Heading(NodeHeading {
-            level: Spanned::zero($level),
-            contents: Tree![@$($tts)*],
-        })
+    ($src:literal $($node:expr),* $(,)?) => {
+        t!($src nodes: [$($node),*]);
     };
 }
 
-macro_rules! R {
-    ($lang:expr, $inline:expr, $($line:expr),* $(,)?) => {{
-        SynNode::Raw(NodeRaw {
-            lang: $lang,
-            lines: vec![$($line.to_string()) ,*],
-            inline: $inline,
-        })
-    }};
+/// Assert that expected and found are equal, printing both and the source of
+/// the test case if they aren't.
+///
+/// When `cmp_spans` is false, spans are ignored.
+#[track_caller]
+pub fn check<T>(src: &str, exp: T, found: T, cmp_spans: bool)
+where
+    T: Debug + PartialEq,
+{
+    Span::set_cmp(cmp_spans);
+
+    if exp != found {
+        println!("source:   {:?}", src);
+        println!("expected: {:#?}", exp);
+        println!("found:    {:#?}", found);
+        panic!("test failed");
+    }
+
+    Span::set_cmp(true);
 }
 
-fn Lang(lang: &str) -> Option<Ident> {
-    Some(Ident(lang.to_string()))
+/// Shorthand for `Spanned::new`.
+fn S<T>(span: impl Into<Span>, v: T) -> Spanned<T> {
+    Spanned::new(v, span)
 }
 
-macro_rules! F {
-    ($($tts:tt)*) => { SynNode::Expr(Expr::Call(Call!(@$($tts)*))) }
+// Enables tests to optionally specify spans.
+impl<T> From<T> for Spanned<T> {
+    fn from(t: T) -> Self {
+        Spanned::zero(t)
+    }
 }
 
-// ------------------------------- Construct Expressions ------------------------------ //
+/// Shorthand for `Into::<Spanned<_>>::into`.
+macro_rules! into {
+    ($val:expr) => {
+        Into::<Spanned<_>>::into($val)
+    };
+}
 
-use BinOp::*;
-use UnOp::*;
-use Unit::*;
+fn Text(text: &str) -> SynNode {
+    SynNode::Text(text.into())
+}
+
+fn Heading(level: impl Into<Spanned<u8>>, contents: SynTree) -> SynNode {
+    SynNode::Heading(NodeHeading { level: level.into(), contents })
+}
+
+fn Raw(lang: Option<&str>, lines: &[&str], inline: bool) -> SynNode {
+    SynNode::Raw(NodeRaw {
+        lang: lang.map(|id| Ident(id.into())),
+        lines: lines.iter().map(ToString::to_string).collect(),
+        inline,
+    })
+}
 
 fn Id(ident: &str) -> Expr {
     Expr::Lit(Lit::Ident(Ident(ident.to_string())))
@@ -85,30 +131,13 @@ fn Str(string: &str) -> Expr {
     Expr::Lit(Lit::Str(string.to_string()))
 }
 
-macro_rules! Call {
-    (@$name:expr $(, $span:expr)? $(; $($tts:tt)*)?) => {{
-        let name = Into::<Spanned<&str>>::into($name);
-        #[allow(unused)]
-        let mut span = Span::ZERO;
-        $(span = $span.into();)?
-        ExprCall {
-            name: name.map(|n| Ident(n.to_string())),
-            args: Dict![@$($($tts)*)?].span_with(span),
-        }
-    }};
-    ($($tts:tt)*) => { Expr::Call(Call![@$($tts)*]) };
-}
-
-fn Unary(op: impl Into<Spanned<UnOp>>, expr: impl Into<Spanned<Expr>>) -> Expr {
-    Expr::Unary(ExprUnary {
-        op: op.into(),
-        expr: Box::new(expr.into()),
-    })
+fn Block(expr: Expr) -> SynNode {
+    SynNode::Expr(expr)
 }
 
 fn Binary(
-    op: impl Into<Spanned<BinOp>>,
     lhs: impl Into<Spanned<Expr>>,
+    op: impl Into<Spanned<BinOp>>,
     rhs: impl Into<Spanned<Expr>>,
 ) -> Expr {
     Expr::Binary(ExprBinary {
@@ -118,463 +147,418 @@ fn Binary(
     })
 }
 
+fn Unary(op: impl Into<Spanned<UnOp>>, expr: impl Into<Spanned<Expr>>) -> Expr {
+    Expr::Unary(ExprUnary {
+        op: op.into(),
+        expr: Box::new(expr.into()),
+    })
+}
+
 macro_rules! Dict {
-    (@dict=$dict:expr,) => {};
-    (@dict=$dict:expr, $key:expr => $expr:expr $(, $($tts:tt)*)?) => {{
-        let key = Into::<Spanned<&str>>::into($key);
-        let key = key.map(Into::<DictKey>::into);
-        let expr = Into::<Spanned<Expr>>::into($expr);
-        $dict.0.push(LitDictEntry { key: Some(key), expr });
-        Dict![@dict=$dict, $($($tts)*)?];
-    }};
-    (@dict=$dict:expr, $expr:expr $(, $($tts:tt)*)?) => {
-        let expr = Into::<Spanned<Expr>>::into($expr);
-        $dict.0.push(LitDictEntry { key: None, expr });
-        Dict![@dict=$dict, $($($tts)*)?];
+    (@$($a:expr $(=> $b:expr)?),* $(,)?) => {
+        LitDict(vec![$(#[allow(unused)] {
+            let key: Option<Spanned<DictKey>> = None;
+            let expr = $a;
+            $(
+                let key = Some(into!($a).map(|s: &str| s.into()));
+                let expr = $b;
+            )?
+            LitDictEntry { key, expr: into!(expr) }
+        }),*])
     };
-    (@$($tts:tt)*) => {{
-        #[allow(unused)]
-        let mut dict = LitDict::new();
-        Dict![@dict=dict, $($tts)*];
-        dict
-    }};
-    ($($tts:tt)*) => { Expr::Lit(Lit::Dict(Dict![@$($tts)*])) };
+    ($($tts:tt)*) => (Expr::Lit(Lit::Dict(Dict![@$($tts)*])));
 }
 
-macro_rules! Tree {
-    (@$($node:expr),* $(,)?) => {
-        vec![$(Into::<Spanned<SynNode>>::into($node)),*]
+macro_rules! Content {
+    (@$($node:expr),* $(,)?) => (vec![$(into!($node)),*]);
+    ($($tts:tt)*) => (Expr::Lit(Lit::Content(Content![@$($tts)*])));
+}
+
+macro_rules! Call {
+    (@@$name:expr) => {
+        Call!(@@$name, Args![])
     };
-    ($($tts:tt)*) => { Expr::Lit(Lit::Content(Tree![@$($tts)*])) };
-}
-
-// ------------------------------------ Test Macros ----------------------------------- //
-
-// Test syntax trees with or without spans.
-macro_rules! t { ($($tts:tt)*) => {test!(@spans=false, $($tts)*)} }
-macro_rules! ts { ($($tts:tt)*) => {test!(@spans=true, $($tts)*)} }
-macro_rules! test {
-    (@spans=$spans:expr, $src:expr => $($tts:tt)*) => {
-        let exp = Tree![@$($tts)*];
-        let pass = parse($src);
-        check($src, exp, pass.output, $spans);
-    };
-}
-
-// Test expressions.
-macro_rules! v {
-    ($src:expr => $($tts:tt)*) => {
-        t!(concat!("[val ", $src, "]") => F!("val"; $($tts)*));
-    }
-}
-
-// Test error messages.
-macro_rules! e {
-    ($src:expr => $($tts:tt)*) => {
-        let exp = vec![$($tts)*];
-        let pass = parse($src);
-        let found = pass.feedback.diags.iter()
-            .map(|s| s.as_ref().map(|e| e.message.as_str()))
-            .collect::<Vec<_>>();
-        check($src, exp, found, true);
-    };
-}
-
-// Test decorations.
-macro_rules! d {
-    ($src:expr => $($tts:tt)*) => {
-        let exp = vec![$($tts)*];
-        let pass = parse($src);
-        check($src, exp, pass.feedback.decos, true);
-    };
-}
-
-/// Assert that expected and found are equal, printing both and panicking
-/// and the source of their test case if they aren't.
-///
-/// When `cmp_spans` is false, spans are ignored.
-#[track_caller]
-pub fn check<T>(src: &str, exp: T, found: T, cmp_spans: bool)
-where
-    T: Debug + PartialEq,
-{
-    Span::set_cmp(cmp_spans);
-    let equal = exp == found;
-    Span::set_cmp(true);
-
-    if !equal {
-        println!("source:   {:?}", src);
-        if cmp_spans {
-            println!("expected: {:#?}", exp);
-            println!("found:    {:#?}", found);
-        } else {
-            println!("expected: {:?}", exp);
-            println!("found:    {:?}", found);
+    (@@$name:expr, $args:expr) => {
+        ExprCall {
+            name: into!($name).map(|s: &str| Ident(s.into())),
+            args: into!($args),
         }
-        panic!("test failed");
-    }
+    };
+    (@$($tts:tt)*) => (Expr::Call(Call!(@@$($tts)*)));
+    ($($tts:tt)*) => (SynNode::Expr(Call!(@$($tts)*)));
 }
 
-pub fn s<T>(start: u32, end: u32, v: T) -> Spanned<T> {
-    v.span_with(Span::new(start, end))
-}
-
-// Enables tests to optionally specify spans.
-impl<T> From<T> for Spanned<T> {
-    fn from(t: T) -> Self {
-        Spanned::zero(t)
-    }
-}
-
-// --------------------------------------- Tests -------------------------------------- //
-
-#[test]
-fn test_parse_groups() {
-    e!("[)" => s(1, 2, "expected function name, found closing paren"),
-               s(2, 2, "expected closing bracket"));
-
-    e!("[v {]}" => s(4, 4, "expected closing brace"),
-                   s(5, 6, "unexpected closing brace"));
-}
-
-#[test]
-fn test_parse_simple_nodes() {
-    t!(""               => );
-    t!("hi"             => T("hi"));
-    t!("*hi"            => B, T("hi"));
-    t!("hi_"            => T("hi"), E);
-    t!("hi you"         => T("hi"), S, T("you"));
-    t!("special~name"   => T("special"), T("\u{00A0}"), T("name"));
-    t!("special\\~name" => T("special"), T("~"), T("name"));
-    t!("\\u{1f303}"     => T("🌃"));
-    t!("\n\n\nhello"    => P, T("hello"));
-    t!(r"a\ b"          => T("a"), L, S, T("b"));
-
-    e!("\\u{d421c809}" => s(0, 12, "invalid unicode escape sequence"));
-    e!("\\u{abc"       => s(6, 6, "expected closing brace"));
-    t!("💜\n\n 🌍"    => T("💜"), P, T("🌍"));
-
-    ts!("hi"   => s(0, 2, T("hi")));
-    ts!("*Hi*" => s(0, 1, B), s(1, 3, T("Hi")), s(3, 4, B));
-    ts!("💜\n\n 🌍" => s(0, 4, T("💜")), s(4, 7, P), s(7, 11, T("🌍")));
-}
-
-#[test]
-fn test_parse_raw() {
-    t!("`py`"            => R![None, true, "py"]);
-    t!("`hi\nyou"        => R![None, true, "hi", "you"]);
-    t!(r"`` hi\`du``"    => R![None, true, r"hi\`du"]);
-
-    // More than one backtick with optional language tag.
-    t!("``` console.log(\n\"alert\"\n)" => R![None, false, "console.log(", "\"alert\"", ")"]);
-    t!("````typst \r\n Typst uses ``` to indicate code blocks````!"
-        => R![Lang("typst"), false, " Typst uses ``` to indicate code blocks"], T("!"));
-
-    // Trimming of whitespace.
-    t!("`` a ``"         => R![None, true, "a"]);
-    t!("`` a  ``"        => R![None, true, "a "]);
-    t!("`` ` ``"         => R![None, true, "`"]);
-    t!("```  `   ```"    => R![None, true, " `  "]);
-    t!("```  `   \n ```" => R![None, false, " `   "]);
-
-    // Errors.
-    e!("`hi\nyou"         => s(7, 7, "expected backtick(s)"));
-    e!("``` hi\nyou"      => s(10, 10, "expected backtick(s)"));
-
-    // TODO: Bring back when spans/errors are in place.
-    // ts!("``java out``" => s(0, 12, R![Lang(s(2, 6, "java")), true, "out"]));
-    // e!("```🌍 hi\nyou```" => s(3, 7, "invalid identifier"));
+macro_rules! Args {
+    ($($tts:tt)*) => (Dict![@$($tts)*]);
 }
 
 #[test]
 fn test_parse_comments() {
     // In body.
-    t!("hi// you\nw"          => T("hi"), S, T("w"));
-    t!("first//\n//\nsecond"  => T("first"), S, S, T("second"));
-    t!("first//\n \nsecond"   => T("first"), P, T("second"));
-    t!("first/*\n \n*/second" => T("first"), T("second"));
-    e!("🌎\n*/n" => s(5, 7, "unexpected end of block comment"));
+    t!("a// you\nb"        Text("a"), Space, Text("b"));
+    t!("* // \n /*\n\n*/*" Strong, Space, Space, Strong);
 
     // In header.
-    t!("[val /*12pt*/]"        => F!("val"));
-    t!("[val \n /* \n */]"     => F!("val"));
-    e!("[val \n /* \n */]"     => );
-    e!("[val 12, /* \n */ 14]" => );
+    t!("[v /*12pt*/]"            Call!("v"));
+    t!("[v //\n]"                Call!("v"));
+    t!("[v 12, /*\n*/ size: 14]" Call!("v", Args![Int(12), "size" => Int(14)]));
+
+    // Error.
+    t!("a*/b"
+        nodes: [Text("a"), Text("b")],
+        errors: [S(1..3, "unexpected end of block comment")]);
+}
+
+#[test]
+fn test_parse_simple_nodes() {
+    // Basics.
+    t!("");
+    t!(" "    Space);
+    t!("hi"   Text("hi"));
+    t!("🧽"   Text("🧽"));
+    t!("_"    Emph);
+    t!("*"    Strong);
+    t!("~"    Text("\u{00A0}"));
+    t!(r"\"   Linebreak);
+    t!("\n\n" Parbreak);
+
+    // Multiple nodes.
+    t!("ab c"         Text("ab"), Space, Text("c"));
+    t!("a`hi`\r\n\r*" Text("a"), Raw(None, &["hi"], true), Parbreak, Strong);
+
+    // Spans.
+    t!("*🌍*"
+        nodes: [S(0..1, Strong), S(1..5, Text("🌍")), S(5..6, Strong)],
+        spans: true);
+
+    // Errors.
+    t!("]}"
+        nodes: [],
+        errors: [S(0..1, "unexpected closing bracket"),
+                 S(1..2, "unexpected closing brace")]);
 }
 
 #[test]
 fn test_parse_headings() {
-    t!("## Hello world!" => H![1, S, T("Hello"), S, T("world!")]);
+    // Basics with spans.
+    t!("#a"
+        nodes: [S(0..2, Heading(S(0..1, 0), Content![@S(1..2, Text("a"))]))],
+        spans: true);
 
-    // Handle various whitespace usages.
-    t!("####Simple"                         => H![3, T("Simple")]);
-    t!("  #    Whitespace!"                 => S, H![0, S, T("Whitespace!")]);
-    t!("  /* TODO: Improve */  ## Analysis" => S, S, H!(1, S, T("Analysis")));
-    t!("# Heading \n ends"                  => H![0, S, T("Heading")], S, T("ends"));
+    // Multiple hashtags.
+    t!("###three"   Heading(2, Content![@Text("three")]));
+    t!("###### six" Heading(5, Content![@Space, Text("six")]));
 
-    // Complex heading contents.
-    t!("Some text [box][### Valuable facts]" => T("Some"), S, T("text"), S,
-        F!("box"; Tree![H!(2, S, T("Valuable"), S, T("facts"))])
-    );
-    t!("### Grandiose stuff [box][Get it \n\n straight]" => H![
-        2,
-        S, T("Grandiose"), S, T("stuff"), S,
-        F!("box"; Tree![T("Get"), S, T("it"), P, T("straight")])
-    ]);
-    t!("###### Multiline \\ headings" => H![5, S, T("Multiline"), S, L, S, T("headings")]);
+    // Start of heading.
+    t!("/**/#"    Heading(0, Content![@]));
+    t!("[f][#ok]" Call!("f", Args![Content![Heading(0, Content![@Text("ok")])]]));
 
-    // Things that should not become headings.
-    t!("\\## Text"      => T("#"), T("#"), S, T("Text"));
-    t!(" ###### # Text" => S, H![5, S, T("#"), S, T("Text")]);
-    t!("I am #1"        => T("I"), S, T("am"), S, T("#"), T("1"));
-    t!("[box][\n] # hi" => F!("box"; Tree![S]), S, T("#"), S, T("hi"));
+    // End of heading.
+    t!("#a\nb" Heading(0, Content![@Text("a")]), Space, Text("b"));
 
-    // Depth warnings.
-    e!("########" => s(0, 8, "section depth should be at most 6"));
+    // Continued heading.
+    t!("#a{\n1\n}b"   Heading(0, Content![@Text("a"), Block(Int(1)), Text("b")]));
+    t!("#a[f][\n\n]d" Heading(0, Content![@
+        Text("a"), Call!("f", Args![Content![Parbreak]]), Text("d"),
+    ]));
+
+    // No heading.
+    t!(r"\#"    Text("#"));
+    t!("Nr. #1" Text("Nr."), Space, Text("#"), Text("1"));
+    t!("[v]#"   Call!("v"), Text("#"));
+
+    // Too many hashtags.
+    t!("####### seven"
+        nodes: [Heading(5, Content![@Space, Text("seven")])],
+        warnings: [S(0..7, "section depth should not exceed 6")]);
 }
 
 #[test]
-fn test_parse_function_names() {
-    // No closing bracket.
-    t!("[" => F!(""));
-    e!("[" => s(1, 1, "expected function name"),
-              s(1, 1, "expected closing bracket"));
+fn test_parse_raw() {
+    // Basic, mostly tested in tokenizer and resolver.
+    t!("`py`" nodes: [S(0..4, Raw(None, &["py"], true))], spans: true);
+    t!("`endless"
+        nodes: [Raw(None, &["endless"], true)],
+        errors: [S(8..8, "expected backtick(s)")]);
+}
+
+#[test]
+fn test_parse_escape_sequences() {
+    // Basic, mostly tested in tokenizer.
+    t!(r"\[" Text("["));
+    t!(r"\u{1F3D5}" nodes: [S(0..9, Text("🏕"))], spans: true);
+
+    // Bad value.
+    t!(r"\u{FFFFFF}"
+        nodes: [Text(r"\u{FFFFFF}")],
+        errors: [S(0..10, "invalid unicode escape sequence")]);
+
+    // No closing brace.
+    t!(r"\u{41*"
+        nodes: [Text("A"), Strong],
+        errors: [S(5..5, "expected closing brace")]);
+}
+
+#[test]
+fn test_parse_groups() {
+    // Test paren group.
+    t!("{([v 1) + 3}"
+        nodes: [Block(Binary(
+            Content![Call!("v", Args![Int(1)])],
+            Add,
+            Int(3),
+        ))],
+        errors: [S(6..6, "expected closing bracket")]);
+
+    // Test bracket group.
+    t!("[)"
+        nodes: [Call!("")],
+        errors: [S(1..2, "expected function name, found closing paren"),
+                 S(2..2, "expected closing bracket")]);
+
+    t!("[v {]}"
+        nodes: [Call!("v", Args![Content![]])],
+        errors: [S(4..4, "expected closing brace"),
+                 S(5..6, "unexpected closing brace")]);
+
+    // Test brace group.
+    t!("{1 + [}"
+        nodes: [Block(Binary(Int(1), Add, Content![Call!("")]))],
+        errors: [S(6..6, "expected function name"),
+                 S(6..6, "expected closing bracket")]);
+
+    // Test subheader group.
+    t!("[v (|u )]"
+        nodes: [Call!("v", Args![Dict![], Content![Call!("u")]])],
+        errors: [S(4..4, "expected closing paren"),
+                 S(7..8, "expected expression, found closing paren")]);
+}
+
+#[test]
+fn test_parse_blocks() {
+    // Basic with spans.
+    t!("{1}" nodes: [S(0..3, Block(Int(1)))], spans: true);
+
+    // Function calls.
+    t!("{f()}" Call!("f"));
+    t!("{[f]}" Block(Content![Call!("f")]));
+
+    // Missing or bad value.
+    t!("{}{1u}"
+        nodes: [],
+        errors: [S(1..1, "expected expression"),
+                 S(3..5, "expected expression, found invalid token")]);
+}
+
+#[test]
+fn test_parse_bracket_funcs() {
+    // Basic.
+    t!("[function]" Call!("function"));
+    t!("[ v ]"      Call!("v"));
+
+    // Body and no body.
+    t!("[v][[f]]"  Call!("v", Args![Content![Call!("f")]]));
+    t!("[v][v][v]" Call!("v", Args![Content![Text("v")]]), Call!("v"));
+    t!("[v] [f]"   Call!("v"), Space, Call!("f"));
+
+    // Spans.
+    t!("[v 1][📐]"
+        nodes: [S(0..11, Call!(S(1..2, "v"), S(3..4, Args![
+            S(3..4, Int(1)),
+            S(5..11, Content![S(6..10, Text("📐"))]),
+        ])))],
+        spans: true);
+
+    // No name and no closing bracket.
+    t!("["
+        nodes: [Call!("")],
+        errors: [S(1..1, "expected function name"),
+                 S(1..1, "expected closing bracket")]);
 
     // No name.
-    e!("[]"   => s(1, 1, "expected function name"));
-    e!("[\"]" => s(1, 3, "expected function name, found string"),
-                 s(3, 3, "expected closing bracket"));
+    t!("[]"
+        nodes: [Call!("")],
+        errors: [S(1..1, "expected function name")]);
 
-    // A valid name.
-    t!("[hi]"  => F!("hi"));
-    t!("[  f]" => F!("f"));
+    // Bad name.
+    t!("[# 1]"
+        nodes: [Call!("", Args![Int(1)])],
+        errors: [S(1..2, "expected function name, found hex value")]);
 
-    // An invalid name.
-    e!("[12]"   => s(1, 3, "expected function name, found integer"));
-    e!("[  🌎]" => s(3, 7, "expected function name, found invalid token"));
+    // String header eats closing bracket.
+    t!(r#"[v "]"#
+        nodes: [Call!("v", Args![Str("]")])],
+        errors: [S(5..5, "expected quote"),
+                 S(5..5, "expected closing bracket")]);
+
+    // Raw in body eats closing bracket.
+    t!("[v][`a]`"
+        nodes: [Call!("v", Args![Content![Raw(None, &["a]"], true)]])],
+        errors: [S(8..8, "expected closing bracket")]);
 }
 
 #[test]
 fn test_parse_chaining() {
-    // Things the parser has to make sense of
-    t!("[hi (5.0, 2.1 | you]" => F!("hi"; Dict![Float(5.0), Float(2.1)], Tree![F!("you")]));
-    t!("[box | pad: 1pt][Hi]"  => F!("box"; Tree![
-        F!("pad"; Length(1.0, Pt), Tree!(T("Hi")))
-    ]));
-    t!("[bold 400, | emph | sub: 1cm]" => F!("bold"; Int(400), Tree![
-        F!("emph"; Tree!(F!("sub"; Length(1.0, Cm))))
-    ]));
+    // Basic.
+    t!("[a | b]"     Call!("a", Args![Content![Call!("b")]]));
+    t!("[a | b | c]" Call!("a", Args![Content![
+        Call!("b", Args![Content![Call!("c")]])
+    ]]));
 
-    // Errors for unclosed / empty predecessor groups
-    e!("[hi (5.0, 2.1 | you]" => s(14, 14, "expected closing paren"));
-    e!("[| abc]"              => s(1, 1, "expected function name"));
-    e!("[box |][Hi]"          => s(6, 6, "expected function name"));
+    // With body and spans.
+    t!("[a|b][💕]"
+        nodes: [S(0..11, Call!(S(1..2, "a"), S(2..2, Args![
+            S(3..11, Content![S(3..11, Call!(S(3..4, "b"), S(4..4, Args![
+                S(5..11, Content![S(6..10, Text("💕"))])
+            ])))])
+        ])))],
+        spans: true);
+
+    // No name in second subheader.
+    t!("[a 1|]"
+        nodes: [Call!("a", Args![Int(1), Content![Call!("")]])],
+        errors: [S(5..5, "expected function name")]);
+
+    // No name in first subheader.
+    t!("[|a true]"
+        nodes: [Call!("", Args![Content![Call!("a", Args![Bool(true)])]])],
+        errors: [S(1..1, "expected function name")]);
 }
 
 #[test]
-fn test_parse_function_bodies() {
-    t!("[val 1][*Hi*]" => F!("val"; Int(1), Tree![B, T("Hi"), B]));
-    e!(" [val][ */]"    => s(8, 10, "unexpected end of block comment"));
+fn test_parse_arguments() {
+    // Bracket functions.
+    t!("[v 1]"   Call!("v", Args![Int(1)]));
+    t!("[v 1,]"  Call!("v", Args![Int(1)]));
+    t!("[v a]"   Call!("v", Args![Id("a")]));
+    t!("[v a,]"  Call!("v", Args![Id("a")]));
+    t!("[v a:2]" Call!("v", Args!["a" => Int(2)]));
 
-    // Raw in body.
-    t!("[val][`Hi]`" => F!("val"; Tree![R![None, true, "Hi]"]]));
-    e!("[val][`Hi]`" => s(11, 11, "expected closing bracket"));
+    // Parenthesized function with nested dictionary literal.
+    t!(r#"{f(1, a: (2, 3), #004, b: "five")}"# Block(Call!(@"f", Args![
+        Int(1),
+        "a" => Dict![Int(2), Int(3)],
+        Color(RgbaColor::new(0, 0, 0x44, 0xff)),
+        "b" => Str("five"),
+    ])));
 
-    // Crazy.
-    t!("[v][[v][v][v]]" => F!("v"; Tree![F!("v"; Tree![T("v")]), F!("v")]));
+    // Bad expression.
+    t!("[v */]"
+        nodes: [Call!("v", Args![])],
+        errors: [S(3..5, "expected expression, found end of block comment")]);
 
-    // Spanned.
-    ts!(" [box][Oh my]" =>
-        s(0, 1, S),
-        s(1, 13, F!(s(2, 5, "box"), 5 .. 5;
-            s(6, 13, Tree![
-                s(7, 9, T("Oh")), s(9, 10, S), s(10, 12, T("my")),
-            ])
-        ))
-    );
+    // Missing comma between arguments.
+    t!("[v 1 2]"
+        nodes: [Call!("v", Args![Int(1), Int(2)])],
+        errors: [S(4..4, "expected comma")]);
+
+    // Missing expression after name.
+    t!("[v a:]"
+        nodes: [Call!("v", Args![])],
+        errors: [S(5..5, "expected expression")]);
+
+    // Bad expression after name.
+    t!("[v a:1:]"
+        nodes: [Call!("v", Args!["a" => Int(1)])],
+        errors: [S(6..7, "expected expression, found colon")]);
+
+    // Name has to be identifier. Number parsed as positional argument.
+    t!("[v 1:]"
+        nodes: [Call!("v", Args![Int(1)])],
+        errors: [S(4..5, "expected expression, found colon")]);
+
+    // Parsed as two positional arguments.
+    t!("[v 1:2]"
+        nodes: [Call!("v", Args![Int(1), Int(2)])],
+        errors: [S(4..5, "expected expression, found colon"),
+                 S(4..4, "expected comma")]);
 }
 
 #[test]
-fn test_parse_values() {
-    // Simple.
-    v!("_"         => Id("_"));
-    v!("name"      => Id("name"));
-    v!("ke-bab"    => Id("ke-bab"));
-    v!("α"         => Id("α"));
-    v!("\"hi\""    => Str("hi"));
-    v!("true"      => Bool(true));
-    v!("false"     => Bool(false));
-    v!("1.0e-4"    => Float(1e-4));
-    v!("3.15"      => Float(3.15));
-    v!("50%"       => Percent(50.0));
-    v!("4.5cm"     => Length(4.5, Cm));
-    v!("12e1pt"    => Length(12e1, Pt));
-    v!("#f7a20500" => Color(RgbaColor::new(0xf7, 0xa2, 0x05, 0x00)));
-    v!("\"a\n[]\\\"string\"" => Str("a\n[]\"string"));
+fn test_parse_dict_literals() {
+    // Basic.
+    t!("{()}" Block(Dict![]));
 
-    // Content.
-    v!("{_hi_}"        => Tree![E, T("hi"), E]);
-    e!("[val {_hi_}]" => );
-    v!("[hi]"          => Tree![F!("hi")]);
-    e!("[val [hi]]"   => );
+    // With spans.
+    t!("{(1, two: 2)}"
+        nodes: [S(0..13, Block(Dict![
+            S(2..3, Int(1)),
+            S(5..8, "two") => S(10..11, Int(2)),
+        ]))],
+        spans: true);
 
-    // Healed colors.
-    v!("#12345"            => Color(RgbaColor::new(0, 0, 0, 0xff)));
-    e!("[val #12345]"     => s(5, 11, "invalid color"));
-    e!("[val #a5]"        => s(5, 8,  "invalid color"));
-    e!("[val #14b2ah]"    => s(5, 12, "invalid color"));
-    e!("[val #f075ff011]" => s(5, 15, "invalid color"));
-
-    // Unclosed string.
-    v!("\"hello"        => Str("hello]"));
-    e!("[val \"hello]" => s(12, 12, "expected quote"),
-                          s(12, 12, "expected closing bracket"));
-
-    // Spanned.
-    ts!("[val 1.4]" => s(0, 9, F!(s(1, 4, "val"), 5 .. 8; s(5, 8, Float(1.4)))));
+    // Unclosed.
+    t!("{(}"
+        nodes: [Block(Dict![])],
+        errors: [S(2..2, "expected closing paren")]);
 }
 
 #[test]
 fn test_parse_expressions() {
-    // Coerced dict.
-    v!("(hi)" => Id("hi"));
+    // Parenthesis.
+    t!("{(x)}" Block(Id("x")));
 
-    // Operations.
-    v!("-1"          => Unary(Neg, Int(1)));
-    v!("-- 1"        => Unary(Neg, Unary(Neg, Int(1))));
-    v!("--css"       => Unary(Neg, Unary(Neg, Id("css"))));
-    v!("3.2in + 6pt" => Binary(Add, Length(3.2, In), Length(6.0, Pt)));
-    v!("5 - 0.01"    => Binary(Sub, Int(5), Float(0.01)));
-    v!("(3mm * 2)"   => Binary(Mul, Length(3.0, Mm), Int(2)));
-    v!("12e-3cm/1pt" => Binary(Div, Length(12e-3, Cm), Length(1.0, Pt)));
+    // Unary operations.
+    t!("{-1}"  Block(Unary(Neg, Int(1))));
+    t!("{--1}" Block(Unary(Neg, Unary(Neg, Int(1)))));
 
-    // More complex.
-    v!("(3.2in + 6pt)*(5/2-1)" => Binary(
-        Mul,
-        Binary(Add, Length(3.2, In), Length(6.0, Pt)),
-        Binary(Sub, Binary(Div, Int(5), Int(2)), Int(1))
-    ));
-    v!("(6.3E+2+4* - 3.2pt)/2" => Binary(
-        Div,
-        Binary(Add, Float(6.3e2), Binary(
-            Mul,
-            Int(4),
-            Unary(Neg, Length(3.2, Pt))
-        )),
-        Int(2)
-    ));
+    // Binary operations.
+    t!(r#"{"x"+"y"}"# Block(Binary(Str("x"), Add, Str("y"))));
+    t!("{1-2}"        Block(Binary(Int(1), Sub, Int(2))));
+    t!("{a * b}"      Block(Binary(Id("a"), Mul, Id("b"))));
+    t!("{12pt/.4}"    Block(Binary(Length(12.0, Unit::Pt), Div, Float(0.4))));
 
-    // Associativity of multiplication and division.
-    v!("3/4*5" => Binary(Mul, Binary(Div, Int(3), Int(4)), Int(5)));
+    // Associativity.
+    t!("{1+2+3}" Block(Binary(Binary(Int(1), Add, Int(2)), Add, Int(3))));
+    t!("{1/2*3}" Block(Binary(Binary(Int(1), Div, Int(2)), Mul, Int(3))));
 
-    // Spanned.
-    ts!("[val 1 + 3]" => s(0, 11, F!(
-        s(1, 4, "val"), 5 .. 10; s(5, 10, Binary(
-            s(7, 8, Add),
-            s(5, 6, Int(1)),
-            s(9, 10, Int(3))
-        ))
+    // Precedence.
+    t!("{1+2*-3}" Block(Binary(
+        Int(1), Add, Binary(Int(2), Mul, Unary(Neg, Int(3))),
     )));
 
-    // Span of parenthesized expression contains parens.
-    ts!("[val (1)]" => s(0, 9, F!(s(1, 4, "val"), 5 .. 8; s(5, 8, Int(1)))));
+    // Confusion with floating-point literal.
+    t!("{1e-3-4e+4}" Block(Binary(Float(1e-3), Sub, Float(4e+4))));
 
-    // Invalid expressions.
-    v!("4pt--"       => Length(4.0, Pt));
-    e!("[val 4pt--]" => s(9, 10, "missing factor"),
-                        s(5, 9, "missing right summand"));
+    // Spans + parentheses winning over precedence.
+    t!("{(1+2)*3}"
+        nodes: [S(0..9, Block(Binary(
+            S(1..6, Binary(S(2..3, Int(1)), S(3..4, Add), S(4..5, Int(2)))),
+            S(6..7, Mul),
+            S(7..8, Int(3)),
+        )))],
+        spans: true);
 
-    v!("3mm+4pt*"       => Binary(Add, Length(3.0, Mm), Length(4.0, Pt)));
-    e!("[val 3mm+4pt*]" => s(9, 13, "missing right factor"));
+    // Errors.
+    t!("{-}{1+}{2*}"
+        nodes: [Block(Int(1)), Block(Int(2))],
+        errors: [S(2..2, "expected expression"),
+                 S(6..6, "expected expression"),
+                 S(10..10, "expected expression")]);
 }
 
 #[test]
-fn test_parse_dicts() {
-    // Okay.
-    v!("()"                 => Dict![]);
-    v!("(false)"            => Bool(false));
-    v!("(true,)"            => Dict![Bool(true)]);
-    v!("(key: val)"          => Dict!["key" => Id("val")]);
-    v!("(1, 2)"             => Dict![Int(1), Int(2)]);
-    v!("(1, key: \"value\")" => Dict![Int(1), "key" => Str("value")]);
+fn test_parse_values() {
+    // Basics.
+    t!("{_}"      Block(Id("_")));
+    t!("{name}"   Block(Id("name")));
+    t!("{ke-bab}" Block(Id("ke-bab")));
+    t!("{α}"      Block(Id("α")));
+    t!("{true}"   Block(Bool(true)));
+    t!("{false}"  Block(Bool(false)));
+    t!("{1.0e-4}" Block(Float(1e-4)));
+    t!("{3.15}"   Block(Float(3.15)));
+    t!("{50%}"    Block(Percent(50.0)));
+    t!("{4.5cm}"  Block(Length(4.5, Unit::Cm)));
+    t!("{12e1pt}" Block(Length(12e1, Unit::Pt)));
 
-    // Decorations.
-    d!("[val key: hi]"    => s(5, 8, DictKey));
-    d!("[val (key: hi)]"  => s(6, 9, DictKey));
-    d!("[val f(key: hi)]" => s(7, 10, DictKey));
+    // Strings.
+    t!(r#"{"hi"}"#                     Block(Str("hi")));
+    t!(r#"{"a\n[]\"\u{1F680}string"}"# Block(Str("a\n[]\"🚀string")));
 
-    // Spanned with spacing around named arguments.
-    ts!("[val  \n hi \n : /* //\n */ \"s\n\"]" => s(0, 30, F!(
-        s(1, 4, "val"),
-        8 .. 29; s(8, 10, "hi") => s(25, 29, Str("s\n"))
-    )));
-    e!("[val  \n hi \n : /* //\n */ \"s\n\"]" => );
-}
-
-#[test]
-fn test_parse_dicts_paren_func_calls() {
-    v!("empty()"                  => Call!("empty"));
-    v!("add ( 1 , 2 )"            => Call!("add"; Int(1), Int(2)));
-    v!("items(\"fire\", #f93a6d)" => Call!("items";
-        Str("fire"), Color(RgbaColor::new(0xf9, 0x3a, 0x6d, 0xff))
-    ));
-
-    // More complex.
-    v!(r#"css(1pt, color: rgb(90, 102, 254), stroke: "solid")"# => Call!(
-        "css";
-        Length(1.0, Pt),
-        "color" => Call!("rgb"; Int(90), Int(102), Int(254)),
-        "stroke" => Str("solid"),
-    ));
-
-    // Unclosed.
-    v!("lang(中文]"      => Call!("lang"; Id("中文")));
-    e!("[val lang(中文]" => s(16, 16, "expected closing paren"));
-
-    // Invalid name.
-    v!("👠(\"abc\", 13e-5)"       => Dict!(Str("abc"), Float(13.0e-5)));
-    e!("[val 👠(\"abc\", 13e-5)]" => s(5, 9, "invalid token"));
-}
-
-#[test]
-fn test_parse_dicts_nested() {
-    v!("(1, ( ab:(), d : (3, 14pt) )), false" =>
-        Dict![
-            Int(1),
-            Dict!(
-                "ab" => Dict![],
-                "d"  => Dict!(Int(3), Length(14.0, Pt)),
-            ),
-        ],
-        Bool(false),
-    );
-}
-
-#[test]
-fn test_parse_dicts_errors() {
-    // Expected value.
-    e!("[val (:)]"         => s(6, 7, "unexpected colon"));
-    e!("[val (,)]"         => s(6, 7, "unexpected comma"));
-    v!("(\x07 abc,)"       => Dict![Id("abc")]);
-    e!("[val (\x07 abc,)]" => s(6, 7, "invalid token"));
-    e!("[val (key:,)]"     => s(10, 11, "expected value, found comma"));
-    e!("[val hi,)]"        => s(8, 9, "unexpected closing paren"));
-
-    // Expected comma.
-    v!("(true false)"       => Dict![Bool(true), Bool(false)]);
-    e!("[val (true false)]" => s(10, 10, "expected comma"));
-
-    // Expected closing paren.
-    e!("[val (#000]" => s(10, 10, "expected closing paren"));
-    e!("[val (key]"  => s(9, 9, "expected closing paren"));
-    e!("[val (key:]" => s(10, 10, "expected value"),
-                        s(10, 10, "expected closing paren"));
-
-    // Bad key.
-    v!("true:you"       => Bool(true), Id("you"));
-    e!("[val true:you]" => s(9, 10, "unexpected colon"));
-
-    // Unexpected colon.
-    v!("z:y:4"       => "z" => Id("y"), Int(4));
-    e!("[val z:y:4]" => s(8, 9, "unexpected colon"));
+    // Colors.
+    t!("{#f7a20500}" Block(Color(RgbaColor::new(0xf7, 0xa2, 0x05, 0))));
+    t!("{#a5}"
+        nodes: [Block(Color(RgbaColor::new(0, 0, 0, 0xff)))],
+        errors: [S(1..4, "invalid color")]);
 }

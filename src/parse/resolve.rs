@@ -18,7 +18,6 @@ pub fn resolve_string(string: &str) -> String {
         match s.eat() {
             Some('\\') => out.push('\\'),
             Some('"') => out.push('"'),
-
             Some('n') => out.push('\n'),
             Some('t') => out.push('\t'),
             Some('u') if s.eat_if('{') => {
@@ -29,7 +28,7 @@ pub fn resolve_string(string: &str) -> String {
                 if let Some(c) = resolve_hex(sequence) {
                     out.push(c);
                 } else {
-                    // TODO: Feedback that escape sequence is wrong.
+                    // TODO: Feedback that unicode escape sequence is wrong.
                     out += s.eaten_from(start);
                 }
             }
@@ -126,7 +125,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_unescape_strings() {
+    fn test_resolve_strings() {
         fn test(string: &str, expected: &str) {
             assert_eq!(resolve_string(string), expected.to_string());
         }

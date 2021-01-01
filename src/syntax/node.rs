@@ -6,19 +6,20 @@ use super::*;
 /// code.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SynNode {
-    /// Whitespace containing less than two newlines.
-    Space,
     /// Plain text.
     Text(String),
 
+    /// Whitespace containing less than two newlines.
+    Space,
     /// A forced line break.
     Linebreak,
     /// A paragraph break.
     Parbreak,
-    /// Emphasized text was enabled / disabled.
-    Emph,
+
     /// Strong text was enabled / disabled.
     Strong,
+    /// Emphasized text was enabled / disabled.
+    Emph,
 
     /// A section heading.
     Heading(NodeHeading),

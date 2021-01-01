@@ -122,4 +122,16 @@ mod tests {
         test("233", 0x22, 0x33, 0x33, 0xff);
         test("111b", 0x11, 0x11, 0x11, 0xbb);
     }
+
+    #[test]
+    fn parse_invalid_colors() {
+        fn test(hex: &str) {
+            assert_eq!(RgbaColor::from_str(hex), Err(ParseRgbaError));
+        }
+
+        test("12345");
+        test("a5");
+        test("14B2AH");
+        test("f075ff011");
+    }
 }

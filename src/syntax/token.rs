@@ -26,16 +26,16 @@ pub enum Token<'s> {
     Star,
     /// An underscore: `_`.
     Underscore,
-    /// A hashtag indicating a section heading: `#`.
-    Hashtag,
     /// A tilde: `~`.
     Tilde,
     /// A backslash followed by whitespace: `\`.
     Backslash,
-    /// A unicode escape sequence: `\u{1F5FA}`.
-    UnicodeEscape(TokenUnicodeEscape<'s>),
+    /// A hashtag indicating a section heading: `#`.
+    Hashtag,
     /// A raw block: `` `...` ``.
     Raw(TokenRaw<'s>),
+    /// A unicode escape sequence: `\u{1F5FA}`.
+    UnicodeEscape(TokenUnicodeEscape<'s>),
 
     /// A left bracket: `[`.
     LeftBracket,

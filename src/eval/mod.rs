@@ -18,9 +18,9 @@ use std::rc::Rc;
 
 use fontdock::FontStyle;
 
+use crate::color::Color;
 use crate::diag::Diag;
 use crate::diag::{Deco, Feedback, Pass};
-use crate::color::Color;
 use crate::env::SharedEnv;
 use crate::geom::{BoxAlign, Dir, Flow, Gen, Length, Linear, Relative, Sides, Size};
 use crate::layout::{
@@ -328,17 +328,17 @@ impl Eval for SynNode {
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         match self {
+            SynNode::Text(text) => {
+                let node = ctx.make_text_node(text.clone());
+                ctx.push(node);
+            }
+
             SynNode::Space => {
                 let em = ctx.state.font.font_size();
                 ctx.push(Spacing {
                     amount: ctx.state.par.word_spacing.resolve(em),
                     softness: Softness::Soft,
                 });
-            }
-
-            SynNode::Text(text) => {
-                let node = ctx.make_text_node(text.clone());
-                ctx.push(node);
             }
 
             SynNode::Linebreak => {
@@ -356,10 +356,12 @@ impl Eval for SynNode {
                 ctx.start_par_group();
             }
 
-            SynNode::Emph => ctx.state.font.emph ^= true,
             SynNode::Strong => ctx.state.font.strong ^= true,
+            SynNode::Emph => ctx.state.font.emph ^= true,
+
             SynNode::Heading(heading) => heading.eval(ctx),
             SynNode::Raw(raw) => raw.eval(ctx),
+
             SynNode::Expr(expr) => expr.eval(ctx).eval(ctx),
         }
     }
