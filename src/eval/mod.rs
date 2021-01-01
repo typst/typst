@@ -48,7 +48,7 @@ pub struct EvalContext {
     /// The active evaluation state.
     pub state: State,
     /// The accumulated feedback.
-    f: Feedback,
+    feedback: Feedback,
     /// The finished page runs.
     runs: Vec<Pages>,
     /// The stack of logical groups (paragraphs and such).
@@ -71,24 +71,24 @@ impl EvalContext {
             groups: vec![],
             inner: vec![],
             runs: vec![],
-            f: Feedback::new(),
+            feedback: Feedback::new(),
         }
     }
 
     /// Finish evaluation and return the created document.
     pub fn finish(self) -> Pass<Document> {
         assert!(self.groups.is_empty(), "unfinished group");
-        Pass::new(Document { runs: self.runs }, self.f)
+        Pass::new(Document { runs: self.runs }, self.feedback)
     }
 
     /// Add a diagnostic to the feedback.
     pub fn diag(&mut self, diag: Spanned<Diag>) {
-        self.f.diags.push(diag);
+        self.feedback.diags.push(diag);
     }
 
     /// Add a decoration to the feedback.
     pub fn deco(&mut self, deco: Spanned<Deco>) {
-        self.f.decos.push(deco);
+        self.feedback.decos.push(deco);
     }
 
     /// Push a layout node to the active group.
@@ -246,6 +246,23 @@ impl EvalContext {
         }
     }
 
+    /// Apply a forced line break.
+    pub fn apply_linebreak(&mut self) {
+        self.end_par_group();
+        self.start_par_group();
+    }
+
+    /// Apply a forced paragraph break.
+    pub fn apply_parbreak(&mut self) {
+        self.end_par_group();
+        let em = self.state.font.font_size();
+        self.push(Spacing {
+            amount: self.state.par.par_spacing.resolve(em),
+            softness: Softness::Soft,
+        });
+        self.start_par_group();
+    }
+
     /// Construct a text node from the given string based on the active text
     /// state.
     pub fn make_text_node(&self, text: String) -> Text {
@@ -293,12 +310,12 @@ struct ParGroup {
     line_spacing: Length,
 }
 
-/// Defines how items interact with surrounding items.
+/// Defines how an item interact with surrounding items.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Softness {
-    /// Soft items can be skipped in some circumstances.
+    /// A soft item can be skipped in some circumstances.
     Soft,
-    /// Hard items are always retained.
+    /// A hard item is always retained.
     Hard,
 }
 
@@ -310,24 +327,35 @@ pub trait Eval {
     type Output;
 
     /// Evaluate the item to the output value.
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output;
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output;
 }
 
-impl Eval for SynTree {
+impl<'a, T> Eval for &'a Box<Spanned<T>>
+where
+    Spanned<&'a T>: Eval,
+{
+    type Output = <Spanned<&'a T> as Eval>::Output;
+
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        (**self).as_ref().eval(ctx)
+    }
+}
+
+impl Eval for &[Spanned<SynNode>] {
     type Output = ();
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         for node in self {
-            node.v.eval(ctx);
+            node.as_ref().eval(ctx);
         }
     }
 }
 
-impl Eval for SynNode {
+impl Eval for Spanned<&SynNode> {
     type Output = ();
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        match self {
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        match self.v {
             SynNode::Text(text) => {
                 let node = ctx.make_text_node(text.clone());
                 ctx.push(node);
@@ -340,53 +368,43 @@ impl Eval for SynNode {
                     softness: Softness::Soft,
                 });
             }
-
-            SynNode::Linebreak => {
-                ctx.end_par_group();
-                ctx.start_par_group();
-            }
-
-            SynNode::Parbreak => {
-                ctx.end_par_group();
-                let em = ctx.state.font.font_size();
-                ctx.push(Spacing {
-                    amount: ctx.state.par.par_spacing.resolve(em),
-                    softness: Softness::Soft,
-                });
-                ctx.start_par_group();
-            }
+            SynNode::Linebreak => ctx.apply_linebreak(),
+            SynNode::Parbreak => ctx.apply_parbreak(),
 
             SynNode::Strong => ctx.state.font.strong ^= true,
             SynNode::Emph => ctx.state.font.emph ^= true,
 
-            SynNode::Heading(heading) => heading.eval(ctx),
-            SynNode::Raw(raw) => raw.eval(ctx),
+            SynNode::Heading(heading) => heading.with_span(self.span).eval(ctx),
+            SynNode::Raw(raw) => raw.with_span(self.span).eval(ctx),
 
-            SynNode::Expr(expr) => expr.eval(ctx).eval(ctx),
+            SynNode::Expr(expr) => {
+                let value = expr.with_span(self.span).eval(ctx);
+                value.eval(ctx)
+            }
         }
     }
 }
 
-impl Eval for NodeHeading {
+impl Eval for Spanned<&NodeHeading> {
     type Output = ();
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         let prev = ctx.state.clone();
-        let upscale = 1.5 - 0.1 * self.level.v as f64;
+        let upscale = 1.5 - 0.1 * self.v.level.v as f64;
         ctx.state.font.scale *= upscale;
         ctx.state.font.strong = true;
 
-        self.contents.eval(ctx);
-        SynNode::Parbreak.eval(ctx);
+        self.v.contents.eval(ctx);
+        ctx.apply_parbreak();
 
         ctx.state = prev;
     }
 }
 
-impl Eval for NodeRaw {
+impl Eval for Spanned<&NodeRaw> {
     type Output = ();
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         let prev = Rc::clone(&ctx.state.font.families);
         let families = Rc::make_mut(&mut ctx.state.font.families);
         families.list.insert(0, "monospace".to_string());
@@ -396,7 +414,7 @@ impl Eval for NodeRaw {
         let line_spacing = ctx.state.par.line_spacing.resolve(em);
 
         let mut children = vec![];
-        for line in &self.lines {
+        for line in &self.v.lines {
             children.push(LayoutNode::Text(ctx.make_text_node(line.clone())));
             children.push(LayoutNode::Spacing(Spacing {
                 amount: line_spacing,
@@ -415,24 +433,24 @@ impl Eval for NodeRaw {
     }
 }
 
-impl Eval for Expr {
+impl Eval for Spanned<&Expr> {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        match self {
-            Self::Lit(lit) => lit.eval(ctx),
-            Self::Call(call) => call.eval(ctx),
-            Self::Unary(unary) => unary.eval(ctx),
-            Self::Binary(binary) => binary.eval(ctx),
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        match self.v {
+            Expr::Lit(lit) => lit.with_span(self.span).eval(ctx),
+            Expr::Call(call) => call.with_span(self.span).eval(ctx),
+            Expr::Unary(unary) => unary.with_span(self.span).eval(ctx),
+            Expr::Binary(binary) => binary.with_span(self.span).eval(ctx),
         }
     }
 }
 
-impl Eval for Lit {
+impl Eval for Spanned<&Lit> {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        match *self {
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        match *self.v {
             Lit::Ident(ref v) => Value::Ident(v.clone()),
             Lit::Bool(v) => Value::Bool(v),
             Lit::Int(v) => Value::Int(v),
@@ -441,20 +459,20 @@ impl Eval for Lit {
             Lit::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
             Lit::Color(v) => Value::Color(Color::Rgba(v)),
             Lit::Str(ref v) => Value::Str(v.clone()),
-            Lit::Dict(ref v) => Value::Dict(v.eval(ctx)),
+            Lit::Dict(ref v) => Value::Dict(v.with_span(self.span).eval(ctx)),
             Lit::Content(ref v) => Value::Content(v.clone()),
         }
     }
 }
-impl Eval for LitDict {
+impl Eval for Spanned<&LitDict> {
     type Output = ValueDict;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         let mut dict = ValueDict::new();
 
-        for entry in &self.0 {
-            let val = entry.expr.v.eval(ctx);
-            let spanned = val.span_with(entry.expr.span);
+        for entry in &self.v.0 {
+            let val = entry.expr.as_ref().eval(ctx);
+            let spanned = val.with_span(entry.expr.span);
             if let Some(key) = &entry.key {
                 dict.insert(&key.v, SpannedEntry::new(key.span, spanned));
             } else {
@@ -466,58 +484,58 @@ impl Eval for LitDict {
     }
 }
 
-impl Eval for ExprCall {
+impl Eval for Spanned<&ExprCall> {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let name = &self.name.v;
-        let span = self.name.span;
-        let dict = self.args.v.eval(ctx);
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        let name = &self.v.name.v;
+        let span = self.v.name.span;
+        let dict = self.v.args.as_ref().eval(ctx);
 
         if let Some(func) = ctx.state.scope.get(name) {
-            let args = Args(dict.span_with(self.args.span));
-            ctx.f.decos.push(Deco::Resolved.span_with(span));
+            let args = Args(dict.with_span(self.v.args.span));
+            ctx.feedback.decos.push(Deco::Resolved.with_span(span));
             (func.clone())(args, ctx)
         } else {
             if !name.is_empty() {
                 ctx.diag(error!(span, "unknown function"));
-                ctx.f.decos.push(Deco::Unresolved.span_with(span));
+                ctx.feedback.decos.push(Deco::Unresolved.with_span(span));
             }
             Value::Dict(dict)
         }
     }
 }
 
-impl Eval for ExprUnary {
+impl Eval for Spanned<&ExprUnary> {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let value = self.expr.v.eval(ctx);
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        let value = self.v.expr.eval(ctx);
 
         if let Value::Error = value {
             return Value::Error;
         }
 
-        let span = self.op.span.join(self.expr.span);
-        match self.op.v {
+        let span = self.v.op.span.join(self.v.expr.span);
+        match self.v.op.v {
             UnOp::Neg => neg(ctx, span, value),
         }
     }
 }
 
-impl Eval for ExprBinary {
+impl Eval for Spanned<&ExprBinary> {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let lhs = self.lhs.v.eval(ctx);
-        let rhs = self.rhs.v.eval(ctx);
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        let lhs = self.v.lhs.eval(ctx);
+        let rhs = self.v.rhs.eval(ctx);
 
         if lhs == Value::Error || rhs == Value::Error {
             return Value::Error;
         }
 
-        let span = self.lhs.span.join(self.rhs.span);
-        match self.op.v {
+        let span = self.v.lhs.span.join(self.v.rhs.span);
+        match self.v.op.v {
             BinOp::Add => add(ctx, span, lhs, rhs),
             BinOp::Sub => sub(ctx, span, lhs, rhs),
             BinOp::Mul => mul(ctx, span, lhs, rhs),

@@ -46,11 +46,6 @@ impl<'s> Tokens<'s> {
         self.s.index().into()
     }
 
-    /// Jump to a position in the source string.
-    pub fn jump(&mut self, pos: Pos) {
-        self.s.jump(pos.to_usize());
-    }
-
     /// The underlying scanner.
     pub fn scanner(&self) -> &Scanner<'s> {
         &self.s
@@ -325,7 +320,9 @@ impl<'s> Tokens<'s> {
         }
 
         // Read the suffix.
-        self.s.eat_while(|c| c == '%' || c.is_ascii_alphanumeric());
+        if !self.s.eat_if('%') {
+            self.s.eat_while(|c| c.is_ascii_alphanumeric());
+        }
 
         // Parse into one of the suitable types.
         let string = self.s.eaten_from(start);
@@ -790,5 +787,7 @@ mod tests {
 
         // Test invalid number suffixes.
         t!(Header[" /"]: "1foo" => Invalid("1foo"));
+        t!(Header: "1p%"        => Invalid("1p"), Invalid("%"));
+        t!(Header: "1%%"        => Percent(1.0), Invalid("%"));
     }
 }

@@ -12,14 +12,14 @@ thread_local! {
 }
 
 /// Annotate a value with a span.
-pub trait SpanWith: Sized {
+pub trait WithSpan: Sized {
     /// Wraps `self` in a `Spanned` with the given span.
-    fn span_with(self, span: impl Into<Span>) -> Spanned<Self> {
+    fn with_span(self, span: impl Into<Span>) -> Spanned<Self> {
         Spanned::new(self, span)
     }
 }
 
-impl<T> SpanWith for T {}
+impl<T> WithSpan for T {}
 
 /// Span offsetting.
 pub trait Offset {
@@ -81,7 +81,7 @@ impl<T> Spanned<Option<T>> {
     /// Swap the spanned and the option.
     pub fn transpose(self) -> Option<Spanned<T>> {
         let Spanned { v, span } = self;
-        v.map(|v| v.span_with(span))
+        v.map(|v| v.with_span(span))
     }
 }
 

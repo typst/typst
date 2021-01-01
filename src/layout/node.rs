@@ -2,7 +2,6 @@
 
 use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
-use std::ops::Deref;
 
 use super::*;
 
@@ -19,7 +18,10 @@ pub enum LayoutNode {
 
 impl LayoutNode {
     /// Create a new dynamic node.
-    pub fn dynamic<T: DynNode>(inner: T) -> Self {
+    pub fn dynamic<T>(inner: T) -> Self
+    where
+        T: Layout + Debug + Clone + PartialEq + 'static,
+    {
         Self::Dyn(Dynamic::new(inner))
     }
 }
@@ -44,33 +46,22 @@ impl Debug for LayoutNode {
     }
 }
 
-/// A wrapper around a boxed node trait object.
-///
-/// _Note_: This is needed because the compiler can't `derive(PartialEq)` for
-///         [`LayoutNode`] when directly putting the `Box` in there, see the
-///         [Rust Issue].
-///
-/// [Rust Issue]: https://github.com/rust-lang/rust/issues/31740
-pub struct Dynamic(pub Box<dyn DynNode>);
+/// A wrapper around a dynamic layouting node.
+pub struct Dynamic(Box<dyn Bounds>);
 
 impl Dynamic {
-    /// Wrap a type implementing `DynNode`.
-    pub fn new<T: DynNode>(inner: T) -> Self {
+    /// Create a new instance from any node that satisifies the required bounds.
+    pub fn new<T>(inner: T) -> Self
+    where
+        T: Layout + Debug + Clone + PartialEq + 'static,
+    {
         Self(Box::new(inner))
     }
 }
 
-impl Deref for Dynamic {
-    type Target = dyn DynNode;
-
-    fn deref(&self) -> &Self::Target {
-        self.0.as_ref()
-    }
-}
-
-impl Debug for Dynamic {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
+impl Layout for Dynamic {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted {
+        self.0.layout(ctx, areas)
     }
 }
 
@@ -86,41 +77,33 @@ impl PartialEq for Dynamic {
     }
 }
 
+impl Debug for Dynamic {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 impl From<Dynamic> for LayoutNode {
     fn from(dynamic: Dynamic) -> Self {
         Self::Dyn(dynamic)
     }
 }
 
-/// A dynamic node, which can implement custom layouting behaviour.
-///
-/// This trait just combines the requirements for types to qualify as dynamic
-/// nodes. The interesting part happens in the inherited trait [`Layout`].
-///
-/// The trait itself also contains three helper methods to make `Box<dyn
-/// DynNode>` able to implement `Clone` and `PartialEq`. However, these are
-/// automatically provided by a blanket impl as long as the type in question
-/// implements[`Layout`],  `Debug`, `PartialEq`, `Clone` and is `'static`.
-pub trait DynNode: Debug + Layout + 'static {
-    /// Convert into a `dyn Any` to enable downcasting.
+trait Bounds: Layout + Debug + 'static {
     fn as_any(&self) -> &dyn Any;
-
-    /// Check for equality with another trait object.
-    fn dyn_eq(&self, other: &dyn DynNode) -> bool;
-
-    /// Clone into a trait object.
-    fn dyn_clone(&self) -> Box<dyn DynNode>;
+    fn dyn_eq(&self, other: &dyn Bounds) -> bool;
+    fn dyn_clone(&self) -> Box<dyn Bounds>;
 }
 
-impl<T> DynNode for T
+impl<T> Bounds for T
 where
-    T: Debug + Layout + PartialEq + Clone + 'static,
+    T: Layout + Debug + PartialEq + Clone + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self
     }
 
-    fn dyn_eq(&self, other: &dyn DynNode) -> bool {
+    fn dyn_eq(&self, other: &dyn Bounds) -> bool {
         if let Some(other) = other.as_any().downcast_ref::<Self>() {
             self == other
         } else {
@@ -128,7 +111,7 @@ where
         }
     }
 
-    fn dyn_clone(&self) -> Box<dyn DynNode> {
+    fn dyn_clone(&self) -> Box<dyn Bounds> {
         Box::new(self.clone())
     }
 }

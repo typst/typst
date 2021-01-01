@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use super::{Scanner, TokenMode, Tokens};
 use crate::diag::Diag;
 use crate::diag::{Deco, Feedback};
-use crate::syntax::{Pos, Span, SpanWith, Spanned, Token};
+use crate::syntax::{Pos, Span, Spanned, Token, WithSpan};
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
@@ -23,7 +23,7 @@ pub struct Parser<'s> {
     /// The stack of open groups.
     groups: Vec<Group>,
     /// Accumulated feedback.
-    f: Feedback,
+    feedback: Feedback,
 }
 
 impl<'s> Parser<'s> {
@@ -39,18 +39,18 @@ impl<'s> Parser<'s> {
             last_end: Pos::ZERO,
             modes: vec![],
             groups: vec![],
-            f: Feedback::new(),
+            feedback: Feedback::new(),
         }
     }
 
     /// Finish parsing and return the accumulated feedback.
     pub fn finish(self) -> Feedback {
-        self.f
+        self.feedback
     }
 
     /// Add a diagnostic to the feedback.
     pub fn diag(&mut self, diag: Spanned<Diag>) {
-        self.f.diags.push(diag);
+        self.feedback.diags.push(diag);
     }
 
     /// Eat the next token and add a diagnostic that it is not the expected
@@ -89,7 +89,7 @@ impl<'s> Parser<'s> {
 
     /// Add a decoration to the feedback.
     pub fn deco(&mut self, deco: Spanned<Deco>) {
-        self.f.decos.push(deco);
+        self.feedback.decos.push(deco);
     }
 
     /// Update the token mode and push the previous mode onto a stack.
@@ -162,7 +162,7 @@ impl<'s> Parser<'s> {
         let start = self.next_start;
         let output = f(self);
         let end = self.last_end;
-        output.span_with(start .. end)
+        output.with_span(start .. end)
     }
 
     /// A version of [`span`](Self::span) that works better with options.
@@ -251,32 +251,9 @@ impl<'s> Parser<'s> {
         self.last_end
     }
 
-    /// Jump to a position in the source string.
-    pub fn jump(&mut self, pos: Pos) {
-        self.tokens.jump(pos);
-        self.bump();
-    }
-
     /// Slice a part out of the source string.
     pub fn get(&self, span: impl Into<Span>) -> &'s str {
         self.tokens.scanner().get(span.into().to_range())
-    }
-
-    /// The full source string up to the end of the last token.
-    pub fn eaten(&self) -> &'s str {
-        self.tokens.scanner().get(.. self.last_end.to_usize())
-    }
-
-    /// The source string from `start` to the end of the last token.
-    pub fn eaten_from(&self, start: Pos) -> &'s str {
-        self.tokens
-            .scanner()
-            .get(start.to_usize() .. self.last_end.to_usize())
-    }
-
-    /// The remaining source string after the start of the next token.
-    pub fn rest(&self) -> &'s str {
-        self.tokens.scanner().get(self.next_start.to_usize() ..)
     }
 
     /// The underlying scanner.
@@ -325,7 +302,8 @@ impl<'s> Parser<'s> {
 
 impl Debug for Parser<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Parser({}|{})", self.eaten(), self.rest())
+        let s = self.scanner();
+        write!(f, "Parser({}|{})", s.eaten(), s.rest())
     }
 }
 

@@ -109,7 +109,7 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
 
     try_from_match!(FamilyList["family or list of families"] @ span:
         Value::Str(v) => Self(vec![v.to_lowercase()]),
-        Value::Dict(v) => Self(Args(v.span_with(span))
+        Value::Dict(v) => Self(Args(v.with_span(span))
             .find_all::<StringLike>()
             .map(|s| s.to_lowercase())
             .collect()

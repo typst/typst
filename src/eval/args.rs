@@ -4,7 +4,7 @@ use std::mem;
 
 use super::{Conv, EvalContext, RefKey, TryFromValue, Value, ValueDict};
 use crate::diag::Diag;
-use crate::syntax::{Span, SpanVec, SpanWith, Spanned};
+use crate::syntax::{Span, SpanVec, Spanned, WithSpan};
 
 /// A wrapper around a dictionary value that simplifies argument parsing in
 /// functions.
@@ -23,7 +23,11 @@ impl Args {
     {
         self.0.v.remove(key).and_then(|entry| {
             let span = entry.value.span;
-            conv_diag(T::try_from_value(entry.value), &mut ctx.f.diags, span)
+            conv_diag(
+                T::try_from_value(entry.value),
+                &mut ctx.feedback.diags,
+                span,
+            )
         })
     }
 
@@ -41,9 +45,13 @@ impl Args {
     {
         if let Some(entry) = self.0.v.remove(key) {
             let span = entry.value.span;
-            conv_diag(T::try_from_value(entry.value), &mut ctx.f.diags, span)
+            conv_diag(
+                T::try_from_value(entry.value),
+                &mut ctx.feedback.diags,
+                span,
+            )
         } else {
-            ctx.f.diags.push(error!(self.0.span, "missing argument: {}", name));
+            ctx.diag(error!(self.0.span, "missing argument: {}", name));
             None
         }
     }
@@ -122,11 +130,11 @@ fn conv_diag<T>(conv: Conv<T>, diags: &mut SpanVec<Diag>, span: Span) -> Option<
     match conv {
         Conv::Ok(t) => Some(t),
         Conv::Warn(t, warn) => {
-            diags.push(warn.span_with(span));
+            diags.push(warn.with_span(span));
             Some(t)
         }
         Conv::Err(_, err) => {
-            diags.push(err.span_with(span));
+            diags.push(err.with_span(span));
             None
         }
     }
@@ -137,7 +145,7 @@ fn conv_put_back<T>(conv: Conv<T>, slot: &mut Spanned<Value>, span: Span) -> Opt
         Conv::Ok(t) => Some(t),
         Conv::Warn(t, _) => Some(t),
         Conv::Err(v, _) => {
-            *slot = v.span_with(span);
+            *slot = v.with_span(span);
             None
         }
     }

@@ -123,10 +123,9 @@ fn heading(p: &mut Parser) -> NodeHeading {
 
 /// Handle a raw block.
 fn raw(p: &mut Parser, token: TokenRaw) -> NodeRaw {
-    let span = p.peek_span();
     let raw = resolve::resolve_raw(token.text, token.backticks);
     if !token.terminated {
-        p.diag(error!(span.end, "expected backtick(s)"));
+        p.diag(error!(p.peek_span().end, "expected backtick(s)"));
     }
     raw
 }
@@ -193,7 +192,7 @@ fn bracket_call(p: &mut Parser) -> ExprCall {
     while let Some(mut top) = outer.pop() {
         let span = inner.span;
         let node = inner.map(|c| SynNode::Expr(Expr::Call(c)));
-        let expr = Expr::Lit(Lit::Content(vec![node])).span_with(span);
+        let expr = Expr::Lit(Lit::Content(vec![node])).with_span(span);
         top.v.args.v.0.push(LitDictEntry { key: None, expr });
         inner = top;
     }
@@ -213,7 +212,7 @@ fn bracket_subheader(p: &mut Parser) -> ExprCall {
         } else {
             p.diag_expected(what);
         }
-        Ident(String::new()).span_with(start)
+        Ident(String::new()).with_span(start)
     });
 
     let args = p.span(|p| dict_contents(p).0);
@@ -247,7 +246,7 @@ fn dict_contents(p: &mut Parser) -> (LitDict, bool) {
 
             if let Some(key) = &entry.key {
                 comma_and_keyless = false;
-                p.deco(Deco::DictKey.span_with(key.span));
+                p.deco(Deco::Name.with_span(key.span));
             }
 
             dict.0.push(entry);
@@ -286,7 +285,7 @@ fn dict_entry(p: &mut Parser) -> Option<LitDictEntry> {
                 expr: {
                     let start = ident.span.start;
                     let call = paren_call(p, ident);
-                    Expr::Call(call).span_with(start .. p.last_end())
+                    Expr::Call(call).with_span(start .. p.last_end())
                 },
             }),
 
@@ -335,7 +334,7 @@ fn binops(
                 op,
                 rhs: Box::new(rhs),
             });
-            lhs = expr.span_with(span);
+            lhs = expr.with_span(span);
         } else {
             break;
         }
@@ -361,36 +360,32 @@ fn factor(p: &mut Parser) -> Option<Expr> {
 
 /// Parse a value.
 fn value(p: &mut Parser) -> Option<Expr> {
-    let start = p.next_start();
-    Some(match p.eat() {
+    let expr = match p.peek() {
         // Bracketed function call.
         Some(Token::LeftBracket) => {
-            p.jump(start);
             let node = p.span(|p| SynNode::Expr(Expr::Call(bracket_call(p))));
-            Expr::Lit(Lit::Content(vec![node]))
+            return Some(Expr::Lit(Lit::Content(vec![node])));
         }
 
         // Content expression.
         Some(Token::LeftBrace) => {
-            p.jump(start);
-            Expr::Lit(Lit::Content(content(p)))
+            return Some(Expr::Lit(Lit::Content(content(p))));
         }
 
         // Dictionary or just a parenthesized expression.
         Some(Token::LeftParen) => {
-            p.jump(start);
-            parenthesized(p)
+            return Some(parenthesized(p));
         }
 
         // Function or just ident.
         Some(Token::Ident(id)) => {
+            p.eat();
             let ident = Ident(id.into());
-            let after = p.last_end();
             if p.peek() == Some(Token::LeftParen) {
-                let name = ident.span_with(start .. after);
-                Expr::Call(paren_call(p, name))
+                let name = ident.with_span(p.peek_span());
+                return Some(Expr::Call(paren_call(p, name)));
             } else {
-                Expr::Lit(Lit::Ident(ident))
+                return Some(Expr::Lit(Lit::Ident(ident)));
             }
         }
 
@@ -400,16 +395,17 @@ fn value(p: &mut Parser) -> Option<Expr> {
         Some(Token::Float(f)) => Expr::Lit(Lit::Float(f)),
         Some(Token::Length(val, unit)) => Expr::Lit(Lit::Length(val, unit)),
         Some(Token::Percent(p)) => Expr::Lit(Lit::Percent(p)),
-        Some(Token::Hex(hex)) => Expr::Lit(Lit::Color(color(p, hex, start))),
+        Some(Token::Hex(hex)) => Expr::Lit(Lit::Color(color(p, hex))),
         Some(Token::Str(token)) => Expr::Lit(Lit::Str(str(p, token))),
 
         // No value.
         _ => {
-            p.jump(start);
             p.diag_expected("expression");
             return None;
         }
-    })
+    };
+    p.eat();
+    Some(expr)
 }
 
 // Parse a content value: `{...}`.
@@ -444,10 +440,10 @@ fn ident(p: &mut Parser) -> Option<Ident> {
 }
 
 /// Parse a color.
-fn color(p: &mut Parser, hex: &str, start: Pos) -> RgbaColor {
+fn color(p: &mut Parser, hex: &str) -> RgbaColor {
     RgbaColor::from_str(hex).unwrap_or_else(|_| {
         // Replace color with black.
-        p.diag(error!(start .. p.last_end(), "invalid color"));
+        p.diag(error!(p.peek_span(), "invalid color"));
         RgbaColor::new(0, 0, 0, 255)
     })
 }
@@ -455,7 +451,7 @@ fn color(p: &mut Parser, hex: &str, start: Pos) -> RgbaColor {
 /// Parse a string.
 fn str(p: &mut Parser, token: TokenStr) -> String {
     if !token.terminated {
-        p.diag_expected_at("quote", p.last_end());
+        p.diag_expected_at("quote", p.peek_span().end);
     }
 
     resolve::resolve_string(token.string)

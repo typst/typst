@@ -11,7 +11,7 @@ use crate::color::Color;
 use crate::diag::Diag;
 use crate::geom::{Dir, Length, Linear, Relative};
 use crate::paper::Paper;
-use crate::syntax::{Ident, SpanWith, Spanned, SynTree};
+use crate::syntax::{Ident, Spanned, SynTree, WithSpan};
 
 /// A computational value.
 #[derive(Clone, PartialEq)]
@@ -69,11 +69,11 @@ impl Value {
     }
 }
 
-impl Eval for Value {
+impl Eval for &Value {
     type Output = ();
 
     /// Evaluate everything contained in this value.
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         match self {
             // Don't print out none values.
             Value::None => {}
@@ -206,7 +206,7 @@ impl<T> Conv<T> {
 impl<T: TryFromValue> TryFromValue for Spanned<T> {
     fn try_from_value(value: Spanned<Value>) -> Conv<Self> {
         let span = value.span;
-        T::try_from_value(value).map(|v| v.span_with(span))
+        T::try_from_value(value).map(|v| v.with_span(span))
     }
 }
 

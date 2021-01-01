@@ -4,12 +4,13 @@ use std::ops::Deref;
 
 use unicode_xid::UnicodeXID;
 
-/// An identifier as defined by unicode with a few extra permissible characters.
+/// An Unicode identifier with a few extra permissible characters.
 ///
-/// This is defined as in the [Unicode Standard], but allows additionally
-/// `-` and `_` as starting and continuing characters.
+/// In addition to what is specified in the [Unicode Standard][uax31], we allow:
+/// - `_` as a starting character,
+/// - `_` and `-` as continuing characters.
 ///
-/// [Unicode Standard]: http://www.unicode.org/reports/tr31/
+/// [uax31]: http://www.unicode.org/reports/tr31/
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Ident(pub String);
 

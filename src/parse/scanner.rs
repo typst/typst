@@ -102,11 +102,6 @@ impl<'s> Scanner<'s> {
         self.peek().map(f).unwrap_or(false)
     }
 
-    /// Whether the end of the source string is reached.
-    pub fn eof(&self) -> bool {
-        self.index == self.src.len()
-    }
-
     /// The previous index in the source string.
     pub fn last_index(&self) -> usize {
         self.src[.. self.index]
@@ -124,11 +119,6 @@ impl<'s> Scanner<'s> {
     /// Jump to an index in the source string.
     pub fn jump(&mut self, index: usize) {
         self.index = index;
-    }
-
-    /// The full source string.
-    pub fn src(&self) -> &'s str {
-        self.src
     }
 
     /// Slice a part out of the source string.

@@ -104,16 +104,16 @@ impl Display for Level {
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub enum Deco {
-    /// Emphasized text.
-    Emph,
     /// Strong text.
     Strong,
+    /// Emphasized text.
+    Emph,
     /// A valid, successfully resolved name.
     Resolved,
     /// An invalid, unresolved name.
     Unresolved,
-    /// A key in a dictionary.
-    DictKey,
+    /// A name in a dictionary or argument list.
+    Name,
 }
 
 /// Construct a diagnostic with [`Error`](Level::Error) level.

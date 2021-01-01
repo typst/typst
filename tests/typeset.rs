@@ -22,7 +22,7 @@ use typst::geom::{Length, Point, Sides, Size};
 use typst::layout::{BoxLayout, ImageElement, LayoutElement};
 use typst::parse::{LineMap, Scanner};
 use typst::shaping::Shaped;
-use typst::syntax::{Location, Pos, SpanVec, SpanWith, Spanned};
+use typst::syntax::{Location, Pos, SpanVec, Spanned, WithSpan};
 use typst::typeset;
 
 const TYP_DIR: &str = "typ";
@@ -212,7 +212,7 @@ fn parse_metadata(src: &str, map: &LineMap) -> (SpanVec<Diag>, bool) {
 
         let mut s = Scanner::new(rest);
         let (start, _, end) = (pos(&mut s, map), s.eat_assert('-'), pos(&mut s, map));
-        diags.push(Diag::new(level, s.rest().trim()).span_with(start .. end));
+        diags.push(Diag::new(level, s.rest().trim()).with_span(start .. end));
     }
 
     diags.sort();
@@ -303,17 +303,17 @@ fn draw_text(canvas: &mut Canvas, pos: Point, env: &Env, shaped: &Shaped) {
     }
 }
 
-fn draw_image(canvas: &mut Canvas, pos: Point, env: &Env, img: &ImageElement) {
-    let buf = &env.resources.loaded::<ImageResource>(img.res).buf;
+fn draw_image(canvas: &mut Canvas, pos: Point, env: &Env, element: &ImageElement) {
+    let img = &env.resources.loaded::<ImageResource>(element.res);
 
-    let mut pixmap = Pixmap::new(buf.width(), buf.height()).unwrap();
-    for ((_, _, src), dest) in buf.pixels().zip(pixmap.pixels_mut()) {
+    let mut pixmap = Pixmap::new(img.buf.width(), img.buf.height()).unwrap();
+    for ((_, _, src), dest) in img.buf.pixels().zip(pixmap.pixels_mut()) {
         let Rgba([r, g, b, a]) = src;
         *dest = ColorU8::from_rgba(r, g, b, a).premultiply();
     }
 
-    let view_width = img.size.width.to_pt() as f32;
-    let view_height = img.size.height.to_pt() as f32;
+    let view_width = element.size.width.to_pt() as f32;
+    let view_height = element.size.height.to_pt() as f32;
 
     let x = pos.x.to_pt() as f32;
     let y = pos.y.to_pt() as f32;

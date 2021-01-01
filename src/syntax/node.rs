@@ -30,16 +30,16 @@ pub enum SynNode {
     Expr(Expr),
 }
 
-/// A section heading.
+/// A section heading: `# ...`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NodeHeading {
-    /// The section depth (how many hashtags minus 1).
+    /// The section depth (numer of hashtags minus 1).
     pub level: Spanned<u8>,
     /// The contents of the heading.
     pub contents: SynTree,
 }
 
-/// A raw block, rendered in monospace with optional syntax highlighting.
+/// A raw block with optional syntax highlighting: `` `raw` ``.
 ///
 /// Raw blocks start with an arbitrary number of backticks and end with the same
 /// number of backticks. If you want to include a sequence of backticks in a raw
