@@ -12,7 +12,7 @@ use crate::paper::{Paper, PaperClass, PAPER_A4};
 #[derive(Debug, Clone, PartialEq)]
 pub struct State {
     /// The scope that contains variable definitions.
-    pub scope: Scope,
+    pub scope: Rc<Scope>,
     /// The current page state.
     pub page: StatePage,
     /// The current paragraph state.
@@ -28,7 +28,7 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
-            scope: crate::library::_std(),
+            scope: Rc::new(crate::library::_std()),
             page: StatePage::default(),
             par: StatePar::default(),
             font: StateFont::default(),
