@@ -6,14 +6,14 @@ use crate::prelude::*;
 
 /// `image`: Insert an image.
 ///
-/// # Positional arguments
-/// - Path (`string`): The path to the image file.
-///
 /// Supports PNG and JPEG files.
-pub fn image(mut args: Args, ctx: &mut EvalContext) -> Value {
-    let path = args.need::<_, Spanned<String>>(ctx, 0, "path");
-    let width = args.get::<_, Linear>(ctx, "width");
-    let height = args.get::<_, Linear>(ctx, "height");
+///
+/// # Positional arguments
+/// - Path to image file: of type `string`.
+pub fn image(ctx: &mut EvalContext, args: &mut Args) -> Value {
+    let path = args.require::<Spanned<String>>(ctx, "path to image file");
+    let width = args.get(ctx, "width");
+    let height = args.get(ctx, "height");
 
     if let Some(path) = path {
         let mut env = ctx.env.borrow_mut();

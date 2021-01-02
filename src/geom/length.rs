@@ -208,14 +208,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_length_formats_correctly() {
-        assert_eq!(Length::pt(-28.34).to_string(), "-1.00cm".to_string());
-        assert_eq!(Length::pt(23.0).to_string(), "23.00pt".to_string());
-        assert_eq!(Length::cm(12.728).to_string(), "12.73cm".to_string());
+    fn test_length_unit_conversion() {
+        assert!((Length::mm(150.0).to_cm() - 15.0) < 1e-4);
     }
 
     #[test]
-    fn test_length_unit_conversion() {
-        assert!((Length::mm(150.0).to_cm() - 15.0) < 1e-4);
+    fn test_length_formatting() {
+        assert_eq!(Length::pt(-28.34).to_string(), "-1.00cm".to_string());
+        assert_eq!(Length::pt(23.0).to_string(), "23.00pt".to_string());
+        assert_eq!(Length::cm(12.728).to_string(), "12.73cm".to_string());
     }
 }

@@ -1,51 +1,44 @@
-use std::fmt::{self, Display, Formatter};
-
 use crate::eval::Softness;
-use crate::geom::{Length, Linear};
 use crate::layout::{Expansion, Fixed, Spacing, Stack};
 use crate::paper::{Paper, PaperClass};
 use crate::prelude::*;
 
 /// `align`: Align content along the layouting axes.
 ///
+/// Which axis an alignment should apply to (main or cross) is inferred from
+/// either the argument itself (for anything other than `center`) or from the
+/// second argument if present, defaulting to the cross axis for a single
+/// `center` alignment.
+///
 /// # Positional arguments
-/// - first (optional, `Alignment`): An alignment for any of the two axes.
-/// - second (optional, `Alignment`): An alignment for the other axis.
+/// - Alignments: variadic, of type `alignment`.
 ///
 /// # Named arguments
-/// - `horizontal` (`Alignment`): An alignment for the horizontal axis.
-/// - `vertical` (`Alignment`): An alignment for the vertical axis.
+/// - Horizontal alignment: `horizontal`, of type `alignment`.
+/// - Vertical alignment:   `vertical`, of type `alignment`.
 ///
-/// # Enumerations
-/// - `Alignment`
+/// # Relevant types and constants
+/// - Type `alignment`
 ///     - `left`
 ///     - `right`
 ///     - `top`
 ///     - `bottom`
 ///     - `center`
-///
-/// # Notes
-/// Which axis an alignment should apply to (main or cross) is inferred from
-/// either the argument itself (for anything other than `center`) or from the
-/// second argument if present, defaulting to the cross axis for a single
-/// `center` alignment.
-pub fn align(mut args: Args, ctx: &mut EvalContext) -> Value {
+pub fn align(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let snapshot = ctx.state.clone();
-    let body = args.find::<SynTree>();
-    let first = args.get::<_, Spanned<SpecAlign>>(ctx, 0);
-    let second = args.get::<_, Spanned<SpecAlign>>(ctx, 1);
-    let hor = args.get::<_, Spanned<SpecAlign>>(ctx, "horizontal");
-    let ver = args.get::<_, Spanned<SpecAlign>>(ctx, "vertical");
-    args.done(ctx);
 
-    let prev_main = ctx.state.align.main;
+    let first = args.find(ctx);
+    let second = args.find(ctx);
+    let hor = args.get(ctx, "horizontal");
+    let ver = args.get(ctx, "vertical");
+
     let mut had = Gen::uniform(false);
     let mut had_center = false;
 
     for (axis, Spanned { v: arg, span }) in first
         .into_iter()
         .chain(second.into_iter())
-        .map(|arg| (arg.v.axis(), arg))
+        .map(|arg: Spanned<Alignment>| (arg.v.axis(), arg))
         .chain(hor.into_iter().map(|arg| (Some(SpecAxis::Horizontal), arg)))
         .chain(ver.into_iter().map(|arg| (Some(SpecAxis::Vertical), arg)))
     {
@@ -56,10 +49,7 @@ pub fn align(mut args: Args, ctx: &mut EvalContext) -> Value {
             let gen_align = arg.switch(ctx.state.flow);
 
             if arg.axis().map_or(false, |a| a != axis) {
-                ctx.diag(error!(
-                    span,
-                    "invalid alignment `{}` for {} axis", arg, axis,
-                ));
+                ctx.diag(error!(span, "invalid alignment for {} axis", axis));
             } else if had.get(gen_axis) {
                 ctx.diag(error!(span, "duplicate alignment for {} axis", axis));
             } else {
@@ -69,7 +59,7 @@ pub fn align(mut args: Args, ctx: &mut EvalContext) -> Value {
         } else {
             // We don't know the axis: This has to be a `center` alignment for a
             // positional argument.
-            debug_assert_eq!(arg, SpecAlign::Center);
+            debug_assert_eq!(arg, Alignment::Center);
 
             if had.main && had.cross {
                 ctx.diag(error!(span, "duplicate alignment"));
@@ -104,12 +94,12 @@ pub fn align(mut args: Args, ctx: &mut EvalContext) -> Value {
         ctx.state.align.cross = Align::Center;
     }
 
-    if ctx.state.align.main != prev_main {
+    if ctx.state.align.main != snapshot.align.main {
         ctx.end_par_group();
         ctx.start_par_group();
     }
 
-    if let Some(body) = body {
+    if let Some(body) = args.find::<ValueContent>(ctx) {
         body.eval(ctx);
         ctx.state = snapshot;
     }
@@ -117,30 +107,18 @@ pub fn align(mut args: Args, ctx: &mut EvalContext) -> Value {
     Value::None
 }
 
-/// An argument to `[align]`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-enum SpecAlign {
+pub(crate) enum Alignment {
     Left,
+    Center,
     Right,
     Top,
     Bottom,
-    Center,
 }
 
-try_from_id!(SpecAlign["alignment"]: |v| match v {
-    "left" => Some(Self::Left),
-    "right" => Some(Self::Right),
-    "top" => Some(Self::Top),
-    "bottom" => Some(Self::Bottom),
-    "center" => Some(Self::Center),
-    _ => None,
-});
-
-impl SpecAlign {
+impl Alignment {
     /// The specific axis this alignment refers to.
-    ///
-    /// Returns `None` if this is `Center` since the axis is unknown.
-    pub fn axis(self) -> Option<SpecAxis> {
+    fn axis(self) -> Option<SpecAxis> {
         match self {
             Self::Left => Some(SpecAxis::Horizontal),
             Self::Right => Some(SpecAxis::Horizontal),
@@ -151,7 +129,7 @@ impl SpecAlign {
     }
 }
 
-impl Switch for SpecAlign {
+impl Switch for Alignment {
     type Other = Align;
 
     fn switch(self, flow: Flow) -> Self::Other {
@@ -174,38 +152,34 @@ impl Switch for SpecAlign {
     }
 }
 
-impl Display for SpecAlign {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Left => "left",
-            Self::Right => "right",
-            Self::Top => "top",
-            Self::Bottom => "bottom",
-            Self::Center => "center",
-        })
-    }
+impl_type! {
+    Alignment: "alignment"
 }
 
 /// `box`: Layout content into a box.
 ///
 /// # Named arguments
-/// - `width` (`linear` relative to parent width): The width of the box.
-/// - `height` (`linear` relative to parent height): The height of the box.
-pub fn boxed(mut args: Args, ctx: &mut EvalContext) -> Value {
+/// - Width of the box:  `width`, of type `linear` relative to parent width.
+/// - Height of the box: `height`, of type `linear` relative to parent height.
+pub fn boxed(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let snapshot = ctx.state.clone();
-    let body = args.find::<SynTree>().unwrap_or_default();
-    let width = args.get::<_, Linear>(ctx, "width");
-    let height = args.get::<_, Linear>(ctx, "height");
-    let main = args.get::<_, Spanned<Dir>>(ctx, "main-dir");
-    let cross = args.get::<_, Spanned<Dir>>(ctx, "cross-dir");
+
+    let width = args.get(ctx, "width");
+    let height = args.get(ctx, "height");
+    let main = args.get(ctx, "main-dir");
+    let cross = args.get(ctx, "cross-dir");
+
     ctx.set_flow(Gen::new(main, cross));
-    args.done(ctx);
 
     let flow = ctx.state.flow;
     let align = ctx.state.align;
 
     ctx.start_content_group();
-    body.eval(ctx);
+
+    if let Some(body) = args.find::<ValueContent>(ctx) {
+        body.eval(ctx);
+    }
+
     let children = ctx.end_content_group();
 
     ctx.push(Fixed {
@@ -227,31 +201,34 @@ pub fn boxed(mut args: Args, ctx: &mut EvalContext) -> Value {
     Value::None
 }
 
+impl_type! {
+    Dir: "direction"
+}
+
 /// `h`: Add horizontal spacing.
 ///
 /// # Positional arguments
-/// - Spacing (`linear` relative to font size): The amount of spacing.
-pub fn h(args: Args, ctx: &mut EvalContext) -> Value {
-    spacing(args, ctx, SpecAxis::Horizontal)
+/// - Amount of spacing: of type `linear` relative to current font size.
+pub fn h(ctx: &mut EvalContext, args: &mut Args) -> Value {
+    spacing(ctx, args, SpecAxis::Horizontal)
 }
 
 /// `v`: Add vertical spacing.
 ///
 /// # Positional arguments
-/// - Spacing (`linear` relative to font size): The amount of spacing.
-pub fn v(args: Args, ctx: &mut EvalContext) -> Value {
-    spacing(args, ctx, SpecAxis::Vertical)
+/// - Amount of spacing: of type `linear` relative to current font size.
+pub fn v(ctx: &mut EvalContext, args: &mut Args) -> Value {
+    spacing(ctx, args, SpecAxis::Vertical)
 }
 
 /// Apply spacing along a specific axis.
-fn spacing(mut args: Args, ctx: &mut EvalContext, axis: SpecAxis) -> Value {
-    let spacing = args.need::<_, Linear>(ctx, 0, "spacing");
-    args.done(ctx);
+fn spacing(ctx: &mut EvalContext, args: &mut Args, axis: SpecAxis) -> Value {
+    let spacing: Option<Linear> = args.require(ctx, "spacing");
 
     if let Some(linear) = spacing {
         let amount = linear.resolve(ctx.state.font.font_size());
         let spacing = Spacing { amount, softness: Softness::Hard };
-        if ctx.state.flow.main.axis() == axis {
+        if axis == ctx.state.flow.main.axis() {
             ctx.end_par_group();
             ctx.push(spacing);
             ctx.start_par_group();
@@ -266,79 +243,78 @@ fn spacing(mut args: Args, ctx: &mut EvalContext, axis: SpecAxis) -> Value {
 /// `page`: Configure pages.
 ///
 /// # Positional arguments
-/// - Paper name (optional, `Paper`).
+/// - Paper name: optional, of type `string`, see [here](crate::paper) for a
+///   full list of all paper names.
 ///
 /// # Named arguments
-/// - `width` (`length`): The width of pages.
-/// - `height` (`length`): The height of pages.
-/// - `margins` (`linear` relative to sides): The margins for all sides.
-/// - `left` (`linear` relative to width): The left margin.
-/// - `right` (`linear` relative to width): The right margin.
-/// - `top` (`linear` relative to height): The top margin.
-/// - `bottom` (`linear` relative to height): The bottom margin.
-/// - `flip` (`bool`): Flips custom or paper-defined width and height.
-///
-/// # Enumerations
-/// - `Paper`: See [here](crate::paper) for a full list.
-pub fn page(mut args: Args, ctx: &mut EvalContext) -> Value {
+/// - Width of the page:     `width`, of type `length`.
+/// - Height of the page:    `height`, of type `length`.
+/// - Margins for all sides: `margins`, of type `linear` relative to sides.
+/// - Left margin:           `left`, of type `linear` relative to width.
+/// - Right margin:          `right`, of type `linear` relative to width.
+/// - Top margin:            `top`, of type `linear` relative to height.
+/// - Bottom margin:         `bottom`, of type `linear` relative to height.
+/// - Flip width and height: `flip`, of type `bool`.
+pub fn page(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let snapshot = ctx.state.clone();
-    let body = args.find::<SynTree>();
 
-    if let Some(paper) = args.get::<_, Paper>(ctx, 0) {
-        ctx.state.page.class = paper.class;
-        ctx.state.page.size = paper.size();
+    if let Some(name) = args.find::<Spanned<String>>(ctx) {
+        if let Some(paper) = Paper::from_name(&name.v) {
+            ctx.state.page.class = paper.class;
+            ctx.state.page.size = paper.size();
+        } else {
+            ctx.diag(error!(name.span, "invalid paper name"));
+        }
     }
 
-    if let Some(width) = args.get::<_, Length>(ctx, "width") {
+    if let Some(width) = args.get(ctx, "width") {
         ctx.state.page.class = PaperClass::Custom;
         ctx.state.page.size.width = width;
     }
 
-    if let Some(height) = args.get::<_, Length>(ctx, "height") {
+    if let Some(height) = args.get(ctx, "height") {
         ctx.state.page.class = PaperClass::Custom;
         ctx.state.page.size.height = height;
     }
 
-    if let Some(margins) = args.get::<_, Linear>(ctx, "margins") {
+    if let Some(margins) = args.get(ctx, "margins") {
         ctx.state.page.margins = Sides::uniform(Some(margins));
     }
 
-    if let Some(left) = args.get::<_, Linear>(ctx, "left") {
+    if let Some(left) = args.get(ctx, "left") {
         ctx.state.page.margins.left = Some(left);
     }
 
-    if let Some(top) = args.get::<_, Linear>(ctx, "top") {
+    if let Some(top) = args.get(ctx, "top") {
         ctx.state.page.margins.top = Some(top);
     }
 
-    if let Some(right) = args.get::<_, Linear>(ctx, "right") {
+    if let Some(right) = args.get(ctx, "right") {
         ctx.state.page.margins.right = Some(right);
     }
 
-    if let Some(bottom) = args.get::<_, Linear>(ctx, "bottom") {
+    if let Some(bottom) = args.get(ctx, "bottom") {
         ctx.state.page.margins.bottom = Some(bottom);
     }
 
-    if args.get::<_, bool>(ctx, "flip").unwrap_or(false) {
+    if args.get(ctx, "flip").unwrap_or(false) {
         let size = &mut ctx.state.page.size;
         std::mem::swap(&mut size.width, &mut size.height);
     }
 
-    let main = args.get::<_, Spanned<Dir>>(ctx, "main-dir");
-    let cross = args.get::<_, Spanned<Dir>>(ctx, "cross-dir");
+    let main = args.get(ctx, "main-dir");
+    let cross = args.get(ctx, "cross-dir");
+
     ctx.set_flow(Gen::new(main, cross));
 
-    args.done(ctx);
-
     let mut softness = ctx.end_page_group(|_| false);
-
-    if let Some(body) = body {
+    if let Some(body) = args.find::<ValueContent>(ctx) {
         // TODO: Restrict body to a single page?
         ctx.start_page_group(Softness::Hard);
         body.eval(ctx);
         ctx.end_page_group(|s| s == Softness::Hard);
-        ctx.state = snapshot;
         softness = Softness::Soft;
+        ctx.state = snapshot;
     }
 
     ctx.start_page_group(softness);
@@ -347,8 +323,7 @@ pub fn page(mut args: Args, ctx: &mut EvalContext) -> Value {
 }
 
 /// `pagebreak`: Start a new page.
-pub fn pagebreak(args: Args, ctx: &mut EvalContext) -> Value {
-    args.done(ctx);
+pub fn pagebreak(ctx: &mut EvalContext, _: &mut Args) -> Value {
     ctx.end_page_group(|_| true);
     ctx.start_page_group(Softness::Hard);
     Value::None

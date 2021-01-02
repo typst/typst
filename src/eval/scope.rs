@@ -3,12 +3,12 @@
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
-use super::value::ValueFunc;
+use super::Value;
 
 /// A map from identifiers to functions.
 #[derive(Default, Clone, PartialEq)]
 pub struct Scope {
-    functions: HashMap<String, ValueFunc>,
+    values: HashMap<String, Value>,
 }
 
 impl Scope {
@@ -18,19 +18,19 @@ impl Scope {
         Self::default()
     }
 
-    /// Return the function with the given name if there is one.
-    pub fn get(&self, name: &str) -> Option<&ValueFunc> {
-        self.functions.get(name)
+    /// Return the value of the given variable.
+    pub fn get(&self, var: &str) -> Option<&Value> {
+        self.values.get(var)
     }
 
-    /// Associate the given name with the function.
-    pub fn set(&mut self, name: impl Into<String>, function: ValueFunc) {
-        self.functions.insert(name.into(), function);
+    /// Store the value for the given variable.
+    pub fn set(&mut self, var: impl Into<String>, value: impl Into<Value>) {
+        self.values.insert(var.into(), value.into());
     }
 }
 
 impl Debug for Scope {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_set().entries(self.functions.keys()).finish()
+        self.values.fmt(f)
     }
 }

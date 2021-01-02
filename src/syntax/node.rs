@@ -30,7 +30,7 @@ pub enum SynNode {
     Expr(Expr),
 }
 
-/// A section heading: `# ...`.
+/// A section heading: `# Introduction`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NodeHeading {
     /// The section depth (numer of hashtags minus 1).

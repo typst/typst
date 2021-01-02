@@ -111,7 +111,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_color_strings() {
+    fn test_parse_color_strings() {
         fn test(hex: &str, r: u8, g: u8, b: u8, a: u8) {
             assert_eq!(RgbaColor::from_str(hex), Ok(RgbaColor::new(r, g, b, a)));
         }
@@ -124,7 +124,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_invalid_colors() {
+    fn test_parse_invalid_colors() {
         fn test(hex: &str) {
             assert_eq!(RgbaColor::from_str(hex), Err(ParseRgbaError));
         }

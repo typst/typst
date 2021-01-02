@@ -5,7 +5,6 @@ use std::fmt::Debug;
 use super::parse;
 use crate::color::RgbaColor;
 use crate::diag::{Diag, Level, Pass};
-use crate::eval::DictKey;
 use crate::geom::Unit;
 use crate::syntax::*;
 
@@ -154,19 +153,36 @@ fn Unary(op: impl Into<Spanned<UnOp>>, expr: impl Into<Spanned<Expr>>) -> Expr {
     })
 }
 
+macro_rules! Array {
+    (@$($expr:expr),* $(,)?) => {
+        vec![$(into!($expr)),*]
+    };
+    ($($tts:tt)*) => (Expr::Lit(Lit::Array(Array![@$($tts)*])));
+}
+
 macro_rules! Dict {
-    (@$($a:expr $(=> $b:expr)?),* $(,)?) => {
-        LitDict(vec![$(#[allow(unused)] {
-            let key: Option<Spanned<DictKey>> = None;
-            let expr = $a;
-            $(
-                let key = Some(into!($a).map(|s: &str| s.into()));
-                let expr = $b;
-            )?
-            LitDictEntry { key, expr: into!(expr) }
-        }),*])
+    (@$($name:expr => $expr:expr),* $(,)?) => {
+        vec![$(Named {
+            name: into!($name).map(|s: &str| Ident(s.into())),
+            expr: into!($expr)
+        }),*]
     };
     ($($tts:tt)*) => (Expr::Lit(Lit::Dict(Dict![@$($tts)*])));
+}
+
+macro_rules! Args {
+    (@$a:expr) => {
+        Argument::Pos(into!($a))
+    };
+    (@$a:expr => $b:expr) => {
+        Argument::Named(Named {
+            name: into!($a).map(|s: &str| Ident(s.into())),
+            expr: into!($b)
+        })
+    };
+    ($($a:expr $(=> $b:expr)?),* $(,)?) => {
+        vec![$(Args!(@$a $(=> $b)?)),*]
+    };
 }
 
 macro_rules! Content {
@@ -186,10 +202,6 @@ macro_rules! Call {
     };
     (@$($tts:tt)*) => (Expr::Call(Call!(@@$($tts)*)));
     ($($tts:tt)*) => (SynNode::Expr(Call!(@$($tts)*)));
-}
-
-macro_rules! Args {
-    ($($tts:tt)*) => (Dict![@$($tts)*]);
 }
 
 #[test]
@@ -316,10 +328,9 @@ fn test_parse_groups() {
         errors: [S(1..2, "expected function name, found closing paren"),
                  S(2..2, "expected closing bracket")]);
 
-    t!("[v {]}"
-        nodes: [Call!("v", Args![Content![]])],
-        errors: [S(4..4, "expected closing brace"),
-                 S(5..6, "unexpected closing brace")]);
+    t!("[v {*]_"
+        nodes: [Call!("v", Args![Content![Strong]]), Emph],
+        errors: [S(5..5, "expected closing brace")]);
 
     // Test brace group.
     t!("{1 + [}"
@@ -329,7 +340,7 @@ fn test_parse_groups() {
 
     // Test subheader group.
     t!("[v (|u )]"
-        nodes: [Call!("v", Args![Dict![], Content![Call!("u")]])],
+        nodes: [Call!("v", Args![Array![], Content![Call!("u")]])],
         errors: [S(4..4, "expected closing paren"),
                  S(7..8, "expected expression, found closing paren")]);
 }
@@ -348,6 +359,12 @@ fn test_parse_blocks() {
         nodes: [],
         errors: [S(1..1, "expected expression"),
                  S(3..5, "expected expression, found invalid token")]);
+
+    // Too much stuff.
+    t!("{1 #{} end"
+        nodes: [Block(Int(1)), Space, Text("end")],
+        errors: [S(3..4, "unexpected hex value"),
+                 S(4..5, "unexpected opening brace")]);
 }
 
 #[test]
@@ -385,7 +402,7 @@ fn test_parse_bracket_funcs() {
         nodes: [Call!("", Args![Int(1)])],
         errors: [S(1..2, "expected function name, found hex value")]);
 
-    // String header eats closing bracket.
+    // String in header eats closing bracket.
     t!(r#"[v "]"#
         nodes: [Call!("v", Args![Str("]")])],
         errors: [S(5..5, "expected quote"),
@@ -400,8 +417,8 @@ fn test_parse_bracket_funcs() {
 #[test]
 fn test_parse_chaining() {
     // Basic.
-    t!("[a | b]"     Call!("a", Args![Content![Call!("b")]]));
-    t!("[a | b | c]" Call!("a", Args![Content![
+    t!("[a | b]" Call!("a", Args![Content![Call!("b")]]));
+    t!("[a|b|c]" Call!("a", Args![Content![
         Call!("b", Args![Content![Call!("c")]])
     ]]));
 
@@ -428,16 +445,14 @@ fn test_parse_chaining() {
 #[test]
 fn test_parse_arguments() {
     // Bracket functions.
-    t!("[v 1]"   Call!("v", Args![Int(1)]));
-    t!("[v 1,]"  Call!("v", Args![Int(1)]));
     t!("[v a]"   Call!("v", Args![Id("a")]));
-    t!("[v a,]"  Call!("v", Args![Id("a")]));
+    t!("[v 1,]"  Call!("v", Args![Int(1)]));
     t!("[v a:2]" Call!("v", Args!["a" => Int(2)]));
 
-    // Parenthesized function with nested dictionary literal.
+    // Parenthesized function with nested array literal.
     t!(r#"{f(1, a: (2, 3), #004, b: "five")}"# Block(Call!(@"f", Args![
         Int(1),
-        "a" => Dict![Int(2), Int(3)],
+        "a" => Array![Int(2), Int(3)],
         Color(RgbaColor::new(0, 0, 0x44, 0xff)),
         "b" => Str("five"),
     ])));
@@ -447,56 +462,111 @@ fn test_parse_arguments() {
         nodes: [Call!("v", Args![])],
         errors: [S(3..5, "expected expression, found end of block comment")]);
 
+    // Bad expression.
+    t!("[v a:1:]"
+        nodes: [Call!("v", Args!["a" => Int(1)])],
+        errors: [S(6..7, "expected expression, found colon")]);
+
     // Missing comma between arguments.
     t!("[v 1 2]"
         nodes: [Call!("v", Args![Int(1), Int(2)])],
         errors: [S(4..4, "expected comma")]);
 
-    // Missing expression after name.
-    t!("[v a:]"
-        nodes: [Call!("v", Args![])],
-        errors: [S(5..5, "expected expression")]);
-
-    // Bad expression after name.
-    t!("[v a:1:]"
-        nodes: [Call!("v", Args!["a" => Int(1)])],
-        errors: [S(6..7, "expected expression, found colon")]);
-
-    // Name has to be identifier. Number parsed as positional argument.
+    // Name has to be identifier.
     t!("[v 1:]"
-        nodes: [Call!("v", Args![Int(1)])],
-        errors: [S(4..5, "expected expression, found colon")]);
+        nodes: [Call!("v", Args![])],
+        errors: [S(3..4, "name must be identifier"),
+                 S(5..5, "expected expression")]);
 
-    // Parsed as two positional arguments.
+    // Name has to be identifier.
     t!("[v 1:2]"
-        nodes: [Call!("v", Args![Int(1), Int(2)])],
-        errors: [S(4..5, "expected expression, found colon"),
-                 S(4..4, "expected comma")]);
+        nodes: [Call!("v", Args![])],
+        errors: [S(3..4, "name must be identifier")]);
 }
 
 #[test]
-fn test_parse_dict_literals() {
-    // Basic.
-    t!("{()}" Block(Dict![]));
+fn test_parse_arrays() {
+    // Empty array.
+    t!("{()}" Block(Array![]));
 
-    // With spans.
-    t!("{(1, two: 2)}"
-        nodes: [S(0..13, Block(Dict![
-            S(2..3, Int(1)),
-            S(5..8, "two") => S(10..11, Int(2)),
-        ]))],
+    // Array with one item and trailing comma + spans.
+    t!("{-(1,)}"
+        nodes: [S(0..7, Block(Unary(
+            S(1..2, Neg),
+            S(2..6, Array![S(3..4, Int(1))])
+        )))],
         spans: true);
+
+    // Array with three items and trailing comma.
+    t!(r#"{("one", 2, #003,)}"# Block(Array![
+        Str("one"),
+        Int(2),
+        Color(RgbaColor::new(0, 0, 0x33, 0xff))
+    ]));
 
     // Unclosed.
     t!("{(}"
-        nodes: [Block(Dict![])],
+        nodes: [Block(Array![])],
         errors: [S(2..2, "expected closing paren")]);
+
+    // Missing comma + invalid token.
+    t!("{(1*/2)}"
+        nodes: [Block(Array![Int(1), Int(2)])],
+        errors: [S(3..5, "expected expression, found end of block comment"),
+                 S(3..3, "expected comma")]);
+
+    // Invalid token.
+    t!("{(1, 1u 2)}"
+        nodes: [Block(Array![Int(1), Int(2)])],
+        errors: [S(5..7, "expected expression, found invalid token")]);
+
+    // Coerced to expression with leading comma.
+    t!("{(,1)}"
+        nodes: [Block(Int(1))],
+        errors: [S(2..3, "expected expression, found comma")]);
+
+    // Missing expression after name makes this an array.
+    t!("{(a:)}"
+        nodes: [Block(Array![])],
+        errors: [S(4..4, "expected expression")]);
+
+    // Expected expression, found named pair.
+    t!("{(1, b: 2)}"
+        nodes: [Block(Array![Int(1)])],
+        errors: [S(5..9, "expected expression, found named pair")]);
+}
+
+#[test]
+fn test_parse_dictionaries() {
+    // Empty dictionary.
+    t!("{(:)}" Block(Dict![]));
+
+    // Dictionary with two pairs + spans.
+    t!("{(one: 1, two: 2)}"
+        nodes: [S(0..18, Block(Dict![
+            S(2..5, "one") => S(7..8, Int(1)),
+            S(10..13, "two") => S(15..16, Int(2)),
+        ]))],
+        spans: true);
+
+    // Expected named pair, found expression.
+    t!("{(a: 1, b)}"
+        nodes: [Block(Dict!["a" => Int(1)])],
+        errors: [S(8..9, "expected named pair, found expression")]);
+
+    // Dictionary marker followed by more stuff.
+    t!("{(:1 b:2, true::)}"
+        nodes: [Block(Dict!["b" => Int(2)])],
+        errors: [S(3..4, "expected named pair, found expression"),
+                 S(4..4, "expected comma"),
+                 S(10..14, "name must be identifier"),
+                 S(15..16, "expected expression, found colon")]);
 }
 
 #[test]
 fn test_parse_expressions() {
-    // Parenthesis.
-    t!("{(x)}" Block(Id("x")));
+    // Parentheses.
+    t!("{(x)}{(1)}" Block(Id("x")), Block(Int(1)));
 
     // Unary operations.
     t!("{-1}"  Block(Unary(Neg, Int(1))));
@@ -561,4 +631,12 @@ fn test_parse_values() {
     t!("{#a5}"
         nodes: [Block(Color(RgbaColor::new(0, 0, 0, 0xff)))],
         errors: [S(1..4, "invalid color")]);
+
+    // Content.
+    t!("{{*Hi*}}" Block(Content![Strong, Text("Hi"), Strong]));
+
+    // Invalid tokens.
+    t!("{1u}"
+        nodes: [],
+        errors: [S(1..3, "expected expression, found invalid token")]);
 }

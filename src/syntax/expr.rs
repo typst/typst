@@ -2,7 +2,6 @@
 
 use super::*;
 use crate::color::RgbaColor;
-use crate::eval::DictKey;
 use crate::geom::Unit;
 
 /// An expression.
@@ -24,10 +23,22 @@ pub struct ExprCall {
     /// The name of the function.
     pub name: Spanned<Ident>,
     /// The arguments to the function.
-    ///
-    /// In case of a bracketed invocation with a body, the body is _not_
-    /// included in the span for the sake of clearer error messages.
-    pub args: Spanned<LitDict>,
+    pub args: Spanned<Arguments>,
+}
+
+/// The arguments to a function: `12, draw: false`.
+///
+/// In case of a bracketed invocation with a body, the body is _not_
+/// included in the span for the sake of clearer error messages.
+pub type Arguments = Vec<Argument>;
+
+/// An argument to a function call: `12` or `draw: false`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Argument {
+    /// A positional arguments.
+    Pos(Spanned<Expr>),
+    /// A named argument.
+    Named(Named),
 }
 
 /// A unary operation: `-x`.
@@ -92,28 +103,25 @@ pub enum Lit {
     Color(RgbaColor),
     /// A string literal: `"hello!"`.
     Str(String),
-    /// A dictionary literal: `(false, 12cm, greeting: "hi")`.
-    Dict(LitDict),
+    /// An array literal: `(1, "hi", 12cm)`.
+    Array(Array),
+    /// A dictionary literal: `(color: #f79143, pattern: dashed)`.
+    Dict(Dict),
     /// A content literal: `{*Hello* there!}`.
     Content(SynTree),
 }
 
-/// A dictionary literal: `(false, 12cm, greeting: "hi")`.
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct LitDict(pub Vec<LitDictEntry>);
+/// An array literal: `(1, "hi", 12cm)`.
+pub type Array = SpanVec<Expr>;
 
-/// An entry in a dictionary literal: `false` or `greeting: "hi"`.
+/// A dictionary literal: `(color: #f79143, pattern: dashed)`.
+pub type Dict = Vec<Named>;
+
+/// A pair of a name and an expression: `pattern: dashed`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct LitDictEntry {
-    /// The key of the entry if there was one: `greeting`.
-    pub key: Option<Spanned<DictKey>>,
-    /// The value of the entry: `"hi"`.
+pub struct Named {
+    /// The name: `pattern`.
+    pub name: Spanned<Ident>,
+    /// The right-hand side of the pair: `dashed`.
     pub expr: Spanned<Expr>,
-}
-
-impl LitDict {
-    /// Create an empty dict literal.
-    pub fn new() -> Self {
-        Self::default()
-    }
 }

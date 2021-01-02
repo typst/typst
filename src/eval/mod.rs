@@ -3,12 +3,10 @@
 #[macro_use]
 mod value;
 mod args;
-mod dict;
 mod scope;
 mod state;
 
 pub use args::*;
-pub use dict::*;
 pub use scope::*;
 pub use state::*;
 pub use value::*;
@@ -451,7 +449,13 @@ impl Eval for Spanned<&Lit> {
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         match *self.v {
-            Lit::Ident(ref v) => Value::Ident(v.clone()),
+            Lit::Ident(ref v) => match ctx.state.scope.get(v.as_str()) {
+                Some(value) => value.clone(),
+                None => {
+                    ctx.diag(error!(self.span, "unknown variable"));
+                    Value::Error
+                }
+            },
             Lit::Bool(v) => Value::Bool(v),
             Lit::Int(v) => Value::Int(v),
             Lit::Float(v) => Value::Float(v),
@@ -459,28 +463,29 @@ impl Eval for Spanned<&Lit> {
             Lit::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
             Lit::Color(v) => Value::Color(Color::Rgba(v)),
             Lit::Str(ref v) => Value::Str(v.clone()),
+            Lit::Array(ref v) => Value::Array(v.with_span(self.span).eval(ctx)),
             Lit::Dict(ref v) => Value::Dict(v.with_span(self.span).eval(ctx)),
             Lit::Content(ref v) => Value::Content(v.clone()),
         }
     }
 }
-impl Eval for Spanned<&LitDict> {
+
+impl Eval for Spanned<&Array> {
+    type Output = ValueArray;
+
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        self.v.iter().map(|expr| expr.as_ref().eval(ctx)).collect()
+    }
+}
+
+impl Eval for Spanned<&Dict> {
     type Output = ValueDict;
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        let mut dict = ValueDict::new();
-
-        for entry in &self.v.0 {
-            let val = entry.expr.as_ref().eval(ctx);
-            let spanned = val.with_span(entry.expr.span);
-            if let Some(key) = &entry.key {
-                dict.insert(&key.v, SpannedEntry::new(key.span, spanned));
-            } else {
-                dict.push(SpannedEntry::value(spanned));
-            }
-        }
-
-        dict
+        self.v
+            .iter()
+            .map(|Named { name, expr }| (name.v.0.clone(), expr.as_ref().eval(ctx)))
+            .collect()
     }
 }
 
@@ -490,19 +495,27 @@ impl Eval for Spanned<&ExprCall> {
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         let name = &self.v.name.v;
         let span = self.v.name.span;
-        let dict = self.v.args.as_ref().eval(ctx);
 
-        if let Some(func) = ctx.state.scope.get(name) {
-            let args = Args(dict.with_span(self.v.args.span));
-            ctx.feedback.decos.push(Deco::Resolved.with_span(span));
-            (func.clone())(args, ctx)
-        } else {
-            if !name.is_empty() {
-                ctx.diag(error!(span, "unknown function"));
-                ctx.feedback.decos.push(Deco::Unresolved.with_span(span));
+        if let Some(value) = ctx.state.scope.get(name) {
+            if let Value::Func(func) = value {
+                let func = func.clone();
+                ctx.feedback.decos.push(Deco::Resolved.with_span(span));
+
+                let mut args = self.v.args.as_ref().eval(ctx);
+                let returned = func(ctx, &mut args);
+                args.finish(ctx);
+
+                return returned;
+            } else {
+                let ty = value.type_name();
+                ctx.diag(error!(span, "a value of type {} is not callable", ty));
             }
-            Value::Dict(dict)
+        } else if !name.is_empty() {
+            ctx.diag(error!(span, "unknown function"));
         }
+
+        ctx.feedback.decos.push(Deco::Unresolved.with_span(span));
+        Value::Error
     }
 }
 
@@ -554,7 +567,7 @@ fn neg(ctx: &mut EvalContext, span: Span, value: Value) -> Value {
         Relative(v) => Relative(-v),
         Linear(v) => Linear(-v),
         v => {
-            ctx.diag(error!(span, "cannot negate {}", v.ty()));
+            ctx.diag(error!(span, "cannot negate {}", v.type_name()));
             Value::Error
         }
     }
@@ -589,7 +602,12 @@ fn add(ctx: &mut EvalContext, span: Span, lhs: Value, rhs: Value) -> Value {
         (Content(a), Content(b)) => Content(concat(a, b)),
 
         (a, b) => {
-            ctx.diag(error!(span, "cannot add {} and {}", a.ty(), b.ty()));
+            ctx.diag(error!(
+                span,
+                "cannot add {} and {}",
+                a.type_name(),
+                b.type_name()
+            ));
             Value::Error
         }
     }
@@ -617,7 +635,12 @@ fn sub(ctx: &mut EvalContext, span: Span, lhs: Value, rhs: Value) -> Value {
         (Linear(a), Linear(b)) => Linear(a - b),
 
         (a, b) => {
-            ctx.diag(error!(span, "cannot subtract {1} from {0}", a.ty(), b.ty()));
+            ctx.diag(error!(
+                span,
+                "cannot subtract {1} from {0}",
+                a.type_name(),
+                b.type_name()
+            ));
             Value::Error
         }
     }
@@ -652,7 +675,12 @@ fn mul(ctx: &mut EvalContext, span: Span, lhs: Value, rhs: Value) -> Value {
         (Str(a), Int(b)) => Str(a.repeat(0.max(b) as usize)),
 
         (a, b) => {
-            ctx.diag(error!(span, "cannot multiply {} with {}", a.ty(), b.ty()));
+            ctx.diag(error!(
+                span,
+                "cannot multiply {} with {}",
+                a.type_name(),
+                b.type_name()
+            ));
             Value::Error
         }
     }
@@ -677,7 +705,12 @@ fn div(ctx: &mut EvalContext, span: Span, lhs: Value, rhs: Value) -> Value {
         (Linear(a), Float(b)) => Linear(a / b),
 
         (a, b) => {
-            ctx.diag(error!(span, "cannot divide {} by {}", a.ty(), b.ty()));
+            ctx.diag(error!(
+                span,
+                "cannot divide {} by {}",
+                a.type_name(),
+                b.type_name()
+            ));
             Value::Error
         }
     }

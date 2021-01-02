@@ -1,58 +1,41 @@
+use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
 
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
 use crate::color::{Color, RgbaColor};
-use crate::eval::StringLike;
-use crate::geom::Linear;
 use crate::prelude::*;
 
 /// `font`: Configure the font.
 ///
 /// # Positional arguments
-/// - Font size (optional, `linear` relative to current font size).
-/// - Font families ... (optional, variadic, `Family`)
+/// - Font size:     optional, of type `linear` relative to current font size.
+/// - Font families: variadic, of type `font-family`.
 ///
 /// # Named arguments
-/// - `style` (`Style`): The font style.
-/// - `weight` (`Weight`): The font weight.
-/// - `stretch` (`Stretch`): The font stretch.
-/// - `serif` (`Family` or `dict` of type `Family`): The serif family.
-/// - `sans-serif` (`Family` or `dict` of type `Family`): The new sansserif family.
-/// - `monospace` (`Family` or `dict` of type `Family`): The monospace family.
-/// - `emoji` (`Family` or `dict` of type `Family`): The emoji family.
-/// - `math` (`Family` or `dict` of type `Family`): The math family.
+/// - Font Style:                   `style`, of type `font-style`.
+/// - Font Weight:                  `weight`, of type `font-weight`.
+/// - Font Stretch:                 `stretch`, of type `font-stretch`.
+/// - Serif family definition:      `serif`, of type `font-families`.
+/// - Sans-serif family definition: `sans-serif`, of type `font-families`.
+/// - Monospace family definition:  `monospace`, of type `font-families`.
 ///
-/// # Examples
-/// Set font size and font families.
-/// ```typst
-/// [font 12pt, "Arial", "Noto Sans", sans-serif]
-/// ```
-///
-/// Redefine the default sans-serif family to a single font family.
-/// ```typst
-/// [font sans-serif: "Source Sans Pro"]
-/// ```
-///
-/// Redefine the default emoji family with a fallback.
-/// ```typst
-/// [font emoji: ("Segoe UI Emoji", "Noto Emoji")]
-/// ```
-///
-/// # Enumerations
-/// - `Family`
+/// # Relevant types and constants
+/// - Type `font-families`
+///     - coerces from `string`
+///     - coerces from `array`
+///     - coerces from `font-family`
+/// - Type `font-family`
 ///     - `serif`
 ///     - `sans-serif`
 ///     - `monospace`
-///     - `emoji`
-///     - `math`
-///     - any string
-/// - `Style`
+///     - coerces from `string`
+/// - Type `font-style`
 ///     - `normal`
 ///     - `italic`
 ///     - `oblique`
-/// - `Weight`
-///     - `thin` or `hairline` (100)
+/// - Type `font-weight`
+///     - `thin` (100)
 ///     - `extralight` (200)
 ///     - `light` (300)
 ///     - `regular` (400)
@@ -61,8 +44,8 @@ use crate::prelude::*;
 ///     - `bold` (700)
 ///     - `extrabold` (800)
 ///     - `black` (900)
-///     - any integer between 100 and 900
-/// - `Stretch`
+///     - coerces from `integer`
+/// - Type `font-stretch`
 ///     - `ultra-condensed`
 ///     - `extra-condensed`
 ///     - `condensed`
@@ -72,11 +55,10 @@ use crate::prelude::*;
 ///     - `expanded`
 ///     - `extra-expanded`
 ///     - `ultra-expanded`
-pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
+pub fn font(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let snapshot = ctx.state.clone();
-    let body = args.find::<SynTree>();
 
-    if let Some(linear) = args.find::<Linear>() {
+    if let Some(linear) = args.find::<Linear>(ctx) {
         if linear.is_absolute() {
             ctx.state.font.size = linear.abs;
             ctx.state.font.scale = Relative::ONE.into();
@@ -85,52 +67,35 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
         }
     }
 
-    let mut needs_flattening = false;
-    let list: Vec<_> = args.find_all::<StringLike>().map(|s| s.to_lowercase()).collect();
-
+    let list: Vec<_> = args.filter::<FontFamily>(ctx).map(|f| f.to_string()).collect();
     if !list.is_empty() {
-        Rc::make_mut(&mut ctx.state.font.families).list = list;
-        needs_flattening = true;
+        let families = Rc::make_mut(&mut ctx.state.font.families);
+        families.list = list;
+        families.flatten();
     }
 
-    if let Some(style) = args.get::<_, FontStyle>(ctx, "style") {
+    if let Some(style) = args.get(ctx, "style") {
         ctx.state.font.variant.style = style;
     }
 
-    if let Some(weight) = args.get::<_, FontWeight>(ctx, "weight") {
+    if let Some(weight) = args.get(ctx, "weight") {
         ctx.state.font.variant.weight = weight;
     }
 
-    if let Some(stretch) = args.get::<_, FontStretch>(ctx, "stretch") {
+    if let Some(stretch) = args.get(ctx, "stretch") {
         ctx.state.font.variant.stretch = stretch;
     }
 
-    struct FamilyList(Vec<String>);
-
-    try_from_match!(FamilyList["family or list of families"] @ span:
-        Value::Str(v) => Self(vec![v.to_lowercase()]),
-        Value::Dict(v) => Self(Args(v.with_span(span))
-            .find_all::<StringLike>()
-            .map(|s| s.to_lowercase())
-            .collect()
-        ),
-    );
-
-    for &class in &["serif", "sans-serif", "monospace", "emoji", "math"] {
-        if let Some(list) = args.get::<_, FamilyList>(ctx, class) {
-            Rc::make_mut(&mut ctx.state.font.families)
-                .update_class_list(class.to_string(), list.0);
-            needs_flattening = true;
+    for variant in FontFamily::VARIANTS {
+        if let Some(FontFamilies(list)) = args.get(ctx, variant.as_str()) {
+            let strings = list.into_iter().map(|f| f.to_string()).collect();
+            let families = Rc::make_mut(&mut ctx.state.font.families);
+            families.update_class_list(variant.to_string(), strings);
+            families.flatten();
         }
     }
 
-    if needs_flattening {
-        Rc::make_mut(&mut ctx.state.font.families).flatten();
-    }
-
-    args.done(ctx);
-
-    if let Some(body) = body {
+    if let Some(body) = args.find::<ValueContent>(ctx) {
         body.eval(ctx);
         ctx.state = snapshot;
     }
@@ -138,24 +103,94 @@ pub fn font(mut args: Args, ctx: &mut EvalContext) -> Value {
     Value::None
 }
 
+/// A list of font families.
+#[derive(Debug, Clone, PartialEq)]
+struct FontFamilies(Vec<FontFamily>);
+
+impl_type! {
+    FontFamilies: "font family or array of font families",
+    Value::Str(string) => Self(vec![FontFamily::Named(string.to_lowercase())]),
+    Value::Array(values) => Self(values
+        .into_iter()
+        .filter_map(|v| v.cast().ok())
+        .collect()
+    ),
+    #(family: FontFamily) => Self(vec![family]),
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub(crate) enum FontFamily {
+    Serif,
+    SansSerif,
+    Monospace,
+    Named(String),
+}
+
+impl FontFamily {
+    pub const VARIANTS: &'static [Self] =
+        &[Self::Serif, Self::SansSerif, Self::Monospace];
+
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Serif => "serif",
+            Self::SansSerif => "sans-serif",
+            Self::Monospace => "monospace",
+            Self::Named(s) => s,
+        }
+    }
+}
+
+impl Display for FontFamily {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(self.as_str())
+    }
+}
+
+impl_type! {
+    FontFamily: "font family",
+    Value::Str(string) => Self::Named(string.to_lowercase())
+}
+
+impl_type! {
+    FontStyle: "font style"
+}
+
+impl_type! {
+    FontWeight: "font weight",
+    Value::Int(number) => {
+        let [min, max] = [Self::THIN, Self::BLACK];
+        let message = || format!("must be between {:#?} and {:#?}", min, max);
+        return if number < i64::from(min.to_number()) {
+            CastResult::Warn(min, message())
+        } else if number > i64::from(max.to_number()) {
+            CastResult::Warn(max, message())
+        } else {
+            CastResult::Ok(Self::from_number(number as u16))
+        };
+    },
+}
+
+impl_type! {
+    FontStretch: "font stretch"
+}
+
 /// `rgb`: Create an RGB(A) color.
 ///
 /// # Positional arguments
-/// - Red component (`float` between 0.0 and 1.0).
-/// - Green component (`float` between 0.0 and 1.0).
-/// - Blue component (`float` between 0.0 and 1.0).
-/// - Alpha component (optional, `float` between 0.0 and 1.0).
-pub fn rgb(mut args: Args, ctx: &mut EvalContext) -> Value {
-    let r = args.need::<_, Spanned<f64>>(ctx, 0, "red component");
-    let g = args.need::<_, Spanned<f64>>(ctx, 1, "green component");
-    let b = args.need::<_, Spanned<f64>>(ctx, 2, "blue component");
-    let a = args.get::<_, Spanned<f64>>(ctx, 3);
-    args.done(ctx);
+/// - Red component:   of type `float`, between 0.0 and 1.0.
+/// - Green component: of type `float`, between 0.0 and 1.0.
+/// - Blue component:  of type `float`, between 0.0 and 1.0.
+/// - Alpha component: optional, of type `float`, between 0.0 and 1.0.
+pub fn rgb(ctx: &mut EvalContext, args: &mut Args) -> Value {
+    let r = args.require(ctx, "red component");
+    let g = args.require(ctx, "green component");
+    let b = args.require(ctx, "blue component");
+    let a = args.find(ctx);
 
     let mut clamp = |component: Option<Spanned<f64>>, default| {
         component.map_or(default, |c| {
             if c.v < 0.0 || c.v > 1.0 {
-                ctx.diag(error!(c.span, "should be between 0.0 and 1.0"));
+                ctx.diag(warning!(c.span, "must be between 0.0 and 1.0"));
             }
             (c.v.max(0.0).min(1.0) * 255.0).round() as u8
         })

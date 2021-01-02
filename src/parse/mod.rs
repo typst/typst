@@ -1,5 +1,6 @@
 //! Parsing and tokenization.
 
+mod collection;
 mod lines;
 mod parser;
 mod resolve;
@@ -15,9 +16,10 @@ pub use tokens::*;
 use std::str::FromStr;
 
 use crate::color::RgbaColor;
-use crate::diag::{Deco, Pass};
-use crate::eval::DictKey;
+use crate::diag::Pass;
 use crate::syntax::*;
+
+use collection::{arguments, parenthesized};
 
 /// Parse a string of source code.
 pub fn parse(src: &str) -> Pass<SynTree> {
@@ -153,6 +155,9 @@ fn block_expr(p: &mut Parser) -> Option<Expr> {
     p.push_mode(TokenMode::Header);
     p.start_group(Group::Brace);
     let expr = expr(p);
+    while !p.eof() {
+        p.diag_unexpected();
+    }
     p.pop_mode();
     p.end_group();
     expr
@@ -161,7 +166,7 @@ fn block_expr(p: &mut Parser) -> Option<Expr> {
 /// Parse a parenthesized function call.
 fn paren_call(p: &mut Parser, name: Spanned<Ident>) -> ExprCall {
     p.start_group(Group::Paren);
-    let args = p.span(|p| dict_contents(p).0);
+    let args = p.span(arguments);
     p.end_group();
     ExprCall { name, args }
 }
@@ -184,16 +189,16 @@ fn bracket_call(p: &mut Parser) -> ExprCall {
     p.end_group();
 
     if p.peek() == Some(Token::LeftBracket) {
-        let expr = p.span(|p| Expr::Lit(Lit::Content(bracket_body(p))));
-        inner.span.expand(expr.span);
-        inner.v.args.v.0.push(LitDictEntry { key: None, expr });
+        let body = p.span(|p| Expr::Lit(Lit::Content(bracket_body(p))));
+        inner.span.expand(body.span);
+        inner.v.args.v.push(Argument::Pos(body));
     }
 
     while let Some(mut top) = outer.pop() {
         let span = inner.span;
         let node = inner.map(|c| SynNode::Expr(Expr::Call(c)));
         let expr = Expr::Lit(Lit::Content(vec![node])).with_span(span);
-        top.v.args.v.0.push(LitDictEntry { key: None, expr });
+        top.v.args.v.push(Argument::Pos(expr));
         inner = top;
     }
 
@@ -215,9 +220,9 @@ fn bracket_subheader(p: &mut Parser) -> ExprCall {
         Ident(String::new()).with_span(start)
     });
 
-    let args = p.span(|p| dict_contents(p).0);
-
+    let args = p.span(arguments);
     p.end_group();
+
     ExprCall { name, args }
 }
 
@@ -229,75 +234,6 @@ fn bracket_body(p: &mut Parser) -> SynTree {
     p.pop_mode();
     p.end_group();
     tree
-}
-
-/// Parse the contents of a dictionary.
-fn dict_contents(p: &mut Parser) -> (LitDict, bool) {
-    let mut dict = LitDict::new();
-    let mut missing_coma = None;
-    let mut comma_and_keyless = true;
-
-    while !p.eof() {
-        if let Some(entry) = dict_entry(p) {
-            let behind = entry.expr.span.end;
-            if let Some(pos) = missing_coma.take() {
-                p.diag_expected_at("comma", pos);
-            }
-
-            if let Some(key) = &entry.key {
-                comma_and_keyless = false;
-                p.deco(Deco::Name.with_span(key.span));
-            }
-
-            dict.0.push(entry);
-            if p.eof() {
-                break;
-            }
-
-            if p.eat_if(Token::Comma) {
-                comma_and_keyless = false;
-            } else {
-                missing_coma = Some(behind);
-            }
-        }
-    }
-
-    let coercible = comma_and_keyless && !dict.0.is_empty();
-    (dict, coercible)
-}
-
-/// Parse a single entry in a dictionary.
-fn dict_entry(p: &mut Parser) -> Option<LitDictEntry> {
-    if let Some(ident) = p.span_if(ident) {
-        match p.peek() {
-            // Key-value pair.
-            Some(Token::Colon) => {
-                p.eat_assert(Token::Colon);
-                p.span_if(expr).map(|expr| LitDictEntry {
-                    key: Some(ident.map(|id| DictKey::Str(id.0))),
-                    expr,
-                })
-            }
-
-            // Function call.
-            Some(Token::LeftParen) => Some(LitDictEntry {
-                key: None,
-                expr: {
-                    let start = ident.span.start;
-                    let call = paren_call(p, ident);
-                    Expr::Call(call).with_span(start .. p.last_end())
-                },
-            }),
-
-            // Just an identifier.
-            _ => Some(LitDictEntry {
-                key: None,
-                expr: ident.map(|id| Expr::Lit(Lit::Ident(id))),
-            }),
-        }
-    } else {
-        p.span_if(expr).map(|expr| LitDictEntry { key: None, expr })
-    }
 }
 
 /// Parse an expression: `term (+ term)*`.
@@ -416,19 +352,6 @@ fn content(p: &mut Parser) -> SynTree {
     p.pop_mode();
     p.end_group();
     tree
-}
-
-/// Parse a parenthesized expression: `(a + b)`, `(1, name: "value").
-fn parenthesized(p: &mut Parser) -> Expr {
-    p.start_group(Group::Paren);
-    let (dict, coercible) = dict_contents(p);
-    let expr = if coercible {
-        dict.0.into_iter().next().expect("dict is coercible").expr.v
-    } else {
-        Expr::Lit(Lit::Dict(dict))
-    };
-    p.end_group();
-    expr
 }
 
 /// Parse an identifier.

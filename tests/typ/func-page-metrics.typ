@@ -22,4 +22,4 @@
 [page margins: 0pt, left: 40pt][Overriden]
 
 // Flip the page.
-[page a10, flip: true][Flipped]
+[page "a10", flip: true][Flipped]

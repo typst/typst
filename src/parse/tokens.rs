@@ -477,13 +477,9 @@ mod tests {
     }
 
     #[test]
-    fn test_length_from_str_parses_correct_value_and_unit() {
+    fn test_length_from_str() {
         assert_eq!(parse_length("2.5cm"), Some((2.5, Cm)));
         assert_eq!(parse_length("1.e+2cm"), Some((100.0, Cm)));
-    }
-
-    #[test]
-    fn test_length_from_str_works_with_non_ascii_chars() {
         assert_eq!(parse_length("123🚚"), None);
     }
 
