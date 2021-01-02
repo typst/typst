@@ -1,5 +1,5 @@
 use crate::eval::Softness;
-use crate::layout::{Expansion, Fixed, Spacing, Stack};
+use crate::layout::{Expansion, NodeFixed, NodeSpacing, NodeStack};
 use crate::paper::{Paper, PaperClass};
 use crate::prelude::*;
 
@@ -45,8 +45,8 @@ pub fn align(ctx: &mut EvalContext, args: &mut Args) -> Value {
         // Check whether we know which axis this alignment belongs to.
         if let Some(axis) = axis {
             // We know the axis.
-            let gen_axis = axis.switch(ctx.state.flow);
-            let gen_align = arg.switch(ctx.state.flow);
+            let gen_axis = axis.switch(ctx.state.dirs);
+            let gen_align = arg.switch(ctx.state.dirs);
 
             if arg.axis().map_or(false, |a| a != axis) {
                 ctx.diag(error!(span, "invalid alignment for {} axis", axis));
@@ -132,7 +132,7 @@ impl Alignment {
 impl Switch for Alignment {
     type Other = Align;
 
-    fn switch(self, flow: Flow) -> Self::Other {
+    fn switch(self, dirs: LayoutDirs) -> Self::Other {
         let get = |dir: Dir, at_positive_start| {
             if dir.is_positive() == at_positive_start {
                 Align::Start
@@ -141,12 +141,12 @@ impl Switch for Alignment {
             }
         };
 
-        let flow = flow.switch(flow);
+        let dirs = dirs.switch(dirs);
         match self {
-            Self::Left => get(flow.horizontal, true),
-            Self::Right => get(flow.horizontal, false),
-            Self::Top => get(flow.vertical, true),
-            Self::Bottom => get(flow.vertical, false),
+            Self::Left => get(dirs.horizontal, true),
+            Self::Right => get(dirs.horizontal, false),
+            Self::Top => get(dirs.vertical, true),
+            Self::Bottom => get(dirs.vertical, false),
             Self::Center => Align::Center,
         }
     }
@@ -169,9 +169,9 @@ pub fn boxed(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let main = args.get(ctx, "main-dir");
     let cross = args.get(ctx, "cross-dir");
 
-    ctx.set_flow(Gen::new(main, cross));
+    ctx.set_dirs(Gen::new(main, cross));
 
-    let flow = ctx.state.flow;
+    let dirs = ctx.state.dirs;
     let align = ctx.state.align;
 
     ctx.start_content_group();
@@ -182,19 +182,14 @@ pub fn boxed(ctx: &mut EvalContext, args: &mut Args) -> Value {
 
     let children = ctx.end_content_group();
 
-    ctx.push(Fixed {
+    let fill_if = |c| if c { Expansion::Fill } else { Expansion::Fit };
+    let expansion =
+        Spec::new(fill_if(width.is_some()), fill_if(height.is_some())).switch(dirs);
+
+    ctx.push(NodeFixed {
         width,
         height,
-        child: LayoutNode::dynamic(Stack {
-            flow,
-            align,
-            expansion: Spec::new(
-                Expansion::fill_if(width.is_some()),
-                Expansion::fill_if(height.is_some()),
-            )
-            .switch(flow),
-            children,
-        }),
+        child: Node::any(NodeStack { dirs, align, expansion, children }),
     });
 
     ctx.state = snapshot;
@@ -227,8 +222,8 @@ fn spacing(ctx: &mut EvalContext, args: &mut Args, axis: SpecAxis) -> Value {
 
     if let Some(linear) = spacing {
         let amount = linear.resolve(ctx.state.font.font_size());
-        let spacing = Spacing { amount, softness: Softness::Hard };
-        if axis == ctx.state.flow.main.axis() {
+        let spacing = NodeSpacing { amount, softness: Softness::Hard };
+        if axis == ctx.state.dirs.main.axis() {
             ctx.end_par_group();
             ctx.push(spacing);
             ctx.start_par_group();
@@ -305,7 +300,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let main = args.get(ctx, "main-dir");
     let cross = args.get(ctx, "cross-dir");
 
-    ctx.set_flow(Gen::new(main, cross));
+    ctx.set_dirs(Gen::new(main, cross));
 
     let mut softness = ctx.end_page_group(|_| false);
     if let Some(body) = args.find::<ValueContent>(ctx) {

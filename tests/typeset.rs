@@ -19,7 +19,7 @@ use typst::eval::State;
 use typst::export::pdf;
 use typst::font::FontLoader;
 use typst::geom::{Length, Point, Sides, Size};
-use typst::layout::{BoxLayout, ImageElement, LayoutElement};
+use typst::layout::{Element, Frame, Image};
 use typst::parse::{LineMap, Scanner};
 use typst::shaping::Shaped;
 use typst::syntax::{Location, Pos, SpanVec, Spanned, WithSpan};
@@ -134,16 +134,16 @@ fn test(
     state.page.margins = Sides::uniform(Some(Length::pt(10.0).into()));
 
     let Pass {
-        output: layouts,
+        output: frames,
         feedback: Feedback { mut diags, .. },
     } = typeset(&src, Rc::clone(env), state);
     diags.sort();
 
     let env = env.borrow();
-    let canvas = draw(&layouts, &env, 2.0);
+    let canvas = draw(&frames, &env, 2.0);
     canvas.pixmap.save_png(png_path).unwrap();
 
-    let pdf_data = pdf::export(&layouts, &env);
+    let pdf_data = pdf::export(&frames, &env);
     fs::write(pdf_path, pdf_data).unwrap();
 
     let mut ok = true;
@@ -226,12 +226,12 @@ fn print_diag(diag: &Spanned<Diag>, map: &LineMap) {
     println!("{}: {}-{}: {}", diag.v.level, start, end, diag.v.message);
 }
 
-fn draw(layouts: &[BoxLayout], env: &Env, pixel_per_pt: f32) -> Canvas {
+fn draw(frames: &[Frame], env: &Env, pixel_per_pt: f32) -> Canvas {
     let pad = Length::pt(5.0);
 
-    let height = pad + layouts.iter().map(|l| l.size.height + pad).sum::<Length>();
+    let height = pad + frames.iter().map(|l| l.size.height + pad).sum::<Length>();
     let width = 2.0 * pad
-        + layouts
+        + frames
             .iter()
             .map(|l| l.size.width)
             .max_by(|a, b| a.partial_cmp(&b).unwrap())
@@ -244,7 +244,7 @@ fn draw(layouts: &[BoxLayout], env: &Env, pixel_per_pt: f32) -> Canvas {
     canvas.pixmap.fill(Color::BLACK);
 
     let mut origin = Point::new(pad, pad);
-    for layout in layouts {
+    for frame in frames {
         let mut paint = Paint::default();
         paint.set_color(Color::WHITE);
 
@@ -252,26 +252,26 @@ fn draw(layouts: &[BoxLayout], env: &Env, pixel_per_pt: f32) -> Canvas {
             Rect::from_xywh(
                 origin.x.to_pt() as f32,
                 origin.y.to_pt() as f32,
-                layout.size.width.to_pt() as f32,
-                layout.size.height.to_pt() as f32,
+                frame.size.width.to_pt() as f32,
+                frame.size.height.to_pt() as f32,
             )
             .unwrap(),
             &paint,
         );
 
-        for &(pos, ref element) in &layout.elements {
+        for &(pos, ref element) in &frame.elements {
             let pos = origin + pos;
             match element {
-                LayoutElement::Text(shaped) => {
+                Element::Text(shaped) => {
                     draw_text(&mut canvas, pos, env, shaped);
                 }
-                LayoutElement::Image(image) => {
+                Element::Image(image) => {
                     draw_image(&mut canvas, pos, env, image);
                 }
             }
         }
 
-        origin.y += layout.size.height + pad;
+        origin.y += frame.size.height + pad;
     }
 
     canvas
@@ -303,7 +303,7 @@ fn draw_text(canvas: &mut Canvas, pos: Point, env: &Env, shaped: &Shaped) {
     }
 }
 
-fn draw_image(canvas: &mut Canvas, pos: Point, env: &Env, element: &ImageElement) {
+fn draw_image(canvas: &mut Canvas, pos: Point, env: &Env, element: &Image) {
     let img = &env.resources.loaded::<ImageResource>(element.res);
 
     let mut pixmap = Pixmap::new(img.buf.width(), img.buf.height()).unwrap();

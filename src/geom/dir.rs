@@ -1,7 +1,7 @@
 use super::*;
 
-/// The directions along which content flows in a container.
-pub type Flow = Gen<Dir>;
+/// The directions along which nodes are layouted.
+pub type LayoutDirs = Gen<Dir>;
 
 /// The four directions into which content can be laid out.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

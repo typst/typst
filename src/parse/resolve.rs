@@ -1,5 +1,3 @@
-//! Resolve strings and raw blocks.
-
 use super::{is_newline, Scanner};
 use crate::syntax::{Ident, NodeRaw};
 

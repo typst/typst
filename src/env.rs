@@ -42,12 +42,13 @@ impl ResourceLoader {
         Self { paths: HashMap::new(), entries: vec![] }
     }
 
-    /// Load a resource from a path.
-    pub fn load<R: 'static>(
-        &mut self,
-        path: impl AsRef<Path>,
-        parse: impl FnOnce(Vec<u8>) -> Option<R>,
-    ) -> Option<(ResourceId, &R)> {
+    /// Load a resource from a path and parse it.
+    pub fn load<P, F, R>(&mut self, path: P, parse: F) -> Option<(ResourceId, &R)>
+    where
+        P: AsRef<Path>,
+        F: FnOnce(Vec<u8>) -> Option<R>,
+        R: 'static,
+    {
         let path = path.as_ref();
         let id = match self.paths.entry(path.to_owned()) {
             Entry::Occupied(entry) => *entry.get(),

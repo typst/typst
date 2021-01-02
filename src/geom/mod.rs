@@ -50,5 +50,5 @@ pub trait Switch {
 
     /// The other version of this type based on the current layouting
     /// directions.
-    fn switch(self, flow: Flow) -> Self::Other;
+    fn switch(self, dirs: LayoutDirs) -> Self::Other;
 }

@@ -33,18 +33,18 @@ fn benchmarks(c: &mut Criterion) {
 
     // Prepare intermediate results and run warm.
     let state = State::default();
-    let tree = parse(COMA).output;
-    let document = eval(&tree, Rc::clone(&env), state.clone()).output;
-    let layouts = layout(&document, Rc::clone(&env));
+    let syntax_tree = parse(COMA).output;
+    let layout_tree = eval(&syntax_tree, Rc::clone(&env), state.clone()).output;
+    let frames = layout(&layout_tree, Rc::clone(&env));
 
     // Bench!
     bench!("parse-coma": parse(COMA));
-    bench!("eval-coma": eval(&tree, Rc::clone(&env), state.clone()));
-    bench!("layout-coma": layout(&document, Rc::clone(&env)));
+    bench!("eval-coma": eval(&syntax_tree, Rc::clone(&env), state.clone()));
+    bench!("layout-coma": layout(&layout_tree, Rc::clone(&env)));
     bench!("typeset-coma": typeset(COMA, Rc::clone(&env), state.clone()));
 
     let env = env.borrow();
-    bench!("export-pdf-coma": pdf::export(&layouts, &env));
+    bench!("export-pdf-coma": pdf::export(&frames, &env));
 }
 
 criterion_group!(benches, benchmarks);

@@ -5,23 +5,23 @@
 //!   [iterator of tokens][tokens]. This token stream is [parsed] into a [syntax
 //!   tree]. The structures describing the tree can be found in the [syntax]
 //!   module.
-//! - **Evaluation:** The next step is to [evaluate] the parsed "script" to a
-//!   [document], a high-level, fully styled representation. The nodes of the
-//!   document tree are fully self-contained and order-independent and thus much
+//! - **Evaluation:** The next step is to [evaluate] the parsed "script" into a
+//!   [layout tree], a high-level, fully styled representation. The nodes of
+//!   this tree are fully self-contained and order-independent and thus much
 //!   better suited for layouting than the syntax tree.
-//! - **Layouting:** The next step is to [layout] the document into a portable
-//!   version of the typeset document. The output of this is a vector of
-//!   [`BoxLayout`]s (corresponding to pages), ready for exporting.
+//! - **Layouting:** Next, the tree is to [layouted] into a portable version of
+//!   the typeset document. The output of this is a vector of [`Frame`]s
+//!   (corresponding to pages), ready for exporting.
 //! - **Exporting:** The finished layout can be exported into a supported
 //!   format. Submodules for these formats are located in the [export] module.
 //!   Currently, the only supported output format is [_PDF_].
 //!
 //! [tokens]: parse::Tokens
 //! [parsed]: parse::parse
-//! [syntax tree]: syntax::SynTree
+//! [syntax tree]: syntax::Tree
 //! [evaluate]: eval::eval
-//! [document]: layout::Document
-//! [layout]: layout::layout
+//! [layout tree]: layout::Tree
+//! [layouted]: layout::layout
 //! [_PDF_]: export::pdf
 
 #[macro_use]
@@ -46,13 +46,13 @@ use std::rc::Rc;
 use crate::diag::{Feedback, Pass};
 use crate::env::SharedEnv;
 use crate::eval::State;
-use crate::layout::BoxLayout;
+use crate::layout::Frame;
 
-/// Process _Typst_ source code directly into a collection of layouts.
-pub fn typeset(src: &str, env: SharedEnv, state: State) -> Pass<Vec<BoxLayout>> {
-    let Pass { output: tree, feedback: f1 } = parse::parse(src);
-    let Pass { output: document, feedback: f2 } =
-        eval::eval(&tree, Rc::clone(&env), state);
-    let layouts = layout::layout(&document, env);
-    Pass::new(layouts, Feedback::join(f1, f2))
+/// Process _Typst_ source code directly into a collection of frames.
+pub fn typeset(src: &str, env: SharedEnv, state: State) -> Pass<Vec<Frame>> {
+    let Pass { output: syntax_tree, feedback: f1 } = parse::parse(src);
+    let Pass { output: layout_tree, feedback: f2 } =
+        eval::eval(&syntax_tree, Rc::clone(&env), state);
+    let frames = layout::layout(&layout_tree, env);
+    Pass::new(frames, Feedback::join(f1, f2))
 }

@@ -49,7 +49,7 @@ fn main() -> anyhow::Result<()> {
 
     let state = State::default();
     let Pass {
-        output: layouts,
+        output: frames,
         feedback: Feedback { mut diags, .. },
     } = typeset(&src, Rc::clone(&env), state);
 
@@ -72,7 +72,7 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    let pdf_data = pdf::export(&layouts, &env.borrow());
+    let pdf_data = pdf::export(&frames, &env.borrow());
     fs::write(&dest_path, pdf_data).context("Failed to write PDF file.")?;
 
     Ok(())

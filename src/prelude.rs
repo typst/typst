@@ -8,7 +8,7 @@ pub use crate::eval::{
 };
 pub use crate::geom::*;
 #[doc(no_inline)]
-pub use crate::layout::LayoutNode;
+pub use crate::layout::Node;
 #[doc(no_inline)]
-pub use crate::syntax::{Span, Spanned, SynTree, WithSpan};
-pub use crate::{error, warning};
+pub use crate::syntax::{Span, Spanned, WithSpan};
+pub use crate::{error, impl_type, warning};

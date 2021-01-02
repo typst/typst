@@ -1,46 +1,46 @@
-//! Evaluation state.
-
 use std::rc::Rc;
 
 use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
 
 use super::Scope;
-use crate::geom::{Align, BoxAlign, Dir, Flow, Length, Linear, Relative, Sides, Size};
+use crate::geom::{
+    Align, ChildAlign, Dir, LayoutDirs, Length, Linear, Relative, Sides, Size,
+};
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
-/// The active evaluation state.
+/// The evaluation state.
 #[derive(Debug, Clone, PartialEq)]
 pub struct State {
-    /// The scope that contains function definitions.
+    /// The scope that contains variable definitions.
     pub scope: Scope,
-    /// The page state.
-    pub page: PageState,
-    /// The paragraph state.
-    pub par: ParState,
-    /// The font state.
-    pub font: FontState,
-    /// The active layouting directions.
-    pub flow: Flow,
-    /// The active box alignments.
-    pub align: BoxAlign,
+    /// The current page state.
+    pub page: StatePage,
+    /// The current paragraph state.
+    pub par: StatePar,
+    /// The current font state.
+    pub font: StateFont,
+    /// The current directions.
+    pub dirs: LayoutDirs,
+    /// The current alignments.
+    pub align: ChildAlign,
 }
 
 impl Default for State {
     fn default() -> Self {
         Self {
             scope: crate::library::_std(),
-            page: PageState::default(),
-            par: ParState::default(),
-            font: FontState::default(),
-            flow: Flow::new(Dir::TTB, Dir::LTR),
-            align: BoxAlign::new(Align::Start, Align::Start),
+            page: StatePage::default(),
+            par: StatePar::default(),
+            font: StateFont::default(),
+            dirs: LayoutDirs::new(Dir::TTB, Dir::LTR),
+            align: ChildAlign::new(Align::Start, Align::Start),
         }
     }
 }
 
 /// Defines page properties.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct PageState {
+pub struct StatePage {
     /// The class of this page.
     pub class: PaperClass,
     /// The width and height of the page.
@@ -50,7 +50,7 @@ pub struct PageState {
     pub margins: Sides<Option<Linear>>,
 }
 
-impl PageState {
+impl StatePage {
     /// The default page style for the given paper.
     pub fn new(paper: Paper) -> Self {
         Self {
@@ -72,7 +72,7 @@ impl PageState {
     }
 }
 
-impl Default for PageState {
+impl Default for StatePage {
     fn default() -> Self {
         Self::new(PAPER_A4)
     }
@@ -80,7 +80,7 @@ impl Default for PageState {
 
 /// Defines paragraph properties.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct ParState {
+pub struct StatePar {
     /// The spacing between words (dependent on scaled font size).
     pub word_spacing: Linear,
     /// The spacing between lines (dependent on scaled font size).
@@ -89,7 +89,7 @@ pub struct ParState {
     pub par_spacing: Linear,
 }
 
-impl Default for ParState {
+impl Default for StatePar {
     fn default() -> Self {
         Self {
             word_spacing: Relative::new(0.25).into(),
@@ -101,7 +101,7 @@ impl Default for ParState {
 
 /// Defines font properties.
 #[derive(Debug, Clone, PartialEq)]
-pub struct FontState {
+pub struct StateFont {
     /// A tree of font family names and generic class names.
     pub families: Rc<FallbackTree>,
     /// The selected font variant.
@@ -118,14 +118,14 @@ pub struct FontState {
     pub emph: bool,
 }
 
-impl FontState {
+impl StateFont {
     /// The absolute font size.
     pub fn font_size(&self) -> Length {
         self.scale.resolve(self.size)
     }
 }
 
-impl Default for FontState {
+impl Default for StateFont {
     fn default() -> Self {
         Self {
             families: Rc::new(default_font_families()),
@@ -150,8 +150,6 @@ fn default_font_families() -> FallbackTree {
             "serif"      => ["source serif pro", "noto serif"],
             "sans-serif" => ["source sans pro", "noto sans"],
             "monospace"  => ["source code pro", "noto sans mono"],
-            "emoji"      => ["segoe ui emoji", "noto emoji"],
-            "math"       => ["latin modern math", "serif"],
         },
         base: [
             "source sans pro",

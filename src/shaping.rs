@@ -11,7 +11,7 @@ use ttf_parser::{Face, GlyphId};
 
 use crate::font::FontLoader;
 use crate::geom::{Dir, Length, Point, Size};
-use crate::layout::{BoxLayout, LayoutElement};
+use crate::layout::{Element, Frame};
 
 /// A shaped run of text.
 #[derive(Clone, PartialEq)]
@@ -31,13 +31,13 @@ pub struct Shaped {
 
 impl Shaped {
     /// Create a new shape run with empty `text`, `glyphs` and `offsets`.
-    pub fn new(face: FaceId, size: Length) -> Self {
+    pub fn new(face: FaceId, font_size: Length) -> Self {
         Self {
             text: String::new(),
             face,
             glyphs: vec![],
             offsets: vec![],
-            font_size: size,
+            font_size,
         }
     }
 
@@ -58,16 +58,16 @@ impl Debug for Shaped {
     }
 }
 
-/// Shape text into a box containing [`Shaped`] runs.
+/// Shape text into a frame containing [`Shaped`] runs.
 pub fn shape(
-    loader: &mut FontLoader,
     text: &str,
     dir: Dir,
     font_size: Length,
+    loader: &mut FontLoader,
     fallback: &FallbackTree,
     variant: FontVariant,
-) -> BoxLayout {
-    let mut layout = BoxLayout::new(Size::new(Length::ZERO, font_size));
+) -> Frame {
+    let mut frame = Frame::new(Size::new(Length::ZERO, font_size));
     let mut shaped = Shaped::new(FaceId::MAX, font_size);
     let mut offset = Length::ZERO;
 
@@ -91,9 +91,9 @@ pub fn shape(
 
             // Flush the buffer if we change the font face.
             if shaped.face != id && !shaped.text.is_empty() {
-                let pos = Point::new(layout.size.width, Length::ZERO);
-                layout.push(pos, LayoutElement::Text(shaped));
-                layout.size.width += offset;
+                let pos = Point::new(frame.size.width, Length::ZERO);
+                frame.push(pos, Element::Text(shaped));
+                frame.size.width += offset;
                 shaped = Shaped::new(FaceId::MAX, font_size);
                 offset = Length::ZERO;
             }
@@ -108,12 +108,12 @@ pub fn shape(
 
     // Flush the last buffered parts of the word.
     if !shaped.text.is_empty() {
-        let pos = Point::new(layout.size.width, Length::ZERO);
-        layout.push(pos, LayoutElement::Text(shaped));
-        layout.size.width += offset;
+        let pos = Point::new(frame.size.width, Length::ZERO);
+        frame.push(pos, Element::Text(shaped));
+        frame.size.width += offset;
     }
 
-    layout
+    frame
 }
 
 /// Looks up the glyph for `c` and returns its index alongside its width at the

@@ -22,7 +22,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut Args) -> Value {
         if let Some((res, img)) = loaded {
             let dimensions = img.buf.dimensions();
             drop(env);
-            ctx.push(Image {
+            ctx.push(NodeImage {
                 res,
                 dimensions,
                 width,
@@ -40,7 +40,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut Args) -> Value {
 
 /// An image node.
 #[derive(Debug, Clone, PartialEq)]
-struct Image {
+struct NodeImage {
     /// The resource id of the image file.
     res: ResourceId,
     /// The pixel dimensions of the image.
@@ -50,10 +50,10 @@ struct Image {
     /// The fixed height, if any.
     height: Option<Linear>,
     /// How to align this image node in its parent.
-    align: BoxAlign,
+    align: ChildAlign,
 }
 
-impl Layout for Image {
+impl Layout for NodeImage {
     fn layout(&self, _: &mut LayoutContext, areas: &Areas) -> Layouted {
         let Area { rem, full } = areas.current;
         let pixel_ratio = (self.dimensions.0 as f64) / (self.dimensions.1 as f64);
@@ -76,18 +76,15 @@ impl Layout for Image {
             }
         };
 
-        let mut boxed = BoxLayout::new(size);
-        boxed.push(
-            Point::ZERO,
-            LayoutElement::Image(ImageElement { res: self.res, size }),
-        );
+        let mut frame = Frame::new(size);
+        frame.push(Point::ZERO, Element::Image(Image { res: self.res, size }));
 
-        Layouted::Layout(boxed, self.align)
+        Layouted::Frame(frame, self.align)
     }
 }
 
-impl From<Image> for LayoutNode {
-    fn from(image: Image) -> Self {
-        Self::dynamic(image)
+impl From<NodeImage> for Node {
+    fn from(image: NodeImage) -> Self {
+        Self::any(image)
     }
 }

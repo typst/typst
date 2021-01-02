@@ -3,19 +3,16 @@
 use fontdock::{ContainsChar, FaceFromVec, FontSource};
 use ttf_parser::Face;
 
-/// A font loader backed by a dynamic source.
-pub type FontLoader = fontdock::FontLoader<Box<DynSource>>;
-
-/// The dynamic font source.
-pub type DynSource = dyn FontSource<Face = OwnedFace>;
+/// A font loader that is backed by a dynamic source.
+pub type FontLoader = fontdock::FontLoader<Box<dyn FontSource<Face = FaceBuf>>>;
 
 /// An owned font face.
-pub struct OwnedFace {
+pub struct FaceBuf {
     data: Box<[u8]>,
     face: Face<'static>,
 }
 
-impl OwnedFace {
+impl FaceBuf {
     /// Get a reference to the underlying face.
     pub fn get(&self) -> &Face<'_> {
         // We can't implement Deref because that would leak the internal 'static
@@ -29,7 +26,7 @@ impl OwnedFace {
     }
 }
 
-impl FaceFromVec for OwnedFace {
+impl FaceFromVec for FaceBuf {
     fn from_vec(vec: Vec<u8>, i: u32) -> Option<Self> {
         let data = vec.into_boxed_slice();
 
@@ -45,7 +42,7 @@ impl FaceFromVec for OwnedFace {
     }
 }
 
-impl ContainsChar for OwnedFace {
+impl ContainsChar for FaceBuf {
     fn contains_char(&self, c: char) -> bool {
         self.get().glyph_index(c).is_some()
     }

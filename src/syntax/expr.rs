@@ -1,5 +1,3 @@
-//! Expressions.
-
 use super::*;
 use crate::color::RgbaColor;
 use crate::geom::Unit;
@@ -7,7 +5,7 @@ use crate::geom::Unit;
 /// An expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    /// A literal: `true`, `1cm`, `"hi"`, `{_Hey!_}`.
+    /// A literal: `true`, `1cm`, `"hi"`.
     Lit(Lit),
     /// An invocation of a function: `[foo ...]`, `foo(...)`.
     Call(ExprCall),
@@ -15,6 +13,12 @@ pub enum Expr {
     Unary(ExprUnary),
     /// A binary operation: `a + b`, `a / b`.
     Binary(ExprBinary),
+    /// An array expression: `(1, "hi", 12cm)`.
+    Array(ExprArray),
+    /// A dictionary expression: `(color: #f79143, pattern: dashed)`.
+    Dict(ExprDict),
+    /// A content expression: `{*Hello* there!}`.
+    Content(ExprContent),
 }
 
 /// An invocation of a function: `[foo ...]`, `foo(...)`.
@@ -23,14 +27,14 @@ pub struct ExprCall {
     /// The name of the function.
     pub name: Spanned<Ident>,
     /// The arguments to the function.
-    pub args: Spanned<Arguments>,
+    pub args: Spanned<ExprArgs>,
 }
 
 /// The arguments to a function: `12, draw: false`.
 ///
 /// In case of a bracketed invocation with a body, the body is _not_
 /// included in the span for the sake of clearer error messages.
-pub type Arguments = Vec<Argument>;
+pub type ExprArgs = Vec<Argument>;
 
 /// An argument to a function call: `12` or `draw: false`.
 #[derive(Debug, Clone, PartialEq)]
@@ -39,6 +43,15 @@ pub enum Argument {
     Pos(Spanned<Expr>),
     /// A named argument.
     Named(Named),
+}
+
+/// A pair of a name and an expression: `pattern: dashed`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Named {
+    /// The name: `pattern`.
+    pub name: Spanned<Ident>,
+    /// The right-hand side of the pair: `dashed`.
+    pub expr: Spanned<Expr>,
 }
 
 /// A unary operation: `-x`.
@@ -81,6 +94,15 @@ pub enum BinOp {
     Div,
 }
 
+/// An array expression: `(1, "hi", 12cm)`.
+pub type ExprArray = SpanVec<Expr>;
+
+/// A dictionary expression: `(color: #f79143, pattern: dashed)`.
+pub type ExprDict = Vec<Named>;
+
+/// A content expression: `{*Hello* there!}`.
+pub type ExprContent = Tree;
+
 /// A literal.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Lit {
@@ -103,25 +125,4 @@ pub enum Lit {
     Color(RgbaColor),
     /// A string literal: `"hello!"`.
     Str(String),
-    /// An array literal: `(1, "hi", 12cm)`.
-    Array(Array),
-    /// A dictionary literal: `(color: #f79143, pattern: dashed)`.
-    Dict(Dict),
-    /// A content literal: `{*Hello* there!}`.
-    Content(SynTree),
-}
-
-/// An array literal: `(1, "hi", 12cm)`.
-pub type Array = SpanVec<Expr>;
-
-/// A dictionary literal: `(color: #f79143, pattern: dashed)`.
-pub type Dict = Vec<Named>;
-
-/// A pair of a name and an expression: `pattern: dashed`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Named {
-    /// The name: `pattern`.
-    pub name: Spanned<Ident>,
-    /// The right-hand side of the pair: `dashed`.
-    pub expr: Spanned<Expr>,
 }

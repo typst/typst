@@ -1,5 +1,3 @@
-//! Conversion of byte positions to line/column locations.
-
 use super::Scanner;
 use crate::syntax::{Location, Offset, Pos};
 

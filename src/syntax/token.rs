@@ -1,5 +1,3 @@
-//! Token definition.
-
 use crate::geom::Unit;
 
 /// A minimal semantic entity of source code.

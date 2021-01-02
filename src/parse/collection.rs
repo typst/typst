@@ -2,7 +2,7 @@ use super::*;
 use crate::diag::Deco;
 
 /// Parse the arguments to a function call.
-pub fn arguments(p: &mut Parser) -> Arguments {
+pub fn arguments(p: &mut Parser) -> ExprArgs {
     collection(p, vec![])
 }
 
@@ -74,7 +74,7 @@ trait Collection {
     fn push_comma(&mut self) {}
 }
 
-impl Collection for Arguments {
+impl Collection for ExprArgs {
     fn push_arg(&mut self, _: &mut Parser, arg: Spanned<Argument>) {
         self.push(arg.v);
     }
@@ -85,17 +85,17 @@ impl Collection for Arguments {
 enum State {
     Unknown,
     Expr(Spanned<Expr>),
-    Array(Array),
-    Dict(Dict),
+    Array(ExprArray),
+    Dict(ExprDict),
 }
 
 impl State {
     fn into_expr(self) -> Expr {
         match self {
-            Self::Unknown => Expr::Lit(Lit::Array(vec![])),
+            Self::Unknown => Expr::Array(vec![]),
             Self::Expr(expr) => expr.v,
-            Self::Array(array) => Expr::Lit(Lit::Array(array)),
-            Self::Dict(dict) => Expr::Lit(Lit::Dict(dict)),
+            Self::Array(array) => Expr::Array(array),
+            Self::Dict(dict) => Expr::Dict(dict),
         }
     }
 }

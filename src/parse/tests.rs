@@ -9,7 +9,7 @@ use crate::geom::Unit;
 use crate::syntax::*;
 
 use BinOp::*;
-use SynNode::{Emph, Linebreak, Parbreak, Space, Strong};
+use Node::{Emph, Linebreak, Parbreak, Space, Strong};
 use UnOp::*;
 
 macro_rules! t {
@@ -82,16 +82,16 @@ macro_rules! into {
     };
 }
 
-fn Text(text: &str) -> SynNode {
-    SynNode::Text(text.into())
+fn Text(text: &str) -> Node {
+    Node::Text(text.into())
 }
 
-fn Heading(level: impl Into<Spanned<u8>>, contents: SynTree) -> SynNode {
-    SynNode::Heading(NodeHeading { level: level.into(), contents })
+fn Heading(level: impl Into<Spanned<u8>>, contents: Tree) -> Node {
+    Node::Heading(NodeHeading { level: level.into(), contents })
 }
 
-fn Raw(lang: Option<&str>, lines: &[&str], inline: bool) -> SynNode {
-    SynNode::Raw(NodeRaw {
+fn Raw(lang: Option<&str>, lines: &[&str], inline: bool) -> Node {
+    Node::Raw(NodeRaw {
         lang: lang.map(|id| Ident(id.into())),
         lines: lines.iter().map(ToString::to_string).collect(),
         inline,
@@ -130,8 +130,8 @@ fn Str(string: &str) -> Expr {
     Expr::Lit(Lit::Str(string.to_string()))
 }
 
-fn Block(expr: Expr) -> SynNode {
-    SynNode::Expr(expr)
+fn Block(expr: Expr) -> Node {
+    Node::Expr(expr)
 }
 
 fn Binary(
@@ -157,7 +157,7 @@ macro_rules! Array {
     (@$($expr:expr),* $(,)?) => {
         vec![$(into!($expr)),*]
     };
-    ($($tts:tt)*) => (Expr::Lit(Lit::Array(Array![@$($tts)*])));
+    ($($tts:tt)*) => (Expr::Array(Array![@$($tts)*]));
 }
 
 macro_rules! Dict {
@@ -167,7 +167,7 @@ macro_rules! Dict {
             expr: into!($expr)
         }),*]
     };
-    ($($tts:tt)*) => (Expr::Lit(Lit::Dict(Dict![@$($tts)*])));
+    ($($tts:tt)*) => (Expr::Dict(Dict![@$($tts)*]));
 }
 
 macro_rules! Args {
@@ -187,7 +187,7 @@ macro_rules! Args {
 
 macro_rules! Content {
     (@$($node:expr),* $(,)?) => (vec![$(into!($node)),*]);
-    ($($tts:tt)*) => (Expr::Lit(Lit::Content(Content![@$($tts)*])));
+    ($($tts:tt)*) => (Expr::Content(Content![@$($tts)*]));
 }
 
 macro_rules! Call {
@@ -201,7 +201,7 @@ macro_rules! Call {
         }
     };
     (@$($tts:tt)*) => (Expr::Call(Call!(@@$($tts)*)));
-    ($($tts:tt)*) => (SynNode::Expr(Call!(@$($tts)*)));
+    ($($tts:tt)*) => (Node::Expr(Call!(@$($tts)*)));
 }
 
 #[test]

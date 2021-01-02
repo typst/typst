@@ -1,7 +1,7 @@
 use super::*;
 
-/// The alignment of a box in a container.
-pub type BoxAlign = Gen<Align>;
+/// The alignment of a child in a container.
+pub type ChildAlign = Gen<Align>;
 
 /// Where to align something along a directed axis.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]

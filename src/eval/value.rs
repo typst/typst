@@ -1,5 +1,3 @@
-//! Computational values.
-
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
@@ -9,7 +7,7 @@ use std::rc::Rc;
 use super::{Args, Eval, EvalContext};
 use crate::color::Color;
 use crate::geom::{Length, Linear, Relative};
-use crate::syntax::{Spanned, SynTree, WithSpan};
+use crate::syntax::{Spanned, Tree, WithSpan};
 
 /// A computational value.
 #[derive(Clone, PartialEq)]
@@ -47,6 +45,14 @@ pub enum Value {
 }
 
 impl Value {
+    /// Create a new dynamic value.
+    pub fn any<T>(any: T) -> Self
+    where
+        T: Type + Debug + Clone + PartialEq + 'static,
+    {
+        Self::Any(ValueAny::new(any))
+    }
+
     /// Try to cast the value into a specific type.
     pub fn cast<T>(self) -> CastResult<T, Self>
     where
@@ -130,7 +136,7 @@ pub type ValueArray = Vec<Value>;
 pub type ValueDict = HashMap<String, Value>;
 
 /// A content value: `{*Hi* there}`.
-pub type ValueContent = SynTree;
+pub type ValueContent = Tree;
 
 /// A wrapper around a reference-counted executable function.
 #[derive(Clone)]
@@ -197,7 +203,7 @@ impl ValueAny {
         self.0.as_any().downcast_ref()
     }
 
-    /// The name of the stored object's type.
+    /// The name of the stored value's type.
     pub fn type_name(&self) -> &'static str {
         self.0.dyn_type_name()
     }
@@ -289,7 +295,7 @@ pub enum CastResult<T, V> {
 }
 
 impl<T, V> CastResult<T, V> {
-    /// Access the conversion resulting, discarding a possibly existing warning.
+    /// Access the conversion result, discarding a possibly existing warning.
     pub fn ok(self) -> Option<T> {
         match self {
             CastResult::Ok(t) | CastResult::Warn(t, _) => Some(t),
@@ -399,7 +405,7 @@ impl From<ValueAny> for Value {
     }
 }
 
-/// Make a type usable with [`ValueAny`].
+/// Make a type usable as a [`Value`].
 ///
 /// Given a type `T`, this implements the following traits:
 /// - [`Type`] for `T`,
@@ -419,7 +425,7 @@ macro_rules! impl_type {
 
         impl From<$type> for $crate::eval::Value {
             fn from(any: $type) -> Self {
-                $crate::eval::Value::Any($crate::eval::ValueAny::new(any))
+                $crate::eval::Value::any(any)
             }
         }
 

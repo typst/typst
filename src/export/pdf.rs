@@ -15,22 +15,22 @@ use ttf_parser::{name_id, GlyphId};
 
 use crate::env::{Env, ImageResource, ResourceId};
 use crate::geom::Length;
-use crate::layout::{BoxLayout, LayoutElement};
+use crate::layout::{Element, Frame};
 
-/// Export a list of layouts into a _PDF_ document.
+/// Export a collection of frames into a _PDF_ document.
 ///
-/// This creates one page per layout. Additionally to the layouts, you need to
-/// pass in the font loader used for typesetting such that the fonts can be
-/// included in the _PDF_.
+/// This creates one page per frame. In addition to the frames, you need to pass
+/// in the environment used for typesetting such that things like fonts and
+/// images can be included in the _PDF_.
 ///
 /// Returns the raw bytes making up the _PDF_ document.
-pub fn export(layouts: &[BoxLayout], env: &Env) -> Vec<u8> {
-    PdfExporter::new(layouts, env).write()
+pub fn export(frames: &[Frame], env: &Env) -> Vec<u8> {
+    PdfExporter::new(frames, env).write()
 }
 
 struct PdfExporter<'a> {
     writer: PdfWriter,
-    layouts: &'a [BoxLayout],
+    frames: &'a [Frame],
     env: &'a Env,
     refs: Refs,
     fonts: Remapper<FaceId>,
@@ -38,7 +38,7 @@ struct PdfExporter<'a> {
 }
 
 impl<'a> PdfExporter<'a> {
-    fn new(layouts: &'a [BoxLayout], env: &'a Env) -> Self {
+    fn new(frames: &'a [Frame], env: &'a Env) -> Self {
         let mut writer = PdfWriter::new(1, 7);
         writer.set_indent(2);
 
@@ -46,11 +46,11 @@ impl<'a> PdfExporter<'a> {
         let mut images = Remapper::new();
         let mut alpha_masks = 0;
 
-        for layout in layouts {
-            for (_, element) in &layout.elements {
+        for frame in frames {
+            for (_, element) in &frame.elements {
                 match element {
-                    LayoutElement::Text(shaped) => fonts.insert(shaped.face),
-                    LayoutElement::Image(image) => {
+                    Element::Text(shaped) => fonts.insert(shaped.face),
+                    Element::Image(image) => {
                         let img = env.resources.loaded::<ImageResource>(image.res);
                         if img.buf.color().has_alpha() {
                             alpha_masks += 1;
@@ -61,16 +61,9 @@ impl<'a> PdfExporter<'a> {
             }
         }
 
-        let refs = Refs::new(layouts.len(), fonts.len(), images.len(), alpha_masks);
+        let refs = Refs::new(frames.len(), fonts.len(), images.len(), alpha_masks);
 
-        Self {
-            writer,
-            layouts,
-            env,
-            refs,
-            fonts,
-            images,
-        }
+        Self { writer, frames, env, refs, fonts, images }
     }
 
     fn write(mut self) -> Vec<u8> {
@@ -110,7 +103,7 @@ impl<'a> PdfExporter<'a> {
 
         // The page objects (non-root nodes in the page tree).
         for ((page_id, content_id), page) in
-            self.refs.pages().zip(self.refs.contents()).zip(self.layouts)
+            self.refs.pages().zip(self.refs.contents()).zip(self.frames)
         {
             self.writer
                 .page(page_id)
@@ -126,12 +119,12 @@ impl<'a> PdfExporter<'a> {
     }
 
     fn write_pages(&mut self) {
-        for (id, page) in self.refs.contents().zip(self.layouts) {
+        for (id, page) in self.refs.contents().zip(self.frames) {
             self.write_page(id, &page);
         }
     }
 
-    fn write_page(&mut self, id: Ref, page: &'a BoxLayout) {
+    fn write_page(&mut self, id: Ref, page: &'a Frame) {
         let mut content = Content::new();
 
         // We only write font switching actions when the used face changes. To
@@ -141,7 +134,7 @@ impl<'a> PdfExporter<'a> {
 
         let mut text = content.text();
         for (pos, element) in &page.elements {
-            if let LayoutElement::Text(shaped) = element {
+            if let Element::Text(shaped) = element {
                 // Check if we need to issue a font switching action.
                 if shaped.face != face || shaped.font_size != size {
                     face = shaped.face;
@@ -161,7 +154,7 @@ impl<'a> PdfExporter<'a> {
         drop(text);
 
         for (pos, element) in &page.elements {
-            if let LayoutElement::Image(image) = element {
+            if let Element::Image(image) = element {
                 let name = format!("Im{}", self.images.map(image.res));
                 let size = image.size;
                 let x = pos.x.to_pt() as f32;
@@ -359,12 +352,12 @@ struct FontRefs {
 impl Refs {
     const OBJECTS_PER_FONT: usize = 5;
 
-    fn new(layouts: usize, fonts: usize, images: usize, alpha_masks: usize) -> Self {
+    fn new(frames: usize, fonts: usize, images: usize, alpha_masks: usize) -> Self {
         let catalog = 1;
         let page_tree = catalog + 1;
         let pages_start = page_tree + 1;
-        let contents_start = pages_start + layouts as i32;
-        let fonts_start = contents_start + layouts as i32;
+        let contents_start = pages_start + frames as i32;
+        let fonts_start = contents_start + frames as i32;
         let images_start = fonts_start + (Self::OBJECTS_PER_FONT * fonts) as i32;
         let alpha_masks_start = images_start + images as i32;
         let end = alpha_masks_start + alpha_masks as i32;

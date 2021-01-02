@@ -12,5 +12,5 @@ pub use node::*;
 pub use span::*;
 pub use token::*;
 
-/// A collection of nodes which form a tree together with the nodes' children.
-pub type SynTree = SpanVec<SynNode>;
+/// A collection of nodes which form a tree together with their children.
+pub type Tree = SpanVec<Node>;

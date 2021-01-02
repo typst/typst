@@ -50,8 +50,8 @@ impl<T> Get<GenAxis> for Gen<T> {
 impl<T> Switch for Gen<T> {
     type Other = Spec<T>;
 
-    fn switch(self, flow: Flow) -> Self::Other {
-        match flow.main.axis() {
+    fn switch(self, dirs: LayoutDirs) -> Self::Other {
+        match dirs.main.axis() {
             SpecAxis::Horizontal => Spec::new(self.main, self.cross),
             SpecAxis::Vertical => Spec::new(self.cross, self.main),
         }
@@ -80,10 +80,10 @@ impl GenAxis {
 impl Switch for GenAxis {
     type Other = SpecAxis;
 
-    fn switch(self, flow: Flow) -> Self::Other {
+    fn switch(self, dirs: LayoutDirs) -> Self::Other {
         match self {
-            Self::Main => flow.main.axis(),
-            Self::Cross => flow.cross.axis(),
+            Self::Main => dirs.main.axis(),
+            Self::Cross => dirs.cross.axis(),
         }
     }
 }

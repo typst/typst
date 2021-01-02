@@ -5,7 +5,7 @@ use crate::geom::{Length, Linear, Relative, Sides, Size};
 /// Specification of a paper.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Paper {
-    /// The kind of paper, which defines the default margins.
+    /// The broad class this paper belongs to.
     pub class: PaperClass,
     /// The width of the paper in millimeters.
     pub width: f64,
@@ -25,7 +25,7 @@ impl Paper {
     }
 }
 
-/// Paper classes define default margins for a class of related papers.
+/// Defines default margins for a class of related papers.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PaperClass {
     Custom,

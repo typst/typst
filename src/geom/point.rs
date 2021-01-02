@@ -45,8 +45,8 @@ impl Get<SpecAxis> for Point {
 impl Switch for Point {
     type Other = Gen<Length>;
 
-    fn switch(self, flow: Flow) -> Self::Other {
-        match flow.main.axis() {
+    fn switch(self, dirs: LayoutDirs) -> Self::Other {
+        match dirs.main.axis() {
             SpecAxis::Horizontal => Gen::new(self.x, self.y),
             SpecAxis::Vertical => Gen::new(self.y, self.x),
         }

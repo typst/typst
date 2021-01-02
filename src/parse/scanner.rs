@@ -1,9 +1,7 @@
-//! Low-level char-based scanner.
-
 use std::fmt::{self, Debug, Formatter};
 use std::slice::SliceIndex;
 
-/// A low-level featureful char-based scanner.
+/// A featureful char-based scanner.
 #[derive(Clone)]
 pub struct Scanner<'s> {
     src: &'s str,

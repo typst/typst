@@ -1,11 +1,8 @@
-//! Syntax tree nodes.
-
 use super::*;
 
-/// A syntax node, which encompasses a single logical entity of parsed source
-/// code.
+/// A syntax node, encompassing a single logical entity of parsed source code.
 #[derive(Debug, Clone, PartialEq)]
-pub enum SynNode {
+pub enum Node {
     /// Plain text.
     Text(String),
 
@@ -36,7 +33,7 @@ pub struct NodeHeading {
     /// The section depth (numer of hashtags minus 1).
     pub level: Spanned<u8>,
     /// The contents of the heading.
-    pub contents: SynTree,
+    pub contents: Tree,
 }
 
 /// A raw block with optional syntax highlighting: `` `raw` ``.

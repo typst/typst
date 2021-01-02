@@ -1,5 +1,3 @@
-//! Tokenization.
-
 use std::fmt::{self, Debug, Formatter};
 
 use super::{is_newline, Scanner};

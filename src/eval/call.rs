@@ -1,14 +1,37 @@
 use super::*;
+use crate::diag::Deco;
 
-/// Evaluated arguments to a function.
-#[derive(Debug)]
-pub struct Args {
-    span: Span,
-    pos: SpanVec<Value>,
-    named: Vec<(Spanned<String>, Spanned<Value>)>,
+impl Eval for Spanned<&ExprCall> {
+    type Output = Value;
+
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        let name = &self.v.name.v;
+        let span = self.v.name.span;
+
+        if let Some(value) = ctx.state.scope.get(name) {
+            if let Value::Func(func) = value {
+                let func = func.clone();
+                ctx.deco(Deco::Resolved.with_span(span));
+
+                let mut args = self.v.args.as_ref().eval(ctx);
+                let returned = func(ctx, &mut args);
+                args.finish(ctx);
+
+                return returned;
+            } else {
+                let ty = value.type_name();
+                ctx.diag(error!(span, "a value of type {} is not callable", ty));
+            }
+        } else if !name.is_empty() {
+            ctx.diag(error!(span, "unknown function"));
+        }
+
+        ctx.deco(Deco::Unresolved.with_span(span));
+        Value::Error
+    }
 }
 
-impl Eval for Spanned<&Arguments> {
+impl Eval for Spanned<&ExprArgs> {
     type Output = Args;
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
@@ -31,6 +54,14 @@ impl Eval for Spanned<&Arguments> {
 
         Args { span: self.span, pos, named }
     }
+}
+
+/// Evaluated arguments to a function.
+#[derive(Debug)]
+pub struct Args {
+    span: Span,
+    pos: SpanVec<Value>,
+    named: Vec<(Spanned<String>, Spanned<Value>)>,
 }
 
 impl Args {
@@ -66,9 +97,8 @@ impl Args {
         self.pos.iter_mut().filter_map(move |slot| try_cast(ctx, slot))
     }
 
-    /// Convert the value for the given named argument.
-    ///
-    /// Generates an error if the conversion fails.
+    /// Convert the value for the given named argument, producing an error if
+    /// the conversion fails.
     pub fn get<'a, T>(&mut self, ctx: &mut EvalContext, name: &str) -> Option<T>
     where
         T: Cast<Spanned<Value>>,
@@ -78,7 +108,7 @@ impl Args {
         cast(ctx, value)
     }
 
-    /// Generate "unexpected argument" errors for all remaining arguments.
+    /// Produce "unexpected argument" errors for all remaining arguments.
     pub fn finish(self, ctx: &mut EvalContext) {
         let a = self.pos.iter().map(|v| v.as_ref());
         let b = self.named.iter().map(|(k, v)| (&v.v).with_span(k.span.join(v.span)));

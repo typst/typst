@@ -1,26 +1,26 @@
 use super::*;
 use crate::geom::Linear;
 
-/// A node that pads its child at the sides.
+/// A node that adds padding to its child.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Pad {
+pub struct NodePad {
     /// The amount of padding.
     pub padding: Sides<Linear>,
     /// The child node whose sides to pad.
-    pub child: LayoutNode,
+    pub child: Node,
 }
 
-impl Layout for Pad {
+impl Layout for NodePad {
     fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted {
-        let areas = shrink_areas(areas, self.padding);
+        let areas = shrink(areas, self.padding);
 
         let mut layouted = self.child.layout(ctx, &areas);
         match &mut layouted {
             Layouted::Spacing(_) => {}
-            Layouted::Layout(layout, _) => pad_layout(layout, self.padding),
-            Layouted::Layouts(layouts, _) => {
-                for layout in layouts {
-                    pad_layout(layout, self.padding);
+            Layouted::Frame(frame, _) => pad(frame, self.padding),
+            Layouted::Frames(frames, _) => {
+                for frame in frames {
+                    pad(frame, self.padding);
                 }
             }
         }
@@ -29,14 +29,14 @@ impl Layout for Pad {
     }
 }
 
-impl From<Pad> for LayoutNode {
-    fn from(pad: Pad) -> Self {
-        Self::dynamic(pad)
+impl From<NodePad> for Node {
+    fn from(pad: NodePad) -> Self {
+        Self::any(pad)
     }
 }
 
 /// Shrink all areas by the padding.
-fn shrink_areas(areas: &Areas, padding: Sides<Linear>) -> Areas {
+fn shrink(areas: &Areas, padding: Sides<Linear>) -> Areas {
     let shrink = |size| size - padding.resolve(size).size();
     Areas {
         current: Area {
@@ -49,12 +49,12 @@ fn shrink_areas(areas: &Areas, padding: Sides<Linear>) -> Areas {
 }
 
 /// Enlarge the box and move all elements inwards.
-fn pad_layout(layout: &mut BoxLayout, padding: Sides<Linear>) {
-    let padding = padding.resolve(layout.size);
+fn pad(frame: &mut Frame, padding: Sides<Linear>) {
+    let padding = padding.resolve(frame.size);
     let origin = Point::new(padding.left, padding.top);
 
-    layout.size += padding.size();
-    for (point, _) in &mut layout.elements {
+    frame.size += padding.size();
+    for (point, _) in &mut frame.elements {
         *point += origin;
     }
 }

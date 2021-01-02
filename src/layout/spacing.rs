@@ -5,7 +5,7 @@ use crate::eval::Softness;
 
 /// A  spacing node.
 #[derive(Copy, Clone, PartialEq)]
-pub struct Spacing {
+pub struct NodeSpacing {
     /// The amount of spacing to insert.
     pub amount: Length,
     /// Defines how spacing interacts with surrounding spacing.
@@ -19,13 +19,13 @@ pub struct Spacing {
     pub softness: Softness,
 }
 
-impl Layout for Spacing {
+impl Layout for NodeSpacing {
     fn layout(&self, _: &mut LayoutContext, _: &Areas) -> Layouted {
         Layouted::Spacing(self.amount)
     }
 }
 
-impl Debug for Spacing {
+impl Debug for NodeSpacing {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self.softness {
             Softness::Soft => write!(f, "Soft({})", self.amount),
@@ -34,8 +34,8 @@ impl Debug for Spacing {
     }
 }
 
-impl From<Spacing> for LayoutNode {
-    fn from(spacing: Spacing) -> Self {
+impl From<NodeSpacing> for Node {
+    fn from(spacing: NodeSpacing) -> Self {
         Self::Spacing(spacing)
     }
 }

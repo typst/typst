@@ -8,11 +8,11 @@ use crate::shaping;
 
 /// A text node.
 #[derive(Clone, PartialEq)]
-pub struct Text {
+pub struct NodeText {
     /// The text.
     pub text: String,
     /// How to align this text node in its parent.
-    pub align: BoxAlign,
+    pub align: ChildAlign,
     /// The text direction.
     pub dir: Dir,
     /// The font size.
@@ -23,15 +23,15 @@ pub struct Text {
     pub variant: FontVariant,
 }
 
-impl Layout for Text {
+impl Layout for NodeText {
     fn layout(&self, ctx: &mut LayoutContext, _: &Areas) -> Layouted {
         let mut env = ctx.env.borrow_mut();
-        Layouted::Layout(
+        Layouted::Frame(
             shaping::shape(
-                &mut env.fonts,
                 &self.text,
                 self.dir,
                 self.font_size,
+                &mut env.fonts,
                 &self.families,
                 self.variant,
             ),
@@ -40,14 +40,14 @@ impl Layout for Text {
     }
 }
 
-impl Debug for Text {
+impl Debug for NodeText {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Text({})", self.text)
     }
 }
 
-impl From<Text> for LayoutNode {
-    fn from(text: Text) -> Self {
+impl From<NodeText> for Node {
+    fn from(text: NodeText) -> Self {
         Self::Text(text)
     }
 }

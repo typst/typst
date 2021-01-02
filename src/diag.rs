@@ -1,8 +1,6 @@
 //! Diagnostics and decorations for source code.
 //!
-//! There are no fatal errors. The document will always compile and yield a
-//! layout on a best effort process, but diagnostics are nevertheless generated
-//! for incorrect things.
+//! Errors are never fatal, the document will always compile and yield a layout.
 
 use crate::syntax::SpanVec;
 use std::fmt::{self, Display, Formatter};
@@ -21,22 +19,9 @@ impl<T> Pass<T> {
     pub fn new(output: T, feedback: Feedback) -> Self {
         Self { output, feedback }
     }
-
-    /// Create a new pass with empty feedback.
-    pub fn okay(output: T) -> Self {
-        Self { output, feedback: Feedback::new() }
-    }
-
-    /// Map the output type and keep the feedback data.
-    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Pass<U> {
-        Pass {
-            output: f(self.output),
-            feedback: self.feedback,
-        }
-    }
 }
 
-/// Diagnostic and semantic syntax highlighting data.
+/// Diagnostics and semantic syntax highlighting information.
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Feedback {
     /// Diagnostics about the source code.
@@ -64,7 +49,7 @@ impl Feedback {
     }
 }
 
-/// A diagnostic that arose in parsing or layouting.
+/// A diagnostic with severity level and message.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Diag {

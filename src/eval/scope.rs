@@ -1,11 +1,9 @@
-//! Mapping from identifiers to functions.
-
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
 use super::Value;
 
-/// A map from identifiers to functions.
+/// A map from identifiers to values.
 #[derive(Default, Clone, PartialEq)]
 pub struct Scope {
     values: HashMap<String, Value>,

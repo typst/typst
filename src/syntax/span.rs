@@ -1,5 +1,3 @@
-//! Mapping of values to the locations they originate from in source code.
-
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Range;
 
@@ -66,12 +64,18 @@ impl<T> Spanned<T> {
     }
 
     /// Map the value using a function while keeping the span.
-    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Spanned<U> {
+    pub fn map<F, U>(self, f: F) -> Spanned<U>
+    where
+        F: FnOnce(T) -> U,
+    {
         Spanned { v: f(self.v), span: self.span }
     }
 
     /// Maps the span while keeping the value.
-    pub fn map_span(mut self, f: impl FnOnce(Span) -> Span) -> Self {
+    pub fn map_span<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(Span) -> Span,
+    {
         self.span = f(self.span);
         self
     }
@@ -102,7 +106,7 @@ impl<T: Debug> Debug for Spanned<T> {
     }
 }
 
-/// Locates a slice of source code.
+/// Bounds of a slice of source code.
 #[derive(Copy, Clone, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Span {

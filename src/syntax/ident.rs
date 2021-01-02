@@ -1,5 +1,3 @@
-//! Unicode identifiers.
-
 use std::ops::Deref;
 
 use unicode_xid::UnicodeXID;
@@ -44,7 +42,7 @@ impl Deref for Ident {
     }
 }
 
-/// Whether the string is a valid identifier.
+/// Whether a string is a valid identifier.
 pub fn is_ident(string: &str) -> bool {
     let mut chars = string.chars();
     chars
@@ -52,12 +50,12 @@ pub fn is_ident(string: &str) -> bool {
         .map_or(false, |c| is_id_start(c) && chars.all(is_id_continue))
 }
 
-/// Whether the character can start an identifier.
+/// Whether a character can start an identifier.
 pub fn is_id_start(c: char) -> bool {
     c.is_xid_start() || c == '_'
 }
 
-/// Whether the character can continue an identifier.
+/// Whether a character can continue an identifier.
 pub fn is_id_continue(c: char) -> bool {
     c.is_xid_continue() || c == '_' || c == '-'
 }

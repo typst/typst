@@ -22,13 +22,13 @@ use crate::syntax::*;
 use collection::{arguments, parenthesized};
 
 /// Parse a string of source code.
-pub fn parse(src: &str) -> Pass<SynTree> {
+pub fn parse(src: &str) -> Pass<Tree> {
     let mut p = Parser::new(src);
     Pass::new(tree(&mut p), p.finish())
 }
 
 /// Parse a syntax tree.
-fn tree(p: &mut Parser) -> SynTree {
+fn tree(p: &mut Parser) -> Tree {
     // We keep track of whether we are at the start of a block or paragraph
     // to know whether headings are allowed.
     let mut at_start = true;
@@ -36,8 +36,8 @@ fn tree(p: &mut Parser) -> SynTree {
     while !p.eof() {
         if let Some(node) = p.span_if(|p| node(p, at_start)) {
             match node.v {
-                SynNode::Parbreak => at_start = true,
-                SynNode::Space => {}
+                Node::Parbreak => at_start = true,
+                Node::Space => {}
                 _ => at_start = false,
             }
             tree.push(node);
@@ -47,42 +47,42 @@ fn tree(p: &mut Parser) -> SynTree {
 }
 
 /// Parse a syntax node.
-fn node(p: &mut Parser, at_start: bool) -> Option<SynNode> {
+fn node(p: &mut Parser, at_start: bool) -> Option<Node> {
     let node = match p.peek()? {
         Token::Space(newlines) => {
             if newlines < 2 {
-                SynNode::Space
+                Node::Space
             } else {
-                SynNode::Parbreak
+                Node::Parbreak
             }
         }
-        Token::Text(text) => SynNode::Text(text.into()),
+        Token::Text(text) => Node::Text(text.into()),
 
         Token::LineComment(_) | Token::BlockComment(_) => {
             p.eat();
             return None;
         }
 
-        Token::Star => SynNode::Strong,
-        Token::Underscore => SynNode::Emph,
-        Token::Tilde => SynNode::Text("\u{00A0}".into()),
-        Token::Backslash => SynNode::Linebreak,
+        Token::Star => Node::Strong,
+        Token::Underscore => Node::Emph,
+        Token::Tilde => Node::Text("\u{00A0}".into()),
+        Token::Backslash => Node::Linebreak,
         Token::Hashtag => {
             if at_start {
-                return Some(SynNode::Heading(heading(p)));
+                return Some(Node::Heading(heading(p)));
             } else {
-                SynNode::Text(p.get(p.peek_span()).into())
+                Node::Text(p.get(p.peek_span()).into())
             }
         }
-        Token::Raw(t) => SynNode::Raw(raw(p, t)),
-        Token::UnicodeEscape(t) => SynNode::Text(unicode_escape(p, t)),
+        Token::Raw(t) => Node::Raw(raw(p, t)),
+        Token::UnicodeEscape(t) => Node::Text(unicode_escape(p, t)),
 
         Token::LeftBracket => {
-            return Some(SynNode::Expr(Expr::Call(bracket_call(p))));
+            return Some(Node::Expr(Expr::Call(bracket_call(p))));
         }
 
         Token::LeftBrace => {
-            return Some(SynNode::Expr(block_expr(p)?));
+            return Some(Node::Expr(block_expr(p)?));
         }
 
         _ => {
@@ -189,15 +189,15 @@ fn bracket_call(p: &mut Parser) -> ExprCall {
     p.end_group();
 
     if p.peek() == Some(Token::LeftBracket) {
-        let body = p.span(|p| Expr::Lit(Lit::Content(bracket_body(p))));
+        let body = p.span(|p| Expr::Content(bracket_body(p)));
         inner.span.expand(body.span);
         inner.v.args.v.push(Argument::Pos(body));
     }
 
     while let Some(mut top) = outer.pop() {
         let span = inner.span;
-        let node = inner.map(|c| SynNode::Expr(Expr::Call(c)));
-        let expr = Expr::Lit(Lit::Content(vec![node])).with_span(span);
+        let node = inner.map(|c| Node::Expr(Expr::Call(c)));
+        let expr = Expr::Content(vec![node]).with_span(span);
         top.v.args.v.push(Argument::Pos(expr));
         inner = top;
     }
@@ -227,7 +227,7 @@ fn bracket_subheader(p: &mut Parser) -> ExprCall {
 }
 
 /// Parse the body of a bracketed function call.
-fn bracket_body(p: &mut Parser) -> SynTree {
+fn bracket_body(p: &mut Parser) -> Tree {
     p.push_mode(TokenMode::Body);
     p.start_group(Group::Bracket);
     let tree = tree(p);
@@ -299,13 +299,13 @@ fn value(p: &mut Parser) -> Option<Expr> {
     let expr = match p.peek() {
         // Bracketed function call.
         Some(Token::LeftBracket) => {
-            let node = p.span(|p| SynNode::Expr(Expr::Call(bracket_call(p))));
-            return Some(Expr::Lit(Lit::Content(vec![node])));
+            let node = p.span(|p| Node::Expr(Expr::Call(bracket_call(p))));
+            return Some(Expr::Content(vec![node]));
         }
 
         // Content expression.
         Some(Token::LeftBrace) => {
-            return Some(Expr::Lit(Lit::Content(content(p))));
+            return Some(Expr::Content(content(p)));
         }
 
         // Dictionary or just a parenthesized expression.
@@ -345,7 +345,7 @@ fn value(p: &mut Parser) -> Option<Expr> {
 }
 
 // Parse a content value: `{...}`.
-fn content(p: &mut Parser) -> SynTree {
+fn content(p: &mut Parser) -> Tree {
     p.push_mode(TokenMode::Body);
     p.start_group(Group::Brace);
     let tree = tree(p);
