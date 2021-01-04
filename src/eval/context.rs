@@ -119,15 +119,17 @@ impl EvalContext {
         if !children.is_empty() || keep_empty(group.softness) {
             self.runs.push(NodePages {
                 size: group.size,
-                child: Node::any(NodePad {
+                child: NodePad {
                     padding: group.padding,
-                    child: Node::any(NodeStack {
+                    child: NodeStack {
                         dirs: group.dirs,
                         align: group.align,
                         expansion: Gen::uniform(Expansion::Fill),
                         children,
-                    }),
-                }),
+                    }
+                    .into(),
+                }
+                .into(),
             })
         }
         group.softness

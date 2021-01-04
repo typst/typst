@@ -29,9 +29,9 @@ impl Layout for NodePad {
     }
 }
 
-impl From<NodePad> for Node {
+impl From<NodePad> for NodeAny {
     fn from(pad: NodePad) -> Self {
-        Self::any(pad)
+        Self::new(pad)
     }
 }
 

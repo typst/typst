@@ -34,9 +34,9 @@ impl Layout for NodeStack {
     }
 }
 
-impl From<NodeStack> for Node {
+impl From<NodeStack> for NodeAny {
     fn from(stack: NodeStack) -> Self {
-        Self::any(stack)
+        Self::new(stack)
     }
 }
 

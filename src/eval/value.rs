@@ -1,6 +1,6 @@
 use std::any::Any;
 use std::collections::HashMap;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 
@@ -45,14 +45,6 @@ pub enum Value {
 }
 
 impl Value {
-    /// Create a new dynamic value.
-    pub fn any<T>(any: T) -> Self
-    where
-        T: Type + Debug + Clone + PartialEq + 'static,
-    {
-        Self::Any(ValueAny::new(any))
-    }
-
     /// Try to cast the value into a specific type.
     pub fn cast<T>(self) -> CastResult<T, Self>
     where
@@ -68,8 +60,8 @@ impl Value {
             Self::Bool(_) => bool::TYPE_NAME,
             Self::Int(_) => i64::TYPE_NAME,
             Self::Float(_) => f64::TYPE_NAME,
-            Self::Relative(_) => Relative::TYPE_NAME,
             Self::Length(_) => Length::TYPE_NAME,
+            Self::Relative(_) => Relative::TYPE_NAME,
             Self::Linear(_) => Linear::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
             Self::Str(_) => String::TYPE_NAME,
@@ -88,16 +80,24 @@ impl Eval for &Value {
 
     /// Evaluate everything contained in this value.
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        match self {
-            // Don't print out none values.
-            Value::None => {}
-
-            // Pass through.
-            Value::Content(tree) => tree.eval(ctx),
-
-            // Format with debug.
-            val => ctx.push(ctx.make_text_node(format!("{:?}", val))),
-        }
+        ctx.push(ctx.make_text_node(match self {
+            Value::None => return,
+            Value::Bool(v) => v.to_string(),
+            Value::Int(v) => v.to_string(),
+            Value::Float(v) => v.to_string(),
+            Value::Length(v) => v.to_string(),
+            Value::Relative(v) => v.to_string(),
+            Value::Linear(v) => v.to_string(),
+            Value::Color(v) => v.to_string(),
+            Value::Str(v) => v.clone(),
+            // TODO: Find good representation for composite types.
+            Value::Array(_v) => "(array)".into(),
+            Value::Dict(_v) => "(dictionary)".into(),
+            Value::Content(tree) => return tree.eval(ctx),
+            Value::Func(v) => v.to_string(),
+            Value::Any(v) => v.to_string(),
+            Value::Error => "(error)".into(),
+        }));
     }
 }
 
@@ -110,21 +110,21 @@ impl Default for Value {
 impl Debug for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::None => f.pad("none"),
-            Self::Bool(v) => v.fmt(f),
-            Self::Int(v) => v.fmt(f),
-            Self::Float(v) => v.fmt(f),
-            Self::Length(v) => v.fmt(f),
-            Self::Relative(v) => v.fmt(f),
-            Self::Linear(v) => v.fmt(f),
-            Self::Color(v) => v.fmt(f),
-            Self::Str(v) => v.fmt(f),
-            Self::Array(v) => v.fmt(f),
-            Self::Dict(v) => v.fmt(f),
-            Self::Content(v) => v.fmt(f),
-            Self::Func(v) => v.fmt(f),
-            Self::Any(v) => v.fmt(f),
-            Self::Error => f.pad("<error>"),
+            Self::None => f.pad("None"),
+            Self::Bool(v) => Debug::fmt(v, f),
+            Self::Int(v) => Debug::fmt(v, f),
+            Self::Float(v) => Debug::fmt(v, f),
+            Self::Length(v) => Debug::fmt(v, f),
+            Self::Relative(v) => Debug::fmt(v, f),
+            Self::Linear(v) => Debug::fmt(v, f),
+            Self::Color(v) => Debug::fmt(v, f),
+            Self::Str(v) => Debug::fmt(v, f),
+            Self::Array(v) => Debug::fmt(v, f),
+            Self::Dict(v) => Debug::fmt(v, f),
+            Self::Content(v) => Debug::fmt(v, f),
+            Self::Func(v) => Debug::fmt(v, f),
+            Self::Any(v) => Debug::fmt(v, f),
+            Self::Error => f.pad("Error"),
         }
     }
 }
@@ -140,15 +140,18 @@ pub type ValueContent = Tree;
 
 /// A wrapper around a reference-counted executable function.
 #[derive(Clone)]
-pub struct ValueFunc(Rc<dyn Fn(&mut EvalContext, &mut Args) -> Value>);
+pub struct ValueFunc {
+    name: String,
+    f: Rc<dyn Fn(&mut EvalContext, &mut Args) -> Value>,
+}
 
 impl ValueFunc {
     /// Create a new function value from a rust function or closure.
-    pub fn new<F>(func: F) -> Self
+    pub fn new<F>(name: impl Into<String>, f: F) -> Self
     where
         F: Fn(&mut EvalContext, &mut Args) -> Value + 'static,
     {
-        Self(Rc::new(func))
+        Self { name: name.into(), f: Rc::new(f) }
     }
 }
 
@@ -162,13 +165,18 @@ impl Deref for ValueFunc {
     type Target = dyn Fn(&mut EvalContext, &mut Args) -> Value;
 
     fn deref(&self) -> &Self::Target {
-        self.0.as_ref()
+        self.f.as_ref()
     }
 }
 
+impl Display for ValueFunc {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "<function {}>", self.name)
+    }
+}
 impl Debug for ValueFunc {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("<function>")
+        Display::fmt(self, f)
     }
 }
 
@@ -179,7 +187,7 @@ impl ValueAny {
     /// Create a new instance from any value that satisifies the required bounds.
     pub fn new<T>(any: T) -> Self
     where
-        T: Type + Debug + Clone + PartialEq + 'static,
+        T: Type + Debug + Display + Clone + PartialEq + 'static,
     {
         Self(Box::new(any))
     }
@@ -221,13 +229,19 @@ impl PartialEq for ValueAny {
     }
 }
 
-impl Debug for ValueAny {
+impl Display for ValueAny {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
+        Display::fmt(&self.0, f)
     }
 }
 
-trait Bounds: Debug + 'static {
+impl Debug for ValueAny {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Debug::fmt(&self.0, f)
+    }
+}
+
+trait Bounds: Debug + Display + 'static {
     fn as_any(&self) -> &dyn Any;
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
     fn dyn_eq(&self, other: &ValueAny) -> bool;
@@ -237,7 +251,7 @@ trait Bounds: Debug + 'static {
 
 impl<T> Bounds for T
 where
-    T: Type + Debug + Clone + PartialEq + 'static,
+    T: Type + Debug + Display + Clone + PartialEq + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -301,6 +315,16 @@ impl<T, V> CastResult<T, V> {
             CastResult::Ok(t) | CastResult::Warn(t, _) => Some(t),
             CastResult::Err(_) => None,
         }
+    }
+}
+
+impl Type for Value {
+    const TYPE_NAME: &'static str = "value";
+}
+
+impl Cast<Value> for Value {
+    fn cast(value: Value) -> CastResult<Self, Value> {
+        CastResult::Ok(value)
     }
 }
 
@@ -390,15 +414,6 @@ impl From<&str> for Value {
     }
 }
 
-impl<F> From<F> for Value
-where
-    F: Fn(&mut EvalContext, &mut Args) -> Value + 'static,
-{
-    fn from(func: F) -> Self {
-        Self::Func(ValueFunc::new(func))
-    }
-}
-
 impl From<ValueAny> for Value {
     fn from(v: ValueAny) -> Self {
         Self::Any(v)
@@ -407,9 +422,8 @@ impl From<ValueAny> for Value {
 
 /// Make a type usable as a [`Value`].
 ///
-/// Given a type `T`, this implements the following traits:
+/// Given a type `T`, this always implements the following traits:
 /// - [`Type`] for `T`,
-/// - [`From<T>`](From) for [`Value`],
 /// - [`Cast<Value>`](Cast) for `T`.
 #[macro_export]
 macro_rules! impl_type {
@@ -421,12 +435,6 @@ macro_rules! impl_type {
     ) => {
         impl $crate::eval::Type for $type {
             const TYPE_NAME: &'static str = $type_name;
-        }
-
-        impl From<$type> for $crate::eval::Value {
-            fn from(any: $type) -> Self {
-                $crate::eval::Value::any(any)
-            }
         }
 
         impl $crate::eval::Cast<$crate::eval::Value> for $type {

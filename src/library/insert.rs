@@ -83,8 +83,8 @@ impl Layout for NodeImage {
     }
 }
 
-impl From<NodeImage> for Node {
+impl From<NodeImage> for NodeAny {
     fn from(image: NodeImage) -> Self {
-        Self::any(image)
+        Self::new(image)
     }
 }

@@ -14,16 +14,6 @@ pub enum Node {
     Any(NodeAny),
 }
 
-impl Node {
-    /// Create a new dynamic node.
-    pub fn any<T>(any: T) -> Self
-    where
-        T: Layout + Debug + Clone + PartialEq + 'static,
-    {
-        Self::Any(NodeAny::new(any))
-    }
-}
-
 impl Layout for Node {
     fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted {
         match self {
@@ -81,9 +71,12 @@ impl Debug for NodeAny {
     }
 }
 
-impl From<NodeAny> for Node {
-    fn from(dynamic: NodeAny) -> Self {
-        Self::Any(dynamic)
+impl<T> From<T> for Node
+where
+    T: Into<NodeAny>,
+{
+    fn from(t: T) -> Self {
+        Self::Any(t.into())
     }
 }
 

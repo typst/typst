@@ -32,7 +32,7 @@ impl Relative {
 
 impl Display for Relative {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:.2}%", self.0)
+        write!(f, "{}%", (self.0 * 10000.0).round() / 100.0)
     }
 }
 

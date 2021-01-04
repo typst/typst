@@ -1,6 +1,6 @@
 //! Color handling.
 
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::str::FromStr;
 
 /// A color in a dynamic format.
@@ -10,10 +10,18 @@ pub enum Color {
     Rgba(RgbaColor),
 }
 
+impl Display for Color {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Rgba(c) => Display::fmt(c, f),
+        }
+    }
+}
+
 impl Debug for Color {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Rgba(c) => c.fmt(f),
+            Self::Rgba(c) => Debug::fmt(c, f),
         }
     }
 }
@@ -76,6 +84,16 @@ impl FromStr for RgbaColor {
     }
 }
 
+impl Display for RgbaColor {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "#{:02x}{:02x}{:02x}", self.r, self.g, self.b)?;
+        if self.a != 255 {
+            write!(f, "{:02x}", self.a)?;
+        }
+        Ok(())
+    }
+}
+
 impl Debug for RgbaColor {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if f.alternate() {
@@ -83,14 +101,10 @@ impl Debug for RgbaColor {
                 f,
                 "rgba({:02}, {:02}, {:02}, {:02})",
                 self.r, self.g, self.b, self.a,
-            )?;
+            )
         } else {
-            write!(f, "#{:02x}{:02x}{:02x}", self.r, self.g, self.b)?;
-            if self.a != 255 {
-                write!(f, "{:02x}", self.a)?;
-            }
+            Display::fmt(self, f)
         }
-        Ok(())
     }
 }
 

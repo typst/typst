@@ -90,7 +90,7 @@ impl Display for Length {
         } else {
             (self.to_cm(), Unit::Cm)
         };
-        write!(f, "{:.2}{}", val, unit)
+        write!(f, "{}{}", (val * 100.0).round() / 100.0, unit)
     }
 }
 
@@ -214,8 +214,8 @@ mod tests {
 
     #[test]
     fn test_length_formatting() {
-        assert_eq!(Length::pt(-28.34).to_string(), "-1.00cm".to_string());
-        assert_eq!(Length::pt(23.0).to_string(), "23.00pt".to_string());
+        assert_eq!(Length::pt(-28.34).to_string(), "-1cm".to_string());
+        assert_eq!(Length::pt(23.0).to_string(), "23pt".to_string());
         assert_eq!(Length::cm(12.728).to_string(), "12.73cm".to_string());
     }
 }

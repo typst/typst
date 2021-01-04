@@ -269,14 +269,14 @@ impl Location {
     }
 }
 
-impl Debug for Location {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
-    }
-}
-
 impl Display for Location {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}:{}", self.line, self.column)
+    }
+}
+
+impl Debug for Location {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(self, f)
     }
 }

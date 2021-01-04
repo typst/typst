@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::eval::Softness;
 use crate::layout::{Expansion, NodeFixed, NodeSpacing, NodeStack};
 use crate::paper::{Paper, PaperClass};
@@ -153,7 +155,19 @@ impl Switch for Alignment {
 }
 
 impl_type! {
-    Alignment: "alignment"
+    Alignment: "alignment",
+}
+
+impl Display for Alignment {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(match self {
+            Self::Left => "left",
+            Self::Center => "center",
+            Self::Right => "right",
+            Self::Top => "top",
+            Self::Bottom => "bottom",
+        })
+    }
 }
 
 /// `box`: Layout content into a box.
@@ -161,7 +175,7 @@ impl_type! {
 /// # Named arguments
 /// - Width of the box:  `width`, of type `linear` relative to parent width.
 /// - Height of the box: `height`, of type `linear` relative to parent height.
-pub fn boxed(ctx: &mut EvalContext, args: &mut Args) -> Value {
+pub fn box_(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let snapshot = ctx.state.clone();
 
     let width = args.get(ctx, "width");
@@ -189,7 +203,7 @@ pub fn boxed(ctx: &mut EvalContext, args: &mut Args) -> Value {
     ctx.push(NodeFixed {
         width,
         height,
-        child: Node::any(NodeStack { dirs, align, expansion, children }),
+        child: NodeStack { dirs, align, expansion, children }.into(),
     });
 
     ctx.state = snapshot;

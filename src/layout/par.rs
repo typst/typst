@@ -36,9 +36,9 @@ impl Layout for NodePar {
     }
 }
 
-impl From<NodePar> for Node {
+impl From<NodePar> for NodeAny {
     fn from(par: NodePar) -> Self {
-        Self::any(par)
+        Self::new(par)
     }
 }
 

@@ -25,8 +25,8 @@ impl Layout for NodeFixed {
     }
 }
 
-impl From<NodeFixed> for Node {
+impl From<NodeFixed> for NodeAny {
     fn from(fixed: NodeFixed) -> Self {
-        Self::any(fixed)
+        Self::new(fixed)
     }
 }

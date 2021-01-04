@@ -128,7 +128,22 @@ impl StateFont {
 impl Default for StateFont {
     fn default() -> Self {
         Self {
-            families: Rc::new(default_font_families()),
+            /// The default tree of font fallbacks.
+            families: Rc::new(fallback! {
+                list: ["sans-serif"],
+                classes: {
+                    "serif"      => ["source serif pro", "noto serif"],
+                    "sans-serif" => ["source sans pro", "noto sans"],
+                    "monospace"  => ["source code pro", "noto sans mono"],
+                },
+                base: [
+                    "source sans pro",
+                    "noto sans",
+                    "segoe ui emoji",
+                    "noto emoji",
+                    "latin modern math",
+                ],
+            }),
             variant: FontVariant {
                 style: FontStyle::Normal,
                 weight: FontWeight::REGULAR,
@@ -139,24 +154,5 @@ impl Default for StateFont {
             strong: false,
             emph: false,
         }
-    }
-}
-
-/// The default tree of font fallbacks.
-fn default_font_families() -> FallbackTree {
-    fallback! {
-        list: ["sans-serif"],
-        classes: {
-            "serif"      => ["source serif pro", "noto serif"],
-            "sans-serif" => ["source sans pro", "noto sans"],
-            "monospace"  => ["source code pro", "noto sans mono"],
-        },
-        base: [
-            "source sans pro",
-            "noto sans",
-            "segoe ui emoji",
-            "noto emoji",
-            "latin modern math",
-        ],
     }
 }
