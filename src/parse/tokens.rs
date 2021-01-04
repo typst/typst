@@ -294,6 +294,7 @@ impl<'s> Tokens<'s> {
         self.s.eat_while(is_id_continue);
         let string = self.s.eaten_from(start);
         match string {
+            "none" => Token::None,
             "true" => Token::Bool(true),
             "false" => Token::Bool(false),
             _ => Token::Ident(string),
@@ -377,6 +378,7 @@ mod tests {
     use super::*;
     use crate::parse::tests::check;
 
+    use Option::None;
     use Token::{
         BlockComment as BC, Ident as Id, LeftBrace as LB, LeftBracket as L,
         LeftParen as LP, LineComment as LC, RightBrace as RB, RightBracket as R,
@@ -679,7 +681,11 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenize_bools() {
+    fn test_tokenize_keywords() {
+        // Test none.
+        t!(Header[" /"]: "none" => Token::None);
+        t!(Header[" /"]: "None" => Id("None"));
+
         // Test valid bools.
         t!(Header[" /"]: "false" => Bool(false));
         t!(Header[" /"]: "true"  => Bool(true));

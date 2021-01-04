@@ -108,6 +108,8 @@ pub type ExprContent = Tree;
 pub enum Lit {
     /// A identifier literal: `left`.
     Ident(Ident),
+    /// The none literal: `none`.
+    None,
     /// A boolean literal: `true`, `false`.
     Bool(bool),
     /// An integer literal: `120`.

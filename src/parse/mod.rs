@@ -326,6 +326,7 @@ fn value(p: &mut Parser) -> Option<Expr> {
         }
 
         // Basic values.
+        Some(Token::None) => Expr::Lit(Lit::None),
         Some(Token::Bool(b)) => Expr::Lit(Lit::Bool(b)),
         Some(Token::Int(i)) => Expr::Lit(Lit::Int(i)),
         Some(Token::Float(f)) => Expr::Lit(Lit::Float(f)),

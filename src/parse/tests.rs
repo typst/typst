@@ -614,6 +614,7 @@ fn test_parse_values() {
     t!("{name}"   Block(Id("name")));
     t!("{ke-bab}" Block(Id("ke-bab")));
     t!("{α}"      Block(Id("α")));
+    t!("{none}"   Block(Expr::Lit(Lit::None)));
     t!("{true}"   Block(Bool(true)));
     t!("{false}"  Block(Bool(false)));
     t!("{1.0e-4}" Block(Float(1e-4)));

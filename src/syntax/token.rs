@@ -63,6 +63,8 @@ pub enum Token<'s> {
 
     /// An identifier: `center`.
     Ident(&'s str),
+    /// A none: `none`.
+    None,
     /// A boolean: `true`, `false`.
     Bool(bool),
     /// An integer: `120`.
@@ -152,6 +154,7 @@ impl<'s> Token<'s> {
             Self::Slash => "slash",
 
             Self::Ident(_) => "identifier",
+            Self::None => "none",
             Self::Bool(_) => "bool",
             Self::Int(_) => "integer",
             Self::Float(_) => "float",

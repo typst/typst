@@ -176,6 +176,7 @@ impl Eval for Spanned<&Lit> {
                     Value::Error
                 }
             },
+            Lit::None => Value::None,
             Lit::Bool(v) => Value::Bool(v),
             Lit::Int(v) => Value::Int(v),
             Lit::Float(v) => Value::Float(v),
