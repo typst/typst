@@ -75,7 +75,6 @@ impl Eval for Spanned<&Node> {
                 let node = ctx.make_text_node(text.clone());
                 ctx.push(node);
             }
-
             Node::Space => {
                 let em = ctx.state.font.font_size();
                 ctx.push(NodeSpacing {
@@ -85,13 +84,10 @@ impl Eval for Spanned<&Node> {
             }
             Node::Linebreak => ctx.apply_linebreak(),
             Node::Parbreak => ctx.apply_parbreak(),
-
             Node::Strong => ctx.state.font.strong ^= true,
             Node::Emph => ctx.state.font.emph ^= true,
-
             Node::Heading(heading) => heading.with_span(self.span).eval(ctx),
             Node::Raw(raw) => raw.with_span(self.span).eval(ctx),
-
             Node::Expr(expr) => {
                 let value = expr.with_span(self.span).eval(ctx);
                 value.eval(ctx)
@@ -153,7 +149,21 @@ impl Eval for Spanned<&Expr> {
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         match self.v {
-            Expr::Lit(v) => v.with_span(self.span).eval(ctx),
+            Expr::None => Value::None,
+            Expr::Ident(v) => match ctx.state.scope.get(v) {
+                Some(value) => value.clone(),
+                None => {
+                    ctx.diag(error!(self.span, "unknown variable"));
+                    Value::Error
+                }
+            },
+            Expr::Bool(v) => Value::Bool(*v),
+            Expr::Int(v) => Value::Int(*v),
+            Expr::Float(v) => Value::Float(*v),
+            Expr::Length(v, unit) => Value::Length(Length::with_unit(*v, *unit)),
+            Expr::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
+            Expr::Color(v) => Value::Color(Color::Rgba(*v)),
+            Expr::Str(v) => Value::Str(v.clone()),
             Expr::Call(v) => v.with_span(self.span).eval(ctx),
             Expr::Unary(v) => v.with_span(self.span).eval(ctx),
             Expr::Binary(v) => v.with_span(self.span).eval(ctx),
@@ -161,49 +171,6 @@ impl Eval for Spanned<&Expr> {
             Expr::Dict(v) => Value::Dict(v.with_span(self.span).eval(ctx)),
             Expr::Content(v) => Value::Content(v.clone()),
         }
-    }
-}
-
-impl Eval for Spanned<&Lit> {
-    type Output = Value;
-
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        match *self.v {
-            Lit::Ident(ref v) => match ctx.state.scope.get(&v) {
-                Some(value) => value.clone(),
-                None => {
-                    ctx.diag(error!(self.span, "unknown variable"));
-                    Value::Error
-                }
-            },
-            Lit::None => Value::None,
-            Lit::Bool(v) => Value::Bool(v),
-            Lit::Int(v) => Value::Int(v),
-            Lit::Float(v) => Value::Float(v),
-            Lit::Length(v, unit) => Value::Length(Length::with_unit(v, unit)),
-            Lit::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
-            Lit::Color(v) => Value::Color(Color::Rgba(v)),
-            Lit::Str(ref v) => Value::Str(v.clone()),
-        }
-    }
-}
-
-impl Eval for Spanned<&ExprArray> {
-    type Output = ValueArray;
-
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        self.v.iter().map(|expr| expr.as_ref().eval(ctx)).collect()
-    }
-}
-
-impl Eval for Spanned<&ExprDict> {
-    type Output = ValueDict;
-
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        self.v
-            .iter()
-            .map(|Named { name, expr }| (name.v.0.clone(), expr.as_ref().eval(ctx)))
-            .collect()
     }
 }
 
@@ -242,6 +209,25 @@ impl Eval for Spanned<&ExprBinary> {
             BinOp::Mul => mul(ctx, span, lhs, rhs),
             BinOp::Div => div(ctx, span, lhs, rhs),
         }
+    }
+}
+
+impl Eval for Spanned<&ExprArray> {
+    type Output = ValueArray;
+
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        self.v.iter().map(|expr| expr.as_ref().eval(ctx)).collect()
+    }
+}
+
+impl Eval for Spanned<&ExprDict> {
+    type Output = ValueDict;
+
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        self.v
+            .iter()
+            .map(|Named { name, expr }| (name.v.0.clone(), expr.as_ref().eval(ctx)))
+            .collect()
     }
 }
 

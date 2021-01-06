@@ -53,7 +53,7 @@ fn collection<T: Collection>(p: &mut Parser, mut collection: T) -> T {
 fn argument(p: &mut Parser) -> Option<Argument> {
     let first = p.span_if(expr)?;
     if p.eat_if(Token::Colon) {
-        if let Expr::Lit(Lit::Ident(ident)) = first.v {
+        if let Expr::Ident(ident) = first.v {
             let expr = p.span_if(expr)?;
             let name = ident.with_span(first.span);
             p.deco(Deco::Name.with_span(name.span));
@@ -131,7 +131,7 @@ impl Collection for State {
 
 fn take(expr: &mut Spanned<Expr>) -> Spanned<Expr> {
     // Replace with anything, it's overwritten anyway.
-    std::mem::replace(expr, Spanned::zero(Expr::Lit(Lit::Bool(false))))
+    std::mem::replace(expr, Spanned::zero(Expr::Bool(false)))
 }
 
 fn diag(p: &mut Parser, arg: Spanned<Argument>) {

@@ -3,13 +3,13 @@ use crate::geom::Unit;
 /// A minimal semantic entity of source code.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Token<'s> {
+    /// A consecutive non-markup string.
+    Text(&'s str),
     /// One or more whitespace characters.
     ///
     /// The contained `usize` denotes the number of newlines that were contained
     /// in the whitespace.
     Space(usize),
-    /// A consecutive non-markup string.
-    Text(&'s str),
 
     /// A line comment with inner string contents `//<str>\n`.
     LineComment(&'s str),
@@ -19,6 +19,19 @@ pub enum Token<'s> {
     BlockComment(&'s str),
     /// An end of a block comment that was not started.
     StarSlash,
+
+    /// A left bracket: `[`.
+    LeftBracket,
+    /// A right bracket: `]`.
+    RightBracket,
+    /// A left brace: `{`.
+    LeftBrace,
+    /// A right brace: `}`.
+    RightBrace,
+    /// A left parenthesis: `(`.
+    LeftParen,
+    /// A right parenthesis: `)`.
+    RightParen,
 
     /// A star: `*`.
     Star,
@@ -34,19 +47,6 @@ pub enum Token<'s> {
     Raw(TokenRaw<'s>),
     /// A unicode escape sequence: `\u{1F5FA}`.
     UnicodeEscape(TokenUnicodeEscape<'s>),
-
-    /// A left bracket: `[`.
-    LeftBracket,
-    /// A right bracket: `]`.
-    RightBracket,
-    /// A left brace: `{`.
-    LeftBrace,
-    /// A right brace: `}`.
-    RightBrace,
-    /// A left parenthesis: `(`.
-    LeftParen,
-    /// A right parenthesis: `)`.
-    RightParen,
 
     /// A colon: `:`.
     Colon,
@@ -76,7 +76,7 @@ pub enum Token<'s> {
     /// A percentage: `50%`.
     ///
     /// _Note_: `50%` is stored as `50.0` here, as in the corresponding
-    /// [literal](super::Lit::Percent).
+    /// [literal](super::Expr::Percent).
     Percent(f64),
     /// A hex value: `#20d82a`.
     Hex(&'s str),
@@ -124,12 +124,19 @@ impl<'s> Token<'s> {
     /// The natural-language name of this token for use in error messages.
     pub fn name(self) -> &'static str {
         match self {
-            Self::Space(_) => "space",
             Self::Text(_) => "text",
+            Self::Space(_) => "space",
 
             Self::LineComment(_) => "line comment",
             Self::BlockComment(_) => "block comment",
             Self::StarSlash => "end of block comment",
+
+            Self::LeftBracket => "opening bracket",
+            Self::RightBracket => "closing bracket",
+            Self::LeftBrace => "opening brace",
+            Self::RightBrace => "closing brace",
+            Self::LeftParen => "opening paren",
+            Self::RightParen => "closing paren",
 
             Self::Star => "star",
             Self::Underscore => "underscore",
@@ -139,13 +146,6 @@ impl<'s> Token<'s> {
             Self::Raw { .. } => "raw block",
             Self::UnicodeEscape { .. } => "unicode escape sequence",
 
-            Self::LeftBracket => "opening bracket",
-            Self::RightBracket => "closing bracket",
-            Self::LeftBrace => "opening brace",
-            Self::RightBrace => "closing brace",
-            Self::LeftParen => "opening paren",
-            Self::RightParen => "closing paren",
-
             Self::Colon => "colon",
             Self::Comma => "comma",
             Self::Pipe => "pipe",
@@ -153,8 +153,8 @@ impl<'s> Token<'s> {
             Self::Hyphen => "minus sign",
             Self::Slash => "slash",
 
-            Self::Ident(_) => "identifier",
             Self::None => "none",
+            Self::Ident(_) => "identifier",
             Self::Bool(_) => "bool",
             Self::Int(_) => "integer",
             Self::Float(_) => "float",

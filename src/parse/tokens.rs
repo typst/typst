@@ -379,23 +379,19 @@ mod tests {
     use crate::parse::tests::check;
 
     use Option::None;
-    use Token::{
-        BlockComment as BC, Ident as Id, LeftBrace as LB, LeftBracket as L,
-        LeftParen as LP, LineComment as LC, RightBrace as RB, RightBracket as R,
-        RightParen as RP, Space as S, Text as T, *,
-    };
+    use Token::{Ident, *};
     use Unit::*;
-
-    fn Str(string: &str, terminated: bool) -> Token {
-        Token::Str(TokenStr { string, terminated })
-    }
 
     fn Raw(text: &str, backticks: usize, terminated: bool) -> Token {
         Token::Raw(TokenRaw { text, backticks, terminated })
     }
 
-    fn UE(sequence: &str, terminated: bool) -> Token {
+    fn UnicodeEscape(sequence: &str, terminated: bool) -> Token {
         Token::UnicodeEscape(TokenUnicodeEscape { sequence, terminated })
+    }
+
+    fn Str(string: &str, terminated: bool) -> Token {
+        Token::Str(TokenStr { string, terminated })
     }
 
     /// Building blocks for suffix testing.
@@ -421,27 +417,27 @@ mod tests {
     /// - the resulting suffix token
     const SUFFIXES: &[(char, Option<TokenMode>, &str, Token)] = &[
         // Whitespace suffixes.
-        (' ', None, " ", S(0)),
-        (' ', None, "\n", S(1)),
-        (' ', None, "\r", S(1)),
-        (' ', None, "\r\n", S(1)),
+        (' ', None, " ", Space(0)),
+        (' ', None, "\n", Space(1)),
+        (' ', None, "\r", Space(1)),
+        (' ', None, "\r\n", Space(1)),
         // Letter suffixes.
-        ('a', Some(Body), "hello", T("hello")),
-        ('a', Some(Body), "💚", T("💚")),
-        ('a', Some(Header), "val", Id("val")),
-        ('a', Some(Header), "α", Id("α")),
-        ('a', Some(Header), "_", Id("_")),
+        ('a', Some(Body), "hello", Text("hello")),
+        ('a', Some(Body), "💚", Text("💚")),
+        ('a', Some(Header), "val", Ident("val")),
+        ('a', Some(Header), "α", Ident("α")),
+        ('a', Some(Header), "_", Ident("_")),
         // Number suffixes.
         ('1', Some(Header), "2", Int(2)),
         ('1', Some(Header), ".2", Float(0.2)),
         // Symbol suffixes.
-        ('/', None, "[", L),
-        ('/', None, "//", LC("")),
-        ('/', None, "/**/", BC("")),
+        ('/', None, "[", LeftBracket),
+        ('/', None, "//", LineComment("")),
+        ('/', None, "/**/", BlockComment("")),
         ('/', Some(Body), "*", Star),
         ('/', Some(Body), "_", Underscore),
-        ('/', Some(Body), r"\\", T(r"\")),
-        ('/', Some(Header), "(", LP),
+        ('/', Some(Body), r"\\", Text(r"\")),
+        ('/', Some(Header), "(", LeftParen),
         ('/', Some(Header), ":", Colon),
         ('/', Some(Header), "+", Plus),
         ('/', Some(Header), "#123", Hex("123")),
@@ -487,69 +483,69 @@ mod tests {
     fn test_tokenize_whitespace() {
         // Test basic whitespace.
         t!(Both["a1/"]: ""         => );
-        t!(Both["a1/"]: " "        => S(0));
-        t!(Both["a1/"]: "    "     => S(0));
-        t!(Both["a1/"]: "\t"       => S(0));
-        t!(Both["a1/"]: "  \t"     => S(0));
-        t!(Both["a1/"]: "\u{202F}" => S(0));
+        t!(Both["a1/"]: " "        => Space(0));
+        t!(Both["a1/"]: "    "     => Space(0));
+        t!(Both["a1/"]: "\t"       => Space(0));
+        t!(Both["a1/"]: "  \t"     => Space(0));
+        t!(Both["a1/"]: "\u{202F}" => Space(0));
 
         // Test newline counting.
-        t!(Both["a1/"]: "\n"           => S(1));
-        t!(Both["a1/"]: "\n "          => S(1));
-        t!(Both["a1/"]: "  \n"         => S(1));
-        t!(Both["a1/"]: "  \n   "      => S(1));
-        t!(Both["a1/"]: "\r\n"         => S(1));
-        t!(Both["a1/"]: "  \n\t \n  "  => S(2));
-        t!(Both["a1/"]: "\n\r"         => S(2));
-        t!(Both["a1/"]: " \r\r\n \x0D" => S(3));
+        t!(Both["a1/"]: "\n"           => Space(1));
+        t!(Both["a1/"]: "\n "          => Space(1));
+        t!(Both["a1/"]: "  \n"         => Space(1));
+        t!(Both["a1/"]: "  \n   "      => Space(1));
+        t!(Both["a1/"]: "\r\n"         => Space(1));
+        t!(Both["a1/"]: "  \n\t \n  "  => Space(2));
+        t!(Both["a1/"]: "\n\r"         => Space(2));
+        t!(Both["a1/"]: " \r\r\n \x0D" => Space(3));
     }
 
     #[test]
     fn test_tokenize_line_comments() {
         // Test line comment with no trailing newline.
-        t!(Both[""]: "//" => LC(""));
+        t!(Both[""]: "//" => LineComment(""));
 
         // Test line comment ends at newline.
-        t!(Both["a1/"]: "//bc\n"   => LC("bc"), S(1));
-        t!(Both["a1/"]: "// bc \n" => LC(" bc "), S(1));
-        t!(Both["a1/"]: "//bc\r\n" => LC("bc"), S(1));
+        t!(Both["a1/"]: "//bc\n"   => LineComment("bc"), Space(1));
+        t!(Both["a1/"]: "// bc \n" => LineComment(" bc "), Space(1));
+        t!(Both["a1/"]: "//bc\r\n" => LineComment("bc"), Space(1));
 
         // Test nested line comments.
-        t!(Both["a1/"]: "//a//b\n" => LC("a//b"), S(1));
+        t!(Both["a1/"]: "//a//b\n" => LineComment("a//b"), Space(1));
     }
 
     #[test]
     fn test_tokenize_block_comments() {
         // Test basic block comments.
-        t!(Both[""]: "/*" => BC(""));
-        t!(Both: "/**/"   => BC(""));
-        t!(Both: "/*🏞*/" => BC("🏞"));
-        t!(Both: "/*\n*/" => BC("\n"));
+        t!(Both[""]: "/*" => BlockComment(""));
+        t!(Both: "/**/"   => BlockComment(""));
+        t!(Both: "/*🏞*/" => BlockComment("🏞"));
+        t!(Both: "/*\n*/" => BlockComment("\n"));
 
         // Test depth 1 and 2 nested block comments.
-        t!(Both: "/* /* */ */"  => BC(" /* */ "));
-        t!(Both: "/*/*/**/*/*/" => BC("/*/**/*/"));
+        t!(Both: "/* /* */ */"  => BlockComment(" /* */ "));
+        t!(Both: "/*/*/**/*/*/" => BlockComment("/*/**/*/"));
 
         // Test two nested, one unclosed block comments.
-        t!(Both[""]: "/*/*/**/*/" => BC("/*/**/*/"));
+        t!(Both[""]: "/*/*/**/*/" => BlockComment("/*/**/*/"));
 
         // Test all combinations of up to two following slashes and stars.
-        t!(Both[""]: "/*"   => BC(""));
-        t!(Both[""]: "/*/"  => BC("/"));
-        t!(Both[""]: "/**"  => BC("*"));
-        t!(Both[""]: "/*//" => BC("//"));
-        t!(Both[""]: "/*/*" => BC("/*"));
-        t!(Both[""]: "/**/" => BC(""));
-        t!(Both[""]: "/***" => BC("**"));
+        t!(Both[""]: "/*"   => BlockComment(""));
+        t!(Both[""]: "/*/"  => BlockComment("/"));
+        t!(Both[""]: "/**"  => BlockComment("*"));
+        t!(Both[""]: "/*//" => BlockComment("//"));
+        t!(Both[""]: "/*/*" => BlockComment("/*"));
+        t!(Both[""]: "/**/" => BlockComment(""));
+        t!(Both[""]: "/***" => BlockComment("**"));
     }
 
     #[test]
     fn test_tokenize_body_tokens() {
         // Test parentheses.
-        t!(Body: "[" => L);
-        t!(Body: "]" => R);
-        t!(Body: "{" => LB);
-        t!(Body: "}" => RB);
+        t!(Body: "[" => LeftBracket);
+        t!(Body: "]" => RightBracket);
+        t!(Body: "{" => LeftBrace);
+        t!(Body: "}" => RightBrace);
 
         // Test markup tokens.
         t!(Body[" a1"]: "*" => Star);
@@ -559,7 +555,7 @@ mod tests {
         t!(Body[" "]: r"\"  => Backslash);
 
         // Test header symbols.
-        t!(Body[" /"]: ":,=|/+-" => T(":,=|/+-"));
+        t!(Body[" /"]: ":,=|/+-" => Text(":,=|/+-"));
     }
 
     #[test]
@@ -584,62 +580,62 @@ mod tests {
     #[test]
     fn test_tokenize_escape_sequences() {
         // Test escapable symbols.
-        t!(Body: r"\\" => T(r"\"));
-        t!(Body: r"\/" => T("/"));
-        t!(Body: r"\[" => T("["));
-        t!(Body: r"\]" => T("]"));
-        t!(Body: r"\{" => T("{"));
-        t!(Body: r"\}" => T("}"));
-        t!(Body: r"\*" => T("*"));
-        t!(Body: r"\_" => T("_"));
-        t!(Body: r"\#" => T("#"));
-        t!(Body: r"\~" => T("~"));
-        t!(Body: r"\`" => T("`"));
+        t!(Body: r"\\" => Text(r"\"));
+        t!(Body: r"\/" => Text("/"));
+        t!(Body: r"\[" => Text("["));
+        t!(Body: r"\]" => Text("]"));
+        t!(Body: r"\{" => Text("{"));
+        t!(Body: r"\}" => Text("}"));
+        t!(Body: r"\*" => Text("*"));
+        t!(Body: r"\_" => Text("_"));
+        t!(Body: r"\#" => Text("#"));
+        t!(Body: r"\~" => Text("~"));
+        t!(Body: r"\`" => Text("`"));
 
         // Test unescapable symbols.
-        t!(Body[" /"]: r"\a"   => T(r"\"), T("a"));
-        t!(Body[" /"]: r"\u"   => T(r"\"), T("u"));
-        t!(Body[" /"]: r"\1"   => T(r"\"), T("1"));
-        t!(Body[" /"]: r"\:"   => T(r"\"), T(":"));
-        t!(Body[" /"]: r"\="   => T(r"\"), T("="));
-        t!(Body[" /"]: r#"\""# => T(r"\"), T("\""));
+        t!(Body[" /"]: r"\a"   => Text(r"\"), Text("a"));
+        t!(Body[" /"]: r"\u"   => Text(r"\"), Text("u"));
+        t!(Body[" /"]: r"\1"   => Text(r"\"), Text("1"));
+        t!(Body[" /"]: r"\:"   => Text(r"\"), Text(":"));
+        t!(Body[" /"]: r"\="   => Text(r"\"), Text("="));
+        t!(Body[" /"]: r#"\""# => Text(r"\"), Text("\""));
 
         // Test basic unicode escapes.
-        t!(Body: r"\u{}"     => UE("", true));
-        t!(Body: r"\u{2603}" => UE("2603", true));
-        t!(Body: r"\u{P}"    => UE("P", true));
+        t!(Body: r"\u{}"     => UnicodeEscape("", true));
+        t!(Body: r"\u{2603}" => UnicodeEscape("2603", true));
+        t!(Body: r"\u{P}"    => UnicodeEscape("P", true));
 
         // Test unclosed unicode escapes.
-        t!(Body[" /"]: r"\u{"     => UE("", false));
-        t!(Body[" /"]: r"\u{1"    => UE("1", false));
-        t!(Body[" /"]: r"\u{26A4" => UE("26A4", false));
-        t!(Body[" /"]: r"\u{1Q3P" => UE("1Q3P", false));
-        t!(Body: r"\u{1🏕}"       => UE("1", false), T("🏕"), RB);
+        t!(Body[" /"]: r"\u{"     => UnicodeEscape("", false));
+        t!(Body[" /"]: r"\u{1"    => UnicodeEscape("1", false));
+        t!(Body[" /"]: r"\u{26A4" => UnicodeEscape("26A4", false));
+        t!(Body[" /"]: r"\u{1Q3P" => UnicodeEscape("1Q3P", false));
+        t!(Body: r"\u{1🏕}"       => UnicodeEscape("1", false), Text("🏕"), RightBrace);
     }
 
     #[test]
     fn test_tokenize_text() {
         // Test basic text.
-        t!(Body[" /"]: "hello"       => T("hello"));
-        t!(Body[" /"]: "hello-world" => T("hello-world"));
+        t!(Body[" /"]: "hello"       => Text("hello"));
+        t!(Body[" /"]: "hello-world" => Text("hello-world"));
 
         // Test header symbols in text.
-        t!(Body[" /"]: "a():\"b" => T("a():\"b"));
+        t!(Body[" /"]: "a():\"b" => Text("a():\"b"));
 
         // Test text ends.
-        t!(Body[""]: "hello " => T("hello"), S(0));
-        t!(Body[""]: "hello~" => T("hello"), Tilde);
+        t!(Body[""]: "hello " => Text("hello"), Space(0));
+        t!(Body[""]: "hello~" => Text("hello"), Tilde);
     }
 
     #[test]
     fn test_tokenize_header_tokens() {
         // Test parentheses.
-        t!(Header: "[" => L);
-        t!(Header: "]" => R);
-        t!(Header: "{" => LB);
-        t!(Header: "}" => RB);
-        t!(Header: "(" => LP);
-        t!(Header: ")" => RP);
+        t!(Header: "[" => LeftBracket);
+        t!(Header: "]" => RightBracket);
+        t!(Header: "{" => LeftBrace);
+        t!(Header: "}" => RightBrace);
+        t!(Header: "(" => LeftParen);
+        t!(Header: ")" => RightParen);
 
         // Test structural tokens.
         t!(Header: ":"        => Colon);
@@ -652,10 +648,10 @@ mod tests {
 
         // Test hyphen parsed as symbol.
         t!(Header[" /"]: "-1"   => Hyphen, Int(1));
-        t!(Header[" /"]: "-a"   => Hyphen, Id("a"));
+        t!(Header[" /"]: "-a"   => Hyphen, Ident("a"));
         t!(Header[" /"]: "--1"  => Hyphen, Hyphen, Int(1));
-        t!(Header[" /"]: "--_a" => Hyphen, Hyphen, Id("_a"));
-        t!(Header[" /"]: "a-b"  => Id("a-b"));
+        t!(Header[" /"]: "--_a" => Hyphen, Hyphen, Ident("_a"));
+        t!(Header[" /"]: "a-b"  => Ident("a-b"));
 
         // Test some operations.
         t!(Header[" /"]: "1+3" => Int(1), Plus, Int(3));
@@ -666,33 +662,33 @@ mod tests {
     #[test]
     fn test_tokenize_idents() {
         // Test valid identifiers.
-        t!(Header[" /"]: "x"           => Id("x"));
-        t!(Header[" /"]: "value"       => Id("value"));
-        t!(Header[" /"]: "__main__"    => Id("__main__"));
-        t!(Header[" /"]: "_snake_case" => Id("_snake_case"));
+        t!(Header[" /"]: "x"           => Ident("x"));
+        t!(Header[" /"]: "value"       => Ident("value"));
+        t!(Header[" /"]: "__main__"    => Ident("__main__"));
+        t!(Header[" /"]: "_snake_case" => Ident("_snake_case"));
 
         // Test non-ascii.
-        t!(Header[" /"]: "α"    => Id("α"));
-        t!(Header[" /"]: "ម្តាយ" => Id("ម្តាយ"));
+        t!(Header[" /"]: "α"    => Ident("α"));
+        t!(Header[" /"]: "ម្តាយ" => Ident("ម្តាយ"));
 
         // Test hyphen parsed as identifier.
-        t!(Header[" /"]: "kebab-case" => Id("kebab-case"));
-        t!(Header[" /"]: "one-10"     => Id("one-10"));
+        t!(Header[" /"]: "kebab-case" => Ident("kebab-case"));
+        t!(Header[" /"]: "one-10"     => Ident("one-10"));
     }
 
     #[test]
     fn test_tokenize_keywords() {
         // Test none.
         t!(Header[" /"]: "none" => Token::None);
-        t!(Header[" /"]: "None" => Id("None"));
+        t!(Header[" /"]: "None" => Ident("None"));
 
         // Test valid bools.
         t!(Header[" /"]: "false" => Bool(false));
         t!(Header[" /"]: "true"  => Bool(true));
 
         // Test invalid bools.
-        t!(Header[" /"]: "True"   => Id("True"));
-        t!(Header[" /"]: "falser" => Id("falser"));
+        t!(Header[" /"]: "True"   => Ident("True"));
+        t!(Header[" /"]: "falser" => Ident("falser"));
     }
 
     #[test]
@@ -775,15 +771,15 @@ mod tests {
     fn test_tokenize_invalid() {
         // Test invalidly closed block comments.
         t!(Both: "*/"     => StarSlash);
-        t!(Both: "/**/*/" => BC(""), StarSlash);
+        t!(Both: "/**/*/" => BlockComment(""), StarSlash);
 
         // Test invalid expressions.
         t!(Header: r"\"          => Invalid(r"\"));
         t!(Header: "🌓"          => Invalid("🌓"));
         t!(Header: r"\:"         => Invalid(r"\"), Colon);
-        t!(Header: "meal⌚"      => Id("meal"), Invalid("⌚"));
-        t!(Header[" /"]: r"\a"   => Invalid(r"\"), Id("a"));
-        t!(Header[" /"]: ">main" => Invalid(">"), Id("main"));
+        t!(Header: "meal⌚"      => Ident("meal"), Invalid("⌚"));
+        t!(Header[" /"]: r"\a"   => Invalid(r"\"), Ident("a"));
+        t!(Header[" /"]: ">main" => Invalid(">"), Ident("main"));
 
         // Test invalid number suffixes.
         t!(Header[" /"]: "1foo" => Invalid("1foo"));

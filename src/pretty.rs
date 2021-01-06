@@ -39,7 +39,7 @@ impl Printer {
         Write::write_fmt(self, fmt)
     }
 
-    /// Write a comma-separated list of items.
+    /// Write a list of items joined by a joiner.
     pub fn join<T, I, F>(&mut self, items: I, joiner: &str, mut write_item: F)
     where
         I: IntoIterator<Item = T>,

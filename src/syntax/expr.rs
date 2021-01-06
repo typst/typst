@@ -5,8 +5,27 @@ use crate::geom::Unit;
 /// An expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    /// A literal: `true`, `1cm`, `"hi"`.
-    Lit(Lit),
+    /// The none literal: `none`.
+    None,
+    /// A identifier literal: `left`.
+    Ident(Ident),
+    /// A boolean literal: `true`, `false`.
+    Bool(bool),
+    /// An integer literal: `120`.
+    Int(i64),
+    /// A floating-point literal: `1.2`, `10e-4`.
+    Float(f64),
+    /// A length literal: `12pt`, `3cm`.
+    Length(f64, Unit),
+    /// A percent literal: `50%`.
+    ///
+    /// _Note_: `50%` is stored as `50.0` here, but as `0.5` in the
+    /// corresponding [value](crate::geom::Relative).
+    Percent(f64),
+    /// A color literal: `#ffccee`.
+    Color(RgbaColor),
+    /// A string literal: `"hello!"`.
+    Str(String),
     /// An invocation of a function: `[foo ...]`, `foo(...)`.
     Call(ExprCall),
     /// A unary operation: `-x`.
@@ -24,7 +43,15 @@ pub enum Expr {
 impl Pretty for Expr {
     fn pretty(&self, p: &mut Printer) {
         match self {
-            Self::Lit(lit) => lit.pretty(p),
+            Self::None => p.push_str("none"),
+            Self::Ident(v) => p.push_str(&v),
+            Self::Bool(v) => write!(p, "{}", v).unwrap(),
+            Self::Int(v) => write!(p, "{}", v).unwrap(),
+            Self::Float(v) => write!(p, "{}", v).unwrap(),
+            Self::Length(v, u) => write!(p, "{}{}", v, u).unwrap(),
+            Self::Percent(v) => write!(p, "{}%", v).unwrap(),
+            Self::Color(v) => write!(p, "{}", v).unwrap(),
+            Self::Str(s) => write!(p, "{:?}", &s).unwrap(),
             Self::Call(call) => call.pretty(p),
             Self::Unary(unary) => unary.pretty(p),
             Self::Binary(binary) => binary.pretty(p),
@@ -263,48 +290,6 @@ impl Pretty for ExprDict {
 
 /// A content expression: `{*Hello* there!}`.
 pub type ExprContent = Tree;
-
-/// A literal.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Lit {
-    /// A identifier literal: `left`.
-    Ident(Ident),
-    /// The none literal: `none`.
-    None,
-    /// A boolean literal: `true`, `false`.
-    Bool(bool),
-    /// An integer literal: `120`.
-    Int(i64),
-    /// A floating-point literal: `1.2`, `10e-4`.
-    Float(f64),
-    /// A length literal: `12pt`, `3cm`.
-    Length(f64, Unit),
-    /// A percent literal: `50%`.
-    ///
-    /// _Note_: `50%` is stored as `50.0` here, but as `0.5` in the
-    /// corresponding [value](crate::geom::Relative).
-    Percent(f64),
-    /// A color literal: `#ffccee`.
-    Color(RgbaColor),
-    /// A string literal: `"hello!"`.
-    Str(String),
-}
-
-impl Pretty for Lit {
-    fn pretty(&self, p: &mut Printer) {
-        match self {
-            Self::Ident(v) => p.push_str(&v),
-            Self::None => p.push_str("none"),
-            Self::Bool(v) => write!(p, "{}", v).unwrap(),
-            Self::Int(v) => write!(p, "{}", v).unwrap(),
-            Self::Float(v) => write!(p, "{}", v).unwrap(),
-            Self::Length(v, u) => write!(p, "{}{}", v, u).unwrap(),
-            Self::Percent(v) => write!(p, "{}%", v).unwrap(),
-            Self::Color(v) => write!(p, "{}", v).unwrap(),
-            Self::Str(s) => write!(p, "{:?}", &s).unwrap(),
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {

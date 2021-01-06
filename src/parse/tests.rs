@@ -9,7 +9,8 @@ use crate::geom::Unit;
 use crate::syntax::*;
 
 use BinOp::*;
-use Node::{Emph, Linebreak, Parbreak, Space, Strong};
+use Expr::{Bool, Color, Float, Int, Length, Percent};
+use Node::{Emph, Expr as Block, Linebreak, Parbreak, Space, Strong};
 use UnOp::*;
 
 macro_rules! t {
@@ -99,39 +100,11 @@ fn Raw(lang: Option<&str>, lines: &[&str], inline: bool) -> Node {
 }
 
 fn Id(ident: &str) -> Expr {
-    Expr::Lit(Lit::Ident(Ident(ident.to_string())))
-}
-
-fn Bool(b: bool) -> Expr {
-    Expr::Lit(Lit::Bool(b))
-}
-
-fn Int(int: i64) -> Expr {
-    Expr::Lit(Lit::Int(int))
-}
-
-fn Float(float: f64) -> Expr {
-    Expr::Lit(Lit::Float(float))
-}
-
-fn Percent(percent: f64) -> Expr {
-    Expr::Lit(Lit::Percent(percent))
-}
-
-fn Length(val: f64, unit: Unit) -> Expr {
-    Expr::Lit(Lit::Length(val, unit))
-}
-
-fn Color(color: RgbaColor) -> Expr {
-    Expr::Lit(Lit::Color(color))
+    Expr::Ident(Ident(ident.to_string()))
 }
 
 fn Str(string: &str) -> Expr {
-    Expr::Lit(Lit::Str(string.to_string()))
-}
-
-fn Block(expr: Expr) -> Node {
-    Node::Expr(expr)
+    Expr::Str(string.to_string())
 }
 
 fn Binary(
@@ -614,7 +587,7 @@ fn test_parse_values() {
     t!("{name}"   Block(Id("name")));
     t!("{ke-bab}" Block(Id("ke-bab")));
     t!("{α}"      Block(Id("α")));
-    t!("{none}"   Block(Expr::Lit(Lit::None)));
+    t!("{none}"   Block(Expr::None));
     t!("{true}"   Block(Bool(true)));
     t!("{false}"  Block(Bool(false)));
     t!("{1.0e-4}" Block(Float(1e-4)));

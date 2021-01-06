@@ -487,6 +487,7 @@ macro_rules! impl_type {
 mod tests {
     use super::*;
     use crate::color::RgbaColor;
+    use crate::parse::parse;
     use crate::pretty::pretty;
     use crate::syntax::Node;
 
@@ -496,7 +497,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pretty_print_values() {
+    fn test_pretty_print_simple_values() {
         test_pretty(Value::None, "none");
         test_pretty(false, "false");
         test_pretty(12.4, "12.4");
@@ -521,8 +522,8 @@ mod tests {
         // Dictionary.
         let mut dict = BTreeMap::new();
         dict.insert("one".into(), Value::Int(1));
-        dict.insert("two".into(), Value::Int(2));
+        dict.insert("two".into(), Value::Content(parse("[f]").output));
         test_pretty(BTreeMap::new(), "(:)");
-        test_pretty(dict, "(one: 1, two: 2)");
+        test_pretty(dict, "(one: 1, two: [f])");
     }
 }

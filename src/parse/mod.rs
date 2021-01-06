@@ -49,6 +49,7 @@ fn tree(p: &mut Parser) -> Tree {
 /// Parse a syntax node.
 fn node(p: &mut Parser, at_start: bool) -> Option<Node> {
     let node = match p.peek()? {
+        Token::Text(text) => Node::Text(text.into()),
         Token::Space(newlines) => {
             if newlines < 2 {
                 Node::Space
@@ -56,11 +57,18 @@ fn node(p: &mut Parser, at_start: bool) -> Option<Node> {
                 Node::Parbreak
             }
         }
-        Token::Text(text) => Node::Text(text.into()),
 
         Token::LineComment(_) | Token::BlockComment(_) => {
             p.eat();
             return None;
+        }
+
+        Token::LeftBracket => {
+            return Some(Node::Expr(Expr::Call(bracket_call(p))));
+        }
+
+        Token::LeftBrace => {
+            return Some(Node::Expr(block_expr(p)?));
         }
 
         Token::Star => Node::Strong,
@@ -76,14 +84,6 @@ fn node(p: &mut Parser, at_start: bool) -> Option<Node> {
         }
         Token::Raw(t) => Node::Raw(raw(p, t)),
         Token::UnicodeEscape(t) => Node::Text(unicode_escape(p, t)),
-
-        Token::LeftBracket => {
-            return Some(Node::Expr(Expr::Call(bracket_call(p))));
-        }
-
-        Token::LeftBrace => {
-            return Some(Node::Expr(block_expr(p)?));
-        }
 
         _ => {
             p.diag_unexpected();
@@ -321,19 +321,19 @@ fn value(p: &mut Parser) -> Option<Expr> {
                 let name = ident.with_span(p.peek_span());
                 return Some(Expr::Call(paren_call(p, name)));
             } else {
-                return Some(Expr::Lit(Lit::Ident(ident)));
+                return Some(Expr::Ident(ident));
             }
         }
 
         // Basic values.
-        Some(Token::None) => Expr::Lit(Lit::None),
-        Some(Token::Bool(b)) => Expr::Lit(Lit::Bool(b)),
-        Some(Token::Int(i)) => Expr::Lit(Lit::Int(i)),
-        Some(Token::Float(f)) => Expr::Lit(Lit::Float(f)),
-        Some(Token::Length(val, unit)) => Expr::Lit(Lit::Length(val, unit)),
-        Some(Token::Percent(p)) => Expr::Lit(Lit::Percent(p)),
-        Some(Token::Hex(hex)) => Expr::Lit(Lit::Color(color(p, hex))),
-        Some(Token::Str(token)) => Expr::Lit(Lit::Str(str(p, token))),
+        Some(Token::None) => Expr::None,
+        Some(Token::Bool(b)) => Expr::Bool(b),
+        Some(Token::Int(i)) => Expr::Int(i),
+        Some(Token::Float(f)) => Expr::Float(f),
+        Some(Token::Length(val, unit)) => Expr::Length(val, unit),
+        Some(Token::Percent(p)) => Expr::Percent(p),
+        Some(Token::Hex(hex)) => Expr::Color(color(p, hex)),
+        Some(Token::Str(token)) => Expr::Str(str(p, token)),
 
         // No value.
         _ => {
