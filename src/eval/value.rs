@@ -1,5 +1,5 @@
 use std::any::Any;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
@@ -7,10 +7,11 @@ use std::rc::Rc;
 use super::{Args, Eval, EvalContext};
 use crate::color::Color;
 use crate::geom::{Length, Linear, Relative};
-use crate::syntax::{Spanned, Tree, WithSpan};
+use crate::pretty::{pretty, Pretty, Printer};
+use crate::syntax::{pretty_content_expr, Spanned, Tree, WithSpan};
 
 /// A computational value.
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     /// The value that indicates the absence of a meaningful value.
     None,
@@ -82,21 +83,9 @@ impl Eval for &Value {
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         ctx.push(ctx.make_text_node(match self {
             Value::None => return,
-            Value::Bool(v) => v.to_string(),
-            Value::Int(v) => v.to_string(),
-            Value::Float(v) => v.to_string(),
-            Value::Length(v) => v.to_string(),
-            Value::Relative(v) => v.to_string(),
-            Value::Linear(v) => v.to_string(),
-            Value::Color(v) => v.to_string(),
-            Value::Str(v) => v.clone(),
-            // TODO: Find good representation for composite types.
-            Value::Array(_v) => "(array)".into(),
-            Value::Dict(_v) => "(dictionary)".into(),
+            Value::Str(s) => s.clone(),
             Value::Content(tree) => return tree.eval(ctx),
-            Value::Func(v) => v.to_string(),
-            Value::Any(v) => v.to_string(),
-            Value::Error => "(error)".into(),
+            other => pretty(other),
         }));
     }
 }
@@ -107,24 +96,24 @@ impl Default for Value {
     }
 }
 
-impl Debug for Value {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Pretty for Value {
+    fn pretty(&self, p: &mut Printer) {
         match self {
-            Self::None => f.pad("None"),
-            Self::Bool(v) => Debug::fmt(v, f),
-            Self::Int(v) => Debug::fmt(v, f),
-            Self::Float(v) => Debug::fmt(v, f),
-            Self::Length(v) => Debug::fmt(v, f),
-            Self::Relative(v) => Debug::fmt(v, f),
-            Self::Linear(v) => Debug::fmt(v, f),
-            Self::Color(v) => Debug::fmt(v, f),
-            Self::Str(v) => Debug::fmt(v, f),
-            Self::Array(v) => Debug::fmt(v, f),
-            Self::Dict(v) => Debug::fmt(v, f),
-            Self::Content(v) => Debug::fmt(v, f),
-            Self::Func(v) => Debug::fmt(v, f),
-            Self::Any(v) => Debug::fmt(v, f),
-            Self::Error => f.pad("Error"),
+            Value::None => p.push_str("none"),
+            Value::Bool(v) => write!(p, "{}", v).unwrap(),
+            Value::Int(v) => write!(p, "{}", v).unwrap(),
+            Value::Float(v) => write!(p, "{}", v).unwrap(),
+            Value::Length(v) => write!(p, "{}", v).unwrap(),
+            Value::Relative(v) => write!(p, "{}", v).unwrap(),
+            Value::Linear(v) => write!(p, "{}", v).unwrap(),
+            Value::Color(v) => write!(p, "{}", v).unwrap(),
+            Value::Str(v) => write!(p, "{:?}", v).unwrap(),
+            Value::Array(array) => array.pretty(p),
+            Value::Dict(dict) => dict.pretty(p),
+            Value::Content(content) => pretty_content_expr(content, p),
+            Value::Func(v) => v.pretty(p),
+            Value::Any(v) => v.pretty(p),
+            Value::Error => p.push_str("(error)"),
         }
     }
 }
@@ -132,8 +121,35 @@ impl Debug for Value {
 /// An array value: `(1, "hi", 12cm)`.
 pub type ValueArray = Vec<Value>;
 
+impl Pretty for ValueArray {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("(");
+        p.join(self, ", ", |item, p| item.pretty(p));
+        if self.len() == 1 {
+            p.push_str(",");
+        }
+        p.push_str(")");
+    }
+}
+
 /// A dictionary value: `(color: #f79143, pattern: dashed)`.
-pub type ValueDict = HashMap<String, Value>;
+pub type ValueDict = BTreeMap<String, Value>;
+
+impl Pretty for ValueDict {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("(");
+        if self.is_empty() {
+            p.push_str(":");
+        } else {
+            p.join(self, ", ", |(key, value), p| {
+                p.push_str(key);
+                p.push_str(": ");
+                value.pretty(p);
+            });
+        }
+        p.push_str(")");
+    }
+}
 
 /// A content value: `{*Hi* there}`.
 pub type ValueContent = Tree;
@@ -169,14 +185,15 @@ impl Deref for ValueFunc {
     }
 }
 
-impl Display for ValueFunc {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "<function {}>", self.name)
+impl Pretty for ValueFunc {
+    fn pretty(&self, p: &mut Printer) {
+        write!(p, "(function {})", self.name).unwrap();
     }
 }
+
 impl Debug for ValueFunc {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
+        f.debug_struct("ValueFunc").field("name", &self.name).finish()
     }
 }
 
@@ -229,15 +246,15 @@ impl PartialEq for ValueAny {
     }
 }
 
-impl Display for ValueAny {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(&self.0, f)
+impl Pretty for ValueAny {
+    fn pretty(&self, p: &mut Printer) {
+        write!(p, "{}", self.0).unwrap();
     }
 }
 
 impl Debug for ValueAny {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Debug::fmt(&self.0, f)
+        f.debug_tuple("ValueAny").field(&self.0).finish()
     }
 }
 
@@ -464,4 +481,48 @@ macro_rules! impl_type {
             }
         }
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::color::RgbaColor;
+    use crate::pretty::pretty;
+    use crate::syntax::Node;
+
+    #[track_caller]
+    fn test_pretty(value: impl Into<Value>, exp: &str) {
+        assert_eq!(pretty(&value.into()), exp);
+    }
+
+    #[test]
+    fn test_pretty_print_values() {
+        test_pretty(Value::None, "none");
+        test_pretty(false, "false");
+        test_pretty(12.4, "12.4");
+        test_pretty(Length::ZERO, "0pt");
+        test_pretty(Relative::ONE, "100%");
+        test_pretty(Relative::new(0.3) + Length::cm(2.0), "30% + 2cm");
+        test_pretty(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
+        test_pretty("hello", r#""hello""#);
+        test_pretty(vec![Spanned::zero(Node::Strong)], "{*}");
+        test_pretty(ValueFunc::new("nil", |_, _| Value::None), "(function nil)");
+        test_pretty(ValueAny::new(1), "1");
+        test_pretty(Value::Error, "(error)");
+    }
+
+    #[test]
+    fn test_pretty_print_collections() {
+        // Array.
+        test_pretty(Value::Array(vec![]), "()");
+        test_pretty(vec![Value::None], "(none,)");
+        test_pretty(vec![Value::Int(1), Value::Int(2)], "(1, 2)");
+
+        // Dictionary.
+        let mut dict = BTreeMap::new();
+        dict.insert("one".into(), Value::Int(1));
+        dict.insert("two".into(), Value::Int(2));
+        test_pretty(BTreeMap::new(), "(:)");
+        test_pretty(dict, "(one: 1, two: 2)");
+    }
 }

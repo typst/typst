@@ -169,7 +169,7 @@ impl Eval for Spanned<&Lit> {
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         match *self.v {
-            Lit::Ident(ref v) => match ctx.state.scope.get(v.as_str()) {
+            Lit::Ident(ref v) => match ctx.state.scope.get(&v) {
                 Some(value) => value.clone(),
                 None => {
                     ctx.diag(error!(self.span, "unknown variable"));
@@ -286,6 +286,7 @@ fn add(ctx: &mut EvalContext, span: Span, lhs: Value, rhs: Value) -> Value {
 
         // Complex data types to themselves.
         (Str(a), Str(b)) => Str(a + &b),
+        (Array(a), Array(b)) => Array(concat(a, b)),
         (Dict(a), Dict(b)) => Dict(concat(a, b)),
         (Content(a), Content(b)) => Content(concat(a, b)),
 

@@ -27,13 +27,60 @@ pub enum Node {
     Expr(Expr),
 }
 
+impl Pretty for Node {
+    fn pretty(&self, p: &mut Printer) {
+        match self {
+            Self::Text(text) => p.push_str(&text),
+            Self::Space => p.push_str(" "),
+            Self::Linebreak => p.push_str(r"\"),
+            Self::Parbreak => p.push_str("\n\n"),
+            Self::Strong => p.push_str("*"),
+            Self::Emph => p.push_str("_"),
+            Self::Heading(heading) => heading.pretty(p),
+            Self::Raw(raw) => raw.pretty(p),
+            Self::Expr(expr) => pretty_expr_node(expr, p),
+        }
+    }
+}
+
+/// Pretty print an expression in a node context.
+pub fn pretty_expr_node(expr: &Expr, p: &mut Printer) {
+    match expr {
+        // Prefer bracket calls over expression blocks with just a single paren
+        // call.
+        //
+        // Example: Transforms "{v()}" => "[v]".
+        Expr::Call(call) => pretty_bracket_call(call, p, false),
+
+        // Remove unncessary nesting of content and expression blocks.
+        //
+        // Example: Transforms "{{Hi}}" => "Hi".
+        Expr::Content(content) => content.pretty(p),
+
+        _ => {
+            p.push_str("{");
+            expr.pretty(p);
+            p.push_str("}");
+        }
+    }
+}
+
 /// A section heading: `# Introduction`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NodeHeading {
-    /// The section depth (numer of hashtags minus 1).
+    /// The section depth (numer of hashtags minus 1, capped at 5).
     pub level: Spanned<u8>,
     /// The contents of the heading.
     pub contents: Tree,
+}
+
+impl Pretty for NodeHeading {
+    fn pretty(&self, p: &mut Printer) {
+        for _ in 0 ..= self.level.v {
+            p.push_str("#");
+        }
+        self.contents.pretty(p);
+    }
 }
 
 /// A raw block with optional syntax highlighting: `` `raw` ``.
@@ -113,4 +160,55 @@ pub struct NodeRaw {
     /// Single-backtick blocks are always inline-level. Multi-backtick blocks
     /// are inline-level when they contain no newlines.
     pub inline: bool,
+}
+
+impl Pretty for NodeRaw {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("`");
+        if let Some(lang) = &self.lang {
+            p.push_str(&lang);
+            p.push_str(" ");
+        }
+        // TODO: Technically, we should handle backticks in the lines
+        // by wrapping with more backticks and possibly adding space
+        // before the first or after the last line.
+        p.join(&self.lines, "\n", |line, p| p.push_str(line));
+        p.push_str("`");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::tests::test_pretty;
+
+    #[test]
+    fn test_pretty_print_removes_nesting() {
+        // Even levels of nesting do not matter.
+        test_pretty("{{Hi}}", "Hi");
+        test_pretty("{{{{Hi}}}}", "Hi");
+    }
+
+    #[test]
+    fn test_pretty_print_prefers_bracket_calls() {
+        // All reduces to a simple bracket call.
+        test_pretty("{v()}", "[v]");
+        test_pretty("[v]", "[v]");
+        test_pretty("{[v]}", "[v]");
+        test_pretty("{{[v]}}", "[v]");
+    }
+
+    #[test]
+    fn test_pretty_print_nodes() {
+        // Basic text and markup.
+        test_pretty(r"*Hi_\", r"*Hi_\");
+
+        // Whitespace.
+        test_pretty("  ", " ");
+        test_pretty("\n\n\n", "\n\n");
+
+        // Heading and raw.
+        test_pretty("# Ok", "# Ok");
+        test_pretty("``\none\ntwo\n``", "`one\ntwo`");
+        test_pretty("`lang one\ntwo`", "`lang one\ntwo`");
+    }
 }

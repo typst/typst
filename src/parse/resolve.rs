@@ -124,6 +124,7 @@ mod tests {
 
     #[test]
     fn test_resolve_strings() {
+        #[track_caller]
         fn test(string: &str, expected: &str) {
             assert_eq!(resolve_string(string), expected.to_string());
         }
@@ -144,6 +145,7 @@ mod tests {
 
     #[test]
     fn test_split_at_lang_tag() {
+        #[track_caller]
         fn test(text: &str, lang: &str, inner: &str) {
             assert_eq!(split_at_lang_tag(text), (lang, inner));
         }
@@ -158,6 +160,7 @@ mod tests {
 
     #[test]
     fn test_resolve_raw() {
+        #[track_caller]
         fn test(
             raw: &str,
             backticks: usize,
@@ -190,6 +193,7 @@ mod tests {
 
     #[test]
     fn test_trim_raw() {
+        #[track_caller]
         fn test(text: &str, expected: Vec<&str>) {
             assert_eq!(trim_and_split_raw(text).0, expected);
         }
@@ -207,6 +211,7 @@ mod tests {
 
     #[test]
     fn test_split_lines() {
+        #[track_caller]
         fn test(text: &str, expected: Vec<&str>) {
             assert_eq!(split_lines(text), expected);
         }

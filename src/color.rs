@@ -126,6 +126,7 @@ mod tests {
 
     #[test]
     fn test_parse_color_strings() {
+        #[track_caller]
         fn test(hex: &str, r: u8, g: u8, b: u8, a: u8) {
             assert_eq!(RgbaColor::from_str(hex), Ok(RgbaColor::new(r, g, b, a)));
         }
@@ -139,6 +140,7 @@ mod tests {
 
     #[test]
     fn test_parse_invalid_colors() {
+        #[track_caller]
         fn test(hex: &str) {
             assert_eq!(RgbaColor::from_str(hex), Err(ParseRgbaError));
         }
