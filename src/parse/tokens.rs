@@ -68,7 +68,7 @@ impl<'s> Iterator for Tokens<'s> {
                 // Comments.
                 '/' if self.s.eat_if('/') => self.line_comment(),
                 '/' if self.s.eat_if('*') => self.block_comment(),
-                '*' if self.s.eat_if('/') => Token::StarSlash,
+                '*' if self.s.eat_if('/') => Token::Invalid(self.s.eaten_from(start)),
 
                 // Functions and blocks.
                 '[' => Token::LeftBracket,
@@ -770,8 +770,8 @@ mod tests {
     #[test]
     fn test_tokenize_invalid() {
         // Test invalidly closed block comments.
-        t!(Both: "*/"     => StarSlash);
-        t!(Both: "/**/*/" => BlockComment(""), StarSlash);
+        t!(Both: "*/"     => Token::Invalid("*/"));
+        t!(Both: "/**/*/" => BlockComment(""), Token::Invalid("*/"));
 
         // Test invalid expressions.
         t!(Header: r"\"          => Invalid(r"\"));

@@ -80,10 +80,7 @@ impl<'s> Parser<'s> {
         let before = self.next_start;
         if let Some(found) = self.eat() {
             let after = self.last_end;
-            self.diag(match found {
-                Token::Invalid(_) => error!(before .. after, "invalid token"),
-                _ => error!(before .. after, "unexpected {}", found.name()),
-            });
+            self.diag(error!(before .. after, "unexpected {}", found.name()));
         }
     }
 
