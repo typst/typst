@@ -13,22 +13,22 @@ impl Length {
 
     /// Create a length from a number of points.
     pub fn pt(pt: f64) -> Self {
-        Self::with_unit(pt, Unit::Pt)
+        Self::with_unit(pt, LengthUnit::Pt)
     }
 
     /// Create a length from a number of millimeters.
     pub fn mm(mm: f64) -> Self {
-        Self::with_unit(mm, Unit::Mm)
+        Self::with_unit(mm, LengthUnit::Mm)
     }
 
     /// Create a length from a number of centimeters.
     pub fn cm(cm: f64) -> Self {
-        Self::with_unit(cm, Unit::Cm)
+        Self::with_unit(cm, LengthUnit::Cm)
     }
 
     /// Create a length from a number of inches.
     pub fn inches(inches: f64) -> Self {
-        Self::with_unit(inches, Unit::In)
+        Self::with_unit(inches, LengthUnit::In)
     }
 
     /// Create a length from a number of raw units.
@@ -38,22 +38,22 @@ impl Length {
 
     /// Convert this to a number of points.
     pub fn to_pt(self) -> f64 {
-        self.to_unit(Unit::Pt)
+        self.to_unit(LengthUnit::Pt)
     }
 
     /// Convert this to a number of millimeters.
     pub fn to_mm(self) -> f64 {
-        self.to_unit(Unit::Mm)
+        self.to_unit(LengthUnit::Mm)
     }
 
     /// Convert this to a number of centimeters.
     pub fn to_cm(self) -> f64 {
-        self.to_unit(Unit::Cm)
+        self.to_unit(LengthUnit::Cm)
     }
 
     /// Convert this to a number of inches.
     pub fn to_inches(self) -> f64 {
-        self.to_unit(Unit::In)
+        self.to_unit(LengthUnit::In)
     }
 
     /// Get the value of this length in raw units.
@@ -62,12 +62,12 @@ impl Length {
     }
 
     /// Create a length from a value in a unit.
-    pub fn with_unit(val: f64, unit: Unit) -> Self {
+    pub fn with_unit(val: f64, unit: LengthUnit) -> Self {
         Self { raw: val * unit.raw_scale() }
     }
 
     /// Get the value of this length in unit.
-    pub fn to_unit(self, unit: Unit) -> f64 {
+    pub fn to_unit(self, unit: LengthUnit) -> f64 {
         self.raw / unit.raw_scale()
     }
 
@@ -86,9 +86,9 @@ impl Display for Length {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         // Format small lengths as points and large ones as centimeters.
         let (val, unit) = if self.to_pt().abs() < 25.0 {
-            (self.to_pt(), Unit::Pt)
+            (self.to_pt(), LengthUnit::Pt)
         } else {
-            (self.to_cm(), Unit::Cm)
+            (self.to_cm(), LengthUnit::Cm)
         };
         write!(f, "{}{}", (val * 100.0).round() / 100.0, unit)
     }
@@ -161,9 +161,9 @@ impl Sum for Length {
     }
 }
 
-/// Different units of measurement.
+/// Different units of length measurement.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum Unit {
+pub enum LengthUnit {
     /// Points.
     Pt,
     /// Millimeters.
@@ -174,30 +174,30 @@ pub enum Unit {
     In,
 }
 
-impl Unit {
+impl LengthUnit {
     /// How many raw units correspond to a value of `1.0` in this unit.
     fn raw_scale(self) -> f64 {
         match self {
-            Unit::Pt => 1.0,
-            Unit::Mm => 2.83465,
-            Unit::Cm => 28.3465,
-            Unit::In => 72.0,
+            LengthUnit::Pt => 1.0,
+            LengthUnit::Mm => 2.83465,
+            LengthUnit::Cm => 28.3465,
+            LengthUnit::In => 72.0,
         }
     }
 }
 
-impl Display for Unit {
+impl Display for LengthUnit {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
-            Unit::Mm => "mm",
-            Unit::Pt => "pt",
-            Unit::Cm => "cm",
-            Unit::In => "in",
+            LengthUnit::Mm => "mm",
+            LengthUnit::Pt => "pt",
+            LengthUnit::Cm => "cm",
+            LengthUnit::In => "in",
         })
     }
 }
 
-impl Debug for Unit {
+impl Debug for LengthUnit {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(self, f)
     }

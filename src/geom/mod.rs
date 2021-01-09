@@ -3,6 +3,7 @@
 #[macro_use]
 mod macros;
 mod align;
+mod angle;
 mod dir;
 mod gen;
 mod length;
@@ -14,6 +15,7 @@ mod size;
 mod spec;
 
 pub use align::*;
+pub use angle::*;
 pub use dir::*;
 pub use gen::*;
 pub use length::*;

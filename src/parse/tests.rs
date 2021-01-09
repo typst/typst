@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use super::parse;
 use crate::color::RgbaColor;
 use crate::diag::{Diag, Level, Pass};
-use crate::geom::Unit;
+use crate::geom::LengthUnit;
 use crate::syntax::*;
 
 use BinOp::*;
@@ -549,7 +549,7 @@ fn test_parse_expressions() {
     t!(r#"{"x"+"y"}"# Block(Binary(Str("x"), Add, Str("y"))));
     t!("{1-2}"        Block(Binary(Int(1), Sub, Int(2))));
     t!("{a * b}"      Block(Binary(Id("a"), Mul, Id("b"))));
-    t!("{12pt/.4}"    Block(Binary(Length(12.0, Unit::Pt), Div, Float(0.4))));
+    t!("{12pt/.4}"    Block(Binary(Length(12.0, LengthUnit::Pt), Div, Float(0.4))));
 
     // Associativity.
     t!("{1+2+3}" Block(Binary(Binary(Int(1), Add, Int(2)), Add, Int(3))));
@@ -593,8 +593,8 @@ fn test_parse_values() {
     t!("{1.0e-4}" Block(Float(1e-4)));
     t!("{3.15}"   Block(Float(3.15)));
     t!("{50%}"    Block(Percent(50.0)));
-    t!("{4.5cm}"  Block(Length(4.5, Unit::Cm)));
-    t!("{12e1pt}" Block(Length(12e1, Unit::Pt)));
+    t!("{4.5cm}"  Block(Length(4.5, LengthUnit::Cm)));
+    t!("{12e1pt}" Block(Length(12e1, LengthUnit::Pt)));
 
     // Strings.
     t!(r#"{"hi"}"#                     Block(Str("hi")));

@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::{is_newline, Scanner};
-use crate::geom::Unit;
+use crate::geom::LengthUnit;
 use crate::syntax::*;
 
 use TokenMode::*;
@@ -349,7 +349,7 @@ fn parse_percent(string: &str) -> Option<f64> {
     string.strip_suffix('%').and_then(|prefix| prefix.parse::<f64>().ok())
 }
 
-fn parse_length(string: &str) -> Option<(f64, Unit)> {
+fn parse_length(string: &str) -> Option<(f64, LengthUnit)> {
     let len = string.len();
 
     // We need at least some number and the unit.
@@ -362,10 +362,10 @@ fn parse_length(string: &str) -> Option<(f64, Unit)> {
     let split = len - 2;
     let bytes = string.as_bytes();
     let unit = match &bytes[split ..] {
-        b"pt" => Unit::Pt,
-        b"mm" => Unit::Mm,
-        b"cm" => Unit::Cm,
-        b"in" => Unit::In,
+        b"pt" => LengthUnit::Pt,
+        b"mm" => LengthUnit::Mm,
+        b"cm" => LengthUnit::Cm,
+        b"in" => LengthUnit::In,
         _ => return None,
     };
 
@@ -378,9 +378,9 @@ mod tests {
     use super::*;
     use crate::parse::tests::check;
 
+    use LengthUnit::*;
     use Option::None;
     use Token::{Ident, *};
-    use Unit::*;
 
     fn Raw(text: &str, backticks: usize, terminated: bool) -> Token {
         Token::Raw(TokenRaw { text, backticks, terminated })
@@ -737,7 +737,12 @@ mod tests {
         }
 
         // Test lengths.
-        for &unit in &[Unit::Mm, Unit::Pt, Unit::Cm, Unit::In] {
+        for &unit in &[
+            LengthUnit::Mm,
+            LengthUnit::Pt,
+            LengthUnit::Cm,
+            LengthUnit::In,
+        ] {
             for (s, v) in nums.clone() {
                 t!(Header[" /"]: format!("{}{}", s, unit) => Length(v, unit));
             }

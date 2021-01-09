@@ -1,6 +1,6 @@
 use super::*;
 use crate::color::RgbaColor;
-use crate::geom::Unit;
+use crate::geom::LengthUnit;
 
 /// An expression.
 #[derive(Debug, Clone, PartialEq)]
@@ -16,7 +16,7 @@ pub enum Expr {
     /// A floating-point literal: `1.2`, `10e-4`.
     Float(f64),
     /// A length literal: `12pt`, `3cm`.
-    Length(f64, Unit),
+    Length(f64, LengthUnit),
     /// A percent literal: `50%`.
     ///
     /// _Note_: `50%` is stored as `50.0` here, but as `0.5` in the

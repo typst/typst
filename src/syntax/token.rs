@@ -1,4 +1,4 @@
-use crate::geom::Unit;
+use crate::geom::LengthUnit;
 
 /// A minimal semantic entity of source code.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -70,7 +70,7 @@ pub enum Token<'s> {
     /// A floating-point number: `1.2`, `10e-4`.
     Float(f64),
     /// A length: `12pt`, `3cm`.
-    Length(f64, Unit),
+    Length(f64, LengthUnit),
     /// A percentage: `50%`.
     ///
     /// _Note_: `50%` is stored as `50.0` here, as in the corresponding
