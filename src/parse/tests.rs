@@ -5,11 +5,11 @@ use std::fmt::Debug;
 use super::parse;
 use crate::color::RgbaColor;
 use crate::diag::{Diag, Level, Pass};
-use crate::geom::LengthUnit;
+use crate::geom::{AngularUnit, LengthUnit};
 use crate::syntax::*;
 
 use BinOp::*;
-use Expr::{Bool, Color, Float, Int, Length, Percent};
+use Expr::{Angle, Bool, Color, Float, Int, Length, Percent};
 use Node::{Emph, Expr as Block, Linebreak, Parbreak, Space, Strong};
 use UnOp::*;
 
@@ -601,6 +601,8 @@ fn test_parse_values() {
     t!("{50%}"    Block(Percent(50.0)));
     t!("{4.5cm}"  Block(Length(4.5, LengthUnit::Cm)));
     t!("{12e1pt}" Block(Length(12e1, LengthUnit::Pt)));
+    t!("{13rad}"  Block(Angle(13.0, AngularUnit::Rad)));
+    t!("{45deg}"  Block(Angle(45.0, AngularUnit::Deg)));
 
     // Strings.
     t!(r#"{"hi"}"#                     Block(Str("hi")));

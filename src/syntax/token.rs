@@ -117,13 +117,13 @@ pub enum Token<'s> {
     Float(f64),
     /// A length: `12pt`, `3cm`.
     Length(f64, LengthUnit),
+    /// An angle: `90deg`.
+    Angle(f64, AngularUnit),
     /// A percentage: `50%`.
     ///
     /// _Note_: `50%` is stored as `50.0` here, as in the corresponding
     /// [literal](super::Expr::Percent).
     Percent(f64),
-    /// An angle: `90deg`.
-    Angle(f64, AngularUnit),
     /// A hex value: `#20d82a`.
     Hex(&'s str),
     /// A quoted string: `"..."`.

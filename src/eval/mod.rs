@@ -18,7 +18,7 @@ use std::rc::Rc;
 use crate::color::Color;
 use crate::diag::Pass;
 use crate::env::SharedEnv;
-use crate::geom::{Gen, Length, Relative};
+use crate::geom::{Angle, Gen, Length, Relative};
 use crate::layout::{self, Expansion, NodeSpacing, NodeStack};
 use crate::syntax::*;
 
@@ -161,6 +161,7 @@ impl Eval for Spanned<&Expr> {
             Expr::Int(v) => Value::Int(*v),
             Expr::Float(v) => Value::Float(*v),
             Expr::Length(v, unit) => Value::Length(Length::with_unit(*v, *unit)),
+            Expr::Angle(v, unit) => Value::Angle(Angle::with_unit(*v, *unit)),
             Expr::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
             Expr::Color(v) => Value::Color(Color::Rgba(*v)),
             Expr::Str(v) => Value::Str(v.clone()),

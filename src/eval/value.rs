@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use super::{Args, Eval, EvalContext};
 use crate::color::Color;
-use crate::geom::{Length, Linear, Relative};
+use crate::geom::{Angle, Length, Linear, Relative};
 use crate::pretty::{pretty, Pretty, Printer};
 use crate::syntax::{pretty_content_expr, Spanned, Tree, WithSpan};
 
@@ -19,10 +19,12 @@ pub enum Value {
     Bool(bool),
     /// An integer: `120`.
     Int(i64),
-    /// A floating-point number: `1.2, 200%`.
+    /// A floating-point number: `1.2`, `10e-4`.
     Float(f64),
-    /// A length: `2cm, 5.2in`.
+    /// A length: `12pt`, `3cm`.
     Length(Length),
+    /// An angle:  `1.5rad`, `90deg`.
+    Angle(Angle),
     /// A relative value: `50%`.
     Relative(Relative),
     /// A combination of an absolute length and a relative value: `20% + 5cm`.
@@ -62,6 +64,7 @@ impl Value {
             Self::Int(_) => i64::TYPE_NAME,
             Self::Float(_) => f64::TYPE_NAME,
             Self::Length(_) => Length::TYPE_NAME,
+            Self::Angle(_) => Angle::TYPE_NAME,
             Self::Relative(_) => Relative::TYPE_NAME,
             Self::Linear(_) => Linear::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
@@ -104,6 +107,7 @@ impl Pretty for Value {
             Value::Int(v) => write!(p, "{}", v).unwrap(),
             Value::Float(v) => write!(p, "{}", v).unwrap(),
             Value::Length(v) => write!(p, "{}", v).unwrap(),
+            Value::Angle(v) => write!(p, "{}", v).unwrap(),
             Value::Relative(v) => write!(p, "{}", v).unwrap(),
             Value::Linear(v) => write!(p, "{}", v).unwrap(),
             Value::Color(v) => write!(p, "{}", v).unwrap(),
@@ -404,6 +408,7 @@ macro_rules! impl_primitive {
 impl_primitive! { bool: "boolean", Value::Bool }
 impl_primitive! { i64: "integer", Value::Int }
 impl_primitive! { Length: "length", Value::Length }
+impl_primitive! { Angle: "angle", Value::Angle }
 impl_primitive! { Relative: "relative", Value::Relative }
 impl_primitive! { Color: "color", Value::Color }
 impl_primitive! { String: "string", Value::Str }
@@ -501,8 +506,9 @@ mod tests {
         test_pretty(Value::None, "none");
         test_pretty(false, "false");
         test_pretty(12.4, "12.4");
-        test_pretty(Length::ZERO, "0pt");
-        test_pretty(Relative::ONE, "100%");
+        test_pretty(Length::pt(5.5), "5.5pt");
+        test_pretty(Angle::deg(90.0), "90deg");
+        test_pretty(Relative::ONE / 2.0, "50%");
         test_pretty(Relative::new(0.3) + Length::cm(2.0), "30% + 2cm");
         test_pretty(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
         test_pretty("hello", r#""hello""#);

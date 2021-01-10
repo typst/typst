@@ -331,6 +331,7 @@ fn value(p: &mut Parser) -> Option<Expr> {
         Some(Token::Int(i)) => Expr::Int(i),
         Some(Token::Float(f)) => Expr::Float(f),
         Some(Token::Length(val, unit)) => Expr::Length(val, unit),
+        Some(Token::Angle(val, unit)) => Expr::Angle(val, unit),
         Some(Token::Percent(p)) => Expr::Percent(p),
         Some(Token::Hex(hex)) => Expr::Color(color(p, hex)),
         Some(Token::Str(token)) => Expr::Str(str(p, token)),

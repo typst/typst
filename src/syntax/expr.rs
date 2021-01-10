@@ -1,6 +1,6 @@
 use super::*;
 use crate::color::RgbaColor;
-use crate::geom::LengthUnit;
+use crate::geom::{AngularUnit, LengthUnit};
 
 /// An expression.
 #[derive(Debug, Clone, PartialEq)]
@@ -17,6 +17,8 @@ pub enum Expr {
     Float(f64),
     /// A length literal: `12pt`, `3cm`.
     Length(f64, LengthUnit),
+    /// An angle literal:  `1.5rad`, `90deg`.
+    Angle(f64, AngularUnit),
     /// A percent literal: `50%`.
     ///
     /// _Note_: `50%` is stored as `50.0` here, but as `0.5` in the
@@ -49,6 +51,7 @@ impl Pretty for Expr {
             Self::Int(v) => write!(p, "{}", v).unwrap(),
             Self::Float(v) => write!(p, "{}", v).unwrap(),
             Self::Length(v, u) => write!(p, "{}{}", v, u).unwrap(),
+            Self::Angle(v, u) => write!(p, "{}{}", v, u).unwrap(),
             Self::Percent(v) => write!(p, "{}%", v).unwrap(),
             Self::Color(v) => write!(p, "{}", v).unwrap(),
             Self::Str(s) => write!(p, "{:?}", &s).unwrap(),
@@ -331,6 +334,7 @@ mod tests {
         test_pretty("{2.50}", "{2.5}");
         test_pretty("{1e2}", "{100}");
         test_pretty("{12pt}", "{12pt}");
+        test_pretty("{90.0deg}", "{90deg}");
         test_pretty("{50%}", "{50%}");
         test_pretty("{#fff}", "{#ffffff}");
         test_pretty(r#"{"hi\n"}"#, r#"{"hi\n"}"#);
