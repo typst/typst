@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::{is_newline, Scanner};
-use crate::geom::LengthUnit;
+use crate::geom::{AngularUnit, LengthUnit};
 use crate::syntax::*;
 
 use TokenMode::*;
@@ -62,19 +62,19 @@ impl<'s> Iterator for Tokens<'s> {
         loop {
             // Common elements.
             return Some(match c {
-                // Whitespace.
-                c if c.is_whitespace() => self.whitespace(c, start),
-
-                // Comments.
-                '/' if self.s.eat_if('/') => self.line_comment(),
-                '/' if self.s.eat_if('*') => self.block_comment(),
-                '*' if self.s.eat_if('/') => Token::Invalid(self.s.eaten_from(start)),
-
                 // Functions and blocks.
                 '[' => Token::LeftBracket,
                 ']' => Token::RightBracket,
                 '{' => Token::LeftBrace,
                 '}' => Token::RightBrace,
+
+                // Whitespace.
+                c if c.is_whitespace() => self.whitespace(c),
+
+                // Comments.
+                '/' if self.s.eat_if('/') => self.line_comment(),
+                '/' if self.s.eat_if('*') => self.block_comment(),
+                '*' if self.s.eat_if('/') => Token::Invalid(self.s.eaten_from(start)),
 
                 _ => break,
             });
@@ -86,62 +86,315 @@ impl<'s> Iterator for Tokens<'s> {
                 '*' => Token::Star,
                 '_' => Token::Underscore,
                 '~' => Token::Tilde,
-                '#' => Token::Hashtag,
+                '#' => self.hash(start),
                 '`' => self.raw(),
-
-                // Escape sequences.
-                '\\' => self.escaped(),
+                '$' => self.math(),
+                '\\' => self.backslash(),
 
                 // Plain text.
                 _ => self.text(start),
             },
 
             Header => match c {
-                // Syntactic elements in headers.
+                // Parens.
                 '(' => Token::LeftParen,
                 ')' => Token::RightParen,
-                ':' => Token::Colon,
+
+                // Length two.
+                '=' if self.s.eat_if('=') => Token::EqEq,
+                '!' if self.s.eat_if('=') => Token::BangEq,
+                '<' if self.s.eat_if('=') => Token::LtEq,
+                '>' if self.s.eat_if('=') => Token::GtEq,
+                '+' if self.s.eat_if('=') => Token::PlusEq,
+                '-' if self.s.eat_if('=') => Token::HyphEq,
+                '*' if self.s.eat_if('=') => Token::StarEq,
+                '/' if self.s.eat_if('=') => Token::SlashEq,
+                '.' if self.s.eat_if('.') => Token::Dots,
+                '=' if self.s.eat_if('>') => Token::Arrow,
+
+                // Length one.
                 ',' => Token::Comma,
+                ':' => Token::Colon,
                 '|' => Token::Pipe,
                 '+' => Token::Plus,
-                '-' => Token::Hyphen,
+                '-' => Token::Hyph,
                 '*' => Token::Star,
                 '/' => Token::Slash,
+                '=' => Token::Eq,
+                '<' => Token::Lt,
+                '>' => Token::Gt,
+                '?' => Token::Question,
 
-                // Expressions in headers.
+                // Identifiers.
+                c if is_id_start(c) => self.ident(start),
+
+                // Numbers.
+                c if c.is_ascii_digit()
+                    || (c == '.' && self.s.check(|n| n.is_ascii_digit())) =>
+                {
+                    self.number(start, c)
+                }
+
+                // Hex values and strings.
                 '#' => self.hex(),
                 '"' => self.string(),
 
-                // Expressions.
-                c => self.expr(c, start),
+                _ => Token::Invalid(self.s.eaten_from(start)),
             },
         })
     }
 }
 
 impl<'s> Tokens<'s> {
-    fn whitespace(&mut self, first: char, start: usize) -> Token<'s> {
+    fn whitespace(&mut self, first: char) -> Token<'s> {
         // Fast path for just a single space
         if first == ' ' && !self.s.check(|c| c.is_whitespace()) {
-            return Token::Space(0);
+            Token::Space(0)
+        } else {
+            self.s.uneat();
+
+            // Count the number of newlines.
+            let mut newlines = 0;
+            while let Some(c) = self.s.eat_merging_crlf() {
+                if !c.is_whitespace() {
+                    self.s.uneat();
+                    break;
+                }
+
+                if is_newline(c) {
+                    newlines += 1;
+                }
+            }
+
+            Token::Space(newlines)
         }
+    }
 
-        self.s.jump(start);
-
-        // Count the number of newlines.
-        let mut newlines = 0;
-        while let Some(c) = self.s.eat_merging_crlf() {
-            if !c.is_whitespace() {
+    fn text(&mut self, start: usize) -> Token<'s> {
+        while let Some(c) = self.s.eat() {
+            if match c {
+                // Whitespace.
+                c if c.is_whitespace() => true,
+                // Comments.
+                '/' if self.s.check(|c| c == '/' || c == '*') => true,
+                // Parenthesis.
+                '[' | ']' | '{' | '}' => true,
+                // Markup.
+                '*' | '_' | '#' | '~' | '`' => true,
+                // Escaping.
+                '\\' => true,
+                _ => false,
+            } {
                 self.s.uneat();
                 break;
             }
+        }
 
-            if is_newline(c) {
-                newlines += 1;
+        Token::Text(self.s.eaten_from(start))
+    }
+
+    fn hash(&mut self, start: usize) -> Token<'s> {
+        if self.s.check(is_id_start) {
+            self.s.eat();
+            self.s.eat_while(is_id_continue);
+            match self.s.eaten_from(start) {
+                "#let" => Token::Let,
+                "#if" => Token::If,
+                "#else" => Token::Else,
+                "#for" => Token::For,
+                "#in" => Token::In,
+                "#while" => Token::While,
+                "#break" => Token::Break,
+                "#continue" => Token::Continue,
+                "#return" => Token::Return,
+                s => Token::Invalid(s),
+            }
+        } else {
+            Token::Hash
+        }
+    }
+
+    fn raw(&mut self) -> Token<'s> {
+        let mut backticks = 1;
+        while self.s.eat_if('`') {
+            backticks += 1;
+        }
+
+        let start = self.s.index();
+
+        let mut found = 0;
+        while found < backticks {
+            match self.s.eat() {
+                Some('`') => found += 1,
+                Some(_) => found = 0,
+                None => break,
             }
         }
 
-        Token::Space(newlines)
+        let terminated = found == backticks;
+        let end = self.s.index() - if terminated { found } else { 0 };
+
+        Token::Raw(TokenRaw {
+            text: self.s.get(start .. end),
+            backticks,
+            terminated,
+        })
+    }
+
+    fn math(&mut self) -> Token<'s> {
+        let mut dollars = 1;
+        if self.s.eat_if('$') {
+            dollars = 2;
+        }
+
+        let start = self.s.index();
+
+        let mut found = 0;
+        let mut escaped = false;
+        while found < dollars {
+            match self.s.eat() {
+                Some('$') if !escaped => found += 1,
+                Some(c) => {
+                    found = 0;
+                    escaped = c == '\\' && !escaped;
+                }
+                None => break,
+            }
+        }
+
+        let terminated = found == dollars;
+        let end = self.s.index() - if terminated { found } else { 0 };
+
+        Token::Math(TokenMath {
+            formula: self.s.get(start .. end),
+            inline: dollars == 1,
+            terminated,
+        })
+    }
+
+    fn backslash(&mut self) -> Token<'s> {
+        if let Some(c) = self.s.peek() {
+            match c {
+                // Backslash and comments.
+                '\\' | '/' |
+                // Parenthesis.
+                '[' | ']' | '{' | '}' |
+                // Markup.
+                '*' | '_' |  '~' | '#' | '`' => {
+                    let start = self.s.index();
+                    self.s.eat_assert(c);
+                    Token::Text(&self.s.eaten_from(start))
+                }
+                'u' if self.s.peek_nth(1) == Some('{') => {
+                    self.s.eat_assert('u');
+                    self.s.eat_assert('{');
+                    Token::UnicodeEscape(TokenUnicodeEscape {
+                        // Allow more than `ascii_hexdigit` for better error recovery.
+                        sequence: self.s.eat_while(|c| c.is_ascii_alphanumeric()),
+                        terminated: self.s.eat_if('}'),
+                    })
+                }
+                c if c.is_whitespace() => Token::Backslash,
+                _ => Token::Text("\\"),
+            }
+        } else {
+            Token::Backslash
+        }
+    }
+
+    fn ident(&mut self, start: usize) -> Token<'s> {
+        self.s.eat_while(is_id_continue);
+        match self.s.eaten_from(start) {
+            "not" => Token::Not,
+            "and" => Token::And,
+            "or" => Token::Or,
+            "let" => Token::Let,
+            "if" => Token::If,
+            "else" => Token::Else,
+            "for" => Token::For,
+            "in" => Token::In,
+            "while" => Token::While,
+            "break" => Token::Break,
+            "continue" => Token::Continue,
+            "return" => Token::Return,
+            "none" => Token::None,
+            "true" => Token::Bool(true),
+            "false" => Token::Bool(false),
+            id => Token::Ident(id),
+        }
+    }
+
+    fn number(&mut self, start: usize, first: char) -> Token<'s> {
+        // Read the first part (integer or fractional depending on `first`).
+        self.s.eat_while(|c| c.is_ascii_digit());
+
+        // Read the fractional part if not already done and present.
+        if first != '.' && self.s.eat_if('.') {
+            self.s.eat_while(|c| c.is_ascii_digit());
+        }
+
+        // Read the exponent.
+        if self.s.eat_if('e') || self.s.eat_if('E') {
+            let _ = self.s.eat_if('+') || self.s.eat_if('-');
+            self.s.eat_while(|c| c.is_ascii_digit());
+        }
+
+        // Read the suffix.
+        let suffix_start = self.s.index();
+        if !self.s.eat_if('%') {
+            self.s.eat_while(|c| c.is_ascii_alphanumeric());
+        }
+
+        let number = self.s.get(start .. suffix_start);
+        let suffix = self.s.eaten_from(suffix_start);
+        let all = self.s.eaten_from(start);
+
+        // Find out whether it is a simple number.
+        if suffix.is_empty() {
+            if let Ok(int) = number.parse::<i64>() {
+                return Token::Int(int);
+            } else if let Ok(float) = number.parse::<f64>() {
+                return Token::Float(float);
+            }
+        }
+
+        // Otherwise parse into the fitting numeric type.
+        let build = match suffix {
+            "%" => Token::Percent,
+            "pt" => |x| Token::Length(x, LengthUnit::Pt),
+            "mm" => |x| Token::Length(x, LengthUnit::Mm),
+            "cm" => |x| Token::Length(x, LengthUnit::Cm),
+            "in" => |x| Token::Length(x, LengthUnit::In),
+            "rad" => |x| Token::Angle(x, AngularUnit::Rad),
+            "deg" => |x| Token::Angle(x, AngularUnit::Deg),
+            _ => return Token::Invalid(all),
+        };
+
+        if let Ok(float) = number.parse::<f64>() {
+            build(float)
+        } else {
+            Token::Invalid(all)
+        }
+    }
+
+    fn hex(&mut self) -> Token<'s> {
+        // Allow more than `ascii_hexdigit` for better error recovery.
+        Token::Hex(self.s.eat_while(|c| c.is_ascii_alphanumeric()))
+    }
+
+    fn string(&mut self) -> Token<'s> {
+        let mut escaped = false;
+        Token::Str(TokenStr {
+            string: self.s.eat_until(|c| {
+                if c == '"' && !escaped {
+                    true
+                } else {
+                    escaped = c == '\\' && !escaped;
+                    false
+                }
+            }),
+            terminated: self.s.eat_if('"'),
+        })
     }
 
     fn line_comment(&mut self) -> Token<'s> {
@@ -177,166 +430,6 @@ impl<'s> Tokens<'s> {
 
         Token::BlockComment(self.s.get(start .. end))
     }
-
-    fn raw(&mut self) -> Token<'s> {
-        let mut backticks = 1;
-        while self.s.eat_if('`') {
-            backticks += 1;
-        }
-
-        let start = self.s.index();
-
-        let mut found = 0;
-        while found < backticks {
-            match self.s.eat() {
-                Some('`') => found += 1,
-                Some(_) => found = 0,
-                None => break,
-            }
-        }
-
-        let terminated = found == backticks;
-        let end = self.s.index() - if terminated { found } else { 0 };
-
-        Token::Raw(TokenRaw {
-            text: self.s.get(start .. end),
-            backticks,
-            terminated,
-        })
-    }
-
-    fn escaped(&mut self) -> Token<'s> {
-        if let Some(c) = self.s.peek() {
-            match c {
-                // Backslash and comments.
-                '\\' | '/' |
-                // Parenthesis.
-                '[' | ']' | '{' | '}' |
-                // Markup.
-                '*' | '_' |  '~' | '#' | '`' => {
-                    let start = self.s.index();
-                    self.s.eat_assert(c);
-                    Token::Text(&self.s.eaten_from(start))
-                }
-                'u' if self.s.peek_nth(1) == Some('{') => {
-                    self.s.eat_assert('u');
-                    self.s.eat_assert('{');
-                    Token::UnicodeEscape(TokenUnicodeEscape {
-                        // Allow more than `ascii_hexdigit` for better error recovery.
-                        sequence: self.s.eat_while(|c| c.is_ascii_alphanumeric()),
-                        terminated: self.s.eat_if('}'),
-                    })
-                }
-                c if c.is_whitespace() => Token::Backslash,
-                _ => Token::Text("\\"),
-            }
-        } else {
-            Token::Backslash
-        }
-    }
-
-    fn text(&mut self, start: usize) -> Token<'s> {
-        while let Some(c) = self.s.eat() {
-            if match c {
-                // Whitespace.
-                c if c.is_whitespace() => true,
-                // Comments.
-                '/' if self.s.check(|c| c == '/' || c == '*') => true,
-                // Parenthesis.
-                '[' | ']' | '{' | '}' => true,
-                // Markup.
-                '*' | '_' | '#' | '~' | '`' => true,
-                // Escaping.
-                '\\' => true,
-                _ => false,
-            } {
-                self.s.uneat();
-                break;
-            }
-        }
-
-        Token::Text(self.s.eaten_from(start))
-    }
-
-    fn hex(&mut self) -> Token<'s> {
-        // Allow more than `ascii_hexdigit` for better error recovery.
-        Token::Hex(self.s.eat_while(|c| c.is_ascii_alphanumeric()))
-    }
-
-    fn string(&mut self) -> Token<'s> {
-        let mut escaped = false;
-        Token::Str(TokenStr {
-            string: self.s.eat_until(|c| {
-                if c == '"' && !escaped {
-                    true
-                } else {
-                    escaped = c == '\\' && !escaped;
-                    false
-                }
-            }),
-            terminated: self.s.eat_if('"'),
-        })
-    }
-
-    fn expr(&mut self, first: char, start: usize) -> Token<'s> {
-        if is_id_start(first) {
-            self.ident(start)
-        } else if first.is_ascii_digit()
-            || (first == '.' && self.s.check(|c| c.is_ascii_digit()))
-        {
-            self.number(start)
-        } else {
-            Token::Invalid(self.s.eaten_from(start))
-        }
-    }
-
-    fn ident(&mut self, start: usize) -> Token<'s> {
-        self.s.eat_while(is_id_continue);
-        let string = self.s.eaten_from(start);
-        match string {
-            "none" => Token::None,
-            "true" => Token::Bool(true),
-            "false" => Token::Bool(false),
-            _ => Token::Ident(string),
-        }
-    }
-
-    fn number(&mut self, start: usize) -> Token<'s> {
-        self.s.jump(start);
-
-        // Read the integer part.
-        self.s.eat_while(|c| c.is_ascii_digit());
-
-        // Read the fractional part if present.
-        if self.s.eat_if('.') {
-            self.s.eat_while(|c| c.is_ascii_digit());
-        }
-
-        // Read the exponent.
-        if self.s.eat_if('e') || self.s.eat_if('E') {
-            let _ = self.s.eat_if('+') || self.s.eat_if('-');
-            self.s.eat_while(|c| c.is_ascii_digit());
-        }
-
-        // Read the suffix.
-        if !self.s.eat_if('%') {
-            self.s.eat_while(|c| c.is_ascii_alphanumeric());
-        }
-
-        // Parse into one of the suitable types.
-        let string = self.s.eaten_from(start);
-        if let Some(percent) = parse_percent(string) {
-            Token::Percent(percent)
-        } else if let Some((val, unit)) = parse_length(string) {
-            Token::Length(val, unit)
-        } else if let Ok(int) = string.parse::<i64>() {
-            Token::Int(int)
-        } else if let Ok(float) = string.parse::<f64>() {
-            Token::Float(float)
-        } else {
-            Token::Invalid(string)
-        }
-    }
 }
 
 impl Debug for Tokens<'_> {
@@ -345,45 +438,21 @@ impl Debug for Tokens<'_> {
     }
 }
 
-fn parse_percent(string: &str) -> Option<f64> {
-    string.strip_suffix('%').and_then(|prefix| prefix.parse::<f64>().ok())
-}
-
-fn parse_length(string: &str) -> Option<(f64, LengthUnit)> {
-    let len = string.len();
-
-    // We need at least some number and the unit.
-    if len <= 2 {
-        return None;
-    }
-
-    // We can view the string as bytes since a multibyte UTF-8 char cannot
-    // have valid ASCII chars as subbytes.
-    let split = len - 2;
-    let bytes = string.as_bytes();
-    let unit = match &bytes[split ..] {
-        b"pt" => LengthUnit::Pt,
-        b"mm" => LengthUnit::Mm,
-        b"cm" => LengthUnit::Cm,
-        b"in" => LengthUnit::In,
-        _ => return None,
-    };
-
-    string[.. split].parse::<f64>().ok().map(|val| (val, unit))
-}
-
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
     use crate::parse::tests::check;
 
-    use LengthUnit::*;
     use Option::None;
     use Token::{Ident, *};
 
     fn Raw(text: &str, backticks: usize, terminated: bool) -> Token {
         Token::Raw(TokenRaw { text, backticks, terminated })
+    }
+
+    fn Math(formula: &str, inline: bool, terminated: bool) -> Token {
+        Token::Math(TokenMath { formula, inline, terminated })
     }
 
     fn UnicodeEscape(sequence: &str, terminated: bool) -> Token {
@@ -424,6 +493,7 @@ mod tests {
         // Letter suffixes.
         ('a', Some(Body), "hello", Text("hello")),
         ('a', Some(Body), "💚", Text("💚")),
+        ('a', Some(Header), "if", If),
         ('a', Some(Header), "val", Ident("val")),
         ('a', Some(Header), "α", Ident("α")),
         ('a', Some(Header), "_", Ident("_")),
@@ -437,9 +507,10 @@ mod tests {
         ('/', Some(Body), "*", Star),
         ('/', Some(Body), "_", Underscore),
         ('/', Some(Body), r"\\", Text(r"\")),
+        ('/', Some(Body), "#let", Let),
         ('/', Some(Header), "(", LeftParen),
         ('/', Some(Header), ":", Colon),
-        ('/', Some(Header), "+", Plus),
+        ('/', Some(Header), "+=", PlusEq),
         ('/', Some(Header), "#123", Hex("123")),
     ];
 
@@ -473,10 +544,199 @@ mod tests {
     }
 
     #[test]
-    fn test_length_from_str() {
-        assert_eq!(parse_length("2.5cm"), Some((2.5, Cm)));
-        assert_eq!(parse_length("1.e+2cm"), Some((100.0, Cm)));
-        assert_eq!(parse_length("123🚚"), None);
+    fn test_tokenize_brackets() {
+        // Test body.
+        t!(Body: "["       => LeftBracket);
+        t!(Body: "]"       => RightBracket);
+        t!(Body: "{"       => LeftBrace);
+        t!(Body: "}"       => RightBrace);
+        t!(Body[" /"]: "(" => Text("("));
+        t!(Body[" /"]: ")" => Text(")"));
+
+        // Test header.
+        t!(Header: "[" => LeftBracket);
+        t!(Header: "]" => RightBracket);
+        t!(Header: "{" => LeftBrace);
+        t!(Header: "}" => RightBrace);
+        t!(Header: "(" => LeftParen);
+        t!(Header: ")" => RightParen);
+    }
+
+    #[test]
+    fn test_tokenize_body_symbols() {
+        // Test markup tokens.
+        t!(Body[" a1"]: "*"  => Star);
+        t!(Body: "_"         => Underscore);
+        t!(Body["a1/"]: "# " => Hash, Space(0));
+        t!(Body: "~"         => Tilde);
+        t!(Body[" "]: r"\"   => Backslash);
+    }
+
+    #[test]
+    fn test_tokenize_header_symbols() {
+        // Test all symbols.
+        t!(Header: ","        => Comma);
+        t!(Header: ":"        => Colon);
+        t!(Header: "|"        => Pipe);
+        t!(Header: "+"        => Plus);
+        t!(Header: "-"        => Hyph);
+        t!(Header[" a1"]: "*" => Star);
+        t!(Header[" a1"]: "/" => Slash);
+        t!(Header: "="        => Eq);
+        t!(Header: "=="       => EqEq);
+        t!(Header: "!="       => BangEq);
+        t!(Header: "<"        => Lt);
+        t!(Header: "<="       => LtEq);
+        t!(Header: ">"        => Gt);
+        t!(Header: ">="       => GtEq);
+        t!(Header: "+="       => PlusEq);
+        t!(Header: "-="       => HyphEq);
+        t!(Header: "*="       => StarEq);
+        t!(Header: "/="       => SlashEq);
+        t!(Header: "?"        => Question);
+        t!(Header: ".."       => Dots);
+        t!(Header: "=>"       => Arrow);
+
+        // Test combinations.
+        t!(Header: "|=>"        => Pipe, Arrow);
+        t!(Header: "<=>"        => LtEq, Gt);
+        t!(Header[" a/"]: "..." => Dots, Invalid("."));
+
+        // Test hyphen as symbol vs part of identifier.
+        t!(Header[" /"]: "-1"   => Hyph, Int(1));
+        t!(Header[" /"]: "-a"   => Hyph, Ident("a"));
+        t!(Header[" /"]: "--1"  => Hyph, Hyph, Int(1));
+        t!(Header[" /"]: "--_a" => Hyph, Hyph, Ident("_a"));
+        t!(Header[" /"]: "a-b"  => Ident("a-b"));
+    }
+
+    #[test]
+    fn test_tokenize_keywords() {
+        let both = [
+            ("let", Let),
+            ("if", If),
+            ("else", Else),
+            ("for", For),
+            ("in", In),
+            ("while", While),
+            ("break", Break),
+            ("continue", Continue),
+            ("return", Return),
+        ];
+
+        for &(s, t) in &both {
+            t!(Header[" "]: s => t);
+            t!(Body[" "]: format!("#{}", s) => t);
+            t!(Body[" "]: format!("#{0}#{0}", s) => t, t);
+            t!(Body[" /"]: format!("# {}", s) => Hash, Space(0), Text(s));
+        }
+
+        let header = [
+            ("not", Not),
+            ("and", And),
+            ("or", Or),
+            ("none", Token::None),
+            ("false", Bool(false)),
+            ("true", Bool(true)),
+        ];
+
+        for &(s, t) in &header {
+            t!(Header[" "]: s => t);
+            t!(Body[" /"]: s => Text(s));
+        }
+
+        // Test invalid case.
+        t!(Header[" /"]: "None" => Ident("None"));
+        t!(Header[" /"]: "True"   => Ident("True"));
+
+        // Test word that contains keyword.
+        t!(Body[" "]: "#letter" => Invalid("#letter"));
+        t!(Header[" /"]: "falser" => Ident("falser"));
+    }
+
+    #[test]
+    fn test_tokenize_text() {
+        // Test basic text.
+        t!(Body[" /"]: "hello"       => Text("hello"));
+        t!(Body[" /"]: "hello-world" => Text("hello-world"));
+
+        // Test header symbols in text.
+        t!(Body[" /"]: "a():\"b" => Text("a():\"b"));
+        t!(Body[" /"]: ":,=|/+-" => Text(":,=|/+-"));
+
+        // Test text ends.
+        t!(Body[""]: "hello " => Text("hello"), Space(0));
+        t!(Body[""]: "hello~" => Text("hello"), Tilde);
+    }
+
+    #[test]
+    fn test_tokenize_raw_blocks() {
+        // Test basic raw block.
+        t!(Body: "`raw`"  => Raw("raw", 1, true));
+        t!(Body[""]: "`]" => Raw("]", 1, false));
+
+        // Test special symbols in raw block.
+        t!(Body: "`[func]`"   => Raw("[func]", 1, true));
+        t!(Body[""]: r"`\`` " => Raw(r"\", 1, true), Raw(" ", 1, false));
+
+        // Test more backticks.
+        t!(Body: "````🚀````"           => Raw("🚀", 4, true));
+        t!(Body[""]: "````👩‍🚀``noend"    => Raw("👩‍🚀``noend", 4, false));
+        t!(Body[""]: "````raw``````new" => Raw("raw", 4, true), Raw("new", 2, false));
+
+        // Test separated closing backticks.
+        t!(Body: "```not `y`e`t```" => Raw("not `y`e`t", 3, true));
+    }
+
+    #[test]
+    fn test_tokenize_math_formulas() {
+        // Test basic formula.
+        t!(Body: "$x$"         => Math("x", true, true));
+        t!(Body: "$$x + y$$"   => Math("x + y", false, true));
+
+        // Test unterminated.
+        t!(Body[""]: "$$x"     => Math("x", false, false));
+        t!(Body[""]: "$$x$\n$" => Math("x$\n$", false, false));
+
+        // Test escape sequences.
+        t!(Body: r"$$\\\$$$"    => Math(r"\\\$", false, true));
+        t!(Body[""]: r"$$ $\\$" => Math(r" $\\$", false, false));
+    }
+
+    #[test]
+    fn test_tokenize_escape_sequences() {
+        // Test escapable symbols.
+        t!(Body: r"\\" => Text(r"\"));
+        t!(Body: r"\/" => Text("/"));
+        t!(Body: r"\[" => Text("["));
+        t!(Body: r"\]" => Text("]"));
+        t!(Body: r"\{" => Text("{"));
+        t!(Body: r"\}" => Text("}"));
+        t!(Body: r"\*" => Text("*"));
+        t!(Body: r"\_" => Text("_"));
+        t!(Body: r"\#" => Text("#"));
+        t!(Body: r"\~" => Text("~"));
+        t!(Body: r"\`" => Text("`"));
+
+        // Test unescapable symbols.
+        t!(Body[" /"]: r"\a"   => Text(r"\"), Text("a"));
+        t!(Body[" /"]: r"\u"   => Text(r"\"), Text("u"));
+        t!(Body[" /"]: r"\1"   => Text(r"\"), Text("1"));
+        t!(Body[" /"]: r"\:"   => Text(r"\"), Text(":"));
+        t!(Body[" /"]: r"\="   => Text(r"\"), Text("="));
+        t!(Body[" /"]: r#"\""# => Text(r"\"), Text("\""));
+
+        // Test basic unicode escapes.
+        t!(Body: r"\u{}"     => UnicodeEscape("", true));
+        t!(Body: r"\u{2603}" => UnicodeEscape("2603", true));
+        t!(Body: r"\u{P}"    => UnicodeEscape("P", true));
+
+        // Test unclosed unicode escapes.
+        t!(Body[" /"]: r"\u{"     => UnicodeEscape("", false));
+        t!(Body[" /"]: r"\u{1"    => UnicodeEscape("1", false));
+        t!(Body[" /"]: r"\u{26A4" => UnicodeEscape("26A4", false));
+        t!(Body[" /"]: r"\u{1Q3P" => UnicodeEscape("1Q3P", false));
+        t!(Body: r"\u{1🏕}"       => UnicodeEscape("1", false), Text("🏕"), RightBrace);
     }
 
     #[test]
@@ -498,6 +758,107 @@ mod tests {
         t!(Both["a1/"]: "  \n\t \n  "  => Space(2));
         t!(Both["a1/"]: "\n\r"         => Space(2));
         t!(Both["a1/"]: " \r\r\n \x0D" => Space(3));
+    }
+
+    #[test]
+    fn test_tokenize_idents() {
+        // Test valid identifiers.
+        t!(Header[" /"]: "x"           => Ident("x"));
+        t!(Header[" /"]: "value"       => Ident("value"));
+        t!(Header[" /"]: "__main__"    => Ident("__main__"));
+        t!(Header[" /"]: "_snake_case" => Ident("_snake_case"));
+
+        // Test non-ascii.
+        t!(Header[" /"]: "α"    => Ident("α"));
+        t!(Header[" /"]: "ម្តាយ" => Ident("ម្តាយ"));
+
+        // Test hyphen parsed as identifier.
+        t!(Header[" /"]: "kebab-case" => Ident("kebab-case"));
+        t!(Header[" /"]: "one-10"     => Ident("one-10"));
+    }
+
+    #[test]
+    fn test_tokenize_numeric() {
+        let ints = [("7", 7), ("012", 12)];
+        let floats = [
+            (".3", 0.3),
+            ("0.3", 0.3),
+            ("3.", 3.0),
+            ("3.0", 3.0),
+            ("14.3", 14.3),
+            ("10e2", 1000.0),
+            ("10e+0", 10.0),
+            ("10e+1", 100.0),
+            ("10e-2", 0.1),
+            ("10.e1", 100.0),
+            ("10.e-1", 1.0),
+            (".1e1", 1.0),
+            ("10E2", 1000.0),
+        ];
+
+        // Test integers.
+        for &(s, v) in &ints {
+            t!(Header[" /"]: s => Int(v));
+        }
+
+        // Test floats.
+        for &(s, v) in &floats {
+            t!(Header[" /"]: s => Float(v));
+        }
+
+        // Test attached numbers.
+        t!(Header[" /"]: ".2.3"  => Float(0.2), Float(0.3));
+        t!(Header[" /"]: "1.2.3"  => Float(1.2), Float(0.3));
+        t!(Header[" /"]: "1e-2+3" => Float(0.01), Plus, Int(3));
+
+        // Test float from too large integer.
+        let large = i64::MAX as f64 + 1.0;
+        t!(Header[" /"]: large.to_string() => Float(large));
+
+        // Combined integers and floats.
+        let nums = ints.iter().map(|&(k, v)| (k, v as f64)).chain(floats.iter().copied());
+
+        let suffixes = [
+            ("%", Percent as fn(f64) -> Token<'static>),
+            ("mm", |x| Length(x, LengthUnit::Mm)),
+            ("pt", |x| Length(x, LengthUnit::Pt)),
+            ("cm", |x| Length(x, LengthUnit::Cm)),
+            ("in", |x| Length(x, LengthUnit::In)),
+            ("rad", |x| Angle(x, AngularUnit::Rad)),
+            ("deg", |x| Angle(x, AngularUnit::Deg)),
+        ];
+
+        // Numeric types.
+        for &(suffix, build) in &suffixes {
+            for (s, v) in nums.clone() {
+                t!(Header[" /"]: format!("{}{}", s, suffix) => build(v));
+            }
+        }
+    }
+
+    #[test]
+    fn test_tokenize_hex() {
+        // Test basic hex expressions.
+        t!(Header[" /"]: "#6ae6dd" => Hex("6ae6dd"));
+        t!(Header[" /"]: "#8A083c" => Hex("8A083c"));
+
+        // Test with non-hex letters.
+        t!(Header[" /"]: "#PQ" => Hex("PQ"));
+    }
+
+    #[test]
+    fn test_tokenize_strings() {
+        // Test basic strings.
+        t!(Header: "\"hi\""        => Str("hi", true));
+        t!(Header: "\"hi\nthere\"" => Str("hi\nthere", true));
+        t!(Header: "\"🌎\""        => Str("🌎", true));
+
+        // Test unterminated.
+        t!(Header[""]: "\"hi"      => Str("hi", false));
+
+        // Test escaped quote.
+        t!(Header: r#""a\"bc""# => Str(r#"a\"bc"#, true));
+        t!(Header[""]: r#""\""# => Str(r#"\""#, false));
     }
 
     #[test]
@@ -540,239 +901,6 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenize_body_tokens() {
-        // Test parentheses.
-        t!(Body: "[" => LeftBracket);
-        t!(Body: "]" => RightBracket);
-        t!(Body: "{" => LeftBrace);
-        t!(Body: "}" => RightBrace);
-
-        // Test markup tokens.
-        t!(Body[" a1"]: "*" => Star);
-        t!(Body: "_"        => Underscore);
-        t!(Body: "~"        => Tilde);
-        t!(Body: "#"        => Hashtag);
-        t!(Body[" "]: r"\"  => Backslash);
-
-        // Test header symbols.
-        t!(Body[" /"]: ":,=|/+-" => Text(":,=|/+-"));
-    }
-
-    #[test]
-    fn test_tokenize_raw_blocks() {
-        // Test basic raw block.
-        t!(Body: "`raw`"  => Raw("raw", 1, true));
-        t!(Body[""]: "`]" => Raw("]", 1, false));
-
-        // Test special symbols in raw block.
-        t!(Body: "`[func]`"   => Raw("[func]", 1, true));
-        t!(Body[""]: r"`\`` " => Raw(r"\", 1, true), Raw(" ", 1, false));
-
-        // Test more backticks.
-        t!(Body: "````🚀````"           => Raw("🚀", 4, true));
-        t!(Body[""]: "````👩‍🚀``noend"    => Raw("👩‍🚀``noend", 4, false));
-        t!(Body[""]: "````raw``````new" => Raw("raw", 4, true), Raw("new", 2, false));
-
-        // Test separated closing backticks.
-        t!(Body: "```not `y`e`t```" => Raw("not `y`e`t", 3, true));
-    }
-
-    #[test]
-    fn test_tokenize_escape_sequences() {
-        // Test escapable symbols.
-        t!(Body: r"\\" => Text(r"\"));
-        t!(Body: r"\/" => Text("/"));
-        t!(Body: r"\[" => Text("["));
-        t!(Body: r"\]" => Text("]"));
-        t!(Body: r"\{" => Text("{"));
-        t!(Body: r"\}" => Text("}"));
-        t!(Body: r"\*" => Text("*"));
-        t!(Body: r"\_" => Text("_"));
-        t!(Body: r"\#" => Text("#"));
-        t!(Body: r"\~" => Text("~"));
-        t!(Body: r"\`" => Text("`"));
-
-        // Test unescapable symbols.
-        t!(Body[" /"]: r"\a"   => Text(r"\"), Text("a"));
-        t!(Body[" /"]: r"\u"   => Text(r"\"), Text("u"));
-        t!(Body[" /"]: r"\1"   => Text(r"\"), Text("1"));
-        t!(Body[" /"]: r"\:"   => Text(r"\"), Text(":"));
-        t!(Body[" /"]: r"\="   => Text(r"\"), Text("="));
-        t!(Body[" /"]: r#"\""# => Text(r"\"), Text("\""));
-
-        // Test basic unicode escapes.
-        t!(Body: r"\u{}"     => UnicodeEscape("", true));
-        t!(Body: r"\u{2603}" => UnicodeEscape("2603", true));
-        t!(Body: r"\u{P}"    => UnicodeEscape("P", true));
-
-        // Test unclosed unicode escapes.
-        t!(Body[" /"]: r"\u{"     => UnicodeEscape("", false));
-        t!(Body[" /"]: r"\u{1"    => UnicodeEscape("1", false));
-        t!(Body[" /"]: r"\u{26A4" => UnicodeEscape("26A4", false));
-        t!(Body[" /"]: r"\u{1Q3P" => UnicodeEscape("1Q3P", false));
-        t!(Body: r"\u{1🏕}"       => UnicodeEscape("1", false), Text("🏕"), RightBrace);
-    }
-
-    #[test]
-    fn test_tokenize_text() {
-        // Test basic text.
-        t!(Body[" /"]: "hello"       => Text("hello"));
-        t!(Body[" /"]: "hello-world" => Text("hello-world"));
-
-        // Test header symbols in text.
-        t!(Body[" /"]: "a():\"b" => Text("a():\"b"));
-
-        // Test text ends.
-        t!(Body[""]: "hello " => Text("hello"), Space(0));
-        t!(Body[""]: "hello~" => Text("hello"), Tilde);
-    }
-
-    #[test]
-    fn test_tokenize_header_tokens() {
-        // Test parentheses.
-        t!(Header: "[" => LeftBracket);
-        t!(Header: "]" => RightBracket);
-        t!(Header: "{" => LeftBrace);
-        t!(Header: "}" => RightBrace);
-        t!(Header: "(" => LeftParen);
-        t!(Header: ")" => RightParen);
-
-        // Test structural tokens.
-        t!(Header: ":"        => Colon);
-        t!(Header: ","        => Comma);
-        t!(Header: "|"        => Pipe);
-        t!(Header: "+"        => Plus);
-        t!(Header: "-"        => Hyphen);
-        t!(Header[" a1"]: "*" => Star);
-        t!(Header[" a1"]: "/" => Slash);
-
-        // Test hyphen parsed as symbol.
-        t!(Header[" /"]: "-1"   => Hyphen, Int(1));
-        t!(Header[" /"]: "-a"   => Hyphen, Ident("a"));
-        t!(Header[" /"]: "--1"  => Hyphen, Hyphen, Int(1));
-        t!(Header[" /"]: "--_a" => Hyphen, Hyphen, Ident("_a"));
-        t!(Header[" /"]: "a-b"  => Ident("a-b"));
-
-        // Test some operations.
-        t!(Header[" /"]: "1+3" => Int(1), Plus, Int(3));
-        t!(Header[" /"]: "1*3" => Int(1), Star, Int(3));
-        t!(Header[" /"]: "1/3" => Int(1), Slash, Int(3));
-    }
-
-    #[test]
-    fn test_tokenize_idents() {
-        // Test valid identifiers.
-        t!(Header[" /"]: "x"           => Ident("x"));
-        t!(Header[" /"]: "value"       => Ident("value"));
-        t!(Header[" /"]: "__main__"    => Ident("__main__"));
-        t!(Header[" /"]: "_snake_case" => Ident("_snake_case"));
-
-        // Test non-ascii.
-        t!(Header[" /"]: "α"    => Ident("α"));
-        t!(Header[" /"]: "ម្តាយ" => Ident("ម្តាយ"));
-
-        // Test hyphen parsed as identifier.
-        t!(Header[" /"]: "kebab-case" => Ident("kebab-case"));
-        t!(Header[" /"]: "one-10"     => Ident("one-10"));
-    }
-
-    #[test]
-    fn test_tokenize_keywords() {
-        // Test none.
-        t!(Header[" /"]: "none" => Token::None);
-        t!(Header[" /"]: "None" => Ident("None"));
-
-        // Test valid bools.
-        t!(Header[" /"]: "false" => Bool(false));
-        t!(Header[" /"]: "true"  => Bool(true));
-
-        // Test invalid bools.
-        t!(Header[" /"]: "True"   => Ident("True"));
-        t!(Header[" /"]: "falser" => Ident("falser"));
-    }
-
-    #[test]
-    fn test_tokenize_numeric_values() {
-        let ints = [("7", 7), ("012", 12)];
-        let floats = [
-            (".3", 0.3),
-            ("0.3", 0.3),
-            ("3.", 3.0),
-            ("3.0", 3.0),
-            ("14.3", 14.3),
-            ("10e2", 1000.0),
-            ("10e+0", 10.0),
-            ("10e+1", 100.0),
-            ("10e-2", 0.1),
-            ("10.e1", 100.0),
-            ("10.e-1", 1.0),
-            (".1e1", 1.0),
-            ("10E2", 1000.0),
-        ];
-
-        // Test integers.
-        for &(s, v) in &ints {
-            t!(Header[" /"]: s => Int(v));
-        }
-
-        // Test floats.
-        for &(s, v) in &floats {
-            t!(Header[" /"]: s => Float(v));
-        }
-
-        // Test attached numbers.
-        t!(Header[" /"]: "1.2.3"  => Float(1.2), Float(0.3));
-        t!(Header[" /"]: "1e-2+3" => Float(0.01), Plus, Int(3));
-
-        // Test float from too large integer.
-        let large = i64::MAX as f64 + 1.0;
-        t!(Header[" /"]: large.to_string() => Float(large));
-
-        // Combined integers and floats.
-        let nums = ints.iter().map(|&(k, v)| (k, v as f64)).chain(floats.iter().copied());
-
-        // Test percentages.
-        for (s, v) in nums.clone() {
-            t!(Header[" /"]: format!("{}%", s) => Percent(v));
-        }
-
-        // Test lengths.
-        for &unit in &[
-            LengthUnit::Mm,
-            LengthUnit::Pt,
-            LengthUnit::Cm,
-            LengthUnit::In,
-        ] {
-            for (s, v) in nums.clone() {
-                t!(Header[" /"]: format!("{}{}", s, unit) => Length(v, unit));
-            }
-        }
-    }
-
-    #[test]
-    fn test_tokenize_hex() {
-        // Test basic hex expressions.
-        t!(Header[" /"]: "#6ae6dd" => Hex("6ae6dd"));
-        t!(Header[" /"]: "#8A083c" => Hex("8A083c"));
-
-        // Test with non-hex letters.
-        t!(Header[" /"]: "#PQ" => Hex("PQ"));
-    }
-
-    #[test]
-    fn test_tokenize_strings() {
-        // Test basic strings.
-        t!(Header: "\"hi\""        => Str("hi", true));
-        t!(Header: "\"hi\nthere\"" => Str("hi\nthere", true));
-        t!(Header: "\"🌎\""        => Str("🌎", true));
-        t!(Header[""]: "\"hi"      => Str("hi", false));
-
-        // Test escaped quote.
-        t!(Header: r#""a\"bc""# => Str(r#"a\"bc"#, true));
-        t!(Header[""]: r#""\""# => Str(r#"\""#, false));
-    }
-
-    #[test]
     fn test_tokenize_invalid() {
         // Test invalidly closed block comments.
         t!(Both: "*/"     => Token::Invalid("*/"));
@@ -784,11 +912,14 @@ mod tests {
         t!(Header: r"\:"         => Invalid(r"\"), Colon);
         t!(Header: "meal⌚"      => Ident("meal"), Invalid("⌚"));
         t!(Header[" /"]: r"\a"   => Invalid(r"\"), Ident("a"));
-        t!(Header[" /"]: ">main" => Invalid(">"), Ident("main"));
 
         // Test invalid number suffixes.
         t!(Header[" /"]: "1foo" => Invalid("1foo"));
         t!(Header: "1p%"        => Invalid("1p"), Invalid("%"));
         t!(Header: "1%%"        => Percent(1.0), Invalid("%"));
+
+        // Test invalid keyword.
+        t!(Body[" /"]: "#-" => Hash, Text("-"));
+        t!(Body[" "]: "#do" => Invalid("#do"))
     }
 }

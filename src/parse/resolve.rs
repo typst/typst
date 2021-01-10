@@ -17,6 +17,7 @@ pub fn resolve_string(string: &str) -> String {
             Some('\\') => out.push('\\'),
             Some('"') => out.push('"'),
             Some('n') => out.push('\n'),
+            Some('r') => out.push('\r'),
             Some('t') => out.push('\t'),
             Some('u') if s.eat_if('{') => {
                 // TODO: Feedback if closing brace is missing.
@@ -137,7 +138,7 @@ mod tests {
         test(r#"av\u{6797"#,    "av林");
         test(r#"a\\"#,          "a\\");
         test(r#"a\\\nbc"#,      "a\\\nbc");
-        test(r#"a\tbc"#,        "a\tbc");
+        test(r#"a\t\r\nbc"#,    "a\t\r\nbc");
         test(r"🌎",             "🌎");
         test(r"🌎\",            r"🌎\");
         test(r"\🌎",            r"\🌎");

@@ -226,25 +226,31 @@ fn test_parse_simple_nodes() {
 #[test]
 fn test_parse_headings() {
     // Basics with spans.
-    t!("#a"
-        nodes: [S(0..2, Heading(S(0..1, 0), Content![@S(1..2, Text("a"))]))],
+    t!("# a"
+        nodes: [S(0..3, Heading(S(0..1, 0), Content![
+            @S(1..2, Space), S(2..3, Text("a"))
+        ]))],
         spans: true);
 
     // Multiple hashtags.
-    t!("###three"   Heading(2, Content![@Text("three")]));
+    t!("### three"   Heading(2, Content![@Space, Text("three")]));
     t!("###### six" Heading(5, Content![@Space, Text("six")]));
 
     // Start of heading.
     t!("/**/#"    Heading(0, Content![@]));
-    t!("[f][#ok]" Call!("f", Args![Content![Heading(0, Content![@Text("ok")])]]));
+    t!("[f][# ok]" Call!("f", Args![Content![Heading(0, Content![
+        @Space, Text("ok")
+    ])]]));
 
     // End of heading.
-    t!("#a\nb" Heading(0, Content![@Text("a")]), Space, Text("b"));
+    t!("# a\nb" Heading(0, Content![@Space, Text("a")]), Space, Text("b"));
 
     // Continued heading.
-    t!("#a{\n1\n}b"   Heading(0, Content![@Text("a"), Block(Int(1)), Text("b")]));
-    t!("#a[f][\n\n]d" Heading(0, Content![@
-        Text("a"), Call!("f", Args![Content![Parbreak]]), Text("d"),
+    t!("# a{\n1\n}b"   Heading(0, Content![
+        @Space, Text("a"), Block(Int(1)), Text("b")
+    ]));
+    t!("# a[f][\n\n]d" Heading(0, Content![@
+        Space, Text("a"), Call!("f", Args![Content![Parbreak]]), Text("d"),
     ]));
 
     // No heading.

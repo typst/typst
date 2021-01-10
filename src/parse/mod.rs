@@ -75,7 +75,7 @@ fn node(p: &mut Parser, at_start: bool) -> Option<Node> {
         Token::Underscore => Node::Emph,
         Token::Tilde => Node::Text("\u{00A0}".into()),
         Token::Backslash => Node::Linebreak,
-        Token::Hashtag => {
+        Token::Hash => {
             if at_start {
                 return Some(Node::Heading(heading(p)));
             } else {
@@ -98,10 +98,10 @@ fn node(p: &mut Parser, at_start: bool) -> Option<Node> {
 fn heading(p: &mut Parser) -> NodeHeading {
     // Count hashtags.
     let mut level = p.span(|p| {
-        p.eat_assert(Token::Hashtag);
+        p.eat_assert(Token::Hash);
 
         let mut level = 0u8;
-        while p.eat_if(Token::Hashtag) {
+        while p.eat_if(Token::Hash) {
             level = level.saturating_add(1);
         }
         level
@@ -240,7 +240,7 @@ fn bracket_body(p: &mut Parser) -> Tree {
 fn expr(p: &mut Parser) -> Option<Expr> {
     binops(p, term, |token| match token {
         Token::Plus => Some(BinOp::Add),
-        Token::Hyphen => Some(BinOp::Sub),
+        Token::Hyph => Some(BinOp::Sub),
         _ => None,
     })
 }
@@ -282,7 +282,7 @@ fn binops(
 /// Parse a factor of the form `-?value`.
 fn factor(p: &mut Parser) -> Option<Expr> {
     let op = |token| match token {
-        Token::Hyphen => Some(UnOp::Neg),
+        Token::Hyph => Some(UnOp::Neg),
         _ => None,
     };
 
