@@ -101,7 +101,7 @@ pub fn align(ctx: &mut EvalContext, args: &mut Args) -> Value {
         ctx.start_par_group();
     }
 
-    if let Some(body) = args.find::<ValueContent>(ctx) {
+    if let Some(body) = args.find::<ValueTemplate>(ctx) {
         body.eval(ctx);
         ctx.state = snapshot;
     }
@@ -190,7 +190,7 @@ pub fn box_(ctx: &mut EvalContext, args: &mut Args) -> Value {
 
     ctx.start_content_group();
 
-    if let Some(body) = args.find::<ValueContent>(ctx) {
+    if let Some(body) = args.find::<ValueTemplate>(ctx) {
         body.eval(ctx);
     }
 
@@ -317,7 +317,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> Value {
     ctx.set_dirs(Gen::new(main, cross));
 
     let mut softness = ctx.end_page_group(|_| false);
-    if let Some(body) = args.find::<ValueContent>(ctx) {
+    if let Some(body) = args.find::<ValueTemplate>(ctx) {
         // TODO: Restrict body to a single page?
         ctx.start_page_group(Softness::Hard);
         body.eval(ctx);

@@ -49,32 +49,20 @@ fn tree(p: &mut Parser) -> Tree {
 /// Parse a syntax node.
 fn node(p: &mut Parser, at_start: bool) -> Option<Node> {
     let node = match p.peek()? {
-        Token::Text(text) => Node::Text(text.into()),
-        Token::Space(newlines) => {
-            if newlines < 2 {
-                Node::Space
-            } else {
-                Node::Parbreak
-            }
-        }
-
-        Token::LineComment(_) | Token::BlockComment(_) => {
-            p.eat();
-            return None;
-        }
-
+        // Bracket call.
         Token::LeftBracket => {
             return Some(Node::Expr(Expr::Call(bracket_call(p))));
         }
 
+        // Code block.
         Token::LeftBrace => {
-            return Some(Node::Expr(block_expr(p)?));
+            return Some(Node::Expr(code_block(p)?));
         }
 
+        // Markup.
         Token::Star => Node::Strong,
         Token::Underscore => Node::Emph,
         Token::Tilde => Node::Text("\u{00A0}".into()),
-        Token::Backslash => Node::Linebreak,
         Token::Hash => {
             if at_start {
                 return Some(Node::Heading(heading(p)));
@@ -82,8 +70,23 @@ fn node(p: &mut Parser, at_start: bool) -> Option<Node> {
                 Node::Text(p.get(p.peek_span()).into())
             }
         }
+        Token::Backslash => Node::Linebreak,
+        Token::Space(newlines) => {
+            if newlines < 2 {
+                Node::Space
+            } else {
+                Node::Parbreak
+            }
+        }
+        Token::Text(text) => Node::Text(text.into()),
         Token::Raw(t) => Node::Raw(raw(p, t)),
         Token::UnicodeEscape(t) => Node::Text(unicode_escape(p, t)),
+
+        // Comments.
+        Token::LineComment(_) | Token::BlockComment(_) => {
+            p.eat();
+            return None;
+        }
 
         _ => {
             p.diag_unexpected();
@@ -150,27 +153,6 @@ fn unicode_escape(p: &mut Parser, token: TokenUnicodeEscape) -> String {
     text
 }
 
-/// Parse a block expression.
-fn block_expr(p: &mut Parser) -> Option<Expr> {
-    p.push_mode(TokenMode::Code);
-    p.start_group(Group::Brace);
-    let expr = expr(p);
-    while !p.eof() {
-        p.diag_unexpected();
-    }
-    p.pop_mode();
-    p.end_group();
-    expr
-}
-
-/// Parse a parenthesized function call.
-fn paren_call(p: &mut Parser, name: Spanned<Ident>) -> ExprCall {
-    p.start_group(Group::Paren);
-    let args = p.span(arguments);
-    p.end_group();
-    ExprCall { name, args }
-}
-
 /// Parse a bracketed function call.
 fn bracket_call(p: &mut Parser) -> ExprCall {
     p.push_mode(TokenMode::Code);
@@ -189,7 +171,7 @@ fn bracket_call(p: &mut Parser) -> ExprCall {
     p.end_group();
 
     if p.peek() == Some(Token::LeftBracket) {
-        let body = p.span(|p| Expr::Content(bracket_body(p)));
+        let body = p.span(|p| Expr::Template(bracket_body(p)));
         inner.span.expand(body.span);
         inner.v.args.v.push(Argument::Pos(body));
     }
@@ -197,7 +179,7 @@ fn bracket_call(p: &mut Parser) -> ExprCall {
     while let Some(mut top) = outer.pop() {
         let span = inner.span;
         let node = inner.map(|c| Node::Expr(Expr::Call(c)));
-        let expr = Expr::Content(vec![node]).with_span(span);
+        let expr = Expr::Template(vec![node]).with_span(span);
         top.v.args.v.push(Argument::Pos(expr));
         inner = top;
     }
@@ -234,6 +216,19 @@ fn bracket_body(p: &mut Parser) -> Tree {
     p.pop_mode();
     p.end_group();
     tree
+}
+
+/// Parse a code block: `{...}`.
+fn code_block(p: &mut Parser) -> Option<Expr> {
+    p.push_mode(TokenMode::Code);
+    p.start_group(Group::Brace);
+    let expr = expr(p);
+    while !p.eof() {
+        p.diag_unexpected();
+    }
+    p.pop_mode();
+    p.end_group();
+    expr
 }
 
 /// Parse an expression: `term (+ term)*`.
@@ -297,15 +292,14 @@ fn factor(p: &mut Parser) -> Option<Expr> {
 /// Parse a value.
 fn value(p: &mut Parser) -> Option<Expr> {
     let expr = match p.peek() {
-        // Bracketed function call.
+        // Template.
         Some(Token::LeftBracket) => {
-            let node = p.span(|p| Node::Expr(Expr::Call(bracket_call(p))));
-            return Some(Expr::Content(vec![node]));
+            return Some(Expr::Template(template(p)));
         }
 
-        // Content expression.
+        // Nested block.
         Some(Token::LeftBrace) => {
-            return Some(Expr::Content(content(p)));
+            return code_block(p);
         }
 
         // Dictionary or just a parenthesized expression.
@@ -346,14 +340,22 @@ fn value(p: &mut Parser) -> Option<Expr> {
     Some(expr)
 }
 
-// Parse a content value: `{...}`.
-fn content(p: &mut Parser) -> Tree {
+// Parse a template value: `[...]`.
+fn template(p: &mut Parser) -> Tree {
     p.push_mode(TokenMode::Markup);
-    p.start_group(Group::Brace);
+    p.start_group(Group::Bracket);
     let tree = tree(p);
     p.pop_mode();
     p.end_group();
     tree
+}
+
+/// Parse a parenthesized function call.
+fn paren_call(p: &mut Parser, name: Spanned<Ident>) -> ExprCall {
+    p.start_group(Group::Paren);
+    let args = p.span(arguments);
+    p.end_group();
+    ExprCall { name, args }
 }
 
 /// Parse an identifier.

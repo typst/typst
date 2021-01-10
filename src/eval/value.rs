@@ -8,7 +8,7 @@ use super::{Args, Eval, EvalContext};
 use crate::color::Color;
 use crate::geom::{Angle, Length, Linear, Relative};
 use crate::pretty::{pretty, Pretty, Printer};
-use crate::syntax::{pretty_content_expr, Spanned, Tree, WithSpan};
+use crate::syntax::{pretty_template_expr, Spanned, Tree, WithSpan};
 
 /// A computational value.
 #[derive(Debug, Clone, PartialEq)]
@@ -37,8 +37,8 @@ pub enum Value {
     Array(ValueArray),
     /// A dictionary value: `(color: #f79143, pattern: dashed)`.
     Dict(ValueDict),
-    /// A content value: `{*Hi* there}`.
-    Content(ValueContent),
+    /// A template value: `[*Hi* there]`.
+    Template(ValueTemplate),
     /// An executable function.
     Func(ValueFunc),
     /// Any object.
@@ -71,7 +71,7 @@ impl Value {
             Self::Str(_) => String::TYPE_NAME,
             Self::Array(_) => ValueArray::TYPE_NAME,
             Self::Dict(_) => ValueDict::TYPE_NAME,
-            Self::Content(_) => ValueContent::TYPE_NAME,
+            Self::Template(_) => ValueTemplate::TYPE_NAME,
             Self::Func(_) => ValueFunc::TYPE_NAME,
             Self::Any(v) => v.type_name(),
             Self::Error => "error",
@@ -87,7 +87,7 @@ impl Eval for &Value {
         ctx.push(ctx.make_text_node(match self {
             Value::None => return,
             Value::Str(s) => s.clone(),
-            Value::Content(tree) => return tree.eval(ctx),
+            Value::Template(tree) => return tree.eval(ctx),
             other => pretty(other),
         }));
     }
@@ -114,7 +114,7 @@ impl Pretty for Value {
             Value::Str(v) => write!(p, "{:?}", v).unwrap(),
             Value::Array(array) => array.pretty(p),
             Value::Dict(dict) => dict.pretty(p),
-            Value::Content(content) => pretty_content_expr(content, p),
+            Value::Template(template) => pretty_template_expr(template, p),
             Value::Func(v) => v.pretty(p),
             Value::Any(v) => v.pretty(p),
             Value::Error => p.push_str("(error)"),
@@ -155,8 +155,8 @@ impl Pretty for ValueDict {
     }
 }
 
-/// A content value: `{*Hi* there}`.
-pub type ValueContent = Tree;
+/// A template value: `[*Hi* there]`.
+pub type ValueTemplate = Tree;
 
 /// A wrapper around a reference-counted executable function.
 #[derive(Clone)]
@@ -407,28 +407,26 @@ macro_rules! impl_primitive {
 
 impl_primitive! { bool: "boolean", Value::Bool }
 impl_primitive! { i64: "integer", Value::Int }
-impl_primitive! { Length: "length", Value::Length }
-impl_primitive! { Angle: "angle", Value::Angle }
-impl_primitive! { Relative: "relative", Value::Relative }
-impl_primitive! { Color: "color", Value::Color }
-impl_primitive! { String: "string", Value::Str }
-impl_primitive! { ValueArray: "array", Value::Array }
-impl_primitive! { ValueDict: "dictionary", Value::Dict }
-impl_primitive! { ValueContent: "content", Value::Content }
-impl_primitive! { ValueFunc: "function", Value::Func }
-
 impl_primitive! {
     f64: "float",
     Value::Float,
     Value::Int(v) => v as f64,
 }
-
+impl_primitive! { Length: "length", Value::Length }
+impl_primitive! { Angle: "angle", Value::Angle }
+impl_primitive! { Relative: "relative", Value::Relative }
 impl_primitive! {
     Linear: "linear",
     Value::Linear,
     Value::Length(v) => v.into(),
     Value::Relative(v) => v.into(),
 }
+impl_primitive! { Color: "color", Value::Color }
+impl_primitive! { String: "string", Value::Str }
+impl_primitive! { ValueArray: "array", Value::Array }
+impl_primitive! { ValueDict: "dictionary", Value::Dict }
+impl_primitive! { ValueTemplate: "template", Value::Template }
+impl_primitive! { ValueFunc: "function", Value::Func }
 
 impl From<&str> for Value {
     fn from(v: &str) -> Self {
@@ -512,7 +510,7 @@ mod tests {
         test_pretty(Relative::new(0.3) + Length::cm(2.0), "30% + 2cm");
         test_pretty(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
         test_pretty("hello", r#""hello""#);
-        test_pretty(vec![Spanned::zero(Node::Strong)], "{*}");
+        test_pretty(vec![Spanned::zero(Node::Strong)], "[*]");
         test_pretty(ValueFunc::new("nil", |_, _| Value::None), "(function nil)");
         test_pretty(ValueAny::new(1), "1");
         test_pretty(Value::Error, "(error)");
@@ -528,8 +526,8 @@ mod tests {
         // Dictionary.
         let mut dict = BTreeMap::new();
         dict.insert("one".into(), Value::Int(1));
-        dict.insert("two".into(), Value::Content(parse("[f]").output));
+        dict.insert("two".into(), Value::Template(parse("[f]").output));
         test_pretty(BTreeMap::new(), "(:)");
-        test_pretty(dict, "(one: 1, two: [f])");
+        test_pretty(dict, "(one: 1, two: [[f]])");
     }
 }

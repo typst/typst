@@ -562,7 +562,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenize_body_symbols() {
+    fn test_tokenize_markup_symbols() {
         // Test markup tokens.
         t!(Markup[" a1"]: "*"  => Star);
         t!(Markup: "_"         => Underscore);
@@ -572,7 +572,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenize_header_symbols() {
+    fn test_tokenize_code_symbols() {
         // Test all symbols.
         t!(Code: ","        => Comma);
         t!(Code: ":"        => Colon);
@@ -651,6 +651,27 @@ mod tests {
         // Test word that contains keyword.
         t!(Markup[" "]: "#letter" => Invalid("#letter"));
         t!(Code[" /"]: "falser" => Ident("falser"));
+    }
+
+    #[test]
+    fn test_tokenize_whitespace() {
+        // Test basic whitespace.
+        t!(Both["a1/"]: ""         => );
+        t!(Both["a1/"]: " "        => Space(0));
+        t!(Both["a1/"]: "    "     => Space(0));
+        t!(Both["a1/"]: "\t"       => Space(0));
+        t!(Both["a1/"]: "  \t"     => Space(0));
+        t!(Both["a1/"]: "\u{202F}" => Space(0));
+
+        // Test newline counting.
+        t!(Both["a1/"]: "\n"           => Space(1));
+        t!(Both["a1/"]: "\n "          => Space(1));
+        t!(Both["a1/"]: "  \n"         => Space(1));
+        t!(Both["a1/"]: "  \n   "      => Space(1));
+        t!(Both["a1/"]: "\r\n"         => Space(1));
+        t!(Both["a1/"]: "  \n\t \n  "  => Space(2));
+        t!(Both["a1/"]: "\n\r"         => Space(2));
+        t!(Both["a1/"]: " \r\r\n \x0D" => Space(3));
     }
 
     #[test]
@@ -736,27 +757,6 @@ mod tests {
         t!(Markup[" /"]: r"\u{26A4" => UnicodeEscape("26A4", false));
         t!(Markup[" /"]: r"\u{1Q3P" => UnicodeEscape("1Q3P", false));
         t!(Markup: r"\u{1🏕}"       => UnicodeEscape("1", false), Text("🏕"), RightBrace);
-    }
-
-    #[test]
-    fn test_tokenize_whitespace() {
-        // Test basic whitespace.
-        t!(Both["a1/"]: ""         => );
-        t!(Both["a1/"]: " "        => Space(0));
-        t!(Both["a1/"]: "    "     => Space(0));
-        t!(Both["a1/"]: "\t"       => Space(0));
-        t!(Both["a1/"]: "  \t"     => Space(0));
-        t!(Both["a1/"]: "\u{202F}" => Space(0));
-
-        // Test newline counting.
-        t!(Both["a1/"]: "\n"           => Space(1));
-        t!(Both["a1/"]: "\n "          => Space(1));
-        t!(Both["a1/"]: "  \n"         => Space(1));
-        t!(Both["a1/"]: "  \n   "      => Space(1));
-        t!(Both["a1/"]: "\r\n"         => Space(1));
-        t!(Both["a1/"]: "  \n\t \n  "  => Space(2));
-        t!(Both["a1/"]: "\n\r"         => Space(2));
-        t!(Both["a1/"]: " \r\r\n \x0D" => Space(3));
     }
 
     #[test]

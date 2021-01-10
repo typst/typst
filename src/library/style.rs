@@ -95,7 +95,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> Value {
         }
     }
 
-    if let Some(body) = args.find::<ValueContent>(ctx) {
+    if let Some(body) = args.find::<ValueTemplate>(ctx) {
         body.eval(ctx);
         ctx.state = snapshot;
     }

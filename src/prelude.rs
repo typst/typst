@@ -3,8 +3,8 @@
 pub use crate::diag::{Feedback, Pass};
 #[doc(no_inline)]
 pub use crate::eval::{
-    Args, CastResult, Eval, EvalContext, Value, ValueAny, ValueArray, ValueContent,
-    ValueDict,
+    Args, CastResult, Eval, EvalContext, Value, ValueAny, ValueArray, ValueDict,
+    ValueTemplate,
 };
 pub use crate::geom::*;
 #[doc(no_inline)]

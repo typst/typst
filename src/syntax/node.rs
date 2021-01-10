@@ -3,18 +3,18 @@ use super::*;
 /// A syntax node, encompassing a single logical entity of parsed source code.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Node {
-    /// Plain text.
-    Text(String),
+    /// Strong text was enabled / disabled.
+    Strong,
+    /// Emphasized text was enabled / disabled.
+    Emph,
     /// Whitespace containing less than two newlines.
     Space,
     /// A forced line break.
     Linebreak,
     /// A paragraph break.
     Parbreak,
-    /// Strong text was enabled / disabled.
-    Strong,
-    /// Emphasized text was enabled / disabled.
-    Emph,
+    /// Plain text.
+    Text(String),
     /// A section heading.
     Heading(NodeHeading),
     /// An optionally syntax-highlighted raw block.
@@ -26,12 +26,12 @@ pub enum Node {
 impl Pretty for Node {
     fn pretty(&self, p: &mut Printer) {
         match self {
-            Self::Text(text) => p.push_str(&text),
+            Self::Strong => p.push_str("*"),
+            Self::Emph => p.push_str("_"),
             Self::Space => p.push_str(" "),
             Self::Linebreak => p.push_str(r"\"),
             Self::Parbreak => p.push_str("\n\n"),
-            Self::Strong => p.push_str("*"),
-            Self::Emph => p.push_str("_"),
+            Self::Text(text) => p.push_str(&text),
             Self::Heading(heading) => heading.pretty(p),
             Self::Raw(raw) => raw.pretty(p),
             Self::Expr(expr) => pretty_expr_node(expr, p),
@@ -50,8 +50,8 @@ pub fn pretty_expr_node(expr: &Expr, p: &mut Printer) {
 
         // Remove unncessary nesting of content and expression blocks.
         //
-        // Example: Transforms "{{Hi}}" => "Hi".
-        Expr::Content(content) => content.pretty(p),
+        // Example: Transforms "{[Hi]}" => "Hi".
+        Expr::Template(template) => template.pretty(p),
 
         _ => {
             p.push_str("{");
@@ -179,9 +179,9 @@ mod tests {
 
     #[test]
     fn test_pretty_print_removes_nesting() {
-        // Even levels of nesting do not matter.
-        test_pretty("{{Hi}}", "Hi");
-        test_pretty("{{{{Hi}}}}", "Hi");
+        // Nesting does not matter.
+        test_pretty("{{x}}", "{x}");
+        test_pretty("{{{x}}}", "{x}");
     }
 
     #[test]
@@ -189,8 +189,7 @@ mod tests {
         // All reduces to a simple bracket call.
         test_pretty("{v()}", "[v]");
         test_pretty("[v]", "[v]");
-        test_pretty("{[v]}", "[v]");
-        test_pretty("{{[v]}}", "[v]");
+        test_pretty("{[[v]]}", "[v]");
     }
 
     #[test]

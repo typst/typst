@@ -26,7 +26,7 @@ macro_rules! t {
         $(spans = $spans;)?
 
         let Pass { output, feedback } = parse($src);
-        check($src, Content![@$($node),*], output, spans);
+        check($src, Template![@$($node),*], output, spans);
         check(
             $src,
             vec![
@@ -158,9 +158,9 @@ macro_rules! Args {
     };
 }
 
-macro_rules! Content {
+macro_rules! Template {
     (@$($node:expr),* $(,)?) => (vec![$(into!($node)),*]);
-    ($($tts:tt)*) => (Expr::Content(Content![@$($tts)*]));
+    ($($tts:tt)*) => (Expr::Template(Template![@$($tts)*]));
 }
 
 macro_rules! Call {
@@ -227,30 +227,30 @@ fn test_parse_simple_nodes() {
 fn test_parse_headings() {
     // Basics with spans.
     t!("# a"
-        nodes: [S(0..3, Heading(S(0..1, 0), Content![
+        nodes: [S(0..3, Heading(S(0..1, 0), Template![
             @S(1..2, Space), S(2..3, Text("a"))
         ]))],
         spans: true);
 
     // Multiple hashtags.
-    t!("### three"   Heading(2, Content![@Space, Text("three")]));
-    t!("###### six" Heading(5, Content![@Space, Text("six")]));
+    t!("### three"   Heading(2, Template![@Space, Text("three")]));
+    t!("###### six" Heading(5, Template![@Space, Text("six")]));
 
     // Start of heading.
-    t!("/**/#"    Heading(0, Content![@]));
-    t!("[f][# ok]" Call!("f", Args![Content![Heading(0, Content![
+    t!("/**/#"    Heading(0, Template![@]));
+    t!("[f][# ok]" Call!("f", Args![Template![Heading(0, Template![
         @Space, Text("ok")
     ])]]));
 
     // End of heading.
-    t!("# a\nb" Heading(0, Content![@Space, Text("a")]), Space, Text("b"));
+    t!("# a\nb" Heading(0, Template![@Space, Text("a")]), Space, Text("b"));
 
     // Continued heading.
-    t!("# a{\n1\n}b"   Heading(0, Content![
+    t!("# a{\n1\n}b"   Heading(0, Template![
         @Space, Text("a"), Block(Int(1)), Text("b")
     ]));
-    t!("# a[f][\n\n]d" Heading(0, Content![@
-        Space, Text("a"), Call!("f", Args![Content![Parbreak]]), Text("d"),
+    t!("# a[f][\n\n]d" Heading(0, Template![@
+        Space, Text("a"), Call!("f", Args![Template![Parbreak]]), Text("d"),
     ]));
 
     // No heading.
@@ -260,7 +260,7 @@ fn test_parse_headings() {
 
     // Too many hashtags.
     t!("####### seven"
-        nodes: [Heading(5, Content![@Space, Text("seven")])],
+        nodes: [Heading(5, Template![@Space, Text("seven")])],
         warnings: [S(0..7, "section depth should not exceed 6")]);
 }
 
@@ -293,13 +293,9 @@ fn test_parse_escape_sequences() {
 #[test]
 fn test_parse_groups() {
     // Test paren group.
-    t!("{([v 1) + 3}"
-        nodes: [Block(Binary(
-            Content![Call!("v", Args![Int(1)])],
-            Add,
-            Int(3),
-        ))],
-        errors: [S(6..6, "expected closing bracket")]);
+    t!("{({1) + 3}"
+        nodes: [Block(Binary(Int(1), Add, Int(3)))],
+        errors: [S(4..4, "expected closing brace")]);
 
     // Test bracket group.
     t!("[)"
@@ -307,19 +303,18 @@ fn test_parse_groups() {
         errors: [S(1..2, "expected function name, found closing paren"),
                  S(2..2, "expected closing bracket")]);
 
-    t!("[v {*]_"
-        nodes: [Call!("v", Args![Content![Strong]]), Emph],
-        errors: [S(5..5, "expected closing brace")]);
+    t!("[v [*]"
+        nodes: [Call!("v", Args![Template![Strong]])],
+        errors: [S(6..6, "expected closing bracket")]);
 
     // Test brace group.
     t!("{1 + [}"
-        nodes: [Block(Binary(Int(1), Add, Content![Call!("")]))],
-        errors: [S(6..6, "expected function name"),
-                 S(6..6, "expected closing bracket")]);
+        nodes: [Block(Binary(Int(1), Add, Template![]))],
+        errors: [S(6..6, "expected closing bracket")]);
 
     // Test subheader group.
     t!("[v (|u )]"
-        nodes: [Call!("v", Args![Array![], Content![Call!("u")]])],
+        nodes: [Call!("v", Args![Array![], Template![Call!("u")]])],
         errors: [S(4..4, "expected closing paren"),
                  S(7..8, "expected expression, found closing paren")]);
 }
@@ -331,7 +326,7 @@ fn test_parse_blocks() {
 
     // Function calls.
     t!("{f()}" Call!("f"));
-    t!("{[f]}" Block(Content![Call!("f")]));
+    t!("{[[f]]}" Block(Template![Call!("f")]));
 
     // Missing or bad value.
     t!("{}{1u}"
@@ -353,15 +348,15 @@ fn test_parse_bracket_funcs() {
     t!("[ v ]"      Call!("v"));
 
     // Body and no body.
-    t!("[v][[f]]"  Call!("v", Args![Content![Call!("f")]]));
-    t!("[v][v][v]" Call!("v", Args![Content![Text("v")]]), Call!("v"));
+    t!("[v][[f]]"  Call!("v", Args![Template![Call!("f")]]));
+    t!("[v][v][v]" Call!("v", Args![Template![Text("v")]]), Call!("v"));
     t!("[v] [f]"   Call!("v"), Space, Call!("f"));
 
     // Spans.
     t!("[v 1][📐]"
         nodes: [S(0..11, Call!(S(1..2, "v"), S(3..4, Args![
             S(3..4, Int(1)),
-            S(5..11, Content![S(6..10, Text("📐"))]),
+            S(5..11, Template![S(6..10, Text("📐"))]),
         ])))],
         spans: true);
 
@@ -389,35 +384,35 @@ fn test_parse_bracket_funcs() {
 
     // Raw in body eats closing bracket.
     t!("[v][`a]`"
-        nodes: [Call!("v", Args![Content![Raw(None, &["a]"], true)]])],
+        nodes: [Call!("v", Args![Template![Raw(None, &["a]"], true)]])],
         errors: [S(8..8, "expected closing bracket")]);
 }
 
 #[test]
 fn test_parse_chaining() {
     // Basic.
-    t!("[a | b]" Call!("a", Args![Content![Call!("b")]]));
-    t!("[a|b|c]" Call!("a", Args![Content![
-        Call!("b", Args![Content![Call!("c")]])
+    t!("[a | b]" Call!("a", Args![Template![Call!("b")]]));
+    t!("[a|b|c]" Call!("a", Args![Template![
+        Call!("b", Args![Template![Call!("c")]])
     ]]));
 
     // With body and spans.
     t!("[a|b][💕]"
         nodes: [S(0..11, Call!(S(1..2, "a"), S(2..2, Args![
-            S(3..11, Content![S(3..11, Call!(S(3..4, "b"), S(4..4, Args![
-                S(5..11, Content![S(6..10, Text("💕"))])
+            S(3..11, Template![S(3..11, Call!(S(3..4, "b"), S(4..4, Args![
+                S(5..11, Template![S(6..10, Text("💕"))])
             ])))])
         ])))],
         spans: true);
 
     // No name in second subheader.
     t!("[a 1|]"
-        nodes: [Call!("a", Args![Int(1), Content![Call!("")]])],
+        nodes: [Call!("a", Args![Int(1), Template![Call!("")]])],
         errors: [S(5..5, "expected function name")]);
 
     // No name in first subheader.
     t!("[|a true]"
-        nodes: [Call!("", Args![Content![Call!("a", Args![Bool(true)])]])],
+        nodes: [Call!("", Args![Template![Call!("a", Args![Bool(true)])]])],
         errors: [S(1..1, "expected function name")]);
 }
 
@@ -534,12 +529,12 @@ fn test_parse_dictionaries() {
         errors: [S(8..9, "expected named pair, found expression")]);
 
     // Dictionary marker followed by more stuff.
-    t!("{(:1 b:2, true::)}"
-        nodes: [Block(Dict!["b" => Int(2)])],
+    t!("{(:1 b:[], true::)}"
+        nodes: [Block(Dict!["b" => Template![]])],
         errors: [S(3..4, "expected named pair, found expression"),
                  S(4..4, "expected comma"),
-                 S(10..14, "name must be identifier"),
-                 S(15..16, "expected expression, found colon")]);
+                 S(11..15, "name must be identifier"),
+                 S(16..17, "expected expression, found colon")]);
 }
 
 #[test]
@@ -615,7 +610,11 @@ fn test_parse_values() {
         errors: [S(1..4, "invalid color")]);
 
     // Content.
-    t!("{{*Hi*}}" Block(Content![Strong, Text("Hi"), Strong]));
+    t!("{[*Hi*]}" Block(Template![Strong, Text("Hi"), Strong]));
+
+    // Nested blocks.
+    t!("{{1}}" Block(Int(1)));
+    t!("{{{1+2}}}" Block(Binary(Int(1), Add, Int(2))));
 
     // Invalid tokens.
     t!("{1u}"

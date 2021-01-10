@@ -38,8 +38,8 @@ pub enum Expr {
     Array(ExprArray),
     /// A dictionary expression: `(color: #f79143, pattern: dashed)`.
     Dict(ExprDict),
-    /// A content expression: `{*Hello* there!}`.
-    Content(ExprContent),
+    /// A template expression: `[*Hi* there!]`.
+    Template(ExprTemplate),
 }
 
 impl Pretty for Expr {
@@ -60,24 +60,16 @@ impl Pretty for Expr {
             Self::Binary(binary) => binary.pretty(p),
             Self::Array(array) => array.pretty(p),
             Self::Dict(dict) => dict.pretty(p),
-            Self::Content(content) => pretty_content_expr(content, p),
+            Self::Template(template) => pretty_template_expr(template, p),
         }
     }
 }
 
-/// Pretty print content in an expression context.
-pub fn pretty_content_expr(tree: &Tree, p: &mut Printer) {
-    if let [Spanned { v: Node::Expr(Expr::Call(call)), .. }] = tree.as_slice() {
-        // Remove unncessary braces from content expression containing just a
-        // single function call.
-        //
-        // Example: Transforms "{(call: {[f]})}" => "{(call: [f])}"
-        pretty_bracket_call(call, p, false);
-    } else {
-        p.push_str("{");
-        tree.pretty(p);
-        p.push_str("}");
-    }
+/// Pretty print a template in an expression context.
+pub fn pretty_template_expr(tree: &Tree, p: &mut Printer) {
+    p.push_str("[");
+    tree.pretty(p);
+    p.push_str("]");
 }
 
 /// An invocation of a function: `[foo ...]`, `foo(...)`.
@@ -111,8 +103,8 @@ pub fn pretty_bracket_call(call: &ExprCall, p: &mut Printer, chained: bool) {
 
     // Find out whether this can be written with a body or as a chain.
     //
-    // Example: Transforms "[v {Hi}]" => "[v][Hi]".
-    if let [head @ .., Argument::Pos(Spanned { v: Expr::Content(content), .. })] =
+    // Example: Transforms "[v [Hi]]" => "[v][Hi]".
+    if let [head @ .., Argument::Pos(Spanned { v: Expr::Template(template), .. })] =
         call.args.v.as_slice()
     {
         // Previous arguments.
@@ -124,11 +116,11 @@ pub fn pretty_bracket_call(call: &ExprCall, p: &mut Printer, chained: bool) {
         // Find out whether this can written as a chain.
         //
         // Example: Transforms "[v][[f]]" => "[v | f]".
-        if let [Spanned { v: Node::Expr(Expr::Call(call)), .. }] = content.as_slice() {
+        if let [Spanned { v: Node::Expr(Expr::Call(call)), .. }] = template.as_slice() {
             return pretty_bracket_call(call, p, true);
         } else {
             p.push_str("][");
-            content.pretty(p);
+            template.pretty(p);
         }
     } else if !call.args.v.is_empty() {
         p.push_str(" ");
@@ -291,8 +283,8 @@ impl Pretty for ExprDict {
     }
 }
 
-/// A content expression: `{*Hello* there!}`.
-pub type ExprContent = Tree;
+/// A template expression: `[*Hi* there!]`.
+pub type ExprTemplate = Tree;
 
 #[cfg(test)]
 mod tests {
@@ -301,8 +293,7 @@ mod tests {
     #[test]
     fn test_pretty_print_chaining() {
         // All equivalent.
-        test_pretty("[v [f]]", "[v | f]");
-        test_pretty("[v {[f]}]", "[v | f]");
+        test_pretty("[v [[f]]]", "[v | f]");
         test_pretty("[v][[f]]", "[v | f]");
         test_pretty("[v | f]", "[v | f]");
     }
@@ -321,9 +312,8 @@ mod tests {
         test_pretty("{(:)}", "{(:)}");
         test_pretty("{(percent: 5%)}", "{(percent: 5%)}");
 
-        // Content expression without unncessary braces.
-        test_pretty("[v [f], 1]", "[v [f], 1]");
-        test_pretty("(func: {[f]})", "(func: [f])");
+        // Content expression.
+        test_pretty("[v [[f]], 1]", "[v [[f]], 1]");
     }
 
     #[test]

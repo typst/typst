@@ -170,7 +170,7 @@ impl Eval for Spanned<&Expr> {
             Expr::Binary(v) => v.with_span(self.span).eval(ctx),
             Expr::Array(v) => Value::Array(v.with_span(self.span).eval(ctx)),
             Expr::Dict(v) => Value::Dict(v.with_span(self.span).eval(ctx)),
-            Expr::Content(v) => Value::Content(v.clone()),
+            Expr::Template(v) => Value::Template(v.clone()),
         }
     }
 }
@@ -275,7 +275,7 @@ fn add(ctx: &mut EvalContext, span: Span, lhs: Value, rhs: Value) -> Value {
         (Str(a), Str(b)) => Str(a + &b),
         (Array(a), Array(b)) => Array(concat(a, b)),
         (Dict(a), Dict(b)) => Dict(concat(a, b)),
-        (Content(a), Content(b)) => Content(concat(a, b)),
+        (Template(a), Template(b)) => Template(concat(a, b)),
 
         (a, b) => {
             ctx.diag(error!(
