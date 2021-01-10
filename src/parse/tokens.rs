@@ -4,8 +4,6 @@ use super::{is_newline, Scanner};
 use crate::geom::{AngularUnit, LengthUnit};
 use crate::syntax::*;
 
-use TokenMode::*;
-
 /// An iterator over the tokens of a string of source code.
 #[derive(Clone)]
 pub struct Tokens<'s> {
@@ -13,13 +11,13 @@ pub struct Tokens<'s> {
     mode: TokenMode,
 }
 
-/// Whether to tokenize in header mode which yields expression, comma and
-/// similar tokens or in body mode which yields text and star, underscore,
-/// backtick tokens.
+/// What kind of tokens to emit.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TokenMode {
-    Header,
-    Body,
+    /// Text and markup.
+    Markup,
+    /// Blocks and expressions.
+    Code,
 }
 
 impl<'s> Tokens<'s> {
@@ -81,7 +79,7 @@ impl<'s> Iterator for Tokens<'s> {
         }
 
         Some(match self.mode {
-            Body => match c {
+            TokenMode::Markup => match c {
                 // Markup.
                 '*' => Token::Star,
                 '_' => Token::Underscore,
@@ -95,7 +93,7 @@ impl<'s> Iterator for Tokens<'s> {
                 _ => self.text(start),
             },
 
-            Header => match c {
+            TokenMode::Code => match c {
                 // Parens.
                 '(' => Token::LeftParen,
                 ')' => Token::RightParen,
@@ -446,6 +444,7 @@ mod tests {
 
     use Option::None;
     use Token::{Ident, *};
+    use TokenMode::{Code, Markup};
 
     fn Raw(text: &str, backticks: usize, terminated: bool) -> Token {
         Token::Raw(TokenRaw { text, backticks, terminated })
@@ -491,33 +490,33 @@ mod tests {
         (' ', None, "\r", Space(1)),
         (' ', None, "\r\n", Space(1)),
         // Letter suffixes.
-        ('a', Some(Body), "hello", Text("hello")),
-        ('a', Some(Body), "💚", Text("💚")),
-        ('a', Some(Header), "if", If),
-        ('a', Some(Header), "val", Ident("val")),
-        ('a', Some(Header), "α", Ident("α")),
-        ('a', Some(Header), "_", Ident("_")),
+        ('a', Some(Markup), "hello", Text("hello")),
+        ('a', Some(Markup), "💚", Text("💚")),
+        ('a', Some(Code), "if", If),
+        ('a', Some(Code), "val", Ident("val")),
+        ('a', Some(Code), "α", Ident("α")),
+        ('a', Some(Code), "_", Ident("_")),
         // Number suffixes.
-        ('1', Some(Header), "2", Int(2)),
-        ('1', Some(Header), ".2", Float(0.2)),
+        ('1', Some(Code), "2", Int(2)),
+        ('1', Some(Code), ".2", Float(0.2)),
         // Symbol suffixes.
         ('/', None, "[", LeftBracket),
         ('/', None, "//", LineComment("")),
         ('/', None, "/**/", BlockComment("")),
-        ('/', Some(Body), "*", Star),
-        ('/', Some(Body), "_", Underscore),
-        ('/', Some(Body), r"\\", Text(r"\")),
-        ('/', Some(Body), "#let", Let),
-        ('/', Some(Header), "(", LeftParen),
-        ('/', Some(Header), ":", Colon),
-        ('/', Some(Header), "+=", PlusEq),
-        ('/', Some(Header), "#123", Hex("123")),
+        ('/', Some(Markup), "*", Star),
+        ('/', Some(Markup), "_", Underscore),
+        ('/', Some(Markup), r"\\", Text(r"\")),
+        ('/', Some(Markup), "#let", Let),
+        ('/', Some(Code), "(", LeftParen),
+        ('/', Some(Code), ":", Colon),
+        ('/', Some(Code), "+=", PlusEq),
+        ('/', Some(Code), "#123", Hex("123")),
     ];
 
     macro_rules! t {
         (Both $($tts:tt)*) => {
-            t!(Body $($tts)*);
-            t!(Header $($tts)*);
+            t!(Markup $($tts)*);
+            t!(Code $($tts)*);
         };
         ($mode:ident $([$blocks:literal])?: $src:expr => $($token:expr),*) => {{
             // Test without suffix.
@@ -545,69 +544,69 @@ mod tests {
 
     #[test]
     fn test_tokenize_brackets() {
-        // Test body.
-        t!(Body: "["       => LeftBracket);
-        t!(Body: "]"       => RightBracket);
-        t!(Body: "{"       => LeftBrace);
-        t!(Body: "}"       => RightBrace);
-        t!(Body[" /"]: "(" => Text("("));
-        t!(Body[" /"]: ")" => Text(")"));
+        // Test in markup.
+        t!(Markup: "["       => LeftBracket);
+        t!(Markup: "]"       => RightBracket);
+        t!(Markup: "{"       => LeftBrace);
+        t!(Markup: "}"       => RightBrace);
+        t!(Markup[" /"]: "(" => Text("("));
+        t!(Markup[" /"]: ")" => Text(")"));
 
-        // Test header.
-        t!(Header: "[" => LeftBracket);
-        t!(Header: "]" => RightBracket);
-        t!(Header: "{" => LeftBrace);
-        t!(Header: "}" => RightBrace);
-        t!(Header: "(" => LeftParen);
-        t!(Header: ")" => RightParen);
+        // Test in code.
+        t!(Code: "[" => LeftBracket);
+        t!(Code: "]" => RightBracket);
+        t!(Code: "{" => LeftBrace);
+        t!(Code: "}" => RightBrace);
+        t!(Code: "(" => LeftParen);
+        t!(Code: ")" => RightParen);
     }
 
     #[test]
     fn test_tokenize_body_symbols() {
         // Test markup tokens.
-        t!(Body[" a1"]: "*"  => Star);
-        t!(Body: "_"         => Underscore);
-        t!(Body["a1/"]: "# " => Hash, Space(0));
-        t!(Body: "~"         => Tilde);
-        t!(Body[" "]: r"\"   => Backslash);
+        t!(Markup[" a1"]: "*"  => Star);
+        t!(Markup: "_"         => Underscore);
+        t!(Markup["a1/"]: "# " => Hash, Space(0));
+        t!(Markup: "~"         => Tilde);
+        t!(Markup[" "]: r"\"   => Backslash);
     }
 
     #[test]
     fn test_tokenize_header_symbols() {
         // Test all symbols.
-        t!(Header: ","        => Comma);
-        t!(Header: ":"        => Colon);
-        t!(Header: "|"        => Pipe);
-        t!(Header: "+"        => Plus);
-        t!(Header: "-"        => Hyph);
-        t!(Header[" a1"]: "*" => Star);
-        t!(Header[" a1"]: "/" => Slash);
-        t!(Header: "="        => Eq);
-        t!(Header: "=="       => EqEq);
-        t!(Header: "!="       => BangEq);
-        t!(Header: "<"        => Lt);
-        t!(Header: "<="       => LtEq);
-        t!(Header: ">"        => Gt);
-        t!(Header: ">="       => GtEq);
-        t!(Header: "+="       => PlusEq);
-        t!(Header: "-="       => HyphEq);
-        t!(Header: "*="       => StarEq);
-        t!(Header: "/="       => SlashEq);
-        t!(Header: "?"        => Question);
-        t!(Header: ".."       => Dots);
-        t!(Header: "=>"       => Arrow);
+        t!(Code: ","        => Comma);
+        t!(Code: ":"        => Colon);
+        t!(Code: "|"        => Pipe);
+        t!(Code: "+"        => Plus);
+        t!(Code: "-"        => Hyph);
+        t!(Code[" a1"]: "*" => Star);
+        t!(Code[" a1"]: "/" => Slash);
+        t!(Code: "="        => Eq);
+        t!(Code: "=="       => EqEq);
+        t!(Code: "!="       => BangEq);
+        t!(Code: "<"        => Lt);
+        t!(Code: "<="       => LtEq);
+        t!(Code: ">"        => Gt);
+        t!(Code: ">="       => GtEq);
+        t!(Code: "+="       => PlusEq);
+        t!(Code: "-="       => HyphEq);
+        t!(Code: "*="       => StarEq);
+        t!(Code: "/="       => SlashEq);
+        t!(Code: "?"        => Question);
+        t!(Code: ".."       => Dots);
+        t!(Code: "=>"       => Arrow);
 
         // Test combinations.
-        t!(Header: "|=>"        => Pipe, Arrow);
-        t!(Header: "<=>"        => LtEq, Gt);
-        t!(Header[" a/"]: "..." => Dots, Invalid("."));
+        t!(Code: "|=>"        => Pipe, Arrow);
+        t!(Code: "<=>"        => LtEq, Gt);
+        t!(Code[" a/"]: "..." => Dots, Invalid("."));
 
         // Test hyphen as symbol vs part of identifier.
-        t!(Header[" /"]: "-1"   => Hyph, Int(1));
-        t!(Header[" /"]: "-a"   => Hyph, Ident("a"));
-        t!(Header[" /"]: "--1"  => Hyph, Hyph, Int(1));
-        t!(Header[" /"]: "--_a" => Hyph, Hyph, Ident("_a"));
-        t!(Header[" /"]: "a-b"  => Ident("a-b"));
+        t!(Code[" /"]: "-1"   => Hyph, Int(1));
+        t!(Code[" /"]: "-a"   => Hyph, Ident("a"));
+        t!(Code[" /"]: "--1"  => Hyph, Hyph, Int(1));
+        t!(Code[" /"]: "--_a" => Hyph, Hyph, Ident("_a"));
+        t!(Code[" /"]: "a-b"  => Ident("a-b"));
     }
 
     #[test]
@@ -625,13 +624,13 @@ mod tests {
         ];
 
         for &(s, t) in &both {
-            t!(Header[" "]: s => t);
-            t!(Body[" "]: format!("#{}", s) => t);
-            t!(Body[" "]: format!("#{0}#{0}", s) => t, t);
-            t!(Body[" /"]: format!("# {}", s) => Hash, Space(0), Text(s));
+            t!(Code[" "]: s => t);
+            t!(Markup[" "]: format!("#{}", s) => t);
+            t!(Markup[" "]: format!("#{0}#{0}", s) => t, t);
+            t!(Markup[" /"]: format!("# {}", s) => Hash, Space(0), Text(s));
         }
 
-        let header = [
+        let code = [
             ("not", Not),
             ("and", And),
             ("or", Or),
@@ -640,103 +639,103 @@ mod tests {
             ("true", Bool(true)),
         ];
 
-        for &(s, t) in &header {
-            t!(Header[" "]: s => t);
-            t!(Body[" /"]: s => Text(s));
+        for &(s, t) in &code {
+            t!(Code[" "]: s => t);
+            t!(Markup[" /"]: s => Text(s));
         }
 
         // Test invalid case.
-        t!(Header[" /"]: "None" => Ident("None"));
-        t!(Header[" /"]: "True"   => Ident("True"));
+        t!(Code[" /"]: "None" => Ident("None"));
+        t!(Code[" /"]: "True"   => Ident("True"));
 
         // Test word that contains keyword.
-        t!(Body[" "]: "#letter" => Invalid("#letter"));
-        t!(Header[" /"]: "falser" => Ident("falser"));
+        t!(Markup[" "]: "#letter" => Invalid("#letter"));
+        t!(Code[" /"]: "falser" => Ident("falser"));
     }
 
     #[test]
     fn test_tokenize_text() {
         // Test basic text.
-        t!(Body[" /"]: "hello"       => Text("hello"));
-        t!(Body[" /"]: "hello-world" => Text("hello-world"));
+        t!(Markup[" /"]: "hello"       => Text("hello"));
+        t!(Markup[" /"]: "hello-world" => Text("hello-world"));
 
-        // Test header symbols in text.
-        t!(Body[" /"]: "a():\"b" => Text("a():\"b"));
-        t!(Body[" /"]: ":,=|/+-" => Text(":,=|/+-"));
+        // Test code symbols in text.
+        t!(Markup[" /"]: "a():\"b" => Text("a():\"b"));
+        t!(Markup[" /"]: ":,=|/+-" => Text(":,=|/+-"));
 
         // Test text ends.
-        t!(Body[""]: "hello " => Text("hello"), Space(0));
-        t!(Body[""]: "hello~" => Text("hello"), Tilde);
+        t!(Markup[""]: "hello " => Text("hello"), Space(0));
+        t!(Markup[""]: "hello~" => Text("hello"), Tilde);
     }
 
     #[test]
     fn test_tokenize_raw_blocks() {
         // Test basic raw block.
-        t!(Body: "`raw`"  => Raw("raw", 1, true));
-        t!(Body[""]: "`]" => Raw("]", 1, false));
+        t!(Markup: "`raw`"  => Raw("raw", 1, true));
+        t!(Markup[""]: "`]" => Raw("]", 1, false));
 
         // Test special symbols in raw block.
-        t!(Body: "`[func]`"   => Raw("[func]", 1, true));
-        t!(Body[""]: r"`\`` " => Raw(r"\", 1, true), Raw(" ", 1, false));
+        t!(Markup: "`[func]`"   => Raw("[func]", 1, true));
+        t!(Markup[""]: r"`\`` " => Raw(r"\", 1, true), Raw(" ", 1, false));
 
         // Test more backticks.
-        t!(Body: "````🚀````"           => Raw("🚀", 4, true));
-        t!(Body[""]: "````👩‍🚀``noend"    => Raw("👩‍🚀``noend", 4, false));
-        t!(Body[""]: "````raw``````new" => Raw("raw", 4, true), Raw("new", 2, false));
+        t!(Markup: "````🚀````"           => Raw("🚀", 4, true));
+        t!(Markup[""]: "````👩‍🚀``noend"    => Raw("👩‍🚀``noend", 4, false));
+        t!(Markup[""]: "````raw``````new" => Raw("raw", 4, true), Raw("new", 2, false));
 
         // Test separated closing backticks.
-        t!(Body: "```not `y`e`t```" => Raw("not `y`e`t", 3, true));
+        t!(Markup: "```not `y`e`t```" => Raw("not `y`e`t", 3, true));
     }
 
     #[test]
     fn test_tokenize_math_formulas() {
         // Test basic formula.
-        t!(Body: "$x$"         => Math("x", true, true));
-        t!(Body: "$$x + y$$"   => Math("x + y", false, true));
+        t!(Markup: "$x$"         => Math("x", true, true));
+        t!(Markup: "$$x + y$$"   => Math("x + y", false, true));
 
         // Test unterminated.
-        t!(Body[""]: "$$x"     => Math("x", false, false));
-        t!(Body[""]: "$$x$\n$" => Math("x$\n$", false, false));
+        t!(Markup[""]: "$$x"     => Math("x", false, false));
+        t!(Markup[""]: "$$x$\n$" => Math("x$\n$", false, false));
 
         // Test escape sequences.
-        t!(Body: r"$$\\\$$$"    => Math(r"\\\$", false, true));
-        t!(Body[""]: r"$$ $\\$" => Math(r" $\\$", false, false));
+        t!(Markup: r"$$\\\$$$"    => Math(r"\\\$", false, true));
+        t!(Markup[""]: r"$$ $\\$" => Math(r" $\\$", false, false));
     }
 
     #[test]
     fn test_tokenize_escape_sequences() {
         // Test escapable symbols.
-        t!(Body: r"\\" => Text(r"\"));
-        t!(Body: r"\/" => Text("/"));
-        t!(Body: r"\[" => Text("["));
-        t!(Body: r"\]" => Text("]"));
-        t!(Body: r"\{" => Text("{"));
-        t!(Body: r"\}" => Text("}"));
-        t!(Body: r"\*" => Text("*"));
-        t!(Body: r"\_" => Text("_"));
-        t!(Body: r"\#" => Text("#"));
-        t!(Body: r"\~" => Text("~"));
-        t!(Body: r"\`" => Text("`"));
+        t!(Markup: r"\\" => Text(r"\"));
+        t!(Markup: r"\/" => Text("/"));
+        t!(Markup: r"\[" => Text("["));
+        t!(Markup: r"\]" => Text("]"));
+        t!(Markup: r"\{" => Text("{"));
+        t!(Markup: r"\}" => Text("}"));
+        t!(Markup: r"\*" => Text("*"));
+        t!(Markup: r"\_" => Text("_"));
+        t!(Markup: r"\#" => Text("#"));
+        t!(Markup: r"\~" => Text("~"));
+        t!(Markup: r"\`" => Text("`"));
 
         // Test unescapable symbols.
-        t!(Body[" /"]: r"\a"   => Text(r"\"), Text("a"));
-        t!(Body[" /"]: r"\u"   => Text(r"\"), Text("u"));
-        t!(Body[" /"]: r"\1"   => Text(r"\"), Text("1"));
-        t!(Body[" /"]: r"\:"   => Text(r"\"), Text(":"));
-        t!(Body[" /"]: r"\="   => Text(r"\"), Text("="));
-        t!(Body[" /"]: r#"\""# => Text(r"\"), Text("\""));
+        t!(Markup[" /"]: r"\a"   => Text(r"\"), Text("a"));
+        t!(Markup[" /"]: r"\u"   => Text(r"\"), Text("u"));
+        t!(Markup[" /"]: r"\1"   => Text(r"\"), Text("1"));
+        t!(Markup[" /"]: r"\:"   => Text(r"\"), Text(":"));
+        t!(Markup[" /"]: r"\="   => Text(r"\"), Text("="));
+        t!(Markup[" /"]: r#"\""# => Text(r"\"), Text("\""));
 
         // Test basic unicode escapes.
-        t!(Body: r"\u{}"     => UnicodeEscape("", true));
-        t!(Body: r"\u{2603}" => UnicodeEscape("2603", true));
-        t!(Body: r"\u{P}"    => UnicodeEscape("P", true));
+        t!(Markup: r"\u{}"     => UnicodeEscape("", true));
+        t!(Markup: r"\u{2603}" => UnicodeEscape("2603", true));
+        t!(Markup: r"\u{P}"    => UnicodeEscape("P", true));
 
         // Test unclosed unicode escapes.
-        t!(Body[" /"]: r"\u{"     => UnicodeEscape("", false));
-        t!(Body[" /"]: r"\u{1"    => UnicodeEscape("1", false));
-        t!(Body[" /"]: r"\u{26A4" => UnicodeEscape("26A4", false));
-        t!(Body[" /"]: r"\u{1Q3P" => UnicodeEscape("1Q3P", false));
-        t!(Body: r"\u{1🏕}"       => UnicodeEscape("1", false), Text("🏕"), RightBrace);
+        t!(Markup[" /"]: r"\u{"     => UnicodeEscape("", false));
+        t!(Markup[" /"]: r"\u{1"    => UnicodeEscape("1", false));
+        t!(Markup[" /"]: r"\u{26A4" => UnicodeEscape("26A4", false));
+        t!(Markup[" /"]: r"\u{1Q3P" => UnicodeEscape("1Q3P", false));
+        t!(Markup: r"\u{1🏕}"       => UnicodeEscape("1", false), Text("🏕"), RightBrace);
     }
 
     #[test]
@@ -763,18 +762,18 @@ mod tests {
     #[test]
     fn test_tokenize_idents() {
         // Test valid identifiers.
-        t!(Header[" /"]: "x"           => Ident("x"));
-        t!(Header[" /"]: "value"       => Ident("value"));
-        t!(Header[" /"]: "__main__"    => Ident("__main__"));
-        t!(Header[" /"]: "_snake_case" => Ident("_snake_case"));
+        t!(Code[" /"]: "x"           => Ident("x"));
+        t!(Code[" /"]: "value"       => Ident("value"));
+        t!(Code[" /"]: "__main__"    => Ident("__main__"));
+        t!(Code[" /"]: "_snake_case" => Ident("_snake_case"));
 
         // Test non-ascii.
-        t!(Header[" /"]: "α"    => Ident("α"));
-        t!(Header[" /"]: "ម្តាយ" => Ident("ម្តាយ"));
+        t!(Code[" /"]: "α"    => Ident("α"));
+        t!(Code[" /"]: "ម្តាយ" => Ident("ម្តាយ"));
 
         // Test hyphen parsed as identifier.
-        t!(Header[" /"]: "kebab-case" => Ident("kebab-case"));
-        t!(Header[" /"]: "one-10"     => Ident("one-10"));
+        t!(Code[" /"]: "kebab-case" => Ident("kebab-case"));
+        t!(Code[" /"]: "one-10"     => Ident("one-10"));
     }
 
     #[test]
@@ -798,22 +797,22 @@ mod tests {
 
         // Test integers.
         for &(s, v) in &ints {
-            t!(Header[" /"]: s => Int(v));
+            t!(Code[" /"]: s => Int(v));
         }
 
         // Test floats.
         for &(s, v) in &floats {
-            t!(Header[" /"]: s => Float(v));
+            t!(Code[" /"]: s => Float(v));
         }
 
         // Test attached numbers.
-        t!(Header[" /"]: ".2.3"  => Float(0.2), Float(0.3));
-        t!(Header[" /"]: "1.2.3"  => Float(1.2), Float(0.3));
-        t!(Header[" /"]: "1e-2+3" => Float(0.01), Plus, Int(3));
+        t!(Code[" /"]: ".2.3"  => Float(0.2), Float(0.3));
+        t!(Code[" /"]: "1.2.3"  => Float(1.2), Float(0.3));
+        t!(Code[" /"]: "1e-2+3" => Float(0.01), Plus, Int(3));
 
         // Test float from too large integer.
         let large = i64::MAX as f64 + 1.0;
-        t!(Header[" /"]: large.to_string() => Float(large));
+        t!(Code[" /"]: large.to_string() => Float(large));
 
         // Combined integers and floats.
         let nums = ints.iter().map(|&(k, v)| (k, v as f64)).chain(floats.iter().copied());
@@ -831,7 +830,7 @@ mod tests {
         // Numeric types.
         for &(suffix, build) in &suffixes {
             for (s, v) in nums.clone() {
-                t!(Header[" /"]: format!("{}{}", s, suffix) => build(v));
+                t!(Code[" /"]: format!("{}{}", s, suffix) => build(v));
             }
         }
     }
@@ -839,26 +838,26 @@ mod tests {
     #[test]
     fn test_tokenize_hex() {
         // Test basic hex expressions.
-        t!(Header[" /"]: "#6ae6dd" => Hex("6ae6dd"));
-        t!(Header[" /"]: "#8A083c" => Hex("8A083c"));
+        t!(Code[" /"]: "#6ae6dd" => Hex("6ae6dd"));
+        t!(Code[" /"]: "#8A083c" => Hex("8A083c"));
 
         // Test with non-hex letters.
-        t!(Header[" /"]: "#PQ" => Hex("PQ"));
+        t!(Code[" /"]: "#PQ" => Hex("PQ"));
     }
 
     #[test]
     fn test_tokenize_strings() {
         // Test basic strings.
-        t!(Header: "\"hi\""        => Str("hi", true));
-        t!(Header: "\"hi\nthere\"" => Str("hi\nthere", true));
-        t!(Header: "\"🌎\""        => Str("🌎", true));
+        t!(Code: "\"hi\""        => Str("hi", true));
+        t!(Code: "\"hi\nthere\"" => Str("hi\nthere", true));
+        t!(Code: "\"🌎\""        => Str("🌎", true));
 
         // Test unterminated.
-        t!(Header[""]: "\"hi"      => Str("hi", false));
+        t!(Code[""]: "\"hi"      => Str("hi", false));
 
         // Test escaped quote.
-        t!(Header: r#""a\"bc""# => Str(r#"a\"bc"#, true));
-        t!(Header[""]: r#""\""# => Str(r#"\""#, false));
+        t!(Code: r#""a\"bc""# => Str(r#"a\"bc"#, true));
+        t!(Code[""]: r#""\""# => Str(r#"\""#, false));
     }
 
     #[test]
@@ -907,19 +906,19 @@ mod tests {
         t!(Both: "/**/*/" => BlockComment(""), Token::Invalid("*/"));
 
         // Test invalid expressions.
-        t!(Header: r"\"          => Invalid(r"\"));
-        t!(Header: "🌓"          => Invalid("🌓"));
-        t!(Header: r"\:"         => Invalid(r"\"), Colon);
-        t!(Header: "meal⌚"      => Ident("meal"), Invalid("⌚"));
-        t!(Header[" /"]: r"\a"   => Invalid(r"\"), Ident("a"));
+        t!(Code: r"\"          => Invalid(r"\"));
+        t!(Code: "🌓"          => Invalid("🌓"));
+        t!(Code: r"\:"         => Invalid(r"\"), Colon);
+        t!(Code: "meal⌚"      => Ident("meal"), Invalid("⌚"));
+        t!(Code[" /"]: r"\a"   => Invalid(r"\"), Ident("a"));
 
         // Test invalid number suffixes.
-        t!(Header[" /"]: "1foo" => Invalid("1foo"));
-        t!(Header: "1p%"        => Invalid("1p"), Invalid("%"));
-        t!(Header: "1%%"        => Percent(1.0), Invalid("%"));
+        t!(Code[" /"]: "1foo" => Invalid("1foo"));
+        t!(Code: "1p%"        => Invalid("1p"), Invalid("%"));
+        t!(Code: "1%%"        => Percent(1.0), Invalid("%"));
 
         // Test invalid keyword.
-        t!(Body[" /"]: "#-" => Hash, Text("-"));
-        t!(Body[" "]: "#do" => Invalid("#do"))
+        t!(Markup[" /"]: "#-" => Hash, Text("-"));
+        t!(Markup[" "]: "#do" => Invalid("#do"))
     }
 }

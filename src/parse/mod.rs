@@ -152,7 +152,7 @@ fn unicode_escape(p: &mut Parser, token: TokenUnicodeEscape) -> String {
 
 /// Parse a block expression.
 fn block_expr(p: &mut Parser) -> Option<Expr> {
-    p.push_mode(TokenMode::Header);
+    p.push_mode(TokenMode::Code);
     p.start_group(Group::Brace);
     let expr = expr(p);
     while !p.eof() {
@@ -173,7 +173,7 @@ fn paren_call(p: &mut Parser, name: Spanned<Ident>) -> ExprCall {
 
 /// Parse a bracketed function call.
 fn bracket_call(p: &mut Parser) -> ExprCall {
-    p.push_mode(TokenMode::Header);
+    p.push_mode(TokenMode::Code);
     p.start_group(Group::Bracket);
 
     // One header is guaranteed, but there may be more (through chaining).
@@ -228,7 +228,7 @@ fn bracket_subheader(p: &mut Parser) -> ExprCall {
 
 /// Parse the body of a bracketed function call.
 fn bracket_body(p: &mut Parser) -> Tree {
-    p.push_mode(TokenMode::Body);
+    p.push_mode(TokenMode::Markup);
     p.start_group(Group::Bracket);
     let tree = tree(p);
     p.pop_mode();
@@ -348,7 +348,7 @@ fn value(p: &mut Parser) -> Option<Expr> {
 
 // Parse a content value: `{...}`.
 fn content(p: &mut Parser) -> Tree {
-    p.push_mode(TokenMode::Body);
+    p.push_mode(TokenMode::Markup);
     p.start_group(Group::Brace);
     let tree = tree(p);
     p.pop_mode();

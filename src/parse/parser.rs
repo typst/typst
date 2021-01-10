@@ -16,7 +16,7 @@ pub struct Parser<'s> {
     peeked: Option<Token<'s>>,
     /// The start position of the peeked token.
     next_start: Pos,
-    /// The end position of the last (non-whitespace if in header) token.
+    /// The end position of the last (non-whitespace if in code mode) token.
     last_end: Pos,
     /// The stack of modes we were in.
     modes: Vec<TokenMode>,
@@ -29,7 +29,7 @@ pub struct Parser<'s> {
 impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
     pub fn new(src: &'s str) -> Self {
-        let mut tokens = Tokens::new(src, TokenMode::Body);
+        let mut tokens = Tokens::new(src, TokenMode::Markup);
         let next = tokens.next();
         Self {
             tokens,
@@ -151,7 +151,7 @@ impl<'s> Parser<'s> {
     }
 
     /// Execute `f` and return the result alongside the span of everything `f`
-    /// ate. Excludes leading and trailing whitespace in header mode.
+    /// ate. Excludes leading and trailing whitespace in code mode.
     pub fn span<T, F>(&mut self, f: F) -> Spanned<T>
     where
         F: FnOnce(&mut Self) -> T,
@@ -243,7 +243,7 @@ impl<'s> Parser<'s> {
 
     /// The position at which the last token ended.
     ///
-    /// Refers to the end of the last _non-whitespace_ token in header mode.
+    /// Refers to the end of the last _non-whitespace_ token in code mode.
     pub fn last_end(&self) -> Pos {
         self.last_end
     }
@@ -266,8 +266,8 @@ impl<'s> Parser<'s> {
         self.next = self.tokens.next();
 
         match self.tokens.mode() {
-            TokenMode::Body => {}
-            TokenMode::Header => {
+            TokenMode::Markup => {}
+            TokenMode::Code => {
                 while matches!(
                     self.next,
                     Some(Token::Space(_)) |

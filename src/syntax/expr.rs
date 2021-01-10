@@ -109,7 +109,7 @@ pub fn pretty_bracket_call(call: &ExprCall, p: &mut Printer, chained: bool) {
     // Function name.
     p.push_str(&call.name.v);
 
-    // Find out whether this can be written as body or chain.
+    // Find out whether this can be written with a body or as a chain.
     //
     // Example: Transforms "[v {Hi}]" => "[v][Hi]".
     if let [head @ .., Argument::Pos(Spanned { v: Expr::Content(content), .. })] =
