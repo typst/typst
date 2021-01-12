@@ -51,12 +51,12 @@ fn node(p: &mut Parser, at_start: bool) -> Option<Node> {
     let node = match p.peek()? {
         // Bracket call.
         Token::LeftBracket => {
-            return Some(Node::Expr(Expr::Call(bracket_call(p))));
+            return Some(Node::Expr(bracket_call(p)));
         }
 
         // Code block.
         Token::LeftBrace => {
-            return Some(Node::Expr(code_block(p)?));
+            return Some(Node::Expr(block(p)?));
         }
 
         // Markup.
@@ -154,7 +154,7 @@ fn unicode_escape(p: &mut Parser, token: TokenUnicodeEscape) -> String {
 }
 
 /// Parse a bracketed function call.
-fn bracket_call(p: &mut Parser) -> ExprCall {
+fn bracket_call(p: &mut Parser) -> Expr {
     p.push_mode(TokenMode::Code);
     p.start_group(Group::Bracket);
 
@@ -184,7 +184,7 @@ fn bracket_call(p: &mut Parser) -> ExprCall {
         inner = top;
     }
 
-    inner.v
+    Expr::Call(inner.v)
 }
 
 /// Parse one subheader of a bracketed function call.
@@ -218,8 +218,8 @@ fn bracket_body(p: &mut Parser) -> Tree {
     tree
 }
 
-/// Parse a code block: `{...}`.
-fn code_block(p: &mut Parser) -> Option<Expr> {
+/// Parse a block expression: `{...}`.
+fn block(p: &mut Parser) -> Option<Expr> {
     p.push_mode(TokenMode::Code);
     p.start_group(Group::Brace);
     let expr = expr(p);
@@ -228,7 +228,7 @@ fn code_block(p: &mut Parser) -> Option<Expr> {
     }
     p.pop_mode();
     p.end_group();
-    expr
+    Some(Expr::Block(Box::new(expr?)))
 }
 
 /// Parse an expression: `term (+ term)*`.
@@ -277,6 +277,7 @@ fn binops(
 /// Parse a factor of the form `-?value`.
 fn factor(p: &mut Parser) -> Option<Expr> {
     let op = |token| match token {
+        Token::Plus => Some(UnOp::Pos),
         Token::Hyph => Some(UnOp::Neg),
         _ => None,
     };
@@ -294,12 +295,12 @@ fn value(p: &mut Parser) -> Option<Expr> {
     let expr = match p.peek() {
         // Template.
         Some(Token::LeftBracket) => {
-            return Some(Expr::Template(template(p)));
+            return Some(template(p));
         }
 
         // Nested block.
         Some(Token::LeftBrace) => {
-            return code_block(p);
+            return block(p);
         }
 
         // Dictionary or just a parenthesized expression.
@@ -313,7 +314,7 @@ fn value(p: &mut Parser) -> Option<Expr> {
             let ident = Ident(id.into());
             if p.peek() == Some(Token::LeftParen) {
                 let name = ident.with_span(p.peek_span());
-                return Some(Expr::Call(paren_call(p, name)));
+                return Some(paren_call(p, name));
             } else {
                 return Some(Expr::Ident(ident));
             }
@@ -341,21 +342,21 @@ fn value(p: &mut Parser) -> Option<Expr> {
 }
 
 // Parse a template value: `[...]`.
-fn template(p: &mut Parser) -> Tree {
+fn template(p: &mut Parser) -> Expr {
     p.push_mode(TokenMode::Markup);
     p.start_group(Group::Bracket);
     let tree = tree(p);
     p.pop_mode();
     p.end_group();
-    tree
+    Expr::Template(tree)
 }
 
 /// Parse a parenthesized function call.
-fn paren_call(p: &mut Parser, name: Spanned<Ident>) -> ExprCall {
+fn paren_call(p: &mut Parser, name: Spanned<Ident>) -> Expr {
     p.start_group(Group::Paren);
     let args = p.span(arguments);
     p.end_group();
-    ExprCall { name, args }
+    Expr::Call(ExprCall { name, args })
 }
 
 /// Parse an identifier.

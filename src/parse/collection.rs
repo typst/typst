@@ -59,7 +59,7 @@ fn argument(p: &mut Parser) -> Option<Argument> {
             p.deco(Deco::Name.with_span(name.span));
             Some(Argument::Named(Named { name, expr }))
         } else {
-            p.diag(error!(first.span, "name must be identifier"));
+            p.diag(error!(first.span, "expected identifier"));
             expr(p);
             None
         }
@@ -93,7 +93,7 @@ impl State {
     fn into_expr(self) -> Expr {
         match self {
             Self::Unknown => Expr::Array(vec![]),
-            Self::Expr(expr) => expr.v,
+            Self::Expr(expr) => Expr::Group(Box::new(expr.v)),
             Self::Array(array) => Expr::Array(array),
             Self::Dict(dict) => Expr::Dict(dict),
         }

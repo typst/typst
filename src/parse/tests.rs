@@ -10,8 +10,8 @@ use crate::syntax::*;
 
 use BinOp::*;
 use Expr::{Angle, Bool, Color, Float, Int, Length, Percent};
-use Node::{Emph, Expr as Block, Linebreak, Parbreak, Space, Strong};
-use UnOp::*;
+use Node::{Emph, Linebreak, Parbreak, Space, Strong};
+use UnOp::{Neg, Pos};
 
 macro_rules! t {
     ($src:literal
@@ -126,21 +126,26 @@ fn Unary(op: impl Into<Spanned<UnOp>>, expr: impl Into<Spanned<Expr>>) -> Expr {
     })
 }
 
-macro_rules! Array {
-    (@$($expr:expr),* $(,)?) => {
-        vec![$(into!($expr)),*]
-    };
-    ($($tts:tt)*) => (Expr::Array(Array![@$($tts)*]));
+fn Group(expr: Expr) -> Expr {
+    Expr::Group(Box::new(expr))
 }
 
-macro_rules! Dict {
-    (@$($name:expr => $expr:expr),* $(,)?) => {
-        vec![$(Named {
-            name: into!($name).map(|s: &str| Ident(s.into())),
-            expr: into!($expr)
-        }),*]
+macro_rules! Call {
+    (@@$name:expr) => {
+        Call!(@@$name, Args![])
     };
-    ($($tts:tt)*) => (Expr::Dict(Dict![@$($tts)*]));
+    (@@$name:expr, $args:expr) => {
+        ExprCall {
+            name: into!($name).map(|s: &str| Ident(s.into())),
+            args: into!($args),
+        }
+    };
+    (@$($tts:tt)*) => {
+        Expr::Call(Call!(@@$($tts)*))
+    };
+    ($($tts:tt)*) => {
+        Node::Expr(Call!(@$($tts)*))
+    };
 }
 
 macro_rules! Args {
@@ -158,23 +163,43 @@ macro_rules! Args {
     };
 }
 
-macro_rules! Template {
-    (@$($node:expr),* $(,)?) => (vec![$(into!($node)),*]);
-    ($($tts:tt)*) => (Expr::Template(Template![@$($tts)*]));
+macro_rules! Array {
+    (@$($expr:expr),* $(,)?) => {
+        vec![$(into!($expr)),*]
+    };
+    ($($tts:tt)*) => {
+        Expr::Array(Array![@$($tts)*])
+    };
 }
 
-macro_rules! Call {
-    (@@$name:expr) => {
-        Call!(@@$name, Args![])
-    };
-    (@@$name:expr, $args:expr) => {
-        ExprCall {
+macro_rules! Dict {
+    (@$($name:expr => $expr:expr),* $(,)?) => {
+        vec![$(Named {
             name: into!($name).map(|s: &str| Ident(s.into())),
-            args: into!($args),
-        }
+            expr: into!($expr)
+        }),*]
     };
-    (@$($tts:tt)*) => (Expr::Call(Call!(@@$($tts)*)));
-    ($($tts:tt)*) => (Node::Expr(Call!(@$($tts)*)));
+    ($($tts:tt)*) => {
+        Expr::Dict(Dict![@$($tts)*])
+    };
+}
+
+macro_rules! Template {
+    (@$($node:expr),* $(,)?) => {
+        vec![$(into!($node)),*]
+    };
+    ($($tts:tt)*) => {
+        Expr::Template(Template![@$($tts)*])
+    };
+}
+
+macro_rules! Block {
+    (@$expr:expr) => {
+        Expr::Block(Box::new($expr))
+    };
+    ($expr:expr) => {
+        Node::Expr(Block!(@$expr))
+    };
 }
 
 #[test]
@@ -247,7 +272,7 @@ fn test_parse_headings() {
 
     // Continued heading.
     t!("# a{\n1\n}b"   Heading(0, Template![
-        @Space, Text("a"), Block(Int(1)), Text("b")
+        @Space, Text("a"), Block!(Int(1)), Text("b")
     ]));
     t!("# a[f][\n\n]d" Heading(0, Template![@
         Space, Text("a"), Call!("f", Args![Template![Parbreak]]), Text("d"),
@@ -294,7 +319,7 @@ fn test_parse_escape_sequences() {
 fn test_parse_groups() {
     // Test paren group.
     t!("{({1) + 3}"
-        nodes: [Block(Binary(Int(1), Add, Int(3)))],
+        nodes: [Block!(Binary(Group(Block!(@Int(1))), Add, Int(3)))],
         errors: [S(4..4, "expected closing brace")]);
 
     // Test bracket group.
@@ -309,7 +334,7 @@ fn test_parse_groups() {
 
     // Test brace group.
     t!("{1 + [}"
-        nodes: [Block(Binary(Int(1), Add, Template![]))],
+        nodes: [Block!(Binary(Int(1), Add, Template![]))],
         errors: [S(6..6, "expected closing bracket")]);
 
     // Test subheader group.
@@ -322,11 +347,11 @@ fn test_parse_groups() {
 #[test]
 fn test_parse_blocks() {
     // Basic with spans.
-    t!("{1}" nodes: [S(0..3, Block(Int(1)))], spans: true);
+    t!("{1}" nodes: [S(0..3, Block!(Int(1)))], spans: true);
 
     // Function calls.
-    t!("{f()}" Call!("f"));
-    t!("{[[f]]}" Block(Template![Call!("f")]));
+    t!("{f()}" Block!(Call!(@"f")));
+    t!("{[[f]]}" Block!(Template![Call!("f")]));
 
     // Missing or bad value.
     t!("{}{1u}"
@@ -336,7 +361,7 @@ fn test_parse_blocks() {
 
     // Too much stuff.
     t!("{1 #{} end"
-        nodes: [Block(Int(1)), Space, Text("end")],
+        nodes: [Block!(Int(1)), Space, Text("end")],
         errors: [S(3..4, "unexpected hex value"),
                  S(4..5, "unexpected opening brace")]);
 }
@@ -424,7 +449,7 @@ fn test_parse_arguments() {
     t!("[v a:2]" Call!("v", Args!["a" => Int(2)]));
 
     // Parenthesized function with nested array literal.
-    t!(r#"{f(1, a: (2, 3), #004, b: "five")}"# Block(Call!(@"f", Args![
+    t!(r#"{f(1, a: (2, 3), #004, b: "five")}"# Block!(Call!(@"f", Args![
         Int(1),
         "a" => Array![Int(2), Int(3)],
         Color(RgbaColor::new(0, 0, 0x44, 0xff)),
@@ -449,30 +474,35 @@ fn test_parse_arguments() {
     // Name has to be identifier.
     t!("[v 1:]"
         nodes: [Call!("v", Args![])],
-        errors: [S(3..4, "name must be identifier"),
+        errors: [S(3..4, "expected identifier"),
                  S(5..5, "expected expression")]);
 
     // Name has to be identifier.
     t!("[v 1:2]"
         nodes: [Call!("v", Args![])],
-        errors: [S(3..4, "name must be identifier")]);
+        errors: [S(3..4, "expected identifier")]);
+
+    // Name has to be identifier.
+    t!("[v (x):1]"
+        nodes: [Call!("v", Args![])],
+        errors: [S(3..6, "expected identifier")]);
 }
 
 #[test]
 fn test_parse_arrays() {
     // Empty array.
-    t!("{()}" Block(Array![]));
+    t!("{()}" Block!(Array![]));
 
     // Array with one item and trailing comma + spans.
     t!("{-(1,)}"
-        nodes: [S(0..7, Block(Unary(
+        nodes: [S(0..7, Block!(Unary(
             S(1..2, Neg),
             S(2..6, Array![S(3..4, Int(1))])
         )))],
         spans: true);
 
     // Array with three items and trailing comma.
-    t!(r#"{("one", 2, #003,)}"# Block(Array![
+    t!(r#"{("one", 2, #003,)}"# Block!(Array![
         Str("one"),
         Int(2),
         Color(RgbaColor::new(0, 0, 0x33, 0xff))
@@ -480,44 +510,44 @@ fn test_parse_arrays() {
 
     // Unclosed.
     t!("{(}"
-        nodes: [Block(Array![])],
+        nodes: [Block!(Array![])],
         errors: [S(2..2, "expected closing paren")]);
 
     // Missing comma + invalid token.
     t!("{(1*/2)}"
-        nodes: [Block(Array![Int(1), Int(2)])],
+        nodes: [Block!(Array![Int(1), Int(2)])],
         errors: [S(3..5, "expected expression, found end of block comment"),
                  S(3..3, "expected comma")]);
 
     // Invalid token.
     t!("{(1, 1u 2)}"
-        nodes: [Block(Array![Int(1), Int(2)])],
+        nodes: [Block!(Array![Int(1), Int(2)])],
         errors: [S(5..7, "expected expression, found invalid token")]);
 
     // Coerced to expression with leading comma.
     t!("{(,1)}"
-        nodes: [Block(Int(1))],
+        nodes: [Block!(Group(Int(1)))],
         errors: [S(2..3, "expected expression, found comma")]);
 
     // Missing expression after name makes this an array.
     t!("{(a:)}"
-        nodes: [Block(Array![])],
+        nodes: [Block!(Array![])],
         errors: [S(4..4, "expected expression")]);
 
     // Expected expression, found named pair.
     t!("{(1, b: 2)}"
-        nodes: [Block(Array![Int(1)])],
+        nodes: [Block!(Array![Int(1)])],
         errors: [S(5..9, "expected expression, found named pair")]);
 }
 
 #[test]
 fn test_parse_dictionaries() {
     // Empty dictionary.
-    t!("{(:)}" Block(Dict![]));
+    t!("{(:)}" Block!(Dict![]));
 
     // Dictionary with two pairs + spans.
     t!("{(one: 1, two: 2)}"
-        nodes: [S(0..18, Block(Dict![
+        nodes: [S(0..18, Block!(Dict![
             S(2..5, "one") => S(7..8, Int(1)),
             S(10..13, "two") => S(15..16, Int(2)),
         ]))],
@@ -525,49 +555,50 @@ fn test_parse_dictionaries() {
 
     // Expected named pair, found expression.
     t!("{(a: 1, b)}"
-        nodes: [Block(Dict!["a" => Int(1)])],
+        nodes: [Block!(Dict!["a" => Int(1)])],
         errors: [S(8..9, "expected named pair, found expression")]);
 
     // Dictionary marker followed by more stuff.
     t!("{(:1 b:[], true::)}"
-        nodes: [Block(Dict!["b" => Template![]])],
+        nodes: [Block!(Dict!["b" => Template![]])],
         errors: [S(3..4, "expected named pair, found expression"),
                  S(4..4, "expected comma"),
-                 S(11..15, "name must be identifier"),
+                 S(11..15, "expected identifier"),
                  S(16..17, "expected expression, found colon")]);
 }
 
 #[test]
 fn test_parse_expressions() {
     // Parentheses.
-    t!("{(x)}{(1)}" Block(Id("x")), Block(Int(1)));
+    t!("{(x)}{(1)}" Block!(Group(Id("x"))), Block!(Group(Int(1))));
 
     // Unary operations.
-    t!("{-1}"  Block(Unary(Neg, Int(1))));
-    t!("{--1}" Block(Unary(Neg, Unary(Neg, Int(1)))));
+    t!("{+1}"  Block!(Unary(Pos, Int(1))));
+    t!("{-1}"  Block!(Unary(Neg, Int(1))));
+    t!("{--1}" Block!(Unary(Neg, Unary(Neg, Int(1)))));
 
     // Binary operations.
-    t!(r#"{"x"+"y"}"# Block(Binary(Str("x"), Add, Str("y"))));
-    t!("{1-2}"        Block(Binary(Int(1), Sub, Int(2))));
-    t!("{a * b}"      Block(Binary(Id("a"), Mul, Id("b"))));
-    t!("{12pt/.4}"    Block(Binary(Length(12.0, LengthUnit::Pt), Div, Float(0.4))));
+    t!(r#"{"x"+"y"}"# Block!(Binary(Str("x"), Add, Str("y"))));
+    t!("{1-2}"        Block!(Binary(Int(1), Sub, Int(2))));
+    t!("{a * b}"      Block!(Binary(Id("a"), Mul, Id("b"))));
+    t!("{12pt/.4}"    Block!(Binary(Length(12.0, LengthUnit::Pt), Div, Float(0.4))));
 
     // Associativity.
-    t!("{1+2+3}" Block(Binary(Binary(Int(1), Add, Int(2)), Add, Int(3))));
-    t!("{1/2*3}" Block(Binary(Binary(Int(1), Div, Int(2)), Mul, Int(3))));
+    t!("{1+2+3}" Block!(Binary(Binary(Int(1), Add, Int(2)), Add, Int(3))));
+    t!("{1/2*3}" Block!(Binary(Binary(Int(1), Div, Int(2)), Mul, Int(3))));
 
     // Precedence.
-    t!("{1+2*-3}" Block(Binary(
+    t!("{1+2*-3}" Block!(Binary(
         Int(1), Add, Binary(Int(2), Mul, Unary(Neg, Int(3))),
     )));
 
     // Confusion with floating-point literal.
-    t!("{1e-3-4e+4}" Block(Binary(Float(1e-3), Sub, Float(4e+4))));
+    t!("{1e-3-4e+4}" Block!(Binary(Float(1e-3), Sub, Float(4e+4))));
 
     // Spans + parentheses winning over precedence.
     t!("{(1+2)*3}"
-        nodes: [S(0..9, Block(Binary(
-            S(1..6, Binary(S(2..3, Int(1)), S(3..4, Add), S(4..5, Int(2)))),
+        nodes: [S(0..9, Block!(Binary(
+            S(1..6, Group(Binary(S(2..3, Int(1)), S(3..4, Add), S(4..5, Int(2))))),
             S(6..7, Mul),
             S(7..8, Int(3)),
         )))],
@@ -575,7 +606,7 @@ fn test_parse_expressions() {
 
     // Errors.
     t!("{-}{1+}{2*}"
-        nodes: [Block(Int(1)), Block(Int(2))],
+        nodes: [Block!(Int(1)), Block!(Int(2))],
         errors: [S(2..2, "expected expression"),
                  S(6..6, "expected expression"),
                  S(10..10, "expected expression")]);
@@ -584,37 +615,36 @@ fn test_parse_expressions() {
 #[test]
 fn test_parse_values() {
     // Basics.
-    t!("{_}"      Block(Id("_")));
-    t!("{name}"   Block(Id("name")));
-    t!("{ke-bab}" Block(Id("ke-bab")));
-    t!("{α}"      Block(Id("α")));
-    t!("{none}"   Block(Expr::None));
-    t!("{true}"   Block(Bool(true)));
-    t!("{false}"  Block(Bool(false)));
-    t!("{1.0e-4}" Block(Float(1e-4)));
-    t!("{3.15}"   Block(Float(3.15)));
-    t!("{50%}"    Block(Percent(50.0)));
-    t!("{4.5cm}"  Block(Length(4.5, LengthUnit::Cm)));
-    t!("{12e1pt}" Block(Length(12e1, LengthUnit::Pt)));
-    t!("{13rad}"  Block(Angle(13.0, AngularUnit::Rad)));
-    t!("{45deg}"  Block(Angle(45.0, AngularUnit::Deg)));
+    t!("{_}"      Block!(Id("_")));
+    t!("{name}"   Block!(Id("name")));
+    t!("{ke-bab}" Block!(Id("ke-bab")));
+    t!("{α}"      Block!(Id("α")));
+    t!("{none}"   Block!(Expr::None));
+    t!("{true}"   Block!(Bool(true)));
+    t!("{false}"  Block!(Bool(false)));
+    t!("{1.0e-4}" Block!(Float(1e-4)));
+    t!("{3.15}"   Block!(Float(3.15)));
+    t!("{50%}"    Block!(Percent(50.0)));
+    t!("{4.5cm}"  Block!(Length(4.5, LengthUnit::Cm)));
+    t!("{12e1pt}" Block!(Length(12e1, LengthUnit::Pt)));
+    t!("{13rad}"  Block!(Angle(13.0, AngularUnit::Rad)));
+    t!("{45deg}"  Block!(Angle(45.0, AngularUnit::Deg)));
 
     // Strings.
-    t!(r#"{"hi"}"#                     Block(Str("hi")));
-    t!(r#"{"a\n[]\"\u{1F680}string"}"# Block(Str("a\n[]\"🚀string")));
+    t!(r#"{"hi"}"#                     Block!(Str("hi")));
+    t!(r#"{"a\n[]\"\u{1F680}string"}"# Block!(Str("a\n[]\"🚀string")));
 
     // Colors.
-    t!("{#f7a20500}" Block(Color(RgbaColor::new(0xf7, 0xa2, 0x05, 0))));
+    t!("{#f7a20500}" Block!(Color(RgbaColor::new(0xf7, 0xa2, 0x05, 0))));
     t!("{#a5}"
-        nodes: [Block(Color(RgbaColor::new(0, 0, 0, 0xff)))],
+        nodes: [Block!(Color(RgbaColor::new(0, 0, 0, 0xff)))],
         errors: [S(1..4, "invalid color")]);
 
     // Content.
-    t!("{[*Hi*]}" Block(Template![Strong, Text("Hi"), Strong]));
+    t!("{[*Hi*]}" Block!(Template![Strong, Text("Hi"), Strong]));
 
     // Nested blocks.
-    t!("{{1}}" Block(Int(1)));
-    t!("{{{1+2}}}" Block(Binary(Int(1), Add, Int(2))));
+    t!("{{1}}" Block!(Block!(@Int(1))));
 
     // Invalid tokens.
     t!("{1u}"

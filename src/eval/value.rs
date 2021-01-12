@@ -8,7 +8,7 @@ use super::{Args, Eval, EvalContext};
 use crate::color::Color;
 use crate::geom::{Angle, Length, Linear, Relative};
 use crate::pretty::{pretty, Pretty, Printer};
-use crate::syntax::{pretty_template_expr, Spanned, Tree, WithSpan};
+use crate::syntax::{Spanned, Tree, WithSpan};
 
 /// A computational value.
 #[derive(Debug, Clone, PartialEq)]
@@ -77,6 +77,18 @@ impl Value {
             Self::Error => "error",
         }
     }
+
+    /// Whether the value is numeric.
+    pub fn is_numeric(&self) -> bool {
+        matches!(self,
+            Value::Int(_)
+            | Value::Float(_)
+            | Value::Length(_)
+            | Value::Angle(_)
+            | Value::Relative(_)
+            | Value::Linear(_)
+        )
+    }
 }
 
 impl Eval for &Value {
@@ -112,9 +124,13 @@ impl Pretty for Value {
             Value::Linear(v) => write!(p, "{}", v).unwrap(),
             Value::Color(v) => write!(p, "{}", v).unwrap(),
             Value::Str(v) => write!(p, "{:?}", v).unwrap(),
-            Value::Array(array) => array.pretty(p),
-            Value::Dict(dict) => dict.pretty(p),
-            Value::Template(template) => pretty_template_expr(template, p),
+            Value::Array(v) => v.pretty(p),
+            Value::Dict(v) => v.pretty(p),
+            Value::Template(v) => {
+                p.push_str("[");
+                v.pretty(p);
+                p.push_str("]");
+            }
             Value::Func(v) => v.pretty(p),
             Value::Any(v) => v.pretty(p),
             Value::Error => p.push_str("(error)"),

@@ -40,6 +40,10 @@ pub enum Expr {
     Dict(ExprDict),
     /// A template expression: `[*Hi* there!]`.
     Template(ExprTemplate),
+    /// A grouped expression: `(1 + 2)`.
+    Group(Box<Expr>),
+    /// A block expression: `{1 + 2}`.
+    Block(Box<Expr>),
 }
 
 impl Pretty for Expr {
@@ -54,22 +58,29 @@ impl Pretty for Expr {
             Self::Angle(v, u) => write!(p, "{}{}", v, u).unwrap(),
             Self::Percent(v) => write!(p, "{}%", v).unwrap(),
             Self::Color(v) => write!(p, "{}", v).unwrap(),
-            Self::Str(s) => write!(p, "{:?}", &s).unwrap(),
-            Self::Call(call) => call.pretty(p),
-            Self::Unary(unary) => unary.pretty(p),
-            Self::Binary(binary) => binary.pretty(p),
-            Self::Array(array) => array.pretty(p),
-            Self::Dict(dict) => dict.pretty(p),
-            Self::Template(template) => pretty_template_expr(template, p),
+            Self::Str(v) => write!(p, "{:?}", &v).unwrap(),
+            Self::Call(v) => v.pretty(p),
+            Self::Unary(v) => v.pretty(p),
+            Self::Binary(v) => v.pretty(p),
+            Self::Array(v) => v.pretty(p),
+            Self::Dict(v) => v.pretty(p),
+            Self::Template(v) => {
+                p.push_str("[");
+                v.pretty(p);
+                p.push_str("]");
+            }
+            Self::Group(v) => {
+                p.push_str("(");
+                v.pretty(p);
+                p.push_str(")");
+            }
+            Self::Block(v) => {
+                p.push_str("{");
+                v.pretty(p);
+                p.push_str("}");
+            }
         }
     }
-}
-
-/// Pretty print a template in an expression context.
-pub fn pretty_template_expr(tree: &Tree, p: &mut Printer) {
-    p.push_str("[");
-    tree.pretty(p);
-    p.push_str("]");
 }
 
 /// An invocation of a function: `[foo ...]`, `foo(...)`.
@@ -197,6 +208,8 @@ impl Pretty for ExprUnary {
 /// A unary operator.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum UnOp {
+    /// The plus operator: `+`.
+    Pos,
     /// The negation operator: `-`.
     Neg,
 }
@@ -204,6 +217,7 @@ pub enum UnOp {
 impl Pretty for UnOp {
     fn pretty(&self, p: &mut Printer) {
         p.push_str(match self {
+            Self::Pos => "+",
             Self::Neg => "-",
         });
     }
@@ -302,7 +316,11 @@ mod tests {
     fn test_pretty_print_expressions() {
         // Unary and binary operations.
         test_pretty("{1 +}", "{1}");
+        test_pretty("{1++1}", "{1 + +1}");
+        test_pretty("{+-1}", "{+-1}");
         test_pretty("{1 + func(-2)}", "{1 + func(-2)}");
+        test_pretty("{1+2*3}", "{1 + 2 * 3}");
+        test_pretty("{(1+2)*3}", "{(1 + 2) * 3}");
 
         // Array.
         test_pretty("(-5,)", "(-5,)");
@@ -314,6 +332,10 @@ mod tests {
 
         // Content expression.
         test_pretty("[v [[f]], 1]", "[v [[f]], 1]");
+
+        // Parens and blocks.
+        test_pretty("{(1)}", "{(1)}");
+        test_pretty("{{1}}", "{{1}}");
     }
 
     #[test]

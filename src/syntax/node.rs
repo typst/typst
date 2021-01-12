@@ -34,29 +34,14 @@ impl Pretty for Node {
             Self::Text(text) => p.push_str(&text),
             Self::Heading(heading) => heading.pretty(p),
             Self::Raw(raw) => raw.pretty(p),
-            Self::Expr(expr) => pretty_expr_node(expr, p),
-        }
-    }
-}
-
-/// Pretty print an expression in a node context.
-pub fn pretty_expr_node(expr: &Expr, p: &mut Printer) {
-    match expr {
-        // Prefer bracket calls over expression blocks with just a single paren
-        // call.
-        //
-        // Example: Transforms "{v()}" => "[v]".
-        Expr::Call(call) => pretty_bracket_call(call, p, false),
-
-        // Remove unncessary nesting of content and expression blocks.
-        //
-        // Example: Transforms "{[Hi]}" => "Hi".
-        Expr::Template(template) => template.pretty(p),
-
-        _ => {
-            p.push_str("{");
-            expr.pretty(p);
-            p.push_str("}");
+            Self::Expr(expr) => {
+                if let Expr::Call(call) = expr {
+                    // Format bracket calls appropriately.
+                    pretty_bracket_call(call, p, false)
+                } else {
+                    expr.pretty(p);
+                }
+            }
         }
     }
 }
@@ -178,18 +163,13 @@ mod tests {
     use super::super::tests::test_pretty;
 
     #[test]
-    fn test_pretty_print_removes_nesting() {
-        // Nesting does not matter.
-        test_pretty("{{x}}", "{x}");
-        test_pretty("{{{x}}}", "{x}");
-    }
-
-    #[test]
-    fn test_pretty_print_prefers_bracket_calls() {
-        // All reduces to a simple bracket call.
-        test_pretty("{v()}", "[v]");
+    fn test_pretty_print_bracket_calls() {
+        // Top-level call expression formatted as bracket call.
         test_pretty("[v]", "[v]");
-        test_pretty("{[[v]]}", "[v]");
+
+        // Blocks are preserved.
+        test_pretty("{v()}", "{v()}");
+        test_pretty("{[[v]]}", "{[[v]]}");
     }
 
     #[test]
