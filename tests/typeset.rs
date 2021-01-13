@@ -137,7 +137,7 @@ fn test(
         output: frames,
         feedback: Feedback { mut diags, .. },
     } = typeset(&src, Rc::clone(env), state);
-    diags.sort();
+    diags.sort_by_key(|d| d.span);
 
     let env = env.borrow();
     let canvas = draw(&frames, &env, 2.0);
@@ -215,7 +215,7 @@ fn parse_metadata(src: &str, map: &LineMap) -> (SpanVec<Diag>, bool) {
         diags.push(Diag::new(level, s.rest().trim()).with_span(start .. end));
     }
 
-    diags.sort();
+    diags.sort_by_key(|d| d.span);
 
     (diags, compare_ref)
 }

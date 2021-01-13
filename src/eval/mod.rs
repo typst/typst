@@ -46,6 +46,17 @@ pub trait Eval {
     fn eval(self, ctx: &mut EvalContext) -> Self::Output;
 }
 
+impl<'a, T> Eval for &'a Spanned<T>
+where
+    Spanned<&'a T>: Eval,
+{
+    type Output = <Spanned<&'a T> as Eval>::Output;
+
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        self.as_ref().eval(ctx)
+    }
+}
+
 impl Eval for &[Spanned<Node>] {
     type Output = ();
 
@@ -163,6 +174,14 @@ impl Eval for Spanned<&Expr> {
             Expr::Template(v) => Value::Template(v.clone()),
             Expr::Group(v) => v.as_ref().with_span(self.span).eval(ctx),
             Expr::Block(v) => v.as_ref().with_span(self.span).eval(ctx),
+            Expr::Let(v) => {
+                let value = match &v.expr {
+                    Some(expr) => expr.as_ref().eval(ctx),
+                    None => Value::None,
+                };
+                Rc::make_mut(&mut ctx.state.scope).set(v.pat.v.as_str(), value);
+                Value::None
+            }
         }
     }
 }
@@ -171,7 +190,7 @@ impl Eval for Spanned<&ExprUnary> {
     type Output = Value;
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        let value = (*self.v.expr).as_ref().eval(ctx);
+        let value = self.v.expr.as_ref().eval(ctx);
 
         if let Value::Error = value {
             return Value::Error;
@@ -189,8 +208,8 @@ impl Eval for Spanned<&ExprBinary> {
     type Output = Value;
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        let lhs = (*self.v.lhs).as_ref().eval(ctx);
-        let rhs = (*self.v.rhs).as_ref().eval(ctx);
+        let lhs = self.v.lhs.as_ref().eval(ctx);
+        let rhs = self.v.rhs.as_ref().eval(ctx);
 
         if lhs == Value::Error || rhs == Value::Error {
             return Value::Error;

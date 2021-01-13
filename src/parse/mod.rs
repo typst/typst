@@ -82,6 +82,11 @@ fn node(p: &mut Parser, at_start: bool) -> Option<Node> {
         Token::Raw(t) => Node::Raw(raw(p, t)),
         Token::UnicodeEscape(t) => Node::Text(unicode_escape(p, t)),
 
+        // Keywords.
+        Token::Let => {
+            return Some(Node::Expr(expr_let(p)?));
+        }
+
         // Comments.
         Token::LineComment(_) | Token::BlockComment(_) => {
             p.eat();
@@ -329,7 +334,7 @@ fn value(p: &mut Parser) -> Option<Expr> {
         Some(Token::Angle(val, unit)) => Expr::Angle(val, unit),
         Some(Token::Percent(p)) => Expr::Percent(p),
         Some(Token::Hex(hex)) => Expr::Color(color(p, hex)),
-        Some(Token::Str(token)) => Expr::Str(str(p, token)),
+        Some(Token::Str(token)) => Expr::Str(string(p, token)),
 
         // No value.
         _ => {
@@ -377,12 +382,40 @@ fn color(p: &mut Parser, hex: &str) -> RgbaColor {
 }
 
 /// Parse a string.
-fn str(p: &mut Parser, token: TokenStr) -> String {
+fn string(p: &mut Parser, token: TokenStr) -> String {
     if !token.terminated {
         p.diag_expected_at("quote", p.peek_span().end);
     }
 
     resolve::resolve_string(token.string)
+}
+
+/// Parse a let expresion.
+fn expr_let(p: &mut Parser) -> Option<Expr> {
+    p.push_mode(TokenMode::Code);
+    p.start_group(Group::Terminated);
+    p.eat_assert(Token::Let);
+
+    let pat = p.span_if(ident);
+    let mut rhs = None;
+
+    if pat.is_some() {
+        if p.eat_if(Token::Eq) {
+            if let Some(expr) = p.span_if(expr) {
+                rhs = Some(Box::new(expr));
+            }
+        }
+    } else {
+        p.diag_expected("identifier");
+    }
+
+    while !p.eof() {
+        p.diag_unexpected();
+    }
+
+    p.pop_mode();
+    p.end_group();
+    pat.map(|pat| Expr::Let(ExprLet { pat, expr: rhs }))
 }
 
 #[cfg(test)]

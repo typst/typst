@@ -27,6 +27,8 @@ pub enum Token<'s> {
     Backslash,
     /// A comma: `,`.
     Comma,
+    /// A semicolon: `;`.
+    Semicolon,
     /// A colon: `:`.
     Colon,
     /// A pipe: `|`.
@@ -201,6 +203,7 @@ impl<'s> Token<'s> {
             Self::Tilde => "tilde",
             Self::Backslash => "backslash",
             Self::Comma => "comma",
+            Self::Semicolon => "semicolon",
             Self::Colon => "colon",
             Self::Pipe => "pipe",
             Self::Plus => "plus",

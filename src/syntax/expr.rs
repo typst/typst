@@ -44,6 +44,8 @@ pub enum Expr {
     Group(Box<Expr>),
     /// A block expression: `{1 + 2}`.
     Block(Box<Expr>),
+    /// A let expression: `let x = 1`.
+    Let(ExprLet),
 }
 
 impl Pretty for Expr {
@@ -79,6 +81,7 @@ impl Pretty for Expr {
                 v.pretty(p);
                 p.push_str("}");
             }
+            Self::Let(v) => v.pretty(p),
         }
     }
 }
@@ -300,6 +303,26 @@ impl Pretty for ExprDict {
 /// A template expression: `[*Hi* there!]`.
 pub type ExprTemplate = Tree;
 
+/// A let expression: `let x = 1`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprLet {
+    /// The pattern to assign to.
+    pub pat: Spanned<Ident>,
+    /// The expression to assign to the pattern.
+    pub expr: Option<Box<Spanned<Expr>>>,
+}
+
+impl Pretty for ExprLet {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("#let ");
+        p.push_str(&self.pat.v);
+        if let Some(expr) = &self.expr {
+            p.push_str(" = ");
+            expr.v.pretty(p);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::tests::test_pretty;
@@ -336,6 +359,9 @@ mod tests {
         // Parens and blocks.
         test_pretty("{(1)}", "{(1)}");
         test_pretty("{{1}}", "{{1}}");
+
+        // Let binding.
+        test_pretty("#let x=1+2", "#let x = 1 + 2");
     }
 
     #[test]

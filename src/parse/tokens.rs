@@ -60,7 +60,7 @@ impl<'s> Iterator for Tokens<'s> {
         loop {
             // Common elements.
             return Some(match c {
-                // Functions and blocks.
+                // Functions, blocks and terminators.
                 '[' => Token::LeftBracket,
                 ']' => Token::RightBracket,
                 '{' => Token::LeftBrace,
@@ -112,6 +112,7 @@ impl<'s> Iterator for Tokens<'s> {
 
                 // Length one.
                 ',' => Token::Comma,
+                ';' => Token::Semicolon,
                 ':' => Token::Colon,
                 '|' => Token::Pipe,
                 '+' => Token::Plus,
@@ -575,6 +576,7 @@ mod tests {
     fn test_tokenize_code_symbols() {
         // Test all symbols.
         t!(Code: ","        => Comma);
+        t!(Code: ";"        => Semicolon);
         t!(Code: ":"        => Colon);
         t!(Code: "|"        => Pipe);
         t!(Code: "+"        => Plus);
@@ -682,7 +684,7 @@ mod tests {
 
         // Test code symbols in text.
         t!(Markup[" /"]: "a():\"b" => Text("a():\"b"));
-        t!(Markup[" /"]: ":,=|/+-" => Text(":,=|/+-"));
+        t!(Markup[" /"]: ";:,=|/+-" => Text(";:,=|/+-"));
 
         // Test text ends.
         t!(Markup[""]: "hello " => Text("hello"), Space(0));

@@ -117,6 +117,7 @@ impl<'s> Parser<'s> {
             Group::Bracket => self.eat_assert(Token::LeftBracket),
             Group::Brace => self.eat_assert(Token::LeftBrace),
             Group::Subheader => {}
+            Group::Terminated => {}
         }
 
         self.groups.push(group);
@@ -139,6 +140,7 @@ impl<'s> Parser<'s> {
             Group::Bracket => Some(Token::RightBracket),
             Group::Brace => Some(Token::RightBrace),
             Group::Subheader => None,
+            Group::Terminated => Some(Token::Semicolon),
         };
 
         if let Some(token) = end {
@@ -290,6 +292,7 @@ impl<'s> Parser<'s> {
             Some(Token::RightBracket) => Group::Bracket,
             Some(Token::RightBrace) => Group::Brace,
             Some(Token::Pipe) => Group::Subheader,
+            Some(Token::Semicolon) => Group::Terminated,
             _ => return,
         }) {
             self.peeked = None;
@@ -316,4 +319,6 @@ pub enum Group {
     /// A group ended by a chained subheader or a closing bracket:
     /// `... >>`, `...]`.
     Subheader,
+    /// A group ended by a semicolon: `;`.
+    Terminated,
 }
