@@ -1,6 +1,4 @@
-// Test basic symbol escapes.
-
-// Escapable
+// Escapable symbols.
 \\ \/ \[ \] \{ \} \* \_ \# \~ \` \$
 
 // No need to escape.
@@ -12,21 +10,16 @@
 // Escaped comments.
 \//
 \/\* \*\/
-\/* \*/
+\/* \*/ *
 
----
-// Test unicode escapes.
-//
-// error: 5:1-5:11 invalid unicode escape sequence
-// error: 8:6-8:6 expected closing brace
-
+// Test unicode escape sequence.
 \u{1F3D5} == 🏕
 
-// Bad sequence.
+// Escaped escape sequence.
+\u{41} vs. \\u\{41\}
+
+// Error: 1:1-1:11 invalid unicode escape sequence
 \u{FFFFFF}
 
-// Missing closing brace.
+// Error: 1:6-1:6 expected closing brace
 \u{41*Bold*
-
-// Escaped escape sequence.
-\\u\{ABC\}

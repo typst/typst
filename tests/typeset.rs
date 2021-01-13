@@ -183,7 +183,8 @@ fn test(
 }
 
 fn test_part(i: usize, src: &str, env: &SharedEnv) -> (bool, Vec<Frame>) {
-    let (src, compare_ref, map, ref_diags) = parse_metadata(&src, i);
+    let map = LineMap::new(src);
+    let (compare_ref, ref_diags) = parse_metadata(src, &map);
 
     let mut state = State::default();
     state.page.size = Size::uniform(Length::pt(120.0));
@@ -230,58 +231,40 @@ fn test_part(i: usize, src: &str, env: &SharedEnv) -> (bool, Vec<Frame>) {
     (ok, frames)
 }
 
-fn parse_metadata(src: &str, i: usize) -> (&str, bool, LineMap, SpanVec<Diag>) {
+fn parse_metadata(src: &str, map: &LineMap) -> (bool, SpanVec<Diag>) {
     let mut diags = vec![];
     let mut compare_ref = true;
 
-    let mut s = Scanner::new(src);
-    for k in 0 .. {
-        // Allow a newline directly after "---" (that is, if i > 0 and k == 0).
-        if !(i > 0 && k == 0) && !s.rest().starts_with("//") {
-            break;
-        }
+    for (i, line) in src.lines().enumerate() {
+        compare_ref &= !line.starts_with("// Ref: false");
 
-        let line = s.eat_until(typst::parse::is_newline);
-        s.eat_merging_crlf();
-
-        compare_ref &= !line.starts_with("// ref: false");
-
-        let (level, rest) = if let Some(rest) = line.strip_prefix("// warning: ") {
+        let (level, rest) = if let Some(rest) = line.strip_prefix("// Warning: ") {
             (Level::Warning, rest)
-        } else if let Some(rest) = line.strip_prefix("// error: ") {
+        } else if let Some(rest) = line.strip_prefix("// Error: ") {
             (Level::Error, rest)
         } else {
             continue;
         };
 
-        diags.push((level, rest));
+        fn num(s: &mut Scanner) -> u32 {
+            s.eat_while(|c| c.is_numeric()).parse().unwrap()
+        }
+
+        let pos = |s: &mut Scanner| -> Pos {
+            let (delta, _, column) = (num(s), s.eat_assert(':'), num(s));
+            let line = i as u32 + 1 + delta;
+            map.pos(Location { line, column }).unwrap()
+        };
+
+        let mut s = Scanner::new(rest);
+        let (start, _, end) = (pos(&mut s), s.eat_assert('-'), pos(&mut s));
+
+        diags.push(Diag::new(level, s.rest().trim()).with_span(start .. end));
     }
-
-    let src = s.rest();
-    let map = LineMap::new(src);
-
-    let mut diags: Vec<_> = diags
-        .into_iter()
-        .map(|(level, rest)| {
-            fn pos(s: &mut Scanner, map: &LineMap) -> Pos {
-                let (line, _, column) = (num(s), s.eat_assert(':'), num(s));
-                map.pos(Location { line, column }).unwrap()
-            }
-
-            fn num(s: &mut Scanner) -> u32 {
-                s.eat_while(|c| c.is_numeric()).parse().unwrap()
-            }
-
-            let mut s = Scanner::new(rest);
-            let (start, _, end) =
-                (pos(&mut s, &map), s.eat_assert('-'), pos(&mut s, &map));
-            Diag::new(level, s.rest().trim()).with_span(start .. end)
-        })
-        .collect();
 
     diags.sort_by_key(|d| d.span);
 
-    (src, compare_ref, map, diags)
+    (compare_ref, diags)
 }
 
 fn print_diag(diag: &Spanned<Diag>, map: &LineMap) {

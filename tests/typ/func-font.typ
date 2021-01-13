@@ -43,23 +43,18 @@ New sans-serif. 🚀
 
 ---
 // Test error cases.
-//
-// ref: false
-// error: 3:7-3:12 unexpected argument
-// error: 6:14-6:18 expected font style, found font weight
-// error: 6:28-6:34 expected font weight, found string
-// error: 6:43-6:44 expected font family or array of font families, found integer
-// warning: 9:15-9:19 must be between 100 and 900
-// error: 12:7-12:27 unexpected argument
+// Ref: false
 
-// Not one of the valid things for positional arguments.
+// Error: 1:7-1:12 unexpected argument
 [font false]
 
-// Wrong types.
+// Error: 3:14-3:18 expected font style, found font weight
+// Error: 2:28-2:34 expected font weight, found string
+// Error: 1:43-1:44 expected font family or array of font families, found integer
 [font style: bold, weight: "thin", serif: 0]
 
-// Weight out of range.
+// Warning: 1:15-1:19 must be between 100 and 900
 [font weight: 2700]
 
-// Non-existing argument.
+// Error: 1:7-1:27 unexpected argument
 [font something: "invalid"]

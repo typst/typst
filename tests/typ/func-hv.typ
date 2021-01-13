@@ -19,10 +19,6 @@ Relative [h 100%] spacing
     3 [v 1cm] 4 [v -1cm] 5
 ]
 
----
-// Test error cases.
-//
-// error: 3:11-3:11 missing argument: spacing
-
 // Missing spacing.
+// Error: 1:11-1:11 missing argument: spacing
 Totally [h] ignored

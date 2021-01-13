@@ -13,25 +13,21 @@
      , #003
      ,)}
 
----
-// Test errors.
-//
-// error: 2:3-2:3 expected closing paren
-// error: 4:4-4:6 expected expression, found end of block comment
-// error: 4:4-4:4 expected comma
-// error: 6:6-6:8 expected expression, found invalid token
-// error: 8:3-8:4 expected expression, found comma
-// error: 10:5-10:5 expected expression
-// error: 12:6-12:10 expected expression, found named pair
-
+// Error: 1:3-1:3 expected closing paren
 {(}
 
+// Error: 2:4-2:6 expected expression, found end of block comment
+// Error: 1:4-1:4 expected comma
 {(1*/2)}
 
+// Error: 1:6-1:8 expected expression, found invalid token
 {(1, 1u 2)}
 
+// Error: 1:3-1:4 expected expression, found comma
 {(,1)}
 
+// Error: 1:5-1:5 expected expression
 {(a:)}
 
+// Error: 1:6-1:10 expected expression, found named pair
 {(1, b: 2)}

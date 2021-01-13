@@ -47,12 +47,10 @@ Right to left!
 ---
 // Test error cases.
 //
-// ref: false
-// error: 3:7-3:18 unknown variable
-// error: 6:17-6:20 aligned axis
+// Ref: false
 
-// Invalid paper.
+// Error: 1:7-1:18 unknown variable
 [page nonexistant]
 
-// Aligned axes.
+// Error: 1:17-1:20 aligned axis
 [page main-dir: ltr]

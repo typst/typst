@@ -35,12 +35,10 @@
 ---
 // Test error cases.
 //
-// ref: false
-// error: 3:8-3:29 failed to load image
-// error: 6:8-6:29 failed to load image
+// Ref: false
 
-// File does not exist.
+// Error: 1:8-1:29 failed to load image
 [image "path/does/not/exist"]
 
-// File exists, but is no image.
+// Error: 1:8-1:29 failed to load image
 [image "typ/image-error.typ"]
