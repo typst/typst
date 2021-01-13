@@ -15,7 +15,7 @@ use ttf_parser::OutlineBuilder;
 
 use typst::diag::{Diag, Feedback, Level, Pass};
 use typst::env::{Env, ImageResource, ResourceLoader, SharedEnv};
-use typst::eval::State;
+use typst::eval::{Args, EvalContext, State, Value, ValueFunc};
 use typst::export::pdf;
 use typst::font::FontLoader;
 use typst::geom::{Length, Point, Sides, Size};
@@ -188,6 +188,13 @@ fn test_part(i: usize, src: &str, env: &SharedEnv) -> (bool, Vec<Frame>) {
     let mut state = State::default();
     state.page.size = Size::uniform(Length::pt(120.0));
     state.page.margins = Sides::uniform(Some(Length::pt(10.0).into()));
+
+    pub fn dump(_: &mut EvalContext, args: &mut Args) -> Value {
+        let (array, dict) = args.drain();
+        Value::Array(vec![Value::Array(array), Value::Dict(dict)])
+    }
+
+    Rc::make_mut(&mut state.scope).set("dump", ValueFunc::new("dump", dump));
 
     let Pass {
         output: mut frames,

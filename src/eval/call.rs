@@ -59,13 +59,16 @@ impl Eval for Spanned<&ExprArgs> {
 /// Evaluated arguments to a function.
 #[derive(Debug)]
 pub struct Args {
-    span: Span,
-    pos: SpanVec<Value>,
-    named: Vec<(Spanned<String>, Spanned<Value>)>,
+    /// The span of the whole argument list.
+    pub span: Span,
+    /// The positional arguments.
+    pub pos: SpanVec<Value>,
+    /// The named arguments.
+    pub named: Vec<(Spanned<String>, Spanned<Value>)>,
 }
 
 impl Args {
-    /// Find the first convertible positional argument.
+    /// Find and remove the first convertible positional argument.
     pub fn find<T>(&mut self, ctx: &mut EvalContext) -> Option<T>
     where
         T: Cast<Spanned<Value>>,
@@ -73,8 +76,8 @@ impl Args {
         self.pos.iter_mut().find_map(move |slot| try_cast(ctx, slot))
     }
 
-    /// Find the first convertible positional argument, producing an error if
-    /// no match was found.
+    /// Find and remove the first convertible positional argument, producing an
+    /// error if no match was found.
     pub fn require<T>(&mut self, ctx: &mut EvalContext, what: &str) -> Option<T>
     where
         T: Cast<Spanned<Value>>,
@@ -86,7 +89,7 @@ impl Args {
         found
     }
 
-    /// Filter out all convertible positional arguments.
+    /// Filter out and remove all convertible positional arguments.
     pub fn filter<'a, T>(
         &'a mut self,
         ctx: &'a mut EvalContext,
@@ -97,8 +100,8 @@ impl Args {
         self.pos.iter_mut().filter_map(move |slot| try_cast(ctx, slot))
     }
 
-    /// Convert the value for the given named argument, producing an error if
-    /// the conversion fails.
+    /// Convert and remove the value for the given named argument, producing an
+    /// error if the conversion fails.
     pub fn get<'a, T>(&mut self, ctx: &mut EvalContext, name: &str) -> Option<T>
     where
         T: Cast<Spanned<Value>>,
@@ -106,6 +109,13 @@ impl Args {
         let index = self.named.iter().position(|(k, _)| k.v.as_str() == name)?;
         let value = self.named.remove(index).1;
         cast(ctx, value)
+    }
+
+    /// Drain all remainings arguments into an array and a dictionary.
+    pub fn drain(&mut self) -> (ValueArray, ValueDict) {
+        let array = self.pos.drain(..).map(|s| s.v).collect();
+        let dict = self.named.drain(..).map(|(k, v)| (k.v, v.v)).collect();
+        (array, dict)
     }
 
     /// Produce "unexpected argument" errors for all remaining arguments.

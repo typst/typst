@@ -218,23 +218,6 @@ macro_rules! Let {
 }
 
 #[test]
-fn test_parse_comments() {
-    // In markup.
-    t!("a// you\nb"        Text("a"), Space, Text("b"));
-    t!("* // \n /*\n\n*/*" Strong, Space, Space, Strong);
-
-    // In code.
-    t!("[v /*12pt*/]"            Call!("v"));
-    t!("[v //\n]"                Call!("v"));
-    t!("[v 12, /*\n*/ size: 14]" Call!("v", Args![Int(12), "size" => Int(14)]));
-
-    // Error.
-    t!("a*/b"
-        nodes: [Text("a"), Text("b")],
-        errors: [S(1..3, "unexpected end of block comment")]);
-}
-
-#[test]
 fn test_parse_simple_nodes() {
     // Basics.
     t!("");
