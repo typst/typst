@@ -34,11 +34,9 @@ fn tree(p: &mut Parser) -> Tree {
     let mut at_start = true;
     let mut tree = vec![];
     while !p.eof() {
-        if let Some(node) = p.span_if(|p| node(p, at_start)) {
-            match node.v {
-                Node::Parbreak => at_start = true,
-                Node::Space => {}
-                _ => at_start = false,
+        if let Some(node) = p.span_if(|p| node(p, &mut at_start)) {
+            if !matches!(node.v, Node::Parbreak | Node::Space) {
+                at_start = false;
             }
             tree.push(node);
         }
@@ -47,7 +45,7 @@ fn tree(p: &mut Parser) -> Tree {
 }
 
 /// Parse a syntax node.
-fn node(p: &mut Parser, at_start: bool) -> Option<Node> {
+fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
     let node = match p.peek()? {
         // Bracket call.
         Token::LeftBracket => {
@@ -64,7 +62,7 @@ fn node(p: &mut Parser, at_start: bool) -> Option<Node> {
         Token::Underscore => Node::Emph,
         Token::Tilde => Node::Text("\u{00A0}".into()),
         Token::Hash => {
-            if at_start {
+            if *at_start {
                 return Some(Node::Heading(heading(p)));
             } else {
                 Node::Text(p.get(p.peek_span()).into())
@@ -72,11 +70,8 @@ fn node(p: &mut Parser, at_start: bool) -> Option<Node> {
         }
         Token::Backslash => Node::Linebreak,
         Token::Space(newlines) => {
-            if newlines < 2 {
-                Node::Space
-            } else {
-                Node::Parbreak
-            }
+            *at_start |= newlines > 0;
+            if newlines < 2 { Node::Space } else { Node::Parbreak }
         }
         Token::Text(text) => Node::Text(text.into()),
         Token::Raw(t) => Node::Raw(raw(p, t)),
@@ -122,8 +117,8 @@ fn heading(p: &mut Parser) -> NodeHeading {
 
     // Parse the heading contents.
     let mut contents = vec![];
-    while p.check(|t| !matches!(t, Token::Space(n) if n >= 1)) {
-        if let Some(node) = p.span_if(|p| node(p, false)) {
+    while p.check(|t| !matches!(t, Token::Space(n) if n > 0)) {
+        if let Some(node) = p.span_if(|p| node(p, &mut false)) {
             contents.push(node);
         }
     }

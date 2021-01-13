@@ -87,10 +87,6 @@ fn Text(text: &str) -> Node {
     Node::Text(text.into())
 }
 
-fn Heading(level: impl Into<Spanned<u8>>, contents: Tree) -> Node {
-    Node::Heading(NodeHeading { level: level.into(), contents })
-}
-
 fn Raw(lang: Option<&str>, lines: &[&str], inline: bool) -> Node {
     Node::Raw(NodeRaw {
         lang: lang.map(|id| Ident(id.into())),
@@ -244,47 +240,6 @@ fn test_parse_simple_nodes() {
         nodes: [],
         errors: [S(0..1, "unexpected closing bracket"),
                  S(1..2, "unexpected closing brace")]);
-}
-
-#[test]
-fn test_parse_headings() {
-    // Basics with spans.
-    t!("# a"
-        nodes: [S(0..3, Heading(S(0..1, 0), Template![
-            @S(1..2, Space), S(2..3, Text("a"))
-        ]))],
-        spans: true);
-
-    // Multiple hashtags.
-    t!("### three"   Heading(2, Template![@Space, Text("three")]));
-    t!("###### six" Heading(5, Template![@Space, Text("six")]));
-
-    // Start of heading.
-    t!("/**/#"    Heading(0, Template![@]));
-    t!("[f][# ok]" Call!("f", Args![Template![Heading(0, Template![
-        @Space, Text("ok")
-    ])]]));
-
-    // End of heading.
-    t!("# a\nb" Heading(0, Template![@Space, Text("a")]), Space, Text("b"));
-
-    // Continued heading.
-    t!("# a{\n1\n}b"   Heading(0, Template![
-        @Space, Text("a"), Block!(Int(1)), Text("b")
-    ]));
-    t!("# a[f][\n\n]d" Heading(0, Template![@
-        Space, Text("a"), Call!("f", Args![Template![Parbreak]]), Text("d"),
-    ]));
-
-    // No heading.
-    t!(r"\#"    Text("#"));
-    t!("Nr. #1" Text("Nr."), Space, Text("#"), Text("1"));
-    t!("[v]#"   Call!("v"), Text("#"));
-
-    // Too many hashtags.
-    t!("####### seven"
-        nodes: [Heading(5, Template![@Space, Text("seven")])],
-        warnings: [S(0..7, "section depth should not exceed 6")]);
 }
 
 #[test]

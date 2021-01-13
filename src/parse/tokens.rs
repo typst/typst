@@ -567,6 +567,7 @@ mod tests {
         // Test markup tokens.
         t!(Markup[" a1"]: "*"  => Star);
         t!(Markup: "_"         => Underscore);
+        t!(Markup[""]: "###"   => Hash, Hash, Hash);
         t!(Markup["a1/"]: "# " => Hash, Space(0));
         t!(Markup: "~"         => Tilde);
         t!(Markup[" "]: r"\"   => Backslash);
