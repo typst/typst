@@ -168,18 +168,6 @@ macro_rules! Array {
     };
 }
 
-macro_rules! Dict {
-    (@$($name:expr => $expr:expr),* $(,)?) => {
-        vec![$(Named {
-            name: into!($name).map(|s: &str| Ident(s.into())),
-            expr: into!($expr)
-        }),*]
-    };
-    ($($tts:tt)*) => {
-        Expr::Dict(Dict![@$($tts)*])
-    };
-}
-
 macro_rules! Template {
     (@$($node:expr),* $(,)?) => {
         vec![$(into!($node)),*]
@@ -393,85 +381,6 @@ fn test_parse_arguments() {
     t!("[v (x):1]"
         nodes: [Call!("v", Args![])],
         errors: [S(3..6, "expected identifier")]);
-}
-
-#[test]
-fn test_parse_arrays() {
-    // Empty array.
-    t!("{()}" Block!(Array![]));
-
-    // Array with one item and trailing comma + spans.
-    t!("{-(1,)}"
-        nodes: [S(0..7, Block!(Unary(
-            S(1..2, Neg),
-            S(2..6, Array![S(3..4, Int(1))])
-        )))],
-        spans: true);
-
-    // Array with three items and trailing comma.
-    t!(r#"{("one", 2, #003,)}"# Block!(Array![
-        Str("one"),
-        Int(2),
-        Color(RgbaColor::new(0, 0, 0x33, 0xff))
-    ]));
-
-    // Unclosed.
-    t!("{(}"
-        nodes: [Block!(Array![])],
-        errors: [S(2..2, "expected closing paren")]);
-
-    // Missing comma + invalid token.
-    t!("{(1*/2)}"
-        nodes: [Block!(Array![Int(1), Int(2)])],
-        errors: [S(3..5, "expected expression, found end of block comment"),
-                 S(3..3, "expected comma")]);
-
-    // Invalid token.
-    t!("{(1, 1u 2)}"
-        nodes: [Block!(Array![Int(1), Int(2)])],
-        errors: [S(5..7, "expected expression, found invalid token")]);
-
-    // Coerced to expression with leading comma.
-    t!("{(,1)}"
-        nodes: [Block!(Group(Int(1)))],
-        errors: [S(2..3, "expected expression, found comma")]);
-
-    // Missing expression after name makes this an array.
-    t!("{(a:)}"
-        nodes: [Block!(Array![])],
-        errors: [S(4..4, "expected expression")]);
-
-    // Expected expression, found named pair.
-    t!("{(1, b: 2)}"
-        nodes: [Block!(Array![Int(1)])],
-        errors: [S(5..9, "expected expression, found named pair")]);
-}
-
-#[test]
-fn test_parse_dictionaries() {
-    // Empty dictionary.
-    t!("{(:)}" Block!(Dict![]));
-
-    // Dictionary with two pairs + spans.
-    t!("{(one: 1, two: 2)}"
-        nodes: [S(0..18, Block!(Dict![
-            S(2..5, "one") => S(7..8, Int(1)),
-            S(10..13, "two") => S(15..16, Int(2)),
-        ]))],
-        spans: true);
-
-    // Expected named pair, found expression.
-    t!("{(a: 1, b)}"
-        nodes: [Block!(Dict!["a" => Int(1)])],
-        errors: [S(8..9, "expected named pair, found expression")]);
-
-    // Dictionary marker followed by more stuff.
-    t!("{(:1 b:[], true::)}"
-        nodes: [Block!(Dict!["b" => Template![]])],
-        errors: [S(3..4, "expected named pair, found expression"),
-                 S(4..4, "expected comma"),
-                 S(11..15, "expected identifier"),
-                 S(16..17, "expected expression, found colon")]);
 }
 
 #[test]
