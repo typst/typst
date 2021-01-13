@@ -27,8 +27,8 @@ use typst::typeset;
 
 const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
-const PNG_DIR: &str = "out/png";
-const PDF_DIR: &str = "out/pdf";
+const PNG_DIR: &str = "png";
+const PDF_DIR: &str = "pdf";
 const FONT_DIR: &str = "../fonts";
 
 fn main() {
@@ -76,8 +76,26 @@ fn main() {
         let png_path = Path::new(PNG_DIR).join(&name).with_extension("png");
         let pdf_path = Path::new(PDF_DIR).join(&name).with_extension("pdf");
         let ref_path = Path::new(REF_DIR).join(&name).with_extension("png");
+        ok &= test(
+            &name,
+            &src_path,
+            &png_path,
+            &pdf_path,
+            Some(&ref_path),
+            &env,
+        );
+    }
 
-        ok &= test(&name, &src_path, &pdf_path, &png_path, &ref_path, &env);
+    let playground = Path::new("playground.typ");
+    if playground.exists() {
+        test(
+            "playground",
+            playground,
+            Path::new("playground.png"),
+            Path::new("playground.pdf"),
+            None,
+            &env,
+        );
     }
 
     if !ok {
@@ -118,38 +136,73 @@ impl TestFilter {
 fn test(
     name: &str,
     src_path: &Path,
-    pdf_path: &Path,
     png_path: &Path,
-    ref_path: &Path,
+    pdf_path: &Path,
+    ref_path: Option<&Path>,
     env: &SharedEnv,
 ) -> bool {
     println!("Testing {}.", name);
 
     let src = fs::read_to_string(src_path).unwrap();
-    let map = LineMap::new(&src);
-    let (ref_diags, compare_ref) = parse_metadata(&src, &map);
+
+    let mut ok = true;
+    let mut frames = vec![];
+
+    for (i, part) in src.split("---").enumerate() {
+        let (part_ok, part_frames) = test_part(i, part, env);
+        ok &= part_ok;
+        frames.extend(part_frames);
+    }
+
+    let env = env.borrow();
+    if !frames.is_empty() {
+        let canvas = draw(&frames, &env, 2.0);
+        canvas.pixmap.save_png(png_path).unwrap();
+
+        let pdf_data = pdf::export(&frames, &env);
+        fs::write(pdf_path, pdf_data).unwrap();
+
+        if let Some(ref_path) = ref_path {
+            if let Ok(ref_pixmap) = Pixmap::load_png(ref_path) {
+                if canvas.pixmap != ref_pixmap {
+                    println!("  Does not match reference image. ❌");
+                    ok = false;
+                }
+            } else {
+                println!("  Failed to open reference image. ❌");
+                ok = false;
+            }
+        }
+    }
+
+    if ok {
+        println!("\x1b[1ATesting {}. ✔", name);
+    }
+
+    ok
+}
+
+fn test_part(i: usize, src: &str, env: &SharedEnv) -> (bool, Vec<Frame>) {
+    let (src, compare_ref, map, ref_diags) = parse_metadata(&src, i);
 
     let mut state = State::default();
     state.page.size = Size::uniform(Length::pt(120.0));
     state.page.margins = Sides::uniform(Some(Length::pt(10.0).into()));
 
     let Pass {
-        output: frames,
+        output: mut frames,
         feedback: Feedback { mut diags, .. },
     } = typeset(&src, Rc::clone(env), state);
+
+    if !compare_ref {
+        frames.clear();
+    }
+
     diags.sort_by_key(|d| d.span);
 
-    let env = env.borrow();
-    let canvas = draw(&frames, &env, 2.0);
-    canvas.pixmap.save_png(png_path).unwrap();
-
-    let pdf_data = pdf::export(&frames, &env);
-    fs::write(pdf_path, pdf_data).unwrap();
-
     let mut ok = true;
-
     if diags != ref_diags {
-        println!("  Does not match expected diagnostics. ❌");
+        println!("  Subtest {} does not match expected diagnostics. ❌", i);
         ok = false;
 
         for diag in &diags {
@@ -167,57 +220,61 @@ fn test(
         }
     }
 
-    if compare_ref {
-        if let Ok(ref_pixmap) = Pixmap::load_png(&ref_path) {
-            if canvas.pixmap != ref_pixmap {
-                println!("  Does not match reference image. ❌");
-                ok = false;
-            }
-        } else {
-            println!("  Failed to open reference image. ❌");
-            ok = false;
-        }
-    }
-
-    if ok {
-        println!("\x1b[1ATesting {}. ✔", name);
-    }
-
-    ok
+    (ok, frames)
 }
 
-fn parse_metadata(src: &str, map: &LineMap) -> (SpanVec<Diag>, bool) {
+fn parse_metadata(src: &str, i: usize) -> (&str, bool, LineMap, SpanVec<Diag>) {
     let mut diags = vec![];
     let mut compare_ref = true;
 
-    for line in src.lines() {
-        compare_ref &= !line.starts_with("// compare-ref: false");
+    let mut s = Scanner::new(src);
+    for k in 0 .. {
+        // Allow a newline directly after "---" (that is, if i > 0 and k == 0).
+        if !(i > 0 && k == 0) && !s.rest().starts_with("//") {
+            break;
+        }
 
-        let (level, rest) = if let Some(rest) = line.strip_prefix("// error: ") {
-            (Level::Error, rest)
-        } else if let Some(rest) = line.strip_prefix("// warning: ") {
+        let line = s.eat_until(typst::parse::is_newline);
+        s.eat_merging_crlf();
+
+        compare_ref &= !line.starts_with("// ref: false");
+
+        let (level, rest) = if let Some(rest) = line.strip_prefix("// warning: ") {
             (Level::Warning, rest)
+        } else if let Some(rest) = line.strip_prefix("// error: ") {
+            (Level::Error, rest)
         } else {
             continue;
         };
 
-        fn pos(s: &mut Scanner, map: &LineMap) -> Pos {
-            let (line, _, column) = (num(s), s.eat_assert(':'), num(s));
-            map.pos(Location { line, column }).unwrap()
-        }
-
-        fn num(s: &mut Scanner) -> u32 {
-            s.eat_while(|c| c.is_numeric()).parse().unwrap()
-        }
-
-        let mut s = Scanner::new(rest);
-        let (start, _, end) = (pos(&mut s, map), s.eat_assert('-'), pos(&mut s, map));
-        diags.push(Diag::new(level, s.rest().trim()).with_span(start .. end));
+        diags.push((level, rest));
     }
+
+    let src = s.rest();
+    let map = LineMap::new(src);
+
+    let mut diags: Vec<_> = diags
+        .into_iter()
+        .map(|(level, rest)| {
+            fn pos(s: &mut Scanner, map: &LineMap) -> Pos {
+                let (line, _, column) = (num(s), s.eat_assert(':'), num(s));
+                map.pos(Location { line, column }).unwrap()
+            }
+
+            fn num(s: &mut Scanner) -> u32 {
+                s.eat_while(|c| c.is_numeric()).parse().unwrap()
+            }
+
+            let mut s = Scanner::new(rest);
+            let (start, _, end) =
+                (pos(&mut s, &map), s.eat_assert('-'), pos(&mut s, &map));
+            Diag::new(level, s.rest().trim()).with_span(start .. end)
+        })
+        .collect();
 
     diags.sort_by_key(|d| d.span);
 
-    (diags, compare_ref)
+    (src, compare_ref, map, diags)
 }
 
 fn print_diag(diag: &Spanned<Diag>, map: &LineMap) {

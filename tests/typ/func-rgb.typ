@@ -1,4 +1,11 @@
 // Test the `rgb` function.
+//
+// warning: 9:6-9:9 must be between 0.0 and 1.0
+// warning: 9:11-9:15 must be between 0.0 and 1.0
+// error: 12:6-12:10 missing argument: blue component
+// error: 15:5-15:5 missing argument: red component
+// error: 15:5-15:5 missing argument: green component
+// error: 15:5-15:5 missing argument: blue component
 
 // Check the output.
 [rgb 0.0, 0.3, 0.7]
@@ -14,10 +21,3 @@
 
 // Missing all components.
 [rgb]
-
-// warning: 10:6-10:9 must be between 0.0 and 1.0
-// warning: 10:11-10:15 must be between 0.0 and 1.0
-// error: 13:6-13:10 missing argument: blue component
-// error: 16:5-16:5 missing argument: red component
-// error: 16:5-16:5 missing argument: green component
-// error: 16:5-16:5 missing argument: blue component

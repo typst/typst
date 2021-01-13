@@ -23,3 +23,37 @@
 
 // Flip the page.
 [page "a10", flip: true][Flipped]
+
+---
+// Test a combination of pages with bodies and normal content.
+
+[page height: 50pt]
+
+[page][First]
+[page][Second]
+[pagebreak]
+Fourth
+[page][]
+Sixth
+[page][Seventh and last]
+
+
+---
+// Test changing the layouting directions of pages.
+
+[page main-dir: btt, cross-dir: rtl]
+
+Right to left!
+
+---
+// Test error cases.
+//
+// ref: false
+// error: 3:7-3:18 unknown variable
+// error: 6:17-6:20 aligned axis
+
+// Invalid paper.
+[page nonexistant]
+
+// Aligned axes.
+[page main-dir: ltr]

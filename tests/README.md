@@ -6,5 +6,5 @@
          `oxipng -o max tests/ref/<img>` when creating or updating reference
          images (note that `<img>` can be `*` to optimize all images).
 - `res`: Resource files used by tests.
-- `out`: PNG and PDF files produced by tests.
-
+- `png`: PNG files produced by tests.
+- `pdf`: PDF files produced by tests.
