@@ -37,7 +37,6 @@ Fourth
 Sixth
 [page][Seventh and last]
 
-
 ---
 // Test changing the layouting directions of pages.
 

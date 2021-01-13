@@ -10,7 +10,7 @@ use crate::syntax::*;
 
 use BinOp::*;
 use Expr::{Angle, Bool, Color, Float, Int, Length, Percent};
-use Node::{Emph, Linebreak, Parbreak, Space, Strong};
+use Node::{Space, Strong};
 use UnOp::{Neg, Pos};
 
 macro_rules! t {
@@ -211,35 +211,6 @@ macro_rules! Let {
     ($($tts:tt)*) => {
         Node::Expr(Let!(@$($tts)*))
     };
-}
-
-#[test]
-fn test_parse_simple_nodes() {
-    // Basics.
-    t!("");
-    t!(" "    Space);
-    t!("hi"   Text("hi"));
-    t!("🧽"   Text("🧽"));
-    t!("_"    Emph);
-    t!("*"    Strong);
-    t!("~"    Text("\u{00A0}"));
-    t!(r"\"   Linebreak);
-    t!("\n\n" Parbreak);
-
-    // Multiple nodes.
-    t!("ab c"         Text("ab"), Space, Text("c"));
-    t!("a`hi`\r\n\r*" Text("a"), Raw(None, &["hi"], true), Parbreak, Strong);
-
-    // Spans.
-    t!("*🌍*"
-        nodes: [S(0..1, Strong), S(1..5, Text("🌍")), S(5..6, Strong)],
-        spans: true);
-
-    // Errors.
-    t!("]}"
-        nodes: [],
-        errors: [S(0..1, "unexpected closing bracket"),
-                 S(1..2, "unexpected closing brace")]);
 }
 
 #[test]
