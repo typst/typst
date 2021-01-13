@@ -213,14 +213,14 @@ fn test_part(i: usize, src: &str, env: &SharedEnv) -> (bool, Vec<Frame>) {
         ok = false;
 
         for diag in &diags {
-            if ref_diags.binary_search(diag).is_err() {
+            if !ref_diags.contains(diag) {
                 print!("    Unexpected | ");
                 print_diag(diag, &map);
             }
         }
 
         for diag in &ref_diags {
-            if diags.binary_search(diag).is_err() {
+            if !diags.contains(diag) {
                 print!("    Missing    | ");
                 print_diag(diag, &map);
             }

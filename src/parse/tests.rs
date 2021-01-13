@@ -252,23 +252,6 @@ fn test_parse_raw() {
 }
 
 #[test]
-fn test_parse_escape_sequences() {
-    // Basic, mostly tested in tokenizer.
-    t!(r"\[" Text("["));
-    t!(r"\u{1F3D5}" nodes: [S(0..9, Text("🏕"))], spans: true);
-
-    // Bad value.
-    t!(r"\u{FFFFFF}"
-        nodes: [Text(r"\u{FFFFFF}")],
-        errors: [S(0..10, "invalid unicode escape sequence")]);
-
-    // No closing brace.
-    t!(r"\u{41*"
-        nodes: [Text("A"), Strong],
-        errors: [S(5..5, "expected closing brace")]);
-}
-
-#[test]
 fn test_parse_groups() {
     // Test paren group.
     t!("{({1) + 3}"

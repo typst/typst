@@ -179,7 +179,7 @@ impl<'s> Tokens<'s> {
                 // Parenthesis.
                 '[' | ']' | '{' | '}' => true,
                 // Markup.
-                '*' | '_' | '#' | '~' | '`' => true,
+                '*' | '_' | '#' | '~' | '`' | '$' => true,
                 // Escaping.
                 '\\' => true,
                 _ => false,
@@ -279,7 +279,7 @@ impl<'s> Tokens<'s> {
                 // Parenthesis.
                 '[' | ']' | '{' | '}' |
                 // Markup.
-                '*' | '_' |  '~' | '#' | '`' => {
+                '*' | '_' | '#' | '~' | '`' | '$' => {
                     let start = self.s.index();
                     self.s.eat_assert(c);
                     Token::Text(&self.s.eaten_from(start))
@@ -447,19 +447,19 @@ mod tests {
     use Token::{Ident, *};
     use TokenMode::{Code, Markup};
 
-    fn Raw(text: &str, backticks: usize, terminated: bool) -> Token {
+    const fn Raw(text: &str, backticks: usize, terminated: bool) -> Token {
         Token::Raw(TokenRaw { text, backticks, terminated })
     }
 
-    fn Math(formula: &str, inline: bool, terminated: bool) -> Token {
+    const fn Math(formula: &str, inline: bool, terminated: bool) -> Token {
         Token::Math(TokenMath { formula, inline, terminated })
     }
 
-    fn UnicodeEscape(sequence: &str, terminated: bool) -> Token {
+    const fn UnicodeEscape(sequence: &str, terminated: bool) -> Token {
         Token::UnicodeEscape(TokenUnicodeEscape { sequence, terminated })
     }
 
-    fn Str(string: &str, terminated: bool) -> Token {
+    const fn Str(string: &str, terminated: bool) -> Token {
         Token::Str(TokenStr { string, terminated })
     }
 
@@ -505,7 +505,7 @@ mod tests {
         ('/', None, "//", LineComment("")),
         ('/', None, "/**/", BlockComment("")),
         ('/', Some(Markup), "*", Star),
-        ('/', Some(Markup), "_", Underscore),
+        ('/', Some(Markup), "$ $", Math(" ", true, true)),
         ('/', Some(Markup), r"\\", Text(r"\")),
         ('/', Some(Markup), "#let", Let),
         ('/', Some(Code), "(", LeftParen),
@@ -740,6 +740,7 @@ mod tests {
         t!(Markup: r"\#" => Text("#"));
         t!(Markup: r"\~" => Text("~"));
         t!(Markup: r"\`" => Text("`"));
+        t!(Markup: r"\$" => Text("$"));
 
         // Test unescapable symbols.
         t!(Markup[" /"]: r"\a"   => Text(r"\"), Text("a"));

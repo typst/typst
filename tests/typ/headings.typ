@@ -17,11 +17,13 @@
 ---
 // Is no heading.
 //
-// error: 4:1-4:6 unexpected invalid token
+// error: 8:1-8:6 unexpected invalid token
 
 \# No heading
 
 Text with # hashtag
+
+Nr#1
 
 #nope
 
