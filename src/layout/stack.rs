@@ -11,7 +11,7 @@ pub struct NodeStack {
     /// How to align this stack in _its_ parent.
     pub align: ChildAlign,
     /// Whether to expand the axes to fill the area or to fit the content.
-    pub expansion: Gen<Expansion>,
+    pub expand: Spec<Expansion>,
     /// The nodes to be stacked.
     pub children: Vec<Node>,
 }
@@ -66,7 +66,7 @@ impl<'a> StackLayouter<'a> {
     }
 
     fn push_spacing(&mut self, amount: Length) {
-        let main_rest = self.areas.current.rem.get_mut(self.main);
+        let main_rest = self.areas.current.get_mut(self.main);
         let capped = amount.min(*main_rest);
         *main_rest -= capped;
         self.used.main += capped;
@@ -77,7 +77,7 @@ impl<'a> StackLayouter<'a> {
             self.finish_area();
         }
 
-        while !self.areas.current.rem.fits(frame.size) {
+        while !self.areas.current.fits(frame.size) {
             if self.areas.in_full_last() {
                 // TODO: Diagnose once the necessary spans exist.
                 let _ = warning!("cannot fit frame into any area");
@@ -90,7 +90,7 @@ impl<'a> StackLayouter<'a> {
         let size = frame.size.switch(self.dirs);
         self.frames.push((self.used.main, frame, align));
 
-        *self.areas.current.rem.get_mut(self.main) -= size.main;
+        *self.areas.current.get_mut(self.main) -= size.main;
         self.used.main += size.main;
         self.used.cross = self.used.cross.max(size.cross);
         self.ruler = align.main;
@@ -98,16 +98,11 @@ impl<'a> StackLayouter<'a> {
 
     fn finish_area(&mut self) {
         let full_size = {
-            let full = self.areas.current.full.switch(self.dirs);
+            let expand = self.stack.expand.switch(self.dirs);
+            let full = self.areas.full.switch(self.dirs);
             Gen::new(
-                match self.stack.expansion.main {
-                    Expansion::Fill => full.main,
-                    Expansion::Fit => self.used.main.min(full.main),
-                },
-                match self.stack.expansion.cross {
-                    Expansion::Fill => full.cross,
-                    Expansion::Fit => self.used.cross.min(full.cross),
-                },
+                expand.main.resolve(self.used.main.min(full.main), full.main),
+                expand.cross.resolve(self.used.cross.min(full.cross), full.cross),
             )
         };
 

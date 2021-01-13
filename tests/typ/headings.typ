@@ -8,14 +8,11 @@
 ####### Seven
 
 ---
-// Is a heading.
+// Heading vs. no heading.
 
 /**/ # Heading
 {[## Heading]}
 [box][### Heading]
-
----
-// Is no heading.
 
 \# No heading
 

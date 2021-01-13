@@ -74,7 +74,7 @@ impl<'a> ParLayouter<'a> {
     }
 
     fn push_spacing(&mut self, amount: Length) {
-        let cross_max = self.areas.current.rem.get(self.cross);
+        let cross_max = self.areas.current.get(self.cross);
         self.run_size.cross = (self.run_size.cross + amount).min(cross_max);
     }
 
@@ -84,7 +84,7 @@ impl<'a> ParLayouter<'a> {
         }
 
         let fits = {
-            let mut usable = self.areas.current.rem;
+            let mut usable = self.areas.current;
             *usable.get_mut(self.cross) -= self.run_size.cross;
             usable.fits(frame.size)
         };
@@ -92,7 +92,7 @@ impl<'a> ParLayouter<'a> {
         if !fits {
             self.finish_run();
 
-            while !self.areas.current.rem.fits(frame.size) {
+            while !self.areas.current.fits(frame.size) {
                 if self.areas.in_full_last() {
                     // TODO: Diagnose once the necessary spans exist.
                     let _ = warning!("cannot fit frame into any area");
@@ -112,10 +112,15 @@ impl<'a> ParLayouter<'a> {
     }
 
     fn finish_run(&mut self) {
-        let full_size = Gen::new(self.run_size.main, match self.par.cross_expansion {
-            Expansion::Fill => self.areas.current.full.get(self.cross),
-            Expansion::Fit => self.run_size.cross,
-        });
+        let full_size = {
+            let full = self.areas.full.switch(self.dirs);
+            Gen::new(
+                self.run_size.main,
+                self.par
+                    .cross_expansion
+                    .resolve(self.run_size.cross.min(full.cross), full.cross),
+            )
+        };
 
         let mut output = Frame::new(full_size.switch(self.dirs).to_size());
 
@@ -139,7 +144,7 @@ impl<'a> ParLayouter<'a> {
         self.lines.push((self.lines_size.main, output, self.run_ruler));
 
         let main_offset = full_size.main + self.par.line_spacing;
-        *self.areas.current.rem.get_mut(self.main) -= main_offset;
+        *self.areas.current.get_mut(self.main) -= main_offset;
         self.lines_size.main += main_offset;
         self.lines_size.cross = self.lines_size.cross.max(full_size.cross);
 

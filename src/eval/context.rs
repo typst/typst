@@ -95,6 +95,7 @@ impl EvalContext {
     pub fn start_page_group(&mut self, softness: Softness) {
         self.start_group(PageGroup {
             size: self.state.page.size,
+            expand: self.state.page.expand,
             padding: self.state.page.margins(),
             dirs: self.state.dirs,
             align: self.state.align,
@@ -124,7 +125,7 @@ impl EvalContext {
                     child: NodeStack {
                         dirs: group.dirs,
                         align: group.align,
-                        expansion: Gen::uniform(Expansion::Fill),
+                        expand: group.expand,
                         children,
                     }
                     .into(),
@@ -281,6 +282,7 @@ pub enum Softness {
 #[derive(Debug)]
 struct PageGroup {
     size: Size,
+    expand: Spec<Expansion>,
     padding: Sides<Linear>,
     dirs: LayoutDirs,
     align: ChildAlign,

@@ -4,8 +4,9 @@ use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, Font
 
 use super::Scope;
 use crate::geom::{
-    Align, ChildAlign, Dir, LayoutDirs, Length, Linear, Relative, Sides, Size,
+    Align, ChildAlign, Dir, LayoutDirs, Length, Linear, Relative, Sides, Size, Spec,
 };
+use crate::layout::Expansion;
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
 /// The evaluation state.
@@ -45,6 +46,8 @@ pub struct StatePage {
     pub class: PaperClass,
     /// The width and height of the page.
     pub size: Size,
+    /// Whether the expand the pages to the `size` or to fit the content.
+    pub expand: Spec<Expansion>,
     /// The amount of white space in the order [left, top, right, bottom]. If a
     /// side is set to `None`, the default for the paper class is used.
     pub margins: Sides<Option<Linear>>,
@@ -56,6 +59,7 @@ impl StatePage {
         Self {
             class: paper.class,
             size: paper.size(),
+            expand: Spec::uniform(Expansion::Fill),
             margins: Sides::uniform(None),
         }
     }

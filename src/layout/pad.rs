@@ -39,10 +39,8 @@ impl From<NodePad> for NodeAny {
 fn shrink(areas: &Areas, padding: Sides<Linear>) -> Areas {
     let shrink = |size| size - padding.resolve(size).size();
     Areas {
-        current: Area {
-            rem: shrink(areas.current.rem),
-            full: shrink(areas.current.full),
-        },
+        current: shrink(areas.current),
+        full: shrink(areas.full),
         backlog: areas.backlog.iter().copied().map(shrink).collect(),
         last: areas.last.map(shrink),
     }

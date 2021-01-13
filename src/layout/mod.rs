@@ -71,27 +71,13 @@ pub struct LayoutContext {
     pub env: SharedEnv,
 }
 
-/// An area into which content can be laid out.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Area {
-    /// The remaining size of this area.
-    pub rem: Size,
-    /// The full size this area once had (used for relative sizing).
-    pub full: Size,
-}
-
-impl Area {
-    /// Create a new area.
-    pub fn new(size: Size) -> Self {
-        Self { rem: size, full: size }
-    }
-}
-
 /// A collection of areas to layout into.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Areas {
-    /// The current area.
-    pub current: Area,
+    /// The remaining size of the current area.
+    pub current: Size,
+    /// The full size the current area once had (used for relative sizing).
+    pub full: Size,
     /// A stack of followup areas (the next area is the last element).
     pub backlog: Vec<Size>,
     /// The final area that is repeated when the backlog is empty.
@@ -102,7 +88,8 @@ impl Areas {
     /// Create a new length-1 sequence of areas with just one `area`.
     pub fn once(size: Size) -> Self {
         Self {
-            current: Area::new(size),
+            current: size,
+            full: size,
             backlog: vec![],
             last: None,
         }
@@ -111,7 +98,8 @@ impl Areas {
     /// Create a new sequence of areas that repeats `area` indefinitely.
     pub fn repeat(size: Size) -> Self {
         Self {
-            current: Area::new(size),
+            current: size,
+            full: size,
             backlog: vec![],
             last: Some(size),
         }
@@ -120,7 +108,8 @@ impl Areas {
     /// Advance to the next area if there is any.
     pub fn next(&mut self) {
         if let Some(size) = self.backlog.pop().or(self.last) {
-            self.current = Area::new(size);
+            self.current = size;
+            self.full = size;
         }
     }
 
@@ -130,8 +119,29 @@ impl Areas {
     pub fn in_full_last(&self) -> bool {
         self.backlog.is_empty()
             && self.last.map_or(true, |size| {
-                self.current.rem.is_nan() || size.is_nan() || self.current.rem == size
+                self.current.is_nan() || size.is_nan() || self.current == size
             })
+    }
+}
+
+/// Whether to expand or shrink a node along an axis.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Expansion {
+    /// Fit the content.
+    Fit,
+    /// Fill the available space.
+    Fill,
+}
+
+impl Expansion {
+    /// Resolve the expansion to either the `fit` or `fill` length.
+    ///
+    /// Prefers `fit` if `fill` is infinite.
+    pub fn resolve(self, fit: Length, fill: Length) -> Length {
+        match self {
+            Self::Fill if fill.is_finite() => fill,
+            _ => fit,
+        }
     }
 }
 
@@ -156,15 +166,6 @@ impl Layouted {
             Self::Frames(frames, _) => frames,
         }
     }
-}
-
-/// Whether to expand or shrink a node along an axis.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Expansion {
-    /// Fit the content.
-    Fit,
-    /// Fill the available space.
-    Fill,
 }
 
 /// A finished layout with elements at fixed positions.

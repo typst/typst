@@ -14,7 +14,7 @@
 [image "res/rhino.png"]
 
 // Fit to height of page.
-[page width: 270pt][
+[page height: 40pt][
     [image "res/rhino.png"]
 ]
 
@@ -29,7 +29,7 @@
 
 // Make sure the bounding-box of the image is correct.
 [align bottom, right][
-    [image "res/tiger.jpg"]
+    [image "res/tiger.jpg", width: 60pt]
 ]
 
 ---

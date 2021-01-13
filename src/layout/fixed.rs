@@ -14,10 +14,10 @@ pub struct NodeFixed {
 
 impl Layout for NodeFixed {
     fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted {
-        let Area { rem, full } = areas.current;
+        let Areas { current, full, .. } = areas;
         let size = Size::new(
-            self.width.map(|w| w.resolve(full.width)).unwrap_or(rem.width),
-            self.height.map(|h| h.resolve(full.height)).unwrap_or(rem.height),
+            self.width.map(|w| w.resolve(full.width)).unwrap_or(current.width),
+            self.height.map(|h| h.resolve(full.height)).unwrap_or(current.height),
         );
 
         let areas = Areas::once(size);

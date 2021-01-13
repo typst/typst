@@ -55,8 +55,11 @@ struct NodeImage {
 
 impl Layout for NodeImage {
     fn layout(&self, _: &mut LayoutContext, areas: &Areas) -> Layouted {
-        let Area { rem, full } = areas.current;
-        let pixel_ratio = (self.dimensions.0 as f64) / (self.dimensions.1 as f64);
+        let Areas { current, full, .. } = areas;
+
+        let pixel_width = self.dimensions.0 as f64;
+        let pixel_height = self.dimensions.1 as f64;
+        let pixel_ratio = pixel_width / pixel_height;
 
         let width = self.width.map(|w| w.resolve(full.width));
         let height = self.height.map(|w| w.resolve(full.height));
@@ -66,12 +69,15 @@ impl Layout for NodeImage {
             (Some(width), None) => Size::new(width, width / pixel_ratio),
             (None, Some(height)) => Size::new(height * pixel_ratio, height),
             (None, None) => {
-                let ratio = rem.width / rem.height;
-                if ratio < pixel_ratio {
-                    Size::new(rem.width, rem.width / pixel_ratio)
-                } else {
+                let ratio = current.width / current.height;
+                if ratio < pixel_ratio && current.width.is_finite() {
+                    Size::new(current.width, current.width / pixel_ratio)
+                } else if current.height.is_finite() {
                     // TODO: Fix issue with line spacing.
-                    Size::new(rem.height * pixel_ratio, rem.height)
+                    Size::new(current.height * pixel_ratio, current.height)
+                } else {
+                    // Totally unbounded area, we have to make up something.
+                    Size::new(Length::pt(pixel_width), Length::pt(pixel_height))
                 }
             }
         };

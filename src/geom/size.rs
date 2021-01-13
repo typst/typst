@@ -31,6 +31,16 @@ impl Size {
         self.width >= other.width && self.height >= other.height
     }
 
+    /// Whether both components are finite.
+    pub fn is_finite(self) -> bool {
+        self.width.is_finite() && self.height.is_finite()
+    }
+
+    /// Whether any of the two components is infinite.
+    pub fn is_infinite(self) -> bool {
+        self.width.is_infinite() || self.height.is_infinite()
+    }
+
     /// Whether any of the two components is `NaN`.
     pub fn is_nan(self) -> bool {
         self.width.is_nan() || self.height.is_nan()

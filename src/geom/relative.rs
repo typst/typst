@@ -26,7 +26,12 @@ impl Relative {
 
     /// Resolve this relative to the given `length`.
     pub fn resolve(self, length: Length) -> Length {
-        self.get() * length
+        // Zero wins over infinity.
+        if self.0 == 0.0 {
+            Length::ZERO
+        } else {
+            self.get() * length
+        }
     }
 }
 

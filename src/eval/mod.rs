@@ -19,7 +19,7 @@ use std::rc::Rc;
 use crate::color::Color;
 use crate::diag::Pass;
 use crate::env::SharedEnv;
-use crate::geom::{Angle, Gen, Length, Relative};
+use crate::geom::{Angle, Length, Relative, Spec};
 use crate::layout::{self, Expansion, NodeSpacing, NodeStack};
 use crate::syntax::*;
 
@@ -137,7 +137,7 @@ impl Eval for Spanned<&NodeRaw> {
         ctx.push(NodeStack {
             dirs: ctx.state.dirs,
             align: ctx.state.align,
-            expansion: Gen::uniform(Expansion::Fit),
+            expand: Spec::uniform(Expansion::Fit),
             children,
         });
 

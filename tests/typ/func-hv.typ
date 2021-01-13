@@ -12,13 +12,13 @@ Add [h 10pt] [h 10pt] up
 // Relative to font size.
 Relative [h 100%] spacing
 
+// Missing spacing.
+// Error: 1:11-1:11 missing argument: spacing
+Totally [h] ignored
+
 // Swapped axes.
-[page main-dir: rtl, cross-dir: ttb][
+[page main-dir: rtl, cross-dir: ttb, height: 80pt][
     1 [h 1cm] 2
 
     3 [v 1cm] 4 [v -1cm] 5
 ]
-
-// Missing spacing.
-// Error: 1:11-1:11 missing argument: spacing
-Totally [h] ignored

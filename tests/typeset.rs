@@ -18,8 +18,8 @@ use typst::env::{Env, ImageResource, ResourceLoader, SharedEnv};
 use typst::eval::{Args, EvalContext, State, Value, ValueFunc};
 use typst::export::pdf;
 use typst::font::FontLoader;
-use typst::geom::{Length, Point, Sides, Size};
-use typst::layout::{Element, Frame, Image};
+use typst::geom::{Length, Point, Sides, Size, Spec};
+use typst::layout::{Element, Expansion, Frame, Image};
 use typst::parse::{LineMap, Scanner};
 use typst::shaping::Shaped;
 use typst::syntax::{Location, Pos, SpanVec, Spanned, WithSpan};
@@ -153,11 +153,11 @@ fn test(
 
     let env = env.borrow();
     if !frames.is_empty() {
-        let canvas = draw(&frames, &env, 2.0);
-        canvas.pixmap.save_png(png_path).unwrap();
-
         let pdf_data = pdf::export(&frames, &env);
         fs::write(pdf_path, pdf_data).unwrap();
+
+        let canvas = draw(&frames, &env, 2.0);
+        canvas.pixmap.save_png(png_path).unwrap();
 
         if let Some(ref_path) = ref_path {
             if let Ok(ref_pixmap) = Pixmap::load_png(ref_path) {
@@ -184,7 +184,11 @@ fn test_part(i: usize, src: &str, env: &SharedEnv) -> (bool, Vec<Frame>) {
     let (compare_ref, ref_diags) = parse_metadata(src, &map);
 
     let mut state = State::default();
-    state.page.size = Size::uniform(Length::pt(120.0));
+
+    // We want to have "unbounded" pages, so we allow them to be infinitely
+    // large and fit them to match their content.
+    state.page.size = Size::new(Length::pt(120.0), Length::raw(f64::INFINITY));
+    state.page.expand = Spec::new(Expansion::Fill, Expansion::Fit);
     state.page.margins = Sides::uniform(Some(Length::pt(10.0).into()));
 
     pub fn dump(_: &mut EvalContext, args: &mut Args) -> Value {
@@ -283,6 +287,10 @@ fn draw(frames: &[Frame], env: &Env, pixel_per_pt: f32) -> Canvas {
 
     let pixel_width = (pixel_per_pt * width.to_pt() as f32) as u32;
     let pixel_height = (pixel_per_pt * height.to_pt() as f32) as u32;
+    if pixel_width > 4000 || pixel_height > 4000 {
+        panic!("overlarge image: {} by {}", pixel_width, pixel_height);
+    }
+
     let mut canvas = Canvas::new(pixel_width, pixel_height).unwrap();
     canvas.scale(pixel_per_pt, pixel_per_pt);
     canvas.pixmap.fill(Color::BLACK);

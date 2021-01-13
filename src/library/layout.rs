@@ -197,13 +197,12 @@ pub fn box_(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let children = ctx.end_content_group();
 
     let fill_if = |c| if c { Expansion::Fill } else { Expansion::Fit };
-    let expansion =
-        Spec::new(fill_if(width.is_some()), fill_if(height.is_some())).switch(dirs);
+    let expand = Spec::new(fill_if(width.is_some()), fill_if(height.is_some()));
 
     ctx.push(NodeFixed {
         width,
         height,
-        child: NodeStack { dirs, align, expansion, children }.into(),
+        child: NodeStack { dirs, align, expand, children }.into(),
     });
 
     ctx.state = snapshot;
@@ -271,6 +270,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> Value {
         if let Some(paper) = Paper::from_name(&name.v) {
             ctx.state.page.class = paper.class;
             ctx.state.page.size = paper.size();
+            ctx.state.page.expand = Spec::uniform(Expansion::Fill);
         } else {
             ctx.diag(error!(name.span, "invalid paper name"));
         }
@@ -279,11 +279,13 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> Value {
     if let Some(width) = args.get(ctx, "width") {
         ctx.state.page.class = PaperClass::Custom;
         ctx.state.page.size.width = width;
+        ctx.state.page.expand.horizontal = Expansion::Fill;
     }
 
     if let Some(height) = args.get(ctx, "height") {
         ctx.state.page.class = PaperClass::Custom;
         ctx.state.page.size.height = height;
+        ctx.state.page.expand.vertical = Expansion::Fill;
     }
 
     if let Some(margins) = args.get(ctx, "margins") {
@@ -307,8 +309,9 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> Value {
     }
 
     if args.get(ctx, "flip").unwrap_or(false) {
-        let size = &mut ctx.state.page.size;
-        std::mem::swap(&mut size.width, &mut size.height);
+        let page = &mut ctx.state.page;
+        std::mem::swap(&mut page.size.width, &mut page.size.height);
+        std::mem::swap(&mut page.expand.horizontal, &mut page.expand.vertical);
     }
 
     let main = args.get(ctx, "main-dir");
