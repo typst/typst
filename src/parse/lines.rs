@@ -70,13 +70,13 @@ impl<'s> LineMap<'s> {
 
 /// Whether this character denotes a newline.
 pub fn is_newline(character: char) -> bool {
-    match character {
+    matches!(
+        character,
         // Line Feed, Vertical Tab, Form Feed, Carriage Return.
         '\n' | '\x0B' | '\x0C' | '\r' |
         // Next Line, Line Separator, Paragraph Separator.
-        '\u{0085}' | '\u{2028}' | '\u{2029}' => true,
-        _ => false,
-    }
+        '\u{0085}' | '\u{2028}' | '\u{2029}'
+    )
 }
 
 #[cfg(test)]

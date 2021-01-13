@@ -30,6 +30,11 @@ impl Size {
     pub fn fits(self, other: Self) -> bool {
         self.width >= other.width && self.height >= other.height
     }
+
+    /// Whether any of the two components is `NaN`.
+    pub fn is_nan(self) -> bool {
+        self.width.is_nan() || self.height.is_nan()
+    }
 }
 
 impl Get<SpecAxis> for Size {

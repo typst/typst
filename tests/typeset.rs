@@ -50,11 +50,9 @@ fn main() {
     }
 
     let len = filtered.len();
-    if len == 0 {
-        return;
-    } else if len == 1 {
+    if len == 1 {
         println!("Running test ...");
-    } else {
+    } else if len > 1 {
         println!("Running {} tests", len);
     }
 
@@ -70,8 +68,19 @@ fn main() {
         resources: ResourceLoader::new(),
     }));
 
-    let mut ok = true;
+    let playground = Path::new("playground.typ");
+    if playground.exists() {
+        test(
+            "playground",
+            playground,
+            Path::new("playground.png"),
+            Path::new("playground.pdf"),
+            None,
+            &env,
+        );
+    }
 
+    let mut ok = true;
     for (name, src_path) in filtered {
         let png_path = Path::new(PNG_DIR).join(&name).with_extension("png");
         let pdf_path = Path::new(PDF_DIR).join(&name).with_extension("pdf");
@@ -82,18 +91,6 @@ fn main() {
             &png_path,
             &pdf_path,
             Some(&ref_path),
-            &env,
-        );
-    }
-
-    let playground = Path::new("playground.typ");
-    if playground.exists() {
-        test(
-            "playground",
-            playground,
-            Path::new("playground.png"),
-            Path::new("playground.pdf"),
-            None,
             &env,
         );
     }

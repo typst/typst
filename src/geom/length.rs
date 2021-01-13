@@ -80,6 +80,11 @@ impl Length {
     pub fn max(self, other: Self) -> Self {
         Self { raw: self.raw.max(other.raw) }
     }
+
+    /// Whether the length is `NaN`.
+    pub fn is_nan(self) -> bool {
+        self.raw.is_nan()
+    }
 }
 
 impl Display for Length {

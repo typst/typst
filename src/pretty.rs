@@ -63,6 +63,7 @@ impl Printer {
 
 impl Write for Printer {
     fn write_str(&mut self, s: &str) -> Result {
-        Ok(self.push_str(s))
+        self.push_str(s);
+        Ok(())
     }
 }

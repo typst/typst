@@ -102,7 +102,7 @@ impl Args {
 
     /// Convert and remove the value for the given named argument, producing an
     /// error if the conversion fails.
-    pub fn get<'a, T>(&mut self, ctx: &mut EvalContext, name: &str) -> Option<T>
+    pub fn get<T>(&mut self, ctx: &mut EvalContext, name: &str) -> Option<T>
     where
         T: Cast<Spanned<Value>>,
     {

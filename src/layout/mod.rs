@@ -128,7 +128,10 @@ impl Areas {
     ///
     /// If this is false calling `next()` will have no effect.
     pub fn in_full_last(&self) -> bool {
-        self.backlog.is_empty() && self.last.map_or(true, |size| self.current.rem == size)
+        self.backlog.is_empty()
+            && self.last.map_or(true, |size| {
+                self.current.rem.is_nan() || size.is_nan() || self.current.rem == size
+            })
     }
 }
 
