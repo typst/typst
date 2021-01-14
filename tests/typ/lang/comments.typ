@@ -8,7 +8,7 @@ C/*
 */D
 
 // Test in expressions.
-[dump /*1*/ a: "b" //
+[f /*1*/ a: "b" //
 , 1]
 
 // Error: 1:7-1:9 unexpected end of block comment

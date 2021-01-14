@@ -16,12 +16,13 @@ use walkdir::WalkDir;
 
 use typst::diag::{Diag, Feedback, Level, Pass};
 use typst::env::{Env, ImageResource, ResourceLoader, SharedEnv};
-use typst::eval::{Args, EvalContext, State, Value, ValueFunc};
+use typst::eval::{Args, EvalContext, Scope, State, Value, ValueFunc};
 use typst::export::pdf;
 use typst::font::FontLoader;
 use typst::geom::{Length, Point, Sides, Size, Spec};
 use typst::layout::{Element, Expansion, Frame, Image};
 use typst::parse::{LineMap, Scanner};
+use typst::pretty::{Pretty, Printer};
 use typst::shaping::Shaped;
 use typst::syntax::{Location, Pos, SpanVec, Spanned, WithSpan};
 use typst::typeset;
@@ -183,13 +184,7 @@ fn test_part(i: usize, src: &str, env: &SharedEnv) -> (bool, Vec<Frame>) {
     state.page.size = Size::new(Length::pt(120.0), Length::raw(f64::INFINITY));
     state.page.expand = Spec::new(Expansion::Fill, Expansion::Fit);
     state.page.margins = Sides::uniform(Some(Length::pt(10.0).into()));
-
-    pub fn dump(_: &mut EvalContext, args: &mut Args) -> Value {
-        let (array, dict) = args.drain();
-        Value::Array(vec![Value::Array(array), Value::Dict(dict)])
-    }
-
-    Rc::make_mut(&mut state.scope).set("dump", ValueFunc::new("dump", dump));
+    register_helpers(Rc::make_mut(&mut state.scope));
 
     let Pass {
         output: mut frames,
@@ -259,6 +254,31 @@ fn parse_metadata(src: &str, map: &LineMap) -> (bool, SpanVec<Diag>) {
     diags.sort_by_key(|d| d.span);
 
     (compare_ref, diags)
+}
+
+fn register_helpers(scope: &mut Scope) {
+    pub fn f(_: &mut EvalContext, args: &mut Args) -> Value {
+        let (array, dict) = args.drain();
+        let iter = array
+            .into_iter()
+            .map(|v| (None, v))
+            .chain(dict.into_iter().map(|(k, v)| (Some(k), v)));
+
+        let mut p = Printer::new();
+        p.push_str("f(");
+        p.join(iter, ", ", |(key, value), p| {
+            if let Some(key) = key {
+                p.push_str(&key);
+                p.push_str(": ");
+            }
+            value.pretty(p);
+        });
+        p.push_str(")");
+
+        Value::Str(p.finish())
+    }
+
+    scope.set("f", ValueFunc::new("f", f));
 }
 
 fn print_diag(diag: &Spanned<Diag>, map: &LineMap) {
