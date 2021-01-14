@@ -186,21 +186,6 @@ macro_rules! Block {
     };
 }
 
-macro_rules! Let {
-    (@$pat:expr $(=> $expr:expr)?) => {{
-        #[allow(unused)]
-        let mut expr = None;
-        $(expr = Some(Box::new(into!($expr)));)?
-        Expr::Let(ExprLet {
-            pat: into!($pat).map(|s: &str| Ident(s.into())),
-            expr
-        })
-    }};
-    ($($tts:tt)*) => {
-        Node::Expr(Let!(@$($tts)*))
-    };
-}
-
 #[test]
 fn test_parse_raw() {
     // Basic, mostly tested in tokenizer and resolver.
@@ -344,27 +329,4 @@ fn test_parse_values() {
     t!("{1u}"
         nodes: [],
         errors: [S(1..3, "expected expression, found invalid token")]);
-}
-
-#[test]
-fn test_parse_let_bindings() {
-    // Basic let.
-    t!("#let x;" Let!("x"));
-    t!("#let _y=1;" Let!("_y" => Int(1)));
-
-    // Followed by text.
-    t!("#let x = 1\n+\n2;\nHi there"
-        Let!("x" => Binary(Int(1), Add, Int(2))),
-        Space, Text("Hi"), Space, Text("there"));
-
-    // Missing semicolon.
-    t!("#let x = a\nHi"
-        nodes: [Let!("x" => Id("a"))],
-        errors: [S(11..13, "unexpected identifier"),
-                 S(13..13, "expected semicolon")]);
-
-    // Missing identifier.
-    t!("#let 1;"
-        nodes: [],
-        errors: [S(5..6, "expected identifier, found integer")])
 }

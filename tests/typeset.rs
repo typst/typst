@@ -204,14 +204,14 @@ fn test_part(i: usize, src: &str, env: &SharedEnv) -> (bool, Vec<Frame>) {
 
         for diag in &diags {
             if !ref_diags.contains(diag) {
-                print!("    Unexpected | ");
+                print!("    Not annotated | ");
                 print_diag(diag, &map);
             }
         }
 
         for diag in &ref_diags {
             if !diags.contains(diag) {
-                print!("    Missing    | ");
+                print!("    Not emitted   | ");
                 print_diag(diag, &map);
             }
         }
