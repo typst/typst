@@ -25,6 +25,7 @@ serde = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 tiny-skia = "0.2"
+walkdir = "2"
 
 [profile.dev]
 opt-level = 2

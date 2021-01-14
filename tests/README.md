@@ -8,3 +8,8 @@
 - `res`: Resource files used by tests.
 - `png`: PNG files produced by tests.
 - `pdf`: PDF files produced by tests.
+
+The test files are split into three categories:
+- `full`: Tests of full documents.
+- `lang`: Tests for specific language features.
+- `library`: Tests for specific library functions.

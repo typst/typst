@@ -21,8 +21,11 @@
 // Ensure that specific margins override general margins.
 [page margins: 0pt, left: 20pt][Overriden]
 
----
-// Test flipping.
+// Error: 1:7-1:18 unknown variable
+[page nonexistant]
+
+// Error: 1:17-1:20 aligned axis
+[page main-dir: ltr]
 
 // Flipped predefined paper.
 [page "a11", flip: true][Flipped A11]
@@ -31,6 +34,11 @@
 [page width: 40pt, height: 120pt]
 [page flip: true]
 Wide
+
+// Test changing the layouting directions of pages.
+
+[page height: 50pt, main-dir: btt, cross-dir: rtl]
+Right to left!
 
 ---
 // Test a combination of pages with bodies and normal content.
@@ -44,21 +52,3 @@ Fourth
 [page][]
 Sixth
 [page][Seventh and last]
-
----
-// Test changing the layouting directions of pages.
-
-[page height: 50pt, main-dir: btt, cross-dir: rtl]
-
-Right to left!
-
----
-// Test error cases.
-//
-// Ref: false
-
-// Error: 1:7-1:18 unknown variable
-[page nonexistant]
-
-// Error: 1:17-1:20 aligned axis
-[page main-dir: ltr]

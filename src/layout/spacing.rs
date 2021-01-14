@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use super::*;
 use crate::eval::Softness;
 
-/// A  spacing node.
+/// A spacing node.
 #[derive(Copy, Clone, PartialEq)]
 pub struct NodeSpacing {
     /// The amount of spacing to insert.

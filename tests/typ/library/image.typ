@@ -7,6 +7,12 @@
 // Load an RGB JPEG image.
 [image "res/tiger.jpg"]
 
+// Error: 1:8-1:29 failed to load image
+[image "path/does/not/exist"]
+
+// Error: 1:8-1:29 failed to load image
+[image "typ/image-error.typ"]
+
 ---
 // Test configuring the size and fitting behaviour of images.
 
@@ -31,14 +37,3 @@
 [align bottom, right][
     [image "res/tiger.jpg", width: 60pt]
 ]
-
----
-// Test error cases.
-//
-// Ref: false
-
-// Error: 1:8-1:29 failed to load image
-[image "path/does/not/exist"]
-
-// Error: 1:8-1:29 failed to load image
-[image "typ/image-error.typ"]

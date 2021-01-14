@@ -1,5 +1,3 @@
-// Test integration of syntax, library and layouting.
-
 [page width: 450pt, height: 300pt, margins: 1cm]
 
 [box][

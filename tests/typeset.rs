@@ -12,6 +12,7 @@ use tiny_skia::{
     Rect, SpreadMode, Transform,
 };
 use ttf_parser::OutlineBuilder;
+use walkdir::WalkDir;
 
 use typst::diag::{Diag, Feedback, Level, Pass};
 use typst::env::{Env, ImageResource, ResourceLoader, SharedEnv};
@@ -37,15 +38,15 @@ fn main() {
     let filter = TestFilter::new(env::args().skip(1));
     let mut filtered = Vec::new();
 
-    for entry in fs::read_dir(TYP_DIR).unwrap() {
-        let src_path = entry.unwrap().path();
+    for entry in WalkDir::new(TYP_DIR).into_iter() {
+        let entry = entry.unwrap();
+        let src_path = entry.into_path();
         if src_path.extension() != Some(OsStr::new("typ")) {
             continue;
         }
 
-        let name = src_path.file_stem().unwrap().to_string_lossy().to_string();
-        if filter.matches(&name) {
-            filtered.push((name, src_path));
+        if filter.matches(&src_path.to_string_lossy().to_string()) {
+            filtered.push(src_path);
         }
     }
 
@@ -55,9 +56,6 @@ fn main() {
     } else if len > 1 {
         println!("Running {} tests", len);
     }
-
-    fs::create_dir_all(PNG_DIR).unwrap();
-    fs::create_dir_all(PDF_DIR).unwrap();
 
     let mut index = FsIndex::new();
     index.search_dir(FONT_DIR);
@@ -69,9 +67,8 @@ fn main() {
     }));
 
     let playground = Path::new("playground.typ");
-    if playground.exists() {
+    if playground.exists() && filtered.is_empty() {
         test(
-            "playground",
             playground,
             Path::new("playground.png"),
             Path::new("playground.pdf"),
@@ -81,18 +78,12 @@ fn main() {
     }
 
     let mut ok = true;
-    for (name, src_path) in filtered {
-        let png_path = Path::new(PNG_DIR).join(&name).with_extension("png");
-        let pdf_path = Path::new(PDF_DIR).join(&name).with_extension("pdf");
-        let ref_path = Path::new(REF_DIR).join(&name).with_extension("png");
-        ok &= test(
-            &name,
-            &src_path,
-            &png_path,
-            &pdf_path,
-            Some(&ref_path),
-            &env,
-        );
+    for src_path in filtered {
+        let relative = src_path.strip_prefix(TYP_DIR).unwrap();
+        let png_path = Path::new(PNG_DIR).join(&relative).with_extension("png");
+        let pdf_path = Path::new(PDF_DIR).join(&relative).with_extension("pdf");
+        let ref_path = Path::new(REF_DIR).join(&relative).with_extension("png");
+        ok &= test(&src_path, &png_path, &pdf_path, Some(&ref_path), &env);
     }
 
     if !ok {
@@ -131,14 +122,14 @@ impl TestFilter {
 }
 
 fn test(
-    name: &str,
     src_path: &Path,
     png_path: &Path,
     pdf_path: &Path,
     ref_path: Option<&Path>,
     env: &SharedEnv,
 ) -> bool {
-    println!("Testing {}.", name);
+    let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
+    println!("Testing {}", name.display());
 
     let src = fs::read_to_string(src_path).unwrap();
 
@@ -154,9 +145,11 @@ fn test(
     let env = env.borrow();
     if !frames.is_empty() {
         let pdf_data = pdf::export(&frames, &env);
+        fs::create_dir_all(&pdf_path.parent().unwrap()).unwrap();
         fs::write(pdf_path, pdf_data).unwrap();
 
         let canvas = draw(&frames, &env, 2.0);
+        fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
         canvas.pixmap.save_png(png_path).unwrap();
 
         if let Some(ref_path) = ref_path {
@@ -173,7 +166,7 @@ fn test(
     }
 
     if ok {
-        println!("\x1b[1ATesting {}. ✔", name);
+        println!("\x1b[1ATesting {} ✔", name.display());
     }
 
     ok

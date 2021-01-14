@@ -1,5 +1,3 @@
-// Test the `rgb` function.
-
 // Check the output.
 [rgb 0.0, 0.3, 0.7]
 

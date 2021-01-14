@@ -1,4 +1,4 @@
-// Number of hashtags.
+// Test different numbers of hashtags.
 
 # One
 ### Three
@@ -8,7 +8,7 @@
 ####### Seven
 
 ---
-// Heading vs. no heading.
+// Test heading vs. no heading.
 
 /**/ # Heading
 {[## Heading]}
@@ -24,7 +24,7 @@ Nr#1
 #nope
 
 ---
-// Heading continues over linebreak.
+// Heading continuation over linebreak.
 
 # This {
     "works"
