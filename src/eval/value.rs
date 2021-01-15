@@ -116,8 +116,8 @@ impl Pretty for Value {
         match self {
             Value::None => p.push_str("none"),
             Value::Bool(v) => write!(p, "{}", v).unwrap(),
-            Value::Int(v) => write!(p, "{}", v).unwrap(),
-            Value::Float(v) => write!(p, "{}", v).unwrap(),
+            Value::Int(v) => p.push_str(itoa::Buffer::new().format(*v)),
+            Value::Float(v) => p.push_str(ryu::Buffer::new().format(*v)),
             Value::Length(v) => write!(p, "{}", v).unwrap(),
             Value::Angle(v) => write!(p, "{}", v).unwrap(),
             Value::Relative(v) => write!(p, "{}", v).unwrap(),
@@ -521,9 +521,9 @@ mod tests {
         test_pretty(false, "false");
         test_pretty(12.4, "12.4");
         test_pretty(Length::pt(5.5), "5.5pt");
-        test_pretty(Angle::deg(90.0), "90deg");
-        test_pretty(Relative::ONE / 2.0, "50%");
-        test_pretty(Relative::new(0.3) + Length::cm(2.0), "30% + 2cm");
+        test_pretty(Angle::deg(90.0), "90.0deg");
+        test_pretty(Relative::ONE / 2.0, "50.0%");
+        test_pretty(Relative::new(0.3) + Length::cm(2.0), "30.0% + 2.0cm");
         test_pretty(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
         test_pretty("hello", r#""hello""#);
         test_pretty(vec![Spanned::zero(Node::Strong)], "[*]");

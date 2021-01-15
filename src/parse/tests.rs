@@ -3,13 +3,12 @@
 use std::fmt::Debug;
 
 use super::parse;
-use crate::color::RgbaColor;
 use crate::diag::{Diag, Level, Pass};
-use crate::geom::{AngularUnit, LengthUnit};
+use crate::geom::LengthUnit;
 use crate::syntax::*;
 
 use BinOp::*;
-use Expr::{Angle, Bool, Color, Float, Int, Length, Percent};
+use Expr::{Float, Int, Length};
 use Node::{Space, Strong};
 use UnOp::{Neg, Pos};
 
@@ -289,44 +288,4 @@ fn test_parse_expressions() {
         errors: [S(2..2, "expected expression"),
                  S(6..6, "expected expression"),
                  S(10..10, "expected expression")]);
-}
-
-#[test]
-fn test_parse_values() {
-    // Basics.
-    t!("{_}"      Block!(Id("_")));
-    t!("{name}"   Block!(Id("name")));
-    t!("{ke-bab}" Block!(Id("ke-bab")));
-    t!("{α}"      Block!(Id("α")));
-    t!("{none}"   Block!(Expr::None));
-    t!("{true}"   Block!(Bool(true)));
-    t!("{false}"  Block!(Bool(false)));
-    t!("{1.0e-4}" Block!(Float(1e-4)));
-    t!("{3.15}"   Block!(Float(3.15)));
-    t!("{50%}"    Block!(Percent(50.0)));
-    t!("{4.5cm}"  Block!(Length(4.5, LengthUnit::Cm)));
-    t!("{12e1pt}" Block!(Length(12e1, LengthUnit::Pt)));
-    t!("{13rad}"  Block!(Angle(13.0, AngularUnit::Rad)));
-    t!("{45deg}"  Block!(Angle(45.0, AngularUnit::Deg)));
-
-    // Strings.
-    t!(r#"{"hi"}"#                     Block!(Str("hi")));
-    t!(r#"{"a\n[]\"\u{1F680}string"}"# Block!(Str("a\n[]\"🚀string")));
-
-    // Colors.
-    t!("{#f7a20500}" Block!(Color(RgbaColor::new(0xf7, 0xa2, 0x05, 0))));
-    t!("{#a5}"
-        nodes: [Block!(Color(RgbaColor::new(0, 0, 0, 0xff)))],
-        errors: [S(1..4, "invalid color")]);
-
-    // Content.
-    t!("{[*Hi*]}" Block!(Template![Strong, Text("Hi"), Strong]));
-
-    // Nested blocks.
-    t!("{{1}}" Block!(Block!(@Int(1))));
-
-    // Invalid tokens.
-    t!("{1u}"
-        nodes: [],
-        errors: [S(1..3, "expected expression, found invalid token")]);
 }

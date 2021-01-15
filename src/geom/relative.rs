@@ -37,7 +37,7 @@ impl Relative {
 
 impl Display for Relative {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}%", (self.0 * 10000.0).round() / 100.0)
+        write!(f, "{}%", ryu::Buffer::new().format(100.0 * self.0))
     }
 }
 

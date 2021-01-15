@@ -99,13 +99,16 @@ impl Length {
 
 impl Display for Length {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        // Format small lengths as points and large ones as centimeters.
-        let (val, unit) = if self.to_pt().abs() < 25.0 {
-            (self.to_pt(), LengthUnit::Pt)
-        } else {
-            (self.to_cm(), LengthUnit::Cm)
-        };
-        write!(f, "{}{}", (val * 100.0).round() / 100.0, unit)
+        // Format with the unit that yields the shortest output, preferring
+        // larger units when tied.
+        let mut buf = ryu::Buffer::new();
+        let unit = [LengthUnit::Cm, LengthUnit::Mm, LengthUnit::Pt]
+            .iter()
+            .copied()
+            .min_by_key(|&unit| buf.format(self.to_unit(unit)).len())
+            .unwrap();
+
+        write!(f, "{}{}", buf.format(self.to_unit(unit)), unit)
     }
 }
 
@@ -229,8 +232,9 @@ mod tests {
 
     #[test]
     fn test_length_formatting() {
-        assert_eq!(Length::pt(-28.34).to_string(), "-1cm".to_string());
-        assert_eq!(Length::pt(23.0).to_string(), "23pt".to_string());
-        assert_eq!(Length::cm(12.728).to_string(), "12.73cm".to_string());
+        assert_eq!(Length::pt(23.0).to_string(), "23.0pt");
+        assert_eq!(Length::pt(-28.3465).to_string(), "-1.0cm");
+        assert_eq!(Length::cm(12.728).to_string(), "12.728cm");
+        assert_eq!(Length::cm(4.5).to_string(), "4.5cm");
     }
 }

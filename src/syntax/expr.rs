@@ -54,8 +54,8 @@ impl Pretty for Expr {
             Self::None => p.push_str("none"),
             Self::Ident(v) => p.push_str(&v),
             Self::Bool(v) => write!(p, "{}", v).unwrap(),
-            Self::Int(v) => write!(p, "{}", v).unwrap(),
-            Self::Float(v) => write!(p, "{}", v).unwrap(),
+            Self::Int(v) => p.push_str(itoa::Buffer::new().format(*v)),
+            Self::Float(v) => p.push_str(ryu::Buffer::new().format(*v)),
             Self::Length(v, u) => write!(p, "{}{}", v, u).unwrap(),
             Self::Angle(v, u) => write!(p, "{}{}", v, u).unwrap(),
             Self::Percent(v) => write!(p, "{}%", v).unwrap(),
@@ -370,7 +370,7 @@ mod tests {
         test_pretty("{true}", "{true}");
         test_pretty("{25}", "{25}");
         test_pretty("{2.50}", "{2.5}");
-        test_pretty("{1e2}", "{100}");
+        test_pretty("{1e2}", "{100.0}");
         test_pretty("{12pt}", "{12pt}");
         test_pretty("{90.0deg}", "{90deg}");
         test_pretty("{50%}", "{50%}");
