@@ -8,7 +8,7 @@ impl Eval for Spanned<&ExprCall> {
         let name = &self.v.name.v;
         let span = self.v.name.span;
 
-        if let Some(value) = ctx.state.scope.get(name) {
+        if let Some(value) = ctx.scopes.get(name) {
             if let Value::Func(func) = value {
                 let func = func.clone();
                 ctx.deco(Deco::Resolved.with_span(span));
@@ -90,10 +90,10 @@ impl Args {
     }
 
     /// Filter out and remove all convertible positional arguments.
-    pub fn filter<'a, T>(
+    pub fn filter<'a, 'b: 'a, T>(
         &'a mut self,
-        ctx: &'a mut EvalContext,
-    ) -> impl Iterator<Item = T> + 'a
+        ctx: &'a mut EvalContext<'b>,
+    ) -> impl Iterator<Item = T> + Captures<'a> + Captures<'b>
     where
         T: Cast<Spanned<Value>>,
     {
@@ -129,6 +129,13 @@ impl Args {
         }
     }
 }
+
+// This is a workaround because `-> impl Trait + 'a + 'b` does not work.
+//
+// See also: https://github.com/rust-lang/rust/issues/49431
+#[doc(hidden)]
+pub trait Captures<'a> {}
+impl<'a, T: ?Sized> Captures<'a> for T {}
 
 /// Cast the value into `T`, generating an error if the conversion fails.
 fn cast<T>(ctx: &mut EvalContext, value: Spanned<Value>) -> Option<T>

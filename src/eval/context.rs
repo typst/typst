@@ -6,7 +6,6 @@ use fontdock::FontStyle;
 use super::*;
 use crate::diag::Diag;
 use crate::diag::{Deco, Feedback, Pass};
-use crate::env::SharedEnv;
 use crate::geom::{ChildAlign, Dir, Gen, LayoutDirs, Length, Linear, Sides, Size};
 use crate::layout::{
     Expansion, Node, NodePad, NodePages, NodePar, NodeSpacing, NodeStack, NodeText, Tree,
@@ -14,9 +13,11 @@ use crate::layout::{
 
 /// The context for evaluation.
 #[derive(Debug)]
-pub struct EvalContext {
+pub struct EvalContext<'a> {
     /// The environment from which resources are gathered.
-    pub env: SharedEnv,
+    pub env: &'a mut Env,
+    /// The active scopes.
+    pub scopes: Scopes<'a>,
     /// The active evaluation state.
     pub state: State,
     /// The accumulated feedback.
@@ -34,11 +35,12 @@ pub struct EvalContext {
     inner: Vec<Node>,
 }
 
-impl EvalContext {
-    /// Create a new evaluation context with a base state.
-    pub fn new(env: SharedEnv, state: State) -> Self {
+impl<'a> EvalContext<'a> {
+    /// Create a new evaluation context with a base state and scope.
+    pub fn new(env: &'a mut Env, scope: &'a Scope, state: State) -> Self {
         Self {
             env,
+            scopes: Scopes::new(scope),
             state,
             groups: vec![],
             inner: vec![],

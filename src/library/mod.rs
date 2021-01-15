@@ -1,4 +1,7 @@
 //! The standard library.
+//!
+//! Call [`new`] to obtain a [`Scope`] containing all standard library
+//! definitions.
 
 mod extend;
 mod insert;
@@ -15,8 +18,8 @@ use fontdock::{FontStretch, FontStyle, FontWeight};
 use crate::eval::{Scope, ValueAny, ValueFunc};
 use crate::geom::Dir;
 
-/// The scope containing the standard library.
-pub fn _std() -> Scope {
+/// Construct a scope containing all standard library definitions.
+pub fn new() -> Scope {
     let mut std = Scope::new();
     macro_rules! set {
         (func: $name:expr, $func:expr) => {

@@ -18,17 +18,23 @@ use std::rc::Rc;
 
 use crate::color::Color;
 use crate::diag::Pass;
-use crate::env::SharedEnv;
+use crate::env::Env;
 use crate::geom::{Angle, Length, Relative, Spec};
 use crate::layout::{self, Expansion, NodeSpacing, NodeStack};
 use crate::syntax::*;
 
 /// Evaluate a syntax tree into a layout tree.
 ///
-/// The given `state` is the base state that may be updated over the course of
-/// evaluation.
-pub fn eval(tree: &Tree, env: SharedEnv, state: State) -> Pass<layout::Tree> {
-    let mut ctx = EvalContext::new(env, state);
+/// The `state` is the base state that may be updated over the course of
+/// evaluation. The `scope` similarly consists of the base definitions that are
+/// present from the beginning (typically, the standard library).
+pub fn eval(
+    tree: &Tree,
+    env: &mut Env,
+    scope: &Scope,
+    state: State,
+) -> Pass<layout::Tree> {
+    let mut ctx = EvalContext::new(env, scope, state);
     ctx.start_page_group(Softness::Hard);
     tree.eval(&mut ctx);
     ctx.end_page_group(|s| s == Softness::Hard);
@@ -118,7 +124,7 @@ impl Eval for Spanned<&NodeRaw> {
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         let prev = Rc::clone(&ctx.state.font.families);
-        let families = Rc::make_mut(&mut ctx.state.font.families);
+        let families = ctx.state.font.families_mut();
         families.list.insert(0, "monospace".to_string());
         families.flatten();
 
@@ -151,7 +157,7 @@ impl Eval for Spanned<&Expr> {
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         match self.v {
             Expr::None => Value::None,
-            Expr::Ident(v) => match ctx.state.scope.get(v) {
+            Expr::Ident(v) => match ctx.scopes.get(v) {
                 Some(value) => value.clone(),
                 None => {
                     ctx.diag(error!(self.span, "unknown variable"));
@@ -179,7 +185,7 @@ impl Eval for Spanned<&Expr> {
                     Some(expr) => expr.as_ref().eval(ctx),
                     None => Value::None,
                 };
-                Rc::make_mut(&mut ctx.state.scope).set(v.pat.v.as_str(), value);
+                ctx.scopes.define(v.pat.v.as_str(), value);
                 Value::None
             }
         }

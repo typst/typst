@@ -1,16 +1,15 @@
-use std::cell::RefCell;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 use anyhow::{anyhow, bail, Context};
-use fontdock::fs::{FsIndex, FsSource};
+use fontdock::fs::FsIndex;
 
 use typst::diag::{Feedback, Pass};
 use typst::env::{Env, ResourceLoader};
 use typst::eval::State;
 use typst::export::pdf;
-use typst::font::FontLoader;
+use typst::font::FsIndexExt;
+use typst::library;
 use typst::parse::LineMap;
 use typst::typeset;
 
@@ -41,17 +40,18 @@ fn main() -> anyhow::Result<()> {
     index.search_dir("fonts");
     index.search_system();
 
-    let (files, descriptors) = index.into_vecs();
-    let env = Rc::new(RefCell::new(Env {
-        fonts: FontLoader::new(Box::new(FsSource::new(files)), descriptors),
+    let mut env = Env {
+        fonts: index.into_dynamic_loader(),
         resources: ResourceLoader::new(),
-    }));
+    };
 
+    let scope = library::new();
     let state = State::default();
+
     let Pass {
         output: frames,
         feedback: Feedback { mut diags, .. },
-    } = typeset(&src, Rc::clone(&env), state);
+    } = typeset(&src, &mut env, &scope, state);
 
     if !diags.is_empty() {
         diags.sort();
@@ -72,7 +72,7 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    let pdf_data = pdf::export(&frames, &env.borrow());
+    let pdf_data = pdf::export(&frames, &env);
     fs::write(&dest_path, pdf_data).context("Failed to write PDF file.")?;
 
     Ok(())

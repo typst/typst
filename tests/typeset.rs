@@ -1,11 +1,9 @@
-use std::cell::RefCell;
 use std::env;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::Path;
-use std::rc::Rc;
 
-use fontdock::fs::{FsIndex, FsSource};
+use fontdock::fs::FsIndex;
 use image::{GenericImageView, Rgba};
 use tiny_skia::{
     Canvas, Color, ColorU8, FillRule, FilterQuality, Paint, PathBuilder, Pattern, Pixmap,
@@ -15,12 +13,13 @@ use ttf_parser::OutlineBuilder;
 use walkdir::WalkDir;
 
 use typst::diag::{Diag, Feedback, Level, Pass};
-use typst::env::{Env, ImageResource, ResourceLoader, SharedEnv};
+use typst::env::{Env, ImageResource, ResourceLoader};
 use typst::eval::{Args, EvalContext, Scope, State, Value, ValueFunc};
 use typst::export::pdf;
-use typst::font::FontLoader;
+use typst::font::FsIndexExt;
 use typst::geom::{Length, Point, Sides, Size, Spec};
 use typst::layout::{Element, Expansion, Frame, Image};
+use typst::library;
 use typst::parse::{LineMap, Scanner};
 use typst::pretty::{Pretty, Printer};
 use typst::shaping::Shaped;
@@ -61,11 +60,10 @@ fn main() {
     let mut index = FsIndex::new();
     index.search_dir(FONT_DIR);
 
-    let (files, descriptors) = index.into_vecs();
-    let env = Rc::new(RefCell::new(Env {
-        fonts: FontLoader::new(Box::new(FsSource::new(files)), descriptors),
+    let mut env = Env {
+        fonts: index.into_dynamic_loader(),
         resources: ResourceLoader::new(),
-    }));
+    };
 
     let playground = Path::new("playground.typ");
     if playground.exists() && filtered.is_empty() {
@@ -74,7 +72,7 @@ fn main() {
             Path::new("playground.png"),
             Path::new("playground.pdf"),
             None,
-            &env,
+            &mut env,
         );
     }
 
@@ -84,7 +82,7 @@ fn main() {
         let png_path = Path::new(PNG_DIR).join(&relative).with_extension("png");
         let pdf_path = Path::new(PDF_DIR).join(&relative).with_extension("pdf");
         let ref_path = Path::new(REF_DIR).join(&relative).with_extension("png");
-        ok &= test(&src_path, &png_path, &pdf_path, Some(&ref_path), &env);
+        ok &= test(&src_path, &png_path, &pdf_path, Some(&ref_path), &mut env);
     }
 
     if !ok {
@@ -127,7 +125,7 @@ fn test(
     png_path: &Path,
     pdf_path: &Path,
     ref_path: Option<&Path>,
-    env: &SharedEnv,
+    env: &mut Env,
 ) -> bool {
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
     println!("Testing {}", name.display());
@@ -143,7 +141,6 @@ fn test(
         frames.extend(part_frames);
     }
 
-    let env = env.borrow();
     if !frames.is_empty() {
         let pdf_data = pdf::export(&frames, &env);
         fs::create_dir_all(&pdf_path.parent().unwrap()).unwrap();
@@ -173,23 +170,24 @@ fn test(
     ok
 }
 
-fn test_part(i: usize, src: &str, env: &SharedEnv) -> (bool, Vec<Frame>) {
+fn test_part(i: usize, src: &str, env: &mut Env) -> (bool, Vec<Frame>) {
     let map = LineMap::new(src);
     let (compare_ref, ref_diags) = parse_metadata(src, &map);
 
-    let mut state = State::default();
+    let mut scope = library::new();
+    register_helpers(&mut scope);
 
     // We want to have "unbounded" pages, so we allow them to be infinitely
     // large and fit them to match their content.
+    let mut state = State::default();
     state.page.size = Size::new(Length::pt(120.0), Length::raw(f64::INFINITY));
     state.page.expand = Spec::new(Expansion::Fill, Expansion::Fit);
     state.page.margins = Sides::uniform(Some(Length::pt(10.0).into()));
-    register_helpers(Rc::make_mut(&mut state.scope));
 
     let Pass {
         output: mut frames,
         feedback: Feedback { mut diags, .. },
-    } = typeset(&src, Rc::clone(env), state);
+    } = typeset(&src, env, &scope, state);
 
     if !compare_ref {
         frames.clear();

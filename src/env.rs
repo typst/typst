@@ -1,21 +1,16 @@
 //! Environment interactions.
 
 use std::any::Any;
-use std::cell::RefCell;
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt::{self, Debug, Formatter};
 use std::fs;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageFormat};
 
 use crate::font::FontLoader;
-
-/// A reference-counted shared environment.
-pub type SharedEnv = Rc<RefCell<Env>>;
 
 /// Encapsulates all environment dependencies (fonts, resources).
 #[derive(Debug)]

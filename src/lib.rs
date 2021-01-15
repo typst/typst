@@ -42,18 +42,21 @@ pub mod pretty;
 pub mod shaping;
 pub mod syntax;
 
-use std::rc::Rc;
-
 use crate::diag::{Feedback, Pass};
-use crate::env::SharedEnv;
-use crate::eval::State;
+use crate::env::Env;
+use crate::eval::{Scope, State};
 use crate::layout::Frame;
 
 /// Process _Typst_ source code directly into a collection of frames.
-pub fn typeset(src: &str, env: SharedEnv, state: State) -> Pass<Vec<Frame>> {
+pub fn typeset(
+    src: &str,
+    env: &mut Env,
+    scope: &Scope,
+    state: State,
+) -> Pass<Vec<Frame>> {
     let Pass { output: syntax_tree, feedback: f1 } = parse::parse(src);
     let Pass { output: layout_tree, feedback: f2 } =
-        eval::eval(&syntax_tree, Rc::clone(&env), state);
+        eval::eval(&syntax_tree, env, scope, state);
     let frames = layout::layout(&layout_tree, env);
     Pass::new(frames, Feedback::join(f1, f2))
 }

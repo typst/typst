@@ -25,13 +25,12 @@ pub struct NodeText {
 
 impl Layout for NodeText {
     fn layout(&self, ctx: &mut LayoutContext, _: &Areas) -> Layouted {
-        let mut env = ctx.env.borrow_mut();
         Layouted::Frame(
             shaping::shape(
                 &self.text,
                 self.dir,
                 self.font_size,
-                &mut env.fonts,
+                &mut ctx.env.fonts,
                 &self.families,
                 self.variant,
             ),

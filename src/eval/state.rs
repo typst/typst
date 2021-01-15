@@ -2,7 +2,6 @@ use std::rc::Rc;
 
 use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
 
-use super::Scope;
 use crate::geom::{
     Align, ChildAlign, Dir, LayoutDirs, Length, Linear, Relative, Sides, Size, Spec,
 };
@@ -12,14 +11,12 @@ use crate::paper::{Paper, PaperClass, PAPER_A4};
 /// The evaluation state.
 #[derive(Debug, Clone, PartialEq)]
 pub struct State {
-    /// The scope that contains variable definitions.
-    pub scope: Rc<Scope>,
     /// The current page state.
-    pub page: StatePage,
+    pub page: PageSettings,
     /// The current paragraph state.
-    pub par: StatePar,
+    pub par: ParSettings,
     /// The current font state.
-    pub font: StateFont,
+    pub font: FontSettings,
     /// The current directions.
     pub dirs: LayoutDirs,
     /// The current alignments.
@@ -29,10 +26,9 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
-            scope: Rc::new(crate::library::_std()),
-            page: StatePage::default(),
-            par: StatePar::default(),
-            font: StateFont::default(),
+            page: PageSettings::default(),
+            par: ParSettings::default(),
+            font: FontSettings::default(),
             dirs: LayoutDirs::new(Dir::TTB, Dir::LTR),
             align: ChildAlign::new(Align::Start, Align::Start),
         }
@@ -41,7 +37,7 @@ impl Default for State {
 
 /// Defines page properties.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct StatePage {
+pub struct PageSettings {
     /// The class of this page.
     pub class: PaperClass,
     /// The width and height of the page.
@@ -53,7 +49,7 @@ pub struct StatePage {
     pub margins: Sides<Option<Linear>>,
 }
 
-impl StatePage {
+impl PageSettings {
     /// The default page style for the given paper.
     pub fn new(paper: Paper) -> Self {
         Self {
@@ -76,7 +72,7 @@ impl StatePage {
     }
 }
 
-impl Default for StatePage {
+impl Default for PageSettings {
     fn default() -> Self {
         Self::new(PAPER_A4)
     }
@@ -84,7 +80,7 @@ impl Default for StatePage {
 
 /// Defines paragraph properties.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct StatePar {
+pub struct ParSettings {
     /// The spacing between words (dependent on scaled font size).
     pub word_spacing: Linear,
     /// The spacing between lines (dependent on scaled font size).
@@ -93,7 +89,7 @@ pub struct StatePar {
     pub par_spacing: Linear,
 }
 
-impl Default for StatePar {
+impl Default for ParSettings {
     fn default() -> Self {
         Self {
             word_spacing: Relative::new(0.25).into(),
@@ -105,7 +101,7 @@ impl Default for StatePar {
 
 /// Defines font properties.
 #[derive(Debug, Clone, PartialEq)]
-pub struct StateFont {
+pub struct FontSettings {
     /// A tree of font family names and generic class names.
     pub families: Rc<FallbackTree>,
     /// The selected font variant.
@@ -122,14 +118,19 @@ pub struct StateFont {
     pub emph: bool,
 }
 
-impl StateFont {
+impl FontSettings {
+    /// Access the `families` mutably.
+    pub fn families_mut(&mut self) -> &mut FallbackTree {
+        Rc::make_mut(&mut self.families)
+    }
+
     /// The absolute font size.
     pub fn font_size(&self) -> Length {
         self.scale.resolve(self.size)
     }
 }
 
-impl Default for StateFont {
+impl Default for FontSettings {
     fn default() -> Self {
         Self {
             /// The default tree of font fallbacks.

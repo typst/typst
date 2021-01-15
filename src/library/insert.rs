@@ -16,12 +16,9 @@ pub fn image(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let height = args.get(ctx, "height");
 
     if let Some(path) = path {
-        let mut env = ctx.env.borrow_mut();
-        let loaded = env.resources.load(path.v, ImageResource::parse);
-
+        let loaded = ctx.env.resources.load(path.v, ImageResource::parse);
         if let Some((res, img)) = loaded {
             let dimensions = img.buf.dimensions();
-            drop(env);
             ctx.push(NodeImage {
                 res,
                 dimensions,
@@ -30,7 +27,6 @@ pub fn image(ctx: &mut EvalContext, args: &mut Args) -> Value {
                 align: ctx.state.align,
             });
         } else {
-            drop(env);
             ctx.diag(error!(path.span, "failed to load image"));
         }
     }

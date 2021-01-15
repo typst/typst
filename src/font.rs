@@ -3,6 +3,9 @@
 use fontdock::{ContainsChar, FaceFromVec, FontSource};
 use ttf_parser::Face;
 
+#[cfg(feature = "fs")]
+use fontdock::fs::{FsIndex, FsSource};
+
 /// A font loader that is backed by a dynamic source.
 pub type FontLoader = fontdock::FontLoader<Box<dyn FontSource<Face = FaceBuf>>>;
 
@@ -45,5 +48,20 @@ impl FaceFromVec for FaceBuf {
 impl ContainsChar for FaceBuf {
     fn contains_char(&self, c: char) -> bool {
         self.get().glyph_index(c).is_some()
+    }
+}
+
+#[cfg(feature = "fs")]
+pub trait FsIndexExt {
+    /// Create a font loader backed by a boxed [`FsSource`] which serves all
+    /// indexed font faces.
+    fn into_dynamic_loader(self) -> FontLoader;
+}
+
+#[cfg(feature = "fs")]
+impl FsIndexExt for FsIndex {
+    fn into_dynamic_loader(self) -> FontLoader {
+        let (files, descriptors) = self.into_vecs();
+        FontLoader::new(Box::new(FsSource::new(files)), descriptors)
     }
 }

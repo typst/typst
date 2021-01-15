@@ -1,5 +1,4 @@
 use std::fmt::{self, Display, Formatter};
-use std::rc::Rc;
 
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
@@ -69,7 +68,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> Value {
 
     let list: Vec<_> = args.filter::<FontFamily>(ctx).map(|f| f.to_string()).collect();
     if !list.is_empty() {
-        let families = Rc::make_mut(&mut ctx.state.font.families);
+        let families = ctx.state.font.families_mut();
         families.list = list;
         families.flatten();
     }
@@ -89,7 +88,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> Value {
     for variant in FontFamily::VARIANTS {
         if let Some(FontFamilies(list)) = args.get(ctx, variant.as_str()) {
             let strings = list.into_iter().map(|f| f.to_string()).collect();
-            let families = Rc::make_mut(&mut ctx.state.font.families);
+            let families = ctx.state.font.families_mut();
             families.update_class_list(variant.to_string(), strings);
             families.flatten();
         }

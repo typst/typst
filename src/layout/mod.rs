@@ -8,7 +8,7 @@ mod spacing;
 mod stack;
 mod text;
 
-use crate::env::{ResourceId, SharedEnv};
+use crate::env::{Env, ResourceId};
 use crate::geom::*;
 use crate::shaping::Shaped;
 
@@ -21,7 +21,7 @@ pub use stack::*;
 pub use text::*;
 
 /// Layout a tree into a collection of frames.
-pub fn layout(tree: &Tree, env: SharedEnv) -> Vec<Frame> {
+pub fn layout(tree: &Tree, env: &mut Env) -> Vec<Frame> {
     tree.layout(&mut LayoutContext { env })
 }
 
@@ -65,10 +65,10 @@ pub trait Layout {
 }
 
 /// The context for layouting.
-#[derive(Debug, Clone)]
-pub struct LayoutContext {
+#[derive(Debug)]
+pub struct LayoutContext<'a> {
     /// The environment from which fonts are gathered.
-    pub env: SharedEnv,
+    pub env: &'a mut Env,
 }
 
 /// A collection of areas to layout into.
