@@ -11,7 +11,7 @@ use typst::parse::parse;
 use typst::typeset;
 
 const FONT_DIR: &str = "../fonts";
-const COMA: &str = include_str!("../../tests/typ/full/coma.typ");
+const COMA: &str = include_str!("../../tests/full/typ/coma.typ");
 
 fn benchmarks(c: &mut Criterion) {
     macro_rules! bench {

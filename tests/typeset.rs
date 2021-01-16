@@ -38,14 +38,18 @@ fn main() {
     let filter = TestFilter::new(env::args().skip(1));
     let mut filtered = Vec::new();
 
-    for entry in WalkDir::new(TYP_DIR).into_iter() {
+    for entry in WalkDir::new(".").into_iter() {
         let entry = entry.unwrap();
+        if entry.depth() <= 1 {
+            continue;
+        }
+
         let src_path = entry.into_path();
         if src_path.extension() != Some(OsStr::new("typ")) {
             continue;
         }
 
-        if filter.matches(&src_path.to_string_lossy().to_string()) {
+        if filter.matches(&src_path.to_string_lossy()) {
             filtered.push(src_path);
         }
     }
@@ -78,10 +82,11 @@ fn main() {
 
     let mut ok = true;
     for src_path in filtered {
-        let relative = src_path.strip_prefix(TYP_DIR).unwrap();
-        let png_path = Path::new(PNG_DIR).join(&relative).with_extension("png");
-        let pdf_path = Path::new(PDF_DIR).join(&relative).with_extension("pdf");
-        let ref_path = Path::new(REF_DIR).join(&relative).with_extension("png");
+        let category = src_path.parent().unwrap().parent().unwrap();
+        let name = src_path.file_stem().unwrap();
+        let png_path = category.join(PNG_DIR).join(name).with_extension("png");
+        let pdf_path = category.join(PDF_DIR).join(name).with_extension("pdf");
+        let ref_path = category.join(REF_DIR).join(name).with_extension("png");
         ok &= test(&src_path, &png_path, &pdf_path, Some(&ref_path), &mut env);
     }
 
