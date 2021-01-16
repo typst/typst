@@ -41,6 +41,10 @@
 // Error: 1:6-1:6 expected function name
 [f 1|]
 
+// Error: 2:5-2:5 expected closing paren
+// Error: 1:8-1:9 expected expression, found closing paren
+[f (|f )]
+
 // With actual functions.
 [box width: 1cm | image "res/rhino.png"]
 
@@ -65,6 +69,7 @@
 [f (x):1]
 
 ---
+// Ref: false
 // Error: 2:2-2:3 a value of type string is not callable
 #let x = "string";
 [x]
@@ -75,6 +80,16 @@
 // Error: 4:1-4:1 expected function name
 // Error: 3:1-3:1 expected closing bracket
 [
+
+---
+// Ref: false
+// Error: 2:2-2:3 expected function name, found closing paren
+// Error: 3:1-3:1 expected closing bracket
+[)
+
+---
+// Error: 3:1-3:1 expected closing bracket
+[f [*]
 
 ---
 // Error: 3:1-3:1 expected closing bracket

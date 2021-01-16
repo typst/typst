@@ -51,6 +51,7 @@ impl ContainsChar for FaceBuf {
     }
 }
 
+/// Simplify font loader construction from an [`FsIndex`].
 #[cfg(feature = "fs")]
 pub trait FsIndexExt {
     /// Create a font loader backed by a boxed [`FsSource`] which serves all

@@ -99,10 +99,12 @@ impl Length {
 
 impl Display for Length {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        use LengthUnit::*;
+
         // Format with the unit that yields the shortest output, preferring
-        // larger units when tied.
+        // larger / metrics units when tied.
         let mut buf = ryu::Buffer::new();
-        let unit = [LengthUnit::Cm, LengthUnit::Mm, LengthUnit::Pt]
+        let unit = [Cm, Mm, In, Pt]
             .iter()
             .copied()
             .min_by_key(|&unit| buf.format(self.to_unit(unit)).len())

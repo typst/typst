@@ -441,7 +441,6 @@ impl Debug for Tokens<'_> {
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
-    use crate::parse::tests::check;
 
     use Option::None;
     use Token::{Ident, *};
@@ -539,8 +538,21 @@ mod tests {
             let src = $src;
             let exp = vec![$($token),*];
             let found = Tokens::new(&src, $mode).collect::<Vec<_>>();
-            check(&src, exp, found, false);
+            check(&src, exp, found);
         }};
+    }
+
+    #[track_caller]
+    fn check<T>(src: &str, exp: T, found: T)
+    where
+        T: Debug + PartialEq,
+    {
+        if exp != found {
+            println!("source:   {:?}", src);
+            println!("expected: {:#?}", exp);
+            println!("found:    {:#?}", found);
+            panic!("test failed");
+        }
     }
 
     #[test]

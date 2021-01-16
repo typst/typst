@@ -412,6 +412,3 @@ fn expr_let(p: &mut Parser) -> Option<Expr> {
     p.end_group();
     pat.map(|pat| Expr::Let(ExprLet { pat, expr: rhs }))
 }
-
-#[cfg(test)]
-mod tests;

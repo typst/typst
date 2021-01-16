@@ -11,15 +11,15 @@ use crate::paper::{Paper, PaperClass, PAPER_A4};
 /// The evaluation state.
 #[derive(Debug, Clone, PartialEq)]
 pub struct State {
-    /// The current page state.
+    /// The current page settings.
     pub page: PageSettings,
-    /// The current paragraph state.
+    /// The current paragraph settings.
     pub par: ParSettings,
-    /// The current font state.
+    /// The current font settings.
     pub font: FontSettings,
-    /// The current directions.
+    /// The current layouting directions.
     pub dirs: LayoutDirs,
-    /// The current alignments.
+    /// The current alignments of an item in its parent.
     pub align: ChildAlign,
 }
 

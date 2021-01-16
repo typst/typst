@@ -150,6 +150,7 @@ impl Span {
 
     /// When set to `false` comparisons with `PartialEq` ignore spans.
     #[cfg(test)]
+    #[allow(unused)]
     pub(crate) fn set_cmp(cmp: bool) {
         CMP_SPANS.with(|cell| cell.set(cmp));
     }
