@@ -172,14 +172,14 @@ impl Eval for Spanned<&Expr> {
             Expr::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
             Expr::Color(v) => Value::Color(Color::Rgba(*v)),
             Expr::Str(v) => Value::Str(v.clone()),
-            Expr::Call(v) => v.with_span(self.span).eval(ctx),
-            Expr::Unary(v) => v.with_span(self.span).eval(ctx),
-            Expr::Binary(v) => v.with_span(self.span).eval(ctx),
             Expr::Array(v) => Value::Array(v.with_span(self.span).eval(ctx)),
             Expr::Dict(v) => Value::Dict(v.with_span(self.span).eval(ctx)),
             Expr::Template(v) => Value::Template(v.clone()),
-            Expr::Group(v) => v.as_ref().with_span(self.span).eval(ctx),
-            Expr::Block(v) => v.as_ref().with_span(self.span).eval(ctx),
+            Expr::Call(v) => v.with_span(self.span).eval(ctx),
+            Expr::Unary(v) => v.with_span(self.span).eval(ctx),
+            Expr::Binary(v) => v.with_span(self.span).eval(ctx),
+            Expr::Group(v) => v.as_ref().eval(ctx),
+            Expr::Block(v) => v.as_ref().eval(ctx),
             Expr::Let(v) => {
                 let value = match &v.expr {
                     Some(expr) => expr.as_ref().eval(ctx),
@@ -189,6 +189,25 @@ impl Eval for Spanned<&Expr> {
                 Value::None
             }
         }
+    }
+}
+
+impl Eval for Spanned<&ExprArray> {
+    type Output = ValueArray;
+
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        self.v.iter().map(|expr| expr.as_ref().eval(ctx)).collect()
+    }
+}
+
+impl Eval for Spanned<&ExprDict> {
+    type Output = ValueDict;
+
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        self.v
+            .iter()
+            .map(|Named { name, expr }| (name.v.0.clone(), expr.as_ref().eval(ctx)))
+            .collect()
     }
 }
 
@@ -228,24 +247,5 @@ impl Eval for Spanned<&ExprBinary> {
             BinOp::Mul => ops::mul(ctx, span, lhs, rhs),
             BinOp::Div => ops::div(ctx, span, lhs, rhs),
         }
-    }
-}
-
-impl Eval for Spanned<&ExprArray> {
-    type Output = ValueArray;
-
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        self.v.iter().map(|expr| expr.as_ref().eval(ctx)).collect()
-    }
-}
-
-impl Eval for Spanned<&ExprDict> {
-    type Output = ValueDict;
-
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        self.v
-            .iter()
-            .map(|Named { name, expr }| (name.v.0.clone(), expr.as_ref().eval(ctx)))
-            .collect()
     }
 }

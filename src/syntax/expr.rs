@@ -28,22 +28,22 @@ pub enum Expr {
     Color(RgbaColor),
     /// A string literal: `"hello!"`.
     Str(String),
-    /// An invocation of a function: `[foo ...]`, `foo(...)`.
-    Call(ExprCall),
-    /// A unary operation: `-x`.
-    Unary(ExprUnary),
-    /// A binary operation: `a + b`, `a / b`.
-    Binary(ExprBinary),
     /// An array expression: `(1, "hi", 12cm)`.
     Array(ExprArray),
     /// A dictionary expression: `(color: #f79143, pattern: dashed)`.
     Dict(ExprDict),
     /// A template expression: `[*Hi* there!]`.
     Template(ExprTemplate),
+    /// A unary operation: `-x`.
+    Unary(ExprUnary),
+    /// A binary operation: `a + b`, `a / b`.
+    Binary(ExprBinary),
+    /// An invocation of a function: `[foo ...]`, `foo(...)`.
+    Call(ExprCall),
     /// A grouped expression: `(1 + 2)`.
-    Group(Box<Expr>),
+    Group(ExprGroup),
     /// A block expression: `{1 + 2}`.
-    Block(Box<Expr>),
+    Block(ExprBlock),
     /// A let expression: `let x = 1`.
     Let(ExprLet),
 }
@@ -61,9 +61,6 @@ impl Pretty for Expr {
             Self::Percent(v) => write!(p, "{}%", v).unwrap(),
             Self::Color(v) => write!(p, "{}", v).unwrap(),
             Self::Str(v) => write!(p, "{:?}", &v).unwrap(),
-            Self::Call(v) => v.pretty(p),
-            Self::Unary(v) => v.pretty(p),
-            Self::Binary(v) => v.pretty(p),
             Self::Array(v) => v.pretty(p),
             Self::Dict(v) => v.pretty(p),
             Self::Template(v) => {
@@ -71,20 +68,55 @@ impl Pretty for Expr {
                 v.pretty(p);
                 p.push_str("]");
             }
+            Self::Unary(v) => v.pretty(p),
+            Self::Binary(v) => v.pretty(p),
+            Self::Call(v) => v.pretty(p),
             Self::Group(v) => {
                 p.push_str("(");
-                v.pretty(p);
+                v.v.pretty(p);
                 p.push_str(")");
             }
             Self::Block(v) => {
                 p.push_str("{");
-                v.pretty(p);
+                v.v.pretty(p);
                 p.push_str("}");
             }
             Self::Let(v) => v.pretty(p),
         }
     }
 }
+
+/// An array expression: `(1, "hi", 12cm)`.
+pub type ExprArray = SpanVec<Expr>;
+
+impl Pretty for ExprArray {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("(");
+        p.join(self, ", ", |item, p| item.v.pretty(p));
+        if self.len() == 1 {
+            p.push_str(",");
+        }
+        p.push_str(")");
+    }
+}
+
+/// A dictionary expression: `(color: #f79143, pattern: dashed)`.
+pub type ExprDict = Vec<Named>;
+
+impl Pretty for ExprDict {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("(");
+        if self.is_empty() {
+            p.push_str(":");
+        } else {
+            p.join(self, ", ", |named, p| named.pretty(p));
+        }
+        p.push_str(")");
+    }
+}
+
+/// A template expression: `[*Hi* there!]`.
+pub type ExprTemplate = Tree;
 
 /// An invocation of a function: `[foo ...]`, `foo(...)`.
 #[derive(Debug, Clone, PartialEq)]
@@ -271,37 +303,11 @@ impl Pretty for BinOp {
     }
 }
 
-/// An array expression: `(1, "hi", 12cm)`.
-pub type ExprArray = SpanVec<Expr>;
+/// A grouped expression: `(1 + 2)`.
+pub type ExprGroup = Box<Spanned<Expr>>;
 
-impl Pretty for ExprArray {
-    fn pretty(&self, p: &mut Printer) {
-        p.push_str("(");
-        p.join(self, ", ", |item, p| item.v.pretty(p));
-        if self.len() == 1 {
-            p.push_str(",");
-        }
-        p.push_str(")");
-    }
-}
-
-/// A dictionary expression: `(color: #f79143, pattern: dashed)`.
-pub type ExprDict = Vec<Named>;
-
-impl Pretty for ExprDict {
-    fn pretty(&self, p: &mut Printer) {
-        p.push_str("(");
-        if self.is_empty() {
-            p.push_str(":");
-        } else {
-            p.join(self, ", ", |named, p| named.pretty(p));
-        }
-        p.push_str(")");
-    }
-}
-
-/// A template expression: `[*Hi* there!]`.
-pub type ExprTemplate = Tree;
+/// A block expression: `{1 + 2}`.
+pub type ExprBlock = Box<Spanned<Expr>>;
 
 /// A let expression: `let x = 1`.
 #[derive(Debug, Clone, PartialEq)]

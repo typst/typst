@@ -1,7 +1,7 @@
 // Ref: false
 
-#let a = 2;
-#let b = 4;
+#let a = 2
+#let b = 4
 
 // Paren call.
 [eq f(1), "f(1)"]
@@ -29,6 +29,9 @@
 [eq (a), 2]
 [eq (2), 2]
 [eq (1+2)*3, 9]
+
+// Error: 1:3-1:10 cannot add integer and string
+{(1 + "2")}
 
 // Confusion with floating-point literal.
 [eq 1e+2-1e-2, 99.99]

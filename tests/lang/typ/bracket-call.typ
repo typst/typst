@@ -71,7 +71,7 @@
 ---
 // Ref: false
 // Error: 2:2-2:3 a value of type string is not callable
-#let x = "string";
+#let x = "string"
 [x]
 
 // Error: 1:2-1:3 expected function name, found hex value

@@ -93,7 +93,7 @@ impl State {
     fn into_expr(self) -> Expr {
         match self {
             Self::Unknown => Expr::Array(vec![]),
-            Self::Expr(expr) => Expr::Group(Box::new(expr.v)),
+            Self::Expr(expr) => Expr::Group(Box::new(expr)),
             Self::Array(array) => Expr::Array(array),
             Self::Dict(dict) => Expr::Dict(dict),
         }

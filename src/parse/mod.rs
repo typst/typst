@@ -222,7 +222,7 @@ fn bracket_body(p: &mut Parser) -> Tree {
 fn block(p: &mut Parser) -> Option<Expr> {
     p.push_mode(TokenMode::Code);
     p.start_group(Group::Brace);
-    let expr = expr(p);
+    let expr = p.span_if(expr);
     while !p.eof() {
         p.diag_unexpected();
     }

@@ -1,15 +1,15 @@
 // Test representation of values in the document.
 
-#let name = "Typst";
-#let ke-bab = "Kebab!";
-#let α = "Alpha";
+#let name = "Typst"
+#let ke-bab = "Kebab!"
+#let α = "Alpha"
 
 // Variables.
 {name} \
 {ke-bab} \
 {α} \
 
-// Error: 1:1-1:4 unknown variable
+// Error: 1:2-1:3 unknown variable
 {_}
 
 // Literal values.

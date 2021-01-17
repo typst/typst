@@ -5,7 +5,7 @@
 [eq x, none]
 
 // Initialized with `1`.
-#let y = 1;
+#let y = 1
 [eq y, 1]
 
 // Multiple bindings in one line.
