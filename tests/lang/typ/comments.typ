@@ -1,18 +1,19 @@
-// Test whether line comment acts as spacing.
+// Line comment acts as spacing.
 A// you
 B
 
-// Test whether block comment acts as spacing.
+// Block comment does not act as spacing.
 C/*
  /* */
 */D
 
-// Test in expressions.
+// Works in headers.
 [f /*1*/ a: "b" //
 , 1]
 
+// End should not appear without start.
 // Error: 1:7-1:9 unexpected end of block comment
 /* */ */
 
-// Unterminated block comment is okay.
+// Unterminated is okay.
 /*

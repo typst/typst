@@ -1,7 +1,9 @@
+use std::cell::RefCell;
 use std::env;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::Path;
+use std::rc::Rc;
 
 use fontdock::fs::FsIndex;
 use image::{GenericImageView, Rgba};
@@ -180,7 +182,8 @@ fn test_part(i: usize, src: &str, env: &mut Env) -> (bool, Vec<Frame>) {
     let (compare_ref, ref_diags) = parse_metadata(src, &map);
 
     let mut scope = library::new();
-    register_helpers(&mut scope);
+    let panicked = Rc::new(RefCell::new(false));
+    register_helpers(&mut scope, Rc::clone(&panicked));
 
     // We want to have "unbounded" pages, so we allow them to be infinitely
     // large and fit them to match their content.
@@ -201,6 +204,10 @@ fn test_part(i: usize, src: &str, env: &mut Env) -> (bool, Vec<Frame>) {
     diags.sort_by_key(|d| d.span);
 
     let mut ok = true;
+    if *panicked.borrow() {
+        ok = false;
+    }
+
     if diags != ref_diags {
         println!("  Subtest {} does not match expected diagnostics. ❌", i);
         ok = false;
@@ -259,7 +266,7 @@ fn parse_metadata(src: &str, map: &LineMap) -> (bool, SpanVec<Diag>) {
     (compare_ref, diags)
 }
 
-fn register_helpers(scope: &mut Scope) {
+fn register_helpers(scope: &mut Scope, panicked: Rc<RefCell<bool>>) {
     pub fn f(_: &mut EvalContext, args: &mut Args) -> Value {
         let (array, dict) = args.drain();
         let iter = array
@@ -281,7 +288,22 @@ fn register_helpers(scope: &mut Scope) {
         Value::Str(p.finish())
     }
 
+    let eq = move |ctx: &mut EvalContext, args: &mut Args| -> Value {
+        let lhs = args.require::<Value>(ctx, "left-hand side");
+        let rhs = args.require::<Value>(ctx, "right-hand side");
+        if lhs != rhs {
+            *panicked.borrow_mut() = true;
+            println!("  Assertion failed ❌");
+            println!("    left:  {:?}", lhs);
+            println!("    right: {:?}", rhs);
+            Value::Str(format!("(panic)"))
+        } else {
+            Value::None
+        }
+    };
+
     scope.set("f", ValueFunc::new("f", f));
+    scope.set("eq", ValueFunc::new("eq", eq));
 }
 
 fn print_diag(diag: &Spanned<Diag>, map: &LineMap) {

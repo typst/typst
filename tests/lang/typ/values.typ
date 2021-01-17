@@ -1,13 +1,24 @@
+// Test representation of values in the document.
+
 #let name = "Typst";
 #let ke-bab = "Kebab!";
 #let α = "Alpha";
 
+// Variables.
 {name} \
 {ke-bab} \
 {α} \
+
+// Error: 1:1-1:4 unknown variable
+{_}
+
+// Literal values.
 {none} (empty) \
 {true} \
 {false} \
+
+// Numerical values.
+{1} \
 {1.0e-4} \
 {3.15} \
 {1e-10} \
@@ -17,17 +28,16 @@
 {12e1pt} \
 {2.5rad} \
 {45deg} \
-{"hi"} \
-{"a\n[]\"\u{1F680}string"} \
-{#f7a20500} \
-{[*{"Hi"} [f 1]*]} \
-{{1}}
 
-// Error: 1:1-1:4 unknown variable
-{_} \
+// Colors.
+{#f7a20500} \
 
 // Error: 1:2-1:5 invalid color
 {#a5}
 
-// Error: 1:2-1:4 expected expression, found invalid token
-{1u}
+// Strings and escaping.
+{"hi"} \
+{"a\n[]\"\u{1F680}string"} \
+
+// Templates.
+{[*{"Hi"} [f 1]*]}

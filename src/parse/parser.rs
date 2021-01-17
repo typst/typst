@@ -112,16 +112,14 @@ impl<'s> Parser<'s> {
     /// # Panics
     /// This panics if the next token does not start the given group.
     pub fn start_group(&mut self, group: Group) {
+        self.groups.push(group);
         match group {
             Group::Paren => self.eat_assert(Token::LeftParen),
             Group::Bracket => self.eat_assert(Token::LeftBracket),
             Group::Brace => self.eat_assert(Token::LeftBrace),
-            Group::Subheader => {}
-            Group::Terminated => {}
+            Group::Expr => self.repeek(),
+            Group::Subheader => self.repeek(),
         }
-
-        self.groups.push(group);
-        self.repeek();
     }
 
     /// Ends the parsing of a group and returns the span of the whole group.
@@ -129,26 +127,21 @@ impl<'s> Parser<'s> {
     /// # Panics
     /// This panics if no group was started.
     pub fn end_group(&mut self) {
-        // Check that we are indeed at the end of the group.
-        debug_assert_eq!(self.peek(), None, "unfinished group");
-
         let group = self.groups.pop().expect("no started group");
         self.repeek();
 
-        let end = match group {
-            Group::Paren => Some(Token::RightParen),
-            Group::Bracket => Some(Token::RightBracket),
-            Group::Brace => Some(Token::RightBrace),
-            Group::Subheader => None,
-            Group::Terminated => Some(Token::Semicolon),
+        let (end, required) = match group {
+            Group::Paren => (Token::RightParen, true),
+            Group::Bracket => (Token::RightBracket, true),
+            Group::Brace => (Token::RightBrace, true),
+            Group::Expr => (Token::Semicolon, false),
+            Group::Subheader => return,
         };
 
-        if let Some(token) = end {
-            if self.next == Some(token) {
-                self.bump();
-            } else {
-                self.diag(error!(self.next_start, "expected {}", token.name()));
-            }
+        if self.next == Some(end) {
+            self.bump();
+        } else if required {
+            self.diag(error!(self.next_start, "expected {}", end.name()));
         }
     }
 
@@ -169,7 +162,7 @@ impl<'s> Parser<'s> {
     where
         F: FnOnce(&mut Self) -> Option<T>,
     {
-        self.span(|p| f(p)).transpose()
+        self.span(f).transpose()
     }
 
     /// Consume the next token.
@@ -269,17 +262,21 @@ impl<'s> Parser<'s> {
 
         match self.tokens.mode() {
             TokenMode::Markup => {}
-            TokenMode::Code => {
-                while matches!(
-                    self.next,
-                    Some(Token::Space(_)) |
-                    Some(Token::LineComment(_)) |
-                    Some(Token::BlockComment(_))
-                ) {
-                    self.next_start = self.tokens.pos();
-                    self.next = self.tokens.next();
+            TokenMode::Code => loop {
+                match self.next {
+                    Some(Token::Space(n)) => {
+                        if n >= 1 && self.groups.last() == Some(&Group::Expr) {
+                            break;
+                        }
+                    }
+                    Some(Token::LineComment(_)) => {}
+                    Some(Token::BlockComment(_)) => {}
+                    _ => break,
                 }
-            }
+
+                self.next_start = self.tokens.pos();
+                self.next = self.tokens.next();
+            },
         }
 
         self.repeek();
@@ -287,16 +284,22 @@ impl<'s> Parser<'s> {
 
     fn repeek(&mut self) {
         self.peeked = self.next;
-        if self.groups.contains(&match self.next {
-            Some(Token::RightParen) => Group::Paren,
-            Some(Token::RightBracket) => Group::Bracket,
-            Some(Token::RightBrace) => Group::Brace,
-            Some(Token::Pipe) => Group::Subheader,
-            Some(Token::Semicolon) => Group::Terminated,
+        let token = match self.next {
+            Some(token) => token,
+            None => return,
+        };
+
+        match token {
+            Token::RightParen if self.groups.contains(&Group::Paren) => {}
+            Token::RightBracket if self.groups.contains(&Group::Bracket) => {}
+            Token::RightBrace if self.groups.contains(&Group::Brace) => {}
+            Token::Semicolon if self.groups.contains(&Group::Expr) => {}
+            Token::Space(n) if n >= 1 && self.groups.last() == Some(&Group::Expr) => {}
+            Token::Pipe if self.groups.contains(&Group::Subheader) => {}
             _ => return,
-        }) {
-            self.peeked = None;
         }
+
+        self.peeked = None;
     }
 }
 
@@ -316,9 +319,9 @@ pub enum Group {
     Bracket,
     /// A curly-braced group: `{...}`.
     Brace,
+    /// A group ended by a semicolon or a line break: `;`, `\n`.
+    Expr,
     /// A group ended by a chained subheader or a closing bracket:
     /// `... >>`, `...]`.
     Subheader,
-    /// A group ended by a semicolon: `;`.
-    Terminated,
 }

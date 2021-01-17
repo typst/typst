@@ -117,7 +117,7 @@ fn heading(p: &mut Parser) -> NodeHeading {
 
     // Parse the heading contents.
     let mut contents = vec![];
-    while p.check(|t| !matches!(t, Token::Space(n) if n > 0)) {
+    while p.check(|t| !matches!(t, Token::Space(n) if n >= 1)) {
         if let Some(node) = p.span_if(|p| node(p, &mut false)) {
             contents.push(node);
         }
@@ -388,8 +388,8 @@ fn string(p: &mut Parser, token: TokenStr) -> String {
 /// Parse a let expresion.
 fn expr_let(p: &mut Parser) -> Option<Expr> {
     p.push_mode(TokenMode::Code);
-    p.start_group(Group::Terminated);
     p.eat_assert(Token::Let);
+    p.start_group(Group::Expr);
 
     let pat = p.span_if(ident);
     let mut rhs = None;
@@ -404,11 +404,11 @@ fn expr_let(p: &mut Parser) -> Option<Expr> {
         p.diag_expected("identifier");
     }
 
-    while !p.eof() {
-        p.diag_unexpected();
+    p.pop_mode();
+    if !p.eof() {
+        p.diag_expected("semicolon or line break");
     }
 
-    p.pop_mode();
     p.end_group();
     pat.map(|pat| Expr::Let(ExprLet { pat, expr: rhs }))
 }

@@ -73,7 +73,7 @@ impl Args {
     where
         T: Cast<Spanned<Value>>,
     {
-        self.pos.iter_mut().find_map(move |slot| try_cast(ctx, slot))
+        (0 .. self.pos.len()).find_map(move |i| try_cast(ctx, &mut self.pos, i))
     }
 
     /// Find and remove the first convertible positional argument, producing an
@@ -97,7 +97,16 @@ impl Args {
     where
         T: Cast<Spanned<Value>>,
     {
-        self.pos.iter_mut().filter_map(move |slot| try_cast(ctx, slot))
+        let mut i = 0;
+        std::iter::from_fn(move || {
+            while i < self.pos.len() {
+                if let Some(val) = try_cast(ctx, &mut self.pos, i) {
+                    return Some(val);
+                }
+                i += 1;
+            }
+            None
+        })
     }
 
     /// Convert and remove the value for the given named argument, producing an
@@ -163,17 +172,26 @@ where
 
 /// Try to cast the value in the slot into `T`, putting it back if the
 /// conversion fails.
-fn try_cast<T>(ctx: &mut EvalContext, slot: &mut Spanned<Value>) -> Option<T>
+fn try_cast<T>(
+    ctx: &mut EvalContext,
+    vec: &mut Vec<Spanned<Value>>,
+    i: usize,
+) -> Option<T>
 where
     T: Cast<Spanned<Value>>,
 {
     // Replace with error placeholder when conversion works since error values
     // are ignored when generating "unexpected argument" errors.
-    let value = std::mem::replace(slot, Spanned::zero(Value::Error));
+    let slot = &mut vec[i];
+    let value = std::mem::replace(slot, Spanned::zero(Value::None));
     let span = value.span;
     match T::cast(value) {
-        CastResult::Ok(t) => Some(t),
+        CastResult::Ok(t) => {
+            vec.remove(i);
+            Some(t)
+        }
         CastResult::Warn(t, m) => {
+            vec.remove(i);
             ctx.diag(warning!(span, "{}", m));
             Some(t)
         }
