@@ -34,16 +34,16 @@ pub enum Expr {
     Dict(ExprDict),
     /// A template expression: `[*Hi* there!]`.
     Template(ExprTemplate),
+    /// A grouped expression: `(1 + 2)`.
+    Group(ExprGroup),
+    /// A block expression: `{1 + 2}`.
+    Block(ExprBlock),
     /// A unary operation: `-x`.
     Unary(ExprUnary),
     /// A binary operation: `a + b`, `a / b`.
     Binary(ExprBinary),
     /// An invocation of a function: `[foo ...]`, `foo(...)`.
     Call(ExprCall),
-    /// A grouped expression: `(1 + 2)`.
-    Group(ExprGroup),
-    /// A block expression: `{1 + 2}`.
-    Block(ExprBlock),
     /// A let expression: `let x = 1`.
     Let(ExprLet),
     /// An if expression: `if x { y } else { z }`.
@@ -70,9 +70,6 @@ impl Pretty for Expr {
                 v.pretty(p);
                 p.push_str("]");
             }
-            Self::Unary(v) => v.pretty(p),
-            Self::Binary(v) => v.pretty(p),
-            Self::Call(v) => v.pretty(p),
             Self::Group(v) => {
                 p.push_str("(");
                 v.v.pretty(p);
@@ -83,6 +80,9 @@ impl Pretty for Expr {
                 v.v.pretty(p);
                 p.push_str("}");
             }
+            Self::Unary(v) => v.pretty(p),
+            Self::Binary(v) => v.pretty(p),
+            Self::Call(v) => v.pretty(p),
             Self::Let(v) => v.pretty(p),
             Self::If(v) => v.pretty(p),
         }
@@ -120,6 +120,12 @@ impl Pretty for ExprDict {
 
 /// A template expression: `[*Hi* there!]`.
 pub type ExprTemplate = Tree;
+
+/// A grouped expression: `(1 + 2)`.
+pub type ExprGroup = Box<Spanned<Expr>>;
+
+/// A block expression: `{1 + 2}`.
+pub type ExprBlock = Box<Spanned<Expr>>;
 
 /// An invocation of a function: `[foo ...]`, `foo(...)`.
 #[derive(Debug, Clone, PartialEq)]
@@ -306,12 +312,6 @@ impl Pretty for BinOp {
     }
 }
 
-/// A grouped expression: `(1 + 2)`.
-pub type ExprGroup = Box<Spanned<Expr>>;
-
-/// A block expression: `{1 + 2}`.
-pub type ExprBlock = Box<Spanned<Expr>>;
-
 /// A let expression: `let x = 1`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprLet {
@@ -335,7 +335,7 @@ impl Pretty for ExprLet {
 /// An if expression: `if x { y } else { z }`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprIf {
-    /// The pattern to assign to.
+    /// The condition which selects the body to evaluate.
     pub condition: Box<Spanned<Expr>>,
     /// The expression to evaluate if the condition is true.
     pub if_body: Box<Spanned<Expr>>,

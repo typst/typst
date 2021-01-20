@@ -175,11 +175,11 @@ impl Eval for Spanned<&Expr> {
             Expr::Array(v) => Value::Array(v.with_span(self.span).eval(ctx)),
             Expr::Dict(v) => Value::Dict(v.with_span(self.span).eval(ctx)),
             Expr::Template(v) => Value::Template(v.clone()),
+            Expr::Group(v) => v.as_ref().eval(ctx),
+            Expr::Block(v) => v.as_ref().eval(ctx),
             Expr::Call(v) => v.with_span(self.span).eval(ctx),
             Expr::Unary(v) => v.with_span(self.span).eval(ctx),
             Expr::Binary(v) => v.with_span(self.span).eval(ctx),
-            Expr::Group(v) => v.as_ref().eval(ctx),
-            Expr::Block(v) => v.as_ref().eval(ctx),
             Expr::Let(v) => v.with_span(self.span).eval(ctx),
             Expr::If(v) => v.with_span(self.span).eval(ctx),
         }
