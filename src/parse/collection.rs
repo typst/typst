@@ -11,7 +11,7 @@ pub fn arguments(p: &mut Parser) -> ExprArgs {
 /// - Dictionary literal
 /// - Parenthesized expression
 pub fn parenthesized(p: &mut Parser) -> Expr {
-    p.start_group(Group::Paren);
+    p.start_group(Group::Paren, TokenMode::Code);
     let state = if p.eat_if(Token::Colon) {
         collection(p, State::Dict(vec![]))
     } else {
@@ -30,7 +30,7 @@ fn collection<T: Collection>(p: &mut Parser, mut collection: T) -> T {
             collection.push_arg(p, arg);
 
             if let Some(pos) = missing_coma.take() {
-                p.diag_expected_at("comma", pos);
+                p.expected_at("comma", pos);
             }
 
             if p.eof() {

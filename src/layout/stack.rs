@@ -80,7 +80,6 @@ impl<'a> StackLayouter<'a> {
         while !self.areas.current.fits(frame.size) {
             if self.areas.in_full_last() {
                 // TODO: Diagnose once the necessary spans exist.
-                let _ = warning!("cannot fit frame into any area");
                 break;
             } else {
                 self.finish_area();

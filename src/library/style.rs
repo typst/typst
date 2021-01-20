@@ -158,7 +158,7 @@ impl_type! {
     FontWeight: "font weight",
     Value::Int(number) => {
         let [min, max] = [Self::THIN, Self::BLACK];
-        let message = || format!("must be between {:#?} and {:#?}", min, max);
+        let message = || format!("should be between {:#?} and {:#?}", min, max);
         return if number < i64::from(min.to_number()) {
             CastResult::Warn(min, message())
         } else if number > i64::from(max.to_number()) {
@@ -189,7 +189,7 @@ pub fn rgb(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let mut clamp = |component: Option<Spanned<f64>>, default| {
         component.map_or(default, |c| {
             if c.v < 0.0 || c.v > 1.0 {
-                ctx.diag(warning!(c.span, "must be between 0.0 and 1.0"));
+                ctx.diag(warning!(c.span, "should be between 0.0 and 1.0"));
             }
             (c.v.max(0.0).min(1.0) * 255.0).round() as u8
         })

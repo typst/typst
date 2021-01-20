@@ -55,7 +55,7 @@ impl<'s> Parser<'s> {
 
     /// Eat the next token and add a diagnostic that it is not the expected
     /// `thing`.
-    pub fn diag_expected(&mut self, what: &str) {
+    pub fn expected(&mut self, what: &str) {
         let before = self.next_start;
         if let Some(found) = self.eat() {
             let after = self.last_end;
@@ -66,17 +66,17 @@ impl<'s> Parser<'s> {
                 found.name(),
             ));
         } else {
-            self.diag_expected_at(what, self.next_start);
+            self.expected_at(what, self.next_start);
         }
     }
 
-    /// Add a diagnostic that the `thing` was expected at the given position.
-    pub fn diag_expected_at(&mut self, what: &str, pos: Pos) {
+    /// Add a diagnostic that `what` was expected at the given position.
+    pub fn expected_at(&mut self, what: &str, pos: Pos) {
         self.diag(error!(pos, "expected {}", what));
     }
 
     /// Eat the next token and add a diagnostic that it is unexpected.
-    pub fn diag_unexpected(&mut self) {
+    pub fn unexpected(&mut self) {
         let before = self.next_start;
         if let Some(found) = self.eat() {
             let after = self.last_end;
@@ -89,21 +89,7 @@ impl<'s> Parser<'s> {
         self.feedback.decos.push(deco);
     }
 
-    /// Update the token mode and push the previous mode onto a stack.
-    pub fn push_mode(&mut self, mode: TokenMode) {
-        self.modes.push(self.tokens.mode());
-        self.tokens.set_mode(mode);
-    }
-
-    /// Pop the topmost token mode from the stack.
-    ///
-    /// # Panics
-    /// This panics if there is no mode on the stack.
-    pub fn pop_mode(&mut self) {
-        self.tokens.set_mode(self.modes.pop().expect("no pushed mode"));
-    }
-
-    /// Continues parsing in a group.
+    /// Continue parsing in a group.
     ///
     /// When the end delimiter of the group is reached, all subsequent calls to
     /// `eat()` and `peek()` return `None`. Parsing can only continue with
@@ -111,37 +97,55 @@ impl<'s> Parser<'s> {
     ///
     /// # Panics
     /// This panics if the next token does not start the given group.
-    pub fn start_group(&mut self, group: Group) {
+    pub fn start_group(&mut self, group: Group, mode: TokenMode) {
+        self.modes.push(self.tokens.mode());
+        self.tokens.set_mode(mode);
+
         self.groups.push(group);
+        self.repeek();
         match group {
             Group::Paren => self.eat_assert(Token::LeftParen),
             Group::Bracket => self.eat_assert(Token::LeftBracket),
             Group::Brace => self.eat_assert(Token::LeftBrace),
-            Group::Expr => self.repeek(),
-            Group::Subheader => self.repeek(),
+            Group::Subheader => {}
+            Group::Stmt => {}
+            Group::Expr => {}
         }
     }
 
-    /// Ends the parsing of a group and returns the span of the whole group.
+    /// End the parsing of a group.
     ///
     /// # Panics
     /// This panics if no group was started.
     pub fn end_group(&mut self) {
+        let prev_mode = self.tokens.mode();
+        self.tokens.set_mode(self.modes.pop().expect("no pushed mode"));
+
         let group = self.groups.pop().expect("no started group");
         self.repeek();
 
-        let (end, required) = match group {
-            Group::Paren => (Token::RightParen, true),
-            Group::Bracket => (Token::RightBracket, true),
-            Group::Brace => (Token::RightBrace, true),
-            Group::Expr => (Token::Semicolon, false),
-            Group::Subheader => return,
-        };
+        // Eat the end delimiter if there is one.
+        if let Some((end, required)) = match group {
+            Group::Paren => Some((Token::RightParen, true)),
+            Group::Bracket => Some((Token::RightBracket, true)),
+            Group::Brace => Some((Token::RightBrace, true)),
+            Group::Subheader => None,
+            Group::Stmt => Some((Token::Semicolon, false)),
+            Group::Expr => None,
+        } {
+            if self.next == Some(end) {
+                // Bump the delimeter and return. No need to rescan in this case.
+                self.bump();
+                return;
+            } else if required {
+                self.diag(error!(self.next_start, "expected {}", end.name()));
+            }
+        }
 
-        if self.next == Some(end) {
+        // Rescan the peeked token if the mode changed.
+        if self.tokens.mode() != prev_mode {
+            self.tokens.jump(self.last_end);
             self.bump();
-        } else if required {
-            self.diag(error!(self.next_start, "expected {}", end.name()));
         }
     }
 
@@ -201,6 +205,18 @@ impl<'s> Parser<'s> {
         debug_assert_eq!(next, Some(t));
     }
 
+    /// Skip whitespace and comment tokens.
+    pub fn skip_white(&mut self) {
+        while matches!(
+            self.peek(),
+            Some(Token::Space(_)) |
+            Some(Token::LineComment(_)) |
+            Some(Token::BlockComment(_))
+        ) {
+            self.eat();
+        }
+    }
+
     /// Peek at the next token without consuming it.
     pub fn peek(&self) -> Option<Token<'s>> {
         self.peeked
@@ -243,6 +259,12 @@ impl<'s> Parser<'s> {
         self.last_end
     }
 
+    /// Jump to a position in the source string.
+    pub fn jump(&mut self, pos: Pos) {
+        self.tokens.jump(pos);
+        self.bump();
+    }
+
     /// Slice a part out of the source string.
     pub fn get(&self, span: impl Into<Span>) -> &'s str {
         self.tokens.scanner().get(span.into().to_range())
@@ -265,7 +287,7 @@ impl<'s> Parser<'s> {
             TokenMode::Code => loop {
                 match self.next {
                     Some(Token::Space(n)) => {
-                        if n >= 1 && self.groups.last() == Some(&Group::Expr) {
+                        if n >= 1 && self.groups.last() == Some(&Group::Stmt) {
                             break;
                         }
                     }
@@ -293,8 +315,8 @@ impl<'s> Parser<'s> {
             Token::RightParen if self.groups.contains(&Group::Paren) => {}
             Token::RightBracket if self.groups.contains(&Group::Bracket) => {}
             Token::RightBrace if self.groups.contains(&Group::Brace) => {}
-            Token::Semicolon if self.groups.contains(&Group::Expr) => {}
-            Token::Space(n) if n >= 1 && self.groups.last() == Some(&Group::Expr) => {}
+            Token::Semicolon if self.groups.contains(&Group::Stmt) => {}
+            Token::Space(n) if n >= 1 && self.groups.last() == Some(&Group::Stmt) => {}
             Token::Pipe if self.groups.contains(&Group::Subheader) => {}
             _ => return,
         }
@@ -319,9 +341,11 @@ pub enum Group {
     Bracket,
     /// A curly-braced group: `{...}`.
     Brace,
-    /// A group ended by a semicolon or a line break: `;`, `\n`.
-    Expr,
     /// A group ended by a chained subheader or a closing bracket:
     /// `... >>`, `...]`.
     Subheader,
+    /// A group ended by a semicolon or a line break: `;`, `\n`.
+    Stmt,
+    /// A group for a single expression. Not ended by something specific.
+    Expr,
 }

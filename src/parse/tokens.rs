@@ -42,6 +42,11 @@ impl<'s> Tokens<'s> {
         self.s.index().into()
     }
 
+    /// Jump to the given position.
+    pub fn jump(&mut self, pos: Pos) {
+        self.s.jump(pos.to_usize());
+    }
+
     /// The underlying scanner.
     pub fn scanner(&self) -> &Scanner<'s> {
         &self.s

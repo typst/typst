@@ -42,7 +42,7 @@ pub struct Scope {
 }
 
 impl Scope {
-    // Create a new empty scope.
+    /// Create a new empty scope.
     pub fn new() -> Self {
         Self::default()
     }

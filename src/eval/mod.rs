@@ -180,14 +180,8 @@ impl Eval for Spanned<&Expr> {
             Expr::Binary(v) => v.with_span(self.span).eval(ctx),
             Expr::Group(v) => v.as_ref().eval(ctx),
             Expr::Block(v) => v.as_ref().eval(ctx),
-            Expr::Let(v) => {
-                let value = match &v.expr {
-                    Some(expr) => expr.as_ref().eval(ctx),
-                    None => Value::None,
-                };
-                ctx.scopes.define(v.pat.v.as_str(), value);
-                Value::None
-            }
+            Expr::Let(v) => v.with_span(self.span).eval(ctx),
+            Expr::If(v) => v.with_span(self.span).eval(ctx),
         }
     }
 }
@@ -246,6 +240,43 @@ impl Eval for Spanned<&ExprBinary> {
             BinOp::Sub => ops::sub(ctx, span, lhs, rhs),
             BinOp::Mul => ops::mul(ctx, span, lhs, rhs),
             BinOp::Div => ops::div(ctx, span, lhs, rhs),
+        }
+    }
+}
+
+impl Eval for Spanned<&ExprLet> {
+    type Output = Value;
+
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        let value = match &self.v.expr {
+            Some(expr) => expr.as_ref().eval(ctx),
+            None => Value::None,
+        };
+        ctx.scopes.define(self.v.pat.v.as_str(), value);
+        Value::None
+    }
+}
+
+impl Eval for Spanned<&ExprIf> {
+    type Output = Value;
+
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        let condition = self.v.condition.eval(ctx);
+        if let Value::Bool(boolean) = condition {
+            if boolean {
+                self.v.if_body.eval(ctx)
+            } else if let Some(expr) = &self.v.else_body {
+                expr.eval(ctx)
+            } else {
+                Value::None
+            }
+        } else {
+            ctx.diag(error!(
+                self.v.condition.span,
+                "expected boolean, found {}",
+                condition.type_name()
+            ));
+            Value::Error
         }
     }
 }

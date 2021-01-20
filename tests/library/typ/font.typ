@@ -27,7 +27,7 @@
 // Error: 1:43-1:44 expected font family or array of font families, found integer
 [font style: bold, weight: "thin", serif: 0]
 
-// Warning: 1:15-1:19 must be between 100 and 900
+// Warning: 1:15-1:19 should be between 100 and 900
 [font weight: 2700]
 
 // Error: 1:7-1:27 unexpected argument

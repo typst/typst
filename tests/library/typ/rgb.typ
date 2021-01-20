@@ -4,8 +4,8 @@
 // Alpha channel.
 [rgb 1.0, 0.0, 0.0, 0.5]
 
-// Warning: 2:6-2:9 must be between 0.0 and 1.0
-// Warning: 1:11-1:15 must be between 0.0 and 1.0
+// Warning: 2:6-2:9 should be between 0.0 and 1.0
+// Warning: 1:11-1:15 should be between 0.0 and 1.0
 [rgb -30, 15.5, 0.5]
 
 // Error: 1:6-1:10 missing argument: blue component

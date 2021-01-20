@@ -6,7 +6,7 @@
 ###### Six
 
 // Too many hashtags.
-// Warning: 1:1-1:8 section depth should not exceed 6
+// Warning: 1:1-1:8 should not exceed depth 6
 ####### Seven
 
 ---

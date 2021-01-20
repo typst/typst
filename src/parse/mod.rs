@@ -78,9 +78,8 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
         Token::UnicodeEscape(t) => Node::Text(unicode_escape(p, t)),
 
         // Keywords.
-        Token::Let => {
-            return Some(Node::Expr(expr_let(p)?));
-        }
+        Token::Let => return Some(Node::Expr(stmt_let(p)?)),
+        Token::If => return Some(Node::Expr(expr_if(p)?)),
 
         // Comments.
         Token::LineComment(_) | Token::BlockComment(_) => {
@@ -89,7 +88,7 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
         }
 
         _ => {
-            p.diag_unexpected();
+            p.unexpected();
             return None;
         }
     };
@@ -111,7 +110,7 @@ fn heading(p: &mut Parser) -> NodeHeading {
     });
 
     if level.v > 5 {
-        p.diag(warning!(level.span, "section depth should not exceed 6"));
+        p.diag(warning!(level.span, "should not exceed depth 6"));
         level.v = 5;
     }
 
@@ -155,8 +154,7 @@ fn unicode_escape(p: &mut Parser, token: TokenUnicodeEscape) -> String {
 
 /// Parse a bracketed function call.
 fn bracket_call(p: &mut Parser) -> Expr {
-    p.push_mode(TokenMode::Code);
-    p.start_group(Group::Bracket);
+    p.start_group(Group::Bracket, TokenMode::Code);
 
     // One header is guaranteed, but there may be more (through chaining).
     let mut outer = vec![];
@@ -167,7 +165,6 @@ fn bracket_call(p: &mut Parser) -> Expr {
         inner = p.span(bracket_subheader);
     }
 
-    p.pop_mode();
     p.end_group();
 
     if p.peek() == Some(Token::LeftBracket) {
@@ -189,15 +186,15 @@ fn bracket_call(p: &mut Parser) -> Expr {
 
 /// Parse one subheader of a bracketed function call.
 fn bracket_subheader(p: &mut Parser) -> ExprCall {
-    p.start_group(Group::Subheader);
+    p.start_group(Group::Subheader, TokenMode::Code);
 
     let start = p.next_start();
     let name = p.span_if(ident).unwrap_or_else(|| {
         let what = "function name";
         if p.eof() {
-            p.diag_expected_at(what, start);
+            p.expected_at(what, start);
         } else {
-            p.diag_expected(what);
+            p.expected(what);
         }
         Ident(String::new()).with_span(start)
     });
@@ -210,23 +207,19 @@ fn bracket_subheader(p: &mut Parser) -> ExprCall {
 
 /// Parse the body of a bracketed function call.
 fn bracket_body(p: &mut Parser) -> Tree {
-    p.push_mode(TokenMode::Markup);
-    p.start_group(Group::Bracket);
+    p.start_group(Group::Bracket, TokenMode::Markup);
     let tree = tree(p);
-    p.pop_mode();
     p.end_group();
     tree
 }
 
 /// Parse a block expression: `{...}`.
 fn block(p: &mut Parser) -> Option<Expr> {
-    p.push_mode(TokenMode::Code);
-    p.start_group(Group::Brace);
+    p.start_group(Group::Brace, TokenMode::Code);
     let expr = p.span_if(expr);
     while !p.eof() {
-        p.diag_unexpected();
+        p.unexpected();
     }
-    p.pop_mode();
     p.end_group();
     Some(Expr::Block(Box::new(expr?)))
 }
@@ -333,7 +326,7 @@ fn value(p: &mut Parser) -> Option<Expr> {
 
         // No value.
         _ => {
-            p.diag_expected("expression");
+            p.expected("expression");
             return None;
         }
     };
@@ -343,17 +336,15 @@ fn value(p: &mut Parser) -> Option<Expr> {
 
 // Parse a template value: `[...]`.
 fn template(p: &mut Parser) -> Expr {
-    p.push_mode(TokenMode::Markup);
-    p.start_group(Group::Bracket);
+    p.start_group(Group::Bracket, TokenMode::Markup);
     let tree = tree(p);
-    p.pop_mode();
     p.end_group();
     Expr::Template(tree)
 }
 
 /// Parse a parenthesized function call.
 fn paren_call(p: &mut Parser, name: Spanned<Ident>) -> Expr {
-    p.start_group(Group::Paren);
+    p.start_group(Group::Paren, TokenMode::Code);
     let args = p.span(arguments);
     p.end_group();
     Expr::Call(ExprCall { name, args })
@@ -379,36 +370,71 @@ fn color(p: &mut Parser, hex: &str) -> RgbaColor {
 /// Parse a string.
 fn string(p: &mut Parser, token: TokenStr) -> String {
     if !token.terminated {
-        p.diag_expected_at("quote", p.peek_span().end);
+        p.expected_at("quote", p.peek_span().end);
     }
 
     resolve::resolve_string(token.string)
 }
 
-/// Parse a let expresion.
-fn expr_let(p: &mut Parser) -> Option<Expr> {
-    p.push_mode(TokenMode::Code);
+/// Parse a let statement.
+fn stmt_let(p: &mut Parser) -> Option<Expr> {
+    p.start_group(Group::Stmt, TokenMode::Code);
     p.eat_assert(Token::Let);
-    p.start_group(Group::Expr);
 
     let pat = p.span_if(ident);
     let mut rhs = None;
 
     if pat.is_some() {
         if p.eat_if(Token::Eq) {
-            if let Some(expr) = p.span_if(expr) {
-                rhs = Some(Box::new(expr));
-            }
+            rhs = p.span_if(expr);
         }
     } else {
-        p.diag_expected("identifier");
+        p.expected("identifier");
     }
 
-    p.pop_mode();
     if !p.eof() {
-        p.diag_expected("semicolon or line break");
+        p.expected_at("semicolon or line break", p.last_end());
     }
 
     p.end_group();
-    pat.map(|pat| Expr::Let(ExprLet { pat, expr: rhs }))
+
+    Some(Expr::Let(ExprLet { pat: pat?, expr: rhs.map(Box::new) }))
+}
+
+/// Parse an if expresion.
+fn expr_if(p: &mut Parser) -> Option<Expr> {
+    p.start_group(Group::Expr, TokenMode::Code);
+    p.eat_assert(Token::If);
+    let condition = p.span_if(expr);
+    p.end_group();
+
+    let condition = Box::new(condition?);
+    let if_body = Box::new(control_body(p)?);
+    let end = p.last_end();
+    p.skip_white();
+
+    let else_body = if p.eat_if(Token::Else) {
+        control_body(p).map(Box::new)
+    } else {
+        p.jump(end);
+        None
+    };
+
+    Some(Expr::If(ExprIf { condition, if_body, else_body }))
+}
+
+/// Parse a control flow body.
+fn control_body(p: &mut Parser) -> Option<Spanned<Expr>> {
+    let start = p.last_end();
+    p.skip_white();
+
+    match p.peek() {
+        Some(Token::LeftBracket) => Some(p.span(template)),
+        Some(Token::LeftBrace) => p.span_if(block),
+        _ => {
+            p.expected_at("body", start);
+            p.jump(start);
+            None
+        }
+    }
 }

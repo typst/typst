@@ -84,6 +84,9 @@ pub struct ImageResource {
 }
 
 impl ImageResource {
+    /// Parse an image resource from raw data in a supported format.
+    ///
+    /// The image format is determined automatically.
     pub fn parse(data: Vec<u8>) -> Option<Self> {
         let reader = ImageReader::new(Cursor::new(data)).with_guessed_format().ok()?;
         let format = reader.format()?;

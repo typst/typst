@@ -20,7 +20,7 @@ impl Eval for Spanned<&ExprCall> {
                 return returned;
             } else {
                 let ty = value.type_name();
-                ctx.diag(error!(span, "a value of type {} is not callable", ty));
+                ctx.diag(error!(span, "expected function, found {}", ty));
             }
         } else if !name.is_empty() {
             ctx.diag(error!(span, "unknown function"));

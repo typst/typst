@@ -70,7 +70,7 @@
 
 ---
 // Ref: false
-// Error: 2:2-2:3 a value of type string is not callable
+// Error: 2:2-2:3 expected function, found string
 #let x = "string"
 [x]
 

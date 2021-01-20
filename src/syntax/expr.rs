@@ -46,6 +46,8 @@ pub enum Expr {
     Block(ExprBlock),
     /// A let expression: `let x = 1`.
     Let(ExprLet),
+    /// An if expression: `if x { y } else { z }`.
+    If(ExprIf),
 }
 
 impl Pretty for Expr {
@@ -82,6 +84,7 @@ impl Pretty for Expr {
                 p.push_str("}");
             }
             Self::Let(v) => v.pretty(p),
+            Self::If(v) => v.pretty(p),
         }
     }
 }
@@ -329,6 +332,30 @@ impl Pretty for ExprLet {
     }
 }
 
+/// An if expression: `if x { y } else { z }`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprIf {
+    /// The pattern to assign to.
+    pub condition: Box<Spanned<Expr>>,
+    /// The expression to evaluate if the condition is true.
+    pub if_body: Box<Spanned<Expr>>,
+    /// The expression to evaluate if the condition is false.
+    pub else_body: Option<Box<Spanned<Expr>>>,
+}
+
+impl Pretty for ExprIf {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("#if ");
+        self.condition.v.pretty(p);
+        p.push_str(" ");
+        self.if_body.v.pretty(p);
+        if let Some(expr) = &self.else_body {
+            p.push_str(" #else ");
+            expr.v.pretty(p);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::tests::test_pretty;
@@ -366,8 +393,9 @@ mod tests {
         test_pretty("{(1)}", "{(1)}");
         test_pretty("{{1}}", "{{1}}");
 
-        // Let binding.
-        test_pretty("#let x=1+2", "#let x = 1 + 2");
+        // Control flow.
+        test_pretty("#let x = 1+2", "#let x = 1 + 2");
+        test_pretty("#if x [y] #else [z]", "#if x [y] #else [z]");
     }
 
     #[test]
