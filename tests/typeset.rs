@@ -142,10 +142,12 @@ fn test(
     let mut ok = true;
     let mut frames = vec![];
 
+    let mut lines = 0;
     for (i, part) in src.split("---").enumerate() {
-        let (part_ok, part_frames) = test_part(i, part, env);
+        let (part_ok, part_frames) = test_part(part, i, lines, env);
         ok &= part_ok;
         frames.extend(part_frames);
+        lines += part.lines().count() as u32;
     }
 
     if !frames.is_empty() {
@@ -177,7 +179,7 @@ fn test(
     ok
 }
 
-fn test_part(i: usize, src: &str, env: &mut Env) -> (bool, Vec<Frame>) {
+fn test_part(src: &str, i: usize, lines: u32, env: &mut Env) -> (bool, Vec<Frame>) {
     let map = LineMap::new(src);
     let (compare_ref, ref_diags) = parse_metadata(src, &map);
 
@@ -215,14 +217,14 @@ fn test_part(i: usize, src: &str, env: &mut Env) -> (bool, Vec<Frame>) {
         for diag in &diags {
             if !ref_diags.contains(diag) {
                 print!("    Not annotated | ");
-                print_diag(diag, &map);
+                print_diag(diag, &map, lines);
             }
         }
 
         for diag in &ref_diags {
             if !diags.contains(diag) {
                 print!("    Not emitted   | ");
-                print_diag(diag, &map);
+                print_diag(diag, &map, lines);
             }
         }
     }
@@ -288,7 +290,7 @@ fn register_helpers(scope: &mut Scope, panicked: Rc<RefCell<bool>>) {
         Value::Str(p.finish())
     }
 
-    let eq = move |ctx: &mut EvalContext, args: &mut Args| -> Value {
+    let test = move |ctx: &mut EvalContext, args: &mut Args| -> Value {
         let lhs = args.require::<Value>(ctx, "left-hand side");
         let rhs = args.require::<Value>(ctx, "right-hand side");
         if lhs != rhs {
@@ -302,13 +304,15 @@ fn register_helpers(scope: &mut Scope, panicked: Rc<RefCell<bool>>) {
         }
     };
 
-    scope.set("f", ValueFunc::new("f", f));
-    scope.set("eq", ValueFunc::new("eq", eq));
+    scope.define("f", ValueFunc::new("f", f));
+    scope.define("test", ValueFunc::new("test", test));
 }
 
-fn print_diag(diag: &Spanned<Diag>, map: &LineMap) {
-    let start = map.location(diag.span.start).unwrap();
-    let end = map.location(diag.span.end).unwrap();
+fn print_diag(diag: &Spanned<Diag>, map: &LineMap, lines: u32) {
+    let mut start = map.location(diag.span.start).unwrap();
+    let mut end = map.location(diag.span.end).unwrap();
+    start.line += lines;
+    end.line += lines;
     println!("{}: {}-{}: {}", diag.v.level, start, end, diag.v.message);
 }
 

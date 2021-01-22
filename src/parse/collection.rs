@@ -1,5 +1,4 @@
 use super::*;
-use crate::diag::Deco;
 
 /// Parse the arguments to a function call.
 pub fn arguments(p: &mut Parser) -> ExprArgs {
@@ -54,9 +53,8 @@ fn argument(p: &mut Parser) -> Option<Argument> {
     let first = p.span_if(expr)?;
     if p.eat_if(Token::Colon) {
         if let Expr::Ident(ident) = first.v {
-            let expr = p.span_if(expr)?;
             let name = ident.with_span(first.span);
-            p.deco(Deco::Name.with_span(name.span));
+            let expr = p.span_if(expr)?;
             Some(Argument::Named(Named { name, expr }))
         } else {
             p.diag(error!(first.span, "expected identifier"));

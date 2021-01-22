@@ -164,13 +164,13 @@ impl Eval for Spanned<&Expr> {
                     Value::Error
                 }
             },
-            Expr::Bool(v) => Value::Bool(*v),
-            Expr::Int(v) => Value::Int(*v),
-            Expr::Float(v) => Value::Float(*v),
-            Expr::Length(v, unit) => Value::Length(Length::with_unit(*v, *unit)),
-            Expr::Angle(v, unit) => Value::Angle(Angle::with_unit(*v, *unit)),
-            Expr::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
-            Expr::Color(v) => Value::Color(Color::Rgba(*v)),
+            &Expr::Bool(v) => Value::Bool(v),
+            &Expr::Int(v) => Value::Int(v),
+            &Expr::Float(v) => Value::Float(v),
+            &Expr::Length(v, unit) => Value::Length(Length::with_unit(v, unit)),
+            &Expr::Angle(v, unit) => Value::Angle(Angle::with_unit(v, unit)),
+            &Expr::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
+            &Expr::Color(v) => Value::Color(Color::Rgba(v)),
             Expr::Str(v) => Value::Str(v.clone()),
             Expr::Array(v) => Value::Array(v.with_span(self.span).eval(ctx)),
             Expr::Dict(v) => Value::Dict(v.with_span(self.span).eval(ctx)),
@@ -210,16 +210,27 @@ impl Eval for Spanned<&ExprUnary> {
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         let value = self.v.expr.as_ref().eval(ctx);
-
-        if let Value::Error = value {
+        if value == Value::Error {
             return Value::Error;
         }
 
-        let span = self.v.op.span.join(self.v.expr.span);
-        match self.v.op.v {
-            UnOp::Pos => ops::pos(ctx, span, value),
-            UnOp::Neg => ops::neg(ctx, span, value),
+        let ty = value.type_name();
+        let out = match self.v.op.v {
+            UnOp::Pos => ops::pos(value),
+            UnOp::Neg => ops::neg(value),
+            UnOp::Not => ops::not(value),
+        };
+
+        if out == Value::Error {
+            ctx.diag(error!(
+                self.span,
+                "cannot apply '{}' to {}",
+                self.v.op.v.as_str(),
+                ty,
+            ));
         }
+
+        out
     }
 }
 
@@ -227,20 +238,90 @@ impl Eval for Spanned<&ExprBinary> {
     type Output = Value;
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        let lhs = self.v.lhs.as_ref().eval(ctx);
-        let rhs = self.v.rhs.as_ref().eval(ctx);
+        match self.v.op.v {
+            BinOp::Add => self.apply(ctx, ops::add),
+            BinOp::Sub => self.apply(ctx, ops::sub),
+            BinOp::Mul => self.apply(ctx, ops::mul),
+            BinOp::Div => self.apply(ctx, ops::div),
+            BinOp::And => self.apply(ctx, ops::and),
+            BinOp::Or => self.apply(ctx, ops::or),
+            BinOp::Eq => self.apply(ctx, ops::eq),
+            BinOp::Neq => self.apply(ctx, ops::neq),
+            BinOp::Lt => self.apply(ctx, ops::lt),
+            BinOp::Leq => self.apply(ctx, ops::leq),
+            BinOp::Gt => self.apply(ctx, ops::gt),
+            BinOp::Geq => self.apply(ctx, ops::geq),
+            BinOp::Assign => self.assign(ctx, |_, b| b),
+            BinOp::AddAssign => self.assign(ctx, ops::add),
+            BinOp::SubAssign => self.assign(ctx, ops::sub),
+            BinOp::MulAssign => self.assign(ctx, ops::mul),
+            BinOp::DivAssign => self.assign(ctx, ops::div),
+        }
+    }
+}
+
+impl Spanned<&ExprBinary> {
+    /// Apply a basic binary operation.
+    fn apply<F>(&self, ctx: &mut EvalContext, op: F) -> Value
+    where
+        F: FnOnce(Value, Value) -> Value,
+    {
+        let lhs = self.v.lhs.eval(ctx);
+
+        // Short-circuit boolean operations.
+        match (self.v.op.v, &lhs) {
+            (BinOp::And, Value::Bool(false)) => return Value::Bool(false),
+            (BinOp::Or, Value::Bool(true)) => return Value::Bool(true),
+            _ => {}
+        }
+
+        let rhs = self.v.rhs.eval(ctx);
 
         if lhs == Value::Error || rhs == Value::Error {
             return Value::Error;
         }
 
-        let span = self.v.lhs.span.join(self.v.rhs.span);
-        match self.v.op.v {
-            BinOp::Add => ops::add(ctx, span, lhs, rhs),
-            BinOp::Sub => ops::sub(ctx, span, lhs, rhs),
-            BinOp::Mul => ops::mul(ctx, span, lhs, rhs),
-            BinOp::Div => ops::div(ctx, span, lhs, rhs),
+        let lhty = lhs.type_name();
+        let rhty = rhs.type_name();
+        let out = op(lhs, rhs);
+        if out == Value::Error {
+            ctx.diag(error!(
+                self.span,
+                "cannot apply '{}' to {} and {}",
+                self.v.op.v.as_str(),
+                lhty,
+                rhty,
+            ));
         }
+
+        out
+    }
+
+    /// Apply an assignment operation.
+    fn assign<F>(&self, ctx: &mut EvalContext, op: F) -> Value
+    where
+        F: FnOnce(Value, Value) -> Value,
+    {
+        let rhs = self.v.rhs.eval(ctx);
+        let span = self.v.lhs.span;
+
+        if let Expr::Ident(id) = &self.v.lhs.v {
+            if let Some(slot) = ctx.scopes.get_mut(id) {
+                let lhs = std::mem::replace(slot, Value::None);
+                *slot = op(lhs, rhs);
+                return Value::None;
+            } else {
+                if ctx.scopes.is_const(id) {
+                    ctx.diag(error!(span, "cannot assign to constant"));
+                } else {
+                    ctx.diag(error!(span, "unknown variable"));
+                }
+            }
+        } else {
+            ctx.diag(error!(span, "cannot assign to this expression"));
+        }
+
+        Value::Error
     }
 }
 
@@ -263,20 +344,21 @@ impl Eval for Spanned<&ExprIf> {
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         let condition = self.v.condition.eval(ctx);
         if let Value::Bool(boolean) = condition {
-            if boolean {
+            return if boolean {
                 self.v.if_body.eval(ctx)
             } else if let Some(expr) = &self.v.else_body {
                 expr.eval(ctx)
             } else {
                 Value::None
-            }
-        } else {
+            };
+        } else if condition != Value::Error {
             ctx.diag(error!(
                 self.v.condition.span,
                 "expected boolean, found {}",
-                condition.type_name()
+                condition.type_name(),
             ));
-            Value::Error
         }
+
+        Value::Error
     }
 }

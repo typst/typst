@@ -21,7 +21,12 @@ impl<'a> Scopes<'a> {
         Self { top: Scope::new(), scopes: vec![], base }
     }
 
-    /// Look up the value of a variable in the scopes.
+    /// Define a variable in the active scope.
+    pub fn define(&mut self, var: impl Into<String>, value: impl Into<Value>) {
+        self.top.define(var, value);
+    }
+
+    /// Look up the value of a variable.
     pub fn get(&self, var: &str) -> Option<&Value> {
         iter::once(&self.top)
             .chain(&self.scopes)
@@ -29,9 +34,18 @@ impl<'a> Scopes<'a> {
             .find_map(|scope| scope.get(var))
     }
 
-    /// Define a variable in the active scope.
-    pub fn define(&mut self, var: impl Into<String>, value: impl Into<Value>) {
-        self.top.set(var, value);
+    /// Get a mutable reference to a variable.
+    pub fn get_mut(&mut self, var: &str) -> Option<&mut Value> {
+        iter::once(&mut self.top)
+            .chain(&mut self.scopes)
+            .find_map(|scope| scope.get_mut(var))
+    }
+
+    /// Return whether the variable is constant (not writable).
+    ///
+    /// Defaults to `false` if the variable does not exist.
+    pub fn is_const(&self, var: &str) -> bool {
+        self.base.get(var).is_some()
     }
 }
 
@@ -47,14 +61,19 @@ impl Scope {
         Self::default()
     }
 
+    /// Define a new variable.
+    pub fn define(&mut self, var: impl Into<String>, value: impl Into<Value>) {
+        self.values.insert(var.into(), value.into());
+    }
+
     /// Look up the value of a variable.
     pub fn get(&self, var: &str) -> Option<&Value> {
         self.values.get(var)
     }
 
-    /// Store the value for a variable.
-    pub fn set(&mut self, var: impl Into<String>, value: impl Into<Value>) {
-        self.values.insert(var.into(), value.into());
+    /// Get a mutable reference to a variable.
+    pub fn get_mut(&mut self, var: &str) -> Option<&mut Value> {
+        self.values.get_mut(var)
     }
 }
 

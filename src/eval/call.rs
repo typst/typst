@@ -1,32 +1,26 @@
 use super::*;
-use crate::diag::Deco;
 
 impl Eval for Spanned<&ExprCall> {
     type Output = Value;
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        let name = &self.v.name.v;
-        let span = self.v.name.span;
+        let callee = self.v.callee.eval(ctx);
 
-        if let Some(value) = ctx.scopes.get(name) {
-            if let Value::Func(func) = value {
-                let func = func.clone();
-                ctx.deco(Deco::Resolved.with_span(span));
+        if let Value::Func(func) = callee {
+            let func = func.clone();
+            let mut args = self.v.args.as_ref().eval(ctx);
+            let returned = func(ctx, &mut args);
+            args.finish(ctx);
 
-                let mut args = self.v.args.as_ref().eval(ctx);
-                let returned = func(ctx, &mut args);
-                args.finish(ctx);
-
-                return returned;
-            } else {
-                let ty = value.type_name();
-                ctx.diag(error!(span, "expected function, found {}", ty));
-            }
-        } else if !name.is_empty() {
-            ctx.diag(error!(span, "unknown function"));
+            return returned;
+        } else if callee != Value::Error {
+            ctx.diag(error!(
+                self.v.callee.span,
+                "expected function, found {}",
+                callee.type_name(),
+            ));
         }
 
-        ctx.deco(Deco::Unresolved.with_span(span));
         Value::Error
     }
 }

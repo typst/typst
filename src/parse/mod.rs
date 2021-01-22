@@ -49,7 +49,7 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
     let node = match p.peek()? {
         // Bracket call.
         Token::LeftBracket => {
-            return Some(Node::Expr(bracket_call(p)));
+            return Some(Node::Expr(bracket_call(p)?));
         }
 
         // Code block.
@@ -153,22 +153,30 @@ fn unicode_escape(p: &mut Parser, token: TokenUnicodeEscape) -> String {
 }
 
 /// Parse a bracketed function call.
-fn bracket_call(p: &mut Parser) -> Expr {
+fn bracket_call(p: &mut Parser) -> Option<Expr> {
     p.start_group(Group::Bracket, TokenMode::Code);
 
     // One header is guaranteed, but there may be more (through chaining).
     let mut outer = vec![];
-    let mut inner = p.span(bracket_subheader);
+    let mut inner = p.span_if(bracket_subheader);
 
     while p.eat_if(Token::Pipe) {
-        outer.push(inner);
-        inner = p.span(bracket_subheader);
+        if let Some(new) = p.span_if(bracket_subheader) {
+            outer.extend(inner);
+            inner = Some(new);
+        }
     }
 
     p.end_group();
 
-    if p.peek() == Some(Token::LeftBracket) {
-        let body = p.span(|p| Expr::Template(bracket_body(p)));
+    let body = if p.peek() == Some(Token::LeftBracket) {
+        Some(p.span(|p| Expr::Template(bracket_body(p))))
+    } else {
+        None
+    };
+
+    let mut inner = inner?;
+    if let Some(body) = body {
         inner.span.expand(body.span);
         inner.v.args.v.push(Argument::Pos(body));
     }
@@ -181,28 +189,25 @@ fn bracket_call(p: &mut Parser) -> Expr {
         inner = top;
     }
 
-    Expr::Call(inner.v)
+    Some(Expr::Call(inner.v))
 }
 
 /// Parse one subheader of a bracketed function call.
-fn bracket_subheader(p: &mut Parser) -> ExprCall {
+fn bracket_subheader(p: &mut Parser) -> Option<ExprCall> {
     p.start_group(Group::Subheader, TokenMode::Code);
 
-    let start = p.next_start();
-    let name = p.span_if(ident).unwrap_or_else(|| {
-        let what = "function name";
-        if p.eof() {
-            p.expected_at(what, start);
-        } else {
-            p.expected(what);
-        }
-        Ident(String::new()).with_span(start)
-    });
+    let name = p.span_if(ident);
+    if name.is_none() {
+        p.expected("function name");
+    }
 
     let args = p.span(arguments);
     p.end_group();
 
-    ExprCall { name, args }
+    Some(ExprCall {
+        callee: Box::new(name?.map(Expr::Ident)),
+        args,
+    })
 }
 
 /// Parse the body of a bracketed function call.
@@ -213,78 +218,66 @@ fn bracket_body(p: &mut Parser) -> Tree {
     tree
 }
 
-/// Parse a block expression: `{...}`.
-fn block(p: &mut Parser) -> Option<Expr> {
-    p.start_group(Group::Brace, TokenMode::Code);
-    let expr = p.span_if(expr);
-    while !p.eof() {
-        p.unexpected();
-    }
-    p.end_group();
-    Some(Expr::Block(Box::new(expr?)))
+/// Parse an identifier.
+fn ident(p: &mut Parser) -> Option<Ident> {
+    p.eat_map(|token| match token {
+        Token::Ident(id) => Some(Ident(id.into())),
+        _ => None,
+    })
 }
 
-/// Parse an expression: `term (+ term)*`.
+/// Parse an expression.
 fn expr(p: &mut Parser) -> Option<Expr> {
-    binops(p, term, |token| match token {
-        Token::Plus => Some(BinOp::Add),
-        Token::Hyph => Some(BinOp::Sub),
-        _ => None,
-    })
+    expr_with(p, 0)
 }
 
-/// Parse a term: `factor (* factor)*`.
-fn term(p: &mut Parser) -> Option<Expr> {
-    binops(p, factor, |token| match token {
-        Token::Star => Some(BinOp::Mul),
-        Token::Slash => Some(BinOp::Div),
-        _ => None,
-    })
-}
+/// Parse an expression with operators having at least the minimum precedence.
+fn expr_with(p: &mut Parser, min_prec: usize) -> Option<Expr> {
+    let mut lhs = match p.span_if(|p| p.eat_map(UnOp::from_token)) {
+        Some(op) => {
+            let prec = op.v.precedence();
+            let expr = p.span_if(|p| expr_with(p, prec))?;
+            let span = op.span.join(expr.span);
+            let unary = Expr::Unary(ExprUnary { op, expr: Box::new(expr) });
+            unary.with_span(span)
+        }
+        None => p.span_if(primary)?,
+    };
 
-/// Parse binary operations of the from `a (<op> b)*`.
-fn binops(
-    p: &mut Parser,
-    operand: fn(&mut Parser) -> Option<Expr>,
-    op: fn(Token) -> Option<BinOp>,
-) -> Option<Expr> {
-    let mut lhs = p.span_if(operand)?;
+    loop {
+        let op = match p.peek().and_then(BinOp::from_token) {
+            Some(binop) => binop,
+            None => break,
+        };
 
-    while let Some(op) = p.span_if(|p| p.eat_map(op)) {
-        if let Some(rhs) = p.span_if(operand) {
-            let span = lhs.span.join(rhs.span);
-            let expr = Expr::Binary(ExprBinary {
-                lhs: Box::new(lhs),
-                op,
-                rhs: Box::new(rhs),
-            });
-            lhs = expr.with_span(span);
-        } else {
+        let mut prec = op.precedence();
+        if prec < min_prec {
             break;
         }
+
+        match op.associativity() {
+            Associativity::Left => prec += 1,
+            Associativity::Right => {}
+        }
+
+        let op = op.with_span(p.peek_span());
+        p.eat();
+
+        let rhs = match p.span_if(|p| expr_with(p, prec)) {
+            Some(rhs) => Box::new(rhs),
+            None => break,
+        };
+
+        let span = lhs.span.join(rhs.span);
+        let binary = Expr::Binary(ExprBinary { lhs: Box::new(lhs), op, rhs });
+        lhs = binary.with_span(span);
     }
 
     Some(lhs.v)
 }
 
-/// Parse a factor of the form `-?value`.
-fn factor(p: &mut Parser) -> Option<Expr> {
-    let op = |token| match token {
-        Token::Plus => Some(UnOp::Pos),
-        Token::Hyph => Some(UnOp::Neg),
-        _ => None,
-    };
-
-    if let Some(op) = p.span_if(|p| p.eat_map(op)) {
-        p.span_if(factor)
-            .map(|expr| Expr::Unary(ExprUnary { op, expr: Box::new(expr) }))
-    } else {
-        value(p)
-    }
-}
-
-/// Parse a value.
-fn value(p: &mut Parser) -> Option<Expr> {
+/// Parse a primary expression.
+fn primary(p: &mut Parser) -> Option<Expr> {
     let expr = match p.peek() {
         // Template.
         Some(Token::LeftBracket) => {
@@ -342,19 +335,25 @@ fn template(p: &mut Parser) -> Expr {
     Expr::Template(tree)
 }
 
+/// Parse a block expression: `{...}`.
+fn block(p: &mut Parser) -> Option<Expr> {
+    p.start_group(Group::Brace, TokenMode::Code);
+    let expr = p.span_if(expr);
+    while !p.eof() {
+        p.unexpected();
+    }
+    p.end_group();
+    Some(Expr::Block(Box::new(expr?)))
+}
+
 /// Parse a parenthesized function call.
 fn paren_call(p: &mut Parser, name: Spanned<Ident>) -> Expr {
     p.start_group(Group::Paren, TokenMode::Code);
     let args = p.span(arguments);
     p.end_group();
-    Expr::Call(ExprCall { name, args })
-}
-
-/// Parse an identifier.
-fn ident(p: &mut Parser) -> Option<Ident> {
-    p.eat_map(|token| match token {
-        Token::Ident(id) => Some(Ident(id.into())),
-        _ => None,
+    Expr::Call(ExprCall {
+        callee: Box::new(name.map(Expr::Ident)),
+        args,
     })
 }
 
@@ -388,12 +387,12 @@ fn stmt_let(p: &mut Parser) -> Option<Expr> {
         if p.eat_if(Token::Eq) {
             rhs = p.span_if(expr);
         }
+
+        if !p.eof() {
+            p.expected_at("semicolon or line break", p.last_end());
+        }
     } else {
         p.expected("identifier");
-    }
-
-    if !p.eof() {
-        p.expected_at("semicolon or line break", p.last_end());
     }
 
     p.end_group();

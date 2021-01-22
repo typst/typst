@@ -27,11 +27,16 @@ impl Relative {
     /// Resolve this relative to the given `length`.
     pub fn resolve(self, length: Length) -> Length {
         // Zero wins over infinity.
-        if self.0 == 0.0 {
+        if self.is_zero() {
             Length::ZERO
         } else {
             self.get() * length
         }
+    }
+
+    /// Whether the ratio is zero.
+    pub fn is_zero(self) -> bool {
+        self.0 == 0.0
     }
 }
 

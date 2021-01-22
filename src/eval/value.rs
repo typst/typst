@@ -77,18 +77,6 @@ impl Value {
             Self::Error => "error",
         }
     }
-
-    /// Whether the value is numeric.
-    pub fn is_numeric(&self) -> bool {
-        matches!(self,
-            Value::Int(_)
-            | Value::Float(_)
-            | Value::Length(_)
-            | Value::Angle(_)
-            | Value::Relative(_)
-            | Value::Linear(_)
-        )
-    }
 }
 
 impl Eval for &Value {

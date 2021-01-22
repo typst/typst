@@ -118,6 +118,23 @@ impl Pretty for ExprDict {
     }
 }
 
+/// A pair of a name and an expression: `pattern: dashed`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Named {
+    /// The name: `pattern`.
+    pub name: Spanned<Ident>,
+    /// The right-hand side of the pair: `dashed`.
+    pub expr: Spanned<Expr>,
+}
+
+impl Pretty for Named {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str(&self.name.v);
+        p.push_str(": ");
+        self.expr.v.pretty(p);
+    }
+}
+
 /// A template expression: `[*Hi* there!]`.
 pub type ExprTemplate = Tree;
 
@@ -127,18 +144,246 @@ pub type ExprGroup = Box<Spanned<Expr>>;
 /// A block expression: `{1 + 2}`.
 pub type ExprBlock = Box<Spanned<Expr>>;
 
+/// A unary operation: `-x`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprUnary {
+    /// The operator: `-`.
+    pub op: Spanned<UnOp>,
+    /// The expression to operator on: `x`.
+    pub expr: Box<Spanned<Expr>>,
+}
+
+impl Pretty for ExprUnary {
+    fn pretty(&self, p: &mut Printer) {
+        self.op.v.pretty(p);
+        if self.op.v == UnOp::Not {
+            p.push_str(" ");
+        }
+        self.expr.v.pretty(p);
+    }
+}
+
+/// A unary operator.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum UnOp {
+    /// The plus operator: `+`.
+    Pos,
+    /// The negation operator: `-`.
+    Neg,
+    /// The boolean `not`.
+    Not,
+}
+
+impl UnOp {
+    /// Try to convert the token into a unary operation.
+    pub fn from_token(token: Token) -> Option<Self> {
+        Some(match token {
+            Token::Plus => Self::Pos,
+            Token::Hyph => Self::Neg,
+            Token::Not => Self::Not,
+            _ => return None,
+        })
+    }
+
+    /// The precedence of this operator.
+    pub fn precedence(self) -> usize {
+        match self {
+            Self::Pos | Self::Neg => 8,
+            Self::Not => 4,
+        }
+    }
+
+    /// The string representation of this operation.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Pos => "+",
+            Self::Neg => "-",
+            Self::Not => "not",
+        }
+    }
+}
+
+impl Pretty for UnOp {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str(self.as_str());
+    }
+}
+
+/// A binary operation: `a + b`, `a / b`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprBinary {
+    /// The left-hand side of the operation: `a`.
+    pub lhs: Box<Spanned<Expr>>,
+    /// The operator: `+`.
+    pub op: Spanned<BinOp>,
+    /// The right-hand side of the operation: `b`.
+    pub rhs: Box<Spanned<Expr>>,
+}
+
+impl Pretty for ExprBinary {
+    fn pretty(&self, p: &mut Printer) {
+        self.lhs.v.pretty(p);
+        p.push_str(" ");
+        self.op.v.pretty(p);
+        p.push_str(" ");
+        self.rhs.v.pretty(p);
+    }
+}
+
+/// A binary operator.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum BinOp {
+    /// The addition operator: `+`.
+    Add,
+    /// The subtraction operator: `-`.
+    Sub,
+    /// The multiplication operator: `*`.
+    Mul,
+    /// The division operator: `/`.
+    Div,
+    /// The short-circuiting boolean `and`.
+    And,
+    /// The short-circuiting boolean `or`.
+    Or,
+    /// The equality operator: `==`.
+    Eq,
+    /// The inequality operator: `!=`.
+    Neq,
+    /// The less-than operator: `<`.
+    Lt,
+    /// The less-than or equal operator: `<=`.
+    Leq,
+    /// The greater-than operator: `>`.
+    Gt,
+    /// The greater-than or equal operator: `>=`.
+    Geq,
+    /// The assignment operator: `=`.
+    Assign,
+    /// The add-assign operator: `+=`.
+    AddAssign,
+    /// The subtract-assign oeprator: `-=`.
+    SubAssign,
+    /// The multiply-assign operator: `*=`.
+    MulAssign,
+    /// The divide-assign operator: `/=`.
+    DivAssign,
+}
+
+impl BinOp {
+    /// Try to convert the token into a binary operation.
+    pub fn from_token(token: Token) -> Option<Self> {
+        Some(match token {
+            Token::Plus => Self::Add,
+            Token::Hyph => Self::Sub,
+            Token::Star => Self::Mul,
+            Token::Slash => Self::Div,
+            Token::And => Self::And,
+            Token::Or => Self::Or,
+            Token::EqEq => Self::Eq,
+            Token::BangEq => Self::Neq,
+            Token::Lt => Self::Lt,
+            Token::LtEq => Self::Leq,
+            Token::Gt => Self::Gt,
+            Token::GtEq => Self::Geq,
+            Token::Eq => Self::Assign,
+            Token::PlusEq => Self::AddAssign,
+            Token::HyphEq => Self::SubAssign,
+            Token::StarEq => Self::MulAssign,
+            Token::SlashEq => Self::DivAssign,
+            _ => return None,
+        })
+    }
+
+    /// The precedence of this operator.
+    pub fn precedence(self) -> usize {
+        match self {
+            Self::Mul | Self::Div => 7,
+            Self::Add | Self::Sub => 6,
+            Self::Eq | Self::Neq | Self::Lt | Self::Leq | Self::Gt | Self::Geq => 5,
+            Self::And => 3,
+            Self::Or => 2,
+            Self::Assign
+            | Self::AddAssign
+            | Self::SubAssign
+            | Self::MulAssign
+            | Self::DivAssign => 1,
+        }
+    }
+
+    /// The associativity of this operator.
+    pub fn associativity(self) -> Associativity {
+        match self {
+            Self::Add
+            | Self::Sub
+            | Self::Mul
+            | Self::Div
+            | Self::And
+            | Self::Or
+            | Self::Eq
+            | Self::Neq
+            | Self::Lt
+            | Self::Leq
+            | Self::Gt
+            | Self::Geq => Associativity::Left,
+            Self::Assign
+            | Self::AddAssign
+            | Self::SubAssign
+            | Self::MulAssign
+            | Self::DivAssign => Associativity::Right,
+        }
+    }
+
+    /// The string representation of this operation.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Add => "+",
+            Self::Sub => "-",
+            Self::Mul => "*",
+            Self::Div => "/",
+            Self::And => "and",
+            Self::Or => "or",
+            Self::Eq => "==",
+            Self::Neq => "!=",
+            Self::Lt => "<",
+            Self::Leq => "<=",
+            Self::Gt => ">",
+            Self::Geq => ">=",
+            Self::Assign => "=",
+            Self::AddAssign => "+=",
+            Self::SubAssign => "-=",
+            Self::MulAssign => "*=",
+            Self::DivAssign => "/=",
+        }
+    }
+}
+
+impl Pretty for BinOp {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str(self.as_str());
+    }
+}
+
+/// The associativity of a binary operator.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Associativity {
+    /// Left-associative: `a + b + c` is equivalent to `(a + b) + c`.
+    Left,
+    /// Right-associative: `a = b = c` is equivalent to `a = (b = c)`.
+    Right,
+}
+
 /// An invocation of a function: `[foo ...]`, `foo(...)`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprCall {
-    /// The name of the function.
-    pub name: Spanned<Ident>,
+    /// The callee of the function.
+    pub callee: Box<Spanned<Expr>>,
     /// The arguments to the function.
     pub args: Spanned<ExprArgs>,
 }
 
 impl Pretty for ExprCall {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str(&self.name.v);
+        self.callee.v.pretty(p);
         p.push_str("(");
         self.args.v.pretty(p);
         p.push_str(")");
@@ -154,7 +399,7 @@ pub fn pretty_bracket_call(call: &ExprCall, p: &mut Printer, chained: bool) {
     }
 
     // Function name.
-    p.push_str(&call.name.v);
+    call.callee.v.pretty(p);
 
     // Find out whether this can be written with a body or as a chain.
     //
@@ -213,102 +458,6 @@ impl Pretty for Argument {
             Self::Pos(expr) => expr.v.pretty(p),
             Self::Named(named) => named.pretty(p),
         }
-    }
-}
-
-/// A pair of a name and an expression: `pattern: dashed`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Named {
-    /// The name: `pattern`.
-    pub name: Spanned<Ident>,
-    /// The right-hand side of the pair: `dashed`.
-    pub expr: Spanned<Expr>,
-}
-
-impl Pretty for Named {
-    fn pretty(&self, p: &mut Printer) {
-        p.push_str(&self.name.v);
-        p.push_str(": ");
-        self.expr.v.pretty(p);
-    }
-}
-
-/// A unary operation: `-x`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ExprUnary {
-    /// The operator: `-`.
-    pub op: Spanned<UnOp>,
-    /// The expression to operator on: `x`.
-    pub expr: Box<Spanned<Expr>>,
-}
-
-impl Pretty for ExprUnary {
-    fn pretty(&self, p: &mut Printer) {
-        self.op.v.pretty(p);
-        self.expr.v.pretty(p);
-    }
-}
-
-/// A unary operator.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum UnOp {
-    /// The plus operator: `+`.
-    Pos,
-    /// The negation operator: `-`.
-    Neg,
-}
-
-impl Pretty for UnOp {
-    fn pretty(&self, p: &mut Printer) {
-        p.push_str(match self {
-            Self::Pos => "+",
-            Self::Neg => "-",
-        });
-    }
-}
-
-/// A binary operation: `a + b`, `a / b`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ExprBinary {
-    /// The left-hand side of the operation: `a`.
-    pub lhs: Box<Spanned<Expr>>,
-    /// The operator: `+`.
-    pub op: Spanned<BinOp>,
-    /// The right-hand side of the operation: `b`.
-    pub rhs: Box<Spanned<Expr>>,
-}
-
-impl Pretty for ExprBinary {
-    fn pretty(&self, p: &mut Printer) {
-        self.lhs.v.pretty(p);
-        p.push_str(" ");
-        self.op.v.pretty(p);
-        p.push_str(" ");
-        self.rhs.v.pretty(p);
-    }
-}
-
-/// A binary operator.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum BinOp {
-    /// The addition operator: `+`.
-    Add,
-    /// The subtraction operator: `-`.
-    Sub,
-    /// The multiplication operator: `*`.
-    Mul,
-    /// The division operator: `/`.
-    Div,
-}
-
-impl Pretty for BinOp {
-    fn pretty(&self, p: &mut Printer) {
-        p.push_str(match self {
-            Self::Add => "+",
-            Self::Sub => "-",
-            Self::Mul => "*",
-            Self::Div => "/",
-        });
     }
 }
 

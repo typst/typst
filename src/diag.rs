@@ -93,12 +93,6 @@ pub enum Deco {
     Strong,
     /// Emphasized text.
     Emph,
-    /// A valid, successfully resolved name.
-    Resolved,
-    /// An invalid, unresolved name.
-    Unresolved,
-    /// A name in a dictionary or argument list.
-    Name,
 }
 
 /// Construct a diagnostic with [`Error`](Level::Error) level.

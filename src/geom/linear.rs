@@ -26,9 +26,9 @@ impl Linear {
         self.rel.resolve(length) + self.abs
     }
 
-    /// Whether this linear's relative part is zero.
-    pub fn is_absolute(self) -> bool {
-        self.rel == Relative::ZERO
+    /// Whether both parts are zero.
+    pub fn is_zero(self) -> bool {
+        self.rel.is_zero() && self.abs.is_zero()
     }
 }
 

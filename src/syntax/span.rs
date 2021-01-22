@@ -1,10 +1,7 @@
+use std::cell::Cell;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Range;
 
-#[cfg(test)]
-use std::cell::Cell;
-
-#[cfg(test)]
 thread_local! {
     static CMP_SPANS: Cell<bool> = Cell::new(true);
 }
@@ -148,10 +145,27 @@ impl Span {
         self.start.to_usize() .. self.end.to_usize()
     }
 
+    /// Run some code with span comparisons disabled.
+    pub fn without_cmp<F, T>(f: F) -> T
+    where
+        F: FnOnce() -> T,
+    {
+        let prev = Self::cmp();
+        Self::set_cmp(false);
+        let val = f();
+        Self::set_cmp(prev);
+        val
+    }
+
+    /// Whether spans will currently be compared.
+    fn cmp() -> bool {
+        CMP_SPANS.with(Cell::get)
+    }
+
+    /// Whether spans should be compared.
+    ///
     /// When set to `false` comparisons with `PartialEq` ignore spans.
-    #[cfg(test)]
-    #[allow(unused)]
-    pub(crate) fn set_cmp(cmp: bool) {
+    fn set_cmp(cmp: bool) {
         CMP_SPANS.with(|cell| cell.set(cmp));
     }
 }
@@ -169,12 +183,7 @@ impl Eq for Span {}
 
 impl PartialEq for Span {
     fn eq(&self, other: &Self) -> bool {
-        #[cfg(test)]
-        if !CMP_SPANS.with(Cell::get) {
-            return true;
-        }
-
-        self.start == other.start && self.end == other.end
+        !Self::cmp() || (self.start == other.start && self.end == other.end)
     }
 }
 

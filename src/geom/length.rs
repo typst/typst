@@ -81,6 +81,11 @@ impl Length {
         Self { raw: self.raw.max(other.raw) }
     }
 
+    /// Whether the length is zero.
+    pub fn is_zero(self) -> bool {
+        self.raw == 0.0
+    }
+
     /// Whether the length is finite.
     pub fn is_finite(self) -> bool {
         self.raw.is_finite()

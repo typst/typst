@@ -23,10 +23,10 @@ pub fn new() -> Scope {
     let mut std = Scope::new();
     macro_rules! set {
         (func: $name:expr, $func:expr) => {
-            std.set($name, ValueFunc::new($name, $func))
+            std.define($name, ValueFunc::new($name, $func))
         };
         (any: $var:expr, $any:expr) => {
-            std.set($var, ValueAny::new($any))
+            std.define($var, ValueAny::new($any))
         };
     }
 

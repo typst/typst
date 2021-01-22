@@ -33,13 +33,19 @@
 [f|f|f]
 
 // With body.
-[f | box][💕]
+// Error: 1:6-1:7 expected function name, found integer
+[f | 1 | box][💕]
 
-// Error: 1:2-1:2 expected function name
-[|f true]
+// Error: 2:2-2:2 expected function name
+// Error: 1:3-1:3 expected function name
+[||f true]
 
 // Error: 1:6-1:6 expected function name
 [f 1|]
+
+// Error: 2:2-2:2 expected function name
+// Error: 1:3-1:3 expected function name
+[|][Nope]
 
 // Error: 2:5-2:5 expected closing paren
 // Error: 1:8-1:9 expected expression, found closing paren

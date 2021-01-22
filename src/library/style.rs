@@ -58,7 +58,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let snapshot = ctx.state.clone();
 
     if let Some(linear) = args.find::<Linear>(ctx) {
-        if linear.is_absolute() {
+        if linear.rel.is_zero() {
             ctx.state.font.size = linear.abs;
             ctx.state.font.scale = Relative::ONE.into();
         } else {
