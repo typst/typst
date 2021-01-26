@@ -127,7 +127,6 @@ impl<'s> Iterator for Tokens<'s> {
                 '=' => Token::Eq,
                 '<' => Token::Lt,
                 '>' => Token::Gt,
-                '?' => Token::Question,
 
                 // Identifiers.
                 c if is_id_start(c) => self.ident(start),
@@ -206,7 +205,6 @@ impl<'s> Tokens<'s> {
                 "#if" => Token::If,
                 "#else" => Token::Else,
                 "#for" => Token::For,
-                "#in" => Token::In,
                 "#while" => Token::While,
                 "#break" => Token::Break,
                 "#continue" => Token::Continue,
@@ -612,7 +610,6 @@ mod tests {
         t!(Code: "-="       => HyphEq);
         t!(Code: "*="       => StarEq);
         t!(Code: "/="       => SlashEq);
-        t!(Code: "?"        => Question);
         t!(Code: ".."       => Dots);
         t!(Code: "=>"       => Arrow);
 
@@ -636,7 +633,6 @@ mod tests {
             ("if", If),
             ("else", Else),
             ("for", For),
-            ("in", In),
             ("while", While),
             ("break", Break),
             ("continue", Continue),
@@ -654,6 +650,7 @@ mod tests {
             ("not", Not),
             ("and", And),
             ("or", Or),
+            ("in", In),
             ("none", Token::None),
             ("false", Bool(false)),
             ("true", Bool(true)),

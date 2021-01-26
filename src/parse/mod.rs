@@ -380,42 +380,50 @@ fn stmt_let(p: &mut Parser) -> Option<Expr> {
     p.start_group(Group::Stmt, TokenMode::Code);
     p.eat_assert(Token::Let);
 
-    let pat = p.span_if(ident);
-    let mut rhs = None;
-
-    if pat.is_some() {
-        if p.eat_if(Token::Eq) {
-            rhs = p.span_if(expr);
+    let pat = match p.span_if(ident) {
+        Some(pat) => pat,
+        None => {
+            p.expected("identifier");
+            p.end_group();
+            return None;
         }
+    };
 
-        if !p.eof() {
-            p.expected_at("semicolon or line break", p.last_end());
-        }
-    } else {
-        p.expected("identifier");
+    let rhs = if p.eat_if(Token::Eq) { p.span_if(expr) } else { None };
+
+    if !p.eof() {
+        p.expected_at("semicolon or line break", p.last_end());
     }
 
     p.end_group();
 
-    Some(Expr::Let(ExprLet { pat: pat?, expr: rhs.map(Box::new) }))
+    Some(Expr::Let(ExprLet { pat, expr: rhs.map(Box::new) }))
 }
 
 /// Parse an if expresion.
 fn expr_if(p: &mut Parser) -> Option<Expr> {
     p.start_group(Group::Expr, TokenMode::Code);
     p.eat_assert(Token::If);
-    let condition = p.span_if(expr);
+
+    let condition = match p.span_if(expr) {
+        Some(condition) => Box::new(condition),
+        None => {
+            p.end_group();
+            return None;
+        }
+    };
+
     p.end_group();
 
-    let condition = Box::new(condition?);
     let if_body = Box::new(control_body(p)?);
-    let end = p.last_end();
+
+    let start = p.last_end();
     p.skip_white();
 
     let else_body = if p.eat_if(Token::Else) {
         control_body(p).map(Box::new)
     } else {
-        p.jump(end);
+        p.jump(start);
         None
     };
 

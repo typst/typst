@@ -28,10 +28,14 @@
 // Error: 1:6-1:7 expected identifier, found integer
 #let 1 = 2
 
-// Terminated by end of line before binding name.
+// Missing binding name.
 // Error: 1:5-1:5 expected identifier
 #let
 x = 5
+
+// Missing right-hand side.
+// Error: 1:9-1:9 expected expression
+#let a =
 
 // No name at all.
 // Error: 1:11-1:11 expected identifier

@@ -18,7 +18,7 @@
     "Fi" + "ve"
 }
 
-// Spacing is somewhat delicated. We only want to have spacing in the output if
+// Spacing is somewhat delicate. We only want to have spacing in the output if
 // there was whitespace before/after the full if-else statement. In particular,
 // spacing after a simple if should be retained, but spacing between the first
 // body and the else should be ignored.
@@ -53,7 +53,7 @@ a#if true {}
 a#if true [b] #else c
 
 // Lone else.
-// Error: 2:1-2:6 unexpected else keyword
+// Error: 2:1-2:6 unexpected keyword `else`
 // Error: 1:8-1:8 expected function name
 #else []
 

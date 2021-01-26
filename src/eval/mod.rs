@@ -270,8 +270,8 @@ impl Spanned<&ExprBinary> {
 
         // Short-circuit boolean operations.
         match (self.v.op.v, &lhs) {
-            (BinOp::And, Value::Bool(false)) => return Value::Bool(false),
-            (BinOp::Or, Value::Bool(true)) => return Value::Bool(true),
+            (BinOp::And, Value::Bool(false)) => return lhs,
+            (BinOp::Or, Value::Bool(true)) => return lhs,
             _ => {}
         }
 
@@ -310,12 +310,10 @@ impl Spanned<&ExprBinary> {
                 let lhs = std::mem::replace(slot, Value::None);
                 *slot = op(lhs, rhs);
                 return Value::None;
+            } else if ctx.scopes.is_const(id) {
+                ctx.diag(error!(span, "cannot assign to constant"));
             } else {
-                if ctx.scopes.is_const(id) {
-                    ctx.diag(error!(span, "cannot assign to constant"));
-                } else {
-                    ctx.diag(error!(span, "unknown variable"));
-                }
+                ctx.diag(error!(span, "unknown variable"));
             }
         } else {
             ctx.diag(error!(span, "cannot assign to this expression"));
