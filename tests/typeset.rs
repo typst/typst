@@ -184,8 +184,9 @@ fn test_part(src: &str, i: usize, lines: u32, env: &mut Env) -> (bool, Vec<Frame
     let (compare_ref, ref_diags) = parse_metadata(src, &map);
 
     let mut scope = library::new();
-    let panicked = Rc::new(RefCell::new(false));
-    register_helpers(&mut scope, Rc::clone(&panicked));
+
+    let panics = Rc::new(RefCell::new(vec![]));
+    register_helpers(&mut scope, Rc::clone(&panics));
 
     // We want to have "unbounded" pages, so we allow them to be infinitely
     // large and fit them to match their content.
@@ -206,7 +207,16 @@ fn test_part(src: &str, i: usize, lines: u32, env: &mut Env) -> (bool, Vec<Frame
     diags.sort_by_key(|d| d.span);
 
     let mut ok = true;
-    if *panicked.borrow() {
+
+    for panic in &*panics.borrow() {
+        let line = map.location(panic.pos).unwrap().line;
+        println!("  Assertion failed in line {} ❌", lines + line);
+        if let (Some(lhs), Some(rhs)) = (&panic.lhs, &panic.rhs) {
+            println!("    Left:  {:?}", lhs);
+            println!("    Right: {:?}", rhs);
+        } else {
+            println!("    Missing argument.");
+        }
         ok = false;
     }
 
@@ -268,7 +278,13 @@ fn parse_metadata(src: &str, map: &LineMap) -> (bool, SpanVec<Diag>) {
     (compare_ref, diags)
 }
 
-fn register_helpers(scope: &mut Scope, panicked: Rc<RefCell<bool>>) {
+struct Panic {
+    pos: Pos,
+    lhs: Option<Value>,
+    rhs: Option<Value>,
+}
+
+fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
     pub fn f(_: &mut EvalContext, args: &mut Args) -> Value {
         let (array, dict) = args.drain();
         let iter = array
@@ -294,10 +310,7 @@ fn register_helpers(scope: &mut Scope, panicked: Rc<RefCell<bool>>) {
         let lhs = args.require::<Value>(ctx, "left-hand side");
         let rhs = args.require::<Value>(ctx, "right-hand side");
         if lhs != rhs {
-            *panicked.borrow_mut() = true;
-            println!("  Assertion failed ❌");
-            println!("    left:  {:?}", lhs);
-            println!("    right: {:?}", rhs);
+            panics.borrow_mut().push(Panic { pos: args.span.start, lhs, rhs });
             Value::Str(format!("(panic)"))
         } else {
             Value::None
