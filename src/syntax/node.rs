@@ -150,40 +150,10 @@ impl Pretty for NodeRaw {
             p.push_str(&lang);
             p.push_str(" ");
         }
-        // TODO: Technically, we should handle backticks in the lines
-        // by wrapping with more backticks and possibly adding space
-        // before the first or after the last line.
+        // TODO: Technically, we should handle backticks in the lines by
+        // wrapping with more backticks, and we should add space before the
+        // first and/or after the last line if necessary.
         p.join(&self.lines, "\n", |line, p| p.push_str(line));
         p.push_str("`");
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::super::tests::test_pretty;
-
-    #[test]
-    fn test_pretty_print_bracket_calls() {
-        // Top-level call expression formatted as bracket call.
-        test_pretty("[v]", "[v]");
-
-        // Blocks are preserved.
-        test_pretty("{v()}", "{v()}");
-        test_pretty("{[[v]]}", "{[[v]]}");
-    }
-
-    #[test]
-    fn test_pretty_print_nodes() {
-        // Basic text and markup.
-        test_pretty(r"*Hi_\", r"*Hi_\");
-
-        // Whitespace.
-        test_pretty("  ", " ");
-        test_pretty("\n\n\n", "\n\n");
-
-        // Heading and raw.
-        test_pretty("# Ok", "# Ok");
-        test_pretty("``\none\ntwo\n``", "`one\ntwo`");
-        test_pretty("`lang one\ntwo`", "`lang one\ntwo`");
     }
 }

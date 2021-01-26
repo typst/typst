@@ -64,6 +64,8 @@ impl Pretty for Expr {
             Self::Angle(v, u) => write!(p, "{}{}", v, u).unwrap(),
             Self::Percent(v) => write!(p, "{}%", v).unwrap(),
             Self::Color(v) => write!(p, "{}", v).unwrap(),
+            // TODO: Debug escapes a bit more than we want (e.g. apostrophes).
+            // We probably need to do the escaping ourselves.
             Self::Str(v) => write!(p, "{:?}", &v).unwrap(),
             Self::Array(v) => v.pretty(p),
             Self::Dict(v) => v.pretty(p),
@@ -541,63 +543,5 @@ impl Pretty for ExprFor {
         self.iter.v.pretty(p);
         p.push_str(" ");
         self.body.v.pretty(p);
-    }
-}
-#[cfg(test)]
-mod tests {
-    use super::super::tests::test_pretty;
-
-    #[test]
-    fn test_pretty_print_chaining() {
-        // All equivalent.
-        test_pretty("[v [[f]]]", "[v | f]");
-        test_pretty("[v][[f]]", "[v | f]");
-        test_pretty("[v | f]", "[v | f]");
-    }
-
-    #[test]
-    fn test_pretty_print_expressions() {
-        // Unary and binary operations.
-        test_pretty("{}", "{}");
-        test_pretty("{1 +}", "{1}");
-        test_pretty("{1++1}", "{1 + +1}");
-        test_pretty("{+-1}", "{+-1}");
-        test_pretty("{1 + func(-2)}", "{1 + func(-2)}");
-        test_pretty("{1+2*3}", "{1 + 2 * 3}");
-        test_pretty("{(1+2)*3}", "{(1 + 2) * 3}");
-
-        // Array.
-        test_pretty("(-5,)", "(-5,)");
-        test_pretty("(1, 2, 3)", "(1, 2, 3)");
-
-        // Dictionary.
-        test_pretty("{(:)}", "{(:)}");
-        test_pretty("{(percent: 5%)}", "{(percent: 5%)}");
-
-        // Content expression.
-        test_pretty("[v [[f]], 1]", "[v [[f]], 1]");
-
-        // Parens and blocks.
-        test_pretty("{(1)}", "{(1)}");
-        test_pretty("{{1}}", "{{1}}");
-
-        // Control flow.
-        test_pretty("#let x = 1+2", "#let x = 1 + 2");
-        test_pretty("#if x [y] #else [z]", "#if x [y] #else [z]");
-        test_pretty("#for x #in y {z}", "#for x #in y {z}");
-    }
-
-    #[test]
-    fn test_pretty_print_literals() {
-        test_pretty("{none}", "{none}");
-        test_pretty("{true}", "{true}");
-        test_pretty("{25}", "{25}");
-        test_pretty("{2.50}", "{2.5}");
-        test_pretty("{1e2}", "{100.0}");
-        test_pretty("{12pt}", "{12pt}");
-        test_pretty("{90.0deg}", "{90deg}");
-        test_pretty("{50%}", "{50%}");
-        test_pretty("{#fff}", "{#ffffff}");
-        test_pretty(r#"{"hi\n"}"#, r#"{"hi\n"}"#);
     }
 }
