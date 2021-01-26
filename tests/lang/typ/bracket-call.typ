@@ -80,7 +80,7 @@
 #let x = "string"
 [x]
 
-// Error: 1:2-1:3 expected function name, found hex value
+// Error: 1:2-1:3 expected function name, found invalid token
 [# 1]
 
 // Error: 4:1-4:1 expected function name

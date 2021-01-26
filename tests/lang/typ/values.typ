@@ -32,9 +32,6 @@
 // Colors.
 {#f7a20500} \
 
-// Error: 1:2-1:5 invalid color
-{#a5}
-
 // Strings and escaping.
 {"hi"} \
 {"a\n[]\"\u{1F680}string"} \

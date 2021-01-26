@@ -19,8 +19,3 @@
 // Missing closing bracket in template expression.
 // Error: 1:11-1:11 expected closing bracket
 {[_] + [4_}
-
-// Opening brace is ignored after one expression is parsed.
-// Error: 2:4-2:5 unexpected hex value
-// Error: 1:5-1:6 unexpected opening brace
-{5 #{}*.*

@@ -1,3 +1,4 @@
+use crate::color::RgbaColor;
 use crate::geom::{AngularUnit, LengthUnit};
 
 /// A minimal semantic entity of source code.
@@ -71,26 +72,26 @@ pub enum Token<'s> {
     And,
     /// The `or` operator.
     Or,
-    /// The `let` / `#let` keyword.
-    Let,
-    /// The `if` / `#if` keyword.
-    If,
-    /// The `else` / `#else` keyword.
-    Else,
-    /// The `for` / `#for` keyword.
-    For,
-    /// The `in` / `#in` keyword.
-    In,
-    /// The `while` / `#while` keyword.
-    While,
-    /// The `break` / `#break` keyword.
-    Break,
-    /// The `continue` / `#continue` keyword.
-    Continue,
-    /// The `return` / `#return` keyword.
-    Return,
     /// The none literal: `none`.
     None,
+    /// The `#let` keyword.
+    Let,
+    /// The `#if` keyword.
+    If,
+    /// The `#else` keyword.
+    Else,
+    /// The `#for` keyword.
+    For,
+    /// The `#in` keyword.
+    In,
+    /// The `#while` keyword.
+    While,
+    /// The `#break` keyword.
+    Break,
+    /// The `#continue` keyword.
+    Continue,
+    /// The `#return` keyword.
+    Return,
     /// One or more whitespace characters.
     ///
     /// The contained `usize` denotes the number of newlines that were contained
@@ -124,8 +125,8 @@ pub enum Token<'s> {
     /// _Note_: `50%` is stored as `50.0` here, as in the corresponding
     /// [literal](super::Expr::Percent).
     Percent(f64),
-    /// A hex value: `#20d82a`.
-    Hex(&'s str),
+    /// A color value: `#20d82a`.
+    Color(RgbaColor),
     /// A quoted string: `"..."`.
     Str(TokenStr<'s>),
     /// Two slashes followed by inner contents, terminated with a newline:
@@ -223,16 +224,16 @@ impl<'s> Token<'s> {
             Self::Not => "operator `not`",
             Self::And => "operator `and`",
             Self::Or => "operator `or`",
-            Self::Let => "keyword `let`",
-            Self::If => "keyword `if`",
-            Self::Else => "keyword `else`",
-            Self::For => "keyword `for`",
-            Self::In => "keyword `in`",
-            Self::While => "keyword `while`",
-            Self::Break => "keyword `break`",
-            Self::Continue => "keyword `continue`",
-            Self::Return => "keyword `return`",
             Self::None => "`none`",
+            Self::Let => "keyword `#let`",
+            Self::If => "keyword `#if`",
+            Self::Else => "keyword `#else`",
+            Self::For => "keyword `#for`",
+            Self::In => "keyword `#in`",
+            Self::While => "keyword `#while`",
+            Self::Break => "keyword `#break`",
+            Self::Continue => "keyword `#continue`",
+            Self::Return => "keyword `#return`",
             Self::Space(_) => "space",
             Self::Text(_) => "text",
             Self::Raw(_) => "raw block",
@@ -245,7 +246,7 @@ impl<'s> Token<'s> {
             Self::Length(..) => "length",
             Self::Angle(..) => "angle",
             Self::Percent(_) => "percentage",
-            Self::Hex(_) => "hex value",
+            Self::Color(_) => "color",
             Self::Str(_) => "string",
             Self::LineComment(_) => "line comment",
             Self::BlockComment(_) => "block comment",

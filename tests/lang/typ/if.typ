@@ -53,7 +53,7 @@ a#if true {}
 a#if true [b] #else c
 
 // Lone else.
-// Error: 2:1-2:6 unexpected keyword `else`
+// Error: 2:1-2:6 unexpected keyword `#else`
 // Error: 1:8-1:8 expected function name
 #else []
 

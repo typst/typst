@@ -49,9 +49,14 @@ impl RgbaColor {
 impl FromStr for RgbaColor {
     type Err = ParseRgbaError;
 
-    /// Constructs a new color from a hex string like `7a03c2`. Do not specify a
-    /// leading `#`.
+    /// Constructs a new color from hex strings like the following:
+    /// - `#aef` (shorthand, with leading hashtag),
+    /// - `7a03c2` (without alpha),
+    /// - `abcdefff` (with alpha).
+    ///
+    /// Both lower and upper case is fine.
     fn from_str(hex_str: &str) -> Result<Self, Self::Err> {
+        let hex_str = hex_str.strip_prefix('#').unwrap_or(hex_str);
         if !hex_str.is_ascii() {
             return Err(ParseRgbaError);
         }

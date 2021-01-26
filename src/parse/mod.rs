@@ -13,9 +13,6 @@ pub use resolve::*;
 pub use scanner::*;
 pub use tokens::*;
 
-use std::str::FromStr;
-
-use crate::color::RgbaColor;
 use crate::diag::Pass;
 use crate::syntax::*;
 
@@ -314,7 +311,7 @@ fn primary(p: &mut Parser) -> Option<Expr> {
         Some(Token::Length(val, unit)) => Expr::Length(val, unit),
         Some(Token::Angle(val, unit)) => Expr::Angle(val, unit),
         Some(Token::Percent(p)) => Expr::Percent(p),
-        Some(Token::Hex(hex)) => Expr::Color(color(p, hex)),
+        Some(Token::Color(color)) => Expr::Color(color),
         Some(Token::Str(token)) => Expr::Str(string(p, token)),
 
         // No value.
@@ -354,15 +351,6 @@ fn paren_call(p: &mut Parser, name: Spanned<Ident>) -> Expr {
     Expr::Call(ExprCall {
         callee: Box::new(name.map(Expr::Ident)),
         args,
-    })
-}
-
-/// Parse a color.
-fn color(p: &mut Parser, hex: &str) -> RgbaColor {
-    RgbaColor::from_str(hex).unwrap_or_else(|_| {
-        // Replace color with black.
-        p.diag(error!(p.peek_span(), "invalid color"));
-        RgbaColor::new(0, 0, 0, 255)
     })
 }
 

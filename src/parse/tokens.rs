@@ -1,6 +1,8 @@
 use std::fmt::{self, Debug, Formatter};
+use std::str::FromStr;
 
 use super::{is_newline, Scanner};
+use crate::color::RgbaColor;
 use crate::geom::{AngularUnit, LengthUnit};
 use crate::syntax::*;
 
@@ -139,7 +141,7 @@ impl<'s> Iterator for Tokens<'s> {
                 }
 
                 // Hex values and strings.
-                '#' => self.hex(),
+                '#' => self.hex(start),
                 '"' => self.string(),
 
                 _ => Token::Invalid(self.s.eaten_from(start)),
@@ -200,16 +202,11 @@ impl<'s> Tokens<'s> {
         if self.s.check(is_id_start) {
             self.s.eat();
             self.s.eat_while(is_id_continue);
-            match self.s.eaten_from(start) {
-                "#let" => Token::Let,
-                "#if" => Token::If,
-                "#else" => Token::Else,
-                "#for" => Token::For,
-                "#while" => Token::While,
-                "#break" => Token::Break,
-                "#continue" => Token::Continue,
-                "#return" => Token::Return,
-                s => Token::Invalid(s),
+            let read = self.s.eaten_from(start);
+            if let Some(keyword) = keyword(read) {
+                keyword
+            } else {
+                Token::Invalid(read)
             }
         } else {
             Token::Hash
@@ -310,15 +307,6 @@ impl<'s> Tokens<'s> {
             "not" => Token::Not,
             "and" => Token::And,
             "or" => Token::Or,
-            "let" => Token::Let,
-            "if" => Token::If,
-            "else" => Token::Else,
-            "for" => Token::For,
-            "in" => Token::In,
-            "while" => Token::While,
-            "break" => Token::Break,
-            "continue" => Token::Continue,
-            "return" => Token::Return,
             "none" => Token::None,
             "true" => Token::Bool(true),
             "false" => Token::Bool(false),
@@ -379,9 +367,16 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    fn hex(&mut self) -> Token<'s> {
-        // Allow more than `ascii_hexdigit` for better error recovery.
-        Token::Hex(self.s.eat_while(|c| c.is_ascii_alphanumeric()))
+    fn hex(&mut self, start: usize) -> Token<'s> {
+        self.s.eat_while(is_id_continue);
+        let read = self.s.eaten_from(start);
+        if let Some(keyword) = keyword(read) {
+            keyword
+        } else if let Ok(color) = RgbaColor::from_str(read) {
+            Token::Color(color)
+        } else {
+            Token::Invalid(read)
+        }
     }
 
     fn string(&mut self) -> Token<'s> {
@@ -440,6 +435,21 @@ impl Debug for Tokens<'_> {
     }
 }
 
+fn keyword(id: &str) -> Option<Token<'static>> {
+    Some(match id {
+        "#let" => Token::Let,
+        "#if" => Token::If,
+        "#else" => Token::Else,
+        "#for" => Token::For,
+        "#in" => Token::In,
+        "#while" => Token::While,
+        "#break" => Token::Break,
+        "#continue" => Token::Continue,
+        "#return" => Token::Return,
+        _ => return None,
+    })
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
@@ -463,6 +473,10 @@ mod tests {
 
     const fn Str(string: &str, terminated: bool) -> Token {
         Token::Str(TokenStr { string, terminated })
+    }
+
+    const fn Color(r: u8, g: u8, b: u8, a: u8) -> Token<'static> {
+        Token::Color(RgbaColor { r, g, b, a })
     }
 
     /// Building blocks for suffix testing.
@@ -495,7 +509,6 @@ mod tests {
         // Letter suffixes.
         ('a', Some(Markup), "hello", Text("hello")),
         ('a', Some(Markup), "💚", Text("💚")),
-        ('a', Some(Code), "if", If),
         ('a', Some(Code), "val", Ident("val")),
         ('a', Some(Code), "α", Ident("α")),
         ('a', Some(Code), "_", Ident("_")),
@@ -510,10 +523,11 @@ mod tests {
         ('/', Some(Markup), "$ $", Math(" ", true, true)),
         ('/', Some(Markup), r"\\", Text(r"\")),
         ('/', Some(Markup), "#let", Let),
+        ('/', Some(Code), "#if", If),
         ('/', Some(Code), "(", LeftParen),
         ('/', Some(Code), ":", Colon),
         ('/', Some(Code), "+=", PlusEq),
-        ('/', Some(Code), "#123", Hex("123")),
+        ('/', Some(Code), "#123", Color(0x11, 0x22, 0x33, 0xff)),
     ];
 
     macro_rules! t {
@@ -633,6 +647,7 @@ mod tests {
             ("if", If),
             ("else", Else),
             ("for", For),
+            ("in", In),
             ("while", While),
             ("break", Break),
             ("continue", Continue),
@@ -640,7 +655,7 @@ mod tests {
         ];
 
         for &(s, t) in &both {
-            t!(Code[" "]: s => t);
+            t!(Code[" "]: format!("#{}", s) => t);
             t!(Markup[" "]: format!("#{}", s) => t);
             t!(Markup[" "]: format!("#{0}#{0}", s) => t, t);
             t!(Markup[" /"]: format!("# {}", s) => Hash, Space(0), Text(s));
@@ -650,7 +665,6 @@ mod tests {
             ("not", Not),
             ("and", And),
             ("or", Or),
-            ("in", In),
             ("none", Token::None),
             ("false", Bool(false)),
             ("true", Bool(true)),
@@ -854,13 +868,10 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenize_hex() {
-        // Test basic hex expressions.
-        t!(Code[" /"]: "#6ae6dd" => Hex("6ae6dd"));
-        t!(Code[" /"]: "#8A083c" => Hex("8A083c"));
-
-        // Test with non-hex letters.
-        t!(Code[" /"]: "#PQ" => Hex("PQ"));
+    fn test_tokenize_color() {
+        t!(Code[" /"]: "#ABC" => Color(0xAA, 0xBB, 0xCC, 0xff));
+        t!(Code[" /"]: "#6ae6dd" => Color(0x6a, 0xe6, 0xdd, 0xff));
+        t!(Code[" /"]: "#8A083caf" => Color(0x8A, 0x08, 0x3c, 0xaf));
     }
 
     #[test]
@@ -924,11 +935,11 @@ mod tests {
         t!(Both: "/**/*/" => BlockComment(""), Token::Invalid("*/"));
 
         // Test invalid expressions.
-        t!(Code: r"\"          => Invalid(r"\"));
-        t!(Code: "🌓"          => Invalid("🌓"));
-        t!(Code: r"\:"         => Invalid(r"\"), Colon);
-        t!(Code: "meal⌚"      => Ident("meal"), Invalid("⌚"));
-        t!(Code[" /"]: r"\a"   => Invalid(r"\"), Ident("a"));
+        t!(Code: r"\"        => Invalid(r"\"));
+        t!(Code: "🌓"        => Invalid("🌓"));
+        t!(Code: r"\:"       => Invalid(r"\"), Colon);
+        t!(Code: "meal⌚"    => Ident("meal"), Invalid("⌚"));
+        t!(Code[" /"]: r"\a" => Invalid(r"\"), Ident("a"));
 
         // Test invalid number suffixes.
         t!(Code[" /"]: "1foo" => Invalid("1foo"));
@@ -936,7 +947,8 @@ mod tests {
         t!(Code: "1%%"        => Percent(1.0), Invalid("%"));
 
         // Test invalid keyword.
-        t!(Markup[" /"]: "#-" => Hash, Text("-"));
-        t!(Markup[" "]: "#do" => Invalid("#do"))
+        t!(Markup[" /"]: "#-"     => Hash, Text("-"));
+        t!(Markup[" /"]: "#do"    => Invalid("#do"));
+        t!(Code[" /"]: r"#letter" => Invalid(r"#letter"));
     }
 }
