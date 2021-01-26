@@ -319,6 +319,7 @@ fn primary(p: &mut Parser) -> Option<Expr> {
         // Keywords.
         Some(Token::Let) => return expr_let(p),
         Some(Token::If) => return expr_if(p),
+        Some(Token::For) => return expr_for(p),
 
         // No value.
         _ => {
@@ -417,7 +418,27 @@ fn expr_if(p: &mut Parser) -> Option<Expr> {
     expr_if
 }
 
+/// Parse a for expression.
+fn expr_for(p: &mut Parser) -> Option<Expr> {
+    p.assert(Token::For);
 
+    let mut expr_for = None;
+    if let Some(pat) = p.span_if(ident) {
+        if p.expect(Token::In) {
+            if let Some(iter) = p.span_if(expr) {
+                if let Some(body) = p.span_if(body) {
+                    expr_for = Some(Expr::For(ExprFor {
+                        pat,
+                        iter: Box::new(iter),
+                        body: Box::new(body),
+                    }));
+                }
+            }
+        }
+    }
+
+    expr_for
+}
 
 /// Parse an identifier.
 fn ident(p: &mut Parser) -> Option<Ident> {

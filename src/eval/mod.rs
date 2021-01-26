@@ -182,6 +182,7 @@ impl Eval for Spanned<&Expr> {
             Expr::Binary(v) => v.with_span(self.span).eval(ctx),
             Expr::Let(v) => v.with_span(self.span).eval(ctx),
             Expr::If(v) => v.with_span(self.span).eval(ctx),
+            Expr::For(v) => v.with_span(self.span).eval(ctx),
         }
     }
 }
@@ -366,6 +367,41 @@ impl Eval for Spanned<&ExprIf> {
                 self.v.condition.span,
                 "expected boolean, found {}",
                 condition.type_name(),
+            ));
+        }
+
+        Value::Error
+    }
+}
+
+impl Eval for Spanned<&ExprFor> {
+    type Output = Value;
+
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        let iter = self.v.iter.eval(ctx);
+        if let Value::Array(array) = iter {
+            let mut output = match self.v.body.v {
+                Expr::Template(_) => Value::Template(vec![]),
+                _ => Value::None,
+            };
+
+            for value in array {
+                ctx.scopes.define(self.v.pat.v.as_str(), value);
+                let value = self.v.body.eval(ctx);
+
+                if let Value::Template(prev) = &mut output {
+                    if let Value::Template(new) = value {
+                        prev.extend(new);
+                    }
+                }
+            }
+
+            return output;
+        } else if iter != Value::Error {
+            ctx.diag(error!(
+                self.v.iter.span,
+                "expected array, found {}",
+                iter.type_name(),
             ));
         }
 

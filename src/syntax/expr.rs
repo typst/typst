@@ -48,6 +48,8 @@ pub enum Expr {
     Let(ExprLet),
     /// An if expression: `if x { y } else { z }`.
     If(ExprIf),
+    /// A for expression: `for x in y { z }`.
+    For(ExprFor),
 }
 
 impl Pretty for Expr {
@@ -81,6 +83,7 @@ impl Pretty for Expr {
             Self::Call(v) => v.pretty(p),
             Self::Let(v) => v.pretty(p),
             Self::If(v) => v.pretty(p),
+            Self::For(v) => v.pretty(p),
         }
     }
 }
@@ -519,6 +522,27 @@ impl Pretty for ExprIf {
     }
 }
 
+/// A for expression: `for x in y { z }`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprFor {
+    /// The pattern to assign to.
+    pub pat: Spanned<Ident>,
+    /// The expression to iterate over.
+    pub iter: SpanBox<Expr>,
+    /// The expression to evaluate for each iteration.
+    pub body: SpanBox<Expr>,
+}
+
+impl Pretty for ExprFor {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("#for ");
+        p.push_str(&self.pat.v);
+        p.push_str(" #in ");
+        self.iter.v.pretty(p);
+        p.push_str(" ");
+        self.body.v.pretty(p);
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::super::tests::test_pretty;
@@ -560,6 +584,7 @@ mod tests {
         // Control flow.
         test_pretty("#let x = 1+2", "#let x = 1 + 2");
         test_pretty("#if x [y] #else [z]", "#if x [y] #else [z]");
+        test_pretty("#for x #in y {z}", "#for x #in y {z}");
     }
 
     #[test]
