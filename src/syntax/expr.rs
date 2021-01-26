@@ -36,19 +36,19 @@ pub enum Expr {
     Template(ExprTemplate),
     /// A grouped expression: `(1 + 2)`.
     Group(ExprGroup),
-    /// A block expression: `{1 + 2}`.
+    /// A block expression: `{ #let x = 1; x + 2 }`.
     Block(ExprBlock),
     /// A unary operation: `-x`.
     Unary(ExprUnary),
-    /// A binary operation: `a + b`, `a / b`.
+    /// A binary operation: `a + b`.
     Binary(ExprBinary),
-    /// An invocation of a function: `[foo ...]`, `foo(...)`.
+    /// An invocation of a function: `foo(...)`, `[foo ...]`.
     Call(ExprCall),
-    /// A let expression: `let x = 1`.
+    /// A let expression: `#let x = 1`.
     Let(ExprLet),
-    /// An if expression: `if x { y } else { z }`.
+    /// An if expression: `#if x { y } #else { z }`.
     If(ExprIf),
-    /// A for expression: `for x in y { z }`.
+    /// A for expression: `#for x #in y { z }`.
     For(ExprFor),
 }
 
@@ -140,7 +140,7 @@ pub type ExprTemplate = Tree;
 /// A grouped expression: `(1 + 2)`.
 pub type ExprGroup = SpanBox<Expr>;
 
-/// A block expression: `{1 + 2}`.
+/// A block expression: `{ #let x = 1; x + 2 }`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprBlock {
     /// The list of expressions contained in the block.
@@ -226,7 +226,7 @@ impl Pretty for UnOp {
     }
 }
 
-/// A binary operation: `a + b`, `a / b`.
+/// A binary operation: `a + b`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprBinary {
     /// The left-hand side of the operation: `a`.
@@ -389,7 +389,7 @@ pub enum Associativity {
     Right,
 }
 
-/// An invocation of a function: `[foo ...]`, `foo(...)`.
+/// An invocation of a function: `foo(...)`, `[foo ...]`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprCall {
     /// The callee of the function.
@@ -478,7 +478,7 @@ impl Pretty for Argument {
     }
 }
 
-/// A let expression: `let x = 1`.
+/// A let expression: `#let x = 1`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprLet {
     /// The pattern to assign to.
@@ -498,7 +498,7 @@ impl Pretty for ExprLet {
     }
 }
 
-/// An if expression: `if x { y } else { z }`.
+/// An if expression: `#if x { y } #else { z }`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprIf {
     /// The condition which selects the body to evaluate.
@@ -522,7 +522,7 @@ impl Pretty for ExprIf {
     }
 }
 
-/// A for expression: `for x in y { z }`.
+/// A for expression: `#for x #in y { z }`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprFor {
     /// The pattern to assign to.
