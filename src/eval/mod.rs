@@ -275,7 +275,7 @@ impl Eval for Spanned<&ExprBinary> {
 
 impl Spanned<&ExprBinary> {
     /// Apply a basic binary operation.
-    fn apply<F>(&self, ctx: &mut EvalContext, op: F) -> Value
+    fn apply<F>(self, ctx: &mut EvalContext, op: F) -> Value
     where
         F: FnOnce(Value, Value) -> Value,
     {
@@ -311,7 +311,7 @@ impl Spanned<&ExprBinary> {
     }
 
     /// Apply an assignment operation.
-    fn assign<F>(&self, ctx: &mut EvalContext, op: F) -> Value
+    fn assign<F>(self, ctx: &mut EvalContext, op: F) -> Value
     where
         F: FnOnce(Value, Value) -> Value,
     {
@@ -379,30 +379,56 @@ impl Eval for Spanned<&ExprFor> {
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         let iter = self.v.iter.eval(ctx);
-        if let Value::Array(array) = iter {
-            let mut output = match self.v.body.v {
-                Expr::Template(_) => Value::Template(vec![]),
-                _ => Value::None,
-            };
+        let mut output = if let Expr::Template(_) = self.v.body.v {
+            Value::Template(vec![])
+        } else {
+            Value::None
+        };
 
-            for value in array {
-                ctx.scopes.define(self.v.pat.v.as_str(), value);
-                let value = self.v.body.eval(ctx);
+        macro_rules! iterate {
+            (for ($($binding:ident => $value:ident),*) in $iter:expr) => {
+                #[allow(unused_parens)]
+                for ($($value),*) in $iter {
+                    $(ctx.scopes.define($binding.as_str(), $value);)*
 
-                if let Value::Template(prev) = &mut output {
-                    if let Value::Template(new) = value {
-                        prev.extend(new);
+                    let value = self.v.body.eval(ctx);
+
+                    if let Value::Template(prev) = &mut output {
+                        if let Value::Template(new) = value {
+                            prev.extend(new);
+                        }
                     }
                 }
+
+                return output;
+            };
+        }
+
+        match (self.v.pat.v.clone(), iter) {
+            (ForPattern::Value(v), Value::Str(string)) => {
+                iterate!(for (v => value) in string.chars().map(|c| Value::Str(c.into())));
+            }
+            (ForPattern::Value(v), Value::Array(array)) => {
+                iterate!(for (v => value) in array.into_iter());
+            }
+            (ForPattern::Value(v), Value::Dict(dict)) => {
+                iterate!(for (v => value) in dict.into_iter().map(|p| p.1));
+            }
+            (ForPattern::KeyValue(k, v), Value::Dict(dict)) => {
+                iterate!(for (k => key, v => value) in dict.into_iter());
             }
 
-            return output;
-        } else if iter != Value::Error {
-            ctx.diag(error!(
+            (ForPattern::KeyValue(..), Value::Str(_))
+            | (ForPattern::KeyValue(..), Value::Array(_)) => {
+                ctx.diag(error!(self.v.pat.span, "mismatched pattern",));
+            }
+
+            (_, Value::Error) => {}
+            (_, iter) => ctx.diag(error!(
                 self.v.iter.span,
-                "expected array, found {}",
+                "cannot loop over {}",
                 iter.type_name(),
-            ));
+            )),
         }
 
         Value::Error

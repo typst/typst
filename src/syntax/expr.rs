@@ -528,7 +528,7 @@ impl Pretty for ExprIf {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprFor {
     /// The pattern to assign to.
-    pub pat: Spanned<Ident>,
+    pub pat: Spanned<ForPattern>,
     /// The expression to iterate over.
     pub iter: SpanBox<Expr>,
     /// The expression to evaluate for each iteration.
@@ -538,10 +538,32 @@ pub struct ExprFor {
 impl Pretty for ExprFor {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("#for ");
-        p.push_str(&self.pat.v);
+        self.pat.v.pretty(p);
         p.push_str(" #in ");
         self.iter.v.pretty(p);
         p.push_str(" ");
         self.body.v.pretty(p);
+    }
+}
+
+/// A pattern in a for loop.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ForPattern {
+    /// A value pattern: `#for v #in array`.
+    Value(Ident),
+    /// A key-value pattern: `#for k, v #in dict`.
+    KeyValue(Ident, Ident),
+}
+
+impl Pretty for ForPattern {
+    fn pretty(&self, p: &mut Printer) {
+        match self {
+            Self::Value(v) => p.push_str(&v),
+            Self::KeyValue(k, v) => {
+                p.push_str(&k);
+                p.push_str(", ");
+                p.push_str(&v);
+            }
+        }
     }
 }

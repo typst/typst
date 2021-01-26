@@ -127,5 +127,6 @@ mod tests {
         roundtrip("#let x = 1 + 2");
         roundtrip("#if x [y] #else [z]");
         roundtrip("#for x #in y {z}");
+        roundtrip("#for k, x #in y {z}");
     }
 }

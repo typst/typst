@@ -423,7 +423,7 @@ fn expr_for(p: &mut Parser) -> Option<Expr> {
     p.assert(Token::For);
 
     let mut expr_for = None;
-    if let Some(pat) = p.span_if(ident) {
+    if let Some(pat) = p.span_if(for_pattern) {
         if p.expect(Token::In) {
             if let Some(iter) = p.span_if(expr) {
                 if let Some(body) = p.span_if(body) {
@@ -438,6 +438,17 @@ fn expr_for(p: &mut Parser) -> Option<Expr> {
     }
 
     expr_for
+}
+
+/// Parse a for loop pattern.
+fn for_pattern(p: &mut Parser) -> Option<ForPattern> {
+    let first = ident(p)?;
+    if p.eat_if(Token::Comma) {
+        if let Some(second) = ident(p) {
+            return Some(ForPattern::KeyValue(first, second));
+        }
+    }
+    Some(ForPattern::Value(first))
 }
 
 /// Parse an identifier.
