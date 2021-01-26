@@ -6,15 +6,18 @@
 // Braced condition is fine.
 #if {true} {"3"}
 
-// Newline between body and else-clause.
-#if false []
-#else [4]
+// Newlines.
+#if false [
+
+] #else [
+    4
+]
 
 // Multiline (condition needs parens because it's terminated by the line break,
 // just like the right-hand side of a let-binding).
-#if
+#if (
     x
-{
+) {
     "Fi" + "ve"
 }
 
@@ -44,17 +47,13 @@ a#if }
 // Error: 1:16-1:16 expected body
 a#if x b#if (x)c
 
-// Needs if-body expression.
-// Error: 1:12-1:12 expected expression
-a#if true {}
-
 // Needs else-body.
 // Error: 1:20-1:20 expected body
 a#if true [b] #else c
 
 // Lone else.
 // Error: 2:1-2:6 unexpected keyword `#else`
-// Error: 1:8-1:8 expected function name
+// Error: 1:8-1:8 expected identifier
 #else []
 
 // Condition must be boolean. If it isn't, neither branch is evaluated.

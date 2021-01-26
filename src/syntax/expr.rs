@@ -75,11 +75,7 @@ impl Pretty for Expr {
                 v.v.pretty(p);
                 p.push_str(")");
             }
-            Self::Block(v) => {
-                p.push_str("{");
-                v.v.pretty(p);
-                p.push_str("}");
-            }
+            Self::Block(v) => v.pretty(p),
             Self::Unary(v) => v.pretty(p),
             Self::Binary(v) => v.pretty(p),
             Self::Call(v) => v.pretty(p),
@@ -139,10 +135,28 @@ impl Pretty for Named {
 pub type ExprTemplate = Tree;
 
 /// A grouped expression: `(1 + 2)`.
-pub type ExprGroup = Box<Spanned<Expr>>;
+pub type ExprGroup = SpanBox<Expr>;
 
 /// A block expression: `{1 + 2}`.
-pub type ExprBlock = Box<Spanned<Expr>>;
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprBlock {
+    /// The list of expressions contained in the block.
+    pub exprs: SpanVec<Expr>,
+}
+
+impl Pretty for ExprBlock {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("{");
+        if self.exprs.len() > 1 {
+            p.push_str(" ");
+        }
+        p.join(&self.exprs, "; ", |expr, p| expr.v.pretty(p));
+        if self.exprs.len() > 1 {
+            p.push_str(" ");
+        }
+        p.push_str("}");
+    }
+}
 
 /// A unary operation: `-x`.
 #[derive(Debug, Clone, PartialEq)]
@@ -150,7 +164,7 @@ pub struct ExprUnary {
     /// The operator: `-`.
     pub op: Spanned<UnOp>,
     /// The expression to operator on: `x`.
-    pub expr: Box<Spanned<Expr>>,
+    pub expr: SpanBox<Expr>,
 }
 
 impl Pretty for ExprUnary {
@@ -213,11 +227,11 @@ impl Pretty for UnOp {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprBinary {
     /// The left-hand side of the operation: `a`.
-    pub lhs: Box<Spanned<Expr>>,
+    pub lhs: SpanBox<Expr>,
     /// The operator: `+`.
     pub op: Spanned<BinOp>,
     /// The right-hand side of the operation: `b`.
-    pub rhs: Box<Spanned<Expr>>,
+    pub rhs: SpanBox<Expr>,
 }
 
 impl Pretty for ExprBinary {
@@ -376,7 +390,7 @@ pub enum Associativity {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprCall {
     /// The callee of the function.
-    pub callee: Box<Spanned<Expr>>,
+    pub callee: SpanBox<Expr>,
     /// The arguments to the function.
     pub args: Spanned<ExprArgs>,
 }
@@ -466,17 +480,17 @@ impl Pretty for Argument {
 pub struct ExprLet {
     /// The pattern to assign to.
     pub pat: Spanned<Ident>,
-    /// The expression to assign to the pattern.
-    pub expr: Option<Box<Spanned<Expr>>>,
+    /// The expression the pattern is initialized with.
+    pub init: Option<SpanBox<Expr>>,
 }
 
 impl Pretty for ExprLet {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("#let ");
         p.push_str(&self.pat.v);
-        if let Some(expr) = &self.expr {
+        if let Some(init) = &self.init {
             p.push_str(" = ");
-            expr.v.pretty(p);
+            init.v.pretty(p);
         }
     }
 }
@@ -485,11 +499,11 @@ impl Pretty for ExprLet {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprIf {
     /// The condition which selects the body to evaluate.
-    pub condition: Box<Spanned<Expr>>,
+    pub condition: SpanBox<Expr>,
     /// The expression to evaluate if the condition is true.
-    pub if_body: Box<Spanned<Expr>>,
+    pub if_body: SpanBox<Expr>,
     /// The expression to evaluate if the condition is false.
-    pub else_body: Option<Box<Spanned<Expr>>>,
+    pub else_body: Option<SpanBox<Expr>>,
 }
 
 impl Pretty for ExprIf {
@@ -520,6 +534,7 @@ mod tests {
     #[test]
     fn test_pretty_print_expressions() {
         // Unary and binary operations.
+        test_pretty("{}", "{}");
         test_pretty("{1 +}", "{1}");
         test_pretty("{1++1}", "{1 + +1}");
         test_pretty("{+-1}", "{+-1}");

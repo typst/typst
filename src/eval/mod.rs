@@ -68,7 +68,7 @@ impl Eval for &[Spanned<Node>] {
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         for node in self {
-            node.as_ref().eval(ctx);
+            node.eval(ctx);
         }
     }
 }
@@ -175,8 +175,8 @@ impl Eval for Spanned<&Expr> {
             Expr::Array(v) => Value::Array(v.with_span(self.span).eval(ctx)),
             Expr::Dict(v) => Value::Dict(v.with_span(self.span).eval(ctx)),
             Expr::Template(v) => Value::Template(v.clone()),
-            Expr::Group(v) => v.as_ref().eval(ctx),
-            Expr::Block(v) => v.as_ref().eval(ctx),
+            Expr::Group(v) => v.eval(ctx),
+            Expr::Block(v) => v.with_span(self.span).eval(ctx),
             Expr::Call(v) => v.with_span(self.span).eval(ctx),
             Expr::Unary(v) => v.with_span(self.span).eval(ctx),
             Expr::Binary(v) => v.with_span(self.span).eval(ctx),
@@ -190,7 +190,7 @@ impl Eval for Spanned<&ExprArray> {
     type Output = ValueArray;
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        self.v.iter().map(|expr| expr.as_ref().eval(ctx)).collect()
+        self.v.iter().map(|expr| expr.eval(ctx)).collect()
     }
 }
 
@@ -200,8 +200,20 @@ impl Eval for Spanned<&ExprDict> {
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         self.v
             .iter()
-            .map(|Named { name, expr }| (name.v.0.clone(), expr.as_ref().eval(ctx)))
+            .map(|Named { name, expr }| (name.v.0.clone(), expr.eval(ctx)))
             .collect()
+    }
+}
+
+impl Eval for Spanned<&ExprBlock> {
+    type Output = Value;
+
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        let mut output = Value::None;
+        for expr in &self.v.exprs {
+            output = expr.eval(ctx);
+        }
+        output
     }
 }
 
@@ -209,7 +221,7 @@ impl Eval for Spanned<&ExprUnary> {
     type Output = Value;
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        let value = self.v.expr.as_ref().eval(ctx);
+        let value = self.v.expr.eval(ctx);
         if value == Value::Error {
             return Value::Error;
         }
@@ -327,8 +339,8 @@ impl Eval for Spanned<&ExprLet> {
     type Output = Value;
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        let value = match &self.v.expr {
-            Some(expr) => expr.as_ref().eval(ctx),
+        let value = match &self.v.init {
+            Some(expr) => expr.eval(ctx),
             None => Value::None,
         };
         ctx.scopes.define(self.v.pat.v.as_str(), value);

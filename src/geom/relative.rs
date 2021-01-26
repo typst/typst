@@ -94,6 +94,14 @@ impl Div<f64> for Relative {
     }
 }
 
+impl Div for Relative {
+    type Output = f64;
+
+    fn div(self, other: Self) -> f64 {
+        self.0 / other.0
+    }
+}
+
 assign_impl!(Relative += Relative);
 assign_impl!(Relative -= Relative);
 assign_impl!(Relative *= f64);

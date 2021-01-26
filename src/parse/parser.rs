@@ -103,10 +103,11 @@ impl<'s> Parser<'s> {
 
         self.groups.push(group);
         self.repeek();
+
         match group {
-            Group::Paren => self.eat_assert(Token::LeftParen),
-            Group::Bracket => self.eat_assert(Token::LeftBracket),
-            Group::Brace => self.eat_assert(Token::LeftBrace),
+            Group::Paren => self.assert(Token::LeftParen),
+            Group::Bracket => self.assert(Token::LeftBracket),
+            Group::Brace => self.assert(Token::LeftBrace),
             Group::Subheader => {}
             Group::Stmt => {}
             Group::Expr => {}
@@ -199,8 +200,18 @@ impl<'s> Parser<'s> {
         mapped
     }
 
+    /// Consume the next token if it is the given one and produce an error if
+    /// not.
+    pub fn expect(&mut self, t: Token) -> bool {
+        let eaten = self.eat_if(t);
+        if !eaten {
+            self.expected(t.name());
+        }
+        eaten
+    }
+
     /// Consume the next token, debug-asserting that it is the given one.
-    pub fn eat_assert(&mut self, t: Token) {
+    pub fn assert(&mut self, t: Token) {
         let next = self.eat();
         debug_assert_eq!(next, Some(t));
     }
@@ -277,6 +288,7 @@ impl<'s> Parser<'s> {
         scanner
     }
 
+    /// Move to the next token, skipping whitespace and comments in code mode.
     fn bump(&mut self) {
         self.last_end = self.tokens.pos();
         self.next_start = self.tokens.pos();
@@ -286,11 +298,7 @@ impl<'s> Parser<'s> {
             TokenMode::Markup => {}
             TokenMode::Code => loop {
                 match self.next {
-                    Some(Token::Space(n)) => {
-                        if n >= 1 && self.groups.last() == Some(&Group::Stmt) {
-                            break;
-                        }
-                    }
+                    Some(Token::Space(n)) if n < 1 || !self.in_line_group() => {}
                     Some(Token::LineComment(_)) => {}
                     Some(Token::BlockComment(_)) => {}
                     _ => break,
@@ -304,6 +312,7 @@ impl<'s> Parser<'s> {
         self.repeek();
     }
 
+    /// Take another look at the next token to recheck whether it ends a group.
     fn repeek(&mut self) {
         self.peeked = self.next;
         let token = match self.next {
@@ -316,12 +325,17 @@ impl<'s> Parser<'s> {
             Token::RightBracket if self.groups.contains(&Group::Bracket) => {}
             Token::RightBrace if self.groups.contains(&Group::Brace) => {}
             Token::Semicolon if self.groups.contains(&Group::Stmt) => {}
-            Token::Space(n) if n >= 1 && self.groups.last() == Some(&Group::Stmt) => {}
+            Token::Space(n) if n >= 1 && self.in_line_group() => {}
             Token::Pipe if self.groups.contains(&Group::Subheader) => {}
             _ => return,
         }
 
         self.peeked = None;
+    }
+
+    /// Whether the active group ends at a newline.
+    fn in_line_group(&self) -> bool {
+        matches!(self.groups.last(), Some(&Group::Stmt) | Some(&Group::Expr))
     }
 }
 

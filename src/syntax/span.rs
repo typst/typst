@@ -34,6 +34,9 @@ impl<T> Offset for SpanVec<T> {
     }
 }
 
+/// A box of a spanned value of type `T`.
+pub type SpanBox<T> = Box<Spanned<T>>;
+
 /// A value with the span it corresponds to in the source code.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]

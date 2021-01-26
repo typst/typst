@@ -33,18 +33,18 @@
 [f|f|f]
 
 // With body.
-// Error: 1:6-1:7 expected function name, found integer
+// Error: 1:6-1:7 expected identifier, found integer
 [f | 1 | box][💕]
 
-// Error: 2:2-2:2 expected function name
-// Error: 1:3-1:3 expected function name
+// Error: 2:2-2:2 expected identifier
+// Error: 1:3-1:3 expected identifier
 [||f true]
 
-// Error: 1:6-1:6 expected function name
+// Error: 1:6-1:6 expected identifier
 [f 1|]
 
-// Error: 2:2-2:2 expected function name
-// Error: 1:3-1:3 expected function name
+// Error: 2:2-2:2 expected identifier
+// Error: 1:3-1:3 expected identifier
 [|][Nope]
 
 // Error: 2:5-2:5 expected closing paren
@@ -80,16 +80,16 @@
 #let x = "string"
 [x]
 
-// Error: 1:2-1:3 expected function name, found invalid token
+// Error: 1:2-1:3 expected identifier, found invalid token
 [# 1]
 
-// Error: 4:1-4:1 expected function name
+// Error: 4:1-4:1 expected identifier
 // Error: 3:1-3:1 expected closing bracket
 [
 
 ---
 // Ref: false
-// Error: 2:2-2:3 expected function name, found closing paren
+// Error: 2:2-2:3 expected identifier, found closing paren
 // Error: 3:1-3:1 expected closing bracket
 [)
 
