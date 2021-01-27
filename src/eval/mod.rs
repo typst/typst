@@ -388,11 +388,7 @@ impl Eval for Spanned<&ExprFor> {
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
         let iter = self.v.iter.eval(ctx);
-        let mut output = if let Expr::Template(_) = self.v.body.v {
-            Value::Template(vec![])
-        } else {
-            Value::None
-        };
+        let mut output = vec![];
 
         macro_rules! iterate {
             (for ($($binding:ident => $value:ident),*) in $iter:expr) => {
@@ -400,16 +396,12 @@ impl Eval for Spanned<&ExprFor> {
                 for ($($value),*) in $iter {
                     $(ctx.scopes.define($binding.as_str(), $value);)*
 
-                    let value = self.v.body.eval(ctx);
-
-                    if let Value::Template(prev) = &mut output {
-                        if let Value::Template(new) = value {
-                            prev.extend(new);
-                        }
+                    if let Value::Template(new) = self.v.body.eval(ctx) {
+                        output.extend(new);
                     }
                 }
 
-                return output;
+                return Value::Template(output);
             };
         }
 
