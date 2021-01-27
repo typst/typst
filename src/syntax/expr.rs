@@ -147,6 +147,8 @@ pub type ExprGroup = SpanBox<Expr>;
 pub struct ExprBlock {
     /// The list of expressions contained in the block.
     pub exprs: SpanVec<Expr>,
+    /// Whether the block should create a scope.
+    pub scopes: bool,
 }
 
 impl Pretty for ExprBlock {

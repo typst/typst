@@ -210,10 +210,19 @@ impl Eval for Spanned<&ExprBlock> {
     type Output = Value;
 
     fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        if self.v.scopes {
+            ctx.scopes.push();
+        }
+
         let mut output = Value::None;
         for expr in &self.v.exprs {
             output = expr.eval(ctx);
         }
+
+        if self.v.scopes {
+            ctx.scopes.pop();
+        }
+
         output
     }
 }

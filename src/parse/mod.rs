@@ -52,7 +52,7 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
 
         // Code block.
         Token::LeftBrace => {
-            return Some(Node::Expr(block(p)?));
+            return Some(Node::Expr(block(p, false)?));
         }
 
         // Markup.
@@ -285,7 +285,7 @@ fn primary(p: &mut Parser) -> Option<Expr> {
 
         // Nested block.
         Some(Token::LeftBrace) => {
-            return block(p);
+            return block(p, true);
         }
 
         // Dictionary or just a parenthesized expression.
@@ -340,7 +340,7 @@ fn template(p: &mut Parser) -> Expr {
 }
 
 /// Parse a block expression: `{...}`.
-fn block(p: &mut Parser) -> Option<Expr> {
+fn block(p: &mut Parser, scopes: bool) -> Option<Expr> {
     p.start_group(Group::Brace, TokenMode::Code);
     let mut exprs = vec![];
     while !p.eof() {
@@ -355,7 +355,7 @@ fn block(p: &mut Parser) -> Option<Expr> {
         p.skip_white();
     }
     p.end_group();
-    Some(Expr::Block(ExprBlock { exprs }))
+    Some(Expr::Block(ExprBlock { exprs, scopes }))
 }
 
 /// Parse a parenthesized function call.
@@ -469,7 +469,7 @@ fn ident(p: &mut Parser) -> Option<Ident> {
 fn body(p: &mut Parser) -> Option<Expr> {
     match p.peek() {
         Some(Token::LeftBracket) => Some(template(p)),
-        Some(Token::LeftBrace) => block(p),
+        Some(Token::LeftBrace) => block(p, true),
         _ => {
             p.expected_at("body", p.last_end());
             None

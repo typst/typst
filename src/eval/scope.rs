@@ -4,7 +4,7 @@ use std::iter;
 
 use super::Value;
 
-/// A hierarchy of scopes.
+/// A stack of scopes.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Scopes<'a> {
     /// The active scope.
@@ -21,6 +21,19 @@ impl<'a> Scopes<'a> {
         Self { top: Scope::new(), scopes: vec![], base }
     }
 
+    /// Push a new scope.
+    pub fn push(&mut self) {
+        self.scopes.push(std::mem::take(&mut self.top));
+    }
+
+    /// Pop the topmost scope.
+    ///
+    /// # Panics
+    /// Panics if no scope was pushed.
+    pub fn pop(&mut self) {
+        self.top = self.scopes.pop().expect("no pushed scope");
+    }
+
     /// Define a variable in the active scope.
     pub fn define(&mut self, var: impl Into<String>, value: impl Into<Value>) {
         self.top.define(var, value);
@@ -29,7 +42,7 @@ impl<'a> Scopes<'a> {
     /// Look up the value of a variable.
     pub fn get(&self, var: &str) -> Option<&Value> {
         iter::once(&self.top)
-            .chain(&self.scopes)
+            .chain(self.scopes.iter().rev())
             .chain(iter::once(self.base))
             .find_map(|scope| scope.get(var))
     }
@@ -37,7 +50,7 @@ impl<'a> Scopes<'a> {
     /// Get a mutable reference to a variable.
     pub fn get_mut(&mut self, var: &str) -> Option<&mut Value> {
         iter::once(&mut self.top)
-            .chain(&mut self.scopes)
+            .chain(self.scopes.iter_mut().rev())
             .find_map(|scope| scope.get_mut(var))
     }
 
