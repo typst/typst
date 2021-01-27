@@ -86,7 +86,7 @@
 // Error: 1:3-1:8 cannot assign to this expression
 { 1 + 2 = 3}
 
-// Error: 1:3-1:6 cannot assign to constant
+// Error: 1:3-1:6 cannot assign to a constant
 { box = "hi" }
 
 // Works if we define box before (since then it doesn't resolve to the standard

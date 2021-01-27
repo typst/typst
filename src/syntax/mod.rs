@@ -5,6 +5,7 @@ mod ident;
 mod node;
 mod span;
 mod token;
+pub mod visit;
 
 pub use expr::*;
 pub use ident::*;

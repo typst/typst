@@ -87,7 +87,14 @@ impl Eval for &Value {
         ctx.push(ctx.make_text_node(match self {
             Value::None => return,
             Value::Str(s) => s.clone(),
-            Value::Template(tree) => return tree.eval(ctx),
+            Value::Template(tree) => {
+                // We do not want to allow the template access to the current
+                // scopes.
+                let prev = std::mem::take(&mut ctx.scopes);
+                tree.eval(ctx);
+                ctx.scopes = prev;
+                return;
+            }
             other => pretty(other),
         }));
     }
@@ -195,7 +202,7 @@ impl Deref for ValueFunc {
 
 impl Pretty for ValueFunc {
     fn pretty(&self, p: &mut Printer) {
-        write!(p, "(function {})", self.name).unwrap();
+        p.push_str(&self.name);
     }
 }
 
@@ -515,7 +522,7 @@ mod tests {
         test_pretty(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
         test_pretty("hello", r#""hello""#);
         test_pretty(vec![Spanned::zero(Node::Strong)], "[*]");
-        test_pretty(ValueFunc::new("nil", |_, _| Value::None), "(function nil)");
+        test_pretty(ValueFunc::new("nil", |_, _| Value::None), "nil");
         test_pretty(ValueAny::new(1), "1");
         test_pretty(Value::Error, "(error)");
     }

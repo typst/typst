@@ -7,6 +7,7 @@ mod context;
 mod ops;
 mod scope;
 mod state;
+mod template;
 
 pub use call::*;
 pub use context::*;
@@ -174,7 +175,7 @@ impl Eval for Spanned<&Expr> {
             Expr::Str(v) => Value::Str(v.clone()),
             Expr::Array(v) => Value::Array(v.with_span(self.span).eval(ctx)),
             Expr::Dict(v) => Value::Dict(v.with_span(self.span).eval(ctx)),
-            Expr::Template(v) => Value::Template(v.clone()),
+            Expr::Template(v) => v.with_span(self.span).eval(ctx),
             Expr::Group(v) => v.eval(ctx),
             Expr::Block(v) => v.with_span(self.span).eval(ctx),
             Expr::Call(v) => v.with_span(self.span).eval(ctx),
@@ -183,6 +184,7 @@ impl Eval for Spanned<&Expr> {
             Expr::Let(v) => v.with_span(self.span).eval(ctx),
             Expr::If(v) => v.with_span(self.span).eval(ctx),
             Expr::For(v) => v.with_span(self.span).eval(ctx),
+            Expr::CapturedValue(v) => v.clone(),
         }
     }
 }
@@ -327,18 +329,28 @@ impl Spanned<&ExprBinary> {
         let rhs = self.v.rhs.eval(ctx);
         let span = self.v.lhs.span;
 
-        if let Expr::Ident(id) = &self.v.lhs.v {
-            if let Some(slot) = ctx.scopes.get_mut(id) {
-                let lhs = std::mem::replace(slot, Value::None);
-                *slot = op(lhs, rhs);
-                return Value::None;
-            } else if ctx.scopes.is_const(id) {
-                ctx.diag(error!(span, "cannot assign to constant"));
-            } else {
-                ctx.diag(error!(span, "unknown variable"));
+        match &self.v.lhs.v {
+            Expr::Ident(id) => {
+                if let Some(slot) = ctx.scopes.get_mut(id) {
+                    *slot = op(std::mem::take(slot), rhs);
+                    return Value::None;
+                } else if ctx.scopes.is_const(id) {
+                    ctx.diag(error!(span, "cannot assign to a constant"));
+                } else {
+                    ctx.diag(error!(span, "unknown variable"));
+                }
             }
-        } else {
-            ctx.diag(error!(span, "cannot assign to this expression"));
+
+            Expr::CapturedValue(_) => {
+                ctx.diag(error!(
+                    span,
+                    "cannot assign to captured expression in a template",
+                ));
+            }
+
+            _ => {
+                ctx.diag(error!(span, "cannot assign to this expression"));
+            }
         }
 
         Value::Error
@@ -421,7 +433,7 @@ impl Eval for Spanned<&ExprFor> {
 
             (ForPattern::KeyValue(..), Value::Str(_))
             | (ForPattern::KeyValue(..), Value::Array(_)) => {
-                ctx.diag(error!(self.v.pat.span, "mismatched pattern",));
+                ctx.diag(error!(self.v.pat.span, "mismatched pattern"));
             }
 
             (_, Value::Error) => {}

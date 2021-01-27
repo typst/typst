@@ -5,19 +5,19 @@ use std::iter;
 use super::Value;
 
 /// A stack of scopes.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Scopes<'a> {
     /// The active scope.
     top: Scope,
     /// The stack of lower scopes.
     scopes: Vec<Scope>,
     /// The base scope.
-    base: &'a Scope,
+    base: Option<&'a Scope>,
 }
 
 impl<'a> Scopes<'a> {
     /// Create a new hierarchy of scopes.
-    pub fn new(base: &'a Scope) -> Self {
+    pub fn new(base: Option<&'a Scope>) -> Self {
         Self { top: Scope::new(), scopes: vec![], base }
     }
 
@@ -43,7 +43,7 @@ impl<'a> Scopes<'a> {
     pub fn get(&self, var: &str) -> Option<&Value> {
         iter::once(&self.top)
             .chain(self.scopes.iter().rev())
-            .chain(iter::once(self.base))
+            .chain(self.base.into_iter())
             .find_map(|scope| scope.get(var))
     }
 
@@ -58,7 +58,7 @@ impl<'a> Scopes<'a> {
     ///
     /// Defaults to `false` if the variable does not exist.
     pub fn is_const(&self, var: &str) -> bool {
-        self.base.get(var).is_some()
+        self.base.map_or(false, |base| base.get(var).is_some())
     }
 }
 

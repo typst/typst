@@ -40,7 +40,7 @@ impl<'a> EvalContext<'a> {
     pub fn new(env: &'a mut Env, scope: &'a Scope, state: State) -> Self {
         Self {
             env,
-            scopes: Scopes::new(scope),
+            scopes: Scopes::new(Some(scope)),
             state,
             groups: vec![],
             inner: vec![],
