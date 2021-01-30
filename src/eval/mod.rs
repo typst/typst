@@ -160,7 +160,7 @@ impl Eval for Spanned<&Expr> {
         match self.v {
             Expr::None => Value::None,
             Expr::Ident(v) => match ctx.scopes.get(v) {
-                Some(value) => value.clone(),
+                Some(slot) => slot.borrow().clone(),
                 None => {
                     ctx.diag(error!(self.span, "unknown variable"));
                     Value::Error
@@ -185,7 +185,7 @@ impl Eval for Spanned<&Expr> {
             Expr::Let(v) => v.with_span(self.span).eval(ctx),
             Expr::If(v) => v.with_span(self.span).eval(ctx),
             Expr::For(v) => v.with_span(self.span).eval(ctx),
-            Expr::CapturedValue(v) => v.clone(),
+            Expr::Captured(v) => v.borrow().clone(),
         }
     }
 }
@@ -341,30 +341,29 @@ impl Spanned<&ExprBinary> {
         let rhs = self.v.rhs.eval(ctx);
         let span = self.v.lhs.span;
 
-        match &self.v.lhs.v {
-            Expr::Ident(id) => {
-                if let Some(slot) = ctx.scopes.get_mut(id) {
-                    *slot = op(std::mem::take(slot), rhs);
-                    return Value::None;
-                } else if ctx.scopes.is_const(id) {
-                    ctx.diag(error!(span, "cannot assign to a constant"));
-                } else {
+        let slot = match &self.v.lhs.v {
+            Expr::Ident(id) => match ctx.scopes.get(id) {
+                Some(slot) => slot,
+                None => {
                     ctx.diag(error!(span, "unknown variable"));
+                    return Value::Error;
                 }
-            }
+            },
 
-            Expr::CapturedValue(_) => {
-                ctx.diag(error!(
-                    span,
-                    "cannot assign to captured expression in a template",
-                ));
-            }
+            Expr::Captured(slot) => slot,
 
             _ => {
                 ctx.diag(error!(span, "cannot assign to this expression"));
+                return Value::Error;
             }
+        };
+
+        if let Ok(mut slot) = slot.try_borrow_mut() {
+            *slot = op(std::mem::take(&mut slot), rhs);
+            return Value::None;
         }
 
+        ctx.diag(error!(span, "cannot assign to a constant"));
         Value::Error
     }
 }
@@ -377,7 +376,7 @@ impl Eval for Spanned<&ExprLet> {
             Some(expr) => expr.eval(ctx),
             None => Value::None,
         };
-        ctx.scopes.define(self.v.pat.v.as_str(), value);
+        ctx.scopes.def_mut(self.v.pat.v.as_str(), value);
         Value::None
     }
 }
@@ -418,7 +417,7 @@ impl Eval for Spanned<&ExprFor> {
             (for ($($binding:ident => $value:ident),*) in $iter:expr) => {
                 #[allow(unused_parens)]
                 for ($($value),*) in $iter {
-                    $(ctx.scopes.define($binding.as_str(), $value);)*
+                    $(ctx.scopes.def_mut($binding.as_str(), $value);)*
 
                     if let Value::Template(new) = self.v.body.eval(ctx) {
                         output.extend(new);

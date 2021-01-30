@@ -1,8 +1,13 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::iter;
+use std::rc::Rc;
 
 use super::Value;
+
+/// A slot where a variable is stored.
+pub type Slot = Rc<RefCell<Value>>;
 
 /// A stack of scopes.
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -34,38 +39,29 @@ impl<'a> Scopes<'a> {
         self.top = self.scopes.pop().expect("no pushed scope");
     }
 
-    /// Define a variable in the active scope.
-    pub fn define(&mut self, var: impl Into<String>, value: impl Into<Value>) {
-        self.top.define(var, value);
+    /// Define a constant variable in the active scope.
+    pub fn def_const(&mut self, var: impl Into<String>, value: impl Into<Value>) {
+        self.top.def_const(var, value);
     }
 
-    /// Look up the value of a variable.
-    pub fn get(&self, var: &str) -> Option<&Value> {
+    /// Define a mutable variable in the active scope.
+    pub fn def_mut(&mut self, var: impl Into<String>, value: impl Into<Value>) {
+        self.top.def_mut(var, value);
+    }
+
+    /// Look up the slot of a variable.
+    pub fn get(&self, var: &str) -> Option<&Slot> {
         iter::once(&self.top)
             .chain(self.scopes.iter().rev())
             .chain(self.base.into_iter())
             .find_map(|scope| scope.get(var))
     }
-
-    /// Get a mutable reference to a variable.
-    pub fn get_mut(&mut self, var: &str) -> Option<&mut Value> {
-        iter::once(&mut self.top)
-            .chain(self.scopes.iter_mut().rev())
-            .find_map(|scope| scope.get_mut(var))
-    }
-
-    /// Return whether the variable is constant (not writable).
-    ///
-    /// Defaults to `false` if the variable does not exist.
-    pub fn is_const(&self, var: &str) -> bool {
-        self.base.map_or(false, |base| base.get(var).is_some())
-    }
 }
 
-/// A map from variable names to values.
+/// A map from variable names to variable slots.
 #[derive(Default, Clone, PartialEq)]
 pub struct Scope {
-    values: HashMap<String, Value>,
+    values: HashMap<String, Slot>,
 }
 
 impl Scope {
@@ -74,19 +70,25 @@ impl Scope {
         Self::default()
     }
 
-    /// Define a new variable.
-    pub fn define(&mut self, var: impl Into<String>, value: impl Into<Value>) {
-        self.values.insert(var.into(), value.into());
+    /// Define a constant variable.
+    pub fn def_const(&mut self, var: impl Into<String>, value: impl Into<Value>) {
+        let cell = RefCell::new(value.into());
+
+        // Make it impossible to write to this value again.
+        // FIXME: Use Ref::leak once stable.
+        std::mem::forget(cell.borrow());
+
+        self.values.insert(var.into(), Rc::new(cell));
+    }
+
+    /// Define a mutable variable.
+    pub fn def_mut(&mut self, var: impl Into<String>, value: impl Into<Value>) {
+        self.values.insert(var.into(), Rc::new(RefCell::new(value.into())));
     }
 
     /// Look up the value of a variable.
-    pub fn get(&self, var: &str) -> Option<&Value> {
+    pub fn get(&self, var: &str) -> Option<&Slot> {
         self.values.get(var)
-    }
-
-    /// Get a mutable reference to a variable.
-    pub fn get_mut(&mut self, var: &str) -> Option<&mut Value> {
-        self.values.get_mut(var)
     }
 }
 

@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use super::*;
 use crate::syntax::visit::*;
 
@@ -25,7 +27,7 @@ impl<'a> Visitor<'a> for CapturesVisitor<'a> {
     }
 
     fn visit_def(&mut self, id: &mut Ident) {
-        self.internal.define(id.as_str(), Value::None);
+        self.internal.def_mut(id.as_str(), Value::None);
     }
 
     fn visit_expr(&mut self, expr: &'a mut Expr) {
@@ -34,7 +36,7 @@ impl<'a> Visitor<'a> for CapturesVisitor<'a> {
             // captured, and if so, replace it with its value.
             if self.internal.get(ident).is_none() {
                 if let Some(value) = self.external.get(ident) {
-                    *expr = Expr::CapturedValue(value.clone());
+                    *expr = Expr::Captured(Rc::clone(&value));
                 }
             }
         } else {

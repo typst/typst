@@ -94,7 +94,7 @@ pub fn walk_expr<'a, V: Visitor<'a>>(v: &mut V, expr: &'a mut Expr) {
         Expr::Let(e) => v.visit_let(e),
         Expr::If(e) => v.visit_if(e),
         Expr::For(e) => v.visit_for(e),
-        Expr::CapturedValue(_) => {}
+        Expr::Captured(_) => {}
     }
 }
 

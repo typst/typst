@@ -317,8 +317,8 @@ fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
         }
     };
 
-    scope.define("f", ValueFunc::new("f", f));
-    scope.define("test", ValueFunc::new("test", test));
+    scope.def_const("f", ValueFunc::new("f", f));
+    scope.def_const("test", ValueFunc::new("test", test));
 }
 
 fn print_diag(diag: &Spanned<Diag>, map: &LineMap, lines: u32) {
