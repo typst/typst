@@ -3,13 +3,14 @@
 #[macro_use]
 mod value;
 mod call;
+mod capture;
 mod context;
 mod ops;
 mod scope;
 mod state;
-mod template;
 
 pub use call::*;
+pub use capture::*;
 pub use context::*;
 pub use scope::*;
 pub use state::*;
@@ -205,6 +206,17 @@ impl Eval for Spanned<&ExprDict> {
             .iter()
             .map(|Named { name, expr }| (name.v.0.clone(), expr.eval(ctx)))
             .collect()
+    }
+}
+
+impl Eval for Spanned<&ExprTemplate> {
+    type Output = Value;
+
+    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+        let mut template = self.v.clone();
+        let mut visitor = CapturesVisitor::new(&ctx.scopes);
+        visitor.visit_template(&mut template);
+        Value::Template(template)
     }
 }
 

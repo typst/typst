@@ -1,29 +1,17 @@
 use super::*;
 use crate::syntax::visit::*;
 
-impl Eval for Spanned<&ExprTemplate> {
-    type Output = Value;
-
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        let mut template = self.v.clone();
-        let mut visitor = CapturesVisitor::new(ctx);
-        visitor.visit_template(&mut template);
-        Value::Template(template)
-    }
-}
-
 /// A visitor that replaces all captured variables with their values.
-struct CapturesVisitor<'a> {
+#[derive(Debug)]
+pub struct CapturesVisitor<'a> {
     external: &'a Scopes<'a>,
     internal: Scopes<'a>,
 }
 
 impl<'a> CapturesVisitor<'a> {
-    fn new(ctx: &'a EvalContext) -> Self {
-        Self {
-            external: &ctx.scopes,
-            internal: Scopes::default(),
-        }
+    /// Create a new visitor for the given external scopes.
+    pub fn new(external: &'a Scopes) -> Self {
+        Self { external, internal: Scopes::default() }
     }
 }
 
@@ -43,7 +31,7 @@ impl<'a> Visitor<'a> for CapturesVisitor<'a> {
     fn visit_expr(&mut self, expr: &'a mut Expr) {
         if let Expr::Ident(ident) = expr {
             // Find out whether the identifier is not locally defined, but
-            // captured, and if so, replace it with it's value.
+            // captured, and if so, replace it with its value.
             if self.internal.get(ident).is_none() {
                 if let Some(value) = self.external.get(ident) {
                     *expr = Expr::CapturedValue(value.clone());
