@@ -43,7 +43,7 @@ pub enum Expr {
     Unary(ExprUnary),
     /// A binary operation: `a + b`.
     Binary(ExprBinary),
-    /// An invocation of a function: `foo(...)`, `[foo ...]`.
+    /// An invocation of a function: `foo(...)`, `#[foo ...]`.
     Call(ExprCall),
     /// A let expression: `#let x = 1`.
     Let(ExprLet),
@@ -75,11 +75,7 @@ impl Pretty for Expr {
             Self::Str(v) => write!(p, "{:?}", &v).unwrap(),
             Self::Array(v) => v.pretty(p),
             Self::Dict(v) => v.pretty(p),
-            Self::Template(v) => {
-                p.push_str("[");
-                v.pretty(p);
-                p.push_str("]");
-            }
+            Self::Template(v) => pretty_template(v, p),
             Self::Group(v) => {
                 p.push_str("(");
                 v.v.pretty(p);
@@ -145,6 +141,17 @@ impl Pretty for Named {
 
 /// A template expression: `[*Hi* there!]`.
 pub type ExprTemplate = Tree;
+
+/// Pretty print a template.
+pub fn pretty_template(template: &ExprTemplate, p: &mut Printer) {
+    if let [Spanned { v: Node::Expr(Expr::Call(call)), .. }] = template.as_slice() {
+        pretty_func_template(call, p, false)
+    } else {
+        p.push_str("[");
+        template.pretty(p);
+        p.push_str("]");
+    }
+}
 
 /// A grouped expression: `(1 + 2)`.
 pub type ExprGroup = SpanBox<Expr>;
@@ -400,7 +407,7 @@ pub enum Associativity {
     Right,
 }
 
-/// An invocation of a function: `foo(...)`, `[foo ...]`.
+/// An invocation of a function: `foo(...)`, `#[foo ...]`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprCall {
     /// The callee of the function.
@@ -418,12 +425,12 @@ impl Pretty for ExprCall {
     }
 }
 
-/// Pretty print a bracketed function call, with body or chaining when possible.
-pub fn pretty_bracket_call(call: &ExprCall, p: &mut Printer, chained: bool) {
+/// Pretty print a function template, with body or chaining when possible.
+pub fn pretty_func_template(call: &ExprCall, p: &mut Printer, chained: bool) {
     if chained {
         p.push_str(" | ");
     } else {
-        p.push_str("[");
+        p.push_str("#[");
     }
 
     // Function name.
@@ -431,7 +438,7 @@ pub fn pretty_bracket_call(call: &ExprCall, p: &mut Printer, chained: bool) {
 
     // Find out whether this can be written with a body or as a chain.
     //
-    // Example: Transforms "[v [Hi]]" => "[v][Hi]".
+    // Example: Transforms "#[v [Hi]]" => "#[v][Hi]".
     if let [head @ .., Argument::Pos(Spanned { v: Expr::Template(template), .. })] =
         call.args.v.as_slice()
     {
@@ -443,9 +450,9 @@ pub fn pretty_bracket_call(call: &ExprCall, p: &mut Printer, chained: bool) {
 
         // Find out whether this can written as a chain.
         //
-        // Example: Transforms "[v][[f]]" => "[v | f]".
+        // Example: Transforms "#[v][[f]]" => "#[v | f]".
         if let [Spanned { v: Node::Expr(Expr::Call(call)), .. }] = template.as_slice() {
-            return pretty_bracket_call(call, p, true);
+            return pretty_func_template(call, p, true);
         } else {
             p.push_str("][");
             template.pretty(p);

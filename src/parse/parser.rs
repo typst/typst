@@ -105,9 +105,9 @@ impl<'s> Parser<'s> {
         self.repeek();
 
         match group {
-            Group::Paren => self.assert(Token::LeftParen),
-            Group::Bracket => self.assert(Token::LeftBracket),
-            Group::Brace => self.assert(Token::LeftBrace),
+            Group::Paren => self.assert(&[Token::LeftParen]),
+            Group::Bracket => self.assert(&[Token::HashBracket, Token::LeftBracket]),
+            Group::Brace => self.assert(&[Token::LeftBrace]),
             Group::Subheader => {}
             Group::Stmt => {}
             Group::Expr => {}
@@ -210,10 +210,10 @@ impl<'s> Parser<'s> {
         eaten
     }
 
-    /// Consume the next token, debug-asserting that it is the given one.
-    pub fn assert(&mut self, t: Token) {
+    /// Consume the next token, debug-asserting that it is one of the given ones.
+    pub fn assert(&mut self, ts: &[Token]) {
         let next = self.eat();
-        debug_assert_eq!(next, Some(t));
+        debug_assert!(next.map_or(false, |n| ts.contains(&n)));
     }
 
     /// Skip whitespace and comment tokens.

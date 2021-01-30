@@ -5,7 +5,7 @@ _Emph_ and *strong*!
 Pa_rtl_y emphasized or str*ength*ened.
 
 // Scoped to body.
-[box][*Sco_ped] to body.
+#[box][*Sco_ped] to body.
 
 // Unterminated is fine.
 _The End

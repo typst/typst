@@ -6,6 +6,8 @@ use crate::geom::{AngularUnit, LengthUnit};
 pub enum Token<'s> {
     /// A left square bracket: `[`.
     LeftBracket,
+    /// A hashtag followed by a left square bracket: `#[`.
+    HashBracket,
     /// A right square bracket: `]`.
     RightBracket,
     /// A left curly brace: `{`.
@@ -20,8 +22,8 @@ pub enum Token<'s> {
     Star,
     /// An underscore: `_`.
     Underscore,
-    /// A hashtag: `#`.
-    Hash,
+    /// A single equals sign: `=`.
+    Eq,
     /// A tilde: `~`.
     Tilde,
     /// A backslash followed by nothing or whitespace: `\`.
@@ -40,8 +42,6 @@ pub enum Token<'s> {
     Hyph,
     /// A slash: `/`.
     Slash,
-    /// A single equals sign: `=`.
-    Eq,
     /// Two equals signs: `==`.
     EqEq,
     /// An exclamation mark followed by an equals sign: `!=`.
@@ -191,6 +191,7 @@ impl<'s> Token<'s> {
     pub fn name(self) -> &'static str {
         match self {
             Self::LeftBracket => "opening bracket",
+            Self::HashBracket => "start of function template",
             Self::RightBracket => "closing bracket",
             Self::LeftBrace => "opening brace",
             Self::RightBrace => "closing brace",
@@ -198,7 +199,6 @@ impl<'s> Token<'s> {
             Self::RightParen => "closing paren",
             Self::Star => "star",
             Self::Underscore => "underscore",
-            Self::Hash => "hashtag",
             Self::Tilde => "tilde",
             Self::Backslash => "backslash",
             Self::Comma => "comma",

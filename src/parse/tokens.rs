@@ -67,11 +67,14 @@ impl<'s> Iterator for Tokens<'s> {
         loop {
             // Common elements.
             return Some(match c {
-                // Functions, blocks and terminators.
+                // Blocks and templates.
                 '[' => Token::LeftBracket,
                 ']' => Token::RightBracket,
                 '{' => Token::LeftBrace,
                 '}' => Token::RightBrace,
+
+                // Keywords, function templates, colors.
+                '#' => self.hash(start),
 
                 // Whitespace.
                 c if c.is_whitespace() => self.whitespace(c),
@@ -90,8 +93,8 @@ impl<'s> Iterator for Tokens<'s> {
                 // Markup.
                 '*' => Token::Star,
                 '_' => Token::Underscore,
+                '=' => Token::Eq,
                 '~' => Token::Tilde,
-                '#' => self.hash(start),
                 '`' => self.raw(),
                 '$' => self.math(),
                 '\\' => self.backslash(),
@@ -140,8 +143,7 @@ impl<'s> Iterator for Tokens<'s> {
                     self.number(start, c)
                 }
 
-                // Hex values and strings.
-                '#' => self.hex(start),
+                // Strings.
                 '"' => self.string(),
 
                 _ => Token::Invalid(self.s.eaten_from(start)),
@@ -151,6 +153,27 @@ impl<'s> Iterator for Tokens<'s> {
 }
 
 impl<'s> Tokens<'s> {
+    fn hash(&mut self, start: usize) -> Token<'s> {
+        if self.s.eat_if('[') {
+            return Token::HashBracket;
+        }
+
+        self.s.eat_while(is_id_continue);
+        let read = self.s.eaten_from(start);
+
+        if let Some(keyword) = keyword(read) {
+            return keyword;
+        }
+
+        if self.mode == TokenMode::Code {
+            if let Ok(color) = RgbaColor::from_str(read) {
+                return Token::Color(color);
+            }
+        }
+
+        Token::Invalid(read)
+    }
+
     fn whitespace(&mut self, first: char) -> Token<'s> {
         // Fast path for just a single space
         if first == ' ' && !self.s.check(|c| c.is_whitespace()) {
@@ -182,10 +205,10 @@ impl<'s> Tokens<'s> {
                 c if c.is_whitespace() => true,
                 // Comments.
                 '/' if self.s.check(|c| c == '/' || c == '*') => true,
-                // Parenthesis.
-                '[' | ']' | '{' | '}' => true,
+                // Parenthesis and hashtag.
+                '[' | ']' | '{' | '}' | '#' => true,
                 // Markup.
-                '*' | '_' | '#' | '~' | '`' | '$' => true,
+                '*' | '_' | '=' | '~' | '`' | '$' => true,
                 // Escaping.
                 '\\' => true,
                 _ => false,
@@ -196,21 +219,6 @@ impl<'s> Tokens<'s> {
         }
 
         Token::Text(self.s.eaten_from(start))
-    }
-
-    fn hash(&mut self, start: usize) -> Token<'s> {
-        if self.s.check(is_id_start) {
-            self.s.eat();
-            self.s.eat_while(is_id_continue);
-            let read = self.s.eaten_from(start);
-            if let Some(keyword) = keyword(read) {
-                keyword
-            } else {
-                Token::Invalid(read)
-            }
-        } else {
-            Token::Hash
-        }
     }
 
     fn raw(&mut self) -> Token<'s> {
@@ -276,10 +284,10 @@ impl<'s> Tokens<'s> {
             match c {
                 // Backslash and comments.
                 '\\' | '/' |
-                // Parenthesis.
-                '[' | ']' | '{' | '}' |
+                // Parenthesis and hashtag.
+                '[' | ']' | '{' | '}' | '#' |
                 // Markup.
-                '*' | '_' | '#' | '~' | '`' | '$' => {
+                '*' | '_' | '=' | '~' | '`' | '$' => {
                     let start = self.s.index();
                     self.s.eat_assert(c);
                     Token::Text(&self.s.eaten_from(start))
@@ -364,18 +372,6 @@ impl<'s> Tokens<'s> {
             build(float)
         } else {
             Token::Invalid(all)
-        }
-    }
-
-    fn hex(&mut self, start: usize) -> Token<'s> {
-        self.s.eat_while(is_id_continue);
-        let read = self.s.eaten_from(start);
-        if let Some(keyword) = keyword(read) {
-            keyword
-        } else if let Ok(color) = RgbaColor::from_str(read) {
-            Token::Color(color)
-        } else {
-            Token::Invalid(read)
         }
     }
 
@@ -596,8 +592,8 @@ mod tests {
         // Test markup tokens.
         t!(Markup[" a1"]: "*"  => Star);
         t!(Markup: "_"         => Underscore);
-        t!(Markup[""]: "###"   => Hash, Hash, Hash);
-        t!(Markup["a1/"]: "# " => Hash, Space(0));
+        t!(Markup[""]: "==="   => Eq, Eq, Eq);
+        t!(Markup["a1/"]: "= " => Eq, Space(0));
         t!(Markup: "~"         => Tilde);
         t!(Markup[" "]: r"\"   => Backslash);
     }
@@ -655,10 +651,9 @@ mod tests {
         ];
 
         for &(s, t) in &both {
-            t!(Code[" "]: format!("#{}", s) => t);
-            t!(Markup[" "]: format!("#{}", s) => t);
-            t!(Markup[" "]: format!("#{0}#{0}", s) => t, t);
-            t!(Markup[" /"]: format!("# {}", s) => Hash, Space(0), Text(s));
+            t!(Both[" "]: format!("#{}", s) => t);
+            t!(Both[" "]: format!("#{0}#{0}", s) => t, t);
+            t!(Markup[" /"]: format!("# {}", s) => Token::Invalid("#"), Space(0), Text(s));
         }
 
         let code = [
@@ -713,7 +708,7 @@ mod tests {
 
         // Test code symbols in text.
         t!(Markup[" /"]: "a():\"b" => Text("a():\"b"));
-        t!(Markup[" /"]: ";:,=|/+-" => Text(";:,=|/+-"));
+        t!(Markup[" /"]: ";:,|/+-" => Text(";:,|/+-"));
 
         // Test text ends.
         t!(Markup[""]: "hello " => Text("hello"), Space(0));
@@ -765,17 +760,17 @@ mod tests {
         t!(Markup: r"\}" => Text("}"));
         t!(Markup: r"\*" => Text("*"));
         t!(Markup: r"\_" => Text("_"));
-        t!(Markup: r"\#" => Text("#"));
+        t!(Markup: r"\=" => Text("="));
         t!(Markup: r"\~" => Text("~"));
         t!(Markup: r"\`" => Text("`"));
         t!(Markup: r"\$" => Text("$"));
+        t!(Markup: r"\#" => Text("#"));
 
         // Test unescapable symbols.
         t!(Markup[" /"]: r"\a"   => Text(r"\"), Text("a"));
         t!(Markup[" /"]: r"\u"   => Text(r"\"), Text("u"));
         t!(Markup[" /"]: r"\1"   => Text(r"\"), Text("1"));
         t!(Markup[" /"]: r"\:"   => Text(r"\"), Text(":"));
-        t!(Markup[" /"]: r"\="   => Text(r"\"), Text("="));
         t!(Markup[" /"]: r#"\""# => Text(r"\"), Text("\""));
 
         // Test basic unicode escapes.
@@ -947,7 +942,7 @@ mod tests {
         t!(Code: "1%%"        => Percent(1.0), Invalid("%"));
 
         // Test invalid keyword.
-        t!(Markup[" /"]: "#-"     => Hash, Text("-"));
+        t!(Markup[" /"]: "#-"     => Invalid("#-"));
         t!(Markup[" /"]: "#do"    => Invalid("#do"));
         t!(Code[" /"]: r"#letter" => Invalid(r"#letter"));
     }

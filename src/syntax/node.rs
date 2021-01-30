@@ -36,8 +36,8 @@ impl Pretty for Node {
             Self::Raw(raw) => raw.pretty(p),
             Self::Expr(expr) => {
                 if let Expr::Call(call) = expr {
-                    // Format bracket calls appropriately.
-                    pretty_bracket_call(call, p, false)
+                    // Format function templates appropriately.
+                    pretty_func_template(call, p, false)
                 } else {
                     expr.pretty(p);
                 }
@@ -58,7 +58,7 @@ pub struct NodeHeading {
 impl Pretty for NodeHeading {
     fn pretty(&self, p: &mut Printer) {
         for _ in 0 ..= self.level.v {
-            p.push_str("#");
+            p.push_str("=");
         }
         self.contents.pretty(p);
     }

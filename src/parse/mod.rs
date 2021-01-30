@@ -45,38 +45,33 @@ fn tree(p: &mut Parser) -> Tree {
 fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
     let token = p.peek()?;
     let node = match token {
-        // Bracket call.
-        Token::LeftBracket => {
-            return Some(Node::Expr(bracket_call(p)?));
+        // Whitespace.
+        Token::Space(newlines) => {
+            *at_start |= newlines > 0;
+            if newlines < 2 { Node::Space } else { Node::Parbreak }
         }
 
-        // Code block.
-        Token::LeftBrace => {
-            return Some(Node::Expr(block(p, false)?));
-        }
+        // Text.
+        Token::Text(text) => Node::Text(text.into()),
 
         // Markup.
         Token::Star => Node::Strong,
         Token::Underscore => Node::Emph,
-        Token::Tilde => Node::Text("\u{00A0}".into()),
-        Token::Hash => {
+        Token::Eq => {
             if *at_start {
                 return Some(Node::Heading(heading(p)));
             } else {
                 Node::Text(p.get(p.peek_span()).into())
             }
         }
+        Token::Tilde => Node::Text("\u{00A0}".into()),
         Token::Backslash => Node::Linebreak,
-        Token::Space(newlines) => {
-            *at_start |= newlines > 0;
-            if newlines < 2 { Node::Space } else { Node::Parbreak }
-        }
-        Token::Text(text) => Node::Text(text.into()),
         Token::Raw(t) => Node::Raw(raw(p, t)),
         Token::UnicodeEscape(t) => Node::Text(unicode_escape(p, t)),
 
         // Keywords.
         Token::Let | Token::If | Token::For => {
+            *at_start = false;
             let stmt = token == Token::Let;
             let group = if stmt { Group::Stmt } else { Group::Expr };
 
@@ -92,6 +87,24 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
             return expr.map(Node::Expr);
         }
 
+        // Block.
+        Token::LeftBrace => {
+            *at_start = false;
+            return Some(Node::Expr(block(p, false)?));
+        }
+
+        // Template.
+        Token::LeftBracket => {
+            *at_start = false;
+            return Some(Node::Expr(template(p)));
+        }
+
+        // Function template.
+        Token::HashBracket => {
+            *at_start = false;
+            return Some(Node::Expr(bracket_call(p)?));
+        }
+
         // Comments.
         Token::LineComment(_) | Token::BlockComment(_) => {
             p.eat();
@@ -99,6 +112,7 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
         }
 
         _ => {
+            *at_start = false;
             p.unexpected();
             return None;
         }
@@ -109,12 +123,12 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
 
 /// Parse a heading.
 fn heading(p: &mut Parser) -> NodeHeading {
-    // Count hashtags.
+    // Count depth.
     let mut level = p.span(|p| {
-        p.assert(Token::Hash);
+        p.assert(&[Token::Eq]);
 
         let mut level = 0u8;
-        while p.eat_if(Token::Hash) {
+        while p.eat_if(Token::Eq) {
             level = level.saturating_add(1);
         }
         level
@@ -278,33 +292,6 @@ fn expr_with(p: &mut Parser, min_prec: usize) -> Option<Expr> {
 /// Parse a primary expression.
 fn primary(p: &mut Parser) -> Option<Expr> {
     let expr = match p.peek() {
-        // Template.
-        Some(Token::LeftBracket) => {
-            return Some(template(p));
-        }
-
-        // Nested block.
-        Some(Token::LeftBrace) => {
-            return block(p, true);
-        }
-
-        // Dictionary or just a parenthesized expression.
-        Some(Token::LeftParen) => {
-            return Some(parenthesized(p));
-        }
-
-        // Function or just ident.
-        Some(Token::Ident(id)) => {
-            p.eat();
-            let ident = Ident(id.into());
-            if p.peek() == Some(Token::LeftParen) {
-                let name = ident.with_span(p.peek_span());
-                return Some(paren_call(p, name));
-            } else {
-                return Some(Expr::Ident(ident));
-            }
-        }
-
         // Basic values.
         Some(Token::None) => Expr::None,
         Some(Token::Bool(b)) => Expr::Bool(b),
@@ -316,12 +303,45 @@ fn primary(p: &mut Parser) -> Option<Expr> {
         Some(Token::Color(color)) => Expr::Color(color),
         Some(Token::Str(token)) => Expr::Str(string(p, token)),
 
+        // Function or identifier.
+        Some(Token::Ident(id)) => {
+            p.eat();
+            let ident = Ident(id.into());
+            if p.peek() == Some(Token::LeftParen) {
+                let name = ident.with_span(p.peek_span());
+                return Some(paren_call(p, name));
+            } else {
+                return Some(Expr::Ident(ident));
+            }
+        }
+
         // Keywords.
         Some(Token::Let) => return expr_let(p),
         Some(Token::If) => return expr_if(p),
         Some(Token::For) => return expr_for(p),
 
-        // No value.
+        // Block.
+        Some(Token::LeftBrace) => {
+            return block(p, true);
+        }
+
+        // Template.
+        Some(Token::LeftBracket) => {
+            return Some(template(p));
+        }
+
+        // Function template.
+        Some(Token::HashBracket) => {
+            let call = p.span_if(bracket_call)?.map(Node::Expr);
+            return Some(Expr::Template(vec![call]));
+        }
+
+        // Array, dictionary or parenthesized expression.
+        Some(Token::LeftParen) => {
+            return Some(parenthesized(p));
+        }
+
+        // Nothing.
         _ => {
             p.expected("expression");
             return None;
@@ -380,7 +400,7 @@ fn string(p: &mut Parser, token: TokenStr) -> String {
 
 /// Parse a let expression.
 fn expr_let(p: &mut Parser) -> Option<Expr> {
-    p.assert(Token::Let);
+    p.assert(&[Token::Let]);
 
     let mut expr_let = None;
     if let Some(pat) = p.span_if(ident) {
@@ -397,7 +417,7 @@ fn expr_let(p: &mut Parser) -> Option<Expr> {
 
 /// Parse an if expresion.
 fn expr_if(p: &mut Parser) -> Option<Expr> {
-    p.assert(Token::If);
+    p.assert(&[Token::If]);
 
     let mut expr_if = None;
     if let Some(condition) = p.span_if(expr) {
@@ -420,7 +440,7 @@ fn expr_if(p: &mut Parser) -> Option<Expr> {
 
 /// Parse a for expression.
 fn expr_for(p: &mut Parser) -> Option<Expr> {
-    p.assert(Token::For);
+    p.assert(&[Token::For]);
 
     let mut expr_for = None;
     if let Some(pat) = p.span_if(for_pattern) {

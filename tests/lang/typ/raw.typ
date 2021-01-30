@@ -1,4 +1,4 @@
-[font 8pt]
+#[font 8pt]
 
 // Typst syntax inside.
 `#let x = 1``[f 1]`

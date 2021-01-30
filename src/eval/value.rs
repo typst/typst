@@ -8,7 +8,7 @@ use super::{Args, Eval, EvalContext};
 use crate::color::Color;
 use crate::geom::{Angle, Length, Linear, Relative};
 use crate::pretty::{pretty, Pretty, Printer};
-use crate::syntax::{Spanned, Tree, WithSpan};
+use crate::syntax::{pretty_template, Spanned, Tree, WithSpan};
 
 /// A computational value.
 #[derive(Debug, Clone, PartialEq)]
@@ -121,11 +121,7 @@ impl Pretty for Value {
             Value::Str(v) => write!(p, "{:?}", v).unwrap(),
             Value::Array(v) => v.pretty(p),
             Value::Dict(v) => v.pretty(p),
-            Value::Template(v) => {
-                p.push_str("[");
-                v.pretty(p);
-                p.push_str("]");
-            }
+            Value::Template(v) => pretty_template(v, p),
             Value::Func(v) => v.pretty(p),
             Value::Any(v) => v.pretty(p),
             Value::Error => p.push_str("(error)"),
@@ -537,8 +533,8 @@ mod tests {
         // Dictionary.
         let mut dict = BTreeMap::new();
         dict.insert("one".into(), Value::Int(1));
-        dict.insert("two".into(), Value::Template(parse("[f]").output));
+        dict.insert("two".into(), Value::Template(parse("#[f]").output));
         test_pretty(BTreeMap::new(), "(:)");
-        test_pretty(dict, "(one: 1, two: [[f]])");
+        test_pretty(dict, "(one: 1, two: #[f])");
     }
 }

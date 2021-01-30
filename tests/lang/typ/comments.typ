@@ -8,7 +8,7 @@ C/*
 */D
 
 // Works in headers.
-[f /*1*/ a: "b" //
+#[f /*1*/ a: "b" //
 , 1]
 
 // End should not appear without start.
