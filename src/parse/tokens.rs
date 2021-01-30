@@ -249,32 +249,38 @@ impl<'s> Tokens<'s> {
     }
 
     fn math(&mut self) -> Token<'s> {
-        let mut dollars = 1;
-        if self.s.eat_if('$') {
-            dollars = 2;
+        let mut inline = true;
+        if self.s.eat_if('[') {
+            inline = false;
         }
 
         let start = self.s.index();
 
-        let mut found = 0;
         let mut escaped = false;
-        while found < dollars {
+        let mut dollar = inline;
+
+        let terminated = loop {
             match self.s.eat() {
-                Some('$') if !escaped => found += 1,
+                Some('$') if !escaped && dollar => break true,
+                Some(']') if !escaped => dollar = true,
                 Some(c) => {
-                    found = 0;
+                    dollar = inline;
                     escaped = c == '\\' && !escaped;
                 }
-                None => break,
+                None => break false,
             }
-        }
+        };
 
-        let terminated = found == dollars;
-        let end = self.s.index() - if terminated { found } else { 0 };
+        let end = self.s.index()
+            - match (terminated, inline) {
+                (false, _) => 0,
+                (true, true) => 1,
+                (true, false) => 2,
+            };
 
         Token::Math(TokenMath {
             formula: self.s.get(start .. end),
-            inline: dollars == 1,
+            inline,
             terminated,
         })
     }
@@ -737,16 +743,21 @@ mod tests {
     #[test]
     fn test_tokenize_math_formulas() {
         // Test basic formula.
-        t!(Markup: "$x$"         => Math("x", true, true));
-        t!(Markup: "$$x + y$$"   => Math("x + y", false, true));
+        t!(Markup: "$$"        => Math("", true, true));
+        t!(Markup: "$x$"       => Math("x", true, true));
+        t!(Markup: r"$\\$"     => Math(r"\\", true, true));
+        t!(Markup: "$[x + y]$" => Math("x + y", false, true));
+        t!(Markup: r"$[\\]$"   => Math(r"\\", false, true));
 
         // Test unterminated.
-        t!(Markup[""]: "$$x"     => Math("x", false, false));
-        t!(Markup[""]: "$$x$\n$" => Math("x$\n$", false, false));
+        t!(Markup[""]: "$x"      => Math("x", true, false));
+        t!(Markup[""]: "$[x"     => Math("x", false, false));
+        t!(Markup[""]: "$[x]\n$" => Math("x]\n$", false, false));
 
         // Test escape sequences.
-        t!(Markup: r"$$\\\$$$"    => Math(r"\\\$", false, true));
-        t!(Markup[""]: r"$$ $\\$" => Math(r" $\\$", false, false));
+        t!(Markup: r"$\$x$"       => Math(r"\$x", true, true));
+        t!(Markup: r"$[\\\]$]$"   => Math(r"\\\]$", false, true));
+        t!(Markup[""]: r"$[ ]\\$" => Math(r" ]\\$", false, false));
     }
 
     #[test]
