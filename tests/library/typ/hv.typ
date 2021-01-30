@@ -11,7 +11,7 @@ Add #[h 10pt] #[h 10pt] up
 Relative #[h 100%] spacing
 
 // Missing spacing.
-// Error: 1:12-1:12 missing argument: spacing
+// Error: 12-12 missing argument: spacing
 Totally #[h] ignored
 
 // Swapped axes.

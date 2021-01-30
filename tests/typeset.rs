@@ -262,7 +262,9 @@ fn parse_metadata(src: &str, map: &LineMap) -> (bool, SpanVec<Diag>) {
         }
 
         let pos = |s: &mut Scanner| -> Pos {
-            let (delta, _, column) = (num(s), s.eat_assert(':'), num(s));
+            let first = num(s);
+            let (delta, column) =
+                if s.eat_if(':') { (first, num(s)) } else { (1, first) };
             let line = i as u32 + 1 + delta;
             map.pos(Location::new(line, column)).unwrap()
         };

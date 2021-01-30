@@ -21,10 +21,10 @@
 // Ensure that specific margins override general margins.
 #[page margins: 0pt, left: 20pt][Overriden]
 
-// Error: 1:8-1:19 unknown variable
+// Error: 8-19 unknown variable
 #[page nonexistant]
 
-// Error: 1:18-1:21 aligned axis
+// Error: 18-21 aligned axis
 #[page main-dir: ltr]
 
 // Flipped predefined paper.

@@ -8,7 +8,7 @@
 // Warning: 1:12-1:16 should be between 0.0 and 1.0
 #[rgb -30, 15.5, 0.5]
 
-// Error: 1:7-1:11 missing argument: blue component
+// Error: 7-11 missing argument: blue component
 #[rgb 0, 1]
 
 // Error: 3:6-3:6 missing argument: red component

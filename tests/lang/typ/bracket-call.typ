@@ -33,14 +33,14 @@
 #[f|f|f]
 
 // With body.
-// Error: 1:7-1:8 expected identifier, found integer
+// Error: 7-8 expected identifier, found integer
 #[f | 1 | box][💕]
 
 // Error: 2:3-2:3 expected identifier
 // Error: 1:4-1:4 expected identifier
 #[||f true]
 
-// Error: 1:7-1:7 expected identifier
+// Error: 7-7 expected identifier
 #[f 1|]
 
 // Error: 2:3-2:3 expected identifier
@@ -55,23 +55,23 @@
 #[box width: 1cm | image "res/rhino.png"]
 
 ---
-// Error: 1:5-1:7 expected expression, found end of block comment
+// Error: 5-7 expected expression, found end of block comment
 #[f */]
 
-// Error: 1:8-1:9 expected expression, found colon
+// Error: 8-9 expected expression, found colon
 #[f a:1:]
 
-// Error: 1:6-1:6 expected comma
+// Error: 6-6 expected comma
 #[f 1 2]
 
 // Error: 2:5-2:6 expected identifier
 // Error: 1:7-1:7 expected expression
 #[f 1:]
 
-// Error: 1:5-1:6 expected identifier
+// Error: 5-6 expected identifier
 #[f 1:2]
 
-// Error: 1:5-1:8 expected identifier
+// Error: 5-8 expected identifier
 #[f (x):1]
 
 ---
@@ -80,7 +80,7 @@
 #let x = "string"
 #[x]
 
-// Error: 1:3-1:4 expected identifier, found invalid token
+// Error: 3-4 expected identifier, found invalid token
 #[# 1]
 
 // Error: 4:1-4:1 expected identifier

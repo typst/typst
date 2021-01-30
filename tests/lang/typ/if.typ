@@ -39,7 +39,7 @@ a#if true {"b"} #else {"?"} c \
 #let x = true
 
 // Needs condition.
-// Error: 1:6-1:7 expected expression, found closing brace
+// Error: 6-7 expected expression, found closing brace
 a#if }
 
 // Needs if-body.
@@ -48,17 +48,17 @@ a#if }
 a#if x b#if (x)c
 
 // Needs else-body.
-// Error: 1:20-1:20 expected body
+// Error: 20-20 expected body
 a#if true [b] #else c
 
 // Lone else.
-// Error: 1:1-1:6 unexpected keyword `#else`
+// Error: 1-6 unexpected keyword `#else`
 #else []
 
 // Condition must be boolean. If it isn't, neither branch is evaluated.
-// Error: 1:5-1:14 expected boolean, found string
+// Error: 5-14 expected boolean, found string
 #if "a" + "b" { "nope" } #else { "nope" }
 
 // No coercing from empty array or or stuff like that.
-// Error: 1:5-1:7 expected boolean, found array
+// Error: 5-7 expected boolean, found array
 #if () { "nope" } #else { "nope" }

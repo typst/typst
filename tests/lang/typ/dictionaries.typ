@@ -5,7 +5,7 @@
 {(one: 1, two: 2)}
 
 // Simple expression after this is already identified as a dictionary.
-// Error: 1:9-1:10 expected named pair, found expression
+// Error: 9-10 expected named pair, found expression
 {(a: 1, b)}
 
 // Identified as dictionary by initial colon.

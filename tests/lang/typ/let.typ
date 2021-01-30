@@ -21,24 +21,24 @@
 #let x = "a"; #let y = "b"; #[test x + y, "ab"]
 
 // Invalid name.
-// Error: 1:6-1:7 expected identifier, found integer
+// Error: 6-7 expected identifier, found integer
 #let 1
 
 // Invalid name.
-// Error: 1:6-1:7 expected identifier, found integer
+// Error: 6-7 expected identifier, found integer
 #let 1 = 2
 
 // Missing binding name.
-// Error: 1:5-1:5 expected identifier
+// Error: 5-5 expected identifier
 #let
 x = 5
 
 // Missing right-hand side.
-// Error: 1:9-1:9 expected expression
+// Error: 9-9 expected expression
 #let a =
 
 // No name at all.
-// Error: 1:11-1:11 expected identifier
+// Error: 11-11 expected identifier
 The Fi#let;rst
 
 // Terminated with just a line break.
@@ -58,9 +58,9 @@ The#let v = "a"; Fourth #[test v, "a"]
 The#let array = (1, 2 + ;Fifth #[test array, (1, 2)]
 
 // Not terminated.
-// Error: 1:16-1:16 expected semicolon or line break
+// Error: 16-16 expected semicolon or line break
 The#let v = "a"Sixth #[test v, "a"]
 
 // Not terminated.
-// Error: 1:16-1:16 expected semicolon or line break
+// Error: 16-16 expected semicolon or line break
 The#let v = "a" #[test v, "a"] Seventh

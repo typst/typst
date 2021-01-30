@@ -9,7 +9,7 @@
 {ke-bab} \
 {α} \
 
-// Error: 1:2-1:3 unknown variable
+// Error: 2-3 unknown variable
 {_}
 
 // Literal values.

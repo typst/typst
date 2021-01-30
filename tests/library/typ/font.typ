@@ -19,7 +19,7 @@
 // Set stretch (not available, matching closest).
 #[font stretch: ultra-condensed][Condensed]
 
-// Error: 1:8-1:13 unexpected argument
+// Error: 8-13 unexpected argument
 #[font false]
 
 // Error: 3:15-3:19 expected font style, found font weight
@@ -27,10 +27,10 @@
 // Error: 1:44-1:45 expected font family or array of font families, found integer
 #[font style: bold, weight: "thin", serif: 0]
 
-// Warning: 1:16-1:20 should be between 100 and 900
+// Warning: 16-20 should be between 100 and 900
 #[font weight: 2700]
 
-// Error: 1:8-1:28 unexpected argument
+// Error: 8-28 unexpected argument
 #[font something: "invalid"]
 
 ---

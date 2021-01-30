@@ -7,10 +7,10 @@
 // Load an RGB JPEG image.
 #[image "res/tiger.jpg"]
 
-// Error: 1:9-1:30 failed to load image
+// Error: 9-30 failed to load image
 #[image "path/does/not/exist"]
 
-// Error: 1:9-1:30 failed to load image
+// Error: 9-30 failed to load image
 #[image "typ/image-error.typ"]
 
 ---

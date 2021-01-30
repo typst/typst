@@ -3,7 +3,7 @@
 #let a = 2
 #let b = 4
 
-// Error: 1:14-1:17 cannot apply '+' to string
+// Error: 14-17 cannot apply '+' to string
 #let error = +""
 
 // Paren call.
@@ -77,16 +77,16 @@
 { x = "some" }   #[test x, "some"]
 { x += "thing" } #[test x, "something"]
 
-// Error: 1:3-1:4 unknown variable
+// Error: 3-4 unknown variable
 { z = 1 }
 
-// Error: 1:3-1:6 cannot assign to this expression
+// Error: 3-6 cannot assign to this expression
 { (x) = "" }
 
-// Error: 1:3-1:8 cannot assign to this expression
+// Error: 3-8 cannot assign to this expression
 { 1 + 2 = 3}
 
-// Error: 1:3-1:6 cannot assign to a constant
+// Error: 3-6 cannot assign to a constant
 { box = "hi" }
 
 // Works if we define box before (since then it doesn't resolve to the standard
@@ -98,23 +98,23 @@
 #[test (2), 2]
 #[test (1+2)*3, 9]
 
-// Error: 1:3-1:3 expected expression
+// Error: 3-3 expected expression
 {-}
 
-// Error: 1:11-1:11 expected expression
+// Error: 11-11 expected expression
 #[test {1+}, 1]
 
-// Error: 1:11-1:11 expected expression
+// Error: 11-11 expected expression
 #[test {2*}, 2]
 
-// Error: 1:8-1:17 cannot apply '-' to boolean
+// Error: 8-17 cannot apply '-' to boolean
 #[test -not true, error]
 
-// Error: 1:2-1:8 cannot apply 'not' to array
+// Error: 2-8 cannot apply 'not' to array
 {not ()}
 
-// Error: 1:3-1:10 cannot apply '+' to integer and string
+// Error: 3-10 cannot apply '+' to integer and string
 {(1 + "2")}
 
-// Error: 1:2-1:12 cannot apply '<=' to relative and relative
+// Error: 2-12 cannot apply '<=' to relative and relative
 {30% <= 40%}
