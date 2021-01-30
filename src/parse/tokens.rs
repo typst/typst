@@ -227,6 +227,11 @@ impl<'s> Tokens<'s> {
             backticks += 1;
         }
 
+        // Special case for empty inline block.
+        if backticks == 2 {
+            return Token::Raw(TokenRaw { text: "", backticks: 1, terminated: true });
+        }
+
         let start = self.s.index();
 
         let mut found = 0;
@@ -723,21 +728,25 @@ mod tests {
 
     #[test]
     fn test_tokenize_raw_blocks() {
+        let empty = Raw("", 1, true);
+
         // Test basic raw block.
+        t!(Markup: "``"     => empty);
         t!(Markup: "`raw`"  => Raw("raw", 1, true));
         t!(Markup[""]: "`]" => Raw("]", 1, false));
 
         // Test special symbols in raw block.
-        t!(Markup: "`[func]`"   => Raw("[func]", 1, true));
-        t!(Markup[""]: r"`\`` " => Raw(r"\", 1, true), Raw(" ", 1, false));
-
-        // Test more backticks.
-        t!(Markup: "````🚀````"           => Raw("🚀", 4, true));
-        t!(Markup[""]: "````👩‍🚀``noend"    => Raw("👩‍🚀``noend", 4, false));
-        t!(Markup[""]: "````raw``````new" => Raw("raw", 4, true), Raw("new", 2, false));
+        t!(Markup: "`[brackets]`" => Raw("[brackets]", 1, true));
+        t!(Markup[""]: r"`\`` "   => Raw(r"\", 1, true), Raw(" ", 1, false));
 
         // Test separated closing backticks.
         t!(Markup: "```not `y`e`t```" => Raw("not `y`e`t", 3, true));
+
+        // Test more backticks.
+        t!(Markup: "``nope``"             => empty, Text("nope"), empty);
+        t!(Markup: "````🚀````"           => Raw("🚀", 4, true));
+        t!(Markup[""]: "`````👩‍🚀````noend" => Raw("👩‍🚀````noend", 5, false));
+        t!(Markup[""]: "````raw``````"    => Raw("raw", 4, true), empty);
     }
 
     #[test]

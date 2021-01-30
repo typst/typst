@@ -63,9 +63,10 @@ mod tests {
         roundtrip("= *Ok*");
 
         // Raw.
+        roundtrip("``");
         roundtrip("`lang 1`");
-        test("`` hi``", "`hi`");
-        test("`` ` ``", "```");
+        test("``` hi```", "`hi`");
+        test("``` ` ```", "```");
     }
 
     #[test]

@@ -1,22 +1,27 @@
 #[font 8pt]
 
+// No extra space.
+`A``B`
+
 // Typst syntax inside.
-`#let x = 1``[f 1]`
+`#let x = 1` \
+`#[f 1]`
 
 // Space between "rust" and "let" is trimmed.
-The keyword ``rust let``.
+The keyword ```rust let```.
 
 // Trimming depends on number backticks.
+<``> \
 <` untrimmed `> \
-<`` trimmed ``>
+<``` trimmed ```>
 
 // Multiline trimming.
-``py
+```py
 import this
 
 def say_hi():
     print("Hi!")
-``
+```
 
 // Lots of backticks inside.
 ````
