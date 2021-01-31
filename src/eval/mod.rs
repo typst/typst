@@ -317,17 +317,11 @@ impl Spanned<&ExprBinary> {
             return Value::Error;
         }
 
-        let lhty = lhs.type_name();
-        let rhty = rhs.type_name();
+        let (l, r) = (lhs.type_name(), rhs.type_name());
+
         let out = op(lhs, rhs);
         if out == Value::Error {
-            ctx.diag(error!(
-                self.span,
-                "cannot apply '{}' to {} and {}",
-                self.v.op.v.as_str(),
-                lhty,
-                rhty,
-            ));
+            self.error(ctx, l, r);
         }
 
         out
@@ -358,13 +352,41 @@ impl Spanned<&ExprBinary> {
             }
         };
 
-        if let Ok(mut slot) = slot.try_borrow_mut() {
-            *slot = op(std::mem::take(&mut slot), rhs);
-            return Value::None;
+        let (constant, err, value) = if let Ok(mut inner) = slot.try_borrow_mut() {
+            let lhs = std::mem::take(&mut *inner);
+            let types = (lhs.type_name(), rhs.type_name());
+
+            *inner = op(lhs, rhs);
+            if *inner == Value::Error {
+                (false, Some(types), Value::Error)
+            } else {
+                (false, None, Value::None)
+            }
+        } else {
+            (true, None, Value::Error)
+        };
+
+        if constant {
+            ctx.diag(error!(span, "cannot assign to a constant"));
         }
 
-        ctx.diag(error!(span, "cannot assign to a constant"));
-        Value::Error
+        if let Some((l, r)) = err {
+            self.error(ctx, l, r);
+        }
+
+        value
+    }
+
+    fn error(&self, ctx: &mut EvalContext, l: &str, r: &str) {
+        let op = self.v.op.v.as_str();
+        let message = match self.v.op.v {
+            BinOp::Add => format!("cannot add {} and {}", l, r),
+            BinOp::Sub => format!("cannot subtract {1} from {0}", l, r),
+            BinOp::Mul => format!("cannot multiply {} with {}", l, r),
+            BinOp::Div => format!("cannot divide {} by {}", l, r),
+            _ => format!("cannot apply '{}' to {} and {}", op, l, r),
+        };
+        ctx.diag(error!(self.span, "{}", message));
     }
 }
 

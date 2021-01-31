@@ -141,12 +141,29 @@ fn test(
 
     let mut ok = true;
     let mut frames = vec![];
-
     let mut lines = 0;
-    for (i, part) in src.split("---").enumerate() {
-        let (part_ok, part_frames) = test_part(part, i, lines, env);
-        ok &= part_ok;
-        frames.extend(part_frames);
+    let mut compare_ref = true;
+
+    let parts: Vec<_> = src.split("---").collect();
+    for (i, part) in parts.iter().enumerate() {
+        let is_header = i == 0
+            && parts.len() > 1
+            && part
+                .lines()
+                .all(|s| s.starts_with("//") || s.chars().all(|c| c.is_whitespace()));
+
+        if is_header {
+            for line in part.lines() {
+                if line.starts_with("// Ref: false") {
+                    compare_ref = false;
+                }
+            }
+        } else {
+            let (part_ok, part_frames) = test_part(part, i, compare_ref, lines, env);
+            ok &= part_ok;
+            frames.extend(part_frames);
+        }
+
         lines += part.lines().count() as u32;
     }
 
@@ -179,9 +196,16 @@ fn test(
     ok
 }
 
-fn test_part(src: &str, i: usize, lines: u32, env: &mut Env) -> (bool, Vec<Frame>) {
+fn test_part(
+    src: &str,
+    i: usize,
+    compare_ref: bool,
+    lines: u32,
+    env: &mut Env,
+) -> (bool, Vec<Frame>) {
     let map = LineMap::new(src);
-    let (compare_ref, ref_diags) = parse_metadata(src, &map);
+    let (local_compare_ref, ref_diags) = parse_metadata(src, &map);
+    let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
     let mut scope = library::new();
 
@@ -242,12 +266,20 @@ fn test_part(src: &str, i: usize, lines: u32, env: &mut Env) -> (bool, Vec<Frame
     (ok, frames)
 }
 
-fn parse_metadata(src: &str, map: &LineMap) -> (bool, SpanVec<Diag>) {
+fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, SpanVec<Diag>) {
     let mut diags = vec![];
-    let mut compare_ref = true;
+    let mut compare_ref = None;
 
     for (i, line) in src.lines().enumerate() {
-        compare_ref &= !line.starts_with("// Ref: false");
+        let line = line.trim();
+
+        if line.starts_with("// Ref: false") {
+            compare_ref = Some(false);
+        }
+
+        if line.starts_with("// Ref: true") {
+            compare_ref = Some(true);
+        }
 
         let (level, rest) = if let Some(rest) = line.strip_prefix("// Warning: ") {
             (Level::Warning, rest)

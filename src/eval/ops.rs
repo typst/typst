@@ -44,10 +44,16 @@ pub fn add(lhs: Value, rhs: Value) -> Value {
         (Linear(a), Length(b)) => Linear(a + b),
         (Linear(a), Relative(b)) => Linear(a + b),
         (Linear(a), Linear(b)) => Linear(a + b),
+
         (Str(a), Str(b)) => Str(a + &b),
         (Array(a), Array(b)) => Array(concat(a, b)),
         (Dict(a), Dict(b)) => Dict(concat(a, b)),
+
+        // TODO: Add string and template.
         (Template(a), Template(b)) => Template(concat(a, b)),
+        (Template(a), None) => Template(a),
+        (None, Template(b)) => Template(b),
+
         _ => Error,
     }
 }

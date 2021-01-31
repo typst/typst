@@ -205,7 +205,7 @@ impl<'s> Parser<'s> {
     pub fn expect(&mut self, t: Token) -> bool {
         let eaten = self.eat_if(t);
         if !eaten {
-            self.expected(t.name());
+            self.expected_at(t.name(), self.last_end);
         }
         eaten
     }
