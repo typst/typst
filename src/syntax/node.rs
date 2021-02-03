@@ -151,8 +151,9 @@ impl Pretty for NodeRaw {
 
         // More backticks may be required if there are lots of consecutive
         // backticks in the lines.
-        let mut count = 0;
+        let mut count;
         for line in &self.lines {
+            count = 0;
             for c in line.chars() {
                 if c == '`' {
                     count += 1;

@@ -72,6 +72,8 @@ mod tests {
         roundtrip("```\n line \n```");
         roundtrip("```\n`\n```");
         roundtrip("``` ` ```");
+        roundtrip("````\n```\n```\n````");
+        test("```lang```", "```lang ```");
         test("```1 ```", "``");
         test("``` 1```", "`1`");
         test("``` 1 ```", "`1 `");
