@@ -59,14 +59,14 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
         Token::Underscore => Node::Emph,
         Token::Eq => {
             if *at_start {
-                return Some(Node::Heading(heading(p)));
+                return Some(heading(p));
             } else {
-                Node::Text(p.get(p.peek_span()).into())
+                Node::Text(p.peek_src().into())
             }
         }
         Token::Tilde => Node::Text("\u{00A0}".into()),
         Token::Backslash => Node::Linebreak,
-        Token::Raw(t) => Node::Raw(raw(p, t)),
+        Token::Raw(t) => raw(p, t),
         Token::UnicodeEscape(t) => Node::Text(unicode_escape(p, t)),
 
         // Keywords.
@@ -122,7 +122,7 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
 }
 
 /// Parse a heading.
-fn heading(p: &mut Parser) -> NodeHeading {
+fn heading(p: &mut Parser) -> Node {
     // Count depth.
     let mut level = p.span(|p| {
         p.assert(&[Token::Eq]);
@@ -147,16 +147,16 @@ fn heading(p: &mut Parser) -> NodeHeading {
         }
     }
 
-    NodeHeading { level, contents }
+    Node::Heading(NodeHeading { level, contents })
 }
 
 /// Handle a raw block.
-fn raw(p: &mut Parser, token: TokenRaw) -> NodeRaw {
+fn raw(p: &mut Parser, token: TokenRaw) -> Node {
     let raw = resolve::resolve_raw(token.text, token.backticks);
     if !token.terminated {
         p.diag(error!(p.peek_span().end, "expected backtick(s)"));
     }
-    raw
+    Node::Raw(raw)
 }
 
 /// Handle a unicode escape sequence.

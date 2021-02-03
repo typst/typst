@@ -243,6 +243,11 @@ impl<'s> Parser<'s> {
         )
     }
 
+    /// Peek at the source of the next token.
+    pub fn peek_src(&self) -> &'s str {
+        self.get(self.peek_span())
+    }
+
     /// Checks whether the next token fulfills a condition.
     ///
     /// Returns `false` if there is no next token.

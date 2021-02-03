@@ -110,15 +110,15 @@ impl Pretty for Value {
     fn pretty(&self, p: &mut Printer) {
         match self {
             Value::None => p.push_str("none"),
-            Value::Bool(v) => write!(p, "{}", v).unwrap(),
-            Value::Int(v) => p.push_str(itoa::Buffer::new().format(*v)),
-            Value::Float(v) => p.push_str(ryu::Buffer::new().format(*v)),
-            Value::Length(v) => write!(p, "{}", v).unwrap(),
-            Value::Angle(v) => write!(p, "{}", v).unwrap(),
-            Value::Relative(v) => write!(p, "{}", v).unwrap(),
-            Value::Linear(v) => write!(p, "{}", v).unwrap(),
-            Value::Color(v) => write!(p, "{}", v).unwrap(),
-            Value::Str(v) => write!(p, "{:?}", v).unwrap(),
+            Value::Bool(v) => v.pretty(p),
+            Value::Int(v) => v.pretty(p),
+            Value::Float(v) => v.pretty(p),
+            Value::Length(v) => v.pretty(p),
+            Value::Angle(v) => v.pretty(p),
+            Value::Relative(v) => v.pretty(p),
+            Value::Linear(v) => v.pretty(p),
+            Value::Color(v) => v.pretty(p),
+            Value::Str(v) => v.pretty(p),
             Value::Array(v) => v.pretty(p),
             Value::Dict(v) => v.pretty(p),
             Value::Template(v) => pretty_template(v, p),
@@ -134,12 +134,12 @@ pub type ValueArray = Vec<Value>;
 
 impl Pretty for ValueArray {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str("(");
+        p.push('(');
         p.join(self, ", ", |item, p| item.pretty(p));
         if self.len() == 1 {
-            p.push_str(",");
+            p.push(',');
         }
-        p.push_str(")");
+        p.push(')');
     }
 }
 
@@ -148,9 +148,9 @@ pub type ValueDict = BTreeMap<String, Value>;
 
 impl Pretty for ValueDict {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str("(");
+        p.push('(');
         if self.is_empty() {
-            p.push_str(":");
+            p.push(':');
         } else {
             p.join(self, ", ", |(key, value), p| {
                 p.push_str(key);
@@ -158,7 +158,7 @@ impl Pretty for ValueDict {
                 value.pretty(p);
             });
         }
-        p.push_str(")");
+        p.push(')');
     }
 }
 

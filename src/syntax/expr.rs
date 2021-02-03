@@ -62,24 +62,28 @@ impl Pretty for Expr {
     fn pretty(&self, p: &mut Printer) {
         match self {
             Self::None => p.push_str("none"),
-            Self::Ident(v) => p.push_str(&v),
-            Self::Bool(v) => write!(p, "{}", v).unwrap(),
-            Self::Int(v) => p.push_str(itoa::Buffer::new().format(*v)),
-            Self::Float(v) => p.push_str(ryu::Buffer::new().format(*v)),
-            Self::Length(v, u) => write!(p, "{}{}", v, u).unwrap(),
-            Self::Angle(v, u) => write!(p, "{}{}", v, u).unwrap(),
-            Self::Percent(v) => write!(p, "{}%", v).unwrap(),
-            Self::Color(v) => write!(p, "{}", v).unwrap(),
-            // TODO: Debug escapes a bit more than we want (e.g. apostrophes).
-            // We probably need to do the escaping ourselves.
-            Self::Str(v) => write!(p, "{:?}", &v).unwrap(),
+            Self::Ident(v) => v.pretty(p),
+            Self::Bool(v) => v.pretty(p),
+            Self::Int(v) => v.pretty(p),
+            Self::Float(v) => v.pretty(p),
+            Self::Length(v, u) => {
+                write!(p, "{}{}", ryu::Buffer::new().format(*v), u).unwrap();
+            }
+            Self::Angle(v, u) => {
+                write!(p, "{}{}", ryu::Buffer::new().format(*v), u).unwrap();
+            }
+            Self::Percent(v) => {
+                write!(p, "{}%", ryu::Buffer::new().format(*v)).unwrap();
+            }
+            Self::Color(v) => v.pretty(p),
+            Self::Str(v) => v.pretty(p),
             Self::Array(v) => v.pretty(p),
             Self::Dict(v) => v.pretty(p),
             Self::Template(v) => pretty_template(v, p),
             Self::Group(v) => {
-                p.push_str("(");
+                p.push('(');
                 v.v.pretty(p);
-                p.push_str(")");
+                p.push(')');
             }
             Self::Block(v) => v.pretty(p),
             Self::Unary(v) => v.pretty(p),
@@ -98,12 +102,12 @@ pub type ExprArray = SpanVec<Expr>;
 
 impl Pretty for ExprArray {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str("(");
+        p.push('(');
         p.join(self, ", ", |item, p| item.v.pretty(p));
         if self.len() == 1 {
-            p.push_str(",");
+            p.push(',');
         }
-        p.push_str(")");
+        p.push(')');
     }
 }
 
@@ -112,13 +116,13 @@ pub type ExprDict = Vec<Named>;
 
 impl Pretty for ExprDict {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str("(");
+        p.push('(');
         if self.is_empty() {
-            p.push_str(":");
+            p.push(':');
         } else {
             p.join(self, ", ", |named, p| named.pretty(p));
         }
-        p.push_str(")");
+        p.push(')');
     }
 }
 
@@ -133,7 +137,7 @@ pub struct Named {
 
 impl Pretty for Named {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str(&self.name.v);
+        self.name.v.pretty(p);
         p.push_str(": ");
         self.expr.v.pretty(p);
     }
@@ -147,9 +151,9 @@ pub fn pretty_template(template: &ExprTemplate, p: &mut Printer) {
     if let [Spanned { v: Node::Expr(Expr::Call(call)), .. }] = template.as_slice() {
         pretty_func_template(call, p, false)
     } else {
-        p.push_str("[");
+        p.push('[');
         template.pretty(p);
-        p.push_str("]");
+        p.push(']');
     }
 }
 
@@ -167,15 +171,15 @@ pub struct ExprBlock {
 
 impl Pretty for ExprBlock {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str("{");
+        p.push('{');
         if self.exprs.len() > 1 {
-            p.push_str(" ");
+            p.push(' ');
         }
         p.join(&self.exprs, "; ", |expr, p| expr.v.pretty(p));
         if self.exprs.len() > 1 {
-            p.push_str(" ");
+            p.push(' ');
         }
-        p.push_str("}");
+        p.push('}');
     }
 }
 
@@ -192,7 +196,7 @@ impl Pretty for ExprUnary {
     fn pretty(&self, p: &mut Printer) {
         self.op.v.pretty(p);
         if self.op.v == UnOp::Not {
-            p.push_str(" ");
+            p.push(' ');
         }
         self.expr.v.pretty(p);
     }
@@ -258,9 +262,9 @@ pub struct ExprBinary {
 impl Pretty for ExprBinary {
     fn pretty(&self, p: &mut Printer) {
         self.lhs.v.pretty(p);
-        p.push_str(" ");
+        p.push(' ');
         self.op.v.pretty(p);
-        p.push_str(" ");
+        p.push(' ');
         self.rhs.v.pretty(p);
     }
 }
@@ -419,9 +423,9 @@ pub struct ExprCall {
 impl Pretty for ExprCall {
     fn pretty(&self, p: &mut Printer) {
         self.callee.v.pretty(p);
-        p.push_str("(");
+        p.push('(');
         self.args.v.pretty(p);
-        p.push_str(")");
+        p.push(')');
     }
 }
 
@@ -444,7 +448,7 @@ pub fn pretty_func_template(call: &ExprCall, p: &mut Printer, chained: bool) {
     {
         // Previous arguments.
         if !head.is_empty() {
-            p.push_str(" ");
+            p.push(' ');
             p.join(head, ", ", |item, p| item.pretty(p));
         }
 
@@ -458,12 +462,12 @@ pub fn pretty_func_template(call: &ExprCall, p: &mut Printer, chained: bool) {
             template.pretty(p);
         }
     } else if !call.args.v.is_empty() {
-        p.push_str(" ");
+        p.push(' ');
         call.args.v.pretty(p);
     }
 
     // Either end of header or end of body.
-    p.push_str("]");
+    p.push(']');
 }
 
 /// The arguments to a function: `12, draw: false`.
@@ -508,7 +512,7 @@ pub struct ExprLet {
 impl Pretty for ExprLet {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("#let ");
-        p.push_str(&self.pat.v);
+        self.pat.v.pretty(p);
         if let Some(init) = &self.init {
             p.push_str(" = ");
             init.v.pretty(p);
@@ -531,7 +535,7 @@ impl Pretty for ExprIf {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("#if ");
         self.condition.v.pretty(p);
-        p.push_str(" ");
+        p.push(' ');
         self.if_body.v.pretty(p);
         if let Some(expr) = &self.else_body {
             p.push_str(" #else ");
@@ -557,7 +561,7 @@ impl Pretty for ExprFor {
         self.pat.v.pretty(p);
         p.push_str(" #in ");
         self.iter.v.pretty(p);
-        p.push_str(" ");
+        p.push(' ');
         self.body.v.pretty(p);
     }
 }
@@ -574,11 +578,11 @@ pub enum ForPattern {
 impl Pretty for ForPattern {
     fn pretty(&self, p: &mut Printer) {
         match self {
-            Self::Value(v) => p.push_str(&v),
+            Self::Value(v) => v.pretty(p),
             Self::KeyValue(k, v) => {
-                p.push_str(&k);
+                k.pretty(p);
                 p.push_str(", ");
-                p.push_str(&v);
+                v.pretty(p);
             }
         }
     }

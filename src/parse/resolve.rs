@@ -54,13 +54,13 @@ pub fn resolve_raw(text: &str, backticks: usize) -> NodeRaw {
         NodeRaw {
             lang: Ident::new(tag),
             lines,
-            inline: !had_newline,
+            block: had_newline,
         }
     } else {
         NodeRaw {
             lang: None,
             lines: split_lines(text),
-            inline: true,
+            block: false,
         }
     }
 }
@@ -77,10 +77,14 @@ fn split_at_lang_tag(raw: &str) -> (&str, &str) {
 /// Trim raw text and splits it into lines.
 ///
 /// Returns whether at least one newline was contained in `raw`.
-fn trim_and_split_raw(raw: &str) -> (Vec<String>, bool) {
-    // Trims one whitespace at end and start.
-    let raw = raw.strip_prefix(' ').unwrap_or(raw);
-    let raw = raw.strip_suffix(' ').unwrap_or(raw);
+fn trim_and_split_raw(mut raw: &str) -> (Vec<String>, bool) {
+    // Trims one space at the start.
+    raw = raw.strip_prefix(' ').unwrap_or(raw);
+
+    // Trim one space at the end if the last non-whitespace char is a backtick.
+    if raw.trim_end().ends_with('`') {
+        raw = raw.strip_suffix(' ').unwrap_or(raw);
+    }
 
     let mut lines = split_lines(raw);
     let had_newline = lines.len() > 1;
@@ -167,29 +171,29 @@ mod tests {
             backticks: usize,
             lang: Option<&str>,
             lines: &[&str],
-            inline: bool,
+            block: bool,
         ) {
             assert_eq!(resolve_raw(raw, backticks), NodeRaw {
                 lang: lang.map(|id| Ident(id.into())),
                 lines: lines.iter().map(ToString::to_string).collect(),
-                inline,
+                block,
             });
         }
 
         // Just one backtick.
-        test("py",     1, None, &["py"],     true);
-        test("1\n2",   1, None, &["1", "2"], true);
-        test("1\r\n2", 1, None, &["1", "2"], true);
+        test("py",     1, None, &["py"],     false);
+        test("1\n2",   1, None, &["1", "2"], false);
+        test("1\r\n2", 1, None, &["1", "2"], false);
 
         // More than one backtick with lang tag.
-        test("js alert()",     2, Some("js"), &["alert()"],        true);
-        test("py quit(\n\n) ", 3, Some("py"), &["quit(", "", ")"], false);
-        test("♥",              2, None,       &[],                 true);
+        test("js alert()",     2, Some("js"), &["alert()"],        false);
+        test("py quit(\n\n)",  3, Some("py"), &["quit(", "", ")"], true);
+        test("♥",              2, None,       &[],                 false);
 
         // Trimming of whitespace (tested more thoroughly in separate test).
-        test(" a",   2, None, &["a"],  true);
-        test("  a",  2, None, &[" a"], true);
-        test(" \na", 2, None, &["a"],  false);
+        test(" a",   2, None, &["a"],  false);
+        test("  a",  2, None, &[" a"], false);
+        test(" \na", 2, None, &["a"],  true);
     }
 
     #[test]
@@ -203,8 +207,11 @@ mod tests {
         test("  hi",         vec![" hi"]);
         test("\nhi",         vec!["hi"]);
         test("    \n hi",    vec![" hi"]);
-        test("hi ",          vec!["hi"]);
-        test("hi  ",         vec!["hi "]);
+        test("hi` ",         vec!["hi`"]);
+        test("hi`  ",        vec!["hi` "]);
+        test("hi`   ",       vec!["hi`  "]);
+        test("hi ",          vec!["hi "]);
+        test("hi  ",         vec!["hi  "]);
         test("hi\n",         vec!["hi"]);
         test("hi \n   ",     vec!["hi "]);
         test("  \n hi \n  ", vec![" hi "]);

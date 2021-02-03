@@ -2,6 +2,8 @@ use std::ops::Deref;
 
 use unicode_xid::UnicodeXID;
 
+use crate::pretty::{Pretty, Printer};
+
 /// An Unicode identifier with a few extra permissible characters.
 ///
 /// In addition to what is specified in the [Unicode Standard][uax31], we allow:
@@ -25,6 +27,12 @@ impl Ident {
     /// Return a reference to the underlying string.
     pub fn as_str(&self) -> &str {
         self
+    }
+}
+
+impl Pretty for Ident {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str(self.as_str());
     }
 }
 

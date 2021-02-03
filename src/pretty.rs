@@ -2,10 +2,13 @@
 
 use std::fmt::{Arguments, Result, Write};
 
+use crate::color::{Color, RgbaColor};
+use crate::geom::{Angle, Length, Linear, Relative};
+
 /// Pretty print an item and return the resulting string.
 pub fn pretty<T>(item: &T) -> String
 where
-    T: Pretty,
+    T: Pretty + ?Sized,
 {
     let mut p = Printer::new();
     item.pretty(&mut p);
@@ -27,6 +30,11 @@ impl Printer {
     /// Create a new pretty printer.
     pub fn new() -> Self {
         Self { buf: String::new() }
+    }
+
+    /// Push a character into the buffer.
+    pub fn push(&mut self, c: char) {
+        self.buf.push(c);
     }
 
     /// Push a string into the buffer.
@@ -65,5 +73,66 @@ impl Write for Printer {
     fn write_str(&mut self, s: &str) -> Result {
         self.push_str(s);
         Ok(())
+    }
+}
+
+impl Pretty for i64 {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str(itoa::Buffer::new().format(*self));
+    }
+}
+
+impl Pretty for f64 {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str(ryu::Buffer::new().format(*self));
+    }
+}
+
+impl Pretty for str {
+    fn pretty(&self, p: &mut Printer) {
+        p.push('"');
+        for c in self.chars() {
+            match c {
+                '\\' => p.push_str(r"\\"),
+                '"' => p.push_str(r#"\""#),
+                '\n' => p.push_str(r"\n"),
+                '\r' => p.push_str(r"\r"),
+                '\t' => p.push_str(r"\t"),
+                _ => p.push(c),
+            }
+        }
+        p.push('"');
+    }
+}
+
+macro_rules! impl_pretty_display {
+    ($($type:ty),* $(,)?) => {
+        $(impl Pretty for $type {
+            fn pretty(&self, p: &mut Printer) {
+                write!(p, "{}", self).unwrap();
+            }
+        })*
+    };
+}
+
+impl_pretty_display! {
+    bool,
+    Length,
+    Angle,
+    Relative,
+    Linear,
+    RgbaColor,
+    Color,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pretty_print_str() {
+        assert_eq!(pretty("\n"), r#""\n""#);
+        assert_eq!(pretty("\\"), r#""\\""#);
+        assert_eq!(pretty("\""), r#""\"""#);
     }
 }

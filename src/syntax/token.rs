@@ -170,9 +170,9 @@ pub struct TokenRaw<'s> {
 pub struct TokenMath<'s> {
     /// The formula between the dollars.
     pub formula: &'s str,
-    /// Whether the formula was surrounded by one dollar (true) or two dollars
-    /// (false).
-    pub inline: bool,
+    /// Whether the formula is display-level, that is, it is surrounded by
+    /// `$[..]`.
+    pub display: bool,
     /// Whether the closing dollars were present.
     pub terminated: bool,
 }
@@ -243,8 +243,8 @@ impl<'s> Token<'s> {
             Self::Bool(_) => "boolean",
             Self::Int(_) => "integer",
             Self::Float(_) => "float",
-            Self::Length(..) => "length",
-            Self::Angle(..) => "angle",
+            Self::Length(_, _) => "length",
+            Self::Angle(_, _) => "angle",
             Self::Percent(_) => "percentage",
             Self::Color(_) => "color",
             Self::Str(_) => "string",

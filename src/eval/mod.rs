@@ -142,12 +142,20 @@ impl Eval for Spanned<&NodeRaw> {
             }));
         }
 
+        if self.v.block {
+            ctx.apply_parbreak();
+        }
+
         ctx.push(NodeStack {
             dirs: ctx.state.dirs,
             align: ctx.state.align,
             expand: Spec::uniform(Expansion::Fit),
             children,
         });
+
+        if self.v.block {
+            ctx.apply_parbreak();
+        }
 
         ctx.state.font.families = prev;
     }
@@ -466,8 +474,8 @@ impl Eval for Spanned<&ExprFor> {
                 iterate!(for (k => key, v => value) in dict.into_iter())
             }
 
-            (ForPattern::KeyValue(..), Value::Str(_))
-            | (ForPattern::KeyValue(..), Value::Array(_)) => {
+            (ForPattern::KeyValue(_, _), Value::Str(_))
+            | (ForPattern::KeyValue(_, _), Value::Array(_)) => {
                 ctx.diag(error!(self.v.pat.span, "mismatched pattern"));
                 Value::Error
             }

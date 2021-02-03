@@ -254,22 +254,22 @@ impl<'s> Tokens<'s> {
     }
 
     fn math(&mut self) -> Token<'s> {
-        let mut inline = true;
+        let mut display = false;
         if self.s.eat_if('[') {
-            inline = false;
+            display = true;
         }
 
         let start = self.s.index();
 
         let mut escaped = false;
-        let mut dollar = inline;
+        let mut dollar = !display;
 
         let terminated = loop {
             match self.s.eat() {
                 Some('$') if !escaped && dollar => break true,
                 Some(']') if !escaped => dollar = true,
                 Some(c) => {
-                    dollar = inline;
+                    dollar = !display;
                     escaped = c == '\\' && !escaped;
                 }
                 None => break false,
@@ -277,15 +277,15 @@ impl<'s> Tokens<'s> {
         };
 
         let end = self.s.index()
-            - match (terminated, inline) {
+            - match (terminated, display) {
                 (false, _) => 0,
-                (true, true) => 1,
-                (true, false) => 2,
+                (true, false) => 1,
+                (true, true) => 2,
             };
 
         Token::Math(TokenMath {
             formula: self.s.get(start .. end),
-            inline,
+            display,
             terminated,
         })
     }
@@ -470,8 +470,8 @@ mod tests {
         Token::Raw(TokenRaw { text, backticks, terminated })
     }
 
-    const fn Math(formula: &str, inline: bool, terminated: bool) -> Token {
-        Token::Math(TokenMath { formula, inline, terminated })
+    const fn Math(formula: &str, display: bool, terminated: bool) -> Token {
+        Token::Math(TokenMath { formula, display, terminated })
     }
 
     const fn UnicodeEscape(sequence: &str, terminated: bool) -> Token {
@@ -527,7 +527,7 @@ mod tests {
         ('/', None, "//", LineComment("")),
         ('/', None, "/**/", BlockComment("")),
         ('/', Some(Markup), "*", Star),
-        ('/', Some(Markup), "$ $", Math(" ", true, true)),
+        ('/', Some(Markup), "$ $", Math(" ", false, true)),
         ('/', Some(Markup), r"\\", Text(r"\")),
         ('/', Some(Markup), "#let", Let),
         ('/', Some(Code), "#if", If),
@@ -752,21 +752,21 @@ mod tests {
     #[test]
     fn test_tokenize_math_formulas() {
         // Test basic formula.
-        t!(Markup: "$$"        => Math("", true, true));
-        t!(Markup: "$x$"       => Math("x", true, true));
-        t!(Markup: r"$\\$"     => Math(r"\\", true, true));
-        t!(Markup: "$[x + y]$" => Math("x + y", false, true));
-        t!(Markup: r"$[\\]$"   => Math(r"\\", false, true));
+        t!(Markup: "$$"        => Math("", false, true));
+        t!(Markup: "$x$"       => Math("x", false, true));
+        t!(Markup: r"$\\$"     => Math(r"\\", false, true));
+        t!(Markup: "$[x + y]$" => Math("x + y", true, true));
+        t!(Markup: r"$[\\]$"   => Math(r"\\", true, true));
 
         // Test unterminated.
-        t!(Markup[""]: "$x"      => Math("x", true, false));
-        t!(Markup[""]: "$[x"     => Math("x", false, false));
-        t!(Markup[""]: "$[x]\n$" => Math("x]\n$", false, false));
+        t!(Markup[""]: "$x"      => Math("x", false, false));
+        t!(Markup[""]: "$[x"     => Math("x", true, false));
+        t!(Markup[""]: "$[x]\n$" => Math("x]\n$", true, false));
 
         // Test escape sequences.
-        t!(Markup: r"$\$x$"       => Math(r"\$x", true, true));
-        t!(Markup: r"$[\\\]$]$"   => Math(r"\\\]$", false, true));
-        t!(Markup[""]: r"$[ ]\\$" => Math(r" ]\\$", false, false));
+        t!(Markup: r"$\$x$"       => Math(r"\$x", false, true));
+        t!(Markup: r"$[\\\]$]$"   => Math(r"\\\]$", true, true));
+        t!(Markup[""]: r"$[ ]\\$" => Math(r" ]\\$", true, false));
     }
 
     #[test]

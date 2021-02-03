@@ -335,7 +335,7 @@ fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
             }
             value.pretty(p);
         });
-        p.push_str(")");
+        p.push(')');
 
         Value::Str(p.finish())
     }

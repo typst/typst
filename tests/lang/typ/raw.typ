@@ -10,6 +10,21 @@
 `#[f 1]`
 
 ---
+// Multiline block splits paragraphs.
+
+First
+```
+Second
+```
+Third
+
+---
+// Lots of backticks inside.
+````
+```backticks```
+````
+
+---
 // Trimming.
 
 // Space between "rust" and "let" is trimmed.
@@ -18,7 +33,9 @@ The keyword ```rust let```.
 // Trimming depends on number backticks.
 <``> \
 <` untrimmed `> \
-<``` trimmed ```>
+<``` trimmed` ```> \
+<``` trimmed ```> \
+<``` trimmed```>
 
 // Multiline trimming.
 ```py
@@ -27,12 +44,6 @@ import this
 def hi():
   print("Hi!")
 ```
-
----
-// Lots of backticks inside.
-````
-```backticks```
-````
 
 ---
 // Unterminated.

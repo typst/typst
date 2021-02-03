@@ -26,9 +26,9 @@ pub enum Node {
 impl Pretty for Node {
     fn pretty(&self, p: &mut Printer) {
         match self {
-            Self::Strong => p.push_str("*"),
-            Self::Emph => p.push_str("_"),
-            Self::Space => p.push_str(" "),
+            Self::Strong => p.push('*'),
+            Self::Emph => p.push('_'),
+            Self::Space => p.push(' '),
             Self::Linebreak => p.push_str(r"\"),
             Self::Parbreak => p.push_str("\n\n"),
             Self::Text(text) => p.push_str(&text),
@@ -46,10 +46,10 @@ impl Pretty for Node {
     }
 }
 
-/// A section heading: `# Introduction`.
+/// A section heading: `= Introduction`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NodeHeading {
-    /// The section depth (numer of hashtags minus 1, capped at 5).
+    /// The section depth (numer of equals signs minus 1, capped at 5).
     pub level: Spanned<u8>,
     /// The contents of the heading.
     pub contents: Tree,
@@ -58,7 +58,7 @@ pub struct NodeHeading {
 impl Pretty for NodeHeading {
     fn pretty(&self, p: &mut Printer) {
         for _ in 0 ..= self.level.v {
-            p.push_str("=");
+            p.push('=');
         }
         self.contents.pretty(p);
     }
@@ -67,8 +67,7 @@ impl Pretty for NodeHeading {
 /// A raw block with optional syntax highlighting: `` `raw` ``.
 ///
 /// Raw blocks start with 1 or 3+ backticks and end with the same number of
-/// backticks. If you want to include a sequence of backticks in a raw block,
-/// simply surround the block with more backticks.
+/// backticks.
 ///
 /// When using at least three backticks, an optional language tag may follow
 /// directly after the backticks. This tag defines which language to
@@ -86,7 +85,7 @@ impl Pretty for NodeHeading {
 ///   ````typst
 ///   ```rust println!("hello!")```;
 ///   ````
-///   - Blocks can span multiple lines.
+/// - Blocks can span multiple lines.
 ///   ````typst
 ///   ```rust
 ///   loop {
@@ -94,34 +93,40 @@ impl Pretty for NodeHeading {
 ///   }
 ///   ```
 ///   ````
-///   - Start with a space to omit the language tag (the space will be trimmed
-///     from the output) and use more backticks to allow backticks in the raw
-///     text.
+/// - Start with a space to omit the language tag (the space will be trimmed
+///   from the output).
 ///   `````typst
-///   ```` This contains ```backticks``` and has no leading & trailing spaces. ````
+///   ```` This has no leading space.````
+///   `````
+/// - Use more backticks to allow backticks in the raw text.
+///   `````typst
+///   ```` This contains ```backticks```.````
 ///   `````
 ///
-///   # Trimming
-///   If we would always render the raw text between the backticks exactly as
-///   given, a few things would become problematic or even impossible:
-///   - Typical multiline code blocks (like in the example above) would have an
-///     additional newline before and after the code.
-///   - The first word of text wrapped in more than three backticks would always
-///     be interpreted as a language tag which means that text without leading
-///     space would be impossible.
-///   - A single backtick without surrounding spaces could not exist as raw text
-///     since it would be interpreted as belonging to the opening or closing
-///     backticks.
+/// # Trimming
+/// If we would always render the raw text between the backticks exactly as
+/// given, some things would become cumbersome/impossible to write:
+/// - Typical multiline code blocks (like in the example above) would have an
+///   additional newline before and after the code.
+/// - Multi-line blocks would need to start with a space since a word would be
+///   interpreted as a language tag.
+/// - Text ending with a backtick would be impossible since the backtick would
+///   be interpreted as belonging to the closing backticks.
 ///
-///   To fix these problems, we trim blocks with 3+ backticks as follows:
-///   - A single space or a sequence of whitespace followed by a newline at the start.
-///   - A single space or a newline followed by a sequence of whitespace at the end.
+/// To fix these problems, we sometimes trim a bit of space from blocks with 3+
+/// backticks:
+/// - At the start, we trim a single space or a sequence of whitespace followed
+///   by a newline.
+/// - At the end, we trim
+///   - a single space if the raw text ends with a backtick followed only by
+///     whitespace,
+///   - a newline followed by a sequence of whitespace.
 ///
-///   With these rules, a single raw backtick can be produced by the sequence
-///   ```` ``` ` ``` ````, ```` ``` unhighlighted text ``` ```` has no
-///   surrounding spaces and multiline code blocks don't have extra empty lines.
-///   Note that you can always force leading or trailing whitespace simply by
-///   adding more spaces.
+/// You can thus produce a single backtick without surrounding spaces with the
+/// sequence ```` ``` ` ``` ````.
+///
+/// Note that with these rules you can always force leading or trailing
+/// whitespace simply by adding more spaces.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NodeRaw {
     /// An optional identifier specifying the language to syntax-highlight in.
@@ -129,28 +134,65 @@ pub struct NodeRaw {
     /// The lines of raw text, determined as the raw string between the
     /// backticks trimmed according to the above rules and split at newlines.
     pub lines: Vec<String>,
-    /// Whether the element can be layouted inline.
-    ///
-    /// - When true, it will be layouted integrated within the surrounding
-    ///   paragraph.
-    /// - When false, it will be separated into its own paragraph.
-    ///
-    /// Single-backtick blocks are always inline-level. Multi-backtick blocks
-    /// are inline-level when they contain no newlines.
-    pub inline: bool,
+    /// Whether the element is block-level, that is, it has 3+ backticks
+    /// and contains at least one newline.
+    pub block: bool,
 }
 
 impl Pretty for NodeRaw {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str("`");
-        if let Some(lang) = &self.lang {
-            p.push_str(&lang);
-            p.push_str(" ");
+        // Find out how many backticks we need.
+        let mut backticks = 1;
+
+        // Language tag and block-level are only possible with 3+ backticks.
+        if self.lang.is_some() || self.block {
+            backticks = 3;
         }
-        // TODO: Technically, we should handle backticks in the lines by
-        // wrapping with more backticks, and we should add space before the
-        // first and/or after the last line if necessary.
+
+        // More backticks may be required if there are lots of consecutive
+        // backticks in the lines.
+        let mut count = 0;
+        for line in &self.lines {
+            for c in line.chars() {
+                if c == '`' {
+                    count += 1;
+                    backticks = backticks.max(3).max(count + 1);
+                } else {
+                    count = 0;
+                }
+            }
+        }
+
+        // Starting backticks.
+        for _ in 0 .. backticks {
+            p.push('`');
+        }
+
+        // Language tag.
+        if let Some(lang) = &self.lang {
+            lang.pretty(p);
+        }
+
+        // Start untrimming.
+        if self.block {
+            p.push('\n');
+        } else if backticks >= 3 {
+            p.push(' ');
+        }
+
+        // The lines.
         p.join(&self.lines, "\n", |line, p| p.push_str(line));
-        p.push_str("`");
+
+        // End untrimming.
+        if self.block {
+            p.push('\n');
+        } else if self.lines.last().map_or(false, |line| line.trim_end().ends_with('`')) {
+            p.push(' ');
+        }
+
+        // Ending backticks.
+        for _ in 0 .. backticks {
+            p.push('`');
+        }
     }
 }

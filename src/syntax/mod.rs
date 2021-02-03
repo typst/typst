@@ -64,9 +64,18 @@ mod tests {
 
         // Raw.
         roundtrip("``");
-        roundtrip("`lang 1`");
-        test("``` hi```", "`hi`");
-        test("``` ` ```", "```");
+        roundtrip("`nolang 1`");
+        roundtrip("```lang 1```");
+        roundtrip("```lang 1 ```");
+        roundtrip("```hi  line  ```");
+        roundtrip("```py\ndef\n```");
+        roundtrip("```\n line \n```");
+        roundtrip("```\n`\n```");
+        roundtrip("``` ` ```");
+        test("```1 ```", "``");
+        test("``` 1```", "`1`");
+        test("``` 1 ```", "`1 `");
+        test("```` ` ````", "``` ` ```");
     }
 
     #[test]
@@ -77,12 +86,12 @@ mod tests {
         roundtrip("{true}");
         roundtrip("{10}");
         roundtrip("{3.14}");
-        roundtrip("{10pt}");
+        roundtrip("{10.0pt}");
         roundtrip("{14.1deg}");
-        roundtrip("{20%}");
+        roundtrip("{20.0%}");
         roundtrip("{#abcdef}");
         roundtrip(r#"{"hi"}"#);
-        test(r#"{"let's go"}"#, r#"{"let\'s go"}"#);
+        test(r#"{"let's \" go"}"#, r#"{"let's \" go"}"#);
 
         // Arrays.
         roundtrip("{()}");
