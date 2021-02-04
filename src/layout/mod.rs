@@ -4,10 +4,12 @@ mod fixed;
 mod node;
 mod pad;
 mod par;
+mod rect;
 mod spacing;
 mod stack;
 mod text;
 
+use crate::color::Color;
 use crate::env::{Env, ResourceId};
 use crate::geom::*;
 use crate::shaping::Shaped;
@@ -16,6 +18,7 @@ pub use fixed::*;
 pub use node::*;
 pub use pad::*;
 pub use par::*;
+pub use rect::*;
 pub use spacing::*;
 pub use stack::*;
 pub use text::*;
@@ -54,7 +57,7 @@ impl NodePages {
     pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Frame> {
         let areas = Areas::repeat(self.size);
         let layouted = self.child.layout(ctx, &areas);
-        layouted.frames()
+        layouted.into_frames()
     }
 }
 
@@ -157,9 +160,27 @@ pub enum Layouted {
 }
 
 impl Layouted {
-    /// Return all frames contained in this variant (zero, one or arbitrarily
-    /// many).
-    pub fn frames(self) -> Vec<Frame> {
+    /// Return a reference to all frames contained in this variant (zero, one or
+    /// arbitrarily many).
+    pub fn frames(&self) -> &[Frame] {
+        match self {
+            Self::Spacing(_) => &[],
+            Self::Frame(frame, _) => std::slice::from_ref(frame),
+            Self::Frames(frames, _) => frames,
+        }
+    }
+
+    /// Return a mutable reference to all frames contained in this variant.
+    pub fn frames_mut(&mut self) -> &mut [Frame] {
+        match self {
+            Self::Spacing(_) => &mut [],
+            Self::Frame(frame, _) => std::slice::from_mut(frame),
+            Self::Frames(frames, _) => frames,
+        }
+    }
+
+    /// Return all frames contained in this varian.
+    pub fn into_frames(self) -> Vec<Frame> {
         match self {
             Self::Spacing(_) => vec![],
             Self::Frame(frame, _) => vec![frame],
@@ -204,6 +225,46 @@ pub enum Element {
     Text(Shaped),
     /// An image.
     Image(Image),
+    /// Some shape that could hold another frame.
+    Geometry(Geometry),
+}
+
+/// The kind of graphic fill to be applied to a [`Shape`].
+#[derive(Debug, Clone, PartialEq)]
+pub enum Fill {
+    /// The fill is a color.
+    Color(Color),
+    /// The fill is an image.
+    Image(Image),
+    // Gradient(Gradient),
+}
+
+/// A shape with some kind of fill.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Geometry {
+    /// The shape to draw.
+    pub shape: Shape,
+    /// How the shape looks on the inside.
+    ///
+    /// **TODO:** This could be made into a Vec<Fill> or something such that
+    ///           the user can compose multiple fills with alpha values less
+    ///           than one to achieve cool effects.
+    pub fill: Fill,
+}
+
+/// Some shape.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Shape {
+    /// A rectangle.
+    Rect(Rect),
+    // Ellipse(Ellipse),
+}
+
+/// An rectangle.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Rect {
+    /// The dimensions of the rectangle.
+    pub size: Size,
 }
 
 /// An image element.

@@ -15,14 +15,8 @@ impl Layout for NodePad {
         let areas = shrink(areas, self.padding);
 
         let mut layouted = self.child.layout(ctx, &areas);
-        match &mut layouted {
-            Layouted::Spacing(_) => {}
-            Layouted::Frame(frame, _) => pad(frame, self.padding),
-            Layouted::Frames(frames, _) => {
-                for frame in frames {
-                    pad(frame, self.padding);
-                }
-            }
+        for frame in layouted.frames_mut() {
+            pad(frame, self.padding);
         }
 
         layouted

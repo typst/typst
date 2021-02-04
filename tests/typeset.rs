@@ -20,7 +20,7 @@ use typst::eval::{Args, EvalContext, Scope, State, Value, ValueFunc};
 use typst::export::pdf;
 use typst::font::FsIndexExt;
 use typst::geom::{Length, Point, Sides, Size, Spec};
-use typst::layout::{Element, Expansion, Frame, Image};
+use typst::layout::{Element, Expansion, Fill, Frame, Geometry, Image, Shape};
 use typst::library;
 use typst::parse::{LineMap, Scanner};
 use typst::pretty::{Pretty, Printer};
@@ -409,6 +409,9 @@ fn draw(frames: &[Frame], env: &Env, pixel_per_pt: f32) -> Canvas {
                 Element::Image(image) => {
                     draw_image(&mut canvas, pos, env, image);
                 }
+                Element::Geometry(geom) => {
+                    draw_geometry(&mut canvas, pos, env, geom);
+                }
             }
         }
 
@@ -441,6 +444,28 @@ fn draw_text(canvas: &mut Canvas, pos: Point, env: &Env, shaped: &Shaped) {
 
             canvas.fill_path(&placed, &paint, FillRule::default());
         }
+    }
+}
+
+fn draw_geometry(canvas: &mut Canvas, pos: Point, _: &Env, element: &Geometry) {
+    let x = pos.x.to_pt() as f32;
+    let y = pos.y.to_pt() as f32;
+
+    let (w, h) = match &element.shape {
+        Shape::Rect(s) => (s.size.width.to_pt() as f32, s.size.height.to_pt() as f32),
+    };
+
+    let mut paint = Paint::default();
+
+    match &element.fill {
+        Fill::Color(c) => match c {
+            typst::color::Color::Rgba(c) => paint.set_color_rgba8(c.r, c.g, c.b, c.a),
+        },
+        Fill::Image(_) => todo!(),
+    };
+
+    if let Some(rect) = Rect::from_xywh(x, y, w, h) {
+        canvas.fill_rect(rect, &paint);
     }
 }
 
