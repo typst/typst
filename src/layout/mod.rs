@@ -1,10 +1,10 @@
 //! Layouting.
 
+mod background;
 mod fixed;
 mod node;
 mod pad;
 mod par;
-mod background;
 mod spacing;
 mod stack;
 mod text;
@@ -14,11 +14,11 @@ use crate::env::{Env, ResourceId};
 use crate::geom::*;
 use crate::shaping::Shaped;
 
+pub use background::*;
 pub use fixed::*;
 pub use node::*;
 pub use pad::*;
 pub use par::*;
-pub use background::*;
 pub use spacing::*;
 pub use stack::*;
 pub use text::*;

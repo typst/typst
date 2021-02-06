@@ -464,10 +464,8 @@ fn draw_geometry(canvas: &mut Canvas, pos: Point, _: &Env, element: &Geometry) {
         Shape::Rect(s) => {
             let (w, h) = (s.width.to_pt() as f32, s.height.to_pt() as f32);
             canvas.fill_rect(Rect::from_xywh(x, y, w, h).unwrap(), &paint);
-        },
+        }
     };
-
-
 }
 
 fn draw_image(canvas: &mut Canvas, pos: Point, env: &Env, element: &Image) {

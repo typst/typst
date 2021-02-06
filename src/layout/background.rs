@@ -5,8 +5,8 @@ use super::*;
 pub struct NodeBackground {
     /// The background fill.
     pub fill: Fill,
-    /// The child node whose sides to pad.
-    pub child: NodeFixed,
+    /// The child node to be filled in.
+    pub child: Node,
 }
 
 impl Layout for NodeBackground {

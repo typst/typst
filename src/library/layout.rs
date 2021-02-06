@@ -1,9 +1,9 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{eval::Softness, layout::NodeBackground};
 use crate::layout::{Expansion, Fill, NodeFixed, NodeSpacing, NodeStack};
 use crate::paper::{Paper, PaperClass};
 use crate::prelude::*;
+use crate::{eval::Softness, layout::NodeBackground};
 
 /// `align`: Align content along the layouting axes.
 ///
@@ -210,7 +210,7 @@ pub fn box_(ctx: &mut EvalContext, args: &mut Args) -> Value {
     if let Some(color) = color {
         ctx.push(NodeBackground {
             fill: Fill::Color(color),
-            child: fixed_node,
+            child: Node::Any(fixed_node.into()),
         })
     } else {
         ctx.push(fixed_node);
