@@ -1,7 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::eval::Softness;
-use crate::layout::{Expansion, NodeFixed, NodeSpacing, NodeStack};
+use crate::{eval::Softness, layout::NodeBackground};
+use crate::layout::{Expansion, Fill, NodeFixed, NodeSpacing, NodeStack};
 use crate::paper::{Paper, PaperClass};
 use crate::prelude::*;
 
@@ -175,6 +175,7 @@ impl Display for Alignment {
 /// # Named arguments
 /// - Width of the box:  `width`, of type `linear` relative to parent width.
 /// - Height of the box: `height`, of type `linear` relative to parent height.
+/// - Background color of the box: `color`, of type `color`.
 pub fn box_(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let snapshot = ctx.state.clone();
 
@@ -182,6 +183,7 @@ pub fn box_(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let height = args.get(ctx, "height");
     let main = args.get(ctx, "main-dir");
     let cross = args.get(ctx, "cross-dir");
+    let color = args.get(ctx, "color");
 
     ctx.set_dirs(Gen::new(main, cross));
 
@@ -199,11 +201,21 @@ pub fn box_(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let fill_if = |c| if c { Expansion::Fill } else { Expansion::Fit };
     let expand = Spec::new(fill_if(width.is_some()), fill_if(height.is_some()));
 
-    ctx.push(NodeFixed {
+    let fixed_node = NodeFixed {
         width,
         height,
         child: NodeStack { dirs, align, expand, children }.into(),
-    });
+    };
+
+    if let Some(color) = color {
+        ctx.push(NodeBackground {
+            fill: Fill::Color(color),
+            child: fixed_node,
+        })
+    } else {
+        ctx.push(fixed_node);
+    }
+
 
     ctx.state = snapshot;
     Value::None

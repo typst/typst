@@ -156,19 +156,19 @@ impl<'a> PdfExporter<'a> {
                                 c.b as f32 / 255.,
                             );
                         }
-                        Fill::Image(_) => unimplemented!(),
+                        Fill::Image(_) => todo!(),
                     }
+
+                    let x = pos.x.to_pt() as f32;
 
                     match &geometry.shape {
                         Shape::Rect(r) => {
-                            content.rect(
-                                pos.x.to_pt() as f32,
-                                (page.size.height - pos.y - r.size.height).to_pt() as f32,
-                                r.size.width.to_pt() as f32,
-                                r.size.height.to_pt() as f32,
-                                false,
-                                true,
-                            );
+                            let w = r.width.to_pt() as f32;
+                            let h = r.height.to_pt() as f32;
+                            let y = (page.size.height - pos.y - r.height).to_pt() as f32;
+                            if w > 0.0 && h > 0.0 {
+                                content.rect(x, y, w, h, false, true);
+                            }
                         }
                     }
 

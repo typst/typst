@@ -4,43 +4,6 @@ use crate::env::{ImageResource, ResourceId};
 use crate::layout::*;
 use crate::prelude::*;
 
-/// `rect`: Layout content into a rectangle that also might have a fill.
-///
-/// # Named arguments
-/// - Width of the box:  `width`, of type `linear` relative to parent width.
-/// - Height of the box: `height`, of type `linear` relative to parent height.
-pub fn rect(ctx: &mut EvalContext, args: &mut Args) -> Value {
-    let snapshot = ctx.state.clone();
-
-    let width = args.get(ctx, "width");
-    let height = args.get(ctx, "height");
-    let color = args.get(ctx, "color");
-
-    let dirs = ctx.state.dirs;
-    let align = ctx.state.align;
-
-    ctx.start_content_group();
-
-    if let Some(body) = args.find::<ValueTemplate>(ctx) {
-        body.eval(ctx);
-    }
-
-    let children = ctx.end_content_group();
-
-    let fill_if = |c| if c { Expansion::Fill } else { Expansion::Fit };
-    let expand = Spec::new(fill_if(width.is_some()), fill_if(height.is_some()));
-
-    ctx.push(NodeRect {
-        width,
-        height,
-        color,
-        child: NodeStack { dirs, align, expand, children }.into(),
-    });
-
-    ctx.state = snapshot;
-    Value::None
-}
-
 /// `image`: Insert an image.
 ///
 /// Supports PNG and JPEG files.

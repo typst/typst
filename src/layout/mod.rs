@@ -4,7 +4,7 @@ mod fixed;
 mod node;
 mod pad;
 mod par;
-mod rect;
+mod background;
 mod spacing;
 mod stack;
 mod text;
@@ -18,7 +18,7 @@ pub use fixed::*;
 pub use node::*;
 pub use pad::*;
 pub use par::*;
-pub use rect::*;
+pub use background::*;
 pub use spacing::*;
 pub use stack::*;
 pub use text::*;
@@ -236,7 +236,6 @@ pub enum Fill {
     Color(Color),
     /// The fill is an image.
     Image(Image),
-    // Gradient(Gradient),
 }
 
 /// A shape with some kind of fill.
@@ -245,10 +244,10 @@ pub struct Geometry {
     /// The shape to draw.
     pub shape: Shape,
     /// How the shape looks on the inside.
-    ///
-    /// **TODO:** This could be made into a Vec<Fill> or something such that
-    ///           the user can compose multiple fills with alpha values less
-    ///           than one to achieve cool effects.
+    //
+    //  TODO: This could be made into a Vec<Fill> or something such that
+    //        the user can compose multiple fills with alpha values less
+    //        than one to achieve cool effects.
     pub fill: Fill,
 }
 
@@ -256,15 +255,7 @@ pub struct Geometry {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Shape {
     /// A rectangle.
-    Rect(Rect),
-    // Ellipse(Ellipse),
-}
-
-/// An rectangle.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Rect {
-    /// The dimensions of the rectangle.
-    pub size: Size,
+    Rect(Size),
 }
 
 /// An image element.

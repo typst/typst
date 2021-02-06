@@ -38,7 +38,6 @@ pub fn new() -> Scope {
     set!(func: "image", image);
     set!(func: "page", page);
     set!(func: "pagebreak", pagebreak);
-    set!(func: "rect", rect);
     set!(func: "rgb", rgb);
     set!(func: "type", type_);
     set!(func: "v", v);

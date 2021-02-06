@@ -451,10 +451,6 @@ fn draw_geometry(canvas: &mut Canvas, pos: Point, _: &Env, element: &Geometry) {
     let x = pos.x.to_pt() as f32;
     let y = pos.y.to_pt() as f32;
 
-    let (w, h) = match &element.shape {
-        Shape::Rect(s) => (s.size.width.to_pt() as f32, s.size.height.to_pt() as f32),
-    };
-
     let mut paint = Paint::default();
 
     match &element.fill {
@@ -464,9 +460,14 @@ fn draw_geometry(canvas: &mut Canvas, pos: Point, _: &Env, element: &Geometry) {
         Fill::Image(_) => todo!(),
     };
 
-    if let Some(rect) = Rect::from_xywh(x, y, w, h) {
-        canvas.fill_rect(rect, &paint);
-    }
+    match &element.shape {
+        Shape::Rect(s) => {
+            let (w, h) = (s.width.to_pt() as f32, s.height.to_pt() as f32);
+            canvas.fill_rect(Rect::from_xywh(x, y, w, h).unwrap(), &paint);
+        },
+    };
+
+
 }
 
 fn draw_image(canvas: &mut Canvas, pos: Point, env: &Env, element: &Image) {
