@@ -13,9 +13,10 @@ use pdf_writer::{
 };
 use ttf_parser::{name_id, GlyphId};
 
+use crate::color::Color;
 use crate::env::{Env, ImageResource, ResourceId};
 use crate::geom::Length;
-use crate::layout::{Element, Frame};
+use crate::layout::{Element, Fill, Frame, Shape};
 
 /// Export a collection of frames into a _PDF_ document.
 ///
@@ -57,6 +58,7 @@ impl<'a> PdfExporter<'a> {
                         }
                         images.insert(image.res);
                     }
+                    Element::Geometry(_) => {}
                 }
             }
         }
@@ -127,6 +129,56 @@ impl<'a> PdfExporter<'a> {
     fn write_page(&mut self, id: Ref, page: &'a Frame) {
         let mut content = Content::new();
 
+        for (pos, element) in &page.elements {
+            match element {
+                Element::Image(image) => {
+                    let name = format!("Im{}", self.images.map(image.res));
+                    let size = image.size;
+                    let x = pos.x.to_pt() as f32;
+                    let y = (page.size.height - pos.y - size.height).to_pt() as f32;
+                    let w = size.width.to_pt() as f32;
+                    let h = size.height.to_pt() as f32;
+
+                    content.save_state();
+                    content.matrix(w, 0.0, 0.0, h, x, y);
+                    content.x_object(Name(name.as_bytes()));
+                    content.restore_state();
+                }
+
+                Element::Geometry(geometry) => {
+                    content.save_state();
+
+                    match geometry.fill {
+                        Fill::Color(Color::Rgba(c)) => {
+                            content.fill_rgb(
+                                c.r as f32 / 255.,
+                                c.g as f32 / 255.,
+                                c.b as f32 / 255.,
+                            );
+                        }
+                        Fill::Image(_) => todo!(),
+                    }
+
+                    let x = pos.x.to_pt() as f32;
+
+                    match &geometry.shape {
+                        Shape::Rect(r) => {
+                            let w = r.width.to_pt() as f32;
+                            let h = r.height.to_pt() as f32;
+                            let y = (page.size.height - pos.y - r.height).to_pt() as f32;
+                            if w > 0.0 && h > 0.0 {
+                                content.rect(x, y, w, h, false, true);
+                            }
+                        }
+                    }
+
+                    content.restore_state();
+                }
+
+                _ => {}
+            }
+        }
+
         // We only write font switching actions when the used face changes. To
         // do that, we need to remember the active face.
         let mut face = FaceId::MAX;
@@ -152,22 +204,6 @@ impl<'a> PdfExporter<'a> {
         }
 
         drop(text);
-
-        for (pos, element) in &page.elements {
-            if let Element::Image(image) = element {
-                let name = format!("Im{}", self.images.map(image.res));
-                let size = image.size;
-                let x = pos.x.to_pt() as f32;
-                let y = (page.size.height - pos.y - size.height).to_pt() as f32;
-                let w = size.width.to_pt() as f32;
-                let h = size.height.to_pt() as f32;
-
-                content.save_state();
-                content.matrix(w, 0.0, 0.0, h, x, y);
-                content.x_object(Name(name.as_bytes()));
-                content.restore_state();
-            }
-        }
 
         self.writer.stream(id, &content.finish());
     }
