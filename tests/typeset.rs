@@ -452,7 +452,6 @@ fn draw_geometry(canvas: &mut Canvas, pos: Point, _: &Env, element: &Geometry) {
     let y = pos.y.to_pt() as f32;
 
     let mut paint = Paint::default();
-
     match &element.fill {
         Fill::Color(c) => match c {
             typst::color::Color::Rgba(c) => paint.set_color_rgba8(c.r, c.g, c.b, c.a),

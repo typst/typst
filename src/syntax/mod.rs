@@ -12,7 +12,6 @@ pub use ident::*;
 pub use node::*;
 pub use span::*;
 pub use token::*;
-pub use visit::Visitor;
 
 use crate::pretty::{Pretty, Printer};
 

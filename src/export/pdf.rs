@@ -130,11 +130,11 @@ impl<'a> PdfExporter<'a> {
         let mut content = Content::new();
 
         for (pos, element) in &page.elements {
+            let x = pos.x.to_pt() as f32;
             match element {
                 Element::Image(image) => {
                     let name = format!("Im{}", self.images.map(image.res));
                     let size = image.size;
-                    let x = pos.x.to_pt() as f32;
                     let y = (page.size.height - pos.y - size.height).to_pt() as f32;
                     let w = size.width.to_pt() as f32;
                     let h = size.height.to_pt() as f32;
@@ -151,15 +151,13 @@ impl<'a> PdfExporter<'a> {
                     match geometry.fill {
                         Fill::Color(Color::Rgba(c)) => {
                             content.fill_rgb(
-                                c.r as f32 / 255.,
-                                c.g as f32 / 255.,
-                                c.b as f32 / 255.,
+                                c.r as f32 / 255.0,
+                                c.g as f32 / 255.0,
+                                c.b as f32 / 255.0,
                             );
                         }
                         Fill::Image(_) => todo!(),
                     }
-
-                    let x = pos.x.to_pt() as f32;
 
                     match &geometry.shape {
                         Shape::Rect(r) => {

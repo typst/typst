@@ -23,6 +23,7 @@ use crate::diag::Pass;
 use crate::env::Env;
 use crate::geom::{Angle, Length, Relative, Spec};
 use crate::layout::{self, Expansion, NodeSpacing, NodeStack};
+use crate::syntax::visit::Visit;
 use crate::syntax::*;
 
 /// Evaluate a syntax tree into a layout tree.

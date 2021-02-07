@@ -175,7 +175,16 @@ impl Display for Alignment {
 /// # Named arguments
 /// - Width of the box:  `width`, of type `linear` relative to parent width.
 /// - Height of the box: `height`, of type `linear` relative to parent height.
+/// - Main layouting direction: `main-dir`, of type `direction`.
+/// - Cross layouting direction: `cross-dir`, of type `direction`.
 /// - Background color of the box: `color`, of type `color`.
+///
+/// # Relevant types and constants
+/// - Type `direction`
+///     - `ltr` (left to right)
+///     - `rtl` (right to left)
+///     - `ttb` (top to bottom)
+///     - `btt` (bottom to top)
 pub fn box_(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let snapshot = ctx.state.clone();
 
@@ -210,12 +219,11 @@ pub fn box_(ctx: &mut EvalContext, args: &mut Args) -> Value {
     if let Some(color) = color {
         ctx.push(NodeBackground {
             fill: Fill::Color(color),
-            child: Node::Any(fixed_node.into()),
+            child: fixed_node.into(),
         })
     } else {
         ctx.push(fixed_node);
     }
-
 
     ctx.state = snapshot;
     Value::None
