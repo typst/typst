@@ -194,7 +194,6 @@ impl Eval for Spanned<&Expr> {
             Expr::Let(v) => v.with_span(self.span).eval(ctx),
             Expr::If(v) => v.with_span(self.span).eval(ctx),
             Expr::For(v) => v.with_span(self.span).eval(ctx),
-            Expr::Captured(v) => v.borrow().clone(),
         }
     }
 }
@@ -344,21 +343,17 @@ impl Spanned<&ExprBinary> {
         let rhs = self.v.rhs.eval(ctx);
         let span = self.v.lhs.span;
 
-        let slot = match &self.v.lhs.v {
-            Expr::Ident(id) => match ctx.scopes.get(id) {
+        let slot = if let Expr::Ident(id) = &self.v.lhs.v {
+            match ctx.scopes.get(id) {
                 Some(slot) => slot,
                 None => {
                     ctx.diag(error!(span, "unknown variable"));
                     return Value::Error;
                 }
-            },
-
-            Expr::Captured(slot) => slot,
-
-            _ => {
-                ctx.diag(error!(span, "cannot assign to this expression"));
-                return Value::Error;
             }
+        } else {
+            ctx.diag(error!(span, "cannot assign to this expression"));
+            return Value::Error;
         };
 
         let (constant, err, value) = if let Ok(mut inner) = slot.try_borrow_mut() {

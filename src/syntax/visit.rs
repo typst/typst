@@ -3,17 +3,17 @@
 use super::*;
 
 macro_rules! visit {
-    ($(fn $name:ident($v:ident, $item:ident: &mut $ty:ty) $body:block)*) => {
+    ($(fn $name:ident($v:ident, $item:ident: &$ty:ty) $body:block)*) => {
         /// Traverses the syntax tree.
         pub trait Visit<'ast> {
-            $(fn $name(&mut self, $item: &'ast mut $ty) {
+            $(fn $name(&mut self, $item: &'ast $ty) {
                 $name(self, $item);
             })*
         }
 
         $(visit! {
             @concat!("Walk a node of type [`", stringify!($ty), "`]."),
-            pub fn $name<'ast, V>($v: &mut V, $item: &'ast mut $ty)
+            pub fn $name<'ast, V>($v: &mut V, $item: &'ast $ty)
             where
                 V: Visit<'ast> + ?Sized
             $body
@@ -27,13 +27,13 @@ macro_rules! visit {
 }
 
 visit! {
-    fn visit_tree(v, item: &mut Tree) {
+    fn visit_tree(v, item: &Tree) {
         for node in item {
-            v.visit_node(&mut node.v);
+            v.visit_node(&node.v);
         }
     }
 
-    fn visit_node(v, item: &mut Node) {
+    fn visit_node(v, item: &Node) {
         match item {
             Node::Strong => {}
             Node::Emph => {}
@@ -41,13 +41,13 @@ visit! {
             Node::Linebreak => {}
             Node::Parbreak => {}
             Node::Text(_) => {}
-            Node::Heading(n) => v.visit_tree(&mut n.contents),
+            Node::Heading(n) => v.visit_tree(&n.contents),
             Node::Raw(_) => {}
             Node::Expr(expr) => v.visit_expr(expr),
         }
     }
 
-    fn visit_expr(v, item: &mut Expr) {
+    fn visit_expr(v, item: &Expr) {
         match item {
             Expr::None => {}
             Expr::Ident(_) => {}
@@ -70,79 +70,78 @@ visit! {
             Expr::Let(e) => v.visit_let(e),
             Expr::If(e) => v.visit_if(e),
             Expr::For(e) => v.visit_for(e),
-            Expr::Captured(_) => {}
         }
     }
 
-    fn visit_array(v, item: &mut ExprArray) {
+    fn visit_array(v, item: &ExprArray) {
         for expr in item {
-            v.visit_expr(&mut expr.v);
+            v.visit_expr(&expr.v);
         }
     }
 
-    fn visit_dict(v, item: &mut ExprDict) {
+    fn visit_dict(v, item: &ExprDict) {
         for named in item {
-            v.visit_expr(&mut named.expr.v);
+            v.visit_expr(&named.expr.v);
         }
     }
 
-    fn visit_template(v, item: &mut ExprTemplate) {
+    fn visit_template(v, item: &ExprTemplate) {
         v.visit_tree(item);
     }
 
-    fn visit_group(v, item: &mut ExprGroup) {
-        v.visit_expr(&mut item.v);
+    fn visit_group(v, item: &ExprGroup) {
+        v.visit_expr(&item.v);
     }
 
-    fn visit_block(v, item: &mut ExprBlock) {
-        for expr in &mut item.exprs {
-            v.visit_expr(&mut expr.v);
+    fn visit_block(v, item: &ExprBlock) {
+        for expr in &item.exprs {
+            v.visit_expr(&expr.v);
         }
     }
 
-    fn visit_binary(v, item: &mut ExprBinary) {
-        v.visit_expr(&mut item.lhs.v);
-        v.visit_expr(&mut item.rhs.v);
+    fn visit_binary(v, item: &ExprBinary) {
+        v.visit_expr(&item.lhs.v);
+        v.visit_expr(&item.rhs.v);
     }
 
-    fn visit_unary(v, item: &mut ExprUnary) {
-        v.visit_expr(&mut item.expr.v);
+    fn visit_unary(v, item: &ExprUnary) {
+        v.visit_expr(&item.expr.v);
     }
 
-    fn visit_call(v, item: &mut ExprCall) {
-        v.visit_expr(&mut item.callee.v);
-        v.visit_args(&mut item.args.v);
+    fn visit_call(v, item: &ExprCall) {
+        v.visit_expr(&item.callee.v);
+        v.visit_args(&item.args.v);
     }
 
-    fn visit_args(v, item: &mut ExprArgs) {
+    fn visit_args(v, item: &ExprArgs) {
         for arg in item {
             v.visit_arg(arg);
         }
     }
 
-    fn visit_arg(v, item: &mut Argument) {
+    fn visit_arg(v, item: &Argument) {
         match item {
-            Argument::Pos(expr) => v.visit_expr(&mut expr.v),
-            Argument::Named(named) => v.visit_expr(&mut named.expr.v),
+            Argument::Pos(expr) => v.visit_expr(&expr.v),
+            Argument::Named(named) => v.visit_expr(&named.expr.v),
         }
     }
 
-    fn visit_let(v, item: &mut ExprLet) {
-        if let Some(init) = &mut item.init {
-            v.visit_expr(&mut init.v);
+    fn visit_let(v, item: &ExprLet) {
+        if let Some(init) = &item.init {
+            v.visit_expr(&init.v);
         }
     }
 
-    fn visit_if(v, item: &mut ExprIf) {
-        v.visit_expr(&mut item.condition.v);
-        v.visit_expr(&mut item.if_body.v);
-        if let Some(body) = &mut item.else_body {
-            v.visit_expr(&mut body.v);
+    fn visit_if(v, item: &ExprIf) {
+        v.visit_expr(&item.condition.v);
+        v.visit_expr(&item.if_body.v);
+        if let Some(body) = &item.else_body {
+            v.visit_expr(&body.v);
         }
     }
 
-    fn visit_for(v, item: &mut ExprFor) {
-        v.visit_expr(&mut item.iter.v);
-        v.visit_expr(&mut item.body.v);
+    fn visit_for(v, item: &ExprFor) {
+        v.visit_expr(&item.iter.v);
+        v.visit_expr(&item.body.v);
     }
 }

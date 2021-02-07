@@ -1,6 +1,5 @@
 use super::*;
 use crate::color::RgbaColor;
-use crate::eval::Slot;
 use crate::geom::{AngularUnit, LengthUnit};
 
 /// An expression.
@@ -51,11 +50,6 @@ pub enum Expr {
     If(ExprIf),
     /// A for expression: `#for x #in y { z }`.
     For(ExprFor),
-    /// A captured variable slot.
-    ///
-    /// This node is never created by parsing. It only results from an in-place
-    /// transformation of an identifier to a captured variable.
-    Captured(Slot),
 }
 
 impl Pretty for Expr {
@@ -92,7 +86,6 @@ impl Pretty for Expr {
             Self::Let(v) => v.pretty(p),
             Self::If(v) => v.pretty(p),
             Self::For(v) => v.pretty(p),
-            Self::Captured(v) => v.borrow().pretty(p),
         }
     }
 }

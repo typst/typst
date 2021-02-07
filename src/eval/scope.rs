@@ -86,6 +86,11 @@ impl Scope {
         self.values.insert(var.into(), Rc::new(RefCell::new(value.into())));
     }
 
+    /// Define a variable with a slot.
+    pub fn def_slot(&mut self, var: impl Into<String>, slot: Slot) {
+        self.values.insert(var.into(), slot);
+    }
+
     /// Look up the value of a variable.
     pub fn get(&self, var: &str) -> Option<&Slot> {
         self.values.get(var)
