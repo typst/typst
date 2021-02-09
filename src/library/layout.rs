@@ -26,14 +26,14 @@ use crate::prelude::*;
 ///     - `top`
 ///     - `bottom`
 ///     - `center`
-pub fn align(ctx: &mut EvalContext, args: &mut Args) -> Value {
+pub fn align(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let first = args.find(ctx);
     let second = args.find(ctx);
     let hor = args.get(ctx, "horizontal");
     let ver = args.get(ctx, "vertical");
     let body = args.find::<ValueTemplate>(ctx);
 
-    Value::template(move |ctx| {
+    Value::template("align", move |ctx| {
         let snapshot = ctx.state.clone();
 
         let mut had = Gen::uniform(false);
@@ -157,7 +157,7 @@ impl Switch for Alignment {
     }
 }
 
-impl_type! {
+typify! {
     Alignment: "alignment",
 }
 
@@ -188,7 +188,7 @@ impl Display for Alignment {
 ///     - `rtl` (right to left)
 ///     - `ttb` (top to bottom)
 ///     - `btt` (bottom to top)
-pub fn box_(ctx: &mut EvalContext, args: &mut Args) -> Value {
+pub fn box_(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let width = args.get(ctx, "width");
     let height = args.get(ctx, "height");
     let main = args.get(ctx, "main-dir");
@@ -196,7 +196,7 @@ pub fn box_(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let color = args.get(ctx, "color");
     let body = args.find::<ValueTemplate>(ctx);
 
-    Value::template(move |ctx| {
+    Value::template("box", move |ctx| {
         let snapshot = ctx.state.clone();
 
         ctx.set_dirs(Gen::new(main, cross));
@@ -230,7 +230,7 @@ pub fn box_(ctx: &mut EvalContext, args: &mut Args) -> Value {
     })
 }
 
-impl_type! {
+typify! {
     Dir: "direction"
 }
 
@@ -238,7 +238,7 @@ impl_type! {
 ///
 /// # Positional arguments
 /// - Amount of spacing: of type `linear` relative to current font size.
-pub fn h(ctx: &mut EvalContext, args: &mut Args) -> Value {
+pub fn h(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     spacing(ctx, args, SpecAxis::Horizontal)
 }
 
@@ -246,15 +246,15 @@ pub fn h(ctx: &mut EvalContext, args: &mut Args) -> Value {
 ///
 /// # Positional arguments
 /// - Amount of spacing: of type `linear` relative to current font size.
-pub fn v(ctx: &mut EvalContext, args: &mut Args) -> Value {
+pub fn v(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     spacing(ctx, args, SpecAxis::Vertical)
 }
 
 /// Apply spacing along a specific axis.
-fn spacing(ctx: &mut EvalContext, args: &mut Args, axis: SpecAxis) -> Value {
+fn spacing(ctx: &mut EvalContext, args: &mut ValueArgs, axis: SpecAxis) -> Value {
     let spacing: Option<Linear> = args.require(ctx, "spacing");
 
-    Value::template(move |ctx| {
+    Value::template("spacing", move |ctx| {
         if let Some(linear) = spacing {
             let amount = linear.resolve(ctx.state.font.font_size());
             let spacing = NodeSpacing { amount, softness: Softness::Hard };
@@ -286,7 +286,7 @@ fn spacing(ctx: &mut EvalContext, args: &mut Args, axis: SpecAxis) -> Value {
 /// - Flip width and height:     `flip`, of type `bool`.
 /// - Main layouting direction:  `main-dir`, of type `direction`.
 /// - Cross layouting direction: `cross-dir`, of type `direction`.
-pub fn page(ctx: &mut EvalContext, args: &mut Args) -> Value {
+pub fn page(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let paper = args.find::<Spanned<String>>(ctx).and_then(|name| {
         Paper::from_name(&name.v).or_else(|| {
             ctx.diag(error!(name.span, "invalid paper name"));
@@ -305,7 +305,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let cross = args.get(ctx, "cross-dir");
     let body = args.find::<ValueTemplate>(ctx);
 
-    Value::template(move |ctx| {
+    Value::template("page", move |ctx| {
         let snapshot = ctx.state.clone();
 
         if let Some(paper) = paper {
@@ -370,8 +370,8 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> Value {
 }
 
 /// `pagebreak`: Start a new page.
-pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> Value {
-    Value::template(move |ctx| {
+pub fn pagebreak(_: &mut EvalContext, _: &mut ValueArgs) -> Value {
+    Value::template("pagebreak", move |ctx| {
         ctx.end_page_group(|_| true);
         ctx.start_page_group(Softness::Hard);
     })

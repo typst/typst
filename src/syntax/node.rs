@@ -31,6 +31,7 @@ impl Pretty for Node {
             Self::Space => p.push(' '),
             Self::Linebreak => p.push_str(r"\"),
             Self::Parbreak => p.push_str("\n\n"),
+            // TODO: Handle escaping.
             Self::Text(text) => p.push_str(&text),
             Self::Heading(heading) => heading.pretty(p),
             Self::Raw(raw) => raw.pretty(p),

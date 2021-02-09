@@ -42,6 +42,8 @@ pub enum Value {
     Template(ValueTemplate),
     /// An executable function.
     Func(ValueFunc),
+    /// Arguments to a function.
+    Args(ValueArgs),
     /// Any object.
     Any(ValueAny),
     /// The result of invalid operations.
@@ -50,11 +52,11 @@ pub enum Value {
 
 impl Value {
     /// Create a new template value consisting of a single dynamic node.
-    pub fn template<F>(f: F) -> Self
+    pub fn template<F>(name: impl Into<String>, f: F) -> Self
     where
         F: Fn(&mut ExecContext) + 'static,
     {
-        Self::Template(vec![TemplateNode::Any(TemplateAny::new(f))])
+        Self::Template(vec![TemplateNode::Any(TemplateAny::new(name, f))])
     }
 
     /// The name of the stored value's type.
@@ -74,6 +76,7 @@ impl Value {
             Self::Dict(_) => ValueDict::TYPE_NAME,
             Self::Template(_) => ValueTemplate::TYPE_NAME,
             Self::Func(_) => ValueFunc::TYPE_NAME,
+            Self::Args(_) => ValueArgs::TYPE_NAME,
             Self::Any(v) => v.type_name(),
             Self::Error => "error",
         }
@@ -111,8 +114,9 @@ impl Pretty for Value {
             Value::Dict(v) => v.pretty(p),
             Value::Template(v) => v.pretty(p),
             Value::Func(v) => v.pretty(p),
+            Value::Args(v) => v.pretty(p),
             Value::Any(v) => v.pretty(p),
-            Value::Error => p.push_str("(error)"),
+            Value::Error => p.push_str("<error>"),
         }
     }
 }
@@ -194,16 +198,17 @@ impl Pretty for TemplateNode {
 /// A reference-counted dynamic template node (can implement custom behaviour).
 #[derive(Clone)]
 pub struct TemplateAny {
+    name: String,
     f: Rc<dyn Fn(&mut ExecContext)>,
 }
 
 impl TemplateAny {
     /// Create a new dynamic template value from a rust function or closure.
-    pub fn new<F>(f: F) -> Self
+    pub fn new<F>(name: impl Into<String>, f: F) -> Self
     where
         F: Fn(&mut ExecContext) + 'static,
     {
-        Self { f: Rc::new(f) }
+        Self { name: name.into(), f: Rc::new(f) }
     }
 }
 
@@ -224,7 +229,9 @@ impl Deref for TemplateAny {
 
 impl Pretty for TemplateAny {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str("<any>");
+        p.push('<');
+        p.push_str(&self.name);
+        p.push('>');
     }
 }
 
@@ -238,14 +245,14 @@ impl Debug for TemplateAny {
 #[derive(Clone)]
 pub struct ValueFunc {
     name: String,
-    f: Rc<dyn Fn(&mut EvalContext, &mut Args) -> Value>,
+    f: Rc<dyn Fn(&mut EvalContext, &mut ValueArgs) -> Value>,
 }
 
 impl ValueFunc {
     /// Create a new function value from a rust function or closure.
     pub fn new<F>(name: impl Into<String>, f: F) -> Self
     where
-        F: Fn(&mut EvalContext, &mut Args) -> Value + 'static,
+        F: Fn(&mut EvalContext, &mut ValueArgs) -> Value + 'static,
     {
         Self { name: name.into(), f: Rc::new(f) }
     }
@@ -259,7 +266,7 @@ impl PartialEq for ValueFunc {
 }
 
 impl Deref for ValueFunc {
-    type Target = dyn Fn(&mut EvalContext, &mut Args) -> Value;
+    type Target = dyn Fn(&mut EvalContext, &mut ValueArgs) -> Value;
 
     fn deref(&self) -> &Self::Target {
         self.f.as_ref()
@@ -268,13 +275,189 @@ impl Deref for ValueFunc {
 
 impl Pretty for ValueFunc {
     fn pretty(&self, p: &mut Printer) {
+        p.push('<');
         p.push_str(&self.name);
+        p.push('>');
     }
 }
 
 impl Debug for ValueFunc {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_struct("ValueFunc").field("name", &self.name).finish()
+    }
+}
+
+/// Evaluated arguments to a function.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ValueArgs {
+    /// The span of the whole argument list.
+    pub span: Span,
+    /// The arguments.
+    pub items: Vec<ValueArg>,
+}
+
+impl ValueArgs {
+    /// Find and remove the first convertible positional argument.
+    pub fn find<T>(&mut self, ctx: &mut EvalContext) -> Option<T>
+    where
+        T: Cast<Spanned<Value>>,
+    {
+        (0 .. self.items.len()).find_map(move |i| self.try_take(ctx, i))
+    }
+
+    /// Find and remove the first convertible positional argument, producing an
+    /// error if no match was found.
+    pub fn require<T>(&mut self, ctx: &mut EvalContext, what: &str) -> Option<T>
+    where
+        T: Cast<Spanned<Value>>,
+    {
+        let found = self.find(ctx);
+        if found.is_none() {
+            ctx.diag(error!(self.span, "missing argument: {}", what));
+        }
+        found
+    }
+
+    /// Filter out and remove all convertible positional arguments.
+    pub fn filter<'a, 'b: 'a, T>(
+        &'a mut self,
+        ctx: &'a mut EvalContext<'b>,
+    ) -> impl Iterator<Item = T> + Captures<'a> + Captures<'b>
+    where
+        T: Cast<Spanned<Value>>,
+    {
+        let mut i = 0;
+        std::iter::from_fn(move || {
+            while i < self.items.len() {
+                if let Some(val) = self.try_take(ctx, i) {
+                    return Some(val);
+                }
+                i += 1;
+            }
+            None
+        })
+    }
+
+    /// Convert and remove the value for the given named argument, producing an
+    /// error if the conversion fails.
+    pub fn get<T>(&mut self, ctx: &mut EvalContext, name: &str) -> Option<T>
+    where
+        T: Cast<Spanned<Value>>,
+    {
+        let index = self
+            .items
+            .iter()
+            .position(|arg| arg.name.as_ref().map(|s| s.v.as_str()) == Some(name))?;
+
+        let value = self.items.remove(index).value;
+        self.cast(ctx, value)
+    }
+
+    /// Produce "unexpected argument" errors for all remaining arguments.
+    pub fn finish(self, ctx: &mut EvalContext) {
+        for arg in &self.items {
+            if arg.value.v != Value::Error {
+                ctx.diag(error!(arg.span(), "unexpected argument"));
+            }
+        }
+    }
+
+    /// Cast the value into `T`, generating an error if the conversion fails.
+    fn cast<T>(&self, ctx: &mut EvalContext, value: Spanned<Value>) -> Option<T>
+    where
+        T: Cast<Spanned<Value>>,
+    {
+        let span = value.span;
+        match T::cast(value) {
+            CastResult::Ok(t) => Some(t),
+            CastResult::Warn(t, m) => {
+                ctx.diag(warning!(span, "{}", m));
+                Some(t)
+            }
+            CastResult::Err(value) => {
+                ctx.diag(error!(
+                    span,
+                    "expected {}, found {}",
+                    T::TYPE_NAME,
+                    value.v.type_name()
+                ));
+                None
+            }
+        }
+    }
+
+    /// Try to take and cast a positional argument in the i'th slot into `T`,
+    /// putting it back if the conversion fails.
+    fn try_take<T>(&mut self, ctx: &mut EvalContext, i: usize) -> Option<T>
+    where
+        T: Cast<Spanned<Value>>,
+    {
+        let slot = &mut self.items[i];
+        if slot.name.is_some() {
+            return None;
+        }
+
+        let value = std::mem::replace(&mut slot.value, Spanned::zero(Value::None));
+        let span = value.span;
+        match T::cast(value) {
+            CastResult::Ok(t) => {
+                self.items.remove(i);
+                Some(t)
+            }
+            CastResult::Warn(t, m) => {
+                self.items.remove(i);
+                ctx.diag(warning!(span, "{}", m));
+                Some(t)
+            }
+            CastResult::Err(value) => {
+                slot.value = value;
+                None
+            }
+        }
+    }
+}
+
+impl Pretty for ValueArgs {
+    fn pretty(&self, p: &mut Printer) {
+        p.push('<');
+        p.join(&self.items, ", ", |item, p| item.pretty(p));
+        p.push('>');
+    }
+}
+
+// This is a workaround because `-> impl Trait + 'a + 'b` does not work.
+//
+// See also: https://github.com/rust-lang/rust/issues/49431
+#[doc(hidden)]
+pub trait Captures<'a> {}
+impl<'a, T: ?Sized> Captures<'a> for T {}
+
+/// An argument to a function call: `12` or `draw: false`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ValueArg {
+    /// The name of the argument (`None` for positional arguments).
+    pub name: Option<Spanned<String>>,
+    /// The value of the argument.
+    pub value: Spanned<Value>,
+}
+
+impl ValueArg {
+    /// The source code location.
+    pub fn span(&self) -> Span {
+        match &self.name {
+            Some(name) => name.span.join(self.value.span),
+            None => self.value.span,
+        }
+    }
+}
+
+impl Pretty for ValueArg {
+    fn pretty(&self, p: &mut Printer) {
+        if let Some(name) = &self.name {
+            p.push_str(&name.v);
+            p.push_str(": ");
+        }
+        self.value.v.pretty(p);
     }
 }
 
@@ -454,7 +637,7 @@ where
     }
 }
 
-macro_rules! impl_primitive {
+macro_rules! primitive {
     ($type:ty:
         $type_name:literal,
         $variant:path
@@ -482,28 +665,29 @@ macro_rules! impl_primitive {
     };
 }
 
-impl_primitive! { bool: "boolean", Value::Bool }
-impl_primitive! { i64: "integer", Value::Int }
-impl_primitive! {
+primitive! { bool: "boolean", Value::Bool }
+primitive! { i64: "integer", Value::Int }
+primitive! {
     f64: "float",
     Value::Float,
     Value::Int(v) => v as f64,
 }
-impl_primitive! { Length: "length", Value::Length }
-impl_primitive! { Angle: "angle", Value::Angle }
-impl_primitive! { Relative: "relative", Value::Relative }
-impl_primitive! {
+primitive! { Length: "length", Value::Length }
+primitive! { Angle: "angle", Value::Angle }
+primitive! { Relative: "relative", Value::Relative }
+primitive! {
     Linear: "linear",
     Value::Linear,
     Value::Length(v) => v.into(),
     Value::Relative(v) => v.into(),
 }
-impl_primitive! { Color: "color", Value::Color }
-impl_primitive! { String: "string", Value::Str }
-impl_primitive! { ValueArray: "array", Value::Array }
-impl_primitive! { ValueDict: "dictionary", Value::Dict }
-impl_primitive! { ValueTemplate: "template", Value::Template }
-impl_primitive! { ValueFunc: "function", Value::Func }
+primitive! { Color: "color", Value::Color }
+primitive! { String: "string", Value::Str }
+primitive! { ValueArray: "array", Value::Array }
+primitive! { ValueDict: "dictionary", Value::Dict }
+primitive! { ValueTemplate: "template", Value::Template }
+primitive! { ValueFunc: "function", Value::Func }
+primitive! { ValueArgs: "arguments", Value::Args }
 
 impl From<&str> for Value {
     fn from(v: &str) -> Self {
@@ -519,11 +703,23 @@ impl From<ValueAny> for Value {
 
 /// Make a type usable as a [`Value`].
 ///
-/// Given a type `T`, this always implements the following traits:
+/// Given a type `T`, this implements the following traits:
 /// - [`Type`] for `T`,
 /// - [`Cast<Value>`](Cast) for `T`.
+///
+/// # Example
+/// Make a type `FontFamily` that can be cast from a [`Value::Any`] variant
+/// containing a `FontFamily` or from a string.
+/// ```
+/// # use typst::typify;
+/// # enum FontFamily { Named(String) }
+/// typify! {
+///     FontFamily: "font family",
+///     Value::Str(string) => Self::Named(string.to_lowercase())
+/// }
+/// ```
 #[macro_export]
-macro_rules! impl_type {
+macro_rules! typify {
     ($type:ty:
         $type_name:literal
         $(, $pattern:pat => $out:expr)*
@@ -575,23 +771,19 @@ mod tests {
     }
 
     #[test]
-    fn test_pretty_print_simple_values() {
+    fn test_pretty_print_value() {
+        // Simple values.
         test_pretty(Value::None, "none");
         test_pretty(false, "false");
-        test_pretty(12.4, "12.4");
+        test_pretty(12, "12");
+        test_pretty(3.14, "3.14");
         test_pretty(Length::pt(5.5), "5.5pt");
         test_pretty(Angle::deg(90.0), "90.0deg");
         test_pretty(Relative::ONE / 2.0, "50.0%");
         test_pretty(Relative::new(0.3) + Length::cm(2.0), "30.0% + 2.0cm");
         test_pretty(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
         test_pretty("hello", r#""hello""#);
-        test_pretty(ValueFunc::new("nil", |_, _| Value::None), "nil");
-        test_pretty(ValueAny::new(1), "1");
-        test_pretty(Value::Error, "(error)");
-    }
 
-    #[test]
-    fn test_pretty_print_collections() {
         // Array.
         test_pretty(Value::Array(vec![]), "()");
         test_pretty(vec![Value::None], "(none,)");
@@ -599,9 +791,47 @@ mod tests {
 
         // Dictionary.
         let mut dict = BTreeMap::new();
+        test_pretty(dict.clone(), "(:)");
         dict.insert("one".into(), Value::Int(1));
+        test_pretty(dict.clone(), "(one: 1)");
         dict.insert("two".into(), Value::Bool(false));
-        test_pretty(BTreeMap::new(), "(:)");
         test_pretty(dict, "(one: 1, two: false)");
+
+        // Template.
+        test_pretty(
+            vec![
+                TemplateNode::Tree {
+                    tree: Rc::new(vec![Node::Strong]),
+                    map: HashMap::new(),
+                },
+                TemplateNode::Any(TemplateAny::new("example", |_| {})),
+            ],
+            "[*<example>]",
+        );
+
+        // Function and arguments.
+        test_pretty(ValueFunc::new("nil", |_, _| Value::None), "<nil>");
+        test_pretty(
+            ValueArgs {
+                span: Span::ZERO,
+                items: vec![
+                    ValueArg {
+                        name: Some(Spanned::zero("a".into())),
+                        value: Spanned::zero(Value::Int(1)),
+                    },
+                    ValueArg {
+                        name: None,
+                        value: Spanned::zero(Value::Int(2)),
+                    },
+                ],
+            },
+            "<a: 1, 2>",
+        );
+
+        // Any.
+        test_pretty(ValueAny::new(1), "1");
+
+        // Error.
+        test_pretty(Value::Error, "<error>");
     }
 }

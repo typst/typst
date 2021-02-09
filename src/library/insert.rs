@@ -10,12 +10,12 @@ use crate::prelude::*;
 ///
 /// # Positional arguments
 /// - Path to image file: of type `string`.
-pub fn image(ctx: &mut EvalContext, args: &mut Args) -> Value {
+pub fn image(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let path = args.require::<Spanned<String>>(ctx, "path to image file");
     let width = args.get(ctx, "width");
     let height = args.get(ctx, "height");
 
-    Value::template(move |ctx| {
+    Value::template("image", move |ctx| {
         if let Some(path) = &path {
             let loaded = ctx.env.resources.load(&path.v, ImageResource::parse);
             if let Some((res, img)) = loaded {

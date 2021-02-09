@@ -59,17 +59,23 @@ pub trait ExecWith {
 impl ExecWith for Tree {
     fn exec_with(&self, ctx: &mut ExecContext, map: &ExprMap) {
         for node in self {
-            match node {
-                Node::Text(text) => ctx.push_text(text),
-                Node::Space => ctx.push_space(),
-                Node::Linebreak => ctx.apply_linebreak(),
-                Node::Parbreak => ctx.apply_parbreak(),
-                Node::Strong => ctx.state.font.strong ^= true,
-                Node::Emph => ctx.state.font.emph ^= true,
-                Node::Heading(heading) => heading.exec_with(ctx, map),
-                Node::Raw(raw) => raw.exec(ctx),
-                Node::Expr(expr) => map[&(expr as *const _)].exec(ctx),
-            }
+            node.exec_with(ctx, map);
+        }
+    }
+}
+
+impl ExecWith for Node {
+    fn exec_with(&self, ctx: &mut ExecContext, map: &ExprMap) {
+        match self {
+            Node::Text(text) => ctx.push_text(text),
+            Node::Space => ctx.push_space(),
+            Node::Linebreak => ctx.apply_linebreak(),
+            Node::Parbreak => ctx.apply_parbreak(),
+            Node::Strong => ctx.state.font.strong ^= true,
+            Node::Emph => ctx.state.font.emph ^= true,
+            Node::Heading(heading) => heading.exec_with(ctx, map),
+            Node::Raw(raw) => raw.exec(ctx),
+            Node::Expr(expr) => map[&(expr as *const _)].exec(ctx),
         }
     }
 }

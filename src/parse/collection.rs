@@ -51,29 +51,29 @@ fn collection<T: Collection>(p: &mut Parser, mut collection: T) -> T {
 }
 
 /// Parse an expression or a named pair.
-fn argument(p: &mut Parser) -> Option<Argument> {
+fn argument(p: &mut Parser) -> Option<ExprArg> {
     let first = expr(p)?;
     if p.eat_if(Token::Colon) {
         if let Expr::Ident(name) = first {
-            Some(Argument::Named(Named { name, expr: expr(p)? }))
+            Some(ExprArg::Named(Named { name, expr: expr(p)? }))
         } else {
             p.diag(error!(first.span(), "expected identifier"));
             expr(p);
             None
         }
     } else {
-        Some(Argument::Pos(first))
+        Some(ExprArg::Pos(first))
     }
 }
 
 /// Abstraction for comma-separated list of expression / named pairs.
 trait Collection {
-    fn push_arg(&mut self, p: &mut Parser, arg: Argument);
+    fn push_arg(&mut self, p: &mut Parser, arg: ExprArg);
     fn push_comma(&mut self) {}
 }
 
-impl Collection for Vec<Argument> {
-    fn push_arg(&mut self, _: &mut Parser, arg: Argument) {
+impl Collection for Vec<ExprArg> {
+    fn push_arg(&mut self, _: &mut Parser, arg: ExprArg) {
         self.push(arg);
     }
 }
@@ -99,23 +99,23 @@ impl State {
 }
 
 impl Collection for State {
-    fn push_arg(&mut self, p: &mut Parser, arg: Argument) {
+    fn push_arg(&mut self, p: &mut Parser, arg: ExprArg) {
         match self {
             Self::Unknown => match arg {
-                Argument::Pos(expr) => *self = Self::Expr(expr),
-                Argument::Named(named) => *self = Self::Dict(vec![named]),
+                ExprArg::Pos(expr) => *self = Self::Expr(expr),
+                ExprArg::Named(named) => *self = Self::Dict(vec![named]),
             },
             Self::Expr(prev) => match arg {
-                Argument::Pos(expr) => *self = Self::Array(vec![take(prev), expr]),
-                Argument::Named(_) => diag(p, arg),
+                ExprArg::Pos(expr) => *self = Self::Array(vec![take(prev), expr]),
+                ExprArg::Named(_) => diag(p, arg),
             },
             Self::Array(array) => match arg {
-                Argument::Pos(expr) => array.push(expr),
-                Argument::Named(_) => diag(p, arg),
+                ExprArg::Pos(expr) => array.push(expr),
+                ExprArg::Named(_) => diag(p, arg),
             },
             Self::Dict(dict) => match arg {
-                Argument::Pos(_) => diag(p, arg),
-                Argument::Named(named) => dict.push(named),
+                ExprArg::Pos(_) => diag(p, arg),
+                ExprArg::Named(named) => dict.push(named),
             },
         }
     }
@@ -135,9 +135,9 @@ fn take(expr: &mut Expr) -> Expr {
     )
 }
 
-fn diag(p: &mut Parser, arg: Argument) {
+fn diag(p: &mut Parser, arg: ExprArg) {
     p.diag(error!(arg.span(), "{}", match arg {
-        Argument::Pos(_) => "expected named pair, found expression",
-        Argument::Named(_) => "expected expression, found named pair",
+        ExprArg::Pos(_) => "expected named pair, found expression",
+        ExprArg::Named(_) => "expected expression, found named pair",
     }));
 }

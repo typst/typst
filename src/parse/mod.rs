@@ -198,11 +198,11 @@ fn bracket_call(p: &mut Parser) -> Option<Expr> {
     let mut inner = inner?;
     if let Some(body) = body {
         inner.span.expand(body.span());
-        inner.args.items.push(Argument::Pos(body));
+        inner.args.items.push(ExprArg::Pos(body));
     }
 
     while let Some(mut top) = outer.pop() {
-        top.args.items.push(Argument::Pos(Expr::Call(inner)));
+        top.args.items.push(ExprArg::Pos(Expr::Call(inner)));
         inner = top;
     }
 

@@ -7,7 +7,7 @@ use crate::prelude::*;
 ///
 /// # Return value
 /// The name of the value's type as a string.
-pub fn type_(ctx: &mut EvalContext, args: &mut Args) -> Value {
+pub fn type_(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     if let Some(value) = args.require::<Value>(ctx, "value") {
         value.type_name().into()
     } else {

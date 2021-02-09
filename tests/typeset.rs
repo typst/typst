@@ -16,7 +16,7 @@ use walkdir::WalkDir;
 
 use typst::diag::{Diag, Feedback, Level, Pass};
 use typst::env::{Env, ImageResource, ResourceLoader};
-use typst::eval::{Args, EvalContext, Scope, Value, ValueFunc};
+use typst::eval::{EvalContext, Scope, Value, ValueArgs, ValueFunc};
 use typst::exec::State;
 use typst::export::pdf;
 use typst::font::FsIndexExt;
@@ -24,7 +24,6 @@ use typst::geom::{Length, Point, Sides, Size, Spec};
 use typst::layout::{Element, Expansion, Fill, Frame, Geometry, Image, Shape};
 use typst::library;
 use typst::parse::{LineMap, Scanner};
-use typst::pretty::{Pretty, Printer};
 use typst::shaping::Shaped;
 use typst::syntax::{Location, Pos, SpanVec, Spanned, WithSpan};
 use typst::typeset;
@@ -320,28 +319,13 @@ struct Panic {
 }
 
 fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
-    pub fn f(_: &mut EvalContext, args: &mut Args) -> Value {
-        let (array, dict) = args.drain();
-        let iter = array
-            .into_iter()
-            .map(|v| (None, v))
-            .chain(dict.into_iter().map(|(k, v)| (Some(k), v)));
-
-        let mut p = Printer::new();
-        p.push_str("f(");
-        p.join(iter, ", ", |(key, value), p| {
-            if let Some(key) = key {
-                p.push_str(&key);
-                p.push_str(": ");
-            }
-            value.pretty(p);
-        });
-        p.push(')');
-
-        Value::Str(p.finish())
+    pub fn f(_: &mut EvalContext, args: &mut ValueArgs) -> Value {
+        let value = args.clone().into();
+        args.items.clear();
+        value
     }
 
-    let test = move |ctx: &mut EvalContext, args: &mut Args| -> Value {
+    let test = move |ctx: &mut EvalContext, args: &mut ValueArgs| -> Value {
         let lhs = args.require::<Value>(ctx, "left-hand side");
         let rhs = args.require::<Value>(ctx, "right-hand side");
         if lhs != rhs {

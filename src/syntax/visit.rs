@@ -111,10 +111,10 @@ visit! {
         }
     }
 
-    fn visit_arg(v, node: &Argument) {
+    fn visit_arg(v, node: &ExprArg) {
         match node {
-            Argument::Pos(expr) => v.visit_expr(&expr),
-            Argument::Named(named) => v.visit_expr(&named.expr),
+            ExprArg::Pos(expr) => v.visit_expr(&expr),
+            ExprArg::Named(named) => v.visit_expr(&named.expr),
         }
     }
 

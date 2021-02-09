@@ -3,7 +3,7 @@
 pub use crate::diag::{Feedback, Pass};
 #[doc(no_inline)]
 pub use crate::eval::{
-    Args, CastResult, Eval, EvalContext, TemplateAny, TemplateNode, Value, ValueAny,
+    CastResult, Eval, EvalContext, TemplateAny, TemplateNode, Value, ValueAny, ValueArgs,
     ValueArray, ValueDict, ValueTemplate,
 };
 #[doc(no_inline)]
@@ -13,4 +13,4 @@ pub use crate::geom::*;
 pub use crate::layout::Node;
 #[doc(no_inline)]
 pub use crate::syntax::{Span, Spanned, WithSpan};
-pub use crate::{error, impl_type, warning};
+pub use crate::{error, typify, warning};

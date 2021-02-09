@@ -531,7 +531,7 @@ impl ExprCall {
         // Function name.
         self.callee.pretty(p);
 
-        let mut write_args = |items: &[Argument]| {
+        let mut write_args = |items: &[ExprArg]| {
             if !items.is_empty() {
                 p.push(' ');
                 p.join(items, ", ", |item, p| item.pretty(p));
@@ -542,7 +542,7 @@ impl ExprCall {
             // This can written as a chain.
             //
             // Example: Transforms "#[v][[f]]" => "#[v | f]".
-            [head @ .., Argument::Pos(Expr::Call(call))] => {
+            [head @ .., ExprArg::Pos(Expr::Call(call))] => {
                 write_args(head);
                 call.pretty_bracketed(p, true);
             }
@@ -550,7 +550,7 @@ impl ExprCall {
             // This can be written with a body.
             //
             // Example: Transforms "#[v [Hi]]" => "#[v][Hi]".
-            [head @ .., Argument::Pos(Expr::Template(template))] => {
+            [head @ .., ExprArg::Pos(Expr::Template(template))] => {
                 write_args(head);
                 p.push(']');
                 template.pretty(p);
@@ -573,7 +573,7 @@ pub struct ExprArgs {
     /// The source code location.
     pub span: Span,
     /// The positional and named arguments.
-    pub items: Vec<Argument>,
+    pub items: Vec<ExprArg>,
 }
 
 impl Pretty for ExprArgs {
@@ -584,14 +584,14 @@ impl Pretty for ExprArgs {
 
 /// An argument to a function call: `12` or `draw: false`.
 #[derive(Debug, Clone, PartialEq)]
-pub enum Argument {
-    /// A positional arguments.
+pub enum ExprArg {
+    /// A positional argument.
     Pos(Expr),
     /// A named argument.
     Named(Named),
 }
 
-impl Argument {
+impl ExprArg {
     /// The source code location.
     pub fn span(&self) -> Span {
         match self {
@@ -601,7 +601,7 @@ impl Argument {
     }
 }
 
-impl Pretty for Argument {
+impl Pretty for ExprArg {
     fn pretty(&self, p: &mut Printer) {
         match self {
             Self::Pos(expr) => expr.pretty(p),

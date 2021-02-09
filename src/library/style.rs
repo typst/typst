@@ -54,7 +54,7 @@ use crate::prelude::*;
 ///     - `expanded`
 ///     - `extra-expanded`
 ///     - `ultra-expanded`
-pub fn font(ctx: &mut EvalContext, args: &mut Args) -> Value {
+pub fn font(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let size = args.find::<Linear>(ctx);
     let list: Vec<_> = args.filter::<FontFamily>(ctx).map(|f| f.to_string()).collect();
     let style = args.get(ctx, "style");
@@ -65,7 +65,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let monospace = args.get(ctx, "monospace");
     let body = args.find::<ValueTemplate>(ctx);
 
-    Value::template(move |ctx| {
+    Value::template("font", move |ctx| {
         let snapshot = ctx.state.clone();
 
         if let Some(linear) = size {
@@ -145,7 +145,7 @@ impl Display for FontFamily {
     }
 }
 
-impl_type! {
+typify! {
     FontFamilies: "font family or array of font families",
     Value::Str(string) => Self(vec![FontFamily::Named(string.to_lowercase())]),
     Value::Array(values) => Self(values
@@ -156,16 +156,16 @@ impl_type! {
     #(family: FontFamily) => Self(vec![family]),
 }
 
-impl_type! {
+typify! {
     FontFamily: "font family",
     Value::Str(string) => Self::Named(string.to_lowercase())
 }
 
-impl_type! {
+typify! {
     FontStyle: "font style"
 }
 
-impl_type! {
+typify! {
     FontWeight: "font weight",
     Value::Int(number) => {
         let [min, max] = [Self::THIN, Self::BLACK];
@@ -180,7 +180,7 @@ impl_type! {
     },
 }
 
-impl_type! {
+typify! {
     FontStretch: "font stretch"
 }
 
@@ -191,7 +191,7 @@ impl_type! {
 /// - Green component: of type `float`, between 0.0 and 1.0.
 /// - Blue component:  of type `float`, between 0.0 and 1.0.
 /// - Alpha component: optional, of type `float`, between 0.0 and 1.0.
-pub fn rgb(ctx: &mut EvalContext, args: &mut Args) -> Value {
+pub fn rgb(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let r = args.require(ctx, "red component");
     let g = args.require(ctx, "green component");
     let b = args.require(ctx, "blue component");

@@ -105,7 +105,7 @@ impl Pretty for str {
     }
 }
 
-macro_rules! impl_pretty_display {
+macro_rules! pretty_display {
     ($($type:ty),* $(,)?) => {
         $(impl Pretty for $type {
             fn pretty(&self, p: &mut Printer) {
@@ -115,7 +115,7 @@ macro_rules! impl_pretty_display {
     };
 }
 
-impl_pretty_display! {
+pretty_display! {
     bool,
     Length,
     Angle,

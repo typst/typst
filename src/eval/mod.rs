@@ -2,12 +2,10 @@
 
 #[macro_use]
 mod value;
-mod call;
 mod capture;
 mod ops;
 mod scope;
 
-pub use call::*;
 pub use capture::*;
 pub use scope::*;
 pub use value::*;
@@ -341,6 +339,54 @@ impl ExprBinary {
             BinOp::Div => format!("cannot divide {} by {}", l, r),
             _ => format!("cannot apply '{}' to {} and {}", self.op.as_str(), l, r),
         }));
+    }
+}
+
+impl Eval for ExprCall {
+    type Output = Value;
+
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        let callee = self.callee.eval(ctx);
+
+        if let Value::Func(func) = callee {
+            let func = func.clone();
+            let mut args = self.args.eval(ctx);
+            let returned = func(ctx, &mut args);
+            args.finish(ctx);
+
+            return returned;
+        } else if callee != Value::Error {
+            ctx.diag(error!(
+                self.callee.span(),
+                "expected function, found {}",
+                callee.type_name(),
+            ));
+        }
+
+        Value::Error
+    }
+}
+
+impl Eval for ExprArgs {
+    type Output = ValueArgs;
+
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        let items = self
+            .items
+            .iter()
+            .map(|arg| match arg {
+                ExprArg::Pos(expr) => ValueArg {
+                    name: None,
+                    value: expr.eval(ctx).with_span(expr.span()),
+                },
+                ExprArg::Named(Named { name, expr }) => ValueArg {
+                    name: Some(name.string.clone().with_span(name.span)),
+                    value: expr.eval(ctx).with_span(expr.span()),
+                },
+            })
+            .collect();
+
+        ValueArgs { span: self.span, items }
     }
 }
 
