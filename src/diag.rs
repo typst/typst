@@ -36,12 +36,6 @@ impl Feedback {
         Self { diags: vec![], decos: vec![] }
     }
 
-    /// Merge two feedbacks into one.
-    pub fn join(mut a: Self, b: Self) -> Self {
-        a.extend(b);
-        a
-    }
-
     /// Add other feedback data to this feedback.
     pub fn extend(&mut self, more: Self) {
         self.diags.extend(more.diags);

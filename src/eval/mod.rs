@@ -1,247 +1,199 @@
-//! Evaluation of syntax trees into layout trees.
+//! Evaluation of syntax trees.
 
 #[macro_use]
 mod value;
 mod call;
 mod capture;
-mod context;
 mod ops;
 mod scope;
-mod state;
 
 pub use call::*;
 pub use capture::*;
-pub use context::*;
 pub use scope::*;
-pub use state::*;
 pub use value::*;
 
+use std::collections::HashMap;
 use std::rc::Rc;
 
+use super::*;
 use crate::color::Color;
-use crate::diag::Pass;
-use crate::env::Env;
-use crate::geom::{Angle, Length, Relative, Spec};
-use crate::layout::{self, Expansion, NodeSpacing, NodeStack};
+use crate::diag::{Diag, Feedback};
+use crate::geom::{Angle, Length, Relative};
 use crate::syntax::visit::Visit;
 use crate::syntax::*;
 
-/// Evaluate a syntax tree into a layout tree.
+/// Evaluate all expressions in a syntax tree.
 ///
-/// The `state` is the base state that may be updated over the course of
-/// evaluation. The `scope` similarly consists of the base definitions that are
-/// present from the beginning (typically, the standard library).
-pub fn eval(
-    tree: &Tree,
-    env: &mut Env,
-    scope: &Scope,
-    state: State,
-) -> Pass<layout::Tree> {
-    let mut ctx = EvalContext::new(env, scope, state);
-    ctx.start_page_group(Softness::Hard);
-    tree.eval(&mut ctx);
-    ctx.end_page_group(|s| s == Softness::Hard);
-    ctx.finish()
+/// The `scope` consists of the base definitions that are present from the
+/// beginning (typically, the standard library).
+pub fn eval(env: &mut Env, tree: &Tree, scope: &Scope) -> Pass<ExprMap> {
+    let mut ctx = EvalContext::new(env, scope);
+    let map = tree.eval(&mut ctx);
+    Pass::new(map, ctx.feedback)
 }
 
-/// Evaluate an item.
+/// A map from expression to values to evaluated to.
 ///
-/// _Note_: Evaluation is not necessarily pure, it may change the active state.
+/// The raw pointers point into the expressions contained in `tree`. Since
+/// the lifetime is erased, `tree` could go out of scope while the hash map
+/// still lives. While this could lead to lookup panics, it is not unsafe
+/// since the pointers are never dereferenced.
+pub type ExprMap = HashMap<*const Expr, Value>;
+
+/// The context for evaluation.
+#[derive(Debug)]
+pub struct EvalContext<'a> {
+    /// The environment from which resources are gathered.
+    pub env: &'a mut Env,
+    /// The active scopes.
+    pub scopes: Scopes<'a>,
+    /// The accumulated feedback.
+    feedback: Feedback,
+}
+
+impl<'a> EvalContext<'a> {
+    /// Create a new execution context with a base scope.
+    pub fn new(env: &'a mut Env, scope: &'a Scope) -> Self {
+        Self {
+            env,
+            scopes: Scopes::with_base(scope),
+            feedback: Feedback::new(),
+        }
+    }
+
+    /// Add a diagnostic to the feedback.
+    pub fn diag(&mut self, diag: Spanned<Diag>) {
+        self.feedback.diags.push(diag);
+    }
+}
+
+/// Evaluate an expression.
 pub trait Eval {
-    /// The output of evaluating the item.
+    /// The output of evaluating the expression.
     type Output;
 
-    /// Evaluate the item to the output value.
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output;
+    /// Evaluate the expression to the output value.
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output;
 }
 
-impl<'a, T> Eval for &'a Spanned<T>
-where
-    Spanned<&'a T>: Eval,
-{
-    type Output = <Spanned<&'a T> as Eval>::Output;
+impl Eval for Tree {
+    type Output = ExprMap;
 
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        self.as_ref().eval(ctx)
-    }
-}
-
-impl Eval for &[Spanned<Node>] {
-    type Output = ();
-
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        for node in self {
-            node.eval(ctx);
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        struct ExprVisitor<'a, 'b> {
+            map: ExprMap,
+            ctx: &'a mut EvalContext<'b>,
         }
-    }
-}
 
-impl Eval for Spanned<&Node> {
-    type Output = ();
-
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        match self.v {
-            Node::Text(text) => {
-                let node = ctx.make_text_node(text.clone());
-                ctx.push(node);
-            }
-            Node::Space => {
-                let em = ctx.state.font.font_size();
-                ctx.push(NodeSpacing {
-                    amount: ctx.state.par.word_spacing.resolve(em),
-                    softness: Softness::Soft,
-                });
-            }
-            Node::Linebreak => ctx.apply_linebreak(),
-            Node::Parbreak => ctx.apply_parbreak(),
-            Node::Strong => ctx.state.font.strong ^= true,
-            Node::Emph => ctx.state.font.emph ^= true,
-            Node::Heading(heading) => heading.with_span(self.span).eval(ctx),
-            Node::Raw(raw) => raw.with_span(self.span).eval(ctx),
-            Node::Expr(expr) => {
-                let value = expr.with_span(self.span).eval(ctx);
-                value.eval(ctx)
+        impl<'ast> Visit<'ast> for ExprVisitor<'_, '_> {
+            fn visit_expr(&mut self, item: &'ast Expr) {
+                self.map.insert(item as *const _, item.eval(self.ctx));
             }
         }
+
+        let mut visitor = ExprVisitor { map: HashMap::new(), ctx };
+        visitor.visit_tree(self);
+        visitor.map
     }
 }
 
-impl Eval for Spanned<&NodeHeading> {
-    type Output = ();
-
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        let prev = ctx.state.clone();
-        let upscale = 1.5 - 0.1 * self.v.level.v as f64;
-        ctx.state.font.scale *= upscale;
-        ctx.state.font.strong = true;
-
-        self.v.contents.eval(ctx);
-        ctx.apply_parbreak();
-
-        ctx.state = prev;
-    }
-}
-
-impl Eval for Spanned<&NodeRaw> {
-    type Output = ();
-
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        let prev = Rc::clone(&ctx.state.font.families);
-        let families = ctx.state.font.families_mut();
-        families.list.insert(0, "monospace".to_string());
-        families.flatten();
-
-        let em = ctx.state.font.font_size();
-        let line_spacing = ctx.state.par.line_spacing.resolve(em);
-
-        let mut children = vec![];
-        for line in &self.v.lines {
-            children.push(layout::Node::Text(ctx.make_text_node(line.clone())));
-            children.push(layout::Node::Spacing(NodeSpacing {
-                amount: line_spacing,
-                softness: Softness::Hard,
-            }));
-        }
-
-        if self.v.block {
-            ctx.apply_parbreak();
-        }
-
-        ctx.push(NodeStack {
-            dirs: ctx.state.dirs,
-            align: ctx.state.align,
-            expand: Spec::uniform(Expansion::Fit),
-            children,
-        });
-
-        if self.v.block {
-            ctx.apply_parbreak();
-        }
-
-        ctx.state.font.families = prev;
-    }
-}
-
-impl Eval for Spanned<&Expr> {
+impl Eval for Expr {
     type Output = Value;
 
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        match self.v {
-            Expr::None => Value::None,
-            Expr::Ident(v) => match ctx.scopes.get(v) {
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        match self {
+            Self::Lit(lit) => lit.eval(ctx),
+            Self::Ident(v) => match ctx.scopes.get(&v) {
                 Some(slot) => slot.borrow().clone(),
                 None => {
-                    ctx.diag(error!(self.span, "unknown variable"));
+                    ctx.diag(error!(v.span, "unknown variable"));
                     Value::Error
                 }
             },
-            &Expr::Bool(v) => Value::Bool(v),
-            &Expr::Int(v) => Value::Int(v),
-            &Expr::Float(v) => Value::Float(v),
-            &Expr::Length(v, unit) => Value::Length(Length::with_unit(v, unit)),
-            &Expr::Angle(v, unit) => Value::Angle(Angle::with_unit(v, unit)),
-            &Expr::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
-            &Expr::Color(v) => Value::Color(Color::Rgba(v)),
-            Expr::Str(v) => Value::Str(v.clone()),
-            Expr::Array(v) => Value::Array(v.with_span(self.span).eval(ctx)),
-            Expr::Dict(v) => Value::Dict(v.with_span(self.span).eval(ctx)),
-            Expr::Template(v) => v.with_span(self.span).eval(ctx),
-            Expr::Group(v) => v.eval(ctx),
-            Expr::Block(v) => v.with_span(self.span).eval(ctx),
-            Expr::Call(v) => v.with_span(self.span).eval(ctx),
-            Expr::Unary(v) => v.with_span(self.span).eval(ctx),
-            Expr::Binary(v) => v.with_span(self.span).eval(ctx),
-            Expr::Let(v) => v.with_span(self.span).eval(ctx),
-            Expr::If(v) => v.with_span(self.span).eval(ctx),
-            Expr::For(v) => v.with_span(self.span).eval(ctx),
+            Self::Array(v) => Value::Array(v.eval(ctx)),
+            Self::Dict(v) => Value::Dict(v.eval(ctx)),
+            Self::Template(v) => Value::Template(vec![v.eval(ctx)]),
+            Self::Group(v) => v.eval(ctx),
+            Self::Block(v) => v.eval(ctx),
+            Self::Call(v) => v.eval(ctx),
+            Self::Unary(v) => v.eval(ctx),
+            Self::Binary(v) => v.eval(ctx),
+            Self::Let(v) => v.eval(ctx),
+            Self::If(v) => v.eval(ctx),
+            Self::For(v) => v.eval(ctx),
         }
     }
 }
 
-impl Eval for Spanned<&ExprArray> {
-    type Output = ValueArray;
+impl Eval for Lit {
+    type Output = Value;
 
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        self.v.iter().map(|expr| expr.eval(ctx)).collect()
+    fn eval(&self, _: &mut EvalContext) -> Self::Output {
+        match self.kind {
+            LitKind::None => Value::None,
+            LitKind::Bool(v) => Value::Bool(v),
+            LitKind::Int(v) => Value::Int(v),
+            LitKind::Float(v) => Value::Float(v),
+            LitKind::Length(v, unit) => Value::Length(Length::with_unit(v, unit)),
+            LitKind::Angle(v, unit) => Value::Angle(Angle::with_unit(v, unit)),
+            LitKind::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
+            LitKind::Color(v) => Value::Color(Color::Rgba(v)),
+            LitKind::Str(ref v) => Value::Str(v.clone()),
+        }
     }
 }
 
-impl Eval for Spanned<&ExprDict> {
+impl Eval for ExprArray {
+    type Output = ValueArray;
+
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        self.items.iter().map(|expr| expr.eval(ctx)).collect()
+    }
+}
+
+impl Eval for ExprDict {
     type Output = ValueDict;
 
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        self.v
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        self.items
             .iter()
-            .map(|Named { name, expr }| (name.v.0.clone(), expr.eval(ctx)))
+            .map(|Named { name, expr }| (name.string.clone(), expr.eval(ctx)))
             .collect()
     }
 }
 
-impl Eval for Spanned<&ExprTemplate> {
-    type Output = Value;
+impl Eval for ExprTemplate {
+    type Output = TemplateNode;
 
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        let mut template = self.v.clone();
-        let mut visitor = CapturesVisitor::new(&ctx.scopes);
-        visitor.visit_template(&mut template);
-        Value::Template(template)
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        let tree = Rc::clone(&self.tree);
+        let map = self.tree.eval(ctx);
+        TemplateNode::Tree { tree, map }
     }
 }
 
-impl Eval for Spanned<&ExprBlock> {
+impl Eval for ExprGroup {
     type Output = Value;
 
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        if self.v.scopes {
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        self.expr.eval(ctx)
+    }
+}
+
+impl Eval for ExprBlock {
+    type Output = Value;
+
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        if self.scoping {
             ctx.scopes.push();
         }
 
         let mut output = Value::None;
-        for expr in &self.v.exprs {
+        for expr in &self.exprs {
             output = expr.eval(ctx);
         }
 
-        if self.v.scopes {
+        if self.scoping {
             ctx.scopes.pop();
         }
 
@@ -249,17 +201,17 @@ impl Eval for Spanned<&ExprBlock> {
     }
 }
 
-impl Eval for Spanned<&ExprUnary> {
+impl Eval for ExprUnary {
     type Output = Value;
 
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        let value = self.v.expr.eval(ctx);
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        let value = self.expr.eval(ctx);
         if value == Value::Error {
             return Value::Error;
         }
 
         let ty = value.type_name();
-        let out = match self.v.op.v {
+        let out = match self.op {
             UnOp::Pos => ops::pos(value),
             UnOp::Neg => ops::neg(value),
             UnOp::Not => ops::not(value),
@@ -269,7 +221,7 @@ impl Eval for Spanned<&ExprUnary> {
             ctx.diag(error!(
                 self.span,
                 "cannot apply '{}' to {}",
-                self.v.op.v.as_str(),
+                self.op.as_str(),
                 ty,
             ));
         }
@@ -278,11 +230,11 @@ impl Eval for Spanned<&ExprUnary> {
     }
 }
 
-impl Eval for Spanned<&ExprBinary> {
+impl Eval for ExprBinary {
     type Output = Value;
 
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        match self.v.op.v {
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        match self.op {
             BinOp::Add => self.apply(ctx, ops::add),
             BinOp::Sub => self.apply(ctx, ops::sub),
             BinOp::Mul => self.apply(ctx, ops::mul),
@@ -304,22 +256,22 @@ impl Eval for Spanned<&ExprBinary> {
     }
 }
 
-impl Spanned<&ExprBinary> {
+impl ExprBinary {
     /// Apply a basic binary operation.
-    fn apply<F>(self, ctx: &mut EvalContext, op: F) -> Value
+    fn apply<F>(&self, ctx: &mut EvalContext, op: F) -> Value
     where
         F: FnOnce(Value, Value) -> Value,
     {
-        let lhs = self.v.lhs.eval(ctx);
+        let lhs = self.lhs.eval(ctx);
 
         // Short-circuit boolean operations.
-        match (self.v.op.v, &lhs) {
+        match (self.op, &lhs) {
             (BinOp::And, Value::Bool(false)) => return lhs,
             (BinOp::Or, Value::Bool(true)) => return lhs,
             _ => {}
         }
 
-        let rhs = self.v.rhs.eval(ctx);
+        let rhs = self.rhs.eval(ctx);
 
         if lhs == Value::Error || rhs == Value::Error {
             return Value::Error;
@@ -336,23 +288,23 @@ impl Spanned<&ExprBinary> {
     }
 
     /// Apply an assignment operation.
-    fn assign<F>(self, ctx: &mut EvalContext, op: F) -> Value
+    fn assign<F>(&self, ctx: &mut EvalContext, op: F) -> Value
     where
         F: FnOnce(Value, Value) -> Value,
     {
-        let rhs = self.v.rhs.eval(ctx);
-        let span = self.v.lhs.span;
+        let rhs = self.rhs.eval(ctx);
 
-        let slot = if let Expr::Ident(id) = &self.v.lhs.v {
+        let lhs_span = self.lhs.span();
+        let slot = if let Expr::Ident(id) = self.lhs.as_ref() {
             match ctx.scopes.get(id) {
                 Some(slot) => slot,
                 None => {
-                    ctx.diag(error!(span, "unknown variable"));
+                    ctx.diag(error!(lhs_span, "unknown variable"));
                     return Value::Error;
                 }
             }
         } else {
-            ctx.diag(error!(span, "cannot assign to this expression"));
+            ctx.diag(error!(lhs_span, "cannot assign to this expression"));
             return Value::Error;
         };
 
@@ -371,7 +323,7 @@ impl Spanned<&ExprBinary> {
         };
 
         if constant {
-            ctx.diag(error!(span, "cannot assign to a constant"));
+            ctx.diag(error!(lhs_span, "cannot assign to a constant"));
         }
 
         if let Some((l, r)) = err {
@@ -382,47 +334,45 @@ impl Spanned<&ExprBinary> {
     }
 
     fn error(&self, ctx: &mut EvalContext, l: &str, r: &str) {
-        let op = self.v.op.v.as_str();
-        let message = match self.v.op.v {
+        ctx.diag(error!(self.span, "{}", match self.op {
             BinOp::Add => format!("cannot add {} and {}", l, r),
             BinOp::Sub => format!("cannot subtract {1} from {0}", l, r),
             BinOp::Mul => format!("cannot multiply {} with {}", l, r),
             BinOp::Div => format!("cannot divide {} by {}", l, r),
-            _ => format!("cannot apply '{}' to {} and {}", op, l, r),
-        };
-        ctx.diag(error!(self.span, "{}", message));
+            _ => format!("cannot apply '{}' to {} and {}", self.op.as_str(), l, r),
+        }));
     }
 }
 
-impl Eval for Spanned<&ExprLet> {
+impl Eval for ExprLet {
     type Output = Value;
 
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        let value = match &self.v.init {
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        let value = match &self.init {
             Some(expr) => expr.eval(ctx),
             None => Value::None,
         };
-        ctx.scopes.def_mut(self.v.pat.v.as_str(), value);
+        ctx.scopes.def_mut(self.binding.as_str(), value);
         Value::None
     }
 }
 
-impl Eval for Spanned<&ExprIf> {
+impl Eval for ExprIf {
     type Output = Value;
 
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        let condition = self.v.condition.eval(ctx);
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        let condition = self.condition.eval(ctx);
         if let Value::Bool(boolean) = condition {
             return if boolean {
-                self.v.if_body.eval(ctx)
-            } else if let Some(expr) = &self.v.else_body {
+                self.if_body.eval(ctx)
+            } else if let Some(expr) = &self.else_body {
                 expr.eval(ctx)
             } else {
                 Value::None
             };
         } else if condition != Value::Error {
             ctx.diag(error!(
-                self.v.condition.span,
+                self.condition.span(),
                 "expected boolean, found {}",
                 condition.type_name(),
             ));
@@ -432,10 +382,10 @@ impl Eval for Spanned<&ExprIf> {
     }
 }
 
-impl Eval for Spanned<&ExprFor> {
+impl Eval for ExprFor {
     type Output = Value;
 
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         macro_rules! iterate {
             (for ($($binding:ident => $value:ident),*) in $iter:expr) => {{
                 let mut output = vec![];
@@ -444,7 +394,7 @@ impl Eval for Spanned<&ExprFor> {
                 for ($($value),*) in $iter {
                     $(ctx.scopes.def_mut($binding.as_str(), $value);)*
 
-                    if let Value::Template(new) = self.v.body.eval(ctx) {
+                    if let Value::Template(new) = self.body.eval(ctx) {
                         output.extend(new);
                     }
                 }
@@ -455,8 +405,8 @@ impl Eval for Spanned<&ExprFor> {
 
         ctx.scopes.push();
 
-        let iter = self.v.iter.eval(ctx);
-        let value = match (self.v.pat.v.clone(), iter) {
+        let iter = self.iter.eval(ctx);
+        let value = match (self.pattern.clone(), iter) {
             (ForPattern::Value(v), Value::Str(string)) => {
                 iterate!(for (v => value) in string.chars().map(|c| Value::Str(c.into())))
             }
@@ -472,14 +422,14 @@ impl Eval for Spanned<&ExprFor> {
 
             (ForPattern::KeyValue(_, _), Value::Str(_))
             | (ForPattern::KeyValue(_, _), Value::Array(_)) => {
-                ctx.diag(error!(self.v.pat.span, "mismatched pattern"));
+                ctx.diag(error!(self.pattern.span(), "mismatched pattern"));
                 Value::Error
             }
 
             (_, Value::Error) => Value::Error,
             (_, iter) => {
                 ctx.diag(error!(
-                    self.v.iter.span,
+                    self.iter.span(),
                     "cannot loop over {}",
                     iter.type_name(),
                 ));

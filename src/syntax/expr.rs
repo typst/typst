@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use super::*;
 use crate::color::RgbaColor;
 use crate::geom::{AngularUnit, LengthUnit};
@@ -5,29 +7,10 @@ use crate::geom::{AngularUnit, LengthUnit};
 /// An expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    /// The none literal: `none`.
-    None,
-    /// A identifier literal: `left`.
+    /// A literal.
+    Lit(Lit),
+    /// An identifier: `left`.
     Ident(Ident),
-    /// A boolean literal: `true`, `false`.
-    Bool(bool),
-    /// An integer literal: `120`.
-    Int(i64),
-    /// A floating-point literal: `1.2`, `10e-4`.
-    Float(f64),
-    /// A length literal: `12pt`, `3cm`.
-    Length(f64, LengthUnit),
-    /// An angle literal:  `1.5rad`, `90deg`.
-    Angle(f64, AngularUnit),
-    /// A percent literal: `50%`.
-    ///
-    /// _Note_: `50%` is stored as `50.0` here, but as `0.5` in the
-    /// corresponding [value](crate::geom::Relative).
-    Percent(f64),
-    /// A color literal: `#ffccee`.
-    Color(RgbaColor),
-    /// A string literal: `"hello!"`.
-    Str(String),
     /// An array expression: `(1, "hi", 12cm)`.
     Array(ExprArray),
     /// A dictionary expression: `(color: #f79143, pattern: dashed)`.
@@ -52,11 +35,92 @@ pub enum Expr {
     For(ExprFor),
 }
 
+impl Expr {
+    /// The source code location.
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Lit(v) => v.span,
+            Self::Ident(v) => v.span,
+            Self::Array(v) => v.span,
+            Self::Dict(v) => v.span,
+            Self::Template(v) => v.span,
+            Self::Group(v) => v.span,
+            Self::Block(v) => v.span,
+            Self::Unary(v) => v.span,
+            Self::Binary(v) => v.span,
+            Self::Call(v) => v.span,
+            Self::Let(v) => v.span,
+            Self::If(v) => v.span,
+            Self::For(v) => v.span,
+        }
+    }
+}
+
 impl Pretty for Expr {
     fn pretty(&self, p: &mut Printer) {
         match self {
-            Self::None => p.push_str("none"),
+            Self::Lit(v) => v.pretty(p),
             Self::Ident(v) => v.pretty(p),
+            Self::Array(v) => v.pretty(p),
+            Self::Dict(v) => v.pretty(p),
+            Self::Template(v) => v.pretty(p),
+            Self::Group(v) => v.pretty(p),
+            Self::Block(v) => v.pretty(p),
+            Self::Unary(v) => v.pretty(p),
+            Self::Binary(v) => v.pretty(p),
+            Self::Call(v) => v.pretty(p),
+            Self::Let(v) => v.pretty(p),
+            Self::If(v) => v.pretty(p),
+            Self::For(v) => v.pretty(p),
+        }
+    }
+}
+
+/// A literal.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Lit {
+    /// The source code location.
+    pub span: Span,
+    /// The kind of literal.
+    pub kind: LitKind,
+}
+
+impl Pretty for Lit {
+    fn pretty(&self, p: &mut Printer) {
+        self.kind.pretty(p);
+    }
+}
+
+/// A kind of literal.
+#[derive(Debug, Clone, PartialEq)]
+pub enum LitKind {
+    /// The none literal: `none`.
+    None,
+    /// A boolean literal: `true`, `false`.
+    Bool(bool),
+    /// An integer literal: `120`.
+    Int(i64),
+    /// A floating-point literal: `1.2`, `10e-4`.
+    Float(f64),
+    /// A length literal: `12pt`, `3cm`.
+    Length(f64, LengthUnit),
+    /// An angle literal:  `1.5rad`, `90deg`.
+    Angle(f64, AngularUnit),
+    /// A percent literal: `50%`.
+    ///
+    /// _Note_: `50%` is stored as `50.0` here, but as `0.5` in the
+    /// corresponding [value](crate::geom::Relative).
+    Percent(f64),
+    /// A color literal: `#ffccee`.
+    Color(RgbaColor),
+    /// A string literal: `"hello!"`.
+    Str(String),
+}
+
+impl Pretty for LitKind {
+    fn pretty(&self, p: &mut Printer) {
+        match self {
+            Self::None => p.push_str("none"),
             Self::Bool(v) => v.pretty(p),
             Self::Int(v) => v.pretty(p),
             Self::Float(v) => v.pretty(p),
@@ -71,33 +135,24 @@ impl Pretty for Expr {
             }
             Self::Color(v) => v.pretty(p),
             Self::Str(v) => v.pretty(p),
-            Self::Array(v) => v.pretty(p),
-            Self::Dict(v) => v.pretty(p),
-            Self::Template(v) => pretty_template(v, p),
-            Self::Group(v) => {
-                p.push('(');
-                v.v.pretty(p);
-                p.push(')');
-            }
-            Self::Block(v) => v.pretty(p),
-            Self::Unary(v) => v.pretty(p),
-            Self::Binary(v) => v.pretty(p),
-            Self::Call(v) => v.pretty(p),
-            Self::Let(v) => v.pretty(p),
-            Self::If(v) => v.pretty(p),
-            Self::For(v) => v.pretty(p),
         }
     }
 }
 
 /// An array expression: `(1, "hi", 12cm)`.
-pub type ExprArray = SpanVec<Expr>;
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprArray {
+    /// The source code location.
+    pub span: Span,
+    /// The entries of the array.
+    pub items: Vec<Expr>,
+}
 
 impl Pretty for ExprArray {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
-        p.join(self, ", ", |item, p| item.v.pretty(p));
-        if self.len() == 1 {
+        p.join(&self.items, ", ", |item, p| item.pretty(p));
+        if self.items.len() == 1 {
             p.push(',');
         }
         p.push(')');
@@ -105,15 +160,21 @@ impl Pretty for ExprArray {
 }
 
 /// A dictionary expression: `(color: #f79143, pattern: dashed)`.
-pub type ExprDict = Vec<Named>;
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprDict {
+    /// The source code location.
+    pub span: Span,
+    /// The named dictionary entries.
+    pub items: Vec<Named>,
+}
 
 impl Pretty for ExprDict {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
-        if self.is_empty() {
+        if self.items.is_empty() {
             p.push(':');
         } else {
-            p.join(self, ", ", |named, p| named.pretty(p));
+            p.join(&self.items, ", ", |named, p| named.pretty(p));
         }
         p.push(')');
     }
@@ -123,43 +184,73 @@ impl Pretty for ExprDict {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Named {
     /// The name: `pattern`.
-    pub name: Spanned<Ident>,
+    pub name: Ident,
     /// The right-hand side of the pair: `dashed`.
-    pub expr: Spanned<Expr>,
+    pub expr: Expr,
+}
+
+impl Named {
+    /// The source code location.
+    pub fn span(&self) -> Span {
+        self.name.span.join(self.expr.span())
+    }
 }
 
 impl Pretty for Named {
     fn pretty(&self, p: &mut Printer) {
-        self.name.v.pretty(p);
+        self.name.pretty(p);
         p.push_str(": ");
-        self.expr.v.pretty(p);
+        self.expr.pretty(p);
     }
 }
 
 /// A template expression: `[*Hi* there!]`.
-pub type ExprTemplate = Tree;
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprTemplate {
+    /// The source code location.
+    pub span: Span,
+    /// The contents of the template.
+    pub tree: Rc<Tree>,
+}
 
-/// Pretty print a template.
-pub fn pretty_template(template: &ExprTemplate, p: &mut Printer) {
-    if let [Spanned { v: Node::Expr(Expr::Call(call)), .. }] = template.as_slice() {
-        pretty_func_template(call, p, false)
-    } else {
-        p.push('[');
-        template.pretty(p);
-        p.push(']');
+impl Pretty for ExprTemplate {
+    fn pretty(&self, p: &mut Printer) {
+        if let [Node::Expr(Expr::Call(call))] = self.tree.as_slice() {
+            call.pretty_bracketed(p, false);
+        } else {
+            p.push('[');
+            self.tree.pretty(p);
+            p.push(']');
+        }
     }
 }
 
 /// A grouped expression: `(1 + 2)`.
-pub type ExprGroup = SpanBox<Expr>;
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprGroup {
+    /// The source code location.
+    pub span: Span,
+    /// The wrapped expression.
+    pub expr: Box<Expr>,
+}
+
+impl Pretty for ExprGroup {
+    fn pretty(&self, p: &mut Printer) {
+        p.push('(');
+        self.expr.pretty(p);
+        p.push(')');
+    }
+}
 
 /// A block expression: `{ #let x = 1; x + 2 }`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprBlock {
+    /// The source code location.
+    pub span: Span,
     /// The list of expressions contained in the block.
-    pub exprs: SpanVec<Expr>,
+    pub exprs: Vec<Expr>,
     /// Whether the block should create a scope.
-    pub scopes: bool,
+    pub scoping: bool,
 }
 
 impl Pretty for ExprBlock {
@@ -168,7 +259,7 @@ impl Pretty for ExprBlock {
         if self.exprs.len() > 1 {
             p.push(' ');
         }
-        p.join(&self.exprs, "; ", |expr, p| expr.v.pretty(p));
+        p.join(&self.exprs, "; ", |expr, p| expr.pretty(p));
         if self.exprs.len() > 1 {
             p.push(' ');
         }
@@ -179,19 +270,21 @@ impl Pretty for ExprBlock {
 /// A unary operation: `-x`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprUnary {
+    /// The source code location.
+    pub span: Span,
     /// The operator: `-`.
-    pub op: Spanned<UnOp>,
+    pub op: UnOp,
     /// The expression to operator on: `x`.
-    pub expr: SpanBox<Expr>,
+    pub expr: Box<Expr>,
 }
 
 impl Pretty for ExprUnary {
     fn pretty(&self, p: &mut Printer) {
-        self.op.v.pretty(p);
-        if self.op.v == UnOp::Not {
+        self.op.pretty(p);
+        if self.op == UnOp::Not {
             p.push(' ');
         }
-        self.expr.v.pretty(p);
+        self.expr.pretty(p);
     }
 }
 
@@ -244,21 +337,23 @@ impl Pretty for UnOp {
 /// A binary operation: `a + b`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprBinary {
+    /// The source code location.
+    pub span: Span,
     /// The left-hand side of the operation: `a`.
-    pub lhs: SpanBox<Expr>,
+    pub lhs: Box<Expr>,
     /// The operator: `+`.
-    pub op: Spanned<BinOp>,
+    pub op: BinOp,
     /// The right-hand side of the operation: `b`.
-    pub rhs: SpanBox<Expr>,
+    pub rhs: Box<Expr>,
 }
 
 impl Pretty for ExprBinary {
     fn pretty(&self, p: &mut Printer) {
-        self.lhs.v.pretty(p);
+        self.lhs.pretty(p);
         p.push(' ');
-        self.op.v.pretty(p);
+        self.op.pretty(p);
         p.push(' ');
-        self.rhs.v.pretty(p);
+        self.rhs.pretty(p);
     }
 }
 
@@ -407,71 +502,83 @@ pub enum Associativity {
 /// An invocation of a function: `foo(...)`, `#[foo ...]`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprCall {
+    /// The source code location.
+    pub span: Span,
     /// The callee of the function.
-    pub callee: SpanBox<Expr>,
+    pub callee: Box<Expr>,
     /// The arguments to the function.
-    pub args: Spanned<ExprArgs>,
+    pub args: ExprArgs,
 }
 
 impl Pretty for ExprCall {
     fn pretty(&self, p: &mut Printer) {
-        self.callee.v.pretty(p);
+        self.callee.pretty(p);
         p.push('(');
-        self.args.v.pretty(p);
+        self.args.pretty(p);
         p.push(')');
     }
 }
 
-/// Pretty print a function template, with body or chaining when possible.
-pub fn pretty_func_template(call: &ExprCall, p: &mut Printer, chained: bool) {
-    if chained {
-        p.push_str(" | ");
-    } else {
-        p.push_str("#[");
-    }
-
-    // Function name.
-    call.callee.v.pretty(p);
-
-    // Find out whether this can be written with a body or as a chain.
-    //
-    // Example: Transforms "#[v [Hi]]" => "#[v][Hi]".
-    if let [head @ .., Argument::Pos(Spanned { v: Expr::Template(template), .. })] =
-        call.args.v.as_slice()
-    {
-        // Previous arguments.
-        if !head.is_empty() {
-            p.push(' ');
-            p.join(head, ", ", |item, p| item.pretty(p));
-        }
-
-        // Find out whether this can written as a chain.
-        //
-        // Example: Transforms "#[v][[f]]" => "#[v | f]".
-        if let [Spanned { v: Node::Expr(Expr::Call(call)), .. }] = template.as_slice() {
-            return pretty_func_template(call, p, true);
+impl ExprCall {
+    /// Pretty print a function template, with body or chaining when possible.
+    pub fn pretty_bracketed(&self, p: &mut Printer, chained: bool) {
+        if chained {
+            p.push_str(" | ");
         } else {
-            p.push_str("][");
-            template.pretty(p);
+            p.push_str("#[");
         }
-    } else if !call.args.v.is_empty() {
-        p.push(' ');
-        call.args.v.pretty(p);
-    }
 
-    // Either end of header or end of body.
-    p.push(']');
+        // Function name.
+        self.callee.pretty(p);
+
+        let mut write_args = |items: &[Argument]| {
+            if !items.is_empty() {
+                p.push(' ');
+                p.join(items, ", ", |item, p| item.pretty(p));
+            }
+        };
+
+        match self.args.items.as_slice() {
+            // This can written as a chain.
+            //
+            // Example: Transforms "#[v][[f]]" => "#[v | f]".
+            [head @ .., Argument::Pos(Expr::Call(call))] => {
+                write_args(head);
+                call.pretty_bracketed(p, true);
+            }
+
+            // This can be written with a body.
+            //
+            // Example: Transforms "#[v [Hi]]" => "#[v][Hi]".
+            [head @ .., Argument::Pos(Expr::Template(template))] => {
+                write_args(head);
+                p.push(']');
+                template.pretty(p);
+            }
+
+            items => {
+                write_args(items);
+                p.push(']');
+            }
+        }
+    }
 }
 
 /// The arguments to a function: `12, draw: false`.
 ///
 /// In case of a bracketed invocation with a body, the body is _not_
 /// included in the span for the sake of clearer error messages.
-pub type ExprArgs = Vec<Argument>;
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprArgs {
+    /// The source code location.
+    pub span: Span,
+    /// The positional and named arguments.
+    pub items: Vec<Argument>,
+}
 
-impl Pretty for Vec<Argument> {
+impl Pretty for ExprArgs {
     fn pretty(&self, p: &mut Printer) {
-        p.join(self, ", ", |item, p| item.pretty(p));
+        p.join(&self.items, ", ", |item, p| item.pretty(p));
     }
 }
 
@@ -479,15 +586,25 @@ impl Pretty for Vec<Argument> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Argument {
     /// A positional arguments.
-    Pos(Spanned<Expr>),
+    Pos(Expr),
     /// A named argument.
     Named(Named),
+}
+
+impl Argument {
+    /// The source code location.
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Pos(expr) => expr.span(),
+            Self::Named(named) => named.span(),
+        }
+    }
 }
 
 impl Pretty for Argument {
     fn pretty(&self, p: &mut Printer) {
         match self {
-            Self::Pos(expr) => expr.v.pretty(p),
+            Self::Pos(expr) => expr.pretty(p),
             Self::Named(named) => named.pretty(p),
         }
     }
@@ -496,19 +613,21 @@ impl Pretty for Argument {
 /// A let expression: `#let x = 1`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprLet {
-    /// The pattern to assign to.
-    pub pat: Spanned<Ident>,
+    /// The source code location.
+    pub span: Span,
+    /// The binding to assign to.
+    pub binding: Ident,
     /// The expression the pattern is initialized with.
-    pub init: Option<SpanBox<Expr>>,
+    pub init: Option<Box<Expr>>,
 }
 
 impl Pretty for ExprLet {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("#let ");
-        self.pat.v.pretty(p);
+        self.binding.pretty(p);
         if let Some(init) = &self.init {
             p.push_str(" = ");
-            init.v.pretty(p);
+            init.pretty(p);
         }
     }
 }
@@ -516,23 +635,25 @@ impl Pretty for ExprLet {
 /// An if expression: `#if x { y } #else { z }`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprIf {
+    /// The source code location.
+    pub span: Span,
     /// The condition which selects the body to evaluate.
-    pub condition: SpanBox<Expr>,
+    pub condition: Box<Expr>,
     /// The expression to evaluate if the condition is true.
-    pub if_body: SpanBox<Expr>,
+    pub if_body: Box<Expr>,
     /// The expression to evaluate if the condition is false.
-    pub else_body: Option<SpanBox<Expr>>,
+    pub else_body: Option<Box<Expr>>,
 }
 
 impl Pretty for ExprIf {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("#if ");
-        self.condition.v.pretty(p);
+        self.condition.pretty(p);
         p.push(' ');
-        self.if_body.v.pretty(p);
+        self.if_body.pretty(p);
         if let Some(expr) = &self.else_body {
             p.push_str(" #else ");
-            expr.v.pretty(p);
+            expr.pretty(p);
         }
     }
 }
@@ -540,22 +661,24 @@ impl Pretty for ExprIf {
 /// A for expression: `#for x #in y { z }`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprFor {
+    /// The source code location.
+    pub span: Span,
     /// The pattern to assign to.
-    pub pat: Spanned<ForPattern>,
+    pub pattern: ForPattern,
     /// The expression to iterate over.
-    pub iter: SpanBox<Expr>,
+    pub iter: Box<Expr>,
     /// The expression to evaluate for each iteration.
-    pub body: SpanBox<Expr>,
+    pub body: Box<Expr>,
 }
 
 impl Pretty for ExprFor {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("#for ");
-        self.pat.v.pretty(p);
+        self.pattern.pretty(p);
         p.push_str(" #in ");
-        self.iter.v.pretty(p);
+        self.iter.pretty(p);
         p.push(' ');
-        self.body.v.pretty(p);
+        self.body.pretty(p);
     }
 }
 
@@ -566,6 +689,16 @@ pub enum ForPattern {
     Value(Ident),
     /// A key-value pattern: `#for k, v #in dict`.
     KeyValue(Ident, Ident),
+}
+
+impl ForPattern {
+    /// The source code location.
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Value(v) => v.span,
+            Self::KeyValue(k, v) => k.span.join(v.span),
+        }
+    }
 }
 
 impl Pretty for ForPattern {

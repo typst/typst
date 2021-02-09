@@ -16,7 +16,8 @@ use walkdir::WalkDir;
 
 use typst::diag::{Diag, Feedback, Level, Pass};
 use typst::env::{Env, ImageResource, ResourceLoader};
-use typst::eval::{Args, EvalContext, Scope, State, Value, ValueFunc};
+use typst::eval::{Args, EvalContext, Scope, Value, ValueFunc};
+use typst::exec::State;
 use typst::export::pdf;
 use typst::font::FsIndexExt;
 use typst::geom::{Length, Point, Sides, Size, Spec};
@@ -222,7 +223,7 @@ fn test_part(
     let Pass {
         output: mut frames,
         feedback: Feedback { mut diags, .. },
-    } = typeset(&src, env, &scope, state);
+    } = typeset(env, &src, &scope, state);
 
     if !compare_ref {
         frames.clear();

@@ -19,23 +19,21 @@ impl<T> WithSpan for T {}
 /// Span offsetting.
 pub trait Offset {
     /// Offset all spans contained in `Self` by the given position.
-    fn offset(self, by: Pos) -> Self;
+    fn offset(self, by: impl Into<Pos>) -> Self;
 }
 
 /// A vector of spanned values of type `T`.
 pub type SpanVec<T> = Vec<Spanned<T>>;
 
 impl<T> Offset for SpanVec<T> {
-    fn offset(mut self, by: Pos) -> Self {
+    fn offset(mut self, by: impl Into<Pos>) -> Self {
+        let by = by.into();
         for spanned in &mut self {
             spanned.span = spanned.span.offset(by);
         }
         self
     }
 }
-
-/// A box of a spanned value of type `T`.
-pub type SpanBox<T> = Box<Spanned<T>>;
 
 /// A value with the span it corresponds to in the source code.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -90,7 +88,7 @@ impl<T> Spanned<Option<T>> {
 }
 
 impl<T> Offset for Spanned<T> {
-    fn offset(self, by: Pos) -> Self {
+    fn offset(self, by: impl Into<Pos>) -> Self {
         self.map_span(|span| span.offset(by))
     }
 }
@@ -174,7 +172,8 @@ impl Span {
 }
 
 impl Offset for Span {
-    fn offset(self, by: Pos) -> Self {
+    fn offset(self, by: impl Into<Pos>) -> Self {
+        let by = by.into();
         Self {
             start: self.start.offset(by),
             end: self.end.offset(by),
@@ -236,8 +235,8 @@ impl Pos {
 }
 
 impl Offset for Pos {
-    fn offset(self, by: Self) -> Self {
-        Pos(self.0 + by.0)
+    fn offset(self, by: impl Into<Pos>) -> Self {
+        Pos(self.0 + by.into().0)
     }
 }
 

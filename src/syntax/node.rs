@@ -37,7 +37,7 @@ impl Pretty for Node {
             Self::Expr(expr) => {
                 if let Expr::Call(call) = expr {
                     // Format function templates appropriately.
-                    pretty_func_template(call, p, false)
+                    call.pretty_bracketed(p, false)
                 } else {
                     expr.pretty(p);
                 }
@@ -49,15 +49,15 @@ impl Pretty for Node {
 /// A section heading: `= Introduction`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NodeHeading {
-    /// The section depth (numer of equals signs minus 1, capped at 5).
-    pub level: Spanned<u8>,
+    /// The section depth (numer of equals signs minus 1).
+    pub level: usize,
     /// The contents of the heading.
     pub contents: Tree,
 }
 
 impl Pretty for NodeHeading {
     fn pretty(&self, p: &mut Printer) {
-        for _ in 0 ..= self.level.v {
+        for _ in 0 ..= self.level {
             p.push('=');
         }
         self.contents.pretty(p);

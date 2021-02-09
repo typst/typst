@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::*;
-use crate::eval::Softness;
+use crate::exec::Softness;
 
 /// A spacing node.
 #[derive(Copy, Clone, PartialEq)]

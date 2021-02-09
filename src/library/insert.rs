@@ -15,23 +15,23 @@ pub fn image(ctx: &mut EvalContext, args: &mut Args) -> Value {
     let width = args.get(ctx, "width");
     let height = args.get(ctx, "height");
 
-    if let Some(path) = path {
-        let loaded = ctx.env.resources.load(path.v, ImageResource::parse);
-        if let Some((res, img)) = loaded {
-            let dimensions = img.buf.dimensions();
-            ctx.push(NodeImage {
-                res,
-                dimensions,
-                width,
-                height,
-                align: ctx.state.align,
-            });
-        } else {
-            ctx.diag(error!(path.span, "failed to load image"));
+    Value::template(move |ctx| {
+        if let Some(path) = &path {
+            let loaded = ctx.env.resources.load(&path.v, ImageResource::parse);
+            if let Some((res, img)) = loaded {
+                let dimensions = img.buf.dimensions();
+                ctx.push(NodeImage {
+                    res,
+                    dimensions,
+                    width,
+                    height,
+                    align: ctx.state.align,
+                });
+            } else {
+                ctx.diag(error!(path.span, "failed to load image"));
+            }
         }
-    }
-
-    Value::None
+    })
 }
 
 /// An image node.

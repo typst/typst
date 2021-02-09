@@ -4,11 +4,12 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 
-use super::{Args, Eval, EvalContext};
+use super::*;
 use crate::color::Color;
+use crate::exec::ExecContext;
 use crate::geom::{Angle, Length, Linear, Relative};
-use crate::pretty::{pretty, Pretty, Printer};
-use crate::syntax::{pretty_template, Spanned, Tree, WithSpan};
+use crate::pretty::{Pretty, Printer};
+use crate::syntax::Tree;
 
 /// A computational value.
 #[derive(Debug, Clone, PartialEq)]
@@ -48,12 +49,12 @@ pub enum Value {
 }
 
 impl Value {
-    /// Try to cast the value into a specific type.
-    pub fn cast<T>(self) -> CastResult<T, Self>
+    /// Create a new template value consisting of a single dynamic node.
+    pub fn template<F>(f: F) -> Self
     where
-        T: Cast<Value>,
+        F: Fn(&mut ExecContext) + 'static,
     {
-        T::cast(self)
+        Self::Template(vec![TemplateNode::Any(TemplateAny::new(f))])
     }
 
     /// The name of the stored value's type.
@@ -77,26 +78,13 @@ impl Value {
             Self::Error => "error",
         }
     }
-}
 
-impl Eval for &Value {
-    type Output = ();
-
-    /// Evaluate everything contained in this value.
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        ctx.push(ctx.make_text_node(match self {
-            Value::None => return,
-            Value::Str(s) => s.clone(),
-            Value::Template(tree) => {
-                // We do not want to allow the template access to the current
-                // scopes.
-                let prev = std::mem::take(&mut ctx.scopes);
-                tree.eval(ctx);
-                ctx.scopes = prev;
-                return;
-            }
-            other => pretty(other),
-        }));
+    /// Try to cast the value into a specific type.
+    pub fn cast<T>(self) -> CastResult<T, Self>
+    where
+        T: Cast<Value>,
+    {
+        T::cast(self)
     }
 }
 
@@ -121,7 +109,7 @@ impl Pretty for Value {
             Value::Str(v) => v.pretty(p),
             Value::Array(v) => v.pretty(p),
             Value::Dict(v) => v.pretty(p),
-            Value::Template(v) => pretty_template(v, p),
+            Value::Template(v) => v.pretty(p),
             Value::Func(v) => v.pretty(p),
             Value::Any(v) => v.pretty(p),
             Value::Error => p.push_str("(error)"),
@@ -163,7 +151,88 @@ impl Pretty for ValueDict {
 }
 
 /// A template value: `[*Hi* there]`.
-pub type ValueTemplate = Tree;
+pub type ValueTemplate = Vec<TemplateNode>;
+
+impl Pretty for ValueTemplate {
+    fn pretty(&self, p: &mut Printer) {
+        p.push('[');
+        for part in self {
+            part.pretty(p);
+        }
+        p.push(']');
+    }
+}
+
+/// One chunk of a template.
+///
+/// Evaluating a template expression creates only a single chunk. Adding two
+/// such templates yields a two-chunk template.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TemplateNode {
+    /// A template that consists of a syntax tree plus already evaluated
+    /// expression.
+    Tree {
+        /// The tree of this template part.
+        tree: Rc<Tree>,
+        /// The evaluated expressions.
+        map: ExprMap,
+    },
+    /// A template that can implement custom behaviour.
+    Any(TemplateAny),
+}
+
+impl Pretty for TemplateNode {
+    fn pretty(&self, p: &mut Printer) {
+        match self {
+            // TODO: Pretty-print the values.
+            Self::Tree { tree, .. } => tree.pretty(p),
+            Self::Any(any) => any.pretty(p),
+        }
+    }
+}
+
+/// A reference-counted dynamic template node (can implement custom behaviour).
+#[derive(Clone)]
+pub struct TemplateAny {
+    f: Rc<dyn Fn(&mut ExecContext)>,
+}
+
+impl TemplateAny {
+    /// Create a new dynamic template value from a rust function or closure.
+    pub fn new<F>(f: F) -> Self
+    where
+        F: Fn(&mut ExecContext) + 'static,
+    {
+        Self { f: Rc::new(f) }
+    }
+}
+
+impl PartialEq for TemplateAny {
+    fn eq(&self, _: &Self) -> bool {
+        // TODO: Figure out what we want here.
+        false
+    }
+}
+
+impl Deref for TemplateAny {
+    type Target = dyn Fn(&mut ExecContext);
+
+    fn deref(&self) -> &Self::Target {
+        self.f.as_ref()
+    }
+}
+
+impl Pretty for TemplateAny {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("<any>");
+    }
+}
+
+impl Debug for TemplateAny {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("TemplateAny").finish()
+    }
+}
 
 /// A wrapper around a reference-counted executable function.
 #[derive(Clone)]
@@ -184,6 +253,7 @@ impl ValueFunc {
 
 impl PartialEq for ValueFunc {
     fn eq(&self, _: &Self) -> bool {
+        // TODO: Figure out what we want here.
         false
     }
 }
@@ -497,9 +567,7 @@ macro_rules! impl_type {
 mod tests {
     use super::*;
     use crate::color::RgbaColor;
-    use crate::parse::parse;
     use crate::pretty::pretty;
-    use crate::syntax::Node;
 
     #[track_caller]
     fn test_pretty(value: impl Into<Value>, exp: &str) {
@@ -517,7 +585,6 @@ mod tests {
         test_pretty(Relative::new(0.3) + Length::cm(2.0), "30.0% + 2.0cm");
         test_pretty(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
         test_pretty("hello", r#""hello""#);
-        test_pretty(vec![Spanned::zero(Node::Strong)], "[*]");
         test_pretty(ValueFunc::new("nil", |_, _| Value::None), "nil");
         test_pretty(ValueAny::new(1), "1");
         test_pretty(Value::Error, "(error)");
@@ -533,8 +600,8 @@ mod tests {
         // Dictionary.
         let mut dict = BTreeMap::new();
         dict.insert("one".into(), Value::Int(1));
-        dict.insert("two".into(), Value::Template(parse("#[f]").output));
+        dict.insert("two".into(), Value::Bool(false));
         test_pretty(BTreeMap::new(), "(:)");
-        test_pretty(dict, "(one: 1, two: #[f])");
+        test_pretty(dict, "(one: 1, two: false)");
     }
 }

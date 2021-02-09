@@ -2,7 +2,8 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use fontdock::fs::FsIndex;
 
 use typst::env::{Env, ResourceLoader};
-use typst::eval::{eval, State};
+use typst::eval::eval;
+use typst::exec::{exec, State};
 use typst::export::pdf;
 use typst::font::FsIndexExt;
 use typst::layout::layout;
@@ -33,14 +34,16 @@ fn benchmarks(c: &mut Criterion) {
 
     // Prepare intermediate results and run warm.
     let syntax_tree = parse(COMA).output;
-    let layout_tree = eval(&syntax_tree, &mut env, &scope, state.clone()).output;
-    let frames = layout(&layout_tree, &mut env);
+    let expr_map = eval(&mut env, &syntax_tree, &scope).output;
+    let layout_tree = exec(&mut env, &syntax_tree, &expr_map, state.clone()).output;
+    let frames = layout(&mut env, &layout_tree);
 
     // Bench!
     bench!("parse-coma": parse(COMA));
-    bench!("eval-coma": eval(&syntax_tree, &mut env, &scope, state.clone()));
-    bench!("layout-coma": layout(&layout_tree, &mut env));
-    bench!("typeset-coma": typeset(COMA, &mut env, &scope, state.clone()));
+    bench!("eval-coma": eval(&mut env, &syntax_tree, &scope));
+    bench!("exec-coma": exec(&mut env, &syntax_tree, &expr_map, state.clone()));
+    bench!("layout-coma": layout(&mut env, &layout_tree));
+    bench!("typeset-coma": typeset(&mut env, COMA, &scope, state.clone()));
     bench!("export-pdf-coma": pdf::export(&frames, &env));
 }
 

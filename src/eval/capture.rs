@@ -50,11 +50,11 @@ impl<'ast> Visit<'ast> for CapturesVisitor<'_> {
 
     fn visit_block(&mut self, item: &'ast ExprBlock) {
         // Blocks create a scope except if directly in a template.
-        if item.scopes {
+        if item.scoping {
             self.internal.push();
         }
         visit_block(self, item);
-        if item.scopes {
+        if item.scoping {
             self.internal.pop();
         }
     }
@@ -67,12 +67,12 @@ impl<'ast> Visit<'ast> for CapturesVisitor<'_> {
     }
 
     fn visit_let(&mut self, item: &'ast ExprLet) {
-        self.define(&item.pat.v);
+        self.define(&item.binding);
         visit_let(self, item);
     }
 
     fn visit_for(&mut self, item: &'ast ExprFor) {
-        match &item.pat.v {
+        match &item.pattern {
             ForPattern::Value(value) => self.define(value),
             ForPattern::KeyValue(key, value) => {
                 self.define(key);

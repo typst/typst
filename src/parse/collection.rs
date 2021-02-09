@@ -1,8 +1,10 @@
 use super::*;
 
 /// Parse the arguments to a function call.
-pub fn arguments(p: &mut Parser) -> ExprArgs {
-    collection(p, vec![])
+pub fn args(p: &mut Parser) -> ExprArgs {
+    let start = p.start();
+    let items = collection(p, vec![]);
+    ExprArgs { span: p.span_from(start), items }
 }
 
 /// Parse a parenthesized group, which can be either of:
@@ -16,8 +18,8 @@ pub fn parenthesized(p: &mut Parser) -> Expr {
     } else {
         collection(p, State::Unknown)
     };
-    p.end_group();
-    state.into_expr()
+    let span = p.end_group();
+    state.into_expr(span)
 }
 
 /// Parse a collection.
@@ -25,7 +27,7 @@ fn collection<T: Collection>(p: &mut Parser, mut collection: T) -> T {
     let mut missing_coma = None;
 
     while !p.eof() {
-        if let Some(arg) = p.span_if(argument) {
+        if let Some(arg) = argument(p) {
             collection.push_arg(p, arg);
 
             if let Some(pos) = missing_coma.take() {
@@ -36,7 +38,7 @@ fn collection<T: Collection>(p: &mut Parser, mut collection: T) -> T {
                 break;
             }
 
-            let behind = p.last_end();
+            let behind = p.end();
             if p.eat_if(Token::Comma) {
                 collection.push_comma();
             } else {
@@ -50,14 +52,12 @@ fn collection<T: Collection>(p: &mut Parser, mut collection: T) -> T {
 
 /// Parse an expression or a named pair.
 fn argument(p: &mut Parser) -> Option<Argument> {
-    let first = p.span_if(expr)?;
+    let first = expr(p)?;
     if p.eat_if(Token::Colon) {
-        if let Expr::Ident(ident) = first.v {
-            let name = ident.with_span(first.span);
-            let expr = p.span_if(expr)?;
-            Some(Argument::Named(Named { name, expr }))
+        if let Expr::Ident(name) = first {
+            Some(Argument::Named(Named { name, expr: expr(p)? }))
         } else {
-            p.diag(error!(first.span, "expected identifier"));
+            p.diag(error!(first.span(), "expected identifier"));
             expr(p);
             None
         }
@@ -68,13 +68,13 @@ fn argument(p: &mut Parser) -> Option<Argument> {
 
 /// Abstraction for comma-separated list of expression / named pairs.
 trait Collection {
-    fn push_arg(&mut self, p: &mut Parser, arg: Spanned<Argument>);
+    fn push_arg(&mut self, p: &mut Parser, arg: Argument);
     fn push_comma(&mut self) {}
 }
 
-impl Collection for ExprArgs {
-    fn push_arg(&mut self, _: &mut Parser, arg: Spanned<Argument>) {
-        self.push(arg.v);
+impl Collection for Vec<Argument> {
+    fn push_arg(&mut self, _: &mut Parser, arg: Argument) {
+        self.push(arg);
     }
 }
 
@@ -82,38 +82,38 @@ impl Collection for ExprArgs {
 #[derive(Debug)]
 enum State {
     Unknown,
-    Expr(Spanned<Expr>),
-    Array(ExprArray),
-    Dict(ExprDict),
+    Expr(Expr),
+    Array(Vec<Expr>),
+    Dict(Vec<Named>),
 }
 
 impl State {
-    fn into_expr(self) -> Expr {
+    fn into_expr(self, span: Span) -> Expr {
         match self {
-            Self::Unknown => Expr::Array(vec![]),
-            Self::Expr(expr) => Expr::Group(Box::new(expr)),
-            Self::Array(array) => Expr::Array(array),
-            Self::Dict(dict) => Expr::Dict(dict),
+            Self::Unknown => Expr::Array(ExprArray { span, items: vec![] }),
+            Self::Expr(expr) => Expr::Group(ExprGroup { span, expr: Box::new(expr) }),
+            Self::Array(items) => Expr::Array(ExprArray { span, items }),
+            Self::Dict(items) => Expr::Dict(ExprDict { span, items }),
         }
     }
 }
 
 impl Collection for State {
-    fn push_arg(&mut self, p: &mut Parser, arg: Spanned<Argument>) {
+    fn push_arg(&mut self, p: &mut Parser, arg: Argument) {
         match self {
-            Self::Unknown => match arg.v {
+            Self::Unknown => match arg {
                 Argument::Pos(expr) => *self = Self::Expr(expr),
                 Argument::Named(named) => *self = Self::Dict(vec![named]),
             },
-            Self::Expr(prev) => match arg.v {
+            Self::Expr(prev) => match arg {
                 Argument::Pos(expr) => *self = Self::Array(vec![take(prev), expr]),
                 Argument::Named(_) => diag(p, arg),
             },
-            Self::Array(array) => match arg.v {
+            Self::Array(array) => match arg {
                 Argument::Pos(expr) => array.push(expr),
                 Argument::Named(_) => diag(p, arg),
             },
-            Self::Dict(dict) => match arg.v {
+            Self::Dict(dict) => match arg {
                 Argument::Pos(_) => diag(p, arg),
                 Argument::Named(named) => dict.push(named),
             },
@@ -127,13 +127,16 @@ impl Collection for State {
     }
 }
 
-fn take(expr: &mut Spanned<Expr>) -> Spanned<Expr> {
+fn take(expr: &mut Expr) -> Expr {
     // Replace with anything, it's overwritten anyway.
-    std::mem::replace(expr, Spanned::zero(Expr::Bool(false)))
+    std::mem::replace(
+        expr,
+        Expr::Lit(Lit { span: Span::ZERO, kind: LitKind::None }),
+    )
 }
 
-fn diag(p: &mut Parser, arg: Spanned<Argument>) {
-    p.diag(error!(arg.span, "{}", match arg.v {
+fn diag(p: &mut Parser, arg: Argument) {
+    p.diag(error!(arg.span(), "{}", match arg {
         Argument::Pos(_) => "expected named pair, found expression",
         Argument::Named(_) => "expected expression, found named pair",
     }));

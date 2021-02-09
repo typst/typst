@@ -2,6 +2,7 @@ use std::ops::Deref;
 
 use unicode_xid::UnicodeXID;
 
+use super::Span;
 use crate::pretty::{Pretty, Printer};
 
 /// An Unicode identifier with a few extra permissible characters.
@@ -12,13 +13,21 @@ use crate::pretty::{Pretty, Printer};
 ///
 /// [uax31]: http://www.unicode.org/reports/tr31/
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Ident(pub String);
+pub struct Ident {
+    /// The source code location.
+    pub span: Span,
+    /// The identifier string.
+    pub string: String,
+}
 
 impl Ident {
     /// Create a new identifier from a string checking that it is a valid.
-    pub fn new(ident: impl AsRef<str> + Into<String>) -> Option<Self> {
-        if is_ident(ident.as_ref()) {
-            Some(Self(ident.into()))
+    pub fn new(
+        string: impl AsRef<str> + Into<String>,
+        span: impl Into<Span>,
+    ) -> Option<Self> {
+        if is_ident(string.as_ref()) {
+            Some(Self { span: span.into(), string: string.into() })
         } else {
             None
         }
@@ -26,19 +35,13 @@ impl Ident {
 
     /// Return a reference to the underlying string.
     pub fn as_str(&self) -> &str {
-        self
-    }
-}
-
-impl Pretty for Ident {
-    fn pretty(&self, p: &mut Printer) {
-        p.push_str(self.as_str());
+        self.string.as_str()
     }
 }
 
 impl AsRef<str> for Ident {
     fn as_ref(&self) -> &str {
-        self
+        self.as_str()
     }
 }
 
@@ -46,7 +49,13 @@ impl Deref for Ident {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        self.0.as_str()
+        self.as_str()
+    }
+}
+
+impl Pretty for Ident {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str(self.as_str());
     }
 }
 

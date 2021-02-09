@@ -6,7 +6,7 @@ use fontdock::fs::FsIndex;
 
 use typst::diag::{Feedback, Pass};
 use typst::env::{Env, ResourceLoader};
-use typst::eval::State;
+use typst::exec::State;
 use typst::export::pdf;
 use typst::font::FsIndexExt;
 use typst::library;
@@ -51,7 +51,7 @@ fn main() -> anyhow::Result<()> {
     let Pass {
         output: frames,
         feedback: Feedback { mut diags, .. },
-    } = typeset(&src, &mut env, &scope, state);
+    } = typeset(&mut env, &src, &scope, state);
 
     if !diags.is_empty() {
         diags.sort();

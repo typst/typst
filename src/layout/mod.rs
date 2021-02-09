@@ -24,7 +24,7 @@ pub use stack::*;
 pub use text::*;
 
 /// Layout a tree into a collection of frames.
-pub fn layout(tree: &Tree, env: &mut Env) -> Vec<Frame> {
+pub fn layout(env: &mut Env, tree: &Tree) -> Vec<Frame> {
     tree.layout(&mut LayoutContext { env })
 }
 

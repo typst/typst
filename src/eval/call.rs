@@ -1,21 +1,21 @@
 use super::*;
 
-impl Eval for Spanned<&ExprCall> {
+impl Eval for ExprCall {
     type Output = Value;
 
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
-        let callee = self.v.callee.eval(ctx);
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        let callee = self.callee.eval(ctx);
 
         if let Value::Func(func) = callee {
             let func = func.clone();
-            let mut args = self.v.args.as_ref().eval(ctx);
+            let mut args = self.args.eval(ctx);
             let returned = func(ctx, &mut args);
             args.finish(ctx);
 
             return returned;
         } else if callee != Value::Error {
             ctx.diag(error!(
-                self.v.callee.span,
+                self.callee.span(),
                 "expected function, found {}",
                 callee.type_name(),
             ));
@@ -25,22 +25,22 @@ impl Eval for Spanned<&ExprCall> {
     }
 }
 
-impl Eval for Spanned<&ExprArgs> {
+impl Eval for ExprArgs {
     type Output = Args;
 
-    fn eval(self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         let mut pos = vec![];
         let mut named = vec![];
 
-        for arg in self.v {
+        for arg in &self.items {
             match arg {
                 Argument::Pos(expr) => {
-                    pos.push(expr.as_ref().eval(ctx).with_span(expr.span));
+                    pos.push(expr.eval(ctx).with_span(expr.span()));
                 }
                 Argument::Named(Named { name, expr }) => {
                     named.push((
-                        name.as_ref().map(|id| id.0.clone()),
-                        expr.as_ref().eval(ctx).with_span(expr.span),
+                        name.string.clone().with_span(name.span),
+                        expr.eval(ctx).with_span(expr.span()),
                     ));
                 }
             }

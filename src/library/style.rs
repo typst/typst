@@ -55,68 +55,71 @@ use crate::prelude::*;
 ///     - `extra-expanded`
 ///     - `ultra-expanded`
 pub fn font(ctx: &mut EvalContext, args: &mut Args) -> Value {
-    let snapshot = ctx.state.clone();
-
-    if let Some(linear) = args.find::<Linear>(ctx) {
-        if linear.rel.is_zero() {
-            ctx.state.font.size = linear.abs;
-            ctx.state.font.scale = Relative::ONE.into();
-        } else {
-            ctx.state.font.scale = linear;
-        }
-    }
-
+    let size = args.find::<Linear>(ctx);
     let list: Vec<_> = args.filter::<FontFamily>(ctx).map(|f| f.to_string()).collect();
-    if !list.is_empty() {
-        let families = ctx.state.font.families_mut();
-        families.list = list;
-        families.flatten();
-    }
+    let style = args.get(ctx, "style");
+    let weight = args.get(ctx, "weight");
+    let stretch = args.get(ctx, "stretch");
+    let serif = args.get(ctx, "serif");
+    let sans_serif = args.get(ctx, "sans-serif");
+    let monospace = args.get(ctx, "monospace");
+    let body = args.find::<ValueTemplate>(ctx);
 
-    if let Some(style) = args.get(ctx, "style") {
-        ctx.state.font.variant.style = style;
-    }
+    Value::template(move |ctx| {
+        let snapshot = ctx.state.clone();
 
-    if let Some(weight) = args.get(ctx, "weight") {
-        ctx.state.font.variant.weight = weight;
-    }
+        if let Some(linear) = size {
+            if linear.rel.is_zero() {
+                ctx.state.font.size = linear.abs;
+                ctx.state.font.scale = Relative::ONE.into();
+            } else {
+                ctx.state.font.scale = linear;
+            }
+        }
 
-    if let Some(stretch) = args.get(ctx, "stretch") {
-        ctx.state.font.variant.stretch = stretch;
-    }
-
-    for variant in FontFamily::VARIANTS {
-        if let Some(FontFamilies(list)) = args.get(ctx, variant.as_str()) {
-            let strings = list.into_iter().map(|f| f.to_string()).collect();
+        if !list.is_empty() {
             let families = ctx.state.font.families_mut();
-            families.update_class_list(variant.to_string(), strings);
+            families.list = list.clone();
             families.flatten();
         }
-    }
 
-    if let Some(body) = args.find::<ValueTemplate>(ctx) {
-        body.eval(ctx);
-        ctx.state = snapshot;
-    }
+        if let Some(style) = style {
+            ctx.state.font.variant.style = style;
+        }
 
-    Value::None
+        if let Some(weight) = weight {
+            ctx.state.font.variant.weight = weight;
+        }
+
+        if let Some(stretch) = stretch {
+            ctx.state.font.variant.stretch = stretch;
+        }
+
+        for (variant, arg) in &[
+            (FontFamily::Serif, &serif),
+            (FontFamily::SansSerif, &sans_serif),
+            (FontFamily::Monospace, &monospace),
+        ] {
+            if let Some(FontFamilies(list)) = arg {
+                let strings = list.into_iter().map(|f| f.to_string()).collect();
+                let families = ctx.state.font.families_mut();
+                families.update_class_list(variant.to_string(), strings);
+                families.flatten();
+            }
+        }
+
+        if let Some(body) = &body {
+            body.exec(ctx);
+            ctx.state = snapshot;
+        }
+    })
 }
 
 /// A list of font families.
 #[derive(Debug, Clone, PartialEq)]
 struct FontFamilies(Vec<FontFamily>);
 
-impl_type! {
-    FontFamilies: "font family or array of font families",
-    Value::Str(string) => Self(vec![FontFamily::Named(string.to_lowercase())]),
-    Value::Array(values) => Self(values
-        .into_iter()
-        .filter_map(|v| v.cast().ok())
-        .collect()
-    ),
-    #(family: FontFamily) => Self(vec![family]),
-}
-
+/// A single font family.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub(crate) enum FontFamily {
     Serif,
@@ -126,9 +129,6 @@ pub(crate) enum FontFamily {
 }
 
 impl FontFamily {
-    pub const VARIANTS: &'static [Self] =
-        &[Self::Serif, Self::SansSerif, Self::Monospace];
-
     pub fn as_str(&self) -> &str {
         match self {
             Self::Serif => "serif",
@@ -143,6 +143,17 @@ impl Display for FontFamily {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(self.as_str())
     }
+}
+
+impl_type! {
+    FontFamilies: "font family or array of font families",
+    Value::Str(string) => Self(vec![FontFamily::Named(string.to_lowercase())]),
+    Value::Array(values) => Self(values
+        .into_iter()
+        .filter_map(|v| v.cast().ok())
+        .collect()
+    ),
+    #(family: FontFamily) => Self(vec![family]),
 }
 
 impl_type! {

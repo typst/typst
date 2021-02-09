@@ -16,12 +16,12 @@ pub use token::*;
 use crate::pretty::{Pretty, Printer};
 
 /// The abstract syntax tree.
-pub type Tree = SpanVec<Node>;
+pub type Tree = Vec<Node>;
 
 impl Pretty for Tree {
     fn pretty(&self, p: &mut Printer) {
         for node in self {
-            node.v.pretty(p);
+            node.pretty(p);
         }
     }
 }
@@ -133,9 +133,8 @@ mod tests {
         roundtrip("#[v 1]");
         roundtrip("#[v 1, 2][*Ok*]");
         roundtrip("#[v 1 | f 2]");
-        roundtrip("{#[v]}");
+        test("{#[v]}", "{v()}");
         test("#[v 1, #[f 2]]", "#[v 1 | f 2]");
-        test("#[v 1, 2][#[f 3]]", "#[v 1, 2 | f 3]");
 
         // Keywords.
         roundtrip("#let x = 1 + 2");

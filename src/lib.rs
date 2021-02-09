@@ -5,10 +5,13 @@
 //!   [iterator of tokens][tokens]. This token stream is [parsed] into a [syntax
 //!   tree]. The structures describing the tree can be found in the [syntax]
 //!   module.
-//! - **Evaluation:** The next step is to [evaluate] the parsed "script" into a
-//!   [layout tree], a high-level, fully styled representation. The nodes of
-//!   this tree are fully self-contained and order-independent and thus much
-//!   better suited for layouting than the syntax tree.
+//! - **Evaluation:** The next step is to [evaluate] the syntax tree. This
+//!   computes the value of each expression in document and stores them in a map
+//!   from expression-pointers to values.
+//! - **Execution:** Now, we can [execute] the parsed and evaluated "script".
+//!   This produces a [layout tree], a high-level, fully styled representation.
+//!   The nodes of this tree are self-contained and order-independent and thus
+//!   much better suited for layouting than the syntax tree.
 //! - **Layouting:** Next, the tree is to [layouted] into a portable version of
 //!   the typeset document. The output of this is a vector of [`Frame`]s
 //!   (corresponding to pages), ready for exporting.
@@ -20,6 +23,7 @@
 //! [parsed]: parse::parse
 //! [syntax tree]: syntax::Tree
 //! [evaluate]: eval::eval
+//! [execute]: exec::exec
 //! [layout tree]: layout::Tree
 //! [layouted]: layout::layout
 //! [_PDF_]: export::pdf
@@ -30,6 +34,7 @@ pub mod diag;
 pub mod eval;
 pub mod color;
 pub mod env;
+pub mod exec;
 pub mod export;
 pub mod font;
 pub mod geom;
@@ -42,21 +47,27 @@ pub mod pretty;
 pub mod shaping;
 pub mod syntax;
 
-use crate::diag::{Feedback, Pass};
+use crate::diag::Pass;
 use crate::env::Env;
-use crate::eval::{Scope, State};
+use crate::eval::Scope;
+use crate::exec::State;
 use crate::layout::Frame;
 
 /// Process _Typst_ source code directly into a collection of frames.
 pub fn typeset(
-    src: &str,
     env: &mut Env,
+    src: &str,
     scope: &Scope,
     state: State,
 ) -> Pass<Vec<Frame>> {
-    let Pass { output: syntax_tree, feedback: f1 } = parse::parse(src);
-    let Pass { output: layout_tree, feedback: f2 } =
-        eval::eval(&syntax_tree, env, scope, state);
-    let frames = layout::layout(&layout_tree, env);
-    Pass::new(frames, Feedback::join(f1, f2))
+    let parsed = parse::parse(src);
+    let evaluated = eval::eval(env, &parsed.output, scope);
+    let executed = exec::exec(env, &parsed.output, &evaluated.output, state);
+    let frames = layout::layout(env, &executed.output);
+
+    let mut feedback = parsed.feedback;
+    feedback.extend(evaluated.feedback);
+    feedback.extend(executed.feedback);
+
+    Pass::new(frames, feedback)
 }

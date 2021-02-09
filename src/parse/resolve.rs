@@ -1,5 +1,5 @@
 use super::{is_newline, Scanner};
-use crate::syntax::{Ident, NodeRaw};
+use crate::syntax::{Ident, NodeRaw, Offset, Pos};
 
 /// Resolve all escape sequences in a string.
 pub fn resolve_string(string: &str) -> String {
@@ -47,12 +47,12 @@ pub fn resolve_hex(sequence: &str) -> Option<char> {
 }
 
 /// Resolve the language tag and trims the raw text.
-pub fn resolve_raw(text: &str, backticks: usize) -> NodeRaw {
+pub fn resolve_raw(text: &str, backticks: usize, start: Pos) -> NodeRaw {
     if backticks > 1 {
         let (tag, inner) = split_at_lang_tag(text);
         let (lines, had_newline) = trim_and_split_raw(inner);
         NodeRaw {
-            lang: Ident::new(tag),
+            lang: Ident::new(tag, start .. start.offset(tag.len())),
             lines,
             block: had_newline,
         }
@@ -125,6 +125,7 @@ pub fn split_lines(text: &str) -> Vec<String> {
 #[cfg(test)]
 #[rustfmt::skip]
 mod tests {
+    use crate::syntax::Span;
     use super::*;
 
     #[test]
@@ -173,11 +174,11 @@ mod tests {
             lines: &[&str],
             block: bool,
         ) {
-            assert_eq!(resolve_raw(raw, backticks), NodeRaw {
-                lang: lang.map(|id| Ident(id.into())),
+            Span::without_cmp(|| assert_eq!(resolve_raw(raw, backticks, Pos(0)), NodeRaw {
+                lang: lang.and_then(|id| Ident::new(id, 0)),
                 lines: lines.iter().map(ToString::to_string).collect(),
                 block,
-            });
+            }));
         }
 
         // Just one backtick.

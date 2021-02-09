@@ -11,14 +11,12 @@ use crate::layout::{
     Expansion, Node, NodePad, NodePages, NodePar, NodeSpacing, NodeStack, NodeText, Tree,
 };
 
-/// The context for evaluation.
+/// The context for execution.
 #[derive(Debug)]
-pub struct EvalContext<'a> {
+pub struct ExecContext<'a> {
     /// The environment from which resources are gathered.
     pub env: &'a mut Env,
-    /// The active scopes.
-    pub scopes: Scopes<'a>,
-    /// The active evaluation state.
+    /// The active execution state.
     pub state: State,
     /// The accumulated feedback.
     feedback: Feedback,
@@ -35,12 +33,11 @@ pub struct EvalContext<'a> {
     inner: Vec<Node>,
 }
 
-impl<'a> EvalContext<'a> {
-    /// Create a new evaluation context with a base state and scope.
-    pub fn new(env: &'a mut Env, scope: &'a Scope, state: State) -> Self {
+impl<'a> ExecContext<'a> {
+    /// Create a new execution context with a base state.
+    pub fn new(env: &'a mut Env, state: State) -> Self {
         Self {
             env,
-            scopes: Scopes::new(Some(scope)),
             state,
             groups: vec![],
             inner: vec![],
@@ -49,7 +46,7 @@ impl<'a> EvalContext<'a> {
         }
     }
 
-    /// Finish evaluation and return the created document.
+    /// Finish execution and return the created layout tree.
     pub fn finish(self) -> Pass<Tree> {
         assert!(self.groups.is_empty(), "unfinished group");
         Pass::new(Tree { runs: self.runs }, self.feedback)
@@ -226,21 +223,19 @@ impl<'a> EvalContext<'a> {
         }
     }
 
-    /// Apply a forced line break.
-    pub fn apply_linebreak(&mut self) {
-        self.end_par_group();
-        self.start_par_group();
-    }
-
-    /// Apply a forced paragraph break.
-    pub fn apply_parbreak(&mut self) {
-        self.end_par_group();
+    /// Push a normal space.
+    pub fn push_space(&mut self) {
         let em = self.state.font.font_size();
         self.push(NodeSpacing {
-            amount: self.state.par.par_spacing.resolve(em),
+            amount: self.state.par.word_spacing.resolve(em),
             softness: Softness::Soft,
         });
-        self.start_par_group();
+    }
+
+    /// Push a text node.
+    pub fn push_text(&mut self, text: impl Into<String>) {
+        let node = self.make_text_node(text.into());
+        self.push(node);
     }
 
     /// Construct a text node from the given string based on the active text
@@ -268,6 +263,23 @@ impl<'a> EvalContext<'a> {
             families: Rc::clone(&self.state.font.families),
             variant,
         }
+    }
+
+    /// Apply a forced line break.
+    pub fn apply_linebreak(&mut self) {
+        self.end_par_group();
+        self.start_par_group();
+    }
+
+    /// Apply a forced paragraph break.
+    pub fn apply_parbreak(&mut self) {
+        self.end_par_group();
+        let em = self.state.font.font_size();
+        self.push(NodeSpacing {
+            amount: self.state.par.par_spacing.resolve(em),
+            softness: Softness::Soft,
+        });
+        self.start_par_group();
     }
 }
 

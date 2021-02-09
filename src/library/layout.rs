@@ -1,9 +1,9 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::layout::{Expansion, Fill, NodeFixed, NodeSpacing, NodeStack};
+use crate::exec::Softness;
+use crate::layout::{Expansion, Fill, NodeBackground, NodeFixed, NodeSpacing, NodeStack};
 use crate::paper::{Paper, PaperClass};
 use crate::prelude::*;
-use crate::{eval::Softness, layout::NodeBackground};
 
 /// `align`: Align content along the layouting axes.
 ///
@@ -27,88 +27,91 @@ use crate::{eval::Softness, layout::NodeBackground};
 ///     - `bottom`
 ///     - `center`
 pub fn align(ctx: &mut EvalContext, args: &mut Args) -> Value {
-    let snapshot = ctx.state.clone();
-
     let first = args.find(ctx);
     let second = args.find(ctx);
     let hor = args.get(ctx, "horizontal");
     let ver = args.get(ctx, "vertical");
+    let body = args.find::<ValueTemplate>(ctx);
 
-    let mut had = Gen::uniform(false);
-    let mut had_center = false;
+    Value::template(move |ctx| {
+        let snapshot = ctx.state.clone();
 
-    for (axis, Spanned { v: arg, span }) in first
-        .into_iter()
-        .chain(second.into_iter())
-        .map(|arg: Spanned<Alignment>| (arg.v.axis(), arg))
-        .chain(hor.into_iter().map(|arg| (Some(SpecAxis::Horizontal), arg)))
-        .chain(ver.into_iter().map(|arg| (Some(SpecAxis::Vertical), arg)))
-    {
-        // Check whether we know which axis this alignment belongs to.
-        if let Some(axis) = axis {
-            // We know the axis.
-            let gen_axis = axis.switch(ctx.state.dirs);
-            let gen_align = arg.switch(ctx.state.dirs);
+        let mut had = Gen::uniform(false);
+        let mut had_center = false;
 
-            if arg.axis().map_or(false, |a| a != axis) {
-                ctx.diag(error!(span, "invalid alignment for {} axis", axis));
-            } else if had.get(gen_axis) {
-                ctx.diag(error!(span, "duplicate alignment for {} axis", axis));
+        // Infer the axes alignments belong to.
+        for (axis, Spanned { v: arg, span }) in first
+            .into_iter()
+            .chain(second.into_iter())
+            .map(|arg: Spanned<Alignment>| (arg.v.axis(), arg))
+            .chain(hor.into_iter().map(|arg| (Some(SpecAxis::Horizontal), arg)))
+            .chain(ver.into_iter().map(|arg| (Some(SpecAxis::Vertical), arg)))
+        {
+            // Check whether we know which axis this alignment belongs to.
+            if let Some(axis) = axis {
+                // We know the axis.
+                let gen_axis = axis.switch(ctx.state.dirs);
+                let gen_align = arg.switch(ctx.state.dirs);
+
+                if arg.axis().map_or(false, |a| a != axis) {
+                    ctx.diag(error!(span, "invalid alignment for {} axis", axis));
+                } else if had.get(gen_axis) {
+                    ctx.diag(error!(span, "duplicate alignment for {} axis", axis));
+                } else {
+                    *ctx.state.align.get_mut(gen_axis) = gen_align;
+                    *had.get_mut(gen_axis) = true;
+                }
             } else {
-                *ctx.state.align.get_mut(gen_axis) = gen_align;
-                *had.get_mut(gen_axis) = true;
+                // We don't know the axis: This has to be a `center` alignment for a
+                // positional argument.
+                debug_assert_eq!(arg, Alignment::Center);
+
+                if had.main && had.cross {
+                    ctx.diag(error!(span, "duplicate alignment"));
+                } else if had_center {
+                    // Both this and the previous one are unspecified `center`
+                    // alignments. Both axes should be centered.
+                    ctx.state.align.main = Align::Center;
+                    ctx.state.align.cross = Align::Center;
+                    had = Gen::uniform(true);
+                } else {
+                    had_center = true;
+                }
             }
-        } else {
-            // We don't know the axis: This has to be a `center` alignment for a
-            // positional argument.
-            debug_assert_eq!(arg, Alignment::Center);
 
-            if had.main && had.cross {
-                ctx.diag(error!(span, "duplicate alignment"));
-            } else if had_center {
-                // Both this and the previous one are unspecified `center`
-                // alignments. Both axes should be centered.
-                ctx.state.align.main = Align::Center;
-                ctx.state.align.cross = Align::Center;
-                had = Gen::uniform(true);
-            } else {
-                had_center = true;
+            // If we we know the other alignment, we can handle the unspecified
+            // `center` alignment.
+            if had_center && (had.main || had.cross) {
+                if had.main {
+                    ctx.state.align.cross = Align::Center;
+                    had.cross = true;
+                } else {
+                    ctx.state.align.main = Align::Center;
+                    had.main = true;
+                }
+                had_center = false;
             }
         }
 
-        // If we we know the other alignment, we can handle the unspecified
-        // `center` alignment.
-        if had_center && (had.main || had.cross) {
-            if had.main {
-                ctx.state.align.cross = Align::Center;
-                had.cross = true;
-            } else {
-                ctx.state.align.main = Align::Center;
-                had.main = true;
-            }
-            had_center = false;
+        // If `had_center` wasn't flushed by now, it's the only argument and then we
+        // default to applying it to the cross axis.
+        if had_center {
+            ctx.state.align.cross = Align::Center;
         }
-    }
 
-    // If `had_center` wasn't flushed by now, it's the only argument and then we
-    // default to applying it to the cross axis.
-    if had_center {
-        ctx.state.align.cross = Align::Center;
-    }
+        if ctx.state.align.main != snapshot.align.main {
+            ctx.end_par_group();
+            ctx.start_par_group();
+        }
 
-    if ctx.state.align.main != snapshot.align.main {
-        ctx.end_par_group();
-        ctx.start_par_group();
-    }
-
-    if let Some(body) = args.find::<ValueTemplate>(ctx) {
-        body.eval(ctx);
-        ctx.state = snapshot;
-    }
-
-    Value::None
+        if let Some(body) = &body {
+            body.exec(ctx);
+            ctx.state = snapshot;
+        }
+    })
 }
 
+/// An alignment argument.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub(crate) enum Alignment {
     Left,
@@ -173,10 +176,10 @@ impl Display for Alignment {
 /// `box`: Layout content into a box.
 ///
 /// # Named arguments
-/// - Width of the box:  `width`, of type `linear` relative to parent width.
-/// - Height of the box: `height`, of type `linear` relative to parent height.
-/// - Main layouting direction: `main-dir`, of type `direction`.
-/// - Cross layouting direction: `cross-dir`, of type `direction`.
+/// - Width of the box:            `width`, of type `linear` relative to parent width.
+/// - Height of the box:           `height`, of type `linear` relative to parent height.
+/// - Main layouting direction:    `main-dir`, of type `direction`.
+/// - Cross layouting direction:   `cross-dir`, of type `direction`.
 /// - Background color of the box: `color`, of type `color`.
 ///
 /// # Relevant types and constants
@@ -186,47 +189,45 @@ impl Display for Alignment {
 ///     - `ttb` (top to bottom)
 ///     - `btt` (bottom to top)
 pub fn box_(ctx: &mut EvalContext, args: &mut Args) -> Value {
-    let snapshot = ctx.state.clone();
-
     let width = args.get(ctx, "width");
     let height = args.get(ctx, "height");
     let main = args.get(ctx, "main-dir");
     let cross = args.get(ctx, "cross-dir");
     let color = args.get(ctx, "color");
+    let body = args.find::<ValueTemplate>(ctx);
 
-    ctx.set_dirs(Gen::new(main, cross));
+    Value::template(move |ctx| {
+        let snapshot = ctx.state.clone();
 
-    let dirs = ctx.state.dirs;
-    let align = ctx.state.align;
+        ctx.set_dirs(Gen::new(main, cross));
+        let dirs = ctx.state.dirs;
+        let align = ctx.state.align;
 
-    ctx.start_content_group();
+        ctx.start_content_group();
+        if let Some(body) = &body {
+            body.exec(ctx);
+        }
+        let children = ctx.end_content_group();
 
-    if let Some(body) = args.find::<ValueTemplate>(ctx) {
-        body.eval(ctx);
-    }
+        let fill_if = |c| if c { Expansion::Fill } else { Expansion::Fit };
+        let expand = Spec::new(fill_if(width.is_some()), fill_if(height.is_some()));
+        let fixed = NodeFixed {
+            width,
+            height,
+            child: NodeStack { dirs, align, expand, children }.into(),
+        };
 
-    let children = ctx.end_content_group();
+        if let Some(color) = color {
+            ctx.push(NodeBackground {
+                fill: Fill::Color(color),
+                child: fixed.into(),
+            });
+        } else {
+            ctx.push(fixed);
+        }
 
-    let fill_if = |c| if c { Expansion::Fill } else { Expansion::Fit };
-    let expand = Spec::new(fill_if(width.is_some()), fill_if(height.is_some()));
-
-    let fixed_node = NodeFixed {
-        width,
-        height,
-        child: NodeStack { dirs, align, expand, children }.into(),
-    };
-
-    if let Some(color) = color {
-        ctx.push(NodeBackground {
-            fill: Fill::Color(color),
-            child: fixed_node.into(),
-        })
-    } else {
-        ctx.push(fixed_node);
-    }
-
-    ctx.state = snapshot;
-    Value::None
+        ctx.state = snapshot;
+    })
 }
 
 impl_type! {
@@ -253,19 +254,19 @@ pub fn v(ctx: &mut EvalContext, args: &mut Args) -> Value {
 fn spacing(ctx: &mut EvalContext, args: &mut Args, axis: SpecAxis) -> Value {
     let spacing: Option<Linear> = args.require(ctx, "spacing");
 
-    if let Some(linear) = spacing {
-        let amount = linear.resolve(ctx.state.font.font_size());
-        let spacing = NodeSpacing { amount, softness: Softness::Hard };
-        if axis == ctx.state.dirs.main.axis() {
-            ctx.end_par_group();
-            ctx.push(spacing);
-            ctx.start_par_group();
-        } else {
-            ctx.push(spacing);
+    Value::template(move |ctx| {
+        if let Some(linear) = spacing {
+            let amount = linear.resolve(ctx.state.font.font_size());
+            let spacing = NodeSpacing { amount, softness: Softness::Hard };
+            if axis == ctx.state.dirs.main.axis() {
+                ctx.end_par_group();
+                ctx.push(spacing);
+                ctx.start_par_group();
+            } else {
+                ctx.push(spacing);
+            }
         }
-    }
-
-    Value::None
+    })
 }
 
 /// `page`: Configure pages.
@@ -275,88 +276,103 @@ fn spacing(ctx: &mut EvalContext, args: &mut Args, axis: SpecAxis) -> Value {
 ///   full list of all paper names.
 ///
 /// # Named arguments
-/// - Width of the page:     `width`, of type `length`.
-/// - Height of the page:    `height`, of type `length`.
-/// - Margins for all sides: `margins`, of type `linear` relative to sides.
-/// - Left margin:           `left`, of type `linear` relative to width.
-/// - Right margin:          `right`, of type `linear` relative to width.
-/// - Top margin:            `top`, of type `linear` relative to height.
-/// - Bottom margin:         `bottom`, of type `linear` relative to height.
-/// - Flip width and height: `flip`, of type `bool`.
+/// - Width of the page:         `width`, of type `length`.
+/// - Height of the page:        `height`, of type `length`.
+/// - Margins for all sides:     `margins`, of type `linear` relative to sides.
+/// - Left margin:               `left`, of type `linear` relative to width.
+/// - Right margin:              `right`, of type `linear` relative to width.
+/// - Top margin:                `top`, of type `linear` relative to height.
+/// - Bottom margin:             `bottom`, of type `linear` relative to height.
+/// - Flip width and height:     `flip`, of type `bool`.
+/// - Main layouting direction:  `main-dir`, of type `direction`.
+/// - Cross layouting direction: `cross-dir`, of type `direction`.
 pub fn page(ctx: &mut EvalContext, args: &mut Args) -> Value {
-    let snapshot = ctx.state.clone();
+    let paper = args.find::<Spanned<String>>(ctx).and_then(|name| {
+        Paper::from_name(&name.v).or_else(|| {
+            ctx.diag(error!(name.span, "invalid paper name"));
+            None
+        })
+    });
+    let width = args.get(ctx, "width");
+    let height = args.get(ctx, "height");
+    let margins = args.get(ctx, "margins");
+    let left = args.get(ctx, "left");
+    let top = args.get(ctx, "top");
+    let right = args.get(ctx, "right");
+    let bottom = args.get(ctx, "bottom");
+    let flip = args.get(ctx, "flip");
+    let main = args.get(ctx, "main-dir");
+    let cross = args.get(ctx, "cross-dir");
+    let body = args.find::<ValueTemplate>(ctx);
 
-    if let Some(name) = args.find::<Spanned<String>>(ctx) {
-        if let Some(paper) = Paper::from_name(&name.v) {
+    Value::template(move |ctx| {
+        let snapshot = ctx.state.clone();
+
+        if let Some(paper) = paper {
             ctx.state.page.class = paper.class;
             ctx.state.page.size = paper.size();
             ctx.state.page.expand = Spec::uniform(Expansion::Fill);
-        } else {
-            ctx.diag(error!(name.span, "invalid paper name"));
         }
-    }
 
-    if let Some(width) = args.get(ctx, "width") {
-        ctx.state.page.class = PaperClass::Custom;
-        ctx.state.page.size.width = width;
-        ctx.state.page.expand.horizontal = Expansion::Fill;
-    }
+        if let Some(width) = width {
+            ctx.state.page.class = PaperClass::Custom;
+            ctx.state.page.size.width = width;
+            ctx.state.page.expand.horizontal = Expansion::Fill;
+        }
 
-    if let Some(height) = args.get(ctx, "height") {
-        ctx.state.page.class = PaperClass::Custom;
-        ctx.state.page.size.height = height;
-        ctx.state.page.expand.vertical = Expansion::Fill;
-    }
+        if let Some(height) = height {
+            ctx.state.page.class = PaperClass::Custom;
+            ctx.state.page.size.height = height;
+            ctx.state.page.expand.vertical = Expansion::Fill;
+        }
 
-    if let Some(margins) = args.get(ctx, "margins") {
-        ctx.state.page.margins = Sides::uniform(Some(margins));
-    }
+        if let Some(margins) = margins {
+            ctx.state.page.margins = Sides::uniform(Some(margins));
+        }
 
-    if let Some(left) = args.get(ctx, "left") {
-        ctx.state.page.margins.left = Some(left);
-    }
+        if let Some(left) = left {
+            ctx.state.page.margins.left = Some(left);
+        }
 
-    if let Some(top) = args.get(ctx, "top") {
-        ctx.state.page.margins.top = Some(top);
-    }
+        if let Some(top) = top {
+            ctx.state.page.margins.top = Some(top);
+        }
 
-    if let Some(right) = args.get(ctx, "right") {
-        ctx.state.page.margins.right = Some(right);
-    }
+        if let Some(right) = right {
+            ctx.state.page.margins.right = Some(right);
+        }
 
-    if let Some(bottom) = args.get(ctx, "bottom") {
-        ctx.state.page.margins.bottom = Some(bottom);
-    }
+        if let Some(bottom) = bottom {
+            ctx.state.page.margins.bottom = Some(bottom);
+        }
 
-    if args.get(ctx, "flip").unwrap_or(false) {
-        let page = &mut ctx.state.page;
-        std::mem::swap(&mut page.size.width, &mut page.size.height);
-        std::mem::swap(&mut page.expand.horizontal, &mut page.expand.vertical);
-    }
+        if flip.unwrap_or(false) {
+            let page = &mut ctx.state.page;
+            std::mem::swap(&mut page.size.width, &mut page.size.height);
+            std::mem::swap(&mut page.expand.horizontal, &mut page.expand.vertical);
+        }
 
-    let main = args.get(ctx, "main-dir");
-    let cross = args.get(ctx, "cross-dir");
 
-    ctx.set_dirs(Gen::new(main, cross));
+        ctx.set_dirs(Gen::new(main, cross));
 
-    let mut softness = ctx.end_page_group(|_| false);
-    if let Some(body) = args.find::<ValueTemplate>(ctx) {
-        // TODO: Restrict body to a single page?
-        ctx.start_page_group(Softness::Hard);
-        body.eval(ctx);
-        ctx.end_page_group(|s| s == Softness::Hard);
-        softness = Softness::Soft;
-        ctx.state = snapshot;
-    }
+        let mut softness = ctx.end_page_group(|_| false);
+        if let Some(body) = &body {
+            // TODO: Restrict body to a single page?
+            ctx.start_page_group(Softness::Hard);
+            body.exec(ctx);
+            ctx.end_page_group(|s| s == Softness::Hard);
+            softness = Softness::Soft;
+            ctx.state = snapshot;
+        }
 
-    ctx.start_page_group(softness);
-
-    Value::None
+        ctx.start_page_group(softness);
+    })
 }
 
 /// `pagebreak`: Start a new page.
-pub fn pagebreak(ctx: &mut EvalContext, _: &mut Args) -> Value {
-    ctx.end_page_group(|_| true);
-    ctx.start_page_group(Softness::Hard);
-    Value::None
+pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> Value {
+    Value::template(move |ctx| {
+        ctx.end_page_group(|_| true);
+        ctx.start_page_group(Softness::Hard);
+    })
 }
