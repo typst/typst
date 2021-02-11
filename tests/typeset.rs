@@ -168,11 +168,11 @@ fn test(
     }
 
     if !frames.is_empty() {
-        let pdf_data = pdf::export(&frames, &env);
+        let pdf_data = pdf::export(&env, &frames);
         fs::create_dir_all(&pdf_path.parent().unwrap()).unwrap();
         fs::write(pdf_path, pdf_data).unwrap();
 
-        let canvas = draw(&frames, &env, 2.0);
+        let canvas = draw(&env, &frames, 2.0);
         fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
         canvas.pixmap.save_png(png_path).unwrap();
 
@@ -339,7 +339,7 @@ fn print_diag(diag: &Diag, map: &LineMap, lines: u32) {
     println!("{}: {}-{}: {}", diag.level, start, end, diag.message);
 }
 
-fn draw(frames: &[Frame], env: &Env, pixel_per_pt: f32) -> Canvas {
+fn draw(env: &Env, frames: &[Frame], pixel_per_pt: f32) -> Canvas {
     let pad = Length::pt(5.0);
 
     let height = pad + frames.iter().map(|l| l.size.height + pad).sum::<Length>();
@@ -380,13 +380,13 @@ fn draw(frames: &[Frame], env: &Env, pixel_per_pt: f32) -> Canvas {
             let pos = origin + pos;
             match element {
                 Element::Text(shaped) => {
-                    draw_text(&mut canvas, pos, env, shaped);
+                    draw_text(env, &mut canvas, pos, shaped);
                 }
                 Element::Image(image) => {
-                    draw_image(&mut canvas, pos, env, image);
+                    draw_image(env, &mut canvas, pos, image);
                 }
                 Element::Geometry(geom) => {
-                    draw_geometry(&mut canvas, pos, env, geom);
+                    draw_geometry(env, &mut canvas, pos, geom);
                 }
             }
         }
@@ -397,7 +397,7 @@ fn draw(frames: &[Frame], env: &Env, pixel_per_pt: f32) -> Canvas {
     canvas
 }
 
-fn draw_text(canvas: &mut Canvas, pos: Point, env: &Env, shaped: &Shaped) {
+fn draw_text(env: &Env, canvas: &mut Canvas, pos: Point, shaped: &Shaped) {
     let face = env.fonts.face(shaped.face).get();
 
     for (&glyph, &offset) in shaped.glyphs.iter().zip(&shaped.offsets) {
@@ -423,7 +423,7 @@ fn draw_text(canvas: &mut Canvas, pos: Point, env: &Env, shaped: &Shaped) {
     }
 }
 
-fn draw_geometry(canvas: &mut Canvas, pos: Point, _: &Env, element: &Geometry) {
+fn draw_geometry(_: &Env, canvas: &mut Canvas, pos: Point, element: &Geometry) {
     let x = pos.x.to_pt() as f32;
     let y = pos.y.to_pt() as f32;
 
@@ -443,7 +443,7 @@ fn draw_geometry(canvas: &mut Canvas, pos: Point, _: &Env, element: &Geometry) {
     };
 }
 
-fn draw_image(canvas: &mut Canvas, pos: Point, env: &Env, element: &Image) {
+fn draw_image(env: &Env, canvas: &mut Canvas, pos: Point, element: &Image) {
     let img = &env.resources.loaded::<ImageResource>(element.res);
 
     let mut pixmap = Pixmap::new(img.buf.width(), img.buf.height()).unwrap();

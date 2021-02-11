@@ -44,7 +44,7 @@ fn benchmarks(c: &mut Criterion) {
     bench!("exec-coma": exec(&mut env, &syntax_tree, &expr_map, state.clone()));
     bench!("layout-coma": layout(&mut env, &layout_tree));
     bench!("typeset-coma": typeset(&mut env, COMA, &scope, state.clone()));
-    bench!("export-pdf-coma": pdf::export(&frames, &env));
+    bench!("export-pdf-coma": pdf::export(&env, &frames));
 }
 
 criterion_group!(benches, benchmarks);

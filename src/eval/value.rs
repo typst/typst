@@ -124,16 +124,16 @@ pub type ValueTemplate = Vec<TemplateNode>;
 
 /// One chunk of a template.
 ///
-/// Evaluating a template expression creates only a single chunk. Adding two
-/// such templates yields a two-chunk template.
+/// Evaluating a template expression creates only a single node. Adding multiple
+/// templates can yield multi-node templates.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TemplateNode {
     /// A template that consists of a syntax tree plus already evaluated
     /// expression.
     Tree {
-        /// The tree of this template part.
+        /// The syntax tree of the corresponding template expression.
         tree: Rc<Tree>,
-        /// The evaluated expressions.
+        /// The evaluated expressions for the `tree`.
         map: ExprMap,
     },
     /// A template that can implement custom behaviour.
@@ -242,7 +242,7 @@ impl ValueArgs {
     where
         T: Cast<Spanned<Value>>,
     {
-        (0 .. self.items.len()).find_map(move |i| self.try_take(ctx, i))
+        (0 .. self.items.len()).find_map(move |i| self.try_take(&mut ctx.diags, i))
     }
 
     /// Find and remove the first convertible positional argument, producing an
@@ -259,17 +259,18 @@ impl ValueArgs {
     }
 
     /// Filter out and remove all convertible positional arguments.
-    pub fn filter<'a, 'b: 'a, T>(
+    pub fn filter<'a, T>(
         &'a mut self,
-        ctx: &'a mut EvalContext<'b>,
-    ) -> impl Iterator<Item = T> + Captures<'a> + Captures<'b>
+        ctx: &'a mut EvalContext,
+    ) -> impl Iterator<Item = T> + 'a
     where
         T: Cast<Spanned<Value>>,
     {
+        let diags = &mut ctx.diags;
         let mut i = 0;
         std::iter::from_fn(move || {
             while i < self.items.len() {
-                if let Some(val) = self.try_take(ctx, i) {
+                if let Some(val) = self.try_take(diags, i) {
                     return Some(val);
                 }
                 i += 1;
@@ -328,7 +329,7 @@ impl ValueArgs {
 
     /// Try to take and cast a positional argument in the i'th slot into `T`,
     /// putting it back if the conversion fails.
-    fn try_take<T>(&mut self, ctx: &mut EvalContext, i: usize) -> Option<T>
+    fn try_take<T>(&mut self, diags: &mut DiagSet, i: usize) -> Option<T>
     where
         T: Cast<Spanned<Value>>,
     {
@@ -346,7 +347,7 @@ impl ValueArgs {
             }
             CastResult::Warn(t, m) => {
                 self.items.remove(i);
-                ctx.diag(warning!(span, "{}", m));
+                diags.insert(warning!(span, "{}", m));
                 Some(t)
             }
             CastResult::Err(value) => {

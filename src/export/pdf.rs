@@ -25,8 +25,8 @@ use crate::layout::{Element, Fill, Frame, Shape};
 /// images can be included in the _PDF_.
 ///
 /// Returns the raw bytes making up the _PDF_ document.
-pub fn export(frames: &[Frame], env: &Env) -> Vec<u8> {
-    PdfExporter::new(frames, env).write()
+pub fn export(env: &Env, frames: &[Frame]) -> Vec<u8> {
+    PdfExporter::new(env, frames).write()
 }
 
 struct PdfExporter<'a> {
@@ -39,7 +39,7 @@ struct PdfExporter<'a> {
 }
 
 impl<'a> PdfExporter<'a> {
-    fn new(frames: &'a [Frame], env: &'a Env) -> Self {
+    fn new(env: &'a Env, frames: &'a [Frame]) -> Self {
         let mut writer = PdfWriter::new(1, 7);
         writer.set_indent(2);
 

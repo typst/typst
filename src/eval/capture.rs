@@ -16,12 +16,12 @@ impl<'a> CapturesVisitor<'a> {
     pub fn new(external: &'a Scopes) -> Self {
         Self {
             external,
-            internal: Scopes::default(),
+            internal: Scopes::new(),
             captures: Scope::new(),
         }
     }
 
-    /// Return the scope of capture variables.
+    /// Return the scope of captured variables.
     pub fn finish(self) -> Scope {
         self.captures
     }

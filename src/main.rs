@@ -65,7 +65,7 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    let pdf_data = pdf::export(&frames, &env);
+    let pdf_data = pdf::export(&env, &frames);
     fs::write(&dest_path, pdf_data).context("Failed to write PDF file.")?;
 
     Ok(())

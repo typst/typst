@@ -30,7 +30,7 @@ pub fn eval(env: &mut Env, tree: &Tree, scope: &Scope) -> Pass<ExprMap> {
     Pass::new(map, ctx.diags)
 }
 
-/// A map from expression to values to evaluated to.
+/// A map from expressions to the values they evaluated to.
 ///
 /// The raw pointers point into the expressions contained in some [tree](Tree).
 /// Since the lifetime is erased, the tree could go out of scope while the hash
@@ -89,7 +89,7 @@ impl Eval for Tree {
             }
         }
 
-        let mut visitor = ExprVisitor { map: HashMap::new(), ctx };
+        let mut visitor = ExprVisitor { map: ExprMap::new(), ctx };
         visitor.visit_tree(self);
         visitor.map
     }
@@ -260,9 +260,8 @@ impl ExprBinary {
     where
         F: FnOnce(Value, Value) -> Value,
     {
-        let lhs = self.lhs.eval(ctx);
-
         // Short-circuit boolean operations.
+        let lhs = self.lhs.eval(ctx);
         match (self.op, &lhs) {
             (BinOp::And, Value::Bool(false)) => return lhs,
             (BinOp::Or, Value::Bool(true)) => return lhs,
@@ -270,16 +269,15 @@ impl ExprBinary {
         }
 
         let rhs = self.rhs.eval(ctx);
-
         if lhs == Value::Error || rhs == Value::Error {
             return Value::Error;
         }
 
-        let (l, r) = (lhs.type_name(), rhs.type_name());
-
+        // Save type names before we consume the values in case of error.
+        let types = (lhs.type_name(), rhs.type_name());
         let out = op(lhs, rhs);
         if out == Value::Error {
-            self.error(ctx, l, r);
+            self.error(ctx, types);
         }
 
         out
@@ -290,54 +288,47 @@ impl ExprBinary {
     where
         F: FnOnce(Value, Value) -> Value,
     {
-        let rhs = self.rhs.eval(ctx);
-
-        let lhs_span = self.lhs.span();
         let slot = if let Expr::Ident(id) = self.lhs.as_ref() {
             match ctx.scopes.get(id) {
-                Some(slot) => slot,
+                Some(slot) => Rc::clone(slot),
                 None => {
-                    ctx.diag(error!(lhs_span, "unknown variable"));
+                    ctx.diag(error!(self.lhs.span(), "unknown variable"));
                     return Value::Error;
                 }
             }
         } else {
-            ctx.diag(error!(lhs_span, "cannot assign to this expression"));
+            ctx.diag(error!(self.lhs.span(), "cannot assign to this expression"));
             return Value::Error;
         };
 
-        let (constant, err, value) = if let Ok(mut inner) = slot.try_borrow_mut() {
-            let lhs = std::mem::take(&mut *inner);
-            let types = (lhs.type_name(), rhs.type_name());
-
-            *inner = op(lhs, rhs);
-            if *inner == Value::Error {
-                (false, Some(types), Value::Error)
-            } else {
-                (false, None, Value::None)
+        let rhs = self.rhs.eval(ctx);
+        let mut mutable = match slot.try_borrow_mut() {
+            Ok(mutable) => mutable,
+            Err(_) => {
+                ctx.diag(error!(self.lhs.span(), "cannot assign to a constant"));
+                return Value::Error;
             }
-        } else {
-            (true, None, Value::Error)
         };
 
-        if constant {
-            ctx.diag(error!(lhs_span, "cannot assign to a constant"));
+        let lhs = std::mem::take(&mut *mutable);
+        let types = (lhs.type_name(), rhs.type_name());
+        *mutable = op(lhs, rhs);
+
+        if *mutable == Value::Error {
+            self.error(ctx, types);
+            return Value::Error;
         }
 
-        if let Some((l, r)) = err {
-            self.error(ctx, l, r);
-        }
-
-        value
+        Value::None
     }
 
-    fn error(&self, ctx: &mut EvalContext, l: &str, r: &str) {
+    fn error(&self, ctx: &mut EvalContext, (a, b): (&str, &str)) {
         ctx.diag(error!(self.span, "{}", match self.op {
-            BinOp::Add => format!("cannot add {} and {}", l, r),
-            BinOp::Sub => format!("cannot subtract {1} from {0}", l, r),
-            BinOp::Mul => format!("cannot multiply {} with {}", l, r),
-            BinOp::Div => format!("cannot divide {} by {}", l, r),
-            _ => format!("cannot apply '{}' to {} and {}", self.op.as_str(), l, r),
+            BinOp::Add => format!("cannot add {} and {}", a, b),
+            BinOp::Sub => format!("cannot subtract {1} from {0}", a, b),
+            BinOp::Mul => format!("cannot multiply {} with {}", a, b),
+            BinOp::Div => format!("cannot divide {} by {}", a, b),
+            _ => format!("cannot apply '{}' to {} and {}", self.op.as_str(), a, b),
         }));
     }
 }
@@ -350,6 +341,7 @@ impl Eval for ExprCall {
 
         if let Value::Func(func) = callee {
             let func = func.clone();
+
             let mut args = self.args.eval(ctx);
             let returned = func(ctx, &mut args);
             args.finish(ctx);
@@ -371,22 +363,25 @@ impl Eval for ExprArgs {
     type Output = ValueArgs;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let items = self
-            .items
-            .iter()
-            .map(|arg| match arg {
-                ExprArg::Pos(expr) => ValueArg {
-                    name: None,
-                    value: Spanned::new(expr.eval(ctx), expr.span()),
-                },
-                ExprArg::Named(Named { name, expr }) => ValueArg {
-                    name: Some(Spanned::new(name.string.clone(), name.span)),
-                    value: Spanned::new(expr.eval(ctx), expr.span()),
-                },
-            })
-            .collect();
-
+        let items = self.items.iter().map(|arg| arg.eval(ctx)).collect();
         ValueArgs { span: self.span, items }
+    }
+}
+
+impl Eval for ExprArg {
+    type Output = ValueArg;
+
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        match self {
+            Self::Pos(expr) => ValueArg {
+                name: None,
+                value: Spanned::new(expr.eval(ctx), expr.span()),
+            },
+            Self::Named(Named { name, expr }) => ValueArg {
+                name: Some(Spanned::new(name.string.clone(), name.span)),
+                value: Spanned::new(expr.eval(ctx), expr.span()),
+            },
+        }
     }
 }
 
@@ -408,6 +403,7 @@ impl Eval for ExprIf {
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         let condition = self.condition.eval(ctx);
+
         if let Value::Bool(boolean) = condition {
             return if boolean {
                 self.if_body.eval(ctx)
@@ -432,7 +428,7 @@ impl Eval for ExprFor {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        macro_rules! iterate {
+        macro_rules! iter {
             (for ($($binding:ident => $value:ident),*) in $iter:expr) => {{
                 let mut output = vec![];
 
@@ -454,16 +450,16 @@ impl Eval for ExprFor {
         let iter = self.iter.eval(ctx);
         let value = match (self.pattern.clone(), iter) {
             (ForPattern::Value(v), Value::Str(string)) => {
-                iterate!(for (v => value) in string.chars().map(|c| Value::Str(c.into())))
+                iter!(for (v => value) in string.chars().map(|c| Value::Str(c.into())))
             }
             (ForPattern::Value(v), Value::Array(array)) => {
-                iterate!(for (v => value) in array.into_iter())
+                iter!(for (v => value) in array.into_iter())
             }
             (ForPattern::Value(v), Value::Dict(dict)) => {
-                iterate!(for (v => value) in dict.into_iter().map(|p| p.1))
+                iter!(for (v => value) in dict.into_iter().map(|p| p.1))
             }
             (ForPattern::KeyValue(k, v), Value::Dict(dict)) => {
-                iterate!(for (k => key, v => value) in dict.into_iter())
+                iter!(for (k => key, v => value) in dict.into_iter())
             }
 
             (ForPattern::KeyValue(_, _), Value::Str(_))
