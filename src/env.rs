@@ -7,6 +7,7 @@ use std::fs;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
+use fontdock::fs::FsSource;
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageFormat};
 
@@ -19,6 +20,16 @@ pub struct Env {
     pub fonts: FontLoader,
     /// Loads resource from the file system.
     pub resources: ResourceLoader,
+}
+
+impl Env {
+    /// Create an empty environment for testing purposes.
+    pub fn blank() -> Self {
+        Self {
+            fonts: FontLoader::new(Box::new(FsSource::new(vec![])), vec![]),
+            resources: ResourceLoader::new(),
+        }
+    }
 }
 
 /// Loads resource from the file system.

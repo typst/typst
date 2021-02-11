@@ -377,11 +377,11 @@ impl Eval for ExprArgs {
             .map(|arg| match arg {
                 ExprArg::Pos(expr) => ValueArg {
                     name: None,
-                    value: expr.eval(ctx).with_span(expr.span()),
+                    value: Spanned::new(expr.eval(ctx), expr.span()),
                 },
                 ExprArg::Named(Named { name, expr }) => ValueArg {
-                    name: Some(name.string.clone().with_span(name.span)),
-                    value: expr.eval(ctx).with_span(expr.span()),
+                    name: Some(Spanned::new(name.string.clone(), name.span)),
+                    value: Spanned::new(expr.eval(ctx), expr.span()),
                 },
             })
             .collect();

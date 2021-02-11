@@ -56,26 +56,6 @@ impl Expr {
     }
 }
 
-impl Pretty for Expr {
-    fn pretty(&self, p: &mut Printer) {
-        match self {
-            Self::Lit(v) => v.pretty(p),
-            Self::Ident(v) => v.pretty(p),
-            Self::Array(v) => v.pretty(p),
-            Self::Dict(v) => v.pretty(p),
-            Self::Template(v) => v.pretty(p),
-            Self::Group(v) => v.pretty(p),
-            Self::Block(v) => v.pretty(p),
-            Self::Unary(v) => v.pretty(p),
-            Self::Binary(v) => v.pretty(p),
-            Self::Call(v) => v.pretty(p),
-            Self::Let(v) => v.pretty(p),
-            Self::If(v) => v.pretty(p),
-            Self::For(v) => v.pretty(p),
-        }
-    }
-}
-
 /// A literal.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Lit {
@@ -83,12 +63,6 @@ pub struct Lit {
     pub span: Span,
     /// The kind of literal.
     pub kind: LitKind,
-}
-
-impl Pretty for Lit {
-    fn pretty(&self, p: &mut Printer) {
-        self.kind.pretty(p);
-    }
 }
 
 /// A kind of literal.
@@ -117,28 +91,6 @@ pub enum LitKind {
     Str(String),
 }
 
-impl Pretty for LitKind {
-    fn pretty(&self, p: &mut Printer) {
-        match self {
-            Self::None => p.push_str("none"),
-            Self::Bool(v) => v.pretty(p),
-            Self::Int(v) => v.pretty(p),
-            Self::Float(v) => v.pretty(p),
-            Self::Length(v, u) => {
-                write!(p, "{}{}", ryu::Buffer::new().format(*v), u).unwrap();
-            }
-            Self::Angle(v, u) => {
-                write!(p, "{}{}", ryu::Buffer::new().format(*v), u).unwrap();
-            }
-            Self::Percent(v) => {
-                write!(p, "{}%", ryu::Buffer::new().format(*v)).unwrap();
-            }
-            Self::Color(v) => v.pretty(p),
-            Self::Str(v) => v.pretty(p),
-        }
-    }
-}
-
 /// An array expression: `(1, "hi", 12cm)`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprArray {
@@ -148,17 +100,6 @@ pub struct ExprArray {
     pub items: Vec<Expr>,
 }
 
-impl Pretty for ExprArray {
-    fn pretty(&self, p: &mut Printer) {
-        p.push('(');
-        p.join(&self.items, ", ", |item, p| item.pretty(p));
-        if self.items.len() == 1 {
-            p.push(',');
-        }
-        p.push(')');
-    }
-}
-
 /// A dictionary expression: `(color: #f79143, pattern: dashed)`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprDict {
@@ -166,18 +107,6 @@ pub struct ExprDict {
     pub span: Span,
     /// The named dictionary entries.
     pub items: Vec<Named>,
-}
-
-impl Pretty for ExprDict {
-    fn pretty(&self, p: &mut Printer) {
-        p.push('(');
-        if self.items.is_empty() {
-            p.push(':');
-        } else {
-            p.join(&self.items, ", ", |named, p| named.pretty(p));
-        }
-        p.push(')');
-    }
 }
 
 /// A pair of a name and an expression: `pattern: dashed`.
@@ -196,14 +125,6 @@ impl Named {
     }
 }
 
-impl Pretty for Named {
-    fn pretty(&self, p: &mut Printer) {
-        self.name.pretty(p);
-        p.push_str(": ");
-        self.expr.pretty(p);
-    }
-}
-
 /// A template expression: `[*Hi* there!]`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprTemplate {
@@ -213,18 +134,6 @@ pub struct ExprTemplate {
     pub tree: Rc<Tree>,
 }
 
-impl Pretty for ExprTemplate {
-    fn pretty(&self, p: &mut Printer) {
-        if let [Node::Expr(Expr::Call(call))] = self.tree.as_slice() {
-            call.pretty_bracketed(p, false);
-        } else {
-            p.push('[');
-            self.tree.pretty(p);
-            p.push(']');
-        }
-    }
-}
-
 /// A grouped expression: `(1 + 2)`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprGroup {
@@ -232,14 +141,6 @@ pub struct ExprGroup {
     pub span: Span,
     /// The wrapped expression.
     pub expr: Box<Expr>,
-}
-
-impl Pretty for ExprGroup {
-    fn pretty(&self, p: &mut Printer) {
-        p.push('(');
-        self.expr.pretty(p);
-        p.push(')');
-    }
 }
 
 /// A block expression: `{ #let x = 1; x + 2 }`.
@@ -253,20 +154,6 @@ pub struct ExprBlock {
     pub scoping: bool,
 }
 
-impl Pretty for ExprBlock {
-    fn pretty(&self, p: &mut Printer) {
-        p.push('{');
-        if self.exprs.len() > 1 {
-            p.push(' ');
-        }
-        p.join(&self.exprs, "; ", |expr, p| expr.pretty(p));
-        if self.exprs.len() > 1 {
-            p.push(' ');
-        }
-        p.push('}');
-    }
-}
-
 /// A unary operation: `-x`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprUnary {
@@ -276,16 +163,6 @@ pub struct ExprUnary {
     pub op: UnOp,
     /// The expression to operator on: `x`.
     pub expr: Box<Expr>,
-}
-
-impl Pretty for ExprUnary {
-    fn pretty(&self, p: &mut Printer) {
-        self.op.pretty(p);
-        if self.op == UnOp::Not {
-            p.push(' ');
-        }
-        self.expr.pretty(p);
-    }
 }
 
 /// A unary operator.
@@ -328,12 +205,6 @@ impl UnOp {
     }
 }
 
-impl Pretty for UnOp {
-    fn pretty(&self, p: &mut Printer) {
-        p.push_str(self.as_str());
-    }
-}
-
 /// A binary operation: `a + b`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprBinary {
@@ -345,16 +216,6 @@ pub struct ExprBinary {
     pub op: BinOp,
     /// The right-hand side of the operation: `b`.
     pub rhs: Box<Expr>,
-}
-
-impl Pretty for ExprBinary {
-    fn pretty(&self, p: &mut Printer) {
-        self.lhs.pretty(p);
-        p.push(' ');
-        self.op.pretty(p);
-        p.push(' ');
-        self.rhs.pretty(p);
-    }
 }
 
 /// A binary operator.
@@ -484,12 +345,6 @@ impl BinOp {
     }
 }
 
-impl Pretty for BinOp {
-    fn pretty(&self, p: &mut Printer) {
-        p.push_str(self.as_str());
-    }
-}
-
 /// The associativity of a binary operator.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Associativity {
@@ -510,60 +365,6 @@ pub struct ExprCall {
     pub args: ExprArgs,
 }
 
-impl Pretty for ExprCall {
-    fn pretty(&self, p: &mut Printer) {
-        self.callee.pretty(p);
-        p.push('(');
-        self.args.pretty(p);
-        p.push(')');
-    }
-}
-
-impl ExprCall {
-    /// Pretty print a function template, with body or chaining when possible.
-    pub fn pretty_bracketed(&self, p: &mut Printer, chained: bool) {
-        if chained {
-            p.push_str(" | ");
-        } else {
-            p.push_str("#[");
-        }
-
-        // Function name.
-        self.callee.pretty(p);
-
-        let mut write_args = |items: &[ExprArg]| {
-            if !items.is_empty() {
-                p.push(' ');
-                p.join(items, ", ", |item, p| item.pretty(p));
-            }
-        };
-
-        match self.args.items.as_slice() {
-            // This can written as a chain.
-            //
-            // Example: Transforms "#[v][[f]]" => "#[v | f]".
-            [head @ .., ExprArg::Pos(Expr::Call(call))] => {
-                write_args(head);
-                call.pretty_bracketed(p, true);
-            }
-
-            // This can be written with a body.
-            //
-            // Example: Transforms "#[v [Hi]]" => "#[v][Hi]".
-            [head @ .., ExprArg::Pos(Expr::Template(template))] => {
-                write_args(head);
-                p.push(']');
-                template.pretty(p);
-            }
-
-            items => {
-                write_args(items);
-                p.push(']');
-            }
-        }
-    }
-}
-
 /// The arguments to a function: `12, draw: false`.
 ///
 /// In case of a bracketed invocation with a body, the body is _not_
@@ -574,12 +375,6 @@ pub struct ExprArgs {
     pub span: Span,
     /// The positional and named arguments.
     pub items: Vec<ExprArg>,
-}
-
-impl Pretty for ExprArgs {
-    fn pretty(&self, p: &mut Printer) {
-        p.join(&self.items, ", ", |item, p| item.pretty(p));
-    }
 }
 
 /// An argument to a function call: `12` or `draw: false`.
@@ -601,15 +396,6 @@ impl ExprArg {
     }
 }
 
-impl Pretty for ExprArg {
-    fn pretty(&self, p: &mut Printer) {
-        match self {
-            Self::Pos(expr) => expr.pretty(p),
-            Self::Named(named) => named.pretty(p),
-        }
-    }
-}
-
 /// A let expression: `#let x = 1`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprLet {
@@ -619,17 +405,6 @@ pub struct ExprLet {
     pub binding: Ident,
     /// The expression the pattern is initialized with.
     pub init: Option<Box<Expr>>,
-}
-
-impl Pretty for ExprLet {
-    fn pretty(&self, p: &mut Printer) {
-        p.push_str("#let ");
-        self.binding.pretty(p);
-        if let Some(init) = &self.init {
-            p.push_str(" = ");
-            init.pretty(p);
-        }
-    }
 }
 
 /// An if expression: `#if x { y } #else { z }`.
@@ -645,19 +420,6 @@ pub struct ExprIf {
     pub else_body: Option<Box<Expr>>,
 }
 
-impl Pretty for ExprIf {
-    fn pretty(&self, p: &mut Printer) {
-        p.push_str("#if ");
-        self.condition.pretty(p);
-        p.push(' ');
-        self.if_body.pretty(p);
-        if let Some(expr) = &self.else_body {
-            p.push_str(" #else ");
-            expr.pretty(p);
-        }
-    }
-}
-
 /// A for expression: `#for x #in y { z }`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprFor {
@@ -669,17 +431,6 @@ pub struct ExprFor {
     pub iter: Box<Expr>,
     /// The expression to evaluate for each iteration.
     pub body: Box<Expr>,
-}
-
-impl Pretty for ExprFor {
-    fn pretty(&self, p: &mut Printer) {
-        p.push_str("#for ");
-        self.pattern.pretty(p);
-        p.push_str(" #in ");
-        self.iter.pretty(p);
-        p.push(' ');
-        self.body.pretty(p);
-    }
 }
 
 /// A pattern in a for loop.
@@ -697,19 +448,6 @@ impl ForPattern {
         match self {
             Self::Value(v) => v.span,
             Self::KeyValue(k, v) => k.span.join(v.span),
-        }
-    }
-}
-
-impl Pretty for ForPattern {
-    fn pretty(&self, p: &mut Printer) {
-        match self {
-            Self::Value(v) => v.pretty(p),
-            Self::KeyValue(k, v) => {
-                k.pretty(p);
-                p.push_str(", ");
-                v.pretty(p);
-            }
         }
     }
 }

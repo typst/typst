@@ -1,5 +1,5 @@
 use super::{is_newline, Scanner};
-use crate::syntax::{Ident, NodeRaw, Offset, Pos};
+use crate::syntax::{Ident, NodeRaw, Pos};
 
 /// Resolve all escape sequences in a string.
 pub fn resolve_string(string: &str) -> String {
@@ -52,7 +52,7 @@ pub fn resolve_raw(text: &str, backticks: usize, start: Pos) -> NodeRaw {
         let (tag, inner) = split_at_lang_tag(text);
         let (lines, had_newline) = trim_and_split_raw(inner);
         NodeRaw {
-            lang: Ident::new(tag, start .. start.offset(tag.len())),
+            lang: Ident::new(tag, start .. start + tag.len()),
             lines,
             block: had_newline,
         }

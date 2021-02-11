@@ -97,43 +97,8 @@ impl Default for Value {
     }
 }
 
-impl Pretty for Value {
-    fn pretty(&self, p: &mut Printer) {
-        match self {
-            Value::None => p.push_str("none"),
-            Value::Bool(v) => v.pretty(p),
-            Value::Int(v) => v.pretty(p),
-            Value::Float(v) => v.pretty(p),
-            Value::Length(v) => v.pretty(p),
-            Value::Angle(v) => v.pretty(p),
-            Value::Relative(v) => v.pretty(p),
-            Value::Linear(v) => v.pretty(p),
-            Value::Color(v) => v.pretty(p),
-            Value::Str(v) => v.pretty(p),
-            Value::Array(v) => v.pretty(p),
-            Value::Dict(v) => v.pretty(p),
-            Value::Template(v) => v.pretty(p),
-            Value::Func(v) => v.pretty(p),
-            Value::Args(v) => v.pretty(p),
-            Value::Any(v) => v.pretty(p),
-            Value::Error => p.push_str("<error>"),
-        }
-    }
-}
-
 /// An array value: `(1, "hi", 12cm)`.
 pub type ValueArray = Vec<Value>;
-
-impl Pretty for ValueArray {
-    fn pretty(&self, p: &mut Printer) {
-        p.push('(');
-        p.join(self, ", ", |item, p| item.pretty(p));
-        if self.len() == 1 {
-            p.push(',');
-        }
-        p.push(')');
-    }
-}
 
 /// A dictionary value: `(color: #f79143, pattern: dashed)`.
 pub type ValueDict = BTreeMap<String, Value>;
@@ -157,16 +122,6 @@ impl Pretty for ValueDict {
 /// A template value: `[*Hi* there]`.
 pub type ValueTemplate = Vec<TemplateNode>;
 
-impl Pretty for ValueTemplate {
-    fn pretty(&self, p: &mut Printer) {
-        p.push('[');
-        for part in self {
-            part.pretty(p);
-        }
-        p.push(']');
-    }
-}
-
 /// One chunk of a template.
 ///
 /// Evaluating a template expression creates only a single chunk. Adding two
@@ -185,16 +140,6 @@ pub enum TemplateNode {
     Any(TemplateAny),
 }
 
-impl Pretty for TemplateNode {
-    fn pretty(&self, p: &mut Printer) {
-        match self {
-            // TODO: Pretty-print the values.
-            Self::Tree { tree, .. } => tree.pretty(p),
-            Self::Any(any) => any.pretty(p),
-        }
-    }
-}
-
 /// A reference-counted dynamic template node (can implement custom behaviour).
 #[derive(Clone)]
 pub struct TemplateAny {
@@ -210,6 +155,12 @@ impl TemplateAny {
     {
         Self { name: name.into(), f: Rc::new(f) }
     }
+
+
+    /// The name of the template node.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 impl PartialEq for TemplateAny {
@@ -224,14 +175,6 @@ impl Deref for TemplateAny {
 
     fn deref(&self) -> &Self::Target {
         self.f.as_ref()
-    }
-}
-
-impl Pretty for TemplateAny {
-    fn pretty(&self, p: &mut Printer) {
-        p.push('<');
-        p.push_str(&self.name);
-        p.push('>');
     }
 }
 
@@ -256,6 +199,11 @@ impl ValueFunc {
     {
         Self { name: name.into(), f: Rc::new(f) }
     }
+
+    /// The name of the function.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 impl PartialEq for ValueFunc {
@@ -270,14 +218,6 @@ impl Deref for ValueFunc {
 
     fn deref(&self) -> &Self::Target {
         self.f.as_ref()
-    }
-}
-
-impl Pretty for ValueFunc {
-    fn pretty(&self, p: &mut Printer) {
-        p.push('<');
-        p.push_str(&self.name);
-        p.push('>');
     }
 }
 
@@ -417,14 +357,6 @@ impl ValueArgs {
     }
 }
 
-impl Pretty for ValueArgs {
-    fn pretty(&self, p: &mut Printer) {
-        p.push('<');
-        p.join(&self.items, ", ", |item, p| item.pretty(p));
-        p.push('>');
-    }
-}
-
 // This is a workaround because `-> impl Trait + 'a + 'b` does not work.
 //
 // See also: https://github.com/rust-lang/rust/issues/49431
@@ -448,16 +380,6 @@ impl ValueArg {
             Some(name) => name.span.join(self.value.span),
             None => self.value.span,
         }
-    }
-}
-
-impl Pretty for ValueArg {
-    fn pretty(&self, p: &mut Printer) {
-        if let Some(name) = &self.name {
-            p.push_str(&name.v);
-            p.push_str(": ");
-        }
-        self.value.v.pretty(p);
     }
 }
 
@@ -510,15 +432,15 @@ impl PartialEq for ValueAny {
     }
 }
 
-impl Pretty for ValueAny {
-    fn pretty(&self, p: &mut Printer) {
-        write!(p, "{}", self.0).unwrap();
-    }
-}
-
 impl Debug for ValueAny {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_tuple("ValueAny").field(&self.0).finish()
+    }
+}
+
+impl Display for ValueAny {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(&self.0, f)
     }
 }
 
@@ -618,7 +540,7 @@ where
         match T::cast(value.v) {
             CastResult::Ok(t) => CastResult::Ok(t),
             CastResult::Warn(t, m) => CastResult::Warn(t, m),
-            CastResult::Err(v) => CastResult::Err(v.with_span(span)),
+            CastResult::Err(v) => CastResult::Err(Spanned::new(v, span)),
         }
     }
 }
@@ -630,9 +552,9 @@ where
     fn cast(value: Spanned<Value>) -> CastResult<Self, Spanned<Value>> {
         let span = value.span;
         match T::cast(value.v) {
-            CastResult::Ok(t) => CastResult::Ok(t.with_span(span)),
-            CastResult::Warn(t, m) => CastResult::Warn(t.with_span(span), m),
-            CastResult::Err(v) => CastResult::Err(v.with_span(span)),
+            CastResult::Ok(t) => CastResult::Ok(Spanned::new(t, span)),
+            CastResult::Warn(t, m) => CastResult::Warn(Spanned::new(t, span), m),
+            CastResult::Err(v) => CastResult::Err(Spanned::new(v, span)),
         }
     }
 }

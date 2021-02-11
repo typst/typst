@@ -12,5 +12,5 @@ pub use crate::geom::*;
 #[doc(no_inline)]
 pub use crate::layout::Node;
 #[doc(no_inline)]
-pub use crate::syntax::{Span, Spanned, WithSpan};
+pub use crate::syntax::{Span, Spanned};
 pub use crate::{error, typify, warning};

@@ -1,5 +1,5 @@
 use super::Scanner;
-use crate::syntax::{Location, Offset, Pos};
+use crate::syntax::{Location, Pos};
 
 /// Enables conversion of byte position to locations.
 pub struct LineMap<'s> {
@@ -44,7 +44,7 @@ impl<'s> LineMap<'s> {
     pub fn pos(&self, location: Location) -> Option<Pos> {
         // Determine the boundaries of the line.
         let line_idx = location.line.checked_sub(1)? as usize;
-        let line_start = self.line_starts.get(line_idx)?;
+        let line_start = *self.line_starts.get(line_idx)?;
         let line_end = self
             .line_starts
             .get(location.line as usize)
@@ -64,7 +64,7 @@ impl<'s> LineMap<'s> {
             0
         };
 
-        Some(line_start.offset(Pos(line_offset as u32)))
+        Some(line_start + line_offset)
     }
 }
 

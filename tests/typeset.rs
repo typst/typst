@@ -25,7 +25,7 @@ use typst::layout::{Element, Expansion, Fill, Frame, Geometry, Image, Shape};
 use typst::library;
 use typst::parse::{LineMap, Scanner};
 use typst::shaping::Shaped;
-use typst::syntax::{Location, Pos, SpanVec, Spanned, WithSpan};
+use typst::syntax::{Location, Pos, Spanned};
 use typst::typeset;
 
 const TYP_DIR: &str = "typ";
@@ -266,7 +266,7 @@ fn test_part(
     (ok, frames)
 }
 
-fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, SpanVec<Diag>) {
+fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, Vec<Spanned<Diag>>) {
     let mut diags = vec![];
     let mut compare_ref = None;
 
@@ -304,7 +304,8 @@ fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, SpanVec<Diag>) {
         let mut s = Scanner::new(rest);
         let (start, _, end) = (pos(&mut s), s.eat_assert('-'), pos(&mut s));
 
-        diags.push(Diag::new(level, s.rest().trim()).with_span(start .. end));
+        let diag = Diag::new(level, s.rest().trim());
+        diags.push(Spanned::new(diag, start .. end));
     }
 
     diags.sort_by_key(|d| d.span);

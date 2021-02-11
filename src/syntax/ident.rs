@@ -3,7 +3,6 @@ use std::ops::Deref;
 use unicode_xid::UnicodeXID;
 
 use super::Span;
-use crate::pretty::{Pretty, Printer};
 
 /// An Unicode identifier with a few extra permissible characters.
 ///
@@ -50,12 +49,6 @@ impl Deref for Ident {
 
     fn deref(&self) -> &Self::Target {
         self.as_str()
-    }
-}
-
-impl Pretty for Ident {
-    fn pretty(&self, p: &mut Printer) {
-        p.push_str(self.as_str());
     }
 }
 

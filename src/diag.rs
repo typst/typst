@@ -2,7 +2,7 @@
 //!
 //! Errors are never fatal, the document will always compile and yield a layout.
 
-use crate::syntax::SpanVec;
+use crate::syntax::Spanned;
 use std::fmt::{self, Display, Formatter};
 
 /// The result of some pass: Some output `T` and [`Feedback`] data.
@@ -25,9 +25,9 @@ impl<T> Pass<T> {
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Feedback {
     /// Diagnostics about the source code.
-    pub diags: SpanVec<Diag>,
+    pub diags: Vec<Spanned<Diag>>,
     /// Decorations of the source code for semantic syntax highlighting.
-    pub decos: SpanVec<Deco>,
+    pub decos: Vec<Spanned<Deco>>,
 }
 
 impl Feedback {

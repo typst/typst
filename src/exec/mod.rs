@@ -33,7 +33,7 @@ pub fn exec(
 ) -> Pass<layout::Tree> {
     let mut ctx = ExecContext::new(env, state);
     ctx.start_page_group(Softness::Hard);
-    tree.exec_with(&mut ctx, &map);
+    tree.exec_with_map(&mut ctx, &map);
     ctx.end_page_group(|s| s == Softness::Hard);
     ctx.finish()
 }
@@ -51,21 +51,21 @@ pub trait Exec {
 }
 
 /// Execute a node with an expression map that applies to it.
-pub trait ExecWith {
+pub trait ExecWithMap {
     /// Execute the node.
-    fn exec_with(&self, ctx: &mut ExecContext, map: &ExprMap);
+    fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap);
 }
 
-impl ExecWith for Tree {
-    fn exec_with(&self, ctx: &mut ExecContext, map: &ExprMap) {
+impl ExecWithMap for Tree {
+    fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         for node in self {
-            node.exec_with(ctx, map);
+            node.exec_with_map(ctx, map);
         }
     }
 }
 
-impl ExecWith for Node {
-    fn exec_with(&self, ctx: &mut ExecContext, map: &ExprMap) {
+impl ExecWithMap for Node {
+    fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         match self {
             Node::Text(text) => ctx.push_text(text),
             Node::Space => ctx.push_space(),
@@ -73,21 +73,21 @@ impl ExecWith for Node {
             Node::Parbreak => ctx.apply_parbreak(),
             Node::Strong => ctx.state.font.strong ^= true,
             Node::Emph => ctx.state.font.emph ^= true,
-            Node::Heading(heading) => heading.exec_with(ctx, map),
+            Node::Heading(heading) => heading.exec_with_map(ctx, map),
             Node::Raw(raw) => raw.exec(ctx),
             Node::Expr(expr) => map[&(expr as *const _)].exec(ctx),
         }
     }
 }
 
-impl ExecWith for NodeHeading {
-    fn exec_with(&self, ctx: &mut ExecContext, map: &ExprMap) {
+impl ExecWithMap for NodeHeading {
+    fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         let prev = ctx.state.clone();
         let upscale = 1.5 - 0.1 * self.level as f64;
         ctx.state.font.scale *= upscale;
         ctx.state.font.strong = true;
 
-        self.contents.exec_with(ctx, map);
+        self.contents.exec_with_map(ctx, map);
         ctx.apply_parbreak();
 
         ctx.state = prev;
@@ -154,7 +154,7 @@ impl Exec for ValueTemplate {
 impl Exec for TemplateNode {
     fn exec(&self, ctx: &mut ExecContext) {
         match self {
-            Self::Tree { tree, map } => tree.exec_with(ctx, &map),
+            Self::Tree { tree, map } => tree.exec_with_map(ctx, &map),
             Self::Any(any) => any.exec(ctx),
         }
     }

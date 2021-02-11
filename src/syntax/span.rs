@@ -1,38 +1,9 @@
 use std::cell::Cell;
 use std::fmt::{self, Debug, Display, Formatter};
-use std::ops::Range;
+use std::ops::{Add, Range};
 
 thread_local! {
     static CMP_SPANS: Cell<bool> = Cell::new(true);
-}
-
-/// Annotate a value with a span.
-pub trait WithSpan: Sized {
-    /// Wraps `self` in a `Spanned` with the given span.
-    fn with_span(self, span: impl Into<Span>) -> Spanned<Self> {
-        Spanned::new(self, span)
-    }
-}
-
-impl<T> WithSpan for T {}
-
-/// Span offsetting.
-pub trait Offset {
-    /// Offset all spans contained in `Self` by the given position.
-    fn offset(self, by: impl Into<Pos>) -> Self;
-}
-
-/// A vector of spanned values of type `T`.
-pub type SpanVec<T> = Vec<Spanned<T>>;
-
-impl<T> Offset for SpanVec<T> {
-    fn offset(mut self, by: impl Into<Pos>) -> Self {
-        let by = by.into();
-        for spanned in &mut self {
-            spanned.span = spanned.span.offset(by);
-        }
-        self
-    }
 }
 
 /// A value with the span it corresponds to in the source code.
@@ -67,29 +38,6 @@ impl<T> Spanned<T> {
         F: FnOnce(T) -> U,
     {
         Spanned { v: f(self.v), span: self.span }
-    }
-
-    /// Maps the span while keeping the value.
-    pub fn map_span<F>(mut self, f: F) -> Self
-    where
-        F: FnOnce(Span) -> Span,
-    {
-        self.span = f(self.span);
-        self
-    }
-}
-
-impl<T> Spanned<Option<T>> {
-    /// Swap the spanned and the option.
-    pub fn transpose(self) -> Option<Spanned<T>> {
-        let Spanned { v, span } = self;
-        v.map(|v| v.with_span(span))
-    }
-}
-
-impl<T> Offset for Spanned<T> {
-    fn offset(self, by: impl Into<Pos>) -> Self {
-        self.map_span(|span| span.offset(by))
     }
 }
 
@@ -171,16 +119,6 @@ impl Span {
     }
 }
 
-impl Offset for Span {
-    fn offset(self, by: impl Into<Pos>) -> Self {
-        let by = by.into();
-        Self {
-            start: self.start.offset(by),
-            end: self.end.offset(by),
-        }
-    }
-}
-
 impl Eq for Span {}
 
 impl PartialEq for Span {
@@ -234,9 +172,14 @@ impl Pos {
     }
 }
 
-impl Offset for Pos {
-    fn offset(self, by: impl Into<Pos>) -> Self {
-        Pos(self.0 + by.into().0)
+impl<T> Add<T> for Pos
+where
+    T: Into<Pos>,
+{
+    type Output = Self;
+
+    fn add(self, rhs: T) -> Self {
+        Pos(self.0 + rhs.into().0)
     }
 }
 

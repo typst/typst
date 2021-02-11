@@ -23,30 +23,6 @@ pub enum Node {
     Expr(Expr),
 }
 
-impl Pretty for Node {
-    fn pretty(&self, p: &mut Printer) {
-        match self {
-            Self::Strong => p.push('*'),
-            Self::Emph => p.push('_'),
-            Self::Space => p.push(' '),
-            Self::Linebreak => p.push_str(r"\"),
-            Self::Parbreak => p.push_str("\n\n"),
-            // TODO: Handle escaping.
-            Self::Text(text) => p.push_str(&text),
-            Self::Heading(heading) => heading.pretty(p),
-            Self::Raw(raw) => raw.pretty(p),
-            Self::Expr(expr) => {
-                if let Expr::Call(call) = expr {
-                    // Format function templates appropriately.
-                    call.pretty_bracketed(p, false)
-                } else {
-                    expr.pretty(p);
-                }
-            }
-        }
-    }
-}
-
 /// A section heading: `= Introduction`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NodeHeading {
@@ -54,15 +30,6 @@ pub struct NodeHeading {
     pub level: usize,
     /// The contents of the heading.
     pub contents: Tree,
-}
-
-impl Pretty for NodeHeading {
-    fn pretty(&self, p: &mut Printer) {
-        for _ in 0 ..= self.level {
-            p.push('=');
-        }
-        self.contents.pretty(p);
-    }
 }
 
 /// A raw block with optional syntax highlighting: `` `raw` ``.
@@ -138,63 +105,4 @@ pub struct NodeRaw {
     /// Whether the element is block-level, that is, it has 3+ backticks
     /// and contains at least one newline.
     pub block: bool,
-}
-
-impl Pretty for NodeRaw {
-    fn pretty(&self, p: &mut Printer) {
-        // Find out how many backticks we need.
-        let mut backticks = 1;
-
-        // Language tag and block-level are only possible with 3+ backticks.
-        if self.lang.is_some() || self.block {
-            backticks = 3;
-        }
-
-        // More backticks may be required if there are lots of consecutive
-        // backticks in the lines.
-        let mut count;
-        for line in &self.lines {
-            count = 0;
-            for c in line.chars() {
-                if c == '`' {
-                    count += 1;
-                    backticks = backticks.max(3).max(count + 1);
-                } else {
-                    count = 0;
-                }
-            }
-        }
-
-        // Starting backticks.
-        for _ in 0 .. backticks {
-            p.push('`');
-        }
-
-        // Language tag.
-        if let Some(lang) = &self.lang {
-            lang.pretty(p);
-        }
-
-        // Start untrimming.
-        if self.block {
-            p.push('\n');
-        } else if backticks >= 3 {
-            p.push(' ');
-        }
-
-        // The lines.
-        p.join(&self.lines, "\n", |line, p| p.push_str(line));
-
-        // End untrimming.
-        if self.block {
-            p.push('\n');
-        } else if self.lines.last().map_or(false, |line| line.trim_end().ends_with('`')) {
-            p.push(' ');
-        }
-
-        // Ending backticks.
-        for _ in 0 .. backticks {
-            p.push('`');
-        }
-    }
 }
