@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, bail, Context};
 use fontdock::fs::FsIndex;
 
-use typst::diag::{Feedback, Pass};
+use typst::diag::Pass;
 use typst::env::{Env, ResourceLoader};
 use typst::exec::State;
 use typst::export::pdf;
@@ -48,26 +48,19 @@ fn main() -> anyhow::Result<()> {
     let scope = library::new();
     let state = State::default();
 
-    let Pass {
-        output: frames,
-        feedback: Feedback { mut diags, .. },
-    } = typeset(&mut env, &src, &scope, state);
-
+    let Pass { output: frames, diags } = typeset(&mut env, &src, &scope, state);
     if !diags.is_empty() {
-        diags.sort();
-
         let map = LineMap::new(&src);
         for diag in diags {
-            let span = diag.span;
-            let start = map.location(span.start).unwrap();
-            let end = map.location(span.end).unwrap();
+            let start = map.location(diag.span.start).unwrap();
+            let end = map.location(diag.span.end).unwrap();
             println!(
                 "{}: {}:{}-{}: {}",
-                diag.v.level,
+                diag.level,
                 src_path.display(),
                 start,
                 end,
-                diag.v.message,
+                diag.message,
             );
         }
     }

@@ -1,56 +1,62 @@
-//! Diagnostics and decorations for source code.
+//! Diagnostics for source code.
 //!
 //! Errors are never fatal, the document will always compile and yield a layout.
 
-use crate::syntax::Spanned;
+use std::collections::BTreeSet;
 use std::fmt::{self, Display, Formatter};
 
-/// The result of some pass: Some output `T` and [`Feedback`] data.
+use crate::syntax::Span;
+
+/// The result of some pass: Some output `T` and diagnostics.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Pass<T> {
     /// The output of this compilation pass.
     pub output: T,
-    /// User feedback data accumulated in this pass.
-    pub feedback: Feedback,
+    /// User diagnostics accumulated in this pass.
+    pub diags: DiagSet,
 }
 
 impl<T> Pass<T> {
-    /// Create a new pass from output and feedback data.
-    pub fn new(output: T, feedback: Feedback) -> Self {
-        Self { output, feedback }
+    /// Create a new pass from output and diagnostics.
+    pub fn new(output: T, diags: DiagSet) -> Self {
+        Self { output, diags }
     }
 }
 
-/// Diagnostics and semantic syntax highlighting information.
-#[derive(Debug, Default, Clone, Eq, PartialEq)]
-pub struct Feedback {
-    /// Diagnostics about the source code.
-    pub diags: Vec<Spanned<Diag>>,
-    /// Decorations of the source code for semantic syntax highlighting.
-    pub decos: Vec<Spanned<Deco>>,
-}
-
-impl Feedback {
-    /// Create a new feedback instance without errors and decos.
-    pub fn new() -> Self {
-        Self { diags: vec![], decos: vec![] }
-    }
-
-    /// Add other feedback data to this feedback.
-    pub fn extend(&mut self, more: Self) {
-        self.diags.extend(more.diags);
-        self.decos.extend(more.decos);
-    }
-}
+/// A set of diagnostics.
+///
+/// Since this is a [`BTreeSet`], there cannot be two equal (up to span)
+/// diagnostics and you can quickly iterate diagnostics in source location
+/// order.
+pub type DiagSet = BTreeSet<Diag>;
 
 /// A diagnostic with severity level and message.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Diag {
+    /// The source code location.
+    pub span: Span,
     /// How severe / important the diagnostic is.
     pub level: Level,
     /// A message describing the diagnostic.
     pub message: String,
+}
+
+impl Diag {
+    /// Create a new diagnostic from message and level.
+    pub fn new(span: impl Into<Span>, level: Level, message: impl Into<String>) -> Self {
+        Self {
+            span: span.into(),
+            level,
+            message: message.into(),
+        }
+    }
+}
+
+impl Display for Diag {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}: {}", self.level, self.message)
+    }
 }
 
 /// How severe / important a diagnostic is.
@@ -62,13 +68,6 @@ pub enum Level {
     Error,
 }
 
-impl Diag {
-    /// Create a new diagnostic from message and level.
-    pub fn new(level: Level, message: impl Into<String>) -> Self {
-        Self { level, message: message.into() }
-    }
-}
-
 impl Display for Level {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
@@ -78,17 +77,6 @@ impl Display for Level {
     }
 }
 
-/// Decorations for semantic syntax highlighting.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub enum Deco {
-    /// Strong text.
-    Strong,
-    /// Emphasized text.
-    Emph,
-}
-
 /// Construct a diagnostic with [`Error`](Level::Error) level.
 ///
 /// ```
@@ -96,16 +84,16 @@ pub enum Deco {
 /// # use typst::syntax::Span;
 /// # let span = Span::ZERO;
 /// # let name = "";
-/// // Create formatted error values.
-/// let error = error!("expected {}", name);
-///
-/// // Create spanned errors.
-/// let spanned = error!(span, "there is an error here");
+/// let error = error!(span, "there is an error with {}", name);
 /// ```
 #[macro_export]
 macro_rules! error {
-    ($($tts:tt)*) => {
-        $crate::__impl_diagnostic!($crate::diag::Level::Error; $($tts)*)
+    ($span:expr, $($tts:tt)*) => {
+        $crate::diag::Diag::new(
+            $span,
+            $crate::diag::Level::Error,
+            format!($($tts)*),
+        )
     };
 }
 
@@ -115,23 +103,11 @@ macro_rules! error {
 /// information.
 #[macro_export]
 macro_rules! warning {
-    ($($tts:tt)*) => {
-        $crate::__impl_diagnostic!($crate::diag::Level::Warning; $($tts)*)
-    };
-}
-
-/// Backs the `error!` and `warning!` macros.
-#[macro_export]
-#[doc(hidden)]
-macro_rules! __impl_diagnostic {
-    ($level:expr; $fmt:literal $($tts:tt)*) => {
-        $crate::diag::Diag::new($level, format!($fmt $($tts)*))
-    };
-
-    ($level:expr; $span:expr, $fmt:literal $($tts:tt)*) => {
-        $crate::syntax::Spanned::new(
-            $crate::__impl_diagnostic!($level; $fmt $($tts)*),
+    ($span:expr, $($tts:tt)*) => {
+        $crate::diag::Diag::new(
             $span,
+            $crate::diag::Level::Warning,
+            format!($($tts)*),
         )
     };
 }

@@ -1,6 +1,6 @@
 //! Pretty printing.
 
-use std::fmt::{Arguments, Result, Write};
+use std::fmt::{self, Arguments, Write};
 
 use crate::color::{Color, RgbaColor};
 use crate::eval::*;
@@ -70,7 +70,7 @@ impl Printer {
     }
 
     /// Write formatted items into the buffer.
-    pub fn write_fmt(&mut self, fmt: Arguments<'_>) -> Result {
+    pub fn write_fmt(&mut self, fmt: Arguments<'_>) -> fmt::Result {
         Write::write_fmt(self, fmt)
     }
 
@@ -97,7 +97,7 @@ impl Printer {
 }
 
 impl Write for Printer {
-    fn write_str(&mut self, s: &str) -> Result {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
         self.push_str(s);
         Ok(())
     }
@@ -484,6 +484,7 @@ impl Pretty for Value {
             Value::Relative(v) => v.pretty(p),
             Value::Linear(v) => v.pretty(p),
             Value::Color(v) => v.pretty(p),
+            // TODO: Handle like text when directly in template.
             Value::Str(v) => v.pretty(p),
             Value::Array(v) => v.pretty(p),
             Value::Dict(v) => v.pretty(p),

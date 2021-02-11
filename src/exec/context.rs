@@ -4,8 +4,7 @@ use std::rc::Rc;
 use fontdock::FontStyle;
 
 use super::*;
-use crate::diag::Diag;
-use crate::diag::{Deco, Feedback, Pass};
+use crate::diag::{Diag, DiagSet};
 use crate::geom::{ChildAlign, Dir, Gen, LayoutDirs, Length, Linear, Sides, Size};
 use crate::layout::{
     Expansion, Node, NodePad, NodePages, NodePar, NodeSpacing, NodeStack, NodeText, Tree,
@@ -18,8 +17,8 @@ pub struct ExecContext<'a> {
     pub env: &'a mut Env,
     /// The active execution state.
     pub state: State,
-    /// The accumulated feedback.
-    feedback: Feedback,
+    /// Execution diagnostics.
+    pub diags: DiagSet,
     /// The finished page runs.
     runs: Vec<NodePages>,
     /// The stack of logical groups (paragraphs and such).
@@ -39,27 +38,22 @@ impl<'a> ExecContext<'a> {
         Self {
             env,
             state,
+            diags: DiagSet::new(),
+            runs: vec![],
             groups: vec![],
             inner: vec![],
-            runs: vec![],
-            feedback: Feedback::new(),
         }
     }
 
     /// Finish execution and return the created layout tree.
     pub fn finish(self) -> Pass<Tree> {
         assert!(self.groups.is_empty(), "unfinished group");
-        Pass::new(Tree { runs: self.runs }, self.feedback)
+        Pass::new(Tree { runs: self.runs }, self.diags)
     }
 
-    /// Add a diagnostic to the feedback.
-    pub fn diag(&mut self, diag: Spanned<Diag>) {
-        self.feedback.diags.push(diag);
-    }
-
-    /// Add a decoration to the feedback.
-    pub fn deco(&mut self, deco: Spanned<Deco>) {
-        self.feedback.decos.push(deco);
+    /// Add a diagnostic.
+    pub fn diag(&mut self, diag: Diag) {
+        self.diags.insert(diag);
     }
 
     /// Push a layout node to the active group.

@@ -15,7 +15,7 @@ use std::rc::Rc;
 
 use super::*;
 use crate::color::Color;
-use crate::diag::{Diag, Feedback};
+use crate::diag::{Diag, DiagSet};
 use crate::geom::{Angle, Length, Relative};
 use crate::syntax::visit::Visit;
 use crate::syntax::*;
@@ -27,14 +27,14 @@ use crate::syntax::*;
 pub fn eval(env: &mut Env, tree: &Tree, scope: &Scope) -> Pass<ExprMap> {
     let mut ctx = EvalContext::new(env, scope);
     let map = tree.eval(&mut ctx);
-    Pass::new(map, ctx.feedback)
+    Pass::new(map, ctx.diags)
 }
 
 /// A map from expression to values to evaluated to.
 ///
-/// The raw pointers point into the expressions contained in `tree`. Since
-/// the lifetime is erased, `tree` could go out of scope while the hash map
-/// still lives. While this could lead to lookup panics, it is not unsafe
+/// The raw pointers point into the expressions contained in some [tree](Tree).
+/// Since the lifetime is erased, the tree could go out of scope while the hash
+/// map still lives. Though this could lead to lookup panics, it is not unsafe
 /// since the pointers are never dereferenced.
 pub type ExprMap = HashMap<*const Expr, Value>;
 
@@ -45,8 +45,8 @@ pub struct EvalContext<'a> {
     pub env: &'a mut Env,
     /// The active scopes.
     pub scopes: Scopes<'a>,
-    /// The accumulated feedback.
-    feedback: Feedback,
+    /// Evaluation diagnostics.
+    pub diags: DiagSet,
 }
 
 impl<'a> EvalContext<'a> {
@@ -55,13 +55,13 @@ impl<'a> EvalContext<'a> {
         Self {
             env,
             scopes: Scopes::with_base(scope),
-            feedback: Feedback::new(),
+            diags: DiagSet::new(),
         }
     }
 
-    /// Add a diagnostic to the feedback.
-    pub fn diag(&mut self, diag: Spanned<Diag>) {
-        self.feedback.diags.push(diag);
+    /// Add a diagnostic.
+    pub fn diag(&mut self, diag: Diag) {
+        self.diags.insert(diag);
     }
 }
 

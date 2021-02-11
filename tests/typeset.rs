@@ -14,7 +14,7 @@ use tiny_skia::{
 use ttf_parser::OutlineBuilder;
 use walkdir::WalkDir;
 
-use typst::diag::{Diag, Feedback, Level, Pass};
+use typst::diag::{Diag, DiagSet, Level, Pass};
 use typst::env::{Env, ImageResource, ResourceLoader};
 use typst::eval::{EvalContext, Scope, Value, ValueArgs, ValueFunc};
 use typst::exec::State;
@@ -25,7 +25,7 @@ use typst::layout::{Element, Expansion, Fill, Frame, Geometry, Image, Shape};
 use typst::library;
 use typst::parse::{LineMap, Scanner};
 use typst::shaping::Shaped;
-use typst::syntax::{Location, Pos, Spanned};
+use typst::syntax::{Location, Pos};
 use typst::typeset;
 
 const TYP_DIR: &str = "typ";
@@ -219,16 +219,10 @@ fn test_part(
     state.page.expand = Spec::new(Expansion::Fill, Expansion::Fit);
     state.page.margins = Sides::uniform(Some(Length::pt(10.0).into()));
 
-    let Pass {
-        output: mut frames,
-        feedback: Feedback { mut diags, .. },
-    } = typeset(env, &src, &scope, state);
-
+    let Pass { output: mut frames, diags } = typeset(env, &src, &scope, state);
     if !compare_ref {
         frames.clear();
     }
-
-    diags.sort_by_key(|d| d.span);
 
     let mut ok = true;
 
@@ -266,8 +260,8 @@ fn test_part(
     (ok, frames)
 }
 
-fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, Vec<Spanned<Diag>>) {
-    let mut diags = vec![];
+fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {
+    let mut diags = DiagSet::new();
     let mut compare_ref = None;
 
     for (i, line) in src.lines().enumerate() {
@@ -303,12 +297,8 @@ fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, Vec<Spanned<Diag>>
 
         let mut s = Scanner::new(rest);
         let (start, _, end) = (pos(&mut s), s.eat_assert('-'), pos(&mut s));
-
-        let diag = Diag::new(level, s.rest().trim());
-        diags.push(Spanned::new(diag, start .. end));
+        diags.insert(Diag::new(start .. end, level, s.rest().trim()));
     }
-
-    diags.sort_by_key(|d| d.span);
 
     (compare_ref, diags)
 }
@@ -341,12 +331,12 @@ fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
     scope.def_const("test", ValueFunc::new("test", test));
 }
 
-fn print_diag(diag: &Spanned<Diag>, map: &LineMap, lines: u32) {
+fn print_diag(diag: &Diag, map: &LineMap, lines: u32) {
     let mut start = map.location(diag.span.start).unwrap();
     let mut end = map.location(diag.span.end).unwrap();
     start.line += lines;
     end.line += lines;
-    println!("{}: {}-{}: {}", diag.v.level, start, end, diag.v.message);
+    println!("{}: {}-{}: {}", diag.level, start, end, diag.message);
 }
 
 fn draw(frames: &[Frame], env: &Env, pixel_per_pt: f32) -> Canvas {

@@ -1,12 +1,13 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::{Scanner, TokenMode, Tokens};
-use crate::diag::Diag;
-use crate::diag::{Deco, Feedback};
-use crate::syntax::{Pos, Span, Spanned, Token};
+use crate::diag::{Diag, DiagSet};
+use crate::syntax::{Pos, Span, Token};
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
+    /// Parsing diagnostics.
+    pub diags: DiagSet,
     /// An iterator over the source tokens.
     tokens: Tokens<'s>,
     /// The next token.
@@ -20,8 +21,6 @@ pub struct Parser<'s> {
     last_end: Pos,
     /// The stack of open groups.
     groups: Vec<GroupEntry>,
-    /// Accumulated feedback.
-    feedback: Feedback,
 }
 
 /// A logical group of tokens, e.g. `[...]`.
@@ -67,18 +66,13 @@ impl<'s> Parser<'s> {
             next_start: Pos::ZERO,
             last_end: Pos::ZERO,
             groups: vec![],
-            feedback: Feedback::new(),
+            diags: DiagSet::new(),
         }
     }
 
-    /// Finish parsing and return the accumulated feedback.
-    pub fn finish(self) -> Feedback {
-        self.feedback
-    }
-
-    /// Add a diagnostic to the feedback.
-    pub fn diag(&mut self, diag: Spanned<Diag>) {
-        self.feedback.diags.push(diag);
+    /// Add a diagnostic.
+    pub fn diag(&mut self, diag: Diag) {
+        self.diags.insert(diag);
     }
 
     /// Eat the next token and add a diagnostic that it is not the expected
@@ -110,11 +104,6 @@ impl<'s> Parser<'s> {
             let after = self.last_end;
             self.diag(error!(before .. after, "unexpected {}", found.name()));
         }
-    }
-
-    /// Add a decoration to the feedback.
-    pub fn deco(&mut self, deco: Spanned<Deco>) {
-        self.feedback.decos.push(deco);
     }
 
     /// Continue parsing in a group.

@@ -1,6 +1,6 @@
 //! A prelude for building custom functions.
 
-pub use crate::diag::{Feedback, Pass};
+pub use crate::diag::{Diag, Pass};
 #[doc(no_inline)]
 pub use crate::eval::{
     CastResult, Eval, EvalContext, TemplateAny, TemplateNode, Value, ValueAny, ValueArgs,

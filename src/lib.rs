@@ -65,9 +65,9 @@ pub fn typeset(
     let executed = exec::exec(env, &parsed.output, &evaluated.output, state);
     let frames = layout::layout(env, &executed.output);
 
-    let mut feedback = parsed.feedback;
-    feedback.extend(evaluated.feedback);
-    feedback.extend(executed.feedback);
+    let mut diags = parsed.diags;
+    diags.extend(evaluated.diags);
+    diags.extend(executed.diags);
 
-    Pass::new(frames, feedback)
+    Pass::new(frames, diags)
 }

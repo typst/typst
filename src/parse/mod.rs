@@ -22,7 +22,7 @@ use collection::{args, parenthesized};
 /// Parse a string of source code.
 pub fn parse(src: &str) -> Pass<Tree> {
     let mut p = Parser::new(src);
-    Pass::new(tree(&mut p), p.finish())
+    Pass::new(tree(&mut p), p.diags)
 }
 
 /// Parse a syntax tree.
