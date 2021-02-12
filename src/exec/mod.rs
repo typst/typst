@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use crate::diag::Pass;
 use crate::env::Env;
-use crate::eval::{ExprMap, TemplateAny, TemplateNode, Value, ValueTemplate};
+use crate::eval::{ExprMap, TemplateFunc, TemplateNode, Value, ValueTemplate};
 use crate::geom::Spec;
 use crate::layout::{self, Expansion, NodeSpacing, NodeStack};
 use crate::pretty::pretty;
@@ -156,12 +156,12 @@ impl Exec for TemplateNode {
         match self {
             Self::Tree { tree, map } => tree.exec_with_map(ctx, &map),
             Self::Str(s) => ctx.push_text(s),
-            Self::Any(any) => any.exec(ctx),
+            Self::Func(func) => func.exec(ctx),
         }
     }
 }
 
-impl Exec for TemplateAny {
+impl Exec for TemplateFunc {
     fn exec(&self, ctx: &mut ExecContext) {
         self(ctx);
     }

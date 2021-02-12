@@ -55,7 +55,7 @@ impl Value {
     where
         F: Fn(&mut ExecContext) + 'static,
     {
-        Self::Template(vec![TemplateNode::Any(TemplateAny::new(name, f))])
+        Self::Template(vec![TemplateNode::Func(TemplateFunc::new(name, f))])
     }
 
     /// The name of the stored value's type.
@@ -121,19 +121,20 @@ pub enum TemplateNode {
     },
     /// A template that was converted from a string.
     Str(String),
-    /// A template that can implement custom behaviour.
-    Any(TemplateAny),
+    /// A function template that can implement custom behaviour.
+    Func(TemplateFunc),
 }
 
-/// A reference-counted dynamic template node (can implement custom behaviour).
+/// A reference-counted dynamic template node that can implement custom
+/// behaviour.
 #[derive(Clone)]
-pub struct TemplateAny {
+pub struct TemplateFunc {
     name: String,
     f: Rc<dyn Fn(&mut ExecContext)>,
 }
 
-impl TemplateAny {
-    /// Create a new dynamic template value from a rust function or closure.
+impl TemplateFunc {
+    /// Create a new function template from a rust function or closure.
     pub fn new<F>(name: impl Into<String>, f: F) -> Self
     where
         F: Fn(&mut ExecContext) + 'static,
@@ -147,14 +148,14 @@ impl TemplateAny {
     }
 }
 
-impl PartialEq for TemplateAny {
+impl PartialEq for TemplateFunc {
     fn eq(&self, _: &Self) -> bool {
         // TODO: Figure out what we want here.
         false
     }
 }
 
-impl Deref for TemplateAny {
+impl Deref for TemplateFunc {
     type Target = dyn Fn(&mut ExecContext);
 
     fn deref(&self) -> &Self::Target {
@@ -162,7 +163,7 @@ impl Deref for TemplateAny {
     }
 }
 
-impl Debug for TemplateAny {
+impl Debug for TemplateFunc {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_struct("TemplateAny").finish()
     }

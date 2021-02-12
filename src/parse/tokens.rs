@@ -73,7 +73,7 @@ impl<'s> Iterator for Tokens<'s> {
                 '{' => Token::LeftBrace,
                 '}' => Token::RightBrace,
 
-                // Keywords, function templates, colors.
+                // Keywords, bracket functions, colors.
                 '#' => self.hash(start),
 
                 // Whitespace.

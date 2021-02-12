@@ -128,7 +128,7 @@ impl PrettyWithMap for Node {
                     let value = &map[&(expr as *const _)];
                     value.pretty(p);
                 } else if let Expr::Call(call) = expr {
-                    // Format function templates appropriately.
+                    // Format bracket functions appropriately.
                     pretty_bracketed(call, p, false)
                 } else {
                     expr.pretty(p);
@@ -360,7 +360,7 @@ impl Pretty for ExprCall {
     }
 }
 
-/// Pretty print a function template, with body or chaining when possible.
+/// Pretty print a bracket function, with body or chaining when possible.
 pub fn pretty_bracketed(call: &ExprCall, p: &mut Printer, chained: bool) {
     if chained {
         p.push_str(" | ");
@@ -539,12 +539,12 @@ impl Pretty for TemplateNode {
         match self {
             Self::Tree { tree, map } => tree.pretty_with_map(p, Some(map)),
             Self::Str(s) => p.push_str(s),
-            Self::Any(any) => any.pretty(p),
+            Self::Func(func) => func.pretty(p),
         }
     }
 }
 
-impl Pretty for TemplateAny {
+impl Pretty for TemplateFunc {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("<node ");
         p.push_str(self.name());
@@ -741,7 +741,7 @@ mod tests {
         roundtrip("{v(1)}");
         roundtrip("{v(a: 1, b)}");
 
-        // Function templates.
+        // Bracket functions.
         roundtrip("#[v]");
         roundtrip("#[v 1]");
         roundtrip("#[v 1, 2][*Ok*]");
@@ -800,7 +800,7 @@ mod tests {
                     tree: Rc::new(vec![Node::Strong]),
                     map: HashMap::new(),
                 },
-                TemplateNode::Any(TemplateAny::new("example", |_| {})),
+                TemplateNode::Func(TemplateFunc::new("example", |_| {})),
             ],
             "[*<node example>]",
         );

@@ -100,7 +100,7 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
             return Some(Node::Expr(template(p)));
         }
 
-        // Function template.
+        // Bracket function.
         Token::HashBracket => {
             *at_start = false;
             return Some(Node::Expr(bracket_call(p)?));

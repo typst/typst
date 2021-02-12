@@ -191,7 +191,7 @@ impl<'s> Token<'s> {
     pub fn name(self) -> &'static str {
         match self {
             Self::LeftBracket => "opening bracket",
-            Self::HashBracket => "start of function template",
+            Self::HashBracket => "start of bracket function",
             Self::RightBracket => "closing bracket",
             Self::LeftBrace => "opening brace",
             Self::RightBrace => "closing brace",
