@@ -44,8 +44,8 @@ pub struct PageSettings {
     pub size: Size,
     /// Whether the expand the pages to the `size` or to fit the content.
     pub expand: Spec<Expansion>,
-    /// The amount of white space in the order [left, top, right, bottom]. If a
-    /// side is set to `None`, the default for the paper class is used.
+    /// The amount of white space on each side of the page. If a side is set to
+    /// `None`, the default for the paper class is used.
     pub margins: Sides<Option<Linear>>,
 }
 

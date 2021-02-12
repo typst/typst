@@ -293,6 +293,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
             None
         })
     });
+
     let width = args.get(ctx, "width");
     let height = args.get(ctx, "height");
     let margins = args.get(ctx, "margins");
@@ -351,7 +352,6 @@ pub fn page(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
             std::mem::swap(&mut page.size.width, &mut page.size.height);
             std::mem::swap(&mut page.expand.horizontal, &mut page.expand.vertical);
         }
-
 
         ctx.set_dirs(Gen::new(main, cross));
 

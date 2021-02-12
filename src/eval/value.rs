@@ -8,7 +8,6 @@ use super::*;
 use crate::color::Color;
 use crate::exec::ExecContext;
 use crate::geom::{Angle, Length, Linear, Relative};
-use crate::pretty::{Pretty, Printer};
 use crate::syntax::Tree;
 
 /// A computational value.
@@ -103,22 +102,6 @@ pub type ValueArray = Vec<Value>;
 /// A dictionary value: `(color: #f79143, pattern: dashed)`.
 pub type ValueDict = BTreeMap<String, Value>;
 
-impl Pretty for ValueDict {
-    fn pretty(&self, p: &mut Printer) {
-        p.push('(');
-        if self.is_empty() {
-            p.push(':');
-        } else {
-            p.join(self, ", ", |(key, value), p| {
-                p.push_str(key);
-                p.push_str(": ");
-                value.pretty(p);
-            });
-        }
-        p.push(')');
-    }
-}
-
 /// A template value: `[*Hi* there]`.
 pub type ValueTemplate = Vec<TemplateNode>;
 
@@ -155,7 +138,6 @@ impl TemplateAny {
     {
         Self { name: name.into(), f: Rc::new(f) }
     }
-
 
     /// The name of the template node.
     pub fn name(&self) -> &str {
@@ -357,13 +339,6 @@ impl ValueArgs {
         }
     }
 }
-
-// This is a workaround because `-> impl Trait + 'a + 'b` does not work.
-//
-// See also: https://github.com/rust-lang/rust/issues/49431
-#[doc(hidden)]
-pub trait Captures<'a> {}
-impl<'a, T: ?Sized> Captures<'a> for T {}
 
 /// An argument to a function call: `12` or `draw: false`.
 #[derive(Debug, Clone, PartialEq)]
@@ -680,81 +655,4 @@ macro_rules! typify {
             }
         }
     };
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::color::RgbaColor;
-    use crate::pretty::pretty;
-
-    #[track_caller]
-    fn test_pretty(value: impl Into<Value>, exp: &str) {
-        assert_eq!(pretty(&value.into()), exp);
-    }
-
-    #[test]
-    fn test_pretty_print_value() {
-        // Simple values.
-        test_pretty(Value::None, "none");
-        test_pretty(false, "false");
-        test_pretty(12, "12");
-        test_pretty(3.14, "3.14");
-        test_pretty(Length::pt(5.5), "5.5pt");
-        test_pretty(Angle::deg(90.0), "90.0deg");
-        test_pretty(Relative::ONE / 2.0, "50.0%");
-        test_pretty(Relative::new(0.3) + Length::cm(2.0), "30.0% + 2.0cm");
-        test_pretty(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
-        test_pretty("hello", r#""hello""#);
-
-        // Array.
-        test_pretty(Value::Array(vec![]), "()");
-        test_pretty(vec![Value::None], "(none,)");
-        test_pretty(vec![Value::Int(1), Value::Int(2)], "(1, 2)");
-
-        // Dictionary.
-        let mut dict = BTreeMap::new();
-        test_pretty(dict.clone(), "(:)");
-        dict.insert("one".into(), Value::Int(1));
-        test_pretty(dict.clone(), "(one: 1)");
-        dict.insert("two".into(), Value::Bool(false));
-        test_pretty(dict, "(one: 1, two: false)");
-
-        // Template.
-        test_pretty(
-            vec![
-                TemplateNode::Tree {
-                    tree: Rc::new(vec![Node::Strong]),
-                    map: HashMap::new(),
-                },
-                TemplateNode::Any(TemplateAny::new("example", |_| {})),
-            ],
-            "[*<example>]",
-        );
-
-        // Function and arguments.
-        test_pretty(ValueFunc::new("nil", |_, _| Value::None), "<nil>");
-        test_pretty(
-            ValueArgs {
-                span: Span::ZERO,
-                items: vec![
-                    ValueArg {
-                        name: Some(Spanned::zero("a".into())),
-                        value: Spanned::zero(Value::Int(1)),
-                    },
-                    ValueArg {
-                        name: None,
-                        value: Spanned::zero(Value::Int(2)),
-                    },
-                ],
-            },
-            "<a: 1, 2>",
-        );
-
-        // Any.
-        test_pretty(ValueAny::new(1), "1");
-
-        // Error.
-        test_pretty(Value::Error, "<error>");
-    }
 }

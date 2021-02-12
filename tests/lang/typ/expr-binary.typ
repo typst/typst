@@ -54,7 +54,6 @@
     }
 }
 
-
 // Make sure length, relative and linear
 // - can all be added to / subtracted from each other,
 // - multiplied with integers and floats,

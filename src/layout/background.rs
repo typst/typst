@@ -1,11 +1,11 @@
 use super::*;
 
-/// A node that represents a rectangular box.
+/// A node that places a rectangular filled background behind another node.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NodeBackground {
     /// The background fill.
     pub fill: Fill,
-    /// The child node to be filled in.
+    /// The child node to be filled.
     pub child: Node,
 }
 
@@ -13,17 +13,12 @@ impl Layout for NodeBackground {
     fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted {
         let mut layouted = self.child.layout(ctx, areas);
 
-        if let Some(first) = layouted.frames_mut().first_mut() {
-            first.elements.insert(
-                0,
-                (
-                    Point::ZERO,
-                    Element::Geometry(Geometry {
-                        shape: Shape::Rect(first.size),
-                        fill: self.fill.clone(),
-                    }),
-                ),
-            )
+        for frame in layouted.frames_mut() {
+            let element = Element::Geometry(Geometry {
+                shape: Shape::Rect(frame.size),
+                fill: self.fill.clone(),
+            });
+            frame.elements.insert(0, (Point::ZERO, element))
         }
 
         layouted

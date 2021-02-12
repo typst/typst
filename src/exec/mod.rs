@@ -145,8 +145,8 @@ impl Exec for Value {
 
 impl Exec for ValueTemplate {
     fn exec(&self, ctx: &mut ExecContext) {
-        for part in self {
-            part.exec(ctx);
+        for node in self {
+            node.exec(ctx);
         }
     }
 }

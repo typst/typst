@@ -508,6 +508,22 @@ impl Pretty for ValueArray {
     }
 }
 
+impl Pretty for ValueDict {
+    fn pretty(&self, p: &mut Printer) {
+        p.push('(');
+        if self.is_empty() {
+            p.push(':');
+        } else {
+            p.join(self, ", ", |(key, value), p| {
+                p.push_str(key);
+                p.push_str(": ");
+                value.pretty(p);
+            });
+        }
+        p.push(')');
+    }
+}
+
 impl Pretty for ValueTemplate {
     fn pretty(&self, p: &mut Printer) {
         p.push('[');
@@ -529,7 +545,7 @@ impl Pretty for TemplateNode {
 
 impl Pretty for TemplateAny {
     fn pretty(&self, p: &mut Printer) {
-        p.push('<');
+        p.push_str("<node ");
         p.push_str(self.name());
         p.push('>');
     }
@@ -537,7 +553,7 @@ impl Pretty for TemplateAny {
 
 impl Pretty for ValueFunc {
     fn pretty(&self, p: &mut Printer) {
-        p.push('<');
+        p.push_str("<function ");
         p.push_str(self.name());
         p.push('>');
     }
@@ -545,9 +561,9 @@ impl Pretty for ValueFunc {
 
 impl Pretty for ValueArgs {
     fn pretty(&self, p: &mut Printer) {
-        p.push('<');
+        p.push('(');
         p.join(&self.items, ", ", |item, p| item.pretty(p));
-        p.push('>');
+        p.push(')');
     }
 }
 
@@ -613,13 +629,22 @@ pretty_display! {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::{BTreeMap, HashMap};
+    use std::rc::Rc;
+
     use super::*;
+    use crate::color::RgbaColor;
     use crate::env::Env;
     use crate::eval::eval;
     use crate::parse::parse;
 
     #[track_caller]
-    fn test(src: &str, exp: &str) {
+    fn roundtrip(src: &str) {
+        test_parse(src, src);
+    }
+
+    #[track_caller]
+    fn test_parse(src: &str, exp: &str) {
         let tree = parse(src).output;
         let found = pretty(&tree);
         if exp != found {
@@ -631,8 +656,8 @@ mod tests {
     }
 
     #[track_caller]
-    fn roundtrip(src: &str) {
-        test(src, src);
+    fn test_value(value: impl Into<Value>, exp: &str) {
+        assert_eq!(pretty(&value.into()), exp);
     }
 
     #[test]
@@ -659,11 +684,11 @@ mod tests {
         roundtrip("```\n`\n```");
         roundtrip("``` ` ```");
         roundtrip("````\n```\n```\n````");
-        test("```lang```", "```lang ```");
-        test("```1 ```", "``");
-        test("``` 1```", "`1`");
-        test("``` 1 ```", "`1 `");
-        test("```` ` ````", "``` ` ```");
+        test_parse("```lang```", "```lang ```");
+        test_parse("```1 ```", "``");
+        test_parse("``` 1```", "`1`");
+        test_parse("``` 1 ```", "`1 `");
+        test_parse("```` ` ````", "``` ` ```");
     }
 
     #[test]
@@ -679,7 +704,7 @@ mod tests {
         roundtrip("{20.0%}");
         roundtrip("{#abcdef}");
         roundtrip(r#"{"hi"}"#);
-        test(r#"{"let's \" go"}"#, r#"{"let's \" go"}"#);
+        test_parse(r#"{"let's \" go"}"#, r#"{"let's \" go"}"#);
 
         // Arrays.
         roundtrip("{()}");
@@ -720,8 +745,8 @@ mod tests {
         roundtrip("#[v 1]");
         roundtrip("#[v 1, 2][*Ok*]");
         roundtrip("#[v 1 | f 2]");
-        test("{#[v]}", "{v()}");
-        test("#[v 1, #[f 2]]", "#[v 1 | f 2]");
+        test_parse("{#[v]}", "{v()}");
+        test_parse("#[v 1, #[f 2]]", "#[v 1 | f 2]");
 
         // Keywords.
         roundtrip("#let x = 1 + 2");
@@ -738,9 +763,70 @@ mod tests {
     }
 
     #[test]
-    fn test_pretty_print_str() {
-        assert_eq!(pretty("\n"), r#""\n""#);
-        assert_eq!(pretty("\\"), r#""\\""#);
-        assert_eq!(pretty("\""), r#""\"""#);
+    fn test_pretty_print_value() {
+        // Simple values.
+        test_value(Value::None, "none");
+        test_value(false, "false");
+        test_value(12, "12");
+        test_value(3.14, "3.14");
+        test_value(Length::pt(5.5), "5.5pt");
+        test_value(Angle::deg(90.0), "90.0deg");
+        test_value(Relative::ONE / 2.0, "50.0%");
+        test_value(Relative::new(0.3) + Length::cm(2.0), "30.0% + 2.0cm");
+        test_value(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
+        test_value("hello", r#""hello""#);
+        test_value("\n", r#""\n""#);
+        test_value("\\", r#""\\""#);
+        test_value("\"", r#""\"""#);
+
+        // Array.
+        test_value(Value::Array(vec![]), "()");
+        test_value(vec![Value::None], "(none,)");
+        test_value(vec![Value::Int(1), Value::Int(2)], "(1, 2)");
+
+        // Dictionary.
+        let mut dict = BTreeMap::new();
+        test_value(dict.clone(), "(:)");
+        dict.insert("one".into(), Value::Int(1));
+        test_value(dict.clone(), "(one: 1)");
+        dict.insert("two".into(), Value::Bool(false));
+        test_value(dict, "(one: 1, two: false)");
+
+        // Template.
+        test_value(
+            vec![
+                TemplateNode::Tree {
+                    tree: Rc::new(vec![Node::Strong]),
+                    map: HashMap::new(),
+                },
+                TemplateNode::Any(TemplateAny::new("example", |_| {})),
+            ],
+            "[*<node example>]",
+        );
+
+        // Function and arguments.
+        test_value(ValueFunc::new("nil", |_, _| Value::None), "<function nil>");
+        test_value(
+            ValueArgs {
+                span: Span::ZERO,
+                items: vec![
+                    ValueArg {
+                        name: Some(Spanned::zero("a".into())),
+                        value: Spanned::zero(Value::Int(1)),
+                    },
+                    ValueArg {
+                        name: None,
+                        value: Spanned::zero(Value::Int(2)),
+                    },
+                ],
+            },
+            "(a: 1, 2)",
+        );
+
+        // Any.
+        test_value(ValueAny::new(1), "1");
+
+        // Error.
+        test_value(Value::Error, "<error>");
     }
 }

@@ -107,7 +107,7 @@ impl Display for Length {
         use LengthUnit::*;
 
         // Format with the unit that yields the shortest output, preferring
-        // larger / metrics units when tied.
+        // larger / metric units when tied.
         let mut buf = ryu::Buffer::new();
         let unit = [Cm, Mm, In, Pt]
             .iter()

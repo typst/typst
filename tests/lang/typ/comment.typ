@@ -11,8 +11,8 @@ C/*
 */D
 
 // Works in code.
-#[f /*1*/ a: "b" //
-, 1]
+#[test type /*1*/ (1) //
+, "integer"]
 
 ---
 // End should not appear without start.
