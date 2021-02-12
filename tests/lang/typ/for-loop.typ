@@ -42,3 +42,10 @@
 // Make sure that we don't complain twice.
 // Error: 12-19 cannot add integer and string
 #for v #in 1 + "2" {}
+
+// Error: 14-17 cannot apply '-' to string
+#let error = -""
+#let result = #for v #in (1, 2, 3) {
+    #if v < 2 [Ok] #else {error}
+}
+#[test result, error]

@@ -429,57 +429,59 @@ impl Eval for ExprFor {
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         macro_rules! iter {
-            (for ($($binding:ident => $value:ident),*) in $iter:expr) => {{
+            (for ($($binding:ident => $value:ident),*) in $iter:expr) => {
                 let mut output = vec![];
+                ctx.scopes.push();
 
                 #[allow(unused_parens)]
                 for ($($value),*) in $iter {
                     $(ctx.scopes.def_mut($binding.as_str(), $value);)*
 
-                    if let Value::Template(new) = self.body.eval(ctx) {
-                        output.extend(new);
+                    match self.body.eval(ctx) {
+                        Value::Template(new) => output.extend(new),
+                        Value::Error => {
+                            ctx.scopes.pop();
+                            return Value::Error;
+                        }
+                        _ => {}
                     }
                 }
 
-                Value::Template(output)
-            }};
+                ctx.scopes.pop();
+                return Value::Template(output);
+            };
         }
 
-        ctx.scopes.push();
-
         let iter = self.iter.eval(ctx);
-        let value = match (self.pattern.clone(), iter) {
+        match (self.pattern.clone(), iter) {
             (ForPattern::Value(v), Value::Str(string)) => {
-                iter!(for (v => value) in string.chars().map(|c| Value::Str(c.into())))
+                iter!(for (v => value) in string.chars().map(|c| Value::Str(c.into())));
             }
             (ForPattern::Value(v), Value::Array(array)) => {
-                iter!(for (v => value) in array.into_iter())
+                iter!(for (v => value) in array.into_iter());
             }
             (ForPattern::Value(v), Value::Dict(dict)) => {
-                iter!(for (v => value) in dict.into_iter().map(|p| p.1))
+                iter!(for (v => value) in dict.into_iter().map(|p| p.1));
             }
             (ForPattern::KeyValue(k, v), Value::Dict(dict)) => {
-                iter!(for (k => key, v => value) in dict.into_iter())
+                iter!(for (k => key, v => value) in dict.into_iter());
             }
 
             (ForPattern::KeyValue(_, _), Value::Str(_))
             | (ForPattern::KeyValue(_, _), Value::Array(_)) => {
                 ctx.diag(error!(self.pattern.span(), "mismatched pattern"));
-                Value::Error
             }
 
-            (_, Value::Error) => Value::Error,
+            (_, Value::Error) => {}
             (_, iter) => {
                 ctx.diag(error!(
                     self.iter.span(),
                     "cannot loop over {}",
                     iter.type_name(),
                 ));
-                Value::Error
             }
-        };
+        }
 
-        ctx.scopes.pop();
-        value
+        Value::Error
     }
 }
