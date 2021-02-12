@@ -120,7 +120,7 @@ impl PrettyWithMap for Node {
             Self::Linebreak => p.push_str(r"\"),
             Self::Parbreak => p.push_str("\n\n"),
             // TODO: Handle escaping.
-            Self::Text(text) => p.push_str(&text),
+            Self::Text(text) => p.push_str(text),
             Self::Heading(heading) => heading.pretty_with_map(p, map),
             Self::Raw(raw) => raw.pretty(p),
             Self::Expr(expr) => {
@@ -538,6 +538,7 @@ impl Pretty for TemplateNode {
     fn pretty(&self, p: &mut Printer) {
         match self {
             Self::Tree { tree, map } => tree.pretty_with_map(p, Some(map)),
+            Self::Str(s) => p.push_str(s),
             Self::Any(any) => any.pretty(p),
         }
     }

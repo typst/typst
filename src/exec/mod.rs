@@ -155,6 +155,7 @@ impl Exec for TemplateNode {
     fn exec(&self, ctx: &mut ExecContext) {
         match self {
             Self::Tree { tree, map } => tree.exec_with_map(ctx, &map),
+            Self::Str(s) => ctx.push_text(s),
             Self::Any(any) => any.exec(ctx),
         }
     }

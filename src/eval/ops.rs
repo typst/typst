@@ -30,6 +30,7 @@ pub fn neg(value: Value) -> Value {
 /// Compute the sum of two values.
 pub fn add(lhs: Value, rhs: Value) -> Value {
     match (lhs, rhs) {
+        // Math.
         (Int(a), Int(b)) => Int(a + b),
         (Int(a), Float(b)) => Float(a as f64 + b),
         (Float(a), Int(b)) => Float(a + b as f64),
@@ -45,14 +46,23 @@ pub fn add(lhs: Value, rhs: Value) -> Value {
         (Linear(a), Relative(b)) => Linear(a + b),
         (Linear(a), Linear(b)) => Linear(a + b),
 
+        // Collections.
         (Str(a), Str(b)) => Str(a + &b),
         (Array(a), Array(b)) => Array(concat(a, b)),
         (Dict(a), Dict(b)) => Dict(concat(a, b)),
 
-        // TODO: Add string and template.
+        // Templates.
         (Template(a), Template(b)) => Template(concat(a, b)),
         (Template(a), None) => Template(a),
         (None, Template(b)) => Template(b),
+        (Template(mut a), Str(b)) => Template({
+            a.push(TemplateNode::Str(b));
+            a
+        }),
+        (Str(a), Template(mut b)) => Template({
+            b.insert(0, TemplateNode::Str(a));
+            b
+        }),
 
         _ => Error,
     }

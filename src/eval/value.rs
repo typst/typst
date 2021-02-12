@@ -119,6 +119,8 @@ pub enum TemplateNode {
         /// The evaluated expressions for the `tree`.
         map: ExprMap,
     },
+    /// A template that was converted from a string.
+    Str(String),
     /// A template that can implement custom behaviour.
     Any(TemplateAny),
 }
