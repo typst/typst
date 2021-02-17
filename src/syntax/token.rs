@@ -6,8 +6,6 @@ use crate::geom::{AngularUnit, LengthUnit};
 pub enum Token<'s> {
     /// A left square bracket: `[`.
     LeftBracket,
-    /// A hashtag followed by a left square bracket: `#[`.
-    HashBracket,
     /// A right square bracket: `]`.
     RightBracket,
     /// A left curly brace: `{`.
@@ -191,7 +189,6 @@ impl<'s> Token<'s> {
     pub fn name(self) -> &'static str {
         match self {
             Self::LeftBracket => "opening bracket",
-            Self::HashBracket => "start of bracket function",
             Self::RightBracket => "closing bracket",
             Self::LeftBrace => "opening brace",
             Self::RightBrace => "closing brace",

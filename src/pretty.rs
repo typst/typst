@@ -127,10 +127,10 @@ impl PrettyWithMap for Node {
                 if let Some(map) = map {
                     let value = &map[&(expr as *const _)];
                     value.pretty(p);
-                } else if let Expr::Call(call) = expr {
-                    // Format bracket functions appropriately.
-                    pretty_bracketed(call, p, false)
                 } else {
+                    if expr.has_short_form() {
+                        p.push('#');
+                    }
                     expr.pretty(p);
                 }
             }
@@ -287,13 +287,9 @@ impl Pretty for Named {
 
 impl Pretty for ExprTemplate {
     fn pretty(&self, p: &mut Printer) {
-        if let [Node::Expr(Expr::Call(call))] = self.tree.as_slice() {
-            pretty_bracketed(call, p, false);
-        } else {
-            p.push('[');
-            self.tree.pretty_with_map(p, None);
-            p.push(']');
-        }
+        p.push('[');
+        self.tree.pretty_with_map(p, None);
+        p.push(']');
     }
 }
 
@@ -354,51 +350,25 @@ impl Pretty for BinOp {
 impl Pretty for ExprCall {
     fn pretty(&self, p: &mut Printer) {
         self.callee.pretty(p);
-        p.push('(');
-        self.args.pretty(p);
-        p.push(')');
-    }
-}
 
-/// Pretty print a bracket function, with body or chaining when possible.
-pub fn pretty_bracketed(call: &ExprCall, p: &mut Printer, chained: bool) {
-    if chained {
-        p.push_str(" | ");
-    } else {
-        p.push_str("#[");
-    }
-
-    // Function name.
-    call.callee.pretty(p);
-
-    let mut write_args = |items: &[ExprArg]| {
-        if !items.is_empty() {
-            p.push(' ');
+        let mut write_args = |items: &[ExprArg]| {
+            p.push('(');
             p.join(items, ", ", |item, p| item.pretty(p));
-        }
-    };
+            p.push(')');
+        };
 
-    match call.args.items.as_slice() {
-        // This can written as a chain.
-        //
-        // Example: Transforms "#[v][[f]]" => "#[v | f]".
-        [head @ .., ExprArg::Pos(Expr::Call(call))] => {
-            write_args(head);
-            pretty_bracketed(call, p, true);
-        }
+        match self.args.items.as_slice() {
+            // This can be moved behind the arguments.
+            //
+            // Example: Transforms "#v(a, [b])" => "#v(a)[b]".
+            [head @ .., ExprArg::Pos(Expr::Template(template))] => {
+                if !head.is_empty() {
+                    write_args(head);
+                }
+                template.pretty(p);
+            }
 
-        // This can be written with a body.
-        //
-        // Example: Transforms "#[v [Hi]]" => "#[v][Hi]".
-        [head @ .., ExprArg::Pos(Expr::Template(template))] => {
-            write_args(head);
-            p.push(']');
-            template.pretty(p);
-        }
-
-        items => {
-            write_args(items);
-            p.push(']');
+            items => write_args(items),
         }
     }
 }
@@ -420,7 +390,7 @@ impl Pretty for ExprArg {
 
 impl Pretty for ExprLet {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str("#let ");
+        p.push_str("let ");
         self.binding.pretty(p);
         if let Some(init) = &self.init {
             p.push_str(" = ");
@@ -431,12 +401,13 @@ impl Pretty for ExprLet {
 
 impl Pretty for ExprIf {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str("#if ");
+        p.push_str("if ");
         self.condition.pretty(p);
         p.push(' ');
         self.if_body.pretty(p);
         if let Some(expr) = &self.else_body {
-            p.push_str(" #else ");
+            // FIXME: Hashtag in markup.
+            p.push_str(" else ");
             expr.pretty(p);
         }
     }
@@ -444,9 +415,9 @@ impl Pretty for ExprIf {
 
 impl Pretty for ExprFor {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str("#for ");
+        p.push_str("for ");
         self.pattern.pretty(p);
-        p.push_str(" #in ");
+        p.push_str(" in ");
         self.iter.pretty(p);
         p.push(' ');
         self.body.pretty(p);
@@ -728,7 +699,7 @@ mod tests {
         // Blocks.
         roundtrip("{}");
         roundtrip("{1}");
-        roundtrip("{ #let x = 1; x += 2; x + 1 }");
+        roundtrip("{ let x = 1; x += 2; x + 1 }");
         roundtrip("[{}]");
 
         // Operators.
@@ -736,24 +707,20 @@ mod tests {
         roundtrip("{not true}");
         roundtrip("{1 + 3}");
 
-        // Parenthesized calls.
+        // Function calls.
         roundtrip("{v()}");
         roundtrip("{v(1)}");
         roundtrip("{v(a: 1, b)}");
-
-        // Bracket functions.
-        roundtrip("#[v]");
-        roundtrip("#[v 1]");
-        roundtrip("#[v 1, 2][*Ok*]");
-        roundtrip("#[v 1 | f 2]");
-        test_parse("{#[v]}", "{v()}");
-        test_parse("#[v 1, #[f 2]]", "#[v 1 | f 2]");
+        roundtrip("#v()");
+        roundtrip("#v(1)");
+        roundtrip("#v(1, 2)[*Ok*]");
+        roundtrip("#v(1, f[2])");
 
         // Keywords.
         roundtrip("#let x = 1 + 2");
-        roundtrip("#if x [y] #else [z]");
-        roundtrip("#for x #in y {z}");
-        roundtrip("#for k, x #in y {z}");
+        roundtrip("#for x in y {z}");
+        roundtrip("#for k, x in y {z}");
+        test_parse("#if x [y] #else [z]", "#if x [y] else [z]");
     }
 
     #[test]

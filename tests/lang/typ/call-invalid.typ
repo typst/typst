@@ -7,7 +7,7 @@
 ---
 #let x = "string"
 
-// Error: 2-3 expected function, found string
+// Error: 1-3 expected function, found string
 #x()
 
 ---
@@ -20,5 +20,5 @@
 
 ---
 // Error: 3:1 expected quote
-// Error: 2:1 expected closing bracket
+// Error: 2:1 expected closing paren
 #f("]

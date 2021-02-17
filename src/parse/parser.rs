@@ -10,6 +10,8 @@ pub struct Parser<'s> {
     pub diags: DiagSet,
     /// An iterator over the source tokens.
     tokens: Tokens<'s>,
+    /// The stack of open groups.
+    groups: Vec<GroupEntry>,
     /// The next token.
     next: Option<Token<'s>>,
     /// The peeked token.
@@ -19,21 +21,20 @@ pub struct Parser<'s> {
     next_start: Pos,
     /// The end position of the last (non-whitespace if in code mode) token.
     last_end: Pos,
-    /// The stack of open groups.
-    groups: Vec<GroupEntry>,
 }
 
 /// A logical group of tokens, e.g. `[...]`.
+#[derive(Debug, Copy, Clone)]
 struct GroupEntry {
     /// The start position of the group. Used by `Parser::end_group` to return
     /// The group's full span.
-    start: Pos,
+    pub start: Pos,
     /// The kind of group this is. This decides which tokens will end the group.
-    /// For example, a [`GroupKind::Paren`] will be ended by
+    /// For example, a [`Group::Paren`] will be ended by
     /// [`Token::RightParen`].
-    kind: Group,
+    pub kind: Group,
     /// The mode the parser was in _before_ the group started.
-    prev_mode: TokenMode,
+    pub outer_mode: TokenMode,
 }
 
 /// A group, confined by optional start and end delimiters.
@@ -60,13 +61,13 @@ impl<'s> Parser<'s> {
         let mut tokens = Tokens::new(src, TokenMode::Markup);
         let next = tokens.next();
         Self {
-            tokens,
+            diags: DiagSet::new(),
             next,
+            tokens,
+            last_end: Pos::ZERO,
             peeked: next,
             next_start: Pos::ZERO,
-            last_end: Pos::ZERO,
             groups: vec![],
-            diags: DiagSet::new(),
         }
     }
 
@@ -118,16 +119,16 @@ impl<'s> Parser<'s> {
         self.groups.push(GroupEntry {
             start: self.next_start,
             kind,
-            prev_mode: self.tokens.mode(),
+            outer_mode: self.tokens.mode(),
         });
 
         self.tokens.set_mode(mode);
         self.repeek();
 
         match kind {
-            Group::Paren => self.assert(&[Token::LeftParen]),
-            Group::Bracket => self.assert(&[Token::HashBracket, Token::LeftBracket]),
-            Group::Brace => self.assert(&[Token::LeftBrace]),
+            Group::Paren => self.assert(Token::LeftParen),
+            Group::Bracket => self.assert(Token::LeftBracket),
+            Group::Brace => self.assert(Token::LeftBrace),
             Group::Subheader => {}
             Group::Stmt => {}
             Group::Expr => {}
@@ -141,7 +142,7 @@ impl<'s> Parser<'s> {
     pub fn end_group(&mut self) -> Span {
         let prev_mode = self.tokens.mode();
         let group = self.groups.pop().expect("no started group");
-        self.tokens.set_mode(group.prev_mode);
+        self.tokens.set_mode(group.outer_mode);
         self.repeek();
 
         let mut rescan = self.tokens.mode() != prev_mode;
@@ -171,6 +172,62 @@ impl<'s> Parser<'s> {
         }
 
         Span::new(group.start, self.last_end)
+    }
+
+    /// The tokenization mode outside of the current group.
+    ///
+    /// For example, this would be [`Markup`] if we are in a [`Code`] group that
+    /// is embedded in a [`Markup`] group.
+    ///
+    /// [`Markup`]: TokenMode::Markup
+    /// [`Code`]: TokenMode::Code
+    pub fn outer_mode(&mut self) -> TokenMode {
+        self.groups.last().map_or(TokenMode::Markup, |group| group.outer_mode)
+    }
+
+    /// Whether the end of the source string or group is reached.
+    pub fn eof(&self) -> bool {
+        self.peek().is_none()
+    }
+
+    /// Peek at the next token without consuming it.
+    pub fn peek(&self) -> Option<Token<'s>> {
+        self.peeked
+    }
+
+    /// Peek at the next token if it follows immediately after the last one
+    /// without any whitespace in between.
+    pub fn peek_direct(&self) -> Option<Token<'s>> {
+        if self.next_start == self.last_end {
+            self.peeked
+        } else {
+            None
+        }
+    }
+
+    /// Peek at the span of the next token.
+    ///
+    /// Has length zero if `peek()` returns `None`.
+    pub fn peek_span(&self) -> Span {
+        Span::new(
+            self.next_start,
+            if self.eof() { self.next_start } else { self.tokens.pos() },
+        )
+    }
+
+    /// Peek at the source of the next token.
+    pub fn peek_src(&self) -> &'s str {
+        self.get(self.peek_span())
+    }
+
+    /// Checks whether the next token fulfills a condition.
+    ///
+    /// Returns `false` if there is no next token.
+    pub fn check<F>(&self, f: F) -> bool
+    where
+        F: FnOnce(Token<'s>) -> bool,
+    {
+        self.peek().map_or(false, f)
     }
 
     /// Consume the next token.
@@ -210,8 +267,8 @@ impl<'s> Parser<'s> {
         Span::new(start, self.last_end)
     }
 
-    /// Consume the next token if it is the given one and produce an error if
-    /// not.
+    /// Consume the next token if it is the given one and produce a diagnostic
+    /// if not.
     pub fn expect(&mut self, t: Token) -> bool {
         let eaten = self.eat_if(t);
         if !eaten {
@@ -221,9 +278,9 @@ impl<'s> Parser<'s> {
     }
 
     /// Consume the next token, debug-asserting that it is one of the given ones.
-    pub fn assert(&mut self, ts: &[Token]) {
+    pub fn assert(&mut self, t: Token) {
         let next = self.eat();
-        debug_assert!(next.map_or(false, |n| ts.contains(&n)));
+        debug_assert_eq!(next, Some(t));
     }
 
     /// Skip whitespace and comment tokens.
@@ -238,41 +295,6 @@ impl<'s> Parser<'s> {
         }
     }
 
-    /// Peek at the next token without consuming it.
-    pub fn peek(&self) -> Option<Token<'s>> {
-        self.peeked
-    }
-
-    /// Peek at the span of the next token.
-    ///
-    /// Has length zero if `peek()` returns `None`.
-    pub fn peek_span(&self) -> Span {
-        Span::new(
-            self.next_start,
-            if self.eof() { self.next_start } else { self.tokens.pos() },
-        )
-    }
-
-    /// Peek at the source of the next token.
-    pub fn peek_src(&self) -> &'s str {
-        self.get(self.peek_span())
-    }
-
-    /// Checks whether the next token fulfills a condition.
-    ///
-    /// Returns `false` if there is no next token.
-    pub fn check<F>(&self, f: F) -> bool
-    where
-        F: FnOnce(Token<'s>) -> bool,
-    {
-        self.peek().map_or(false, f)
-    }
-
-    /// Whether the end of the source string or group is reached.
-    pub fn eof(&self) -> bool {
-        self.peek().is_none()
-    }
-
     /// The position at which the next token starts.
     pub fn start(&self) -> Pos {
         self.next_start
@@ -285,8 +307,8 @@ impl<'s> Parser<'s> {
         self.last_end
     }
 
-    /// The span from
-    pub fn span_from(&self, start: Pos) -> Span {
+    /// The span from `start` to the end of the last token.
+    pub fn span(&self, start: Pos) -> Span {
         Span::new(start, self.last_end)
     }
 

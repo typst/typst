@@ -4,7 +4,7 @@ use super::*;
 pub fn args(p: &mut Parser) -> ExprArgs {
     let start = p.start();
     let items = collection(p, vec![]);
-    ExprArgs { span: p.span_from(start), items }
+    ExprArgs { span: p.span(start), items }
 }
 
 /// Parse a parenthesized group, which can be either of:

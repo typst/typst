@@ -20,7 +20,7 @@
     // Error: 9-12 expected identifier, found string
     for "v"
 
-    // Error: 10 expected keyword `#in`
+    // Error: 10 expected keyword `in`
     for v let z = 1 + 2
 
     z

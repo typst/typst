@@ -11,7 +11,7 @@ C/*
 */D
 
 // Works in code.
-#test(type /*1*/ (1) //
+#test(type(/*1*/ 1) //
 , "integer")
 
 ---

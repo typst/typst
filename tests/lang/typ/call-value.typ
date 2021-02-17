@@ -2,7 +2,7 @@
 // Ref: false
 
 ---
-// Whitespace is insignificant.
+// Whitespace is significant.
 #test(type(1), "integer")
 #test (type (1), "integer")
 

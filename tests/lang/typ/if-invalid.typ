@@ -10,7 +10,7 @@
 // Error: 6 expected body
 #if x
 
-// Error: 1-6 unexpected keyword `#else`
+// Error: 1-6 unexpected keyword `else`
 #else {}
 
 ---

@@ -54,6 +54,17 @@ impl Expr {
             Self::For(v) => v.span,
         }
     }
+
+    /// Whether the expression can be shorten in markup with a hashtag.
+    pub fn has_short_form(&self) -> bool {
+        matches!(self,
+            Expr::Ident(_)
+            | Expr::Call(_)
+            | Expr::Let(_)
+            | Expr::If(_)
+            | Expr::For(_)
+        )
+    }
 }
 
 /// A literal.

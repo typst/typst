@@ -4,7 +4,7 @@
 // Error: 5-5 expected identifier
 #for
 
-// Error: 7-7 expected keyword `#in`
+// Error: 7-7 expected keyword `in`
 #for v
 
 // Error: 10-10 expected expression
@@ -28,5 +28,5 @@ A#for "v" thing.
 #for "v" in iter {}
 
 // Should output `+ b in iter`.
-// Error: 7 expected keyword `#in`
+// Error: 7 expected keyword `in`
 #for a + b in iter {}

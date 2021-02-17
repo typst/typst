@@ -35,22 +35,22 @@
 // Error: 1:31-1:39 cannot divide integer by length
 {(1 + "2", 40% - 1, 2 * true, 3 / 12pt)}
 
-// Error: 15-23 cannot apply '+=' to integer and string
+// Error: 14-22 cannot apply '+=' to integer and string
 { let x = 1; x += "2" }
 
 ---
 // Bad left-hand sides of assignment.
 
-// Error: 1:3-1:6 cannot assign to this expression
+// Error: 3-6 cannot assign to this expression
 { (x) = "" }
 
-// Error: 1:3-1:8 cannot assign to this expression
+// Error: 3-8 cannot assign to this expression
 { 1 + 2 += 3 }
 
-// Error: 1:3-1:4 unknown variable
+// Error: 3-4 unknown variable
 { z = 1 }
 
-// Error: 1:3-1:6 cannot assign to a constant
+// Error: 3-6 cannot assign to a constant
 { box = "hi" }
 
 // Works if we define box beforehand
