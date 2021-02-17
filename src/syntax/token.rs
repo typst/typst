@@ -74,23 +74,23 @@ pub enum Token<'s> {
     Or,
     /// The none literal: `none`.
     None,
-    /// The `#let` keyword.
+    /// The `let` keyword.
     Let,
-    /// The `#if` keyword.
+    /// The `if` keyword.
     If,
-    /// The `#else` keyword.
+    /// The `else` keyword.
     Else,
-    /// The `#for` keyword.
+    /// The `for` keyword.
     For,
-    /// The `#in` keyword.
+    /// The `in` keyword.
     In,
-    /// The `#while` keyword.
+    /// The `while` keyword.
     While,
-    /// The `#break` keyword.
+    /// The `break` keyword.
     Break,
-    /// The `#continue` keyword.
+    /// The `continue` keyword.
     Continue,
-    /// The `#return` keyword.
+    /// The `return` keyword.
     Return,
     /// One or more whitespace characters.
     ///
@@ -225,15 +225,15 @@ impl<'s> Token<'s> {
             Self::And => "operator `and`",
             Self::Or => "operator `or`",
             Self::None => "`none`",
-            Self::Let => "keyword `#let`",
-            Self::If => "keyword `#if`",
-            Self::Else => "keyword `#else`",
-            Self::For => "keyword `#for`",
-            Self::In => "keyword `#in`",
-            Self::While => "keyword `#while`",
-            Self::Break => "keyword `#break`",
-            Self::Continue => "keyword `#continue`",
-            Self::Return => "keyword `#return`",
+            Self::Let => "keyword `let`",
+            Self::If => "keyword `if`",
+            Self::Else => "keyword `else`",
+            Self::For => "keyword `for`",
+            Self::In => "keyword `in`",
+            Self::While => "keyword `while`",
+            Self::Break => "keyword `break`",
+            Self::Continue => "keyword `continue`",
+            Self::Return => "keyword `return`",
             Self::Space(_) => "space",
             Self::Text(_) => "text",
             Self::Raw(_) => "raw block",

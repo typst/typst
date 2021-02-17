@@ -73,7 +73,7 @@ impl<'s> Iterator for Tokens<'s> {
                 '{' => Token::LeftBrace,
                 '}' => Token::RightBrace,
 
-                // Keywords, bracket functions, colors.
+                // Keywords, variables, functions, colors.
                 '#' => self.hash(start),
 
                 // Whitespace.
@@ -154,24 +154,27 @@ impl<'s> Iterator for Tokens<'s> {
 
 impl<'s> Tokens<'s> {
     fn hash(&mut self, start: usize) -> Token<'s> {
-        if self.s.eat_if('[') {
-            return Token::HashBracket;
-        }
+        let read = self.s.eat_while(is_id_continue);
 
-        self.s.eat_while(is_id_continue);
-        let read = self.s.eaten_from(start);
+        match self.mode {
+            TokenMode::Markup => {
+                if let Some(token) = keyword(read) {
+                    return token;
+                }
 
-        if let Some(keyword) = keyword(read) {
-            return keyword;
-        }
+                if read.chars().next().map_or(false, is_id_start) {
+                    return Token::Ident(read);
+                }
+            }
 
-        if self.mode == TokenMode::Code {
-            if let Ok(color) = RgbaColor::from_str(read) {
-                return Token::Color(color);
+            TokenMode::Code => {
+                if let Ok(color) = RgbaColor::from_str(read) {
+                    return Token::Color(color);
+                }
             }
         }
 
-        Token::Invalid(read)
+        Token::Invalid(self.s.eaten_from(start))
     }
 
     fn whitespace(&mut self, first: char) -> Token<'s> {
@@ -329,7 +332,7 @@ impl<'s> Tokens<'s> {
             "none" => Token::None,
             "true" => Token::Bool(true),
             "false" => Token::Bool(false),
-            id => Token::Ident(id),
+            id => keyword(id).unwrap_or(Token::Ident(id)),
         }
     }
 
@@ -444,15 +447,15 @@ impl Debug for Tokens<'_> {
 
 fn keyword(id: &str) -> Option<Token<'static>> {
     Some(match id {
-        "#let" => Token::Let,
-        "#if" => Token::If,
-        "#else" => Token::Else,
-        "#for" => Token::For,
-        "#in" => Token::In,
-        "#while" => Token::While,
-        "#break" => Token::Break,
-        "#continue" => Token::Continue,
-        "#return" => Token::Return,
+        "let" => Token::Let,
+        "if" => Token::If,
+        "else" => Token::Else,
+        "for" => Token::For,
+        "in" => Token::In,
+        "while" => Token::While,
+        "break" => Token::Break,
+        "continue" => Token::Continue,
+        "return" => Token::Return,
         _ => return None,
     })
 }
@@ -530,7 +533,6 @@ mod tests {
         ('/', Some(Markup), "$ $", Math(" ", false, true)),
         ('/', Some(Markup), r"\\", Text(r"\")),
         ('/', Some(Markup), "#let", Let),
-        ('/', Some(Code), "#if", If),
         ('/', Some(Code), "(", LeftParen),
         ('/', Some(Code), ":", Colon),
         ('/', Some(Code), "+=", PlusEq),
@@ -649,7 +651,7 @@ mod tests {
 
     #[test]
     fn test_tokenize_keywords() {
-        let both = [
+        let keywords = [
             ("let", Let),
             ("if", If),
             ("else", Else),
@@ -661,33 +663,23 @@ mod tests {
             ("return", Return),
         ];
 
-        for &(s, t) in &both {
-            t!(Both[" "]: format!("#{}", s) => t);
-            t!(Both[" "]: format!("#{0}#{0}", s) => t, t);
+        for &(s, t) in &keywords {
+            t!(Markup[" "]: format!("#{}", s) => t);
+            t!(Markup[" "]: format!("#{0}#{0}", s) => t, t);
             t!(Markup[" /"]: format!("# {}", s) => Token::Invalid("#"), Space(0), Text(s));
         }
 
-        let code = [
-            ("not", Not),
-            ("and", And),
-            ("or", Or),
-            ("none", Token::None),
-            ("false", Bool(false)),
-            ("true", Bool(true)),
-        ];
-
-        for &(s, t) in &code {
+        for &(s, t) in &keywords {
             t!(Code[" "]: s => t);
             t!(Markup[" /"]: s => Text(s));
         }
 
-        // Test invalid case.
+        // Test simple identifier.
+        t!(Markup[" "]: "#letter" => Ident("letter"));
+        t!(Markup[" "]: "#123" => Invalid("#123"));
+        t!(Code[" /"]: "falser" => Ident("falser"));
         t!(Code[" /"]: "None" => Ident("None"));
         t!(Code[" /"]: "True"   => Ident("True"));
-
-        // Test word that contains keyword.
-        t!(Markup[" "]: "#letter" => Invalid("#letter"));
-        t!(Code[" /"]: "falser" => Ident("falser"));
     }
 
     #[test]
@@ -963,7 +955,6 @@ mod tests {
 
         // Test invalid keyword.
         t!(Markup[" /"]: "#-"     => Invalid("#-"));
-        t!(Markup[" /"]: "#do"    => Invalid("#do"));
         t!(Code[" /"]: r"#letter" => Invalid(r"#letter"));
     }
 }
