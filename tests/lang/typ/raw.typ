@@ -47,5 +47,5 @@ def hi():
 
 ---
 // Unterminated.
-// Error: 2:1-2:1 expected backtick(s)
+// Error: 2:1 expected backtick(s)
 `endless

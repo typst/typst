@@ -1,3 +1,3 @@
 First of two
-#[pagebreak]
-#[page height: 40pt]
+#pagebreak()
+#page(height: 40pt)

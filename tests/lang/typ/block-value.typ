@@ -7,7 +7,7 @@ All none
 {}
 
 // Let evaluates to none.
-{ #let v = 0 }
+{ let v = 0 }
 
 // Trailing none evaluates to none.
 {
@@ -20,19 +20,19 @@ All none
 { "Hello" }
 
 // Evaluates to trailing expression.
-{ #let x = "Hel"; x + "lo" }
+{ let x = "Hel"; x + "lo" }
 
 // Evaluates to concatenation of for loop bodies.
 {
-    #let parts = ("Hel", "lo")
-    #for s #in parts [{s}]
+    let parts = ("Hel", "lo")
+    for s in parts [{s}]
 }
 
 ---
 // Works the same way in code environment.
 // Ref: false
-#[test {
-    #let x = 1
-    #let y = 2
+#test(3, {
+    let x = 1
+    let y = 2
     x + y
-}, 3]
+})

@@ -13,16 +13,16 @@ One
 Three
 
 // Terminated because expression ends.
-// Error: 12-12 expected semicolon or line break
+// Error: 12 expected semicolon or line break
 #let v4 = 4 Four
 
 // Terminated by semicolon even though we are in a paren group.
-// Error: 2:19-2:19 expected expression
-// Error: 1:19-1:19 expected closing paren
+// Error: 2:19 expected expression
+// Error: 1:19 expected closing paren
 #let v5 = (1, 2 + ; Five
 
-#[test v1, 1]
-#[test v2, 2]
-#[test v3, 3]
-#[test v4, 4]
-#[test v5, (1, 2)]
+#test(v1, 1)
+#test(v2, 2)
+#test(v3, 3)
+#test(v4, 4)
+#test(v5, (1, 2))

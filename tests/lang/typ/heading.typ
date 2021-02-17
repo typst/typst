@@ -9,7 +9,7 @@
 ======6
 
 // Too many hashtags.
-// Warning: 1:1-1:8 should not exceed depth 6
+// Warning: 1-8 should not exceed depth 6
 =======7
 
 ---
@@ -21,7 +21,7 @@
 }
 
 // Function call continues heading.
-= #[box][
+= #box[
     A
 ] B
 
@@ -35,7 +35,7 @@ B
 // Parsed as headings if at start of the context.
 /**/ = Ok
 {[== Ok]}
-#[box][=== Ok]
+#box[=== Ok]
 
 // Not at the start of the context.
 No = heading

@@ -4,14 +4,14 @@
 ---
 // Missing expressions.
 
-// Error: 3-3 expected expression
+// Error: 3 expected expression
 {-}
 
-// Error: 11-11 expected expression
-#[test {1+}, 1]
+// Error: 10 expected expression
+#test({1+}, 1)
 
-// Error: 11-11 expected expression
-#[test {2*}, 2]
+// Error: 10 expected expression
+#test({2*}, 2)
 
 ---
 // Mismatched types.
@@ -36,7 +36,7 @@
 {(1 + "2", 40% - 1, 2 * true, 3 / 12pt)}
 
 // Error: 15-23 cannot apply '+=' to integer and string
-{ #let x = 1; x += "2" }
+{ let x = 1; x += "2" }
 
 ---
 // Bad left-hand sides of assignment.

@@ -3,19 +3,19 @@
 
 ---
 {
-    #let x = 1
-    #let y = 2
-    #let z
+    let x = 1
+    let y = 2
+    let z
 
     // Returns if branch.
-    z = #if x < y { "ok" }
+    z = if x < y { "ok" }
     test(z, "ok")
 
     // Returns else branch.
-    z = #if x > y { "bad" } #else { "ok" }
+    z = if x > y { "bad" } else { "ok" }
     test(z, "ok")
 
     // Missing else evaluates to none.
-    z = #if x > y { "bad" }
+    z = if x > y { "bad" }
     test(z, none)
 }

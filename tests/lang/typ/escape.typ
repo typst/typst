@@ -26,5 +26,5 @@
 \u{FFFFFF}
 
 // Unterminated.
-// Error: 6-6 expected closing brace
+// Error: 6 expected closing brace
 \u{41*Bold*

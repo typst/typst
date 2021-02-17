@@ -19,13 +19,13 @@
      , #003
      ,)}
 
-// Error: 3-3 expected closing paren
+// Error: 3 expected closing paren
 {(}
 
 // Error: 2-3 expected expression, found closing paren
 {)}
 
-// Error: 2:4-2:4 expected comma
+// Error: 2:4 expected comma
 // Error: 1:4-1:6 expected expression, found end of block comment
 {(1*/2)}
 
@@ -36,7 +36,7 @@
 {(,1)}
 
 // Missing expression makes named pair incomplete, making this an empty array.
-// Error: 5-5 expected expression
+// Error: 5 expected expression
 {(a:)}
 
 // Named pair after this is already identified as an array.

@@ -296,7 +296,9 @@ fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {
         };
 
         let mut s = Scanner::new(rest);
-        let (start, _, end) = (pos(&mut s), s.eat_assert('-'), pos(&mut s));
+        let start = pos(&mut s);
+        let end = if s.eat_if('-') { pos(&mut s) } else { start };
+
         diags.insert(Diag::new(start .. end, level, s.rest().trim()));
     }
 

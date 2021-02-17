@@ -30,7 +30,7 @@
 #if false [
     Bad.
 ] #else {
-    #let pt = "."
+    let pt = "."
     "Ok" + pt
 }
 

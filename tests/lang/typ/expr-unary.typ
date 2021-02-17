@@ -3,7 +3,7 @@
 
 ---
 // Test plus and minus.
-#for v #in (1, 3.14, 12pt, 45deg, 90%, 13% + 10pt) {
+#for v in (1, 3.14, 12pt, 45deg, 90%, 13% + 10pt) {
     // Test plus.
     test(+v, v)
 
@@ -15,9 +15,9 @@
     test(-++ --v, -v)
 }
 
-#[test -(4 + 2), 6-12]
+#test(-(4 + 2), 6-12)
 
 ---
 // Test not.
-#[test not true, false]
-#[test not false, true]
+#test(not true, false)
+#test(not false, true)
