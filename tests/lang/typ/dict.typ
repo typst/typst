@@ -5,7 +5,7 @@
 {(:)}
 
 // Two pairs.
-{(one: 1, two: 2)}
+{(a1: 1, a2: 2)}
 
 ---
 // Simple expression after already being identified as a dictionary.

@@ -259,6 +259,13 @@ impl<'a> ExecContext<'a> {
         }
     }
 
+    /// Set the font to monospace.
+    pub fn apply_monospace(&mut self) {
+        let families = self.state.font.families_mut();
+        families.list.insert(0, "monospace".to_string());
+        families.flatten();
+    }
+
     /// Apply a forced line break.
     pub fn apply_linebreak(&mut self) {
         self.end_par_group();

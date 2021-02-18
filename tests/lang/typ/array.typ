@@ -14,9 +14,8 @@
 {(true, false)}
 
 // Multiple lines and items and trailing comma.
-{("one"
-     , 2
-     , #003
+{("1"
+     , #002
      ,)}
 
 // Error: 3 expected closing paren

@@ -33,6 +33,9 @@
 {2.5rad} \
 {45deg} \
 
+// Not in monospace via repr.
+#repr(45deg)
+
 ---
 // Colors.
 {#f7a20500} \

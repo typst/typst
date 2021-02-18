@@ -2,16 +2,16 @@
 
 ---
 // One argument.
-#f(bold)
+#args(bold)
 
 // One argument and trailing comma.
-#f(1,)
+#args(1,)
 
 // One named argument.
-#f(a:2)
+#args(a:2)
 
 // Mixed arguments.
-{f(1, a: (3, 4), 2, b: "5")}
+{args(1, b: "2", 3)}
 
 ---
 // Different forms of template arguments.
@@ -19,17 +19,17 @@
 
 #let a = "a"
 
-#f[a] \
-#f(a) \
-#f(a, [b]) \
-#f(a)[b] \
+#args[a] \
+#args(a) \
+#args(a, [b]) \
+#args(a)[b] \
 
 // Template can be argument or body depending on whitespace.
 #if "template" == type[b] [Sure ]
 #if "template" == type [Nope.] #else [thing.]
 
-// Should output `<function f> (Okay.)`.
-#f (Okay.)
+// Should output `<function args> (Okay.)`.
+#args (Okay.)
 
 ---
 // Call function assigned to variable.

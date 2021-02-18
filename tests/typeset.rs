@@ -312,7 +312,7 @@ struct Panic {
 }
 
 fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
-    pub fn f(_: &mut EvalContext, args: &mut ValueArgs) -> Value {
+    pub fn args(_: &mut EvalContext, args: &mut ValueArgs) -> Value {
         let value = args.clone().into();
         args.items.clear();
         value
@@ -329,7 +329,7 @@ fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
         }
     };
 
-    scope.def_const("f", ValueFunc::new("f", f));
+    scope.def_const("args", ValueFunc::new("args", args));
     scope.def_const("test", ValueFunc::new("test", test));
 }
 

@@ -97,9 +97,7 @@ impl ExecWithMap for NodeHeading {
 impl Exec for NodeRaw {
     fn exec(&self, ctx: &mut ExecContext) {
         let prev = Rc::clone(&ctx.state.font.families);
-        let families = ctx.state.font.families_mut();
-        families.list.insert(0, "monospace".to_string());
-        families.flatten();
+        ctx.apply_monospace();
 
         let em = ctx.state.font.font_size();
         let line_spacing = ctx.state.par.line_spacing.resolve(em);
@@ -136,9 +134,19 @@ impl Exec for Value {
     fn exec(&self, ctx: &mut ExecContext) {
         match self {
             Value::None => {}
+            Value::Int(v) => ctx.push_text(pretty(v)),
+            Value::Float(v) => ctx.push_text(pretty(v)),
             Value::Str(s) => ctx.push_text(s),
             Value::Template(template) => template.exec(ctx),
-            other => ctx.push_text(pretty(other)),
+            Value::Error => {}
+            other => {
+                // For values which can't be shown "naturally", we print
+                // the representation in monospace.
+                let prev = Rc::clone(&ctx.state.font.families);
+                ctx.apply_monospace();
+                ctx.push_text(pretty(other));
+                ctx.state.font.families = prev;
+            }
         }
     }
 }
