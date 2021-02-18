@@ -91,7 +91,7 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
         // Block.
         Token::LeftBrace => {
             *at_start = false;
-            return Some(Node::Expr(block(p, false)?));
+            return Some(Node::Expr(block(p, false)));
         }
 
         // Template.
@@ -194,7 +194,7 @@ fn primary(p: &mut Parser) -> Option<Expr> {
         Some(Token::For) => expr_for(p),
 
         // Structures.
-        Some(Token::LeftBrace) => block(p, true),
+        Some(Token::LeftBrace) => Some(block(p, true)),
         Some(Token::LeftBracket) => Some(template(p)),
         Some(Token::LeftParen) => Some(parenthesized(p)),
 
@@ -238,7 +238,7 @@ fn template(p: &mut Parser) -> Expr {
 }
 
 /// Parse a block expression: `{...}`.
-fn block(p: &mut Parser, scopes: bool) -> Option<Expr> {
+fn block(p: &mut Parser, scopes: bool) -> Expr {
     p.start_group(Group::Brace, TokenMode::Code);
     let mut exprs = vec![];
     while !p.eof() {
@@ -253,7 +253,7 @@ fn block(p: &mut Parser, scopes: bool) -> Option<Expr> {
         p.skip_white();
     }
     let span = p.end_group();
-    Some(Expr::Block(ExprBlock { span, exprs, scoping: scopes }))
+    Expr::Block(ExprBlock { span, exprs, scoping: scopes })
 }
 
 /// Parse an expression.
@@ -434,7 +434,7 @@ fn ident(p: &mut Parser) -> Option<Ident> {
 fn body(p: &mut Parser) -> Option<Expr> {
     match p.peek() {
         Some(Token::LeftBracket) => Some(template(p)),
-        Some(Token::LeftBrace) => block(p, true),
+        Some(Token::LeftBrace) => Some(block(p, true)),
         _ => {
             p.expected_at("body", p.end());
             None
