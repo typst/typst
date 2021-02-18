@@ -1,4 +1,4 @@
-// Test conditions of if-else expressions.
+// Test if-else expressions.
 
 ---
 // Test condition evaluation.

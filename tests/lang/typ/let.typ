@@ -1,4 +1,4 @@
-// Test value of let binding.
+// Test let bindings.
 // Ref: false
 
 ---

@@ -1,4 +1,4 @@
-// Test which things are iterable.
+// Test for loops.
 // Ref: false
 
 ---

@@ -1,4 +1,4 @@
-// Test return value of code blocks.
+// Test code blocks.
 
 ---
 All none
