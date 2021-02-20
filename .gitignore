@@ -6,8 +6,8 @@ bench/target
 **/*.rs.bk
 Cargo.lock
 
-tests/*/png
-tests/*/pdf
+tests/png
+tests/pdf
 tests/playground.*
 
 tarpaulin-report.html

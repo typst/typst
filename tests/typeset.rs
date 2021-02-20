@@ -28,10 +28,10 @@ use typst::shaping::Shaped;
 use typst::syntax::{Location, Pos};
 use typst::typeset;
 
-const TYP_DIR: &str = "typ";
-const REF_DIR: &str = "ref";
-const PNG_DIR: &str = "png";
-const PDF_DIR: &str = "pdf";
+const TYP_DIR: &str = "./typ";
+const REF_DIR: &str = "./ref";
+const PNG_DIR: &str = "./png";
+const PDF_DIR: &str = "./pdf";
 const FONT_DIR: &str = "../fonts";
 
 fn main() {
@@ -71,25 +71,13 @@ fn main() {
         resources: ResourceLoader::new(),
     };
 
-    let playground = Path::new("playground.typ");
-    if playground.exists() && filtered.is_empty() {
-        test(
-            playground,
-            Path::new("playground.png"),
-            Path::new("playground.pdf"),
-            None,
-            &mut env,
-        );
-    }
-
     let mut ok = true;
     for src_path in filtered {
-        let category = src_path.parent().unwrap().parent().unwrap();
-        let name = src_path.file_stem().unwrap();
-        let png_path = category.join(PNG_DIR).join(name).with_extension("png");
-        let pdf_path = category.join(PDF_DIR).join(name).with_extension("pdf");
-        let ref_path = category.join(REF_DIR).join(name).with_extension("png");
-        ok &= test(&src_path, &png_path, &pdf_path, Some(&ref_path), &mut env);
+        let trailer = src_path.strip_prefix(TYP_DIR).unwrap();
+        let png_path = Path::new(PNG_DIR).join(trailer).with_extension("png");
+        let pdf_path = Path::new(PDF_DIR).join(trailer).with_extension("pdf");
+        let ref_path = Path::new(REF_DIR).join(trailer).with_extension("png");
+        ok &= test(&src_path, &png_path, &pdf_path, &ref_path, &mut env);
     }
 
     if !ok {
@@ -131,7 +119,7 @@ fn test(
     src_path: &Path,
     png_path: &Path,
     pdf_path: &Path,
-    ref_path: Option<&Path>,
+    ref_path: &Path,
     env: &mut Env,
 ) -> bool {
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
@@ -176,16 +164,14 @@ fn test(
         fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
         canvas.pixmap.save_png(png_path).unwrap();
 
-        if let Some(ref_path) = ref_path {
-            if let Ok(ref_pixmap) = Pixmap::load_png(ref_path) {
-                if canvas.pixmap != ref_pixmap {
-                    println!("  Does not match reference image. ❌");
-                    ok = false;
-                }
-            } else {
-                println!("  Failed to open reference image. ❌");
+        if let Ok(ref_pixmap) = Pixmap::load_png(ref_path) {
+            if canvas.pixmap != ref_pixmap {
+                println!("  Does not match reference image. ❌");
                 ok = false;
             }
+        } else {
+            println!("  Failed to open reference image. ❌");
+            ok = false;
         }
     }
 
