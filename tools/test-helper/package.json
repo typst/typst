@@ -1,0 +1,72 @@
+{
+  "name": "typst-test-helper",
+  "displayName": "Typst Test Helper",
+  "description": "Helps to run, compare and approve Typst tests.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.53.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:ShortcutMenuBar.openTestOutput",
+    "onCommand:ShortcutMenuBar.approveTestOutput",
+    "onCommand:ShortcutMenuBar.refreshTestOutput"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ShortcutMenuBar.openTestOutput",
+        "title": "Open test output",
+        "category": "ShortcutMenuBar",
+        "icon": {
+          "light": "images/open-light.svg",
+          "dark": "images/open-dark.svg"
+        }
+      },
+      {
+        "command": "ShortcutMenuBar.refreshTestOutput",
+        "title": "Refresh test output",
+        "category": "ShortcutMenuBar",
+        "icon": {
+          "light": "images/refresh-light.svg",
+          "dark": "images/refresh-dark.svg"
+        }
+      },
+      {
+        "command": "ShortcutMenuBar.approveTestOutput",
+        "title": "Approve test output",
+        "category": "ShortcutMenuBar",
+        "icon": {
+          "light": "images/approve-light.svg",
+          "dark": "images/approve-dark.svg"
+        }
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
+          "command": "ShortcutMenuBar.openTestOutput",
+          "group": "navigation@0"
+        },
+        {
+          "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
+          "command": "ShortcutMenuBar.refreshTestOutput",
+          "group": "navigation@2"
+        },
+        {
+          "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
+          "command": "ShortcutMenuBar.approveTestOutput",
+          "group": "navigation@3"
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.53.0",
+    "@types/node": "^12.11.7"
+  }
+}

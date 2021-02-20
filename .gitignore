@@ -1,13 +1,18 @@
+# General
 .vscode
 _things
 
+# Tests and benchmarks
+tests/png
+tests/pdf
+tarpaulin-report.html
+
+# Rust
 /target
 bench/target
 **/*.rs.bk
 Cargo.lock
 
-tests/png
-tests/pdf
-tests/playground.*
-
-tarpaulin-report.html
+# Node
+node_modules
+package-lock.json
