@@ -9,6 +9,7 @@ use crate::geom::{ChildAlign, Dir, Gen, LayoutDirs, Length, Linear, Sides, Size}
 use crate::layout::{
     Expansion, Node, NodePad, NodePages, NodePar, NodeSpacing, NodeStack, NodeText, Tree,
 };
+use crate::parse::is_newline;
 
 /// The context for execution.
 #[derive(Debug)]
@@ -217,7 +218,7 @@ impl<'a> ExecContext<'a> {
         }
     }
 
-    /// Push a normal space.
+    /// Push a normal word space.
     pub fn push_space(&mut self) {
         let em = self.state.font.font_size();
         self.push(NodeSpacing {
@@ -226,10 +227,20 @@ impl<'a> ExecContext<'a> {
         });
     }
 
-    /// Push a text node.
-    pub fn push_text(&mut self, text: impl Into<String>) {
-        let node = self.make_text_node(text.into());
-        self.push(node);
+    /// Push text into the context.
+    ///
+    /// The text is split into lines at newlines.
+    pub fn push_text(&mut self, text: &str) {
+        let mut newline = false;
+        for line in text.split_terminator(is_newline) {
+            if newline {
+                self.apply_linebreak();
+            }
+
+            let node = self.make_text_node(line.into());
+            self.push(node);
+            newline = true;
+        }
     }
 
     /// Construct a text node from the given string based on the active text

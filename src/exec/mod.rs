@@ -139,17 +139,17 @@ impl Exec for Value {
     fn exec(&self, ctx: &mut ExecContext) {
         match self {
             Value::None => {}
-            Value::Int(v) => ctx.push_text(pretty(v)),
-            Value::Float(v) => ctx.push_text(pretty(v)),
-            Value::Str(s) => ctx.push_text(s),
-            Value::Template(template) => template.exec(ctx),
+            Value::Int(v) => ctx.push_text(&pretty(v)),
+            Value::Float(v) => ctx.push_text(&pretty(v)),
+            Value::Str(v) => ctx.push_text(v),
+            Value::Template(v) => v.exec(ctx),
             Value::Error => {}
             other => {
                 // For values which can't be shown "naturally", we print
                 // the representation in monospace.
                 let prev = Rc::clone(&ctx.state.font.families);
                 ctx.apply_monospace();
-                ctx.push_text(pretty(other));
+                ctx.push_text(&pretty(other));
                 ctx.state.font.families = prev;
             }
         }
@@ -168,8 +168,8 @@ impl Exec for TemplateNode {
     fn exec(&self, ctx: &mut ExecContext) {
         match self {
             Self::Tree { tree, map } => tree.exec_with_map(ctx, &map),
-            Self::Str(s) => ctx.push_text(s),
-            Self::Func(func) => func.exec(ctx),
+            Self::Str(v) => ctx.push_text(v),
+            Self::Func(v) => v.exec(ctx),
         }
     }
 }

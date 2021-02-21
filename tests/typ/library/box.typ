@@ -11,7 +11,7 @@ Sometimes there is no box.
 // Empty box with fixed width and height.
 #box(width: 6cm, height: 12pt, color: #CB4CED)
 
-// Not visiblem, but creates a gap between the boxes above and below.
+// Not visible, but creates a gap between the boxes above and below.
 #box(width: 2in, color: #ff0000)
 
 // These are in a row!
