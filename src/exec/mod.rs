@@ -103,12 +103,17 @@ impl Exec for NodeRaw {
         let line_spacing = ctx.state.par.line_spacing.resolve(em);
 
         let mut children = vec![];
+        let mut newline = false;
         for line in &self.lines {
+            if newline {
+                children.push(layout::Node::Spacing(NodeSpacing {
+                    amount: line_spacing,
+                    softness: Softness::Soft,
+                }));
+            }
+
             children.push(layout::Node::Text(ctx.make_text_node(line.clone())));
-            children.push(layout::Node::Spacing(NodeSpacing {
-                amount: line_spacing,
-                softness: Softness::Hard,
-            }));
+            newline = true;
         }
 
         if self.block {
