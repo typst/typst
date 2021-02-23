@@ -22,7 +22,7 @@
     Dr. Max Mustermann \
     Ola Nordmann, John Doe
 ]
-#align(right, box([*WiSe 2019/2020* \ Woche 3]))
+#align(right, box[*WiSe 2019/2020* \ Woche 3])
 
 // Adds vertical spacing.
 #v(6mm)
