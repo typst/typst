@@ -4,7 +4,7 @@ const cp = require('child_process')
 function activate(context) {
     let panel = null
 
-    function refreshPanel() {
+    function refreshPanel(stdout, stderr) {
         const uri = vscode.window.activeTextEditor.document.uri
         const { pngPath, refPath } = getPaths(uri)
 
@@ -13,11 +13,15 @@ function activate(context) {
             const pngSrc = panel.webview.asWebviewUri(pngPath)
             const refSrc = panel.webview.asWebviewUri(refPath)
             panel.webview.html = ''
-            panel.webview.html = getWebviewContent(pngSrc, refSrc)
+
+            // Make refresh notable.
+            setTimeout(() => {
+                panel.webview.html = getWebviewContent(pngSrc, refSrc, stdout, stderr)
+            }, 50)
         }
     }
 
-    const openCmd = vscode.commands.registerCommand("ShortcutMenuBar.openTestOutput", () => {
+    const openCmd = vscode.commands.registerCommand("ShortcutMenuBar.testOpen", () => {
         panel = vscode.window.createWebviewPanel(
             'testOutput',
             'Test output',
@@ -25,10 +29,14 @@ function activate(context) {
             {}
         )
 
-        refreshPanel()
+        refreshPanel("", "")
     })
 
-    const refreshCmd = vscode.commands.registerCommand("ShortcutMenuBar.refreshTestOutput", () => {
+    const refreshCmd = vscode.commands.registerCommand("ShortcutMenuBar.testRefresh", () => {
+        refreshPanel("", "")
+    })
+
+    const rerunCmd = vscode.commands.registerCommand("ShortcutMenuBar.testRerun", () => {
         const uri = vscode.window.activeTextEditor.document.uri
         const components = uri.fsPath.split('tests')
         const dir = components[0]
@@ -37,29 +45,27 @@ function activate(context) {
         cp.exec(
             `cargo test --manifest-path ${dir}/Cargo.toml --test typeset ${subPath}`,
             (err, stdout, stderr) => {
-                console.log(stdout)
-                console.log(stderr)
-                refreshPanel()
+                console.log('Ran tests')
+                refreshPanel(stdout, stderr)
             }
         )
     })
 
-    const approveCmd = vscode.commands.registerCommand("ShortcutMenuBar.approveTestOutput", () => {
+    const approveCmd = vscode.commands.registerCommand("ShortcutMenuBar.testApprove", () => {
         const uri = vscode.window.activeTextEditor.document.uri
         const { pngPath, refPath } = getPaths(uri)
 
         vscode.workspace.fs.copy(pngPath, refPath, { overwrite: true }).then(() => {
             console.log('Copied to reference file')
             cp.exec(`oxipng -o max -a ${refPath.fsPath}`, (err, stdout, stderr) => {
-                console.log(stdout)
-                console.log(stderr)
-                refreshPanel()
+                refreshPanel(stdout, stderr)
             })
         })
     })
 
     context.subscriptions.push(openCmd)
     context.subscriptions.push(refreshCmd)
+    context.subscriptions.push(rerunCmd)
     context.subscriptions.push(approveCmd)
 }
 
@@ -75,7 +81,7 @@ function getPaths(uri) {
     return { pngPath, refPath }
 }
 
-function getWebviewContent(pngSrc, refSrc) {
+function getWebviewContent(pngSrc, refSrc, stdout, stderr) {
     return `
     <!DOCTYPE html>
     <html lang="en">
@@ -95,6 +101,9 @@ function getWebviewContent(pngSrc, refSrc) {
             max-height: 40vh;
             object-fit: contain;
         }
+        pre {
+            font-family: var(--vscode-editor-font-family);
+        }
         </style>
     </head>
     <body>
@@ -103,6 +112,12 @@ function getWebviewContent(pngSrc, refSrc) {
 
         <h1>Reference image</h1>
         <img src="${refSrc}"/>
+
+        <h1>Standard output</h1>
+        <pre>${stdout}</pre>
+
+        <h1>Standard error</h1>
+        <pre>${stderr}</pre>
     </body>
     </html>
     `
