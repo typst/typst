@@ -118,6 +118,7 @@ impl Eval for Expr {
             Self::Binary(v) => v.eval(ctx),
             Self::Let(v) => v.eval(ctx),
             Self::If(v) => v.eval(ctx),
+            Self::While(v) => v.eval(ctx),
             Self::For(v) => v.eval(ctx),
         }
     }
@@ -403,24 +404,56 @@ impl Eval for ExprIf {
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         let condition = self.condition.eval(ctx);
-
-        if let Value::Bool(boolean) = condition {
-            return if boolean {
+        if let Value::Bool(condition) = condition {
+            if condition {
                 self.if_body.eval(ctx)
             } else if let Some(expr) = &self.else_body {
                 expr.eval(ctx)
             } else {
                 Value::None
-            };
-        } else if condition != Value::Error {
-            ctx.diag(error!(
-                self.condition.span(),
-                "expected boolean, found {}",
-                condition.type_name(),
-            ));
+            }
+        } else {
+            if condition != Value::Error {
+                ctx.diag(error!(
+                    self.condition.span(),
+                    "expected boolean, found {}",
+                    condition.type_name(),
+                ));
+            }
+            Value::Error
         }
+    }
+}
 
-        Value::Error
+impl Eval for ExprWhile {
+    type Output = Value;
+
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        let mut output = vec![];
+        loop {
+            let condition = self.condition.eval(ctx);
+            if let Value::Bool(condition) = condition {
+                if condition {
+                    match self.body.eval(ctx) {
+                        Value::Template(v) => output.extend(v),
+                        Value::Str(v) => output.push(TemplateNode::Str(v)),
+                        Value::Error => return Value::Error,
+                        _ => {}
+                    }
+                } else {
+                    return Value::Template(output);
+                }
+            } else {
+                if condition != Value::Error {
+                    ctx.diag(error!(
+                        self.condition.span(),
+                        "expected boolean, found {}",
+                        condition.type_name(),
+                    ));
+                }
+                return Value::Error;
+            }
+        }
     }
 }
 
@@ -438,7 +471,8 @@ impl Eval for ExprFor {
                     $(ctx.scopes.def_mut($binding.as_str(), $value);)*
 
                     match self.body.eval(ctx) {
-                        Value::Template(new) => output.extend(new),
+                        Value::Template(v) => output.extend(v),
+                        Value::Str(v) => output.push(TemplateNode::Str(v)),
                         Value::Error => {
                             ctx.scopes.pop();
                             return Value::Error;

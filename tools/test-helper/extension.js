@@ -92,9 +92,9 @@ function getWebviewContent(pngSrc, refSrc, stdout, stderr) {
         <style>
         body, html {
             width: 100%;
-            text-align: center;
             margin: 0;
             padding: 0;
+            text-align: center;
         }
         img {
             width: 80%;
@@ -102,7 +102,10 @@ function getWebviewContent(pngSrc, refSrc, stdout, stderr) {
             object-fit: contain;
         }
         pre {
+            display: inline-block;
             font-family: var(--vscode-editor-font-family);
+            text-align: left;
+            width: 80%;
         }
         </style>
     </head>

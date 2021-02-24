@@ -71,7 +71,7 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
         Token::UnicodeEscape(t) => Node::Text(unicode_escape(p, t)),
 
         // Hashtag + keyword / identifier.
-        Token::Ident(_) | Token::Let | Token::If | Token::For => {
+        Token::Ident(_) | Token::Let | Token::If | Token::While | Token::For => {
             *at_start = false;
             let stmt = token == Token::Let;
             let group = if stmt { Group::Stmt } else { Group::Expr };
@@ -191,6 +191,7 @@ fn primary(p: &mut Parser) -> Option<Expr> {
         // Keywords.
         Some(Token::Let) => expr_let(p),
         Some(Token::If) => expr_if(p),
+        Some(Token::While) => expr_while(p),
         Some(Token::For) => expr_for(p),
 
         // Structures.
@@ -380,6 +381,25 @@ fn expr_if(p: &mut Parser) -> Option<Expr> {
     }
 
     expr_if
+}
+
+/// Parse a while expresion.
+fn expr_while(p: &mut Parser) -> Option<Expr> {
+    let start = p.start();
+    p.assert(Token::While);
+
+    let mut expr_while = None;
+    if let Some(condition) = expr(p) {
+        if let Some(body) = body(p) {
+            expr_while = Some(Expr::While(ExprWhile {
+                span: p.span(start),
+                condition: Box::new(condition),
+                body: Box::new(body),
+            }));
+        }
+    }
+
+    expr_while
 }
 
 /// Parse a for expression.

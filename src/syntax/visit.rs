@@ -61,6 +61,7 @@ visit! {
             Expr::Call(e) => v.visit_call(e),
             Expr::Let(e) => v.visit_let(e),
             Expr::If(e) => v.visit_if(e),
+            Expr::While(e) => v.visit_while(e),
             Expr::For(e) => v.visit_for(e),
         }
     }
@@ -130,6 +131,11 @@ visit! {
         if let Some(body) = &node.else_body {
             v.visit_expr(&body);
         }
+    }
+
+    fn visit_while(v, node: &ExprWhile) {
+        v.visit_expr(&node.condition);
+        v.visit_expr(&node.body);
     }
 
     fn visit_for(v, node: &ExprFor) {

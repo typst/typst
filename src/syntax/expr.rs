@@ -19,19 +19,21 @@ pub enum Expr {
     Template(ExprTemplate),
     /// A grouped expression: `(1 + 2)`.
     Group(ExprGroup),
-    /// A block expression: `{ #let x = 1; x + 2 }`.
+    /// A block expression: `{ let x = 1; x + 2 }`.
     Block(ExprBlock),
     /// A unary operation: `-x`.
     Unary(ExprUnary),
     /// A binary operation: `a + b`.
     Binary(ExprBinary),
-    /// An invocation of a function: `foo(...)`, `#[foo ...]`.
+    /// An invocation of a function: `foo(...)`.
     Call(ExprCall),
-    /// A let expression: `#let x = 1`.
+    /// A let expression: `let x = 1`.
     Let(ExprLet),
-    /// An if expression: `#if x { y } #else { z }`.
+    /// An if expression: `if x { y } else { z }`.
     If(ExprIf),
-    /// A for expression: `#for x #in y { z }`.
+    /// A while expression: `while x { y }`.
+    While(ExprWhile),
+    /// A for expression: `for x in y { z }`.
     For(ExprFor),
 }
 
@@ -51,6 +53,7 @@ impl Expr {
             Self::Call(v) => v.span,
             Self::Let(v) => v.span,
             Self::If(v) => v.span,
+            Self::While(v) => v.span,
             Self::For(v) => v.span,
         }
     }
@@ -62,6 +65,7 @@ impl Expr {
             | Expr::Call(_)
             | Expr::Let(_)
             | Expr::If(_)
+            | Expr::While(_)
             | Expr::For(_)
         )
     }
@@ -154,7 +158,7 @@ pub struct ExprGroup {
     pub expr: Box<Expr>,
 }
 
-/// A block expression: `{ #let x = 1; x + 2 }`.
+/// A block expression: `{ let x = 1; x + 2 }`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprBlock {
     /// The source code location.
@@ -365,7 +369,7 @@ pub enum Associativity {
     Right,
 }
 
-/// An invocation of a function: `foo(...)`, `#[foo ...]`.
+/// An invocation of a function: `foo(...)`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprCall {
     /// The source code location.
@@ -407,7 +411,7 @@ impl ExprArg {
     }
 }
 
-/// A let expression: `#let x = 1`.
+/// A let expression: `let x = 1`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprLet {
     /// The source code location.
@@ -418,7 +422,7 @@ pub struct ExprLet {
     pub init: Option<Box<Expr>>,
 }
 
-/// An if expression: `#if x { y } #else { z }`.
+/// An if expression: `if x { y } else { z }`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprIf {
     /// The source code location.
@@ -431,7 +435,18 @@ pub struct ExprIf {
     pub else_body: Option<Box<Expr>>,
 }
 
-/// A for expression: `#for x #in y { z }`.
+/// A while expression: `while x { y }`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprWhile {
+    /// The source code location.
+    pub span: Span,
+    /// The condition which selects whether to evaluate the body.
+    pub condition: Box<Expr>,
+    /// The expression to evaluate while the condition is true.
+    pub body: Box<Expr>,
+}
+
+/// A for expression: `for x in y { z }`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprFor {
     /// The source code location.
@@ -447,9 +462,9 @@ pub struct ExprFor {
 /// A pattern in a for loop.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ForPattern {
-    /// A value pattern: `#for v #in array`.
+    /// A value pattern: `for v in array`.
     Value(Ident),
-    /// A key-value pattern: `#for k, v #in dict`.
+    /// A key-value pattern: `for k, v in dict`.
     KeyValue(Ident, Ident),
 }
 

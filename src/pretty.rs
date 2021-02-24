@@ -221,6 +221,7 @@ impl Pretty for Expr {
             Self::Call(v) => v.pretty(p),
             Self::Let(v) => v.pretty(p),
             Self::If(v) => v.pretty(p),
+            Self::While(v) => v.pretty(p),
             Self::For(v) => v.pretty(p),
         }
     }
@@ -410,6 +411,15 @@ impl Pretty for ExprIf {
             p.push_str(" else ");
             expr.pretty(p);
         }
+    }
+}
+
+impl Pretty for ExprWhile {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("while ");
+        self.condition.pretty(p);
+        p.push(' ');
+        self.body.pretty(p);
     }
 }
 
@@ -718,9 +728,10 @@ mod tests {
 
         // Keywords.
         roundtrip("#let x = 1 + 2");
+        test_parse("#if x [y] #else [z]", "#if x [y] else [z]");
+        roundtrip("#while x {y}");
         roundtrip("#for x in y {z}");
         roundtrip("#for k, x in y {z}");
-        test_parse("#if x [y] #else [z]", "#if x [y] else [z]");
     }
 
     #[test]

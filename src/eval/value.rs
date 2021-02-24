@@ -586,7 +586,11 @@ primitive! { Color: "color", Value::Color }
 primitive! { String: "string", Value::Str }
 primitive! { ValueArray: "array", Value::Array }
 primitive! { ValueDict: "dictionary", Value::Dict }
-primitive! { ValueTemplate: "template", Value::Template }
+primitive! {
+    ValueTemplate: "template",
+    Value::Template,
+    Value::Str(v) => vec![TemplateNode::Str(v)],
+}
 primitive! { ValueFunc: "function", Value::Func }
 primitive! { ValueArgs: "arguments", Value::Args }
 

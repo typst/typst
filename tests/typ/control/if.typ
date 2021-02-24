@@ -3,35 +3,61 @@
 ---
 // Test condition evaluation.
 #if 1 < 2 [
-    Ok.
+    One.
 ]
 
 #if true == false [
-    Bad, but we {dont-care}!
+    {Bad}, but we {dont-care}!
 ]
 
 ---
-// Brace in condition.
+// Braced condition.
 #if {true} [
-    Ok.
+    One.
+]
+
+// Template in condition.
+#if [] != none [
+    Two.
 ]
 
 // Multi-line condition with parens.
 #if (
     1 + 1
       == 1
-) {
-    nope
-} #else {
-    "Ok."
+) [
+    Nope.
+] #else {
+    "Three."
 }
 
 // Multiline.
 #if false [
     Bad.
 ] #else {
-    let pt = "."
-    "Ok" + pt
+    let point = "."
+    "Four" + point
+}
+
+---
+// Value of if expressions.
+// Ref: false
+{
+    let x = 1
+    let y = 2
+    let z
+
+    // Returns if branch.
+    z = if x < y { "ok" }
+    test(z, "ok")
+
+    // Returns else branch.
+    z = if x > y { "bad" } else { "ok" }
+    test(z, "ok")
+
+    // Missing else evaluates to none.
+    z = if x > y { "bad" }
+    test(z, none)
 }
 
 ---
