@@ -462,7 +462,7 @@ impl Eval for ExprFor {
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         macro_rules! iter {
-            (for ($($binding:ident => $value:ident),*) in $iter:expr) => {
+            (for ($($binding:ident => $value:ident),*) in $iter:expr) => {{
                 let mut output = vec![];
                 ctx.scopes.push();
 
@@ -482,42 +482,43 @@ impl Eval for ExprFor {
                 }
 
                 ctx.scopes.pop();
-                return Value::Template(output);
-            };
+                Value::Template(output)
+            }};
         }
 
         let iter = self.iter.eval(ctx);
         match (self.pattern.clone(), iter) {
             (ForPattern::Value(v), Value::Str(string)) => {
-                iter!(for (v => value) in string.chars().map(|c| Value::Str(c.into())));
+                iter!(for (v => value) in string.chars().map(|c| Value::Str(c.into())))
             }
             (ForPattern::Value(v), Value::Array(array)) => {
-                iter!(for (v => value) in array.into_iter());
+                iter!(for (v => value) in array.into_iter())
             }
             (ForPattern::KeyValue(i, v), Value::Array(array)) => {
-                iter!(for (i => idx, v => value) in array.into_iter().enumerate());
+                iter!(for (i => idx, v => value) in array.into_iter().enumerate())
             }
             (ForPattern::Value(v), Value::Dict(dict)) => {
-                iter!(for (v => value) in dict.into_iter().map(|p| p.1));
+                iter!(for (v => value) in dict.into_iter().map(|p| p.1))
             }
             (ForPattern::KeyValue(k, v), Value::Dict(dict)) => {
-                iter!(for (k => key, v => value) in dict.into_iter());
+                iter!(for (k => key, v => value) in dict.into_iter())
             }
 
             (ForPattern::KeyValue(_, _), Value::Str(_)) => {
                 ctx.diag(error!(self.pattern.span(), "mismatched pattern"));
+                Value::Error
             }
 
-            (_, Value::Error) => {}
             (_, iter) => {
-                ctx.diag(error!(
-                    self.iter.span(),
-                    "cannot loop over {}",
-                    iter.type_name(),
-                ));
+                if iter != Value::Error {
+                    ctx.diag(error!(
+                        self.iter.span(),
+                        "cannot loop over {}",
+                        iter.type_name(),
+                    ));
+                }
+                Value::Error
             }
         }
-
-        Value::Error
     }
 }
