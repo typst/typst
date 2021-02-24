@@ -735,7 +735,7 @@ mod tests {
         // Simple values.
         test_value(Value::None, "none");
         test_value(false, "false");
-        test_value(12, "12");
+        test_value(12i64, "12");
         test_value(3.14, "3.14");
         test_value(Length::pt(5.5), "5.5pt");
         test_value(Angle::deg(90.0), "90.0deg");

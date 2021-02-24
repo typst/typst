@@ -460,6 +460,9 @@ impl Eval for ExprFor {
             (ForPattern::Value(v), Value::Array(array)) => {
                 iter!(for (v => value) in array.into_iter());
             }
+            (ForPattern::KeyValue(i, v), Value::Array(array)) => {
+                iter!(for (i => idx, v => value) in array.into_iter().enumerate());
+            }
             (ForPattern::Value(v), Value::Dict(dict)) => {
                 iter!(for (v => value) in dict.into_iter().map(|p| p.1));
             }
@@ -467,8 +470,7 @@ impl Eval for ExprFor {
                 iter!(for (k => key, v => value) in dict.into_iter());
             }
 
-            (ForPattern::KeyValue(_, _), Value::Str(_))
-            | (ForPattern::KeyValue(_, _), Value::Array(_)) => {
+            (ForPattern::KeyValue(_, _), Value::Str(_)) => {
                 ctx.diag(error!(self.pattern.span(), "mismatched pattern"));
             }
 

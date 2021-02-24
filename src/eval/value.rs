@@ -590,6 +590,12 @@ primitive! { ValueTemplate: "template", Value::Template }
 primitive! { ValueFunc: "function", Value::Func }
 primitive! { ValueArgs: "arguments", Value::Args }
 
+impl From<usize> for Value {
+    fn from(v: usize) -> Self {
+        Self::Int(v as i64)
+    }
+}
+
 impl From<&str> for Value {
     fn from(v: &str) -> Self {
         Self::Str(v.to_string())
