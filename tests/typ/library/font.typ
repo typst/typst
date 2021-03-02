@@ -1,11 +1,9 @@
 // Test configuring font properties.
 
-#font("PT Sans", 10pt)
-
 // Set same font size in three different ways.
-#font(20pt)[A]
+#font(22pt)[A]
 #font(200%)[A]
-#font(15pt + 50%)[A]
+#font(16.5pt + 50%)[A]
 
 // Do nothing.
 #font[Normal]
@@ -18,6 +16,20 @@
 
 // Set stretch (not available, matching closest).
 #font(stretch: ultra-condensed)[Condensed]
+
+// Set family.
+#font("PT Sans")[Sans serif]
+
+// Emoji.
+Emoji: 🐪, 🌋, 🏞
+
+// Math.
+#font("Latin Modern Math")[
+    ∫ 𝛼 + 3𝛽 d𝑡
+]
+
+---
+// Ref: false
 
 // Error: 7-12 unexpected argument
 #font(false)
@@ -32,25 +44,3 @@
 
 // Error: 7-27 unexpected argument
 #font(something: "invalid")
-
----
-// Test font fallback and class definitions.
-
-// Source Sans Pro + Segoe UI Emoji.
-Emoji: 🏀
-
-// CMU Serif + Noto Emoji.
-#font("CMU Serif", "Noto Emoji")[
-    Emoji: 🏀
-]
-
-// Class definitions.
-#font(serif: ("CMU Serif", "Latin Modern Math", "Noto Emoji"))
-#font(serif)[
-    Math: ∫ α + β ➗ 3
-]
-
-// Class definition reused.
-#font(sans-serif: "Noto Emoji")
-#font(sans-serif: ("Archivo", sans-serif))
-New sans-serif. 🚀

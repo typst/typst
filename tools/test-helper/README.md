@@ -9,11 +9,3 @@ the `tests` folder.
 - Rerun: Re-runs the test.
 - Approve: Copies the output into the reference folder and optimizes
   it with `oxipng`.
-
-# License
-The images used for the commands are slightly modified versions of emojis from
-the [Twemoji] emoji set by Twitter, Inc. and other contributors, which is
-licensed under [CC-BY 4.0][cc40].
-
-[Twemoji]: https://twemoji.twitter.com/
-[cc40]: https://creativecommons.org/licenses/by/4.0/

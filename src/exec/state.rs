@@ -12,11 +12,11 @@ use crate::paper::{Paper, PaperClass, PAPER_A4};
 #[derive(Debug, Clone, PartialEq)]
 pub struct State {
     /// The current page settings.
-    pub page: PageSettings,
+    pub page: PageState,
     /// The current paragraph settings.
-    pub par: ParSettings,
+    pub par: ParState,
     /// The current font settings.
-    pub font: FontSettings,
+    pub font: FontState,
     /// The current layouting directions.
     pub dirs: LayoutDirs,
     /// The current alignments of an item in its parent.
@@ -26,9 +26,9 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
-            page: PageSettings::default(),
-            par: ParSettings::default(),
-            font: FontSettings::default(),
+            page: PageState::default(),
+            par: ParState::default(),
+            font: FontState::default(),
             dirs: LayoutDirs::new(Dir::TTB, Dir::LTR),
             align: ChildAlign::new(Align::Start, Align::Start),
         }
@@ -37,7 +37,7 @@ impl Default for State {
 
 /// Defines page properties.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct PageSettings {
+pub struct PageState {
     /// The class of this page.
     pub class: PaperClass,
     /// The width and height of the page.
@@ -49,7 +49,7 @@ pub struct PageSettings {
     pub margins: Sides<Option<Linear>>,
 }
 
-impl PageSettings {
+impl PageState {
     /// The default page style for the given paper.
     pub fn new(paper: Paper) -> Self {
         Self {
@@ -72,7 +72,7 @@ impl PageSettings {
     }
 }
 
-impl Default for PageSettings {
+impl Default for PageState {
     fn default() -> Self {
         Self::new(PAPER_A4)
     }
@@ -80,7 +80,7 @@ impl Default for PageSettings {
 
 /// Defines paragraph properties.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct ParSettings {
+pub struct ParState {
     /// The spacing between words (dependent on scaled font size).
     pub word_spacing: Linear,
     /// The spacing between lines (dependent on scaled font size).
@@ -89,7 +89,7 @@ pub struct ParSettings {
     pub par_spacing: Linear,
 }
 
-impl Default for ParSettings {
+impl Default for ParState {
     fn default() -> Self {
         Self {
             word_spacing: Relative::new(0.25).into(),
@@ -101,7 +101,7 @@ impl Default for ParSettings {
 
 /// Defines font properties.
 #[derive(Debug, Clone, PartialEq)]
-pub struct FontSettings {
+pub struct FontState {
     /// A tree of font family names and generic class names.
     pub families: Rc<FallbackTree>,
     /// The selected font variant.
@@ -118,7 +118,7 @@ pub struct FontSettings {
     pub emph: bool,
 }
 
-impl FontSettings {
+impl FontState {
     /// Access the `families` mutably.
     pub fn families_mut(&mut self) -> &mut FallbackTree {
         Rc::make_mut(&mut self.families)
@@ -130,24 +130,14 @@ impl FontSettings {
     }
 }
 
-impl Default for FontSettings {
+impl Default for FontState {
     fn default() -> Self {
         Self {
             /// The default tree of font fallbacks.
             families: Rc::new(fallback! {
-                list: ["sans-serif"],
-                classes: {
-                    "serif"      => ["source serif pro", "noto serif"],
-                    "sans-serif" => ["source sans pro", "noto sans"],
-                    "monospace"  => ["source code pro", "noto sans mono"],
-                },
-                base: [
-                    "source sans pro",
-                    "noto sans",
-                    "segoe ui emoji",
-                    "noto emoji",
-                    "latin modern math",
-                ],
+                list: [],
+                classes: { "monospace"  => ["inconsolata"] },
+                base: ["eb garamond", "twitter color emoji"],
             }),
             variant: FontVariant {
                 style: FontStyle::Normal,
