@@ -1,6 +1,5 @@
 //! Parsing and tokenization.
 
-mod collection;
 mod lines;
 mod parser;
 mod resolve;
@@ -17,7 +16,6 @@ use std::rc::Rc;
 
 use crate::diag::Pass;
 use crate::syntax::*;
-use collection::{args, parenthesized};
 
 /// Parse a string of source code.
 pub fn parse(src: &str) -> Pass<Tree> {
@@ -188,16 +186,16 @@ fn primary(p: &mut Parser) -> Option<Expr> {
             }
         }
 
+        // Structures.
+        Some(Token::LeftParen) => Some(parenthesized(p)),
+        Some(Token::LeftBracket) => Some(template(p)),
+        Some(Token::LeftBrace) => Some(block(p, true)),
+
         // Keywords.
         Some(Token::Let) => expr_let(p),
         Some(Token::If) => expr_if(p),
         Some(Token::While) => expr_while(p),
         Some(Token::For) => expr_for(p),
-
-        // Structures.
-        Some(Token::LeftBrace) => Some(block(p, true)),
-        Some(Token::LeftBracket) => Some(template(p)),
-        Some(Token::LeftParen) => Some(parenthesized(p)),
 
         // Nothing.
         _ => {
@@ -228,6 +226,109 @@ fn literal(p: &mut Parser) -> Option<Expr> {
         _ => return None,
     };
     Some(Expr::Lit(Lit { span: p.eat_span(), kind }))
+}
+
+/// Parse a parenthesized expression, which can be either of:
+/// - Array literal
+/// - Dictionary literal
+/// - Parenthesized expression
+pub fn parenthesized(p: &mut Parser) -> Expr {
+    p.start_group(Group::Paren, TokenMode::Code);
+    let colon = p.eat_if(Token::Colon);
+    let (items, has_comma) = collection(p);
+    let span = p.end_group();
+
+    if colon {
+        // Leading colon makes this a dictionary.
+        return dict(p, items, span);
+    }
+
+    // Find out which kind of collection this is.
+    match items.as_slice() {
+        [] => array(p, items, span),
+        [ExprArg::Pos(_)] if !has_comma => match items.into_iter().next() {
+            Some(ExprArg::Pos(expr)) => {
+                Expr::Group(ExprGroup { span, expr: Box::new(expr) })
+            }
+            _ => unreachable!(),
+        },
+        [ExprArg::Pos(_), ..] => array(p, items, span),
+        [ExprArg::Named(_), ..] => dict(p, items, span),
+    }
+}
+
+/// Parse a collection.
+///
+/// Returns whether the literal contained any commas.
+fn collection(p: &mut Parser) -> (Vec<ExprArg>, bool) {
+    let mut items = vec![];
+    let mut has_comma = false;
+    let mut missing_coma = None;
+
+    while !p.eof() {
+        if let Some(arg) = item(p) {
+            items.push(arg);
+
+            if let Some(pos) = missing_coma.take() {
+                p.expected_at("comma", pos);
+            }
+
+            if p.eof() {
+                break;
+            }
+
+            let behind = p.end();
+            if p.eat_if(Token::Comma) {
+                has_comma = true;
+            } else {
+                missing_coma = Some(behind);
+            }
+        }
+    }
+
+    (items, has_comma)
+}
+
+/// Parse an expression or a named pair.
+fn item(p: &mut Parser) -> Option<ExprArg> {
+    let first = expr(p)?;
+    if p.eat_if(Token::Colon) {
+        if let Expr::Ident(name) = first {
+            Some(ExprArg::Named(Named { name, expr: expr(p)? }))
+        } else {
+            p.diag(error!(first.span(), "expected identifier"));
+            expr(p);
+            None
+        }
+    } else {
+        Some(ExprArg::Pos(first))
+    }
+}
+
+/// Convert a collection into an array, producing errors for named items.
+fn array(p: &mut Parser, items: Vec<ExprArg>, span: Span) -> Expr {
+    let items = items.into_iter().filter_map(|item| match item {
+        ExprArg::Pos(expr) => Some(expr),
+        ExprArg::Named(_) => {
+            p.diag(error!(item.span(), "expected expression, found named pair"));
+            None
+        }
+    });
+
+    Expr::Array(ExprArray { span, items: items.collect() })
+}
+
+/// Convert a collection into a dictionary, producing errors for expressions.
+fn dict(p: &mut Parser, items: Vec<ExprArg>, span: Span) -> Expr {
+    let items = items.into_iter().filter_map(|item| match item {
+        ExprArg::Named(named) => Some(named),
+        ExprArg::Pos(_) => {
+            p.diag(error!(item.span(), "expected named pair, found expression"));
+            None
+        }
+    });
+
+    Expr::Dict(ExprDict { span, items: items.collect() })
 }
 
 // Parse a template value: `[...]`.
@@ -328,6 +429,13 @@ fn call(p: &mut Parser, name: Ident) -> Expr {
         callee: Box::new(Expr::Ident(name)),
         args,
     })
+}
+
+/// Parse the arguments to a function call.
+fn args(p: &mut Parser) -> ExprArgs {
+    let start = p.start();
+    let items = collection(p).0;
+    ExprArgs { span: p.span(start), items }
 }
 
 /// Parse a let expression.
