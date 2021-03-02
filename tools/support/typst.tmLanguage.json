@@ -197,7 +197,7 @@
           "comment": "Function arguments",
           "begin": "(?<=#[[:alpha:]_][[:alnum:]_-]*)\\(",
           "end": "\\)",
-          "captures": { "3": { "name": "punctuation.definition.group.typst" } },
+          "captures": { "0": { "name": "punctuation.definition.group.typst" } },
           "patterns": [{ "include": "#arguments" }]
         },
         {
@@ -210,13 +210,6 @@
     "code": {
       "patterns": [
         { "include": "#common" },
-        {
-          "name": "meta.group.typst",
-          "begin": "\\(",
-          "end": "\\)|(?=;)",
-          "captures": { "0": { "name": "punctuation.definition.group.typst" } },
-          "patterns": [{ "include": "#code" }]
-        },
         {
           "name": "punctuation.separator.colon.typst",
           "match": ":"
@@ -269,6 +262,13 @@
         {
           "name": "variable.other.typst",
           "match": "\\b[[:alpha:]_][[:alnum:]_-]*\\b"
+        },
+        {
+          "name": "meta.group.typst",
+          "begin": "\\(",
+          "end": "\\)|(?=;)",
+          "captures": { "0": { "name": "punctuation.definition.group.typst" } },
+          "patterns": [{ "include": "#code" }]
         }
       ]
     },
