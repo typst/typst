@@ -42,7 +42,7 @@ impl Relative {
 
 impl Display for Relative {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}%", ryu::Buffer::new().format(100.0 * self.0))
+        write!(f, "{}%", 100.0 * self.0)
     }
 }
 

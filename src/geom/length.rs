@@ -108,14 +108,13 @@ impl Display for Length {
 
         // Format with the unit that yields the shortest output, preferring
         // larger / metric units when tied.
-        let mut buf = ryu::Buffer::new();
         let unit = [Cm, Mm, In, Pt]
             .iter()
             .copied()
-            .min_by_key(|&unit| buf.format(self.to_unit(unit)).len())
+            .min_by_key(|&unit| self.to_unit(unit).to_string().len())
             .unwrap();
 
-        write!(f, "{}{}", buf.format(self.to_unit(unit)), unit)
+        write!(f, "{}{}", self.to_unit(unit), unit)
     }
 }
 
@@ -239,9 +238,9 @@ mod tests {
 
     #[test]
     fn test_length_formatting() {
-        assert_eq!(Length::pt(23.0).to_string(), "23.0pt");
-        assert_eq!(Length::pt(-28.3465).to_string(), "-1.0cm");
+        assert_eq!(Length::pt(23.0).to_string(), "23pt");
+        assert_eq!(Length::pt(-28.3465).to_string(), "-1cm");
         assert_eq!(Length::cm(12.728).to_string(), "12.728cm");
-        assert_eq!(Length::cm(4.5).to_string(), "4.5cm");
+        assert_eq!(Length::cm(4.5).to_string(), "45mm");
     }
 }

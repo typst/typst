@@ -58,14 +58,13 @@ impl Display for Angle {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         // Format with the unit that yields the shortest output, preferring
         // degrees when tied.
-        let mut buf = ryu::Buffer::new();
         let unit = [AngularUnit::Deg, AngularUnit::Rad]
             .iter()
             .copied()
-            .min_by_key(|&unit| buf.format(self.to_unit(unit)).len())
+            .min_by_key(|&unit| self.to_unit(unit).to_string().len())
             .unwrap();
 
-        write!(f, "{}{}", buf.format(self.to_unit(unit)), unit)
+        write!(f, "{}{}", self.to_unit(unit), unit)
     }
 }
 

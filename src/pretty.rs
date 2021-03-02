@@ -240,15 +240,9 @@ impl Pretty for LitKind {
             Self::Bool(v) => v.pretty(p),
             Self::Int(v) => v.pretty(p),
             Self::Float(v) => v.pretty(p),
-            Self::Length(v, u) => {
-                write!(p, "{}{}", ryu::Buffer::new().format(*v), u).unwrap();
-            }
-            Self::Angle(v, u) => {
-                write!(p, "{}{}", ryu::Buffer::new().format(*v), u).unwrap();
-            }
-            Self::Percent(v) => {
-                write!(p, "{}%", ryu::Buffer::new().format(*v)).unwrap();
-            }
+            Self::Length(v, u) => write!(p, "{}{}", v, u).unwrap(),
+            Self::Angle(v, u) => write!(p, "{}{}", v, u).unwrap(),
+            Self::Percent(v) => write!(p, "{}%", v).unwrap(),
             Self::Color(v) => v.pretty(p),
             Self::Str(v) => v.pretty(p),
         }
@@ -561,13 +555,13 @@ impl Pretty for ValueArg {
 
 impl Pretty for i64 {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str(itoa::Buffer::new().format(*self));
+        write!(p, "{}", self).unwrap();
     }
 }
 
 impl Pretty for f64 {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str(ryu::Buffer::new().format(*self));
+        write!(p, "{}", self).unwrap();
     }
 }
 
@@ -681,9 +675,9 @@ mod tests {
         roundtrip("{true}");
         roundtrip("{10}");
         roundtrip("{3.14}");
-        roundtrip("{10.0pt}");
+        roundtrip("{10pt}");
         roundtrip("{14.1deg}");
-        roundtrip("{20.0%}");
+        roundtrip("{20%}");
         roundtrip("{#abcdef}");
         roundtrip(r#"{"hi"}"#);
         test_parse(r#"{"let's \" go"}"#, r#"{"let's \" go"}"#);
@@ -749,9 +743,9 @@ mod tests {
         test_value(12i64, "12");
         test_value(3.14, "3.14");
         test_value(Length::pt(5.5), "5.5pt");
-        test_value(Angle::deg(90.0), "90.0deg");
-        test_value(Relative::ONE / 2.0, "50.0%");
-        test_value(Relative::new(0.3) + Length::cm(2.0), "30.0% + 2.0cm");
+        test_value(Angle::deg(90.0), "90deg");
+        test_value(Relative::ONE / 2.0, "50%");
+        test_value(Relative::new(0.3) + Length::cm(2.0), "30% + 2cm");
         test_value(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
         test_value("hello", r#""hello""#);
         test_value("\n", r#""\n""#);
