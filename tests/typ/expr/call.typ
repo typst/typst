@@ -54,7 +54,6 @@
 
 ---
 // Different forms of template arguments.
-// Ref: true
 
 #let a = "a"
 

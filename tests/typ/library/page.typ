@@ -1,3 +1,6 @@
+// Test the page function.
+
+---
 // Test configuring page sizes and margins.
 
 // Set width and height.

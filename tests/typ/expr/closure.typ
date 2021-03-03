@@ -1,7 +1,7 @@
 // Test closures.
+// Ref: false
 
 ---
-// Ref: false
 
 // Basic closure without captures.
 {
@@ -45,8 +45,6 @@
 }
 
 ---
-// Ref: false
-
 // Too few arguments.
 {
     let types(x, y) = "[" + type(x) + ", " + type(y) + "]"

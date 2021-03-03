@@ -1,3 +1,6 @@
+// Test the font function.
+
+---
 // Test configuring font properties.
 
 // Set same font size in three different ways.

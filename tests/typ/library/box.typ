@@ -1,3 +1,6 @@
+// Test the box function.
+
+---
 #page("a7", flip: true)
 
 // Box with fixed width, should have text height.

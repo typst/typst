@@ -1,3 +1,6 @@
+// Test the image function.
+
+---
 // Test loading different image formats.
 
 // Load an RGBA PNG image.
