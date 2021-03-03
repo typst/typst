@@ -75,7 +75,7 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
             let group = if stmt { Group::Stmt } else { Group::Expr };
 
             p.start_group(group, TokenMode::Code);
-            let expr = primary(p);
+            let expr = expr_with(p, true, 0);
             if stmt && expr.is_some() && !p.eof() {
                 p.expected_at("semicolon or line break", p.end());
             }
@@ -166,8 +166,73 @@ fn unicode_escape(p: &mut Parser, token: TokenUnicodeEscape) -> String {
     text
 }
 
+/// Parse an expression.
+fn expr(p: &mut Parser) -> Option<Expr> {
+    expr_with(p, false, 0)
+}
+
+/// Parse an expression with operators having at least the minimum precedence.
+///
+/// If `atomic` is true, this does not parse binary operations and arrow
+/// functions, which is exactly what we want in a shorthand expression directly
+/// in markup.
+///
+/// Stops parsing at operations with lower precedence than `min_prec`,
+fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) -> Option<Expr> {
+    let start = p.start();
+    let mut lhs = match p.eat_map(UnOp::from_token) {
+        Some(op) => {
+            let prec = op.precedence();
+            let expr = Box::new(expr_with(p, atomic, prec)?);
+            Expr::Unary(ExprUnary { span: p.span(start), op, expr })
+        }
+        None => primary(p, atomic)?,
+    };
+
+    loop {
+        // Parenthesis or bracket means this is a function call.
+        if matches!(
+            p.peek_direct(),
+            Some(Token::LeftParen) | Some(Token::LeftBracket),
+        ) {
+            lhs = call(p, lhs);
+            continue;
+        }
+
+        if atomic {
+            break;
+        }
+
+        let op = match p.peek().and_then(BinOp::from_token) {
+            Some(binop) => binop,
+            None => break,
+        };
+
+        let mut prec = op.precedence();
+        if prec < min_prec {
+            break;
+        }
+
+        p.eat();
+        match op.associativity() {
+            Associativity::Left => prec += 1,
+            Associativity::Right => {}
+        }
+
+        let rhs = match expr_with(p, atomic, prec) {
+            Some(rhs) => Box::new(rhs),
+            None => break,
+        };
+
+        let span = lhs.span().join(rhs.span());
+        lhs = Expr::Binary(ExprBinary { span, lhs: Box::new(lhs), op, rhs });
+    }
+
+    Some(lhs)
+}
+
 /// Parse a primary expression.
-fn primary(p: &mut Parser) -> Option<Expr> {
+fn primary(p: &mut Parser, atomic: bool) -> Option<Expr> {
     if let Some(expr) = literal(p) {
         return Some(expr);
     }
@@ -175,31 +240,23 @@ fn primary(p: &mut Parser) -> Option<Expr> {
     match p.peek() {
         // Things that start with an identifier.
         Some(Token::Ident(string)) => {
-            let ident = Ident {
+            let id = Ident {
                 span: p.eat_span(),
                 string: string.into(),
             };
 
-            // Parenthesis or bracket means this is a function call.
-            if matches!(
-                p.peek_direct(),
-                Some(Token::LeftParen) | Some(Token::LeftBracket),
-            ) {
-                return Some(call(p, ident));
-            }
-
-            // Arrow means this is closure's lone parameter.
-            if p.eat_if(Token::Arrow) {
+            // Arrow means this is a closure's lone parameter.
+            Some(if !atomic && p.eat_if(Token::Arrow) {
                 let body = expr(p)?;
-                return Some(Expr::Closure(ExprClosure {
-                    span: ident.span.join(body.span()),
+                Expr::Closure(ExprClosure {
+                    span: id.span.join(body.span()),
                     name: None,
-                    params: Rc::new(vec![ident]),
+                    params: Rc::new(vec![id]),
                     body: Rc::new(body),
-                }));
-            }
-
-            Some(Expr::Ident(ident))
+                })
+            } else {
+                Expr::Ident(id)
+            })
         }
 
         // Structures.
@@ -260,7 +317,7 @@ pub fn parenthesized(p: &mut Parser) -> Option<Expr> {
         return Some(dict(p, items, span));
     }
 
-    // Arrow means this is closure's parameter list.
+    // Arrow means this is a closure's parameter list.
     if p.eat_if(Token::Arrow) {
         let params = params(p, items);
         let body = expr(p)?;
@@ -400,54 +457,8 @@ fn block(p: &mut Parser, scoping: bool) -> Expr {
     Expr::Block(ExprBlock { span, exprs, scoping })
 }
 
-/// Parse an expression.
-fn expr(p: &mut Parser) -> Option<Expr> {
-    expr_with(p, 0)
-}
-
-/// Parse an expression with operators having at least the minimum precedence.
-fn expr_with(p: &mut Parser, min_prec: usize) -> Option<Expr> {
-    let start = p.start();
-    let mut lhs = match p.eat_map(UnOp::from_token) {
-        Some(op) => {
-            let prec = op.precedence();
-            let expr = Box::new(expr_with(p, prec)?);
-            Expr::Unary(ExprUnary { span: p.span(start), op, expr })
-        }
-        None => primary(p)?,
-    };
-
-    loop {
-        let op = match p.peek().and_then(BinOp::from_token) {
-            Some(binop) => binop,
-            None => break,
-        };
-
-        let mut prec = op.precedence();
-        if prec < min_prec {
-            break;
-        }
-
-        p.eat();
-        match op.associativity() {
-            Associativity::Left => prec += 1,
-            Associativity::Right => {}
-        }
-
-        let rhs = match expr_with(p, prec) {
-            Some(rhs) => Box::new(rhs),
-            None => break,
-        };
-
-        let span = lhs.span().join(rhs.span());
-        lhs = Expr::Binary(ExprBinary { span, lhs: Box::new(lhs), op, rhs });
-    }
-
-    Some(lhs)
-}
-
 /// Parse a function call.
-fn call(p: &mut Parser, name: Ident) -> Expr {
+fn call(p: &mut Parser, callee: Expr) -> Expr {
     let mut args = match p.peek_direct() {
         Some(Token::LeftParen) => {
             p.start_group(Group::Paren, TokenMode::Code);
@@ -456,7 +467,7 @@ fn call(p: &mut Parser, name: Ident) -> Expr {
             args
         }
         _ => ExprArgs {
-            span: Span::at(name.span.end),
+            span: Span::at(callee.span().end),
             items: vec![],
         },
     };
@@ -467,8 +478,8 @@ fn call(p: &mut Parser, name: Ident) -> Expr {
     }
 
     Expr::Call(ExprCall {
-        span: p.span(name.span.start),
-        callee: Box::new(Expr::Ident(name)),
+        span: p.span(callee.span().start),
+        callee: Box::new(callee),
         args,
     })
 }

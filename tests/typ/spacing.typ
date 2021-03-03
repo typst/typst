@@ -12,8 +12,8 @@ A#let x = 3; B #test(x, 3) \
 ---
 // Spacing around if-else.
 
-A#if true[B]C \
-A#if true[B] C \
+A#if true [B]C \
+A#if true [B] C \
 A #if true{"B"}C \
 A #if true{"B"} C \
 A#if false [] #else [B]C \

@@ -726,6 +726,7 @@ mod tests {
 
         // Function calls.
         roundtrip("{v()}");
+        roundtrip("{v()()}");
         roundtrip("{v(1)}");
         roundtrip("{v(a: 1, b)}");
         roundtrip("#v()");
