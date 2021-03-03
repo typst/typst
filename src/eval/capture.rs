@@ -32,7 +32,7 @@ impl<'ast> Visit<'ast> for CapturesVisitor<'_> {
         match node {
             Expr::Ident(ident) => {
                 // Find out whether the identifier is not locally defined, but
-                // captured, and if so, replace it with its value.
+                // captured, and if so, capture its value.
                 if self.internal.get(ident).is_none() {
                     if let Some(slot) = self.external.get(ident) {
                         self.captures.def_slot(ident.as_str(), Rc::clone(slot));

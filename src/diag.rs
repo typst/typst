@@ -83,8 +83,8 @@ impl Display for Level {
 /// # use typst::error;
 /// # use typst::syntax::Span;
 /// # let span = Span::ZERO;
-/// # let name = "";
-/// let error = error!(span, "there is an error with {}", name);
+/// # let thing = "";
+/// let error = error!(span, "there is an error with {}", thing);
 /// ```
 #[macro_export]
 macro_rules! error {
@@ -99,8 +99,7 @@ macro_rules! error {
 
 /// Construct a diagnostic with [`Warning`](Level::Warning) level.
 ///
-/// This works exactly like `error!`. See its documentation for more
-/// information.
+/// This works exactly like [`error!`].
 #[macro_export]
 macro_rules! warning {
     ($span:expr, $($tts:tt)*) => {

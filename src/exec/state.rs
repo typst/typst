@@ -133,7 +133,7 @@ impl FontState {
 impl Default for FontState {
     fn default() -> Self {
         Self {
-            /// The default tree of font fallbacks.
+            // The default tree of font fallbacks.
             families: Rc::new(fallback! {
                 list: [],
                 classes: { "monospace"  => ["inconsolata"] },

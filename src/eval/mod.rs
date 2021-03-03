@@ -32,9 +32,9 @@ pub fn eval(env: &mut Env, tree: &Tree, scope: &Scope) -> Pass<ExprMap> {
 
 /// A map from expressions to the values they evaluated to.
 ///
-/// The raw pointers point into the expressions contained in some [tree](Tree).
+/// The raw pointers point into the expressions contained in some [`Tree`].
 /// Since the lifetime is erased, the tree could go out of scope while the hash
-/// map still lives. Though this could lead to lookup panics, it is not unsafe
+/// map still lives. Although this could lead to lookup panics, it is not unsafe
 /// since the pointers are never dereferenced.
 pub type ExprMap = HashMap<*const Expr, Value>;
 
@@ -84,8 +84,8 @@ impl Eval for Tree {
         }
 
         impl<'ast> Visit<'ast> for ExprVisitor<'_, '_> {
-            fn visit_expr(&mut self, item: &'ast Expr) {
-                self.map.insert(item as *const _, item.eval(self.ctx));
+            fn visit_expr(&mut self, node: &'ast Expr) {
+                self.map.insert(node as *const _, node.eval(self.ctx));
             }
         }
 
@@ -443,8 +443,8 @@ impl Eval for ExprIf {
         if let Value::Bool(condition) = condition {
             if condition {
                 self.if_body.eval(ctx)
-            } else if let Some(expr) = &self.else_body {
-                expr.eval(ctx)
+            } else if let Some(else_body) = &self.else_body {
+                else_body.eval(ctx)
             } else {
                 Value::None
             }

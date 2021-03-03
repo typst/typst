@@ -178,8 +178,8 @@ impl<'a> ExecContext<'a> {
 
     /// Start a layouting group.
     ///
-    /// All further calls to [`push`](Self::push) will collect nodes for this group.
-    /// The given metadata will be returned alongside the collected nodes
+    /// All further calls to [`push`](Self::push) will collect nodes for this
+    /// group. The given metadata will be returned alongside the collected nodes
     /// in a matching call to [`end_group`](Self::end_group).
     fn start_group<T: 'static>(&mut self, meta: T) {
         self.groups.push((Box::new(meta), std::mem::take(&mut self.inner)));

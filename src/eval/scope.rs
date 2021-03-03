@@ -52,14 +52,19 @@ impl<'a> Scopes<'a> {
         self.top = self.scopes.pop().expect("no pushed scope");
     }
 
-    /// Define a constant variable in the active scope.
+    /// Define a constant variable with a value in the active scope.
     pub fn def_const(&mut self, var: impl Into<String>, value: impl Into<Value>) {
         self.top.def_const(var, value);
     }
 
-    /// Define a mutable variable in the active scope.
+    /// Define a mutable variable with a value in the active scope.
     pub fn def_mut(&mut self, var: impl Into<String>, value: impl Into<Value>) {
         self.top.def_mut(var, value);
+    }
+
+    /// Define a variable with a slot in the active scope.
+    pub fn def_slot(&mut self, var: impl Into<String>, slot: Slot) {
+        self.top.def_slot(var, slot);
     }
 
     /// Look up the slot of a variable.
@@ -84,7 +89,7 @@ impl Scope {
         Self::default()
     }
 
-    /// Define a constant variable.
+    /// Define a constant variable with a value.
     pub fn def_const(&mut self, var: impl Into<String>, value: impl Into<Value>) {
         let cell = RefCell::new(value.into());
 
@@ -95,7 +100,7 @@ impl Scope {
         self.values.insert(var.into(), Rc::new(cell));
     }
 
-    /// Define a mutable variable.
+    /// Define a mutable variable with a value.
     pub fn def_mut(&mut self, var: impl Into<String>, value: impl Into<Value>) {
         self.values.insert(var.into(), Rc::new(RefCell::new(value.into())));
     }
