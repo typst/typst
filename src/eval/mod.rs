@@ -401,7 +401,8 @@ impl Eval for ExprClosure {
             visitor.finish()
         };
 
-        Value::Func(ValueFunc::new(None, move |ctx, args| {
+        let name = self.name.as_ref().map(|id| id.to_string());
+        Value::Func(ValueFunc::new(name, move |ctx, args| {
             // Don't leak the scopes from the call site. Instead, we use the
             // scope of captured variables we collected earlier.
             let prev = std::mem::take(&mut ctx.scopes);

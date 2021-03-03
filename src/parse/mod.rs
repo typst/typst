@@ -190,13 +190,13 @@ fn primary(p: &mut Parser) -> Option<Expr> {
 
             // Arrow means this is closure's lone parameter.
             if p.eat_if(Token::Arrow) {
-                return expr(p).map(|body| {
-                    Expr::Closure(ExprClosure {
-                        span: ident.span.join(body.span()),
-                        params: Rc::new(vec![ident]),
-                        body: Rc::new(body),
-                    })
-                });
+                let body = expr(p)?;
+                return Some(Expr::Closure(ExprClosure {
+                    span: ident.span.join(body.span()),
+                    name: None,
+                    params: Rc::new(vec![ident]),
+                    body: Rc::new(body),
+                }));
             }
 
             Some(Expr::Ident(ident))
@@ -263,13 +263,13 @@ pub fn parenthesized(p: &mut Parser) -> Option<Expr> {
     // Arrow means this is closure's parameter list.
     if p.eat_if(Token::Arrow) {
         let params = params(p, items);
-        return expr(p).map(|body| {
-            Expr::Closure(ExprClosure {
-                span: span.join(body.span()),
-                params: Rc::new(params),
-                body: Rc::new(body),
-            })
-        });
+        let body = expr(p)?;
+        return Some(Expr::Closure(ExprClosure {
+            span: span.join(body.span()),
+            name: None,
+            params: Rc::new(params),
+            body: Rc::new(body),
+        }));
     }
 
     // Find out which kind of collection this is.
@@ -509,6 +509,7 @@ fn expr_let(p: &mut Parser) -> Option<Expr> {
             let body = init?;
             init = Some(Expr::Closure(ExprClosure {
                 span: binding.span.join(body.span()),
+                name: Some(binding.clone()),
                 params: Rc::new(params),
                 body: Rc::new(body),
             }));

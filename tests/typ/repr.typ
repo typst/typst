@@ -48,3 +48,11 @@
 ---
 // Templates.
 {[*{"H" + "i"} there*]}
+
+---
+// Functions
+#let f(x) = x
+
+{box} \
+{f} \
+{() => none} \

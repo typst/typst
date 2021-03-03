@@ -27,7 +27,7 @@ pub enum Expr {
     Binary(ExprBinary),
     /// An invocation of a function: `f(x, y)`.
     Call(ExprCall),
-    /// A closure expression: `(x, y) => { z }`.
+    /// A closure expression: `(x, y) => z`.
     Closure(ExprClosure),
     /// A let expression: `let x = 1`.
     Let(ExprLet),
@@ -414,11 +414,15 @@ impl ExprArg {
     }
 }
 
-/// A closure expression: `(x, y) => { z }`.
+/// A closure expression: `(x, y) => z`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprClosure {
     /// The source code location.
     pub span: Span,
+    /// The name of the closure.
+    ///
+    /// This only exists if you use the function syntax sugar: `let f(x) = y`.
+    pub name: Option<Ident>,
     /// The parameter bindings.
     pub params: Rc<Vec<Ident>>,
     /// The body of the closure.
