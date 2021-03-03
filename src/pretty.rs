@@ -219,6 +219,7 @@ impl Pretty for Expr {
             Self::Unary(v) => v.pretty(p),
             Self::Binary(v) => v.pretty(p),
             Self::Call(v) => v.pretty(p),
+            Self::Closure(v) => v.pretty(p),
             Self::Let(v) => v.pretty(p),
             Self::If(v) => v.pretty(p),
             Self::While(v) => v.pretty(p),
@@ -383,6 +384,15 @@ impl Pretty for ExprArg {
     }
 }
 
+impl Pretty for ExprClosure {
+    fn pretty(&self, p: &mut Printer) {
+        p.push('(');
+        p.join(self.params.iter(), ", ", |item, p| item.pretty(p));
+        p.push_str(") => ");
+        self.body.pretty(p);
+    }
+}
+
 impl Pretty for ExprLet {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("let ");
@@ -529,8 +539,11 @@ impl Pretty for TemplateFunc {
 
 impl Pretty for ValueFunc {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str("<function ");
-        p.push_str(self.name());
+        p.push_str("<function");
+        if let Some(name) = self.name() {
+            p.push(' ');
+            p.push_str(name);
+        }
         p.push('>');
     }
 }
@@ -720,8 +733,12 @@ mod tests {
         roundtrip("#v(1, 2)[*Ok*]");
         roundtrip("#v(1, f[2])");
 
+        // Closures.
+        roundtrip("{(a, b) => a + b}");
+
         // Keywords.
         roundtrip("#let x = 1 + 2");
+        test_parse("#let f(x) = y", "#let f = (x) => y");
         test_parse("#if x [y] #else [z]", "#if x [y] else [z]");
         roundtrip("#while x {y}");
         roundtrip("#for x in y {z}");
@@ -777,8 +794,14 @@ mod tests {
             "[*<node example>]",
         );
 
-        // Function and arguments.
-        test_value(ValueFunc::new("nil", |_, _| Value::None), "<function nil>");
+        // Function.
+        test_value(ValueFunc::new(None, |_, _| Value::None), "<function>");
+        test_value(
+            ValueFunc::new(Some("nil".into()), |_, _| Value::None),
+            "<function nil>",
+        );
+
+        // Arguments.
         test_value(
             ValueArgs {
                 span: Span::ZERO,

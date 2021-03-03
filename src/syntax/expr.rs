@@ -25,8 +25,10 @@ pub enum Expr {
     Unary(ExprUnary),
     /// A binary operation: `a + b`.
     Binary(ExprBinary),
-    /// An invocation of a function: `foo(...)`.
+    /// An invocation of a function: `f(x, y)`.
     Call(ExprCall),
+    /// A closure expression: `(x, y) => { z }`.
+    Closure(ExprClosure),
     /// A let expression: `let x = 1`.
     Let(ExprLet),
     /// An if expression: `if x { y } else { z }`.
@@ -51,6 +53,7 @@ impl Expr {
             Self::Unary(v) => v.span,
             Self::Binary(v) => v.span,
             Self::Call(v) => v.span,
+            Self::Closure(v) => v.span,
             Self::Let(v) => v.span,
             Self::If(v) => v.span,
             Self::While(v) => v.span,
@@ -58,7 +61,7 @@ impl Expr {
         }
     }
 
-    /// Whether the expression can be shorten in markup with a hashtag.
+    /// Whether the expression can be shortened in markup with a hashtag.
     pub fn has_short_form(&self) -> bool {
         matches!(self,
             Expr::Ident(_)
@@ -411,6 +414,17 @@ impl ExprArg {
     }
 }
 
+/// A closure expression: `(x, y) => { z }`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprClosure {
+    /// The source code location.
+    pub span: Span,
+    /// The parameter bindings.
+    pub params: Rc<Vec<Ident>>,
+    /// The body of the closure.
+    pub body: Rc<Expr>,
+}
+
 /// A let expression: `let x = 1`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExprLet {
@@ -418,7 +432,7 @@ pub struct ExprLet {
     pub span: Span,
     /// The binding to assign to.
     pub binding: Ident,
-    /// The expression the pattern is initialized with.
+    /// The expression the binding is initialized with.
     pub init: Option<Box<Expr>>,
 }
 

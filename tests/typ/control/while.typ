@@ -26,9 +26,6 @@
 #test(type(while false []), "template")
 
 ---
-// Error: 14-19 unknown variable
-#let error = error
-
 // Condition must be boolean.
 // Error: 8-14 expected boolean, found template
 #while [nope] [nope]

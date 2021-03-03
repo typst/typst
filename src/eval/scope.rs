@@ -13,11 +13,11 @@ pub type Slot = Rc<RefCell<Value>>;
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Scopes<'a> {
     /// The active scope.
-    top: Scope,
+    pub top: Scope,
     /// The stack of lower scopes.
-    scopes: Vec<Scope>,
+    pub scopes: Vec<Scope>,
     /// The base scope.
-    base: Option<&'a Scope>,
+    pub base: Option<&'a Scope>,
 }
 
 impl<'a> Scopes<'a> {
@@ -39,16 +39,16 @@ impl<'a> Scopes<'a> {
         }
     }
 
-    /// Push a new scope.
-    pub fn push(&mut self) {
+    /// Enter a new scope.
+    pub fn enter(&mut self) {
         self.scopes.push(std::mem::take(&mut self.top));
     }
 
-    /// Pop the topmost scope.
+    /// Exit the topmost scope.
     ///
     /// # Panics
-    /// Panics if no scope was pushed.
-    pub fn pop(&mut self) {
+    /// Panics if no scope was entered.
+    pub fn exit(&mut self) {
         self.top = self.scopes.pop().expect("no pushed scope");
     }
 
@@ -74,6 +74,7 @@ impl<'a> Scopes<'a> {
 /// A map from variable names to variable slots.
 #[derive(Default, Clone, PartialEq)]
 pub struct Scope {
+    /// The mapping from names to slots.
     values: HashMap<String, Slot>,
 }
 

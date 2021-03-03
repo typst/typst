@@ -25,16 +25,11 @@ impl<'a> CapturesVisitor<'a> {
     pub fn finish(self) -> Scope {
         self.captures
     }
-
-    /// Define an internal variable.
-    fn define(&mut self, ident: &Ident) {
-        self.internal.def_mut(ident.as_str(), Value::None);
-    }
 }
 
 impl<'ast> Visit<'ast> for CapturesVisitor<'_> {
-    fn visit_expr(&mut self, item: &'ast Expr) {
-        match item {
+    fn visit_expr(&mut self, node: &'ast Expr) {
+        match node {
             Expr::Ident(ident) => {
                 // Find out whether the identifier is not locally defined, but
                 // captured, and if so, replace it with its value.
@@ -48,37 +43,15 @@ impl<'ast> Visit<'ast> for CapturesVisitor<'_> {
         }
     }
 
-    fn visit_block(&mut self, item: &'ast ExprBlock) {
-        // Blocks create a scope except if directly in a template.
-        if item.scoping {
-            self.internal.push();
-        }
-        visit_block(self, item);
-        if item.scoping {
-            self.internal.pop();
-        }
+    fn visit_binding(&mut self, id: &'ast Ident) {
+        self.internal.def_mut(id.as_str(), Value::None);
     }
 
-    fn visit_template(&mut self, item: &'ast ExprTemplate) {
-        // Templates always create a scope.
-        self.internal.push();
-        visit_template(self, item);
-        self.internal.pop();
+    fn visit_enter(&mut self) {
+        self.internal.enter();
     }
 
-    fn visit_let(&mut self, item: &'ast ExprLet) {
-        self.define(&item.binding);
-        visit_let(self, item);
-    }
-
-    fn visit_for(&mut self, item: &'ast ExprFor) {
-        match &item.pattern {
-            ForPattern::Value(value) => self.define(value),
-            ForPattern::KeyValue(key, value) => {
-                self.define(key);
-                self.define(value);
-            }
-        }
-        visit_for(self, item);
+    fn visit_exit(&mut self) {
+        self.internal.exit();
     }
 }

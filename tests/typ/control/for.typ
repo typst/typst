@@ -57,9 +57,6 @@
 #test(type(for v in () []), "template")
 
 ---
-// Error: 14-19 unknown variable
-#let error = error
-
 // Uniterable expression.
 // Error: 11-15 cannot loop over boolean
 #for v in true {}

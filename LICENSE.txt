@@ -107,7 +107,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 The GUST Font License Version 1.0 applies to:
 
 * Latin Modern Math font in fonts/LatinModernMath.otf
-  http://www.gust.org.pl/projects/e-foundry/lm-math
+  (http://www.gust.org.pl/projects/e-foundry/lm-math)
 
 % This is version 1.0, dated 22 June 2009, of the GUST Font License.
 % (GUST is the Polish TeX Users Group, http://www.gust.org.pl)
@@ -145,12 +145,12 @@ The Creative Commons Attribution 4.0 International License applies to:
 * Twitter Color Emoji font in fonts/TwitterColorEmoji.ttf
   Copyright 2016 Brad Erickson
   Copyright 2016 Twitter, Inc.
-  https://github.com/eosrei/twemoji-color-font
+  (https://github.com/eosrei/twemoji-color-font)
 
-* The SVG icons in tools/test-helper/images
+* SVG icons in tools/test-helper/images
   These are slightly modified versions of emojis from the Twemoji emoji set.
   Copyright 2020 Twitter, Inc and other contributors
-  https://github.com/twitter/twemoji
+  (https://github.com/twitter/twemoji)
 
 Attribution 4.0 International
 

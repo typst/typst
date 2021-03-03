@@ -172,22 +172,22 @@ impl Debug for TemplateFunc {
 /// A wrapper around a reference-counted executable function.
 #[derive(Clone)]
 pub struct ValueFunc {
-    name: String,
+    name: Option<String>,
     f: Rc<dyn Fn(&mut EvalContext, &mut ValueArgs) -> Value>,
 }
 
 impl ValueFunc {
     /// Create a new function value from a rust function or closure.
-    pub fn new<F>(name: impl Into<String>, f: F) -> Self
+    pub fn new<F>(name: Option<String>, f: F) -> Self
     where
         F: Fn(&mut EvalContext, &mut ValueArgs) -> Value + 'static,
     {
-        Self { name: name.into(), f: Rc::new(f) }
+        Self { name, f: Rc::new(f) }
     }
 
     /// The name of the function.
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
     }
 }
 

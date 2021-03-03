@@ -114,6 +114,7 @@ impl Eval for Expr {
             Self::Group(v) => v.eval(ctx),
             Self::Block(v) => v.eval(ctx),
             Self::Call(v) => v.eval(ctx),
+            Self::Closure(v) => v.eval(ctx),
             Self::Unary(v) => v.eval(ctx),
             Self::Binary(v) => v.eval(ctx),
             Self::Let(v) => v.eval(ctx),
@@ -184,7 +185,7 @@ impl Eval for ExprBlock {
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         if self.scoping {
-            ctx.scopes.push();
+            ctx.scopes.enter();
         }
 
         let mut output = Value::None;
@@ -193,7 +194,7 @@ impl Eval for ExprBlock {
         }
 
         if self.scoping {
-            ctx.scopes.pop();
+            ctx.scopes.exit();
         }
 
         output
@@ -386,6 +387,40 @@ impl Eval for ExprArg {
     }
 }
 
+impl Eval for ExprClosure {
+    type Output = Value;
+
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        let params = Rc::clone(&self.params);
+        let body = Rc::clone(&self.body);
+
+        // Collect the captured variables.
+        let captured = {
+            let mut visitor = CapturesVisitor::new(&ctx.scopes);
+            visitor.visit_closure(self);
+            visitor.finish()
+        };
+
+        Value::Func(ValueFunc::new(None, move |ctx, args| {
+            // Don't leak the scopes from the call site. Instead, we use the
+            // scope of captured variables we collected earlier.
+            let prev = std::mem::take(&mut ctx.scopes);
+            ctx.scopes.top = captured.clone();
+
+            for param in params.iter() {
+                // Set the parameter to `none` if the argument is missing.
+                let value =
+                    args.require::<Value>(ctx, param.as_str()).unwrap_or_default();
+                ctx.scopes.def_mut(param.as_str(), value);
+            }
+
+            let value = body.eval(ctx);
+            ctx.scopes = prev;
+            value
+        }))
+    }
+}
+
 impl Eval for ExprLet {
     type Output = Value;
 
@@ -464,7 +499,7 @@ impl Eval for ExprFor {
         macro_rules! iter {
             (for ($($binding:ident => $value:ident),*) in $iter:expr) => {{
                 let mut output = vec![];
-                ctx.scopes.push();
+                ctx.scopes.enter();
 
                 #[allow(unused_parens)]
                 for ($($value),*) in $iter {
@@ -474,14 +509,14 @@ impl Eval for ExprFor {
                         Value::Template(v) => output.extend(v),
                         Value::Str(v) => output.push(TemplateNode::Str(v)),
                         Value::Error => {
-                            ctx.scopes.pop();
+                            ctx.scopes.exit();
                             return Value::Error;
                         }
                         _ => {}
                     }
                 }
 
-                ctx.scopes.pop();
+                ctx.scopes.exit();
                 Value::Template(output)
             }};
         }

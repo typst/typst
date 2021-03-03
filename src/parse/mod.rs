@@ -173,21 +173,37 @@ fn primary(p: &mut Parser) -> Option<Expr> {
     }
 
     match p.peek() {
-        // Function or identifier.
+        // Things that start with an identifier.
         Some(Token::Ident(string)) => {
             let ident = Ident {
                 span: p.eat_span(),
                 string: string.into(),
             };
 
-            match p.peek_direct() {
-                Some(Token::LeftParen) | Some(Token::LeftBracket) => Some(call(p, ident)),
-                _ => Some(Expr::Ident(ident)),
+            // Parenthesis or bracket means this is a function call.
+            if matches!(
+                p.peek_direct(),
+                Some(Token::LeftParen) | Some(Token::LeftBracket),
+            ) {
+                return Some(call(p, ident));
             }
+
+            // Arrow means this is closure's lone parameter.
+            if p.eat_if(Token::Arrow) {
+                return expr(p).map(|body| {
+                    Expr::Closure(ExprClosure {
+                        span: ident.span.join(body.span()),
+                        params: Rc::new(vec![ident]),
+                        body: Rc::new(body),
+                    })
+                });
+            }
+
+            Some(Expr::Ident(ident))
         }
 
         // Structures.
-        Some(Token::LeftParen) => Some(parenthesized(p)),
+        Some(Token::LeftParen) => parenthesized(p),
         Some(Token::LeftBracket) => Some(template(p)),
         Some(Token::LeftBrace) => Some(block(p, true)),
 
@@ -228,23 +244,36 @@ fn literal(p: &mut Parser) -> Option<Expr> {
     Some(Expr::Lit(Lit { span: p.eat_span(), kind }))
 }
 
-/// Parse a parenthesized expression, which can be either of:
+/// Parse something that starts with a parenthesis, which can be either of:
 /// - Array literal
 /// - Dictionary literal
 /// - Parenthesized expression
-pub fn parenthesized(p: &mut Parser) -> Expr {
+/// - Parameter list of closure expression
+pub fn parenthesized(p: &mut Parser) -> Option<Expr> {
     p.start_group(Group::Paren, TokenMode::Code);
     let colon = p.eat_if(Token::Colon);
     let (items, has_comma) = collection(p);
     let span = p.end_group();
 
+    // Leading colon makes this a dictionary.
     if colon {
-        // Leading colon makes this a dictionary.
-        return dict(p, items, span);
+        return Some(dict(p, items, span));
+    }
+
+    // Arrow means this is closure's parameter list.
+    if p.eat_if(Token::Arrow) {
+        let params = params(p, items);
+        return expr(p).map(|body| {
+            Expr::Closure(ExprClosure {
+                span: span.join(body.span()),
+                params: Rc::new(params),
+                body: Rc::new(body),
+            })
+        });
     }
 
     // Find out which kind of collection this is.
-    match items.as_slice() {
+    Some(match items.as_slice() {
         [] => array(p, items, span),
         [ExprArg::Pos(_)] if !has_comma => match items.into_iter().next() {
             Some(ExprArg::Pos(expr)) => {
@@ -254,7 +283,7 @@ pub fn parenthesized(p: &mut Parser) -> Expr {
         },
         [ExprArg::Pos(_), ..] => array(p, items, span),
         [ExprArg::Named(_), ..] => dict(p, items, span),
-    }
+    })
 }
 
 /// Parse a collection.
@@ -331,6 +360,19 @@ fn dict(p: &mut Parser, items: Vec<ExprArg>, span: Span) -> Expr {
     Expr::Dict(ExprDict { span, items: items.collect() })
 }
 
+/// Convert a collection into a parameter list, producing errors for anything
+/// other than identifiers.
+fn params(p: &mut Parser, items: Vec<ExprArg>) -> Vec<Ident> {
+    let items = items.into_iter().filter_map(|item| match item {
+        ExprArg::Pos(Expr::Ident(id)) => Some(id),
+        _ => {
+            p.diag(error!(item.span(), "expected identifier"));
+            None
+        }
+    });
+    items.collect()
+}
+
 // Parse a template value: `[...]`.
 fn template(p: &mut Parser) -> Expr {
     p.start_group(Group::Bracket, TokenMode::Markup);
@@ -340,7 +382,7 @@ fn template(p: &mut Parser) -> Expr {
 }
 
 /// Parse a block expression: `{...}`.
-fn block(p: &mut Parser, scopes: bool) -> Expr {
+fn block(p: &mut Parser, scoping: bool) -> Expr {
     p.start_group(Group::Brace, TokenMode::Code);
     let mut exprs = vec![];
     while !p.eof() {
@@ -355,7 +397,7 @@ fn block(p: &mut Parser, scopes: bool) -> Expr {
         p.skip_white();
     }
     let span = p.end_group();
-    Expr::Block(ExprBlock { span, exprs, scoping: scopes })
+    Expr::Block(ExprBlock { span, exprs, scoping })
 }
 
 /// Parse an expression.
@@ -445,16 +487,38 @@ fn expr_let(p: &mut Parser) -> Option<Expr> {
 
     let mut expr_let = None;
     if let Some(binding) = ident(p) {
+        // If a parenthesis follows, this is a function definition.
+        let mut parameters = None;
+        if p.peek_direct() == Some(Token::LeftParen) {
+            p.start_group(Group::Paren, TokenMode::Code);
+            let items = collection(p).0;
+            parameters = Some(params(p, items));
+            p.end_group();
+        }
+
         let mut init = None;
         if p.eat_if(Token::Eq) {
             init = expr(p);
+        } else if parameters.is_some() {
+            // Function definitions must have a body.
+            p.expected_at("body", p.end());
+        }
+
+        // Rewrite into a closure expression if it's a function definition.
+        if let Some(params) = parameters {
+            let body = init?;
+            init = Some(Expr::Closure(ExprClosure {
+                span: binding.span.join(body.span()),
+                params: Rc::new(params),
+                body: Rc::new(body),
+            }));
         }
 
         expr_let = Some(Expr::Let(ExprLet {
             span: p.span(start),
             binding,
             init: init.map(Box::new),
-        }))
+        }));
     }
 
     expr_let
