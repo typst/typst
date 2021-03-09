@@ -51,9 +51,9 @@ struct ParLayouter<'a> {
     finished: Vec<Frame>,
     lines: Vec<(Length, Frame, Align)>,
     lines_size: Gen<Length>,
-    run: Vec<(Length, Frame, Align)>,
-    run_size: Gen<Length>,
-    run_ruler: Align,
+    line: Vec<(Length, Frame, Align)>,
+    line_size: Gen<Length>,
+    line_ruler: Align,
 }
 
 impl<'a> ParLayouter<'a> {
@@ -67,34 +67,54 @@ impl<'a> ParLayouter<'a> {
             finished: vec![],
             lines: vec![],
             lines_size: Gen::ZERO,
-            run: vec![],
-            run_size: Gen::ZERO,
-            run_ruler: Align::Start,
+            line: vec![],
+            line_size: Gen::ZERO,
+            line_ruler: Align::Start,
         }
     }
 
     fn push_spacing(&mut self, amount: Length) {
         let cross_max = self.areas.current.get(self.cross);
-        self.run_size.cross = (self.run_size.cross + amount).min(cross_max);
+        self.line_size.cross = (self.line_size.cross + amount).min(cross_max);
     }
 
     fn push_frame(&mut self, frame: Frame, align: Align) {
-        if self.run_ruler > align {
-            self.finish_run();
+        // When the alignment of the last pushed frame (stored in the "ruler")
+        // is further to the end than the new `frame`, we need a line break.
+        //
+        // For example
+        // ```
+        // #align(right)[First] #align(center)[Second]
+        // ```
+        // would be laid out as:
+        // +----------------------------+
+        // |                      First |
+        // |           Second           |
+        // +----------------------------+
+        if self.line_ruler > align {
+            self.finish_line();
         }
 
+        // Find out whether the area still has enough space for this frame.
+        // Space occupied by previous lines is already removed from
+        // `areas.current`, but the cross-extent of the current line needs to be
+        // subtracted to make sure the frame fits.
         let fits = {
             let mut usable = self.areas.current;
-            *usable.get_mut(self.cross) -= self.run_size.cross;
+            *usable.get_mut(self.cross) -= self.line_size.cross;
             usable.fits(frame.size)
         };
 
         if !fits {
-            self.finish_run();
+            self.finish_line();
 
+            // Here, we can directly check whether the frame fits into
+            // `areas.current` since we just called `finish_line`.
             while !self.areas.current.fits(frame.size) {
                 if self.areas.in_full_last() {
-                    // TODO: Diagnose once the necessary spans exist.
+                    // The frame fits nowhere.
+                    // TODO: Should this be placed into the first area or the last?
+                    // TODO: Produce diagnostic once the necessary spans exist.
                     break;
                 } else {
                     self.finish_area();
@@ -103,36 +123,39 @@ impl<'a> ParLayouter<'a> {
         }
 
         let size = frame.size.switch(self.dirs);
-        self.run.push((self.run_size.cross, frame, align));
 
-        self.run_size.cross += size.cross;
-        self.run_size.main = self.run_size.main.max(size.main);
-        self.run_ruler = align;
+        // A line can contain frames with different alignments. They exact
+        // positions are calculated later depending on the alignments.
+        self.line.push((self.line_size.cross, frame, align));
+
+        self.line_size.cross += size.cross;
+        self.line_size.main = self.line_size.main.max(size.main);
+        self.line_ruler = align;
     }
 
-    fn finish_run(&mut self) {
+    fn finish_line(&mut self) {
         let full_size = {
             let full = self.areas.full.switch(self.dirs);
             Gen::new(
-                self.run_size.main,
+                self.line_size.main,
                 self.par
                     .cross_expansion
-                    .resolve(self.run_size.cross.min(full.cross), full.cross),
+                    .resolve(self.line_size.cross.min(full.cross), full.cross),
             )
         };
 
         let mut output = Frame::new(full_size.switch(self.dirs).to_size());
 
-        for (before, frame, align) in std::mem::take(&mut self.run) {
+        for (before, frame, align) in std::mem::take(&mut self.line) {
             let child_cross_size = frame.size.get(self.cross);
 
             // Position along the cross axis.
             let cross = align.resolve(if self.dirs.cross.is_positive() {
-                let after_with_self = self.run_size.cross - before;
+                let after_with_self = self.line_size.cross - before;
                 before .. full_size.cross - after_with_self
             } else {
                 let before_with_self = before + child_cross_size;
-                let after = self.run_size.cross - (before + child_cross_size);
+                let after = self.line_size.cross - (before + child_cross_size);
                 full_size.cross - before_with_self .. after
             });
 
@@ -140,23 +163,25 @@ impl<'a> ParLayouter<'a> {
             output.push_frame(pos, frame);
         }
 
-        self.lines.push((self.lines_size.main, output, self.run_ruler));
-
-        let main_offset = full_size.main + self.par.line_spacing;
-        *self.areas.current.get_mut(self.main) -= main_offset;
-        self.lines_size.main += main_offset;
+        // Update metrics of the whole paragraph.
+        self.lines.push((self.lines_size.main, output, self.line_ruler));
+        self.lines_size.main += full_size.main;
+        self.lines_size.main += self.par.line_spacing;
         self.lines_size.cross = self.lines_size.cross.max(full_size.cross);
+        *self.areas.current.get_mut(self.main) -= full_size.main;
+        *self.areas.current.get_mut(self.main) -= self.par.line_spacing;
 
-        self.run_size = Gen::ZERO;
-        self.run_ruler = Align::Start;
+        // Reset metrics for the single line.
+        self.line_size = Gen::ZERO;
+        self.line_ruler = Align::Start;
     }
 
     fn finish_area(&mut self) {
         let size = self.lines_size;
         let mut output = Frame::new(size.switch(self.dirs).to_size());
 
-        for (before, run, cross_align) in std::mem::take(&mut self.lines) {
-            let child_size = run.size.switch(self.dirs);
+        for (before, line, cross_align) in std::mem::take(&mut self.lines) {
+            let child_size = line.size.switch(self.dirs);
 
             // Position along the main axis.
             let main = if self.dirs.main.is_positive() {
@@ -173,17 +198,18 @@ impl<'a> ParLayouter<'a> {
             });
 
             let pos = Gen::new(main, cross).switch(self.dirs).to_point();
-            output.push_frame(pos, run);
+            output.push_frame(pos, line);
         }
 
         self.finished.push(output);
-
         self.areas.next();
+
+        // Reset metrics for the whole paragraph.
         self.lines_size = Gen::ZERO;
     }
 
     fn finish(mut self) -> Vec<Frame> {
-        self.finish_run();
+        self.finish_line();
         self.finish_area();
         self.finished
     }

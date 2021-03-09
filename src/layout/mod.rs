@@ -229,15 +229,6 @@ pub enum Element {
     Geometry(Geometry),
 }
 
-/// The kind of graphic fill to be applied to a [`Shape`].
-#[derive(Debug, Clone, PartialEq)]
-pub enum Fill {
-    /// The fill is a color.
-    Color(Color),
-    /// The fill is an image.
-    Image(Image),
-}
-
 /// A shape with some kind of fill.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Geometry {
@@ -258,8 +249,17 @@ pub enum Shape {
     Rect(Size),
 }
 
+/// The kind of graphic fill to be applied to a [`Shape`].
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Fill {
+    /// The fill is a color.
+    Color(Color),
+    /// The fill is an image.
+    Image(Image),
+}
+
 /// An image element.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Image {
     /// The image resource.
     pub res: ResourceId,

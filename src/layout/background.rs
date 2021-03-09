@@ -16,9 +16,9 @@ impl Layout for NodeBackground {
         for frame in layouted.frames_mut() {
             let element = Element::Geometry(Geometry {
                 shape: Shape::Rect(frame.size),
-                fill: self.fill.clone(),
+                fill: self.fill,
             });
-            frame.elements.insert(0, (Point::ZERO, element))
+            frame.elements.insert(0, (Point::ZERO, element));
         }
 
         layouted
