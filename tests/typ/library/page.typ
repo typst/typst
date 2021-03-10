@@ -1,4 +1,4 @@
-// Test the page function.
+// Test the `page` function.
 
 ---
 // Test configuring page sizes and margins.

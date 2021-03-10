@@ -1,4 +1,4 @@
-// Test the pagebreak function.
+// Test the `pagebreak` function.
 
 ---
 First of two

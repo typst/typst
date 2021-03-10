@@ -3,20 +3,30 @@
 //! Call [`new`] to obtain a [`Scope`] containing all standard library
 //! definitions.
 
-mod extend;
-mod insert;
-mod layout;
-mod style;
+mod align;
+mod base;
+mod font;
+mod image;
+mod page;
+mod shapes;
+mod spacing;
 
-pub use extend::*;
-pub use insert::*;
-pub use layout::*;
-pub use style::*;
+pub use self::image::*;
+pub use align::*;
+pub use base::*;
+pub use font::*;
+pub use page::*;
+pub use shapes::*;
+pub use spacing::*;
+
+use std::fmt::{self, Display, Formatter};
 
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
 use crate::eval::{Scope, ValueAny, ValueFunc};
-use crate::geom::Dir;
+use crate::exec::Softness;
+use crate::layout::*;
+use crate::prelude::*;
 
 /// Construct a scope containing all standard library definitions.
 pub fn new() -> Scope {
@@ -79,4 +89,8 @@ pub fn new() -> Scope {
     set!(any: "ultra-expanded", FontStretch::UltraExpanded);
 
     std
+}
+
+typify! {
+    Dir: "direction"
 }

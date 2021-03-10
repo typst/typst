@@ -1,4 +1,4 @@
-// Test the image function.
+// Test the `image` function.
 
 ---
 // Test loading different image formats.

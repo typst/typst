@@ -1,4 +1,4 @@
-// Test the box function.
+// Test shapes.
 
 ---
 #page("a8", flip: true)

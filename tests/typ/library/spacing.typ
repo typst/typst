@@ -1,4 +1,4 @@
-// Test the h and v functions.
+// Test the `h` and `v` functions.
 
 ---
 // Ends paragraphs.

@@ -1,8 +1,8 @@
-use image::GenericImageView;
+use ::image::GenericImageView;
 
+use super::*;
 use crate::env::{ImageResource, ResourceId};
 use crate::layout::*;
-use crate::prelude::*;
 
 /// `image`: Insert an image.
 ///

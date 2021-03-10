@@ -1,4 +1,4 @@
-// Test the font function.
+// Test the `font` function.
 
 ---
 // Test configuring font properties.
