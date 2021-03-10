@@ -195,7 +195,7 @@ impl<'a> PdfExporter<'a> {
                 }
 
                 let x = pos.x.to_pt() as f32;
-                let y = (page.size.height - pos.y - size).to_pt() as f32;
+                let y = (page.size.height - pos.y).to_pt() as f32;
                 text.matrix(1.0, 0.0, 0.0, 1.0, x, y);
                 text.show(&shaped.encode_glyphs_be());
             }

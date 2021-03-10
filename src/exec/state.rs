@@ -93,7 +93,7 @@ impl Default for ParState {
     fn default() -> Self {
         Self {
             word_spacing: Relative::new(0.25).into(),
-            line_spacing: Relative::new(0.2).into(),
+            line_spacing: Linear::ZERO,
             par_spacing: Relative::new(0.5).into(),
         }
     }

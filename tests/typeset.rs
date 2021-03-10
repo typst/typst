@@ -393,7 +393,7 @@ fn draw_text(env: &Env, canvas: &mut Canvas, pos: Point, shaped: &Shaped) {
         let units_per_em = face.units_per_em().unwrap_or(1000);
 
         let x = (pos.x + offset).to_pt() as f32;
-        let y = (pos.y + shaped.font_size).to_pt() as f32;
+        let y = pos.y.to_pt() as f32;
         let scale = (shaped.font_size / units_per_em as f64).to_pt() as f32;
 
         let mut builder = WrappedPathBuilder(PathBuilder::new());

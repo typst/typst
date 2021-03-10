@@ -70,6 +70,8 @@ pub fn shape(
     let mut frame = Frame::new(Size::new(Length::ZERO, font_size));
     let mut shaped = Shaped::new(FaceId::MAX, font_size);
     let mut offset = Length::ZERO;
+    let mut ascender = Length::ZERO;
+    let mut descender = Length::ZERO;
 
     // Create an iterator with conditional direction.
     let mut forwards = text.chars();
@@ -84,47 +86,56 @@ pub fn shape(
         let query = FaceQuery { fallback: fallback.iter(), variant, c };
         if let Some(id) = loader.query(query) {
             let face = loader.face(id).get();
-            let (glyph, width) = match lookup_glyph(face, c, font_size) {
+            let (glyph, width) = match lookup_glyph(face, c) {
                 Some(v) => v,
                 None => continue,
             };
 
-            // Flush the buffer if we change the font face.
-            if shaped.face != id && !shaped.text.is_empty() {
-                let pos = Point::new(frame.size.width, Length::ZERO);
-                frame.push(pos, Element::Text(shaped));
-                frame.size.width += offset;
-                shaped = Shaped::new(FaceId::MAX, font_size);
+            let units_per_em = f64::from(face.units_per_em().unwrap_or(1000));
+            let convert = |units| units / units_per_em * font_size;
+
+            // Flush the buffer and reset the metrics if we use a new font face.
+            if shaped.face != id {
+                place(&mut frame, shaped, offset, ascender, descender);
+
+                shaped = Shaped::new(id, font_size);
                 offset = Length::ZERO;
+                ascender = convert(f64::from(face.ascender()));
+                descender = convert(f64::from(face.descender()));
             }
 
-            shaped.face = id;
             shaped.text.push(c);
             shaped.glyphs.push(glyph);
             shaped.offsets.push(offset);
-            offset += width;
+            offset += convert(f64::from(width));
         }
     }
 
     // Flush the last buffered parts of the word.
-    if !shaped.text.is_empty() {
-        let pos = Point::new(frame.size.width, Length::ZERO);
-        frame.push(pos, Element::Text(shaped));
-        frame.size.width += offset;
-    }
+    place(&mut frame, shaped, offset, ascender, descender);
 
     frame
 }
 
-/// Looks up the glyph for `c` and returns its index alongside its width at the
-/// given `size`.
-fn lookup_glyph(face: &Face, c: char, size: Length) -> Option<(GlyphId, Length)> {
+/// Look up the glyph for `c` and returns its index alongside its advance width.
+fn lookup_glyph(face: &Face, c: char) -> Option<(GlyphId, u16)> {
     let glyph = face.glyph_index(c)?;
-
-    // Determine the width of the char.
-    let units_per_em = face.units_per_em().unwrap_or(1000) as f64;
-    let width_units = face.glyph_hor_advance(glyph)? as f64;
-    let width = width_units / units_per_em * size;
-
+    let width = face.glyph_hor_advance(glyph)?;
     Some((glyph, width))
+}
+
+/// Place shaped text into a frame.
+fn place(
+    frame: &mut Frame,
+    shaped: Shaped,
+    offset: Length,
+    ascender: Length,
+    descender: Length,
+) {
+    if !shaped.text.is_empty() {
+        let pos = Point::new(frame.size.width, ascender);
+        frame.push(pos, Element::Text(shaped));
+        frame.size.width += offset;
+        frame.size.height = frame.size.height.max(ascender - descender);
+    }
 }

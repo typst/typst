@@ -163,13 +163,17 @@ impl<'a> ParLayouter<'a> {
             output.push_frame(pos, frame);
         }
 
+        // Add line spacing, but only between lines.
+        if !self.lines.is_empty() {
+            self.lines_size.main += self.par.line_spacing;
+            *self.areas.current.get_mut(self.main) -= self.par.line_spacing;
+        }
+
         // Update metrics of the whole paragraph.
         self.lines.push((self.lines_size.main, output, self.line_ruler));
         self.lines_size.main += full_size.main;
-        self.lines_size.main += self.par.line_spacing;
         self.lines_size.cross = self.lines_size.cross.max(full_size.cross);
         *self.areas.current.get_mut(self.main) -= full_size.main;
-        *self.areas.current.get_mut(self.main) -= self.par.line_spacing;
 
         // Reset metrics for the single line.
         self.line_size = Gen::ZERO;
