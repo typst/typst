@@ -24,28 +24,18 @@ pub fn box_(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let main = args.get(ctx, "main-dir");
     let cross = args.get(ctx, "cross-dir");
     let color = args.get(ctx, "color");
-    let body = args.find::<ValueTemplate>(ctx);
+    let body = args.find::<ValueTemplate>(ctx).unwrap_or_default();
+
+    let fill_if = |c| if c { Expansion::Fill } else { Expansion::Fit };
+    let expand = Spec::new(fill_if(width.is_some()), fill_if(height.is_some()));
 
     Value::template("box", move |ctx| {
         let snapshot = ctx.state.clone();
 
         ctx.set_dirs(Gen::new(main, cross));
-        let dirs = ctx.state.dirs;
-        let align = ctx.state.align;
 
-        ctx.start_content_group();
-        if let Some(body) = &body {
-            body.exec(ctx);
-        }
-        let children = ctx.end_content_group();
-
-        let fill_if = |c| if c { Expansion::Fill } else { Expansion::Fit };
-        let expand = Spec::new(fill_if(width.is_some()), fill_if(height.is_some()));
-        let fixed = NodeFixed {
-            width,
-            height,
-            child: NodeStack { dirs, align, expand, children }.into(),
-        };
+        let child = ctx.exec_body(&body, expand);
+        let fixed = NodeFixed { width, height, child };
 
         if let Some(color) = color {
             ctx.push(NodeBackground {

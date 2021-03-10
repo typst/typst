@@ -80,6 +80,45 @@ impl<'a> ExecContext<'a> {
         self.inner.push(node);
     }
 
+    /// Push a normal word space.
+    pub fn push_space(&mut self) {
+        let em = self.state.font.font_size();
+        self.push(NodeSpacing {
+            amount: self.state.par.word_spacing.resolve(em),
+            softness: Softness::Soft,
+        });
+    }
+
+    /// Push text into the context.
+    ///
+    /// The text is split into lines at newlines.
+    pub fn push_text(&mut self, text: &str) {
+        let mut newline = false;
+        for line in text.split_terminator(is_newline) {
+            if newline {
+                self.apply_linebreak();
+            }
+
+            let node = self.make_text_node(line.into());
+            self.push(node);
+            newline = true;
+        }
+    }
+
+    /// Execute the body of a function and return the result as a stack node.
+    pub fn exec_body(&mut self, body: &ValueTemplate, expand: Spec<Expansion>) -> Node {
+        let dirs = self.state.dirs;
+        let align = self.state.align;
+
+        self.start_group(ContentGroup);
+        self.start_par_group();
+        body.exec(self);
+        self.end_par_group();
+        let children = self.end_group::<ContentGroup>().1;
+
+        NodeStack { dirs, align, expand, children }.into()
+    }
+
     /// Start a page group based on the active page state.
     ///
     /// The `softness` is a hint on whether empty pages should be kept in the
@@ -128,22 +167,6 @@ impl<'a> ExecContext<'a> {
             })
         }
         group.softness
-    }
-
-    /// Start a content group.
-    ///
-    /// This also starts an inner paragraph.
-    pub fn start_content_group(&mut self) {
-        self.start_group(ContentGroup);
-        self.start_par_group();
-    }
-
-    /// End a content group and return the resulting nodes.
-    ///
-    /// This also ends an inner paragraph.
-    pub fn end_content_group(&mut self) -> Vec<Node> {
-        self.end_par_group();
-        self.end_group::<ContentGroup>().1
     }
 
     /// Start a paragraph group based on the active text state.
@@ -218,29 +241,28 @@ impl<'a> ExecContext<'a> {
         }
     }
 
-    /// Push a normal word space.
-    pub fn push_space(&mut self) {
-        let em = self.state.font.font_size();
-        self.push(NodeSpacing {
-            amount: self.state.par.word_spacing.resolve(em),
-            softness: Softness::Soft,
-        });
+    /// Set the font to monospace.
+    pub fn apply_monospace(&mut self) {
+        let families = self.state.font.families_mut();
+        families.list.insert(0, "monospace".to_string());
+        families.flatten();
     }
 
-    /// Push text into the context.
-    ///
-    /// The text is split into lines at newlines.
-    pub fn push_text(&mut self, text: &str) {
-        let mut newline = false;
-        for line in text.split_terminator(is_newline) {
-            if newline {
-                self.apply_linebreak();
-            }
+    /// Apply a forced line break.
+    pub fn apply_linebreak(&mut self) {
+        self.end_par_group();
+        self.start_par_group();
+    }
 
-            let node = self.make_text_node(line.into());
-            self.push(node);
-            newline = true;
-        }
+    /// Apply a forced paragraph break.
+    pub fn apply_parbreak(&mut self) {
+        self.end_par_group();
+        let em = self.state.font.font_size();
+        self.push(NodeSpacing {
+            amount: self.state.par.par_spacing.resolve(em),
+            softness: Softness::Soft,
+        });
+        self.start_par_group();
     }
 
     /// Construct a text node from the given string based on the active text
@@ -268,30 +290,6 @@ impl<'a> ExecContext<'a> {
             families: Rc::clone(&self.state.font.families),
             variant,
         }
-    }
-
-    /// Set the font to monospace.
-    pub fn apply_monospace(&mut self) {
-        let families = self.state.font.families_mut();
-        families.list.insert(0, "monospace".to_string());
-        families.flatten();
-    }
-
-    /// Apply a forced line break.
-    pub fn apply_linebreak(&mut self) {
-        self.end_par_group();
-        self.start_par_group();
-    }
-
-    /// Apply a forced paragraph break.
-    pub fn apply_parbreak(&mut self) {
-        self.end_par_group();
-        let em = self.state.font.font_size();
-        self.push(NodeSpacing {
-            amount: self.state.par.par_spacing.resolve(em),
-            softness: Softness::Soft,
-        });
-        self.start_par_group();
     }
 }
 
