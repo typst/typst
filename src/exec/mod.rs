@@ -11,8 +11,7 @@ use std::rc::Rc;
 use crate::diag::Pass;
 use crate::env::Env;
 use crate::eval::{ExprMap, TemplateFunc, TemplateNode, Value, ValueTemplate};
-use crate::geom::Spec;
-use crate::layout::{self, Expansion, NodeSpacing, NodeStack};
+use crate::layout::{self, NodeFixed, NodeSpacing, NodeStack};
 use crate::pretty::pretty;
 use crate::syntax::*;
 
@@ -120,11 +119,17 @@ impl Exec for NodeRaw {
             ctx.apply_parbreak();
         }
 
-        ctx.push(NodeStack {
-            dirs: ctx.state.dirs,
-            align: ctx.state.align,
-            expand: Spec::uniform(Expansion::Fit),
-            children,
+        // This is wrapped in a fixed node to make sure the stack fits to its
+        // content instead of filling the available area.
+        ctx.push(NodeFixed {
+            width: None,
+            height: None,
+            child: NodeStack {
+                dirs: ctx.state.dirs,
+                align: ctx.state.align,
+                children,
+            }
+            .into(),
         });
 
         if self.block {

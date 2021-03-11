@@ -37,6 +37,7 @@ fn shrink(areas: &Areas, padding: Sides<Linear>) -> Areas {
         full: shrink(areas.full),
         backlog: areas.backlog.iter().copied().map(shrink).collect(),
         last: areas.last.map(shrink),
+        expand: areas.expand,
     }
 }
 

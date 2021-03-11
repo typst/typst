@@ -55,7 +55,7 @@ pub struct NodePages {
 impl NodePages {
     /// Layout the page run.
     pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Frame> {
-        let areas = Areas::repeat(self.size);
+        let areas = Areas::repeat(self.size, Spec::uniform(Expand::Fill));
         let layouted = self.child.layout(ctx, &areas);
         layouted.into_frames()
     }
@@ -85,26 +85,31 @@ pub struct Areas {
     pub backlog: Vec<Size>,
     /// The final area that is repeated when the backlog is empty.
     pub last: Option<Size>,
+    /// Whether the frames resulting from layouting into this areas should be
+    /// shrunk to fit their content or expanded to fill the area.
+    pub expand: Spec<Expand>,
 }
 
 impl Areas {
     /// Create a new length-1 sequence of areas with just one `area`.
-    pub fn once(size: Size) -> Self {
+    pub fn once(size: Size, expand: Spec<Expand>) -> Self {
         Self {
             current: size,
             full: size,
             backlog: vec![],
             last: None,
+            expand,
         }
     }
 
     /// Create a new sequence of areas that repeats `area` indefinitely.
-    pub fn repeat(size: Size) -> Self {
+    pub fn repeat(size: Size, expand: Spec<Expand>) -> Self {
         Self {
             current: size,
             full: size,
             backlog: vec![],
             last: Some(size),
+            expand,
         }
     }
 
@@ -129,14 +134,14 @@ impl Areas {
 
 /// Whether to expand or shrink a node along an axis.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Expansion {
+pub enum Expand {
     /// Fit the content.
     Fit,
     /// Fill the available space.
     Fill,
 }
 
-impl Expansion {
+impl Expand {
     /// Resolve the expansion to either the `fit` or `fill` length.
     ///
     /// Prefers `fit` if `fill` is infinite.

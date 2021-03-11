@@ -45,19 +45,16 @@ pub fn page(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
         if let Some(paper) = paper {
             ctx.state.page.class = paper.class;
             ctx.state.page.size = paper.size();
-            ctx.state.page.expand = Spec::uniform(Expansion::Fill);
         }
 
         if let Some(width) = width {
             ctx.state.page.class = PaperClass::Custom;
             ctx.state.page.size.width = width;
-            ctx.state.page.expand.horizontal = Expansion::Fill;
         }
 
         if let Some(height) = height {
             ctx.state.page.class = PaperClass::Custom;
             ctx.state.page.size.height = height;
-            ctx.state.page.expand.vertical = Expansion::Fill;
         }
 
         if let Some(margins) = margins {
@@ -83,7 +80,6 @@ pub fn page(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
         if flip.unwrap_or(false) {
             let page = &mut ctx.state.page;
             std::mem::swap(&mut page.size.width, &mut page.size.height);
-            std::mem::swap(&mut page.expand.horizontal, &mut page.expand.vertical);
         }
 
         ctx.set_dirs(Gen::new(main, cross));

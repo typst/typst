@@ -20,7 +20,13 @@ impl Layout for NodeFixed {
             self.height.map(|h| h.resolve(full.height)).unwrap_or(current.height),
         );
 
-        let areas = Areas::once(size);
+        let fill_if = |cond| if cond { Expand::Fill } else { Expand::Fit };
+        let expand = Spec::new(
+            fill_if(self.width.is_some()),
+            fill_if(self.height.is_some()),
+        );
+
+        let areas = Areas::once(size, expand);
         self.child.layout(ctx, &areas)
     }
 }

@@ -29,8 +29,7 @@ pub fn pad(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     Value::template("pad", move |ctx| {
         let snapshot = ctx.state.clone();
 
-        let expand = Spec::uniform(Expansion::Fit);
-        let child = ctx.exec_body(&body, expand);
+        let child = ctx.exec(&body);
         ctx.push(NodePad { padding, child });
 
         ctx.state = snapshot;

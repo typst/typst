@@ -20,8 +20,8 @@ use typst::eval::{EvalContext, Scope, Value, ValueArgs, ValueFunc};
 use typst::exec::State;
 use typst::export::pdf;
 use typst::font::FsIndexExt;
-use typst::geom::{Length, Point, Sides, Size, Spec};
-use typst::layout::{Element, Expansion, Fill, Frame, Geometry, Image, Shape};
+use typst::geom::{Length, Point, Sides, Size};
+use typst::layout::{Element, Fill, Frame, Geometry, Image, Shape};
 use typst::library;
 use typst::parse::{LineMap, Scanner};
 use typst::shaping::Shaped;
@@ -202,7 +202,6 @@ fn test_part(
     // large and fit them to match their content.
     let mut state = State::default();
     state.page.size = Size::new(Length::pt(120.0), Length::raw(f64::INFINITY));
-    state.page.expand = Spec::new(Expansion::Fill, Expansion::Fit);
     state.page.margins = Sides::uniform(Some(Length::pt(10.0).into()));
 
     let Pass { output: mut frames, diags } = typeset(env, &src, &scope, state);

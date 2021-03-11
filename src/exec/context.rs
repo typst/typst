@@ -7,7 +7,7 @@ use super::*;
 use crate::diag::{Diag, DiagSet};
 use crate::geom::{ChildAlign, Dir, Gen, LayoutDirs, Length, Linear, Sides, Size};
 use crate::layout::{
-    Expansion, Node, NodePad, NodePages, NodePar, NodeSpacing, NodeStack, NodeText, Tree,
+    Node, NodePad, NodePages, NodePar, NodeSpacing, NodeStack, NodeText, Tree,
 };
 use crate::parse::is_newline;
 
@@ -105,18 +105,18 @@ impl<'a> ExecContext<'a> {
         }
     }
 
-    /// Execute the body of a function and return the result as a stack node.
-    pub fn exec_body(&mut self, body: &ValueTemplate, expand: Spec<Expansion>) -> Node {
+    /// Execute a template and return the result as a stack node.
+    pub fn exec(&mut self, template: &ValueTemplate) -> Node {
         let dirs = self.state.dirs;
         let align = self.state.align;
 
         self.start_group(ContentGroup);
         self.start_par_group();
-        body.exec(self);
+        template.exec(self);
         self.end_par_group();
         let children = self.end_group::<ContentGroup>().1;
 
-        NodeStack { dirs, align, expand, children }.into()
+        NodeStack { dirs, align, children }.into()
     }
 
     /// Start a page group based on the active page state.
@@ -128,7 +128,6 @@ impl<'a> ExecContext<'a> {
     pub fn start_page_group(&mut self, softness: Softness) {
         self.start_group(PageGroup {
             size: self.state.page.size,
-            expand: self.state.page.expand,
             padding: self.state.page.margins(),
             dirs: self.state.dirs,
             align: self.state.align,
@@ -158,7 +157,6 @@ impl<'a> ExecContext<'a> {
                     child: NodeStack {
                         dirs: group.dirs,
                         align: group.align,
-                        expand: group.expand,
                         children,
                     }
                     .into(),
@@ -186,13 +184,6 @@ impl<'a> ExecContext<'a> {
             self.push(NodePar {
                 dirs: group.dirs,
                 align: group.align,
-                // FIXME: This is a hack and should be superseded by something
-                //        better.
-                cross_expansion: if self.groups.len() <= 1 {
-                    Expansion::Fill
-                } else {
-                    Expansion::Fit
-                },
                 line_spacing: group.line_spacing,
                 children,
             });
@@ -306,7 +297,6 @@ pub enum Softness {
 #[derive(Debug)]
 struct PageGroup {
     size: Size,
-    expand: Spec<Expansion>,
     padding: Sides<Linear>,
     dirs: LayoutDirs,
     align: ChildAlign,

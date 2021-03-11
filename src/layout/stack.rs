@@ -10,8 +10,6 @@ pub struct NodeStack {
     pub dirs: LayoutDirs,
     /// How to align this stack in _its_ parent.
     pub align: ChildAlign,
-    /// Whether to expand the axes to fill the area or to fit the content.
-    pub expand: Spec<Expansion>,
     /// The nodes to be stacked.
     pub children: Vec<Node>,
 }
@@ -40,8 +38,7 @@ impl From<NodeStack> for NodeAny {
     }
 }
 
-struct StackLayouter<'a> {
-    stack: &'a NodeStack,
+struct StackLayouter {
     main: SpecAxis,
     dirs: LayoutDirs,
     areas: Areas,
@@ -51,10 +48,9 @@ struct StackLayouter<'a> {
     ruler: Align,
 }
 
-impl<'a> StackLayouter<'a> {
-    fn new(stack: &'a NodeStack, areas: Areas) -> Self {
+impl StackLayouter {
+    fn new(stack: &NodeStack, areas: Areas) -> Self {
         Self {
-            stack,
             main: stack.dirs.main.axis(),
             dirs: stack.dirs,
             areas,
@@ -97,7 +93,7 @@ impl<'a> StackLayouter<'a> {
 
     fn finish_area(&mut self) {
         let full_size = {
-            let expand = self.stack.expand.switch(self.dirs);
+            let expand = self.areas.expand.switch(self.dirs);
             let full = self.areas.full.switch(self.dirs);
             Gen::new(
                 expand.main.resolve(self.used.main.min(full.main), full.main),

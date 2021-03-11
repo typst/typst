@@ -8,8 +8,6 @@ pub struct NodePar {
     /// The children are placed in lines along the `cross` direction. The lines
     /// are stacked along the `main` direction.
     pub dirs: LayoutDirs,
-    /// Whether to expand the cross axis to fill the area or to fit the content.
-    pub cross_expansion: Expansion,
     /// The spacing to insert after each line.
     pub line_spacing: Length,
     /// The nodes to be arranged in a paragraph.
@@ -42,11 +40,11 @@ impl From<NodePar> for NodeAny {
     }
 }
 
-struct ParLayouter<'a> {
-    par: &'a NodePar,
+struct ParLayouter {
     main: SpecAxis,
     cross: SpecAxis,
     dirs: LayoutDirs,
+    line_spacing: Length,
     areas: Areas,
     finished: Vec<Frame>,
     lines: Vec<(Length, Frame, Align)>,
@@ -56,13 +54,13 @@ struct ParLayouter<'a> {
     line_ruler: Align,
 }
 
-impl<'a> ParLayouter<'a> {
-    fn new(par: &'a NodePar, areas: Areas) -> Self {
+impl ParLayouter {
+    fn new(par: &NodePar, areas: Areas) -> Self {
         Self {
-            par,
             main: par.dirs.main.axis(),
             cross: par.dirs.cross.axis(),
             dirs: par.dirs,
+            line_spacing: par.line_spacing,
             areas,
             finished: vec![],
             lines: vec![],
@@ -134,13 +132,12 @@ impl<'a> ParLayouter<'a> {
     }
 
     fn finish_line(&mut self) {
+        let expand = self.areas.expand.switch(self.dirs);
         let full_size = {
             let full = self.areas.full.switch(self.dirs);
             Gen::new(
                 self.line_size.main,
-                self.par
-                    .cross_expansion
-                    .resolve(self.line_size.cross.min(full.cross), full.cross),
+                expand.cross.resolve(self.line_size.cross.min(full.cross), full.cross),
             )
         };
 
@@ -165,8 +162,8 @@ impl<'a> ParLayouter<'a> {
 
         // Add line spacing, but only between lines.
         if !self.lines.is_empty() {
-            self.lines_size.main += self.par.line_spacing;
-            *self.areas.current.get_mut(self.main) -= self.par.line_spacing;
+            self.lines_size.main += self.line_spacing;
+            *self.areas.current.get_mut(self.main) -= self.line_spacing;
         }
 
         // Update metrics of the whole paragraph.
