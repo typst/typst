@@ -38,6 +38,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let main = args.get(ctx, "main-dir");
     let cross = args.get(ctx, "cross-dir");
     let body = args.find::<ValueTemplate>(ctx);
+    let span = args.span;
 
     Value::template("page", move |ctx| {
         let snapshot = ctx.state.clone();
@@ -83,20 +84,21 @@ pub fn page(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
         }
 
         ctx.set_dirs(Gen::new(main, cross));
-        ctx.finish_page(false, Softness::Hard);
+        ctx.finish_page(false, Softness::Hard, span);
 
         if let Some(body) = &body {
             // TODO: Restrict body to a single page?
             body.exec(ctx);
             ctx.state = snapshot;
-            ctx.finish_page(true, Softness::Soft);
+            ctx.finish_page(true, Softness::Soft, span);
         }
     })
 }
 
 /// `pagebreak`: Start a new page.
-pub fn pagebreak(_: &mut EvalContext, _: &mut ValueArgs) -> Value {
+pub fn pagebreak(_: &mut EvalContext, args: &mut ValueArgs) -> Value {
+    let span = args.span;
     Value::template("pagebreak", move |ctx| {
-        ctx.finish_page(true, Softness::Hard);
+        ctx.finish_page(true, Softness::Hard, span);
     })
 }

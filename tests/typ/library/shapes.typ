@@ -21,3 +21,20 @@ Sometimes there is no box.
 #box(width: 0.5in, height: 10pt, color: #D6CD67)
 #box(width: 0.5in, height: 10pt, color: #EDD466)
 #box(width: 0.5in, height: 10pt, color: #E3BE62)
+
+---
+// Make sure that you can't do page related stuff in a box.
+A
+#box[
+    B
+    // Error: 16 cannot modify page from here
+    #pagebreak()
+
+    // Error: 11-15 cannot modify page from here
+    #page("a4")
+]
+C
+
+// No consequences from the page("A4") call here.
+#pagebreak()
+D

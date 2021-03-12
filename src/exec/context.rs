@@ -23,7 +23,7 @@ pub struct ExecContext<'a> {
     /// The tree of finished page runs.
     tree: Tree,
     /// Metrics of the active page.
-    page: PageData,
+    page: Option<PageInfo>,
     /// The content of the active stack. This may be the top-level stack for the
     /// page or a lower one created by [`exec`](Self::exec).
     stack: NodeStack,
@@ -38,7 +38,7 @@ impl<'a> ExecContext<'a> {
             env,
             diags: DiagSet::new(),
             tree: Tree { runs: vec![] },
-            page: PageData::new(&state, Softness::Hard),
+            page: Some(PageInfo::new(&state, Softness::Hard)),
             stack: NodeStack::new(&state),
             par: NodePar::new(&state),
             state,
@@ -130,16 +130,18 @@ impl<'a> ExecContext<'a> {
 
     /// Execute a template and return the result as a stack node.
     pub fn exec(&mut self, template: &ValueTemplate) -> NodeStack {
-        let prev_par = mem::replace(&mut self.par, NodePar::new(&self.state));
-        let prev_stack = mem::replace(&mut self.stack, NodeStack::new(&self.state));
+        let page = self.page.take();
+        let stack = mem::replace(&mut self.stack, NodeStack::new(&self.state));
+        let par = mem::replace(&mut self.par, NodePar::new(&self.state));
 
         template.exec(self);
-        let stack = self.finish_stack();
+        let result = self.finish_stack();
 
-        self.par = prev_par;
-        self.stack = prev_stack;
+        self.page = page;
+        self.stack = stack;
+        self.par = par;
 
-        stack
+        result
     }
 
     /// Construct a text node from the given string based on the active text
@@ -190,24 +192,30 @@ impl<'a> ExecContext<'a> {
     }
 
     /// Finish the active page.
-    pub fn finish_page(&mut self, keep: bool, new_softnes: Softness) {
-        let stack = self.finish_stack();
-        let data = mem::replace(&mut self.page, PageData::new(&self.state, new_softnes));
-        if !stack.children.is_empty() || (keep && data.softness == Softness::Hard) {
-            self.tree.runs.push(NodePages {
-                size: data.size,
-                child: NodePad {
-                    padding: data.padding,
-                    child: stack.into(),
-                }
-                .into(),
-            });
+    pub fn finish_page(&mut self, keep: bool, new_softness: Softness, source: Span) {
+        if let Some(info) = &mut self.page {
+            let info = mem::replace(info, PageInfo::new(&self.state, new_softness));
+            let stack = self.finish_stack();
+
+            if !stack.children.is_empty() || (keep && info.softness == Softness::Hard) {
+                self.tree.runs.push(NodePages {
+                    size: info.size,
+                    child: NodePad {
+                        padding: info.padding,
+                        child: stack.into(),
+                    }
+                    .into(),
+                });
+            }
+        } else {
+            self.diag(error!(source, "cannot modify page from here"));
         }
     }
 
     /// Finish execution and return the created layout tree.
     pub fn finish(mut self) -> Pass<Tree> {
-        self.finish_page(true, Softness::Soft);
+        assert!(self.page.is_some());
+        self.finish_page(true, Softness::Soft, Span::default());
         Pass::new(self.tree, self.diags)
     }
 }
@@ -241,13 +249,13 @@ fn trim(nodes: &mut Vec<Node>) {
 }
 
 #[derive(Debug)]
-struct PageData {
+struct PageInfo {
     size: Size,
     padding: Sides<Linear>,
     softness: Softness,
 }
 
-impl PageData {
+impl PageInfo {
     fn new(state: &State, softness: Softness) -> Self {
         Self {
             size: state.page.size,
