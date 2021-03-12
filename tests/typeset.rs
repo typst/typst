@@ -131,6 +131,7 @@ fn test(
     let mut frames = vec![];
     let mut lines = 0;
     let mut compare_ref = true;
+    let mut compare_ever = false;
 
     let parts: Vec<_> = src.split("---").collect();
     for (i, part) in parts.iter().enumerate() {
@@ -147,15 +148,17 @@ fn test(
                 }
             }
         } else {
-            let (part_ok, part_frames) = test_part(part, i, compare_ref, lines, env);
+            let (part_ok, compare_here, part_frames) =
+                test_part(part, i, compare_ref, lines, env);
             ok &= part_ok;
+            compare_ever |= compare_here;
             frames.extend(part_frames);
         }
 
         lines += part.lines().count() as u32;
     }
 
-    if !frames.is_empty() {
+    if compare_ever {
         let pdf_data = pdf::export(&env, &frames);
         fs::create_dir_all(&pdf_path.parent().unwrap()).unwrap();
         fs::write(pdf_path, pdf_data).unwrap();
@@ -188,7 +191,7 @@ fn test_part(
     compare_ref: bool,
     lines: u32,
     env: &mut Env,
-) -> (bool, Vec<Frame>) {
+) -> (bool, bool, Vec<Frame>) {
     let map = LineMap::new(src);
     let (local_compare_ref, ref_diags) = parse_metadata(src, &map);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
@@ -242,7 +245,7 @@ fn test_part(
         }
     }
 
-    (ok, frames)
+    (ok, compare_ref, frames)
 }
 
 fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {
@@ -336,12 +339,15 @@ fn draw(env: &Env, frames: &[Frame], pixel_per_pt: f32) -> Canvas {
             .iter()
             .map(|l| l.size.width)
             .max_by(|a, b| a.partial_cmp(&b).unwrap())
-            .unwrap();
+            .unwrap_or_default();
 
     let pixel_width = (pixel_per_pt * width.to_pt() as f32) as u32;
     let pixel_height = (pixel_per_pt * height.to_pt() as f32) as u32;
     if pixel_width > 4000 || pixel_height > 4000 {
-        panic!("overlarge image: {} by {}", pixel_width, pixel_height);
+        panic!(
+            "overlarge image: {} by {} ({} x {})",
+            pixel_width, pixel_height, width, height,
+        );
     }
 
     let mut canvas = Canvas::new(pixel_width, pixel_height).unwrap();
