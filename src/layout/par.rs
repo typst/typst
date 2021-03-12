@@ -8,12 +8,12 @@ pub struct NodePar {
     /// The children are placed in lines along the `cross` direction. The lines
     /// are stacked along the `main` direction.
     pub dirs: LayoutDirs,
+    /// How to align this paragraph in its parent.
+    pub aligns: LayoutAligns,
     /// The spacing to insert after each line.
     pub line_spacing: Length,
     /// The nodes to be arranged in a paragraph.
     pub children: Vec<Node>,
-    /// How to align this paragraph in _its_ parent.
-    pub align: ChildAlign,
 }
 
 impl Layout for NodePar {
@@ -22,15 +22,17 @@ impl Layout for NodePar {
         for child in &self.children {
             match child.layout(ctx, &layouter.areas) {
                 Layouted::Spacing(spacing) => layouter.push_spacing(spacing),
-                Layouted::Frame(frame, align) => layouter.push_frame(frame, align.cross),
-                Layouted::Frames(frames, align) => {
+                Layouted::Frame(frame, aligns) => {
+                    layouter.push_frame(frame, aligns.cross)
+                }
+                Layouted::Frames(frames, aligns) => {
                     for frame in frames {
-                        layouter.push_frame(frame, align.cross);
+                        layouter.push_frame(frame, aligns.cross);
                     }
                 }
             }
         }
-        Layouted::Frames(layouter.finish(), self.align)
+        Layouted::Frames(layouter.finish(), self.aligns)
     }
 }
 

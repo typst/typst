@@ -54,7 +54,7 @@ pub fn align(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
                 } else if had.get(gen_axis) {
                     ctx.diag(error!(span, "duplicate alignment for {} axis", axis));
                 } else {
-                    *ctx.state.align.get_mut(gen_axis) = gen_align;
+                    *ctx.state.aligns.get_mut(gen_axis) = gen_align;
                     *had.get_mut(gen_axis) = true;
                 }
             } else {
@@ -67,8 +67,8 @@ pub fn align(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
                 } else if had_center {
                     // Both this and the previous one are unspecified `center`
                     // alignments. Both axes should be centered.
-                    ctx.state.align.main = Align::Center;
-                    ctx.state.align.cross = Align::Center;
+                    ctx.state.aligns.main = Align::Center;
+                    ctx.state.aligns.cross = Align::Center;
                     had = Gen::uniform(true);
                 } else {
                     had_center = true;
@@ -79,10 +79,10 @@ pub fn align(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
             // `center` alignment.
             if had_center && (had.main || had.cross) {
                 if had.main {
-                    ctx.state.align.cross = Align::Center;
+                    ctx.state.aligns.cross = Align::Center;
                     had.cross = true;
                 } else {
-                    ctx.state.align.main = Align::Center;
+                    ctx.state.aligns.main = Align::Center;
                     had.main = true;
                 }
                 had_center = false;
@@ -92,10 +92,10 @@ pub fn align(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
         // If `had_center` wasn't flushed by now, it's the only argument and then we
         // default to applying it to the cross axis.
         if had_center {
-            ctx.state.align.cross = Align::Center;
+            ctx.state.aligns.cross = Align::Center;
         }
 
-        if ctx.state.align.main != snapshot.align.main {
+        if ctx.state.aligns.main != snapshot.aligns.main {
             ctx.end_par_group();
             ctx.start_par_group();
         }

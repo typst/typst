@@ -25,7 +25,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
                     dimensions,
                     width,
                     height,
-                    align: ctx.state.align,
+                    aligns: ctx.state.aligns,
                 });
             } else {
                 ctx.diag(error!(path.span, "failed to load image"));
@@ -37,6 +37,8 @@ pub fn image(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
 /// An image node.
 #[derive(Debug, Clone, PartialEq)]
 struct NodeImage {
+    /// How to align this image node in its parent.
+    aligns: LayoutAligns,
     /// The resource id of the image file.
     res: ResourceId,
     /// The pixel dimensions of the image.
@@ -45,8 +47,6 @@ struct NodeImage {
     width: Option<Linear>,
     /// The fixed height, if any.
     height: Option<Linear>,
-    /// How to align this image node in its parent.
-    align: ChildAlign,
 }
 
 impl Layout for NodeImage {
@@ -81,7 +81,7 @@ impl Layout for NodeImage {
         let mut frame = Frame::new(size);
         frame.push(Point::ZERO, Element::Image(Image { res: self.res, size }));
 
-        Layouted::Frame(frame, self.align)
+        Layouted::Frame(frame, self.aligns)
     }
 }
 

@@ -5,7 +5,7 @@ use fontdock::FontStyle;
 
 use super::*;
 use crate::diag::{Diag, DiagSet};
-use crate::geom::{ChildAlign, Dir, Gen, LayoutDirs, Length, Linear, Sides, Size};
+use crate::geom::{Dir, Gen, LayoutAligns, LayoutDirs, Length, Linear, Sides, Size};
 use crate::layout::{
     Node, NodePad, NodePages, NodePar, NodeSpacing, NodeStack, NodeText, Tree,
 };
@@ -108,7 +108,7 @@ impl<'a> ExecContext<'a> {
     /// Execute a template and return the result as a stack node.
     pub fn exec(&mut self, template: &ValueTemplate) -> Node {
         let dirs = self.state.dirs;
-        let align = self.state.align;
+        let aligns = self.state.aligns;
 
         self.start_group(ContentGroup);
         self.start_par_group();
@@ -116,7 +116,7 @@ impl<'a> ExecContext<'a> {
         self.end_par_group();
         let children = self.end_group::<ContentGroup>().1;
 
-        NodeStack { dirs, align, children }.into()
+        NodeStack { dirs, aligns, children }.into()
     }
 
     /// Start a page group based on the active page state.
@@ -130,7 +130,7 @@ impl<'a> ExecContext<'a> {
             size: self.state.page.size,
             padding: self.state.page.margins(),
             dirs: self.state.dirs,
-            align: self.state.align,
+            aligns: self.state.aligns,
             softness,
         });
         self.start_par_group();
@@ -156,7 +156,7 @@ impl<'a> ExecContext<'a> {
                     padding: group.padding,
                     child: NodeStack {
                         dirs: group.dirs,
-                        align: group.align,
+                        aligns: group.aligns,
                         children,
                     }
                     .into(),
@@ -172,7 +172,7 @@ impl<'a> ExecContext<'a> {
         let em = self.state.font.font_size();
         self.start_group(ParGroup {
             dirs: self.state.dirs,
-            align: self.state.align,
+            aligns: self.state.aligns,
             line_spacing: self.state.par.line_spacing.resolve(em),
         });
     }
@@ -183,7 +183,7 @@ impl<'a> ExecContext<'a> {
         if !children.is_empty() {
             self.push(NodePar {
                 dirs: group.dirs,
-                align: group.align,
+                aligns: group.aligns,
                 line_spacing: group.line_spacing,
                 children,
             });
@@ -275,7 +275,7 @@ impl<'a> ExecContext<'a> {
 
         NodeText {
             text,
-            align: self.state.align,
+            aligns: self.state.aligns,
             dir: self.state.dirs.cross,
             font_size: self.state.font.font_size(),
             families: Rc::clone(&self.state.font.families),
@@ -296,10 +296,10 @@ pub enum Softness {
 /// A group for a page run.
 #[derive(Debug)]
 struct PageGroup {
+    dirs: LayoutDirs,
+    aligns: LayoutAligns,
     size: Size,
     padding: Sides<Linear>,
-    dirs: LayoutDirs,
-    align: ChildAlign,
     softness: Softness,
 }
 
@@ -311,6 +311,6 @@ struct ContentGroup;
 #[derive(Debug)]
 struct ParGroup {
     dirs: LayoutDirs,
-    align: ChildAlign,
+    aligns: LayoutAligns,
     line_spacing: Length,
 }

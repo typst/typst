@@ -8,8 +8,8 @@ pub struct NodeStack {
     /// The children are stacked along the `main` direction. The `cross`
     /// direction is required for aligning the children.
     pub dirs: LayoutDirs,
-    /// How to align this stack in _its_ parent.
-    pub align: ChildAlign,
+    /// How to align this stack in its parent.
+    pub aligns: LayoutAligns,
     /// The nodes to be stacked.
     pub children: Vec<Node>,
 }
@@ -20,15 +20,15 @@ impl Layout for NodeStack {
         for child in &self.children {
             match child.layout(ctx, &layouter.areas) {
                 Layouted::Spacing(spacing) => layouter.push_spacing(spacing),
-                Layouted::Frame(frame, align) => layouter.push_frame(frame, align),
-                Layouted::Frames(frames, align) => {
+                Layouted::Frame(frame, aligns) => layouter.push_frame(frame, aligns),
+                Layouted::Frames(frames, aligns) => {
                     for frame in frames {
-                        layouter.push_frame(frame, align);
+                        layouter.push_frame(frame, aligns);
                     }
                 }
             }
         }
-        Layouted::Frames(layouter.finish(), self.align)
+        Layouted::Frames(layouter.finish(), self.aligns)
     }
 }
 
@@ -43,7 +43,7 @@ struct StackLayouter {
     dirs: LayoutDirs,
     areas: Areas,
     finished: Vec<Frame>,
-    frames: Vec<(Length, Frame, ChildAlign)>,
+    frames: Vec<(Length, Frame, LayoutAligns)>,
     used: Gen<Length>,
     ruler: Align,
 }
@@ -68,8 +68,8 @@ impl StackLayouter {
         self.used.main += capped;
     }
 
-    fn push_frame(&mut self, frame: Frame, align: ChildAlign) {
-        if self.ruler > align.main {
+    fn push_frame(&mut self, frame: Frame, aligns: LayoutAligns) {
+        if self.ruler > aligns.main {
             self.finish_area();
         }
 
@@ -83,12 +83,12 @@ impl StackLayouter {
         }
 
         let size = frame.size.switch(self.dirs);
-        self.frames.push((self.used.main, frame, align));
+        self.frames.push((self.used.main, frame, aligns));
 
         *self.areas.current.get_mut(self.main) -= size.main;
         self.used.main += size.main;
         self.used.cross = self.used.cross.max(size.cross);
-        self.ruler = align.main;
+        self.ruler = aligns.main;
     }
 
     fn finish_area(&mut self) {
@@ -103,11 +103,11 @@ impl StackLayouter {
 
         let mut output = Frame::new(full_size.switch(self.dirs).to_size());
 
-        for (before, frame, align) in std::mem::take(&mut self.frames) {
+        for (before, frame, aligns) in std::mem::take(&mut self.frames) {
             let child_size = frame.size.switch(self.dirs);
 
             // Align along the main axis.
-            let main = align.main.resolve(if self.dirs.main.is_positive() {
+            let main = aligns.main.resolve(if self.dirs.main.is_positive() {
                 let after_with_self = self.used.main - before;
                 before .. full_size.main - after_with_self
             } else {
@@ -117,7 +117,7 @@ impl StackLayouter {
             });
 
             // Align along the cross axis.
-            let cross = align.cross.resolve(if self.dirs.cross.is_positive() {
+            let cross = aligns.cross.resolve(if self.dirs.cross.is_positive() {
                 Length::ZERO .. full_size.cross - child_size.cross
             } else {
                 full_size.cross - child_size.cross .. Length::ZERO

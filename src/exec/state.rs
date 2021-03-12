@@ -3,33 +3,33 @@ use std::rc::Rc;
 use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
 
 use crate::geom::{
-    Align, ChildAlign, Dir, LayoutDirs, Length, Linear, Relative, Sides, Size,
+    Align, Dir, LayoutAligns, LayoutDirs, Length, Linear, Relative, Sides, Size,
 };
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
 /// The evaluation state.
 #[derive(Debug, Clone, PartialEq)]
 pub struct State {
+    /// The current directions along which layouts are placed in their parents.
+    pub dirs: LayoutDirs,
+    /// The current alignments of layouts in their parents.
+    pub aligns: LayoutAligns,
     /// The current page settings.
     pub page: PageState,
     /// The current paragraph settings.
     pub par: ParState,
     /// The current font settings.
     pub font: FontState,
-    /// The current layouting directions.
-    pub dirs: LayoutDirs,
-    /// The current alignments of an item in its parent.
-    pub align: ChildAlign,
 }
 
 impl Default for State {
     fn default() -> Self {
         Self {
+            dirs: LayoutDirs::new(Dir::TTB, Dir::LTR),
+            aligns: LayoutAligns::new(Align::Start, Align::Start),
             page: PageState::default(),
             par: ParState::default(),
             font: FontState::default(),
-            dirs: LayoutDirs::new(Dir::TTB, Dir::LTR),
-            align: ChildAlign::new(Align::Start, Align::Start),
         }
     }
 }

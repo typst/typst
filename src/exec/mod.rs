@@ -126,7 +126,7 @@ impl Exec for NodeRaw {
             height: None,
             child: NodeStack {
                 dirs: ctx.state.dirs,
-                align: ctx.state.align,
+                aligns: ctx.state.aligns,
                 children,
             }
             .into(),

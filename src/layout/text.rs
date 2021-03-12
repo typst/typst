@@ -9,12 +9,12 @@ use crate::shaping;
 /// A text node.
 #[derive(Clone, PartialEq)]
 pub struct NodeText {
-    /// The text.
-    pub text: String,
-    /// How to align this text node in its parent.
-    pub align: ChildAlign,
     /// The text direction.
     pub dir: Dir,
+    /// How to align this text node in its parent.
+    pub aligns: LayoutAligns,
+    /// The text.
+    pub text: String,
     /// The font size.
     pub font_size: Length,
     /// The families used for font fallback.
@@ -34,7 +34,7 @@ impl Layout for NodeText {
                 &self.families,
                 self.variant,
             ),
-            self.align,
+            self.aligns,
         )
     }
 }
