@@ -89,15 +89,14 @@ pub fn align(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
             }
         }
 
-        // If `had_center` wasn't flushed by now, it's the only argument and then we
-        // default to applying it to the cross axis.
+        // If `had_center` wasn't flushed by now, it's the only argument and
+        // then we default to applying it to the cross axis.
         if had_center {
             ctx.state.aligns.cross = Align::Center;
         }
 
         if ctx.state.aligns.main != snapshot.aligns.main {
-            ctx.end_par_group();
-            ctx.start_par_group();
+            ctx.push_linebreak();
         }
 
         if let Some(body) = &body {

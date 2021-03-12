@@ -83,25 +83,20 @@ pub fn page(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
         }
 
         ctx.set_dirs(Gen::new(main, cross));
+        ctx.finish_page(false, Softness::Hard);
 
-        let mut softness = ctx.end_page_group(|_| false);
         if let Some(body) = &body {
             // TODO: Restrict body to a single page?
-            ctx.start_page_group(Softness::Hard);
             body.exec(ctx);
-            ctx.end_page_group(|s| s == Softness::Hard);
-            softness = Softness::Soft;
             ctx.state = snapshot;
+            ctx.finish_page(true, Softness::Soft);
         }
-
-        ctx.start_page_group(softness);
     })
 }
 
 /// `pagebreak`: Start a new page.
 pub fn pagebreak(_: &mut EvalContext, _: &mut ValueArgs) -> Value {
     Value::template("pagebreak", move |ctx| {
-        ctx.end_page_group(|_| true);
-        ctx.start_page_group(Softness::Hard);
+        ctx.finish_page(true, Softness::Hard);
     })
 }

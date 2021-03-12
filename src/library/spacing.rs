@@ -25,9 +25,7 @@ fn spacing(ctx: &mut EvalContext, args: &mut ValueArgs, axis: SpecAxis) -> Value
             let amount = linear.resolve(ctx.state.font.font_size());
             let spacing = NodeSpacing { amount, softness: Softness::Hard };
             if axis == ctx.state.dirs.main.axis() {
-                ctx.end_par_group();
-                ctx.push(spacing);
-                ctx.start_par_group();
+                ctx.push_into_stack(spacing);
             } else {
                 ctx.push(spacing);
             }

@@ -31,10 +31,17 @@ pub fn exec(
     state: State,
 ) -> Pass<layout::Tree> {
     let mut ctx = ExecContext::new(env, state);
-    ctx.start_page_group(Softness::Hard);
     tree.exec_with_map(&mut ctx, &map);
-    ctx.end_page_group(|s| s == Softness::Hard);
     ctx.finish()
+}
+
+/// Defines how an item interacts with surrounding items.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum Softness {
+    /// A soft item can be skipped in some circumstances.
+    Soft,
+    /// A hard item is always retained.
+    Hard,
 }
 
 /// Execute a node.
@@ -68,8 +75,8 @@ impl ExecWithMap for Node {
         match self {
             Node::Text(text) => ctx.push_text(text),
             Node::Space => ctx.push_space(),
-            Node::Linebreak => ctx.apply_linebreak(),
-            Node::Parbreak => ctx.apply_parbreak(),
+            Node::Linebreak => ctx.push_linebreak(),
+            Node::Parbreak => ctx.push_parbreak(),
             Node::Strong => ctx.state.font.strong ^= true,
             Node::Emph => ctx.state.font.emph ^= true,
             Node::Heading(heading) => heading.exec_with_map(ctx, map),
@@ -87,7 +94,7 @@ impl ExecWithMap for NodeHeading {
         ctx.state.font.strong = true;
 
         self.contents.exec_with_map(ctx, map);
-        ctx.apply_parbreak();
+        ctx.push_parbreak();
 
         ctx.state = prev;
     }
@@ -96,7 +103,7 @@ impl ExecWithMap for NodeHeading {
 impl Exec for NodeRaw {
     fn exec(&self, ctx: &mut ExecContext) {
         let prev = Rc::clone(&ctx.state.font.families);
-        ctx.apply_monospace();
+        ctx.set_monospace();
 
         let em = ctx.state.font.font_size();
         let line_spacing = ctx.state.par.line_spacing.resolve(em);
@@ -116,7 +123,7 @@ impl Exec for NodeRaw {
         }
 
         if self.block {
-            ctx.apply_parbreak();
+            ctx.push_parbreak();
         }
 
         // This is wrapped in a fixed node to make sure the stack fits to its
@@ -133,7 +140,7 @@ impl Exec for NodeRaw {
         });
 
         if self.block {
-            ctx.apply_parbreak();
+            ctx.push_parbreak();
         }
 
         ctx.state.font.families = prev;
@@ -153,7 +160,7 @@ impl Exec for Value {
                 // For values which can't be shown "naturally", we print
                 // the representation in monospace.
                 let prev = Rc::clone(&ctx.state.font.families);
-                ctx.apply_monospace();
+                ctx.set_monospace();
                 ctx.push_text(&pretty(other));
                 ctx.state.font.families = prev;
             }

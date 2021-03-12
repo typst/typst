@@ -31,7 +31,7 @@ pub fn box_(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
 
         ctx.set_dirs(Gen::new(main, cross));
 
-        let child = ctx.exec(&body);
+        let child = ctx.exec(&body).into();
         let fixed = NodeFixed { width, height, child };
         if let Some(color) = color {
             ctx.push(NodeBackground {
