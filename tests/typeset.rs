@@ -37,7 +37,7 @@ const FONT_DIR: &str = "../fonts";
 fn main() {
     env::set_current_dir(env::current_dir().unwrap().join("tests")).unwrap();
 
-    let filter = TestFilter::new(env::args().skip(1));
+    let args = Args::new(env::args().skip(1));
     let mut filtered = Vec::new();
 
     for entry in WalkDir::new(".").into_iter() {
@@ -51,7 +51,7 @@ fn main() {
             continue;
         }
 
-        if filter.matches(&src_path.to_string_lossy()) {
+        if args.matches(&src_path.to_string_lossy()) {
             filtered.push(src_path);
         }
     }
@@ -73,11 +73,19 @@ fn main() {
 
     let mut ok = true;
     for src_path in filtered {
-        let trailer = src_path.strip_prefix(TYP_DIR).unwrap();
-        let png_path = Path::new(PNG_DIR).join(trailer).with_extension("png");
-        let pdf_path = Path::new(PDF_DIR).join(trailer).with_extension("pdf");
-        let ref_path = Path::new(REF_DIR).join(trailer).with_extension("png");
-        ok &= test(&src_path, &png_path, &pdf_path, &ref_path, &mut env);
+        let path = src_path.strip_prefix(TYP_DIR).unwrap();
+        let png_path = Path::new(PNG_DIR).join(path).with_extension("png");
+        let ref_path = Path::new(REF_DIR).join(path).with_extension("png");
+        let pdf_path =
+            args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
+
+        ok &= test(
+            &mut env,
+            &src_path,
+            &png_path,
+            &ref_path,
+            pdf_path.as_deref(),
+        );
     }
 
     if !ok {
@@ -85,25 +93,28 @@ fn main() {
     }
 }
 
-struct TestFilter {
+struct Args {
     filter: Vec<String>,
+    pdf: bool,
     perfect: bool,
 }
 
-impl TestFilter {
+impl Args {
     fn new(args: impl Iterator<Item = String>) -> Self {
         let mut filter = Vec::new();
         let mut perfect = false;
+        let mut pdf = false;
 
         for arg in args {
             match arg.as_str() {
                 "--nocapture" => {}
+                "--pdf" => pdf = true,
                 "=" => perfect = true,
                 _ => filter.push(arg),
             }
         }
 
-        Self { filter, perfect }
+        Self { filter, pdf, perfect }
     }
 
     fn matches(&self, name: &str) -> bool {
@@ -116,11 +127,11 @@ impl TestFilter {
 }
 
 fn test(
+    env: &mut Env,
     src_path: &Path,
     png_path: &Path,
-    pdf_path: &Path,
     ref_path: &Path,
-    env: &mut Env,
+    pdf_path: Option<&Path>,
 ) -> bool {
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
     println!("Testing {}", name.display());
@@ -149,7 +160,7 @@ fn test(
             }
         } else {
             let (part_ok, compare_here, part_frames) =
-                test_part(part, i, compare_ref, lines, env);
+                test_part(env, part, i, compare_ref, lines);
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
@@ -159,9 +170,11 @@ fn test(
     }
 
     if compare_ever {
-        let pdf_data = pdf::export(&env, &frames);
-        fs::create_dir_all(&pdf_path.parent().unwrap()).unwrap();
-        fs::write(pdf_path, pdf_data).unwrap();
+        if let Some(pdf_path) = pdf_path {
+            let pdf_data = pdf::export(&env, &frames);
+            fs::create_dir_all(&pdf_path.parent().unwrap()).unwrap();
+            fs::write(pdf_path, pdf_data).unwrap();
+        }
 
         let canvas = draw(&env, &frames, 2.0);
         fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
@@ -186,11 +199,11 @@ fn test(
 }
 
 fn test_part(
+    env: &mut Env,
     src: &str,
     i: usize,
     compare_ref: bool,
     lines: u32,
-    env: &mut Env,
 ) -> (bool, bool, Vec<Frame>) {
     let map = LineMap::new(src);
     let (local_compare_ref, ref_diags) = parse_metadata(src, &map);
