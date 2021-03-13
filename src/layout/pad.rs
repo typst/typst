@@ -41,7 +41,7 @@ fn shrink(areas: &Areas, padding: Sides<Linear>) -> Areas {
     }
 }
 
-/// Enlarge the box and move all elements inwards.
+/// Enlarge the frame and move all elements inwards.
 fn pad(frame: &mut Frame, padding: Sides<Linear>) {
     let padding = padding.resolve(frame.size);
     let origin = Point::new(padding.left, padding.top);

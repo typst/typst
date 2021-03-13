@@ -32,68 +32,14 @@ pub fn align(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     Value::template("align", move |ctx| {
         let snapshot = ctx.state.clone();
 
-        let mut had = Gen::uniform(false);
-        let mut had_center = false;
-
-        // Infer the axes alignments belong to.
-        for (axis, Spanned { v: arg, span }) in first
+        let values = first
             .into_iter()
             .chain(second.into_iter())
-            .map(|arg: Spanned<Alignment>| (arg.v.axis(), arg))
+            .map(|arg: Spanned<AlignValue>| (arg.v.axis(), arg))
             .chain(hor.into_iter().map(|arg| (Some(SpecAxis::Horizontal), arg)))
-            .chain(ver.into_iter().map(|arg| (Some(SpecAxis::Vertical), arg)))
-        {
-            // Check whether we know which axis this alignment belongs to.
-            if let Some(axis) = axis {
-                // We know the axis.
-                let gen_axis = axis.switch(ctx.state.dirs);
-                let gen_align = arg.switch(ctx.state.dirs);
+            .chain(ver.into_iter().map(|arg| (Some(SpecAxis::Vertical), arg)));
 
-                if arg.axis().map_or(false, |a| a != axis) {
-                    ctx.diag(error!(span, "invalid alignment for {} axis", axis));
-                } else if had.get(gen_axis) {
-                    ctx.diag(error!(span, "duplicate alignment for {} axis", axis));
-                } else {
-                    *ctx.state.aligns.get_mut(gen_axis) = gen_align;
-                    *had.get_mut(gen_axis) = true;
-                }
-            } else {
-                // We don't know the axis: This has to be a `center` alignment for a
-                // positional argument.
-                debug_assert_eq!(arg, Alignment::Center);
-
-                if had.main && had.cross {
-                    ctx.diag(error!(span, "duplicate alignment"));
-                } else if had_center {
-                    // Both this and the previous one are unspecified `center`
-                    // alignments. Both axes should be centered.
-                    ctx.state.aligns.main = Align::Center;
-                    ctx.state.aligns.cross = Align::Center;
-                    had = Gen::uniform(true);
-                } else {
-                    had_center = true;
-                }
-            }
-
-            // If we we know the other alignment, we can handle the unspecified
-            // `center` alignment.
-            if had_center && (had.main || had.cross) {
-                if had.main {
-                    ctx.state.aligns.cross = Align::Center;
-                    had.cross = true;
-                } else {
-                    ctx.state.aligns.main = Align::Center;
-                    had.main = true;
-                }
-                had_center = false;
-            }
-        }
-
-        // If `had_center` wasn't flushed by now, it's the only argument and
-        // then we default to applying it to the cross axis.
-        if had_center {
-            ctx.state.aligns.cross = Align::Center;
-        }
+        apply(ctx, values);
 
         if ctx.state.aligns.main != snapshot.aligns.main {
             ctx.push_linebreak();
@@ -106,9 +52,70 @@ pub fn align(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     })
 }
 
-/// An alignment argument.
+/// Deduplicate and apply the alignments.
+fn apply(
+    ctx: &mut ExecContext,
+    values: impl Iterator<Item = (Option<SpecAxis>, Spanned<AlignValue>)>,
+) {
+    let mut had = Gen::uniform(false);
+    let mut had_center = false;
+
+    for (axis, Spanned { v: arg, span }) in values {
+        // Check whether we know which axis this alignment belongs to.
+        if let Some(axis) = axis {
+            // We know the axis.
+            let gen_axis = axis.switch(ctx.state.dirs);
+            let gen_align = arg.switch(ctx.state.dirs);
+
+            if arg.axis().map_or(false, |a| a != axis) {
+                ctx.diag(error!(span, "invalid alignment for {} axis", axis));
+            } else if had.get(gen_axis) {
+                ctx.diag(error!(span, "duplicate alignment for {} axis", axis));
+            } else {
+                *ctx.state.aligns.get_mut(gen_axis) = gen_align;
+                *had.get_mut(gen_axis) = true;
+            }
+        } else {
+            // We don't know the axis: This has to be a `center` alignment for a
+            // positional argument.
+            debug_assert_eq!(arg, AlignValue::Center);
+
+            if had.main && had.cross {
+                ctx.diag(error!(span, "duplicate alignment"));
+            } else if had_center {
+                // Both this and the previous one are unspecified `center`
+                // alignments. Both axes should be centered.
+                ctx.state.aligns.main = Align::Center;
+                ctx.state.aligns.cross = Align::Center;
+                had = Gen::uniform(true);
+            } else {
+                had_center = true;
+            }
+        }
+
+        // If we we know the other alignment, we can handle the unspecified
+        // `center` alignment.
+        if had_center && (had.main || had.cross) {
+            if had.main {
+                ctx.state.aligns.cross = Align::Center;
+            } else {
+                ctx.state.aligns.main = Align::Center;
+            }
+            had = Gen::uniform(true);
+            had_center = false;
+        }
+    }
+
+    // If `had_center` wasn't flushed by now, it's the only argument and
+    // then we default to applying it to the cross axis.
+    if had_center {
+        ctx.state.aligns.cross = Align::Center;
+    }
+}
+
+/// An alignment value.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub(super) enum Alignment {
+pub(super) enum AlignValue {
     Left,
     Center,
     Right,
@@ -116,7 +123,7 @@ pub(super) enum Alignment {
     Bottom,
 }
 
-impl Alignment {
+impl AlignValue {
     /// The specific axis this alignment refers to.
     fn axis(self) -> Option<SpecAxis> {
         match self {
@@ -129,7 +136,7 @@ impl Alignment {
     }
 }
 
-impl Switch for Alignment {
+impl Switch for AlignValue {
     type Other = Align;
 
     fn switch(self, dirs: LayoutDirs) -> Self::Other {
@@ -152,7 +159,7 @@ impl Switch for Alignment {
     }
 }
 
-impl Display for Alignment {
+impl Display for AlignValue {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
             Self::Left => "left",
@@ -165,5 +172,5 @@ impl Display for Alignment {
 }
 
 typify! {
-    Alignment: "alignment",
+    AlignValue: "alignment",
 }

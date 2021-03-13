@@ -619,8 +619,9 @@ impl From<ValueAny> for Value {
 /// - [`Cast<Value>`](Cast) for `T`.
 ///
 /// # Example
-/// Make a type `FontFamily` that can be cast from a [`Value::Any`] variant
-/// containing a `FontFamily` or from a string.
+/// Allow a type `FontFamily` to be cast from:
+/// - a [`Value::Any`] variant already containing a `FontFamily`
+/// - a string, producing a `FontFamiliy::Named(..)`.
 /// ```
 /// # use typst::typify;
 /// # enum FontFamily { Named(String) }

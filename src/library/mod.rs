@@ -57,11 +57,11 @@ pub fn new() -> Scope {
     set!(func: "v", v);
 
     // Constants.
-    set!(any: "left", Alignment::Left);
-    set!(any: "center", Alignment::Center);
-    set!(any: "right", Alignment::Right);
-    set!(any: "top", Alignment::Top);
-    set!(any: "bottom", Alignment::Bottom);
+    set!(any: "left", AlignValue::Left);
+    set!(any: "center", AlignValue::Center);
+    set!(any: "right", AlignValue::Right);
+    set!(any: "top", AlignValue::Top);
+    set!(any: "bottom", AlignValue::Bottom);
     set!(any: "ltr", Dir::LTR);
     set!(any: "rtl", Dir::RTL);
     set!(any: "ttb", Dir::TTB);
