@@ -2,16 +2,22 @@ use super::*;
 
 /// `h`: Add horizontal spacing.
 ///
-/// # Positional arguments
+/// # Positional parameters
 /// - Amount of spacing: of type `linear` relative to current font size.
+///
+/// # Return value
+/// A template that adds horizontal spacing.
 pub fn h(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     spacing(ctx, args, SpecAxis::Horizontal)
 }
 
 /// `v`: Add vertical spacing.
 ///
-/// # Positional arguments
+/// # Positional parameters
 /// - Amount of spacing: of type `linear` relative to current font size.
+///
+/// # Return value
+/// A template that adds vertical spacing.
 pub fn v(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     spacing(ctx, args, SpecAxis::Vertical)
 }
@@ -19,7 +25,6 @@ pub fn v(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
 /// Apply spacing along a specific axis.
 fn spacing(ctx: &mut EvalContext, args: &mut ValueArgs, axis: SpecAxis) -> Value {
     let spacing: Option<Linear> = args.require(ctx, "spacing");
-
     Value::template("spacing", move |ctx| {
         if let Some(linear) = spacing {
             let amount = linear.resolve(ctx.state.font.font_size());

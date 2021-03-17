@@ -2,15 +2,18 @@ use super::*;
 
 /// `pad`: Pad content at the sides.
 ///
-/// # Positional arguments
+/// # Positional parameters
 /// - Padding for all sides: `padding`, of type `linear` relative to sides.
 /// - Body: of type `template`.
 ///
-/// # Named arguments
-/// - Left padding:   `left`, of type `linear` relative to parent width.
-/// - Right padding:  `right`, of type `linear` relative to parent width.
-/// - Top padding:    `top`, of type `linear` relative to parent height.
+/// # Named parameters
+/// - Left padding: `left`, of type `linear` relative to parent width.
+/// - Right padding: `right`, of type `linear` relative to parent width.
+/// - Top padding: `top`, of type `linear` relative to parent height.
 /// - Bottom padding: `bottom`, of type `linear` relative to parent height.
+///
+/// # Return value
+/// A template that pads the body at the sides.
 pub fn pad(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let all = args.find(ctx);
     let left = args.get(ctx, "left");

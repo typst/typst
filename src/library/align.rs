@@ -2,26 +2,30 @@ use super::*;
 
 /// `align`: Align content along the layouting axes.
 ///
+/// # Positional parameters
+/// - Alignments: variadic, of type `alignment`.
+/// - Body: optional, of type `template`.
+///
 /// Which axis an alignment should apply to (main or cross) is inferred from
 /// either the argument itself (for anything other than `center`) or from the
 /// second argument if present, defaulting to the cross axis for a single
 /// `center` alignment.
 ///
-/// # Positional arguments
-/// - Alignments: variadic, of type `alignment`.
-/// - Body:       optional, of type `template`.
-///
-/// # Named arguments
+/// # Named parameters
 /// - Horizontal alignment: `horizontal`, of type `alignment`.
-/// - Vertical alignment:   `vertical`, of type `alignment`.
+/// - Vertical alignment: `vertical`, of type `alignment`.
+///
+/// # Return value
+/// A template that changes the alignment along the layouting axes. The effect
+/// is scoped to the body if present.
 ///
 /// # Relevant types and constants
 /// - Type `alignment`
-///     - `left`
-///     - `right`
-///     - `top`
-///     - `bottom`
-///     - `center`
+///   - `left`
+///   - `right`
+///   - `top`
+///   - `bottom`
+///   - `center`
 pub fn align(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let first = args.find(ctx);
     let second = args.find(ctx);

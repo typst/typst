@@ -4,44 +4,48 @@ use super::*;
 
 /// `font`: Configure the font.
 ///
-/// # Positional arguments
-/// - Font size:     optional, of type `linear` relative to current font size.
+/// # Positional parameters
+/// - Font size: optional, of type `linear` relative to current font size.
 /// - Font families: variadic, of type `font-family`.
-/// - Body:          optional, of type `template`.
+/// - Body: optional, of type `template`.
 ///
-/// # Named arguments
-/// - Font Style:                   `style`, of type `font-style`.
-/// - Font Weight:                  `weight`, of type `font-weight`.
-/// - Serif family definition:      `serif`, of type `font-families`.
-/// - Sans-serif family definition: `sans-serif`, of type `font-families`.
-/// - Monospace family definition:  `monospace`, of type `font-families`.
-/// - Font Stretch:                 `stretch`, of type `relative`, between 0.5 and 2.0.
+/// # Named parameters
+/// - Font Style: `style`, of type `font-style`.
+/// - Font Weight: `weight`, of type `font-weight`.
+/// - Font Stretch: `stretch`, of type `relative`, between 0.5 and 2.0.
+/// - Serif family definition: `serif`, of type `font-familiy-list`.
+/// - Sans-serif family definition: `sans-serif`, of type `font-familiy-list`.
+/// - Monospace family definition: `monospace`, of type `font-familiy-list`.
+///
+/// # Return value
+/// A template that configures font properties. The effect is scoped to the body
+/// if present.
 ///
 /// # Relevant types and constants
-/// - Type `font-families`
-///     - coerces from `string`
-///     - coerces from `array`
-///     - coerces from `font-family`
+/// - Type `font-family-list`
+///   - coerces from `string`
+///   - coerces from `array`
+///   - coerces from `font-family`
 /// - Type `font-family`
-///     - `serif`
-///     - `sans-serif`
-///     - `monospace`
-///     - coerces from `string`
+///   - `serif`
+///   - `sans-serif`
+///   - `monospace`
+///   - coerces from `string`
 /// - Type `font-style`
-///     - `normal`
-///     - `italic`
-///     - `oblique`
+///   - `normal`
+///   - `italic`
+///   - `oblique`
 /// - Type `font-weight`
-///     - `thin` (100)
-///     - `extralight` (200)
-///     - `light` (300)
-///     - `regular` (400)
-///     - `medium` (500)
-///     - `semibold` (600)
-///     - `bold` (700)
-///     - `extrabold` (800)
-///     - `black` (900)
-///     - coerces from `integer`
+///   - `thin` (100)
+///   - `extralight` (200)
+///   - `light` (300)
+///   - `regular` (400)
+///   - `medium` (500)
+///   - `semibold` (600)
+///   - `bold` (700)
+///   - `extrabold` (800)
+///   - `black` (900)
+///   - coerces from `integer`
 pub fn font(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let size = args.find::<Linear>(ctx);
     let list: Vec<_> = args.filter::<FontFamily>(ctx).map(|f| f.to_string()).collect();

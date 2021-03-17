@@ -5,7 +5,7 @@ use super::*;
 
 /// `repr`: Get the string representation of a value.
 ///
-/// # Positional arguments
+/// # Positional parameters
 /// - Any value.
 ///
 /// # Return value
@@ -19,11 +19,14 @@ pub fn repr(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
 
 /// `rgb`: Create an RGB(A) color.
 ///
-/// # Positional arguments
-/// - Red component:   of type `float`, between 0.0 and 1.0.
+/// # Positional parameters
+/// - Red component: of type `float`, between 0.0 and 1.0.
 /// - Green component: of type `float`, between 0.0 and 1.0.
-/// - Blue component:  of type `float`, between 0.0 and 1.0.
+/// - Blue component: of type `float`, between 0.0 and 1.0.
 /// - Alpha component: optional, of type `float`, between 0.0 and 1.0.
+///
+/// # Return value
+/// The color with the given components.
 pub fn rgb(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let r = args.require(ctx, "red component");
     let g = args.require(ctx, "green component");
@@ -49,7 +52,7 @@ pub fn rgb(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
 
 /// `type`: Find out the name of a value's type.
 ///
-/// # Positional arguments
+/// # Positional parameters
 /// - Any value.
 ///
 /// # Return value

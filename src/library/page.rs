@@ -3,22 +3,33 @@ use crate::paper::{Paper, PaperClass};
 
 /// `page`: Configure pages.
 ///
-/// # Positional arguments
+/// # Positional parameters
 /// - Paper name: optional, of type `string`, see [here](crate::paper) for a
-///               full list of all paper names.
-/// - Body:       optional, of type `template`.
+///   full list of all paper names.
+/// - Body: optional, of type `template`.
 ///
-/// # Named arguments
-/// - Width of the page:         `width`, of type `length`.
-/// - Height of the page:        `height`, of type `length`.
-/// - Margins for all sides:     `margins`, of type `linear` relative to sides.
-/// - Left margin:               `left`, of type `linear` relative to width.
-/// - Right margin:              `right`, of type `linear` relative to width.
-/// - Top margin:                `top`, of type `linear` relative to height.
-/// - Bottom margin:             `bottom`, of type `linear` relative to height.
-/// - Flip width and height:     `flip`, of type `bool`.
-/// - Main layouting direction:  `main-dir`, of type `direction`.
+/// # Named parameters
+/// - Width of the page: `width`, of type `length`.
+/// - Height of the page: `height`, of type `length`.
+/// - Margins for all sides: `margins`, of type `linear` relative to sides.
+/// - Left margin: `left`, of type `linear` relative to width.
+/// - Right margin: `right`, of type `linear` relative to width.
+/// - Top margin: `top`, of type `linear` relative to height.
+/// - Bottom margin: `bottom`, of type `linear` relative to height.
+/// - Flip width and height: `flip`, of type `bool`.
+/// - Main layouting direction: `main-dir`, of type `direction`.
 /// - Cross layouting direction: `cross-dir`, of type `direction`.
+///
+/// # Return value
+/// A template that configures page properties. The effect is scoped to the body
+/// if present.
+///
+/// # Relevant types and constants
+/// - Type `direction`
+///   - `ltr` (left to right)
+///   - `rtl` (right to left)
+///   - `ttb` (top to bottom)
+///   - `btt` (bottom to top)
 pub fn page(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let paper = args.find::<Spanned<String>>(ctx).and_then(|name| {
         Paper::from_name(&name.v).or_else(|| {
@@ -96,6 +107,9 @@ pub fn page(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
 }
 
 /// `pagebreak`: Start a new page.
+///
+/// # Return value
+/// A template that starts a new page.
 pub fn pagebreak(_: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let span = args.span;
     Value::template("pagebreak", move |ctx| {

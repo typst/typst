@@ -2,22 +2,25 @@ use super::*;
 
 /// `rect`: Create a rectangular box.
 ///
-/// # Positional arguments
+/// # Positional parameters
 /// - Body: optional, of type `template`.
 ///
-/// # Named arguments
-/// - Width of the box:          `width`, of type `linear` relative to parent width.
-/// - Height of the box:         `height`, of type `linear` relative to parent height.
-/// - Main layouting direction:  `main-dir`, of type `direction`.
+/// # Named parameters
+/// - Width of the box: `width`, of type `linear` relative to parent width.
+/// - Height of the box: `height`, of type `linear` relative to parent height.
+/// - Main layouting direction: `main-dir`, of type `direction`.
 /// - Cross layouting direction: `cross-dir`, of type `direction`.
-/// - Fill color of the box:     `fill`, of type `color`.
+/// - Fill color of the box: `fill`, of type `color`.
+///
+/// # Return value
+/// A template that places the body into a rectangle.
 ///
 /// # Relevant types and constants
 /// - Type `direction`
-///     - `ltr` (left to right)
-///     - `rtl` (right to left)
-///     - `ttb` (top to bottom)
-///     - `btt` (bottom to top)
+///   - `ltr` (left to right)
+///   - `rtl` (right to left)
+///   - `ttb` (top to bottom)
+///   - `btt` (bottom to top)
 pub fn rect(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let width = args.get(ctx, "width");
     let height = args.get(ctx, "height");

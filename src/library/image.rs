@@ -8,8 +8,11 @@ use crate::layout::*;
 ///
 /// Supports PNG and JPEG files.
 ///
-/// # Positional arguments
+/// # Positional parameters
 /// - Path to image file: of type `string`.
+///
+/// # Return value
+/// A template that inserts an image.
 pub fn image(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let path = args.require::<Spanned<String>>(ctx, "path to image file");
     let width = args.get(ctx, "width");
