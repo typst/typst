@@ -3,7 +3,7 @@
 
 ---
 #test(type("hi"), "string")
-#test(repr([Hi #box[there]]), "[Hi [<node box>]]")
+#test(repr([Hi #rect[there]]), "[Hi [<node box>]]")
 
 ---
 // Check the output.

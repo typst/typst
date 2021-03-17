@@ -21,7 +21,7 @@
 }
 
 // Function call continues heading.
-= #box[
+= #rect[
     A
 ] B
 
@@ -35,7 +35,7 @@ B
 // Parsed as headings if at start of the context.
 /**/ = Ok
 {[== Ok]}
-#box[=== Ok]
+#rect[=== Ok]
 
 // Not at the start of the context.
 No = heading

@@ -52,6 +52,6 @@
 // Functions
 #let f(x) = x
 
-{box} \
+{rect} \
 {f} \
 {() => none} \

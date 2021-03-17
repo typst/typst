@@ -50,10 +50,10 @@
 // Error: 3-4 unknown variable
 { z = 1 }
 
-// Error: 3-6 cannot assign to a constant
-{ box = "hi" }
+// Error: 3-7 cannot assign to a constant
+{ rect = "hi" }
 
-// Works if we define box beforehand
+// Works if we define rect beforehand
 // (since then it doesn't resolve to the standard library version anymore).
-#let box = ""
-{ box = "hi" }
+#let rect = ""
+{ rect = "hi" }

@@ -8,7 +8,7 @@
 Partly str*ength*ened.
 
 // Scoped to body.
-#box[*Scoped] to body.
+#rect[*Scoped] to body.
 
 // Unterminated is fine.
 *The End

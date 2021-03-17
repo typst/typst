@@ -18,8 +18,8 @@
 ---
 // Syntax sugar for function definitions.
 #let background = #239dad
-#let box(body) = box(width: 2cm, height: 1cm, color: background, body)
-#box[Hi!]
+#let rect(body) = rect(width: 2cm, height: 1cm, fill: background, body)
+#rect[Hi!]
 
 // Error: 13 expected body
 #let func(x)

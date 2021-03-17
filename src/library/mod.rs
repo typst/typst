@@ -44,13 +44,13 @@ pub fn new() -> Scope {
 
     // Functions.
     set!(func: "align", align);
-    set!(func: "box", box_);
     set!(func: "font", font);
     set!(func: "h", h);
     set!(func: "image", image);
     set!(func: "pad", pad);
     set!(func: "page", page);
     set!(func: "pagebreak", pagebreak);
+    set!(func: "rect", rect);
     set!(func: "repr", repr);
     set!(func: "rgb", rgb);
     set!(func: "type", type_);
