@@ -18,7 +18,7 @@
 #font(weight: bold)[Bold]
 
 // Set stretch (not available, matching closest).
-#font(stretch: ultra-condensed)[Condensed]
+#font(stretch: 50%)[Condensed]
 
 // Set family.
 #font("PT Sans")[Sans serif]
@@ -44,6 +44,9 @@ Emoji: 🐪, 🌋, 🏞
 
 // Warning: 15-19 should be between 100 and 900
 #font(weight: 2700)
+
+// Warning: 16-21 should be between 50% and 200%
+#font(stretch: 1000%)
 
 // Error: 7-27 unexpected argument
 #font(something: "invalid")

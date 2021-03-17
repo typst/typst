@@ -12,10 +12,10 @@ use super::*;
 /// # Named arguments
 /// - Font Style:                   `style`, of type `font-style`.
 /// - Font Weight:                  `weight`, of type `font-weight`.
-/// - Font Stretch:                 `stretch`, of type `font-stretch`.
 /// - Serif family definition:      `serif`, of type `font-families`.
 /// - Sans-serif family definition: `sans-serif`, of type `font-families`.
 /// - Monospace family definition:  `monospace`, of type `font-families`.
+/// - Font Stretch:                 `stretch`, of type `relative`, between 0.5 and 2.0.
 ///
 /// # Relevant types and constants
 /// - Type `font-families`
@@ -42,16 +42,6 @@ use super::*;
 ///     - `extrabold` (800)
 ///     - `black` (900)
 ///     - coerces from `integer`
-/// - Type `font-stretch`
-///     - `ultra-condensed`
-///     - `extra-condensed`
-///     - `condensed`
-///     - `semi-condensed`
-///     - `normal`
-///     - `semi-expanded`
-///     - `expanded`
-///     - `extra-expanded`
-///     - `ultra-expanded`
 pub fn font(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let size = args.find::<Linear>(ctx);
     let list: Vec<_> = args.filter::<FontFamily>(ctx).map(|f| f.to_string()).collect();
@@ -160,7 +150,7 @@ typify! {
 }
 
 typify! {
-    FontStyle: "font style"
+    FontStyle: "font style",
 }
 
 typify! {
@@ -179,5 +169,15 @@ typify! {
 }
 
 typify! {
-    FontStretch: "font stretch"
+    FontStretch: "font stretch",
+    Value::Relative(relative) => {
+        let f = |stretch: Self| Relative::new(stretch.to_ratio());
+        let [min, max] = [f(Self::UltraCondensed), f(Self::UltraExpanded)];
+        let value = Self::from_ratio(relative.get());
+        return if relative < min || relative > max {
+            CastResult::Warn(value, format!("should be between {} and {}", min, max))
+        } else {
+            CastResult::Ok(value)
+        };
+    },
 }

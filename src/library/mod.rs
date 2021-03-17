@@ -23,7 +23,7 @@ pub use spacing::*;
 
 use std::fmt::{self, Display, Formatter};
 
-use fontdock::{FontStretch, FontStyle, FontWeight};
+use fontdock::{FontStyle, FontWeight};
 
 use crate::eval::{Scope, ValueAny, ValueFunc};
 use crate::exec::Softness;
@@ -81,15 +81,6 @@ pub fn new() -> Scope {
     set!(any: "bold", FontWeight::BOLD);
     set!(any: "extrabold", FontWeight::EXTRABOLD);
     set!(any: "black", FontWeight::BLACK);
-    set!(any: "ultra-condensed", FontStretch::UltraCondensed);
-    set!(any: "extra-condensed", FontStretch::ExtraCondensed);
-    set!(any: "condensed", FontStretch::Condensed);
-    set!(any: "semi-condensed", FontStretch::SemiCondensed);
-    set!(any: "normal", FontStretch::Normal);
-    set!(any: "semi-expanded", FontStretch::SemiExpanded);
-    set!(any: "expanded", FontStretch::Expanded);
-    set!(any: "extra-expanded", FontStretch::ExtraExpanded);
-    set!(any: "ultra-expanded", FontStretch::UltraExpanded);
 
     std
 }
