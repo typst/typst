@@ -114,16 +114,16 @@
         },
         {
           "name": "keyword.control.typst",
-          "match": "(#)(break|continue|return)",
+          "match": "(#)(break|continue|return)\\b",
           "captures": { "1": { "name": "punctuation.definition.keyword.typst" } }
         },
         {
           "name": "keyword.other.typst",
-          "match": "(#)from",
+          "match": "(#)(from|in)\\b",
           "captures": { "1": { "name": "punctuation.definition.keyword.typst" } }
         },
         {
-          "begin": "(#)pub",
+          "begin": "(#)(pub|let)\\b",
           "end": "\n|(;)|(?=])|(?<=}|])",
           "beginCaptures": {
             "0": { "name": "keyword.other.typst" },
@@ -133,17 +133,7 @@
           "patterns": [{ "include": "#code" }]
         },
         {
-          "begin": "(#)let",
-          "end": "\n|;|(?=])|(?<=}|])",
-          "beginCaptures": {
-            "0": { "name": "keyword.other.typst" },
-            "1": { "name": "punctuation.definition.keyword.typst" }
-          },
-          "endCaptures": { "1": { "name": "punctuation.terminator.statement.typst" } },
-          "patterns": [{ "include": "#code" }]
-        },
-        {
-          "begin": "(#)if",
+          "begin": "(#)(if|else)\\b",
           "end": "\n|(?=])|(?<=}|])",
           "beginCaptures": {
             "0": { "name": "keyword.control.conditional.typst" },
@@ -152,16 +142,7 @@
           "patterns": [{ "include": "#code" }]
         },
         {
-          "begin": "(#)else",
-          "end": "\n|(?=])|(?<=}|])",
-          "beginCaptures": {
-            "0": { "name": "keyword.control.conditional.typst" },
-            "1": { "name": "punctuation.definition.keyword.typst" }
-          },
-          "patterns": [{ "include": "#code" }]
-        },
-        {
-          "begin": "(#)for",
+          "begin": "(#)(for|while)\\b",
           "end": "\n|(?=])|(?<=}|])",
           "beginCaptures": {
             "0": { "name": "keyword.control.typst" },
@@ -170,16 +151,7 @@
           "patterns": [{ "include": "#code" }]
         },
         {
-          "begin": "(#)while",
-          "end": "\n|(?=])|(?<=}|])",
-          "beginCaptures": {
-            "0": { "name": "keyword.control.typst" },
-            "1": { "name": "punctuation.definition.keyword.typst" }
-          },
-          "patterns": [{ "include": "#code" }]
-        },
-        {
-          "begin": "(#)import",
+          "begin": "(#)import\\b",
           "end": "\n|(?=])",
           "beginCaptures": {
             "0": { "name": "keyword.control.import.typst" },
@@ -190,12 +162,12 @@
         {
           "comment": "Function name",
           "name": "entity.name.function.typst",
-          "match": "((#)[[:alpha:]_][[:alnum:]_-]*)(?=\\[|\\()",
+          "match": "((#)[[:alpha:]_][[:alnum:]_-]*!?)(?=\\[|\\()",
           "captures": { "2": { "name": "punctuation.definition.function.typst" } }
         },
         {
           "comment": "Function arguments",
-          "begin": "(?<=#[[:alpha:]_][[:alnum:]_-]*)\\(",
+          "begin": "(?<=#[[:alpha:]_][[:alnum:]_-]*!?)\\(",
           "end": "\\)",
           "captures": { "0": { "name": "punctuation.definition.group.typst" } },
           "patterns": [{ "include": "#arguments" }]
@@ -232,7 +204,7 @@
         },
         {
           "name": "keyword.operator.arithmetic.typst",
-          "match": "\\+|\\*|/|(?<![[:alpha:]_][[:alnum:]_-]*)-(?![:alnum:]_-]*[[:alpha:]_])"
+          "match": "\\+|\\*!?|/|(?<![[:alpha:]_][[:alnum:]_-]*)-(?![:alnum:]_-]*[[:alpha:]_])"
         },
         {
           "name": "keyword.operator.word.typst",
@@ -250,11 +222,11 @@
         {
           "comment": "Function name",
           "name": "entity.name.function.typst",
-          "match": "\\b[[:alpha:]_][[:alnum:]_-]*(?=\\[|\\()"
+          "match": "\\b[[:alpha:]_][[:alnum:]_-]*!?(?=\\[|\\()"
         },
         {
           "comment": "Function arguments",
-          "begin": "(?<=\\b[[:alpha:]_][[:alnum:]_-]*)\\(",
+          "begin": "(?<=\\b[[:alpha:]_][[:alnum:]_-]*!?)\\(",
           "end": "\\)",
           "captures": { "0": { "name": "punctuation.definition.group.typst" } },
           "patterns": [{ "include": "#arguments" }]

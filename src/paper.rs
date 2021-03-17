@@ -39,7 +39,7 @@ impl PaperClass {
     /// The default margins for this page class.
     pub fn default_margins(self) -> Sides<Linear> {
         let f = |r| Relative::new(r).into();
-        let s = |l, r, t, b| Sides::new(f(l), f(r), f(t), f(b));
+        let s = |l, t, r, b| Sides::new(f(l), f(t), f(r), f(b));
         match self {
             Self::Custom => s(0.1190, 0.0842, 0.1190, 0.0842),
             Self::Base => s(0.1190, 0.0842, 0.1190, 0.0842),

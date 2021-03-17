@@ -12,8 +12,8 @@
 //!   This produces a [layout tree], a high-level, fully styled representation.
 //!   The nodes of this tree are self-contained and order-independent and thus
 //!   much better suited for layouting than the syntax tree.
-//! - **Layouting:** Next, the tree is to [layouted] into a portable version of
-//!   the typeset document. The output of this is a vector of [`Frame`]s
+//! - **Layouting:** Next, the tree is [layouted] into a portable version of the
+//!   typeset document. The output of this is a vector of [`Frame`]s
 //!   (corresponding to pages), ready for exporting.
 //! - **Exporting:** The finished layout can be exported into a supported
 //!   format. Submodules for these formats are located in the [export] module.
