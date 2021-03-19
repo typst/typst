@@ -426,7 +426,7 @@ fn draw_text(env: &Env, canvas: &mut Canvas, pos: Point, shaped: &Shaped) {
                 .transform(&Transform::from_row(scale, 0.0, 0.0, -scale, x, y).unwrap())
                 .unwrap();
 
-            let mut paint = Paint::default();
+            let mut paint = paint_from_fill(shaped.color);
             paint.anti_alias = true;
 
             canvas.fill_path(&placed, &paint, FillRule::default());
@@ -438,13 +438,7 @@ fn draw_geometry(_: &Env, canvas: &mut Canvas, pos: Point, element: &Geometry) {
     let x = pos.x.to_pt() as f32;
     let y = pos.y.to_pt() as f32;
 
-    let mut paint = Paint::default();
-    match &element.fill {
-        Fill::Color(c) => match c {
-            typst::color::Color::Rgba(c) => paint.set_color_rgba8(c.r, c.g, c.b, c.a),
-        },
-        Fill::Image(_) => todo!(),
-    };
+    let paint = paint_from_fill(element.fill);
 
     match &element.shape {
         Shape::Rect(s) => {
@@ -452,6 +446,18 @@ fn draw_geometry(_: &Env, canvas: &mut Canvas, pos: Point, element: &Geometry) {
             canvas.fill_rect(Rect::from_xywh(x, y, w, h).unwrap(), &paint);
         }
     };
+}
+
+fn paint_from_fill(fill: Fill) -> Paint<'static> {
+    let mut paint = Paint::default();
+    match fill {
+        Fill::Color(c) => match c {
+            typst::color::Color::Rgba(c) => paint.set_color_rgba8(c.r, c.g, c.b, c.a),
+        },
+        Fill::Image(_) => todo!(),
+    }
+
+    paint
 }
 
 fn draw_image(env: &Env, canvas: &mut Canvas, pos: Point, element: &Image) {

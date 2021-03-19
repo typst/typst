@@ -178,6 +178,7 @@ impl<'a> ExecContext<'a> {
             font_size: self.state.font.font_size(),
             top_edge: self.state.font.top_edge,
             bottom_edge: self.state.font.bottom_edge,
+            color: self.state.font.color,
         }
     }
 

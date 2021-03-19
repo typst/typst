@@ -1,3 +1,4 @@
+use crate::layout::Fill;
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
 use super::*;
@@ -15,6 +16,7 @@ use super::*;
 /// - Font Stretch: `stretch`, of type `relative`, between 0.5 and 2.0.
 /// - Top edge of the font: `top-edge`, of type `vertical-font-metric`.
 /// - Bottom edge of the font: `bottom-edge`, of type `vertical-font-metric`.
+/// - Fill color the glyphs: `color`, of type `color`.
 /// - Serif family definition: `serif`, of type `font-familiy-list`.
 /// - Sans-serif family definition: `sans-serif`, of type `font-familiy-list`.
 /// - Monospace family definition: `monospace`, of type `font-familiy-list`.
@@ -62,6 +64,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let stretch = args.get(ctx, "stretch");
     let top_edge = args.get(ctx, "top-edge");
     let bottom_edge = args.get(ctx, "bottom-edge");
+    let color = args.get(ctx, "color");
     let serif = args.get(ctx, "serif");
     let sans_serif = args.get(ctx, "sans-serif");
     let monospace = args.get(ctx, "monospace");
@@ -103,6 +106,10 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
         if let Some(bottom_edge) = bottom_edge {
             ctx.state.font.bottom_edge = bottom_edge;
+        }
+
+        if let Some(color) = color {
+            ctx.state.font.color = Fill::Color(color);
         }
 
         for (variant, arg) in &[

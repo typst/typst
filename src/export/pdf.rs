@@ -133,6 +133,22 @@ impl<'a> PdfExporter<'a> {
         // do that, we need to remember the active face.
         let mut face = FaceId::MAX;
         let mut size = Length::ZERO;
+        let mut fill: Option<Fill> = None;
+        let mut change_color = |content: &mut Content, new_fill: Fill| {
+            if fill != Some(new_fill) {
+                match new_fill {
+                    Fill::Color(Color::Rgba(c)) => {
+                        content.fill_rgb(
+                            c.r as f32 / 255.0,
+                            c.g as f32 / 255.0,
+                            c.b as f32 / 255.0,
+                        );
+                    }
+                    Fill::Image(_) => todo!(),
+                }
+                fill = Some(new_fill);
+            }
+        };
 
         for (pos, element) in &page.elements {
             let x = pos.x.to_pt() as f32;
@@ -152,17 +168,7 @@ impl<'a> PdfExporter<'a> {
 
                 Element::Geometry(geometry) => {
                     content.save_state();
-
-                    match geometry.fill {
-                        Fill::Color(Color::Rgba(c)) => {
-                            content.fill_rgb(
-                                c.r as f32 / 255.0,
-                                c.g as f32 / 255.0,
-                                c.b as f32 / 255.0,
-                            );
-                        }
-                        Fill::Image(_) => todo!(),
-                    }
+                    change_color(&mut content, geometry.fill);
 
                     match &geometry.shape {
                         Shape::Rect(r) => {
@@ -179,9 +185,12 @@ impl<'a> PdfExporter<'a> {
                 }
 
                 Element::Text(shaped) => {
+                    change_color(&mut content, shaped.color);
+
                     let mut text = content.text();
 
-                    // Check if we need to issue a font switching action.
+                    // Then, also check if we need to
+                    // issue a font switching action.
                     if shaped.face != face || shaped.font_size != size {
                         face = shaped.face;
                         size = shaped.font_size;
