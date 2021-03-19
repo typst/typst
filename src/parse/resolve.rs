@@ -1,5 +1,5 @@
 use super::{is_newline, Scanner};
-use crate::syntax::{Ident, NodeRaw, Pos};
+use crate::syntax::{Ident, Pos, RawNode};
 
 /// Resolve all escape sequences in a string.
 pub fn resolve_string(string: &str) -> String {
@@ -47,17 +47,17 @@ pub fn resolve_hex(sequence: &str) -> Option<char> {
 }
 
 /// Resolve the language tag and trims the raw text.
-pub fn resolve_raw(text: &str, backticks: usize, start: Pos) -> NodeRaw {
+pub fn resolve_raw(text: &str, backticks: usize, start: Pos) -> RawNode {
     if backticks > 1 {
         let (tag, inner) = split_at_lang_tag(text);
         let (lines, had_newline) = trim_and_split_raw(inner);
-        NodeRaw {
+        RawNode {
             lang: Ident::new(tag, start .. start + tag.len()),
             lines,
             block: had_newline,
         }
     } else {
-        NodeRaw {
+        RawNode {
             lang: None,
             lines: split_lines(text),
             block: false,
@@ -105,7 +105,7 @@ fn trim_and_split_raw(mut raw: &str) -> (Vec<String>, bool) {
 
 /// Split a string into a vector of lines
 /// (respecting Unicode, Unix, Mac and Windows line breaks).
-pub fn split_lines(text: &str) -> Vec<String> {
+fn split_lines(text: &str) -> Vec<String> {
     let mut s = Scanner::new(text);
     let mut line = String::new();
     let mut lines = Vec::new();
@@ -174,7 +174,7 @@ mod tests {
             lines: &[&str],
             block: bool,
         ) {
-            Span::without_cmp(|| assert_eq!(resolve_raw(raw, backticks, Pos(0)), NodeRaw {
+            Span::without_cmp(|| assert_eq!(resolve_raw(raw, backticks, Pos(0)), RawNode {
                 lang: lang.and_then(|id| Ident::new(id, 0)),
                 lines: lines.iter().map(ToString::to_string).collect(),
                 block,

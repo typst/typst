@@ -1,7 +1,8 @@
 use std::rc::Rc;
 
-use super::*;
-use crate::syntax::visit::*;
+use super::{Scope, Scopes, Value};
+use crate::syntax::visit::{visit_expr, Visit};
+use crate::syntax::{Expr, Ident};
 
 /// A visitor that captures variable slots.
 #[derive(Debug)]

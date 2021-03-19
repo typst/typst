@@ -10,7 +10,7 @@ use super::*;
 ///
 /// # Return value
 /// The string representation of the value.
-pub fn repr(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
+pub fn repr(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     match args.require::<Value>(ctx, "value") {
         Some(value) => pretty(&value).into(),
         None => Value::Error,
@@ -27,7 +27,7 @@ pub fn repr(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
 ///
 /// # Return value
 /// The color with the given components.
-pub fn rgb(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
+pub fn rgb(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let r = args.require(ctx, "red component");
     let g = args.require(ctx, "green component");
     let b = args.require(ctx, "blue component");
@@ -57,7 +57,7 @@ pub fn rgb(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
 ///
 /// # Return value
 /// The name of the value's type as a string.
-pub fn type_(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
+pub fn type_(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     match args.require::<Value>(ctx, "value") {
         Some(value) => value.type_name().into(),
         None => Value::Error,

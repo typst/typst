@@ -7,15 +7,15 @@ use super::*;
 #[derive(Clone, PartialEq)]
 pub enum Node {
     /// A text node.
-    Text(NodeText),
+    Text(TextNode),
     /// A spacing node.
-    Spacing(NodeSpacing),
+    Spacing(SpacingNode),
     /// A dynamic node that can implement custom layouting behaviour.
-    Any(NodeAny),
+    Any(AnyNode),
 }
 
 impl Layout for Node {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
         match self {
             Self::Spacing(spacing) => spacing.layout(ctx, areas),
             Self::Text(text) => text.layout(ctx, areas),
@@ -35,9 +35,9 @@ impl Debug for Node {
 }
 
 /// A wrapper around a dynamic layouting node.
-pub struct NodeAny(Box<dyn Bounds>);
+pub struct AnyNode(Box<dyn Bounds>);
 
-impl NodeAny {
+impl AnyNode {
     /// Create a new instance from any node that satisifies the required bounds.
     pub fn new<T>(any: T) -> Self
     where
@@ -47,25 +47,25 @@ impl NodeAny {
     }
 }
 
-impl Layout for NodeAny {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted {
+impl Layout for AnyNode {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
         self.0.layout(ctx, areas)
     }
 }
 
-impl Clone for NodeAny {
+impl Clone for AnyNode {
     fn clone(&self) -> Self {
         Self(self.0.dyn_clone())
     }
 }
 
-impl PartialEq for NodeAny {
+impl PartialEq for AnyNode {
     fn eq(&self, other: &Self) -> bool {
         self.0.dyn_eq(other.0.as_ref())
     }
 }
 
-impl Debug for NodeAny {
+impl Debug for AnyNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
@@ -73,7 +73,7 @@ impl Debug for NodeAny {
 
 impl<T> From<T> for Node
 where
-    T: Into<NodeAny>,
+    T: Into<AnyNode>,
 {
     fn from(t: T) -> Self {
         Self::Any(t.into())

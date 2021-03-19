@@ -1,4 +1,5 @@
 use super::*;
+use crate::layout::SpacingNode;
 
 /// `h`: Add horizontal spacing.
 ///
@@ -7,7 +8,7 @@ use super::*;
 ///
 /// # Return value
 /// A template that adds horizontal spacing.
-pub fn h(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
+pub fn h(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     spacing(ctx, args, SpecAxis::Horizontal)
 }
 
@@ -18,17 +19,17 @@ pub fn h(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
 ///
 /// # Return value
 /// A template that adds vertical spacing.
-pub fn v(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
+pub fn v(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     spacing(ctx, args, SpecAxis::Vertical)
 }
 
 /// Apply spacing along a specific axis.
-fn spacing(ctx: &mut EvalContext, args: &mut ValueArgs, axis: SpecAxis) -> Value {
+fn spacing(ctx: &mut EvalContext, args: &mut FuncArgs, axis: SpecAxis) -> Value {
     let spacing: Option<Linear> = args.require(ctx, "spacing");
     Value::template("spacing", move |ctx| {
         if let Some(linear) = spacing {
             let amount = linear.resolve(ctx.state.font.font_size());
-            let spacing = NodeSpacing { amount, softness: 0 };
+            let spacing = SpacingNode { amount, softness: 0 };
             if axis == ctx.state.dirs.main.axis() {
                 ctx.push_into_stack(spacing);
             } else {

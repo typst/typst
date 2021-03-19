@@ -15,16 +15,15 @@ use ttf_parser::OutlineBuilder;
 use walkdir::WalkDir;
 
 use typst::diag::{Diag, DiagSet, Level, Pass};
-use typst::env::{Env, ImageResource, ResourceLoader};
-use typst::eval::{EvalContext, Scope, Value, ValueArgs, ValueFunc};
+use typst::env::{Env, FsIndexExt, ImageResource, ResourceLoader};
+use typst::eval::{EvalContext, FuncArgs, FuncValue, Scope, Value};
 use typst::exec::State;
 use typst::export::pdf;
-use typst::font::FsIndexExt;
 use typst::geom::{Length, Point, Sides, Size};
-use typst::layout::{Element, Fill, Frame, Geometry, Image, Shape};
+use typst::layout::{Element, Fill, Frame, Geometry, Image, Shape, Shaped};
 use typst::library;
 use typst::parse::{LineMap, Scanner};
-use typst::shaping::Shaped;
+use typst::pretty::pretty;
 use typst::syntax::{Location, Pos};
 use typst::typeset;
 
@@ -313,13 +312,18 @@ struct Panic {
 }
 
 fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
-    pub fn args(_: &mut EvalContext, args: &mut ValueArgs) -> Value {
-        let value = args.clone().into();
+    pub fn args(_: &mut EvalContext, args: &mut FuncArgs) -> Value {
+        let repr = pretty(args);
         args.items.clear();
-        value
+        Value::template("args", move |ctx| {
+            let snapshot = ctx.state.clone();
+            ctx.set_monospace();
+            ctx.push_text(&repr);
+            ctx.state = snapshot;
+        })
     }
 
-    let test = move |ctx: &mut EvalContext, args: &mut ValueArgs| -> Value {
+    let test = move |ctx: &mut EvalContext, args: &mut FuncArgs| -> Value {
         let lhs = args.require::<Value>(ctx, "left-hand side");
         let rhs = args.require::<Value>(ctx, "right-hand side");
         if lhs != rhs {
@@ -331,8 +335,8 @@ fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
     };
 
     scope.def_const("error", Value::Error);
-    scope.def_const("args", ValueFunc::new(Some("args".into()), args));
-    scope.def_const("test", ValueFunc::new(Some("test".into()), test));
+    scope.def_const("args", FuncValue::new(Some("args".into()), args));
+    scope.def_const("test", FuncValue::new(Some("test".into()), test));
 }
 
 fn print_diag(diag: &Diag, map: &LineMap, lines: u32) {

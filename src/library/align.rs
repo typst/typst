@@ -26,12 +26,12 @@ use super::*;
 ///   - `top`
 ///   - `bottom`
 ///   - `center`
-pub fn align(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
+pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let first = args.find(ctx);
     let second = args.find(ctx);
     let hor = args.get(ctx, "horizontal");
     let ver = args.get(ctx, "vertical");
-    let body = args.find::<ValueTemplate>(ctx);
+    let body = args.find::<TemplateValue>(ctx);
 
     Value::template("align", move |ctx| {
         let snapshot = ctx.state.clone();

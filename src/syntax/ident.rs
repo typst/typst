@@ -4,7 +4,7 @@ use unicode_xid::UnicodeXID;
 
 use super::Span;
 
-/// An Unicode identifier with a few extra permissible characters.
+/// An unicode identifier with a few extra permissible characters.
 ///
 /// In addition to what is specified in the [Unicode Standard][uax31], we allow:
 /// - `_` as a starting character,

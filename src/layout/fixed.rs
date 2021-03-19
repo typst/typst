@@ -1,9 +1,8 @@
 use super::*;
-use crate::geom::Linear;
 
 /// A node that can fix its child's width and height.
 #[derive(Debug, Clone, PartialEq)]
-pub struct NodeFixed {
+pub struct FixedNode {
     /// The fixed width, if any.
     pub width: Option<Linear>,
     /// The fixed height, if any.
@@ -12,8 +11,8 @@ pub struct NodeFixed {
     pub child: Node,
 }
 
-impl Layout for NodeFixed {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted {
+impl Layout for FixedNode {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
         let Areas { current, full, .. } = areas;
         let size = Size::new(
             self.width.map(|w| w.resolve(full.width)).unwrap_or(current.width),
@@ -31,8 +30,8 @@ impl Layout for NodeFixed {
     }
 }
 
-impl From<NodeFixed> for NodeAny {
-    fn from(fixed: NodeFixed) -> Self {
+impl From<FixedNode> for AnyNode {
+    fn from(fixed: FixedNode) -> Self {
         Self::new(fixed)
     }
 }

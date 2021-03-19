@@ -3,8 +3,8 @@ use std::rc::Rc;
 use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
 
 use crate::geom::*;
+use crate::layout::VerticalFontMetric;
 use crate::paper::{Paper, PaperClass, PAPER_A4};
-use crate::shaping::VerticalFontMetric;
 
 /// The evaluation state.
 #[derive(Debug, Clone, PartialEq)]

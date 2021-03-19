@@ -13,9 +13,9 @@ pub use value::*;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use super::*;
 use crate::color::Color;
-use crate::diag::{Diag, DiagSet};
+use crate::diag::{Diag, DiagSet, Pass};
+use crate::env::Env;
 use crate::geom::{Angle, Length, Relative};
 use crate::syntax::visit::Visit;
 use crate::syntax::*;
@@ -143,16 +143,16 @@ impl Eval for Lit {
     }
 }
 
-impl Eval for ExprArray {
-    type Output = ValueArray;
+impl Eval for ArrayExpr {
+    type Output = ArrayValue;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         self.items.iter().map(|expr| expr.eval(ctx)).collect()
     }
 }
 
-impl Eval for ExprDict {
-    type Output = ValueDict;
+impl Eval for DictExpr {
+    type Output = DictValue;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         self.items
@@ -162,7 +162,7 @@ impl Eval for ExprDict {
     }
 }
 
-impl Eval for ExprTemplate {
+impl Eval for TemplateExpr {
     type Output = TemplateNode;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
@@ -172,7 +172,7 @@ impl Eval for ExprTemplate {
     }
 }
 
-impl Eval for ExprGroup {
+impl Eval for GroupExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
@@ -180,7 +180,7 @@ impl Eval for ExprGroup {
     }
 }
 
-impl Eval for ExprBlock {
+impl Eval for BlockExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
@@ -201,7 +201,7 @@ impl Eval for ExprBlock {
     }
 }
 
-impl Eval for ExprUnary {
+impl Eval for UnaryExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
@@ -230,7 +230,7 @@ impl Eval for ExprUnary {
     }
 }
 
-impl Eval for ExprBinary {
+impl Eval for BinaryExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
@@ -256,7 +256,7 @@ impl Eval for ExprBinary {
     }
 }
 
-impl ExprBinary {
+impl BinaryExpr {
     /// Apply a basic binary operation.
     fn apply<F>(&self, ctx: &mut EvalContext, op: F) -> Value
     where
@@ -335,7 +335,7 @@ impl ExprBinary {
     }
 }
 
-impl Eval for ExprCall {
+impl Eval for CallExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
@@ -361,25 +361,25 @@ impl Eval for ExprCall {
     }
 }
 
-impl Eval for ExprArgs {
-    type Output = ValueArgs;
+impl Eval for CallArgs {
+    type Output = FuncArgs;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         let items = self.items.iter().map(|arg| arg.eval(ctx)).collect();
-        ValueArgs { span: self.span, items }
+        FuncArgs { span: self.span, items }
     }
 }
 
-impl Eval for ExprArg {
-    type Output = ValueArg;
+impl Eval for CallArg {
+    type Output = FuncArg;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         match self {
-            Self::Pos(expr) => ValueArg {
+            Self::Pos(expr) => FuncArg {
                 name: None,
                 value: Spanned::new(expr.eval(ctx), expr.span()),
             },
-            Self::Named(Named { name, expr }) => ValueArg {
+            Self::Named(Named { name, expr }) => FuncArg {
                 name: Some(Spanned::new(name.string.clone(), name.span)),
                 value: Spanned::new(expr.eval(ctx), expr.span()),
             },
@@ -387,7 +387,7 @@ impl Eval for ExprArg {
     }
 }
 
-impl Eval for ExprClosure {
+impl Eval for ClosureExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
@@ -402,7 +402,7 @@ impl Eval for ExprClosure {
         };
 
         let name = self.name.as_ref().map(|id| id.to_string());
-        Value::Func(ValueFunc::new(name, move |ctx, args| {
+        Value::Func(FuncValue::new(name, move |ctx, args| {
             // Don't leak the scopes from the call site. Instead, we use the
             // scope of captured variables we collected earlier.
             let prev = std::mem::take(&mut ctx.scopes);
@@ -422,7 +422,7 @@ impl Eval for ExprClosure {
     }
 }
 
-impl Eval for ExprLet {
+impl Eval for LetExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
@@ -435,7 +435,7 @@ impl Eval for ExprLet {
     }
 }
 
-impl Eval for ExprIf {
+impl Eval for IfExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
@@ -461,7 +461,7 @@ impl Eval for ExprIf {
     }
 }
 
-impl Eval for ExprWhile {
+impl Eval for WhileExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
@@ -493,7 +493,7 @@ impl Eval for ExprWhile {
     }
 }
 
-impl Eval for ExprFor {
+impl Eval for ForExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {

@@ -4,11 +4,10 @@ use std::rc::Rc;
 use fontdock::{FallbackTree, FontVariant};
 
 use super::*;
-use crate::shaping::{shape, VerticalFontMetric};
 
-/// A text node.
+/// A consecutive, styled run of text.
 #[derive(Clone, PartialEq)]
-pub struct NodeText {
+pub struct TextNode {
     /// The text.
     pub text: String,
     /// The text direction.
@@ -27,9 +26,9 @@ pub struct NodeText {
     pub bottom_edge: VerticalFontMetric,
 }
 
-impl Layout for NodeText {
-    fn layout(&self, ctx: &mut LayoutContext, _: &Areas) -> Layouted {
-        Layouted::Frame(
+impl Layout for TextNode {
+    fn layout(&self, ctx: &mut LayoutContext, _: &Areas) -> Fragment {
+        Fragment::Frame(
             shape(
                 &self.text,
                 self.dir,
@@ -45,14 +44,14 @@ impl Layout for NodeText {
     }
 }
 
-impl Debug for NodeText {
+impl Debug for TextNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Text({})", self.text)
     }
 }
 
-impl From<NodeText> for Node {
-    fn from(text: NodeText) -> Self {
+impl From<TextNode> for Node {
+    fn from(text: TextNode) -> Self {
         Self::Text(text)
     }
 }

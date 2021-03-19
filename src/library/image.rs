@@ -2,7 +2,9 @@ use ::image::GenericImageView;
 
 use super::*;
 use crate::env::{ImageResource, ResourceId};
-use crate::layout::*;
+use crate::layout::{
+    AnyNode, Areas, Element, Fragment, Frame, Image, Layout, LayoutContext,
+};
 
 /// `image`: Insert an image.
 ///
@@ -13,7 +15,7 @@ use crate::layout::*;
 ///
 /// # Return value
 /// A template that inserts an image.
-pub fn image(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
+pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let path = args.require::<Spanned<String>>(ctx, "path to image file");
     let width = args.get(ctx, "width");
     let height = args.get(ctx, "height");
@@ -53,7 +55,7 @@ struct NodeImage {
 }
 
 impl Layout for NodeImage {
-    fn layout(&self, _: &mut LayoutContext, areas: &Areas) -> Layouted {
+    fn layout(&self, _: &mut LayoutContext, areas: &Areas) -> Fragment {
         let Areas { current, full, .. } = areas;
 
         let pixel_width = self.dimensions.0 as f64;
@@ -84,11 +86,11 @@ impl Layout for NodeImage {
         let mut frame = Frame::new(size);
         frame.push(Point::ZERO, Element::Image(Image { res: self.res, size }));
 
-        Layouted::Frame(frame, self.aligns)
+        Fragment::Frame(frame, self.aligns)
     }
 }
 
-impl From<NodeImage> for NodeAny {
+impl From<NodeImage> for AnyNode {
     fn from(image: NodeImage) -> Self {
         Self::new(image)
     }

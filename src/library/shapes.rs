@@ -1,4 +1,5 @@
 use super::*;
+use crate::layout::{BackgroundNode, Fill, FixedNode};
 
 /// `rect`: Create a rectangular box.
 ///
@@ -21,13 +22,13 @@ use super::*;
 ///   - `rtl` (right to left)
 ///   - `ttb` (top to bottom)
 ///   - `btt` (bottom to top)
-pub fn rect(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
+pub fn rect(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = args.get(ctx, "width");
     let height = args.get(ctx, "height");
     let main = args.get(ctx, "main-dir");
     let cross = args.get(ctx, "cross-dir");
     let fill = args.get(ctx, "fill");
-    let body = args.find::<ValueTemplate>(ctx).unwrap_or_default();
+    let body = args.find::<TemplateValue>(ctx).unwrap_or_default();
 
     Value::template("box", move |ctx| {
         let snapshot = ctx.state.clone();
@@ -35,9 +36,9 @@ pub fn rect(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
         ctx.set_dirs(Gen::new(main, cross));
 
         let child = ctx.exec(&body).into();
-        let fixed = NodeFixed { width, height, child };
+        let fixed = FixedNode { width, height, child };
         if let Some(color) = fill {
-            ctx.push(NodeBackground {
+            ctx.push(BackgroundNode {
                 fill: Fill::Color(color),
                 child: fixed.into(),
             });

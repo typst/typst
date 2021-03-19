@@ -138,7 +138,7 @@ impl PrettyWithMap for Node {
     }
 }
 
-impl PrettyWithMap for NodeHeading {
+impl PrettyWithMap for HeadingNode {
     fn pretty_with_map(&self, p: &mut Printer, map: Option<&ExprMap>) {
         for _ in 0 ..= self.level {
             p.push('=');
@@ -147,7 +147,7 @@ impl PrettyWithMap for NodeHeading {
     }
 }
 
-impl Pretty for NodeRaw {
+impl Pretty for RawNode {
     fn pretty(&self, p: &mut Printer) {
         // Find out how many backticks we need.
         let mut backticks = 1;
@@ -250,7 +250,7 @@ impl Pretty for LitKind {
     }
 }
 
-impl Pretty for ExprArray {
+impl Pretty for ArrayExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
         p.join(&self.items, ", ", |item, p| item.pretty(p));
@@ -261,7 +261,7 @@ impl Pretty for ExprArray {
     }
 }
 
-impl Pretty for ExprDict {
+impl Pretty for DictExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
         if self.items.is_empty() {
@@ -281,7 +281,7 @@ impl Pretty for Named {
     }
 }
 
-impl Pretty for ExprTemplate {
+impl Pretty for TemplateExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('[');
         self.tree.pretty_with_map(p, None);
@@ -289,7 +289,7 @@ impl Pretty for ExprTemplate {
     }
 }
 
-impl Pretty for ExprGroup {
+impl Pretty for GroupExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
         self.expr.pretty(p);
@@ -297,7 +297,7 @@ impl Pretty for ExprGroup {
     }
 }
 
-impl Pretty for ExprBlock {
+impl Pretty for BlockExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('{');
         if self.exprs.len() > 1 {
@@ -311,7 +311,7 @@ impl Pretty for ExprBlock {
     }
 }
 
-impl Pretty for ExprUnary {
+impl Pretty for UnaryExpr {
     fn pretty(&self, p: &mut Printer) {
         self.op.pretty(p);
         if self.op == UnOp::Not {
@@ -327,7 +327,7 @@ impl Pretty for UnOp {
     }
 }
 
-impl Pretty for ExprBinary {
+impl Pretty for BinaryExpr {
     fn pretty(&self, p: &mut Printer) {
         self.lhs.pretty(p);
         p.push(' ');
@@ -343,11 +343,11 @@ impl Pretty for BinOp {
     }
 }
 
-impl Pretty for ExprCall {
+impl Pretty for CallExpr {
     fn pretty(&self, p: &mut Printer) {
         self.callee.pretty(p);
 
-        let mut write_args = |items: &[ExprArg]| {
+        let mut write_args = |items: &[CallArg]| {
             p.push('(');
             p.join(items, ", ", |item, p| item.pretty(p));
             p.push(')');
@@ -357,7 +357,7 @@ impl Pretty for ExprCall {
             // This can be moved behind the arguments.
             //
             // Example: Transforms "#v(a, [b])" => "#v(a)[b]".
-            [head @ .., ExprArg::Pos(Expr::Template(template))] => {
+            [head @ .., CallArg::Pos(Expr::Template(template))] => {
                 if !head.is_empty() {
                     write_args(head);
                 }
@@ -369,13 +369,13 @@ impl Pretty for ExprCall {
     }
 }
 
-impl Pretty for ExprArgs {
+impl Pretty for CallArgs {
     fn pretty(&self, p: &mut Printer) {
         p.join(&self.items, ", ", |item, p| item.pretty(p));
     }
 }
 
-impl Pretty for ExprArg {
+impl Pretty for CallArg {
     fn pretty(&self, p: &mut Printer) {
         match self {
             Self::Pos(expr) => expr.pretty(p),
@@ -384,7 +384,7 @@ impl Pretty for ExprArg {
     }
 }
 
-impl Pretty for ExprClosure {
+impl Pretty for ClosureExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
         p.join(self.params.iter(), ", ", |item, p| item.pretty(p));
@@ -393,7 +393,7 @@ impl Pretty for ExprClosure {
     }
 }
 
-impl Pretty for ExprLet {
+impl Pretty for LetExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("let ");
         self.binding.pretty(p);
@@ -404,7 +404,7 @@ impl Pretty for ExprLet {
     }
 }
 
-impl Pretty for ExprIf {
+impl Pretty for IfExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("if ");
         self.condition.pretty(p);
@@ -418,7 +418,7 @@ impl Pretty for ExprIf {
     }
 }
 
-impl Pretty for ExprWhile {
+impl Pretty for WhileExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("while ");
         self.condition.pretty(p);
@@ -427,7 +427,7 @@ impl Pretty for ExprWhile {
     }
 }
 
-impl Pretty for ExprFor {
+impl Pretty for ForExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("for ");
         self.pattern.pretty(p);
@@ -475,14 +475,13 @@ impl Pretty for Value {
             Value::Dict(v) => v.pretty(p),
             Value::Template(v) => v.pretty(p),
             Value::Func(v) => v.pretty(p),
-            Value::Args(v) => v.pretty(p),
             Value::Any(v) => v.pretty(p),
             Value::Error => p.push_str("<error>"),
         }
     }
 }
 
-impl Pretty for ValueArray {
+impl Pretty for ArrayValue {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
         p.join(self, ", ", |item, p| item.pretty(p));
@@ -493,7 +492,7 @@ impl Pretty for ValueArray {
     }
 }
 
-impl Pretty for ValueDict {
+impl Pretty for DictValue {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
         if self.is_empty() {
@@ -509,7 +508,7 @@ impl Pretty for ValueDict {
     }
 }
 
-impl Pretty for ValueTemplate {
+impl Pretty for TemplateValue {
     fn pretty(&self, p: &mut Printer) {
         p.push('[');
         for part in self {
@@ -537,7 +536,7 @@ impl Pretty for TemplateFunc {
     }
 }
 
-impl Pretty for ValueFunc {
+impl Pretty for FuncValue {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("<function");
         if let Some(name) = self.name() {
@@ -548,7 +547,7 @@ impl Pretty for ValueFunc {
     }
 }
 
-impl Pretty for ValueArgs {
+impl Pretty for FuncArgs {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
         p.join(&self.items, ", ", |item, p| item.pretty(p));
@@ -556,7 +555,7 @@ impl Pretty for ValueArgs {
     }
 }
 
-impl Pretty for ValueArg {
+impl Pretty for FuncArg {
     fn pretty(&self, p: &mut Printer) {
         if let Some(name) = &self.name {
             p.push_str(&name.v);
@@ -613,7 +612,7 @@ pretty_display! {
     Linear,
     RgbaColor,
     Color,
-    ValueAny,
+    AnyValue,
 }
 
 #[cfg(test)]
@@ -622,9 +621,7 @@ mod tests {
     use std::rc::Rc;
 
     use super::*;
-    use crate::color::RgbaColor;
     use crate::env::Env;
-    use crate::eval::eval;
     use crate::parse::parse;
 
     #[track_caller]
@@ -796,34 +793,37 @@ mod tests {
         );
 
         // Function.
-        test_value(ValueFunc::new(None, |_, _| Value::None), "<function>");
+        test_value(FuncValue::new(None, |_, _| Value::None), "<function>");
         test_value(
-            ValueFunc::new(Some("nil".into()), |_, _| Value::None),
+            FuncValue::new(Some("nil".into()), |_, _| Value::None),
             "<function nil>",
         );
 
+        // Any.
+        test_value(AnyValue::new(1), "1");
+
+        // Error.
+        test_value(Value::Error, "<error>");
+    }
+
+    #[test]
+    fn test_pretty_print_args() {
         // Arguments.
-        test_value(
-            ValueArgs {
+        assert_eq!(
+            pretty(&FuncArgs {
                 span: Span::ZERO,
                 items: vec![
-                    ValueArg {
+                    FuncArg {
                         name: Some(Spanned::zero("a".into())),
                         value: Spanned::zero(Value::Int(1)),
                     },
-                    ValueArg {
+                    FuncArg {
                         name: None,
                         value: Spanned::zero(Value::Int(2)),
                     },
                 ],
-            },
+            }),
             "(a: 1, 2)",
         );
-
-        // Any.
-        test_value(ValueAny::new(1), "1");
-
-        // Error.
-        test_value(Value::Error, "<error>");
     }
 }

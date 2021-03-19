@@ -7,36 +7,36 @@ use crate::geom::{AngularUnit, LengthUnit};
 /// An expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    /// A literal.
+    /// A literal, like `11pt` or `"hi"`.
     Lit(Lit),
     /// An identifier: `left`.
     Ident(Ident),
     /// An array expression: `(1, "hi", 12cm)`.
-    Array(ExprArray),
+    Array(ArrayExpr),
     /// A dictionary expression: `(color: #f79143, pattern: dashed)`.
-    Dict(ExprDict),
+    Dict(DictExpr),
     /// A template expression: `[*Hi* there!]`.
-    Template(ExprTemplate),
+    Template(TemplateExpr),
     /// A grouped expression: `(1 + 2)`.
-    Group(ExprGroup),
+    Group(GroupExpr),
     /// A block expression: `{ let x = 1; x + 2 }`.
-    Block(ExprBlock),
+    Block(BlockExpr),
     /// A unary operation: `-x`.
-    Unary(ExprUnary),
+    Unary(UnaryExpr),
     /// A binary operation: `a + b`.
-    Binary(ExprBinary),
+    Binary(BinaryExpr),
     /// An invocation of a function: `f(x, y)`.
-    Call(ExprCall),
+    Call(CallExpr),
     /// A closure expression: `(x, y) => z`.
-    Closure(ExprClosure),
+    Closure(ClosureExpr),
     /// A let expression: `let x = 1`.
-    Let(ExprLet),
-    /// An if expression: `if x { y } else { z }`.
-    If(ExprIf),
-    /// A while expression: `while x { y }`.
-    While(ExprWhile),
-    /// A for expression: `for x in y { z }`.
-    For(ExprFor),
+    Let(LetExpr),
+    /// An if-else expression: `if x { y } else { z }`.
+    If(IfExpr),
+    /// A while loop expression: `while x { y }`.
+    While(WhileExpr),
+    /// A for loop expression: `for x in y { z }`.
+    For(ForExpr),
 }
 
 impl Expr {
@@ -74,7 +74,7 @@ impl Expr {
     }
 }
 
-/// A literal.
+/// A literal, like `11pt` or `"hi"`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Lit {
     /// The source code location.
@@ -111,7 +111,7 @@ pub enum LitKind {
 
 /// An array expression: `(1, "hi", 12cm)`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExprArray {
+pub struct ArrayExpr {
     /// The source code location.
     pub span: Span,
     /// The entries of the array.
@@ -120,7 +120,7 @@ pub struct ExprArray {
 
 /// A dictionary expression: `(color: #f79143, pattern: dashed)`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExprDict {
+pub struct DictExpr {
     /// The source code location.
     pub span: Span,
     /// The named dictionary entries.
@@ -145,7 +145,7 @@ impl Named {
 
 /// A template expression: `[*Hi* there!]`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExprTemplate {
+pub struct TemplateExpr {
     /// The source code location.
     pub span: Span,
     /// The contents of the template.
@@ -154,7 +154,7 @@ pub struct ExprTemplate {
 
 /// A grouped expression: `(1 + 2)`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExprGroup {
+pub struct GroupExpr {
     /// The source code location.
     pub span: Span,
     /// The wrapped expression.
@@ -163,7 +163,7 @@ pub struct ExprGroup {
 
 /// A block expression: `{ let x = 1; x + 2 }`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExprBlock {
+pub struct BlockExpr {
     /// The source code location.
     pub span: Span,
     /// The list of expressions contained in the block.
@@ -174,7 +174,7 @@ pub struct ExprBlock {
 
 /// A unary operation: `-x`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExprUnary {
+pub struct UnaryExpr {
     /// The source code location.
     pub span: Span,
     /// The operator: `-`.
@@ -225,7 +225,7 @@ impl UnOp {
 
 /// A binary operation: `a + b`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExprBinary {
+pub struct BinaryExpr {
     /// The source code location.
     pub span: Span,
     /// The left-hand side of the operation: `a`.
@@ -374,13 +374,13 @@ pub enum Associativity {
 
 /// An invocation of a function: `foo(...)`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExprCall {
+pub struct CallExpr {
     /// The source code location.
     pub span: Span,
     /// The callee of the function.
     pub callee: Box<Expr>,
     /// The arguments to the function.
-    pub args: ExprArgs,
+    pub args: CallArgs,
 }
 
 /// The arguments to a function: `12, draw: false`.
@@ -388,23 +388,23 @@ pub struct ExprCall {
 /// In case of a bracketed invocation with a body, the body is _not_
 /// included in the span for the sake of clearer error messages.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExprArgs {
+pub struct CallArgs {
     /// The source code location.
     pub span: Span,
     /// The positional and named arguments.
-    pub items: Vec<ExprArg>,
+    pub items: Vec<CallArg>,
 }
 
 /// An argument to a function call: `12` or `draw: false`.
 #[derive(Debug, Clone, PartialEq)]
-pub enum ExprArg {
+pub enum CallArg {
     /// A positional argument.
     Pos(Expr),
     /// A named argument.
     Named(Named),
 }
 
-impl ExprArg {
+impl CallArg {
     /// The source code location.
     pub fn span(&self) -> Span {
         match self {
@@ -416,7 +416,7 @@ impl ExprArg {
 
 /// A closure expression: `(x, y) => z`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExprClosure {
+pub struct ClosureExpr {
     /// The source code location.
     pub span: Span,
     /// The name of the closure.
@@ -431,7 +431,7 @@ pub struct ExprClosure {
 
 /// A let expression: `let x = 1`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExprLet {
+pub struct LetExpr {
     /// The source code location.
     pub span: Span,
     /// The binding to assign to.
@@ -440,9 +440,9 @@ pub struct ExprLet {
     pub init: Option<Box<Expr>>,
 }
 
-/// An if expression: `if x { y } else { z }`.
+/// An if-else expression: `if x { y } else { z }`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExprIf {
+pub struct IfExpr {
     /// The source code location.
     pub span: Span,
     /// The condition which selects the body to evaluate.
@@ -453,9 +453,9 @@ pub struct ExprIf {
     pub else_body: Option<Box<Expr>>,
 }
 
-/// A while expression: `while x { y }`.
+/// A while loop expression: `while x { y }`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExprWhile {
+pub struct WhileExpr {
     /// The source code location.
     pub span: Span,
     /// The condition which selects whether to evaluate the body.
@@ -464,9 +464,9 @@ pub struct ExprWhile {
     pub body: Box<Expr>,
 }
 
-/// A for expression: `for x in y { z }`.
+/// A for loop expression: `for x in y { z }`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExprFor {
+pub struct ForExpr {
     /// The source code location.
     pub span: Span,
     /// The pattern to assign to.

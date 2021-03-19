@@ -9,7 +9,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use fontdock::{FaceId, FaceQuery, FallbackTree, FontVariant};
 use ttf_parser::{Face, GlyphId};
 
-use crate::font::FontLoader;
+use crate::env::FontLoader;
 use crate::geom::{Dir, Length, Point, Size};
 use crate::layout::{Element, Frame};
 

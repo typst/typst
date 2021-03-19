@@ -10,8 +10,8 @@ use std::rc::Rc;
 
 use crate::diag::Pass;
 use crate::env::Env;
-use crate::eval::{ExprMap, TemplateFunc, TemplateNode, Value, ValueTemplate};
-use crate::layout::{self, NodeFixed, NodeSpacing, NodeStack};
+use crate::eval::{ExprMap, TemplateFunc, TemplateNode, TemplateValue, Value};
+use crate::layout::{self, FixedNode, SpacingNode, StackNode};
 use crate::pretty::pretty;
 use crate::syntax::*;
 
@@ -77,7 +77,7 @@ impl ExecWithMap for Node {
     }
 }
 
-impl ExecWithMap for NodeHeading {
+impl ExecWithMap for HeadingNode {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         let prev = ctx.state.clone();
         let upscale = 1.5 - 0.1 * self.level as f64;
@@ -91,7 +91,7 @@ impl ExecWithMap for NodeHeading {
     }
 }
 
-impl Exec for NodeRaw {
+impl Exec for RawNode {
     fn exec(&self, ctx: &mut ExecContext) {
         let prev = Rc::clone(&ctx.state.font.families);
         ctx.set_monospace();
@@ -103,7 +103,7 @@ impl Exec for NodeRaw {
         let mut newline = false;
         for line in &self.lines {
             if newline {
-                children.push(layout::Node::Spacing(NodeSpacing {
+                children.push(layout::Node::Spacing(SpacingNode {
                     amount: leading,
                     softness: 2,
                 }));
@@ -119,10 +119,10 @@ impl Exec for NodeRaw {
 
         // This is wrapped in a fixed node to make sure the stack fits to its
         // content instead of filling the available area.
-        ctx.push(NodeFixed {
+        ctx.push(FixedNode {
             width: None,
             height: None,
-            child: NodeStack {
+            child: StackNode {
                 dirs: ctx.state.dirs,
                 aligns: ctx.state.aligns,
                 children,
@@ -159,7 +159,7 @@ impl Exec for Value {
     }
 }
 
-impl Exec for ValueTemplate {
+impl Exec for TemplateValue {
     fn exec(&self, ctx: &mut ExecContext) {
         for node in self {
             node.exec(ctx);

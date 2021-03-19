@@ -2,9 +2,9 @@ use std::fmt::{self, Debug, Formatter};
 
 use super::*;
 
-/// A spacing node.
+/// A node that adds spacing to its parent.
 #[derive(Copy, Clone, PartialEq)]
-pub struct NodeSpacing {
+pub struct SpacingNode {
     /// The amount of spacing to insert.
     pub amount: Length,
     /// Defines how spacing interacts with surrounding spacing.
@@ -16,20 +16,20 @@ pub struct NodeSpacing {
     pub softness: u8,
 }
 
-impl Layout for NodeSpacing {
-    fn layout(&self, _: &mut LayoutContext, _: &Areas) -> Layouted {
-        Layouted::Spacing(self.amount)
+impl Layout for SpacingNode {
+    fn layout(&self, _: &mut LayoutContext, _: &Areas) -> Fragment {
+        Fragment::Spacing(self.amount)
     }
 }
 
-impl Debug for NodeSpacing {
+impl Debug for SpacingNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Spacing({}, {})", self.amount, self.softness)
     }
 }
 
-impl From<NodeSpacing> for Node {
-    fn from(spacing: NodeSpacing) -> Self {
+impl From<SpacingNode> for Node {
+    fn from(spacing: SpacingNode) -> Self {
         Self::Spacing(spacing)
     }
 }

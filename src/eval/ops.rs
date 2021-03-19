@@ -1,4 +1,5 @@
-use super::*;
+use super::{ArrayValue, DictValue, TemplateNode, Value};
+use crate::syntax::Span;
 use Value::*;
 
 /// Apply the plus operator to a value.
@@ -189,12 +190,12 @@ fn value_eq(lhs: &Value, rhs: &Value) -> bool {
 }
 
 /// Compute whether two arrays are equal.
-fn array_eq(a: &ValueArray, b: &ValueArray) -> bool {
+fn array_eq(a: &ArrayValue, b: &ArrayValue) -> bool {
     a.len() == b.len() && a.iter().zip(b).all(|(x, y)| value_eq(x, y))
 }
 
 /// Compute whether two dictionaries are equal.
-fn dict_eq(a: &ValueDict, b: &ValueDict) -> bool {
+fn dict_eq(a: &DictValue, b: &DictValue) -> bool {
     a.len() == b.len()
         && a.iter().all(|(k, x)| b.get(k).map_or(false, |y| value_eq(x, y)))
 }

@@ -99,13 +99,13 @@ pub enum Token<'s> {
     Text(&'s str),
     /// An arbitrary number of backticks followed by inner contents, terminated
     /// with the same number of backticks: `` `...` ``.
-    Raw(TokenRaw<'s>),
+    Raw(RawToken<'s>),
     /// One or two dollar signs followed by inner contents, terminated with the
     /// same number of dollar signs.
-    Math(TokenMath<'s>),
+    Math(MathToken<'s>),
     /// A slash and the letter "u" followed by a hexadecimal unicode entity
     /// enclosed in curly braces: `\u{1F5FA}`.
-    UnicodeEscape(TokenUnicodeEscape<'s>),
+    UnicodeEscape(UnicodeEscapeToken<'s>),
     /// An identifier: `center`.
     Ident(&'s str),
     /// A boolean: `true`, `false`.
@@ -126,7 +126,7 @@ pub enum Token<'s> {
     /// A color value: `#20d82a`.
     Color(RgbaColor),
     /// A quoted string: `"..."`.
-    Str(TokenStr<'s>),
+    Str(StrToken<'s>),
     /// Two slashes followed by inner contents, terminated with a newline:
     /// `//<str>\n`.
     LineComment(&'s str),
@@ -139,9 +139,9 @@ pub enum Token<'s> {
     Invalid(&'s str),
 }
 
-/// A quoted string: `"..."`.
+/// A quoted string token: `"..."`.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct TokenStr<'s> {
+pub struct StrToken<'s> {
     /// The string inside the quotes.
     ///
     /// _Note_: If the string contains escape sequences these are not yet
@@ -152,9 +152,9 @@ pub struct TokenStr<'s> {
     pub terminated: bool,
 }
 
-/// A raw block: `` `...` ``.
+/// A raw block token: `` `...` ``.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct TokenRaw<'s> {
+pub struct RawToken<'s> {
     /// The raw text between the backticks.
     pub text: &'s str,
     /// The number of opening backticks.
@@ -163,9 +163,9 @@ pub struct TokenRaw<'s> {
     pub terminated: bool,
 }
 
-/// A math formula: `$2pi + x$`, `$$f'(x) = x^2$$`.
+/// A math formula token: `$2pi + x$` or `$[f'(x) = x^2]$`.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct TokenMath<'s> {
+pub struct MathToken<'s> {
     /// The formula between the dollars.
     pub formula: &'s str,
     /// Whether the formula is display-level, that is, it is surrounded by
@@ -175,9 +175,9 @@ pub struct TokenMath<'s> {
     pub terminated: bool,
 }
 
-/// A unicode escape sequence: `\u{1F5FA}`.
+/// A unicode escape sequence token: `\u{1F5FA}`.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct TokenUnicodeEscape<'s> {
+pub struct UnicodeEscapeToken<'s> {
     /// The escape sequence between the braces.
     pub sequence: &'s str,
     /// Whether the closing brace was present.

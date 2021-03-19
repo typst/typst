@@ -82,29 +82,29 @@ visit! {
         }
     }
 
-    fn visit_array(v, node: &ExprArray) {
+    fn visit_array(v, node: &ArrayExpr) {
         for expr in &node.items {
             v.visit_expr(&expr);
         }
     }
 
-    fn visit_dict(v, node: &ExprDict) {
+    fn visit_dict(v, node: &DictExpr) {
         for named in &node.items {
             v.visit_expr(&named.expr);
         }
     }
 
-    fn visit_template(v, node: &ExprTemplate) {
+    fn visit_template(v, node: &TemplateExpr) {
         v.visit_enter();
         v.visit_tree(&node.tree);
         v.visit_exit();
     }
 
-    fn visit_group(v, node: &ExprGroup) {
+    fn visit_group(v, node: &GroupExpr) {
         v.visit_expr(&node.expr);
     }
 
-    fn visit_block(v, node: &ExprBlock) {
+    fn visit_block(v, node: &BlockExpr) {
         if node.scoping {
             v.visit_enter();
         }
@@ -116,48 +116,48 @@ visit! {
         }
     }
 
-    fn visit_binary(v, node: &ExprBinary) {
+    fn visit_binary(v, node: &BinaryExpr) {
         v.visit_expr(&node.lhs);
         v.visit_expr(&node.rhs);
     }
 
-    fn visit_unary(v, node: &ExprUnary) {
+    fn visit_unary(v, node: &UnaryExpr) {
         v.visit_expr(&node.expr);
     }
 
-    fn visit_call(v, node: &ExprCall) {
+    fn visit_call(v, node: &CallExpr) {
         v.visit_expr(&node.callee);
         v.visit_args(&node.args);
     }
 
-    fn visit_closure(v, node: &ExprClosure) {
+    fn visit_closure(v, node: &ClosureExpr) {
         for param in node.params.iter() {
             v.visit_binding(param);
         }
         v.visit_expr(&node.body);
     }
 
-    fn visit_args(v, node: &ExprArgs) {
+    fn visit_args(v, node: &CallArgs) {
         for arg in &node.items {
             v.visit_arg(arg);
         }
     }
 
-    fn visit_arg(v, node: &ExprArg) {
+    fn visit_arg(v, node: &CallArg) {
         match node {
-            ExprArg::Pos(expr) => v.visit_expr(&expr),
-            ExprArg::Named(named) => v.visit_expr(&named.expr),
+            CallArg::Pos(expr) => v.visit_expr(&expr),
+            CallArg::Named(named) => v.visit_expr(&named.expr),
         }
     }
 
-    fn visit_let(v, node: &ExprLet) {
+    fn visit_let(v, node: &LetExpr) {
         v.visit_binding(&node.binding);
         if let Some(init) = &node.init {
             v.visit_expr(&init);
         }
     }
 
-    fn visit_if(v, node: &ExprIf) {
+    fn visit_if(v, node: &IfExpr) {
         v.visit_expr(&node.condition);
         v.visit_expr(&node.if_body);
         if let Some(body) = &node.else_body {
@@ -165,12 +165,12 @@ visit! {
         }
     }
 
-    fn visit_while(v, node: &ExprWhile) {
+    fn visit_while(v, node: &WhileExpr) {
         v.visit_expr(&node.condition);
         v.visit_expr(&node.body);
     }
 
-    fn visit_for(v, node: &ExprFor) {
+    fn visit_for(v, node: &ForExpr) {
         match &node.pattern {
             ForPattern::Value(value) => v.visit_binding(value),
             ForPattern::KeyValue(key, value) => {

@@ -4,11 +4,12 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 
-use super::*;
+use super::{EvalContext, ExprMap};
 use crate::color::Color;
+use crate::diag::DiagSet;
 use crate::exec::ExecContext;
 use crate::geom::{Angle, Length, Linear, Relative};
-use crate::syntax::Tree;
+use crate::syntax::{Span, Spanned, Tree};
 
 /// A computational value.
 #[derive(Debug, Clone, PartialEq)]
@@ -34,17 +35,15 @@ pub enum Value {
     /// A string: `"string"`.
     Str(String),
     /// An array value: `(1, "hi", 12cm)`.
-    Array(ValueArray),
+    Array(ArrayValue),
     /// A dictionary value: `(color: #f79143, pattern: dashed)`.
-    Dict(ValueDict),
+    Dict(DictValue),
     /// A template value: `[*Hi* there]`.
-    Template(ValueTemplate),
+    Template(TemplateValue),
     /// An executable function.
-    Func(ValueFunc),
-    /// Arguments to a function.
-    Args(ValueArgs),
+    Func(FuncValue),
     /// Any object.
-    Any(ValueAny),
+    Any(AnyValue),
     /// The result of invalid operations.
     Error,
 }
@@ -71,11 +70,10 @@ impl Value {
             Self::Linear(_) => Linear::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
             Self::Str(_) => String::TYPE_NAME,
-            Self::Array(_) => ValueArray::TYPE_NAME,
-            Self::Dict(_) => ValueDict::TYPE_NAME,
-            Self::Template(_) => ValueTemplate::TYPE_NAME,
-            Self::Func(_) => ValueFunc::TYPE_NAME,
-            Self::Args(_) => ValueArgs::TYPE_NAME,
+            Self::Array(_) => ArrayValue::TYPE_NAME,
+            Self::Dict(_) => DictValue::TYPE_NAME,
+            Self::Template(_) => TemplateValue::TYPE_NAME,
+            Self::Func(_) => FuncValue::TYPE_NAME,
             Self::Any(v) => v.type_name(),
             Self::Error => "error",
         }
@@ -97,13 +95,13 @@ impl Default for Value {
 }
 
 /// An array value: `(1, "hi", 12cm)`.
-pub type ValueArray = Vec<Value>;
+pub type ArrayValue = Vec<Value>;
 
 /// A dictionary value: `(color: #f79143, pattern: dashed)`.
-pub type ValueDict = BTreeMap<String, Value>;
+pub type DictValue = BTreeMap<String, Value>;
 
 /// A template value: `[*Hi* there]`.
-pub type ValueTemplate = Vec<TemplateNode>;
+pub type TemplateValue = Vec<TemplateNode>;
 
 /// One chunk of a template.
 ///
@@ -171,16 +169,16 @@ impl Debug for TemplateFunc {
 
 /// A wrapper around a reference-counted executable function.
 #[derive(Clone)]
-pub struct ValueFunc {
+pub struct FuncValue {
     name: Option<String>,
-    f: Rc<dyn Fn(&mut EvalContext, &mut ValueArgs) -> Value>,
+    f: Rc<dyn Fn(&mut EvalContext, &mut FuncArgs) -> Value>,
 }
 
-impl ValueFunc {
+impl FuncValue {
     /// Create a new function value from a rust function or closure.
     pub fn new<F>(name: Option<String>, f: F) -> Self
     where
-        F: Fn(&mut EvalContext, &mut ValueArgs) -> Value + 'static,
+        F: Fn(&mut EvalContext, &mut FuncArgs) -> Value + 'static,
     {
         Self { name, f: Rc::new(f) }
     }
@@ -191,22 +189,22 @@ impl ValueFunc {
     }
 }
 
-impl PartialEq for ValueFunc {
+impl PartialEq for FuncValue {
     fn eq(&self, _: &Self) -> bool {
         // TODO: Figure out what we want here.
         false
     }
 }
 
-impl Deref for ValueFunc {
-    type Target = dyn Fn(&mut EvalContext, &mut ValueArgs) -> Value;
+impl Deref for FuncValue {
+    type Target = dyn Fn(&mut EvalContext, &mut FuncArgs) -> Value;
 
     fn deref(&self) -> &Self::Target {
         self.f.as_ref()
     }
 }
 
-impl Debug for ValueFunc {
+impl Debug for FuncValue {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_struct("ValueFunc").field("name", &self.name).finish()
     }
@@ -214,14 +212,14 @@ impl Debug for ValueFunc {
 
 /// Evaluated arguments to a function.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ValueArgs {
+pub struct FuncArgs {
     /// The span of the whole argument list.
     pub span: Span,
     /// The arguments.
-    pub items: Vec<ValueArg>,
+    pub items: Vec<FuncArg>,
 }
 
-impl ValueArgs {
+impl FuncArgs {
     /// Find and remove the first convertible positional argument.
     pub fn find<T>(&mut self, ctx: &mut EvalContext) -> Option<T>
     where
@@ -345,14 +343,14 @@ impl ValueArgs {
 
 /// An argument to a function call: `12` or `draw: false`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ValueArg {
+pub struct FuncArg {
     /// The name of the argument (`None` for positional arguments).
     pub name: Option<Spanned<String>>,
     /// The value of the argument.
     pub value: Spanned<Value>,
 }
 
-impl ValueArg {
+impl FuncArg {
     /// The source code location.
     pub fn span(&self) -> Span {
         match &self.name {
@@ -363,9 +361,9 @@ impl ValueArg {
 }
 
 /// A wrapper around a dynamic value.
-pub struct ValueAny(Box<dyn Bounds>);
+pub struct AnyValue(Box<dyn Bounds>);
 
-impl ValueAny {
+impl AnyValue {
     /// Create a new instance from any value that satisifies the required bounds.
     pub fn new<T>(any: T) -> Self
     where
@@ -399,25 +397,25 @@ impl ValueAny {
     }
 }
 
-impl Clone for ValueAny {
+impl Clone for AnyValue {
     fn clone(&self) -> Self {
         Self(self.0.dyn_clone())
     }
 }
 
-impl PartialEq for ValueAny {
+impl PartialEq for AnyValue {
     fn eq(&self, other: &Self) -> bool {
         self.0.dyn_eq(other)
     }
 }
 
-impl Debug for ValueAny {
+impl Debug for AnyValue {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_tuple("ValueAny").field(&self.0).finish()
     }
 }
 
-impl Display for ValueAny {
+impl Display for AnyValue {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(&self.0, f)
     }
@@ -426,7 +424,7 @@ impl Display for ValueAny {
 trait Bounds: Debug + Display + 'static {
     fn as_any(&self) -> &dyn Any;
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
-    fn dyn_eq(&self, other: &ValueAny) -> bool;
+    fn dyn_eq(&self, other: &AnyValue) -> bool;
     fn dyn_clone(&self) -> Box<dyn Bounds>;
     fn dyn_type_name(&self) -> &'static str;
 }
@@ -443,7 +441,7 @@ where
         self
     }
 
-    fn dyn_eq(&self, other: &ValueAny) -> bool {
+    fn dyn_eq(&self, other: &AnyValue) -> bool {
         if let Some(other) = other.downcast_ref::<Self>() {
             self == other
         } else {
@@ -584,15 +582,14 @@ primitive! {
 }
 primitive! { Color: "color", Value::Color }
 primitive! { String: "string", Value::Str }
-primitive! { ValueArray: "array", Value::Array }
-primitive! { ValueDict: "dictionary", Value::Dict }
+primitive! { ArrayValue: "array", Value::Array }
+primitive! { DictValue: "dictionary", Value::Dict }
 primitive! {
-    ValueTemplate: "template",
+    TemplateValue: "template",
     Value::Template,
     Value::Str(v) => vec![TemplateNode::Str(v)],
 }
-primitive! { ValueFunc: "function", Value::Func }
-primitive! { ValueArgs: "arguments", Value::Args }
+primitive! { FuncValue: "function", Value::Func }
 
 impl From<usize> for Value {
     fn from(v: usize) -> Self {
@@ -606,8 +603,8 @@ impl From<&str> for Value {
     }
 }
 
-impl From<ValueAny> for Value {
-    fn from(v: ValueAny) -> Self {
+impl From<AnyValue> for Value {
+    fn from(v: AnyValue) -> Self {
         Self::Any(v)
     }
 }

@@ -1,4 +1,5 @@
 use super::*;
+use crate::layout::PadNode;
 
 /// `pad`: Pad content at the sides.
 ///
@@ -14,13 +15,13 @@ use super::*;
 ///
 /// # Return value
 /// A template that pads the body at the sides.
-pub fn pad(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
+pub fn pad(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let all = args.find(ctx);
     let left = args.get(ctx, "left");
     let top = args.get(ctx, "top");
     let right = args.get(ctx, "right");
     let bottom = args.get(ctx, "bottom");
-    let body = args.require::<ValueTemplate>(ctx, "body").unwrap_or_default();
+    let body = args.require::<TemplateValue>(ctx, "body").unwrap_or_default();
 
     let padding = Sides::new(
         left.or(all).unwrap_or_default(),
@@ -31,10 +32,8 @@ pub fn pad(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
 
     Value::template("pad", move |ctx| {
         let snapshot = ctx.state.clone();
-
         let child = ctx.exec(&body).into();
-        ctx.push(NodePad { padding, child });
-
+        ctx.push(PadNode { padding, child });
         ctx.state = snapshot;
     })
 }

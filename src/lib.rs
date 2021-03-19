@@ -9,12 +9,13 @@
 //!   computes the value of each expression in document and stores them in a map
 //!   from expression-pointers to values.
 //! - **Execution:** Now, we can [execute] the parsed and evaluated "script".
-//!   This produces a [layout tree], a high-level, fully styled representation.
-//!   The nodes of this tree are self-contained and order-independent and thus
-//!   much better suited for layouting than the syntax tree.
+//!   This produces a [layout tree], a high-level, fully styled representation
+//!   of the document. The nodes of this tree are self-contained and
+//!   order-independent and thus much better suited for layouting than the
+//!   syntax tree.
 //! - **Layouting:** Next, the tree is [layouted] into a portable version of the
-//!   typeset document. The output of this is a vector of [`Frame`]s
-//!   (corresponding to pages), ready for exporting.
+//!   typeset document. The output of this is a collection of [`Frame`]s (one
+//!   per page), ready for exporting.
 //! - **Exporting:** The finished layout can be exported into a supported
 //!   format. Submodules for these formats are located in the [export] module.
 //!   Currently, the only supported output format is [_PDF_].
@@ -36,15 +37,12 @@ pub mod color;
 pub mod env;
 pub mod exec;
 pub mod export;
-pub mod font;
 pub mod geom;
 pub mod layout;
 pub mod library;
 pub mod paper;
 pub mod parse;
-pub mod prelude;
 pub mod pretty;
-pub mod shaping;
 pub mod syntax;
 
 use crate::diag::Pass;

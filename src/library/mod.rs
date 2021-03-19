@@ -27,68 +27,72 @@ use std::fmt::{self, Display, Formatter};
 
 use fontdock::{FontStyle, FontWeight};
 
-use crate::eval::{Scope, ValueAny, ValueFunc};
-use crate::layout::*;
-use crate::prelude::*;
-use crate::shaping::VerticalFontMetric;
+use crate::eval::{AnyValue, FuncValue, Scope};
+use crate::eval::{EvalContext, FuncArgs, TemplateValue, Value};
+use crate::exec::{Exec, ExecContext};
+use crate::geom::*;
+use crate::layout::VerticalFontMetric;
+use crate::syntax::Spanned;
 
 /// Construct a scope containing all standard library definitions.
 pub fn new() -> Scope {
     let mut std = Scope::new();
-    macro_rules! set {
-        (func: $name:expr, $func:expr) => {
-            std.def_const($name, ValueFunc::new(Some($name.into()), $func))
-        };
-        (any: $var:expr, $any:expr) => {
-            std.def_const($var, ValueAny::new($any))
+
+    macro_rules! func {
+        ($name:expr, $func:expr) => {
+            std.def_const($name, FuncValue::new(Some($name.into()), $func))
         };
     }
 
-    // Functions.
-    set!(func: "align", align);
-    set!(func: "font", font);
-    set!(func: "h", h);
-    set!(func: "image", image);
-    set!(func: "pad", pad);
-    set!(func: "page", page);
-    set!(func: "pagebreak", pagebreak);
-    set!(func: "paragraph", paragraph);
-    set!(func: "rect", rect);
-    set!(func: "repr", repr);
-    set!(func: "rgb", rgb);
-    set!(func: "type", type_);
-    set!(func: "v", v);
+    macro_rules! constant {
+        ($var:expr, $any:expr) => {
+            std.def_const($var, AnyValue::new($any))
+        };
+    }
 
-    // Constants.
-    set!(any: "left", AlignValue::Left);
-    set!(any: "center", AlignValue::Center);
-    set!(any: "right", AlignValue::Right);
-    set!(any: "top", AlignValue::Top);
-    set!(any: "bottom", AlignValue::Bottom);
-    set!(any: "ltr", Dir::LTR);
-    set!(any: "rtl", Dir::RTL);
-    set!(any: "ttb", Dir::TTB);
-    set!(any: "btt", Dir::BTT);
-    set!(any: "serif", FontFamily::Serif);
-    set!(any: "sans-serif", FontFamily::SansSerif);
-    set!(any: "monospace", FontFamily::Monospace);
-    set!(any: "normal", FontStyle::Normal);
-    set!(any: "italic", FontStyle::Italic);
-    set!(any: "oblique", FontStyle::Oblique);
-    set!(any: "thin", FontWeight::THIN);
-    set!(any: "extralight", FontWeight::EXTRALIGHT);
-    set!(any: "light", FontWeight::LIGHT);
-    set!(any: "regular", FontWeight::REGULAR);
-    set!(any: "medium", FontWeight::MEDIUM);
-    set!(any: "semibold", FontWeight::SEMIBOLD);
-    set!(any: "bold", FontWeight::BOLD);
-    set!(any: "extrabold", FontWeight::EXTRABOLD);
-    set!(any: "black", FontWeight::BLACK);
-    set!(any: "ascender", VerticalFontMetric::Ascender);
-    set!(any: "cap-height", VerticalFontMetric::CapHeight);
-    set!(any: "x-height", VerticalFontMetric::XHeight);
-    set!(any: "baseline", VerticalFontMetric::Baseline);
-    set!(any: "descender", VerticalFontMetric::Descender);
+    func!("align", align);
+    func!("font", font);
+    func!("h", h);
+    func!("image", image);
+    func!("pad", pad);
+    func!("page", page);
+    func!("pagebreak", pagebreak);
+    func!("paragraph", par);
+    func!("rect", rect);
+    func!("repr", repr);
+    func!("rgb", rgb);
+    func!("type", type_);
+    func!("v", v);
+
+    constant!("left", AlignValue::Left);
+    constant!("center", AlignValue::Center);
+    constant!("right", AlignValue::Right);
+    constant!("top", AlignValue::Top);
+    constant!("bottom", AlignValue::Bottom);
+    constant!("ltr", Dir::LTR);
+    constant!("rtl", Dir::RTL);
+    constant!("ttb", Dir::TTB);
+    constant!("btt", Dir::BTT);
+    constant!("serif", FontFamily::Serif);
+    constant!("sans-serif", FontFamily::SansSerif);
+    constant!("monospace", FontFamily::Monospace);
+    constant!("normal", FontStyle::Normal);
+    constant!("italic", FontStyle::Italic);
+    constant!("oblique", FontStyle::Oblique);
+    constant!("thin", FontWeight::THIN);
+    constant!("extralight", FontWeight::EXTRALIGHT);
+    constant!("light", FontWeight::LIGHT);
+    constant!("regular", FontWeight::REGULAR);
+    constant!("medium", FontWeight::MEDIUM);
+    constant!("semibold", FontWeight::SEMIBOLD);
+    constant!("bold", FontWeight::BOLD);
+    constant!("extrabold", FontWeight::EXTRABOLD);
+    constant!("black", FontWeight::BLACK);
+    constant!("ascender", VerticalFontMetric::Ascender);
+    constant!("cap-height", VerticalFontMetric::CapHeight);
+    constant!("x-height", VerticalFontMetric::XHeight);
+    constant!("baseline", VerticalFontMetric::Baseline);
+    constant!("descender", VerticalFontMetric::Descender);
 
     std
 }

@@ -2,7 +2,7 @@ use super::*;
 
 /// A node that arranges its children into a paragraph.
 #[derive(Debug, Clone, PartialEq)]
-pub struct NodePar {
+pub struct ParNode {
     /// The `main` and `cross` directions of this paragraph.
     ///
     /// The children are placed in lines along the `cross` direction. The lines
@@ -16,28 +16,28 @@ pub struct NodePar {
     pub children: Vec<Node>,
 }
 
-impl Layout for NodePar {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted {
+impl Layout for ParNode {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
         let mut layouter = ParLayouter::new(self, areas.clone());
         for child in &self.children {
             match child.layout(ctx, &layouter.areas) {
-                Layouted::Spacing(spacing) => layouter.push_spacing(spacing),
-                Layouted::Frame(frame, aligns) => {
+                Fragment::Spacing(spacing) => layouter.push_spacing(spacing),
+                Fragment::Frame(frame, aligns) => {
                     layouter.push_frame(frame, aligns.cross)
                 }
-                Layouted::Frames(frames, aligns) => {
+                Fragment::Frames(frames, aligns) => {
                     for frame in frames {
                         layouter.push_frame(frame, aligns.cross);
                     }
                 }
             }
         }
-        Layouted::Frames(layouter.finish(), self.aligns)
+        Fragment::Frames(layouter.finish(), self.aligns)
     }
 }
 
-impl From<NodePar> for NodeAny {
-    fn from(par: NodePar) -> Self {
+impl From<ParNode> for AnyNode {
+    fn from(par: ParNode) -> Self {
         Self::new(par)
     }
 }
@@ -57,7 +57,7 @@ struct ParLayouter {
 }
 
 impl ParLayouter {
-    fn new(par: &NodePar, areas: Areas) -> Self {
+    fn new(par: &ParNode, areas: Areas) -> Self {
         Self {
             main: par.dirs.main.axis(),
             cross: par.dirs.cross.axis(),

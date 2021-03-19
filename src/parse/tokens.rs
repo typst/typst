@@ -232,7 +232,7 @@ impl<'s> Tokens<'s> {
 
         // Special case for empty inline block.
         if backticks == 2 {
-            return Token::Raw(TokenRaw { text: "", backticks: 1, terminated: true });
+            return Token::Raw(RawToken { text: "", backticks: 1, terminated: true });
         }
 
         let start = self.s.index();
@@ -249,7 +249,7 @@ impl<'s> Tokens<'s> {
         let terminated = found == backticks;
         let end = self.s.index() - if terminated { found } else { 0 };
 
-        Token::Raw(TokenRaw {
+        Token::Raw(RawToken {
             text: self.s.get(start .. end),
             backticks,
             terminated,
@@ -286,7 +286,7 @@ impl<'s> Tokens<'s> {
                 (true, true) => 2,
             };
 
-        Token::Math(TokenMath {
+        Token::Math(MathToken {
             formula: self.s.get(start .. end),
             display,
             terminated,
@@ -309,7 +309,7 @@ impl<'s> Tokens<'s> {
                 'u' if self.s.peek_nth(1) == Some('{') => {
                     self.s.eat_assert('u');
                     self.s.eat_assert('{');
-                    Token::UnicodeEscape(TokenUnicodeEscape {
+                    Token::UnicodeEscape(UnicodeEscapeToken {
                         // Allow more than `ascii_hexdigit` for better error recovery.
                         sequence: self.s.eat_while(|c| c.is_ascii_alphanumeric()),
                         terminated: self.s.eat_if('}'),
@@ -391,7 +391,7 @@ impl<'s> Tokens<'s> {
 
     fn string(&mut self) -> Token<'s> {
         let mut escaped = false;
-        Token::Str(TokenStr {
+        Token::Str(StrToken {
             string: self.s.eat_until(|c| {
                 if c == '"' && !escaped {
                     true
@@ -470,19 +470,19 @@ mod tests {
     use TokenMode::{Code, Markup};
 
     const fn Raw(text: &str, backticks: usize, terminated: bool) -> Token {
-        Token::Raw(TokenRaw { text, backticks, terminated })
+        Token::Raw(RawToken { text, backticks, terminated })
     }
 
     const fn Math(formula: &str, display: bool, terminated: bool) -> Token {
-        Token::Math(TokenMath { formula, display, terminated })
+        Token::Math(MathToken { formula, display, terminated })
     }
 
     const fn UnicodeEscape(sequence: &str, terminated: bool) -> Token {
-        Token::UnicodeEscape(TokenUnicodeEscape { sequence, terminated })
+        Token::UnicodeEscape(UnicodeEscapeToken { sequence, terminated })
     }
 
     const fn Str(string: &str, terminated: bool) -> Token {
-        Token::Str(TokenStr { string, terminated })
+        Token::Str(StrToken { string, terminated })
     }
 
     const fn Color(r: u8, g: u8, b: u8, a: u8) -> Token<'static> {

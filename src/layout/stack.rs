@@ -2,7 +2,7 @@ use super::*;
 
 /// A node that stacks its children.
 #[derive(Debug, Clone, PartialEq)]
-pub struct NodeStack {
+pub struct StackNode {
     /// The `main` and `cross` directions of this stack.
     ///
     /// The children are stacked along the `main` direction. The `cross`
@@ -14,26 +14,26 @@ pub struct NodeStack {
     pub children: Vec<Node>,
 }
 
-impl Layout for NodeStack {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted {
+impl Layout for StackNode {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
         let mut layouter = StackLayouter::new(self, areas.clone());
         for child in &self.children {
             match child.layout(ctx, &layouter.areas) {
-                Layouted::Spacing(spacing) => layouter.push_spacing(spacing),
-                Layouted::Frame(frame, aligns) => layouter.push_frame(frame, aligns),
-                Layouted::Frames(frames, aligns) => {
+                Fragment::Spacing(spacing) => layouter.push_spacing(spacing),
+                Fragment::Frame(frame, aligns) => layouter.push_frame(frame, aligns),
+                Fragment::Frames(frames, aligns) => {
                     for frame in frames {
                         layouter.push_frame(frame, aligns);
                     }
                 }
             }
         }
-        Layouted::Frames(layouter.finish(), self.aligns)
+        Fragment::Frames(layouter.finish(), self.aligns)
     }
 }
 
-impl From<NodeStack> for NodeAny {
-    fn from(stack: NodeStack) -> Self {
+impl From<StackNode> for AnyNode {
+    fn from(stack: StackNode) -> Self {
         Self::new(stack)
     }
 }
@@ -49,7 +49,7 @@ struct StackLayouter {
 }
 
 impl StackLayouter {
-    fn new(stack: &NodeStack, areas: Areas) -> Self {
+    fn new(stack: &StackNode, areas: Areas) -> Self {
         Self {
             main: stack.dirs.main.axis(),
             dirs: stack.dirs,

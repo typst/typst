@@ -5,10 +5,9 @@ use anyhow::{anyhow, bail, Context};
 use fontdock::fs::FsIndex;
 
 use typst::diag::Pass;
-use typst::env::{Env, ResourceLoader};
+use typst::env::{Env, FsIndexExt, ResourceLoader};
 use typst::exec::State;
 use typst::export::pdf;
-use typst::font::FsIndexExt;
 use typst::library;
 use typst::parse::LineMap;
 use typst::typeset;

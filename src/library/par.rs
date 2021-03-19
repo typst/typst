@@ -2,6 +2,9 @@ use super::*;
 
 /// `paragraph`: Configure paragraphs.
 ///
+/// # Positional parameters
+/// - Body: optional, of type `template`.
+///
 /// # Named parameters
 /// - Paragraph spacing: `spacing`, of type `linear` relative to current font size.
 /// - Line leading: `leading`, of type `linear` relative to current font size.
@@ -10,11 +13,11 @@ use super::*;
 /// # Return value
 /// A template that configures paragraph properties. The effect is scoped to the
 /// body if present.
-pub fn paragraph(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
+pub fn par(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let spacing = args.get(ctx, "spacing");
     let leading = args.get(ctx, "leading");
     let word_spacing = args.get(ctx, "word-spacing");
-    let body = args.find::<ValueTemplate>(ctx);
+    let body = args.find::<TemplateValue>(ctx);
 
     Value::template("paragraph", move |ctx| {
         let snapshot = ctx.state.clone();

@@ -1,17 +1,16 @@
 use super::*;
-use crate::geom::Linear;
 
 /// A node that adds padding to its child.
 #[derive(Debug, Clone, PartialEq)]
-pub struct NodePad {
+pub struct PadNode {
     /// The amount of padding.
     pub padding: Sides<Linear>,
     /// The child node whose sides to pad.
     pub child: Node,
 }
 
-impl Layout for NodePad {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted {
+impl Layout for PadNode {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
         let areas = shrink(areas, self.padding);
 
         let mut layouted = self.child.layout(ctx, &areas);
@@ -23,8 +22,8 @@ impl Layout for NodePad {
     }
 }
 
-impl From<NodePad> for NodeAny {
-    fn from(pad: NodePad) -> Self {
+impl From<PadNode> for AnyNode {
+    fn from(pad: PadNode) -> Self {
         Self::new(pad)
     }
 }

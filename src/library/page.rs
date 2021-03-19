@@ -30,7 +30,7 @@ use crate::paper::{Paper, PaperClass};
 ///   - `rtl` (right to left)
 ///   - `ttb` (top to bottom)
 ///   - `btt` (bottom to top)
-pub fn page(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
+pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let paper = args.find::<Spanned<String>>(ctx).and_then(|name| {
         Paper::from_name(&name.v).or_else(|| {
             ctx.diag(error!(name.span, "invalid paper name"));
@@ -48,7 +48,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let flip = args.get(ctx, "flip");
     let main = args.get(ctx, "main-dir");
     let cross = args.get(ctx, "cross-dir");
-    let body = args.find::<ValueTemplate>(ctx);
+    let body = args.find::<TemplateValue>(ctx);
     let span = args.span;
 
     Value::template("page", move |ctx| {
@@ -110,7 +110,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
 ///
 /// # Return value
 /// A template that starts a new page.
-pub fn pagebreak(_: &mut EvalContext, args: &mut ValueArgs) -> Value {
+pub fn pagebreak(_: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let span = args.span;
     Value::template("pagebreak", move |ctx| {
         ctx.finish_page(true, true, span);

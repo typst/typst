@@ -136,11 +136,11 @@ fn heading(p: &mut Parser) -> Node {
         contents.extend(node(p, &mut false));
     }
 
-    Node::Heading(NodeHeading { level, contents })
+    Node::Heading(HeadingNode { level, contents })
 }
 
 /// Handle a raw block.
-fn raw(p: &mut Parser, token: TokenRaw) -> Node {
+fn raw(p: &mut Parser, token: RawToken) -> Node {
     let raw = resolve::resolve_raw(token.text, token.backticks, p.start());
     if !token.terminated {
         p.diag(error!(p.peek_span().end, "expected backtick(s)"));
@@ -149,7 +149,7 @@ fn raw(p: &mut Parser, token: TokenRaw) -> Node {
 }
 
 /// Handle a unicode escape sequence.
-fn unicode_escape(p: &mut Parser, token: TokenUnicodeEscape) -> String {
+fn unicode_escape(p: &mut Parser, token: UnicodeEscapeToken) -> String {
     let span = p.peek_span();
     let text = if let Some(c) = resolve::resolve_hex(token.sequence) {
         c.to_string()
@@ -184,7 +184,7 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) -> Option<Expr> {
         Some(op) => {
             let prec = op.precedence();
             let expr = Box::new(expr_with(p, atomic, prec)?);
-            Expr::Unary(ExprUnary { span: p.span(start), op, expr })
+            Expr::Unary(UnaryExpr { span: p.span(start), op, expr })
         }
         None => primary(p, atomic)?,
     };
@@ -225,7 +225,7 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) -> Option<Expr> {
         };
 
         let span = lhs.span().join(rhs.span());
-        lhs = Expr::Binary(ExprBinary { span, lhs: Box::new(lhs), op, rhs });
+        lhs = Expr::Binary(BinaryExpr { span, lhs: Box::new(lhs), op, rhs });
     }
 
     Some(lhs)
@@ -248,7 +248,7 @@ fn primary(p: &mut Parser, atomic: bool) -> Option<Expr> {
             // Arrow means this is a closure's lone parameter.
             Some(if !atomic && p.eat_if(Token::Arrow) {
                 let body = expr(p)?;
-                Expr::Closure(ExprClosure {
+                Expr::Closure(ClosureExpr {
                     span: id.span.join(body.span()),
                     name: None,
                     params: Rc::new(vec![id]),
@@ -306,7 +306,7 @@ fn literal(p: &mut Parser) -> Option<Expr> {
 /// - Dictionary literal
 /// - Parenthesized expression
 /// - Parameter list of closure expression
-pub fn parenthesized(p: &mut Parser) -> Option<Expr> {
+fn parenthesized(p: &mut Parser) -> Option<Expr> {
     p.start_group(Group::Paren, TokenMode::Code);
     let colon = p.eat_if(Token::Colon);
     let (items, has_comma) = collection(p);
@@ -321,7 +321,7 @@ pub fn parenthesized(p: &mut Parser) -> Option<Expr> {
     if p.eat_if(Token::Arrow) {
         let params = params(p, items);
         let body = expr(p)?;
-        return Some(Expr::Closure(ExprClosure {
+        return Some(Expr::Closure(ClosureExpr {
             span: span.join(body.span()),
             name: None,
             params: Rc::new(params),
@@ -332,21 +332,21 @@ pub fn parenthesized(p: &mut Parser) -> Option<Expr> {
     // Find out which kind of collection this is.
     Some(match items.as_slice() {
         [] => array(p, items, span),
-        [ExprArg::Pos(_)] if !has_comma => match items.into_iter().next() {
-            Some(ExprArg::Pos(expr)) => {
-                Expr::Group(ExprGroup { span, expr: Box::new(expr) })
+        [CallArg::Pos(_)] if !has_comma => match items.into_iter().next() {
+            Some(CallArg::Pos(expr)) => {
+                Expr::Group(GroupExpr { span, expr: Box::new(expr) })
             }
             _ => unreachable!(),
         },
-        [ExprArg::Pos(_), ..] => array(p, items, span),
-        [ExprArg::Named(_), ..] => dict(p, items, span),
+        [CallArg::Pos(_), ..] => array(p, items, span),
+        [CallArg::Named(_), ..] => dict(p, items, span),
     })
 }
 
 /// Parse a collection.
 ///
 /// Returns whether the literal contained any commas.
-fn collection(p: &mut Parser) -> (Vec<ExprArg>, bool) {
+fn collection(p: &mut Parser) -> (Vec<CallArg>, bool) {
     let mut items = vec![];
     let mut has_comma = false;
     let mut missing_coma = None;
@@ -376,52 +376,52 @@ fn collection(p: &mut Parser) -> (Vec<ExprArg>, bool) {
 }
 
 /// Parse an expression or a named pair.
-fn item(p: &mut Parser) -> Option<ExprArg> {
+fn item(p: &mut Parser) -> Option<CallArg> {
     let first = expr(p)?;
     if p.eat_if(Token::Colon) {
         if let Expr::Ident(name) = first {
-            Some(ExprArg::Named(Named { name, expr: expr(p)? }))
+            Some(CallArg::Named(Named { name, expr: expr(p)? }))
         } else {
             p.diag(error!(first.span(), "expected identifier"));
             expr(p);
             None
         }
     } else {
-        Some(ExprArg::Pos(first))
+        Some(CallArg::Pos(first))
     }
 }
 
 /// Convert a collection into an array, producing errors for named items.
-fn array(p: &mut Parser, items: Vec<ExprArg>, span: Span) -> Expr {
+fn array(p: &mut Parser, items: Vec<CallArg>, span: Span) -> Expr {
     let items = items.into_iter().filter_map(|item| match item {
-        ExprArg::Pos(expr) => Some(expr),
-        ExprArg::Named(_) => {
+        CallArg::Pos(expr) => Some(expr),
+        CallArg::Named(_) => {
             p.diag(error!(item.span(), "expected expression, found named pair"));
             None
         }
     });
 
-    Expr::Array(ExprArray { span, items: items.collect() })
+    Expr::Array(ArrayExpr { span, items: items.collect() })
 }
 
 /// Convert a collection into a dictionary, producing errors for expressions.
-fn dict(p: &mut Parser, items: Vec<ExprArg>, span: Span) -> Expr {
+fn dict(p: &mut Parser, items: Vec<CallArg>, span: Span) -> Expr {
     let items = items.into_iter().filter_map(|item| match item {
-        ExprArg::Named(named) => Some(named),
-        ExprArg::Pos(_) => {
+        CallArg::Named(named) => Some(named),
+        CallArg::Pos(_) => {
             p.diag(error!(item.span(), "expected named pair, found expression"));
             None
         }
     });
 
-    Expr::Dict(ExprDict { span, items: items.collect() })
+    Expr::Dict(DictExpr { span, items: items.collect() })
 }
 
 /// Convert a collection into a parameter list, producing errors for anything
 /// other than identifiers.
-fn params(p: &mut Parser, items: Vec<ExprArg>) -> Vec<Ident> {
+fn params(p: &mut Parser, items: Vec<CallArg>) -> Vec<Ident> {
     let items = items.into_iter().filter_map(|item| match item {
-        ExprArg::Pos(Expr::Ident(id)) => Some(id),
+        CallArg::Pos(Expr::Ident(id)) => Some(id),
         _ => {
             p.diag(error!(item.span(), "expected identifier"));
             None
@@ -435,7 +435,7 @@ fn template(p: &mut Parser) -> Expr {
     p.start_group(Group::Bracket, TokenMode::Markup);
     let tree = Rc::new(tree(p));
     let span = p.end_group();
-    Expr::Template(ExprTemplate { span, tree })
+    Expr::Template(TemplateExpr { span, tree })
 }
 
 /// Parse a block expression: `{...}`.
@@ -454,7 +454,7 @@ fn block(p: &mut Parser, scoping: bool) -> Expr {
         p.skip_white();
     }
     let span = p.end_group();
-    Expr::Block(ExprBlock { span, exprs, scoping })
+    Expr::Block(BlockExpr { span, exprs, scoping })
 }
 
 /// Parse a function call.
@@ -466,7 +466,7 @@ fn call(p: &mut Parser, callee: Expr) -> Expr {
             p.end_group();
             args
         }
-        _ => ExprArgs {
+        _ => CallArgs {
             span: Span::at(callee.span().end),
             items: vec![],
         },
@@ -474,10 +474,10 @@ fn call(p: &mut Parser, callee: Expr) -> Expr {
 
     if p.peek_direct() == Some(Token::LeftBracket) {
         let body = template(p);
-        args.items.push(ExprArg::Pos(body));
+        args.items.push(CallArg::Pos(body));
     }
 
-    Expr::Call(ExprCall {
+    Expr::Call(CallExpr {
         span: p.span(callee.span().start),
         callee: Box::new(callee),
         args,
@@ -485,10 +485,10 @@ fn call(p: &mut Parser, callee: Expr) -> Expr {
 }
 
 /// Parse the arguments to a function call.
-fn args(p: &mut Parser) -> ExprArgs {
+fn args(p: &mut Parser) -> CallArgs {
     let start = p.start();
     let items = collection(p).0;
-    ExprArgs { span: p.span(start), items }
+    CallArgs { span: p.span(start), items }
 }
 
 /// Parse a let expression.
@@ -518,7 +518,7 @@ fn expr_let(p: &mut Parser) -> Option<Expr> {
         // Rewrite into a closure expression if it's a function definition.
         if let Some(params) = parameters {
             let body = init?;
-            init = Some(Expr::Closure(ExprClosure {
+            init = Some(Expr::Closure(ClosureExpr {
                 span: binding.span.join(body.span()),
                 name: Some(binding.clone()),
                 params: Rc::new(params),
@@ -526,7 +526,7 @@ fn expr_let(p: &mut Parser) -> Option<Expr> {
             }));
         }
 
-        expr_let = Some(Expr::Let(ExprLet {
+        expr_let = Some(Expr::Let(LetExpr {
             span: p.span(start),
             binding,
             init: init.map(Box::new),
@@ -555,7 +555,7 @@ fn expr_if(p: &mut Parser) -> Option<Expr> {
                 else_body = body(p);
             }
 
-            expr_if = Some(Expr::If(ExprIf {
+            expr_if = Some(Expr::If(IfExpr {
                 span: p.span(start),
                 condition: Box::new(condition),
                 if_body: Box::new(if_body),
@@ -575,7 +575,7 @@ fn expr_while(p: &mut Parser) -> Option<Expr> {
     let mut expr_while = None;
     if let Some(condition) = expr(p) {
         if let Some(body) = body(p) {
-            expr_while = Some(Expr::While(ExprWhile {
+            expr_while = Some(Expr::While(WhileExpr {
                 span: p.span(start),
                 condition: Box::new(condition),
                 body: Box::new(body),
@@ -596,7 +596,7 @@ fn expr_for(p: &mut Parser) -> Option<Expr> {
         if p.expect(Token::In) {
             if let Some(iter) = expr(p) {
                 if let Some(body) = body(p) {
-                    expr_for = Some(Expr::For(ExprFor {
+                    expr_for = Some(Expr::For(ForExpr {
                         span: p.span(start),
                         pattern,
                         iter: Box::new(iter),

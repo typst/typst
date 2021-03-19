@@ -3,13 +3,16 @@ use std::rc::Rc;
 
 use fontdock::FontStyle;
 
-use super::*;
-use crate::diag::{Diag, DiagSet};
+use super::{Exec, State};
+use crate::diag::{Diag, DiagSet, Pass};
+use crate::env::Env;
+use crate::eval::TemplateValue;
 use crate::geom::{Dir, Gen, Linear, Sides, Size};
 use crate::layout::{
-    Node, NodePad, NodePages, NodePar, NodeSpacing, NodeStack, NodeText, Tree,
+    Node, PadNode, PageRun, ParNode, SpacingNode, StackNode, TextNode, Tree,
 };
 use crate::parse::is_newline;
+use crate::syntax::{Span, Spanned};
 
 /// The context for execution.
 #[derive(Debug)]
@@ -26,9 +29,9 @@ pub struct ExecContext<'a> {
     page: Option<PageInfo>,
     /// The content of the active stack. This may be the top-level stack for the
     /// page or a lower one created by [`exec`](Self::exec).
-    stack: NodeStack,
+    stack: StackNode,
     /// The content of the active paragraph.
-    par: NodePar,
+    par: ParNode,
 }
 
 impl<'a> ExecContext<'a> {
@@ -39,8 +42,8 @@ impl<'a> ExecContext<'a> {
             diags: DiagSet::new(),
             tree: Tree { runs: vec![] },
             page: Some(PageInfo::new(&state, true)),
-            stack: NodeStack::new(&state),
-            par: NodePar::new(&state),
+            stack: StackNode::new(&state),
+            par: ParNode::new(&state),
             state,
         }
     }
@@ -78,7 +81,7 @@ impl<'a> ExecContext<'a> {
     /// Push a layout node into the active paragraph.
     ///
     /// Spacing nodes will be handled according to their
-    /// [`softness`](NodeSpacing::softness).
+    /// [`softness`](SpacingNode::softness).
     pub fn push(&mut self, node: impl Into<Node>) {
         push(&mut self.par.children, node.into());
     }
@@ -86,7 +89,7 @@ impl<'a> ExecContext<'a> {
     /// Push a word space into the active paragraph.
     pub fn push_space(&mut self) {
         let em = self.state.font.font_size();
-        self.push(NodeSpacing {
+        self.push(SpacingNode {
             amount: self.state.par.word_spacing.resolve(em),
             softness: 1,
         });
@@ -111,7 +114,7 @@ impl<'a> ExecContext<'a> {
     /// Apply a forced line break.
     pub fn push_linebreak(&mut self) {
         let em = self.state.font.font_size();
-        self.push_into_stack(NodeSpacing {
+        self.push_into_stack(SpacingNode {
             amount: self.state.par.leading.resolve(em),
             softness: 2,
         });
@@ -120,7 +123,7 @@ impl<'a> ExecContext<'a> {
     /// Apply a forced paragraph break.
     pub fn push_parbreak(&mut self) {
         let em = self.state.font.font_size();
-        self.push_into_stack(NodeSpacing {
+        self.push_into_stack(SpacingNode {
             amount: self.state.par.spacing.resolve(em),
             softness: 1,
         });
@@ -134,10 +137,10 @@ impl<'a> ExecContext<'a> {
     }
 
     /// Execute a template and return the result as a stack node.
-    pub fn exec(&mut self, template: &ValueTemplate) -> NodeStack {
+    pub fn exec(&mut self, template: &TemplateValue) -> StackNode {
         let page = self.page.take();
-        let stack = mem::replace(&mut self.stack, NodeStack::new(&self.state));
-        let par = mem::replace(&mut self.par, NodePar::new(&self.state));
+        let stack = mem::replace(&mut self.stack, StackNode::new(&self.state));
+        let par = mem::replace(&mut self.par, ParNode::new(&self.state));
 
         template.exec(self);
         let result = self.finish_stack();
@@ -151,7 +154,7 @@ impl<'a> ExecContext<'a> {
 
     /// Construct a text node from the given string based on the active text
     /// state.
-    pub fn make_text_node(&self, text: String) -> NodeText {
+    pub fn make_text_node(&self, text: String) -> TextNode {
         let mut variant = self.state.font.variant;
 
         if self.state.font.strong {
@@ -166,7 +169,7 @@ impl<'a> ExecContext<'a> {
             }
         }
 
-        NodeText {
+        TextNode {
             text,
             dir: self.state.dirs.cross,
             aligns: self.state.aligns,
@@ -180,7 +183,7 @@ impl<'a> ExecContext<'a> {
 
     /// Finish the active paragraph.
     fn finish_par(&mut self) {
-        let mut par = mem::replace(&mut self.par, NodePar::new(&self.state));
+        let mut par = mem::replace(&mut self.par, ParNode::new(&self.state));
         trim(&mut par.children);
 
         if !par.children.is_empty() {
@@ -189,10 +192,10 @@ impl<'a> ExecContext<'a> {
     }
 
     /// Finish the active stack.
-    fn finish_stack(&mut self) -> NodeStack {
+    fn finish_stack(&mut self) -> StackNode {
         self.finish_par();
 
-        let mut stack = mem::replace(&mut self.stack, NodeStack::new(&self.state));
+        let mut stack = mem::replace(&mut self.stack, StackNode::new(&self.state));
         trim(&mut stack.children);
 
         stack
@@ -205,9 +208,9 @@ impl<'a> ExecContext<'a> {
             let stack = self.finish_stack();
 
             if !stack.children.is_empty() || (keep && info.hard) {
-                self.tree.runs.push(NodePages {
+                self.tree.runs.push(PageRun {
                     size: info.size,
-                    child: NodePad {
+                    child: PadNode {
                         padding: info.padding,
                         child: stack.into(),
                     }
@@ -274,7 +277,7 @@ impl PageInfo {
     }
 }
 
-impl NodeStack {
+impl StackNode {
     fn new(state: &State) -> Self {
         Self {
             dirs: state.dirs,
@@ -284,7 +287,7 @@ impl NodeStack {
     }
 }
 
-impl NodePar {
+impl ParNode {
     fn new(state: &State) -> Self {
         let em = state.font.font_size();
         Self {

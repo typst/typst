@@ -1,11 +1,10 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use fontdock::fs::FsIndex;
 
-use typst::env::{Env, ResourceLoader};
+use typst::env::{Env, FsIndexExt, ResourceLoader};
 use typst::eval::eval;
 use typst::exec::{exec, State};
 use typst::export::pdf;
-use typst::font::FsIndexExt;
 use typst::layout::layout;
 use typst::library;
 use typst::parse::parse;

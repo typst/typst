@@ -1,7 +1,6 @@
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
 use super::*;
-use crate::shaping::VerticalFontMetric;
 
 /// `font`: Configure the font.
 ///
@@ -55,7 +54,7 @@ use crate::shaping::VerticalFontMetric;
 ///   - `x-height`
 ///   - `baseline`
 ///   - `descender`
-pub fn font(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
+pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let size = args.find::<Linear>(ctx);
     let list: Vec<_> = args.filter::<FontFamily>(ctx).map(|f| f.to_string()).collect();
     let style = args.get(ctx, "style");
@@ -66,7 +65,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let serif = args.get(ctx, "serif");
     let sans_serif = args.get(ctx, "sans-serif");
     let monospace = args.get(ctx, "monospace");
-    let body = args.find::<ValueTemplate>(ctx);
+    let body = args.find::<TemplateValue>(ctx);
 
     Value::template("font", move |ctx| {
         let snapshot = ctx.state.clone();

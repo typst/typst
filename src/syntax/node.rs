@@ -16,23 +16,23 @@ pub enum Node {
     /// Plain text.
     Text(String),
     /// A section heading.
-    Heading(NodeHeading),
+    Heading(HeadingNode),
     /// An optionally syntax-highlighted raw block.
-    Raw(NodeRaw),
+    Raw(RawNode),
     /// An expression.
     Expr(Expr),
 }
 
 /// A section heading: `= Introduction`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct NodeHeading {
+pub struct HeadingNode {
     /// The section depth (numer of equals signs minus 1).
     pub level: usize,
     /// The contents of the heading.
     pub contents: Tree,
 }
 
-/// A raw block with optional syntax highlighting: `` `raw` ``.
+/// A raw block with optional syntax highlighting: `` `...` ``.
 ///
 /// Raw blocks start with 1 or 3+ backticks and end with the same number of
 /// backticks.
@@ -96,7 +96,7 @@ pub struct NodeHeading {
 /// Note that with these rules you can always force leading or trailing
 /// whitespace simply by adding more spaces.
 #[derive(Debug, Clone, PartialEq)]
-pub struct NodeRaw {
+pub struct RawNode {
     /// An optional identifier specifying the language to syntax-highlight in.
     pub lang: Option<Ident>,
     /// The lines of raw text, determined as the raw string between the

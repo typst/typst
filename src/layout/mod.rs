@@ -2,26 +2,28 @@
 
 mod background;
 mod fixed;
+mod frame;
 mod node;
 mod pad;
 mod par;
+mod shaping;
 mod spacing;
 mod stack;
 mod text;
 
-use crate::color::Color;
-use crate::env::{Env, ResourceId};
-use crate::geom::*;
-use crate::shaping::Shaped;
-
 pub use background::*;
 pub use fixed::*;
+pub use frame::*;
 pub use node::*;
 pub use pad::*;
 pub use par::*;
+pub use shaping::*;
 pub use spacing::*;
 pub use stack::*;
 pub use text::*;
+
+use crate::env::Env;
+use crate::geom::*;
 
 /// Layout a tree into a collection of frames.
 pub fn layout(env: &mut Env, tree: &Tree) -> Vec<Frame> {
@@ -32,7 +34,7 @@ pub fn layout(env: &mut Env, tree: &Tree) -> Vec<Frame> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tree {
     /// Runs of pages with the same properties.
-    pub runs: Vec<NodePages>,
+    pub runs: Vec<PageRun>,
 }
 
 impl Tree {
@@ -44,15 +46,15 @@ impl Tree {
 
 /// A run of pages that all have the same properties.
 #[derive(Debug, Clone, PartialEq)]
-pub struct NodePages {
+pub struct PageRun {
     /// The size of each page.
     pub size: Size,
     /// The layout node that produces the actual pages (typically a
-    /// [`NodeStack`]).
+    /// [`StackNode`]).
     pub child: Node,
 }
 
-impl NodePages {
+impl PageRun {
     /// Layout the page run.
     pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Frame> {
         let areas = Areas::repeat(self.size, Spec::uniform(Expand::Fill));
@@ -64,7 +66,7 @@ impl NodePages {
 /// Layout a node.
 pub trait Layout {
     /// Layout the node into the given areas.
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Layouted;
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment;
 }
 
 /// The context for layouting.
@@ -74,7 +76,7 @@ pub struct LayoutContext<'a> {
     pub env: &'a mut Env,
 }
 
-/// A collection of areas to layout into.
+/// A sequence of areas to layout into.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Areas {
     /// The remaining size of the current area.
@@ -155,7 +157,7 @@ impl Expand {
 
 /// The result of layouting a node.
 #[derive(Debug, Clone, PartialEq)]
-pub enum Layouted {
+pub enum Fragment {
     /// Spacing that should be added to the parent.
     Spacing(Length),
     /// A layout that should be added to and aligned in the parent.
@@ -164,7 +166,7 @@ pub enum Layouted {
     Frames(Vec<Frame>, LayoutAligns),
 }
 
-impl Layouted {
+impl Fragment {
     /// Return a reference to all frames contained in this variant (zero, one or
     /// arbitrarily many).
     pub fn frames(&self) -> &[Frame] {
@@ -192,82 +194,4 @@ impl Layouted {
             Self::Frames(frames, _) => frames,
         }
     }
-}
-
-/// A finished layout with elements at fixed positions.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Frame {
-    /// The size of the frame.
-    pub size: Size,
-    /// The elements composing this layout.
-    pub elements: Vec<(Point, Element)>,
-}
-
-impl Frame {
-    /// Create a new, empty frame.
-    pub fn new(size: Size) -> Self {
-        Self { size, elements: vec![] }
-    }
-
-    /// Add an element at a position.
-    pub fn push(&mut self, pos: Point, element: Element) {
-        self.elements.push((pos, element));
-    }
-
-    /// Add all elements of another frame, placing them relative to the given
-    /// position.
-    pub fn push_frame(&mut self, pos: Point, subframe: Self) {
-        for (subpos, element) in subframe.elements {
-            self.push(pos + subpos, element);
-        }
-    }
-}
-
-/// The building block frames are composed of.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Element {
-    /// Shaped text.
-    Text(Shaped),
-    /// An image.
-    Image(Image),
-    /// Some shape that could hold another frame.
-    Geometry(Geometry),
-}
-
-/// A shape with some kind of fill.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Geometry {
-    /// The shape to draw.
-    pub shape: Shape,
-    /// How the shape looks on the inside.
-    //
-    //  TODO: This could be made into a Vec<Fill> or something such that
-    //        the user can compose multiple fills with alpha values less
-    //        than one to achieve cool effects.
-    pub fill: Fill,
-}
-
-/// Some shape.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Shape {
-    /// A rectangle.
-    Rect(Size),
-}
-
-/// The kind of graphic fill to be applied to a [`Shape`].
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Fill {
-    /// The fill is a color.
-    Color(Color),
-    /// The fill is an image.
-    Image(Image),
-}
-
-/// An image element.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Image {
-    /// The image resource.
-    pub res: ResourceId,
-    /// The size of the image in the document.
-    pub size: Size,
 }

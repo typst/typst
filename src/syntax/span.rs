@@ -32,7 +32,7 @@ impl<T> Spanned<T> {
         Spanned { v: &self.v, span: self.span }
     }
 
-    /// Map the value using a function while keeping the span.
+    /// Map the value using a function keeping the span.
     pub fn map<F, U>(self, f: F) -> Spanned<U>
     where
         F: FnOnce(T) -> U,
