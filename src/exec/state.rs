@@ -117,7 +117,7 @@ pub struct FontState {
     /// whether the next `_` makes italic or non-italic.
     pub emph: bool,
     /// The glyph fill color / texture.
-    pub fill: Fill,
+    pub color: Fill,
 }
 
 impl FontState {
@@ -152,7 +152,7 @@ impl Default for FontState {
             scale: Linear::ONE,
             strong: false,
             emph: false,
-            fill: Fill::Color(Color::Rgba(RgbaColor::BLACK)),
+            color: Fill::Color(Color::Rgba(RgbaColor::BLACK)),
         }
     }
 }

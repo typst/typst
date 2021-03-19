@@ -32,7 +32,7 @@ Emoji: 🐪, 🌋, 🏞
 ]
 
 // Colors.
-#font(fill: #239DAD)[This is #font(fill: #FA644B)[way more] colorful.]
+#font(color: #239DAD)[This is #font(color: #FA644B)[way more] colorful.]
 
 ---
 // Test top and bottom edge.

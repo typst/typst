@@ -126,19 +126,6 @@ impl<'a> PdfExporter<'a> {
         }
     }
 
-    fn change_color(content: &mut Content, fill: Fill) {
-        match fill {
-            Fill::Color(Color::Rgba(c)) => {
-                content.fill_rgb(
-                    c.r as f32 / 255.0,
-                    c.g as f32 / 255.0,
-                    c.b as f32 / 255.0,
-                );
-            }
-            Fill::Image(_) => todo!(),
-        }
-    }
-
     fn write_page(&mut self, id: Ref, page: &'a Frame) {
         let mut content = Content::new();
 
@@ -147,6 +134,21 @@ impl<'a> PdfExporter<'a> {
         let mut face = FaceId::MAX;
         let mut size = Length::ZERO;
         let mut fill: Option<Fill> = None;
+        let mut change_color = |content: &mut Content, new_fill: Fill| {
+            if fill != Some(new_fill) {
+                match new_fill {
+                    Fill::Color(Color::Rgba(c)) => {
+                        content.fill_rgb(
+                            c.r as f32 / 255.0,
+                            c.g as f32 / 255.0,
+                            c.b as f32 / 255.0,
+                        );
+                    }
+                    Fill::Image(_) => todo!(),
+                }
+                fill = Some(new_fill);
+            }
+        };
 
         for (pos, element) in &page.elements {
             let x = pos.x.to_pt() as f32;
@@ -166,11 +168,7 @@ impl<'a> PdfExporter<'a> {
 
                 Element::Geometry(geometry) => {
                     content.save_state();
-
-                    if fill != Some(geometry.fill) {
-                        Self::change_color(&mut content, geometry.fill);
-                        fill = Some(geometry.fill);
-                    }
+                    change_color(&mut content, geometry.fill);
 
                     match &geometry.shape {
                         Shape::Rect(r) => {
@@ -187,11 +185,7 @@ impl<'a> PdfExporter<'a> {
                 }
 
                 Element::Text(shaped) => {
-                    // First, check if the color changed!
-                    if fill != Some(shaped.fill) {
-                        Self::change_color(&mut content, shaped.fill);
-                        fill = Some(shaped.fill);
-                    }
+                    change_color(&mut content, shaped.color);
 
                     let mut text = content.text();
 
