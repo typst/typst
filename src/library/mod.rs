@@ -9,6 +9,7 @@ mod font;
 mod image;
 mod pad;
 mod page;
+mod par;
 mod shapes;
 mod spacing;
 
@@ -18,6 +19,7 @@ pub use base::*;
 pub use font::*;
 pub use pad::*;
 pub use page::*;
+pub use par::*;
 pub use shapes::*;
 pub use spacing::*;
 
@@ -50,6 +52,7 @@ pub fn new() -> Scope {
     set!(func: "pad", pad);
     set!(func: "page", page);
     set!(func: "pagebreak", pagebreak);
+    set!(func: "paragraph", paragraph);
     set!(func: "rect", rect);
     set!(func: "repr", repr);
     set!(func: "rgb", rgb);
