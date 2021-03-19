@@ -4,7 +4,7 @@
 //! font for each individual character. When the direction is right-to-left, the
 //! word is spelled backwards. Vertical shaping is not supported.
 
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 
 use fontdock::{FaceId, FaceQuery, FallbackTree, FontVariant};
 use ttf_parser::{Face, GlyphId};
@@ -58,20 +58,55 @@ impl Debug for Shaped {
     }
 }
 
+/// Identifies a vertical metric of a font.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum VerticalFontMetric {
+    /// The distance from the baseline to the typographic ascender.
+    ///
+    /// Corresponds to the typographic ascender from the `OS/2` table if present
+    /// and falls back to the ascender from the `hhea` table otherwise.
+    Ascender,
+    /// The approximate height of uppercase letters.
+    CapHeight,
+    /// The approximate height of non-ascending lowercase letters.
+    XHeight,
+    /// The baseline on which the letters rest.
+    Baseline,
+    /// The distance from the baseline to the typographic descender.
+    ///
+    /// Corresponds to the typographic descender from the `OS/2` table if
+    /// present and falls back to the descender from the `hhea` table otherwise.
+    Descender,
+}
+
+impl Display for VerticalFontMetric {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(match self {
+            Self::Ascender => "ascender",
+            Self::CapHeight => "cap-height",
+            Self::XHeight => "x-height",
+            Self::Baseline => "baseline",
+            Self::Descender => "descender",
+        })
+    }
+}
+
 /// Shape text into a frame containing [`Shaped`] runs.
 pub fn shape(
     text: &str,
     dir: Dir,
-    font_size: Length,
-    loader: &mut FontLoader,
     fallback: &FallbackTree,
     variant: FontVariant,
+    font_size: Length,
+    top_edge: VerticalFontMetric,
+    bottom_edge: VerticalFontMetric,
+    loader: &mut FontLoader,
 ) -> Frame {
-    let mut frame = Frame::new(Size::new(Length::ZERO, font_size));
+    let mut frame = Frame::new(Size::new(Length::ZERO, Length::ZERO));
     let mut shaped = Shaped::new(FaceId::MAX, font_size);
-    let mut offset = Length::ZERO;
-    let mut ascender = Length::ZERO;
-    let mut descender = Length::ZERO;
+    let mut width = Length::ZERO;
+    let mut top = Length::ZERO;
+    let mut bottom = Length::ZERO;
 
     // Create an iterator with conditional direction.
     let mut forwards = text.chars();
@@ -86,7 +121,7 @@ pub fn shape(
         let query = FaceQuery { fallback: fallback.iter(), variant, c };
         if let Some(id) = loader.query(query) {
             let face = loader.face(id).get();
-            let (glyph, width) = match lookup_glyph(face, c) {
+            let (glyph, glyph_width) = match lookup_glyph(face, c) {
                 Some(v) => v,
                 None => continue,
             };
@@ -96,25 +131,33 @@ pub fn shape(
 
             // Flush the buffer and reset the metrics if we use a new font face.
             if shaped.face != id {
-                place(&mut frame, shaped, offset, ascender, descender);
+                place(&mut frame, shaped, width, top, bottom);
 
                 shaped = Shaped::new(id, font_size);
-                offset = Length::ZERO;
-                ascender = convert(f64::from(face.ascender()));
-                descender = convert(f64::from(face.descender()));
+                width = Length::ZERO;
+                top = convert(f64::from(lookup_metric(face, top_edge)));
+                bottom = convert(f64::from(lookup_metric(face, bottom_edge)));
             }
 
             shaped.text.push(c);
             shaped.glyphs.push(glyph);
-            shaped.offsets.push(offset);
-            offset += convert(f64::from(width));
+            shaped.offsets.push(width);
+            width += convert(f64::from(glyph_width));
         }
     }
 
-    // Flush the last buffered parts of the word.
-    place(&mut frame, shaped, offset, ascender, descender);
+    place(&mut frame, shaped, width, top, bottom);
 
     frame
+}
+
+/// Place shaped text into a frame.
+fn place(frame: &mut Frame, shaped: Shaped, width: Length, top: Length, bottom: Length) {
+    if !shaped.text.is_empty() {
+        frame.push(Point::new(frame.size.width, top), Element::Text(shaped));
+        frame.size.width += width;
+        frame.size.height = frame.size.height.max(top - bottom);
+    }
 }
 
 /// Look up the glyph for `c` and returns its index alongside its advance width.
@@ -124,18 +167,32 @@ fn lookup_glyph(face: &Face, c: char) -> Option<(GlyphId, u16)> {
     Some((glyph, width))
 }
 
-/// Place shaped text into a frame.
-fn place(
-    frame: &mut Frame,
-    shaped: Shaped,
-    offset: Length,
-    ascender: Length,
-    descender: Length,
-) {
-    if !shaped.text.is_empty() {
-        let pos = Point::new(frame.size.width, ascender);
-        frame.push(pos, Element::Text(shaped));
-        frame.size.width += offset;
-        frame.size.height = frame.size.height.max(ascender - descender);
+/// Look up a vertical metric.
+fn lookup_metric(face: &Face, metric: VerticalFontMetric) -> i16 {
+    match metric {
+        VerticalFontMetric::Ascender => lookup_ascender(face),
+        VerticalFontMetric::CapHeight => face
+            .capital_height()
+            .filter(|&h| h > 0)
+            .unwrap_or_else(|| lookup_ascender(face)),
+        VerticalFontMetric::XHeight => face
+            .x_height()
+            .filter(|&h| h > 0)
+            .unwrap_or_else(|| lookup_ascender(face)),
+        VerticalFontMetric::Baseline => 0,
+        VerticalFontMetric::Descender => lookup_descender(face),
     }
+}
+
+/// The ascender of the face.
+fn lookup_ascender(face: &Face) -> i16 {
+    // We prefer the typographic ascender over the Windows ascender because
+    // it can be overly large if the font has large glyphs.
+    face.typographic_ascender().unwrap_or_else(|| face.ascender())
+}
+
+/// The descender of the face.
+fn lookup_descender(face: &Face) -> i16 {
+    // See `lookup_ascender` for reason.
+    face.typographic_descender().unwrap_or_else(|| face.descender())
 }

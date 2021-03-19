@@ -26,9 +26,9 @@ use std::fmt::{self, Display, Formatter};
 use fontdock::{FontStyle, FontWeight};
 
 use crate::eval::{Scope, ValueAny, ValueFunc};
-use crate::exec::Softness;
 use crate::layout::*;
 use crate::prelude::*;
+use crate::shaping::VerticalFontMetric;
 
 /// Construct a scope containing all standard library definitions.
 pub fn new() -> Scope {
@@ -81,6 +81,11 @@ pub fn new() -> Scope {
     set!(any: "bold", FontWeight::BOLD);
     set!(any: "extrabold", FontWeight::EXTRABOLD);
     set!(any: "black", FontWeight::BLACK);
+    set!(any: "ascender", VerticalFontMetric::Ascender);
+    set!(any: "cap-height", VerticalFontMetric::CapHeight);
+    set!(any: "x-height", VerticalFontMetric::XHeight);
+    set!(any: "baseline", VerticalFontMetric::Baseline);
+    set!(any: "descender", VerticalFontMetric::Descender);
 
     std
 }

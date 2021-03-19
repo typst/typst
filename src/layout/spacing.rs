@@ -1,7 +1,6 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::*;
-use crate::exec::Softness;
 
 /// A spacing node.
 #[derive(Copy, Clone, PartialEq)]
@@ -10,13 +9,11 @@ pub struct NodeSpacing {
     pub amount: Length,
     /// Defines how spacing interacts with surrounding spacing.
     ///
-    /// Hard spacing assures that a fixed amount of spacing will always be
-    /// inserted. Soft spacing will be consumed by previous soft spacing or
-    /// neighbouring hard spacing and can be used to insert overridable spacing,
-    /// e.g. between words or paragraphs.
-    ///
-    /// This field is only used in evaluation, not in layouting.
-    pub softness: Softness,
+    /// Hard spacing (`softness = 0`) assures that a fixed amount of spacing
+    /// will always be inserted. Soft spacing (`softness >= 1`) will be consumed
+    /// by other spacing with lower softness and can be used to insert
+    /// overridable spacing, e.g. between words or paragraphs.
+    pub softness: u8,
 }
 
 impl Layout for NodeSpacing {
@@ -27,10 +24,7 @@ impl Layout for NodeSpacing {
 
 impl Debug for NodeSpacing {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self.softness {
-            Softness::Soft => write!(f, "Soft({})", self.amount),
-            Softness::Hard => write!(f, "Hard({})", self.amount),
-        }
+        write!(f, "Spacing({}, {})", self.amount, self.softness)
     }
 }
 

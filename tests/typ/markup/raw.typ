@@ -7,7 +7,7 @@
 ---
 // Typst syntax inside.
 `#let x = 1` \
-`#[f 1]`
+`#f(1)`
 
 ---
 // Multiline block splits paragraphs.

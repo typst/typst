@@ -38,7 +38,7 @@ impl<'a> ExecContext<'a> {
             env,
             diags: DiagSet::new(),
             tree: Tree { runs: vec![] },
-            page: Some(PageInfo::new(&state, Softness::Hard)),
+            page: Some(PageInfo::new(&state, true)),
             stack: NodeStack::new(&state),
             par: NodePar::new(&state),
             state,
@@ -77,7 +77,8 @@ impl<'a> ExecContext<'a> {
 
     /// Push a layout node into the active paragraph.
     ///
-    /// Spacing nodes will be handled according to their [`Softness`].
+    /// Spacing nodes will be handled according to their
+    /// [`softness`](NodeSpacing::softness).
     pub fn push(&mut self, node: impl Into<Node>) {
         push(&mut self.par.children, node.into());
     }
@@ -87,7 +88,7 @@ impl<'a> ExecContext<'a> {
         let em = self.state.font.font_size();
         self.push(NodeSpacing {
             amount: self.state.par.word_spacing.resolve(em),
-            softness: Softness::Soft,
+            softness: 1,
         });
     }
 
@@ -109,15 +110,19 @@ impl<'a> ExecContext<'a> {
 
     /// Apply a forced line break.
     pub fn push_linebreak(&mut self) {
-        self.finish_par();
+        let em = self.state.font.font_size();
+        self.push_into_stack(NodeSpacing {
+            amount: self.state.par.leading.resolve(em),
+            softness: 2,
+        });
     }
 
     /// Apply a forced paragraph break.
     pub fn push_parbreak(&mut self) {
         let em = self.state.font.font_size();
         self.push_into_stack(NodeSpacing {
-            amount: self.state.par.par_spacing.resolve(em),
-            softness: Softness::Soft,
+            amount: self.state.par.spacing.resolve(em),
+            softness: 1,
         });
     }
 
@@ -163,11 +168,13 @@ impl<'a> ExecContext<'a> {
 
         NodeText {
             text,
-            aligns: self.state.aligns,
             dir: self.state.dirs.cross,
-            font_size: self.state.font.font_size(),
+            aligns: self.state.aligns,
             families: Rc::clone(&self.state.font.families),
             variant,
+            font_size: self.state.font.font_size(),
+            top_edge: self.state.font.top_edge,
+            bottom_edge: self.state.font.bottom_edge,
         }
     }
 
@@ -192,12 +199,12 @@ impl<'a> ExecContext<'a> {
     }
 
     /// Finish the active page.
-    pub fn finish_page(&mut self, keep: bool, new_softness: Softness, source: Span) {
+    pub fn finish_page(&mut self, keep: bool, hard: bool, source: Span) {
         if let Some(info) = &mut self.page {
-            let info = mem::replace(info, PageInfo::new(&self.state, new_softness));
+            let info = mem::replace(info, PageInfo::new(&self.state, hard));
             let stack = self.finish_stack();
 
-            if !stack.children.is_empty() || (keep && info.softness == Softness::Hard) {
+            if !stack.children.is_empty() || (keep && info.hard) {
                 self.tree.runs.push(NodePages {
                     size: info.size,
                     child: NodePad {
@@ -215,7 +222,7 @@ impl<'a> ExecContext<'a> {
     /// Finish execution and return the created layout tree.
     pub fn finish(mut self) -> Pass<Tree> {
         assert!(self.page.is_some());
-        self.finish_page(true, Softness::Soft, Span::default());
+        self.finish_page(true, false, Span::default());
         Pass::new(self.tree, self.diags)
     }
 }
@@ -223,15 +230,17 @@ impl<'a> ExecContext<'a> {
 /// Push a node into a list, taking care of spacing softness.
 fn push(nodes: &mut Vec<Node>, node: Node) {
     if let Node::Spacing(spacing) = node {
-        if spacing.softness == Softness::Soft && nodes.is_empty() {
+        if nodes.is_empty() && spacing.softness > 0 {
             return;
         }
 
         if let Some(&Node::Spacing(other)) = nodes.last() {
-            if spacing.softness > other.softness {
-                nodes.pop();
-            } else if spacing.softness == Softness::Soft {
+            if spacing.softness > 0 && spacing.softness >= other.softness {
                 return;
+            }
+
+            if spacing.softness < other.softness {
+                nodes.pop();
             }
         }
     }
@@ -242,7 +251,7 @@ fn push(nodes: &mut Vec<Node>, node: Node) {
 /// Remove trailing soft spacing from a node list.
 fn trim(nodes: &mut Vec<Node>) {
     if let Some(&Node::Spacing(spacing)) = nodes.last() {
-        if spacing.softness == Softness::Soft {
+        if spacing.softness > 0 {
             nodes.pop();
         }
     }
@@ -252,15 +261,15 @@ fn trim(nodes: &mut Vec<Node>) {
 struct PageInfo {
     size: Size,
     padding: Sides<Linear>,
-    softness: Softness,
+    hard: bool,
 }
 
 impl PageInfo {
-    fn new(state: &State, softness: Softness) -> Self {
+    fn new(state: &State, hard: bool) -> Self {
         Self {
             size: state.page.size,
             padding: state.page.margins(),
-            softness,
+            hard,
         }
     }
 }
@@ -281,7 +290,7 @@ impl NodePar {
         Self {
             dirs: state.dirs,
             aligns: state.aligns,
-            line_spacing: state.par.line_spacing.resolve(em),
+            line_spacing: state.par.leading.resolve(em),
             children: vec![],
         }
     }

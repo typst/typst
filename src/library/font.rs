@@ -1,6 +1,7 @@
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
 use super::*;
+use crate::shaping::VerticalFontMetric;
 
 /// `font`: Configure the font.
 ///
@@ -13,6 +14,8 @@ use super::*;
 /// - Font Style: `style`, of type `font-style`.
 /// - Font Weight: `weight`, of type `font-weight`.
 /// - Font Stretch: `stretch`, of type `relative`, between 0.5 and 2.0.
+/// - Top edge of the font: `top-edge`, of type `vertical-font-metric`.
+/// - Bottom edge of the font: `bottom-edge`, of type `vertical-font-metric`.
 /// - Serif family definition: `serif`, of type `font-familiy-list`.
 /// - Sans-serif family definition: `sans-serif`, of type `font-familiy-list`.
 /// - Monospace family definition: `monospace`, of type `font-familiy-list`.
@@ -22,15 +25,15 @@ use super::*;
 /// if present.
 ///
 /// # Relevant types and constants
-/// - Type `font-family-list`
-///   - coerces from `string`
-///   - coerces from `array`
-///   - coerces from `font-family`
 /// - Type `font-family`
 ///   - `serif`
 ///   - `sans-serif`
 ///   - `monospace`
 ///   - coerces from `string`
+/// - Type `font-family-list`
+///   - coerces from `string`
+///   - coerces from `array`
+///   - coerces from `font-family`
 /// - Type `font-style`
 ///   - `normal`
 ///   - `italic`
@@ -46,12 +49,20 @@ use super::*;
 ///   - `extrabold` (800)
 ///   - `black` (900)
 ///   - coerces from `integer`
+/// - Type `vertical-font-metric`
+///   - `ascender`
+///   - `cap-height`
+///   - `x-height`
+///   - `baseline`
+///   - `descender`
 pub fn font(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
     let size = args.find::<Linear>(ctx);
     let list: Vec<_> = args.filter::<FontFamily>(ctx).map(|f| f.to_string()).collect();
     let style = args.get(ctx, "style");
     let weight = args.get(ctx, "weight");
     let stretch = args.get(ctx, "stretch");
+    let top_edge = args.get(ctx, "top-edge");
+    let bottom_edge = args.get(ctx, "bottom-edge");
     let serif = args.get(ctx, "serif");
     let sans_serif = args.get(ctx, "sans-serif");
     let monospace = args.get(ctx, "monospace");
@@ -85,6 +96,14 @@ pub fn font(ctx: &mut EvalContext, args: &mut ValueArgs) -> Value {
 
         if let Some(stretch) = stretch {
             ctx.state.font.variant.stretch = stretch;
+        }
+
+        if let Some(top_edge) = top_edge {
+            ctx.state.font.top_edge = top_edge;
+        }
+
+        if let Some(bottom_edge) = bottom_edge {
+            ctx.state.font.bottom_edge = bottom_edge;
         }
 
         for (variant, arg) in &[
@@ -184,4 +203,8 @@ typify! {
             CastResult::Ok(value)
         };
     },
+}
+
+typify! {
+    VerticalFontMetric: "vertical font metric",
 }

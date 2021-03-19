@@ -17,8 +17,8 @@
 
 ---
 // Syntax sugar for function definitions.
-#let background = #239dad
-#let rect(body) = rect(width: 2cm, height: 1cm, fill: background, body)
+#let background = #9feb52
+#let rect(body) = rect(width: 2cm, fill: background, pad(5pt, body))
 #rect[Hi!]
 
 // Error: 13 expected body

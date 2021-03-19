@@ -4,35 +4,41 @@ use std::rc::Rc;
 use fontdock::{FallbackTree, FontVariant};
 
 use super::*;
-use crate::shaping;
+use crate::shaping::{shape, VerticalFontMetric};
 
 /// A text node.
 #[derive(Clone, PartialEq)]
 pub struct NodeText {
+    /// The text.
+    pub text: String,
     /// The text direction.
     pub dir: Dir,
     /// How to align this text node in its parent.
     pub aligns: LayoutAligns,
-    /// The text.
-    pub text: String,
-    /// The font size.
-    pub font_size: Length,
     /// The families used for font fallback.
     pub families: Rc<FallbackTree>,
     /// The font variant,
     pub variant: FontVariant,
+    /// The font size.
+    pub font_size: Length,
+    /// The top end of the text bounding box.
+    pub top_edge: VerticalFontMetric,
+    /// The bottom end of the text bounding box.
+    pub bottom_edge: VerticalFontMetric,
 }
 
 impl Layout for NodeText {
     fn layout(&self, ctx: &mut LayoutContext, _: &Areas) -> Layouted {
         Layouted::Frame(
-            shaping::shape(
+            shape(
                 &self.text,
                 self.dir,
-                self.font_size,
-                &mut ctx.env.fonts,
                 &self.families,
                 self.variant,
+                self.font_size,
+                self.top_edge,
+                self.bottom_edge,
+                &mut ctx.env.fonts,
             ),
             self.aligns,
         )

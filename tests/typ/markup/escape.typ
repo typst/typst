@@ -28,3 +28,7 @@
 // Unterminated.
 // Error: 6 expected closing brace
 \u{41*Bold*
+
+---
+// Some code stuff in text.
+let f() , ; : | + - /= == 12 "string"

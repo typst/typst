@@ -2,10 +2,9 @@ use std::rc::Rc;
 
 use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
 
-use crate::geom::{
-    Align, Dir, LayoutAligns, LayoutDirs, Length, Linear, Relative, Sides, Size,
-};
+use crate::geom::*;
 use crate::paper::{Paper, PaperClass, PAPER_A4};
+use crate::shaping::VerticalFontMetric;
 
 /// The evaluation state.
 #[derive(Debug, Clone, PartialEq)]
@@ -77,20 +76,20 @@ impl Default for PageState {
 /// Defines paragraph properties.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct ParState {
+    /// The spacing between paragraphs (dependent on scaled font size).
+    pub spacing: Linear,
+    /// The spacing between lines (dependent on scaled font size).
+    pub leading: Linear,
     /// The spacing between words (dependent on scaled font size).
     pub word_spacing: Linear,
-    /// The spacing between lines (dependent on scaled font size).
-    pub line_spacing: Linear,
-    /// The spacing between paragraphs (dependent on scaled font size).
-    pub par_spacing: Linear,
 }
 
 impl Default for ParState {
     fn default() -> Self {
         Self {
+            spacing: Relative::new(1.0).into(),
+            leading: Relative::new(0.5).into(),
             word_spacing: Relative::new(0.25).into(),
-            line_spacing: Linear::ZERO,
-            par_spacing: Relative::new(0.5).into(),
         }
     }
 }
@@ -106,6 +105,10 @@ pub struct FontState {
     pub size: Length,
     /// The linear to apply on the base font size.
     pub scale: Linear,
+    /// The top end of the text bounding box.
+    pub top_edge: VerticalFontMetric,
+    /// The bottom end of the text bounding box.
+    pub bottom_edge: VerticalFontMetric,
     /// Whether the strong toggle is active or inactive. This determines
     /// whether the next `*` adds or removes font weight.
     pub strong: bool,
@@ -141,6 +144,8 @@ impl Default for FontState {
                 stretch: FontStretch::Normal,
             },
             size: Length::pt(11.0),
+            top_edge: VerticalFontMetric::CapHeight,
+            bottom_edge: VerticalFontMetric::Baseline,
             scale: Linear::ONE,
             strong: false,
             emph: false,

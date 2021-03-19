@@ -32,6 +32,20 @@ Emoji: 🐪, 🌋, 🏞
 ]
 
 ---
+// Test top and bottom edge.
+
+#page(width: 170pt)
+#let try(top, bottom) = rect(fill: #9feb52)[
+    #font(top-edge: top, bottom-edge: bottom)
+    `From `#top` to `#bottom
+]
+
+#try(ascender, descender)
+#try(ascender, baseline)
+#try(cap-height, baseline)
+#try(x-height, baseline)
+
+---
 // Ref: false
 
 // Error: 7-12 unexpected argument

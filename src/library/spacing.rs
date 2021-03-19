@@ -28,7 +28,7 @@ fn spacing(ctx: &mut EvalContext, args: &mut ValueArgs, axis: SpecAxis) -> Value
     Value::template("spacing", move |ctx| {
         if let Some(linear) = spacing {
             let amount = linear.resolve(ctx.state.font.font_size());
-            let spacing = NodeSpacing { amount, softness: Softness::Hard };
+            let spacing = NodeSpacing { amount, softness: 0 };
             if axis == ctx.state.dirs.main.axis() {
                 ctx.push_into_stack(spacing);
             } else {

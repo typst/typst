@@ -2,7 +2,7 @@
 
 ---
 // Ends paragraphs.
-Tightly #v(-5pt) packed
+Tightly #v(0pt) packed
 
 // Eating up soft spacing.
 Inv #h(0pt) isible

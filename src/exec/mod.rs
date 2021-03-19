@@ -35,15 +35,6 @@ pub fn exec(
     ctx.finish()
 }
 
-/// Defines how an item interacts with surrounding items.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum Softness {
-    /// A soft item can be skipped in some circumstances.
-    Soft,
-    /// A hard item is always retained.
-    Hard,
-}
-
 /// Execute a node.
 ///
 /// This manipulates active styling and document state and produces layout
@@ -106,15 +97,15 @@ impl Exec for NodeRaw {
         ctx.set_monospace();
 
         let em = ctx.state.font.font_size();
-        let line_spacing = ctx.state.par.line_spacing.resolve(em);
+        let leading = ctx.state.par.leading.resolve(em);
 
         let mut children = vec![];
         let mut newline = false;
         for line in &self.lines {
             if newline {
                 children.push(layout::Node::Spacing(NodeSpacing {
-                    amount: line_spacing,
-                    softness: Softness::Soft,
+                    amount: leading,
+                    softness: 2,
                 }));
             }
 

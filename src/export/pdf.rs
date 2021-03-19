@@ -180,6 +180,7 @@ impl<'a> PdfExporter<'a> {
 
                 Element::Text(shaped) => {
                     let mut text = content.text();
+
                     // Check if we need to issue a font switching action.
                     if shaped.face != face || shaped.font_size != size {
                         face = shaped.face;
