@@ -1,7 +1,7 @@
 use super::*;
 
 /// A container with a main and cross component.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[derive(Default, Copy, Clone, Eq, PartialEq)]
 pub struct Gen<T> {
     /// The main component.
     pub main: T,
@@ -55,6 +55,12 @@ impl<T> Switch for Gen<T> {
             SpecAxis::Horizontal => Spec::new(self.main, self.cross),
             SpecAxis::Vertical => Spec::new(self.cross, self.main),
         }
+    }
+}
+
+impl<T: Debug> Debug for Gen<T> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Gen({:?}, {:?})", self.main, self.cross)
     }
 }
 

@@ -55,7 +55,7 @@ impl Switch for Point {
 
 impl Debug for Point {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "({}, {})", self.x, self.y)
+        write!(f, "Point({:?}, {:?})", self.x, self.y)
     }
 }
 

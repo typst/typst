@@ -1,7 +1,7 @@
 use super::*;
 
 /// A container with a horizontal and vertical component.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[derive(Default, Copy, Clone, Eq, PartialEq)]
 pub struct Spec<T> {
     /// The horizontal component.
     pub horizontal: T,
@@ -71,6 +71,12 @@ impl<T> Switch for Spec<T> {
             SpecAxis::Horizontal => Gen::new(self.horizontal, self.vertical),
             SpecAxis::Vertical => Gen::new(self.vertical, self.horizontal),
         }
+    }
+}
+
+impl<T: Debug> Debug for Spec<T> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Spec({:?}, {:?})", self.horizontal, self.vertical)
     }
 }
 

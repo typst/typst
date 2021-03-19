@@ -120,7 +120,8 @@ impl Display for Length {
 
 impl Debug for Length {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
+        let unit = LengthUnit::Pt;
+        write!(f, "{}{}", self.to_unit(unit), unit)
     }
 }
 

@@ -40,7 +40,7 @@ impl Display for Linear {
 
 impl Debug for Linear {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
+        write!(f, "{:?} + {:?}", self.rel, self.abs)
     }
 }
 

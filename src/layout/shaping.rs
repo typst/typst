@@ -54,7 +54,7 @@ impl Shaped {
 
 impl Debug for Shaped {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Shaped({})", self.text)
+        Debug::fmt(&self.text, f)
     }
 }
 

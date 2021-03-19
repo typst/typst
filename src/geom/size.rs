@@ -78,7 +78,7 @@ impl Switch for Size {
 
 impl Debug for Size {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "({} x {})", self.width, self.height)
+        write!(f, "Size({:?}, {:?})", self.width, self.height)
     }
 }
 

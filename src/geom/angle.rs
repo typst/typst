@@ -68,7 +68,8 @@ impl Display for Angle {
 
 impl Debug for Angle {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
+        let unit = AngularUnit::Deg;
+        write!(f, "{:?}{:?}", self.to_unit(unit), unit)
     }
 }
 
