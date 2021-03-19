@@ -129,6 +129,11 @@ impl<'a> PdfExporter<'a> {
     fn write_page(&mut self, id: Ref, page: &'a Frame) {
         let mut content = Content::new();
 
+        // We only write font switching actions when the used face changes. To
+        // do that, we need to remember the active face.
+        let mut face = FaceId::MAX;
+        let mut size = Length::ZERO;
+
         for (pos, element) in &page.elements {
             let x = pos.x.to_pt() as f32;
             match element {
@@ -173,35 +178,24 @@ impl<'a> PdfExporter<'a> {
                     content.restore_state();
                 }
 
-                _ => {}
-            }
-        }
+                Element::Text(shaped) => {
+                    let mut text = content.text();
+                    // Check if we need to issue a font switching action.
+                    if shaped.face != face || shaped.font_size != size {
+                        face = shaped.face;
+                        size = shaped.font_size;
 
-        // We only write font switching actions when the used face changes. To
-        // do that, we need to remember the active face.
-        let mut face = FaceId::MAX;
-        let mut size = Length::ZERO;
+                        let name = format!("F{}", self.fonts.map(shaped.face));
+                        text.font(Name(name.as_bytes()), size.to_pt() as f32);
+                    }
 
-        let mut text = content.text();
-        for (pos, element) in &page.elements {
-            if let Element::Text(shaped) = element {
-                // Check if we need to issue a font switching action.
-                if shaped.face != face || shaped.font_size != size {
-                    face = shaped.face;
-                    size = shaped.font_size;
-
-                    let name = format!("F{}", self.fonts.map(shaped.face));
-                    text.font(Name(name.as_bytes()), size.to_pt() as f32);
+                    let x = pos.x.to_pt() as f32;
+                    let y = (page.size.height - pos.y).to_pt() as f32;
+                    text.matrix(1.0, 0.0, 0.0, 1.0, x, y);
+                    text.show(&shaped.encode_glyphs_be());
                 }
-
-                let x = pos.x.to_pt() as f32;
-                let y = (page.size.height - pos.y).to_pt() as f32;
-                text.matrix(1.0, 0.0, 0.0, 1.0, x, y);
-                text.show(&shaped.encode_glyphs_be());
             }
         }
-
-        drop(text);
 
         self.writer.stream(id, &content.finish());
     }
