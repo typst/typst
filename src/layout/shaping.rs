@@ -11,7 +11,7 @@ use ttf_parser::{Face, GlyphId};
 
 use crate::env::FontLoader;
 use crate::geom::{Dir, Length, Point, Size};
-use crate::layout::{Element, Frame};
+use crate::layout::{Element, Fill, Frame};
 
 /// A shaped run of text.
 #[derive(Clone, PartialEq)]
@@ -27,17 +27,20 @@ pub struct Shaped {
     pub offsets: Vec<Length>,
     /// The font size.
     pub font_size: Length,
+    /// The glyph fill color / texture.
+    pub fill: Fill,
 }
 
 impl Shaped {
     /// Create a new shape run with empty `text`, `glyphs` and `offsets`.
-    pub fn new(face: FaceId, font_size: Length) -> Self {
+    pub fn new(face: FaceId, font_size: Length, fill: Fill) -> Self {
         Self {
             text: String::new(),
             face,
             glyphs: vec![],
             offsets: vec![],
             font_size,
+            fill,
         }
     }
 
@@ -100,10 +103,11 @@ pub fn shape(
     font_size: Length,
     top_edge: VerticalFontMetric,
     bottom_edge: VerticalFontMetric,
+    fill: Fill,
     loader: &mut FontLoader,
 ) -> Frame {
     let mut frame = Frame::new(Size::new(Length::ZERO, Length::ZERO));
-    let mut shaped = Shaped::new(FaceId::MAX, font_size);
+    let mut shaped = Shaped::new(FaceId::MAX, font_size, fill);
     let mut width = Length::ZERO;
     let mut top = Length::ZERO;
     let mut bottom = Length::ZERO;
@@ -133,7 +137,7 @@ pub fn shape(
             if shaped.face != id {
                 place(&mut frame, shaped, width, top, bottom);
 
-                shaped = Shaped::new(id, font_size);
+                shaped = Shaped::new(id, font_size, fill);
                 width = Length::ZERO;
                 top = convert(f64::from(lookup_metric(face, top_edge)));
                 bottom = convert(f64::from(lookup_metric(face, bottom_edge)));

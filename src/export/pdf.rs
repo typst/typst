@@ -126,6 +126,19 @@ impl<'a> PdfExporter<'a> {
         }
     }
 
+    fn change_color(content: &mut Content, fill: Fill) {
+        match fill {
+            Fill::Color(Color::Rgba(c)) => {
+                content.fill_rgb(
+                    c.r as f32 / 255.0,
+                    c.g as f32 / 255.0,
+                    c.b as f32 / 255.0,
+                );
+            }
+            Fill::Image(_) => todo!(),
+        }
+    }
+
     fn write_page(&mut self, id: Ref, page: &'a Frame) {
         let mut content = Content::new();
 
@@ -133,6 +146,7 @@ impl<'a> PdfExporter<'a> {
         // do that, we need to remember the active face.
         let mut face = FaceId::MAX;
         let mut size = Length::ZERO;
+        let mut fill: Option<Fill> = None;
 
         for (pos, element) in &page.elements {
             let x = pos.x.to_pt() as f32;
@@ -153,15 +167,9 @@ impl<'a> PdfExporter<'a> {
                 Element::Geometry(geometry) => {
                     content.save_state();
 
-                    match geometry.fill {
-                        Fill::Color(Color::Rgba(c)) => {
-                            content.fill_rgb(
-                                c.r as f32 / 255.0,
-                                c.g as f32 / 255.0,
-                                c.b as f32 / 255.0,
-                            );
-                        }
-                        Fill::Image(_) => todo!(),
+                    if fill != Some(geometry.fill) {
+                        Self::change_color(&mut content, geometry.fill);
+                        fill = Some(geometry.fill);
                     }
 
                     match &geometry.shape {
@@ -179,9 +187,16 @@ impl<'a> PdfExporter<'a> {
                 }
 
                 Element::Text(shaped) => {
+                    // First, check if the color changed!
+                    if fill != Some(shaped.fill) {
+                        Self::change_color(&mut content, shaped.fill);
+                        fill = Some(shaped.fill);
+                    }
+
                     let mut text = content.text();
 
-                    // Check if we need to issue a font switching action.
+                    // Then, also check if we need to
+                    // issue a font switching action.
                     if shaped.face != face || shaped.font_size != size {
                         face = shaped.face;
                         size = shaped.font_size;

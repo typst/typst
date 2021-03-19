@@ -24,6 +24,8 @@ pub struct TextNode {
     pub top_edge: VerticalFontMetric,
     /// The bottom end of the text bounding box.
     pub bottom_edge: VerticalFontMetric,
+    /// The glyph fill.
+    pub fill: Fill,
 }
 
 impl Layout for TextNode {
@@ -37,6 +39,7 @@ impl Layout for TextNode {
                 self.font_size,
                 self.top_edge,
                 self.bottom_edge,
+                self.fill,
                 &mut ctx.env.fonts,
             ),
             self.aligns,

@@ -1,3 +1,4 @@
+use crate::layout::Fill;
 use fontdock::{FontStretch, FontStyle, FontWeight};
 
 use super::*;
@@ -18,6 +19,7 @@ use super::*;
 /// - Serif family definition: `serif`, of type `font-familiy-list`.
 /// - Sans-serif family definition: `sans-serif`, of type `font-familiy-list`.
 /// - Monospace family definition: `monospace`, of type `font-familiy-list`.
+/// - Fill color the glyphs: `fill`, of type `color`.
 ///
 /// # Return value
 /// A template that configures font properties. The effect is scoped to the body
@@ -65,6 +67,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let serif = args.get(ctx, "serif");
     let sans_serif = args.get(ctx, "sans-serif");
     let monospace = args.get(ctx, "monospace");
+    let fill = args.get(ctx, "fill");
     let body = args.find::<TemplateValue>(ctx);
 
     Value::template("font", move |ctx| {
@@ -103,6 +106,10 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
         if let Some(bottom_edge) = bottom_edge {
             ctx.state.font.bottom_edge = bottom_edge;
+        }
+
+        if let Some(fill) = fill {
+            ctx.state.font.fill = Fill::Color(fill);
         }
 
         for (variant, arg) in &[

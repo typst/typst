@@ -31,6 +31,9 @@ Emoji: 🐪, 🌋, 🏞
     ∫ 𝛼 + 3𝛽 d𝑡
 ]
 
+// Colors.
+#font(fill: #239DAD)[This is #font(fill: #FA644B)[way more] colorful.]
+
 ---
 // Test top and bottom edge.
 

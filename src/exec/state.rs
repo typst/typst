@@ -2,8 +2,9 @@ use std::rc::Rc;
 
 use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
 
+use crate::color::{Color, RgbaColor};
 use crate::geom::*;
-use crate::layout::VerticalFontMetric;
+use crate::layout::{Fill, VerticalFontMetric};
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
 /// The evaluation state.
@@ -115,6 +116,8 @@ pub struct FontState {
     /// Whether the emphasis toggle is active or inactive. This determines
     /// whether the next `_` makes italic or non-italic.
     pub emph: bool,
+    /// The glyph fill color / texture.
+    pub fill: Fill,
 }
 
 impl FontState {
@@ -149,6 +152,7 @@ impl Default for FontState {
             scale: Linear::ONE,
             strong: false,
             emph: false,
+            fill: Fill::Color(Color::Rgba(RgbaColor::BLACK)),
         }
     }
 }
