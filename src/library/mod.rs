@@ -51,6 +51,8 @@ pub fn new() -> Scope {
     }
 
     func!("align", align);
+    func!("circle", circle);
+    func!("ellipse", ellipse);
     func!("font", font);
     func!("h", h);
     func!("image", image);
@@ -58,6 +60,7 @@ pub fn new() -> Scope {
     func!("page", page);
     func!("pagebreak", pagebreak);
     func!("paragraph", par);
+    func!("square", square);
     func!("rect", rect);
     func!("repr", repr);
     func!("rgb", rgb);

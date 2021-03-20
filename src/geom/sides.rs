@@ -34,7 +34,7 @@ impl<T> Sides<T> {
 }
 
 impl Sides<Linear> {
-    /// Resolve the linear margins relative to the given `size`.
+    /// Resolve the linear sides relative to the given `size`.
     pub fn resolve(self, size: Size) -> Sides<Length> {
         Sides {
             left: self.left.resolve(size.width),

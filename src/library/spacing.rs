@@ -9,7 +9,7 @@ use crate::layout::SpacingNode;
 /// # Return value
 /// A template that adds horizontal spacing.
 pub fn h(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    spacing(ctx, args, SpecAxis::Horizontal)
+    spacing_impl(ctx, args, SpecAxis::Horizontal)
 }
 
 /// `v`: Add vertical spacing.
@@ -20,11 +20,10 @@ pub fn h(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// # Return value
 /// A template that adds vertical spacing.
 pub fn v(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    spacing(ctx, args, SpecAxis::Vertical)
+    spacing_impl(ctx, args, SpecAxis::Vertical)
 }
 
-/// Apply spacing along a specific axis.
-fn spacing(ctx: &mut EvalContext, args: &mut FuncArgs, axis: SpecAxis) -> Value {
+fn spacing_impl(ctx: &mut EvalContext, args: &mut FuncArgs, axis: SpecAxis) -> Value {
     let spacing: Option<Linear> = args.require(ctx, "spacing");
     Value::template("spacing", move |ctx| {
         if let Some(linear) = spacing {

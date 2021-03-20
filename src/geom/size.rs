@@ -28,7 +28,8 @@ impl Size {
 
     /// Whether the other size fits into this one (smaller width and height).
     pub fn fits(self, other: Self) -> bool {
-        self.width >= other.width && self.height >= other.height
+        const EPS: Length = Length::raw(1e-6);
+        self.width + EPS >= other.width && self.height + EPS >= other.height
     }
 
     /// Whether both components are finite.
@@ -44,6 +45,11 @@ impl Size {
     /// Whether any of the two components is `NaN`.
     pub fn is_nan(self) -> bool {
         self.width.is_nan() || self.height.is_nan()
+    }
+
+    /// Convert to a point.
+    pub fn to_point(self) -> Point {
+        Point::new(self.width, self.height)
     }
 }
 

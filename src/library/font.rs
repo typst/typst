@@ -16,7 +16,7 @@ use super::*;
 /// - Font Stretch: `stretch`, of type `relative`, between 0.5 and 2.0.
 /// - Top edge of the font: `top-edge`, of type `vertical-font-metric`.
 /// - Bottom edge of the font: `bottom-edge`, of type `vertical-font-metric`.
-/// - Fill color the glyphs: `color`, of type `color`.
+/// - Color the glyphs: `color`, of type `color`.
 /// - Serif family definition: `serif`, of type `font-familiy-list`.
 /// - Sans-serif family definition: `sans-serif`, of type `font-familiy-list`.
 /// - Monospace family definition: `monospace`, of type `font-familiy-list`.

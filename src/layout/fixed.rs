@@ -7,6 +7,10 @@ pub struct FixedNode {
     pub width: Option<Linear>,
     /// The fixed height, if any.
     pub height: Option<Linear>,
+    /// The fixed aspect ratio between width and height, if any.
+    ///
+    /// The resulting frame will satisfy `width = aspect * height`.
+    pub aspect: Option<f64>,
     /// The child node whose size to fix.
     pub child: Node,
 }
@@ -14,10 +18,18 @@ pub struct FixedNode {
 impl Layout for FixedNode {
     fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
         let Areas { current, full, .. } = areas;
-        let size = Size::new(
+
+        let full = Size::new(
             self.width.map(|w| w.resolve(full.width)).unwrap_or(current.width),
             self.height.map(|h| h.resolve(full.height)).unwrap_or(current.height),
         );
+
+        let mut size = full;
+        if let Some(aspect) = self.aspect {
+            // Shrink the size to ensure that the aspect ratio can be satisfied.
+            let width = size.width.min(aspect * size.height);
+            size = Size::new(width, width / aspect);
+        }
 
         let fill_if = |cond| if cond { Expand::Fill } else { Expand::Fit };
         let expand = Spec::new(
@@ -25,7 +37,7 @@ impl Layout for FixedNode {
             fill_if(self.height.is_some()),
         );
 
-        let areas = Areas::once(size, expand);
+        let areas = Areas::once(size, full, expand).with_aspect(self.aspect);
         self.child.layout(ctx, &areas)
     }
 }

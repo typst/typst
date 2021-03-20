@@ -1,49 +1,162 @@
-use super::*;
-use crate::layout::{BackgroundNode, Fill, FixedNode};
+use std::f64::consts::SQRT_2;
 
-/// `rect`: Create a rectangular box.
+use super::*;
+use crate::color::Color;
+use crate::layout::{BackgroundNode, BackgroundShape, Fill, FixedNode, PadNode};
+
+/// `rect`: Create a rectangle.
 ///
 /// # Positional parameters
 /// - Body: optional, of type `template`.
 ///
 /// # Named parameters
-/// - Width of the box: `width`, of type `linear` relative to parent width.
-/// - Height of the box: `height`, of type `linear` relative to parent height.
-/// - Main layouting direction: `main-dir`, of type `direction`.
-/// - Cross layouting direction: `cross-dir`, of type `direction`.
-/// - Fill color of the box: `fill`, of type `color`.
+/// - Width: `width`, of type `linear` relative to parent width.
+/// - Height: `height`, of type `linear` relative to parent height.
+/// - Fill color: `fill`, of type `color`.
 ///
 /// # Return value
 /// A template that places the body into a rectangle.
-///
-/// # Relevant types and constants
-/// - Type `direction`
-///   - `ltr` (left to right)
-///   - `rtl` (right to left)
-///   - `ttb` (top to bottom)
-///   - `btt` (bottom to top)
 pub fn rect(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = args.get(ctx, "width");
     let height = args.get(ctx, "height");
-    let main = args.get(ctx, "main-dir");
-    let cross = args.get(ctx, "cross-dir");
     let fill = args.get(ctx, "fill");
     let body = args.find::<TemplateValue>(ctx).unwrap_or_default();
+    rect_impl("rect", width, height, None, fill, body)
+}
 
-    Value::template("box", move |ctx| {
+/// `square`: Create a square.
+///
+/// # Positional parameters
+/// - Body: optional, of type `template`.
+///
+/// # Named parameters
+/// - Side length: `length`, of type `length`.
+/// - Width: `width`, of type `linear` relative to parent width.
+/// - Height: `height`, of type `linear` relative to parent height.
+/// - Fill color: `fill`, of type `color`.
+///
+/// Note that you can specify only one of `length`, `width` and `height`. The
+/// width and height parameters exist so that you can size the square relative
+/// to its parent's size, which isn't possible by setting the side length.
+///
+/// # Return value
+/// A template that places the body into a square.
+pub fn square(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+    let length = args.get::<Length>(ctx, "length").map(Linear::from);
+    let width = length.or_else(|| args.get(ctx, "width"));
+    let height = if width.is_none() { args.get(ctx, "height") } else { None };
+    let fill = args.get(ctx, "fill");
+    let body = args.find::<TemplateValue>(ctx).unwrap_or_default();
+    rect_impl("square", width, height, Some(1.0), fill, body)
+}
+
+fn rect_impl(
+    name: &str,
+    width: Option<Linear>,
+    height: Option<Linear>,
+    aspect: Option<f64>,
+    fill: Option<Color>,
+    body: TemplateValue,
+) -> Value {
+    Value::template(name, move |ctx| {
         let snapshot = ctx.state.clone();
-
-        ctx.set_dirs(Gen::new(main, cross));
-
         let child = ctx.exec(&body).into();
-        let fixed = FixedNode { width, height, child };
+        let node = FixedNode { width, height, aspect, child };
+
         if let Some(color) = fill {
             ctx.push(BackgroundNode {
+                shape: BackgroundShape::Rect,
                 fill: Fill::Color(color),
-                child: fixed.into(),
+                child: node.into(),
             });
         } else {
-            ctx.push(fixed);
+            ctx.push(node);
+        }
+
+        ctx.state = snapshot;
+    })
+}
+
+/// `ellipse`: Create an ellipse.
+///
+/// # Positional parameters
+/// - Body: optional, of type `template`.
+///
+/// # Named parameters
+/// - Width: `width`, of type `linear` relative to parent width.
+/// - Height: `height`, of type `linear` relative to parent height.
+/// - Fill color: `fill`, of type `color`.
+///
+/// # Return value
+/// A template that places the body into an ellipse.
+pub fn ellipse(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+    let width = args.get(ctx, "width");
+    let height = args.get(ctx, "height");
+    let fill = args.get(ctx, "fill");
+    let body = args.find::<TemplateValue>(ctx).unwrap_or_default();
+    ellipse_impl("ellipse", width, height, None, fill, body)
+}
+
+/// `circle`: Create a circle.
+///
+/// # Positional parameters
+/// - Body: optional, of type `template`.
+///
+/// # Named parameters
+/// - Radius: `radius`, of type `length`.
+/// - Width: `width`, of type `linear` relative to parent width.
+/// - Height: `height`, of type `linear` relative to parent height.
+/// - Fill color: `fill`, of type `color`.
+///
+/// Note that you can specify only one of `radius`, `width` and `height`. The
+/// width and height parameters exist so that you can size the circle relative
+/// to its parent's size, which isn't possible by setting the radius.
+///
+/// # Return value
+/// A template that places the body into a circle.
+pub fn circle(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+    let radius = args.get::<Length>(ctx, "radius").map(|r| 2.0 * Linear::from(r));
+    let width = radius.or_else(|| args.get(ctx, "width"));
+    let height = if width.is_none() { args.get(ctx, "height") } else { None };
+    let fill = args.get(ctx, "fill");
+    let body = args.find::<TemplateValue>(ctx).unwrap_or_default();
+    ellipse_impl("circle", width, height, Some(1.0), fill, body)
+}
+
+fn ellipse_impl(
+    name: &str,
+    width: Option<Linear>,
+    height: Option<Linear>,
+    aspect: Option<f64>,
+    fill: Option<Color>,
+    body: TemplateValue,
+) -> Value {
+    Value::template(name, move |ctx| {
+        // This padding ratio ensures that the rectangular padded area fits
+        // perfectly into the ellipse.
+        const PAD: f64 = 0.5 - SQRT_2 / 4.0;
+
+        let snapshot = ctx.state.clone();
+        let child = ctx.exec(&body).into();
+        let node = FixedNode {
+            width,
+            height,
+            aspect,
+            child: PadNode {
+                padding: Sides::uniform(Relative::new(PAD).into()),
+                child,
+            }
+            .into(),
+        };
+
+        if let Some(color) = fill {
+            ctx.push(BackgroundNode {
+                shape: BackgroundShape::Ellipse,
+                fill: Fill::Color(color),
+                child: node.into(),
+            });
+        } else {
+            ctx.push(node);
         }
 
         ctx.state = snapshot;

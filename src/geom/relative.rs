@@ -26,8 +26,8 @@ impl Relative {
 
     /// Resolve this relative to the given `length`.
     pub fn resolve(self, length: Length) -> Length {
-        // Zero wins over infinity.
-        if self.is_zero() {
+        // We don't want NaNs.
+        if length.is_infinite() {
             Length::ZERO
         } else {
             self.get() * length

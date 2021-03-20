@@ -25,7 +25,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             let loaded = ctx.env.resources.load(&path.v, ImageResource::parse);
             if let Some((res, img)) = loaded {
                 let dimensions = img.buf.dimensions();
-                ctx.push(NodeImage {
+                ctx.push(ImageNode {
                     res,
                     dimensions,
                     width,
@@ -41,7 +41,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
 /// An image node.
 #[derive(Debug, Clone, PartialEq)]
-struct NodeImage {
+struct ImageNode {
     /// How to align this image node in its parent.
     aligns: LayoutAligns,
     /// The resource id of the image file.
@@ -54,7 +54,7 @@ struct NodeImage {
     height: Option<Linear>,
 }
 
-impl Layout for NodeImage {
+impl Layout for ImageNode {
     fn layout(&self, _: &mut LayoutContext, areas: &Areas) -> Fragment {
         let Areas { current, full, .. } = areas;
 
@@ -90,8 +90,8 @@ impl Layout for NodeImage {
     }
 }
 
-impl From<NodeImage> for AnyNode {
-    fn from(image: NodeImage) -> Self {
+impl From<ImageNode> for AnyNode {
+    fn from(image: ImageNode) -> Self {
         Self::new(image)
     }
 }

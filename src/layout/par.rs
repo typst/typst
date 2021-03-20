@@ -18,7 +18,7 @@ pub struct ParNode {
 
 impl Layout for ParNode {
     fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
-        let mut layouter = ParLayouter::new(self, areas.clone());
+        let mut layouter = ParLayouter::new(self.dirs, self.line_spacing, areas.clone());
         for child in &self.children {
             match child.layout(ctx, &layouter.areas) {
                 Fragment::Spacing(spacing) => layouter.push_spacing(spacing),
@@ -57,12 +57,12 @@ struct ParLayouter {
 }
 
 impl ParLayouter {
-    fn new(par: &ParNode, areas: Areas) -> Self {
+    fn new(dirs: LayoutDirs, line_spacing: Length, areas: Areas) -> Self {
         Self {
-            main: par.dirs.main.axis(),
-            cross: par.dirs.cross.axis(),
-            dirs: par.dirs,
-            line_spacing: par.line_spacing,
+            main: dirs.main.axis(),
+            cross: dirs.cross.axis(),
+            dirs,
+            line_spacing,
             areas,
             finished: vec![],
             lines: vec![],
@@ -134,12 +134,12 @@ impl ParLayouter {
     }
 
     fn finish_line(&mut self) {
-        let expand = self.areas.expand.switch(self.dirs);
         let full_size = {
+            let expand = self.areas.expand.switch(self.dirs);
             let full = self.areas.full.switch(self.dirs);
             Gen::new(
                 self.line_size.main,
-                expand.cross.resolve(self.line_size.cross.min(full.cross), full.cross),
+                expand.cross.resolve(self.line_size.cross, full.cross),
             )
         };
 

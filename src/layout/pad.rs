@@ -13,12 +13,12 @@ impl Layout for PadNode {
     fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
         let areas = shrink(areas, self.padding);
 
-        let mut layouted = self.child.layout(ctx, &areas);
-        for frame in layouted.frames_mut() {
+        let mut fragment = self.child.layout(ctx, &areas);
+        for frame in fragment.frames_mut() {
             pad(frame, self.padding);
         }
 
-        layouted
+        fragment
     }
 }
 
@@ -30,23 +30,30 @@ impl From<PadNode> for AnyNode {
 
 /// Shrink all areas by the padding.
 fn shrink(areas: &Areas, padding: Sides<Linear>) -> Areas {
-    let shrink = |size| size - padding.resolve(size).size();
-    Areas {
-        current: shrink(areas.current),
-        full: shrink(areas.full),
-        backlog: areas.backlog.iter().copied().map(shrink).collect(),
-        last: areas.last.map(shrink),
-        expand: areas.expand,
-    }
+    areas.map(|size| size - padding.resolve(size).size())
 }
 
-/// Enlarge the frame and move all elements inwards.
+/// Pad the frame and move all elements inwards.
 fn pad(frame: &mut Frame, padding: Sides<Linear>) {
-    let padding = padding.resolve(frame.size);
+    let padded = solve(padding, frame.size);
+    let padding = padding.resolve(padded);
     let origin = Point::new(padding.left, padding.top);
 
-    frame.size += padding.size();
+    frame.size = padded;
     for (point, _) in &mut frame.elements {
         *point += origin;
     }
+}
+
+/// Solve for the size `padded` that satisfies (approximately):
+/// `padded - padding.resolve(padded).size() == size`
+fn solve(padding: Sides<Linear>, size: Size) -> Size {
+    fn solve_axis(length: Length, padding: Linear) -> Length {
+        (length + padding.abs) / (1.0 - padding.rel.get())
+    }
+
+    Size::new(
+        solve_axis(size.width, padding.left + padding.right),
+        solve_axis(size.height, padding.top + padding.bottom),
+    )
 }

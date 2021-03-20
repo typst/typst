@@ -1,7 +1,7 @@
 use super::Shaped;
 use crate::color::Color;
 use crate::env::ResourceId;
-use crate::geom::{Point, Size};
+use crate::geom::{Path, Point, Size};
 
 /// A finished layout with elements at fixed positions.
 #[derive(Debug, Clone, PartialEq)]
@@ -59,8 +59,12 @@ pub struct Geometry {
 /// Some shape.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Shape {
-    /// A rectangle.
+    /// A rectangle with its origin in the topleft corner.
     Rect(Size),
+    /// An ellipse with its origin in the center.
+    Ellipse(Size),
+    /// A bezier path.
+    Path(Path),
 }
 
 /// The kind of graphic fill to be applied to a [`Shape`].

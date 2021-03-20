@@ -58,8 +58,7 @@ impl PageRun {
     /// Layout the page run.
     pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Frame> {
         let areas = Areas::repeat(self.size, Spec::uniform(Expand::Fill));
-        let layouted = self.child.layout(ctx, &areas);
-        layouted.into_frames()
+        self.child.layout(ctx, &areas).into_frames()
     }
 }
 
@@ -89,21 +88,17 @@ pub struct Areas {
     pub last: Option<Size>,
     /// Whether the frames resulting from layouting into this areas should be
     /// shrunk to fit their content or expanded to fill the area.
+    ///
+    /// This property is handled partially by the par layouter and fully by the
+    /// stack layouter.
     pub expand: Spec<Expand>,
+    /// The aspect ratio the resulting frame should respect.
+    ///
+    /// This property is only handled by the stack layouter.
+    pub aspect: Option<f64>,
 }
 
 impl Areas {
-    /// Create a new length-1 sequence of areas with just one `area`.
-    pub fn once(size: Size, expand: Spec<Expand>) -> Self {
-        Self {
-            current: size,
-            full: size,
-            backlog: vec![],
-            last: None,
-            expand,
-        }
-    }
-
     /// Create a new sequence of areas that repeats `area` indefinitely.
     pub fn repeat(size: Size, expand: Spec<Expand>) -> Self {
         Self {
@@ -112,6 +107,40 @@ impl Areas {
             backlog: vec![],
             last: Some(size),
             expand,
+            aspect: None,
+        }
+    }
+
+    /// Create a new length-1 sequence of areas with just one `area`.
+    pub fn once(size: Size, full: Size, expand: Spec<Expand>) -> Self {
+        Self {
+            current: size,
+            full,
+            backlog: vec![],
+            last: None,
+            expand,
+            aspect: None,
+        }
+    }
+
+    /// Builder-style method for setting the aspect ratio.
+    pub fn with_aspect(mut self, aspect: Option<f64>) -> Self {
+        self.aspect = aspect;
+        self
+    }
+
+    /// Map all areas.
+    pub fn map<F>(&self, mut f: F) -> Self
+    where
+        F: FnMut(Size) -> Size,
+    {
+        Self {
+            current: f(self.current),
+            full: f(self.full),
+            backlog: self.backlog.iter().copied().map(|s| f(s)).collect(),
+            last: self.last.map(f),
+            expand: self.expand,
+            aspect: self.aspect,
         }
     }
 

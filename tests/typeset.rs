@@ -8,18 +8,19 @@ use std::rc::Rc;
 use fontdock::fs::FsIndex;
 use image::{GenericImageView, Rgba};
 use tiny_skia::{
-    Canvas, Color, ColorU8, FillRule, FilterQuality, Paint, PathBuilder, Pattern, Pixmap,
-    Rect, SpreadMode, Transform,
+    Canvas, Color, ColorU8, FillRule, FilterQuality, Paint, Pattern, Pixmap, Rect,
+    SpreadMode, Transform,
 };
 use ttf_parser::OutlineBuilder;
 use walkdir::WalkDir;
 
+use typst::color;
 use typst::diag::{Diag, DiagSet, Level, Pass};
 use typst::env::{Env, FsIndexExt, ImageResource, ResourceLoader};
 use typst::eval::{EvalContext, FuncArgs, FuncValue, Scope, Value};
 use typst::exec::State;
 use typst::export::pdf;
-use typst::geom::{Length, Point, Sides, Size};
+use typst::geom::{self, Length, Point, Sides, Size};
 use typst::layout::{Element, Fill, Frame, Geometry, Image, Shape, Shaped};
 use typst::library;
 use typst::parse::{LineMap, Scanner};
@@ -418,7 +419,7 @@ fn draw_text(env: &Env, canvas: &mut Canvas, pos: Point, shaped: &Shaped) {
         let y = pos.y.to_pt() as f32;
         let scale = (shaped.font_size / units_per_em as f64).to_pt() as f32;
 
-        let mut builder = WrappedPathBuilder(PathBuilder::new());
+        let mut builder = WrappedPathBuilder::default();
         face.outline_glyph(glyph, &mut builder);
 
         if let Some(path) = builder.0.finish() {
@@ -426,7 +427,7 @@ fn draw_text(env: &Env, canvas: &mut Canvas, pos: Point, shaped: &Shaped) {
                 .transform(&Transform::from_row(scale, 0.0, 0.0, -scale, x, y).unwrap())
                 .unwrap();
 
-            let mut paint = paint_from_fill(shaped.color);
+            let mut paint = convert_fill(shaped.color);
             paint.anti_alias = true;
 
             canvas.fill_path(&placed, &paint, FillRule::default());
@@ -438,26 +439,25 @@ fn draw_geometry(_: &Env, canvas: &mut Canvas, pos: Point, element: &Geometry) {
     let x = pos.x.to_pt() as f32;
     let y = pos.y.to_pt() as f32;
 
-    let paint = paint_from_fill(element.fill);
+    let paint = convert_fill(element.fill);
+    let rule = FillRule::default();
 
-    match &element.shape {
-        Shape::Rect(s) => {
-            let (w, h) = (s.width.to_pt() as f32, s.height.to_pt() as f32);
-            canvas.fill_rect(Rect::from_xywh(x, y, w, h).unwrap(), &paint);
+    match element.shape {
+        Shape::Rect(Size { width, height }) => {
+            let w = width.to_pt() as f32;
+            let h = height.to_pt() as f32;
+            let rect = Rect::from_xywh(x, y, w, h).unwrap();
+            canvas.fill_rect(rect, &paint);
+        }
+        Shape::Ellipse(size) => {
+            let path = convert_path(x, y, &geom::ellipse_path(size));
+            canvas.fill_path(&path, &paint, rule);
+        }
+        Shape::Path(ref path) => {
+            let path = convert_path(x, y, path);
+            canvas.fill_path(&path, &paint, rule);
         }
     };
-}
-
-fn paint_from_fill(fill: Fill) -> Paint<'static> {
-    let mut paint = Paint::default();
-    match fill {
-        Fill::Color(c) => match c {
-            typst::color::Color::Rgba(c) => paint.set_color_rgba8(c.r, c.g, c.b, c.a),
-        },
-        Fill::Image(_) => todo!(),
-    }
-
-    paint
 }
 
 fn draw_image(env: &Env, canvas: &mut Canvas, pos: Point, element: &Image) {
@@ -492,7 +492,40 @@ fn draw_image(env: &Env, canvas: &mut Canvas, pos: Point, element: &Image) {
     );
 }
 
-struct WrappedPathBuilder(PathBuilder);
+fn convert_fill(fill: Fill) -> Paint<'static> {
+    let mut paint = Paint::default();
+    match fill {
+        Fill::Color(c) => match c {
+            color::Color::Rgba(c) => paint.set_color_rgba8(c.r, c.g, c.b, c.a),
+        },
+        Fill::Image(_) => todo!(),
+    }
+    paint
+}
+
+fn convert_path(x: f32, y: f32, path: &geom::Path) -> tiny_skia::Path {
+    let f = |length: Length| length.to_pt() as f32;
+    let mut builder = tiny_skia::PathBuilder::new();
+    for elem in &path.0 {
+        match elem {
+            geom::PathElement::MoveTo(p) => builder.move_to(x + f(p.x), y + f(p.y)),
+            geom::PathElement::LineTo(p) => builder.line_to(x + f(p.x), y + f(p.y)),
+            geom::PathElement::CubicTo(p1, p2, p3) => builder.cubic_to(
+                x + f(p1.x),
+                y + f(p1.y),
+                x + f(p2.x),
+                y + f(p2.y),
+                x + f(p3.x),
+                y + f(p3.y),
+            ),
+            geom::PathElement::ClosePath => builder.close(),
+        };
+    }
+    builder.finish().unwrap()
+}
+
+#[derive(Default)]
+struct WrappedPathBuilder(tiny_skia::PathBuilder);
 
 impl OutlineBuilder for WrappedPathBuilder {
     fn move_to(&mut self, x: f32, y: f32) {

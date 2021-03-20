@@ -15,8 +15,8 @@ use ttf_parser::{name_id, GlyphId};
 
 use crate::color::Color;
 use crate::env::{Env, ImageResource, ResourceId};
-use crate::geom::Length;
-use crate::layout::{Element, Fill, Frame, Shape};
+use crate::geom::{self, Length, Size};
+use crate::layout::{Element, Fill, Frame, Image, Shape};
 
 /// Export a collection of frames into a _PDF_ document.
 ///
@@ -134,50 +134,43 @@ impl<'a> PdfExporter<'a> {
         let mut face = FaceId::MAX;
         let mut size = Length::ZERO;
         let mut fill: Option<Fill> = None;
-        let mut change_color = |content: &mut Content, new_fill: Fill| {
-            if fill != Some(new_fill) {
-                match new_fill {
-                    Fill::Color(Color::Rgba(c)) => {
-                        content.fill_rgb(
-                            c.r as f32 / 255.0,
-                            c.g as f32 / 255.0,
-                            c.b as f32 / 255.0,
-                        );
-                    }
-                    Fill::Image(_) => todo!(),
-                }
-                fill = Some(new_fill);
-            }
-        };
 
         for (pos, element) in &page.elements {
             let x = pos.x.to_pt() as f32;
+            let y = (page.size.height - pos.y).to_pt() as f32;
+
             match element {
-                Element::Image(image) => {
-                    let name = format!("Im{}", self.images.map(image.res));
-                    let size = image.size;
-                    let y = (page.size.height - pos.y - size.height).to_pt() as f32;
-                    let w = size.width.to_pt() as f32;
-                    let h = size.height.to_pt() as f32;
+                &Element::Image(Image { res, size: Size { width, height } }) => {
+                    let name = format!("Im{}", self.images.map(res));
+                    let w = width.to_pt() as f32;
+                    let h = height.to_pt() as f32;
 
                     content.save_state();
-                    content.matrix(w, 0.0, 0.0, h, x, y);
+                    content.matrix(w, 0.0, 0.0, h, x, y - h);
                     content.x_object(Name(name.as_bytes()));
                     content.restore_state();
                 }
 
                 Element::Geometry(geometry) => {
                     content.save_state();
-                    change_color(&mut content, geometry.fill);
+                    write_fill(&mut content, geometry.fill);
 
-                    match &geometry.shape {
-                        Shape::Rect(r) => {
-                            let w = r.width.to_pt() as f32;
-                            let h = r.height.to_pt() as f32;
-                            let y = (page.size.height - pos.y - r.height).to_pt() as f32;
+                    match geometry.shape {
+                        Shape::Rect(Size { width, height }) => {
+                            let w = width.to_pt() as f32;
+                            let h = height.to_pt() as f32;
                             if w > 0.0 && h > 0.0 {
-                                content.rect(x, y, w, h, false, true);
+                                content.rect(x, y - h, w, h, false, true);
                             }
+                        }
+
+                        Shape::Ellipse(size) => {
+                            let path = geom::ellipse_path(size);
+                            write_path(&mut content, x, y, &path, false, true);
+                        }
+
+                        Shape::Path(ref path) => {
+                            write_path(&mut content, x, y, path, false, true)
                         }
                     }
 
@@ -185,12 +178,15 @@ impl<'a> PdfExporter<'a> {
                 }
 
                 Element::Text(shaped) => {
-                    change_color(&mut content, shaped.color);
+                    if fill != Some(shaped.color) {
+                        write_fill(&mut content, shaped.color);
+                        fill = Some(shaped.color);
+                    }
 
                     let mut text = content.text();
 
-                    // Then, also check if we need to
-                    // issue a font switching action.
+                    // Then, also check if we need to issue a font switching
+                    // action.
                     if shaped.face != face || shaped.font_size != size {
                         face = shaped.face;
                         size = shaped.font_size;
@@ -199,8 +195,6 @@ impl<'a> PdfExporter<'a> {
                         text.font(Name(name.as_bytes()), size.to_pt() as f32);
                     }
 
-                    let x = pos.x.to_pt() as f32;
-                    let y = (page.size.height - pos.y).to_pt() as f32;
                     text.matrix(1.0, 0.0, 0.0, 1.0, x, y);
                     text.show(&shaped.encode_glyphs_be());
                 }
@@ -365,6 +359,97 @@ impl<'a> PdfExporter<'a> {
     }
 }
 
+/// Write a fill change into a content stream.
+fn write_fill(content: &mut Content, fill: Fill) {
+    match fill {
+        Fill::Color(Color::Rgba(c)) => {
+            content.fill_rgb(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0);
+        }
+        Fill::Image(_) => todo!(),
+    }
+}
+
+/// Write a path into a content stream.
+fn write_path(
+    content: &mut Content,
+    x: f32,
+    y: f32,
+    path: &geom::Path,
+    stroke: bool,
+    fill: bool,
+) {
+    let f = |length: Length| length.to_pt() as f32;
+    let mut builder = content.path(stroke, fill);
+    for elem in &path.0 {
+        match elem {
+            geom::PathElement::MoveTo(p) => builder.move_to(x + f(p.x), y + f(p.y)),
+            geom::PathElement::LineTo(p) => builder.line_to(x + f(p.x), y + f(p.y)),
+            geom::PathElement::CubicTo(p1, p2, p3) => builder.cubic_to(
+                x + f(p1.x),
+                y + f(p1.y),
+                x + f(p2.x),
+                y + f(p2.y),
+                x + f(p3.x),
+                y + f(p3.y),
+            ),
+            geom::PathElement::ClosePath => builder.close_path(),
+        };
+    }
+}
+
+/// The compression level for the deflating.
+const DEFLATE_LEVEL: u8 = 6;
+
+/// Encode an image with a suitable filter.
+///
+/// Skips the alpha channel as that's encoded separately.
+fn encode_image(img: &ImageResource) -> ImageResult<(Vec<u8>, Filter, ColorSpace)> {
+    let mut data = vec![];
+    let (filter, space) = match (img.format, &img.buf) {
+        // 8-bit gray JPEG.
+        (ImageFormat::Jpeg, DynamicImage::ImageLuma8(_)) => {
+            img.buf.write_to(&mut data, img.format)?;
+            (Filter::DctDecode, ColorSpace::DeviceGray)
+        }
+
+        // 8-bit Rgb JPEG (Cmyk JPEGs get converted to Rgb earlier).
+        (ImageFormat::Jpeg, DynamicImage::ImageRgb8(_)) => {
+            img.buf.write_to(&mut data, img.format)?;
+            (Filter::DctDecode, ColorSpace::DeviceRgb)
+        }
+
+        // TODO: Encode flate streams with PNG-predictor?
+
+        // 8-bit gray PNG.
+        (ImageFormat::Png, DynamicImage::ImageLuma8(luma)) => {
+            data = deflate::compress_to_vec_zlib(&luma.as_raw(), DEFLATE_LEVEL);
+            (Filter::FlateDecode, ColorSpace::DeviceGray)
+        }
+
+        // Anything else (including Rgb(a) PNGs).
+        (_, buf) => {
+            let (width, height) = buf.dimensions();
+            let mut pixels = Vec::with_capacity(3 * width as usize * height as usize);
+            for (_, _, Rgba([r, g, b, _])) in buf.pixels() {
+                pixels.push(r);
+                pixels.push(g);
+                pixels.push(b);
+            }
+
+            data = deflate::compress_to_vec_zlib(&pixels, DEFLATE_LEVEL);
+            (Filter::FlateDecode, ColorSpace::DeviceRgb)
+        }
+    };
+    Ok((data, filter, space))
+}
+
+/// Encode an image's alpha channel if present.
+fn encode_alpha(img: &ImageResource) -> (Vec<u8>, Filter) {
+    let pixels: Vec<_> = img.buf.pixels().map(|(_, _, Rgba([_, _, _, a]))| a).collect();
+    let data = deflate::compress_to_vec_zlib(&pixels, DEFLATE_LEVEL);
+    (data, Filter::FlateDecode)
+}
+
 /// We need to know exactly which indirect reference id will be used for which
 /// objects up-front to correctly declare the document catalogue, page tree and
 /// so on. These offsets are computed in the beginning and stored here.
@@ -484,57 +569,4 @@ where
     fn layout_indices(&self) -> impl Iterator<Item = Index> + '_ {
         self.to_layout.iter().copied()
     }
-}
-
-/// The compression level for the deflating.
-const DEFLATE_LEVEL: u8 = 6;
-
-/// Encode an image with a suitable filter.
-///
-/// Skips the alpha channel as that's encoded separately.
-fn encode_image(img: &ImageResource) -> ImageResult<(Vec<u8>, Filter, ColorSpace)> {
-    let mut data = vec![];
-    let (filter, space) = match (img.format, &img.buf) {
-        // 8-bit gray JPEG.
-        (ImageFormat::Jpeg, DynamicImage::ImageLuma8(_)) => {
-            img.buf.write_to(&mut data, img.format)?;
-            (Filter::DctDecode, ColorSpace::DeviceGray)
-        }
-
-        // 8-bit Rgb JPEG (Cmyk JPEGs get converted to Rgb earlier).
-        (ImageFormat::Jpeg, DynamicImage::ImageRgb8(_)) => {
-            img.buf.write_to(&mut data, img.format)?;
-            (Filter::DctDecode, ColorSpace::DeviceRgb)
-        }
-
-        // TODO: Encode flate streams with PNG-predictor?
-
-        // 8-bit gray PNG.
-        (ImageFormat::Png, DynamicImage::ImageLuma8(luma)) => {
-            data = deflate::compress_to_vec_zlib(&luma.as_raw(), DEFLATE_LEVEL);
-            (Filter::FlateDecode, ColorSpace::DeviceGray)
-        }
-
-        // Anything else (including Rgb(a) PNGs).
-        (_, buf) => {
-            let (width, height) = buf.dimensions();
-            let mut pixels = Vec::with_capacity(3 * width as usize * height as usize);
-            for (_, _, Rgba([r, g, b, _])) in buf.pixels() {
-                pixels.push(r);
-                pixels.push(g);
-                pixels.push(b);
-            }
-
-            data = deflate::compress_to_vec_zlib(&pixels, DEFLATE_LEVEL);
-            (Filter::FlateDecode, ColorSpace::DeviceRgb)
-        }
-    };
-    Ok((data, filter, space))
-}
-
-/// Encode an image's alpha channel if present.
-fn encode_alpha(img: &ImageResource) -> (Vec<u8>, Filter) {
-    let pixels: Vec<_> = img.buf.pixels().map(|(_, _, Rgba([_, _, _, a]))| a).collect();
-    let data = deflate::compress_to_vec_zlib(&pixels, DEFLATE_LEVEL);
-    (data, Filter::FlateDecode)
 }

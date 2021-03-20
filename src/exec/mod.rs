@@ -122,6 +122,7 @@ impl Exec for RawNode {
         ctx.push(FixedNode {
             width: None,
             height: None,
+            aspect: None,
             child: StackNode {
                 dirs: ctx.state.dirs,
                 aligns: ctx.state.aligns,

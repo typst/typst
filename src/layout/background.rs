@@ -3,25 +3,38 @@ use super::*;
 /// A node that places a rectangular filled background behind its child.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BackgroundNode {
+    /// The kind of shape to use as a background.
+    pub shape: BackgroundShape,
     /// The background fill.
     pub fill: Fill,
     /// The child node to be filled.
     pub child: Node,
 }
 
+/// The kind of shape to use as a background.
+#[derive(Debug, Clone, PartialEq)]
+pub enum BackgroundShape {
+    Rect,
+    Ellipse,
+}
+
 impl Layout for BackgroundNode {
     fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
-        let mut layouted = self.child.layout(ctx, areas);
+        let mut fragment = self.child.layout(ctx, areas);
 
-        for frame in layouted.frames_mut() {
-            let element = Element::Geometry(Geometry {
-                shape: Shape::Rect(frame.size),
-                fill: self.fill,
-            });
-            frame.elements.insert(0, (Point::ZERO, element));
+        for frame in fragment.frames_mut() {
+            let (point, shape) = match self.shape {
+                BackgroundShape::Rect => (Point::ZERO, Shape::Rect(frame.size)),
+                BackgroundShape::Ellipse => {
+                    (frame.size.to_point() / 2.0, Shape::Ellipse(frame.size))
+                }
+            };
+
+            let element = Element::Geometry(Geometry { shape, fill: self.fill });
+            frame.elements.insert(0, (point, element));
         }
 
-        layouted
+        fragment
     }
 }
 

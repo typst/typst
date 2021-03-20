@@ -32,7 +32,7 @@ impl Length {
     }
 
     /// Create a length from a number of raw units.
-    pub fn raw(raw: f64) -> Self {
+    pub const fn raw(raw: f64) -> Self {
         Self { raw }
     }
 
@@ -57,7 +57,7 @@ impl Length {
     }
 
     /// Get the value of this length in raw units.
-    pub fn to_raw(self) -> f64 {
+    pub const fn to_raw(self) -> f64 {
         self.raw
     }
 

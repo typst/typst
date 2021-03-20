@@ -16,7 +16,7 @@ pub struct StackNode {
 
 impl Layout for StackNode {
     fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
-        let mut layouter = StackLayouter::new(self, areas.clone());
+        let mut layouter = StackLayouter::new(self.dirs, areas.clone());
         for child in &self.children {
             match child.layout(ctx, &layouter.areas) {
                 Fragment::Spacing(spacing) => layouter.push_spacing(spacing),
@@ -49,10 +49,10 @@ struct StackLayouter {
 }
 
 impl StackLayouter {
-    fn new(stack: &StackNode, areas: Areas) -> Self {
+    fn new(dirs: LayoutDirs, areas: Areas) -> Self {
         Self {
-            main: stack.dirs.main.axis(),
-            dirs: stack.dirs,
+            main: dirs.main.axis(),
+            dirs,
             areas,
             finished: vec![],
             frames: vec![],
@@ -93,12 +93,27 @@ impl StackLayouter {
 
     fn finish_area(&mut self) {
         let full_size = {
-            let expand = self.areas.expand.switch(self.dirs);
-            let full = self.areas.full.switch(self.dirs);
-            Gen::new(
-                expand.main.resolve(self.used.main.min(full.main), full.main),
-                expand.cross.resolve(self.used.cross.min(full.cross), full.cross),
-            )
+            let expand = self.areas.expand;
+            let full = self.areas.full;
+            let current = self.areas.current;
+            let used = self.used.switch(self.dirs).to_size();
+
+            let mut size = Size::new(
+                expand.horizontal.resolve(used.width, full.width),
+                expand.vertical.resolve(used.height, full.height),
+            );
+
+            if let Some(aspect) = self.areas.aspect {
+                let width = size
+                    .width
+                    .max(aspect * size.height)
+                    .min(current.width)
+                    .min((current.height + used.height) / aspect);
+
+                size = Size::new(width, width / aspect);
+            }
+
+            size.switch(self.dirs)
         };
 
         let mut output = Frame::new(full_size.switch(self.dirs).to_size());
