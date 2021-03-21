@@ -10,24 +10,24 @@ use std::rc::Rc;
 
 use crate::diag::Pass;
 use crate::env::Env;
-use crate::eval::{ExprMap, TemplateFunc, TemplateNode, TemplateValue, Value};
-use crate::layout::{self, FixedNode, SpacingNode, StackNode};
+use crate::eval::{NodeMap, TemplateFunc, TemplateNode, TemplateValue, Value};
+use crate::layout;
 use crate::pretty::pretty;
 use crate::syntax::*;
 
 /// Execute a syntax tree to produce a layout tree.
 ///
-/// The `map` shall be an expression map computed for this tree with
+/// The `map` shall be a node map computed for this tree with
 /// [`eval`](crate::eval::eval). Note that `tree` must be the _exact_ same tree
-/// as used for evaluation (no cloned version), because the expression map
-/// depends on the pointers being stable.
+/// as used for evaluation (no cloned version), because the node map depends on
+/// the pointers being stable.
 ///
 /// The `state` is the base state that may be updated over the course of
 /// execution.
 pub fn exec(
     env: &mut Env,
     tree: &Tree,
-    map: &ExprMap,
+    map: &NodeMap,
     state: State,
 ) -> Pass<layout::Tree> {
     let mut ctx = ExecContext::new(env, state);
@@ -47,14 +47,14 @@ pub trait Exec {
     fn exec(&self, ctx: &mut ExecContext);
 }
 
-/// Execute a node with an expression map that applies to it.
+/// Execute a node with a node map that applies to it.
 pub trait ExecWithMap {
     /// Execute the node.
-    fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap);
+    fn exec_with_map(&self, ctx: &mut ExecContext, map: &NodeMap);
 }
 
 impl ExecWithMap for Tree {
-    fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
+    fn exec_with_map(&self, ctx: &mut ExecContext, map: &NodeMap) {
         for node in self {
             node.exec_with_map(ctx, map);
         }
@@ -62,80 +62,12 @@ impl ExecWithMap for Tree {
 }
 
 impl ExecWithMap for Node {
-    fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
+    fn exec_with_map(&self, ctx: &mut ExecContext, map: &NodeMap) {
         match self {
             Node::Text(text) => ctx.push_text(text),
             Node::Space => ctx.push_space(),
-            Node::Linebreak => ctx.push_linebreak(),
-            Node::Parbreak => ctx.push_parbreak(),
-            Node::Strong => ctx.state.font.strong ^= true,
-            Node::Emph => ctx.state.font.emph ^= true,
-            Node::Heading(heading) => heading.exec_with_map(ctx, map),
-            Node::Raw(raw) => raw.exec(ctx),
-            Node::Expr(expr) => map[&(expr as *const _)].exec(ctx),
+            _ => map[&(self as *const _)].exec(ctx),
         }
-    }
-}
-
-impl ExecWithMap for HeadingNode {
-    fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
-        let prev = ctx.state.clone();
-        let upscale = 1.5 - 0.1 * self.level as f64;
-        ctx.state.font.scale *= upscale;
-        ctx.state.font.strong = true;
-
-        self.contents.exec_with_map(ctx, map);
-        ctx.push_parbreak();
-
-        ctx.state = prev;
-    }
-}
-
-impl Exec for RawNode {
-    fn exec(&self, ctx: &mut ExecContext) {
-        let prev = Rc::clone(&ctx.state.font.families);
-        ctx.set_monospace();
-
-        let em = ctx.state.font.font_size();
-        let leading = ctx.state.par.leading.resolve(em);
-
-        let mut children = vec![];
-        let mut newline = false;
-        for line in &self.lines {
-            if newline {
-                children.push(layout::Node::Spacing(SpacingNode {
-                    amount: leading,
-                    softness: 2,
-                }));
-            }
-
-            children.push(layout::Node::Text(ctx.make_text_node(line.clone())));
-            newline = true;
-        }
-
-        if self.block {
-            ctx.push_parbreak();
-        }
-
-        // This is wrapped in a fixed node to make sure the stack fits to its
-        // content instead of filling the available area.
-        ctx.push(FixedNode {
-            width: None,
-            height: None,
-            aspect: None,
-            child: StackNode {
-                dirs: ctx.state.dirs,
-                aligns: ctx.state.aligns,
-                children,
-            }
-            .into(),
-        });
-
-        if self.block {
-            ctx.push_parbreak();
-        }
-
-        ctx.state.font.families = prev;
     }
 }
 

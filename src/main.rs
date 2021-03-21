@@ -44,7 +44,7 @@ fn main() -> anyhow::Result<()> {
         resources: ResourceLoader::new(),
     };
 
-    let scope = library::new();
+    let scope = library::_new();
     let state = State::default();
 
     let Pass { output: frames, diags } = typeset(&mut env, &src, &scope, state);

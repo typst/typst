@@ -121,7 +121,7 @@ pub enum Token<'s> {
     /// A percentage: `50%`.
     ///
     /// _Note_: `50%` is stored as `50.0` here, as in the corresponding
-    /// [literal](super::LitKind::Percent).
+    /// [literal](super::Expr::Percent).
     Percent(f64),
     /// A color value: `#20d82a`.
     Color(RgbaColor),

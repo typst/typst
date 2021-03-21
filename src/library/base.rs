@@ -3,6 +3,20 @@ use crate::pretty::pretty;
 
 use super::*;
 
+/// `type`: Get the name of a value's type.
+///
+/// # Positional parameters
+/// - Any value.
+///
+/// # Return value
+/// The name of the value's type as a string.
+pub fn type_(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+    match args.require::<Value>(ctx, "value") {
+        Some(value) => value.type_name().into(),
+        None => Value::Error,
+    }
+}
+
 /// `repr`: Get the string representation of a value.
 ///
 /// # Positional parameters
@@ -17,7 +31,7 @@ pub fn repr(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     }
 }
 
-/// `rgb`: Create an RGB(A) color.
+/// `rgb`: Construct an RGB(A) color.
 ///
 /// # Positional parameters
 /// - Red component: of type `float`, between 0.0 and 1.0.
@@ -48,18 +62,4 @@ pub fn rgb(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         clamp(b, 0),
         clamp(a, 255),
     )))
-}
-
-/// `type`: Find out the name of a value's type.
-///
-/// # Positional parameters
-/// - Any value.
-///
-/// # Return value
-/// The name of the value's type as a string.
-pub fn type_(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    match args.require::<Value>(ctx, "value") {
-        Some(value) => value.type_name().into(),
-        None => Value::Error,
-    }
 }

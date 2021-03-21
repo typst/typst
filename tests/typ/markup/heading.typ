@@ -42,3 +42,11 @@ No = heading
 
 // Escaped.
 \= No heading
+
+---
+// Make small, but double heading.
+#let heading(contents) = heading(contents + contents, level: 6)
+
+// The new heading's argument list doesn't contain `level`.
+// Error: 1-11 unexpected argument
+=== Twice.

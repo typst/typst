@@ -21,3 +21,11 @@ Trailing 2
 
 // Trailing before end of document.
 Trailing 3 \
+
+---
+#let linebreak() = [
+    // Inside the old line break definition is still active.
+    #circle(radius: 2pt, fill: #000) \
+]
+
+A \ B \ C \

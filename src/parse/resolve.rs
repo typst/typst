@@ -1,5 +1,5 @@
 use super::{is_newline, Scanner};
-use crate::syntax::{Ident, Pos, RawNode};
+use crate::syntax::{Ident, RawNode, Span};
 
 /// Resolve all escape sequences in a string.
 pub fn resolve_string(string: &str) -> String {
@@ -47,19 +47,17 @@ pub fn resolve_hex(sequence: &str) -> Option<char> {
 }
 
 /// Resolve the language tag and trims the raw text.
-pub fn resolve_raw(text: &str, backticks: usize, start: Pos) -> RawNode {
+pub fn resolve_raw(span: Span, text: &str, backticks: usize) -> RawNode {
     if backticks > 1 {
         let (tag, inner) = split_at_lang_tag(text);
-        let (lines, had_newline) = trim_and_split_raw(inner);
-        RawNode {
-            lang: Ident::new(tag, start .. start + tag.len()),
-            lines,
-            block: had_newline,
-        }
+        let (text, block) = trim_and_split_raw(inner);
+        let lang = Ident::new(tag, span.start .. span.start + tag.len());
+        RawNode { span, lang, text, block }
     } else {
         RawNode {
+            span,
             lang: None,
-            lines: split_lines(text),
+            text: split_lines(text).join("\n"),
             block: false,
         }
     }
@@ -77,7 +75,7 @@ fn split_at_lang_tag(raw: &str) -> (&str, &str) {
 /// Trim raw text and splits it into lines.
 ///
 /// Returns whether at least one newline was contained in `raw`.
-fn trim_and_split_raw(mut raw: &str) -> (Vec<String>, bool) {
+fn trim_and_split_raw(mut raw: &str) -> (String, bool) {
     // Trims one space at the start.
     raw = raw.strip_prefix(' ').unwrap_or(raw);
 
@@ -87,8 +85,8 @@ fn trim_and_split_raw(mut raw: &str) -> (Vec<String>, bool) {
     }
 
     let mut lines = split_lines(raw);
-    let had_newline = lines.len() > 1;
     let is_whitespace = |line: &String| line.chars().all(char::is_whitespace);
+    let had_newline = lines.len() > 1;
 
     // Trims a sequence of whitespace followed by a newline at the start.
     if lines.first().map_or(false, is_whitespace) {
@@ -100,7 +98,7 @@ fn trim_and_split_raw(mut raw: &str) -> (Vec<String>, bool) {
         lines.pop();
     }
 
-    (lines, had_newline)
+    (lines.join("\n"), had_newline)
 }
 
 /// Split a string into a vector of lines
@@ -171,64 +169,53 @@ mod tests {
             raw: &str,
             backticks: usize,
             lang: Option<&str>,
-            lines: &[&str],
+            text: &str,
             block: bool,
         ) {
-            Span::without_cmp(|| assert_eq!(resolve_raw(raw, backticks, Pos(0)), RawNode {
-                lang: lang.and_then(|id| Ident::new(id, 0)),
-                lines: lines.iter().map(ToString::to_string).collect(),
-                block,
-            }));
+            Span::without_cmp(|| {
+                assert_eq!(resolve_raw(Span::ZERO, raw, backticks), RawNode {
+                    span: Span::ZERO,
+                    lang: lang.and_then(|id| Ident::new(id, 0)),
+                    text: text.into(),
+                    block,
+                });
+            });
         }
 
         // Just one backtick.
-        test("py",     1, None, &["py"],     false);
-        test("1\n2",   1, None, &["1", "2"], false);
-        test("1\r\n2", 1, None, &["1", "2"], false);
+        test("py",     1, None, "py",     false);
+        test("1\n2",   1, None, "1\n2", false);
+        test("1\r\n2", 1, None, "1\n2", false);
 
         // More than one backtick with lang tag.
-        test("js alert()",     2, Some("js"), &["alert()"],        false);
-        test("py quit(\n\n)",  3, Some("py"), &["quit(", "", ")"], true);
-        test("♥",              2, None,       &[],                 false);
+        test("js alert()",     2, Some("js"), "alert()",        false);
+        test("py quit(\n\n)",  3, Some("py"), "quit(\n\n)", true);
+        test("♥",              2, None,       "",               false);
 
         // Trimming of whitespace (tested more thoroughly in separate test).
-        test(" a",   2, None, &["a"],  false);
-        test("  a",  2, None, &[" a"], false);
-        test(" \na", 2, None, &["a"],  true);
+        test(" a",   2, None, "a",  false);
+        test("  a",  2, None, " a", false);
+        test(" \na", 2, None, "a",  true);
     }
 
     #[test]
     fn test_trim_raw() {
         #[track_caller]
-        fn test(text: &str, expected: Vec<&str>) {
+        fn test(text: &str, expected: &str) {
             assert_eq!(trim_and_split_raw(text).0, expected);
         }
 
-        test(" hi",          vec!["hi"]);
-        test("  hi",         vec![" hi"]);
-        test("\nhi",         vec!["hi"]);
-        test("    \n hi",    vec![" hi"]);
-        test("hi` ",         vec!["hi`"]);
-        test("hi`  ",        vec!["hi` "]);
-        test("hi`   ",       vec!["hi`  "]);
-        test("hi ",          vec!["hi "]);
-        test("hi  ",         vec!["hi  "]);
-        test("hi\n",         vec!["hi"]);
-        test("hi \n   ",     vec!["hi "]);
-        test("  \n hi \n  ", vec![" hi "]);
-    }
-
-    #[test]
-    fn test_split_lines() {
-        #[track_caller]
-        fn test(text: &str, expected: Vec<&str>) {
-            assert_eq!(split_lines(text), expected);
-        }
-
-        test("raw\ntext",  vec!["raw", "text"]);
-        test("a\r\nb",     vec!["a", "b"]);
-        test("a\n\nb",     vec!["a", "", "b"]);
-        test("a\r\x0Bb",   vec!["a", "", "b"]);
-        test("a\r\n\r\nb", vec!["a", "", "b"]);
+        test(" hi",          "hi");
+        test("  hi",         " hi");
+        test("\nhi",         "hi");
+        test("    \n hi",    " hi");
+        test("hi` ",         "hi`");
+        test("hi`  ",        "hi` ");
+        test("hi`   ",       "hi`  ");
+        test("hi ",          "hi ");
+        test("hi  ",         "hi  ");
+        test("hi\n",         "hi");
+        test("hi \n   ",     "hi ");
+        test("  \n hi \n  ", " hi ");
     }
 }

@@ -20,23 +20,23 @@ use crate::geom::{Angle, Length, Relative};
 use crate::syntax::visit::Visit;
 use crate::syntax::*;
 
-/// Evaluate all expressions in a syntax tree.
+/// Evaluate all nodes in a syntax tree.
 ///
 /// The `scope` consists of the base definitions that are present from the
 /// beginning (typically, the standard library).
-pub fn eval(env: &mut Env, tree: &Tree, scope: &Scope) -> Pass<ExprMap> {
+pub fn eval(env: &mut Env, tree: &Tree, scope: &Scope) -> Pass<NodeMap> {
     let mut ctx = EvalContext::new(env, scope);
     let map = tree.eval(&mut ctx);
     Pass::new(map, ctx.diags)
 }
 
-/// A map from expressions to the values they evaluated to.
+/// A map from nodes to the values they evaluated to.
 ///
-/// The raw pointers point into the expressions contained in some [`Tree`].
-/// Since the lifetime is erased, the tree could go out of scope while the hash
-/// map still lives. Although this could lead to lookup panics, it is not unsafe
-/// since the pointers are never dereferenced.
-pub type ExprMap = HashMap<*const Expr, Value>;
+/// The raw pointers point into the nodes contained in some [`Tree`]. Since the
+/// lifetime is erased, the tree could go out of scope while the hash map still
+/// lives. Although this could lead to lookup panics, it is not unsafe since the
+/// pointers are never dereferenced.
+pub type NodeMap = HashMap<*const Node, Value>;
 
 /// The context for evaluation.
 #[derive(Debug)]
@@ -75,23 +75,24 @@ pub trait Eval {
 }
 
 impl Eval for Tree {
-    type Output = ExprMap;
+    type Output = NodeMap;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        struct ExprVisitor<'a, 'b> {
-            map: ExprMap,
-            ctx: &'a mut EvalContext<'b>,
+        let mut map = NodeMap::new();
+
+        for node in self {
+            let value = if let Some(call) = node.desugar() {
+                call.eval(ctx)
+            } else if let Node::Expr(expr) = node {
+                expr.eval(ctx)
+            } else {
+                continue;
+            };
+
+            map.insert(node as *const _, value);
         }
 
-        impl<'ast> Visit<'ast> for ExprVisitor<'_, '_> {
-            fn visit_expr(&mut self, node: &'ast Expr) {
-                self.map.insert(node as *const _, node.eval(self.ctx));
-            }
-        }
-
-        let mut visitor = ExprVisitor { map: ExprMap::new(), ctx };
-        visitor.visit_tree(self);
-        visitor.map
+        map
     }
 }
 
@@ -99,46 +100,36 @@ impl Eval for Expr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        match self {
-            Self::Lit(lit) => lit.eval(ctx),
-            Self::Ident(v) => match ctx.scopes.get(&v) {
+        match *self {
+            Self::None(_) => Value::None,
+            Self::Bool(_, v) => Value::Bool(v),
+            Self::Int(_, v) => Value::Int(v),
+            Self::Float(_, v) => Value::Float(v),
+            Self::Length(_, v, unit) => Value::Length(Length::with_unit(v, unit)),
+            Self::Angle(_, v, unit) => Value::Angle(Angle::with_unit(v, unit)),
+            Self::Percent(_, v) => Value::Relative(Relative::new(v / 100.0)),
+            Self::Color(_, v) => Value::Color(Color::Rgba(v)),
+            Self::Str(_, ref v) => Value::Str(v.clone()),
+            Self::Ident(ref v) => match ctx.scopes.get(&v) {
                 Some(slot) => slot.borrow().clone(),
                 None => {
                     ctx.diag(error!(v.span, "unknown variable"));
                     Value::Error
                 }
             },
-            Self::Array(v) => Value::Array(v.eval(ctx)),
-            Self::Dict(v) => Value::Dict(v.eval(ctx)),
-            Self::Template(v) => Value::Template(vec![v.eval(ctx)]),
-            Self::Group(v) => v.eval(ctx),
-            Self::Block(v) => v.eval(ctx),
-            Self::Call(v) => v.eval(ctx),
-            Self::Closure(v) => v.eval(ctx),
-            Self::Unary(v) => v.eval(ctx),
-            Self::Binary(v) => v.eval(ctx),
-            Self::Let(v) => v.eval(ctx),
-            Self::If(v) => v.eval(ctx),
-            Self::While(v) => v.eval(ctx),
-            Self::For(v) => v.eval(ctx),
-        }
-    }
-}
-
-impl Eval for Lit {
-    type Output = Value;
-
-    fn eval(&self, _: &mut EvalContext) -> Self::Output {
-        match self.kind {
-            LitKind::None => Value::None,
-            LitKind::Bool(v) => Value::Bool(v),
-            LitKind::Int(v) => Value::Int(v),
-            LitKind::Float(v) => Value::Float(v),
-            LitKind::Length(v, unit) => Value::Length(Length::with_unit(v, unit)),
-            LitKind::Angle(v, unit) => Value::Angle(Angle::with_unit(v, unit)),
-            LitKind::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
-            LitKind::Color(v) => Value::Color(Color::Rgba(v)),
-            LitKind::Str(ref v) => Value::Str(v.clone()),
+            Self::Array(ref v) => Value::Array(v.eval(ctx)),
+            Self::Dict(ref v) => Value::Dict(v.eval(ctx)),
+            Self::Template(ref v) => Value::Template(vec![v.eval(ctx)]),
+            Self::Group(ref v) => v.eval(ctx),
+            Self::Block(ref v) => v.eval(ctx),
+            Self::Call(ref v) => v.eval(ctx),
+            Self::Closure(ref v) => v.eval(ctx),
+            Self::Unary(ref v) => v.eval(ctx),
+            Self::Binary(ref v) => v.eval(ctx),
+            Self::Let(ref v) => v.eval(ctx),
+            Self::If(ref v) => v.eval(ctx),
+            Self::While(ref v) => v.eval(ctx),
+            Self::For(ref v) => v.eval(ctx),
         }
     }
 }

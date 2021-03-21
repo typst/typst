@@ -1,7 +1,7 @@
 use super::*;
 use crate::layout::SpacingNode;
 
-/// `h`: Add horizontal spacing.
+/// `h`: Insert horizontal spacing.
 ///
 /// # Positional parameters
 /// - Amount of spacing: of type `linear` relative to current font size.
@@ -12,7 +12,7 @@ pub fn h(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     spacing_impl(ctx, args, SpecAxis::Horizontal)
 }
 
-/// `v`: Add vertical spacing.
+/// `v`: Insert vertical spacing.
 ///
 /// # Positional parameters
 /// - Amount of spacing: of type `linear` relative to current font size.

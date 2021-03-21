@@ -1,12 +1,13 @@
 //! The standard library.
 //!
-//! Call [`new`] to obtain a [`Scope`] containing all standard library
+//! Call [`_new`] to obtain a [`Scope`] containing all standard library
 //! definitions.
 
 mod align;
 mod base;
 mod font;
 mod image;
+mod markup;
 mod pad;
 mod page;
 mod par;
@@ -17,6 +18,7 @@ pub use self::image::*;
 pub use align::*;
 pub use base::*;
 pub use font::*;
+pub use markup::*;
 pub use pad::*;
 pub use page::*;
 pub use par::*;
@@ -32,10 +34,10 @@ use crate::eval::{EvalContext, FuncArgs, TemplateValue, Value};
 use crate::exec::{Exec, ExecContext};
 use crate::geom::*;
 use crate::layout::VerticalFontMetric;
-use crate::syntax::Spanned;
+use crate::syntax::{Node, Spanned};
 
 /// Construct a scope containing all standard library definitions.
-pub fn new() -> Scope {
+pub fn _new() -> Scope {
     let mut std = Scope::new();
 
     macro_rules! func {
@@ -50,6 +52,15 @@ pub fn new() -> Scope {
         };
     }
 
+    // Syntax functions.
+    func!(Node::EMPH, emph);
+    func!(Node::HEADING, heading);
+    func!(Node::STRONG, strong);
+    func!(Node::RAW, raw);
+    func!(Node::LINEBREAK, linebreak);
+    func!(Node::PARBREAK, parbreak);
+
+    // Library functions.
     func!("align", align);
     func!("circle", circle);
     func!("ellipse", ellipse);
@@ -59,14 +70,15 @@ pub fn new() -> Scope {
     func!("pad", pad);
     func!("page", page);
     func!("pagebreak", pagebreak);
-    func!("paragraph", par);
-    func!("square", square);
+    func!("par", par);
     func!("rect", rect);
     func!("repr", repr);
     func!("rgb", rgb);
+    func!("square", square);
     func!("type", type_);
     func!("v", v);
 
+    // Constants.
     constant!("left", AlignValue::Left);
     constant!("center", AlignValue::Center);
     constant!("right", AlignValue::Right);

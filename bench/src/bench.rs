@@ -28,7 +28,7 @@ fn benchmarks(c: &mut Criterion) {
         resources: ResourceLoader::new(),
     };
 
-    let scope = library::new();
+    let scope = library::_new();
     let state = State::default();
 
     // Prepare intermediate results and run warm.

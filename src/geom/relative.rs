@@ -3,7 +3,7 @@ use super::*;
 /// A relative length.
 ///
 /// _Note_: `50%` is represented as `0.5` here, but stored as `50.0` in the
-/// corresponding [literal](crate::syntax::LitKind::Percent).
+/// corresponding [literal](crate::syntax::Expr::Percent).
 #[derive(Default, Copy, Clone, PartialEq, PartialOrd)]
 pub struct Relative(f64);
 

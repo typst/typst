@@ -6,8 +6,8 @@
 //!   tree]. The structures describing the tree can be found in the [syntax]
 //!   module.
 //! - **Evaluation:** The next step is to [evaluate] the syntax tree. This
-//!   computes the value of each expression in document and stores them in a map
-//!   from expression-pointers to values.
+//!   computes the value of each node in document and stores them in a map from
+//!   node-pointers to values.
 //! - **Execution:** Now, we can [execute] the parsed and evaluated "script".
 //!   This produces a [layout tree], a high-level, fully styled representation
 //!   of the document. The nodes of this tree are self-contained and

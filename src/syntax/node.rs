@@ -1,35 +1,84 @@
+use std::rc::Rc;
+
 use super::*;
 
 /// A syntax node, encompassing a single logical entity of parsed source code.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Node {
-    /// Strong text was enabled / disabled.
-    Strong,
-    /// Emphasized text was enabled / disabled.
-    Emph,
-    /// Whitespace containing less than two newlines.
-    Space,
-    /// A forced line break.
-    Linebreak,
-    /// A paragraph break.
-    Parbreak,
     /// Plain text.
     Text(String),
-    /// A section heading.
+    /// Whitespace containing less than two newlines.
+    Space,
+    /// A forced line break: `\`.
+    Linebreak(Span),
+    /// A paragraph break: Two or more newlines.
+    Parbreak(Span),
+    /// Strong text was enabled / disabled: `*`.
+    Strong(Span),
+    /// Emphasized text was enabled / disabled: `_`.
+    Emph(Span),
+    /// A section heading: `= Introduction`.
     Heading(HeadingNode),
-    /// An optionally syntax-highlighted raw block.
+    /// A raw block with optional syntax highlighting: `` `...` ``.
     Raw(RawNode),
     /// An expression.
     Expr(Expr),
 }
 
+impl Node {
+    // The names of the corresponding library functions.
+    pub const LINEBREAK: &'static str = "linebreak";
+    pub const PARBREAK: &'static str = "parbreak";
+    pub const STRONG: &'static str = "strong";
+    pub const EMPH: &'static str = "emph";
+    pub const HEADING: &'static str = "heading";
+    pub const RAW: &'static str = "raw";
+
+    /// Desugar markup into a function call.
+    pub fn desugar(&self) -> Option<CallExpr> {
+        match *self {
+            Node::Text(_) => None,
+            Node::Space => None,
+            Node::Linebreak(span) => Some(call(span, Self::LINEBREAK)),
+            Node::Parbreak(span) => Some(call(span, Self::PARBREAK)),
+            Node::Strong(span) => Some(call(span, Self::STRONG)),
+            Node::Emph(span) => Some(call(span, Self::EMPH)),
+            Self::Heading(ref heading) => Some(heading.desugar()),
+            Self::Raw(ref raw) => Some(raw.desugar()),
+            Node::Expr(_) => None,
+        }
+    }
+}
+
 /// A section heading: `= Introduction`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HeadingNode {
-    /// The section depth (numer of equals signs minus 1).
+    /// The source code location.
+    pub span: Span,
+    /// The section depth (numer of equals signs).
     pub level: usize,
     /// The contents of the heading.
-    pub contents: Tree,
+    pub contents: Rc<Tree>,
+}
+
+impl HeadingNode {
+    pub const LEVEL: &'static str = "level";
+    pub const BODY: &'static str = "body";
+
+    /// Desugar into a function call.
+    pub fn desugar(&self) -> CallExpr {
+        let Self { span, level, ref contents } = *self;
+        let mut call = call(span, Node::HEADING);
+        call.args.items.push(CallArg::Named(Named {
+            name: ident(span, Self::LEVEL),
+            expr: Expr::Int(span, level as i64),
+        }));
+        call.args.items.push(CallArg::Pos(Expr::Template(TemplateExpr {
+            span,
+            tree: Rc::clone(&contents),
+        })));
+        call
+    }
 }
 
 /// A raw block with optional syntax highlighting: `` `...` ``.
@@ -97,12 +146,50 @@ pub struct HeadingNode {
 /// whitespace simply by adding more spaces.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawNode {
+    /// The source code location.
+    pub span: Span,
     /// An optional identifier specifying the language to syntax-highlight in.
     pub lang: Option<Ident>,
-    /// The lines of raw text, determined as the raw string between the
-    /// backticks trimmed according to the above rules and split at newlines.
-    pub lines: Vec<String>,
+    /// The raw text, determined as the raw string between the backticks trimmed
+    /// according to the above rules.
+    pub text: String,
     /// Whether the element is block-level, that is, it has 3+ backticks
     /// and contains at least one newline.
     pub block: bool,
+}
+
+impl RawNode {
+    pub const LANG: &'static str = "lang";
+    pub const BLOCK: &'static str = "block";
+    pub const TEXT: &'static str = "text";
+
+    /// Desugar into a function call.
+    pub fn desugar(&self) -> CallExpr {
+        let Self { span, ref lang, ref text, block } = *self;
+        let mut call = call(span, Node::RAW);
+        if let Some(lang) = lang {
+            call.args.items.push(CallArg::Named(Named {
+                name: ident(span, Self::LANG),
+                expr: Expr::Str(span, lang.string.clone()),
+            }));
+        }
+        call.args.items.push(CallArg::Named(Named {
+            name: ident(span, Self::BLOCK),
+            expr: Expr::Bool(span, block),
+        }));
+        call.args.items.push(CallArg::Pos(Expr::Str(span, text.clone())));
+        call
+    }
+}
+
+fn call(span: Span, name: &str) -> CallExpr {
+    CallExpr {
+        span,
+        callee: Box::new(Expr::Ident(Ident { span, string: name.into() })),
+        args: CallArgs { span, items: vec![] },
+    }
+}
+
+fn ident(span: Span, string: &str) -> Ident {
+    Ident { span, string: string.into() }
 }

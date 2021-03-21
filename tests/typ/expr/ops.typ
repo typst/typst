@@ -122,10 +122,7 @@
 #test((1, 2, 3) == (1, 2.0) + (3,), true)
 #test((:) == (a: 1), false)
 #test((a: 2 - 1.0, b: 2) == (b: 2, a: 1), true)
-#test([*Hi*] == [*Hi*], true)
-
 #test("a" != "a", false)
-#test([*] != [_], true)
 
 ---
 // Test comparison operators.

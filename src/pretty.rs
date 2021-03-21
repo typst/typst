@@ -17,8 +17,8 @@ where
     p.finish()
 }
 
-/// Pretty print an item with an expression map and return the resulting string.
-pub fn pretty_with_map<T>(item: &T, map: &ExprMap) -> String
+/// Pretty print an item with a node map and return the resulting string.
+pub fn pretty_with_map<T>(item: &T, map: &NodeMap) -> String
 where
     T: PrettyWithMap + ?Sized,
 {
@@ -33,10 +33,10 @@ pub trait Pretty {
     fn pretty(&self, p: &mut Printer);
 }
 
-/// Pretty print an item with an expression map that applies to it.
+/// Pretty print an item with a node map that applies to it.
 pub trait PrettyWithMap {
     /// Pretty print this item into the given printer.
-    fn pretty_with_map(&self, p: &mut Printer, map: Option<&ExprMap>);
+    fn pretty_with_map(&self, p: &mut Printer, map: Option<&NodeMap>);
 }
 
 impl<T> Pretty for T
@@ -104,7 +104,7 @@ impl Write for Printer {
 }
 
 impl PrettyWithMap for Tree {
-    fn pretty_with_map(&self, p: &mut Printer, map: Option<&ExprMap>) {
+    fn pretty_with_map(&self, p: &mut Printer, map: Option<&NodeMap>) {
         for node in self {
             node.pretty_with_map(p, map);
         }
@@ -112,20 +112,20 @@ impl PrettyWithMap for Tree {
 }
 
 impl PrettyWithMap for Node {
-    fn pretty_with_map(&self, p: &mut Printer, map: Option<&ExprMap>) {
+    fn pretty_with_map(&self, p: &mut Printer, map: Option<&NodeMap>) {
         match self {
-            Self::Strong => p.push('*'),
-            Self::Emph => p.push('_'),
-            Self::Space => p.push(' '),
-            Self::Linebreak => p.push_str(r"\"),
-            Self::Parbreak => p.push_str("\n\n"),
             // TODO: Handle escaping.
             Self::Text(text) => p.push_str(text),
+            Self::Space => p.push(' '),
+            Self::Strong(_) => p.push('*'),
+            Self::Emph(_) => p.push('_'),
+            Self::Linebreak(_) => p.push_str(r"\"),
+            Self::Parbreak(_) => p.push_str("\n\n"),
             Self::Heading(heading) => heading.pretty_with_map(p, map),
             Self::Raw(raw) => raw.pretty(p),
             Self::Expr(expr) => {
                 if let Some(map) = map {
-                    let value = &map[&(expr as *const _)];
+                    let value = &map[&(self as *const _)];
                     value.pretty(p);
                 } else {
                     if expr.has_short_form() {
@@ -139,8 +139,8 @@ impl PrettyWithMap for Node {
 }
 
 impl PrettyWithMap for HeadingNode {
-    fn pretty_with_map(&self, p: &mut Printer, map: Option<&ExprMap>) {
-        for _ in 0 ..= self.level {
+    fn pretty_with_map(&self, p: &mut Printer, map: Option<&NodeMap>) {
+        for _ in 0 .. self.level {
             p.push('=');
         }
         self.contents.pretty_with_map(p, map);
@@ -158,17 +158,14 @@ impl Pretty for RawNode {
         }
 
         // More backticks may be required if there are lots of consecutive
-        // backticks in the lines.
-        let mut count;
-        for line in &self.lines {
-            count = 0;
-            for c in line.chars() {
-                if c == '`' {
-                    count += 1;
-                    backticks = backticks.max(3).max(count + 1);
-                } else {
-                    count = 0;
-                }
+        // backticks.
+        let mut count = 0;
+        for c in self.text.chars() {
+            if c == '`' {
+                count += 1;
+                backticks = backticks.max(3).max(count + 1);
+            } else {
+                count = 0;
             }
         }
 
@@ -190,12 +187,12 @@ impl Pretty for RawNode {
         }
 
         // The lines.
-        p.join(&self.lines, "\n", |line, p| p.push_str(line));
+        p.push_str(&self.text);
 
         // End untrimming.
         if self.block {
             p.push('\n');
-        } else if self.lines.last().map_or(false, |line| line.trim_end().ends_with('`')) {
+        } else if self.text.trim_end().ends_with('`') {
             p.push(' ');
         }
 
@@ -209,7 +206,15 @@ impl Pretty for RawNode {
 impl Pretty for Expr {
     fn pretty(&self, p: &mut Printer) {
         match self {
-            Self::Lit(v) => v.pretty(p),
+            Self::None(_) => p.push_str("none"),
+            Self::Bool(_, v) => v.pretty(p),
+            Self::Int(_, v) => v.pretty(p),
+            Self::Float(_, v) => v.pretty(p),
+            Self::Length(_, v, u) => write!(p, "{}{}", v, u).unwrap(),
+            Self::Angle(_, v, u) => write!(p, "{}{}", v, u).unwrap(),
+            Self::Percent(_, v) => write!(p, "{}%", v).unwrap(),
+            Self::Color(_, v) => v.pretty(p),
+            Self::Str(_, v) => v.pretty(p),
             Self::Ident(v) => v.pretty(p),
             Self::Array(v) => v.pretty(p),
             Self::Dict(v) => v.pretty(p),
@@ -224,28 +229,6 @@ impl Pretty for Expr {
             Self::If(v) => v.pretty(p),
             Self::While(v) => v.pretty(p),
             Self::For(v) => v.pretty(p),
-        }
-    }
-}
-
-impl Pretty for Lit {
-    fn pretty(&self, p: &mut Printer) {
-        self.kind.pretty(p);
-    }
-}
-
-impl Pretty for LitKind {
-    fn pretty(&self, p: &mut Printer) {
-        match self {
-            Self::None => p.push_str("none"),
-            Self::Bool(v) => v.pretty(p),
-            Self::Int(v) => v.pretty(p),
-            Self::Float(v) => v.pretty(p),
-            Self::Length(v, u) => write!(p, "{}{}", v, u).unwrap(),
-            Self::Angle(v, u) => write!(p, "{}{}", v, u).unwrap(),
-            Self::Percent(v) => write!(p, "{}%", v).unwrap(),
-            Self::Color(v) => v.pretty(p),
-            Self::Str(v) => v.pretty(p),
         }
     }
 }
@@ -784,7 +767,7 @@ mod tests {
         test_value(
             vec![
                 TemplateNode::Tree {
-                    tree: Rc::new(vec![Node::Strong]),
+                    tree: Rc::new(vec![Node::Strong(Span::ZERO)]),
                     map: HashMap::new(),
                 },
                 TemplateNode::Func(TemplateFunc::new("example", |_| {})),

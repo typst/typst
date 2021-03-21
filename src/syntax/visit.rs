@@ -50,13 +50,13 @@ visit! {
 
     fn visit_node(v, node: &Node) {
         match node {
-            Node::Strong => {}
-            Node::Emph => {}
-            Node::Space => {}
-            Node::Linebreak => {}
-            Node::Parbreak => {}
             Node::Text(_) => {}
-            Node::Heading(n) => v.visit_tree(&n.contents),
+            Node::Space => {}
+            Node::Strong(_) => {}
+            Node::Linebreak(_) => {}
+            Node::Parbreak(_) => {}
+            Node::Emph(_) => {}
+            Node::Heading(heading) => v.visit_tree(&heading.contents),
             Node::Raw(_) => {}
             Node::Expr(expr) => v.visit_expr(expr),
         }
@@ -64,7 +64,15 @@ visit! {
 
     fn visit_expr(v, node: &Expr) {
         match node {
-            Expr::Lit(_) => {}
+            Expr::None(_) => {}
+            Expr::Bool(_, _) => {}
+            Expr::Int(_, _) => {}
+            Expr::Float(_, _) => {}
+            Expr::Length(_, _, _) => {}
+            Expr::Angle(_, _, _) => {}
+            Expr::Percent(_, _) => {}
+            Expr::Color(_, _) => {}
+            Expr::Str(_, _) => {}
             Expr::Ident(_) => {}
             Expr::Array(e) => v.visit_array(e),
             Expr::Dict(e) => v.visit_dict(e),

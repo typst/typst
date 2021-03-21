@@ -1,6 +1,6 @@
 use super::*;
 
-/// `paragraph`: Configure paragraphs.
+/// `par`: Configure paragraphs.
 ///
 /// # Positional parameters
 /// - Body: optional, of type `template`.
@@ -19,7 +19,7 @@ pub fn par(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let word_spacing = args.get(ctx, "word-spacing");
     let body = args.find::<TemplateValue>(ctx);
 
-    Value::template("paragraph", move |ctx| {
+    Value::template("par", move |ctx| {
         let snapshot = ctx.state.clone();
 
         if let Some(spacing) = spacing {

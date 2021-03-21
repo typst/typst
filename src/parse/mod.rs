@@ -31,7 +31,7 @@ fn tree(p: &mut Parser) -> Tree {
     let mut tree = vec![];
     while !p.eof() {
         if let Some(node) = node(p, &mut at_start) {
-            if !matches!(node, Node::Parbreak | Node::Space) {
+            if !matches!(node, Node::Parbreak(_) | Node::Space) {
                 at_start = false;
             }
             tree.push(node);
@@ -43,19 +43,24 @@ fn tree(p: &mut Parser) -> Tree {
 /// Parse a syntax node.
 fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
     let token = p.peek()?;
+    let span = p.peek_span();
     let node = match token {
         // Whitespace.
         Token::Space(newlines) => {
             *at_start |= newlines > 0;
-            if newlines < 2 { Node::Space } else { Node::Parbreak }
+            if newlines < 2 {
+                Node::Space
+            } else {
+                Node::Parbreak(span)
+            }
         }
 
         // Text.
         Token::Text(text) => Node::Text(text.into()),
 
         // Markup.
-        Token::Star => Node::Strong,
-        Token::Underscore => Node::Emph,
+        Token::Star => Node::Strong(span),
+        Token::Underscore => Node::Emph(span),
         Token::Eq => {
             if *at_start {
                 return Some(heading(p));
@@ -64,7 +69,7 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
             }
         }
         Token::Tilde => Node::Text("\u{00A0}".into()),
-        Token::Backslash => Node::Linebreak,
+        Token::Backslash => Node::Linebreak(span),
         Token::Raw(t) => raw(p, t),
         Token::UnicodeEscape(t) => Node::Text(unicode_escape(p, t)),
 
@@ -120,28 +125,33 @@ fn heading(p: &mut Parser) -> Node {
     p.assert(Token::Eq);
 
     // Count depth.
-    let mut level: usize = 0;
+    let mut level: usize = 1;
     while p.eat_if(Token::Eq) {
         level += 1;
     }
 
-    if level > 5 {
+    if level > 6 {
         p.diag(warning!(start .. p.end(), "should not exceed depth 6"));
-        level = 5;
+        level = 6;
     }
 
     // Parse the heading contents.
-    let mut contents = vec![];
+    let mut tree = vec![];
     while p.check(|t| !matches!(t, Token::Space(n) if n >= 1)) {
-        contents.extend(node(p, &mut false));
+        tree.extend(node(p, &mut false));
     }
 
-    Node::Heading(HeadingNode { level, contents })
+    Node::Heading(HeadingNode {
+        span: p.span(start),
+        level,
+        contents: Rc::new(tree),
+    })
 }
 
 /// Handle a raw block.
 fn raw(p: &mut Parser, token: RawToken) -> Node {
-    let raw = resolve::resolve_raw(token.text, token.backticks, p.start());
+    let span = p.peek_span();
+    let raw = resolve::resolve_raw(span, token.text, token.backticks);
     if !token.terminated {
         p.diag(error!(p.peek_span().end, "expected backtick(s)"));
     }
@@ -280,17 +290,18 @@ fn primary(p: &mut Parser, atomic: bool) -> Option<Expr> {
 
 /// Parse a literal.
 fn literal(p: &mut Parser) -> Option<Expr> {
-    let kind = match p.peek()? {
+    let span = p.peek_span();
+    let expr = match p.peek()? {
         // Basic values.
-        Token::None => LitKind::None,
-        Token::Bool(b) => LitKind::Bool(b),
-        Token::Int(i) => LitKind::Int(i),
-        Token::Float(f) => LitKind::Float(f),
-        Token::Length(val, unit) => LitKind::Length(val, unit),
-        Token::Angle(val, unit) => LitKind::Angle(val, unit),
-        Token::Percent(p) => LitKind::Percent(p),
-        Token::Color(color) => LitKind::Color(color),
-        Token::Str(token) => LitKind::Str({
+        Token::None => Expr::None(span),
+        Token::Bool(b) => Expr::Bool(span, b),
+        Token::Int(i) => Expr::Int(span, i),
+        Token::Float(f) => Expr::Float(span, f),
+        Token::Length(val, unit) => Expr::Length(span, val, unit),
+        Token::Angle(val, unit) => Expr::Angle(span, val, unit),
+        Token::Percent(p) => Expr::Percent(span, p),
+        Token::Color(color) => Expr::Color(span, color),
+        Token::Str(token) => Expr::Str(span, {
             if !token.terminated {
                 p.expected_at("quote", p.peek_span().end);
             }
@@ -298,7 +309,8 @@ fn literal(p: &mut Parser) -> Option<Expr> {
         }),
         _ => return None,
     };
-    Some(Expr::Lit(Lit { span: p.eat_span(), kind }))
+    p.eat();
+    Some(expr)
 }
 
 /// Parse something that starts with a parenthesis, which can be either of:

@@ -7,8 +7,27 @@ use crate::geom::{AngularUnit, LengthUnit};
 /// An expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    /// A literal, like `11pt` or `"hi"`.
-    Lit(Lit),
+    /// The none literal: `none`.
+    None(Span),
+    /// A boolean literal: `true`, `false`.
+    Bool(Span, bool),
+    /// An integer literal: `120`.
+    Int(Span, i64),
+    /// A floating-point literal: `1.2`, `10e-4`.
+    Float(Span, f64),
+    /// A length literal: `12pt`, `3cm`.
+    Length(Span, f64, LengthUnit),
+    /// An angle literal:  `1.5rad`, `90deg`.
+    Angle(Span, f64, AngularUnit),
+    /// A percent literal: `50%`.
+    ///
+    /// _Note_: `50%` is stored as `50.0` here, but as `0.5` in the
+    /// corresponding [value](crate::geom::Relative).
+    Percent(Span, f64),
+    /// A color literal: `#ffccee`.
+    Color(Span, RgbaColor),
+    /// A string literal: `"hello!"`.
+    Str(Span, String),
     /// An identifier: `left`.
     Ident(Ident),
     /// An array expression: `(1, "hi", 12cm)`.
@@ -42,22 +61,30 @@ pub enum Expr {
 impl Expr {
     /// The source code location.
     pub fn span(&self) -> Span {
-        match self {
-            Self::Lit(v) => v.span,
-            Self::Ident(v) => v.span,
-            Self::Array(v) => v.span,
-            Self::Dict(v) => v.span,
-            Self::Template(v) => v.span,
-            Self::Group(v) => v.span,
-            Self::Block(v) => v.span,
-            Self::Unary(v) => v.span,
-            Self::Binary(v) => v.span,
-            Self::Call(v) => v.span,
-            Self::Closure(v) => v.span,
-            Self::Let(v) => v.span,
-            Self::If(v) => v.span,
-            Self::While(v) => v.span,
-            Self::For(v) => v.span,
+        match *self {
+            Self::None(span) => span,
+            Self::Bool(span, _) => span,
+            Self::Int(span, _) => span,
+            Self::Float(span, _) => span,
+            Self::Length(span, _, _) => span,
+            Self::Angle(span, _, _) => span,
+            Self::Percent(span, _) => span,
+            Self::Color(span, _) => span,
+            Self::Str(span, _) => span,
+            Self::Ident(ref v) => v.span,
+            Self::Array(ref v) => v.span,
+            Self::Dict(ref v) => v.span,
+            Self::Template(ref v) => v.span,
+            Self::Group(ref v) => v.span,
+            Self::Block(ref v) => v.span,
+            Self::Unary(ref v) => v.span,
+            Self::Binary(ref v) => v.span,
+            Self::Call(ref v) => v.span,
+            Self::Closure(ref v) => v.span,
+            Self::Let(ref v) => v.span,
+            Self::If(ref v) => v.span,
+            Self::While(ref v) => v.span,
+            Self::For(ref v) => v.span,
         }
     }
 
@@ -72,41 +99,6 @@ impl Expr {
             | Expr::For(_)
         )
     }
-}
-
-/// A literal, like `11pt` or `"hi"`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Lit {
-    /// The source code location.
-    pub span: Span,
-    /// The kind of literal.
-    pub kind: LitKind,
-}
-
-/// A kind of literal.
-#[derive(Debug, Clone, PartialEq)]
-pub enum LitKind {
-    /// The none literal: `none`.
-    None,
-    /// A boolean literal: `true`, `false`.
-    Bool(bool),
-    /// An integer literal: `120`.
-    Int(i64),
-    /// A floating-point literal: `1.2`, `10e-4`.
-    Float(f64),
-    /// A length literal: `12pt`, `3cm`.
-    Length(f64, LengthUnit),
-    /// An angle literal:  `1.5rad`, `90deg`.
-    Angle(f64, AngularUnit),
-    /// A percent literal: `50%`.
-    ///
-    /// _Note_: `50%` is stored as `50.0` here, but as `0.5` in the
-    /// corresponding [value](crate::geom::Relative).
-    Percent(f64),
-    /// A color literal: `#ffccee`.
-    Color(RgbaColor),
-    /// A string literal: `"hello!"`.
-    Str(String),
 }
 
 /// An array expression: `(1, "hi", 12cm)`.

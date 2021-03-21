@@ -1,5 +1,4 @@
 use super::{ArrayValue, DictValue, TemplateNode, Value};
-use crate::syntax::Span;
 use Value::*;
 
 /// Apply the plus operator to a value.
@@ -184,7 +183,6 @@ fn value_eq(lhs: &Value, rhs: &Value) -> bool {
         (&Linear(a), &Relative(b)) => a.rel == b && a.abs.is_zero(),
         (Array(a), Array(b)) => array_eq(a, b),
         (Dict(a), Dict(b)) => dict_eq(a, b),
-        (Template(a), Template(b)) => Span::without_cmp(|| a == b),
         (a, b) => a == b,
     }
 }

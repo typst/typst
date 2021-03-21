@@ -1,6 +1,6 @@
 use super::*;
 
-/// `align`: Align content along the layouting axes.
+/// `align`: Configure the alignment along the layouting axes.
 ///
 /// # Positional parameters
 /// - Alignments: variadic, of type `alignment`.

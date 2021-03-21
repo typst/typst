@@ -11,7 +11,7 @@ use crate::geom::{Dir, Gen, Linear, Sides, Size};
 use crate::layout::{
     Node, PadNode, PageRun, ParNode, SpacingNode, StackNode, TextNode, Tree,
 };
-use crate::parse::is_newline;
+use crate::parse::{is_newline, Scanner};
 use crate::syntax::{Span, Spanned};
 
 /// The context for execution.
@@ -99,16 +99,19 @@ impl<'a> ExecContext<'a> {
     ///
     /// The text is split into lines at newlines.
     pub fn push_text(&mut self, text: &str) {
-        let mut newline = false;
-        for line in text.split_terminator(is_newline) {
-            if newline {
-                self.push_linebreak();
-            }
+        let mut scanner = Scanner::new(text);
+        let mut line = String::new();
 
-            let node = self.make_text_node(line.into());
-            self.push(node);
-            newline = true;
+        while let Some(c) = scanner.eat_merging_crlf() {
+            if is_newline(c) {
+                self.push(self.make_text_node(mem::take(&mut line)));
+                self.push_linebreak();
+            } else {
+                line.push(c);
+            }
         }
+
+        self.push(self.make_text_node(line));
     }
 
     /// Apply a forced line break.

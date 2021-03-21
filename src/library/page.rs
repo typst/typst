@@ -109,7 +109,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// `pagebreak`: Start a new page.
 ///
 /// # Return value
-/// A template that starts a new page.
+/// A template that inserts a page break.
 pub fn pagebreak(_: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let span = args.span;
     Value::template("pagebreak", move |ctx| {

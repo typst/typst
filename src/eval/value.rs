@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 
-use super::{EvalContext, ExprMap};
+use super::{EvalContext, NodeMap};
 use crate::color::Color;
 use crate::diag::DiagSet;
 use crate::exec::ExecContext;
@@ -107,7 +107,7 @@ pub type TemplateValue = Vec<TemplateNode>;
 ///
 /// Evaluating a template expression creates only a single node. Adding multiple
 /// templates can yield multi-node templates.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum TemplateNode {
     /// A template that consists of a syntax tree plus already evaluated
     /// expression.
@@ -115,12 +115,19 @@ pub enum TemplateNode {
         /// The syntax tree of the corresponding template expression.
         tree: Rc<Tree>,
         /// The evaluated expressions for the `tree`.
-        map: ExprMap,
+        map: NodeMap,
     },
     /// A template that was converted from a string.
     Str(String),
     /// A function template that can implement custom behaviour.
     Func(TemplateFunc),
+}
+
+impl PartialEq for TemplateNode {
+    fn eq(&self, _: &Self) -> bool {
+        // TODO: Figure out what we want here.
+        false
+    }
 }
 
 /// A reference-counted dynamic template node that can implement custom
