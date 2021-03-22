@@ -4,7 +4,7 @@ use super::*;
 use crate::color::Color;
 use crate::layout::{BackgroundNode, BackgroundShape, Fill, FixedNode, PadNode};
 
-/// `rect`: Create a rectangle.
+/// `rect`: A rectangle with optional content.
 ///
 /// # Positional parameters
 /// - Body: optional, of type `template`.
@@ -15,7 +15,7 @@ use crate::layout::{BackgroundNode, BackgroundShape, Fill, FixedNode, PadNode};
 /// - Fill color: `fill`, of type `color`.
 ///
 /// # Return value
-/// A template that places the body into a rectangle.
+/// A template that inserts a rectangle and sets the body into it.
 pub fn rect(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = args.get(ctx, "width");
     let height = args.get(ctx, "height");
@@ -24,7 +24,7 @@ pub fn rect(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     rect_impl("rect", width, height, None, fill, body)
 }
 
-/// `square`: Create a square.
+/// `square`: A square with optional content.
 ///
 /// # Positional parameters
 /// - Body: optional, of type `template`.
@@ -40,7 +40,7 @@ pub fn rect(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// to its parent's size, which isn't possible by setting the side length.
 ///
 /// # Return value
-/// A template that places the body into a square.
+/// A template that inserts a square and sets the body into it.
 pub fn square(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let length = args.get::<Length>(ctx, "length").map(Linear::from);
     let width = length.or_else(|| args.get(ctx, "width"));
@@ -77,7 +77,7 @@ fn rect_impl(
     })
 }
 
-/// `ellipse`: Create an ellipse.
+/// `ellipse`: An ellipse with optional content.
 ///
 /// # Positional parameters
 /// - Body: optional, of type `template`.
@@ -88,7 +88,7 @@ fn rect_impl(
 /// - Fill color: `fill`, of type `color`.
 ///
 /// # Return value
-/// A template that places the body into an ellipse.
+/// A template that inserts an ellipse and sets the body into it.
 pub fn ellipse(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = args.get(ctx, "width");
     let height = args.get(ctx, "height");
@@ -97,7 +97,7 @@ pub fn ellipse(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     ellipse_impl("ellipse", width, height, None, fill, body)
 }
 
-/// `circle`: Create a circle.
+/// `circle`: A circle with optional content.
 ///
 /// # Positional parameters
 /// - Body: optional, of type `template`.
@@ -113,7 +113,7 @@ pub fn ellipse(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// to its parent's size, which isn't possible by setting the radius.
 ///
 /// # Return value
-/// A template that places the body into a circle.
+/// A template that inserts a circle and sets the body into it.
 pub fn circle(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let radius = args.get::<Length>(ctx, "radius").map(|r| 2.0 * Linear::from(r));
     let width = radius.or_else(|| args.get(ctx, "width"));

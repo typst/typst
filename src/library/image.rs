@@ -6,7 +6,7 @@ use crate::layout::{
     AnyNode, Areas, Element, Fragment, Frame, Image, Layout, LayoutContext,
 };
 
-/// `image`: Insert an image.
+/// `image`: An image.
 ///
 /// Supports PNG and JPEG files.
 ///

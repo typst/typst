@@ -3,7 +3,7 @@ use crate::pretty::pretty;
 
 use super::*;
 
-/// `type`: Get the name of a value's type.
+/// `type`: The name of a value's type.
 ///
 /// # Positional parameters
 /// - Any value.
@@ -17,7 +17,7 @@ pub fn type_(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     }
 }
 
-/// `repr`: Get the string representation of a value.
+/// `repr`: The string representation of a value.
 ///
 /// # Positional parameters
 /// - Any value.
@@ -31,7 +31,7 @@ pub fn repr(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     }
 }
 
-/// `rgb`: Construct an RGB(A) color.
+/// `rgb`: Create an RGB(A) color.
 ///
 /// # Positional parameters
 /// - Red component: of type `float`, between 0.0 and 1.0.

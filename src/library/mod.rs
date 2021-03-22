@@ -53,12 +53,12 @@ pub fn _new() -> Scope {
     }
 
     // Syntax functions.
-    func!(Node::EMPH, emph);
-    func!(Node::HEADING, heading);
-    func!(Node::STRONG, strong);
-    func!(Node::RAW, raw);
     func!(Node::LINEBREAK, linebreak);
     func!(Node::PARBREAK, parbreak);
+    func!(Node::STRONG, strong);
+    func!(Node::EMPH, emph);
+    func!(Node::HEADING, heading);
+    func!(Node::RAW, raw);
 
     // Library functions.
     func!("align", align);

@@ -14,7 +14,7 @@ use crate::layout::PadNode;
 /// - Bottom padding: `bottom`, of type `linear` relative to parent height.
 ///
 /// # Return value
-/// A template that pads the body at the sides.
+/// A template that sets the body into a padded area.
 pub fn pad(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let all = args.find(ctx);
     let left = args.get(ctx, "left");

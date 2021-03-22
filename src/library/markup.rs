@@ -28,7 +28,7 @@ pub fn parbreak(_: &mut EvalContext, _: &mut FuncArgs) -> Value {
     })
 }
 
-/// `strong`: Signify important text by setting it in bold.
+/// `strong`: Strong text.
 ///
 /// # Syntax
 /// This function has dedicated syntax.
@@ -40,7 +40,7 @@ pub fn parbreak(_: &mut EvalContext, _: &mut FuncArgs) -> Value {
 /// - Body: optional, of type `template`.
 ///
 /// # Return value
-/// A template that flips the strongness of text. The effect is scoped to the
+/// A template that flips the boldness of text. The effect is scoped to the
 /// body if present.
 pub fn strong(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let body = args.find::<TemplateValue>(ctx);
@@ -55,7 +55,7 @@ pub fn strong(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     })
 }
 
-/// `emph`: Emphasize text by setting it in italics.
+/// `emph`: Emphasized text.
 ///
 /// # Syntax
 /// This function has dedicated syntax.
@@ -67,8 +67,8 @@ pub fn strong(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// - Body: optional, of type `template`.
 ///
 /// # Return value
-/// A template that flips whether text is emphasized. The effect is scoped to
-/// the body if present.
+/// A template that flips whether text is set in italics. The effect is scoped
+/// to the body if present.
 pub fn emph(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let body = args.find::<TemplateValue>(ctx);
     Value::template(Node::EMPH, move |ctx| {
@@ -146,7 +146,7 @@ pub fn heading(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 ///   type `boolean`.
 ///
 /// # Return value
-/// A template that sets the text raw, that is, in monospace with optional
+/// A template that sets the text raw, that is, in monospace and optionally with
 /// syntax highlighting.
 pub fn raw(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let text = args.require::<String>(ctx, RawNode::TEXT).unwrap_or_default();
