@@ -31,7 +31,7 @@ use fontdock::{FontStyle, FontWeight};
 
 use crate::eval::{AnyValue, FuncValue, Scope};
 use crate::eval::{EvalContext, FuncArgs, TemplateValue, Value};
-use crate::exec::{Exec, ExecContext};
+use crate::exec::{Exec, ExecContext, FontFamily};
 use crate::geom::*;
 use crate::layout::VerticalFontMetric;
 use crate::syntax::{Node, Spanned};

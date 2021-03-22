@@ -17,9 +17,9 @@ use super::*;
 /// - Top edge of the font: `top-edge`, of type `vertical-font-metric`.
 /// - Bottom edge of the font: `bottom-edge`, of type `vertical-font-metric`.
 /// - Color the glyphs: `color`, of type `color`.
-/// - Serif family definition: `serif`, of type `font-familiy-list`.
-/// - Sans-serif family definition: `sans-serif`, of type `font-familiy-list`.
-/// - Monospace family definition: `monospace`, of type `font-familiy-list`.
+/// - Serif family definition: `serif`, of type `font-family-definition`.
+/// - Sans-serif family definition: `sans-serif`, of type `font-family-definition`.
+/// - Monospace family definition: `monospace`, of type `font-family-definition`.
 ///
 /// # Return value
 /// A template that configures font properties. The effect is scoped to the body
@@ -31,10 +31,9 @@ use super::*;
 ///   - `sans-serif`
 ///   - `monospace`
 ///   - coerces from `string`
-/// - Type `font-family-list`
+/// - Type `font-family-definition`
 ///   - coerces from `string`
 ///   - coerces from `array`
-///   - coerces from `font-family`
 /// - Type `font-style`
 ///   - `normal`
 ///   - `italic`
@@ -58,7 +57,7 @@ use super::*;
 ///   - `descender`
 pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let size = args.find::<Linear>(ctx);
-    let list: Vec<_> = args.filter::<FontFamily>(ctx).map(|f| f.to_string()).collect();
+    let list: Vec<_> = args.filter::<FontFamily>(ctx).collect();
     let style = args.get(ctx, "style");
     let weight = args.get(ctx, "weight");
     let stretch = args.get(ctx, "stretch");
@@ -83,9 +82,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         }
 
         if !list.is_empty() {
-            let families = ctx.state.font.families_mut();
-            families.list = list.clone();
-            families.flatten();
+            ctx.state.font.families_mut().list = list.clone();
         }
 
         if let Some(style) = style {
@@ -112,17 +109,16 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             ctx.state.font.color = Fill::Color(color);
         }
 
-        for (variant, arg) in &[
-            (FontFamily::Serif, &serif),
-            (FontFamily::SansSerif, &sans_serif),
-            (FontFamily::Monospace, &monospace),
-        ] {
-            if let Some(FontFamilies(list)) = arg {
-                let strings = list.into_iter().map(|f| f.to_string()).collect();
-                let families = ctx.state.font.families_mut();
-                families.update_class_list(variant.to_string(), strings);
-                families.flatten();
-            }
+        if let Some(FontFamilies(serif)) = &serif {
+            ctx.state.font.families_mut().serif = serif.clone();
+        }
+
+        if let Some(FontFamilies(sans_serif)) = &sans_serif {
+            ctx.state.font.families_mut().sans_serif = sans_serif.clone();
+        }
+
+        if let Some(FontFamilies(monospace)) = &monospace {
+            ctx.state.font.families_mut().monospace = monospace.clone();
         }
 
         if let Some(body) = &body {
@@ -132,45 +128,19 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     })
 }
 
-/// A list of font families.
+/// A list of font family names.
 #[derive(Debug, Clone, PartialEq)]
-struct FontFamilies(Vec<FontFamily>);
-
-/// A single font family.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub(super) enum FontFamily {
-    Serif,
-    SansSerif,
-    Monospace,
-    Named(String),
-}
-
-impl FontFamily {
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Serif => "serif",
-            Self::SansSerif => "sans-serif",
-            Self::Monospace => "monospace",
-            Self::Named(s) => s,
-        }
-    }
-}
-
-impl Display for FontFamily {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(self.as_str())
-    }
-}
+struct FontFamilies(Vec<String>);
 
 typify! {
-    FontFamilies: "font family or array of font families",
-    Value::Str(string) => Self(vec![FontFamily::Named(string.to_lowercase())]),
+    FontFamilies: "string or array of strings",
+    Value::Str(string) => Self(vec![string.to_lowercase()]),
     Value::Array(values) => Self(values
         .into_iter()
         .filter_map(|v| v.cast().ok())
+        .map(|string: String| string.to_lowercase())
         .collect()
     ),
-    #(family: FontFamily) => Self(vec![family]),
 }
 
 typify! {

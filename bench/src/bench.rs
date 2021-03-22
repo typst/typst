@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use fontdock::fs::FsIndex;
+use fontdock::FsIndex;
 
 use typst::env::{Env, FsIndexExt, ResourceLoader};
 use typst::eval::eval;

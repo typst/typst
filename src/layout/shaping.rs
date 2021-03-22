@@ -6,10 +6,11 @@
 
 use std::fmt::{self, Debug, Display, Formatter};
 
-use fontdock::{FaceId, FaceQuery, FallbackTree, FontVariant};
+use fontdock::{FaceId, FontVariant};
 use ttf_parser::{Face, GlyphId};
 
 use crate::env::FontLoader;
+use crate::exec::FamilyMap;
 use crate::geom::{Dir, Length, Point, Size};
 use crate::layout::{Element, Fill, Frame};
 
@@ -40,7 +41,7 @@ impl Shaped {
             glyphs: vec![],
             offsets: vec![],
             font_size,
-            color: color,
+            color,
         }
     }
 
@@ -98,7 +99,7 @@ impl Display for VerticalFontMetric {
 pub fn shape(
     text: &str,
     dir: Dir,
-    fallback: &FallbackTree,
+    families: &FamilyMap,
     variant: FontVariant,
     font_size: Length,
     top_edge: VerticalFontMetric,
@@ -122,31 +123,33 @@ pub fn shape(
     };
 
     for c in chars {
-        let query = FaceQuery { fallback: fallback.iter(), variant, c };
-        if let Some(id) = loader.query(query) {
-            let face = loader.face(id).get();
-            let (glyph, glyph_width) = match lookup_glyph(face, c) {
-                Some(v) => v,
-                None => continue,
-            };
+        for family in families.iter() {
+            if let Some(id) = loader.query(family, variant) {
+                let face = loader.face(id).get();
+                let (glyph, glyph_width) = match lookup_glyph(face, c) {
+                    Some(v) => v,
+                    None => continue,
+                };
 
-            let units_per_em = f64::from(face.units_per_em().unwrap_or(1000));
-            let convert = |units| units / units_per_em * font_size;
+                let units_per_em = f64::from(face.units_per_em().unwrap_or(1000));
+                let convert = |units| units / units_per_em * font_size;
 
-            // Flush the buffer and reset the metrics if we use a new font face.
-            if shaped.face != id {
-                place(&mut frame, shaped, width, top, bottom);
+                // Flush the buffer and reset the metrics if we use a new font face.
+                if shaped.face != id {
+                    place(&mut frame, shaped, width, top, bottom);
 
-                shaped = Shaped::new(id, font_size, color);
-                width = Length::ZERO;
-                top = convert(f64::from(lookup_metric(face, top_edge)));
-                bottom = convert(f64::from(lookup_metric(face, bottom_edge)));
+                    shaped = Shaped::new(id, font_size, color);
+                    width = Length::ZERO;
+                    top = convert(f64::from(lookup_metric(face, top_edge)));
+                    bottom = convert(f64::from(lookup_metric(face, bottom_edge)));
+                }
+
+                shaped.text.push(c);
+                shaped.glyphs.push(glyph);
+                shaped.offsets.push(width);
+                width += convert(f64::from(glyph_width));
+                break;
             }
-
-            shaped.text.push(c);
-            shaped.glyphs.push(glyph);
-            shaped.offsets.push(width);
-            width += convert(f64::from(glyph_width));
         }
     }
 

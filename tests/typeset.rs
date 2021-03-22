@@ -5,7 +5,7 @@ use std::fs;
 use std::path::Path;
 use std::rc::Rc;
 
-use fontdock::fs::FsIndex;
+use fontdock::FsIndex;
 use image::{GenericImageView, Rgba};
 use tiny_skia::{
     Canvas, Color, ColorU8, FillRule, FilterQuality, Paint, Pattern, Pixmap, Rect,

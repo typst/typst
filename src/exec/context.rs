@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use fontdock::FontStyle;
 
-use super::{Exec, State};
+use super::{Exec, FontFamily, State};
 use crate::diag::{Diag, DiagSet, Pass};
 use crate::env::Env;
 use crate::eval::TemplateValue;
@@ -74,8 +74,7 @@ impl<'a> ExecContext<'a> {
     /// Set the font to monospace.
     pub fn set_monospace(&mut self) {
         let families = self.state.font.families_mut();
-        families.list.insert(0, "monospace".to_string());
-        families.flatten();
+        families.list.insert(0, FontFamily::Monospace);
     }
 
     /// Push a layout node into the active paragraph.

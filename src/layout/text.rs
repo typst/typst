@@ -1,9 +1,10 @@
 use std::fmt::{self, Debug, Formatter};
 use std::rc::Rc;
 
-use fontdock::{FallbackTree, FontVariant};
+use fontdock::FontVariant;
 
 use super::*;
+use crate::exec::FamilyMap;
 
 /// A consecutive, styled run of text.
 #[derive(Clone, PartialEq)]
@@ -14,8 +15,8 @@ pub struct TextNode {
     pub dir: Dir,
     /// How to align this text node in its parent.
     pub aligns: LayoutAligns,
-    /// The families used for font fallback.
-    pub families: Rc<FallbackTree>,
+    /// The list of font families for shaping.
+    pub families: Rc<FamilyMap>,
     /// The font variant,
     pub variant: FontVariant,
     /// The font size.

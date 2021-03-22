@@ -1,6 +1,7 @@
+use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
 
-use fontdock::{fallback, FallbackTree, FontStretch, FontStyle, FontVariant, FontWeight};
+use fontdock::{FontStretch, FontStyle, FontVariant, FontWeight};
 
 use crate::color::{Color, RgbaColor};
 use crate::geom::*;
@@ -98,8 +99,8 @@ impl Default for ParState {
 /// Defines font properties.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FontState {
-    /// A tree of font family names and generic class names.
-    pub families: Rc<FallbackTree>,
+    /// A list of font families with generic class definitions.
+    pub families: Rc<FamilyMap>,
     /// The selected font variant.
     pub variant: FontVariant,
     /// The font size.
@@ -122,7 +123,7 @@ pub struct FontState {
 
 impl FontState {
     /// Access the `families` mutably.
-    pub fn families_mut(&mut self) -> &mut FallbackTree {
+    pub fn families_mut(&mut self) -> &mut FamilyMap {
         Rc::make_mut(&mut self.families)
     }
 
@@ -135,12 +136,7 @@ impl FontState {
 impl Default for FontState {
     fn default() -> Self {
         Self {
-            // The default tree of font fallbacks.
-            families: Rc::new(fallback! {
-                list: [],
-                classes: { "monospace"  => ["inconsolata"] },
-                base: ["eb garamond", "twitter color emoji"],
-            }),
+            families: Rc::new(FamilyMap::default()),
             variant: FontVariant {
                 style: FontStyle::Normal,
                 weight: FontWeight::REGULAR,
@@ -154,5 +150,70 @@ impl Default for FontState {
             emph: false,
             color: Fill::Color(Color::Rgba(RgbaColor::BLACK)),
         }
+    }
+}
+
+/// Font family definitions.
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub struct FamilyMap {
+    /// The user-defined list of font families.
+    pub list: Vec<FontFamily>,
+    /// Definition of serif font families.
+    pub serif: Vec<String>,
+    /// Definition of sans-serif font families.
+    pub sans_serif: Vec<String>,
+    /// Definition of monospace font families used for raw text.
+    pub monospace: Vec<String>,
+    /// Base fonts that are tried if the list has no match.
+    pub base: Vec<String>,
+}
+
+impl FamilyMap {
+    /// Flat iterator over this map's family names.
+    pub fn iter(&self) -> impl Iterator<Item = &str> {
+        self.list
+            .iter()
+            .flat_map(move |family: &FontFamily| {
+                match family {
+                    FontFamily::Named(name) => std::slice::from_ref(name),
+                    FontFamily::Serif => &self.serif,
+                    FontFamily::SansSerif => &self.sans_serif,
+                    FontFamily::Monospace => &self.monospace,
+                }
+            })
+            .chain(&self.base)
+            .map(String::as_str)
+    }
+}
+
+impl Default for FamilyMap {
+    fn default() -> Self {
+        Self {
+            list: vec![FontFamily::Serif],
+            serif: vec!["eb garamond".into()],
+            sans_serif: vec![/* TODO */],
+            monospace: vec!["inconsolata".into()],
+            base: vec!["twitter color emoji".into()],
+        }
+    }
+}
+
+/// A generic or named font family.
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum FontFamily {
+    Serif,
+    SansSerif,
+    Monospace,
+    Named(String),
+}
+
+impl Display for FontFamily {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(match self {
+            Self::Serif => "serif",
+            Self::SansSerif => "sans-serif",
+            Self::Monospace => "monospace",
+            Self::Named(s) => s,
+        })
     }
 }

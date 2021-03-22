@@ -7,13 +7,13 @@ use std::fs;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
-use fontdock::{ContainsChar, FaceFromVec, FaceId, FontSource};
+use fontdock::{FaceFromVec, FaceId, FontSource};
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageFormat};
 use ttf_parser::Face;
 
 #[cfg(feature = "fs")]
-use fontdock::fs::{FsIndex, FsSource};
+use fontdock::{FsIndex, FsSource};
 
 /// Encapsulates all environment dependencies (fonts, resources).
 #[derive(Debug)]
@@ -80,12 +80,6 @@ impl FaceFromVec for FaceBuf {
             data,
             face: Face::from_slice(slice, i).ok()?,
         })
-    }
-}
-
-impl ContainsChar for FaceBuf {
-    fn contains_char(&self, c: char) -> bool {
-        self.get().glyph_index(c).is_some()
     }
 }
 

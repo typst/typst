@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context};
-use fontdock::fs::FsIndex;
+use fontdock::FsIndex;
 
 use typst::diag::Pass;
 use typst::env::{Env, FsIndexExt, ResourceLoader};
