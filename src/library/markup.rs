@@ -116,9 +116,9 @@ pub fn heading(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         ctx.state.font.strong = true;
 
         body.exec(ctx);
-        ctx.push_parbreak();
-
         ctx.state = snapshot;
+
+        ctx.push_parbreak();
     })
 }
 
@@ -154,19 +154,17 @@ pub fn raw(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let block = args.get(ctx, RawNode::BLOCK).unwrap_or(false);
 
     Value::template(Node::RAW, move |ctx| {
-        let snapshot = ctx.state.clone();
-
         if block {
             ctx.push_parbreak();
         }
 
+        let snapshot = ctx.state.clone();
         ctx.set_monospace();
         ctx.push_text(&text);
+        ctx.state = snapshot;
 
         if block {
             ctx.push_parbreak();
         }
-
-        ctx.state = snapshot;
     })
 }

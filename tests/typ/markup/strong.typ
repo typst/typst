@@ -18,5 +18,6 @@ Partly str*ength*ened.
 *, *!
 
 #let strong = 123
+
 // Error: 1-2 expected function, found integer
 *
