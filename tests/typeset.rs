@@ -8,8 +8,8 @@ use std::rc::Rc;
 use fontdock::FsIndex;
 use image::{GenericImageView, Rgba};
 use tiny_skia::{
-    Canvas, Color, ColorU8, FillRule, FilterQuality, Paint, Pattern, Pixmap, Rect,
-    SpreadMode, Transform,
+    Color, ColorU8, FillRule, FilterQuality, Paint, Pattern, Pixmap, Rect, SpreadMode,
+    Transform,
 };
 use ttf_parser::OutlineBuilder;
 use walkdir::WalkDir;
@@ -178,10 +178,10 @@ fn test(
 
         let canvas = draw(&env, &frames, 2.0);
         fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
-        canvas.pixmap.save_png(png_path).unwrap();
+        canvas.save_png(png_path).unwrap();
 
         if let Ok(ref_pixmap) = Pixmap::load_png(ref_path) {
-            if canvas.pixmap != ref_pixmap {
+            if canvas != ref_pixmap {
                 println!("  Does not match reference image. ❌");
                 ok = false;
             }
@@ -348,7 +348,7 @@ fn print_diag(diag: &Diag, map: &LineMap, lines: u32) {
     println!("{}: {}-{}: {}", diag.level, start, end, diag.message);
 }
 
-fn draw(env: &Env, frames: &[Frame], pixel_per_pt: f32) -> Canvas {
+fn draw(env: &Env, frames: &[Frame], pixel_per_pt: f32) -> Pixmap {
     let pad = Length::pt(5.0);
 
     let height = pad + frames.iter().map(|l| l.size.height + pad).sum::<Length>();
@@ -368,15 +368,14 @@ fn draw(env: &Env, frames: &[Frame], pixel_per_pt: f32) -> Canvas {
         );
     }
 
-    let mut canvas = Canvas::new(pixel_width, pixel_height).unwrap();
-    canvas.scale(pixel_per_pt, pixel_per_pt);
-    canvas.pixmap.fill(Color::BLACK);
+    let mut canvas = Pixmap::new(pixel_width, pixel_height).unwrap();
+    let ts = Transform::from_scale(pixel_per_pt, pixel_per_pt);
+    canvas.fill(Color::BLACK);
 
     let mut origin = Point::new(pad, pad);
     for frame in frames {
         let mut paint = Paint::default();
         paint.set_color(Color::WHITE);
-
         canvas.fill_rect(
             Rect::from_xywh(
                 origin.x.to_pt() as f32,
@@ -386,19 +385,21 @@ fn draw(env: &Env, frames: &[Frame], pixel_per_pt: f32) -> Canvas {
             )
             .unwrap(),
             &paint,
+            ts,
+            None,
         );
 
         for &(pos, ref element) in &frame.elements {
             let pos = origin + pos;
             match element {
                 Element::Text(shaped) => {
-                    draw_text(env, &mut canvas, pos, shaped);
+                    draw_text(&mut canvas, env, ts, pos, shaped);
                 }
                 Element::Image(image) => {
-                    draw_image(env, &mut canvas, pos, image);
+                    draw_image(&mut canvas, env, ts, pos, image);
                 }
                 Element::Geometry(geom) => {
-                    draw_geometry(env, &mut canvas, pos, geom);
+                    draw_geometry(&mut canvas, ts, pos, geom);
                 }
             }
         }
@@ -409,7 +410,7 @@ fn draw(env: &Env, frames: &[Frame], pixel_per_pt: f32) -> Canvas {
     canvas
 }
 
-fn draw_text(env: &Env, canvas: &mut Canvas, pos: Point, shaped: &Shaped) {
+fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, pos: Point, shaped: &Shaped) {
     let face = env.fonts.face(shaped.face).get();
 
     for (&glyph, &offset) in shaped.glyphs.iter().zip(&shaped.offsets) {
@@ -418,24 +419,20 @@ fn draw_text(env: &Env, canvas: &mut Canvas, pos: Point, shaped: &Shaped) {
         let x = (pos.x + offset).to_pt() as f32;
         let y = pos.y.to_pt() as f32;
         let scale = (shaped.font_size / units_per_em as f64).to_pt() as f32;
+        let ts = Transform::from_row(scale, 0.0, 0.0, -scale, x, y).post_concat(ts);
 
         let mut builder = WrappedPathBuilder::default();
         face.outline_glyph(glyph, &mut builder);
 
         if let Some(path) = builder.0.finish() {
-            let placed = path
-                .transform(&Transform::from_row(scale, 0.0, 0.0, -scale, x, y).unwrap())
-                .unwrap();
-
             let mut paint = convert_fill(shaped.color);
             paint.anti_alias = true;
-
-            canvas.fill_path(&placed, &paint, FillRule::default());
+            canvas.fill_path(&path, &paint, FillRule::default(), ts, None);
         }
     }
 }
 
-fn draw_geometry(_: &Env, canvas: &mut Canvas, pos: Point, element: &Geometry) {
+fn draw_geometry(canvas: &mut Pixmap, ts: Transform, pos: Point, element: &Geometry) {
     let x = pos.x.to_pt() as f32;
     let y = pos.y.to_pt() as f32;
 
@@ -447,20 +444,26 @@ fn draw_geometry(_: &Env, canvas: &mut Canvas, pos: Point, element: &Geometry) {
             let w = width.to_pt() as f32;
             let h = height.to_pt() as f32;
             let rect = Rect::from_xywh(x, y, w, h).unwrap();
-            canvas.fill_rect(rect, &paint);
+            canvas.fill_rect(rect, &paint, ts, None);
         }
         Shape::Ellipse(size) => {
             let path = convert_path(x, y, &geom::ellipse_path(size));
-            canvas.fill_path(&path, &paint, rule);
+            canvas.fill_path(&path, &paint, rule, ts, None);
         }
         Shape::Path(ref path) => {
             let path = convert_path(x, y, path);
-            canvas.fill_path(&path, &paint, rule);
+            canvas.fill_path(&path, &paint, rule, ts, None);
         }
     };
 }
 
-fn draw_image(env: &Env, canvas: &mut Canvas, pos: Point, element: &Image) {
+fn draw_image(
+    canvas: &mut Pixmap,
+    env: &Env,
+    ts: Transform,
+    pos: Point,
+    element: &Image,
+) {
     let img = &env.resources.loaded::<ImageResource>(element.res);
 
     let mut pixmap = Pixmap::new(img.buf.width(), img.buf.height()).unwrap();
@@ -469,27 +472,24 @@ fn draw_image(env: &Env, canvas: &mut Canvas, pos: Point, element: &Image) {
         *dest = ColorU8::from_rgba(r, g, b, a).premultiply();
     }
 
-    let view_width = element.size.width.to_pt() as f32;
-    let view_height = element.size.height.to_pt() as f32;
-
     let x = pos.x.to_pt() as f32;
     let y = pos.y.to_pt() as f32;
+    let view_width = element.size.width.to_pt() as f32;
+    let view_height = element.size.height.to_pt() as f32;
     let scale_x = view_width as f32 / pixmap.width() as f32;
     let scale_y = view_height as f32 / pixmap.height() as f32;
 
     let mut paint = Paint::default();
     paint.shader = Pattern::new(
-        &pixmap,
+        pixmap.as_ref(),
         SpreadMode::Pad,
         FilterQuality::Bilinear,
         1.0,
-        Transform::from_row(scale_x, 0.0, 0.0, scale_y, x, y).unwrap(),
+        Transform::from_row(scale_x, 0.0, 0.0, scale_y, x, y),
     );
 
-    canvas.fill_rect(
-        Rect::from_xywh(x, y, view_width, view_height).unwrap(),
-        &paint,
-    );
+    let rect = Rect::from_xywh(x, y, view_width, view_height).unwrap();
+    canvas.fill_rect(rect, &paint, ts, None);
 }
 
 fn convert_fill(fill: Fill) -> Paint<'static> {
