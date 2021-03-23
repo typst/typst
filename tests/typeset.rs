@@ -419,13 +419,41 @@ fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, pos: Point, shaped: 
         let x = (pos.x + offset).to_pt() as f32;
         let y = pos.y.to_pt() as f32;
         let scale = (shaped.font_size / units_per_em as f64).to_pt() as f32;
-        let ts = Transform::from_row(scale, 0.0, 0.0, -scale, x, y).post_concat(ts);
 
-        let mut builder = WrappedPathBuilder::default();
-        face.outline_glyph(glyph, &mut builder);
+        // Try drawing SVG if present.
+        if let Some(tree) = face
+            .glyph_svg_image(glyph)
+            .and_then(|data| std::str::from_utf8(data).ok())
+            .map(|svg| {
+                let viewbox = format!("viewBox=\"0 0 {0} {0}\" xmlns", units_per_em);
+                svg.replace("xmlns", &viewbox)
+            })
+            .and_then(|s| usvg::Tree::from_str(&s, &usvg::Options::default()).ok())
+        {
+            for child in tree.root().children() {
+                if let usvg::NodeKind::Path(node) = &*child.borrow() {
+                    let path = convert_usvg_path(&node.data);
+                    let transform = convert_usvg_transform(node.transform);
+                    let ts = transform
+                        .post_concat(Transform::from_row(scale, 0.0, 0.0, scale, x, y))
+                        .post_concat(ts);
 
-        if let Some(path) = builder.0.finish() {
-            let mut paint = convert_fill(shaped.color);
+                    if let Some(fill) = &node.fill {
+                        let (paint, fill_rule) = convert_usvg_fill(fill);
+                        canvas.fill_path(&path, &paint, fill_rule, ts, None);
+                    }
+                }
+            }
+
+            continue;
+        }
+
+        // Otherwise, draw normal outline.
+        let mut builder = WrappedPathBuilder(tiny_skia::PathBuilder::new());
+        if face.outline_glyph(glyph, &mut builder).is_some() {
+            let path = builder.0.finish().unwrap();
+            let ts = Transform::from_row(scale, 0.0, 0.0, -scale, x, y).post_concat(ts);
+            let mut paint = convert_typst_fill(shaped.color);
             paint.anti_alias = true;
             canvas.fill_path(&path, &paint, FillRule::default(), ts, None);
         }
@@ -435,23 +463,24 @@ fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, pos: Point, shaped: 
 fn draw_geometry(canvas: &mut Pixmap, ts: Transform, pos: Point, element: &Geometry) {
     let x = pos.x.to_pt() as f32;
     let y = pos.y.to_pt() as f32;
+    let ts = Transform::from_translate(x, y).post_concat(ts);
 
-    let paint = convert_fill(element.fill);
+    let paint = convert_typst_fill(element.fill);
     let rule = FillRule::default();
 
     match element.shape {
         Shape::Rect(Size { width, height }) => {
             let w = width.to_pt() as f32;
             let h = height.to_pt() as f32;
-            let rect = Rect::from_xywh(x, y, w, h).unwrap();
+            let rect = Rect::from_xywh(0.0, 0.0, w, h).unwrap();
             canvas.fill_rect(rect, &paint, ts, None);
         }
         Shape::Ellipse(size) => {
-            let path = convert_path(x, y, &geom::ellipse_path(size));
+            let path = convert_typst_path(&geom::ellipse_path(size));
             canvas.fill_path(&path, &paint, rule, ts, None);
         }
         Shape::Path(ref path) => {
-            let path = convert_path(x, y, path);
+            let path = convert_typst_path(path);
             canvas.fill_path(&path, &paint, rule, ts, None);
         }
     };
@@ -492,7 +521,7 @@ fn draw_image(
     canvas.fill_rect(rect, &paint, ts, None);
 }
 
-fn convert_fill(fill: Fill) -> Paint<'static> {
+fn convert_typst_fill(fill: Fill) -> Paint<'static> {
     let mut paint = Paint::default();
     match fill {
         Fill::Color(c) => match c {
@@ -503,28 +532,68 @@ fn convert_fill(fill: Fill) -> Paint<'static> {
     paint
 }
 
-fn convert_path(x: f32, y: f32, path: &geom::Path) -> tiny_skia::Path {
+fn convert_typst_path(path: &geom::Path) -> tiny_skia::Path {
     let f = |length: Length| length.to_pt() as f32;
     let mut builder = tiny_skia::PathBuilder::new();
     for elem in &path.0 {
         match elem {
-            geom::PathElement::MoveTo(p) => builder.move_to(x + f(p.x), y + f(p.y)),
-            geom::PathElement::LineTo(p) => builder.line_to(x + f(p.x), y + f(p.y)),
-            geom::PathElement::CubicTo(p1, p2, p3) => builder.cubic_to(
-                x + f(p1.x),
-                y + f(p1.y),
-                x + f(p2.x),
-                y + f(p2.y),
-                x + f(p3.x),
-                y + f(p3.y),
-            ),
+            geom::PathElement::MoveTo(p) => builder.move_to(f(p.x), f(p.y)),
+            geom::PathElement::LineTo(p) => builder.line_to(f(p.x), f(p.y)),
+            geom::PathElement::CubicTo(p1, p2, p3) => {
+                builder.cubic_to(f(p1.x), f(p1.y), f(p2.x), f(p2.y), f(p3.x), f(p3.y))
+            }
             geom::PathElement::ClosePath => builder.close(),
         };
     }
     builder.finish().unwrap()
 }
 
-#[derive(Default)]
+fn convert_usvg_fill(fill: &usvg::Fill) -> (Paint<'static>, FillRule) {
+    let mut paint = Paint::default();
+    paint.anti_alias = true;
+
+    match fill.paint {
+        usvg::Paint::Color(color) => paint.set_color_rgba8(
+            color.red,
+            color.green,
+            color.blue,
+            fill.opacity.to_u8(),
+        ),
+        usvg::Paint::Link(_) => {}
+    }
+
+    let rule = match fill.rule {
+        usvg::FillRule::NonZero => FillRule::Winding,
+        usvg::FillRule::EvenOdd => FillRule::EvenOdd,
+    };
+
+    (paint, rule)
+}
+
+fn convert_usvg_path(path: &usvg::PathData) -> tiny_skia::Path {
+    let f = |v: f64| v as f32;
+    let mut builder = tiny_skia::PathBuilder::new();
+    for seg in path.iter() {
+        match *seg {
+            usvg::PathSegment::MoveTo { x, y } => builder.move_to(f(x), f(y)),
+            usvg::PathSegment::LineTo { x, y } => {
+                builder.line_to(f(x), f(y));
+            }
+            usvg::PathSegment::CurveTo { x1, y1, x2, y2, x, y } => {
+                builder.cubic_to(f(x1), f(y1), f(x2), f(y2), f(x), f(y))
+            }
+            usvg::PathSegment::ClosePath => builder.close(),
+        }
+    }
+    builder.finish().unwrap()
+}
+
+fn convert_usvg_transform(transform: usvg::Transform) -> Transform {
+    let g = |v: f64| v as f32;
+    let usvg::Transform { a, b, c, d, e, f } = transform;
+    Transform::from_row(g(a), g(b), g(c), g(d), g(e), g(f))
+}
+
 struct WrappedPathBuilder(tiny_skia::PathBuilder);
 
 impl OutlineBuilder for WrappedPathBuilder {

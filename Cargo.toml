@@ -32,8 +32,9 @@ anyhow = { version = "1", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
-tiny-skia = "0.5"
 walkdir = "2"
+tiny-skia = "0.5"
+usvg = { version = "0.14", default-features = false }
 
 [[bin]]
 name = "typst"
