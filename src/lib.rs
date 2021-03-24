@@ -17,8 +17,7 @@
 //!   typeset document. The output of this is a collection of [`Frame`]s (one
 //!   per page), ready for exporting.
 //! - **Exporting:** The finished layout can be exported into a supported
-//!   format. Submodules for these formats are located in the [export] module.
-//!   Currently, the only supported output format is [_PDF_].
+//!   format. Currently, the only supported output format is [PDF].
 //!
 //! [tokens]: parse::Tokens
 //! [parsed]: parse::parse
@@ -27,7 +26,7 @@
 //! [execute]: exec::exec
 //! [layout tree]: layout::Tree
 //! [layouted]: layout::layout
-//! [_PDF_]: export::pdf
+//! [PDF]: pdf
 
 #[macro_use]
 pub mod diag;
@@ -36,13 +35,13 @@ pub mod eval;
 pub mod color;
 pub mod env;
 pub mod exec;
-pub mod export;
 pub mod font;
 pub mod geom;
 pub mod layout;
 pub mod library;
 pub mod paper;
 pub mod parse;
+pub mod pdf;
 pub mod pretty;
 pub mod syntax;
 
@@ -52,7 +51,7 @@ use crate::eval::Scope;
 use crate::exec::State;
 use crate::layout::Frame;
 
-/// Process _Typst_ source code directly into a collection of frames.
+/// Process source code directly into a collection of frames.
 pub fn typeset(
     env: &mut Env,
     src: &str,

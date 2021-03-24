@@ -5,12 +5,12 @@ use ttf_parser::GlyphId;
 use super::{Element, Frame, ShapedText};
 use crate::env::FontLoader;
 use crate::exec::FontProps;
-use crate::geom::{Length, Point, Size};
+use crate::geom::{Point, Size};
 
-/// Shape text into a frame containing shaped [`ShapedText`] runs.
+/// Shape text into a frame containing [`ShapedText`] runs.
 pub fn shape(text: &str, loader: &mut FontLoader, props: &FontProps) -> Frame {
-    let mut frame = Frame::new(Size::new(Length::ZERO, Length::ZERO));
-    shape_segment(&mut frame, text, props.families.iter(), None, loader, props);
+    let mut frame = Frame::new(Size::ZERO);
+    shape_segment(&mut frame, text, loader, props, props.families.iter(), None);
     frame
 }
 
@@ -18,10 +18,10 @@ pub fn shape(text: &str, loader: &mut FontLoader, props: &FontProps) -> Frame {
 fn shape_segment<'a>(
     frame: &mut Frame,
     text: &str,
-    mut families: impl Iterator<Item = &'a str> + Clone,
-    mut first: Option<FaceId>,
     loader: &mut FontLoader,
     props: &FontProps,
+    mut families: impl Iterator<Item = &'a str> + Clone,
+    mut first: Option<FaceId>,
 ) {
     // Select the font family.
     let (id, fallback) = loop {
@@ -41,12 +41,12 @@ fn shape_segment<'a>(
     };
 
     // Register that this is the first available font.
-    let face = loader.face(id);
     if first.is_none() {
         first = Some(id);
     }
 
     // Find out some metrics and prepare the shaped text container.
+    let face = loader.face(id);
     let ttf = face.ttf();
     let units_per_em = f64::from(ttf.units_per_em().unwrap_or(1000));
     let convert = |units| f64::from(units) / units_per_em * props.size;
@@ -104,7 +104,7 @@ fn shape_segment<'a>(
             let range = start .. end + offset;
 
             // Recursively shape the tofu sequence with the next family.
-            shape_segment(frame, &text[range], families.clone(), first, loader, props);
+            shape_segment(frame, &text[range], loader, props, families.clone(), first);
         } else {
             // Add the glyph to the shaped output.
             // TODO: Don't ignore y_advance and y_offset.

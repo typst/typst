@@ -7,6 +7,7 @@ use fontdock::FaceFromVec;
 /// An owned font face.
 pub struct FaceBuf {
     data: Box<[u8]>,
+    index: u32,
     ttf: ttf_parser::Face<'static>,
     buzz: rustybuzz::Face<'static>,
 }
@@ -15,6 +16,11 @@ impl FaceBuf {
     /// The raw face data.
     pub fn data(&self) -> &[u8] {
         &self.data
+    }
+
+    /// The collection index.
+    pub fn index(&self) -> u32 {
+        self.index
     }
 
     /// Get a reference to the underlying ttf-parser face.
@@ -33,7 +39,7 @@ impl FaceBuf {
 }
 
 impl FaceFromVec for FaceBuf {
-    fn from_vec(vec: Vec<u8>, i: u32) -> Option<Self> {
+    fn from_vec(vec: Vec<u8>, index: u32) -> Option<Self> {
         let data = vec.into_boxed_slice();
 
         // SAFETY: The slices's location is stable in memory since we don't
@@ -43,8 +49,9 @@ impl FaceFromVec for FaceBuf {
 
         Some(Self {
             data,
-            ttf: ttf_parser::Face::from_slice(slice, i).ok()?,
-            buzz: rustybuzz::Face::from_slice(slice, i)?,
+            index,
+            ttf: ttf_parser::Face::from_slice(slice, index).ok()?,
+            buzz: rustybuzz::Face::from_slice(slice, index)?,
         })
     }
 }

@@ -1,4 +1,4 @@
-//! Exporting into _PDF_ documents.
+//! Exporting into PDF documents.
 
 use std::cmp::Eq;
 use std::collections::HashMap;
@@ -18,13 +18,13 @@ use crate::env::{Env, ImageResource, ResourceId};
 use crate::geom::{self, Length, Size};
 use crate::layout::{Element, Fill, Frame, Image, Shape};
 
-/// Export a collection of frames into a _PDF_ document.
+/// Export a collection of frames into a PDF document.
 ///
 /// This creates one page per frame. In addition to the frames, you need to pass
 /// in the environment used for typesetting such that things like fonts and
-/// images can be included in the _PDF_.
+/// images can be included in the PDF.
 ///
-/// Returns the raw bytes making up the _PDF_ document.
+/// Returns the raw bytes making up the PDF document.
 pub fn export(env: &Env, frames: &[Frame]) -> Vec<u8> {
     PdfExporter::new(env, frames).write()
 }

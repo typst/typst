@@ -4,10 +4,10 @@ use fontdock::FsIndex;
 use typst::env::{Env, FsIndexExt, ResourceLoader};
 use typst::eval::eval;
 use typst::exec::{exec, State};
-use typst::export::pdf;
 use typst::layout::layout;
 use typst::library;
 use typst::parse::parse;
+use typst::pdf;
 use typst::typeset;
 
 const FONT_DIR: &str = "../fonts";

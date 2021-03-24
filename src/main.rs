@@ -7,9 +7,9 @@ use fontdock::FsIndex;
 use typst::diag::Pass;
 use typst::env::{Env, FsIndexExt, ResourceLoader};
 use typst::exec::State;
-use typst::export::pdf;
 use typst::library;
 use typst::parse::LineMap;
+use typst::pdf;
 use typst::typeset;
 
 fn main() -> anyhow::Result<()> {
