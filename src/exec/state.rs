@@ -4,8 +4,9 @@ use std::rc::Rc;
 use fontdock::{FontStretch, FontStyle, FontVariant, FontWeight};
 
 use crate::color::{Color, RgbaColor};
+use crate::font::VerticalFontMetric;
 use crate::geom::*;
-use crate::layout::{Fill, VerticalFontMetric};
+use crate::layout::Fill;
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
 /// The evaluation state.
@@ -100,7 +101,7 @@ impl Default for ParState {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FontState {
     /// A list of font families with generic class definitions.
-    pub families: Rc<FamilyMap>,
+    pub families: Rc<FamilyList>,
     /// The selected font variant.
     pub variant: FontVariant,
     /// The font size.
@@ -111,32 +112,58 @@ pub struct FontState {
     pub top_edge: VerticalFontMetric,
     /// The bottom end of the text bounding box.
     pub bottom_edge: VerticalFontMetric,
+    /// The glyph fill color / texture.
+    pub color: Fill,
     /// Whether the strong toggle is active or inactive. This determines
     /// whether the next `*` adds or removes font weight.
     pub strong: bool,
     /// Whether the emphasis toggle is active or inactive. This determines
     /// whether the next `_` makes italic or non-italic.
     pub emph: bool,
-    /// The glyph fill color / texture.
-    pub color: Fill,
 }
 
 impl FontState {
-    /// Access the `families` mutably.
-    pub fn families_mut(&mut self) -> &mut FamilyMap {
-        Rc::make_mut(&mut self.families)
+    /// The resolved font size.
+    pub fn resolve_size(&self) -> Length {
+        self.scale.resolve(self.size)
     }
 
-    /// The absolute font size.
-    pub fn font_size(&self) -> Length {
-        self.scale.resolve(self.size)
+    /// Resolve font properties.
+    pub fn resolve_props(&self) -> FontProps {
+        let mut variant = self.variant;
+
+        if self.strong {
+            variant.weight = variant.weight.thicken(300);
+        }
+
+        if self.emph {
+            variant.style = match variant.style {
+                FontStyle::Normal => FontStyle::Italic,
+                FontStyle::Italic => FontStyle::Normal,
+                FontStyle::Oblique => FontStyle::Normal,
+            }
+        }
+
+        FontProps {
+            families: Rc::clone(&self.families),
+            variant,
+            size: self.resolve_size(),
+            top_edge: self.top_edge,
+            bottom_edge: self.bottom_edge,
+            color: self.color,
+        }
+    }
+
+    /// Access the `families` mutably.
+    pub fn families_mut(&mut self) -> &mut FamilyList {
+        Rc::make_mut(&mut self.families)
     }
 }
 
 impl Default for FontState {
     fn default() -> Self {
         Self {
-            families: Rc::new(FamilyMap::default()),
+            families: Rc::new(FamilyList::default()),
             variant: FontVariant {
                 style: FontStyle::Normal,
                 weight: FontWeight::REGULAR,
@@ -146,16 +173,33 @@ impl Default for FontState {
             top_edge: VerticalFontMetric::CapHeight,
             bottom_edge: VerticalFontMetric::Baseline,
             scale: Linear::ONE,
+            color: Fill::Color(Color::Rgba(RgbaColor::BLACK)),
             strong: false,
             emph: false,
-            color: Fill::Color(Color::Rgba(RgbaColor::BLACK)),
         }
     }
 }
 
+/// Properties used for font selection and layout.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FontProps {
+    /// The list of font families to use for shaping.
+    pub families: Rc<FamilyList>,
+    /// Which variant of the font to use.
+    pub variant: FontVariant,
+    /// The font size.
+    pub size: Length,
+    /// What line to consider the top edge of text.
+    pub top_edge: VerticalFontMetric,
+    /// What line to consider the bottom edge of text.
+    pub bottom_edge: VerticalFontMetric,
+    /// The color of the text.
+    pub color: Fill,
+}
+
 /// Font family definitions.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub struct FamilyMap {
+pub struct FamilyList {
     /// The user-defined list of font families.
     pub list: Vec<FontFamily>,
     /// Definition of serif font families.
@@ -168,9 +212,9 @@ pub struct FamilyMap {
     pub base: Vec<String>,
 }
 
-impl FamilyMap {
+impl FamilyList {
     /// Flat iterator over this map's family names.
-    pub fn iter(&self) -> impl Iterator<Item = &str> {
+    pub fn iter(&self) -> impl Iterator<Item = &str> + Clone {
         self.list
             .iter()
             .flat_map(move |family: &FontFamily| {
@@ -186,7 +230,7 @@ impl FamilyMap {
     }
 }
 
-impl Default for FamilyMap {
+impl Default for FamilyList {
     fn default() -> Self {
         Self {
             list: vec![FontFamily::Serif],

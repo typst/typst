@@ -27,7 +27,7 @@ fn spacing_impl(ctx: &mut EvalContext, args: &mut FuncArgs, axis: SpecAxis) -> V
     let spacing: Option<Linear> = args.require(ctx, "spacing");
     Value::template("spacing", move |ctx| {
         if let Some(linear) = spacing {
-            let amount = linear.resolve(ctx.state.font.font_size());
+            let amount = linear.resolve(ctx.state.font.resolve_size());
             let spacing = SpacingNode { amount, softness: 0 };
             if axis == ctx.state.dirs.main.axis() {
                 ctx.push_into_stack(spacing);

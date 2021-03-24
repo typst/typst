@@ -187,14 +187,15 @@ impl<'a> PdfExporter<'a> {
 
                     // Then, also check if we need to issue a font switching
                     // action.
-                    if shaped.face != face || shaped.font_size != size {
+                    if shaped.face != face || shaped.size != size {
                         face = shaped.face;
-                        size = shaped.font_size;
+                        size = shaped.size;
 
                         let name = format!("F{}", self.fonts.map(shaped.face));
                         text.font(Name(name.as_bytes()), size.to_pt() as f32);
                     }
 
+                    // TODO: Respect individual glyph offsets.
                     text.matrix(1.0, 0.0, 0.0, 1.0, x, y);
                     text.show(&shaped.encode_glyphs_be());
                 }
@@ -206,10 +207,10 @@ impl<'a> PdfExporter<'a> {
 
     fn write_fonts(&mut self) {
         for (refs, face_id) in self.refs.fonts().zip(self.fonts.layout_indices()) {
-            let owned_face = self.env.fonts.face(face_id);
-            let face = owned_face.get();
+            let face = self.env.fonts.face(face_id);
+            let ttf = face.ttf();
 
-            let name = face
+            let name = ttf
                 .names()
                 .find(|entry| {
                     entry.name_id() == name_id::POST_SCRIPT_NAME && entry.is_unicode()
@@ -228,18 +229,18 @@ impl<'a> PdfExporter<'a> {
 
             let mut flags = FontFlags::empty();
             flags.set(FontFlags::SERIF, name.contains("Serif"));
-            flags.set(FontFlags::FIXED_PITCH, face.is_monospaced());
-            flags.set(FontFlags::ITALIC, face.is_italic());
+            flags.set(FontFlags::FIXED_PITCH, ttf.is_monospaced());
+            flags.set(FontFlags::ITALIC, ttf.is_italic());
             flags.insert(FontFlags::SYMBOLIC);
             flags.insert(FontFlags::SMALL_CAP);
 
             // Convert from OpenType font units to PDF glyph units.
-            let em_per_unit = 1.0 / face.units_per_em().unwrap_or(1000) as f32;
+            let em_per_unit = 1.0 / ttf.units_per_em().unwrap_or(1000) as f32;
             let convert = |font_unit: f32| (1000.0 * em_per_unit * font_unit).round();
             let convert_i16 = |font_unit: i16| convert(font_unit as f32);
             let convert_u16 = |font_unit: u16| convert(font_unit as f32);
 
-            let global_bbox = face.global_bounding_box();
+            let global_bbox = ttf.global_bounding_box();
             let bbox = Rect::new(
                 convert_i16(global_bbox.x_min),
                 convert_i16(global_bbox.y_min),
@@ -247,11 +248,11 @@ impl<'a> PdfExporter<'a> {
                 convert_i16(global_bbox.y_max),
             );
 
-            let italic_angle = face.italic_angle().unwrap_or(0.0);
-            let ascender = convert_i16(face.typographic_ascender().unwrap_or(0));
-            let descender = convert_i16(face.typographic_descender().unwrap_or(0));
-            let cap_height = face.capital_height().map(convert_i16);
-            let stem_v = 10.0 + 0.244 * (f32::from(face.weight().to_number()) - 50.0);
+            let italic_angle = ttf.italic_angle().unwrap_or(0.0);
+            let ascender = convert_i16(ttf.typographic_ascender().unwrap_or(0));
+            let descender = convert_i16(ttf.typographic_descender().unwrap_or(0));
+            let cap_height = ttf.capital_height().map(convert_i16);
+            let stem_v = 10.0 + 0.244 * (f32::from(ttf.weight().to_number()) - 50.0);
 
             // Write the base font object referencing the CID font.
             self.writer
@@ -269,9 +270,9 @@ impl<'a> PdfExporter<'a> {
                 .font_descriptor(refs.font_descriptor)
                 .widths()
                 .individual(0, {
-                    let num_glyphs = face.number_of_glyphs();
+                    let num_glyphs = ttf.number_of_glyphs();
                     (0 .. num_glyphs).map(|g| {
-                        let advance = face.glyph_hor_advance(GlyphId(g));
+                        let advance = ttf.glyph_hor_advance(GlyphId(g));
                         convert_u16(advance.unwrap_or(0))
                     })
                 });
@@ -294,10 +295,10 @@ impl<'a> PdfExporter<'a> {
             self.writer
                 .cmap(refs.cmap, &{
                     let mut cmap = UnicodeCmap::new(cmap_name, system_info);
-                    for subtable in face.character_mapping_subtables() {
+                    for subtable in ttf.character_mapping_subtables() {
                         subtable.codepoints(|n| {
                             if let Some(c) = std::char::from_u32(n) {
-                                if let Some(g) = face.glyph_index(c) {
+                                if let Some(g) = ttf.glyph_index(c) {
                                     cmap.pair(g.0, c);
                                 }
                             }
@@ -309,7 +310,7 @@ impl<'a> PdfExporter<'a> {
                 .system_info(system_info);
 
             // Write the face's bytes.
-            self.writer.stream(refs.data, owned_face.data());
+            self.writer.stream(refs.data, face.data());
         }
     }
 

@@ -1,7 +1,4 @@
 use std::mem;
-use std::rc::Rc;
-
-use fontdock::FontStyle;
 
 use super::{Exec, FontFamily, State};
 use crate::diag::{Diag, DiagSet, Pass};
@@ -87,7 +84,7 @@ impl<'a> ExecContext<'a> {
 
     /// Push a word space into the active paragraph.
     pub fn push_space(&mut self) {
-        let em = self.state.font.font_size();
+        let em = self.state.font.resolve_size();
         self.push(SpacingNode {
             amount: self.state.par.word_spacing.resolve(em),
             softness: 1,
@@ -103,19 +100,19 @@ impl<'a> ExecContext<'a> {
 
         while let Some(c) = scanner.eat_merging_crlf() {
             if is_newline(c) {
-                self.push(self.make_text_node(mem::take(&mut line)));
+                self.push(TextNode::new(mem::take(&mut line), &self.state));
                 self.push_linebreak();
             } else {
                 line.push(c);
             }
         }
 
-        self.push(self.make_text_node(line));
+        self.push(TextNode::new(line, &self.state));
     }
 
     /// Apply a forced line break.
     pub fn push_linebreak(&mut self) {
-        let em = self.state.font.font_size();
+        let em = self.state.font.resolve_size();
         self.push_into_stack(SpacingNode {
             amount: self.state.par.leading.resolve(em),
             softness: 2,
@@ -124,7 +121,7 @@ impl<'a> ExecContext<'a> {
 
     /// Apply a forced paragraph break.
     pub fn push_parbreak(&mut self) {
-        let em = self.state.font.font_size();
+        let em = self.state.font.resolve_size();
         self.push_into_stack(SpacingNode {
             amount: self.state.par.spacing.resolve(em),
             softness: 1,
@@ -152,36 +149,6 @@ impl<'a> ExecContext<'a> {
         self.par = par;
 
         result
-    }
-
-    /// Construct a text node from the given string based on the active text
-    /// state.
-    pub fn make_text_node(&self, text: String) -> TextNode {
-        let mut variant = self.state.font.variant;
-
-        if self.state.font.strong {
-            variant.weight = variant.weight.thicken(300);
-        }
-
-        if self.state.font.emph {
-            variant.style = match variant.style {
-                FontStyle::Normal => FontStyle::Italic,
-                FontStyle::Italic => FontStyle::Normal,
-                FontStyle::Oblique => FontStyle::Normal,
-            }
-        }
-
-        TextNode {
-            text,
-            dir: self.state.dirs.cross,
-            aligns: self.state.aligns,
-            families: Rc::clone(&self.state.font.families),
-            variant,
-            font_size: self.state.font.font_size(),
-            top_edge: self.state.font.top_edge,
-            bottom_edge: self.state.font.bottom_edge,
-            color: self.state.font.color,
-        }
     }
 
     /// Finish the active paragraph.
@@ -292,12 +259,23 @@ impl StackNode {
 
 impl ParNode {
     fn new(state: &State) -> Self {
-        let em = state.font.font_size();
+        let em = state.font.resolve_size();
         Self {
             dirs: state.dirs,
             aligns: state.aligns,
             line_spacing: state.par.leading.resolve(em),
             children: vec![],
+        }
+    }
+}
+
+impl TextNode {
+    fn new(text: String, state: &State) -> Self {
+        Self {
+            text,
+            dir: state.dirs.cross,
+            aligns: state.aligns,
+            props: state.font.resolve_props(),
         }
     }
 }

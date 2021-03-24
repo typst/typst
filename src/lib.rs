@@ -37,6 +37,7 @@ pub mod color;
 pub mod env;
 pub mod exec;
 pub mod export;
+pub mod font;
 pub mod geom;
 pub mod layout;
 pub mod library;

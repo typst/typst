@@ -21,7 +21,7 @@ use typst::eval::{EvalContext, FuncArgs, FuncValue, Scope, Value};
 use typst::exec::State;
 use typst::export::pdf;
 use typst::geom::{self, Length, Point, Sides, Size};
-use typst::layout::{Element, Fill, Frame, Geometry, Image, Shape, Shaped};
+use typst::layout::{Element, Fill, Frame, Geometry, Image, Shape, ShapedText};
 use typst::library;
 use typst::parse::{LineMap, Scanner};
 use typst::pretty::pretty;
@@ -391,15 +391,18 @@ fn draw(env: &Env, frames: &[Frame], pixel_per_pt: f32) -> Pixmap {
 
         for &(pos, ref element) in &frame.elements {
             let pos = origin + pos;
+            let x = pos.x.to_pt() as f32;
+            let y = pos.y.to_pt() as f32;
+            let ts = ts.pre_translate(x, y);
             match element {
                 Element::Text(shaped) => {
-                    draw_text(&mut canvas, env, ts, pos, shaped);
+                    draw_text(&mut canvas, env, ts, shaped);
                 }
                 Element::Image(image) => {
-                    draw_image(&mut canvas, env, ts, pos, image);
+                    draw_image(&mut canvas, env, ts, image);
                 }
                 Element::Geometry(geom) => {
-                    draw_geometry(&mut canvas, ts, pos, geom);
+                    draw_geometry(&mut canvas, ts, geom);
                 }
             }
         }
@@ -410,18 +413,18 @@ fn draw(env: &Env, frames: &[Frame], pixel_per_pt: f32) -> Pixmap {
     canvas
 }
 
-fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, pos: Point, shaped: &Shaped) {
-    let face = env.fonts.face(shaped.face).get();
+fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, shaped: &ShapedText) {
+    let ttf = env.fonts.face(shaped.face).ttf();
 
     for (&glyph, &offset) in shaped.glyphs.iter().zip(&shaped.offsets) {
-        let units_per_em = face.units_per_em().unwrap_or(1000);
+        let units_per_em = ttf.units_per_em().unwrap_or(1000);
 
-        let x = (pos.x + offset).to_pt() as f32;
-        let y = pos.y.to_pt() as f32;
-        let scale = (shaped.font_size / units_per_em as f64).to_pt() as f32;
+        let x = offset.to_pt() as f32;
+        let s = (shaped.size / units_per_em as f64).to_pt() as f32;
+        let ts = ts.pre_translate(x, 0.0);
 
         // Try drawing SVG if present.
-        if let Some(tree) = face
+        if let Some(tree) = ttf
             .glyph_svg_image(glyph)
             .and_then(|data| std::str::from_utf8(data).ok())
             .map(|svg| {
@@ -433,11 +436,9 @@ fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, pos: Point, shaped: 
             for child in tree.root().children() {
                 if let usvg::NodeKind::Path(node) = &*child.borrow() {
                     let path = convert_usvg_path(&node.data);
-                    let transform = convert_usvg_transform(node.transform);
-                    let ts = transform
-                        .post_concat(Transform::from_row(scale, 0.0, 0.0, scale, x, y))
+                    let ts = convert_usvg_transform(node.transform)
+                        .post_scale(s, s)
                         .post_concat(ts);
-
                     if let Some(fill) = &node.fill {
                         let (paint, fill_rule) = convert_usvg_fill(fill);
                         canvas.fill_path(&path, &paint, fill_rule, ts, None);
@@ -450,9 +451,9 @@ fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, pos: Point, shaped: 
 
         // Otherwise, draw normal outline.
         let mut builder = WrappedPathBuilder(tiny_skia::PathBuilder::new());
-        if face.outline_glyph(glyph, &mut builder).is_some() {
+        if ttf.outline_glyph(glyph, &mut builder).is_some() {
             let path = builder.0.finish().unwrap();
-            let ts = Transform::from_row(scale, 0.0, 0.0, -scale, x, y).post_concat(ts);
+            let ts = ts.pre_scale(s, -s);
             let mut paint = convert_typst_fill(shaped.color);
             paint.anti_alias = true;
             canvas.fill_path(&path, &paint, FillRule::default(), ts, None);
@@ -460,11 +461,7 @@ fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, pos: Point, shaped: 
     }
 }
 
-fn draw_geometry(canvas: &mut Pixmap, ts: Transform, pos: Point, element: &Geometry) {
-    let x = pos.x.to_pt() as f32;
-    let y = pos.y.to_pt() as f32;
-    let ts = Transform::from_translate(x, y).post_concat(ts);
-
+fn draw_geometry(canvas: &mut Pixmap, ts: Transform, element: &Geometry) {
     let paint = convert_typst_fill(element.fill);
     let rule = FillRule::default();
 
@@ -486,13 +483,7 @@ fn draw_geometry(canvas: &mut Pixmap, ts: Transform, pos: Point, element: &Geome
     };
 }
 
-fn draw_image(
-    canvas: &mut Pixmap,
-    env: &Env,
-    ts: Transform,
-    pos: Point,
-    element: &Image,
-) {
+fn draw_image(canvas: &mut Pixmap, env: &Env, ts: Transform, element: &Image) {
     let img = &env.resources.loaded::<ImageResource>(element.res);
 
     let mut pixmap = Pixmap::new(img.buf.width(), img.buf.height()).unwrap();
@@ -501,8 +492,6 @@ fn draw_image(
         *dest = ColorU8::from_rgba(r, g, b, a).premultiply();
     }
 
-    let x = pos.x.to_pt() as f32;
-    let y = pos.y.to_pt() as f32;
     let view_width = element.size.width.to_pt() as f32;
     let view_height = element.size.height.to_pt() as f32;
     let scale_x = view_width as f32 / pixmap.width() as f32;
@@ -514,10 +503,10 @@ fn draw_image(
         SpreadMode::Pad,
         FilterQuality::Bilinear,
         1.0,
-        Transform::from_row(scale_x, 0.0, 0.0, scale_y, x, y),
+        Transform::from_row(scale_x, 0.0, 0.0, scale_y, 0.0, 0.0),
     );
 
-    let rect = Rect::from_xywh(x, y, view_width, view_height).unwrap();
+    let rect = Rect::from_xywh(0.0, 0.0, view_width, view_height).unwrap();
     canvas.fill_rect(rect, &paint, ts, None);
 }
 
