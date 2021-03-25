@@ -6,19 +6,17 @@ pub struct PadNode {
     /// The amount of padding.
     pub padding: Sides<Linear>,
     /// The child node whose sides to pad.
-    pub child: Node,
+    pub child: AnyNode,
 }
 
 impl Layout for PadNode {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
         let areas = shrink(areas, self.padding);
-
-        let mut fragment = self.child.layout(ctx, &areas);
-        for frame in fragment.frames_mut() {
+        let mut frames = self.child.layout(ctx, &areas);
+        for frame in &mut frames {
             pad(frame, self.padding);
         }
-
-        fragment
+        frames
     }
 }
 

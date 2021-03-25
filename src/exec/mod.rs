@@ -65,7 +65,7 @@ impl ExecWithMap for Node {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &NodeMap) {
         match self {
             Node::Text(text) => ctx.push_text(text),
-            Node::Space => ctx.push_space(),
+            Node::Space => ctx.push_word_space(),
             _ => map[&(self as *const _)].exec(ctx),
         }
     }

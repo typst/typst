@@ -16,10 +16,3 @@ Relative #h(100%) spacing
 // Missing spacing.
 // Error: 12 missing argument: spacing
 Totally #h() ignored
-
-// Swapped axes.
-#page(main-dir: rtl, cross-dir: ttb, height: 80pt)[
-    1 #h(1cm) 2
-
-    3 #v(1cm) 4 #v(-1cm) 5
-]

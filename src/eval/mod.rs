@@ -39,7 +39,6 @@ pub fn eval(env: &mut Env, tree: &Tree, scope: &Scope) -> Pass<NodeMap> {
 pub type NodeMap = HashMap<*const Node, Value>;
 
 /// The context for evaluation.
-#[derive(Debug)]
 pub struct EvalContext<'a> {
     /// The environment from which resources are gathered.
     pub env: &'a mut Env,

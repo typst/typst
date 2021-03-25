@@ -31,9 +31,7 @@ pub fn pad(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     );
 
     Value::template("pad", move |ctx| {
-        let snapshot = ctx.state.clone();
-        let child = ctx.exec(&body).into();
-        ctx.push(PadNode { padding, child });
-        ctx.state = snapshot;
+        let child = ctx.exec_group(&body).into();
+        ctx.push_into_par(PadNode { padding, child });
     })
 }

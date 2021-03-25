@@ -1,8 +1,5 @@
 use super::*;
 
-/// The directions along which layouts are placed in their parent.
-pub type LayoutDirs = Gen<Dir>;
-
 /// The four directions into which content can be laid out.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Dir {

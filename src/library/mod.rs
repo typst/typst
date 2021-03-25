@@ -7,6 +7,7 @@ mod align;
 mod base;
 mod font;
 mod image;
+mod lang;
 mod markup;
 mod pad;
 mod page;
@@ -18,6 +19,7 @@ pub use self::image::*;
 pub use align::*;
 pub use base::*;
 pub use font::*;
+pub use lang::*;
 pub use markup::*;
 pub use pad::*;
 pub use page::*;
@@ -31,7 +33,7 @@ use fontdock::{FontStyle, FontWeight};
 
 use crate::eval::{AnyValue, FuncValue, Scope};
 use crate::eval::{EvalContext, FuncArgs, TemplateValue, Value};
-use crate::exec::{Exec, ExecContext, FontFamily};
+use crate::exec::{Exec, FontFamily};
 use crate::font::VerticalFontMetric;
 use crate::geom::*;
 use crate::syntax::{Node, Spanned};
@@ -67,6 +69,7 @@ pub fn _new() -> Scope {
     func!("font", font);
     func!("h", h);
     func!("image", image);
+    func!("lang", lang);
     func!("pad", pad);
     func!("page", page);
     func!("pagebreak", pagebreak);
@@ -79,8 +82,10 @@ pub fn _new() -> Scope {
     func!("v", v);
 
     // Constants.
-    constant!("left", AlignValue::Left);
+    constant!("start", AlignValue::Start);
     constant!("center", AlignValue::Center);
+    constant!("end", AlignValue::End);
+    constant!("left", AlignValue::Left);
     constant!("right", AlignValue::Right);
     constant!("top", AlignValue::Top);
     constant!("bottom", AlignValue::Bottom);

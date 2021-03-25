@@ -3,24 +3,21 @@
 mod background;
 mod fixed;
 mod frame;
-mod node;
 mod pad;
 mod par;
 mod shaping;
-mod spacing;
 mod stack;
-mod text;
 
 pub use background::*;
 pub use fixed::*;
 pub use frame::*;
-pub use node::*;
 pub use pad::*;
 pub use par::*;
 pub use shaping::*;
-pub use spacing::*;
 pub use stack::*;
-pub use text::*;
+
+use std::any::Any;
+use std::fmt::{self, Debug, Formatter};
 
 use crate::env::Env;
 use crate::geom::*;
@@ -51,25 +48,88 @@ pub struct PageRun {
     pub size: Size,
     /// The layout node that produces the actual pages (typically a
     /// [`StackNode`]).
-    pub child: Node,
+    pub child: AnyNode,
 }
 
 impl PageRun {
     /// Layout the page run.
     pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Frame> {
         let areas = Areas::repeat(self.size, Spec::uniform(Expand::Fill));
-        self.child.layout(ctx, &areas).into_frames()
+        self.child.layout(ctx, &areas)
+    }
+}
+
+/// A wrapper around a dynamic layouting node.
+pub struct AnyNode(Box<dyn Bounds>);
+
+impl AnyNode {
+    /// Create a new instance from any node that satisifies the required bounds.
+    pub fn new<T>(any: T) -> Self
+    where
+        T: Layout + Debug + Clone + PartialEq + 'static,
+    {
+        Self(Box::new(any))
+    }
+}
+
+impl Layout for AnyNode {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
+        self.0.layout(ctx, areas)
+    }
+}
+
+impl Clone for AnyNode {
+    fn clone(&self) -> Self {
+        Self(self.0.dyn_clone())
+    }
+}
+
+impl PartialEq for AnyNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.dyn_eq(other.0.as_ref())
+    }
+}
+
+impl Debug for AnyNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+trait Bounds: Layout + Debug + 'static {
+    fn as_any(&self) -> &dyn Any;
+    fn dyn_eq(&self, other: &dyn Bounds) -> bool;
+    fn dyn_clone(&self) -> Box<dyn Bounds>;
+}
+
+impl<T> Bounds for T
+where
+    T: Layout + Debug + PartialEq + Clone + 'static,
+{
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn dyn_eq(&self, other: &dyn Bounds) -> bool {
+        if let Some(other) = other.as_any().downcast_ref::<Self>() {
+            self == other
+        } else {
+            false
+        }
+    }
+
+    fn dyn_clone(&self) -> Box<dyn Bounds> {
+        Box::new(self.clone())
     }
 }
 
 /// Layout a node.
 pub trait Layout {
     /// Layout the node into the given areas.
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment;
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame>;
 }
 
 /// The context for layouting.
-#[derive(Debug)]
 pub struct LayoutContext<'a> {
     /// The environment from which fonts are gathered.
     pub env: &'a mut Env,
@@ -180,47 +240,6 @@ impl Expand {
         match self {
             Self::Fill if fill.is_finite() => fill,
             _ => fit,
-        }
-    }
-}
-
-/// The result of layouting a node.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Fragment {
-    /// Spacing that should be added to the parent.
-    Spacing(Length),
-    /// A layout that should be added to and aligned in the parent.
-    Frame(Frame, LayoutAligns),
-    /// Multiple layouts.
-    Frames(Vec<Frame>, LayoutAligns),
-}
-
-impl Fragment {
-    /// Return a reference to all frames contained in this variant (zero, one or
-    /// arbitrarily many).
-    pub fn frames(&self) -> &[Frame] {
-        match self {
-            Self::Spacing(_) => &[],
-            Self::Frame(frame, _) => std::slice::from_ref(frame),
-            Self::Frames(frames, _) => frames,
-        }
-    }
-
-    /// Return a mutable reference to all frames contained in this variant.
-    pub fn frames_mut(&mut self) -> &mut [Frame] {
-        match self {
-            Self::Spacing(_) => &mut [],
-            Self::Frame(frame, _) => std::slice::from_mut(frame),
-            Self::Frames(frames, _) => frames,
-        }
-    }
-
-    /// Return all frames contained in this varian.
-    pub fn into_frames(self) -> Vec<Frame> {
-        match self {
-            Self::Spacing(_) => vec![],
-            Self::Frame(frame, _) => vec![frame],
-            Self::Frames(frames, _) => frames,
         }
     }
 }

@@ -8,7 +8,7 @@ pub struct BackgroundNode {
     /// The background fill.
     pub fill: Fill,
     /// The child node to be filled.
-    pub child: Node,
+    pub child: AnyNode,
 }
 
 /// The kind of shape to use as a background.
@@ -19,10 +19,10 @@ pub enum BackgroundShape {
 }
 
 impl Layout for BackgroundNode {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
-        let mut fragment = self.child.layout(ctx, areas);
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
+        let mut frames = self.child.layout(ctx, areas);
 
-        for frame in fragment.frames_mut() {
+        for frame in &mut frames {
             let (point, shape) = match self.shape {
                 BackgroundShape::Rect => (Point::ZERO, Shape::Rect(frame.size)),
                 BackgroundShape::Ellipse => {
@@ -34,7 +34,7 @@ impl Layout for BackgroundNode {
             frame.elements.insert(0, (point, element));
         }
 
-        fragment
+        frames
     }
 }
 

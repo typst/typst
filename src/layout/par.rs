@@ -1,38 +1,63 @@
+use std::fmt::{self, Debug, Formatter};
+
 use super::*;
+use crate::exec::FontProps;
 
 /// A node that arranges its children into a paragraph.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParNode {
-    /// The `main` and `cross` directions of this paragraph.
-    ///
-    /// The children are placed in lines along the `cross` direction. The lines
-    /// are stacked along the `main` direction.
-    pub dirs: LayoutDirs,
-    /// How to align this paragraph in its parent.
-    pub aligns: LayoutAligns,
-    /// The spacing to insert after each line.
+    /// The inline direction of this paragraph.
+    pub dir: Dir,
+    /// The spacing to insert between each line.
     pub line_spacing: Length,
     /// The nodes to be arranged in a paragraph.
-    pub children: Vec<Node>,
+    pub children: Vec<ParChild>,
+}
+
+/// A child of a paragraph node.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParChild {
+    /// Spacing between other nodes.
+    Spacing(Length),
+    /// A run of text and how to align it in its line.
+    Text(TextNode, Align),
+    /// Any child node and how to align it in its line.
+    Any(AnyNode, Align),
+}
+
+/// A consecutive, styled run of text.
+#[derive(Clone, PartialEq)]
+pub struct TextNode {
+    /// The text.
+    pub text: String,
+    /// Properties used for font selection and layout.
+    pub props: FontProps,
+}
+
+impl Debug for TextNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Text({})", self.text)
+    }
 }
 
 impl Layout for ParNode {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
-        let mut layouter = ParLayouter::new(self.dirs, self.line_spacing, areas.clone());
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
+        let mut layouter = ParLayouter::new(self.dir, self.line_spacing, areas.clone());
         for child in &self.children {
-            match child.layout(ctx, &layouter.areas) {
-                Fragment::Spacing(spacing) => layouter.push_spacing(spacing),
-                Fragment::Frame(frame, aligns) => {
-                    layouter.push_frame(frame, aligns.cross)
+            match *child {
+                ParChild::Spacing(amount) => layouter.push_spacing(amount),
+                ParChild::Text(ref node, align) => {
+                    let frame = shape(&node.text, &mut ctx.env.fonts, &node.props);
+                    layouter.push_frame(frame, align);
                 }
-                Fragment::Frames(frames, aligns) => {
-                    for frame in frames {
-                        layouter.push_frame(frame, aligns.cross);
+                ParChild::Any(ref node, align) => {
+                    for frame in node.layout(ctx, &layouter.areas) {
+                        layouter.push_frame(frame, align);
                     }
                 }
             }
         }
-        Fragment::Frames(layouter.finish(), self.aligns)
+        layouter.finish()
     }
 }
 
@@ -43,30 +68,30 @@ impl From<ParNode> for AnyNode {
 }
 
 struct ParLayouter {
+    dirs: Gen<Dir>,
     main: SpecAxis,
     cross: SpecAxis,
-    dirs: LayoutDirs,
     line_spacing: Length,
     areas: Areas,
     finished: Vec<Frame>,
-    lines: Vec<(Length, Frame, Align)>,
-    lines_size: Gen<Length>,
+    stack: Vec<(Length, Frame, Align)>,
+    stack_size: Gen<Length>,
     line: Vec<(Length, Frame, Align)>,
     line_size: Gen<Length>,
     line_ruler: Align,
 }
 
 impl ParLayouter {
-    fn new(dirs: LayoutDirs, line_spacing: Length, areas: Areas) -> Self {
+    fn new(dir: Dir, line_spacing: Length, areas: Areas) -> Self {
         Self {
-            main: dirs.main.axis(),
-            cross: dirs.cross.axis(),
-            dirs,
+            dirs: Gen::new(Dir::TTB, dir),
+            main: SpecAxis::Vertical,
+            cross: SpecAxis::Horizontal,
             line_spacing,
             areas,
             finished: vec![],
-            lines: vec![],
-            lines_size: Gen::ZERO,
+            stack: vec![],
+            stack_size: Gen::ZERO,
             line: vec![],
             line_size: Gen::ZERO,
             line_ruler: Align::Start,
@@ -122,12 +147,10 @@ impl ParLayouter {
             }
         }
 
-        let size = frame.size.switch(self.dirs);
-
         // A line can contain frames with different alignments. They exact
         // positions are calculated later depending on the alignments.
+        let size = frame.size.switch(self.main);
         self.line.push((self.line_size.cross, frame, align));
-
         self.line_size.cross += size.cross;
         self.line_size.main = self.line_size.main.max(size.main);
         self.line_ruler = align;
@@ -135,15 +158,15 @@ impl ParLayouter {
 
     fn finish_line(&mut self) {
         let full_size = {
-            let expand = self.areas.expand.switch(self.dirs);
-            let full = self.areas.full.switch(self.dirs);
+            let expand = self.areas.expand.get(self.cross);
+            let full = self.areas.full.get(self.cross);
             Gen::new(
                 self.line_size.main,
-                expand.cross.resolve(self.line_size.cross, full.cross),
+                expand.resolve(self.line_size.cross, full),
             )
         };
 
-        let mut output = Frame::new(full_size.switch(self.dirs).to_size());
+        let mut output = Frame::new(full_size.switch(self.main).to_size());
 
         for (before, frame, align) in std::mem::take(&mut self.line) {
             let child_cross_size = frame.size.get(self.cross);
@@ -158,49 +181,47 @@ impl ParLayouter {
                 full_size.cross - before_with_self .. after
             });
 
-            let pos = Gen::new(Length::ZERO, cross).switch(self.dirs).to_point();
+            let pos = Gen::new(Length::ZERO, cross).switch(self.main).to_point();
             output.push_frame(pos, frame);
         }
 
         // Add line spacing, but only between lines.
-        if !self.lines.is_empty() {
-            self.lines_size.main += self.line_spacing;
+        if !self.stack.is_empty() {
+            self.stack_size.main += self.line_spacing;
             *self.areas.current.get_mut(self.main) -= self.line_spacing;
         }
 
-        // Update metrics of the whole paragraph.
-        self.lines.push((self.lines_size.main, output, self.line_ruler));
-        self.lines_size.main += full_size.main;
-        self.lines_size.cross = self.lines_size.cross.max(full_size.cross);
+        // Update metrics of paragraph and reset for line.
+        self.stack.push((self.stack_size.main, output, self.line_ruler));
+        self.stack_size.main += full_size.main;
+        self.stack_size.cross = self.stack_size.cross.max(full_size.cross);
         *self.areas.current.get_mut(self.main) -= full_size.main;
-
-        // Reset metrics for the single line.
         self.line_size = Gen::ZERO;
         self.line_ruler = Align::Start;
     }
 
     fn finish_area(&mut self) {
-        let size = self.lines_size;
-        let mut output = Frame::new(size.switch(self.dirs).to_size());
+        let full_size = self.stack_size;
+        let mut output = Frame::new(full_size.switch(self.main).to_size());
 
-        for (before, line, cross_align) in std::mem::take(&mut self.lines) {
-            let child_size = line.size.switch(self.dirs);
+        for (before, line, cross_align) in std::mem::take(&mut self.stack) {
+            let child_size = line.size.switch(self.main);
 
             // Position along the main axis.
             let main = if self.dirs.main.is_positive() {
                 before
             } else {
-                size.main - (before + child_size.main)
+                full_size.main - (before + child_size.main)
             };
 
             // Align along the cross axis.
             let cross = cross_align.resolve(if self.dirs.cross.is_positive() {
-                Length::ZERO .. size.cross - child_size.cross
+                Length::ZERO .. full_size.cross - child_size.cross
             } else {
-                size.cross - child_size.cross .. Length::ZERO
+                full_size.cross - child_size.cross .. Length::ZERO
             });
 
-            let pos = Gen::new(main, cross).switch(self.dirs).to_point();
+            let pos = Gen::new(main, cross).switch(self.main).to_point();
             output.push_frame(pos, line);
         }
 
@@ -208,7 +229,7 @@ impl ParLayouter {
         self.areas.next();
 
         // Reset metrics for the whole paragraph.
-        self.lines_size = Gen::ZERO;
+        self.stack_size = Gen::ZERO;
     }
 
     fn finish(mut self) -> Vec<Frame> {

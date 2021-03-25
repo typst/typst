@@ -53,7 +53,6 @@ pub trait Switch {
     /// The type of the other version.
     type Other;
 
-    /// The other version of this type based on the current layouting
-    /// directions.
-    fn switch(self, dirs: LayoutDirs) -> Self::Other;
+    /// The other version of this type based on the current main axis.
+    fn switch(self, main: SpecAxis) -> Self::Other;
 }

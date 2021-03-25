@@ -12,27 +12,40 @@ use crate::paper::{Paper, PaperClass, PAPER_A4};
 /// The evaluation state.
 #[derive(Debug, Clone, PartialEq)]
 pub struct State {
-    /// The current directions along which layouts are placed in their parents.
-    pub dirs: LayoutDirs,
-    /// The current alignments of layouts in their parents.
-    pub aligns: LayoutAligns,
+    /// The current language-related settings.
+    pub lang: LangState,
     /// The current page settings.
     pub page: PageState,
     /// The current paragraph settings.
     pub par: ParState,
     /// The current font settings.
     pub font: FontState,
+    /// The current alignments of layouts in their parents.
+    pub aligns: Gen<Align>,
 }
 
 impl Default for State {
     fn default() -> Self {
         Self {
-            dirs: LayoutDirs::new(Dir::TTB, Dir::LTR),
-            aligns: LayoutAligns::new(Align::Start, Align::Start),
+            lang: LangState::default(),
             page: PageState::default(),
             par: ParState::default(),
             font: FontState::default(),
+            aligns: Gen::new(Align::Start, Align::Start),
         }
+    }
+}
+
+/// Defines language properties.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct LangState {
+    /// The direction for text and other inline objects.
+    pub dir: Dir,
+}
+
+impl Default for LangState {
+    fn default() -> Self {
+        Self { dir: Dir::LTR }
     }
 }
 

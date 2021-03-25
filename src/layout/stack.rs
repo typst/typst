@@ -7,28 +7,34 @@ pub struct StackNode {
     ///
     /// The children are stacked along the `main` direction. The `cross`
     /// direction is required for aligning the children.
-    pub dirs: LayoutDirs,
-    /// How to align this stack in its parent.
-    pub aligns: LayoutAligns,
+    pub dirs: Gen<Dir>,
     /// The nodes to be stacked.
-    pub children: Vec<Node>,
+    pub children: Vec<StackChild>,
+}
+
+/// A child of a stack node.
+#[derive(Debug, Clone, PartialEq)]
+pub enum StackChild {
+    /// Spacing between other nodes.
+    Spacing(Length),
+    /// Any child node and how to align it in the stack.
+    Any(AnyNode, Gen<Align>),
 }
 
 impl Layout for StackNode {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
         let mut layouter = StackLayouter::new(self.dirs, areas.clone());
         for child in &self.children {
-            match child.layout(ctx, &layouter.areas) {
-                Fragment::Spacing(spacing) => layouter.push_spacing(spacing),
-                Fragment::Frame(frame, aligns) => layouter.push_frame(frame, aligns),
-                Fragment::Frames(frames, aligns) => {
-                    for frame in frames {
+            match *child {
+                StackChild::Spacing(amount) => layouter.push_spacing(amount),
+                StackChild::Any(ref node, aligns) => {
+                    for frame in node.layout(ctx, &layouter.areas) {
                         layouter.push_frame(frame, aligns);
                     }
                 }
             }
         }
-        Fragment::Frames(layouter.finish(), self.aligns)
+        layouter.finish()
     }
 }
 
@@ -39,24 +45,24 @@ impl From<StackNode> for AnyNode {
 }
 
 struct StackLayouter {
+    dirs: Gen<Dir>,
     main: SpecAxis,
-    dirs: LayoutDirs,
     areas: Areas,
     finished: Vec<Frame>,
-    frames: Vec<(Length, Frame, LayoutAligns)>,
-    used: Gen<Length>,
+    frames: Vec<(Length, Frame, Gen<Align>)>,
+    size: Gen<Length>,
     ruler: Align,
 }
 
 impl StackLayouter {
-    fn new(dirs: LayoutDirs, areas: Areas) -> Self {
+    fn new(dirs: Gen<Dir>, areas: Areas) -> Self {
         Self {
-            main: dirs.main.axis(),
             dirs,
+            main: dirs.main.axis(),
             areas,
             finished: vec![],
             frames: vec![],
-            used: Gen::ZERO,
+            size: Gen::ZERO,
             ruler: Align::Start,
         }
     }
@@ -65,10 +71,10 @@ impl StackLayouter {
         let main_rest = self.areas.current.get_mut(self.main);
         let capped = amount.min(*main_rest);
         *main_rest -= capped;
-        self.used.main += capped;
+        self.size.main += capped;
     }
 
-    fn push_frame(&mut self, frame: Frame, aligns: LayoutAligns) {
+    fn push_frame(&mut self, frame: Frame, aligns: Gen<Align>) {
         if self.ruler > aligns.main {
             self.finish_area();
         }
@@ -82,21 +88,18 @@ impl StackLayouter {
             }
         }
 
-        let size = frame.size.switch(self.dirs);
-        self.frames.push((self.used.main, frame, aligns));
-
-        *self.areas.current.get_mut(self.main) -= size.main;
-        self.used.main += size.main;
-        self.used.cross = self.used.cross.max(size.cross);
+        let size = frame.size.switch(self.main);
+        self.frames.push((self.size.main, frame, aligns));
         self.ruler = aligns.main;
+        self.size.main += size.main;
+        self.size.cross = self.size.cross.max(size.cross);
+        *self.areas.current.get_mut(self.main) -= size.main;
     }
 
     fn finish_area(&mut self) {
         let full_size = {
-            let expand = self.areas.expand;
-            let full = self.areas.full;
-            let current = self.areas.current;
-            let used = self.used.switch(self.dirs).to_size();
+            let Areas { current, full, expand, .. } = self.areas;
+            let used = self.size.switch(self.main).to_size();
 
             let mut size = Size::new(
                 expand.horizontal.resolve(used.width, full.width),
@@ -113,21 +116,21 @@ impl StackLayouter {
                 size = Size::new(width, width / aspect);
             }
 
-            size.switch(self.dirs)
+            size.switch(self.main)
         };
 
-        let mut output = Frame::new(full_size.switch(self.dirs).to_size());
+        let mut output = Frame::new(full_size.switch(self.main).to_size());
 
         for (before, frame, aligns) in std::mem::take(&mut self.frames) {
-            let child_size = frame.size.switch(self.dirs);
+            let child_size = frame.size.switch(self.main);
 
             // Align along the main axis.
             let main = aligns.main.resolve(if self.dirs.main.is_positive() {
-                let after_with_self = self.used.main - before;
+                let after_with_self = self.size.main - before;
                 before .. full_size.main - after_with_self
             } else {
                 let before_with_self = before + child_size.main;
-                let after = self.used.main - (before + child_size.main);
+                let after = self.size.main - (before + child_size.main);
                 full_size.main - before_with_self .. after
             });
 
@@ -138,15 +141,14 @@ impl StackLayouter {
                 full_size.cross - child_size.cross .. Length::ZERO
             });
 
-            let pos = Gen::new(main, cross).switch(self.dirs).to_point();
+            let pos = Gen::new(main, cross).switch(self.main).to_point();
             output.push_frame(pos, frame);
         }
 
         self.finished.push(output);
-
         self.areas.next();
-        self.used = Gen::ZERO;
         self.ruler = Align::Start;
+        self.size = Gen::ZERO;
     }
 
     fn finish(mut self) -> Vec<Frame> {

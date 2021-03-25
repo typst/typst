@@ -17,19 +17,10 @@ use crate::paper::{Paper, PaperClass};
 /// - Top margin: `top`, of type `linear` relative to height.
 /// - Bottom margin: `bottom`, of type `linear` relative to height.
 /// - Flip width and height: `flip`, of type `bool`.
-/// - Main layouting direction: `main-dir`, of type `direction`.
-/// - Cross layouting direction: `cross-dir`, of type `direction`.
 ///
 /// # Return value
 /// A template that configures page properties. The effect is scoped to the body
 /// if present.
-///
-/// # Relevant types and constants
-/// - Type `direction`
-///   - `ltr` (left to right)
-///   - `rtl` (right to left)
-///   - `ttb` (top to bottom)
-///   - `btt` (bottom to top)
 pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let paper = args.find::<Spanned<String>>(ctx).and_then(|name| {
         Paper::from_name(&name.v).or_else(|| {
@@ -46,8 +37,6 @@ pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let right = args.get(ctx, "right");
     let bottom = args.get(ctx, "bottom");
     let flip = args.get(ctx, "flip");
-    let main = args.get(ctx, "main-dir");
-    let cross = args.get(ctx, "cross-dir");
     let body = args.find::<TemplateValue>(ctx);
     let span = args.span;
 
@@ -94,7 +83,6 @@ pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             std::mem::swap(&mut page.size.width, &mut page.size.height);
         }
 
-        ctx.set_dirs(Gen::new(main, cross));
         ctx.finish_page(false, true, span);
 
         if let Some(body) = &body {

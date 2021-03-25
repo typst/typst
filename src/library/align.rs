@@ -6,11 +6,6 @@ use super::*;
 /// - Alignments: variadic, of type `alignment`.
 /// - Body: optional, of type `template`.
 ///
-/// Which axis an alignment should apply to (main or cross) is inferred from
-/// either the argument itself (for anything other than `center`) or from the
-/// second argument if present, defaulting to the cross axis for a single
-/// `center` alignment.
-///
 /// # Named parameters
 /// - Horizontal alignment: `horizontal`, of type `alignment`.
 /// - Vertical alignment: `vertical`, of type `alignment`.
@@ -21,32 +16,44 @@ use super::*;
 ///
 /// # Relevant types and constants
 /// - Type `alignment`
+///   - `start`
+///   - `center`
+///   - `end`
 ///   - `left`
 ///   - `right`
 ///   - `top`
 ///   - `bottom`
-///   - `center`
 pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let first = args.find(ctx);
-    let second = args.find(ctx);
-    let hor = args.get(ctx, "horizontal");
-    let ver = args.get(ctx, "vertical");
+    let first = args.find::<AlignValue>(ctx);
+    let second = args.find::<AlignValue>(ctx);
+    let mut horizontal = args.get::<AlignValue>(ctx, "horizontal");
+    let mut vertical = args.get::<AlignValue>(ctx, "vertical");
     let body = args.find::<TemplateValue>(ctx);
+
+    for value in first.into_iter().chain(second) {
+        match value.axis() {
+            Some(SpecAxis::Horizontal) | None if horizontal.is_none() => {
+                horizontal = Some(value);
+            }
+            Some(SpecAxis::Vertical) | None if vertical.is_none() => {
+                vertical = Some(value);
+            }
+            _ => {}
+        }
+    }
 
     Value::template("align", move |ctx| {
         let snapshot = ctx.state.clone();
 
-        let values = first
-            .into_iter()
-            .chain(second.into_iter())
-            .map(|arg: Spanned<AlignValue>| (arg.v.axis(), arg))
-            .chain(hor.into_iter().map(|arg| (Some(SpecAxis::Horizontal), arg)))
-            .chain(ver.into_iter().map(|arg| (Some(SpecAxis::Vertical), arg)));
+        if let Some(horizontal) = horizontal {
+            ctx.state.aligns.cross = horizontal.to_align(ctx.state.lang.dir);
+        }
 
-        apply(ctx, values);
-
-        if ctx.state.aligns.main != snapshot.aligns.main {
-            ctx.push_linebreak();
+        if let Some(vertical) = vertical {
+            ctx.state.aligns.main = vertical.to_align(Dir::TTB);
+            if ctx.state.aligns.main != snapshot.aligns.main {
+                ctx.push_linebreak();
+            }
         }
 
         if let Some(body) = &body {
@@ -56,109 +63,48 @@ pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     })
 }
 
-/// Deduplicate and apply the alignments.
-fn apply(
-    ctx: &mut ExecContext,
-    values: impl Iterator<Item = (Option<SpecAxis>, Spanned<AlignValue>)>,
-) {
-    let mut had = Gen::uniform(false);
-    let mut had_center = false;
-
-    for (axis, Spanned { v: arg, span }) in values {
-        // Check whether we know which axis this alignment belongs to.
-        if let Some(axis) = axis {
-            // We know the axis.
-            let gen_axis = axis.switch(ctx.state.dirs);
-            let gen_align = arg.switch(ctx.state.dirs);
-
-            if arg.axis().map_or(false, |a| a != axis) {
-                ctx.diag(error!(span, "invalid alignment for {} axis", axis));
-            } else if had.get(gen_axis) {
-                ctx.diag(error!(span, "duplicate alignment for {} axis", axis));
-            } else {
-                *ctx.state.aligns.get_mut(gen_axis) = gen_align;
-                *had.get_mut(gen_axis) = true;
-            }
-        } else {
-            // We don't know the axis: This has to be a `center` alignment for a
-            // positional argument.
-            debug_assert_eq!(arg, AlignValue::Center);
-
-            if had.main && had.cross {
-                ctx.diag(error!(span, "duplicate alignment"));
-            } else if had_center {
-                // Both this and the previous one are unspecified `center`
-                // alignments. Both axes should be centered.
-                ctx.state.aligns.main = Align::Center;
-                ctx.state.aligns.cross = Align::Center;
-                had = Gen::uniform(true);
-            } else {
-                had_center = true;
-            }
-        }
-
-        // If we we know the other alignment, we can handle the unspecified
-        // `center` alignment.
-        if had_center && (had.main || had.cross) {
-            if had.main {
-                ctx.state.aligns.cross = Align::Center;
-            } else {
-                ctx.state.aligns.main = Align::Center;
-            }
-            had = Gen::uniform(true);
-            had_center = false;
-        }
-    }
-
-    // If `had_center` wasn't flushed by now, it's the only argument and
-    // then we default to applying it to the cross axis.
-    if had_center {
-        ctx.state.aligns.cross = Align::Center;
-    }
-}
-
-/// An alignment value.
+/// An alignment specifier passed to `align`.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub(super) enum AlignValue {
-    Left,
+    Start,
     Center,
+    End,
+    Left,
     Right,
     Top,
     Bottom,
 }
 
 impl AlignValue {
-    /// The specific axis this alignment refers to.
     fn axis(self) -> Option<SpecAxis> {
         match self {
+            Self::Start => None,
+            Self::Center => None,
+            Self::End => None,
             Self::Left => Some(SpecAxis::Horizontal),
             Self::Right => Some(SpecAxis::Horizontal),
             Self::Top => Some(SpecAxis::Vertical),
             Self::Bottom => Some(SpecAxis::Vertical),
-            Self::Center => None,
         }
     }
-}
 
-impl Switch for AlignValue {
-    type Other = Align;
-
-    fn switch(self, dirs: LayoutDirs) -> Self::Other {
-        let get = |dir: Dir, at_positive_start| {
-            if dir.is_positive() == at_positive_start {
+    fn to_align(self, dir: Dir) -> Align {
+        let side = |is_at_positive_start| {
+            if dir.is_positive() == is_at_positive_start {
                 Align::Start
             } else {
                 Align::End
             }
         };
 
-        let dirs = dirs.switch(dirs);
         match self {
-            Self::Left => get(dirs.horizontal, true),
-            Self::Right => get(dirs.horizontal, false),
-            Self::Top => get(dirs.vertical, true),
-            Self::Bottom => get(dirs.vertical, false),
+            Self::Start => Align::Start,
             Self::Center => Align::Center,
+            Self::End => Align::End,
+            Self::Left => side(true),
+            Self::Right => side(false),
+            Self::Top => side(true),
+            Self::Bottom => side(false),
         }
     }
 }
@@ -166,8 +112,10 @@ impl Switch for AlignValue {
 impl Display for AlignValue {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
-            Self::Left => "left",
+            Self::Start => "start",
             Self::Center => "center",
+            Self::End => "end",
+            Self::Left => "left",
             Self::Right => "right",
             Self::Top => "top",
             Self::Bottom => "bottom",

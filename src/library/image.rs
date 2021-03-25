@@ -2,9 +2,7 @@ use ::image::GenericImageView;
 
 use super::*;
 use crate::env::{ImageResource, ResourceId};
-use crate::layout::{
-    AnyNode, Areas, Element, Fragment, Frame, Image, Layout, LayoutContext,
-};
+use crate::layout::{AnyNode, Areas, Element, Frame, Image, Layout, LayoutContext};
 
 /// `image`: An image.
 ///
@@ -25,13 +23,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             let loaded = ctx.env.resources.load(&path.v, ImageResource::parse);
             if let Some((res, img)) = loaded {
                 let dimensions = img.buf.dimensions();
-                ctx.push(ImageNode {
-                    res,
-                    dimensions,
-                    width,
-                    height,
-                    aligns: ctx.state.aligns,
-                });
+                ctx.push_into_par(ImageNode { res, dimensions, width, height });
             } else {
                 ctx.diag(error!(path.span, "failed to load image"));
             }
@@ -42,8 +34,6 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// An image node.
 #[derive(Debug, Clone, PartialEq)]
 struct ImageNode {
-    /// How to align this image node in its parent.
-    aligns: LayoutAligns,
     /// The resource id of the image file.
     res: ResourceId,
     /// The pixel dimensions of the image.
@@ -55,7 +45,7 @@ struct ImageNode {
 }
 
 impl Layout for ImageNode {
-    fn layout(&self, _: &mut LayoutContext, areas: &Areas) -> Fragment {
+    fn layout(&self, _: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
         let Areas { current, full, .. } = areas;
 
         let pixel_width = self.dimensions.0 as f64;
@@ -86,7 +76,7 @@ impl Layout for ImageNode {
         let mut frame = Frame::new(size);
         frame.push(Point::ZERO, Element::Image(Image { res: self.res, size }));
 
-        Fragment::Frame(frame, self.aligns)
+        vec![frame]
     }
 }
 

@@ -12,11 +12,11 @@ pub struct FixedNode {
     /// The resulting frame will satisfy `width = aspect * height`.
     pub aspect: Option<f64>,
     /// The child node whose size to fix.
-    pub child: Node,
+    pub child: AnyNode,
 }
 
 impl Layout for FixedNode {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Fragment {
+    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
         let Areas { current, full, .. } = areas;
 
         let full = Size::new(
