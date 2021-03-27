@@ -23,6 +23,8 @@ pub enum ParChild {
     Text(TextNode, Align),
     /// Any child node and how to align it in its line.
     Any(AnyNode, Align),
+    /// A forced linebreak.
+    Linebreak,
 }
 
 /// A consecutive, styled run of text.
@@ -55,6 +57,7 @@ impl Layout for ParNode {
                         layouter.push_frame(frame, align);
                     }
                 }
+                ParChild::Linebreak => layouter.finish_line(),
             }
         }
         layouter.finish()

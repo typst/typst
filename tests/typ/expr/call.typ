@@ -60,7 +60,7 @@
 #args[a] \
 #args(a) \
 #args(a, [b]) \
-#args(a)[b] \
+#args(a)[b]
 
 // Template can be argument or body depending on whitespace.
 #if "template" == type[b] [Sure ]

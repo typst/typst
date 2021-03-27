@@ -23,7 +23,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             let loaded = ctx.env.resources.load(&path.v, ImageResource::parse);
             if let Some((res, img)) = loaded {
                 let dimensions = img.buf.dimensions();
-                ctx.push_into_par(ImageNode { res, dimensions, width, height });
+                ctx.push(ImageNode { res, dimensions, width, height });
             } else {
                 ctx.diag(error!(path.span, "failed to load image"));
             }

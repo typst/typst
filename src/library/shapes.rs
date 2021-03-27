@@ -63,13 +63,13 @@ fn rect_impl(
         let node = FixedNode { width, height, aspect, child };
 
         if let Some(color) = fill {
-            ctx.push_into_par(BackgroundNode {
+            ctx.push(BackgroundNode {
                 shape: BackgroundShape::Rect,
                 fill: Fill::Color(color),
                 child: node.into(),
             });
         } else {
-            ctx.push_into_par(node);
+            ctx.push(node);
         }
     })
 }
@@ -146,13 +146,13 @@ fn ellipse_impl(
         };
 
         if let Some(color) = fill {
-            ctx.push_into_par(BackgroundNode {
+            ctx.push(BackgroundNode {
                 shape: BackgroundShape::Ellipse,
                 fill: Fill::Color(color),
                 child: node.into(),
             });
         } else {
-            ctx.push_into_par(node);
+            ctx.push(node);
         }
     })
 }

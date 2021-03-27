@@ -65,87 +65,66 @@ impl<'a> ExecContext<'a> {
         mem::replace(&mut self.stack, stack).build()
     }
 
+    /// Push any node into the active paragraph.
+    pub fn push(&mut self, node: impl Into<AnyNode>) {
+        let align = self.state.aligns.cross;
+        self.stack.par.push(ParChild::Any(node.into(), align));
+    }
+
+    /// Push a word space into the active paragraph.
+    pub fn push_word_space(&mut self) {
+        let em = self.state.font.resolve_size();
+        let amount = self.state.par.word_spacing.resolve(em);
+        self.stack.par.push_soft(ParChild::Spacing(amount));
+    }
+
     /// Push text into the active paragraph.
     ///
     /// The text is split into lines at newlines.
     pub fn push_text(&mut self, text: &str) {
         let mut scanner = Scanner::new(text);
-        let mut line = String::new();
-        let push = |this: &mut Self, text| {
-            let props = this.state.font.resolve_props();
-            let node = TextNode { text, props };
-            let align = this.state.aligns.cross;
-            this.stack.par.folder.push(ParChild::Text(node, align))
-        };
+        let mut text = String::new();
 
         while let Some(c) = scanner.eat_merging_crlf() {
             if is_newline(c) {
-                push(self, mem::take(&mut line));
-                self.push_linebreak();
+                self.stack.par.push_text(mem::take(&mut text), &self.state);
+                self.linebreak();
             } else {
-                line.push(c);
+                text.push(c);
             }
         }
 
-        push(self, line);
-    }
-
-    /// Push a word space.
-    pub fn push_word_space(&mut self) {
-        let em = self.state.font.resolve_size();
-        let amount = self.state.par.word_spacing.resolve(em);
-        self.push_spacing(GenAxis::Cross, amount, 1);
-    }
-
-    /// Apply a forced line break.
-    pub fn push_linebreak(&mut self) {
-        let em = self.state.font.resolve_size();
-        let amount = self.state.par.leading.resolve(em);
-        self.push_spacing(GenAxis::Main, amount, 2);
-    }
-
-    /// Apply a forced paragraph break.
-    pub fn push_parbreak(&mut self) {
-        let em = self.state.font.resolve_size();
-        let amount = self.state.par.spacing.resolve(em);
-        self.push_spacing(GenAxis::Main, amount, 1);
+        self.stack.par.push_text(text, &self.state);
     }
 
     /// Push spacing into paragraph or stack depending on `axis`.
-    ///
-    /// The `softness` configures how the spacing interacts with surrounding
-    /// spacing.
-    pub fn push_spacing(&mut self, axis: GenAxis, amount: Length, softness: u8) {
+    pub fn push_spacing(&mut self, axis: GenAxis, amount: Length) {
         match axis {
             GenAxis::Main => {
-                let spacing = StackChild::Spacing(amount);
-                self.stack.finish_par(&self.state);
-                self.stack.folder.push_soft(spacing, softness);
+                self.stack.parbreak(&self.state);
+                self.stack.push_hard(StackChild::Spacing(amount));
             }
             GenAxis::Cross => {
-                let spacing = ParChild::Spacing(amount);
-                self.stack.par.folder.push_soft(spacing, softness);
+                self.stack.par.push_hard(ParChild::Spacing(amount));
             }
         }
     }
 
-    /// Push any node into the active paragraph.
-    pub fn push_into_par(&mut self, node: impl Into<AnyNode>) {
-        let align = self.state.aligns.cross;
-        self.stack.par.folder.push(ParChild::Any(node.into(), align));
+    /// Apply a forced line break.
+    pub fn linebreak(&mut self) {
+        self.stack.par.push_hard(ParChild::Linebreak);
     }
 
-    /// Push any node directly into the stack of paragraphs.
-    ///
-    /// This finishes the active paragraph and starts a new one.
-    pub fn push_into_stack(&mut self, node: impl Into<AnyNode>) {
-        let aligns = self.state.aligns;
-        self.stack.finish_par(&self.state);
-        self.stack.folder.push(StackChild::Any(node.into(), aligns));
+    /// Apply a forced paragraph break.
+    pub fn parbreak(&mut self) {
+        let em = self.state.font.resolve_size();
+        let amount = self.state.par.spacing.resolve(em);
+        self.stack.parbreak(&self.state);
+        self.stack.push_soft(StackChild::Spacing(amount));
     }
 
-    /// Finish the active page.
-    pub fn finish_page(&mut self, keep: bool, hard: bool, source: Span) {
+    /// Apply a forced page break.
+    pub fn pagebreak(&mut self, keep: bool, hard: bool, source: Span) {
         if let Some(builder) = &mut self.page {
             let page = mem::replace(builder, PageBuilder::new(&self.state, hard));
             let stack = mem::replace(&mut self.stack, StackBuilder::new(&self.state));
@@ -158,7 +137,7 @@ impl<'a> ExecContext<'a> {
     /// Finish execution and return the created layout tree.
     pub fn finish(mut self) -> Pass<Tree> {
         assert!(self.page.is_some());
-        self.finish_page(true, false, Span::default());
+        self.pagebreak(true, false, Span::default());
         Pass::new(self.tree, self.diags)
     }
 }
@@ -189,7 +168,8 @@ impl PageBuilder {
 
 struct StackBuilder {
     dirs: Gen<Dir>,
-    folder: SoftFolder<StackChild>,
+    children: Vec<StackChild>,
+    last: Last<StackChild>,
     par: ParBuilder,
 }
 
@@ -197,20 +177,36 @@ impl StackBuilder {
     fn new(state: &State) -> Self {
         Self {
             dirs: Gen::new(Dir::TTB, state.lang.dir),
-            folder: SoftFolder::new(),
+            children: vec![],
+            last: Last::None,
             par: ParBuilder::new(state),
         }
     }
 
-    fn finish_par(&mut self, state: &State) {
+    fn push_soft(&mut self, child: StackChild) {
+        self.last.soft(child);
+    }
+
+    fn push_hard(&mut self, child: StackChild) {
+        self.last.hard();
+        self.children.push(child);
+    }
+
+    fn parbreak(&mut self, state: &State) {
         let par = mem::replace(&mut self.par, ParBuilder::new(state));
-        self.folder.extend(par.build());
+        if let Some(par) = par.build() {
+            self.children.extend(self.last.any());
+            self.children.push(par);
+        }
     }
 
     fn build(self) -> StackNode {
-        let Self { dirs, mut folder, par } = self;
-        folder.extend(par.build());
-        StackNode { dirs, children: folder.finish() }
+        let Self { dirs, mut children, par, mut last } = self;
+        if let Some(par) = par.build() {
+            children.extend(last.any());
+            children.push(par);
+        }
+        StackNode { dirs, children }
     }
 }
 
@@ -218,7 +214,8 @@ struct ParBuilder {
     aligns: Gen<Align>,
     dir: Dir,
     line_spacing: Length,
-    folder: SoftFolder<ParChild>,
+    children: Vec<ParChild>,
+    last: Last<ParChild>,
 }
 
 impl ParBuilder {
@@ -228,13 +225,43 @@ impl ParBuilder {
             aligns: state.aligns,
             dir: state.lang.dir,
             line_spacing: state.par.leading.resolve(em),
-            folder: SoftFolder::new(),
+            children: vec![],
+            last: Last::None,
         }
     }
 
+    fn push(&mut self, child: ParChild) {
+        self.children.extend(self.last.any());
+        self.children.push(child);
+    }
+
+    fn push_text(&mut self, text: String, state: &State) {
+        self.children.extend(self.last.any());
+
+        let align = state.aligns.cross;
+        let props = state.font.resolve_props();
+
+        if let Some(ParChild::Text(prev, prev_align)) = self.children.last_mut() {
+            if *prev_align == align && prev.props == props {
+                prev.text.push_str(&text);
+                return;
+            }
+        }
+
+        self.children.push(ParChild::Text(TextNode { text, props }, align));
+    }
+
+    fn push_soft(&mut self, child: ParChild) {
+        self.last.soft(child);
+    }
+
+    fn push_hard(&mut self, child: ParChild) {
+        self.last.hard();
+        self.children.push(child);
+    }
+
     fn build(self) -> Option<StackChild> {
-        let Self { aligns, dir, line_spacing, folder } = self;
-        let children = folder.finish();
+        let Self { aligns, dir, line_spacing, children, .. } = self;
         (!children.is_empty()).then(|| {
             let node = ParNode { dir, line_spacing, children };
             StackChild::Any(node.into(), aligns)
@@ -242,54 +269,28 @@ impl ParBuilder {
     }
 }
 
-/// This is used to remove leading and trailing word/line/paragraph spacing
-/// as well as collapse sequences of spacings into just one.
-struct SoftFolder<N> {
-    nodes: Vec<N>,
-    last: Last<N>,
-}
-
+/// Finite state machine for spacing coalescing.
 enum Last<N> {
     None,
-    Hard,
-    Soft(N, u8),
+    Any,
+    Soft(N),
 }
 
-impl<N> SoftFolder<N> {
-    fn new() -> Self {
-        Self { nodes: vec![], last: Last::Hard }
-    }
-
-    fn push(&mut self, node: N) {
-        let last = mem::replace(&mut self.last, Last::None);
-        if let Last::Soft(soft, _) = last {
-            self.nodes.push(soft);
-        }
-        self.nodes.push(node);
-    }
-
-    fn push_soft(&mut self, node: N, softness: u8) {
-        if softness == 0 {
-            self.last = Last::Hard;
-            self.nodes.push(node);
-        } else {
-            match self.last {
-                Last::Hard => {}
-                Last::Soft(_, other) if softness >= other => {}
-                _ => self.last = Last::Soft(node, softness),
-            }
+impl<N> Last<N> {
+    fn any(&mut self) -> Option<N> {
+        match mem::replace(self, Self::Any) {
+            Self::Soft(soft) => Some(soft),
+            _ => None,
         }
     }
 
-    fn finish(self) -> Vec<N> {
-        self.nodes
-    }
-}
-
-impl<N> Extend<N> for SoftFolder<N> {
-    fn extend<T: IntoIterator<Item = N>>(&mut self, iter: T) {
-        for elem in iter {
-            self.push(elem);
+    fn soft(&mut self, soft: N) {
+        if let Self::Any = self {
+            *self = Self::Soft(soft);
         }
+    }
+
+    fn hard(&mut self) {
+        *self = Self::None;
     }
 }

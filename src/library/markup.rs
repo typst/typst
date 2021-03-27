@@ -14,7 +14,7 @@ use crate::syntax::{HeadingNode, RawNode};
 /// A template that inserts a line break.
 pub fn linebreak(_: &mut EvalContext, _: &mut FuncArgs) -> Value {
     Value::template(Node::LINEBREAK, move |ctx| {
-        ctx.push_linebreak();
+        ctx.linebreak();
     })
 }
 
@@ -24,7 +24,7 @@ pub fn linebreak(_: &mut EvalContext, _: &mut FuncArgs) -> Value {
 /// A template that inserts a paragraph break.
 pub fn parbreak(_: &mut EvalContext, _: &mut FuncArgs) -> Value {
     Value::template(Node::PARBREAK, move |ctx| {
-        ctx.push_parbreak();
+        ctx.parbreak();
     })
 }
 
@@ -118,7 +118,7 @@ pub fn heading(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         body.exec(ctx);
         ctx.state = snapshot;
 
-        ctx.push_parbreak();
+        ctx.parbreak();
     })
 }
 
@@ -155,7 +155,7 @@ pub fn raw(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
     Value::template(Node::RAW, move |ctx| {
         if block {
-            ctx.push_parbreak();
+            ctx.parbreak();
         }
 
         let snapshot = ctx.state.clone();
@@ -164,7 +164,7 @@ pub fn raw(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         ctx.state = snapshot;
 
         if block {
-            ctx.push_parbreak();
+            ctx.parbreak();
         }
     })
 }

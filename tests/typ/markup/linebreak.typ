@@ -10,17 +10,11 @@ Line \ Break
 // Directly before word does not work.
 No \Break
 
----
-// Leading line break.
-\ Leading
+\ Before
 
-// Trailing before paragraph break.
-Trailing 1 \
+Multiple \ \ \
 
-Trailing 2
-
-// Trailing before end of document.
-Trailing 3 \
+Times
 
 ---
 #let linebreak() = [
@@ -28,4 +22,4 @@ Trailing 3 \
     #circle(radius: 2pt, fill: #000) \
 ]
 
-A \ B \ C \
+A \ B \ C

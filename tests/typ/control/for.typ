@@ -14,8 +14,8 @@
 
 // Dictionary is not traversed in insertion order.
 // Should output `age: 1, name: Typst,`.
-#for k, v in (name: "Typst", age: 2) [
-    {k}: {v}, \
+#for k, v in (Name: "Typst", Age: 2) [
+    {k}: {v}.
 ]
 
 // String.

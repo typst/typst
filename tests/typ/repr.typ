@@ -9,7 +9,7 @@
 
 {name} \
 {ke-bab} \
-{α} \
+{α}
 
 // Error: 2-3 unknown variable
 {_}
@@ -18,7 +18,7 @@
 // Literal values.
 {none} (empty) \
 {true} \
-{false} \
+{false}
 
 ---
 // Numerical values.
@@ -33,16 +33,16 @@
 {2.5rad} \
 {45deg} \
 // Not in monospace via repr.
-#repr(45deg) \
+#repr(45deg)
 
 ---
 // Colors.
-{#f7a20500} \
+{#f7a20500}
 
 ---
 // Strings and escaping.
 {"hi"} \
-{"a\n[]\"\u{1F680}string"} \
+{"a\n[]\"\u{1F680}string"}
 
 ---
 // Templates.
@@ -54,4 +54,4 @@
 
 {rect} \
 {f} \
-{() => none} \
+{() => none}

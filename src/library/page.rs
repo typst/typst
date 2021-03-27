@@ -83,13 +83,13 @@ pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             std::mem::swap(&mut page.size.width, &mut page.size.height);
         }
 
-        ctx.finish_page(false, true, span);
+        ctx.pagebreak(false, true, span);
 
         if let Some(body) = &body {
             // TODO: Restrict body to a single page?
             body.exec(ctx);
             ctx.state = snapshot;
-            ctx.finish_page(true, false, span);
+            ctx.pagebreak(true, false, span);
         }
     })
 }
@@ -101,6 +101,6 @@ pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 pub fn pagebreak(_: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let span = args.span;
     Value::template("pagebreak", move |ctx| {
-        ctx.finish_page(true, true, span);
+        ctx.pagebreak(true, true, span);
     })
 }

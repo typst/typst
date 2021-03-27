@@ -32,7 +32,7 @@ fn spacing_impl(
     Value::template(name, move |ctx| {
         if let Some(linear) = spacing {
             let amount = linear.resolve(ctx.state.font.resolve_size());
-            ctx.push_spacing(axis, amount, 0);
+            ctx.push_spacing(axis, amount);
         }
     })
 }

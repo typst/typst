@@ -7,7 +7,7 @@
 // Top-level paragraph fills page, boxed paragraph only when width is fixed.
 L #right[R] \
 #rect(width: 50pt)[L #right[R]] \
-#rect[L #right[R]] \
+#rect[L #right[R]]
 
 // Pad inherits expansion behaviour.
 #pad[PL #right[PR]] \

@@ -32,7 +32,7 @@ pub fn lang(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             }
         }
 
-        ctx.push_parbreak();
+        ctx.parbreak();
     })
 }
 

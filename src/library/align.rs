@@ -52,7 +52,7 @@ pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         if let Some(vertical) = vertical {
             ctx.state.aligns.main = vertical.to_align(Dir::TTB);
             if ctx.state.aligns.main != snapshot.aligns.main {
-                ctx.push_linebreak();
+                ctx.parbreak();
             }
         }
 

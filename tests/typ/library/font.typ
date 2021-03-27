@@ -53,7 +53,7 @@ Emoji: 🐪, 🌋, 🏞
 #font(sans-serif: "PT Sans")
 #font(sans-serif)[Sans-serif.] \
 #font(monospace)[Monospace.] \
-#font(monospace, monospace: ("Nope", "Latin Modern Math"))[Math.] \
+#font(monospace, monospace: ("Nope", "Latin Modern Math"))[Math.]
 
 ---
 // Ref: false

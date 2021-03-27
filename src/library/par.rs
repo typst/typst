@@ -27,6 +27,6 @@ pub fn par(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             ctx.state.par.word_spacing = word_spacing;
         }
 
-        ctx.push_parbreak();
+        ctx.parbreak();
     })
 }
