@@ -64,7 +64,7 @@ impl ExecWithMap for Tree {
 impl ExecWithMap for Node {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &NodeMap) {
         match self {
-            Node::Text(text) => ctx.push_text(text),
+            Node::Text(text) => ctx.push_text(text.clone()),
             Node::Space => ctx.push_word_space(),
             _ => map[&(self as *const _)].exec(ctx),
         }
@@ -75,9 +75,9 @@ impl Exec for Value {
     fn exec(&self, ctx: &mut ExecContext) {
         match self {
             Value::None => {}
-            Value::Int(v) => ctx.push_text(&pretty(v)),
-            Value::Float(v) => ctx.push_text(&pretty(v)),
-            Value::Str(v) => ctx.push_text(v),
+            Value::Int(v) => ctx.push_text(pretty(v)),
+            Value::Float(v) => ctx.push_text(pretty(v)),
+            Value::Str(v) => ctx.push_text(v.clone()),
             Value::Template(v) => v.exec(ctx),
             Value::Error => {}
             other => {
@@ -85,7 +85,7 @@ impl Exec for Value {
                 // the representation in monospace.
                 let prev = Rc::clone(&ctx.state.font.families);
                 ctx.set_monospace();
-                ctx.push_text(&pretty(other));
+                ctx.push_text(pretty(other));
                 ctx.state.font.families = prev;
             }
         }
@@ -104,7 +104,7 @@ impl Exec for TemplateNode {
     fn exec(&self, ctx: &mut ExecContext) {
         match self {
             Self::Tree { tree, map } => tree.exec_with_map(ctx, &map),
-            Self::Str(v) => ctx.push_text(v),
+            Self::Str(v) => ctx.push_text(v.clone()),
             Self::Func(v) => v.exec(ctx),
         }
     }

@@ -8,7 +8,6 @@ use crate::geom::{Align, Dir, Gen, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{
     AnyNode, PadNode, PageRun, ParChild, ParNode, StackChild, StackNode, TextNode, Tree,
 };
-use crate::parse::{is_newline, Scanner};
 use crate::syntax::Span;
 
 /// The context for execution.
@@ -73,28 +72,14 @@ impl<'a> ExecContext<'a> {
 
     /// Push a word space into the active paragraph.
     pub fn push_word_space(&mut self) {
-        let em = self.state.font.resolve_size();
-        let amount = self.state.par.word_spacing.resolve(em);
-        self.stack.par.push_soft(ParChild::Spacing(amount));
+        self.stack.par.push_soft(self.make_text_node(" "));
     }
 
     /// Push text into the active paragraph.
     ///
     /// The text is split into lines at newlines.
-    pub fn push_text(&mut self, text: &str) {
-        let mut scanner = Scanner::new(text);
-        let mut text = String::new();
-
-        while let Some(c) = scanner.eat_merging_crlf() {
-            if is_newline(c) {
-                self.stack.par.push_text(mem::take(&mut text), &self.state);
-                self.linebreak();
-            } else {
-                text.push(c);
-            }
-        }
-
-        self.stack.par.push_text(text, &self.state);
+    pub fn push_text(&mut self, text: impl Into<String>) {
+        self.stack.par.push(self.make_text_node(text));
     }
 
     /// Push spacing into paragraph or stack depending on `axis`.
@@ -112,7 +97,7 @@ impl<'a> ExecContext<'a> {
 
     /// Apply a forced line break.
     pub fn linebreak(&mut self) {
-        self.stack.par.push_hard(ParChild::Linebreak);
+        self.stack.par.push_hard(self.make_text_node("\n"));
     }
 
     /// Apply a forced paragraph break.
@@ -139,6 +124,12 @@ impl<'a> ExecContext<'a> {
         assert!(self.page.is_some());
         self.pagebreak(true, false, Span::default());
         Pass::new(self.tree, self.diags)
+    }
+
+    fn make_text_node(&self, text: impl Into<String>) -> ParChild {
+        let align = self.state.aligns.cross;
+        let props = self.state.font.resolve_props();
+        ParChild::Text(TextNode { text: text.into(), props }, align)
     }
 }
 
@@ -231,24 +222,10 @@ impl ParBuilder {
     }
 
     fn push(&mut self, child: ParChild) {
-        self.children.extend(self.last.any());
-        self.children.push(child);
-    }
-
-    fn push_text(&mut self, text: String, state: &State) {
-        self.children.extend(self.last.any());
-
-        let align = state.aligns.cross;
-        let props = state.font.resolve_props();
-
-        if let Some(ParChild::Text(prev, prev_align)) = self.children.last_mut() {
-            if *prev_align == align && prev.props == props {
-                prev.text.push_str(&text);
-                return;
-            }
+        if let Some(soft) = self.last.any() {
+            self.push_inner(soft);
         }
-
-        self.children.push(ParChild::Text(TextNode { text, props }, align));
+        self.push_inner(child);
     }
 
     fn push_soft(&mut self, child: ParChild) {
@@ -257,6 +234,19 @@ impl ParBuilder {
 
     fn push_hard(&mut self, child: ParChild) {
         self.last.hard();
+        self.push_inner(child);
+    }
+
+    fn push_inner(&mut self, child: ParChild) {
+        if let ParChild::Text(curr, curr_align) = &child {
+            if let Some(ParChild::Text(prev, prev_align)) = self.children.last_mut() {
+                if prev_align == curr_align && prev.props == curr.props {
+                    prev.text.push_str(&curr.text);
+                    return;
+                }
+            }
+        }
+
         self.children.push(child);
     }
 

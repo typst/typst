@@ -15,7 +15,7 @@ pub struct ParNode {
 }
 
 /// A child of a paragraph node.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum ParChild {
     /// Spacing between other nodes.
     Spacing(Length),
@@ -23,8 +23,18 @@ pub enum ParChild {
     Text(TextNode, Align),
     /// Any child node and how to align it in its line.
     Any(AnyNode, Align),
-    /// A forced linebreak.
-    Linebreak,
+}
+
+impl Debug for ParChild {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Spacing(amount) => write!(f, "Spacing({:?})", amount),
+            Self::Text(node, align) => write!(f, "Text({:?}, {:?})", node.text, align),
+            Self::Any(any, align) => {
+                f.debug_tuple("Any").field(any).field(align).finish()
+            }
+        }
+    }
 }
 
 /// A consecutive, styled run of text.
@@ -38,7 +48,7 @@ pub struct TextNode {
 
 impl Debug for TextNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Text({})", self.text)
+        write!(f, "Text({:?})", self.text)
     }
 }
 
@@ -57,7 +67,6 @@ impl Layout for ParNode {
                         layouter.push_frame(frame, align);
                     }
                 }
-                ParChild::Linebreak => layouter.finish_line(),
             }
         }
         layouter.finish()
