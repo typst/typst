@@ -58,10 +58,7 @@ impl Layout for ParNode {
         for child in &self.children {
             match *child {
                 ParChild::Spacing(amount) => layouter.push_spacing(amount),
-                ParChild::Text(ref node, align) => {
-                    let frame = shape(&node.text, &mut ctx.env.fonts, &node.props);
-                    layouter.push_frame(frame, align);
-                }
+                ParChild::Text(ref node, align) => layouter.push_text(ctx, node, align),
                 ParChild::Any(ref node, align) => {
                     for frame in node.layout(ctx, &layouter.areas) {
                         layouter.push_frame(frame, align);
@@ -115,6 +112,51 @@ impl ParLayouter {
         self.line_size.cross = (self.line_size.cross + amount).min(cross_max);
     }
 
+    fn push_text(&mut self, ctx: &mut LayoutContext, node: &TextNode, align: Align) {
+        // Text shaped up to the previous line break opportunity that can fit
+        // the current line.
+        let mut last = None;
+
+        // Position in the text at which the current line starts.
+        let mut start = 0;
+
+        let iter = xi_unicode::LineBreakIterator::new(&node.text);
+        for (pos, mandatory) in iter {
+            while start != pos {
+                let part = &node.text[start .. pos].trim_end();
+                let frame = shape(part, &mut ctx.env.fonts, &node.props);
+
+                if self.usable().fits(frame.size) {
+                    if mandatory {
+                        // We have to break here.
+                        self.push_frame(frame, align);
+                        self.finish_line();
+                        start = pos;
+                        last = None;
+                    } else {
+                        // Still fits into the line.
+                        last = Some((frame, pos));
+                    }
+                } else {
+                    // Doesn't fit into the line. If `last` was `None`, the single
+                    // unbreakable piece of text didn't fit, but we can't break it
+                    // up further, so we just have to push it.
+                    let (frame, pos) = last.take().unwrap_or((frame, pos));
+                    self.push_frame(frame, align);
+                    self.finish_line();
+                    start = pos;
+                    continue;
+                }
+
+                break;
+            }
+        }
+
+        if let Some((frame, _)) = last {
+            self.push_frame(frame, align);
+        }
+    }
+
     fn push_frame(&mut self, frame: Frame, align: Align) {
         // When the alignment of the last pushed frame (stored in the "ruler")
         // is further to the end than the new `frame`, we need a line break.
@@ -133,16 +175,7 @@ impl ParLayouter {
         }
 
         // Find out whether the area still has enough space for this frame.
-        // Space occupied by previous lines is already removed from
-        // `areas.current`, but the cross-extent of the current line needs to be
-        // subtracted to make sure the frame fits.
-        let fits = {
-            let mut usable = self.areas.current;
-            *usable.get_mut(self.cross) -= self.line_size.cross;
-            usable.fits(frame.size)
-        };
-
-        if !fits {
+        if !self.usable().fits(frame.size) {
             self.finish_line();
 
             // Here, we can directly check whether the frame fits into
@@ -166,6 +199,15 @@ impl ParLayouter {
         self.line_size.cross += size.cross;
         self.line_size.main = self.line_size.main.max(size.main);
         self.line_ruler = align;
+    }
+
+    fn usable(&self) -> Size {
+        // Space occupied by previous lines is already removed from
+        // `areas.current`, but the cross-extent of the current line needs to be
+        // subtracted to make sure the frame fits.
+        let mut usable = self.areas.current;
+        *usable.get_mut(self.cross) -= self.line_size.cross;
+        usable
     }
 
     fn finish_line(&mut self) {
