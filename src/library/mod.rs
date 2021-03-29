@@ -4,7 +4,7 @@
 //! definitions.
 
 mod align;
-mod base;
+mod basic;
 mod font;
 mod image;
 mod lang;
@@ -17,7 +17,7 @@ mod spacing;
 
 pub use self::image::*;
 pub use align::*;
-pub use base::*;
+pub use basic::*;
 pub use font::*;
 pub use lang::*;
 pub use markup::*;
