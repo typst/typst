@@ -1,6 +1,8 @@
 use std::fmt::{self, Debug, Formatter};
 use std::mem;
 
+use xi_unicode::LineBreakIterator;
+
 use super::*;
 use crate::exec::FontProps;
 
@@ -87,6 +89,7 @@ struct ParLayouter {
     line: Vec<(Length, Frame, Align)>,
     line_size: Size,
     line_ruler: Align,
+    hard: bool,
 }
 
 impl ParLayouter {
@@ -101,6 +104,7 @@ impl ParLayouter {
             line: vec![],
             line_size: Size::ZERO,
             line_ruler: Align::Start,
+            hard: true,
         }
     }
 
@@ -110,45 +114,50 @@ impl ParLayouter {
     }
 
     fn push_text(&mut self, ctx: &mut LayoutContext, node: &TextNode, align: Align) {
-        // Text shaped up to the previous line break opportunity that can fit
-        // the current line.
-        let mut last = None;
-
         // Position in the text at which the current line starts.
         let mut start = 0;
 
-        let iter = xi_unicode::LineBreakIterator::new(&node.text);
-        for (pos, mandatory) in iter {
-            while start != pos {
-                let part = &node.text[start .. pos].trim_end();
-                let frame = shape(part, &mut ctx.env.fonts, &node.props);
+        // The current line attempt: Text shaped up to the previous line break
+        // opportunity.
+        let mut last = None;
 
-                if self.usable().fits(frame.size) {
-                    if mandatory {
-                        // We have to break here.
-                        self.push_frame(frame, align);
-                        self.finish_line();
-                        start = pos;
-                        last = None;
-                    } else {
-                        // Still fits into the line.
-                        last = Some((frame, pos));
-                    }
-                } else {
-                    // Doesn't fit into the line. If `last` was `None`, the single
-                    // unbreakable piece of text didn't fit, but we can't break it
-                    // up further, so we just have to push it.
-                    let (frame, pos) = last.take().unwrap_or((frame, pos));
+        let mut iter = LineBreakIterator::new(&node.text).peekable();
+        while let Some(&(pos, mandatory)) = iter.peek() {
+            let part = &node.text[start .. pos].trim_end();
+            let frame = shape(part, &mut ctx.env.fonts, &node.props);
+
+            if self.usable().fits(frame.size) {
+                // Still fits into the line.
+                if mandatory {
+                    // We have to break here.
                     self.push_frame(frame, align);
-                    self.finish_line();
+                    self.finish_line(true);
                     start = pos;
-                    continue;
+                    last = None;
+                } else {
+                    last = Some((frame, pos));
                 }
-
-                break;
+            } else if let Some((frame, pos)) = last.take() {
+                // The line start..pos doesn't fit. So we write the line up to
+                // the last position and retry writing just the single piece
+                // behind it.
+                self.push_frame(frame, align);
+                self.finish_line(false);
+                start = pos;
+                continue;
+            } else {
+                // Since last is `None`, we are at the first piece behind a line
+                // break and it still doesn't fit. Since we can't break it up
+                // further, so we just have to push it.
+                self.push_frame(frame, align);
+                self.finish_line(false);
+                start = pos;
             }
+
+            iter.next();
         }
 
+        // Leftovers.
         if let Some((frame, _)) = last {
             self.push_frame(frame, align);
         }
@@ -168,12 +177,12 @@ impl ParLayouter {
         // |           Second           |
         // +----------------------------+
         if self.line_ruler > align {
-            self.finish_line();
+            self.finish_line(false);
         }
 
         // Find out whether the area still has enough space for this frame.
-        if !self.usable().fits(frame.size) {
-            self.finish_line();
+        if !self.usable().fits(frame.size) && self.line_size.width > Length::ZERO {
+            self.finish_line(false);
 
             // Here, we can directly check whether the frame fits into
             // `areas.current` since we just called `finish_line`.
@@ -207,7 +216,11 @@ impl ParLayouter {
         usable
     }
 
-    fn finish_line(&mut self) {
+    fn finish_line(&mut self, hard: bool) {
+        if !mem::replace(&mut self.hard, hard) && self.line.is_empty() {
+            return;
+        }
+
         let full_size = {
             let expand = self.areas.expand.horizontal;
             let full = self.areas.full.width;
@@ -266,7 +279,7 @@ impl ParLayouter {
     }
 
     fn finish(mut self) -> Vec<Frame> {
-        self.finish_line();
+        self.finish_line(false);
         self.finish_area();
         self.finished
     }
