@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Formatter};
+use std::mem;
 
 use super::*;
 use crate::exec::FontProps;
@@ -77,39 +78,35 @@ impl From<ParNode> for AnyNode {
 }
 
 struct ParLayouter {
-    dirs: Gen<Dir>,
-    main: SpecAxis,
-    cross: SpecAxis,
+    dir: Dir,
     line_spacing: Length,
     areas: Areas,
     finished: Vec<Frame>,
     stack: Vec<(Length, Frame, Align)>,
-    stack_size: Gen<Length>,
+    stack_size: Size,
     line: Vec<(Length, Frame, Align)>,
-    line_size: Gen<Length>,
+    line_size: Size,
     line_ruler: Align,
 }
 
 impl ParLayouter {
     fn new(dir: Dir, line_spacing: Length, areas: Areas) -> Self {
         Self {
-            dirs: Gen::new(Dir::TTB, dir),
-            main: SpecAxis::Vertical,
-            cross: SpecAxis::Horizontal,
+            dir,
             line_spacing,
             areas,
             finished: vec![],
             stack: vec![],
-            stack_size: Gen::ZERO,
+            stack_size: Size::ZERO,
             line: vec![],
-            line_size: Gen::ZERO,
+            line_size: Size::ZERO,
             line_ruler: Align::Start,
         }
     }
 
     fn push_spacing(&mut self, amount: Length) {
-        let cross_max = self.areas.current.get(self.cross);
-        self.line_size.cross = (self.line_size.cross + amount).min(cross_max);
+        let max = self.areas.current.width;
+        self.line_size.width = (self.line_size.width + amount).min(max);
     }
 
     fn push_text(&mut self, ctx: &mut LayoutContext, node: &TextNode, align: Align) {
@@ -192,98 +189,80 @@ impl ParLayouter {
             }
         }
 
-        // A line can contain frames with different alignments. They exact
+        // A line can contain frames with different alignments. Their exact
         // positions are calculated later depending on the alignments.
-        let size = frame.size.switch(self.main);
-        self.line.push((self.line_size.cross, frame, align));
-        self.line_size.cross += size.cross;
-        self.line_size.main = self.line_size.main.max(size.main);
+        let size = frame.size;
+        self.line.push((self.line_size.width, frame, align));
+        self.line_size.width += size.width;
+        self.line_size.height = self.line_size.height.max(size.height);
         self.line_ruler = align;
     }
 
     fn usable(&self) -> Size {
         // Space occupied by previous lines is already removed from
-        // `areas.current`, but the cross-extent of the current line needs to be
+        // `areas.current`, but the width of the current line needs to be
         // subtracted to make sure the frame fits.
         let mut usable = self.areas.current;
-        *usable.get_mut(self.cross) -= self.line_size.cross;
+        usable.width -= self.line_size.width;
         usable
     }
 
     fn finish_line(&mut self) {
         let full_size = {
-            let expand = self.areas.expand.get(self.cross);
-            let full = self.areas.full.get(self.cross);
-            Gen::new(
-                self.line_size.main,
-                expand.resolve(self.line_size.cross, full),
+            let expand = self.areas.expand.horizontal;
+            let full = self.areas.full.width;
+            Size::new(
+                expand.resolve(self.line_size.width, full),
+                self.line_size.height,
             )
         };
 
-        let mut output = Frame::new(full_size.switch(self.main).to_size());
-
-        for (before, frame, align) in std::mem::take(&mut self.line) {
-            let child_cross_size = frame.size.get(self.cross);
-
-            // Position along the cross axis.
-            let cross = align.resolve(if self.dirs.cross.is_positive() {
-                let after_with_self = self.line_size.cross - before;
-                before .. full_size.cross - after_with_self
+        let mut output = Frame::new(full_size);
+        for (before, frame, align) in mem::take(&mut self.line) {
+            // Align along the x axis.
+            let x = align.resolve(if self.dir.is_positive() {
+                before .. full_size.width - self.line_size.width + before
             } else {
-                let before_with_self = before + child_cross_size;
-                let after = self.line_size.cross - (before + child_cross_size);
-                full_size.cross - before_with_self .. after
+                let before_with_self = before + frame.size.width;
+                full_size.width - before_with_self
+                    .. self.line_size.width - before_with_self
             });
 
-            let pos = Gen::new(Length::ZERO, cross).switch(self.main).to_point();
+            let pos = Point::new(x, Length::ZERO);
             output.push_frame(pos, frame);
         }
 
-        // Add line spacing, but only between lines.
+        // Add line spacing, but only between lines, not after the last line.
         if !self.stack.is_empty() {
-            self.stack_size.main += self.line_spacing;
-            *self.areas.current.get_mut(self.main) -= self.line_spacing;
+            self.stack_size.height += self.line_spacing;
+            self.areas.current.height -= self.line_spacing;
         }
 
-        // Update metrics of paragraph and reset for line.
-        self.stack.push((self.stack_size.main, output, self.line_ruler));
-        self.stack_size.main += full_size.main;
-        self.stack_size.cross = self.stack_size.cross.max(full_size.cross);
-        *self.areas.current.get_mut(self.main) -= full_size.main;
-        self.line_size = Gen::ZERO;
+        self.stack.push((self.stack_size.height, output, self.line_ruler));
+        self.stack_size.height += full_size.height;
+        self.stack_size.width = self.stack_size.width.max(full_size.width);
+        self.areas.current.height -= full_size.height;
+        self.line_size = Size::ZERO;
         self.line_ruler = Align::Start;
     }
 
     fn finish_area(&mut self) {
-        let full_size = self.stack_size;
-        let mut output = Frame::new(full_size.switch(self.main).to_size());
-
-        for (before, line, cross_align) in std::mem::take(&mut self.stack) {
-            let child_size = line.size.switch(self.main);
-
-            // Position along the main axis.
-            let main = if self.dirs.main.is_positive() {
-                before
+        let mut output = Frame::new(self.stack_size);
+        for (before, line, align) in mem::take(&mut self.stack) {
+            // Align along the x axis.
+            let x = align.resolve(if self.dir.is_positive() {
+                Length::ZERO .. self.stack_size.width - line.size.width
             } else {
-                full_size.main - (before + child_size.main)
-            };
-
-            // Align along the cross axis.
-            let cross = cross_align.resolve(if self.dirs.cross.is_positive() {
-                Length::ZERO .. full_size.cross - child_size.cross
-            } else {
-                full_size.cross - child_size.cross .. Length::ZERO
+                self.stack_size.width - line.size.width .. Length::ZERO
             });
 
-            let pos = Gen::new(main, cross).switch(self.main).to_point();
+            let pos = Point::new(x, before);
             output.push_frame(pos, line);
         }
 
         self.finished.push(output);
         self.areas.next();
-
-        // Reset metrics for the whole paragraph.
-        self.stack_size = Gen::ZERO;
+        self.stack_size = Size::ZERO;
     }
 
     fn finish(mut self) -> Vec<Frame> {
