@@ -5,6 +5,7 @@ use xi_unicode::LineBreakIterator;
 
 use super::*;
 use crate::exec::FontProps;
+use crate::parse::is_newline;
 
 /// A node that arranges its children into a paragraph.
 #[derive(Debug, Clone, PartialEq)]
@@ -123,8 +124,15 @@ impl ParLayouter {
 
         let mut iter = LineBreakIterator::new(&node.text).peekable();
         while let Some(&(pos, mandatory)) = iter.peek() {
-            let part = &node.text[start .. pos].trim_end();
-            let frame = shape(part, &mut ctx.env.fonts, &node.props);
+            let line = &node.text[start .. pos];
+
+            // Remove trailing newline and spacing at the end of lines.
+            let mut line = line.trim_end_matches(is_newline);
+            if pos != node.text.len() {
+                line = line.trim_end();
+            }
+
+            let frame = shape(line, &mut ctx.env.fonts, &node.props);
 
             if self.usable().fits(frame.size) {
                 // Still fits into the line.
