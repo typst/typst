@@ -98,7 +98,6 @@ function getWebviewContent(pngSrc, refSrc, stdout, stderr) {
         }
         img {
             width: 80%;
-            max-height: 40vh;
             object-fit: contain;
         }
         pre {
@@ -107,14 +106,30 @@ function getWebviewContent(pngSrc, refSrc, stdout, stderr) {
             text-align: left;
             width: 80%;
         }
+        .flex {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .flex > * {
+            flex-grow: 1;
+            flex-shrink: 0;
+            max-width: 100%;
+        }
         </style>
     </head>
     <body>
-        <h1>Output image</h1>
-        <img src="${pngSrc}"/>
+        <div class="flex">
+            <div>
+                <h1>Output</h1>
+                <img src="${pngSrc}"/>
+            </div>
 
-        <h1>Reference image</h1>
-        <img src="${refSrc}"/>
+            <div>
+                <h1>Reference</h1>
+                <img src="${refSrc}"/>
+            </div>
+        </div>
 
         <h1>Standard output</h1>
         <pre>${stdout}</pre>
