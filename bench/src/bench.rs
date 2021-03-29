@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use fontdock::FsIndex;
 
@@ -11,15 +13,10 @@ use typst::pdf;
 use typst::typeset;
 
 const FONT_DIR: &str = "../fonts";
-const COMA: &str = include_str!("../../tests/typ/full/coma.typ");
+const TYP_DIR: &str = "../tests/typ";
+const CASES: &[&str] = &["full/coma.typ", "text/basic.typ"];
 
 fn benchmarks(c: &mut Criterion) {
-    macro_rules! bench {
-        ($name:literal: $($tts:tt)*) => {
-            c.bench_function($name, |b| b.iter(|| $($tts)*));
-        };
-    }
-
     let mut index = FsIndex::new();
     index.search_dir(FONT_DIR);
 
@@ -31,19 +28,34 @@ fn benchmarks(c: &mut Criterion) {
     let scope = library::_new();
     let state = State::default();
 
-    // Prepare intermediate results and run warm.
-    let syntax_tree = parse(COMA).output;
-    let expr_map = eval(&mut env, &syntax_tree, &scope).output;
-    let layout_tree = exec(&mut env, &syntax_tree, &expr_map, state.clone()).output;
-    let frames = layout(&mut env, &layout_tree);
+    for case in CASES {
+        let case = Path::new(case);
+        let name = case.file_stem().unwrap().to_string_lossy();
+        let src = std::fs::read_to_string(Path::new(TYP_DIR).join(case)).unwrap();
 
-    // Bench!
-    bench!("parse-coma": parse(COMA));
-    bench!("eval-coma": eval(&mut env, &syntax_tree, &scope));
-    bench!("exec-coma": exec(&mut env, &syntax_tree, &expr_map, state.clone()));
-    bench!("layout-coma": layout(&mut env, &layout_tree));
-    bench!("typeset-coma": typeset(&mut env, COMA, &scope, state.clone()));
-    bench!("export-pdf-coma": pdf::export(&env, &frames));
+        macro_rules! bench {
+            ($step:literal: $($tts:tt)*) => {
+                c.bench_function(
+                    &format!("{}-{}", $step, name),
+                    |b| b.iter(|| $($tts)*)
+                );
+            };
+        }
+
+        // Prepare intermediate results and run warm.
+        let syntax_tree = parse(&src).output;
+        let expr_map = eval(&mut env, &syntax_tree, &scope).output;
+        let layout_tree = exec(&mut env, &syntax_tree, &expr_map, state.clone()).output;
+        let frames = layout(&mut env, &layout_tree);
+
+        // Bench!
+        bench!("parse": parse(&src));
+        bench!("eval": eval(&mut env, &syntax_tree, &scope));
+        bench!("exec": exec(&mut env, &syntax_tree, &expr_map, state.clone()));
+        bench!("layout": layout(&mut env, &layout_tree));
+        bench!("typeset": typeset(&mut env, &src, &scope, state.clone()));
+        bench!("pdf": pdf::export(&env, &frames));
+    }
 }
 
 criterion_group!(benches, benchmarks);
