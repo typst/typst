@@ -28,6 +28,7 @@ miniz_oxide = "0.3"
 pdf-writer = { path = "../pdf-writer" }
 rustybuzz = "0.3"
 ttf-parser = "0.9"
+unicode-bidi = "0.3"
 unicode-xid = "0.2"
 xi-unicode = "0.3"
 anyhow = { version = "1", optional = true }
