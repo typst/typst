@@ -10,14 +10,16 @@ use crate::geom::{Length, Path, Point, Size};
 pub struct Frame {
     /// The size of the frame.
     pub size: Size,
+    /// The baseline of the frame measured from the top.
+    pub baseline: Length,
     /// The elements composing this layout.
     pub elements: Vec<(Point, Element)>,
 }
 
 impl Frame {
     /// Create a new, empty frame.
-    pub fn new(size: Size) -> Self {
-        Self { size, elements: vec![] }
+    pub fn new(size: Size, baseline: Length) -> Self {
+        Self { size, baseline, elements: vec![] }
     }
 
     /// Add an element at a position.

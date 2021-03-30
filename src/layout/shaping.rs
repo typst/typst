@@ -5,19 +5,34 @@ use ttf_parser::GlyphId;
 use super::{Element, Frame, ShapedText};
 use crate::env::FontLoader;
 use crate::exec::FontProps;
-use crate::geom::{Dir, Point, Size};
+use crate::geom::{Dir, Length, Point, Size};
 
 /// Shape text into a frame containing [`ShapedText`] runs.
 pub fn shape(text: &str, dir: Dir, loader: &mut FontLoader, props: &FontProps) -> Frame {
-    let mut frame = Frame::new(Size::ZERO);
     let iter = props.families.iter();
-    shape_segment(&mut frame, text, dir, loader, props, iter, None);
+    let mut results = vec![];
+    shape_segment(&mut results, text, dir, loader, props, iter, None);
+
+    let mut top = Length::ZERO;
+    let mut bottom = Length::ZERO;
+    for result in &results {
+        top = top.max(result.top);
+        bottom = bottom.max(result.bottom);
+    }
+
+    let mut frame = Frame::new(Size::new(Length::ZERO, top + bottom), top);
+    for shaped in results {
+        let offset = frame.size.width;
+        frame.size.width += shaped.width;
+        frame.push(Point::new(offset, top), Element::Text(shaped));
+    }
+
     frame
 }
 
 /// Shape text into a frame with font fallback using the `families` iterator.
 fn shape_segment<'a>(
-    frame: &mut Frame,
+    results: &mut Vec<ShapedText>,
     text: &str,
     dir: Dir,
     loader: &mut FontLoader,
@@ -53,7 +68,7 @@ fn shape_segment<'a>(
     let units_per_em = f64::from(ttf.units_per_em().unwrap_or(1000));
     let convert = |units| f64::from(units) / units_per_em * props.size;
     let top = convert(i32::from(props.top_edge.lookup(ttf)));
-    let bottom = convert(i32::from(props.bottom_edge.lookup(ttf)));
+    let bottom = convert(i32::from(-props.bottom_edge.lookup(ttf)));
     let mut shaped = ShapedText::new(id, props.size, top, bottom, props.color);
 
     // Fill the buffer with our text.
@@ -76,7 +91,7 @@ fn shape_segment<'a>(
         if info.codepoint == 0 && fallback {
             // Flush what we have so far.
             if !shaped.glyphs.is_empty() {
-                place(frame, shaped);
+                results.push(shaped);
                 shaped = ShapedText::new(id, props.size, top, bottom, props.color);
             }
 
@@ -107,7 +122,7 @@ fn shape_segment<'a>(
             let part = &text[range];
 
             // Recursively shape the tofu sequence with the next family.
-            shape_segment(frame, part, dir, loader, props, families.clone(), first);
+            shape_segment(results, part, dir, loader, props, families.clone(), first);
         } else {
             // Add the glyph to the shaped output.
             // TODO: Don't ignore y_advance and y_offset.
@@ -119,14 +134,6 @@ fn shape_segment<'a>(
     }
 
     if !shaped.glyphs.is_empty() {
-        place(frame, shaped)
+        results.push(shaped);
     }
-}
-
-/// Place shaped text into a frame.
-fn place(frame: &mut Frame, shaped: ShapedText) {
-    let offset = frame.size.width;
-    frame.size.width += shaped.width;
-    frame.size.height = frame.size.height.max(shaped.top - shaped.bottom);
-    frame.push(Point::new(offset, shaped.top), Element::Text(shaped));
 }

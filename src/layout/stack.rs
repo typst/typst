@@ -119,7 +119,8 @@ impl StackLayouter {
             size.switch(self.main)
         };
 
-        let mut output = Frame::new(full_size.switch(self.main).to_size());
+        let mut output = Frame::new(full_size.switch(self.main).to_size(), Length::ZERO);
+        let mut baseline = None;
 
         for (before, frame, aligns) in std::mem::take(&mut self.frames) {
             let child_size = frame.size.switch(self.main);
@@ -142,7 +143,12 @@ impl StackLayouter {
             });
 
             let pos = Gen::new(main, cross).switch(self.main).to_point();
+            baseline.get_or_insert(pos.y + frame.baseline);
             output.push_frame(pos, frame);
+        }
+
+        if let Some(baseline) = baseline {
+            output.baseline = baseline;
         }
 
         self.finished.push(output);

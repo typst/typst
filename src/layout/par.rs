@@ -102,7 +102,9 @@ struct ParLayouter<'a> {
 
 struct Line {
     items: Vec<LineItem>,
-    size: Size,
+    width: Length,
+    top: Length,
+    bottom: Length,
     ruler: Align,
     hard: bool,
 }
@@ -123,22 +125,17 @@ impl<'a> ParLayouter<'a> {
             finished: vec![],
             stack: vec![],
             stack_size: Size::ZERO,
-            line: Line {
-                items: vec![],
-                size: Size::ZERO,
-                ruler: Align::Start,
-                hard: true,
-            },
+            line: Line::new(true),
         }
     }
 
     /// Push horizontal spacing.
     fn push_spacing(&mut self, range: Range<usize>, amount: Length) {
-        let amount = amount.min(self.areas.current.width - self.line.size.width);
-        self.line.size.width += amount;
+        let amount = amount.min(self.areas.current.width - self.line.width);
+        self.line.width += amount;
         self.line.items.push(LineItem {
             range,
-            frame: Frame::new(Size::new(amount, Length::ZERO)),
+            frame: Frame::new(Size::new(amount, Length::ZERO), Length::ZERO),
             align: Align::default(),
         })
     }
@@ -266,7 +263,7 @@ impl<'a> ParLayouter<'a> {
         }
 
         // Find out whether the area still has enough space for this frame.
-        if !self.usable().fits(frame.size) && self.line.size.width > Length::ZERO {
+        if !self.usable().fits(frame.size) && self.line.width > Length::ZERO {
             self.finish_line(false);
 
             // Here, we can directly check whether the frame fits into
@@ -285,10 +282,11 @@ impl<'a> ParLayouter<'a> {
 
         // A line can contain frames with different alignments. Their exact
         // positions are calculated later depending on the alignments.
-        let size = frame.size;
+        let Frame { size, baseline, .. } = frame;
         self.line.items.push(LineItem { range, frame, align });
-        self.line.size.width += size.width;
-        self.line.size.height = self.line.size.height.max(size.height);
+        self.line.width += size.width;
+        self.line.top = self.line.top.max(baseline);
+        self.line.bottom = self.line.bottom.max(size.height - baseline);
         self.line.ruler = align;
     }
 
@@ -297,41 +295,39 @@ impl<'a> ParLayouter<'a> {
         // `areas.current`, but the width of the current line needs to be
         // subtracted to make sure the frame fits.
         let mut usable = self.areas.current;
-        usable.width -= self.line.size.width;
+        usable.width -= self.line.width;
         usable
     }
 
     fn finish_line(&mut self, hard: bool) {
-        if !mem::replace(&mut self.line.hard, hard) && self.line.items.is_empty() {
+        let mut line = mem::replace(&mut self.line, Line::new(hard));
+        if !line.hard && line.items.is_empty() {
             return;
         }
 
         // BiDi reordering.
-        self.reorder_line();
+        line.reorder(&self.bidi);
 
         let full_size = {
             let expand = self.areas.expand.horizontal;
             let full = self.areas.full.width;
-            Size::new(
-                expand.resolve(self.line.size.width, full),
-                self.line.size.height,
-            )
+            Size::new(expand.resolve(line.width, full), line.top + line.bottom)
         };
 
-        let mut output = Frame::new(full_size);
+        let mut output = Frame::new(full_size, line.top + line.bottom);
         let mut offset = Length::ZERO;
 
-        for item in mem::take(&mut self.line.items) {
+        for item in line.items {
             // Align along the x axis.
             let x = item.align.resolve(if self.dir.is_positive() {
-                offset .. full_size.width - self.line.size.width + offset
+                offset .. full_size.width - line.width + offset
             } else {
-                full_size.width - self.line.size.width + offset .. offset
+                full_size.width - line.width + offset .. offset
             });
 
             offset += item.frame.size.width;
 
-            let pos = Point::new(x, Length::ZERO);
+            let pos = Point::new(x, line.top - item.frame.baseline);
             output.push_frame(pos, item.frame);
         }
 
@@ -341,31 +337,73 @@ impl<'a> ParLayouter<'a> {
             self.areas.current.height -= self.line_spacing;
         }
 
-        self.stack.push((self.stack_size.height, output, self.line.ruler));
+        self.stack.push((self.stack_size.height, output, line.ruler));
         self.stack_size.height += full_size.height;
         self.stack_size.width = self.stack_size.width.max(full_size.width);
         self.areas.current.height -= full_size.height;
-        self.line.size = Size::ZERO;
-        self.line.ruler = Align::Start;
     }
 
-    fn reorder_line(&mut self) {
-        let items = &mut self.line.items;
+    fn finish_area(&mut self) {
+        let mut output = Frame::new(self.stack_size, Length::ZERO);
+        let mut baseline = None;
+
+        for (before, line, align) in mem::take(&mut self.stack) {
+            // Align along the x axis.
+            let x = align.resolve(if self.dir.is_positive() {
+                Length::ZERO .. self.stack_size.width - line.size.width
+            } else {
+                self.stack_size.width - line.size.width .. Length::ZERO
+            });
+
+            let pos = Point::new(x, before);
+            baseline.get_or_insert(pos.y + line.baseline);
+            output.push_frame(pos, line);
+        }
+
+        if let Some(baseline) = baseline {
+            output.baseline = baseline;
+        }
+
+        self.finished.push(output);
+        self.areas.next();
+        self.stack_size = Size::ZERO;
+    }
+
+    fn finish(mut self) -> Vec<Frame> {
+        self.finish_line(false);
+        self.finish_area();
+        self.finished
+    }
+}
+
+impl Line {
+    fn new(hard: bool) -> Self {
+        Self {
+            items: vec![],
+            width: Length::ZERO,
+            top: Length::ZERO,
+            bottom: Length::ZERO,
+            ruler: Align::Start,
+            hard,
+        }
+    }
+
+    fn reorder(&mut self, bidi: &BidiInfo) {
+        let items = &mut self.items;
         let line_range = match (items.first(), items.last()) {
             (Some(first), Some(last)) => first.range.start .. last.range.end,
             _ => return,
         };
 
         // Find the paragraph that contains the frame.
-        let para = self
-            .bidi
+        let para = bidi
             .paragraphs
             .iter()
             .find(|para| para.range.contains(&line_range.start))
             .unwrap();
 
         // Compute the reordered ranges in visual order (left to right).
-        let (levels, ranges) = self.bidi.visual_runs(para, line_range);
+        let (levels, ranges) = bidi.visual_runs(para, line_range);
 
         // Reorder the items.
         items.sort_by_key(|item| {
@@ -386,31 +424,6 @@ impl<'a> ParLayouter<'a> {
 
             (idx, dist)
         });
-    }
-
-    fn finish_area(&mut self) {
-        let mut output = Frame::new(self.stack_size);
-        for (before, line, align) in mem::take(&mut self.stack) {
-            // Align along the x axis.
-            let x = align.resolve(if self.dir.is_positive() {
-                Length::ZERO .. self.stack_size.width - line.size.width
-            } else {
-                self.stack_size.width - line.size.width .. Length::ZERO
-            });
-
-            let pos = Point::new(x, before);
-            output.push_frame(pos, line);
-        }
-
-        self.finished.push(output);
-        self.areas.next();
-        self.stack_size = Size::ZERO;
-    }
-
-    fn finish(mut self) -> Vec<Frame> {
-        self.finish_line(false);
-        self.finish_area();
-        self.finished
     }
 }
 

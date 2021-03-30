@@ -73,7 +73,7 @@ impl Layout for ImageNode {
             }
         };
 
-        let mut frame = Frame::new(size);
+        let mut frame = Frame::new(size, size.height);
         frame.push(Point::ZERO, Element::Image(Image { res: self.res, size }));
 
         vec![frame]
