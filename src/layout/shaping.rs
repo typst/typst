@@ -5,12 +5,13 @@ use ttf_parser::GlyphId;
 use super::{Element, Frame, ShapedText};
 use crate::env::FontLoader;
 use crate::exec::FontProps;
-use crate::geom::{Point, Size};
+use crate::geom::{Dir, Point, Size};
 
 /// Shape text into a frame containing [`ShapedText`] runs.
-pub fn shape(text: &str, loader: &mut FontLoader, props: &FontProps) -> Frame {
+pub fn shape(text: &str, dir: Dir, loader: &mut FontLoader, props: &FontProps) -> Frame {
     let mut frame = Frame::new(Size::ZERO);
-    shape_segment(&mut frame, text, loader, props, props.families.iter(), None);
+    let iter = props.families.iter();
+    shape_segment(&mut frame, text, dir, loader, props, iter, None);
     frame
 }
 
@@ -18,6 +19,7 @@ pub fn shape(text: &str, loader: &mut FontLoader, props: &FontProps) -> Frame {
 fn shape_segment<'a>(
     frame: &mut Frame,
     text: &str,
+    dir: Dir,
     loader: &mut FontLoader,
     props: &FontProps,
     mut families: impl Iterator<Item = &'a str> + Clone,
@@ -57,11 +59,11 @@ fn shape_segment<'a>(
     // Fill the buffer with our text.
     let mut buffer = UnicodeBuffer::new();
     buffer.push_str(text);
-    buffer.guess_segment_properties();
-
-    // Find out the text direction.
-    // TODO: Replace this once we do BiDi.
-    let rtl = matches!(buffer.direction(), rustybuzz::Direction::RightToLeft);
+    buffer.set_direction(match dir {
+        Dir::LTR => rustybuzz::Direction::LeftToRight,
+        Dir::RTL => rustybuzz::Direction::RightToLeft,
+        _ => unimplemented!(),
+    });
 
     // Shape!
     let glyphs = rustybuzz::shape(face.buzz(), &[], buffer);
@@ -92,7 +94,7 @@ fn shape_segment<'a>(
             // Because Harfbuzz outputs glyphs in visual order, the start
             // cluster actually corresponds to the last codepoint in
             // right-to-left text.
-            if rtl {
+            if !dir.is_positive() {
                 assert!(end <= start);
                 std::mem::swap(&mut start, &mut end);
             }
@@ -102,9 +104,10 @@ fn shape_segment<'a>(
             // char.
             let offset = text[end ..].chars().next().unwrap().len_utf8();
             let range = start .. end + offset;
+            let part = &text[range];
 
             // Recursively shape the tofu sequence with the next family.
-            shape_segment(frame, &text[range], loader, props, families.clone(), first);
+            shape_segment(frame, part, dir, loader, props, families.clone(), first);
         } else {
             // Add the glyph to the shaped output.
             // TODO: Don't ignore y_advance and y_offset.

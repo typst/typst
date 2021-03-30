@@ -45,6 +45,7 @@ impl Layout for ParNode {
         let mut text = String::new();
         let mut ranges = vec![];
 
+        // Collect all text into one string used for BiDi analysis.
         for child in &self.children {
             let start = text.len();
             match child {
@@ -55,49 +56,20 @@ impl Layout for ParNode {
             ranges.push(start .. text.len());
         }
 
-        let level = match self.dir {
-            Dir::LTR => Level::ltr(),
-            Dir::RTL => Level::rtl(),
-            _ => panic!("invalid paragraph direction"),
-        };
+        // Find out the BiDi embedding levels.
+        let bidi = BidiInfo::new(&text, Level::from_dir(self.dir));
 
-        let bidi = BidiInfo::new(&text, Some(level));
         let mut layouter =
             ParLayouter::new(self.dir, self.line_spacing, &bidi, areas.clone());
 
+        // Layout the children.
         for (range, child) in ranges.into_iter().zip(&self.children) {
             match *child {
                 ParChild::Spacing(amount) => {
                     layouter.push_spacing(range, amount);
                 }
                 ParChild::Text(ref node, align) => {
-                    let mut start = range.start;
-                    let mut last = None;
-                    for (idx, level) in bidi.levels[range.clone()].iter().enumerate() {
-                        let idx = range.start + idx;
-
-                        if last.map_or(false, |last| last != level) {
-                            // Push the text up until `idx` (exclusively).
-                            layouter.push_text(
-                                ctx,
-                                start .. idx,
-                                &text[start .. idx],
-                                &node.props,
-                                align,
-                            );
-                            start = idx;
-                        }
-
-                        last = Some(level);
-                    }
-
-                    layouter.push_text(
-                        ctx,
-                        start .. range.end,
-                        &text[start .. range.end],
-                        &node.props,
-                        align,
-                    );
+                    layouter.push_text(ctx, range, &node.props, align);
                 }
                 ParChild::Any(ref node, align) => {
                     for frame in node.layout(ctx, &layouter.areas) {
@@ -126,13 +98,13 @@ struct ParLayouter<'a> {
     stack: Vec<(Length, Frame, Align)>,
     stack_size: Size,
     line: Line,
-    hard: bool,
 }
 
 struct Line {
     items: Vec<LineItem>,
     size: Size,
     ruler: Align,
+    hard: bool,
 }
 
 struct LineItem {
@@ -155,11 +127,12 @@ impl<'a> ParLayouter<'a> {
                 items: vec![],
                 size: Size::ZERO,
                 ruler: Align::Start,
+                hard: true,
             },
-            hard: true,
         }
     }
 
+    /// Push horizontal spacing.
     fn push_spacing(&mut self, range: Range<usize>, amount: Length) {
         let amount = amount.min(self.areas.current.width - self.line.size.width);
         self.line.size.width += amount;
@@ -170,11 +143,42 @@ impl<'a> ParLayouter<'a> {
         })
     }
 
+    /// Push text with equal font properties, but possibly containing runs of
+    /// different directions.
     fn push_text(
         &mut self,
         ctx: &mut LayoutContext,
         range: Range<usize>,
-        text: &str,
+        props: &FontProps,
+        align: Align,
+    ) {
+        let levels = &self.bidi.levels[range.clone()];
+
+        let mut start = range.start;
+        let mut last = match levels.first() {
+            Some(&level) => level,
+            None => return,
+        };
+
+        // Split into runs with the same embedding level.
+        for (idx, &level) in levels.iter().enumerate() {
+            let end = range.start + idx;
+            if last != level {
+                self.push_run(ctx, start .. end, last.dir(), props, align);
+                start = end;
+            }
+            last = level;
+        }
+
+        self.push_run(ctx, start .. range.end, last.dir(), props, align);
+    }
+
+    /// Push a text run with fixed direction.
+    fn push_run(
+        &mut self,
+        ctx: &mut LayoutContext,
+        range: Range<usize>,
+        dir: Dir,
         props: &FontProps,
         align: Align,
     ) {
@@ -185,45 +189,54 @@ impl<'a> ParLayouter<'a> {
         // opportunity.
         let mut last = None;
 
+        // Create an iterator over the line break opportunities.
+        let text = &self.bidi.text[range.clone()];
         let mut iter = LineBreakIterator::new(text).peekable();
-        while let Some(&(pos, mandatory)) = iter.peek() {
-            let line = &text[start - range.start .. pos];
+
+        while let Some(&(end, mandatory)) = iter.peek() {
+            // Slice the line of text.
+            let end = range.start + end;
+            let line = &self.bidi.text[start .. end];
 
             // Remove trailing newline and spacing at the end of lines.
             let mut line = line.trim_end_matches(is_newline);
-            if pos != text.len() {
+            if end != range.end {
                 line = line.trim_end();
             }
 
-            let pos = range.start + pos;
-            let frame = shape(line, &mut ctx.env.fonts, props);
+            // Shape the line.
+            let frame = shape(line, dir, &mut ctx.env.fonts, props);
 
+            // Find out whether the runs still fits into the line.
             if self.usable().fits(frame.size) {
-                // Still fits into the line.
                 if mandatory {
-                    // We have to break here.
-                    self.push_frame(start .. pos, frame, align);
+                    // We have to break here because the text contained a hard
+                    // line break like "\n".
+                    self.push_frame(start .. end, frame, align);
                     self.finish_line(true);
-                    start = pos;
+                    start = end;
                     last = None;
                 } else {
-                    last = Some((frame, pos));
+                    // Still fits, so we remember it and try making the line
+                    // even longer.
+                    last = Some((frame, end));
                 }
             } else if let Some((frame, pos)) = last.take() {
-                // The line start..pos doesn't fit. So we write the line up to
-                // the last position and retry writing just the single piece
-                // behind it.
+                // The line we just tried doesn't fit. So we write the line up
+                // to the last position.
                 self.push_frame(start .. pos, frame, align);
                 self.finish_line(false);
                 start = pos;
+
+                // Retry writing just the single piece.
                 continue;
             } else {
-                // Since last is `None`, we are at the first piece behind a line
-                // break and it still doesn't fit. Since we can't break it up
-                // further, so we just have to push it.
-                self.push_frame(start .. pos, frame, align);
+                // Since `last` is `None`, we are at the first piece behind a
+                // line break and it still doesn't fit. Since we can't break it
+                // up further, we just have to push it.
+                self.push_frame(start .. end, frame, align);
                 self.finish_line(false);
-                start = pos;
+                start = end;
             }
 
             iter.next();
@@ -289,30 +302,12 @@ impl<'a> ParLayouter<'a> {
     }
 
     fn finish_line(&mut self, hard: bool) {
-        if !mem::replace(&mut self.hard, hard) && self.line.items.is_empty() {
+        if !mem::replace(&mut self.line.hard, hard) && self.line.items.is_empty() {
             return;
         }
 
-        let mut items = mem::take(&mut self.line.items);
-        if let (Some(first), Some(last)) = (items.first(), items.last()) {
-            let range = first.range.start .. last.range.end;
-            let para = self
-                .bidi
-                .paragraphs
-                .iter()
-                .find(|para| para.range.contains(&range.start))
-                .unwrap();
-
-            let (levels, ranges) = self.bidi.visual_runs(&para, range);
-
-            items.sort_by_key(|item| {
-                let start = item.range.start;
-                let idx = ranges.iter().position(|r| r.contains(&start)).unwrap();
-                let ltr = levels[start].is_ltr();
-                let sec = start as isize * if ltr { 1 } else { -1 };
-                (idx, sec)
-            });
-        }
+        // BiDi reordering.
+        self.reorder_line();
 
         let full_size = {
             let expand = self.areas.expand.horizontal;
@@ -326,7 +321,7 @@ impl<'a> ParLayouter<'a> {
         let mut output = Frame::new(full_size);
         let mut offset = Length::ZERO;
 
-        for item in items {
+        for item in mem::take(&mut self.line.items) {
             // Align along the x axis.
             let x = item.align.resolve(if self.dir.is_positive() {
                 offset .. full_size.width - self.line.size.width + offset
@@ -354,6 +349,45 @@ impl<'a> ParLayouter<'a> {
         self.line.ruler = Align::Start;
     }
 
+    fn reorder_line(&mut self) {
+        let items = &mut self.line.items;
+        let line_range = match (items.first(), items.last()) {
+            (Some(first), Some(last)) => first.range.start .. last.range.end,
+            _ => return,
+        };
+
+        // Find the paragraph that contains the frame.
+        let para = self
+            .bidi
+            .paragraphs
+            .iter()
+            .find(|para| para.range.contains(&line_range.start))
+            .unwrap();
+
+        // Compute the reordered ranges in visual order (left to right).
+        let (levels, ranges) = self.bidi.visual_runs(para, line_range);
+
+        // Reorder the items.
+        items.sort_by_key(|item| {
+            let Range { start, end } = item.range;
+
+            // Determine the index in visual order.
+            let idx = ranges.iter().position(|r| r.contains(&start)).unwrap();
+
+            // A run might span more than one frame. To sort frames inside a run
+            // based on the run's direction, we compute the distance from
+            // the "start" of the run.
+            let run = &ranges[idx];
+            let dist = if levels[start].is_ltr() {
+                start - run.start
+            } else {
+                run.end - end
+            };
+
+            (idx, dist)
+        });
+    }
+
     fn finish_area(&mut self) {
         let mut output = Frame::new(self.stack_size);
         for (before, line, align) in mem::take(&mut self.stack) {
@@ -377,6 +411,25 @@ impl<'a> ParLayouter<'a> {
         self.finish_line(false);
         self.finish_area();
         self.finished
+    }
+}
+
+trait LevelExt: Sized {
+    fn from_dir(dir: Dir) -> Option<Self>;
+    fn dir(self) -> Dir;
+}
+
+impl LevelExt for Level {
+    fn from_dir(dir: Dir) -> Option<Self> {
+        match dir {
+            Dir::LTR => Some(Level::ltr()),
+            Dir::RTL => Some(Level::rtl()),
+            _ => None,
+        }
+    }
+
+    fn dir(self) -> Dir {
+        if self.is_ltr() { Dir::LTR } else { Dir::RTL }
     }
 }
 
