@@ -8,7 +8,7 @@ Le fira
 
 // This should just shape nicely.
 #font("Noto Sans Arabic")
-منش إلا بسم الله
+دع النص يمطر عليك
 
 // This should form a three-member family.
 #font("Twitter Color Emoji")
@@ -26,7 +26,7 @@ Le fira
 A😀B
 
 // Font fallback for entire text.
-منش إلا بسم الله
+دع النص يمطر عليك
 
 // Font fallback in right-to-left text.
 ب🐈😀سم
