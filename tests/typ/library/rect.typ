@@ -19,7 +19,7 @@
 
 // Not visible, but creates a gap between the boxes above and below
 // due to line spacing.
-#rect(width: 2in, fill: #ff0000)
+#rect(width: 1in, fill: #ff0000)
 
 // These are in a row!
 #rect(width: 0.5in, height: 10pt, fill: #D6CD67)
