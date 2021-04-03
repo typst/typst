@@ -6,7 +6,7 @@ use crate::env::Env;
 use crate::eval::TemplateValue;
 use crate::geom::{Align, Dir, Gen, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{
-    AnyNode, PadNode, PageRun, ParChild, ParNode, StackChild, StackNode, TextNode, Tree,
+    AnyNode, PadNode, PageRun, ParChild, ParNode, StackChild, StackNode, Tree,
 };
 use crate::syntax::Span;
 
@@ -129,7 +129,7 @@ impl<'a> ExecContext<'a> {
     fn make_text_node(&self, text: impl Into<String>) -> ParChild {
         let align = self.state.aligns.cross;
         let props = self.state.font.resolve_props();
-        ParChild::Text(TextNode { text: text.into(), props }, align)
+        ParChild::Text(text.into(), props, align)
     }
 }
 
@@ -238,10 +238,12 @@ impl ParBuilder {
     }
 
     fn push_inner(&mut self, child: ParChild) {
-        if let ParChild::Text(curr, curr_align) = &child {
-            if let Some(ParChild::Text(prev, prev_align)) = self.children.last_mut() {
-                if prev_align == curr_align && prev.props == curr.props {
-                    prev.text.push_str(&curr.text);
+        if let ParChild::Text(curr_text, curr_props, curr_align) = &child {
+            if let Some(ParChild::Text(prev_text, prev_props, prev_align)) =
+                self.children.last_mut()
+            {
+                if prev_align == curr_align && prev_props == curr_props {
+                    prev_text.push_str(&curr_text);
                     return;
                 }
             }

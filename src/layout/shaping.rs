@@ -1,3 +1,6 @@
+use std::fmt::{self, Debug, Formatter};
+use std::ops::Range;
+
 use fontdock::FaceId;
 use rustybuzz::UnicodeBuffer;
 use ttf_parser::GlyphId;
@@ -8,7 +11,12 @@ use crate::exec::FontProps;
 use crate::geom::{Dir, Length, Point, Size};
 
 /// Shape text into a frame containing [`ShapedText`] runs.
-pub fn shape(text: &str, dir: Dir, loader: &mut FontLoader, props: &FontProps) -> Frame {
+pub fn shape<'a>(
+    text: &'a str,
+    dir: Dir,
+    loader: &mut FontLoader,
+    props: &'a FontProps,
+) -> ShapeResult<'a> {
     let iter = props.families.iter();
     let mut results = vec![];
     shape_segment(&mut results, text, dir, loader, props, iter, None);
@@ -21,13 +29,57 @@ pub fn shape(text: &str, dir: Dir, loader: &mut FontLoader, props: &FontProps) -
     }
 
     let mut frame = Frame::new(Size::new(Length::ZERO, top + bottom), top);
+
     for shaped in results {
         let offset = frame.size.width;
         frame.size.width += shaped.width;
-        frame.push(Point::new(offset, top), Element::Text(shaped));
+
+        if !shaped.glyphs.is_empty() {
+            frame.push(Point::new(offset, top), Element::Text(shaped));
+        }
     }
 
-    frame
+    ShapeResult { frame, text, dir, props }
+}
+
+#[derive(Clone)]
+pub struct ShapeResult<'a> {
+    frame: Frame,
+    text: &'a str,
+    dir: Dir,
+    props: &'a FontProps,
+}
+
+impl<'a> ShapeResult<'a> {
+    pub fn reshape(
+        &self,
+        range: Range<usize>,
+        loader: &mut FontLoader,
+    ) -> ShapeResult<'_> {
+        if range.start == 0 && range.end == self.text.len() {
+            self.clone()
+        } else {
+            shape(&self.text[range], self.dir, loader, self.props)
+        }
+    }
+
+    pub fn text(&self) -> &'a str {
+        self.text
+    }
+
+    pub fn measure(&self) -> (Size, Length) {
+        (self.frame.size, self.frame.baseline)
+    }
+
+    pub fn build(&self) -> Frame {
+        self.frame.clone()
+    }
+}
+
+impl Debug for ShapeResult<'_> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Shaped({:?})", self.text)
+    }
 }
 
 /// Shape text into a frame with font fallback using the `families` iterator.
@@ -70,6 +122,12 @@ fn shape_segment<'a>(
     let top = convert(i32::from(props.top_edge.lookup(ttf)));
     let bottom = convert(i32::from(-props.bottom_edge.lookup(ttf)));
     let mut shaped = ShapedText::new(id, props.size, top, bottom, props.color);
+
+    // For empty text, we want a zero-width box with the correct height.
+    if text.is_empty() {
+        results.push(shaped);
+        return;
+    }
 
     // Fill the buffer with our text.
     let mut buffer = UnicodeBuffer::new();

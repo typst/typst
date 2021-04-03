@@ -116,39 +116,40 @@ impl StackLayouter {
                 size = Size::new(width, width / aspect);
             }
 
-            size.switch(self.main)
+            size
         };
 
-        let mut output = Frame::new(full_size.switch(self.main).to_size(), Length::ZERO);
-        let mut baseline = None;
+        let mut output = Frame::new(full_size, full_size.height);
+        let mut first = true;
 
+        let full_size = full_size.switch(self.main);
         for (before, frame, aligns) in std::mem::take(&mut self.frames) {
             let child_size = frame.size.switch(self.main);
 
             // Align along the main axis.
-            let main = aligns.main.resolve(if self.dirs.main.is_positive() {
-                let after_with_self = self.size.main - before;
-                before .. full_size.main - after_with_self
-            } else {
-                let before_with_self = before + child_size.main;
-                let after = self.size.main - (before + child_size.main);
-                full_size.main - before_with_self .. after
-            });
+            let main = aligns.main.resolve(
+                self.dirs.main,
+                if self.dirs.main.is_positive() {
+                    before .. before + full_size.main - self.size.main
+                } else {
+                    self.size.main - (before + child_size.main)
+                        .. full_size.main - (before + child_size.main)
+                },
+            );
 
             // Align along the cross axis.
-            let cross = aligns.cross.resolve(if self.dirs.cross.is_positive() {
-                Length::ZERO .. full_size.cross - child_size.cross
-            } else {
-                full_size.cross - child_size.cross .. Length::ZERO
-            });
+            let cross = aligns.cross.resolve(
+                self.dirs.cross,
+                Length::ZERO .. full_size.cross - child_size.cross,
+            );
 
             let pos = Gen::new(main, cross).switch(self.main).to_point();
-            baseline.get_or_insert(pos.y + frame.baseline);
-            output.push_frame(pos, frame);
-        }
+            if first {
+                output.baseline = pos.y + frame.baseline;
+                first = false;
+            }
 
-        if let Some(baseline) = baseline {
-            output.baseline = baseline;
+            output.push_frame(pos, frame);
         }
 
         self.finished.push(output);

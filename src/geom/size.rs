@@ -28,8 +28,7 @@ impl Size {
 
     /// Whether the other size fits into this one (smaller width and height).
     pub fn fits(self, other: Self) -> bool {
-        const EPS: Length = Length::raw(1e-6);
-        self.width + EPS >= other.width && self.height + EPS >= other.height
+        self.width.fits(other.width) && self.height.fits(other.height)
     }
 
     /// Whether both components are finite.

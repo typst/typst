@@ -38,6 +38,8 @@ fn pad(frame: &mut Frame, padding: Sides<Linear>) {
     let origin = Point::new(padding.left, padding.top);
 
     frame.size = padded;
+    frame.baseline += origin.y;
+
     for (point, _) in &mut frame.elements {
         *point += origin;
     }
