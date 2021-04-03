@@ -28,7 +28,13 @@ impl Layout for StackNode {
             match *child {
                 StackChild::Spacing(amount) => layouter.push_spacing(amount),
                 StackChild::Any(ref node, aligns) => {
-                    for frame in node.layout(ctx, &layouter.areas) {
+                    let mut frames = node.layout(ctx, &layouter.areas).into_iter();
+                    if let Some(frame) = frames.next() {
+                        layouter.push_frame(frame, aligns);
+                    }
+
+                    for frame in frames {
+                        layouter.finish_area();
                         layouter.push_frame(frame, aligns);
                     }
                 }

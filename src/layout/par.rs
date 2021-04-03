@@ -128,10 +128,12 @@ impl<'a> ParLayout<'a> {
                     });
                 }
                 ParChild::Any(ref node, align) => {
-                    for frame in node.layout(ctx, areas) {
-                        items.push(ParItem::Frame(frame, align));
-                        ranges.push(range.clone());
-                    }
+                    let frames = node.layout(ctx, areas);
+                    assert_eq!(frames.len(), 1);
+
+                    let frame = frames.into_iter().next().unwrap();
+                    items.push(ParItem::Frame(frame, align));
+                    ranges.push(range);
                 }
             }
         }
@@ -145,39 +147,38 @@ impl<'a> ParLayout<'a> {
         let mut last = None;
         let mut stack = LineStack::new(par.line_spacing, areas);
 
-        // TODO: Provide line break opportunities on alignment changes.
-        let mut iter = LineBreakIterator::new(self.bidi.text).peekable();
-
         // Find suitable line breaks.
-        while let Some(&(end, mandatory)) = iter.peek() {
-            assert!(start <= end);
+        // TODO: Provide line break opportunities on alignment changes.
+        for (end, mandatory) in LineBreakIterator::new(self.bidi.text) {
+            let mut line = LineLayout::new(&self, start .. end, ctx);
+            let mut size = line.measure().0;
 
-            let line = LineLayout::new(&self, start .. end, ctx);
-            let size = line.measure().0;
-
-            // Find out whether the line fits.
-            if stack.fits(size) {
-                if mandatory {
-                    stack.push(line);
-                    start = end;
-                    last = None;
-                    if end == self.bidi.text.len() {
-                        stack.push(LineLayout::new(&self, end .. end, ctx));
-                    }
-                } else {
-                    last = Some((line, end));
+            if !stack.areas.current.fits(size) {
+                if let Some((last_line, last_end)) = last.take() {
+                    stack.push(last_line);
+                    start = last_end;
+                    line = LineLayout::new(&self, start .. end, ctx);
+                    size = line.measure().0;
                 }
-            } else if let Some((line, end)) = last.take() {
-                stack.push(line);
-                stack.prepare(size.height);
-                start = end;
-                continue;
-            } else {
-                stack.push(line);
-                start = end;
             }
 
-            iter.next();
+            if !stack.areas.current.height.fits(size.height)
+                && !stack.areas.in_full_last()
+            {
+                stack.finish_area();
+            }
+
+            if mandatory || !stack.areas.current.width.fits(size.width) {
+                stack.push(line);
+                start = end;
+                last = None;
+
+                if mandatory && end == self.bidi.text.len() {
+                    stack.push(LineLayout::new(&self, end .. end, ctx));
+                }
+            } else {
+                last = Some((line, end));
+            }
         }
 
         if let Some((line, _)) = last {
@@ -433,27 +434,16 @@ impl<'a> LineStack<'a> {
         }
     }
 
-    fn fits(&self, size: Size) -> bool {
-        self.areas.current.fits(size)
-    }
-
-    fn prepare(&mut self, height: Length) {
-        if !self.areas.current.height.fits(height) && !self.areas.in_full_last() {
-            self.finish_area();
-        }
-    }
-
     fn push(&mut self, line: LineLayout<'a>) {
         let size = line.measure().0;
 
-        if !self.lines.is_empty() {
-            self.size.height += self.line_spacing;
-            self.areas.current.height -= self.line_spacing;
-        }
-
         self.size.width = self.size.width.max(size.width);
         self.size.height += size.height;
-        self.areas.current.height -= size.height;
+        if !self.lines.is_empty() {
+            self.size.height += self.line_spacing;
+        }
+
+        self.areas.current.height -= size.height + self.line_spacing;
         self.lines.push(line);
     }
 
