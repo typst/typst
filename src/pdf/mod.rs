@@ -50,7 +50,7 @@ impl<'a> PdfExporter<'a> {
         for frame in frames {
             for (_, element) in &frame.elements {
                 match element {
-                    Element::Text(shaped) => fonts.insert(shaped.face),
+                    Element::Text(shaped) => fonts.insert(shaped.face_id),
                     Element::Image(image) => {
                         let img = env.resources.loaded::<ImageResource>(image.res);
                         if img.buf.color().has_alpha() {
@@ -187,11 +187,11 @@ impl<'a> PdfExporter<'a> {
 
                     // Then, also check if we need to issue a font switching
                     // action.
-                    if shaped.face != face || shaped.size != size {
-                        face = shaped.face;
+                    if shaped.face_id != face || shaped.size != size {
+                        face = shaped.face_id;
                         size = shaped.size;
 
-                        let name = format!("F{}", self.fonts.map(shaped.face));
+                        let name = format!("F{}", self.fonts.map(shaped.face_id));
                         text.font(Name(name.as_bytes()), size.to_pt() as f32);
                     }
 

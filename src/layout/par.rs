@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::mem;
 
@@ -7,6 +6,7 @@ use xi_unicode::LineBreakIterator;
 
 use super::*;
 use crate::exec::FontProps;
+use crate::util::RangeExt;
 
 type Range = std::ops::Range<usize>;
 
@@ -74,7 +74,6 @@ impl ParNode {
 
 /// A paragraph representation in which children are already layouted and text
 /// is separated into shapable runs.
-#[derive(Debug)]
 struct ParLayout<'a> {
     /// The top-level direction.
     dir: Dir,
@@ -87,12 +86,11 @@ struct ParLayout<'a> {
 }
 
 /// A prepared item in a paragraph layout.
-#[derive(Debug)]
 enum ParItem<'a> {
     /// Spacing between other items.
     Spacing(Length),
     /// A shaped text run with consistent direction.
-    Text(ShapeResult<'a>, Align),
+    Text(ShapedText<'a>, Align),
     /// A layouted child node.
     Frame(Frame, Align),
 }
@@ -151,24 +149,22 @@ impl<'a> ParLayout<'a> {
         // TODO: Provide line break opportunities on alignment changes.
         for (end, mandatory) in LineBreakIterator::new(self.bidi.text) {
             let mut line = LineLayout::new(&self, start .. end, ctx);
-            let mut size = line.measure().0;
 
-            if !stack.areas.current.fits(size) {
+            if !stack.areas.current.fits(line.size) {
                 if let Some((last_line, last_end)) = last.take() {
                     stack.push(last_line);
                     start = last_end;
                     line = LineLayout::new(&self, start .. end, ctx);
-                    size = line.measure().0;
                 }
             }
 
-            if !stack.areas.current.height.fits(size.height)
+            if !stack.areas.current.height.fits(line.size.height)
                 && !stack.areas.in_full_last()
             {
-                stack.finish_area();
+                stack.finish_area(ctx);
             }
 
-            if mandatory || !stack.areas.current.width.fits(size.width) {
+            if mandatory || !stack.areas.current.width.fits(line.size.width) {
                 stack.push(line);
                 start = end;
                 last = None;
@@ -185,7 +181,7 @@ impl<'a> ParLayout<'a> {
             stack.push(line);
         }
 
-        stack.finish()
+        stack.finish(ctx)
     }
 
     /// Find the index of the item whose range contains the `text_offset`.
@@ -200,7 +196,7 @@ impl ParItem<'_> {
     pub fn measure(&self) -> (Size, Length) {
         match self {
             Self::Spacing(amount) => (Size::new(*amount, Length::ZERO), Length::ZERO),
-            Self::Text(shaped, _) => shaped.measure(),
+            Self::Text(shaped, _) => (shaped.size, shaped.baseline),
             Self::Frame(frame, _) => (frame.size, frame.baseline),
         }
     }
@@ -239,6 +235,8 @@ struct LineLayout<'a> {
     items: &'a [ParItem<'a>],
     last: Option<ParItem<'a>>,
     ranges: &'a [Range],
+    size: Size,
+    baseline: Length,
 }
 
 impl<'a> LineLayout<'a> {
@@ -265,7 +263,7 @@ impl<'a> LineLayout<'a> {
             let end = line.end - range.start;
 
             // Trim whitespace at the end of the line.
-            let end = start + shaped.text()[start .. end].trim_end().len();
+            let end = start + shaped.text[start .. end].trim_end().len();
             line.end = range.start + end;
 
             if start != end || rest.is_empty() {
@@ -291,28 +289,32 @@ impl<'a> LineLayout<'a> {
             items = rest;
         }
 
-        Self { par, line, first, items, last, ranges }
-    }
-
-    /// Measure the size of the line without actually building its frame.
-    fn measure(&self) -> (Size, Length) {
         let mut width = Length::ZERO;
         let mut top = Length::ZERO;
         let mut bottom = Length::ZERO;
 
-        for item in self.iter() {
+        for item in first.iter().chain(items).chain(&last) {
             let (size, baseline) = item.measure();
             width += size.width;
             top = top.max(baseline);
             bottom = bottom.max(size.height - baseline);
         }
 
-        (Size::new(width, top + bottom), top)
+        Self {
+            par,
+            line,
+            first,
+            items,
+            last,
+            ranges,
+            size: Size::new(width, top + bottom),
+            baseline: top,
+        }
     }
 
     /// Build the line's frame.
-    fn build(&self, width: Length) -> Frame {
-        let (size, baseline) = self.measure();
+    fn build(&self, ctx: &mut LayoutContext, width: Length) -> Frame {
+        let (size, baseline) = (self.size, self.baseline);
         let full_size = Size::new(size.width.max(width), size.height);
 
         let mut output = Frame::new(full_size, baseline);
@@ -325,7 +327,9 @@ impl<'a> LineLayout<'a> {
                     offset += amount;
                     return;
                 }
-                ParItem::Text(ref shaped, align) => (shaped.build(), align),
+                ParItem::Text(ref shaped, align) => {
+                    (shaped.build(&mut ctx.env.fonts), align)
+                }
                 ParItem::Frame(ref frame, align) => (frame.clone(), align),
             };
 
@@ -400,18 +404,7 @@ impl<'a> LineLayout<'a> {
 
 /// Find the range that contains the position.
 fn find_range(ranges: &[Range], pos: usize) -> Option<usize> {
-    ranges.binary_search_by(|r| cmp(r, pos)).ok()
-}
-
-/// Comparison function for a range and a position used in binary search.
-fn cmp(range: &Range, pos: usize) -> Ordering {
-    if pos < range.start {
-        Ordering::Greater
-    } else if pos < range.end {
-        Ordering::Equal
-    } else {
-        Ordering::Less
-    }
+    ranges.binary_search_by(|r| r.locate(pos)).ok()
 }
 
 /// Stacks lines into paragraph frames.
@@ -435,19 +428,17 @@ impl<'a> LineStack<'a> {
     }
 
     fn push(&mut self, line: LineLayout<'a>) {
-        let size = line.measure().0;
-
-        self.size.width = self.size.width.max(size.width);
-        self.size.height += size.height;
+        self.size.width = self.size.width.max(line.size.width);
+        self.size.height += line.size.height;
         if !self.lines.is_empty() {
             self.size.height += self.line_spacing;
         }
 
-        self.areas.current.height -= size.height + self.line_spacing;
+        self.areas.current.height -= line.size.height + self.line_spacing;
         self.lines.push(line);
     }
 
-    fn finish_area(&mut self) {
+    fn finish_area(&mut self, ctx: &mut LayoutContext) {
         let expand = self.areas.expand.horizontal;
         let full = self.areas.full.width;
         self.size.width = expand.resolve(self.size.width, full);
@@ -457,7 +448,7 @@ impl<'a> LineStack<'a> {
         let mut first = true;
 
         for line in mem::take(&mut self.lines) {
-            let frame = line.build(self.size.width);
+            let frame = line.build(ctx, self.size.width);
             let height = frame.size.height;
 
             if first {
@@ -474,8 +465,8 @@ impl<'a> LineStack<'a> {
         self.size = Size::ZERO;
     }
 
-    fn finish(mut self) -> Vec<Frame> {
-        self.finish_area();
+    fn finish(mut self, ctx: &mut LayoutContext) -> Vec<Frame> {
+        self.finish_area(ctx);
         self.finished
     }
 }

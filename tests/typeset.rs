@@ -20,7 +20,7 @@ use typst::env::{Env, FsIndexExt, ImageResource, ResourceLoader};
 use typst::eval::{EvalContext, FuncArgs, FuncValue, Scope, Value};
 use typst::exec::State;
 use typst::geom::{self, Length, Point, Sides, Size};
-use typst::layout::{Element, Fill, Frame, Geometry, Image, Shape, ShapedText};
+use typst::layout::{Element, Fill, Frame, Geometry, Image, Shape, Text};
 use typst::library;
 use typst::parse::{LineMap, Scanner};
 use typst::pdf;
@@ -413,19 +413,20 @@ fn draw(env: &Env, frames: &[Frame], pixel_per_pt: f32) -> Pixmap {
     canvas
 }
 
-fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, shaped: &ShapedText) {
-    let ttf = env.fonts.face(shaped.face).ttf();
+fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, shaped: &Text) {
+    let ttf = env.fonts.face(shaped.face_id).ttf();
+    let mut x = 0.0;
 
-    for (&glyph, &offset) in shaped.glyphs.iter().zip(&shaped.offsets) {
+    for glyph in &shaped.glyphs {
         let units_per_em = ttf.units_per_em().unwrap_or(1000);
 
-        let x = offset.to_pt() as f32;
         let s = (shaped.size / units_per_em as f64).to_pt() as f32;
-        let ts = ts.pre_translate(x, 0.0);
+        let dx = glyph.x_offset.to_pt() as f32;
+        let ts = ts.pre_translate(x + dx, 0.0);
 
         // Try drawing SVG if present.
         if let Some(tree) = ttf
-            .glyph_svg_image(glyph)
+            .glyph_svg_image(glyph.id)
             .and_then(|data| std::str::from_utf8(data).ok())
             .map(|svg| {
                 let viewbox = format!("viewBox=\"0 0 {0} {0}\" xmlns", units_per_em);
@@ -445,19 +446,19 @@ fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, shaped: &ShapedText)
                     }
                 }
             }
-
-            continue;
+        } else {
+            // Otherwise, draw normal outline.
+            let mut builder = WrappedPathBuilder(tiny_skia::PathBuilder::new());
+            if ttf.outline_glyph(glyph.id, &mut builder).is_some() {
+                let path = builder.0.finish().unwrap();
+                let ts = ts.pre_scale(s, -s);
+                let mut paint = convert_typst_fill(shaped.color);
+                paint.anti_alias = true;
+                canvas.fill_path(&path, &paint, FillRule::default(), ts, None);
+            }
         }
 
-        // Otherwise, draw normal outline.
-        let mut builder = WrappedPathBuilder(tiny_skia::PathBuilder::new());
-        if ttf.outline_glyph(glyph, &mut builder).is_some() {
-            let path = builder.0.finish().unwrap();
-            let ts = ts.pre_scale(s, -s);
-            let mut paint = convert_typst_fill(shaped.color);
-            paint.anti_alias = true;
-            canvas.fill_path(&path, &paint, FillRule::default(), ts, None);
-        }
+        x += glyph.x_advance.to_pt() as f32;
     }
 }
 

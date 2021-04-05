@@ -44,6 +44,7 @@ pub mod parse;
 pub mod pdf;
 pub mod pretty;
 pub mod syntax;
+pub mod util;
 
 use crate::diag::Pass;
 use crate::env::Env;
