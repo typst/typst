@@ -36,3 +36,10 @@ Aب😀🏞سمB
 
 // Tofus are rendered with the first font.
 A🐈中文B
+
+---
+// Test reshaping.
+
+#font("Noto Serif Hebrew")
+#lang("he")
+ס \ טֶ

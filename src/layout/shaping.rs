@@ -52,6 +52,12 @@ pub struct ShapedGlyph {
     pub safe_to_break: bool,
 }
 
+/// A visual side.
+enum Side {
+    Left,
+    Right,
+}
+
 impl<'a> ShapedText<'a> {
     /// Build the shaped text's frame.
     pub fn build(&self, loader: &mut FontLoader) -> Frame {
@@ -106,21 +112,19 @@ impl<'a> ShapedText<'a> {
     /// Find the subslice of glyphs that represent the given text range if both
     /// sides are safe to break.
     fn slice_safe_to_break(&self, text_range: Range<usize>) -> Option<&[ShapedGlyph]> {
-        let mut start = self.find_safe_to_break(text_range.start)?;
-        let mut end = self.find_safe_to_break(text_range.end)?;
-
+        let Range { mut start, mut end } = text_range;
         if !self.dir.is_positive() {
             std::mem::swap(&mut start, &mut end);
         }
 
-        // TODO: Expand to left and right if necessary because
-        //       find_safe_to_break may find any glyph with the text_index.
-
-        Some(&self.glyphs[start .. end])
+        let left = self.find_safe_to_break(start, Side::Left)?;
+        let right = self.find_safe_to_break(end, Side::Right)?;
+        Some(&self.glyphs[left .. right])
     }
 
-    /// Find the glyph slice offset at the text index if it's safe to break.
-    fn find_safe_to_break(&self, text_index: usize) -> Option<usize> {
+    /// Find the glyph offset matching the text index that is most towards the
+    /// given side and safe-to-break.
+    fn find_safe_to_break(&self, text_index: usize, towards: Side) -> Option<usize> {
         let ltr = self.dir.is_positive();
 
         // Handle edge cases.
@@ -131,16 +135,36 @@ impl<'a> ShapedText<'a> {
             return Some(if ltr { len } else { 0 });
         }
 
-        // TODO: Do binary search. Take care that RTL needs reversed ordering.
-        let idx = self
+        // Find any glyph with the text index.
+        let mut idx = self
             .glyphs
-            .iter()
-            .position(|g| g.text_index == text_index)
-            .filter(|&i| self.glyphs[i].safe_to_break)?;
+            .binary_search_by(|g| {
+                let ordering = g.text_index.cmp(&text_index);
+                if ltr { ordering } else { ordering.reverse() }
+            })
+            .ok()?;
 
-        // RTL needs offset one because the the start of the range should
-        // be exclusive and the end inclusive.
-        Some(if ltr { idx } else { idx + 1 })
+        let next = match towards {
+            Side::Left => usize::checked_sub,
+            Side::Right => usize::checked_add,
+        };
+
+        // Search for the outermost glyph with the text index.
+        while let Some(next) = next(idx, 1) {
+            if self.glyphs.get(next).map_or(true, |g| g.text_index != text_index) {
+                break;
+            }
+            idx = next;
+        }
+
+        // RTL needs offset one because the left side of the range should be
+        // exclusive and the right side inclusive, contrary to the normal
+        // behaviour of ranges.
+        if !ltr {
+            idx += 1;
+        }
+
+        self.glyphs[idx].safe_to_break.then(|| idx)
     }
 }
 

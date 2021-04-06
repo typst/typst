@@ -28,7 +28,7 @@ miniz_oxide = "0.3"
 pdf-writer = { path = "../pdf-writer" }
 rustybuzz = { git = "https://github.com/laurmaedje/rustybuzz" }
 ttf-parser = "0.12"
-unicode-bidi = "0.3"
+unicode-bidi = "0.3.5"
 unicode-xid = "0.2"
 xi-unicode = "0.3"
 anyhow = { version = "1", optional = true }
