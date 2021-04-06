@@ -418,9 +418,8 @@ fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, shaped: &Text) {
     let mut x = 0.0;
 
     for glyph in &shaped.glyphs {
-        let units_per_em = ttf.units_per_em().unwrap_or(1000);
-
-        let s = (shaped.size / units_per_em as f64).to_pt() as f32;
+        let units_per_em = ttf.units_per_em();
+        let s = shaped.size.to_pt() as f32 / units_per_em as f32;
         let dx = glyph.x_offset.to_pt() as f32;
         let ts = ts.pre_translate(x + dx, 0.0);
 

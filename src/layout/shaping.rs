@@ -39,7 +39,7 @@ pub struct ShapedGlyph {
     /// The font face the glyph is contained in.
     pub face_id: FaceId,
     /// The glyph's ID in the face.
-    pub id: GlyphId,
+    pub glyph_id: GlyphId,
     /// The advance width of the glyph.
     pub x_advance: i32,
     /// The horizontal offset of the glyph.
@@ -59,8 +59,6 @@ impl<'a> ShapedText<'a> {
         let mut x = Length::ZERO;
 
         for (face_id, group) in self.glyphs.as_ref().group_by_key(|g| g.face_id) {
-            let face = loader.face(face_id);
-
             let pos = Point::new(x, self.baseline);
             let mut text = Text {
                 face_id,
@@ -69,10 +67,11 @@ impl<'a> ShapedText<'a> {
                 glyphs: vec![],
             };
 
+            let face = loader.face(face_id);
             for glyph in group {
-                let x_advance = face.convert(self.props.size, glyph.x_advance);
-                let x_offset = face.convert(self.props.size, glyph.x_offset);
-                text.glyphs.push(Glyph { id: glyph.id, x_advance, x_offset });
+                let x_advance = face.convert(glyph.x_advance).scale(self.props.size);
+                let x_offset = face.convert(glyph.x_offset).scale(self.props.size);
+                text.glyphs.push(Glyph { id: glyph.glyph_id, x_advance, x_offset });
                 x += x_advance;
             }
 
@@ -218,7 +217,7 @@ fn shape_segment<'a>(
     });
 
     // Shape!
-    let buffer = rustybuzz::shape(loader.face(face_id).buzz(), &[], buffer);
+    let buffer = rustybuzz::shape(loader.face(face_id).ttf(), &[], buffer);
     let infos = buffer.glyph_infos();
     let pos = buffer.glyph_positions();
 
@@ -233,7 +232,7 @@ fn shape_segment<'a>(
             // TODO: Don't ignore y_advance and y_offset.
             glyphs.push(ShapedGlyph {
                 face_id,
-                id: GlyphId(info.codepoint as u16),
+                glyph_id: GlyphId(info.codepoint as u16),
                 x_advance: pos[i].x_advance,
                 x_offset: pos[i].x_offset,
                 text_index: base + cluster,
@@ -306,8 +305,8 @@ fn measure(
     let mut bottom = Length::ZERO;
     let mut width = Length::ZERO;
     let mut vertical = |face: &FaceBuf| {
-        top = top.max(face.vertical_metric(props.size, props.top_edge));
-        bottom = bottom.max(-face.vertical_metric(props.size, props.bottom_edge));
+        top = top.max(face.vertical_metric(props.top_edge).scale(props.size));
+        bottom = bottom.max(-face.vertical_metric(props.bottom_edge).scale(props.size));
     };
 
     if glyphs.is_empty() {
@@ -325,7 +324,7 @@ fn measure(
             vertical(face);
 
             for glyph in group {
-                width += face.convert(props.size, glyph.x_advance);
+                width += face.convert(glyph.x_advance).scale(props.size);
             }
         }
     }
