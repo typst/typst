@@ -6,7 +6,7 @@ use fontdock::FaceId;
 use rustybuzz::UnicodeBuffer;
 use ttf_parser::GlyphId;
 
-use super::{Element, Frame, Glyph, Text};
+use super::{Element, Frame, Glyph, LayoutContext, Text};
 use crate::env::FontLoader;
 use crate::exec::FontProps;
 use crate::font::FaceBuf;
@@ -60,12 +60,12 @@ enum Side {
 
 impl<'a> ShapedText<'a> {
     /// Build the shaped text's frame.
-    pub fn build(&self, loader: &mut FontLoader) -> Frame {
+    pub fn build(&self, ctx: &mut LayoutContext) -> Frame {
         let mut frame = Frame::new(self.size, self.baseline);
-        let mut x = Length::ZERO;
+        let mut offset = Length::ZERO;
 
         for (face_id, group) in self.glyphs.as_ref().group_by_key(|g| g.face_id) {
-            let pos = Point::new(x, self.baseline);
+            let pos = Point::new(offset, self.baseline);
             let mut text = Text {
                 face_id,
                 size: self.props.size,
@@ -73,12 +73,12 @@ impl<'a> ShapedText<'a> {
                 glyphs: vec![],
             };
 
-            let face = loader.face(face_id);
+            let face = ctx.env.fonts.face(face_id);
             for glyph in group {
                 let x_advance = face.convert(glyph.x_advance).scale(self.props.size);
                 let x_offset = face.convert(glyph.x_offset).scale(self.props.size);
                 text.glyphs.push(Glyph { id: glyph.glyph_id, x_advance, x_offset });
-                x += x_advance;
+                offset += x_advance;
             }
 
             frame.push(pos, Element::Text(text));
@@ -91,11 +91,11 @@ impl<'a> ShapedText<'a> {
     /// shaping process if possible.
     pub fn reshape(
         &'a self,
+        ctx: &mut LayoutContext,
         text_range: Range<usize>,
-        loader: &mut FontLoader,
     ) -> ShapedText<'a> {
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
-            let (size, baseline) = measure(glyphs, loader, self.props);
+            let (size, baseline) = measure(&mut ctx.env.fonts, glyphs, self.props);
             Self {
                 text: &self.text[text_range],
                 dir: self.dir,
@@ -105,7 +105,7 @@ impl<'a> ShapedText<'a> {
                 glyphs: Cow::Borrowed(glyphs),
             }
         } else {
-            shape(&self.text[text_range], self.dir, loader, self.props)
+            shape(ctx, &self.text[text_range], self.dir, self.props)
         }
     }
 
@@ -176,18 +176,21 @@ impl Debug for ShapedText<'_> {
 
 /// Shape text into [`ShapedText`].
 pub fn shape<'a>(
+    ctx: &mut LayoutContext,
     text: &'a str,
     dir: Dir,
-    loader: &mut FontLoader,
     props: &'a FontProps,
 ) -> ShapedText<'a> {
+    let loader = &mut ctx.env.fonts;
+
     let mut glyphs = vec![];
     let families = props.families.iter();
     if !text.is_empty() {
-        shape_segment(&mut glyphs, 0, text, dir, loader, props, families, None);
+        shape_segment(loader, &mut glyphs, 0, text, dir, props, families, None);
     }
 
-    let (size, baseline) = measure(&glyphs, loader, props);
+    let (size, baseline) = measure(loader, &glyphs, props);
+
     ShapedText {
         text,
         dir,
@@ -200,14 +203,14 @@ pub fn shape<'a>(
 
 /// Shape text with font fallback using the `families` iterator.
 fn shape_segment<'a>(
+    loader: &mut FontLoader,
     glyphs: &mut Vec<ShapedGlyph>,
     base: usize,
     text: &str,
     dir: Dir,
-    loader: &mut FontLoader,
     props: &FontProps,
     mut families: impl Iterator<Item = &'a str> + Clone,
-    mut first: Option<FaceId>,
+    mut first_face: Option<FaceId>,
 ) {
     // Select the font family.
     let (face_id, fallback) = loop {
@@ -219,17 +222,16 @@ fn shape_segment<'a>(
             },
             // We're out of families, so we don't do any more fallback and just
             // shape the tofus with the first face we originally used.
-            None => match first {
+            None => match first_face {
                 Some(id) => break (id, false),
                 None => return,
             },
         }
     };
 
-    // Register that this is the first available font.
-    if first.is_none() {
-        first = Some(face_id);
-    }
+    // Remember the id if this the first available face since we use that one to
+    // shape tofus.
+    first_face.get_or_insert(face_id);
 
     // Fill the buffer with our text.
     let mut buffer = UnicodeBuffer::new();
@@ -245,7 +247,8 @@ fn shape_segment<'a>(
     let infos = buffer.glyph_infos();
     let pos = buffer.glyph_positions();
 
-    // Collect the shaped glyphs, reshaping with the next font if necessary.
+    // Collect the shaped glyphs, doing fallback and shaping parts again with
+    // the next font if necessary.
     let mut i = 0;
     while i < infos.len() {
         let info = &infos[i];
@@ -263,30 +266,32 @@ fn shape_segment<'a>(
                 safe_to_break: !info.unsafe_to_break(),
             });
         } else {
-            // Do font fallback if the glyph is a tofu.
-            //
-            // First, search for the end of the tofu sequence.
-            let k = i;
-            while infos.get(i + 1).map_or(false, |info| info.codepoint == 0) {
-                i += 1;
-            }
-
             // Determine the source text range for the tofu sequence.
             let range = {
-                // Examples
+                // First, search for the end of the tofu sequence.
+                let k = i;
+                while infos.get(i + 1).map_or(false, |info| info.codepoint == 0) {
+                    i += 1;
+                }
+
+                // Then, determine the start and end text index.
                 //
-                // Here, _ is a tofu.
-                // Note that the glyph cluster length is greater than 1 char!
+                // Examples:
+                // Everything is shown in visual order. Tofus are written as "_".
+                // We want to find out that the tofus span the text `2..6`.
+                // Note that the clusters are longer than 1 char.
                 //
-                // Left-to-right clusters:
-                // h a l i h a l l o
-                // A   _   _   C   E
-                // 0   2   4   6   8
+                // Left-to-right:
+                // Text:     h a l i h a l l o
+                // Glyphs:   A   _   _   C   E
+                // Clusters: 0   2   4   6   8
+                //              k=1 i=2
                 //
-                // Right-to-left clusters:
-                // O L L A H I L A H
-                // E   C   _   _   A
-                // 8   6   4   2   0
+                // Right-to-left:
+                // Text:     O L L A H I L A H
+                // Glyphs:   E   C   _   _   A
+                // Clusters: 8   6   4   2   0
+                //                  k=2 i=3
 
                 let ltr = dir.is_positive();
                 let first = if ltr { k } else { i };
@@ -295,22 +300,21 @@ fn shape_segment<'a>(
                 let last = if ltr { i.checked_add(1) } else { k.checked_sub(1) };
                 let end = last
                     .and_then(|last| infos.get(last))
-                    .map(|info| info.cluster as usize)
-                    .unwrap_or(text.len());
+                    .map_or(text.len(), |info| info.cluster as usize);
 
                 start .. end
             };
 
             // Recursively shape the tofu sequence with the next family.
             shape_segment(
+                loader,
                 glyphs,
                 base + range.start,
                 &text[range],
                 dir,
-                loader,
                 props,
                 families.clone(),
-                first,
+                first_face,
             );
         }
 
@@ -321,14 +325,14 @@ fn shape_segment<'a>(
 /// Measure the size and baseline of a run of shaped glyphs with the given
 /// properties.
 fn measure(
-    glyphs: &[ShapedGlyph],
     loader: &mut FontLoader,
+    glyphs: &[ShapedGlyph],
     props: &FontProps,
 ) -> (Size, Length) {
+    let mut width = Length::ZERO;
     let mut top = Length::ZERO;
     let mut bottom = Length::ZERO;
-    let mut width = Length::ZERO;
-    let mut vertical = |face: &FaceBuf| {
+    let mut expand_vertical = |face: &FaceBuf| {
         top = top.max(face.vertical_metric(props.top_edge).scale(props.size));
         bottom = bottom.max(-face.vertical_metric(props.bottom_edge).scale(props.size));
     };
@@ -338,14 +342,14 @@ fn measure(
         // first available font.
         for family in props.families.iter() {
             if let Some(face_id) = loader.query(family, props.variant) {
-                vertical(loader.face(face_id));
+                expand_vertical(loader.face(face_id));
                 break;
             }
         }
     } else {
         for (face_id, group) in glyphs.group_by_key(|g| g.face_id) {
             let face = loader.face(face_id);
-            vertical(face);
+            expand_vertical(face);
 
             for glyph in group {
                 width += face.convert(glyph.x_advance).scale(props.size);

@@ -97,6 +97,7 @@ pub struct ParState {
     /// The spacing between lines (dependent on scaled font size).
     pub leading: Linear,
     /// The spacing between words (dependent on scaled font size).
+    // TODO: Don't ignore this.
     pub word_spacing: Linear,
 }
 

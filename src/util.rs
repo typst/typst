@@ -1,4 +1,5 @@
-/// Utilities.
+//! Utilities.
+
 use std::cmp::Ordering;
 use std::ops::Range;
 
