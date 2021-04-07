@@ -81,6 +81,11 @@ impl Length {
         Self { raw: self.raw.max(other.raw) }
     }
 
+    /// Whether the other length fits into this one (i.e. is smaller).
+    pub fn fits(self, other: Self) -> bool {
+        self.raw + 1e-6 >= other.raw
+    }
+
     /// Whether the length is zero.
     pub fn is_zero(self) -> bool {
         self.raw == 0.0

@@ -1,6 +1,7 @@
 // Test simple text.
 
-#page(width: 250pt)
+---
+#page(width: 250pt, height: 110pt)
 
 But, soft! what light through yonder window breaks? It is the east, and Juliet
 is the sun. Arise, fair sun, and kill the envious moon, Who is already sick and

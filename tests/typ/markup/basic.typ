@@ -3,7 +3,7 @@
 ---
 #let linebreak() = [
     // Inside the old line break definition is still active.
-    #circle(radius: 2pt, fill: #000) \
+    #square(length: 3pt, fill: #000) \
 ]
 
 A \ B \ C

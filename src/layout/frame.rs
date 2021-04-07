@@ -10,14 +10,16 @@ use crate::geom::{Length, Path, Point, Size};
 pub struct Frame {
     /// The size of the frame.
     pub size: Size,
+    /// The baseline of the frame measured from the top.
+    pub baseline: Length,
     /// The elements composing this layout.
     pub elements: Vec<(Point, Element)>,
 }
 
 impl Frame {
     /// Create a new, empty frame.
-    pub fn new(size: Size) -> Self {
-        Self { size, elements: vec![] }
+    pub fn new(size: Size, baseline: Length) -> Self {
+        Self { size, baseline, elements: vec![] }
     }
 
     /// Add an element at a position.
@@ -38,62 +40,45 @@ impl Frame {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Element {
     /// Shaped text.
-    Text(ShapedText),
+    Text(Text),
     /// A geometric shape.
     Geometry(Geometry),
     /// A raster image.
     Image(Image),
 }
 
-/// A shaped run of text.
+/// A run of shaped text.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ShapedText {
-    /// The font face the text was shaped with.
-    pub face: FaceId,
+pub struct Text {
+    /// The font face the glyphs are contained in.
+    pub face_id: FaceId,
     /// The font size.
     pub size: Length,
-    /// The width.
-    pub width: Length,
-    /// The extent to the top.
-    pub top: Length,
-    /// The extent to the bottom.
-    pub bottom: Length,
     /// The glyph fill color / texture.
     pub color: Fill,
-    /// The shaped glyphs.
-    pub glyphs: Vec<GlyphId>,
-    /// The horizontal offsets of the glyphs. This is indexed parallel to
-    /// `glyphs`. Vertical offsets are not yet supported.
-    pub offsets: Vec<Length>,
+    /// The glyphs.
+    pub glyphs: Vec<Glyph>,
 }
 
-impl ShapedText {
-    /// Create a new shape run with `width` zero and empty `glyphs` and `offsets`.
-    pub fn new(
-        face: FaceId,
-        size: Length,
-        top: Length,
-        bottom: Length,
-        color: Fill,
-    ) -> Self {
-        Self {
-            face,
-            size,
-            width: Length::ZERO,
-            top,
-            bottom,
-            glyphs: vec![],
-            offsets: vec![],
-            color,
-        }
-    }
+/// A glyph in a run of shaped text.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Glyph {
+    /// The glyph's ID in the face.
+    pub id: GlyphId,
+    /// The advance width of the glyph.
+    pub x_advance: Length,
+    /// The horizontal offset of the glyph.
+    pub x_offset: Length,
+}
 
+impl Text {
     /// Encode the glyph ids into a big-endian byte buffer.
     pub fn encode_glyphs_be(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(2 * self.glyphs.len());
-        for &GlyphId(g) in &self.glyphs {
-            bytes.push((g >> 8) as u8);
-            bytes.push((g & 0xff) as u8);
+        for glyph in &self.glyphs {
+            let id = glyph.id.0;
+            bytes.push((id >> 8) as u8);
+            bytes.push((id & 0xff) as u8);
         }
         bytes
     }

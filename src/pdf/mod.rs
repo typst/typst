@@ -15,6 +15,7 @@ use ttf_parser::{name_id, GlyphId};
 
 use crate::color::Color;
 use crate::env::{Env, ImageResource, ResourceId};
+use crate::font::{EmLength, VerticalFontMetric};
 use crate::geom::{self, Length, Size};
 use crate::layout::{Element, Fill, Frame, Image, Shape};
 
@@ -50,7 +51,7 @@ impl<'a> PdfExporter<'a> {
         for frame in frames {
             for (_, element) in &frame.elements {
                 match element {
-                    Element::Text(shaped) => fonts.insert(shaped.face),
+                    Element::Text(shaped) => fonts.insert(shaped.face_id),
                     Element::Image(image) => {
                         let img = env.resources.loaded::<ImageResource>(image.res);
                         if img.buf.color().has_alpha() {
@@ -187,11 +188,11 @@ impl<'a> PdfExporter<'a> {
 
                     // Then, also check if we need to issue a font switching
                     // action.
-                    if shaped.face != face || shaped.size != size {
-                        face = shaped.face;
+                    if shaped.face_id != face || shaped.size != size {
+                        face = shaped.face_id;
                         size = shaped.size;
 
-                        let name = format!("F{}", self.fonts.map(shaped.face));
+                        let name = format!("F{}", self.fonts.map(shaped.face_id));
                         text.font(Name(name.as_bytes()), size.to_pt() as f32);
                     }
 
@@ -234,24 +235,18 @@ impl<'a> PdfExporter<'a> {
             flags.insert(FontFlags::SYMBOLIC);
             flags.insert(FontFlags::SMALL_CAP);
 
-            // Convert from OpenType font units to PDF glyph units.
-            let em_per_unit = 1.0 / ttf.units_per_em().unwrap_or(1000) as f32;
-            let convert = |font_unit: f32| (1000.0 * em_per_unit * font_unit).round();
-            let convert_i16 = |font_unit: i16| convert(font_unit as f32);
-            let convert_u16 = |font_unit: u16| convert(font_unit as f32);
-
             let global_bbox = ttf.global_bounding_box();
             let bbox = Rect::new(
-                convert_i16(global_bbox.x_min),
-                convert_i16(global_bbox.y_min),
-                convert_i16(global_bbox.x_max),
-                convert_i16(global_bbox.y_max),
+                face.convert(global_bbox.x_min).to_pdf(),
+                face.convert(global_bbox.y_min).to_pdf(),
+                face.convert(global_bbox.x_max).to_pdf(),
+                face.convert(global_bbox.y_max).to_pdf(),
             );
 
             let italic_angle = ttf.italic_angle().unwrap_or(0.0);
-            let ascender = convert_i16(ttf.typographic_ascender().unwrap_or(0));
-            let descender = convert_i16(ttf.typographic_descender().unwrap_or(0));
-            let cap_height = ttf.capital_height().map(convert_i16);
+            let ascender = face.vertical_metric(VerticalFontMetric::Ascender).to_pdf();
+            let descender = face.vertical_metric(VerticalFontMetric::Descender).to_pdf();
+            let cap_height = face.vertical_metric(VerticalFontMetric::CapHeight).to_pdf();
             let stem_v = 10.0 + 0.244 * (f32::from(ttf.weight().to_number()) - 50.0);
 
             // Write the base font object referencing the CID font.
@@ -272,8 +267,8 @@ impl<'a> PdfExporter<'a> {
                 .individual(0, {
                     let num_glyphs = ttf.number_of_glyphs();
                     (0 .. num_glyphs).map(|g| {
-                        let advance = ttf.glyph_hor_advance(GlyphId(g));
-                        convert_u16(advance.unwrap_or(0))
+                        let x = ttf.glyph_hor_advance(GlyphId(g)).unwrap_or(0);
+                        face.convert(x).to_pdf()
                     })
                 });
 
@@ -286,7 +281,7 @@ impl<'a> PdfExporter<'a> {
                 .italic_angle(italic_angle)
                 .ascent(ascender)
                 .descent(descender)
-                .cap_height(cap_height.unwrap_or(ascender))
+                .cap_height(cap_height)
                 .stem_v(stem_v)
                 .font_file2(refs.data);
 
@@ -569,5 +564,17 @@ where
 
     fn layout_indices(&self) -> impl Iterator<Item = Index> + '_ {
         self.to_layout.iter().copied()
+    }
+}
+
+/// Additional methods for [`EmLength`].
+trait EmLengthExt {
+    /// Convert an em length to a number of PDF font units.
+    fn to_pdf(self) -> f32;
+}
+
+impl EmLengthExt for EmLength {
+    fn to_pdf(self) -> f32 {
+        1000.0 * self.get() as f32
     }
 }

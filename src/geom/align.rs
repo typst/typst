@@ -13,8 +13,8 @@ pub enum Align {
 
 impl Align {
     /// Returns the position of this alignment in the given range.
-    pub fn resolve(self, range: Range<Length>) -> Length {
-        match self {
+    pub fn resolve(self, dir: Dir, range: Range<Length>) -> Length {
+        match if dir.is_positive() { self } else { self.inv() } {
             Self::Start => range.start,
             Self::Center => (range.start + range.end) / 2.0,
             Self::End => range.end,

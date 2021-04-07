@@ -4,12 +4,18 @@ use std::fmt::{self, Display, Formatter};
 
 use fontdock::FaceFromVec;
 
+use crate::geom::Length;
+
 /// An owned font face.
 pub struct FaceBuf {
     data: Box<[u8]>,
     index: u32,
-    ttf: ttf_parser::Face<'static>,
-    buzz: rustybuzz::Face<'static>,
+    inner: rustybuzz::Face<'static>,
+    units_per_em: f64,
+    ascender: f64,
+    cap_height: f64,
+    x_height: f64,
+    descender: f64,
 }
 
 impl FaceBuf {
@@ -23,18 +29,27 @@ impl FaceBuf {
         self.index
     }
 
-    /// Get a reference to the underlying ttf-parser face.
-    pub fn ttf(&self) -> &ttf_parser::Face<'_> {
+    /// Get a reference to the underlying ttf-parser/rustybuzz face.
+    pub fn ttf(&self) -> &rustybuzz::Face<'_> {
         // We can't implement Deref because that would leak the internal 'static
         // lifetime.
-        &self.ttf
+        &self.inner
     }
 
-    /// Get a reference to the underlying rustybuzz face.
-    pub fn buzz(&self) -> &rustybuzz::Face<'_> {
-        // We can't implement Deref because that would leak the internal 'static
-        // lifetime.
-        &self.buzz
+    /// Look up a vertical metric.
+    pub fn vertical_metric(&self, metric: VerticalFontMetric) -> EmLength {
+        self.convert(match metric {
+            VerticalFontMetric::Ascender => self.ascender,
+            VerticalFontMetric::CapHeight => self.cap_height,
+            VerticalFontMetric::XHeight => self.x_height,
+            VerticalFontMetric::Baseline => 0.0,
+            VerticalFontMetric::Descender => self.descender,
+        })
+    }
+
+    /// Convert from font units to an em length length.
+    pub fn convert(&self, units: impl Into<f64>) -> EmLength {
+        EmLength(units.into() / self.units_per_em)
     }
 }
 
@@ -47,12 +62,41 @@ impl FaceFromVec for FaceBuf {
         let slice: &'static [u8] =
             unsafe { std::slice::from_raw_parts(data.as_ptr(), data.len()) };
 
+        let inner = rustybuzz::Face::from_slice(slice, index)?;
+
+        // Look up some metrics we may need often.
+        let units_per_em = inner.units_per_em();
+        let ascender = inner.typographic_ascender().unwrap_or(inner.ascender());
+        let cap_height = inner.capital_height().filter(|&h| h > 0).unwrap_or(ascender);
+        let x_height = inner.x_height().filter(|&h| h > 0).unwrap_or(ascender);
+        let descender = inner.typographic_descender().unwrap_or(inner.descender());
+
         Some(Self {
             data,
             index,
-            ttf: ttf_parser::Face::from_slice(slice, index).ok()?,
-            buzz: rustybuzz::Face::from_slice(slice, index)?,
+            inner,
+            units_per_em: f64::from(units_per_em),
+            ascender: f64::from(ascender),
+            cap_height: f64::from(cap_height),
+            x_height: f64::from(x_height),
+            descender: f64::from(descender),
         })
+    }
+}
+
+/// A length in resolved em units.
+#[derive(Default, Debug, Copy, Clone, PartialEq, PartialOrd)]
+pub struct EmLength(f64);
+
+impl EmLength {
+    /// Convert to a length at the given font size.
+    pub fn scale(self, size: Length) -> Length {
+        self.0 * size
+    }
+
+    /// Get the number of em units.
+    pub fn get(self) -> f64 {
+        self.0
     }
 }
 
@@ -75,38 +119,6 @@ pub enum VerticalFontMetric {
     /// Corresponds to the typographic descender from the `OS/2` table if
     /// present and falls back to the descender from the `hhea` table otherwise.
     Descender,
-}
-
-impl VerticalFontMetric {
-    /// Look up the metric in the given font face.
-    pub fn lookup(self, face: &ttf_parser::Face) -> i16 {
-        match self {
-            VerticalFontMetric::Ascender => lookup_ascender(face),
-            VerticalFontMetric::CapHeight => face
-                .capital_height()
-                .filter(|&h| h > 0)
-                .unwrap_or_else(|| lookup_ascender(face)),
-            VerticalFontMetric::XHeight => face
-                .x_height()
-                .filter(|&h| h > 0)
-                .unwrap_or_else(|| lookup_ascender(face)),
-            VerticalFontMetric::Baseline => 0,
-            VerticalFontMetric::Descender => lookup_descender(face),
-        }
-    }
-}
-
-/// The ascender of the face.
-fn lookup_ascender(face: &ttf_parser::Face) -> i16 {
-    // We prefer the typographic ascender over the Windows ascender because
-    // it can be overly large if the font has large glyphs.
-    face.typographic_ascender().unwrap_or_else(|| face.ascender())
-}
-
-/// The descender of the face.
-fn lookup_descender(face: &ttf_parser::Face) -> i16 {
-    // See `lookup_ascender` for reason.
-    face.typographic_descender().unwrap_or_else(|| face.descender())
 }
 
 impl Display for VerticalFontMetric {
