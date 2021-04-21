@@ -1,7 +1,9 @@
 use super::*;
 
+use serde::{Deserialize, Serialize};
+
 /// A size in 2D.
-#[derive(Default, Copy, Clone, PartialEq)]
+#[derive(Default, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Size {
     /// The width.
     pub width: Length,

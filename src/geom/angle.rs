@@ -69,7 +69,7 @@ impl Display for Angle {
 impl Debug for Angle {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let unit = AngularUnit::Deg;
-        write!(f, "{:?}{:?}", self.to_unit(unit), unit)
+        write!(f, "{}{}", self.to_unit(unit), unit)
     }
 }
 
@@ -134,7 +134,7 @@ impl Sum for Angle {
     }
 }
 /// Different units of angular measurement.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum AngularUnit {
     /// Radians.
     Rad,
@@ -158,12 +158,6 @@ impl Display for AngularUnit {
             Self::Rad => "rad",
             Self::Deg => "deg",
         })
-    }
-}
-
-impl Debug for AngularUnit {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
     }
 }
 

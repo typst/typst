@@ -18,6 +18,7 @@ use crate::util::SliceExt;
 /// This type contains owned or borrowed shaped text runs, which can be
 /// measured, used to reshape substrings more quickly and converted into a
 /// frame.
+#[derive(Clone)]
 pub struct ShapedText<'a> {
     /// The text that was shaped.
     pub text: &'a str,
@@ -53,6 +54,7 @@ pub struct ShapedGlyph {
 }
 
 /// A visual side.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum Side {
     Left,
     Right,
@@ -77,7 +79,11 @@ impl<'a> ShapedText<'a> {
             for glyph in group {
                 let x_advance = face.convert(glyph.x_advance).scale(self.props.size);
                 let x_offset = face.convert(glyph.x_offset).scale(self.props.size);
-                text.glyphs.push(Glyph { id: glyph.glyph_id, x_advance, x_offset });
+                text.glyphs.push(Glyph {
+                    id: glyph.glyph_id.0,
+                    x_advance,
+                    x_offset,
+                });
                 offset += x_advance;
             }
 

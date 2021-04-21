@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use fontdock::{FaceId, FontSource};
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageFormat};
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "fs")]
 use fontdock::{FsIndex, FsSource};
@@ -72,6 +73,7 @@ pub struct ResourceLoader {
 
 /// A unique identifier for a resource.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Serialize, Deserialize)]
 pub struct ResourceId(usize);
 
 impl ResourceLoader {

@@ -5,10 +5,12 @@
 use std::collections::BTreeSet;
 use std::fmt::{self, Display, Formatter};
 
+use serde::{Deserialize, Serialize};
+
 use crate::syntax::Span;
 
 /// The result of some pass: Some output `T` and diagnostics.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Pass<T> {
     /// The output of this compilation pass.
     pub output: T,
@@ -31,8 +33,7 @@ impl<T> Pass<T> {
 pub type DiagSet = BTreeSet<Diag>;
 
 /// A diagnostic with severity level and message.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Diag {
     /// The source code location.
     pub span: Span,
@@ -61,8 +62,8 @@ impl Display for Diag {
 
 /// How severe / important a diagnostic is.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Level {
     Warning,
     Error,

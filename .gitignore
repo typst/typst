@@ -1,6 +1,7 @@
 # General
 .vscode
 _things
+desktop.ini
 
 # Tests and benchmarks
 tests/png

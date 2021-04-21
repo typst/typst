@@ -1,12 +1,13 @@
 use fontdock::FaceId;
-use ttf_parser::GlyphId;
 
 use crate::color::Color;
 use crate::env::ResourceId;
 use crate::geom::{Length, Path, Point, Size};
 
+use serde::{Deserialize, Serialize};
+
 /// A finished layout with elements at fixed positions.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Frame {
     /// The size of the frame.
     pub size: Size,
@@ -37,7 +38,7 @@ impl Frame {
 }
 
 /// The building block frames are composed of.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Element {
     /// Shaped text.
     Text(Text),
@@ -48,7 +49,7 @@ pub enum Element {
 }
 
 /// A run of shaped text.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Text {
     /// The font face the glyphs are contained in.
     pub face_id: FaceId,
@@ -61,10 +62,10 @@ pub struct Text {
 }
 
 /// A glyph in a run of shaped text.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Glyph {
     /// The glyph's ID in the face.
-    pub id: GlyphId,
+    pub id: u16,
     /// The advance width of the glyph.
     pub x_advance: Length,
     /// The horizontal offset of the glyph.
@@ -76,7 +77,7 @@ impl Text {
     pub fn encode_glyphs_be(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(2 * self.glyphs.len());
         for glyph in &self.glyphs {
-            let id = glyph.id.0;
+            let id = glyph.id;
             bytes.push((id >> 8) as u8);
             bytes.push((id & 0xff) as u8);
         }
@@ -85,7 +86,7 @@ impl Text {
 }
 
 /// A shape with some kind of fill.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Geometry {
     /// The shape to draw.
     pub shape: Shape,
@@ -98,7 +99,7 @@ pub struct Geometry {
 }
 
 /// Some shape.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Shape {
     /// A rectangle with its origin in the topleft corner.
     Rect(Size),
@@ -109,7 +110,7 @@ pub enum Shape {
 }
 
 /// The kind of graphic fill to be applied to a [`Shape`].
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Fill {
     /// The fill is a color.
     Color(Color),
@@ -118,7 +119,7 @@ pub enum Fill {
 }
 
 /// An image element.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Image {
     /// The image resource.
     pub res: ResourceId,

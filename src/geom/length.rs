@@ -1,7 +1,10 @@
 use super::*;
 
+use serde::{Deserialize, Serialize};
+
 /// An absolute length.
-#[derive(Default, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Length {
     /// The length in raw units.
     raw: f64,
@@ -192,7 +195,7 @@ impl Sum for Length {
 }
 
 /// Different units of length measurement.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum LengthUnit {
     /// Points.
     Pt,
@@ -224,12 +227,6 @@ impl Display for LengthUnit {
             LengthUnit::Cm => "cm",
             LengthUnit::In => "in",
         })
-    }
-}
-
-impl Debug for LengthUnit {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
     }
 }
 

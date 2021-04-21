@@ -11,7 +11,7 @@ use tiny_skia::{
     Color, ColorU8, FillRule, FilterQuality, Paint, Pattern, Pixmap, Rect, SpreadMode,
     Transform,
 };
-use ttf_parser::OutlineBuilder;
+use ttf_parser::{GlyphId, OutlineBuilder};
 use walkdir::WalkDir;
 
 use typst::color;
@@ -425,7 +425,7 @@ fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, shaped: &Text) {
 
         // Try drawing SVG if present.
         if let Some(tree) = ttf
-            .glyph_svg_image(glyph.id)
+            .glyph_svg_image(GlyphId(glyph.id))
             .and_then(|data| std::str::from_utf8(data).ok())
             .map(|svg| {
                 let viewbox = format!("viewBox=\"0 0 {0} {0}\" xmlns", units_per_em);
@@ -448,7 +448,7 @@ fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, shaped: &Text) {
         } else {
             // Otherwise, draw normal outline.
             let mut builder = WrappedPathBuilder(tiny_skia::PathBuilder::new());
-            if ttf.outline_glyph(glyph.id, &mut builder).is_some() {
+            if ttf.outline_glyph(GlyphId(glyph.id), &mut builder).is_some() {
                 let path = builder.0.finish().unwrap();
                 let ts = ts.pre_scale(s, -s);
                 let mut paint = convert_typst_fill(shaped.color);

@@ -12,7 +12,7 @@ pub struct BackgroundNode {
 }
 
 /// The kind of shape to use as a background.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum BackgroundShape {
     Rect,
     Ellipse,

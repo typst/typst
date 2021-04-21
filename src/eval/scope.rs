@@ -10,7 +10,7 @@ use super::Value;
 pub type Slot = Rc<RefCell<Value>>;
 
 /// A stack of scopes.
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct Scopes<'a> {
     /// The active scope.
     pub top: Scope,

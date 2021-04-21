@@ -2,13 +2,15 @@ use std::cell::Cell;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::{Add, Range};
 
+use serde::{Deserialize, Serialize};
+
 thread_local! {
     static CMP_SPANS: Cell<bool> = Cell::new(true);
 }
 
 /// A value with the span it corresponds to in the source code.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Serialize, Deserialize)]
 pub struct Spanned<T> {
     /// The spanned value.
     pub v: T,
@@ -53,8 +55,7 @@ impl<T: Debug> Debug for Spanned<T> {
 }
 
 /// Bounds of a slice of source code.
-#[derive(Copy, Clone, Ord, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Copy, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Span {
     /// The inclusive start position.
     pub start: Pos,
@@ -158,8 +159,7 @@ impl Debug for Span {
 }
 
 /// A byte position in source code.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Pos(pub u32);
 
 impl Pos {
@@ -208,8 +208,7 @@ impl Debug for Pos {
 }
 
 /// A one-indexed line-column position in source code.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Location {
     /// The one-indexed line.
     pub line: u32,

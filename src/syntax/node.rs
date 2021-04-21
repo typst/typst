@@ -37,15 +37,15 @@ impl Node {
     /// Desugar markup into a function call.
     pub fn desugar(&self) -> Option<CallExpr> {
         match *self {
-            Node::Text(_) => None,
-            Node::Space => None,
-            Node::Linebreak(span) => Some(call(span, Self::LINEBREAK)),
-            Node::Parbreak(span) => Some(call(span, Self::PARBREAK)),
-            Node::Strong(span) => Some(call(span, Self::STRONG)),
-            Node::Emph(span) => Some(call(span, Self::EMPH)),
+            Self::Text(_) => None,
+            Self::Space => None,
+            Self::Linebreak(span) => Some(call(span, Self::LINEBREAK)),
+            Self::Parbreak(span) => Some(call(span, Self::PARBREAK)),
+            Self::Strong(span) => Some(call(span, Self::STRONG)),
+            Self::Emph(span) => Some(call(span, Self::EMPH)),
             Self::Heading(ref heading) => Some(heading.desugar()),
             Self::Raw(ref raw) => Some(raw.desugar()),
-            Node::Expr(_) => None,
+            Self::Expr(_) => None,
         }
     }
 }
