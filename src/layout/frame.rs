@@ -1,7 +1,5 @@
-use fontdock::FaceId;
-
 use crate::color::Color;
-use crate::env::ResourceId;
+use crate::env::{FaceId, ResourceId};
 use crate::geom::{Length, Path, Point, Size};
 
 use serde::{Deserialize, Serialize};
@@ -114,15 +112,13 @@ pub enum Shape {
 pub enum Fill {
     /// The fill is a color.
     Color(Color),
-    /// The fill is an image.
-    Image(Image),
 }
 
 /// An image element.
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Image {
     /// The image resource.
-    pub res: ResourceId,
+    pub id: ResourceId,
     /// The size of the image in the document.
     pub size: Size,
 }

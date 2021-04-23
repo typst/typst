@@ -29,12 +29,11 @@ pub use spacing::*;
 
 use std::fmt::{self, Display, Formatter};
 
-use fontdock::{FontStyle, FontWeight};
-
-use crate::eval::{AnyValue, FuncValue, Scope};
-use crate::eval::{EvalContext, FuncArgs, TemplateValue, Value};
+use crate::eval::{
+    AnyValue, EvalContext, FuncArgs, FuncValue, Scope, TemplateValue, Value,
+};
 use crate::exec::{Exec, FontFamily};
-use crate::font::VerticalFontMetric;
+use crate::font::{FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
 use crate::syntax::{Node, Spanned};
 

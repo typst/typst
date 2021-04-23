@@ -1,10 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
 
-use fontdock::{FontStretch, FontStyle, FontVariant, FontWeight};
-
 use crate::color::{Color, RgbaColor};
-use crate::font::VerticalFontMetric;
+use crate::font::{FontStretch, FontStyle, FontVariant, FontWeight, VerticalFontMetric};
 use crate::geom::*;
 use crate::layout::Fill;
 use crate::paper::{Paper, PaperClass, PAPER_A4};
@@ -181,7 +179,7 @@ impl Default for FontState {
             variant: FontVariant {
                 style: FontStyle::Normal,
                 weight: FontWeight::REGULAR,
-                stretch: FontStretch::Normal,
+                stretch: FontStretch::NORMAL,
             },
             size: Length::pt(11.0),
             top_edge: VerticalFontMetric::CapHeight,

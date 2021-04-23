@@ -4,7 +4,6 @@ use std::cmp::Eq;
 use std::collections::HashMap;
 use std::hash::Hash;
 
-use fontdock::FaceId;
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Rgba};
 use miniz_oxide::deflate;
 use pdf_writer::{
@@ -14,8 +13,8 @@ use pdf_writer::{
 use ttf_parser::{name_id, GlyphId};
 
 use crate::color::Color;
-use crate::env::{Env, ImageResource, ResourceId};
-use crate::font::{EmLength, VerticalFontMetric};
+use crate::env::{Env, FaceId, ImageResource, ResourceId};
+use crate::font::{Em, VerticalFontMetric};
 use crate::geom::{self, Length, Size};
 use crate::layout::{Element, Fill, Frame, Image, Shape};
 
@@ -53,11 +52,11 @@ impl<'a> PdfExporter<'a> {
                 match element {
                     Element::Text(shaped) => fonts.insert(shaped.face_id),
                     Element::Image(image) => {
-                        let img = env.resources.loaded::<ImageResource>(image.res);
+                        let img = env.resource::<ImageResource>(image.id);
                         if img.buf.color().has_alpha() {
                             alpha_masks += 1;
                         }
-                        images.insert(image.res);
+                        images.insert(image.id);
                     }
                     Element::Geometry(_) => {}
                 }
@@ -141,8 +140,8 @@ impl<'a> PdfExporter<'a> {
             let y = (page.size.height - pos.y).to_pt() as f32;
 
             match element {
-                &Element::Image(Image { res, size: Size { width, height } }) => {
-                    let name = format!("Im{}", self.images.map(res));
+                &Element::Image(Image { id, size: Size { width, height } }) => {
+                    let name = format!("Im{}", self.images.map(id));
                     let w = width.to_pt() as f32;
                     let h = height.to_pt() as f32;
 
@@ -208,7 +207,7 @@ impl<'a> PdfExporter<'a> {
 
     fn write_fonts(&mut self) {
         for (refs, face_id) in self.refs.fonts().zip(self.fonts.layout_indices()) {
-            let face = self.env.fonts.face(face_id);
+            let face = self.env.face(face_id);
             let ttf = face.ttf();
 
             let name = ttf
@@ -237,10 +236,10 @@ impl<'a> PdfExporter<'a> {
 
             let global_bbox = ttf.global_bounding_box();
             let bbox = Rect::new(
-                face.convert(global_bbox.x_min).to_pdf(),
-                face.convert(global_bbox.y_min).to_pdf(),
-                face.convert(global_bbox.x_max).to_pdf(),
-                face.convert(global_bbox.y_max).to_pdf(),
+                face.to_em(global_bbox.x_min).to_pdf(),
+                face.to_em(global_bbox.y_min).to_pdf(),
+                face.to_em(global_bbox.x_max).to_pdf(),
+                face.to_em(global_bbox.y_max).to_pdf(),
             );
 
             let italic_angle = ttf.italic_angle().unwrap_or(0.0);
@@ -268,7 +267,7 @@ impl<'a> PdfExporter<'a> {
                     let num_glyphs = ttf.number_of_glyphs();
                     (0 .. num_glyphs).map(|g| {
                         let x = ttf.glyph_hor_advance(GlyphId(g)).unwrap_or(0);
-                        face.convert(x).to_pdf()
+                        face.to_em(x).to_pdf()
                     })
                 });
 
@@ -305,7 +304,7 @@ impl<'a> PdfExporter<'a> {
                 .system_info(system_info);
 
             // Write the face's bytes.
-            self.writer.stream(refs.data, face.data());
+            self.writer.stream(refs.data, face.buffer());
         }
     }
 
@@ -313,7 +312,7 @@ impl<'a> PdfExporter<'a> {
         let mut masks_seen = 0;
 
         for (id, resource) in self.refs.images().zip(self.images.layout_indices()) {
-            let img = self.env.resources.loaded::<ImageResource>(resource);
+            let img = self.env.resource::<ImageResource>(resource);
             let (width, height) = img.buf.dimensions();
 
             // Add the primary image.
@@ -361,7 +360,6 @@ fn write_fill(content: &mut Content, fill: Fill) {
         Fill::Color(Color::Rgba(c)) => {
             content.fill_rgb(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0);
         }
-        Fill::Image(_) => todo!(),
     }
 }
 
@@ -567,13 +565,13 @@ where
     }
 }
 
-/// Additional methods for [`EmLength`].
-trait EmLengthExt {
+/// Additional methods for [`Em`].
+trait EmExt {
     /// Convert an em length to a number of PDF font units.
     fn to_pdf(self) -> f32;
 }
 
-impl EmLengthExt for EmLength {
+impl EmExt for Em {
     fn to_pdf(self) -> f32 {
         1000.0 * self.get() as f32
     }

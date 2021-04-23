@@ -7,7 +7,6 @@ publish = false
 
 [dev-dependencies]
 criterion = "0.3"
-fontdock = { path = "../../fontdock" }
 typst = { path = ".." }
 
 [[bench]]

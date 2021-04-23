@@ -1,9 +1,8 @@
 use std::path::Path;
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use fontdock::FsIndex;
 
-use typst::env::{Env, FsIndexExt, ResourceLoader};
+use typst::env::{Env, FsLoader};
 use typst::eval::eval;
 use typst::exec::{exec, State};
 use typst::layout::layout;
@@ -17,13 +16,10 @@ const TYP_DIR: &str = "../tests/typ";
 const CASES: &[&str] = &["full/coma.typ", "text/basic.typ"];
 
 fn benchmarks(c: &mut Criterion) {
-    let mut index = FsIndex::new();
-    index.search_dir(FONT_DIR);
+    let mut loader = FsLoader::new();
+    loader.search_dir(FONT_DIR);
 
-    let mut env = Env {
-        fonts: index.into_dynamic_loader(),
-        resources: ResourceLoader::new(),
-    };
+    let mut env = Env::new(loader);
 
     let scope = library::_new();
     let state = State::default();

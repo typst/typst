@@ -1,5 +1,5 @@
+use crate::font::{FontStretch, FontStyle, FontWeight};
 use crate::layout::Fill;
-use fontdock::{FontStretch, FontStyle, FontWeight};
 
 use super::*;
 
@@ -156,7 +156,12 @@ typify! {
     FontWeight: "font weight",
     Value::Int(number) => {
         let [min, max] = [Self::THIN, Self::BLACK];
-        let message = || format!("should be between {:#?} and {:#?}", min, max);
+        let message = || format!(
+            "should be between {} and {}",
+            min.to_number(),
+            max.to_number(),
+        );
+
         return if number < i64::from(min.to_number()) {
             CastResult::Warn(min, message())
         } else if number > i64::from(max.to_number()) {
@@ -170,11 +175,18 @@ typify! {
 typify! {
     FontStretch: "font stretch",
     Value::Relative(relative) => {
-        let f = |stretch: Self| Relative::new(stretch.to_ratio());
-        let [min, max] = [f(Self::UltraCondensed), f(Self::UltraExpanded)];
-        let value = Self::from_ratio(relative.get());
-        return if relative < min || relative > max {
-            CastResult::Warn(value, format!("should be between {} and {}", min, max))
+        let [min, max] = [Self::ULTRA_CONDENSED, Self::ULTRA_EXPANDED];
+        let message = || format!(
+            "should be between {} and {}",
+            Relative::new(min.to_ratio() as f64),
+            Relative::new(max.to_ratio() as f64),
+        );
+
+        let ratio = relative.get() as f32;
+        let value = Self::from_ratio(ratio);
+
+        return if ratio < min.to_ratio() || ratio > max.to_ratio() {
+            CastResult::Warn(value, message())
         } else {
             CastResult::Ok(value)
         };

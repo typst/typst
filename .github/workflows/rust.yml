@@ -22,13 +22,6 @@ jobs:
         with:
           path: typst
 
-      - name: Checkout fontdock
-        uses: actions/checkout@v2
-        with:
-          repository: typst/fontdock
-          token: ${{ secrets.TYPSTC_ACTION_TOKEN }}
-          path: fontdock
-
       - name: Checkout pdf-writer
         uses: actions/checkout@v2
         with:

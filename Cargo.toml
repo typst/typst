@@ -5,9 +5,9 @@ authors = ["The Typst Project Developers"]
 edition = "2018"
 
 [features]
-default = ["fs"]
-fs = ["fontdock/fs"]
-cli = ["fs", "anyhow"]
+default = ["cli", "fs"]
+cli = ["anyhow", "fs"]
+fs = ["dirs", "memmap2", "walkdir"]
 
 [workspace]
 members = ["bench"]
@@ -21,17 +21,19 @@ debug = 0
 opt-level = 2
 
 [dependencies]
-fontdock = { path = "../fontdock", features = ["serde"], default-features = false }
 image = { version = "0.23", default-features = false, features = ["jpeg", "png"] }
 miniz_oxide = "0.3"
 pdf-writer = { path = "../pdf-writer" }
 rustybuzz = { git = "https://github.com/laurmaedje/rustybuzz" }
+serde = { version = "1", features = ["derive"] }
 ttf-parser = "0.12"
 unicode-bidi = "0.3.5"
 unicode-xid = "0.2"
 xi-unicode = "0.3"
 anyhow = { version = "1", optional = true }
-serde = { version = "1", features = ["derive"] }
+dirs = { version = "3", optional = true }
+memmap2 = { version = "0.2", optional = true }
+walkdir = { version = "2", optional = true }
 
 [dev-dependencies]
 walkdir = "2"

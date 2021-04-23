@@ -2,10 +2,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context};
-use fontdock::FsIndex;
 
 use typst::diag::Pass;
-use typst::env::{Env, FsIndexExt, ResourceLoader};
+use typst::env::{Env, FsLoader};
 use typst::exec::State;
 use typst::library;
 use typst::parse::LineMap;
@@ -35,14 +34,11 @@ fn main() -> anyhow::Result<()> {
 
     let src = fs::read_to_string(src_path).context("Failed to read from source file.")?;
 
-    let mut index = FsIndex::new();
-    index.search_dir("fonts");
-    index.search_system();
+    let mut loader = FsLoader::new();
+    loader.search_dir("fonts");
+    loader.search_system();
 
-    let mut env = Env {
-        fonts: index.into_dynamic_loader(),
-        resources: ResourceLoader::new(),
-    };
+    let mut env = Env::new(loader);
 
     let scope = library::_new();
     let state = State::default();

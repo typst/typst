@@ -20,10 +20,11 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
     Value::template("image", move |ctx| {
         if let Some(path) = &path {
-            let loaded = ctx.env.resources.load(&path.v, ImageResource::parse);
-            if let Some((res, img)) = loaded {
+            let loaded = ctx.env.load_resource(&path.v, ImageResource::parse);
+            if let Some(id) = loaded {
+                let img = ctx.env.resource::<ImageResource>(id);
                 let dimensions = img.buf.dimensions();
-                ctx.push(ImageNode { res, dimensions, width, height });
+                ctx.push(ImageNode { id, dimensions, width, height });
             } else {
                 ctx.diag(error!(path.span, "failed to load image"));
             }
@@ -35,7 +36,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 #[derive(Debug, Clone, PartialEq)]
 struct ImageNode {
     /// The resource id of the image file.
-    res: ResourceId,
+    id: ResourceId,
     /// The pixel dimensions of the image.
     dimensions: (u32, u32),
     /// The fixed width, if any.
@@ -74,7 +75,7 @@ impl Layout for ImageNode {
         };
 
         let mut frame = Frame::new(size, size.height);
-        frame.push(Point::ZERO, Element::Image(Image { res: self.res, size }));
+        frame.push(Point::ZERO, Element::Image(Image { id: self.id, size }));
 
         vec![frame]
     }

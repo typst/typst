@@ -2,14 +2,13 @@ use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Range;
 
-use fontdock::FaceId;
 use rustybuzz::UnicodeBuffer;
 use ttf_parser::GlyphId;
 
 use super::{Element, Frame, Glyph, LayoutContext, Text};
-use crate::env::FontLoader;
+use crate::env::FaceId;
 use crate::exec::FontProps;
-use crate::font::FaceBuf;
+use crate::font::Face;
 use crate::geom::{Dir, Length, Point, Size};
 use crate::util::SliceExt;
 
@@ -75,10 +74,10 @@ impl<'a> ShapedText<'a> {
                 glyphs: vec![],
             };
 
-            let face = ctx.env.fonts.face(face_id);
+            let face = ctx.env.face(face_id);
             for glyph in group {
-                let x_advance = face.convert(glyph.x_advance).scale(self.props.size);
-                let x_offset = face.convert(glyph.x_offset).scale(self.props.size);
+                let x_advance = face.to_em(glyph.x_advance).to_length(self.props.size);
+                let x_offset = face.to_em(glyph.x_offset).to_length(self.props.size);
                 text.glyphs.push(Glyph {
                     id: glyph.glyph_id.0,
                     x_advance,
@@ -101,7 +100,7 @@ impl<'a> ShapedText<'a> {
         text_range: Range<usize>,
     ) -> ShapedText<'a> {
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
-            let (size, baseline) = measure(&mut ctx.env.fonts, glyphs, self.props);
+            let (size, baseline) = measure(ctx, glyphs, self.props);
             Self {
                 text: &self.text[text_range],
                 dir: self.dir,
@@ -187,15 +186,13 @@ pub fn shape<'a>(
     dir: Dir,
     props: &'a FontProps,
 ) -> ShapedText<'a> {
-    let loader = &mut ctx.env.fonts;
-
     let mut glyphs = vec![];
     let families = props.families.iter();
     if !text.is_empty() {
-        shape_segment(loader, &mut glyphs, 0, text, dir, props, families, None);
+        shape_segment(ctx, &mut glyphs, 0, text, dir, props, families, None);
     }
 
-    let (size, baseline) = measure(loader, &glyphs, props);
+    let (size, baseline) = measure(ctx, &glyphs, props);
 
     ShapedText {
         text,
@@ -209,7 +206,7 @@ pub fn shape<'a>(
 
 /// Shape text with font fallback using the `families` iterator.
 fn shape_segment<'a>(
-    loader: &mut FontLoader,
+    ctx: &mut LayoutContext,
     glyphs: &mut Vec<ShapedGlyph>,
     base: usize,
     text: &str,
@@ -222,7 +219,7 @@ fn shape_segment<'a>(
     let (face_id, fallback) = loop {
         // Try to load the next available font family.
         match families.next() {
-            Some(family) => match loader.query(family, props.variant) {
+            Some(family) => match ctx.env.query_face(family, props.variant) {
                 Some(id) => break (id, true),
                 None => {}
             },
@@ -249,7 +246,7 @@ fn shape_segment<'a>(
     });
 
     // Shape!
-    let buffer = rustybuzz::shape(loader.face(face_id).ttf(), &[], buffer);
+    let buffer = rustybuzz::shape(ctx.env.face(face_id).ttf(), &[], buffer);
     let infos = buffer.glyph_infos();
     let pos = buffer.glyph_positions();
 
@@ -313,7 +310,7 @@ fn shape_segment<'a>(
 
             // Recursively shape the tofu sequence with the next family.
             shape_segment(
-                loader,
+                ctx,
                 glyphs,
                 base + range.start,
                 &text[range],
@@ -331,34 +328,35 @@ fn shape_segment<'a>(
 /// Measure the size and baseline of a run of shaped glyphs with the given
 /// properties.
 fn measure(
-    loader: &mut FontLoader,
+    ctx: &mut LayoutContext,
     glyphs: &[ShapedGlyph],
     props: &FontProps,
 ) -> (Size, Length) {
     let mut width = Length::ZERO;
     let mut top = Length::ZERO;
     let mut bottom = Length::ZERO;
-    let mut expand_vertical = |face: &FaceBuf| {
-        top = top.max(face.vertical_metric(props.top_edge).scale(props.size));
-        bottom = bottom.max(-face.vertical_metric(props.bottom_edge).scale(props.size));
+    let mut expand_vertical = |face: &Face| {
+        top = top.max(face.vertical_metric(props.top_edge).to_length(props.size));
+        bottom =
+            bottom.max(-face.vertical_metric(props.bottom_edge).to_length(props.size));
     };
 
     if glyphs.is_empty() {
         // When there are no glyphs, we just use the vertical metrics of the
         // first available font.
         for family in props.families.iter() {
-            if let Some(face_id) = loader.query(family, props.variant) {
-                expand_vertical(loader.face(face_id));
+            if let Some(face_id) = ctx.env.query_face(family, props.variant) {
+                expand_vertical(ctx.env.face(face_id));
                 break;
             }
         }
     } else {
         for (face_id, group) in glyphs.group_by_key(|g| g.face_id) {
-            let face = loader.face(face_id);
+            let face = ctx.env.face(face_id);
             expand_vertical(face);
 
             for glyph in group {
-                width += face.convert(glyph.x_advance).scale(props.size);
+                width += face.to_em(glyph.x_advance).to_length(props.size);
             }
         }
     }

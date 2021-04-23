@@ -1,27 +1,60 @@
 //! Font handling.
 
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 
-use fontdock::FaceFromVec;
+use serde::{Deserialize, Serialize};
 
+use crate::env::Buffer;
 use crate::geom::Length;
 
-/// An owned font face.
-pub struct FaceBuf {
-    data: Box<[u8]>,
+/// A font face.
+pub struct Face {
+    buffer: Buffer,
     index: u32,
-    inner: rustybuzz::Face<'static>,
+    ttf: rustybuzz::Face<'static>,
     units_per_em: f64,
-    ascender: f64,
-    cap_height: f64,
-    x_height: f64,
-    descender: f64,
+    ascender: Em,
+    cap_height: Em,
+    x_height: Em,
+    descender: Em,
 }
 
-impl FaceBuf {
-    /// The raw face data.
-    pub fn data(&self) -> &[u8] {
-        &self.data
+impl Face {
+    /// Parse a font face from a buffer and collection index.
+    pub fn new(buffer: Buffer, index: u32) -> Option<Self> {
+        // SAFETY:
+        // - The slices's location is stable in memory:
+        //   - We don't move the underlying vector
+        //   - Nobody else can move it since we haved a strong ref to the `Rc`.
+        // - The internal static lifetime is not leaked because its rewritten
+        //   to the self-lifetime in `ttf()`.
+        let slice: &'static [u8] =
+            unsafe { std::slice::from_raw_parts(buffer.as_ptr(), buffer.len()) };
+
+        let ttf = rustybuzz::Face::from_slice(slice, index)?;
+
+        // Look up some metrics we may need often.
+        let units_per_em = f64::from(ttf.units_per_em());
+        let ascender = ttf.typographic_ascender().unwrap_or(ttf.ascender());
+        let cap_height = ttf.capital_height().filter(|&h| h > 0).unwrap_or(ascender);
+        let x_height = ttf.x_height().filter(|&h| h > 0).unwrap_or(ascender);
+        let descender = ttf.typographic_descender().unwrap_or(ttf.descender());
+
+        Some(Self {
+            buffer,
+            index,
+            ttf,
+            units_per_em,
+            ascender: Em::from_units(ascender, units_per_em),
+            cap_height: Em::from_units(cap_height, units_per_em),
+            x_height: Em::from_units(x_height, units_per_em),
+            descender: Em::from_units(descender, units_per_em),
+        })
+    }
+
+    /// The underlying buffer.
+    pub fn buffer(&self) -> &Buffer {
+        &self.buffer
     }
 
     /// The collection index.
@@ -29,74 +62,27 @@ impl FaceBuf {
         self.index
     }
 
-    /// Get a reference to the underlying ttf-parser/rustybuzz face.
+    /// A reference to the underlying `ttf-parser` / `rustybuzz` face.
     pub fn ttf(&self) -> &rustybuzz::Face<'_> {
         // We can't implement Deref because that would leak the internal 'static
         // lifetime.
-        &self.inner
+        &self.ttf
     }
 
     /// Look up a vertical metric.
-    pub fn vertical_metric(&self, metric: VerticalFontMetric) -> EmLength {
-        self.convert(match metric {
+    pub fn vertical_metric(&self, metric: VerticalFontMetric) -> Em {
+        match metric {
             VerticalFontMetric::Ascender => self.ascender,
             VerticalFontMetric::CapHeight => self.cap_height,
             VerticalFontMetric::XHeight => self.x_height,
-            VerticalFontMetric::Baseline => 0.0,
+            VerticalFontMetric::Baseline => Em::ZERO,
             VerticalFontMetric::Descender => self.descender,
-        })
+        }
     }
 
-    /// Convert from font units to an em length length.
-    pub fn convert(&self, units: impl Into<f64>) -> EmLength {
-        EmLength(units.into() / self.units_per_em)
-    }
-}
-
-impl FaceFromVec for FaceBuf {
-    fn from_vec(vec: Vec<u8>, index: u32) -> Option<Self> {
-        let data = vec.into_boxed_slice();
-
-        // SAFETY: The slices's location is stable in memory since we don't
-        //         touch it and it can't be touched from outside this type.
-        let slice: &'static [u8] =
-            unsafe { std::slice::from_raw_parts(data.as_ptr(), data.len()) };
-
-        let inner = rustybuzz::Face::from_slice(slice, index)?;
-
-        // Look up some metrics we may need often.
-        let units_per_em = inner.units_per_em();
-        let ascender = inner.typographic_ascender().unwrap_or(inner.ascender());
-        let cap_height = inner.capital_height().filter(|&h| h > 0).unwrap_or(ascender);
-        let x_height = inner.x_height().filter(|&h| h > 0).unwrap_or(ascender);
-        let descender = inner.typographic_descender().unwrap_or(inner.descender());
-
-        Some(Self {
-            data,
-            index,
-            inner,
-            units_per_em: f64::from(units_per_em),
-            ascender: f64::from(ascender),
-            cap_height: f64::from(cap_height),
-            x_height: f64::from(x_height),
-            descender: f64::from(descender),
-        })
-    }
-}
-
-/// A length in resolved em units.
-#[derive(Default, Debug, Copy, Clone, PartialEq, PartialOrd)]
-pub struct EmLength(f64);
-
-impl EmLength {
-    /// Convert to a length at the given font size.
-    pub fn scale(self, size: Length) -> Length {
-        self.0 * size
-    }
-
-    /// Get the number of em units.
-    pub fn get(self) -> f64 {
-        self.0
+    /// Convert from font units to an em length.
+    pub fn to_em(&self, units: impl Into<f64>) -> Em {
+        Em::from_units(units, self.units_per_em)
     }
 }
 
@@ -130,5 +116,375 @@ impl Display for VerticalFontMetric {
             Self::Baseline => "baseline",
             Self::Descender => "descender",
         })
+    }
+}
+
+/// A length in em units.
+///
+/// `1em` is the same as the font size.
+#[derive(Default, Debug, Copy, Clone, PartialEq, PartialOrd)]
+pub struct Em(f64);
+
+impl Em {
+    /// The zero length.
+    pub const ZERO: Self = Self(0.0);
+
+    /// Create an em length.
+    pub fn new(em: f64) -> Self {
+        Self(em)
+    }
+
+    /// Convert units to an em length at the given units per em.
+    pub fn from_units(units: impl Into<f64>, units_per_em: f64) -> Self {
+        Self(units.into() / units_per_em)
+    }
+
+    /// The number of em units.
+    pub fn get(self) -> f64 {
+        self.0
+    }
+
+    /// Convert to a length at the given font size.
+    pub fn to_length(self, font_size: Length) -> Length {
+        self.0 * font_size
+    }
+}
+
+/// Properties of a single font face.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FaceInfo {
+    /// The typographic font family this face is part of.
+    pub family: String,
+    /// Properties that distinguish this face from other faces in the same
+    /// family.
+    pub variant: FontVariant,
+    /// The collection index in the font file.
+    pub index: u32,
+}
+
+/// Properties that distinguish a face from other faces in the same family.
+#[derive(Default, Debug, Copy, Clone, PartialEq)]
+pub struct FontVariant {
+    /// The style of the face (normal / italic / oblique).
+    pub style: FontStyle,
+    /// How heavy the face is (100 - 900).
+    pub weight: FontWeight,
+    /// How condensed or expanded the face is (0.5 - 2.0).
+    pub stretch: FontStretch,
+}
+
+impl FontVariant {
+    /// Create a variant from its three components.
+    pub fn new(style: FontStyle, weight: FontWeight, stretch: FontStretch) -> Self {
+        Self { style, weight, stretch }
+    }
+}
+
+/// The style of a font face.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Serialize, Deserialize)]
+pub enum FontStyle {
+    /// The default style.
+    Normal,
+    /// A cursive style.
+    Italic,
+    /// A slanted style.
+    Oblique,
+}
+
+impl FontStyle {
+    /// Create a font style from a lowercase name like `italic`.
+    pub fn from_str(name: &str) -> Option<FontStyle> {
+        Some(match name {
+            "normal" => Self::Normal,
+            "italic" => Self::Italic,
+            "oblique" => Self::Oblique,
+            _ => return None,
+        })
+    }
+
+    /// The lowercase string representation of this style.
+    pub fn to_str(self) -> &'static str {
+        match self {
+            Self::Normal => "normal",
+            Self::Italic => "italic",
+            Self::Oblique => "oblique",
+        }
+    }
+}
+
+impl Default for FontStyle {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
+impl Display for FontStyle {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(self.to_str())
+    }
+}
+
+/// The weight of a font face.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct FontWeight(u16);
+
+impl FontWeight {
+    /// Thin weight (100).
+    pub const THIN: Self = Self(100);
+
+    /// Extra light weight (200).
+    pub const EXTRALIGHT: Self = Self(200);
+
+    /// Light weight (300).
+    pub const LIGHT: Self = Self(300);
+
+    /// Regular weight (400).
+    pub const REGULAR: Self = Self(400);
+
+    /// Medium weight (500).
+    pub const MEDIUM: Self = Self(500);
+
+    /// Semibold weight (600).
+    pub const SEMIBOLD: Self = Self(600);
+
+    /// Bold weight (700).
+    pub const BOLD: Self = Self(700);
+
+    /// Extrabold weight (800).
+    pub const EXTRABOLD: Self = Self(800);
+
+    /// Black weight (900).
+    pub const BLACK: Self = Self(900);
+
+    /// Create a font weight from a number between 100 and 900, clamping it if
+    /// necessary.
+    pub fn from_number(weight: u16) -> Self {
+        Self(weight.max(100).min(900))
+    }
+
+    /// Create a font weight from a lowercase name like `light`.
+    pub fn from_str(name: &str) -> Option<Self> {
+        Some(match name {
+            "thin" => Self::THIN,
+            "extralight" => Self::EXTRALIGHT,
+            "light" => Self::LIGHT,
+            "regular" => Self::REGULAR,
+            "medium" => Self::MEDIUM,
+            "semibold" => Self::SEMIBOLD,
+            "bold" => Self::BOLD,
+            "extrabold" => Self::EXTRABOLD,
+            "black" => Self::BLACK,
+            _ => return None,
+        })
+    }
+
+    /// The number between 100 and 900.
+    pub fn to_number(self) -> u16 {
+        self.0
+    }
+
+    /// The lowercase string representation of this weight if it is divisible by
+    /// 100.
+    pub fn to_str(self) -> Option<&'static str> {
+        Some(match self {
+            Self::THIN => "thin",
+            Self::EXTRALIGHT => "extralight",
+            Self::LIGHT => "light",
+            Self::REGULAR => "regular",
+            Self::MEDIUM => "medium",
+            Self::SEMIBOLD => "semibold",
+            Self::BOLD => "bold",
+            Self::EXTRABOLD => "extrabold",
+            Self::BLACK => "black",
+            _ => return None,
+        })
+    }
+
+    /// Add (or remove) weight, saturating at the boundaries of 100 and 900.
+    pub fn thicken(self, delta: i16) -> Self {
+        Self((self.0 as i16).saturating_add(delta).max(100).min(900) as u16)
+    }
+
+    /// The absolute number distance between this and another font weight.
+    pub fn distance(self, other: Self) -> u16 {
+        (self.0 as i16 - other.0 as i16).abs() as u16
+    }
+}
+
+impl Default for FontWeight {
+    fn default() -> Self {
+        Self::REGULAR
+    }
+}
+
+impl Display for FontWeight {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self.to_str() {
+            Some(name) => f.pad(name),
+            None => write!(f, "{}", self.0),
+        }
+    }
+}
+
+impl Debug for FontWeight {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.pad(match *self {
+            Self::THIN => "Thin",
+            Self::EXTRALIGHT => "Extralight",
+            Self::LIGHT => "Light",
+            Self::REGULAR => "Regular",
+            Self::MEDIUM => "Medium",
+            Self::SEMIBOLD => "Semibold",
+            Self::BOLD => "Bold",
+            Self::EXTRABOLD => "Extrabold",
+            Self::BLACK => "Black",
+            _ => return write!(f, "{}", self.0),
+        })
+    }
+}
+
+/// The width of a font face.
+#[derive(Copy, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct FontStretch(f32);
+
+impl FontStretch {
+    /// Ultra-condensed stretch (50%).
+    pub const ULTRA_CONDENSED: Self = Self(0.5);
+
+    /// Extra-condensed stretch weight (62.5%).
+    pub const EXTRA_CONDENSED: Self = Self(0.625);
+
+    /// Condensed stretch (75%).
+    pub const CONDENSED: Self = Self(0.75);
+
+    /// Semi-condensed stretch (87.5%).
+    pub const SEMI_CONDENSED: Self = Self(0.875);
+
+    /// Normal stretch (100%).
+    pub const NORMAL: Self = Self(1.0);
+
+    /// Semi-expanded stretch (112.5%).
+    pub const SEMI_EXPANDED: Self = Self(1.125);
+
+    /// Expanded stretch (125%).
+    pub const EXPANDED: Self = Self(1.25);
+
+    /// Extra-expanded stretch (150%).
+    pub const EXTRA_EXPANDED: Self = Self(1.5);
+
+    /// Ultra-expanded stretch (200%).
+    pub const ULTRA_EXPANDED: Self = Self(2.0);
+
+    /// Create a font stretch from a ratio between 0.5 and 2.0, clamping it if
+    /// necessary.
+    pub fn from_ratio(ratio: f32) -> Self {
+        Self(ratio.max(0.5).min(2.0))
+    }
+
+    /// Create a font stretch from an OpenType-style number between 1 and 9,
+    /// clamping it if necessary.
+    pub fn from_number(stretch: u16) -> Self {
+        match stretch {
+            0 | 1 => Self::ULTRA_CONDENSED,
+            2 => Self::EXTRA_CONDENSED,
+            3 => Self::CONDENSED,
+            4 => Self::SEMI_CONDENSED,
+            5 => Self::NORMAL,
+            6 => Self::SEMI_EXPANDED,
+            7 => Self::EXPANDED,
+            8 => Self::EXTRA_EXPANDED,
+            _ => Self::ULTRA_EXPANDED,
+        }
+    }
+
+    /// Create a font stretch from a lowercase name like `extra-expanded`.
+    pub fn from_str(name: &str) -> Option<Self> {
+        Some(match name {
+            "ultra-condensed" => Self::ULTRA_CONDENSED,
+            "extra-condensed" => Self::EXTRA_CONDENSED,
+            "condensed" => Self::CONDENSED,
+            "semi-condensed" => Self::SEMI_CONDENSED,
+            "normal" => Self::NORMAL,
+            "semi-expanded" => Self::SEMI_EXPANDED,
+            "expanded" => Self::EXPANDED,
+            "extra-expanded" => Self::EXTRA_EXPANDED,
+            "ultra-expanded" => Self::ULTRA_EXPANDED,
+            _ => return None,
+        })
+    }
+
+    /// The ratio between 0.5 and 2.0 corresponding to this stretch.
+    pub fn to_ratio(self) -> f32 {
+        self.0
+    }
+
+    /// The lowercase string representation of this stretch is one of the named
+    /// ones.
+    pub fn to_str(self) -> Option<&'static str> {
+        Some(match self {
+            s if s == Self::ULTRA_CONDENSED => "ultra-condensed",
+            s if s == Self::EXTRA_CONDENSED => "extra-condensed",
+            s if s == Self::CONDENSED => "condensed",
+            s if s == Self::SEMI_CONDENSED => "semi-condensed",
+            s if s == Self::NORMAL => "normal",
+            s if s == Self::SEMI_EXPANDED => "semi-expanded",
+            s if s == Self::EXPANDED => "expanded",
+            s if s == Self::EXTRA_EXPANDED => "extra-expanded",
+            s if s == Self::ULTRA_EXPANDED => "ultra-expanded",
+            _ => return None,
+        })
+    }
+
+    /// The absolute ratio distance between this and another font stretch.
+    pub fn distance(self, other: Self) -> f32 {
+        (self.0 - other.0).abs()
+    }
+}
+
+impl Default for FontStretch {
+    fn default() -> Self {
+        Self::NORMAL
+    }
+}
+
+impl Display for FontStretch {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self.to_str() {
+            Some(name) => f.pad(name),
+            None => write!(f, "{}", self.0),
+        }
+    }
+}
+
+impl Debug for FontStretch {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(match *self {
+            s if s == Self::ULTRA_CONDENSED => "UltraCondensed",
+            s if s == Self::EXTRA_CONDENSED => "ExtraCondensed",
+            s if s == Self::CONDENSED => "Condensed",
+            s if s == Self::SEMI_CONDENSED => "SemiCondensed",
+            s if s == Self::NORMAL => "Normal",
+            s if s == Self::SEMI_EXPANDED => "SemiExpanded",
+            s if s == Self::EXPANDED => "Expanded",
+            s if s == Self::EXTRA_EXPANDED => "ExtraExpanded",
+            s if s == Self::ULTRA_EXPANDED => "UltraExpanded",
+            _ => return write!(f, "{}", self.0),
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_font_weight_distance() {
+        let d = |a, b| FontWeight(a).distance(FontWeight(b));
+        assert_eq!(d(500, 200), 300);
+        assert_eq!(d(500, 500), 0);
+        assert_eq!(d(500, 900), 400);
+        assert_eq!(d(10, 100), 90);
     }
 }

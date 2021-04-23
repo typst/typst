@@ -5,7 +5,6 @@ use std::fs;
 use std::path::Path;
 use std::rc::Rc;
 
-use fontdock::FsIndex;
 use image::{GenericImageView, Rgba};
 use tiny_skia::{
     Color, ColorU8, FillRule, FilterQuality, Paint, Pattern, Pixmap, Rect, SpreadMode,
@@ -16,7 +15,7 @@ use walkdir::WalkDir;
 
 use typst::color;
 use typst::diag::{Diag, DiagSet, Level, Pass};
-use typst::env::{Env, FsIndexExt, ImageResource, ResourceLoader};
+use typst::env::{Env, FsLoader, ImageResource};
 use typst::eval::{EvalContext, FuncArgs, FuncValue, Scope, Value};
 use typst::exec::State;
 use typst::geom::{self, Length, Point, Sides, Size};
@@ -63,13 +62,10 @@ fn main() {
         println!("Running {} tests", len);
     }
 
-    let mut index = FsIndex::new();
-    index.search_dir(FONT_DIR);
+    let mut loader = FsLoader::new();
+    loader.search_dir(FONT_DIR);
 
-    let mut env = Env {
-        fonts: index.into_dynamic_loader(),
-        resources: ResourceLoader::new(),
-    };
+    let mut env = Env::new(loader);
 
     let mut ok = true;
     for src_path in filtered {
@@ -414,7 +410,7 @@ fn draw(env: &Env, frames: &[Frame], pixel_per_pt: f32) -> Pixmap {
 }
 
 fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, shaped: &Text) {
-    let ttf = env.fonts.face(shaped.face_id).ttf();
+    let ttf = env.face(shaped.face_id).ttf();
     let mut x = 0.0;
 
     for glyph in &shaped.glyphs {
@@ -484,7 +480,7 @@ fn draw_geometry(canvas: &mut Pixmap, ts: Transform, element: &Geometry) {
 }
 
 fn draw_image(canvas: &mut Pixmap, env: &Env, ts: Transform, element: &Image) {
-    let img = &env.resources.loaded::<ImageResource>(element.res);
+    let img = &env.resource::<ImageResource>(element.id);
 
     let mut pixmap = Pixmap::new(img.buf.width(), img.buf.height()).unwrap();
     for ((_, _, src), dest) in img.buf.pixels().zip(pixmap.pixels_mut()) {
@@ -513,10 +509,9 @@ fn draw_image(canvas: &mut Pixmap, env: &Env, ts: Transform, element: &Image) {
 fn convert_typst_fill(fill: Fill) -> Paint<'static> {
     let mut paint = Paint::default();
     match fill {
-        Fill::Color(c) => match c {
-            color::Color::Rgba(c) => paint.set_color_rgba8(c.r, c.g, c.b, c.a),
-        },
-        Fill::Image(_) => todo!(),
+        Fill::Color(color::Color::Rgba(c)) => {
+            paint.set_color_rgba8(c.r, c.g, c.b, c.a);
+        }
     }
     paint
 }
