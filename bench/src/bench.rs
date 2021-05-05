@@ -17,7 +17,7 @@ const CASES: &[&str] = &["full/coma.typ", "text/basic.typ"];
 
 fn benchmarks(c: &mut Criterion) {
     let mut loader = FsLoader::new();
-    loader.search_dir(FONT_DIR);
+    loader.search_path(FONT_DIR);
 
     let mut env = Env::new(loader);
 

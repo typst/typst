@@ -63,7 +63,7 @@ fn main() {
     }
 
     let mut loader = FsLoader::new();
-    loader.search_dir(FONT_DIR);
+    loader.search_path(FONT_DIR);
 
     let mut env = Env::new(loader);
 
@@ -120,6 +120,12 @@ impl Args {
             self.filter.is_empty() || self.filter.iter().any(|p| name.contains(p))
         }
     }
+}
+
+struct Panic {
+    pos: Pos,
+    lhs: Option<Value>,
+    rhs: Option<Value>,
 }
 
 fn test(
@@ -302,12 +308,6 @@ fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {
     (compare_ref, diags)
 }
 
-struct Panic {
-    pos: Pos,
-    lhs: Option<Value>,
-    rhs: Option<Value>,
-}
-
 fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
     pub fn args(_: &mut EvalContext, args: &mut FuncArgs) -> Value {
         let repr = pretty(args);
@@ -344,7 +344,7 @@ fn print_diag(diag: &Diag, map: &LineMap, lines: u32) {
     println!("{}: {}-{}: {}", diag.level, start, end, diag.message);
 }
 
-fn draw(env: &Env, frames: &[Frame], pixel_per_pt: f32) -> Pixmap {
+fn draw(env: &Env, frames: &[Frame], dpi: f32) -> Pixmap {
     let pad = Length::pt(5.0);
 
     let height = pad + frames.iter().map(|l| l.size.height + pad).sum::<Length>();
@@ -355,8 +355,8 @@ fn draw(env: &Env, frames: &[Frame], pixel_per_pt: f32) -> Pixmap {
             .max_by(|a, b| a.partial_cmp(&b).unwrap())
             .unwrap_or_default();
 
-    let pixel_width = (pixel_per_pt * width.to_pt() as f32) as u32;
-    let pixel_height = (pixel_per_pt * height.to_pt() as f32) as u32;
+    let pixel_width = (dpi * width.to_pt() as f32) as u32;
+    let pixel_height = (dpi * height.to_pt() as f32) as u32;
     if pixel_width > 4000 || pixel_height > 4000 {
         panic!(
             "overlarge image: {} by {} ({} x {})",
@@ -365,7 +365,7 @@ fn draw(env: &Env, frames: &[Frame], pixel_per_pt: f32) -> Pixmap {
     }
 
     let mut canvas = Pixmap::new(pixel_width, pixel_height).unwrap();
-    let ts = Transform::from_scale(pixel_per_pt, pixel_per_pt);
+    let ts = Transform::from_scale(dpi, dpi);
     canvas.fill(Color::BLACK);
 
     let mut origin = Point::new(pad, pad);
@@ -391,15 +391,9 @@ fn draw(env: &Env, frames: &[Frame], pixel_per_pt: f32) -> Pixmap {
             let y = pos.y.to_pt() as f32;
             let ts = ts.pre_translate(x, y);
             match element {
-                Element::Text(shaped) => {
-                    draw_text(&mut canvas, env, ts, shaped);
-                }
-                Element::Image(image) => {
-                    draw_image(&mut canvas, env, ts, image);
-                }
-                Element::Geometry(geom) => {
-                    draw_geometry(&mut canvas, ts, geom);
-                }
+                Element::Text(shaped) => draw_text(&mut canvas, env, ts, shaped),
+                Element::Image(image) => draw_image(&mut canvas, env, ts, image),
+                Element::Geometry(geom) => draw_geometry(&mut canvas, ts, geom),
             }
         }
 
@@ -517,19 +511,31 @@ fn convert_typst_fill(fill: Fill) -> Paint<'static> {
 }
 
 fn convert_typst_path(path: &geom::Path) -> tiny_skia::Path {
-    let f = |length: Length| length.to_pt() as f32;
     let mut builder = tiny_skia::PathBuilder::new();
+    let f = |v: Length| v.to_pt() as f32;
     for elem in &path.0 {
         match elem {
-            geom::PathElement::MoveTo(p) => builder.move_to(f(p.x), f(p.y)),
-            geom::PathElement::LineTo(p) => builder.line_to(f(p.x), f(p.y)),
-            geom::PathElement::CubicTo(p1, p2, p3) => {
-                builder.cubic_to(f(p1.x), f(p1.y), f(p2.x), f(p2.y), f(p3.x), f(p3.y))
+            geom::PathElement::MoveTo(p) => {
+                builder.move_to(f(p.x), f(p.y));
             }
-            geom::PathElement::ClosePath => builder.close(),
+            geom::PathElement::LineTo(p) => {
+                builder.line_to(f(p.x), f(p.y));
+            }
+            geom::PathElement::CubicTo(p1, p2, p3) => {
+                builder.cubic_to(f(p1.x), f(p1.y), f(p2.x), f(p2.y), f(p3.x), f(p3.y));
+            }
+            geom::PathElement::ClosePath => {
+                builder.close();
+            }
         };
     }
     builder.finish().unwrap()
+}
+
+fn convert_usvg_transform(transform: usvg::Transform) -> Transform {
+    let g = |v: f64| v as f32;
+    let usvg::Transform { a, b, c, d, e, f } = transform;
+    Transform::from_row(g(a), g(b), g(c), g(d), g(e), g(f))
 }
 
 fn convert_usvg_fill(fill: &usvg::Fill) -> (Paint<'static>, FillRule) {
@@ -537,12 +543,9 @@ fn convert_usvg_fill(fill: &usvg::Fill) -> (Paint<'static>, FillRule) {
     paint.anti_alias = true;
 
     match fill.paint {
-        usvg::Paint::Color(color) => paint.set_color_rgba8(
-            color.red,
-            color.green,
-            color.blue,
-            fill.opacity.to_u8(),
-        ),
+        usvg::Paint::Color(usvg::Color { red, green, blue }) => {
+            paint.set_color_rgba8(red, green, blue, fill.opacity.to_u8())
+        }
         usvg::Paint::Link(_) => {}
     }
 
@@ -555,27 +558,25 @@ fn convert_usvg_fill(fill: &usvg::Fill) -> (Paint<'static>, FillRule) {
 }
 
 fn convert_usvg_path(path: &usvg::PathData) -> tiny_skia::Path {
-    let f = |v: f64| v as f32;
     let mut builder = tiny_skia::PathBuilder::new();
+    let f = |v: f64| v as f32;
     for seg in path.iter() {
         match *seg {
-            usvg::PathSegment::MoveTo { x, y } => builder.move_to(f(x), f(y)),
+            usvg::PathSegment::MoveTo { x, y } => {
+                builder.move_to(f(x), f(y));
+            }
             usvg::PathSegment::LineTo { x, y } => {
                 builder.line_to(f(x), f(y));
             }
             usvg::PathSegment::CurveTo { x1, y1, x2, y2, x, y } => {
-                builder.cubic_to(f(x1), f(y1), f(x2), f(y2), f(x), f(y))
+                builder.cubic_to(f(x1), f(y1), f(x2), f(y2), f(x), f(y));
             }
-            usvg::PathSegment::ClosePath => builder.close(),
+            usvg::PathSegment::ClosePath => {
+                builder.close();
+            }
         }
     }
     builder.finish().unwrap()
-}
-
-fn convert_usvg_transform(transform: usvg::Transform) -> Transform {
-    let g = |v: f64| v as f32;
-    let usvg::Transform { a, b, c, d, e, f } = transform;
-    Transform::from_row(g(a), g(b), g(c), g(d), g(e), g(f))
 }
 
 struct WrappedPathBuilder(tiny_skia::PathBuilder);

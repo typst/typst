@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use memmap2::Mmap;
+use serde::{Deserialize, Serialize};
 use ttf_parser::{name_id, Face};
 use walkdir::WalkDir;
 
@@ -14,10 +15,11 @@ use crate::font::{FaceInfo, FontStretch, FontStyle, FontVariant, FontWeight};
 /// Loads fonts and resources from the local file system.
 ///
 /// _This is only available when the `fs` feature is enabled._
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct FsLoader {
     faces: Vec<FaceInfo>,
-    paths: Vec<PathBuf>,
+    files: Vec<PathBuf>,
+    #[serde(skip)]
     cache: FileCache,
 }
 
@@ -30,7 +32,7 @@ impl FsLoader {
     pub fn new() -> Self {
         Self {
             faces: vec![],
-            paths: vec![],
+            files: vec![],
             cache: HashMap::new(),
         }
     }
@@ -64,19 +66,22 @@ impl FsLoader {
         let windir =
             std::env::var("WINDIR").unwrap_or_else(|_| "C:\\Windows".to_string());
 
-        self.search_dir(Path::new(&windir).join("Fonts"));
+        self.search_path(Path::new(&windir).join("Fonts"));
 
         if let Some(roaming) = dirs::config_dir() {
-            self.search_dir(roaming.join("Microsoft\\Windows\\Fonts"));
+            self.search_path(roaming.join("Microsoft\\Windows\\Fonts"));
         }
 
         if let Some(local) = dirs::cache_dir() {
-            self.search_dir(local.join("Microsoft\\Windows\\Fonts"));
+            self.search_path(local.join("Microsoft\\Windows\\Fonts"));
         }
     }
 
-    /// Search for all fonts in a directory.
-    pub fn search_dir(&mut self, dir: impl AsRef<Path>) {
+    /// Search for all fonts at a path.
+    ///
+    /// If the path is a directory, all contained fonts will be searched for
+    /// recursively.
+    pub fn search_path(&mut self, dir: impl AsRef<Path>) {
         let walk = WalkDir::new(dir)
             .follow_links(true)
             .sort_by(|a, b| a.file_name().cmp(b.file_name()))
@@ -102,8 +107,9 @@ impl FsLoader {
     ///
     /// The file may form a font collection and contain multiple font faces,
     /// which will then all be indexed.
-    pub fn search_file(&mut self, path: impl AsRef<Path>) -> io::Result<()> {
+    fn search_file(&mut self, path: impl AsRef<Path>) -> io::Result<()> {
         let path = path.as_ref();
+        let path = path.strip_prefix(".").unwrap_or(path);
 
         let file = File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
@@ -149,9 +155,14 @@ impl FsLoader {
 
         // Merge with an existing entry for the same family name.
         self.faces.push(FaceInfo { family, variant, index });
-        self.paths.push(path.to_owned());
+        self.files.push(path.to_owned());
 
         Ok(())
+    }
+
+    /// Paths to font files, parallel to [`faces()`](Self::faces).
+    pub fn files(&self) -> &[PathBuf] {
+        &self.files
     }
 }
 
@@ -161,7 +172,7 @@ impl Loader for FsLoader {
     }
 
     fn load_face(&mut self, idx: usize) -> Option<Buffer> {
-        load(&mut self.cache, &self.paths[idx])
+        load(&mut self.cache, &self.files[idx])
     }
 
     fn load_file(&mut self, url: &str) -> Option<Buffer> {
@@ -169,6 +180,7 @@ impl Loader for FsLoader {
     }
 }
 
+/// Load from the file system using a cache.
 fn load(cache: &mut FileCache, path: &Path) -> Option<Buffer> {
     match cache.entry(path.to_owned()) {
         Entry::Occupied(entry) => entry.get().clone(),
@@ -186,10 +198,9 @@ mod tests {
     #[test]
     fn test_index_font_dir() {
         let mut loader = FsLoader::new();
-        loader.search_dir("fonts");
-        loader.paths.sort();
+        loader.search_path("fonts");
 
-        assert_eq!(loader.paths, &[
+        assert_eq!(loader.files, &[
             Path::new("fonts/EBGaramond-Bold.ttf"),
             Path::new("fonts/EBGaramond-BoldItalic.ttf"),
             Path::new("fonts/EBGaramond-Italic.ttf"),

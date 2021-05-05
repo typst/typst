@@ -25,7 +25,7 @@ impl Face {
         // SAFETY:
         // - The slices's location is stable in memory:
         //   - We don't move the underlying vector
-        //   - Nobody else can move it since we haved a strong ref to the `Rc`.
+        //   - Nobody else can move it since we have a strong ref to the `Rc`.
         // - The internal static lifetime is not leaked because its rewritten
         //   to the self-lifetime in `ttf()`.
         let slice: &'static [u8] =
@@ -151,19 +151,20 @@ impl Em {
 }
 
 /// Properties of a single font face.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FaceInfo {
     /// The typographic font family this face is part of.
     pub family: String,
     /// Properties that distinguish this face from other faces in the same
     /// family.
+    #[serde(flatten)]
     pub variant: FontVariant,
     /// The collection index in the font file.
     pub index: u32,
 }
 
 /// Properties that distinguish a face from other faces in the same family.
-#[derive(Default, Debug, Copy, Clone, PartialEq)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FontVariant {
     /// The style of the face (normal / italic / oblique).
     pub style: FontStyle,
@@ -183,6 +184,7 @@ impl FontVariant {
 /// The style of a font face.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum FontStyle {
     /// The default style.
     Normal,
@@ -347,6 +349,7 @@ impl Debug for FontWeight {
 
 /// The width of a font face.
 #[derive(Copy, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct FontStretch(f32);
 
 impl FontStretch {

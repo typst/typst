@@ -35,7 +35,7 @@ fn main() -> anyhow::Result<()> {
     let src = fs::read_to_string(src_path).context("Failed to read from source file.")?;
 
     let mut loader = FsLoader::new();
-    loader.search_dir("fonts");
+    loader.search_path("fonts");
     loader.search_system();
 
     let mut env = Env::new(loader);
