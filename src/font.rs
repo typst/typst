@@ -69,6 +69,16 @@ impl Face {
         &self.ttf
     }
 
+    /// Get the number of units per em.
+    pub fn units_per_em(&self) -> f64 {
+        self.units_per_em
+    }
+
+    /// Convert from font units to an em length.
+    pub fn to_em(&self, units: impl Into<f64>) -> Em {
+        Em::from_units(units, self.units_per_em)
+    }
+
     /// Look up a vertical metric.
     pub fn vertical_metric(&self, metric: VerticalFontMetric) -> Em {
         match metric {
@@ -78,11 +88,6 @@ impl Face {
             VerticalFontMetric::Baseline => Em::ZERO,
             VerticalFontMetric::Descender => self.descender,
         }
-    }
-
-    /// Convert from font units to an em length.
-    pub fn to_em(&self, units: impl Into<f64>) -> Em {
-        Em::from_units(units, self.units_per_em)
     }
 }
 

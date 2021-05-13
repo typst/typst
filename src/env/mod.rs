@@ -190,6 +190,19 @@ pub struct FaceId(u32);
 impl FaceId {
     /// A blank initialization value.
     pub const MAX: Self = Self(u32::MAX);
+
+    /// Create a face id from the raw underlying value.
+    ///
+    /// This should only be called with values returned by
+    /// [`into_raw`](Self::into_raw).
+    pub fn from_raw(v: u32) -> Self {
+        Self(v)
+    }
+
+    /// Convert into the raw underlying value.
+    pub fn into_raw(self) -> u32 {
+        self.0
+    }
 }
 
 /// A unique identifier for a loaded resource.
