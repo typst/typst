@@ -40,23 +40,23 @@ impl FsLoader {
     /// Search for fonts in the operating system's font directories.
     #[cfg(all(unix, not(target_os = "macos")))]
     pub fn search_system(&mut self) {
-        self.search_dir("/usr/share/fonts");
-        self.search_dir("/usr/local/share/fonts");
+        self.search_path("/usr/share/fonts");
+        self.search_path("/usr/local/share/fonts");
 
         if let Some(dir) = dirs::font_dir() {
-            self.search_dir(dir);
+            self.search_path(dir);
         }
     }
 
     /// Search for fonts in the operating system's font directories.
     #[cfg(target_os = "macos")]
     pub fn search_system(&mut self) {
-        self.search_dir("/Library/Fonts");
-        self.search_dir("/Network/Library/Fonts");
-        self.search_dir("/System/Library/Fonts");
+        self.search_path("/Library/Fonts");
+        self.search_path("/Network/Library/Fonts");
+        self.search_path("/System/Library/Fonts");
 
         if let Some(dir) = dirs::font_dir() {
-            self.search_dir(dir);
+            self.search_path(dir);
         }
     }
 
