@@ -30,7 +30,7 @@ impl Layout for BackgroundNode {
                 }
             };
 
-            let element = Element::Geometry(Geometry { shape, fill: self.fill });
+            let element = Element::Geometry(shape, self.fill);
             frame.elements.insert(0, (point, element));
         }
 

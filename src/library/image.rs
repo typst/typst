@@ -1,8 +1,8 @@
 use ::image::GenericImageView;
 
 use super::*;
-use crate::env::{ImageResource, ResourceId};
-use crate::layout::{AnyNode, Areas, Element, Frame, Image, Layout, LayoutContext};
+use crate::env::ImageId;
+use crate::layout::{AnyNode, Areas, Element, Frame, Layout, LayoutContext};
 
 /// `image`: An image.
 ///
@@ -20,9 +20,8 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
     Value::template("image", move |ctx| {
         if let Some(path) = &path {
-            let loaded = ctx.env.load_resource(&path.v, ImageResource::parse);
-            if let Some(id) = loaded {
-                let img = ctx.env.resource::<ImageResource>(id);
+            if let Some(id) = ctx.env.load_image(&path.v) {
+                let img = ctx.env.image(id);
                 let dimensions = img.buf.dimensions();
                 ctx.push(ImageNode { id, dimensions, width, height });
             } else {
@@ -35,8 +34,8 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// An image node.
 #[derive(Debug, Clone, PartialEq)]
 struct ImageNode {
-    /// The resource id of the image file.
-    id: ResourceId,
+    /// The id of the image file.
+    id: ImageId,
     /// The pixel dimensions of the image.
     dimensions: (u32, u32),
     /// The fixed width, if any.
@@ -75,7 +74,7 @@ impl Layout for ImageNode {
         };
 
         let mut frame = Frame::new(size, size.height);
-        frame.push(Point::ZERO, Element::Image(Image { id: self.id, size }));
+        frame.push(Point::ZERO, Element::Image(self.id, size));
 
         vec![frame]
     }

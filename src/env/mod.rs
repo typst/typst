@@ -1,4 +1,4 @@
-//! Font and resource loading.
+//! Font and image loading.
 
 #[cfg(feature = "fs")]
 mod fs;
@@ -8,7 +8,6 @@ pub use self::image::*;
 #[cfg(feature = "fs")]
 pub use fs::*;
 
-use std::any::Any;
 use std::collections::{hash_map::Entry, HashMap};
 use std::rc::Rc;
 
@@ -16,18 +15,22 @@ use serde::{Deserialize, Serialize};
 
 use crate::font::{Face, FaceInfo, FontVariant};
 
-/// Handles font and resource loading.
+/// Handles font and image loading.
 pub struct Env {
     /// The loader that serves the font face and file buffers.
     loader: Box<dyn Loader>,
-    /// Loaded resources indexed by [`ResourceId`].
-    resources: Vec<Box<dyn Any>>,
-    /// Maps from URL to loaded resource.
-    urls: HashMap<String, ResourceId>,
     /// Faces indexed by [`FaceId`]. `None` if not yet loaded.
     faces: Vec<Option<Face>>,
     /// Maps a family name to the ids of all faces that are part of the family.
     families: HashMap<String, Vec<FaceId>>,
+    /// Loaded images indexed by [`ImageId`].
+    images: Vec<Image>,
+    /// Maps from paths to loaded images.
+    paths: HashMap<String, ImageId>,
+    /// Callback for loaded font faces.
+    on_face_load: Option<Box<dyn Fn(FaceId, &Face)>>,
+    /// Callback for loaded images.
+    on_image_load: Option<Box<dyn Fn(ImageId, &Image)>>,
 }
 
 impl Env {
@@ -49,10 +52,12 @@ impl Env {
 
         Self {
             loader: Box::new(loader),
-            resources: vec![],
-            urls: HashMap::new(),
             faces,
             families,
+            images: vec![],
+            paths: HashMap::new(),
+            on_face_load: None,
+            on_image_load: None,
         }
     }
 
@@ -113,41 +118,24 @@ impl Env {
         }
 
         // Load the face if it's not already loaded.
-        let idx = best?.0 as usize;
+        let id = best?;
+        let idx = id.0 as usize;
         let slot = &mut self.faces[idx];
         if slot.is_none() {
             let index = infos[idx].index;
             let buffer = self.loader.load_face(idx)?;
             let face = Face::new(buffer, index)?;
+            if let Some(callback) = &self.on_face_load {
+                callback(id, &face);
+            }
             *slot = Some(face);
         }
 
         best
     }
 
-    /// Load a file from a local or remote URL, parse it into a cached resource
-    /// and return a unique identifier that allows to retrieve the parsed
-    /// resource through [`resource()`](Self::resource).
-    pub fn load_resource<F, R>(&mut self, url: &str, parse: F) -> Option<ResourceId>
-    where
-        F: FnOnce(Buffer) -> Option<R>,
-        R: 'static,
-    {
-        Some(match self.urls.entry(url.to_string()) {
-            Entry::Occupied(entry) => *entry.get(),
-            Entry::Vacant(entry) => {
-                let buffer = self.loader.load_file(url)?;
-                let resource = parse(buffer)?;
-                let len = self.resources.len();
-                self.resources.push(Box::new(resource));
-                *entry.insert(ResourceId(len as u32))
-            }
-        })
-    }
-
     /// Get a reference to a queried face.
     ///
-    /// # Panics
     /// This panics if no face with this id was loaded. This function should
     /// only be called with ids returned by [`query_face()`](Self::query_face).
     #[track_caller]
@@ -155,20 +143,50 @@ impl Env {
         self.faces[id.0 as usize].as_ref().expect("font face was not loaded")
     }
 
-    /// Get a reference to a loaded resource.
+    /// Register a callback which is invoked when a font face was loaded.
+    pub fn on_face_load<F>(&mut self, f: F)
+    where
+        F: Fn(FaceId, &Face) + 'static,
+    {
+        self.on_face_load = Some(Box::new(f));
+    }
+
+    /// Load and decode an image file from a path.
+    pub fn load_image(&mut self, path: &str) -> Option<ImageId> {
+        Some(match self.paths.entry(path.to_string()) {
+            Entry::Occupied(entry) => *entry.get(),
+            Entry::Vacant(entry) => {
+                let buffer = self.loader.load_file(path)?;
+                let image = Image::parse(&buffer)?;
+                let id = ImageId(self.images.len() as u32);
+                if let Some(callback) = &self.on_image_load {
+                    callback(id, &image);
+                }
+                self.images.push(image);
+                *entry.insert(id)
+            }
+        })
+    }
+
+    /// Get a reference to a loaded image.
     ///
-    /// This panics if no resource with this id was loaded. This function should
-    /// only be called with ids returned by
-    /// [`load_resource()`](Self::load_resource).
+    /// This panics if no image with this id was loaded. This function should
+    /// only be called with ids returned by [`load_image()`](Self::load_image).
     #[track_caller]
-    pub fn resource<R: 'static>(&self, id: ResourceId) -> &R {
-        self.resources[id.0 as usize]
-            .downcast_ref()
-            .expect("bad resource type")
+    pub fn image(&self, id: ImageId) -> &Image {
+        &self.images[id.0 as usize]
+    }
+
+    /// Register a callback which is invoked when an image was loaded.
+    pub fn on_image_load<F>(&mut self, f: F)
+    where
+        F: Fn(ImageId, &Image) + 'static,
+    {
+        self.on_image_load = Some(Box::new(f));
     }
 }
 
-/// Loads fonts and resources from a remote or local source.
+/// Loads fonts and images from a remote or local source.
 pub trait Loader {
     /// Descriptions of all font faces this loader serves.
     fn faces(&self) -> &[FaceInfo];
@@ -176,8 +194,8 @@ pub trait Loader {
     /// Load the font face with the given index in [`faces()`](Self::faces).
     fn load_face(&mut self, idx: usize) -> Option<Buffer>;
 
-    /// Load a file from a URL.
-    fn load_file(&mut self, url: &str) -> Option<Buffer>;
+    /// Load a file from a path.
+    fn load_file(&mut self, path: &str) -> Option<Buffer>;
 }
 
 /// A shared byte buffer.
@@ -205,11 +223,21 @@ impl FaceId {
     }
 }
 
-/// A unique identifier for a loaded resource.
+/// A unique identifier for a loaded image.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct ResourceId(u32);
+pub struct ImageId(u32);
 
-impl ResourceId {
-    /// A blank initialization value.
-    pub const MAX: Self = Self(u32::MAX);
+impl ImageId {
+    /// Create an image id from the raw underlying value.
+    ///
+    /// This should only be called with values returned by
+    /// [`into_raw`](Self::into_raw).
+    pub fn from_raw(v: u32) -> Self {
+        Self(v)
+    }
+
+    /// Convert into the raw underlying value.
+    pub fn into_raw(self) -> u32 {
+        self.0
+    }
 }

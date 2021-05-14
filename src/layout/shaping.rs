@@ -70,7 +70,7 @@ impl<'a> ShapedText<'a> {
             let mut text = Text {
                 face_id,
                 size: self.props.size,
-                color: self.props.color,
+                fill: self.props.color,
                 glyphs: vec![],
             };
 

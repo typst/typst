@@ -15,11 +15,11 @@ use walkdir::WalkDir;
 
 use typst::color;
 use typst::diag::{Diag, DiagSet, Level, Pass};
-use typst::env::{Env, FsLoader, ImageResource};
+use typst::env::{Env, FsLoader, ImageId};
 use typst::eval::{EvalContext, FuncArgs, FuncValue, Scope, Value};
 use typst::exec::State;
 use typst::geom::{self, Length, Point, Sides, Size};
-use typst::layout::{Element, Fill, Frame, Geometry, Image, Shape, Text};
+use typst::layout::{Element, Fill, Frame, Shape, Text};
 use typst::library;
 use typst::parse::{LineMap, Scanner};
 use typst::pdf;
@@ -385,15 +385,21 @@ fn draw(env: &Env, frames: &[Frame], dpi: f32) -> Pixmap {
             None,
         );
 
-        for &(pos, ref element) in &frame.elements {
-            let pos = origin + pos;
-            let x = pos.x.to_pt() as f32;
-            let y = pos.y.to_pt() as f32;
+        for (pos, element) in &frame.elements {
+            let global = origin + *pos;
+            let x = global.x.to_pt() as f32;
+            let y = global.y.to_pt() as f32;
             let ts = ts.pre_translate(x, y);
-            match element {
-                Element::Text(shaped) => draw_text(&mut canvas, env, ts, shaped),
-                Element::Image(image) => draw_image(&mut canvas, env, ts, image),
-                Element::Geometry(geom) => draw_geometry(&mut canvas, ts, geom),
+            match *element {
+                Element::Text(ref text) => {
+                    draw_text(&mut canvas, env, ts, text);
+                }
+                Element::Geometry(ref shape, fill) => {
+                    draw_geometry(&mut canvas, ts, shape, fill);
+                }
+                Element::Image(id, size) => {
+                    draw_image(&mut canvas, env, ts, id, size);
+                }
             }
         }
 
@@ -403,13 +409,13 @@ fn draw(env: &Env, frames: &[Frame], dpi: f32) -> Pixmap {
     canvas
 }
 
-fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, shaped: &Text) {
-    let ttf = env.face(shaped.face_id).ttf();
+fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, text: &Text) {
+    let ttf = env.face(text.face_id).ttf();
     let mut x = 0.0;
 
-    for glyph in &shaped.glyphs {
+    for glyph in &text.glyphs {
         let units_per_em = ttf.units_per_em();
-        let s = shaped.size.to_pt() as f32 / units_per_em as f32;
+        let s = text.size.to_pt() as f32 / units_per_em as f32;
         let dx = glyph.x_offset.to_pt() as f32;
         let ts = ts.pre_translate(x + dx, 0.0);
 
@@ -441,7 +447,7 @@ fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, shaped: &Text) {
             if ttf.outline_glyph(GlyphId(glyph.id), &mut builder).is_some() {
                 let path = builder.0.finish().unwrap();
                 let ts = ts.pre_scale(s, -s);
-                let mut paint = convert_typst_fill(shaped.color);
+                let mut paint = convert_typst_fill(text.fill);
                 paint.anti_alias = true;
                 canvas.fill_path(&path, &paint, FillRule::default(), ts, None);
             }
@@ -451,11 +457,11 @@ fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, shaped: &Text) {
     }
 }
 
-fn draw_geometry(canvas: &mut Pixmap, ts: Transform, element: &Geometry) {
-    let paint = convert_typst_fill(element.fill);
+fn draw_geometry(canvas: &mut Pixmap, ts: Transform, shape: &Shape, fill: Fill) {
+    let paint = convert_typst_fill(fill);
     let rule = FillRule::default();
 
-    match element.shape {
+    match *shape {
         Shape::Rect(Size { width, height }) => {
             let w = width.to_pt() as f32;
             let h = height.to_pt() as f32;
@@ -473,8 +479,8 @@ fn draw_geometry(canvas: &mut Pixmap, ts: Transform, element: &Geometry) {
     };
 }
 
-fn draw_image(canvas: &mut Pixmap, env: &Env, ts: Transform, element: &Image) {
-    let img = &env.resource::<ImageResource>(element.id);
+fn draw_image(canvas: &mut Pixmap, env: &Env, ts: Transform, id: ImageId, size: Size) {
+    let img = env.image(id);
 
     let mut pixmap = Pixmap::new(img.buf.width(), img.buf.height()).unwrap();
     for ((_, _, src), dest) in img.buf.pixels().zip(pixmap.pixels_mut()) {
@@ -482,8 +488,8 @@ fn draw_image(canvas: &mut Pixmap, env: &Env, ts: Transform, element: &Image) {
         *dest = ColorU8::from_rgba(r, g, b, a).premultiply();
     }
 
-    let view_width = element.size.width.to_pt() as f32;
-    let view_height = element.size.height.to_pt() as f32;
+    let view_width = size.width.to_pt() as f32;
+    let view_height = size.height.to_pt() as f32;
     let scale_x = view_width as f32 / pixmap.width() as f32;
     let scale_y = view_height as f32 / pixmap.height() as f32;
 

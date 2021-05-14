@@ -12,7 +12,7 @@ use walkdir::WalkDir;
 use super::{Buffer, Loader};
 use crate::font::{FaceInfo, FontStretch, FontStyle, FontVariant, FontWeight};
 
-/// Loads fonts and resources from the local file system.
+/// Loads fonts and images from the local file system.
 ///
 /// _This is only available when the `fs` feature is enabled._
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -175,8 +175,8 @@ impl Loader for FsLoader {
         load(&mut self.cache, &self.files[idx])
     }
 
-    fn load_file(&mut self, url: &str) -> Option<Buffer> {
-        load(&mut self.cache, Path::new(url))
+    fn load_file(&mut self, path: &str) -> Option<Buffer> {
+        load(&mut self.cache, Path::new(path))
     }
 }
 

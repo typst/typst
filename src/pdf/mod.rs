@@ -13,10 +13,10 @@ use pdf_writer::{
 use ttf_parser::{name_id, GlyphId};
 
 use crate::color::Color;
-use crate::env::{Env, FaceId, ImageResource, ResourceId};
+use crate::env::{Env, FaceId, Image, ImageId};
 use crate::font::{Em, VerticalFontMetric};
 use crate::geom::{self, Length, Size};
-use crate::layout::{Element, Fill, Frame, Image, Shape};
+use crate::layout::{Element, Fill, Frame, Shape};
 
 /// Export a collection of frames into a PDF document.
 ///
@@ -35,7 +35,7 @@ struct PdfExporter<'a> {
     env: &'a Env,
     refs: Refs,
     fonts: Remapper<FaceId>,
-    images: Remapper<ResourceId>,
+    images: Remapper<ImageId>,
 }
 
 impl<'a> PdfExporter<'a> {
@@ -49,16 +49,16 @@ impl<'a> PdfExporter<'a> {
 
         for frame in frames {
             for (_, element) in &frame.elements {
-                match element {
-                    Element::Text(shaped) => fonts.insert(shaped.face_id),
-                    Element::Image(image) => {
-                        let img = env.resource::<ImageResource>(image.id);
+                match *element {
+                    Element::Text(ref shaped) => fonts.insert(shaped.face_id),
+                    Element::Geometry(_, _) => {}
+                    Element::Image(id, _) => {
+                        let img = env.image(id);
                         if img.buf.color().has_alpha() {
                             alpha_masks += 1;
                         }
-                        images.insert(image.id);
+                        images.insert(id);
                     }
-                    Element::Geometry(_) => {}
                 }
             }
         }
@@ -139,23 +139,35 @@ impl<'a> PdfExporter<'a> {
             let x = pos.x.to_pt() as f32;
             let y = (page.size.height - pos.y).to_pt() as f32;
 
-            match element {
-                &Element::Image(Image { id, size: Size { width, height } }) => {
-                    let name = format!("Im{}", self.images.map(id));
-                    let w = width.to_pt() as f32;
-                    let h = height.to_pt() as f32;
+            match *element {
+                Element::Text(ref shaped) => {
+                    if fill != Some(shaped.fill) {
+                        write_fill(&mut content, shaped.fill);
+                        fill = Some(shaped.fill);
+                    }
 
-                    content.save_state();
-                    content.matrix(w, 0.0, 0.0, h, x, y - h);
-                    content.x_object(Name(name.as_bytes()));
-                    content.restore_state();
+                    let mut text = content.text();
+
+                    // Then, also check if we need to issue a font switching
+                    // action.
+                    if shaped.face_id != face || shaped.size != size {
+                        face = shaped.face_id;
+                        size = shaped.size;
+
+                        let name = format!("F{}", self.fonts.map(shaped.face_id));
+                        text.font(Name(name.as_bytes()), size.to_pt() as f32);
+                    }
+
+                    // TODO: Respect individual glyph offsets.
+                    text.matrix(1.0, 0.0, 0.0, 1.0, x, y);
+                    text.show(&shaped.encode_glyphs_be());
                 }
 
-                Element::Geometry(geometry) => {
+                Element::Geometry(ref shape, fill) => {
                     content.save_state();
-                    write_fill(&mut content, geometry.fill);
+                    write_fill(&mut content, fill);
 
-                    match geometry.shape {
+                    match *shape {
                         Shape::Rect(Size { width, height }) => {
                             let w = width.to_pt() as f32;
                             let h = height.to_pt() as f32;
@@ -177,27 +189,15 @@ impl<'a> PdfExporter<'a> {
                     content.restore_state();
                 }
 
-                Element::Text(shaped) => {
-                    if fill != Some(shaped.color) {
-                        write_fill(&mut content, shaped.color);
-                        fill = Some(shaped.color);
-                    }
+                Element::Image(id, Size { width, height }) => {
+                    let name = format!("Im{}", self.images.map(id));
+                    let w = width.to_pt() as f32;
+                    let h = height.to_pt() as f32;
 
-                    let mut text = content.text();
-
-                    // Then, also check if we need to issue a font switching
-                    // action.
-                    if shaped.face_id != face || shaped.size != size {
-                        face = shaped.face_id;
-                        size = shaped.size;
-
-                        let name = format!("F{}", self.fonts.map(shaped.face_id));
-                        text.font(Name(name.as_bytes()), size.to_pt() as f32);
-                    }
-
-                    // TODO: Respect individual glyph offsets.
-                    text.matrix(1.0, 0.0, 0.0, 1.0, x, y);
-                    text.show(&shaped.encode_glyphs_be());
+                    content.save_state();
+                    content.matrix(w, 0.0, 0.0, h, x, y - h);
+                    content.x_object(Name(name.as_bytes()));
+                    content.restore_state();
                 }
             }
         }
@@ -311,8 +311,8 @@ impl<'a> PdfExporter<'a> {
     fn write_images(&mut self) {
         let mut masks_seen = 0;
 
-        for (id, resource) in self.refs.images().zip(self.images.layout_indices()) {
-            let img = self.env.resource::<ImageResource>(resource);
+        for (id, image_id) in self.refs.images().zip(self.images.layout_indices()) {
+            let img = self.env.image(image_id);
             let (width, height) = img.buf.dimensions();
 
             // Add the primary image.
@@ -397,7 +397,7 @@ const DEFLATE_LEVEL: u8 = 6;
 /// Encode an image with a suitable filter.
 ///
 /// Skips the alpha channel as that's encoded separately.
-fn encode_image(img: &ImageResource) -> ImageResult<(Vec<u8>, Filter, ColorSpace)> {
+fn encode_image(img: &Image) -> ImageResult<(Vec<u8>, Filter, ColorSpace)> {
     let mut data = vec![];
     let (filter, space) = match (img.format, &img.buf) {
         // 8-bit gray JPEG.
@@ -438,7 +438,7 @@ fn encode_image(img: &ImageResource) -> ImageResult<(Vec<u8>, Filter, ColorSpace
 }
 
 /// Encode an image's alpha channel if present.
-fn encode_alpha(img: &ImageResource) -> (Vec<u8>, Filter) {
+fn encode_alpha(img: &Image) -> (Vec<u8>, Filter) {
     let pixels: Vec<_> = img.buf.pixels().map(|(_, _, Rgba([_, _, _, a]))| a).collect();
     let data = deflate::compress_to_vec_zlib(&pixels, DEFLATE_LEVEL);
     (data, Filter::FlateDecode)

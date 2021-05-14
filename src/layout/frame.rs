@@ -1,5 +1,5 @@
 use crate::color::Color;
-use crate::env::{FaceId, ResourceId};
+use crate::env::{FaceId, ImageId};
 use crate::geom::{Length, Path, Point, Size};
 
 use serde::{Deserialize, Serialize};
@@ -41,9 +41,9 @@ pub enum Element {
     /// Shaped text.
     Text(Text),
     /// A geometric shape.
-    Geometry(Geometry),
+    Geometry(Shape, Fill),
     /// A raster image.
-    Image(Image),
+    Image(ImageId, Size),
 }
 
 /// A run of shaped text.
@@ -54,7 +54,7 @@ pub struct Text {
     /// The font size.
     pub size: Length,
     /// The glyph fill color / texture.
-    pub color: Fill,
+    pub fill: Fill,
     /// The glyphs.
     pub glyphs: Vec<Glyph>,
 }
@@ -83,19 +83,6 @@ impl Text {
     }
 }
 
-/// A shape with some kind of fill.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Geometry {
-    /// The shape to draw.
-    pub shape: Shape,
-    /// How the shape looks on the inside.
-    //
-    // TODO: This could be made into a Vec<Fill> or something such that
-    //       the user can compose multiple fills with alpha values less
-    //       than one to achieve cool effects.
-    pub fill: Fill,
-}
-
 /// Some shape.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Shape {
@@ -112,13 +99,4 @@ pub enum Shape {
 pub enum Fill {
     /// The fill is a color.
     Color(Color),
-}
-
-/// An image element.
-#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Image {
-    /// The image resource.
-    pub id: ResourceId,
-    /// The size of the image in the document.
-    pub size: Size,
 }

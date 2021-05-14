@@ -4,37 +4,44 @@ use std::io::Cursor;
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageFormat};
 
-use super::Buffer;
-
-/// A loaded image resource.
-pub struct ImageResource {
+/// A loaded image.
+pub struct Image {
     /// The original format the image was encoded in.
     pub format: ImageFormat,
     /// The decoded image.
     pub buf: DynamicImage,
 }
 
-impl ImageResource {
-    /// Parse an image resource from raw data in a supported format.
+impl Image {
+    /// Parse an image from raw data in a supported format.
     ///
     /// The image format is determined automatically.
-    pub fn parse(data: Buffer) -> Option<Self> {
-        let cursor = Cursor::new(data.as_ref());
+    pub fn parse(data: &[u8]) -> Option<Self> {
+        let cursor = Cursor::new(data);
         let reader = ImageReader::new(cursor).with_guessed_format().ok()?;
         let format = reader.format()?;
         let buf = reader.decode().ok()?;
         Some(Self { format, buf })
     }
+
+    /// The width of the image.
+    pub fn width(&self) -> u32 {
+        self.buf.width()
+    }
+
+    /// The height of the image.
+    pub fn height(&self) -> u32 {
+        self.buf.height()
+    }
 }
 
-impl Debug for ImageResource {
+impl Debug for Image {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let (width, height) = self.buf.dimensions();
-        f.debug_struct("ImageResource")
+        f.debug_struct("Image")
             .field("format", &self.format)
             .field("color", &self.buf.color())
-            .field("width", &width)
-            .field("height", &height)
+            .field("width", &self.width())
+            .field("height", &self.height())
             .finish()
     }
 }
