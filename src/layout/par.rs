@@ -185,7 +185,7 @@ impl<'a> ParLayout<'a> {
             while !stack.areas.current.height.fits(line.size.height)
                 && !stack.areas.in_full_last()
             {
-                stack.finish_area(ctx);
+                stack.finish_area();
             }
 
             // If the line does not fit horizontally or we have a mandatory
@@ -212,7 +212,7 @@ impl<'a> ParLayout<'a> {
             stack.push(line);
         }
 
-        stack.finish(ctx)
+        stack.finish()
     }
 
     /// Find the index of the item whose range contains the `text_offset`.
@@ -297,7 +297,7 @@ impl<'a> LineStack<'a> {
         self.lines.push(line);
     }
 
-    fn finish_area(&mut self, ctx: &mut LayoutContext) {
+    fn finish_area(&mut self) {
         if self.areas.fixed.horizontal {
             self.size.width = self.areas.current.width;
         }
@@ -307,7 +307,7 @@ impl<'a> LineStack<'a> {
         let mut first = true;
 
         for line in std::mem::take(&mut self.lines) {
-            let frame = line.build(ctx, self.size.width);
+            let frame = line.build(self.size.width);
 
             let pos = Point::new(Length::ZERO, offset);
             if first {
@@ -324,8 +324,8 @@ impl<'a> LineStack<'a> {
         self.size = Size::ZERO;
     }
 
-    fn finish(mut self, ctx: &mut LayoutContext) -> Vec<Frame> {
-        self.finish_area(ctx);
+    fn finish(mut self) -> Vec<Frame> {
+        self.finish_area();
         self.finished
     }
 }
@@ -442,7 +442,7 @@ impl<'a> LineLayout<'a> {
     }
 
     /// Build the line's frame.
-    fn build(&self, ctx: &mut LayoutContext, width: Length) -> Frame {
+    fn build(&self, width: Length) -> Frame {
         let size = Size::new(self.size.width.max(width), self.size.height);
         let free = size.width - self.size.width;
 
@@ -458,7 +458,7 @@ impl<'a> LineLayout<'a> {
                 }
                 ParItem::Text(ref shaped, align) => {
                     ruler = ruler.max(align);
-                    shaped.build(ctx)
+                    shaped.build()
                 }
                 ParItem::Frame(ref frame, align) => {
                     ruler = ruler.max(align);

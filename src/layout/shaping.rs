@@ -3,7 +3,6 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::Range;
 
 use rustybuzz::UnicodeBuffer;
-use ttf_parser::GlyphId;
 
 use super::{Element, Frame, Glyph, LayoutContext, Text};
 use crate::env::FaceId;
@@ -38,12 +37,12 @@ pub struct ShapedText<'a> {
 pub struct ShapedGlyph {
     /// The font face the glyph is contained in.
     pub face_id: FaceId,
-    /// The glyph's ID in the face.
-    pub glyph_id: GlyphId,
+    /// The glyph's index in the face.
+    pub glyph_id: u16,
     /// The advance width of the glyph.
-    pub x_advance: i32,
+    pub x_advance: Length,
     /// The horizontal offset of the glyph.
-    pub x_offset: i32,
+    pub x_offset: Length,
     /// The start index of the glyph in the source text.
     pub text_index: usize,
     /// Whether splitting the shaping result before this glyph would yield the
@@ -61,7 +60,7 @@ enum Side {
 
 impl<'a> ShapedText<'a> {
     /// Build the shaped text's frame.
-    pub fn build(&self, ctx: &mut LayoutContext) -> Frame {
+    pub fn build(&self) -> Frame {
         let mut frame = Frame::new(self.size, self.baseline);
         let mut offset = Length::ZERO;
 
@@ -70,20 +69,17 @@ impl<'a> ShapedText<'a> {
             let mut text = Text {
                 face_id,
                 size: self.props.size,
-                fill: self.props.color,
+                fill: self.props.fill,
                 glyphs: vec![],
             };
 
-            let face = ctx.env.face(face_id);
             for glyph in group {
-                let x_advance = face.to_em(glyph.x_advance).to_length(self.props.size);
-                let x_offset = face.to_em(glyph.x_offset).to_length(self.props.size);
                 text.glyphs.push(Glyph {
-                    id: glyph.glyph_id.0,
-                    x_advance,
-                    x_offset,
+                    id: glyph.glyph_id,
+                    x_advance: glyph.x_advance,
+                    x_offset: glyph.x_offset,
                 });
-                offset += x_advance;
+                offset += glyph.x_advance;
             }
 
             frame.push(pos, Element::Text(text));
@@ -246,7 +242,8 @@ fn shape_segment<'a>(
     });
 
     // Shape!
-    let buffer = rustybuzz::shape(ctx.env.face(face_id).ttf(), &[], buffer);
+    let mut face = ctx.env.face(face_id);
+    let buffer = rustybuzz::shape(face.ttf(), &[], buffer);
     let infos = buffer.glyph_infos();
     let pos = buffer.glyph_positions();
 
@@ -262,9 +259,9 @@ fn shape_segment<'a>(
             // TODO: Don't ignore y_advance and y_offset.
             glyphs.push(ShapedGlyph {
                 face_id,
-                glyph_id: GlyphId(info.codepoint as u16),
-                x_advance: pos[i].x_advance,
-                x_offset: pos[i].x_offset,
+                glyph_id: info.codepoint as u16,
+                x_advance: face.to_em(pos[i].x_advance).to_length(props.size),
+                x_offset: face.to_em(pos[i].x_offset).to_length(props.size),
                 text_index: base + cluster,
                 safe_to_break: !info.unsafe_to_break(),
             });
@@ -319,6 +316,8 @@ fn shape_segment<'a>(
                 families.clone(),
                 first_face,
             );
+
+            face = ctx.env.face(face_id);
         }
 
         i += 1;
@@ -355,7 +354,7 @@ fn measure(
             expand_vertical(face);
 
             for glyph in group {
-                width += face.to_em(glyph.x_advance).to_length(props.size);
+                width += glyph.x_advance;
             }
         }
     }

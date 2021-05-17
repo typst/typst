@@ -63,7 +63,7 @@ pub struct Text {
 /// A glyph in a run of shaped text.
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Glyph {
-    /// The glyph's ID in the face.
+    /// The glyph's index in the face.
     pub id: u16,
     /// The advance width of the glyph.
     pub x_advance: Length,

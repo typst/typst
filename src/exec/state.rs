@@ -162,7 +162,7 @@ impl FontState {
             size: self.resolve_size(),
             top_edge: self.top_edge,
             bottom_edge: self.bottom_edge,
-            color: self.color,
+            fill: self.color,
         }
     }
 
@@ -205,8 +205,8 @@ pub struct FontProps {
     pub top_edge: VerticalFontMetric,
     /// What line to consider the bottom edge of text.
     pub bottom_edge: VerticalFontMetric,
-    /// The color of the text.
-    pub color: Fill,
+    /// The fill color of the text.
+    pub fill: Fill,
 }
 
 /// Font family definitions.
