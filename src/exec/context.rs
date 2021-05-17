@@ -197,7 +197,7 @@ impl StackBuilder {
             children.extend(last.any());
             children.push(par);
         }
-        StackNode { dirs, children }
+        StackNode { dirs, aspect: None, children }
     }
 }
 

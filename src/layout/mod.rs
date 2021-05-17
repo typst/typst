@@ -155,10 +155,6 @@ pub struct Areas {
     ///
     /// If this is false, the frame will shrink to fit its content.
     pub fixed: Spec<bool>,
-    /// The aspect ratio the resulting frame should respect.
-    ///
-    /// This property is only handled by the stack layouter.
-    pub aspect: Option<f64>,
 }
 
 impl Areas {
@@ -170,7 +166,6 @@ impl Areas {
             backlog: vec![],
             last: None,
             fixed,
-            aspect: None,
         }
     }
 
@@ -182,14 +177,7 @@ impl Areas {
             backlog: vec![],
             last: Some(size),
             fixed,
-            aspect: None,
         }
-    }
-
-    /// Builder-style method for setting the aspect ratio.
-    pub fn with_aspect(mut self, aspect: Option<f64>) -> Self {
-        self.aspect = aspect;
-        self
     }
 
     /// Map all areas.
@@ -203,7 +191,6 @@ impl Areas {
             backlog: self.backlog.iter().copied().map(|s| f(s)).collect(),
             last: self.last.map(f),
             fixed: self.fixed,
-            aspect: self.aspect,
         }
     }
 
@@ -223,5 +210,11 @@ impl Areas {
             && self.last.map_or(true, |size| {
                 self.current.is_nan() || size.is_nan() || self.current == size
             })
+    }
+
+    /// Shrink `current` to ensure that the aspect ratio can be satisfied.
+    pub fn apply_aspect_ratio(&mut self, ratio: f64) {
+        let Size { width, height } = self.current;
+        self.current = Size::new(width.min(ratio * height), height.min(width / ratio));
     }
 }

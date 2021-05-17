@@ -8,6 +8,10 @@ pub struct StackNode {
     /// The children are stacked along the `main` direction. The `cross`
     /// direction is required for aligning the children.
     pub dirs: Gen<Dir>,
+    /// The fixed aspect ratio between width and height, if any.
+    ///
+    /// The resulting frames will satisfy `width = aspect * height`.
+    pub aspect: Option<f64>,
     /// The nodes to be stacked.
     pub children: Vec<StackChild>,
 }
@@ -23,7 +27,7 @@ pub enum StackChild {
 
 impl Layout for StackNode {
     fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
-        let mut layouter = StackLayouter::new(self.dirs, areas.clone());
+        let mut layouter = StackLayouter::new(self.dirs, self.aspect, areas.clone());
         for child in &self.children {
             match *child {
                 StackChild::Spacing(amount) => layouter.push_spacing(amount),
@@ -52,6 +56,7 @@ impl From<StackNode> for AnyNode {
 
 struct StackLayouter {
     dirs: Gen<Dir>,
+    aspect: Option<f64>,
     main: SpecAxis,
     areas: Areas,
     finished: Vec<Frame>,
@@ -61,9 +66,14 @@ struct StackLayouter {
 }
 
 impl StackLayouter {
-    fn new(dirs: Gen<Dir>, areas: Areas) -> Self {
+    fn new(dirs: Gen<Dir>, aspect: Option<f64>, mut areas: Areas) -> Self {
+        if let Some(aspect) = aspect {
+            areas.apply_aspect_ratio(aspect);
+        }
+
         Self {
             dirs,
+            aspect,
             main: dirs.main.axis(),
             areas,
             finished: vec![],
@@ -112,7 +122,7 @@ impl StackLayouter {
                 if fixed.vertical { full.height } else { used.height },
             );
 
-            if let Some(aspect) = self.areas.aspect {
+            if let Some(aspect) = self.aspect {
                 let width = size
                     .width
                     .max(aspect * size.height)
@@ -162,6 +172,10 @@ impl StackLayouter {
         self.areas.next();
         self.ruler = Align::Start;
         self.size = Gen::ZERO;
+
+        if let Some(aspect) = self.aspect {
+            self.areas.apply_aspect_ratio(aspect);
+        }
     }
 
     fn finish(mut self) -> Vec<Frame> {

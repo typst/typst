@@ -59,17 +59,19 @@ fn rect_impl(
     body: TemplateValue,
 ) -> Value {
     Value::template(name, move |ctx| {
-        let child = ctx.exec_group(&body).into();
-        let node = FixedNode { width, height, aspect, child };
+        let mut stack = ctx.exec_group(&body);
+        stack.aspect = aspect;
+
+        let fixed = FixedNode { width, height, child: stack.into() };
 
         if let Some(color) = fill {
             ctx.push(BackgroundNode {
                 shape: BackgroundShape::Rect,
                 fill: Fill::Color(color),
-                child: node.into(),
+                child: fixed.into(),
             });
         } else {
-            ctx.push(node);
+            ctx.push(fixed);
         }
     })
 }
@@ -133,14 +135,15 @@ fn ellipse_impl(
         // perfectly into the ellipse.
         const PAD: f64 = 0.5 - SQRT_2 / 4.0;
 
-        let child = ctx.exec_group(&body).into();
-        let node = FixedNode {
+        let mut stack = ctx.exec_group(&body);
+        stack.aspect = aspect;
+
+        let fixed = FixedNode {
             width,
             height,
-            aspect,
             child: PadNode {
                 padding: Sides::uniform(Relative::new(PAD).into()),
-                child,
+                child: stack.into(),
             }
             .into(),
         };
@@ -149,10 +152,10 @@ fn ellipse_impl(
             ctx.push(BackgroundNode {
                 shape: BackgroundShape::Ellipse,
                 fill: Fill::Color(color),
-                child: node.into(),
+                child: fixed.into(),
             });
         } else {
-            ctx.push(node);
+            ctx.push(fixed);
         }
     })
 }
