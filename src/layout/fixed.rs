@@ -31,13 +31,8 @@ impl Layout for FixedNode {
             size = Size::new(width, width / aspect);
         }
 
-        let fill_if = |cond| if cond { Expand::Fill } else { Expand::Fit };
-        let expand = Spec::new(
-            fill_if(self.width.is_some()),
-            fill_if(self.height.is_some()),
-        );
-
-        let areas = Areas::once(size, full, expand).with_aspect(self.aspect);
+        let fixed = Spec::new(self.width.is_some(), self.height.is_some());
+        let areas = Areas::once(size, full, fixed).with_aspect(self.aspect);
         self.child.layout(ctx, &areas)
     }
 }

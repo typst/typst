@@ -301,8 +301,9 @@ impl<'a> LineStack<'a> {
     }
 
     fn finish_area(&mut self, ctx: &mut LayoutContext) {
-        let expand = self.areas.expand.horizontal;
-        self.size.width = expand.resolve(self.size.width, self.areas.full.width);
+        if self.areas.fixed.horizontal {
+            self.size.width = self.areas.current.width;
+        }
 
         let mut output = Frame::new(self.size, self.size.height);
         let mut first = true;

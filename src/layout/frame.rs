@@ -18,6 +18,7 @@ pub struct Frame {
 impl Frame {
     /// Create a new, empty frame.
     pub fn new(size: Size, baseline: Length) -> Self {
+        assert!(size.is_finite());
         Self { size, baseline, elements: vec![] }
     }
 

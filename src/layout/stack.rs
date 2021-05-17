@@ -104,12 +104,12 @@ impl StackLayouter {
 
     fn finish_area(&mut self) {
         let full_size = {
-            let Areas { current, full, expand, .. } = self.areas;
-            let used = self.size.switch(self.main).to_size();
+            let Areas { current, full, fixed, .. } = self.areas;
 
+            let used = self.size.switch(self.main).to_size();
             let mut size = Size::new(
-                expand.horizontal.resolve(used.width, full.width),
-                expand.vertical.resolve(used.height, full.height),
+                if fixed.horizontal { full.width } else { used.width },
+                if fixed.vertical { full.height } else { used.height },
             );
 
             if let Some(aspect) = self.areas.aspect {
