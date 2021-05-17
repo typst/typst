@@ -220,7 +220,7 @@ fn test_part(
     // large and fit them to match their content.
     let mut state = State::default();
     state.page.size = Size::new(Length::pt(120.0), Length::raw(f64::INFINITY));
-    state.page.margins = Sides::uniform(Some(Length::pt(10.0).into()));
+    state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
     let Pass { output: mut frames, diags } = typeset(env, &src, &scope, state);
     if !compare_ref {
@@ -368,7 +368,7 @@ fn draw(env: &Env, frames: &[Frame], dpi: f32) -> Pixmap {
     let ts = Transform::from_scale(dpi, dpi);
     canvas.fill(Color::BLACK);
 
-    let mut origin = Point::new(pad, pad);
+    let mut origin = Point::splat(pad);
     for frame in frames {
         let mut paint = Paint::default();
         paint.set_color(Color::WHITE);
@@ -469,7 +469,7 @@ fn draw_geometry(canvas: &mut Pixmap, ts: Transform, shape: &Shape, fill: Fill) 
             canvas.fill_rect(rect, &paint, ts, None);
         }
         Shape::Ellipse(size) => {
-            let path = convert_typst_path(&geom::ellipse_path(size));
+            let path = convert_typst_path(&geom::Path::ellipse(size));
             canvas.fill_path(&path, &paint, rule, ts, None);
         }
         Shape::Path(ref path) => {

@@ -144,67 +144,63 @@ pub struct LayoutContext<'a> {
 pub struct Areas {
     /// The remaining size of the current area.
     pub current: Size,
-    /// The full size the current area once had (used for relative sizing).
-    pub full: Size,
-    /// A stack of followup areas (the next area is the last element).
-    pub backlog: Vec<Size>,
-    /// The final area that is repeated when the backlog is empty.
-    pub last: Option<Size>,
-    /// Whether the frames resulting from layouting into this areas should
-    /// expand to the fixed size defined by `current`.
+    /// The base size for relative sizing.
+    pub base: Size,
+    /// A stack of followup areas.
     ///
-    /// If this is false, the frame will shrink to fit its content.
+    /// Note that this is a stack and not a queue! The size of the next area is
+    /// `backlog.last()`.
+    pub backlog: Vec<Size>,
+    /// The final area that is repeated once the backlog is drained.
+    pub last: Option<Size>,
+    /// Whether layouting into these areas should produce frames of the exact
+    /// size of `current` instead of shrinking to fit the content.
+    ///
+    /// This property is only handled by nodes that have the ability to control
+    /// their own size.
     pub fixed: Spec<bool>,
 }
 
 impl Areas {
-    /// Create a new length-1 sequence of areas with just one `area`.
-    pub fn once(size: Size, full: Size, fixed: Spec<bool>) -> Self {
+    /// Create a new area sequence of length one.
+    pub fn once(size: Size, fixed: Spec<bool>) -> Self {
         Self {
             current: size,
-            full,
+            base: size,
             backlog: vec![],
             last: None,
             fixed,
         }
     }
 
-    /// Create a new sequence of areas that repeats `area` indefinitely.
+    /// Create a new sequence of same-size areas that repeats indefinitely.
     pub fn repeat(size: Size, fixed: Spec<bool>) -> Self {
         Self {
             current: size,
-            full: size,
+            base: size,
             backlog: vec![],
             last: Some(size),
             fixed,
         }
     }
 
-    /// Map all areas.
+    /// Map the size of all areas.
     pub fn map<F>(&self, mut f: F) -> Self
     where
         F: FnMut(Size) -> Size,
     {
         Self {
             current: f(self.current),
-            full: f(self.full),
+            base: f(self.base),
             backlog: self.backlog.iter().copied().map(|s| f(s)).collect(),
             last: self.last.map(f),
             fixed: self.fixed,
         }
     }
 
-    /// Advance to the next area if there is any.
-    pub fn next(&mut self) {
-        if let Some(size) = self.backlog.pop().or(self.last) {
-            self.current = size;
-            self.full = size;
-        }
-    }
-
     /// Whether `current` is a fully sized (untouched) copy of the last area.
     ///
-    /// If this is false calling `next()` will have no effect.
+    /// If this is true, calling `next()` will have no effect.
     pub fn in_full_last(&self) -> bool {
         self.backlog.is_empty()
             && self.last.map_or(true, |size| {
@@ -212,9 +208,18 @@ impl Areas {
             })
     }
 
+    /// Advance to the next area if there is any.
+    pub fn next(&mut self) {
+        if let Some(size) = self.backlog.pop().or(self.last) {
+            self.current = size;
+            self.base = size;
+        }
+    }
+
     /// Shrink `current` to ensure that the aspect ratio can be satisfied.
-    pub fn apply_aspect_ratio(&mut self, ratio: f64) {
-        let Size { width, height } = self.current;
-        self.current = Size::new(width.min(ratio * height), height.min(width / ratio));
+    pub fn apply_aspect_ratio(&mut self, aspect: f64) {
+        let width = self.current.width.min(aspect * self.current.height);
+        let height = width / aspect;
+        self.current = Size::new(width, height);
     }
 }

@@ -46,14 +46,13 @@ struct ImageNode {
 
 impl Layout for ImageNode {
     fn layout(&self, _: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
-        let Areas { current, full, .. } = areas;
+        let Areas { current, base, .. } = areas;
+        let width = self.width.map(|w| w.resolve(base.width));
+        let height = self.height.map(|w| w.resolve(base.height));
 
         let pixel_width = self.dimensions.0 as f64;
         let pixel_height = self.dimensions.1 as f64;
         let pixel_ratio = pixel_width / pixel_height;
-
-        let width = self.width.map(|w| w.resolve(full.width));
-        let height = self.height.map(|w| w.resolve(full.height));
 
         let size = match (width, height) {
             (Some(width), Some(height)) => Size::new(width, height),
@@ -75,7 +74,6 @@ impl Layout for ImageNode {
 
         let mut frame = Frame::new(size, size.height);
         frame.push(Point::ZERO, Element::Image(self.id, size));
-
         vec![frame]
     }
 }

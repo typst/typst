@@ -177,7 +177,7 @@ impl<'a> PdfExporter<'a> {
                         }
 
                         Shape::Ellipse(size) => {
-                            let path = geom::ellipse_path(size);
+                            let path = geom::Path::ellipse(size);
                             write_path(&mut content, x, y, &path, false, true);
                         }
 

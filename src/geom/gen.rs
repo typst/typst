@@ -3,24 +3,24 @@ use super::*;
 /// A container with a main and cross component.
 #[derive(Default, Copy, Clone, Eq, PartialEq)]
 pub struct Gen<T> {
-    /// The main component.
-    pub main: T,
     /// The cross component.
     pub cross: T,
+    /// The main component.
+    pub main: T,
 }
 
 impl<T> Gen<T> {
     /// Create a new instance from the two components.
-    pub fn new(main: T, cross: T) -> Self {
-        Self { main, cross }
+    pub fn new(cross: T, main: T) -> Self {
+        Self { cross, main }
     }
 
     /// Create a new instance with two equal components.
-    pub fn uniform(value: T) -> Self
+    pub fn splat(value: T) -> Self
     where
         T: Clone,
     {
-        Self { main: value.clone(), cross: value }
+        Self { cross: value.clone(), main: value }
     }
 }
 

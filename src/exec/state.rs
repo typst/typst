@@ -29,7 +29,7 @@ impl Default for State {
             page: PageState::default(),
             par: ParState::default(),
             font: FontState::default(),
-            aligns: Gen::new(Align::Start, Align::Start),
+            aligns: Gen::splat(Align::Start),
         }
     }
 }
@@ -65,7 +65,7 @@ impl PageState {
         Self {
             class: paper.class,
             size: paper.size(),
-            margins: Sides::uniform(None),
+            margins: Sides::splat(None),
         }
     }
 

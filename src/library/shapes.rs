@@ -142,7 +142,7 @@ fn ellipse_impl(
             width,
             height,
             child: PadNode {
-                padding: Sides::uniform(Relative::new(PAD).into()),
+                padding: Sides::splat(Relative::new(PAD).into()),
                 child: stack.into(),
             }
             .into(),

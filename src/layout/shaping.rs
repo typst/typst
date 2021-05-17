@@ -336,9 +336,8 @@ fn measure(
     let mut top = Length::ZERO;
     let mut bottom = Length::ZERO;
     let mut expand_vertical = |face: &Face| {
-        top = top.max(face.vertical_metric(props.top_edge).to_length(props.size));
-        bottom =
-            bottom.max(-face.vertical_metric(props.bottom_edge).to_length(props.size));
+        top.set_max(face.vertical_metric(props.top_edge).to_length(props.size));
+        bottom.set_max(-face.vertical_metric(props.bottom_edge).to_length(props.size));
     };
 
     if glyphs.is_empty() {

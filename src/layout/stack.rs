@@ -61,6 +61,7 @@ struct StackLayouter {
     areas: Areas,
     finished: Vec<Frame>,
     frames: Vec<(Length, Frame, Gen<Align>)>,
+    full: Size,
     size: Gen<Length>,
     ruler: Align,
 }
@@ -75,18 +76,19 @@ impl StackLayouter {
             dirs,
             aspect,
             main: dirs.main.axis(),
-            areas,
             finished: vec![],
             frames: vec![],
+            full: areas.current,
             size: Gen::ZERO,
             ruler: Align::Start,
+            areas,
         }
     }
 
     fn push_spacing(&mut self, amount: Length) {
-        let main_rest = self.areas.current.get_mut(self.main);
-        let capped = amount.min(*main_rest);
-        *main_rest -= capped;
+        let remaining = self.areas.current.get_mut(self.main);
+        let capped = amount.min(*remaining);
+        *remaining -= capped;
         self.size.main += capped;
     }
 
@@ -95,71 +97,64 @@ impl StackLayouter {
             self.finish_area();
         }
 
-        while !self.areas.current.fits(frame.size) {
-            if self.areas.in_full_last() {
-                // TODO: Diagnose once the necessary spans exist.
-                break;
-            } else {
-                self.finish_area();
-            }
+        while !self.areas.current.fits(frame.size) && !self.areas.in_full_last() {
+            self.finish_area();
         }
 
+        let offset = self.size.main;
         let size = frame.size.switch(self.main);
-        self.frames.push((self.size.main, frame, aligns));
-        self.ruler = aligns.main;
         self.size.main += size.main;
-        self.size.cross = self.size.cross.max(size.cross);
+        self.size.cross.set_max(size.cross);
+        self.ruler = aligns.main;
         *self.areas.current.get_mut(self.main) -= size.main;
+        self.frames.push((offset, frame, aligns));
     }
 
     fn finish_area(&mut self) {
-        let full_size = {
-            let Areas { current, full, fixed, .. } = self.areas;
+        let fixed = self.areas.fixed;
 
-            let used = self.size.switch(self.main).to_size();
-            let mut size = Size::new(
-                if fixed.horizontal { full.width } else { used.width },
-                if fixed.vertical { full.height } else { used.height },
-            );
+        let used = self.size.switch(self.main).to_size();
+        let mut size = Size::new(
+            if fixed.horizontal { self.full.width } else { used.width },
+            if fixed.vertical { self.full.height } else { used.height },
+        );
 
-            if let Some(aspect) = self.aspect {
-                let width = size
-                    .width
-                    .max(aspect * size.height)
-                    .min(current.width)
-                    .min((current.height + used.height) / aspect);
+        if let Some(aspect) = self.aspect {
+            let width = size
+                .width
+                .max(aspect * size.height)
+                .min(self.full.width)
+                .min(aspect * self.full.height);
 
-                size = Size::new(width, width / aspect);
-            }
+            size = Size::new(width, width / aspect);
+        }
 
-            size
-        };
-
-        let mut output = Frame::new(full_size, full_size.height);
+        let mut output = Frame::new(size, size.height);
         let mut first = true;
 
-        let full_size = full_size.switch(self.main);
-        for (before, frame, aligns) in std::mem::take(&mut self.frames) {
-            let child_size = frame.size.switch(self.main);
+        let used = self.size;
+        let size = size.switch(self.main);
+
+        for (offset, frame, aligns) in std::mem::take(&mut self.frames) {
+            let child = frame.size.switch(self.main);
+
+            // Align along the cross axis.
+            let cross = aligns
+                .cross
+                .resolve(self.dirs.cross, Length::ZERO .. size.cross - child.cross);
 
             // Align along the main axis.
             let main = aligns.main.resolve(
                 self.dirs.main,
                 if self.dirs.main.is_positive() {
-                    before .. before + full_size.main - self.size.main
+                    offset .. size.main - used.main + offset
                 } else {
-                    self.size.main - (before + child_size.main)
-                        .. full_size.main - (before + child_size.main)
+                    let offset_with_self = offset + child.main;
+                    used.main - offset_with_self .. size.main - offset_with_self
                 },
             );
 
-            // Align along the cross axis.
-            let cross = aligns.cross.resolve(
-                self.dirs.cross,
-                Length::ZERO .. full_size.cross - child_size.cross,
-            );
-
-            let pos = Gen::new(main, cross).switch(self.main).to_point();
+            let pos = Gen::new(cross, main).switch(self.main).to_point();
             if first {
                 output.baseline = pos.y + frame.baseline;
                 first = false;
@@ -168,14 +163,14 @@ impl StackLayouter {
             output.push_frame(pos, frame);
         }
 
-        self.finished.push(output);
-        self.areas.next();
-        self.ruler = Align::Start;
         self.size = Gen::ZERO;
-
+        self.ruler = Align::Start;
+        self.areas.next();
         if let Some(aspect) = self.aspect {
             self.areas.apply_aspect_ratio(aspect);
         }
+
+        self.finished.push(output);
     }
 
     fn finish(mut self) -> Vec<Frame> {

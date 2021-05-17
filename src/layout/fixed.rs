@@ -13,14 +13,14 @@ pub struct FixedNode {
 
 impl Layout for FixedNode {
     fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
-        let Areas { current, full, .. } = areas;
+        let Areas { current, base, .. } = areas;
         let size = Size::new(
-            self.width.map_or(current.width, |w| w.resolve(full.width)),
-            self.height.map_or(current.height, |h| h.resolve(full.height)),
+            self.width.map_or(current.width, |w| w.resolve(base.width)),
+            self.height.map_or(current.height, |h| h.resolve(base.height)),
         );
 
         let fixed = Spec::new(self.width.is_some(), self.height.is_some());
-        let areas = Areas::once(size, size, fixed);
+        let areas = Areas::once(size, fixed);
         self.child.layout(ctx, &areas)
     }
 }

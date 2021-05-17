@@ -79,9 +79,19 @@ impl Length {
         Self { raw: self.raw.min(other.raw) }
     }
 
+    /// Set to the minimum of this and another length.
+    pub fn set_min(&mut self, other: Self) {
+        *self = self.min(other);
+    }
+
     /// The maximum of this and another length.
     pub fn max(self, other: Self) -> Self {
         Self { raw: self.raw.max(other.raw) }
+    }
+
+    /// Set to the maximum of this and another length.
+    pub fn set_max(&mut self, other: Self) {
+        *self = self.max(other);
     }
 
     /// Whether the other length fits into this one (i.e. is smaller).

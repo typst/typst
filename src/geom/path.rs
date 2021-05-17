@@ -22,6 +22,25 @@ impl Path {
         Self(vec![])
     }
 
+    /// Create a path that approximates an axis-aligned ellipse.
+    pub fn ellipse(size: Size) -> Self {
+        // https://stackoverflow.com/a/2007782
+        let rx = size.width / 2.0;
+        let ry = size.height / 2.0;
+        let m = 0.551784;
+        let mx = m * rx;
+        let my = m * ry;
+        let z = Length::ZERO;
+        let point = Point::new;
+        let mut path = Self::new();
+        path.move_to(point(-rx, z));
+        path.cubic_to(point(-rx, my), point(-mx, ry), point(z, ry));
+        path.cubic_to(point(mx, ry), point(rx, my), point(rx, z));
+        path.cubic_to(point(rx, -my), point(mx, -ry), point(z, -ry));
+        path.cubic_to(point(-mx, -ry), point(-rx, -my), point(z - rx, z));
+        path
+    }
+
     /// Push a [`MoveTo`](PathElement::MoveTo) element.
     pub fn move_to(&mut self, p: Point) {
         self.0.push(PathElement::MoveTo(p));
@@ -41,23 +60,4 @@ impl Path {
     pub fn close_path(&mut self) {
         self.0.push(PathElement::ClosePath);
     }
-}
-
-/// Create a path that approximates an axis-aligned ellipse.
-pub fn ellipse_path(size: Size) -> Path {
-    // https://stackoverflow.com/a/2007782
-    let rx = size.width / 2.0;
-    let ry = size.height / 2.0;
-    let m = 0.551784;
-    let mx = m * rx;
-    let my = m * ry;
-    let z = Length::ZERO;
-    let point = Point::new;
-    let mut path = Path::new();
-    path.move_to(point(-rx, z));
-    path.cubic_to(point(-rx, my), point(-mx, ry), point(z, ry));
-    path.cubic_to(point(mx, ry), point(rx, my), point(rx, z));
-    path.cubic_to(point(rx, -my), point(mx, -ry), point(z, -ry));
-    path.cubic_to(point(-mx, -ry), point(-rx, -my), point(z - rx, z));
-    path
 }

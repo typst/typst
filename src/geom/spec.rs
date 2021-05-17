@@ -16,7 +16,7 @@ impl<T> Spec<T> {
     }
 
     /// Create a new instance with two equal components.
-    pub fn uniform(value: T) -> Self
+    pub fn splat(value: T) -> Self
     where
         T: Clone,
     {
@@ -68,8 +68,8 @@ impl<T> Switch for Spec<T> {
 
     fn switch(self, main: SpecAxis) -> Self::Other {
         match main {
-            SpecAxis::Horizontal => Gen::new(self.horizontal, self.vertical),
-            SpecAxis::Vertical => Gen::new(self.vertical, self.horizontal),
+            SpecAxis::Horizontal => Gen::new(self.vertical, self.horizontal),
+            SpecAxis::Vertical => Gen::new(self.horizontal, self.vertical),
         }
     }
 }

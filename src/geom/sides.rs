@@ -20,7 +20,7 @@ impl<T> Sides<T> {
     }
 
     /// Create an instance with four equal components.
-    pub fn uniform(value: T) -> Self
+    pub fn splat(value: T) -> Self
     where
         T: Clone,
     {

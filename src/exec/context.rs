@@ -167,7 +167,7 @@ struct StackBuilder {
 impl StackBuilder {
     fn new(state: &State) -> Self {
         Self {
-            dirs: Gen::new(Dir::TTB, state.lang.dir),
+            dirs: Gen::new(state.lang.dir, Dir::TTB),
             children: vec![],
             last: Last::None,
             par: ParBuilder::new(state),

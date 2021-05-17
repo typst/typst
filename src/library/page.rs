@@ -59,7 +59,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         }
 
         if let Some(margins) = margins {
-            ctx.state.page.margins = Sides::uniform(Some(margins));
+            ctx.state.page.margins = Sides::splat(Some(margins));
         }
 
         if let Some(left) = left {

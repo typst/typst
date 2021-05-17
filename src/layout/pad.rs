@@ -11,37 +11,23 @@ pub struct PadNode {
 
 impl Layout for PadNode {
     fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
-        let areas = shrink(areas, self.padding);
+        let areas = areas.map(|size| size - self.padding.resolve(size).size());
+
         let mut frames = self.child.layout(ctx, &areas);
         for frame in &mut frames {
-            pad(frame, self.padding);
+            let padded = solve(self.padding, frame.size);
+            let padding = self.padding.resolve(padded);
+            let origin = Point::new(padding.left, padding.top);
+
+            frame.size = padded;
+            frame.baseline += origin.y;
+
+            for (point, _) in &mut frame.elements {
+                *point += origin;
+            }
         }
+
         frames
-    }
-}
-
-impl From<PadNode> for AnyNode {
-    fn from(pad: PadNode) -> Self {
-        Self::new(pad)
-    }
-}
-
-/// Shrink all areas by the padding.
-fn shrink(areas: &Areas, padding: Sides<Linear>) -> Areas {
-    areas.map(|size| size - padding.resolve(size).size())
-}
-
-/// Pad the frame and move all elements inwards.
-fn pad(frame: &mut Frame, padding: Sides<Linear>) {
-    let padded = solve(padding, frame.size);
-    let padding = padding.resolve(padded);
-    let origin = Point::new(padding.left, padding.top);
-
-    frame.size = padded;
-    frame.baseline += origin.y;
-
-    for (point, _) in &mut frame.elements {
-        *point += origin;
     }
 }
 
@@ -56,4 +42,10 @@ fn solve(padding: Sides<Linear>, size: Size) -> Size {
         solve_axis(size.width, padding.left + padding.right),
         solve_axis(size.height, padding.top + padding.bottom),
     )
+}
+
+impl From<PadNode> for AnyNode {
+    fn from(pad: PadNode) -> Self {
+        Self::new(pad)
+    }
 }

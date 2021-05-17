@@ -6,7 +6,7 @@ Auto-sized square. \
     #align(center)
     #pad(5pt)[
         #font(color: #fff, weight: bold)
-        Typst \
+        Typst
     ]
 ]
 

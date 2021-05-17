@@ -24,7 +24,7 @@ impl Size {
     }
 
     /// Create an instance with two equal components.
-    pub fn uniform(value: Length) -> Self {
+    pub fn splat(value: Length) -> Self {
         Self { width: value, height: value }
     }
 
@@ -77,8 +77,8 @@ impl Switch for Size {
 
     fn switch(self, main: SpecAxis) -> Self::Other {
         match main {
-            SpecAxis::Horizontal => Gen::new(self.width, self.height),
-            SpecAxis::Vertical => Gen::new(self.height, self.width),
+            SpecAxis::Horizontal => Gen::new(self.height, self.width),
+            SpecAxis::Vertical => Gen::new(self.width, self.height),
         }
     }
 }

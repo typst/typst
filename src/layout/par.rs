@@ -1,5 +1,4 @@
 use std::fmt::{self, Debug, Formatter};
-use std::mem;
 
 use unicode_bidi::{BidiInfo, Level};
 use xi_unicode::LineBreakIterator;
@@ -142,10 +141,9 @@ impl<'a> ParLayout<'a> {
                     }
                 }
                 ParChild::Any(ref node, align) => {
-                    let frames = node.layout(ctx, areas);
-                    assert_eq!(frames.len(), 1);
-
-                    let frame = frames.into_iter().next().unwrap();
+                    let mut frames = node.layout(ctx, areas).into_iter();
+                    let frame = frames.next().unwrap();
+                    assert!(frames.next().is_none());
                     items.push(ParItem::Frame(frame, align));
                     ranges.push(range);
                 }
@@ -184,16 +182,16 @@ impl<'a> ParLayout<'a> {
             }
 
             // If the line does not fit vertically, we start a new area.
-            if !stack.areas.current.height.fits(line.size.height)
+            while !stack.areas.current.height.fits(line.size.height)
                 && !stack.areas.in_full_last()
             {
                 stack.finish_area(ctx);
             }
 
+            // If the line does not fit horizontally or we have a mandatory
+            // line break (i.e. due to "\n"), we push the line into the
+            // stack.
             if mandatory || !stack.areas.current.width.fits(line.size.width) {
-                // If the line does not fit horizontally or we have a mandatory
-                // line break (i.e. due to "\n"), we push the line into the
-                // stack.
                 stack.push(line);
                 start = end;
                 last = None;
@@ -289,14 +287,13 @@ impl<'a> LineStack<'a> {
     }
 
     fn push(&mut self, line: LineLayout<'a>) {
-        self.areas.current.height -= line.size.height + self.line_spacing;
-
-        self.size.width = self.size.width.max(line.size.width);
         self.size.height += line.size.height;
+        self.size.width.set_max(line.size.width);
         if !self.lines.is_empty() {
             self.size.height += self.line_spacing;
         }
 
+        self.areas.current.height -= line.size.height + self.line_spacing;
         self.lines.push(line);
     }
 
@@ -306,22 +303,20 @@ impl<'a> LineStack<'a> {
         }
 
         let mut output = Frame::new(self.size, self.size.height);
-        let mut first = true;
         let mut offset = Length::ZERO;
+        let mut first = true;
 
-        for line in mem::take(&mut self.lines) {
+        for line in std::mem::take(&mut self.lines) {
             let frame = line.build(ctx, self.size.width);
-            let Frame { size, baseline, .. } = frame;
 
             let pos = Point::new(Length::ZERO, offset);
-            output.push_frame(pos, frame);
-
             if first {
-                output.baseline = offset + baseline;
+                output.baseline = pos.y + frame.baseline;
                 first = false;
             }
 
-            offset += size.height + self.line_spacing;
+            offset += frame.size.height + self.line_spacing;
+            output.push_frame(pos, frame);
         }
 
         self.finished.push(output);
@@ -430,8 +425,8 @@ impl<'a> LineLayout<'a> {
             let size = item.size();
             let baseline = item.baseline();
             width += size.width;
-            top = top.max(baseline);
-            bottom = bottom.max(size.height - baseline);
+            top.set_max(baseline);
+            bottom.set_max(size.height - baseline);
         }
 
         Self {
@@ -448,13 +443,12 @@ impl<'a> LineLayout<'a> {
 
     /// Build the line's frame.
     fn build(&self, ctx: &mut LayoutContext, width: Length) -> Frame {
-        let full_width = self.size.width.max(width);
-        let full_size = Size::new(full_width, self.size.height);
-        let free_width = full_width - self.size.width;
+        let size = Size::new(self.size.width.max(width), self.size.height);
+        let free = size.width - self.size.width;
 
-        let mut output = Frame::new(full_size, self.baseline);
-        let mut ruler = Align::Start;
+        let mut output = Frame::new(size, self.baseline);
         let mut offset = Length::ZERO;
+        let mut ruler = Align::Start;
 
         self.reordered(|item| {
             let frame = match *item {
@@ -472,14 +466,14 @@ impl<'a> LineLayout<'a> {
                 }
             };
 
-            let Frame { size, baseline, .. } = frame;
+            // FIXME: Ruler alignment for RTL.
             let pos = Point::new(
-                ruler.resolve(self.par.dir, offset .. free_width + offset),
-                self.baseline - baseline,
+                ruler.resolve(self.par.dir, offset .. free + offset),
+                self.baseline - frame.baseline,
             );
 
+            offset += frame.size.width;
             output.push_frame(pos, frame);
-            offset += size.width;
         });
 
         output

@@ -21,7 +21,7 @@ impl Point {
     }
 
     /// Create an instance with two equal components.
-    pub fn uniform(value: Length) -> Self {
+    pub fn splat(value: Length) -> Self {
         Self { x: value, y: value }
     }
 }
@@ -49,8 +49,8 @@ impl Switch for Point {
 
     fn switch(self, main: SpecAxis) -> Self::Other {
         match main {
-            SpecAxis::Horizontal => Gen::new(self.x, self.y),
-            SpecAxis::Vertical => Gen::new(self.y, self.x),
+            SpecAxis::Horizontal => Gen::new(self.y, self.x),
+            SpecAxis::Vertical => Gen::new(self.x, self.y),
         }
     }
 }
