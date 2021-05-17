@@ -1,4 +1,4 @@
-// Test fit/fill expansion.
+// Test shrink-to-fit vs fixed.
 
 ---
 #let right(body) = align(right, body)
