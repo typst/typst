@@ -211,7 +211,7 @@ fn test_part(
     let (local_compare_ref, ref_diags) = parse_metadata(src, &map);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
-    let mut scope = library::_new();
+    let mut scope = library::new();
 
     let panics = Rc::new(RefCell::new(vec![]));
     register_helpers(&mut scope, Rc::clone(&panics));

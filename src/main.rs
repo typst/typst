@@ -40,7 +40,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut env = Env::new(loader);
 
-    let scope = library::_new();
+    let scope = library::new();
     let state = State::default();
 
     let Pass { output: frames, diags } = typeset(&mut env, &src, &scope, state);

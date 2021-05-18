@@ -123,6 +123,6 @@ impl Display for AlignValue {
     }
 }
 
-typify! {
+value! {
     AlignValue: "alignment",
 }

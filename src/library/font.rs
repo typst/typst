@@ -132,7 +132,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 #[derive(Debug, Clone, PartialEq)]
 struct FontFamilies(Vec<String>);
 
-typify! {
+value! {
     FontFamilies: "string or array of strings",
     Value::Str(string) => Self(vec![string.to_lowercase()]),
     Value::Array(values) => Self(values
@@ -143,16 +143,16 @@ typify! {
     ),
 }
 
-typify! {
+value! {
     FontFamily: "font family",
     Value::Str(string) => Self::Named(string.to_lowercase())
 }
 
-typify! {
+value! {
     FontStyle: "font style",
 }
 
-typify! {
+value! {
     FontWeight: "font weight",
     Value::Int(number) => {
         let [min, max] = [Self::THIN, Self::BLACK];
@@ -172,7 +172,7 @@ typify! {
     },
 }
 
-typify! {
+value! {
     FontStretch: "font stretch",
     Value::Relative(relative) => {
         let [min, max] = [Self::ULTRA_CONDENSED, Self::ULTRA_EXPANDED];
@@ -193,6 +193,6 @@ typify! {
     },
 }
 
-typify! {
+value! {
     VerticalFontMetric: "vertical font metric",
 }

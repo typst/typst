@@ -650,26 +650,30 @@ impl From<AnyValue> for Value {
     }
 }
 
-/// Make a type usable as a [`Value`].
+/// Mark a type as a [`Value`].
 ///
 /// Given a type `T`, this implements the following traits:
 /// - [`Type`] for `T`,
 /// - [`Cast<Value>`](Cast) for `T`.
 ///
 /// # Example
-/// Allow a type `FontFamily` to be cast from:
-/// - a [`Value::Any`] variant already containing a `FontFamily`
-/// - a string, producing a `FontFamiliy::Named(..)`.
 /// ```
-/// # use typst::typify;
-/// # enum FontFamily { Named(String) }
-/// typify! {
+/// # use typst::value;
+/// enum FontFamily {
+///     Serif,
+///     Named(String),
+/// }
+///
+/// value! {
 ///     FontFamily: "font family",
-///     Value::Str(string) => Self::Named(string.to_lowercase())
+///     Value::Str(string) => Self::Named(string),
 /// }
 /// ```
+/// This would allow the type `FontFamily` to be cast from:
+/// - a [`Value::Any`] variant already containing a `FontFamily`,
+/// - a string, producing a named font family.
 #[macro_export]
-macro_rules! typify {
+macro_rules! value {
     ($type:ty:
         $type_name:literal
         $(, $pattern:pat => $out:expr)*

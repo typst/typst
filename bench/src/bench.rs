@@ -21,7 +21,7 @@ fn benchmarks(c: &mut Criterion) {
 
     let mut env = Env::new(loader);
 
-    let scope = library::_new();
+    let scope = library::new();
     let state = State::default();
 
     for case in CASES {

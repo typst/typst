@@ -1,6 +1,6 @@
 //! The standard library.
 //!
-//! Call [`_new`] to obtain a [`Scope`] containing all standard library
+//! Call [`new`] to obtain a [`Scope`] containing all standard library
 //! definitions.
 
 mod align;
@@ -40,7 +40,7 @@ use crate::geom::*;
 use crate::syntax::{Node, Spanned};
 
 /// Construct a scope containing all standard library definitions.
-pub fn _new() -> Scope {
+pub fn new() -> Scope {
     let mut std = Scope::new();
 
     macro_rules! func {
@@ -120,6 +120,6 @@ pub fn _new() -> Scope {
     std
 }
 
-typify! {
+value! {
     Dir: "direction"
 }
