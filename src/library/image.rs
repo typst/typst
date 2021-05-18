@@ -14,9 +14,9 @@ use crate::layout::{AnyNode, Areas, Element, Frame, Layout, LayoutContext};
 /// # Return value
 /// A template that inserts an image.
 pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let path = args.require::<Spanned<String>>(ctx, "path to image file");
-    let width = args.get(ctx, "width");
-    let height = args.get(ctx, "height");
+    let path = args.eat_expect::<Spanned<String>>(ctx, "path to image file");
+    let width = args.eat_named(ctx, "width");
+    let height = args.eat_named(ctx, "height");
 
     Value::template("image", move |ctx| {
         if let Some(path) = &path {

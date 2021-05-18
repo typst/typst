@@ -43,7 +43,7 @@ pub fn parbreak(_: &mut EvalContext, _: &mut FuncArgs) -> Value {
 /// A template that flips the boldness of text. The effect is scoped to the
 /// body if present.
 pub fn strong(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let body = args.find::<TemplateValue>(ctx);
+    let body = args.eat::<TemplateValue>(ctx);
     Value::template(Node::STRONG, move |ctx| {
         let snapshot = ctx.state.clone();
         ctx.state.font.strong ^= true;
@@ -70,7 +70,7 @@ pub fn strong(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// A template that flips whether text is set in italics. The effect is scoped
 /// to the body if present.
 pub fn emph(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let body = args.find::<TemplateValue>(ctx);
+    let body = args.eat::<TemplateValue>(ctx);
     Value::template(Node::EMPH, move |ctx| {
         let snapshot = ctx.state.clone();
         ctx.state.font.emph ^= true;
@@ -104,9 +104,9 @@ pub fn emph(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// A template that sets the body as a section heading, that is, large and in
 /// bold.
 pub fn heading(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let level = args.get(ctx, HeadingNode::LEVEL).unwrap_or(1);
+    let level = args.eat_named(ctx, HeadingNode::LEVEL).unwrap_or(1);
     let body = args
-        .require::<TemplateValue>(ctx, HeadingNode::BODY)
+        .eat_expect::<TemplateValue>(ctx, HeadingNode::BODY)
         .unwrap_or_default();
 
     Value::template(Node::HEADING, move |ctx| {
@@ -149,9 +149,9 @@ pub fn heading(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// A template that sets the text raw, that is, in monospace and optionally with
 /// syntax highlighting.
 pub fn raw(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let text = args.require::<String>(ctx, RawNode::TEXT).unwrap_or_default();
-    let _lang = args.get::<String>(ctx, RawNode::LANG);
-    let block = args.get(ctx, RawNode::BLOCK).unwrap_or(false);
+    let text = args.eat_expect::<String>(ctx, RawNode::TEXT).unwrap_or_default();
+    let _lang = args.eat_named::<String>(ctx, RawNode::LANG);
+    let block = args.eat_named(ctx, RawNode::BLOCK).unwrap_or(false);
 
     Value::template(Node::RAW, move |ctx| {
         if block {

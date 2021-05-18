@@ -28,7 +28,7 @@ fn spacing_impl(
     args: &mut FuncArgs,
     axis: GenAxis,
 ) -> Value {
-    let spacing: Option<Linear> = args.require(ctx, "spacing");
+    let spacing: Option<Linear> = args.eat_expect(ctx, "spacing");
     Value::template(name, move |ctx| {
         if let Some(linear) = spacing {
             let amount = linear.resolve(ctx.state.font.resolve_size());

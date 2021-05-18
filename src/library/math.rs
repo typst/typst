@@ -27,17 +27,15 @@ pub fn max(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 }
 
 /// Find the minimum or maximum of a sequence of values.
-fn minmax(ctx: &mut EvalContext, args: &mut FuncArgs, which: Ordering) -> Value {
-    let mut values = args.filter::<Value>(ctx);
+fn minmax(ctx: &mut EvalContext, args: &mut FuncArgs, goal: Ordering) -> Value {
     let mut extremum = None;
 
-    for value in &mut values {
+    while let Some(value) = args.eat::<Value>(ctx) {
         if let Some(prev) = &extremum {
             match value.cmp(&prev) {
-                Some(ord) if ord == which => extremum = Some(value),
+                Some(ordering) if ordering == goal => extremum = Some(value),
                 Some(_) => {}
                 None => {
-                    drop(values);
                     ctx.diag(error!(
                         args.span,
                         "cannot compare {} with {}",
@@ -52,9 +50,8 @@ fn minmax(ctx: &mut EvalContext, args: &mut FuncArgs, which: Ordering) -> Value 
         }
     }
 
-    drop(values);
     extremum.unwrap_or_else(|| {
-        args.require::<Value>(ctx, "value");
+        args.eat_expect::<Value>(ctx, "value");
         Value::Error
     })
 }

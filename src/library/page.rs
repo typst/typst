@@ -22,22 +22,22 @@ use crate::paper::{Paper, PaperClass};
 /// A template that configures page properties. The effect is scoped to the body
 /// if present.
 pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let paper = args.find::<Spanned<String>>(ctx).and_then(|name| {
+    let paper = args.eat::<Spanned<String>>(ctx).and_then(|name| {
         Paper::from_name(&name.v).or_else(|| {
             ctx.diag(error!(name.span, "invalid paper name"));
             None
         })
     });
 
-    let width = args.get(ctx, "width");
-    let height = args.get(ctx, "height");
-    let margins = args.get(ctx, "margins");
-    let left = args.get(ctx, "left");
-    let top = args.get(ctx, "top");
-    let right = args.get(ctx, "right");
-    let bottom = args.get(ctx, "bottom");
-    let flip = args.get(ctx, "flip");
-    let body = args.find::<TemplateValue>(ctx);
+    let width = args.eat_named(ctx, "width");
+    let height = args.eat_named(ctx, "height");
+    let margins = args.eat_named(ctx, "margins");
+    let left = args.eat_named(ctx, "left");
+    let top = args.eat_named(ctx, "top");
+    let right = args.eat_named(ctx, "right");
+    let bottom = args.eat_named(ctx, "bottom");
+    let flip = args.eat_named(ctx, "flip");
+    let body = args.eat::<TemplateValue>(ctx);
     let span = args.span;
 
     Value::template("page", move |ctx| {

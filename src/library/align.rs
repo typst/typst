@@ -24,11 +24,11 @@ use super::*;
 ///   - `top`
 ///   - `bottom`
 pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let first = args.find::<AlignValue>(ctx);
-    let second = args.find::<AlignValue>(ctx);
-    let mut horizontal = args.get::<AlignValue>(ctx, "horizontal");
-    let mut vertical = args.get::<AlignValue>(ctx, "vertical");
-    let body = args.find::<TemplateValue>(ctx);
+    let first = args.eat::<AlignValue>(ctx);
+    let second = args.eat::<AlignValue>(ctx);
+    let mut horizontal = args.eat_named::<AlignValue>(ctx, "horizontal");
+    let mut vertical = args.eat_named::<AlignValue>(ctx, "vertical");
+    let body = args.eat::<TemplateValue>(ctx);
 
     for value in first.into_iter().chain(second) {
         match value.axis() {

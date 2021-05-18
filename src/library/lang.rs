@@ -16,8 +16,8 @@ use super::*;
 ///   - `ltr`
 ///   - `rtl`
 pub fn lang(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let iso = args.find::<String>(ctx).map(|s| s.to_ascii_lowercase());
-    let dir = args.get::<Spanned<Dir>>(ctx, "dir");
+    let iso = args.eat::<String>(ctx).map(|s| s.to_ascii_lowercase());
+    let dir = args.eat_named::<Spanned<Dir>>(ctx, "dir");
 
     Value::template("lang", move |ctx| {
         if let Some(iso) = &iso {

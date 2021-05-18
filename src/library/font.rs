@@ -56,18 +56,18 @@ use super::*;
 ///   - `baseline`
 ///   - `descender`
 pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let size = args.find::<Linear>(ctx);
-    let list: Vec<_> = args.filter::<FontFamily>(ctx).collect();
-    let style = args.get(ctx, "style");
-    let weight = args.get(ctx, "weight");
-    let stretch = args.get(ctx, "stretch");
-    let top_edge = args.get(ctx, "top-edge");
-    let bottom_edge = args.get(ctx, "bottom-edge");
-    let color = args.get(ctx, "color");
-    let serif = args.get(ctx, "serif");
-    let sans_serif = args.get(ctx, "sans-serif");
-    let monospace = args.get(ctx, "monospace");
-    let body = args.find::<TemplateValue>(ctx);
+    let size = args.eat::<Linear>(ctx);
+    let list = args.eat_all::<FontFamily>(ctx);
+    let style = args.eat_named(ctx, "style");
+    let weight = args.eat_named(ctx, "weight");
+    let stretch = args.eat_named(ctx, "stretch");
+    let top_edge = args.eat_named(ctx, "top-edge");
+    let bottom_edge = args.eat_named(ctx, "bottom-edge");
+    let color = args.eat_named(ctx, "color");
+    let serif = args.eat_named(ctx, "serif");
+    let sans_serif = args.eat_named(ctx, "sans-serif");
+    let monospace = args.eat_named(ctx, "monospace");
+    let body = args.eat::<TemplateValue>(ctx);
 
     Value::template("font", move |ctx| {
         let snapshot = ctx.state.clone();

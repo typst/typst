@@ -401,7 +401,7 @@ impl Eval for ClosureExpr {
             for param in params.iter() {
                 // Set the parameter to `none` if the argument is missing.
                 let value =
-                    args.require::<Value>(ctx, param.as_str()).unwrap_or_default();
+                    args.eat_expect::<Value>(ctx, param.as_str()).unwrap_or_default();
                 ctx.scopes.def_mut(param.as_str(), value);
             }
 

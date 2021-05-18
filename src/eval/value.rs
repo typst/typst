@@ -7,7 +7,6 @@ use std::rc::Rc;
 
 use super::{EvalContext, NodeMap};
 use crate::color::Color;
-use crate::diag::DiagSet;
 use crate::exec::ExecContext;
 use crate::geom::{Angle, Length, Linear, Relative};
 use crate::syntax::{Span, Spanned, Tree};
@@ -261,51 +260,67 @@ pub struct FuncArgs {
 }
 
 impl FuncArgs {
-    /// Find and remove the first convertible positional argument.
-    pub fn find<T>(&mut self, ctx: &mut EvalContext) -> Option<T>
+    /// Find and consume the first castable positional argument.
+    pub fn eat<T>(&mut self, ctx: &mut EvalContext) -> Option<T>
     where
         T: Cast<Spanned<Value>>,
     {
-        (0 .. self.items.len()).find_map(move |i| self.try_take(&mut ctx.diags, i))
+        (0 .. self.items.len()).find_map(|index| {
+            let slot = &mut self.items[index];
+            if slot.name.is_some() {
+                return None;
+            }
+
+            let value = std::mem::replace(&mut slot.value, Spanned::zero(Value::None));
+            let span = value.span;
+
+            match T::cast(value) {
+                CastResult::Ok(t) => {
+                    self.items.remove(index);
+                    Some(t)
+                }
+                CastResult::Warn(t, m) => {
+                    self.items.remove(index);
+                    ctx.diag(warning!(span, "{}", m));
+                    Some(t)
+                }
+                CastResult::Err(value) => {
+                    slot.value = value;
+                    None
+                }
+            }
+        })
     }
 
-    /// Find and remove the first convertible positional argument, producing an
-    /// error if no match was found.
-    pub fn require<T>(&mut self, ctx: &mut EvalContext, what: &str) -> Option<T>
+    /// Find and consume the first castable positional argument, producing a
+    /// `missing argument: {what}` error if no match was found.
+    pub fn eat_expect<T>(&mut self, ctx: &mut EvalContext, what: &str) -> Option<T>
     where
         T: Cast<Spanned<Value>>,
     {
-        let found = self.find(ctx);
+        let found = self.eat(ctx);
         if found.is_none() {
             ctx.diag(error!(self.span, "missing argument: {}", what));
         }
         found
     }
 
-    /// Filter out and remove all convertible positional arguments.
-    pub fn filter<'a, T>(
-        &'a mut self,
-        ctx: &'a mut EvalContext,
-    ) -> impl Iterator<Item = T> + 'a
+    /// Find, consume and collect all castable positional arguments.
+    ///
+    /// This function returns a vector instead of an iterator because the
+    /// iterator would require unique access to the context, rendering it rather
+    /// unusable. If you need to process arguments one-by-one, you probably want
+    /// to use a while-let loop together with [`eat()`](Self::eat).
+    pub fn eat_all<T>(&mut self, ctx: &mut EvalContext) -> Vec<T>
     where
         T: Cast<Spanned<Value>>,
     {
-        let diags = &mut ctx.diags;
-        let mut i = 0;
-        std::iter::from_fn(move || {
-            while i < self.items.len() {
-                if let Some(val) = self.try_take(diags, i) {
-                    return Some(val);
-                }
-                i += 1;
-            }
-            None
-        })
+        std::iter::from_fn(|| self.eat(ctx)).collect()
     }
 
-    /// Convert and remove the value for the given named argument, producing an
+    /// Cast and remove the value for the given named argument, producing an
     /// error if the conversion fails.
-    pub fn get<T>(&mut self, ctx: &mut EvalContext, name: &str) -> Option<T>
+    pub fn eat_named<T>(&mut self, ctx: &mut EvalContext, name: &str) -> Option<T>
     where
         T: Cast<Spanned<Value>>,
     {
@@ -315,24 +330,8 @@ impl FuncArgs {
             .position(|arg| arg.name.as_ref().map(|s| s.v.as_str()) == Some(name))?;
 
         let value = self.items.remove(index).value;
-        self.cast(ctx, value)
-    }
-
-    /// Produce "unexpected argument" errors for all remaining arguments.
-    pub fn finish(self, ctx: &mut EvalContext) {
-        for arg in &self.items {
-            if arg.value.v != Value::Error {
-                ctx.diag(error!(arg.span(), "unexpected argument"));
-            }
-        }
-    }
-
-    /// Cast the value into `T`, generating an error if the conversion fails.
-    fn cast<T>(&self, ctx: &mut EvalContext, value: Spanned<Value>) -> Option<T>
-    where
-        T: Cast<Spanned<Value>>,
-    {
         let span = value.span;
+
         match T::cast(value) {
             CastResult::Ok(t) => Some(t),
             CastResult::Warn(t, m) => {
@@ -344,39 +343,18 @@ impl FuncArgs {
                     span,
                     "expected {}, found {}",
                     T::TYPE_NAME,
-                    value.v.type_name()
+                    value.v.type_name(),
                 ));
                 None
             }
         }
     }
 
-    /// Try to take and cast a positional argument in the i'th slot into `T`,
-    /// putting it back if the conversion fails.
-    fn try_take<T>(&mut self, diags: &mut DiagSet, i: usize) -> Option<T>
-    where
-        T: Cast<Spanned<Value>>,
-    {
-        let slot = &mut self.items[i];
-        if slot.name.is_some() {
-            return None;
-        }
-
-        let value = std::mem::replace(&mut slot.value, Spanned::zero(Value::None));
-        let span = value.span;
-        match T::cast(value) {
-            CastResult::Ok(t) => {
-                self.items.remove(i);
-                Some(t)
-            }
-            CastResult::Warn(t, m) => {
-                self.items.remove(i);
-                diags.insert(warning!(span, "{}", m));
-                Some(t)
-            }
-            CastResult::Err(value) => {
-                slot.value = value;
-                None
+    /// Produce "unexpected argument" errors for all remaining arguments.
+    pub fn finish(self, ctx: &mut EvalContext) {
+        for arg in &self.items {
+            if arg.value.v != Value::Error {
+                ctx.diag(error!(arg.span(), "unexpected argument"));
             }
         }
     }

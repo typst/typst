@@ -11,7 +11,7 @@ use super::*;
 /// # Return value
 /// The name of the value's type as a string.
 pub fn type_(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    match args.require::<Value>(ctx, "value") {
+    match args.eat_expect::<Value>(ctx, "value") {
         Some(value) => value.type_name().into(),
         None => Value::Error,
     }
@@ -25,7 +25,7 @@ pub fn type_(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// # Return value
 /// The string representation of the value.
 pub fn repr(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    match args.require::<Value>(ctx, "value") {
+    match args.eat_expect::<Value>(ctx, "value") {
         Some(value) => pretty(&value).into(),
         None => Value::Error,
     }
@@ -42,10 +42,10 @@ pub fn repr(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// # Return value
 /// The color with the given components.
 pub fn rgb(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let r = args.require(ctx, "red component");
-    let g = args.require(ctx, "green component");
-    let b = args.require(ctx, "blue component");
-    let a = args.find(ctx);
+    let r = args.eat_expect(ctx, "red component");
+    let g = args.eat_expect(ctx, "green component");
+    let b = args.eat_expect(ctx, "blue component");
+    let a = args.eat(ctx);
 
     let mut clamp = |component: Option<Spanned<f64>>, default| {
         component.map_or(default, |c| {

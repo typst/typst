@@ -10,9 +10,9 @@ use super::*;
 /// # Return value
 /// A template that configures paragraph properties.
 pub fn par(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let spacing = args.get(ctx, "spacing");
-    let leading = args.get(ctx, "leading");
-    let word_spacing = args.get(ctx, "word-spacing");
+    let spacing = args.eat_named(ctx, "spacing");
+    let leading = args.eat_named(ctx, "leading");
+    let word_spacing = args.eat_named(ctx, "word-spacing");
 
     Value::template("par", move |ctx| {
         if let Some(spacing) = spacing {

@@ -130,11 +130,7 @@ impl FsLoader {
     fn parse_face(&mut self, path: &Path, face: &Face<'_>, index: u32) -> io::Result<()> {
         fn find_name(face: &Face, name_id: u16) -> Option<String> {
             face.names().find_map(|entry| {
-                if entry.name_id() == name_id {
-                    entry.to_string()
-                } else {
-                    None
-                }
+                (entry.name_id() == name_id).then(|| entry.to_string()).flatten()
             })
         }
 
