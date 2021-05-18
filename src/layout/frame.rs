@@ -41,7 +41,7 @@ impl Frame {
 pub enum Element {
     /// Shaped text.
     Text(Text),
-    /// A geometric shape.
+    /// A filled geometric shape.
     Geometry(Shape, Fill),
     /// A raster image.
     Image(ImageId, Size),
@@ -54,7 +54,7 @@ pub struct Text {
     pub face_id: FaceId,
     /// The font size.
     pub size: Length,
-    /// The glyph fill color / texture.
+    /// The glyph's fill color.
     pub fill: Fill,
     /// The glyphs.
     pub glyphs: Vec<Glyph>,
@@ -84,7 +84,7 @@ impl Text {
     }
 }
 
-/// Some shape.
+/// A geometric shape.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Shape {
     /// A rectangle with its origin in the topleft corner.
@@ -95,9 +95,9 @@ pub enum Shape {
     Path(Path),
 }
 
-/// The kind of graphic fill to be applied to a [`Shape`].
+/// How text and shapes are filled.
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Fill {
-    /// The fill is a color.
+    /// A solid color.
     Color(Color),
 }
