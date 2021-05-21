@@ -51,7 +51,7 @@ pub enum Group {
     Subheader,
     /// A group ended by a semicolon or a line break: `;`, `\n`.
     Stmt,
-    /// A group for a single expression. Not ended by something specific.
+    /// A group for a single expression, ended by a line break.
     Expr,
 }
 
@@ -330,25 +330,23 @@ impl<'s> Parser<'s> {
         scanner
     }
 
-    /// Move to the next token, skipping whitespace and comments in code mode.
+    /// Move to the next token.
     fn bump(&mut self) {
         self.last_end = self.tokens.pos();
         self.next_start = self.tokens.pos();
         self.next = self.tokens.next();
 
-        match self.tokens.mode() {
-            TokenMode::Markup => {}
-            TokenMode::Code => loop {
-                match self.next {
-                    Some(Token::Space(n)) if n < 1 || !self.in_line_group() => {}
-                    Some(Token::LineComment(_)) => {}
-                    Some(Token::BlockComment(_)) => {}
-                    _ => break,
-                }
-
+        if self.tokens.mode() == TokenMode::Code {
+            // Skip whitespace and comments.
+            while match self.next {
+                Some(Token::Space(n)) => n < 1 || !self.stop_at_newline(),
+                Some(Token::LineComment(_)) => true,
+                Some(Token::BlockComment(_)) => true,
+                _ => false,
+            } {
                 self.next_start = self.tokens.pos();
                 self.next = self.tokens.next();
-            },
+            }
         }
 
         self.repeek();
@@ -362,31 +360,28 @@ impl<'s> Parser<'s> {
             None => return,
         };
 
-        let inside = |x| self.kinds().any(|k| k == x);
-        match token {
-            Token::RightParen if inside(Group::Paren) => {}
-            Token::RightBracket if inside(Group::Bracket) => {}
-            Token::RightBrace if inside(Group::Brace) => {}
-            Token::Semicolon if inside(Group::Stmt) => {}
-            Token::Pipe if inside(Group::Subheader) => {}
-            Token::Space(n) if n >= 1 && self.in_line_group() => {}
-            _ => return,
+        if match token {
+            Token::RightParen => self.inside(Group::Paren),
+            Token::RightBracket => self.inside(Group::Bracket),
+            Token::RightBrace => self.inside(Group::Brace),
+            Token::Semicolon => self.inside(Group::Stmt),
+            Token::Pipe => self.inside(Group::Subheader),
+            Token::Space(n) => n >= 1 && self.stop_at_newline(),
+            _ => false,
+        } {
+            self.peeked = None;
         }
-
-        self.peeked = None;
     }
 
     /// Whether the active group ends at a newline.
-    fn in_line_group(&self) -> bool {
-        matches!(
-            self.kinds().next_back(),
-            Some(Group::Stmt) | Some(Group::Expr)
-        )
+    fn stop_at_newline(&self) -> bool {
+        let active = self.groups.last().map(|group| group.kind);
+        matches!(active, Some(Group::Stmt) | Some(Group::Expr))
     }
 
-    /// The outer groups.
-    fn kinds(&self) -> impl DoubleEndedIterator<Item = Group> + '_ {
-        self.groups.iter().map(|group| group.kind)
+    /// Whether we are inside the given group.
+    fn inside(&self, kind: Group) -> bool {
+        self.groups.iter().any(|g| g.kind == kind)
     }
 }
 
