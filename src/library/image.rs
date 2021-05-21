@@ -2,7 +2,7 @@ use ::image::GenericImageView;
 
 use super::*;
 use crate::env::ImageId;
-use crate::layout::{AnyNode, Areas, Element, Frame, Layout, LayoutContext};
+use crate::layout::{AnyNode, Element, Frame, Layout, LayoutContext, Regions};
 
 /// `image`: An image.
 ///
@@ -45,8 +45,8 @@ struct ImageNode {
 }
 
 impl Layout for ImageNode {
-    fn layout(&self, _: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
-        let Areas { current, base, .. } = areas;
+    fn layout(&self, _: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
+        let Regions { current, base, .. } = regions;
         let width = self.width.map(|w| w.resolve(base.width));
         let height = self.height.map(|w| w.resolve(base.height));
 
@@ -66,7 +66,7 @@ impl Layout for ImageNode {
                     // TODO: Fix issue with line spacing.
                     Size::new(current.height * pixel_ratio, current.height)
                 } else {
-                    // Totally unbounded area, we have to make up something.
+                    // Totally unbounded region, we have to make up something.
                     Size::new(Length::pt(pixel_width), Length::pt(pixel_height))
                 }
             }

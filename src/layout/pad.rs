@@ -10,10 +10,10 @@ pub struct PadNode {
 }
 
 impl Layout for PadNode {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
-        let areas = areas.map(|size| size - self.padding.resolve(size).size());
+    fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
+        let regions = regions.map(|size| size - self.padding.resolve(size).size());
 
-        let mut frames = self.child.layout(ctx, &areas);
+        let mut frames = self.child.layout(ctx, &regions);
         for frame in &mut frames {
             let padded = solve(self.padding, frame.size);
             let padding = self.padding.resolve(padded);

@@ -32,7 +32,7 @@ pub enum ParChild {
 }
 
 impl Layout for ParNode {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
+    fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
         // Collect all text into one string used for BiDi analysis.
         let text = self.collect_text();
 
@@ -41,10 +41,10 @@ impl Layout for ParNode {
 
         // Build a representation of the paragraph on which we can do
         // linebreaking without layouting each and every line from scratch.
-        let layout = ParLayout::new(ctx, areas, self, bidi);
+        let layout = ParLayout::new(ctx, regions, self, bidi);
 
         // Find suitable linebreaks.
-        layout.build(ctx, areas.clone(), self)
+        layout.build(ctx, regions.clone(), self)
     }
 }
 
@@ -116,7 +116,7 @@ impl<'a> ParLayout<'a> {
     /// Build a paragraph layout for the given node.
     fn new(
         ctx: &mut LayoutContext,
-        areas: &Areas,
+        regions: &Regions,
         par: &'a ParNode,
         bidi: BidiInfo<'a>,
     ) -> Self {
@@ -141,7 +141,7 @@ impl<'a> ParLayout<'a> {
                     }
                 }
                 ParChild::Any(ref node, align) => {
-                    let mut frames = node.layout(ctx, areas).into_iter();
+                    let mut frames = node.layout(ctx, regions).into_iter();
                     let frame = frames.next().unwrap();
                     assert!(frames.next().is_none());
                     items.push(ParItem::Frame(frame, align));
@@ -154,11 +154,16 @@ impl<'a> ParLayout<'a> {
     }
 
     /// Find first-fit line breaks and build the paragraph.
-    fn build(self, ctx: &mut LayoutContext, areas: Areas, par: &ParNode) -> Vec<Frame> {
-        let mut stack = LineStack::new(par.line_spacing, areas);
+    fn build(
+        self,
+        ctx: &mut LayoutContext,
+        regions: Regions,
+        par: &ParNode,
+    ) -> Vec<Frame> {
+        let mut stack = LineStack::new(par.line_spacing, regions);
 
         // The current line attempt.
-        // Invariant: Always fits into `stack.areas.current`.
+        // Invariant: Always fits into `stack.regions.current`.
         let mut last = None;
 
         // The start of the line in `last`.
@@ -173,7 +178,7 @@ impl<'a> ParLayout<'a> {
             // If the line doesn't fit anymore, we push the last fitting attempt
             // into the stack and rebuild the line from its end. The resulting
             // line cannot be broken up further.
-            if !stack.areas.current.fits(line.size) {
+            if !stack.regions.current.fits(line.size) {
                 if let Some((last_line, last_end)) = last.take() {
                     stack.push(last_line);
                     start = last_end;
@@ -181,17 +186,17 @@ impl<'a> ParLayout<'a> {
                 }
             }
 
-            // If the line does not fit vertically, we start a new area.
-            while !stack.areas.current.height.fits(line.size.height)
-                && !stack.areas.in_full_last()
+            // If the line does not fit vertically, we start a new region.
+            while !stack.regions.current.height.fits(line.size.height)
+                && !stack.regions.in_full_last()
             {
-                stack.finish_area();
+                stack.finish_region();
             }
 
             // If the line does not fit horizontally or we have a mandatory
             // line break (i.e. due to "\n"), we push the line into the
             // stack.
-            if mandatory || !stack.areas.current.width.fits(line.size.width) {
+            if mandatory || !stack.regions.current.width.fits(line.size.width) {
                 stack.push(line);
                 start = end;
                 last = None;
@@ -266,20 +271,20 @@ impl ParItem<'_> {
     }
 }
 
-/// A simple layouter that stacks lines into areas.
+/// A simple layouter that stacks lines into regions.
 struct LineStack<'a> {
     line_spacing: Length,
-    areas: Areas,
+    regions: Regions,
     finished: Vec<Frame>,
     lines: Vec<LineLayout<'a>>,
     size: Size,
 }
 
 impl<'a> LineStack<'a> {
-    fn new(line_spacing: Length, areas: Areas) -> Self {
+    fn new(line_spacing: Length, regions: Regions) -> Self {
         Self {
             line_spacing,
-            areas,
+            regions,
             finished: vec![],
             lines: vec![],
             size: Size::ZERO,
@@ -293,13 +298,13 @@ impl<'a> LineStack<'a> {
             self.size.height += self.line_spacing;
         }
 
-        self.areas.current.height -= line.size.height + self.line_spacing;
+        self.regions.current.height -= line.size.height + self.line_spacing;
         self.lines.push(line);
     }
 
-    fn finish_area(&mut self) {
-        if self.areas.fixed.horizontal {
-            self.size.width = self.areas.current.width;
+    fn finish_region(&mut self) {
+        if self.regions.fixed.horizontal {
+            self.size.width = self.regions.current.width;
         }
 
         let mut output = Frame::new(self.size, self.size.height);
@@ -320,12 +325,12 @@ impl<'a> LineStack<'a> {
         }
 
         self.finished.push(output);
-        self.areas.next();
+        self.regions.next();
         self.size = Size::ZERO;
     }
 
     fn finish(mut self) -> Vec<Frame> {
-        self.finish_area();
+        self.finish_region();
         self.finished
     }
 }

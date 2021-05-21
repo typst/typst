@@ -26,19 +26,19 @@ pub enum StackChild {
 }
 
 impl Layout for StackNode {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
-        let mut layouter = StackLayouter::new(self.dirs, self.aspect, areas.clone());
+    fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
+        let mut layouter = StackLayouter::new(self.dirs, self.aspect, regions.clone());
         for child in &self.children {
             match *child {
                 StackChild::Spacing(amount) => layouter.push_spacing(amount),
                 StackChild::Any(ref node, aligns) => {
-                    let mut frames = node.layout(ctx, &layouter.areas).into_iter();
+                    let mut frames = node.layout(ctx, &layouter.regions).into_iter();
                     if let Some(frame) = frames.next() {
                         layouter.push_frame(frame, aligns);
                     }
 
                     for frame in frames {
-                        layouter.finish_area();
+                        layouter.finish_region();
                         layouter.push_frame(frame, aligns);
                     }
                 }
@@ -58,7 +58,7 @@ struct StackLayouter {
     dirs: Gen<Dir>,
     aspect: Option<f64>,
     main: SpecAxis,
-    areas: Areas,
+    regions: Regions,
     finished: Vec<Frame>,
     frames: Vec<(Length, Frame, Gen<Align>)>,
     full: Size,
@@ -67,9 +67,9 @@ struct StackLayouter {
 }
 
 impl StackLayouter {
-    fn new(dirs: Gen<Dir>, aspect: Option<f64>, mut areas: Areas) -> Self {
+    fn new(dirs: Gen<Dir>, aspect: Option<f64>, mut regions: Regions) -> Self {
         if let Some(aspect) = aspect {
-            areas.apply_aspect_ratio(aspect);
+            regions.apply_aspect_ratio(aspect);
         }
 
         Self {
@@ -78,15 +78,15 @@ impl StackLayouter {
             main: dirs.main.axis(),
             finished: vec![],
             frames: vec![],
-            full: areas.current,
+            full: regions.current,
             size: Gen::ZERO,
             ruler: Align::Start,
-            areas,
+            regions,
         }
     }
 
     fn push_spacing(&mut self, amount: Length) {
-        let remaining = self.areas.current.get_mut(self.main);
+        let remaining = self.regions.current.get_mut(self.main);
         let capped = amount.min(*remaining);
         *remaining -= capped;
         self.size.main += capped;
@@ -94,11 +94,11 @@ impl StackLayouter {
 
     fn push_frame(&mut self, frame: Frame, aligns: Gen<Align>) {
         if self.ruler > aligns.main {
-            self.finish_area();
+            self.finish_region();
         }
 
-        while !self.areas.current.fits(frame.size) && !self.areas.in_full_last() {
-            self.finish_area();
+        while !self.regions.current.fits(frame.size) && !self.regions.in_full_last() {
+            self.finish_region();
         }
 
         let offset = self.size.main;
@@ -106,12 +106,12 @@ impl StackLayouter {
         self.size.main += size.main;
         self.size.cross.set_max(size.cross);
         self.ruler = aligns.main;
-        *self.areas.current.get_mut(self.main) -= size.main;
+        *self.regions.current.get_mut(self.main) -= size.main;
         self.frames.push((offset, frame, aligns));
     }
 
-    fn finish_area(&mut self) {
-        let fixed = self.areas.fixed;
+    fn finish_region(&mut self) {
+        let fixed = self.regions.fixed;
 
         let used = self.size.switch(self.main).to_size();
         let mut size = Size::new(
@@ -165,16 +165,16 @@ impl StackLayouter {
 
         self.size = Gen::ZERO;
         self.ruler = Align::Start;
-        self.areas.next();
+        self.regions.next();
         if let Some(aspect) = self.aspect {
-            self.areas.apply_aspect_ratio(aspect);
+            self.regions.apply_aspect_ratio(aspect);
         }
 
         self.finished.push(output);
     }
 
     fn finish(mut self) -> Vec<Frame> {
-        self.finish_area();
+        self.finish_region();
         self.finished
     }
 }

@@ -131,7 +131,7 @@ fn ellipse_impl(
     body: TemplateValue,
 ) -> Value {
     Value::template(name, move |ctx| {
-        // This padding ratio ensures that the rectangular padded area fits
+        // This padding ratio ensures that the rectangular padded region fits
         // perfectly into the ellipse.
         const PAD: f64 = 0.5 - SQRT_2 / 4.0;
 

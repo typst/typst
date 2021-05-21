@@ -19,8 +19,8 @@ pub enum BackgroundShape {
 }
 
 impl Layout for BackgroundNode {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
-        let mut frames = self.child.layout(ctx, areas);
+    fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
+        let mut frames = self.child.layout(ctx, regions);
 
         for frame in &mut frames {
             let (point, shape) = match self.shape {

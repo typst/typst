@@ -58,8 +58,8 @@ impl PageRun {
         // that axis.
         let Size { width, height } = self.size;
         let fixed = Spec::new(width.is_finite(), height.is_finite());
-        let areas = Areas::repeat(self.size, fixed);
-        self.child.layout(ctx, &areas)
+        let regions = Regions::repeat(self.size, fixed);
+        self.child.layout(ctx, &regions)
     }
 }
 
@@ -77,8 +77,8 @@ impl AnyNode {
 }
 
 impl Layout for AnyNode {
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame> {
-        self.0.layout(ctx, areas)
+    fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
+        self.0.layout(ctx, regions)
     }
 }
 
@@ -129,8 +129,8 @@ where
 
 /// Layout a node.
 pub trait Layout {
-    /// Layout the node into the given areas.
-    fn layout(&self, ctx: &mut LayoutContext, areas: &Areas) -> Vec<Frame>;
+    /// Layout the node into the given regions.
+    fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame>;
 }
 
 /// The context for layouting.
@@ -139,21 +139,21 @@ pub struct LayoutContext<'a> {
     pub env: &'a mut Env,
 }
 
-/// A sequence of areas to layout into.
+/// A sequence of regions to layout into.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Areas {
-    /// The remaining size of the current area.
+pub struct Regions {
+    /// The remaining size of the current region.
     pub current: Size,
     /// The base size for relative sizing.
     pub base: Size,
-    /// A stack of followup areas.
+    /// A stack of followup regions.
     ///
-    /// Note that this is a stack and not a queue! The size of the next area is
+    /// Note that this is a stack and not a queue! The size of the next region is
     /// `backlog.last()`.
     pub backlog: Vec<Size>,
-    /// The final area that is repeated once the backlog is drained.
+    /// The final region that is repeated once the backlog is drained.
     pub last: Option<Size>,
-    /// Whether layouting into these areas should produce frames of the exact
+    /// Whether layouting into these regions should produce frames of the exact
     /// size of `current` instead of shrinking to fit the content.
     ///
     /// This property is only handled by nodes that have the ability to control
@@ -161,9 +161,9 @@ pub struct Areas {
     pub fixed: Spec<bool>,
 }
 
-impl Areas {
-    /// Create a new area sequence of length one.
-    pub fn once(size: Size, fixed: Spec<bool>) -> Self {
+impl Regions {
+    /// Create a new region sequence with exactly one region.
+    pub fn one(size: Size, fixed: Spec<bool>) -> Self {
         Self {
             current: size,
             base: size,
@@ -173,7 +173,7 @@ impl Areas {
         }
     }
 
-    /// Create a new sequence of same-size areas that repeats indefinitely.
+    /// Create a new sequence of same-size regions that repeats indefinitely.
     pub fn repeat(size: Size, fixed: Spec<bool>) -> Self {
         Self {
             current: size,
@@ -184,7 +184,7 @@ impl Areas {
         }
     }
 
-    /// Map the size of all areas.
+    /// Map the size of all regions.
     pub fn map<F>(&self, mut f: F) -> Self
     where
         F: FnMut(Size) -> Size,
@@ -198,7 +198,7 @@ impl Areas {
         }
     }
 
-    /// Whether `current` is a fully sized (untouched) copy of the last area.
+    /// Whether `current` is a fully sized (untouched) copy of the last region.
     ///
     /// If this is true, calling `next()` will have no effect.
     pub fn in_full_last(&self) -> bool {
@@ -208,7 +208,7 @@ impl Areas {
             })
     }
 
-    /// Advance to the next area if there is any.
+    /// Advance to the next region if there is any.
     pub fn next(&mut self) {
         if let Some(size) = self.backlog.pop().or(self.last) {
             self.current = size;
