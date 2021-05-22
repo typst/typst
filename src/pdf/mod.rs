@@ -160,7 +160,7 @@ impl<'a> PdfExporter<'a> {
 
                     // TODO: Respect individual glyph offsets.
                     text.matrix(1.0, 0.0, 0.0, 1.0, x, y);
-                    text.show(&shaped.encode_glyphs_be());
+                    text.show(Str(&shaped.encode_glyphs_be()));
                 }
 
                 Element::Geometry(ref shape, fill) => {
