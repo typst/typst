@@ -52,7 +52,7 @@ impl<'a> ExecContext<'a> {
     }
 
     /// Execute a template and return the result as a stack node.
-    pub fn exec_group(&mut self, template: &TemplateValue) -> StackNode {
+    pub fn exec_template(&mut self, template: &TemplateValue) -> StackNode {
         let snapshot = self.state.clone();
         let page = self.page.take();
         let stack = mem::replace(&mut self.stack, StackBuilder::new(&self.state));

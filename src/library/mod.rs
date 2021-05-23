@@ -15,6 +15,7 @@ mod page;
 mod par;
 mod shapes;
 mod spacing;
+mod stack;
 
 pub use self::image::*;
 pub use align::*;
@@ -28,6 +29,7 @@ pub use page::*;
 pub use par::*;
 pub use shapes::*;
 pub use spacing::*;
+pub use stack::*;
 
 use std::fmt::{self, Display, Formatter};
 
@@ -81,6 +83,7 @@ pub fn new() -> Scope {
     func!("repr", repr);
     func!("rgb", rgb);
     func!("square", square);
+    func!("stack", stack);
     func!("type", type_);
     func!("v", v);
 
