@@ -6,7 +6,7 @@
 #page(width: 150pt)
 
 // Fit to text.
-#rect(fill: #9feb52)[Textbox]
+#rect(fill: conifer)[Textbox]
 
 // Empty with fixed width and height.
 #rect(width: 3cm, height: 12pt, fill: #CB4CED)

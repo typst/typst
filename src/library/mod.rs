@@ -33,9 +33,8 @@ pub use stack::*;
 
 use std::fmt::{self, Display, Formatter};
 
-use crate::eval::{
-    AnyValue, EvalContext, FuncArgs, FuncValue, Scope, TemplateValue, Value,
-};
+use crate::color::RgbaColor;
+use crate::eval::{EvalContext, FuncArgs, Scope, TemplateValue, Value};
 use crate::exec::{Exec, FontFamily};
 use crate::font::{FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
@@ -45,80 +44,68 @@ use crate::syntax::{Node, Spanned};
 pub fn new() -> Scope {
     let mut std = Scope::new();
 
-    macro_rules! func {
-        ($name:expr, $func:expr) => {
-            std.def_const($name, FuncValue::new(Some($name.into()), $func))
-        };
-    }
-
-    macro_rules! constant {
-        ($var:expr, $any:expr) => {
-            std.def_const($var, AnyValue::new($any))
-        };
-    }
-
     // Syntax functions.
-    func!(Node::LINEBREAK, linebreak);
-    func!(Node::PARBREAK, parbreak);
-    func!(Node::STRONG, strong);
-    func!(Node::EMPH, emph);
-    func!(Node::HEADING, heading);
-    func!(Node::RAW, raw);
+    std.def_func(Node::LINEBREAK, linebreak);
+    std.def_func(Node::PARBREAK, parbreak);
+    std.def_func(Node::STRONG, strong);
+    std.def_func(Node::EMPH, emph);
+    std.def_func(Node::HEADING, heading);
+    std.def_func(Node::RAW, raw);
 
     // Library functions.
-    func!("align", align);
-    func!("circle", circle);
-    func!("ellipse", ellipse);
-    func!("font", font);
-    func!("h", h);
-    func!("image", image);
-    func!("lang", lang);
-    func!("max", max);
-    func!("min", min);
-    func!("pad", pad);
-    func!("page", page);
-    func!("pagebreak", pagebreak);
-    func!("par", par);
-    func!("rect", rect);
-    func!("repr", repr);
-    func!("rgb", rgb);
-    func!("square", square);
-    func!("stack", stack);
-    func!("type", type_);
-    func!("v", v);
+    std.def_func("align", align);
+    std.def_func("circle", circle);
+    std.def_func("ellipse", ellipse);
+    std.def_func("font", font);
+    std.def_func("h", h);
+    std.def_func("image", image);
+    std.def_func("lang", lang);
+    std.def_func("max", max);
+    std.def_func("min", min);
+    std.def_func("pad", pad);
+    std.def_func("page", page);
+    std.def_func("pagebreak", pagebreak);
+    std.def_func("par", par);
+    std.def_func("rect", rect);
+    std.def_func("repr", repr);
+    std.def_func("rgb", rgb);
+    std.def_func("square", square);
+    std.def_func("stack", stack);
+    std.def_func("type", type_);
+    std.def_func("v", v);
 
-    // Constants.
-    constant!("start", AlignValue::Start);
-    constant!("center", AlignValue::Center);
-    constant!("end", AlignValue::End);
-    constant!("left", AlignValue::Left);
-    constant!("right", AlignValue::Right);
-    constant!("top", AlignValue::Top);
-    constant!("bottom", AlignValue::Bottom);
-    constant!("ltr", Dir::LTR);
-    constant!("rtl", Dir::RTL);
-    constant!("ttb", Dir::TTB);
-    constant!("btt", Dir::BTT);
-    constant!("serif", FontFamily::Serif);
-    constant!("sans-serif", FontFamily::SansSerif);
-    constant!("monospace", FontFamily::Monospace);
-    constant!("normal", FontStyle::Normal);
-    constant!("italic", FontStyle::Italic);
-    constant!("oblique", FontStyle::Oblique);
-    constant!("thin", FontWeight::THIN);
-    constant!("extralight", FontWeight::EXTRALIGHT);
-    constant!("light", FontWeight::LIGHT);
-    constant!("regular", FontWeight::REGULAR);
-    constant!("medium", FontWeight::MEDIUM);
-    constant!("semibold", FontWeight::SEMIBOLD);
-    constant!("bold", FontWeight::BOLD);
-    constant!("extrabold", FontWeight::EXTRABOLD);
-    constant!("black", FontWeight::BLACK);
-    constant!("ascender", VerticalFontMetric::Ascender);
-    constant!("cap-height", VerticalFontMetric::CapHeight);
-    constant!("x-height", VerticalFontMetric::XHeight);
-    constant!("baseline", VerticalFontMetric::Baseline);
-    constant!("descender", VerticalFontMetric::Descender);
+    // Colors.
+    std.def_const("white", RgbaColor::WHITE);
+    std.def_const("black", RgbaColor::BLACK);
+    std.def_const("eastern", RgbaColor::new(0x23, 0x9D, 0xAD, 0xFF));
+    std.def_const("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
+    std.def_const("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
+
+    // Arbitrary constants.
+    std.def_any("start", AlignValue::Start);
+    std.def_any("center", AlignValue::Center);
+    std.def_any("end", AlignValue::End);
+    std.def_any("left", AlignValue::Left);
+    std.def_any("right", AlignValue::Right);
+    std.def_any("top", AlignValue::Top);
+    std.def_any("bottom", AlignValue::Bottom);
+    std.def_any("ltr", Dir::LTR);
+    std.def_any("rtl", Dir::RTL);
+    std.def_any("ttb", Dir::TTB);
+    std.def_any("btt", Dir::BTT);
+    std.def_any("serif", FontFamily::Serif);
+    std.def_any("sans-serif", FontFamily::SansSerif);
+    std.def_any("monospace", FontFamily::Monospace);
+    std.def_any("normal", FontStyle::Normal);
+    std.def_any("italic", FontStyle::Italic);
+    std.def_any("oblique", FontStyle::Oblique);
+    std.def_any("regular", FontWeight::REGULAR);
+    std.def_any("bold", FontWeight::BOLD);
+    std.def_any("ascender", VerticalFontMetric::Ascender);
+    std.def_any("cap-height", VerticalFontMetric::CapHeight);
+    std.def_any("x-height", VerticalFontMetric::XHeight);
+    std.def_any("baseline", VerticalFontMetric::Baseline);
+    std.def_any("descender", VerticalFontMetric::Descender);
 
     std
 }

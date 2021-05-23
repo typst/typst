@@ -32,13 +32,13 @@ Emoji: 🐪, 🌋, 🏞
 ]
 
 // Colors.
-#font(color: #239DAD)[This is #font(color: #FA644B)[way more] colorful.]
+#font(color: eastern)[This is #font(color: #FA644B)[way more] colorful.]
 
 ---
 // Test top and bottom edge.
 
 #page(width: 170pt)
-#let try(top, bottom) = rect(fill: #9feb52)[
+#let try(top, bottom) = rect(fill: conifer)[
     #font(top-edge: top, bottom-edge: bottom)
     `From `#top` to `#bottom
 ]

@@ -1,10 +1,10 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::iter;
 use std::rc::Rc;
 
-use super::Value;
+use super::{AnyValue, EvalContext, FuncArgs, FuncValue, Type, Value};
 
 /// A slot where a variable is stored.
 pub type Slot = Rc<RefCell<Value>>;
@@ -98,6 +98,23 @@ impl Scope {
         std::mem::forget(cell.borrow());
 
         self.values.insert(var.into(), Rc::new(cell));
+    }
+
+    /// Define a constant function.
+    pub fn def_func<F>(&mut self, name: impl Into<String>, f: F)
+    where
+        F: Fn(&mut EvalContext, &mut FuncArgs) -> Value + 'static,
+    {
+        let name = name.into();
+        self.def_const(name.clone(), FuncValue::new(Some(name), f));
+    }
+
+    /// Define a constant variable with a value of variant `Value::Any`.
+    pub fn def_any<T>(&mut self, var: impl Into<String>, any: T)
+    where
+        T: Type + Debug + Display + Clone + PartialEq + 'static,
+    {
+        self.def_const(var, AnyValue::new(any))
     }
 
     /// Define a mutable variable with a value.

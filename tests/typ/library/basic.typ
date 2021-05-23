@@ -22,4 +22,4 @@
 // Error: 3:11-3:11 missing argument: red component
 // Error: 2:11-2:11 missing argument: green component
 // Error: 1:11-1:11 missing argument: blue component
-#test(rgb(), #000000)
+#test(rgb(), black)

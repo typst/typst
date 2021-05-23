@@ -6,7 +6,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 
 use super::{EvalContext, NodeMap};
-use crate::color::Color;
+use crate::color::{Color, RgbaColor};
 use crate::exec::ExecContext;
 use crate::geom::{Angle, Length, Linear, Relative};
 use crate::syntax::{Span, Spanned, Tree};
@@ -619,6 +619,12 @@ impl From<usize> for Value {
 impl From<&str> for Value {
     fn from(v: &str) -> Self {
         Self::Str(v.to_string())
+    }
+}
+
+impl From<RgbaColor> for Value {
+    fn from(v: RgbaColor) -> Self {
+        Self::Color(Color::Rgba(v))
     }
 }
 
