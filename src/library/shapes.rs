@@ -1,5 +1,7 @@
 use std::f64::consts::SQRT_2;
 
+use decorum::NotNan;
+
 use super::*;
 use crate::color::Color;
 use crate::layout::{BackgroundNode, BackgroundShape, Fill, FixedNode, PadNode};
@@ -47,14 +49,14 @@ pub fn square(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let height = width.is_none().then(|| args.eat_named(ctx, "height")).flatten();
     let fill = args.eat_named(ctx, "fill");
     let body = args.eat::<TemplateValue>(ctx).unwrap_or_default();
-    rect_impl("square", width, height, Some(1.0), fill, body)
+    rect_impl("square", width, height, Some(1.0.into()), fill, body)
 }
 
 fn rect_impl(
     name: &str,
     width: Option<Linear>,
     height: Option<Linear>,
-    aspect: Option<f64>,
+    aspect: Option<NotNan<f64>>,
     fill: Option<Color>,
     body: TemplateValue,
 ) -> Value {
@@ -119,14 +121,14 @@ pub fn circle(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let height = width.is_none().then(|| args.eat_named(ctx, "height")).flatten();
     let fill = args.eat_named(ctx, "fill");
     let body = args.eat::<TemplateValue>(ctx).unwrap_or_default();
-    ellipse_impl("circle", width, height, Some(1.0), fill, body)
+    ellipse_impl("circle", width, height, Some(1.0.into()), fill, body)
 }
 
 fn ellipse_impl(
     name: &str,
     width: Option<Linear>,
     height: Option<Linear>,
-    aspect: Option<f64>,
+    aspect: Option<NotNan<f64>>,
     fill: Option<Color>,
     body: TemplateValue,
 ) -> Value {

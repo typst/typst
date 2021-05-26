@@ -68,7 +68,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         if let Some(linear) = size {
             if linear.rel.is_zero() {
                 ctx.state.font.size = linear.abs;
-                ctx.state.font.scale = Relative::ONE.into();
+                ctx.state.font.scale = Linear::one();
             } else {
                 ctx.state.font.scale = linear;
             }

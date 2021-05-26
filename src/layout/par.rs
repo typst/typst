@@ -10,7 +10,7 @@ use crate::util::{RangeExt, SliceExt};
 type Range = std::ops::Range<usize>;
 
 /// A node that arranges its children into a paragraph.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct ParNode {
     /// The inline direction of this paragraph.
     pub dir: Dir,
@@ -21,7 +21,7 @@ pub struct ParNode {
 }
 
 /// A child of a paragraph node.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash)]
 pub enum ParChild {
     /// Spacing between other nodes.
     Spacing(Length),
@@ -255,7 +255,7 @@ impl ParItem<'_> {
     /// The size of the item.
     pub fn size(&self) -> Size {
         match self {
-            Self::Spacing(amount) => Size::new(*amount, Length::ZERO),
+            Self::Spacing(amount) => Size::new(*amount, Length::zero()),
             Self::Text(shaped, _) => shaped.size,
             Self::Frame(frame, _) => frame.size,
         }
@@ -264,7 +264,7 @@ impl ParItem<'_> {
     /// The baseline of the item.
     pub fn baseline(&self) -> Length {
         match self {
-            Self::Spacing(_) => Length::ZERO,
+            Self::Spacing(_) => Length::zero(),
             Self::Text(shaped, _) => shaped.baseline,
             Self::Frame(frame, _) => frame.baseline,
         }
@@ -287,7 +287,7 @@ impl<'a> LineStack<'a> {
             regions,
             finished: vec![],
             lines: vec![],
-            size: Size::ZERO,
+            size: Size::zero(),
         }
     }
 
@@ -308,13 +308,13 @@ impl<'a> LineStack<'a> {
         }
 
         let mut output = Frame::new(self.size, self.size.height);
-        let mut offset = Length::ZERO;
+        let mut offset = Length::zero();
         let mut first = true;
 
         for line in std::mem::take(&mut self.lines) {
             let frame = line.build(self.size.width);
 
-            let pos = Point::new(Length::ZERO, offset);
+            let pos = Point::new(Length::zero(), offset);
             if first {
                 output.baseline = pos.y + frame.baseline;
                 first = false;
@@ -326,7 +326,7 @@ impl<'a> LineStack<'a> {
 
         self.finished.push(output);
         self.regions.next();
-        self.size = Size::ZERO;
+        self.size = Size::zero();
     }
 
     fn finish(mut self) -> Vec<Frame> {
@@ -421,9 +421,9 @@ impl<'a> LineLayout<'a> {
             }
         }
 
-        let mut width = Length::ZERO;
-        let mut top = Length::ZERO;
-        let mut bottom = Length::ZERO;
+        let mut width = Length::zero();
+        let mut top = Length::zero();
+        let mut bottom = Length::zero();
 
         // Measure the size of the line.
         for item in first.iter().chain(items).chain(&last) {
@@ -452,7 +452,7 @@ impl<'a> LineLayout<'a> {
         let free = size.width - self.size.width;
 
         let mut output = Frame::new(size, self.baseline);
-        let mut offset = Length::ZERO;
+        let mut offset = Length::zero();
         let mut ruler = Align::Start;
 
         self.reordered(|item| {

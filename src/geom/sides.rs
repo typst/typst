@@ -1,7 +1,7 @@
 use super::*;
 
 /// A container with left, top, right and bottom components.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Sides<T> {
     /// The value for the left side.
     pub left: T,

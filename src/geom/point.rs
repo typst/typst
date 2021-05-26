@@ -13,7 +13,9 @@ pub struct Point {
 
 impl Point {
     /// The origin point.
-    pub const ZERO: Self = Self { x: Length::ZERO, y: Length::ZERO };
+    pub fn zero() -> Self {
+        Self { x: Length::zero(), y: Length::zero() }
+    }
 
     /// Create a new point from x and y coordinate.
     pub fn new(x: Length, y: Length) -> Self {

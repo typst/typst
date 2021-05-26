@@ -1,18 +1,22 @@
-use super::*;
-
+use decorum::NotNan;
 use serde::{Deserialize, Serialize};
 
+use super::*;
+
 /// An absolute length.
-#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Hash)]
+#[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Length {
     /// The length in raw units.
-    raw: f64,
+    raw: NotNan<f64>,
 }
 
 impl Length {
     /// The zero length.
-    pub const ZERO: Self = Self { raw: 0.0 };
+    pub fn zero() -> Self {
+        Self { raw: 0.0.into() }
+    }
 
     /// Create a length from a number of points.
     pub fn pt(pt: f64) -> Self {
@@ -35,8 +39,8 @@ impl Length {
     }
 
     /// Create a length from a number of raw units.
-    pub const fn raw(raw: f64) -> Self {
-        Self { raw }
+    pub fn raw(raw: f64) -> Self {
+        Self { raw: raw.into() }
     }
 
     /// Convert this to a number of points.
@@ -60,18 +64,18 @@ impl Length {
     }
 
     /// Get the value of this length in raw units.
-    pub const fn to_raw(self) -> f64 {
-        self.raw
+    pub fn to_raw(self) -> f64 {
+        self.raw.into()
     }
 
     /// Create a length from a value in a unit.
     pub fn with_unit(val: f64, unit: LengthUnit) -> Self {
-        Self { raw: val * unit.raw_scale() }
+        Self { raw: (val * unit.raw_scale()).into() }
     }
 
     /// Get the value of this length in unit.
     pub fn to_unit(self, unit: LengthUnit) -> f64 {
-        self.raw / unit.raw_scale()
+        self.to_raw() / unit.raw_scale()
     }
 
     /// The minimum of this and another length.
@@ -106,17 +110,12 @@ impl Length {
 
     /// Whether the length is finite.
     pub fn is_finite(self) -> bool {
-        self.raw.is_finite()
+        self.raw.into_inner().is_finite()
     }
 
     /// Whether the length is infinite.
     pub fn is_infinite(self) -> bool {
-        self.raw.is_infinite()
-    }
-
-    /// Whether the length is `NaN`.
-    pub fn is_nan(self) -> bool {
-        self.raw.is_nan()
+        self.raw.into_inner().is_infinite()
     }
 }
 
@@ -189,7 +188,7 @@ impl Div for Length {
     type Output = f64;
 
     fn div(self, other: Self) -> f64 {
-        self.raw / other.raw
+        self.to_raw() / other.to_raw()
     }
 }
 
@@ -200,7 +199,7 @@ assign_impl!(Length /= f64);
 
 impl Sum for Length {
     fn sum<I: Iterator<Item = Length>>(iter: I) -> Self {
-        iter.fold(Length::ZERO, Add::add)
+        iter.fold(Length::zero(), Add::add)
     }
 }
 

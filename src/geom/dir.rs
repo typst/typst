@@ -1,7 +1,7 @@
 use super::*;
 
 /// The four directions into which content can be laid out.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Dir {
     /// Left to right.
     LTR,

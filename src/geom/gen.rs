@@ -1,7 +1,7 @@
 use super::*;
 
 /// A container with a main and cross component.
-#[derive(Default, Copy, Clone, Eq, PartialEq)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Gen<T> {
     /// The cross component.
     pub cross: T,
@@ -26,7 +26,12 @@ impl<T> Gen<T> {
 
 impl Gen<Length> {
     /// The zero value.
-    pub const ZERO: Self = Self { main: Length::ZERO, cross: Length::ZERO };
+    pub fn zero() -> Self {
+        Self {
+            main: Length::zero(),
+            cross: Length::zero(),
+        }
+    }
 }
 
 impl<T> Get<GenAxis> for Gen<T> {

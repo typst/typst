@@ -1,7 +1,7 @@
 use super::*;
 
 /// A combined relative and absolute length.
-#[derive(Default, Copy, Clone, PartialEq)]
+#[derive(Default, Copy, Clone, PartialEq, Hash)]
 pub struct Linear {
     /// The relative part.
     pub rel: Relative,
@@ -11,10 +11,20 @@ pub struct Linear {
 
 impl Linear {
     /// The zero linear.
-    pub const ZERO: Self = Self { rel: Relative::ZERO, abs: Length::ZERO };
+    pub fn zero() -> Self {
+        Self {
+            rel: Relative::zero(),
+            abs: Length::zero(),
+        }
+    }
 
     /// The linear with a relative part of `100%` and no absolute part.
-    pub const ONE: Self = Self { rel: Relative::ONE, abs: Length::ZERO };
+    pub fn one() -> Self {
+        Self {
+            rel: Relative::one(),
+            abs: Length::zero(),
+        }
+    }
 
     /// Create a new linear.
     pub fn new(rel: Relative, abs: Length) -> Self {
@@ -46,13 +56,13 @@ impl Debug for Linear {
 
 impl From<Length> for Linear {
     fn from(abs: Length) -> Self {
-        Self { rel: Relative::ZERO, abs }
+        Self { rel: Relative::zero(), abs }
     }
 }
 
 impl From<Relative> for Linear {
     fn from(rel: Relative) -> Self {
-        Self { rel, abs: Length::ZERO }
+        Self { rel, abs: Length::zero() }
     }
 }
 

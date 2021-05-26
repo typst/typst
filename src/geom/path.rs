@@ -30,7 +30,7 @@ impl Path {
         let m = 0.551784;
         let mx = m * rx;
         let my = m * ry;
-        let z = Length::ZERO;
+        let z = Length::zero();
         let point = Point::new;
         let mut path = Self::new();
         path.move_to(point(-rx, z));

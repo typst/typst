@@ -132,7 +132,7 @@ impl<'a> PdfExporter<'a> {
         // We only write font switching actions when the used face changes. To
         // do that, we need to remember the active face.
         let mut face = FaceId::MAX;
-        let mut size = Length::ZERO;
+        let mut size = Length::zero();
         let mut fill: Option<Fill> = None;
 
         for (pos, element) in &page.elements {
