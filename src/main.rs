@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context};
 
+use typst::cache::Cache;
 use typst::diag::Pass;
 use typst::env::{Env, FsLoader};
 use typst::exec::State;
@@ -39,11 +40,12 @@ fn main() -> anyhow::Result<()> {
     loader.search_system();
 
     let mut env = Env::new(loader);
-
+    let mut cache = Cache::new();
     let scope = library::new();
     let state = State::default();
 
-    let Pass { output: frames, diags } = typeset(&mut env, &src, &scope, state);
+    let Pass { output: frames, diags } =
+        typeset(&mut env, &mut cache, &src, &scope, state);
     if !diags.is_empty() {
         let map = LineMap::new(&src);
         for diag in diags {
