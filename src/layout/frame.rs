@@ -96,7 +96,7 @@ pub enum Shape {
 }
 
 /// How text and shapes are filled.
-#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Hash, Serialize, Deserialize)]
 pub enum Fill {
     /// A solid color.
     Color(Color),

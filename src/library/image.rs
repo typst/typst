@@ -32,7 +32,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 }
 
 /// An image node.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 struct ImageNode {
     /// The id of the image file.
     id: ImageId,
@@ -73,7 +73,7 @@ impl Layout for ImageNode {
         };
 
         let mut frame = Frame::new(size, size.height);
-        frame.push(Point::ZERO, Element::Image(self.id, size));
+        frame.push(Point::zero(), Element::Image(self.id, size));
         vec![frame]
     }
 }

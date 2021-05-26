@@ -1,7 +1,7 @@
 use super::*;
 
 /// Where to align something along a directed axis.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Align {
     /// Align at the start of the axis.
     Start,

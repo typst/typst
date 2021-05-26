@@ -62,7 +62,7 @@ impl<'a> ShapedText<'a> {
     /// Build the shaped text's frame.
     pub fn build(&self) -> Frame {
         let mut frame = Frame::new(self.size, self.baseline);
-        let mut offset = Length::ZERO;
+        let mut offset = Length::zero();
 
         for (face_id, group) in self.glyphs.as_ref().group_by_key(|g| g.face_id) {
             let pos = Point::new(offset, self.baseline);
@@ -331,9 +331,9 @@ fn measure(
     glyphs: &[ShapedGlyph],
     props: &FontProps,
 ) -> (Size, Length) {
-    let mut width = Length::ZERO;
-    let mut top = Length::ZERO;
-    let mut bottom = Length::ZERO;
+    let mut width = Length::zero();
+    let mut top = Length::zero();
+    let mut bottom = Length::zero();
     let mut expand_vertical = |face: &Face| {
         top.set_max(face.vertical_metric(props.top_edge).to_length(props.size));
         bottom.set_max(-face.vertical_metric(props.bottom_edge).to_length(props.size));

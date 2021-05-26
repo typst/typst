@@ -1,7 +1,7 @@
 use super::*;
 
 /// A node that places a rectangular filled background behind its child.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct BackgroundNode {
     /// The kind of shape to use as a background.
     pub shape: BackgroundShape,
@@ -12,7 +12,7 @@ pub struct BackgroundNode {
 }
 
 /// The kind of shape to use as a background.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum BackgroundShape {
     Rect,
     Ellipse,
@@ -24,7 +24,7 @@ impl Layout for BackgroundNode {
 
         for frame in &mut frames {
             let (point, shape) = match self.shape {
-                BackgroundShape::Rect => (Point::ZERO, Shape::Rect(frame.size)),
+                BackgroundShape::Rect => (Point::zero(), Shape::Rect(frame.size)),
                 BackgroundShape::Ellipse => {
                     (frame.size.to_point() / 2.0, Shape::Ellipse(frame.size))
                 }

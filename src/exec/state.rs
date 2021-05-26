@@ -184,7 +184,7 @@ impl Default for FontState {
             size: Length::pt(11.0),
             top_edge: VerticalFontMetric::CapHeight,
             bottom_edge: VerticalFontMetric::Baseline,
-            scale: Linear::ONE,
+            scale: Linear::one(),
             color: Fill::Color(Color::Rgba(RgbaColor::BLACK)),
             strong: false,
             emph: false,
@@ -193,7 +193,7 @@ impl Default for FontState {
 }
 
 /// Properties used for font selection and layout.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct FontProps {
     /// The list of font families to use for shaping.
     pub families: Rc<FamilyList>,
@@ -210,7 +210,7 @@ pub struct FontProps {
 }
 
 /// Font family definitions.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct FamilyList {
     /// The user-defined list of font families.
     pub list: Vec<FontFamily>,
@@ -255,7 +255,7 @@ impl Default for FamilyList {
 }
 
 /// A generic or named font family.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum FontFamily {
     Serif,
     SansSerif,

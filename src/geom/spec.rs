@@ -29,10 +29,12 @@ impl<T> Spec<T> {
 
 impl Spec<Length> {
     /// The zero value.
-    pub const ZERO: Self = Self {
-        horizontal: Length::ZERO,
-        vertical: Length::ZERO,
-    };
+    pub fn zero() -> Self {
+        Self {
+            horizontal: Length::zero(),
+            vertical: Length::zero(),
+        }
+    }
 
     /// Convert to a point.
     pub fn to_point(self) -> Point {

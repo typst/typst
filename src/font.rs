@@ -92,7 +92,7 @@ impl Face {
 }
 
 /// Identifies a vertical metric of a font.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum VerticalFontMetric {
     /// The distance from the baseline to the typographic ascender.
     ///
@@ -169,7 +169,7 @@ pub struct FaceInfo {
 }
 
 /// Properties that distinguish a face from other faces in the same family.
-#[derive(Default, Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Hash, Serialize, Deserialize)]
 pub struct FontVariant {
     /// The style of the face (normal / italic / oblique).
     pub style: FontStyle,
@@ -187,7 +187,7 @@ impl FontVariant {
 }
 
 /// The style of a font face.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FontStyle {
@@ -233,7 +233,8 @@ impl Display for FontStyle {
 }
 
 /// The weight of a font face.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct FontWeight(u16);
 
@@ -353,42 +354,43 @@ impl Debug for FontWeight {
 }
 
 /// The width of a font face.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct FontStretch(f32);
+pub struct FontStretch(u16);
 
 impl FontStretch {
     /// Ultra-condensed stretch (50%).
-    pub const ULTRA_CONDENSED: Self = Self(0.5);
+    pub const ULTRA_CONDENSED: Self = Self(500);
 
     /// Extra-condensed stretch weight (62.5%).
-    pub const EXTRA_CONDENSED: Self = Self(0.625);
+    pub const EXTRA_CONDENSED: Self = Self(625);
 
     /// Condensed stretch (75%).
-    pub const CONDENSED: Self = Self(0.75);
+    pub const CONDENSED: Self = Self(750);
 
     /// Semi-condensed stretch (87.5%).
-    pub const SEMI_CONDENSED: Self = Self(0.875);
+    pub const SEMI_CONDENSED: Self = Self(875);
 
     /// Normal stretch (100%).
-    pub const NORMAL: Self = Self(1.0);
+    pub const NORMAL: Self = Self(1000);
 
     /// Semi-expanded stretch (112.5%).
-    pub const SEMI_EXPANDED: Self = Self(1.125);
+    pub const SEMI_EXPANDED: Self = Self(1125);
 
     /// Expanded stretch (125%).
-    pub const EXPANDED: Self = Self(1.25);
+    pub const EXPANDED: Self = Self(1250);
 
     /// Extra-expanded stretch (150%).
-    pub const EXTRA_EXPANDED: Self = Self(1.5);
+    pub const EXTRA_EXPANDED: Self = Self(1500);
 
     /// Ultra-expanded stretch (200%).
-    pub const ULTRA_EXPANDED: Self = Self(2.0);
+    pub const ULTRA_EXPANDED: Self = Self(2000);
 
     /// Create a font stretch from a ratio between 0.5 and 2.0, clamping it if
     /// necessary.
     pub fn from_ratio(ratio: f32) -> Self {
-        Self(ratio.max(0.5).min(2.0))
+        Self((ratio.max(0.5).min(2.0) * 1000.0) as u16)
     }
 
     /// Create a font stretch from an OpenType-style number between 1 and 9,
@@ -425,29 +427,29 @@ impl FontStretch {
 
     /// The ratio between 0.5 and 2.0 corresponding to this stretch.
     pub fn to_ratio(self) -> f32 {
-        self.0
+        self.0 as f32 / 1000.0
     }
 
     /// The lowercase string representation of this stretch is one of the named
     /// ones.
     pub fn to_str(self) -> Option<&'static str> {
         Some(match self {
-            s if s == Self::ULTRA_CONDENSED => "ultra-condensed",
-            s if s == Self::EXTRA_CONDENSED => "extra-condensed",
-            s if s == Self::CONDENSED => "condensed",
-            s if s == Self::SEMI_CONDENSED => "semi-condensed",
-            s if s == Self::NORMAL => "normal",
-            s if s == Self::SEMI_EXPANDED => "semi-expanded",
-            s if s == Self::EXPANDED => "expanded",
-            s if s == Self::EXTRA_EXPANDED => "extra-expanded",
-            s if s == Self::ULTRA_EXPANDED => "ultra-expanded",
+            Self::ULTRA_CONDENSED => "ultra-condensed",
+            Self::EXTRA_CONDENSED => "extra-condensed",
+            Self::CONDENSED => "condensed",
+            Self::SEMI_CONDENSED => "semi-condensed",
+            Self::NORMAL => "normal",
+            Self::SEMI_EXPANDED => "semi-expanded",
+            Self::EXPANDED => "expanded",
+            Self::EXTRA_EXPANDED => "extra-expanded",
+            Self::ULTRA_EXPANDED => "ultra-expanded",
             _ => return None,
         })
     }
 
     /// The absolute ratio distance between this and another font stretch.
     pub fn distance(self, other: Self) -> f32 {
-        (self.0 - other.0).abs()
+        (self.to_ratio() - other.to_ratio()).abs()
     }
 }
 
@@ -461,7 +463,7 @@ impl Display for FontStretch {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self.to_str() {
             Some(name) => f.pad(name),
-            None => write!(f, "{}", self.0),
+            None => write!(f, "{}", self.to_ratio()),
         }
     }
 }

@@ -18,6 +18,10 @@ pub use stack::*;
 
 use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
+
+use decorum::NotNan;
+use fxhash::FxHasher64;
 
 use crate::env::Env;
 use crate::geom::*;
@@ -64,39 +68,62 @@ impl PageRun {
 }
 
 /// A wrapper around a dynamic layouting node.
-pub struct AnyNode(Box<dyn Bounds>);
+pub struct AnyNode {
+    node: Box<dyn Bounds>,
+    hash: u64,
+}
 
 impl AnyNode {
     /// Create a new instance from any node that satisifies the required bounds.
-    pub fn new<T>(any: T) -> Self
+    pub fn new<T>(node: T) -> Self
     where
-        T: Layout + Debug + Clone + PartialEq + 'static,
+        T: Layout + Debug + Clone + PartialEq + Hash + 'static,
     {
-        Self(Box::new(any))
+        let hash = {
+            let mut state = FxHasher64::default();
+            node.hash(&mut state);
+            state.finish()
+        };
+
+        Self { node: Box::new(node), hash }
+    }
+
+    /// The cached hash for the boxed node.
+    pub fn hash(&self) -> u64 {
+        self.hash
     }
 }
 
 impl Layout for AnyNode {
     fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
-        self.0.layout(ctx, regions)
+        self.node.layout(ctx, regions)
     }
 }
 
 impl Clone for AnyNode {
     fn clone(&self) -> Self {
-        Self(self.0.dyn_clone())
+        Self {
+            node: self.node.dyn_clone(),
+            hash: self.hash,
+        }
     }
 }
 
 impl PartialEq for AnyNode {
     fn eq(&self, other: &Self) -> bool {
-        self.0.dyn_eq(other.0.as_ref())
+        self.node.dyn_eq(other.node.as_ref())
+    }
+}
+
+impl Hash for AnyNode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.hash);
     }
 }
 
 impl Debug for AnyNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
+        self.node.fmt(f)
     }
 }
 
@@ -202,10 +229,7 @@ impl Regions {
     ///
     /// If this is true, calling `next()` will have no effect.
     pub fn in_full_last(&self) -> bool {
-        self.backlog.is_empty()
-            && self.last.map_or(true, |size| {
-                self.current.is_nan() || size.is_nan() || self.current == size
-            })
+        self.backlog.is_empty() && self.last.map_or(true, |size| self.current == size)
     }
 
     /// Advance to the next region if there is any.
@@ -217,9 +241,9 @@ impl Regions {
     }
 
     /// Shrink `current` to ensure that the aspect ratio can be satisfied.
-    pub fn apply_aspect_ratio(&mut self, aspect: f64) {
-        let width = self.current.width.min(aspect * self.current.height);
-        let height = width / aspect;
+    pub fn apply_aspect_ratio(&mut self, aspect: NotNan<f64>) {
+        let width = self.current.width.min(aspect.into_inner() * self.current.height);
+        let height = width / aspect.into_inner();
         self.current = Size::new(width, height);
     }
 }

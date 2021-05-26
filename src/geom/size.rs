@@ -13,10 +13,12 @@ pub struct Size {
 
 impl Size {
     /// The zero size.
-    pub const ZERO: Self = Self {
-        width: Length::ZERO,
-        height: Length::ZERO,
-    };
+    pub fn zero() -> Self {
+        Self {
+            width: Length::zero(),
+            height: Length::zero(),
+        }
+    }
 
     /// Create a new size from width and height.
     pub fn new(width: Length, height: Length) -> Self {
@@ -41,11 +43,6 @@ impl Size {
     /// Whether any of the two components is infinite.
     pub fn is_infinite(self) -> bool {
         self.width.is_infinite() || self.height.is_infinite()
-    }
-
-    /// Whether any of the two components is `NaN`.
-    pub fn is_nan(self) -> bool {
-        self.width.is_nan() || self.height.is_nan()
     }
 
     /// Convert to a point.

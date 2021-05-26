@@ -1,7 +1,9 @@
+use decorum::NotNan;
+
 use super::*;
 
 /// A node that stacks its children.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct StackNode {
     /// The `main` and `cross` directions of this stack.
     ///
@@ -11,13 +13,13 @@ pub struct StackNode {
     /// The fixed aspect ratio between width and height, if any.
     ///
     /// The resulting frames will satisfy `width = aspect * height`.
-    pub aspect: Option<f64>,
+    pub aspect: Option<NotNan<f64>>,
     /// The nodes to be stacked.
     pub children: Vec<StackChild>,
 }
 
 /// A child of a stack node.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum StackChild {
     /// Spacing between other nodes.
     Spacing(Length),
@@ -56,7 +58,7 @@ impl From<StackNode> for AnyNode {
 
 struct StackLayouter {
     dirs: Gen<Dir>,
-    aspect: Option<f64>,
+    aspect: Option<NotNan<f64>>,
     main: SpecAxis,
     regions: Regions,
     finished: Vec<Frame>,
@@ -67,7 +69,7 @@ struct StackLayouter {
 }
 
 impl StackLayouter {
-    fn new(dirs: Gen<Dir>, aspect: Option<f64>, mut regions: Regions) -> Self {
+    fn new(dirs: Gen<Dir>, aspect: Option<NotNan<f64>>, mut regions: Regions) -> Self {
         if let Some(aspect) = aspect {
             regions.apply_aspect_ratio(aspect);
         }
@@ -79,7 +81,7 @@ impl StackLayouter {
             finished: vec![],
             frames: vec![],
             full: regions.current,
-            size: Gen::ZERO,
+            size: Gen::zero(),
             ruler: Align::Start,
             regions,
         }
@@ -122,11 +124,11 @@ impl StackLayouter {
         if let Some(aspect) = self.aspect {
             let width = size
                 .width
-                .max(aspect * size.height)
+                .max(aspect.into_inner() * size.height)
                 .min(self.full.width)
-                .min(aspect * self.full.height);
+                .min(aspect.into_inner() * self.full.height);
 
-            size = Size::new(width, width / aspect);
+            size = Size::new(width, width / aspect.into_inner());
         }
 
         let mut output = Frame::new(size, size.height);
@@ -141,7 +143,7 @@ impl StackLayouter {
             // Align along the cross axis.
             let cross = aligns
                 .cross
-                .resolve(self.dirs.cross, Length::ZERO .. size.cross - child.cross);
+                .resolve(self.dirs.cross, Length::zero() .. size.cross - child.cross);
 
             // Align along the main axis.
             let main = aligns.main.resolve(
@@ -163,7 +165,7 @@ impl StackLayouter {
             output.push_frame(pos, frame);
         }
 
-        self.size = Gen::ZERO;
+        self.size = Gen::zero();
         self.ruler = Align::Start;
         self.regions.next();
         if let Some(aspect) = self.aspect {

@@ -1,34 +1,40 @@
+use decorum::NotNan;
+
 use super::*;
 
 /// A relative length.
 ///
 /// _Note_: `50%` is represented as `0.5` here, but stored as `50.0` in the
 /// corresponding [literal](crate::syntax::Expr::Percent).
-#[derive(Default, Copy, Clone, PartialEq, PartialOrd)]
-pub struct Relative(f64);
+#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Hash)]
+pub struct Relative(NotNan<f64>);
 
 impl Relative {
     /// A ratio of `0%` represented as `0.0`.
-    pub const ZERO: Self = Self(0.0);
+    pub fn zero() -> Self {
+        Self(0.0.into())
+    }
 
     /// A ratio of `100%` represented as `1.0`.
-    pub const ONE: Self = Self(1.0);
+    pub fn one() -> Self {
+        Self(1.0.into())
+    }
 
     /// Create a new relative value.
     pub fn new(ratio: f64) -> Self {
-        Self(ratio)
+        Self(ratio.into())
     }
 
     /// Get the underlying ratio.
     pub fn get(self) -> f64 {
-        self.0
+        self.0.into()
     }
 
     /// Resolve this relative to the given `length`.
     pub fn resolve(self, length: Length) -> Length {
         // We don't want NaNs.
         if length.is_infinite() {
-            Length::ZERO
+            Length::zero()
         } else {
             self.get() * length
         }
@@ -42,7 +48,7 @@ impl Relative {
 
 impl Display for Relative {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}%", 100.0 * self.0)
+        write!(f, "{}%", 100.0 * self.get())
     }
 }
 
@@ -98,7 +104,7 @@ impl Div for Relative {
     type Output = f64;
 
     fn div(self, other: Self) -> f64 {
-        self.0 / other.0
+        self.get() / other.get()
     }
 }
 

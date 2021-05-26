@@ -742,7 +742,7 @@ mod tests {
         test_value(3.14, "3.14");
         test_value(Length::pt(5.5), "5.5pt");
         test_value(Angle::deg(90.0), "90deg");
-        test_value(Relative::ONE / 2.0, "50%");
+        test_value(Relative::one() / 2.0, "50%");
         test_value(Relative::new(0.3) + Length::cm(2.0), "30% + 2cm");
         test_value(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
         test_value("hello", r#""hello""#);

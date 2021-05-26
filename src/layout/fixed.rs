@@ -1,7 +1,7 @@
 use super::*;
 
 /// A node that can fix its child's width and height.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct FixedNode {
     /// The fixed width, if any.
     pub width: Option<Linear>,
