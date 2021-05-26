@@ -2,6 +2,7 @@ use std::path::Path;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
+use typst::cache::Cache;
 use typst::env::{Env, FsLoader};
 use typst::eval::eval;
 use typst::exec::{exec, State};
@@ -42,14 +43,14 @@ fn benchmarks(c: &mut Criterion) {
         let syntax_tree = parse(&src).output;
         let expr_map = eval(&mut env, &syntax_tree, &scope).output;
         let layout_tree = exec(&mut env, &syntax_tree, &expr_map, state.clone()).output;
-        let frames = layout(&mut env, &layout_tree);
+        let frames = layout(&mut env, &mut Cache::new(), &layout_tree);
 
         // Bench!
         bench!("parse": parse(&src));
         bench!("eval": eval(&mut env, &syntax_tree, &scope));
         bench!("exec": exec(&mut env, &syntax_tree, &expr_map, state.clone()));
-        bench!("layout": layout(&mut env, &layout_tree));
-        bench!("typeset": typeset(&mut env, &src, &scope, state.clone()));
+        bench!("layout": layout(&mut env, &mut Cache::new(), &layout_tree));
+        bench!("typeset": typeset(&mut env, &mut Cache::new(), &src, &scope, state.clone()));
         bench!("pdf": pdf::export(&env, &frames));
     }
 }

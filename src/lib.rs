@@ -32,6 +32,7 @@
 pub mod diag;
 #[macro_use]
 pub mod eval;
+pub mod cache;
 pub mod color;
 pub mod env;
 pub mod exec;
@@ -46,6 +47,7 @@ pub mod pretty;
 pub mod syntax;
 pub mod util;
 
+use crate::cache::Cache;
 use crate::diag::Pass;
 use crate::env::Env;
 use crate::eval::Scope;
@@ -55,6 +57,7 @@ use crate::layout::Frame;
 /// Process source code directly into a collection of frames.
 pub fn typeset(
     env: &mut Env,
+    cache: &mut Cache,
     src: &str,
     scope: &Scope,
     state: State,
@@ -62,7 +65,7 @@ pub fn typeset(
     let parsed = parse::parse(src);
     let evaluated = eval::eval(env, &parsed.output, scope);
     let executed = exec::exec(env, &parsed.output, &evaluated.output, state);
-    let frames = layout::layout(env, &executed.output);
+    let frames = layout::layout(env, cache, &executed.output);
 
     let mut diags = parsed.diags;
     diags.extend(evaluated.diags);

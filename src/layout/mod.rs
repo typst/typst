@@ -23,12 +23,13 @@ use std::hash::{Hash, Hasher};
 use decorum::NotNan;
 use fxhash::FxHasher64;
 
+use crate::cache::{Cache, FramesEntry};
 use crate::env::Env;
 use crate::geom::*;
 
 /// Layout a tree into a collection of frames.
-pub fn layout(env: &mut Env, tree: &Tree) -> Vec<Frame> {
-    tree.layout(&mut LayoutContext { env })
+pub fn layout(env: &mut Env, cache: &mut Cache, tree: &Tree) -> Vec<Frame> {
+    tree.layout(&mut LayoutContext { env, cache })
 }
 
 /// A tree of layout nodes.
@@ -96,7 +97,19 @@ impl AnyNode {
 
 impl Layout for AnyNode {
     fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
-        self.node.layout(ctx, regions)
+        if let Some(hit) = ctx.cache.frames.get(&self.hash()) {
+            if &hit.regions == regions {
+                return hit.frames.clone();
+            }
+        }
+
+        let frames = self.node.layout(ctx, regions);
+        ctx.cache.frames.insert(self.hash(), FramesEntry {
+            regions: regions.clone(),
+            frames: frames.clone(),
+        });
+
+        frames
     }
 }
 
@@ -164,6 +177,9 @@ pub trait Layout {
 pub struct LayoutContext<'a> {
     /// The environment from which fonts are gathered.
     pub env: &'a mut Env,
+    /// A cache which enables reuse of layout artifacts from past compilation
+    /// cycles.
+    pub cache: &'a mut Cache,
 }
 
 /// A sequence of regions to layout into.

@@ -13,6 +13,7 @@ use tiny_skia::{
 use ttf_parser::{GlyphId, OutlineBuilder};
 use walkdir::WalkDir;
 
+use typst::cache::Cache;
 use typst::color;
 use typst::diag::{Diag, DiagSet, Level, Pass};
 use typst::env::{Env, FsLoader, ImageId};
@@ -212,7 +213,6 @@ fn test_part(
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
     let mut scope = library::new();
-
     let panics = Rc::new(RefCell::new(vec![]));
     register_helpers(&mut scope, Rc::clone(&panics));
 
@@ -222,7 +222,8 @@ fn test_part(
     state.page.size = Size::new(Length::pt(120.0), Length::raw(f64::INFINITY));
     state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
-    let Pass { output: mut frames, diags } = typeset(env, &src, &scope, state);
+    let Pass { output: mut frames, diags } =
+        typeset(env, &mut Cache::new(), &src, &scope, state);
     if !compare_ref {
         frames.clear();
     }
