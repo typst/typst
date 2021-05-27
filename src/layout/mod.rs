@@ -20,7 +20,7 @@ use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
-use decorum::NotNan;
+use decorum::N64;
 use fxhash::FxHasher64;
 
 use crate::cache::{Cache, FramesEntry};
@@ -257,7 +257,7 @@ impl Regions {
     }
 
     /// Shrink `current` to ensure that the aspect ratio can be satisfied.
-    pub fn apply_aspect_ratio(&mut self, aspect: NotNan<f64>) {
+    pub fn apply_aspect_ratio(&mut self, aspect: N64) {
         let width = self.current.width.min(aspect.into_inner() * self.current.height);
         let height = width / aspect.into_inner();
         self.current = Size::new(width, height);

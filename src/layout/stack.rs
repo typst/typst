@@ -1,4 +1,4 @@
-use decorum::NotNan;
+use decorum::N64;
 
 use super::*;
 
@@ -13,7 +13,7 @@ pub struct StackNode {
     /// The fixed aspect ratio between width and height, if any.
     ///
     /// The resulting frames will satisfy `width = aspect * height`.
-    pub aspect: Option<NotNan<f64>>,
+    pub aspect: Option<N64>,
     /// The nodes to be stacked.
     pub children: Vec<StackChild>,
 }
@@ -58,7 +58,7 @@ impl From<StackNode> for AnyNode {
 
 struct StackLayouter {
     dirs: Gen<Dir>,
-    aspect: Option<NotNan<f64>>,
+    aspect: Option<N64>,
     main: SpecAxis,
     regions: Regions,
     finished: Vec<Frame>,
@@ -69,7 +69,7 @@ struct StackLayouter {
 }
 
 impl StackLayouter {
-    fn new(dirs: Gen<Dir>, aspect: Option<NotNan<f64>>, mut regions: Regions) -> Self {
+    fn new(dirs: Gen<Dir>, aspect: Option<N64>, mut regions: Regions) -> Self {
         if let Some(aspect) = aspect {
             regions.apply_aspect_ratio(aspect);
         }

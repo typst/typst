@@ -1,4 +1,4 @@
-use decorum::NotNan;
+use decorum::N64;
 use serde::{Deserialize, Serialize};
 
 use super::*;
@@ -9,13 +9,13 @@ use super::*;
 #[serde(transparent)]
 pub struct Length {
     /// The length in raw units.
-    raw: NotNan<f64>,
+    raw: N64,
 }
 
 impl Length {
     /// The zero length.
     pub fn zero() -> Self {
-        Self { raw: 0.0.into() }
+        Self { raw: N64::from(0.0) }
     }
 
     /// Create a length from a number of points.
@@ -40,7 +40,7 @@ impl Length {
 
     /// Create a length from a number of raw units.
     pub fn raw(raw: f64) -> Self {
-        Self { raw: raw.into() }
+        Self { raw: N64::from(raw) }
     }
 
     /// Convert this to a number of points.
@@ -70,7 +70,7 @@ impl Length {
 
     /// Create a length from a value in a unit.
     pub fn with_unit(val: f64, unit: LengthUnit) -> Self {
-        Self { raw: (val * unit.raw_scale()).into() }
+        Self { raw: N64::from(val * unit.raw_scale()) }
     }
 
     /// Get the value of this length in unit.

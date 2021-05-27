@@ -1,4 +1,4 @@
-use decorum::NotNan;
+use decorum::N64;
 
 use super::*;
 
@@ -7,22 +7,22 @@ use super::*;
 /// _Note_: `50%` is represented as `0.5` here, but stored as `50.0` in the
 /// corresponding [literal](crate::syntax::Expr::Percent).
 #[derive(Default, Copy, Clone, PartialEq, PartialOrd, Hash)]
-pub struct Relative(NotNan<f64>);
+pub struct Relative(N64);
 
 impl Relative {
     /// A ratio of `0%` represented as `0.0`.
     pub fn zero() -> Self {
-        Self(0.0.into())
+        Self(N64::from(0.0))
     }
 
     /// A ratio of `100%` represented as `1.0`.
     pub fn one() -> Self {
-        Self(1.0.into())
+        Self(N64::from(1.0))
     }
 
     /// Create a new relative value.
     pub fn new(ratio: f64) -> Self {
-        Self(ratio.into())
+        Self(N64::from(ratio))
     }
 
     /// Get the underlying ratio.
