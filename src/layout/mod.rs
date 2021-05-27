@@ -88,23 +88,18 @@ impl AnyNode {
 
         Self { node: Box::new(node), hash }
     }
-
-    /// The cached hash for the boxed node.
-    pub fn hash(&self) -> u64 {
-        self.hash
-    }
 }
 
 impl Layout for AnyNode {
     fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
-        if let Some(hit) = ctx.cache.frames.get(&self.hash()) {
+        if let Some(hit) = ctx.cache.frames.get(&self.hash) {
             if &hit.regions == regions {
                 return hit.frames.clone();
             }
         }
 
         let frames = self.node.layout(ctx, regions);
-        ctx.cache.frames.insert(self.hash(), FramesEntry {
+        ctx.cache.frames.insert(self.hash, FramesEntry {
             regions: regions.clone(),
             frames: frames.clone(),
         });
