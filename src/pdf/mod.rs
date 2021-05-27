@@ -318,7 +318,7 @@ impl<'a> PdfExporter<'a> {
             // Add the primary image.
             if let Ok((data, filter, color_space)) = encode_image(img) {
                 let mut image = self.writer.image(id, &data);
-                image.inner().filter(filter);
+                image.filter(filter);
                 image.width(width as i32);
                 image.height(height as i32);
                 image.color_space(color_space);
@@ -333,7 +333,7 @@ impl<'a> PdfExporter<'a> {
                     drop(image);
 
                     let mut mask = self.writer.image(mask_id, &alpha_data);
-                    mask.inner().filter(alpha_filter);
+                    mask.filter(alpha_filter);
                     mask.width(width as i32);
                     mask.height(height as i32);
                     mask.color_space(ColorSpace::DeviceGray);
