@@ -1,11 +1,13 @@
 //! Font handling.
 
+use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::env::Buffer;
 use crate::geom::Length;
+use crate::loading::Buffer;
+use crate::loading::Loader;
 
 /// A font face.
 pub struct Face {
@@ -152,6 +154,128 @@ impl Em {
     /// Convert to a length at the given font size.
     pub fn to_length(self, font_size: Length) -> Length {
         self.0 * font_size
+    }
+}
+
+/// Caches parsed font faces.
+pub struct FontCache {
+    faces: Vec<Option<Face>>,
+    families: HashMap<String, Vec<FaceId>>,
+    on_load: Option<Box<dyn Fn(FaceId, &Face)>>,
+}
+
+impl FontCache {
+    /// Create a new, empty font cache.
+    pub fn new(loader: &dyn Loader) -> Self {
+        let mut faces = vec![];
+        let mut families = HashMap::<String, Vec<FaceId>>::new();
+
+        for (i, info) in loader.faces().iter().enumerate() {
+            let id = FaceId(i as u32);
+            faces.push(None);
+            families
+                .entry(info.family.to_lowercase())
+                .and_modify(|vec| vec.push(id))
+                .or_insert_with(|| vec![id]);
+        }
+
+        Self { faces, families, on_load: None }
+    }
+
+    /// Query for and load the font face from the given `family` that most
+    /// closely matches the given `variant`.
+    pub fn select(
+        &mut self,
+        loader: &mut dyn Loader,
+        family: &str,
+        variant: FontVariant,
+    ) -> Option<FaceId> {
+        // Check whether a family with this name exists.
+        let ids = self.families.get(family)?;
+        let infos = loader.faces();
+
+        let mut best = None;
+        let mut best_key = None;
+
+        // Find the best matching variant of this font.
+        for &id in ids {
+            let current = infos[id.0 as usize].variant;
+
+            // This is a perfect match, no need to search further.
+            if current == variant {
+                best = Some(id);
+                break;
+            }
+
+            // If this is not a perfect match, we compute a key that we want to
+            // minimize among all variants. This key prioritizes style, then
+            // stretch distance and then weight distance.
+            let key = (
+                current.style != variant.style,
+                current.stretch.distance(variant.stretch),
+                current.weight.distance(variant.weight),
+            );
+
+            if best_key.map_or(true, |b| key < b) {
+                best = Some(id);
+                best_key = Some(key);
+            }
+        }
+
+        // Load the face if it's not already loaded.
+        let id = best?;
+        let idx = id.0 as usize;
+        let slot = &mut self.faces[idx];
+        if slot.is_none() {
+            let index = infos[idx].index;
+            let buffer = loader.load_face(idx)?;
+            let face = Face::new(buffer, index)?;
+            if let Some(callback) = &self.on_load {
+                callback(id, &face);
+            }
+            *slot = Some(face);
+        }
+
+        best
+    }
+
+    /// Get a reference to a loaded face.
+    ///
+    /// This panics if no face with this id was loaded. This function should
+    /// only be called with ids returned by [`select()`](Self::select).
+    #[track_caller]
+    pub fn get(&self, id: FaceId) -> &Face {
+        self.faces[id.0 as usize].as_ref().expect("font face was not loaded")
+    }
+
+    /// Register a callback which is invoked each time a font face is loaded.
+    pub fn on_load<F>(&mut self, f: F)
+    where
+        F: Fn(FaceId, &Face) + 'static,
+    {
+        self.on_load = Some(Box::new(f));
+    }
+}
+
+/// A unique identifier for a loaded font face.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct FaceId(u32);
+
+impl FaceId {
+    /// A blank initialization value.
+    pub const MAX: Self = Self(u32::MAX);
+
+    /// Create a face id from the raw underlying value.
+    ///
+    /// This should only be called with values returned by
+    /// [`into_raw`](Self::into_raw).
+    pub fn from_raw(v: u32) -> Self {
+        Self(v)
+    }
+
+    /// Convert into the raw underlying value.
+    pub fn into_raw(self) -> u32 {
+        self.0
     }
 }
 

@@ -12,34 +12,35 @@ use pdf_writer::{
 };
 use ttf_parser::{name_id, GlyphId};
 
+use crate::cache::Cache;
 use crate::color::Color;
-use crate::env::{Env, FaceId, Image, ImageId};
-use crate::font::{Em, VerticalFontMetric};
+use crate::font::{Em, FaceId, VerticalFontMetric};
 use crate::geom::{self, Length, Size};
+use crate::image::{Image, ImageId};
 use crate::layout::{Element, Fill, Frame, Shape};
 
 /// Export a collection of frames into a PDF document.
 ///
 /// This creates one page per frame. In addition to the frames, you need to pass
-/// in the environment used for typesetting such that things like fonts and
-/// images can be included in the PDF.
+/// in the cache used during compilation such that things like fonts and images
+/// can be included in the PDF.
 ///
 /// Returns the raw bytes making up the PDF document.
-pub fn export(env: &Env, frames: &[Frame]) -> Vec<u8> {
-    PdfExporter::new(env, frames).write()
+pub fn pdf(cache: &Cache, frames: &[Frame]) -> Vec<u8> {
+    PdfExporter::new(cache, frames).write()
 }
 
 struct PdfExporter<'a> {
     writer: PdfWriter,
     frames: &'a [Frame],
-    env: &'a Env,
+    cache: &'a Cache,
     refs: Refs,
     fonts: Remapper<FaceId>,
     images: Remapper<ImageId>,
 }
 
 impl<'a> PdfExporter<'a> {
-    fn new(env: &'a Env, frames: &'a [Frame]) -> Self {
+    fn new(cache: &'a Cache, frames: &'a [Frame]) -> Self {
         let mut writer = PdfWriter::new(1, 7);
         writer.set_indent(2);
 
@@ -53,7 +54,7 @@ impl<'a> PdfExporter<'a> {
                     Element::Text(ref shaped) => fonts.insert(shaped.face_id),
                     Element::Geometry(_, _) => {}
                     Element::Image(id, _) => {
-                        let img = env.image(id);
+                        let img = cache.image.get(id);
                         if img.buf.color().has_alpha() {
                             alpha_masks += 1;
                         }
@@ -65,7 +66,14 @@ impl<'a> PdfExporter<'a> {
 
         let refs = Refs::new(frames.len(), fonts.len(), images.len(), alpha_masks);
 
-        Self { writer, frames, env, refs, fonts, images }
+        Self {
+            writer,
+            frames,
+            cache,
+            refs,
+            fonts,
+            images,
+        }
     }
 
     fn write(mut self) -> Vec<u8> {
@@ -207,7 +215,7 @@ impl<'a> PdfExporter<'a> {
 
     fn write_fonts(&mut self) {
         for (refs, face_id) in self.refs.fonts().zip(self.fonts.layout_indices()) {
-            let face = self.env.face(face_id);
+            let face = self.cache.font.get(face_id);
             let ttf = face.ttf();
 
             let name = ttf
@@ -312,7 +320,7 @@ impl<'a> PdfExporter<'a> {
         let mut masks_seen = 0;
 
         for (id, image_id) in self.refs.images().zip(self.images.layout_indices()) {
-            let img = self.env.image(image_id);
+            let img = self.cache.image.get(image_id);
             let (width, height) = img.buf.dimensions();
 
             // Add the primary image.

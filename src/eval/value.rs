@@ -1,15 +1,15 @@
 use std::any::Any;
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 
-use super::{EvalContext, NodeMap};
+use super::EvalContext;
 use crate::color::{Color, RgbaColor};
 use crate::exec::ExecContext;
 use crate::geom::{Angle, Length, Linear, Relative};
-use crate::syntax::{Span, Spanned, Tree};
+use crate::syntax::{Node, Span, Spanned, Tree};
 
 /// A computational value.
 #[derive(Debug, Clone, PartialEq)]
@@ -162,6 +162,14 @@ impl PartialEq for TemplateNode {
         false
     }
 }
+
+/// A map from nodes to the values they evaluated to.
+///
+/// The raw pointers point into the nodes contained in some [`Tree`]. Since the
+/// lifetime is erased, the tree could go out of scope while the hash map still
+/// lives. Although this could lead to lookup panics, it is not unsafe since the
+/// pointers are never dereferenced.
+pub type NodeMap = HashMap<*const Node, Value>;
 
 /// A reference-counted dynamic template node that can implement custom
 /// behaviour.

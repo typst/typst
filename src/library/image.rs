@@ -1,7 +1,7 @@
 use ::image::GenericImageView;
 
 use super::*;
-use crate::env::ImageId;
+use crate::image::ImageId;
 use crate::layout::{AnyNode, Element, Frame, Layout, LayoutContext, Regions};
 
 /// `image`: An image.
@@ -18,21 +18,26 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = args.eat_named(ctx, "width");
     let height = args.eat_named(ctx, "height");
 
+    let mut node = None;
+    if let Some(path) = &path {
+        if let Some(id) = ctx.cache.image.load(ctx.loader, &path.v) {
+            let img = ctx.cache.image.get(id);
+            let dimensions = img.buf.dimensions();
+            node = Some(ImageNode { id, dimensions, width, height });
+        } else {
+            ctx.diag(error!(path.span, "failed to load image"));
+        }
+    }
+
     Value::template("image", move |ctx| {
-        if let Some(path) = &path {
-            if let Some(id) = ctx.env.load_image(&path.v) {
-                let img = ctx.env.image(id);
-                let dimensions = img.buf.dimensions();
-                ctx.push(ImageNode { id, dimensions, width, height });
-            } else {
-                ctx.diag(error!(path.span, "failed to load image"));
-            }
+        if let Some(node) = node {
+            ctx.push(node);
         }
     })
 }
 
 /// An image node.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
 struct ImageNode {
     /// The id of the image file.
     id: ImageId,

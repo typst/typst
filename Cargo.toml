@@ -23,7 +23,7 @@ opt-level = 2
 [dependencies]
 decorum = { version = "0.3.1", default-features = false, features = ["serialize-serde"] }
 fxhash = "0.2.1"
-image = { version = "0.23", default-features = false, features = ["jpeg", "png"] }
+image = { version = "0.23", default-features = false, features = ["png", "jpeg"] }
 miniz_oxide = "0.3"
 pdf-writer = { path = "../pdf-writer" }
 rustybuzz = { git = "https://github.com/laurmaedje/rustybuzz" }

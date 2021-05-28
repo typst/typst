@@ -1,34 +1,27 @@
-//! Caching for incremental compilation.
+//! Caching of compilation artifacts.
 
-use std::collections::HashMap;
+use crate::font::FontCache;
+use crate::image::ImageCache;
+use crate::layout::LayoutCache;
+use crate::loading::Loader;
 
-use crate::layout::{Frame, Regions};
-
-/// A cache for incremental compilation.
-#[derive(Default, Debug, Clone)]
+/// Caches compilation artifacts.
 pub struct Cache {
-    /// A map that holds the layouted nodes from past compilations.
-    pub frames: HashMap<u64, FramesEntry>,
+    /// Caches parsed font faces.
+    pub font: FontCache,
+    /// Caches decoded images.
+    pub image: ImageCache,
+    /// Caches layouting artifacts.
+    pub layout: LayoutCache,
 }
 
 impl Cache {
     /// Create a new, empty cache.
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(loader: &dyn Loader) -> Self {
+        Self {
+            font: FontCache::new(loader),
+            image: ImageCache::new(),
+            layout: LayoutCache::new(),
+        }
     }
-
-    /// Clear the cache.
-    pub fn clear(&mut self) {
-        self.frames.clear();
-    }
-}
-
-/// Frames from past compilations and checks for their validity in future
-/// compilations.
-#[derive(Debug, Clone)]
-pub struct FramesEntry {
-    /// The regions in which these frames are valid.
-    pub regions: Regions,
-    /// Cached frames for a node.
-    pub frames: Vec<Frame>,
 }

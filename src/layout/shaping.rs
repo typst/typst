@@ -5,9 +5,8 @@ use std::ops::Range;
 use rustybuzz::UnicodeBuffer;
 
 use super::{Element, Frame, Glyph, LayoutContext, Text};
-use crate::env::FaceId;
 use crate::exec::FontProps;
-use crate::font::Face;
+use crate::font::{Face, FaceId};
 use crate::geom::{Dir, Length, Point, Size};
 use crate::util::SliceExt;
 
@@ -215,10 +214,12 @@ fn shape_segment<'a>(
     let (face_id, fallback) = loop {
         // Try to load the next available font family.
         match families.next() {
-            Some(family) => match ctx.env.query_face(family, props.variant) {
-                Some(id) => break (id, true),
-                None => {}
-            },
+            Some(family) => {
+                match ctx.cache.font.select(ctx.loader, family, props.variant) {
+                    Some(id) => break (id, true),
+                    None => {}
+                }
+            }
             // We're out of families, so we don't do any more fallback and just
             // shape the tofus with the first face we originally used.
             None => match first_face {
@@ -242,7 +243,7 @@ fn shape_segment<'a>(
     });
 
     // Shape!
-    let mut face = ctx.env.face(face_id);
+    let mut face = ctx.cache.font.get(face_id);
     let buffer = rustybuzz::shape(face.ttf(), &[], buffer);
     let infos = buffer.glyph_infos();
     let pos = buffer.glyph_positions();
@@ -317,7 +318,7 @@ fn shape_segment<'a>(
                 first_face,
             );
 
-            face = ctx.env.face(face_id);
+            face = ctx.cache.font.get(face_id);
         }
 
         i += 1;
@@ -331,6 +332,8 @@ fn measure(
     glyphs: &[ShapedGlyph],
     props: &FontProps,
 ) -> (Size, Length) {
+    let cache = &mut ctx.cache.font;
+
     let mut width = Length::zero();
     let mut top = Length::zero();
     let mut bottom = Length::zero();
@@ -343,14 +346,14 @@ fn measure(
         // When there are no glyphs, we just use the vertical metrics of the
         // first available font.
         for family in props.families.iter() {
-            if let Some(face_id) = ctx.env.query_face(family, props.variant) {
-                expand_vertical(ctx.env.face(face_id));
+            if let Some(face_id) = cache.select(ctx.loader, family, props.variant) {
+                expand_vertical(cache.get(face_id));
                 break;
             }
         }
     } else {
         for (face_id, group) in glyphs.group_by_key(|g| g.face_id) {
-            let face = ctx.env.face(face_id);
+            let face = cache.get(face_id);
             expand_vertical(face);
 
             for glyph in group {

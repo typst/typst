@@ -604,7 +604,6 @@ mod tests {
     use std::rc::Rc;
 
     use super::*;
-    use crate::env::Env;
     use crate::parse::parse;
 
     #[track_caller]
@@ -724,13 +723,6 @@ mod tests {
         roundtrip("#while x {y}");
         roundtrip("#for x in y {z}");
         roundtrip("#for k, x in y {z}");
-    }
-
-    #[test]
-    fn test_pretty_print_with_map() {
-        let tree = parse("*[{1+2}[{4}]]*{2+3}").output;
-        let map = eval(&mut Env::blank(), &tree, &Default::default()).output;
-        assert_eq!(pretty_with_map(&tree, &map), "*[3[4]]*5");
     }
 
     #[test]

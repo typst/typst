@@ -17,19 +17,20 @@ pub use shaping::*;
 pub use stack::*;
 
 use std::any::Any;
+use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
 use decorum::N64;
 use fxhash::FxHasher64;
 
-use crate::cache::{Cache, FramesEntry};
-use crate::env::Env;
+use crate::cache::Cache;
 use crate::geom::*;
+use crate::loading::Loader;
 
 /// Layout a tree into a collection of frames.
-pub fn layout(env: &mut Env, cache: &mut Cache, tree: &Tree) -> Vec<Frame> {
-    tree.layout(&mut LayoutContext { env, cache })
+pub fn layout(loader: &mut dyn Loader, cache: &mut Cache, tree: &Tree) -> Vec<Frame> {
+    tree.layout(&mut LayoutContext { loader, cache })
 }
 
 /// A tree of layout nodes.
@@ -92,14 +93,14 @@ impl AnyNode {
 
 impl Layout for AnyNode {
     fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
-        if let Some(hit) = ctx.cache.frames.get(&self.hash) {
+        if let Some(hit) = ctx.cache.layout.frames.get(&self.hash) {
             if &hit.regions == regions {
                 return hit.frames.clone();
             }
         }
 
         let frames = self.node.layout(ctx, regions);
-        ctx.cache.frames.insert(self.hash, FramesEntry {
+        ctx.cache.layout.frames.insert(self.hash, FramesEntry {
             regions: regions.clone(),
             frames: frames.clone(),
         });
@@ -170,11 +171,37 @@ pub trait Layout {
 
 /// The context for layouting.
 pub struct LayoutContext<'a> {
-    /// The environment from which fonts are gathered.
-    pub env: &'a mut Env,
-    /// A cache which enables reuse of layout artifacts from past compilation
-    /// cycles.
+    /// The loader from which fonts are loaded.
+    pub loader: &'a mut dyn Loader,
+    /// A cache for loaded fonts and artifacts from past layouting.
     pub cache: &'a mut Cache,
+}
+
+/// Caches layouting artifacts.
+pub struct LayoutCache {
+    /// Maps from node hashes to the resulting frames and regions in which the
+    /// frames are valid.
+    pub frames: HashMap<u64, FramesEntry>,
+}
+
+impl LayoutCache {
+    /// Create a new, empty layout cache.
+    pub fn new() -> Self {
+        Self { frames: HashMap::new() }
+    }
+
+    /// Clear the cache.
+    pub fn clear(&mut self) {
+        self.frames.clear();
+    }
+}
+
+/// Cached frames from past layouting.
+pub struct FramesEntry {
+    /// The regions in which these frames are valid.
+    pub regions: Regions,
+    /// The cached frames for a node.
+    pub frames: Vec<Frame>,
 }
 
 /// A sequence of regions to layout into.

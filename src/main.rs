@@ -3,15 +3,6 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context};
 
-use typst::cache::Cache;
-use typst::diag::Pass;
-use typst::env::{Env, FsLoader};
-use typst::exec::State;
-use typst::library;
-use typst::parse::LineMap;
-use typst::pdf;
-use typst::typeset;
-
 fn main() -> anyhow::Result<()> {
     let args: Vec<_> = std::env::args().collect();
     if args.len() < 2 || args.len() > 3 {
@@ -35,35 +26,30 @@ fn main() -> anyhow::Result<()> {
 
     let src = fs::read_to_string(src_path).context("Failed to read from source file.")?;
 
-    let mut loader = FsLoader::new();
+    let mut loader = typst::loading::FsLoader::new();
     loader.search_path("fonts");
     loader.search_system();
 
-    let mut env = Env::new(loader);
-    let mut cache = Cache::new();
-    let scope = library::new();
-    let state = State::default();
-
-    let Pass { output: frames, diags } =
-        typeset(&mut env, &mut cache, &src, &scope, state);
-    if !diags.is_empty() {
-        let map = LineMap::new(&src);
-        for diag in diags {
-            let start = map.location(diag.span.start).unwrap();
-            let end = map.location(diag.span.end).unwrap();
-            println!(
-                "{}: {}:{}-{}: {}",
-                diag.level,
-                src_path.display(),
-                start,
-                end,
-                diag.message,
-            );
-        }
+    let mut cache = typst::cache::Cache::new(&loader);
+    let scope = typst::library::new();
+    let state = typst::exec::State::default();
+    let pass = typst::typeset(&mut loader, &mut cache, &src, &scope, state);
+    let map = typst::parse::LineMap::new(&src);
+    for diag in pass.diags {
+        let start = map.location(diag.span.start).unwrap();
+        let end = map.location(diag.span.end).unwrap();
+        println!(
+            "{}: {}:{}-{}: {}",
+            diag.level,
+            src_path.display(),
+            start,
+            end,
+            diag.message,
+        );
     }
 
-    let pdf_data = pdf::export(&env, &frames);
-    fs::write(&dest_path, pdf_data).context("Failed to write PDF file.")?;
+    let buffer = typst::export::pdf(&cache, &pass.output);
+    fs::write(&dest_path, buffer).context("Failed to write PDF file.")?;
 
     Ok(())
 }

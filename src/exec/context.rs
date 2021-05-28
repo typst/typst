@@ -2,7 +2,6 @@ use std::mem;
 
 use super::{Exec, FontFamily, State};
 use crate::diag::{Diag, DiagSet, Pass};
-use crate::env::Env;
 use crate::eval::TemplateValue;
 use crate::geom::{Align, Dir, Gen, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{
@@ -11,9 +10,7 @@ use crate::layout::{
 use crate::syntax::Span;
 
 /// The context for execution.
-pub struct ExecContext<'a> {
-    /// The environment from which resources are gathered.
-    pub env: &'a mut Env,
+pub struct ExecContext {
     /// The active execution state.
     pub state: State,
     /// Execution diagnostics.
@@ -27,11 +24,10 @@ pub struct ExecContext<'a> {
     stack: StackBuilder,
 }
 
-impl<'a> ExecContext<'a> {
+impl ExecContext {
     /// Create a new execution context with a base state.
-    pub fn new(env: &'a mut Env, state: State) -> Self {
+    pub fn new(state: State) -> Self {
         Self {
-            env,
             diags: DiagSet::new(),
             tree: Tree { runs: vec![] },
             page: Some(PageBuilder::new(&state, true)),

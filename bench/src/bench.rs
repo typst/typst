@@ -1,15 +1,14 @@
 use std::path::Path;
+use std::rc::Rc;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use typst::cache::Cache;
-use typst::env::{Env, FsLoader};
 use typst::eval::eval;
-use typst::exec::{exec, State};
+use typst::exec::exec;
+use typst::export::pdf;
 use typst::layout::layout;
-use typst::library;
+use typst::loading::FsLoader;
 use typst::parse::parse;
-use typst::pdf;
 use typst::typeset;
 
 const FONT_DIR: &str = "../fonts";
@@ -20,38 +19,39 @@ fn benchmarks(c: &mut Criterion) {
     let mut loader = FsLoader::new();
     loader.search_path(FONT_DIR);
 
-    let mut env = Env::new(loader);
-
-    let scope = library::new();
-    let state = State::default();
+    let mut cache = typst::cache::Cache::new(&loader);
+    let scope = typst::library::new();
+    let state = typst::exec::State::default();
 
     for case in CASES {
         let case = Path::new(case);
         let name = case.file_stem().unwrap().to_string_lossy();
-        let src = std::fs::read_to_string(Path::new(TYP_DIR).join(case)).unwrap();
 
         macro_rules! bench {
-            ($step:literal: $($tts:tt)*) => {
-                c.bench_function(
-                    &format!("{}-{}", $step, name),
-                    |b| b.iter(|| $($tts)*)
-                );
+            ($step:literal: $code:expr) => {
+                c.bench_function(&format!("{}-{}", $step, name), |b| {
+                    b.iter(|| {
+                        cache.layout.clear();
+                        $code
+                    });
+                });
             };
         }
 
-        // Prepare intermediate results and run warm.
-        let syntax_tree = parse(&src).output;
-        let expr_map = eval(&mut env, &syntax_tree, &scope).output;
-        let layout_tree = exec(&mut env, &syntax_tree, &expr_map, state.clone()).output;
-        let frames = layout(&mut env, &mut Cache::new(), &layout_tree);
+        // Prepare intermediate results, run warm and fill caches.
+        let src = std::fs::read_to_string(Path::new(TYP_DIR).join(case)).unwrap();
+        let parsed = Rc::new(parse(&src).output);
+        let evaluated = eval(&mut loader, &mut cache, parsed.clone(), &scope).output;
+        let executed = exec(&evaluated.template, state.clone()).output;
+        let layouted = layout(&mut loader, &mut cache, &executed);
 
         // Bench!
         bench!("parse": parse(&src));
-        bench!("eval": eval(&mut env, &syntax_tree, &scope));
-        bench!("exec": exec(&mut env, &syntax_tree, &expr_map, state.clone()));
-        bench!("layout": layout(&mut env, &mut Cache::new(), &layout_tree));
-        bench!("typeset": typeset(&mut env, &mut Cache::new(), &src, &scope, state.clone()));
-        bench!("pdf": pdf::export(&env, &frames));
+        bench!("eval": eval(&mut loader, &mut cache, parsed.clone(), &scope));
+        bench!("exec": exec(&evaluated.template, state.clone()));
+        bench!("layout": layout(&mut loader, &mut cache, &executed));
+        bench!("typeset": typeset(&mut loader, &mut cache, &src, &scope, state.clone()));
+        bench!("pdf": pdf(&cache, &layouted));
     }
 }
 

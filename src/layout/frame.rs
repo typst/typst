@@ -1,6 +1,7 @@
 use crate::color::Color;
-use crate::env::{FaceId, ImageId};
+use crate::font::FaceId;
 use crate::geom::{Length, Path, Point, Size};
+use crate::image::ImageId;
 
 use serde::{Deserialize, Serialize};
 

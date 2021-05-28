@@ -15,18 +15,15 @@ use walkdir::WalkDir;
 
 use typst::cache::Cache;
 use typst::color;
-use typst::diag::{Diag, DiagSet, Level, Pass};
-use typst::env::{Env, FsLoader, ImageId};
+use typst::diag::{Diag, DiagSet, Level};
 use typst::eval::{EvalContext, FuncArgs, FuncValue, Scope, Value};
 use typst::exec::State;
 use typst::geom::{self, Length, Point, Sides, Size};
+use typst::image::ImageId;
 use typst::layout::{Element, Fill, Frame, Shape, Text};
-use typst::library;
+use typst::loading::FsLoader;
 use typst::parse::{LineMap, Scanner};
-use typst::pdf;
-use typst::pretty::pretty;
 use typst::syntax::{Location, Pos};
-use typst::typeset;
 
 const TYP_DIR: &str = "./typ";
 const REF_DIR: &str = "./ref";
@@ -63,10 +60,10 @@ fn main() {
         println!("Running {} tests", len);
     }
 
-    let mut loader = FsLoader::new();
+    let mut loader = typst::loading::FsLoader::new();
     loader.search_path(FONT_DIR);
 
-    let mut env = Env::new(loader);
+    let mut cache = typst::cache::Cache::new(&loader);
 
     let mut ok = true;
     for src_path in filtered {
@@ -77,7 +74,8 @@ fn main() {
             args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
         ok &= test(
-            &mut env,
+            &mut loader,
+            &mut cache,
             &src_path,
             &png_path,
             &ref_path,
@@ -130,7 +128,8 @@ struct Panic {
 }
 
 fn test(
-    env: &mut Env,
+    loader: &mut FsLoader,
+    cache: &mut Cache,
     src_path: &Path,
     png_path: &Path,
     ref_path: &Path,
@@ -163,7 +162,7 @@ fn test(
             }
         } else {
             let (part_ok, compare_here, part_frames) =
-                test_part(env, part, i, compare_ref, lines);
+                test_part(loader, cache, part, i, compare_ref, lines);
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
@@ -174,12 +173,12 @@ fn test(
 
     if compare_ever {
         if let Some(pdf_path) = pdf_path {
-            let pdf_data = pdf::export(&env, &frames);
+            let pdf_data = typst::export::pdf(cache, &frames);
             fs::create_dir_all(&pdf_path.parent().unwrap()).unwrap();
             fs::write(pdf_path, pdf_data).unwrap();
         }
 
-        let canvas = draw(&env, &frames, 2.0);
+        let canvas = draw(&cache, &frames, 2.0);
         fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
@@ -202,7 +201,8 @@ fn test(
 }
 
 fn test_part(
-    env: &mut Env,
+    loader: &mut FsLoader,
+    cache: &mut Cache,
     src: &str,
     i: usize,
     compare_ref: bool,
@@ -212,7 +212,8 @@ fn test_part(
     let (local_compare_ref, ref_diags) = parse_metadata(src, &map);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
-    let mut scope = library::new();
+    // We hook up some extra test helpers into the global scope.
+    let mut scope = typst::library::new();
     let panics = Rc::new(RefCell::new(vec![]));
     register_helpers(&mut scope, Rc::clone(&panics));
 
@@ -222,10 +223,9 @@ fn test_part(
     state.page.size = Size::new(Length::pt(120.0), Length::raw(f64::INFINITY));
     state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
-    let Pass { output: mut frames, diags } =
-        typeset(env, &mut Cache::new(), &src, &scope, state);
+    let mut pass = typst::typeset(loader, cache, &src, &scope, state);
     if !compare_ref {
-        frames.clear();
+        pass.output.clear();
     }
 
     let mut ok = true;
@@ -242,11 +242,11 @@ fn test_part(
         ok = false;
     }
 
-    if diags != ref_diags {
+    if pass.diags != ref_diags {
         println!("  Subtest {} does not match expected diagnostics. ❌", i);
         ok = false;
 
-        for diag in &diags {
+        for diag in &pass.diags {
             if !ref_diags.contains(diag) {
                 print!("    Not annotated | ");
                 print_diag(diag, &map, lines);
@@ -254,14 +254,14 @@ fn test_part(
         }
 
         for diag in &ref_diags {
-            if !diags.contains(diag) {
+            if !pass.diags.contains(diag) {
                 print!("    Not emitted   | ");
                 print_diag(diag, &map, lines);
             }
         }
     }
 
-    (ok, compare_ref, frames)
+    (ok, compare_ref, pass.output)
 }
 
 fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {
@@ -311,7 +311,7 @@ fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {
 
 fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
     pub fn args(_: &mut EvalContext, args: &mut FuncArgs) -> Value {
-        let repr = pretty(args);
+        let repr = typst::pretty::pretty(args);
         args.items.clear();
         Value::template("args", move |ctx| {
             let snapshot = ctx.state.clone();
@@ -345,7 +345,7 @@ fn print_diag(diag: &Diag, map: &LineMap, lines: u32) {
     println!("{}: {}-{}: {}", diag.level, start, end, diag.message);
 }
 
-fn draw(env: &Env, frames: &[Frame], dpi: f32) -> Pixmap {
+fn draw(cache: &Cache, frames: &[Frame], dpi: f32) -> Pixmap {
     let pad = Length::pt(5.0);
 
     let height = pad + frames.iter().map(|l| l.size.height + pad).sum::<Length>();
@@ -393,13 +393,13 @@ fn draw(env: &Env, frames: &[Frame], dpi: f32) -> Pixmap {
             let ts = ts.pre_translate(x, y);
             match *element {
                 Element::Text(ref text) => {
-                    draw_text(&mut canvas, env, ts, text);
+                    draw_text(&mut canvas, cache, ts, text);
                 }
                 Element::Geometry(ref shape, fill) => {
                     draw_geometry(&mut canvas, ts, shape, fill);
                 }
                 Element::Image(id, size) => {
-                    draw_image(&mut canvas, env, ts, id, size);
+                    draw_image(&mut canvas, cache, ts, id, size);
                 }
             }
         }
@@ -410,8 +410,8 @@ fn draw(env: &Env, frames: &[Frame], dpi: f32) -> Pixmap {
     canvas
 }
 
-fn draw_text(canvas: &mut Pixmap, env: &Env, ts: Transform, text: &Text) {
-    let ttf = env.face(text.face_id).ttf();
+fn draw_text(canvas: &mut Pixmap, cache: &Cache, ts: Transform, text: &Text) {
+    let ttf = cache.font.get(text.face_id).ttf();
     let mut x = 0.0;
 
     for glyph in &text.glyphs {
@@ -480,8 +480,14 @@ fn draw_geometry(canvas: &mut Pixmap, ts: Transform, shape: &Shape, fill: Fill) 
     };
 }
 
-fn draw_image(canvas: &mut Pixmap, env: &Env, ts: Transform, id: ImageId, size: Size) {
-    let img = env.image(id);
+fn draw_image(
+    canvas: &mut Pixmap,
+    cache: &Cache,
+    ts: Transform,
+    id: ImageId,
+    size: Size,
+) {
+    let img = cache.image.get(id);
 
     let mut pixmap = Pixmap::new(img.buf.width(), img.buf.height()).unwrap();
     for ((_, _, src), dest) in img.buf.pixels().zip(pixmap.pixels_mut()) {

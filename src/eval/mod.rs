@@ -10,38 +10,50 @@ pub use capture::*;
 pub use scope::*;
 pub use value::*;
 
-use std::collections::HashMap;
 use std::rc::Rc;
 
+use crate::cache::Cache;
 use crate::color::Color;
 use crate::diag::{Diag, DiagSet, Pass};
-use crate::env::Env;
 use crate::geom::{Angle, Length, Relative};
+use crate::loading::Loader;
 use crate::syntax::visit::Visit;
 use crate::syntax::*;
 
-/// Evaluate all nodes in a syntax tree.
+/// Evaluated a parsed source file into a module.
 ///
 /// The `scope` consists of the base definitions that are present from the
 /// beginning (typically, the standard library).
-pub fn eval(env: &mut Env, tree: &Tree, scope: &Scope) -> Pass<NodeMap> {
-    let mut ctx = EvalContext::new(env, scope);
+pub fn eval(
+    loader: &mut dyn Loader,
+    cache: &mut Cache,
+    tree: Rc<Tree>,
+    base: &Scope,
+) -> Pass<Module> {
+    let mut ctx = EvalContext::new(loader, cache, base);
     let map = tree.eval(&mut ctx);
-    Pass::new(map, ctx.diags)
+    let module = Module {
+        scope: ctx.scopes.top,
+        template: vec![TemplateNode::Tree { tree, map }],
+    };
+    Pass::new(module, ctx.diags)
 }
 
-/// A map from nodes to the values they evaluated to.
-///
-/// The raw pointers point into the nodes contained in some [`Tree`]. Since the
-/// lifetime is erased, the tree could go out of scope while the hash map still
-/// lives. Although this could lead to lookup panics, it is not unsafe since the
-/// pointers are never dereferenced.
-pub type NodeMap = HashMap<*const Node, Value>;
+/// An evaluated module, ready for importing or execution.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Module {
+    /// The top-level definitions that were bound in this module.
+    pub scope: Scope,
+    /// The template defined by this module.
+    pub template: TemplateValue,
+}
 
 /// The context for evaluation.
 pub struct EvalContext<'a> {
-    /// The environment from which resources are gathered.
-    pub env: &'a mut Env,
+    /// The loader from which resources (files and images) are loaded.
+    pub loader: &'a mut dyn Loader,
+    /// A cache for loaded resources.
+    pub cache: &'a mut Cache,
     /// The active scopes.
     pub scopes: Scopes<'a>,
     /// Evaluation diagnostics.
@@ -49,11 +61,16 @@ pub struct EvalContext<'a> {
 }
 
 impl<'a> EvalContext<'a> {
-    /// Create a new execution context with a base scope.
-    pub fn new(env: &'a mut Env, scope: &'a Scope) -> Self {
+    /// Create a new evaluation context with a base scope.
+    pub fn new(
+        loader: &'a mut dyn Loader,
+        cache: &'a mut Cache,
+        base: &'a Scope,
+    ) -> Self {
         Self {
-            env,
-            scopes: Scopes::with_base(scope),
+            loader,
+            cache,
+            scopes: Scopes::with_base(base),
             diags: DiagSet::new(),
         }
     }

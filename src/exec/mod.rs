@@ -9,29 +9,18 @@ pub use state::*;
 use std::rc::Rc;
 
 use crate::diag::Pass;
-use crate::env::Env;
 use crate::eval::{NodeMap, TemplateFunc, TemplateNode, TemplateValue, Value};
 use crate::layout;
 use crate::pretty::pretty;
 use crate::syntax::*;
 
-/// Execute a syntax tree to produce a layout tree.
-///
-/// The `map` shall be a node map computed for this tree with
-/// [`eval`](crate::eval::eval). Note that `tree` must be the _exact_ same tree
-/// as used for evaluation (no cloned version), because the node map depends on
-/// the pointers being stable.
+/// Execute a template to produce a layout tree.
 ///
 /// The `state` is the base state that may be updated over the course of
 /// execution.
-pub fn exec(
-    env: &mut Env,
-    tree: &Tree,
-    map: &NodeMap,
-    state: State,
-) -> Pass<layout::Tree> {
-    let mut ctx = ExecContext::new(env, state);
-    tree.exec_with_map(&mut ctx, &map);
+pub fn exec(template: &TemplateValue, state: State) -> Pass<layout::Tree> {
+    let mut ctx = ExecContext::new(state);
+    template.exec(&mut ctx);
     ctx.finish()
 }
 
