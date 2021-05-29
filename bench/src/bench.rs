@@ -24,8 +24,8 @@ fn benchmarks(c: &mut Criterion) {
     let state = typst::exec::State::default();
 
     for case in CASES {
-        let case = Path::new(case);
-        let name = case.file_stem().unwrap().to_string_lossy();
+        let path = Path::new(TYP_DIR).join(case);
+        let name = path.file_stem().unwrap().to_string_lossy();
 
         macro_rules! bench {
             ($step:literal: $code:expr) => {
@@ -39,18 +39,18 @@ fn benchmarks(c: &mut Criterion) {
         }
 
         // Prepare intermediate results, run warm and fill caches.
-        let src = std::fs::read_to_string(Path::new(TYP_DIR).join(case)).unwrap();
-        let parsed = Rc::new(parse(&src).output);
-        let evaluated = eval(&mut loader, &mut cache, parsed.clone(), &scope).output;
-        let executed = exec(&evaluated.template, state.clone()).output;
-        let layouted = layout(&mut loader, &mut cache, &executed);
+        let src = std::fs::read_to_string(&path).unwrap();
+        let tree = Rc::new(parse(&src).output);
+        let evaluated = eval(&mut loader, &mut cache, &path, tree.clone(), &scope);
+        let executed = exec(&evaluated.output.template, state.clone());
+        let layouted = layout(&mut loader, &mut cache, &executed.output);
 
         // Bench!
         bench!("parse": parse(&src));
-        bench!("eval": eval(&mut loader, &mut cache, parsed.clone(), &scope));
-        bench!("exec": exec(&evaluated.template, state.clone()));
-        bench!("layout": layout(&mut loader, &mut cache, &executed));
-        bench!("typeset": typeset(&mut loader, &mut cache, &src, &scope, state.clone()));
+        bench!("eval": eval(&mut loader, &mut cache, &path, tree.clone(), &scope));
+        bench!("exec": exec(&evaluated.output.template, state.clone()));
+        bench!("layout": layout(&mut loader, &mut cache, &executed.output));
+        bench!("typeset": typeset(&mut loader, &mut cache, &path, &src, &scope, state.clone()));
         bench!("pdf": pdf(&cache, &layouted));
     }
 }

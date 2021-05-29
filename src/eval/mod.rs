@@ -10,27 +10,34 @@ pub use capture::*;
 pub use scope::*;
 pub use value::*;
 
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::cache::Cache;
 use crate::color::Color;
 use crate::diag::{Diag, DiagSet, Pass};
 use crate::geom::{Angle, Length, Relative};
-use crate::loading::Loader;
+use crate::loading::{FileHash, Loader};
+use crate::parse::parse;
 use crate::syntax::visit::Visit;
 use crate::syntax::*;
 
 /// Evaluated a parsed source file into a module.
+///
+/// The `path` should point to the source file for the `tree` and is used to
+/// resolve relative path names.
 ///
 /// The `scope` consists of the base definitions that are present from the
 /// beginning (typically, the standard library).
 pub fn eval(
     loader: &mut dyn Loader,
     cache: &mut Cache,
+    path: &Path,
     tree: Rc<Tree>,
     base: &Scope,
 ) -> Pass<Module> {
-    let mut ctx = EvalContext::new(loader, cache, base);
+    let mut ctx = EvalContext::new(loader, cache, path, base);
     let map = tree.eval(&mut ctx);
     let module = Module {
         scope: ctx.scopes.top,
@@ -58,6 +65,12 @@ pub struct EvalContext<'a> {
     pub scopes: Scopes<'a>,
     /// Evaluation diagnostics.
     pub diags: DiagSet,
+    /// The stack of imported files that led to evaluation of the current file.
+    pub route: Vec<FileHash>,
+    /// The location of the currently evaluated file.
+    pub path: PathBuf,
+    /// A map of loaded module.
+    pub modules: HashMap<FileHash, Module>,
 }
 
 impl<'a> EvalContext<'a> {
@@ -65,19 +78,115 @@ impl<'a> EvalContext<'a> {
     pub fn new(
         loader: &'a mut dyn Loader,
         cache: &'a mut Cache,
+        path: &Path,
         base: &'a Scope,
     ) -> Self {
+        let mut route = vec![];
+        if let Some(hash) = loader.resolve(path) {
+            route.push(hash);
+        }
+
         Self {
             loader,
             cache,
-            scopes: Scopes::with_base(base),
+            scopes: Scopes::with_base(Some(base)),
             diags: DiagSet::new(),
+            route,
+            path: path.to_owned(),
+            modules: HashMap::new(),
         }
+    }
+
+    /// Resolve a path relative to the current file.
+    ///
+    /// Generates an error if the file is not found.
+    pub fn resolve(&mut self, path: &str, span: Span) -> Option<(PathBuf, FileHash)> {
+        let dir = self.path.parent().expect("location is a file");
+        let path = dir.join(path);
+        match self.loader.resolve(&path) {
+            Some(hash) => Some((path, hash)),
+            None => {
+                self.diag(error!(span, "file not found"));
+                None
+            }
+        }
+    }
+
+    /// Process an import of a module relative to the current location.
+    pub fn import(&mut self, path: &str, span: Span) -> Option<FileHash> {
+        let (resolved, hash) = self.resolve(path, span)?;
+
+        // Prevent cycling importing.
+        if self.route.contains(&hash) {
+            self.diag(error!(span, "cyclic import"));
+            return None;
+        }
+
+        if self.modules.get(&hash).is_some() {
+            return Some(hash);
+        }
+
+        let buffer = self.loader.load_file(&resolved).or_else(|| {
+            self.diag(error!(span, "failed to load file"));
+            None
+        })?;
+
+        let string = std::str::from_utf8(&buffer).ok().or_else(|| {
+            self.diag(error!(span, "file is not valid utf-8"));
+            None
+        })?;
+
+        // Prepare the new context.
+        self.route.push(hash);
+        let new_scopes = Scopes::with_base(self.scopes.base);
+        let old_scopes = std::mem::replace(&mut self.scopes, new_scopes);
+
+        // Evaluate the module.
+        let tree = Rc::new(parse(string).output);
+        let map = tree.eval(self);
+
+        // Restore the old context.
+        let new_scopes = std::mem::replace(&mut self.scopes, old_scopes);
+        self.route.pop();
+
+        self.modules.insert(hash, Module {
+            scope: new_scopes.top,
+            template: vec![TemplateNode::Tree { tree, map }],
+        });
+
+        Some(hash)
     }
 
     /// Add a diagnostic.
     pub fn diag(&mut self, diag: Diag) {
         self.diags.insert(diag);
+    }
+
+    /// Cast a value to a type and diagnose a possible error / warning.
+    pub fn cast<T>(&mut self, value: Value, span: Span) -> Option<T>
+    where
+        T: Cast<Value>,
+    {
+        if value == Value::Error {
+            return None;
+        }
+
+        match T::cast(value) {
+            CastResult::Ok(t) => Some(t),
+            CastResult::Warn(t, m) => {
+                self.diag(warning!(span, "{}", m));
+                Some(t)
+            }
+            CastResult::Err(value) => {
+                self.diag(error!(
+                    span,
+                    "expected {}, found {}",
+                    T::TYPE_NAME,
+                    value.type_name(),
+                ));
+                None
+            }
+        }
     }
 }
 
@@ -349,24 +458,14 @@ impl Eval for CallExpr {
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         let callee = self.callee.eval(ctx);
-
-        if let Value::Func(func) = callee {
-            let func = func.clone();
-
+        if let Some(func) = ctx.cast::<FuncValue>(callee, self.callee.span()) {
             let mut args = self.args.eval(ctx);
             let returned = func(ctx, &mut args);
             args.finish(ctx);
-
-            return returned;
-        } else if callee != Value::Error {
-            ctx.diag(error!(
-                self.callee.span(),
-                "expected function, found {}",
-                callee.type_name(),
-            ));
+            returned
+        } else {
+            Value::Error
         }
-
-        Value::Error
     }
 }
 
@@ -449,7 +548,7 @@ impl Eval for IfExpr {
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         let condition = self.condition.eval(ctx);
-        if let Value::Bool(condition) = condition {
+        if let Some(condition) = ctx.cast(condition, self.condition.span()) {
             if condition {
                 self.if_body.eval(ctx)
             } else if let Some(else_body) = &self.else_body {
@@ -458,13 +557,6 @@ impl Eval for IfExpr {
                 Value::None
             }
         } else {
-            if condition != Value::Error {
-                ctx.diag(error!(
-                    self.condition.span(),
-                    "expected boolean, found {}",
-                    condition.type_name(),
-                ));
-            }
             Value::Error
         }
     }
@@ -477,7 +569,7 @@ impl Eval for WhileExpr {
         let mut output = vec![];
         loop {
             let condition = self.condition.eval(ctx);
-            if let Value::Bool(condition) = condition {
+            if let Some(condition) = ctx.cast(condition, self.condition.span()) {
                 if condition {
                     match self.body.eval(ctx) {
                         Value::Template(v) => output.extend(v),
@@ -489,13 +581,6 @@ impl Eval for WhileExpr {
                     return Value::Template(output);
                 }
             } else {
-                if condition != Value::Error {
-                    ctx.diag(error!(
-                        self.condition.span(),
-                        "expected boolean, found {}",
-                        condition.type_name(),
-                    ));
-                }
                 return Value::Error;
             }
         }
@@ -571,15 +656,54 @@ impl Eval for ForExpr {
 impl Eval for ImportExpr {
     type Output = Value;
 
-    fn eval(&self, _: &mut EvalContext) -> Self::Output {
-        todo!()
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        let span = self.path.span();
+        let path = self.path.eval(ctx);
+
+        if let Some(path) = ctx.cast::<String>(path, span) {
+            if let Some(hash) = ctx.import(&path, span) {
+                let mut module = &ctx.modules[&hash];
+                match &self.imports {
+                    Imports::Wildcard => {
+                        for (var, slot) in module.scope.iter() {
+                            let value = slot.borrow().clone();
+                            ctx.scopes.def_mut(var, value);
+                        }
+                    }
+                    Imports::Idents(idents) => {
+                        for ident in idents {
+                            if let Some(slot) = module.scope.get(&ident) {
+                                let value = slot.borrow().clone();
+                                ctx.scopes.def_mut(ident.as_str(), value);
+                            } else {
+                                ctx.diag(error!(ident.span, "unresolved import"));
+                                module = &ctx.modules[&hash];
+                            }
+                        }
+                    }
+                }
+
+                return Value::None;
+            }
+        }
+
+        Value::Error
     }
 }
 
 impl Eval for IncludeExpr {
     type Output = Value;
 
-    fn eval(&self, _: &mut EvalContext) -> Self::Output {
-        todo!()
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        let span = self.path.span();
+        let path = self.path.eval(ctx);
+
+        if let Some(path) = ctx.cast::<String>(path, span) {
+            if let Some(hash) = ctx.import(&path, span) {
+                return Value::Template(ctx.modules[&hash].template.clone());
+            }
+        }
+
+        Value::Error
     }
 }

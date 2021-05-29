@@ -46,4 +46,4 @@ Lריווח #h(1cm) R
 // Test inline object.
 #font("Noto Serif Hebrew", "EB Garamond")
 #lang("he")
-קרנפיםRh#image("res/rhino.png", height: 11pt)inoחיים
+קרנפיםRh#image("../../res/rhino.png", height: 11pt)inoחיים

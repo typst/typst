@@ -31,12 +31,8 @@ impl<'a> Scopes<'a> {
     }
 
     /// Create a new hierarchy of scopes with a base scope.
-    pub fn with_base(base: &'a Scope) -> Self {
-        Self {
-            top: Scope::new(),
-            scopes: vec![],
-            base: Some(base),
-        }
+    pub fn with_base(base: Option<&'a Scope>) -> Self {
+        Self { top: Scope::new(), scopes: vec![], base }
     }
 
     /// Enter a new scope.
@@ -130,6 +126,11 @@ impl Scope {
     /// Look up the value of a variable.
     pub fn get(&self, var: &str) -> Option<&Slot> {
         self.values.get(var)
+    }
+
+    /// Iterate over all definitions.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &Slot)> {
+        self.values.iter().map(|(k, v)| (k.as_str(), v))
     }
 }
 

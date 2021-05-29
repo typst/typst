@@ -3,12 +3,13 @@
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt::{self, Debug, Formatter};
 use std::io::Cursor;
+use std::path::Path;
 
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageFormat};
 use serde::{Deserialize, Serialize};
 
-use crate::loading::Loader;
+use crate::loading::{FileHash, Loader};
 
 /// A loaded image.
 pub struct Image {
@@ -56,8 +57,8 @@ impl Debug for Image {
 pub struct ImageCache {
     /// Loaded images indexed by [`ImageId`].
     images: Vec<Image>,
-    /// Maps from paths to loaded images.
-    paths: HashMap<String, ImageId>,
+    /// Maps from file hashes to ids of decoded images.
+    map: HashMap<FileHash, ImageId>,
     /// Callback for loaded images.
     on_load: Option<Box<dyn Fn(ImageId, &Image)>>,
 }
@@ -67,14 +68,14 @@ impl ImageCache {
     pub fn new() -> Self {
         Self {
             images: vec![],
-            paths: HashMap::new(),
+            map: HashMap::new(),
             on_load: None,
         }
     }
 
     /// Load and decode an image file from a path.
-    pub fn load(&mut self, loader: &mut dyn Loader, path: &str) -> Option<ImageId> {
-        Some(match self.paths.entry(path.to_string()) {
+    pub fn load(&mut self, loader: &mut dyn Loader, path: &Path) -> Option<ImageId> {
+        Some(match self.map.entry(loader.resolve(path)?) {
             Entry::Occupied(entry) => *entry.get(),
             Entry::Vacant(entry) => {
                 let buffer = loader.load_file(path)?;

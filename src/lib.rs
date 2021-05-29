@@ -48,6 +48,7 @@ pub mod pretty;
 pub mod syntax;
 pub mod util;
 
+use std::path::Path;
 use std::rc::Rc;
 
 use crate::cache::Cache;
@@ -61,12 +62,13 @@ use crate::loading::Loader;
 pub fn typeset(
     loader: &mut dyn Loader,
     cache: &mut Cache,
+    path: &Path,
     src: &str,
     base: &Scope,
     state: State,
 ) -> Pass<Vec<Frame>> {
     let parsed = parse::parse(src);
-    let evaluated = eval::eval(loader, cache, Rc::new(parsed.output), base);
+    let evaluated = eval::eval(loader, cache, path, Rc::new(parsed.output), base);
     let executed = exec::exec(&evaluated.output.template, state);
     let layouted = layout::layout(loader, cache, &executed.output);
 
