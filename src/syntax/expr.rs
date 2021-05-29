@@ -56,6 +56,10 @@ pub enum Expr {
     While(WhileExpr),
     /// A for loop expression: `for x in y { z }`.
     For(ForExpr),
+    /// An import expression: `import "utils.typ" using a, b, c`.
+    Import(ImportExpr),
+    /// An include expression: `include "chapter1.typ"`.
+    Include(IncludeExpr),
 }
 
 impl Expr {
@@ -85,6 +89,8 @@ impl Expr {
             Self::If(ref v) => v.span,
             Self::While(ref v) => v.span,
             Self::For(ref v) => v.span,
+            Self::Import(ref v) => v.span,
+            Self::Include(ref v) => v.span,
         }
     }
 
@@ -430,6 +436,35 @@ pub struct LetExpr {
     pub binding: Ident,
     /// The expression the binding is initialized with.
     pub init: Option<Box<Expr>>,
+}
+
+/// An import expression: `import "utils.typ" using a, b, c`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImportExpr {
+    /// The source code location.
+    pub span: Span,
+    /// The items to be imported.
+    pub imports: Imports,
+    /// The location of the importable file.
+    pub path: Box<Expr>,
+}
+
+/// The items that ought to be imported from a file.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Imports {
+    /// All items in the scope of the file should be imported.
+    Wildcard,
+    /// The specified identifiers from the file should be imported.
+    Idents(Vec<Ident>),
+}
+
+/// An include expression: `include "chapter1.typ"`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IncludeExpr {
+    /// The source code location.
+    pub span: Span,
+    /// The location of the file to be included.
+    pub path: Box<Expr>,
 }
 
 /// An if-else expression: `if x { y } else { z }`.

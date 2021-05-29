@@ -229,6 +229,8 @@ impl Pretty for Expr {
             Self::If(v) => v.pretty(p),
             Self::While(v) => v.pretty(p),
             Self::For(v) => v.pretty(p),
+            Self::Import(v) => v.pretty(p),
+            Self::Include(v) => v.pretty(p),
         }
     }
 }
@@ -431,6 +433,31 @@ impl Pretty for ForPattern {
                 v.pretty(p);
             }
         }
+    }
+}
+
+impl Pretty for ImportExpr {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("import ");
+        self.path.pretty(p);
+        p.push_str(" using ");
+        self.imports.pretty(p);
+    }
+}
+
+impl Pretty for Imports {
+    fn pretty(&self, p: &mut Printer) {
+        match self {
+            Self::Wildcard => p.push('*'),
+            Self::Idents(idents) => p.join(idents, ", ", |item, p| item.pretty(p)),
+        }
+    }
+}
+
+impl Pretty for IncludeExpr {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("include ");
+        self.path.pretty(p);
     }
 }
 

@@ -74,9 +74,15 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
         Token::UnicodeEscape(t) => Node::Text(unicode_escape(p, t)),
 
         // Hashtag + keyword / identifier.
-        Token::Ident(_) | Token::Let | Token::If | Token::While | Token::For => {
+        Token::Ident(_)
+        | Token::Let
+        | Token::If
+        | Token::While
+        | Token::For
+        | Token::Import
+        | Token::Include => {
             *at_start = false;
-            let stmt = token == Token::Let;
+            let stmt = token == Token::Let || token == Token::Import;
             let group = if stmt { Group::Stmt } else { Group::Expr };
 
             p.start_group(group, TokenMode::Code);
@@ -279,6 +285,8 @@ fn primary(p: &mut Parser, atomic: bool) -> Option<Expr> {
         Some(Token::If) => expr_if(p),
         Some(Token::While) => expr_while(p),
         Some(Token::For) => expr_for(p),
+        Some(Token::Import) => expr_import(p),
+        Some(Token::Include) => expr_include(p),
 
         // Nothing.
         _ => {
@@ -331,7 +339,7 @@ fn parenthesized(p: &mut Parser) -> Option<Expr> {
 
     // Arrow means this is a closure's parameter list.
     if p.eat_if(Token::Arrow) {
-        let params = params(p, items);
+        let params = idents(p, items);
         let body = expr(p)?;
         return Some(Expr::Closure(ClosureExpr {
             span: span.join(body.span()),
@@ -429,9 +437,9 @@ fn dict(p: &mut Parser, items: Vec<CallArg>, span: Span) -> Expr {
     Expr::Dict(DictExpr { span, items: items.collect() })
 }
 
-/// Convert a collection into a parameter list, producing errors for anything
-/// other than identifiers.
-fn params(p: &mut Parser, items: Vec<CallArg>) -> Vec<Ident> {
+/// Convert a collection into a list of identifiers, producing errors for
+/// anything other than identifiers.
+fn idents(p: &mut Parser, items: Vec<CallArg>) -> Vec<Ident> {
     let items = items.into_iter().filter_map(|item| match item {
         CallArg::Pos(Expr::Ident(id)) => Some(id),
         _ => {
@@ -511,24 +519,24 @@ fn expr_let(p: &mut Parser) -> Option<Expr> {
     let mut expr_let = None;
     if let Some(binding) = ident(p) {
         // If a parenthesis follows, this is a function definition.
-        let mut parameters = None;
+        let mut params = None;
         if p.peek_direct() == Some(Token::LeftParen) {
             p.start_group(Group::Paren, TokenMode::Code);
             let items = collection(p).0;
-            parameters = Some(params(p, items));
+            params = Some(idents(p, items));
             p.end_group();
         }
 
         let mut init = None;
         if p.eat_if(Token::Eq) {
             init = expr(p);
-        } else if parameters.is_some() {
+        } else if params.is_some() {
             // Function definitions must have a body.
             p.expected_at("body", p.end());
         }
 
         // Rewrite into a closure expression if it's a function definition.
-        if let Some(params) = parameters {
+        if let Some(params) = params {
             let body = init?;
             init = Some(Expr::Closure(ClosureExpr {
                 span: binding.span.join(body.span()),
@@ -546,6 +554,54 @@ fn expr_let(p: &mut Parser) -> Option<Expr> {
     }
 
     expr_let
+}
+
+/// Parse an import expression.
+fn expr_import(p: &mut Parser) -> Option<Expr> {
+    let start = p.start();
+    p.assert(Token::Import);
+
+    let mut expr_import = None;
+    if let Some(path) = expr(p) {
+        if p.expect(Token::Using) {
+            let imports = if p.eat_if(Token::Star) {
+                // This is the wildcard scenario.
+                Imports::Wildcard
+            } else {
+                // This is the list of identifier scenario.
+                p.start_group(Group::Expr, TokenMode::Code);
+                let items = collection(p).0;
+                if items.is_empty() {
+                    p.expected_at("import items", p.end());
+                }
+
+                let idents = idents(p, items);
+                p.end_group();
+                Imports::Idents(idents)
+            };
+
+            expr_import = Some(Expr::Import(ImportExpr {
+                span: p.span(start),
+                imports,
+                path: Box::new(path),
+            }));
+        }
+    }
+
+    expr_import
+}
+
+/// Parse an include expression.
+fn expr_include(p: &mut Parser) -> Option<Expr> {
+    let start = p.start();
+    p.assert(Token::Include);
+
+    expr(p).map(|path| {
+        Expr::Include(IncludeExpr {
+            span: p.span(start),
+            path: Box::new(path),
+        })
+    })
 }
 
 /// Parse an if expresion.

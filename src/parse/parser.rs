@@ -46,9 +46,6 @@ pub enum Group {
     Bracket,
     /// A curly-braced group: `{...}`.
     Brace,
-    /// A group ended by a chained subheader or a closing bracket:
-    /// `... >>`, `...]`.
-    Subheader,
     /// A group ended by a semicolon or a line break: `;`, `\n`.
     Stmt,
     /// A group for a single expression, ended by a line break.
@@ -129,7 +126,6 @@ impl<'s> Parser<'s> {
             Group::Paren => self.assert(Token::LeftParen),
             Group::Bracket => self.assert(Token::LeftBracket),
             Group::Brace => self.assert(Token::LeftBrace),
-            Group::Subheader => {}
             Group::Stmt => {}
             Group::Expr => {}
         }
@@ -152,7 +148,6 @@ impl<'s> Parser<'s> {
             Group::Paren => Some((Token::RightParen, true)),
             Group::Bracket => Some((Token::RightBracket, true)),
             Group::Brace => Some((Token::RightBrace, true)),
-            Group::Subheader => None,
             Group::Stmt => Some((Token::Semicolon, false)),
             Group::Expr => None,
         } {
@@ -365,7 +360,6 @@ impl<'s> Parser<'s> {
             Token::RightBracket => self.inside(Group::Bracket),
             Token::RightBrace => self.inside(Group::Brace),
             Token::Semicolon => self.inside(Group::Stmt),
-            Token::Pipe => self.inside(Group::Subheader),
             Token::Space(n) => n >= 1 && self.stop_at_newline(),
             _ => false,
         } {
