@@ -87,6 +87,8 @@ visit! {
             Expr::If(e) => v.visit_if(e),
             Expr::While(e) => v.visit_while(e),
             Expr::For(e) => v.visit_for(e),
+            Expr::Import(e) => v.visit_import(e),
+            Expr::Include(e) => v.visit_include(e),
         }
     }
 
@@ -188,5 +190,18 @@ visit! {
         }
         v.visit_expr(&node.iter);
         v.visit_expr(&node.body);
+    }
+
+    fn visit_import(v, node: &ImportExpr) {
+        v.visit_expr(&node.path);
+        if let Imports::Idents(idents) = &node.imports {
+            for ident in idents {
+                v.visit_binding(ident);
+            }
+        }
+    }
+
+    fn visit_include(v, node: &IncludeExpr) {
+        v.visit_expr(&node.path);
     }
 }

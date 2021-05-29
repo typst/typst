@@ -119,7 +119,7 @@
         },
         {
           "name": "keyword.other.typst",
-          "match": "(#)(from|in)\\b",
+          "match": "(#)(in|using|as)\\b",
           "captures": { "1": { "name": "punctuation.definition.keyword.typst" } }
         },
         {
@@ -155,6 +155,15 @@
           "end": "\n|(?=])",
           "beginCaptures": {
             "0": { "name": "keyword.control.import.typst" },
+            "1": { "name": "punctuation.definition.keyword.typst" }
+          },
+          "patterns": [{ "include": "#code" }]
+        },
+        {
+          "begin": "(#)include\\b",
+          "end": "\n|(?=])",
+          "beginCaptures": {
+            "0": { "name": "keyword.control.include.typst" },
             "1": { "name": "punctuation.definition.keyword.typst" }
           },
           "patterns": [{ "include": "#code" }]
@@ -216,7 +225,7 @@
         },
         {
           "name": "keyword.other.typst",
-          "match": "\\b(pub|let|import|from)\\b"
+          "match": "\\b(pub|let|import|include|using|as)\\b"
         },
         { "include": "#constants" },
         {

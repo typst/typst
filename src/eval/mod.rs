@@ -146,6 +146,8 @@ impl Eval for Expr {
             Self::If(ref v) => v.eval(ctx),
             Self::While(ref v) => v.eval(ctx),
             Self::For(ref v) => v.eval(ctx),
+            Self::Import(ref v) => v.eval(ctx),
+            Self::Include(ref v) => v.eval(ctx),
         }
     }
 }
@@ -563,5 +565,21 @@ impl Eval for ForExpr {
                 Value::Error
             }
         }
+    }
+}
+
+impl Eval for ImportExpr {
+    type Output = Value;
+
+    fn eval(&self, _: &mut EvalContext) -> Self::Output {
+        todo!()
+    }
+}
+
+impl Eval for IncludeExpr {
+    type Output = Value;
+
+    fn eval(&self, _: &mut EvalContext) -> Self::Output {
+        todo!()
     }
 }

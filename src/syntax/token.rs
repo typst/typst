@@ -32,8 +32,6 @@ pub enum Token<'s> {
     Semicolon,
     /// A colon: `:`.
     Colon,
-    /// A pipe: `|`.
-    Pipe,
     /// A plus: `+`.
     Plus,
     /// A hyphen: `-`.
@@ -90,6 +88,12 @@ pub enum Token<'s> {
     Continue,
     /// The `return` keyword.
     Return,
+    /// The `import` keyword.
+    Import,
+    /// The `include` keyword.
+    Include,
+    /// The `using` keyword.
+    Using,
     /// One or more whitespace characters.
     ///
     /// The contained `usize` denotes the number of newlines that were contained
@@ -201,7 +205,6 @@ impl<'s> Token<'s> {
             Self::Comma => "comma",
             Self::Semicolon => "semicolon",
             Self::Colon => "colon",
-            Self::Pipe => "pipe",
             Self::Plus => "plus",
             Self::Hyph => "minus",
             Self::Slash => "slash",
@@ -231,6 +234,9 @@ impl<'s> Token<'s> {
             Self::Break => "keyword `break`",
             Self::Continue => "keyword `continue`",
             Self::Return => "keyword `return`",
+            Self::Import => "keyword `import`",
+            Self::Include => "keyword `include`",
+            Self::Using => "keyword `using`",
             Self::Space(_) => "space",
             Self::Text(_) => "text",
             Self::Raw(_) => "raw block",

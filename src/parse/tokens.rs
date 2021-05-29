@@ -124,7 +124,6 @@ impl<'s> Iterator for Tokens<'s> {
                 ',' => Token::Comma,
                 ';' => Token::Semicolon,
                 ':' => Token::Colon,
-                '|' => Token::Pipe,
                 '+' => Token::Plus,
                 '-' => Token::Hyph,
                 '*' => Token::Star,
@@ -456,6 +455,9 @@ fn keyword(id: &str) -> Option<Token<'static>> {
         "break" => Token::Break,
         "continue" => Token::Continue,
         "return" => Token::Return,
+        "import" => Token::Import,
+        "include" => Token::Include,
+        "using" => Token::Using,
         _ => return None,
     })
 }
@@ -617,7 +619,6 @@ mod tests {
         t!(Code: ","        => Comma);
         t!(Code: ";"        => Semicolon);
         t!(Code: ":"        => Colon);
-        t!(Code: "|"        => Pipe);
         t!(Code: "+"        => Plus);
         t!(Code: "-"        => Hyph);
         t!(Code[" a1"]: "*" => Star);
@@ -637,7 +638,6 @@ mod tests {
         t!(Code: "=>"       => Arrow);
 
         // Test combinations.
-        t!(Code: "|=>"        => Pipe, Arrow);
         t!(Code: "<=>"        => LtEq, Gt);
         t!(Code[" a/"]: "..." => Dots, Invalid("."));
 
