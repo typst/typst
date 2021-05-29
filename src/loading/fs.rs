@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use ttf_parser::{name_id, Face};
 use walkdir::WalkDir;
 
-use super::{Buffer, Loader};
+use super::{Buffer, FileHash, Loader};
 use crate::font::{FaceInfo, FontStretch, FontStyle, FontVariant, FontWeight};
 
 /// Loads fonts and images from the local file system.
@@ -25,7 +25,7 @@ pub struct FsLoader {
 
 /// Maps from paths to loaded file buffers. When the buffer is `None` the file
 /// does not exist or couldn't be read.
-type FileCache = HashMap<PathBuf, Option<Buffer>>;
+type FileCache = HashMap<FileHash, Buffer>;
 
 impl FsLoader {
     /// Create a new loader without any fonts.
@@ -167,24 +167,32 @@ impl Loader for FsLoader {
         &self.faces
     }
 
+    fn resolve(&self, path: &Path) -> Option<FileHash> {
+        hash(path)
+    }
+
     fn load_face(&mut self, idx: usize) -> Option<Buffer> {
         load(&mut self.cache, &self.files[idx])
     }
 
-    fn load_file(&mut self, path: &str) -> Option<Buffer> {
-        load(&mut self.cache, Path::new(path))
+    fn load_file(&mut self, path: &Path) -> Option<Buffer> {
+        load(&mut self.cache, path)
     }
 }
 
 /// Load from the file system using a cache.
 fn load(cache: &mut FileCache, path: &Path) -> Option<Buffer> {
-    match cache.entry(path.to_owned()) {
+    Some(match cache.entry(hash(path)?) {
         Entry::Occupied(entry) => entry.get().clone(),
         Entry::Vacant(entry) => {
-            let buffer = std::fs::read(path).ok().map(Rc::new);
-            entry.insert(buffer).clone()
+            let buffer = std::fs::read(path).ok()?;
+            entry.insert(Rc::new(buffer)).clone()
         }
-    }
+    })
+}
+
+fn hash(path: &Path) -> Option<FileHash> {
+    path.canonicalize().ok().map(|p| FileHash(fxhash::hash64(&p)))
 }
 
 #[cfg(test)]

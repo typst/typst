@@ -22,7 +22,6 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
 use decorum::N64;
-use fxhash::FxHasher64;
 
 use crate::cache::Cache;
 use crate::geom::*;
@@ -81,12 +80,7 @@ impl AnyNode {
     where
         T: Layout + Debug + Clone + PartialEq + Hash + 'static,
     {
-        let hash = {
-            let mut state = FxHasher64::default();
-            node.hash(&mut state);
-            state.finish()
-        };
-
+        let hash = fxhash::hash64(&node);
         Self { node: Box::new(node), hash }
     }
 }

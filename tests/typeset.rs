@@ -162,7 +162,7 @@ fn test(
             }
         } else {
             let (part_ok, compare_here, part_frames) =
-                test_part(loader, cache, part, i, compare_ref, lines);
+                test_part(loader, cache, src_path, part, i, compare_ref, lines);
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
@@ -203,6 +203,7 @@ fn test(
 fn test_part(
     loader: &mut FsLoader,
     cache: &mut Cache,
+    path: &Path,
     src: &str,
     i: usize,
     compare_ref: bool,
@@ -223,7 +224,7 @@ fn test_part(
     state.page.size = Size::new(Length::pt(120.0), Length::raw(f64::INFINITY));
     state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
-    let mut pass = typst::typeset(loader, cache, &src, &scope, state);
+    let mut pass = typst::typeset(loader, cache, path, &src, &scope, state);
     if !compare_ref {
         pass.output.clear();
     }
