@@ -563,8 +563,8 @@ fn expr_import(p: &mut Parser) -> Option<Expr> {
 
     let mut expr_import = None;
     if let Some(path) = expr(p) {
-        if p.expect(Token::Using) {
-            let imports = if p.eat_if(Token::Star) {
+        let imports = if p.expect(Token::Using) {
+            if p.eat_if(Token::Star) {
                 // This is the wildcard scenario.
                 Imports::Wildcard
             } else {
@@ -578,14 +578,16 @@ fn expr_import(p: &mut Parser) -> Option<Expr> {
                 let idents = idents(p, items);
                 p.end_group();
                 Imports::Idents(idents)
-            };
+            }
+        } else {
+            Imports::Idents(vec![])
+        };
 
-            expr_import = Some(Expr::Import(ImportExpr {
-                span: p.span(start),
-                imports,
-                path: Box::new(path),
-            }));
-        }
+        expr_import = Some(Expr::Import(ImportExpr {
+            span: p.span(start),
+            imports,
+            path: Box::new(path),
+        }));
     }
 
     expr_import

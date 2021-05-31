@@ -19,6 +19,16 @@
 {b}
 
 ---
+// Double block creates a scope.
+{{
+    import "target.typ" using b
+    test(b, 1)
+}}
+
+// Error: 2-3 unknown variable
+{b}
+
+---
 // Multiple nested scopes.
 {
     let a = "a1"
