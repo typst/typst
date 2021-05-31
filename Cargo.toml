@@ -7,7 +7,7 @@ edition = "2018"
 [features]
 default = ["cli", "fs"]
 cli = ["anyhow", "fs"]
-fs = ["dirs", "memmap2", "walkdir"]
+fs = ["dirs", "memmap2", "same-file", "walkdir"]
 
 [workspace]
 members = ["bench"]
@@ -35,6 +35,7 @@ xi-unicode = "0.3"
 anyhow = { version = "1", optional = true }
 dirs = { version = "3", optional = true }
 memmap2 = { version = "0.2", optional = true }
+same-file = { version = "1", optional = true }
 walkdir = { version = "2", optional = true }
 
 [dev-dependencies]

@@ -11,6 +11,7 @@ pub use scope::*;
 pub use value::*;
 
 use std::collections::HashMap;
+use std::mem;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -65,10 +66,10 @@ pub struct EvalContext<'a> {
     pub scopes: Scopes<'a>,
     /// Evaluation diagnostics.
     pub diags: DiagSet,
-    /// The stack of imported files that led to evaluation of the current file.
-    pub route: Vec<FileHash>,
     /// The location of the currently evaluated file.
     pub path: PathBuf,
+    /// The stack of imported files that led to evaluation of the current file.
+    pub route: Vec<FileHash>,
     /// A map of loaded module.
     pub modules: HashMap<FileHash, Module>,
 }
@@ -91,8 +92,8 @@ impl<'a> EvalContext<'a> {
             cache,
             scopes: Scopes::with_base(Some(base)),
             diags: DiagSet::new(),
-            route,
             path: path.to_owned(),
+            route,
             modules: HashMap::new(),
         }
     }
@@ -116,12 +117,13 @@ impl<'a> EvalContext<'a> {
     pub fn import(&mut self, path: &str, span: Span) -> Option<FileHash> {
         let (resolved, hash) = self.resolve(path, span)?;
 
-        // Prevent cycling importing.
+        // Prevent cyclic importing.
         if self.route.contains(&hash) {
             self.diag(error!(span, "cyclic import"));
             return None;
         }
 
+        // Check whether the module was already loaded.
         if self.modules.get(&hash).is_some() {
             return Some(hash);
         }
@@ -136,19 +138,33 @@ impl<'a> EvalContext<'a> {
             None
         })?;
 
+        // Parse the file.
+        let parsed = parse(string);
+
         // Prepare the new context.
-        self.route.push(hash);
         let new_scopes = Scopes::with_base(self.scopes.base);
-        let old_scopes = std::mem::replace(&mut self.scopes, new_scopes);
+        let old_scopes = mem::replace(&mut self.scopes, new_scopes);
+        let old_diags = mem::replace(&mut self.diags, parsed.diags);
+        let old_path = mem::replace(&mut self.path, resolved);
+        self.route.push(hash);
 
         // Evaluate the module.
-        let tree = Rc::new(parse(string).output);
+        let tree = Rc::new(parsed.output);
         let map = tree.eval(self);
 
         // Restore the old context.
-        let new_scopes = std::mem::replace(&mut self.scopes, old_scopes);
+        let new_scopes = mem::replace(&mut self.scopes, old_scopes);
+        let new_diags = mem::replace(&mut self.diags, old_diags);
+        self.path = old_path;
         self.route.pop();
 
+        // Put all diagnostics from the module on the import.
+        for mut diag in new_diags {
+            diag.span = span;
+            self.diag(diag);
+        }
+
+        // Save the evaluated module.
         self.modules.insert(hash, Module {
             scope: new_scopes.top,
             template: vec![TemplateNode::Tree { tree, map }],
@@ -430,7 +446,7 @@ impl BinaryExpr {
             }
         };
 
-        let lhs = std::mem::take(&mut *mutable);
+        let lhs = mem::take(&mut *mutable);
         let types = (lhs.type_name(), rhs.type_name());
         *mutable = op(lhs, rhs);
 
@@ -513,7 +529,7 @@ impl Eval for ClosureExpr {
         Value::Func(FuncValue::new(name, move |ctx, args| {
             // Don't leak the scopes from the call site. Instead, we use the
             // scope of captured variables we collected earlier.
-            let prev = std::mem::take(&mut ctx.scopes);
+            let prev = mem::take(&mut ctx.scopes);
             ctx.scopes.top = captured.clone();
 
             for param in params.iter() {
@@ -657,11 +673,9 @@ impl Eval for ImportExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let span = self.path.span();
         let path = self.path.eval(ctx);
-
-        if let Some(path) = ctx.cast::<String>(path, span) {
-            if let Some(hash) = ctx.import(&path, span) {
+        if let Some(path) = ctx.cast::<String>(path, self.path.span()) {
+            if let Some(hash) = ctx.import(&path, self.path.span()) {
                 let mut module = &ctx.modules[&hash];
                 match &self.imports {
                     Imports::Wildcard => {
@@ -695,11 +709,9 @@ impl Eval for IncludeExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let span = self.path.span();
         let path = self.path.eval(ctx);
-
-        if let Some(path) = ctx.cast::<String>(path, span) {
-            if let Some(hash) = ctx.import(&path, span) {
+        if let Some(path) = ctx.cast::<String>(path, self.path.span()) {
+            if let Some(hash) = ctx.import(&path, self.path.span()) {
                 return Value::Template(ctx.modules[&hash].template.clone());
             }
         }
