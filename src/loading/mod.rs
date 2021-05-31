@@ -19,19 +19,22 @@ pub trait Loader {
     /// Descriptions of all font faces this loader serves.
     fn faces(&self) -> &[FaceInfo];
 
-    /// Resolve a hash that is the same for all paths pointing to the same file.
-    ///
-    /// Should return `None` if the file does not exist.
-    fn resolve(&self, path: &Path) -> Option<FileHash>;
-
     /// Load the font face with the given index in [`faces()`](Self::faces).
     fn load_face(&mut self, idx: usize) -> Option<Buffer>;
 
     /// Load a file from a path.
     fn load_file(&mut self, path: &Path) -> Option<Buffer>;
+
+    /// Resolve a hash for the file the path points to.
+    ///
+    /// This should return the same hash for all paths pointing to the same file
+    /// and `None` if the file does not exist.
+    fn resolve(&self, path: &Path) -> Option<FileHash>;
 }
 
-/// A hash that must be the same for all paths pointing to the same file.
+/// A file hash that can be [resolved](Loader::resolve) from a path.
+///
+/// Should be the same for all paths pointing to the same file.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct FileHash(pub u64);
 
@@ -43,15 +46,15 @@ impl Loader for BlankLoader {
         &[]
     }
 
-    fn resolve(&self, _: &Path) -> Option<FileHash> {
-        None
-    }
-
     fn load_face(&mut self, _: usize) -> Option<Buffer> {
         None
     }
 
     fn load_file(&mut self, _: &Path) -> Option<Buffer> {
+        None
+    }
+
+    fn resolve(&self, _: &Path) -> Option<FileHash> {
         None
     }
 }

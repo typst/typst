@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use memmap2::Mmap;
+use same_file::Handle;
 use serde::{Deserialize, Serialize};
 use ttf_parser::{name_id, Face};
 use walkdir::WalkDir;
@@ -167,16 +168,16 @@ impl Loader for FsLoader {
         &self.faces
     }
 
-    fn resolve(&self, path: &Path) -> Option<FileHash> {
-        hash(path)
-    }
-
     fn load_face(&mut self, idx: usize) -> Option<Buffer> {
         load(&mut self.cache, &self.files[idx])
     }
 
     fn load_file(&mut self, path: &Path) -> Option<Buffer> {
         load(&mut self.cache, path)
+    }
+
+    fn resolve(&self, path: &Path) -> Option<FileHash> {
+        hash(path)
     }
 }
 
@@ -191,8 +192,11 @@ fn load(cache: &mut FileCache, path: &Path) -> Option<Buffer> {
     })
 }
 
+/// Create a hash that is the same for all paths pointing to the same file.
 fn hash(path: &Path) -> Option<FileHash> {
-    path.canonicalize().ok().map(|p| FileHash(fxhash::hash64(&p)))
+    Handle::from_path(path)
+        .map(|handle| FileHash(fxhash::hash64(&handle)))
+        .ok()
 }
 
 #[cfg(test)]
