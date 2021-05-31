@@ -195,8 +195,13 @@ fn load(cache: &mut FileCache, path: &Path) -> Option<Buffer> {
 /// Create a hash that is the same for all paths pointing to the same file.
 fn hash(path: &Path) -> Option<FileHash> {
     let file = File::open(path).ok()?;
-    let handle = Handle::from_file(file).ok()?;
-    Some(FileHash(fxhash::hash64(&handle)))
+    let meta = file.metadata().ok()?;
+    if meta.is_file() {
+        let handle = Handle::from_file(file).ok()?;
+        Some(FileHash(fxhash::hash64(&handle)))
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
