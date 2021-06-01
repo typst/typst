@@ -8,7 +8,7 @@ use std::rc::Rc;
 use super::EvalContext;
 use crate::color::{Color, RgbaColor};
 use crate::exec::ExecContext;
-use crate::geom::{Angle, Length, Linear, Relative};
+use crate::geom::{Angle, Fractional, Length, Linear, Relative};
 use crate::syntax::{Expr, Span, Spanned, Tree};
 
 /// A computational value.
@@ -28,6 +28,8 @@ pub enum Value {
     Angle(Angle),
     /// A relative value: `50%`.
     Relative(Relative),
+    /// A fractional value: `1fr`.
+    Fractional(Fractional),
     /// A combination of an absolute length and a relative value: `20% + 5cm`.
     Linear(Linear),
     /// A color value: `#f79143ff`.
@@ -75,6 +77,7 @@ impl Value {
             Self::Length(_) => Length::TYPE_NAME,
             Self::Angle(_) => Angle::TYPE_NAME,
             Self::Relative(_) => Relative::TYPE_NAME,
+            Self::Fractional(_) => Fractional::TYPE_NAME,
             Self::Linear(_) => Linear::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
             Self::Str(_) => String::TYPE_NAME,
@@ -601,6 +604,7 @@ primitive! {
 primitive! { Length: "length", Value::Length }
 primitive! { Angle: "angle", Value::Angle }
 primitive! { Relative: "relative", Value::Relative }
+primitive! { Fractional: "fractional", Value::Fractional }
 primitive! {
     Linear: "linear",
     Value::Linear,

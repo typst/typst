@@ -393,6 +393,7 @@ impl<'s> Tokens<'s> {
         // Otherwise parse into the fitting numeric type.
         let build = match suffix {
             "%" => Token::Percent,
+            "fr" => Token::Fraction,
             "pt" => |x| Token::Length(x, LengthUnit::Pt),
             "mm" => |x| Token::Length(x, LengthUnit::Mm),
             "cm" => |x| Token::Length(x, LengthUnit::Cm),
@@ -880,6 +881,7 @@ mod tests {
 
         let suffixes = [
             ("%", Percent as fn(f64) -> Token<'static>),
+            ("fr", Fraction as fn(f64) -> Token<'static>),
             ("mm", |x| Length(x, LengthUnit::Mm)),
             ("pt", |x| Length(x, LengthUnit::Pt)),
             ("cm", |x| Length(x, LengthUnit::Cm)),

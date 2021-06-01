@@ -133,6 +133,8 @@ pub enum Token<'s> {
     /// _Note_: `50%` is stored as `50.0` here, as in the corresponding
     /// [literal](super::Expr::Percent).
     Percent(f64),
+    /// A fraction unit: `3fr`.
+    Fraction(f64),
     /// A color value: `#20d82a`.
     Color(RgbaColor),
     /// A quoted string: `"..."`.
@@ -258,6 +260,7 @@ impl<'s> Token<'s> {
             Self::Length(_, _) => "length",
             Self::Angle(_, _) => "angle",
             Self::Percent(_) => "percentage",
+            Self::Fraction(_) => "`fr` value",
             Self::Color(_) => "color",
             Self::Str(_) => "string",
             Self::LineComment(_) => "line comment",

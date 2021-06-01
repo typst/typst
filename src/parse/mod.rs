@@ -335,6 +335,7 @@ fn literal(p: &mut Parser) -> Option<Expr> {
         Token::Length(val, unit) => Expr::Length(span, val, unit),
         Token::Angle(val, unit) => Expr::Angle(span, val, unit),
         Token::Percent(p) => Expr::Percent(span, p),
+        Token::Fraction(p) => Expr::Fractional(span, p),
         Token::Color(color) => Expr::Color(span, color),
         Token::Str(token) => Expr::Str(span, {
             if !token.terminated {

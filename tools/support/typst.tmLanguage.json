@@ -276,6 +276,10 @@
           "match": "\\b(\\d*)?\\.?\\d+([eE][+-]?\\d+)?%"
         },
         {
+          "name": "constant.numeric.fr.typst",
+          "match": "\\b(\\d*)?\\.?\\d+([eE][+-]?\\d+)?fr"
+        },
+        {
           "name": "constant.numeric.integer.typst",
           "match": "\\b\\d+\\b"
         },
