@@ -10,7 +10,7 @@
 // Test math operators.
 
 // Test plus and minus.
-#for v in (1, 3.14, 12pt, 45deg, 90%, 13% + 10pt) {
+#for v in (1, 3.14, 12pt, 45deg, 90%, 13% + 10pt, 6.3fr) {
     // Test plus.
     test(+v, v)
 

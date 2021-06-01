@@ -4,7 +4,7 @@ use std::fmt::{self, Arguments, Write};
 
 use crate::color::{Color, RgbaColor};
 use crate::eval::*;
-use crate::geom::{Angle, Length, Linear, Relative};
+use crate::geom::{Angle, Fractional, Length, Linear, Relative};
 use crate::syntax::*;
 
 /// Pretty print an item and return the resulting string.
@@ -192,6 +192,7 @@ impl Pretty for Expr {
             Self::Length(_, v, u) => write!(p, "{}{}", v, u).unwrap(),
             Self::Angle(_, v, u) => write!(p, "{}{}", v, u).unwrap(),
             Self::Percent(_, v) => write!(p, "{}%", v).unwrap(),
+            Self::Fractional(_, v) => write!(p, "{}fr", v).unwrap(),
             Self::Color(_, v) => v.pretty(p),
             Self::Str(_, v) => v.pretty(p),
             Self::Ident(v) => v.pretty(p),
@@ -456,6 +457,7 @@ impl Pretty for Value {
             Value::Length(v) => v.pretty(p),
             Value::Angle(v) => v.pretty(p),
             Value::Relative(v) => v.pretty(p),
+            Value::Fractional(v) => v.pretty(p),
             Value::Linear(v) => v.pretty(p),
             Value::Color(v) => v.pretty(p),
             Value::Str(v) => v.pretty(p),
@@ -575,6 +577,7 @@ pretty_display! {
     Length,
     Angle,
     Relative,
+    Fractional,
     Linear,
     RgbaColor,
     Color,
@@ -659,6 +662,7 @@ mod tests {
         roundtrip("{10pt}");
         roundtrip("{14.1deg}");
         roundtrip("{20%}");
+        roundtrip("{0.5fr}");
         roundtrip("{#abcdef}");
         roundtrip(r#"{"hi"}"#);
         test_parse(r#"{"let's \" go"}"#, r#"{"let's \" go"}"#);
@@ -725,6 +729,7 @@ mod tests {
         test_value(Angle::deg(90.0), "90deg");
         test_value(Relative::one() / 2.0, "50%");
         test_value(Relative::new(0.3) + Length::cm(2.0), "30% + 2cm");
+        test_value(Fractional::one() * 7.55, "7.55fr");
         test_value(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
         test_value("hello", r#""hello""#);
         test_value("\n", r#""\n""#);

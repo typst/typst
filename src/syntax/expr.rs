@@ -24,6 +24,8 @@ pub enum Expr {
     /// _Note_: `50%` is stored as `50.0` here, but as `0.5` in the
     /// corresponding [value](crate::geom::Relative).
     Percent(Span, f64),
+    /// A fraction unit literal: `1fr`.
+    Fractional(Span, f64),
     /// A color literal: `#ffccee`.
     Color(Span, RgbaColor),
     /// A string literal: `"hello!"`.
@@ -73,6 +75,7 @@ impl Expr {
             Self::Length(span, _, _) => span,
             Self::Angle(span, _, _) => span,
             Self::Percent(span, _) => span,
+            Self::Fractional(span, _) => span,
             Self::Color(span, _) => span,
             Self::Str(span, _) => span,
             Self::Ident(ref v) => v.span,

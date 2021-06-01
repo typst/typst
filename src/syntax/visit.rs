@@ -80,6 +80,7 @@ visit! {
             Expr::Length(_, _, _) => {}
             Expr::Angle(_, _, _) => {}
             Expr::Percent(_, _) => {}
+            Expr::Fractional(_, _) => {}
             Expr::Color(_, _) => {}
             Expr::Str(_, _) => {}
             Expr::Ident(_) => {}
