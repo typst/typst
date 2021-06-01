@@ -2,6 +2,7 @@
 
 use std::cmp::Ordering;
 use std::ops::Range;
+use std::path::{Component, Path, PathBuf};
 
 /// Additional methods for slices.
 pub trait SliceExt<T> {
@@ -77,5 +78,30 @@ impl RangeExt for Range<usize> {
         } else {
             Ordering::Less
         }
+    }
+}
+
+/// Additional methods for [`Path`].
+pub trait PathExt {
+    /// Lexically normalize a path.
+    fn normalize(&self) -> PathBuf;
+}
+
+impl PathExt for Path {
+    fn normalize(&self) -> PathBuf {
+        let mut out = PathBuf::new();
+        for component in self.components() {
+            match component {
+                Component::CurDir => {}
+                Component::ParentDir => match out.components().next_back() {
+                    Some(Component::Normal(_)) => {
+                        out.pop();
+                    }
+                    _ => out.push(component),
+                },
+                _ => out.push(component),
+            }
+        }
+        out
     }
 }

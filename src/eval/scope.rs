@@ -22,16 +22,7 @@ pub struct Scopes<'a> {
 
 impl<'a> Scopes<'a> {
     /// Create a new, empty hierarchy of scopes.
-    pub fn new() -> Self {
-        Self {
-            top: Scope::new(),
-            scopes: vec![],
-            base: None,
-        }
-    }
-
-    /// Create a new hierarchy of scopes with a base scope.
-    pub fn with_base(base: Option<&'a Scope>) -> Self {
+    pub fn new(base: Option<&'a Scope>) -> Self {
         Self { top: Scope::new(), scopes: vec![], base }
     }
 

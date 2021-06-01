@@ -9,7 +9,7 @@ use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageFormat};
 use serde::{Deserialize, Serialize};
 
-use crate::loading::{FileHash, Loader};
+use crate::loading::Loader;
 
 /// A loaded image.
 pub struct Image {
@@ -55,10 +55,8 @@ impl Debug for Image {
 
 /// Caches decoded images.
 pub struct ImageCache {
-    /// Loaded images indexed by [`ImageId`].
-    images: Vec<Image>,
     /// Maps from file hashes to ids of decoded images.
-    map: HashMap<FileHash, ImageId>,
+    images: HashMap<ImageId, Image>,
     /// Callback for loaded images.
     on_load: Option<Box<dyn Fn(ImageId, &Image)>>,
 }
@@ -66,28 +64,22 @@ pub struct ImageCache {
 impl ImageCache {
     /// Create a new, empty image cache.
     pub fn new() -> Self {
-        Self {
-            images: vec![],
-            map: HashMap::new(),
-            on_load: None,
-        }
+        Self { images: HashMap::new(), on_load: None }
     }
 
     /// Load and decode an image file from a path.
     pub fn load(&mut self, loader: &mut dyn Loader, path: &Path) -> Option<ImageId> {
-        Some(match self.map.entry(loader.resolve(path)?) {
-            Entry::Occupied(entry) => *entry.get(),
-            Entry::Vacant(entry) => {
-                let buffer = loader.load_file(path)?;
-                let image = Image::parse(&buffer)?;
-                let id = ImageId(self.images.len() as u32);
-                if let Some(callback) = &self.on_load {
-                    callback(id, &image);
-                }
-                self.images.push(image);
-                *entry.insert(id)
+        let hash = loader.resolve(path)?;
+        let id = ImageId(hash.into_raw());
+        if let Entry::Vacant(entry) = self.images.entry(id) {
+            let buffer = loader.load_file(path)?;
+            let image = Image::parse(&buffer)?;
+            if let Some(callback) = &self.on_load {
+                callback(id, &image);
             }
-        })
+            entry.insert(image);
+        }
+        Some(id)
     }
 
     /// Get a reference to a loaded image.
@@ -96,7 +88,7 @@ impl ImageCache {
     /// only be called with ids returned by [`load()`](Self::load).
     #[track_caller]
     pub fn get(&self, id: ImageId) -> &Image {
-        &self.images[id.0 as usize]
+        &self.images[&id]
     }
 
     /// Register a callback which is invoked each time an image is loaded.
@@ -110,19 +102,19 @@ impl ImageCache {
 
 /// A unique identifier for a loaded image.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct ImageId(u32);
+pub struct ImageId(u64);
 
 impl ImageId {
     /// Create an image id from the raw underlying value.
     ///
     /// This should only be called with values returned by
     /// [`into_raw`](Self::into_raw).
-    pub fn from_raw(v: u32) -> Self {
+    pub fn from_raw(v: u64) -> Self {
         Self(v)
     }
 
     /// Convert into the raw underlying value.
-    pub fn into_raw(self) -> u32 {
+    pub fn into_raw(self) -> u64 {
         self.0
     }
 }

@@ -36,7 +36,19 @@ pub trait Loader {
 ///
 /// Should be the same for all paths pointing to the same file.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct FileHash(pub u64);
+pub struct FileHash(u64);
+
+impl FileHash {
+    /// Create an file hash from a raw hash value.
+    pub fn from_raw(v: u64) -> Self {
+        Self(v)
+    }
+
+    /// Convert into the raw underlying hash value.
+    pub fn into_raw(self) -> u64 {
+        self.0
+    }
+}
 
 /// A loader which serves nothing.
 pub struct BlankLoader;

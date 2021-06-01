@@ -17,7 +17,7 @@ impl<'a> CapturesVisitor<'a> {
     pub fn new(external: &'a Scopes) -> Self {
         Self {
             external,
-            internal: Scopes::new(),
+            internal: Scopes::new(None),
             captures: Scope::new(),
         }
     }

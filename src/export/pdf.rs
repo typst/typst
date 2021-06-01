@@ -139,7 +139,7 @@ impl<'a> PdfExporter<'a> {
 
         // We only write font switching actions when the used face changes. To
         // do that, we need to remember the active face.
-        let mut face = FaceId::MAX;
+        let mut face = None;
         let mut size = Length::zero();
         let mut fill: Option<Fill> = None;
 
@@ -158,8 +158,8 @@ impl<'a> PdfExporter<'a> {
 
                     // Then, also check if we need to issue a font switching
                     // action.
-                    if shaped.face_id != face || shaped.size != size {
-                        face = shaped.face_id;
+                    if face != Some(shaped.face_id) || shaped.size != size {
+                        face = Some(shaped.face_id);
                         size = shaped.size;
 
                         let name = format!("F{}", self.fonts.map(shaped.face_id));

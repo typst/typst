@@ -203,7 +203,7 @@ fn test(
 fn test_part(
     loader: &mut FsLoader,
     cache: &mut Cache,
-    path: &Path,
+    src_path: &Path,
     src: &str,
     i: usize,
     compare_ref: bool,
@@ -224,7 +224,7 @@ fn test_part(
     state.page.size = Size::new(Length::pt(120.0), Length::raw(f64::INFINITY));
     state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
-    let mut pass = typst::typeset(loader, cache, path, &src, &scope, state);
+    let mut pass = typst::typeset(loader, cache, Some(src_path), &src, &scope, state);
     if !compare_ref {
         pass.output.clear();
     }

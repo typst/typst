@@ -24,8 +24,7 @@ pub struct FsLoader {
     cache: FileCache,
 }
 
-/// Maps from paths to loaded file buffers. When the buffer is `None` the file
-/// does not exist or couldn't be read.
+/// Maps from resolved file hashes to loaded file buffers.
 type FileCache = HashMap<FileHash, Buffer>;
 
 impl FsLoader {
@@ -169,38 +168,29 @@ impl Loader for FsLoader {
     }
 
     fn load_face(&mut self, idx: usize) -> Option<Buffer> {
-        load(&mut self.cache, &self.files[idx])
+        self.load_file(&self.files[idx].clone())
     }
 
     fn load_file(&mut self, path: &Path) -> Option<Buffer> {
-        load(&mut self.cache, path)
+        let hash = self.resolve(path)?;
+        Some(Rc::clone(match self.cache.entry(hash) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => {
+                let buffer = std::fs::read(path).ok()?;
+                entry.insert(Rc::new(buffer))
+            }
+        }))
     }
 
     fn resolve(&self, path: &Path) -> Option<FileHash> {
-        hash(path)
-    }
-}
-
-/// Load from the file system using a cache.
-fn load(cache: &mut FileCache, path: &Path) -> Option<Buffer> {
-    Some(match cache.entry(hash(path)?) {
-        Entry::Occupied(entry) => entry.get().clone(),
-        Entry::Vacant(entry) => {
-            let buffer = std::fs::read(path).ok()?;
-            entry.insert(Rc::new(buffer)).clone()
+        let file = File::open(path).ok()?;
+        let meta = file.metadata().ok()?;
+        if meta.is_file() {
+            let handle = Handle::from_file(file).ok()?;
+            Some(FileHash::from_raw(fxhash::hash64(&handle)))
+        } else {
+            None
         }
-    })
-}
-
-/// Create a hash that is the same for all paths pointing to the same file.
-fn hash(path: &Path) -> Option<FileHash> {
-    let file = File::open(path).ok()?;
-    let meta = file.metadata().ok()?;
-    if meta.is_file() {
-        let handle = Handle::from_file(file).ok()?;
-        Some(FileHash(fxhash::hash64(&handle)))
-    } else {
-        None
     }
 }
 

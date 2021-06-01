@@ -6,7 +6,7 @@ edition = "2018"
 
 [features]
 default = ["cli", "fs"]
-cli = ["anyhow", "fs"]
+cli = ["anyhow", "fs", "same-file"]
 fs = ["dirs", "memmap2", "same-file", "walkdir"]
 
 [workspace]

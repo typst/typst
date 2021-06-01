@@ -15,9 +15,6 @@ use crate::pretty::pretty;
 use crate::syntax::*;
 
 /// Execute a template to produce a layout tree.
-///
-/// The `state` is the base state that may be updated over the course of
-/// execution.
 pub fn exec(template: &TemplateValue, state: State) -> Pass<layout::Tree> {
     let mut ctx = ExecContext::new(state);
     template.exec(&mut ctx);
@@ -53,7 +50,7 @@ impl ExecWithMap for Tree {
 impl ExecWithMap for Node {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &NodeMap) {
         match self {
-            Node::Text(text) => ctx.push_text(text.clone()),
+            Node::Text(text) => ctx.push_text(text),
             Node::Space => ctx.push_word_space(),
             _ => map[&(self as *const _)].exec(ctx),
         }
@@ -66,7 +63,7 @@ impl Exec for Value {
             Value::None => {}
             Value::Int(v) => ctx.push_text(pretty(v)),
             Value::Float(v) => ctx.push_text(pretty(v)),
-            Value::Str(v) => ctx.push_text(v.clone()),
+            Value::Str(v) => ctx.push_text(v),
             Value::Template(v) => v.exec(ctx),
             Value::Error => {}
             other => {
@@ -93,7 +90,7 @@ impl Exec for TemplateNode {
     fn exec(&self, ctx: &mut ExecContext) {
         match self {
             Self::Tree { tree, map } => tree.exec_with_map(ctx, &map),
-            Self::Str(v) => ctx.push_text(v.clone()),
+            Self::Str(v) => ctx.push_text(v),
             Self::Func(v) => v.exec(ctx),
         }
     }

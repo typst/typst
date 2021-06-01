@@ -23,22 +23,17 @@ use crate::loading::{FileHash, Loader};
 use crate::parse::parse;
 use crate::syntax::visit::Visit;
 use crate::syntax::*;
+use crate::util::PathExt;
 
-/// Evaluated a parsed source file into a module.
-///
-/// The `path` should point to the source file for the `tree` and is used to
-/// resolve relative path names.
-///
-/// The `scope` consists of the base definitions that are present from the
-/// beginning (typically, the standard library).
+/// Evaluate a parsed source file into a module.
 pub fn eval(
     loader: &mut dyn Loader,
     cache: &mut Cache,
-    path: &Path,
+    path: Option<&Path>,
     tree: Rc<Tree>,
-    base: &Scope,
+    scope: &Scope,
 ) -> Pass<Module> {
-    let mut ctx = EvalContext::new(loader, cache, path, base);
+    let mut ctx = EvalContext::new(loader, cache, path, scope);
     let map = tree.eval(&mut ctx);
     let module = Module {
         scope: ctx.scopes.top,
@@ -67,7 +62,7 @@ pub struct EvalContext<'a> {
     /// Evaluation diagnostics.
     pub diags: DiagSet,
     /// The location of the currently evaluated file.
-    pub path: PathBuf,
+    pub path: Option<PathBuf>,
     /// The stack of imported files that led to evaluation of the current file.
     pub route: Vec<FileHash>,
     /// A map of loaded module.
@@ -79,20 +74,24 @@ impl<'a> EvalContext<'a> {
     pub fn new(
         loader: &'a mut dyn Loader,
         cache: &'a mut Cache,
-        path: &Path,
-        base: &'a Scope,
+        path: Option<&Path>,
+        scope: &'a Scope,
     ) -> Self {
+        let path = path.map(PathExt::normalize);
+
         let mut route = vec![];
-        if let Some(hash) = loader.resolve(path) {
-            route.push(hash);
+        if let Some(path) = &path {
+            if let Some(hash) = loader.resolve(path) {
+                route.push(hash);
+            }
         }
 
         Self {
             loader,
             cache,
-            scopes: Scopes::with_base(Some(base)),
+            scopes: Scopes::new(Some(scope)),
             diags: DiagSet::new(),
-            path: path.to_owned(),
+            path,
             route,
             modules: HashMap::new(),
         }
@@ -102,10 +101,13 @@ impl<'a> EvalContext<'a> {
     ///
     /// Generates an error if the file is not found.
     pub fn resolve(&mut self, path: &str, span: Span) -> Option<(PathBuf, FileHash)> {
-        let dir = self.path.parent().expect("location is a file");
-        let path = dir.join(path);
+        let path = match &self.path {
+            Some(current) => current.parent()?.join(path),
+            None => PathBuf::from(path),
+        };
+
         match self.loader.resolve(&path) {
-            Some(hash) => Some((path, hash)),
+            Some(hash) => Some((path.normalize(), hash)),
             None => {
                 self.diag(error!(span, "file not found"));
                 None
@@ -142,10 +144,10 @@ impl<'a> EvalContext<'a> {
         let parsed = parse(string);
 
         // Prepare the new context.
-        let new_scopes = Scopes::with_base(self.scopes.base);
+        let new_scopes = Scopes::new(self.scopes.base);
         let old_scopes = mem::replace(&mut self.scopes, new_scopes);
         let old_diags = mem::replace(&mut self.diags, parsed.diags);
-        let old_path = mem::replace(&mut self.path, resolved);
+        let old_path = mem::replace(&mut self.path, Some(resolved));
         self.route.push(hash);
 
         // Evaluate the module.

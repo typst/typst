@@ -160,7 +160,7 @@ pub fn raw(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
         let snapshot = ctx.state.clone();
         ctx.set_monospace();
-        ctx.push_text(text.clone());
+        ctx.push_text(&text);
         ctx.state = snapshot;
 
         if block {

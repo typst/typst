@@ -41,16 +41,16 @@ fn benchmarks(c: &mut Criterion) {
         // Prepare intermediate results, run warm and fill caches.
         let src = std::fs::read_to_string(&path).unwrap();
         let tree = Rc::new(parse(&src).output);
-        let evaluated = eval(&mut loader, &mut cache, &path, tree.clone(), &scope);
+        let evaluated = eval(&mut loader, &mut cache, Some(&path), tree.clone(), &scope);
         let executed = exec(&evaluated.output.template, state.clone());
         let layouted = layout(&mut loader, &mut cache, &executed.output);
 
         // Bench!
         bench!("parse": parse(&src));
-        bench!("eval": eval(&mut loader, &mut cache, &path, tree.clone(), &scope));
+        bench!("eval": eval(&mut loader, &mut cache, Some(&path), tree.clone(), &scope));
         bench!("exec": exec(&evaluated.output.template, state.clone()));
         bench!("layout": layout(&mut loader, &mut cache, &executed.output));
-        bench!("typeset": typeset(&mut loader, &mut cache, &path, &src, &scope, state.clone()));
+        bench!("typeset": typeset(&mut loader, &mut cache, Some(&path), &src, &scope, state.clone()));
         bench!("pdf": pdf(&cache, &layouted));
     }
 }

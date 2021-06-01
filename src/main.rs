@@ -2,8 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context};
-
-use typst::loading::Loader;
+use same_file::is_same_file;
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<_> = std::env::args().collect();
@@ -33,9 +32,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     // Ensure that the source file is not overwritten.
-    let src_hash = loader.resolve(&src_path);
-    let dest_hash = loader.resolve(&dest_path);
-    if src_hash.is_some() && src_hash == dest_hash {
+    if is_same_file(src_path, &dest_path).unwrap_or(false) {
         bail!("source and destination files are the same");
     }
 
@@ -47,7 +44,14 @@ fn main() -> anyhow::Result<()> {
     let mut cache = typst::cache::Cache::new(&loader);
     let scope = typst::library::new();
     let state = typst::exec::State::default();
-    let pass = typst::typeset(&mut loader, &mut cache, &src_path, &src, &scope, state);
+    let pass = typst::typeset(
+        &mut loader,
+        &mut cache,
+        Some(&src_path),
+        &src,
+        &scope,
+        state,
+    );
 
     // Print diagnostics.
     let map = typst::parse::LineMap::new(&src);

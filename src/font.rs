@@ -6,8 +6,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::geom::Length;
-use crate::loading::Buffer;
-use crate::loading::Loader;
+use crate::loading::{Buffer, Loader};
 
 /// A font face.
 pub struct Face {
@@ -171,7 +170,7 @@ impl FontCache {
         let mut families = HashMap::<String, Vec<FaceId>>::new();
 
         for (i, info) in loader.faces().iter().enumerate() {
-            let id = FaceId(i as u32);
+            let id = FaceId(i as u64);
             faces.push(None);
             families
                 .entry(info.family.to_lowercase())
@@ -259,22 +258,19 @@ impl FontCache {
 
 /// A unique identifier for a loaded font face.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct FaceId(u32);
+pub struct FaceId(u64);
 
 impl FaceId {
-    /// A blank initialization value.
-    pub const MAX: Self = Self(u32::MAX);
-
     /// Create a face id from the raw underlying value.
     ///
     /// This should only be called with values returned by
     /// [`into_raw`](Self::into_raw).
-    pub fn from_raw(v: u32) -> Self {
+    pub fn from_raw(v: u64) -> Self {
         Self(v)
     }
 
     /// Convert into the raw underlying value.
-    pub fn into_raw(self) -> u32 {
+    pub fn into_raw(self) -> u64 {
         self.0
     }
 }

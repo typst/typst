@@ -664,7 +664,6 @@ impl From<AnyValue> for Value {
 /// This would allow the type `FontFamily` to be cast from:
 /// - a [`Value::Any`] variant already containing a `FontFamily`,
 /// - a string, producing a named font family.
-#[macro_export]
 macro_rules! value {
     ($type:ty:
         $type_name:literal
