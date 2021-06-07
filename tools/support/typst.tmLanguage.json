@@ -75,18 +75,17 @@
         {
           "name": "markup.heading.typst",
           "contentName": "entity.name.section.typst",
-          "begin": "^\\s*={1,6}",
+          "begin": "^\\s*#{1,6}\\s+",
           "end": "\n",
           "beginCaptures": { "0": { "name": "punctuation.definition.heading.typst" } },
           "patterns": [{ "include": "#markup" }]
         },
         {
           "name": "punctuation.definition.list.unnumbered.typst",
-          "match": "^\\s*-"
+          "match": "^\\s*-\\s+"
         },
         {
           "name": "punctuation.definition.list.numbered.typst",
-          "match": "^\\s*[0-9]*\\."
         },
         {
           "name": "string.other.math.block.typst",
@@ -111,6 +110,7 @@
           "begin": "`",
           "end": "`",
           "captures": { "0": { "name": "punctuation.definition.raw.typst" } }
+          "match": "^\\s*[0-9]*\\.\\s+"
         },
         {
           "name": "keyword.control.typst",

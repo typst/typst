@@ -141,7 +141,7 @@ impl PrettyWithMap for Node {
 impl PrettyWithMap for HeadingNode {
     fn pretty_with_map(&self, p: &mut Printer, map: Option<&NodeMap>) {
         for _ in 0 .. self.level {
-            p.push('=');
+            p.push('#');
         }
         self.contents.pretty_with_map(p, map);
     }
@@ -666,7 +666,7 @@ mod tests {
         roundtrip("hi");
 
         // Heading.
-        roundtrip("= *Ok*");
+        roundtrip("# *Ok*");
 
         // Raw.
         roundtrip("``");

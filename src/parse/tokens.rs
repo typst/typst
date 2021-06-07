@@ -73,7 +73,7 @@ impl<'s> Iterator for Tokens<'s> {
                 '{' => Token::LeftBrace,
                 '}' => Token::RightBrace,
 
-                // Keywords, variables, functions, colors.
+                // Headings, keywords, identifiers, colors.
                 '#' => self.hash(start),
 
                 // Whitespace.
@@ -93,7 +93,6 @@ impl<'s> Iterator for Tokens<'s> {
                 // Markup.
                 '*' => Token::Star,
                 '_' => Token::Underscore,
-                '=' => Token::Eq,
                 '~' => Token::Tilde,
                 '`' => self.raw(),
                 '$' => self.math(),
@@ -157,6 +156,10 @@ impl<'s> Tokens<'s> {
 
         match self.mode {
             TokenMode::Markup => {
+                if read.is_empty() {
+                    return Token::Hashtag;
+                }
+
                 if let Some(token) = keyword(read) {
                     return token;
                 }
@@ -607,8 +610,8 @@ mod tests {
         // Test markup tokens.
         t!(Markup[" a1"]: "*"  => Star);
         t!(Markup: "_"         => Underscore);
-        t!(Markup[""]: "==="   => Eq, Eq, Eq);
-        t!(Markup["a1/"]: "= " => Eq, Space(0));
+        t!(Markup[""]: "###"   => Hashtag, Hashtag, Hashtag);
+        t!(Markup["a1/"]: "# " => Hashtag, Space(0));
         t!(Markup: "~"         => Tilde);
         t!(Markup[" "]: r"\"   => Backslash);
     }
@@ -666,7 +669,7 @@ mod tests {
         for &(s, t) in &keywords {
             t!(Markup[" "]: format!("#{}", s) => t);
             t!(Markup[" "]: format!("#{0}#{0}", s) => t, t);
-            t!(Markup[" /"]: format!("# {}", s) => Token::Invalid("#"), Space(0), Text(s));
+            t!(Markup[" /"]: format!("# {}", s) => Token::Hashtag, Space(0), Text(s));
         }
 
         for &(s, t) in &keywords {

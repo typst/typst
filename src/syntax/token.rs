@@ -20,8 +20,8 @@ pub enum Token<'s> {
     Star,
     /// An underscore: `_`.
     Underscore,
-    /// A single equals sign: `=`.
-    Eq,
+    /// A single hashtag: `#`.
+    Hashtag,
     /// A tilde: `~`.
     Tilde,
     /// A backslash followed by nothing or whitespace: `\`.
@@ -38,6 +38,8 @@ pub enum Token<'s> {
     Hyph,
     /// A slash: `/`.
     Slash,
+    /// A single equals sign: `=`.
+    Eq,
     /// Two equals signs: `==`.
     EqEq,
     /// An exclamation mark followed by an equals sign: `!=`.
@@ -200,6 +202,7 @@ impl<'s> Token<'s> {
             Self::RightParen => "closing paren",
             Self::Star => "star",
             Self::Underscore => "underscore",
+            Self::Hashtag => "hashtag",
             Self::Tilde => "tilde",
             Self::Backslash => "backslash",
             Self::Comma => "comma",

@@ -1,10 +1,6 @@
 // Test invalid function calls.
 
 ---
-// Error: 1-2 unexpected invalid token
-#
-
----
 // Error: 7-8 expected expression, found colon
 #args(:)
 

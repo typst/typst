@@ -4,44 +4,44 @@
 // Different number of hashtags.
 
 // Valid levels.
-=1
-===2
-======6
+# 1
+### 2
+###### 6
 
 // Too many hashtags.
 // Warning: 1-8 should not exceed depth 6
-=======7
+####### 7
 
 ---
 // Heading continuation over linebreak.
 
 // Code blocks continue heading.
-= A{
+# A{
     "B"
 }
 
 // Function call continues heading.
-= #rect[
+# #rect[
     A
 ] B
 
 // Without some kind of block, headings end at a line break.
-= A
+# A
 B
 
 ---
 // Heading vs. no heading.
 
 // Parsed as headings if at start of the context.
-/**/ = Ok
-{[== Ok]}
-#rect[=== Ok]
+/**/ # Ok
+{[## Ok]}
+#rect[### Ok]
 
 // Not at the start of the context.
-No = heading
+No # heading
 
 // Escaped.
-\= No heading
+\# No heading
 
 ---
 // Make small, but double heading.
@@ -49,4 +49,4 @@ No = heading
 
 // The new heading's argument list doesn't contain `level`.
 // Error: 1-11 unexpected argument
-=== Twice.
+### Twice.

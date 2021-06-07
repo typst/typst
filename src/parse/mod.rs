@@ -61,7 +61,7 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
         // Markup.
         Token::Star => Node::Strong(span),
         Token::Underscore => Node::Emph(span),
-        Token::Eq => {
+        Token::Hashtag => {
             if *at_start {
                 return Some(heading(p));
             } else {
@@ -128,11 +128,11 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
 /// Parse a heading.
 fn heading(p: &mut Parser) -> Node {
     let start = p.start();
-    p.assert(Token::Eq);
+    p.assert(Token::Hashtag);
 
     // Count depth.
     let mut level: usize = 1;
-    while p.eat_if(Token::Eq) {
+    while p.eat_if(Token::Hashtag) {
         level += 1;
     }
 
