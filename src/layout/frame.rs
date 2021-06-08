@@ -35,6 +35,14 @@ impl Frame {
             self.push(pos + subpos, element);
         }
     }
+
+    /// Translate the positions of all elements in the frame by adding the
+    /// argument to their position.
+    pub fn translate(&mut self, amount: Point) {
+        for (pos, _) in &mut self.elements {
+            *pos += amount;
+        }
+    }
 }
 
 /// The building block frames are composed of.

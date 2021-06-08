@@ -18,6 +18,7 @@ use std::rc::Rc;
 use crate::cache::Cache;
 use crate::color::Color;
 use crate::diag::{Diag, DiagSet, Pass};
+use crate::geom::TrackSizing;
 use crate::geom::{Angle, Fractional, Length, Relative};
 use crate::loading::{FileHash, Loader};
 use crate::parse::parse;
@@ -251,6 +252,7 @@ impl Eval for Expr {
             Self::Angle(_, v, unit) => Value::Angle(Angle::with_unit(v, unit)),
             Self::Percent(_, v) => Value::Relative(Relative::new(v / 100.0)),
             Self::Fractional(_, v) => Value::Fractional(Fractional::new(v)),
+            Self::Auto(_) => Value::TrackSizing(TrackSizing::Auto),
             Self::Color(_, v) => Value::Color(Color::Rgba(v)),
             Self::Str(_, ref v) => Value::Str(v.clone()),
             Self::Ident(ref v) => match ctx.scopes.get(&v) {

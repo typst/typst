@@ -74,6 +74,7 @@ visit! {
     fn visit_expr(v, node: &Expr) {
         match node {
             Expr::None(_) => {}
+            Expr::Auto(_) => {}
             Expr::Bool(_, _) => {}
             Expr::Int(_, _) => {}
             Expr::Float(_, _) => {}

@@ -8,7 +8,7 @@ use std::rc::Rc;
 use super::EvalContext;
 use crate::color::{Color, RgbaColor};
 use crate::exec::ExecContext;
-use crate::geom::{Angle, Fractional, Length, Linear, Relative};
+use crate::geom::{Angle, Fractional, Length, Linear, Relative, TrackSizing};
 use crate::syntax::{Expr, Span, Spanned, Tree};
 
 /// A computational value.
@@ -32,6 +32,8 @@ pub enum Value {
     Fractional(Fractional),
     /// A combination of an absolute length and a relative value: `20% + 5cm`.
     Linear(Linear),
+    /// One of the units that can appear in a grid definition.
+    TrackSizing(TrackSizing),
     /// A color value: `#f79143ff`.
     Color(Color),
     /// A string: `"string"`.
@@ -79,6 +81,7 @@ impl Value {
             Self::Relative(_) => Relative::TYPE_NAME,
             Self::Fractional(_) => Fractional::TYPE_NAME,
             Self::Linear(_) => Linear::TYPE_NAME,
+            Self::TrackSizing(_) => TrackSizing::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
             Self::Str(_) => String::TYPE_NAME,
             Self::Array(_) => ArrayValue::TYPE_NAME,
@@ -97,6 +100,14 @@ impl Value {
             (&Self::Float(a), &Self::Int(b)) => a == b as f64,
             (&Self::Length(a), &Self::Linear(b)) => a == b.abs && b.rel.is_zero(),
             (&Self::Relative(a), &Self::Linear(b)) => a == b.rel && b.abs.is_zero(),
+            (&Self::Length(a), &Self::TrackSizing(b)) => TrackSizing::from(a) == b,
+            (&Self::Relative(a), &Self::TrackSizing(b)) => TrackSizing::from(a) == b,
+            (&Self::Linear(a), &Self::TrackSizing(b)) => TrackSizing::from(a) == b,
+            (&Self::Fractional(a), &Self::TrackSizing(b)) => TrackSizing::from(a) == b,
+            (&Self::TrackSizing(a), &Self::Length(b)) => TrackSizing::from(b) == a,
+            (&Self::TrackSizing(a), &Self::Relative(b)) => TrackSizing::from(b) == a,
+            (&Self::TrackSizing(a), &Self::Linear(b)) => TrackSizing::from(b) == a,
+            (&Self::TrackSizing(a), &Self::Fractional(b)) => TrackSizing::from(b) == a,
             (&Self::Linear(a), &Self::Length(b)) => a.abs == b && a.rel.is_zero(),
             (&Self::Linear(a), &Self::Relative(b)) => a.rel == b && a.abs.is_zero(),
             (Self::Array(a), Self::Array(b)) => {
@@ -610,6 +621,14 @@ primitive! {
     Value::Linear,
     Value::Length(v) => v.into(),
     Value::Relative(v) => v.into(),
+}
+primitive! {
+    TrackSizing: "GridUnit",
+    Value::TrackSizing,
+    Value::Length(v) => v.into(),
+    Value::Relative(v) => v.into(),
+    Value::Linear(v) => v.into(),
+    Value::Fractional(v) => v.into(),
 }
 primitive! { Color: "color", Value::Color }
 primitive! { String: "string", Value::Str }
