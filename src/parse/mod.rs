@@ -82,7 +82,7 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
         | Token::Import
         | Token::Include => {
             *at_start = false;
-            let stmt = token == Token::Let || token == Token::Import;
+            let stmt = matches!(token, Token::Let | Token::Import);
             let group = if stmt { Group::Stmt } else { Group::Expr };
 
             p.start_group(group, TokenMode::Code);
@@ -556,56 +556,6 @@ fn expr_let(p: &mut Parser) -> Option<Expr> {
     expr_let
 }
 
-/// Parse an import expression.
-fn expr_import(p: &mut Parser) -> Option<Expr> {
-    let start = p.start();
-    p.assert(Token::Import);
-
-    let mut expr_import = None;
-    if let Some(path) = expr(p) {
-        let imports = if p.expect(Token::Using) {
-            if p.eat_if(Token::Star) {
-                // This is the wildcard scenario.
-                Imports::Wildcard
-            } else {
-                // This is the list of identifier scenario.
-                p.start_group(Group::Expr, TokenMode::Code);
-                let items = collection(p).0;
-                if items.is_empty() {
-                    p.expected_at("import items", p.end());
-                }
-
-                let idents = idents(p, items);
-                p.end_group();
-                Imports::Idents(idents)
-            }
-        } else {
-            Imports::Idents(vec![])
-        };
-
-        expr_import = Some(Expr::Import(ImportExpr {
-            span: p.span(start),
-            imports,
-            path: Box::new(path),
-        }));
-    }
-
-    expr_import
-}
-
-/// Parse an include expression.
-fn expr_include(p: &mut Parser) -> Option<Expr> {
-    let start = p.start();
-    p.assert(Token::Include);
-
-    expr(p).map(|path| {
-        Expr::Include(IncludeExpr {
-            span: p.span(start),
-            path: Box::new(path),
-        })
-    })
-}
-
 /// Parse an if expresion.
 fn expr_if(p: &mut Parser) -> Option<Expr> {
     let start = p.start();
@@ -689,6 +639,56 @@ fn for_pattern(p: &mut Parser) -> Option<ForPattern> {
         }
     }
     Some(ForPattern::Value(first))
+}
+
+/// Parse an import expression.
+fn expr_import(p: &mut Parser) -> Option<Expr> {
+    let start = p.start();
+    p.assert(Token::Import);
+
+    let mut expr_import = None;
+    if let Some(path) = expr(p) {
+        let imports = if p.expect(Token::Using) {
+            if p.eat_if(Token::Star) {
+                // This is the wildcard scenario.
+                Imports::Wildcard
+            } else {
+                // This is the list of identifier scenario.
+                p.start_group(Group::Expr, TokenMode::Code);
+                let items = collection(p).0;
+                if items.is_empty() {
+                    p.expected_at("import items", p.end());
+                }
+
+                let idents = idents(p, items);
+                p.end_group();
+                Imports::Idents(idents)
+            }
+        } else {
+            Imports::Idents(vec![])
+        };
+
+        expr_import = Some(Expr::Import(ImportExpr {
+            span: p.span(start),
+            imports,
+            path: Box::new(path),
+        }));
+    }
+
+    expr_import
+}
+
+/// Parse an include expression.
+fn expr_include(p: &mut Parser) -> Option<Expr> {
+    let start = p.start();
+    p.assert(Token::Include);
+
+    expr(p).map(|path| {
+        Expr::Include(IncludeExpr {
+            span: p.span(start),
+            path: Box::new(path),
+        })
+    })
 }
 
 /// Parse an identifier.
