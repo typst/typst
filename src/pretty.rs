@@ -4,7 +4,7 @@ use std::fmt::{self, Arguments, Write};
 
 use crate::color::{Color, RgbaColor};
 use crate::eval::*;
-use crate::geom::{Angle, Fractional, Length, Linear, Relative};
+use crate::geom::{Angle, Fractional, Length, Linear, Relative, TrackSizing};
 use crate::syntax::*;
 
 /// Pretty print an item and return the resulting string.
@@ -186,6 +186,7 @@ impl Pretty for Expr {
     fn pretty(&self, p: &mut Printer) {
         match self {
             Self::None(_) => p.push_str("none"),
+            Self::Auto(_) => p.push_str("auto"),
             Self::Bool(_, v) => v.pretty(p),
             Self::Int(_, v) => v.pretty(p),
             Self::Float(_, v) => v.pretty(p),
@@ -459,6 +460,7 @@ impl Pretty for Value {
             Value::Relative(v) => v.pretty(p),
             Value::Fractional(v) => v.pretty(p),
             Value::Linear(v) => v.pretty(p),
+            Value::TrackSizing(v) => v.pretty(p),
             Value::Color(v) => v.pretty(p),
             Value::Str(v) => v.pretty(p),
             Value::Array(v) => v.pretty(p),
@@ -579,6 +581,7 @@ pretty_display! {
     Relative,
     Fractional,
     Linear,
+    TrackSizing,
     RgbaColor,
     Color,
     AnyValue,
@@ -656,6 +659,7 @@ mod tests {
     fn test_pretty_print_expr() {
         // Basic expressions.
         roundtrip("{none}");
+        roundtrip("{auto}");
         roundtrip("{true}");
         roundtrip("{10}");
         roundtrip("{3.14}");

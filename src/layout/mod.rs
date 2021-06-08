@@ -3,6 +3,7 @@
 mod background;
 mod fixed;
 mod frame;
+mod grid;
 mod pad;
 mod par;
 mod shaping;
@@ -11,6 +12,7 @@ mod stack;
 pub use background::*;
 pub use fixed::*;
 pub use frame::*;
+pub use grid::*;
 pub use pad::*;
 pub use par::*;
 pub use shaping::*;

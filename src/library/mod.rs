@@ -6,6 +6,7 @@
 mod align;
 mod basic;
 mod font;
+mod grid;
 mod image;
 mod lang;
 mod math;
@@ -20,6 +21,7 @@ pub use self::image::*;
 pub use align::*;
 pub use basic::*;
 pub use font::*;
+pub use grid::*;
 pub use lang::*;
 pub use math::*;
 pub use pad::*;
@@ -47,6 +49,7 @@ pub fn new() -> Scope {
     std.def_func("circle", circle);
     std.def_func("ellipse", ellipse);
     std.def_func("font", font);
+    std.def_func("grid", grid);
     std.def_func("h", h);
     std.def_func("image", image);
     std.def_func("lang", lang);

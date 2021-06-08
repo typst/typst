@@ -9,6 +9,8 @@ use crate::geom::{AngularUnit, LengthUnit};
 pub enum Expr {
     /// The none literal: `none`.
     None(Span),
+    /// The `auto` constant.
+    Auto(Span),
     /// A boolean literal: `true`, `false`.
     Bool(Span, bool),
     /// An integer literal: `120`.
@@ -69,6 +71,7 @@ impl Expr {
     pub fn span(&self) -> Span {
         match *self {
             Self::None(span) => span,
+            Self::Auto(span) => span,
             Self::Bool(span, _) => span,
             Self::Int(span, _) => span,
             Self::Float(span, _) => span,
