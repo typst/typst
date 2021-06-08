@@ -4,38 +4,21 @@
 // Different number of hashtags.
 
 // Valid levels.
-# 1
-### 2
-###### 6
+# Level 1
+### Level 2
+###### Level 6
 
 // Too many hashtags.
 // Warning: 1-8 should not exceed depth 6
-####### 7
-
----
-// Heading continuation over linebreak.
-
-// Code blocks continue heading.
-# A{
-    "B"
-}
-
-// Function call continues heading.
-# #rect[
-    A
-] B
-
-// Without some kind of block, headings end at a line break.
-# A
-B
+####### Level 7
 
 ---
 // Heading vs. no heading.
 
 // Parsed as headings if at start of the context.
-/**/ # Ok
-{[## Ok]}
-#rect[### Ok]
+/**/ # Level 1
+{[## Level 2]}
+#rect[### Level 3]
 
 // Not at the start of the context.
 No # heading
@@ -44,9 +27,16 @@ No # heading
 \# No heading
 
 ---
-// Make small, but double heading.
-#let heading(contents) = heading(contents + contents, level: 6)
+// While indented at least as much as the start, the heading continues.
 
-// The new heading's argument list doesn't contain `level`.
-// Error: 1-11 unexpected argument
-### Twice.
+# This
+  is
+    indented.
+
+#  This
+  is not.
+
+// Code blocks continue heading.
+# A {
+    "B"
+}

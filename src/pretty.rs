@@ -17,8 +17,8 @@ where
     p.finish()
 }
 
-/// Pretty print an item with a node map and return the resulting string.
-pub fn pretty_with_map<T>(item: &T, map: &NodeMap) -> String
+/// Pretty print an item with a expression map and return the resulting string.
+pub fn pretty_with_map<T>(item: &T, map: &ExprMap) -> String
 where
     T: PrettyWithMap + ?Sized,
 {
@@ -33,10 +33,10 @@ pub trait Pretty {
     fn pretty(&self, p: &mut Printer);
 }
 
-/// Pretty print an item with a node map that applies to it.
+/// Pretty print an item with an expression map that applies to it.
 pub trait PrettyWithMap {
     /// Pretty print this item into the given printer.
-    fn pretty_with_map(&self, p: &mut Printer, map: Option<&NodeMap>);
+    fn pretty_with_map(&self, p: &mut Printer, map: Option<&ExprMap>);
 }
 
 impl<T> Pretty for T
@@ -104,7 +104,7 @@ impl Write for Printer {
 }
 
 impl PrettyWithMap for Tree {
-    fn pretty_with_map(&self, p: &mut Printer, map: Option<&NodeMap>) {
+    fn pretty_with_map(&self, p: &mut Printer, map: Option<&ExprMap>) {
         for node in self {
             node.pretty_with_map(p, map);
         }
@@ -112,20 +112,21 @@ impl PrettyWithMap for Tree {
 }
 
 impl PrettyWithMap for Node {
-    fn pretty_with_map(&self, p: &mut Printer, map: Option<&NodeMap>) {
+    fn pretty_with_map(&self, p: &mut Printer, map: Option<&ExprMap>) {
         match self {
             // TODO: Handle escaping.
             Self::Text(text) => p.push_str(text),
             Self::Space => p.push(' '),
-            Self::Strong(_) => p.push('*'),
-            Self::Emph(_) => p.push('_'),
             Self::Linebreak(_) => p.push_str(r"\"),
             Self::Parbreak(_) => p.push_str("\n\n"),
-            Self::Heading(heading) => heading.pretty_with_map(p, map),
+            Self::Strong(_) => p.push('*'),
+            Self::Emph(_) => p.push('_'),
             Self::Raw(raw) => raw.pretty(p),
+            Self::Heading(heading) => heading.pretty_with_map(p, map),
+            Self::List(list) => list.pretty_with_map(p, map),
             Self::Expr(expr) => {
                 if let Some(map) = map {
-                    let value = &map[&(self as *const _)];
+                    let value = &map[&(expr as *const _)];
                     value.pretty(p);
                 } else {
                     if expr.has_short_form() {
@@ -135,15 +136,6 @@ impl PrettyWithMap for Node {
                 }
             }
         }
-    }
-}
-
-impl PrettyWithMap for HeadingNode {
-    fn pretty_with_map(&self, p: &mut Printer, map: Option<&NodeMap>) {
-        for _ in 0 .. self.level {
-            p.push('#');
-        }
-        self.contents.pretty_with_map(p, map);
     }
 }
 
@@ -200,6 +192,23 @@ impl Pretty for RawNode {
         for _ in 0 .. backticks {
             p.push('`');
         }
+    }
+}
+
+impl PrettyWithMap for HeadingNode {
+    fn pretty_with_map(&self, p: &mut Printer, map: Option<&ExprMap>) {
+        for _ in 0 .. self.level {
+            p.push('#');
+        }
+        p.push(' ');
+        self.body.pretty_with_map(p, map);
+    }
+}
+
+impl PrettyWithMap for ListNode {
+    fn pretty_with_map(&self, p: &mut Printer, map: Option<&ExprMap>) {
+        p.push_str("- ");
+        self.body.pretty_with_map(p, map);
     }
 }
 
@@ -664,9 +673,8 @@ mod tests {
         roundtrip("\\ ");
         roundtrip("\n\n");
         roundtrip("hi");
-
-        // Heading.
         roundtrip("# *Ok*");
+        roundtrip("- Ok");
 
         // Raw.
         roundtrip("``");

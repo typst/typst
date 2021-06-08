@@ -25,14 +25,32 @@ pub fn parse(src: &str) -> Pass<Tree> {
 
 /// Parse a syntax tree.
 fn tree(p: &mut Parser) -> Tree {
+    tree_while(p, |_| true)
+}
+
+/// Parse a syntax tree that stays right of the column at the start of the next
+/// non-whitespace token.
+fn tree_indented(p: &mut Parser) -> Tree {
+    p.skip_white();
+    let column = p.column(p.next_start());
+    tree_while(p, |p| match p.peek() {
+        Some(Token::Space(n)) if n >= 1 => p.column(p.next_end()) >= column,
+        _ => true,
+    })
+}
+
+/// Parse a syntax tree.
+fn tree_while(p: &mut Parser, mut f: impl FnMut(&mut Parser) -> bool) -> Tree {
     // We keep track of whether we are at the start of a block or paragraph
-    // to know whether headings are allowed.
+    // to know whether things like headings are allowed.
     let mut at_start = true;
     let mut tree = vec![];
-    while !p.eof() {
+    while !p.eof() && f(p) {
         if let Some(node) = node(p, &mut at_start) {
-            if !matches!(node, Node::Parbreak(_) | Node::Space) {
-                at_start = false;
+            match node {
+                Node::Space => {}
+                Node::Parbreak(_) => {}
+                _ => at_start = false,
             }
             tree.push(node);
         }
@@ -57,10 +75,16 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
 
         // Text.
         Token::Text(text) => Node::Text(text.into()),
+        Token::Tilde => Node::Text("\u{00A0}".into()),
+        Token::HyphHyph => Node::Text("\u{2013}".into()),
+        Token::HyphHyphHyph => Node::Text("\u{2014}".into()),
+        Token::UnicodeEscape(t) => Node::Text(unicode_escape(p, t)),
 
         // Markup.
+        Token::Backslash => Node::Linebreak(span),
         Token::Star => Node::Strong(span),
         Token::Underscore => Node::Emph(span),
+        Token::Raw(t) => raw(p, t),
         Token::Hashtag => {
             if *at_start {
                 return Some(heading(p));
@@ -68,10 +92,13 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
                 Node::Text(p.peek_src().into())
             }
         }
-        Token::Tilde => Node::Text("\u{00A0}".into()),
-        Token::Backslash => Node::Linebreak(span),
-        Token::Raw(t) => raw(p, t),
-        Token::UnicodeEscape(t) => Node::Text(unicode_escape(p, t)),
+        Token::Hyph => {
+            if *at_start {
+                return Some(list(p));
+            } else {
+                Node::Text(p.peek_src().into())
+            }
+        }
 
         // Hashtag + keyword / identifier.
         Token::Ident(_)
@@ -81,31 +108,27 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
         | Token::For
         | Token::Import
         | Token::Include => {
-            *at_start = false;
             let stmt = matches!(token, Token::Let | Token::Import);
             let group = if stmt { Group::Stmt } else { Group::Expr };
 
             p.start_group(group, TokenMode::Code);
             let expr = expr_with(p, true, 0);
             if stmt && expr.is_some() && !p.eof() {
-                p.expected_at("semicolon or line break", p.end());
+                p.expected_at("semicolon or line break", p.prev_end());
             }
             p.end_group();
 
             // Uneat spaces we might have eaten eagerly.
-            p.jump(p.end());
             return expr.map(Node::Expr);
         }
 
         // Block.
         Token::LeftBrace => {
-            *at_start = false;
             return Some(Node::Expr(block(p, false)));
         }
 
         // Template.
         Token::LeftBracket => {
-            *at_start = false;
             return Some(Node::Expr(template(p)));
         }
 
@@ -125,33 +148,22 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
     Some(node)
 }
 
-/// Parse a heading.
-fn heading(p: &mut Parser) -> Node {
-    let start = p.start();
-    p.assert(Token::Hashtag);
+/// Handle a unicode escape sequence.
+fn unicode_escape(p: &mut Parser, token: UnicodeEscapeToken) -> String {
+    let span = p.peek_span();
+    let text = if let Some(c) = resolve::resolve_hex(token.sequence) {
+        c.to_string()
+    } else {
+        // Print out the escape sequence verbatim if it is invalid.
+        p.diag(error!(span, "invalid unicode escape sequence"));
+        p.peek_src().into()
+    };
 
-    // Count depth.
-    let mut level: usize = 1;
-    while p.eat_if(Token::Hashtag) {
-        level += 1;
+    if !token.terminated {
+        p.diag(error!(span.end, "expected closing brace"));
     }
 
-    if level > 6 {
-        p.diag(warning!(start .. p.end(), "should not exceed depth 6"));
-        level = 6;
-    }
-
-    // Parse the heading contents.
-    let mut tree = vec![];
-    while p.check(|t| !matches!(t, Token::Space(n) if n >= 1)) {
-        tree.extend(node(p, &mut false));
-    }
-
-    Node::Heading(HeadingNode {
-        span: p.span(start),
-        level,
-        contents: Rc::new(tree),
-    })
+    text
 }
 
 /// Handle a raw block.
@@ -164,22 +176,37 @@ fn raw(p: &mut Parser, token: RawToken) -> Node {
     Node::Raw(raw)
 }
 
-/// Handle a unicode escape sequence.
-fn unicode_escape(p: &mut Parser, token: UnicodeEscapeToken) -> String {
-    let span = p.peek_span();
-    let text = if let Some(c) = resolve::resolve_hex(token.sequence) {
-        c.to_string()
-    } else {
-        // Print out the escape sequence verbatim if it is invalid.
-        p.diag(error!(span, "invalid unicode escape sequence"));
-        p.get(span).into()
-    };
+/// Parse a heading.
+fn heading(p: &mut Parser) -> Node {
+    let start = p.next_start();
+    p.assert(Token::Hashtag);
 
-    if !token.terminated {
-        p.diag(error!(span.end, "expected closing brace"));
+    // Count depth.
+    let mut level: usize = 1;
+    while p.eat_if(Token::Hashtag) {
+        level += 1;
     }
 
-    text
+    if level > 6 {
+        p.diag(warning!(start .. p.prev_end(), "should not exceed depth 6"));
+        level = 6;
+    }
+
+    let body = tree_indented(p);
+
+    Node::Heading(HeadingNode {
+        span: p.span(start),
+        level,
+        body: Rc::new(body),
+    })
+}
+
+/// Parse a single list item.
+fn list(p: &mut Parser) -> Node {
+    let start = p.next_start();
+    p.assert(Token::Hyph);
+    let body = tree_indented(p);
+    Node::List(ListNode { span: p.span(start), body })
 }
 
 /// Parse an expression.
@@ -195,7 +222,7 @@ fn expr(p: &mut Parser) -> Option<Expr> {
 ///
 /// Stops parsing at operations with lower precedence than `min_prec`,
 fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) -> Option<Expr> {
-    let start = p.start();
+    let start = p.next_start();
     let mut lhs = match p.eat_map(UnOp::from_token) {
         Some(op) => {
             let prec = op.precedence();
@@ -383,7 +410,7 @@ fn collection(p: &mut Parser) -> (Vec<CallArg>, bool) {
                 break;
             }
 
-            let behind = p.end();
+            let behind = p.prev_end();
             if p.eat_if(Token::Comma) {
                 has_comma = true;
             } else {
@@ -467,7 +494,7 @@ fn block(p: &mut Parser, scoping: bool) -> Expr {
         if let Some(expr) = expr(p) {
             exprs.push(expr);
             if !p.eof() {
-                p.expected_at("semicolon or line break", p.end());
+                p.expected_at("semicolon or line break", p.prev_end());
             }
         }
         p.end_group();
@@ -506,14 +533,14 @@ fn call(p: &mut Parser, callee: Expr) -> Expr {
 
 /// Parse the arguments to a function call.
 fn args(p: &mut Parser) -> CallArgs {
-    let start = p.start();
+    let start = p.next_start();
     let items = collection(p).0;
     CallArgs { span: p.span(start), items }
 }
 
 /// Parse a let expression.
 fn expr_let(p: &mut Parser) -> Option<Expr> {
-    let start = p.start();
+    let start = p.next_start();
     p.assert(Token::Let);
 
     let mut expr_let = None;
@@ -532,7 +559,7 @@ fn expr_let(p: &mut Parser) -> Option<Expr> {
             init = expr(p);
         } else if params.is_some() {
             // Function definitions must have a body.
-            p.expected_at("body", p.end());
+            p.expected_at("body", p.prev_end());
         }
 
         // Rewrite into a closure expression if it's a function definition.
@@ -558,7 +585,7 @@ fn expr_let(p: &mut Parser) -> Option<Expr> {
 
 /// Parse an if expresion.
 fn expr_if(p: &mut Parser) -> Option<Expr> {
-    let start = p.start();
+    let start = p.next_start();
     p.assert(Token::If);
 
     let mut expr_if = None;
@@ -589,7 +616,7 @@ fn expr_if(p: &mut Parser) -> Option<Expr> {
 
 /// Parse a while expresion.
 fn expr_while(p: &mut Parser) -> Option<Expr> {
-    let start = p.start();
+    let start = p.next_start();
     p.assert(Token::While);
 
     let mut expr_while = None;
@@ -608,7 +635,7 @@ fn expr_while(p: &mut Parser) -> Option<Expr> {
 
 /// Parse a for expression.
 fn expr_for(p: &mut Parser) -> Option<Expr> {
-    let start = p.start();
+    let start = p.next_start();
     p.assert(Token::For);
 
     let mut expr_for = None;
@@ -643,7 +670,7 @@ fn for_pattern(p: &mut Parser) -> Option<ForPattern> {
 
 /// Parse an import expression.
 fn expr_import(p: &mut Parser) -> Option<Expr> {
-    let start = p.start();
+    let start = p.next_start();
     p.assert(Token::Import);
 
     let mut expr_import = None;
@@ -657,7 +684,7 @@ fn expr_import(p: &mut Parser) -> Option<Expr> {
                 p.start_group(Group::Expr, TokenMode::Code);
                 let items = collection(p).0;
                 if items.is_empty() {
-                    p.expected_at("import items", p.end());
+                    p.expected_at("import items", p.prev_end());
                 }
 
                 let idents = idents(p, items);
@@ -680,7 +707,7 @@ fn expr_import(p: &mut Parser) -> Option<Expr> {
 
 /// Parse an include expression.
 fn expr_include(p: &mut Parser) -> Option<Expr> {
-    let start = p.start();
+    let start = p.next_start();
     p.assert(Token::Include);
 
     expr(p).map(|path| {
@@ -710,7 +737,7 @@ fn body(p: &mut Parser) -> Option<Expr> {
         Some(Token::LeftBracket) => Some(template(p)),
         Some(Token::LeftBrace) => Some(block(p, true)),
         _ => {
-            p.expected_at("body", p.end());
+            p.expected_at("body", p.prev_end());
             None
         }
     }

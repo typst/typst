@@ -13,7 +13,7 @@
 // Expression as a file name.
 #let chap2 = include "import" + "able/chap" + "2.typ"
 
-_ -- Intermission -- _
+-- _Intermission_ --
 #chap2
 
 {

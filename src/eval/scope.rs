@@ -33,8 +33,7 @@ impl<'a> Scopes<'a> {
 
     /// Exit the topmost scope.
     ///
-    /// # Panics
-    /// Panics if no scope was entered.
+    /// This panics if no scope was entered.
     pub fn exit(&mut self) {
         self.top = self.scopes.pop().expect("no pushed scope");
     }

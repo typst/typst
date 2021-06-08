@@ -7,7 +7,7 @@ use crate::geom::*;
 use crate::layout::Fill;
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
-/// The evaluation state.
+/// The execution state.
 #[derive(Debug, Clone, PartialEq)]
 pub struct State {
     /// The current language-related settings.

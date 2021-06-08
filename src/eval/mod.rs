@@ -218,24 +218,23 @@ pub trait Eval {
 }
 
 impl Eval for Tree {
-    type Output = NodeMap;
+    type Output = ExprMap;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let mut map = NodeMap::new();
-
-        for node in self {
-            let value = if let Some(call) = node.desugar() {
-                call.eval(ctx)
-            } else if let Node::Expr(expr) = node {
-                expr.eval(ctx)
-            } else {
-                continue;
-            };
-
-            map.insert(node as *const _, value);
+        struct ExprVisitor<'a, 'b> {
+            ctx: &'a mut EvalContext<'b>,
+            map: ExprMap,
         }
 
-        map
+        impl<'ast> Visit<'ast> for ExprVisitor<'_, '_> {
+            fn visit_expr(&mut self, node: &'ast Expr) {
+                self.map.insert(node as *const _, node.eval(self.ctx));
+            }
+        }
+
+        let mut visitor = ExprVisitor { ctx, map: ExprMap::new() };
+        visitor.visit_tree(self);
+        visitor.map
     }
 }
 

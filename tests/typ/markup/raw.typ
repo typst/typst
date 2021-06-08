@@ -46,14 +46,6 @@ def hi():
 ```
 
 ---
-// Make everything block-level.
-#let raw(text) = raw(text, block: true)
-
-// The new raw's argument list doesn't contain `block`.
-// Error: 6-10 unexpected argument
-This `is` block-level.
-
----
 // Unterminated.
 // Error: 2:1 expected backtick(s)
 `endless

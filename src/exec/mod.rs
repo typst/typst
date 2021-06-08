@@ -9,10 +9,11 @@ pub use state::*;
 use std::rc::Rc;
 
 use crate::diag::Pass;
-use crate::eval::{NodeMap, TemplateFunc, TemplateNode, TemplateValue, Value};
-use crate::layout;
+use crate::eval::{ExprMap, TemplateFunc, TemplateNode, TemplateValue, Value};
+use crate::geom::{Dir, Gen};
+use crate::layout::{self, FixedNode, StackChild, StackNode};
 use crate::pretty::pretty;
-use crate::syntax::*;
+use crate::syntax;
 
 /// Execute a template to produce a layout tree.
 pub fn exec(template: &TemplateValue, state: State) -> Pass<layout::Tree> {
@@ -33,27 +34,93 @@ pub trait Exec {
     fn exec(&self, ctx: &mut ExecContext);
 }
 
-/// Execute a node with a node map that applies to it.
+/// Execute a node with an expression map that applies to it.
 pub trait ExecWithMap {
     /// Execute the node.
-    fn exec_with_map(&self, ctx: &mut ExecContext, map: &NodeMap);
+    fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap);
 }
 
-impl ExecWithMap for Tree {
-    fn exec_with_map(&self, ctx: &mut ExecContext, map: &NodeMap) {
+impl ExecWithMap for syntax::Tree {
+    fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         for node in self {
             node.exec_with_map(ctx, map);
         }
     }
 }
 
-impl ExecWithMap for Node {
-    fn exec_with_map(&self, ctx: &mut ExecContext, map: &NodeMap) {
+impl ExecWithMap for syntax::Node {
+    fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         match self {
-            Node::Text(text) => ctx.push_text(text),
-            Node::Space => ctx.push_word_space(),
-            _ => map[&(self as *const _)].exec(ctx),
+            Self::Text(text) => ctx.push_text(text),
+            Self::Space => ctx.push_word_space(),
+            Self::Linebreak(_) => ctx.linebreak(),
+            Self::Parbreak(_) => ctx.parbreak(),
+            Self::Strong(_) => ctx.state.font.strong ^= true,
+            Self::Emph(_) => ctx.state.font.emph ^= true,
+            Self::Raw(raw) => raw.exec(ctx),
+            Self::Heading(heading) => heading.exec_with_map(ctx, map),
+            Self::List(list) => list.exec_with_map(ctx, map),
+            Self::Expr(expr) => map[&(expr as *const _)].exec(ctx),
         }
+    }
+}
+
+impl Exec for syntax::RawNode {
+    fn exec(&self, ctx: &mut ExecContext) {
+        if self.block {
+            ctx.parbreak();
+        }
+
+        let snapshot = ctx.state.clone();
+        ctx.set_monospace();
+        ctx.push_text(&self.text);
+        ctx.state = snapshot;
+
+        if self.block {
+            ctx.parbreak();
+        }
+    }
+}
+
+impl ExecWithMap for syntax::HeadingNode {
+    fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
+        let snapshot = ctx.state.clone();
+
+        let upscale = 1.6 - 0.1 * self.level as f64;
+        ctx.state.font.scale *= upscale;
+        ctx.state.font.strong = true;
+
+        self.body.exec_with_map(ctx, map);
+
+        ctx.state = snapshot;
+        ctx.parbreak();
+    }
+}
+
+impl ExecWithMap for syntax::ListNode {
+    fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
+        ctx.parbreak();
+
+        let bullet = ctx.exec_stack(|ctx| ctx.push_text("•"));
+        let body = ctx.exec_tree_stack(&self.body, map);
+
+        let stack = StackNode {
+            dirs: Gen::new(Dir::TTB, ctx.state.lang.dir),
+            aspect: None,
+            children: vec![
+                StackChild::Any(bullet.into(), Gen::default()),
+                StackChild::Spacing(ctx.state.font.resolve_size() / 2.0),
+                StackChild::Any(body.into(), Gen::default()),
+            ],
+        };
+
+        ctx.push(FixedNode {
+            width: None,
+            height: None,
+            child: stack.into(),
+        });
+
+        ctx.parbreak();
     }
 }
 

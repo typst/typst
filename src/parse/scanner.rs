@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::slice::SliceIndex;
 
 /// A featureful char-based scanner.
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Scanner<'s> {
     src: &'s str,
     index: usize,

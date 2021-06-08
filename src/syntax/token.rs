@@ -24,6 +24,10 @@ pub enum Token<'s> {
     Hashtag,
     /// A tilde: `~`.
     Tilde,
+    /// Two hyphens: `--`.
+    HyphHyph,
+    /// Three hyphens: `---`.
+    HyphHyphHyph,
     /// A backslash followed by nothing or whitespace: `\`.
     Backslash,
     /// A comma: `,`.
@@ -103,15 +107,15 @@ pub enum Token<'s> {
     Space(usize),
     /// A consecutive non-markup string.
     Text(&'s str),
+    /// A slash and the letter "u" followed by a hexadecimal unicode entity
+    /// enclosed in curly braces: `\u{1F5FA}`.
+    UnicodeEscape(UnicodeEscapeToken<'s>),
     /// An arbitrary number of backticks followed by inner contents, terminated
     /// with the same number of backticks: `` `...` ``.
     Raw(RawToken<'s>),
     /// One or two dollar signs followed by inner contents, terminated with the
     /// same number of dollar signs.
     Math(MathToken<'s>),
-    /// A slash and the letter "u" followed by a hexadecimal unicode entity
-    /// enclosed in curly braces: `\u{1F5FA}`.
-    UnicodeEscape(UnicodeEscapeToken<'s>),
     /// An identifier: `center`.
     Ident(&'s str),
     /// A boolean: `true`, `false`.
@@ -204,6 +208,8 @@ impl<'s> Token<'s> {
             Self::Underscore => "underscore",
             Self::Hashtag => "hashtag",
             Self::Tilde => "tilde",
+            Self::HyphHyph => "en dash",
+            Self::HyphHyphHyph => "em dash",
             Self::Backslash => "backslash",
             Self::Comma => "comma",
             Self::Semicolon => "semicolon",
@@ -242,9 +248,9 @@ impl<'s> Token<'s> {
             Self::Using => "keyword `using`",
             Self::Space(_) => "space",
             Self::Text(_) => "text",
+            Self::UnicodeEscape(_) => "unicode escape sequence",
             Self::Raw(_) => "raw block",
             Self::Math(_) => "math formula",
-            Self::UnicodeEscape(_) => "unicode escape sequence",
             Self::Ident(_) => "identifier",
             Self::Bool(_) => "boolean",
             Self::Int(_) => "integer",

@@ -26,7 +26,7 @@ pub fn stack(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         let children = children
             .iter()
             .map(|child| {
-                let child = ctx.exec_template(child).into();
+                let child = ctx.exec_template_stack(child).into();
                 StackChild::Any(child, ctx.state.aligns)
             })
             .collect();

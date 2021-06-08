@@ -32,6 +32,8 @@ impl<'s> LineMap<'s> {
 
         let start = self.line_starts.get(line_index)?;
         let head = self.src.get(start.to_usize() .. pos.to_usize())?;
+
+        // TODO: What about tabs?
         let column_index = head.chars().count();
 
         Some(Location {
@@ -52,12 +54,14 @@ impl<'s> LineMap<'s> {
 
         let line = self.src.get(line_start.to_usize() .. line_end)?;
 
-        // Find the index in the line. For the first column, the index is always zero. For
-        // other columns, we have to look at which byte the char directly before the
-        // column in question ends. We can't do `nth(column_idx)` directly since the
-        // column may be behind the last char.
+        // Find the index in the line. For the first column, the index is always
+        // zero. For other columns, we have to look at which byte the char
+        // directly before the column in question ends. We can't do
+        // `nth(column_idx)` directly since the column may be behind the last
+        // char.
         let column_idx = location.column.checked_sub(1)? as usize;
         let line_offset = if let Some(prev_idx) = column_idx.checked_sub(1) {
+            // TODO: What about tabs?
             let (idx, prev) = line.char_indices().nth(prev_idx)?;
             idx + prev.len_utf8()
         } else {
@@ -66,6 +70,22 @@ impl<'s> LineMap<'s> {
 
         Some(line_start + line_offset)
     }
+}
+
+/// Determine the column at the end of the string.
+pub fn search_column(src: &str) -> usize {
+    let mut column = 0;
+    for c in src.chars().rev() {
+        if is_newline(c) {
+            break;
+        } else if c == '\t' {
+            // TODO: How many columns per tab?
+            column += 2;
+        } else {
+            column += 1;
+        }
+    }
+    column
 }
 
 /// Whether this character denotes a newline.

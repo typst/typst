@@ -17,68 +17,14 @@ pub enum Node {
     Strong(Span),
     /// Emphasized text was enabled / disabled: `_`.
     Emph(Span),
-    /// A section heading: `= Introduction`.
-    Heading(HeadingNode),
     /// A raw block with optional syntax highlighting: `` `...` ``.
     Raw(RawNode),
+    /// A section heading: `= Introduction`.
+    Heading(HeadingNode),
+    /// A single list item: `- ...`.
+    List(ListNode),
     /// An expression.
     Expr(Expr),
-}
-
-impl Node {
-    // The names of the corresponding library functions.
-    pub const LINEBREAK: &'static str = "linebreak";
-    pub const PARBREAK: &'static str = "parbreak";
-    pub const STRONG: &'static str = "strong";
-    pub const EMPH: &'static str = "emph";
-    pub const HEADING: &'static str = "heading";
-    pub const RAW: &'static str = "raw";
-
-    /// Desugar markup into a function call.
-    pub fn desugar(&self) -> Option<CallExpr> {
-        match *self {
-            Self::Text(_) => None,
-            Self::Space => None,
-            Self::Linebreak(span) => Some(call(span, Self::LINEBREAK)),
-            Self::Parbreak(span) => Some(call(span, Self::PARBREAK)),
-            Self::Strong(span) => Some(call(span, Self::STRONG)),
-            Self::Emph(span) => Some(call(span, Self::EMPH)),
-            Self::Heading(ref heading) => Some(heading.desugar()),
-            Self::Raw(ref raw) => Some(raw.desugar()),
-            Self::Expr(_) => None,
-        }
-    }
-}
-
-/// A section heading: `= Introduction`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct HeadingNode {
-    /// The source code location.
-    pub span: Span,
-    /// The section depth (numer of equals signs).
-    pub level: usize,
-    /// The contents of the heading.
-    pub contents: Rc<Tree>,
-}
-
-impl HeadingNode {
-    pub const LEVEL: &'static str = "level";
-    pub const BODY: &'static str = "body";
-
-    /// Desugar into a function call.
-    pub fn desugar(&self) -> CallExpr {
-        let Self { span, level, ref contents } = *self;
-        let mut call = call(span, Node::HEADING);
-        call.args.items.push(CallArg::Named(Named {
-            name: ident(span, Self::LEVEL),
-            expr: Expr::Int(span, level as i64),
-        }));
-        call.args.items.push(CallArg::Pos(Expr::Template(TemplateExpr {
-            span,
-            tree: Rc::clone(&contents),
-        })));
-        call
-    }
 }
 
 /// A raw block with optional syntax highlighting: `` `...` ``.
@@ -158,38 +104,22 @@ pub struct RawNode {
     pub block: bool,
 }
 
-impl RawNode {
-    pub const LANG: &'static str = "lang";
-    pub const BLOCK: &'static str = "block";
-    pub const TEXT: &'static str = "text";
-
-    /// Desugar into a function call.
-    pub fn desugar(&self) -> CallExpr {
-        let Self { span, ref lang, ref text, block } = *self;
-        let mut call = call(span, Node::RAW);
-        if let Some(lang) = lang {
-            call.args.items.push(CallArg::Named(Named {
-                name: ident(span, Self::LANG),
-                expr: Expr::Str(span, lang.string.clone()),
-            }));
-        }
-        call.args.items.push(CallArg::Named(Named {
-            name: ident(span, Self::BLOCK),
-            expr: Expr::Bool(span, block),
-        }));
-        call.args.items.push(CallArg::Pos(Expr::Str(span, text.clone())));
-        call
-    }
+/// A section heading: `= Introduction`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HeadingNode {
+    /// The source code location.
+    pub span: Span,
+    /// The section depth (numer of equals signs).
+    pub level: usize,
+    /// The contents of the heading.
+    pub body: Rc<Tree>,
 }
 
-fn call(span: Span, name: &str) -> CallExpr {
-    CallExpr {
-        span,
-        callee: Box::new(Expr::Ident(Ident { span, string: name.into() })),
-        args: CallArgs { span, items: vec![] },
-    }
-}
-
-fn ident(span: Span, string: &str) -> Ident {
-    Ident { span, string: string.into() }
+/// A single list item: `- ...`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ListNode {
+    /// The source code location.
+    pub span: Span,
+    /// The contents of the list item.
+    pub body: Tree,
 }

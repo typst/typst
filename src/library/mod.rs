@@ -8,7 +8,6 @@ mod basic;
 mod font;
 mod image;
 mod lang;
-mod markup;
 mod math;
 mod pad;
 mod page;
@@ -22,7 +21,6 @@ pub use align::*;
 pub use basic::*;
 pub use font::*;
 pub use lang::*;
-pub use markup::*;
 pub use math::*;
 pub use pad::*;
 pub use page::*;
@@ -38,19 +36,11 @@ use crate::eval::{EvalContext, FuncArgs, Scope, TemplateValue, Value};
 use crate::exec::{Exec, FontFamily};
 use crate::font::{FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
-use crate::syntax::{Node, Spanned};
+use crate::syntax::Spanned;
 
 /// Construct a scope containing all standard library definitions.
 pub fn new() -> Scope {
     let mut std = Scope::new();
-
-    // Syntax functions.
-    std.def_func(Node::LINEBREAK, linebreak);
-    std.def_func(Node::PARBREAK, parbreak);
-    std.def_func(Node::STRONG, strong);
-    std.def_func(Node::EMPH, emph);
-    std.def_func(Node::HEADING, heading);
-    std.def_func(Node::RAW, raw);
 
     // Library functions.
     std.def_func("align", align);

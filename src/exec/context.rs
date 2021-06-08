@@ -1,13 +1,13 @@
 use std::mem;
 
-use super::{Exec, FontFamily, State};
+use super::{Exec, ExecWithMap, FontFamily, State};
 use crate::diag::{Diag, DiagSet, Pass};
-use crate::eval::TemplateValue;
+use crate::eval::{ExprMap, TemplateValue};
 use crate::geom::{Align, Dir, Gen, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{
     AnyNode, PadNode, PageRun, ParChild, ParNode, StackChild, StackNode, Tree,
 };
-use crate::syntax::Span;
+use crate::syntax::{self, Span};
 
 /// The context for execution.
 pub struct ExecContext {
@@ -48,12 +48,22 @@ impl ExecContext {
     }
 
     /// Execute a template and return the result as a stack node.
-    pub fn exec_template(&mut self, template: &TemplateValue) -> StackNode {
+    pub fn exec_template_stack(&mut self, template: &TemplateValue) -> StackNode {
+        self.exec_stack(|ctx| template.exec(ctx))
+    }
+
+    /// Execute a tree with a map and return the result as a stack node.
+    pub fn exec_tree_stack(&mut self, tree: &syntax::Tree, map: &ExprMap) -> StackNode {
+        self.exec_stack(|ctx| tree.exec_with_map(ctx, map))
+    }
+
+    /// Execute something and return the result as a stack node.
+    pub fn exec_stack(&mut self, f: impl FnOnce(&mut Self)) -> StackNode {
         let snapshot = self.state.clone();
         let page = self.page.take();
         let stack = mem::replace(&mut self.stack, StackBuilder::new(&self.state));
 
-        template.exec(self);
+        f(self);
 
         self.state = snapshot;
         self.page = page;

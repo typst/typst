@@ -52,14 +52,23 @@ visit! {
         match node {
             Node::Text(_) => {}
             Node::Space => {}
-            Node::Strong(_) => {}
             Node::Linebreak(_) => {}
             Node::Parbreak(_) => {}
+            Node::Strong(_) => {}
             Node::Emph(_) => {}
-            Node::Heading(heading) => v.visit_tree(&heading.contents),
             Node::Raw(_) => {}
-            Node::Expr(expr) => v.visit_expr(expr),
+            Node::Heading(n) => v.visit_heading(n),
+            Node::List(n) => v.visit_list(n),
+            Node::Expr(n) => v.visit_expr(n),
         }
+    }
+
+    fn visit_heading(v, node: &HeadingNode) {
+        v.visit_tree(&node.body);
+    }
+
+    fn visit_list(v, node: &ListNode) {
+        v.visit_tree(&node.body);
     }
 
     fn visit_expr(v, node: &Expr) {

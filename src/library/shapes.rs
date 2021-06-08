@@ -61,7 +61,7 @@ fn rect_impl(
     body: TemplateValue,
 ) -> Value {
     Value::template(name, move |ctx| {
-        let mut stack = ctx.exec_template(&body);
+        let mut stack = ctx.exec_template_stack(&body);
         stack.aspect = aspect;
 
         let fixed = FixedNode { width, height, child: stack.into() };
@@ -137,7 +137,7 @@ fn ellipse_impl(
         // perfectly into the ellipse.
         const PAD: f64 = 0.5 - SQRT_2 / 4.0;
 
-        let mut stack = ctx.exec_template(&body);
+        let mut stack = ctx.exec_template_stack(&body);
         stack.aspect = aspect;
 
         let fixed = FixedNode {
