@@ -260,6 +260,10 @@
           "match": "\\bnone\\b"
         },
         {
+          "name": "constant.language.auto.typst",
+          "match": "\\bauto\\b"
+        },
+        {
           "name": "constant.language.boolean.typst",
           "match": "\\b(true|false)\\b"
         },

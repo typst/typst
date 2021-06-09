@@ -29,24 +29,7 @@ pub enum StackChild {
 
 impl Layout for StackNode {
     fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
-        let mut layouter = StackLayouter::new(self.dirs, self.aspect, regions.clone());
-        for child in &self.children {
-            match *child {
-                StackChild::Spacing(amount) => layouter.push_spacing(amount),
-                StackChild::Any(ref node, aligns) => {
-                    let mut frames = node.layout(ctx, &layouter.regions).into_iter();
-                    if let Some(frame) = frames.next() {
-                        layouter.push_frame(frame, aligns);
-                    }
-
-                    for frame in frames {
-                        layouter.finish_region();
-                        layouter.push_frame(frame, aligns);
-                    }
-                }
-            }
-        }
-        layouter.finish()
+        StackLayouter::new(self, regions.clone()).layout(ctx)
     }
 }
 
@@ -56,107 +39,154 @@ impl From<StackNode> for AnyNode {
     }
 }
 
-struct StackLayouter {
-    dirs: Gen<Dir>,
-    aspect: Option<N64>,
+struct StackLayouter<'a> {
+    /// The directions of the stack.
+    stack: &'a StackNode,
+    /// The axis of the main direction.
     main: SpecAxis,
+    /// The region to layout into.
     regions: Regions,
-    finished: Vec<Frame>,
-    frames: Vec<(Length, Frame, Gen<Align>)>,
+    /// Offset, alignment and frame for all children that fit into the current
+    /// region. The exact positions are not known yet.
+    frames: Vec<(Length, Gen<Align>, Frame)>,
+    /// The full size of `regions.current` that was available before we started
+    /// subtracting.
     full: Size,
-    size: Gen<Length>,
+    /// The generic size used by the frames for the current region.
+    used: Gen<Length>,
+    /// The alignment ruler for the current region.
     ruler: Align,
+    /// Finished frames for previous regions.
+    finished: Vec<Frame>,
 }
 
-impl StackLayouter {
-    fn new(dirs: Gen<Dir>, aspect: Option<N64>, mut regions: Regions) -> Self {
-        if let Some(aspect) = aspect {
+impl<'a> StackLayouter<'a> {
+    fn new(stack: &'a StackNode, mut regions: Regions) -> Self {
+        if let Some(aspect) = stack.aspect {
             regions.apply_aspect_ratio(aspect);
         }
 
         Self {
-            dirs,
-            aspect,
-            main: dirs.main.axis(),
+            stack,
+            main: stack.dirs.main.axis(),
             finished: vec![],
             frames: vec![],
             full: regions.current,
-            size: Gen::zero(),
+            used: Gen::zero(),
             ruler: Align::Start,
             regions,
         }
     }
 
+    fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Frame> {
+        for child in &self.stack.children {
+            match *child {
+                StackChild::Spacing(amount) => self.push_spacing(amount),
+                StackChild::Any(ref node, aligns) => {
+                    let mut frames = node.layout(ctx, &self.regions).into_iter();
+                    if let Some(frame) = frames.next() {
+                        self.push_frame(frame, aligns);
+                    }
+
+                    for frame in frames {
+                        self.finish_region();
+                        self.push_frame(frame, aligns);
+                    }
+                }
+            }
+        }
+
+        self.finish_region();
+        self.finished
+    }
+
     fn push_spacing(&mut self, amount: Length) {
+        // Cap the spacing to the remaining available space.
         let remaining = self.regions.current.get_mut(self.main);
         let capped = amount.min(*remaining);
+
+        // Grow our size and shrink the available space in the region.
+        self.used.main += capped;
         *remaining -= capped;
-        self.size.main += capped;
     }
 
     fn push_frame(&mut self, frame: Frame, aligns: Gen<Align>) {
+        let size = frame.size;
+
+        // Don't allow `Start` after `End` in the same region.
         if self.ruler > aligns.main {
             self.finish_region();
         }
 
-        while !self.regions.current.fits(frame.size) && !self.regions.in_full_last() {
+        // Adjust the ruler.
+        self.ruler = aligns.main;
+
+        // Find a fitting region.
+        while !self.regions.current.fits(size) && !self.regions.in_full_last() {
             self.finish_region();
         }
 
-        let offset = self.size.main;
-        let size = frame.size.switch(self.main);
-        self.size.main += size.main;
-        self.size.cross.set_max(size.cross);
-        self.ruler = aligns.main;
-        *self.regions.current.get_mut(self.main) -= size.main;
-        self.frames.push((offset, frame, aligns));
+        // Remember the frame with offset and alignment.
+        self.frames.push((self.used.main, aligns, frame));
+
+        // Grow our size and shrink available space in the region.
+        let gen = size.to_gen(self.main);
+        self.used.main += gen.main;
+        self.used.cross.set_max(gen.cross);
+        *self.regions.current.get_mut(self.main) -= gen.main;
     }
 
     fn finish_region(&mut self) {
+        let used = self.used.to_size(self.main);
         let fixed = self.regions.fixed;
 
-        let used = self.size.switch(self.main).to_size();
-        let mut size = Size::new(
+        // Determine the stack's size dependening on whether the region is
+        // fixed.
+        let mut stack_size = Size::new(
             if fixed.horizontal { self.full.width } else { used.width },
             if fixed.vertical { self.full.height } else { used.height },
         );
 
-        if let Some(aspect) = self.aspect {
-            let width = size
+        // Make sure the stack's size satisfies the aspect ratio.
+        if let Some(aspect) = self.stack.aspect {
+            let width = stack_size
                 .width
-                .max(aspect.into_inner() * size.height)
+                .max(aspect.into_inner() * stack_size.height)
                 .min(self.full.width)
                 .min(aspect.into_inner() * self.full.height);
 
-            size = Size::new(width, width / aspect.into_inner());
+            stack_size = Size::new(width, width / aspect.into_inner());
         }
 
-        let mut output = Frame::new(size, size.height);
+        let mut output = Frame::new(stack_size, stack_size.height);
         let mut first = true;
 
-        let used = self.size;
-        let size = size.switch(self.main);
-
-        for (offset, frame, aligns) in std::mem::take(&mut self.frames) {
-            let child = frame.size.switch(self.main);
+        // Place all frames.
+        for (offset, aligns, frame) in std::mem::take(&mut self.frames) {
+            let stack_size = stack_size.to_gen(self.main);
+            let child_size = frame.size.to_gen(self.main);
 
             // Align along the cross axis.
-            let cross = aligns
-                .cross
-                .resolve(self.dirs.cross, Length::zero() .. size.cross - child.cross);
+            let cross = aligns.cross.resolve(
+                self.stack.dirs.cross,
+                Length::zero() .. stack_size.cross - child_size.cross,
+            );
 
             // Align along the main axis.
             let main = aligns.main.resolve(
-                self.dirs.main,
-                if self.dirs.main.is_positive() {
-                    offset .. size.main - used.main + offset
+                self.stack.dirs.main,
+                if self.stack.dirs.main.is_positive() {
+                    offset .. stack_size.main - self.used.main + offset
                 } else {
-                    let offset_with_self = offset + child.main;
-                    used.main - offset_with_self .. size.main - offset_with_self
+                    let offset_with_self = offset + child_size.main;
+                    self.used.main - offset_with_self
+                        .. stack_size.main - offset_with_self
                 },
             );
 
-            let pos = Gen::new(cross, main).switch(self.main).to_point();
+            let pos = Gen::new(cross, main).to_point(self.main);
+
+            // The baseline of the stack is that of the first frame.
             if first {
                 output.baseline = pos.y + frame.baseline;
                 first = false;
@@ -165,18 +195,15 @@ impl StackLayouter {
             output.push_frame(pos, frame);
         }
 
-        self.size = Gen::zero();
-        self.ruler = Align::Start;
+        // Move on to the next region.
         self.regions.next();
-        if let Some(aspect) = self.aspect {
+        if let Some(aspect) = self.stack.aspect {
             self.regions.apply_aspect_ratio(aspect);
         }
 
+        self.full = self.regions.current;
+        self.used = Gen::zero();
+        self.ruler = Align::Start;
         self.finished.push(output);
-    }
-
-    fn finish(mut self) -> Vec<Frame> {
-        self.finish_region();
-        self.finished
     }
 }

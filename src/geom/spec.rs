@@ -25,6 +25,14 @@ impl<T> Spec<T> {
             vertical: value,
         }
     }
+
+    /// Convert to the generic representation.
+    pub fn to_gen(self, main: SpecAxis) -> Gen<T> {
+        match main {
+            SpecAxis::Horizontal => Gen::new(self.vertical, self.horizontal),
+            SpecAxis::Vertical => Gen::new(self.horizontal, self.vertical),
+        }
+    }
 }
 
 impl Spec<Length> {
@@ -65,17 +73,6 @@ impl<T> Get<SpecAxis> for Spec<T> {
     }
 }
 
-impl<T> Switch for Spec<T> {
-    type Other = Gen<T>;
-
-    fn switch(self, main: SpecAxis) -> Self::Other {
-        match main {
-            SpecAxis::Horizontal => Gen::new(self.vertical, self.horizontal),
-            SpecAxis::Vertical => Gen::new(self.horizontal, self.vertical),
-        }
-    }
-}
-
 impl<T: Debug> Debug for Spec<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Spec({:?}, {:?})", self.horizontal, self.vertical)
@@ -98,14 +95,6 @@ impl SpecAxis {
             Self::Horizontal => Self::Vertical,
             Self::Vertical => Self::Horizontal,
         }
-    }
-}
-
-impl Switch for SpecAxis {
-    type Other = GenAxis;
-
-    fn switch(self, main: SpecAxis) -> Self::Other {
-        if self == main { GenAxis::Main } else { GenAxis::Cross }
     }
 }
 
