@@ -86,6 +86,7 @@
         },
         {
           "name": "punctuation.definition.list.numbered.typst",
+          "match": "^\\s*[0-9]*\\.\\s+"
         },
         {
           "name": "string.other.math.block.typst",
@@ -110,7 +111,6 @@
           "begin": "`",
           "end": "`",
           "captures": { "0": { "name": "punctuation.definition.raw.typst" } }
-          "match": "^\\s*[0-9]*\\.\\s+"
         },
         {
           "name": "keyword.control.typst",

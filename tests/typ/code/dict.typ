@@ -17,4 +17,4 @@
 // Error: 3:5 expected comma
 // Error: 2:12-2:16 expected identifier
 // Error: 1:17-1:18 expected expression, found colon
-{(:1 b:[], true::)}
+{(:1 b:"", true::)}

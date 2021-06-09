@@ -26,7 +26,6 @@
 // Error: 1-3 expected function, found string
 #x()
 
----
 // Error: 3:1 expected closing bracket
 #args[`a]`
 

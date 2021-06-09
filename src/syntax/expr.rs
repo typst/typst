@@ -97,12 +97,14 @@ impl Expr {
     /// Whether the expression can be shortened in markup with a hashtag.
     pub fn has_short_form(&self) -> bool {
         matches!(self,
-            Expr::Ident(_)
-            | Expr::Call(_)
-            | Expr::Let(_)
-            | Expr::If(_)
-            | Expr::While(_)
-            | Expr::For(_)
+            Self::Ident(_)
+            | Self::Call(_)
+            | Self::Let(_)
+            | Self::If(_)
+            | Self::While(_)
+            | Self::For(_)
+            | Self::Import(_)
+            | Self::Include(_)
         )
     }
 }

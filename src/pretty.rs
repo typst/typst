@@ -17,35 +17,10 @@ where
     p.finish()
 }
 
-/// Pretty print an item with a expression map and return the resulting string.
-pub fn pretty_with_map<T>(item: &T, map: &ExprMap) -> String
-where
-    T: PrettyWithMap + ?Sized,
-{
-    let mut p = Printer::new();
-    item.pretty_with_map(&mut p, Some(map));
-    p.finish()
-}
-
 /// Pretty print an item.
 pub trait Pretty {
     /// Pretty print this item into the given printer.
     fn pretty(&self, p: &mut Printer);
-}
-
-/// Pretty print an item with an expression map that applies to it.
-pub trait PrettyWithMap {
-    /// Pretty print this item into the given printer.
-    fn pretty_with_map(&self, p: &mut Printer, map: Option<&ExprMap>);
-}
-
-impl<T> Pretty for T
-where
-    T: PrettyWithMap,
-{
-    fn pretty(&self, p: &mut Printer) {
-        self.pretty_with_map(p, None);
-    }
 }
 
 /// A buffer into which items are printed.
@@ -103,16 +78,16 @@ impl Write for Printer {
     }
 }
 
-impl PrettyWithMap for Tree {
-    fn pretty_with_map(&self, p: &mut Printer, map: Option<&ExprMap>) {
+impl Pretty for Tree {
+    fn pretty(&self, p: &mut Printer) {
         for node in self {
-            node.pretty_with_map(p, map);
+            node.pretty(p);
         }
     }
 }
 
-impl PrettyWithMap for Node {
-    fn pretty_with_map(&self, p: &mut Printer, map: Option<&ExprMap>) {
+impl Pretty for Node {
+    fn pretty(&self, p: &mut Printer) {
         match self {
             // TODO: Handle escaping.
             Self::Text(text) => p.push_str(text),
@@ -122,18 +97,13 @@ impl PrettyWithMap for Node {
             Self::Strong(_) => p.push('*'),
             Self::Emph(_) => p.push('_'),
             Self::Raw(raw) => raw.pretty(p),
-            Self::Heading(heading) => heading.pretty_with_map(p, map),
-            Self::List(list) => list.pretty_with_map(p, map),
+            Self::Heading(heading) => heading.pretty(p),
+            Self::List(list) => list.pretty(p),
             Self::Expr(expr) => {
-                if let Some(map) = map {
-                    let value = &map[&(expr as *const _)];
-                    value.pretty(p);
-                } else {
-                    if expr.has_short_form() {
-                        p.push('#');
-                    }
-                    expr.pretty(p);
+                if expr.has_short_form() {
+                    p.push('#');
                 }
+                expr.pretty(p);
             }
         }
     }
@@ -195,20 +165,20 @@ impl Pretty for RawNode {
     }
 }
 
-impl PrettyWithMap for HeadingNode {
-    fn pretty_with_map(&self, p: &mut Printer, map: Option<&ExprMap>) {
+impl Pretty for HeadingNode {
+    fn pretty(&self, p: &mut Printer) {
         for _ in 0 .. self.level {
             p.push('#');
         }
         p.push(' ');
-        self.body.pretty_with_map(p, map);
+        self.body.pretty(p);
     }
 }
 
-impl PrettyWithMap for ListNode {
-    fn pretty_with_map(&self, p: &mut Printer, map: Option<&ExprMap>) {
+impl Pretty for ListNode {
+    fn pretty(&self, p: &mut Printer) {
         p.push_str("- ");
-        self.body.pretty_with_map(p, map);
+        self.body.pretty(p);
     }
 }
 
@@ -278,7 +248,7 @@ impl Pretty for Named {
 impl Pretty for TemplateExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('[');
-        self.tree.pretty_with_map(p, None);
+        self.tree.pretty(p);
         p.push(']');
     }
 }
@@ -488,7 +458,6 @@ impl Pretty for Value {
             Value::Relative(v) => v.pretty(p),
             Value::Linear(v) => v.pretty(p),
             Value::Color(v) => v.pretty(p),
-            // TODO: Handle like text when directly in template.
             Value::Str(v) => v.pretty(p),
             Value::Array(v) => v.pretty(p),
             Value::Dict(v) => v.pretty(p),
@@ -529,29 +498,7 @@ impl Pretty for DictValue {
 
 impl Pretty for TemplateValue {
     fn pretty(&self, p: &mut Printer) {
-        p.push('[');
-        for part in self {
-            part.pretty(p);
-        }
-        p.push(']');
-    }
-}
-
-impl Pretty for TemplateNode {
-    fn pretty(&self, p: &mut Printer) {
-        match self {
-            Self::Tree { tree, map } => tree.pretty_with_map(p, Some(map)),
-            Self::Str(s) => p.push_str(s),
-            Self::Func(func) => func.pretty(p),
-        }
-    }
-}
-
-impl Pretty for TemplateFunc {
-    fn pretty(&self, p: &mut Printer) {
-        p.push_str("<node ");
-        p.push_str(self.name());
-        p.push('>');
+        p.push_str("<template>");
     }
 }
 
@@ -636,11 +583,19 @@ pretty_display! {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{BTreeMap, HashMap};
-    use std::rc::Rc;
+    use std::collections::BTreeMap;
 
     use super::*;
     use crate::parse::parse;
+
+    macro_rules! map {
+        ($($k:ident: $v:expr),* $(,)?) => {{
+            #[allow(unused_mut)]
+            let mut m = BTreeMap::new();
+            $(m.insert(stringify!($k).to_string(), $v);)*
+            m
+        }};
+    }
 
     #[track_caller]
     fn roundtrip(src: &str) {
@@ -698,7 +653,6 @@ mod tests {
     fn test_pretty_print_expr() {
         // Basic expressions.
         roundtrip("{none}");
-        roundtrip("{hi}");
         roundtrip("{true}");
         roundtrip("{10}");
         roundtrip("{3.14}");
@@ -708,6 +662,7 @@ mod tests {
         roundtrip("{#abcdef}");
         roundtrip(r#"{"hi"}"#);
         test_parse(r#"{"let's \" go"}"#, r#"{"let's \" go"}"#);
+        roundtrip("{hi}");
 
         // Arrays.
         roundtrip("{()}");
@@ -738,7 +693,7 @@ mod tests {
         roundtrip("{not true}");
         roundtrip("{1 + 3}");
 
-        // Function calls.
+        // Functions.
         roundtrip("{v()}");
         roundtrip("{v()()}");
         roundtrip("{v(1)}");
@@ -747,22 +702,21 @@ mod tests {
         roundtrip("#v(1)");
         roundtrip("#v(1, 2)[*Ok*]");
         roundtrip("#v(1, f[2])");
-
-        // Closures.
         roundtrip("{(a, b) => a + b}");
 
-        // Keywords.
+        // Control flow.
         roundtrip("#let x = 1 + 2");
         test_parse("#let f(x) = y", "#let f = (x) => y");
         test_parse("#if x [y] #else [z]", "#if x [y] else [z]");
         roundtrip("#while x {y}");
         roundtrip("#for x in y {z}");
         roundtrip("#for k, x in y {z}");
+        roundtrip("#import \"file.typ\" using *");
+        roundtrip("#include \"chapter1.typ\"");
     }
 
     #[test]
     fn test_pretty_print_value() {
-        // Simple values.
         test_value(Value::None, "none");
         test_value(false, "false");
         test_value(12i64, "12");
@@ -776,64 +730,21 @@ mod tests {
         test_value("\n", r#""\n""#);
         test_value("\\", r#""\\""#);
         test_value("\"", r#""\"""#);
-
-        // Array.
         test_value(Value::Array(vec![]), "()");
         test_value(vec![Value::None], "(none,)");
         test_value(vec![Value::Int(1), Value::Int(2)], "(1, 2)");
-
-        // Dictionary.
-        let mut dict = BTreeMap::new();
-        test_value(dict.clone(), "(:)");
-        dict.insert("one".into(), Value::Int(1));
-        test_value(dict.clone(), "(one: 1)");
-        dict.insert("two".into(), Value::Bool(false));
-        test_value(dict, "(one: 1, two: false)");
-
-        // Template.
+        test_value(map![], "(:)");
+        test_value(map![one: Value::Int(1)], "(one: 1)");
         test_value(
-            vec![
-                TemplateNode::Tree {
-                    tree: Rc::new(vec![Node::Strong(Span::ZERO)]),
-                    map: HashMap::new(),
-                },
-                TemplateNode::Func(TemplateFunc::new("example", |_| {})),
-            ],
-            "[*<node example>]",
+            map![two: Value::Bool(false), one: Value::Int(1)],
+            "(one: 1, two: false)",
         );
-
-        // Function.
         test_value(FuncValue::new(None, |_, _| Value::None), "<function>");
         test_value(
             FuncValue::new(Some("nil".into()), |_, _| Value::None),
             "<function nil>",
         );
-
-        // Any.
         test_value(AnyValue::new(1), "1");
-
-        // Error.
         test_value(Value::Error, "<error>");
-    }
-
-    #[test]
-    fn test_pretty_print_args() {
-        // Arguments.
-        assert_eq!(
-            pretty(&FuncArgs {
-                span: Span::ZERO,
-                items: vec![
-                    FuncArg {
-                        name: Some(Spanned::zero("a".into())),
-                        value: Spanned::zero(Value::Int(1)),
-                    },
-                    FuncArg {
-                        name: None,
-                        value: Spanned::zero(Value::Int(2)),
-                    },
-                ],
-            }),
-            "(a: 1, 2)",
-        );
     }
 }
