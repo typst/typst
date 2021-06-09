@@ -22,10 +22,13 @@
 ---
 // Value of while loops.
 // Ref: false
+
 #test(type(while false {}), "template")
 #test(type(while false []), "template")
 
 ---
+// Ref: false
+
 // Condition must be boolean.
 // Error: 8-14 expected boolean, found template
 #while [nope] [nope]
@@ -41,3 +44,22 @@
     if i < 5 [nope] else { error }
 })
 #test(i, 5)
+
+---
+// Error: 7 expected expression
+#while
+
+// Error: 7 expected expression
+{while}
+
+// Error: 9 expected body
+#while x
+
+// Should output `x`.
+// Error: 7 expected expression
+#while
+x {}
+
+// Should output `something`.
+// Error: 9 expected body
+#while x something

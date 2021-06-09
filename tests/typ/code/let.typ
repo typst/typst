@@ -61,3 +61,24 @@ Three
 #test(v3, 3)
 #test(v4, 4)
 #test(v5, (1, 2))
+
+---
+// Error: 5 expected identifier
+#let
+
+// Error: 5 expected identifier
+{let}
+
+// Error: 6-9 expected identifier, found string
+#let "v"
+
+// Should output `1`.
+// Error: 7 expected semicolon or line break
+#let v 1
+
+// Error: 9 expected expression
+#let v =
+
+// Should output `= 1`.
+// Error: 6-9 expected identifier, found string
+#let "v" = 1

@@ -61,6 +61,8 @@
 }
 
 ---
+// Ref: false
+
 // Condition must be boolean.
 // If it isn't, neither branch is evaluated.
 // Error: 5-14 expected boolean, found string
@@ -69,3 +71,29 @@
 // Make sure that we don't complain twice.
 // Error: 5-12 cannot add integer and string
 #if 1 + "2" {}
+
+---
+// Error: 4 expected expression
+#if
+
+// Error: 4 expected expression
+{if}
+
+// Error: 6 expected body
+#if x
+
+// Error: 1-6 unexpected keyword `else`
+#else {}
+
+// Should output `x`.
+// Error: 4 expected expression
+#if
+x {}
+
+// Should output `something`.
+// Error: 6 expected body
+#if x something
+
+// Should output `A thing.`
+// Error: 20 expected body
+A#if false {} #else thing
