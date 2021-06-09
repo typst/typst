@@ -1,3 +1,8 @@
+// FIXME:
+// Both `LineMap::location` and `search_column` can lead to quadratic compile
+// times for very long lines. We probably need some smart acceleration structure
+// to determine columns.
+
 use super::Scanner;
 use crate::syntax::{Location, Pos};
 
