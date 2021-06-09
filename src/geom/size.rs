@@ -49,6 +49,14 @@ impl Size {
     pub fn to_point(self) -> Point {
         Point::new(self.width, self.height)
     }
+
+    /// Convert to the generic representation.
+    pub fn to_gen(self, main: SpecAxis) -> Gen<Length> {
+        match main {
+            SpecAxis::Horizontal => Gen::new(self.height, self.width),
+            SpecAxis::Vertical => Gen::new(self.width, self.height),
+        }
+    }
 }
 
 impl Get<SpecAxis> for Size {
@@ -65,17 +73,6 @@ impl Get<SpecAxis> for Size {
         match axis {
             SpecAxis::Horizontal => &mut self.width,
             SpecAxis::Vertical => &mut self.height,
-        }
-    }
-}
-
-impl Switch for Size {
-    type Other = Gen<Length>;
-
-    fn switch(self, main: SpecAxis) -> Self::Other {
-        match main {
-            SpecAxis::Horizontal => Gen::new(self.height, self.width),
-            SpecAxis::Vertical => Gen::new(self.width, self.height),
         }
     }
 }

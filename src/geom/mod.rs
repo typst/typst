@@ -7,7 +7,6 @@ mod angle;
 mod dir;
 mod fr;
 mod gen;
-mod gridu;
 mod length;
 mod linear;
 mod path;
@@ -22,7 +21,6 @@ pub use angle::*;
 pub use dir::*;
 pub use fr::*;
 pub use gen::*;
-pub use gridu::*;
 pub use length::*;
 pub use linear::*;
 pub use path::*;
@@ -47,16 +45,4 @@ pub trait Get<Index> {
 
     /// Borrow the component for the specified index mutably.
     fn get_mut(&mut self, index: Index) -> &mut Self::Component;
-}
-
-/// Switch between the specific and generic representations of a type.
-///
-/// The generic representation deals with main and cross axes while the specific
-/// representation deals with horizontal and vertical axes.
-pub trait Switch {
-    /// The type of the other version.
-    type Other;
-
-    /// The other version of this type based on the current main axis.
-    fn switch(self, main: SpecAxis) -> Self::Other;
 }

@@ -22,6 +22,14 @@ impl<T> Gen<T> {
     {
         Self { cross: value.clone(), main: value }
     }
+
+    /// Convert to the specific representation.
+    pub fn to_spec(self, main: SpecAxis) -> Spec<T> {
+        match main {
+            SpecAxis::Horizontal => Spec::new(self.main, self.cross),
+            SpecAxis::Vertical => Spec::new(self.cross, self.main),
+        }
+    }
 }
 
 impl Gen<Length> {
@@ -31,6 +39,16 @@ impl Gen<Length> {
             main: Length::zero(),
             cross: Length::zero(),
         }
+    }
+
+    /// Convert to a point.
+    pub fn to_point(self, main: SpecAxis) -> Point {
+        self.to_spec(main).to_point()
+    }
+
+    /// Convert to a size.
+    pub fn to_size(self, main: SpecAxis) -> Size {
+        self.to_spec(main).to_size()
     }
 }
 
@@ -48,17 +66,6 @@ impl<T> Get<GenAxis> for Gen<T> {
         match axis {
             GenAxis::Main => &mut self.main,
             GenAxis::Cross => &mut self.cross,
-        }
-    }
-}
-
-impl<T> Switch for Gen<T> {
-    type Other = Spec<T>;
-
-    fn switch(self, main: SpecAxis) -> Self::Other {
-        match main {
-            SpecAxis::Horizontal => Spec::new(self.main, self.cross),
-            SpecAxis::Vertical => Spec::new(self.cross, self.main),
         }
     }
 }
@@ -84,17 +91,6 @@ impl GenAxis {
         match self {
             Self::Main => Self::Cross,
             Self::Cross => Self::Main,
-        }
-    }
-}
-
-impl Switch for GenAxis {
-    type Other = SpecAxis;
-
-    fn switch(self, main: SpecAxis) -> Self::Other {
-        match self {
-            Self::Main => main,
-            Self::Cross => main.other(),
         }
     }
 }

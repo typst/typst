@@ -4,7 +4,7 @@ use std::fmt::{self, Arguments, Write};
 
 use crate::color::{Color, RgbaColor};
 use crate::eval::*;
-use crate::geom::{Angle, Fractional, Length, Linear, Relative, TrackSizing};
+use crate::geom::{Angle, Fractional, Length, Linear, Relative};
 use crate::syntax::*;
 
 /// Pretty print an item and return the resulting string.
@@ -451,24 +451,24 @@ impl Pretty for Ident {
 impl Pretty for Value {
     fn pretty(&self, p: &mut Printer) {
         match self {
-            Value::None => p.push_str("none"),
-            Value::Bool(v) => v.pretty(p),
-            Value::Int(v) => v.pretty(p),
-            Value::Float(v) => v.pretty(p),
-            Value::Length(v) => v.pretty(p),
-            Value::Angle(v) => v.pretty(p),
-            Value::Relative(v) => v.pretty(p),
-            Value::Fractional(v) => v.pretty(p),
-            Value::Linear(v) => v.pretty(p),
-            Value::TrackSizing(v) => v.pretty(p),
-            Value::Color(v) => v.pretty(p),
-            Value::Str(v) => v.pretty(p),
-            Value::Array(v) => v.pretty(p),
-            Value::Dict(v) => v.pretty(p),
-            Value::Template(v) => v.pretty(p),
-            Value::Func(v) => v.pretty(p),
-            Value::Any(v) => v.pretty(p),
-            Value::Error => p.push_str("<error>"),
+            Self::None => p.push_str("none"),
+            Self::Auto => p.push_str("auto"),
+            Self::Bool(v) => v.pretty(p),
+            Self::Int(v) => v.pretty(p),
+            Self::Float(v) => v.pretty(p),
+            Self::Length(v) => v.pretty(p),
+            Self::Angle(v) => v.pretty(p),
+            Self::Relative(v) => v.pretty(p),
+            Self::Linear(v) => v.pretty(p),
+            Self::Fractional(v) => v.pretty(p),
+            Self::Color(v) => v.pretty(p),
+            Self::Str(v) => v.pretty(p),
+            Self::Array(v) => v.pretty(p),
+            Self::Dict(v) => v.pretty(p),
+            Self::Template(v) => v.pretty(p),
+            Self::Func(v) => v.pretty(p),
+            Self::Any(v) => v.pretty(p),
+            Self::Error => p.push_str("<error>"),
         }
     }
 }
@@ -579,9 +579,8 @@ pretty_display! {
     Length,
     Angle,
     Relative,
-    Fractional,
     Linear,
-    TrackSizing,
+    Fractional,
     RgbaColor,
     Color,
     AnyValue,

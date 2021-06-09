@@ -314,11 +314,6 @@ fn primary(p: &mut Parser, atomic: bool) -> Option<Expr> {
         Some(Token::For) => expr_for(p),
         Some(Token::Import) => expr_import(p),
         Some(Token::Include) => expr_include(p),
-        Some(Token::Auto) => {
-            let start = p.next_start();
-            p.assert(Token::Auto);
-            Some(Expr::Auto(p.span(start)))
-        }
 
         // Nothing.
         _ => {
@@ -334,6 +329,7 @@ fn literal(p: &mut Parser) -> Option<Expr> {
     let expr = match p.peek()? {
         // Basic values.
         Token::None => Expr::None(span),
+        Token::Auto => Expr::Auto(span),
         Token::Bool(b) => Expr::Bool(span, b),
         Token::Int(i) => Expr::Int(span, i),
         Token::Float(f) => Expr::Float(span, f),

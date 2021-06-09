@@ -350,6 +350,7 @@ impl<'s> Tokens<'s> {
             "and" => Token::And,
             "or" => Token::Or,
             "none" => Token::None,
+            "auto" => Token::Auto,
             "true" => Token::Bool(true),
             "false" => Token::Bool(false),
             id => keyword(id).unwrap_or(Token::Ident(id)),
@@ -474,7 +475,6 @@ fn keyword(id: &str) -> Option<Token<'static>> {
         "for" => Token::For,
         "in" => Token::In,
         "while" => Token::While,
-        "auto" => Token::Auto,
         "break" => Token::Break,
         "continue" => Token::Continue,
         "return" => Token::Return,
@@ -759,12 +759,6 @@ mod tests {
             ("for", For),
             ("in", In),
             ("import", Import),
-            ("while", While),
-            ("break", Break),
-            ("continue", Continue),
-            ("using", Using),
-            ("auto", Auto),
-            ("return", Return),
         ];
 
         for &(s, t) in &list {

@@ -9,7 +9,7 @@ use crate::geom::{AngularUnit, LengthUnit};
 pub enum Expr {
     /// The none literal: `none`.
     None(Span),
-    /// The `auto` constant.
+    /// The auto literal: `auto`.
     Auto(Span),
     /// A boolean literal: `true`, `false`.
     Bool(Span, bool),

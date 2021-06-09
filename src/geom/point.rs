@@ -26,6 +26,14 @@ impl Point {
     pub fn splat(value: Length) -> Self {
         Self { x: value, y: value }
     }
+
+    /// Convert to the generic representation.
+    pub fn to_gen(self, main: SpecAxis) -> Gen<Length> {
+        match main {
+            SpecAxis::Horizontal => Gen::new(self.y, self.x),
+            SpecAxis::Vertical => Gen::new(self.x, self.y),
+        }
+    }
 }
 
 impl Get<SpecAxis> for Point {
@@ -42,17 +50,6 @@ impl Get<SpecAxis> for Point {
         match axis {
             SpecAxis::Horizontal => &mut self.x,
             SpecAxis::Vertical => &mut self.y,
-        }
-    }
-}
-
-impl Switch for Point {
-    type Other = Gen<Length>;
-
-    fn switch(self, main: SpecAxis) -> Self::Other {
-        match main {
-            SpecAxis::Horizontal => Gen::new(self.y, self.x),
-            SpecAxis::Vertical => Gen::new(self.x, self.y),
         }
     }
 }

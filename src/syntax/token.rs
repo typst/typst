@@ -76,6 +76,8 @@ pub enum Token<'s> {
     Or,
     /// The none literal: `none`.
     None,
+    /// The auto literal: `auto`.
+    Auto,
     /// The `let` keyword.
     Let,
     /// The `if` keyword.
@@ -100,8 +102,6 @@ pub enum Token<'s> {
     Include,
     /// The `using` keyword.
     Using,
-    /// The `auto` keyword.
-    Auto,
     /// One or more whitespace characters.
     ///
     /// The contained `usize` denotes the number of newlines that were contained
@@ -238,6 +238,7 @@ impl<'s> Token<'s> {
             Self::And => "operator `and`",
             Self::Or => "operator `or`",
             Self::None => "`none`",
+            Self::Auto => "`auto`",
             Self::Let => "keyword `let`",
             Self::If => "keyword `if`",
             Self::Else => "keyword `else`",
@@ -250,7 +251,6 @@ impl<'s> Token<'s> {
             Self::Import => "keyword `import`",
             Self::Include => "keyword `include`",
             Self::Using => "keyword `using`",
-            Self::Auto => "keyword `auto`",
             Self::Space(_) => "space",
             Self::Text(_) => "text",
             Self::UnicodeEscape(_) => "unicode escape sequence",

@@ -11,8 +11,8 @@ pub fn pos(value: Value) -> Value {
         Length(v) => Length(v),
         Angle(v) => Angle(v),
         Relative(v) => Relative(v),
-        Fractional(v) => Fractional(v),
         Linear(v) => Linear(v),
+        Fractional(v) => Fractional(v),
         _ => Error,
     }
 }
@@ -25,8 +25,8 @@ pub fn neg(value: Value) -> Value {
         Length(v) => Length(-v),
         Angle(v) => Angle(-v),
         Relative(v) => Relative(-v),
-        Fractional(v) => Fractional(-v),
         Linear(v) => Linear(-v),
+        Fractional(v) => Fractional(-v),
         _ => Error,
     }
 }
@@ -34,29 +34,31 @@ pub fn neg(value: Value) -> Value {
 /// Compute the sum of two values.
 pub fn add(lhs: Value, rhs: Value) -> Value {
     match (lhs, rhs) {
-        // Math.
         (Int(a), Int(b)) => Int(a + b),
         (Int(a), Float(b)) => Float(a as f64 + b),
         (Float(a), Int(b)) => Float(a + b as f64),
         (Float(a), Float(b)) => Float(a + b),
+
         (Angle(a), Angle(b)) => Angle(a + b),
+
         (Length(a), Length(b)) => Length(a + b),
         (Length(a), Relative(b)) => Linear(a + b),
         (Length(a), Linear(b)) => Linear(a + b),
+
         (Relative(a), Length(b)) => Linear(a + b),
         (Relative(a), Relative(b)) => Relative(a + b),
         (Relative(a), Linear(b)) => Linear(a + b),
-        (Fractional(a), Fractional(b)) => Fractional(a + b),
+
         (Linear(a), Length(b)) => Linear(a + b),
         (Linear(a), Relative(b)) => Linear(a + b),
         (Linear(a), Linear(b)) => Linear(a + b),
 
-        // Collections.
+        (Fractional(a), Fractional(b)) => Fractional(a + b),
+
         (Str(a), Str(b)) => Str(a + &b),
         (Array(a), Array(b)) => Array(concat(a, b)),
         (Dict(a), Dict(b)) => Dict(concat(a, b)),
 
-        // Templates.
         (Template(a), Template(b)) => Template(concat(a, b)),
         (Template(a), None) => Template(a),
         (None, Template(b)) => Template(b),
@@ -80,17 +82,23 @@ pub fn sub(lhs: Value, rhs: Value) -> Value {
         (Int(a), Float(b)) => Float(a as f64 - b),
         (Float(a), Int(b)) => Float(a - b as f64),
         (Float(a), Float(b)) => Float(a - b),
+
         (Angle(a), Angle(b)) => Angle(a - b),
+
         (Length(a), Length(b)) => Length(a - b),
         (Length(a), Relative(b)) => Linear(a - b),
         (Length(a), Linear(b)) => Linear(a - b),
+
         (Relative(a), Length(b)) => Linear(a - b),
         (Relative(a), Relative(b)) => Relative(a - b),
         (Relative(a), Linear(b)) => Linear(a - b),
-        (Fractional(a), Fractional(b)) => Fractional(a - b),
+
         (Linear(a), Length(b)) => Linear(a - b),
         (Linear(a), Relative(b)) => Linear(a - b),
         (Linear(a), Linear(b)) => Linear(a - b),
+
+        (Fractional(a), Fractional(b)) => Fractional(a - b),
+
         _ => Error,
     }
 }
@@ -102,27 +110,37 @@ pub fn mul(lhs: Value, rhs: Value) -> Value {
         (Int(a), Float(b)) => Float(a as f64 * b),
         (Float(a), Int(b)) => Float(a * b as f64),
         (Float(a), Float(b)) => Float(a * b),
+
         (Length(a), Int(b)) => Length(a * b as f64),
         (Length(a), Float(b)) => Length(a * b),
         (Int(a), Length(b)) => Length(a as f64 * b),
         (Float(a), Length(b)) => Length(a * b),
+
         (Angle(a), Int(b)) => Angle(a * b as f64),
         (Angle(a), Float(b)) => Angle(a * b),
         (Int(a), Angle(b)) => Angle(a as f64 * b),
         (Float(a), Angle(b)) => Angle(a * b),
+
         (Relative(a), Int(b)) => Relative(a * b as f64),
         (Relative(a), Float(b)) => Relative(a * b),
-        (Fractional(a), Fractional(b)) => Fractional(a * b.get()),
-        (Fractional(a), Int(b)) => Fractional(a * b as f64),
-        (Fractional(a), Float(b)) => Fractional(a * b),
-        (Int(a), Relative(b)) => Relative(a as f64 * b),
-        (Int(a), Fractional(b)) => Fractional(a as f64 * b),
         (Float(a), Relative(b)) => Relative(a * b),
-        (Float(a), Fractional(b)) => Fractional(a * b),
+        (Int(a), Relative(b)) => Relative(a as f64 * b),
+
         (Linear(a), Int(b)) => Linear(a * b as f64),
         (Linear(a), Float(b)) => Linear(a * b),
         (Int(a), Linear(b)) => Linear(a as f64 * b),
         (Float(a), Linear(b)) => Linear(a * b),
+
+        (Float(a), Fractional(b)) => Fractional(a * b),
+        (Fractional(a), Int(b)) => Fractional(a * b as f64),
+        (Fractional(a), Float(b)) => Fractional(a * b),
+        (Int(a), Fractional(b)) => Fractional(a as f64 * b),
+
+        (Str(a), Int(b)) => Str(a.repeat(b.max(0) as usize)),
+        (Int(a), Str(b)) => Str(b.repeat(a.max(0) as usize)),
+        (Array(a), Int(b)) => Array(repeat(a, b.max(0) as usize)),
+        (Int(a), Array(b)) => Array(repeat(b, a.max(0) as usize)),
+
         _ => Error,
     }
 }
@@ -134,20 +152,26 @@ pub fn div(lhs: Value, rhs: Value) -> Value {
         (Int(a), Float(b)) => Float(a as f64 / b),
         (Float(a), Int(b)) => Float(a / b as f64),
         (Float(a), Float(b)) => Float(a / b),
+
         (Length(a), Int(b)) => Length(a / b as f64),
         (Length(a), Float(b)) => Length(a / b),
         (Length(a), Length(b)) => Float(a / b),
+
         (Angle(a), Int(b)) => Angle(a / b as f64),
         (Angle(a), Float(b)) => Angle(a / b),
         (Angle(a), Angle(b)) => Float(a / b),
+
         (Relative(a), Int(b)) => Relative(a / b as f64),
         (Relative(a), Float(b)) => Relative(a / b),
         (Relative(a), Relative(b)) => Float(a / b),
-        (Fractional(a), Fractional(b)) => Float(a.get() / b.get()),
+
         (Fractional(a), Int(b)) => Fractional(a / b as f64),
         (Fractional(a), Float(b)) => Fractional(a / b),
+        (Fractional(a), Fractional(b)) => Float(a / b),
+
         (Linear(a), Int(b)) => Linear(a / b as f64),
         (Linear(a), Float(b)) => Linear(a / b),
+
         _ => Error,
     }
 }
@@ -208,4 +232,10 @@ where
 {
     a.extend(b);
     a
+}
+
+/// Repeat a vector `n` times.
+fn repeat<T: Clone>(vec: Vec<T>, n: usize) -> Vec<T> {
+    let len = n * vec.len();
+    vec.into_iter().cycle().take(len).collect()
 }
