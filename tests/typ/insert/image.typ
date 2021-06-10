@@ -13,8 +13,8 @@
 // Error: 8-29 file not found
 #image("path/does/not/exist")
 
-// Error: 8-20 failed to load image
-#image("./font.typ")
+// Error: 8-21 failed to load image
+#image("./image.typ")
 
 ---
 // Test configuring the size and fitting behaviour of images.

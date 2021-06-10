@@ -46,4 +46,4 @@ von _v_ zu einem Blatt. Die Höhe des Baumes ist die Höhe der Wurzel.
 
 // The `image` function returns a "template" value of the same type as
 // the `[...]` literals.
-#align(center, image("../../res/graph.png", width: 75%))
+#align(center, image("../res/graph.png", width: 75%))

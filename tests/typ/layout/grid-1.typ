@@ -1,4 +1,4 @@
-// Test the `grid` function.
+// Test grid layouts.
 
 ---
 #let rect(width, color) = rect(width: width, height: 2cm, fill: color)

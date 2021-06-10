@@ -2,7 +2,6 @@
 
 ---
 // Variables.
-
 #let name = "Typst"
 #let ke-bab = "Kebab!"
 #let α = "Alpha"
@@ -31,9 +30,7 @@
 {4.5cm} \
 {12e1pt} \
 {2.5rad} \
-{45deg} \
-// Not in monospace via repr.
-#repr(45deg)
+{45deg}
 
 ---
 // Colors.
@@ -55,3 +52,12 @@
 {rect} \
 {f} \
 {() => none}
+
+---
+// Test using the `repr` function.
+
+// Returns a string.
+#test(repr((1, 2, false, )), "(1, 2, false)")
+
+// Not in monospace
+#repr(23deg)

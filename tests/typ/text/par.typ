@@ -1,8 +1,6 @@
-// Test the `paragraph` function.
-
----
 // Test configuring paragraph properties.
 
+---
 // FIXME: Word spacing doesn't work due to new shaping process.
 #par(spacing: 10pt, leading: 25%, word-spacing: 1pt)
 

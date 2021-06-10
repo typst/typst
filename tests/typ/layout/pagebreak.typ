@@ -1,4 +1,4 @@
-// Test the `pagebreak` function.
+// Test forced page breaks.
 
 ---
 First of two

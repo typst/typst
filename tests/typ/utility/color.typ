@@ -1,9 +1,5 @@
-// Test basic functions.
+// Test color creation functions.
 // Ref: false
-
----
-#test(type("hi"), "string")
-#test(repr((1, 2, false, )), "(1, 2, false)")
 
 ---
 // Check the output.

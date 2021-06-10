@@ -1,4 +1,4 @@
-// Test math functions.
+// Test basic calculation functions.
 // Ref: false
 
 ---

@@ -1,8 +1,6 @@
-// Test the `font` function.
-
----
 // Test configuring font properties.
 
+---
 // Set same font size in three different ways.
 #font(22pt)[A]
 #font(200%)[A]

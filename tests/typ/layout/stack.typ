@@ -1,4 +1,4 @@
-// Test the `stack` function.
+// Test stack layouts.
 
 ---
 #let rect(width, color) = rect(width: width, height: 1cm, fill: color)

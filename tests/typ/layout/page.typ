@@ -1,8 +1,6 @@
-// Test the `page` function.
-
----
 // Test configuring page sizes and margins.
 
+---
 // Set width and height.
 #page(width: 120pt, height: 120pt)
 #page(width: 40pt)[High]

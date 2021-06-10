@@ -1,27 +1,27 @@
-// Test bidirectional text.
+// Test bidirectional text and language configuration.
 
 ---
 // Test reordering with different top-level paragraph directions.
 #let text = [Text טֶקסט]
 #font("EB Garamond", "Noto Serif Hebrew")
-#lang("de") {text}
 #lang("he") {text}
+#lang("de") {text}
 
 ---
-// Test that consecutiv, embedded  LTR runs stay LTR.
+// Test that consecutive, embedded  LTR runs stay LTR.
 // Here, we have two runs: "A" and italic "B".
 #let text = [أنت A_B_مطرC]
 #font("EB Garamond", "Noto Sans Arabic")
-#lang("de") {text}
 #lang("ar") {text}
+#lang("de") {text}
 
 ---
 // Test that consecutive, embedded RTL runs stay RTL.
 // Here, we have three runs: "גֶ", bold "שֶׁ", and "ם".
 #let text = [Aגֶ*שֶׁ*םB]
 #font("EB Garamond", "Noto Serif Hebrew")
-#lang("de") {text}
 #lang("he") {text}
+#lang("de") {text}
 
 ---
 // Test embedding up to level 4 with isolates.
@@ -47,3 +47,10 @@ Lריווח #h(1cm) R
 #font("Noto Serif Hebrew", "EB Garamond")
 #lang("he")
 קרנפיםRh#image("../../res/rhino.png", height: 11pt)inoחיים
+
+---
+// Test the `lang` function.
+// Ref: false
+
+// Error: 12-15 must be horizontal
+#lang(dir: ttb)
