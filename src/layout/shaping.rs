@@ -1,13 +1,14 @@
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
-use std::ops::Range;
+use std::ops::{Add, Range};
 
 use rustybuzz::UnicodeBuffer;
 
 use super::{Element, Frame, Glyph, LayoutContext, Text};
 use crate::exec::FontProps;
-use crate::font::{Face, FaceId};
+use crate::font::{Em, Face, FaceId, VerticalFontMetric};
 use crate::geom::{Dir, Length, Point, Size};
+use crate::layout::Shape;
 use crate::util::SliceExt;
 
 /// The result of shaping text.
@@ -59,12 +60,13 @@ enum Side {
 
 impl<'a> ShapedText<'a> {
     /// Build the shaped text's frame.
-    pub fn build(&self) -> Frame {
+    pub fn build(&self, ctx: &LayoutContext) -> Frame {
         let mut frame = Frame::new(self.size, self.baseline);
         let mut offset = Length::zero();
 
         for (face_id, group) in self.glyphs.as_ref().group_by_key(|g| g.face_id) {
             let pos = Point::new(offset, self.baseline);
+
             let mut text = Text {
                 face_id,
                 size: self.props.size,
@@ -72,16 +74,20 @@ impl<'a> ShapedText<'a> {
                 glyphs: vec![],
             };
 
+            let mut width = Length::zero();
             for glyph in group {
                 text.glyphs.push(Glyph {
                     id: glyph.glyph_id,
                     x_advance: glyph.x_advance,
                     x_offset: glyph.x_offset,
                 });
-                offset += glyph.x_advance;
+                width += glyph.x_advance;
             }
 
             frame.push(pos, Element::Text(text));
+            decorate(ctx, &mut frame, &self.props, face_id, pos, width);
+
+            offset += width;
         }
 
         frame
@@ -363,4 +369,82 @@ fn measure(
     }
 
     (Size::new(width, top + bottom), top)
+}
+
+/// Add underline, strikthrough and overline decorations.
+fn decorate(
+    ctx: &LayoutContext,
+    frame: &mut Frame,
+    props: &FontProps,
+    face_id: FaceId,
+    pos: Point,
+    width: Length,
+) {
+    let mut apply = |strength, position, extent, fill| {
+        let pos = Point::new(pos.x - extent, pos.y - position);
+        let target = Point::new(width + 2.0 * extent, Length::zero());
+        frame.push(pos, Element::Geometry(Shape::Line(target, strength), fill));
+    };
+
+    if let Some(strikethrough) = props.strikethrough {
+        let face = ctx.cache.font.get(face_id);
+
+        let strength = strikethrough.strength.unwrap_or_else(|| {
+            face.ttf()
+                .strikeout_metrics()
+                .or_else(|| face.ttf().underline_metrics())
+                .map_or(Em::new(0.06), |m| face.to_em(m.thickness))
+                .to_length(props.size)
+        });
+
+        let position = strikethrough.position.unwrap_or_else(|| {
+            face.ttf()
+                .strikeout_metrics()
+                .map_or(Em::new(0.25), |m| face.to_em(m.position))
+                .to_length(props.size)
+        });
+
+        apply(strength, position, strikethrough.extent, strikethrough.fill);
+    }
+
+    if let Some(underline) = props.underline {
+        let face = ctx.cache.font.get(face_id);
+
+        let strength = underline.strength.unwrap_or_else(|| {
+            face.ttf()
+                .underline_metrics()
+                .or_else(|| face.ttf().strikeout_metrics())
+                .map_or(Em::new(0.06), |m| face.to_em(m.thickness))
+                .to_length(props.size)
+        });
+
+        let position = underline.position.unwrap_or_else(|| {
+            face.ttf()
+                .underline_metrics()
+                .map_or(Em::new(-0.2), |m| face.to_em(m.position))
+                .to_length(props.size)
+        });
+
+        apply(strength, position, underline.extent, underline.fill);
+    }
+
+    if let Some(overline) = props.overline {
+        let face = ctx.cache.font.get(face_id);
+
+        let strength = overline.strength.unwrap_or_else(|| {
+            face.ttf()
+                .underline_metrics()
+                .or_else(|| face.ttf().strikeout_metrics())
+                .map_or(Em::new(0.06), |m| face.to_em(m.thickness))
+                .to_length(props.size)
+        });
+
+        let position = overline.position.unwrap_or_else(|| {
+            face.vertical_metric(VerticalFontMetric::CapHeight)
+                .add(Em::new(0.1))
+                .to_length(props.size)
+        });
+
+        apply(strength, position, overline.extent, overline.fill);
+    }
 }

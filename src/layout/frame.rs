@@ -92,12 +92,14 @@ pub enum Shape {
     Rect(Size),
     /// An ellipse with its origin in the center.
     Ellipse(Size),
+    /// A line to a `Point` (relative to its position) with a stroke width.
+    Line(Point, Length),
     /// A bezier path.
     Path(Path),
 }
 
 /// How text and shapes are filled.
-#[derive(Debug, Copy, Clone, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum Fill {
     /// A solid color.
     Color(Color),

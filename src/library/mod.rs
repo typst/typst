@@ -5,6 +5,7 @@
 
 mod align;
 mod basic;
+mod decorations;
 mod font;
 mod grid;
 mod image;
@@ -20,6 +21,7 @@ mod stack;
 pub use self::image::*;
 pub use align::*;
 pub use basic::*;
+pub use decorations::*;
 pub use font::*;
 pub use grid::*;
 pub use lang::*;
@@ -55,6 +57,7 @@ pub fn new() -> Scope {
     std.def_func("lang", lang);
     std.def_func("max", max);
     std.def_func("min", min);
+    std.def_func("overline", overline);
     std.def_func("pad", pad);
     std.def_func("page", page);
     std.def_func("pagebreak", pagebreak);
@@ -64,7 +67,9 @@ pub fn new() -> Scope {
     std.def_func("rgb", rgb);
     std.def_func("square", square);
     std.def_func("stack", stack);
+    std.def_func("strike", strike);
     std.def_func("type", type_);
+    std.def_func("underline", underline);
     std.def_func("v", v);
 
     // Colors.

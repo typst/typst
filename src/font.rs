@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
+use std::ops::Add;
 
 use serde::{Deserialize, Serialize};
 
@@ -153,6 +154,14 @@ impl Em {
     /// Convert to a length at the given font size.
     pub fn to_length(self, font_size: Length) -> Length {
         self.0 * font_size
+    }
+}
+
+impl Add for Em {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self(self.0 + other.0)
     }
 }
 
