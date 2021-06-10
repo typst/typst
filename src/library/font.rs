@@ -99,7 +99,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         }
 
         if let Some(color) = color {
-            ctx.state.font.color = Fill::Color(color);
+            ctx.state.font.fill = Fill::Color(color);
         }
 
         if let Some(FontFamilies(serif)) = &serif {

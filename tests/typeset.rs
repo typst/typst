@@ -8,7 +8,7 @@ use std::rc::Rc;
 use image::{GenericImageView, Rgba};
 use tiny_skia::{
     Color, ColorU8, FillRule, FilterQuality, Paint, Pattern, Pixmap, Rect, SpreadMode,
-    Transform,
+    Stroke, Transform,
 };
 use ttf_parser::{GlyphId, OutlineBuilder};
 use walkdir::WalkDir;
@@ -473,6 +473,17 @@ fn draw_geometry(canvas: &mut Pixmap, ts: Transform, shape: &Shape, fill: Fill) 
         Shape::Ellipse(size) => {
             let path = convert_typst_path(&geom::Path::ellipse(size));
             canvas.fill_path(&path, &paint, rule, ts, None);
+        }
+        Shape::Line(target, thickness) => {
+            let path = {
+                let mut builder = tiny_skia::PathBuilder::new();
+                builder.line_to(target.x.to_pt() as f32, target.y.to_pt() as f32);
+                builder.finish().unwrap()
+            };
+
+            let mut stroke = Stroke::default();
+            stroke.width = thickness.to_pt() as f32;
+            canvas.stroke_path(&path, &paint, &stroke, ts, None);
         }
         Shape::Path(ref path) => {
             let path = convert_typst_path(path);

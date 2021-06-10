@@ -125,13 +125,19 @@ pub struct FontState {
     /// The bottom end of the text bounding box.
     pub bottom_edge: VerticalFontMetric,
     /// The glyph fill color / texture.
-    pub color: Fill,
+    pub fill: Fill,
     /// Whether the strong toggle is active or inactive. This determines
     /// whether the next `*` adds or removes font weight.
     pub strong: bool,
     /// Whether the emphasis toggle is active or inactive. This determines
     /// whether the next `_` makes italic or non-italic.
     pub emph: bool,
+    /// The specifications for a strikethrough line, if any.
+    pub strikethrough: Option<LineState>,
+    /// The specifications for a underline, if any.
+    pub underline: Option<LineState>,
+    /// The specifications for a overline line, if any.
+    pub overline: Option<LineState>,
 }
 
 impl FontState {
@@ -156,13 +162,17 @@ impl FontState {
             }
         }
 
+        let size = self.resolve_size();
         FontProps {
             families: Rc::clone(&self.families),
             variant,
-            size: self.resolve_size(),
+            size,
             top_edge: self.top_edge,
             bottom_edge: self.bottom_edge,
-            fill: self.color,
+            strikethrough: self.strikethrough.map(|s| s.resolve_props(size, &self.fill)),
+            underline: self.underline.map(|s| s.resolve_props(size, &self.fill)),
+            overline: self.overline.map(|s| s.resolve_props(size, &self.fill)),
+            fill: self.fill,
         }
     }
 
@@ -185,9 +195,39 @@ impl Default for FontState {
             top_edge: VerticalFontMetric::CapHeight,
             bottom_edge: VerticalFontMetric::Baseline,
             scale: Linear::one(),
-            color: Fill::Color(Color::Rgba(RgbaColor::BLACK)),
+            fill: Fill::Color(Color::Rgba(RgbaColor::BLACK)),
             strong: false,
             emph: false,
+            strikethrough: None,
+            underline: None,
+            overline: None,
+        }
+    }
+}
+
+/// Describes a line that could be positioned over or under text.
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
+pub struct LineState {
+    /// Color of the line. Will default to text color if `None`.
+    pub fill: Option<Fill>,
+    /// Thickness of the line's stroke. Calling functions should attempt to
+    /// read this value from the appropriate font tables if this is `None`.
+    pub strength: Option<Linear>,
+    /// Position of the line relative to the baseline. Calling functions should
+    /// attempt to read this value from the appropriate font tables if this is
+    /// `None`.
+    pub position: Option<Linear>,
+    /// Amount that the line will be longer or shorter than its associated text.
+    pub extent: Linear,
+}
+
+impl LineState {
+    pub fn resolve_props(&self, font_size: Length, fill: &Fill) -> LineProps {
+        LineProps {
+            fill: self.fill.unwrap_or_else(|| fill.clone()),
+            strength: self.strength.map(|s| s.resolve(font_size)),
+            position: self.position.map(|p| p.resolve(font_size)),
+            extent: self.extent.resolve(font_size),
         }
     }
 }
@@ -207,6 +247,12 @@ pub struct FontProps {
     pub bottom_edge: VerticalFontMetric,
     /// The fill color of the text.
     pub fill: Fill,
+    /// The specifications for a strikethrough line, if any.
+    pub strikethrough: Option<LineProps>,
+    /// The specifications for a underline, if any.
+    pub underline: Option<LineProps>,
+    /// The specifications for a overline line, if any.
+    pub overline: Option<LineProps>,
 }
 
 /// Font family definitions.
@@ -272,4 +318,20 @@ impl Display for FontFamily {
             Self::Named(s) => s,
         })
     }
+}
+
+/// Describes a line that could be positioned over or under text.
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
+pub struct LineProps {
+    /// Color of the line.
+    pub fill: Fill,
+    /// Thickness of the line's stroke. Calling functions should attempt to
+    /// read this value from the appropriate font tables if this is `None`.
+    pub strength: Option<Length>,
+    /// Position of the line relative to the baseline. Calling functions should
+    /// attempt to read this value from the appropriate font tables if this is
+    /// `None`.
+    pub position: Option<Length>,
+    /// Amount that the line will be longer or shorter than its associated text.
+    pub extent: Length,
 }

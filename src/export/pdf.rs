@@ -183,12 +183,17 @@ impl<'a> PdfExporter<'a> {
                                 content.rect(x, y - h, w, h, false, true);
                             }
                         }
-
                         Shape::Ellipse(size) => {
                             let path = geom::Path::ellipse(size);
                             write_path(&mut content, x, y, &path, false, true);
                         }
-
+                        Shape::Line(target, stroke) => {
+                            write_stroke(&mut content, fill, stroke.to_pt() as f32);
+                            content.path(true, false).move_to(x, y).line_to(
+                                x + target.x.to_pt() as f32,
+                                y - target.y.to_pt() as f32,
+                            );
+                        }
                         Shape::Path(ref path) => {
                             write_path(&mut content, x, y, path, false, true)
                         }
@@ -369,6 +374,20 @@ fn write_fill(content: &mut Content, fill: Fill) {
             content.fill_rgb(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0);
         }
     }
+}
+
+/// Write a stroke change into a content stream.
+fn write_stroke(content: &mut Content, fill: Fill, thickness: f32) {
+    match fill {
+        Fill::Color(Color::Rgba(c)) => {
+            content.stroke_rgb(
+                c.r as f32 / 255.0,
+                c.g as f32 / 255.0,
+                c.b as f32 / 255.0,
+            );
+        }
+    }
+    content.line_width(thickness);
 }
 
 /// Write a path into a content stream.
