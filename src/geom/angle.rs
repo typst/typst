@@ -1,15 +1,18 @@
 use super::*;
+use decorum::N64;
 
 /// An angle.
-#[derive(Default, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Hash)]
 pub struct Angle {
     /// The angle in raw units.
-    raw: f64,
+    raw: N64,
 }
 
 impl Angle {
     /// The zero angle.
-    pub const ZERO: Self = Self { raw: 0.0 };
+    pub fn zero() -> Self {
+        Self { raw: N64::from(0.0) }
+    }
 
     /// Create an angle from a number of radians.
     pub fn rad(rad: f64) -> Self {
@@ -23,7 +26,7 @@ impl Angle {
 
     /// Create an angle from a number of raw units.
     pub fn raw(raw: f64) -> Self {
-        Self { raw }
+        Self { raw: N64::from(raw) }
     }
 
     /// Convert this to a number of radians.
@@ -38,17 +41,17 @@ impl Angle {
 
     /// Get the value of this angle in raw units.
     pub fn to_raw(self) -> f64 {
-        self.raw
+        self.raw.into()
     }
 
     /// Create an angle from a value in a unit.
     pub fn with_unit(val: f64, unit: AngularUnit) -> Self {
-        Self { raw: val * unit.raw_scale() }
+        Self { raw: N64::from(val * unit.raw_scale()) }
     }
 
     /// Get the value of this length in unit.
     pub fn to_unit(self, unit: AngularUnit) -> f64 {
-        self.raw / unit.raw_scale()
+        self.to_raw() / unit.raw_scale()
     }
 }
 
@@ -119,7 +122,7 @@ impl Div for Angle {
     type Output = f64;
 
     fn div(self, other: Self) -> f64 {
-        self.raw / other.raw
+        self.to_raw() / other.to_raw()
     }
 }
 
@@ -130,7 +133,7 @@ assign_impl!(Angle /= f64);
 
 impl Sum for Angle {
     fn sum<I: Iterator<Item = Angle>>(iter: I) -> Self {
-        iter.fold(Angle::ZERO, Add::add)
+        iter.fold(Angle::zero(), Add::add)
     }
 }
 /// Different units of angular measurement.

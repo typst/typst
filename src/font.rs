@@ -15,10 +15,19 @@ pub struct Face {
     index: u32,
     ttf: rustybuzz::Face<'static>,
     units_per_em: f64,
-    ascender: Em,
-    cap_height: Em,
-    x_height: Em,
-    descender: Em,
+    pub ascender: Em,
+    pub cap_height: Em,
+    pub x_height: Em,
+    pub descender: Em,
+    pub strikethrough: LineMetrics,
+    pub underline: LineMetrics,
+    pub overline: LineMetrics,
+}
+
+/// Metrics for a decorative line.
+pub struct LineMetrics {
+    pub strength: Em,
+    pub position: Em,
 }
 
 impl Face {
@@ -35,22 +44,45 @@ impl Face {
 
         let ttf = rustybuzz::Face::from_slice(slice, index)?;
 
-        // Look up some metrics we may need often.
         let units_per_em = f64::from(ttf.units_per_em());
-        let ascender = ttf.typographic_ascender().unwrap_or(ttf.ascender());
-        let cap_height = ttf.capital_height().filter(|&h| h > 0).unwrap_or(ascender);
-        let x_height = ttf.x_height().filter(|&h| h > 0).unwrap_or(ascender);
-        let descender = ttf.typographic_descender().unwrap_or(ttf.descender());
+        let to_em = |units| Em::from_units(units, units_per_em);
+
+        let ascender = to_em(ttf.typographic_ascender().unwrap_or(ttf.ascender()));
+        let cap_height = ttf.capital_height().filter(|&h| h > 0).map_or(ascender, to_em);
+        let x_height = ttf.x_height().filter(|&h| h > 0).map_or(ascender, to_em);
+        let descender = to_em(ttf.typographic_descender().unwrap_or(ttf.descender()));
+
+        let strikeout = ttf.strikeout_metrics();
+        let underline = ttf.underline_metrics();
+        let default = Em::new(0.06);
+
+        let strikethrough = LineMetrics {
+            strength: strikeout.or(underline).map_or(default, |s| to_em(s.thickness)),
+            position: strikeout.map_or(Em::new(0.25), |s| to_em(s.position)),
+        };
+
+        let underline = LineMetrics {
+            strength: underline.or(strikeout).map_or(default, |s| to_em(s.thickness)),
+            position: underline.map_or(Em::new(-0.2), |s| to_em(s.position)),
+        };
+
+        let overline = LineMetrics {
+            strength: underline.strength,
+            position: cap_height + Em::new(0.1),
+        };
 
         Some(Self {
             buffer,
             index,
             ttf,
             units_per_em,
-            ascender: Em::from_units(ascender, units_per_em),
-            cap_height: Em::from_units(cap_height, units_per_em),
-            x_height: Em::from_units(x_height, units_per_em),
-            descender: Em::from_units(descender, units_per_em),
+            ascender,
+            cap_height,
+            x_height,
+            descender,
+            strikethrough,
+            underline,
+            overline,
         })
     }
 

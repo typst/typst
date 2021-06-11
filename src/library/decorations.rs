@@ -55,7 +55,7 @@ fn line_impl(
     name: &str,
     ctx: &mut EvalContext,
     args: &mut FuncArgs,
-    substate: impl Fn(&mut FontState) -> &mut Option<LineState> + 'static,
+    substate: fn(&mut FontState) -> &mut Option<Rc<LineState>>,
 ) -> Value {
     let color = args.eat_named(ctx, "color");
     let position = args.eat_named(ctx, "position");
@@ -64,17 +64,19 @@ fn line_impl(
     let body = args.eat::<TemplateValue>(ctx);
 
     // Suppress any existing strikethrough if strength is explicitly zero.
-    let state = strength.map_or(true, |s| !s.is_zero()).then(|| LineState {
-        fill: color.map(Fill::Color),
-        strength,
-        position,
-        extent,
+    let state = strength.map_or(true, |s| !s.is_zero()).then(|| {
+        Rc::new(LineState {
+            strength,
+            position,
+            extent,
+            fill: color.map(Fill::Color),
+        })
     });
 
     Value::template(name, move |ctx| {
         let snapshot = ctx.state.clone();
 
-        *substate(&mut ctx.state.font) = state;
+        *substate(ctx.state.font_mut()) = state.clone();
 
         if let Some(body) = &body {
             body.exec(ctx);

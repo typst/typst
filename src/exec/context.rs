@@ -1,4 +1,5 @@
 use std::mem;
+use std::rc::Rc;
 
 use super::{Exec, ExecWithMap, FontFamily, State};
 use crate::diag::{Diag, DiagSet, Pass};
@@ -43,8 +44,11 @@ impl ExecContext {
 
     /// Set the font to monospace.
     pub fn set_monospace(&mut self) {
-        let families = self.state.font.families_mut();
-        families.list.insert(0, FontFamily::Monospace);
+        self.state
+            .font_mut()
+            .families_mut()
+            .list
+            .insert(0, FontFamily::Monospace);
     }
 
     /// Execute a template and return the result as a stack node.
@@ -108,8 +112,7 @@ impl ExecContext {
 
     /// Apply a forced paragraph break.
     pub fn parbreak(&mut self) {
-        let em = self.state.font.resolve_size();
-        let amount = self.state.par.spacing.resolve(em);
+        let amount = self.state.par.spacing.resolve(self.state.font.size);
         self.stack.parbreak(&self.state);
         self.stack.push_soft(StackChild::Spacing(amount));
     }
@@ -133,9 +136,11 @@ impl ExecContext {
     }
 
     fn make_text_node(&self, text: impl Into<String>) -> ParChild {
-        let align = self.state.aligns.cross;
-        let props = self.state.font.resolve_props();
-        ParChild::Text(text.into(), props, align)
+        ParChild::Text(
+            text.into(),
+            self.state.aligns.cross,
+            Rc::clone(&self.state.font),
+        )
     }
 }
 
@@ -217,11 +222,10 @@ struct ParBuilder {
 
 impl ParBuilder {
     fn new(state: &State) -> Self {
-        let em = state.font.resolve_size();
         Self {
             aligns: state.aligns,
             dir: state.lang.dir,
-            line_spacing: state.par.leading.resolve(em),
+            line_spacing: state.par.leading.resolve(state.font.size),
             children: vec![],
             last: Last::None,
         }

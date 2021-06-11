@@ -1,12 +1,12 @@
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
-use std::ops::{Add, Range};
+use std::ops::Range;
 
 use rustybuzz::UnicodeBuffer;
 
 use super::{Element, Frame, Glyph, LayoutContext, Text};
-use crate::exec::FontProps;
-use crate::font::{Em, Face, FaceId, VerticalFontMetric};
+use crate::exec::{FontState, LineState};
+use crate::font::{Face, FaceId, FontStyle, LineMetrics};
 use crate::geom::{Dir, Length, Point, Size};
 use crate::layout::Shape;
 use crate::util::SliceExt;
@@ -23,7 +23,7 @@ pub struct ShapedText<'a> {
     /// The text direction.
     pub dir: Dir,
     /// The properties used for font selection.
-    pub props: &'a FontProps,
+    pub state: &'a FontState,
     /// The font size.
     pub size: Size,
     /// The baseline from the top of the frame.
@@ -69,8 +69,8 @@ impl<'a> ShapedText<'a> {
 
             let mut text = Text {
                 face_id,
-                size: self.props.size,
-                fill: self.props.fill,
+                size: self.state.size,
+                fill: self.state.fill,
                 glyphs: vec![],
             };
 
@@ -85,7 +85,7 @@ impl<'a> ShapedText<'a> {
             }
 
             frame.push(pos, Element::Text(text));
-            decorate(ctx, &mut frame, &self.props, face_id, pos, width);
+            decorate(ctx, &mut frame, pos, width, face_id, &self.state);
 
             offset += width;
         }
@@ -101,17 +101,17 @@ impl<'a> ShapedText<'a> {
         text_range: Range<usize>,
     ) -> ShapedText<'a> {
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
-            let (size, baseline) = measure(ctx, glyphs, self.props);
+            let (size, baseline) = measure(ctx, glyphs, self.state);
             Self {
                 text: &self.text[text_range],
                 dir: self.dir,
-                props: self.props,
+                state: self.state,
                 size,
                 baseline,
                 glyphs: Cow::Borrowed(glyphs),
             }
         } else {
-            shape(ctx, &self.text[text_range], self.dir, self.props)
+            shape(ctx, &self.text[text_range], self.dir, self.state)
         }
     }
 
@@ -185,20 +185,20 @@ pub fn shape<'a>(
     ctx: &mut LayoutContext,
     text: &'a str,
     dir: Dir,
-    props: &'a FontProps,
+    state: &'a FontState,
 ) -> ShapedText<'a> {
     let mut glyphs = vec![];
-    let families = props.families.iter();
+    let families = state.families.iter();
     if !text.is_empty() {
-        shape_segment(ctx, &mut glyphs, 0, text, dir, props, families, None);
+        shape_segment(ctx, &mut glyphs, 0, text, dir, state, families, None);
     }
 
-    let (size, baseline) = measure(ctx, &glyphs, props);
+    let (size, baseline) = measure(ctx, &glyphs, state);
 
     ShapedText {
         text,
         dir,
-        props,
+        state,
         size,
         baseline,
         glyphs: Cow::Owned(glyphs),
@@ -212,7 +212,7 @@ fn shape_segment<'a>(
     base: usize,
     text: &str,
     dir: Dir,
-    props: &FontProps,
+    state: &FontState,
     mut families: impl Iterator<Item = &'a str> + Clone,
     mut first_face: Option<FaceId>,
 ) {
@@ -221,7 +221,21 @@ fn shape_segment<'a>(
         // Try to load the next available font family.
         match families.next() {
             Some(family) => {
-                match ctx.cache.font.select(ctx.loader, family, props.variant) {
+                let mut variant = state.variant;
+
+                if state.strong {
+                    variant.weight = variant.weight.thicken(300);
+                }
+
+                if state.emph {
+                    variant.style = match variant.style {
+                        FontStyle::Normal => FontStyle::Italic,
+                        FontStyle::Italic => FontStyle::Normal,
+                        FontStyle::Oblique => FontStyle::Normal,
+                    }
+                }
+
+                match ctx.cache.font.select(ctx.loader, family, variant) {
                     Some(id) => break (id, true),
                     None => {}
                 }
@@ -267,8 +281,8 @@ fn shape_segment<'a>(
             glyphs.push(ShapedGlyph {
                 face_id,
                 glyph_id: info.codepoint as u16,
-                x_advance: face.to_em(pos[i].x_advance).to_length(props.size),
-                x_offset: face.to_em(pos[i].x_offset).to_length(props.size),
+                x_advance: face.to_em(pos[i].x_advance).to_length(state.size),
+                x_offset: face.to_em(pos[i].x_offset).to_length(state.size),
                 text_index: base + cluster,
                 safe_to_break: !info.unsafe_to_break(),
             });
@@ -319,7 +333,7 @@ fn shape_segment<'a>(
                 base + range.start,
                 &text[range],
                 dir,
-                props,
+                state,
                 families.clone(),
                 first_face,
             );
@@ -336,7 +350,7 @@ fn shape_segment<'a>(
 fn measure(
     ctx: &mut LayoutContext,
     glyphs: &[ShapedGlyph],
-    props: &FontProps,
+    state: &FontState,
 ) -> (Size, Length) {
     let cache = &mut ctx.cache.font;
 
@@ -344,15 +358,15 @@ fn measure(
     let mut top = Length::zero();
     let mut bottom = Length::zero();
     let mut expand_vertical = |face: &Face| {
-        top.set_max(face.vertical_metric(props.top_edge).to_length(props.size));
-        bottom.set_max(-face.vertical_metric(props.bottom_edge).to_length(props.size));
+        top.set_max(face.vertical_metric(state.top_edge).to_length(state.size));
+        bottom.set_max(-face.vertical_metric(state.bottom_edge).to_length(state.size));
     };
 
     if glyphs.is_empty() {
         // When there are no glyphs, we just use the vertical metrics of the
         // first available font.
-        for family in props.families.iter() {
-            if let Some(face_id) = cache.select(ctx.loader, family, props.variant) {
+        for family in state.families.iter() {
+            if let Some(face_id) = cache.select(ctx.loader, family, state.variant) {
                 expand_vertical(cache.get(face_id));
                 break;
             }
@@ -375,76 +389,44 @@ fn measure(
 fn decorate(
     ctx: &LayoutContext,
     frame: &mut Frame,
-    props: &FontProps,
-    face_id: FaceId,
     pos: Point,
     width: Length,
+    face_id: FaceId,
+    state: &FontState,
 ) {
-    let mut apply = |strength, position, extent, fill| {
+    let mut apply = |substate: &LineState, metrics: fn(&Face) -> &LineMetrics| {
+        let metrics = metrics(&ctx.cache.font.get(face_id));
+
+        let strength = substate
+            .strength
+            .map(|s| s.resolve(state.size))
+            .unwrap_or(metrics.strength.to_length(state.size));
+
+        let position = substate
+            .position
+            .map(|s| s.resolve(state.size))
+            .unwrap_or(metrics.position.to_length(state.size));
+
+        let extent = substate.extent.resolve(state.size);
+        let fill = substate.fill.unwrap_or(state.fill);
+
         let pos = Point::new(pos.x - extent, pos.y - position);
         let target = Point::new(width + 2.0 * extent, Length::zero());
-        frame.push(pos, Element::Geometry(Shape::Line(target, strength), fill));
+        let shape = Shape::Line(target, strength);
+        let element = Element::Geometry(shape, fill);
+
+        frame.push(pos, element);
     };
 
-    if let Some(strikethrough) = props.strikethrough {
-        let face = ctx.cache.font.get(face_id);
-
-        let strength = strikethrough.strength.unwrap_or_else(|| {
-            face.ttf()
-                .strikeout_metrics()
-                .or_else(|| face.ttf().underline_metrics())
-                .map_or(Em::new(0.06), |m| face.to_em(m.thickness))
-                .to_length(props.size)
-        });
-
-        let position = strikethrough.position.unwrap_or_else(|| {
-            face.ttf()
-                .strikeout_metrics()
-                .map_or(Em::new(0.25), |m| face.to_em(m.position))
-                .to_length(props.size)
-        });
-
-        apply(strength, position, strikethrough.extent, strikethrough.fill);
+    if let Some(strikethrough) = &state.strikethrough {
+        apply(strikethrough, |face| &face.strikethrough);
     }
 
-    if let Some(underline) = props.underline {
-        let face = ctx.cache.font.get(face_id);
-
-        let strength = underline.strength.unwrap_or_else(|| {
-            face.ttf()
-                .underline_metrics()
-                .or_else(|| face.ttf().strikeout_metrics())
-                .map_or(Em::new(0.06), |m| face.to_em(m.thickness))
-                .to_length(props.size)
-        });
-
-        let position = underline.position.unwrap_or_else(|| {
-            face.ttf()
-                .underline_metrics()
-                .map_or(Em::new(-0.2), |m| face.to_em(m.position))
-                .to_length(props.size)
-        });
-
-        apply(strength, position, underline.extent, underline.fill);
+    if let Some(underline) = &state.underline {
+        apply(underline, |face| &face.underline);
     }
 
-    if let Some(overline) = props.overline {
-        let face = ctx.cache.font.get(face_id);
-
-        let strength = overline.strength.unwrap_or_else(|| {
-            face.ttf()
-                .underline_metrics()
-                .or_else(|| face.ttf().strikeout_metrics())
-                .map_or(Em::new(0.06), |m| face.to_em(m.thickness))
-                .to_length(props.size)
-        });
-
-        let position = overline.position.unwrap_or_else(|| {
-            face.vertical_metric(VerticalFontMetric::CapHeight)
-                .add(Em::new(0.1))
-                .to_length(props.size)
-        });
-
-        apply(strength, position, overline.extent, overline.fill);
+    if let Some(overline) = &state.overline {
+        apply(overline, |face| &face.overline);
     }
 }

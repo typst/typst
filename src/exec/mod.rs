@@ -55,8 +55,8 @@ impl ExecWithMap for syntax::Node {
             Self::Space => ctx.push_word_space(),
             Self::Linebreak(_) => ctx.linebreak(),
             Self::Parbreak(_) => ctx.parbreak(),
-            Self::Strong(_) => ctx.state.font.strong ^= true,
-            Self::Emph(_) => ctx.state.font.emph ^= true,
+            Self::Strong(_) => ctx.state.font_mut().strong ^= true,
+            Self::Emph(_) => ctx.state.font_mut().emph ^= true,
             Self::Raw(raw) => raw.exec(ctx),
             Self::Heading(heading) => heading.exec_with_map(ctx, map),
             Self::List(list) => list.exec_with_map(ctx, map),
@@ -85,10 +85,11 @@ impl Exec for syntax::RawNode {
 impl ExecWithMap for syntax::HeadingNode {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         let snapshot = ctx.state.clone();
+        let font = ctx.state.font_mut();
 
         let upscale = 1.6 - 0.1 * self.level as f64;
-        ctx.state.font.scale *= upscale;
-        ctx.state.font.strong = true;
+        font.size *= upscale;
+        font.strong = true;
 
         self.body.exec_with_map(ctx, map);
 
@@ -109,7 +110,7 @@ impl ExecWithMap for syntax::ListNode {
             aspect: None,
             children: vec![
                 StackChild::Any(bullet.into(), Gen::default()),
-                StackChild::Spacing(ctx.state.font.resolve_size() / 2.0),
+                StackChild::Spacing(ctx.state.font.size / 2.0),
                 StackChild::Any(body.into(), Gen::default()),
             ],
         };
@@ -139,7 +140,7 @@ impl Exec for Value {
                 let prev = Rc::clone(&ctx.state.font.families);
                 ctx.set_monospace();
                 ctx.push_text(pretty(other));
-                ctx.state.font.families = prev;
+                ctx.state.font_mut().families = prev;
             }
         }
     }

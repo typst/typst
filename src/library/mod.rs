@@ -34,6 +34,7 @@ pub use spacing::*;
 pub use stack::*;
 
 use std::fmt::{self, Display, Formatter};
+use std::rc::Rc;
 
 use crate::color::RgbaColor;
 use crate::eval::{EvalContext, FuncArgs, Scope, TemplateValue, Value};

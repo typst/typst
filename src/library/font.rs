@@ -64,54 +64,50 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
     Value::template("font", move |ctx| {
         let snapshot = ctx.state.clone();
+        let font = ctx.state.font_mut();
 
         if let Some(linear) = size {
-            if linear.rel.is_zero() {
-                ctx.state.font.size = linear.abs;
-                ctx.state.font.scale = Linear::one();
-            } else {
-                ctx.state.font.scale = linear;
-            }
+            font.size = linear.resolve(font.size);
         }
 
         if !list.is_empty() {
-            ctx.state.font.families_mut().list = list.clone();
+            font.families_mut().list = list.clone();
         }
 
         if let Some(style) = style {
-            ctx.state.font.variant.style = style;
+            font.variant.style = style;
         }
 
         if let Some(weight) = weight {
-            ctx.state.font.variant.weight = weight;
+            font.variant.weight = weight;
         }
 
         if let Some(stretch) = stretch {
-            ctx.state.font.variant.stretch = stretch;
+            font.variant.stretch = stretch;
         }
 
         if let Some(top_edge) = top_edge {
-            ctx.state.font.top_edge = top_edge;
+            font.top_edge = top_edge;
         }
 
         if let Some(bottom_edge) = bottom_edge {
-            ctx.state.font.bottom_edge = bottom_edge;
+            font.bottom_edge = bottom_edge;
         }
 
         if let Some(color) = color {
-            ctx.state.font.fill = Fill::Color(color);
+            font.fill = Fill::Color(color);
         }
 
         if let Some(FontFamilies(serif)) = &serif {
-            ctx.state.font.families_mut().serif = serif.clone();
+            font.families_mut().serif = serif.clone();
         }
 
         if let Some(FontFamilies(sans_serif)) = &sans_serif {
-            ctx.state.font.families_mut().sans_serif = sans_serif.clone();
+            font.families_mut().sans_serif = sans_serif.clone();
         }
 
         if let Some(FontFamilies(monospace)) = &monospace {
-            ctx.state.font.families_mut().monospace = monospace.clone();
+            font.families_mut().monospace = monospace.clone();
         }
 
         if let Some(body) = &body {

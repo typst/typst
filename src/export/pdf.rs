@@ -14,7 +14,7 @@ use ttf_parser::{name_id, GlyphId};
 
 use crate::cache::Cache;
 use crate::color::Color;
-use crate::font::{Em, FaceId, VerticalFontMetric};
+use crate::font::{Em, FaceId};
 use crate::geom::{self, Length, Size};
 use crate::image::{Image, ImageId};
 use crate::layout::{Element, Fill, Frame, Shape};
@@ -256,9 +256,9 @@ impl<'a> PdfExporter<'a> {
             );
 
             let italic_angle = ttf.italic_angle().unwrap_or(0.0);
-            let ascender = face.vertical_metric(VerticalFontMetric::Ascender).to_pdf();
-            let descender = face.vertical_metric(VerticalFontMetric::Descender).to_pdf();
-            let cap_height = face.vertical_metric(VerticalFontMetric::CapHeight).to_pdf();
+            let ascender = face.ascender.to_pdf();
+            let descender = face.descender.to_pdf();
+            let cap_height = face.cap_height.to_pdf();
             let stem_v = 10.0 + 0.244 * (f32::from(ttf.weight().to_number()) - 50.0);
 
             // Write the base font object referencing the CID font.

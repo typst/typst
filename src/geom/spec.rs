@@ -1,7 +1,7 @@
 use super::*;
 
 /// A container with a horizontal and vertical component.
-#[derive(Default, Copy, Clone, Eq, PartialEq)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Spec<T> {
     /// The horizontal component.
     pub horizontal: T,

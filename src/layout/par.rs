@@ -1,10 +1,11 @@
 use std::fmt::{self, Debug, Formatter};
+use std::rc::Rc;
 
 use unicode_bidi::{BidiInfo, Level};
 use xi_unicode::LineBreakIterator;
 
 use super::*;
-use crate::exec::FontProps;
+use crate::exec::FontState;
 use crate::util::{RangeExt, SliceExt};
 
 type Range = std::ops::Range<usize>;
@@ -26,7 +27,7 @@ pub enum ParChild {
     /// Spacing between other nodes.
     Spacing(Length),
     /// A run of text and how to align it in its line.
-    Text(String, FontProps, Align),
+    Text(String, Align, Rc<FontState>),
     /// Any child node and how to align it in its line.
     Any(AnyNode, Align),
 }
@@ -131,11 +132,11 @@ impl<'a> ParLayout<'a> {
                     items.push(ParItem::Spacing(amount));
                     ranges.push(range);
                 }
-                ParChild::Text(_, ref props, align) => {
+                ParChild::Text(_, align, ref state) => {
                     // TODO: Also split by language and script.
                     for (subrange, dir) in split_runs(&bidi, range) {
                         let text = &bidi.text[subrange.clone()];
-                        let shaped = shape(ctx, text, dir, props);
+                        let shaped = shape(ctx, text, dir, state);
                         items.push(ParItem::Text(shaped, align));
                         ranges.push(subrange);
                     }

@@ -31,7 +31,8 @@ fn spacing_impl(
     let spacing: Option<Linear> = args.eat_expect(ctx, "spacing");
     Value::template(name, move |ctx| {
         if let Some(linear) = spacing {
-            let amount = linear.resolve(ctx.state.font.resolve_size());
+            // TODO: Should this really always be font-size relative?
+            let amount = linear.resolve(ctx.state.font.size);
             ctx.push_spacing(axis, amount);
         }
     })

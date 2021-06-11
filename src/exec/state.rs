@@ -8,7 +8,7 @@ use crate::layout::Fill;
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
 /// The execution state.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, Hash)]
 pub struct State {
     /// The current language-related settings.
     pub lang: LangState,
@@ -17,25 +17,20 @@ pub struct State {
     /// The current paragraph settings.
     pub par: ParState,
     /// The current font settings.
-    pub font: FontState,
+    pub font: Rc<FontState>,
     /// The current alignments of layouts in their parents.
     pub aligns: Gen<Align>,
 }
 
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            lang: LangState::default(),
-            page: PageState::default(),
-            par: ParState::default(),
-            font: FontState::default(),
-            aligns: Gen::splat(Align::Start),
-        }
+impl State {
+    /// Access the `font` state mutably.
+    pub fn font_mut(&mut self) -> &mut FontState {
+        Rc::make_mut(&mut self.font)
     }
 }
 
 /// Defines language properties.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub struct LangState {
     /// The direction for text and other inline objects.
     pub dir: Dir,
@@ -48,7 +43,7 @@ impl Default for LangState {
 }
 
 /// Defines page properties.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub struct PageState {
     /// The class of this page.
     pub class: PaperClass,
@@ -88,7 +83,7 @@ impl Default for PageState {
 }
 
 /// Defines paragraph properties.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub struct ParState {
     /// The spacing between paragraphs (dependent on scaled font size).
     pub spacing: Linear,
@@ -110,7 +105,7 @@ impl Default for ParState {
 }
 
 /// Defines font properties.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct FontState {
     /// A list of font families with generic class definitions.
     pub families: Rc<FamilyList>,
@@ -118,8 +113,6 @@ pub struct FontState {
     pub variant: FontVariant,
     /// The font size.
     pub size: Length,
-    /// The linear to apply on the base font size.
-    pub scale: Linear,
     /// The top end of the text bounding box.
     pub top_edge: VerticalFontMetric,
     /// The bottom end of the text bounding box.
@@ -133,49 +126,14 @@ pub struct FontState {
     /// whether the next `_` makes italic or non-italic.
     pub emph: bool,
     /// The specifications for a strikethrough line, if any.
-    pub strikethrough: Option<LineState>,
+    pub strikethrough: Option<Rc<LineState>>,
     /// The specifications for a underline, if any.
-    pub underline: Option<LineState>,
+    pub underline: Option<Rc<LineState>>,
     /// The specifications for a overline line, if any.
-    pub overline: Option<LineState>,
+    pub overline: Option<Rc<LineState>>,
 }
 
 impl FontState {
-    /// The resolved font size.
-    pub fn resolve_size(&self) -> Length {
-        self.scale.resolve(self.size)
-    }
-
-    /// Resolve font properties.
-    pub fn resolve_props(&self) -> FontProps {
-        let mut variant = self.variant;
-
-        if self.strong {
-            variant.weight = variant.weight.thicken(300);
-        }
-
-        if self.emph {
-            variant.style = match variant.style {
-                FontStyle::Normal => FontStyle::Italic,
-                FontStyle::Italic => FontStyle::Normal,
-                FontStyle::Oblique => FontStyle::Normal,
-            }
-        }
-
-        let size = self.resolve_size();
-        FontProps {
-            families: Rc::clone(&self.families),
-            variant,
-            size,
-            top_edge: self.top_edge,
-            bottom_edge: self.bottom_edge,
-            strikethrough: self.strikethrough.map(|s| s.resolve_props(size, &self.fill)),
-            underline: self.underline.map(|s| s.resolve_props(size, &self.fill)),
-            overline: self.overline.map(|s| s.resolve_props(size, &self.fill)),
-            fill: self.fill,
-        }
-    }
-
     /// Access the `families` mutably.
     pub fn families_mut(&mut self) -> &mut FamilyList {
         Rc::make_mut(&mut self.families)
@@ -194,7 +152,6 @@ impl Default for FontState {
             size: Length::pt(11.0),
             top_edge: VerticalFontMetric::CapHeight,
             bottom_edge: VerticalFontMetric::Baseline,
-            scale: Linear::one(),
             fill: Fill::Color(Color::Rgba(RgbaColor::BLACK)),
             strong: false,
             emph: false,
@@ -205,11 +162,9 @@ impl Default for FontState {
     }
 }
 
-/// Describes a line that could be positioned over or under text.
+/// Describes a line that could be positioned over, under or on top of text.
 #[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub struct LineState {
-    /// Color of the line. Will default to text color if `None`.
-    pub fill: Option<Fill>,
     /// Thickness of the line's stroke. Calling functions should attempt to
     /// read this value from the appropriate font tables if this is `None`.
     pub strength: Option<Linear>,
@@ -219,40 +174,8 @@ pub struct LineState {
     pub position: Option<Linear>,
     /// Amount that the line will be longer or shorter than its associated text.
     pub extent: Linear,
-}
-
-impl LineState {
-    pub fn resolve_props(&self, font_size: Length, fill: &Fill) -> LineProps {
-        LineProps {
-            fill: self.fill.unwrap_or_else(|| fill.clone()),
-            strength: self.strength.map(|s| s.resolve(font_size)),
-            position: self.position.map(|p| p.resolve(font_size)),
-            extent: self.extent.resolve(font_size),
-        }
-    }
-}
-
-/// Properties used for font selection and layout.
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub struct FontProps {
-    /// The list of font families to use for shaping.
-    pub families: Rc<FamilyList>,
-    /// Which variant of the font to use.
-    pub variant: FontVariant,
-    /// The font size.
-    pub size: Length,
-    /// What line to consider the top edge of text.
-    pub top_edge: VerticalFontMetric,
-    /// What line to consider the bottom edge of text.
-    pub bottom_edge: VerticalFontMetric,
-    /// The fill color of the text.
-    pub fill: Fill,
-    /// The specifications for a strikethrough line, if any.
-    pub strikethrough: Option<LineProps>,
-    /// The specifications for a underline, if any.
-    pub underline: Option<LineProps>,
-    /// The specifications for a overline line, if any.
-    pub overline: Option<LineProps>,
+    /// Color of the line. Will default to text color if `None`.
+    pub fill: Option<Fill>,
 }
 
 /// Font family definitions.
@@ -318,20 +241,4 @@ impl Display for FontFamily {
             Self::Named(s) => s,
         })
     }
-}
-
-/// Describes a line that could be positioned over or under text.
-#[derive(Debug, Copy, Clone, PartialEq, Hash)]
-pub struct LineProps {
-    /// Color of the line.
-    pub fill: Fill,
-    /// Thickness of the line's stroke. Calling functions should attempt to
-    /// read this value from the appropriate font tables if this is `None`.
-    pub strength: Option<Length>,
-    /// Position of the line relative to the baseline. Calling functions should
-    /// attempt to read this value from the appropriate font tables if this is
-    /// `None`.
-    pub position: Option<Length>,
-    /// Amount that the line will be longer or shorter than its associated text.
-    pub extent: Length,
 }
