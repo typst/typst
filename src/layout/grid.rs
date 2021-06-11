@@ -25,6 +25,7 @@ impl From<GridNode> for AnyNode {
     }
 }
 
+#[derive(Debug)]
 struct GridLayouter<'a> {
     cross: SpecAxis,
     main: SpecAxis,
@@ -37,6 +38,7 @@ struct GridLayouter<'a> {
     finished: Vec<Frame>,
 }
 
+#[derive(Debug)]
 enum Cell<'a> {
     Node(&'a AnyNode),
     Gutter,
@@ -237,16 +239,45 @@ impl<'a> GridLayouter<'a> {
                 }
                 TrackSizing::Auto => {
                     let mut max = Length::zero();
-                    for (x, len) in self.rcols.iter().enumerate() {
+                    let mut multi_region = false;
+                    for (x, &col_size) in self.rcols.iter().enumerate() {
                         if let Cell::Node(node) = self.get(x, y) {
-                            let regions = Regions::one(
-                                Gen::new(*len, current).to_size(self.main),
-                                Spec::splat(false),
-                            );
-                            let frame = node.layout(ctx, &regions).remove(0);
-                            max = max.max(frame.size.get(self.main));
+                            let colsize = Gen::new(col_size, current).to_size(self.main);
+
+                            let mut regions = self.regions.map(|mut s| {
+                                *s.get_mut(self.cross) = col_size;
+                                s
+                            });
+
+                            regions.base = colsize;
+                            regions.current = colsize;
+                            regions.fixed = Spec::splat(false);
+
+                            let mut frames = node.layout(ctx, &regions);
+                            multi_region |= frames.len() > 1;
+                            let frame = frames.remove(0);
+                            if multi_region {
+                                // FIXME deal with different amounts of additional regions
+                                max = max.max(
+                                    frames
+                                        .last()
+                                        .map(|f| f.size.get(self.main))
+                                        .unwrap_or(max)
+                                );
+                            } else {
+                                max = max.max(frame.size.get(self.main))
+                            }
                         }
                     }
+
+                    if multi_region {
+                        self.finish_region(ctx, total_frs, true);
+                        current = self.regions.current.get(self.main);
+                        total_frs = 0.0;
+                    }
+
+                    // If multi-region results: finish_regions, returning
+                    // the last non-set frames.
                     Some(max)
                 }
                 TrackSizing::Fractional(f) => {
@@ -257,7 +288,7 @@ impl<'a> GridLayouter<'a> {
 
             if let Some(resolved) = resolved {
                 while !current.fits(resolved) && !self.regions.in_full_last() {
-                    self.finish_region(ctx, total_frs);
+                    self.finish_region(ctx, total_frs, false);
                     current = self.regions.current.get(self.main);
                     total_frs = 0.0;
                 }
@@ -267,61 +298,128 @@ impl<'a> GridLayouter<'a> {
             self.rrows.push((y, resolved));
         }
 
-        self.finish_region(ctx, total_frs);
+        println!("{:#?}", self);
+        self.finish_region(ctx, total_frs, false);
         self.finished
     }
 
-    fn finish_region(&mut self, ctx: &mut LayoutContext, total_frs: f64) {
+    fn finish_region(&mut self, ctx: &mut LayoutContext, total_frs: f64, allow_last_multiregion: bool) -> Option<Vec<Option<Frame>>> {
         let mut pos = Gen::splat(Length::zero());
-        let mut frame = Frame::new(Size::zero(), Length::zero());
+        let frame = Frame::new(Size::zero(), Length::zero());
         let mut total_cross = Length::zero();
         let mut total_main = Length::zero();
+        let mut max_regions = 0;
+        let mut collected_frames = if allow_last_multiregion {
+            Some(vec![None; self.rcols.len()])
+        } else {
+            None
+        };
 
-        for (x, &w) in self.rcols.iter().enumerate() {
-            let total: Length = self.rrows.iter().filter_map(|(_, x)| *x).sum();
-            let available = self.regions.current.get(self.main) - total;
-            total_cross += w;
+        self.finished.push(frame);
+        let frame_len = self.finished.len();
 
-            for (y, h) in self.rrows.iter() {
-                let element = self.get(x, *y);
-                let h = if let Some(len) = h {
-                    *len
-                } else if let TrackSizing::Fractional(f) = self.rows[*y] {
-                    if total_frs > 0.0 {
-                        let res = available * (f.get() / total_frs);
-                        if res.is_finite() { res } else { Length::zero() }
-                    } else {
-                        Length::zero()
-                    }
+        let total_row_height: Length = self.rrows.iter().filter_map(|(_, x)| *x).sum();
+
+        for &(y, h) in self.rrows.iter() {
+            let last = y == self.rrows.len() - 1;
+            let available = self.regions.current.get(self.main) - total_row_height;
+            let h = if let Some(len) = h {
+                len
+            } else if let TrackSizing::Fractional(f) = self.rows[y] {
+                if total_frs > 0.0 {
+                    let res = available * (f.get() / total_frs);
+                    if res.is_finite() { res } else { Length::zero() }
                 } else {
-                    unreachable!("non-fractional tracks are already resolved");
-                };
+                    Length::zero()
+                }
+            } else {
+                unreachable!("non-fractional tracks are already resolved");
+            };
+            total_main += h;
 
-                if x == 0 {
-                    total_main += h;
+            let mut overshoot_columns = vec![];
+
+            for (x, &w) in self.rcols.iter().enumerate() {
+                let element = self.get(x, y);
+
+                if y == 0 {
+                    total_cross += w;
                 }
 
                 if let Cell::Node(n) = element {
-                    let regions = Regions::one(
-                        Gen::new(w, h).to_size(self.main),
-                        Spec::splat(false),
-                    );
-                    let item = n.layout(ctx, &regions).remove(0);
-                    frame.push_frame(pos.to_point(self.main), item);
+                    let region_size = Gen::new(w, h).to_size(self.main);
+                    let regions = if last && allow_last_multiregion {
+                        let mut regions = self.regions.map(|mut s| {
+                            *s.get_mut(self.cross) = w;
+                            s
+                        });
+
+                        regions.base = region_size;
+                        regions.current = region_size;
+                        regions.fixed = Spec::splat(true);
+                        regions
+                    } else {
+                        Regions::one(
+                            region_size,
+                            Spec::splat(true),
+                        )
+                    };
+                    let mut items = n.layout(ctx, &regions);
+                    let item = items.remove(0);
+
+                    if last && allow_last_multiregion {
+                        max_regions = max_regions.max(items.len());
+                        overshoot_columns.push(items);
+                    } else {
+                        assert_eq!(items.len(), 0);
+                    }
+
+                    self.finished.get_mut(frame_len - 1).unwrap().push_frame(pos.to_point(self.main), item);
                 }
 
-                pos.main += h;
+                pos.cross += w;
             }
-            pos.main = Length::zero();
-            pos.cross += w;
+
+            for (col_index, col) in overshoot_columns.into_iter().enumerate() {
+                let collected_frames = collected_frames.as_mut().unwrap();
+                *collected_frames.get_mut(col_index).unwrap() = col.get(max_regions - 1).cloned();
+
+                for (cell_index, subcell) in col.into_iter().enumerate() {
+                    if cell_index >= max_regions - 1 {
+                        continue;
+                    }
+                    let frame = if let Some(frame) = self.finished.get_mut(frame_len + cell_index) {
+                        frame
+                    } else {
+                        let frame = Frame::new(Size::zero(), Length::zero());
+                        // The previous frame always exists: either the
+                        // last iteration created it or it is the normal
+                        // frame.
+                        self.finished.push(frame);
+                        self.finished.last_mut().unwrap()
+                    };
+                    let mut pos = pos;
+                    pos.main = Length::zero();
+                    frame.size.get_mut(self.cross).set_max(pos.cross + subcell.size.get(self.cross));
+                    frame.size.get_mut(self.main).set_max(subcell.size.get(self.main));
+                    frame.baseline = frame.size.height;
+                    frame.push_frame(pos.to_point(self.main), subcell);
+                }
+            }
+
+            pos.cross = Length::zero();
+            pos.main += h;
         }
 
+        let frame = self.finished.get_mut(frame_len - 1).unwrap();
         frame.size = Gen::new(total_cross, total_main).to_size(self.main);
         frame.baseline = frame.size.height;
 
         self.rrows.clear();
-        self.regions.next();
-        self.finished.push(frame);
+        for _ in 0..(max_regions + 1) {
+            self.regions.next();
+        }
+        collected_frames
     }
 
     fn get(&self, x: usize, y: usize) -> &Cell<'a> {

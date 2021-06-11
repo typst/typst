@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use super::*;
 
 /// An absolute length.
-#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Length {
@@ -85,7 +85,7 @@ impl Length {
 
     /// Set to the minimum of this and another length.
     pub fn set_min(&mut self, other: Self) {
-        *self = self.min(other);
+        *self = (*self).min(other);
     }
 
     /// The maximum of this and another length.
@@ -95,7 +95,7 @@ impl Length {
 
     /// Set to the maximum of this and another length.
     pub fn set_max(&mut self, other: Self) {
-        *self = self.max(other);
+        *self = (*self).max(other);
     }
 
     /// Whether the other length fits into this one (i.e. is smaller).
