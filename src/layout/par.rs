@@ -92,7 +92,7 @@ impl Debug for ParChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Spacing(amount) => write!(f, "Spacing({:?})", amount),
-            Self::Text(text, _, align) => write!(f, "Text({:?}, {:?})", text, align),
+            Self::Text(text, align, _) => write!(f, "Text({:?}, {:?})", text, align),
             Self::Any(any, align) => {
                 f.debug_tuple("Any").field(any).field(align).finish()
             }
@@ -304,7 +304,7 @@ impl<'a> LineStack<'a> {
     }
 
     fn finish_region(&mut self, ctx: &LayoutContext) {
-        if self.regions.fixed.horizontal {
+        if self.regions.expand.horizontal {
             self.size.width = self.regions.current.width;
         }
 

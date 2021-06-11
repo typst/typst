@@ -11,7 +11,7 @@ use std::rc::Rc;
 use crate::diag::Pass;
 use crate::eval::{ExprMap, TemplateFunc, TemplateNode, TemplateValue, Value};
 use crate::geom::{Dir, Gen};
-use crate::layout::{self, FixedNode, StackChild, StackNode};
+use crate::layout::{self, StackChild, StackNode};
 use crate::pretty::pretty;
 use crate::syntax;
 
@@ -127,12 +127,7 @@ fn exec_item(ctx: &mut ExecContext, label: String, body: &syntax::Tree, map: &Ex
         ],
     };
 
-    ctx.push(FixedNode {
-        width: None,
-        height: None,
-        child: stack.into(),
-    });
-
+    ctx.push_into_stack(stack);
     ctx.parbreak();
 }
 

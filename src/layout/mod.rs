@@ -64,8 +64,8 @@ impl PageRun {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let Size { width, height } = self.size;
-        let fixed = Spec::new(width.is_finite(), height.is_finite());
-        let regions = Regions::repeat(self.size, fixed);
+        let expand = Spec::new(width.is_finite(), height.is_finite());
+        let regions = Regions::repeat(self.size, expand);
         self.child.layout(ctx, &regions)
     }
 }
@@ -214,34 +214,34 @@ pub struct Regions {
     pub backlog: Vec<Size>,
     /// The final region that is repeated once the backlog is drained.
     pub last: Option<Size>,
-    /// Whether layouting into these regions should produce frames of the exact
-    /// size of `current` instead of shrinking to fit the content.
+    /// Whether nodes should expand to fill the regions instead of shrinking to
+    /// fit the content.
     ///
     /// This property is only handled by nodes that have the ability to control
     /// their own size.
-    pub fixed: Spec<bool>,
+    pub expand: Spec<bool>,
 }
 
 impl Regions {
     /// Create a new region sequence with exactly one region.
-    pub fn one(size: Size, fixed: Spec<bool>) -> Self {
+    pub fn one(size: Size, expand: Spec<bool>) -> Self {
         Self {
             current: size,
             base: size,
             backlog: vec![],
             last: None,
-            fixed,
+            expand,
         }
     }
 
     /// Create a new sequence of same-size regions that repeats indefinitely.
-    pub fn repeat(size: Size, fixed: Spec<bool>) -> Self {
+    pub fn repeat(size: Size, expand: Spec<bool>) -> Self {
         Self {
             current: size,
             base: size,
             backlog: vec![],
             last: Some(size),
-            fixed,
+            expand,
         }
     }
 
@@ -255,7 +255,7 @@ impl Regions {
             base: f(self.base),
             backlog: self.backlog.iter().copied().map(|s| f(s)).collect(),
             last: self.last.map(f),
-            fixed: self.fixed,
+            expand: self.expand,
         }
     }
 

@@ -33,7 +33,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
     Value::template("image", move |ctx| {
         if let Some(node) = node {
-            ctx.push(node);
+            ctx.push_into_par(node);
         }
     })
 }

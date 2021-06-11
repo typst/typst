@@ -44,6 +44,8 @@ struct StackLayouter<'a> {
     stack: &'a StackNode,
     /// The axis of the main direction.
     main: SpecAxis,
+    /// Whether the stack should expand to fill the region.
+    expand: Spec<bool>,
     /// The region to layout into.
     regions: Regions,
     /// Offset, alignment and frame for all children that fit into the current
@@ -62,19 +64,27 @@ struct StackLayouter<'a> {
 
 impl<'a> StackLayouter<'a> {
     fn new(stack: &'a StackNode, mut regions: Regions) -> Self {
+        let main = stack.dirs.main.axis();
+        let full = regions.current;
+        let expand = regions.expand;
+
+        // Disable expansion on the main axis for children.
+        *regions.expand.get_mut(main) = false;
+
         if let Some(aspect) = stack.aspect {
             regions.apply_aspect_ratio(aspect);
         }
 
         Self {
             stack,
-            main: stack.dirs.main.axis(),
+            main,
+            expand,
+            regions,
             finished: vec![],
             frames: vec![],
-            full: regions.current,
+            full,
             used: Gen::zero(),
             ruler: Align::Start,
-            regions,
         }
     }
 
@@ -138,13 +148,13 @@ impl<'a> StackLayouter<'a> {
 
     fn finish_region(&mut self) {
         let used = self.used.to_size(self.main);
-        let fixed = self.regions.fixed;
+        let expand = self.expand;
 
         // Determine the stack's size dependening on whether the region is
         // fixed.
         let mut stack_size = Size::new(
-            if fixed.horizontal { self.full.width } else { used.width },
-            if fixed.vertical { self.full.height } else { used.height },
+            if expand.horizontal { self.full.width } else { used.width },
+            if expand.vertical { self.full.height } else { used.height },
         );
 
         // Make sure the stack's size satisfies the aspect ratio.

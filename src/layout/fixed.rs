@@ -19,8 +19,8 @@ impl Layout for FixedNode {
             self.height.map_or(current.height, |h| h.resolve(base.height)),
         );
 
-        let fixed = Spec::new(self.width.is_some(), self.height.is_some());
-        let regions = Regions::one(size, fixed);
+        let expand = Spec::new(self.width.is_some(), self.height.is_some());
+        let regions = Regions::one(size, expand);
         self.child.layout(ctx, &regions)
     }
 }

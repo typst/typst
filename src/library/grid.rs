@@ -47,7 +47,7 @@ pub fn grid(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             .map(|child| ctx.exec_template_stack(child).into())
             .collect();
 
-        ctx.push(GridNode {
+        ctx.push_into_stack(GridNode {
             column_dir: column_dir.unwrap_or(ctx.state.lang.dir),
             children,
             tracks: Gen::new(columns.clone(), rows.clone()),

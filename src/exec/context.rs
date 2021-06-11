@@ -74,17 +74,6 @@ impl ExecContext {
         mem::replace(&mut self.stack, stack).build()
     }
 
-    /// Push any node into the active paragraph.
-    pub fn push(&mut self, node: impl Into<AnyNode>) {
-        let align = self.state.aligns.cross;
-        self.stack.par.push(ParChild::Any(node.into(), align));
-    }
-
-    /// Push a word space into the active paragraph.
-    pub fn push_word_space(&mut self) {
-        self.stack.par.push_soft(self.make_text_node(" "));
-    }
-
     /// Push text into the active paragraph.
     ///
     /// The text is split into lines at newlines.
@@ -92,11 +81,30 @@ impl ExecContext {
         self.stack.par.push(self.make_text_node(text));
     }
 
-    /// Push spacing into paragraph or stack depending on `axis`.
+    /// Push a word space into the active paragraph.
+    pub fn push_word_space(&mut self) {
+        self.stack.par.push_soft(self.make_text_node(" "));
+    }
+
+    /// Push any node into the active paragraph.
+    pub fn push_into_par(&mut self, node: impl Into<AnyNode>) {
+        let align = self.state.aligns.cross;
+        self.stack.par.push(ParChild::Any(node.into(), align));
+    }
+
+    /// Push any node into the active stack.
+    pub fn push_into_stack(&mut self, node: impl Into<AnyNode>) {
+        self.parbreak();
+        let aligns = self.state.aligns;
+        self.stack.push(StackChild::Any(node.into(), aligns));
+        self.parbreak();
+    }
+
+    /// Push spacing into the active paragraph or stack depending on the `axis`.
     pub fn push_spacing(&mut self, axis: GenAxis, amount: Length) {
         match axis {
             GenAxis::Main => {
-                self.stack.parbreak(&self.state);
+                self.stack.finish_par(&self.state);
                 self.stack.push_hard(StackChild::Spacing(amount));
             }
             GenAxis::Cross => {
@@ -113,18 +121,18 @@ impl ExecContext {
     /// Apply a forced paragraph break.
     pub fn parbreak(&mut self) {
         let amount = self.state.par.spacing.resolve(self.state.font.size);
-        self.stack.parbreak(&self.state);
+        self.stack.finish_par(&self.state);
         self.stack.push_soft(StackChild::Spacing(amount));
     }
 
     /// Apply a forced page break.
-    pub fn pagebreak(&mut self, keep: bool, hard: bool, source: Span) {
+    pub fn pagebreak(&mut self, keep: bool, hard: bool, span: Span) {
         if let Some(builder) = &mut self.page {
             let page = mem::replace(builder, PageBuilder::new(&self.state, hard));
             let stack = mem::replace(&mut self.stack, StackBuilder::new(&self.state));
             self.tree.runs.extend(page.build(stack.build(), keep));
         } else {
-            self.diag(error!(source, "cannot modify page from here"));
+            self.diag(error!(span, "cannot modify page from here"));
         }
     }
 
@@ -185,6 +193,11 @@ impl StackBuilder {
         }
     }
 
+    fn push(&mut self, child: StackChild) {
+        self.children.extend(self.last.any());
+        self.children.push(child);
+    }
+
     fn push_soft(&mut self, child: StackChild) {
         self.last.soft(child);
     }
@@ -194,11 +207,10 @@ impl StackBuilder {
         self.children.push(child);
     }
 
-    fn parbreak(&mut self, state: &State) {
+    fn finish_par(&mut self, state: &State) {
         let par = mem::replace(&mut self.par, ParBuilder::new(state));
         if let Some(par) = par.build() {
-            self.children.extend(self.last.any());
-            self.children.push(par);
+            self.push(par);
         }
     }
 

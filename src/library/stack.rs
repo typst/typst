@@ -31,7 +31,7 @@ pub fn stack(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             })
             .collect();
 
-        ctx.push(StackNode {
+        ctx.push_into_stack(StackNode {
             dirs: Gen::new(ctx.state.lang.dir, dir),
             aspect: None,
             children,

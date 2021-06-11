@@ -13,7 +13,7 @@ use typst::typeset;
 
 const FONT_DIR: &str = "../fonts";
 const TYP_DIR: &str = "../tests/typ";
-const CASES: &[&str] = &["full/coma.typ", "text/basic.typ"];
+const CASES: &[&str] = &["coma.typ", "text/basic.typ"];
 
 fn benchmarks(c: &mut Criterion) {
     let mut loader = FsLoader::new();
