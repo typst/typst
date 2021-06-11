@@ -59,6 +59,7 @@ visit! {
             Node::Raw(_) => {}
             Node::Heading(n) => v.visit_heading(n),
             Node::List(n) => v.visit_list(n),
+            Node::Enum(n) => v.visit_enum(n),
             Node::Expr(n) => v.visit_expr(n),
         }
     }
@@ -67,7 +68,11 @@ visit! {
         v.visit_tree(&node.body);
     }
 
-    fn visit_list(v, node: &ListNode) {
+    fn visit_list(v, node: &ListItem) {
+        v.visit_tree(&node.body);
+    }
+
+    fn visit_enum(v, node: &EnumItem) {
         v.visit_tree(&node.body);
     }
 

@@ -97,13 +97,14 @@ impl Pretty for Node {
             Self::Strong(_) => p.push('*'),
             Self::Emph(_) => p.push('_'),
             Self::Raw(raw) => raw.pretty(p),
-            Self::Heading(heading) => heading.pretty(p),
-            Self::List(list) => list.pretty(p),
-            Self::Expr(expr) => {
-                if expr.has_short_form() {
+            Self::Heading(n) => n.pretty(p),
+            Self::List(n) => n.pretty(p),
+            Self::Enum(n) => n.pretty(p),
+            Self::Expr(n) => {
+                if n.has_short_form() {
                     p.push('#');
                 }
-                expr.pretty(p);
+                n.pretty(p);
             }
         }
     }
@@ -175,9 +176,19 @@ impl Pretty for HeadingNode {
     }
 }
 
-impl Pretty for ListNode {
+impl Pretty for ListItem {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("- ");
+        self.body.pretty(p);
+    }
+}
+
+impl Pretty for EnumItem {
+    fn pretty(&self, p: &mut Printer) {
+        if let Some(number) = self.number {
+            write!(p, "{}", number).unwrap();
+        }
+        p.push_str(". ");
         self.body.pretty(p);
     }
 }

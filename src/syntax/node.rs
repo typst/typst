@@ -21,8 +21,10 @@ pub enum Node {
     Raw(RawNode),
     /// A section heading: `= Introduction`.
     Heading(HeadingNode),
-    /// A single list item: `- ...`.
-    List(ListNode),
+    /// An item in an unordered list: `- ...`.
+    List(ListItem),
+    /// An item in an enumeration (ordered list): `1. ...`.
+    Enum(EnumItem),
     /// An expression.
     Expr(Expr),
 }
@@ -115,11 +117,22 @@ pub struct HeadingNode {
     pub body: Rc<Tree>,
 }
 
-/// A single list item: `- ...`.
+/// An item in an unordered list: `- ...`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ListNode {
+pub struct ListItem {
     /// The source code location.
     pub span: Span,
+    /// The contents of the list item.
+    pub body: Tree,
+}
+
+/// An item in an enumeration (ordered list): `1. ...`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnumItem {
+    /// The source code location.
+    pub span: Span,
+    /// The number, if any.
+    pub number: Option<usize>,
     /// The contents of the list item.
     pub body: Tree,
 }

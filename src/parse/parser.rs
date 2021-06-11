@@ -242,6 +242,16 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// Consume tokens while the condition is true.
+    pub fn eat_while<F>(&mut self, mut f: F)
+    where
+        F: FnMut(Token<'s>) -> bool,
+    {
+        while self.peek().map_or(false, |t| f(t)) {
+            self.eat();
+        }
+    }
+
     /// Consume the next token if the closure maps it a to `Some`-variant.
     pub fn eat_map<T, F>(&mut self, f: F) -> Option<T>
     where
@@ -276,18 +286,6 @@ impl<'s> Parser<'s> {
     pub fn assert(&mut self, t: Token) {
         let next = self.eat();
         debug_assert_eq!(next, Some(t));
-    }
-
-    /// Skip whitespace and comment tokens.
-    pub fn skip_white(&mut self) {
-        while matches!(
-            self.peek(),
-            Some(Token::Space(_)) |
-            Some(Token::LineComment(_)) |
-            Some(Token::BlockComment(_))
-        ) {
-            self.eat();
-        }
     }
 
     /// The index at which the last token ended.

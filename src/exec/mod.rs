@@ -57,10 +57,11 @@ impl ExecWithMap for syntax::Node {
             Self::Parbreak(_) => ctx.parbreak(),
             Self::Strong(_) => ctx.state.font_mut().strong ^= true,
             Self::Emph(_) => ctx.state.font_mut().emph ^= true,
-            Self::Raw(raw) => raw.exec(ctx),
-            Self::Heading(heading) => heading.exec_with_map(ctx, map),
-            Self::List(list) => list.exec_with_map(ctx, map),
-            Self::Expr(expr) => map[&(expr as *const _)].exec(ctx),
+            Self::Raw(n) => n.exec(ctx),
+            Self::Heading(n) => n.exec_with_map(ctx, map),
+            Self::List(n) => n.exec_with_map(ctx, map),
+            Self::Enum(n) => n.exec_with_map(ctx, map),
+            Self::Expr(n) => map[&(n as *const _)].exec(ctx),
         }
     }
 }
@@ -98,31 +99,41 @@ impl ExecWithMap for syntax::HeadingNode {
     }
 }
 
-impl ExecWithMap for syntax::ListNode {
+impl ExecWithMap for syntax::ListItem {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
-        ctx.parbreak();
-
-        let bullet = ctx.exec_stack(|ctx| ctx.push_text("•"));
-        let body = ctx.exec_tree_stack(&self.body, map);
-
-        let stack = StackNode {
-            dirs: Gen::new(Dir::TTB, ctx.state.lang.dir),
-            aspect: None,
-            children: vec![
-                StackChild::Any(bullet.into(), Gen::default()),
-                StackChild::Spacing(ctx.state.font.size / 2.0),
-                StackChild::Any(body.into(), Gen::default()),
-            ],
-        };
-
-        ctx.push(FixedNode {
-            width: None,
-            height: None,
-            child: stack.into(),
-        });
-
-        ctx.parbreak();
+        exec_item(ctx, "•".to_string(), &self.body, map);
     }
+}
+
+impl ExecWithMap for syntax::EnumItem {
+    fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
+        let label = self.number.unwrap_or(1).to_string() + ".";
+        exec_item(ctx, label, &self.body, map);
+    }
+}
+
+fn exec_item(ctx: &mut ExecContext, label: String, body: &syntax::Tree, map: &ExprMap) {
+    ctx.parbreak();
+
+    let label = ctx.exec_stack(|ctx| ctx.push_text(label));
+    let body = ctx.exec_tree_stack(body, map);
+    let stack = StackNode {
+        dirs: Gen::new(Dir::TTB, ctx.state.lang.dir),
+        aspect: None,
+        children: vec![
+            StackChild::Any(label.into(), Gen::default()),
+            StackChild::Spacing(ctx.state.font.size / 2.0),
+            StackChild::Any(body.into(), Gen::default()),
+        ],
+    };
+
+    ctx.push(FixedNode {
+        width: None,
+        height: None,
+        child: stack.into(),
+    });
+
+    ctx.parbreak();
 }
 
 impl Exec for Value {

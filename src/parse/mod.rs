@@ -25,25 +25,33 @@ pub fn parse(src: &str) -> Pass<Tree> {
 
 /// Parse a syntax tree.
 fn tree(p: &mut Parser) -> Tree {
-    tree_while(p, |_| true)
+    tree_while(p, true, |_| true)
 }
 
 /// Parse a syntax tree that stays right of the column at the start of the next
 /// non-whitespace token.
 fn tree_indented(p: &mut Parser) -> Tree {
-    p.skip_white();
+    p.eat_while(|t| match t {
+        Token::Space(n) => n == 0,
+        Token::LineComment(_) | Token::BlockComment(_) => true,
+        _ => false,
+    });
+
     let column = p.column(p.next_start());
-    tree_while(p, |p| match p.peek() {
+    tree_while(p, false, |p| match p.peek() {
         Some(Token::Space(n)) if n >= 1 => p.column(p.next_end()) >= column,
         _ => true,
     })
 }
 
 /// Parse a syntax tree.
-fn tree_while(p: &mut Parser, mut f: impl FnMut(&mut Parser) -> bool) -> Tree {
-    // We keep track of whether we are at the start of a block or paragraph
-    // to know whether things like headings are allowed.
-    let mut at_start = true;
+fn tree_while(
+    p: &mut Parser,
+    mut at_start: bool,
+    mut f: impl FnMut(&mut Parser) -> bool,
+) -> Tree {
+    // We use `at_start` to keep track of whether we are at the start of a line
+    // or template to know whether things like headings are allowed.
     let mut tree = vec![];
     while !p.eof() && f(p) {
         if let Some(node) = node(p, &mut at_start) {
@@ -85,19 +93,13 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
         Token::Star => Node::Strong(span),
         Token::Underscore => Node::Emph(span),
         Token::Raw(t) => raw(p, t),
-        Token::Hashtag => {
-            if *at_start {
-                return Some(heading(p));
-            } else {
-                Node::Text(p.peek_src().into())
-            }
-        }
-        Token::Hyph => {
-            if *at_start {
-                return Some(list(p));
-            } else {
-                Node::Text(p.peek_src().into())
-            }
+        Token::Hashtag if *at_start => return Some(heading(p)),
+        Token::Hyph if *at_start => return Some(list_item(p)),
+        Token::Numbering(number) if *at_start => return Some(enum_item(p, number)),
+
+        // Line-based markup that is not currently at the start of the line.
+        Token::Hashtag | Token::Hyph | Token::Numbering(_) => {
+            Node::Text(p.peek_src().into())
         }
 
         // Hashtag + keyword / identifier.
@@ -118,19 +120,12 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
             }
             p.end_group();
 
-            // Uneat spaces we might have eaten eagerly.
             return expr.map(Node::Expr);
         }
 
-        // Block.
-        Token::LeftBrace => {
-            return Some(Node::Expr(block(p, false)));
-        }
-
-        // Template.
-        Token::LeftBracket => {
-            return Some(Node::Expr(template(p)));
-        }
+        // Block and template.
+        Token::LeftBrace => return Some(Node::Expr(block(p, false))),
+        Token::LeftBracket => return Some(Node::Expr(template(p))),
 
         // Comments.
         Token::LineComment(_) | Token::BlockComment(_) => {
@@ -202,11 +197,19 @@ fn heading(p: &mut Parser) -> Node {
 }
 
 /// Parse a single list item.
-fn list(p: &mut Parser) -> Node {
+fn list_item(p: &mut Parser) -> Node {
     let start = p.next_start();
     p.assert(Token::Hyph);
     let body = tree_indented(p);
-    Node::List(ListNode { span: p.span(start), body })
+    Node::List(ListItem { span: p.span(start), body })
+}
+
+/// Parse a single enum item.
+fn enum_item(p: &mut Parser, number: Option<usize>) -> Node {
+    let start = p.next_start();
+    p.assert(Token::Numbering(number));
+    let body = tree_indented(p);
+    Node::Enum(EnumItem { span: p.span(start), number, body })
 }
 
 /// Parse an expression.
@@ -500,7 +503,9 @@ fn block(p: &mut Parser, scoping: bool) -> Expr {
             }
         }
         p.end_group();
-        p.skip_white();
+
+        // Forcefully skip over newlines since the group's contents can't.
+        p.eat_while(|t| matches!(t, Token::Space(_)));
     }
     let span = p.end_group();
     Expr::Block(BlockExpr { span, exprs, scoping })

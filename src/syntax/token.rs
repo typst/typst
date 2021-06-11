@@ -118,6 +118,10 @@ pub enum Token<'s> {
     /// One or two dollar signs followed by inner contents, terminated with the
     /// same number of dollar signs.
     Math(MathToken<'s>),
+    /// A numbering: `23.`.
+    ///
+    /// Can also exist without the number: `.`.
+    Numbering(Option<usize>),
     /// An identifier: `center`.
     Ident(&'s str),
     /// A boolean: `true`, `false`.
@@ -256,6 +260,7 @@ impl<'s> Token<'s> {
             Self::UnicodeEscape(_) => "unicode escape sequence",
             Self::Raw(_) => "raw block",
             Self::Math(_) => "math formula",
+            Self::Numbering(_) => "numbering",
             Self::Ident(_) => "identifier",
             Self::Bool(_) => "boolean",
             Self::Int(_) => "integer",

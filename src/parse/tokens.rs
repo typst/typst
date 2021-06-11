@@ -102,6 +102,7 @@ impl<'s> Tokens<'s> {
             '`' => self.raw(),
             '$' => self.math(),
             '-' => self.hyph(start),
+            c if c == '.' || c.is_ascii_digit() => self.numbering(start, c),
 
             // Plain text.
             _ => self.text(start),
@@ -185,11 +186,11 @@ impl<'s> Tokens<'s> {
                 // Whitespace.
                 c if c.is_whitespace() => true,
                 // Comments.
-                '/' if self.s.check(|c| c == '/' || c == '*') => true,
+                '/' => true,
                 // Parentheses.
                 '[' | ']' | '{' | '}' => true,
                 // Markup.
-                '#' | '~' | '*' | '_' | '-' | '`' | '$' => true,
+                '#' | '~' | '*' | '_' | '`' | '$' | '-' => true,
                 // Escaping.
                 '\\' => true,
                 // Just text.
@@ -272,6 +273,25 @@ impl<'s> Tokens<'s> {
         } else {
             Token::Hyph
         }
+    }
+
+    fn numbering(&mut self, start: usize, c: char) -> Token<'s> {
+        let number = if c != '.' {
+            self.s.eat_while(|c| c.is_ascii_digit());
+            let read = self.s.eaten_from(start);
+            if !self.s.eat_if('.') {
+                return Token::Text(read);
+            }
+            read.parse().ok()
+        } else {
+            None
+        };
+
+        if self.s.check(|c| !c.is_whitespace()) {
+            return Token::Text(self.s.eaten_from(start));
+        }
+
+        Token::Numbering(number)
     }
 
     fn raw(&mut self) -> Token<'s> {
@@ -357,12 +377,12 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    fn number(&mut self, start: usize, first: char) -> Token<'s> {
+    fn number(&mut self, start: usize, c: char) -> Token<'s> {
         // Read the first part (integer or fractional depending on `first`).
         self.s.eat_while(|c| c.is_ascii_digit());
 
-        // Read the fractional part if not already done and present.
-        if first != '.' && self.s.eat_if('.') {
+        // Read the fractional part if not already done.
+        if c != '.' && self.s.eat_if('.') {
             self.s.eat_while(|c| c.is_ascii_digit());
         }
 
@@ -654,7 +674,7 @@ mod tests {
 
         // Test code symbols in text.
         t!(Markup[" /"]: "a():\"b" => Text("a():\"b"));
-        t!(Markup[" /"]: ";:,|/+"  => Text(";:,|/+"));
+        t!(Markup[" /"]: ";:,|/+"  => Text(";:,|"), Text("/+"));
         t!(Markup[" /"]: "#-a"     => Text("#"), Text("-"), Text("a"));
         t!(Markup[" "]: "#123"     => Text("#"), Text("123"));
 
@@ -707,10 +727,14 @@ mod tests {
         t!(Markup: "_"          => Underscore);
         t!(Markup[""]: "###"    => Hashtag, Hashtag, Hashtag);
         t!(Markup["a1/"]: "# "  => Hashtag, Space(0));
-        t!(Markup["a1/"]: "- "  => Hyph, Space(0));
         t!(Markup: "~"          => Tilde);
         t!(Markup[" "]: r"\"    => Backslash);
         t!(Markup["a "]: r"a--" => Text("a"), HyphHyph);
+        t!(Markup["a1/"]: "- "  => Hyph, Space(0));
+        t!(Markup[" "]: "."     => Numbering(None));
+        t!(Markup[" "]: "1."    => Numbering(Some(1)));
+        t!(Markup[" "]: "1.a"   => Text("1."), Text("a"));
+        t!(Markup[" /"]: "a1."  => Text("a1."));
     }
 
     #[test]
