@@ -25,7 +25,8 @@
 ---
 #grid(
     columns: (auto, auto, 40%),
-    gutter: (1fr,),
+    gutter-columns: (1fr,),
+    gutter-rows: (1fr,),
     rect(fill: eastern)[dddaa aaa aaa],
     rect(fill: conifer)[ccc],
     rect(width: 100%, fill: #dddddd)[aaa],
@@ -52,3 +53,4 @@
     rows: (1fr, auto, 2fr),
     [], rect(width: 100%)[A bit more to the top], [],
 )
+

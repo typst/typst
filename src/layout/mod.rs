@@ -280,4 +280,32 @@ impl Regions {
         let height = width / aspect.into_inner();
         self.current = Size::new(width, height);
     }
+
+    /// Appends new elements to the backlog such that the behavior of `next`
+    /// does not change. Panics when used with finite regions.
+    pub fn backlogify(&mut self, count: usize) {
+        for _ in 0 .. count {
+            self.backlog.push(self.last.unwrap())
+        }
+    }
+
+    /// Ensures that enough unique regions are present, including the current
+    /// and last ones. Panics when used with finite regions.
+    pub fn unique_regions(&mut self, count: usize) {
+        if self.backlog.len() < count.max(2) - 2 {
+            self.backlogify((count - 2) - self.backlog.len());
+        }
+    }
+
+    /// Returns a mutable reference to the size of the `n`th region.
+    pub fn nth_mut(&mut self, n: usize) -> Option<&mut Size> {
+        let backlog_len = self.backlog.len();
+        if n == 0 {
+            Some(&mut self.current)
+        } else if n <= backlog_len {
+            self.backlog.get_mut(backlog_len - n)
+        } else {
+            self.last.as_mut()
+        }
+    }
 }

@@ -25,6 +25,7 @@ impl From<GridNode> for AnyNode {
     }
 }
 
+#[derive(Debug)]
 struct GridLayouter<'a> {
     cross: SpecAxis,
     main: SpecAxis,
@@ -32,11 +33,12 @@ struct GridLayouter<'a> {
     rows: Vec<TrackSizing>,
     cells: Vec<Cell<'a>>,
     regions: Regions,
-    rrows: Vec<(usize, Option<Length>)>,
+    rrows: Vec<(usize, Option<Length>, Option<Vec<Option<Frame>>>)>,
     rcols: Vec<Length>,
     finished: Vec<Frame>,
 }
 
+#[derive(Debug)]
 enum Cell<'a> {
     Node(&'a AnyNode),
     Gutter,
@@ -233,95 +235,263 @@ impl<'a> GridLayouter<'a> {
         for y in 0 .. self.rows.len() {
             let resolved = match self.rows[y] {
                 TrackSizing::Linear(l) => {
-                    Some(l.resolve(self.regions.base.get(self.main)))
+                    (Some(l.resolve(self.regions.base.get(self.main))), None)
                 }
                 TrackSizing::Auto => {
                     let mut max = Length::zero();
-                    for (x, len) in self.rcols.iter().enumerate() {
+                    let mut local_max = max;
+                    let mut multi_region = false;
+                    let mut last_size = vec![];
+                    for (x, &col_size) in self.rcols.iter().enumerate() {
                         if let Cell::Node(node) = self.get(x, y) {
-                            let regions = Regions::one(
-                                Gen::new(*len, current).to_size(self.main),
-                                Spec::splat(false),
-                            );
-                            let frame = node.layout(ctx, &regions).remove(0);
-                            max = max.max(frame.size.get(self.main));
+                            let colsize = Gen::new(col_size, current).to_size(self.main);
+
+                            let mut regions = self.regions.map(|mut s| {
+                                *s.get_mut(self.cross) = col_size;
+                                s
+                            });
+
+                            regions.base = colsize;
+                            regions.current = colsize;
+                            regions.expand = Spec::splat(false);
+
+                            let mut frames = node.layout(ctx, &regions);
+                            multi_region |= frames.len() > 1;
+                            last_size.push((
+                                frames.len() - 1,
+                                frames.last().unwrap().size.get(self.main),
+                            ));
+                            let frame = frames.remove(0);
+                            local_max = local_max.max(frame.size.get(self.main));
+
+                            if !multi_region {
+                                max = local_max;
+                            }
+                        } else {
+                            last_size.push((0, Length::zero()))
                         }
                     }
-                    Some(max)
+
+                    let overshoot = if multi_region {
+                        self.rrows.push((y, Some(local_max), None));
+                        let res = self.finish_region(ctx, total_frs, Some(last_size));
+                        max = if let Some(overflow) = res.as_ref() {
+                            overflow.iter()
+                            .filter_map(|x| x.as_ref())
+                            .map(|x| x.size.get(self.main))
+                            .max()
+                            .unwrap_or(Length::zero())
+                        } else {
+                            local_max
+                        };
+
+                        current = self.regions.current.get(self.main);
+                        total_frs = 0.0;
+                        if res.is_none() {
+                            continue;
+                        }
+
+                        res
+                    } else {
+                        None
+                    };
+
+                    // If multi-region results: finish_regions, returning
+                    // the last non-set frames.
+                    (Some(max), overshoot)
                 }
                 TrackSizing::Fractional(f) => {
                     total_frs += f.get();
-                    None
+                    (None, None)
                 }
             };
 
-            if let Some(resolved) = resolved {
+            if let (Some(resolved), _) = resolved {
                 while !current.fits(resolved) && !self.regions.in_full_last() {
-                    self.finish_region(ctx, total_frs);
+                    self.finish_region(ctx, total_frs, None);
                     current = self.regions.current.get(self.main);
                     total_frs = 0.0;
                 }
                 current -= resolved;
             }
 
-            self.rrows.push((y, resolved));
+            self.rrows.push((y, resolved.0, resolved.1));
         }
 
-        self.finish_region(ctx, total_frs);
+        self.finish_region(ctx, total_frs, None);
         self.finished
     }
 
-    fn finish_region(&mut self, ctx: &mut LayoutContext, total_frs: f64) {
-        let mut pos = Gen::splat(Length::zero());
-        let mut frame = Frame::new(Size::zero(), Length::zero());
-        let mut total_cross = Length::zero();
-        let mut total_main = Length::zero();
-
-        for (x, &w) in self.rcols.iter().enumerate() {
-            let total: Length = self.rrows.iter().filter_map(|(_, x)| *x).sum();
-            let available = self.regions.current.get(self.main) - total;
-            total_cross += w;
-
-            for (y, h) in self.rrows.iter() {
-                let element = self.get(x, *y);
-                let h = if let Some(len) = h {
-                    *len
-                } else if let TrackSizing::Fractional(f) = self.rows[*y] {
-                    if total_frs > 0.0 {
-                        let res = available * (f.get() / total_frs);
-                        if res.is_finite() { res } else { Length::zero() }
-                    } else {
-                        Length::zero()
-                    }
-                } else {
-                    unreachable!("non-fractional tracks are already resolved");
-                };
-
-                if x == 0 {
-                    total_main += h;
-                }
-
-                if let Cell::Node(n) = element {
-                    let regions = Regions::one(
-                        Gen::new(w, h).to_size(self.main),
-                        Spec::splat(false),
-                    );
-                    let item = n.layout(ctx, &regions).remove(0);
-                    frame.push_frame(pos.to_point(self.main), item);
-                }
-
-                pos.main += h;
-            }
-            pos.main = Length::zero();
-            pos.cross += w;
+    fn finish_region(
+        &mut self,
+        ctx: &mut LayoutContext,
+        total_frs: f64,
+        multiregion_sizing: Option<Vec<(usize, Length)>>,
+    ) -> Option<Vec<Option<Frame>>> {
+        if self.rrows.is_empty() {
+            return None;
         }
 
+        let mut pos = Gen::splat(Length::zero());
+        let frame = Frame::new(Size::zero(), Length::zero());
+        let mut total_cross = Length::zero();
+        let mut total_main = Length::zero();
+        let mut max_regions = 0;
+        let mut collected_frames = if multiregion_sizing.is_some() {
+            Some(vec![None; self.rcols.len()])
+        } else {
+            None
+        };
+
+        self.finished.push(frame);
+
+        let frame_len = self.finished.len();
+
+        let total_row_height: Length = self.rrows.iter().filter_map(|(_, x, _)| *x).sum();
+
+        for &(y, h, ref layouted) in self.rrows.iter().as_ref() {
+            let last = self.rrows.last().map_or(false, |(o, _, _)| &y == o);
+            let available = self.regions.current.get(self.main) - total_row_height;
+            let h = if let Some(len) = h {
+                len
+            } else if let TrackSizing::Fractional(f) = self.rows[y] {
+                if total_frs > 0.0 {
+                    let res = available * (f.get() / total_frs);
+                    if res.is_finite() { res } else { Length::zero() }
+                } else {
+                    Length::zero()
+                }
+            } else {
+                unreachable!("non-fractional tracks are already resolved");
+            };
+            total_main += h;
+
+            if let Some(layouted) = layouted {
+
+                for (col_index, frame) in layouted.into_iter().enumerate() {
+                    if let Some(frame) = frame {
+                        self.finished
+                            .get_mut(frame_len - 1)
+                            .unwrap()
+                            .push_frame(pos.to_point(self.main), frame.clone());
+                    }
+                    pos.cross += self.rcols[col_index];
+                }
+            } else {
+                let mut overshoot_columns = vec![];
+                for (x, &w) in self.rcols.iter().enumerate() {
+                    let element = self.get(x, y);
+
+                    if y == 0 {
+                        total_cross += w;
+                    }
+
+                    if let Cell::Node(n) = element {
+                        let region_size = Gen::new(w, h).to_size(self.main);
+                        let regions = if last {
+                            if let Some(last_sizes) = multiregion_sizing.as_ref() {
+                                let mut regions = self.regions.map(|mut s| {
+                                    *s.get_mut(self.cross) = w;
+                                    s
+                                });
+
+                                regions.base = region_size;
+                                regions.current = region_size;
+                                regions.expand = Spec::splat(true);
+
+                                let (last_region, last_size) = last_sizes[x];
+                                regions.unique_regions(last_region + 1);
+                                *regions.nth_mut(last_region).unwrap().get_mut(self.main) = last_size;
+                                regions
+                            } else {
+                                Regions::one(region_size, Spec::splat(true))
+                            }
+                        } else {
+                            Regions::one(region_size, Spec::splat(true))
+                        };
+                        let mut items = n.layout(ctx, &regions);
+                        let item = items.remove(0);
+
+                        if last && multiregion_sizing.is_some() {
+                            max_regions = max_regions.max(items.len());
+                            overshoot_columns.push((x, items));
+                        } else {
+                            assert_eq!(items.len(), 0);
+                        }
+
+                        self.finished
+                            .get_mut(frame_len - 1)
+                            .unwrap()
+                            .push_frame(pos.to_point(self.main), item);
+                    }
+
+                    pos.cross += w;
+                }
+
+                if overshoot_columns.iter().any(|(_, items)| !items.is_empty()) {
+                    for (x, col) in overshoot_columns {
+                        let mut cross_offset = Length::zero();
+                        for col in 0..x {
+                            cross_offset += self.rcols[col];
+                        }
+
+
+                        let collected_frames = collected_frames.as_mut().unwrap();
+                        *collected_frames.get_mut(x).unwrap() =
+                            col.get(max_regions - 1).cloned();
+
+                        for (cell_index, subcell) in col.into_iter().enumerate() {
+                            if cell_index >= max_regions - 1 {
+                                continue;
+                            }
+                            let frame = if let Some(frame) =
+                                self.finished.get_mut(frame_len + cell_index)
+                            {
+                                frame
+                            } else {
+                                let frame = Frame::new(Size::zero(), Length::zero());
+                                // The previous frame always exists: either the
+                                // last iteration created it or it is the normal
+                                // frame.
+                                self.finished.push(frame);
+                                self.finished.last_mut().unwrap()
+                            };
+                            let pos = Gen::new(cross_offset, Length::zero());
+                            frame
+                                .size
+                                .get_mut(self.cross)
+                                .set_max(pos.cross + subcell.size.get(self.cross));
+                            frame
+                                .size
+                                .get_mut(self.main)
+                                .set_max(subcell.size.get(self.main));
+                            frame.baseline = frame.size.height;
+                            frame.push_frame(pos.to_point(self.main), subcell);
+                        }
+                    }
+                }
+            }
+
+            pos.cross = Length::zero();
+            pos.main += h;
+        }
+
+        let frame = self.finished.get_mut(frame_len - 1).unwrap();
         frame.size = Gen::new(total_cross, total_main).to_size(self.main);
         frame.baseline = frame.size.height;
 
         self.rrows.clear();
-        self.regions.next();
-        self.finished.push(frame);
+        for _ in 0 .. (max_regions.max(1)) {
+            self.regions.next();
+        }
+
+        if let Some(frames) = collected_frames.as_ref() {
+            if frames.iter().all(|i| i.is_none()) {
+                collected_frames = None;
+            }
+        }
+
+        collected_frames
     }
 
     fn get(&self, x: usize, y: usize) -> &Cell<'a> {

@@ -36,7 +36,9 @@ pub fn grid(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let columns = args.eat_named::<Tracks>(ctx, "columns").unwrap_or_default();
     let rows = args.eat_named::<Tracks>(ctx, "rows").unwrap_or_default();
     let column_dir = args.eat_named(ctx, "column-dir");
-    let gutter = args.eat_named::<Tracks>(ctx, "gutter").unwrap_or_default();
+    let gutter = args.eat_named::<Linear>(ctx, "gutter")
+        .map(|v| Tracks(vec![TrackSizing::Linear(v)]))
+        .unwrap_or_default();
     let gutter_columns = args.eat_named::<Tracks>(ctx, "gutter-columns");
     let gutter_rows = args.eat_named::<Tracks>(ctx, "gutter-rows");
     let children = args.eat_all::<TemplateValue>(ctx);
