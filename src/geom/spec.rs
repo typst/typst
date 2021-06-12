@@ -89,6 +89,16 @@ pub enum SpecAxis {
 }
 
 impl SpecAxis {
+    /// The direction with the given positivity for this axis.
+    pub fn dir(self, positive: bool) -> Dir {
+        match (self, positive) {
+            (Self::Vertical, true) => Dir::TTB,
+            (Self::Vertical, false) => Dir::BTT,
+            (Self::Horizontal, true) => Dir::LTR,
+            (Self::Horizontal, false) => Dir::RTL,
+        }
+    }
+
     /// The other axis.
     pub fn other(self) -> Self {
         match self {

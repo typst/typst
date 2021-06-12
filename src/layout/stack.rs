@@ -41,7 +41,7 @@ impl From<StackNode> for AnyNode {
 
 #[derive(Debug)]
 struct StackLayouter<'a> {
-    /// The directions of the stack.
+    /// The stack node to layout.
     stack: &'a StackNode,
     /// The axis of the main direction.
     main: SpecAxis,

@@ -3,14 +3,17 @@ use super::*;
 /// A node that arranges its children in a grid.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct GridNode {
-    /// The column (cross) direction of this stack.
-    pub column_dir: Dir,
+    /// The `main` and `cross` directions of this grid.
+    ///
+    /// The rows go along the `main` direction and the columns along the `cross`
+    /// direction.
+    pub dirs: Gen<Dir>,
+    /// Defines sizing for content rows and columns.
+    pub tracks: Gen<Vec<TrackSizing>>,
+    /// Defines sizing of gutter rows and columns between content.
+    pub gutter: Gen<Vec<TrackSizing>>,
     /// The nodes to be arranged in a grid.
     pub children: Vec<AnyNode>,
-    /// Defines sizing for rows and columns.
-    pub tracks: Gen<Tracks>,
-    /// Defines sizing of the gutter between rows and columns.
-    pub gutter: Gen<Tracks>,
 }
 
 impl Layout for GridNode {
@@ -33,8 +36,8 @@ struct GridLayouter<'a> {
     rows: Vec<TrackSizing>,
     cells: Vec<Cell<'a>>,
     regions: Regions,
-    rrows: Vec<(usize, Option<Length>, Option<Vec<Option<Frame>>>)>,
     rcols: Vec<Length>,
+    rrows: Vec<(usize, Option<Length>, Option<Vec<Option<Frame>>>)>,
     finished: Vec<Frame>,
 }
 
@@ -46,35 +49,38 @@ enum Cell<'a> {
 
 impl<'a> GridLayouter<'a> {
     fn new(grid: &'a GridNode, regions: Regions) -> Self {
-        let mut col_sizes = vec![];
-        let mut row_sizes = vec![];
+        let cross = grid.dirs.cross.axis();
+        let main = grid.dirs.main.axis();
+
+        let mut cols = vec![];
+        let mut rows = vec![];
         let mut cells = vec![];
 
         // A grid always needs to have at least one column.
-        let cols = grid.tracks.cross.0.len().max(1);
+        let content_cols = grid.tracks.cross.len().max(1);
 
         // Create at least as many rows as specified and also at least as many
         // as necessary to place each item.
-        let rows = {
+        let content_rows = {
             let len = grid.children.len();
-            let specified = grid.tracks.main.0.len();
-            let necessary = len / cols + (len % cols).clamp(0, 1);
+            let specified = grid.tracks.main.len();
+            let necessary = len / content_cols + (len % content_cols).clamp(0, 1);
             specified.max(necessary)
         };
 
         // Collect the track sizing for all columns, including gutter columns.
-        for i in 0 .. cols {
-            col_sizes.push(grid.tracks.cross.get(i));
-            if i < cols - 1 {
-                col_sizes.push(grid.gutter.cross.get(i));
+        for i in 0 .. content_cols {
+            cols.push(grid.tracks.cross.get_or_last(i));
+            if i < content_cols - 1 {
+                cols.push(grid.gutter.cross.get_or_last(i));
             }
         }
 
         // Collect the track sizing for all rows, including gutter rows.
-        for i in 0 .. rows {
-            row_sizes.push(grid.tracks.main.get(i));
-            if i < rows - 1 {
-                row_sizes.push(grid.gutter.main.get(i));
+        for i in 0 .. content_rows {
+            rows.push(grid.tracks.main.get_or_last(i));
+            if i < content_rows - 1 {
+                rows.push(grid.gutter.main.get_or_last(i));
             }
         }
 
@@ -82,152 +88,155 @@ impl<'a> GridLayouter<'a> {
         for (i, item) in grid.children.iter().enumerate() {
             cells.push(Cell::Node(item));
 
-            let row = i / cols;
-            let col = i % cols;
+            let row = i / content_cols;
+            let col = i % content_cols;
 
-            if col < cols - 1 {
+            if col < content_cols - 1 {
                 // Push gutter after each child.
                 cells.push(Cell::Gutter);
-            } else if row < rows - 1 {
+            } else if row < content_rows - 1 {
                 // Except for the last child of each row.
                 // There we push a gutter row.
-                for _ in 0 .. col_sizes.len() {
+                for _ in 0 .. cols.len() {
                     cells.push(Cell::Gutter);
                 }
             }
         }
 
         // Fill the thing up.
-        while cells.len() < col_sizes.len() * row_sizes.len() {
-            cells.push(Cell::Gutter)
+        while cells.len() < cols.len() * rows.len() {
+            cells.push(Cell::Gutter);
         }
 
         Self {
-            cross: grid.column_dir.axis(),
-            main: grid.column_dir.axis().other(),
-            cols: col_sizes,
-            rows: row_sizes,
+            cross,
+            main,
+            cols,
+            rows,
             cells,
             regions,
-            rrows: vec![],
             rcols: vec![],
+            rrows: vec![],
             finished: vec![],
         }
     }
 
     fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Frame> {
-        // Shrink area by linear sizing.
-        let mut available = self.regions.current.get(self.cross);
-        available -= self
-            .cols
-            .iter()
-            .filter_map(|x| match x {
-                TrackSizing::Linear(l) => {
-                    Some(l.resolve(self.regions.base.get(self.cross)))
+        self.rcols = self.resolve_columns(ctx);
+        self.layout_rows(ctx);
+        self.finished
+    }
+
+    /// Determine the size of all columns.
+    fn resolve_columns(&self, ctx: &mut LayoutContext) -> Vec<Length> {
+        let current = self.regions.current.to_gen(self.main);
+        let base = self.regions.base.to_gen(self.main);
+
+        // Prepare vector for resolved column lengths.
+        let mut rcols = vec![Length::zero(); self.cols.len()];
+
+        // - Sum of sizes of resolved linear tracks,
+        // - Sum of fractions of all fractional tracks,
+        // - Sum of sizes of resolved (through layouting) auto tracks,
+        // - Number of auto tracks.
+        let mut linear = Length::zero();
+        let mut fr = Fractional::zero();
+        let mut auto = Length::zero();
+        let mut auto_count = 0;
+
+        // Resolve size of linear columns and compute the sum of all fractional
+        // tracks.
+        for (&col, rcol) in self.cols.iter().zip(&mut rcols) {
+            match col {
+                TrackSizing::Auto => {}
+                TrackSizing::Linear(v) => {
+                    let resolved = v.resolve(base.cross);
+                    *rcol = resolved;
+                    linear += resolved;
                 }
-                _ => None,
-            })
-            .sum();
-
-        let col_frac: f64 = self
-            .cols
-            .iter()
-            .filter_map(|x| match x {
-                TrackSizing::Fractional(f) => Some(f.get()),
-                _ => None,
-            })
-            .sum();
-
-        let auto_columns = self
-            .cols
-            .iter()
-            .enumerate()
-            .filter_map(|(i, x)| (x == &TrackSizing::Auto).then(|| i));
-
-        let mut col_width = vec![];
-
-        // For each of the auto columns, lay out all elements with
-        // `preliminary_length` rows and build max.
-        for x in auto_columns {
-            let mut max = Length::zero();
-
-            for (y, row) in self.rows.iter().enumerate() {
-                let mut size = self.regions.current;
-                if let TrackSizing::Linear(l) = row {
-                    *size.get_mut(self.main) =
-                        l.resolve(self.regions.base.get(self.main));
-                }
-
-                let region = Regions::one(size, Spec::splat(false));
-                if let Cell::Node(node) = self.get(x, y) {
-                    let frame = node.layout(ctx, &region).remove(0);
-                    max = max.max(frame.size.get(self.cross))
-                }
+                TrackSizing::Fractional(v) => fr += v,
             }
-
-            col_width.push((x, max));
         }
 
-        // If accumulated auto column size exceeds available size, redistribute
-        // space proportionally amongst elements that exceed their size
-        // allocation.
-        let mut total: Length = col_width.iter().map(|(_, x)| *x).sum();
-        if total > available {
-            let alloc = available / col_width.len() as f64;
+        // Size available to auto columns (not used by fixed-size columns).
+        let available = current.cross - linear;
+        if available <= Length::zero() {
+            return rcols;
+        }
 
-            let mut count: usize = 0;
-            let mut redistributable = Length::zero();
+        // Resolve size of auto columns by laying out all cells in those
+        // columns, measuring them and finding the largest one.
+        for (x, (&col, rcol)) in self.cols.iter().zip(&mut rcols).enumerate() {
+            if col == TrackSizing::Auto {
+                let mut resolved = Length::zero();
 
-            for &(_, l) in &col_width {
-                if l > alloc {
-                    redistributable += l;
-                    count += 1;
+                for (y, &row) in self.rows.iter().enumerate() {
+                    if let Cell::Node(node) = self.get(x, y) {
+                        // Set the correct main size if the row is fixed-size.
+                        let main = match row {
+                            TrackSizing::Linear(v) => v.resolve(base.main),
+                            _ => current.main,
+                        };
+
+                        let size = Gen::new(available, main).to_size(self.main);
+                        let regions = Regions::one(size, Spec::splat(false));
+                        let frame = node.layout(ctx, &regions).remove(0);
+                        resolved = resolved.max(frame.size.get(self.cross))
+                    }
+                }
+
+                *rcol = resolved;
+                auto += resolved;
+                auto_count += 1;
+            }
+        }
+
+        // If there is remaining space, distribute it to fractional columns,
+        // otherwise shrink auto columns.
+        let remaining = available - auto;
+        if remaining >= Length::zero() {
+            for (&col, rcol) in self.cols.iter().zip(&mut rcols) {
+                if let TrackSizing::Fractional(v) = col {
+                    let ratio = v / fr;
+                    if ratio.is_finite() {
+                        *rcol = ratio * remaining;
+                    }
                 }
             }
+        } else {
+            // The fair share each auto column may have.
+            let fair = available / auto_count as f64;
 
-            let x = (available - total + redistributable) / count as f64;
+            // The number of overlarge auto columns and the space that will be
+            // equally redistributed to them.
+            let mut overlarge: usize = 0;
+            let mut redistribute = available;
 
-            if !redistributable.is_zero() {
-                for (_, l) in &mut col_width {
-                    if *l > alloc {
-                        *l = x;
+            for (&col, rcol) in self.cols.iter().zip(&mut rcols) {
+                if col == TrackSizing::Auto {
+                    if *rcol > fair {
+                        overlarge += 1;
+                    } else {
+                        redistribute -= *rcol;
                     }
                 }
             }
 
-            total = available;
-        }
-
-        // Build rcols
-        for (x, len) in col_width
-            .into_iter()
-            .map(|(x, s)| (x, Some(s)))
-            .chain(std::iter::once((self.cols.len(), None)))
-        {
-            for i in self.rcols.len() .. x {
-                let len = match self.cols[i] {
-                    TrackSizing::Linear(l) => {
-                        l.resolve(self.regions.base.get(self.cross))
+            // Redistribute the space equally.
+            let share = redistribute / overlarge as f64;
+            if overlarge > 0 {
+                for (&col, rcol) in self.cols.iter().zip(&mut rcols) {
+                    if col == TrackSizing::Auto && *rcol > fair {
+                        *rcol = share;
                     }
-                    TrackSizing::Fractional(f) => {
-                        if col_frac == 0.0 {
-                            Length::zero()
-                        } else {
-                            let res: Length = (available - total) * (f.get() / col_frac);
-                            if res.is_finite() { res } else { Length::zero() }
-                        }
-                    }
-                    TrackSizing::Auto => unreachable!("x is an auto track"),
-                };
-
-                self.rcols.push(len);
-            }
-
-            if let Some(len) = len {
-                self.rcols.push(len);
+                }
             }
         }
 
+        rcols
+    }
+
+    fn layout_rows(&mut self, ctx: &mut LayoutContext) {
         // Determine non-`fr` row heights
         let mut total_frs = 0.0;
         let mut current = self.regions.current.get(self.main);
@@ -276,11 +285,12 @@ impl<'a> GridLayouter<'a> {
                         self.rrows.push((y, Some(local_max), None));
                         let res = self.finish_region(ctx, total_frs, Some(last_size));
                         max = if let Some(overflow) = res.as_ref() {
-                            overflow.iter()
-                            .filter_map(|x| x.as_ref())
-                            .map(|x| x.size.get(self.main))
-                            .max()
-                            .unwrap_or(Length::zero())
+                            overflow
+                                .iter()
+                                .filter_map(|x| x.as_ref())
+                                .map(|x| x.size.get(self.main))
+                                .max()
+                                .unwrap_or(Length::zero())
                         } else {
                             local_max
                         };
@@ -319,7 +329,6 @@ impl<'a> GridLayouter<'a> {
         }
 
         self.finish_region(ctx, total_frs, None);
-        self.finished
     }
 
     fn finish_region(
@@ -367,7 +376,6 @@ impl<'a> GridLayouter<'a> {
             total_main += h;
 
             if let Some(layouted) = layouted {
-
                 for (col_index, frame) in layouted.into_iter().enumerate() {
                     if let Some(frame) = frame {
                         self.finished
@@ -401,7 +409,10 @@ impl<'a> GridLayouter<'a> {
 
                                 let (last_region, last_size) = last_sizes[x];
                                 regions.unique_regions(last_region + 1);
-                                *regions.nth_mut(last_region).unwrap().get_mut(self.main) = last_size;
+                                *regions
+                                    .nth_mut(last_region)
+                                    .unwrap()
+                                    .get_mut(self.main) = last_size;
                                 regions
                             } else {
                                 Regions::one(region_size, Spec::splat(true))
@@ -431,7 +442,7 @@ impl<'a> GridLayouter<'a> {
                 if overshoot_columns.iter().any(|(_, items)| !items.is_empty()) {
                     for (x, col) in overshoot_columns {
                         let mut cross_offset = Length::zero();
-                        for col in 0..x {
+                        for col in 0 .. x {
                             cross_offset += self.rcols[col];
                         }
 
@@ -501,18 +512,15 @@ impl<'a> GridLayouter<'a> {
     }
 }
 
-/// A list of track sizing definitions.
-#[derive(Default, Debug, Clone, PartialEq, Hash)]
-pub struct Tracks(pub Vec<TrackSizing>);
+trait TracksExt {
+    /// Get the sizing for the track at the given `idx` or fallback to the
+    /// last defined track or `auto`.
+    fn get_or_last(&self, idx: usize) -> TrackSizing;
+}
 
-impl Tracks {
-    /// Get the sizing for the track at the given `idx`.
-    fn get(&self, idx: usize) -> TrackSizing {
-        self.0
-            .get(idx)
-            .or(self.0.last())
-            .copied()
-            .unwrap_or(TrackSizing::Auto)
+impl TracksExt for Vec<TrackSizing> {
+    fn get_or_last(&self, idx: usize) -> TrackSizing {
+        self.get(idx).or(self.last()).copied().unwrap_or(TrackSizing::Auto)
     }
 }
 

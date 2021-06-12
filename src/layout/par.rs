@@ -535,7 +535,7 @@ impl<'a> LineLayout<'a> {
     }
 }
 
-/// Helper methods for BiDi levels.
+/// Additional methods for BiDi levels.
 trait LevelExt: Sized {
     fn from_dir(dir: Dir) -> Option<Self>;
     fn dir(self) -> Dir;
