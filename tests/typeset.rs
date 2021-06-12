@@ -350,12 +350,7 @@ fn draw(cache: &Cache, frames: &[Frame], dpi: f32) -> Pixmap {
     let pad = Length::pt(5.0);
 
     let height = pad + frames.iter().map(|l| l.size.height + pad).sum::<Length>();
-    let width = 2.0 * pad
-        + frames
-            .iter()
-            .map(|l| l.size.width)
-            .max_by(|a, b| a.partial_cmp(&b).unwrap())
-            .unwrap_or_default();
+    let width = 2.0 * pad + frames.iter().map(|l| l.size.width).max().unwrap_or_default();
 
     let pixel_width = (dpi * width.to_pt() as f32) as u32;
     let pixel_height = (dpi * height.to_pt() as f32) as u32;

@@ -39,6 +39,7 @@ impl From<StackNode> for AnyNode {
     }
 }
 
+#[derive(Debug)]
 struct StackLayouter<'a> {
     /// The directions of the stack.
     stack: &'a StackNode,

@@ -3,12 +3,12 @@ use super::*;
 use serde::{Deserialize, Serialize};
 
 /// A bezier path.
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Path(pub Vec<PathElement>);
 
 /// An element in a bezier path.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum PathElement {
     MoveTo(Point),
     LineTo(Point),

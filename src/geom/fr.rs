@@ -3,7 +3,7 @@ use decorum::N64;
 use super::*;
 
 /// A fractional length.
-#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Fractional(N64);
 
 impl Fractional {

@@ -3,7 +3,7 @@ use super::*;
 use serde::{Deserialize, Serialize};
 
 /// A point in 2D.
-#[derive(Default, Copy, Clone, PartialEq, Serialize, Deserialize, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Point {
     /// The x coordinate.
     pub x: Length,

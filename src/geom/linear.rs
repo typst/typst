@@ -1,7 +1,7 @@
 use super::*;
 
 /// A combined relative and absolute length.
-#[derive(Default, Copy, Clone, PartialEq, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Linear {
     /// The relative part.
     pub rel: Relative,

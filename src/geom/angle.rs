@@ -2,7 +2,7 @@ use super::*;
 use decorum::N64;
 
 /// An angle.
-#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Angle {
     /// The angle in raw units.
     raw: N64,

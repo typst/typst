@@ -6,7 +6,7 @@ use super::*;
 ///
 /// _Note_: `50%` is represented as `0.5` here, but stored as `50.0` in the
 /// corresponding [literal](crate::syntax::Expr::Percent).
-#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Relative(N64);
 
 impl Relative {
