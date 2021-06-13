@@ -33,6 +33,24 @@ impl<T> Spec<T> {
             SpecAxis::Vertical => Gen::new(self.horizontal, self.vertical),
         }
     }
+
+    pub fn reduce<U, F, I, C, R>(&self, other: &Spec<U>, func: F, combinator: C) -> R
+    where
+        F: Fn(&T, &U) -> I + 'static,
+        C: Fn(I, I) -> R + 'static,
+    {
+        combinator(
+            func(&self.vertical, &other.vertical),
+            func(&self.horizontal, &other.horizontal),
+        )
+    }
+
+    pub fn all<U, F>(&self, other: &Spec<U>, predicate: F) -> bool
+    where
+        F: Fn(&T, &U) -> bool + 'static,
+    {
+        self.reduce(other, predicate, std::ops::BitAnd::bitand)
+    }
 }
 
 impl Spec<Length> {

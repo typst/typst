@@ -64,6 +64,11 @@ impl Size {
         let height = width / aspect;
         Size::new(width, height)
     }
+
+    /// Convert to a Spec.
+    pub fn to_spec(self) -> Spec<Length> {
+        Spec::new(self.width, self.height)
+    }
 }
 
 impl Get<SpecAxis> for Size {

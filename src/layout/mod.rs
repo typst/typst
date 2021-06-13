@@ -4,6 +4,7 @@ mod background;
 mod fixed;
 mod frame;
 mod grid;
+mod incremental;
 mod pad;
 mod par;
 mod shaping;
@@ -13,13 +14,13 @@ pub use background::*;
 pub use fixed::*;
 pub use frame::*;
 pub use grid::*;
+pub use incremental::*;
 pub use pad::*;
 pub use par::*;
 pub use shaping::*;
 pub use stack::*;
 
 use std::any::Any;
-use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
@@ -169,33 +170,6 @@ pub struct LayoutContext<'a> {
     pub loader: &'a mut dyn Loader,
     /// A cache for loaded fonts and artifacts from past layouting.
     pub cache: &'a mut Cache,
-}
-
-/// Caches layouting artifacts.
-pub struct LayoutCache {
-    /// Maps from node hashes to the resulting frames and regions in which the
-    /// frames are valid.
-    pub frames: HashMap<u64, FramesEntry>,
-}
-
-impl LayoutCache {
-    /// Create a new, empty layout cache.
-    pub fn new() -> Self {
-        Self { frames: HashMap::new() }
-    }
-
-    /// Clear the cache.
-    pub fn clear(&mut self) {
-        self.frames.clear();
-    }
-}
-
-/// Cached frames from past layouting.
-pub struct FramesEntry {
-    /// The regions in which these frames are valid.
-    pub regions: Regions,
-    /// The cached frames for a node.
-    pub frames: Vec<Frame>,
 }
 
 /// A sequence of regions to layout into.
