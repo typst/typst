@@ -23,8 +23,6 @@ use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
-use decorum::N64;
-
 use crate::cache::Cache;
 use crate::geom::*;
 use crate::loading::Loader;
@@ -245,18 +243,14 @@ impl Regions {
         }
     }
 
-    /// Map the size of all regions.
+    /// Create new regions where all sizes are mapped with `f`.
     pub fn map<F>(&self, mut f: F) -> Self
     where
         F: FnMut(Size) -> Size,
     {
-        Self {
-            current: f(self.current),
-            base: f(self.base),
-            backlog: self.backlog.iter().copied().map(|s| f(s)).collect(),
-            last: self.last.map(f),
-            expand: self.expand,
-        }
+        let mut regions = self.clone();
+        regions.mutate(|s| *s = f(*s));
+        regions
     }
 
     /// Whether `current` is a fully sized (untouched) copy of the last region.
@@ -274,38 +268,14 @@ impl Regions {
         }
     }
 
-    /// Shrink `current` to ensure that the aspect ratio can be satisfied.
-    pub fn apply_aspect_ratio(&mut self, aspect: N64) {
-        let width = self.current.width.min(aspect.into_inner() * self.current.height);
-        let height = width / aspect.into_inner();
-        self.current = Size::new(width, height);
-    }
-
-    /// Appends new elements to the backlog such that the behavior of `next`
-    /// does not change. Panics when used with finite regions.
-    pub fn backlogify(&mut self, count: usize) {
-        for _ in 0 .. count {
-            self.backlog.push(self.last.unwrap())
-        }
-    }
-
-    /// Ensures that enough unique regions are present, including the current
-    /// and last ones. Panics when used with finite regions.
-    pub fn unique_regions(&mut self, count: usize) {
-        if self.backlog.len() < count.max(2) - 2 {
-            self.backlogify((count - 2) - self.backlog.len());
-        }
-    }
-
-    /// Returns a mutable reference to the size of the `n`th region.
-    pub fn nth_mut(&mut self, n: usize) -> Option<&mut Size> {
-        let backlog_len = self.backlog.len();
-        if n == 0 {
-            Some(&mut self.current)
-        } else if n <= backlog_len {
-            self.backlog.get_mut(backlog_len - n)
-        } else {
-            self.last.as_mut()
-        }
+    /// Mutate all contained sizes in place.
+    pub fn mutate<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut Size),
+    {
+        f(&mut self.current);
+        f(&mut self.base);
+        self.last.as_mut().map(|x| f(x));
+        self.backlog.iter_mut().for_each(f);
     }
 }

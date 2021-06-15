@@ -40,12 +40,12 @@ impl Layout for ParNode {
         // Find out the BiDi embedding levels.
         let bidi = BidiInfo::new(&text, Level::from_dir(self.dir));
 
-        // Build a representation of the paragraph on which we can do
-        // linebreaking without layouting each and every line from scratch.
-        let layout = ParLayout::new(ctx, regions, self, bidi);
+        // Prepare paragraph layout by bulding a representation on which we can
+        // do line breaking without layouting each and every line from scratch.
+        let layouter = ParLayouter::new(self, ctx, regions, bidi);
 
         // Find suitable linebreaks.
-        layout.build(ctx, regions.clone(), self)
+        layouter.layout(ctx, regions.clone())
     }
 }
 
@@ -102,9 +102,11 @@ impl Debug for ParChild {
 
 /// A paragraph representation in which children are already layouted and text
 /// is separated into shapable runs.
-struct ParLayout<'a> {
+struct ParLayouter<'a> {
     /// The top-level direction.
     dir: Dir,
+    /// The line spacing.
+    line_spacing: Length,
     /// Bidirectional text embedding levels for the paragraph.
     bidi: BidiInfo<'a>,
     /// Layouted children and separated text runs.
@@ -113,12 +115,12 @@ struct ParLayout<'a> {
     ranges: Vec<Range>,
 }
 
-impl<'a> ParLayout<'a> {
-    /// Build a paragraph layout for the given node.
+impl<'a> ParLayouter<'a> {
+    /// Prepare initial shaped text and layouted children.
     fn new(
+        par: &'a ParNode,
         ctx: &mut LayoutContext,
         regions: &Regions,
-        par: &'a ParNode,
         bidi: BidiInfo<'a>,
     ) -> Self {
         // Prepare an iterator over each child an the range it spans.
@@ -142,26 +144,25 @@ impl<'a> ParLayout<'a> {
                     }
                 }
                 ParChild::Any(ref node, align) => {
-                    let mut frames = node.layout(ctx, regions).into_iter();
-                    let frame = frames.next().unwrap();
-                    assert!(frames.next().is_none());
+                    let frame = node.layout(ctx, regions).remove(0);
                     items.push(ParItem::Frame(frame, align));
                     ranges.push(range);
                 }
             }
         }
 
-        Self { dir: par.dir, bidi, items, ranges }
+        Self {
+            dir: par.dir,
+            line_spacing: par.line_spacing,
+            bidi,
+            items,
+            ranges,
+        }
     }
 
     /// Find first-fit line breaks and build the paragraph.
-    fn build(
-        self,
-        ctx: &mut LayoutContext,
-        regions: Regions,
-        par: &ParNode,
-    ) -> Vec<Frame> {
-        let mut stack = LineStack::new(par.line_spacing, regions);
+    fn layout(self, ctx: &mut LayoutContext, regions: Regions) -> Vec<Frame> {
+        let mut stack = LineStack::new(self.line_spacing, regions);
 
         // The current line attempt.
         // Invariant: Always fits into `stack.regions.current`.
@@ -272,37 +273,41 @@ impl ParItem<'_> {
     }
 }
 
-/// A simple layouter that stacks lines into regions.
+/// Stacks lines on top of each other.
 struct LineStack<'a> {
     line_spacing: Length,
     regions: Regions,
-    finished: Vec<Frame>,
-    lines: Vec<LineLayout<'a>>,
     size: Size,
+    lines: Vec<LineLayout<'a>>,
+    finished: Vec<Frame>,
 }
 
 impl<'a> LineStack<'a> {
+    /// Create an empty line stack.
     fn new(line_spacing: Length, regions: Regions) -> Self {
         Self {
             line_spacing,
             regions,
-            finished: vec![],
-            lines: vec![],
             size: Size::zero(),
+            lines: vec![],
+            finished: vec![],
         }
     }
 
+    /// Push a new line into the stack.
     fn push(&mut self, line: LineLayout<'a>) {
-        self.size.height += line.size.height;
+        self.regions.current.height -= line.size.height + self.line_spacing;
+
         self.size.width.set_max(line.size.width);
+        self.size.height += line.size.height;
         if !self.lines.is_empty() {
             self.size.height += self.line_spacing;
         }
 
-        self.regions.current.height -= line.size.height + self.line_spacing;
         self.lines.push(line);
     }
 
+    /// Finish the frame for one region.
     fn finish_region(&mut self, ctx: &LayoutContext) {
         if self.regions.expand.horizontal {
             self.size.width = self.regions.current.width;
@@ -312,7 +317,7 @@ impl<'a> LineStack<'a> {
         let mut offset = Length::zero();
         let mut first = true;
 
-        for line in std::mem::take(&mut self.lines) {
+        for line in self.lines.drain(..) {
             let frame = line.build(ctx, self.size.width);
 
             let pos = Point::new(Length::zero(), offset);
@@ -325,11 +330,12 @@ impl<'a> LineStack<'a> {
             output.push_frame(pos, frame);
         }
 
-        self.finished.push(output);
         self.regions.next();
         self.size = Size::zero();
+        self.finished.push(output);
     }
 
+    /// Finish the last region and return the built frames.
     fn finish(mut self, ctx: &LayoutContext) -> Vec<Frame> {
         self.finish_region(ctx);
         self.finished
@@ -340,8 +346,10 @@ impl<'a> LineStack<'a> {
 /// paragraph's text. This type enables you to cheaply measure the size of a
 /// line in a range before comitting to building the line's frame.
 struct LineLayout<'a> {
-    /// The paragraph the line was created in.
-    par: &'a ParLayout<'a>,
+    /// The direction of the line.
+    dir: Dir,
+    /// Bidi information about the paragraph.
+    bidi: &'a BidiInfo<'a>,
     /// The range the line spans in the paragraph.
     line: Range,
     /// A reshaped text item if the line sliced up a text item at the start.
@@ -363,7 +371,7 @@ struct LineLayout<'a> {
 
 impl<'a> LineLayout<'a> {
     /// Create a line which spans the given range.
-    fn new(ctx: &mut LayoutContext, par: &'a ParLayout<'a>, mut line: Range) -> Self {
+    fn new(ctx: &mut LayoutContext, par: &'a ParLayouter<'a>, mut line: Range) -> Self {
         // Find the items which bound the text range.
         let last_idx = par.find(line.end.saturating_sub(1)).unwrap();
         let first_idx = if line.is_empty() {
@@ -436,7 +444,8 @@ impl<'a> LineLayout<'a> {
         }
 
         Self {
-            par,
+            dir: par.dir,
+            bidi: &par.bidi,
             line,
             first,
             items,
@@ -474,7 +483,7 @@ impl<'a> LineLayout<'a> {
 
             // FIXME: Ruler alignment for RTL.
             let pos = Point::new(
-                ruler.resolve(self.par.dir, offset .. free + offset),
+                ruler.resolve(self.dir, offset .. free + offset),
                 self.baseline - frame.baseline,
             );
 
@@ -494,7 +503,6 @@ impl<'a> LineLayout<'a> {
 
         // Find the paragraph that contains the line.
         let para = self
-            .par
             .bidi
             .paragraphs
             .iter()
@@ -502,7 +510,7 @@ impl<'a> LineLayout<'a> {
             .unwrap();
 
         // Compute the reordered ranges in visual order (left to right).
-        let (levels, runs) = self.par.bidi.visual_runs(para, self.line.clone());
+        let (levels, runs) = self.bidi.visual_runs(para, self.line.clone());
 
         // Find the items for each run.
         for run in runs {

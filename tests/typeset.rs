@@ -221,7 +221,7 @@ fn test_part(
     // We want to have "unbounded" pages, so we allow them to be infinitely
     // large and fit them to match their content.
     let mut state = State::default();
-    state.page.size = Size::new(Length::pt(120.0), Length::raw(f64::INFINITY));
+    state.page.size = Size::new(Length::pt(120.0), Length::inf());
     state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
     let mut pass = typst::typeset(loader, cache, Some(src_path), &src, &scope, state);

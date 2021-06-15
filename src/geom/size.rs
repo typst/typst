@@ -57,6 +57,13 @@ impl Size {
             SpecAxis::Vertical => Gen::new(self.width, self.height),
         }
     }
+
+    /// Find the largest contained size that satisfies the given `aspect` ratio.
+    pub fn with_aspect(self, aspect: f64) -> Self {
+        let width = self.width.min(aspect * self.height);
+        let height = width / aspect;
+        Size::new(width, height)
+    }
 }
 
 impl Get<SpecAxis> for Size {

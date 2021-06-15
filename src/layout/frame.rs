@@ -6,7 +6,7 @@ use crate::image::ImageId;
 use serde::{Deserialize, Serialize};
 
 /// A finished layout with elements at fixed positions.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Frame {
     /// The size of the frame.
     pub size: Size,
@@ -31,8 +31,12 @@ impl Frame {
     /// Add all elements of another frame, placing them relative to the given
     /// position.
     pub fn push_frame(&mut self, pos: Point, subframe: Self) {
-        for (subpos, element) in subframe.elements {
-            self.push(pos + subpos, element);
+        if pos == Point::zero() && self.elements.is_empty() {
+            self.elements = subframe.elements;
+        } else {
+            for (subpos, element) in subframe.elements {
+                self.push(pos + subpos, element);
+            }
         }
     }
 }

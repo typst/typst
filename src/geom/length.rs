@@ -18,6 +18,11 @@ impl Length {
         Self { raw: N64::from(0.0) }
     }
 
+    /// The inifinite length.
+    pub fn inf() -> Self {
+        Self { raw: N64::from(f64::INFINITY) }
+    }
+
     /// Create a length from a number of points.
     pub fn pt(pt: f64) -> Self {
         Self::with_unit(pt, LengthUnit::Pt)
@@ -200,6 +205,12 @@ assign_impl!(Length /= f64);
 impl Sum for Length {
     fn sum<I: Iterator<Item = Length>>(iter: I) -> Self {
         iter.fold(Length::zero(), Add::add)
+    }
+}
+
+impl<'a> Sum<&'a Length> for Length {
+    fn sum<I: Iterator<Item = &'a Length>>(iter: I) -> Self {
+        iter.copied().fold(Length::zero(), Add::add)
     }
 }
 
