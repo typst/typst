@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Deref};
 
 use super::*;
 
@@ -25,14 +25,24 @@ impl LayoutCache {
 #[derive(Debug, Clone)]
 /// Cached frames from past layouting.
 pub struct FramesEntry {
-    /// The regions in which these frames are valid.
-    pub regions: Regions,
     /// The cached frames for a node.
-    pub frames: Vec<Frame>,
+    pub frames: Vec<Constrained<Frame>>,
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct RegionConstraint {
+impl FramesEntry {
+    pub fn check(&self, mut regions: Regions) -> Option<Vec<Constrained<Frame>>> {
+        for (i, frame) in self.frames.iter().enumerate() {
+            if (i != 0 && !regions.next()) || !frame.constraints.check(&regions) {
+                return None;
+            }
+        }
+
+        Some(self.frames.clone())
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Constraints {
     /// The minimum available length in the region.
     pub min: Spec<Option<Length>>,
     /// The maximum available length in the region.
@@ -46,7 +56,7 @@ pub struct RegionConstraint {
     pub expand: Spec<bool>,
 }
 
-impl RegionConstraint {
+impl Constraints {
     /// Create a new region constraint.
     pub fn new(expand: Spec<bool>) -> Self {
         Self {
@@ -72,27 +82,63 @@ impl RegionConstraint {
         }
     }
 
-    fn check(&self, mut regions: Regions, amount: usize) -> bool {
+    fn check(&self, regions: &Regions) -> bool {
         if self.expand != regions.expand {
             return false;
         }
 
-        for _ in 0 .. amount {
-            let base = regions.base.to_spec();
-            let current = regions.current.to_spec();
+        let base = regions.base.to_spec();
+        let current = regions.current.to_spec();
 
-            let valid = current.all(&self.min, |x, y| y.map_or(true, |y| x >= &y))
-                && current.all(&self.max, |x, y| y.map_or(true, |y| x < &y))
-                && current.all(&self.exact, |x, y| y.map_or(true, |y| x == &y))
-                && base.all(&self.base, |x, y| y.map_or(true, |y| x == &y));
+        current.eq_by(&self.min, |x, y| y.map_or(true, |y| x >= &y))
+            && current.eq_by(&self.max, |x, y| y.map_or(true, |y| x < &y))
+            && current.eq_by(&self.exact, |x, y| y.map_or(true, |y| x == &y))
+            && base.eq_by(&self.base, |x, y| y.map_or(true, |y| x == &y))
+    }
 
-            if !valid {
-                return false;
+    pub fn map(&mut self, size: Size) {
+        for x in &mut [self.min, self.max, self.exact, self.base] {
+            if let Some(horizontal) = x.horizontal.as_mut() {
+                *horizontal += size.width;
             }
-
-            regions.next();
+            if let Some(vertical) = x.vertical.as_mut() {
+                *vertical += size.height;
+            }
         }
+    }
+}
 
-        true
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Constrained<T> {
+    pub item: T,
+    pub constraints: Constraints,
+}
+
+impl<T> Deref for Constrained<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.item
+    }
+}
+
+pub trait OptionExt {
+    fn set_min(&mut self, other: Length);
+    fn set_max(&mut self, other: Length);
+}
+
+impl OptionExt for Option<Length> {
+    fn set_min(&mut self, other: Length) {
+        match self {
+            Some(x) => x.set_min(other),
+            None => *self = Some(other),
+        }
+    }
+
+    fn set_max(&mut self, other: Length) {
+        match self {
+            Some(x) => x.set_max(other),
+            None => *self = Some(other),
+        }
     }
 }

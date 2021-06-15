@@ -26,6 +26,17 @@ impl<T> Spec<T> {
         }
     }
 
+    /// Maps the individual fields with `f`.
+    pub fn map<F, U>(self, mut f: F) -> Spec<U>
+    where
+        F: FnMut(T) -> U,
+    {
+        Spec {
+            horizontal: f(self.horizontal),
+            vertical: f(self.vertical),
+        }
+    }
+
     /// Convert to the generic representation.
     pub fn to_gen(self, main: SpecAxis) -> Gen<T> {
         match main {
@@ -34,22 +45,13 @@ impl<T> Spec<T> {
         }
     }
 
-    pub fn reduce<U, F, I, C, R>(&self, other: &Spec<U>, func: F, combinator: C) -> R
+    /// Compare to whether two instances are equal when compared field-by-field
+    /// with `f`.
+    pub fn eq_by<U, F>(&self, other: &Spec<U>, eq: F) -> bool
     where
-        F: Fn(&T, &U) -> I + 'static,
-        C: Fn(I, I) -> R + 'static,
+        F: Fn(&T, &U) -> bool,
     {
-        combinator(
-            func(&self.vertical, &other.vertical),
-            func(&self.horizontal, &other.horizontal),
-        )
-    }
-
-    pub fn all<U, F>(&self, other: &Spec<U>, predicate: F) -> bool
-    where
-        F: Fn(&T, &U) -> bool + 'static,
-    {
-        self.reduce(other, predicate, std::ops::BitAnd::bitand)
+        eq(&self.vertical, &other.vertical) && eq(&self.horizontal, &other.horizontal)
     }
 }
 

@@ -12,16 +12,37 @@ pub struct FixedNode {
 }
 
 impl Layout for FixedNode {
-    fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
+    fn layout(
+        &self,
+        ctx: &mut LayoutContext,
+        regions: &Regions,
+    ) -> Vec<Constrained<Frame>> {
         let Regions { current, base, .. } = regions;
+        let mut constraints = Constraints::new(regions.expand);
+        constraints.set_base_using_linears(Spec::new(self.width, self.height), &regions);
+
         let size = Size::new(
             self.width.map_or(current.width, |w| w.resolve(base.width)),
             self.height.map_or(current.height, |h| h.resolve(base.height)),
         );
 
+        // If one dimension was not specified, the `current` size needs to remain static.
+        if self.width.is_none() {
+            constraints.exact.horizontal = Some(current.width);
+        }
+        if self.height.is_none() {
+            constraints.exact.vertical = Some(current.height);
+        }
+
         let expand = Spec::new(self.width.is_some(), self.height.is_some());
         let regions = Regions::one(size, expand);
-        self.child.layout(ctx, &regions)
+        let mut result = self.child.layout(ctx, &regions);
+
+        if let Some(frame) = result.first_mut() {
+            frame.constraints = constraints;
+        }
+
+        result
     }
 }
 

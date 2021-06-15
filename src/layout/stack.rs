@@ -28,7 +28,11 @@ pub enum StackChild {
 }
 
 impl Layout for StackNode {
-    fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
+    fn layout(
+        &self,
+        ctx: &mut LayoutContext,
+        regions: &Regions,
+    ) -> Vec<Constrained<Frame>> {
         StackLayouter::new(self, regions.clone()).layout(ctx)
     }
 }
@@ -56,11 +60,13 @@ struct StackLayouter<'a> {
     used: Gen<Length>,
     /// The alignment ruler for the current region.
     ruler: Align,
+    /// The constraints for the current region.
+    constraints: Constraints,
     /// Offset, alignment and frame for all children that fit into the current
     /// region. The exact positions are not known yet.
     frames: Vec<(Length, Gen<Align>, Frame)>,
     /// Finished frames for previous regions.
-    finished: Vec<Frame>,
+    finished: Vec<Constrained<Frame>>,
 }
 
 impl<'a> StackLayouter<'a> {
@@ -81,6 +87,7 @@ impl<'a> StackLayouter<'a> {
             stack,
             main,
             expand,
+            constraints: Constraints::new(regions.expand),
             regions,
             full,
             used: Gen::zero(),
@@ -91,13 +98,18 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Layout all children.
-    fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Frame> {
+    fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Frame>> {
         for child in &self.stack.children {
             match *child {
                 StackChild::Spacing(amount) => self.space(amount),
                 StackChild::Any(ref node, aligns) => {
-                    for frame in node.layout(ctx, &self.regions) {
-                        self.push_frame(frame, aligns);
+                    let nodes = node.layout(ctx, &self.regions);
+                    let len = nodes.len();
+                    for (i, frame) in nodes.into_iter().enumerate() {
+                        if i + 1 != len {
+                            self.constraints.exact = self.full.to_spec().map(Some);
+                        }
+                        self.push_frame(frame.item, aligns);
                     }
                 }
             }
@@ -109,7 +121,8 @@ impl<'a> StackLayouter<'a> {
 
     /// Add main-axis spacing into the current region.
     fn space(&mut self, amount: Length) {
-        // Cap the spacing to the remaining available space.
+        // Cap the spacing to the remaining available space. This action does
+        // not directly affect the constraints because of the cap.
         let remaining = self.regions.current.get_mut(self.main);
         let capped = amount.min(*remaining);
 
@@ -132,6 +145,7 @@ impl<'a> StackLayouter<'a> {
         while !self.regions.current.get(self.main).fits(size.main)
             && !self.regions.in_full_last()
         {
+            self.constraints.max.get_mut(self.main).set_min(size.main);
             self.finish_region();
         }
 
@@ -156,12 +170,25 @@ impl<'a> StackLayouter<'a> {
         // Determine the stack's size dependening on whether the region is
         // fixed.
         let mut size = Size::new(
-            if expand.horizontal { self.full.width } else { used.width },
-            if expand.vertical { self.full.height } else { used.height },
+            if expand.horizontal {
+                self.constraints.exact.horizontal = Some(self.full.width);
+                self.full.width
+            } else {
+                self.constraints.min.horizontal = Some(used.width);
+                used.width
+            },
+            if expand.vertical {
+                self.constraints.exact.vertical = Some(self.full.height);
+                self.full.height
+            } else {
+                self.constraints.min.vertical = Some(used.height);
+                used.height
+            },
         );
 
         // Make sure the stack's size satisfies the aspect ratio.
         if let Some(aspect) = self.stack.aspect {
+            self.constraints.exact = self.regions.current.to_spec().map(Some);
             let width = size
                 .width
                 .max(aspect.into_inner() * size.height)
@@ -212,6 +239,9 @@ impl<'a> StackLayouter<'a> {
         if let Some(aspect) = self.stack.aspect {
             self.regions.current = self.regions.current.with_aspect(aspect.into_inner());
         }
+
+        let output = output.constrain(self.constraints);
+        self.constraints = Constraints::new(self.regions.expand);
 
         self.full = self.regions.current;
         self.used = Gen::zero();

@@ -19,7 +19,11 @@ pub enum BackgroundShape {
 }
 
 impl Layout for BackgroundNode {
-    fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
+    fn layout(
+        &self,
+        ctx: &mut LayoutContext,
+        regions: &Regions,
+    ) -> Vec<Constrained<Frame>> {
         let mut frames = self.child.layout(ctx, regions);
 
         for frame in &mut frames {
@@ -31,7 +35,7 @@ impl Layout for BackgroundNode {
             };
 
             let element = Element::Geometry(shape, self.fill);
-            frame.elements.insert(0, (point, element));
+            frame.item.elements.insert(0, (point, element));
         }
 
         frames

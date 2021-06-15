@@ -24,6 +24,8 @@ use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
+use fxhash::FxHasher64;
+
 use crate::cache::Cache;
 use crate::geom::*;
 use crate::loading::Loader;
@@ -65,7 +67,7 @@ impl PageRun {
         let Size { width, height } = self.size;
         let expand = Spec::new(width.is_finite(), height.is_finite());
         let regions = Regions::repeat(self.size, expand);
-        self.child.layout(ctx, &regions)
+        self.child.layout(ctx, &regions).into_iter().map(|c| c.item).collect()
     }
 }
 
@@ -81,26 +83,35 @@ impl AnyNode {
     where
         T: Layout + Debug + Clone + PartialEq + Hash + 'static,
     {
-        let hash = fxhash::hash64(&node);
+        let mut state = FxHasher64::default();
+        node.type_id().hash(&mut state);
+        node.hash(&mut state);
+        let hash = state.finish();
+
         Self { node: Box::new(node), hash }
     }
 }
 
 impl Layout for AnyNode {
-    fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
-        if let Some(hit) = ctx.cache.layout.frames.get(&self.hash) {
-            if &hit.regions == regions {
-                return hit.frames.clone();
-            }
-        }
+    fn layout(
+        &self,
+        ctx: &mut LayoutContext,
+        regions: &Regions,
+    ) -> Vec<Constrained<Frame>> {
+        ctx.cache
+            .layout
+            .frames
+            .get(&self.hash)
+            .and_then(|x| x.check(regions.clone()))
+            .unwrap_or_else(|| {
+                let frames = self.node.layout(ctx, regions);
+                ctx.cache
+                    .layout
+                    .frames
+                    .insert(self.hash, FramesEntry { frames: frames.clone() });
 
-        let frames = self.node.layout(ctx, regions);
-        ctx.cache.layout.frames.insert(self.hash, FramesEntry {
-            regions: regions.clone(),
-            frames: frames.clone(),
-        });
-
-        frames
+                frames
+            })
     }
 }
 
@@ -161,7 +172,11 @@ where
 /// Layout a node.
 pub trait Layout {
     /// Layout the node into the given regions.
-    fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame>;
+    fn layout(
+        &self,
+        ctx: &mut LayoutContext,
+        regions: &Regions,
+    ) -> Vec<Constrained<Frame>>;
 }
 
 /// The context for layouting.
@@ -235,10 +250,13 @@ impl Regions {
     }
 
     /// Advance to the next region if there is any.
-    pub fn next(&mut self) {
+    pub fn next(&mut self) -> bool {
         if let Some(size) = self.backlog.pop().or(self.last) {
             self.current = size;
             self.base = size;
+            true
+        } else {
+            false
         }
     }
 

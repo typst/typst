@@ -1,9 +1,10 @@
+use serde::{Deserialize, Serialize};
+
+use super::{Constrained, Constraints};
 use crate::color::Color;
 use crate::font::FaceId;
 use crate::geom::{Length, Path, Point, Size};
 use crate::image::ImageId;
-
-use serde::{Deserialize, Serialize};
 
 /// A finished layout with elements at fixed positions.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -38,6 +39,10 @@ impl Frame {
                 self.push(pos + subpos, element);
             }
         }
+    }
+
+    pub fn constrain(self, constraints: Constraints) -> Constrained<Self> {
+        Constrained { item: self, constraints }
     }
 }
 
