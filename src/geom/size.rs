@@ -50,6 +50,11 @@ impl Size {
         Point::new(self.width, self.height)
     }
 
+    /// Convert to a Spec.
+    pub fn to_spec(self) -> Spec<Length> {
+        Spec::new(self.width, self.height)
+    }
+
     /// Convert to the generic representation.
     pub fn to_gen(self, main: SpecAxis) -> Gen<Length> {
         match main {

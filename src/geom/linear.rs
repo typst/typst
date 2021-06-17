@@ -40,6 +40,11 @@ impl Linear {
     pub fn is_zero(self) -> bool {
         self.rel.is_zero() && self.abs.is_zero()
     }
+
+    /// Whether there is a linear component.
+    pub fn is_relative(&self) -> bool {
+        !self.rel.is_zero()
+    }
 }
 
 impl Display for Linear {

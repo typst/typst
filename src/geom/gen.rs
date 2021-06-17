@@ -23,6 +23,14 @@ impl<T> Gen<T> {
         Self { cross: value.clone(), main: value }
     }
 
+    /// Maps the individual fields with `f`.
+    pub fn map<F, U>(self, mut f: F) -> Gen<U>
+    where
+        F: FnMut(T) -> U,
+    {
+        Gen { cross: f(self.cross), main: f(self.main) }
+    }
+
     /// Convert to the specific representation.
     pub fn to_spec(self, main: SpecAxis) -> Spec<T> {
         match main {

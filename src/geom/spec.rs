@@ -26,12 +26,32 @@ impl<T> Spec<T> {
         }
     }
 
+    /// Maps the individual fields with `f`.
+    pub fn map<F, U>(self, mut f: F) -> Spec<U>
+    where
+        F: FnMut(T) -> U,
+    {
+        Spec {
+            horizontal: f(self.horizontal),
+            vertical: f(self.vertical),
+        }
+    }
+
     /// Convert to the generic representation.
     pub fn to_gen(self, main: SpecAxis) -> Gen<T> {
         match main {
             SpecAxis::Horizontal => Gen::new(self.vertical, self.horizontal),
             SpecAxis::Vertical => Gen::new(self.horizontal, self.vertical),
         }
+    }
+
+    /// Compare to whether two instances are equal when compared field-by-field
+    /// with `f`.
+    pub fn eq_by<U, F>(&self, other: &Spec<U>, eq: F) -> bool
+    where
+        F: Fn(&T, &U) -> bool,
+    {
+        eq(&self.vertical, &other.vertical) && eq(&self.horizontal, &other.horizontal)
     }
 }
 

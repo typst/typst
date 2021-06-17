@@ -2,7 +2,7 @@ use ::image::GenericImageView;
 
 use super::*;
 use crate::image::ImageId;
-use crate::layout::{AnyNode, Element, Frame, Layout, LayoutContext, Regions};
+use crate::layout::{AnyNode, Constrained, Constraints, Element, Frame, Layout, LayoutContext, Regions};
 
 /// `image`: An image.
 ///
@@ -52,8 +52,11 @@ struct ImageNode {
 }
 
 impl Layout for ImageNode {
-    fn layout(&self, _: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
+    fn layout(&self, _: &mut LayoutContext, regions: &Regions) -> Vec<Constrained<Frame>> {
         let Regions { current, base, .. } = regions;
+        let mut constraints = Constraints::new(regions.expand);
+        constraints.set_base_using_linears(Spec::new(self.width, self.height), regions);
+
         let width = self.width.map(|w| w.resolve(base.width));
         let height = self.height.map(|w| w.resolve(base.height));
 
@@ -66,6 +69,8 @@ impl Layout for ImageNode {
             (Some(width), None) => Size::new(width, width / pixel_ratio),
             (None, Some(height)) => Size::new(height * pixel_ratio, height),
             (None, None) => {
+                constraints.exact = current.to_spec().map(Some);
+
                 let ratio = current.width / current.height;
                 if ratio < pixel_ratio && current.width.is_finite() {
                     Size::new(current.width, current.width / pixel_ratio)
@@ -81,7 +86,7 @@ impl Layout for ImageNode {
 
         let mut frame = Frame::new(size, size.height);
         frame.push(Point::zero(), Element::Image(self.id, size));
-        vec![frame]
+        vec![frame.constrain(constraints)]
     }
 }
 

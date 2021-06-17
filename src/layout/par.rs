@@ -33,7 +33,11 @@ pub enum ParChild {
 }
 
 impl Layout for ParNode {
-    fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
+    fn layout(
+        &self,
+        ctx: &mut LayoutContext,
+        regions: &Regions,
+    ) -> Vec<Constrained<Frame>> {
         // Collect all text into one string used for BiDi analysis.
         let text = self.collect_text();
 
@@ -145,7 +149,7 @@ impl<'a> ParLayouter<'a> {
                 }
                 ParChild::Any(ref node, align) => {
                     let frame = node.layout(ctx, regions).remove(0);
-                    items.push(ParItem::Frame(frame, align));
+                    items.push(ParItem::Frame(frame.item, align));
                     ranges.push(range);
                 }
             }
@@ -161,7 +165,11 @@ impl<'a> ParLayouter<'a> {
     }
 
     /// Find first-fit line breaks and build the paragraph.
-    fn layout(self, ctx: &mut LayoutContext, regions: Regions) -> Vec<Frame> {
+    fn layout(
+        self,
+        ctx: &mut LayoutContext,
+        regions: Regions,
+    ) -> Vec<Constrained<Frame>> {
         let mut stack = LineStack::new(self.line_spacing, regions);
 
         // The current line attempt.
@@ -182,7 +190,20 @@ impl<'a> ParLayouter<'a> {
             // line cannot be broken up further.
             if !stack.regions.current.fits(line.size) {
                 if let Some((last_line, last_end)) = last.take() {
+                    if !stack.regions.current.width.fits(line.size.width) {
+                        stack.constraints.max.horizontal.set_min(line.size.width);
+                    }
+
+                    if !stack.regions.current.height.fits(line.size.height) {
+                        stack
+                            .constraints
+                            .max
+                            .vertical
+                            .set_min(stack.size.height + line.size.height);
+                    }
+
                     stack.push(last_line);
+                    stack.constraints.min.vertical = Some(stack.size.height);
                     start = last_end;
                     line = LineLayout::new(ctx, &self, start .. end);
                 }
@@ -192,6 +213,7 @@ impl<'a> ParLayouter<'a> {
             while !stack.regions.current.height.fits(line.size.height)
                 && !stack.regions.in_full_last()
             {
+                stack.constraints.max.vertical.set_min(line.size.height);
                 stack.finish_region(ctx);
             }
 
@@ -203,20 +225,25 @@ impl<'a> ParLayouter<'a> {
                 start = end;
                 last = None;
 
+                stack.constraints.min.vertical = Some(stack.size.height);
+
                 // If there is a trailing line break at the end of the
                 // paragraph, we want to force an empty line.
                 if mandatory && end == self.bidi.text.len() {
                     stack.push(LineLayout::new(ctx, &self, end .. end));
+                    stack.constraints.min.vertical = Some(stack.size.height);
                 }
             } else {
                 // Otherwise, the line fits both horizontally and vertically
                 // and we remember it.
+                stack.constraints.min.horizontal.set_max(line.size.width);
                 last = Some((line, end));
             }
         }
 
         if let Some((line, _)) = last {
             stack.push(line);
+            stack.constraints.min.vertical = Some(stack.size.height);
         }
 
         stack.finish(ctx)
@@ -279,7 +306,8 @@ struct LineStack<'a> {
     regions: Regions,
     size: Size,
     lines: Vec<LineLayout<'a>>,
-    finished: Vec<Frame>,
+    finished: Vec<Constrained<Frame>>,
+    constraints: Constraints,
 }
 
 impl<'a> LineStack<'a> {
@@ -287,6 +315,7 @@ impl<'a> LineStack<'a> {
     fn new(line_spacing: Length, regions: Regions) -> Self {
         Self {
             line_spacing,
+            constraints: Constraints::new(regions.expand),
             regions,
             size: Size::zero(),
             lines: vec![],
@@ -311,6 +340,7 @@ impl<'a> LineStack<'a> {
     fn finish_region(&mut self, ctx: &LayoutContext) {
         if self.regions.expand.horizontal {
             self.size.width = self.regions.current.width;
+            self.constraints.exact.horizontal = Some(self.regions.current.width);
         }
 
         let mut output = Frame::new(self.size, self.size.height);
@@ -330,13 +360,14 @@ impl<'a> LineStack<'a> {
             output.push_frame(pos, frame);
         }
 
+        self.finished.push(output.constrain(self.constraints));
         self.regions.next();
+        self.constraints = Constraints::new(self.regions.expand);
         self.size = Size::zero();
-        self.finished.push(output);
     }
 
     /// Finish the last region and return the built frames.
-    fn finish(mut self, ctx: &LayoutContext) -> Vec<Frame> {
+    fn finish(mut self, ctx: &LayoutContext) -> Vec<Constrained<Frame>> {
         self.finish_region(ctx);
         self.finished
     }

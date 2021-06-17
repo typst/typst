@@ -10,8 +10,12 @@ pub struct PadNode {
 }
 
 impl Layout for PadNode {
-    fn layout(&self, ctx: &mut LayoutContext, regions: &Regions) -> Vec<Frame> {
-        let regions = regions.map(|size| size - self.padding.resolve(size).size());
+    fn layout(
+        &self,
+        ctx: &mut LayoutContext,
+        regions: &Regions,
+    ) -> Vec<Constrained<Frame>> {
+        let mut regions = regions.map(|size| size - self.padding.resolve(size).size());
 
         let mut frames = self.child.layout(ctx, &regions);
         for frame in &mut frames {
@@ -19,12 +23,23 @@ impl Layout for PadNode {
             let padding = self.padding.resolve(padded);
             let origin = Point::new(padding.left, padding.top);
 
-            frame.size = padded;
-            frame.baseline += origin.y;
+            frame.item.size = padded;
+            frame.item.baseline += origin.y;
 
-            for (point, _) in &mut frame.elements {
+            for (point, _) in &mut frame.item.elements {
                 *point += origin;
             }
+
+            frame.constraints.mutate(padding.size() * -1.0);
+
+            if self.padding.left.is_relative() || self.padding.right.is_relative() {
+                frame.constraints.base.horizontal = Some(regions.base.width);
+            }
+            if self.padding.top.is_relative() || self.padding.bottom.is_relative() {
+                frame.constraints.base.vertical = Some(regions.base.height);
+            }
+
+            regions.next();
         }
 
         frames
