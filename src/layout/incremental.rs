@@ -30,6 +30,7 @@ pub struct FramesEntry {
 }
 
 impl FramesEntry {
+    /// Checks if the cached [`Frame`] is valid for the given regions.
     pub fn check(&self, mut regions: Regions) -> Option<Vec<Constrained<Frame>>> {
         for (i, frame) in self.frames.iter().enumerate() {
             if (i != 0 && !regions.next()) || !frame.constraints.check(&regions) {
@@ -51,7 +52,6 @@ pub struct Constraints {
     pub exact: Spec<Option<Length>>,
     /// The base length of the region used for relative length resolution.
     pub base: Spec<Option<Length>>,
-
     /// The expand settings of the region.
     pub expand: Spec<bool>,
 }
@@ -68,6 +68,8 @@ impl Constraints {
         }
     }
 
+    /// Set the appropriate base constraints for (relative) width and height
+    /// metrics, respectively.
     pub fn set_base_using_linears(
         &mut self,
         size: Spec<Option<Linear>>,
@@ -96,7 +98,8 @@ impl Constraints {
             && base.eq_by(&self.base, |x, y| y.map_or(true, |y| x == &y))
     }
 
-    pub fn map(&mut self, size: Size) {
+    /// Changes all constraints by adding the argument to them if they are set.
+    pub fn mutate(&mut self, size: Size) {
         for x in &mut [self.min, self.max, self.exact, self.base] {
             if let Some(horizontal) = x.horizontal.as_mut() {
                 *horizontal += size.width;

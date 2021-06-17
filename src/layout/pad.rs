@@ -30,7 +30,7 @@ impl Layout for PadNode {
                 *point += origin;
             }
 
-            frame.constraints.map(padding.size() * -1.0);
+            frame.constraints.mutate(padding.size() * -1.0);
 
             if self.padding.left.is_relative() || self.padding.right.is_relative() {
                 frame.constraints.base.horizontal = Some(regions.base.width);

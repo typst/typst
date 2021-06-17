@@ -109,7 +109,6 @@ impl Layout for AnyNode {
                     .layout
                     .frames
                     .insert(self.hash, FramesEntry { frames: frames.clone() });
-
                 frames
             })
     }

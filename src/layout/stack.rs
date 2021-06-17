@@ -240,12 +240,10 @@ impl<'a> StackLayouter<'a> {
             self.regions.current = self.regions.current.with_aspect(aspect.into_inner());
         }
 
-        let output = output.constrain(self.constraints);
-        self.constraints = Constraints::new(self.regions.expand);
-
         self.full = self.regions.current;
         self.used = Gen::zero();
         self.ruler = Align::Start;
-        self.finished.push(output);
+        self.finished.push(output.constrain(self.constraints));
+        self.constraints = Constraints::new(self.regions.expand);
     }
 }

@@ -41,6 +41,7 @@ impl Frame {
         }
     }
 
+    /// Wraps the frame with constraints.
     pub fn constrain(self, constraints: Constraints) -> Constrained<Self> {
         Constrained { item: self, constraints }
     }

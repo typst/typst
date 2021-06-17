@@ -36,13 +36,13 @@ impl Layout for FixedNode {
 
         let expand = Spec::new(self.width.is_some(), self.height.is_some());
         let regions = Regions::one(size, expand);
-        let mut result = self.child.layout(ctx, &regions);
+        let mut frames = self.child.layout(ctx, &regions);
 
-        if let Some(frame) = result.first_mut() {
+        if let Some(frame) = frames.first_mut() {
             frame.constraints = constraints;
         }
 
-        result
+        frames
     }
 }
 

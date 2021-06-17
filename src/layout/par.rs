@@ -214,7 +214,6 @@ impl<'a> ParLayouter<'a> {
                 && !stack.regions.in_full_last()
             {
                 stack.constraints.max.vertical.set_min(line.size.height);
-
                 stack.finish_region(ctx);
             }
 

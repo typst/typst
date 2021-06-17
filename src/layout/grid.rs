@@ -164,7 +164,7 @@ impl<'a> GridLayouter<'a> {
             Exact,
         }
 
-        // The difference cases which affect constraints.
+        // The different cases affecting constraints.
         let mut case = Case::PurelyLinear;
 
         // Sum of sizes of resolved linear tracks.
