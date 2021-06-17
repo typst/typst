@@ -45,4 +45,9 @@ pub trait Get<Index> {
 
     /// Borrow the component for the specified index mutably.
     fn get_mut(&mut self, index: Index) -> &mut Self::Component;
+
+    /// Convenience method for setting a component.
+    fn set(&mut self, index: Index, component: Self::Component) {
+        *self.get_mut(index) = component;
+    }
 }

@@ -188,8 +188,9 @@ impl<'a> GridLayouter<'a> {
                     let resolved = v.resolve(base.cross);
                     *rcol = resolved;
                     linear += resolved;
-                    *self.constraints.base.get_mut(self.cross) =
-                        Some(self.regions.base.get(self.cross));
+                    self.constraints
+                        .base
+                        .set(self.cross, Some(self.regions.base.get(self.cross)));
                 }
                 TrackSizing::Fractional(v) => {
                     case = Case::Fitting;
@@ -225,14 +226,15 @@ impl<'a> GridLayouter<'a> {
         match case {
             Case::PurelyLinear => {}
             Case::Fitting => {
-                *self.constraints.min.get_mut(self.cross) = Some(self.used.cross);
+                self.constraints.min.set(self.cross, Some(self.used.cross));
             }
             Case::Overflowing => {
-                *self.constraints.max.get_mut(self.cross) = Some(linear);
+                self.constraints.max.set(self.cross, Some(linear));
             }
             Case::Exact => {
-                *self.constraints.exact.get_mut(self.cross) =
-                    Some(self.regions.current.get(self.cross));
+                self.constraints
+                    .exact
+                    .set(self.cross, Some(self.regions.current.get(self.cross)));
             }
         }
     }
@@ -321,7 +323,7 @@ impl<'a> GridLayouter<'a> {
                 TrackSizing::Linear(v) => {
                     let base = self.regions.base.get(self.main);
                     if v.is_relative() {
-                        *self.constraints.base.get_mut(self.main) = Some(base);
+                        self.constraints.base.set(self.main, Some(base));
                     }
                     let resolved = v.resolve(base);
                     let frame = self.layout_single_row(ctx, resolved, y);
@@ -329,7 +331,7 @@ impl<'a> GridLayouter<'a> {
                 }
                 TrackSizing::Fractional(v) => {
                     self.fr += v;
-                    *self.constraints.exact.get_mut(self.main) = Some(self.full);
+                    self.constraints.exact.set(self.main, Some(self.full));
                     self.lrows.push(Row::Fr(v, y));
                 }
             }
@@ -349,7 +351,7 @@ impl<'a> GridLayouter<'a> {
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(node) = self.cell(x, y) {
                 let cross = self.cross;
-                self.regions.mutate(|size| *size.get_mut(cross) = rcol);
+                self.regions.mutate(|size| size.set(cross, rcol));
 
                 let mut sizes = node
                     .layout(ctx, &self.regions)
@@ -377,7 +379,7 @@ impl<'a> GridLayouter<'a> {
             let len = frames.len();
             for (i, frame) in frames.into_iter().enumerate() {
                 if i + 1 != len {
-                    *self.constraints.exact.get_mut(self.main) = Some(self.full);
+                    self.constraints.exact.set(self.main, Some(self.full));
                 }
                 self.push_row(ctx, frame);
             }
@@ -432,7 +434,7 @@ impl<'a> GridLayouter<'a> {
         let mut pos = Gen::zero();
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(node) = self.cell(x, y) {
-                regions.mutate(|size| *size.get_mut(self.cross) = rcol);
+                regions.mutate(|size| size.set(self.cross, rcol));
 
                 // Push the layouted frames into the individual output frames.
                 let frames = node.layout(ctx, &regions);
@@ -456,7 +458,7 @@ impl<'a> GridLayouter<'a> {
         while !self.regions.current.get(self.main).fits(length)
             && !self.regions.in_full_last()
         {
-            *self.constraints.max.get_mut(self.main) = Some(self.used.main + length);
+            self.constraints.max.set(self.main, Some(self.used.main + length));
             self.finish_region(ctx);
         }
 
@@ -470,7 +472,7 @@ impl<'a> GridLayouter<'a> {
         // Determine the size of the region.
         let length = if self.fr.is_zero() { self.used.main } else { self.full };
         let size = self.to_size(length);
-        *self.constraints.min.get_mut(self.main) = Some(length);
+        self.constraints.min.set(self.main, Some(length));
 
         // The frame for the region.
         let mut output = Frame::new(size, size.height);

@@ -77,7 +77,7 @@ impl<'a> StackLayouter<'a> {
         let expand = regions.expand;
 
         // Disable expansion on the main axis for children.
-        *regions.expand.get_mut(main) = false;
+        regions.expand.set(main, false);
 
         if let Some(aspect) = stack.aspect {
             regions.current = regions.current.with_aspect(aspect.into_inner());
