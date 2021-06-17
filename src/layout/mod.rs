@@ -32,7 +32,7 @@ use crate::loading::Loader;
 
 /// Layout a tree into a collection of frames.
 pub fn layout(loader: &mut dyn Loader, cache: &mut Cache, tree: &Tree) -> Vec<Frame> {
-    tree.layout(&mut LayoutContext { loader, cache })
+    tree.layout(&mut LayoutContext { loader, cache, level: 0 })
 }
 
 /// A tree of layout nodes.
@@ -98,19 +98,23 @@ impl Layout for AnyNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Frame>> {
-        ctx.cache
+        ctx.level += 1;
+        let frames = ctx
+            .cache
             .layout
             .frames
             .get(&self.hash)
             .and_then(|x| x.check(regions.clone()))
             .unwrap_or_else(|| {
                 let frames = self.node.layout(ctx, regions);
-                ctx.cache
-                    .layout
-                    .frames
-                    .insert(self.hash, FramesEntry { frames: frames.clone() });
+                ctx.cache.layout.frames.insert(self.hash, FramesEntry {
+                    frames: frames.clone(),
+                    level: ctx.level - 1,
+                });
                 frames
-            })
+            });
+        ctx.level -= 1;
+        frames
     }
 }
 
@@ -184,6 +188,8 @@ pub struct LayoutContext<'a> {
     pub loader: &'a mut dyn Loader,
     /// A cache for loaded fonts and artifacts from past layouting.
     pub cache: &'a mut Cache,
+    /// How deeply nested is the current layout tree position.
+    pub level: usize,
 }
 
 /// A sequence of regions to layout into.

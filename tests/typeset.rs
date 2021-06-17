@@ -225,6 +225,7 @@ fn test_part(
     state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
     let mut pass = typst::typeset(loader, cache, Some(src_path), &src, &scope, state);
+
     if !compare_ref {
         pass.output.clear();
     }
