@@ -311,12 +311,12 @@ fn primary(p: &mut Parser, atomic: bool) -> Option<Expr> {
         Some(Token::LeftBrace) => Some(block(p, true)),
 
         // Keywords.
-        Some(Token::Let) => expr_let(p),
-        Some(Token::If) => expr_if(p),
-        Some(Token::While) => expr_while(p),
-        Some(Token::For) => expr_for(p),
-        Some(Token::Import) => expr_import(p),
-        Some(Token::Include) => expr_include(p),
+        Some(Token::Let) => let_expr(p),
+        Some(Token::If) => if_expr(p),
+        Some(Token::While) => while_expr(p),
+        Some(Token::For) => for_expr(p),
+        Some(Token::Import) => import_expr(p),
+        Some(Token::Include) => include_expr(p),
 
         // Nothing.
         _ => {
@@ -546,11 +546,11 @@ fn args(p: &mut Parser) -> CallArgs {
 }
 
 /// Parse a let expression.
-fn expr_let(p: &mut Parser) -> Option<Expr> {
+fn let_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
     p.assert(Token::Let);
 
-    let mut expr_let = None;
+    let mut let_expr = None;
     if let Some(binding) = ident(p) {
         // If a parenthesis follows, this is a function definition.
         let mut params = None;
@@ -580,22 +580,22 @@ fn expr_let(p: &mut Parser) -> Option<Expr> {
             }));
         }
 
-        expr_let = Some(Expr::Let(LetExpr {
+        let_expr = Some(Expr::Let(LetExpr {
             span: p.span(start),
             binding,
             init: init.map(Box::new),
         }));
     }
 
-    expr_let
+    let_expr
 }
 
 /// Parse an if expresion.
-fn expr_if(p: &mut Parser) -> Option<Expr> {
+fn if_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
     p.assert(Token::If);
 
-    let mut expr_if = None;
+    let mut if_expr = None;
     if let Some(condition) = expr(p) {
         if let Some(if_body) = body(p) {
             let mut else_body = None;
@@ -609,7 +609,7 @@ fn expr_if(p: &mut Parser) -> Option<Expr> {
                 else_body = body(p);
             }
 
-            expr_if = Some(Expr::If(IfExpr {
+            if_expr = Some(Expr::If(IfExpr {
                 span: p.span(start),
                 condition: Box::new(condition),
                 if_body: Box::new(if_body),
@@ -618,18 +618,18 @@ fn expr_if(p: &mut Parser) -> Option<Expr> {
         }
     }
 
-    expr_if
+    if_expr
 }
 
 /// Parse a while expresion.
-fn expr_while(p: &mut Parser) -> Option<Expr> {
+fn while_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
     p.assert(Token::While);
 
-    let mut expr_while = None;
+    let mut while_expr = None;
     if let Some(condition) = expr(p) {
         if let Some(body) = body(p) {
-            expr_while = Some(Expr::While(WhileExpr {
+            while_expr = Some(Expr::While(WhileExpr {
                 span: p.span(start),
                 condition: Box::new(condition),
                 body: Box::new(body),
@@ -637,20 +637,20 @@ fn expr_while(p: &mut Parser) -> Option<Expr> {
         }
     }
 
-    expr_while
+    while_expr
 }
 
 /// Parse a for expression.
-fn expr_for(p: &mut Parser) -> Option<Expr> {
+fn for_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
     p.assert(Token::For);
 
-    let mut expr_for = None;
+    let mut for_expr = None;
     if let Some(pattern) = for_pattern(p) {
         if p.expect(Token::In) {
             if let Some(iter) = expr(p) {
                 if let Some(body) = body(p) {
-                    expr_for = Some(Expr::For(ForExpr {
+                    for_expr = Some(Expr::For(ForExpr {
                         span: p.span(start),
                         pattern,
                         iter: Box::new(iter),
@@ -661,7 +661,7 @@ fn expr_for(p: &mut Parser) -> Option<Expr> {
         }
     }
 
-    expr_for
+    for_expr
 }
 
 /// Parse a for loop pattern.
@@ -676,11 +676,11 @@ fn for_pattern(p: &mut Parser) -> Option<ForPattern> {
 }
 
 /// Parse an import expression.
-fn expr_import(p: &mut Parser) -> Option<Expr> {
+fn import_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
     p.assert(Token::Import);
 
-    let mut expr_import = None;
+    let mut import_expr = None;
     if let Some(path) = expr(p) {
         let imports = if p.expect(Token::Using) {
             if p.eat_if(Token::Star) {
@@ -702,18 +702,18 @@ fn expr_import(p: &mut Parser) -> Option<Expr> {
             Imports::Idents(vec![])
         };
 
-        expr_import = Some(Expr::Import(ImportExpr {
+        import_expr = Some(Expr::Import(ImportExpr {
             span: p.span(start),
             imports,
             path: Box::new(path),
         }));
     }
 
-    expr_import
+    import_expr
 }
 
 /// Parse an include expression.
-fn expr_include(p: &mut Parser) -> Option<Expr> {
+fn include_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
     p.assert(Token::Include);
 
