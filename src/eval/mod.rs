@@ -34,11 +34,8 @@ pub fn eval(
     scope: &Scope,
 ) -> Pass<Module> {
     let mut ctx = EvalContext::new(loader, cache, path, scope);
-    let map = tree.eval(&mut ctx);
-    let module = Module {
-        scope: ctx.scopes.top,
-        template: vec![TemplateNode::Tree { tree, map }],
-    };
+    let template = tree.eval(&mut ctx);
+    let module = Module { scope: ctx.scopes.top, template };
     Pass::new(module, ctx.diags)
 }
 
@@ -152,7 +149,7 @@ impl<'a> EvalContext<'a> {
 
         // Evaluate the module.
         let tree = Rc::new(parsed.output);
-        let map = tree.eval(self);
+        let template = tree.eval(self);
 
         // Restore the old context.
         let new_scopes = mem::replace(&mut self.scopes, old_scopes);
@@ -167,10 +164,8 @@ impl<'a> EvalContext<'a> {
         }
 
         // Save the evaluated module.
-        self.modules.insert(hash, Module {
-            scope: new_scopes.top,
-            template: vec![TemplateNode::Tree { tree, map }],
-        });
+        let module = Module { scope: new_scopes.top, template };
+        self.modules.insert(hash, module);
 
         Some(hash)
     }
@@ -217,8 +212,8 @@ pub trait Eval {
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output;
 }
 
-impl Eval for Tree {
-    type Output = ExprMap;
+impl Eval for Rc<Tree> {
+    type Output = TemplateValue;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         struct ExprVisitor<'a, 'b> {
@@ -234,7 +229,8 @@ impl Eval for Tree {
 
         let mut visitor = ExprVisitor { ctx, map: ExprMap::new() };
         visitor.visit_tree(self);
-        visitor.map
+
+        vec![TemplateNode::Tree { tree: Rc::clone(self), map: visitor.map }]
     }
 }
 
@@ -263,11 +259,11 @@ impl Eval for Expr {
             },
             Self::Array(ref v) => Value::Array(v.eval(ctx)),
             Self::Dict(ref v) => Value::Dict(v.eval(ctx)),
-            Self::Template(ref v) => Value::Template(vec![v.eval(ctx)]),
+            Self::Template(ref v) => Value::Template(v.eval(ctx)),
             Self::Group(ref v) => v.eval(ctx),
             Self::Block(ref v) => v.eval(ctx),
             Self::Call(ref v) => v.eval(ctx),
-            Self::Closure(ref v) => v.eval(ctx),
+            Self::Closure(ref v) => Value::Func(v.eval(ctx)),
             Self::Unary(ref v) => v.eval(ctx),
             Self::Binary(ref v) => v.eval(ctx),
             Self::Let(ref v) => v.eval(ctx),
@@ -300,12 +296,10 @@ impl Eval for DictExpr {
 }
 
 impl Eval for TemplateExpr {
-    type Output = TemplateNode;
+    type Output = TemplateValue;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let tree = Rc::clone(&self.tree);
-        let map = self.tree.eval(ctx);
-        TemplateNode::Tree { tree, map }
+        self.tree.eval(ctx)
     }
 }
 
@@ -516,7 +510,7 @@ impl Eval for CallArg {
 }
 
 impl Eval for ClosureExpr {
-    type Output = Value;
+    type Output = FuncValue;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         let params = Rc::clone(&self.params);
@@ -530,7 +524,7 @@ impl Eval for ClosureExpr {
         };
 
         let name = self.name.as_ref().map(|id| id.to_string());
-        Value::Func(FuncValue::new(name, move |ctx, args| {
+        FuncValue::new(name, move |ctx, args| {
             // Don't leak the scopes from the call site. Instead, we use the
             // scope of captured variables we collected earlier.
             let prev = mem::take(&mut ctx.scopes);
@@ -545,7 +539,7 @@ impl Eval for ClosureExpr {
             let value = body.eval(ctx);
             ctx.scopes = prev;
             value
-        }))
+        })
     }
 }
 
