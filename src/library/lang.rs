@@ -17,7 +17,7 @@ use super::*;
 ///   - `rtl`
 pub fn lang(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let iso = args.eat::<String>(ctx).map(|s| lang_dir(&s));
-    let dir = match args.eat_named::<Spanned<Dir>>(ctx, "dir") {
+    let dir = match args.named::<Spanned<Dir>>(ctx, "dir") {
         Some(dir) if dir.v.axis() == SpecAxis::Horizontal => Some(dir.v),
         Some(dir) => {
             ctx.diag(error!(dir.span, "must be horizontal"));

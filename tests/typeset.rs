@@ -323,8 +323,8 @@ fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
     }
 
     let test = move |ctx: &mut EvalContext, args: &mut FuncArgs| -> Value {
-        let lhs = args.eat_expect::<Value>(ctx, "left-hand side");
-        let rhs = args.eat_expect::<Value>(ctx, "right-hand side");
+        let lhs = args.expect::<Value>(ctx, "left-hand side");
+        let rhs = args.expect::<Value>(ctx, "right-hand side");
         if lhs != rhs {
             panics.borrow_mut().push(Panic { pos: args.span.start, lhs, rhs });
             Value::Str(format!("(panic)"))

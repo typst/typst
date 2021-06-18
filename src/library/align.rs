@@ -26,8 +26,8 @@ use super::*;
 pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let first = args.eat::<AlignValue>(ctx);
     let second = args.eat::<AlignValue>(ctx);
-    let mut horizontal = args.eat_named::<AlignValue>(ctx, "horizontal");
-    let mut vertical = args.eat_named::<AlignValue>(ctx, "vertical");
+    let mut horizontal = args.named::<AlignValue>(ctx, "horizontal");
+    let mut vertical = args.named::<AlignValue>(ctx, "vertical");
     let body = args.eat::<TemplateValue>(ctx);
 
     for value in first.into_iter().chain(second) {

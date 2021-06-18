@@ -19,9 +19,9 @@ use crate::layout::{BackgroundNode, BackgroundShape, Fill, FixedNode, PadNode};
 /// # Return value
 /// A template that inserts a rectangle and sets the body into it.
 pub fn rect(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let width = args.eat_named(ctx, "width");
-    let height = args.eat_named(ctx, "height");
-    let fill = args.eat_named(ctx, "fill");
+    let width = args.named(ctx, "width");
+    let height = args.named(ctx, "height");
+    let fill = args.named(ctx, "fill");
     let body = args.eat::<TemplateValue>(ctx).unwrap_or_default();
     rect_impl("rect", width, height, None, fill, body)
 }
@@ -44,10 +44,10 @@ pub fn rect(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// # Return value
 /// A template that inserts a square and sets the body into it.
 pub fn square(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let length = args.eat_named::<Length>(ctx, "length").map(Linear::from);
-    let width = length.or_else(|| args.eat_named(ctx, "width"));
-    let height = width.is_none().then(|| args.eat_named(ctx, "height")).flatten();
-    let fill = args.eat_named(ctx, "fill");
+    let length = args.named::<Length>(ctx, "length").map(Linear::from);
+    let width = length.or_else(|| args.named(ctx, "width"));
+    let height = width.is_none().then(|| args.named(ctx, "height")).flatten();
+    let fill = args.named(ctx, "fill");
     let body = args.eat::<TemplateValue>(ctx).unwrap_or_default();
     rect_impl("square", width, height, Some(N64::from(1.0)), fill, body)
 }
@@ -91,9 +91,9 @@ fn rect_impl(
 /// # Return value
 /// A template that inserts an ellipse and sets the body into it.
 pub fn ellipse(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let width = args.eat_named(ctx, "width");
-    let height = args.eat_named(ctx, "height");
-    let fill = args.eat_named(ctx, "fill");
+    let width = args.named(ctx, "width");
+    let height = args.named(ctx, "height");
+    let fill = args.named(ctx, "fill");
     let body = args.eat::<TemplateValue>(ctx).unwrap_or_default();
     ellipse_impl("ellipse", width, height, None, fill, body)
 }
@@ -116,10 +116,10 @@ pub fn ellipse(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// # Return value
 /// A template that inserts a circle and sets the body into it.
 pub fn circle(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let radius = args.eat_named::<Length>(ctx, "radius").map(|r| 2.0 * Linear::from(r));
-    let width = radius.or_else(|| args.eat_named(ctx, "width"));
-    let height = width.is_none().then(|| args.eat_named(ctx, "height")).flatten();
-    let fill = args.eat_named(ctx, "fill");
+    let radius = args.named::<Length>(ctx, "radius").map(|r| 2.0 * Linear::from(r));
+    let width = radius.or_else(|| args.named(ctx, "width"));
+    let height = width.is_none().then(|| args.named(ctx, "height")).flatten();
+    let fill = args.named(ctx, "fill");
     let body = args.eat::<TemplateValue>(ctx).unwrap_or_default();
     ellipse_impl("circle", width, height, Some(N64::from(1.0)), fill, body)
 }

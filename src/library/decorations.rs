@@ -57,10 +57,10 @@ fn line_impl(
     args: &mut FuncArgs,
     substate: fn(&mut FontState) -> &mut Option<Rc<LineState>>,
 ) -> Value {
-    let color = args.eat_named(ctx, "color");
-    let position = args.eat_named(ctx, "position");
-    let strength = args.eat_named::<Linear>(ctx, "strength");
-    let extent = args.eat_named(ctx, "extent").unwrap_or_default();
+    let color = args.named(ctx, "color");
+    let position = args.named(ctx, "position");
+    let strength = args.named::<Linear>(ctx, "strength");
+    let extent = args.named(ctx, "extent").unwrap_or_default();
     let body = args.eat::<TemplateValue>(ctx);
 
     // Suppress any existing strikethrough if strength is explicitly zero.

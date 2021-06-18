@@ -308,7 +308,7 @@ impl FuncArgs {
 
     /// Find and consume the first castable positional argument, producing a
     /// `missing argument: {what}` error if no match was found.
-    pub fn eat_expect<T>(&mut self, ctx: &mut EvalContext, what: &str) -> Option<T>
+    pub fn expect<T>(&mut self, ctx: &mut EvalContext, what: &str) -> Option<T>
     where
         T: Cast<Spanned<Value>>,
     {
@@ -325,7 +325,7 @@ impl FuncArgs {
     /// iterator would require unique access to the context, rendering it rather
     /// unusable. If you need to process arguments one-by-one, you probably want
     /// to use a while-let loop together with [`eat()`](Self::eat).
-    pub fn eat_all<T>(&mut self, ctx: &mut EvalContext) -> Vec<T>
+    pub fn all<T>(&mut self, ctx: &mut EvalContext) -> Vec<T>
     where
         T: Cast<Spanned<Value>>,
     {
@@ -334,7 +334,7 @@ impl FuncArgs {
 
     /// Cast and remove the value for the given named argument, producing an
     /// error if the conversion fails.
-    pub fn eat_named<T>(&mut self, ctx: &mut EvalContext, name: &str) -> Option<T>
+    pub fn named<T>(&mut self, ctx: &mut EvalContext, name: &str) -> Option<T>
     where
         T: Cast<Spanned<Value>>,
     {

@@ -50,16 +50,16 @@ use super::*;
 ///   - `descender`
 pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let size = args.eat::<Linear>(ctx);
-    let list = args.eat_all::<FontFamily>(ctx);
-    let style = args.eat_named(ctx, "style");
-    let weight = args.eat_named(ctx, "weight");
-    let stretch = args.eat_named(ctx, "stretch");
-    let top_edge = args.eat_named(ctx, "top-edge");
-    let bottom_edge = args.eat_named(ctx, "bottom-edge");
-    let color = args.eat_named(ctx, "color");
-    let serif = args.eat_named(ctx, "serif");
-    let sans_serif = args.eat_named(ctx, "sans-serif");
-    let monospace = args.eat_named(ctx, "monospace");
+    let list = args.all::<FontFamily>(ctx);
+    let style = args.named(ctx, "style");
+    let weight = args.named(ctx, "weight");
+    let stretch = args.named(ctx, "stretch");
+    let top_edge = args.named(ctx, "top-edge");
+    let bottom_edge = args.named(ctx, "bottom-edge");
+    let color = args.named(ctx, "color");
+    let serif = args.named(ctx, "serif");
+    let sans_serif = args.named(ctx, "sans-serif");
+    let monospace = args.named(ctx, "monospace");
     let body = args.eat::<TemplateValue>(ctx);
 
     Value::template("font", move |ctx| {

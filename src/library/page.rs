@@ -29,14 +29,14 @@ pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         })
     });
 
-    let width = args.eat_named(ctx, "width");
-    let height = args.eat_named(ctx, "height");
-    let margins = args.eat_named(ctx, "margins");
-    let left = args.eat_named(ctx, "left");
-    let top = args.eat_named(ctx, "top");
-    let right = args.eat_named(ctx, "right");
-    let bottom = args.eat_named(ctx, "bottom");
-    let flip = args.eat_named(ctx, "flip");
+    let width = args.named(ctx, "width");
+    let height = args.named(ctx, "height");
+    let margins = args.named(ctx, "margins");
+    let left = args.named(ctx, "left");
+    let top = args.named(ctx, "top");
+    let right = args.named(ctx, "right");
+    let bottom = args.named(ctx, "bottom");
+    let flip = args.named(ctx, "flip");
     let body = args.eat::<TemplateValue>(ctx);
     let span = args.span;
 

@@ -34,17 +34,17 @@ use super::*;
 ///   - `ttb`
 ///   - `btt`
 pub fn grid(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let columns = args.eat_named::<Tracks>(ctx, "columns").unwrap_or_default();
-    let rows = args.eat_named::<Tracks>(ctx, "rows").unwrap_or_default();
+    let columns = args.named::<Tracks>(ctx, "columns").unwrap_or_default();
+    let rows = args.named::<Tracks>(ctx, "rows").unwrap_or_default();
     let gutter = args
-        .eat_named::<Linear>(ctx, "gutter")
+        .named::<Linear>(ctx, "gutter")
         .map(|v| vec![TrackSizing::Linear(v)])
         .unwrap_or_default();
-    let gutter_columns = args.eat_named::<Tracks>(ctx, "gutter-columns");
-    let gutter_rows = args.eat_named::<Tracks>(ctx, "gutter-rows");
-    let column_dir = args.eat_named(ctx, "column-dir");
-    let row_dir = args.eat_named(ctx, "row-dir");
-    let children = args.eat_all::<TemplateValue>(ctx);
+    let gutter_columns = args.named::<Tracks>(ctx, "gutter-columns");
+    let gutter_rows = args.named::<Tracks>(ctx, "gutter-rows");
+    let column_dir = args.named(ctx, "column-dir");
+    let row_dir = args.named(ctx, "row-dir");
+    let children = args.all::<TemplateValue>(ctx);
 
     Value::template("grid", move |ctx| {
         let children = children

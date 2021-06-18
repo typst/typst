@@ -51,7 +51,7 @@ fn minmax(ctx: &mut EvalContext, args: &mut FuncArgs, goal: Ordering) -> Value {
     }
 
     extremum.unwrap_or_else(|| {
-        args.eat_expect::<Value>(ctx, "value");
+        args.expect::<Value>(ctx, "value");
         Value::Error
     })
 }

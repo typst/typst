@@ -17,11 +17,11 @@ use crate::layout::PadNode;
 /// A template that pads its region and sets the body into it.
 pub fn pad(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let all = args.eat(ctx);
-    let left = args.eat_named(ctx, "left");
-    let top = args.eat_named(ctx, "top");
-    let right = args.eat_named(ctx, "right");
-    let bottom = args.eat_named(ctx, "bottom");
-    let body = args.eat_expect::<TemplateValue>(ctx, "body").unwrap_or_default();
+    let left = args.named(ctx, "left");
+    let top = args.named(ctx, "top");
+    let right = args.named(ctx, "right");
+    let bottom = args.named(ctx, "bottom");
+    let body = args.expect::<TemplateValue>(ctx, "body").unwrap_or_default();
 
     let padding = Sides::new(
         left.or(all).unwrap_or_default(),

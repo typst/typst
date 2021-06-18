@@ -19,8 +19,8 @@ use crate::layout::{StackChild, StackNode};
 ///   - `ttb`
 ///   - `btt`
 pub fn stack(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let dir = args.eat_named::<Dir>(ctx, "dir").unwrap_or(Dir::TTB);
-    let children = args.eat_all::<TemplateValue>(ctx);
+    let dir = args.named::<Dir>(ctx, "dir").unwrap_or(Dir::TTB);
+    let children = args.all::<TemplateValue>(ctx);
 
     Value::template("stack", move |ctx| {
         let children = children

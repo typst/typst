@@ -11,7 +11,7 @@ use super::*;
 /// # Return value
 /// The name of the value's type as a string.
 pub fn type_(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    match args.eat_expect::<Value>(ctx, "value") {
+    match args.expect::<Value>(ctx, "value") {
         Some(value) => value.type_name().into(),
         None => Value::Error,
     }
@@ -25,7 +25,7 @@ pub fn type_(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// # Return value
 /// The string representation of the value.
 pub fn repr(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    match args.eat_expect::<Value>(ctx, "value") {
+    match args.expect::<Value>(ctx, "value") {
         Some(value) => pretty(&value).into(),
         None => Value::Error,
     }
@@ -33,7 +33,7 @@ pub fn repr(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
 /// `len`: The length of a string, an array or a dictionary.
 pub fn len(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    match args.eat_expect::<Spanned<Value>>(ctx, "collection") {
+    match args.expect::<Spanned<Value>>(ctx, "collection") {
         Some(Spanned { v: Value::Str(v), .. }) => Value::Int(v.len() as i64),
         Some(Spanned { v: Value::Array(v), .. }) => Value::Int(v.len() as i64),
         Some(Spanned { v: Value::Dict(v), .. }) => Value::Int(v.len() as i64),
@@ -56,9 +56,9 @@ pub fn len(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// # Return value
 /// The color with the given components.
 pub fn rgb(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let r = args.eat_expect(ctx, "red component");
-    let g = args.eat_expect(ctx, "green component");
-    let b = args.eat_expect(ctx, "blue component");
+    let r = args.expect(ctx, "red component");
+    let g = args.expect(ctx, "green component");
+    let b = args.expect(ctx, "blue component");
     let a = args.eat(ctx);
 
     let mut clamp = |component: Option<Spanned<f64>>, default| {
