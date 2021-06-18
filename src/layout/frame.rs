@@ -16,10 +16,10 @@ pub struct Frame {
     /// The baseline of the frame measured from the top.
     pub baseline: Length,
     /// The elements composing this layout.
-    structure: Vec<(Point, Structure)>,
+    children: Vec<(Point, Child)>,
 }
 
-/// An iterator over all elements in a frame.
+/// An iterator over all elements in a frame, alongside with their positions.
 #[derive(Debug, Clone)]
 pub struct ElementIter<'a> {
     stack: Vec<(usize, Point, &'a Frame)>,
@@ -30,27 +30,24 @@ impl<'a> Iterator for ElementIter<'a> {
 
     /// Get the next element, if any.
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((cursor, offset, frame)) = self.stack.pop() {
-            if cursor < frame.structure.len() {
-                match &frame.structure[cursor] {
-                    (pos, Structure::Frame(f)) => {
-                        self.stack.push((cursor, offset, frame));
-                        self.stack.push((0, offset + *pos, f.as_ref()));
-                        self.next()
-                    }
-                    (pos, Structure::Element(e)) => {
-                        self.stack.push((cursor + 1, offset, frame));
-                        Some((*pos + offset, e))
-                    }
-                }
-            } else {
-                if let Some((c, o, f)) = self.stack.pop() {
-                    self.stack.push((c + 1, o, f));
+        let (cursor, offset, frame) = self.stack.last_mut()?;
+        match frame.children.get(*cursor) {
+            Some((pos, Child::Frame(f))) => {
+                let new_offset = *offset + *pos;
+                self.stack.push((0, new_offset, f.as_ref()));
+                self.next()
+            }
+            Some((pos, Child::Element(e))) => {
+                *cursor += 1;
+                Some((*offset + *pos, e))
+            }
+            None => {
+                self.stack.pop();
+                if let Some((cursor, _, _)) = self.stack.last_mut() {
+                    *cursor += 1;
                 }
                 self.next()
             }
-        } else {
-            None
         }
     }
 }
@@ -59,27 +56,32 @@ impl Frame {
     /// Create a new, empty frame.
     pub fn new(size: Size, baseline: Length) -> Self {
         assert!(size.is_finite());
-        Self { size, baseline, structure: vec![] }
+        Self { size, baseline, children: vec![] }
     }
 
-    /// Add an element at a position.
+    /// Add an element at a position in the foreground.
     pub fn push(&mut self, pos: Point, element: Element) {
-        self.structure.push((pos, Structure::Element(element)));
+        self.children.push((pos, Child::Element(element)));
+    }
+
+    /// Add an element at a position in the background.
+    pub fn prepend(&mut self, pos: Point, element: Element) {
+        self.children.insert(0, (pos, Child::Element(element)))
     }
 
     /// Add a frame element.
     pub fn push_frame(&mut self, pos: Point, subframe: Rc<Self>) {
-        self.structure.push((pos, Structure::Frame(subframe)))
+        self.children.push((pos, Child::Frame(subframe)))
     }
 
     /// Add all elements of another frame, placing them relative to the given
     /// position.
     pub fn merge_frame(&mut self, pos: Point, subframe: Self) {
-        if pos == Point::zero() && self.structure.is_empty() {
-            self.structure = subframe.structure;
+        if pos == Point::zero() && self.children.is_empty() {
+            self.children = subframe.children;
         } else {
-            for (subpos, structure) in subframe.structure {
-                self.structure.push((pos + subpos, structure));
+            for (subpos, child) in subframe.children {
+                self.children.push((pos + subpos, child));
             }
         }
     }
@@ -89,16 +91,17 @@ impl Frame {
         Constrained { item: Rc::new(self), constraints }
     }
 
-    /// Returns an iterator over all elements in the frame and its structure.
+    /// Returns an iterator over all elements in the frame and its children.
     pub fn elements(&self) -> ElementIter {
         ElementIter { stack: vec![(0, Point::zero(), self)] }
     }
 }
 
+/// A frame can contain multiple children: elements or other frames, complete
+/// with their children.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-enum Structure {
+enum Child {
     Element(Element),
-    /// Another frame.
     Frame(Rc<Frame>),
 }
 

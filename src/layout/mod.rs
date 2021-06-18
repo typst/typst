@@ -189,7 +189,7 @@ pub struct LayoutContext<'a> {
     pub loader: &'a mut dyn Loader,
     /// A cache for loaded fonts and artifacts from past layouting.
     pub cache: &'a mut Cache,
-    /// How deeply nested is the current layout tree position.
+    /// How deeply nested the current layout tree position is.
     pub level: usize,
 }
 

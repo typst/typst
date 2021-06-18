@@ -13,7 +13,7 @@ use typst::typeset;
 
 const FONT_DIR: &str = "../fonts";
 const TYP_DIR: &str = "../tests/typ";
-const CASES: &[&str] = &["coma.typ", "text/basic.typ"];
+const CASES: &[&str] = &["../../../benchmarks/shakespeare.typ"];
 
 fn benchmarks(c: &mut Criterion) {
     let mut loader = FsLoader::new();
@@ -31,7 +31,7 @@ fn benchmarks(c: &mut Criterion) {
             ($step:literal: $code:expr) => {
                 c.bench_function(&format!("{}-{}", $step, name), |b| {
                     b.iter(|| {
-                        cache.layout.clear();
+                        // cache.layout.clear();
                         $code
                     });
                 });

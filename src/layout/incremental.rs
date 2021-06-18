@@ -26,7 +26,7 @@ impl LayoutCache {
     where
         F: FnMut(usize) -> bool,
     {
-        self.frames.retain(|_, b| f(b.level));
+        self.frames.retain(|_, entry| f(entry.level));
     }
 
     /// Amount of items in the cache.

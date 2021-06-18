@@ -17,32 +17,30 @@ impl Layout for PadNode {
     ) -> Vec<Constrained<Rc<Frame>>> {
         let mut regions = regions.map(|size| size - self.padding.resolve(size).size());
 
-        let frames = self.child.layout(ctx, &regions);
+        let mut frames = self.child.layout(ctx, &regions);
 
+        for frame in &mut frames {
+            let padded = solve(self.padding, frame.size);
+            let padding = self.padding.resolve(padded);
+            let origin = Point::new(padding.left, padding.top);
+
+            let mut new = Frame::new(padded, frame.baseline + origin.y);
+            let prev = std::mem::take(&mut frame.item);
+            new.push_frame(origin, prev);
+
+            frame.constraints.mutate(padding.size() * -1.0);
+
+            if self.padding.left.is_relative() || self.padding.right.is_relative() {
+                frame.constraints.base.horizontal = Some(regions.base.width);
+            }
+            if self.padding.top.is_relative() || self.padding.bottom.is_relative() {
+                frame.constraints.base.vertical = Some(regions.base.height);
+            }
+
+            regions.next();
+            *Rc::make_mut(&mut frame.item) = new;
+        }
         frames
-            .into_iter()
-            .map(|frame| {
-                let padded = solve(self.padding, frame.size);
-                let padding = self.padding.resolve(padded);
-                let origin = Point::new(padding.left, padding.top);
-
-                let mut new_frame = Frame::new(padded, frame.baseline + origin.y);
-                new_frame.push_frame(origin, frame.item);
-
-                let mut frame = new_frame.constrain(frame.constraints);
-                frame.constraints.mutate(padding.size() * -1.0);
-
-                if self.padding.left.is_relative() || self.padding.right.is_relative() {
-                    frame.constraints.base.horizontal = Some(regions.base.width);
-                }
-                if self.padding.top.is_relative() || self.padding.bottom.is_relative() {
-                    frame.constraints.base.vertical = Some(regions.base.height);
-                }
-
-                regions.next();
-                frame
-            })
-            .collect()
     }
 }
 
