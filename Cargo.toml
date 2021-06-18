@@ -27,7 +27,7 @@ image = { version = "0.23", default-features = false, features = ["png", "jpeg"]
 miniz_oxide = "0.3"
 pdf-writer = { path = "../pdf-writer" }
 rustybuzz = { git = "https://github.com/laurmaedje/rustybuzz" }
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive", "rc"] }
 ttf-parser = "0.12"
 unicode-bidi = "0.3.5"
 unicode-xid = "0.2"

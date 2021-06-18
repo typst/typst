@@ -32,7 +32,7 @@ impl Layout for StackNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
-    ) -> Vec<Constrained<Frame>> {
+    ) -> Vec<Constrained<Rc<Frame>>> {
         StackLayouter::new(self, regions.clone()).layout(ctx)
     }
 }
@@ -64,9 +64,9 @@ struct StackLayouter<'a> {
     constraints: Constraints,
     /// Offset, alignment and frame for all children that fit into the current
     /// region. The exact positions are not known yet.
-    frames: Vec<(Length, Gen<Align>, Frame)>,
+    frames: Vec<(Length, Gen<Align>, Rc<Frame>)>,
     /// Finished frames for previous regions.
-    finished: Vec<Constrained<Frame>>,
+    finished: Vec<Constrained<Rc<Frame>>>,
 }
 
 impl<'a> StackLayouter<'a> {
@@ -98,7 +98,7 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Layout all children.
-    fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Frame>> {
+    fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
         for child in &self.stack.children {
             match *child {
                 StackChild::Spacing(amount) => self.space(amount),
@@ -133,7 +133,7 @@ impl<'a> StackLayouter<'a> {
 
     /// Push a frame into the current or next fitting region, finishing regions
     /// if necessary.
-    fn push_frame(&mut self, frame: Frame, aligns: Gen<Align>) {
+    fn push_frame(&mut self, frame: Rc<Frame>, aligns: Gen<Align>) {
         let size = frame.size.to_gen(self.main);
 
         // Don't allow `Start` after `End` in the same region.

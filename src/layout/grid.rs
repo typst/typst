@@ -32,7 +32,7 @@ impl Layout for GridNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
-    ) -> Vec<Constrained<Frame>> {
+    ) -> Vec<Constrained<Rc<Frame>>> {
         // Prepare grid layout by unifying content and gutter tracks.
         let mut layouter = GridLayouter::new(self, regions.clone());
 
@@ -78,7 +78,7 @@ struct GridLayouter<'a> {
     /// Constraints for the active region.
     constraints: Constraints,
     /// Frames for finished regions.
-    finished: Vec<Constrained<Frame>>,
+    finished: Vec<Constrained<Rc<Frame>>>,
 }
 
 /// Produced by initial row layout, auto and linear rows are already finished,
@@ -314,7 +314,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Layout the grid row-by-row.
-    fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Frame>> {
+    fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
         for y in 0 .. self.rows.len() {
             match self.rows[y] {
                 TrackSizing::Auto => {
@@ -497,7 +497,7 @@ impl<'a> GridLayouter<'a> {
             };
 
             let main = frame.size.get(self.main);
-            output.push_frame(pos.to_point(self.main), frame);
+            output.merge_frame(pos.to_point(self.main), frame);
             pos.main += main;
         }
 

@@ -23,10 +23,11 @@ impl Layout for BackgroundNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
-    ) -> Vec<Constrained<Frame>> {
+    ) -> Vec<Constrained<Rc<Frame>>> {
         let mut frames = self.child.layout(ctx, regions);
-
         for frame in &mut frames {
+            let mut new = Frame::new(frame.size, frame.baseline);
+
             let (point, shape) = match self.shape {
                 BackgroundShape::Rect => (Point::zero(), Shape::Rect(frame.size)),
                 BackgroundShape::Ellipse => {
@@ -35,9 +36,13 @@ impl Layout for BackgroundNode {
             };
 
             let element = Element::Geometry(shape, self.fill);
-            frame.item.elements.insert(0, (point, element));
-        }
+            new.push(point, element);
 
+            let prev = std::mem::take(&mut frame.item);
+            new.push_frame(Point::zero(), prev);
+
+            *Rc::make_mut(&mut frame.item) = new;
+        }
         frames
     }
 }
