@@ -20,14 +20,13 @@
 
 // String.
 {
-    let out = ""
     let first = true
-    for c in "abc" {
+    let out = for c in "abc" {
         if not first {
-            out += ", "
+            ", "
         }
+        c
         first = false
-        out += c
     }
     test(out, "a, b, c")
 }
@@ -36,14 +35,16 @@
 // Block body.
 // Should output `[1st, 2nd, 3rd, 4th, 5th, 6th]`.
 {
-    "[" + for v in (1, 2, 3, 4, 5, 6) {
-        (if v > 1 [, ]
-            + [{v}]
-            + if v == 1 [st]
-            + if v == 2 [nd]
-            + if v == 3 [rd]
-            + if v >= 4 [th])
-     } + "]"
+    "["
+    for v in (1, 2, 3, 4, 5, 6) {
+        if v > 1 [, ]
+        [#v]
+        if v == 1 [st]
+        if v == 2 [nd]
+        if v == 3 [rd]
+        if v >= 4 [th]
+     }
+     "]"
 }
 
 // Template body.
@@ -53,8 +54,8 @@
 ---
 // Value of for loops.
 // Ref: false
-#test(type(for v in () {}), "template")
-#test(type(for v in () []), "template")
+#test(for v in "" [], none)
+#test(type(for v in "1" []), "template")
 
 ---
 // Ref: false
@@ -67,7 +68,7 @@
 // Error: 11-18 cannot add integer and string
 #for v in 1 + "2" {}
 
-// A single error stops iteration.
+// Errors taint everything.
 #test(error, for v in (1, 2, 3) {
     if v < 2 [Ok] else {error}
 })

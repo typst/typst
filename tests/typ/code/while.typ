@@ -23,8 +23,10 @@
 // Value of while loops.
 // Ref: false
 
-#test(type(while false {}), "template")
-#test(type(while false []), "template")
+#test(while false {}, none)
+
+#let i = 0
+#test(type(while i < 1 [{ i += 1 }]), "template")
 
 ---
 // Ref: false
@@ -37,13 +39,13 @@
 // Error: 8-15 unknown variable
 #while nothing {}
 
-// A single error stops iteration.
+// Errors taint everything.
 #let i = 0
 #test(error, while i < 10 {
     i += 1
     if i < 5 [nope] else { error }
 })
-#test(i, 5)
+#test(i, 10)
 
 ---
 // Error: 7 expected expression

@@ -327,7 +327,8 @@ impl Eval for BlockExpr {
 
         let mut output = Value::None;
         for expr in &self.exprs {
-            output = expr.eval(ctx);
+            let value = expr.eval(ctx);
+            output = output.join(ctx, value, expr.span());
         }
 
         if self.scoping {
@@ -584,19 +585,15 @@ impl Eval for WhileExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let mut output = vec![];
+        let mut output = Value::None;
         loop {
             let condition = self.condition.eval(ctx);
             if let Some(condition) = ctx.cast(condition, self.condition.span()) {
                 if condition {
-                    match self.body.eval(ctx) {
-                        Value::Template(v) => output.extend(v),
-                        Value::Str(v) => output.push(TemplateNode::Str(v)),
-                        Value::Error => return Value::Error,
-                        _ => {}
-                    }
+                    let value = self.body.eval(ctx);
+                    output = output.join(ctx, value, self.body.span());
                 } else {
-                    return Value::Template(output);
+                    return output;
                 }
             } else {
                 return Value::Error;
@@ -611,26 +608,19 @@ impl Eval for ForExpr {
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         macro_rules! iter {
             (for ($($binding:ident => $value:ident),*) in $iter:expr) => {{
-                let mut output = vec![];
+                let mut output = Value::None;
                 ctx.scopes.enter();
 
                 #[allow(unused_parens)]
                 for ($($value),*) in $iter {
                     $(ctx.scopes.def_mut($binding.as_str(), $value);)*
 
-                    match self.body.eval(ctx) {
-                        Value::Template(v) => output.extend(v),
-                        Value::Str(v) => output.push(TemplateNode::Str(v)),
-                        Value::Error => {
-                            ctx.scopes.exit();
-                            return Value::Error;
-                        }
-                        _ => {}
-                    }
+                    let value = self.body.eval(ctx);
+                    output = output.join(ctx, value, self.body.span());
                 }
 
                 ctx.scopes.exit();
-                Value::Template(output)
+                output
             }};
         }
 

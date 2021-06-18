@@ -7,8 +7,9 @@
 {1u}
 
 // Should output `1`.
-// Error: 3 expected semicolon or line break
-{0 1}
+// Error: 2:3 expected semicolon or line break
+// Error: 1:4-1:5 cannot join integer with integer
+{1 2}
 
 // Should output `2`.
 // Error: 2:12 expected semicolon or line break

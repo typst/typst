@@ -9,7 +9,7 @@ All none
 // Let evaluates to none.
 { let v = 0 }
 
-// Trailing none evaluates to none.
+// Type is joined with trailing none, evaluates to string.
 {
     type("")
     none
@@ -19,13 +19,33 @@ All none
 // Evaluates to single expression.
 { "Hello" }
 
-// Evaluates to trailing expression.
+// Evaluates to string.
 { let x = "Hel"; x + "lo" }
 
-// Evaluates to concatenation of for loop bodies.
+// Evaluates to join of none, [He] and the two loop bodies.
 {
-    let parts = ("Hel", "lo")
+    let parts = ("l", "lo")
+    [He]
     for s in parts [{s}]
+}
+
+---
+// Evaluates to join of the templates and strings.
+{
+    [Hey, ]
+    if true {
+        "there!"
+    }
+    [ ]
+    if false [Nope]
+    [How are ] + "you?"
+}
+
+{
+    [A]
+    // Error: 5-6 cannot join template with integer
+    1
+    [B]
 }
 
 ---

@@ -327,10 +327,8 @@ fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
         let rhs = args.expect::<Value>(ctx, "right-hand side");
         if lhs != rhs {
             panics.borrow_mut().push(Panic { pos: args.span.start, lhs, rhs });
-            Value::Str(format!("(panic)"))
-        } else {
-            Value::None
         }
+        Value::None
     };
 
     scope.def_const("error", Value::Error);

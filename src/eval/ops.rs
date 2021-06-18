@@ -3,6 +3,33 @@ use std::cmp::Ordering::*;
 use super::{TemplateNode, Value};
 use Value::*;
 
+/// Join a value with another value.
+pub fn join(lhs: Value, rhs: Value) -> Result<Value, Value> {
+    Ok(match (lhs, rhs) {
+        (_, Error) => Error,
+        (Error, _) => Error,
+
+        (a, None) => a,
+        (None, b) => b,
+
+        (Str(a), Str(b)) => Str(a + &b),
+        (Array(a), Array(b)) => Array(concat(a, b)),
+        (Dict(a), Dict(b)) => Dict(concat(a, b)),
+
+        (Template(a), Template(b)) => Template(concat(a, b)),
+        (Template(mut a), Str(b)) => Template({
+            a.push(TemplateNode::Str(b));
+            a
+        }),
+        (Str(a), Template(mut b)) => Template({
+            b.insert(0, TemplateNode::Str(a));
+            b
+        }),
+
+        (a, _) => return Err(a),
+    })
+}
+
 /// Apply the plus operator to a value.
 pub fn pos(value: Value) -> Value {
     match value {
@@ -60,8 +87,6 @@ pub fn add(lhs: Value, rhs: Value) -> Value {
         (Dict(a), Dict(b)) => Dict(concat(a, b)),
 
         (Template(a), Template(b)) => Template(concat(a, b)),
-        (Template(a), None) => Template(a),
-        (None, Template(b)) => Template(b),
         (Template(mut a), Str(b)) => Template({
             a.push(TemplateNode::Str(b));
             a

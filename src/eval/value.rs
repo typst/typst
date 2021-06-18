@@ -5,6 +5,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 
+use super::ops;
 use super::EvalContext;
 use crate::color::{Color, RgbaColor};
 use crate::exec::ExecContext;
@@ -61,14 +62,6 @@ impl Value {
         Self::Template(vec![TemplateNode::Func(TemplateFunc::new(name, f))])
     }
 
-    /// Try to cast the value into a specific type.
-    pub fn cast<T>(self) -> CastResult<T, Self>
-    where
-        T: Cast<Value>,
-    {
-        T::cast(self)
-    }
-
     /// The name of the stored value's type.
     pub fn type_name(&self) -> &'static str {
         match self {
@@ -123,6 +116,26 @@ impl Value {
             (Self::Angle(a), Self::Angle(b)) => a.partial_cmp(b),
             (Self::Length(a), Self::Length(b)) => a.partial_cmp(b),
             _ => None,
+        }
+    }
+
+    /// Try to cast the value into a specific type.
+    pub fn cast<T>(self) -> CastResult<T, Self>
+    where
+        T: Cast<Value>,
+    {
+        T::cast(self)
+    }
+
+    /// Join with another value.
+    pub fn join(self, ctx: &mut EvalContext, other: Self, span: Span) -> Self {
+        let (lhs, rhs) = (self.type_name(), other.type_name());
+        match ops::join(self, other) {
+            Ok(joined) => joined,
+            Err(prev) => {
+                ctx.diag(error!(span, "cannot join {} with {}", lhs, rhs));
+                prev
+            }
         }
     }
 }
