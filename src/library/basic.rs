@@ -31,6 +31,20 @@ pub fn repr(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     }
 }
 
+/// `len`: The length of a string, an array or a dictionary.
+pub fn len(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+    match args.eat_expect::<Spanned<Value>>(ctx, "collection") {
+        Some(Spanned { v: Value::Str(v), .. }) => Value::Int(v.len() as i64),
+        Some(Spanned { v: Value::Array(v), .. }) => Value::Int(v.len() as i64),
+        Some(Spanned { v: Value::Dict(v), .. }) => Value::Int(v.len() as i64),
+        Some(other) if other.v != Value::Error => {
+            ctx.diag(error!(other.span, "expected string, array or dictionary"));
+            Value::Error
+        }
+        _ => Value::Error,
+    }
+}
+
 /// `rgb`: Create an RGB(A) color.
 ///
 /// # Positional parameters

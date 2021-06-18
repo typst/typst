@@ -56,6 +56,7 @@ pub fn new() -> Scope {
     std.def_func("h", h);
     std.def_func("image", image);
     std.def_func("lang", lang);
+    std.def_func("len", len);
     std.def_func("max", max);
     std.def_func("min", min);
     std.def_func("overline", overline);
