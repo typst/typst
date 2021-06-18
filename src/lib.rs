@@ -83,7 +83,7 @@ pub fn typeset(
     src: &str,
     scope: &Scope,
     state: State,
-) -> Pass<Vec<Frame>> {
+) -> Pass<Vec<Rc<Frame>>> {
     let parsed = parse::parse(src);
     let evaluated = eval::eval(loader, cache, path, Rc::new(parsed.output), scope);
     let executed = exec::exec(&evaluated.output.template, state);

@@ -14,35 +14,35 @@ impl Layout for PadNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
-    ) -> Vec<Constrained<Frame>> {
+    ) -> Vec<Constrained<Rc<Frame>>> {
         let mut regions = regions.map(|size| size - self.padding.resolve(size).size());
 
-        let mut frames = self.child.layout(ctx, &regions);
-        for frame in &mut frames {
-            let padded = solve(self.padding, frame.size);
-            let padding = self.padding.resolve(padded);
-            let origin = Point::new(padding.left, padding.top);
-
-            frame.item.size = padded;
-            frame.item.baseline += origin.y;
-
-            for (point, _) in &mut frame.item.elements {
-                *point += origin;
-            }
-
-            frame.constraints.mutate(padding.size() * -1.0);
-
-            if self.padding.left.is_relative() || self.padding.right.is_relative() {
-                frame.constraints.base.horizontal = Some(regions.base.width);
-            }
-            if self.padding.top.is_relative() || self.padding.bottom.is_relative() {
-                frame.constraints.base.vertical = Some(regions.base.height);
-            }
-
-            regions.next();
-        }
+        let frames = self.child.layout(ctx, &regions);
 
         frames
+            .into_iter()
+            .map(|frame| {
+                let padded = solve(self.padding, frame.size);
+                let padding = self.padding.resolve(padded);
+                let origin = Point::new(padding.left, padding.top);
+
+                let mut new_frame = Frame::new(padded, frame.baseline + origin.y);
+                new_frame.push_frame(origin, frame.item);
+
+                let mut frame = new_frame.constrain(frame.constraints);
+                frame.constraints.mutate(padding.size() * -1.0);
+
+                if self.padding.left.is_relative() || self.padding.right.is_relative() {
+                    frame.constraints.base.horizontal = Some(regions.base.width);
+                }
+                if self.padding.top.is_relative() || self.padding.bottom.is_relative() {
+                    frame.constraints.base.vertical = Some(regions.base.height);
+                }
+
+                regions.next();
+                frame
+            })
+            .collect()
     }
 }
 

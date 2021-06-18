@@ -37,7 +37,7 @@ impl Layout for ParNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
-    ) -> Vec<Constrained<Frame>> {
+    ) -> Vec<Constrained<Rc<Frame>>> {
         // Collect all text into one string used for BiDi analysis.
         let text = self.collect_text();
 
@@ -169,7 +169,7 @@ impl<'a> ParLayouter<'a> {
         self,
         ctx: &mut LayoutContext,
         regions: Regions,
-    ) -> Vec<Constrained<Frame>> {
+    ) -> Vec<Constrained<Rc<Frame>>> {
         let mut stack = LineStack::new(self.line_spacing, regions);
 
         // The current line attempt.
@@ -277,7 +277,7 @@ enum ParItem<'a> {
     /// A shaped text run with consistent direction.
     Text(ShapedText<'a>, Align),
     /// A layouted child node.
-    Frame(Frame, Align),
+    Frame(Rc<Frame>, Align),
 }
 
 impl ParItem<'_> {
@@ -306,7 +306,7 @@ struct LineStack<'a> {
     regions: Regions,
     size: Size,
     lines: Vec<LineLayout<'a>>,
-    finished: Vec<Constrained<Frame>>,
+    finished: Vec<Constrained<Rc<Frame>>>,
     constraints: Constraints,
 }
 
@@ -357,7 +357,7 @@ impl<'a> LineStack<'a> {
             }
 
             offset += frame.size.height + self.line_spacing;
-            output.push_frame(pos, frame);
+            output.merge_frame(pos, frame);
         }
 
         self.finished.push(output.constrain(self.constraints));
@@ -367,7 +367,7 @@ impl<'a> LineStack<'a> {
     }
 
     /// Finish the last region and return the built frames.
-    fn finish(mut self, ctx: &LayoutContext) -> Vec<Constrained<Frame>> {
+    fn finish(mut self, ctx: &LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
         self.finish_region(ctx);
         self.finished
     }
@@ -504,7 +504,7 @@ impl<'a> LineLayout<'a> {
                 }
                 ParItem::Text(ref shaped, align) => {
                     ruler = ruler.max(align);
-                    shaped.build(ctx)
+                    Rc::new(shaped.build(ctx))
                 }
                 ParItem::Frame(ref frame, align) => {
                     ruler = ruler.max(align);

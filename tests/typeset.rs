@@ -208,7 +208,7 @@ fn test_part(
     i: usize,
     compare_ref: bool,
     lines: u32,
-) -> (bool, bool, Vec<Frame>) {
+) -> (bool, bool, Vec<Rc<Frame>>) {
     let map = LineMap::new(src);
     let (local_compare_ref, ref_diags) = parse_metadata(src, &map);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
@@ -347,7 +347,7 @@ fn print_diag(diag: &Diag, map: &LineMap, lines: u32) {
     println!("{}: {}-{}: {}", diag.level, start, end, diag.message);
 }
 
-fn draw(cache: &Cache, frames: &[Frame], dpi: f32) -> Pixmap {
+fn draw(cache: &Cache, frames: &[Rc<Frame>], dpi: f32) -> Pixmap {
     let pad = Length::pt(5.0);
 
     let height = pad + frames.iter().map(|l| l.size.height + pad).sum::<Length>();
@@ -383,8 +383,8 @@ fn draw(cache: &Cache, frames: &[Frame], dpi: f32) -> Pixmap {
             None,
         );
 
-        for (pos, element) in &frame.elements {
-            let global = origin + *pos;
+        for (pos, element) in frame.elements() {
+            let global = origin + pos;
             let x = global.x.to_pt() as f32;
             let y = global.y.to_pt() as f32;
             let ts = ts.pre_translate(x, y);

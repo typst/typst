@@ -3,6 +3,7 @@
 use std::cmp::Eq;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::rc::Rc;
 
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Rgba};
 use miniz_oxide::deflate;
@@ -26,13 +27,13 @@ use crate::layout::{Element, Fill, Frame, Shape};
 /// can be included in the PDF.
 ///
 /// Returns the raw bytes making up the PDF document.
-pub fn pdf(cache: &Cache, frames: &[Frame]) -> Vec<u8> {
+pub fn pdf(cache: &Cache, frames: &[Rc<Frame>]) -> Vec<u8> {
     PdfExporter::new(cache, frames).write()
 }
 
 struct PdfExporter<'a> {
     writer: PdfWriter,
-    frames: &'a [Frame],
+    frames: &'a [Rc<Frame>],
     cache: &'a Cache,
     refs: Refs,
     fonts: Remapper<FaceId>,
@@ -40,7 +41,7 @@ struct PdfExporter<'a> {
 }
 
 impl<'a> PdfExporter<'a> {
-    fn new(cache: &'a Cache, frames: &'a [Frame]) -> Self {
+    fn new(cache: &'a Cache, frames: &'a [Rc<Frame>]) -> Self {
         let mut writer = PdfWriter::new(1, 7);
         writer.set_indent(2);
 
@@ -49,7 +50,7 @@ impl<'a> PdfExporter<'a> {
         let mut alpha_masks = 0;
 
         for frame in frames {
-            for (_, element) in &frame.elements {
+            for (_, element) in frame.elements() {
                 match *element {
                     Element::Text(ref shaped) => fonts.insert(shaped.face_id),
                     Element::Geometry(_, _) => {}
@@ -143,7 +144,7 @@ impl<'a> PdfExporter<'a> {
         let mut size = Length::zero();
         let mut fill: Option<Fill> = None;
 
-        for (pos, element) in &page.elements {
+        for (pos, element) in page.elements() {
             let x = pos.x.to_pt() as f32;
             let y = (page.size.height - pos.y).to_pt() as f32;
 
@@ -496,12 +497,12 @@ struct FontRefs {
 impl Refs {
     const OBJECTS_PER_FONT: usize = 5;
 
-    fn new(frames: usize, fonts: usize, images: usize, alpha_masks: usize) -> Self {
+    fn new(pages: usize, fonts: usize, images: usize, alpha_masks: usize) -> Self {
         let catalog = 1;
         let page_tree = catalog + 1;
         let pages_start = page_tree + 1;
-        let contents_start = pages_start + frames as i32;
-        let fonts_start = contents_start + frames as i32;
+        let contents_start = pages_start + pages as i32;
+        let fonts_start = contents_start + pages as i32;
         let images_start = fonts_start + (Self::OBJECTS_PER_FONT * fonts) as i32;
         let alpha_masks_start = images_start + images as i32;
         let end = alpha_masks_start + alpha_masks as i32;

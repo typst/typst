@@ -39,14 +39,14 @@ impl LayoutCache {
 /// Cached frames from past layouting.
 pub struct FramesEntry {
     /// The cached frames for a node.
-    pub frames: Vec<Constrained<Frame>>,
+    pub frames: Vec<Constrained<Rc<Frame>>>,
     /// How nested the frame was in the context is was originally appearing in.
     pub level: usize,
 }
 
 impl FramesEntry {
     /// Checks if the cached [`Frame`] is valid for the given regions.
-    pub fn check(&self, mut regions: Regions) -> Option<Vec<Constrained<Frame>>> {
+    pub fn check(&self, mut regions: Regions) -> Option<Vec<Constrained<Rc<Frame>>>> {
         for (i, frame) in self.frames.iter().enumerate() {
             if (i != 0 && !regions.next()) || !frame.constraints.check(&regions) {
                 return None;

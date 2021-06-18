@@ -23,6 +23,7 @@ pub use stack::*;
 use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
+use std::rc::Rc;
 
 use fxhash::FxHasher64;
 
@@ -31,7 +32,7 @@ use crate::geom::*;
 use crate::loading::Loader;
 
 /// Layout a tree into a collection of frames.
-pub fn layout(loader: &mut dyn Loader, cache: &mut Cache, tree: &Tree) -> Vec<Frame> {
+pub fn layout(loader: &mut dyn Loader, cache: &mut Cache, tree: &Tree) -> Vec<Rc<Frame>> {
     tree.layout(&mut LayoutContext { loader, cache, level: 0 })
 }
 
@@ -44,7 +45,7 @@ pub struct Tree {
 
 impl Tree {
     /// Layout the tree into a collection of frames.
-    pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Frame> {
+    pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Rc<Frame>> {
         self.runs.iter().flat_map(|run| run.layout(ctx)).collect()
     }
 }
@@ -61,7 +62,7 @@ pub struct PageRun {
 
 impl PageRun {
     /// Layout the page run.
-    pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Frame> {
+    pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Rc<Frame>> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let Size { width, height } = self.size;
@@ -97,7 +98,7 @@ impl Layout for AnyNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
-    ) -> Vec<Constrained<Frame>> {
+    ) -> Vec<Constrained<Rc<Frame>>> {
         ctx.level += 1;
         let frames = ctx
             .cache
@@ -179,7 +180,7 @@ pub trait Layout {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
-    ) -> Vec<Constrained<Frame>>;
+    ) -> Vec<Constrained<Rc<Frame>>>;
 }
 
 /// The context for layouting.
