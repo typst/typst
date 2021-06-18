@@ -20,6 +20,19 @@ impl LayoutCache {
     pub fn clear(&mut self) {
         self.frames.clear();
     }
+
+    /// Retains all elements for which the closure on the level returns `true`.
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(usize) -> bool,
+    {
+        self.frames.retain(|_, b| f(b.level));
+    }
+
+    /// Amount of items in the cache.
+    pub fn len(&self) -> usize {
+        self.frames.len()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -27,6 +40,8 @@ impl LayoutCache {
 pub struct FramesEntry {
     /// The cached frames for a node.
     pub frames: Vec<Constrained<Frame>>,
+    /// How nested the frame was in the context is was originally appearing in.
+    pub level: usize,
 }
 
 impl FramesEntry {
