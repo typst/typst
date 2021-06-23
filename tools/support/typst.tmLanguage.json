@@ -119,7 +119,7 @@
         },
         {
           "name": "keyword.other.typst",
-          "match": "(#)(in|using|as)\\b",
+          "match": "(#)(as|in|with|from|using)\\b",
           "captures": { "1": { "name": "punctuation.definition.keyword.typst" } }
         },
         {
@@ -171,12 +171,12 @@
         {
           "comment": "Function name",
           "name": "entity.name.function.typst",
-          "match": "((#)[[:alpha:]_][[:alnum:]_-]*!?)(?=\\[|\\()",
+          "match": "((#)[[:alpha:]_][[:alnum:]_-]*)(?=\\[|\\()",
           "captures": { "2": { "name": "punctuation.definition.function.typst" } }
         },
         {
           "comment": "Function arguments",
-          "begin": "(?<=#[[:alpha:]_][[:alnum:]_-]*!?)\\(",
+          "begin": "(?<=#[[:alpha:]_][[:alnum:]_-]*)\\(",
           "end": "\\)",
           "captures": { "0": { "name": "punctuation.definition.group.typst" } },
           "patterns": [{ "include": "#arguments" }]
@@ -213,7 +213,7 @@
         },
         {
           "name": "keyword.operator.arithmetic.typst",
-          "match": "\\+|\\*!?|/|(?<![[:alpha:]_][[:alnum:]_-]*)-(?![:alnum:]_-]*[[:alpha:]_])"
+          "match": "\\+|\\*|/|(?<![[:alpha:]_][[:alnum:]_-]*)-(?![:alnum:]_-]*[[:alpha:]_])"
         },
         {
           "name": "keyword.operator.word.typst",
@@ -221,21 +221,21 @@
         },
         {
           "name": "keyword.control.typst",
-          "match": "\\b(if|else|for|in|while|break|continue|return)\\b"
+          "match": "\\b(if|else|for|while|break|continue|return)\\b"
         },
         {
           "name": "keyword.other.typst",
-          "match": "\\b(pub|let|import|include|using|as)\\b"
+          "match": "\\b(pub|let|as|in|with|import|include|from|using)\\b"
         },
         { "include": "#constants" },
         {
           "comment": "Function name",
           "name": "entity.name.function.typst",
-          "match": "\\b[[:alpha:]_][[:alnum:]_-]*!?(?=\\[|\\()"
+          "match": "\\b[[:alpha:]_][[:alnum:]_-]*(?=\\[|\\(|\\s+\\bwith\\b)"
         },
         {
           "comment": "Function arguments",
-          "begin": "(?<=\\b[[:alpha:]_][[:alnum:]_-]*!?)\\(",
+          "begin": "(?<=\\b[[:alpha:]_][[:alnum:]_-]*|\\bwith\\b\\s+)\\(",
           "end": "\\)",
           "captures": { "0": { "name": "punctuation.definition.group.typst" } },
           "patterns": [{ "include": "#arguments" }]
