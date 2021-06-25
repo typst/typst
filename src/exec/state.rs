@@ -216,9 +216,9 @@ impl Default for FamilyList {
         Self {
             list: vec![FontFamily::Serif],
             serif: vec!["eb garamond".into()],
-            sans_serif: vec![/* TODO */],
+            sans_serif: vec!["pt sans".into()],
             monospace: vec!["inconsolata".into()],
-            base: vec!["twitter color emoji".into()],
+            base: vec!["twitter color emoji".into(), "latin modern math".into()],
         }
     }
 }

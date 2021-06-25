@@ -70,7 +70,7 @@ pub fn grid(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// Defines size of rows and columns in a grid.
 type Tracks = Vec<TrackSizing>;
 
-value! {
+castable! {
     Tracks: "array of `auto`s, linears, and fractionals",
     Value::Int(count) => vec![TrackSizing::Auto; count.max(0) as usize],
     Value::Array(values) => values
@@ -79,7 +79,7 @@ value! {
         .collect(),
 }
 
-value! {
+castable! {
     TrackSizing: "`auto`, linear, or fractional",
     Value::Auto => TrackSizing::Auto,
     Value::Length(v) => TrackSizing::Linear(v.into()),

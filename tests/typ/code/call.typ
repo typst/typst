@@ -24,7 +24,7 @@
 #test(alias(alias), "function")
 
 // Library function `font` returns template.
-#test(type(font(12pt)), "template")
+#test(type(font(size: 12pt)), "template")
 
 ---
 // Callee expressions.

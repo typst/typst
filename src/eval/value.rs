@@ -662,7 +662,7 @@ impl From<AnyValue> for Value {
     }
 }
 
-/// Mark a type as a [`Value`].
+/// Make a type castable from a value.
 ///
 /// Given a type `T`, this implements the following traits:
 /// - [`Type`] for `T`,
@@ -684,7 +684,7 @@ impl From<AnyValue> for Value {
 /// This would allow the type `FontFamily` to be cast from:
 /// - a [`Value::Any`] variant already containing a `FontFamily`,
 /// - a string, producing a named font family.
-macro_rules! value {
+macro_rules! castable {
     ($type:ty:
         $type_name:literal
         $(, $pattern:pat => $out:expr)*

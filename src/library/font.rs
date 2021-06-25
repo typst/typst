@@ -6,20 +6,20 @@ use super::*;
 /// `font`: Configure the font.
 ///
 /// # Positional parameters
-/// - Font size: optional, of type `linear` relative to current font size.
-/// - Font families: variadic, of type `font-family`.
 /// - Body: optional, of type `template`.
 ///
 /// # Named parameters
+/// - Font size: `size`, of type `linear` relative to current font size.
+/// - Font families: `family`, `font-family`, `string` or `array`.
 /// - Font Style: `style`, of type `font-style`.
 /// - Font Weight: `weight`, of type `font-weight`.
 /// - Font Stretch: `stretch`, of type `relative`, between 0.5 and 2.0.
 /// - Top edge of the font: `top-edge`, of type `vertical-font-metric`.
 /// - Bottom edge of the font: `bottom-edge`, of type `vertical-font-metric`.
 /// - Color the glyphs: `color`, of type `color`.
-/// - Serif family definition: `serif`, of type `font-family-definition`.
-/// - Sans-serif family definition: `sans-serif`, of type `font-family-definition`.
-/// - Monospace family definition: `monospace`, of type `font-family-definition`.
+/// - Serif family definition: `serif`, of type `family-def`.
+/// - Sans-serif family definition: `sans-serif`, of type `family-def`.
+/// - Monospace family definition: `monospace`, of type `family-def`.
 ///
 /// # Return value
 /// A template that configures font properties. The effect is scoped to the body
@@ -31,9 +31,9 @@ use super::*;
 ///   - `sans-serif`
 ///   - `monospace`
 ///   - coerces from `string`
-/// - Type `font-family-definition`
+/// - Type `family-def`
 ///   - coerces from `string`
-///   - coerces from `array`
+///   - coerces from `array` of `string`
 /// - Type `font-style`
 ///   - `normal`
 ///   - `italic`
@@ -49,8 +49,8 @@ use super::*;
 ///   - `baseline`
 ///   - `descender`
 pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let size = args.eat::<Linear>(ctx);
-    let list = args.all::<FontFamily>(ctx);
+    let list = args.named(ctx, "family");
+    let size = args.named::<Linear>(ctx, "size");
     let style = args.named(ctx, "style");
     let weight = args.named(ctx, "weight");
     let stretch = args.named(ctx, "stretch");
@@ -70,7 +70,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             font.size = linear.resolve(font.size);
         }
 
-        if !list.is_empty() {
+        if let Some(FontDef(list)) = &list {
             font.families_mut().list = list.clone();
         }
 
@@ -98,15 +98,15 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             font.fill = Fill::Color(color);
         }
 
-        if let Some(FontFamilies(serif)) = &serif {
+        if let Some(FamilyDef(serif)) = &serif {
             font.families_mut().serif = serif.clone();
         }
 
-        if let Some(FontFamilies(sans_serif)) = &sans_serif {
+        if let Some(FamilyDef(sans_serif)) = &sans_serif {
             font.families_mut().sans_serif = sans_serif.clone();
         }
 
-        if let Some(FontFamilies(monospace)) = &monospace {
+        if let Some(FamilyDef(monospace)) = &monospace {
             font.families_mut().monospace = monospace.clone();
         }
 
@@ -117,12 +117,25 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     })
 }
 
-/// A list of font family names.
-#[derive(Debug, Clone, PartialEq)]
-struct FontFamilies(Vec<String>);
+#[derive(Debug)]
+struct FontDef(Vec<FontFamily>);
 
-value! {
-    FontFamilies: "string or array of strings",
+castable! {
+    FontDef: "font family or array of font families",
+    Value::Str(string) => Self(vec![FontFamily::Named(string.to_lowercase())]),
+    Value::Array(values) => Self(values
+        .into_iter()
+        .filter_map(|v| v.cast().ok())
+        .collect()
+    ),
+    #(family: FontFamily) => Self(vec![family]),
+}
+
+#[derive(Debug)]
+struct FamilyDef(Vec<String>);
+
+castable! {
+    FamilyDef: "string or array of strings",
     Value::Str(string) => Self(vec![string.to_lowercase()]),
     Value::Array(values) => Self(values
         .into_iter()
@@ -132,16 +145,16 @@ value! {
     ),
 }
 
-value! {
+castable! {
     FontFamily: "font family",
     Value::Str(string) => Self::Named(string.to_lowercase())
 }
 
-value! {
+castable! {
     FontStyle: "font style",
 }
 
-value! {
+castable! {
     FontWeight: "font weight",
     Value::Int(number) => {
         let [min, max] = [Self::THIN, Self::BLACK];
@@ -161,7 +174,7 @@ value! {
     },
 }
 
-value! {
+castable! {
     FontStretch: "font stretch",
     Value::Relative(relative) => {
         let [min, max] = [Self::ULTRA_CONDENSED, Self::ULTRA_EXPANDED];
@@ -182,6 +195,6 @@ value! {
     },
 }
 
-value! {
+castable! {
     VerticalFontMetric: "vertical font metric",
 }

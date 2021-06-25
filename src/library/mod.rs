@@ -110,6 +110,6 @@ pub fn new() -> Scope {
     std
 }
 
-value! {
+castable! {
     Dir: "direction"
 }

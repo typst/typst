@@ -2,9 +2,9 @@
 
 ---
 // Set same font size in three different ways.
-#font(22pt)[A]
-#font(200%)[A]
-#font(16.5pt + 50%)[A]
+#font(size: 22pt)[A]
+#font(size: 200%)[A]
+#font(size: 16.5pt + 50%)[A]
 
 // Do nothing.
 #font[Normal]
@@ -19,13 +19,13 @@
 #font(stretch: 50%)[Condensed]
 
 // Set family.
-#font("PT Sans")[Sans serif]
+#font(family: "PT Sans")[Sans serif]
 
 // Emoji.
 Emoji: 🐪, 🌋, 🏞
 
 // Math.
-#font("Latin Modern Math")[
+#font(family: "Latin Modern Math")[
     ∫ 𝛼 + 3𝛽 d𝑡
 ]
 
@@ -49,9 +49,9 @@ Emoji: 🐪, 🌋, 🏞
 ---
 // Test class definitions.
 #font(sans-serif: "PT Sans")
-#font(sans-serif)[Sans-serif.] \
-#font(monospace)[Monospace.] \
-#font(monospace, monospace: ("Nope", "Latin Modern Math"))[Math.]
+#font(family: sans-serif)[Sans-serif.] \
+#font(family: monospace)[Monospace.] \
+#font(family: monospace, monospace: ("Nope", "Latin Modern Math"))[Math.]
 
 ---
 // Ref: false

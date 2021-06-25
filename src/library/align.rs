@@ -123,6 +123,6 @@ impl Display for AlignValue {
     }
 }
 
-value! {
+castable! {
     AlignValue: "alignment",
 }
