@@ -8,4 +8,4 @@
 Partly str*ength*ened.
 
 // Scoped to body.
-#rect[*Scoped] to body.
+#box[*Scoped] to body.

@@ -10,10 +10,10 @@
 #let university = [*Technische Universität {city}*]
 #let faculty = [*Fakultät II, Institut for Mathematik*]
 
-// The `rect` function just places content into a rectangular container. When
+// The `box` function just places content into a rectangular container. When
 // the only argument to a function is a template, the parentheses can be omitted
 // (i.e. `f[a]` is the same as `f([a])`).
-#rect[
+#box[
     // Backslash adds a forced line break.
     #university \
     #faculty \
@@ -21,7 +21,7 @@
     Dr. Max Mustermann \
     Ola Nordmann, John Doe
 ]
-#align(right, rect[*WiSe 2019/2020* \ Woche 3])
+#align(right, box[*WiSe 2019/2020* \ Woche 3])
 
 // Adds vertical spacing.
 #v(6mm)

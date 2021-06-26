@@ -6,9 +6,9 @@ First of two
 #page(height: 40pt)
 
 ---
-// Make sure that you can't do page related stuff in a shape.
+// Make sure that you can't do page related stuff in a container.
 A
-#rect[
+#box[
     B
     // Error: 16 cannot modify page from here
     #pagebreak()

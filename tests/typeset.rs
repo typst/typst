@@ -224,6 +224,9 @@ fn test_part(
     state.page.size = Size::new(Length::pt(120.0), Length::inf());
     state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
+    // Clear cache between tests (for now).
+    cache.layout.clear();
+
     let mut pass = typst::typeset(loader, cache, Some(src_path), &src, &scope, state);
 
     if !compare_ref {
@@ -315,7 +318,7 @@ fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
     pub fn args(_: &mut EvalContext, args: &mut FuncArgs) -> Value {
         let repr = typst::pretty::pretty(args);
         args.items.clear();
-        Value::template("args", move |ctx| {
+        Value::template(move |ctx| {
             let snapshot = ctx.state.clone();
             ctx.set_monospace();
             ctx.push_text(&repr);

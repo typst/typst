@@ -11,13 +11,26 @@
   ]
 ]
 
-// Error: 14-24 missing argument: body
-Hi #rect(pad(left: 10pt)) there
+// Error: 13-23 missing argument: body
+Hi #box(pad(left: 10pt)) there
+
+---
+#let pad(body) = pad(left: 10pt, right: 10pt, body)
+
+// Pad inherits expansion behaviour from stack ....
+#pad[PL #align(right)[PR]]
+
+// ... block ...
+#block(pad[PL #align(right)[PR]])
+
+// ... and box.
+#box(pad[PL #align(right)[PR]])
 
 ---
 // Test that the pad node doesn't consume the whole region.
 
-#page(width: 4cm, height: 5cm)
+#page(height: 6cm)
+
 #align(left)[Before]
 #pad(10pt, image("../../res/tiger.jpg"))
 #align(right)[After]

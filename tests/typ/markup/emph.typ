@@ -8,4 +8,4 @@ _Emphasized!_
 Partly em_phas_ized.
 
 // Scoped to body.
-#rect[_Scoped] to body.
+#box[_Scoped] to body.
