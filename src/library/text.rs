@@ -1,53 +1,10 @@
+use crate::exec::{FontState, LineState};
 use crate::font::{FontStretch, FontStyle, FontWeight};
 use crate::layout::Fill;
 
 use super::*;
 
 /// `font`: Configure the font.
-///
-/// # Positional parameters
-/// - Body: optional, of type `template`.
-///
-/// # Named parameters
-/// - Font size: `size`, of type `linear` relative to current font size.
-/// - Font families: `family`, `font-family`, `string` or `array`.
-/// - Font Style: `style`, of type `font-style`.
-/// - Font Weight: `weight`, of type `font-weight`.
-/// - Font Stretch: `stretch`, of type `relative`, between 0.5 and 2.0.
-/// - Top edge of the font: `top-edge`, of type `vertical-font-metric`.
-/// - Bottom edge of the font: `bottom-edge`, of type `vertical-font-metric`.
-/// - Color the glyphs: `color`, of type `color`.
-/// - Serif family definition: `serif`, of type `family-def`.
-/// - Sans-serif family definition: `sans-serif`, of type `family-def`.
-/// - Monospace family definition: `monospace`, of type `family-def`.
-///
-/// # Return value
-/// A template that configures font properties. The effect is scoped to the body
-/// if present.
-///
-/// # Relevant types and constants
-/// - Type `font-family`
-///   - `serif`
-///   - `sans-serif`
-///   - `monospace`
-///   - coerces from `string`
-/// - Type `family-def`
-///   - coerces from `string`
-///   - coerces from `array` of `string`
-/// - Type `font-style`
-///   - `normal`
-///   - `italic`
-///   - `oblique`
-/// - Type `font-weight`
-///   - `regular` (400)
-///   - `bold` (700)
-///   - coerces from `integer`, between 100 and 900
-/// - Type `vertical-font-metric`
-///   - `ascender`
-///   - `cap-height`
-///   - `x-height`
-///   - `baseline`
-///   - `descender`
 pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let list = args.named(ctx, "family");
     let size = args.named::<Linear>(ctx, "size");
@@ -197,4 +154,105 @@ castable! {
 
 castable! {
     VerticalFontMetric: "vertical font metric",
+}
+
+/// `par`: Configure paragraphs.
+pub fn par(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+    let spacing = args.named(ctx, "spacing");
+    let leading = args.named(ctx, "leading");
+    let word_spacing = args.named(ctx, "word-spacing");
+
+    Value::template("par", move |ctx| {
+        if let Some(spacing) = spacing {
+            ctx.state.par.spacing = spacing;
+        }
+
+        if let Some(leading) = leading {
+            ctx.state.par.leading = leading;
+        }
+
+        if let Some(word_spacing) = word_spacing {
+            ctx.state.par.word_spacing = word_spacing;
+        }
+
+        ctx.parbreak();
+    })
+}
+
+/// `lang`: Configure the language.
+pub fn lang(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+    let iso = args.eat::<String>(ctx).map(|s| lang_dir(&s));
+    let dir = match args.named::<Spanned<Dir>>(ctx, "dir") {
+        Some(dir) if dir.v.axis() == SpecAxis::Horizontal => Some(dir.v),
+        Some(dir) => {
+            ctx.diag(error!(dir.span, "must be horizontal"));
+            None
+        }
+        None => None,
+    };
+
+    Value::template("lang", move |ctx| {
+        if let Some(dir) = dir.or(iso) {
+            ctx.state.lang.dir = dir;
+        }
+
+        ctx.parbreak();
+    })
+}
+
+/// The default direction for the language identified by `iso`.
+fn lang_dir(iso: &str) -> Dir {
+    match iso.to_ascii_lowercase().as_str() {
+        "ar" | "he" | "fa" | "ur" | "ps" | "yi" => Dir::RTL,
+        "en" | "fr" | "de" | _ => Dir::LTR,
+    }
+}
+
+/// `strike`: Enable striken-through text.
+pub fn strike(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+    line_impl("strike", ctx, args, |font| &mut font.strikethrough)
+}
+
+/// `underline`: Enable underlined text.
+pub fn underline(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+    line_impl("underline", ctx, args, |font| &mut font.underline)
+}
+
+/// `overline`: Add an overline above text.
+pub fn overline(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+    line_impl("overline", ctx, args, |font| &mut font.overline)
+}
+
+fn line_impl(
+    name: &str,
+    ctx: &mut EvalContext,
+    args: &mut FuncArgs,
+    substate: fn(&mut FontState) -> &mut Option<Rc<LineState>>,
+) -> Value {
+    let color = args.named(ctx, "color");
+    let position = args.named(ctx, "position");
+    let strength = args.named::<Linear>(ctx, "strength");
+    let extent = args.named(ctx, "extent").unwrap_or_default();
+    let body = args.eat::<TemplateValue>(ctx);
+
+    // Suppress any existing strikethrough if strength is explicitly zero.
+    let state = strength.map_or(true, |s| !s.is_zero()).then(|| {
+        Rc::new(LineState {
+            strength,
+            position,
+            extent,
+            fill: color.map(Fill::Color),
+        })
+    });
+
+    Value::template(name, move |ctx| {
+        let snapshot = ctx.state.clone();
+
+        *substate(ctx.state.font_mut()) = state.clone();
+
+        if let Some(body) = &body {
+            body.exec(ctx);
+            ctx.state = snapshot;
+        }
+    })
 }

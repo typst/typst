@@ -3,35 +3,15 @@
 //! Call [`new`] to obtain a [`Scope`] containing all standard library
 //! definitions.
 
-mod align;
-mod basic;
-mod decorations;
-mod font;
-mod grid;
-mod image;
-mod lang;
-mod math;
-mod pad;
-mod page;
-mod par;
-mod shapes;
-mod spacing;
-mod stack;
+mod elements;
+mod layout;
+mod text;
+mod utility;
 
-pub use self::image::*;
-pub use align::*;
-pub use basic::*;
-pub use decorations::*;
-pub use font::*;
-pub use grid::*;
-pub use lang::*;
-pub use math::*;
-pub use pad::*;
-pub use page::*;
-pub use par::*;
-pub use shapes::*;
-pub use spacing::*;
-pub use stack::*;
+pub use elements::*;
+pub use layout::*;
+pub use text::*;
+pub use utility::*;
 
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
@@ -47,32 +27,38 @@ use crate::syntax::Spanned;
 pub fn new() -> Scope {
     let mut std = Scope::new();
 
-    // Library functions.
-    std.def_func("align", align);
-    std.def_func("circle", circle);
-    std.def_func("ellipse", ellipse);
+    // Text.
     std.def_func("font", font);
-    std.def_func("grid", grid);
-    std.def_func("h", h);
-    std.def_func("image", image);
+    std.def_func("par", par);
     std.def_func("lang", lang);
-    std.def_func("len", len);
-    std.def_func("max", max);
-    std.def_func("min", min);
+    std.def_func("strike", strike);
+    std.def_func("underline", underline);
     std.def_func("overline", overline);
-    std.def_func("pad", pad);
+
+    // Layout.
     std.def_func("page", page);
     std.def_func("pagebreak", pagebreak);
-    std.def_func("par", par);
-    std.def_func("rect", rect);
-    std.def_func("repr", repr);
-    std.def_func("rgb", rgb);
-    std.def_func("square", square);
-    std.def_func("stack", stack);
-    std.def_func("strike", strike);
-    std.def_func("type", type_);
-    std.def_func("underline", underline);
+    std.def_func("h", h);
     std.def_func("v", v);
+    std.def_func("align", align);
+    std.def_func("pad", pad);
+    std.def_func("stack", stack);
+    std.def_func("grid", grid);
+
+    // Elements.
+    std.def_func("image", image);
+    std.def_func("rect", rect);
+    std.def_func("square", square);
+    std.def_func("ellipse", ellipse);
+    std.def_func("circle", circle);
+
+    // Utility.
+    std.def_func("type", type_);
+    std.def_func("repr", repr);
+    std.def_func("len", len);
+    std.def_func("rgb", rgb);
+    std.def_func("min", min);
+    std.def_func("max", max);
 
     // Colors.
     std.def_const("white", RgbaColor::WHITE);

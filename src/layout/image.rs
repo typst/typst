@@ -1,62 +1,23 @@
-use ::image::GenericImageView;
-
 use super::*;
 use crate::image::ImageId;
-use crate::layout::{
-    AnyNode, Constrained, Constraints, Element, Frame, Layout, LayoutContext, Regions,
-};
 
-/// `image`: An image.
-///
-/// Supports PNG and JPEG files.
-///
-/// # Positional parameters
-/// - Path to image file: of type `string`.
-///
-/// # Return value
-/// A template that inserts an image.
-pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let path = args.expect::<Spanned<String>>(ctx, "path to image file");
-    let width = args.named(ctx, "width");
-    let height = args.named(ctx, "height");
-
-    let mut node = None;
-    if let Some(path) = &path {
-        if let Some((resolved, _)) = ctx.resolve(&path.v, path.span) {
-            if let Some(id) = ctx.cache.image.load(ctx.loader, &resolved) {
-                let img = ctx.cache.image.get(id);
-                let dimensions = img.buf.dimensions();
-                node = Some(ImageNode { id, dimensions, width, height });
-            } else {
-                ctx.diag(error!(path.span, "failed to load image"));
-            }
-        }
-    }
-
-    Value::template("image", move |ctx| {
-        if let Some(node) = node {
-            ctx.push_into_par(node);
-        }
-    })
-}
+use ::image::GenericImageView;
 
 /// An image node.
 #[derive(Debug, Copy, Clone, PartialEq, Hash)]
-struct ImageNode {
+pub struct ImageNode {
     /// The id of the image file.
-    id: ImageId,
-    /// The pixel dimensions of the image.
-    dimensions: (u32, u32),
+    pub id: ImageId,
     /// The fixed width, if any.
-    width: Option<Linear>,
+    pub width: Option<Linear>,
     /// The fixed height, if any.
-    height: Option<Linear>,
+    pub height: Option<Linear>,
 }
 
 impl Layout for ImageNode {
     fn layout(
         &self,
-        _: &mut LayoutContext,
+        ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
         let Regions { current, base, .. } = regions;
@@ -66,8 +27,9 @@ impl Layout for ImageNode {
         let width = self.width.map(|w| w.resolve(base.width));
         let height = self.height.map(|w| w.resolve(base.height));
 
-        let pixel_width = self.dimensions.0 as f64;
-        let pixel_height = self.dimensions.1 as f64;
+        let dimensions = ctx.cache.image.get(self.id).buf.dimensions();
+        let pixel_width = dimensions.0 as f64;
+        let pixel_height = dimensions.1 as f64;
         let pixel_ratio = pixel_width / pixel_height;
 
         let size = match (width, height) {

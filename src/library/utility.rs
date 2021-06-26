@@ -1,15 +1,11 @@
+use std::cmp::Ordering;
+
 use crate::color::{Color, RgbaColor};
 use crate::pretty::pretty;
 
 use super::*;
 
 /// `type`: The name of a value's type.
-///
-/// # Positional parameters
-/// - Any value.
-///
-/// # Return value
-/// The name of the value's type as a string.
 pub fn type_(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     match args.expect::<Value>(ctx, "value") {
         Some(value) => value.type_name().into(),
@@ -18,12 +14,6 @@ pub fn type_(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 }
 
 /// `repr`: The string representation of a value.
-///
-/// # Positional parameters
-/// - Any value.
-///
-/// # Return value
-/// The string representation of the value.
 pub fn repr(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     match args.expect::<Value>(ctx, "value") {
         Some(value) => pretty(&value).into(),
@@ -46,15 +36,6 @@ pub fn len(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 }
 
 /// `rgb`: Create an RGB(A) color.
-///
-/// # Positional parameters
-/// - Red component: of type `float`, between 0.0 and 1.0.
-/// - Green component: of type `float`, between 0.0 and 1.0.
-/// - Blue component: of type `float`, between 0.0 and 1.0.
-/// - Alpha component: optional, of type `float`, between 0.0 and 1.0.
-///
-/// # Return value
-/// The color with the given components.
 pub fn rgb(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let r = args.expect(ctx, "red component");
     let g = args.expect(ctx, "green component");
@@ -76,4 +57,44 @@ pub fn rgb(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         clamp(b, 0),
         clamp(a, 255),
     )))
+}
+
+/// `min`: The minimum of a sequence of values.
+pub fn min(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+    minmax(ctx, args, Ordering::Less)
+}
+
+/// `max`: The maximum of a sequence of values.
+pub fn max(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+    minmax(ctx, args, Ordering::Greater)
+}
+
+/// Find the minimum or maximum of a sequence of values.
+fn minmax(ctx: &mut EvalContext, args: &mut FuncArgs, goal: Ordering) -> Value {
+    let mut extremum = None;
+
+    while let Some(value) = args.eat::<Value>(ctx) {
+        if let Some(prev) = &extremum {
+            match value.cmp(&prev) {
+                Some(ordering) if ordering == goal => extremum = Some(value),
+                Some(_) => {}
+                None => {
+                    ctx.diag(error!(
+                        args.span,
+                        "cannot compare {} with {}",
+                        prev.type_name(),
+                        value.type_name(),
+                    ));
+                    return Value::Error;
+                }
+            }
+        } else {
+            extremum = Some(value);
+        }
+    }
+
+    extremum.unwrap_or_else(|| {
+        args.expect::<Value>(ctx, "value");
+        Value::Error
+    })
 }

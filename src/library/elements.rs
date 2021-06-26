@@ -4,20 +4,35 @@ use decorum::N64;
 
 use super::*;
 use crate::color::Color;
-use crate::layout::{BackgroundNode, BackgroundShape, Fill, FixedNode, PadNode};
+use crate::layout::{
+    BackgroundNode, BackgroundShape, Fill, FixedNode, ImageNode, PadNode,
+};
+
+/// `image`: An image.
+pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+    let path = args.expect::<Spanned<String>>(ctx, "path to image file");
+    let width = args.named(ctx, "width");
+    let height = args.named(ctx, "height");
+
+    let mut node = None;
+    if let Some(path) = &path {
+        if let Some((resolved, _)) = ctx.resolve(&path.v, path.span) {
+            if let Some(id) = ctx.cache.image.load(ctx.loader, &resolved) {
+                node = Some(ImageNode { id, width, height });
+            } else {
+                ctx.diag(error!(path.span, "failed to load image"));
+            }
+        }
+    }
+
+    Value::template("image", move |ctx| {
+        if let Some(node) = node {
+            ctx.push_into_par(node);
+        }
+    })
+}
 
 /// `rect`: A rectangle with optional content.
-///
-/// # Positional parameters
-/// - Body: optional, of type `template`.
-///
-/// # Named parameters
-/// - Width: `width`, of type `linear` relative to parent width.
-/// - Height: `height`, of type `linear` relative to parent height.
-/// - Fill color: `fill`, of type `color`.
-///
-/// # Return value
-/// A template that inserts a rectangle and sets the body into it.
 pub fn rect(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = args.named(ctx, "width");
     let height = args.named(ctx, "height");
@@ -27,22 +42,6 @@ pub fn rect(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 }
 
 /// `square`: A square with optional content.
-///
-/// # Positional parameters
-/// - Body: optional, of type `template`.
-///
-/// # Named parameters
-/// - Side length: `length`, of type `length`.
-/// - Width: `width`, of type `linear` relative to parent width.
-/// - Height: `height`, of type `linear` relative to parent height.
-/// - Fill color: `fill`, of type `color`.
-///
-/// Note that you can specify only one of `length`, `width` and `height`. The
-/// width and height parameters exist so that you can size the square relative
-/// to its parent's size, which isn't possible by setting the side length.
-///
-/// # Return value
-/// A template that inserts a square and sets the body into it.
 pub fn square(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let length = args.named::<Length>(ctx, "length").map(Linear::from);
     let width = length.or_else(|| args.named(ctx, "width"));
@@ -79,17 +78,6 @@ fn rect_impl(
 }
 
 /// `ellipse`: An ellipse with optional content.
-///
-/// # Positional parameters
-/// - Body: optional, of type `template`.
-///
-/// # Named parameters
-/// - Width: `width`, of type `linear` relative to parent width.
-/// - Height: `height`, of type `linear` relative to parent height.
-/// - Fill color: `fill`, of type `color`.
-///
-/// # Return value
-/// A template that inserts an ellipse and sets the body into it.
 pub fn ellipse(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = args.named(ctx, "width");
     let height = args.named(ctx, "height");
@@ -99,22 +87,6 @@ pub fn ellipse(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 }
 
 /// `circle`: A circle with optional content.
-///
-/// # Positional parameters
-/// - Body: optional, of type `template`.
-///
-/// # Named parameters
-/// - Radius: `radius`, of type `length`.
-/// - Width: `width`, of type `linear` relative to parent width.
-/// - Height: `height`, of type `linear` relative to parent height.
-/// - Fill color: `fill`, of type `color`.
-///
-/// Note that you can specify only one of `radius`, `width` and `height`. The
-/// width and height parameters exist so that you can size the circle relative
-/// to its parent's size, which isn't possible by setting the radius.
-///
-/// # Return value
-/// A template that inserts a circle and sets the body into it.
 pub fn circle(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let radius = args.named::<Length>(ctx, "radius").map(|r| 2.0 * Linear::from(r));
     let width = radius.or_else(|| args.named(ctx, "width"));

@@ -4,12 +4,14 @@ mod background;
 mod fixed;
 mod frame;
 mod grid;
+mod image;
 mod incremental;
 mod pad;
 mod par;
 mod shaping;
 mod stack;
 
+pub use self::image::*;
 pub use background::*;
 pub use fixed::*;
 pub use frame::*;
