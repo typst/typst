@@ -245,6 +245,10 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) -> Option<Expr> {
             continue;
         }
 
+        if p.eat_if(Token::With) {
+            lhs = with_expr(p, lhs);
+        }
+
         if atomic {
             break;
         }
@@ -545,6 +549,19 @@ fn args(p: &mut Parser) -> CallArgs {
     CallArgs { span: p.span(start), items }
 }
 
+/// Parse a with expression.
+fn with_expr(p: &mut Parser, callee: Expr) -> Expr {
+    p.start_group(Group::Paren, TokenMode::Code);
+    let args = args(p);
+    p.end_group();
+
+    Expr::With(WithExpr {
+        span: p.span(callee.span().start),
+        callee: Box::new(callee),
+        args,
+    })
+}
+
 /// Parse a let expression.
 fn let_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
@@ -552,32 +569,37 @@ fn let_expr(p: &mut Parser) -> Option<Expr> {
 
     let mut let_expr = None;
     if let Some(binding) = ident(p) {
-        // If a parenthesis follows, this is a function definition.
-        let mut params = None;
-        if p.peek_direct() == Some(Token::LeftParen) {
-            p.start_group(Group::Paren, TokenMode::Code);
-            let items = collection(p).0;
-            params = Some(idents(p, items));
-            p.end_group();
-        }
-
         let mut init = None;
-        if p.eat_if(Token::Eq) {
-            init = expr(p);
-        } else if params.is_some() {
-            // Function definitions must have a body.
-            p.expected_at("body", p.prev_end());
-        }
 
-        // Rewrite into a closure expression if it's a function definition.
-        if let Some(params) = params {
-            let body = init?;
-            init = Some(Expr::Closure(ClosureExpr {
-                span: binding.span.join(body.span()),
-                name: Some(binding.clone()),
-                params: Rc::new(params),
-                body: Rc::new(body),
-            }));
+        if p.eat_if(Token::With) {
+            init = Some(with_expr(p, Expr::Ident(binding.clone())));
+        } else {
+            // If a parenthesis follows, this is a function definition.
+            let mut params = None;
+            if p.peek_direct() == Some(Token::LeftParen) {
+                p.start_group(Group::Paren, TokenMode::Code);
+                let items = collection(p).0;
+                params = Some(idents(p, items));
+                p.end_group();
+            }
+
+            if p.eat_if(Token::Eq) {
+                init = expr(p);
+            } else if params.is_some() {
+                // Function definitions must have a body.
+                p.expected_at("body", p.prev_end());
+            }
+
+            // Rewrite into a closure expression if it's a function definition.
+            if let Some(params) = params {
+                let body = init?;
+                init = Some(Expr::Closure(ClosureExpr {
+                    span: binding.span.join(body.span()),
+                    name: Some(binding.clone()),
+                    params: Rc::new(params),
+                    body: Rc::new(body),
+                }));
+            }
         }
 
         let_expr = Some(Expr::Let(LetExpr {

@@ -263,7 +263,8 @@ impl Eval for Expr {
             Self::Group(ref v) => v.eval(ctx),
             Self::Block(ref v) => v.eval(ctx),
             Self::Call(ref v) => v.eval(ctx),
-            Self::Closure(ref v) => Value::Func(v.eval(ctx)),
+            Self::Closure(ref v) => v.eval(ctx),
+            Self::With(ref v) => v.eval(ctx),
             Self::Unary(ref v) => v.eval(ctx),
             Self::Binary(ref v) => v.eval(ctx),
             Self::Let(ref v) => v.eval(ctx),
@@ -498,11 +499,13 @@ impl Eval for CallArg {
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         match self {
             Self::Pos(expr) => FuncArg {
+                span: self.span(),
                 name: None,
                 value: Spanned::new(expr.eval(ctx), expr.span()),
             },
             Self::Named(Named { name, expr }) => FuncArg {
-                name: Some(Spanned::new(name.string.clone(), name.span)),
+                span: self.span(),
+                name: Some(name.string.clone()),
                 value: Spanned::new(expr.eval(ctx), expr.span()),
             },
         }
@@ -510,7 +513,7 @@ impl Eval for CallArg {
 }
 
 impl Eval for ClosureExpr {
-    type Output = FuncValue;
+    type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         let params = Rc::clone(&self.params);
@@ -524,7 +527,7 @@ impl Eval for ClosureExpr {
         };
 
         let name = self.name.as_ref().map(|id| id.to_string());
-        FuncValue::new(name, move |ctx, args| {
+        Value::Func(FuncValue::new(name, move |ctx, args| {
             // Don't leak the scopes from the call site. Instead, we use the
             // scope of captured variables we collected earlier.
             let prev = mem::take(&mut ctx.scopes);
@@ -539,7 +542,40 @@ impl Eval for ClosureExpr {
             let value = body.eval(ctx);
             ctx.scopes = prev;
             value
-        })
+        }))
+    }
+}
+
+impl Eval for WithExpr {
+    type Output = Value;
+
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+        let callee = self.callee.eval(ctx);
+        if let Some(func) = ctx.cast::<FuncValue>(callee, self.callee.span()) {
+            let applied = self.args.eval(ctx);
+            let name = func.name().map(|s| s.to_string());
+            Value::Func(FuncValue::new(name, move |ctx, args| {
+                // Remove named arguments that were overridden.
+                let kept: Vec<_> = applied
+                    .items
+                    .iter()
+                    .filter(|arg| {
+                        arg.name.is_none()
+                            || args.items.iter().all(|other| arg.name != other.name)
+                    })
+                    .cloned()
+                    .collect();
+
+                // Preprend the applied arguments so that the positional arguments
+                // are in the right order.
+                args.items.splice(.. 0, kept);
+
+                // Call the original function.
+                func(ctx, args)
+            }))
+        } else {
+            Value::Error
+        }
     }
 }
 

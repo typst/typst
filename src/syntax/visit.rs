@@ -99,6 +99,7 @@ visit! {
             Expr::Binary(e) => v.visit_binary(e),
             Expr::Call(e) => v.visit_call(e),
             Expr::Closure(e) => v.visit_closure(e),
+            Expr::With(e) => v.visit_with(e),
             Expr::Let(e) => v.visit_let(e),
             Expr::If(e) => v.visit_if(e),
             Expr::While(e) => v.visit_while(e),
@@ -174,6 +175,11 @@ visit! {
             CallArg::Pos(expr) => v.visit_expr(&expr),
             CallArg::Named(named) => v.visit_expr(&named.expr),
         }
+    }
+
+    fn visit_with(v, node: &WithExpr) {
+        v.visit_expr(&node.callee);
+        v.visit_args(&node.args);
     }
 
     fn visit_let(v, node: &LetExpr) {

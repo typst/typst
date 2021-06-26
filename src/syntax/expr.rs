@@ -52,6 +52,8 @@ pub enum Expr {
     Call(CallExpr),
     /// A closure expression: `(x, y) => z`.
     Closure(ClosureExpr),
+    /// A with expression: `f with (x, y: 1)`.
+    With(WithExpr),
     /// A let expression: `let x = 1`.
     Let(LetExpr),
     /// An if-else expression: `if x { y } else { z }`.
@@ -91,6 +93,7 @@ impl Expr {
             Self::Binary(ref v) => v.span,
             Self::Call(ref v) => v.span,
             Self::Closure(ref v) => v.span,
+            Self::With(ref v) => v.span,
             Self::Let(ref v) => v.span,
             Self::If(ref v) => v.span,
             Self::While(ref v) => v.span,
@@ -383,7 +386,7 @@ pub enum Associativity {
 pub struct CallExpr {
     /// The source code location.
     pub span: Span,
-    /// The callee of the function.
+    /// The function to call.
     pub callee: Box<Expr>,
     /// The arguments to the function.
     pub args: CallArgs,
@@ -433,6 +436,19 @@ pub struct ClosureExpr {
     pub params: Rc<Vec<Ident>>,
     /// The body of the closure.
     pub body: Rc<Expr>,
+}
+
+/// A with expression: `f with (x, y: 1)`.
+///
+/// Applies arguments to a function.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WithExpr {
+    /// The source code location.
+    pub span: Span,
+    /// The function to apply the arguments to.
+    pub callee: Box<Expr>,
+    /// The arguments to apply to the function.
+    pub args: CallArgs,
 }
 
 /// A let expression: `let x = 1`.

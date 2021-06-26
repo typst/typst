@@ -274,7 +274,7 @@ impl Debug for FuncValue {
 pub struct FuncArgs {
     /// The span of the whole argument list.
     pub span: Span,
-    /// The arguments.
+    /// The positional arguments.
     pub items: Vec<FuncArg>,
 }
 
@@ -346,7 +346,7 @@ impl FuncArgs {
         let index = self
             .items
             .iter()
-            .position(|arg| arg.name.as_ref().map(|s| s.v.as_str()) == Some(name))?;
+            .position(|arg| arg.name.as_ref().map_or(false, |other| name == other))?;
 
         let value = self.items.remove(index).value;
         let span = value.span;
@@ -373,7 +373,7 @@ impl FuncArgs {
     pub fn finish(self, ctx: &mut EvalContext) {
         for arg in &self.items {
             if arg.value.v != Value::Error {
-                ctx.diag(error!(arg.span(), "unexpected argument"));
+                ctx.diag(error!(arg.span, "unexpected argument"));
             }
         }
     }
@@ -382,20 +382,12 @@ impl FuncArgs {
 /// An argument to a function call: `12` or `draw: false`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuncArg {
+    /// The span of the whole argument.
+    pub span: Span,
     /// The name of the argument (`None` for positional arguments).
-    pub name: Option<Spanned<String>>,
+    pub name: Option<String>,
     /// The value of the argument.
     pub value: Spanned<Value>,
-}
-
-impl FuncArg {
-    /// The source code location.
-    pub fn span(&self) -> Span {
-        match &self.name {
-            Some(name) => name.span.join(self.value.span),
-            None => self.value.span,
-        }
-    }
 }
 
 /// A wrapper around a dynamic value.

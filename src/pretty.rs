@@ -217,6 +217,7 @@ impl Pretty for Expr {
             Self::Binary(v) => v.pretty(p),
             Self::Call(v) => v.pretty(p),
             Self::Closure(v) => v.pretty(p),
+            Self::With(v) => v.pretty(p),
             Self::Let(v) => v.pretty(p),
             Self::If(v) => v.pretty(p),
             Self::While(v) => v.pretty(p),
@@ -367,6 +368,15 @@ impl Pretty for ClosureExpr {
         p.join(self.params.iter(), ", ", |item, p| item.pretty(p));
         p.push_str(") => ");
         self.body.pretty(p);
+    }
+}
+
+impl Pretty for WithExpr {
+    fn pretty(&self, p: &mut Printer) {
+        self.callee.pretty(p);
+        p.push_str(" with (");
+        self.args.pretty(p);
+        p.push(')');
     }
 }
 
@@ -539,7 +549,7 @@ impl Pretty for FuncArgs {
 impl Pretty for FuncArg {
     fn pretty(&self, p: &mut Printer) {
         if let Some(name) = &self.name {
-            p.push_str(&name.v);
+            p.push_str(&name);
             p.push_str(": ");
         }
         self.value.v.pretty(p);

@@ -366,9 +366,6 @@ impl<'s> Tokens<'s> {
     fn ident(&mut self, start: usize) -> Token<'s> {
         self.s.eat_while(is_id_continue);
         match self.s.eaten_from(start) {
-            "not" => Token::Not,
-            "and" => Token::And,
-            "or" => Token::Or,
             "none" => Token::None,
             "auto" => Token::Auto,
             "true" => Token::Bool(true),
@@ -489,6 +486,10 @@ impl Debug for Tokens<'_> {
 
 fn keyword(id: &str) -> Option<Token<'static>> {
     Some(match id {
+        "not" => Token::Not,
+        "and" => Token::And,
+        "or" => Token::Or,
+        "with" => Token::With,
         "let" => Token::Let,
         "if" => Token::If,
         "else" => Token::Else,
@@ -777,6 +778,7 @@ mod tests {
     fn test_tokenize_keywords() {
         // A list of a few (not all) keywords.
         let list = [
+            ("not", Not),
             ("let", Let),
             ("if", If),
             ("else", Else),

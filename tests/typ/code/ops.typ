@@ -145,3 +145,21 @@
 { x /= 2.0 }     #test(x, 18.0)
 { x = "some" }   #test(x, "some")
 { x += "thing" } #test(x, "something")
+
+---
+// Test with operator.
+// Ref: true
+
+// Apply positional arguments.
+#let add(x, y) = x + y
+#test((add with (2))(4), 6)
+
+// Let .. with .. syntax.
+#let f = add
+#let f with (2)
+#test(f(4), 6)
+
+// Make sure that named arguments are overridable.
+#let align with (horizontal: right)
+#align[Right] \
+#align(horizontal: left)[Left]

@@ -74,6 +74,8 @@ pub enum Token<'s> {
     And,
     /// The `or` operator.
     Or,
+    /// The `with` operator.
+    With,
     /// The none literal: `none`.
     None,
     /// The auto literal: `auto`.
@@ -241,6 +243,7 @@ impl<'s> Token<'s> {
             Self::Not => "operator `not`",
             Self::And => "operator `and`",
             Self::Or => "operator `or`",
+            Self::With => "operator `with`",
             Self::None => "`none`",
             Self::Auto => "`auto`",
             Self::Let => "keyword `let`",
