@@ -1,9 +1,10 @@
 use super::*;
-use crate::layout::{GridNode, PadNode, StackChild, StackNode, TrackSizing};
+use crate::layout::{FixedNode, GridNode, PadNode, StackChild, StackNode, TrackSizing};
 use crate::paper::{Paper, PaperClass};
 
 /// `page`: Configure pages.
 pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+    let span = args.span;
     let paper = args.eat::<Spanned<String>>(ctx).and_then(|name| {
         Paper::from_name(&name.v).or_else(|| {
             ctx.diag(error!(name.span, "invalid paper name"));
@@ -20,9 +21,8 @@ pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let bottom = args.named(ctx, "bottom");
     let flip = args.named(ctx, "flip");
     let body = args.eat::<TemplateValue>(ctx);
-    let span = args.span;
 
-    Value::template("page", move |ctx| {
+    Value::template(move |ctx| {
         let snapshot = ctx.state.clone();
 
         if let Some(paper) = paper {
@@ -79,29 +79,24 @@ pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// `pagebreak`: Start a new page.
 pub fn pagebreak(_: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let span = args.span;
-    Value::template("pagebreak", move |ctx| {
+    Value::template(move |ctx| {
         ctx.pagebreak(true, true, span);
     })
 }
 
 /// `h`: Horizontal spacing.
 pub fn h(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    spacing_impl("h", ctx, args, GenAxis::Cross)
+    spacing_impl(ctx, args, GenAxis::Cross)
 }
 
 /// `v`: Vertical spacing.
 pub fn v(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    spacing_impl("v", ctx, args, GenAxis::Main)
+    spacing_impl(ctx, args, GenAxis::Main)
 }
 
-fn spacing_impl(
-    name: &str,
-    ctx: &mut EvalContext,
-    args: &mut FuncArgs,
-    axis: GenAxis,
-) -> Value {
+fn spacing_impl(ctx: &mut EvalContext, args: &mut FuncArgs, axis: GenAxis) -> Value {
     let spacing: Option<Linear> = args.expect(ctx, "spacing");
-    Value::template(name, move |ctx| {
+    Value::template(move |ctx| {
         if let Some(linear) = spacing {
             // TODO: Should this really always be font-size relative?
             let amount = linear.resolve(ctx.state.font.size);
@@ -130,7 +125,7 @@ pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         }
     }
 
-    Value::template("align", move |ctx| {
+    Value::template(move |ctx| {
         let snapshot = ctx.state.clone();
 
         if let Some(horizontal) = horizontal {
@@ -222,7 +217,7 @@ pub fn pad(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let top = args.named(ctx, "top");
     let right = args.named(ctx, "right");
     let bottom = args.named(ctx, "bottom");
-    let body = args.expect::<TemplateValue>(ctx, "body").unwrap_or_default();
+    let body = args.expect(ctx, "body").unwrap_or_default();
 
     let padding = Sides::new(
         left.or(all).unwrap_or_default(),
@@ -231,7 +226,7 @@ pub fn pad(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         bottom.or(all).unwrap_or_default(),
     );
 
-    Value::template("pad", move |ctx| {
+    Value::template(move |ctx| {
         let child = ctx.exec_template_stack(&body).into();
         ctx.push_into_stack(PadNode { padding, child });
     })
@@ -240,9 +235,9 @@ pub fn pad(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// `stack`: Stack children along an axis.
 pub fn stack(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let dir = args.named::<Dir>(ctx, "dir").unwrap_or(Dir::TTB);
-    let children = args.all::<TemplateValue>(ctx);
+    let children = args.all(ctx);
 
-    Value::template("stack", move |ctx| {
+    Value::template(move |ctx| {
         let children = children
             .iter()
             .map(|child| {
@@ -271,9 +266,9 @@ pub fn grid(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let gutter_rows = args.named::<Tracks>(ctx, "gutter-rows");
     let column_dir = args.named(ctx, "column-dir");
     let row_dir = args.named(ctx, "row-dir");
-    let children = args.all::<TemplateValue>(ctx);
+    let children = args.all(ctx);
 
-    Value::template("grid", move |ctx| {
+    Value::template(move |ctx| {
         let children = children
             .iter()
             .map(|child| ctx.exec_template_stack(child).into())

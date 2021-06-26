@@ -19,7 +19,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let monospace = args.named(ctx, "monospace");
     let body = args.eat::<TemplateValue>(ctx);
 
-    Value::template("font", move |ctx| {
+    Value::template(move |ctx| {
         let snapshot = ctx.state.clone();
         let font = ctx.state.font_mut();
 
@@ -162,7 +162,7 @@ pub fn par(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let leading = args.named(ctx, "leading");
     let word_spacing = args.named(ctx, "word-spacing");
 
-    Value::template("par", move |ctx| {
+    Value::template(move |ctx| {
         if let Some(spacing) = spacing {
             ctx.state.par.spacing = spacing;
         }
@@ -191,7 +191,7 @@ pub fn lang(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         None => None,
     };
 
-    Value::template("lang", move |ctx| {
+    Value::template(move |ctx| {
         if let Some(dir) = dir.or(iso) {
             ctx.state.lang.dir = dir;
         }
@@ -210,21 +210,20 @@ fn lang_dir(iso: &str) -> Dir {
 
 /// `strike`: Enable striken-through text.
 pub fn strike(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    line_impl("strike", ctx, args, |font| &mut font.strikethrough)
+    line_impl(ctx, args, |font| &mut font.strikethrough)
 }
 
 /// `underline`: Enable underlined text.
 pub fn underline(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    line_impl("underline", ctx, args, |font| &mut font.underline)
+    line_impl(ctx, args, |font| &mut font.underline)
 }
 
 /// `overline`: Add an overline above text.
 pub fn overline(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    line_impl("overline", ctx, args, |font| &mut font.overline)
+    line_impl(ctx, args, |font| &mut font.overline)
 }
 
 fn line_impl(
-    name: &str,
     ctx: &mut EvalContext,
     args: &mut FuncArgs,
     substate: fn(&mut FontState) -> &mut Option<Rc<LineState>>,
@@ -245,7 +244,7 @@ fn line_impl(
         })
     });
 
-    Value::template(name, move |ctx| {
+    Value::template(move |ctx| {
         let snapshot = ctx.state.clone();
 
         *substate(ctx.state.font_mut()) = state.clone();

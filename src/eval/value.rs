@@ -55,11 +55,11 @@ pub enum Value {
 
 impl Value {
     /// Create a new template value consisting of a single dynamic node.
-    pub fn template<F>(name: impl Into<String>, f: F) -> Self
+    pub fn template<F>(f: F) -> Self
     where
         F: Fn(&mut ExecContext) + 'static,
     {
-        Self::Template(vec![TemplateNode::Func(TemplateFunc::new(name, f))])
+        Self::Template(vec![TemplateNode::Func(TemplateFunc::new(f))])
     }
 
     /// The name of the stored value's type.
@@ -193,23 +193,15 @@ pub type ExprMap = HashMap<*const Expr, Value>;
 /// A reference-counted dynamic template node that can implement custom
 /// behaviour.
 #[derive(Clone)]
-pub struct TemplateFunc {
-    name: String,
-    f: Rc<dyn Fn(&mut ExecContext)>,
-}
+pub struct TemplateFunc(Rc<dyn Fn(&mut ExecContext)>);
 
 impl TemplateFunc {
     /// Create a new function template from a rust function or closure.
-    pub fn new<F>(name: impl Into<String>, f: F) -> Self
+    pub fn new<F>(f: F) -> Self
     where
         F: Fn(&mut ExecContext) + 'static,
     {
-        Self { name: name.into(), f: Rc::new(f) }
-    }
-
-    /// The name of the template node.
-    pub fn name(&self) -> &str {
-        &self.name
+        Self(Rc::new(f))
     }
 }
 
@@ -224,7 +216,7 @@ impl Deref for TemplateFunc {
     type Target = dyn Fn(&mut ExecContext);
 
     fn deref(&self) -> &Self::Target {
-        self.f.as_ref()
+        self.0.as_ref()
     }
 }
 

@@ -25,7 +25,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         }
     }
 
-    Value::template("image", move |ctx| {
+    Value::template(move |ctx| {
         if let Some(node) = node {
             ctx.push_into_par(node);
         }
@@ -37,8 +37,8 @@ pub fn rect(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = args.named(ctx, "width");
     let height = args.named(ctx, "height");
     let fill = args.named(ctx, "fill");
-    let body = args.eat::<TemplateValue>(ctx).unwrap_or_default();
-    rect_impl("rect", width, height, None, fill, body)
+    let body = args.eat(ctx).unwrap_or_default();
+    rect_impl(width, height, None, fill, body)
 }
 
 /// `square`: A square with optional content.
@@ -47,19 +47,18 @@ pub fn square(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = length.or_else(|| args.named(ctx, "width"));
     let height = width.is_none().then(|| args.named(ctx, "height")).flatten();
     let fill = args.named(ctx, "fill");
-    let body = args.eat::<TemplateValue>(ctx).unwrap_or_default();
-    rect_impl("square", width, height, Some(N64::from(1.0)), fill, body)
+    let body = args.eat(ctx).unwrap_or_default();
+    rect_impl(width, height, Some(N64::from(1.0)), fill, body)
 }
 
 fn rect_impl(
-    name: &str,
     width: Option<Linear>,
     height: Option<Linear>,
     aspect: Option<N64>,
     fill: Option<Color>,
     body: TemplateValue,
 ) -> Value {
-    Value::template(name, move |ctx| {
+    Value::template(move |ctx| {
         let mut stack = ctx.exec_template_stack(&body);
         stack.aspect = aspect;
 
@@ -82,8 +81,8 @@ pub fn ellipse(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = args.named(ctx, "width");
     let height = args.named(ctx, "height");
     let fill = args.named(ctx, "fill");
-    let body = args.eat::<TemplateValue>(ctx).unwrap_or_default();
-    ellipse_impl("ellipse", width, height, None, fill, body)
+    let body = args.eat(ctx).unwrap_or_default();
+    ellipse_impl(width, height, None, fill, body)
 }
 
 /// `circle`: A circle with optional content.
@@ -92,19 +91,18 @@ pub fn circle(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = radius.or_else(|| args.named(ctx, "width"));
     let height = width.is_none().then(|| args.named(ctx, "height")).flatten();
     let fill = args.named(ctx, "fill");
-    let body = args.eat::<TemplateValue>(ctx).unwrap_or_default();
-    ellipse_impl("circle", width, height, Some(N64::from(1.0)), fill, body)
+    let body = args.eat(ctx).unwrap_or_default();
+    ellipse_impl(width, height, Some(N64::from(1.0)), fill, body)
 }
 
 fn ellipse_impl(
-    name: &str,
     width: Option<Linear>,
     height: Option<Linear>,
     aspect: Option<N64>,
     fill: Option<Color>,
     body: TemplateValue,
 ) -> Value {
-    Value::template(name, move |ctx| {
+    Value::template(move |ctx| {
         // This padding ratio ensures that the rectangular padded region fits
         // perfectly into the ellipse.
         const PAD: f64 = 0.5 - SQRT_2 / 4.0;
