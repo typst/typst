@@ -15,7 +15,7 @@ impl Layout for PadNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        let original = regions.clone();
+        let mut original = regions.clone();
         let mut regions = regions.map(|size| size - self.padding.resolve(size).size());
 
         let mut frames = self.child.layout(ctx, &regions);
@@ -39,6 +39,7 @@ impl Layout for PadNode {
             }
 
             regions.next();
+            original.next();
             *Rc::make_mut(&mut frame.item) = new;
         }
         frames

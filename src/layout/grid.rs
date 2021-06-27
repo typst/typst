@@ -56,6 +56,8 @@ struct GridLayouter<'a> {
     cross: SpecAxis,
     /// The axis of the main direction.
     main: SpecAxis,
+    /// The original expand state of the target region.
+    expand: Spec<bool>,
     /// The column tracks including gutter tracks.
     cols: Vec<TrackSizing>,
     /// The row tracks including gutter tracks.
@@ -64,8 +66,6 @@ struct GridLayouter<'a> {
     children: &'a [AnyNode],
     /// The region to layout into.
     regions: Regions,
-    /// The original expand state of the target region.
-    original_expand: Spec<bool>,
     /// Resolved column sizes.
     rcols: Vec<Length>,
     /// The full main size of the current region.
@@ -138,7 +138,7 @@ impl<'a> GridLayouter<'a> {
         let rcols = vec![Length::zero(); cols.len()];
 
         // We use the regions only for auto row measurement and constraints.
-        let original_expand = regions.expand;
+        let expand = regions.expand;
         regions.expand = Gen::new(true, false).to_spec(main);
 
         Self {
@@ -147,9 +147,9 @@ impl<'a> GridLayouter<'a> {
             cols,
             rows,
             children: &grid.children,
-            constraints: Constraints::new(original_expand),
+            constraints: Constraints::new(expand),
             regions,
-            original_expand,
+            expand,
             rcols,
             lrows: vec![],
             full,
@@ -510,7 +510,7 @@ impl<'a> GridLayouter<'a> {
         self.used.main = Length::zero();
         self.fr = Fractional::zero();
         self.finished.push(output.constrain(self.constraints));
-        self.constraints = Constraints::new(self.original_expand);
+        self.constraints = Constraints::new(self.expand);
     }
 
     /// Get the node in the cell in column `x` and row `y`.

@@ -15,14 +15,14 @@ use walkdir::WalkDir;
 
 use typst::cache::Cache;
 use typst::color;
-use typst::diag::{Diag, DiagSet, Level};
-use typst::eval::{EvalContext, FuncArgs, FuncValue, Scope, Value};
-use typst::exec::State;
+use typst::diag::{Diag, DiagSet, Level, Pass};
+use typst::eval::{eval, EvalContext, FuncArgs, FuncValue, Scope, Value};
+use typst::exec::{exec, State};
 use typst::geom::{self, Length, Point, Sides, Size};
 use typst::image::ImageId;
-use typst::layout::{Element, Fill, Frame, Shape, Text};
+use typst::layout::{layout, Element, Fill, Frame, Shape, Text};
 use typst::loading::FsLoader;
-use typst::parse::{LineMap, Scanner};
+use typst::parse::{parse, LineMap, Scanner};
 use typst::syntax::{Location, Pos};
 
 const TYP_DIR: &str = "./typ";
@@ -224,12 +224,22 @@ fn test_part(
     state.page.size = Size::new(Length::pt(120.0), Length::inf());
     state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
-    let mut pass =
-        typst::typeset(loader, cache, Some(src_path), &src, &scope, state.clone());
+    let parsed = parse(src);
+    let evaluated = eval(
+        loader,
+        cache,
+        Some(src_path),
+        Rc::new(parsed.output),
+        &scope,
+    );
+    let executed = exec(&evaluated.output.template, state.clone());
+    let layouted = layout(loader, cache, &executed.output);
 
-    if !compare_ref {
-        pass.output.clear();
-    }
+    let mut diags = parsed.diags;
+    diags.extend(evaluated.diags);
+    diags.extend(executed.diags);
+
+    let mut pass = Pass::new(layouted, diags);
 
     let mut ok = true;
 
@@ -274,35 +284,25 @@ fn test_part(
 
         cache.layout.turnaround();
 
-        let mut cached_result =
-            typst::typeset(loader, cache, Some(src_path), &src, &scope, state.clone());
+        let cached_result = layout(loader, cache, &executed.output);
 
-        if !compare_ref {
-            cached_result.output.clear();
-        }
-
-        let misses: Vec<_> = cache
+        let misses = cache
             .layout
             .frames
             .iter()
             .flat_map(|(_, e)| e)
             .filter(|e| e.level == level && !e.hit() && e.age() == 2)
-            .collect();
+            .count();
 
-        if !misses.is_empty() {
+        if misses > 0 {
             ok = false;
-            let mut miss_count = 0;
-            for miss in misses {
-                dbg!(miss.frames.iter().map(|f| f.constraints).collect::<Vec<_>>());
-                miss_count += 1;
-            }
             println!(
                 "    Recompilation had {} cache misses on level {} (Subtest {}) ❌",
-                miss_count, level, i
+                misses, level, i
             );
         }
 
-        if cached_result != pass {
+        if cached_result != pass.output {
             ok = false;
             println!(
                 "    Recompilation of subtest {} differs from clean pass ❌",
@@ -313,6 +313,10 @@ fn test_part(
 
     cache.layout = reference_cache;
     cache.layout.turnaround();
+
+    if !compare_ref {
+        pass.output.clear();
+    }
 
     (ok, compare_ref, pass.output)
 }

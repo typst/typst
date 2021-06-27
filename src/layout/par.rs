@@ -190,6 +190,7 @@ impl<'a> ParLayouter<'a> {
             // line cannot be broken up further.
             if !stack.regions.current.fits(line.size) {
                 if let Some((last_line, last_end)) = last.take() {
+                    // The region must not fit this line for the result to be valid.
                     if !stack.regions.current.width.fits(line.size.width) {
                         stack.constraints.max.horizontal.set_min(line.size.width);
                     }
@@ -213,6 +214,9 @@ impl<'a> ParLayouter<'a> {
             while !stack.regions.current.height.fits(line.size.height)
                 && !stack.regions.in_full_last()
             {
+                // Again, the line must not fit. It would if the space taken up
+                // plus the line height would fit, therefore the constraint
+                // below.
                 stack.constraints.max.vertical.set_min(
                     stack.full.height - stack.regions.current.height + line.size.height,
                 );
@@ -225,7 +229,7 @@ impl<'a> ParLayouter<'a> {
                     stack.overflowing = true;
                     break;
                 }
-                
+
                 stack.constraints.max.vertical.set_min(
                     stack.full.height - stack.regions.current.height + line.size.height,
                 );

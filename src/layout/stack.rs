@@ -62,6 +62,8 @@ struct StackLayouter<'a> {
     ruler: Align,
     /// The constraints for the current region.
     constraints: Constraints,
+    /// Whether the last region can fit all the remaining content.
+    overflowing: bool,
     /// Offset, alignment and frame for all children that fit into the current
     /// region. The exact positions are not known yet.
     frames: Vec<(Length, Gen<Align>, Rc<Frame>)>,
@@ -92,6 +94,7 @@ impl<'a> StackLayouter<'a> {
             full,
             used: Gen::zero(),
             ruler: Align::Start,
+            overflowing: false,
             frames: vec![],
             finished: vec![],
         }
@@ -142,9 +145,12 @@ impl<'a> StackLayouter<'a> {
         }
 
         // Find a fitting region.
-        while !self.regions.current.get(self.main).fits(size.main)
-            && !self.regions.in_full_last()
-        {
+        while !self.regions.current.get(self.main).fits(size.main) {
+            if self.regions.in_full_last() {
+                self.overflowing = true;
+                break;
+            }
+
             self.constraints
                 .max
                 .get_mut(self.main)
@@ -201,6 +207,12 @@ impl<'a> StackLayouter<'a> {
                 .min(aspect.into_inner() * self.full.height);
 
             size = Size::new(width, width / aspect.into_inner());
+        }
+
+        if self.overflowing {
+            self.constraints.min.vertical = None;
+            self.constraints.max.vertical = None;
+            self.constraints.exact = self.full.to_spec().map(Some);
         }
 
         let mut output = Frame::new(size, size.height);

@@ -1,4 +1,5 @@
-use std::{collections::HashMap, ops::Deref};
+use std::collections::{hash_map::Entry, HashMap};
+use std::ops::Deref;
 
 use super::*;
 
@@ -6,7 +7,9 @@ use super::*;
 #[derive(Default, Debug, Clone)]
 pub struct LayoutCache {
     /// Maps from node hashes to the resulting frames and regions in which the
-    /// frames are valid.
+    /// frames are valid. The right hand side of the hash map is a vector of
+    /// results because across one or more compilations, multiple different
+    /// layouts of the same node may have been requested.
     pub frames: HashMap<u64, Vec<FramesEntry>>,
     /// In how many compilations this cache has been used.
     age: usize,
@@ -28,14 +31,9 @@ impl LayoutCache {
     where
         F: FnMut(usize) -> bool,
     {
-        for (_, hash_ident) in self.frames.iter_mut() {
-            hash_ident.retain(|entry| f(entry.level));
+        for (_, entries) in self.frames.iter_mut() {
+            entries.retain(|entry| f(entry.level));
         }
-    }
-
-    /// Amount of items in the cache.
-    pub fn len(&self) -> usize {
-        self.frames.iter().map(|(_, e)| e.len()).sum()
     }
 
     /// Prepare the cache for the next round of compilation
@@ -45,11 +43,11 @@ impl LayoutCache {
             for i in 0 .. (entry.temperature.len() - 1) {
                 entry.temperature[i] = entry.temperature[i + 1];
             }
-            *entry.temperature.last_mut().unwrap() = Some(0);
+            *entry.temperature.last_mut().unwrap() = 0;
         }
     }
 
-    /// What is the deepest level in the cache?
+    /// The amount of levels stored in the cache.
     pub fn levels(&self) -> usize {
         self.frames
             .iter()
@@ -85,16 +83,17 @@ impl LayoutCache {
         level: usize,
     ) {
         let entry = FramesEntry::new(frames, level);
-        if let Some(variants) = self.frames.get_mut(&hash) {
-            variants.push(entry);
-        } else {
-            self.frames.insert(hash, vec![entry]);
+        match self.frames.entry(hash) {
+            Entry::Occupied(o) => o.into_mut().push(entry),
+            Entry::Vacant(v) => {
+                v.insert(vec![entry]);
+            }
         }
     }
 }
 
-#[derive(Debug, Clone)]
 /// Cached frames from past layouting.
+#[derive(Debug, Clone)]
 pub struct FramesEntry {
     /// The cached frames for a node.
     pub frames: Vec<Constrained<Rc<Frame>>>,
@@ -103,15 +102,20 @@ pub struct FramesEntry {
     /// How much the element was accessed during the last five compilations, the
     /// most recent one being the last element. `None` variants indicate that
     /// the element is younger than five compilations.
-    temperature: [Option<usize>; 5],
+    temperature: [usize; 5],
+    /// For how long the element already exists.
+    age: usize,
 }
 
 impl FramesEntry {
     /// Construct a new instance.
     pub fn new(frames: Vec<Constrained<Rc<Frame>>>, level: usize) -> Self {
-        let mut temperature = [None; 5];
-        temperature[4] = Some(0);
-        Self { frames, level, temperature }
+        Self {
+            frames,
+            level,
+            temperature: [0; 5],
+            age: 1,
+        }
     }
 
     /// Checks if the cached [`Frame`] is valid for the given regions.
@@ -122,8 +126,7 @@ impl FramesEntry {
             }
         }
 
-        let tmp = self.temperature.get_mut(4).unwrap();
-        *tmp = Some(tmp.map_or(1, |x| x + 1));
+        self.temperature[4] = self.temperature[4] + 1;
 
         Some(self.frames.clone())
     }
@@ -131,43 +134,35 @@ impl FramesEntry {
     /// Get the amount of compilation cycles this item has remained in the
     /// cache.
     pub fn age(&self) -> usize {
-        let mut age = 0;
-        for &temp in self.temperature.iter().rev() {
-            if temp.is_none() {
-                break;
-            }
-            age += 1;
-        }
-        age
+        self.age
     }
 
     /// Get the amount of consecutive cycles in which this item has not
     /// been used.
     pub fn cooldown(&self) -> usize {
-        let mut age = 0;
+        let mut cycle = 0;
         for (i, &temp) in self.temperature.iter().enumerate().rev() {
-            match temp {
-                Some(temp) => {
-                    if temp > 0 {
-                        return self.temperature.len() - 1 - i;
-                    }
+            if self.age > i {
+                if temp > 0 {
+                    return self.temperature.len() - 1 - i;
                 }
-                None => {
-                    return age;
-                }
+            } else {
+                return cycle;
             }
-            age += 1
+
+            cycle += 1
         }
 
-        age
+        cycle
     }
 
     /// Whether this element was used in the last compilation cycle.
     pub fn hit(&self) -> bool {
-        self.temperature.last().unwrap().unwrap_or(0) != 0
+        self.temperature.last().unwrap() != &0
     }
 }
 
+/// These constraints describe regions that match them.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Constraints {
     /// The minimum available length in the region.
@@ -218,49 +213,45 @@ impl Constraints {
         let base = regions.base.to_spec();
         let current = regions.current.to_spec();
 
-        let res = current.eq_by(&self.min, |&x, y| y.map_or(true, |y| x.fits(y)))
+        current.eq_by(&self.min, |&x, y| y.map_or(true, |y| x.fits(y)))
             && current.eq_by(&self.max, |x, y| y.map_or(true, |y| x < &y))
             && current.eq_by(&self.exact, |&x, y| y.map_or(true, |y| x.approx_eq(y)))
-            && base.eq_by(&self.base, |&x, y| y.map_or(true, |y| x.approx_eq(y)));
-
-        res
+            && base.eq_by(&self.base, |&x, y| y.map_or(true, |y| x.approx_eq(y)))
     }
 
-    /// Changes all constraints by adding the argument to them if they are set.
+    /// Changes all constraints by adding the `size` to them if they are `Some`.
     pub fn mutate(&mut self, size: Size, regions: &Regions) {
-        for x in std::array::IntoIter::new([
+        for spec in std::array::IntoIter::new([
             &mut self.min,
             &mut self.max,
             &mut self.exact,
             &mut self.base,
         ]) {
-            if let Some(horizontal) = x.horizontal.as_mut() {
+            if let Some(horizontal) = spec.horizontal.as_mut() {
                 *horizontal += size.width;
             }
-            if let Some(vertical) = x.vertical.as_mut() {
+            if let Some(vertical) = spec.vertical.as_mut() {
                 *vertical += size.height;
             }
         }
 
-        self.exact = zip(self.exact, regions.current.to_spec(), |_, o| o);
-        self.base = zip(self.base, regions.base.to_spec(), |_, o| o);
+        self.exact = override_if_some(self.exact, regions.current.to_spec());
+        self.base = override_if_some(self.base, regions.base.to_spec());
     }
 }
 
-fn zip<F>(
+fn override_if_some(
     one: Spec<Option<Length>>,
     other: Spec<Length>,
-    mut f: F,
-) -> Spec<Option<Length>>
-where
-    F: FnMut(Length, Length) -> Length,
-{
+) -> Spec<Option<Length>> {
     Spec {
-        vertical: one.vertical.map(|r| f(r, other.vertical)),
-        horizontal: one.horizontal.map(|r| f(r, other.horizontal)),
+        vertical: one.vertical.map(|_| other.vertical),
+        horizontal: one.horizontal.map(|_| other.horizontal),
     }
 }
 
+/// Carries an item that only applies to certain regions and the constraints
+/// that describe these regions.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Constrained<T> {
     pub item: T,
@@ -275,8 +266,14 @@ impl<T> Deref for Constrained<T> {
     }
 }
 
+/// Extends length-related options by providing convenience methods for setting
+/// minimum and maximum lengths on them, even if they are `None`.
 pub trait OptionExt {
+    // Sets `other` as the value if the Option is `None` or if it contains a
+    // value larger than `other`.
     fn set_min(&mut self, other: Length);
+    // Sets `other` as the value if the Option is `None` or if it contains a
+    // value smaller than `other`.
     fn set_max(&mut self, other: Length);
 }
 
