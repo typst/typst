@@ -213,8 +213,16 @@ impl<'a> ParLayouter<'a> {
             while !stack.regions.current.height.fits(line.size.height)
                 && !stack.regions.in_full_last()
             {
-                stack.constraints.max.vertical.set_min(line.size.height);
+                stack.constraints.max.vertical.set_min(
+                    stack.full.height - stack.regions.current.height + line.size.height,
+                );
                 stack.finish_region(ctx);
+            }
+
+            if !stack.regions.current.height.fits(line.size.height)
+                && stack.regions.in_full_last()
+            {
+                stack.overflowing = true;
             }
 
             // If the line does not fit horizontally or we have a mandatory
@@ -303,11 +311,13 @@ impl ParItem<'_> {
 /// Stacks lines on top of each other.
 struct LineStack<'a> {
     line_spacing: Length,
+    full: Size,
     regions: Regions,
     size: Size,
     lines: Vec<LineLayout<'a>>,
     finished: Vec<Constrained<Rc<Frame>>>,
     constraints: Constraints,
+    overflowing: bool,
 }
 
 impl<'a> LineStack<'a> {
@@ -316,10 +326,12 @@ impl<'a> LineStack<'a> {
         Self {
             line_spacing,
             constraints: Constraints::new(regions.expand),
+            full: regions.current,
             regions,
             size: Size::zero(),
             lines: vec![],
             finished: vec![],
+            overflowing: false,
         }
     }
 
@@ -343,6 +355,12 @@ impl<'a> LineStack<'a> {
             self.constraints.exact.horizontal = Some(self.regions.current.width);
         }
 
+        if self.overflowing {
+            self.constraints.min.vertical = None;
+            self.constraints.max.vertical = None;
+            self.constraints.exact = self.full.to_spec().map(Some);
+        }
+
         let mut output = Frame::new(self.size, self.size.height);
         let mut offset = Length::zero();
         let mut first = true;
@@ -362,6 +380,7 @@ impl<'a> LineStack<'a> {
 
         self.finished.push(output.constrain(self.constraints));
         self.regions.next();
+        self.full = self.regions.current;
         self.constraints = Constraints::new(self.regions.expand);
         self.size = Size::zero();
     }

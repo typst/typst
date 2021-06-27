@@ -224,10 +224,8 @@ fn test_part(
     state.page.size = Size::new(Length::pt(120.0), Length::inf());
     state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
-    // Clear cache between tests (for now).
-    cache.layout.clear();
-
-    let mut pass = typst::typeset(loader, cache, Some(src_path), &src, &scope, state);
+    let mut pass =
+        typst::typeset(loader, cache, Some(src_path), &src, &scope, state.clone());
 
     if !compare_ref {
         pass.output.clear();
@@ -265,6 +263,56 @@ fn test_part(
             }
         }
     }
+
+    let reference_cache = cache.layout.clone();
+    for level in 0 .. reference_cache.levels() {
+        cache.layout = reference_cache.clone();
+        cache.layout.retain(|x| x == level);
+        if cache.layout.frames.is_empty() {
+            continue;
+        }
+
+        cache.layout.turnaround();
+
+        let mut cached_result =
+            typst::typeset(loader, cache, Some(src_path), &src, &scope, state.clone());
+
+        if !compare_ref {
+            cached_result.output.clear();
+        }
+
+        let misses: Vec<_> = cache
+            .layout
+            .frames
+            .iter()
+            .flat_map(|(_, e)| e)
+            .filter(|e| e.level == level && !e.hit() && e.age() == 2)
+            .collect();
+
+        if !misses.is_empty() {
+            ok = false;
+            let mut miss_count = 0;
+            for miss in misses {
+                dbg!(miss.frames.iter().map(|f| f.constraints).collect::<Vec<_>>());
+                miss_count += 1;
+            }
+            println!(
+                "    Recompilation had {} cache misses on level {} (Subtest {}) ❌",
+                miss_count, level, i
+            );
+        }
+
+        if cached_result != pass {
+            ok = false;
+            println!(
+                "    Recompilation of subtest {} differs from clean pass ❌",
+                i
+            );
+        }
+    }
+
+    cache.layout = reference_cache;
+    cache.layout.turnaround();
 
     (ok, compare_ref, pass.output)
 }

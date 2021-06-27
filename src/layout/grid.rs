@@ -64,6 +64,8 @@ struct GridLayouter<'a> {
     children: &'a [AnyNode],
     /// The region to layout into.
     regions: Regions,
+    /// The original expand state of the target region.
+    original_expand: Spec<bool>,
     /// Resolved column sizes.
     rcols: Vec<Length>,
     /// The full main size of the current region.
@@ -135,7 +137,8 @@ impl<'a> GridLayouter<'a> {
         let full = regions.current.get(main);
         let rcols = vec![Length::zero(); cols.len()];
 
-        // We use the regions only for auto row measurement.
+        // We use the regions only for auto row measurement and constraints.
+        let original_expand = regions.expand;
         regions.expand = Gen::new(true, false).to_spec(main);
 
         Self {
@@ -144,8 +147,9 @@ impl<'a> GridLayouter<'a> {
             cols,
             rows,
             children: &grid.children,
-            constraints: Constraints::new(regions.expand),
+            constraints: Constraints::new(original_expand),
             regions,
+            original_expand,
             rcols,
             lrows: vec![],
             full,
@@ -506,7 +510,7 @@ impl<'a> GridLayouter<'a> {
         self.used.main = Length::zero();
         self.fr = Fractional::zero();
         self.finished.push(output.constrain(self.constraints));
-        self.constraints = Constraints::new(self.regions.expand);
+        self.constraints = Constraints::new(self.original_expand);
     }
 
     /// Get the node in the cell in column `x` and row `y`.
