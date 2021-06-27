@@ -210,7 +210,7 @@ castable! {
     AlignValue: "alignment",
 }
 
-/// ´box`: Place content in a rectangular box.
+/// `box`: Place content in a rectangular box.
 pub fn boxed(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = args.named(ctx, "width");
     let height = args.named(ctx, "height");
@@ -221,7 +221,7 @@ pub fn boxed(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     })
 }
 
-/// block`: Place content in a block.
+/// `block`: Place content in a block.
 pub fn block(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let body = args.eat(ctx).unwrap_or_default();
     Value::template(move |ctx| {

@@ -183,10 +183,10 @@ visit! {
     }
 
     fn visit_let(v, node: &LetExpr) {
-        v.visit_binding(&node.binding);
         if let Some(init) = &node.init {
             v.visit_expr(&init);
         }
+        v.visit_binding(&node.binding);
     }
 
     fn visit_if(v, node: &IfExpr) {
@@ -203,6 +203,7 @@ visit! {
     }
 
     fn visit_for(v, node: &ForExpr) {
+        v.visit_expr(&node.iter);
         match &node.pattern {
             ForPattern::Value(value) => v.visit_binding(value),
             ForPattern::KeyValue(key, value) => {
@@ -210,7 +211,6 @@ visit! {
                 v.visit_binding(value);
             }
         }
-        v.visit_expr(&node.iter);
         v.visit_expr(&node.body);
     }
 
