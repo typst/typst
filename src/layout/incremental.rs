@@ -101,7 +101,7 @@ pub struct FramesEntry {
     /// How nested the frame was in the context is was originally appearing in.
     pub level: usize,
     /// How much the element was accessed during the last five compilations, the
-    /// most current one being the last element. `None` variants indicate that
+    /// most recent one being the last element. `None` variants indicate that
     /// the element is younger than five compilations.
     temperature: [Option<usize>; 5],
 }

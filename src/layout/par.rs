@@ -219,12 +219,18 @@ impl<'a> ParLayouter<'a> {
                 stack.finish_region(ctx);
             }
 
-            if !stack.regions.current.height.fits(line.size.height)
-                && stack.regions.in_full_last()
-            {
-                stack.overflowing = true;
+            // If the line does not fit vertically, we start a new region.
+            while !stack.regions.current.height.fits(line.size.height) {
+                if stack.regions.in_full_last() {
+                    stack.overflowing = true;
+                    break;
+                }
+                
+                stack.constraints.max.vertical.set_min(
+                    stack.full.height - stack.regions.current.height + line.size.height,
+                );
+                stack.finish_region(ctx);
             }
-
             // If the line does not fit horizontally or we have a mandatory
             // line break (i.e. due to "\n"), we push the line into the
             // stack.
