@@ -162,7 +162,7 @@ impl FramesEntry {
     }
 }
 
-/// These constraints describe regions that match them.
+/// Describe regions that match them.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Constraints {
     /// The minimum available length in the region.
