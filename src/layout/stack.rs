@@ -88,12 +88,12 @@ impl<'a> StackLayouter<'a> {
         Self {
             stack,
             main,
-            constraints: Constraints::new(expand),
             expand,
             regions,
             full,
             used: Gen::zero(),
             ruler: Align::Start,
+            constraints: Constraints::new(expand),
             overflowing: false,
             frames: vec![],
             finished: vec![],
@@ -154,7 +154,7 @@ impl<'a> StackLayouter<'a> {
             self.constraints
                 .max
                 .get_mut(self.main)
-                .set_min(size.main + self.used.main);
+                .set_min(self.used.main + size.main);
             self.finish_region();
         }
 

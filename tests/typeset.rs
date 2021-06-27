@@ -15,7 +15,7 @@ use walkdir::WalkDir;
 
 use typst::cache::Cache;
 use typst::color;
-use typst::diag::{Diag, DiagSet, Level, Pass};
+use typst::diag::{Diag, DiagSet, Level};
 use typst::eval::{eval, EvalContext, FuncArgs, FuncValue, Scope, Value};
 use typst::exec::{exec, State};
 use typst::geom::{self, Length, Point, Sides, Size};
@@ -233,13 +233,11 @@ fn test_part(
         &scope,
     );
     let executed = exec(&evaluated.output.template, state.clone());
-    let layouted = layout(loader, cache, &executed.output);
+    let mut layouted = layout(loader, cache, &executed.output);
 
     let mut diags = parsed.diags;
     diags.extend(evaluated.diags);
     diags.extend(executed.diags);
-
-    let mut pass = Pass::new(layouted, diags);
 
     let mut ok = true;
 
@@ -255,11 +253,11 @@ fn test_part(
         ok = false;
     }
 
-    if pass.diags != ref_diags {
+    if diags != ref_diags {
         println!("  Subtest {} does not match expected diagnostics. ❌", i);
         ok = false;
 
-        for diag in &pass.diags {
+        for diag in &diags {
             if !ref_diags.contains(diag) {
                 print!("    Not annotated | ");
                 print_diag(diag, &map, lines);
@@ -267,7 +265,7 @@ fn test_part(
         }
 
         for diag in &ref_diags {
-            if !pass.diags.contains(diag) {
+            if !diags.contains(diag) {
                 print!("    Not emitted   | ");
                 print_diag(diag, &map, lines);
             }
@@ -302,7 +300,7 @@ fn test_part(
             );
         }
 
-        if cached_result != pass.output {
+        if cached_result != layouted {
             ok = false;
             println!(
                 "    Recompilation of subtest {} differs from clean pass ❌",
@@ -315,10 +313,10 @@ fn test_part(
     cache.layout.turnaround();
 
     if !compare_ref {
-        pass.output.clear();
+        layouted.clear();
     }
 
-    (ok, compare_ref, pass.output)
+    (ok, compare_ref, layouted)
 }
 
 fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {

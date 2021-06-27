@@ -217,9 +217,11 @@ impl<'a> ParLayouter<'a> {
                 // Again, the line must not fit. It would if the space taken up
                 // plus the line height would fit, therefore the constraint
                 // below.
-                stack.constraints.max.vertical.set_min(
-                    stack.full.height - stack.regions.current.height + line.size.height,
-                );
+                stack
+                    .constraints
+                    .max
+                    .vertical
+                    .set_min(stack.size.height + line.size.height);
                 stack.finish_region(ctx);
             }
 
@@ -230,9 +232,11 @@ impl<'a> ParLayouter<'a> {
                     break;
                 }
 
-                stack.constraints.max.vertical.set_min(
-                    stack.full.height - stack.regions.current.height + line.size.height,
-                );
+                stack
+                    .constraints
+                    .max
+                    .vertical
+                    .set_min(stack.size.height + line.size.height);
                 stack.finish_region(ctx);
             }
             // If the line does not fit horizontally or we have a mandatory

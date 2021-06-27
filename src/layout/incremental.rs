@@ -26,6 +26,11 @@ impl LayoutCache {
         self.frames.clear();
     }
 
+    /// Amount of items in the cache.
+    pub fn len(&self) -> usize {
+        self.frames.iter().map(|(_, e)| e.len()).sum()
+    }
+
     /// Retains all elements for which the closure on the level returns `true`.
     pub fn retain<F>(&mut self, mut f: F)
     where
@@ -41,9 +46,10 @@ impl LayoutCache {
         self.age += 1;
         for entry in self.frames.iter_mut().flat_map(|(_, x)| x.iter_mut()) {
             for i in 0 .. (entry.temperature.len() - 1) {
-                entry.temperature[i] = entry.temperature[i + 1];
+                entry.temperature[i + 1] = entry.temperature[i];
             }
-            *entry.temperature.last_mut().unwrap() = 0;
+            entry.temperature[0] = 0;
+            entry.age += 1;
         }
     }
 
@@ -99,12 +105,11 @@ pub struct FramesEntry {
     pub frames: Vec<Constrained<Rc<Frame>>>,
     /// How nested the frame was in the context is was originally appearing in.
     pub level: usize,
-    /// How much the element was accessed during the last five compilations, the
-    /// most recent one being the last element. `None` variants indicate that
-    /// the element is younger than five compilations.
-    temperature: [usize; 5],
     /// For how long the element already exists.
     age: usize,
+    /// How much the element was accessed during the last five compilations, the
+    /// most recent one being the first element.
+    temperature: [usize; 5],
 }
 
 impl FramesEntry {
@@ -113,8 +118,8 @@ impl FramesEntry {
         Self {
             frames,
             level,
-            temperature: [0; 5],
             age: 1,
+            temperature: [0; 5],
         }
     }
 
@@ -126,7 +131,7 @@ impl FramesEntry {
             }
         }
 
-        self.temperature[4] = self.temperature[4] + 1;
+        self.temperature[0] += 1;
 
         Some(self.frames.clone())
     }
@@ -141,16 +146,11 @@ impl FramesEntry {
     /// been used.
     pub fn cooldown(&self) -> usize {
         let mut cycle = 0;
-        for (i, &temp) in self.temperature.iter().enumerate().rev() {
-            if self.age > i {
-                if temp > 0 {
-                    return self.temperature.len() - 1 - i;
-                }
-            } else {
+        for &temp in &self.temperature[.. self.age] {
+            if temp > 0 {
                 return cycle;
             }
-
-            cycle += 1
+            cycle += 1;
         }
 
         cycle
@@ -158,7 +158,7 @@ impl FramesEntry {
 
     /// Whether this element was used in the last compilation cycle.
     pub fn hit(&self) -> bool {
-        self.temperature.last().unwrap() != &0
+        self.temperature[0] != 0
     }
 }
 
@@ -213,10 +213,10 @@ impl Constraints {
         let base = regions.base.to_spec();
         let current = regions.current.to_spec();
 
-        current.eq_by(&self.min, |&x, y| y.map_or(true, |y| x.fits(y)))
+        current.eq_by(&self.min, |x, y| y.map_or(true, |y| x.fits(y)))
             && current.eq_by(&self.max, |x, y| y.map_or(true, |y| x < &y))
-            && current.eq_by(&self.exact, |&x, y| y.map_or(true, |y| x.approx_eq(y)))
-            && base.eq_by(&self.base, |&x, y| y.map_or(true, |y| x.approx_eq(y)))
+            && current.eq_by(&self.exact, |x, y| y.map_or(true, |y| x.approx_eq(y)))
+            && base.eq_by(&self.base, |x, y| y.map_or(true, |y| x.approx_eq(y)))
     }
 
     /// Changes all constraints by adding the `size` to them if they are `Some`.
@@ -235,18 +235,13 @@ impl Constraints {
             }
         }
 
-        self.exact = override_if_some(self.exact, regions.current.to_spec());
-        self.base = override_if_some(self.base, regions.base.to_spec());
-    }
-}
+        let current = regions.current.to_spec();
+        let base = regions.base.to_spec();
 
-fn override_if_some(
-    one: Spec<Option<Length>>,
-    other: Spec<Length>,
-) -> Spec<Option<Length>> {
-    Spec {
-        vertical: one.vertical.map(|_| other.vertical),
-        horizontal: one.horizontal.map(|_| other.horizontal),
+        self.exact.horizontal.set_if_some(current.horizontal);
+        self.exact.vertical.set_if_some(current.vertical);
+        self.base.horizontal.set_if_some(base.horizontal);
+        self.base.vertical.set_if_some(base.vertical);
     }
 }
 
@@ -272,9 +267,13 @@ pub trait OptionExt {
     // Sets `other` as the value if the Option is `None` or if it contains a
     // value larger than `other`.
     fn set_min(&mut self, other: Length);
+
     // Sets `other` as the value if the Option is `None` or if it contains a
     // value smaller than `other`.
     fn set_max(&mut self, other: Length);
+
+    /// Sets `other` as the value if the Option is `Some`.
+    fn set_if_some(&mut self, other: Length);
 }
 
 impl OptionExt for Option<Length> {
@@ -289,6 +288,12 @@ impl OptionExt for Option<Length> {
         match self {
             Some(x) => x.set_max(other),
             None => *self = Some(other),
+        }
+    }
+
+    fn set_if_some(&mut self, other: Length) {
+        if self.is_some() {
+            *self = Some(other);
         }
     }
 }
