@@ -15,9 +15,11 @@ impl Layout for PadNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        let mut regions = regions.map(|size| size - self.padding.resolve(size).size());
-
-        let mut frames = self.child.layout(ctx, &regions);
+        let mut regions = regions.clone();
+        let mut frames = self.child.layout(
+            ctx,
+            &regions.map(|size| size - self.padding.resolve(size).size()),
+        );
 
         for frame in &mut frames {
             let padded = solve(self.padding, frame.size);
@@ -28,7 +30,7 @@ impl Layout for PadNode {
             let prev = std::mem::take(&mut frame.item);
             new.push_frame(origin, prev);
 
-            frame.constraints.mutate(padding.size() * -1.0);
+            frame.constraints.mutate(padding.size(), &regions);
 
             if self.padding.left.is_relative() || self.padding.right.is_relative() {
                 frame.constraints.base.horizontal = Some(regions.base.width);
@@ -40,6 +42,7 @@ impl Layout for PadNode {
             regions.next();
             *Rc::make_mut(&mut frame.item) = new;
         }
+
         frames
     }
 }

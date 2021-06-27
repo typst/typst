@@ -190,6 +190,7 @@ impl<'a> ParLayouter<'a> {
             // line cannot be broken up further.
             if !stack.regions.current.fits(line.size) {
                 if let Some((last_line, last_end)) = last.take() {
+                    // The region must not fit this line for the result to be valid.
                     if !stack.regions.current.width.fits(line.size.width) {
                         stack.constraints.max.horizontal.set_min(line.size.width);
                     }
@@ -213,10 +214,31 @@ impl<'a> ParLayouter<'a> {
             while !stack.regions.current.height.fits(line.size.height)
                 && !stack.regions.in_full_last()
             {
-                stack.constraints.max.vertical.set_min(line.size.height);
+                // Again, the line must not fit. It would if the space taken up
+                // plus the line height would fit, therefore the constraint
+                // below.
+                stack
+                    .constraints
+                    .max
+                    .vertical
+                    .set_min(stack.size.height + line.size.height);
                 stack.finish_region(ctx);
             }
 
+            // If the line does not fit vertically, we start a new region.
+            while !stack.regions.current.height.fits(line.size.height) {
+                if stack.regions.in_full_last() {
+                    stack.overflowing = true;
+                    break;
+                }
+
+                stack
+                    .constraints
+                    .max
+                    .vertical
+                    .set_min(stack.size.height + line.size.height);
+                stack.finish_region(ctx);
+            }
             // If the line does not fit horizontally or we have a mandatory
             // line break (i.e. due to "\n"), we push the line into the
             // stack.
@@ -303,11 +325,13 @@ impl ParItem<'_> {
 /// Stacks lines on top of each other.
 struct LineStack<'a> {
     line_spacing: Length,
+    full: Size,
     regions: Regions,
     size: Size,
     lines: Vec<LineLayout<'a>>,
     finished: Vec<Constrained<Rc<Frame>>>,
     constraints: Constraints,
+    overflowing: bool,
 }
 
 impl<'a> LineStack<'a> {
@@ -316,10 +340,12 @@ impl<'a> LineStack<'a> {
         Self {
             line_spacing,
             constraints: Constraints::new(regions.expand),
+            full: regions.current,
             regions,
             size: Size::zero(),
             lines: vec![],
             finished: vec![],
+            overflowing: false,
         }
     }
 
@@ -343,6 +369,12 @@ impl<'a> LineStack<'a> {
             self.constraints.exact.horizontal = Some(self.regions.current.width);
         }
 
+        if self.overflowing {
+            self.constraints.min.vertical = None;
+            self.constraints.max.vertical = None;
+            self.constraints.exact = self.full.to_spec().map(Some);
+        }
+
         let mut output = Frame::new(self.size, self.size.height);
         let mut offset = Length::zero();
         let mut first = true;
@@ -362,6 +394,7 @@ impl<'a> LineStack<'a> {
 
         self.finished.push(output.constrain(self.constraints));
         self.regions.next();
+        self.full = self.regions.current;
         self.constraints = Constraints::new(self.regions.expand);
         self.size = Size::zero();
     }

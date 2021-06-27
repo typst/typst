@@ -16,13 +16,13 @@ use walkdir::WalkDir;
 use typst::cache::Cache;
 use typst::color;
 use typst::diag::{Diag, DiagSet, Level};
-use typst::eval::{EvalContext, FuncArgs, FuncValue, Scope, Value};
-use typst::exec::State;
+use typst::eval::{eval, EvalContext, FuncArgs, FuncValue, Scope, Value};
+use typst::exec::{exec, State};
 use typst::geom::{self, Length, Point, Sides, Size};
 use typst::image::ImageId;
-use typst::layout::{Element, Fill, Frame, Shape, Text};
+use typst::layout::{layout, Element, Fill, Frame, Shape, Text};
 use typst::loading::FsLoader;
-use typst::parse::{LineMap, Scanner};
+use typst::parse::{parse, LineMap, Scanner};
 use typst::syntax::{Location, Pos};
 
 const TYP_DIR: &str = "./typ";
@@ -224,14 +224,20 @@ fn test_part(
     state.page.size = Size::new(Length::pt(120.0), Length::inf());
     state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
-    // Clear cache between tests (for now).
-    cache.layout.clear();
+    let parsed = parse(src);
+    let evaluated = eval(
+        loader,
+        cache,
+        Some(src_path),
+        Rc::new(parsed.output),
+        &scope,
+    );
+    let executed = exec(&evaluated.output.template, state.clone());
+    let mut layouted = layout(loader, cache, &executed.output);
 
-    let mut pass = typst::typeset(loader, cache, Some(src_path), &src, &scope, state);
-
-    if !compare_ref {
-        pass.output.clear();
-    }
+    let mut diags = parsed.diags;
+    diags.extend(evaluated.diags);
+    diags.extend(executed.diags);
 
     let mut ok = true;
 
@@ -247,11 +253,11 @@ fn test_part(
         ok = false;
     }
 
-    if pass.diags != ref_diags {
+    if diags != ref_diags {
         println!("  Subtest {} does not match expected diagnostics. ❌", i);
         ok = false;
 
-        for diag in &pass.diags {
+        for diag in &diags {
             if !ref_diags.contains(diag) {
                 print!("    Not annotated | ");
                 print_diag(diag, &map, lines);
@@ -259,14 +265,58 @@ fn test_part(
         }
 
         for diag in &ref_diags {
-            if !pass.diags.contains(diag) {
+            if !diags.contains(diag) {
                 print!("    Not emitted   | ");
                 print_diag(diag, &map, lines);
             }
         }
     }
 
-    (ok, compare_ref, pass.output)
+    let reference_cache = cache.layout.clone();
+    for level in 0 .. reference_cache.levels() {
+        cache.layout = reference_cache.clone();
+        cache.layout.retain(|x| x == level);
+        if cache.layout.frames.is_empty() {
+            continue;
+        }
+
+        cache.layout.turnaround();
+
+        let cached_result = layout(loader, cache, &executed.output);
+
+        let misses = cache
+            .layout
+            .frames
+            .iter()
+            .flat_map(|(_, e)| e)
+            .filter(|e| e.level == level && !e.hit() && e.age() == 2)
+            .count();
+
+        if misses > 0 {
+            ok = false;
+            println!(
+                "    Recompilation had {} cache misses on level {} (Subtest {}) ❌",
+                misses, level, i
+            );
+        }
+
+        if cached_result != layouted {
+            ok = false;
+            println!(
+                "    Recompilation of subtest {} differs from clean pass ❌",
+                i
+            );
+        }
+    }
+
+    cache.layout = reference_cache;
+    cache.layout.turnaround();
+
+    if !compare_ref {
+        layouted.clear();
+    }
+
+    (ok, compare_ref, layouted)
 }
 
 fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {

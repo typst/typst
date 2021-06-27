@@ -108,6 +108,11 @@ impl Length {
         self.raw + 1e-6 >= other.raw
     }
 
+    /// Compares two lengths for whether they are approximately equal.
+    pub fn approx_eq(self, other: Self) -> bool {
+        self == other || (self - other).to_raw().abs() < 1e-6
+    }
+
     /// Whether the length is zero.
     pub fn is_zero(self) -> bool {
         self.raw == 0.0

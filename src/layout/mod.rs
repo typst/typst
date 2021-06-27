@@ -102,18 +102,10 @@ impl Layout for AnyNode {
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
         ctx.level += 1;
-        let frames = ctx
-            .cache
-            .layout
-            .frames
-            .get(&self.hash)
-            .and_then(|x| x.check(regions.clone()))
-            .unwrap_or_else(|| {
+        let frames =
+            ctx.cache.layout.get(self.hash, regions.clone()).unwrap_or_else(|| {
                 let frames = self.node.layout(ctx, regions);
-                ctx.cache.layout.frames.insert(self.hash, FramesEntry {
-                    frames: frames.clone(),
-                    level: ctx.level - 1,
-                });
+                ctx.cache.layout.insert(self.hash, frames.clone(), ctx.level - 1);
                 frames
             });
         ctx.level -= 1;

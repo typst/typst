@@ -1,4 +1,5 @@
-use std::{collections::HashMap, ops::Deref};
+use std::collections::{hash_map::Entry, HashMap};
+use std::ops::Deref;
 
 use super::*;
 
@@ -6,14 +7,18 @@ use super::*;
 #[derive(Default, Debug, Clone)]
 pub struct LayoutCache {
     /// Maps from node hashes to the resulting frames and regions in which the
-    /// frames are valid.
-    pub frames: HashMap<u64, FramesEntry>,
+    /// frames are valid. The right hand side of the hash map is a vector of
+    /// results because across one or more compilations, multiple different
+    /// layouts of the same node may have been requested.
+    pub frames: HashMap<u64, Vec<FramesEntry>>,
+    /// In how many compilations this cache has been used.
+    age: usize,
 }
 
 impl LayoutCache {
     /// Create a new, empty layout cache.
     pub fn new() -> Self {
-        Self { frames: HashMap::new() }
+        Self { frames: HashMap::new(), age: 0 }
     }
 
     /// Clear the cache.
@@ -21,42 +26,143 @@ impl LayoutCache {
         self.frames.clear();
     }
 
+    /// Amount of items in the cache.
+    pub fn len(&self) -> usize {
+        self.frames.iter().map(|(_, e)| e.len()).sum()
+    }
+
     /// Retains all elements for which the closure on the level returns `true`.
     pub fn retain<F>(&mut self, mut f: F)
     where
         F: FnMut(usize) -> bool,
     {
-        self.frames.retain(|_, entry| f(entry.level));
+        for (_, entries) in self.frames.iter_mut() {
+            entries.retain(|entry| f(entry.level));
+        }
     }
 
-    /// Amount of items in the cache.
-    pub fn len(&self) -> usize {
-        self.frames.len()
+    /// Prepare the cache for the next round of compilation
+    pub fn turnaround(&mut self) {
+        self.age += 1;
+        for entry in self.frames.iter_mut().flat_map(|(_, x)| x.iter_mut()) {
+            for i in 0 .. (entry.temperature.len() - 1) {
+                entry.temperature[i + 1] = entry.temperature[i];
+            }
+            entry.temperature[0] = 0;
+            entry.age += 1;
+        }
+    }
+
+    /// The amount of levels stored in the cache.
+    pub fn levels(&self) -> usize {
+        self.frames
+            .iter()
+            .flat_map(|(_, x)| x)
+            .map(|entry| entry.level + 1)
+            .max()
+            .unwrap_or(0)
+    }
+
+    /// Fetches the appropriate entry from the cache if there is any.
+    pub fn get(
+        &mut self,
+        hash: u64,
+        regions: Regions,
+    ) -> Option<Vec<Constrained<Rc<Frame>>>> {
+        self.frames.get_mut(&hash).and_then(|frames| {
+            for frame in frames {
+                let res = frame.check(regions.clone());
+                if res.is_some() {
+                    return res;
+                }
+            }
+
+            None
+        })
+    }
+
+    /// Inserts a new frame set into the cache.
+    pub fn insert(
+        &mut self,
+        hash: u64,
+        frames: Vec<Constrained<Rc<Frame>>>,
+        level: usize,
+    ) {
+        let entry = FramesEntry::new(frames, level);
+        match self.frames.entry(hash) {
+            Entry::Occupied(o) => o.into_mut().push(entry),
+            Entry::Vacant(v) => {
+                v.insert(vec![entry]);
+            }
+        }
     }
 }
 
-#[derive(Debug, Clone)]
 /// Cached frames from past layouting.
+#[derive(Debug, Clone)]
 pub struct FramesEntry {
     /// The cached frames for a node.
     pub frames: Vec<Constrained<Rc<Frame>>>,
     /// How nested the frame was in the context is was originally appearing in.
     pub level: usize,
+    /// For how long the element already exists.
+    age: usize,
+    /// How much the element was accessed during the last five compilations, the
+    /// most recent one being the first element.
+    temperature: [usize; 5],
 }
 
 impl FramesEntry {
+    /// Construct a new instance.
+    pub fn new(frames: Vec<Constrained<Rc<Frame>>>, level: usize) -> Self {
+        Self {
+            frames,
+            level,
+            age: 1,
+            temperature: [0; 5],
+        }
+    }
+
     /// Checks if the cached [`Frame`] is valid for the given regions.
-    pub fn check(&self, mut regions: Regions) -> Option<Vec<Constrained<Rc<Frame>>>> {
+    pub fn check(&mut self, mut regions: Regions) -> Option<Vec<Constrained<Rc<Frame>>>> {
         for (i, frame) in self.frames.iter().enumerate() {
             if (i != 0 && !regions.next()) || !frame.constraints.check(&regions) {
                 return None;
             }
         }
 
+        self.temperature[0] += 1;
+
         Some(self.frames.clone())
+    }
+
+    /// Get the amount of compilation cycles this item has remained in the
+    /// cache.
+    pub fn age(&self) -> usize {
+        self.age
+    }
+
+    /// Get the amount of consecutive cycles in which this item has not
+    /// been used.
+    pub fn cooldown(&self) -> usize {
+        let mut cycle = 0;
+        for &temp in &self.temperature[.. self.age] {
+            if temp > 0 {
+                return cycle;
+            }
+            cycle += 1;
+        }
+
+        cycle
+    }
+
+    /// Whether this element was used in the last compilation cycle.
+    pub fn hit(&self) -> bool {
+        self.temperature[0] != 0
     }
 }
 
+/// Describe regions that match them.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Constraints {
     /// The minimum available length in the region.
@@ -107,25 +213,40 @@ impl Constraints {
         let base = regions.base.to_spec();
         let current = regions.current.to_spec();
 
-        current.eq_by(&self.min, |x, y| y.map_or(true, |y| x >= &y))
+        current.eq_by(&self.min, |x, y| y.map_or(true, |y| x.fits(y)))
             && current.eq_by(&self.max, |x, y| y.map_or(true, |y| x < &y))
-            && current.eq_by(&self.exact, |x, y| y.map_or(true, |y| x == &y))
-            && base.eq_by(&self.base, |x, y| y.map_or(true, |y| x == &y))
+            && current.eq_by(&self.exact, |x, y| y.map_or(true, |y| x.approx_eq(y)))
+            && base.eq_by(&self.base, |x, y| y.map_or(true, |y| x.approx_eq(y)))
     }
 
-    /// Changes all constraints by adding the argument to them if they are set.
-    pub fn mutate(&mut self, size: Size) {
-        for x in &mut [self.min, self.max, self.exact, self.base] {
-            if let Some(horizontal) = x.horizontal.as_mut() {
+    /// Changes all constraints by adding the `size` to them if they are `Some`.
+    pub fn mutate(&mut self, size: Size, regions: &Regions) {
+        for spec in std::array::IntoIter::new([
+            &mut self.min,
+            &mut self.max,
+            &mut self.exact,
+            &mut self.base,
+        ]) {
+            if let Some(horizontal) = spec.horizontal.as_mut() {
                 *horizontal += size.width;
             }
-            if let Some(vertical) = x.vertical.as_mut() {
+            if let Some(vertical) = spec.vertical.as_mut() {
                 *vertical += size.height;
             }
         }
+
+        let current = regions.current.to_spec();
+        let base = regions.base.to_spec();
+
+        self.exact.horizontal.set_if_some(current.horizontal);
+        self.exact.vertical.set_if_some(current.vertical);
+        self.base.horizontal.set_if_some(base.horizontal);
+        self.base.vertical.set_if_some(base.vertical);
     }
 }
 
+/// Carries an item that only applies to certain regions and the constraints
+/// that describe these regions.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Constrained<T> {
     pub item: T,
@@ -140,9 +261,19 @@ impl<T> Deref for Constrained<T> {
     }
 }
 
+/// Extends length-related options by providing convenience methods for setting
+/// minimum and maximum lengths on them, even if they are `None`.
 pub trait OptionExt {
+    // Sets `other` as the value if the Option is `None` or if it contains a
+    // value larger than `other`.
     fn set_min(&mut self, other: Length);
+
+    // Sets `other` as the value if the Option is `None` or if it contains a
+    // value smaller than `other`.
     fn set_max(&mut self, other: Length);
+
+    /// Sets `other` as the value if the Option is `Some`.
+    fn set_if_some(&mut self, other: Length);
 }
 
 impl OptionExt for Option<Length> {
@@ -157,6 +288,12 @@ impl OptionExt for Option<Length> {
         match self {
             Some(x) => x.set_max(other),
             None => *self = Some(other),
+        }
+    }
+
+    fn set_if_some(&mut self, other: Length) {
+        if self.is_some() {
+            *self = Some(other);
         }
     }
 }
