@@ -229,7 +229,9 @@ impl Debug for TemplateFunc {
 /// A wrapper around a reference-counted executable function.
 #[derive(Clone)]
 pub struct FuncValue {
-    name: Option<String>,
+    /// The string is boxed to make the whole struct fit into 24 bytes, so that
+    /// a [`Value`] fits into 32 bytes.
+    name: Option<Box<String>>,
     f: Rc<dyn Fn(&mut EvalContext, &mut FuncArgs) -> Value>,
 }
 
@@ -239,12 +241,12 @@ impl FuncValue {
     where
         F: Fn(&mut EvalContext, &mut FuncArgs) -> Value + 'static,
     {
-        Self { name, f: Rc::new(f) }
+        Self { name: name.map(Box::new), f: Rc::new(f) }
     }
 
     /// The name of the function.
     pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
+        self.name.as_ref().map(|s| s.as_str())
     }
 }
 
