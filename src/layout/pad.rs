@@ -1,7 +1,8 @@
 use super::*;
 
 /// A node that adds padding to its child.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub struct PadNode {
     /// The amount of padding.
     pub padding: Sides<Linear>,

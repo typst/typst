@@ -24,9 +24,12 @@ pub use stack::*;
 
 use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
+#[cfg(feature = "layout-cache")]
+use std::hash::Hasher;
 use std::rc::Rc;
 
+#[cfg(feature = "layout-cache")]
 use fxhash::FxHasher64;
 
 use crate::cache::Cache;
@@ -35,7 +38,12 @@ use crate::loading::Loader;
 
 /// Layout a tree into a collection of frames.
 pub fn layout(loader: &mut dyn Loader, cache: &mut Cache, tree: &Tree) -> Vec<Rc<Frame>> {
-    tree.layout(&mut LayoutContext { loader, cache, level: 0 })
+    tree.layout(&mut LayoutContext {
+        loader,
+        cache,
+        #[cfg(feature = "layout-cache")]
+        level: 0,
+    })
 }
 
 /// A tree of layout nodes.
@@ -77,21 +85,34 @@ impl PageRun {
 /// A wrapper around a dynamic layouting node.
 pub struct AnyNode {
     node: Box<dyn Bounds>,
+    #[cfg(feature = "layout-cache")]
     hash: u64,
 }
 
 impl AnyNode {
     /// Create a new instance from any node that satisifies the required bounds.
+    #[cfg(feature = "layout-cache")]
     pub fn new<T>(node: T) -> Self
     where
         T: Layout + Debug + Clone + PartialEq + Hash + 'static,
     {
-        let mut state = FxHasher64::default();
-        node.type_id().hash(&mut state);
-        node.hash(&mut state);
-        let hash = state.finish();
+        let hash = {
+            let mut state = FxHasher64::default();
+            node.type_id().hash(&mut state);
+            node.hash(&mut state);
+            state.finish()
+        };
 
         Self { node: Box::new(node), hash }
+    }
+
+    /// Create a new instance from any node that satisifies the required bounds.
+    #[cfg(not(feature = "layout-cache"))]
+    pub fn new<T>(node: T) -> Self
+    where
+        T: Layout + Debug + Clone + PartialEq + 'static,
+    {
+        Self { node: Box::new(node) }
     }
 }
 
@@ -101,15 +122,20 @@ impl Layout for AnyNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        ctx.level += 1;
-        let frames =
-            ctx.cache.layout.get(self.hash, regions.clone()).unwrap_or_else(|| {
-                let frames = self.node.layout(ctx, regions);
-                ctx.cache.layout.insert(self.hash, frames.clone(), ctx.level - 1);
-                frames
-            });
-        ctx.level -= 1;
-        frames
+        #[cfg(feature = "layout-cache")]
+        {
+            ctx.level += 1;
+            let frames =
+                ctx.cache.layout.get(self.hash, regions.clone()).unwrap_or_else(|| {
+                    let frames = self.node.layout(ctx, regions);
+                    ctx.cache.layout.insert(self.hash, frames.clone(), ctx.level - 1);
+                    frames
+                });
+            ctx.level -= 1;
+            frames
+        }
+        #[cfg(not(feature = "layout-cache"))]
+        self.node.layout(ctx, regions)
     }
 }
 
@@ -117,6 +143,7 @@ impl Clone for AnyNode {
     fn clone(&self) -> Self {
         Self {
             node: self.node.dyn_clone(),
+            #[cfg(feature = "layout-cache")]
             hash: self.hash,
         }
     }
@@ -128,6 +155,7 @@ impl PartialEq for AnyNode {
     }
 }
 
+#[cfg(feature = "layout-cache")]
 impl Hash for AnyNode {
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_u64(self.hash);
@@ -184,6 +212,7 @@ pub struct LayoutContext<'a> {
     /// A cache for loaded fonts and artifacts from past layouting.
     pub cache: &'a mut Cache,
     /// How deeply nested the current layout tree position is.
+    #[cfg(feature = "layout-cache")]
     pub level: usize,
 }
 

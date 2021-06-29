@@ -5,9 +5,13 @@ authors = ["The Typst Project Developers"]
 edition = "2018"
 publish = false
 
+[features]
+default = ["layout-cache"]
+layout-cache = ["typst/layout-cache"]
+
 [dev-dependencies]
-criterion = "0.3"
-typst = { path = ".." }
+criterion = { version = "0.3", features = ["html_reports"] }
+typst = { path = "..", default-features = false, features = ["fs"] }
 
 [[bench]]
 name = "typst"

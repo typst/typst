@@ -36,6 +36,9 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
 
+      - name: Dependency cache
+        uses: Swatinem/rust-cache@v1
+
       - name: Build
         uses: actions-rs/cargo@v1
         with:
@@ -47,3 +50,9 @@ jobs:
         with:
           command: test
           args: --manifest-path typst/Cargo.toml --all-features
+
+      - name: Test without incremental
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path typst/Cargo.toml --no-default-features --features fs

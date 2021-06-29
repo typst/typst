@@ -1,3 +1,4 @@
+#[cfg(feature = "layout-cache")]
 use std::collections::{hash_map::Entry, HashMap};
 use std::ops::Deref;
 
@@ -5,6 +6,7 @@ use super::*;
 
 /// Caches layouting artifacts.
 #[derive(Default, Debug, Clone)]
+#[cfg(feature = "layout-cache")]
 pub struct LayoutCache {
     /// Maps from node hashes to the resulting frames and regions in which the
     /// frames are valid. The right hand side of the hash map is a vector of
@@ -15,6 +17,7 @@ pub struct LayoutCache {
     age: usize,
 }
 
+#[cfg(feature = "layout-cache")]
 impl LayoutCache {
     /// Create a new, empty layout cache.
     pub fn new() -> Self {
@@ -100,6 +103,7 @@ impl LayoutCache {
 
 /// Cached frames from past layouting.
 #[derive(Debug, Clone)]
+#[cfg(feature = "layout-cache")]
 pub struct FramesEntry {
     /// The cached frames for a node.
     pub frames: Vec<Constrained<Rc<Frame>>>,
@@ -112,6 +116,7 @@ pub struct FramesEntry {
     temperature: [usize; 5],
 }
 
+#[cfg(feature = "layout-cache")]
 impl FramesEntry {
     /// Construct a new instance.
     pub fn new(frames: Vec<Constrained<Rc<Frame>>>, level: usize) -> Self {
@@ -205,6 +210,7 @@ impl Constraints {
         }
     }
 
+    #[cfg(feature = "layout-cache")]
     fn check(&self, regions: &Regions) -> bool {
         if self.expand != regions.expand {
             return false;
