@@ -26,8 +26,8 @@ decorum = { version = "0.3.1", default-features = false, features = ["serialize-
 fxhash = "0.2.1"
 image = { version = "0.23", default-features = false, features = ["png", "jpeg"] }
 miniz_oxide = "0.3"
-pdf-writer = { path = "../pdf-writer" }
-rustybuzz = { git = "https://github.com/laurmaedje/rustybuzz" }
+pdf-writer = "0.3"
+rustybuzz = "0.4"
 serde = { version = "1", features = ["derive", "rc"] }
 ttf-parser = "0.12"
 unicode-bidi = "0.3.5"

@@ -275,12 +275,12 @@ fn shape_segment<'a>(
         let info = &infos[i];
         let cluster = info.cluster as usize;
 
-        if info.codepoint != 0 || !fallback {
+        if info.glyph_id != 0 || !fallback {
             // Add the glyph to the shaped output.
             // TODO: Don't ignore y_advance and y_offset.
             glyphs.push(ShapedGlyph {
                 face_id,
-                glyph_id: info.codepoint as u16,
+                glyph_id: info.glyph_id as u16,
                 x_advance: face.to_em(pos[i].x_advance).to_length(state.size),
                 x_offset: face.to_em(pos[i].x_offset).to_length(state.size),
                 text_index: base + cluster,
@@ -291,7 +291,7 @@ fn shape_segment<'a>(
             let range = {
                 // First, search for the end of the tofu sequence.
                 let k = i;
-                while infos.get(i + 1).map_or(false, |info| info.codepoint == 0) {
+                while infos.get(i + 1).map_or(false, |info| info.glyph_id == 0) {
                     i += 1;
                 }
 
