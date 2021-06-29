@@ -146,7 +146,7 @@ fn test(
     let mut compare_ref = true;
     let mut compare_ever = false;
 
-    let parts: Vec<_> = src.split("---").collect();
+    let parts: Vec<_> = src.split("\n---").collect();
     for (i, part) in parts.iter().enumerate() {
         let is_header = i == 0
             && parts.len() > 1
@@ -168,7 +168,7 @@ fn test(
             frames.extend(part_frames);
         }
 
-        lines += part.lines().count() as u32;
+        lines += part.lines().count() as u32 + 1;
     }
 
     if compare_ever {

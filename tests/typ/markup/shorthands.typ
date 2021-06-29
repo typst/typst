@@ -4,4 +4,5 @@
 The non-breaking~space does work.
 
 ---
-En dash: --
+- En dash: --
+- Em dash: ---

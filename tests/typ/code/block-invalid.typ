@@ -29,7 +29,7 @@
 
 ---
 // Ref: false
-// Error: 3:1 expected closing brace
+// Error: 2:1 expected closing brace
 {
 
 ---
