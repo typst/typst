@@ -1,54 +1,91 @@
-//! Syntax tree traversal.
+//! Mutable and immutable syntax tree traversal.
 
-use super::*;
+use crate::syntax::*;
 
-macro_rules! visit {
-    ($(fn $name:ident($v:ident $(, $node:ident: &$ty:ty)?) $body:block)*) => {
-        /// Traverses the syntax tree.
-        pub trait Visit<'ast> {
-            $(fn $name(&mut self $(, $node: &'ast $ty)?) {
-                $name(self, $($node)?);
-            })*
+/// Implement the immutable and the mutable visitor version.
+macro_rules! impl_visitors {
+    ($($name:ident($($tts:tt)*) $body:block)*) => {
+        macro_rules! r {
+            (rc: $x:expr) => { $x.as_ref() };
+            ($x:expr) => { &$x };
+        }
 
+        impl_visitor! {
+            /// Walk syntax trees immutably.
+            Visit,
+            /// Immutable visitor functions.
+            immutable,
+            [$(($name($($tts)*) $body))*]
+        }
+
+        macro_rules! r {
+            (rc: $x:expr) => { std::rc::Rc::make_mut(&mut $x) };
+            ($x:expr) => { &mut $x };
+        }
+
+        impl_visitor! {
+            /// Walk syntax trees mutably.
+            VisitMut,
+            /// Mutable visitor functions.
+            mutable,
+            [$(($name($($tts)*) $body mut))*] mut
+        }
+    };
+}
+
+/// Implement an immutable or mutable visitor.
+macro_rules! impl_visitor {
+    (
+        #[doc = $visit_doc:expr] $visit:ident,
+        #[doc = $module_doc:expr] $module:ident,
+        [$((
+            $name:ident($v:ident, $node:ident: $ty:ty)
+            $body:block
+            $($fmut:tt)?
+        ))*]
+        $($mut:tt)?
+    ) => {
+        #[doc = $visit_doc]
+        pub trait $visit<'ast> {
             /// Visit a definition of a binding.
             ///
             /// Bindings are, for example, left-hand side of let expressions,
             /// and key/value patterns in for loops.
-            fn visit_binding(&mut self, _: &'ast Ident) {}
+            fn visit_binding(&mut self, _: &'ast $($mut)? Ident) {}
 
             /// Visit the entry into a scope.
             fn visit_enter(&mut self) {}
 
             /// Visit the exit from a scope.
             fn visit_exit(&mut self) {}
+
+            $(fn $name(&mut self, $node: &'ast $($fmut)? $ty) {
+                $module::$name(self, $node);
+            })*
         }
 
-        $(visit! {
-            @$(concat!("Walk a node of type [`", stringify!($ty), "`]."), )?
-            pub fn $name<'ast, V>(
-                #[allow(unused)] $v: &mut V
-                $(, #[allow(unused)] $node: &'ast $ty)?
-            )
-            where
-                V: Visit<'ast> + ?Sized
-            $body
-        })*
-    };
-
-    (@$doc:expr, $($tts:tt)*) => {
-        #[doc = $doc]
-        $($tts)*
+        #[doc = $module_doc]
+        pub mod $module {
+            use super::*;
+            $(
+                #[allow(unused_variables)]
+                pub fn $name<'ast, V>($v: &mut V, $node: &'ast $($fmut)? $ty)
+                where
+                    V: $visit<'ast> + ?Sized
+                $body
+            )*
+        }
     };
 }
 
-visit! {
-    fn visit_tree(v, node: &Tree) {
-        for node in node {
-            v.visit_node(&node);
+impl_visitors! {
+    visit_tree(v, tree: Tree) {
+        for node in tree {
+            v.visit_node(node);
         }
     }
 
-    fn visit_node(v, node: &Node) {
+    visit_node(v, node: Node) {
         match node {
             Node::Text(_) => {}
             Node::Space => {}
@@ -64,20 +101,20 @@ visit! {
         }
     }
 
-    fn visit_heading(v, node: &HeadingNode) {
-        v.visit_tree(&node.body);
+    visit_heading(v, heading: HeadingNode) {
+        v.visit_tree(r!(rc: heading.body));
     }
 
-    fn visit_list(v, node: &ListItem) {
-        v.visit_tree(&node.body);
+    visit_list(v, item: ListItem) {
+        v.visit_tree(r!(item.body));
     }
 
-    fn visit_enum(v, node: &EnumItem) {
-        v.visit_tree(&node.body);
+    visit_enum(v, item: EnumItem) {
+        v.visit_tree(r!(item.body));
     }
 
-    fn visit_expr(v, node: &Expr) {
-        match node {
+    visit_expr(v, expr: Expr) {
+        match expr {
             Expr::None(_) => {}
             Expr::Auto(_) => {}
             Expr::Bool(_, _) => {}
@@ -109,121 +146,121 @@ visit! {
         }
     }
 
-    fn visit_array(v, node: &ArrayExpr) {
-        for expr in &node.items {
-            v.visit_expr(&expr);
+    visit_array(v, array: ArrayExpr) {
+        for expr in r!(array.items) {
+            v.visit_expr(expr);
         }
     }
 
-    fn visit_dict(v, node: &DictExpr) {
-        for named in &node.items {
-            v.visit_expr(&named.expr);
+    visit_dict(v, dict: DictExpr) {
+        for named in r!(dict.items) {
+            v.visit_expr(r!(named.expr));
         }
     }
 
-    fn visit_template(v, node: &TemplateExpr) {
+    visit_template(v, template: TemplateExpr) {
         v.visit_enter();
-        v.visit_tree(&node.tree);
+        v.visit_tree(r!(rc: template.tree));
         v.visit_exit();
     }
 
-    fn visit_group(v, node: &GroupExpr) {
-        v.visit_expr(&node.expr);
+    visit_group(v, group: GroupExpr) {
+        v.visit_expr(r!(group.expr));
     }
 
-    fn visit_block(v, node: &BlockExpr) {
-        if node.scoping {
+    visit_block(v, block: BlockExpr) {
+        if block.scoping {
             v.visit_enter();
         }
-        for expr in &node.exprs {
-            v.visit_expr(&expr);
+        for expr in r!(block.exprs) {
+            v.visit_expr(expr);
         }
-        if node.scoping {
+        if block.scoping {
             v.visit_exit();
         }
     }
 
-    fn visit_binary(v, node: &BinaryExpr) {
-        v.visit_expr(&node.lhs);
-        v.visit_expr(&node.rhs);
+    visit_binary(v, binary: BinaryExpr) {
+        v.visit_expr(r!(binary.lhs));
+        v.visit_expr(r!(binary.rhs));
     }
 
-    fn visit_unary(v, node: &UnaryExpr) {
-        v.visit_expr(&node.expr);
+    visit_unary(v, unary: UnaryExpr) {
+        v.visit_expr(r!(unary.expr));
     }
 
-    fn visit_call(v, node: &CallExpr) {
-        v.visit_expr(&node.callee);
-        v.visit_args(&node.args);
+    visit_call(v, call: CallExpr) {
+        v.visit_expr(r!(call.callee));
+        v.visit_args(r!(call.args));
     }
 
-    fn visit_closure(v, node: &ClosureExpr) {
-        for param in node.params.iter() {
+    visit_closure(v, closure: ClosureExpr) {
+        for param in r!(rc: closure.params) {
             v.visit_binding(param);
         }
-        v.visit_expr(&node.body);
+        v.visit_expr(r!(rc: closure.body));
     }
 
-    fn visit_args(v, node: &CallArgs) {
-        for arg in &node.items {
+    visit_args(v, args: CallArgs) {
+        for arg in r!(args.items) {
             v.visit_arg(arg);
         }
     }
 
-    fn visit_arg(v, node: &CallArg) {
-        match node {
-            CallArg::Pos(expr) => v.visit_expr(&expr),
-            CallArg::Named(named) => v.visit_expr(&named.expr),
+    visit_arg(v, arg: CallArg) {
+        match arg {
+            CallArg::Pos(expr) => v.visit_expr(expr),
+            CallArg::Named(named) => v.visit_expr(r!(named.expr)),
         }
     }
 
-    fn visit_with(v, node: &WithExpr) {
-        v.visit_expr(&node.callee);
-        v.visit_args(&node.args);
+    visit_with(v, with_expr: WithExpr) {
+        v.visit_expr(r!(with_expr.callee));
+        v.visit_args(r!(with_expr.args));
     }
 
-    fn visit_let(v, node: &LetExpr) {
-        if let Some(init) = &node.init {
-            v.visit_expr(&init);
+    visit_let(v, let_expr: LetExpr) {
+        if let Some(init) = r!(let_expr.init) {
+            v.visit_expr(init);
         }
-        v.visit_binding(&node.binding);
+        v.visit_binding(r!(let_expr.binding));
     }
 
-    fn visit_if(v, node: &IfExpr) {
-        v.visit_expr(&node.condition);
-        v.visit_expr(&node.if_body);
-        if let Some(body) = &node.else_body {
-            v.visit_expr(&body);
+    visit_if(v, if_expr: IfExpr) {
+        v.visit_expr(r!(if_expr.condition));
+        v.visit_expr(r!(if_expr.if_body));
+        if let Some(body) = r!(if_expr.else_body) {
+            v.visit_expr(body);
         }
     }
 
-    fn visit_while(v, node: &WhileExpr) {
-        v.visit_expr(&node.condition);
-        v.visit_expr(&node.body);
+    visit_while(v, while_expr: WhileExpr) {
+        v.visit_expr(r!(while_expr.condition));
+        v.visit_expr(r!(while_expr.body));
     }
 
-    fn visit_for(v, node: &ForExpr) {
-        v.visit_expr(&node.iter);
-        match &node.pattern {
+    visit_for(v, for_expr: ForExpr) {
+        v.visit_expr(r!(for_expr.iter));
+        match r!(for_expr.pattern) {
             ForPattern::Value(value) => v.visit_binding(value),
             ForPattern::KeyValue(key, value) => {
                 v.visit_binding(key);
                 v.visit_binding(value);
             }
         }
-        v.visit_expr(&node.body);
+        v.visit_expr(r!(for_expr.body));
     }
 
-    fn visit_import(v, node: &ImportExpr) {
-        v.visit_expr(&node.path);
-        if let Imports::Idents(idents) = &node.imports {
+    visit_import(v, import_expr: ImportExpr) {
+        v.visit_expr(r!(import_expr.path));
+        if let Imports::Idents(idents) = r!(import_expr.imports) {
             for ident in idents {
                 v.visit_binding(ident);
             }
         }
     }
 
-    fn visit_include(v, node: &IncludeExpr) {
-        v.visit_expr(&node.path);
+    visit_include(v, include_expr: IncludeExpr) {
+        v.visit_expr(r!(include_expr.path));
     }
 }
