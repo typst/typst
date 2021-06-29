@@ -2,6 +2,7 @@
 
 use crate::font::FontCache;
 use crate::image::ImageCache;
+#[cfg(feature = "layout-cache")]
 use crate::layout::LayoutCache;
 use crate::loading::Loader;
 
@@ -12,6 +13,7 @@ pub struct Cache {
     /// Caches decoded images.
     pub image: ImageCache,
     /// Caches layouting artifacts.
+    #[cfg(feature = "layout-cache")]
     pub layout: LayoutCache,
 }
 
@@ -21,6 +23,7 @@ impl Cache {
         Self {
             font: FontCache::new(loader),
             image: ImageCache::new(),
+            #[cfg(feature = "layout-cache")]
             layout: LayoutCache::new(),
         }
     }

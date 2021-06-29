@@ -272,45 +272,48 @@ fn test_part(
         }
     }
 
-    let reference_cache = cache.layout.clone();
-    for level in 0 .. reference_cache.levels() {
-        cache.layout = reference_cache.clone();
-        cache.layout.retain(|x| x == level);
-        if cache.layout.frames.is_empty() {
-            continue;
+    #[cfg(feature = "layout-cache")]
+    {
+        let reference_cache = cache.layout.clone();
+        for level in 0 .. reference_cache.levels() {
+            cache.layout = reference_cache.clone();
+            cache.layout.retain(|x| x == level);
+            if cache.layout.frames.is_empty() {
+                continue;
+            }
+
+            cache.layout.turnaround();
+
+            let cached_result = layout(loader, cache, &executed.output);
+
+            let misses = cache
+                .layout
+                .frames
+                .iter()
+                .flat_map(|(_, e)| e)
+                .filter(|e| e.level == level && !e.hit() && e.age() == 2)
+                .count();
+
+            if misses > 0 {
+                ok = false;
+                println!(
+                    "    Recompilation had {} cache misses on level {} (Subtest {}) ❌",
+                    misses, level, i
+                );
+            }
+
+            if cached_result != layouted {
+                ok = false;
+                println!(
+                    "    Recompilation of subtest {} differs from clean pass ❌",
+                    i
+                );
+            }
         }
 
+        cache.layout = reference_cache;
         cache.layout.turnaround();
-
-        let cached_result = layout(loader, cache, &executed.output);
-
-        let misses = cache
-            .layout
-            .frames
-            .iter()
-            .flat_map(|(_, e)| e)
-            .filter(|e| e.level == level && !e.hit() && e.age() == 2)
-            .count();
-
-        if misses > 0 {
-            ok = false;
-            println!(
-                "    Recompilation had {} cache misses on level {} (Subtest {}) ❌",
-                misses, level, i
-            );
-        }
-
-        if cached_result != layouted {
-            ok = false;
-            println!(
-                "    Recompilation of subtest {} differs from clean pass ❌",
-                i
-            );
-        }
     }
-
-    cache.layout = reference_cache;
-    cache.layout.turnaround();
 
     if !compare_ref {
         layouted.clear();

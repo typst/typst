@@ -1,7 +1,8 @@
 use super::*;
 
 /// A node that arranges its children in a grid.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub struct GridNode {
     /// The `main` and `cross` directions of this grid.
     ///
