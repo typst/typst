@@ -13,8 +13,8 @@ A
     // Error: 16 cannot modify page from here
     #pagebreak()
 
-    // Error: 12-16 cannot modify page from here
-    #page!("a4")
+    // Error: 11-15 cannot modify page from here
+    #page("a4")[]
 ]
 C
 
