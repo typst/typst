@@ -3,7 +3,7 @@
 ---
 // Test the `rect` function.
 
-#page(width: 150pt)
+#page!(width: 150pt)
 
 // Fit to text.
 #rect(fill: conifer)[Textbox]

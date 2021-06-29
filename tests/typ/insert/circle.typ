@@ -8,7 +8,7 @@ Auto-sized circle. \
 
 Center-aligned rect in auto-sized circle.
 #circle(fill: forest)[
-    #align(center, center)
+    #align!(center, center)
     #rect(fill: conifer, pad(5pt)[But, soft!])
 ]
 
@@ -23,8 +23,8 @@ Expanded by height.
 ---
 // Test relative sizing.
 #rect(width: 100%, height: 50pt, fill: #aaa)[
-    #align(center, center)
-    #font(color: #fff)
+    #align!(center, center)
+    #font!(color: #fff)
     #circle(radius: 10pt, fill: eastern)[A]
     #circle(height: 60%, fill: eastern)[B]
     #circle(width: 20% + 20pt, fill: eastern)[C]

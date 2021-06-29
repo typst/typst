@@ -72,10 +72,10 @@ impl Exec for syntax::RawNode {
             ctx.parbreak();
         }
 
-        let snapshot = ctx.state.clone();
+        let snapshot = Rc::clone(&ctx.state.font);
         ctx.set_monospace();
         ctx.push_text(&self.text);
-        ctx.state = snapshot;
+        ctx.state.font = snapshot;
 
         if self.block {
             ctx.parbreak();
@@ -85,16 +85,17 @@ impl Exec for syntax::RawNode {
 
 impl ExecWithMap for syntax::HeadingNode {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
+        ctx.parbreak();
+
         let snapshot = ctx.state.clone();
         let font = ctx.state.font_mut();
-
         let upscale = 1.6 - 0.1 * self.level as f64;
         font.size *= upscale;
         font.strong = true;
 
         self.body.exec_with_map(ctx, map);
-
         ctx.state = snapshot;
+
         ctx.parbreak();
     }
 }
@@ -113,8 +114,6 @@ impl ExecWithMap for syntax::EnumItem {
 }
 
 fn exec_item(ctx: &mut ExecContext, label: String, body: &syntax::Tree, map: &ExprMap) {
-    ctx.parbreak();
-
     let label = ctx.exec_stack(|ctx| ctx.push_text(label));
     let body = ctx.exec_tree_stack(body, map);
     let stack = StackNode {
@@ -128,7 +127,6 @@ fn exec_item(ctx: &mut ExecContext, label: String, body: &syntax::Tree, map: &Ex
     };
 
     ctx.push_into_stack(stack);
-    ctx.parbreak();
 }
 
 impl Exec for Value {
@@ -172,6 +170,8 @@ impl Exec for TemplateNode {
 
 impl Exec for TemplateFunc {
     fn exec(&self, ctx: &mut ExecContext) {
+        let snapshot = ctx.state.clone();
         self(ctx);
+        ctx.state = snapshot;
     }
 }
