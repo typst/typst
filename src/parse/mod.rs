@@ -15,7 +15,6 @@ pub use tokens::*;
 use std::rc::Rc;
 
 use crate::diag::Pass;
-use crate::syntax::visit::{mutable::visit_expr, VisitMut};
 use crate::syntax::*;
 
 /// Parse a string of source code.
@@ -50,55 +49,25 @@ fn tree_while<F>(p: &mut Parser, mut at_start: bool, f: &mut F) -> SyntaxTree
 where
     F: FnMut(&mut Parser) -> bool,
 {
-    /// Visitor that adds a recursively parsed rest template to the first wide
-    /// call's argument list and diagnoses all following wide calls.
-    struct WideVisitor<'a, 's, F> {
-        p: &'a mut Parser<'s>,
-        f: &'a mut F,
-        found: bool,
-    }
-
-    impl<'ast, 'a, 's, F> VisitMut<'ast> for WideVisitor<'a, 's, F>
-    where
-        F: FnMut(&mut Parser) -> bool,
-    {
-        fn visit_expr(&mut self, node: &'ast mut Expr) {
-            visit_expr(self, node);
-
-            if let Expr::Call(call) = node {
-                if call.wide {
-                    let start = self.p.next_start();
-                    let tree = if !self.found {
-                        tree_while(self.p, true, self.f)
-                    } else {
-                        self.p.diag(error!(call.callee.span(), "duplicate wide call"));
-                        SyntaxTree::default()
-                    };
-
-                    call.args.items.push(CallArg::Pos(Expr::Template(TemplateExpr {
-                        span: self.p.span(start),
-                        tree: Rc::new(tree),
-                    })));
-
-                    self.found = true;
-                }
-            }
-        }
-
-        // Don't recurse into templates.
-        fn visit_template(&mut self, _: &'ast mut TemplateExpr) {}
-    }
-
     // We use `at_start` to keep track of whether we are at the start of a line
     // or template to know whether things like headings are allowed.
     let mut tree = vec![];
     while !p.eof() && f(p) {
         if let Some(mut node) = node(p, &mut at_start) {
             at_start &= matches!(node, Node::Space | Node::Parbreak(_));
-            if let Node::Expr(expr) = &mut node {
-                let mut visitor = WideVisitor { p, f, found: false };
-                visitor.visit_expr(expr);
+
+            // Look for wide call.
+            if let Node::Expr(Expr::Call(call)) = &mut node {
+                if call.wide {
+                    let start = p.next_start();
+                    let tree = tree_while(p, true, f);
+                    call.args.items.push(CallArg::Pos(Expr::Template(TemplateExpr {
+                        span: p.span(start),
+                        tree: Rc::new(tree),
+                    })));
+                }
             }
+
             tree.push(node);
         }
     }
@@ -557,7 +526,15 @@ fn block(p: &mut Parser, scoping: bool) -> Expr {
 
 /// Parse a function call.
 fn call(p: &mut Parser, callee: Expr) -> Option<Expr> {
-    let wide = p.eat_if(Token::Excl);
+    let mut wide = p.eat_if(Token::Excl);
+    if wide && p.outer_mode() == TokenMode::Code {
+        let span = p.span(callee.span().start);
+        p.diag(error!(
+            span,
+            "wide calls are only allowed directly in templates",
+        ));
+        wide = false;
+    }
 
     let mut args = match p.peek_direct() {
         Some(Token::LeftParen) => {

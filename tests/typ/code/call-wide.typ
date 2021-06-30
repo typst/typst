@@ -12,32 +12,25 @@ C
 
 ---
 // Test evaluation semantics.
-// Ref: false
 
-#let r
 #let x = 1
 #let f(x, body) = (x, body)
-
-[
-  { r = f!(x) }
-  { x = 2 }
-]
-
-#test(repr(r), "(1, <template>)")
+#f!(x)
+{ x = 2 }
 
 ---
 // Test multiple wide calls in one expression.
 // Ref: false
 
-#let id(x) = x
-#let add(x, y) = x + y
+#let f() = []
+#let g(x, y) = []
 
-// Error: 11-13 duplicate wide call
-[{id!() + id!()}]
+// Error: 2-4 wide calls are only allowed directly in templates
+{f!()}
 
 // Test nested wide calls.
-// Error: 2-6 duplicate wide call
-[#add!(id!())]
+// Error: 5-7 wide calls are only allowed directly in templates
+#g!(f!())
 
 ---
 // Test missing parentheses.
