@@ -42,7 +42,7 @@ walkdir = { version = "2", optional = true }
 [dev-dependencies]
 walkdir = "2"
 tiny-skia = "0.5"
-usvg = { version = "0.14", default-features = false }
+usvg = { version = "0.15", default-features = false }
 
 [[bin]]
 name = "typst"
