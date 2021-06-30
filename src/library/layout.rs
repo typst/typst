@@ -20,7 +20,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let right = args.named(ctx, "right");
     let bottom = args.named(ctx, "bottom");
     let flip = args.named(ctx, "flip");
-    let body = args.eat::<TemplateValue>(ctx);
+    let body = args.expect::<TemplateValue>(ctx, "body").unwrap_or_default();
 
     Value::template(move |ctx| {
         let snapshot = ctx.state.clone();
@@ -66,13 +66,10 @@ pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         }
 
         ctx.pagebreak(false, true, span);
+        body.exec(ctx);
 
-        if let Some(body) = &body {
-            // TODO: Restrict body to a single page?
-            body.exec(ctx);
-            ctx.state = snapshot;
-            ctx.pagebreak(true, false, span);
-        }
+        ctx.state = snapshot;
+        ctx.pagebreak(true, false, span);
     })
 }
 
@@ -111,7 +108,7 @@ pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let second = args.eat::<AlignValue>(ctx);
     let mut horizontal = args.named::<AlignValue>(ctx, "horizontal");
     let mut vertical = args.named::<AlignValue>(ctx, "vertical");
-    let body = args.eat::<TemplateValue>(ctx);
+    let body = args.expect::<TemplateValue>(ctx, "body").unwrap_or_default();
 
     for value in first.into_iter().chain(second) {
         match value.axis() {
@@ -126,23 +123,19 @@ pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     }
 
     Value::template(move |ctx| {
-        let snapshot = ctx.state.clone();
-
         if let Some(horizontal) = horizontal {
             ctx.state.aligns.cross = horizontal.to_align(ctx.state.lang.dir);
         }
 
         if let Some(vertical) = vertical {
-            ctx.state.aligns.main = vertical.to_align(Dir::TTB);
-            if ctx.state.aligns.main != snapshot.aligns.main {
+            let new = vertical.to_align(Dir::TTB);
+            if ctx.state.aligns.main != new {
+                ctx.state.aligns.main = new;
                 ctx.parbreak();
             }
         }
 
-        if let Some(body) = &body {
-            body.exec(ctx);
-            ctx.state = snapshot;
-        }
+        body.exec(ctx);
     })
 }
 

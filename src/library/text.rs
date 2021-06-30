@@ -17,10 +17,9 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let serif = args.named(ctx, "serif");
     let sans_serif = args.named(ctx, "sans-serif");
     let monospace = args.named(ctx, "monospace");
-    let body = args.eat::<TemplateValue>(ctx);
+    let body = args.expect::<TemplateValue>(ctx, "body").unwrap_or_default();
 
     Value::template(move |ctx| {
-        let snapshot = ctx.state.clone();
         let font = ctx.state.font_mut();
 
         if let Some(linear) = size {
@@ -67,10 +66,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             font.families_mut().monospace = monospace.clone();
         }
 
-        if let Some(body) = &body {
-            body.exec(ctx);
-            ctx.state = snapshot;
-        }
+        body.exec(ctx);
     })
 }
 
@@ -161,6 +157,7 @@ pub fn par(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let spacing = args.named(ctx, "spacing");
     let leading = args.named(ctx, "leading");
     let word_spacing = args.named(ctx, "word-spacing");
+    let body = args.expect::<TemplateValue>(ctx, "body").unwrap_or_default();
 
     Value::template(move |ctx| {
         if let Some(spacing) = spacing {
@@ -176,6 +173,7 @@ pub fn par(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         }
 
         ctx.parbreak();
+        body.exec(ctx);
     })
 }
 
@@ -190,6 +188,7 @@ pub fn lang(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         }
         None => None,
     };
+    let body = args.expect::<TemplateValue>(ctx, "body").unwrap_or_default();
 
     Value::template(move |ctx| {
         if let Some(dir) = dir.or(iso) {
@@ -197,6 +196,7 @@ pub fn lang(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         }
 
         ctx.parbreak();
+        body.exec(ctx);
     })
 }
 
@@ -232,7 +232,7 @@ fn line_impl(
     let position = args.named(ctx, "position");
     let strength = args.named::<Linear>(ctx, "strength");
     let extent = args.named(ctx, "extent").unwrap_or_default();
-    let body = args.eat::<TemplateValue>(ctx);
+    let body = args.expect::<TemplateValue>(ctx, "body").unwrap_or_default();
 
     // Suppress any existing strikethrough if strength is explicitly zero.
     let state = strength.map_or(true, |s| !s.is_zero()).then(|| {
@@ -245,13 +245,7 @@ fn line_impl(
     });
 
     Value::template(move |ctx| {
-        let snapshot = ctx.state.clone();
-
         *substate(ctx.state.font_mut()) = state.clone();
-
-        if let Some(body) = &body {
-            body.exec(ctx);
-            ctx.state = snapshot;
-        }
+        body.exec(ctx);
     })
 }

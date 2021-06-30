@@ -372,10 +372,8 @@ fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
         let repr = typst::pretty::pretty(args);
         args.items.clear();
         Value::template(move |ctx| {
-            let snapshot = ctx.state.clone();
             ctx.set_monospace();
             ctx.push_text(&repr);
-            ctx.state = snapshot;
         })
     }
 

@@ -2,7 +2,7 @@
 
 ---
 // Set width and height.
-#page(width: 120pt, height: 120pt)
+#page!(width: 120pt, height: 120pt)
 #page(width: 40pt)[High]
 #page(height: 40pt)[Wide]
 
@@ -13,7 +13,7 @@
 ]
 
 // Set individual margins.
-#page(height: 40pt)
+#page!(height: 40pt)
 #page(left: 0pt, align(left)[Left])
 #page(right: 0pt, align(right)[Right])
 #page(top: 0pt, align(top)[Top])
@@ -22,21 +22,21 @@
 // Ensure that specific margins override general margins.
 #page(margins: 0pt, left: 20pt)[Overriden]
 
-// Error: 7-18 unknown variable
-#page(nonexistant)
+// Error: 8-19 unknown variable
+#page!(nonexistant)
 
 // Flipped predefined paper.
 #page("a11", flip: true)[Flipped A11]
 
 // Flipped custom page size.
-#page(width: 40pt, height: 120pt)
-#page(flip: true)
+#page!(width: 40pt, height: 120pt)
+#page!(flip: true)
 Wide
 
 ---
 // Test a combination of pages with bodies and normal content.
 
-#page(height: 50pt)
+#page!(height: 50pt)
 
 #page[First]
 #page[Second]

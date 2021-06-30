@@ -4,18 +4,24 @@
 // Test auto sizing.
 
 Auto-sized circle. \
-#circle(fill: #eb5278, align(center, center, [But, soft!]))
+#circle(fill: #eb5278)[
+    #align!(center, center)
+    But, soft!
+]
 
 Center-aligned rect in auto-sized circle.
 #circle(fill: forest)[
-    #align(center, center)
-    #rect(fill: conifer, pad(5pt)[But, soft!])
+    #align!(center, center)
+    #rect!(fill: conifer)
+    #pad!(5pt)
+    But, soft!
 ]
 
 100%-width rect in auto-sized circle. \
-#circle(fill: forest, rect(width: 100%, fill: conifer)[
+#circle(fill: forest)[
+    #rect!(width: 100%, fill: conifer)
     But, soft! what light through yonder window breaks?
-])
+]
 
 Expanded by height.
 #circle(fill: conifer)[A \ B \ C]
@@ -23,8 +29,8 @@ Expanded by height.
 ---
 // Test relative sizing.
 #rect(width: 100%, height: 50pt, fill: #aaa)[
-    #align(center, center)
-    #font(color: #fff)
+    #align!(center, center)
+    #font!(color: #fff)
     #circle(radius: 10pt, fill: eastern)[A]
     #circle(height: 60%, fill: eastern)[B]
     #circle(width: 20% + 20pt, fill: eastern)[C]

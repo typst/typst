@@ -117,7 +117,7 @@ impl<'s> Tokens<'s> {
 
             // Length two.
             '=' if self.s.eat_if('=') => Token::EqEq,
-            '!' if self.s.eat_if('=') => Token::BangEq,
+            '!' if self.s.eat_if('=') => Token::ExclEq,
             '<' if self.s.eat_if('=') => Token::LtEq,
             '>' if self.s.eat_if('=') => Token::GtEq,
             '+' if self.s.eat_if('=') => Token::PlusEq,
@@ -135,6 +135,7 @@ impl<'s> Tokens<'s> {
             '-' => Token::Hyph,
             '*' => Token::Star,
             '/' => Token::Slash,
+            '!' => Token::Excl,
             '=' => Token::Eq,
             '<' => Token::Lt,
             '>' => Token::Gt,
@@ -750,7 +751,7 @@ mod tests {
         t!(Code[" a1"]: "/" => Slash);
         t!(Code: "="        => Eq);
         t!(Code: "=="       => EqEq);
-        t!(Code: "!="       => BangEq);
+        t!(Code: "!="       => ExclEq);
         t!(Code: "<"        => Lt);
         t!(Code: "<="       => LtEq);
         t!(Code: ">"        => Gt);

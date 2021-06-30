@@ -15,6 +15,7 @@ pub use tokens::*;
 use std::rc::Rc;
 
 use crate::diag::Pass;
+use crate::syntax::visit::{mutable::visit_expr, VisitMut};
 use crate::syntax::*;
 
 /// Parse a string of source code.
@@ -25,7 +26,7 @@ pub fn parse(src: &str) -> Pass<Tree> {
 
 /// Parse a syntax tree.
 fn tree(p: &mut Parser) -> Tree {
-    tree_while(p, true, |_| true)
+    tree_while(p, true, &mut |_| true)
 }
 
 /// Parse a syntax tree that stays right of the column at the start of the next
@@ -38,31 +39,70 @@ fn tree_indented(p: &mut Parser) -> Tree {
     });
 
     let column = p.column(p.next_start());
-    tree_while(p, false, |p| match p.peek() {
+    tree_while(p, false, &mut |p| match p.peek() {
         Some(Token::Space(n)) if n >= 1 => p.column(p.next_end()) >= column,
         _ => true,
     })
 }
 
 /// Parse a syntax tree.
-fn tree_while(
-    p: &mut Parser,
-    mut at_start: bool,
-    mut f: impl FnMut(&mut Parser) -> bool,
-) -> Tree {
+fn tree_while<F>(p: &mut Parser, mut at_start: bool, f: &mut F) -> Tree
+where
+    F: FnMut(&mut Parser) -> bool,
+{
+    /// Visitor that adds a recursively parsed rest template to the first wide
+    /// call's argument list and diagnoses all following wide calls.
+    struct WideVisitor<'a, 's, F> {
+        p: &'a mut Parser<'s>,
+        f: &'a mut F,
+        found: bool,
+    }
+
+    impl<'ast, 'a, 's, F> VisitMut<'ast> for WideVisitor<'a, 's, F>
+    where
+        F: FnMut(&mut Parser) -> bool,
+    {
+        fn visit_expr(&mut self, node: &'ast mut Expr) {
+            visit_expr(self, node);
+
+            if let Expr::Call(call) = node {
+                if call.wide {
+                    let start = self.p.next_start();
+                    let tree = if !self.found {
+                        tree_while(self.p, true, self.f)
+                    } else {
+                        self.p.diag(error!(call.callee.span(), "duplicate wide call"));
+                        Tree::default()
+                    };
+
+                    call.args.items.push(CallArg::Pos(Expr::Template(TemplateExpr {
+                        span: self.p.span(start),
+                        tree: Rc::new(tree),
+                    })));
+
+                    self.found = true;
+                }
+            }
+        }
+
+        // Don't recurse into templates.
+        fn visit_template(&mut self, _: &'ast mut TemplateExpr) {}
+    }
+
     // We use `at_start` to keep track of whether we are at the start of a line
     // or template to know whether things like headings are allowed.
     let mut tree = vec![];
     while !p.eof() && f(p) {
-        if let Some(node) = node(p, &mut at_start) {
-            match node {
-                Node::Space => {}
-                Node::Parbreak(_) => {}
-                _ => at_start = false,
+        if let Some(mut node) = node(p, &mut at_start) {
+            at_start &= matches!(node, Node::Space | Node::Parbreak(_));
+            if let Node::Expr(expr) = &mut node {
+                let mut visitor = WideVisitor { p, f, found: false };
+                visitor.visit_expr(expr);
             }
             tree.push(node);
         }
     }
+
     tree
 }
 
@@ -236,12 +276,13 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) -> Option<Expr> {
     };
 
     loop {
-        // Parenthesis or bracket means this is a function call.
+        // Exclamation mark, parenthesis or bracket means this is a function
+        // call.
         if matches!(
             p.peek_direct(),
-            Some(Token::LeftParen) | Some(Token::LeftBracket),
+            Some(Token::Excl) | Some(Token::LeftParen) | Some(Token::LeftBracket),
         ) {
-            lhs = call(p, lhs);
+            lhs = call(p, lhs)?;
             continue;
         }
 
@@ -516,7 +557,9 @@ fn block(p: &mut Parser, scoping: bool) -> Expr {
 }
 
 /// Parse a function call.
-fn call(p: &mut Parser, callee: Expr) -> Expr {
+fn call(p: &mut Parser, callee: Expr) -> Option<Expr> {
+    let wide = p.eat_if(Token::Excl);
+
     let mut args = match p.peek_direct() {
         Some(Token::LeftParen) => {
             p.start_group(Group::Paren, TokenMode::Code);
@@ -524,10 +567,14 @@ fn call(p: &mut Parser, callee: Expr) -> Expr {
             p.end_group();
             args
         }
-        _ => CallArgs {
+        Some(Token::LeftBracket) => CallArgs {
             span: Span::at(callee.span().end),
             items: vec![],
         },
+        _ => {
+            p.expected_at("argument list", p.prev_end());
+            return None;
+        }
     };
 
     if p.peek_direct() == Some(Token::LeftBracket) {
@@ -535,11 +582,12 @@ fn call(p: &mut Parser, callee: Expr) -> Expr {
         args.items.push(CallArg::Pos(body));
     }
 
-    Expr::Call(CallExpr {
+    Some(Expr::Call(CallExpr {
         span: p.span(callee.span().start),
         callee: Box::new(callee),
+        wide,
         args,
-    })
+    }))
 }
 
 /// Parse the arguments to a function call.

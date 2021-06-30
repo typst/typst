@@ -295,7 +295,7 @@ impl BinOp {
             Token::And => Self::And,
             Token::Or => Self::Or,
             Token::EqEq => Self::Eq,
-            Token::BangEq => Self::Neq,
+            Token::ExclEq => Self::Neq,
             Token::Lt => Self::Lt,
             Token::LtEq => Self::Leq,
             Token::Gt => Self::Gt,
@@ -388,6 +388,8 @@ pub struct CallExpr {
     pub span: Span,
     /// The function to call.
     pub callee: Box<Expr>,
+    /// Whether the call is wide, that is, capturing the template behind it.
+    pub wide: bool,
     /// The arguments to the function.
     pub args: CallArgs,
 }

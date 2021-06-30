@@ -171,12 +171,12 @@
         {
           "comment": "Function name",
           "name": "entity.name.function.typst",
-          "match": "((#)[[:alpha:]_][[:alnum:]_-]*)(?=\\[|\\()",
+          "match": "((#)[[:alpha:]_][[:alnum:]_-]*!?)(?=\\[|\\()",
           "captures": { "2": { "name": "punctuation.definition.function.typst" } }
         },
         {
           "comment": "Function arguments",
-          "begin": "(?<=#[[:alpha:]_][[:alnum:]_-]*)\\(",
+          "begin": "(?<=#[[:alpha:]_][[:alnum:]_-]*!?)\\(",
           "end": "\\)",
           "captures": { "0": { "name": "punctuation.definition.group.typst" } },
           "patterns": [{ "include": "#arguments" }]
@@ -231,11 +231,11 @@
         {
           "comment": "Function name",
           "name": "entity.name.function.typst",
-          "match": "\\b[[:alpha:]_][[:alnum:]_-]*(?=\\[|\\(|\\s+\\bwith\\b)"
+          "match": "\\b[[:alpha:]_][[:alnum:]_-]*!?(?=(\\[|\\()|\\s+\\bwith\\b)"
         },
         {
           "comment": "Function arguments",
-          "begin": "(?<=\\b[[:alpha:]_][[:alnum:]_-]*|\\bwith\\b\\s+)\\(",
+          "begin": "(?<=\\b[[:alpha:]_][[:alnum:]_-]*!?|\\bwith\\b\\s+)\\(",
           "end": "\\)",
           "captures": { "0": { "name": "punctuation.definition.group.typst" } },
           "patterns": [{ "include": "#arguments" }]

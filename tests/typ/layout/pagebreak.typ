@@ -3,7 +3,7 @@
 ---
 First of two
 #pagebreak()
-#page(height: 40pt)
+#page!(height: 40pt)
 
 ---
 // Make sure that you can't do page related stuff in a container.
@@ -14,7 +14,7 @@ A
     #pagebreak()
 
     // Error: 11-15 cannot modify page from here
-    #page("a4")
+    #page("a4")[]
 ]
 C
 

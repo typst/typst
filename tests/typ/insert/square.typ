@@ -3,11 +3,10 @@
 ---
 Auto-sized square. \
 #square(fill: eastern)[
-    #align(center)
-    #pad(5pt)[
-        #font(color: #fff, weight: bold)
-        Typst
-    ]
+    #align!(center)
+    #pad!(5pt)
+    #font!(color: #fff, weight: bold)
+    Typst
 ]
 
 ---
@@ -18,14 +17,14 @@ Auto-sized square. \
 
 ---
 // Test height overflow.
-#page(width: 75pt, height: 100pt)
+#page!(width: 75pt, height: 100pt)
 #square(fill: conifer)[
     But, soft! what light through yonder window breaks?
 ]
 
 ---
 // Test width overflow.
-#page(width: 100pt, height: 75pt)
+#page!(width: 100pt, height: 75pt)
 #square(fill: conifer)[
     But, soft! what light through yonder window breaks?
 ]

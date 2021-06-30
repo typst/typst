@@ -1,7 +1,7 @@
 // Test using the `grid` function to create a finance table.
 
 ---
-#page(width: 12cm, height: 2.5cm)
+#page!(width: 12cm, height: 2.5cm)
 #grid(
     columns: 5,
     gutter-columns: (2fr, 1fr, 1fr),

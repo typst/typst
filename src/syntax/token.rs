@@ -42,12 +42,14 @@ pub enum Token<'s> {
     Hyph,
     /// A slash: `/`.
     Slash,
+    /// An exlamation mark.
+    Excl,
     /// A single equals sign: `=`.
     Eq,
     /// Two equals signs: `==`.
     EqEq,
     /// An exclamation mark followed by an equals sign: `!=`.
-    BangEq,
+    ExclEq,
     /// A less-than sign: `<`.
     Lt,
     /// A less-than sign followed by an equals sign: `<=`.
@@ -227,9 +229,10 @@ impl<'s> Token<'s> {
             Self::Plus => "plus",
             Self::Hyph => "minus",
             Self::Slash => "slash",
+            Self::Excl => "exclamation mark",
             Self::Eq => "assignment operator",
             Self::EqEq => "equality operator",
-            Self::BangEq => "inequality operator",
+            Self::ExclEq => "inequality operator",
             Self::Lt => "less-than operator",
             Self::LtEq => "less-than or equal operator",
             Self::Gt => "greater-than operator",

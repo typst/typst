@@ -35,9 +35,9 @@ Emoji: 🐪, 🌋, 🏞
 ---
 // Test top and bottom edge.
 
-#page(width: 170pt)
+#page!(width: 170pt)
 #let try(top, bottom) = rect(fill: conifer)[
-    #font(top-edge: top, bottom-edge: bottom)
+    #font!(top-edge: top, bottom-edge: bottom)
     `From `#top` to `#bottom
 ]
 
@@ -48,7 +48,7 @@ Emoji: 🐪, 🌋, 🏞
 
 ---
 // Test class definitions.
-#font(sans-serif: "PT Sans")
+#font!(sans-serif: "PT Sans")
 #font(family: sans-serif)[Sans-serif.] \
 #font(family: monospace)[Monospace.] \
 #font(family: monospace, monospace: ("Nope", "Latin Modern Math"))[Math.]
@@ -57,18 +57,18 @@ Emoji: 🐪, 🌋, 🏞
 // Ref: false
 
 // Error: 7-12 unexpected argument
-#font(false)
+#font(false)[]
 
 // Error: 3:14-3:18 expected font style, found font weight
 // Error: 2:28-2:34 expected font weight, found string
 // Error: 1:43-1:44 expected string or array of strings, found integer
-#font(style: bold, weight: "thin", serif: 0)
+#font(style: bold, weight: "thin", serif: 0)[]
 
 // Warning: 15-19 should be between 100 and 900
-#font(weight: 2700)
+#font(weight: 2700)[]
 
 // Warning: 16-21 should be between 50% and 200%
-#font(stretch: 1000%)
+#font(stretch: 1000%)[]
 
 // Error: 7-27 unexpected argument
-#font(something: "invalid")
+#font(something: "invalid")[]
