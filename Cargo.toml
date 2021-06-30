@@ -25,7 +25,7 @@ opt-level = 2
 decorum = { version = "0.3.1", default-features = false, features = ["serialize-serde"] }
 fxhash = "0.2.1"
 image = { version = "0.23", default-features = false, features = ["png", "jpeg"] }
-miniz_oxide = "0.3"
+miniz_oxide = "0.4"
 pdf-writer = "0.3"
 rustybuzz = "0.4"
 serde = { version = "1", features = ["derive", "rc"] }
@@ -35,14 +35,14 @@ unicode-xid = "0.2"
 xi-unicode = "0.3"
 anyhow = { version = "1", optional = true }
 dirs = { version = "3", optional = true }
-memmap2 = { version = "0.2", optional = true }
+memmap2 = { version = "0.3", optional = true }
 same-file = { version = "1", optional = true }
 walkdir = { version = "2", optional = true }
 
 [dev-dependencies]
 walkdir = "2"
 tiny-skia = "0.5"
-usvg = { version = "0.14", default-features = false }
+usvg = { version = "0.15", default-features = false }
 
 [[bin]]
 name = "typst"
