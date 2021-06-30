@@ -79,7 +79,7 @@ macro_rules! impl_visitor {
 }
 
 impl_visitors! {
-    visit_tree(v, tree: Tree) {
+    visit_tree(v, tree: SyntaxTree) {
         for node in tree {
             v.visit_node(node);
         }

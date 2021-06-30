@@ -10,7 +10,7 @@ use super::EvalContext;
 use crate::color::{Color, RgbaColor};
 use crate::exec::ExecContext;
 use crate::geom::{Angle, Fractional, Length, Linear, Relative};
-use crate::syntax::{Expr, Span, Spanned, Tree};
+use crate::syntax::{Expr, Span, Spanned, SyntaxTree};
 
 /// A computational value.
 #[derive(Debug, Clone, PartialEq)]
@@ -165,8 +165,8 @@ pub enum TemplateNode {
     /// expression.
     Tree {
         /// The syntax tree of the corresponding template expression.
-        tree: Rc<Tree>,
-        /// The evaluated expressions for the `tree`.
+        tree: Rc<SyntaxTree>,
+        /// The evaluated expressions in the syntax tree.
         map: ExprMap,
     },
     /// A template that was converted from a string.
@@ -184,10 +184,10 @@ impl PartialEq for TemplateNode {
 
 /// A map from expressions to the values they evaluated to.
 ///
-/// The raw pointers point into the expressions contained in some [`Tree`].
-/// Since the lifetime is erased, the tree could go out of scope while the hash
-/// map still lives. Although this could lead to lookup panics, it is not unsafe
-/// since the pointers are never dereferenced.
+/// The raw pointers point into the expressions contained in some
+/// [`SyntaxTree`]. Since the lifetime is erased, the tree could go out of scope
+/// while the hash map still lives. Although this could lead to lookup panics,
+/// it is not unsafe since the pointers are never dereferenced.
 pub type ExprMap = HashMap<*const Expr, Value>;
 
 /// A reference-counted dynamic template node that can implement custom

@@ -11,12 +11,12 @@ use std::rc::Rc;
 use crate::diag::Pass;
 use crate::eval::{ExprMap, TemplateFunc, TemplateNode, TemplateValue, Value};
 use crate::geom::{Dir, Gen};
-use crate::layout::{self, StackChild, StackNode};
+use crate::layout::{LayoutTree, StackChild, StackNode};
 use crate::pretty::pretty;
-use crate::syntax;
+use crate::syntax::*;
 
 /// Execute a template to produce a layout tree.
-pub fn exec(template: &TemplateValue, state: State) -> Pass<layout::Tree> {
+pub fn exec(template: &TemplateValue, state: State) -> Pass<LayoutTree> {
     let mut ctx = ExecContext::new(state);
     template.exec(&mut ctx);
     ctx.finish()
@@ -40,7 +40,7 @@ pub trait ExecWithMap {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap);
 }
 
-impl ExecWithMap for syntax::Tree {
+impl ExecWithMap for SyntaxTree {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         for node in self {
             node.exec_with_map(ctx, map);
@@ -48,7 +48,7 @@ impl ExecWithMap for syntax::Tree {
     }
 }
 
-impl ExecWithMap for syntax::Node {
+impl ExecWithMap for Node {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         match self {
             Self::Text(text) => ctx.push_text(text),
@@ -66,7 +66,7 @@ impl ExecWithMap for syntax::Node {
     }
 }
 
-impl Exec for syntax::RawNode {
+impl Exec for RawNode {
     fn exec(&self, ctx: &mut ExecContext) {
         if self.block {
             ctx.parbreak();
@@ -83,7 +83,7 @@ impl Exec for syntax::RawNode {
     }
 }
 
-impl ExecWithMap for syntax::HeadingNode {
+impl ExecWithMap for HeadingNode {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         ctx.parbreak();
 
@@ -100,20 +100,20 @@ impl ExecWithMap for syntax::HeadingNode {
     }
 }
 
-impl ExecWithMap for syntax::ListItem {
+impl ExecWithMap for ListItem {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         exec_item(ctx, "•".to_string(), &self.body, map);
     }
 }
 
-impl ExecWithMap for syntax::EnumItem {
+impl ExecWithMap for EnumItem {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         let label = self.number.unwrap_or(1).to_string() + ".";
         exec_item(ctx, label, &self.body, map);
     }
 }
 
-fn exec_item(ctx: &mut ExecContext, label: String, body: &syntax::Tree, map: &ExprMap) {
+fn exec_item(ctx: &mut ExecContext, label: String, body: &SyntaxTree, map: &ExprMap) {
     let label = ctx.exec_stack(|ctx| ctx.push_text(label));
     let body = ctx.exec_tree_stack(body, map);
     let stack = StackNode {

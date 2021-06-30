@@ -20,11 +20,11 @@
 //!
 //! [tokens]: parse::Tokens
 //! [parsed]: parse::parse
-//! [syntax tree]: syntax::Tree
+//! [syntax tree]: syntax::SyntaxTree
 //! [evaluate]: eval::eval
 //! [module]: eval::Module
 //! [execute]: exec::exec
-//! [layout tree]: layout::Tree
+//! [layout tree]: layout::LayoutTree
 //! [layouted]: layout::layout
 //! [PDF]: export::pdf
 
@@ -84,14 +84,14 @@ pub fn typeset(
     scope: &Scope,
     state: State,
 ) -> Pass<Vec<Rc<Frame>>> {
-    let parsed = parse::parse(src);
-    let evaluated = eval::eval(loader, cache, path, Rc::new(parsed.output), scope);
-    let executed = exec::exec(&evaluated.output.template, state);
-    let layouted = layout::layout(loader, cache, &executed.output);
+    let ast = parse::parse(src);
+    let module = eval::eval(loader, cache, path, Rc::new(ast.output), scope);
+    let tree = exec::exec(&module.output.template, state);
+    let frames = layout::layout(loader, cache, &tree.output);
 
-    let mut diags = parsed.diags;
-    diags.extend(evaluated.diags);
-    diags.extend(executed.diags);
+    let mut diags = ast.diags;
+    diags.extend(module.diags);
+    diags.extend(tree.diags);
 
-    Pass::new(layouted, diags)
+    Pass::new(frames, diags)
 }

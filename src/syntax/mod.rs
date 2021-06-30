@@ -16,4 +16,4 @@ pub use token::*;
 /// The abstract syntax tree.
 ///
 /// This type can represent a full parsed document.
-pub type Tree = Vec<Node>;
+pub type SyntaxTree = Vec<Node>;

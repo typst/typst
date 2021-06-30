@@ -52,7 +52,7 @@ pub struct HeadingNode {
     /// The section depth (numer of equals signs).
     pub level: usize,
     /// The contents of the heading.
-    pub body: Rc<Tree>,
+    pub body: Rc<SyntaxTree>,
 }
 
 /// An item in an unordered list: `- ...`.
@@ -61,7 +61,7 @@ pub struct ListItem {
     /// The source code location.
     pub span: Span,
     /// The contents of the list item.
-    pub body: Tree,
+    pub body: SyntaxTree,
 }
 
 /// An item in an enumeration (ordered list): `1. ...`.
@@ -72,5 +72,5 @@ pub struct EnumItem {
     /// The number, if any.
     pub number: Option<usize>,
     /// The contents of the list item.
-    pub body: Tree,
+    pub body: SyntaxTree,
 }

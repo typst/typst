@@ -30,11 +30,11 @@ pub fn eval(
     loader: &mut dyn Loader,
     cache: &mut Cache,
     path: Option<&Path>,
-    tree: Rc<Tree>,
+    ast: Rc<SyntaxTree>,
     scope: &Scope,
 ) -> Pass<Module> {
     let mut ctx = EvalContext::new(loader, cache, path, scope);
-    let template = tree.eval(&mut ctx);
+    let template = ast.eval(&mut ctx);
     let module = Module { scope: ctx.scopes.top, template };
     Pass::new(module, ctx.diags)
 }
@@ -148,8 +148,8 @@ impl<'a> EvalContext<'a> {
         self.route.push(hash);
 
         // Evaluate the module.
-        let tree = Rc::new(parsed.output);
-        let template = tree.eval(self);
+        let ast = Rc::new(parsed.output);
+        let template = ast.eval(self);
 
         // Restore the old context.
         let new_scopes = mem::replace(&mut self.scopes, old_scopes);
@@ -212,7 +212,7 @@ pub trait Eval {
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output;
 }
 
-impl Eval for Rc<Tree> {
+impl Eval for Rc<SyntaxTree> {
     type Output = TemplateValue;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {

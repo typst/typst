@@ -19,19 +19,19 @@ use crate::syntax::visit::{mutable::visit_expr, VisitMut};
 use crate::syntax::*;
 
 /// Parse a string of source code.
-pub fn parse(src: &str) -> Pass<Tree> {
+pub fn parse(src: &str) -> Pass<SyntaxTree> {
     let mut p = Parser::new(src);
     Pass::new(tree(&mut p), p.diags)
 }
 
 /// Parse a syntax tree.
-fn tree(p: &mut Parser) -> Tree {
+fn tree(p: &mut Parser) -> SyntaxTree {
     tree_while(p, true, &mut |_| true)
 }
 
 /// Parse a syntax tree that stays right of the column at the start of the next
 /// non-whitespace token.
-fn tree_indented(p: &mut Parser) -> Tree {
+fn tree_indented(p: &mut Parser) -> SyntaxTree {
     p.eat_while(|t| match t {
         Token::Space(n) => n == 0,
         Token::LineComment(_) | Token::BlockComment(_) => true,
@@ -46,7 +46,7 @@ fn tree_indented(p: &mut Parser) -> Tree {
 }
 
 /// Parse a syntax tree.
-fn tree_while<F>(p: &mut Parser, mut at_start: bool, f: &mut F) -> Tree
+fn tree_while<F>(p: &mut Parser, mut at_start: bool, f: &mut F) -> SyntaxTree
 where
     F: FnMut(&mut Parser) -> bool,
 {
@@ -72,7 +72,7 @@ where
                         tree_while(self.p, true, self.f)
                     } else {
                         self.p.diag(error!(call.callee.span(), "duplicate wide call"));
-                        Tree::default()
+                        SyntaxTree::default()
                     };
 
                     call.args.items.push(CallArg::Pos(Expr::Template(TemplateExpr {

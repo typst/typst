@@ -6,9 +6,9 @@ use crate::diag::{Diag, DiagSet, Pass};
 use crate::eval::{ExprMap, TemplateValue};
 use crate::geom::{Align, Dir, Gen, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{
-    AnyNode, PadNode, PageRun, ParChild, ParNode, StackChild, StackNode, Tree,
+    AnyNode, LayoutTree, PadNode, PageRun, ParChild, ParNode, StackChild, StackNode,
 };
-use crate::syntax::{self, Span};
+use crate::syntax::{Span, SyntaxTree};
 
 /// The context for execution.
 pub struct ExecContext {
@@ -17,7 +17,7 @@ pub struct ExecContext {
     /// Execution diagnostics.
     pub diags: DiagSet,
     /// The tree of finished page runs.
-    tree: Tree,
+    tree: LayoutTree,
     /// When we are building the top-level stack, this contains metrics of the
     /// page. While building a group stack through `exec_group`, this is `None`.
     page: Option<PageBuilder>,
@@ -30,7 +30,7 @@ impl ExecContext {
     pub fn new(state: State) -> Self {
         Self {
             diags: DiagSet::new(),
-            tree: Tree { runs: vec![] },
+            tree: LayoutTree { runs: vec![] },
             page: Some(PageBuilder::new(&state, true)),
             stack: StackBuilder::new(&state),
             state,
@@ -56,8 +56,8 @@ impl ExecContext {
         self.exec_stack(|ctx| template.exec(ctx))
     }
 
-    /// Execute a tree with a map and return the result as a stack node.
-    pub fn exec_tree_stack(&mut self, tree: &syntax::Tree, map: &ExprMap) -> StackNode {
+    /// Execute a syntax tree with a map and return the result as a stack node.
+    pub fn exec_tree_stack(&mut self, tree: &SyntaxTree, map: &ExprMap) -> StackNode {
         self.exec_stack(|ctx| tree.exec_with_map(ctx, map))
     }
 
@@ -137,7 +137,7 @@ impl ExecContext {
     }
 
     /// Finish execution and return the created layout tree.
-    pub fn finish(mut self) -> Pass<Tree> {
+    pub fn finish(mut self) -> Pass<LayoutTree> {
         assert!(self.page.is_some());
         self.pagebreak(true, false, Span::default());
         Pass::new(self.tree, self.diags)

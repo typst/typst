@@ -8,10 +8,10 @@ use typst::cache::Cache;
 use typst::eval::{eval, Module, Scope};
 use typst::exec::{exec, State};
 use typst::export::pdf;
-use typst::layout::{self, layout, Frame};
+use typst::layout::{layout, Frame, LayoutTree};
 use typst::loading::FsLoader;
 use typst::parse::parse;
-use typst::syntax;
+use typst::syntax::SyntaxTree;
 use typst::typeset;
 
 const FONT_DIR: &str = "../fonts";
@@ -26,7 +26,6 @@ fn benchmarks(c: &mut Criterion) {
         let src = std::fs::read_to_string(&path).unwrap();
         let case = Case::new(src, ctx.clone());
 
-        /// Bench with all caches.
         macro_rules! bench {
             ($step:literal, setup = |$cache:ident| $setup:expr, code = $code:expr $(,)?) => {
                 c.bench_function(&format!("{}-{}", $step, name), |b| {
@@ -97,9 +96,9 @@ struct Case {
     src: String,
     scope: Scope,
     state: State,
-    ast: Rc<syntax::Tree>,
+    ast: Rc<SyntaxTree>,
     module: Module,
-    tree: layout::Tree,
+    tree: LayoutTree,
     frames: Vec<Rc<Frame>>,
 }
 
@@ -111,7 +110,7 @@ impl Case {
         let state = typst::exec::State::default();
         let src = src.into();
         let ast = Rc::new(parse(&src).output);
-        let module = eval(loader, cache, None, ast.clone(), &scope).output;
+        let module = eval(loader, cache, None, Rc::clone(&ast), &scope).output;
         let tree = exec(&module.template, state.clone()).output;
         let frames = layout(loader, cache, &tree);
         drop(borrowed);
@@ -127,17 +126,17 @@ impl Case {
         }
     }
 
-    fn parse(&self) -> syntax::Tree {
+    fn parse(&self) -> SyntaxTree {
         parse(&self.src).output
     }
 
     fn eval(&self) -> Module {
         let mut borrowed = self.ctx.borrow_mut();
         let Context { loader, cache } = &mut *borrowed;
-        eval(loader, cache, None, self.ast.clone(), &self.scope).output
+        eval(loader, cache, None, Rc::clone(&self.ast), &self.scope).output
     }
 
-    fn exec(&self) -> layout::Tree {
+    fn exec(&self) -> LayoutTree {
         exec(&self.module.template, self.state.clone()).output
     }
 

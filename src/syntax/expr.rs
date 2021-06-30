@@ -158,7 +158,7 @@ pub struct TemplateExpr {
     /// The source code location.
     pub span: Span,
     /// The contents of the template.
-    pub tree: Rc<Tree>,
+    pub tree: Rc<SyntaxTree>,
 }
 
 /// A grouped expression: `(1 + 2)`.

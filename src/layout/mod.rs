@@ -37,7 +37,11 @@ use crate::geom::*;
 use crate::loading::Loader;
 
 /// Layout a tree into a collection of frames.
-pub fn layout(loader: &mut dyn Loader, cache: &mut Cache, tree: &Tree) -> Vec<Rc<Frame>> {
+pub fn layout(
+    loader: &mut dyn Loader,
+    cache: &mut Cache,
+    tree: &LayoutTree,
+) -> Vec<Rc<Frame>> {
     tree.layout(&mut LayoutContext {
         loader,
         cache,
@@ -48,12 +52,12 @@ pub fn layout(loader: &mut dyn Loader, cache: &mut Cache, tree: &Tree) -> Vec<Rc
 
 /// A tree of layout nodes.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Tree {
+pub struct LayoutTree {
     /// Runs of pages with the same properties.
     pub runs: Vec<PageRun>,
 }
 
-impl Tree {
+impl LayoutTree {
     /// Layout the tree into a collection of frames.
     pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Rc<Frame>> {
         self.runs.iter().flat_map(|run| run.layout(ctx)).collect()

@@ -78,7 +78,7 @@ impl Write for Printer {
     }
 }
 
-impl Pretty for Tree {
+impl Pretty for SyntaxTree {
     fn pretty(&self, p: &mut Printer) {
         for node in self {
             node.pretty(p);
@@ -630,10 +630,10 @@ mod tests {
 
     #[track_caller]
     fn test_parse(src: &str, exp: &str) {
-        let tree = parse(src).output;
-        let found = pretty(&tree);
+        let ast = parse(src).output;
+        let found = pretty(&ast);
         if exp != found {
-            println!("tree:     {:#?}", tree);
+            println!("tree:     {:#?}", ast);
             println!("expected: {}", exp);
             println!("found:    {}", found);
             panic!("test failed");
