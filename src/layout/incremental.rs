@@ -21,7 +21,7 @@ pub struct LayoutCache {
 impl LayoutCache {
     /// Create a new, empty layout cache.
     pub fn new() -> Self {
-        Self { frames: HashMap::new(), age: 0 }
+        Self::default()
     }
 
     /// Clear the cache.

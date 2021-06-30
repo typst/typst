@@ -235,9 +235,8 @@ fn shape_segment<'a>(
                     }
                 }
 
-                match ctx.cache.font.select(ctx.loader, family, variant) {
-                    Some(id) => break (id, true),
-                    None => {}
+                if let Some(id) = ctx.cache.font.select(ctx.loader, family, variant) {
+                    break (id, true);
                 }
             }
             // We're out of families, so we don't do any more fallback and just

@@ -204,7 +204,8 @@ pub fn lang(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 fn lang_dir(iso: &str) -> Dir {
     match iso.to_ascii_lowercase().as_str() {
         "ar" | "he" | "fa" | "ur" | "ps" | "yi" => Dir::RTL,
-        "en" | "fr" | "de" | _ => Dir::LTR,
+        "en" | "fr" | "de" => Dir::LTR,
+        _ => Dir::LTR,
     }
 }
 

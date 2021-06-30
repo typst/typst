@@ -54,6 +54,7 @@ impl Debug for Image {
 }
 
 /// Caches decoded images.
+#[derive(Default)]
 pub struct ImageCache {
     /// Maps from file hashes to ids of decoded images.
     images: HashMap<ImageId, Image>,
@@ -64,7 +65,7 @@ pub struct ImageCache {
 impl ImageCache {
     /// Create a new, empty image cache.
     pub fn new() -> Self {
-        Self { images: HashMap::new(), on_load: None }
+        Self::default()
     }
 
     /// Load and decode an image file from a path.

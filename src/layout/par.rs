@@ -285,7 +285,7 @@ fn split_runs<'a>(
     range: Range,
 ) -> impl Iterator<Item = (Range, Dir)> + 'a {
     let mut cursor = range.start;
-    bidi.levels[range.clone()]
+    bidi.levels[range]
         .group_by_key(|&level| level)
         .map(move |(level, group)| {
             let start = cursor;
