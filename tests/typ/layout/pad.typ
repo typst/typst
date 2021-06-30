@@ -7,7 +7,7 @@
 // All sides together.
 #rect(fill: conifer)[
   #pad!(10pt, right: 20pt)
-  #rect(width: 20pt, height: 20pt, fill: #eb5278)
+  #rect(width: 20pt, height: 20pt, fill: rgb("eb5278"))
 ]
 
 // Error: 13-23 missing argument: body

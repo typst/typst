@@ -5,7 +5,7 @@ Auto-sized square. \
 #square(fill: eastern)[
     #align!(center)
     #pad!(5pt)
-    #font!(color: #fff, weight: bold)
+    #font!(color: white, weight: bold)
     Typst
 ]
 
@@ -13,7 +13,7 @@ Auto-sized square. \
 // Length wins over width and height.
 // Error: 2:9-2:20 unexpected argument
 // Error: 1:22-1:34 unexpected argument
-#square(width: 10cm, height: 20cm, length: 1cm, fill: #eb5278)
+#square(width: 10cm, height: 20cm, length: 1cm, fill: rgb("eb5278"))
 
 ---
 // Test height overflow.

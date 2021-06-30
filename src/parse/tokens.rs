@@ -1,8 +1,6 @@
 use std::fmt::{self, Debug, Formatter};
-use std::str::FromStr;
 
 use super::{is_newline, Scanner};
-use crate::color::RgbaColor;
 use crate::geom::{AngularUnit, LengthUnit};
 use crate::syntax::*;
 
@@ -71,9 +69,6 @@ impl<'s> Iterator for Tokens<'s> {
             '{' => Token::LeftBrace,
             '}' => Token::RightBrace,
 
-            // Headings, keywords, identifiers, colors.
-            '#' => self.hash(start),
-
             // Whitespace.
             c if c.is_whitespace() => self.whitespace(c),
 
@@ -103,6 +98,9 @@ impl<'s> Tokens<'s> {
             '$' => self.math(),
             '-' => self.hyph(start),
             c if c == '.' || c.is_ascii_digit() => self.numbering(start, c),
+
+            // Headings, keywords and identifiers.
+            '#' => self.hash(start),
 
             // Plain text.
             _ => self.text(start),
@@ -236,29 +234,17 @@ impl<'s> Tokens<'s> {
     }
 
     fn hash(&mut self, start: usize) -> Token<'s> {
-        match self.mode {
-            TokenMode::Markup => {
-                if self.s.check(is_id_start) {
-                    let read = self.s.eat_while(is_id_continue);
-                    if let Some(keyword) = keyword(read) {
-                        keyword
-                    } else {
-                        Token::Ident(read)
-                    }
-                } else if self.s.check(|c| c != '#' && !c.is_whitespace()) {
-                    Token::Text(self.s.eaten_from(start))
-                } else {
-                    Token::Hashtag
-                }
+        if self.s.check(is_id_start) {
+            let read = self.s.eat_while(is_id_continue);
+            if let Some(keyword) = keyword(read) {
+                keyword
+            } else {
+                Token::Ident(read)
             }
-            TokenMode::Code => {
-                let read = self.s.eat_while(is_id_continue);
-                if let Ok(color) = RgbaColor::from_str(read) {
-                    Token::Color(color)
-                } else {
-                    Token::Invalid(self.s.eaten_from(start))
-                }
-            }
+        } else if self.s.check(|c| c != '#' && !c.is_whitespace()) {
+            Token::Text(self.s.eaten_from(start))
+        } else {
+            Token::Hashtag
         }
     }
 
@@ -528,10 +514,6 @@ mod tests {
         Token::Math(MathToken { formula, display, terminated })
     }
 
-    const fn Color(r: u8, g: u8, b: u8, a: u8) -> Token<'static> {
-        Token::Color(RgbaColor { r, g, b, a })
-    }
-
     const fn Str(string: &str, terminated: bool) -> Token {
         Token::Str(StrToken { string, terminated })
     }
@@ -583,7 +565,6 @@ mod tests {
         ('/', Some(Code), "(", LeftParen),
         ('/', Some(Code), ":", Colon),
         ('/', Some(Code), "+=", PlusEq),
-        ('/', Some(Code), "#123", Color(0x11, 0x22, 0x33, 0xff)),
     ];
 
     macro_rules! t {
@@ -927,13 +908,6 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenize_color() {
-        t!(Code[" /"]: "#ABC" => Color(0xAA, 0xBB, 0xCC, 0xff));
-        t!(Code[" /"]: "#6ae6dd" => Color(0x6a, 0xe6, 0xdd, 0xff));
-        t!(Code[" /"]: "#8A083caf" => Color(0x8A, 0x08, 0x3c, 0xaf));
-    }
-
-    #[test]
     fn test_tokenize_strings() {
         // Test basic strings.
         t!(Code: "\"hi\""        => Str("hi", true));
@@ -999,13 +973,11 @@ mod tests {
         t!(Code: r"\:"       => Invalid(r"\"), Colon);
         t!(Code: "meal⌚"    => Ident("meal"), Invalid("⌚"));
         t!(Code[" /"]: r"\a" => Invalid(r"\"), Ident("a"));
+        t!(Code[" /"]: "#"   => Invalid("#"));
 
         // Test invalid number suffixes.
         t!(Code[" /"]: "1foo" => Invalid("1foo"));
         t!(Code: "1p%"        => Invalid("1p"), Invalid("%"));
         t!(Code: "1%%"        => Percent(1.0), Invalid("%"));
-
-        // Test invalid color.
-        t!(Code[" /"]: r"#letter" => Invalid(r"#letter"));
     }
 }

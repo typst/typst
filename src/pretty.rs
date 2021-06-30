@@ -205,7 +205,6 @@ impl Pretty for Expr {
             Self::Angle(_, v, u) => write!(p, "{}{}", v, u).unwrap(),
             Self::Percent(_, v) => write!(p, "{}%", v).unwrap(),
             Self::Fractional(_, v) => write!(p, "{}fr", v).unwrap(),
-            Self::Color(_, v) => v.pretty(p),
             Self::Str(_, v) => v.pretty(p),
             Self::Ident(v) => v.pretty(p),
             Self::Array(v) => v.pretty(p),
@@ -687,7 +686,6 @@ mod tests {
         roundtrip("{14.1deg}");
         roundtrip("{20%}");
         roundtrip("{0.5fr}");
-        roundtrip("{#abcdef}");
         roundtrip(r#"{"hi"}"#);
         test_parse(r#"{"let's \" go"}"#, r#"{"let's \" go"}"#);
         roundtrip("{hi}");

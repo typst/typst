@@ -385,7 +385,6 @@ fn literal(p: &mut Parser) -> Option<Expr> {
         Token::Angle(val, unit) => Expr::Angle(span, val, unit),
         Token::Percent(p) => Expr::Percent(span, p),
         Token::Fraction(p) => Expr::Fractional(span, p),
-        Token::Color(color) => Expr::Color(span, color),
         Token::Str(token) => Expr::Str(span, {
             if !token.terminated {
                 p.expected_at("quote", p.peek_span().end);
@@ -672,10 +671,9 @@ fn if_expr(p: &mut Parser) -> Option<Expr> {
 
             // We are in code mode but still want to react to `#else` if the
             // outer mode is markup.
-            if match p.outer_mode() {
-                TokenMode::Markup => p.eat_if(Token::Invalid("#else")),
-                TokenMode::Code => p.eat_if(Token::Else),
-            } {
+            if (p.outer_mode() == TokenMode::Code || p.eat_if(Token::Invalid("#")))
+                && p.eat_if(Token::Else)
+            {
                 else_body = body(p);
             }
 

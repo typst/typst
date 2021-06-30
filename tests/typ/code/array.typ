@@ -15,7 +15,7 @@
 
 // Multiple lines and items and trailing comma.
 {("1"
-     , #002
+     , rgb("002")
      ,)}
 
 // Error: 3 expected closing paren

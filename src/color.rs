@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 /// A color in a dynamic format.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum Color {
-    /// An 8-bit RGBA color: `#423abaff`.
+    /// An 8-bit RGBA color.
     Rgba(RgbaColor),
 }
 
@@ -28,7 +28,7 @@ impl Debug for Color {
     }
 }
 
-/// An 8-bit RGBA color: `#423abaff`.
+/// An 8-bit RGBA color.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct RgbaColor {
     /// Red channel.
