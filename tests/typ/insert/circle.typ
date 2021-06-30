@@ -4,7 +4,7 @@
 // Test auto sizing.
 
 Auto-sized circle. \
-#circle(fill: #eb5278)[
+#circle(fill: rgb("eb5278"))[
     #align!(center, center)
     But, soft!
 ]
@@ -28,9 +28,9 @@ Expanded by height.
 
 ---
 // Test relative sizing.
-#rect(width: 100%, height: 50pt, fill: #aaa)[
+#rect(width: 100%, height: 50pt, fill: rgb("aaa"))[
     #align!(center, center)
-    #font!(color: #fff)
+    #font!(color: white)
     #circle(radius: 10pt, fill: eastern)[A]
     #circle(height: 60%, fill: eastern)[B]
     #circle(width: 20% + 20pt, fill: eastern)[C]

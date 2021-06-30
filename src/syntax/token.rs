@@ -1,4 +1,3 @@
-use crate::color::RgbaColor;
 use crate::geom::{AngularUnit, LengthUnit};
 
 /// A minimal semantic entity of source code.
@@ -145,8 +144,6 @@ pub enum Token<'s> {
     Percent(f64),
     /// A fraction unit: `3fr`.
     Fraction(f64),
-    /// A color value: `#20d82a`.
-    Color(RgbaColor),
     /// A quoted string: `"..."`.
     Str(StrToken<'s>),
     /// Two slashes followed by inner contents, terminated with a newline:
@@ -275,7 +272,6 @@ impl<'s> Token<'s> {
             Self::Angle(_, _) => "angle",
             Self::Percent(_) => "percentage",
             Self::Fraction(_) => "`fr` value",
-            Self::Color(_) => "color",
             Self::Str(_) => "string",
             Self::LineComment(_) => "line comment",
             Self::BlockComment(_) => "block comment",

@@ -34,7 +34,7 @@
 
 ---
 // Colors.
-{#f7a20500}
+#rgb("f7a20500")
 
 ---
 // Strings and escaping.

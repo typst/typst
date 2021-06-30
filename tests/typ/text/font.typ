@@ -30,7 +30,7 @@ Emoji: 🐪, 🌋, 🏞
 ]
 
 // Colors.
-#font(color: eastern)[This is #font(color: #FA644B)[way more] colorful.]
+#font(color: eastern)[This is #font(color: rgb("FA644B"))[way more] colorful.]
 
 ---
 // Test top and bottom edge.

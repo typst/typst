@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::str::FromStr;
 
 use crate::color::{Color, RgbaColor};
 use crate::pretty::pretty;
@@ -37,26 +38,32 @@ pub fn len(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
 /// `rgb`: Create an RGB(A) color.
 pub fn rgb(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let r = args.expect(ctx, "red component");
-    let g = args.expect(ctx, "green component");
-    let b = args.expect(ctx, "blue component");
-    let a = args.eat(ctx);
-
-    let mut clamp = |component: Option<Spanned<f64>>, default| {
-        component.map_or(default, |c| {
-            if c.v < 0.0 || c.v > 1.0 {
-                ctx.diag(warning!(c.span, "should be between 0.0 and 1.0"));
+    Value::Color(Color::Rgba(
+        if let Some(string) = args.eat::<Spanned<String>>(ctx) {
+            match RgbaColor::from_str(&string.v) {
+                Ok(color) => color,
+                Err(_) => {
+                    ctx.diag(error!(string.span, "invalid color"));
+                    return Value::Error;
+                }
             }
-            (c.v.max(0.0).min(1.0) * 255.0).round() as u8
-        })
-    };
+        } else {
+            let r = args.expect(ctx, "red component");
+            let g = args.expect(ctx, "green component");
+            let b = args.expect(ctx, "blue component");
+            let a = args.eat(ctx);
+            let mut clamp = |component: Option<Spanned<f64>>, default| {
+                component.map_or(default, |c| {
+                    if c.v < 0.0 || c.v > 1.0 {
+                        ctx.diag(warning!(c.span, "should be between 0.0 and 1.0"));
+                    }
+                    (c.v.max(0.0).min(1.0) * 255.0).round() as u8
+                })
+            };
 
-    Value::Color(Color::Rgba(RgbaColor::new(
-        clamp(r, 0),
-        clamp(g, 0),
-        clamp(b, 0),
-        clamp(a, 255),
-    )))
+            RgbaColor::new(clamp(r, 0), clamp(g, 0), clamp(b, 0), clamp(a, 255))
+        },
+    ))
 }
 
 /// `min`: The minimum of a sequence of values.

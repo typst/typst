@@ -6,18 +6,18 @@
 #page!(width: 100pt, height: 140pt)
 #grid(
     columns: (auto, 1fr, 3fr, 0.25cm, 3%, 2mm + 10%),
-    rect(0.5cm, #2a631a),
+    rect(0.5cm, rgb("2a631a")),
     rect(100%, forest),
     rect(100%, conifer),
-    rect(100%, #ff0000),
-    rect(100%, #00ff00),
-    rect(80%, #00faf0),
-    rect(1cm, #00ff00),
-    rect(0.5cm, #2a631a),
+    rect(100%, rgb("ff0000")),
+    rect(100%, rgb("00ff00")),
+    rect(80%, rgb("00faf0")),
+    rect(1cm, rgb("00ff00")),
+    rect(0.5cm, rgb("2a631a")),
     rect(100%, forest),
     rect(100%, conifer),
-    rect(100%, #ff0000),
-    rect(100%, #00ff00),
+    rect(100%, rgb("ff0000")),
+    rect(100%, rgb("00ff00")),
 )
 
 #grid()
@@ -29,7 +29,7 @@
     gutter-rows: (1fr,),
     rect(fill: eastern)[dddaa aaa aaa],
     rect(fill: conifer)[ccc],
-    rect(width: 100%, fill: #dddddd)[aaa],
+    rect(width: 100%, fill: rgb("dddddd"))[aaa],
 )
 
 ---
@@ -38,11 +38,11 @@
     columns: (1fr, 1cm, 1fr, 1fr),
     column-dir: ttb,
     rows: (auto, 1fr),
-    rect(height: 100%, fill: #222222)[foo],
-    rect(height: 100%, fill: #547d0a)[bar],
+    rect(height: 100%, fill: rgb("222222"))[foo],
+    rect(height: 100%, fill: rgb("547d0a"))[bar],
     rect(height: 100%, fill: eastern)[hab],
     rect(height: 100%, fill: conifer)[baz],
-    rect(height: 100%, width: 100%, fill: #547d0a)[bar],
+    rect(height: 100%, width: 100%, fill: rgb("547d0a"))[bar],
 )
 
 ---

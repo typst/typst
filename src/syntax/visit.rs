@@ -124,7 +124,6 @@ impl_visitors! {
             Expr::Angle(_, _, _) => {}
             Expr::Percent(_, _) => {}
             Expr::Fractional(_, _) => {}
-            Expr::Color(_, _) => {}
             Expr::Str(_, _) => {}
             Expr::Ident(_) => {}
             Expr::Array(e) => v.visit_array(e),

@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
 use super::*;
-use crate::color::RgbaColor;
 use crate::geom::{AngularUnit, LengthUnit};
 
 /// An expression.
@@ -28,8 +27,6 @@ pub enum Expr {
     Percent(Span, f64),
     /// A fraction unit literal: `1fr`.
     Fractional(Span, f64),
-    /// A color literal: `#ffccee`.
-    Color(Span, RgbaColor),
     /// A string literal: `"hello!"`.
     Str(Span, String),
     /// An identifier: `left`.
@@ -81,7 +78,6 @@ impl Expr {
             Self::Angle(span, _, _) => span,
             Self::Percent(span, _) => span,
             Self::Fractional(span, _) => span,
-            Self::Color(span, _) => span,
             Self::Str(span, _) => span,
             Self::Ident(ref v) => v.span,
             Self::Array(ref v) => v.span,
