@@ -4,7 +4,10 @@ use std::slice::SliceIndex;
 /// A featureful char-based scanner.
 #[derive(Copy, Clone)]
 pub struct Scanner<'s> {
+    /// The string to scan.
     src: &'s str,
+    /// The index at which the peekable character starts. Must be in bounds and
+    /// at a codepoint boundary to guarantee safety.
     index: usize,
 }
 
@@ -27,13 +30,11 @@ impl<'s> Scanner<'s> {
     ///
     /// Returns whether the char was consumed.
     pub fn eat_if(&mut self, c: char) -> bool {
-        // Don't decode the char twice through peek() and eat().
-        if self.peek() == Some(c) {
+        let matches = self.peek() == Some(c);
+        if matches {
             self.index += c.len_utf8();
-            true
-        } else {
-            false
         }
+        matches
     }
 
     /// Consume the next char, debug-asserting that it is the given one.
@@ -44,11 +45,11 @@ impl<'s> Scanner<'s> {
 
     /// Consume the next char, coalescing `\r\n` to just `\n`.
     pub fn eat_merging_crlf(&mut self) -> Option<char> {
-        let c = self.eat();
-        if c == Some('\r') && self.eat_if('\n') {
+        if self.rest().starts_with("\r\n") {
+            self.index += 2;
             Some('\n')
         } else {
-            c
+            self.eat()
         }
     }
 
@@ -72,7 +73,7 @@ impl<'s> Scanner<'s> {
             }
             self.index += c.len_utf8();
         }
-        &self.src[start .. self.index]
+        self.eaten_from(start)
     }
 
     /// Uneat the last eaten char.
@@ -82,12 +83,12 @@ impl<'s> Scanner<'s> {
 
     /// Peek at the next char without consuming it.
     pub fn peek(&self) -> Option<char> {
-        self.src[self.index ..].chars().next()
+        self.rest().chars().next()
     }
 
     /// Peek at the nth-next char without consuming anything.
     pub fn peek_nth(&self, n: usize) -> Option<char> {
-        self.src[self.index ..].chars().nth(n)
+        self.rest().chars().nth(n)
     }
 
     /// Checks whether the next char fulfills a condition.
@@ -102,11 +103,10 @@ impl<'s> Scanner<'s> {
 
     /// The previous index in the source string.
     pub fn last_index(&self) -> usize {
-        self.src[.. self.index]
+        self.eaten()
             .chars()
             .next_back()
-            .map(|c| self.index - c.len_utf8())
-            .unwrap_or(0)
+            .map_or(0, |c| self.index - c.len_utf8())
     }
 
     /// The current index in the source string.
@@ -116,6 +116,8 @@ impl<'s> Scanner<'s> {
 
     /// Jump to an index in the source string.
     pub fn jump(&mut self, index: usize) {
+        // Make sure that the index is in bounds and on a codepoint boundary.
+        self.src.get(index ..).expect("jumped to invalid index");
         self.index = index;
     }
 
@@ -129,7 +131,11 @@ impl<'s> Scanner<'s> {
 
     /// The full source string up to the current index.
     pub fn eaten(&self) -> &'s str {
-        &self.src[.. self.index]
+        // SAFETY: The index is always in bounds and on a codepoint boundary
+        // since it is:
+        // - either increased by the length of a scanned character,
+        // - or checked upon jumping.
+        unsafe { self.src.get_unchecked(.. self.index) }
     }
 
     /// The source string from `start` to the current index.
@@ -139,7 +145,8 @@ impl<'s> Scanner<'s> {
 
     /// The remaining source string after the current index.
     pub fn rest(&self) -> &'s str {
-        &self.src[self.index ..]
+        // SAFETY: The index is always okay, for details see `eaten()`.
+        unsafe { self.src.get_unchecked(self.index ..) }
     }
 }
 
