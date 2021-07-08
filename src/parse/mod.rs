@@ -256,7 +256,7 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) -> Option<Expr> {
         }
 
         if p.eat_if(Token::With) {
-            lhs = with_expr(p, lhs);
+            lhs = with_expr(p, lhs)?;
         }
 
         if atomic {
@@ -574,16 +574,21 @@ fn args(p: &mut Parser) -> CallArgs {
 }
 
 /// Parse a with expression.
-fn with_expr(p: &mut Parser, callee: Expr) -> Expr {
-    p.start_group(Group::Paren, TokenMode::Code);
-    let args = args(p);
-    p.end_group();
+fn with_expr(p: &mut Parser, callee: Expr) -> Option<Expr> {
+    if p.peek() == Some(Token::LeftParen) {
+        p.start_group(Group::Paren, TokenMode::Code);
+        let args = args(p);
+        p.end_group();
 
-    Expr::With(WithExpr {
-        span: p.span(callee.span().start),
-        callee: Box::new(callee),
-        args,
-    })
+        Some(Expr::With(WithExpr {
+            span: p.span(callee.span().start),
+            callee: Box::new(callee),
+            args,
+        }))
+    } else {
+        p.expected("argument list");
+        None
+    }
 }
 
 /// Parse a let expression.
@@ -596,7 +601,7 @@ fn let_expr(p: &mut Parser) -> Option<Expr> {
         let mut init = None;
 
         if p.eat_if(Token::With) {
-            init = Some(with_expr(p, Expr::Ident(binding.clone())));
+            init = with_expr(p, Expr::Ident(binding.clone()));
         } else {
             // If a parenthesis follows, this is a function definition.
             let mut params = None;

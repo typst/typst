@@ -38,6 +38,12 @@
 // Error: 14-22 cannot apply '+=' to integer and string
 { let x = 1; x += "2" }
 
+// Error: 13-14 expected argument list, found integer
+{ test with 2 }
+
+// Error: 3-4 expected function, found integer
+{ 1 with () }
+
 ---
 // Bad left-hand sides of assignment.
 
