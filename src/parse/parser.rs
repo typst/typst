@@ -51,6 +51,8 @@ pub enum Group {
     Stmt,
     /// A group for a single expression, ended by a line break.
     Expr,
+    /// A group for import items, ended by a semicolon, line break or `from`.
+    Imports,
 }
 
 impl<'s> Parser<'s> {
@@ -128,6 +130,7 @@ impl<'s> Parser<'s> {
             Group::Brace => self.assert(Token::LeftBrace),
             Group::Stmt => {}
             Group::Expr => {}
+            Group::Imports => {}
         }
     }
 
@@ -149,6 +152,7 @@ impl<'s> Parser<'s> {
             Group::Brace => Some((Token::RightBrace, true)),
             Group::Stmt => Some((Token::Semicolon, false)),
             Group::Expr => None,
+            Group::Imports => None,
         } {
             if self.next == Some(end) {
                 // Bump the delimeter and return. No need to rescan in this case.
@@ -361,6 +365,7 @@ impl<'s> Parser<'s> {
             Token::RightBracket => self.inside(Group::Bracket),
             Token::RightBrace => self.inside(Group::Brace),
             Token::Semicolon => self.inside(Group::Stmt),
+            Token::From => self.inside(Group::Imports),
             Token::Space(n) => n >= 1 && self.stop_at_newline(),
             _ => false,
         } {
@@ -371,7 +376,10 @@ impl<'s> Parser<'s> {
     /// Whether the active group ends at a newline.
     fn stop_at_newline(&self) -> bool {
         let active = self.groups.last().map(|group| group.kind);
-        matches!(active, Some(Group::Stmt) | Some(Group::Expr))
+        matches!(
+            active,
+            Some(Group::Stmt) | Some(Group::Expr) | Some(Group::Imports)
+        )
     }
 
     /// Whether we are inside the given group.

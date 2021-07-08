@@ -59,7 +59,7 @@ pub enum Expr {
     While(WhileExpr),
     /// A for loop expression: `for x in y { z }`.
     For(ForExpr),
-    /// An import expression: `import "utils.typ" using a, b, c`.
+    /// An import expression: `import a, b, c from "utils.typ"`.
     Import(ImportExpr),
     /// An include expression: `include "chapter1.typ"`.
     Include(IncludeExpr),
@@ -466,7 +466,7 @@ pub struct LetExpr {
     pub init: Option<Box<Expr>>,
 }
 
-/// An import expression: `import "utils.typ" using a, b, c`.
+/// An import expression: `import a, b, c from "utils.typ"`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImportExpr {
     /// The source code location.

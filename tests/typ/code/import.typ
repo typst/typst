@@ -4,21 +4,21 @@
 // Test importing semantics.
 
 // A named import.
-#import "target.typ" using item
+#import item from "target.typ"
 #test(item(1, 2), 3)
 
 // Test that this will be overwritten.
 #let value = [foo]
 
 // Import multiple things.
-// Error: 28-29 expected expression, found comma
-#import "target.typ" using ,fn, value
+// Error: 9-10 expected expression, found comma
+#import ,fn, value from "target.typ"
 #fn[Like and Subscribe!]
 #value
 
 // Code mode
 {
-    import "target.typ" using b
+    import b from "target.typ"
     test(b, 1)
 }
 
@@ -29,91 +29,92 @@
 #d
 
 // A wildcard import.
-#import "target.typ" using *
+#import * from "target.typ"
 
 // It exists now!
 #d
+
+// Who needs whitespace anyways?
+#import*from"target.typ"
+
+// Should output `Hi`.
+// Stop at semicolon.
+#import a, c from "target.typ";bye
+
+// Allow the trailing comma.
+#import a, c, from "target.typ"
 
 ---
 // Test bad imports.
 // Ref: false
 
-// Error: 9-11 file not found
-#import "" using name
+// Error: 19-21 file not found
+#import name from ""
 
-// Error: 9-20 file not found
-#import "lib/0.2.1" using *
-
-// Error: 9-20 file not found
-#import "lib@0.2.1" using *
+// Error: 16-27 file not found
+#import * from "lib/0.2.1"
 
 // Some non-text stuff.
-// Error: 9-30 file is not valid utf-8
-#import "../../res/rhino.png" using *
+// Error: 16-37 file is not valid utf-8
+#import * from "../../res/rhino.png"
 
 // Unresolved import.
-// Error: 28-40 unresolved import
-#import "target.typ" using non_existing
+// Error: 9-21 unresolved import
+#import non_existing from "target.typ"
 
 // Cyclic import.
-// Error: 9-34 cyclic import
-#import "./importable/cycle1.typ" using *
+// Error: 16-41 cyclic import
+#import * from "./importable/cycle1.typ"
 
 ---
-// Test syntax.
+// Test bad syntax.
 
-// Missing file.
-// Error: 9-10 expected expression, found star
-#import *
+// Error: 2:8 expected import items
+// Error: 1:8 expected keyword `from`
+#import
 
-// Should output `"target.typ"`.
-// Error: 1-7 unexpected keyword `using`
-#using "target.typ"
+// Error: 2:9-2:19 expected identifier
+// Error: 1:19 expected keyword `from`
+#import "file.typ"
 
-// Should output `target`.
-// Error: 3:9-4:8 file not found
-// Error: 3:8 expected semicolon or line break
-// Error: 2:8 expected keyword `using`
-#import "target.typ
-using "target
+// Error: 2:16-2:19 expected identifier
+// Error: 1:22 expected keyword `from`
+#import afrom, "b", c
 
-// Should output `@ 0.2.1 using`.
-// Error: 2:21 expected semicolon or line break
-// Error: 1:21 expected keyword `using`
-#import "target.typ" @ 0.2.1 using *
+// Error: 8 expected import items
+#import from "target.typ"
 
-// Error: 3:21 expected keyword `using`
-// Error: 2:21 expected semicolon or line break
-// Error: 1:22-1:28 unexpected keyword `using`
-#import "target.typ" #using *
+// Error: 2:9-2:10 expected expression, found assignment operator
+// Error: 1:10 expected import items
+#import = from "target.typ"
 
-// Error: 2:21 expected semicolon or line break
-// Error: 1:21 expected keyword `using`
-#import "target.typ" usinga,b,c
-
-// Error: 27 expected import items
-#import "target.typ" using
-
-// Error: 2:28-2:29 expected expression, found assignment operator
-// Error: 1:29 expected import items
-#import "target.typ" using =
-
-// Allow the trailing comma.
-#import "target.typ" using a, c,
+// Error: 15 expected expression
+#import * from
 
 // An additional trailing comma.
-// Error: 36-37 expected expression, found comma
-#import "target.typ" using a, b, c,,
+// Error: 17-18 expected expression, found comma
+#import a, b, c,, from "target.typ"
 
-// Star in the list.
-// Error: 2:31-2:32 expected expression, found star
-// Error: 32-33 expected expression, found comma
-#import "target.typ" using a, *, b
+// Should output `"target.typ"`.
+// Error: 1-6 unexpected keyword `from`
+#from "target.typ"
 
-// Stop at semicolon.
-#import "target.typ" using a, c;Hi
+// Should output `target`.
+// Error: 2:16-3:2 file not found
+// Error: 2:2 expected semicolon or line break
+#import * from "target.typ
+"target
 
-// Who needs whitespace anyways?
-#import "target.typ"using *
-#import"target.typ"using*
-#import "target.typ"using *
+// Should output `@ 0.2.1`.
+// Error: 28 expected semicolon or line break
+#import * from "target.typ" @ 0.2.1
+
+// A star in the list.
+// Error: 2:12-2:13 expected expression, found star
+// Error: 1:13-1:14 expected expression, found comma
+#import a, *, b from "target.typ"
+
+// An item after a star.
+// Should output `, a from "target.typ"`.
+// Error: 10 expected keyword `from`
+#import *, a from "target.typ"

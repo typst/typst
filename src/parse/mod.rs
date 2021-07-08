@@ -728,33 +728,29 @@ fn import_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
     p.assert(Token::Import);
 
+    let imports = if p.eat_if(Token::Star) {
+        // This is the wildcard scenario.
+        Imports::Wildcard
+    } else {
+        // This is the list of identifiers scenario.
+        p.start_group(Group::Imports, TokenMode::Code);
+        let items = collection(p).0;
+        if items.is_empty() {
+            p.expected_at("import items", p.prev_end());
+        }
+        p.end_group();
+        Imports::Idents(idents(p, items))
+    };
+
     let mut import_expr = None;
-    if let Some(path) = expr(p) {
-        let imports = if p.expect(Token::Using) {
-            if p.eat_if(Token::Star) {
-                // This is the wildcard scenario.
-                Imports::Wildcard
-            } else {
-                // This is the list of identifier scenario.
-                p.start_group(Group::Expr, TokenMode::Code);
-                let items = collection(p).0;
-                if items.is_empty() {
-                    p.expected_at("import items", p.prev_end());
-                }
-
-                let idents = idents(p, items);
-                p.end_group();
-                Imports::Idents(idents)
-            }
-        } else {
-            Imports::Idents(vec![])
-        };
-
-        import_expr = Some(Expr::Import(ImportExpr {
-            span: p.span(start),
-            imports,
-            path: Box::new(path),
-        }));
+    if p.expect(Token::From) {
+        if let Some(path) = expr(p) {
+            import_expr = Some(Expr::Import(ImportExpr {
+                span: p.span(start),
+                imports,
+                path: Box::new(path),
+            }));
+        }
     }
 
     import_expr

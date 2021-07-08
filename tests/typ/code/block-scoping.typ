@@ -21,7 +21,7 @@
 ---
 // Double block creates a scope.
 {{
-    import "target.typ" using b
+    import b from "target.typ"
     test(b, 1)
 }}
 

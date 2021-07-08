@@ -440,9 +440,9 @@ impl Pretty for ForPattern {
 impl Pretty for ImportExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("import ");
-        self.path.pretty(p);
-        p.push_str(" using ");
         self.imports.pretty(p);
+        p.push_str(" from ");
+        self.path.pretty(p);
     }
 }
 
@@ -737,7 +737,7 @@ mod tests {
         roundtrip("#while x {y}");
         roundtrip("#for x in y {z}");
         roundtrip("#for k, x in y {z}");
-        roundtrip("#import \"file.typ\" using *");
+        roundtrip("#import * from \"file.typ\"");
         roundtrip("#include \"chapter1.typ\"");
     }
 

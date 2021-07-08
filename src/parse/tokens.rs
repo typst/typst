@@ -496,7 +496,7 @@ fn keyword(id: &str) -> Option<Token<'static>> {
         "return" => Token::Return,
         "import" => Token::Import,
         "include" => Token::Include,
-        "using" => Token::Using,
+        "from" => Token::From,
         _ => return None,
     })
 }

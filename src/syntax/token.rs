@@ -101,8 +101,8 @@ pub enum Token<'s> {
     Import,
     /// The `include` keyword.
     Include,
-    /// The `using` keyword.
-    Using,
+    /// The `from` keyword.
+    From,
     /// One or more whitespace characters.
     ///
     /// The contained `usize` denotes the number of newlines that were contained
@@ -254,7 +254,7 @@ impl<'s> Token<'s> {
             Self::Return => "keyword `return`",
             Self::Import => "keyword `import`",
             Self::Include => "keyword `include`",
-            Self::Using => "keyword `using`",
+            Self::From => "keyword `from`",
             Self::Space(_) => "space",
             Self::Text(_) => "text",
             Self::UnicodeEscape(_) => "unicode escape sequence",
