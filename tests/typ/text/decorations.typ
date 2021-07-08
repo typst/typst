@@ -3,14 +3,17 @@
 ---
 #strike[Statements dreamt up by the utterly deranged.]
 
-Sometimes, we work #strike(extent: 5%, strength: 10pt)[in secret]. There might
-be #strike(extent: 5%, strength: 10pt, color: rgb("abcdef88"))[redacted] things.
+Sometimes, we work #strike(10pt, extent: 5%)[in secret].
+There might be #strike(stroke: rgb("abcdef88"), thickness: 10pt, extent: 5%)[redacted]
+things.
+
+#underline(offset: 5pt)[Further below.]
 
 ---
-#underline(color: rgb("fc0030"))[Critical information is conveyed here.]
-#underline[Still important, but not #underline(strength: 0pt)[mission ]critical.]
+#underline(rgb("fc0030"))[Critical information is conveyed here.]
+#underline[Still important, but not #underline(0pt)[mission ]critical.]
 
-#font(color: rgb("fc0030"), underline[Change with the wind.])
+#font(fill: rgb("fc0030"), underline[Change with the wind.])
 
 ---
 #overline(underline[Running amongst the wolves.])

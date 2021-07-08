@@ -396,23 +396,24 @@ fn decorate(
     let mut apply = |substate: &LineState, metrics: fn(&Face) -> &LineMetrics| {
         let metrics = metrics(&ctx.cache.font.get(face_id));
 
-        let strength = substate
-            .strength
+        let stroke = substate.stroke.unwrap_or(state.fill);
+
+        let thickness = substate
+            .thickness
             .map(|s| s.resolve(state.size))
             .unwrap_or(metrics.strength.to_length(state.size));
 
-        let position = substate
-            .position
+        let offset = substate
+            .offset
             .map(|s| s.resolve(state.size))
-            .unwrap_or(metrics.position.to_length(state.size));
+            .unwrap_or(-metrics.position.to_length(state.size));
 
         let extent = substate.extent.resolve(state.size);
-        let fill = substate.fill.unwrap_or(state.fill);
 
-        let pos = Point::new(pos.x - extent, pos.y - position);
+        let pos = Point::new(pos.x - extent, pos.y + offset);
         let target = Point::new(width + 2.0 * extent, Length::zero());
-        let shape = Shape::Line(target, strength);
-        let element = Element::Geometry(shape, fill);
+        let shape = Shape::Line(target, thickness);
+        let element = Element::Geometry(shape, stroke);
 
         frame.push(pos, element);
     };

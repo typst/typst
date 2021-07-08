@@ -2,8 +2,8 @@
 
 ---
 // Set same font size in three different ways.
-#font(size: 22pt)[A]
-#font(size: 200%)[A]
+#font(22pt)[A]
+#font(200%)[A]
 #font(size: 16.5pt + 50%)[A]
 
 // Do nothing.
@@ -25,12 +25,12 @@
 Emoji: 🐪, 🌋, 🏞
 
 // Math.
-#font(family: "Latin Modern Math")[
+#font("Latin Modern Math")[
     ∫ 𝛼 + 3𝛽 d𝑡
 ]
 
 // Colors.
-#font(color: eastern)[This is #font(color: rgb("FA644B"))[way more] colorful.]
+#font(fill: eastern)[This is #font(fill: rgb("FA644B"))[way more] colorful.]
 
 ---
 // Test top and bottom edge.
@@ -50,8 +50,8 @@ Emoji: 🐪, 🌋, 🏞
 // Test class definitions.
 #font!(sans-serif: "PT Sans")
 #font(family: sans-serif)[Sans-serif.] \
-#font(family: monospace)[Monospace.] \
-#font(family: monospace, monospace: ("Nope", "Latin Modern Math"))[Math.]
+#font(monospace)[Monospace.] \
+#font(monospace, monospace: ("Nope", "Latin Modern Math"))[Math.]
 
 ---
 // Ref: false
@@ -72,3 +72,9 @@ Emoji: 🐪, 🌋, 🏞
 
 // Error: 7-27 unexpected argument
 #font(something: "invalid")[]
+
+// Error: 13-23 unexpected argument
+#font(12pt, size: 10pt)[]
+
+// Error: 16-35 unexpected argument
+#font("Arial", family: "Helvetica")[]

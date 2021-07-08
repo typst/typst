@@ -2,8 +2,8 @@
 
 ---
 // Test multiple wide calls in separate expressions.
-#font!(color: eastern) - First
-#font!(color: forest) - Second
+#font!(fill: eastern) - First
+#font!(fill: forest) - Second
 
 ---
 // Test in heading.

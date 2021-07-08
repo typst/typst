@@ -165,17 +165,17 @@ impl Default for FontState {
 /// Describes a line that could be positioned over, under or on top of text.
 #[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub struct LineState {
+    /// Stroke color of the line. Defaults to the text color if `None`.
+    pub stroke: Option<Fill>,
     /// Thickness of the line's stroke. Calling functions should attempt to
     /// read this value from the appropriate font tables if this is `None`.
-    pub strength: Option<Linear>,
+    pub thickness: Option<Linear>,
     /// Position of the line relative to the baseline. Calling functions should
     /// attempt to read this value from the appropriate font tables if this is
     /// `None`.
-    pub position: Option<Linear>,
+    pub offset: Option<Linear>,
     /// Amount that the line will be longer or shorter than its associated text.
     pub extent: Linear,
-    /// Color of the line. Will default to text color if `None`.
-    pub fill: Option<Fill>,
 }
 
 /// Font family definitions.

@@ -5,7 +5,7 @@ Auto-sized square. \
 #square(fill: eastern)[
     #align!(center)
     #pad!(5pt)
-    #font!(color: white, weight: bold)
+    #font!(fill: white, weight: bold)
     Typst
 ]
 

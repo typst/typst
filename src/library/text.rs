@@ -6,14 +6,20 @@ use super::*;
 
 /// `font`: Configure the font.
 pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let list = args.named(ctx, "family");
-    let size = args.named::<Linear>(ctx, "size");
+    let families = args.all(ctx);
+    let list = if families.is_empty() {
+        args.named(ctx, "family")
+    } else {
+        Some(FontDef(families))
+    };
+
+    let size = args.eat(ctx).or_else(|| args.named::<Linear>(ctx, "size"));
     let style = args.named(ctx, "style");
     let weight = args.named(ctx, "weight");
     let stretch = args.named(ctx, "stretch");
     let top_edge = args.named(ctx, "top-edge");
     let bottom_edge = args.named(ctx, "bottom-edge");
-    let color = args.named(ctx, "color");
+    let fill = args.named(ctx, "fill");
     let serif = args.named(ctx, "serif");
     let sans_serif = args.named(ctx, "sans-serif");
     let monospace = args.named(ctx, "monospace");
@@ -50,8 +56,8 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             font.bottom_edge = bottom_edge;
         }
 
-        if let Some(color) = color {
-            font.fill = Fill::Color(color);
+        if let Some(fill) = fill {
+            font.fill = Fill::Color(fill);
         }
 
         if let Some(FamilyDef(serif)) = &serif {
@@ -229,19 +235,19 @@ fn line_impl(
     args: &mut FuncArgs,
     substate: fn(&mut FontState) -> &mut Option<Rc<LineState>>,
 ) -> Value {
-    let color = args.named(ctx, "color");
-    let position = args.named(ctx, "position");
-    let strength = args.named::<Linear>(ctx, "strength");
+    let stroke = args.eat(ctx).or_else(|| args.named(ctx, "stroke"));
+    let thickness = args.eat(ctx).or_else(|| args.named::<Linear>(ctx, "thickness"));
+    let offset = args.named(ctx, "offset");
     let extent = args.named(ctx, "extent").unwrap_or_default();
     let body = args.expect::<TemplateValue>(ctx, "body").unwrap_or_default();
 
     // Suppress any existing strikethrough if strength is explicitly zero.
-    let state = strength.map_or(true, |s| !s.is_zero()).then(|| {
+    let state = thickness.map_or(true, |s| !s.is_zero()).then(|| {
         Rc::new(LineState {
-            strength,
-            position,
+            stroke: stroke.map(Fill::Color),
+            thickness,
+            offset,
             extent,
-            fill: color.map(Fill::Color),
         })
     });
 
