@@ -147,6 +147,18 @@
 { x += "thing" } #test(x, "something")
 
 ---
+// Test range operator.
+
+#let array = (1, 2, 3)
+#test(1..3, array)
+#test(1.. 3, array)
+#test(1 ..3, array)
+#test(1 .. 3, array)
+
+#test(-4..2, (-4, -3, -2, -1, 0, 1, 2))
+#test(10..5, ())
+
+---
 // Test with operator.
 // Ref: true
 

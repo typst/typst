@@ -86,11 +86,6 @@ impl<'s> Scanner<'s> {
         self.rest().chars().next()
     }
 
-    /// Peek at the nth-next char without consuming anything.
-    pub fn peek_nth(&self, n: usize) -> Option<char> {
-        self.rest().chars().nth(n)
-    }
-
     /// Checks whether the next char fulfills a condition.
     ///
     /// Returns `false` if there is no next char.
@@ -99,6 +94,11 @@ impl<'s> Scanner<'s> {
         F: FnOnce(char) -> bool,
     {
         self.peek().map(f).unwrap_or(false)
+    }
+
+    /// Checks whether the remaining source starts with the given string.
+    pub fn starts_with(&self, string: &str) -> bool {
+        self.rest().starts_with(string)
     }
 
     /// The previous index in the source string.

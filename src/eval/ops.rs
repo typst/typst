@@ -250,6 +250,14 @@ comparison!(leq, Less | Equal);
 comparison!(gt, Greater);
 comparison!(geq, Greater | Equal);
 
+/// Compute the range from `lhs` to `rhs`.
+pub fn range(lhs: Value, rhs: Value) -> Value {
+    match (lhs, rhs) {
+        (Int(a), Int(b)) => Array((a ..= b).map(Int).collect()),
+        _ => Error,
+    }
+}
+
 /// Concatenate two collections.
 fn concat<T, A>(mut a: T, b: T) -> T
 where

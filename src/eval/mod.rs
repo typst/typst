@@ -383,6 +383,7 @@ impl Eval for BinaryExpr {
             BinOp::SubAssign => self.assign(ctx, ops::sub),
             BinOp::MulAssign => self.assign(ctx, ops::mul),
             BinOp::DivAssign => self.assign(ctx, ops::div),
+            BinOp::Range => self.apply(ctx, ops::range),
         }
     }
 }

@@ -44,6 +44,9 @@
 // Error: 3-4 expected function, found integer
 { 1 with () }
 
+// Error: 3-10 cannot apply '..' to integer and string
+{ 1 .. "" }
+
 ---
 // Bad left-hand sides of assignment.
 

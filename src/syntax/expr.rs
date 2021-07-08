@@ -278,6 +278,8 @@ pub enum BinOp {
     MulAssign,
     /// The divide-assign operator: `/=`.
     DivAssign,
+    /// The inclusive range operator: `..`.
+    Range,
 }
 
 impl BinOp {
@@ -301,6 +303,7 @@ impl BinOp {
             Token::HyphEq => Self::SubAssign,
             Token::StarEq => Self::MulAssign,
             Token::SlashEq => Self::DivAssign,
+            Token::Dots => Self::Range,
             _ => return None,
         })
     }
@@ -311,8 +314,9 @@ impl BinOp {
             Self::Mul | Self::Div => 7,
             Self::Add | Self::Sub => 6,
             Self::Eq | Self::Neq | Self::Lt | Self::Leq | Self::Gt | Self::Geq => 5,
-            Self::And => 3,
-            Self::Or => 2,
+            Self::And => 4,
+            Self::Or => 3,
+            Self::Range => 2,
             Self::Assign
             | Self::AddAssign
             | Self::SubAssign
@@ -335,7 +339,8 @@ impl BinOp {
             | Self::Lt
             | Self::Leq
             | Self::Gt
-            | Self::Geq => Associativity::Left,
+            | Self::Geq
+            | Self::Range => Associativity::Left,
             Self::Assign
             | Self::AddAssign
             | Self::SubAssign
@@ -364,6 +369,7 @@ impl BinOp {
             Self::SubAssign => "-=",
             Self::MulAssign => "*=",
             Self::DivAssign => "/=",
+            Self::Range => "..",
         }
     }
 }

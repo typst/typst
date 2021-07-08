@@ -216,7 +216,7 @@ impl<'s> Tokens<'s> {
                     self.s.eat_assert(c);
                     Token::Text(&self.s.eaten_from(start))
                 }
-                'u' if self.s.peek_nth(1) == Some('{') => {
+                'u' if self.s.starts_with("u{") => {
                     self.s.eat_assert('u');
                     self.s.eat_assert('{');
                     Token::UnicodeEscape(UnicodeEscapeToken {
@@ -366,7 +366,8 @@ impl<'s> Tokens<'s> {
         self.s.eat_while(|c| c.is_ascii_digit());
 
         // Read the fractional part if not already done.
-        if c != '.' && self.s.eat_if('.') {
+        // Make sure not to confuse a range for the decimal separator.
+        if c != '.' && !self.s.starts_with("..") && self.s.eat_if('.') {
             self.s.eat_while(|c| c.is_ascii_digit());
         }
 
@@ -905,6 +906,11 @@ mod tests {
                 t!(Code[" /"]: format!("{}{}", s, suffix) => build(v));
             }
         }
+
+        // Multiple dots close the number.
+        t!(Code[" /"]: "1..2"   => Int(1), Dots, Int(2));
+        t!(Code[" /"]: "1..2.3" => Int(1), Dots, Float(2.3));
+        t!(Code[" /"]: "1.2..3" => Float(1.2), Dots, Int(3));
     }
 
     #[test]
