@@ -15,6 +15,11 @@ C/*
 , "integer")
 
 ---
+// Line comments have a special case for URLs.
+https://example.com \
+https:/* block comments don't ... */
+
+---
 // End should not appear without start.
 // Error: 1:7-1:9 unexpected end of block comment
 /* */ */

@@ -72,9 +72,9 @@ impl<'s> Iterator for Tokens<'s> {
             // Whitespace.
             c if c.is_whitespace() => self.whitespace(c),
 
-            // Comments.
-            '/' if self.s.eat_if('/') => self.line_comment(),
+            // Comments with special case for URLs.
             '/' if self.s.eat_if('*') => self.block_comment(),
+            '/' if !self.maybe_in_url() && self.s.eat_if('/') => self.line_comment(),
             '*' if self.s.eat_if('/') => Token::Invalid(self.s.eaten_from(start)),
 
             // Other things.
@@ -216,7 +216,7 @@ impl<'s> Tokens<'s> {
                     self.s.eat_assert(c);
                     Token::Text(&self.s.eaten_from(start))
                 }
-                'u' if self.s.starts_with("u{") => {
+                'u' if self.s.rest().starts_with("u{") => {
                     self.s.eat_assert('u');
                     self.s.eat_assert('{');
                     Token::UnicodeEscape(UnicodeEscapeToken {
@@ -367,7 +367,7 @@ impl<'s> Tokens<'s> {
 
         // Read the fractional part if not already done.
         // Make sure not to confuse a range for the decimal separator.
-        if c != '.' && !self.s.starts_with("..") && self.s.eat_if('.') {
+        if c != '.' && !self.s.rest().starts_with("..") && self.s.eat_if('.') {
             self.s.eat_while(|c| c.is_ascii_digit());
         }
 
@@ -463,6 +463,10 @@ impl<'s> Tokens<'s> {
         let end = self.s.index() - if terminated { 2 } else { 0 };
 
         Token::BlockComment(self.s.get(start .. end))
+    }
+
+    fn maybe_in_url(&self) -> bool {
+        self.mode == TokenMode::Markup && self.s.eaten().ends_with(":/")
     }
 }
 
@@ -688,7 +692,6 @@ mod tests {
         t!(Markup[" /"]: r"\a"   => Text(r"\"), Text("a"));
         t!(Markup[" /"]: r"\u"   => Text(r"\"), Text("u"));
         t!(Markup[" /"]: r"\1"   => Text(r"\"), Text("1"));
-        t!(Markup[" /"]: r"\:"   => Text(r"\"), Text(":"));
         t!(Markup[" /"]: r#"\""# => Text(r"\"), Text("\""));
 
         // Test basic unicode escapes.

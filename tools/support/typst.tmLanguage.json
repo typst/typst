@@ -7,12 +7,6 @@
     "common": {
       "patterns": [
         {
-          "name": "comment.line.double-slash.typst",
-          "begin": "//",
-          "end": "\n",
-          "beginCaptures": { "0": { "name": "punctuation.definition.comment.typst" } }
-        },
-        {
           "name": "comment.block.typst",
           "begin": "/\\*",
           "end": "\\*/",
@@ -38,6 +32,12 @@
     "markup": {
       "patterns": [
         { "include": "#common" },
+        {
+          "name": "comment.line.double-slash.typst",
+          "begin": "(?<!:)//",
+          "end": "\n",
+          "beginCaptures": { "0": { "name": "punctuation.definition.comment.typst" } }
+        },
         {
           "name": "constant.character.escape.content.typst",
           "match": "\\\\([\\\\/\\[\\]{}#*_=~`$-.]|u\\{[0-9a-zA-Z]*\\}?)"
@@ -191,6 +191,12 @@
     "code": {
       "patterns": [
         { "include": "#common" },
+        {
+          "name": "comment.line.double-slash.typst",
+          "begin": "//",
+          "end": "\n",
+          "beginCaptures": { "0": { "name": "punctuation.definition.comment.typst" } }
+        },
         {
           "name": "punctuation.separator.colon.typst",
           "match": ":"

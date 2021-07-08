@@ -96,11 +96,6 @@ impl<'s> Scanner<'s> {
         self.peek().map(f).unwrap_or(false)
     }
 
-    /// Checks whether the remaining source starts with the given string.
-    pub fn starts_with(&self, string: &str) -> bool {
-        self.rest().starts_with(string)
-    }
-
     /// The previous index in the source string.
     pub fn last_index(&self) -> usize {
         self.eaten()
