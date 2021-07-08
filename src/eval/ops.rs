@@ -1,34 +1,8 @@
 use std::cmp::Ordering::*;
+use std::rc::Rc;
 
 use super::{TemplateNode, Value};
 use Value::*;
-
-/// Join a value with another value.
-pub fn join(lhs: Value, rhs: Value) -> Result<Value, Value> {
-    Ok(match (lhs, rhs) {
-        (_, Error) => Error,
-        (Error, _) => Error,
-
-        (a, None) => a,
-        (None, b) => b,
-
-        (Str(a), Str(b)) => Str(a + &b),
-        (Array(a), Array(b)) => Array(concat(a, b)),
-        (Dict(a), Dict(b)) => Dict(concat(a, b)),
-
-        (Template(a), Template(b)) => Template(concat(a, b)),
-        (Template(mut a), Str(b)) => Template({
-            a.push(TemplateNode::Str(b));
-            a
-        }),
-        (Str(a), Template(mut b)) => Template({
-            b.insert(0, TemplateNode::Str(a));
-            b
-        }),
-
-        (a, _) => return Err(a),
-    })
-}
 
 /// Apply the plus operator to a value.
 pub fn pos(value: Value) -> Value {
@@ -82,21 +56,7 @@ pub fn add(lhs: Value, rhs: Value) -> Value {
 
         (Fractional(a), Fractional(b)) => Fractional(a + b),
 
-        (Str(a), Str(b)) => Str(a + &b),
-        (Array(a), Array(b)) => Array(concat(a, b)),
-        (Dict(a), Dict(b)) => Dict(concat(a, b)),
-
-        (Template(a), Template(b)) => Template(concat(a, b)),
-        (Template(mut a), Str(b)) => Template({
-            a.push(TemplateNode::Str(b));
-            a
-        }),
-        (Str(a), Template(mut b)) => Template({
-            b.insert(0, TemplateNode::Str(a));
-            b
-        }),
-
-        _ => Error,
+        (a, b) => concat(a, b).unwrap_or(Value::Error),
     }
 }
 
@@ -130,6 +90,11 @@ pub fn sub(lhs: Value, rhs: Value) -> Value {
 
 /// Compute the product of two values.
 pub fn mul(lhs: Value, rhs: Value) -> Value {
+    fn repeat<T: Clone>(vec: Vec<T>, n: usize) -> Vec<T> {
+        let len = n * vec.len();
+        vec.into_iter().cycle().take(len).collect()
+    }
+
     match (lhs, rhs) {
         (Int(a), Int(b)) => Int(a * b),
         (Int(a), Float(b)) => Float(a as f64 * b),
@@ -258,17 +223,43 @@ pub fn range(lhs: Value, rhs: Value) -> Value {
     }
 }
 
-/// Concatenate two collections.
-fn concat<T, A>(mut a: T, b: T) -> T
-where
-    T: Extend<A> + IntoIterator<Item = A>,
-{
-    a.extend(b);
-    a
+/// Join a value with another value.
+pub fn join(lhs: Value, rhs: Value) -> Result<Value, Value> {
+    Ok(match (lhs, rhs) {
+        (_, Error) => Error,
+        (Error, _) => Error,
+
+        (a, None) => a,
+        (None, b) => b,
+
+        (a, b) => return concat(a, b),
+    })
 }
 
-/// Repeat a vector `n` times.
-fn repeat<T: Clone>(vec: Vec<T>, n: usize) -> Vec<T> {
-    let len = n * vec.len();
-    vec.into_iter().cycle().take(len).collect()
+/// Concatentate two values.
+fn concat(lhs: Value, rhs: Value) -> Result<Value, Value> {
+    Ok(match (lhs, rhs) {
+        (Str(a), Str(b)) => Str(a + &b),
+        (Array(mut a), Array(b)) => Array({
+            a.extend(b);
+            a
+        }),
+        (Dict(mut a), Dict(b)) => Dict({
+            a.extend(b);
+            a
+        }),
+        (Template(mut a), Template(b)) => Template({
+            Rc::make_mut(&mut a).extend(b.iter().cloned());
+            a
+        }),
+        (Template(mut a), Str(b)) => Template({
+            Rc::make_mut(&mut a).push(TemplateNode::Str(b));
+            a
+        }),
+        (Str(a), Template(mut b)) => Template({
+            Rc::make_mut(&mut b).insert(0, TemplateNode::Str(a));
+            b
+        }),
+        (a, _) => return Err(a),
+    })
 }

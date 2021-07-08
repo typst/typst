@@ -229,7 +229,10 @@ impl Eval for Rc<SyntaxTree> {
         let mut visitor = ExprVisitor { ctx, map: ExprMap::new() };
         visitor.visit_tree(self);
 
-        vec![TemplateNode::Tree { tree: Rc::clone(self), map: visitor.map }]
+        Rc::new(vec![TemplateNode::Tree {
+            tree: Rc::clone(self),
+            map: visitor.map,
+        }])
     }
 }
 

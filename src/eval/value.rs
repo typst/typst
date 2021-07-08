@@ -59,7 +59,7 @@ impl Value {
     where
         F: Fn(&mut ExecContext) + 'static,
     {
-        Self::Template(vec![TemplateNode::Func(TemplateFunc::new(f))])
+        Self::Template(Rc::new(vec![TemplateNode::Func(TemplateFunc::new(f))]))
     }
 
     /// The name of the stored value's type.
@@ -102,6 +102,7 @@ impl Value {
                 a.len() == b.len()
                     && a.iter().all(|(k, x)| b.get(k).map_or(false, |y| x.eq(y)))
             }
+            (Self::Template(a), Self::Template(b)) => Rc::ptr_eq(a, b),
             (a, b) => a == b,
         }
     }
@@ -153,7 +154,7 @@ pub type ArrayValue = Vec<Value>;
 pub type DictValue = BTreeMap<String, Value>;
 
 /// A template value: `[*Hi* there]`.
-pub type TemplateValue = Vec<TemplateNode>;
+pub type TemplateValue = Rc<Vec<TemplateNode>>;
 
 /// One chunk of a template.
 ///
@@ -177,7 +178,6 @@ pub enum TemplateNode {
 
 impl PartialEq for TemplateNode {
     fn eq(&self, _: &Self) -> bool {
-        // TODO: Figure out what we want here.
         false
     }
 }
@@ -205,13 +205,6 @@ impl TemplateFunc {
     }
 }
 
-impl PartialEq for TemplateFunc {
-    fn eq(&self, _: &Self) -> bool {
-        // TODO: Figure out what we want here.
-        false
-    }
-}
-
 impl Deref for TemplateFunc {
     type Target = dyn Fn(&mut ExecContext);
 
@@ -232,6 +225,7 @@ pub struct FuncValue {
     /// The string is boxed to make the whole struct fit into 24 bytes, so that
     /// a [`Value`] fits into 32 bytes.
     name: Option<Box<String>>,
+    /// The closure that defines the function.
     f: Rc<dyn Fn(&mut EvalContext, &mut FuncArgs) -> Value>,
 }
 
@@ -251,9 +245,9 @@ impl FuncValue {
 }
 
 impl PartialEq for FuncValue {
-    fn eq(&self, _: &Self) -> bool {
-        // TODO: Figure out what we want here.
-        false
+    fn eq(&self, other: &Self) -> bool {
+        // We cast to thin pointers because we don't want to compare vtables.
+        Rc::as_ptr(&self.f) as *const () == Rc::as_ptr(&other.f) as *const ()
     }
 }
 
@@ -620,7 +614,7 @@ primitive! { DictValue: "dictionary", Value::Dict }
 primitive! {
     TemplateValue: "template",
     Value::Template,
-    Value::Str(v) => vec![TemplateNode::Str(v)],
+    Value::Str(v) => Rc::new(vec![TemplateNode::Str(v)]),
 }
 primitive! { FuncValue: "function", Value::Func }
 

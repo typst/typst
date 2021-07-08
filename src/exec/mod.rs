@@ -152,7 +152,7 @@ impl Exec for Value {
 
 impl Exec for TemplateValue {
     fn exec(&self, ctx: &mut ExecContext) {
-        for node in self {
+        for node in self.iter() {
             node.exec(ctx);
         }
     }
