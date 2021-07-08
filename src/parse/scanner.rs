@@ -88,12 +88,12 @@ impl<'s> Scanner<'s> {
 
     /// Checks whether the next char fulfills a condition.
     ///
-    /// Returns `false` if there is no next char.
-    pub fn check<F>(&self, f: F) -> bool
+    /// Returns `default` if there is no next char.
+    pub fn check_or<F>(&self, default: bool, f: F) -> bool
     where
         F: FnOnce(char) -> bool,
     {
-        self.peek().map(f).unwrap_or(false)
+        self.peek().map_or(default, f)
     }
 
     /// The previous index in the source string.

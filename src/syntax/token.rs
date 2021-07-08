@@ -19,8 +19,6 @@ pub enum Token<'s> {
     Star,
     /// An underscore: `_`.
     Underscore,
-    /// A single hashtag: `#`.
-    Hashtag,
     /// A tilde: `~`.
     Tilde,
     /// Two hyphens: `--`.
@@ -215,7 +213,6 @@ impl<'s> Token<'s> {
             Self::RightParen => "closing paren",
             Self::Star => "star",
             Self::Underscore => "underscore",
-            Self::Hashtag => "hashtag",
             Self::Tilde => "tilde",
             Self::HyphHyph => "en dash",
             Self::HyphHyphHyph => "em dash",

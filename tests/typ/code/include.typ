@@ -1,7 +1,7 @@
 // Test include statements.
 
 ---
-# Document
+= Document
 
 // Include a file
 #include "importable/chap1.typ"

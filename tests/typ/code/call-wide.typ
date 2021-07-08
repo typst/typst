@@ -7,7 +7,7 @@
 
 ---
 // Test in heading.
-# A #align!(right) B
+= A #align!(right) B
 C
 
 ---

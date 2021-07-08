@@ -2,7 +2,7 @@
 
 #let name = "Klaus"
 
-## Chapter 2
+== Chapter 2
 Their motivations, however, were pretty descript, so to speak. #name had not yet
 conceptualized their consequences, but that should change pretty quickly. #name
 approached the center of the field and picked up a 4-foot long disk made from

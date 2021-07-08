@@ -79,6 +79,6 @@ Three
 // Error: 9 expected expression
 #let v =
 
-// Should output `= 1`.
+// Should output a heading `1`.
 // Error: 6-9 expected identifier, found string
 #let "v" = 1

@@ -102,14 +102,12 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
         Token::Star => Node::Strong(span),
         Token::Underscore => Node::Emph(span),
         Token::Raw(t) => raw(p, t),
-        Token::Hashtag if *at_start => return Some(heading(p)),
+        Token::Eq if *at_start => return Some(heading(p)),
         Token::Hyph if *at_start => return Some(list_item(p)),
         Token::Numbering(number) if *at_start => return Some(enum_item(p, number)),
 
         // Line-based markup that is not currently at the start of the line.
-        Token::Hashtag | Token::Hyph | Token::Numbering(_) => {
-            Node::Text(p.peek_src().into())
-        }
+        Token::Eq | Token::Hyph | Token::Numbering(_) => Node::Text(p.peek_src().into()),
 
         // Hashtag + keyword / identifier.
         Token::Ident(_)
@@ -183,11 +181,11 @@ fn raw(p: &mut Parser, token: RawToken) -> Node {
 /// Parse a heading.
 fn heading(p: &mut Parser) -> Node {
     let start = p.next_start();
-    p.assert(Token::Hashtag);
+    p.assert(Token::Eq);
 
     // Count depth.
     let mut level: usize = 1;
-    while p.eat_if(Token::Hashtag) {
+    while p.eat_if(Token::Eq) {
         level += 1;
     }
 

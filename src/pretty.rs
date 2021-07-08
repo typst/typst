@@ -169,7 +169,7 @@ impl Pretty for RawNode {
 impl Pretty for HeadingNode {
     fn pretty(&self, p: &mut Printer) {
         for _ in 0 .. self.level {
-            p.push('#');
+            p.push('=');
         }
         p.push(' ');
         self.body.pretty(p);
@@ -653,7 +653,7 @@ mod tests {
         roundtrip("\\ ");
         roundtrip("\n\n");
         roundtrip("hi");
-        roundtrip("# *Ok*");
+        roundtrip("= *Ok*");
         roundtrip("- Ok");
 
         // Raw.

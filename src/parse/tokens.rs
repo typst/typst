@@ -89,18 +89,21 @@ impl<'s> Iterator for Tokens<'s> {
 impl<'s> Tokens<'s> {
     fn markup(&mut self, start: usize, c: char) -> Token<'s> {
         match c {
+            // Escape sequences.
+            '\\' => self.backslash(),
+
+            // Keywords and identifiers.
+            '#' => self.hash(),
+
             // Markup.
             '~' => Token::Tilde,
             '*' => Token::Star,
             '_' => Token::Underscore,
-            '\\' => self.backslash(),
             '`' => self.raw(),
             '$' => self.math(),
             '-' => self.hyph(start),
+            '=' if self.s.check_or(true, |c| c == '=' || c.is_whitespace()) => Token::Eq,
             c if c == '.' || c.is_ascii_digit() => self.numbering(start, c),
-
-            // Headings, keywords and identifiers.
-            '#' => self.hash(start),
 
             // Plain text.
             _ => self.text(start),
@@ -143,7 +146,7 @@ impl<'s> Tokens<'s> {
 
             // Numbers.
             c if c.is_ascii_digit()
-                || (c == '.' && self.s.check(|n| n.is_ascii_digit())) =>
+                || (c == '.' && self.s.check_or(false, |n| n.is_ascii_digit())) =>
             {
                 self.number(start, c)
             }
@@ -157,7 +160,7 @@ impl<'s> Tokens<'s> {
 
     fn whitespace(&mut self, first: char) -> Token<'s> {
         // Fast path for just a single space
-        if first == ' ' && !self.s.check(char::is_whitespace) {
+        if first == ' ' && self.s.check_or(true, |c| !c.is_whitespace()) {
             Token::Space(0)
         } else {
             self.s.uneat();
@@ -188,8 +191,10 @@ impl<'s> Tokens<'s> {
                 '/' => true,
                 // Parentheses.
                 '[' | ']' | '{' | '}' => true,
+                // Code.
+                '#' => true,
                 // Markup.
-                '#' | '~' | '*' | '_' | '`' | '$' | '-' => true,
+                '~' | '*' | '_' | '`' | '$' | '-' => true,
                 // Escaping.
                 '\\' => true,
                 // Just text.
@@ -233,18 +238,16 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    fn hash(&mut self, start: usize) -> Token<'s> {
-        if self.s.check(is_id_start) {
+    fn hash(&mut self) -> Token<'s> {
+        if self.s.check_or(false, is_id_start) {
             let read = self.s.eat_while(is_id_continue);
             if let Some(keyword) = keyword(read) {
                 keyword
             } else {
                 Token::Ident(read)
             }
-        } else if self.s.check(|c| c != '#' && !c.is_whitespace()) {
-            Token::Text(self.s.eaten_from(start))
         } else {
-            Token::Hashtag
+            Token::Invalid("#")
         }
     }
 
@@ -255,10 +258,10 @@ impl<'s> Tokens<'s> {
             } else {
                 Token::HyphHyph
             }
-        } else if self.s.check(|c| !c.is_whitespace()) {
-            Token::Text(self.s.eaten_from(start))
-        } else {
+        } else if self.s.check_or(true, char::is_whitespace) {
             Token::Hyph
+        } else {
+            Token::Text(self.s.eaten_from(start))
         }
     }
 
@@ -274,11 +277,11 @@ impl<'s> Tokens<'s> {
             None
         };
 
-        if self.s.check(|c| !c.is_whitespace()) {
-            return Token::Text(self.s.eaten_from(start));
+        if self.s.check_or(true, char::is_whitespace) {
+            Token::Numbering(number)
+        } else {
+            Token::Text(self.s.eaten_from(start))
         }
-
-        Token::Numbering(number)
     }
 
     fn raw(&mut self) -> Token<'s> {
@@ -663,8 +666,8 @@ mod tests {
         // Test code symbols in text.
         t!(Markup[" /"]: "a():\"b" => Text("a():\"b"));
         t!(Markup[" /"]: ";:,|/+"  => Text(";:,|"), Text("/+"));
-        t!(Markup[" /"]: "#-a"     => Text("#"), Text("-"), Text("a"));
-        t!(Markup[" "]: "#123"     => Text("#"), Text("123"));
+        t!(Markup[" /"]: "=-a"     => Text("="), Text("-"), Text("a"));
+        t!(Markup[" "]: "#123"     => Invalid("#"), Text("123"));
 
         // Test text ends.
         t!(Markup[""]: "hello " => Text("hello"), Space(0));
@@ -712,8 +715,8 @@ mod tests {
         // Test markup tokens.
         t!(Markup[" a1"]: "*"   => Star);
         t!(Markup: "_"          => Underscore);
-        t!(Markup[""]: "###"    => Hashtag, Hashtag, Hashtag);
-        t!(Markup["a1/"]: "# "  => Hashtag, Space(0));
+        t!(Markup[""]: "==="    => Eq, Eq, Eq);
+        t!(Markup["a1/"]: "= "  => Eq, Space(0));
         t!(Markup: "~"          => Tilde);
         t!(Markup[" "]: r"\"    => Backslash);
         t!(Markup["a "]: r"a--" => Text("a"), HyphHyph);
@@ -776,7 +779,7 @@ mod tests {
         for &(s, t) in &list {
             t!(Markup[" "]: format!("#{}", s) => t);
             t!(Markup[" "]: format!("#{0}#{0}", s) => t, t);
-            t!(Markup[" /"]: format!("# {}", s) => Token::Hashtag, Space(0), Text(s));
+            t!(Markup[" /"]: format!("# {}", s) => Token::Invalid("#"), Space(0), Text(s));
         }
 
         for &(s, t) in &list {
