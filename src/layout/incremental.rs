@@ -168,7 +168,7 @@ impl FramesEntry {
 }
 
 /// Describe regions that match them.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Constraints {
     /// The minimum available length in the region.
     pub min: Spec<Option<Length>>,
@@ -253,7 +253,7 @@ impl Constraints {
 
 /// Carries an item that only applies to certain regions and the constraints
 /// that describe these regions.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Constrained<T> {
     pub item: T,
     pub constraints: Constraints,

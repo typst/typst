@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Add;
 
+use decorum::N64;
 use serde::{Deserialize, Serialize};
 
 use crate::geom::Length;
@@ -119,7 +120,7 @@ impl Face {
             VerticalFontMetric::Ascender => self.ascender,
             VerticalFontMetric::CapHeight => self.cap_height,
             VerticalFontMetric::XHeight => self.x_height,
-            VerticalFontMetric::Baseline => Em::ZERO,
+            VerticalFontMetric::Baseline => Em::zero(),
             VerticalFontMetric::Descender => self.descender,
         }
     }
@@ -161,31 +162,33 @@ impl Display for VerticalFontMetric {
 /// A length in em units.
 ///
 /// `1em` is the same as the font size.
-#[derive(Default, Debug, Copy, Clone, PartialEq, PartialOrd)]
-pub struct Em(f64);
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, PartialOrd)]
+pub struct Em(N64);
 
 impl Em {
     /// The zero length.
-    pub const ZERO: Self = Self(0.0);
+    pub fn zero() -> Self {
+        Self(N64::from(0.0))
+    }
 
     /// Create an em length.
     pub fn new(em: f64) -> Self {
-        Self(em)
+        Self(N64::from(em))
     }
 
     /// Convert units to an em length at the given units per em.
     pub fn from_units(units: impl Into<f64>, units_per_em: f64) -> Self {
-        Self(units.into() / units_per_em)
+        Self(N64::from(units.into() / units_per_em))
     }
 
     /// The number of em units.
     pub fn get(self) -> f64 {
-        self.0
+        self.0.into()
     }
 
     /// Convert to a length at the given font size.
     pub fn to_length(self, font_size: Length) -> Length {
-        self.0 * font_size
+        self.get() * font_size
     }
 }
 
@@ -317,7 +320,7 @@ impl FaceId {
 }
 
 /// Properties of a single font face.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FaceInfo {
     /// The typographic font family this face is part of.
     pub family: String,
@@ -330,7 +333,8 @@ pub struct FaceInfo {
 }
 
 /// Properties that distinguish a face from other faces in the same family.
-#[derive(Default, Debug, Copy, Clone, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize)]
 pub struct FontVariant {
     /// The style of the face (normal / italic / oblique).
     pub style: FontStyle,

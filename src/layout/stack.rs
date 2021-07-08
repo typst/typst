@@ -3,7 +3,7 @@ use decorum::N64;
 use super::*;
 
 /// A node that stacks its children.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub struct StackNode {
     /// The `main` and `cross` directions of this stack.
@@ -20,7 +20,7 @@ pub struct StackNode {
 }
 
 /// A child of a stack node.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub enum StackChild {
     /// Spacing between other nodes.

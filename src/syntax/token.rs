@@ -157,7 +157,7 @@ pub enum Token<'s> {
 }
 
 /// A quoted string token: `"..."`.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct StrToken<'s> {
     /// The string inside the quotes.
     ///
@@ -170,7 +170,7 @@ pub struct StrToken<'s> {
 }
 
 /// A raw block token: `` `...` ``.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct RawToken<'s> {
     /// The raw text between the backticks.
     pub text: &'s str,
@@ -181,7 +181,7 @@ pub struct RawToken<'s> {
 }
 
 /// A math formula token: `$2pi + x$` or `$[f'(x) = x^2]$`.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct MathToken<'s> {
     /// The formula between the dollars.
     pub formula: &'s str,
@@ -193,7 +193,7 @@ pub struct MathToken<'s> {
 }
 
 /// A unicode escape sequence token: `\u{1F5FA}`.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct UnicodeEscapeToken<'s> {
     /// The escape sequence between the braces.
     pub sequence: &'s str,

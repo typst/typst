@@ -9,7 +9,7 @@ use crate::geom::{Length, Path, Point, Size};
 use crate::image::ImageId;
 
 /// A finished layout with elements at fixed positions.
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Frame {
     /// The size of the frame.
     pub size: Size,
@@ -99,14 +99,14 @@ impl Frame {
 
 /// A frame can contain multiple children: elements or other frames, complete
 /// with their children.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 enum Child {
     Element(Element),
     Frame(Rc<Frame>),
 }
 
 /// The building block frames are composed of.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Element {
     /// Shaped text.
     Text(Text),
@@ -118,7 +118,7 @@ pub enum Element {
 }
 
 /// A run of shaped text.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Text {
     /// The font face the glyphs are contained in.
     pub face_id: FaceId,
@@ -131,7 +131,7 @@ pub struct Text {
 }
 
 /// A glyph in a run of shaped text.
-#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Glyph {
     /// The glyph's index in the face.
     pub id: u16,
@@ -155,7 +155,7 @@ impl Text {
 }
 
 /// A geometric shape.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Geometry {
     /// A filled rectangle with its origin in the topleft corner.
     Rect(Size),

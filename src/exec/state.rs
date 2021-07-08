@@ -8,7 +8,7 @@ use crate::layout::Paint;
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
 /// The execution state.
-#[derive(Default, Debug, Clone, PartialEq, Hash)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct State {
     /// The current language-related settings.
     pub lang: LangState,
@@ -30,7 +30,7 @@ impl State {
 }
 
 /// Defines language properties.
-#[derive(Debug, Copy, Clone, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct LangState {
     /// The direction for text and other inline objects.
     pub dir: Dir,
@@ -43,7 +43,7 @@ impl Default for LangState {
 }
 
 /// Defines page properties.
-#[derive(Debug, Copy, Clone, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct PageState {
     /// The class of this page.
     pub class: PaperClass,
@@ -83,7 +83,7 @@ impl Default for PageState {
 }
 
 /// Defines paragraph properties.
-#[derive(Debug, Copy, Clone, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ParState {
     /// The spacing between paragraphs (dependent on scaled font size).
     pub spacing: Linear,
@@ -105,7 +105,7 @@ impl Default for ParState {
 }
 
 /// Defines font properties.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FontState {
     /// A list of font families with generic class definitions.
     pub families: Rc<FamilyList>,
@@ -163,7 +163,7 @@ impl Default for FontState {
 }
 
 /// Describes a line that could be positioned over, under or on top of text.
-#[derive(Debug, Copy, Clone, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct LineState {
     /// Stroke color of the line.
     ///

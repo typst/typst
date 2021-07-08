@@ -11,7 +11,7 @@ use crate::util::{RangeExt, SliceExt};
 type Range = std::ops::Range<usize>;
 
 /// A node that arranges its children into a paragraph.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub struct ParNode {
     /// The inline direction of this paragraph.
@@ -23,7 +23,7 @@ pub struct ParNode {
 }
 
 /// A child of a paragraph node.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub enum ParChild {
     /// Spacing between other nodes.

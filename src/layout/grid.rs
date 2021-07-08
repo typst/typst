@@ -1,7 +1,7 @@
 use super::*;
 
 /// A node that arranges its children in a grid.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub struct GridNode {
     /// The `main` and `cross` directions of this grid.
@@ -18,7 +18,7 @@ pub struct GridNode {
 }
 
 /// Defines how to size a grid cell along an axis.
-#[derive(Debug, Copy, Clone, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum TrackSizing {
     /// Fit the cell to its contents.
     Auto,

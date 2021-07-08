@@ -51,7 +51,7 @@ pub fn layout(
 }
 
 /// A tree of layout nodes.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct LayoutTree {
     /// Runs of pages with the same properties.
     pub runs: Vec<PageRun>,
@@ -65,7 +65,7 @@ impl LayoutTree {
 }
 
 /// A run of pages that all have the same properties.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PageRun {
     /// The size of each page.
     pub size: Size,
@@ -98,7 +98,7 @@ impl AnyNode {
     #[cfg(feature = "layout-cache")]
     pub fn new<T>(node: T) -> Self
     where
-        T: Layout + Debug + Clone + PartialEq + Hash + 'static,
+        T: Layout + Debug + Clone + Eq + PartialEq + Hash + 'static,
     {
         let hash = {
             let mut state = FxHasher64::default();
@@ -153,6 +153,8 @@ impl Clone for AnyNode {
     }
 }
 
+impl Eq for AnyNode {}
+
 impl PartialEq for AnyNode {
     fn eq(&self, other: &Self) -> bool {
         self.node.dyn_eq(other.node.as_ref())
@@ -180,7 +182,7 @@ trait Bounds: Layout + Debug + 'static {
 
 impl<T> Bounds for T
 where
-    T: Layout + Debug + PartialEq + Clone + 'static,
+    T: Layout + Debug + Eq + PartialEq + Clone + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -221,7 +223,7 @@ pub struct LayoutContext<'a> {
 }
 
 /// A sequence of regions to layout into.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Regions {
     /// The remaining size of the current region.
     pub current: Size,

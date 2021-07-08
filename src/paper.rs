@@ -8,9 +8,9 @@ pub struct Paper {
     /// The broad class this paper belongs to.
     pub class: PaperClass,
     /// The width of the paper in millimeters.
-    pub width: f64,
+    width: f64,
     /// The height of the paper in millimeters.
-    pub height: f64,
+    height: f64,
 }
 
 impl Paper {
