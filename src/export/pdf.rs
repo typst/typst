@@ -18,7 +18,7 @@ use crate::color::Color;
 use crate::font::{Em, FaceId};
 use crate::geom::{self, Length, Size};
 use crate::image::{Image, ImageId};
-use crate::layout::{Element, Fill, Frame, Shape};
+use crate::layout::{Element, Frame, Geometry, Paint};
 
 /// Export a collection of frames into a PDF document.
 ///
@@ -142,7 +142,7 @@ impl<'a> PdfExporter<'a> {
         // do that, we need to remember the active face.
         let mut face = None;
         let mut size = Length::zero();
-        let mut fill: Option<Fill> = None;
+        let mut fill: Option<Paint> = None;
 
         for (pos, element) in page.elements() {
             let x = pos.x.to_pt() as f32;
@@ -172,30 +172,32 @@ impl<'a> PdfExporter<'a> {
                     text.show(Str(&shaped.encode_glyphs_be()));
                 }
 
-                Element::Geometry(ref shape, fill) => {
+                Element::Geometry(ref geometry, paint) => {
                     content.save_state();
-                    write_fill(&mut content, fill);
 
-                    match *shape {
-                        Shape::Rect(Size { width, height }) => {
+                    match *geometry {
+                        Geometry::Rect(Size { width, height }) => {
                             let w = width.to_pt() as f32;
                             let h = height.to_pt() as f32;
                             if w > 0.0 && h > 0.0 {
+                                write_fill(&mut content, paint);
                                 content.rect(x, y - h, w, h, false, true);
                             }
                         }
-                        Shape::Ellipse(size) => {
+                        Geometry::Ellipse(size) => {
                             let path = geom::Path::ellipse(size);
+                            write_fill(&mut content, paint);
                             write_path(&mut content, x, y, &path, false, true);
                         }
-                        Shape::Line(target, stroke) => {
-                            write_stroke(&mut content, fill, stroke.to_pt() as f32);
+                        Geometry::Line(target, thickness) => {
+                            write_stroke(&mut content, paint, thickness.to_pt() as f32);
                             content.path(true, false).move_to(x, y).line_to(
                                 x + target.x.to_pt() as f32,
                                 y - target.y.to_pt() as f32,
                             );
                         }
-                        Shape::Path(ref path) => {
+                        Geometry::Path(ref path) => {
+                            write_fill(&mut content, paint);
                             write_path(&mut content, x, y, path, false, true)
                         }
                     }
@@ -369,18 +371,15 @@ impl<'a> PdfExporter<'a> {
 }
 
 /// Write a fill change into a content stream.
-fn write_fill(content: &mut Content, fill: Fill) {
-    match fill {
-        Fill::Color(Color::Rgba(c)) => {
-            content.fill_rgb(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0);
-        }
-    }
+fn write_fill(content: &mut Content, fill: Paint) {
+    let Paint::Color(Color::Rgba(c)) = fill;
+    content.fill_rgb(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0);
 }
 
 /// Write a stroke change into a content stream.
-fn write_stroke(content: &mut Content, fill: Fill, thickness: f32) {
-    match fill {
-        Fill::Color(Color::Rgba(c)) => {
+fn write_stroke(content: &mut Content, stroke: Paint, thickness: f32) {
+    match stroke {
+        Paint::Color(Color::Rgba(c)) => {
             content.stroke_rgb(
                 c.r as f32 / 255.0,
                 c.g as f32 / 255.0,

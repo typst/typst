@@ -1,7 +1,7 @@
 // Test grid layouts.
 
 ---
-#let rect(width, color) = rect(width: width, height: 2cm, fill: color)
+#let rect(width, fill) = rect(width: width, height: 2cm, fill: fill)
 
 #page!(width: 100pt, height: 140pt)
 #grid(

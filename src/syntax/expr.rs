@@ -33,7 +33,7 @@ pub enum Expr {
     Ident(Ident),
     /// An array expression: `(1, "hi", 12cm)`.
     Array(ArrayExpr),
-    /// A dictionary expression: `(color: #f79143, pattern: dashed)`.
+    /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
     Dict(DictExpr),
     /// A template expression: `[*Hi* there!]`.
     Template(TemplateExpr),
@@ -123,7 +123,7 @@ pub struct ArrayExpr {
     pub items: Vec<Expr>,
 }
 
-/// A dictionary expression: `(color: #f79143, pattern: dashed)`.
+/// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DictExpr {
     /// The source code location.

@@ -6,8 +6,8 @@ use super::*;
 pub struct BackgroundNode {
     /// The kind of shape to use as a background.
     pub shape: BackgroundShape,
-    /// The background fill.
-    pub fill: Fill,
+    /// Background color / texture.
+    pub fill: Paint,
     /// The child node to be filled.
     pub child: AnyNode,
 }
@@ -29,19 +29,16 @@ impl Layout for BackgroundNode {
         for frame in &mut frames {
             let mut new = Frame::new(frame.size, frame.baseline);
 
-            let (point, shape) = match self.shape {
-                BackgroundShape::Rect => (Point::zero(), Shape::Rect(frame.size)),
+            let (point, geometry) = match self.shape {
+                BackgroundShape::Rect => (Point::zero(), Geometry::Rect(frame.size)),
                 BackgroundShape::Ellipse => {
-                    (frame.size.to_point() / 2.0, Shape::Ellipse(frame.size))
+                    (frame.size.to_point() / 2.0, Geometry::Ellipse(frame.size))
                 }
             };
 
-            let element = Element::Geometry(shape, self.fill);
-            new.push(point, element);
-
             let prev = std::mem::take(&mut frame.item);
+            new.push(point, Element::Geometry(geometry, self.fill));
             new.push_frame(Point::zero(), prev);
-
             *Rc::make_mut(&mut frame.item) = new;
         }
         frames

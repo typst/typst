@@ -3,9 +3,8 @@ use std::f64::consts::SQRT_2;
 use decorum::N64;
 
 use super::*;
-use crate::color::Color;
 use crate::layout::{
-    BackgroundNode, BackgroundShape, Fill, FixedNode, ImageNode, PadNode,
+    BackgroundNode, BackgroundShape, FixedNode, ImageNode, PadNode, Paint,
 };
 
 /// `image`: An image.
@@ -64,10 +63,10 @@ fn rect_impl(
 
         let fixed = FixedNode { width, height, child: stack.into() };
 
-        if let Some(color) = fill {
+        if let Some(fill) = fill {
             ctx.push_into_par(BackgroundNode {
                 shape: BackgroundShape::Rect,
-                fill: Fill::Color(color),
+                fill: Paint::Color(fill),
                 child: fixed.into(),
             });
         } else {
@@ -120,10 +119,10 @@ fn ellipse_impl(
             .into(),
         };
 
-        if let Some(color) = fill {
+        if let Some(fill) = fill {
             ctx.push_into_par(BackgroundNode {
                 shape: BackgroundShape::Ellipse,
-                fill: Fill::Color(color),
+                fill: Paint::Color(fill),
                 child: fixed.into(),
             });
         } else {

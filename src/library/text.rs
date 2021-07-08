@@ -1,6 +1,6 @@
 use crate::exec::{FontState, LineState};
 use crate::font::{FontStretch, FontStyle, FontWeight};
-use crate::layout::Fill;
+use crate::layout::Paint;
 
 use super::*;
 
@@ -57,7 +57,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         }
 
         if let Some(fill) = fill {
-            font.fill = Fill::Color(fill);
+            font.fill = Paint::Color(fill);
         }
 
         if let Some(FamilyDef(serif)) = &serif {
@@ -244,7 +244,7 @@ fn line_impl(
     // Suppress any existing strikethrough if strength is explicitly zero.
     let state = thickness.map_or(true, |s| !s.is_zero()).then(|| {
         Rc::new(LineState {
-            stroke: stroke.map(Fill::Color),
+            stroke: stroke.map(Paint::Color),
             thickness,
             offset,
             extent,

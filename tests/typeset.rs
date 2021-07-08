@@ -6,21 +6,18 @@ use std::path::Path;
 use std::rc::Rc;
 
 use image::{GenericImageView, Rgba};
-use tiny_skia::{
-    Color, ColorU8, FillRule, FilterQuality, Paint, Pattern, Pixmap, Rect, SpreadMode,
-    Stroke, Transform,
-};
+use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use walkdir::WalkDir;
 
 use typst::cache::Cache;
-use typst::color;
+use typst::color::Color;
 use typst::diag::{Diag, DiagSet, Level};
 use typst::eval::{eval, EvalContext, FuncArgs, FuncValue, Scope, Value};
 use typst::exec::{exec, State};
-use typst::geom::{self, Length, Point, Sides, Size};
+use typst::geom::{self, Length, PathElement, Point, Sides, Size};
 use typst::image::ImageId;
-use typst::layout::{layout, Element, Fill, Frame, Shape, Text};
+use typst::layout::{layout, Element, Frame, Geometry, Paint, Text};
 use typst::loading::FsLoader;
 use typst::parse::{parse, LineMap, Scanner};
 use typst::syntax::{Location, Pos};
@@ -182,7 +179,7 @@ fn test(
         fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
-        if let Ok(ref_pixmap) = Pixmap::load_png(ref_path) {
+        if let Ok(ref_pixmap) = sk::Pixmap::load_png(ref_path) {
             if canvas != ref_pixmap {
                 println!("  Does not match reference image. ❌");
                 ok = false;
@@ -399,7 +396,7 @@ fn print_diag(diag: &Diag, map: &LineMap, lines: u32) {
     println!("{}: {}-{}: {}", diag.level, start, end, diag.message);
 }
 
-fn draw(cache: &Cache, frames: &[Rc<Frame>], dpi: f32) -> Pixmap {
+fn draw(cache: &Cache, frames: &[Rc<Frame>], dpi: f32) -> sk::Pixmap {
     let pad = Length::pt(5.0);
 
     let height = pad + frames.iter().map(|l| l.size.height + pad).sum::<Length>();
@@ -414,16 +411,16 @@ fn draw(cache: &Cache, frames: &[Rc<Frame>], dpi: f32) -> Pixmap {
         );
     }
 
-    let mut canvas = Pixmap::new(pixel_width, pixel_height).unwrap();
-    let ts = Transform::from_scale(dpi, dpi);
-    canvas.fill(Color::BLACK);
+    let mut canvas = sk::Pixmap::new(pixel_width, pixel_height).unwrap();
+    let ts = sk::Transform::from_scale(dpi, dpi);
+    canvas.fill(sk::Color::BLACK);
 
     let mut origin = Point::splat(pad);
     for frame in frames {
-        let mut paint = Paint::default();
-        paint.set_color(Color::WHITE);
+        let mut paint = sk::Paint::default();
+        paint.set_color(sk::Color::WHITE);
         canvas.fill_rect(
-            Rect::from_xywh(
+            sk::Rect::from_xywh(
                 origin.x.to_pt() as f32,
                 origin.y.to_pt() as f32,
                 frame.size.width.to_pt() as f32,
@@ -442,13 +439,13 @@ fn draw(cache: &Cache, frames: &[Rc<Frame>], dpi: f32) -> Pixmap {
             let ts = ts.pre_translate(x, y);
             match *element {
                 Element::Text(ref text) => {
-                    draw_text(&mut canvas, cache, ts, text);
+                    draw_text(&mut canvas, ts, cache, text);
                 }
-                Element::Geometry(ref shape, fill) => {
-                    draw_geometry(&mut canvas, ts, shape, fill);
+                Element::Geometry(ref geometry, paint) => {
+                    draw_geometry(&mut canvas, ts, geometry, paint);
                 }
                 Element::Image(id, size) => {
-                    draw_image(&mut canvas, cache, ts, id, size);
+                    draw_image(&mut canvas, ts, cache, id, size);
                 }
             }
         }
@@ -459,7 +456,7 @@ fn draw(cache: &Cache, frames: &[Rc<Frame>], dpi: f32) -> Pixmap {
     canvas
 }
 
-fn draw_text(canvas: &mut Pixmap, cache: &Cache, ts: Transform, text: &Text) {
+fn draw_text(canvas: &mut sk::Pixmap, ts: sk::Transform, cache: &Cache, text: &Text) {
     let ttf = cache.font.get(text.face_id).ttf();
     let mut x = 0.0;
 
@@ -493,13 +490,13 @@ fn draw_text(canvas: &mut Pixmap, cache: &Cache, ts: Transform, text: &Text) {
             }
         } else {
             // Otherwise, draw normal outline.
-            let mut builder = WrappedPathBuilder(tiny_skia::PathBuilder::new());
+            let mut builder = WrappedPathBuilder(sk::PathBuilder::new());
             if ttf.outline_glyph(GlyphId(glyph.id), &mut builder).is_some() {
                 let path = builder.0.finish().unwrap();
                 let ts = ts.pre_scale(s, -s);
-                let mut paint = convert_typst_fill(text.fill);
+                let mut paint = convert_typst_paint(text.fill);
                 paint.anti_alias = true;
-                canvas.fill_path(&path, &paint, FillRule::default(), ts, None);
+                canvas.fill_path(&path, &paint, sk::FillRule::default(), ts, None);
             }
         }
 
@@ -507,33 +504,38 @@ fn draw_text(canvas: &mut Pixmap, cache: &Cache, ts: Transform, text: &Text) {
     }
 }
 
-fn draw_geometry(canvas: &mut Pixmap, ts: Transform, shape: &Shape, fill: Fill) {
-    let paint = convert_typst_fill(fill);
-    let rule = FillRule::default();
+fn draw_geometry(
+    canvas: &mut sk::Pixmap,
+    ts: sk::Transform,
+    geometry: &Geometry,
+    paint: Paint,
+) {
+    let paint = convert_typst_paint(paint);
+    let rule = sk::FillRule::default();
 
-    match *shape {
-        Shape::Rect(Size { width, height }) => {
+    match *geometry {
+        Geometry::Rect(Size { width, height }) => {
             let w = width.to_pt() as f32;
             let h = height.to_pt() as f32;
-            let rect = Rect::from_xywh(0.0, 0.0, w, h).unwrap();
+            let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
             canvas.fill_rect(rect, &paint, ts, None);
         }
-        Shape::Ellipse(size) => {
+        Geometry::Ellipse(size) => {
             let path = convert_typst_path(&geom::Path::ellipse(size));
             canvas.fill_path(&path, &paint, rule, ts, None);
         }
-        Shape::Line(target, thickness) => {
+        Geometry::Line(target, thickness) => {
             let path = {
-                let mut builder = tiny_skia::PathBuilder::new();
+                let mut builder = sk::PathBuilder::new();
                 builder.line_to(target.x.to_pt() as f32, target.y.to_pt() as f32);
                 builder.finish().unwrap()
             };
 
-            let mut stroke = Stroke::default();
+            let mut stroke = sk::Stroke::default();
             stroke.width = thickness.to_pt() as f32;
             canvas.stroke_path(&path, &paint, &stroke, ts, None);
         }
-        Shape::Path(ref path) => {
+        Geometry::Path(ref path) => {
             let path = convert_typst_path(path);
             canvas.fill_path(&path, &paint, rule, ts, None);
         }
@@ -541,18 +543,18 @@ fn draw_geometry(canvas: &mut Pixmap, ts: Transform, shape: &Shape, fill: Fill) 
 }
 
 fn draw_image(
-    canvas: &mut Pixmap,
+    canvas: &mut sk::Pixmap,
+    ts: sk::Transform,
     cache: &Cache,
-    ts: Transform,
     id: ImageId,
     size: Size,
 ) {
     let img = cache.image.get(id);
 
-    let mut pixmap = Pixmap::new(img.buf.width(), img.buf.height()).unwrap();
+    let mut pixmap = sk::Pixmap::new(img.buf.width(), img.buf.height()).unwrap();
     for ((_, _, src), dest) in img.buf.pixels().zip(pixmap.pixels_mut()) {
         let Rgba([r, g, b, a]) = src;
-        *dest = ColorU8::from_rgba(r, g, b, a).premultiply();
+        *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
     }
 
     let view_width = size.width.to_pt() as f32;
@@ -560,44 +562,41 @@ fn draw_image(
     let scale_x = view_width as f32 / pixmap.width() as f32;
     let scale_y = view_height as f32 / pixmap.height() as f32;
 
-    let mut paint = Paint::default();
-    paint.shader = Pattern::new(
+    let mut paint = sk::Paint::default();
+    paint.shader = sk::Pattern::new(
         pixmap.as_ref(),
-        SpreadMode::Pad,
-        FilterQuality::Bilinear,
+        sk::SpreadMode::Pad,
+        sk::FilterQuality::Bilinear,
         1.0,
-        Transform::from_row(scale_x, 0.0, 0.0, scale_y, 0.0, 0.0),
+        sk::Transform::from_row(scale_x, 0.0, 0.0, scale_y, 0.0, 0.0),
     );
 
-    let rect = Rect::from_xywh(0.0, 0.0, view_width, view_height).unwrap();
+    let rect = sk::Rect::from_xywh(0.0, 0.0, view_width, view_height).unwrap();
     canvas.fill_rect(rect, &paint, ts, None);
 }
 
-fn convert_typst_fill(fill: Fill) -> Paint<'static> {
-    let mut paint = Paint::default();
-    match fill {
-        Fill::Color(color::Color::Rgba(c)) => {
-            paint.set_color_rgba8(c.r, c.g, c.b, c.a);
-        }
-    }
+fn convert_typst_paint(paint: Paint) -> sk::Paint<'static> {
+    let Paint::Color(Color::Rgba(c)) = paint;
+    let mut paint = sk::Paint::default();
+    paint.set_color_rgba8(c.r, c.g, c.b, c.a);
     paint
 }
 
-fn convert_typst_path(path: &geom::Path) -> tiny_skia::Path {
-    let mut builder = tiny_skia::PathBuilder::new();
+fn convert_typst_path(path: &geom::Path) -> sk::Path {
+    let mut builder = sk::PathBuilder::new();
     let f = |v: Length| v.to_pt() as f32;
     for elem in &path.0 {
         match elem {
-            geom::PathElement::MoveTo(p) => {
+            PathElement::MoveTo(p) => {
                 builder.move_to(f(p.x), f(p.y));
             }
-            geom::PathElement::LineTo(p) => {
+            PathElement::LineTo(p) => {
                 builder.line_to(f(p.x), f(p.y));
             }
-            geom::PathElement::CubicTo(p1, p2, p3) => {
+            PathElement::CubicTo(p1, p2, p3) => {
                 builder.cubic_to(f(p1.x), f(p1.y), f(p2.x), f(p2.y), f(p3.x), f(p3.y));
             }
-            geom::PathElement::ClosePath => {
+            PathElement::ClosePath => {
                 builder.close();
             }
         };
@@ -605,14 +604,14 @@ fn convert_typst_path(path: &geom::Path) -> tiny_skia::Path {
     builder.finish().unwrap()
 }
 
-fn convert_usvg_transform(transform: usvg::Transform) -> Transform {
+fn convert_usvg_transform(transform: usvg::Transform) -> sk::Transform {
     let g = |v: f64| v as f32;
     let usvg::Transform { a, b, c, d, e, f } = transform;
-    Transform::from_row(g(a), g(b), g(c), g(d), g(e), g(f))
+    sk::Transform::from_row(g(a), g(b), g(c), g(d), g(e), g(f))
 }
 
-fn convert_usvg_fill(fill: &usvg::Fill) -> (Paint<'static>, FillRule) {
-    let mut paint = Paint::default();
+fn convert_usvg_fill(fill: &usvg::Fill) -> (sk::Paint<'static>, sk::FillRule) {
+    let mut paint = sk::Paint::default();
     paint.anti_alias = true;
 
     match fill.paint {
@@ -623,15 +622,15 @@ fn convert_usvg_fill(fill: &usvg::Fill) -> (Paint<'static>, FillRule) {
     }
 
     let rule = match fill.rule {
-        usvg::FillRule::NonZero => FillRule::Winding,
-        usvg::FillRule::EvenOdd => FillRule::EvenOdd,
+        usvg::FillRule::NonZero => sk::FillRule::Winding,
+        usvg::FillRule::EvenOdd => sk::FillRule::EvenOdd,
     };
 
     (paint, rule)
 }
 
-fn convert_usvg_path(path: &usvg::PathData) -> tiny_skia::Path {
-    let mut builder = tiny_skia::PathBuilder::new();
+fn convert_usvg_path(path: &usvg::PathData) -> sk::Path {
+    let mut builder = sk::PathBuilder::new();
     let f = |v: f64| v as f32;
     for seg in path.iter() {
         match *seg {
@@ -652,7 +651,7 @@ fn convert_usvg_path(path: &usvg::PathData) -> tiny_skia::Path {
     builder.finish().unwrap()
 }
 
-struct WrappedPathBuilder(tiny_skia::PathBuilder);
+struct WrappedPathBuilder(sk::PathBuilder);
 
 impl OutlineBuilder for WrappedPathBuilder {
     fn move_to(&mut self, x: f32, y: f32) {

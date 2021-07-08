@@ -8,7 +8,7 @@ use super::{Element, Frame, Glyph, LayoutContext, Text};
 use crate::exec::{FontState, LineState};
 use crate::font::{Face, FaceId, FontStyle, LineMetrics};
 use crate::geom::{Dir, Length, Point, Size};
-use crate::layout::Shape;
+use crate::layout::Geometry;
 use crate::util::SliceExt;
 
 /// The result of shaping text.
@@ -412,9 +412,7 @@ fn decorate(
 
         let pos = Point::new(pos.x - extent, pos.y + offset);
         let target = Point::new(width + 2.0 * extent, Length::zero());
-        let shape = Shape::Line(target, thickness);
-        let element = Element::Geometry(shape, stroke);
-
+        let element = Element::Geometry(Geometry::Line(target, thickness), stroke);
         frame.push(pos, element);
     };
 

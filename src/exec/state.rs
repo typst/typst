@@ -4,7 +4,7 @@ use std::rc::Rc;
 use crate::color::{Color, RgbaColor};
 use crate::font::{FontStretch, FontStyle, FontVariant, FontWeight, VerticalFontMetric};
 use crate::geom::*;
-use crate::layout::Fill;
+use crate::layout::Paint;
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
 /// The execution state.
@@ -117,8 +117,8 @@ pub struct FontState {
     pub top_edge: VerticalFontMetric,
     /// The bottom end of the text bounding box.
     pub bottom_edge: VerticalFontMetric,
-    /// The glyph fill color / texture.
-    pub fill: Fill,
+    /// Glyph color.
+    pub fill: Paint,
     /// Whether the strong toggle is active or inactive. This determines
     /// whether the next `*` adds or removes font weight.
     pub strong: bool,
@@ -152,7 +152,7 @@ impl Default for FontState {
             size: Length::pt(11.0),
             top_edge: VerticalFontMetric::CapHeight,
             bottom_edge: VerticalFontMetric::Baseline,
-            fill: Fill::Color(Color::Rgba(RgbaColor::BLACK)),
+            fill: Paint::Color(Color::Rgba(RgbaColor::BLACK)),
             strong: false,
             emph: false,
             strikethrough: None,
@@ -165,8 +165,10 @@ impl Default for FontState {
 /// Describes a line that could be positioned over, under or on top of text.
 #[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub struct LineState {
-    /// Stroke color of the line. Defaults to the text color if `None`.
-    pub stroke: Option<Fill>,
+    /// Stroke color of the line.
+    ///
+    /// Defaults to the text color if `None`.
+    pub stroke: Option<Paint>,
     /// Thickness of the line's stroke. Calling functions should attempt to
     /// read this value from the appropriate font tables if this is `None`.
     pub thickness: Option<Linear>,

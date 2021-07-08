@@ -110,8 +110,9 @@ enum Child {
 pub enum Element {
     /// Shaped text.
     Text(Text),
-    /// A filled geometric shape.
-    Geometry(Shape, Fill),
+    /// A geometric shape and the paint which with it should be filled or
+    /// stroked.
+    Geometry(Geometry, Paint),
     /// A raster image.
     Image(ImageId, Size),
 }
@@ -123,8 +124,8 @@ pub struct Text {
     pub face_id: FaceId,
     /// The font size.
     pub size: Length,
-    /// The glyph's fill color.
-    pub fill: Fill,
+    /// Glyph color.
+    pub fill: Paint,
     /// The glyphs.
     pub glyphs: Vec<Glyph>,
 }
@@ -155,20 +156,20 @@ impl Text {
 
 /// A geometric shape.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Shape {
-    /// A rectangle with its origin in the topleft corner.
+pub enum Geometry {
+    /// A filled rectangle with its origin in the topleft corner.
     Rect(Size),
-    /// An ellipse with its origin in the center.
+    /// A filled ellipse with its origin in the center.
     Ellipse(Size),
-    /// A line to a `Point` (relative to its position) with a stroke width.
+    /// A stroked line to a point (relative to its position) with a thickness.
     Line(Point, Length),
-    /// A bezier path.
+    /// A filled bezier path.
     Path(Path),
 }
 
-/// How text and shapes are filled.
+/// How a fill or stroke should be painted.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub enum Fill {
+pub enum Paint {
     /// A solid color.
     Color(Color),
 }

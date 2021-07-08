@@ -16,7 +16,7 @@ pub use utility::*;
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
 
-use crate::color::RgbaColor;
+use crate::color::{Color, RgbaColor};
 use crate::eval::{EvalContext, FuncArgs, Scope, TemplateValue, Value};
 use crate::exec::{Exec, FontFamily};
 use crate::font::{FontStyle, FontWeight, VerticalFontMetric};
