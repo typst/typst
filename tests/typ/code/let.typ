@@ -52,8 +52,8 @@ Three
 #let v4 = 4 Four
 
 // Terminated by semicolon even though we are in a paren group.
-// Error: 2:19 expected expression
-// Error: 1:19 expected closing paren
+// Error: 19 expected expression
+// Error: 19 expected closing paren
 #let v5 = (1, 2 + ; Five
 
 #test(v1, 1)

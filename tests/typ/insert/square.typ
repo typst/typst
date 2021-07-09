@@ -11,8 +11,8 @@ Auto-sized square. \
 
 ---
 // Length wins over width and height.
-// Error: 2:9-2:20 unexpected argument
-// Error: 1:22-1:34 unexpected argument
+// Error: 09-20 unexpected argument
+// Error: 22-34 unexpected argument
 #square(width: 10cm, height: 20cm, length: 1cm, fill: rgb("eb5278"))
 
 ---

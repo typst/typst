@@ -7,13 +7,13 @@
 {1u}
 
 // Should output `1`.
-// Error: 2:3 expected semicolon or line break
-// Error: 1:4-1:5 cannot join integer with integer
+// Error: 3 expected semicolon or line break
+// Error: 4-5 cannot join integer with integer
 {1 2}
 
 // Should output `2`.
-// Error: 2:12 expected semicolon or line break
-// Error: 1:22 expected semicolon or line break
+// Error: 12 expected semicolon or line break
+// Error: 22 expected semicolon or line break
 {let x = -1 let y = 3 x + y}
 
 // Should output `3`.

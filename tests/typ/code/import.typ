@@ -69,23 +69,23 @@
 ---
 // Test bad syntax.
 
-// Error: 2:8 expected import items
-// Error: 1:8 expected keyword `from`
+// Error: 8 expected import items
+// Error: 8 expected keyword `from`
 #import
 
-// Error: 2:9-2:19 expected identifier
-// Error: 1:19 expected keyword `from`
+// Error: 9-19 expected identifier
+// Error: 19 expected keyword `from`
 #import "file.typ"
 
-// Error: 2:16-2:19 expected identifier
-// Error: 1:22 expected keyword `from`
+// Error: 16-19 expected identifier
+// Error: 22 expected keyword `from`
 #import afrom, "b", c
 
 // Error: 8 expected import items
 #import from "target.typ"
 
-// Error: 2:9-2:10 expected expression, found assignment operator
-// Error: 1:10 expected import items
+// Error: 9-10 expected expression, found assignment operator
+// Error: 10 expected import items
 #import = from "target.typ"
 
 // Error: 15 expected expression
@@ -100,7 +100,7 @@
 #from "target.typ"
 
 // Should output `target`.
-// Error: 2:16-3:2 file not found
+// Error: 1:16-2:2 file not found
 // Error: 2:2 expected semicolon or line break
 #import * from "target.typ
 "target
@@ -110,8 +110,8 @@
 #import * from "target.typ" @ 0.2.1
 
 // A star in the list.
-// Error: 2:12-2:13 expected expression, found star
-// Error: 1:13-1:14 expected expression, found comma
+// Error: 12-13 expected expression, found star
+// Error: 13-14 expected expression, found comma
 #import a, *, b from "target.typ"
 
 // An item after a star.

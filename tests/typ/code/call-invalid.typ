@@ -10,8 +10,8 @@
 // Error: 8 expected comma
 #args(1 2)
 
-// Error: 2:7-2:8 expected identifier
-// Error: 1:9 expected expression
+// Error: 7-8 expected identifier
+// Error: 9 expected expression
 #args(1:)
 
 // Error: 7-8 expected identifier
@@ -34,6 +34,6 @@
 {args(}
 
 ---
-// Error: 3:1 expected quote
+// Error: 2:1 expected quote
 // Error: 2:1 expected closing paren
 #args("]

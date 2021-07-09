@@ -13,7 +13,7 @@ use walkdir::WalkDir;
 use typst::cache::Cache;
 use typst::color::Color;
 use typst::diag::{Diag, DiagSet, Level};
-use typst::eval::{eval, EvalContext, FuncArgs, FuncValue, Scope, Value};
+use typst::eval::{eval, Scope, Value};
 use typst::exec::{exec, State};
 use typst::geom::{self, Length, PathElement, Point, Sides, Size};
 use typst::image::ImageId;
@@ -323,9 +323,8 @@ fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {
     let mut diags = DiagSet::new();
     let mut compare_ref = None;
 
-    for (i, line) in src.lines().enumerate() {
-        let line = line.trim();
-
+    let lines: Vec<_> = src.lines().map(str::trim).collect();
+    for (i, line) in lines.iter().enumerate() {
         if line.starts_with("// Ref: false") {
             compare_ref = Some(false);
         }
@@ -346,11 +345,14 @@ fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {
             s.eat_while(|c| c.is_numeric()).parse().unwrap()
         }
 
+        let comments =
+            lines[i ..].iter().take_while(|line| line.starts_with("//")).count();
+
         let pos = |s: &mut Scanner| -> Pos {
             let first = num(s);
             let (delta, column) =
                 if s.eat_if(':') { (first, num(s)) } else { (1, first) };
-            let line = i as u32 + 1 + delta;
+            let line = (i + comments) as u32 + delta;
             map.pos(Location::new(line, column)).unwrap()
         };
 
@@ -365,27 +367,25 @@ fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {
 }
 
 fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
-    pub fn args(_: &mut EvalContext, args: &mut FuncArgs) -> Value {
+    scope.def_const("error", Value::Error);
+
+    scope.def_func("args", |_, args| {
         let repr = typst::pretty::pretty(args);
         args.items.clear();
         Value::template(move |ctx| {
             ctx.set_monospace();
             ctx.push_text(&repr);
         })
-    }
+    });
 
-    let test = move |ctx: &mut EvalContext, args: &mut FuncArgs| -> Value {
+    scope.def_func("test", move |ctx, args| {
         let lhs = args.expect::<Value>(ctx, "left-hand side");
         let rhs = args.expect::<Value>(ctx, "right-hand side");
         if lhs != rhs {
             panics.borrow_mut().push(Panic { pos: args.span.start, lhs, rhs });
         }
         Value::None
-    };
-
-    scope.def_const("error", Value::Error);
-    scope.def_const("args", FuncValue::new(Some("args".into()), args));
-    scope.def_const("test", FuncValue::new(Some("test".into()), test));
+    });
 }
 
 fn print_diag(diag: &Diag, map: &LineMap, lines: u32) {

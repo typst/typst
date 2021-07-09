@@ -59,9 +59,9 @@ Emoji: 🐪, 🌋, 🏞
 // Error: 7-12 unexpected argument
 #font(false)[]
 
-// Error: 3:14-3:18 expected font style, found font weight
-// Error: 2:28-2:34 expected font weight, found string
-// Error: 1:43-1:44 expected string or array of strings, found integer
+// Error: 14-18 expected font style, found font weight
+// Error: 28-34 expected font weight, found string
+// Error: 43-44 expected string or array of strings, found integer
 #font(style: bold, weight: "thin", serif: 0)[]
 
 // Warning: 15-19 should be between 100 and 900

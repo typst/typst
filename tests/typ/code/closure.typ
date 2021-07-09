@@ -68,7 +68,7 @@
 {
     let f(x) = x + 1
 
-    // Error: 2:10-2:15 unexpected argument
-    // Error: 1:17-1:24 unexpected argument
+    // Error: 10-15 unexpected argument
+    // Error: 17-24 unexpected argument
     f(1, "two", () => x)
 }

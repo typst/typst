@@ -24,8 +24,8 @@
 // Error: 2-3 expected expression, found closing paren
 {)}
 
-// Error: 2:4 expected comma
-// Error: 1:4-1:6 expected expression, found end of block comment
+// Error: 4 expected comma
+// Error: 4-6 expected expression, found end of block comment
 {(1*/2)}
 
 // Error: 6-8 expected expression, found invalid token

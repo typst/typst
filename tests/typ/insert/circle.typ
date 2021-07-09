@@ -38,8 +38,8 @@ Expanded by height.
 
 ---
 // Radius wins over width and height.
-// Error: 2:23-2:34 unexpected argument
-// Error: 1:36-1:49 unexpected argument
+// Error: 23-34 unexpected argument
+// Error: 36-49 unexpected argument
 #circle(radius: 10pt, width: 50pt, height: 100pt, fill: eastern)
 
 // Width wins over height.

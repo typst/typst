@@ -25,14 +25,14 @@
 // Error: 2-8 cannot apply 'not' to array
 {not ()}
 
-// Error: 1:2-1:12 cannot apply '<=' to relative and relative
+// Error: 2-12 cannot apply '<=' to relative and relative
 {30% <= 40%}
 
 // Special messages for +, -, * and /.
-// Error: 4:03-4:10 cannot add integer and string
-// Error: 3:12-3:19 cannot subtract integer from relative
-// Error: 2:21-2:29 cannot multiply integer with boolean
-// Error: 1:31-1:39 cannot divide integer by length
+// Error: 03-10 cannot add integer and string
+// Error: 12-19 cannot subtract integer from relative
+// Error: 21-29 cannot multiply integer with boolean
+// Error: 31-39 cannot divide integer by length
 {(1 + "2", 40% - 1, 2 * true, 3 / 12pt)}
 
 // Error: 14-22 cannot apply '+=' to integer and string
