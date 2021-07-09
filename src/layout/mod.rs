@@ -114,7 +114,7 @@ impl AnyNode {
     #[cfg(not(feature = "layout-cache"))]
     pub fn new<T>(node: T) -> Self
     where
-        T: Layout + Debug + Clone + PartialEq + 'static,
+        T: Layout + Debug + Clone + Eq + PartialEq + 'static,
     {
         Self { node: Box::new(node) }
     }
