@@ -1,7 +1,26 @@
-use std::cmp::Ordering::*;
+use std::cmp::Ordering;
 
 use super::Value;
 use Value::*;
+
+/// Join a value with another value.
+pub fn join(lhs: Value, rhs: Value) -> Result<Value, Value> {
+    Ok(match (lhs, rhs) {
+        (_, Error) => Error,
+        (Error, _) => Error,
+        (a, None) => a,
+        (None, b) => b,
+
+        (Str(a), Str(b)) => Str(a + &b),
+        (Array(a), Array(b)) => Array(a + &b),
+        (Dict(a), Dict(b)) => Dict(a + &b),
+        (Template(a), Template(b)) => Template(a + &b),
+        (Template(a), Str(b)) => Template(a + b),
+        (Str(a), Template(b)) => Template(a + b),
+
+        (lhs, _) => return Err(lhs),
+    })
+}
 
 /// Apply the plus operator to a value.
 pub fn pos(value: Value) -> Value {
@@ -55,7 +74,14 @@ pub fn add(lhs: Value, rhs: Value) -> Value {
 
         (Fractional(a), Fractional(b)) => Fractional(a + b),
 
-        (a, b) => concat(a, b).unwrap_or(Value::Error),
+        (Str(a), Str(b)) => Str(a + &b),
+        (Array(a), Array(b)) => Array(a + &b),
+        (Dict(a), Dict(b)) => Dict(a + &b),
+        (Template(a), Template(b)) => Template(a + &b),
+        (Template(a), Str(b)) => Template(a + b),
+        (Str(a), Template(b)) => Template(a + b),
+
+        _ => Error,
     }
 }
 
@@ -184,30 +210,80 @@ pub fn or(lhs: Value, rhs: Value) -> Value {
     }
 }
 
+/// Determine whether two values are equal.
+pub fn equal(lhs: &Value, rhs: &Value) -> bool {
+    match (lhs, rhs) {
+        // Compare reflexively.
+        (None, None) => true,
+        (Auto, Auto) => true,
+        (Bool(a), Bool(b)) => a == b,
+        (Int(a), Int(b)) => a == b,
+        (Float(a), Float(b)) => a == b,
+        (Length(a), Length(b)) => a == b,
+        (Angle(a), Angle(b)) => a == b,
+        (Relative(a), Relative(b)) => a == b,
+        (Linear(a), Linear(b)) => a == b,
+        (Fractional(a), Fractional(b)) => a == b,
+        (Color(a), Color(b)) => a == b,
+        (Str(a), Str(b)) => a == b,
+        (Array(a), Array(b)) => a == b,
+        (Dict(a), Dict(b)) => a == b,
+        (Template(a), Template(b)) => a == b,
+        (Func(a), Func(b)) => a == b,
+        (Any(a), Any(b)) => a == b,
+        (Error, Error) => true,
+
+        // Some technically different things should compare equal.
+        (&Int(a), &Float(b)) => a as f64 == b,
+        (&Float(a), &Int(b)) => a == b as f64,
+        (&Length(a), &Linear(b)) => a == b.abs && b.rel.is_zero(),
+        (&Relative(a), &Linear(b)) => a == b.rel && b.abs.is_zero(),
+        (&Linear(a), &Length(b)) => a.abs == b && a.rel.is_zero(),
+        (&Linear(a), &Relative(b)) => a.rel == b && a.abs.is_zero(),
+
+        _ => false,
+    }
+}
+
 /// Compute whether two values are equal.
 pub fn eq(lhs: Value, rhs: Value) -> Value {
-    Bool(lhs.eq(&rhs))
+    Bool(equal(&lhs, &rhs))
 }
 
 /// Compute whether two values are equal.
 pub fn neq(lhs: Value, rhs: Value) -> Value {
-    Bool(!lhs.eq(&rhs))
+    Bool(!equal(&lhs, &rhs))
+}
+
+/// Compare two values.
+pub fn compare(lhs: &Value, rhs: &Value) -> Option<Ordering> {
+    match (lhs, rhs) {
+        (Bool(a), Bool(b)) => a.partial_cmp(b),
+        (Int(a), Int(b)) => a.partial_cmp(b),
+        (Int(a), Float(b)) => (*a as f64).partial_cmp(b),
+        (Float(a), Int(b)) => a.partial_cmp(&(*b as f64)),
+        (Float(a), Float(b)) => a.partial_cmp(b),
+        (Angle(a), Angle(b)) => a.partial_cmp(b),
+        (Length(a), Length(b)) => a.partial_cmp(b),
+        (Str(a), Str(b)) => a.partial_cmp(b),
+        _ => Option::None,
+    }
 }
 
 macro_rules! comparison {
     ($name:ident, $($pat:tt)*) => {
         /// Compute how a value compares with another value.
         pub fn $name(lhs: Value, rhs: Value) -> Value {
-            lhs.cmp(&rhs)
-                .map_or(Value::Error, |x| Value::Bool(matches!(x, $($pat)*)))
+            compare(&lhs, &rhs)
+                .map_or(Error, |x| Bool(matches!(x, $($pat)*)))
         }
     };
 }
 
-comparison!(lt, Less);
-comparison!(leq, Less | Equal);
-comparison!(gt, Greater);
-comparison!(geq, Greater | Equal);
+comparison!(lt, Ordering::Less);
+comparison!(leq, Ordering::Less | Ordering::Equal);
+comparison!(gt, Ordering::Greater);
+comparison!(geq, Ordering::Greater | Ordering::Equal);
 
 /// Compute the range from `lhs` to `rhs`.
 pub fn range(lhs: Value, rhs: Value) -> Value {
@@ -215,30 +291,4 @@ pub fn range(lhs: Value, rhs: Value) -> Value {
         (Int(a), Int(b)) => Array((a ..= b).map(Int).collect()),
         _ => Error,
     }
-}
-
-/// Join a value with another value.
-pub fn join(lhs: Value, rhs: Value) -> Result<Value, Value> {
-    Ok(match (lhs, rhs) {
-        (_, Error) => Error,
-        (Error, _) => Error,
-
-        (a, None) => a,
-        (None, b) => b,
-
-        (a, b) => return concat(a, b),
-    })
-}
-
-/// Concatentate two values.
-fn concat(lhs: Value, rhs: Value) -> Result<Value, Value> {
-    Ok(match (lhs, rhs) {
-        (Str(a), Str(b)) => Str(a + &b),
-        (Array(a), Array(b)) => Array(a + &b),
-        (Dict(a), Dict(b)) => Dict(a + &b),
-        (Template(a), Template(b)) => Template(a + &b),
-        (Template(a), Str(b)) => Template(a + b),
-        (Str(a), Template(b)) => Template(a + b),
-        (a, _) => return Err(a),
-    })
 }

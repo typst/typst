@@ -82,7 +82,7 @@ fn minmax(ctx: &mut EvalContext, args: &mut FuncArgs, goal: Ordering) -> Value {
 
     while let Some(value) = args.eat::<Value>(ctx) {
         if let Some(prev) = &extremum {
-            match value.cmp(&prev) {
+            match value.partial_cmp(&prev) {
                 Some(ordering) if ordering == goal => extremum = Some(value),
                 Some(_) => {}
                 None => {

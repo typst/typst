@@ -10,7 +10,7 @@ use crate::geom::{Angle, Fractional, Length, Linear, Relative};
 use crate::syntax::{Span, Spanned};
 
 /// A computational value.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Value {
     /// The value that indicates the absence of a meaningful value.
     None,
@@ -83,39 +83,6 @@ impl Value {
         }
     }
 
-    /// Recursively compute whether two values are equal.
-    pub fn eq(&self, rhs: &Self) -> bool {
-        match (self, rhs) {
-            (&Self::Int(a), &Self::Float(b)) => a as f64 == b,
-            (&Self::Float(a), &Self::Int(b)) => a == b as f64,
-            (&Self::Length(a), &Self::Linear(b)) => a == b.abs && b.rel.is_zero(),
-            (&Self::Relative(a), &Self::Linear(b)) => a == b.rel && b.abs.is_zero(),
-            (&Self::Linear(a), &Self::Length(b)) => a.abs == b && a.rel.is_zero(),
-            (&Self::Linear(a), &Self::Relative(b)) => a.rel == b && a.abs.is_zero(),
-            (Self::Array(a), Self::Array(b)) => {
-                a.len() == b.len() && a.iter().zip(b).all(|(x, y)| x.eq(y))
-            }
-            (Self::Dict(a), Self::Dict(b)) => {
-                a.len() == b.len()
-                    && a.iter().all(|(k, x)| b.get(k).map_or(false, |y| x.eq(y)))
-            }
-            (a, b) => a == b,
-        }
-    }
-
-    /// Compare a value with another value.
-    pub fn cmp(&self, rhs: &Self) -> Option<Ordering> {
-        match (self, rhs) {
-            (Self::Int(a), Self::Int(b)) => a.partial_cmp(b),
-            (Self::Int(a), Self::Float(b)) => (*a as f64).partial_cmp(b),
-            (Self::Float(a), Self::Int(b)) => a.partial_cmp(&(*b as f64)),
-            (Self::Float(a), Self::Float(b)) => a.partial_cmp(b),
-            (Self::Angle(a), Self::Angle(b)) => a.partial_cmp(b),
-            (Self::Length(a), Self::Length(b)) => a.partial_cmp(b),
-            _ => None,
-        }
-    }
-
     /// Try to cast the value into a specific type.
     pub fn cast<T>(self) -> CastResult<T, Self>
     where
@@ -140,6 +107,18 @@ impl Value {
 impl Default for Value {
     fn default() -> Self {
         Value::None
+    }
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        ops::equal(self, other)
+    }
+}
+
+impl PartialOrd for Value {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        ops::compare(self, other)
     }
 }
 
