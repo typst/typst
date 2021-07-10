@@ -5,8 +5,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 
-use super::ops;
-use super::EvalContext;
+use super::*;
 use crate::color::{Color, RgbaColor};
 use crate::exec::ExecContext;
 use crate::geom::{Angle, Fractional, Length, Linear, Relative};
@@ -38,7 +37,7 @@ pub enum Value {
     /// A color value: `#f79143ff`.
     Color(Color),
     /// A string: `"string"`.
-    Str(String),
+    Str(EcoString),
     /// An array value: `(1, "hi", 12cm)`.
     Array(ArrayValue),
     /// A dictionary value: `(color: #f79143, pattern: dashed)`.
@@ -76,7 +75,7 @@ impl Value {
             Self::Linear(_) => Linear::TYPE_NAME,
             Self::Fractional(_) => Fractional::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
-            Self::Str(_) => String::TYPE_NAME,
+            Self::Str(_) => EcoString::TYPE_NAME,
             Self::Array(_) => ArrayValue::TYPE_NAME,
             Self::Dict(_) => DictValue::TYPE_NAME,
             Self::Template(_) => TemplateValue::TYPE_NAME,
@@ -151,7 +150,7 @@ impl Default for Value {
 pub type ArrayValue = Vec<Value>;
 
 /// A dictionary value: `(color: #f79143, pattern: dashed)`.
-pub type DictValue = BTreeMap<String, Value>;
+pub type DictValue = BTreeMap<EcoString, Value>;
 
 /// A template value: `[*Hi* there]`.
 pub type TemplateValue = Rc<Vec<TemplateNode>>;
@@ -171,7 +170,7 @@ pub enum TemplateNode {
         map: ExprMap,
     },
     /// A template that was converted from a string.
-    Str(String),
+    Str(EcoString),
     /// A function template that can implement custom behaviour.
     Func(TemplateFunc),
 }
@@ -224,14 +223,14 @@ impl Debug for TemplateFunc {
 pub struct FuncValue {
     /// The string is boxed to make the whole struct fit into 24 bytes, so that
     /// a [`Value`] fits into 32 bytes.
-    name: Option<Box<String>>,
+    name: Option<Box<EcoString>>,
     /// The closure that defines the function.
     f: Rc<dyn Fn(&mut EvalContext, &mut FuncArgs) -> Value>,
 }
 
 impl FuncValue {
     /// Create a new function value from a rust function or closure.
-    pub fn new<F>(name: Option<String>, f: F) -> Self
+    pub fn new<F>(name: Option<EcoString>, f: F) -> Self
     where
         F: Fn(&mut EvalContext, &mut FuncArgs) -> Value + 'static,
     {
@@ -239,8 +238,8 @@ impl FuncValue {
     }
 
     /// The name of the function.
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_ref().map(|s| s.as_str())
+    pub fn name(&self) -> Option<&EcoString> {
+        self.name.as_ref().map(|s| &**s)
     }
 }
 
@@ -342,7 +341,7 @@ impl FuncArgs {
         let index = self
             .items
             .iter()
-            .position(|arg| arg.name.as_ref().map_or(false, |other| name == other))?;
+            .position(|arg| arg.name.as_ref().map_or(false, |other| other == name))?;
 
         let value = self.items.remove(index).value;
         let span = value.span;
@@ -381,7 +380,7 @@ pub struct FuncArg {
     /// The span of the whole argument.
     pub span: Span,
     /// The name of the argument (`None` for positional arguments).
-    pub name: Option<String>,
+    pub name: Option<EcoString>,
     /// The value of the argument.
     pub value: Spanned<Value>,
 }
@@ -608,7 +607,7 @@ primitive! {
 }
 primitive! { Fractional: "fractional", Value::Fractional }
 primitive! { Color: "color", Value::Color }
-primitive! { String: "string", Value::Str }
+primitive! { EcoString: "string", Value::Str }
 primitive! { ArrayValue: "array", Value::Array }
 primitive! { DictValue: "dictionary", Value::Dict }
 primitive! {
@@ -624,9 +623,15 @@ impl From<usize> for Value {
     }
 }
 
+impl From<String> for Value {
+    fn from(v: String) -> Self {
+        Self::Str(v.into())
+    }
+}
+
 impl From<&str> for Value {
     fn from(v: &str) -> Self {
-        Self::Str(v.to_string())
+        Self::Str(v.into())
     }
 }
 

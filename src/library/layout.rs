@@ -5,7 +5,7 @@ use crate::paper::{Paper, PaperClass};
 /// `page`: Configure pages.
 pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let span = args.span;
-    let paper = args.eat::<Spanned<String>>(ctx).and_then(|name| {
+    let paper = args.eat::<Spanned<EcoString>>(ctx).and_then(|name| {
         Paper::from_name(&name.v).or_else(|| {
             ctx.diag(error!(name.span, "invalid paper name"));
             None

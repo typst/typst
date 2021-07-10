@@ -27,6 +27,7 @@
 // Addition.
 #test(2 + 4, 6)
 #test("a" + "b", "ab")
+#test(13 * "a" + "bbbbbb", "aaaaaaaaaaaaabbbbbb")
 #test((1, 2) + (3, 4), (1, 2, 3, 4))
 #test((a: 1) + (b: 2, c: 3), (a: 1, b: 2, c: 3))
 

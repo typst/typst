@@ -3,6 +3,7 @@ use std::ops::Deref;
 use unicode_xid::UnicodeXID;
 
 use super::Span;
+use crate::eco::EcoString;
 
 /// An unicode identifier with a few extra permissible characters.
 ///
@@ -16,7 +17,7 @@ pub struct Ident {
     /// The source code location.
     pub span: Span,
     /// The identifier string.
-    pub string: String,
+    pub string: EcoString,
 }
 
 impl Ident {
@@ -26,7 +27,10 @@ impl Ident {
         span: impl Into<Span>,
     ) -> Option<Self> {
         if is_ident(string.as_ref()) {
-            Some(Self { span: span.into(), string: string.into() })
+            Some(Self {
+                span: span.into(),
+                string: EcoString::from_str(string),
+            })
         } else {
             None
         }
@@ -34,13 +38,13 @@ impl Ident {
 
     /// Return a reference to the underlying string.
     pub fn as_str(&self) -> &str {
-        self.string.as_str()
+        self
     }
 }
 
 impl AsRef<str> for Ident {
     fn as_ref(&self) -> &str {
-        self.as_str()
+        self
     }
 }
 
@@ -48,7 +52,7 @@ impl Deref for Ident {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        self.as_str()
+        self.string.as_str()
     }
 }
 

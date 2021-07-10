@@ -6,6 +6,7 @@ use xi_unicode::LineBreakIterator;
 
 use super::*;
 use crate::exec::FontState;
+use crate::eco::EcoString;
 use crate::util::{RangeExt, SliceExt};
 
 type Range = std::ops::Range<usize>;
@@ -29,7 +30,7 @@ pub enum ParChild {
     /// Spacing between other nodes.
     Spacing(Length),
     /// A run of text and how to align it in its line.
-    Text(String, Align, Rc<FontState>),
+    Text(EcoString, Align, Rc<FontState>),
     /// Any child node and how to align it in its line.
     Any(AnyNode, Align),
 }

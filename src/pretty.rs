@@ -617,7 +617,7 @@ mod tests {
         ($($k:ident: $v:expr),* $(,)?) => {{
             #[allow(unused_mut)]
             let mut m = BTreeMap::new();
-            $(m.insert(stringify!($k).to_string(), $v);)*
+            $(m.insert(stringify!($k).into(), $v);)*
             m
         }};
     }

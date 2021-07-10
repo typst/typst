@@ -99,7 +99,7 @@ castable! {
     Value::Array(values) => Self(values
         .into_iter()
         .filter_map(|v| v.cast().ok())
-        .map(|string: String| string.to_lowercase())
+        .map(|string: EcoString| string.to_lowercase())
         .collect()
     ),
 }
@@ -185,7 +185,7 @@ pub fn par(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
 /// `lang`: Configure the language.
 pub fn lang(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let iso = args.eat::<String>(ctx).map(|s| lang_dir(&s));
+    let iso = args.eat::<EcoString>(ctx).map(|s| lang_dir(&s));
     let dir = match args.named::<Spanned<Dir>>(ctx, "dir") {
         Some(dir) if dir.v.axis() == SpecAxis::Horizontal => Some(dir.v),
         Some(dir) => {

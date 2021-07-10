@@ -9,7 +9,7 @@ use crate::layout::{
 
 /// `image`: An image.
 pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let path = args.expect::<Spanned<String>>(ctx, "path to image file");
+    let path = args.expect::<Spanned<EcoString>>(ctx, "path to image file");
     let width = args.named(ctx, "width");
     let height = args.named(ctx, "height");
 

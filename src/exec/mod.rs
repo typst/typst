@@ -6,6 +6,7 @@ mod state;
 pub use context::*;
 pub use state::*;
 
+use std::fmt::Write;
 use std::rc::Rc;
 
 use crate::diag::Pass;
@@ -13,6 +14,7 @@ use crate::eval::{ExprMap, TemplateFunc, TemplateNode, TemplateValue, Value};
 use crate::geom::{Dir, Gen};
 use crate::layout::{LayoutTree, StackChild, StackNode};
 use crate::pretty::pretty;
+use crate::eco::EcoString;
 use crate::syntax::*;
 
 /// Execute a template to produce a layout tree.
@@ -102,18 +104,25 @@ impl ExecWithMap for HeadingNode {
 
 impl ExecWithMap for ListItem {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
-        exec_item(ctx, "•".to_string(), &self.body, map);
+        exec_item(ctx, '•'.into(), &self.body, map);
     }
 }
 
 impl ExecWithMap for EnumItem {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
-        let label = self.number.unwrap_or(1).to_string() + ".";
+        let mut label = EcoString::new();
+        write!(&mut label, "{}", self.number.unwrap_or(1)).unwrap();
+        label.push('.');
         exec_item(ctx, label, &self.body, map);
     }
 }
 
-fn exec_item(ctx: &mut ExecContext, label: String, body: &SyntaxTree, map: &ExprMap) {
+fn exec_item(
+    ctx: &mut ExecContext,
+    label: EcoString,
+    body: &SyntaxTree,
+    map: &ExprMap,
+) {
     let label = ctx.exec_stack(|ctx| ctx.push_text(label));
     let body = ctx.exec_tree_stack(body, map);
     let stack = StackNode {

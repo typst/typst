@@ -34,6 +34,7 @@ pub mod diag;
 pub mod eval;
 pub mod cache;
 pub mod color;
+pub mod eco;
 pub mod exec;
 pub mod export;
 pub mod font;

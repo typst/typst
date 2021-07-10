@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::iter;
 use std::rc::Rc;
 
-use super::{AnyValue, EvalContext, FuncArgs, FuncValue, Type, Value};
+use super::{AnyValue, EcoString, EvalContext, FuncArgs, FuncValue, Type, Value};
 
 /// A slot where a variable is stored.
 pub type Slot = Rc<RefCell<Value>>;
@@ -39,17 +39,17 @@ impl<'a> Scopes<'a> {
     }
 
     /// Define a constant variable with a value in the active scope.
-    pub fn def_const(&mut self, var: impl Into<String>, value: impl Into<Value>) {
+    pub fn def_const(&mut self, var: impl Into<EcoString>, value: impl Into<Value>) {
         self.top.def_const(var, value);
     }
 
     /// Define a mutable variable with a value in the active scope.
-    pub fn def_mut(&mut self, var: impl Into<String>, value: impl Into<Value>) {
+    pub fn def_mut(&mut self, var: impl Into<EcoString>, value: impl Into<Value>) {
         self.top.def_mut(var, value);
     }
 
     /// Define a variable with a slot in the active scope.
-    pub fn def_slot(&mut self, var: impl Into<String>, slot: Slot) {
+    pub fn def_slot(&mut self, var: impl Into<EcoString>, slot: Slot) {
         self.top.def_slot(var, slot);
     }
 
@@ -66,7 +66,7 @@ impl<'a> Scopes<'a> {
 #[derive(Default, Clone, PartialEq)]
 pub struct Scope {
     /// The mapping from names to slots.
-    values: HashMap<String, Slot>,
+    values: HashMap<EcoString, Slot>,
 }
 
 impl Scope {
@@ -76,7 +76,7 @@ impl Scope {
     }
 
     /// Define a constant variable with a value.
-    pub fn def_const(&mut self, var: impl Into<String>, value: impl Into<Value>) {
+    pub fn def_const(&mut self, var: impl Into<EcoString>, value: impl Into<Value>) {
         let cell = RefCell::new(value.into());
 
         // Make it impossible to write to this value again.
@@ -87,7 +87,7 @@ impl Scope {
     }
 
     /// Define a constant function.
-    pub fn def_func<F>(&mut self, name: impl Into<String>, f: F)
+    pub fn def_func<F>(&mut self, name: impl Into<EcoString>, f: F)
     where
         F: Fn(&mut EvalContext, &mut FuncArgs) -> Value + 'static,
     {
@@ -96,7 +96,7 @@ impl Scope {
     }
 
     /// Define a constant variable with a value of variant `Value::Any`.
-    pub fn def_any<T>(&mut self, var: impl Into<String>, any: T)
+    pub fn def_any<T>(&mut self, var: impl Into<EcoString>, any: T)
     where
         T: Type + Debug + Display + Clone + PartialEq + 'static,
     {
@@ -104,12 +104,12 @@ impl Scope {
     }
 
     /// Define a mutable variable with a value.
-    pub fn def_mut(&mut self, var: impl Into<String>, value: impl Into<Value>) {
+    pub fn def_mut(&mut self, var: impl Into<EcoString>, value: impl Into<Value>) {
         self.values.insert(var.into(), Rc::new(RefCell::new(value.into())));
     }
 
     /// Define a variable with a slot.
-    pub fn def_slot(&mut self, var: impl Into<String>, slot: Slot) {
+    pub fn def_slot(&mut self, var: impl Into<EcoString>, slot: Slot) {
         self.values.insert(var.into(), slot);
     }
 

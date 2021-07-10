@@ -28,7 +28,7 @@ pub enum Expr {
     /// A fraction unit literal: `1fr`.
     Fractional(Span, f64),
     /// A string literal: `"hello!"`.
-    Str(Span, String),
+    Str(Span, EcoString),
     /// An identifier: `left`.
     Ident(Ident),
     /// An array expression: `(1, "hi", 12cm)`.

@@ -1,9 +1,10 @@
 use super::{is_newline, Scanner};
+use crate::eco::EcoString;
 use crate::syntax::{Ident, RawNode, Span};
 
 /// Resolve all escape sequences in a string.
-pub fn resolve_string(string: &str) -> String {
-    let mut out = String::with_capacity(string.len());
+pub fn resolve_string(string: &str) -> EcoString {
+    let mut out = EcoString::with_capacity(string.len());
     let mut s = Scanner::new(string);
 
     while let Some(c) = s.eat() {
@@ -52,12 +53,12 @@ pub fn resolve_raw(span: Span, text: &str, backticks: usize) -> RawNode {
         let (tag, inner) = split_at_lang_tag(text);
         let (text, block) = trim_and_split_raw(inner);
         let lang = Ident::new(tag, span.start .. span.start + tag.len());
-        RawNode { span, lang, text, block }
+        RawNode { span, lang, text: text.into(), block }
     } else {
         RawNode {
             span,
             lang: None,
-            text: split_lines(text).join("\n"),
+            text: split_lines(text).join("\n").into(),
             block: false,
         }
     }

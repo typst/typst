@@ -6,7 +6,7 @@ use super::*;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Node {
     /// Plain text.
-    Text(String),
+    Text(EcoString),
     /// Whitespace containing less than two newlines.
     Space,
     /// A forced line break: `\`.
@@ -38,7 +38,7 @@ pub struct RawNode {
     pub lang: Option<Ident>,
     /// The raw text, determined as the raw string between the backticks trimmed
     /// according to the above rules.
-    pub text: String,
+    pub text: EcoString,
     /// Whether the element is block-level, that is, it has 3+ backticks
     /// and contains at least one newline.
     pub block: bool,

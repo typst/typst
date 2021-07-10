@@ -15,6 +15,7 @@ pub use tokens::*;
 use std::rc::Rc;
 
 use crate::diag::Pass;
+use crate::eco::EcoString;
 use crate::syntax::*;
 
 /// Parse a string of source code.
@@ -151,10 +152,10 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
 }
 
 /// Handle a unicode escape sequence.
-fn unicode_escape(p: &mut Parser, token: UnicodeEscapeToken) -> String {
+fn unicode_escape(p: &mut Parser, token: UnicodeEscapeToken) -> EcoString {
     let span = p.peek_span();
     let text = if let Some(c) = resolve::resolve_hex(token.sequence) {
-        c.to_string()
+        c.into()
     } else {
         // Print out the escape sequence verbatim if it is invalid.
         p.diag(error!(span, "invalid unicode escape sequence"));
@@ -774,7 +775,7 @@ fn ident(p: &mut Parser) -> Option<Ident> {
     if let Some(Token::Ident(string)) = p.peek() {
         Some(Ident {
             span: p.eat_span(),
-            string: string.to_string(),
+            string: string.into(),
         })
     } else {
         p.expected("identifier");

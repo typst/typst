@@ -17,6 +17,7 @@ use std::rc::Rc;
 
 use crate::cache::Cache;
 use crate::diag::{Diag, DiagSet, Pass};
+use crate::eco::EcoString;
 use crate::geom::{Angle, Fractional, Length, Relative};
 use crate::loading::{FileHash, Loader};
 use crate::parse::parse;
@@ -528,7 +529,7 @@ impl Eval for ClosureExpr {
             visitor.finish()
         };
 
-        let name = self.name.as_ref().map(|id| id.to_string());
+        let name = self.name.as_ref().map(|name| name.string.clone());
         Value::Func(FuncValue::new(name, move |ctx, args| {
             // Don't leak the scopes from the call site. Instead, we use the
             // scope of captured variables we collected earlier.
@@ -555,7 +556,7 @@ impl Eval for WithExpr {
         let callee = self.callee.eval(ctx);
         if let Some(func) = ctx.cast::<FuncValue>(callee, self.callee.span()) {
             let applied = self.args.eval(ctx);
-            let name = func.name().map(|s| s.to_string());
+            let name = func.name().cloned();
             Value::Func(FuncValue::new(name, move |ctx, args| {
                 // Remove named arguments that were overridden.
                 let kept: Vec<_> = applied
@@ -698,7 +699,7 @@ impl Eval for ImportExpr {
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         let path = self.path.eval(ctx);
-        if let Some(path) = ctx.cast::<String>(path, self.path.span()) {
+        if let Some(path) = ctx.cast::<EcoString>(path, self.path.span()) {
             if let Some(hash) = ctx.import(&path, self.path.span()) {
                 let mut module = &ctx.modules[&hash];
                 match &self.imports {
@@ -734,7 +735,7 @@ impl Eval for IncludeExpr {
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         let path = self.path.eval(ctx);
-        if let Some(path) = ctx.cast::<String>(path, self.path.span()) {
+        if let Some(path) = ctx.cast::<EcoString>(path, self.path.span()) {
             if let Some(hash) = ctx.import(&path, self.path.span()) {
                 return Value::Template(ctx.modules[&hash].template.clone());
             }

@@ -13,6 +13,8 @@ pub use node::*;
 pub use span::*;
 pub use token::*;
 
+use crate::eco::EcoString;
+
 /// The abstract syntax tree.
 ///
 /// This type can represent a full parsed document.

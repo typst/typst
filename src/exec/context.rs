@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use super::{Exec, ExecWithMap, FontFamily, State};
 use crate::diag::{Diag, DiagSet, Pass};
+use crate::eco::EcoString;
 use crate::eval::{ExprMap, TemplateValue};
 use crate::geom::{Align, Dir, Gen, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{
@@ -77,7 +78,7 @@ impl ExecContext {
     /// Push text into the active paragraph.
     ///
     /// The text is split into lines at newlines.
-    pub fn push_text(&mut self, text: impl Into<String>) {
+    pub fn push_text(&mut self, text: impl Into<EcoString>) {
         self.stack.par.push(self.make_text_node(text));
     }
 
@@ -143,7 +144,7 @@ impl ExecContext {
         Pass::new(self.tree, self.diags)
     }
 
-    fn make_text_node(&self, text: impl Into<String>) -> ParChild {
+    fn make_text_node(&self, text: impl Into<EcoString>) -> ParChild {
         ParChild::Text(
             text.into(),
             self.state.aligns.cross,

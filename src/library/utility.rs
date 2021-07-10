@@ -39,7 +39,7 @@ pub fn len(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// `rgb`: Create an RGB(A) color.
 pub fn rgb(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     Value::Color(Color::Rgba(
-        if let Some(string) = args.eat::<Spanned<String>>(ctx) {
+        if let Some(string) = args.eat::<Spanned<EcoString>>(ctx) {
             match RgbaColor::from_str(&string.v) {
                 Ok(color) => color,
                 Err(_) => {
