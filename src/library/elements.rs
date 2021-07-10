@@ -36,7 +36,7 @@ pub fn rect(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = args.named(ctx, "width");
     let height = args.named(ctx, "height");
     let fill = args.named(ctx, "fill");
-    let body = args.eat(ctx).unwrap_or_default();
+    let body = args.eat().unwrap_or_default();
     rect_impl(width, height, None, fill, body)
 }
 
@@ -46,7 +46,7 @@ pub fn square(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = length.or_else(|| args.named(ctx, "width"));
     let height = width.is_none().then(|| args.named(ctx, "height")).flatten();
     let fill = args.named(ctx, "fill");
-    let body = args.eat(ctx).unwrap_or_default();
+    let body = args.eat().unwrap_or_default();
     rect_impl(width, height, Some(N64::from(1.0)), fill, body)
 }
 
@@ -80,7 +80,7 @@ pub fn ellipse(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = args.named(ctx, "width");
     let height = args.named(ctx, "height");
     let fill = args.named(ctx, "fill");
-    let body = args.eat(ctx).unwrap_or_default();
+    let body = args.eat().unwrap_or_default();
     ellipse_impl(width, height, None, fill, body)
 }
 
@@ -90,7 +90,7 @@ pub fn circle(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let width = radius.or_else(|| args.named(ctx, "width"));
     let height = width.is_none().then(|| args.named(ctx, "height")).flatten();
     let fill = args.named(ctx, "fill");
-    let body = args.eat(ctx).unwrap_or_default();
+    let body = args.eat().unwrap_or_default();
     ellipse_impl(width, height, Some(N64::from(1.0)), fill, body)
 }
 

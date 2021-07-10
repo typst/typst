@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 use crate::exec::{FontState, LineState};
 use crate::font::{FontStretch, FontStyle, FontWeight};
 use crate::layout::Paint;
@@ -6,14 +8,14 @@ use super::*;
 
 /// `font`: Configure the font.
 pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let families = args.all(ctx);
+    let families: Vec<_> = args.all().collect();
     let list = if families.is_empty() {
         args.named(ctx, "family")
     } else {
         Some(FontDef(families))
     };
 
-    let size = args.eat(ctx).or_else(|| args.named::<Linear>(ctx, "size"));
+    let size = args.eat().or_else(|| args.named::<Linear>(ctx, "size"));
     let style = args.named(ctx, "style");
     let weight = args.named(ctx, "weight");
     let stretch = args.named(ctx, "stretch");
@@ -116,42 +118,13 @@ castable! {
 castable! {
     FontWeight: "font weight",
     Value::Int(number) => {
-        let [min, max] = [Self::THIN, Self::BLACK];
-        let message = || format!(
-            "should be between {} and {}",
-            min.to_number(),
-            max.to_number(),
-        );
-
-        return if number < i64::from(min.to_number()) {
-            CastResult::Warn(min, message())
-        } else if number > i64::from(max.to_number()) {
-            CastResult::Warn(max, message())
-        } else {
-            CastResult::Ok(Self::from_number(number as u16))
-        };
-    },
+        u16::try_from(number).map_or(Self::BLACK, Self::from_number)
+    }
 }
 
 castable! {
     FontStretch: "font stretch",
-    Value::Relative(relative) => {
-        let [min, max] = [Self::ULTRA_CONDENSED, Self::ULTRA_EXPANDED];
-        let message = || format!(
-            "should be between {} and {}",
-            Relative::new(min.to_ratio() as f64),
-            Relative::new(max.to_ratio() as f64),
-        );
-
-        let ratio = relative.get() as f32;
-        let value = Self::from_ratio(ratio);
-
-        return if ratio < min.to_ratio() || ratio > max.to_ratio() {
-            CastResult::Warn(value, message())
-        } else {
-            CastResult::Ok(value)
-        };
-    },
+    Value::Relative(relative) => Self::from_ratio(relative.get() as f32),
 }
 
 castable! {
@@ -185,7 +158,7 @@ pub fn par(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
 /// `lang`: Configure the language.
 pub fn lang(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let iso = args.eat::<EcoString>(ctx).map(|s| lang_dir(&s));
+    let iso = args.eat::<EcoString>().map(|s| lang_dir(&s));
     let dir = match args.named::<Spanned<Dir>>(ctx, "dir") {
         Some(dir) if dir.v.axis() == SpecAxis::Horizontal => Some(dir.v),
         Some(dir) => {
@@ -235,8 +208,8 @@ fn line_impl(
     args: &mut FuncArgs,
     substate: fn(&mut FontState) -> &mut Option<Rc<LineState>>,
 ) -> Value {
-    let stroke = args.eat(ctx).or_else(|| args.named(ctx, "stroke"));
-    let thickness = args.eat(ctx).or_else(|| args.named::<Linear>(ctx, "thickness"));
+    let stroke = args.eat().or_else(|| args.named(ctx, "stroke"));
+    let thickness = args.eat().or_else(|| args.named::<Linear>(ctx, "thickness"));
     let offset = args.named(ctx, "offset");
     let extent = args.named(ctx, "extent").unwrap_or_default();
     let body = args.expect::<Template>(ctx, "body").unwrap_or_default();

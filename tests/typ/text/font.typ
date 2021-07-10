@@ -64,12 +64,6 @@ Emoji: 🐪, 🌋, 🏞
 // Error: 43-44 expected string or array of strings, found integer
 #font(style: bold, weight: "thin", serif: 0)[]
 
-// Warning: 15-19 should be between 100 and 900
-#font(weight: 2700)[]
-
-// Warning: 16-21 should be between 50% and 200%
-#font(stretch: 1000%)[]
-
 // Error: 7-27 unexpected argument
 #font(something: "invalid")[]
 

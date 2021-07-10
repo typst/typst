@@ -193,8 +193,7 @@ fn heading(p: &mut Parser) -> SyntaxNode {
     }
 
     if level > 6 {
-        p.diag(warning!(start .. p.prev_end(), "should not exceed depth 6"));
-        level = 6;
+        return SyntaxNode::Text(p.eaten_from(start).into());
     }
 
     let body = tree_indented(p);

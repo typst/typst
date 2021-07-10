@@ -322,6 +322,11 @@ impl<'s> Parser<'s> {
         Span::new(start, self.prev_end())
     }
 
+    /// Return the source string from `start` to the end of the previous token.
+    pub fn eaten_from(&self, start: usize) -> &'s str {
+        self.tokens.scanner().get(start .. self.prev_end())
+    }
+
     /// Jump to an index in the string.
     ///
     /// You need to know the correct column.

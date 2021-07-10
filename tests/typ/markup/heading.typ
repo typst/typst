@@ -9,7 +9,6 @@
 ====== Level 6
 
 // Too many hashtags.
-// Warning: 1-8 should not exceed depth 6
 ======= Level 7
 
 ---

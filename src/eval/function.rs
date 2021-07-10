@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 
-use super::{Cast, CastResult, EvalContext, Value};
+use super::{Cast, EvalContext, Value};
 use crate::eco::EcoString;
 use crate::syntax::{Span, Spanned};
 
@@ -76,7 +76,7 @@ pub struct FuncArg {
 
 impl FuncArgs {
     /// Find and consume the first castable positional argument.
-    pub fn eat<T>(&mut self, ctx: &mut EvalContext) -> Option<T>
+    pub fn eat<T>(&mut self) -> Option<T>
     where
         T: Cast<Spanned<Value>>,
     {
@@ -87,19 +87,12 @@ impl FuncArgs {
             }
 
             let value = std::mem::replace(&mut slot.value, Spanned::zero(Value::None));
-            let span = value.span;
-
             match T::cast(value) {
-                CastResult::Ok(t) => {
+                Ok(t) => {
                     self.items.remove(index);
                     Some(t)
                 }
-                CastResult::Warn(t, m) => {
-                    self.items.remove(index);
-                    ctx.diag(warning!(span, "{}", m));
-                    Some(t)
-                }
-                CastResult::Err(value) => {
+                Err(value) => {
                     slot.value = value;
                     None
                 }
@@ -113,7 +106,7 @@ impl FuncArgs {
     where
         T: Cast<Spanned<Value>>,
     {
-        let found = self.eat(ctx);
+        let found = self.eat();
         if found.is_none() {
             ctx.diag(error!(self.span, "missing argument: {}", what));
         }
@@ -121,16 +114,11 @@ impl FuncArgs {
     }
 
     /// Find, consume and collect all castable positional arguments.
-    ///
-    /// This function returns a vector instead of an iterator because the
-    /// iterator would require unique access to the context, rendering it rather
-    /// unusable. If you need to process arguments one-by-one, you probably want
-    /// to use a while-let loop together with [`eat()`](Self::eat).
-    pub fn all<T>(&mut self, ctx: &mut EvalContext) -> Vec<T>
+    pub fn all<T>(&mut self) -> impl Iterator<Item = T> + '_
     where
         T: Cast<Spanned<Value>>,
     {
-        std::iter::from_fn(|| self.eat(ctx)).collect()
+        std::iter::from_fn(move || self.eat())
     }
 
     /// Cast and remove the value for the given named argument, producing an
@@ -148,12 +136,8 @@ impl FuncArgs {
         let span = value.span;
 
         match T::cast(value) {
-            CastResult::Ok(t) => Some(t),
-            CastResult::Warn(t, m) => {
-                ctx.diag(warning!(span, "{}", m));
-                Some(t)
-            }
-            CastResult::Err(value) => {
+            Ok(t) => Some(t),
+            Err(value) => {
                 ctx.diag(error!(
                     span,
                     "expected {}, found {}",

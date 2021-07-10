@@ -39,7 +39,7 @@ pub fn len(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 /// `rgb`: Create an RGB(A) color.
 pub fn rgb(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     Value::Color(Color::Rgba(
-        if let Some(string) = args.eat::<Spanned<EcoString>>(ctx) {
+        if let Some(string) = args.eat::<Spanned<EcoString>>() {
             match RgbaColor::from_str(&string.v) {
                 Ok(color) => color,
                 Err(_) => {
@@ -48,20 +48,12 @@ pub fn rgb(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
                 }
             }
         } else {
-            let r = args.expect(ctx, "red component");
-            let g = args.expect(ctx, "green component");
-            let b = args.expect(ctx, "blue component");
-            let a = args.eat(ctx);
-            let mut clamp = |component: Option<Spanned<f64>>, default| {
-                component.map_or(default, |c| {
-                    if c.v < 0.0 || c.v > 1.0 {
-                        ctx.diag(warning!(c.span, "should be between 0.0 and 1.0"));
-                    }
-                    (c.v.max(0.0).min(1.0) * 255.0).round() as u8
-                })
-            };
-
-            RgbaColor::new(clamp(r, 0), clamp(g, 0), clamp(b, 0), clamp(a, 255))
+            let r = args.expect(ctx, "red component").unwrap_or(0.0);
+            let g = args.expect(ctx, "green component").unwrap_or(0.0);
+            let b = args.expect(ctx, "blue component").unwrap_or(0.0);
+            let a = args.eat().unwrap_or(1.0);
+            let f = |v: f64| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+            RgbaColor::new(f(r), f(g), f(b), f(a))
         },
     ))
 }
@@ -78,16 +70,17 @@ pub fn max(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
 /// Find the minimum or maximum of a sequence of values.
 fn minmax(ctx: &mut EvalContext, args: &mut FuncArgs, goal: Ordering) -> Value {
+    let span = args.span;
     let mut extremum = None;
 
-    while let Some(value) = args.eat::<Value>(ctx) {
+    for value in args.all::<Value>() {
         if let Some(prev) = &extremum {
             match value.partial_cmp(&prev) {
                 Some(ordering) if ordering == goal => extremum = Some(value),
                 Some(_) => {}
                 None => {
                     ctx.diag(error!(
-                        args.span,
+                        span,
                         "cannot compare {} with {}",
                         prev.type_name(),
                         value.type_name(),

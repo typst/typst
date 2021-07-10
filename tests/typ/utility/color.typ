@@ -8,8 +8,7 @@
 // Alpha channel.
 #test(rgb(1.0, 0.0, 0.0, 0.5), rgb("ff000080"))
 
-// Warning: 11-14 should be between 0.0 and 1.0
-// Warning: 16-20 should be between 0.0 and 1.0
+// Clamped.
 #test(rgb(-30, 15.5, 0.5), rgb("00ff80"))
 
 // Error: 11-15 missing argument: blue component

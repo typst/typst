@@ -195,12 +195,8 @@ impl<'a> EvalContext<'a> {
         }
 
         match T::cast(value) {
-            CastResult::Ok(t) => Some(t),
-            CastResult::Warn(t, m) => {
-                self.diag(warning!(span, "{}", m));
-                Some(t)
-            }
-            CastResult::Err(value) => {
+            Ok(t) => Some(t),
+            Err(value) => {
                 self.diag(error!(
                     span,
                     "expected {}, found {}",

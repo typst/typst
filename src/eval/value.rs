@@ -84,7 +84,7 @@ impl Value {
     }
 
     /// Try to cast the value into a specific type.
-    pub fn cast<T>(self) -> CastResult<T, Self>
+    pub fn cast<T>(self) -> Result<T, Self>
     where
         T: Cast<Value>,
     {
@@ -236,28 +236,7 @@ where
 /// Cast from a value to a specific type.
 pub trait Cast<V>: Type + Sized {
     /// Try to cast the value into an instance of `Self`.
-    fn cast(value: V) -> CastResult<Self, V>;
-}
-
-/// The result of casting a value to a specific type.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum CastResult<T, V> {
-    /// The value was cast successfully.
-    Ok(T),
-    /// The value was cast successfully, but with a warning message.
-    Warn(T, String),
-    /// The value could not be cast into the specified type.
-    Err(V),
-}
-
-impl<T, V> CastResult<T, V> {
-    /// Access the conversion result, discarding a possibly existing warning.
-    pub fn ok(self) -> Option<T> {
-        match self {
-            CastResult::Ok(t) | CastResult::Warn(t, _) => Some(t),
-            CastResult::Err(_) => None,
-        }
-    }
+    fn cast(value: V) -> Result<Self, V>;
 }
 
 impl Type for Value {
@@ -265,8 +244,8 @@ impl Type for Value {
 }
 
 impl Cast<Value> for Value {
-    fn cast(value: Value) -> CastResult<Self, Value> {
-        CastResult::Ok(value)
+    fn cast(value: Value) -> Result<Self, Value> {
+        Ok(value)
     }
 }
 
@@ -274,12 +253,11 @@ impl<T> Cast<Spanned<Value>> for T
 where
     T: Cast<Value>,
 {
-    fn cast(value: Spanned<Value>) -> CastResult<Self, Spanned<Value>> {
+    fn cast(value: Spanned<Value>) -> Result<Self, Spanned<Value>> {
         let span = value.span;
         match T::cast(value.v) {
-            CastResult::Ok(t) => CastResult::Ok(t),
-            CastResult::Warn(t, m) => CastResult::Warn(t, m),
-            CastResult::Err(v) => CastResult::Err(Spanned::new(v, span)),
+            Ok(t) => Ok(t),
+            Err(v) => Err(Spanned::new(v, span)),
         }
     }
 }
@@ -288,12 +266,11 @@ impl<T> Cast<Spanned<Value>> for Spanned<T>
 where
     T: Cast<Value>,
 {
-    fn cast(value: Spanned<Value>) -> CastResult<Self, Spanned<Value>> {
+    fn cast(value: Spanned<Value>) -> Result<Self, Spanned<Value>> {
         let span = value.span;
         match T::cast(value.v) {
-            CastResult::Ok(t) => CastResult::Ok(Spanned::new(t, span)),
-            CastResult::Warn(t, m) => CastResult::Warn(Spanned::new(t, span), m),
-            CastResult::Err(v) => CastResult::Err(Spanned::new(v, span)),
+            Ok(t) => Ok(Spanned::new(t, span)),
+            Err(v) => Err(Spanned::new(v, span)),
         }
     }
 }
@@ -315,11 +292,11 @@ macro_rules! primitive {
         }
 
         impl Cast<Value> for $type {
-            fn cast(value: Value) -> CastResult<Self, Value> {
+            fn cast(value: Value) -> Result<Self, Value> {
                 match value {
-                    $variant(v) => CastResult::Ok(v),
-                    $($pattern => CastResult::Ok($out),)*
-                    v => CastResult::Err(v),
+                    $variant(v) => Ok(v),
+                    $($pattern => Ok($out),)*
+                    v => Err(v),
                 }
             }
         }
@@ -426,26 +403,26 @@ macro_rules! castable {
         impl $crate::eval::Cast<$crate::eval::Value> for $type {
             fn cast(
                 value: $crate::eval::Value,
-            ) -> $crate::eval::CastResult<Self, $crate::eval::Value> {
+            ) -> Result<Self, $crate::eval::Value> {
                 use $crate::eval::*;
 
                 #[allow(unreachable_code)]
                 match value {
-                    $($pattern => CastResult::Ok($out),)*
+                    $($pattern => Ok($out),)*
                     Value::Any(mut any) => {
                         any = match any.downcast::<Self>() {
-                            Ok(t) => return CastResult::Ok(t),
+                            Ok(t) => return Ok(t),
                             Err(any) => any,
                         };
 
                         $(any = match any.downcast::<$anytype>() {
-                            Ok($anyvar) => return CastResult::Ok($anyout),
+                            Ok($anyvar) => return Ok($anyout),
                             Err(any) => any,
                         };)*
 
-                        CastResult::Err(Value::Any(any))
+                        Err(Value::Any(any))
                     },
-                    v => CastResult::Err(v),
+                    v => Err(v),
                 }
             }
         }
