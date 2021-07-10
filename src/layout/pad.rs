@@ -7,7 +7,7 @@ pub struct PadNode {
     /// The amount of padding.
     pub padding: Sides<Linear>,
     /// The child node whose sides to pad.
-    pub child: AnyNode,
+    pub child: LayoutNode,
 }
 
 impl Layout for PadNode {
@@ -61,7 +61,7 @@ fn solve(padding: Sides<Linear>, size: Size) -> Size {
     )
 }
 
-impl From<PadNode> for AnyNode {
+impl From<PadNode> for LayoutNode {
     fn from(pad: PadNode) -> Self {
         Self::new(pad)
     }

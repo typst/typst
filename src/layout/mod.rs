@@ -71,7 +71,7 @@ pub struct PageRun {
     pub size: Size,
     /// The layout node that produces the actual pages (typically a
     /// [`StackNode`]).
-    pub child: AnyNode,
+    pub child: LayoutNode,
 }
 
 impl PageRun {
@@ -86,14 +86,14 @@ impl PageRun {
     }
 }
 
-/// A wrapper around a dynamic layouting node.
-pub struct AnyNode {
+/// A dynamic layouting node.
+pub struct LayoutNode {
     node: Box<dyn Bounds>,
     #[cfg(feature = "layout-cache")]
     hash: u64,
 }
 
-impl AnyNode {
+impl LayoutNode {
     /// Create a new instance from any node that satisifies the required bounds.
     #[cfg(feature = "layout-cache")]
     pub fn new<T>(node: T) -> Self
@@ -120,7 +120,7 @@ impl AnyNode {
     }
 }
 
-impl Layout for AnyNode {
+impl Layout for LayoutNode {
     fn layout(
         &self,
         ctx: &mut LayoutContext,
@@ -143,7 +143,13 @@ impl Layout for AnyNode {
     }
 }
 
-impl Clone for AnyNode {
+impl Debug for LayoutNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.node.fmt(f)
+    }
+}
+
+impl Clone for LayoutNode {
     fn clone(&self) -> Self {
         Self {
             node: self.node.dyn_clone(),
@@ -153,24 +159,18 @@ impl Clone for AnyNode {
     }
 }
 
-impl Eq for AnyNode {}
+impl Eq for LayoutNode {}
 
-impl PartialEq for AnyNode {
+impl PartialEq for LayoutNode {
     fn eq(&self, other: &Self) -> bool {
         self.node.dyn_eq(other.node.as_ref())
     }
 }
 
 #[cfg(feature = "layout-cache")]
-impl Hash for AnyNode {
+impl Hash for LayoutNode {
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_u64(self.hash);
-    }
-}
-
-impl Debug for AnyNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.node.fmt(f)
     }
 }
 

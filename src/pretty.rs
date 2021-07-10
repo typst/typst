@@ -86,7 +86,7 @@ impl Pretty for SyntaxTree {
     }
 }
 
-impl Pretty for Node {
+impl Pretty for SyntaxNode {
     fn pretty(&self, p: &mut Printer) {
         match self {
             // TODO: Handle escaping.
@@ -493,7 +493,7 @@ impl Pretty for Value {
     }
 }
 
-impl Pretty for ArrayValue {
+impl Pretty for Array {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
         p.join(self, ", ", |item, p| item.pretty(p));
@@ -504,7 +504,7 @@ impl Pretty for ArrayValue {
     }
 }
 
-impl Pretty for DictValue {
+impl Pretty for Dict {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
         if self.is_empty() {
@@ -520,13 +520,13 @@ impl Pretty for DictValue {
     }
 }
 
-impl Pretty for TemplateValue {
+impl Pretty for Template {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("<template>");
     }
 }
 
-impl Pretty for FuncValue {
+impl Pretty for Function {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("<function");
         if let Some(name) = self.name() {
@@ -608,19 +608,8 @@ pretty_display! {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
     use super::*;
     use crate::parse::parse;
-
-    macro_rules! map {
-        ($($k:ident: $v:expr),* $(,)?) => {{
-            #[allow(unused_mut)]
-            let mut m = BTreeMap::new();
-            $(m.insert(stringify!($k).into(), $v);)*
-            m
-        }};
-    }
 
     #[track_caller]
     fn roundtrip(src: &str) {
@@ -757,18 +746,15 @@ mod tests {
         test_value("\n", r#""\n""#);
         test_value("\\", r#""\\""#);
         test_value("\"", r#""\"""#);
-        test_value(Value::Array(vec![]), "()");
-        test_value(vec![Value::None], "(none,)");
-        test_value(vec![Value::Int(1), Value::Int(2)], "(1, 2)");
-        test_value(map![], "(:)");
-        test_value(map![one: Value::Int(1)], "(one: 1)");
+        test_value(array![], "()");
+        test_value(array![Value::None], "(none,)");
+        test_value(array![1, 2], "(1, 2)");
+        test_value(dict![], "(:)");
+        test_value(dict!["one" => 1], "(one: 1)");
+        test_value(dict!["two" => false, "one" => 1], "(one: 1, two: false)");
+        test_value(Function::new(None, |_, _| Value::None), "<function>");
         test_value(
-            map![two: Value::Bool(false), one: Value::Int(1)],
-            "(one: 1, two: false)",
-        );
-        test_value(FuncValue::new(None, |_, _| Value::None), "<function>");
-        test_value(
-            FuncValue::new(Some("nil".into()), |_, _| Value::None),
+            Function::new(Some("nil".into()), |_, _| Value::None),
             "<function nil>",
         );
         test_value(AnyValue::new(1), "1");

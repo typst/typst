@@ -1,13 +1,23 @@
 //! Evaluation of syntax trees.
 
 #[macro_use]
+mod array;
+#[macro_use]
+mod dict;
+#[macro_use]
 mod value;
 mod capture;
+mod function;
 mod ops;
 mod scope;
+mod template;
 
+pub use array::*;
 pub use capture::*;
+pub use dict::*;
+pub use function::*;
 pub use scope::*;
+pub use template::*;
 pub use value::*;
 
 use std::collections::HashMap;
@@ -45,7 +55,7 @@ pub struct Module {
     /// The top-level definitions that were bound in this module.
     pub scope: Scope,
     /// The template defined by this module.
-    pub template: TemplateValue,
+    pub template: Template,
 }
 
 /// The context for evaluation.
@@ -213,7 +223,7 @@ pub trait Eval {
 }
 
 impl Eval for Rc<SyntaxTree> {
-    type Output = TemplateValue;
+    type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         struct ExprVisitor<'a, 'b> {
@@ -230,10 +240,7 @@ impl Eval for Rc<SyntaxTree> {
         let mut visitor = ExprVisitor { ctx, map: ExprMap::new() };
         visitor.visit_tree(self);
 
-        Rc::new(vec![TemplateNode::Tree {
-            tree: Rc::clone(self),
-            map: visitor.map,
-        }])
+        TemplateTree { tree: Rc::clone(self), map: visitor.map }.into()
     }
 }
 
@@ -280,7 +287,7 @@ impl Eval for Expr {
 }
 
 impl Eval for ArrayExpr {
-    type Output = ArrayValue;
+    type Output = Array;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         self.items.iter().map(|expr| expr.eval(ctx)).collect()
@@ -288,7 +295,7 @@ impl Eval for ArrayExpr {
 }
 
 impl Eval for DictExpr {
-    type Output = DictValue;
+    type Output = Dict;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         self.items
@@ -299,7 +306,7 @@ impl Eval for DictExpr {
 }
 
 impl Eval for TemplateExpr {
-    type Output = TemplateValue;
+    type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         self.tree.eval(ctx)
@@ -476,7 +483,7 @@ impl Eval for CallExpr {
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         let callee = self.callee.eval(ctx);
-        if let Some(func) = ctx.cast::<FuncValue>(callee, self.callee.span()) {
+        if let Some(func) = ctx.cast::<Function>(callee, self.callee.span()) {
             let mut args = self.args.eval(ctx);
             let returned = func(ctx, &mut args);
             args.finish(ctx);
@@ -530,7 +537,7 @@ impl Eval for ClosureExpr {
         };
 
         let name = self.name.as_ref().map(|name| name.string.clone());
-        Value::Func(FuncValue::new(name, move |ctx, args| {
+        Value::Func(Function::new(name, move |ctx, args| {
             // Don't leak the scopes from the call site. Instead, we use the
             // scope of captured variables we collected earlier.
             let prev = mem::take(&mut ctx.scopes);
@@ -554,10 +561,10 @@ impl Eval for WithExpr {
 
     fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
         let callee = self.callee.eval(ctx);
-        if let Some(func) = ctx.cast::<FuncValue>(callee, self.callee.span()) {
+        if let Some(func) = ctx.cast::<Function>(callee, self.callee.span()) {
             let applied = self.args.eval(ctx);
             let name = func.name().cloned();
-            Value::Func(FuncValue::new(name, move |ctx, args| {
+            Value::Func(Function::new(name, move |ctx, args| {
                 // Remove named arguments that were overridden.
                 let kept: Vec<_> = applied
                     .items

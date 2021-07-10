@@ -59,7 +59,7 @@ impl Layout for ImageNode {
     }
 }
 
-impl From<ImageNode> for AnyNode {
+impl From<ImageNode> for LayoutNode {
     fn from(image: ImageNode) -> Self {
         Self::new(image)
     }

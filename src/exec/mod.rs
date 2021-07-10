@@ -10,15 +10,15 @@ use std::fmt::Write;
 use std::rc::Rc;
 
 use crate::diag::Pass;
-use crate::eval::{ExprMap, TemplateFunc, TemplateNode, TemplateValue, Value};
+use crate::eco::EcoString;
+use crate::eval::{ExprMap, Template, TemplateFunc, TemplateNode, TemplateTree, Value};
 use crate::geom::{Dir, Gen};
 use crate::layout::{LayoutTree, StackChild, StackNode};
 use crate::pretty::pretty;
-use crate::eco::EcoString;
 use crate::syntax::*;
 
 /// Execute a template to produce a layout tree.
-pub fn exec(template: &TemplateValue, state: State) -> Pass<LayoutTree> {
+pub fn exec(template: &Template, state: State) -> Pass<LayoutTree> {
     let mut ctx = ExecContext::new(state);
     template.exec(&mut ctx);
     ctx.finish()
@@ -50,7 +50,7 @@ impl ExecWithMap for SyntaxTree {
     }
 }
 
-impl ExecWithMap for Node {
+impl ExecWithMap for SyntaxNode {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         match self {
             Self::Text(text) => ctx.push_text(text),
@@ -117,12 +117,7 @@ impl ExecWithMap for EnumItem {
     }
 }
 
-fn exec_item(
-    ctx: &mut ExecContext,
-    label: EcoString,
-    body: &SyntaxTree,
-    map: &ExprMap,
-) {
+fn exec_item(ctx: &mut ExecContext, label: EcoString, body: &SyntaxTree, map: &ExprMap) {
     let label = ctx.exec_stack(|ctx| ctx.push_text(label));
     let body = ctx.exec_tree_stack(body, map);
     let stack = StackNode {
@@ -159,7 +154,7 @@ impl Exec for Value {
     }
 }
 
-impl Exec for TemplateValue {
+impl Exec for Template {
     fn exec(&self, ctx: &mut ExecContext) {
         for node in self.iter() {
             node.exec(ctx);
@@ -170,10 +165,16 @@ impl Exec for TemplateValue {
 impl Exec for TemplateNode {
     fn exec(&self, ctx: &mut ExecContext) {
         match self {
-            Self::Tree { tree, map } => tree.exec_with_map(ctx, &map),
-            Self::Str(v) => ctx.push_text(v),
+            Self::Tree(v) => v.exec(ctx),
             Self::Func(v) => v.exec(ctx),
+            Self::Str(v) => ctx.push_text(v),
         }
+    }
+}
+
+impl Exec for TemplateTree {
+    fn exec(&self, ctx: &mut ExecContext) {
+        self.tree.exec_with_map(ctx, &self.map)
     }
 }
 

@@ -55,10 +55,10 @@ where
     let mut tree = vec![];
     while !p.eof() && f(p) {
         if let Some(mut node) = node(p, &mut at_start) {
-            at_start &= matches!(node, Node::Space | Node::Parbreak(_));
+            at_start &= matches!(node, SyntaxNode::Space | SyntaxNode::Parbreak(_));
 
             // Look for wide call.
-            if let Node::Expr(Expr::Call(call)) = &mut node {
+            if let SyntaxNode::Expr(Expr::Call(call)) = &mut node {
                 if call.wide {
                     let start = p.next_start();
                     let tree = tree_while(p, true, f);
@@ -77,7 +77,7 @@ where
 }
 
 /// Parse a syntax node.
-fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
+fn node(p: &mut Parser, at_start: &mut bool) -> Option<SyntaxNode> {
     let token = p.peek()?;
     let span = p.peek_span();
     let node = match token {
@@ -85,30 +85,32 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
         Token::Space(newlines) => {
             *at_start |= newlines > 0;
             if newlines < 2 {
-                Node::Space
+                SyntaxNode::Space
             } else {
-                Node::Parbreak(span)
+                SyntaxNode::Parbreak(span)
             }
         }
 
         // Text.
-        Token::Text(text) => Node::Text(text.into()),
-        Token::Tilde => Node::Text("\u{00A0}".into()),
-        Token::HyphHyph => Node::Text("\u{2013}".into()),
-        Token::HyphHyphHyph => Node::Text("\u{2014}".into()),
-        Token::UnicodeEscape(t) => Node::Text(unicode_escape(p, t)),
+        Token::Text(text) => SyntaxNode::Text(text.into()),
+        Token::Tilde => SyntaxNode::Text("\u{00A0}".into()),
+        Token::HyphHyph => SyntaxNode::Text("\u{2013}".into()),
+        Token::HyphHyphHyph => SyntaxNode::Text("\u{2014}".into()),
+        Token::UnicodeEscape(t) => SyntaxNode::Text(unicode_escape(p, t)),
 
         // Markup.
-        Token::Backslash => Node::Linebreak(span),
-        Token::Star => Node::Strong(span),
-        Token::Underscore => Node::Emph(span),
+        Token::Backslash => SyntaxNode::Linebreak(span),
+        Token::Star => SyntaxNode::Strong(span),
+        Token::Underscore => SyntaxNode::Emph(span),
         Token::Raw(t) => raw(p, t),
         Token::Eq if *at_start => return Some(heading(p)),
         Token::Hyph if *at_start => return Some(list_item(p)),
         Token::Numbering(number) if *at_start => return Some(enum_item(p, number)),
 
         // Line-based markup that is not currently at the start of the line.
-        Token::Eq | Token::Hyph | Token::Numbering(_) => Node::Text(p.peek_src().into()),
+        Token::Eq | Token::Hyph | Token::Numbering(_) => {
+            SyntaxNode::Text(p.peek_src().into())
+        }
 
         // Hashtag + keyword / identifier.
         Token::Ident(_)
@@ -128,12 +130,12 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<Node> {
             }
             p.end_group();
 
-            return expr.map(Node::Expr);
+            return expr.map(SyntaxNode::Expr);
         }
 
         // Block and template.
-        Token::LeftBrace => return Some(Node::Expr(block(p, false))),
-        Token::LeftBracket => return Some(Node::Expr(template(p))),
+        Token::LeftBrace => return Some(SyntaxNode::Expr(block(p, false))),
+        Token::LeftBracket => return Some(SyntaxNode::Expr(template(p))),
 
         // Comments.
         Token::LineComment(_) | Token::BlockComment(_) => {
@@ -170,17 +172,17 @@ fn unicode_escape(p: &mut Parser, token: UnicodeEscapeToken) -> EcoString {
 }
 
 /// Handle a raw block.
-fn raw(p: &mut Parser, token: RawToken) -> Node {
+fn raw(p: &mut Parser, token: RawToken) -> SyntaxNode {
     let span = p.peek_span();
     let raw = resolve::resolve_raw(span, token.text, token.backticks);
     if !token.terminated {
         p.diag(error!(p.peek_span().end, "expected backtick(s)"));
     }
-    Node::Raw(raw)
+    SyntaxNode::Raw(raw)
 }
 
 /// Parse a heading.
-fn heading(p: &mut Parser) -> Node {
+fn heading(p: &mut Parser) -> SyntaxNode {
     let start = p.next_start();
     p.assert(Token::Eq);
 
@@ -197,7 +199,7 @@ fn heading(p: &mut Parser) -> Node {
 
     let body = tree_indented(p);
 
-    Node::Heading(HeadingNode {
+    SyntaxNode::Heading(HeadingNode {
         span: p.span(start),
         level,
         body: Rc::new(body),
@@ -205,19 +207,19 @@ fn heading(p: &mut Parser) -> Node {
 }
 
 /// Parse a single list item.
-fn list_item(p: &mut Parser) -> Node {
+fn list_item(p: &mut Parser) -> SyntaxNode {
     let start = p.next_start();
     p.assert(Token::Hyph);
     let body = tree_indented(p);
-    Node::List(ListItem { span: p.span(start), body })
+    SyntaxNode::List(ListItem { span: p.span(start), body })
 }
 
 /// Parse a single enum item.
-fn enum_item(p: &mut Parser, number: Option<usize>) -> Node {
+fn enum_item(p: &mut Parser, number: Option<usize>) -> SyntaxNode {
     let start = p.next_start();
     p.assert(Token::Numbering(number));
     let body = tree_indented(p);
-    Node::Enum(EnumItem { span: p.span(start), number, body })
+    SyntaxNode::Enum(EnumItem { span: p.span(start), number, body })
 }
 
 /// Parse an expression.

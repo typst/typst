@@ -18,7 +18,7 @@ use std::rc::Rc;
 
 use crate::color::{Color, RgbaColor};
 use crate::eco::EcoString;
-use crate::eval::{EvalContext, FuncArgs, Scope, TemplateValue, Value};
+use crate::eval::{EvalContext, FuncArgs, Scope, Template, Value};
 use crate::exec::{Exec, FontFamily};
 use crate::font::{FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;

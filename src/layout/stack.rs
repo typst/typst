@@ -26,7 +26,7 @@ pub enum StackChild {
     /// Spacing between other nodes.
     Spacing(Length),
     /// Any child node and how to align it in the stack.
-    Any(AnyNode, Gen<Align>),
+    Any(LayoutNode, Gen<Align>),
 }
 
 impl Layout for StackNode {
@@ -39,7 +39,7 @@ impl Layout for StackNode {
     }
 }
 
-impl From<StackNode> for AnyNode {
+impl From<StackNode> for LayoutNode {
     fn from(stack: StackNode) -> Self {
         Self::new(stack)
     }

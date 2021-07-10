@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::iter;
 use std::rc::Rc;
 
-use super::{AnyValue, EcoString, EvalContext, FuncArgs, FuncValue, Type, Value};
+use super::{AnyValue, EcoString, EvalContext, FuncArgs, Function, Type, Value};
 
 /// A slot where a variable is stored.
 pub type Slot = Rc<RefCell<Value>>;
@@ -92,7 +92,7 @@ impl Scope {
         F: Fn(&mut EvalContext, &mut FuncArgs) -> Value + 'static,
     {
         let name = name.into();
-        self.def_const(name.clone(), FuncValue::new(Some(name), f));
+        self.def_const(name.clone(), Function::new(Some(name), f));
     }
 
     /// Define a constant variable with a value of variant `Value::Any`.

@@ -1,7 +1,6 @@
 use std::cmp::Ordering::*;
-use std::rc::Rc;
 
-use super::{TemplateNode, Value};
+use super::Value;
 use Value::*;
 
 /// Apply the plus operator to a value.
@@ -90,11 +89,6 @@ pub fn sub(lhs: Value, rhs: Value) -> Value {
 
 /// Compute the product of two values.
 pub fn mul(lhs: Value, rhs: Value) -> Value {
-    fn repeat<T: Clone>(vec: Vec<T>, n: usize) -> Vec<T> {
-        let len = n * vec.len();
-        vec.into_iter().cycle().take(len).collect()
-    }
-
     match (lhs, rhs) {
         (Int(a), Int(b)) => Int(a * b),
         (Int(a), Float(b)) => Float(a as f64 * b),
@@ -128,8 +122,8 @@ pub fn mul(lhs: Value, rhs: Value) -> Value {
 
         (Str(a), Int(b)) => Str(a.repeat(b.max(0) as usize)),
         (Int(a), Str(b)) => Str(b.repeat(a.max(0) as usize)),
-        (Array(a), Int(b)) => Array(repeat(a, b.max(0) as usize)),
-        (Int(a), Array(b)) => Array(repeat(b, a.max(0) as usize)),
+        (Array(a), Int(b)) => Array(a.repeat(b.max(0) as usize)),
+        (Int(a), Array(b)) => Array(b.repeat(a.max(0) as usize)),
 
         _ => Error,
     }
@@ -240,26 +234,11 @@ pub fn join(lhs: Value, rhs: Value) -> Result<Value, Value> {
 fn concat(lhs: Value, rhs: Value) -> Result<Value, Value> {
     Ok(match (lhs, rhs) {
         (Str(a), Str(b)) => Str(a + &b),
-        (Array(mut a), Array(b)) => Array({
-            a.extend(b);
-            a
-        }),
-        (Dict(mut a), Dict(b)) => Dict({
-            a.extend(b);
-            a
-        }),
-        (Template(mut a), Template(b)) => Template({
-            Rc::make_mut(&mut a).extend(b.iter().cloned());
-            a
-        }),
-        (Template(mut a), Str(b)) => Template({
-            Rc::make_mut(&mut a).push(TemplateNode::Str(b));
-            a
-        }),
-        (Str(a), Template(mut b)) => Template({
-            Rc::make_mut(&mut b).insert(0, TemplateNode::Str(a));
-            b
-        }),
+        (Array(a), Array(b)) => Array(a + &b),
+        (Dict(a), Dict(b)) => Dict(a + &b),
+        (Template(a), Template(b)) => Template(a + &b),
+        (Template(a), Str(b)) => Template(a + b),
+        (Str(a), Template(b)) => Template(a + b),
         (a, _) => return Err(a),
     })
 }

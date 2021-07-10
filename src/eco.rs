@@ -7,7 +7,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref};
 use std::rc::Rc;
 
-/// A economical string with inline storage and clone-on-write value semantics.
+/// An economical string with inline storage and clone-on-write value semantics.
 #[derive(Clone)]
 pub struct EcoString(Repr);
 
@@ -22,8 +22,9 @@ enum Repr {
 
 /// The maximum number of bytes that can be stored inline.
 ///
-/// The value is chosen such that `Repr` fits exactly into 16 bytes
-/// (which are needed anyway due to `Rc`s alignment).
+/// The value is chosen such that an `EcoString` fits exactly into 16 bytes
+/// (which are needed anyway due to the `Rc`s alignment, at least on 64-bit
+/// platforms).
 ///
 /// Must be at least 4 to hold any char.
 const LIMIT: usize = 14;
@@ -77,7 +78,7 @@ impl EcoString {
         self
     }
 
-    /// Appends the given character at the end.
+    /// Append the given character at the end.
     pub fn push(&mut self, c: char) {
         match &mut self.0 {
             Repr::Small { buf, len } => {
@@ -93,7 +94,7 @@ impl EcoString {
         }
     }
 
-    /// Appends the given string slice at the end.
+    /// Append the given string slice at the end.
     pub fn push_str(&mut self, string: &str) {
         match &mut self.0 {
             Repr::Small { buf, len } => {
@@ -113,7 +114,7 @@ impl EcoString {
         }
     }
 
-    /// Removes the last character from the string.
+    /// Remove the last character from the string.
     pub fn pop(&mut self) -> Option<char> {
         let c = self.as_str().chars().rev().next()?;
         match &mut self.0 {
@@ -127,7 +128,21 @@ impl EcoString {
         Some(c)
     }
 
-    /// Repeats this string `n` times.
+    /// Clear the string.
+    pub fn clear(&mut self) {
+        match &mut self.0 {
+            Repr::Small { len, .. } => *len = 0,
+            Repr::Large(rc) => {
+                if Rc::strong_count(rc) == 1 {
+                    Rc::make_mut(rc).clear();
+                } else {
+                    *self = Self::new();
+                }
+            }
+        }
+    }
+
+    /// Repeat this string `n` times.
     pub fn repeat(&self, n: usize) -> Self {
         if let Repr::Small { buf, len } = &self.0 {
             let prev = usize::from(*len);
@@ -209,15 +224,15 @@ impl Default for EcoString {
     }
 }
 
-impl Debug for EcoString {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Debug::fmt(self.as_str(), f)
-    }
-}
-
 impl Display for EcoString {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(self.as_str(), f)
+    }
+}
+
+impl Debug for EcoString {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Debug::fmt(self.as_str(), f)
     }
 }
 
@@ -256,6 +271,14 @@ impl Ord for EcoString {
 impl PartialOrd for EcoString {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.as_str().partial_cmp(other.as_str())
+    }
+}
+
+impl Add<&Self> for EcoString {
+    type Output = Self;
+
+    fn add(self, rhs: &Self) -> Self::Output {
+        self + rhs.as_str()
     }
 }
 

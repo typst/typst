@@ -9,7 +9,7 @@ pub struct FixedNode {
     /// The fixed height, if any.
     pub height: Option<Linear>,
     /// The child node whose size to fix.
-    pub child: AnyNode,
+    pub child: LayoutNode,
 }
 
 impl Layout for FixedNode {
@@ -47,7 +47,7 @@ impl Layout for FixedNode {
     }
 }
 
-impl From<FixedNode> for AnyNode {
+impl From<FixedNode> for LayoutNode {
     fn from(fixed: FixedNode) -> Self {
         Self::new(fixed)
     }

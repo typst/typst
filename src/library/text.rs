@@ -23,7 +23,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let serif = args.named(ctx, "serif");
     let sans_serif = args.named(ctx, "sans-serif");
     let monospace = args.named(ctx, "monospace");
-    let body = args.expect::<TemplateValue>(ctx, "body").unwrap_or_default();
+    let body = args.expect::<Template>(ctx, "body").unwrap_or_default();
 
     Value::template(move |ctx| {
         let font = ctx.state.font_mut();
@@ -163,7 +163,7 @@ pub fn par(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let spacing = args.named(ctx, "spacing");
     let leading = args.named(ctx, "leading");
     let word_spacing = args.named(ctx, "word-spacing");
-    let body = args.expect::<TemplateValue>(ctx, "body").unwrap_or_default();
+    let body = args.expect::<Template>(ctx, "body").unwrap_or_default();
 
     Value::template(move |ctx| {
         if let Some(spacing) = spacing {
@@ -194,7 +194,7 @@ pub fn lang(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         }
         None => None,
     };
-    let body = args.expect::<TemplateValue>(ctx, "body").unwrap_or_default();
+    let body = args.expect::<Template>(ctx, "body").unwrap_or_default();
 
     Value::template(move |ctx| {
         if let Some(dir) = dir.or(iso) {
@@ -239,7 +239,7 @@ fn line_impl(
     let thickness = args.eat(ctx).or_else(|| args.named::<Linear>(ctx, "thickness"));
     let offset = args.named(ctx, "offset");
     let extent = args.named(ctx, "extent").unwrap_or_default();
-    let body = args.expect::<TemplateValue>(ctx, "body").unwrap_or_default();
+    let body = args.expect::<Template>(ctx, "body").unwrap_or_default();
 
     // Suppress any existing strikethrough if strength is explicitly zero.
     let state = thickness.map_or(true, |s| !s.is_zero()).then(|| {

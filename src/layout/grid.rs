@@ -14,7 +14,7 @@ pub struct GridNode {
     /// Defines sizing of gutter rows and columns between content.
     pub gutter: Gen<Vec<TrackSizing>>,
     /// The nodes to be arranged in a grid.
-    pub children: Vec<AnyNode>,
+    pub children: Vec<LayoutNode>,
 }
 
 /// Defines how to size a grid cell along an axis.
@@ -45,7 +45,7 @@ impl Layout for GridNode {
     }
 }
 
-impl From<GridNode> for AnyNode {
+impl From<GridNode> for LayoutNode {
     fn from(grid: GridNode) -> Self {
         Self::new(grid)
     }
@@ -64,7 +64,7 @@ struct GridLayouter<'a> {
     /// The row tracks including gutter tracks.
     rows: Vec<TrackSizing>,
     /// The children of the grid.
-    children: &'a [AnyNode],
+    children: &'a [LayoutNode],
     /// The region to layout into.
     regions: Regions,
     /// Resolved column sizes.
@@ -517,7 +517,7 @@ impl<'a> GridLayouter<'a> {
     /// Get the node in the cell in column `x` and row `y`.
     ///
     /// Returns `None` if it's a gutter cell.
-    fn cell(&self, x: usize, y: usize) -> Option<&'a AnyNode> {
+    fn cell(&self, x: usize, y: usize) -> Option<&'a LayoutNode> {
         assert!(x < self.cols.len());
         assert!(y < self.rows.len());
 

@@ -1,15 +1,13 @@
 use std::any::Any;
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap};
 use std::fmt::{self, Debug, Display, Formatter};
-use std::ops::Deref;
-use std::rc::Rc;
 
-use super::*;
+use super::{ops, Array, Dict, EvalContext, Function, Template, TemplateFunc};
 use crate::color::{Color, RgbaColor};
+use crate::eco::EcoString;
 use crate::exec::ExecContext;
 use crate::geom::{Angle, Fractional, Length, Linear, Relative};
-use crate::syntax::{Expr, Span, Spanned, SyntaxTree};
+use crate::syntax::{Span, Spanned};
 
 /// A computational value.
 #[derive(Debug, Clone, PartialEq)]
@@ -38,14 +36,14 @@ pub enum Value {
     Color(Color),
     /// A string: `"string"`.
     Str(EcoString),
-    /// An array value: `(1, "hi", 12cm)`.
-    Array(ArrayValue),
+    /// An array of values: `(1, "hi", 12cm)`.
+    Array(Array),
     /// A dictionary value: `(color: #f79143, pattern: dashed)`.
-    Dict(DictValue),
+    Dict(Dict),
     /// A template value: `[*Hi* there]`.
-    Template(TemplateValue),
+    Template(Template),
     /// An executable function.
-    Func(FuncValue),
+    Func(Function),
     /// Any object.
     Any(AnyValue),
     /// The result of invalid operations.
@@ -53,12 +51,12 @@ pub enum Value {
 }
 
 impl Value {
-    /// Create a new template value consisting of a single dynamic node.
+    /// Create a new template consisting of a single function node.
     pub fn template<F>(f: F) -> Self
     where
         F: Fn(&mut ExecContext) + 'static,
     {
-        Self::Template(Rc::new(vec![TemplateNode::Func(TemplateFunc::new(f))]))
+        Self::Template(TemplateFunc::new(f).into())
     }
 
     /// The name of the stored value's type.
@@ -76,10 +74,10 @@ impl Value {
             Self::Fractional(_) => Fractional::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
             Self::Str(_) => EcoString::TYPE_NAME,
-            Self::Array(_) => ArrayValue::TYPE_NAME,
-            Self::Dict(_) => DictValue::TYPE_NAME,
-            Self::Template(_) => TemplateValue::TYPE_NAME,
-            Self::Func(_) => FuncValue::TYPE_NAME,
+            Self::Array(_) => Array::TYPE_NAME,
+            Self::Dict(_) => Dict::TYPE_NAME,
+            Self::Template(_) => Template::TYPE_NAME,
+            Self::Func(_) => Function::TYPE_NAME,
             Self::Any(v) => v.type_name(),
             Self::Error => "error",
         }
@@ -101,7 +99,6 @@ impl Value {
                 a.len() == b.len()
                     && a.iter().all(|(k, x)| b.get(k).map_or(false, |y| x.eq(y)))
             }
-            (Self::Template(a), Self::Template(b)) => Rc::ptr_eq(a, b),
             (a, b) => a == b,
         }
     }
@@ -146,245 +143,6 @@ impl Default for Value {
     }
 }
 
-/// An array value: `(1, "hi", 12cm)`.
-pub type ArrayValue = Vec<Value>;
-
-/// A dictionary value: `(color: #f79143, pattern: dashed)`.
-pub type DictValue = BTreeMap<EcoString, Value>;
-
-/// A template value: `[*Hi* there]`.
-pub type TemplateValue = Rc<Vec<TemplateNode>>;
-
-/// One chunk of a template.
-///
-/// Evaluating a template expression creates only a single node. Adding multiple
-/// templates can yield multi-node templates.
-#[derive(Debug, Clone)]
-pub enum TemplateNode {
-    /// A template that consists of a syntax tree plus already evaluated
-    /// expression.
-    Tree {
-        /// The syntax tree of the corresponding template expression.
-        tree: Rc<SyntaxTree>,
-        /// The evaluated expressions in the syntax tree.
-        map: ExprMap,
-    },
-    /// A template that was converted from a string.
-    Str(EcoString),
-    /// A function template that can implement custom behaviour.
-    Func(TemplateFunc),
-}
-
-impl PartialEq for TemplateNode {
-    fn eq(&self, _: &Self) -> bool {
-        false
-    }
-}
-
-/// A map from expressions to the values they evaluated to.
-///
-/// The raw pointers point into the expressions contained in some
-/// [`SyntaxTree`]. Since the lifetime is erased, the tree could go out of scope
-/// while the hash map still lives. Although this could lead to lookup panics,
-/// it is not unsafe since the pointers are never dereferenced.
-pub type ExprMap = HashMap<*const Expr, Value>;
-
-/// A reference-counted dynamic template node that can implement custom
-/// behaviour.
-#[derive(Clone)]
-pub struct TemplateFunc(Rc<dyn Fn(&mut ExecContext)>);
-
-impl TemplateFunc {
-    /// Create a new function template from a rust function or closure.
-    pub fn new<F>(f: F) -> Self
-    where
-        F: Fn(&mut ExecContext) + 'static,
-    {
-        Self(Rc::new(f))
-    }
-}
-
-impl Deref for TemplateFunc {
-    type Target = dyn Fn(&mut ExecContext);
-
-    fn deref(&self) -> &Self::Target {
-        self.0.as_ref()
-    }
-}
-
-impl Debug for TemplateFunc {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("TemplateAny").finish()
-    }
-}
-
-/// A wrapper around a reference-counted executable function.
-#[derive(Clone)]
-pub struct FuncValue {
-    /// The string is boxed to make the whole struct fit into 24 bytes, so that
-    /// a [`Value`] fits into 32 bytes.
-    name: Option<Box<EcoString>>,
-    /// The closure that defines the function.
-    f: Rc<dyn Fn(&mut EvalContext, &mut FuncArgs) -> Value>,
-}
-
-impl FuncValue {
-    /// Create a new function value from a rust function or closure.
-    pub fn new<F>(name: Option<EcoString>, f: F) -> Self
-    where
-        F: Fn(&mut EvalContext, &mut FuncArgs) -> Value + 'static,
-    {
-        Self { name: name.map(Box::new), f: Rc::new(f) }
-    }
-
-    /// The name of the function.
-    pub fn name(&self) -> Option<&EcoString> {
-        self.name.as_ref().map(|s| &**s)
-    }
-}
-
-impl PartialEq for FuncValue {
-    fn eq(&self, other: &Self) -> bool {
-        // We cast to thin pointers because we don't want to compare vtables.
-        Rc::as_ptr(&self.f) as *const () == Rc::as_ptr(&other.f) as *const ()
-    }
-}
-
-impl Deref for FuncValue {
-    type Target = dyn Fn(&mut EvalContext, &mut FuncArgs) -> Value;
-
-    fn deref(&self) -> &Self::Target {
-        self.f.as_ref()
-    }
-}
-
-impl Debug for FuncValue {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("ValueFunc").field("name", &self.name).finish()
-    }
-}
-
-/// Evaluated arguments to a function.
-#[derive(Debug, Clone, PartialEq)]
-pub struct FuncArgs {
-    /// The span of the whole argument list.
-    pub span: Span,
-    /// The positional arguments.
-    pub items: Vec<FuncArg>,
-}
-
-impl FuncArgs {
-    /// Find and consume the first castable positional argument.
-    pub fn eat<T>(&mut self, ctx: &mut EvalContext) -> Option<T>
-    where
-        T: Cast<Spanned<Value>>,
-    {
-        (0 .. self.items.len()).find_map(|index| {
-            let slot = &mut self.items[index];
-            if slot.name.is_some() {
-                return None;
-            }
-
-            let value = std::mem::replace(&mut slot.value, Spanned::zero(Value::None));
-            let span = value.span;
-
-            match T::cast(value) {
-                CastResult::Ok(t) => {
-                    self.items.remove(index);
-                    Some(t)
-                }
-                CastResult::Warn(t, m) => {
-                    self.items.remove(index);
-                    ctx.diag(warning!(span, "{}", m));
-                    Some(t)
-                }
-                CastResult::Err(value) => {
-                    slot.value = value;
-                    None
-                }
-            }
-        })
-    }
-
-    /// Find and consume the first castable positional argument, producing a
-    /// `missing argument: {what}` error if no match was found.
-    pub fn expect<T>(&mut self, ctx: &mut EvalContext, what: &str) -> Option<T>
-    where
-        T: Cast<Spanned<Value>>,
-    {
-        let found = self.eat(ctx);
-        if found.is_none() {
-            ctx.diag(error!(self.span, "missing argument: {}", what));
-        }
-        found
-    }
-
-    /// Find, consume and collect all castable positional arguments.
-    ///
-    /// This function returns a vector instead of an iterator because the
-    /// iterator would require unique access to the context, rendering it rather
-    /// unusable. If you need to process arguments one-by-one, you probably want
-    /// to use a while-let loop together with [`eat()`](Self::eat).
-    pub fn all<T>(&mut self, ctx: &mut EvalContext) -> Vec<T>
-    where
-        T: Cast<Spanned<Value>>,
-    {
-        std::iter::from_fn(|| self.eat(ctx)).collect()
-    }
-
-    /// Cast and remove the value for the given named argument, producing an
-    /// error if the conversion fails.
-    pub fn named<T>(&mut self, ctx: &mut EvalContext, name: &str) -> Option<T>
-    where
-        T: Cast<Spanned<Value>>,
-    {
-        let index = self
-            .items
-            .iter()
-            .position(|arg| arg.name.as_ref().map_or(false, |other| other == name))?;
-
-        let value = self.items.remove(index).value;
-        let span = value.span;
-
-        match T::cast(value) {
-            CastResult::Ok(t) => Some(t),
-            CastResult::Warn(t, m) => {
-                ctx.diag(warning!(span, "{}", m));
-                Some(t)
-            }
-            CastResult::Err(value) => {
-                ctx.diag(error!(
-                    span,
-                    "expected {}, found {}",
-                    T::TYPE_NAME,
-                    value.v.type_name(),
-                ));
-                None
-            }
-        }
-    }
-
-    /// Produce "unexpected argument" errors for all remaining arguments.
-    pub fn finish(self, ctx: &mut EvalContext) {
-        for arg in &self.items {
-            if arg.value.v != Value::Error {
-                ctx.diag(error!(arg.span, "unexpected argument"));
-            }
-        }
-    }
-}
-
-/// An argument to a function call: `12` or `draw: false`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct FuncArg {
-    /// The span of the whole argument.
-    pub span: Span,
-    /// The name of the argument (`None` for positional arguments).
-    pub name: Option<EcoString>,
-    /// The value of the argument.
-    pub value: Spanned<Value>,
-}
-
 /// A wrapper around a dynamic value.
 pub struct AnyValue(Box<dyn Bounds>);
 
@@ -422,15 +180,9 @@ impl AnyValue {
     }
 }
 
-impl Clone for AnyValue {
-    fn clone(&self) -> Self {
-        Self(self.0.dyn_clone())
-    }
-}
-
-impl PartialEq for AnyValue {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.dyn_eq(other)
+impl Display for AnyValue {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(&self.0, f)
     }
 }
 
@@ -440,9 +192,15 @@ impl Debug for AnyValue {
     }
 }
 
-impl Display for AnyValue {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(&self.0, f)
+impl Clone for AnyValue {
+    fn clone(&self) -> Self {
+        Self(self.0.dyn_clone())
+    }
+}
+
+impl PartialEq for AnyValue {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.dyn_eq(other)
     }
 }
 
@@ -608,14 +366,20 @@ primitive! {
 primitive! { Fractional: "fractional", Value::Fractional }
 primitive! { Color: "color", Value::Color }
 primitive! { EcoString: "string", Value::Str }
-primitive! { ArrayValue: "array", Value::Array }
-primitive! { DictValue: "dictionary", Value::Dict }
+primitive! { Array: "array", Value::Array }
+primitive! { Dict: "dictionary", Value::Dict }
 primitive! {
-    TemplateValue: "template",
+    Template: "template",
     Value::Template,
-    Value::Str(v) => Rc::new(vec![TemplateNode::Str(v)]),
+    Value::Str(v) => v.into(),
 }
-primitive! { FuncValue: "function", Value::Func }
+primitive! { Function: "function", Value::Func }
+
+impl From<i32> for Value {
+    fn from(v: i32) -> Self {
+        Self::Int(v as i64)
+    }
+}
 
 impl From<usize> for Value {
     fn from(v: usize) -> Self {

@@ -4,10 +4,10 @@ use std::rc::Rc;
 use super::{Exec, ExecWithMap, FontFamily, State};
 use crate::diag::{Diag, DiagSet, Pass};
 use crate::eco::EcoString;
-use crate::eval::{ExprMap, TemplateValue};
+use crate::eval::{ExprMap, Template};
 use crate::geom::{Align, Dir, Gen, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{
-    AnyNode, LayoutTree, PadNode, PageRun, ParChild, ParNode, StackChild, StackNode,
+    LayoutNode, LayoutTree, PadNode, PageRun, ParChild, ParNode, StackChild, StackNode,
 };
 use crate::syntax::{Span, SyntaxTree};
 
@@ -53,7 +53,7 @@ impl ExecContext {
     }
 
     /// Execute a template and return the result as a stack node.
-    pub fn exec_template_stack(&mut self, template: &TemplateValue) -> StackNode {
+    pub fn exec_template_stack(&mut self, template: &Template) -> StackNode {
         self.exec_stack(|ctx| template.exec(ctx))
     }
 
@@ -88,13 +88,13 @@ impl ExecContext {
     }
 
     /// Push any node into the active paragraph.
-    pub fn push_into_par(&mut self, node: impl Into<AnyNode>) {
+    pub fn push_into_par(&mut self, node: impl Into<LayoutNode>) {
         let align = self.state.aligns.cross;
         self.stack.par.push(ParChild::Any(node.into(), align));
     }
 
     /// Push any node into the active stack.
-    pub fn push_into_stack(&mut self, node: impl Into<AnyNode>) {
+    pub fn push_into_stack(&mut self, node: impl Into<LayoutNode>) {
         self.parbreak();
         let aligns = self.state.aligns;
         self.stack.push(StackChild::Any(node.into(), aligns));

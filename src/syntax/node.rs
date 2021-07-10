@@ -4,7 +4,7 @@ use super::*;
 
 /// A syntax node, encompassing a single logical entity of parsed source code.
 #[derive(Debug, Clone, PartialEq)]
-pub enum Node {
+pub enum SyntaxNode {
     /// Plain text.
     Text(EcoString),
     /// Whitespace containing less than two newlines.

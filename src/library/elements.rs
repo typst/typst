@@ -55,7 +55,7 @@ fn rect_impl(
     height: Option<Linear>,
     aspect: Option<N64>,
     fill: Option<Color>,
-    body: TemplateValue,
+    body: Template,
 ) -> Value {
     Value::template(move |ctx| {
         let mut stack = ctx.exec_template_stack(&body);
@@ -99,7 +99,7 @@ fn ellipse_impl(
     height: Option<Linear>,
     aspect: Option<N64>,
     fill: Option<Color>,
-    body: TemplateValue,
+    body: Template,
 ) -> Value {
     Value::template(move |ctx| {
         // This padding ratio ensures that the rectangular padded region fits

@@ -9,7 +9,7 @@ pub struct BackgroundNode {
     /// Background color / texture.
     pub fill: Paint,
     /// The child node to be filled.
-    pub child: AnyNode,
+    pub child: LayoutNode,
 }
 
 /// The kind of shape to use as a background.
@@ -45,7 +45,7 @@ impl Layout for BackgroundNode {
     }
 }
 
-impl From<BackgroundNode> for AnyNode {
+impl From<BackgroundNode> for LayoutNode {
     fn from(background: BackgroundNode) -> Self {
         Self::new(background)
     }

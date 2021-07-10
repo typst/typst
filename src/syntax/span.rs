@@ -120,20 +120,6 @@ impl Span {
     }
 }
 
-impl Eq for Span {}
-
-impl PartialEq for Span {
-    fn eq(&self, other: &Self) -> bool {
-        !Self::cmp() || (self.start == other.start && self.end == other.end)
-    }
-}
-
-impl Default for Span {
-    fn default() -> Self {
-        Span::ZERO
-    }
-}
-
 impl<T> From<T> for Span
 where
     T: Into<Pos> + Copy,
@@ -152,9 +138,23 @@ where
     }
 }
 
+impl Default for Span {
+    fn default() -> Self {
+        Span::ZERO
+    }
+}
+
 impl Debug for Span {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "<{:?}-{:?}>", self.start, self.end)
+    }
+}
+
+impl Eq for Span {}
+
+impl PartialEq for Span {
+    fn eq(&self, other: &Self) -> bool {
+        !Self::cmp() || (self.start == other.start && self.end == other.end)
     }
 }
 
@@ -169,17 +169,6 @@ impl Pos {
     /// Convert to a usize for indexing.
     pub fn to_usize(self) -> usize {
         self.0 as usize
-    }
-}
-
-impl<T> Add<T> for Pos
-where
-    T: Into<Pos>,
-{
-    type Output = Self;
-
-    fn add(self, rhs: T) -> Self {
-        Pos(self.0 + rhs.into().0)
     }
 }
 
@@ -204,6 +193,17 @@ impl From<usize> for Pos {
 impl Debug for Pos {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Debug::fmt(&self.0, f)
+    }
+}
+
+impl<T> Add<T> for Pos
+where
+    T: Into<Pos>,
+{
+    type Output = Self;
+
+    fn add(self, rhs: T) -> Self {
+        Pos(self.0 + rhs.into().0)
     }
 }
 

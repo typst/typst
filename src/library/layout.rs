@@ -20,7 +20,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let right = args.named(ctx, "right");
     let bottom = args.named(ctx, "bottom");
     let flip = args.named(ctx, "flip");
-    let body = args.expect::<TemplateValue>(ctx, "body").unwrap_or_default();
+    let body = args.expect::<Template>(ctx, "body").unwrap_or_default();
 
     Value::template(move |ctx| {
         let snapshot = ctx.state.clone();
@@ -108,7 +108,7 @@ pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let second = args.eat::<AlignValue>(ctx);
     let mut horizontal = args.named::<AlignValue>(ctx, "horizontal");
     let mut vertical = args.named::<AlignValue>(ctx, "vertical");
-    let body = args.expect::<TemplateValue>(ctx, "body").unwrap_or_default();
+    let body = args.expect::<Template>(ctx, "body").unwrap_or_default();
 
     for value in first.into_iter().chain(second) {
         match value.axis() {

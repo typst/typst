@@ -85,19 +85,19 @@ impl_visitors! {
         }
     }
 
-    visit_node(v, node: Node) {
+    visit_node(v, node: SyntaxNode) {
         match node {
-            Node::Text(_) => {}
-            Node::Space => {}
-            Node::Linebreak(_) => {}
-            Node::Parbreak(_) => {}
-            Node::Strong(_) => {}
-            Node::Emph(_) => {}
-            Node::Raw(_) => {}
-            Node::Heading(n) => v.visit_heading(n),
-            Node::List(n) => v.visit_list(n),
-            Node::Enum(n) => v.visit_enum(n),
-            Node::Expr(n) => v.visit_expr(n),
+            SyntaxNode::Text(_) => {}
+            SyntaxNode::Space => {}
+            SyntaxNode::Linebreak(_) => {}
+            SyntaxNode::Parbreak(_) => {}
+            SyntaxNode::Strong(_) => {}
+            SyntaxNode::Emph(_) => {}
+            SyntaxNode::Raw(_) => {}
+            SyntaxNode::Heading(n) => v.visit_heading(n),
+            SyntaxNode::List(n) => v.visit_list(n),
+            SyntaxNode::Enum(n) => v.visit_enum(n),
+            SyntaxNode::Expr(n) => v.visit_expr(n),
         }
     }
 
