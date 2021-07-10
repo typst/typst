@@ -199,7 +199,7 @@ impl Display for AlignValue {
     }
 }
 
-castable! {
+dynamic! {
     AlignValue: "alignment",
 }
 

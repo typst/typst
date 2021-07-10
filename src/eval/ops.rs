@@ -230,7 +230,7 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Dict(a), Dict(b)) => a == b,
         (Template(a), Template(b)) => a == b,
         (Func(a), Func(b)) => a == b,
-        (Any(a), Any(b)) => a == b,
+        (Dyn(a), Dyn(b)) => a == b,
         (Error, Error) => true,
 
         // Some technically different things should compare equal.

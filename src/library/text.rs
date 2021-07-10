@@ -78,7 +78,6 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     })
 }
 
-#[derive(Debug)]
 struct FontDef(Vec<FontFamily>);
 
 castable! {
@@ -89,10 +88,9 @@ castable! {
         .filter_map(|v| v.cast().ok())
         .collect()
     ),
-    #(family: FontFamily) => Self(vec![family]),
+    @family: FontFamily => Self(vec![family.clone()]),
 }
 
-#[derive(Debug)]
 struct FamilyDef(Vec<String>);
 
 castable! {
@@ -106,28 +104,28 @@ castable! {
     ),
 }
 
-castable! {
+dynamic! {
     FontFamily: "font family",
-    Value::Str(string) => Self::Named(string.to_lowercase())
+    Value::Str(string) => Self::Named(string.to_lowercase()),
 }
 
-castable! {
+dynamic! {
     FontStyle: "font style",
 }
 
-castable! {
+dynamic! {
     FontWeight: "font weight",
     Value::Int(number) => {
         u16::try_from(number).map_or(Self::BLACK, Self::from_number)
-    }
+    },
 }
 
-castable! {
+dynamic! {
     FontStretch: "font stretch",
     Value::Relative(relative) => Self::from_ratio(relative.get() as f32),
 }
 
-castable! {
+dynamic! {
     VerticalFontMetric: "vertical font metric",
 }
 

@@ -195,15 +195,22 @@ impl<'a> EvalContext<'a> {
         }
 
         match T::cast(value) {
-            Ok(t) => Some(t),
-            Err(value) => {
-                self.diag(error!(
-                    span,
-                    "expected {}, found {}",
-                    T::TYPE_NAME,
-                    value.type_name(),
-                ));
+            Ok(value) => Some(value),
+            Err(msg) => {
+                self.diag(error!(span, "{}", msg));
                 None
+            }
+        }
+    }
+
+    /// Join with another value.
+    pub fn join(&mut self, lhs: Value, rhs: Value, span: Span) -> Value {
+        let (a, b) = (lhs.type_name(), rhs.type_name());
+        match ops::join(lhs, rhs) {
+            Ok(joined) => joined,
+            Err(prev) => {
+                self.diag(error!(span, "cannot join {} with {}", a, b));
+                prev
             }
         }
     }
@@ -328,7 +335,7 @@ impl Eval for BlockExpr {
         let mut output = Value::None;
         for expr in &self.exprs {
             let value = expr.eval(ctx);
-            output = output.join(ctx, value, expr.span());
+            output = ctx.join(output, value, expr.span());
         }
 
         if self.scoping {
@@ -627,7 +634,7 @@ impl Eval for WhileExpr {
             if let Some(condition) = ctx.cast(condition, self.condition.span()) {
                 if condition {
                     let value = self.body.eval(ctx);
-                    output = output.join(ctx, value, self.body.span());
+                    output = ctx.join(output, value, self.body.span());
                 } else {
                     return output;
                 }
@@ -652,7 +659,7 @@ impl Eval for ForExpr {
                     $(ctx.scopes.def_mut($binding.as_str(), $value);)*
 
                     let value = self.body.eval(ctx);
-                    output = output.join(ctx, value, self.body.span());
+                    output = ctx.join(output, value, self.body.span());
                 }
 
                 ctx.scopes.exit();

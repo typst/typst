@@ -1,10 +1,10 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Debug, Formatter};
 use std::iter;
 use std::rc::Rc;
 
-use super::{AnyValue, EcoString, EvalContext, FuncArgs, Function, Type, Value};
+use super::{EcoString, EvalContext, FuncArgs, Function, Value};
 
 /// A slot where a variable is stored.
 pub type Slot = Rc<RefCell<Value>>;
@@ -93,14 +93,6 @@ impl Scope {
     {
         let name = name.into();
         self.def_const(name.clone(), Function::new(Some(name), f));
-    }
-
-    /// Define a constant variable with a value of variant `Value::Any`.
-    pub fn def_any<T>(&mut self, var: impl Into<EcoString>, any: T)
-    where
-        T: Type + Debug + Display + Clone + PartialEq + 'static,
-    {
-        self.def_const(var, AnyValue::new(any))
     }
 
     /// Define a mutable variable with a value.

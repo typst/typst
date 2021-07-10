@@ -487,7 +487,7 @@ impl Pretty for Value {
             Self::Dict(v) => v.pretty(p),
             Self::Template(v) => v.pretty(p),
             Self::Func(v) => v.pretty(p),
-            Self::Any(v) => v.pretty(p),
+            Self::Dyn(v) => v.pretty(p),
             Self::Error => p.push_str("<error>"),
         }
     }
@@ -603,7 +603,7 @@ pretty_display! {
     Fractional,
     RgbaColor,
     Color,
-    AnyValue,
+    Dynamic,
 }
 
 #[cfg(test)]
@@ -757,7 +757,7 @@ mod tests {
             Function::new(Some("nil".into()), |_, _| Value::None),
             "<function nil>",
         );
-        test_value(AnyValue::new(1), "1");
+        test_value(Dynamic::new(1), "1");
         test_value(Value::Error, "<error>");
     }
 }

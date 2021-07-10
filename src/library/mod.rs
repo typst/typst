@@ -18,7 +18,7 @@ use std::rc::Rc;
 
 use crate::color::{Color, RgbaColor};
 use crate::eco::EcoString;
-use crate::eval::{EvalContext, FuncArgs, Scope, Template, Value};
+use crate::eval::{EvalContext, FuncArgs, Scope, Template, Type, Value};
 use crate::exec::{Exec, FontFamily};
 use crate::font::{FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
@@ -71,34 +71,34 @@ pub fn new() -> Scope {
     std.def_const("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
 
     // Arbitrary constants.
-    std.def_any("start", AlignValue::Start);
-    std.def_any("center", AlignValue::Center);
-    std.def_any("end", AlignValue::End);
-    std.def_any("left", AlignValue::Left);
-    std.def_any("right", AlignValue::Right);
-    std.def_any("top", AlignValue::Top);
-    std.def_any("bottom", AlignValue::Bottom);
-    std.def_any("ltr", Dir::LTR);
-    std.def_any("rtl", Dir::RTL);
-    std.def_any("ttb", Dir::TTB);
-    std.def_any("btt", Dir::BTT);
-    std.def_any("serif", FontFamily::Serif);
-    std.def_any("sans-serif", FontFamily::SansSerif);
-    std.def_any("monospace", FontFamily::Monospace);
-    std.def_any("normal", FontStyle::Normal);
-    std.def_any("italic", FontStyle::Italic);
-    std.def_any("oblique", FontStyle::Oblique);
-    std.def_any("regular", FontWeight::REGULAR);
-    std.def_any("bold", FontWeight::BOLD);
-    std.def_any("ascender", VerticalFontMetric::Ascender);
-    std.def_any("cap-height", VerticalFontMetric::CapHeight);
-    std.def_any("x-height", VerticalFontMetric::XHeight);
-    std.def_any("baseline", VerticalFontMetric::Baseline);
-    std.def_any("descender", VerticalFontMetric::Descender);
+    std.def_const("start", AlignValue::Start);
+    std.def_const("center", AlignValue::Center);
+    std.def_const("end", AlignValue::End);
+    std.def_const("left", AlignValue::Left);
+    std.def_const("right", AlignValue::Right);
+    std.def_const("top", AlignValue::Top);
+    std.def_const("bottom", AlignValue::Bottom);
+    std.def_const("ltr", Dir::LTR);
+    std.def_const("rtl", Dir::RTL);
+    std.def_const("ttb", Dir::TTB);
+    std.def_const("btt", Dir::BTT);
+    std.def_const("serif", FontFamily::Serif);
+    std.def_const("sans-serif", FontFamily::SansSerif);
+    std.def_const("monospace", FontFamily::Monospace);
+    std.def_const("normal", FontStyle::Normal);
+    std.def_const("italic", FontStyle::Italic);
+    std.def_const("oblique", FontStyle::Oblique);
+    std.def_const("regular", FontWeight::REGULAR);
+    std.def_const("bold", FontWeight::BOLD);
+    std.def_const("ascender", VerticalFontMetric::Ascender);
+    std.def_const("cap-height", VerticalFontMetric::CapHeight);
+    std.def_const("x-height", VerticalFontMetric::XHeight);
+    std.def_const("baseline", VerticalFontMetric::Baseline);
+    std.def_const("descender", VerticalFontMetric::Descender);
 
     std
 }
 
-castable! {
-    Dir: "direction"
+dynamic! {
+    Dir: "direction",
 }

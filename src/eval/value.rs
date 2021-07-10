@@ -1,13 +1,14 @@
 use std::any::Any;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Display, Formatter};
+use std::rc::Rc;
 
-use super::{ops, Array, Dict, EvalContext, Function, Template, TemplateFunc};
+use super::{ops, Array, Dict, Function, Template, TemplateFunc};
 use crate::color::{Color, RgbaColor};
 use crate::eco::EcoString;
 use crate::exec::ExecContext;
 use crate::geom::{Angle, Fractional, Length, Linear, Relative};
-use crate::syntax::{Span, Spanned};
+use crate::syntax::Spanned;
 
 /// A computational value.
 #[derive(Debug, Clone)]
@@ -44,8 +45,8 @@ pub enum Value {
     Template(Template),
     /// An executable function.
     Func(Function),
-    /// Any object.
-    Any(AnyValue),
+    /// A dynamic value.
+    Dyn(Dynamic),
     /// The result of invalid operations.
     Error,
 }
@@ -78,29 +79,61 @@ impl Value {
             Self::Dict(_) => Dict::TYPE_NAME,
             Self::Template(_) => Template::TYPE_NAME,
             Self::Func(_) => Function::TYPE_NAME,
-            Self::Any(v) => v.type_name(),
+            Self::Dyn(v) => v.type_name(),
             Self::Error => "error",
         }
     }
 
+    /// Check whether the value is castable into a specific type.
+    pub fn is<T>(&self) -> bool
+    where
+        T: Cast<Value>,
+    {
+        T::is(self)
+    }
+
     /// Try to cast the value into a specific type.
-    pub fn cast<T>(self) -> Result<T, Self>
+    pub fn cast<T>(self) -> Result<T, String>
     where
         T: Cast<Value>,
     {
         T::cast(self)
     }
+}
 
-    /// Join with another value.
-    pub fn join(self, ctx: &mut EvalContext, other: Self, span: Span) -> Self {
-        let (lhs, rhs) = (self.type_name(), other.type_name());
-        match ops::join(self, other) {
-            Ok(joined) => joined,
-            Err(prev) => {
-                ctx.diag(error!(span, "cannot join {} with {}", lhs, rhs));
-                prev
-            }
-        }
+impl From<i32> for Value {
+    fn from(v: i32) -> Self {
+        Self::Int(v as i64)
+    }
+}
+
+impl From<usize> for Value {
+    fn from(v: usize) -> Self {
+        Self::Int(v as i64)
+    }
+}
+
+impl From<&str> for Value {
+    fn from(v: &str) -> Self {
+        Self::Str(v.into())
+    }
+}
+
+impl From<String> for Value {
+    fn from(v: String) -> Self {
+        Self::Str(v.into())
+    }
+}
+
+impl From<RgbaColor> for Value {
+    fn from(v: RgbaColor) -> Self {
+        Self::Color(Color::Rgba(v))
+    }
+}
+
+impl From<Dynamic> for Value {
+    fn from(v: Dynamic) -> Self {
+        Self::Dyn(v)
     }
 }
 
@@ -122,30 +155,22 @@ impl PartialOrd for Value {
     }
 }
 
-/// A wrapper around a dynamic value.
-pub struct AnyValue(Box<dyn Bounds>);
+/// A dynamic value.
+#[derive(Clone)]
+pub struct Dynamic(Rc<dyn Bounds>);
 
-impl AnyValue {
+impl Dynamic {
     /// Create a new instance from any value that satisifies the required bounds.
     pub fn new<T>(any: T) -> Self
     where
         T: Type + Debug + Display + Clone + PartialEq + 'static,
     {
-        Self(Box::new(any))
+        Self(Rc::new(any))
     }
 
     /// Whether the wrapped type is `T`.
     pub fn is<T: 'static>(&self) -> bool {
         self.0.as_any().is::<T>()
-    }
-
-    /// Try to downcast to a specific type.
-    pub fn downcast<T: 'static>(self) -> Result<T, Self> {
-        if self.is::<T>() {
-            Ok(*self.0.into_any().downcast().unwrap())
-        } else {
-            Err(self)
-        }
     }
 
     /// Try to downcast to a reference to a specific type.
@@ -159,25 +184,19 @@ impl AnyValue {
     }
 }
 
-impl Display for AnyValue {
+impl Display for Dynamic {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(&self.0, f)
     }
 }
 
-impl Debug for AnyValue {
+impl Debug for Dynamic {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_tuple("ValueAny").field(&self.0).finish()
     }
 }
 
-impl Clone for AnyValue {
-    fn clone(&self) -> Self {
-        Self(self.0.dyn_clone())
-    }
-}
-
-impl PartialEq for AnyValue {
+impl PartialEq for Dynamic {
     fn eq(&self, other: &Self) -> bool {
         self.0.dyn_eq(other)
     }
@@ -185,9 +204,7 @@ impl PartialEq for AnyValue {
 
 trait Bounds: Debug + Display + 'static {
     fn as_any(&self) -> &dyn Any;
-    fn into_any(self: Box<Self>) -> Box<dyn Any>;
-    fn dyn_eq(&self, other: &AnyValue) -> bool;
-    fn dyn_clone(&self) -> Box<dyn Bounds>;
+    fn dyn_eq(&self, other: &Dynamic) -> bool;
     fn dyn_type_name(&self) -> &'static str;
 }
 
@@ -199,11 +216,7 @@ where
         self
     }
 
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn dyn_eq(&self, other: &AnyValue) -> bool {
+    fn dyn_eq(&self, other: &Dynamic) -> bool {
         if let Some(other) = other.downcast_ref::<Self>() {
             self == other
         } else {
@@ -211,40 +224,32 @@ where
         }
     }
 
-    fn dyn_clone(&self) -> Box<dyn Bounds> {
-        Box::new(self.clone())
-    }
-
     fn dyn_type_name(&self) -> &'static str {
         T::TYPE_NAME
     }
 }
 
-/// Types that can be stored in values.
+/// The type of a value.
 pub trait Type {
     /// The name of the type.
     const TYPE_NAME: &'static str;
 }
 
-impl<T> Type for Spanned<T>
-where
-    T: Type,
-{
-    const TYPE_NAME: &'static str = T::TYPE_NAME;
-}
-
 /// Cast from a value to a specific type.
-pub trait Cast<V>: Type + Sized {
-    /// Try to cast the value into an instance of `Self`.
-    fn cast(value: V) -> Result<Self, V>;
-}
+pub trait Cast<V>: Sized {
+    /// Check whether the value is castable to `Self`.
+    fn is(value: &V) -> bool;
 
-impl Type for Value {
-    const TYPE_NAME: &'static str = "value";
+    /// Try to cast the value into an instance of `Self`.
+    fn cast(value: V) -> Result<Self, String>;
 }
 
 impl Cast<Value> for Value {
-    fn cast(value: Value) -> Result<Self, Value> {
+    fn is(_: &Value) -> bool {
+        true
+    }
+
+    fn cast(value: Value) -> Result<Self, String> {
         Ok(value)
     }
 }
@@ -253,12 +258,12 @@ impl<T> Cast<Spanned<Value>> for T
 where
     T: Cast<Value>,
 {
-    fn cast(value: Spanned<Value>) -> Result<Self, Spanned<Value>> {
-        let span = value.span;
-        match T::cast(value.v) {
-            Ok(t) => Ok(t),
-            Err(v) => Err(Spanned::new(v, span)),
-        }
+    fn is(value: &Spanned<Value>) -> bool {
+        T::is(&value.v)
+    }
+
+    fn cast(value: Spanned<Value>) -> Result<Self, String> {
+        T::cast(value.v)
     }
 }
 
@@ -266,165 +271,122 @@ impl<T> Cast<Spanned<Value>> for Spanned<T>
 where
     T: Cast<Value>,
 {
-    fn cast(value: Spanned<Value>) -> Result<Self, Spanned<Value>> {
+    fn is(value: &Spanned<Value>) -> bool {
+        T::is(&value.v)
+    }
+
+    fn cast(value: Spanned<Value>) -> Result<Self, String> {
         let span = value.span;
-        match T::cast(value.v) {
-            Ok(t) => Ok(Spanned::new(t, span)),
-            Err(v) => Err(Spanned::new(v, span)),
-        }
+        T::cast(value.v).map(|t| Spanned::new(t, span))
     }
 }
 
+/// Implement traits for primitives.
 macro_rules! primitive {
-    ($type:ty:
-        $type_name:literal,
-        $variant:path
-        $(, $pattern:pat => $out:expr)* $(,)?
+    (
+        $type:ty: $name:literal, $variant:ident
+        $(, $other:ident($binding:ident) => $out:expr)*
     ) => {
         impl Type for $type {
-            const TYPE_NAME: &'static str = $type_name;
+            const TYPE_NAME: &'static str = $name;
         }
 
         impl From<$type> for Value {
             fn from(v: $type) -> Self {
-                $variant(v)
+                Value::$variant(v)
             }
         }
 
         impl Cast<Value> for $type {
-            fn cast(value: Value) -> Result<Self, Value> {
+            fn is(value: &Value) -> bool {
+                matches!(value, Value::$variant(_) $(| Value::$other(_))*)
+            }
+
+            fn cast(value: Value) -> Result<Self, String> {
                 match value {
-                    $variant(v) => Ok(v),
-                    $($pattern => Ok($out),)*
-                    v => Err(v),
+                    Value::$variant(v) => Ok(v),
+                    $(Value::$other($binding) => Ok($out),)*
+                    v => Err(format!(
+                        "expected {}, found {}",
+                        Self::TYPE_NAME,
+                        v.type_name(),
+                    )),
                 }
             }
         }
     };
 }
 
-primitive! { bool: "boolean", Value::Bool }
-primitive! { i64: "integer", Value::Int }
-primitive! {
-    f64: "float",
-    Value::Float,
-    Value::Int(v) => v as f64,
-}
-primitive! { Length: "length", Value::Length }
-primitive! { Angle: "angle", Value::Angle }
-primitive! { Relative: "relative", Value::Relative }
-primitive! {
-    Linear: "linear",
-    Value::Linear,
-    Value::Length(v) => v.into(),
-    Value::Relative(v) => v.into(),
-}
-primitive! { Fractional: "fractional", Value::Fractional }
-primitive! { Color: "color", Value::Color }
-primitive! { EcoString: "string", Value::Str }
-primitive! { Array: "array", Value::Array }
-primitive! { Dict: "dictionary", Value::Dict }
-primitive! {
-    Template: "template",
-    Value::Template,
-    Value::Str(v) => v.into(),
-}
-primitive! { Function: "function", Value::Func }
+/// Implement traits for dynamic types.
+macro_rules! dynamic {
+    ($type:ty: $name:literal, $($tts:tt)*) => {
+        impl $crate::eval::Type for $type {
+            const TYPE_NAME: &'static str = $name;
+        }
 
-impl From<i32> for Value {
-    fn from(v: i32) -> Self {
-        Self::Int(v as i64)
-    }
-}
+        impl From<$type> for $crate::eval::Value {
+            fn from(v: $type) -> Self {
+                $crate::eval::Value::Dyn($crate::eval::Dynamic::new(v))
+            }
+        }
 
-impl From<usize> for Value {
-    fn from(v: usize) -> Self {
-        Self::Int(v as i64)
-    }
-}
-
-impl From<String> for Value {
-    fn from(v: String) -> Self {
-        Self::Str(v.into())
-    }
-}
-
-impl From<&str> for Value {
-    fn from(v: &str) -> Self {
-        Self::Str(v.into())
-    }
-}
-
-impl From<RgbaColor> for Value {
-    fn from(v: RgbaColor) -> Self {
-        Self::Color(Color::Rgba(v))
-    }
-}
-
-impl From<AnyValue> for Value {
-    fn from(v: AnyValue) -> Self {
-        Self::Any(v)
-    }
+        castable! {
+            $type: Self::TYPE_NAME,
+            $($tts)*
+            @this: Self => this.clone(),
+        }
+    };
 }
 
 /// Make a type castable from a value.
-///
-/// Given a type `T`, this implements the following traits:
-/// - [`Type`] for `T`,
-/// - [`Cast<Value>`](Cast) for `T`.
-///
-/// # Example
-/// ```
-/// # use typst::value;
-/// enum FontFamily {
-///     Serif,
-///     Named(String),
-/// }
-///
-/// value! {
-///     FontFamily: "font family",
-///     Value::Str(string) => Self::Named(string),
-/// }
-/// ```
-/// This would allow the type `FontFamily` to be cast from:
-/// - a [`Value::Any`] variant already containing a `FontFamily`,
-/// - a string, producing a named font family.
 macro_rules! castable {
-    ($type:ty:
-        $type_name:literal
-        $(, $pattern:pat => $out:expr)*
-        $(, #($anyvar:ident: $anytype:ty) => $anyout:expr)*
-        $(,)?
+    (
+        $type:ty:
+        $expected:expr,
+        $($pattern:pat => $out:expr,)*
+        $(@$dyn_in:ident: $dyn_type:ty => $dyn_out:expr,)*
     ) => {
-        impl $crate::eval::Type for $type {
-            const TYPE_NAME: &'static str = $type_name;
-        }
-
         impl $crate::eval::Cast<$crate::eval::Value> for $type {
-            fn cast(
-                value: $crate::eval::Value,
-            ) -> Result<Self, $crate::eval::Value> {
-                use $crate::eval::*;
-
-                #[allow(unreachable_code)]
+            fn is(value: &Value) -> bool {
+                #[allow(unused_variables)]
                 match value {
-                    $($pattern => Ok($out),)*
-                    Value::Any(mut any) => {
-                        any = match any.downcast::<Self>() {
-                            Ok(t) => return Ok(t),
-                            Err(any) => any,
-                        };
-
-                        $(any = match any.downcast::<$anytype>() {
-                            Ok($anyvar) => return Ok($anyout),
-                            Err(any) => any,
-                        };)*
-
-                        Err(Value::Any(any))
-                    },
-                    v => Err(v),
+                    $($pattern => true,)*
+                    $crate::eval::Value::Dyn(dynamic) => {
+                        false $(|| dynamic.is::<$dyn_type>())*
+                    }
+                    _ => false,
                 }
+            }
+
+            fn cast(value: $crate::eval::Value) -> Result<Self, String> {
+                let found = match value {
+                    $($pattern => return Ok($out),)*
+                    $crate::eval::Value::Dyn(dynamic) => {
+                        $(if let Some($dyn_in) = dynamic.downcast_ref::<$dyn_type>() {
+                            return Ok($dyn_out);
+                        })*
+                        dynamic.type_name()
+                    }
+                    v => v.type_name(),
+                };
+
+                Err(format!("expected {}, found {}", $expected, found))
             }
         }
     };
 }
+
+primitive! { bool: "boolean", Bool }
+primitive! { i64: "integer", Int }
+primitive! { Length: "length", Length }
+primitive! { Angle: "angle", Angle }
+primitive! { Relative: "relative", Relative }
+primitive! { Linear: "linear", Linear, Length(v) => v.into(), Relative(v) => v.into() }
+primitive! { Fractional: "fractional", Fractional }
+primitive! { Color: "color", Color }
+primitive! { EcoString: "string", Str }
+primitive! { Array: "array", Array }
+primitive! { Dict: "dictionary", Dict }
+primitive! { Template: "template", Template, Str(v) => v.into() }
+primitive! { Function: "function", Func }
+primitive! { f64: "float", Float, Int(v) => v as f64 }

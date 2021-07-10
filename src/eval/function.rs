@@ -81,22 +81,14 @@ impl FuncArgs {
         T: Cast<Spanned<Value>>,
     {
         (0 .. self.items.len()).find_map(|index| {
-            let slot = &mut self.items[index];
-            if slot.name.is_some() {
-                return None;
-            }
-
-            let value = std::mem::replace(&mut slot.value, Spanned::zero(Value::None));
-            match T::cast(value) {
-                Ok(t) => {
-                    self.items.remove(index);
-                    Some(t)
-                }
-                Err(value) => {
-                    slot.value = value;
-                    None
+            let slot = self.items.get_mut(index)?;
+            if slot.name.is_none() {
+                if T::is(&slot.value) {
+                    let value = self.items.remove(index).value;
+                    return T::cast(value).ok();
                 }
             }
+            None
         })
     }
 
@@ -137,13 +129,8 @@ impl FuncArgs {
 
         match T::cast(value) {
             Ok(t) => Some(t),
-            Err(value) => {
-                ctx.diag(error!(
-                    span,
-                    "expected {}, found {}",
-                    T::TYPE_NAME,
-                    value.v.type_name(),
-                ));
+            Err(msg) => {
+                ctx.diag(error!(span, "{}", msg));
                 None
             }
         }
