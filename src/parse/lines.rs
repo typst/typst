@@ -94,6 +94,7 @@ pub fn search_column(src: &str) -> usize {
 }
 
 /// Whether this character denotes a newline.
+#[inline]
 pub fn is_newline(character: char) -> bool {
     matches!(
         character,

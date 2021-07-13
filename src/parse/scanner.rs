@@ -13,11 +13,13 @@ pub struct Scanner<'s> {
 
 impl<'s> Scanner<'s> {
     /// Create a new char scanner.
+    #[inline]
     pub fn new(src: &'s str) -> Self {
         Self { src, index: 0 }
     }
 
     /// Consume the next char.
+    #[inline]
     pub fn eat(&mut self) -> Option<char> {
         let next = self.peek();
         if let Some(c) = next {
@@ -29,6 +31,7 @@ impl<'s> Scanner<'s> {
     /// Consume the next char if it is the given one.
     ///
     /// Returns whether the char was consumed.
+    #[inline]
     pub fn eat_if(&mut self, c: char) -> bool {
         let matches = self.peek() == Some(c);
         if matches {
@@ -38,12 +41,14 @@ impl<'s> Scanner<'s> {
     }
 
     /// Consume the next char, debug-asserting that it is the given one.
+    #[inline]
     pub fn eat_assert(&mut self, c: char) {
         let next = self.eat();
         debug_assert_eq!(next, Some(c));
     }
 
     /// Consume the next char, coalescing `\r\n` to just `\n`.
+    #[inline]
     pub fn eat_merging_crlf(&mut self) -> Option<char> {
         if self.rest().starts_with("\r\n") {
             self.index += 2;
@@ -54,6 +59,7 @@ impl<'s> Scanner<'s> {
     }
 
     /// Eat chars while the condition is true.
+    #[inline]
     pub fn eat_while<F>(&mut self, mut f: F) -> &'s str
     where
         F: FnMut(char) -> bool,
@@ -62,6 +68,7 @@ impl<'s> Scanner<'s> {
     }
 
     /// Eat chars until the condition is true.
+    #[inline]
     pub fn eat_until<F>(&mut self, mut f: F) -> &'s str
     where
         F: FnMut(char) -> bool,
@@ -77,11 +84,13 @@ impl<'s> Scanner<'s> {
     }
 
     /// Uneat the last eaten char.
+    #[inline]
     pub fn uneat(&mut self) {
         self.index = self.last_index();
     }
 
     /// Peek at the next char without consuming it.
+    #[inline]
     pub fn peek(&self) -> Option<char> {
         self.rest().chars().next()
     }
@@ -89,6 +98,7 @@ impl<'s> Scanner<'s> {
     /// Checks whether the next char fulfills a condition.
     ///
     /// Returns `default` if there is no next char.
+    #[inline]
     pub fn check_or<F>(&self, default: bool, f: F) -> bool
     where
         F: FnOnce(char) -> bool,
@@ -97,6 +107,7 @@ impl<'s> Scanner<'s> {
     }
 
     /// The previous index in the source string.
+    #[inline]
     pub fn last_index(&self) -> usize {
         self.eaten()
             .chars()
@@ -105,43 +116,53 @@ impl<'s> Scanner<'s> {
     }
 
     /// The current index in the source string.
+    #[inline]
     pub fn index(&self) -> usize {
         self.index
     }
 
     /// Jump to an index in the source string.
+    #[inline]
     pub fn jump(&mut self, index: usize) {
         // Make sure that the index is in bounds and on a codepoint boundary.
         self.src.get(index ..).expect("jumped to invalid index");
         self.index = index;
     }
 
-    /// Slice a part out of the source string.
+    /// Slice out part of the source string.
+    #[inline]
     pub fn get<I>(&self, index: I) -> &'s str
     where
         I: SliceIndex<str, Output = str>,
     {
-        &self.src[index]
+        // See `eaten_from` for details about `unwrap_or_default`.
+        self.src.get(index).unwrap_or_default()
     }
 
-    /// The full source string up to the current index.
-    pub fn eaten(&self) -> &'s str {
+    /// The remaining source string after the current index.
+    #[inline]
+    pub fn rest(&self) -> &'s str {
         // SAFETY: The index is always in bounds and on a codepoint boundary
         // since it is:
         // - either increased by the length of a scanned character,
         // - or checked upon jumping.
+        unsafe { self.src.get_unchecked(self.index ..) }
+    }
+
+    /// The full source string up to the current index.
+    #[inline]
+    pub fn eaten(&self) -> &'s str {
+        // SAFETY: The index is always okay, for details see `rest()`.
         unsafe { self.src.get_unchecked(.. self.index) }
     }
 
     /// The source string from `start` to the current index.
+    #[inline]
     pub fn eaten_from(&self, start: usize) -> &'s str {
-        &self.src[start .. self.index]
-    }
-
-    /// The remaining source string after the current index.
-    pub fn rest(&self) -> &'s str {
-        // SAFETY: The index is always okay, for details see `eaten()`.
-        unsafe { self.src.get_unchecked(self.index ..) }
+        // Using `unwrap_or_default` is much faster than unwrap, probably
+        // because then the whole call to `eaten_from` is pure and can be
+        // optimized away in some cases.
+        self.src.get(start .. self.index).unwrap_or_default()
     }
 }
 

@@ -22,22 +22,26 @@ pub enum TokenMode {
 
 impl<'s> Tokens<'s> {
     /// Create a new token iterator with the given mode.
+    #[inline]
     pub fn new(src: &'s str, mode: TokenMode) -> Self {
         Self { s: Scanner::new(src), mode }
     }
 
     /// Get the current token mode.
+    #[inline]
     pub fn mode(&self) -> TokenMode {
         self.mode
     }
 
     /// Change the token mode.
+    #[inline]
     pub fn set_mode(&mut self, mode: TokenMode) {
         self.mode = mode;
     }
 
     /// The index in the string at which the last token ends and next token
     /// will start.
+    #[inline]
     pub fn index(&self) -> usize {
         self.s.index()
     }
@@ -45,11 +49,13 @@ impl<'s> Tokens<'s> {
     /// Jump to the given index in the string.
     ///
     /// You need to know the correct column.
+    #[inline]
     pub fn jump(&mut self, index: usize) {
         self.s.jump(index);
     }
 
     /// The underlying scanner.
+    #[inline]
     pub fn scanner(&self) -> Scanner<'s> {
         self.s
     }
@@ -59,6 +65,7 @@ impl<'s> Iterator for Tokens<'s> {
     type Item = Token<'s>;
 
     /// Parse the next token in the source code.
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let start = self.s.index();
         let c = self.s.eat()?;
@@ -70,7 +77,8 @@ impl<'s> Iterator for Tokens<'s> {
             '}' => Token::RightBrace,
 
             // Whitespace.
-            c if c.is_whitespace() => self.whitespace(c),
+            ' ' if self.s.check_or(true, |c| !c.is_whitespace()) => Token::Space(0),
+            c if c.is_whitespace() => self.whitespace(),
 
             // Comments with special case for URLs.
             '/' if self.s.eat_if('*') => self.block_comment(),
@@ -87,6 +95,7 @@ impl<'s> Iterator for Tokens<'s> {
 }
 
 impl<'s> Tokens<'s> {
+    #[inline]
     fn markup(&mut self, start: usize, c: char) -> Token<'s> {
         match c {
             // Escape sequences.
@@ -158,54 +167,49 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    fn whitespace(&mut self, first: char) -> Token<'s> {
-        // Fast path for just a single space
-        if first == ' ' && self.s.check_or(true, |c| !c.is_whitespace()) {
-            Token::Space(0)
-        } else {
-            self.s.uneat();
-
-            // Count the number of newlines.
-            let mut newlines = 0;
-            while let Some(c) = self.s.eat_merging_crlf() {
-                if !c.is_whitespace() {
-                    self.s.uneat();
-                    break;
-                }
-
-                if is_newline(c) {
-                    newlines += 1;
-                }
-            }
-
-            Token::Space(newlines)
+    #[inline]
+    fn text(&mut self, start: usize) -> Token<'s> {
+        macro_rules! table {
+            ($($c:literal)|*) => {{
+                let mut t = [false; 128];
+                $(t[$c as usize] = true;)*
+                t
+            }}
         }
+
+        const TABLE: [bool; 128] = table! {
+            // Ascii whitespace.
+            ' ' | '\t' | '\n' | '\x0b' | '\x0c' | '\r' |
+            // Comments, parentheses, code.
+            '/' | '[' | ']' | '{' | '}' | '#' |
+            // Markup
+            '~' | '*' | '_' | '`' | '$' | '-' | '\\'
+        };
+
+        self.s.eat_until(|c| {
+            TABLE.get(c as usize).copied().unwrap_or_else(|| c.is_whitespace())
+        });
+
+        Token::Text(self.s.eaten_from(start))
     }
 
-    fn text(&mut self, start: usize) -> Token<'s> {
-        while let Some(c) = self.s.eat() {
-            if match c {
-                // Whitespace.
-                c if c.is_whitespace() => true,
-                // Comments.
-                '/' => true,
-                // Parentheses.
-                '[' | ']' | '{' | '}' => true,
-                // Code.
-                '#' => true,
-                // Markup.
-                '~' | '*' | '_' | '`' | '$' | '-' => true,
-                // Escaping.
-                '\\' => true,
-                // Just text.
-                _ => false,
-            } {
+    fn whitespace(&mut self) -> Token<'s> {
+        self.s.uneat();
+
+        // Count the number of newlines.
+        let mut newlines = 0;
+        while let Some(c) = self.s.eat_merging_crlf() {
+            if !c.is_whitespace() {
                 self.s.uneat();
                 break;
             }
+
+            if is_newline(c) {
+                newlines += 1;
+            }
         }
 
-        Token::Text(self.s.eaten_from(start))
+        Token::Space(newlines)
     }
 
     fn backslash(&mut self) -> Token<'s> {
@@ -238,6 +242,7 @@ impl<'s> Tokens<'s> {
         }
     }
 
+    #[inline]
     fn hash(&mut self) -> Token<'s> {
         if self.s.check_or(false, is_id_start) {
             let read = self.s.eat_while(is_id_continue);
