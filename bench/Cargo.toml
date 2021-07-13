@@ -11,9 +11,15 @@ layout-cache = ["typst/layout-cache"]
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }
+iai = "0.1"
 typst = { path = "..", default-features = false, features = ["fs"] }
 
 [[bench]]
-name = "typst"
-path = "src/bench.rs"
+name = "clock"
+path = "src/clock.rs"
+harness = false
+
+[[bench]]
+name = "parsing"
+path = "src/parsing.rs"
 harness = false
