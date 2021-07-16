@@ -381,10 +381,7 @@ impl<'s> Parser<'s> {
     /// Whether the active group ends at a newline.
     fn stop_at_newline(&self) -> bool {
         let active = self.groups.last().map(|group| group.kind);
-        matches!(
-            active,
-            Some(Group::Stmt) | Some(Group::Expr) | Some(Group::Imports)
-        )
+        matches!(active, Some(Group::Stmt | Group::Expr | Group::Imports))
     }
 
     /// Whether we are inside the given group.

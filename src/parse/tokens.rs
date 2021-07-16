@@ -898,7 +898,7 @@ mod tests {
         t!(Code[" /"]: large.to_string() => Float(large));
 
         // Combined integers and floats.
-        let nums = ints.iter().map(|&(k, v)| (k, v as f64)).chain(floats.iter().copied());
+        let nums = ints.iter().map(|&(k, v)| (k, v as f64)).chain(floats);
 
         let suffixes = [
             ("%", Percent as fn(f64) -> Token<'static>),

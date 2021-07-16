@@ -227,12 +227,12 @@ impl Constraints {
 
     /// Changes all constraints by adding the `size` to them if they are `Some`.
     pub fn mutate(&mut self, size: Size, regions: &Regions) {
-        for spec in std::array::IntoIter::new([
+        for spec in [
             &mut self.min,
             &mut self.max,
             &mut self.exact,
             &mut self.base,
-        ]) {
+        ] {
             if let Some(horizontal) = spec.horizontal.as_mut() {
                 *horizontal += size.width;
             }

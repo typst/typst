@@ -249,7 +249,7 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) -> Option<Expr> {
         // call.
         if matches!(
             p.peek_direct(),
-            Some(Token::Excl) | Some(Token::LeftParen) | Some(Token::LeftBracket),
+            Some(Token::Excl | Token::LeftParen | Token::LeftBracket),
         ) {
             lhs = call(p, lhs)?;
             continue;
