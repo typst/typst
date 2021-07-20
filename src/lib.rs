@@ -49,7 +49,6 @@ pub mod pretty;
 pub mod syntax;
 pub mod util;
 
-use std::path::Path;
 use std::rc::Rc;
 
 use crate::cache::Cache;
@@ -57,7 +56,7 @@ use crate::diag::Pass;
 use crate::eval::Scope;
 use crate::exec::State;
 use crate::layout::Frame;
-use crate::loading::Loader;
+use crate::loading::{FileId, Loader};
 
 /// Process source code directly into a collection of layouted frames.
 ///
@@ -65,12 +64,11 @@ use crate::loading::Loader;
 /// - The `loader` is used to load fonts, images and other source files.
 /// - The `cache` stores things that are reusable across several compilations
 ///   like loaded fonts, decoded images and layouting artifacts.
-/// - The `path` should point to the source file if `src` comes from the file
-///   system and is used to resolve relative paths (for importing and image
-///   loading).
+/// - The `location` is the file id of the source file and is used to resolve
+///   relative paths (for importing and image loading).
 /// - The `src` is the _Typst_ source code to typeset.
-/// - The `scope` contains definitions that are available everywhere,
-///   typically the standard library.
+/// - The `scope` contains definitions that are available everywhere, typically
+///   the standard library.
 /// - The `state` defines initial properties for page size, font selection and
 ///   so on.
 ///
@@ -80,13 +78,13 @@ use crate::loading::Loader;
 pub fn typeset(
     loader: &mut dyn Loader,
     cache: &mut Cache,
-    path: Option<&Path>,
+    location: FileId,
     src: &str,
     scope: &Scope,
     state: State,
 ) -> Pass<Vec<Rc<Frame>>> {
     let ast = parse::parse(src);
-    let module = eval::eval(loader, cache, path, Rc::new(ast.output), scope);
+    let module = eval::eval(loader, cache, location, Rc::new(ast.output), scope);
     let tree = exec::exec(&module.output.template, state);
     let frames = layout::layout(loader, cache, &tree.output);
 

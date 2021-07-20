@@ -22,28 +22,27 @@ pub use value::*;
 
 use std::collections::HashMap;
 use std::mem;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::rc::Rc;
 
 use crate::cache::Cache;
 use crate::diag::{Diag, DiagSet, Pass};
 use crate::eco::EcoString;
 use crate::geom::{Angle, Fractional, Length, Relative};
-use crate::loading::{FileHash, Loader};
+use crate::loading::{FileId, Loader};
 use crate::parse::parse;
 use crate::syntax::visit::Visit;
 use crate::syntax::*;
-use crate::util::PathExt;
 
 /// Evaluate a parsed source file into a module.
 pub fn eval(
     loader: &mut dyn Loader,
     cache: &mut Cache,
-    path: Option<&Path>,
+    location: FileId,
     ast: Rc<SyntaxTree>,
     scope: &Scope,
 ) -> Pass<Module> {
-    let mut ctx = EvalContext::new(loader, cache, path, scope);
+    let mut ctx = EvalContext::new(loader, cache, location, scope);
     let template = ast.eval(&mut ctx);
     let module = Module { scope: ctx.scopes.top, template };
     Pass::new(module, ctx.diags)
@@ -68,12 +67,10 @@ pub struct EvalContext<'a> {
     pub scopes: Scopes<'a>,
     /// Evaluation diagnostics.
     pub diags: DiagSet,
-    /// The location of the currently evaluated file.
-    pub path: Option<PathBuf>,
     /// The stack of imported files that led to evaluation of the current file.
-    pub route: Vec<FileHash>,
+    pub route: Vec<FileId>,
     /// A map of loaded module.
-    pub modules: HashMap<FileHash, Module>,
+    pub modules: HashMap<FileId, Module>,
 }
 
 impl<'a> EvalContext<'a> {
@@ -81,25 +78,15 @@ impl<'a> EvalContext<'a> {
     pub fn new(
         loader: &'a mut dyn Loader,
         cache: &'a mut Cache,
-        path: Option<&Path>,
+        location: FileId,
         scope: &'a Scope,
     ) -> Self {
-        let path = path.map(PathExt::normalize);
-
-        let mut route = vec![];
-        if let Some(path) = &path {
-            if let Some(hash) = loader.resolve(path) {
-                route.push(hash);
-            }
-        }
-
         Self {
             loader,
             cache,
             scopes: Scopes::new(Some(scope)),
             diags: DiagSet::new(),
-            path,
-            route,
+            route: vec![location],
             modules: HashMap::new(),
         }
     }
@@ -107,37 +94,30 @@ impl<'a> EvalContext<'a> {
     /// Resolve a path relative to the current file.
     ///
     /// Generates an error if the file is not found.
-    pub fn resolve(&mut self, path: &str, span: Span) -> Option<(PathBuf, FileHash)> {
-        let path = match &self.path {
-            Some(current) => current.parent()?.join(path),
-            None => PathBuf::from(path),
-        };
-
-        match self.loader.resolve(&path) {
-            Some(hash) => Some((path.normalize(), hash)),
-            None => {
-                self.diag(error!(span, "file not found"));
-                None
-            }
-        }
+    pub fn resolve(&mut self, path: &str, span: Span) -> Option<FileId> {
+        let base = *self.route.last()?;
+        self.loader.resolve_from(base, Path::new(path)).or_else(|| {
+            self.diag(error!(span, "file not found"));
+            None
+        })
     }
 
     /// Process an import of a module relative to the current location.
-    pub fn import(&mut self, path: &str, span: Span) -> Option<FileHash> {
-        let (resolved, hash) = self.resolve(path, span)?;
+    pub fn import(&mut self, path: &str, span: Span) -> Option<FileId> {
+        let id = self.resolve(path, span)?;
 
         // Prevent cyclic importing.
-        if self.route.contains(&hash) {
+        if self.route.contains(&id) {
             self.diag(error!(span, "cyclic import"));
             return None;
         }
 
         // Check whether the module was already loaded.
-        if self.modules.get(&hash).is_some() {
-            return Some(hash);
+        if self.modules.get(&id).is_some() {
+            return Some(id);
         }
 
-        let buffer = self.loader.load_file(&resolved).or_else(|| {
+        let buffer = self.loader.load_file(id).or_else(|| {
             self.diag(error!(span, "failed to load file"));
             None
         })?;
@@ -154,8 +134,7 @@ impl<'a> EvalContext<'a> {
         let new_scopes = Scopes::new(self.scopes.base);
         let old_scopes = mem::replace(&mut self.scopes, new_scopes);
         let old_diags = mem::replace(&mut self.diags, parsed.diags);
-        let old_path = mem::replace(&mut self.path, Some(resolved));
-        self.route.push(hash);
+        self.route.push(id);
 
         // Evaluate the module.
         let ast = Rc::new(parsed.output);
@@ -164,7 +143,6 @@ impl<'a> EvalContext<'a> {
         // Restore the old context.
         let new_scopes = mem::replace(&mut self.scopes, old_scopes);
         let new_diags = mem::replace(&mut self.diags, old_diags);
-        self.path = old_path;
         self.route.pop();
 
         // Put all diagnostics from the module on the import.
@@ -175,9 +153,9 @@ impl<'a> EvalContext<'a> {
 
         // Save the evaluated module.
         let module = Module { scope: new_scopes.top, template };
-        self.modules.insert(hash, module);
+        self.modules.insert(id, module);
 
-        Some(hash)
+        Some(id)
     }
 
     /// Add a diagnostic.

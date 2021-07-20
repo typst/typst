@@ -1,39 +1,43 @@
-use std::collections::{hash_map::Entry, HashMap};
-use std::fs::File;
+use std::collections::HashMap;
+use std::fs::{self, File};
 use std::io;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 use memmap2::Mmap;
 use same_file::Handle;
-use serde::{Deserialize, Serialize};
 use ttf_parser::{name_id, Face};
 use walkdir::WalkDir;
 
-use super::{Buffer, FileHash, Loader};
+use super::{FileId, Loader};
 use crate::font::{FaceInfo, FontStretch, FontStyle, FontVariant, FontWeight};
+use crate::util::PathExt;
 
 /// Loads fonts and images from the local file system.
 ///
 /// _This is only available when the `fs` feature is enabled._
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone)]
 pub struct FsLoader {
     faces: Vec<FaceInfo>,
-    files: Vec<PathBuf>,
-    #[serde(skip)]
-    cache: FileCache,
+    paths: HashMap<FileId, PathBuf>,
 }
-
-/// Maps from resolved file hashes to loaded file buffers.
-type FileCache = HashMap<FileHash, Buffer>;
 
 impl FsLoader {
     /// Create a new loader without any fonts.
     pub fn new() -> Self {
-        Self {
-            faces: vec![],
-            files: vec![],
-            cache: HashMap::new(),
+        Self { faces: vec![], paths: HashMap::new() }
+    }
+
+    /// Resolve a file id for a path.
+    pub fn resolve_path(&mut self, path: &Path) -> io::Result<FileId> {
+        let file = File::open(path)?;
+        let meta = file.metadata()?;
+        if meta.is_file() {
+            let handle = Handle::from_file(file)?;
+            let id = FileId(fxhash::hash64(&handle));
+            self.paths.insert(id, path.normalize());
+            Ok(id)
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, "not a file"))
         }
     }
 
@@ -149,16 +153,10 @@ impl FsLoader {
             stretch: FontStretch::from_number(face.width().to_number()),
         };
 
-        // Merge with an existing entry for the same family name.
-        self.faces.push(FaceInfo { family, variant, index });
-        self.files.push(path.to_owned());
+        let file = self.resolve_path(path)?;
+        self.faces.push(FaceInfo { file, index, family, variant });
 
         Ok(())
-    }
-
-    /// Paths to font files, parallel to [`faces()`](Self::faces).
-    pub fn files(&self) -> &[PathBuf] {
-        &self.files
     }
 }
 
@@ -167,30 +165,14 @@ impl Loader for FsLoader {
         &self.faces
     }
 
-    fn load_face(&mut self, idx: usize) -> Option<Buffer> {
-        self.load_file(&self.files[idx].clone())
+    fn resolve_from(&mut self, base: FileId, path: &Path) -> Option<FileId> {
+        let dir = self.paths[&base].parent()?;
+        let full = dir.join(path);
+        self.resolve_path(&full).ok()
     }
 
-    fn load_file(&mut self, path: &Path) -> Option<Buffer> {
-        let hash = self.resolve(path)?;
-        Some(Rc::clone(match self.cache.entry(hash) {
-            Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(entry) => {
-                let buffer = std::fs::read(path).ok()?;
-                entry.insert(Rc::new(buffer))
-            }
-        }))
-    }
-
-    fn resolve(&self, path: &Path) -> Option<FileHash> {
-        let file = File::open(path).ok()?;
-        let meta = file.metadata().ok()?;
-        if meta.is_file() {
-            let handle = Handle::from_file(file).ok()?;
-            Some(FileHash::from_raw(fxhash::hash64(&handle)))
-        } else {
-            None
-        }
+    fn load_file(&mut self, id: FileId) -> Option<Vec<u8>> {
+        fs::read(&self.paths[&id]).ok()
     }
 }
 
@@ -203,7 +185,10 @@ mod tests {
         let mut loader = FsLoader::new();
         loader.search_path("fonts");
 
-        assert_eq!(loader.files, &[
+        let mut paths: Vec<_> = loader.paths.values().collect();
+        paths.sort();
+
+        assert_eq!(paths, [
             Path::new("fonts/EBGaramond-Bold.ttf"),
             Path::new("fonts/EBGaramond-BoldItalic.ttf"),
             Path::new("fonts/EBGaramond-Italic.ttf"),

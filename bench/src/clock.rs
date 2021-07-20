@@ -9,7 +9,7 @@ use typst::eval::{eval, Module, Scope};
 use typst::exec::{exec, State};
 use typst::export::pdf;
 use typst::layout::{layout, Frame, LayoutTree};
-use typst::loading::FsLoader;
+use typst::loading::{FileId, FsLoader};
 use typst::parse::parse;
 use typst::syntax::SyntaxTree;
 use typst::typeset;
@@ -20,11 +20,13 @@ const CASES: &[&str] = &["coma.typ", "text/basic.typ"];
 
 fn benchmarks(c: &mut Criterion) {
     let ctx = Context::new();
+
     for case in CASES {
         let path = Path::new(TYP_DIR).join(case);
         let name = path.file_stem().unwrap().to_string_lossy();
+        let src_id = ctx.borrow_mut().loader.resolve_path(&path).unwrap();
         let src = std::fs::read_to_string(&path).unwrap();
-        let case = Case::new(src, ctx.clone());
+        let case = Case::new(src_id, src, ctx.clone());
 
         macro_rules! bench {
             ($step:literal, setup = |$cache:ident| $setup:expr, code = $code:expr $(,)?) => {
@@ -93,6 +95,7 @@ impl Context {
 /// A test case with prepared intermediate results.
 struct Case {
     ctx: Rc<RefCell<Context>>,
+    src_id: FileId,
     src: String,
     scope: Scope,
     state: State,
@@ -103,19 +106,19 @@ struct Case {
 }
 
 impl Case {
-    fn new(src: impl Into<String>, ctx: Rc<RefCell<Context>>) -> Self {
+    fn new(src_id: FileId, src: String, ctx: Rc<RefCell<Context>>) -> Self {
         let mut borrowed = ctx.borrow_mut();
         let Context { loader, cache } = &mut *borrowed;
         let scope = typst::library::new();
         let state = typst::exec::State::default();
-        let src = src.into();
         let ast = Rc::new(parse(&src).output);
-        let module = eval(loader, cache, None, Rc::clone(&ast), &scope).output;
+        let module = eval(loader, cache, src_id, Rc::clone(&ast), &scope).output;
         let tree = exec(&module.template, state.clone()).output;
         let frames = layout(loader, cache, &tree);
         drop(borrowed);
         Self {
             ctx,
+            src_id,
             src,
             scope,
             state,
@@ -133,7 +136,8 @@ impl Case {
     fn eval(&self) -> Module {
         let mut borrowed = self.ctx.borrow_mut();
         let Context { loader, cache } = &mut *borrowed;
-        eval(loader, cache, None, Rc::clone(&self.ast), &self.scope).output
+        let ast = Rc::clone(&self.ast);
+        eval(loader, cache, self.src_id, ast, &self.scope).output
     }
 
     fn exec(&self) -> LayoutTree {
@@ -150,7 +154,7 @@ impl Case {
         let mut borrowed = self.ctx.borrow_mut();
         let Context { loader, cache } = &mut *borrowed;
         let state = self.state.clone();
-        typeset(loader, cache, None, &self.src, &self.scope, state).output
+        typeset(loader, cache, self.src_id, &self.src, &self.scope, state).output
     }
 
     fn pdf(&self) -> Vec<u8> {

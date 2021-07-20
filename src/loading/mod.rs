@@ -7,44 +7,39 @@ mod fs;
 pub use fs::*;
 
 use std::path::Path;
-use std::rc::Rc;
+
+use serde::{Deserialize, Serialize};
 
 use crate::font::FaceInfo;
-
-/// A shared byte buffer.
-pub type Buffer = Rc<Vec<u8>>;
 
 /// Loads resources from a local or remote source.
 pub trait Loader {
     /// Descriptions of all font faces this loader serves.
     fn faces(&self) -> &[FaceInfo];
 
-    /// Load the font face with the given index in [`faces()`](Self::faces).
-    fn load_face(&mut self, idx: usize) -> Option<Buffer>;
-
-    /// Load a file from a path.
-    fn load_file(&mut self, path: &Path) -> Option<Buffer>;
-
-    /// Resolve a hash for the file the path points to.
+    /// Resolve a `path` relative to a `base` file.
     ///
-    /// This should return the same hash for all paths pointing to the same file
+    /// This should return the same id for all paths pointing to the same file
     /// and `None` if the file does not exist.
-    fn resolve(&self, path: &Path) -> Option<FileHash>;
+    fn resolve_from(&mut self, base: FileId, path: &Path) -> Option<FileId>;
+
+    /// Load a file by id.
+    fn load_file(&mut self, id: FileId) -> Option<Vec<u8>>;
 }
 
-/// A file hash that can be [resolved](Loader::resolve) from a path.
+/// A file id that can be [resolved](Loader::resolve_from) from a path.
 ///
 /// Should be the same for all paths pointing to the same file.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct FileHash(u64);
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct FileId(u64);
 
-impl FileHash {
-    /// Create an file hash from a raw hash value.
+impl FileId {
+    /// Create a file id from a raw value.
     pub fn from_raw(v: u64) -> Self {
         Self(v)
     }
 
-    /// Convert into the raw underlying hash value.
+    /// Convert into the raw underlying value.
     pub fn into_raw(self) -> u64 {
         self.0
     }
@@ -58,15 +53,11 @@ impl Loader for BlankLoader {
         &[]
     }
 
-    fn load_face(&mut self, _: usize) -> Option<Buffer> {
+    fn resolve_from(&mut self, _: FileId, _: &Path) -> Option<FileId> {
         None
     }
 
-    fn load_file(&mut self, _: &Path) -> Option<Buffer> {
-        None
-    }
-
-    fn resolve(&self, _: &Path) -> Option<FileHash> {
+    fn load_file(&mut self, _: FileId) -> Option<Vec<u8>> {
         None
     }
 }

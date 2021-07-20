@@ -3,13 +3,12 @@
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt::{self, Debug, Formatter};
 use std::io::Cursor;
-use std::path::Path;
 
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageFormat};
 use serde::{Deserialize, Serialize};
 
-use crate::loading::Loader;
+use crate::loading::{FileId, Loader};
 
 /// A loaded image.
 pub struct Image {
@@ -69,11 +68,10 @@ impl ImageCache {
     }
 
     /// Load and decode an image file from a path.
-    pub fn load(&mut self, loader: &mut dyn Loader, path: &Path) -> Option<ImageId> {
-        let hash = loader.resolve(path)?;
-        let id = ImageId(hash.into_raw());
+    pub fn load(&mut self, loader: &mut dyn Loader, file: FileId) -> Option<ImageId> {
+        let id = ImageId(file.into_raw());
         if let Entry::Vacant(entry) = self.images.entry(id) {
-            let buffer = loader.load_file(path)?;
+            let buffer = loader.load_file(file)?;
             let image = Image::parse(&buffer)?;
             if let Some(callback) = &self.on_load {
                 callback(id, &image);

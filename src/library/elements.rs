@@ -15,8 +15,8 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
     let mut node = None;
     if let Some(path) = &path {
-        if let Some((resolved, _)) = ctx.resolve(&path.v, path.span) {
-            if let Some(id) = ctx.cache.image.load(ctx.loader, &resolved) {
+        if let Some(file) = ctx.resolve(&path.v, path.span) {
+            if let Some(id) = ctx.cache.image.load(ctx.loader, file) {
                 node = Some(ImageNode { id, width, height });
             } else {
                 ctx.diag(error!(path.span, "failed to load image"));

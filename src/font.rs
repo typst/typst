@@ -1,18 +1,19 @@
 //! Font handling.
 
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Add;
+use std::rc::Rc;
 
 use decorum::N64;
 use serde::{Deserialize, Serialize};
 
 use crate::geom::Length;
-use crate::loading::{Buffer, Loader};
+use crate::loading::{FileId, Loader};
 
 /// A font face.
 pub struct Face {
-    buffer: Buffer,
+    buffer: Rc<Vec<u8>>,
     index: u32,
     ttf: rustybuzz::Face<'static>,
     units_per_em: f64,
@@ -33,7 +34,7 @@ pub struct LineMetrics {
 
 impl Face {
     /// Parse a font face from a buffer and collection index.
-    pub fn new(buffer: Buffer, index: u32) -> Option<Self> {
+    pub fn new(buffer: Rc<Vec<u8>>, index: u32) -> Option<Self> {
         // SAFETY:
         // - The slices's location is stable in memory:
         //   - We don't move the underlying vector
@@ -88,7 +89,7 @@ impl Face {
     }
 
     /// The underlying buffer.
-    pub fn buffer(&self) -> &Buffer {
+    pub fn buffer(&self) -> &Rc<Vec<u8>> {
         &self.buffer
     }
 
@@ -204,6 +205,7 @@ impl Add for Em {
 pub struct FontCache {
     faces: Vec<Option<Face>>,
     families: HashMap<String, Vec<FaceId>>,
+    buffers: HashMap<FileId, Rc<Vec<u8>>>,
     on_load: Option<Box<dyn Fn(FaceId, &Face)>>,
 }
 
@@ -222,7 +224,12 @@ impl FontCache {
                 .or_insert_with(|| vec![id]);
         }
 
-        Self { faces, families, on_load: None }
+        Self {
+            faces,
+            families,
+            buffers: HashMap::new(),
+            on_load: None,
+        }
     }
 
     /// Query for and load the font face from the given `family` that most
@@ -270,12 +277,23 @@ impl FontCache {
         let idx = id.0 as usize;
         let slot = &mut self.faces[idx];
         if slot.is_none() {
-            let index = infos[idx].index;
-            let buffer = loader.load_face(idx)?;
-            let face = Face::new(buffer, index)?;
+            let FaceInfo { file, index, .. } = infos[idx];
+
+            // Check the buffer cache since multiple faces may
+            // refer to the same data (font collection).
+            let buffer = match self.buffers.entry(file) {
+                Entry::Occupied(entry) => entry.into_mut(),
+                Entry::Vacant(entry) => {
+                    let buffer = loader.load_file(file)?;
+                    entry.insert(Rc::new(buffer))
+                }
+            };
+
+            let face = Face::new(Rc::clone(buffer), index)?;
             if let Some(callback) = &self.on_load {
                 callback(id, &face);
             }
+
             *slot = Some(face);
         }
 
@@ -322,14 +340,16 @@ impl FaceId {
 /// Properties of a single font face.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FaceInfo {
+    /// The font file.
+    pub file: FileId,
+    /// The collection index in the font file.
+    pub index: u32,
     /// The typographic font family this face is part of.
     pub family: String,
     /// Properties that distinguish this face from other faces in the same
     /// family.
     #[serde(flatten)]
     pub variant: FontVariant,
-    /// The collection index in the font file.
-    pub index: u32,
 }
 
 /// Properties that distinguish a face from other faces in the same family.

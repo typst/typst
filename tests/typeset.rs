@@ -18,7 +18,7 @@ use typst::exec::{exec, State};
 use typst::geom::{self, Length, PathElement, Point, Sides, Size};
 use typst::image::ImageId;
 use typst::layout::{layout, Element, Frame, Geometry, Paint, Text};
-use typst::loading::FsLoader;
+use typst::loading::{FileId, FsLoader};
 use typst::parse::{parse, LineMap, Scanner};
 use typst::syntax::{Location, Pos};
 
@@ -136,6 +136,7 @@ fn test(
     println!("Testing {}", name.display());
 
     let src = fs::read_to_string(src_path).unwrap();
+    let src_id = loader.resolve_path(src_path).unwrap();
 
     let mut ok = true;
     let mut frames = vec![];
@@ -159,7 +160,7 @@ fn test(
             }
         } else {
             let (part_ok, compare_here, part_frames) =
-                test_part(loader, cache, src_path, part, i, compare_ref, lines);
+                test_part(loader, cache, src_id, part, i, compare_ref, lines);
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
@@ -200,7 +201,7 @@ fn test(
 fn test_part(
     loader: &mut FsLoader,
     cache: &mut Cache,
-    src_path: &Path,
+    src_id: FileId,
     src: &str,
     i: usize,
     compare_ref: bool,
@@ -222,13 +223,7 @@ fn test_part(
     state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
     let parsed = parse(src);
-    let evaluated = eval(
-        loader,
-        cache,
-        Some(src_path),
-        Rc::new(parsed.output),
-        &scope,
-    );
+    let evaluated = eval(loader, cache, src_id, Rc::new(parsed.output), &scope);
     let executed = exec(&evaluated.output.template, state.clone());
     let mut layouted = layout(loader, cache, &executed.output);
 
