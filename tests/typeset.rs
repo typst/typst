@@ -10,7 +10,6 @@ use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use walkdir::WalkDir;
 
-use typst::cache::Cache;
 use typst::color::Color;
 use typst::diag::{Diag, DiagSet, Level};
 use typst::eval::{eval, Scope, Value};
@@ -21,6 +20,7 @@ use typst::layout::{layout, Element, Frame, Geometry, Paint, Text};
 use typst::loading::{FileId, FsLoader};
 use typst::parse::{parse, LineMap, Scanner};
 use typst::syntax::{Location, Pos};
+use typst::Context;
 
 const TYP_DIR: &str = "./typ";
 const REF_DIR: &str = "./ref";
@@ -57,10 +57,20 @@ fn main() {
         println!("Running {} tests", len);
     }
 
-    let mut loader = typst::loading::FsLoader::new();
-    loader.search_path(FONT_DIR);
+    // We want to have "unbounded" pages, so we allow them to be infinitely
+    // large and fit them to match their content.
+    let mut state = State::default();
+    state.page.size = Size::new(Length::pt(120.0), Length::inf());
+    state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
-    let mut cache = typst::cache::Cache::new(&loader);
+    // Create a file system loader.
+    let loader = {
+        let mut loader = typst::loading::FsLoader::new();
+        loader.search_path(FONT_DIR);
+        Rc::new(loader)
+    };
+
+    let mut ctx = typst::Context::builder().state(state).build(loader.clone());
 
     let mut ok = true;
     for src_path in filtered {
@@ -71,8 +81,8 @@ fn main() {
             args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
         ok &= test(
-            &mut loader,
-            &mut cache,
+            loader.as_ref(),
+            &mut ctx,
             &src_path,
             &png_path,
             &ref_path,
@@ -125,8 +135,8 @@ struct Panic {
 }
 
 fn test(
-    loader: &mut FsLoader,
-    cache: &mut Cache,
+    loader: &FsLoader,
+    ctx: &mut Context,
     src_path: &Path,
     png_path: &Path,
     ref_path: &Path,
@@ -160,7 +170,7 @@ fn test(
             }
         } else {
             let (part_ok, compare_here, part_frames) =
-                test_part(loader, cache, src_id, part, i, compare_ref, lines);
+                test_part(ctx, src_id, part, i, compare_ref, lines);
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
@@ -171,12 +181,12 @@ fn test(
 
     if compare_ever {
         if let Some(pdf_path) = pdf_path {
-            let pdf_data = typst::export::pdf(cache, &frames);
+            let pdf_data = typst::export::pdf(ctx, &frames);
             fs::create_dir_all(&pdf_path.parent().unwrap()).unwrap();
             fs::write(pdf_path, pdf_data).unwrap();
         }
 
-        let canvas = draw(&cache, &frames, 2.0);
+        let canvas = draw(ctx, &frames, 2.0);
         fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
@@ -199,8 +209,7 @@ fn test(
 }
 
 fn test_part(
-    loader: &mut FsLoader,
-    cache: &mut Cache,
+    ctx: &mut Context,
     src_id: FileId,
     src: &str,
     i: usize,
@@ -216,16 +225,10 @@ fn test_part(
     let panics = Rc::new(RefCell::new(vec![]));
     register_helpers(&mut scope, Rc::clone(&panics));
 
-    // We want to have "unbounded" pages, so we allow them to be infinitely
-    // large and fit them to match their content.
-    let mut state = State::default();
-    state.page.size = Size::new(Length::pt(120.0), Length::inf());
-    state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
-
     let parsed = parse(src);
-    let evaluated = eval(loader, cache, src_id, Rc::new(parsed.output), &scope);
-    let executed = exec(&evaluated.output.template, state.clone());
-    let mut layouted = layout(loader, cache, &executed.output);
+    let evaluated = eval(ctx, src_id, Rc::new(parsed.output));
+    let executed = exec(ctx, &evaluated.output.template);
+    let mut layouted = layout(ctx, &executed.output);
 
     let mut diags = parsed.diags;
     diags.extend(evaluated.diags);
@@ -266,20 +269,20 @@ fn test_part(
 
     #[cfg(feature = "layout-cache")]
     {
-        let reference_cache = cache.layout.clone();
-        for level in 0 .. reference_cache.levels() {
-            cache.layout = reference_cache.clone();
-            cache.layout.retain(|x| x == level);
-            if cache.layout.frames.is_empty() {
+        let reference = ctx.layouts.clone();
+        for level in 0 .. reference.levels() {
+            ctx.layouts = reference.clone();
+            ctx.layouts.retain(|x| x == level);
+            if ctx.layouts.frames.is_empty() {
                 continue;
             }
 
-            cache.layout.turnaround();
+            ctx.layouts.turnaround();
 
-            let cached_result = layout(loader, cache, &executed.output);
+            let cached_result = layout(ctx, &executed.output);
 
-            let misses = cache
-                .layout
+            let misses = ctx
+                .layouts
                 .frames
                 .iter()
                 .flat_map(|(_, e)| e)
@@ -303,8 +306,8 @@ fn test_part(
             }
         }
 
-        cache.layout = reference_cache;
-        cache.layout.turnaround();
+        ctx.layouts = reference;
+        ctx.layouts.turnaround();
     }
 
     if !compare_ref {
@@ -391,7 +394,7 @@ fn print_diag(diag: &Diag, map: &LineMap, lines: u32) {
     println!("{}: {}-{}: {}", diag.level, start, end, diag.message);
 }
 
-fn draw(cache: &Cache, frames: &[Rc<Frame>], dpi: f32) -> sk::Pixmap {
+fn draw(ctx: &Context, frames: &[Rc<Frame>], dpi: f32) -> sk::Pixmap {
     let pad = Length::pt(5.0);
 
     let height = pad + frames.iter().map(|l| l.size.height + pad).sum::<Length>();
@@ -434,13 +437,13 @@ fn draw(cache: &Cache, frames: &[Rc<Frame>], dpi: f32) -> sk::Pixmap {
             let ts = ts.pre_translate(x, y);
             match *element {
                 Element::Text(ref text) => {
-                    draw_text(&mut canvas, ts, cache, text);
+                    draw_text(&mut canvas, ts, ctx, text);
                 }
                 Element::Geometry(ref geometry, paint) => {
                     draw_geometry(&mut canvas, ts, geometry, paint);
                 }
                 Element::Image(id, size) => {
-                    draw_image(&mut canvas, ts, cache, id, size);
+                    draw_image(&mut canvas, ts, ctx, id, size);
                 }
             }
         }
@@ -451,8 +454,8 @@ fn draw(cache: &Cache, frames: &[Rc<Frame>], dpi: f32) -> sk::Pixmap {
     canvas
 }
 
-fn draw_text(canvas: &mut sk::Pixmap, ts: sk::Transform, cache: &Cache, text: &Text) {
-    let ttf = cache.font.get(text.face_id).ttf();
+fn draw_text(canvas: &mut sk::Pixmap, ts: sk::Transform, ctx: &Context, text: &Text) {
+    let ttf = ctx.fonts.get(text.face_id).ttf();
     let mut x = 0.0;
 
     for glyph in &text.glyphs {
@@ -540,11 +543,11 @@ fn draw_geometry(
 fn draw_image(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
-    cache: &Cache,
+    ctx: &Context,
     id: ImageId,
     size: Size,
 ) {
-    let img = cache.image.get(id);
+    let img = ctx.images.get(id);
 
     let mut pixmap = sk::Pixmap::new(img.buf.width(), img.buf.height()).unwrap();
     for ((_, _, src), dest) in img.buf.pixels().zip(pixmap.pixels_mut()) {

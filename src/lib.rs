@@ -32,7 +32,6 @@
 pub mod diag;
 #[macro_use]
 pub mod eval;
-pub mod cache;
 pub mod color;
 pub mod eco;
 pub mod exec;
@@ -51,46 +50,106 @@ pub mod util;
 
 use std::rc::Rc;
 
-use crate::cache::Cache;
 use crate::diag::Pass;
 use crate::eval::Scope;
 use crate::exec::State;
+use crate::font::FontCache;
+use crate::image::ImageCache;
 use crate::layout::Frame;
+#[cfg(feature = "layout-cache")]
+use crate::layout::LayoutCache;
 use crate::loading::{FileId, Loader};
 
-/// Process source code directly into a collection of layouted frames.
-///
-/// # Parameters
-/// - The `loader` is used to load fonts, images and other source files.
-/// - The `cache` stores things that are reusable across several compilations
-///   like loaded fonts, decoded images and layouting artifacts.
-/// - The `location` is the file id of the source file and is used to resolve
-///   relative paths (for importing and image loading).
-/// - The `src` is the _Typst_ source code to typeset.
-/// - The `scope` contains definitions that are available everywhere, typically
-///   the standard library.
-/// - The `state` defines initial properties for page size, font selection and
-///   so on.
-///
-/// # Return value
-/// Returns a vector of frames representing individual pages alongside
-/// diagnostic information (errors and warnings).
-pub fn typeset(
-    loader: &mut dyn Loader,
-    cache: &mut Cache,
-    location: FileId,
-    src: &str,
-    scope: &Scope,
+/// The core context which holds the loader, configuration and cached artifacts.
+pub struct Context {
+    /// The loader the context was created with.
+    pub loader: Rc<dyn Loader>,
+    /// Caches parsed font faces.
+    pub fonts: FontCache,
+    /// Caches decoded images.
+    pub images: ImageCache,
+    /// Caches layouting artifacts.
+    #[cfg(feature = "layout-cache")]
+    pub layouts: LayoutCache,
+    /// The standard library scope.
+    std: Scope,
+    /// The default state.
     state: State,
-) -> Pass<Vec<Rc<Frame>>> {
-    let ast = parse::parse(src);
-    let module = eval::eval(loader, cache, location, Rc::new(ast.output), scope);
-    let tree = exec::exec(&module.output.template, state);
-    let frames = layout::layout(loader, cache, &tree.output);
+}
 
-    let mut diags = ast.diags;
-    diags.extend(module.diags);
-    diags.extend(tree.diags);
+impl Context {
+    /// Create a new context with the default settings.
+    pub fn new(loader: Rc<dyn Loader>) -> Self {
+        Self::builder().build(loader)
+    }
 
-    Pass::new(frames, diags)
+    /// Create a new context with advanced settings.
+    pub fn builder() -> ContextBuilder {
+        ContextBuilder::default()
+    }
+
+    /// Garbage-collect caches.
+    pub fn turnaround(&mut self) {
+        #[cfg(feature = "layout-cache")]
+        self.layouts.turnaround();
+    }
+
+    /// Typeset a source file into a collection of layouted frames.
+    ///
+    /// The `file` is the file id of the source file and is used to resolve
+    /// relative paths (for importing and image loading).
+    ///
+    /// Returns a vector of frames representing individual pages alongside
+    /// diagnostic information (errors and warnings).
+    pub fn typeset(&mut self, file: FileId, src: &str) -> Pass<Vec<Rc<Frame>>> {
+        let ast = parse::parse(src);
+        let module = eval::eval(self, file, Rc::new(ast.output));
+        let tree = exec::exec(self, &module.output.template);
+        let frames = layout::layout(self, &tree.output);
+
+        let mut diags = ast.diags;
+        diags.extend(module.diags);
+        diags.extend(tree.diags);
+
+        Pass::new(frames, diags)
+    }
+}
+
+/// A builder for a [`Context`].
+///
+/// This struct is created by [`Context::builder`].
+#[derive(Default)]
+pub struct ContextBuilder {
+    std: Option<Scope>,
+    state: Option<State>,
+}
+
+impl ContextBuilder {
+    /// The scope containing definitions that are available everywhere,
+    /// (the standard library).
+    pub fn std(mut self, std: Scope) -> Self {
+        self.std = Some(std);
+        self
+    }
+
+    /// The `state` defining initial properties for page size, font selection
+    /// and so on.
+    pub fn state(mut self, state: State) -> Self {
+        self.state = Some(state);
+        self
+    }
+
+    /// Finish building the context by providing the `loader` used to load
+    /// fonts, images, source files and other resources.
+    pub fn build(self, loader: Rc<dyn Loader>) -> Context {
+        Context {
+            loader: Rc::clone(&loader),
+            fonts: FontCache::new(Rc::clone(&loader)),
+            images: ImageCache::new(loader),
+            #[cfg(feature = "layout-cache")]
+            layouts: LayoutCache::new(),
+            std: self.std.unwrap_or(library::new()),
+            state: self.state.unwrap_or_default(),
+        }
+    }
 }

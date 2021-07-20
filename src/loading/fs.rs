@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io;
@@ -18,23 +19,23 @@ use crate::util::PathExt;
 #[derive(Default, Debug, Clone)]
 pub struct FsLoader {
     faces: Vec<FaceInfo>,
-    paths: HashMap<FileId, PathBuf>,
+    paths: RefCell<HashMap<FileId, PathBuf>>,
 }
 
 impl FsLoader {
     /// Create a new loader without any fonts.
     pub fn new() -> Self {
-        Self { faces: vec![], paths: HashMap::new() }
+        Self { faces: vec![], paths: RefCell::default() }
     }
 
     /// Resolve a file id for a path.
-    pub fn resolve_path(&mut self, path: &Path) -> io::Result<FileId> {
+    pub fn resolve_path(&self, path: &Path) -> io::Result<FileId> {
         let file = File::open(path)?;
         let meta = file.metadata()?;
         if meta.is_file() {
             let handle = Handle::from_file(file)?;
             let id = FileId(fxhash::hash64(&handle));
-            self.paths.insert(id, path.normalize());
+            self.paths.borrow_mut().insert(id, path.normalize());
             Ok(id)
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "not a file"))
@@ -165,14 +166,13 @@ impl Loader for FsLoader {
         &self.faces
     }
 
-    fn resolve_from(&mut self, base: FileId, path: &Path) -> Option<FileId> {
-        let dir = self.paths[&base].parent()?;
-        let full = dir.join(path);
-        self.resolve_path(&full).ok()
+    fn resolve_from(&self, base: FileId, path: &Path) -> Option<FileId> {
+        let full = self.paths.borrow()[&base].parent()?.join(path);
+        self.resolve(&full).ok()
     }
 
-    fn load_file(&mut self, id: FileId) -> Option<Vec<u8>> {
-        fs::read(&self.paths[&id]).ok()
+    fn load_file(&self, id: FileId) -> Option<Vec<u8>> {
+        fs::read(&self.paths.borrow()[&id]).ok()
     }
 }
 
@@ -185,7 +185,8 @@ mod tests {
         let mut loader = FsLoader::new();
         loader.search_path("fonts");
 
-        let mut paths: Vec<_> = loader.paths.values().collect();
+        let map = loader.paths.borrow();
+        let mut paths: Vec<_> = map.values().collect();
         paths.sort();
 
         assert_eq!(paths, [

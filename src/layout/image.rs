@@ -28,7 +28,7 @@ impl Layout for ImageNode {
         let width = self.width.map(|w| w.resolve(base.width));
         let height = self.height.map(|w| w.resolve(base.height));
 
-        let dimensions = ctx.cache.image.get(self.id).buf.dimensions();
+        let dimensions = ctx.images.get(self.id).buf.dimensions();
         let pixel_width = dimensions.0 as f64;
         let pixel_height = dimensions.1 as f64;
         let pixel_ratio = pixel_width / pixel_height;

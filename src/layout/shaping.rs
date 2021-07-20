@@ -235,7 +235,7 @@ fn shape_segment<'a>(
                     }
                 }
 
-                if let Some(id) = ctx.cache.font.select(ctx.loader, family, variant) {
+                if let Some(id) = ctx.fonts.select(family, variant) {
                     break (id, true);
                 }
             }
@@ -262,7 +262,7 @@ fn shape_segment<'a>(
     });
 
     // Shape!
-    let mut face = ctx.cache.font.get(face_id);
+    let mut face = ctx.fonts.get(face_id);
     let buffer = rustybuzz::shape(face.ttf(), &[], buffer);
     let infos = buffer.glyph_infos();
     let pos = buffer.glyph_positions();
@@ -337,7 +337,7 @@ fn shape_segment<'a>(
                 first_face,
             );
 
-            face = ctx.cache.font.get(face_id);
+            face = ctx.fonts.get(face_id);
         }
 
         i += 1;
@@ -351,8 +351,6 @@ fn measure(
     glyphs: &[ShapedGlyph],
     state: &FontState,
 ) -> (Size, Length) {
-    let cache = &mut ctx.cache.font;
-
     let mut width = Length::zero();
     let mut top = Length::zero();
     let mut bottom = Length::zero();
@@ -365,14 +363,14 @@ fn measure(
         // When there are no glyphs, we just use the vertical metrics of the
         // first available font.
         for family in state.families.iter() {
-            if let Some(face_id) = cache.select(ctx.loader, family, state.variant) {
-                expand_vertical(cache.get(face_id));
+            if let Some(face_id) = ctx.fonts.select(family, state.variant) {
+                expand_vertical(ctx.fonts.get(face_id));
                 break;
             }
         }
     } else {
         for (face_id, group) in glyphs.group_by_key(|g| g.face_id) {
-            let face = cache.get(face_id);
+            let face = ctx.fonts.get(face_id);
             expand_vertical(face);
 
             for glyph in group {
@@ -394,7 +392,7 @@ fn decorate(
     state: &FontState,
 ) {
     let mut apply = |substate: &LineState, metrics: fn(&Face) -> &LineMetrics| {
-        let metrics = metrics(&ctx.cache.font.get(face_id));
+        let metrics = metrics(ctx.fonts.get(face_id));
 
         let stroke = substate.stroke.unwrap_or(state.fill);
 

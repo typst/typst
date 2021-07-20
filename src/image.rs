@@ -3,6 +3,7 @@
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt::{self, Debug, Formatter};
 use std::io::Cursor;
+use std::rc::Rc;
 
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageFormat};
@@ -53,25 +54,27 @@ impl Debug for Image {
 }
 
 /// Caches decoded images.
-#[derive(Default)]
 pub struct ImageCache {
-    /// Maps from file hashes to ids of decoded images.
+    loader: Rc<dyn Loader>,
     images: HashMap<ImageId, Image>,
-    /// Callback for loaded images.
     on_load: Option<Box<dyn Fn(ImageId, &Image)>>,
 }
 
 impl ImageCache {
     /// Create a new, empty image cache.
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(loader: Rc<dyn Loader>) -> Self {
+        Self {
+            loader,
+            images: HashMap::new(),
+            on_load: None,
+        }
     }
 
     /// Load and decode an image file from a path.
-    pub fn load(&mut self, loader: &mut dyn Loader, file: FileId) -> Option<ImageId> {
+    pub fn load(&mut self, file: FileId) -> Option<ImageId> {
         let id = ImageId(file.into_raw());
         if let Entry::Vacant(entry) = self.images.entry(id) {
-            let buffer = loader.load_file(file)?;
+            let buffer = self.loader.load_file(file)?;
             let image = Image::parse(&buffer)?;
             if let Some(callback) = &self.on_load {
                 callback(id, &image);

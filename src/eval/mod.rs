@@ -25,24 +25,19 @@ use std::mem;
 use std::path::Path;
 use std::rc::Rc;
 
-use crate::cache::Cache;
 use crate::diag::{Diag, DiagSet, Pass};
 use crate::eco::EcoString;
 use crate::geom::{Angle, Fractional, Length, Relative};
+use crate::image::ImageCache;
 use crate::loading::{FileId, Loader};
 use crate::parse::parse;
 use crate::syntax::visit::Visit;
 use crate::syntax::*;
+use crate::Context;
 
 /// Evaluate a parsed source file into a module.
-pub fn eval(
-    loader: &mut dyn Loader,
-    cache: &mut Cache,
-    location: FileId,
-    ast: Rc<SyntaxTree>,
-    scope: &Scope,
-) -> Pass<Module> {
-    let mut ctx = EvalContext::new(loader, cache, location, scope);
+pub fn eval(ctx: &mut Context, location: FileId, ast: Rc<SyntaxTree>) -> Pass<Module> {
+    let mut ctx = EvalContext::new(ctx, location);
     let template = ast.eval(&mut ctx);
     let module = Module { scope: ctx.scopes.top, template };
     Pass::new(module, ctx.diags)
@@ -60,9 +55,9 @@ pub struct Module {
 /// The context for evaluation.
 pub struct EvalContext<'a> {
     /// The loader from which resources (files and images) are loaded.
-    pub loader: &'a mut dyn Loader,
-    /// A cache for loaded resources.
-    pub cache: &'a mut Cache,
+    pub loader: &'a dyn Loader,
+    /// The cache for decoded images.
+    pub images: &'a mut ImageCache,
     /// The active scopes.
     pub scopes: Scopes<'a>,
     /// Evaluation diagnostics.
@@ -74,17 +69,12 @@ pub struct EvalContext<'a> {
 }
 
 impl<'a> EvalContext<'a> {
-    /// Create a new evaluation context with a base scope.
-    pub fn new(
-        loader: &'a mut dyn Loader,
-        cache: &'a mut Cache,
-        location: FileId,
-        scope: &'a Scope,
-    ) -> Self {
+    /// Create a new evaluation context.
+    pub fn new(ctx: &'a mut Context, location: FileId) -> Self {
         Self {
-            loader,
-            cache,
-            scopes: Scopes::new(Some(scope)),
+            loader: ctx.loader.as_ref(),
+            images: &mut ctx.images,
+            scopes: Scopes::new(Some(&ctx.std)),
             diags: DiagSet::new(),
             route: vec![location],
             modules: HashMap::new(),

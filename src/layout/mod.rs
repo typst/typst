@@ -32,22 +32,16 @@ use std::rc::Rc;
 #[cfg(feature = "layout-cache")]
 use fxhash::FxHasher64;
 
-use crate::cache::Cache;
+use crate::font::FontCache;
 use crate::geom::*;
+use crate::image::ImageCache;
 use crate::loading::Loader;
+use crate::Context;
 
 /// Layout a tree into a collection of frames.
-pub fn layout(
-    loader: &mut dyn Loader,
-    cache: &mut Cache,
-    tree: &LayoutTree,
-) -> Vec<Rc<Frame>> {
-    tree.layout(&mut LayoutContext {
-        loader,
-        cache,
-        #[cfg(feature = "layout-cache")]
-        level: 0,
-    })
+pub fn layout(ctx: &mut Context, tree: &LayoutTree) -> Vec<Rc<Frame>> {
+    let mut ctx = LayoutContext::new(ctx);
+    tree.layout(&mut ctx)
 }
 
 /// A tree of layout nodes.
@@ -129,15 +123,15 @@ impl Layout for LayoutNode {
         #[cfg(feature = "layout-cache")]
         {
             ctx.level += 1;
-            let frames =
-                ctx.cache.layout.get(self.hash, regions.clone()).unwrap_or_else(|| {
-                    let frames = self.node.layout(ctx, regions);
-                    ctx.cache.layout.insert(self.hash, frames.clone(), ctx.level - 1);
-                    frames
-                });
+            let frames = ctx.layouts.get(self.hash, regions.clone()).unwrap_or_else(|| {
+                let frames = self.node.layout(ctx, regions);
+                ctx.layouts.insert(self.hash, frames.clone(), ctx.level - 1);
+                frames
+            });
             ctx.level -= 1;
             frames
         }
+
         #[cfg(not(feature = "layout-cache"))]
         self.node.layout(ctx, regions)
     }
@@ -214,12 +208,32 @@ pub trait Layout {
 /// The context for layouting.
 pub struct LayoutContext<'a> {
     /// The loader from which fonts are loaded.
-    pub loader: &'a mut dyn Loader,
-    /// A cache for loaded fonts and artifacts from past layouting.
-    pub cache: &'a mut Cache,
+    pub loader: &'a dyn Loader,
+    /// The cache for parsed font faces.
+    pub fonts: &'a mut FontCache,
+    /// The cache for decoded imges.
+    pub images: &'a mut ImageCache,
+    /// The cache for layouting artifacts.
+    #[cfg(feature = "layout-cache")]
+    pub layouts: &'a mut LayoutCache,
     /// How deeply nested the current layout tree position is.
     #[cfg(feature = "layout-cache")]
     pub level: usize,
+}
+
+impl<'a> LayoutContext<'a> {
+    /// Create a new layout context.
+    pub fn new(ctx: &'a mut Context) -> Self {
+        Self {
+            loader: ctx.loader.as_ref(),
+            fonts: &mut ctx.fonts,
+            images: &mut ctx.images,
+            #[cfg(feature = "layout-cache")]
+            layouts: &mut ctx.layouts,
+            #[cfg(feature = "layout-cache")]
+            level: 0,
+        }
+    }
 }
 
 /// A sequence of regions to layout into.

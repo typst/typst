@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use anyhow::{anyhow, bail, Context};
 use same_file::is_same_file;
@@ -10,11 +11,6 @@ fn main() -> anyhow::Result<()> {
         println!("usage: typst src.typ [out.pdf]");
         return Ok(());
     }
-
-    // Create a loader for fonts and files.
-    let mut loader = typst::loading::FsLoader::new();
-    loader.search_path("fonts");
-    loader.search_system();
 
     // Determine source and destination path.
     let src_path = Path::new(&args[1]);
@@ -33,18 +29,19 @@ fn main() -> anyhow::Result<()> {
         bail!("source and destination files are the same");
     }
 
-    // Resolve the file id of the source file.
-    let src_id = loader.resolve_path(src_path).context("source file not found")?;
+    // Create a loader for fonts and files.
+    let mut loader = typst::loading::FsLoader::new();
+    loader.search_path("fonts");
+    loader.search_system();
 
-    // Read the source.
+    // Resolve the file id of the source file and read the file.
+    let src_id = loader.resolve_path(src_path).context("source file not found")?;
     let src = fs::read_to_string(&src_path)
         .map_err(|_| anyhow!("failed to read source file"))?;
 
-    // Compile.
-    let mut cache = typst::cache::Cache::new(&loader);
-    let scope = typst::library::new();
-    let state = typst::exec::State::default();
-    let pass = typst::typeset(&mut loader, &mut cache, src_id, &src, &scope, state);
+    // Typeset.
+    let mut ctx = typst::Context::new(Rc::new(loader));
+    let pass = ctx.typeset(src_id, &src);
 
     // Print diagnostics.
     let map = typst::parse::LineMap::new(&src);
@@ -62,7 +59,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Export the PDF.
-    let buffer = typst::export::pdf(&cache, &pass.output);
+    let buffer = typst::export::pdf(&ctx, &pass.output);
     fs::write(&dest_path, buffer).context("failed to write PDF file")?;
 
     Ok(())

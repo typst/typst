@@ -16,10 +16,11 @@ use crate::geom::{Dir, Gen};
 use crate::layout::{LayoutTree, StackChild, StackNode};
 use crate::pretty::pretty;
 use crate::syntax::*;
+use crate::Context;
 
 /// Execute a template to produce a layout tree.
-pub fn exec(template: &Template, state: State) -> Pass<LayoutTree> {
-    let mut ctx = ExecContext::new(state);
+pub fn exec(ctx: &mut Context, template: &Template) -> Pass<LayoutTree> {
+    let mut ctx = ExecContext::new(ctx);
     template.exec(&mut ctx);
     ctx.finish()
 }

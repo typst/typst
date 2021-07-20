@@ -21,10 +21,10 @@ pub trait Loader {
     ///
     /// This should return the same id for all paths pointing to the same file
     /// and `None` if the file does not exist.
-    fn resolve_from(&mut self, base: FileId, path: &Path) -> Option<FileId>;
+    fn resolve_from(&self, base: FileId, path: &Path) -> Option<FileId>;
 
     /// Load a file by id.
-    fn load_file(&mut self, id: FileId) -> Option<Vec<u8>>;
+    fn load_file(&self, id: FileId) -> Option<Vec<u8>>;
 }
 
 /// A file id that can be [resolved](Loader::resolve_from) from a path.
@@ -53,11 +53,11 @@ impl Loader for BlankLoader {
         &[]
     }
 
-    fn resolve_from(&mut self, _: FileId, _: &Path) -> Option<FileId> {
+    fn resolve_from(&self, _: FileId, _: &Path) -> Option<FileId> {
         None
     }
 
-    fn load_file(&mut self, _: FileId) -> Option<Vec<u8>> {
+    fn load_file(&self, _: FileId) -> Option<Vec<u8>> {
         None
     }
 }

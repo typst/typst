@@ -13,12 +13,12 @@ use pdf_writer::{
 };
 use ttf_parser::{name_id, GlyphId};
 
-use crate::cache::Cache;
 use crate::color::Color;
-use crate::font::{Em, FaceId};
+use crate::font::{Em, FaceId, FontCache};
 use crate::geom::{self, Length, Size};
-use crate::image::{Image, ImageId};
+use crate::image::{Image, ImageCache, ImageId};
 use crate::layout::{Element, Frame, Geometry, Paint};
+use crate::Context;
 
 /// Export a collection of frames into a PDF document.
 ///
@@ -27,53 +27,55 @@ use crate::layout::{Element, Frame, Geometry, Paint};
 /// can be included in the PDF.
 ///
 /// Returns the raw bytes making up the PDF document.
-pub fn pdf(cache: &Cache, frames: &[Rc<Frame>]) -> Vec<u8> {
-    PdfExporter::new(cache, frames).write()
+pub fn pdf(ctx: &Context, frames: &[Rc<Frame>]) -> Vec<u8> {
+    PdfExporter::new(ctx, frames).write()
 }
 
 struct PdfExporter<'a> {
     writer: PdfWriter,
     frames: &'a [Rc<Frame>],
-    cache: &'a Cache,
+    fonts: &'a FontCache,
+    font_map: Remapper<FaceId>,
+    images: &'a ImageCache,
+    image_map: Remapper<ImageId>,
     refs: Refs,
-    fonts: Remapper<FaceId>,
-    images: Remapper<ImageId>,
 }
 
 impl<'a> PdfExporter<'a> {
-    fn new(cache: &'a Cache, frames: &'a [Rc<Frame>]) -> Self {
+    fn new(ctx: &'a Context, frames: &'a [Rc<Frame>]) -> Self {
         let mut writer = PdfWriter::new(1, 7);
         writer.set_indent(2);
 
-        let mut fonts = Remapper::new();
-        let mut images = Remapper::new();
+        let mut font_map = Remapper::new();
+        let mut image_map = Remapper::new();
         let mut alpha_masks = 0;
 
         for frame in frames {
             for (_, element) in frame.elements() {
                 match *element {
-                    Element::Text(ref shaped) => fonts.insert(shaped.face_id),
+                    Element::Text(ref shaped) => font_map.insert(shaped.face_id),
                     Element::Geometry(_, _) => {}
                     Element::Image(id, _) => {
-                        let img = cache.image.get(id);
+                        let img = ctx.images.get(id);
                         if img.buf.color().has_alpha() {
                             alpha_masks += 1;
                         }
-                        images.insert(id);
+                        image_map.insert(id);
                     }
                 }
             }
         }
 
-        let refs = Refs::new(frames.len(), fonts.len(), images.len(), alpha_masks);
+        let refs = Refs::new(frames.len(), font_map.len(), image_map.len(), alpha_masks);
 
         Self {
             writer,
             frames,
-            cache,
+            fonts: &ctx.fonts,
+            images: &ctx.images,
             refs,
-            fonts,
-            images,
+            font_map,
+            image_map,
         }
     }
 
@@ -95,7 +97,7 @@ impl<'a> PdfExporter<'a> {
 
         let mut resources = pages.resources();
         let mut fonts = resources.fonts();
-        for (refs, f) in self.refs.fonts().zip(self.fonts.pdf_indices()) {
+        for (refs, f) in self.refs.fonts().zip(self.font_map.pdf_indices()) {
             let name = format!("F{}", f);
             fonts.pair(Name(name.as_bytes()), refs.type0_font);
         }
@@ -103,7 +105,7 @@ impl<'a> PdfExporter<'a> {
         drop(fonts);
 
         let mut images = resources.x_objects();
-        for (id, im) in self.refs.images().zip(self.images.pdf_indices()) {
+        for (id, im) in self.refs.images().zip(self.image_map.pdf_indices()) {
             let name = format!("Im{}", im);
             images.pair(Name(name.as_bytes()), id);
         }
@@ -163,7 +165,7 @@ impl<'a> PdfExporter<'a> {
                         face = Some(shaped.face_id);
                         size = shaped.size;
 
-                        let name = format!("F{}", self.fonts.map(shaped.face_id));
+                        let name = format!("F{}", self.font_map.map(shaped.face_id));
                         text.font(Name(name.as_bytes()), size.to_pt() as f32);
                     }
 
@@ -206,7 +208,7 @@ impl<'a> PdfExporter<'a> {
                 }
 
                 Element::Image(id, Size { width, height }) => {
-                    let name = format!("Im{}", self.images.map(id));
+                    let name = format!("Im{}", self.image_map.map(id));
                     let w = width.to_pt() as f32;
                     let h = height.to_pt() as f32;
 
@@ -222,8 +224,8 @@ impl<'a> PdfExporter<'a> {
     }
 
     fn write_fonts(&mut self) {
-        for (refs, face_id) in self.refs.fonts().zip(self.fonts.layout_indices()) {
-            let face = self.cache.font.get(face_id);
+        for (refs, face_id) in self.refs.fonts().zip(self.font_map.layout_indices()) {
+            let face = self.fonts.get(face_id);
             let ttf = face.ttf();
 
             let name = ttf
@@ -327,8 +329,8 @@ impl<'a> PdfExporter<'a> {
     fn write_images(&mut self) {
         let mut masks_seen = 0;
 
-        for (id, image_id) in self.refs.images().zip(self.images.layout_indices()) {
-            let img = self.cache.image.get(image_id);
+        for (id, image_id) in self.refs.images().zip(self.image_map.layout_indices()) {
+            let img = self.images.get(image_id);
             let (width, height) = img.buf.dimensions();
 
             // Add the primary image.

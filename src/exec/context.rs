@@ -10,6 +10,7 @@ use crate::layout::{
     LayoutNode, LayoutTree, PadNode, PageRun, ParChild, ParNode, StackChild, StackNode,
 };
 use crate::syntax::{Span, SyntaxTree};
+use crate::Context;
 
 /// The context for execution.
 pub struct ExecContext {
@@ -28,13 +29,13 @@ pub struct ExecContext {
 
 impl ExecContext {
     /// Create a new execution context with a base state.
-    pub fn new(state: State) -> Self {
+    pub fn new(ctx: &mut Context) -> Self {
         Self {
+            state: ctx.state.clone(),
             diags: DiagSet::new(),
             tree: LayoutTree { runs: vec![] },
-            page: Some(PageBuilder::new(&state, true)),
-            stack: StackBuilder::new(&state),
-            state,
+            page: Some(PageBuilder::new(&ctx.state, true)),
+            stack: StackBuilder::new(&ctx.state),
         }
     }
 

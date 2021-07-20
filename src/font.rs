@@ -203,6 +203,7 @@ impl Add for Em {
 
 /// Caches parsed font faces.
 pub struct FontCache {
+    loader: Rc<dyn Loader>,
     faces: Vec<Option<Face>>,
     families: HashMap<String, Vec<FaceId>>,
     buffers: HashMap<FileId, Rc<Vec<u8>>>,
@@ -211,7 +212,7 @@ pub struct FontCache {
 
 impl FontCache {
     /// Create a new, empty font cache.
-    pub fn new(loader: &dyn Loader) -> Self {
+    pub fn new(loader: Rc<dyn Loader>) -> Self {
         let mut faces = vec![];
         let mut families = HashMap::<String, Vec<FaceId>>::new();
 
@@ -225,6 +226,7 @@ impl FontCache {
         }
 
         Self {
+            loader,
             faces,
             families,
             buffers: HashMap::new(),
@@ -234,15 +236,10 @@ impl FontCache {
 
     /// Query for and load the font face from the given `family` that most
     /// closely matches the given `variant`.
-    pub fn select(
-        &mut self,
-        loader: &mut dyn Loader,
-        family: &str,
-        variant: FontVariant,
-    ) -> Option<FaceId> {
+    pub fn select(&mut self, family: &str, variant: FontVariant) -> Option<FaceId> {
         // Check whether a family with this name exists.
         let ids = self.families.get(family)?;
-        let infos = loader.faces();
+        let infos = self.loader.faces();
 
         let mut best = None;
         let mut best_key = None;
@@ -284,7 +281,7 @@ impl FontCache {
             let buffer = match self.buffers.entry(file) {
                 Entry::Occupied(entry) => entry.into_mut(),
                 Entry::Vacant(entry) => {
-                    let buffer = loader.load_file(file)?;
+                    let buffer = self.loader.load_file(file)?;
                     entry.insert(Rc::new(buffer))
                 }
             };
