@@ -281,7 +281,7 @@ impl FontCache {
             let buffer = match self.buffers.entry(file) {
                 Entry::Occupied(entry) => entry.into_mut(),
                 Entry::Vacant(entry) => {
-                    let buffer = self.loader.load_file(file)?;
+                    let buffer = self.loader.load_file(file).ok()?;
                     entry.insert(Rc::new(buffer))
                 }
             };

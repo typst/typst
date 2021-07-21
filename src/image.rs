@@ -74,7 +74,7 @@ impl ImageCache {
     pub fn load(&mut self, file: FileId) -> Option<ImageId> {
         let id = ImageId(file.into_raw());
         if let Entry::Vacant(entry) = self.images.entry(id) {
-            let buffer = self.loader.load_file(file)?;
+            let buffer = self.loader.load_file(file).ok()?;
             let image = Image::parse(&buffer)?;
             if let Some(callback) = &self.on_load {
                 callback(id, &image);

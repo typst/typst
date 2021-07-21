@@ -187,13 +187,16 @@ impl Loader for FsLoader {
         &self.faces
     }
 
-    fn resolve_from(&self, base: FileId, path: &Path) -> Option<FileId> {
-        let full = self.paths.borrow()[&base].parent()?.join(path);
-        self.resolve(&full).ok()
+    fn resolve_from(&self, base: FileId, path: &Path) -> io::Result<FileId> {
+        let full = self.paths.borrow()[&base]
+            .parent()
+            .expect("base is a file")
+            .join(path);
+        self.resolve(&full)
     }
 
-    fn load_file(&self, id: FileId) -> Option<Vec<u8>> {
-        fs::read(&self.paths.borrow()[&id]).ok()
+    fn load_file(&self, id: FileId) -> io::Result<Vec<u8>> {
+        fs::read(&self.paths.borrow()[&id])
     }
 }
 

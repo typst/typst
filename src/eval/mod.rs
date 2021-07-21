@@ -86,7 +86,7 @@ impl<'a> EvalContext<'a> {
     /// Generates an error if the file is not found.
     pub fn resolve(&mut self, path: &str, span: Span) -> Option<FileId> {
         let base = *self.route.last()?;
-        self.loader.resolve_from(base, Path::new(path)).or_else(|| {
+        self.loader.resolve_from(base, Path::new(path)).ok().or_else(|| {
             self.diag(error!(span, "file not found"));
             None
         })
@@ -107,7 +107,7 @@ impl<'a> EvalContext<'a> {
             return Some(id);
         }
 
-        let buffer = self.loader.load_file(id).or_else(|| {
+        let buffer = self.loader.load_file(id).ok().or_else(|| {
             self.diag(error!(span, "failed to load file"));
             None
         })?;
