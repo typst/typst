@@ -5,14 +5,16 @@ use std::ops::Deref;
 use super::*;
 
 /// Caches layouting artifacts.
-#[derive(Default, Debug, Clone)]
+///
+/// _This is only available when the `layout-cache` feature is enabled._
 #[cfg(feature = "layout-cache")]
+#[derive(Default, Debug, Clone)]
 pub struct LayoutCache {
     /// Maps from node hashes to the resulting frames and regions in which the
     /// frames are valid. The right hand side of the hash map is a vector of
     /// results because across one or more compilations, multiple different
     /// layouts of the same node may have been requested.
-    pub frames: HashMap<u64, Vec<FramesEntry>>,
+    frames: HashMap<u64, Vec<FramesEntry>>,
     /// In how many compilations this cache has been used.
     age: usize,
 }
@@ -24,67 +26,42 @@ impl LayoutCache {
         Self::default()
     }
 
-    /// Clear the cache.
-    pub fn clear(&mut self) {
-        self.frames.clear();
+    /// Whether the cache is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Amount of items in the cache.
     pub fn len(&self) -> usize {
-        self.frames.iter().map(|(_, e)| e.len()).sum()
+        self.frames.values().map(Vec::len).sum()
     }
 
-    /// Retains all elements for which the closure on the level returns `true`.
-    pub fn retain<F>(&mut self, mut f: F)
-    where
-        F: FnMut(usize) -> bool,
-    {
-        for (_, entries) in self.frames.iter_mut() {
-            entries.retain(|entry| f(entry.level));
-        }
-    }
-
-    /// Prepare the cache for the next round of compilation
-    pub fn turnaround(&mut self) {
-        self.age += 1;
-        for entry in self.frames.iter_mut().flat_map(|(_, x)| x.iter_mut()) {
-            for i in 0 .. (entry.temperature.len() - 1) {
-                entry.temperature[i + 1] = entry.temperature[i];
-            }
-            entry.temperature[0] = 0;
-            entry.age += 1;
-        }
-    }
-
-    /// The amount of levels stored in the cache.
+    /// The number of levels stored in the cache.
     pub fn levels(&self) -> usize {
-        self.frames
-            .iter()
-            .flat_map(|(_, x)| x)
-            .map(|entry| entry.level + 1)
-            .max()
-            .unwrap_or(0)
+        self.entries().map(|entry| entry.level + 1).max().unwrap_or(0)
     }
 
-    /// Fetches the appropriate entry from the cache if there is any.
+    /// An iterator over all entries in the cache.
+    pub fn entries(&self) -> impl Iterator<Item = &FramesEntry> + '_ {
+        self.frames.values().flatten()
+    }
+
+    /// Fetch matching cached frames if there are any.
     pub fn get(
         &mut self,
         hash: u64,
         regions: Regions,
     ) -> Option<Vec<Constrained<Rc<Frame>>>> {
-        self.frames.get_mut(&hash).and_then(|frames| {
-            for frame in frames {
-                let res = frame.check(regions.clone());
-                if res.is_some() {
-                    return res;
-                }
+        let entries = self.frames.get_mut(&hash)?;
+        for entry in entries {
+            if let Some(frames) = entry.check(regions.clone()) {
+                return Some(frames);
             }
-
-            None
-        })
+        }
+        None
     }
 
-    /// Inserts a new frame set into the cache.
+    /// Insert a new frame entry into the cache.
     pub fn insert(
         &mut self,
         hash: u64,
@@ -99,16 +76,45 @@ impl LayoutCache {
             }
         }
     }
+
+    /// Clear the cache.
+    pub fn clear(&mut self) {
+        self.frames.clear();
+    }
+
+    /// Retain all elements for which the closure on the level returns `true`.
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(usize) -> bool,
+    {
+        for entries in self.frames.values_mut() {
+            entries.retain(|entry| f(entry.level));
+        }
+    }
+
+    /// Prepare the cache for the next round of compilation.
+    pub fn turnaround(&mut self) {
+        self.age += 1;
+        for entry in self.frames.values_mut().flatten() {
+            for i in 0 .. (entry.temperature.len() - 1) {
+                entry.temperature[i + 1] = entry.temperature[i];
+            }
+            entry.temperature[0] = 0;
+            entry.age += 1;
+        }
+    }
 }
 
 /// Cached frames from past layouting.
-#[derive(Debug, Clone)]
+///
+/// _This is only available when the `layout-cache` feature is enabled._
 #[cfg(feature = "layout-cache")]
+#[derive(Debug, Clone)]
 pub struct FramesEntry {
     /// The cached frames for a node.
-    pub frames: Vec<Constrained<Rc<Frame>>>,
+    frames: Vec<Constrained<Rc<Frame>>>,
     /// How nested the frame was in the context is was originally appearing in.
-    pub level: usize,
+    level: usize,
     /// For how long the element already exists.
     age: usize,
     /// How much the element was accessed during the last five compilations, the
@@ -128,7 +134,8 @@ impl FramesEntry {
         }
     }
 
-    /// Checks if the cached [`Frame`] is valid for the given regions.
+    /// Checks if the cached frames are valid in the given regions and returns
+    /// them if so.
     pub fn check(&mut self, mut regions: Regions) -> Option<Vec<Constrained<Rc<Frame>>>> {
         for (i, frame) in self.frames.iter().enumerate() {
             if (i != 0 && !regions.next()) || !frame.constraints.check(&regions) {
@@ -137,18 +144,25 @@ impl FramesEntry {
         }
 
         self.temperature[0] += 1;
-
         Some(self.frames.clone())
     }
 
-    /// Get the amount of compilation cycles this item has remained in the
-    /// cache.
+    /// How nested the frame was in the context is was originally appearing in.
+    pub fn level(&self) -> usize {
+        self.level
+    }
+
+    /// The number of compilation cycles this item has remained in the cache.
     pub fn age(&self) -> usize {
         self.age
     }
 
-    /// Get the amount of consecutive cycles in which this item has not
-    /// been used.
+    /// Whether this element was used in the last compilation cycle.
+    pub fn hit(&self) -> bool {
+        self.temperature[0] != 0
+    }
+
+    /// The amount of consecutive cycles in which this item has not been used.
     pub fn cooldown(&self) -> usize {
         let mut cycle = 0;
         for &temp in &self.temperature[.. self.age] {
@@ -157,13 +171,23 @@ impl FramesEntry {
             }
             cycle += 1;
         }
-
         cycle
     }
+}
 
-    /// Whether this element was used in the last compilation cycle.
-    pub fn hit(&self) -> bool {
-        self.temperature[0] != 0
+/// Carries an item that only applies to certain regions and the constraints
+/// that describe these regions.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct Constrained<T> {
+    pub item: T,
+    pub constraints: Constraints,
+}
+
+impl<T> Deref for Constrained<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.item
     }
 }
 
@@ -194,6 +218,21 @@ impl Constraints {
         }
     }
 
+    #[cfg(feature = "layout-cache")]
+    fn check(&self, regions: &Regions) -> bool {
+        if self.expand != regions.expand {
+            return false;
+        }
+
+        let base = regions.base.to_spec();
+        let current = regions.current.to_spec();
+
+        current.eq_by(&self.min, |x, y| y.map_or(true, |y| x.fits(y)))
+            && current.eq_by(&self.max, |x, y| y.map_or(true, |y| x < &y))
+            && current.eq_by(&self.exact, |x, y| y.map_or(true, |y| x.approx_eq(y)))
+            && base.eq_by(&self.base, |x, y| y.map_or(true, |y| x.approx_eq(y)))
+    }
+
     /// Set the appropriate base constraints for (relative) width and height
     /// metrics, respectively.
     pub fn set_base_using_linears(
@@ -208,21 +247,6 @@ impl Constraints {
         if size.vertical.map_or(false, |l| l.is_relative()) {
             self.base.vertical = Some(regions.base.height);
         }
-    }
-
-    #[cfg(feature = "layout-cache")]
-    fn check(&self, regions: &Regions) -> bool {
-        if self.expand != regions.expand {
-            return false;
-        }
-
-        let base = regions.base.to_spec();
-        let current = regions.current.to_spec();
-
-        current.eq_by(&self.min, |x, y| y.map_or(true, |y| x.fits(y)))
-            && current.eq_by(&self.max, |x, y| y.map_or(true, |y| x < &y))
-            && current.eq_by(&self.exact, |x, y| y.map_or(true, |y| x.approx_eq(y)))
-            && base.eq_by(&self.base, |x, y| y.map_or(true, |y| x.approx_eq(y)))
     }
 
     /// Changes all constraints by adding the `size` to them if they are `Some`.
@@ -248,22 +272,6 @@ impl Constraints {
         self.exact.vertical.set_if_some(current.vertical);
         self.base.horizontal.set_if_some(base.horizontal);
         self.base.vertical.set_if_some(base.vertical);
-    }
-}
-
-/// Carries an item that only applies to certain regions and the constraints
-/// that describe these regions.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Constrained<T> {
-    pub item: T,
-    pub constraints: Constraints,
-}
-
-impl<T> Deref for Constrained<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.item
     }
 }
 

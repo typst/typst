@@ -246,6 +246,9 @@ fn test_part(
     let (local_compare_ref, ref_diags) = parse_metadata(src, &map);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
+    // Clear the module cache between tests.
+    ctx.modules.clear();
+
     let ast = parse(src);
     let module = eval(ctx, src_id, Rc::new(ast.output));
     let tree = exec(ctx, &module.output.template);
@@ -295,7 +298,7 @@ fn test_part(
         for level in 0 .. reference.levels() {
             ctx.layouts = reference.clone();
             ctx.layouts.retain(|x| x == level);
-            if ctx.layouts.frames.is_empty() {
+            if ctx.layouts.is_empty() {
                 continue;
             }
 
@@ -304,10 +307,8 @@ fn test_part(
             let cached = layout(ctx, &tree.output);
             let misses = ctx
                 .layouts
-                .frames
-                .iter()
-                .flat_map(|(_, e)| e)
-                .filter(|e| e.level == level && !e.hit() && e.age() == 2)
+                .entries()
+                .filter(|e| e.level() == level && !e.hit() && e.age() == 2)
                 .count();
 
             if misses > 0 {

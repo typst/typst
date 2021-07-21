@@ -47,7 +47,7 @@ impl Layout for ParNode {
         // Find out the BiDi embedding levels.
         let bidi = BidiInfo::new(&text, Level::from_dir(self.dir));
 
-        // Prepare paragraph layout by bulding a representation on which we can
+        // Prepare paragraph layout by building a representation on which we can
         // do line breaking without layouting each and every line from scratch.
         let layouter = ParLayouter::new(self, ctx, regions, bidi);
 

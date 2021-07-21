@@ -43,6 +43,9 @@ pub fn eval(ctx: &mut Context, file: FileId, ast: Rc<SyntaxTree>) -> Pass<Module
     Pass::new(module, ctx.diags)
 }
 
+/// Caches evaluated modules.
+pub type ModuleCache = HashMap<FileId, Module>;
+
 /// An evaluated module, ready for importing or execution.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Module {
@@ -52,20 +55,29 @@ pub struct Module {
     pub template: Template,
 }
 
+/// Evaluate an expression.
+pub trait Eval {
+    /// The output of evaluating the expression.
+    type Output;
+
+    /// Evaluate the expression to the output value.
+    fn eval(&self, ctx: &mut EvalContext) -> Self::Output;
+}
+
 /// The context for evaluation.
 pub struct EvalContext<'a> {
     /// The loader from which resources (files and images) are loaded.
     pub loader: &'a dyn Loader,
     /// The cache for decoded images.
     pub images: &'a mut ImageCache,
+    /// The cache for loaded modules.
+    pub modules: &'a mut ModuleCache,
     /// The active scopes.
     pub scopes: Scopes<'a>,
     /// Evaluation diagnostics.
     pub diags: DiagSet,
     /// The stack of imported files that led to evaluation of the current file.
     pub route: Vec<FileId>,
-    /// A map of loaded module.
-    pub modules: HashMap<FileId, Module>,
 }
 
 impl<'a> EvalContext<'a> {
@@ -74,10 +86,10 @@ impl<'a> EvalContext<'a> {
         Self {
             loader: ctx.loader.as_ref(),
             images: &mut ctx.images,
+            modules: &mut ctx.modules,
             scopes: Scopes::new(Some(&ctx.std)),
             diags: DiagSet::new(),
             route: vec![file],
-            modules: HashMap::new(),
         }
     }
 
@@ -182,15 +194,6 @@ impl<'a> EvalContext<'a> {
             }
         }
     }
-}
-
-/// Evaluate an expression.
-pub trait Eval {
-    /// The output of evaluating the expression.
-    type Output;
-
-    /// Evaluate the expression to the output value.
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output;
 }
 
 impl Eval for Rc<SyntaxTree> {
