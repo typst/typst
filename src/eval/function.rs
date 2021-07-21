@@ -8,49 +8,49 @@ use crate::syntax::{Span, Spanned};
 
 /// An evaluatable function.
 #[derive(Clone)]
-pub struct Function {
-    /// The name of the function.
-    ///
-    /// The string is boxed to make the whole struct fit into 24 bytes, so that
-    /// a value fits into 32 bytes.
-    name: Option<Box<EcoString>>,
-    /// The closure that defines the function.
-    f: Rc<dyn Fn(&mut EvalContext, &mut FuncArgs) -> Value>,
+pub struct Function(Rc<Repr<Func>>);
+
+/// The unsized representation behind the [`Rc`].
+struct Repr<T: ?Sized> {
+    name: Option<EcoString>,
+    func: T,
 }
+
+type Func = dyn Fn(&mut EvalContext, &mut FuncArgs) -> Value;
 
 impl Function {
     /// Create a new function from a rust closure.
-    pub fn new<F>(name: Option<EcoString>, f: F) -> Self
+    pub fn new<F>(name: Option<EcoString>, func: F) -> Self
     where
         F: Fn(&mut EvalContext, &mut FuncArgs) -> Value + 'static,
     {
-        Self { name: name.map(Box::new), f: Rc::new(f) }
+        Self(Rc::new(Repr { name, func }))
     }
 
     /// The name of the function.
     pub fn name(&self) -> Option<&EcoString> {
-        self.name.as_ref().map(|s| &**s)
+        self.0.name.as_ref()
     }
 }
 
 impl Deref for Function {
-    type Target = dyn Fn(&mut EvalContext, &mut FuncArgs) -> Value;
+    type Target = Func;
 
     fn deref(&self) -> &Self::Target {
-        self.f.as_ref()
+        &self.0.func
     }
 }
 
 impl Debug for Function {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("ValueFunc").field("name", &self.name).finish()
+        f.debug_struct("ValueFunc").field("name", &self.0.name).finish()
     }
 }
 
 impl PartialEq for Function {
     fn eq(&self, other: &Self) -> bool {
-        // We cast to thin pointers because we don't want to compare vtables.
-        Rc::as_ptr(&self.f) as *const () == Rc::as_ptr(&other.f) as *const ()
+        // We cast to thin pointers for comparison.
+        Rc::as_ptr(&self.0) as *const () == Rc::as_ptr(&other.0) as *const ()
     }
 }
 
