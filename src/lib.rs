@@ -96,8 +96,8 @@ impl Context {
 
     /// Typeset a source file into a collection of layouted frames.
     ///
-    /// The `file` is the file id of the source file and is used to resolve
-    /// relative paths (for importing and image loading).
+    /// The `file` identifies the source file and is used to resolve relative
+    /// paths (for importing and image loading).
     ///
     /// Returns a vector of frames representing individual pages alongside
     /// diagnostic information (errors and warnings).
@@ -125,15 +125,14 @@ pub struct ContextBuilder {
 }
 
 impl ContextBuilder {
-    /// The scope containing definitions that are available everywhere,
+    /// The scope containing definitions that are available everywhere
     /// (the standard library).
     pub fn std(mut self, std: Scope) -> Self {
         self.std = Some(std);
         self
     }
 
-    /// The `state` defining initial properties for page size, font selection
-    /// and so on.
+    /// The initial properties for page size, font selection and so on.
     pub fn state(mut self, state: State) -> Self {
         self.state = Some(state);
         self

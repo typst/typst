@@ -36,8 +36,8 @@ use crate::syntax::*;
 use crate::Context;
 
 /// Evaluate a parsed source file into a module.
-pub fn eval(ctx: &mut Context, location: FileId, ast: Rc<SyntaxTree>) -> Pass<Module> {
-    let mut ctx = EvalContext::new(ctx, location);
+pub fn eval(ctx: &mut Context, file: FileId, ast: Rc<SyntaxTree>) -> Pass<Module> {
+    let mut ctx = EvalContext::new(ctx, file);
     let template = ast.eval(&mut ctx);
     let module = Module { scope: ctx.scopes.top, template };
     Pass::new(module, ctx.diags)
@@ -70,13 +70,13 @@ pub struct EvalContext<'a> {
 
 impl<'a> EvalContext<'a> {
     /// Create a new evaluation context.
-    pub fn new(ctx: &'a mut Context, location: FileId) -> Self {
+    pub fn new(ctx: &'a mut Context, file: FileId) -> Self {
         Self {
             loader: ctx.loader.as_ref(),
             images: &mut ctx.images,
             scopes: Scopes::new(Some(&ctx.std)),
             diags: DiagSet::new(),
-            route: vec![location],
+            route: vec![file],
             modules: HashMap::new(),
         }
     }

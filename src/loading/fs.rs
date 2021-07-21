@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use memmap2::Mmap;
 use same_file::Handle;
@@ -28,58 +29,27 @@ impl FsLoader {
         Self { faces: vec![], paths: RefCell::default() }
     }
 
-    /// Resolve a file id for a path.
-    pub fn resolve_path(&self, path: &Path) -> io::Result<FileId> {
-        let file = File::open(path)?;
-        let meta = file.metadata()?;
-        if meta.is_file() {
-            let handle = Handle::from_file(file)?;
-            let id = FileId(fxhash::hash64(&handle));
-            self.paths.borrow_mut().insert(id, path.normalize());
-            Ok(id)
-        } else {
-            Err(io::Error::new(io::ErrorKind::Other, "not a file"))
-        }
+    /// Builder-style variant of `search_system`.
+    pub fn with_system(mut self) -> Self {
+        self.search_system();
+        self
+    }
+
+    /// Builder-style variant of `search_path`.
+    pub fn with_path(mut self, dir: impl AsRef<Path>) -> Self {
+        self.search_path(dir);
+        self
+    }
+
+    /// Builder-style method to wrap the loader in an [`Rc`] to make it usable
+    /// with the [`Context`](crate::Context).
+    pub fn wrap(self) -> Rc<Self> {
+        Rc::new(self)
     }
 
     /// Search for fonts in the operating system's font directories.
-    #[cfg(all(unix, not(target_os = "macos")))]
     pub fn search_system(&mut self) {
-        self.search_path("/usr/share/fonts");
-        self.search_path("/usr/local/share/fonts");
-
-        if let Some(dir) = dirs::font_dir() {
-            self.search_path(dir);
-        }
-    }
-
-    /// Search for fonts in the operating system's font directories.
-    #[cfg(target_os = "macos")]
-    pub fn search_system(&mut self) {
-        self.search_path("/Library/Fonts");
-        self.search_path("/Network/Library/Fonts");
-        self.search_path("/System/Library/Fonts");
-
-        if let Some(dir) = dirs::font_dir() {
-            self.search_path(dir);
-        }
-    }
-
-    /// Search for fonts in the operating system's font directories.
-    #[cfg(windows)]
-    pub fn search_system(&mut self) {
-        let windir =
-            std::env::var("WINDIR").unwrap_or_else(|_| "C:\\Windows".to_string());
-
-        self.search_path(Path::new(&windir).join("Fonts"));
-
-        if let Some(roaming) = dirs::config_dir() {
-            self.search_path(roaming.join("Microsoft\\Windows\\Fonts"));
-        }
-
-        if let Some(local) = dirs::cache_dir() {
-            self.search_path(local.join("Microsoft\\Windows\\Fonts"));
-        }
+        self.search_system_impl();
     }
 
     /// Search for all fonts at a path.
@@ -105,6 +75,57 @@ impl FsLoader {
                     _ => {}
                 }
             }
+        }
+    }
+
+    /// Resolve a file id for a path.
+    pub fn resolve(&self, path: &Path) -> io::Result<FileId> {
+        let file = File::open(path)?;
+        let meta = file.metadata()?;
+        if meta.is_file() {
+            let handle = Handle::from_file(file)?;
+            let id = FileId(fxhash::hash64(&handle));
+            self.paths.borrow_mut().insert(id, path.normalize());
+            Ok(id)
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, "not a file"))
+        }
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    fn search_system_impl(&mut self) {
+        self.search_path("/usr/share/fonts");
+        self.search_path("/usr/local/share/fonts");
+
+        if let Some(dir) = dirs::font_dir() {
+            self.search_path(dir);
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn search_system_impl(&mut self) {
+        self.search_path("/Library/Fonts");
+        self.search_path("/Network/Library/Fonts");
+        self.search_path("/System/Library/Fonts");
+
+        if let Some(dir) = dirs::font_dir() {
+            self.search_path(dir);
+        }
+    }
+
+    #[cfg(windows)]
+    fn search_system_impl(&mut self) {
+        let windir =
+            std::env::var("WINDIR").unwrap_or_else(|_| "C:\\Windows".to_string());
+
+        self.search_path(Path::new(&windir).join("Fonts"));
+
+        if let Some(roaming) = dirs::config_dir() {
+            self.search_path(roaming.join("Microsoft\\Windows\\Fonts"));
+        }
+
+        if let Some(local) = dirs::cache_dir() {
+            self.search_path(local.join("Microsoft\\Windows\\Fonts"));
         }
     }
 
@@ -154,7 +175,7 @@ impl FsLoader {
             stretch: FontStretch::from_number(face.width().to_number()),
         };
 
-        let file = self.resolve_path(path)?;
+        let file = self.resolve(path)?;
         self.faces.push(FaceInfo { file, index, family, variant });
 
         Ok(())
@@ -182,11 +203,8 @@ mod tests {
 
     #[test]
     fn test_index_font_dir() {
-        let mut loader = FsLoader::new();
-        loader.search_path("fonts");
-
-        let map = loader.paths.borrow();
-        let mut paths: Vec<_> = map.values().collect();
+        let map = FsLoader::new().with_path("fonts").paths.into_inner();
+        let mut paths: Vec<_> = map.into_iter().map(|p| p.1).collect();
         paths.sort();
 
         assert_eq!(paths, [

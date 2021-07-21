@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
+use typst::diag::Pass;
 use typst::eval::{eval, Module};
 use typst::exec::exec;
 use typst::export::pdf;
@@ -18,18 +19,13 @@ const TYP_DIR: &str = "../tests/typ";
 const CASES: &[&str] = &["coma.typ", "text/basic.typ"];
 
 fn benchmarks(c: &mut Criterion) {
-    let loader = {
-        let mut loader = FsLoader::new();
-        loader.search_path(FONT_DIR);
-        Rc::new(loader)
-    };
-
+    let loader = FsLoader::new().with_path(FONT_DIR).wrap();
     let ctx = Rc::new(RefCell::new(Context::new(loader.clone())));
 
     for case in CASES {
         let path = Path::new(TYP_DIR).join(case);
         let name = path.file_stem().unwrap().to_string_lossy();
-        let src_id = loader.resolve_path(&path).unwrap();
+        let src_id = loader.resolve(&path).unwrap();
         let src = std::fs::read_to_string(&path).unwrap();
         let case = Case::new(src_id, src, ctx.clone());
 
@@ -115,21 +111,24 @@ impl Case {
         parse(&self.src).output
     }
 
-    fn eval(&self) -> Module {
-        let mut borrowed = self.ctx.borrow_mut();
-        eval(&mut borrowed, self.src_id, Rc::clone(&self.ast)).output
+    fn eval(&self) -> Pass<Module> {
+        eval(
+            &mut self.ctx.borrow_mut(),
+            self.src_id,
+            Rc::clone(&self.ast),
+        )
     }
 
-    fn exec(&self) -> LayoutTree {
-        exec(&mut self.ctx.borrow_mut(), &self.module.template).output
+    fn exec(&self) -> Pass<LayoutTree> {
+        exec(&mut self.ctx.borrow_mut(), &self.module.template)
     }
 
     fn layout(&self) -> Vec<Rc<Frame>> {
         layout(&mut self.ctx.borrow_mut(), &self.tree)
     }
 
-    fn typeset(&self) -> Vec<Rc<Frame>> {
-        self.ctx.borrow_mut().typeset(self.src_id, &self.src).output
+    fn typeset(&self) -> Pass<Vec<Rc<Frame>>> {
+        self.ctx.borrow_mut().typeset(self.src_id, &self.src)
     }
 
     fn pdf(&self) -> Vec<u8> {

@@ -63,15 +63,16 @@ fn main() {
     state.page.size = Size::new(Length::pt(120.0), Length::inf());
     state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
-    // Create a file system loader.
-    let loader = {
-        let mut loader = typst::loading::FsLoader::new();
-        loader.search_path(FONT_DIR);
-        Rc::new(loader)
-    };
+    // We hook up some extra test helpers into the global scope.
+    let mut std = typst::library::new();
+    let panics = Rc::new(RefCell::new(vec![]));
+    register_helpers(&mut std, Rc::clone(&panics));
 
-    let mut ctx = typst::Context::builder().state(state).build(loader.clone());
+    // Create loader and context.
+    let loader = FsLoader::new().with_path(FONT_DIR).wrap();
+    let mut ctx = Context::builder().std(std).state(state).build(loader.clone());
 
+    // Run all the tests.
     let mut ok = true;
     for src_path in filtered {
         let path = src_path.strip_prefix(TYP_DIR).unwrap();
@@ -81,8 +82,9 @@ fn main() {
             args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
         ok &= test(
-            loader.as_ref(),
             &mut ctx,
+            loader.as_ref(),
+            &panics,
             &src_path,
             &png_path,
             &ref_path,
@@ -128,15 +130,38 @@ impl Args {
     }
 }
 
+type Panics = Rc<RefCell<Vec<Panic>>>;
+
 struct Panic {
     pos: Pos,
     lhs: Option<Value>,
     rhs: Option<Value>,
 }
 
+fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
+    scope.def_const("error", Value::Error);
+    scope.def_func("args", |_, args| {
+        let repr = typst::pretty::pretty(args);
+        args.items.clear();
+        Value::template(move |ctx| {
+            ctx.set_monospace();
+            ctx.push_text(&repr);
+        })
+    });
+    scope.def_func("test", move |ctx, args| {
+        let lhs = args.expect::<Value>(ctx, "left-hand side");
+        let rhs = args.expect::<Value>(ctx, "right-hand side");
+        if lhs != rhs {
+            panics.borrow_mut().push(Panic { pos: args.span.start, lhs, rhs });
+        }
+        Value::None
+    });
+}
+
 fn test(
-    loader: &FsLoader,
     ctx: &mut Context,
+    loader: &FsLoader,
+    panics: &Panics,
     src_path: &Path,
     png_path: &Path,
     ref_path: &Path,
@@ -146,7 +171,7 @@ fn test(
     println!("Testing {}", name.display());
 
     let src = fs::read_to_string(src_path).unwrap();
-    let src_id = loader.resolve_path(src_path).unwrap();
+    let src_id = loader.resolve(src_path).unwrap();
 
     let mut ok = true;
     let mut frames = vec![];
@@ -170,7 +195,7 @@ fn test(
             }
         } else {
             let (part_ok, compare_here, part_frames) =
-                test_part(ctx, src_id, part, i, compare_ref, lines);
+                test_part(ctx, panics, src_id, part, i, compare_ref, lines);
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
@@ -210,6 +235,7 @@ fn test(
 
 fn test_part(
     ctx: &mut Context,
+    panics: &Panics,
     src_id: FileId,
     src: &str,
     i: usize,
@@ -220,23 +246,17 @@ fn test_part(
     let (local_compare_ref, ref_diags) = parse_metadata(src, &map);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
-    // We hook up some extra test helpers into the global scope.
-    let mut scope = typst::library::new();
-    let panics = Rc::new(RefCell::new(vec![]));
-    register_helpers(&mut scope, Rc::clone(&panics));
+    let ast = parse(src);
+    let module = eval(ctx, src_id, Rc::new(ast.output));
+    let tree = exec(ctx, &module.output.template);
+    let mut frames = layout(ctx, &tree.output);
 
-    let parsed = parse(src);
-    let evaluated = eval(ctx, src_id, Rc::new(parsed.output));
-    let executed = exec(ctx, &evaluated.output.template);
-    let mut layouted = layout(ctx, &executed.output);
-
-    let mut diags = parsed.diags;
-    diags.extend(evaluated.diags);
-    diags.extend(executed.diags);
+    let mut diags = ast.diags;
+    diags.extend(module.diags);
+    diags.extend(tree.diags);
 
     let mut ok = true;
-
-    for panic in &*panics.borrow() {
+    for panic in panics.borrow().iter() {
         let line = map.location(panic.pos).unwrap().line;
         println!("  Assertion failed in line {} ❌", lines + line);
         if let (Some(lhs), Some(rhs)) = (&panic.lhs, &panic.rhs) {
@@ -247,6 +267,8 @@ fn test_part(
         }
         ok = false;
     }
+
+    panics.borrow_mut().clear();
 
     if diags != ref_diags {
         println!("  Subtest {} does not match expected diagnostics. ❌", i);
@@ -279,8 +301,7 @@ fn test_part(
 
             ctx.layouts.turnaround();
 
-            let cached_result = layout(ctx, &executed.output);
-
+            let cached = layout(ctx, &tree.output);
             let misses = ctx
                 .layouts
                 .frames
@@ -297,7 +318,7 @@ fn test_part(
                 );
             }
 
-            if cached_result != layouted {
+            if cached != frames {
                 ok = false;
                 println!(
                     "    Recompilation of subtest {} differs from clean pass ❌",
@@ -311,10 +332,10 @@ fn test_part(
     }
 
     if !compare_ref {
-        layouted.clear();
+        frames.clear();
     }
 
-    (ok, compare_ref, layouted)
+    (ok, compare_ref, frames)
 }
 
 fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {
@@ -362,28 +383,6 @@ fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {
     }
 
     (compare_ref, diags)
-}
-
-fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
-    scope.def_const("error", Value::Error);
-
-    scope.def_func("args", |_, args| {
-        let repr = typst::pretty::pretty(args);
-        args.items.clear();
-        Value::template(move |ctx| {
-            ctx.set_monospace();
-            ctx.push_text(&repr);
-        })
-    });
-
-    scope.def_func("test", move |ctx, args| {
-        let lhs = args.expect::<Value>(ctx, "left-hand side");
-        let rhs = args.expect::<Value>(ctx, "right-hand side");
-        if lhs != rhs {
-            panics.borrow_mut().push(Panic { pos: args.span.start, lhs, rhs });
-        }
-        Value::None
-    });
 }
 
 fn print_diag(diag: &Diag, map: &LineMap, lines: u32) {

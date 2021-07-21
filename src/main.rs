@@ -1,6 +1,5 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 use anyhow::{anyhow, bail, Context};
 use same_file::is_same_file;
@@ -30,17 +29,18 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Create a loader for fonts and files.
-    let mut loader = typst::loading::FsLoader::new();
-    loader.search_path("fonts");
-    loader.search_system();
+    let loader = typst::loading::FsLoader::new()
+        .with_path("fonts")
+        .with_system()
+        .wrap();
 
     // Resolve the file id of the source file and read the file.
-    let src_id = loader.resolve_path(src_path).context("source file not found")?;
+    let src_id = loader.resolve(src_path).context("source file not found")?;
     let src = fs::read_to_string(&src_path)
         .map_err(|_| anyhow!("failed to read source file"))?;
 
     // Typeset.
-    let mut ctx = typst::Context::new(Rc::new(loader));
+    let mut ctx = typst::Context::new(loader);
     let pass = ctx.typeset(src_id, &src);
 
     // Print diagnostics.
