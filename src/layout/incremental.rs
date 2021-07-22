@@ -278,15 +278,15 @@ impl Constraints {
 /// Extends length-related options by providing convenience methods for setting
 /// minimum and maximum lengths on them, even if they are `None`.
 pub trait OptionExt {
-    // Sets `other` as the value if the Option is `None` or if it contains a
-    // value larger than `other`.
+    /// Sets `other` as the value if `self` is `None` or if it contains a
+    /// value larger than `other`.
     fn set_min(&mut self, other: Length);
 
-    // Sets `other` as the value if the Option is `None` or if it contains a
-    // value smaller than `other`.
+    /// Sets `other` as the value if `self` is `None` or if it contains a
+    /// value smaller than `other`.
     fn set_max(&mut self, other: Length);
 
-    /// Sets `other` as the value if the Option is `Some`.
+    /// Sets `other` as the value if `self` is `Some`.
     fn set_if_some(&mut self, other: Length);
 }
 
