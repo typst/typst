@@ -6,7 +6,7 @@ use rustybuzz::UnicodeBuffer;
 
 use super::{Element, Frame, Glyph, LayoutContext, Text};
 use crate::exec::{FontState, LineState};
-use crate::font::{Face, FaceId, FontStyle, LineMetrics};
+use crate::font::{Face, FaceId, FontVariant, LineMetrics};
 use crate::geom::{Dir, Length, Point, Size};
 use crate::layout::Geometry;
 use crate::util::SliceExt;
@@ -188,9 +188,18 @@ pub fn shape<'a>(
     state: &'a FontState,
 ) -> ShapedText<'a> {
     let mut glyphs = vec![];
-    let families = state.families.iter();
     if !text.is_empty() {
-        shape_segment(ctx, &mut glyphs, 0, text, dir, state, families, None);
+        shape_segment(
+            ctx,
+            &mut glyphs,
+            0,
+            text,
+            dir,
+            state.size,
+            state.variant(),
+            state.families(),
+            None,
+        );
     }
 
     let (size, baseline) = measure(ctx, &glyphs, state);
@@ -212,7 +221,8 @@ fn shape_segment<'a>(
     base: usize,
     text: &str,
     dir: Dir,
-    state: &FontState,
+    size: Length,
+    variant: FontVariant,
     mut families: impl Iterator<Item = &'a str> + Clone,
     mut first_face: Option<FaceId>,
 ) {
@@ -221,20 +231,6 @@ fn shape_segment<'a>(
         // Try to load the next available font family.
         match families.next() {
             Some(family) => {
-                let mut variant = state.variant;
-
-                if state.strong {
-                    variant.weight = variant.weight.thicken(300);
-                }
-
-                if state.emph {
-                    variant.style = match variant.style {
-                        FontStyle::Normal => FontStyle::Italic,
-                        FontStyle::Italic => FontStyle::Normal,
-                        FontStyle::Oblique => FontStyle::Normal,
-                    }
-                }
-
                 if let Some(id) = ctx.fonts.select(family, variant) {
                     break (id, true);
                 }
@@ -280,8 +276,8 @@ fn shape_segment<'a>(
             glyphs.push(ShapedGlyph {
                 face_id,
                 glyph_id: info.glyph_id as u16,
-                x_advance: face.to_em(pos[i].x_advance).to_length(state.size),
-                x_offset: face.to_em(pos[i].x_offset).to_length(state.size),
+                x_advance: face.to_em(pos[i].x_advance).to_length(size),
+                x_offset: face.to_em(pos[i].x_offset).to_length(size),
                 text_index: base + cluster,
                 safe_to_break: !info.unsafe_to_break(),
             });
@@ -332,7 +328,8 @@ fn shape_segment<'a>(
                 base + range.start,
                 &text[range],
                 dir,
-                state,
+                size,
+                variant,
                 families.clone(),
                 first_face,
             );
@@ -362,7 +359,7 @@ fn measure(
     if glyphs.is_empty() {
         // When there are no glyphs, we just use the vertical metrics of the
         // first available font.
-        for family in state.families.iter() {
+        for family in state.families() {
             if let Some(face_id) = ctx.fonts.select(family, state.variant) {
                 expand_vertical(ctx.fonts.get(face_id));
                 break;

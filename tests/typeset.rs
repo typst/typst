@@ -143,10 +143,7 @@ fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
     scope.def_func("args", |_, args| {
         let repr = typst::pretty::pretty(args);
         args.items.clear();
-        Value::template(move |ctx| {
-            ctx.set_monospace();
-            ctx.push_text(&repr);
-        })
+        Value::template(move |ctx| ctx.push_monospace_text(&repr))
     });
     scope.def_func("test", move |ctx, args| {
         let lhs = args.expect::<Value>(ctx, "left-hand side");

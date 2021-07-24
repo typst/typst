@@ -7,7 +7,6 @@ pub use context::*;
 pub use state::*;
 
 use std::fmt::Write;
-use std::rc::Rc;
 
 use crate::diag::Pass;
 use crate::eco::EcoString;
@@ -75,10 +74,7 @@ impl Exec for RawNode {
             ctx.parbreak();
         }
 
-        let snapshot = Rc::clone(&ctx.state.font);
-        ctx.set_monospace();
-        ctx.push_text(&self.text);
-        ctx.state.font = snapshot;
+        ctx.push_monospace_text(&self.text);
 
         if self.block {
             ctx.parbreak();
@@ -143,14 +139,9 @@ impl Exec for Value {
             Value::Str(v) => ctx.push_text(v),
             Value::Template(v) => v.exec(ctx),
             Value::Error => {}
-            other => {
-                // For values which can't be shown "naturally", we print
-                // the representation in monospace.
-                let prev = Rc::clone(&ctx.state.font.families);
-                ctx.set_monospace();
-                ctx.push_text(pretty(other));
-                ctx.state.font_mut().families = prev;
-            }
+            // For values which can't be shown "naturally", we print the
+            // representation in monospace.
+            other => ctx.push_monospace_text(pretty(other)),
         }
     }
 }

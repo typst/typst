@@ -111,6 +111,14 @@ pub struct FontState {
     pub families: Rc<FamilyList>,
     /// The selected font variant.
     pub variant: FontVariant,
+    /// Whether the strong toggle is active or inactive. This determines
+    /// whether the next `*` adds or removes font weight.
+    pub strong: bool,
+    /// Whether the emphasis toggle is active or inactive. This determines
+    /// whether the next `_` makes italic or non-italic.
+    pub emph: bool,
+    /// Whether the monospace toggle is active or inactive.
+    pub monospace: bool,
     /// The font size.
     pub size: Length,
     /// The top end of the text bounding box.
@@ -119,12 +127,6 @@ pub struct FontState {
     pub bottom_edge: VerticalFontMetric,
     /// Glyph color.
     pub fill: Paint,
-    /// Whether the strong toggle is active or inactive. This determines
-    /// whether the next `*` adds or removes font weight.
-    pub strong: bool,
-    /// Whether the emphasis toggle is active or inactive. This determines
-    /// whether the next `_` makes italic or non-italic.
-    pub emph: bool,
     /// The specifications for a strikethrough line, if any.
     pub strikethrough: Option<Rc<LineState>>,
     /// The specifications for a underline, if any.
@@ -138,6 +140,35 @@ impl FontState {
     pub fn families_mut(&mut self) -> &mut FamilyList {
         Rc::make_mut(&mut self.families)
     }
+
+    /// The canonical family iterator.
+    pub fn families(&self) -> impl Iterator<Item = &str> + Clone {
+        let head = if self.monospace {
+            self.families.monospace.as_slice()
+        } else {
+            &[]
+        };
+        head.iter().map(String::as_str).chain(self.families.iter())
+    }
+
+    /// The canonical variant with `strong` and `emph` factored in.
+    pub fn variant(&self) -> FontVariant {
+        let mut variant = self.variant;
+
+        if self.strong {
+            variant.weight = variant.weight.thicken(300);
+        }
+
+        if self.emph {
+            variant.style = match variant.style {
+                FontStyle::Normal => FontStyle::Italic,
+                FontStyle::Italic => FontStyle::Normal,
+                FontStyle::Oblique => FontStyle::Normal,
+            }
+        }
+
+        variant
+    }
 }
 
 impl Default for FontState {
@@ -149,12 +180,13 @@ impl Default for FontState {
                 weight: FontWeight::REGULAR,
                 stretch: FontStretch::NORMAL,
             },
+            strong: false,
+            emph: false,
+            monospace: false,
             size: Length::pt(11.0),
             top_edge: VerticalFontMetric::CapHeight,
             bottom_edge: VerticalFontMetric::Baseline,
             fill: Paint::Color(Color::Rgba(RgbaColor::BLACK)),
-            strong: false,
-            emph: false,
             strikethrough: None,
             underline: None,
             overline: None,

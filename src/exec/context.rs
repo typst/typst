@@ -1,7 +1,7 @@
 use std::mem;
 use std::rc::Rc;
 
-use super::{Exec, ExecWithMap, FontFamily, State};
+use super::{Exec, ExecWithMap, State};
 use crate::diag::{Diag, DiagSet, Pass};
 use crate::eco::EcoString;
 use crate::eval::{ExprMap, Template};
@@ -44,15 +44,6 @@ impl ExecContext {
         self.diags.insert(diag);
     }
 
-    /// Set the font to monospace.
-    pub fn set_monospace(&mut self) {
-        self.state
-            .font_mut()
-            .families_mut()
-            .list
-            .insert(0, FontFamily::Monospace);
-    }
-
     /// Execute a template and return the result as a stack node.
     pub fn exec_template_stack(&mut self, template: &Template) -> StackNode {
         self.exec_stack(|ctx| template.exec(ctx))
@@ -81,6 +72,14 @@ impl ExecContext {
     /// The text is split into lines at newlines.
     pub fn push_text(&mut self, text: impl Into<EcoString>) {
         self.stack.par.push(self.make_text_node(text));
+    }
+
+    /// Push text, but in monospace.
+    pub fn push_monospace_text(&mut self, text: impl Into<EcoString>) {
+        let prev = Rc::clone(&self.state.font);
+        self.state.font_mut().monospace = true;
+        self.push_text(text);
+        self.state.font = prev;
     }
 
     /// Push a word space into the active paragraph.
