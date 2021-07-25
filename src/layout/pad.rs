@@ -31,7 +31,7 @@ impl Layout for PadNode {
             let prev = std::mem::take(&mut frame.item);
             new.push_frame(origin, prev);
 
-            frame.constraints.mutate(padding.size(), &regions);
+            frame.constraints.inflate(padding.size(), &regions);
 
             if self.padding.left.is_relative() || self.padding.right.is_relative() {
                 frame.constraints.base.horizontal = Some(regions.base.width);

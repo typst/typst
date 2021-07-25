@@ -251,7 +251,7 @@ impl Constraints {
     }
 
     /// Changes all constraints by adding the `size` to them if they are `Some`.
-    pub fn mutate(&mut self, size: Size, regions: &Regions) {
+    pub fn inflate(&mut self, size: Size, regions: &Regions) {
         for spec in [
             &mut self.min,
             &mut self.max,
