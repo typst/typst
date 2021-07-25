@@ -5,7 +5,7 @@ use crate::color::{Color, RgbaColor};
 use crate::font::{FontStretch, FontStyle, FontVariant, FontWeight, VerticalFontMetric};
 use crate::geom::*;
 use crate::layout::Paint;
-use crate::paper::{Paper, PaperClass, PAPER_A4};
+use crate::paper::{PaperClass, PAPER_A4};
 
 /// The execution state.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -51,16 +51,7 @@ pub struct PageState {
 }
 
 impl PageState {
-    /// The default page style for the given paper.
-    pub fn new(paper: Paper) -> Self {
-        Self {
-            class: paper.class,
-            size: paper.size(),
-            margins: Sides::splat(None),
-        }
-    }
-
-    /// The margins.
+    /// The resolved margins.
     pub fn margins(&self) -> Sides<Linear> {
         let default = self.class.default_margins();
         Sides {
@@ -74,7 +65,12 @@ impl PageState {
 
 impl Default for PageState {
     fn default() -> Self {
-        Self::new(PAPER_A4)
+        let paper = PAPER_A4;
+        Self {
+            class: paper.class,
+            size: paper.size(),
+            margins: Sides::splat(None),
+        }
     }
 }
 
