@@ -51,6 +51,15 @@ pub struct LayoutNode {
 
 impl LayoutNode {
     /// Create a new instance from any node that satisifies the required bounds.
+    #[cfg(not(feature = "layout-cache"))]
+    pub fn new<T>(node: T) -> Self
+    where
+        T: Layout + Debug + Clone + Eq + PartialEq + 'static,
+    {
+        Self { node: Box::new(node) }
+    }
+
+    /// Create a new instance from any node that satisifies the required bounds.
     #[cfg(feature = "layout-cache")]
     pub fn new<T>(node: T) -> Self
     where
@@ -65,15 +74,6 @@ impl LayoutNode {
 
         Self { node: Box::new(node), hash }
     }
-
-    /// Create a new instance from any node that satisifies the required bounds.
-    #[cfg(not(feature = "layout-cache"))]
-    pub fn new<T>(node: T) -> Self
-    where
-        T: Layout + Debug + Clone + Eq + PartialEq + 'static,
-    {
-        Self { node: Box::new(node) }
-    }
 }
 
 impl Layout for LayoutNode {
@@ -82,20 +82,17 @@ impl Layout for LayoutNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        #[cfg(feature = "layout-cache")]
-        {
-            ctx.level += 1;
-            let frames = ctx.layouts.get(self.hash, regions.clone()).unwrap_or_else(|| {
-                let frames = self.node.layout(ctx, regions);
-                ctx.layouts.insert(self.hash, frames.clone(), ctx.level - 1);
-                frames
-            });
-            ctx.level -= 1;
-            frames
-        }
-
         #[cfg(not(feature = "layout-cache"))]
-        self.node.layout(ctx, regions)
+        return self.node.layout(ctx, regions);
+
+        #[cfg(feature = "layout-cache")]
+        ctx.layouts.get(self.hash, regions.clone()).unwrap_or_else(|| {
+            ctx.level += 1;
+            let frames = self.node.layout(ctx, regions);
+            ctx.level -= 1;
+            ctx.layouts.insert(self.hash, frames.clone(), ctx.level);
+            frames
+        })
     }
 }
 

@@ -16,7 +16,7 @@ use typst::eval::{eval, Scope, Value};
 use typst::exec::{exec, State};
 use typst::geom::{self, Length, PathElement, Point, Sides, Size};
 use typst::image::ImageId;
-use typst::layout::{layout, Element, Frame, Geometry, Paint, Text};
+use typst::layout::{layout, Element, Frame, Geometry, LayoutTree, Paint, Text};
 use typst::loading::{FileId, FsLoader};
 use typst::parse::{parse, LineMap, Scanner};
 use typst::syntax::{Location, Pos};
@@ -256,6 +256,7 @@ fn test_part(
     diags.extend(tree.diags);
 
     let mut ok = true;
+
     for panic in panics.borrow().iter() {
         let line = map.location(panic.pos).unwrap().line;
         println!("  Assertion failed in line {} ❌", lines + line);
@@ -290,50 +291,59 @@ fn test_part(
     }
 
     #[cfg(feature = "layout-cache")]
-    {
-        let reference = ctx.layouts.clone();
-        for level in 0 .. reference.levels() {
-            ctx.layouts = reference.clone();
-            ctx.layouts.retain(|x| x == level);
-            if ctx.layouts.is_empty() {
-                continue;
-            }
-
-            ctx.layouts.turnaround();
-
-            let cached = layout(ctx, &tree.output);
-            let misses = ctx
-                .layouts
-                .entries()
-                .filter(|e| e.level() == level && !e.hit() && e.age() == 2)
-                .count();
-
-            if misses > 0 {
-                ok = false;
-                println!(
-                    "    Recompilation had {} cache misses on level {} (Subtest {}) ❌",
-                    misses, level, i
-                );
-            }
-
-            if cached != frames {
-                ok = false;
-                println!(
-                    "    Recompilation of subtest {} differs from clean pass ❌",
-                    i
-                );
-            }
-        }
-
-        ctx.layouts = reference;
-        ctx.layouts.turnaround();
-    }
+    (ok &= test_incremental(ctx, i, &tree.output, &frames));
 
     if !compare_ref {
         frames.clear();
     }
 
     (ok, compare_ref, frames)
+}
+
+#[cfg(feature = "layout-cache")]
+fn test_incremental(
+    ctx: &mut Context,
+    i: usize,
+    tree: &LayoutTree,
+    frames: &[Rc<Frame>],
+) -> bool {
+    let mut ok = true;
+
+    let reference = ctx.layouts.clone();
+    for level in 0 .. reference.levels() {
+        ctx.layouts = reference.clone();
+        ctx.layouts.retain(|x| x == level);
+        if ctx.layouts.is_empty() {
+            continue;
+        }
+
+        ctx.layouts.turnaround();
+
+        let cached = layout(ctx, tree);
+        let misses = ctx
+            .layouts
+            .entries()
+            .filter(|e| e.level() == level && !e.hit() && e.age() == 2)
+            .count();
+
+        if misses > 0 {
+            println!(
+                "    Subtest {} relayout had {} cache misses on level {} ❌",
+                i, misses, level
+            );
+            ok = false;
+        }
+
+        if cached != frames {
+            println!("    Subtest {} relayout differs from clean pass ❌", i);
+            ok = false;
+        }
+    }
+
+    ctx.layouts = reference;
+    ctx.layouts.turnaround();
+
+    ok
 }
 
 fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {
