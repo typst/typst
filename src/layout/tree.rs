@@ -86,7 +86,7 @@ impl Layout for LayoutNode {
         return self.node.layout(ctx, regions);
 
         #[cfg(feature = "layout-cache")]
-        ctx.layouts.get(self.hash, regions.clone()).unwrap_or_else(|| {
+        ctx.layouts.get(self.hash, regions).unwrap_or_else(|| {
             ctx.level += 1;
             let frames = self.node.layout(ctx, regions);
             ctx.level -= 1;

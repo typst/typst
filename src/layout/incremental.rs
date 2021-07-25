@@ -50,11 +50,11 @@ impl LayoutCache {
     pub fn get(
         &mut self,
         hash: u64,
-        regions: Regions,
+        regions: &Regions,
     ) -> Option<Vec<Constrained<Rc<Frame>>>> {
         let entries = self.frames.get_mut(&hash)?;
         for entry in entries {
-            if let Some(frames) = entry.check(regions.clone()) {
+            if let Some(frames) = entry.check(regions) {
                 return Some(frames);
             }
         }
@@ -136,9 +136,11 @@ impl FramesEntry {
 
     /// Checks if the cached frames are valid in the given regions and returns
     /// them if so.
-    pub fn check(&mut self, mut regions: Regions) -> Option<Vec<Constrained<Rc<Frame>>>> {
-        for (i, frame) in self.frames.iter().enumerate() {
-            if (i != 0 && !regions.next()) || !frame.constraints.check(&regions) {
+    pub fn check(&mut self, regions: &Regions) -> Option<Vec<Constrained<Rc<Frame>>>> {
+        let mut iter = regions.iter();
+        for frame in &self.frames {
+            let (current, base) = iter.next()?;
+            if !frame.constraints.check(current, base, regions.expand) {
                 return None;
             }
         }
@@ -175,11 +177,13 @@ impl FramesEntry {
     }
 }
 
-/// Carries an item that only applies to certain regions and the constraints
+/// Carries an item that is only valid in certain regions and the constraints
 /// that describe these regions.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Constrained<T> {
+    /// The item that is only valid if the constraints are fullfilled.
     pub item: T,
+    /// Constraints on regions in which the item is valid.
     pub constraints: Constraints,
 }
 
@@ -218,16 +222,13 @@ impl Constraints {
         }
     }
 
-    #[cfg(feature = "layout-cache")]
-    fn check(&self, regions: &Regions) -> bool {
-        if self.expand != regions.expand {
-            return false;
-        }
-
-        let base = regions.base.to_spec();
-        let current = regions.current.to_spec();
-
-        current.eq_by(&self.min, |x, y| y.map_or(true, |y| x.fits(y)))
+    /// Check whether the constraints are fullfilled in a region with the given
+    /// properties.
+    pub fn check(&self, current: Size, base: Size, expand: Spec<bool>) -> bool {
+        let current = current.to_spec();
+        let base = base.to_spec();
+        self.expand == expand
+            && current.eq_by(&self.min, |x, y| y.map_or(true, |y| x.fits(y)))
             && current.eq_by(&self.max, |x, y| y.map_or(true, |y| x < &y))
             && current.eq_by(&self.exact, |x, y| y.map_or(true, |y| x.approx_eq(y)))
             && base.eq_by(&self.base, |x, y| y.map_or(true, |y| x.approx_eq(y)))

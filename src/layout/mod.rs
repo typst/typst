@@ -140,14 +140,21 @@ impl Regions {
         self.backlog.is_empty() && self.last.map_or(true, |size| self.current == size)
     }
 
+    /// An iterator that returns pairs of `(current, base)` that are equivalent
+    /// to what would be produced by calling [`next()`](Self::next) repeatedly
+    /// until all regions are exhausted.
+    pub fn iter(&self) -> impl Iterator<Item = (Size, Size)> + '_ {
+        let first = std::iter::once((self.current, self.base));
+        let backlog = self.backlog.iter().rev();
+        let last = self.last.iter().cycle();
+        first.chain(backlog.chain(last).map(|&s| (s, s)))
+    }
+
     /// Advance to the next region if there is any.
-    pub fn next(&mut self) -> bool {
+    pub fn next(&mut self) {
         if let Some(size) = self.backlog.pop().or(self.last) {
             self.current = size;
             self.base = size;
-            true
-        } else {
-            false
         }
     }
 

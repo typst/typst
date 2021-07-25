@@ -16,11 +16,14 @@ use typst::eval::{eval, Scope, Value};
 use typst::exec::{exec, State};
 use typst::geom::{self, Length, PathElement, Point, Sides, Size};
 use typst::image::ImageId;
-use typst::layout::{layout, Element, Frame, Geometry, LayoutTree, Paint, Text};
+use typst::layout::{layout, Element, Frame, Geometry, Paint, Text};
 use typst::loading::{FileId, FsLoader};
 use typst::parse::{parse, LineMap, Scanner};
 use typst::syntax::{Location, Pos};
 use typst::Context;
+
+#[cfg(feature = "layout-cache")]
+use typst::layout::LayoutTree;
 
 const TYP_DIR: &str = "./typ";
 const REF_DIR: &str = "./ref";
