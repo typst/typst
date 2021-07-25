@@ -96,7 +96,7 @@ fn spacing_impl(ctx: &mut EvalContext, args: &mut FuncArgs, axis: GenAxis) -> Va
     Value::template(move |ctx| {
         if let Some(linear) = spacing {
             // TODO: Should this really always be font-size relative?
-            let amount = linear.resolve(ctx.state.font.size);
+            let amount = linear.resolve(ctx.state.text.size);
             ctx.push_spacing(axis, amount);
         }
     })
@@ -124,7 +124,7 @@ pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
     Value::template(move |ctx| {
         if let Some(horizontal) = horizontal {
-            ctx.state.aligns.cross = horizontal.to_align(ctx.state.lang.dir);
+            ctx.state.aligns.cross = horizontal.to_align(ctx.state.dir);
         }
 
         if let Some(vertical) = vertical {
@@ -260,7 +260,7 @@ pub fn stack(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             .collect();
 
         ctx.push_into_stack(StackNode {
-            dirs: Gen::new(ctx.state.lang.dir, dir),
+            dirs: Gen::new(ctx.state.dir, dir),
             aspect: None,
             children,
         });
@@ -290,7 +290,7 @@ pub fn grid(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             .map(|child| ctx.exec_template_stack(child).into())
             .collect();
 
-        let cross_dir = column_dir.unwrap_or(ctx.state.lang.dir);
+        let cross_dir = column_dir.unwrap_or(ctx.state.dir);
         let main_dir = row_dir.unwrap_or(cross_dir.axis().other().dir(true));
 
         ctx.push_into_stack(GridNode {

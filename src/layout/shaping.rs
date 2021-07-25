@@ -5,7 +5,7 @@ use std::ops::Range;
 use rustybuzz::UnicodeBuffer;
 
 use super::{Element, Frame, Glyph, LayoutContext, Text};
-use crate::exec::{FontState, LineState};
+use crate::exec::{LineState, TextState};
 use crate::font::{Face, FaceId, FontVariant, LineMetrics};
 use crate::geom::{Dir, Length, Point, Size};
 use crate::layout::Geometry;
@@ -23,7 +23,7 @@ pub struct ShapedText<'a> {
     /// The text direction.
     pub dir: Dir,
     /// The properties used for font selection.
-    pub state: &'a FontState,
+    pub state: &'a TextState,
     /// The font size.
     pub size: Size,
     /// The baseline from the top of the frame.
@@ -185,7 +185,7 @@ pub fn shape<'a>(
     ctx: &mut LayoutContext,
     text: &'a str,
     dir: Dir,
-    state: &'a FontState,
+    state: &'a TextState,
 ) -> ShapedText<'a> {
     let mut glyphs = vec![];
     if !text.is_empty() {
@@ -346,7 +346,7 @@ fn shape_segment<'a>(
 fn measure(
     ctx: &mut LayoutContext,
     glyphs: &[ShapedGlyph],
-    state: &FontState,
+    state: &TextState,
 ) -> (Size, Length) {
     let mut width = Length::zero();
     let mut top = Length::zero();
@@ -386,7 +386,7 @@ fn decorate(
     pos: Point,
     width: Length,
     face_id: FaceId,
-    state: &FontState,
+    state: &TextState,
 ) {
     let mut apply = |substate: &LineState, metrics: fn(&Face) -> &LineMetrics| {
         let metrics = metrics(ctx.fonts.get(face_id));

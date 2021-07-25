@@ -8,37 +8,33 @@ use crate::layout::Paint;
 use crate::paper::{Paper, PaperClass, PAPER_A4};
 
 /// The execution state.
-#[derive(Default, Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct State {
-    /// The current language-related settings.
-    pub lang: LangState,
-    /// The current page settings.
-    pub page: PageState,
-    /// The current paragraph settings.
-    pub par: ParState,
-    /// The current font settings.
-    pub font: Rc<FontState>,
+    /// The direction for text and other inline objects.
+    pub dir: Dir,
     /// The current alignments of layouts in their parents.
     pub aligns: Gen<Align>,
+    /// The current page settings.
+    pub page: PageState,
+    /// The current text settings.
+    pub text: Rc<TextState>,
 }
 
 impl State {
-    /// Access the `font` state mutably.
-    pub fn font_mut(&mut self) -> &mut FontState {
-        Rc::make_mut(&mut self.font)
+    /// Access the `text` state mutably.
+    pub fn text_mut(&mut self) -> &mut TextState {
+        Rc::make_mut(&mut self.text)
     }
 }
 
-/// Defines language properties.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct LangState {
-    /// The direction for text and other inline objects.
-    pub dir: Dir,
-}
-
-impl Default for LangState {
+impl Default for State {
     fn default() -> Self {
-        Self { dir: Dir::LTR }
+        Self {
+            dir: Dir::LTR,
+            aligns: Gen::splat(Align::Start),
+            page: PageState::default(),
+            text: Rc::new(TextState::default()),
+        }
     }
 }
 
@@ -82,34 +78,14 @@ impl Default for PageState {
     }
 }
 
-/// Defines paragraph properties.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ParState {
-    /// The spacing between paragraphs (dependent on scaled font size).
-    pub spacing: Linear,
-    /// The spacing between lines (dependent on scaled font size).
-    pub leading: Linear,
-    /// The spacing between words (dependent on scaled font size).
-    // TODO: Don't ignore this.
-    pub word_spacing: Linear,
-}
-
-impl Default for ParState {
-    fn default() -> Self {
-        Self {
-            spacing: Relative::new(1.0).into(),
-            leading: Relative::new(0.5).into(),
-            word_spacing: Relative::new(0.25).into(),
-        }
-    }
-}
-
-/// Defines font properties.
+/// Defines text properties.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct FontState {
-    /// A list of font families with generic class definitions.
+pub struct TextState {
+    /// A list of font families with generic class definitions (the final
+    /// family list also depends on `monospace`).
     pub families: Rc<FamilyList>,
-    /// The selected font variant.
+    /// The selected font variant (the final variant also depends on `strong`
+    /// and `emph`).
     pub variant: FontVariant,
     /// Whether the strong toggle is active or inactive. This determines
     /// whether the next `*` adds or removes font weight.
@@ -121,6 +97,13 @@ pub struct FontState {
     pub monospace: bool,
     /// The font size.
     pub size: Length,
+    /// The spacing between words (dependent on scaled font size).
+    // TODO: Don't ignore this.
+    pub word_spacing: Linear,
+    /// The spacing between lines (dependent on scaled font size).
+    pub line_spacing: Linear,
+    /// The spacing between paragraphs (dependent on scaled font size).
+    pub par_spacing: Linear,
     /// The top end of the text bounding box.
     pub top_edge: VerticalFontMetric,
     /// The bottom end of the text bounding box.
@@ -135,13 +118,13 @@ pub struct FontState {
     pub overline: Option<Rc<LineState>>,
 }
 
-impl FontState {
-    /// Access the `families` mutably.
+impl TextState {
+    /// Access the `families` list mutably.
     pub fn families_mut(&mut self) -> &mut FamilyList {
         Rc::make_mut(&mut self.families)
     }
 
-    /// The canonical family iterator.
+    /// The resolved family iterator.
     pub fn families(&self) -> impl Iterator<Item = &str> + Clone {
         let head = if self.monospace {
             self.families.monospace.as_slice()
@@ -151,7 +134,7 @@ impl FontState {
         head.iter().map(String::as_str).chain(self.families.iter())
     }
 
-    /// The canonical variant with `strong` and `emph` factored in.
+    /// The resolved variant with `strong` and `emph` factored in.
     pub fn variant(&self) -> FontVariant {
         let mut variant = self.variant;
 
@@ -169,9 +152,24 @@ impl FontState {
 
         variant
     }
+
+    /// The resolved word spacing.
+    pub fn word_spacing(&self) -> Length {
+        self.word_spacing.resolve(self.size)
+    }
+
+    /// The resolved line spacing.
+    pub fn line_spacing(&self) -> Length {
+        self.line_spacing.resolve(self.size)
+    }
+
+    /// The resolved paragraph spacing.
+    pub fn par_spacing(&self) -> Length {
+        self.par_spacing.resolve(self.size)
+    }
 }
 
-impl Default for FontState {
+impl Default for TextState {
     fn default() -> Self {
         Self {
             families: Rc::new(FamilyList::default()),
@@ -184,6 +182,9 @@ impl Default for FontState {
             emph: false,
             monospace: false,
             size: Length::pt(11.0),
+            word_spacing: Relative::new(0.25).into(),
+            line_spacing: Relative::new(0.5).into(),
+            par_spacing: Relative::new(1.0).into(),
             top_edge: VerticalFontMetric::CapHeight,
             bottom_edge: VerticalFontMetric::Baseline,
             fill: Paint::Color(Color::Rgba(RgbaColor::BLACK)),
@@ -192,24 +193,6 @@ impl Default for FontState {
             overline: None,
         }
     }
-}
-
-/// Describes a line that could be positioned over, under or on top of text.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct LineState {
-    /// Stroke color of the line.
-    ///
-    /// Defaults to the text color if `None`.
-    pub stroke: Option<Paint>,
-    /// Thickness of the line's stroke. Calling functions should attempt to
-    /// read this value from the appropriate font tables if this is `None`.
-    pub thickness: Option<Linear>,
-    /// Position of the line relative to the baseline. Calling functions should
-    /// attempt to read this value from the appropriate font tables if this is
-    /// `None`.
-    pub offset: Option<Linear>,
-    /// Amount that the line will be longer or shorter than its associated text.
-    pub extent: Linear,
 }
 
 /// Font family definitions.
@@ -275,4 +258,22 @@ impl Display for FontFamily {
             Self::Named(s) => s,
         })
     }
+}
+
+/// Describes a line that is positioned over, under or on top of text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct LineState {
+    /// Stroke color of the line.
+    ///
+    /// Defaults to the text color if `None`.
+    pub stroke: Option<Paint>,
+    /// Thickness of the line's stroke. Calling functions should attempt to
+    /// read this value from the appropriate font tables if this is `None`.
+    pub thickness: Option<Linear>,
+    /// Position of the line relative to the baseline. Calling functions should
+    /// attempt to read this value from the appropriate font tables if this is
+    /// `None`.
+    pub offset: Option<Linear>,
+    /// Amount that the line will be longer or shorter than its associated text.
+    pub extent: Linear,
 }

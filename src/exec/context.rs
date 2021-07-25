@@ -76,10 +76,10 @@ impl ExecContext {
 
     /// Push text, but in monospace.
     pub fn push_monospace_text(&mut self, text: impl Into<EcoString>) {
-        let prev = Rc::clone(&self.state.font);
-        self.state.font_mut().monospace = true;
+        let prev = Rc::clone(&self.state.text);
+        self.state.text_mut().monospace = true;
         self.push_text(text);
-        self.state.font = prev;
+        self.state.text = prev;
     }
 
     /// Push a word space into the active paragraph.
@@ -121,7 +121,7 @@ impl ExecContext {
 
     /// Apply a forced paragraph break.
     pub fn parbreak(&mut self) {
-        let amount = self.state.par.spacing.resolve(self.state.font.size);
+        let amount = self.state.text.par_spacing();
         self.stack.finish_par(&self.state);
         self.stack.push_soft(StackChild::Spacing(amount));
     }
@@ -148,7 +148,7 @@ impl ExecContext {
         ParChild::Text(
             text.into(),
             self.state.aligns.cross,
-            Rc::clone(&self.state.font),
+            Rc::clone(&self.state.text),
         )
     }
 }
@@ -187,7 +187,7 @@ struct StackBuilder {
 impl StackBuilder {
     fn new(state: &State) -> Self {
         Self {
-            dirs: Gen::new(state.lang.dir, Dir::TTB),
+            dirs: Gen::new(state.dir, Dir::TTB),
             children: vec![],
             last: Last::None,
             par: ParBuilder::new(state),
@@ -237,8 +237,8 @@ impl ParBuilder {
     fn new(state: &State) -> Self {
         Self {
             aligns: state.aligns,
-            dir: state.lang.dir,
-            line_spacing: state.par.leading.resolve(state.font.size),
+            dir: state.dir,
+            line_spacing: state.text.line_spacing(),
             children: vec![],
             last: Last::None,
         }

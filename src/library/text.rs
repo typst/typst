@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 
-use crate::exec::{FontState, LineState};
+use crate::exec::{LineState, TextState};
 use crate::font::{FontStretch, FontStyle, FontWeight};
 use crate::layout::Paint;
 
@@ -28,50 +28,50 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let body = args.expect::<Template>(ctx, "body").unwrap_or_default();
 
     Value::template(move |ctx| {
-        let font = ctx.state.font_mut();
+        let state = ctx.state.text_mut();
 
         if let Some(linear) = size {
-            font.size = linear.resolve(font.size);
+            state.size = linear.resolve(state.size);
         }
 
         if let Some(FontDef(list)) = &list {
-            font.families_mut().list = list.clone();
+            state.families_mut().list = list.clone();
         }
 
         if let Some(style) = style {
-            font.variant.style = style;
+            state.variant.style = style;
         }
 
         if let Some(weight) = weight {
-            font.variant.weight = weight;
+            state.variant.weight = weight;
         }
 
         if let Some(stretch) = stretch {
-            font.variant.stretch = stretch;
+            state.variant.stretch = stretch;
         }
 
         if let Some(top_edge) = top_edge {
-            font.top_edge = top_edge;
+            state.top_edge = top_edge;
         }
 
         if let Some(bottom_edge) = bottom_edge {
-            font.bottom_edge = bottom_edge;
+            state.bottom_edge = bottom_edge;
         }
 
         if let Some(fill) = fill {
-            font.fill = Paint::Color(fill);
+            state.fill = Paint::Color(fill);
         }
 
         if let Some(FamilyDef(serif)) = &serif {
-            font.families_mut().serif = serif.clone();
+            state.families_mut().serif = serif.clone();
         }
 
         if let Some(FamilyDef(sans_serif)) = &sans_serif {
-            font.families_mut().sans_serif = sans_serif.clone();
+            state.families_mut().sans_serif = sans_serif.clone();
         }
 
         if let Some(FamilyDef(monospace)) = &monospace {
-            font.families_mut().monospace = monospace.clone();
+            state.families_mut().monospace = monospace.clone();
         }
 
         body.exec(ctx);
@@ -131,22 +131,24 @@ dynamic! {
 
 /// `par`: Configure paragraphs.
 pub fn par(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let spacing = args.named(ctx, "spacing");
-    let leading = args.named(ctx, "leading");
+    let par_spacing = args.named(ctx, "spacing");
+    let line_spacing = args.named(ctx, "leading");
     let word_spacing = args.named(ctx, "word-spacing");
     let body = args.expect::<Template>(ctx, "body").unwrap_or_default();
 
     Value::template(move |ctx| {
-        if let Some(spacing) = spacing {
-            ctx.state.par.spacing = spacing;
+        let state = ctx.state.text_mut();
+
+        if let Some(par_spacing) = par_spacing {
+            state.par_spacing = par_spacing;
         }
 
-        if let Some(leading) = leading {
-            ctx.state.par.leading = leading;
+        if let Some(line_spacing) = line_spacing {
+            state.line_spacing = line_spacing;
         }
 
         if let Some(word_spacing) = word_spacing {
-            ctx.state.par.word_spacing = word_spacing;
+            state.word_spacing = word_spacing;
         }
 
         ctx.parbreak();
@@ -169,7 +171,7 @@ pub fn lang(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
     Value::template(move |ctx| {
         if let Some(dir) = dir.or(iso) {
-            ctx.state.lang.dir = dir;
+            ctx.state.dir = dir;
         }
 
         ctx.parbreak();
@@ -204,7 +206,7 @@ pub fn overline(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 fn line_impl(
     ctx: &mut EvalContext,
     args: &mut FuncArgs,
-    substate: fn(&mut FontState) -> &mut Option<Rc<LineState>>,
+    substate: fn(&mut TextState) -> &mut Option<Rc<LineState>>,
 ) -> Value {
     let stroke = args.eat().or_else(|| args.named(ctx, "stroke"));
     let thickness = args.eat().or_else(|| args.named::<Linear>(ctx, "thickness"));
@@ -223,7 +225,7 @@ fn line_impl(
     });
 
     Value::template(move |ctx| {
-        *substate(ctx.state.font_mut()) = state.clone();
+        *substate(ctx.state.text_mut()) = state.clone();
         body.exec(ctx);
     })
 }

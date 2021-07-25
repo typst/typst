@@ -57,8 +57,8 @@ impl ExecWithMap for SyntaxNode {
             Self::Space => ctx.push_word_space(),
             Self::Linebreak(_) => ctx.linebreak(),
             Self::Parbreak(_) => ctx.parbreak(),
-            Self::Strong(_) => ctx.state.font_mut().strong ^= true,
-            Self::Emph(_) => ctx.state.font_mut().emph ^= true,
+            Self::Strong(_) => ctx.state.text_mut().strong ^= true,
+            Self::Emph(_) => ctx.state.text_mut().emph ^= true,
             Self::Raw(n) => n.exec(ctx),
             Self::Heading(n) => n.exec_with_map(ctx, map),
             Self::List(n) => n.exec_with_map(ctx, map),
@@ -87,10 +87,10 @@ impl ExecWithMap for HeadingNode {
         ctx.parbreak();
 
         let snapshot = ctx.state.clone();
-        let font = ctx.state.font_mut();
+        let text = ctx.state.text_mut();
         let upscale = 1.6 - 0.1 * self.level as f64;
-        font.size *= upscale;
-        font.strong = true;
+        text.size *= upscale;
+        text.strong = true;
 
         self.body.exec_with_map(ctx, map);
         ctx.state = snapshot;
@@ -118,11 +118,11 @@ fn exec_item(ctx: &mut ExecContext, label: EcoString, body: &SyntaxTree, map: &E
     let label = ctx.exec_stack(|ctx| ctx.push_text(label));
     let body = ctx.exec_tree_stack(body, map);
     let stack = StackNode {
-        dirs: Gen::new(Dir::TTB, ctx.state.lang.dir),
+        dirs: Gen::new(Dir::TTB, ctx.state.dir),
         aspect: None,
         children: vec![
             StackChild::Any(label.into(), Gen::default()),
-            StackChild::Spacing(ctx.state.font.size / 2.0),
+            StackChild::Spacing(ctx.state.text.size / 2.0),
             StackChild::Any(body.into(), Gen::default()),
         ],
     };
