@@ -109,10 +109,7 @@ impl<'s> Scanner<'s> {
     /// The previous index in the source string.
     #[inline]
     pub fn last_index(&self) -> usize {
-        self.eaten()
-            .chars()
-            .next_back()
-            .map_or(0, |c| self.index - c.len_utf8())
+        self.eaten().chars().last().map_or(0, |c| self.index - c.len_utf8())
     }
 
     /// The current index in the source string.
