@@ -24,45 +24,45 @@ pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
     Value::template(move |ctx| {
         let snapshot = ctx.state.clone();
+        let state = ctx.state.page_mut();
 
         if let Some(paper) = paper {
-            ctx.state.page.class = paper.class;
-            ctx.state.page.size = paper.size();
+            state.class = paper.class;
+            state.size = paper.size();
         }
 
         if let Some(width) = width {
-            ctx.state.page.class = PaperClass::Custom;
-            ctx.state.page.size.width = width;
+            state.class = PaperClass::Custom;
+            state.size.width = width;
         }
 
         if let Some(height) = height {
-            ctx.state.page.class = PaperClass::Custom;
-            ctx.state.page.size.height = height;
+            state.class = PaperClass::Custom;
+            state.size.height = height;
         }
 
         if let Some(margins) = margins {
-            ctx.state.page.margins = Sides::splat(Some(margins));
+            state.margins = Sides::splat(Some(margins));
         }
 
         if let Some(left) = left {
-            ctx.state.page.margins.left = Some(left);
+            state.margins.left = Some(left);
         }
 
         if let Some(top) = top {
-            ctx.state.page.margins.top = Some(top);
+            state.margins.top = Some(top);
         }
 
         if let Some(right) = right {
-            ctx.state.page.margins.right = Some(right);
+            state.margins.right = Some(right);
         }
 
         if let Some(bottom) = bottom {
-            ctx.state.page.margins.bottom = Some(bottom);
+            state.margins.bottom = Some(bottom);
         }
 
         if flip.unwrap_or(false) {
-            let page = &mut ctx.state.page;
-            std::mem::swap(&mut page.size.width, &mut page.size.height);
+            std::mem::swap(&mut state.size.width, &mut state.size.height);
         }
 
         ctx.pagebreak(false, true, span);
@@ -96,7 +96,7 @@ fn spacing_impl(ctx: &mut EvalContext, args: &mut FuncArgs, axis: GenAxis) -> Va
     Value::template(move |ctx| {
         if let Some(linear) = spacing {
             // TODO: Should this really always be font-size relative?
-            let amount = linear.resolve(ctx.state.text.size);
+            let amount = linear.resolve(ctx.state.font.size);
             ctx.push_spacing(axis, amount);
         }
     })
@@ -180,7 +180,7 @@ pub fn pad(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
 /// `stack`: Stack children along an axis.
 pub fn stack(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let dir = args.named(ctx, "dir").unwrap_or(Dir::TTB);
+    let dir = args.named(ctx, "dir");
     let children: Vec<_> = args.all().collect();
 
     Value::template(move |ctx| {
@@ -192,22 +192,26 @@ pub fn stack(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             })
             .collect();
 
-        ctx.push_into_stack(StackNode {
-            dirs: Gen::new(ctx.state.dir, dir),
-            aspect: None,
-            children,
-        });
+        let mut dirs = Gen::new(None, dir).unwrap_or(ctx.state.dirs);
+
+        // If the directions become aligned, fix up the cross direction since
+        // that's the one that is not user-defined.
+        if dirs.main.axis() == dirs.cross.axis() {
+            dirs.cross = ctx.state.dirs.main;
+        }
+
+        ctx.push_into_stack(StackNode { dirs, aspect: None, children });
     })
 }
 
 /// `grid`: Arrange children into a grid.
 pub fn grid(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let columns = args.named::<Tracks>(ctx, "columns").unwrap_or_default();
-    let rows = args.named::<Tracks>(ctx, "rows").unwrap_or_default();
+    let columns = args.named(ctx, "columns").unwrap_or_default();
+    let rows = args.named(ctx, "rows").unwrap_or_default();
 
     let gutter_columns = args.named(ctx, "gutter-columns");
     let gutter_rows = args.named(ctx, "gutter-rows");
-    let gutter = args
+    let default = args
         .named(ctx, "gutter")
         .map(|v| vec![TrackSizing::Linear(v)])
         .unwrap_or_default();
@@ -217,22 +221,40 @@ pub fn grid(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
     let children: Vec<_> = args.all().collect();
 
+    let tracks = Gen::new(columns, rows);
+    let gutter = Gen::new(
+        gutter_columns.unwrap_or_else(|| default.clone()),
+        gutter_rows.unwrap_or(default),
+    );
+
     Value::template(move |ctx| {
         let children = children
             .iter()
             .map(|child| ctx.exec_template_stack(child).into())
             .collect();
 
-        let cross_dir = column_dir.unwrap_or(ctx.state.dir);
-        let main_dir = row_dir.unwrap_or(cross_dir.axis().other().dir(true));
+        let mut dirs = Gen::new(column_dir, row_dir).unwrap_or(ctx.state.dirs);
+
+        // If the directions become aligned, try to fix up the direction which
+        // is not user-defined.
+        if dirs.main.axis() == dirs.cross.axis() {
+            let target = if column_dir.is_some() {
+                &mut dirs.main
+            } else {
+                &mut dirs.cross
+            };
+
+            *target = if target.axis() == ctx.state.dirs.cross.axis() {
+                ctx.state.dirs.main
+            } else {
+                ctx.state.dirs.cross
+            };
+        }
 
         ctx.push_into_stack(GridNode {
-            dirs: Gen::new(cross_dir, main_dir),
-            tracks: Gen::new(columns.clone(), rows.clone()),
-            gutter: Gen::new(
-                gutter_columns.as_ref().unwrap_or(&gutter).clone(),
-                gutter_rows.as_ref().unwrap_or(&gutter).clone(),
-            ),
+            dirs,
+            tracks: tracks.clone(),
+            gutter: gutter.clone(),
             children,
         })
     })

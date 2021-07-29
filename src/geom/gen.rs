@@ -60,6 +60,16 @@ impl Gen<Length> {
     }
 }
 
+impl<T> Gen<Option<T>> {
+    /// Unwrap the individual fields.
+    pub fn unwrap_or(self, other: Gen<T>) -> Gen<T> {
+        Gen {
+            cross: self.cross.unwrap_or(other.cross),
+            main: self.main.unwrap_or(other.main),
+        }
+    }
+}
+
 impl<T> Get<GenAxis> for Gen<T> {
     type Component = T;
 

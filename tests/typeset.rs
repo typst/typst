@@ -63,8 +63,9 @@ fn main() {
     // We want to have "unbounded" pages, so we allow them to be infinitely
     // large and fit them to match their content.
     let mut state = State::default();
-    state.page.size = Size::new(Length::pt(120.0), Length::inf());
-    state.page.margins = Sides::splat(Some(Length::pt(10.0).into()));
+    let page = state.page_mut();
+    page.size = Size::new(Length::pt(120.0), Length::inf());
+    page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
     // We hook up some extra test helpers into the global scope.
     let mut std = typst::library::new();

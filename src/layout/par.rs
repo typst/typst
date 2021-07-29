@@ -5,7 +5,7 @@ use unicode_bidi::{BidiInfo, Level};
 use xi_unicode::LineBreakIterator;
 
 use super::*;
-use crate::exec::TextState;
+use crate::exec::FontState;
 use crate::util::{EcoString, RangeExt, SliceExt};
 
 type Range = std::ops::Range<usize>;
@@ -29,7 +29,7 @@ pub enum ParChild {
     /// Spacing between other nodes.
     Spacing(Length),
     /// A run of text and how to align it in its line.
-    Text(EcoString, Align, Rc<TextState>),
+    Text(EcoString, Align, Rc<FontState>),
     /// Any child node and how to align it in its line.
     Any(LayoutNode, Align),
 }

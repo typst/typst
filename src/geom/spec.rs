@@ -75,6 +75,16 @@ impl Spec<Length> {
     }
 }
 
+impl<T> Spec<Option<T>> {
+    /// Unwrap the individual fields.
+    pub fn unwrap_or(self, other: Spec<T>) -> Spec<T> {
+        Spec {
+            horizontal: self.horizontal.unwrap_or(other.horizontal),
+            vertical: self.vertical.unwrap_or(other.vertical),
+        }
+    }
+}
+
 impl<T> Get<SpecAxis> for Spec<T> {
     type Component = T;
 

@@ -3,13 +3,13 @@ use std::rc::Rc;
 
 use super::{Exec, ExecWithMap, State};
 use crate::diag::{Diag, DiagSet, Pass};
-use crate::util::EcoString;
 use crate::eval::{ExprMap, Template};
 use crate::geom::{Align, Dir, Gen, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{
     LayoutNode, LayoutTree, PadNode, PageRun, ParChild, ParNode, StackChild, StackNode,
 };
 use crate::syntax::{Span, SyntaxTree};
+use crate::util::EcoString;
 use crate::Context;
 
 /// The context for execution.
@@ -76,10 +76,10 @@ impl ExecContext {
 
     /// Push text, but in monospace.
     pub fn push_monospace_text(&mut self, text: impl Into<EcoString>) {
-        let prev = Rc::clone(&self.state.text);
-        self.state.text_mut().monospace = true;
+        let prev = Rc::clone(&self.state.font);
+        self.state.font_mut().monospace = true;
         self.push_text(text);
-        self.state.text = prev;
+        self.state.font = prev;
     }
 
     /// Push a word space into the active paragraph.
@@ -121,7 +121,7 @@ impl ExecContext {
 
     /// Apply a forced paragraph break.
     pub fn parbreak(&mut self) {
-        let amount = self.state.text.par_spacing();
+        let amount = self.state.par_spacing();
         self.stack.finish_par(&self.state);
         self.stack.push_soft(StackChild::Spacing(amount));
     }
@@ -148,7 +148,7 @@ impl ExecContext {
         ParChild::Text(
             text.into(),
             self.state.aligns.cross,
-            Rc::clone(&self.state.text),
+            Rc::clone(&self.state.font),
         )
     }
 }
@@ -187,7 +187,7 @@ struct StackBuilder {
 impl StackBuilder {
     fn new(state: &State) -> Self {
         Self {
-            dirs: Gen::new(state.dir, Dir::TTB),
+            dirs: state.dirs,
             children: vec![],
             last: Last::None,
             par: ParBuilder::new(state),
@@ -237,8 +237,8 @@ impl ParBuilder {
     fn new(state: &State) -> Self {
         Self {
             aligns: state.aligns,
-            dir: state.dir,
-            line_spacing: state.text.line_spacing(),
+            dir: state.dirs.cross,
+            line_spacing: state.line_spacing(),
             children: vec![],
             last: Last::None,
         }
