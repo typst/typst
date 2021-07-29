@@ -4,7 +4,7 @@ use std::ops::{Add, Deref};
 use std::rc::Rc;
 
 use super::Value;
-use crate::eco::EcoString;
+use crate::util::EcoString;
 use crate::exec::ExecContext;
 use crate::syntax::{Expr, SyntaxTree};
 

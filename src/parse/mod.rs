@@ -15,8 +15,8 @@ pub use tokens::*;
 use std::rc::Rc;
 
 use crate::diag::Pass;
-use crate::eco::EcoString;
 use crate::syntax::*;
+use crate::util::EcoString;
 
 /// Parse a string of source code.
 pub fn parse(src: &str) -> Pass<SyntaxTree> {

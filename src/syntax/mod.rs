@@ -13,7 +13,7 @@ pub use node::*;
 pub use span::*;
 pub use token::*;
 
-use crate::eco::EcoString;
+use crate::util::EcoString;
 
 /// The abstract syntax tree.
 ///

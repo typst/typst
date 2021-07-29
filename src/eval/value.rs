@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use super::{ops, Array, Dict, Function, Template, TemplateFunc};
 use crate::color::{Color, RgbaColor};
-use crate::eco::EcoString;
+use crate::util::EcoString;
 use crate::exec::ExecContext;
 use crate::geom::{Angle, Fractional, Length, Linear, Relative};
 use crate::syntax::Spanned;

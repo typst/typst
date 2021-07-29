@@ -3,7 +3,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 
 use super::{Cast, EvalContext, Value};
-use crate::eco::EcoString;
+use crate::util::EcoString;
 use crate::syntax::{Span, Spanned};
 
 /// An evaluatable function.

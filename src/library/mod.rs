@@ -17,12 +17,12 @@ use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
 
 use crate::color::{Color, RgbaColor};
-use crate::eco::EcoString;
 use crate::eval::{EvalContext, FuncArgs, Scope, Template, Type, Value};
 use crate::exec::{Exec, FontFamily};
 use crate::font::{FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
 use crate::syntax::Spanned;
+use crate::util::EcoString;
 
 /// Construct a scope containing all standard library definitions.
 pub fn new() -> Scope {

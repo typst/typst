@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use super::{Exec, ExecWithMap, State};
 use crate::diag::{Diag, DiagSet, Pass};
-use crate::eco::EcoString;
+use crate::util::EcoString;
 use crate::eval::{ExprMap, Template};
 use crate::geom::{Align, Dir, Gen, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{

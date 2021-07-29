@@ -32,6 +32,7 @@ use std::rc::Rc;
 use crate::font::FontCache;
 use crate::geom::*;
 use crate::image::ImageCache;
+use crate::util::OptionExt;
 use crate::Context;
 
 /// Layout a tree into a collection of frames.

@@ -9,7 +9,7 @@ pub use state::*;
 use std::fmt::Write;
 
 use crate::diag::Pass;
-use crate::eco::EcoString;
+use crate::util::EcoString;
 use crate::eval::{ExprMap, Template, TemplateFunc, TemplateNode, TemplateTree, Value};
 use crate::geom::{Dir, Gen};
 use crate::layout::{LayoutTree, StackChild, StackNode};

@@ -26,7 +26,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 use crate::diag::{Diag, DiagSet, Pass};
-use crate::eco::EcoString;
+use crate::util::EcoString;
 use crate::geom::{Angle, Fractional, Length, Relative};
 use crate::image::ImageCache;
 use crate::loading::{FileId, Loader};

@@ -269,46 +269,9 @@ impl Constraints {
         let current = regions.current.to_spec();
         let base = regions.base.to_spec();
 
-        self.exact.horizontal.set_if_some(current.horizontal);
-        self.exact.vertical.set_if_some(current.vertical);
-        self.base.horizontal.set_if_some(base.horizontal);
-        self.base.vertical.set_if_some(base.vertical);
-    }
-}
-
-/// Extends length-related options by providing convenience methods for setting
-/// minimum and maximum lengths on them, even if they are `None`.
-pub trait OptionExt {
-    /// Sets `other` as the value if `self` is `None` or if it contains a
-    /// value larger than `other`.
-    fn set_min(&mut self, other: Length);
-
-    /// Sets `other` as the value if `self` is `None` or if it contains a
-    /// value smaller than `other`.
-    fn set_max(&mut self, other: Length);
-
-    /// Sets `other` as the value if `self` is `Some`.
-    fn set_if_some(&mut self, other: Length);
-}
-
-impl OptionExt for Option<Length> {
-    fn set_min(&mut self, other: Length) {
-        match self {
-            Some(x) => x.set_min(other),
-            None => *self = Some(other),
-        }
-    }
-
-    fn set_max(&mut self, other: Length) {
-        match self {
-            Some(x) => x.set_max(other),
-            None => *self = Some(other),
-        }
-    }
-
-    fn set_if_some(&mut self, other: Length) {
-        if self.is_some() {
-            *self = Some(other);
-        }
+        self.exact.horizontal.and_set(Some(current.horizontal));
+        self.exact.vertical.and_set(Some(current.vertical));
+        self.base.horizontal.and_set(Some(base.horizontal));
+        self.base.vertical.and_set(Some(base.vertical));
     }
 }

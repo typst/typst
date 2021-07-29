@@ -3,7 +3,7 @@ use std::ops::Deref;
 use unicode_xid::UnicodeXID;
 
 use super::Span;
-use crate::eco::EcoString;
+use crate::util::EcoString;
 
 /// An unicode identifier with a few extra permissible characters.
 ///

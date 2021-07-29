@@ -5,7 +5,7 @@ use std::ops::{Add, AddAssign};
 use std::rc::Rc;
 
 use super::Value;
-use crate::eco::EcoString;
+use crate::util::EcoString;
 
 /// Create a new [`Dict`] from key-value pairs.
 #[macro_export]
@@ -13,7 +13,7 @@ macro_rules! dict {
     ($($key:expr => $value:expr),* $(,)?) => {{
         #[allow(unused_mut)]
         let mut map = std::collections::BTreeMap::new();
-        $(map.insert($crate::eco::EcoString::from($key), $crate::eval::Value::from($value));)*
+        $(map.insert($crate::util::EcoString::from($key), $crate::eval::Value::from($value));)*
         $crate::eval::Dict::from_map(map)
     }};
 }

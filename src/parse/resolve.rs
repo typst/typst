@@ -1,6 +1,6 @@
 use super::{is_newline, Scanner};
-use crate::eco::EcoString;
 use crate::syntax::{Ident, RawNode, Span};
+use crate::util::EcoString;
 
 /// Resolve all escape sequences in a string.
 pub fn resolve_string(string: &str) -> EcoString {
