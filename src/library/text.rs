@@ -1,7 +1,4 @@
-use std::convert::TryFrom;
-
 use crate::exec::{LineState, TextState};
-use crate::font::{FontStretch, FontStyle, FontWeight};
 use crate::layout::Paint;
 
 use super::*;
@@ -15,7 +12,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         Some(FontDef(families))
     };
 
-    let size = args.eat().or_else(|| args.named::<Linear>(ctx, "size"));
+    let size = args.eat::<Linear>().or_else(|| args.named(ctx, "size"));
     let style = args.named(ctx, "style");
     let weight = args.named(ctx, "weight");
     let stretch = args.named(ctx, "stretch");
@@ -104,31 +101,6 @@ castable! {
     ),
 }
 
-dynamic! {
-    FontFamily: "font family",
-    Value::Str(string) => Self::Named(string.to_lowercase()),
-}
-
-dynamic! {
-    FontStyle: "font style",
-}
-
-dynamic! {
-    FontWeight: "font weight",
-    Value::Int(number) => {
-        u16::try_from(number).map_or(Self::BLACK, Self::from_number)
-    },
-}
-
-dynamic! {
-    FontStretch: "font stretch",
-    Value::Relative(relative) => Self::from_ratio(relative.get() as f32),
-}
-
-dynamic! {
-    VerticalFontMetric: "vertical font metric",
-}
-
 /// `par`: Configure paragraphs.
 pub fn par(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let par_spacing = args.named(ctx, "spacing");
@@ -209,7 +181,7 @@ fn line_impl(
     substate: fn(&mut TextState) -> &mut Option<Rc<LineState>>,
 ) -> Value {
     let stroke = args.eat().or_else(|| args.named(ctx, "stroke"));
-    let thickness = args.eat().or_else(|| args.named::<Linear>(ctx, "thickness"));
+    let thickness = args.eat::<Linear>().or_else(|| args.named(ctx, "thickness"));
     let offset = args.named(ctx, "offset");
     let extent = args.named(ctx, "extent").unwrap_or_default();
     let body = args.expect::<Template>(ctx, "body").unwrap_or_default();

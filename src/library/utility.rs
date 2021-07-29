@@ -24,7 +24,7 @@ pub fn repr(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
 /// `len`: The length of a string, an array or a dictionary.
 pub fn len(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    match args.expect::<Spanned<Value>>(ctx, "collection") {
+    match args.expect(ctx, "collection") {
         Some(Spanned { v: Value::Str(v), .. }) => Value::Int(v.len() as i64),
         Some(Spanned { v: Value::Array(v), .. }) => Value::Int(v.len() as i64),
         Some(Spanned { v: Value::Dict(v), .. }) => Value::Int(v.len() as i64),

@@ -13,13 +13,13 @@ pub use layout::*;
 pub use text::*;
 pub use utility::*;
 
-use std::fmt::{self, Display, Formatter};
+use std::convert::TryFrom;
 use std::rc::Rc;
 
 use crate::color::{Color, RgbaColor};
 use crate::eval::{EvalContext, FuncArgs, Scope, Template, Type, Value};
-use crate::exec::{Exec, FontFamily};
-use crate::font::{FontStyle, FontWeight, VerticalFontMetric};
+use crate::exec::Exec;
+use crate::font::{FontFamily, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
 use crate::syntax::Spanned;
 use crate::util::EcoString;
@@ -71,17 +71,17 @@ pub fn new() -> Scope {
     std.def_const("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
 
     // Arbitrary constants.
-    std.def_const("start", AlignValue::Start);
-    std.def_const("center", AlignValue::Center);
-    std.def_const("end", AlignValue::End);
-    std.def_const("left", AlignValue::Left);
-    std.def_const("right", AlignValue::Right);
-    std.def_const("top", AlignValue::Top);
-    std.def_const("bottom", AlignValue::Bottom);
     std.def_const("ltr", Dir::LTR);
     std.def_const("rtl", Dir::RTL);
     std.def_const("ttb", Dir::TTB);
     std.def_const("btt", Dir::BTT);
+    std.def_const("start", Align::Start);
+    std.def_const("center", Align::Center);
+    std.def_const("end", Align::End);
+    std.def_const("left", Align::Left);
+    std.def_const("right", Align::Right);
+    std.def_const("top", Align::Top);
+    std.def_const("bottom", Align::Bottom);
     std.def_const("serif", FontFamily::Serif);
     std.def_const("sans-serif", FontFamily::SansSerif);
     std.def_const("monospace", FontFamily::Monospace);
@@ -101,4 +101,33 @@ pub fn new() -> Scope {
 
 dynamic! {
     Dir: "direction",
+}
+
+dynamic! {
+    Align: "alignment",
+}
+
+dynamic! {
+    FontFamily: "font family",
+    Value::Str(string) => Self::Named(string.to_lowercase()),
+}
+
+dynamic! {
+    FontStyle: "font style",
+}
+
+dynamic! {
+    FontWeight: "font weight",
+    Value::Int(number) => {
+        u16::try_from(number).map_or(Self::BLACK, Self::from_number)
+    },
+}
+
+dynamic! {
+    FontStretch: "font stretch",
+    Value::Relative(relative) => Self::from_ratio(relative.get() as f32),
+}
+
+dynamic! {
+    VerticalFontMetric: "vertical font metric",
 }

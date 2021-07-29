@@ -86,8 +86,8 @@ pub fn ellipse(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
 /// `circle`: A circle with optional content.
 pub fn circle(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let radius = args.named::<Length>(ctx, "radius").map(|r| 2.0 * Linear::from(r));
-    let width = radius.or_else(|| args.named(ctx, "width"));
+    let diameter = args.named::<Length>(ctx, "radius").map(|r| 2.0 * Linear::from(r));
+    let width = diameter.or_else(|| args.named(ctx, "width"));
     let height = width.is_none().then(|| args.named(ctx, "height")).flatten();
     let fill = args.named(ctx, "fill");
     let body = args.eat().unwrap_or_default();

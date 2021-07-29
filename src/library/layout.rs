@@ -104,10 +104,10 @@ fn spacing_impl(ctx: &mut EvalContext, args: &mut FuncArgs, axis: GenAxis) -> Va
 
 /// `align`: Configure the alignment along the layouting axes.
 pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let first = args.eat::<AlignValue>();
-    let second = args.eat::<AlignValue>();
-    let mut horizontal = args.named::<AlignValue>(ctx, "horizontal");
-    let mut vertical = args.named::<AlignValue>(ctx, "vertical");
+    let first = args.eat::<Align>();
+    let second = args.eat::<Align>();
+    let mut horizontal = args.named(ctx, "horizontal");
+    let mut vertical = args.named(ctx, "vertical");
     let body = args.expect::<Template>(ctx, "body").unwrap_or_default();
 
     for value in first.into_iter().chain(second) {
@@ -124,83 +124,16 @@ pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
     Value::template(move |ctx| {
         if let Some(horizontal) = horizontal {
-            ctx.state.aligns.cross = horizontal.to_align(ctx.state.dir);
+            ctx.state.aligns.cross = horizontal;
         }
 
         if let Some(vertical) = vertical {
-            let new = vertical.to_align(Dir::TTB);
-            if ctx.state.aligns.main != new {
-                ctx.state.aligns.main = new;
-                ctx.parbreak();
-            }
+            ctx.state.aligns.main = vertical;
+            ctx.parbreak();
         }
 
         body.exec(ctx);
     })
-}
-
-/// An alignment specifier passed to `align`.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub(super) enum AlignValue {
-    Start,
-    Center,
-    End,
-    Left,
-    Right,
-    Top,
-    Bottom,
-}
-
-impl AlignValue {
-    fn axis(self) -> Option<SpecAxis> {
-        match self {
-            Self::Start => None,
-            Self::Center => None,
-            Self::End => None,
-            Self::Left => Some(SpecAxis::Horizontal),
-            Self::Right => Some(SpecAxis::Horizontal),
-            Self::Top => Some(SpecAxis::Vertical),
-            Self::Bottom => Some(SpecAxis::Vertical),
-        }
-    }
-
-    fn to_align(self, dir: Dir) -> Align {
-        let side = |is_at_positive_start| {
-            if dir.is_positive() == is_at_positive_start {
-                Align::Start
-            } else {
-                Align::End
-            }
-        };
-
-        match self {
-            Self::Start => Align::Start,
-            Self::Center => Align::Center,
-            Self::End => Align::End,
-            Self::Left => side(true),
-            Self::Right => side(false),
-            Self::Top => side(true),
-            Self::Bottom => side(false),
-        }
-    }
-}
-
-impl Display for AlignValue {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Start => "start",
-            Self::Center => "center",
-            Self::End => "end",
-            Self::Left => "left",
-            Self::Right => "right",
-            Self::Top => "top",
-            Self::Bottom => "bottom",
-        })
-    }
-}
-
-dynamic! {
-    AlignValue: "alignment",
 }
 
 /// `box`: Place content in a rectangular box.
@@ -247,7 +180,7 @@ pub fn pad(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
 /// `stack`: Stack children along an axis.
 pub fn stack(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let dir = args.named::<Dir>(ctx, "dir").unwrap_or(Dir::TTB);
+    let dir = args.named(ctx, "dir").unwrap_or(Dir::TTB);
     let children: Vec<_> = args.all().collect();
 
     Value::template(move |ctx| {
@@ -272,10 +205,10 @@ pub fn grid(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
     let columns = args.named::<Tracks>(ctx, "columns").unwrap_or_default();
     let rows = args.named::<Tracks>(ctx, "rows").unwrap_or_default();
 
-    let gutter_columns = args.named::<Tracks>(ctx, "gutter-columns");
-    let gutter_rows = args.named::<Tracks>(ctx, "gutter-rows");
+    let gutter_columns = args.named(ctx, "gutter-columns");
+    let gutter_rows = args.named(ctx, "gutter-rows");
     let gutter = args
-        .named::<Linear>(ctx, "gutter")
+        .named(ctx, "gutter")
         .map(|v| vec![TrackSizing::Linear(v)])
         .unwrap_or_default();
 

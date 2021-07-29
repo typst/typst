@@ -1,8 +1,9 @@
-use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
 
 use crate::color::{Color, RgbaColor};
-use crate::font::{FontStretch, FontStyle, FontVariant, FontWeight, VerticalFontMetric};
+use crate::font::{
+    FontFamily, FontStretch, FontStyle, FontVariant, FontWeight, VerticalFontMetric,
+};
 use crate::geom::*;
 use crate::layout::Paint;
 use crate::paper::{PaperClass, PAPER_A4};
@@ -233,26 +234,6 @@ impl Default for FamilyList {
             monospace: vec!["inconsolata".into()],
             base: vec!["twitter color emoji".into(), "latin modern math".into()],
         }
-    }
-}
-
-/// A generic or named font family.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum FontFamily {
-    Serif,
-    SansSerif,
-    Monospace,
-    Named(String),
-}
-
-impl Display for FontFamily {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Serif => "serif",
-            Self::SansSerif => "sans-serif",
-            Self::Monospace => "monospace",
-            Self::Named(s) => s,
-        })
     }
 }
 
