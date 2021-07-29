@@ -9,7 +9,7 @@ use crate::geom::{Length, Path, Point, Size};
 use crate::image::ImageId;
 
 /// A finished layout with elements at fixed positions.
-#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Frame {
     /// The size of the frame.
     pub size: Size,

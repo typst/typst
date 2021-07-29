@@ -163,7 +163,7 @@ impl Display for VerticalFontMetric {
 /// A length in em units.
 ///
 /// `1em` is the same as the font size.
-#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, PartialOrd)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, PartialOrd)]
 pub struct Em(N64);
 
 impl Em {
@@ -370,7 +370,7 @@ pub struct FaceInfo {
 }
 
 /// Properties that distinguish a face from other faces in the same family.
-#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 #[derive(Serialize, Deserialize)]
 pub struct FontVariant {
     /// The style of the face (normal / italic / oblique).

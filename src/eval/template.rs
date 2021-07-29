@@ -9,7 +9,7 @@ use crate::syntax::{Expr, SyntaxTree};
 use crate::util::EcoString;
 
 /// A template value: `[*Hi* there]`.
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Template {
     nodes: Rc<Vec<TemplateNode>>,
 }

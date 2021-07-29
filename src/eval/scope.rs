@@ -10,7 +10,7 @@ use super::{EcoString, EvalContext, FuncArgs, Function, Value};
 pub type Slot = Rc<RefCell<Value>>;
 
 /// A stack of scopes.
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Scopes<'a> {
     /// The active scope.
     pub top: Scope,

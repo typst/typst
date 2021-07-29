@@ -8,7 +8,7 @@ use super::*;
 ///
 /// _This is only available when the `layout-cache` feature is enabled._
 #[cfg(feature = "layout-cache")]
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct LayoutCache {
     /// Maps from node hashes to the resulting frames and regions in which the
     /// frames are valid. The right hand side of the hash map is a vector of

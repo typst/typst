@@ -3,7 +3,7 @@ use super::*;
 use serde::{Deserialize, Serialize};
 
 /// A bezier path.
-#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Path(pub Vec<PathElement>);
 

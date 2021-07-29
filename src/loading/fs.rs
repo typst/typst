@@ -17,7 +17,7 @@ use crate::util::PathExt;
 /// Loads fonts and images from the local file system.
 ///
 /// _This is only available when the `fs` feature is enabled._
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct FsLoader {
     faces: Vec<FaceInfo>,
     paths: RefCell<HashMap<FileId, PathBuf>>,
