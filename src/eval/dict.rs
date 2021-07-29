@@ -60,11 +60,6 @@ impl Dict {
         Rc::make_mut(&mut self.map).insert(key, value);
     }
 
-    /// Extend the dictionary with the values from another dictionary.
-    pub fn extend(&mut self, other: &Dict) {
-        Rc::make_mut(&mut self.map).extend(other.into_iter())
-    }
-
     /// Clear the dictionary.
     pub fn clear(&mut self) {
         if Rc::strong_count(&mut self.map) == 1 {
@@ -72,12 +67,6 @@ impl Dict {
         } else {
             *self = Self::new();
         }
-    }
-
-    /// Iterate over pairs of the contained keys and values.
-    pub fn into_iter(&self) -> impl Iterator<Item = (EcoString, Value)> + Clone + '_ {
-        // TODO: Actually consume the map if the ref-count is 1?
-        self.iter().map(|(k, v)| (k.clone(), v.clone()))
     }
 
     /// Iterate over pairs of references to the contained keys and values.
@@ -98,9 +87,45 @@ impl Debug for Dict {
     }
 }
 
+impl Add for Dict {
+    type Output = Self;
+
+    fn add(mut self, rhs: Dict) -> Self::Output {
+        self += rhs;
+        self
+    }
+}
+
+impl AddAssign for Dict {
+    fn add_assign(&mut self, rhs: Dict) {
+        match Rc::try_unwrap(rhs.map) {
+            Ok(map) => self.extend(map),
+            Err(rc) => self.extend(rc.iter().map(|(k, v)| (k.clone(), v.clone()))),
+        }
+    }
+}
+
 impl FromIterator<(EcoString, Value)> for Dict {
     fn from_iter<T: IntoIterator<Item = (EcoString, Value)>>(iter: T) -> Self {
         Dict { map: Rc::new(iter.into_iter().collect()) }
+    }
+}
+
+impl Extend<(EcoString, Value)> for Dict {
+    fn extend<T: IntoIterator<Item = (EcoString, Value)>>(&mut self, iter: T) {
+        Rc::make_mut(&mut self.map).extend(iter);
+    }
+}
+
+impl IntoIterator for Dict {
+    type Item = (EcoString, Value);
+    type IntoIter = std::collections::btree_map::IntoIter<EcoString, Value>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match Rc::try_unwrap(self.map) {
+            Ok(map) => map.into_iter(),
+            Err(rc) => (*rc).clone().into_iter(),
+        }
     }
 }
 
@@ -110,20 +135,5 @@ impl<'a> IntoIterator for &'a Dict {
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
-    }
-}
-
-impl Add<&Dict> for Dict {
-    type Output = Self;
-
-    fn add(mut self, rhs: &Dict) -> Self::Output {
-        self.extend(rhs);
-        self
-    }
-}
-
-impl AddAssign<&Dict> for Dict {
-    fn add_assign(&mut self, rhs: &Dict) {
-        self.extend(rhs);
     }
 }

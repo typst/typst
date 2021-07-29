@@ -11,10 +11,10 @@ pub fn join(lhs: Value, rhs: Value) -> Result<Value, Value> {
         (a, None) => a,
         (None, b) => b,
 
-        (Str(a), Str(b)) => Str(a + &b),
-        (Array(a), Array(b)) => Array(a + &b),
-        (Dict(a), Dict(b)) => Dict(a + &b),
-        (Template(a), Template(b)) => Template(a + &b),
+        (Str(a), Str(b)) => Str(a + b),
+        (Array(a), Array(b)) => Array(a + b),
+        (Dict(a), Dict(b)) => Dict(a + b),
+        (Template(a), Template(b)) => Template(a + b),
         (Template(a), Str(b)) => Template(a + b),
         (Str(a), Template(b)) => Template(a + b),
 
@@ -74,10 +74,10 @@ pub fn add(lhs: Value, rhs: Value) -> Value {
 
         (Fractional(a), Fractional(b)) => Fractional(a + b),
 
-        (Str(a), Str(b)) => Str(a + &b),
-        (Array(a), Array(b)) => Array(a + &b),
-        (Dict(a), Dict(b)) => Dict(a + &b),
-        (Template(a), Template(b)) => Template(a + &b),
+        (Str(a), Str(b)) => Str(a + b),
+        (Array(a), Array(b)) => Array(a + b),
+        (Dict(a), Dict(b)) => Dict(a + b),
+        (Template(a), Template(b)) => Template(a + b),
         (Template(a), Str(b)) => Template(a + b),
         (Str(a), Template(b)) => Template(a + b),
 

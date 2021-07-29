@@ -73,11 +73,6 @@ impl Array {
         Rc::make_mut(&mut self.vec).push(value);
     }
 
-    /// Extend the array with the values from another array.
-    pub fn extend(&mut self, other: &Array) {
-        Rc::make_mut(&mut self.vec).extend(other.into_iter())
-    }
-
     /// Clear the array.
     pub fn clear(&mut self) {
         if Rc::strong_count(&mut self.vec) == 1 {
@@ -90,18 +85,12 @@ impl Array {
     /// Repeat this array `n` times.
     pub fn repeat(&self, n: usize) -> Self {
         let len = self.len().checked_mul(n).expect("capacity overflow");
-        self.into_iter().cycle().take(len).collect()
+        self.iter().cloned().cycle().take(len).collect()
     }
 
     /// Iterate over references to the contained values.
     pub fn iter(&self) -> std::slice::Iter<Value> {
         self.vec.iter()
-    }
-
-    /// Iterate over the contained values.
-    pub fn into_iter(&self) -> impl Iterator<Item = Value> + Clone + '_ {
-        // TODO: Actually consume the vector if the ref-count is 1?
-        self.iter().cloned()
     }
 }
 
@@ -117,9 +106,45 @@ impl Debug for Array {
     }
 }
 
+impl Add for Array {
+    type Output = Self;
+
+    fn add(mut self, rhs: Array) -> Self::Output {
+        self += rhs;
+        self
+    }
+}
+
+impl AddAssign for Array {
+    fn add_assign(&mut self, rhs: Array) {
+        match Rc::try_unwrap(rhs.vec) {
+            Ok(vec) => self.extend(vec),
+            Err(rc) => self.extend(rc.iter().cloned()),
+        }
+    }
+}
+
 impl FromIterator<Value> for Array {
     fn from_iter<T: IntoIterator<Item = Value>>(iter: T) -> Self {
         Array { vec: Rc::new(iter.into_iter().collect()) }
+    }
+}
+
+impl Extend<Value> for Array {
+    fn extend<T: IntoIterator<Item = Value>>(&mut self, iter: T) {
+        Rc::make_mut(&mut self.vec).extend(iter);
+    }
+}
+
+impl IntoIterator for Array {
+    type Item = Value;
+    type IntoIter = std::vec::IntoIter<Value>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match Rc::try_unwrap(self.vec) {
+            Ok(vec) => vec.into_iter(),
+            Err(rc) => (*rc).clone().into_iter(),
+        }
     }
 }
 
@@ -129,20 +154,5 @@ impl<'a> IntoIterator for &'a Array {
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
-    }
-}
-
-impl Add<&Array> for Array {
-    type Output = Self;
-
-    fn add(mut self, rhs: &Array) -> Self::Output {
-        self.extend(rhs);
-        self
-    }
-}
-
-impl AddAssign<&Array> for Array {
-    fn add_assign(&mut self, rhs: &Array) {
-        self.extend(rhs);
     }
 }

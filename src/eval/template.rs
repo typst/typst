@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
-use std::ops::{Add, Deref};
+use std::ops::{Add, AddAssign, Deref};
 use std::rc::Rc;
 
 use super::Value;
-use crate::util::EcoString;
 use crate::exec::ExecContext;
 use crate::syntax::{Expr, SyntaxTree};
+use crate::util::EcoString;
 
 /// A template value: `[*Hi* there]`.
 #[derive(Default, Debug, Clone)]
@@ -50,12 +50,22 @@ impl PartialEq for Template {
     }
 }
 
-impl Add<&Template> for Template {
+impl Add for Template {
     type Output = Self;
 
-    fn add(mut self, rhs: &Self) -> Self::Output {
-        Rc::make_mut(&mut self.nodes).extend(rhs.nodes.iter().cloned());
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self += rhs;
         self
+    }
+}
+
+impl AddAssign for Template {
+    fn add_assign(&mut self, rhs: Template) {
+        let sink = Rc::make_mut(&mut self.nodes);
+        match Rc::try_unwrap(rhs.nodes) {
+            Ok(source) => sink.extend(source),
+            Err(rc) => sink.extend(rc.iter().cloned()),
+        }
     }
 }
 

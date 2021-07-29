@@ -274,11 +274,17 @@ impl PartialOrd for EcoString {
     }
 }
 
-impl Add<&Self> for EcoString {
+impl Add for EcoString {
     type Output = Self;
 
-    fn add(self, rhs: &Self) -> Self::Output {
+    fn add(self, rhs: Self) -> Self::Output {
         self + rhs.as_str()
+    }
+}
+
+impl AddAssign for EcoString {
+    fn add_assign(&mut self, rhs: EcoString) {
+        self.push_str(&rhs);
     }
 }
 
