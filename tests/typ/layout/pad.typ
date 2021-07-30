@@ -10,8 +10,7 @@
   #rect(width: 20pt, height: 20pt, fill: rgb("eb5278"))
 ]
 
-// Error: 13-23 missing argument: body
-Hi #box(pad(left: 10pt)) there
+Hi #box(pad(left: 10pt)[]) there
 
 ---
 #let pad(body) = pad(left: 10pt, right: 10pt, body)

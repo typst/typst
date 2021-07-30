@@ -11,8 +11,7 @@
 #let value = [foo]
 
 // Import multiple things.
-// Error: 9-10 expected expression, found comma
-#import ,fn, value from "target.typ"
+#import fn, value from "target.typ"
 #fn[Like and Subscribe!]
 #value
 
@@ -23,10 +22,6 @@
 }
 
 #test(b, 1)
-
-// This should not exist yet
-// Error: 1-3 unknown variable
-#d
 
 // A wildcard import.
 #import * from "target.typ"
@@ -45,30 +40,35 @@
 #import a, c, from "target.typ"
 
 ---
-// Test bad imports.
-// Ref: false
-
 // Error: 19-21 file not found
 #import name from ""
 
+---
 // Error: 16-27 file not found
 #import * from "lib/0.2.1"
 
+---
 // Some non-text stuff.
 // Error: 16-37 file is not valid utf-8
 #import * from "../../res/rhino.png"
 
+---
 // Unresolved import.
 // Error: 9-21 unresolved import
 #import non_existing from "target.typ"
 
-// Cyclic import.
-// Error: 16-41 cyclic import
-#import * from "./importable/cycle1.typ"
+---
+// Cyclic import of this very file.
+// Error: 16-30 cyclic import
+#import * from "./import.typ"
 
 ---
-// Test bad syntax.
+// Cyclic import in other file.
+#import * from "./importable/cycle1.typ"
 
+This is never reached.
+
+---
 // Error: 8 expected import items
 // Error: 8 expected keyword `from`
 #import
@@ -100,7 +100,6 @@
 #from "target.typ"
 
 // Should output `target`.
-// Error: 1:16-2:2 file not found
 // Error: 2:2 expected semicolon or line break
 #import * from "target.typ
 "target

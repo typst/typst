@@ -10,12 +10,6 @@ Auto-sized square. \
 ]
 
 ---
-// Length wins over width and height.
-// Error: 09-20 unexpected argument
-// Error: 22-34 unexpected argument
-#square(width: 10cm, height: 20cm, length: 1cm, fill: rgb("eb5278"))
-
----
 // Test height overflow.
 #page!(width: 75pt, height: 100pt)
 #square(fill: conifer)[
@@ -28,3 +22,8 @@ Auto-sized square. \
 #square(fill: conifer)[
     But, soft! what light through yonder window breaks?
 ]
+
+---
+// Length wins over width and height.
+// Error: 09-20 unexpected argument
+#square(width: 10cm, height: 20cm, length: 1cm, fill: rgb("eb5278"))

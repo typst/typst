@@ -3,26 +3,26 @@ use crate::layout::{FixedNode, GridNode, PadNode, StackChild, StackNode, TrackSi
 use crate::paper::{Paper, PaperClass};
 
 /// `page`: Configure pages.
-pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let span = args.span;
-    let paper = args.eat::<Spanned<EcoString>>().and_then(|name| {
-        Paper::from_name(&name.v).or_else(|| {
-            ctx.diag(error!(name.span, "invalid paper name"));
-            None
-        })
-    });
+pub fn page(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    let paper = match args.eat::<Spanned<EcoString>>() {
+        Some(name) => match Paper::from_name(&name.v) {
+            None => bail!(args.file, name.span, "invalid paper name"),
+            paper => paper,
+        },
+        None => None,
+    };
 
-    let width = args.named(ctx, "width");
-    let height = args.named(ctx, "height");
-    let margins = args.named(ctx, "margins");
-    let left = args.named(ctx, "left");
-    let top = args.named(ctx, "top");
-    let right = args.named(ctx, "right");
-    let bottom = args.named(ctx, "bottom");
-    let flip = args.named(ctx, "flip");
-    let body = args.expect::<Template>(ctx, "body").unwrap_or_default();
+    let width = args.named("width")?;
+    let height = args.named("height")?;
+    let margins = args.named("margins")?;
+    let left = args.named("left")?;
+    let top = args.named("top")?;
+    let right = args.named("right")?;
+    let bottom = args.named("bottom")?;
+    let flip = args.named("flip")?;
+    let body = args.expect::<Template>("body")?;
 
-    Value::template(move |ctx| {
+    Ok(Value::template(move |ctx| {
         let snapshot = ctx.state.clone();
         let state = ctx.state.page_mut();
 
@@ -65,50 +65,45 @@ pub fn page(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             std::mem::swap(&mut state.size.width, &mut state.size.height);
         }
 
-        ctx.pagebreak(false, true, span);
+        ctx.pagebreak(false, true);
         body.exec(ctx);
 
         ctx.state = snapshot;
-        ctx.pagebreak(true, false, span);
-    })
+        ctx.pagebreak(true, false);
+    }))
 }
 
 /// `pagebreak`: Start a new page.
-pub fn pagebreak(_: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let span = args.span;
-    Value::template(move |ctx| {
-        ctx.pagebreak(true, true, span);
-    })
+pub fn pagebreak(_: &mut EvalContext, _: &mut FuncArgs) -> TypResult<Value> {
+    Ok(Value::template(move |ctx| ctx.pagebreak(true, true)))
 }
 
 /// `h`: Horizontal spacing.
-pub fn h(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    spacing_impl(ctx, args, GenAxis::Cross)
+pub fn h(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    spacing_impl(args, GenAxis::Cross)
 }
 
 /// `v`: Vertical spacing.
-pub fn v(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    spacing_impl(ctx, args, GenAxis::Main)
+pub fn v(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    spacing_impl(args, GenAxis::Main)
 }
 
-fn spacing_impl(ctx: &mut EvalContext, args: &mut FuncArgs, axis: GenAxis) -> Value {
-    let spacing: Option<Linear> = args.expect(ctx, "spacing");
-    Value::template(move |ctx| {
-        if let Some(linear) = spacing {
-            // TODO: Should this really always be font-size relative?
-            let amount = linear.resolve(ctx.state.font.size);
-            ctx.push_spacing(axis, amount);
-        }
-    })
+fn spacing_impl(args: &mut FuncArgs, axis: GenAxis) -> TypResult<Value> {
+    let spacing = args.expect::<Linear>("spacing")?;
+    Ok(Value::template(move |ctx| {
+        // TODO: Should this really always be font-size relative?
+        let amount = spacing.resolve(ctx.state.font.size);
+        ctx.push_spacing(axis, amount);
+    }))
 }
 
 /// `align`: Configure the alignment along the layouting axes.
-pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+pub fn align(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    let mut horizontal = args.named("horizontal")?;
+    let mut vertical = args.named("vertical")?;
     let first = args.eat::<Align>();
     let second = args.eat::<Align>();
-    let mut horizontal = args.named(ctx, "horizontal");
-    let mut vertical = args.named(ctx, "vertical");
-    let body = args.expect::<Template>(ctx, "body").unwrap_or_default();
+    let body = args.expect::<Template>("body")?;
 
     for value in first.into_iter().chain(second) {
         match value.axis() {
@@ -122,7 +117,7 @@ pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         }
     }
 
-    Value::template(move |ctx| {
+    Ok(Value::template(move |ctx| {
         if let Some(horizontal) = horizontal {
             ctx.state.aligns.cross = horizontal;
         }
@@ -133,37 +128,37 @@ pub fn align(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         }
 
         body.exec(ctx);
-    })
+    }))
 }
 
 /// `box`: Place content in a rectangular box.
-pub fn boxed(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let width = args.named(ctx, "width");
-    let height = args.named(ctx, "height");
+pub fn boxed(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    let width = args.named("width")?;
+    let height = args.named("height")?;
     let body = args.eat().unwrap_or_default();
-    Value::template(move |ctx| {
+    Ok(Value::template(move |ctx| {
         let child = ctx.exec_template_stack(&body).into();
         ctx.push_into_par(FixedNode { width, height, child });
-    })
+    }))
 }
 
 /// `block`: Place content in a block.
-pub fn block(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let body = args.expect(ctx, "body").unwrap_or_default();
-    Value::template(move |ctx| {
+pub fn block(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    let body = args.expect("body")?;
+    Ok(Value::template(move |ctx| {
         let block = ctx.exec_template_stack(&body);
         ctx.push_into_stack(block);
-    })
+    }))
 }
 
 /// `pad`: Pad content at the sides.
-pub fn pad(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+pub fn pad(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
     let all = args.eat();
-    let left = args.named(ctx, "left");
-    let top = args.named(ctx, "top");
-    let right = args.named(ctx, "right");
-    let bottom = args.named(ctx, "bottom");
-    let body = args.expect(ctx, "body").unwrap_or_default();
+    let left = args.named("left")?;
+    let top = args.named("top")?;
+    let right = args.named("right")?;
+    let bottom = args.named("bottom")?;
+    let body = args.expect("body")?;
 
     let padding = Sides::new(
         left.or(all).unwrap_or_default(),
@@ -172,18 +167,18 @@ pub fn pad(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         bottom.or(all).unwrap_or_default(),
     );
 
-    Value::template(move |ctx| {
+    Ok(Value::template(move |ctx| {
         let child = ctx.exec_template_stack(&body).into();
         ctx.push_into_stack(PadNode { padding, child });
-    })
+    }))
 }
 
 /// `stack`: Stack children along an axis.
-pub fn stack(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let dir = args.named(ctx, "dir");
+pub fn stack(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    let dir = args.named("dir")?;
     let children: Vec<_> = args.all().collect();
 
-    Value::template(move |ctx| {
+    Ok(Value::template(move |ctx| {
         let children = children
             .iter()
             .map(|child| {
@@ -201,23 +196,23 @@ pub fn stack(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         }
 
         ctx.push_into_stack(StackNode { dirs, aspect: None, children });
-    })
+    }))
 }
 
 /// `grid`: Arrange children into a grid.
-pub fn grid(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let columns = args.named(ctx, "columns").unwrap_or_default();
-    let rows = args.named(ctx, "rows").unwrap_or_default();
+pub fn grid(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    let columns = args.named("columns")?.unwrap_or_default();
+    let rows = args.named("rows")?.unwrap_or_default();
 
-    let gutter_columns = args.named(ctx, "gutter-columns");
-    let gutter_rows = args.named(ctx, "gutter-rows");
+    let gutter_columns = args.named("gutter-columns")?;
+    let gutter_rows = args.named("gutter-rows")?;
     let default = args
-        .named(ctx, "gutter")
+        .named("gutter")?
         .map(|v| vec![TrackSizing::Linear(v)])
         .unwrap_or_default();
 
-    let column_dir = args.named(ctx, "column-dir");
-    let row_dir = args.named(ctx, "row-dir");
+    let column_dir = args.named("column-dir")?;
+    let row_dir = args.named("row-dir")?;
 
     let children: Vec<_> = args.all().collect();
 
@@ -227,7 +222,7 @@ pub fn grid(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         gutter_rows.unwrap_or(default),
     );
 
-    Value::template(move |ctx| {
+    Ok(Value::template(move |ctx| {
         let children = children
             .iter()
             .map(|child| ctx.exec_template_stack(child).into())
@@ -257,7 +252,7 @@ pub fn grid(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
             gutter: gutter.clone(),
             children,
         })
-    })
+    }))
 }
 
 /// Defines size of rows and columns in a grid.

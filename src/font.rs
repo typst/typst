@@ -316,7 +316,8 @@ impl FontCache {
 }
 
 /// A unique identifier for a loaded font face.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Serialize, Deserialize)]
 pub struct FaceId(u64);
 
 impl FaceId {

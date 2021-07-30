@@ -1,42 +1,23 @@
 // Test for loops.
+// Ref: false
 
 ---
+// Ref: true
+
 // Empty array.
 #for x in () [Nope]
 
-// Array.
-#let sum = 0
-#for x in (1, 2, 3, 4, 5) {
-    sum += x
-}
-
-#test(sum, 15)
-
 // Dictionary is not traversed in insertion order.
-// Should output `age: 1, name: Typst,`.
+// Should output `Age: 2. Name: Typst.`.
 #for k, v in (Name: "Typst", Age: 2) [
     {k}: {v}.
 ]
 
-// String.
-{
-    let first = true
-    let out = for c in "abc" {
-        if not first {
-            ", "
-        }
-        c
-        first = false
-    }
-    test(out, "a, b, c")
-}
-
----
 // Block body.
-// Should output `[1st, 2nd, 3rd, 4th, 5th, 6th]`.
+// Should output `[1st, 2nd, 3rd, 4th, 5th]`.
 {
     "["
-    for v in (1, 2, 3, 4, 5, 6) {
+    for v in (1, 2, 3, 4, 5) {
         if v > 1 [, ]
         [#v]
         if v == 1 [st]
@@ -48,30 +29,60 @@
 }
 
 // Template body.
-// Should output `234`.
+// Should output `2345`.
 #for v in (1, 2, 3, 4, 5, 6, 7) [#if v >= 2 and v <= 5 { repr(v) }]
 
 ---
-// Value of for loops.
-// Ref: false
+#let out = ()
+
+// Values of array.
+#for v in (1, 2, 3) {
+    out += (v,)
+}
+
+// Indices and values of array.
+#for i, v in ("1", "2", "3") {
+    test(repr(i + 1), v)
+}
+
+// Values of dictionary.
+#for v in (a: 4, b: 5) {
+    out += (v,)
+}
+
+// Keys and values of dictionary.
+#for k, v in (a: 6, b: 7) {
+    out += (k,)
+    out += (v,)
+}
+
+#test(out, (1, 2, 3, 4, 5, "a", 6, "b", 7))
+
+// Chars of string.
+#let first = true
+#let joined = for c in "abc" {
+    if not first { ", " }
+    first = false
+    c
+}
+
+#test(joined, "a, b, c")
+
+// Return value.
 #test(for v in "" [], none)
 #test(type(for v in "1" []), "template")
 
 ---
-// Ref: false
-
 // Uniterable expression.
 // Error: 11-15 cannot loop over boolean
 #for v in true {}
 
-// Make sure that we don't complain twice.
-// Error: 11-18 cannot add integer and string
-#for v in 1 + "2" {}
-
-// Errors taint everything.
-#test(error, for v in (1, 2, 3) {
-    if v < 2 [Ok] else {error}
-})
+---
+// Keys and values of strings.
+// Error: 6-10 mismatched pattern
+#for k, v in "hi" {
+    dont-care
+}
 
 ---
 // Error: 5 expected identifier
@@ -89,19 +100,15 @@
 // Error: 15 expected body
 #for v in iter
 
-// Should output `v in iter`.
 // Error: 5 expected identifier
 #for
 v in iter {}
 
-// Should output `A thing`.
 // Error: 7-10 expected identifier, found string
 A#for "v" thing
 
-// Should output `in iter`.
 // Error: 6-9 expected identifier, found string
 #for "v" in iter {}
 
-// Should output `+ b in iter`.
 // Error: 7 expected keyword `in`
 #for a + b in iter {}

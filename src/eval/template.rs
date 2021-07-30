@@ -21,8 +21,15 @@ impl Template {
     }
 
     /// Iterate over the contained template nodes.
-    pub fn iter(&self) -> impl Iterator<Item = &TemplateNode> + '_ {
+    pub fn iter(&self) -> std::slice::Iter<TemplateNode> {
         self.nodes.iter()
+    }
+
+    /// Repeat this template `n` times.
+    pub fn repeat(&self, n: usize) -> Self {
+        let len = self.nodes.len().checked_mul(n).expect("capacity overflow");
+        let nodes = self.iter().cloned().cycle().take(len).collect();
+        Self { nodes: Rc::new(nodes) }
     }
 }
 

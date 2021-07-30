@@ -11,13 +11,14 @@
 // Clamped.
 #test(rgb(-30, 15.5, 0.5), rgb("00ff80"))
 
-// Error: 11-15 missing argument: blue component
-#test(rgb(0, 1), rgb("00ff00"))
+---
+// Error: 6-11 invalid color
+#rgb("lol")
 
-// Error: 11-16 invalid color
-#test(rgb("lol"), error)
+---
+// Error: 6 missing argument: red component
+#rgb()
 
-// Error: 11 missing argument: red component
-// Error: 11 missing argument: green component
-// Error: 11 missing argument: blue component
-#test(rgb(), black)
+---
+// Error: 6-10 missing argument: blue component
+#rgb(0, 1)

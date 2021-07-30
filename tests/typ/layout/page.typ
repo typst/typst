@@ -22,9 +22,6 @@
 // Ensure that specific margins override general margins.
 #page(margins: 0pt, left: 20pt)[Overriden]
 
-// Error: 8-19 unknown variable
-#page!(nonexistant)
-
 // Flipped predefined paper.
 #page("a11", flip: true)[Flipped A11]
 

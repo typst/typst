@@ -77,8 +77,8 @@ impl<'s> LineMap<'s> {
     }
 }
 
-/// Determine the column at the end of the string.
-pub fn search_column(src: &str) -> usize {
+/// Count how many column the string would fill.
+pub fn count_columns(src: &str) -> usize {
     let mut column = 0;
     for c in src.chars().rev() {
         if is_newline(c) {

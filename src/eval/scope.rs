@@ -4,7 +4,9 @@ use std::fmt::{self, Debug, Formatter};
 use std::iter;
 use std::rc::Rc;
 
-use super::{EcoString, EvalContext, FuncArgs, Function, Value};
+use super::{EvalContext, FuncArgs, Function, Value};
+use crate::diag::TypResult;
+use crate::util::EcoString;
 
 /// A slot where a variable is stored.
 pub type Slot = Rc<RefCell<Value>>;
@@ -89,7 +91,7 @@ impl Scope {
     /// Define a constant function.
     pub fn def_func<F>(&mut self, name: impl Into<EcoString>, f: F)
     where
-        F: Fn(&mut EvalContext, &mut FuncArgs) -> Value + 'static,
+        F: Fn(&mut EvalContext, &mut FuncArgs) -> TypResult<Value> + 'static,
     {
         let name = name.into();
         self.def_const(name.clone(), Function::new(Some(name), f));

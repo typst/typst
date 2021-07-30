@@ -10,10 +10,7 @@ First of two
 A
 #box[
     B
-    // Error: 16 cannot modify page from here
     #pagebreak()
-
-    // Error: 11-15 cannot modify page from here
     #page("a4")[]
 ]
 C

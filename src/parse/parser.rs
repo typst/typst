@@ -1,14 +1,17 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Range;
 
-use super::{search_column, TokenMode, Tokens};
-use crate::diag::{Diag, DiagSet};
+use super::{count_columns, TokenMode, Tokens};
+use crate::diag::Error;
+use crate::loading::FileId;
 use crate::syntax::{Pos, Span, Token};
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
-    /// Parsing diagnostics.
-    pub diags: DiagSet,
+    /// The id of the parsed file.
+    file: FileId,
+    /// Parsing errors.
+    errors: Vec<Error>,
     /// An iterator over the source tokens.
     tokens: Tokens<'s>,
     /// The stack of open groups.
@@ -57,11 +60,12 @@ pub enum Group {
 
 impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
-    pub fn new(src: &'s str) -> Self {
+    pub fn new(file: FileId, src: &'s str) -> Self {
         let mut tokens = Tokens::new(src, TokenMode::Markup);
         let next = tokens.next();
         Self {
-            diags: DiagSet::new(),
+            file,
+            errors: vec![],
             tokens,
             groups: vec![],
             next,
@@ -71,39 +75,45 @@ impl<'s> Parser<'s> {
         }
     }
 
-    /// Add a diagnostic.
-    pub fn diag(&mut self, diag: Diag) {
-        self.diags.insert(diag);
+    /// Finish parsing and return all errors.
+    pub fn finish(self) -> Vec<Error> {
+        self.errors
     }
 
-    /// Eat the next token and add a diagnostic that it is not the expected
-    /// `thing`.
+    /// Add an error with location and message.
+    pub fn error(&mut self, span: impl Into<Span>, message: impl Into<String>) {
+        self.errors.push(Error {
+            file: self.file,
+            span: span.into(),
+            message: message.into(),
+        });
+    }
+
+    /// Eat the next token and add an error that it is not the expected `thing`.
     pub fn expected(&mut self, what: &str) {
         let before = self.next_start();
         if let Some(found) = self.eat() {
             let after = self.prev_end();
-            self.diag(error!(
+            self.error(
                 before .. after,
-                "expected {}, found {}",
-                what,
-                found.name(),
-            ));
+                format!("expected {}, found {}", what, found.name()),
+            );
         } else {
-            self.expected_at(what, self.next_start());
+            self.expected_at(self.next_start(), what);
         }
     }
 
-    /// Add a diagnostic that `what` was expected at the given position.
-    pub fn expected_at(&mut self, what: &str, pos: impl Into<Pos>) {
-        self.diag(error!(pos.into(), "expected {}", what));
+    /// Add an error that `what` was expected at the given position.
+    pub fn expected_at(&mut self, pos: impl Into<Pos>, what: &str) {
+        self.error(pos.into(), format!("expected {}", what));
     }
 
-    /// Eat the next token and add a diagnostic that it is unexpected.
+    /// Eat the next token and add an error that it is unexpected.
     pub fn unexpected(&mut self) {
         let before = self.next_start();
         if let Some(found) = self.eat() {
             let after = self.prev_end();
-            self.diag(error!(before .. after, "unexpected {}", found.name()));
+            self.error(before .. after, format!("unexpected {}", found.name()));
         }
     }
 
@@ -159,7 +169,7 @@ impl<'s> Parser<'s> {
                 self.bump();
                 rescan = false;
             } else if required {
-                self.diag(error!(self.next_start(), "expected {}", end.name()));
+                self.error(self.next_start(), format!("expected {}", end.name()));
             }
         }
 
@@ -276,12 +286,12 @@ impl<'s> Parser<'s> {
         Span::new(start, self.prev_end())
     }
 
-    /// Consume the next token if it is the given one and produce a diagnostic
-    /// if not.
+    /// Consume the next token if it is the given one and produce an error if
+    /// not.
     pub fn expect(&mut self, t: Token) -> bool {
         let eaten = self.eat_if(t);
         if !eaten {
-            self.expected_at(t.name(), self.prev_end());
+            self.expected_at(self.prev_end(), t.name());
         }
         eaten
     }
@@ -314,7 +324,7 @@ impl<'s> Parser<'s> {
 
     /// Determine the column for the given index in the source.
     pub fn column(&self, index: usize) -> usize {
-        search_column(self.tokens.scanner().get(.. index))
+        count_columns(self.tokens.scanner().get(.. index))
     }
 
     /// The span from `start` to [`self.prev_end()`](Self::prev_end).

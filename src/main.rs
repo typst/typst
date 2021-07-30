@@ -35,32 +35,35 @@ fn main() -> anyhow::Result<()> {
         .wrap();
 
     // Resolve the file id of the source file and read the file.
-    let src_id = loader.resolve(src_path).context("source file not found")?;
+    let file = loader.resolve(src_path).context("source file not found")?;
     let src = fs::read_to_string(&src_path)
         .map_err(|_| anyhow!("failed to read source file"))?;
 
     // Typeset.
     let mut ctx = typst::Context::new(loader);
-    let pass = ctx.typeset(src_id, &src);
+    match ctx.typeset(file, &src) {
+        // Export the PDF.
+        Ok(document) => {
+            let buffer = typst::export::pdf(&ctx, &document);
+            fs::write(&dest_path, buffer).context("failed to write PDF file")?;
+        }
 
-    // Print diagnostics.
-    let map = typst::parse::LineMap::new(&src);
-    for diag in pass.diags {
-        let start = map.location(diag.span.start).unwrap();
-        let end = map.location(diag.span.end).unwrap();
-        println!(
-            "{}: {}:{}-{}: {}",
-            diag.level,
-            src_path.display(),
-            start,
-            end,
-            diag.message,
-        );
+        // Print diagnostics.
+        Err(errors) => {
+            let map = typst::parse::LineMap::new(&src);
+            for error in errors.iter() {
+                let start = map.location(error.span.start).unwrap();
+                let end = map.location(error.span.end).unwrap();
+                println!(
+                    "Error: {}:{}-{}: {}",
+                    src_path.display(),
+                    start,
+                    end,
+                    error.message,
+                );
+            }
+        }
     }
-
-    // Export the PDF.
-    let buffer = typst::export::pdf(&ctx, &pass.output);
-    fs::write(&dest_path, buffer).context("failed to write PDF file")?;
 
     Ok(())
 }

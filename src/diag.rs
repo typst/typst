@@ -1,113 +1,70 @@
-//! Diagnostics for source code.
-//!
-//! Errors are never fatal, the document will always compile and yield a layout.
-
-use std::collections::BTreeSet;
-use std::fmt::{self, Display, Formatter};
+//! Diagnostics.
 
 use serde::{Deserialize, Serialize};
 
+use crate::loading::FileId;
 use crate::syntax::Span;
 
-/// The result of some pass: Some output `T` and diagnostics.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Pass<T> {
-    /// The output of this compilation pass.
-    pub output: T,
-    /// User diagnostics accumulated in this pass.
-    pub diags: DiagSet,
-}
+/// The result type for typesetting and all its subpasses.
+pub type TypResult<T> = Result<T, Box<Vec<Error>>>;
 
-impl<T> Pass<T> {
-    /// Create a new pass from output and diagnostics.
-    pub fn new(output: T, diags: DiagSet) -> Self {
-        Self { output, diags }
-    }
-}
+/// A result type with a string error message.
+pub type StrResult<T> = Result<T, String>;
 
-/// A set of diagnostics.
-///
-/// Since this is a [`BTreeSet`], there cannot be two equal (up to span)
-/// diagnostics and you can quickly iterate diagnostics in source location
-/// order.
-pub type DiagSet = BTreeSet<Diag>;
-
-/// A diagnostic with severity level and message.
+/// An error in a source file.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct Diag {
-    /// The source code location.
+pub struct Error {
+    /// The file that contains the error.
+    pub file: FileId,
+    /// The erronous location in the source code.
     pub span: Span,
-    /// How severe / important the diagnostic is.
-    pub level: Level,
-    /// A message describing the diagnostic.
+    /// A diagnostic message describing the problem.
     pub message: String,
 }
 
-impl Diag {
-    /// Create a new diagnostic from message and level.
-    pub fn new(span: impl Into<Span>, level: Level, message: impl Into<String>) -> Self {
+impl Error {
+    /// Create a new, bare error.
+    pub fn new(file: FileId, span: impl Into<Span>, message: impl Into<String>) -> Self {
         Self {
+            file,
             span: span.into(),
-            level,
             message: message.into(),
         }
     }
-}
 
-impl Display for Diag {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}: {}", self.level, self.message)
+    /// Create a boxed vector containing one error. The return value is suitable
+    /// as the `Err` variant of a [`TypResult`].
+    pub fn boxed(
+        file: FileId,
+        span: impl Into<Span>,
+        message: impl Into<String>,
+    ) -> Box<Vec<Self>> {
+        Box::new(vec![Self::new(file, span, message)])
+    }
+
+    /// Partially build a vec-boxed error, returning a function that just needs
+    /// the message.
+    ///
+    /// This is useful in to convert from [`StrResult`] to a [`TypResult`] using
+    /// [`map_err`](Result::map_err).
+    pub fn partial(
+        file: FileId,
+        span: impl Into<Span>,
+    ) -> impl FnOnce(String) -> Box<Vec<Self>> {
+        move |message| Self::boxed(file, span, message)
     }
 }
 
-/// How severe / important a diagnostic is.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum Level {
-    Warning,
-    Error,
-}
-
-impl Display for Level {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Warning => "warning",
-            Self::Error => "error",
-        })
-    }
-}
-
-/// Construct a diagnostic with [`Error`](Level::Error) level.
-///
-/// ```
-/// # use typst::error;
-/// # use typst::syntax::Span;
-/// # let span = Span::ZERO;
-/// # let thing = "";
-/// let error = error!(span, "there is an error with {}", thing);
-/// ```
+/// Early-return with a vec-boxed [`Error`].
 #[macro_export]
-macro_rules! error {
-    ($span:expr, $($tts:tt)*) => {
-        $crate::diag::Diag::new(
-            $span,
-            $crate::diag::Level::Error,
-            format!($($tts)*),
-        )
+macro_rules! bail {
+    ($file:expr, $span:expr, $message:expr $(,)?) => {
+        return Err(Box::new(vec![$crate::diag::Error::new(
+            $file, $span, $message,
+        )]));
     };
-}
 
-/// Construct a diagnostic with [`Warning`](Level::Warning) level.
-///
-/// This works exactly like [`error!`].
-#[macro_export]
-macro_rules! warning {
-    ($span:expr, $($tts:tt)*) => {
-        $crate::diag::Diag::new(
-            $span,
-            $crate::diag::Level::Warning,
-            format!($($tts)*),
-        )
+    ($file:expr, $span:expr, $fmt:expr, $($arg:expr),+ $(,)?) => {
+        $crate::bail!($file, $span, format!($fmt, $($arg),+));
     };
 }

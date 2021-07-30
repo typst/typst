@@ -1,34 +1,64 @@
 // Test function calls.
-
----
-// One argument.
-#args(bold)
-
-// One argument and trailing comma.
-#args(1,)
-
-// One named argument.
-#args(a:2)
-
-// Mixed arguments.
-{args(1, b: "2", 3)}
-
-// Should output `() + 2`.
-#args() + 2
-
----
 // Ref: false
+
+---
+// Ref: true
+
+// Ommitted space.
+#font(weight:bold)[Bold]
+
+// Call return value of function with body.
+#let f(x, body) = (y) => [#x] + body + [#y]
+#f(1)[2](3)
+
+// Don't parse this as a function.
+// Should output `<function test> (it)`.
+#test (it)
+
+#let f(body) = body
+#f[A]
+#f()[A]
+#f([A])
+
+---
+// Ref: true
+
+// Test multiple wide calls in separate expressions inside a template.
+[
+    #font!(fill: eastern) - First
+    #font!(fill: forest) - Second
+]
+
+// Test wide call in heading.
+= A #align!(right) B
+C
+
+---
+// Test wide call in expression.
+
+// Error: 2-4 wide calls are only allowed directly in templates
+{f!()}
+
+// Error: 5-7 wide calls are only allowed directly in templates
+#g!(f!())
+
+---
+// Test wide call evaluation semantics.
+#let x = 1
+#let f(x, body) = test(x, 1)
+#f!(x)
+{ x = 2 }
+
+---
+// Trailing comma.
+#test(1 + 1, 2,)
 
 // Call function assigned to variable.
 #let alias = type
 #test(alias(alias), "function")
 
----
 // Callee expressions.
 {
-    // Error: 5-9 expected function, found boolean
-    true()
-
     // Wrapped in parens.
     test((type)("hi"), "string")
 
@@ -37,30 +67,60 @@
     test(adder(2)(5), 7)
 }
 
-#let f(x, body) = (y) => {
-    [{x}] + body + [{y}]
-}
-
-// Call return value of function with body.
-#f(1)[2](3)
-
-// Don't allow this to be a closure.
-// Should output `x => "hi"`.
-#let x = "x"
-#x => "hi"
+---
+// Error: 2-6 expected function, found boolean
+{true()}
 
 ---
-// Different forms of template arguments.
+#let x = "x"
 
-#let a = "a"
+// Error: 1-3 expected function, found string
+#x()
 
-#args(a) \
-#args[a] \
-#args(a, [b])
+---
+#let f(x) = x
 
-// Template can be argument or body depending on whitespace.
-#if "template" == type[b] [Sure ]
-#if "template" == type [Nope.] #else [thing.]
+// Error: 1-6 expected function, found integer
+#f(1)(2)
 
-// Should output `<function args> (Okay.)`.
-#args (Okay.)
+---
+#let f(x) = x
+
+// Error: 1-6 expected function, found template
+#f[1](2)
+
+---
+// Error: 7 expected argument list
+#func!
+
+// Error: 7-8 expected expression, found colon
+#func(:)
+
+// Error: 10-12 expected expression, found end of block comment
+#func(a:1*/)
+
+// Error: 8 expected comma
+#func(1 2)
+
+// Error: 7-8 expected identifier
+// Error: 9 expected expression
+#func(1:)
+
+// Error: 7-8 expected identifier
+#func(1:2)
+
+// Error: 7-10 expected identifier
+{func((x):1)}
+
+---
+// Error: 2:1 expected closing bracket
+#func[`a]`
+
+---
+// Error: 7 expected closing paren
+{func(}
+
+---
+// Error: 2:1 expected quote
+// Error: 2:1 expected closing paren
+#func("]

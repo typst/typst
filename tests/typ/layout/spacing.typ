@@ -13,6 +13,7 @@ Add #h(10pt) #h(10pt) up
 // Relative to font size.
 Relative #h(100%) spacing
 
+---
 // Missing spacing.
 // Error: 12 missing argument: spacing
 Totally #h() ignored

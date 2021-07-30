@@ -7,9 +7,9 @@
 //!   module.
 //! - **Evaluation:** The next step is to [evaluate] the syntax tree. This
 //!   computes the value of each node in the document and produces a [module].
-//! - **Execution:** Now, we can [execute] the parsed and evaluated module.
-//!   This produces a [layout tree], a high-level, fully styled representation
-//!   of the document. The nodes of this tree are self-contained and
+//! - **Execution:** Now, we can [execute] the parsed and evaluated module. This
+//!   results in a [layout tree], a high-level, fully styled representation of
+//!   the document. The nodes of this tree are self-contained and
 //!   order-independent and thus much better suited for layouting than the
 //!   syntax tree.
 //! - **Layouting:** Next, the tree is [layouted] into a portable version of the
@@ -49,7 +49,7 @@ pub mod util;
 
 use std::rc::Rc;
 
-use crate::diag::Pass;
+use crate::diag::TypResult;
 use crate::eval::{ModuleCache, Scope};
 use crate::exec::State;
 use crate::font::FontCache;
@@ -100,19 +100,15 @@ impl Context {
     /// The `file` identifies the source file and is used to resolve relative
     /// paths (for importing and image loading).
     ///
-    /// Returns a vector of frames representing individual pages alongside
-    /// diagnostic information (errors and warnings).
-    pub fn typeset(&mut self, file: FileId, src: &str) -> Pass<Vec<Rc<Frame>>> {
-        let ast = parse::parse(src);
-        let module = eval::eval(self, file, Rc::new(ast.output));
-        let tree = exec::exec(self, &module.output.template);
-        let frames = layout::layout(self, &tree.output);
-
-        let mut diags = ast.diags;
-        diags.extend(module.diags);
-        diags.extend(tree.diags);
-
-        Pass::new(frames, diags)
+    /// Returns either a vector of frames representing individual pages or
+    /// diagnostics in the form of a vector of error message with file and span
+    /// information.
+    pub fn typeset(&mut self, file: FileId, src: &str) -> TypResult<Vec<Rc<Frame>>> {
+        let ast = parse::parse(file, src)?;
+        let module = eval::eval(self, file, Rc::new(ast))?;
+        let tree = exec::exec(self, &module.template);
+        let frames = layout::layout(self, &tree);
+        Ok(frames)
     }
 }
 

@@ -25,22 +25,21 @@ use std::mem;
 use std::path::Path;
 use std::rc::Rc;
 
-use crate::diag::{Diag, DiagSet, Pass};
-use crate::util::EcoString;
+use crate::diag::{Error, StrResult, TypResult};
 use crate::geom::{Angle, Fractional, Length, Relative};
 use crate::image::ImageCache;
 use crate::loading::{FileId, Loader};
 use crate::parse::parse;
 use crate::syntax::visit::Visit;
 use crate::syntax::*;
+use crate::util::EcoString;
 use crate::Context;
 
 /// Evaluate a parsed source file into a module.
-pub fn eval(ctx: &mut Context, file: FileId, ast: Rc<SyntaxTree>) -> Pass<Module> {
+pub fn eval(ctx: &mut Context, file: FileId, ast: Rc<SyntaxTree>) -> TypResult<Module> {
     let mut ctx = EvalContext::new(ctx, file);
-    let template = ast.eval(&mut ctx);
-    let module = Module { scope: ctx.scopes.top, template };
-    Pass::new(module, ctx.diags)
+    let template = ast.eval(&mut ctx)?;
+    Ok(Module { scope: ctx.scopes.top, template })
 }
 
 /// Caches evaluated modules.
@@ -61,7 +60,7 @@ pub trait Eval {
     type Output;
 
     /// Evaluate the expression to the output value.
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output;
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output>;
 }
 
 /// The context for evaluation.
@@ -74,10 +73,12 @@ pub struct EvalContext<'a> {
     pub modules: &'a mut ModuleCache,
     /// The active scopes.
     pub scopes: Scopes<'a>,
-    /// Evaluation diagnostics.
-    pub diags: DiagSet,
+    /// The currently evaluated file.
+    pub file: FileId,
     /// The stack of imported files that led to evaluation of the current file.
     pub route: Vec<FileId>,
+    /// The expression map for the currently built template.
+    pub map: ExprMap,
 }
 
 impl<'a> EvalContext<'a> {
@@ -88,141 +89,123 @@ impl<'a> EvalContext<'a> {
             images: &mut ctx.images,
             modules: &mut ctx.modules,
             scopes: Scopes::new(Some(&ctx.std)),
-            diags: DiagSet::new(),
-            route: vec![file],
+            file,
+            route: vec![],
+            map: ExprMap::new(),
         }
     }
 
     /// Resolve a path relative to the current file.
     ///
-    /// Generates an error if the file is not found.
-    pub fn resolve(&mut self, path: &str, span: Span) -> Option<FileId> {
-        let base = *self.route.last()?;
-        self.loader.resolve_from(base, Path::new(path)).ok().or_else(|| {
-            self.diag(error!(span, "file not found"));
-            None
-        })
+    /// Returns an error if the file is not found.
+    pub fn resolve(&mut self, path: &str, span: Span) -> TypResult<FileId> {
+        self.loader
+            .resolve_from(self.file, Path::new(path))
+            .map_err(|_| Error::boxed(self.file, span, "file not found"))
     }
 
     /// Process an import of a module relative to the current location.
-    pub fn import(&mut self, path: &str, span: Span) -> Option<FileId> {
+    pub fn import(&mut self, path: &str, span: Span) -> TypResult<FileId> {
         let id = self.resolve(path, span)?;
 
         // Prevent cyclic importing.
-        if self.route.contains(&id) {
-            self.diag(error!(span, "cyclic import"));
-            return None;
+        if self.file == id || self.route.contains(&id) {
+            bail!(self.file, span, "cyclic import");
         }
 
         // Check whether the module was already loaded.
         if self.modules.get(&id).is_some() {
-            return Some(id);
+            return Ok(id);
         }
 
-        let buffer = self.loader.load_file(id).ok().or_else(|| {
-            self.diag(error!(span, "failed to load file"));
-            None
-        })?;
+        // Load the source file.
+        let buffer = self
+            .loader
+            .load_file(id)
+            .map_err(|_| Error::boxed(self.file, span, "failed to load file"))?;
 
-        let string = std::str::from_utf8(&buffer).ok().or_else(|| {
-            self.diag(error!(span, "file is not valid utf-8"));
-            None
-        })?;
+        // Decode UTF-8.
+        let string = std::str::from_utf8(&buffer)
+            .map_err(|_| Error::boxed(self.file, span, "file is not valid utf-8"))?;
 
         // Parse the file.
-        let parsed = parse(string);
+        let ast = parse(id, string)?;
 
         // Prepare the new context.
         let new_scopes = Scopes::new(self.scopes.base);
         let old_scopes = mem::replace(&mut self.scopes, new_scopes);
-        let old_diags = mem::replace(&mut self.diags, parsed.diags);
-        self.route.push(id);
+        self.route.push(self.file);
+        self.file = id;
 
         // Evaluate the module.
-        let ast = Rc::new(parsed.output);
-        let template = ast.eval(self);
+        let template = Rc::new(ast).eval(self)?;
 
         // Restore the old context.
         let new_scopes = mem::replace(&mut self.scopes, old_scopes);
-        let new_diags = mem::replace(&mut self.diags, old_diags);
-        self.route.pop();
-
-        // Put all diagnostics from the module on the import.
-        for mut diag in new_diags {
-            diag.span = span;
-            self.diag(diag);
-        }
+        self.file = self.route.pop().unwrap();
 
         // Save the evaluated module.
         let module = Module { scope: new_scopes.top, template };
         self.modules.insert(id, module);
 
-        Some(id)
-    }
-
-    /// Add a diagnostic.
-    pub fn diag(&mut self, diag: Diag) {
-        self.diags.insert(diag);
-    }
-
-    /// Cast a value to a type and diagnose a possible error / warning.
-    pub fn cast<T>(&mut self, value: Value, span: Span) -> Option<T>
-    where
-        T: Cast<Value>,
-    {
-        if value == Value::Error {
-            return None;
-        }
-
-        match T::cast(value) {
-            Ok(value) => Some(value),
-            Err(msg) => {
-                self.diag(error!(span, "{}", msg));
-                None
-            }
-        }
-    }
-
-    /// Join with another value.
-    pub fn join(&mut self, lhs: Value, rhs: Value, span: Span) -> Value {
-        let (a, b) = (lhs.type_name(), rhs.type_name());
-        match ops::join(lhs, rhs) {
-            Ok(joined) => joined,
-            Err(prev) => {
-                self.diag(error!(span, "cannot join {} with {}", a, b));
-                prev
-            }
-        }
+        Ok(id)
     }
 }
 
 impl Eval for Rc<SyntaxTree> {
     type Output = Template;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        struct ExprVisitor<'a, 'b> {
-            ctx: &'a mut EvalContext<'b>,
-            map: ExprMap,
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        trait Walk {
+            fn walk(&self, ctx: &mut EvalContext) -> TypResult<()>;
         }
 
-        impl<'ast> Visit<'ast> for ExprVisitor<'_, '_> {
-            fn visit_expr(&mut self, node: &'ast Expr) {
-                self.map.insert(node as *const _, node.eval(self.ctx));
+        impl Walk for SyntaxTree {
+            fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
+                for node in self.iter() {
+                    node.walk(ctx)?;
+                }
+                Ok(())
             }
         }
 
-        let mut visitor = ExprVisitor { ctx, map: ExprMap::new() };
-        visitor.visit_tree(self);
+        impl Walk for SyntaxNode {
+            fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
+                match self {
+                    Self::Text(_) => {}
+                    Self::Space => {}
+                    Self::Linebreak(_) => {}
+                    Self::Parbreak(_) => {}
+                    Self::Strong(_) => {}
+                    Self::Emph(_) => {}
+                    Self::Raw(_) => {}
+                    Self::Heading(n) => n.body.walk(ctx)?,
+                    Self::List(n) => n.body.walk(ctx)?,
+                    Self::Enum(n) => n.body.walk(ctx)?,
+                    Self::Expr(n) => {
+                        let value = n.eval(ctx)?;
+                        ctx.map.insert(n as *const _, value);
+                    }
+                }
+                Ok(())
+            }
+        }
 
-        TemplateTree { tree: Rc::clone(self), map: visitor.map }.into()
+        let map = {
+            let prev = mem::take(&mut ctx.map);
+            self.walk(ctx)?;
+            mem::replace(&mut ctx.map, prev)
+        };
+
+        Ok(TemplateTree { tree: Rc::clone(self), map }.into())
     }
 }
 
 impl Eval for Expr {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        match *self {
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        Ok(match *self {
             Self::None(_) => Value::None,
             Self::Auto(_) => Value::Auto,
             Self::Bool(_, v) => Value::Bool(v),
@@ -235,35 +218,32 @@ impl Eval for Expr {
             Self::Str(_, ref v) => Value::Str(v.clone()),
             Self::Ident(ref v) => match ctx.scopes.get(&v) {
                 Some(slot) => slot.borrow().clone(),
-                None => {
-                    ctx.diag(error!(v.span, "unknown variable"));
-                    Value::Error
-                }
+                None => bail!(ctx.file, v.span, "unknown variable"),
             },
-            Self::Array(ref v) => Value::Array(v.eval(ctx)),
-            Self::Dict(ref v) => Value::Dict(v.eval(ctx)),
-            Self::Template(ref v) => Value::Template(v.eval(ctx)),
-            Self::Group(ref v) => v.eval(ctx),
-            Self::Block(ref v) => v.eval(ctx),
-            Self::Call(ref v) => v.eval(ctx),
-            Self::Closure(ref v) => v.eval(ctx),
-            Self::With(ref v) => v.eval(ctx),
-            Self::Unary(ref v) => v.eval(ctx),
-            Self::Binary(ref v) => v.eval(ctx),
-            Self::Let(ref v) => v.eval(ctx),
-            Self::If(ref v) => v.eval(ctx),
-            Self::While(ref v) => v.eval(ctx),
-            Self::For(ref v) => v.eval(ctx),
-            Self::Import(ref v) => v.eval(ctx),
-            Self::Include(ref v) => v.eval(ctx),
-        }
+            Self::Array(ref v) => Value::Array(v.eval(ctx)?),
+            Self::Dict(ref v) => Value::Dict(v.eval(ctx)?),
+            Self::Template(ref v) => Value::Template(v.eval(ctx)?),
+            Self::Group(ref v) => v.eval(ctx)?,
+            Self::Block(ref v) => v.eval(ctx)?,
+            Self::Call(ref v) => v.eval(ctx)?,
+            Self::Closure(ref v) => v.eval(ctx)?,
+            Self::With(ref v) => v.eval(ctx)?,
+            Self::Unary(ref v) => v.eval(ctx)?,
+            Self::Binary(ref v) => v.eval(ctx)?,
+            Self::Let(ref v) => v.eval(ctx)?,
+            Self::If(ref v) => v.eval(ctx)?,
+            Self::While(ref v) => v.eval(ctx)?,
+            Self::For(ref v) => v.eval(ctx)?,
+            Self::Import(ref v) => v.eval(ctx)?,
+            Self::Include(ref v) => v.eval(ctx)?,
+        })
     }
 }
 
 impl Eval for ArrayExpr {
     type Output = Array;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         self.items.iter().map(|expr| expr.eval(ctx)).collect()
     }
 }
@@ -271,10 +251,10 @@ impl Eval for ArrayExpr {
 impl Eval for DictExpr {
     type Output = Dict;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         self.items
             .iter()
-            .map(|Named { name, expr }| (name.string.clone(), expr.eval(ctx)))
+            .map(|Named { name, expr }| Ok((name.string.clone(), expr.eval(ctx)?)))
             .collect()
     }
 }
@@ -282,7 +262,7 @@ impl Eval for DictExpr {
 impl Eval for TemplateExpr {
     type Output = Template;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         self.tree.eval(ctx)
     }
 }
@@ -290,7 +270,7 @@ impl Eval for TemplateExpr {
 impl Eval for GroupExpr {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         self.expr.eval(ctx)
     }
 }
@@ -298,58 +278,44 @@ impl Eval for GroupExpr {
 impl Eval for BlockExpr {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         if self.scoping {
             ctx.scopes.enter();
         }
 
         let mut output = Value::None;
         for expr in &self.exprs {
-            let value = expr.eval(ctx);
-            output = ctx.join(output, value, expr.span());
+            let value = expr.eval(ctx)?;
+            output = ops::join(output, value)
+                .map_err(Error::partial(ctx.file, expr.span()))?;
         }
 
         if self.scoping {
             ctx.scopes.exit();
         }
 
-        output
+        Ok(output)
     }
 }
 
 impl Eval for UnaryExpr {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let value = self.expr.eval(ctx);
-        if value == Value::Error {
-            return Value::Error;
-        }
-
-        let ty = value.type_name();
-        let out = match self.op {
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        let value = self.expr.eval(ctx)?;
+        let result = match self.op {
             UnOp::Pos => ops::pos(value),
             UnOp::Neg => ops::neg(value),
             UnOp::Not => ops::not(value),
         };
-
-        if out == Value::Error {
-            ctx.diag(error!(
-                self.span,
-                "cannot apply '{}' to {}",
-                self.op.as_str(),
-                ty,
-            ));
-        }
-
-        out
+        result.map_err(Error::partial(ctx.file, self.span))
     }
 }
 
 impl Eval for BinaryExpr {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         match self.op {
             BinOp::Add => self.apply(ctx, ops::add),
             BinOp::Sub => self.apply(ctx, ops::sub),
@@ -363,7 +329,7 @@ impl Eval for BinaryExpr {
             BinOp::Leq => self.apply(ctx, ops::leq),
             BinOp::Gt => self.apply(ctx, ops::gt),
             BinOp::Geq => self.apply(ctx, ops::geq),
-            BinOp::Assign => self.assign(ctx, |_, b| b),
+            BinOp::Assign => self.assign(ctx, |_, b| Ok(b)),
             BinOp::AddAssign => self.assign(ctx, ops::add),
             BinOp::SubAssign => self.assign(ctx, ops::sub),
             BinOp::MulAssign => self.assign(ctx, ops::mul),
@@ -375,131 +341,110 @@ impl Eval for BinaryExpr {
 
 impl BinaryExpr {
     /// Apply a basic binary operation.
-    fn apply<F>(&self, ctx: &mut EvalContext, op: F) -> Value
+    fn apply<F>(&self, ctx: &mut EvalContext, op: F) -> TypResult<Value>
     where
-        F: FnOnce(Value, Value) -> Value,
+        F: FnOnce(Value, Value) -> StrResult<Value>,
     {
+        let lhs = self.lhs.eval(ctx)?;
+
         // Short-circuit boolean operations.
-        let lhs = self.lhs.eval(ctx);
-        match (self.op, &lhs) {
-            (BinOp::And, Value::Bool(false)) => return lhs,
-            (BinOp::Or, Value::Bool(true)) => return lhs,
-            _ => {}
+        if (self.op == BinOp::And && lhs == Value::Bool(false))
+            || (self.op == BinOp::Or && lhs == Value::Bool(true))
+        {
+            return Ok(lhs);
         }
 
-        let rhs = self.rhs.eval(ctx);
-        if lhs == Value::Error || rhs == Value::Error {
-            return Value::Error;
-        }
-
-        // Save type names before we consume the values in case of error.
-        let types = (lhs.type_name(), rhs.type_name());
-        let out = op(lhs, rhs);
-        if out == Value::Error {
-            self.error(ctx, types);
-        }
-
-        out
+        let rhs = self.rhs.eval(ctx)?;
+        op(lhs, rhs).map_err(Error::partial(ctx.file, self.span))
     }
 
     /// Apply an assignment operation.
-    fn assign<F>(&self, ctx: &mut EvalContext, op: F) -> Value
+    fn assign<F>(&self, ctx: &mut EvalContext, op: F) -> TypResult<Value>
     where
-        F: FnOnce(Value, Value) -> Value,
+        F: FnOnce(Value, Value) -> StrResult<Value>,
     {
+        let lspan = self.lhs.span();
         let slot = if let Expr::Ident(id) = self.lhs.as_ref() {
             match ctx.scopes.get(id) {
                 Some(slot) => Rc::clone(slot),
-                None => {
-                    ctx.diag(error!(self.lhs.span(), "unknown variable"));
-                    return Value::Error;
-                }
+                None => bail!(ctx.file, lspan, "unknown variable"),
             }
         } else {
-            ctx.diag(error!(self.lhs.span(), "cannot assign to this expression"));
-            return Value::Error;
+            bail!(ctx.file, lspan, "cannot assign to this expression",);
         };
 
-        let rhs = self.rhs.eval(ctx);
+        let rhs = self.rhs.eval(ctx)?;
         let mut mutable = match slot.try_borrow_mut() {
             Ok(mutable) => mutable,
             Err(_) => {
-                ctx.diag(error!(self.lhs.span(), "cannot assign to a constant"));
-                return Value::Error;
+                bail!(ctx.file, lspan, "cannot assign to a constant",);
             }
         };
 
         let lhs = mem::take(&mut *mutable);
-        let types = (lhs.type_name(), rhs.type_name());
-        *mutable = op(lhs, rhs);
+        *mutable = op(lhs, rhs).map_err(Error::partial(ctx.file, self.span))?;
 
-        if *mutable == Value::Error {
-            self.error(ctx, types);
-            return Value::Error;
-        }
-
-        Value::None
-    }
-
-    fn error(&self, ctx: &mut EvalContext, (a, b): (&str, &str)) {
-        ctx.diag(error!(self.span, "{}", match self.op {
-            BinOp::Add => format!("cannot add {} and {}", a, b),
-            BinOp::Sub => format!("cannot subtract {1} from {0}", a, b),
-            BinOp::Mul => format!("cannot multiply {} with {}", a, b),
-            BinOp::Div => format!("cannot divide {} by {}", a, b),
-            _ => format!("cannot apply '{}' to {} and {}", self.op.as_str(), a, b),
-        }));
+        Ok(Value::None)
     }
 }
 
 impl Eval for CallExpr {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let callee = self.callee.eval(ctx);
-        if let Some(func) = ctx.cast::<Function>(callee, self.callee.span()) {
-            let mut args = self.args.eval(ctx);
-            let returned = func(ctx, &mut args);
-            args.finish(ctx);
-            returned
-        } else {
-            Value::Error
-        }
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        let callee = self
+            .callee
+            .eval(ctx)?
+            .cast::<Function>()
+            .map_err(Error::partial(ctx.file, self.callee.span()))?;
+
+        let mut args = self.args.eval(ctx)?;
+        let returned = callee(ctx, &mut args)?;
+        args.finish()?;
+
+        Ok(returned)
     }
 }
 
 impl Eval for CallArgs {
     type Output = FuncArgs;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let items = self.items.iter().map(|arg| arg.eval(ctx)).collect();
-        FuncArgs { span: self.span, items }
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        Ok(FuncArgs {
+            file: ctx.file,
+            span: self.span,
+            items: self
+                .items
+                .iter()
+                .map(|arg| arg.eval(ctx))
+                .collect::<TypResult<Vec<_>>>()?,
+        })
     }
 }
 
 impl Eval for CallArg {
     type Output = FuncArg;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        match self {
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        Ok(match self {
             Self::Pos(expr) => FuncArg {
                 span: self.span(),
                 name: None,
-                value: Spanned::new(expr.eval(ctx), expr.span()),
+                value: Spanned::new(expr.eval(ctx)?, expr.span()),
             },
             Self::Named(Named { name, expr }) => FuncArg {
                 span: self.span(),
                 name: Some(name.string.clone()),
-                value: Spanned::new(expr.eval(ctx), expr.span()),
+                value: Spanned::new(expr.eval(ctx)?, expr.span()),
             },
-        }
+        })
     }
 }
 
 impl Eval for ClosureExpr {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         let params = Rc::clone(&self.params);
         let body = Rc::clone(&self.body);
 
@@ -511,86 +456,92 @@ impl Eval for ClosureExpr {
         };
 
         let name = self.name.as_ref().map(|name| name.string.clone());
-        Value::Func(Function::new(name, move |ctx, args| {
+        let func = Function::new(name, move |ctx, args| {
             // Don't leak the scopes from the call site. Instead, we use the
             // scope of captured variables we collected earlier.
             let prev = mem::take(&mut ctx.scopes);
             ctx.scopes.top = captured.clone();
 
             for param in params.iter() {
-                // Set the parameter to `none` if the argument is missing.
-                let value = args.expect::<Value>(ctx, param.as_str()).unwrap_or_default();
+                let value = args.expect::<Value>(param.as_str())?;
                 ctx.scopes.def_mut(param.as_str(), value);
             }
 
-            let value = body.eval(ctx);
+            let result = body.eval(ctx);
             ctx.scopes = prev;
-            value
-        }))
+            result
+        });
+
+        Ok(Value::Func(func))
     }
 }
 
 impl Eval for WithExpr {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let callee = self.callee.eval(ctx);
-        if let Some(func) = ctx.cast::<Function>(callee, self.callee.span()) {
-            let applied = self.args.eval(ctx);
-            let name = func.name().cloned();
-            Value::Func(Function::new(name, move |ctx, args| {
-                // Remove named arguments that were overridden.
-                let kept: Vec<_> = applied
-                    .items
-                    .iter()
-                    .filter(|arg| {
-                        arg.name.is_none()
-                            || args.items.iter().all(|other| arg.name != other.name)
-                    })
-                    .cloned()
-                    .collect();
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        let callee = self
+            .callee
+            .eval(ctx)?
+            .cast::<Function>()
+            .map_err(Error::partial(ctx.file, self.callee.span()))?;
 
-                // Preprend the applied arguments so that the positional arguments
-                // are in the right order.
-                args.items.splice(.. 0, kept);
+        let applied = self.args.eval(ctx)?;
 
-                // Call the original function.
-                func(ctx, args)
-            }))
-        } else {
-            Value::Error
-        }
+        let name = callee.name().cloned();
+        let func = Function::new(name, move |ctx, args| {
+            // Remove named arguments that were overridden.
+            let kept: Vec<_> = applied
+                .items
+                .iter()
+                .filter(|arg| {
+                    arg.name.is_none()
+                        || args.items.iter().all(|other| arg.name != other.name)
+                })
+                .cloned()
+                .collect();
+
+            // Preprend the applied arguments so that the positional arguments
+            // are in the right order.
+            args.items.splice(.. 0, kept);
+
+            // Call the original function.
+            callee(ctx, args)
+        });
+
+        Ok(Value::Func(func))
     }
 }
 
 impl Eval for LetExpr {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         let value = match &self.init {
-            Some(expr) => expr.eval(ctx),
+            Some(expr) => expr.eval(ctx)?,
             None => Value::None,
         };
         ctx.scopes.def_mut(self.binding.as_str(), value);
-        Value::None
+        Ok(Value::None)
     }
 }
 
 impl Eval for IfExpr {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let condition = self.condition.eval(ctx);
-        if let Some(condition) = ctx.cast(condition, self.condition.span()) {
-            if condition {
-                self.if_body.eval(ctx)
-            } else if let Some(else_body) = &self.else_body {
-                else_body.eval(ctx)
-            } else {
-                Value::None
-            }
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        let condition = self
+            .condition
+            .eval(ctx)?
+            .cast::<bool>()
+            .map_err(Error::partial(ctx.file, self.condition.span()))?;
+
+        if condition {
+            self.if_body.eval(ctx)
+        } else if let Some(else_body) = &self.else_body {
+            else_body.eval(ctx)
         } else {
-            Value::Error
+            Ok(Value::None)
         }
     }
 }
@@ -598,28 +549,28 @@ impl Eval for IfExpr {
 impl Eval for WhileExpr {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         let mut output = Value::None;
-        loop {
-            let condition = self.condition.eval(ctx);
-            if let Some(condition) = ctx.cast(condition, self.condition.span()) {
-                if condition {
-                    let value = self.body.eval(ctx);
-                    output = ctx.join(output, value, self.body.span());
-                } else {
-                    return output;
-                }
-            } else {
-                return Value::Error;
-            }
+
+        while self
+            .condition
+            .eval(ctx)?
+            .cast::<bool>()
+            .map_err(Error::partial(ctx.file, self.condition.span()))?
+        {
+            let value = self.body.eval(ctx)?;
+            output = ops::join(output, value)
+                .map_err(Error::partial(ctx.file, self.body.span()))?;
         }
+
+        Ok(output)
     }
 }
 
 impl Eval for ForExpr {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         macro_rules! iter {
             (for ($($binding:ident => $value:ident),*) in $iter:expr) => {{
                 let mut output = Value::None;
@@ -629,17 +580,18 @@ impl Eval for ForExpr {
                 for ($($value),*) in $iter {
                     $(ctx.scopes.def_mut($binding.as_str(), $value);)*
 
-                    let value = self.body.eval(ctx);
-                    output = ctx.join(output, value, self.body.span());
+                    let value = self.body.eval(ctx)?;
+                    output = ops::join(output, value)
+                        .map_err(Error::partial(ctx.file, self.body.span()))?;
                 }
 
                 ctx.scopes.exit();
-                output
+                Ok(output)
             }};
         }
 
-        let iter = self.iter.eval(ctx);
-        match (self.pattern.clone(), iter) {
+        let iter = self.iter.eval(ctx)?;
+        match (&self.pattern, iter) {
             (ForPattern::Value(v), Value::Str(string)) => {
                 iter!(for (v => value) in string.chars().map(|c| Value::Str(c.into())))
             }
@@ -655,22 +607,15 @@ impl Eval for ForExpr {
             (ForPattern::KeyValue(k, v), Value::Dict(dict)) => {
                 iter!(for (k => key, v => value) in dict.into_iter())
             }
-
             (ForPattern::KeyValue(_, _), Value::Str(_)) => {
-                ctx.diag(error!(self.pattern.span(), "mismatched pattern"));
-                Value::Error
+                bail!(ctx.file, self.pattern.span(), "mismatched pattern");
             }
-
-            (_, iter) => {
-                if iter != Value::Error {
-                    ctx.diag(error!(
-                        self.iter.span(),
-                        "cannot loop over {}",
-                        iter.type_name(),
-                    ));
-                }
-                Value::Error
-            }
+            (_, iter) => bail!(
+                ctx.file,
+                self.iter.span(),
+                "cannot loop over {}",
+                iter.type_name(),
+            ),
         }
     }
 }
@@ -678,50 +623,50 @@ impl Eval for ForExpr {
 impl Eval for ImportExpr {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let path = self.path.eval(ctx);
-        if let Some(path) = ctx.cast::<EcoString>(path, self.path.span()) {
-            if let Some(hash) = ctx.import(&path, self.path.span()) {
-                let mut module = &ctx.modules[&hash];
-                match &self.imports {
-                    Imports::Wildcard => {
-                        for (var, slot) in module.scope.iter() {
-                            let value = slot.borrow().clone();
-                            ctx.scopes.def_mut(var, value);
-                        }
-                    }
-                    Imports::Idents(idents) => {
-                        for ident in idents {
-                            if let Some(slot) = module.scope.get(&ident) {
-                                let value = slot.borrow().clone();
-                                ctx.scopes.def_mut(ident.as_str(), value);
-                            } else {
-                                ctx.diag(error!(ident.span, "unresolved import"));
-                                module = &ctx.modules[&hash];
-                            }
-                        }
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        let path = self
+            .path
+            .eval(ctx)?
+            .cast::<EcoString>()
+            .map_err(Error::partial(ctx.file, self.path.span()))?;
+
+        let id = ctx.import(&path, self.path.span())?;
+        let module = &ctx.modules[&id];
+
+        match &self.imports {
+            Imports::Wildcard => {
+                for (var, slot) in module.scope.iter() {
+                    ctx.scopes.def_mut(var, slot.borrow().clone());
+                }
+            }
+            Imports::Idents(idents) => {
+                for ident in idents {
+                    if let Some(slot) = module.scope.get(&ident) {
+                        ctx.scopes.def_mut(ident.as_str(), slot.borrow().clone());
+                    } else {
+                        bail!(ctx.file, ident.span, "unresolved import");
                     }
                 }
-
-                return Value::None;
             }
         }
 
-        Value::Error
+        Ok(Value::None)
     }
 }
 
 impl Eval for IncludeExpr {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> Self::Output {
-        let path = self.path.eval(ctx);
-        if let Some(path) = ctx.cast::<EcoString>(path, self.path.span()) {
-            if let Some(hash) = ctx.import(&path, self.path.span()) {
-                return Value::Template(ctx.modules[&hash].template.clone());
-            }
-        }
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        let path = self
+            .path
+            .eval(ctx)?
+            .cast::<EcoString>()
+            .map_err(Error::partial(ctx.file, self.path.span()))?;
 
-        Value::Error
+        let id = ctx.import(&path, self.path.span())?;
+        let module = &ctx.modules[&id];
+
+        Ok(Value::Template(module.template.clone()))
     }
 }

@@ -488,7 +488,6 @@ impl Pretty for Value {
             Self::Template(v) => v.pretty(p),
             Self::Func(v) => v.pretty(p),
             Self::Dyn(v) => v.pretty(p),
-            Self::Error => p.push_str("<error>"),
         }
     }
 }
@@ -609,6 +608,7 @@ pretty_display! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::loading::FileId;
     use crate::parse::parse;
 
     #[track_caller]
@@ -618,7 +618,7 @@ mod tests {
 
     #[track_caller]
     fn test_parse(src: &str, exp: &str) {
-        let ast = parse(src).output;
+        let ast = parse(FileId::from_raw(0), src).unwrap();
         let found = pretty(&ast);
         if exp != found {
             println!("tree:     {:#?}", ast);
@@ -732,6 +732,7 @@ mod tests {
 
     #[test]
     fn test_pretty_print_value() {
+        // Primitives.
         test_value(Value::None, "none");
         test_value(false, "false");
         test_value(12i64, "12");
@@ -742,6 +743,8 @@ mod tests {
         test_value(Relative::new(0.3) + Length::cm(2.0), "30% + 2cm");
         test_value(Fractional::one() * 7.55, "7.55fr");
         test_value(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
+
+        // Collections.
         test_value("hello", r#""hello""#);
         test_value("\n", r#""\n""#);
         test_value("\\", r#""\\""#);
@@ -752,12 +755,15 @@ mod tests {
         test_value(dict![], "(:)");
         test_value(dict!["one" => 1], "(one: 1)");
         test_value(dict!["two" => false, "one" => 1], "(one: 1, two: false)");
-        test_value(Function::new(None, |_, _| Value::None), "<function>");
+
+        // Functions.
+        test_value(Function::new(None, |_, _| Ok(Value::None)), "<function>");
         test_value(
-            Function::new(Some("nil".into()), |_, _| Value::None),
+            Function::new(Some("nil".into()), |_, _| Ok(Value::None)),
             "<function nil>",
         );
+
+        // Dynamics.
         test_value(Dynamic::new(1), "1");
-        test_value(Value::Error, "<error>");
     }
 }

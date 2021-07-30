@@ -2,13 +2,12 @@ use std::mem;
 use std::rc::Rc;
 
 use super::{Exec, ExecWithMap, State};
-use crate::diag::{Diag, DiagSet, Pass};
 use crate::eval::{ExprMap, Template};
 use crate::geom::{Align, Dir, Gen, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{
     LayoutNode, LayoutTree, PadNode, PageRun, ParChild, ParNode, StackChild, StackNode,
 };
-use crate::syntax::{Span, SyntaxTree};
+use crate::syntax::SyntaxTree;
 use crate::util::EcoString;
 use crate::Context;
 
@@ -16,8 +15,6 @@ use crate::Context;
 pub struct ExecContext {
     /// The active execution state.
     pub state: State,
-    /// Execution diagnostics.
-    pub diags: DiagSet,
     /// The tree of finished page runs.
     tree: LayoutTree,
     /// When we are building the top-level stack, this contains metrics of the
@@ -32,16 +29,10 @@ impl ExecContext {
     pub fn new(ctx: &mut Context) -> Self {
         Self {
             state: ctx.state.clone(),
-            diags: DiagSet::new(),
             tree: LayoutTree { runs: vec![] },
             page: Some(PageBuilder::new(&ctx.state, true)),
             stack: StackBuilder::new(&ctx.state),
         }
-    }
-
-    /// Add a diagnostic.
-    pub fn diag(&mut self, diag: Diag) {
-        self.diags.insert(diag);
     }
 
     /// Execute a template and return the result as a stack node.
@@ -127,21 +118,19 @@ impl ExecContext {
     }
 
     /// Apply a forced page break.
-    pub fn pagebreak(&mut self, keep: bool, hard: bool, span: Span) {
+    pub fn pagebreak(&mut self, keep: bool, hard: bool) {
         if let Some(builder) = &mut self.page {
             let page = mem::replace(builder, PageBuilder::new(&self.state, hard));
             let stack = mem::replace(&mut self.stack, StackBuilder::new(&self.state));
             self.tree.runs.extend(page.build(stack.build(), keep));
-        } else {
-            self.diag(error!(span, "cannot modify page from here"));
         }
     }
 
     /// Finish execution and return the created layout tree.
-    pub fn finish(mut self) -> Pass<LayoutTree> {
+    pub fn finish(mut self) -> LayoutTree {
         assert!(self.page.is_some());
-        self.pagebreak(true, false, Span::default());
-        Pass::new(self.tree, self.diags)
+        self.pagebreak(true, false);
+        self.tree
     }
 
     fn make_text_node(&self, text: impl Into<EcoString>) -> ParChild {

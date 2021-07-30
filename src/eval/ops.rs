@@ -1,30 +1,34 @@
 use std::cmp::Ordering;
 
 use super::Value;
+use crate::diag::StrResult;
 use Value::*;
 
+/// Bail with a type mismatch error.
+macro_rules! mismatch {
+    ($fmt:expr, $($value:expr),* $(,)?) => {
+        return Err(format!($fmt, $($value.type_name()),*));
+    };
+}
+
 /// Join a value with another value.
-pub fn join(lhs: Value, rhs: Value) -> Result<Value, Value> {
+pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(match (lhs, rhs) {
-        (_, Error) => Error,
-        (Error, _) => Error,
         (a, None) => a,
         (None, b) => b,
-
         (Str(a), Str(b)) => Str(a + b),
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
         (Template(a), Template(b)) => Template(a + b),
         (Template(a), Str(b)) => Template(a + b),
         (Str(a), Template(b)) => Template(a + b),
-
-        (lhs, _) => return Err(lhs),
+        (a, b) => mismatch!("cannot join {} with {}", a, b),
     })
 }
 
 /// Apply the plus operator to a value.
-pub fn pos(value: Value) -> Value {
-    match value {
+pub fn pos(value: Value) -> StrResult<Value> {
+    Ok(match value {
         Int(v) => Int(v),
         Float(v) => Float(v),
         Length(v) => Length(v),
@@ -32,13 +36,13 @@ pub fn pos(value: Value) -> Value {
         Relative(v) => Relative(v),
         Linear(v) => Linear(v),
         Fractional(v) => Fractional(v),
-        _ => Error,
-    }
+        v => mismatch!("cannot apply '+' to {}", v),
+    })
 }
 
 /// Compute the negation of a value.
-pub fn neg(value: Value) -> Value {
-    match value {
+pub fn neg(value: Value) -> StrResult<Value> {
+    Ok(match value {
         Int(v) => Int(-v),
         Float(v) => Float(-v),
         Length(v) => Length(-v),
@@ -46,13 +50,13 @@ pub fn neg(value: Value) -> Value {
         Relative(v) => Relative(-v),
         Linear(v) => Linear(-v),
         Fractional(v) => Fractional(-v),
-        _ => Error,
-    }
+        v => mismatch!("cannot apply '-' to {}", v),
+    })
 }
 
 /// Compute the sum of two values.
-pub fn add(lhs: Value, rhs: Value) -> Value {
-    match (lhs, rhs) {
+pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
+    Ok(match (lhs, rhs) {
         (Int(a), Int(b)) => Int(a + b),
         (Int(a), Float(b)) => Float(a as f64 + b),
         (Float(a), Int(b)) => Float(a + b as f64),
@@ -81,13 +85,13 @@ pub fn add(lhs: Value, rhs: Value) -> Value {
         (Template(a), Str(b)) => Template(a + b),
         (Str(a), Template(b)) => Template(a + b),
 
-        _ => Error,
-    }
+        (a, b) => mismatch!("cannot add {} and {}", a, b),
+    })
 }
 
 /// Compute the difference of two values.
-pub fn sub(lhs: Value, rhs: Value) -> Value {
-    match (lhs, rhs) {
+pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
+    Ok(match (lhs, rhs) {
         (Int(a), Int(b)) => Int(a - b),
         (Int(a), Float(b)) => Float(a as f64 - b),
         (Float(a), Int(b)) => Float(a - b as f64),
@@ -109,13 +113,13 @@ pub fn sub(lhs: Value, rhs: Value) -> Value {
 
         (Fractional(a), Fractional(b)) => Fractional(a - b),
 
-        _ => Error,
-    }
+        (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),
+    })
 }
 
 /// Compute the product of two values.
-pub fn mul(lhs: Value, rhs: Value) -> Value {
-    match (lhs, rhs) {
+pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
+    Ok(match (lhs, rhs) {
         (Int(a), Int(b)) => Int(a * b),
         (Int(a), Float(b)) => Float(a as f64 * b),
         (Float(a), Int(b)) => Float(a * b as f64),
@@ -150,14 +154,16 @@ pub fn mul(lhs: Value, rhs: Value) -> Value {
         (Int(a), Str(b)) => Str(b.repeat(a.max(0) as usize)),
         (Array(a), Int(b)) => Array(a.repeat(b.max(0) as usize)),
         (Int(a), Array(b)) => Array(b.repeat(a.max(0) as usize)),
+        (Template(a), Int(b)) => Template(a.repeat(b.max(0) as usize)),
+        (Int(a), Template(b)) => Template(b.repeat(a.max(0) as usize)),
 
-        _ => Error,
-    }
+        (a, b) => mismatch!("cannot multiply {} with {}", a, b),
+    })
 }
 
 /// Compute the quotient of two values.
-pub fn div(lhs: Value, rhs: Value) -> Value {
-    match (lhs, rhs) {
+pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
+    Ok(match (lhs, rhs) {
         (Int(a), Int(b)) => Float(a as f64 / b as f64),
         (Int(a), Float(b)) => Float(a as f64 / b),
         (Float(a), Int(b)) => Float(a / b as f64),
@@ -182,31 +188,67 @@ pub fn div(lhs: Value, rhs: Value) -> Value {
         (Linear(a), Int(b)) => Linear(a / b as f64),
         (Linear(a), Float(b)) => Linear(a / b),
 
-        _ => Error,
-    }
+        (a, b) => mismatch!("cannot divide {} by {}", a, b),
+    })
 }
 
 /// Compute the logical "not" of a value.
-pub fn not(value: Value) -> Value {
+pub fn not(value: Value) -> StrResult<Value> {
     match value {
-        Bool(b) => Bool(!b),
-        _ => Error,
+        Bool(b) => Ok(Bool(!b)),
+        v => mismatch!("cannot apply 'not' to {}", v),
     }
 }
 
 /// Compute the logical "and" of two values.
-pub fn and(lhs: Value, rhs: Value) -> Value {
+pub fn and(lhs: Value, rhs: Value) -> StrResult<Value> {
     match (lhs, rhs) {
-        (Bool(a), Bool(b)) => Bool(a && b),
-        _ => Error,
+        (Bool(a), Bool(b)) => Ok(Bool(a && b)),
+        (a, b) => mismatch!("cannot apply 'and' to {} and {}", a, b),
     }
 }
 
 /// Compute the logical "or" of two values.
-pub fn or(lhs: Value, rhs: Value) -> Value {
+pub fn or(lhs: Value, rhs: Value) -> StrResult<Value> {
     match (lhs, rhs) {
-        (Bool(a), Bool(b)) => Bool(a || b),
-        _ => Error,
+        (Bool(a), Bool(b)) => Ok(Bool(a || b)),
+        (a, b) => mismatch!("cannot apply 'or' to {} and {}", a, b),
+    }
+}
+
+/// Compute whether two values are equal.
+pub fn eq(lhs: Value, rhs: Value) -> StrResult<Value> {
+    Ok(Bool(equal(&lhs, &rhs)))
+}
+
+/// Compute whether two values are equal.
+pub fn neq(lhs: Value, rhs: Value) -> StrResult<Value> {
+    Ok(Bool(!equal(&lhs, &rhs)))
+}
+
+macro_rules! comparison {
+    ($name:ident, $op:tt, $($pat:tt)*) => {
+        /// Compute how a value compares with another value.
+        pub fn $name(lhs: Value, rhs: Value) -> StrResult<Value> {
+            if let Some(ordering) = compare(&lhs, &rhs) {
+                Ok(Bool(matches!(ordering, $($pat)*)))
+            } else {
+                mismatch!(concat!("cannot apply '", $op, "' to {} and {}"), lhs, rhs);
+            }
+        }
+    };
+}
+
+comparison!(lt, "<", Ordering::Less);
+comparison!(leq, "<=", Ordering::Less | Ordering::Equal);
+comparison!(gt, ">", Ordering::Greater);
+comparison!(geq, ">=", Ordering::Greater | Ordering::Equal);
+
+/// Compute the range from `lhs` to `rhs`.
+pub fn range(lhs: Value, rhs: Value) -> StrResult<Value> {
+    match (lhs, rhs) {
+        (Int(a), Int(b)) => Ok(Array((a ..= b).map(Int).collect())),
+        (a, b) => mismatch!("cannot apply '..' to {} and {}", a, b),
     }
 }
 
@@ -231,7 +273,6 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Template(a), Template(b)) => a == b,
         (Func(a), Func(b)) => a == b,
         (Dyn(a), Dyn(b)) => a == b,
-        (Error, Error) => true,
 
         // Some technically different things should compare equal.
         (&Int(a), &Float(b)) => a as f64 == b,
@@ -243,16 +284,6 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
 
         _ => false,
     }
-}
-
-/// Compute whether two values are equal.
-pub fn eq(lhs: Value, rhs: Value) -> Value {
-    Bool(equal(&lhs, &rhs))
-}
-
-/// Compute whether two values are equal.
-pub fn neq(lhs: Value, rhs: Value) -> Value {
-    Bool(!equal(&lhs, &rhs))
 }
 
 /// Compare two values.
@@ -267,28 +298,5 @@ pub fn compare(lhs: &Value, rhs: &Value) -> Option<Ordering> {
         (Length(a), Length(b)) => a.partial_cmp(b),
         (Str(a), Str(b)) => a.partial_cmp(b),
         _ => Option::None,
-    }
-}
-
-macro_rules! comparison {
-    ($name:ident, $($pat:tt)*) => {
-        /// Compute how a value compares with another value.
-        pub fn $name(lhs: Value, rhs: Value) -> Value {
-            compare(&lhs, &rhs)
-                .map_or(Error, |x| Bool(matches!(x, $($pat)*)))
-        }
-    };
-}
-
-comparison!(lt, Ordering::Less);
-comparison!(leq, Ordering::Less | Ordering::Equal);
-comparison!(gt, Ordering::Greater);
-comparison!(geq, Ordering::Greater | Ordering::Equal);
-
-/// Compute the range from `lhs` to `rhs`.
-pub fn range(lhs: Value, rhs: Value) -> Value {
-    match (lhs, rhs) {
-        (Int(a), Int(b)) => Array((a ..= b).map(Int).collect()),
-        _ => Error,
     }
 }

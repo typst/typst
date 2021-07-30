@@ -73,7 +73,7 @@ impl<T> SliceExt<T> for [T] {
     }
 }
 
-/// This struct is produced by [`SliceExt::group_by_key`].
+/// This struct is created by [`SliceExt::group_by_key`].
 pub struct GroupByKey<'a, T, F> {
     slice: &'a [T],
     f: F,

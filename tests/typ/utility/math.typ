@@ -8,8 +8,10 @@
 #test(max(-3, 11), 11)
 #test(min("hi"), "hi")
 
+---
 // Error: 6 missing argument: value
 #min()
 
+---
 // Error: 11-18 cannot compare integer with string
 #test(min(1, "hi"), error)

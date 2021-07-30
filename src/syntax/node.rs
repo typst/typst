@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use super::*;
 
 /// A syntax node, encompassing a single logical entity of parsed source code.
@@ -52,7 +50,7 @@ pub struct HeadingNode {
     /// The section depth (numer of equals signs).
     pub level: usize,
     /// The contents of the heading.
-    pub body: Rc<SyntaxTree>,
+    pub body: SyntaxTree,
 }
 
 /// An item in an unordered list: `- ...`.

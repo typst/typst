@@ -103,7 +103,8 @@ impl ImageCache {
 }
 
 /// A unique identifier for a loaded image.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Serialize, Deserialize)]
 pub struct ImageId(u64);
 
 impl ImageId {

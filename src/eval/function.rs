@@ -3,8 +3,10 @@ use std::ops::Deref;
 use std::rc::Rc;
 
 use super::{Cast, EvalContext, Value};
-use crate::util::EcoString;
+use crate::diag::{Error, TypResult};
+use crate::loading::FileId;
 use crate::syntax::{Span, Spanned};
+use crate::util::EcoString;
 
 /// An evaluatable function.
 #[derive(Clone)]
@@ -16,13 +18,13 @@ struct Repr<T: ?Sized> {
     func: T,
 }
 
-type Func = dyn Fn(&mut EvalContext, &mut FuncArgs) -> Value;
+type Func = dyn Fn(&mut EvalContext, &mut FuncArgs) -> TypResult<Value>;
 
 impl Function {
     /// Create a new function from a rust closure.
     pub fn new<F>(name: Option<EcoString>, func: F) -> Self
     where
-        F: Fn(&mut EvalContext, &mut FuncArgs) -> Value + 'static,
+        F: Fn(&mut EvalContext, &mut FuncArgs) -> TypResult<Value> + 'static,
     {
         Self(Rc::new(Repr { name, func }))
     }
@@ -57,6 +59,8 @@ impl PartialEq for Function {
 /// Evaluated arguments to a function.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuncArgs {
+    /// The file in which the function was called.
+    pub file: FileId,
     /// The span of the whole argument list.
     pub span: Span,
     /// The positional arguments.
@@ -80,32 +84,30 @@ impl FuncArgs {
     where
         T: Cast<Spanned<Value>>,
     {
-        (0 .. self.items.len()).find_map(|index| {
-            let slot = self.items.get_mut(index)?;
+        for (i, slot) in self.items.iter().enumerate() {
             if slot.name.is_none() {
                 if T::is(&slot.value) {
-                    let value = self.items.remove(index).value;
+                    let value = self.items.remove(i).value;
                     return T::cast(value).ok();
                 }
             }
-            None
-        })
+        }
+        None
     }
 
-    /// Find and consume the first castable positional argument, producing a
+    /// Find and consume the first castable positional argument, returning a
     /// `missing argument: {what}` error if no match was found.
-    pub fn expect<T>(&mut self, ctx: &mut EvalContext, what: &str) -> Option<T>
+    pub fn expect<T>(&mut self, what: &str) -> TypResult<T>
     where
         T: Cast<Spanned<Value>>,
     {
-        let found = self.eat();
-        if found.is_none() {
-            ctx.diag(error!(self.span, "missing argument: {}", what));
+        match self.eat() {
+            Some(found) => Ok(found),
+            None => bail!(self.file, self.span, "missing argument: {}", what),
         }
-        found
     }
 
-    /// Find, consume and collect all castable positional arguments.
+    /// Find and consume all castable positional arguments.
     pub fn all<T>(&mut self) -> impl Iterator<Item = T> + '_
     where
         T: Cast<Spanned<Value>>,
@@ -113,35 +115,34 @@ impl FuncArgs {
         std::iter::from_fn(move || self.eat())
     }
 
-    /// Cast and remove the value for the given named argument, producing an
+    /// Cast and remove the value for the given named argument, returning an
     /// error if the conversion fails.
-    pub fn named<T>(&mut self, ctx: &mut EvalContext, name: &str) -> Option<T>
+    pub fn named<T>(&mut self, name: &str) -> TypResult<Option<T>>
     where
         T: Cast<Spanned<Value>>,
     {
-        let index = self
+        let index = match self
             .items
             .iter()
-            .position(|arg| arg.name.as_ref().map_or(false, |other| other == name))?;
+            .filter_map(|arg| arg.name.as_deref())
+            .position(|other| name == other)
+        {
+            Some(index) => index,
+            None => return Ok(None),
+        };
 
         let value = self.items.remove(index).value;
         let span = value.span;
 
-        match T::cast(value) {
-            Ok(t) => Some(t),
-            Err(msg) => {
-                ctx.diag(error!(span, "{}", msg));
-                None
-            }
-        }
+        T::cast(value).map(Some).map_err(Error::partial(self.file, span))
     }
 
-    /// Produce "unexpected argument" errors for all remaining arguments.
-    pub fn finish(self, ctx: &mut EvalContext) {
-        for arg in &self.items {
-            if arg.value.v != Value::Error {
-                ctx.diag(error!(arg.span, "unexpected argument"));
-            }
+    /// Return an "unexpected argument" error if there is any remaining
+    /// argument.
+    pub fn finish(self) -> TypResult<()> {
+        if let Some(arg) = self.items.first() {
+            bail!(self.file, arg.span, "unexpected argument");
         }
+        Ok(())
     }
 }

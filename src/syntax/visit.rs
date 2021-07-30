@@ -102,7 +102,7 @@ impl_visitors! {
     }
 
     visit_heading(v, heading: HeadingNode) {
-        v.visit_tree(r!(rc: heading.body));
+        v.visit_tree(r!(heading.body));
     }
 
     visit_list(v, item: ListItem) {

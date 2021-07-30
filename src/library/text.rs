@@ -4,29 +4,27 @@ use crate::layout::Paint;
 use super::*;
 
 /// `font`: Configure the font.
-pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let size = args.eat::<Linear>().or_else(|| args.named(ctx, "size"));
-    let style = args.named(ctx, "style");
-    let weight = args.named(ctx, "weight");
-    let stretch = args.named(ctx, "stretch");
-    let top_edge = args.named(ctx, "top-edge");
-    let bottom_edge = args.named(ctx, "bottom-edge");
-    let fill = args.named(ctx, "fill");
+pub fn font(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    let size = args.named::<Linear>("size")?.or_else(|| args.eat());
+    let style = args.named("style")?;
+    let weight = args.named("weight")?;
+    let stretch = args.named("stretch")?;
+    let top_edge = args.named("top-edge")?;
+    let bottom_edge = args.named("bottom-edge")?;
+    let fill = args.named("fill")?;
 
-    let families: Vec<_> = args.all().collect();
-    let list = if families.is_empty() {
-        args.named(ctx, "family")
-    } else {
-        Some(FontDef(Rc::new(families)))
-    };
+    let list = args.named("family")?.or_else(|| {
+        let families: Vec<_> = args.all().collect();
+        (!families.is_empty()).then(|| FontDef(Rc::new(families)))
+    });
 
-    let serif = args.named(ctx, "serif");
-    let sans_serif = args.named(ctx, "sans-serif");
-    let monospace = args.named(ctx, "monospace");
+    let serif = args.named("serif")?;
+    let sans_serif = args.named("sans-serif")?;
+    let monospace = args.named("monospace")?;
 
-    let body = args.expect::<Template>(ctx, "body").unwrap_or_default();
+    let body = args.expect::<Template>("body")?;
 
-    Value::template(move |ctx| {
+    Ok(Value::template(move |ctx| {
         let state = ctx.state.font_mut();
 
         if let Some(size) = size {
@@ -74,7 +72,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
         }
 
         body.exec(ctx);
-    })
+    }))
 }
 
 struct FontDef(Rc<Vec<FontFamily>>);
@@ -106,12 +104,12 @@ castable! {
 }
 
 /// `par`: Configure paragraphs.
-pub fn par(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let par_spacing = args.named(ctx, "spacing");
-    let line_spacing = args.named(ctx, "leading");
-    let body = args.expect::<Template>(ctx, "body").unwrap_or_default();
+pub fn par(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    let par_spacing = args.named("spacing")?;
+    let line_spacing = args.named("leading")?;
+    let body = args.expect::<Template>("body")?;
 
-    Value::template(move |ctx| {
+    Ok(Value::template(move |ctx| {
         let state = ctx.state.par_mut();
 
         if let Some(par_spacing) = par_spacing {
@@ -124,33 +122,32 @@ pub fn par(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
 
         ctx.parbreak();
         body.exec(ctx);
-    })
+    }))
 }
 
 /// `lang`: Configure the language.
-pub fn lang(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
+pub fn lang(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
     let iso = args.eat::<EcoString>();
-    let dir = if let Some(dir) = args.named::<Spanned<Dir>>(ctx, "dir") {
+    let dir = if let Some(dir) = args.named::<Spanned<Dir>>("dir")? {
         if dir.v.axis() == SpecAxis::Horizontal {
             Some(dir.v)
         } else {
-            ctx.diag(error!(dir.span, "must be horizontal"));
-            None
+            bail!(args.file, dir.span, "must be horizontal");
         }
     } else {
         iso.as_deref().map(lang_dir)
     };
 
-    let body = args.expect::<Template>(ctx, "body").unwrap_or_default();
+    let body = args.expect::<Template>("body")?;
 
-    Value::template(move |ctx| {
+    Ok(Value::template(move |ctx| {
         if let Some(dir) = dir {
             ctx.state.dirs.cross = dir;
         }
 
         ctx.parbreak();
         body.exec(ctx);
-    })
+    }))
 }
 
 /// The default direction for the language identified by the given `iso` code.
@@ -163,30 +160,29 @@ fn lang_dir(iso: &str) -> Dir {
 }
 
 /// `strike`: Enable striken-through text.
-pub fn strike(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    line_impl(ctx, args, |font| &mut font.strikethrough)
+pub fn strike(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    line_impl(args, |font| &mut font.strikethrough)
 }
 
 /// `underline`: Enable underlined text.
-pub fn underline(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    line_impl(ctx, args, |font| &mut font.underline)
+pub fn underline(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    line_impl(args, |font| &mut font.underline)
 }
 
 /// `overline`: Add an overline above text.
-pub fn overline(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    line_impl(ctx, args, |font| &mut font.overline)
+pub fn overline(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    line_impl(args, |font| &mut font.overline)
 }
 
 fn line_impl(
-    ctx: &mut EvalContext,
     args: &mut FuncArgs,
     substate: fn(&mut FontState) -> &mut Option<Rc<LineState>>,
-) -> Value {
-    let stroke = args.eat().or_else(|| args.named(ctx, "stroke"));
-    let thickness = args.eat::<Linear>().or_else(|| args.named(ctx, "thickness"));
-    let offset = args.named(ctx, "offset");
-    let extent = args.named(ctx, "extent").unwrap_or_default();
-    let body = args.expect::<Template>(ctx, "body").unwrap_or_default();
+) -> TypResult<Value> {
+    let stroke = args.named("stroke")?.or_else(|| args.eat());
+    let thickness = args.named::<Linear>("thickness")?.or_else(|| args.eat());
+    let offset = args.named("offset")?;
+    let extent = args.named("extent")?.unwrap_or_default();
+    let body = args.expect::<Template>("body")?;
 
     // Suppress any existing strikethrough if strength is explicitly zero.
     let state = thickness.map_or(true, |s| !s.is_zero()).then(|| {
@@ -198,8 +194,8 @@ fn line_impl(
         })
     });
 
-    Value::template(move |ctx| {
+    Ok(Value::template(move |ctx| {
         *substate(ctx.state.font_mut()) = state.clone();
         body.exec(ctx);
-    })
+    }))
 }

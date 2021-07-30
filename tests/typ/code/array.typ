@@ -18,6 +18,7 @@
      , rgb("002")
      ,)}
 
+---
 // Error: 3 expected closing paren
 {(}
 

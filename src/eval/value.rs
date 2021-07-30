@@ -5,10 +5,11 @@ use std::rc::Rc;
 
 use super::{ops, Array, Dict, Function, Template, TemplateFunc};
 use crate::color::{Color, RgbaColor};
-use crate::util::EcoString;
+use crate::diag::StrResult;
 use crate::exec::ExecContext;
 use crate::geom::{Angle, Fractional, Length, Linear, Relative};
 use crate::syntax::Spanned;
+use crate::util::EcoString;
 
 /// A computational value.
 #[derive(Debug, Clone)]
@@ -47,8 +48,6 @@ pub enum Value {
     Func(Function),
     /// A dynamic value.
     Dyn(Dynamic),
-    /// The result of invalid operations.
-    Error,
 }
 
 impl Value {
@@ -80,7 +79,6 @@ impl Value {
             Self::Template(_) => Template::TYPE_NAME,
             Self::Func(_) => Function::TYPE_NAME,
             Self::Dyn(v) => v.type_name(),
-            Self::Error => "error",
         }
     }
 
@@ -93,7 +91,7 @@ impl Value {
     }
 
     /// Try to cast the value into a specific type.
-    pub fn cast<T>(self) -> Result<T, String>
+    pub fn cast<T>(self) -> StrResult<T>
     where
         T: Cast<Value>,
     {
@@ -241,7 +239,7 @@ pub trait Cast<V>: Sized {
     fn is(value: &V) -> bool;
 
     /// Try to cast the value into an instance of `Self`.
-    fn cast(value: V) -> Result<Self, String>;
+    fn cast(value: V) -> StrResult<Self>;
 }
 
 impl Cast<Value> for Value {
@@ -249,7 +247,7 @@ impl Cast<Value> for Value {
         true
     }
 
-    fn cast(value: Value) -> Result<Self, String> {
+    fn cast(value: Value) -> StrResult<Self> {
         Ok(value)
     }
 }
@@ -262,7 +260,7 @@ where
         T::is(&value.v)
     }
 
-    fn cast(value: Spanned<Value>) -> Result<Self, String> {
+    fn cast(value: Spanned<Value>) -> StrResult<Self> {
         T::cast(value.v)
     }
 }
@@ -275,7 +273,7 @@ where
         T::is(&value.v)
     }
 
-    fn cast(value: Spanned<Value>) -> Result<Self, String> {
+    fn cast(value: Spanned<Value>) -> StrResult<Self> {
         let span = value.span;
         T::cast(value.v).map(|t| Spanned::new(t, span))
     }
@@ -302,7 +300,7 @@ macro_rules! primitive {
                 matches!(value, Value::$variant(_) $(| Value::$other(_))*)
             }
 
-            fn cast(value: Value) -> Result<Self, String> {
+            fn cast(value: Value) -> StrResult<Self> {
                 match value {
                     Value::$variant(v) => Ok(v),
                     $(Value::$other($binding) => Ok($out),)*
@@ -358,7 +356,7 @@ macro_rules! castable {
                 }
             }
 
-            fn cast(value: $crate::eval::Value) -> Result<Self, String> {
+            fn cast(value: $crate::eval::Value) -> $crate::diag::StrResult<Self> {
                 let found = match value {
                     $($pattern => return Ok($out),)*
                     $crate::eval::Value::Dyn(dynamic) => {
@@ -387,6 +385,6 @@ primitive! { Color: "color", Color }
 primitive! { EcoString: "string", Str }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
-primitive! { Template: "template", Template, Str(v) => v.into() }
+primitive! { Template: "template", Template }
 primitive! { Function: "function", Func }
 primitive! { f64: "float", Float, Int(v) => v as f64 }

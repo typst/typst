@@ -14,14 +14,21 @@ pub use tokens::*;
 
 use std::rc::Rc;
 
-use crate::diag::Pass;
+use crate::diag::TypResult;
+use crate::loading::FileId;
 use crate::syntax::*;
 use crate::util::EcoString;
 
 /// Parse a string of source code.
-pub fn parse(src: &str) -> Pass<SyntaxTree> {
-    let mut p = Parser::new(src);
-    Pass::new(tree(&mut p), p.diags)
+pub fn parse(file: FileId, src: &str) -> TypResult<SyntaxTree> {
+    let mut p = Parser::new(file, src);
+    let tree = tree(&mut p);
+    let errors = p.finish();
+    if errors.is_empty() {
+        Ok(tree)
+    } else {
+        Err(Box::new(errors))
+    }
 }
 
 /// Parse a syntax tree.
@@ -126,7 +133,7 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<SyntaxNode> {
             p.start_group(group, TokenMode::Code);
             let expr = expr_with(p, true, 0);
             if stmt && expr.is_some() && !p.eof() {
-                p.expected_at("semicolon or line break", p.prev_end());
+                p.expected_at(p.prev_end(), "semicolon or line break");
             }
             p.end_group();
 
@@ -160,12 +167,12 @@ fn unicode_escape(p: &mut Parser, token: UnicodeEscapeToken) -> EcoString {
         c.into()
     } else {
         // Print out the escape sequence verbatim if it is invalid.
-        p.diag(error!(span, "invalid unicode escape sequence"));
+        p.error(span, "invalid unicode escape sequence");
         p.peek_src().into()
     };
 
     if !token.terminated {
-        p.diag(error!(span.end, "expected closing brace"));
+        p.error(span.end, "expected closing brace");
     }
 
     text
@@ -176,7 +183,7 @@ fn raw(p: &mut Parser, token: RawToken) -> SyntaxNode {
     let span = p.peek_span();
     let raw = resolve::resolve_raw(span, token.text, token.backticks);
     if !token.terminated {
-        p.diag(error!(p.peek_span().end, "expected backtick(s)"));
+        p.error(span.end, "expected backtick(s)");
     }
     SyntaxNode::Raw(raw)
 }
@@ -198,11 +205,7 @@ fn heading(p: &mut Parser) -> SyntaxNode {
 
     let body = tree_indented(p);
 
-    SyntaxNode::Heading(HeadingNode {
-        span: p.span(start),
-        level,
-        body: Rc::new(body),
-    })
+    SyntaxNode::Heading(HeadingNode { span: p.span(start), level, body })
 }
 
 /// Parse a single list item.
@@ -356,7 +359,7 @@ fn literal(p: &mut Parser) -> Option<Expr> {
         Token::Fraction(p) => Expr::Fractional(span, p),
         Token::Str(token) => Expr::Str(span, {
             if !token.terminated {
-                p.expected_at("quote", p.peek_span().end);
+                p.expected_at(span.end, "quote");
             }
             resolve::resolve_string(token.string)
         }),
@@ -421,7 +424,7 @@ fn collection(p: &mut Parser) -> (Vec<CallArg>, bool) {
             items.push(arg);
 
             if let Some(pos) = missing_coma.take() {
-                p.expected_at("comma", pos);
+                p.expected_at(pos, "comma");
             }
 
             if p.eof() {
@@ -447,7 +450,7 @@ fn item(p: &mut Parser) -> Option<CallArg> {
         if let Expr::Ident(name) = first {
             Some(CallArg::Named(Named { name, expr: expr(p)? }))
         } else {
-            p.diag(error!(first.span(), "expected identifier"));
+            p.error(first.span(), "expected identifier");
             expr(p);
             None
         }
@@ -461,7 +464,7 @@ fn array(p: &mut Parser, items: Vec<CallArg>, span: Span) -> Expr {
     let items = items.into_iter().filter_map(|item| match item {
         CallArg::Pos(expr) => Some(expr),
         CallArg::Named(_) => {
-            p.diag(error!(item.span(), "expected expression, found named pair"));
+            p.error(item.span(), "expected expression, found named pair");
             None
         }
     });
@@ -474,7 +477,7 @@ fn dict(p: &mut Parser, items: Vec<CallArg>, span: Span) -> Expr {
     let items = items.into_iter().filter_map(|item| match item {
         CallArg::Named(named) => Some(named),
         CallArg::Pos(_) => {
-            p.diag(error!(item.span(), "expected named pair, found expression"));
+            p.error(item.span(), "expected named pair, found expression");
             None
         }
     });
@@ -488,7 +491,7 @@ fn idents(p: &mut Parser, items: Vec<CallArg>) -> Vec<Ident> {
     let items = items.into_iter().filter_map(|item| match item {
         CallArg::Pos(Expr::Ident(id)) => Some(id),
         _ => {
-            p.diag(error!(item.span(), "expected identifier"));
+            p.error(item.span(), "expected identifier");
             None
         }
     });
@@ -512,7 +515,7 @@ fn block(p: &mut Parser, scoping: bool) -> Expr {
         if let Some(expr) = expr(p) {
             exprs.push(expr);
             if !p.eof() {
-                p.expected_at("semicolon or line break", p.prev_end());
+                p.expected_at(p.prev_end(), "semicolon or line break");
             }
         }
         p.end_group();
@@ -529,10 +532,7 @@ fn call(p: &mut Parser, callee: Expr) -> Option<Expr> {
     let mut wide = p.eat_if(Token::Excl);
     if wide && p.outer_mode() == TokenMode::Code {
         let span = p.span(callee.span().start);
-        p.diag(error!(
-            span,
-            "wide calls are only allowed directly in templates",
-        ));
+        p.error(span, "wide calls are only allowed directly in templates");
         wide = false;
     }
 
@@ -548,7 +548,7 @@ fn call(p: &mut Parser, callee: Expr) -> Option<Expr> {
             items: vec![],
         },
         _ => {
-            p.expected_at("argument list", p.prev_end());
+            p.expected_at(p.prev_end(), "argument list");
             return None;
         }
     };
@@ -616,7 +616,7 @@ fn let_expr(p: &mut Parser) -> Option<Expr> {
                 init = expr(p);
             } else if params.is_some() {
                 // Function definitions must have a body.
-                p.expected_at("body", p.prev_end());
+                p.expected_at(p.prev_end(), "body");
             }
 
             // Rewrite into a closure expression if it's a function definition.
@@ -738,7 +738,7 @@ fn import_expr(p: &mut Parser) -> Option<Expr> {
         p.start_group(Group::Imports, TokenMode::Code);
         let items = collection(p).0;
         if items.is_empty() {
-            p.expected_at("import items", p.prev_end());
+            p.expected_at(p.prev_end(), "import items");
         }
         p.end_group();
         Imports::Idents(idents(p, items))
@@ -790,7 +790,7 @@ fn body(p: &mut Parser) -> Option<Expr> {
         Some(Token::LeftBracket) => Some(template(p)),
         Some(Token::LeftBrace) => Some(block(p, true)),
         _ => {
-            p.expected_at("body", p.prev_end());
+            p.expected_at(p.prev_end(), "body");
             None
         }
     }

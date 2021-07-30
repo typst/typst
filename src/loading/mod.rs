@@ -34,7 +34,8 @@ pub trait Loader {
 /// A file id that can be [resolved](Loader::resolve_from) from a path.
 ///
 /// Should be the same for all paths pointing to the same file.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Serialize, Deserialize)]
 pub struct FileId(u64);
 
 impl FileId {

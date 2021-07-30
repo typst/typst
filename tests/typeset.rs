@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::env;
 use std::ffi::OsStr;
 use std::fs;
@@ -11,19 +10,16 @@ use ttf_parser::{GlyphId, OutlineBuilder};
 use walkdir::WalkDir;
 
 use typst::color::Color;
-use typst::diag::{Diag, DiagSet, Level};
-use typst::eval::{eval, Scope, Value};
+use typst::diag::{Error, TypResult};
+use typst::eval::{eval, Value};
 use typst::exec::{exec, State};
 use typst::geom::{self, Length, PathElement, Point, Sides, Size};
 use typst::image::ImageId;
-use typst::layout::{layout, Element, Frame, Geometry, Paint, Text};
+use typst::layout::{layout, Element, Frame, Geometry, LayoutTree, Paint, Text};
 use typst::loading::{FileId, FsLoader};
 use typst::parse::{parse, LineMap, Scanner};
 use typst::syntax::{Location, Pos};
 use typst::Context;
-
-#[cfg(feature = "layout-cache")]
-use typst::layout::LayoutTree;
 
 const TYP_DIR: &str = "./typ";
 const REF_DIR: &str = "./ref";
@@ -67,10 +63,22 @@ fn main() {
     page.size = Size::new(Length::pt(120.0), Length::inf());
     page.margins = Sides::splat(Some(Length::pt(10.0).into()));
 
-    // We hook up some extra test helpers into the global scope.
+    // Hook up an assert function into the global scope.
     let mut std = typst::library::new();
-    let panics = Rc::new(RefCell::new(vec![]));
-    register_helpers(&mut std, Rc::clone(&panics));
+    std.def_func("test", move |_, args| {
+        let lhs = args.expect::<Value>("left-hand side")?;
+        let rhs = args.expect::<Value>("right-hand side")?;
+        if lhs != rhs {
+            typst::bail!(
+                args.file,
+                args.span,
+                "Assertion failed: {:?} != {:?}",
+                lhs,
+                rhs
+            );
+        }
+        Ok(Value::None)
+    });
 
     // Create loader and context.
     let loader = FsLoader::new().with_path(FONT_DIR).wrap();
@@ -88,7 +96,6 @@ fn main() {
         ok &= test(
             &mut ctx,
             loader.as_ref(),
-            &panics,
             &src_path,
             &png_path,
             &ref_path,
@@ -134,35 +141,9 @@ impl Args {
     }
 }
 
-type Panics = Rc<RefCell<Vec<Panic>>>;
-
-struct Panic {
-    pos: Pos,
-    lhs: Option<Value>,
-    rhs: Option<Value>,
-}
-
-fn register_helpers(scope: &mut Scope, panics: Rc<RefCell<Vec<Panic>>>) {
-    scope.def_const("error", Value::Error);
-    scope.def_func("args", |_, args| {
-        let repr = typst::pretty::pretty(args);
-        args.items.clear();
-        Value::template(move |ctx| ctx.push_monospace_text(&repr))
-    });
-    scope.def_func("test", move |ctx, args| {
-        let lhs = args.expect::<Value>(ctx, "left-hand side");
-        let rhs = args.expect::<Value>(ctx, "right-hand side");
-        if lhs != rhs {
-            panics.borrow_mut().push(Panic { pos: args.span.start, lhs, rhs });
-        }
-        Value::None
-    });
-}
-
 fn test(
     ctx: &mut Context,
     loader: &FsLoader,
-    panics: &Panics,
     src_path: &Path,
     png_path: &Path,
     ref_path: &Path,
@@ -171,8 +152,8 @@ fn test(
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
     println!("Testing {}", name.display());
 
+    let file = loader.resolve(src_path).unwrap();
     let src = fs::read_to_string(src_path).unwrap();
-    let src_id = loader.resolve(src_path).unwrap();
 
     let mut ok = true;
     let mut frames = vec![];
@@ -196,7 +177,7 @@ fn test(
             }
         } else {
             let (part_ok, compare_here, part_frames) =
-                test_part(ctx, panics, src_id, part, i, compare_ref, lines);
+                test_part(ctx, file, part, i, compare_ref, lines);
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
@@ -221,7 +202,7 @@ fn test(
                 println!("  Does not match reference image. ❌");
                 ok = false;
             }
-        } else {
+        } else if !frames.is_empty() {
             println!("  Failed to open reference image. ❌");
             ok = false;
         }
@@ -236,69 +217,56 @@ fn test(
 
 fn test_part(
     ctx: &mut Context,
-    panics: &Panics,
-    src_id: FileId,
+    file: FileId,
     src: &str,
     i: usize,
     compare_ref: bool,
     lines: u32,
 ) -> (bool, bool, Vec<Rc<Frame>>) {
     let map = LineMap::new(src);
-    let (local_compare_ref, ref_diags) = parse_metadata(src, &map);
+    let (local_compare_ref, mut ref_errors) = parse_metadata(file, src, &map);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
-
-    // Clear the module cache between tests.
-    ctx.modules.clear();
-
-    let ast = parse(src);
-    let module = eval(ctx, src_id, Rc::new(ast.output));
-    let tree = exec(ctx, &module.output.template);
-    let mut frames = layout(ctx, &tree.output);
-
-    let mut diags = ast.diags;
-    diags.extend(module.diags);
-    diags.extend(tree.diags);
 
     let mut ok = true;
 
-    for panic in panics.borrow().iter() {
-        let line = map.location(panic.pos).unwrap().line;
-        println!("  Assertion failed in line {} ❌", lines + line);
-        if let (Some(lhs), Some(rhs)) = (&panic.lhs, &panic.rhs) {
-            println!("    Left:  {:?}", lhs);
-            println!("    Right: {:?}", rhs);
-        } else {
-            println!("    Missing argument.");
+    let result = typeset(ctx, file, src);
+    let (frames, mut errors) = match result {
+        #[allow(unused_variables)]
+        Ok((tree, mut frames)) => {
+            #[cfg(feature = "layout-cache")]
+            (ok &= test_incremental(ctx, i, &tree, &frames));
+
+            if !compare_ref {
+                frames.clear();
+            }
+
+            (frames, vec![])
         }
+        Err(errors) => (vec![], *errors),
+    };
+
+    // TODO: Also handle errors from other files.
+    errors.retain(|error| error.file == file);
+    ref_errors.sort();
+    errors.sort();
+
+    if errors != ref_errors {
+        println!("  Subtest {} does not match expected errors. ❌", i);
         ok = false;
-    }
 
-    panics.borrow_mut().clear();
-
-    if diags != ref_diags {
-        println!("  Subtest {} does not match expected diagnostics. ❌", i);
-        ok = false;
-
-        for diag in &diags {
-            if !ref_diags.contains(diag) {
+        for error in errors.iter() {
+            if error.file == file && !ref_errors.contains(error) {
                 print!("    Not annotated | ");
-                print_diag(diag, &map, lines);
+                print_error(error, &map, lines);
             }
         }
 
-        for diag in &ref_diags {
-            if !diags.contains(diag) {
+        for error in ref_errors.iter() {
+            if !errors.contains(error) {
                 print!("    Not emitted   | ");
-                print_diag(diag, &map, lines);
+                print_error(error, &map, lines);
             }
         }
-    }
-
-    #[cfg(feature = "layout-cache")]
-    (ok &= test_incremental(ctx, i, &tree.output, &frames));
-
-    if !compare_ref {
-        frames.clear();
     }
 
     (ok, compare_ref, frames)
@@ -350,9 +318,9 @@ fn test_incremental(
     ok
 }
 
-fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {
-    let mut diags = DiagSet::new();
+fn parse_metadata(file: FileId, src: &str, map: &LineMap) -> (Option<bool>, Vec<Error>) {
     let mut compare_ref = None;
+    let mut errors = vec![];
 
     let lines: Vec<_> = src.lines().map(str::trim).collect();
     for (i, line) in lines.iter().enumerate() {
@@ -364,10 +332,8 @@ fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {
             compare_ref = Some(true);
         }
 
-        let (level, rest) = if let Some(rest) = line.strip_prefix("// Warning: ") {
-            (Level::Warning, rest)
-        } else if let Some(rest) = line.strip_prefix("// Error: ") {
-            (Level::Error, rest)
+        let rest = if let Some(rest) = line.strip_prefix("// Error: ") {
+            rest
         } else {
             continue;
         };
@@ -391,18 +357,30 @@ fn parse_metadata(src: &str, map: &LineMap) -> (Option<bool>, DiagSet) {
         let start = pos(&mut s);
         let end = if s.eat_if('-') { pos(&mut s) } else { start };
 
-        diags.insert(Diag::new(start .. end, level, s.rest().trim()));
+        errors.push(Error::new(file, start .. end, s.rest().trim()));
     }
 
-    (compare_ref, diags)
+    (compare_ref, errors)
 }
 
-fn print_diag(diag: &Diag, map: &LineMap, lines: u32) {
-    let mut start = map.location(diag.span.start).unwrap();
-    let mut end = map.location(diag.span.end).unwrap();
+fn typeset(
+    ctx: &mut Context,
+    file: FileId,
+    src: &str,
+) -> TypResult<(LayoutTree, Vec<Rc<Frame>>)> {
+    let ast = parse(file, src)?;
+    let module = eval(ctx, file, Rc::new(ast))?;
+    let tree = exec(ctx, &module.template);
+    let frames = layout(ctx, &tree);
+    Ok((tree, frames))
+}
+
+fn print_error(error: &Error, map: &LineMap, lines: u32) {
+    let mut start = map.location(error.span.start).unwrap();
+    let mut end = map.location(error.span.end).unwrap();
     start.line += lines;
     end.line += lines;
-    println!("{}: {}-{}: {}", diag.level, start, end, diag.message);
+    println!("Error: {}-{}: {}", start, end, error.message);
 }
 
 fn draw(ctx: &Context, frames: &[Rc<Frame>], dpi: f32) -> sk::Pixmap {

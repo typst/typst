@@ -8,7 +8,6 @@ pub use state::*;
 
 use std::fmt::Write;
 
-use crate::diag::Pass;
 use crate::eval::{ExprMap, Template, TemplateFunc, TemplateNode, TemplateTree, Value};
 use crate::geom::Gen;
 use crate::layout::{LayoutTree, StackChild, StackNode};
@@ -18,7 +17,7 @@ use crate::util::EcoString;
 use crate::Context;
 
 /// Execute a template to produce a layout tree.
-pub fn exec(ctx: &mut Context, template: &Template) -> Pass<LayoutTree> {
+pub fn exec(ctx: &mut Context, template: &Template) -> LayoutTree {
     let mut ctx = ExecContext::new(ctx);
     template.exec(&mut ctx);
     ctx.finish()
@@ -138,7 +137,6 @@ impl Exec for Value {
             Value::Float(v) => ctx.push_text(pretty(v)),
             Value::Str(v) => ctx.push_text(v),
             Value::Template(v) => v.exec(ctx),
-            Value::Error => {}
             // For values which can't be shown "naturally", we print the
             // representation in monospace.
             other => ctx.push_monospace_text(pretty(other)),

@@ -25,9 +25,9 @@
     gutter-columns: (0pt, 10%),
     image("../../res/rhino.png"),
     align(right, rect(width: 100%, fill: eastern)[LoL]),
-    "rofl",
-    "\nA" * 3,
-    "Ha!\n" * 3,
+    [rofl],
+    [\ A] * 3,
+    [Ha!\ ] * 3,
 )
 
 ---
@@ -38,9 +38,9 @@
     gutter-rows: (8pt,),
     gutter-columns: (0pt, 10%),
     [A], [B], [C],
-    "Ha!\n" * 6,
-    "rofl",
-    "\nA" * 3,
+    [Ha!\ ] * 6,
+    [rofl],
+    [\ A] * 3,
     [hello],
     [darkness],
     [my old]
@@ -54,10 +54,10 @@
     gutter-rows: (10pt,),
     gutter-columns: (0pt, 10%),
     [A], [B], [C], [D],
-    grid(columns: 2, [A], [B], "C\n"*3, [D]),
+    grid(columns: 2, [A], [B], [C\ ]*3, [D]),
     align(right, rect(width: 100%, fill: eastern)[LoL]),
-    "rofl",
-    "E\n"*4,
+    [rofl],
+    [E\ ]*4,
 )
 
 ---

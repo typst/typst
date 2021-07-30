@@ -54,21 +54,25 @@ Emoji: 🐪, 🌋, 🏞
 #font(monospace, monospace: ("Nope", "Latin Modern Math"))[Math.]
 
 ---
-// Ref: false
-
 // Error: 7-12 unexpected argument
 #font(false)[]
 
+---
 // Error: 14-18 expected font style, found font weight
-// Error: 28-34 expected font weight, found string
-// Error: 43-44 expected string or array of strings, found integer
-#font(style: bold, weight: "thin", serif: 0)[]
+#font(style: bold, weight: "thin")[]
 
+---
+// Error: 14-15 expected string or array of strings, found integer
+#font(serif: 0)[]
+
+---
+// Error: 19-23 unexpected argument
+#font(size: 10pt, 12pt)[]
+
+---
+// Error: 28-35 unexpected argument
+#font(family: "Helvetica", "Arial")[]
+
+---
 // Error: 7-27 unexpected argument
 #font(something: "invalid")[]
-
-// Error: 13-23 unexpected argument
-#font(12pt, size: 10pt)[]
-
-// Error: 16-35 unexpected argument
-#font("Arial", family: "Helvetica")[]

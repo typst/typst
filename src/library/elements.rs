@@ -8,46 +8,44 @@ use crate::layout::{
 };
 
 /// `image`: An image.
-pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let path = args.expect::<Spanned<EcoString>>(ctx, "path to image file");
-    let width = args.named(ctx, "width");
-    let height = args.named(ctx, "height");
+pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    let path = args.expect::<Spanned<EcoString>>("path to image file")?;
+    let width = args.named("width")?;
+    let height = args.named("height")?;
 
-    let mut node = None;
-    if let Some(path) = &path {
-        if let Some(file) = ctx.resolve(&path.v, path.span) {
-            if let Some(id) = ctx.images.load(file) {
-                node = Some(ImageNode { id, width, height });
-            } else {
-                ctx.diag(error!(path.span, "failed to load image"));
-            }
-        }
-    }
+    let file = ctx.resolve(&path.v, path.span)?;
+    let node = match ctx.images.load(file) {
+        Some(id) => ImageNode { id, width, height },
+        None => bail!(args.file, path.span, "failed to load image"),
+    };
 
-    Value::template(move |ctx| {
-        if let Some(node) = node {
-            ctx.push_into_par(node);
-        }
-    })
+    Ok(Value::template(move |ctx| ctx.push_into_par(node)))
 }
 
 /// `rect`: A rectangle with optional content.
-pub fn rect(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let width = args.named(ctx, "width");
-    let height = args.named(ctx, "height");
-    let fill = args.named(ctx, "fill");
+pub fn rect(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    let width = args.named("width")?;
+    let height = args.named("height")?;
+    let fill = args.named("fill")?;
     let body = args.eat().unwrap_or_default();
-    rect_impl(width, height, None, fill, body)
+    Ok(rect_impl(width, height, None, fill, body))
 }
 
 /// `square`: A square with optional content.
-pub fn square(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let length = args.named::<Length>(ctx, "length").map(Linear::from);
-    let width = length.or_else(|| args.named(ctx, "width"));
-    let height = width.is_none().then(|| args.named(ctx, "height")).flatten();
-    let fill = args.named(ctx, "fill");
+pub fn square(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    let length = args.named::<Length>("length")?.map(Linear::from);
+    let width = match length {
+        Some(length) => Some(length),
+        None => args.named("width")?,
+    };
+    let height = match width {
+        Some(_) => None,
+        None => args.named("height")?,
+    };
+    let aspect = Some(N64::from(1.0));
+    let fill = args.named("fill")?;
     let body = args.eat().unwrap_or_default();
-    rect_impl(width, height, Some(N64::from(1.0)), fill, body)
+    Ok(rect_impl(width, height, aspect, fill, body))
 }
 
 fn rect_impl(
@@ -76,22 +74,29 @@ fn rect_impl(
 }
 
 /// `ellipse`: An ellipse with optional content.
-pub fn ellipse(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let width = args.named(ctx, "width");
-    let height = args.named(ctx, "height");
-    let fill = args.named(ctx, "fill");
+pub fn ellipse(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    let width = args.named("width")?;
+    let height = args.named("height")?;
+    let fill = args.named("fill")?;
     let body = args.eat().unwrap_or_default();
-    ellipse_impl(width, height, None, fill, body)
+    Ok(ellipse_impl(width, height, None, fill, body))
 }
 
 /// `circle`: A circle with optional content.
-pub fn circle(ctx: &mut EvalContext, args: &mut FuncArgs) -> Value {
-    let diameter = args.named::<Length>(ctx, "radius").map(|r| 2.0 * Linear::from(r));
-    let width = diameter.or_else(|| args.named(ctx, "width"));
-    let height = width.is_none().then(|| args.named(ctx, "height")).flatten();
-    let fill = args.named(ctx, "fill");
+pub fn circle(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+    let diameter = args.named("radius")?.map(|r: Length| 2.0 * Linear::from(r));
+    let width = match diameter {
+        None => args.named("width")?,
+        diameter => diameter,
+    };
+    let height = match width {
+        None => args.named("height")?,
+        width => width,
+    };
+    let aspect = Some(N64::from(1.0));
+    let fill = args.named("fill")?;
     let body = args.eat().unwrap_or_default();
-    ellipse_impl(width, height, Some(N64::from(1.0)), fill, body)
+    Ok(ellipse_impl(width, height, aspect, fill, body))
 }
 
 fn ellipse_impl(

@@ -2,13 +2,22 @@
 // Ref: false
 
 ---
+// Don't parse closure directly in template.
+// Ref: true
 
+#let x = "\"hi\""
+
+// Should output `"hi" => "bye"`.
+#x => "bye"
+
+---
 // Basic closure without captures.
 {
     let adder = (x, y) => x + y
     test(adder(2, 3), 5)
 }
 
+---
 // Pass closure as argument and return closure.
 // Also uses shorthand syntax for a single argument.
 {
@@ -19,6 +28,7 @@
     test(h(2), 5)
 }
 
+---
 // Capture environment.
 {
     let mark = "?"
@@ -35,15 +45,7 @@
     test(greet("Typst"), "Hi, Typst!")
 }
 
-// Don't leak environment.
-{
-    // Error: 18-19 unknown variable
-    let func() = x
-    let x = "hi"
-
-    test(func(), error)
-}
-
+---
 // Redefined variable.
 {
     let x = 1
@@ -52,6 +54,15 @@
         x
     }
     test(f(), 3)
+}
+
+---
+// Don't leak environment.
+{
+    // Error: 18-19 unknown variable
+    let func() = x
+    let x = "hi"
+    func()
 }
 
 ---
@@ -64,11 +75,11 @@
     test(types("nope"), "[string, none]")
 }
 
+---
 // Too many arguments.
 {
     let f(x) = x + 1
 
     // Error: 10-15 unexpected argument
-    // Error: 17-24 unexpected argument
     f(1, "two", () => x)
 }

@@ -10,9 +10,6 @@
 {ke-bab} \
 {α}
 
-// Error: 2-3 unknown variable
-{_}
-
 ---
 // Literal values.
 {none} (empty) \
