@@ -37,5 +37,5 @@ No = heading
 
 // Code blocks continue heading.
 = A {
-    "B"
+  "B"
 }

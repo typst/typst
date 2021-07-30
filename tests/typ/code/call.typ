@@ -25,8 +25,8 @@
 
 // Test multiple wide calls in separate expressions inside a template.
 [
-    #font!(fill: eastern) - First
-    #font!(fill: forest) - Second
+  #font!(fill: eastern) - First
+  #font!(fill: forest) - Second
 ]
 
 // Test wide call in heading.
@@ -59,12 +59,12 @@ C
 
 // Callee expressions.
 {
-    // Wrapped in parens.
-    test((type)("hi"), "string")
+  // Wrapped in parens.
+  test((type)("hi"), "string")
 
-    // Call the return value of a function.
-    let adder(dx) = x => x + dx
-    test(adder(2)(5), 7)
+  // Call the return value of a function.
+  let adder(dx) = x => x + dx
+  test(adder(2)(5), 7)
 }
 
 ---

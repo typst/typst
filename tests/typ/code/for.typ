@@ -10,22 +10,22 @@
 // Dictionary is not traversed in insertion order.
 // Should output `Age: 2. Name: Typst.`.
 #for k, v in (Name: "Typst", Age: 2) [
-    {k}: {v}.
+  {k}: {v}.
 ]
 
 // Block body.
 // Should output `[1st, 2nd, 3rd, 4th, 5th]`.
 {
-    "["
-    for v in (1, 2, 3, 4, 5) {
-        if v > 1 [, ]
-        [#v]
-        if v == 1 [st]
-        if v == 2 [nd]
-        if v == 3 [rd]
-        if v >= 4 [th]
-     }
-     "]"
+  "["
+  for v in (1, 2, 3, 4, 5) {
+    if v > 1 [, ]
+    [#v]
+    if v == 1 [st]
+    if v == 2 [nd]
+    if v == 3 [rd]
+    if v >= 4 [th]
+   }
+   "]"
 }
 
 // Template body.
@@ -37,23 +37,23 @@
 
 // Values of array.
 #for v in (1, 2, 3) {
-    out += (v,)
+  out += (v,)
 }
 
 // Indices and values of array.
 #for i, v in ("1", "2", "3") {
-    test(repr(i + 1), v)
+  test(repr(i + 1), v)
 }
 
 // Values of dictionary.
 #for v in (a: 4, b: 5) {
-    out += (v,)
+  out += (v,)
 }
 
 // Keys and values of dictionary.
 #for k, v in (a: 6, b: 7) {
-    out += (k,)
-    out += (v,)
+  out += (k,)
+  out += (v,)
 }
 
 #test(out, (1, 2, 3, 4, 5, "a", 6, "b", 7))
@@ -61,9 +61,9 @@
 // Chars of string.
 #let first = true
 #let joined = for c in "abc" {
-    if not first { ", " }
-    first = false
-    c
+  if not first { ", " }
+  first = false
+  c
 }
 
 #test(joined, "a, b, c")
@@ -81,7 +81,7 @@
 // Keys and values of strings.
 // Error: 6-10 mismatched pattern
 #for k, v in "hi" {
-    dont-care
+  dont-care
 }
 
 ---

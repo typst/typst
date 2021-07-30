@@ -17,8 +17,8 @@
 
 // Code mode
 {
-    import b from "target.typ"
-    test(b, 1)
+  import b from "target.typ"
+  test(b, 1)
 }
 
 #test(b, 1)

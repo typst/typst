@@ -9,9 +9,9 @@ First of two
 // Make sure that you can't do page related stuff in a container.
 A
 #box[
-    B
-    #pagebreak()
-    #page("a4")[]
+  B
+  #pagebreak()
+  #page("a4")[]
 ]
 C
 

@@ -14,8 +14,8 @@
 
 ---
 {
-    // Error: 21-43 file not found
-    let x = include "importable/chap3.typ"
+  // Error: 19-41 file not found
+  let x = include "importable/chap3.typ"
 }
 
 ---

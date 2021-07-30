@@ -26,7 +26,7 @@ Emoji: 🐪, 🌋, 🏞
 
 // Math.
 #font("Latin Modern Math")[
-    ∫ 𝛼 + 3𝛽 d𝑡
+  ∫ 𝛼 + 3𝛽 d𝑡
 ]
 
 // Colors.
@@ -37,8 +37,8 @@ Emoji: 🐪, 🌋, 🏞
 
 #page!(width: 170pt)
 #let try(top, bottom) = rect(fill: conifer)[
-    #font!(top-edge: top, bottom-edge: bottom)
-    `From `#top` to `#bottom
+  #font!(top-edge: top, bottom-edge: bottom)
+  `From `#top` to `#bottom
 ]
 
 #try(ascender, descender)

@@ -8,8 +8,8 @@
 
 // Set all margins at once.
 #page(margins: 30pt)[
-    #align(top, left)[TL]
-    #align(bottom, right)[BR]
+  #align(top, left)[TL]
+  #align(bottom, right)[BR]
 ]
 
 // Set individual margins.

@@ -4,19 +4,19 @@
 // Should output `2 4 6 8 10`.
 #let i = 0
 #while i < 10 [
-    { i += 2 }
-    #i
+  { i += 2 }
+  #i
 ]
 
 // Should output `Hi`.
 #let iter = true
 #while iter {
-    iter = false
-    "Hi."
+  iter = false
+  "Hi."
 }
 
 #while false {
-    dont-care
+  dont-care
 }
 
 ---
@@ -36,8 +36,8 @@
 ---
 // Make sure that we terminate and don't complain multiple times.
 #while true {
-    // Error: 5-9 unknown variable
-    nope
+  // Error: 3-7 unknown variable
+  nope
 }
 
 ---

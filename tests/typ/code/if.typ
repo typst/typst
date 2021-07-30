@@ -3,46 +3,46 @@
 ---
 // Test condition evaluation.
 #if 1 < 2 [
-    One.
+  One.
 ]
 
 #if true == false [
-    {Bad}, but we {dont-care}!
+  {Bad}, but we {dont-care}!
 ]
 
 ---
 // Braced condition.
 #if {true} [
-    One.
+  One.
 ]
 
 // Template in condition.
 #if [] != none [
-    Two.
+  Two.
 ]
 
 // Multi-line condition with parens.
 #if (
-    1 + 1
-      == 1
+  1 + 1
+    == 1
 ) [
-    Nope.
+  Nope.
 ] #else {
-    "Three."
+  "Three."
 }
 
 // Multiline.
 #if false [
-    Bad.
+  Bad.
 ] #else {
-    let point = "."
-    "Four" + point
+  let point = "."
+  "Four" + point
 }
 
 // Template can be argument or body depending on whitespace.
 {
-    if "template" == type[b] [Fi] else [Nope]
-    if "template" == type [Nope] else [ve.]
+  if "template" == type[b] [Fi] else [Nope]
+  if "template" == type [Nope] else [ve.]
 }
 
 ---
@@ -50,21 +50,21 @@
 // Ref: false
 
 {
-    let x = 1
-    let y = 2
-    let z
+  let x = 1
+  let y = 2
+  let z
 
-    // Returns if branch.
-    z = if x < y { "ok" }
-    test(z, "ok")
+  // Returns if branch.
+  z = if x < y { "ok" }
+  test(z, "ok")
 
-    // Returns else branch.
-    z = if x > y { "bad" } else { "ok" }
-    test(z, "ok")
+  // Returns else branch.
+  z = if x > y { "bad" } else { "ok" }
+  test(z, "ok")
 
-    // Missing else evaluates to none.
-    z = if x > y { "bad" }
-    test(z, none)
+  // Missing else evaluates to none.
+  z = if x > y { "bad" }
+  test(z, none)
 }
 
 ---

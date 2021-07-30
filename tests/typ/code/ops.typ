@@ -11,15 +11,15 @@
 
 // Test plus and minus.
 #for v in (1, 3.14, 12pt, 45deg, 90%, 13% + 10pt, 6.3fr) {
-    // Test plus.
-    test(+v, v)
+  // Test plus.
+  test(+v, v)
 
-    // Test minus.
-    test(-v, -1 * v)
-    test(--v, v)
+  // Test minus.
+  test(-v, -1 * v)
+  test(--v, v)
 
-    // Test combination.
-    test(-++ --v, -v)
+  // Test combination.
+  test(-++ --v, -v)
 }
 
 #test(-(4 + 2), 6-12)
@@ -50,24 +50,24 @@
 // Mathematical identities.
 #let nums = (1, 3.14, 12pt, 45deg, 90%, 13% + 10pt)
 #for v in nums {
-    // Test plus and minus.
-    test(v + v - v, v)
-    test(v - v - v, -v)
+  // Test plus and minus.
+  test(v + v - v, v)
+  test(v - v - v, -v)
 
-    // Test plus/minus and multiplication.
-    test(v - v, 0 * v)
-    test(v + v, 2 * v)
+  // Test plus/minus and multiplication.
+  test(v - v, 0 * v)
+  test(v + v, 2 * v)
 
-    // Integer addition does not give a float.
-    if type(v) != "integer" {
-        test(v + v, 2.0 * v)
-    }
+  // Integer addition does not give a float.
+  if type(v) != "integer" {
+    test(v + v, 2.0 * v)
+  }
 
-    // Linears cannot be divided by themselves.
-    if type(v) != "linear" {
-        test(v / v, 1.0)
-        test(v / v == 1, true)
-    }
+  // Linears cannot be divided by themselves.
+  if type(v) != "linear" {
+    test(v / v, 1.0)
+    test(v / v == 1, true)
+  }
 }
 
 // Make sure length, relative and linear
@@ -76,15 +76,15 @@
 // - divided by floats.
 #let dims = (10pt, 30%, 50% + 3cm)
 #for a in dims {
-    for b in dims {
-        test(type(a + b), type(a - b))
-    }
+  for b in dims {
+    test(type(a + b), type(a - b))
+  }
 
-    for b in (7, 3.14) {
-        test(type(a * b), type(a))
-        test(type(b * a), type(a))
-        test(type(a / b), type(a))
-    }
+  for b in (7, 3.14) {
+    test(type(a * b), type(a))
+    test(type(b * a), type(a))
+    test(type(a / b), type(a))
+  }
 }
 
 ---

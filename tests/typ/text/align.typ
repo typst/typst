@@ -3,16 +3,16 @@
 ---
 // Test that alignment depends on the paragraph's full width.
 #box[
-    Hello World \
-    #align(right)[World]
+  Hello World \
+  #align(right)[World]
 ]
 
 ---
 // Test that a line with multiple alignments respects the paragraph's full
 // width.
 #box[
-    Hello #align(center)[World] \
-    Hello from the World
+  Hello #align(center)[World] \
+  Hello from the World
 ]
 
 ---

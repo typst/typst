@@ -6,20 +6,20 @@
 
 // Evaluates to join of none, [My ] and the two loop bodies.
 {
-    let parts = ("my fri", "end.")
-    [Hello, ]
-    for s in parts [{s}]
+  let parts = ("my fri", "end.")
+  [Hello, ]
+  for s in parts [{s}]
 }
 
 // Evaluates to join of the templates and strings.
 {
-    [How]
-    if true {
-        " are"
-    }
-    [ ]
-    if false [Nope]
-    [you] + "?"
+  [How]
+  if true {
+    " are"
+  }
+  [ ]
+  if false [Nope]
+  [you] + "?"
 }
 
 ---
@@ -37,24 +37,24 @@
 
 // Evaluated to int.
 #test({
-    let x = 1
-    let y = 2
-    x + y
+  let x = 1
+  let y = 2
+  x + y
 }, 3)
 
 // String is joined with trailing none, evaluates to string.
 #test({
-    type("")
-    none
+  type("")
+  none
 }, "string")
 
 ---
 // Some things can't be joined.
 {
-    [A]
-    // Error: 5-6 cannot join template with integer
-    1
-    [B]
+  [A]
+  // Error: 3-4 cannot join template with integer
+  1
+  [B]
 }
 
 ---
@@ -65,8 +65,8 @@
 ---
 // Block in expression does create a scope.
 #let a = {
-    let b = 1
-    b
+  let b = 1
+  b
 }
 
 #test(a, 1)
@@ -77,8 +77,8 @@
 ---
 // Double block creates a scope.
 {{
-    import b from "target.typ"
-    test(b, 1)
+  import b from "target.typ"
+  test(b, 1)
 }}
 
 // Error: 2-3 unknown variable
@@ -87,17 +87,17 @@
 ---
 // Multiple nested scopes.
 {
-    let a = "a1"
+  let a = "a1"
+  {
+    let a = "a2"
     {
-        let a = "a2"
-        {
-            test(a, "a2")
-            let a = "a3"
-            test(a, "a3")
-        }
-        test(a, "a2")
+      test(a, "a2")
+      let a = "a3"
+      test(a, "a3")
     }
-    test(a, "a1")
+    test(a, "a2")
+  }
+  test(a, "a1")
 }
 
 ---
@@ -117,13 +117,13 @@
 
 // Should output `3`.
 {
-    // Error: 9-12 expected identifier, found string
-    for "v"
+  // Error: 7-10 expected identifier, found string
+  for "v"
 
-    // Error: 10 expected keyword `in`
-    for v let z = 1 + 2
+  // Error: 8 expected keyword `in`
+  for v let z = 1 + 2
 
-    z
+  z
 }
 
 ---
