@@ -303,7 +303,7 @@ fn primary(p: &mut Parser, atomic: bool) -> Option<Expr> {
     match p.peek() {
         // Things that start with an identifier.
         Some(Token::Ident(string)) => {
-            let id = Ident {
+            let ident = Ident {
                 span: p.eat_span(),
                 string: string.into(),
             };
@@ -312,13 +312,13 @@ fn primary(p: &mut Parser, atomic: bool) -> Option<Expr> {
             Some(if !atomic && p.eat_if(Token::Arrow) {
                 let body = expr(p)?;
                 Expr::Closure(ClosureExpr {
-                    span: id.span.join(body.span()),
+                    span: ident.span.join(body.span()),
                     name: None,
-                    params: Rc::new(vec![id]),
+                    params: Rc::new(vec![ident]),
                     body: Rc::new(body),
                 })
             } else {
-                Expr::Ident(id)
+                Expr::Ident(ident)
             })
         }
 
@@ -537,12 +537,7 @@ fn call(p: &mut Parser, callee: Expr) -> Option<Expr> {
     }
 
     let mut args = match p.peek_direct() {
-        Some(Token::LeftParen) => {
-            p.start_group(Group::Paren, TokenMode::Code);
-            let args = args(p);
-            p.end_group();
-            args
-        }
+        Some(Token::LeftParen) => args(p),
         Some(Token::LeftBracket) => CallArgs {
             span: Span::at(callee.span().end),
             items: vec![],
@@ -568,22 +563,19 @@ fn call(p: &mut Parser, callee: Expr) -> Option<Expr> {
 
 /// Parse the arguments to a function call.
 fn args(p: &mut Parser) -> CallArgs {
-    let start = p.next_start();
+    p.start_group(Group::Paren, TokenMode::Code);
     let items = collection(p).0;
-    CallArgs { span: p.span(start), items }
+    let span = p.end_group();
+    CallArgs { span, items }
 }
 
 /// Parse a with expression.
 fn with_expr(p: &mut Parser, callee: Expr) -> Option<Expr> {
     if p.peek() == Some(Token::LeftParen) {
-        p.start_group(Group::Paren, TokenMode::Code);
-        let args = args(p);
-        p.end_group();
-
         Some(Expr::With(WithExpr {
             span: p.span(callee.span().start),
             callee: Box::new(callee),
-            args,
+            args: args(p),
         }))
     } else {
         p.expected("argument list");

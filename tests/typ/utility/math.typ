@@ -9,9 +9,9 @@
 #test(min("hi"), "hi")
 
 ---
-// Error: 6 missing argument: value
+// Error: 5-7 missing argument: value
 #min()
 
 ---
-// Error: 11-18 cannot compare integer with string
+// Error: 10-19 cannot compare integer with string
 #test(min(1, "hi"), error)

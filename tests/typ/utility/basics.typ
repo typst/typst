@@ -9,7 +9,7 @@
 #test(len((a: 1, b: 2)), 2)
 
 ---
-// Error: 6 missing argument: collection
+// Error: 5-7 missing argument: collection
 #len()
 
 ---

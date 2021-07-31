@@ -71,7 +71,7 @@
   let types(x, y) = "[" + type(x) + ", " + type(y) + "]"
   test(types(14%, 12pt), "[relative, length]")
 
-  // Error: 14-20 missing argument: y
+  // Error: 13-21 missing argument: y
   test(types("nope"), "[string, none]")
 }
 

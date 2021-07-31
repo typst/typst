@@ -16,9 +16,9 @@
 #rgb("lol")
 
 ---
-// Error: 6 missing argument: red component
+// Error: 5-7 missing argument: red component
 #rgb()
 
 ---
-// Error: 6-10 missing argument: blue component
+// Error: 5-11 missing argument: blue component
 #rgb(0, 1)

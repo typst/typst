@@ -15,5 +15,5 @@ Relative #h(100%) spacing
 
 ---
 // Missing spacing.
-// Error: 12 missing argument: spacing
+// Error: 11-13 missing argument: spacing
 Totally #h() ignored
