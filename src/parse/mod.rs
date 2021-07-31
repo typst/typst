@@ -1,12 +1,10 @@
 //! Parsing and tokenization.
 
-mod lines;
 mod parser;
 mod resolve;
 mod scanner;
 mod tokens;
 
-pub use lines::*;
 pub use parser::*;
 pub use resolve::*;
 pub use scanner::*;
@@ -15,13 +13,13 @@ pub use tokens::*;
 use std::rc::Rc;
 
 use crate::diag::TypResult;
-use crate::loading::FileId;
+use crate::source::SourceFile;
 use crate::syntax::*;
 use crate::util::EcoString;
 
 /// Parse a string of source code.
-pub fn parse(file: FileId, src: &str) -> TypResult<SyntaxTree> {
-    let mut p = Parser::new(file, src);
+pub fn parse(source: &SourceFile) -> TypResult<SyntaxTree> {
+    let mut p = Parser::new(source);
     let tree = tree(&mut p);
     let errors = p.finish();
     if errors.is_empty() {

@@ -16,10 +16,21 @@ pub type StrResult<T> = Result<T, String>;
 pub struct Error {
     /// The file that contains the error.
     pub file: FileId,
-    /// The erronous location in the source code.
+    /// The erroneous location in the source code.
     pub span: Span,
     /// A diagnostic message describing the problem.
     pub message: String,
+    /// The trace of function calls leading to the error.
+    pub trace: Vec<(FileId, Span, Tracepoint)>,
+}
+
+/// A part of an error's [trace](Error::trace).
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub enum Tracepoint {
+    /// A function call.
+    Call(Option<String>),
+    /// A module import.
+    Import,
 }
 
 impl Error {
@@ -28,6 +39,7 @@ impl Error {
         Self {
             file,
             span: span.into(),
+            trace: vec![],
             message: message.into(),
         }
     }

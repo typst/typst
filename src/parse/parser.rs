@@ -1,15 +1,15 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Range;
 
-use super::{count_columns, TokenMode, Tokens};
+use super::{TokenMode, Tokens};
 use crate::diag::Error;
-use crate::loading::FileId;
+use crate::source::SourceFile;
 use crate::syntax::{Pos, Span, Token};
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
     /// The id of the parsed file.
-    file: FileId,
+    source: &'s SourceFile,
     /// Parsing errors.
     errors: Vec<Error>,
     /// An iterator over the source tokens.
@@ -60,11 +60,11 @@ pub enum Group {
 
 impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
-    pub fn new(file: FileId, src: &'s str) -> Self {
-        let mut tokens = Tokens::new(src, TokenMode::Markup);
+    pub fn new(source: &'s SourceFile) -> Self {
+        let mut tokens = Tokens::new(source.src(), TokenMode::Markup);
         let next = tokens.next();
         Self {
-            file,
+            source,
             errors: vec![],
             tokens,
             groups: vec![],
@@ -82,11 +82,7 @@ impl<'s> Parser<'s> {
 
     /// Add an error with location and message.
     pub fn error(&mut self, span: impl Into<Span>, message: impl Into<String>) {
-        self.errors.push(Error {
-            file: self.file,
-            span: span.into(),
-            message: message.into(),
-        });
+        self.errors.push(Error::new(self.source.file(), span, message));
     }
 
     /// Eat the next token and add an error that it is not the expected `thing`.
@@ -324,7 +320,7 @@ impl<'s> Parser<'s> {
 
     /// Determine the column for the given index in the source.
     pub fn column(&self, index: usize) -> usize {
-        count_columns(self.tokens.scanner().get(.. index))
+        self.source.pos_to_column(index.into()).unwrap()
     }
 
     /// The span from `start` to [`self.prev_end()`](Self::prev_end).

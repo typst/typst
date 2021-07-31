@@ -40,12 +40,12 @@ pub struct FileId(u64);
 
 impl FileId {
     /// Create a file id from a raw value.
-    pub fn from_raw(v: u64) -> Self {
+    pub const fn from_raw(v: u64) -> Self {
         Self(v)
     }
 
     /// Convert into the raw underlying value.
-    pub fn into_raw(self) -> u64 {
+    pub const fn into_raw(self) -> u64 {
         self.0
     }
 }

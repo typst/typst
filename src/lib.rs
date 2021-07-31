@@ -44,6 +44,7 @@ pub mod loading;
 pub mod paper;
 pub mod parse;
 pub mod pretty;
+pub mod source;
 pub mod syntax;
 pub mod util;
 
@@ -57,18 +58,21 @@ use crate::image::ImageCache;
 use crate::layout::Frame;
 #[cfg(feature = "layout-cache")]
 use crate::layout::LayoutCache;
-use crate::loading::{FileId, Loader};
+use crate::loading::Loader;
+use crate::source::{SourceFile, SourceMap};
 
 /// The core context which holds the loader, configuration and cached artifacts.
 pub struct Context {
     /// The loader the context was created with.
     pub loader: Rc<dyn Loader>,
+    /// Stores loaded source files.
+    pub sources: SourceMap,
+    /// Caches evaluated modules.
+    pub modules: ModuleCache,
     /// Caches parsed font faces.
     pub fonts: FontCache,
     /// Caches decoded images.
     pub images: ImageCache,
-    /// Caches evaluated modules.
-    pub modules: ModuleCache,
     /// Caches layouting artifacts.
     #[cfg(feature = "layout-cache")]
     pub layouts: LayoutCache,
@@ -97,15 +101,12 @@ impl Context {
 
     /// Typeset a source file into a collection of layouted frames.
     ///
-    /// The `file` identifies the source file and is used to resolve relative
-    /// paths (for importing and image loading).
-    ///
     /// Returns either a vector of frames representing individual pages or
     /// diagnostics in the form of a vector of error message with file and span
     /// information.
-    pub fn typeset(&mut self, file: FileId, src: &str) -> TypResult<Vec<Rc<Frame>>> {
-        let ast = parse::parse(file, src)?;
-        let module = eval::eval(self, file, Rc::new(ast))?;
+    pub fn typeset(&mut self, source: &SourceFile) -> TypResult<Vec<Rc<Frame>>> {
+        let ast = parse::parse(source)?;
+        let module = eval::eval(self, source.file(), Rc::new(ast))?;
         let tree = exec::exec(self, &module.template);
         let frames = layout::layout(self, &tree);
         Ok(frames)
@@ -140,6 +141,7 @@ impl ContextBuilder {
     pub fn build(self, loader: Rc<dyn Loader>) -> Context {
         Context {
             loader: Rc::clone(&loader),
+            sources: SourceMap::new(),
             fonts: FontCache::new(Rc::clone(&loader)),
             images: ImageCache::new(loader),
             modules: ModuleCache::new(),

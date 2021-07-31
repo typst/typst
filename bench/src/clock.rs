@@ -4,12 +4,14 @@ use std::rc::Rc;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
+use typst::diag::TypResult;
 use typst::eval::{eval, Module};
 use typst::exec::exec;
 use typst::export::pdf;
 use typst::layout::{layout, Frame, LayoutTree};
-use typst::loading::{FileId, FsLoader};
+use typst::loading::FsLoader;
 use typst::parse::parse;
+use typst::source::SourceFile;
 use typst::syntax::SyntaxTree;
 use typst::Context;
 
@@ -26,7 +28,8 @@ fn benchmarks(c: &mut Criterion) {
         let name = path.file_stem().unwrap().to_string_lossy();
         let file = loader.resolve(&path).unwrap();
         let src = std::fs::read_to_string(&path).unwrap();
-        let case = Case::new(file, src, ctx.clone());
+        let source = SourceFile::new(file, src);
+        let case = Case::new(ctx.clone(), source);
 
         macro_rules! bench {
             ($step:literal, setup = |$ctx:ident| $setup:expr, code = $code:expr $(,)?) => {
@@ -79,8 +82,7 @@ fn benchmarks(c: &mut Criterion) {
 /// A test case with prepared intermediate results.
 struct Case {
     ctx: Rc<RefCell<Context>>,
-    file: FileId,
-    src: String,
+    source: SourceFile,
     ast: Rc<SyntaxTree>,
     module: Module,
     tree: LayoutTree,
@@ -88,30 +90,26 @@ struct Case {
 }
 
 impl Case {
-    fn new(file: FileId, src: String, ctx: Rc<RefCell<Context>>) -> Self {
+    fn new(ctx: Rc<RefCell<Context>>, source: SourceFile) -> Self {
         let mut borrowed = ctx.borrow_mut();
-        let ast = Rc::new(parse(file, &src).unwrap());
-        let module = eval(&mut borrowed, file, Rc::clone(&ast)).unwrap();
+        let ast = Rc::new(parse(&source).unwrap());
+        let module = eval(&mut borrowed, source.file(), Rc::clone(&ast)).unwrap();
         let tree = exec(&mut borrowed, &module.template);
         let frames = layout(&mut borrowed, &tree);
         drop(borrowed);
-        Self {
-            ctx,
-            file,
-            src,
-            ast,
-            module,
-            tree,
-            frames,
-        }
+        Self { ctx, source, ast, module, tree, frames }
     }
 
     fn parse(&self) -> SyntaxTree {
-        parse(self.file, &self.src).unwrap()
+        parse(&self.source).unwrap()
     }
 
-    fn eval(&self) -> Module {
-        eval(&mut self.ctx.borrow_mut(), self.file, Rc::clone(&self.ast)).unwrap()
+    fn eval(&self) -> TypResult<Module> {
+        eval(
+            &mut self.ctx.borrow_mut(),
+            self.source.file(),
+            Rc::clone(&self.ast),
+        )
     }
 
     fn exec(&self) -> LayoutTree {
@@ -122,8 +120,8 @@ impl Case {
         layout(&mut self.ctx.borrow_mut(), &self.tree)
     }
 
-    fn typeset(&self) -> Vec<Rc<Frame>> {
-        self.ctx.borrow_mut().typeset(self.file, &self.src).unwrap()
+    fn typeset(&self) -> TypResult<Vec<Rc<Frame>>> {
+        self.ctx.borrow_mut().typeset(&self.source)
     }
 
     fn pdf(&self) -> Vec<u8> {

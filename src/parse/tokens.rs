@@ -198,13 +198,16 @@ impl<'s> Tokens<'s> {
 
         // Count the number of newlines.
         let mut newlines = 0;
-        while let Some(c) = self.s.eat_merging_crlf() {
+        while let Some(c) = self.s.eat() {
             if !c.is_whitespace() {
                 self.s.uneat();
                 break;
             }
 
             if is_newline(c) {
+                if c == '\r' {
+                    self.s.eat_if('\n');
+                }
                 newlines += 1;
             }
         }
@@ -484,8 +487,8 @@ impl Debug for Tokens<'_> {
     }
 }
 
-fn keyword(id: &str) -> Option<Token<'static>> {
-    Some(match id {
+fn keyword(ident: &str) -> Option<Token<'static>> {
+    Some(match ident {
         "not" => Token::Not,
         "and" => Token::And,
         "or" => Token::Or,

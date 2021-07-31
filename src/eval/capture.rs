@@ -43,8 +43,8 @@ impl<'ast> Visit<'ast> for CapturesVisitor<'_> {
         }
     }
 
-    fn visit_binding(&mut self, id: &'ast Ident) {
-        self.internal.def_mut(id.as_str(), Value::None);
+    fn visit_binding(&mut self, ident: &'ast Ident) {
+        self.internal.def_mut(ident.as_str(), Value::None);
     }
 
     fn visit_enter(&mut self) {

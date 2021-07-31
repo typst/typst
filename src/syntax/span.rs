@@ -1,12 +1,7 @@
-use std::cell::Cell;
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Range};
 
 use serde::{Deserialize, Serialize};
-
-thread_local! {
-    static CMP_SPANS: Cell<bool> = Cell::new(true);
-}
 
 /// A value with the span it corresponds to in the source code.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -47,15 +42,17 @@ impl<T: Debug> Debug for Spanned<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.v.fmt(f)?;
         if f.alternate() {
-            f.write_str(" ")?;
+            f.write_str(" <")?;
             self.span.fmt(f)?;
+            f.write_str(">")?;
         }
         Ok(())
     }
 }
 
 /// Bounds of a slice of source code.
-#[derive(Copy, Clone, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Serialize, Deserialize)]
 pub struct Span {
     /// The inclusive start position.
     pub start: Pos,
@@ -90,33 +87,14 @@ impl Span {
         *self = self.join(other)
     }
 
+    /// Test whether one span complete contains the other span.
+    pub fn contains(self, other: Self) -> bool {
+        self.start <= other.start && self.end >= other.end
+    }
+
     /// Convert to a `Range<usize>` for indexing.
     pub fn to_range(self) -> Range<usize> {
         self.start.to_usize() .. self.end.to_usize()
-    }
-
-    /// Run some code with span comparisons disabled.
-    pub fn without_cmp<F, T>(f: F) -> T
-    where
-        F: FnOnce() -> T,
-    {
-        let prev = Self::cmp();
-        Self::set_cmp(false);
-        let val = f();
-        Self::set_cmp(prev);
-        val
-    }
-
-    /// Whether spans will currently be compared.
-    fn cmp() -> bool {
-        CMP_SPANS.with(Cell::get)
-    }
-
-    /// Whether spans should be compared.
-    ///
-    /// When set to `false` comparisons with `PartialEq` ignore spans.
-    fn set_cmp(cmp: bool) {
-        CMP_SPANS.with(|cell| cell.set(cmp));
     }
 }
 
@@ -138,28 +116,15 @@ where
     }
 }
 
-impl Default for Span {
-    fn default() -> Self {
-        Span::ZERO
-    }
-}
-
 impl Debug for Span {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "<{:?}-{:?}>", self.start, self.end)
-    }
-}
-
-impl Eq for Span {}
-
-impl PartialEq for Span {
-    fn eq(&self, other: &Self) -> bool {
-        !Self::cmp() || (self.start == other.start && self.end == other.end)
+        write!(f, "{:?}-{:?}", self.start, self.end)
     }
 }
 
 /// A byte position in source code.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Serialize, Deserialize)]
 pub struct Pos(pub u32);
 
 impl Pos {
@@ -175,12 +140,6 @@ impl Pos {
 impl From<u32> for Pos {
     fn from(index: u32) -> Self {
         Self(index)
-    }
-}
-
-impl From<i32> for Pos {
-    fn from(index: i32) -> Self {
-        Self(index as u32)
     }
 }
 
@@ -204,33 +163,5 @@ where
 
     fn add(self, rhs: T) -> Self {
         Pos(self.0 + rhs.into().0)
-    }
-}
-
-/// A one-indexed line-column position in source code.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct Location {
-    /// The one-indexed line.
-    pub line: u32,
-    /// The one-indexed column.
-    pub column: u32,
-}
-
-impl Location {
-    /// Create a new location from line and column.
-    pub fn new(line: u32, column: u32) -> Self {
-        Self { line, column }
-    }
-}
-
-impl Display for Location {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}:{}", self.line, self.column)
-    }
-}
-
-impl Debug for Location {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
     }
 }

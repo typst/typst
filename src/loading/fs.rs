@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io;
@@ -90,6 +90,11 @@ impl FsLoader {
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "not a file"))
         }
+    }
+
+    /// Return the path of a resolved file.
+    pub fn path(&self, id: FileId) -> Ref<Path> {
+        Ref::map(self.paths.borrow(), |paths| paths[&id].as_path())
     }
 
     #[cfg(all(unix, not(target_os = "macos")))]

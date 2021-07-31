@@ -193,6 +193,24 @@ impl From<&String> for EcoString {
     }
 }
 
+impl From<EcoString> for String {
+    fn from(s: EcoString) -> Self {
+        match s.0 {
+            Repr::Small { .. } => s.as_str().to_owned(),
+            Repr::Large(rc) => match Rc::try_unwrap(rc) {
+                Ok(string) => string,
+                Err(rc) => (*rc).clone(),
+            },
+        }
+    }
+}
+
+impl From<&EcoString> for String {
+    fn from(s: &EcoString) -> Self {
+        s.as_str().to_owned()
+    }
+}
+
 impl Deref for EcoString {
     type Target = str;
 

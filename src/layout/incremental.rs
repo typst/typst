@@ -8,7 +8,7 @@ use super::*;
 ///
 /// _This is only available when the `layout-cache` feature is enabled._
 #[cfg(feature = "layout-cache")]
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub struct LayoutCache {
     /// Maps from node hashes to the resulting frames and regions in which the
     /// frames are valid. The right hand side of the hash map is a vector of
@@ -70,9 +70,9 @@ impl LayoutCache {
     ) {
         let entry = FramesEntry::new(frames, level);
         match self.frames.entry(hash) {
-            Entry::Occupied(o) => o.into_mut().push(entry),
-            Entry::Vacant(v) => {
-                v.insert(vec![entry]);
+            Entry::Occupied(occupied) => occupied.into_mut().push(entry),
+            Entry::Vacant(vacant) => {
+                vacant.insert(vec![entry]);
             }
         }
     }

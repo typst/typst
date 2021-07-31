@@ -610,6 +610,7 @@ mod tests {
     use super::*;
     use crate::loading::FileId;
     use crate::parse::parse;
+    use crate::source::SourceFile;
 
     #[track_caller]
     fn roundtrip(src: &str) {
@@ -618,7 +619,8 @@ mod tests {
 
     #[track_caller]
     fn test_parse(src: &str, exp: &str) {
-        let ast = parse(FileId::from_raw(0), src).unwrap();
+        let source = SourceFile::new(FileId::from_raw(0), src.into());
+        let ast = parse(&source).unwrap();
         let found = pretty(&ast);
         if exp != found {
             println!("tree:     {:#?}", ast);

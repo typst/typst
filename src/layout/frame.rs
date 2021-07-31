@@ -146,9 +146,8 @@ impl Text {
     pub fn encode_glyphs_be(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(2 * self.glyphs.len());
         for glyph in &self.glyphs {
-            let id = glyph.id;
-            bytes.push((id >> 8) as u8);
-            bytes.push((id & 0xff) as u8);
+            bytes.push((glyph.id >> 8) as u8);
+            bytes.push((glyph.id & 0xff) as u8);
         }
         bytes
     }

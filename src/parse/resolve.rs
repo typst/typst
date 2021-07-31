@@ -109,8 +109,11 @@ fn split_lines(text: &str) -> Vec<String> {
     let mut line = String::new();
     let mut lines = Vec::new();
 
-    while let Some(c) = s.eat_merging_crlf() {
+    while let Some(c) = s.eat() {
         if is_newline(c) {
+            if c == '\r' {
+                s.eat_if('\n');
+            }
             lines.push(std::mem::take(&mut line));
         } else {
             line.push(c);
@@ -173,14 +176,10 @@ mod tests {
             text: &str,
             block: bool,
         ) {
-            Span::without_cmp(|| {
-                assert_eq!(resolve_raw(Span::ZERO, raw, backticks), RawNode {
-                    span: Span::ZERO,
-                    lang: lang.and_then(|id| Ident::new(id, 0)),
-                    text: text.into(),
-                    block,
-                });
-            });
+            let node = resolve_raw(Span::ZERO, raw, backticks);
+            assert_eq!(node.lang.as_deref(), lang);
+            assert_eq!(node.text, text);
+            assert_eq!(node.block, block);
         }
 
         // Just one backtick.

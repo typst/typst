@@ -17,8 +17,9 @@ use typst::geom::{self, Length, PathElement, Point, Sides, Size};
 use typst::image::ImageId;
 use typst::layout::{layout, Element, Frame, Geometry, LayoutTree, Paint, Text};
 use typst::loading::{FileId, FsLoader};
-use typst::parse::{parse, LineMap, Scanner};
-use typst::syntax::{Location, Pos};
+use typst::parse::{parse, Scanner};
+use typst::source::SourceFile;
+use typst::syntax::Pos;
 use typst::Context;
 
 const TYP_DIR: &str = "./typ";
@@ -157,12 +158,12 @@ fn test(
 
     let mut ok = true;
     let mut frames = vec![];
-    let mut lines = 0;
+    let mut line = 0;
     let mut compare_ref = true;
     let mut compare_ever = false;
 
     let parts: Vec<_> = src.split("\n---").collect();
-    for (i, part) in parts.iter().enumerate() {
+    for (i, &part) in parts.iter().enumerate() {
         let is_header = i == 0
             && parts.len() > 1
             && part
@@ -177,13 +178,13 @@ fn test(
             }
         } else {
             let (part_ok, compare_here, part_frames) =
-                test_part(ctx, file, part, i, compare_ref, lines);
+                test_part(ctx, file, part, i, compare_ref, line);
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
         }
 
-        lines += part.lines().count() as u32 + 1;
+        line += part.lines().count() + 1;
     }
 
     if compare_ever {
@@ -221,15 +222,15 @@ fn test_part(
     src: &str,
     i: usize,
     compare_ref: bool,
-    lines: u32,
+    line: usize,
 ) -> (bool, bool, Vec<Rc<Frame>>) {
-    let map = LineMap::new(src);
-    let (local_compare_ref, mut ref_errors) = parse_metadata(file, src, &map);
+    let source = SourceFile::new(file, src.into());
+    let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
     let mut ok = true;
 
-    let result = typeset(ctx, file, src);
+    let result = typeset(ctx, &source);
     let (frames, mut errors) = match result {
         #[allow(unused_variables)]
         Ok((tree, mut frames)) => {
@@ -246,7 +247,11 @@ fn test_part(
     };
 
     // TODO: Also handle errors from other files.
-    errors.retain(|error| error.file == file);
+    errors.retain(|error| error.file == source.file());
+    for error in &mut errors {
+        error.trace.clear();
+    }
+
     ref_errors.sort();
     errors.sort();
 
@@ -257,14 +262,14 @@ fn test_part(
         for error in errors.iter() {
             if error.file == file && !ref_errors.contains(error) {
                 print!("    Not annotated | ");
-                print_error(error, &map, lines);
+                print_error(&source, line, error);
             }
         }
 
         for error in ref_errors.iter() {
             if !errors.contains(error) {
                 print!("    Not emitted   | ");
-                print_error(error, &map, lines);
+                print_error(&source, line, error);
             }
         }
     }
@@ -318,11 +323,11 @@ fn test_incremental(
     ok
 }
 
-fn parse_metadata(file: FileId, src: &str, map: &LineMap) -> (Option<bool>, Vec<Error>) {
+fn parse_metadata(source: &SourceFile) -> (Option<bool>, Vec<Error>) {
     let mut compare_ref = None;
     let mut errors = vec![];
 
-    let lines: Vec<_> = src.lines().map(str::trim).collect();
+    let lines: Vec<_> = source.src().lines().map(str::trim).collect();
     for (i, line) in lines.iter().enumerate() {
         if line.starts_with("// Ref: false") {
             compare_ref = Some(false);
@@ -338,7 +343,7 @@ fn parse_metadata(file: FileId, src: &str, map: &LineMap) -> (Option<bool>, Vec<
             continue;
         };
 
-        fn num(s: &mut Scanner) -> u32 {
+        fn num(s: &mut Scanner) -> usize {
             s.eat_while(|c| c.is_numeric()).parse().unwrap()
         }
 
@@ -346,18 +351,18 @@ fn parse_metadata(file: FileId, src: &str, map: &LineMap) -> (Option<bool>, Vec<
             lines[i ..].iter().take_while(|line| line.starts_with("//")).count();
 
         let pos = |s: &mut Scanner| -> Pos {
-            let first = num(s);
+            let first = num(s) - 1;
             let (delta, column) =
-                if s.eat_if(':') { (first, num(s)) } else { (1, first) };
-            let line = (i + comments) as u32 + delta;
-            map.pos(Location::new(line, column)).unwrap()
+                if s.eat_if(':') { (first, num(s) - 1) } else { (0, first) };
+            let line = (i + comments) + delta;
+            source.line_column_to_pos(line, column).unwrap()
         };
 
         let mut s = Scanner::new(rest);
         let start = pos(&mut s);
         let end = if s.eat_if('-') { pos(&mut s) } else { start };
 
-        errors.push(Error::new(file, start .. end, s.rest().trim()));
+        errors.push(Error::new(source.file(), start .. end, s.rest().trim()));
     }
 
     (compare_ref, errors)
@@ -365,22 +370,24 @@ fn parse_metadata(file: FileId, src: &str, map: &LineMap) -> (Option<bool>, Vec<
 
 fn typeset(
     ctx: &mut Context,
-    file: FileId,
-    src: &str,
+    source: &SourceFile,
 ) -> TypResult<(LayoutTree, Vec<Rc<Frame>>)> {
-    let ast = parse(file, src)?;
-    let module = eval(ctx, file, Rc::new(ast))?;
+    let ast = parse(source)?;
+    let module = eval(ctx, source.file(), Rc::new(ast))?;
     let tree = exec(ctx, &module.template);
     let frames = layout(ctx, &tree);
     Ok((tree, frames))
 }
 
-fn print_error(error: &Error, map: &LineMap, lines: u32) {
-    let mut start = map.location(error.span.start).unwrap();
-    let mut end = map.location(error.span.end).unwrap();
-    start.line += lines;
-    end.line += lines;
-    println!("Error: {}-{}: {}", start, end, error.message);
+fn print_error(source: &SourceFile, line: usize, error: &Error) {
+    let start_line = line + source.pos_to_line(error.span.start).unwrap();
+    let start_col = source.pos_to_column(error.span.start).unwrap();
+    let end_line = line + source.pos_to_line(error.span.end).unwrap();
+    let end_col = source.pos_to_column(error.span.end).unwrap();
+    println!(
+        "Error: {}:{}-{}:{}: {}",
+        start_line, start_col, end_line, end_col, error.message
+    );
 }
 
 fn draw(ctx: &Context, frames: &[Rc<Frame>], dpi: f32) -> sk::Pixmap {

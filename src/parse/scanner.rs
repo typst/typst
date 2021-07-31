@@ -47,17 +47,6 @@ impl<'s> Scanner<'s> {
         debug_assert_eq!(next, Some(c));
     }
 
-    /// Consume the next char, coalescing `\r\n` to just `\n`.
-    #[inline]
-    pub fn eat_merging_crlf(&mut self) -> Option<char> {
-        if self.rest().starts_with("\r\n") {
-            self.index += 2;
-            Some('\n')
-        } else {
-            self.eat()
-        }
-    }
-
     /// Eat chars while the condition is true.
     #[inline]
     pub fn eat_while<F>(&mut self, mut f: F) -> &'s str
@@ -167,4 +156,16 @@ impl Debug for Scanner<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Scanner({}|{})", self.eaten(), self.rest())
     }
+}
+
+/// Whether this character denotes a newline.
+#[inline]
+pub fn is_newline(character: char) -> bool {
+    matches!(
+        character,
+        // Line Feed, Vertical Tab, Form Feed, Carriage Return.
+        '\n' | '\x0B' | '\x0C' | '\r' |
+        // Next Line, Line Separator, Paragraph Separator.
+        '\u{0085}' | '\u{2028}' | '\u{2029}'
+    )
 }

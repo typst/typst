@@ -112,12 +112,12 @@ impl ImageId {
     ///
     /// This should only be called with values returned by
     /// [`into_raw`](Self::into_raw).
-    pub fn from_raw(v: u64) -> Self {
+    pub const fn from_raw(v: u64) -> Self {
         Self(v)
     }
 
     /// Convert into the raw underlying value.
-    pub fn into_raw(self) -> u64 {
+    pub const fn into_raw(self) -> u64 {
         self.0
     }
 }

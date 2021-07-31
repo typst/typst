@@ -6,7 +6,7 @@ edition = "2018"
 
 [features]
 default = ["cli", "fs", "layout-cache"]
-cli = ["anyhow", "fs", "same-file"]
+cli = ["anyhow", "codespan-reporting", "fs", "same-file"]
 fs = ["dirs", "memmap2", "same-file", "walkdir"]
 layout-cache = []
 
@@ -34,6 +34,7 @@ unicode-bidi = "0.3.5"
 unicode-xid = "0.2"
 xi-unicode = "0.3"
 anyhow = { version = "1", optional = true }
+codespan-reporting = { version = "0.11", optional = true }
 dirs = { version = "3", optional = true }
 memmap2 = { version = "0.3", optional = true }
 same-file = { version = "1", optional = true }
