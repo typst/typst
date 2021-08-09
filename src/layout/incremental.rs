@@ -1,5 +1,5 @@
 #[cfg(feature = "layout-cache")]
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::HashMap;
 use std::ops::Deref;
 
 use super::*;
@@ -68,13 +68,10 @@ impl LayoutCache {
         frames: Vec<Constrained<Rc<Frame>>>,
         level: usize,
     ) {
-        let entry = FramesEntry::new(frames, level);
-        match self.frames.entry(hash) {
-            Entry::Occupied(occupied) => occupied.into_mut().push(entry),
-            Entry::Vacant(vacant) => {
-                vacant.insert(vec![entry]);
-            }
-        }
+        self.frames
+            .entry(hash)
+            .or_default()
+            .push(FramesEntry::new(frames, level));
     }
 
     /// Clear the cache.

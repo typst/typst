@@ -608,7 +608,6 @@ pretty_display! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::loading::FileId;
     use crate::parse::parse;
     use crate::source::SourceFile;
 
@@ -619,7 +618,7 @@ mod tests {
 
     #[track_caller]
     fn test_parse(src: &str, exp: &str) {
-        let source = SourceFile::new(FileId::from_raw(0), src.into());
+        let source = SourceFile::detached(src);
         let ast = parse(&source).unwrap();
         let found = pretty(&ast);
         if exp != found {

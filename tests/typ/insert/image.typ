@@ -36,5 +36,5 @@
 #image("path/does/not/exist")
 
 ---
-// Error: 8-21 failed to load image
+// Error: 8-21 failed to load image (unknown image format)
 #image("./image.typ")

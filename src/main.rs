@@ -1,19 +1,16 @@
 use std::fs;
 use std::io::{self, Write};
-use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process;
 
-use anyhow::{anyhow, bail, Context};
+use anyhow::Context as _;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::files::{self, Files};
 use codespan_reporting::term::{self, termcolor, Config, Styles};
 use same_file::is_same_file;
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 
 use typst::diag::{Error, Tracepoint};
-use typst::loading::{FileId, FsLoader};
-use typst::source::{SourceFile, SourceMap};
+use typst::source::SourceStore;
 
 fn main() {
     if let Err(error) = try_main() {
@@ -32,19 +29,17 @@ fn try_main() -> anyhow::Result<()> {
 
     // Determine source and destination path.
     let src_path = Path::new(&args[1]);
-    let dest_path = if let Some(arg) = args.get(2) {
-        PathBuf::from(arg)
-    } else {
-        let name = src_path
-            .file_name()
-            .ok_or_else(|| anyhow!("source path is not a file"))?;
-
-        Path::new(name).with_extension("pdf")
+    let dest_path = match args.get(2) {
+        Some(path) => path.into(),
+        None => {
+            let name = src_path.file_name().context("source path is not a file")?;
+            Path::new(name).with_extension("pdf")
+        }
     };
 
     // Ensure that the source file is not overwritten.
     if is_same_file(src_path, &dest_path).unwrap_or(false) {
-        bail!("source and destination files are the same");
+        anyhow::bail!("source and destination files are the same");
     }
 
     // Create a loader for fonts and files.
@@ -53,14 +48,15 @@ fn try_main() -> anyhow::Result<()> {
         .with_system()
         .wrap();
 
-    // Resolve the file id of the source file and read the file.
-    let file = loader.resolve(src_path).context("source file not found")?;
-    let string = fs::read_to_string(&src_path).context("failed to read source file")?;
-    let source = SourceFile::new(file, string);
+    // Create the context which holds loaded source files, fonts, images and
+    // cached artifacts.
+    let mut ctx = typst::Context::new(loader);
+
+    // Load the source file.
+    let id = ctx.sources.load(&src_path).context("source file not found")?;
 
     // Typeset.
-    let mut ctx = typst::Context::new(loader.clone());
-    match ctx.typeset(&source) {
+    match ctx.typeset(id) {
         // Export the PDF.
         Ok(document) => {
             let buffer = typst::export::pdf(&ctx, &document);
@@ -69,8 +65,7 @@ fn try_main() -> anyhow::Result<()> {
 
         // Print diagnostics.
         Err(errors) => {
-            ctx.sources.insert(source);
-            print_diagnostics(&loader, &ctx.sources, *errors)
+            print_diagnostics(&ctx.sources, *errors)
                 .context("failed to print diagnostics")?;
         }
     }
@@ -110,21 +105,19 @@ fn print_error(error: anyhow::Error) -> io::Result<()> {
 
 /// Print diagnostics messages to the terminal.
 fn print_diagnostics(
-    loader: &FsLoader,
-    sources: &SourceMap,
+    sources: &SourceStore,
     errors: Vec<Error>,
-) -> Result<(), files::Error> {
+) -> Result<(), codespan_reporting::files::Error> {
     let mut writer = StandardStream::stderr(ColorChoice::Always);
     let config = Config { tab_width: 2, ..Default::default() };
-    let files = FilesImpl(loader, sources);
 
     for error in errors {
         // The main diagnostic.
         let main = Diagnostic::error()
             .with_message(error.message)
-            .with_labels(vec![Label::primary(error.file, error.span.to_range())]);
+            .with_labels(vec![Label::primary(error.source, error.span.to_range())]);
 
-        term::emit(&mut writer, &config, &files, &main)?;
+        term::emit(&mut writer, &config, sources, &main)?;
 
         // Stacktrace-like helper diagnostics.
         for (file, span, point) in error.trace {
@@ -140,61 +133,9 @@ fn print_diagnostics(
                 .with_message(message)
                 .with_labels(vec![Label::primary(file, span.to_range())]);
 
-            term::emit(&mut writer, &config, &files, &help)?;
+            term::emit(&mut writer, &config, sources, &help)?;
         }
     }
 
     Ok(())
-}
-
-/// Required for error message formatting with codespan-reporting.
-struct FilesImpl<'a>(&'a FsLoader, &'a SourceMap);
-
-impl FilesImpl<'_> {
-    fn source(&self, id: FileId) -> Result<&SourceFile, files::Error> {
-        self.1.get(id).ok_or(files::Error::FileMissing)
-    }
-}
-
-impl<'a> Files<'a> for FilesImpl<'a> {
-    type FileId = FileId;
-    type Name = String;
-    type Source = &'a str;
-
-    fn name(&'a self, id: FileId) -> Result<Self::Name, files::Error> {
-        Ok(self.0.path(id).display().to_string())
-    }
-
-    fn source(&'a self, id: FileId) -> Result<Self::Source, files::Error> {
-        Ok(self.source(id)?.src())
-    }
-
-    fn line_index(
-        &'a self,
-        id: FileId,
-        byte_index: usize,
-    ) -> Result<usize, files::Error> {
-        let source = self.source(id)?;
-        source.pos_to_line(byte_index.into()).ok_or_else(|| {
-            let (given, max) = (byte_index, source.len_bytes());
-            if given <= max {
-                files::Error::InvalidCharBoundary { given }
-            } else {
-                files::Error::IndexTooLarge { given, max }
-            }
-        })
-    }
-
-    fn line_range(
-        &'a self,
-        id: FileId,
-        line_index: usize,
-    ) -> Result<Range<usize>, files::Error> {
-        let source = self.source(id)?;
-        let span = source.line_to_span(line_index).ok_or(files::Error::LineTooLarge {
-            given: line_index,
-            max: source.len_lines(),
-        })?;
-        Ok(span.to_range())
-    }
 }

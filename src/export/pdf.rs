@@ -14,17 +14,17 @@ use pdf_writer::{
 use ttf_parser::{name_id, GlyphId};
 
 use crate::color::Color;
-use crate::font::{Em, FaceId, FontCache};
+use crate::font::{Em, FaceId, FontStore};
 use crate::geom::{self, Length, Size};
-use crate::image::{Image, ImageCache, ImageId};
+use crate::image::{Image, ImageId, ImageStore};
 use crate::layout::{Element, Frame, Geometry, Paint};
 use crate::Context;
 
 /// Export a collection of frames into a PDF document.
 ///
 /// This creates one page per frame. In addition to the frames, you need to pass
-/// in the cache used during compilation such that things like fonts and images
-/// can be included in the PDF.
+/// in the context used during compilation such that things like fonts and
+/// images can be included in the PDF.
 ///
 /// Returns the raw bytes making up the PDF document.
 pub fn pdf(ctx: &Context, frames: &[Rc<Frame>]) -> Vec<u8> {
@@ -33,19 +33,16 @@ pub fn pdf(ctx: &Context, frames: &[Rc<Frame>]) -> Vec<u8> {
 
 struct PdfExporter<'a> {
     writer: PdfWriter,
-    frames: &'a [Rc<Frame>],
-    fonts: &'a FontCache,
-    font_map: Remapper<FaceId>,
-    images: &'a ImageCache,
-    image_map: Remapper<ImageId>,
     refs: Refs,
+    frames: &'a [Rc<Frame>],
+    fonts: &'a FontStore,
+    images: &'a ImageStore,
+    font_map: Remapper<FaceId>,
+    image_map: Remapper<ImageId>,
 }
 
 impl<'a> PdfExporter<'a> {
     fn new(ctx: &'a Context, frames: &'a [Rc<Frame>]) -> Self {
-        let mut writer = PdfWriter::new(1, 7);
-        writer.set_indent(2);
-
         let mut font_map = Remapper::new();
         let mut image_map = Remapper::new();
         let mut alpha_masks = 0;
@@ -66,14 +63,15 @@ impl<'a> PdfExporter<'a> {
             }
         }
 
-        let refs = Refs::new(frames.len(), font_map.len(), image_map.len(), alpha_masks);
+        let mut writer = PdfWriter::new(1, 7);
+        writer.set_indent(2);
 
         Self {
             writer,
+            refs: Refs::new(frames.len(), font_map.len(), image_map.len(), alpha_masks),
             frames,
             fonts: &ctx.fonts,
             images: &ctx.images,
-            refs,
             font_map,
             image_map,
         }

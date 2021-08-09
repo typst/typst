@@ -13,41 +13,24 @@ use serde::{Deserialize, Serialize};
 
 use crate::font::FaceInfo;
 
+/// A hash that identifies a file.
+///
+/// Such a hash can be [resolved](Loader::resolve) from a path.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Serialize, Deserialize)]
+pub struct FileHash(pub u64);
+
 /// Loads resources from a local or remote source.
 pub trait Loader {
     /// Descriptions of all font faces this loader serves.
     fn faces(&self) -> &[FaceInfo];
 
-    /// Resolve a `path` relative to a `base` file.
-    ///
-    /// This should return the same id for all paths pointing to the same file
-    /// and `None` if the file does not exist.
-    fn resolve_from(&self, base: FileId, path: &Path) -> io::Result<FileId>;
+    /// Resolve a hash that is the same for this and all other paths pointing to
+    /// the same file.
+    fn resolve(&self, path: &Path) -> io::Result<FileHash>;
 
-    /// Load a file by id.
-    ///
-    /// This must only be called with an `id` returned by a call to this
-    /// loader's `resolve_from` method.
-    fn load_file(&self, id: FileId) -> io::Result<Vec<u8>>;
-}
-
-/// A file id that can be [resolved](Loader::resolve_from) from a path.
-///
-/// Should be the same for all paths pointing to the same file.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[derive(Serialize, Deserialize)]
-pub struct FileId(u64);
-
-impl FileId {
-    /// Create a file id from a raw value.
-    pub const fn from_raw(v: u64) -> Self {
-        Self(v)
-    }
-
-    /// Convert into the raw underlying value.
-    pub const fn into_raw(self) -> u64 {
-        self.0
-    }
+    /// Load a file from a path.
+    fn load(&self, path: &Path) -> io::Result<Vec<u8>>;
 }
 
 /// A loader which serves nothing.
@@ -58,11 +41,11 @@ impl Loader for BlankLoader {
         &[]
     }
 
-    fn resolve_from(&self, _: FileId, _: &Path) -> io::Result<FileId> {
+    fn resolve(&self, _: &Path) -> io::Result<FileHash> {
         Err(io::ErrorKind::NotFound.into())
     }
 
-    fn load_file(&self, _: FileId) -> io::Result<Vec<u8>> {
-        panic!("resolve_from never returns an id")
+    fn load(&self, _: &Path) -> io::Result<Vec<u8>> {
+        Err(io::ErrorKind::NotFound.into())
     }
 }

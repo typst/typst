@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use super::{Cast, EvalContext, Value};
 use crate::diag::{Error, TypResult};
-use crate::loading::FileId;
+use crate::source::SourceId;
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
 
@@ -59,8 +59,8 @@ impl PartialEq for Function {
 /// Evaluated arguments to a function.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuncArgs {
-    /// The file in which the function was called.
-    pub file: FileId,
+    /// The id of the source file in which the function was called.
+    pub source: SourceId,
     /// The span of the whole argument list.
     pub span: Span,
     /// The positional arguments.
@@ -103,7 +103,7 @@ impl FuncArgs {
     {
         match self.eat() {
             Some(found) => Ok(found),
-            None => bail!(self.file, self.span, "missing argument: {}", what),
+            None => bail!(self.source, self.span, "missing argument: {}", what),
         }
     }
 
@@ -134,14 +134,14 @@ impl FuncArgs {
         let value = self.items.remove(index).value;
         let span = value.span;
 
-        T::cast(value).map(Some).map_err(Error::partial(self.file, span))
+        T::cast(value).map(Some).map_err(Error::partial(self.source, span))
     }
 
     /// Return an "unexpected argument" error if there is any remaining
     /// argument.
     pub fn finish(self) -> TypResult<()> {
         if let Some(arg) = self.items.first() {
-            bail!(self.file, arg.span, "unexpected argument");
+            bail!(self.source, arg.span, "unexpected argument");
         }
         Ok(())
     }

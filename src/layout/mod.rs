@@ -29,9 +29,9 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::rc::Rc;
 
-use crate::font::FontCache;
+use crate::font::FontStore;
 use crate::geom::*;
-use crate::image::ImageCache;
+use crate::image::ImageStore;
 use crate::util::OptionExt;
 use crate::Context;
 
@@ -53,11 +53,11 @@ pub trait Layout {
 
 /// The context for layouting.
 pub struct LayoutContext<'a> {
-    /// The cache for parsed font faces.
-    pub fonts: &'a mut FontCache,
-    /// The cache for decoded imges.
-    pub images: &'a mut ImageCache,
-    /// The cache for layouting artifacts.
+    /// Stores parsed font faces.
+    pub fonts: &'a mut FontStore,
+    /// Stores decoded images.
+    pub images: &'a mut ImageStore,
+    /// Caches layouting artifacts.
     #[cfg(feature = "layout-cache")]
     pub layouts: &'a mut LayoutCache,
     /// How deeply nested the current layout tree position is.

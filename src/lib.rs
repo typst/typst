@@ -53,26 +53,26 @@ use std::rc::Rc;
 use crate::diag::TypResult;
 use crate::eval::{ModuleCache, Scope};
 use crate::exec::State;
-use crate::font::FontCache;
-use crate::image::ImageCache;
+use crate::font::FontStore;
+use crate::image::ImageStore;
 use crate::layout::Frame;
 #[cfg(feature = "layout-cache")]
 use crate::layout::LayoutCache;
 use crate::loading::Loader;
-use crate::source::{SourceFile, SourceMap};
+use crate::source::{SourceId, SourceStore};
 
 /// The core context which holds the loader, configuration and cached artifacts.
 pub struct Context {
     /// The loader the context was created with.
     pub loader: Rc<dyn Loader>,
     /// Stores loaded source files.
-    pub sources: SourceMap,
+    pub sources: SourceStore,
+    /// Stores parsed font faces.
+    pub fonts: FontStore,
+    /// Stores decoded images.
+    pub images: ImageStore,
     /// Caches evaluated modules.
     pub modules: ModuleCache,
-    /// Caches parsed font faces.
-    pub fonts: FontCache,
-    /// Caches decoded images.
-    pub images: ImageCache,
     /// Caches layouting artifacts.
     #[cfg(feature = "layout-cache")]
     pub layouts: LayoutCache,
@@ -93,23 +93,24 @@ impl Context {
         ContextBuilder::default()
     }
 
-    /// Garbage-collect caches.
-    pub fn turnaround(&mut self) {
-        #[cfg(feature = "layout-cache")]
-        self.layouts.turnaround();
-    }
-
     /// Typeset a source file into a collection of layouted frames.
     ///
     /// Returns either a vector of frames representing individual pages or
     /// diagnostics in the form of a vector of error message with file and span
     /// information.
-    pub fn typeset(&mut self, source: &SourceFile) -> TypResult<Vec<Rc<Frame>>> {
+    pub fn typeset(&mut self, id: SourceId) -> TypResult<Vec<Rc<Frame>>> {
+        let source = self.sources.get(id);
         let ast = parse::parse(source)?;
-        let module = eval::eval(self, source.file(), Rc::new(ast))?;
+        let module = eval::eval(self, id, Rc::new(ast))?;
         let tree = exec::exec(self, &module.template);
         let frames = layout::layout(self, &tree);
         Ok(frames)
+    }
+
+    /// Garbage-collect caches.
+    pub fn turnaround(&mut self) {
+        #[cfg(feature = "layout-cache")]
+        self.layouts.turnaround();
     }
 }
 
@@ -140,10 +141,10 @@ impl ContextBuilder {
     /// fonts, images, source files and other resources.
     pub fn build(self, loader: Rc<dyn Loader>) -> Context {
         Context {
-            loader: Rc::clone(&loader),
-            sources: SourceMap::new(),
-            fonts: FontCache::new(Rc::clone(&loader)),
-            images: ImageCache::new(loader),
+            sources: SourceStore::new(Rc::clone(&loader)),
+            fonts: FontStore::new(Rc::clone(&loader)),
+            images: ImageStore::new(Rc::clone(&loader)),
+            loader,
             modules: ModuleCache::new(),
             #[cfg(feature = "layout-cache")]
             layouts: LayoutCache::new(),

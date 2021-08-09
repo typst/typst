@@ -6,7 +6,7 @@ use crate::paper::{Paper, PaperClass};
 pub fn page(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
     let paper = match args.eat::<Spanned<EcoString>>() {
         Some(name) => match Paper::from_name(&name.v) {
-            None => bail!(args.file, name.span, "invalid paper name"),
+            None => bail!(args.source, name.span, "invalid paper name"),
             paper => paper,
         },
         None => None,

@@ -3,13 +3,151 @@
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Add;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use decorum::N64;
 use serde::{Deserialize, Serialize};
 
 use crate::geom::Length;
-use crate::loading::{FileId, Loader};
+use crate::loading::{FileHash, Loader};
+
+/// A unique identifier for a loaded font face.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Serialize, Deserialize)]
+pub struct FaceId(u32);
+
+impl FaceId {
+    /// Create a face id from the raw underlying value.
+    ///
+    /// This should only be called with values returned by
+    /// [`into_raw`](Self::into_raw).
+    pub const fn from_raw(v: u32) -> Self {
+        Self(v)
+    }
+
+    /// Convert into the raw underlying value.
+    pub const fn into_raw(self) -> u32 {
+        self.0
+    }
+}
+
+/// Storage for loaded and parsed font faces.
+pub struct FontStore {
+    loader: Rc<dyn Loader>,
+    faces: Vec<Option<Face>>,
+    families: HashMap<String, Vec<FaceId>>,
+    buffers: HashMap<FileHash, Rc<Vec<u8>>>,
+    on_load: Option<Box<dyn Fn(FaceId, &Face)>>,
+}
+
+impl FontStore {
+    /// Create a new, empty font store.
+    pub fn new(loader: Rc<dyn Loader>) -> Self {
+        let mut faces = vec![];
+        let mut families = HashMap::<String, Vec<FaceId>>::new();
+
+        for (i, info) in loader.faces().iter().enumerate() {
+            let id = FaceId(i as u32);
+            faces.push(None);
+            families
+                .entry(info.family.to_lowercase())
+                .and_modify(|vec| vec.push(id))
+                .or_insert_with(|| vec![id]);
+        }
+
+        Self {
+            loader,
+            faces,
+            families,
+            buffers: HashMap::new(),
+            on_load: None,
+        }
+    }
+
+    /// Register a callback which is invoked each time a font face is loaded.
+    pub fn on_load<F>(&mut self, f: F)
+    where
+        F: Fn(FaceId, &Face) + 'static,
+    {
+        self.on_load = Some(Box::new(f));
+    }
+
+    /// Query for and load the font face from the given `family` that most
+    /// closely matches the given `variant`.
+    pub fn select(&mut self, family: &str, variant: FontVariant) -> Option<FaceId> {
+        // Check whether a family with this name exists.
+        let ids = self.families.get(family)?;
+        let infos = self.loader.faces();
+
+        let mut best = None;
+        let mut best_key = None;
+
+        // Find the best matching variant of this font.
+        for &id in ids {
+            let current = infos[id.0 as usize].variant;
+
+            // This is a perfect match, no need to search further.
+            if current == variant {
+                best = Some(id);
+                break;
+            }
+
+            // If this is not a perfect match, we compute a key that we want to
+            // minimize among all variants. This key prioritizes style, then
+            // stretch distance and then weight distance.
+            let key = (
+                current.style != variant.style,
+                current.stretch.distance(variant.stretch),
+                current.weight.distance(variant.weight),
+            );
+
+            if best_key.map_or(true, |b| key < b) {
+                best = Some(id);
+                best_key = Some(key);
+            }
+        }
+
+        let id = best?;
+
+        // Load the face if it's not already loaded.
+        let idx = id.0 as usize;
+        let slot = &mut self.faces[idx];
+        if slot.is_none() {
+            let FaceInfo { ref path, index, .. } = infos[idx];
+
+            // Check the buffer cache since multiple faces may
+            // refer to the same data (font collection).
+            let hash = self.loader.resolve(path).ok()?;
+            let buffer = match self.buffers.entry(hash) {
+                Entry::Occupied(entry) => entry.into_mut(),
+                Entry::Vacant(entry) => {
+                    let buffer = self.loader.load(path).ok()?;
+                    entry.insert(Rc::new(buffer))
+                }
+            };
+
+            let face = Face::new(Rc::clone(buffer), index)?;
+            if let Some(callback) = &self.on_load {
+                callback(id, &face);
+            }
+
+            *slot = Some(face);
+        }
+
+        Some(id)
+    }
+
+    /// Get a reference to a loaded face.
+    ///
+    /// This panics if no face with this id was loaded. This function should
+    /// only be called with ids returned by this store's
+    /// [`select()`](Self::select) method.
+    #[track_caller]
+    pub fn get(&self, id: FaceId) -> &Face {
+        self.faces[id.0 as usize].as_ref().expect("font face was not loaded")
+    }
+}
 
 /// A font face.
 pub struct Face {
@@ -53,18 +191,20 @@ impl Face {
         let cap_height = ttf.capital_height().filter(|&h| h > 0).map_or(ascender, to_em);
         let x_height = ttf.x_height().filter(|&h| h > 0).map_or(ascender, to_em);
         let descender = to_em(ttf.typographic_descender().unwrap_or(ttf.descender()));
-
         let strikeout = ttf.strikeout_metrics();
         let underline = ttf.underline_metrics();
-        let default = Em::new(0.06);
 
         let strikethrough = LineMetrics {
-            strength: strikeout.or(underline).map_or(default, |s| to_em(s.thickness)),
+            strength: strikeout
+                .or(underline)
+                .map_or(Em::new(0.06), |s| to_em(s.thickness)),
             position: strikeout.map_or(Em::new(0.25), |s| to_em(s.position)),
         };
 
         let underline = LineMetrics {
-            strength: underline.or(strikeout).map_or(default, |s| to_em(s.thickness)),
+            strength: underline
+                .or(strikeout)
+                .map_or(Em::new(0.06), |s| to_em(s.thickness)),
             position: underline.map_or(Em::new(-0.2), |s| to_em(s.position)),
         };
 
@@ -127,39 +267,6 @@ impl Face {
     }
 }
 
-/// Identifies a vertical metric of a font.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum VerticalFontMetric {
-    /// The distance from the baseline to the typographic ascender.
-    ///
-    /// Corresponds to the typographic ascender from the `OS/2` table if present
-    /// and falls back to the ascender from the `hhea` table otherwise.
-    Ascender,
-    /// The approximate height of uppercase letters.
-    CapHeight,
-    /// The approximate height of non-ascending lowercase letters.
-    XHeight,
-    /// The baseline on which the letters rest.
-    Baseline,
-    /// The distance from the baseline to the typographic descender.
-    ///
-    /// Corresponds to the typographic descender from the `OS/2` table if
-    /// present and falls back to the descender from the `hhea` table otherwise.
-    Descender,
-}
-
-impl Display for VerticalFontMetric {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Ascender => "ascender",
-            Self::CapHeight => "cap-height",
-            Self::XHeight => "x-height",
-            Self::Baseline => "baseline",
-            Self::Descender => "descender",
-        })
-    }
-}
-
 /// A length in em units.
 ///
 /// `1em` is the same as the font size.
@@ -201,137 +308,36 @@ impl Add for Em {
     }
 }
 
-/// Caches parsed font faces.
-pub struct FontCache {
-    loader: Rc<dyn Loader>,
-    faces: Vec<Option<Face>>,
-    families: HashMap<String, Vec<FaceId>>,
-    buffers: HashMap<FileId, Rc<Vec<u8>>>,
-    on_load: Option<Box<dyn Fn(FaceId, &Face)>>,
-}
-
-impl FontCache {
-    /// Create a new, empty font cache.
-    pub fn new(loader: Rc<dyn Loader>) -> Self {
-        let mut faces = vec![];
-        let mut families = HashMap::<String, Vec<FaceId>>::new();
-
-        for (i, info) in loader.faces().iter().enumerate() {
-            let id = FaceId(i as u64);
-            faces.push(None);
-            families
-                .entry(info.family.to_lowercase())
-                .and_modify(|vec| vec.push(id))
-                .or_insert_with(|| vec![id]);
-        }
-
-        Self {
-            loader,
-            faces,
-            families,
-            buffers: HashMap::new(),
-            on_load: None,
-        }
-    }
-
-    /// Query for and load the font face from the given `family` that most
-    /// closely matches the given `variant`.
-    pub fn select(&mut self, family: &str, variant: FontVariant) -> Option<FaceId> {
-        // Check whether a family with this name exists.
-        let ids = self.families.get(family)?;
-        let infos = self.loader.faces();
-
-        let mut best = None;
-        let mut best_key = None;
-
-        // Find the best matching variant of this font.
-        for &id in ids {
-            let current = infos[id.0 as usize].variant;
-
-            // This is a perfect match, no need to search further.
-            if current == variant {
-                best = Some(id);
-                break;
-            }
-
-            // If this is not a perfect match, we compute a key that we want to
-            // minimize among all variants. This key prioritizes style, then
-            // stretch distance and then weight distance.
-            let key = (
-                current.style != variant.style,
-                current.stretch.distance(variant.stretch),
-                current.weight.distance(variant.weight),
-            );
-
-            if best_key.map_or(true, |b| key < b) {
-                best = Some(id);
-                best_key = Some(key);
-            }
-        }
-
-        // Load the face if it's not already loaded.
-        let id = best?;
-        let idx = id.0 as usize;
-        let slot = &mut self.faces[idx];
-        if slot.is_none() {
-            let FaceInfo { file, index, .. } = infos[idx];
-
-            // Check the buffer cache since multiple faces may
-            // refer to the same data (font collection).
-            let buffer = match self.buffers.entry(file) {
-                Entry::Occupied(entry) => entry.into_mut(),
-                Entry::Vacant(entry) => {
-                    let buffer = self.loader.load_file(file).ok()?;
-                    entry.insert(Rc::new(buffer))
-                }
-            };
-
-            let face = Face::new(Rc::clone(buffer), index)?;
-            if let Some(callback) = &self.on_load {
-                callback(id, &face);
-            }
-
-            *slot = Some(face);
-        }
-
-        best
-    }
-
-    /// Get a reference to a loaded face.
-    ///
-    /// This panics if no face with this id was loaded. This function should
-    /// only be called with ids returned by [`select()`](Self::select).
-    #[track_caller]
-    pub fn get(&self, id: FaceId) -> &Face {
-        self.faces[id.0 as usize].as_ref().expect("font face was not loaded")
-    }
-
-    /// Register a callback which is invoked each time a font face is loaded.
-    pub fn on_load<F>(&mut self, f: F)
-    where
-        F: Fn(FaceId, &Face) + 'static,
-    {
-        self.on_load = Some(Box::new(f));
-    }
-}
-
-/// A unique identifier for a loaded font face.
+/// Identifies a vertical metric of a font.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[derive(Serialize, Deserialize)]
-pub struct FaceId(u64);
-
-impl FaceId {
-    /// Create a face id from the raw underlying value.
+pub enum VerticalFontMetric {
+    /// The distance from the baseline to the typographic ascender.
     ///
-    /// This should only be called with values returned by
-    /// [`into_raw`](Self::into_raw).
-    pub const fn from_raw(v: u64) -> Self {
-        Self(v)
-    }
+    /// Corresponds to the typographic ascender from the `OS/2` table if present
+    /// and falls back to the ascender from the `hhea` table otherwise.
+    Ascender,
+    /// The approximate height of uppercase letters.
+    CapHeight,
+    /// The approximate height of non-ascending lowercase letters.
+    XHeight,
+    /// The baseline on which the letters rest.
+    Baseline,
+    /// The distance from the baseline to the typographic descender.
+    ///
+    /// Corresponds to the typographic descender from the `OS/2` table if
+    /// present and falls back to the descender from the `hhea` table otherwise.
+    Descender,
+}
 
-    /// Convert into the raw underlying value.
-    pub const fn into_raw(self) -> u64 {
-        self.0
+impl Display for VerticalFontMetric {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(match self {
+            Self::Ascender => "ascender",
+            Self::CapHeight => "cap-height",
+            Self::XHeight => "x-height",
+            Self::Baseline => "baseline",
+            Self::Descender => "descender",
+        })
     }
 }
 
@@ -358,8 +364,8 @@ impl Display for FontFamily {
 /// Properties of a single font face.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FaceInfo {
-    /// The font file.
-    pub file: FileId,
+    /// The path to the font file.
+    pub path: PathBuf,
     /// The collection index in the font file.
     pub index: u32,
     /// The typographic font family this face is part of.

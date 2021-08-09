@@ -82,7 +82,7 @@ impl<'s> Parser<'s> {
 
     /// Add an error with location and message.
     pub fn error(&mut self, span: impl Into<Span>, message: impl Into<String>) {
-        self.errors.push(Error::new(self.source.file(), span, message));
+        self.errors.push(Error::new(self.source.id(), span, message));
     }
 
     /// Eat the next token and add an error that it is not the expected `thing`.

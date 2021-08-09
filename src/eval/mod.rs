@@ -21,30 +21,35 @@ pub use template::*;
 pub use value::*;
 
 use std::collections::HashMap;
+use std::io;
 use std::mem;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::diag::{Error, StrResult, Tracepoint, TypResult};
 use crate::geom::{Angle, Fractional, Length, Relative};
-use crate::image::ImageCache;
-use crate::loading::{FileId, Loader};
+use crate::image::ImageStore;
+use crate::loading::Loader;
 use crate::parse::parse;
-use crate::source::{SourceFile, SourceMap};
+use crate::source::{SourceId, SourceStore};
 use crate::syntax::visit::Visit;
 use crate::syntax::*;
 use crate::util::EcoString;
 use crate::Context;
 
 /// Evaluate a parsed source file into a module.
-pub fn eval(ctx: &mut Context, file: FileId, ast: Rc<SyntaxTree>) -> TypResult<Module> {
-    let mut ctx = EvalContext::new(ctx, file);
+pub fn eval(
+    ctx: &mut Context,
+    source: SourceId,
+    ast: Rc<SyntaxTree>,
+) -> TypResult<Module> {
+    let mut ctx = EvalContext::new(ctx, source);
     let template = ast.eval(&mut ctx)?;
     Ok(Module { scope: ctx.scopes.top, template })
 }
 
 /// Caches evaluated modules.
-pub type ModuleCache = HashMap<FileId, Module>;
+pub type ModuleCache = HashMap<SourceId, Module>;
 
 /// An evaluated module, ready for importing or execution.
 #[derive(Debug, Clone, PartialEq)]
@@ -68,100 +73,99 @@ pub trait Eval {
 pub struct EvalContext<'a> {
     /// The loader from which resources (files and images) are loaded.
     pub loader: &'a dyn Loader,
-    /// The store for source files.
-    pub sources: &'a mut SourceMap,
-    /// The cache for decoded images.
-    pub images: &'a mut ImageCache,
-    /// The cache for loaded modules.
+    /// Stores loaded source files.
+    pub sources: &'a mut SourceStore,
+    /// Stores decoded images.
+    pub images: &'a mut ImageStore,
+    /// Caches evaluated modules.
     pub modules: &'a mut ModuleCache,
     /// The active scopes.
     pub scopes: Scopes<'a>,
-    /// The currently evaluated file.
-    pub file: FileId,
+    /// The id of the currently evaluated source file.
+    pub source: SourceId,
     /// The stack of imported files that led to evaluation of the current file.
-    pub route: Vec<FileId>,
+    pub route: Vec<SourceId>,
     /// The expression map for the currently built template.
     pub map: ExprMap,
 }
 
 impl<'a> EvalContext<'a> {
     /// Create a new evaluation context.
-    pub fn new(ctx: &'a mut Context, file: FileId) -> Self {
+    pub fn new(ctx: &'a mut Context, source: SourceId) -> Self {
         Self {
             loader: ctx.loader.as_ref(),
             sources: &mut ctx.sources,
             images: &mut ctx.images,
             modules: &mut ctx.modules,
             scopes: Scopes::new(Some(&ctx.std)),
-            file,
+            source,
             route: vec![],
             map: ExprMap::new(),
         }
     }
 
-    /// Resolve a path relative to the current file.
-    ///
-    /// Returns an error if the file is not found.
-    pub fn resolve(&mut self, path: &str, span: Span) -> TypResult<FileId> {
-        self.loader
-            .resolve_from(self.file, Path::new(path))
-            .map_err(|_| Error::boxed(self.file, span, "file not found"))
-    }
-
     /// Process an import of a module relative to the current location.
-    pub fn import(&mut self, path: &str, span: Span) -> TypResult<FileId> {
-        let file = self.resolve(path, span)?;
+    pub fn import(&mut self, path: &str, span: Span) -> TypResult<SourceId> {
+        // Load the source file.
+        let full = self.relpath(path);
+        let id = self.sources.load(&full).map_err(|err| {
+            Error::boxed(self.source, span, match err.kind() {
+                io::ErrorKind::NotFound => "file not found".into(),
+                _ => format!("failed to load source file ({})", err),
+            })
+        })?;
 
         // Prevent cyclic importing.
-        if self.file == file || self.route.contains(&file) {
-            bail!(self.file, span, "cyclic import");
+        if self.source == id || self.route.contains(&id) {
+            bail!(self.source, span, "cyclic import");
         }
 
         // Check whether the module was already loaded.
-        if self.modules.get(&file).is_some() {
-            return Ok(file);
+        if self.modules.get(&id).is_some() {
+            return Ok(id);
         }
 
-        // Load the source file.
-        let buffer = self
-            .loader
-            .load_file(file)
-            .map_err(|_| Error::boxed(self.file, span, "failed to load file"))?;
-
-        // Decode UTF-8.
-        let string = String::from_utf8(buffer)
-            .map_err(|_| Error::boxed(self.file, span, "file is not valid utf-8"))?;
-
         // Parse the file.
-        let source = self.sources.insert(SourceFile::new(file, string));
+        let source = self.sources.get(id);
         let ast = parse(&source)?;
 
         // Prepare the new context.
         let new_scopes = Scopes::new(self.scopes.base);
         let old_scopes = mem::replace(&mut self.scopes, new_scopes);
-        self.route.push(self.file);
-        self.file = file;
+        self.route.push(self.source);
+        self.source = id;
 
         // Evaluate the module.
         let result = Rc::new(ast).eval(self);
 
         // Restore the old context.
         let new_scopes = mem::replace(&mut self.scopes, old_scopes);
-        self.file = self.route.pop().unwrap();
+        self.source = self.route.pop().unwrap();
 
         // Add a tracepoint to the errors.
         let template = result.map_err(|mut errors| {
             for error in errors.iter_mut() {
-                error.trace.push((self.file, span, Tracepoint::Import));
+                error.trace.push((self.source, span, Tracepoint::Import));
             }
             errors
         })?;
 
         // Save the evaluated module.
         let module = Module { scope: new_scopes.top, template };
-        self.modules.insert(file, module);
+        self.modules.insert(id, module);
 
-        Ok(file)
+        Ok(id)
+    }
+
+    /// Complete a path that is relative to the current file to be relative to
+    /// the environment's current directory.
+    pub fn relpath(&self, path: impl AsRef<Path>) -> PathBuf {
+        self.sources
+            .get(self.source)
+            .path()
+            .parent()
+            .expect("is a file")
+            .join(path)
     }
 }
 
@@ -231,7 +235,7 @@ impl Eval for Expr {
             Self::Str(_, ref v) => Value::Str(v.clone()),
             Self::Ident(ref v) => match ctx.scopes.get(&v) {
                 Some(slot) => slot.borrow().clone(),
-                None => bail!(ctx.file, v.span, "unknown variable"),
+                None => bail!(ctx.source, v.span, "unknown variable"),
             },
             Self::Array(ref v) => Value::Array(v.eval(ctx)?),
             Self::Dict(ref v) => Value::Dict(v.eval(ctx)?),
@@ -300,7 +304,7 @@ impl Eval for BlockExpr {
         for expr in &self.exprs {
             let value = expr.eval(ctx)?;
             output = ops::join(output, value)
-                .map_err(Error::partial(ctx.file, expr.span()))?;
+                .map_err(Error::partial(ctx.source, expr.span()))?;
         }
 
         if self.scoping {
@@ -321,7 +325,7 @@ impl Eval for UnaryExpr {
             UnOp::Neg => ops::neg(value),
             UnOp::Not => ops::not(value),
         };
-        result.map_err(Error::partial(ctx.file, self.span))
+        result.map_err(Error::partial(ctx.source, self.span))
     }
 }
 
@@ -368,7 +372,7 @@ impl BinaryExpr {
         }
 
         let rhs = self.rhs.eval(ctx)?;
-        op(lhs, rhs).map_err(Error::partial(ctx.file, self.span))
+        op(lhs, rhs).map_err(Error::partial(ctx.source, self.span))
     }
 
     /// Apply an assignment operation.
@@ -380,22 +384,22 @@ impl BinaryExpr {
         let slot = if let Expr::Ident(id) = self.lhs.as_ref() {
             match ctx.scopes.get(id) {
                 Some(slot) => Rc::clone(slot),
-                None => bail!(ctx.file, lspan, "unknown variable"),
+                None => bail!(ctx.source, lspan, "unknown variable"),
             }
         } else {
-            bail!(ctx.file, lspan, "cannot assign to this expression",);
+            bail!(ctx.source, lspan, "cannot assign to this expression",);
         };
 
         let rhs = self.rhs.eval(ctx)?;
         let mut mutable = match slot.try_borrow_mut() {
             Ok(mutable) => mutable,
             Err(_) => {
-                bail!(ctx.file, lspan, "cannot assign to a constant",);
+                bail!(ctx.source, lspan, "cannot assign to a constant",);
             }
         };
 
         let lhs = mem::take(&mut *mutable);
-        *mutable = op(lhs, rhs).map_err(Error::partial(ctx.file, self.span))?;
+        *mutable = op(lhs, rhs).map_err(Error::partial(ctx.source, self.span))?;
 
         Ok(Value::None)
     }
@@ -409,18 +413,18 @@ impl Eval for CallExpr {
             .callee
             .eval(ctx)?
             .cast::<Function>()
-            .map_err(Error::partial(ctx.file, self.callee.span()))?;
+            .map_err(Error::partial(ctx.source, self.callee.span()))?;
 
         let mut args = self.args.eval(ctx)?;
         let returned = callee(ctx, &mut args).map_err(|mut errors| {
             for error in errors.iter_mut() {
                 // Skip errors directly related to arguments.
-                if error.file == ctx.file && self.span.contains(error.span) {
+                if error.source == ctx.source && self.span.contains(error.span) {
                     continue;
                 }
 
                 error.trace.push((
-                    ctx.file,
+                    ctx.source,
                     self.span,
                     Tracepoint::Call(callee.name().map(Into::into)),
                 ));
@@ -439,7 +443,7 @@ impl Eval for CallArgs {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         Ok(FuncArgs {
-            file: ctx.file,
+            source: ctx.source,
             span: self.span,
             items: self
                 .items
@@ -473,7 +477,7 @@ impl Eval for ClosureExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let file = ctx.file;
+        let file = ctx.source;
         let params = Rc::clone(&self.params);
         let body = Rc::clone(&self.body);
 
@@ -489,7 +493,7 @@ impl Eval for ClosureExpr {
             // Don't leak the scopes from the call site. Instead, we use the
             // scope of captured variables we collected earlier.
             let prev_scopes = mem::take(&mut ctx.scopes);
-            let prev_file = mem::replace(&mut ctx.file, file);
+            let prev_file = mem::replace(&mut ctx.source, file);
             ctx.scopes.top = captured.clone();
 
             for param in params.iter() {
@@ -499,7 +503,7 @@ impl Eval for ClosureExpr {
 
             let result = body.eval(ctx);
             ctx.scopes = prev_scopes;
-            ctx.file = prev_file;
+            ctx.source = prev_file;
             result
         });
 
@@ -515,7 +519,7 @@ impl Eval for WithExpr {
             .callee
             .eval(ctx)?
             .cast::<Function>()
-            .map_err(Error::partial(ctx.file, self.callee.span()))?;
+            .map_err(Error::partial(ctx.source, self.callee.span()))?;
 
         let applied = self.args.eval(ctx)?;
 
@@ -565,7 +569,7 @@ impl Eval for IfExpr {
             .condition
             .eval(ctx)?
             .cast::<bool>()
-            .map_err(Error::partial(ctx.file, self.condition.span()))?;
+            .map_err(Error::partial(ctx.source, self.condition.span()))?;
 
         if condition {
             self.if_body.eval(ctx)
@@ -587,11 +591,11 @@ impl Eval for WhileExpr {
             .condition
             .eval(ctx)?
             .cast::<bool>()
-            .map_err(Error::partial(ctx.file, self.condition.span()))?
+            .map_err(Error::partial(ctx.source, self.condition.span()))?
         {
             let value = self.body.eval(ctx)?;
             output = ops::join(output, value)
-                .map_err(Error::partial(ctx.file, self.body.span()))?;
+                .map_err(Error::partial(ctx.source, self.body.span()))?;
         }
 
         Ok(output)
@@ -613,7 +617,7 @@ impl Eval for ForExpr {
 
                     let value = self.body.eval(ctx)?;
                     output = ops::join(output, value)
-                        .map_err(Error::partial(ctx.file, self.body.span()))?;
+                        .map_err(Error::partial(ctx.source, self.body.span()))?;
                 }
 
                 ctx.scopes.exit();
@@ -639,10 +643,10 @@ impl Eval for ForExpr {
                 iter!(for (k => key, v => value) in dict.into_iter())
             }
             (ForPattern::KeyValue(_, _), Value::Str(_)) => {
-                bail!(ctx.file, self.pattern.span(), "mismatched pattern");
+                bail!(ctx.source, self.pattern.span(), "mismatched pattern");
             }
             (_, iter) => bail!(
-                ctx.file,
+                ctx.source,
                 self.iter.span(),
                 "cannot loop over {}",
                 iter.type_name(),
@@ -659,7 +663,7 @@ impl Eval for ImportExpr {
             .path
             .eval(ctx)?
             .cast::<EcoString>()
-            .map_err(Error::partial(ctx.file, self.path.span()))?;
+            .map_err(Error::partial(ctx.source, self.path.span()))?;
 
         let file = ctx.import(&path, self.path.span())?;
         let module = &ctx.modules[&file];
@@ -675,7 +679,7 @@ impl Eval for ImportExpr {
                     if let Some(slot) = module.scope.get(&ident) {
                         ctx.scopes.def_mut(ident.as_str(), slot.borrow().clone());
                     } else {
-                        bail!(ctx.file, ident.span, "unresolved import");
+                        bail!(ctx.source, ident.span, "unresolved import");
                     }
                 }
             }
@@ -693,7 +697,7 @@ impl Eval for IncludeExpr {
             .path
             .eval(ctx)?
             .cast::<EcoString>()
-            .map_err(Error::partial(ctx.file, self.path.span()))?;
+            .map_err(Error::partial(ctx.source, self.path.span()))?;
 
         let file = ctx.import(&path, self.path.span())?;
         let module = &ctx.modules[&file];

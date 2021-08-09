@@ -49,7 +49,7 @@
 
 ---
 // Some non-text stuff.
-// Error: 16-37 file is not valid utf-8
+// Error: 16-37 failed to load source file (file is not valid utf-8)
 #import * from "../../res/rhino.png"
 
 ---

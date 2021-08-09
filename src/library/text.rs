@@ -132,7 +132,7 @@ pub fn lang(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
         if dir.v.axis() == SpecAxis::Horizontal {
             Some(dir.v)
         } else {
-            bail!(args.file, dir.span, "must be horizontal");
+            bail!(args.source, dir.span, "must be horizontal");
         }
     } else {
         iso.as_deref().map(lang_dir)

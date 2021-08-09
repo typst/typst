@@ -1,7 +1,6 @@
 use iai::{black_box, main};
 
 use typst::diag::TypResult;
-use typst::loading::FileId;
 use typst::parse::{parse, Scanner, TokenMode, Tokens};
 use typst::source::SourceFile;
 use typst::syntax::SyntaxTree;
@@ -33,8 +32,7 @@ fn bench_tokenize() -> usize {
 }
 
 fn bench_parse() -> TypResult<SyntaxTree> {
-    let source = SourceFile::new(FileId::from_raw(0), black_box(SRC).into());
-    parse(&source)
+    parse(&SourceFile::detached(black_box(SRC)))
 }
 
 main!(bench_decode, bench_scan, bench_tokenize, bench_parse);

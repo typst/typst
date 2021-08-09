@@ -1,8 +1,6 @@
-use std::cell::{Ref, RefCell};
-use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::rc::Rc;
 
 use memmap2::Mmap;
@@ -10,9 +8,8 @@ use same_file::Handle;
 use ttf_parser::{name_id, Face};
 use walkdir::WalkDir;
 
-use super::{FileId, Loader};
+use super::{FileHash, Loader};
 use crate::font::{FaceInfo, FontStretch, FontStyle, FontVariant, FontWeight};
-use crate::util::PathExt;
 
 /// Loads fonts and images from the local file system.
 ///
@@ -20,13 +17,12 @@ use crate::util::PathExt;
 #[derive(Debug, Default, Clone)]
 pub struct FsLoader {
     faces: Vec<FaceInfo>,
-    paths: RefCell<HashMap<FileId, PathBuf>>,
 }
 
 impl FsLoader {
     /// Create a new loader without any fonts.
     pub fn new() -> Self {
-        Self { faces: vec![], paths: RefCell::default() }
+        Self { faces: vec![] }
     }
 
     /// Builder-style variant of `search_system`.
@@ -50,51 +46,6 @@ impl FsLoader {
     /// Search for fonts in the operating system's font directories.
     pub fn search_system(&mut self) {
         self.search_system_impl();
-    }
-
-    /// Search for all fonts at a path.
-    ///
-    /// If the path is a directory, all contained fonts will be searched for
-    /// recursively.
-    pub fn search_path(&mut self, dir: impl AsRef<Path>) {
-        let walk = WalkDir::new(dir)
-            .follow_links(true)
-            .sort_by(|a, b| a.file_name().cmp(b.file_name()))
-            .into_iter()
-            .filter_map(|e| e.ok());
-
-        for entry in walk {
-            let path = entry.path();
-            if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-                match ext {
-                    #[rustfmt::skip]
-                    "ttf" | "otf" | "TTF" | "OTF" |
-                    "ttc" | "otc" | "TTC" | "OTC" => {
-                        self.search_file(path).ok();
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-
-    /// Resolve a file id for a path.
-    pub fn resolve(&self, path: &Path) -> io::Result<FileId> {
-        let file = File::open(path)?;
-        let meta = file.metadata()?;
-        if meta.is_file() {
-            let handle = Handle::from_file(file)?;
-            let id = FileId(fxhash::hash64(&handle));
-            self.paths.borrow_mut().insert(id, path.normalize());
-            Ok(id)
-        } else {
-            Err(io::Error::new(io::ErrorKind::Other, "not a file"))
-        }
-    }
-
-    /// Return the path of a resolved file.
-    pub fn path(&self, id: FileId) -> Ref<Path> {
-        Ref::map(self.paths.borrow(), |paths| paths[&id].as_path())
     }
 
     #[cfg(all(unix, not(target_os = "macos")))]
@@ -131,6 +82,32 @@ impl FsLoader {
 
         if let Some(local) = dirs::cache_dir() {
             self.search_path(local.join("Microsoft\\Windows\\Fonts"));
+        }
+    }
+
+    /// Search for all fonts at a path.
+    ///
+    /// If the path is a directory, all contained fonts will be searched for
+    /// recursively.
+    pub fn search_path(&mut self, dir: impl AsRef<Path>) {
+        let walk = WalkDir::new(dir)
+            .follow_links(true)
+            .sort_by(|a, b| a.file_name().cmp(b.file_name()))
+            .into_iter()
+            .filter_map(|e| e.ok());
+
+        for entry in walk {
+            let path = entry.path();
+            if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                match ext {
+                    #[rustfmt::skip]
+                    "ttf" | "otf" | "TTF" | "OTF" |
+                    "ttc" | "otc" | "TTC" | "OTC" => {
+                        self.search_file(path).ok();
+                    }
+                    _ => {}
+                }
+            }
         }
     }
 
@@ -180,8 +157,12 @@ impl FsLoader {
             stretch: FontStretch::from_number(face.width().to_number()),
         };
 
-        let file = self.resolve(path)?;
-        self.faces.push(FaceInfo { file, index, family, variant });
+        self.faces.push(FaceInfo {
+            path: path.to_owned(),
+            index,
+            family,
+            variant,
+        });
 
         Ok(())
     }
@@ -192,16 +173,19 @@ impl Loader for FsLoader {
         &self.faces
     }
 
-    fn resolve_from(&self, base: FileId, path: &Path) -> io::Result<FileId> {
-        let full = self.paths.borrow()[&base]
-            .parent()
-            .expect("base is a file")
-            .join(path);
-        self.resolve(&full)
+    fn resolve(&self, path: &Path) -> io::Result<FileHash> {
+        let file = File::open(path)?;
+        let meta = file.metadata()?;
+        if meta.is_file() {
+            let handle = Handle::from_file(file)?;
+            Ok(FileHash(fxhash::hash64(&handle)))
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, "not a file"))
+        }
     }
 
-    fn load_file(&self, id: FileId) -> io::Result<Vec<u8>> {
-        fs::read(&self.paths.borrow()[&id])
+    fn load(&self, path: &Path) -> io::Result<Vec<u8>> {
+        fs::read(path)
     }
 }
 
@@ -211,8 +195,8 @@ mod tests {
 
     #[test]
     fn test_index_font_dir() {
-        let map = FsLoader::new().with_path("fonts").paths.into_inner();
-        let mut paths: Vec<_> = map.into_iter().map(|p| p.1).collect();
+        let faces = FsLoader::new().with_path("fonts").faces;
+        let mut paths: Vec<_> = faces.into_iter().map(|info| info.path).collect();
         paths.sort();
 
         assert_eq!(paths, [

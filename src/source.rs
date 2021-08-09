@@ -1,55 +1,126 @@
 //! Source files.
 
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::HashMap;
+use std::io;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
-use crate::loading::FileId;
+#[cfg(feature = "codespan-reporting")]
+use codespan_reporting::files::{self, Files};
+use serde::{Deserialize, Serialize};
+
+use crate::loading::{FileHash, Loader};
 use crate::parse::{is_newline, Scanner};
 use crate::syntax::{Pos, Span};
+use crate::util::PathExt;
 
-/// A store for loaded source files.
-#[derive(Default)]
-pub struct SourceMap {
-    sources: HashMap<FileId, SourceFile>,
+/// A unique identifier for a loaded source file.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Serialize, Deserialize)]
+pub struct SourceId(u32);
+
+impl SourceId {
+    /// Create a source id from the raw underlying value.
+    ///
+    /// This should only be called with values returned by
+    /// [`into_raw`](Self::into_raw).
+    pub const fn from_raw(v: u32) -> Self {
+        Self(v)
+    }
+
+    /// Convert into the raw underlying value.
+    pub const fn into_raw(self) -> u32 {
+        self.0
+    }
 }
 
-impl SourceMap {
-    /// Create a new, empty source map
-    pub fn new() -> Self {
-        Self::default()
-    }
+/// Storage for loaded source files.
+pub struct SourceStore {
+    loader: Rc<dyn Loader>,
+    files: HashMap<FileHash, SourceId>,
+    sources: Vec<SourceFile>,
+}
 
-    /// Get a source file by id.
-    pub fn get(&self, file: FileId) -> Option<&SourceFile> {
-        self.sources.get(&file)
-    }
-
-    /// Insert a sources.
-    pub fn insert(&mut self, source: SourceFile) -> &SourceFile {
-        match self.sources.entry(source.file) {
-            Entry::Occupied(mut entry) => {
-                entry.insert(source);
-                entry.into_mut()
-            }
-            Entry::Vacant(entry) => entry.insert(source),
+impl SourceStore {
+    /// Create a new, empty source store.
+    pub fn new(loader: Rc<dyn Loader>) -> Self {
+        Self {
+            loader,
+            files: HashMap::new(),
+            sources: vec![],
         }
     }
 
-    /// Remove all sources.
-    pub fn clear(&mut self) {
-        self.sources.clear();
+    /// Load a source file from a path using the `loader`.
+    pub fn load(&mut self, path: &Path) -> io::Result<SourceId> {
+        let hash = self.loader.resolve(path)?;
+        if let Some(&id) = self.files.get(&hash) {
+            return Ok(id);
+        }
+
+        let data = self.loader.load(path)?;
+        let src = String::from_utf8(data).map_err(|_| {
+            io::Error::new(io::ErrorKind::InvalidData, "file is not valid utf-8")
+        })?;
+
+        Ok(self.insert(Some(hash), path, src))
+    }
+
+    /// Directly provide a source file.
+    ///
+    /// The `path` does not need to be [resolvable](Loader::resolve) through the
+    /// `loader`. If it is though, imports that resolve to the same file hash
+    /// will use the inserted file instead of going through [`Loader::load`].
+    ///
+    /// If the path is resolvable and points to an existing source file, it is
+    /// overwritten.
+    pub fn provide(&mut self, path: &Path, src: String) -> SourceId {
+        if let Ok(hash) = self.loader.resolve(path) {
+            if let Some(&id) = self.files.get(&hash) {
+                // Already loaded, so we replace it.
+                self.sources[id.0 as usize] = SourceFile::new(id, path, src);
+                id
+            } else {
+                // Not loaded yet.
+                self.insert(Some(hash), path, src)
+            }
+        } else {
+            // Not known to the loader.
+            self.insert(None, path, src)
+        }
+    }
+
+    /// Insert a new source file.
+    fn insert(&mut self, hash: Option<FileHash>, path: &Path, src: String) -> SourceId {
+        let id = SourceId(self.sources.len() as u32);
+        if let Some(hash) = hash {
+            self.files.insert(hash, id);
+        }
+        self.sources.push(SourceFile::new(id, path, src));
+        id
+    }
+
+    /// Get a reference to a loaded source file.
+    ///
+    /// This panics if no source file with this id was loaded. This function
+    /// should only be called with ids returned by this store's
+    /// [`load()`](Self::load) and [`provide()`](Self::provide) methods.
+    #[track_caller]
+    pub fn get(&self, id: SourceId) -> &SourceFile {
+        &self.sources[id.0 as usize]
     }
 }
 
 /// A single source file.
 pub struct SourceFile {
-    file: FileId,
+    id: SourceId,
+    path: PathBuf,
     src: String,
     line_starts: Vec<Pos>,
 }
 
 impl SourceFile {
-    /// Create a new source file from  string.
-    pub fn new(file: FileId, src: String) -> Self {
+    fn new(id: SourceId, path: &Path, src: String) -> Self {
         let mut line_starts = vec![Pos::ZERO];
         let mut s = Scanner::new(&src);
 
@@ -62,12 +133,27 @@ impl SourceFile {
             }
         }
 
-        Self { file, src, line_starts }
+        Self {
+            id,
+            path: path.normalize(),
+            src,
+            line_starts,
+        }
     }
 
-    /// The file id.
-    pub fn file(&self) -> FileId {
-        self.file
+    /// Create a source file without a real id and path, usually for testing.
+    pub fn detached(src: impl Into<String>) -> Self {
+        Self::new(SourceId(0), Path::new(""), src.into())
+    }
+
+    /// The id of the source file.
+    pub fn id(&self) -> SourceId {
+        self.id
+    }
+
+    /// The path to the source file.
+    pub fn path(&self) -> &Path {
+        &self.path
     }
 
     /// The whole source as a string slice.
@@ -150,22 +236,73 @@ fn width(c: char) -> usize {
     if c == '\t' { 2 } else { 1 }
 }
 
+impl AsRef<str> for SourceFile {
+    fn as_ref(&self) -> &str {
+        &self.src
+    }
+}
+
+#[cfg(feature = "codespan-reporting")]
+impl<'a> Files<'a> for SourceStore {
+    type FileId = SourceId;
+    type Name = std::path::Display<'a>;
+    type Source = &'a SourceFile;
+
+    fn name(&'a self, id: SourceId) -> Result<Self::Name, files::Error> {
+        Ok(self.get(id).path().display())
+    }
+
+    fn source(&'a self, id: SourceId) -> Result<Self::Source, files::Error> {
+        Ok(self.get(id))
+    }
+
+    fn line_index(
+        &'a self,
+        id: SourceId,
+        byte_index: usize,
+    ) -> Result<usize, files::Error> {
+        let source = self.get(id);
+        source.pos_to_line(byte_index.into()).ok_or_else(|| {
+            let (given, max) = (byte_index, source.len_bytes());
+            if given <= max {
+                files::Error::InvalidCharBoundary { given }
+            } else {
+                files::Error::IndexTooLarge { given, max }
+            }
+        })
+    }
+
+    fn line_range(
+        &'a self,
+        id: SourceId,
+        line_index: usize,
+    ) -> Result<std::ops::Range<usize>, files::Error> {
+        let source = self.get(id);
+        match source.line_to_span(line_index) {
+            Some(span) => Ok(span.to_range()),
+            None => Err(files::Error::LineTooLarge {
+                given: line_index,
+                max: source.len_lines(),
+            }),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const ID: FileId = FileId::from_raw(0);
     const TEST: &str = "äbcde\nf💛g\r\nhi\rjkl";
 
     #[test]
     fn test_source_file_new() {
-        let source = SourceFile::new(ID, TEST.into());
+        let source = SourceFile::detached(TEST);
         assert_eq!(source.line_starts, vec![Pos(0), Pos(7), Pos(15), Pos(18)]);
     }
 
     #[test]
     fn test_source_file_pos_to_line() {
-        let source = SourceFile::new(ID, TEST.into());
+        let source = SourceFile::detached(TEST);
         assert_eq!(source.pos_to_line(Pos(0)), Some(0));
         assert_eq!(source.pos_to_line(Pos(2)), Some(0));
         assert_eq!(source.pos_to_line(Pos(6)), Some(0));
@@ -186,7 +323,7 @@ mod tests {
             assert_eq!(result, byte_pos);
         }
 
-        let source = SourceFile::new(ID, TEST.into());
+        let source = SourceFile::detached(TEST);
         roundtrip(&source, Pos(0));
         roundtrip(&source, Pos(7));
         roundtrip(&source, Pos(12));

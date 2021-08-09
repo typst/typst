@@ -16,9 +16,9 @@ use typst::exec::{exec, State};
 use typst::geom::{self, Length, PathElement, Point, Sides, Size};
 use typst::image::ImageId;
 use typst::layout::{layout, Element, Frame, Geometry, LayoutTree, Paint, Text};
-use typst::loading::{FileId, FsLoader};
+use typst::loading::FsLoader;
 use typst::parse::{parse, Scanner};
-use typst::source::SourceFile;
+use typst::source::{SourceFile, SourceId};
 use typst::syntax::Pos;
 use typst::Context;
 
@@ -71,7 +71,7 @@ fn main() {
         let rhs = args.expect::<Value>("right-hand side")?;
         if lhs != rhs {
             typst::bail!(
-                args.file,
+                args.source,
                 args.span,
                 "Assertion failed: {:?} != {:?}",
                 lhs,
@@ -83,7 +83,7 @@ fn main() {
 
     // Create loader and context.
     let loader = FsLoader::new().with_path(FONT_DIR).wrap();
-    let mut ctx = Context::builder().std(std).state(state).build(loader.clone());
+    let mut ctx = Context::builder().std(std).state(state).build(loader);
 
     // Run all the tests.
     let mut ok = true;
@@ -96,7 +96,6 @@ fn main() {
 
         ok &= test(
             &mut ctx,
-            loader.as_ref(),
             &src_path,
             &png_path,
             &ref_path,
@@ -144,7 +143,6 @@ impl Args {
 
 fn test(
     ctx: &mut Context,
-    loader: &FsLoader,
     src_path: &Path,
     png_path: &Path,
     ref_path: &Path,
@@ -153,7 +151,6 @@ fn test(
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
     println!("Testing {}", name.display());
 
-    let file = loader.resolve(src_path).unwrap();
     let src = fs::read_to_string(src_path).unwrap();
 
     let mut ok = true;
@@ -178,7 +175,7 @@ fn test(
             }
         } else {
             let (part_ok, compare_here, part_frames) =
-                test_part(ctx, file, part, i, compare_ref, line);
+                test_part(ctx, src_path, part.into(), i, compare_ref, line);
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
@@ -218,19 +215,21 @@ fn test(
 
 fn test_part(
     ctx: &mut Context,
-    file: FileId,
-    src: &str,
+    src_path: &Path,
+    src: String,
     i: usize,
     compare_ref: bool,
     line: usize,
 ) -> (bool, bool, Vec<Rc<Frame>>) {
-    let source = SourceFile::new(file, src.into());
+    let id = ctx.sources.provide(src_path, src);
+    let source = ctx.sources.get(id);
+
     let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
     let mut ok = true;
 
-    let result = typeset(ctx, &source);
+    let result = typeset(ctx, id);
     let (frames, mut errors) = match result {
         #[allow(unused_variables)]
         Ok((tree, mut frames)) => {
@@ -247,7 +246,7 @@ fn test_part(
     };
 
     // TODO: Also handle errors from other files.
-    errors.retain(|error| error.file == source.file());
+    errors.retain(|error| error.source == id);
     for error in &mut errors {
         error.trace.clear();
     }
@@ -259,8 +258,9 @@ fn test_part(
         println!("  Subtest {} does not match expected errors. ❌", i);
         ok = false;
 
+        let source = ctx.sources.get(id);
         for error in errors.iter() {
-            if error.file == file && !ref_errors.contains(error) {
+            if error.source == id && !ref_errors.contains(error) {
                 print!("    Not annotated | ");
                 print_error(&source, line, error);
             }
@@ -275,6 +275,15 @@ fn test_part(
     }
 
     (ok, compare_ref, frames)
+}
+
+fn typeset(ctx: &mut Context, id: SourceId) -> TypResult<(LayoutTree, Vec<Rc<Frame>>)> {
+    let source = ctx.sources.get(id);
+    let ast = parse(source)?;
+    let module = eval(ctx, id, Rc::new(ast))?;
+    let tree = exec(ctx, &module.template);
+    let frames = layout(ctx, &tree);
+    Ok((tree, frames))
 }
 
 #[cfg(feature = "layout-cache")]
@@ -362,28 +371,17 @@ fn parse_metadata(source: &SourceFile) -> (Option<bool>, Vec<Error>) {
         let start = pos(&mut s);
         let end = if s.eat_if('-') { pos(&mut s) } else { start };
 
-        errors.push(Error::new(source.file(), start .. end, s.rest().trim()));
+        errors.push(Error::new(source.id(), start .. end, s.rest().trim()));
     }
 
     (compare_ref, errors)
 }
 
-fn typeset(
-    ctx: &mut Context,
-    source: &SourceFile,
-) -> TypResult<(LayoutTree, Vec<Rc<Frame>>)> {
-    let ast = parse(source)?;
-    let module = eval(ctx, source.file(), Rc::new(ast))?;
-    let tree = exec(ctx, &module.template);
-    let frames = layout(ctx, &tree);
-    Ok((tree, frames))
-}
-
 fn print_error(source: &SourceFile, line: usize, error: &Error) {
-    let start_line = line + source.pos_to_line(error.span.start).unwrap();
-    let start_col = source.pos_to_column(error.span.start).unwrap();
-    let end_line = line + source.pos_to_line(error.span.end).unwrap();
-    let end_col = source.pos_to_column(error.span.end).unwrap();
+    let start_line = 1 + line + source.pos_to_line(error.span.start).unwrap();
+    let start_col = 1 + source.pos_to_column(error.span.start).unwrap();
+    let end_line = 1 + line + source.pos_to_line(error.span.end).unwrap();
+    let end_col = 1 + source.pos_to_column(error.span.end).unwrap();
     println!(
         "Error: {}:{}-{}:{}: {}",
         start_line, start_col, end_line, end_col, error.message

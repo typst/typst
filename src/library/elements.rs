@@ -1,8 +1,10 @@
 use std::f64::consts::SQRT_2;
+use std::io;
 
 use decorum::N64;
 
 use super::*;
+use crate::diag::Error;
 use crate::layout::{
     BackgroundNode, BackgroundShape, FixedNode, ImageNode, PadNode, Paint,
 };
@@ -13,13 +15,17 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
 
-    let file = ctx.resolve(&path.v, path.span)?;
-    let node = match ctx.images.load(file) {
-        Some(id) => ImageNode { id, width, height },
-        None => bail!(args.file, path.span, "failed to load image"),
-    };
+    let full = ctx.relpath(path.v.as_str());
+    let id = ctx.images.load(&full).map_err(|err| {
+        Error::boxed(args.source, path.span, match err.kind() {
+            io::ErrorKind::NotFound => "file not found".into(),
+            _ => format!("failed to load image ({})", err),
+        })
+    })?;
 
-    Ok(Value::template(move |ctx| ctx.push_into_par(node)))
+    Ok(Value::template(move |ctx| {
+        ctx.push_into_par(ImageNode { id, width, height })
+    }))
 }
 
 /// `rect`: A rectangle with optional content.
