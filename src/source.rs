@@ -63,7 +63,7 @@ impl SourceStore {
             io::Error::new(io::ErrorKind::InvalidData, "file is not valid utf-8")
         })?;
 
-        Ok(self.insert(Some(hash), path, src))
+        Ok(self.insert(path, src, Some(hash)))
     }
 
     /// Directly provide a source file.
@@ -82,16 +82,16 @@ impl SourceStore {
                 id
             } else {
                 // Not loaded yet.
-                self.insert(Some(hash), path, src)
+                self.insert(path, src, Some(hash))
             }
         } else {
             // Not known to the loader.
-            self.insert(None, path, src)
+            self.insert(path, src, None)
         }
     }
 
     /// Insert a new source file.
-    fn insert(&mut self, hash: Option<FileHash>, path: &Path, src: String) -> SourceId {
+    fn insert(&mut self, path: &Path, src: String, hash: Option<FileHash>) -> SourceId {
         let id = SourceId(self.sources.len() as u32);
         if let Some(hash) = hash {
             self.files.insert(hash, id);
@@ -112,6 +112,9 @@ impl SourceStore {
 }
 
 /// A single source file.
+///
+/// _Note_: All line and column indices start at zero, just like byte indices.
+/// Only for user-facing display, you should add 1 to them.
 pub struct SourceFile {
     id: SourceId,
     path: PathBuf,
@@ -120,7 +123,8 @@ pub struct SourceFile {
 }
 
 impl SourceFile {
-    fn new(id: SourceId, path: &Path, src: String) -> Self {
+    /// Create a new source file.
+    pub fn new(id: SourceId, path: &Path, src: String) -> Self {
         let mut line_starts = vec![Pos::ZERO];
         let mut s = Scanner::new(&src);
 
@@ -151,7 +155,7 @@ impl SourceFile {
         self.id
     }
 
-    /// The path to the source file.
+    /// The normalized path to the source file.
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -159,6 +163,11 @@ impl SourceFile {
     /// The whole source as a string slice.
     pub fn src(&self) -> &str {
         &self.src
+    }
+
+    /// Slice out the part of the source code enclosed by the span.
+    pub fn get(&self, span: impl Into<Span>) -> Option<&str> {
+        self.src.get(span.into().to_range())
     }
 
     /// Get the length of the file in bytes.
@@ -171,11 +180,6 @@ impl SourceFile {
         self.line_starts.len()
     }
 
-    /// Slice out the part of the source code enclosed by the span.
-    pub fn get(&self, span: Span) -> Option<&str> {
-        self.src.get(span.to_range())
-    }
-
     /// Return the index of the line that contains the given byte position.
     pub fn pos_to_line(&self, byte_pos: Pos) -> Option<usize> {
         (byte_pos.to_usize() <= self.src.len()).then(|| {
@@ -186,14 +190,15 @@ impl SourceFile {
         })
     }
 
-    /// Return the column of the byte index.
+    /// Return the index of the column at the byte index.
     ///
-    /// Tabs are counted as occupying two columns.
+    /// The column is defined as the number of characters in the line before the
+    /// byte position.
     pub fn pos_to_column(&self, byte_pos: Pos) -> Option<usize> {
         let line = self.pos_to_line(byte_pos)?;
         let start = self.line_to_pos(line)?;
         let head = self.get(Span::new(start, byte_pos))?;
-        Some(head.chars().map(width).sum())
+        Some(head.chars().count())
     }
 
     /// Return the byte position at which the given line starts.
@@ -210,30 +215,17 @@ impl SourceFile {
 
     /// Return the byte position of the given (line, column) pair.
     ///
-    /// Tabs are counted as occupying two columns.
+    /// The column defines the number of characters to go beyond the start of
+    /// the line.
     pub fn line_column_to_pos(&self, line_idx: usize, column_idx: usize) -> Option<Pos> {
         let span = self.line_to_span(line_idx)?;
         let line = self.get(span)?;
-
-        if column_idx == 0 {
-            return Some(span.start);
+        let mut chars = line.chars();
+        for _ in 0 .. column_idx {
+            chars.next();
         }
-
-        let mut column = 0;
-        for (i, c) in line.char_indices() {
-            column += width(c);
-            if column >= column_idx {
-                return Some(span.start + Pos::from(i + c.len_utf8()));
-            }
-        }
-
-        None
+        Some(span.start + (line.len() - chars.as_str().len()))
     }
-}
-
-/// The display width of the character.
-fn width(c: char) -> usize {
-    if c == '\t' { 2 } else { 1 }
 }
 
 impl AsRef<str> for SourceFile {
@@ -256,14 +248,34 @@ impl<'a> Files<'a> for SourceStore {
         Ok(self.get(id))
     }
 
-    fn line_index(
+    fn line_index(&'a self, id: SourceId, given: usize) -> Result<usize, files::Error> {
+        let source = self.get(id);
+        source
+            .pos_to_line(given.into())
+            .ok_or_else(|| files::Error::IndexTooLarge { given, max: source.len_bytes() })
+    }
+
+    fn line_range(
         &'a self,
         id: SourceId,
-        byte_index: usize,
+        given: usize,
+    ) -> Result<std::ops::Range<usize>, files::Error> {
+        let source = self.get(id);
+        source
+            .line_to_span(given)
+            .map(Span::to_range)
+            .ok_or_else(|| files::Error::LineTooLarge { given, max: source.len_lines() })
+    }
+
+    fn column_number(
+        &'a self,
+        id: SourceId,
+        _: usize,
+        given: usize,
     ) -> Result<usize, files::Error> {
         let source = self.get(id);
-        source.pos_to_line(byte_index.into()).ok_or_else(|| {
-            let (given, max) = (byte_index, source.len_bytes());
+        source.pos_to_column(given.into()).ok_or_else(|| {
+            let max = source.len_bytes();
             if given <= max {
                 files::Error::InvalidCharBoundary { given }
             } else {
@@ -271,28 +283,13 @@ impl<'a> Files<'a> for SourceStore {
             }
         })
     }
-
-    fn line_range(
-        &'a self,
-        id: SourceId,
-        line_index: usize,
-    ) -> Result<std::ops::Range<usize>, files::Error> {
-        let source = self.get(id);
-        match source.line_to_span(line_index) {
-            Some(span) => Ok(span.to_range()),
-            None => Err(files::Error::LineTooLarge {
-                given: line_index,
-                max: source.len_lines(),
-            }),
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const TEST: &str = "äbcde\nf💛g\r\nhi\rjkl";
+    const TEST: &str = "ä\tcde\nf💛g\r\nhi\rjkl";
 
     #[test]
     fn test_source_file_new() {
@@ -311,6 +308,17 @@ mod tests {
         assert_eq!(source.pos_to_line(Pos(12)), Some(1));
         assert_eq!(source.pos_to_line(Pos(21)), Some(3));
         assert_eq!(source.pos_to_line(Pos(22)), None);
+    }
+
+    #[test]
+    fn test_source_file_pos_to_column() {
+        let source = SourceFile::detached(TEST);
+        assert_eq!(source.pos_to_column(Pos(0)), Some(0));
+        assert_eq!(source.pos_to_column(Pos(2)), Some(1));
+        assert_eq!(source.pos_to_column(Pos(6)), Some(5));
+        assert_eq!(source.pos_to_column(Pos(7)), Some(0));
+        assert_eq!(source.pos_to_column(Pos(8)), Some(1));
+        assert_eq!(source.pos_to_column(Pos(12)), Some(2));
     }
 
     #[test]

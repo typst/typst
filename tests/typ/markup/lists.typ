@@ -7,6 +7,12 @@ _Shopping list_
 - Juice
 
 ---
+Tightly
+- surrounded
+- by two
+paragraphs.
+
+---
 - First level.
   - Second level.
 
@@ -18,28 +24,26 @@ _Shopping list_
 - At the top.
 
 ---
-- Works
-    - Also with four spaces
-		- Or two tabs
+- Level 1
+  - Level [
+2 through template
+]
 
 ---
   - Top-level indent
 - is fine.
 
 ---
-Tightly
-- surrounded
-- by two
-paragraphs.
-
----
  - A
      - B
    - C
-  - D
+- D
 
 ---
-- Level 1
-  - Level [
-2 through template
-]
+// This works because tabs are used consistently.
+	- A with 1 tab
+		- B with 2 tabs
+
+// This doesn't work because of mixed tabs and spaces.
+  - A with 2 spaces
+		- B with 2 tabs

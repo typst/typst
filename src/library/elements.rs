@@ -15,7 +15,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
 
-    let full = ctx.relpath(path.v.as_str());
+    let full = ctx.make_path(&path.v);
     let id = ctx.images.load(&full).map_err(|err| {
         Error::boxed(args.source, path.span, match err.kind() {
             io::ErrorKind::NotFound => "file not found".into(),

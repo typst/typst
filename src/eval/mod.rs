@@ -23,7 +23,7 @@ pub use value::*;
 use std::collections::HashMap;
 use std::io;
 use std::mem;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::diag::{Error, StrResult, Tracepoint, TypResult};
@@ -107,7 +107,7 @@ impl<'a> EvalContext<'a> {
     /// Process an import of a module relative to the current location.
     pub fn import(&mut self, path: &str, span: Span) -> TypResult<SourceId> {
         // Load the source file.
-        let full = self.relpath(path);
+        let full = self.make_path(path);
         let id = self.sources.load(&full).map_err(|err| {
             Error::boxed(self.source, span, match err.kind() {
                 io::ErrorKind::NotFound => "file not found".into(),
@@ -157,15 +157,14 @@ impl<'a> EvalContext<'a> {
         Ok(id)
     }
 
-    /// Complete a path that is relative to the current file to be relative to
-    /// the environment's current directory.
-    pub fn relpath(&self, path: impl AsRef<Path>) -> PathBuf {
-        self.sources
-            .get(self.source)
-            .path()
-            .parent()
-            .expect("is a file")
-            .join(path)
+    /// Complete a user-entered path (relative to the source file) to be
+    /// relative to the compilation environment's root.
+    pub fn make_path(&self, path: &str) -> PathBuf {
+        if let Some(dir) = self.sources.get(self.source).path().parent() {
+            dir.join(path)
+        } else {
+            path.into()
+        }
     }
 }
 

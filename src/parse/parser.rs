@@ -1,5 +1,4 @@
 use std::fmt::{self, Debug, Formatter};
-use std::ops::Range;
 
 use super::{TokenMode, Tokens};
 use crate::diag::Error;
@@ -22,9 +21,9 @@ pub struct Parser<'s> {
     /// (Same as `next` except if we are at the end of group, then `None`).
     peeked: Option<Token<'s>>,
     /// The end position of the last (non-whitespace if in code mode) token.
-    prev_end: usize,
+    prev_end: Pos,
     /// The start position of the peeked token.
-    next_start: usize,
+    next_start: Pos,
 }
 
 /// A logical group of tokens, e.g. `[...]`.
@@ -32,7 +31,7 @@ pub struct Parser<'s> {
 struct GroupEntry {
     /// The start position of the group. Used by `Parser::end_group` to return
     /// The group's full span.
-    pub start: usize,
+    pub start: Pos,
     /// The kind of group this is. This decides which tokens will end the group.
     /// For example, a [`Group::Paren`] will be ended by
     /// [`Token::RightParen`].
@@ -70,8 +69,8 @@ impl<'s> Parser<'s> {
             groups: vec![],
             next,
             peeked: next,
-            prev_end: 0,
-            next_start: 0,
+            prev_end: Pos::ZERO,
+            next_start: Pos::ZERO,
         }
     }
 
@@ -80,37 +79,144 @@ impl<'s> Parser<'s> {
         self.errors
     }
 
-    /// Add an error with location and message.
-    pub fn error(&mut self, span: impl Into<Span>, message: impl Into<String>) {
-        self.errors.push(Error::new(self.source.id(), span, message));
+    /// Whether the end of the source string or group is reached.
+    pub fn eof(&self) -> bool {
+        self.peek().is_none()
     }
 
-    /// Eat the next token and add an error that it is not the expected `thing`.
-    pub fn expected(&mut self, what: &str) {
-        let before = self.next_start();
-        if let Some(found) = self.eat() {
-            let after = self.prev_end();
-            self.error(
-                before .. after,
-                format!("expected {}, found {}", what, found.name()),
-            );
+    /// Consume the next token.
+    pub fn eat(&mut self) -> Option<Token<'s>> {
+        let token = self.peek()?;
+        self.bump();
+        Some(token)
+    }
+
+    /// Eat the next token and return its source range.
+    pub fn eat_span(&mut self) -> Span {
+        let start = self.next_start();
+        self.eat();
+        Span::new(start, self.prev_end())
+    }
+
+    /// Consume the next token if it is the given one.
+    pub fn eat_if(&mut self, t: Token) -> bool {
+        if self.peek() == Some(t) {
+            self.bump();
+            true
         } else {
-            self.expected_at(self.next_start(), what);
+            false
         }
     }
 
-    /// Add an error that `what` was expected at the given position.
-    pub fn expected_at(&mut self, pos: impl Into<Pos>, what: &str) {
-        self.error(pos.into(), format!("expected {}", what));
+    /// Consume the next token if the closure maps it a to `Some`-variant.
+    pub fn eat_map<T, F>(&mut self, f: F) -> Option<T>
+    where
+        F: FnOnce(Token<'s>) -> Option<T>,
+    {
+        let token = self.peek()?;
+        let mapped = f(token);
+        if mapped.is_some() {
+            self.bump();
+        }
+        mapped
     }
 
-    /// Eat the next token and add an error that it is unexpected.
-    pub fn unexpected(&mut self) {
-        let before = self.next_start();
-        if let Some(found) = self.eat() {
-            let after = self.prev_end();
-            self.error(before .. after, format!("unexpected {}", found.name()));
+    /// Consume the next token if it is the given one and produce an error if
+    /// not.
+    pub fn eat_expect(&mut self, t: Token) -> bool {
+        let eaten = self.eat_if(t);
+        if !eaten {
+            self.expected_at(self.prev_end(), t.name());
         }
+        eaten
+    }
+
+    /// Consume the next token, debug-asserting that it is one of the given ones.
+    pub fn eat_assert(&mut self, t: Token) {
+        let next = self.eat();
+        debug_assert_eq!(next, Some(t));
+    }
+
+    /// Consume tokens while the condition is true.
+    pub fn eat_while<F>(&mut self, mut f: F)
+    where
+        F: FnMut(Token<'s>) -> bool,
+    {
+        while self.peek().map_or(false, |t| f(t)) {
+            self.eat();
+        }
+    }
+
+    /// Peek at the next token without consuming it.
+    pub fn peek(&self) -> Option<Token<'s>> {
+        self.peeked
+    }
+
+    /// Peek at the next token if it follows immediately after the last one
+    /// without any whitespace in between.
+    pub fn peek_direct(&self) -> Option<Token<'s>> {
+        if self.next_start() == self.prev_end() {
+            self.peeked
+        } else {
+            None
+        }
+    }
+
+    /// Peek at the span of the next token.
+    ///
+    /// Has length zero if `peek()` returns `None`.
+    pub fn peek_span(&self) -> Span {
+        Span::new(self.next_start(), self.next_end())
+    }
+
+    /// Peek at the source of the next token.
+    pub fn peek_src(&self) -> &'s str {
+        self.get(self.peek_span())
+    }
+
+    /// Checks whether the next token fulfills a condition.
+    ///
+    /// Returns `false` if there is no next token.
+    pub fn check<F>(&self, f: F) -> bool
+    where
+        F: FnOnce(Token<'s>) -> bool,
+    {
+        self.peek().map_or(false, f)
+    }
+
+    /// The byte position at which the last token ended.
+    ///
+    /// Refers to the end of the last _non-whitespace_ token in code mode.
+    pub fn prev_end(&self) -> Pos {
+        self.prev_end.into()
+    }
+
+    /// The byte position at which the next token starts.
+    pub fn next_start(&self) -> Pos {
+        self.next_start.into()
+    }
+
+    /// The byte position at which the next token will end.
+    ///
+    /// Is the same as [`next_start()`][Self::next_start] if `peek()` returns
+    /// `None`.
+    pub fn next_end(&self) -> Pos {
+        self.tokens.index().into()
+    }
+
+    /// The span from `start` to [`self.prev_end()`](Self::prev_end).
+    pub fn span_from(&self, start: Pos) -> Span {
+        Span::new(start, self.prev_end())
+    }
+
+    /// Determine the column index for the given byte position.
+    pub fn column(&self, pos: Pos) -> usize {
+        self.source.pos_to_column(pos).unwrap()
+    }
+
+    /// Slice out part of the source string.
+    pub fn get(&self, span: impl Into<Span>) -> &'s str {
+        self.tokens.scanner().get(span.into().to_range())
     }
 
     /// Continue parsing in a group.
@@ -131,9 +237,9 @@ impl<'s> Parser<'s> {
         self.repeek();
 
         match kind {
-            Group::Paren => self.assert(Token::LeftParen),
-            Group::Bracket => self.assert(Token::LeftBracket),
-            Group::Brace => self.assert(Token::LeftBrace),
+            Group::Paren => self.eat_assert(Token::LeftParen),
+            Group::Bracket => self.eat_assert(Token::LeftBracket),
+            Group::Brace => self.eat_assert(Token::LeftBrace),
             Group::Stmt => {}
             Group::Expr => {}
             Group::Imports => {}
@@ -171,7 +277,8 @@ impl<'s> Parser<'s> {
 
         // Rescan the peeked token if the mode changed.
         if rescan {
-            self.jump(self.prev_end());
+            self.tokens.jump(self.prev_end().to_usize());
+            self.bump();
         }
 
         Span::new(group.start, self.prev_end())
@@ -188,163 +295,43 @@ impl<'s> Parser<'s> {
         self.groups.last().map_or(TokenMode::Markup, |group| group.outer_mode)
     }
 
-    /// Whether the end of the source string or group is reached.
-    pub fn eof(&self) -> bool {
-        self.peek().is_none()
+    /// Add an error with location and message.
+    pub fn error(&mut self, span: impl Into<Span>, message: impl Into<String>) {
+        self.errors.push(Error::new(self.source.id(), span, message));
     }
 
-    /// Peek at the next token without consuming it.
-    pub fn peek(&self) -> Option<Token<'s>> {
-        self.peeked
-    }
-
-    /// Peek at the next token if it follows immediately after the last one
-    /// without any whitespace in between.
-    pub fn peek_direct(&self) -> Option<Token<'s>> {
-        if self.next_start() == self.prev_end() {
-            self.peeked
+    /// Eat the next token and add an error that it is not the expected `thing`.
+    pub fn expected(&mut self, what: &str) {
+        let before = self.next_start();
+        if let Some(found) = self.eat() {
+            let after = self.prev_end();
+            self.error(
+                before .. after,
+                format!("expected {}, found {}", what, found.name()),
+            );
         } else {
-            None
+            self.expected_at(self.next_start(), what);
         }
     }
 
-    /// Peek at the span of the next token.
-    ///
-    /// Has length zero if `peek()` returns `None`.
-    pub fn peek_span(&self) -> Span {
-        self.peek_range().into()
+    /// Add an error that `what` was expected at the given position.
+    pub fn expected_at(&mut self, pos: Pos, what: &str) {
+        self.error(pos, format!("expected {}", what));
     }
 
-    /// Peek at the source of the next token.
-    pub fn peek_src(&self) -> &'s str {
-        self.tokens.scanner().get(self.peek_range())
-    }
-
-    /// Peek at the source range (start and end index) of the next token.
-    pub fn peek_range(&self) -> Range<usize> {
-        self.next_start() .. self.next_end()
-    }
-
-    /// Checks whether the next token fulfills a condition.
-    ///
-    /// Returns `false` if there is no next token.
-    pub fn check<F>(&self, f: F) -> bool
-    where
-        F: FnOnce(Token<'s>) -> bool,
-    {
-        self.peek().map_or(false, f)
-    }
-
-    /// Consume the next token.
-    pub fn eat(&mut self) -> Option<Token<'s>> {
-        let token = self.peek()?;
-        self.bump();
-        Some(token)
-    }
-
-    /// Consume the next token if it is the given one.
-    pub fn eat_if(&mut self, t: Token) -> bool {
-        if self.peek() == Some(t) {
-            self.bump();
-            true
-        } else {
-            false
+    /// Eat the next token and add an error that it is unexpected.
+    pub fn unexpected(&mut self) {
+        let before = self.next_start();
+        if let Some(found) = self.eat() {
+            let after = self.prev_end();
+            self.error(before .. after, format!("unexpected {}", found.name()));
         }
-    }
-
-    /// Consume tokens while the condition is true.
-    pub fn eat_while<F>(&mut self, mut f: F)
-    where
-        F: FnMut(Token<'s>) -> bool,
-    {
-        while self.peek().map_or(false, |t| f(t)) {
-            self.eat();
-        }
-    }
-
-    /// Consume the next token if the closure maps it a to `Some`-variant.
-    pub fn eat_map<T, F>(&mut self, f: F) -> Option<T>
-    where
-        F: FnOnce(Token<'s>) -> Option<T>,
-    {
-        let token = self.peek()?;
-        let mapped = f(token);
-        if mapped.is_some() {
-            self.bump();
-        }
-        mapped
-    }
-
-    /// Eat the next token and return its source range.
-    pub fn eat_span(&mut self) -> Span {
-        let start = self.next_start();
-        self.eat();
-        Span::new(start, self.prev_end())
-    }
-
-    /// Consume the next token if it is the given one and produce an error if
-    /// not.
-    pub fn expect(&mut self, t: Token) -> bool {
-        let eaten = self.eat_if(t);
-        if !eaten {
-            self.expected_at(self.prev_end(), t.name());
-        }
-        eaten
-    }
-
-    /// Consume the next token, debug-asserting that it is one of the given ones.
-    pub fn assert(&mut self, t: Token) {
-        let next = self.eat();
-        debug_assert_eq!(next, Some(t));
-    }
-
-    /// The index at which the last token ended.
-    ///
-    /// Refers to the end of the last _non-whitespace_ token in code mode.
-    pub fn prev_end(&self) -> usize {
-        self.prev_end
-    }
-
-    /// The index at which the next token starts.
-    pub fn next_start(&self) -> usize {
-        self.next_start
-    }
-
-    /// The index at which the next token will end.
-    ///
-    /// Is the same as [`next_start()`][Self::next_start] if `peek()` returns
-    /// `None`.
-    pub fn next_end(&self) -> usize {
-        self.tokens.index()
-    }
-
-    /// Determine the column for the given index in the source.
-    pub fn column(&self, index: usize) -> usize {
-        self.source.pos_to_column(index.into()).unwrap()
-    }
-
-    /// The span from `start` to [`self.prev_end()`](Self::prev_end).
-    pub fn span(&self, start: impl Into<Pos>) -> Span {
-        Span::new(start, self.prev_end())
-    }
-
-    /// Return the source string from `start` to the end of the previous token.
-    pub fn eaten_from(&self, start: usize) -> &'s str {
-        self.tokens.scanner().get(start .. self.prev_end())
-    }
-
-    /// Jump to an index in the string.
-    ///
-    /// You need to know the correct column.
-    fn jump(&mut self, index: usize) {
-        self.tokens.jump(index);
-        self.bump();
     }
 
     /// Move to the next token.
     fn bump(&mut self) {
-        self.prev_end = self.tokens.index();
-        self.next_start = self.tokens.index();
+        self.prev_end = self.tokens.index().into();
+        self.next_start = self.tokens.index().into();
         self.next = self.tokens.next();
 
         if self.tokens.mode() == TokenMode::Code {
@@ -355,7 +342,7 @@ impl<'s> Parser<'s> {
                 Some(Token::BlockComment(_)) => true,
                 _ => false,
             } {
-                self.next_start = self.tokens.index();
+                self.next_start = self.tokens.index().into();
                 self.next = self.tokens.next();
             }
         }
@@ -399,7 +386,7 @@ impl<'s> Parser<'s> {
 impl Debug for Parser<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let mut s = self.tokens.scanner();
-        s.jump(self.next_start());
+        s.jump(self.next_start().to_usize());
         write!(f, "Parser({}|{})", s.eaten(), s.rest())
     }
 }

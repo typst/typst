@@ -34,18 +34,16 @@ fn tree(p: &mut Parser) -> SyntaxTree {
     tree_while(p, true, &mut |_| true)
 }
 
-/// Parse a syntax tree that stays right of the column at the start of the next
-/// non-whitespace token.
-fn tree_indented(p: &mut Parser) -> SyntaxTree {
+/// Parse a syntax tree that stays right of the given column.
+fn tree_indented(p: &mut Parser, column: usize) -> SyntaxTree {
     p.eat_while(|t| match t {
         Token::Space(n) => n == 0,
         Token::LineComment(_) | Token::BlockComment(_) => true,
         _ => false,
     });
 
-    let column = p.column(p.next_start());
     tree_while(p, false, &mut |p| match p.peek() {
-        Some(Token::Space(n)) if n >= 1 => p.column(p.next_end()) >= column,
+        Some(Token::Space(n)) if n >= 1 => p.column(p.next_end()) > column,
         _ => true,
     })
 }
@@ -68,7 +66,7 @@ where
                     let start = p.next_start();
                     let tree = tree_while(p, true, f);
                     call.args.items.push(CallArg::Pos(Expr::Template(TemplateExpr {
-                        span: p.span(start),
+                        span: p.span_from(start),
                         tree: Rc::new(tree),
                     })));
                 }
@@ -189,7 +187,8 @@ fn raw(p: &mut Parser, token: RawToken) -> SyntaxNode {
 /// Parse a heading.
 fn heading(p: &mut Parser) -> SyntaxNode {
     let start = p.next_start();
-    p.assert(Token::Eq);
+    let column = p.column(start);
+    p.eat_assert(Token::Eq);
 
     // Count depth.
     let mut level: usize = 1;
@@ -198,28 +197,29 @@ fn heading(p: &mut Parser) -> SyntaxNode {
     }
 
     if level > 6 {
-        return SyntaxNode::Text(p.eaten_from(start).into());
+        return SyntaxNode::Text(p.get(start .. p.prev_end()).into());
     }
 
-    let body = tree_indented(p);
-
-    SyntaxNode::Heading(HeadingNode { span: p.span(start), level, body })
+    let body = tree_indented(p, column);
+    SyntaxNode::Heading(HeadingNode { span: p.span_from(start), level, body })
 }
 
 /// Parse a single list item.
 fn list_item(p: &mut Parser) -> SyntaxNode {
     let start = p.next_start();
-    p.assert(Token::Hyph);
-    let body = tree_indented(p);
-    SyntaxNode::List(ListItem { span: p.span(start), body })
+    let column = p.column(start);
+    p.eat_assert(Token::Hyph);
+    let body = tree_indented(p, column);
+    SyntaxNode::List(ListItem { span: p.span_from(start), body })
 }
 
 /// Parse a single enum item.
 fn enum_item(p: &mut Parser, number: Option<usize>) -> SyntaxNode {
     let start = p.next_start();
-    p.assert(Token::Numbering(number));
-    let body = tree_indented(p);
-    SyntaxNode::Enum(EnumItem { span: p.span(start), number, body })
+    let column = p.column(start);
+    p.eat_assert(Token::Numbering(number));
+    let body = tree_indented(p, column);
+    SyntaxNode::Enum(EnumItem { span: p.span_from(start), number, body })
 }
 
 /// Parse an expression.
@@ -240,7 +240,7 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) -> Option<Expr> {
         Some(op) => {
             let prec = op.precedence();
             let expr = Box::new(expr_with(p, atomic, prec)?);
-            Expr::Unary(UnaryExpr { span: p.span(start), op, expr })
+            Expr::Unary(UnaryExpr { span: p.span_from(start), op, expr })
         }
         None => primary(p, atomic)?,
     };
@@ -529,7 +529,7 @@ fn block(p: &mut Parser, scoping: bool) -> Expr {
 fn call(p: &mut Parser, callee: Expr) -> Option<Expr> {
     let mut wide = p.eat_if(Token::Excl);
     if wide && p.outer_mode() == TokenMode::Code {
-        let span = p.span(callee.span().start);
+        let span = p.span_from(callee.span().start);
         p.error(span, "wide calls are only allowed directly in templates");
         wide = false;
     }
@@ -552,7 +552,7 @@ fn call(p: &mut Parser, callee: Expr) -> Option<Expr> {
     }
 
     Some(Expr::Call(CallExpr {
-        span: p.span(callee.span().start),
+        span: p.span_from(callee.span().start),
         callee: Box::new(callee),
         wide,
         args,
@@ -571,7 +571,7 @@ fn args(p: &mut Parser) -> CallArgs {
 fn with_expr(p: &mut Parser, callee: Expr) -> Option<Expr> {
     if p.peek() == Some(Token::LeftParen) {
         Some(Expr::With(WithExpr {
-            span: p.span(callee.span().start),
+            span: p.span_from(callee.span().start),
             callee: Box::new(callee),
             args: args(p),
         }))
@@ -584,7 +584,7 @@ fn with_expr(p: &mut Parser, callee: Expr) -> Option<Expr> {
 /// Parse a let expression.
 fn let_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
-    p.assert(Token::Let);
+    p.eat_assert(Token::Let);
 
     let mut let_expr = None;
     if let Some(binding) = ident(p) {
@@ -622,7 +622,7 @@ fn let_expr(p: &mut Parser) -> Option<Expr> {
         }
 
         let_expr = Some(Expr::Let(LetExpr {
-            span: p.span(start),
+            span: p.span_from(start),
             binding,
             init: init.map(Box::new),
         }));
@@ -634,7 +634,7 @@ fn let_expr(p: &mut Parser) -> Option<Expr> {
 /// Parse an if expresion.
 fn if_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
-    p.assert(Token::If);
+    p.eat_assert(Token::If);
 
     let mut if_expr = None;
     if let Some(condition) = expr(p) {
@@ -650,7 +650,7 @@ fn if_expr(p: &mut Parser) -> Option<Expr> {
             }
 
             if_expr = Some(Expr::If(IfExpr {
-                span: p.span(start),
+                span: p.span_from(start),
                 condition: Box::new(condition),
                 if_body: Box::new(if_body),
                 else_body: else_body.map(Box::new),
@@ -664,13 +664,13 @@ fn if_expr(p: &mut Parser) -> Option<Expr> {
 /// Parse a while expresion.
 fn while_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
-    p.assert(Token::While);
+    p.eat_assert(Token::While);
 
     let mut while_expr = None;
     if let Some(condition) = expr(p) {
         if let Some(body) = body(p) {
             while_expr = Some(Expr::While(WhileExpr {
-                span: p.span(start),
+                span: p.span_from(start),
                 condition: Box::new(condition),
                 body: Box::new(body),
             }));
@@ -683,15 +683,15 @@ fn while_expr(p: &mut Parser) -> Option<Expr> {
 /// Parse a for expression.
 fn for_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
-    p.assert(Token::For);
+    p.eat_assert(Token::For);
 
     let mut for_expr = None;
     if let Some(pattern) = for_pattern(p) {
-        if p.expect(Token::In) {
+        if p.eat_expect(Token::In) {
             if let Some(iter) = expr(p) {
                 if let Some(body) = body(p) {
                     for_expr = Some(Expr::For(ForExpr {
-                        span: p.span(start),
+                        span: p.span_from(start),
                         pattern,
                         iter: Box::new(iter),
                         body: Box::new(body),
@@ -718,7 +718,7 @@ fn for_pattern(p: &mut Parser) -> Option<ForPattern> {
 /// Parse an import expression.
 fn import_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
-    p.assert(Token::Import);
+    p.eat_assert(Token::Import);
 
     let imports = if p.eat_if(Token::Star) {
         // This is the wildcard scenario.
@@ -735,10 +735,10 @@ fn import_expr(p: &mut Parser) -> Option<Expr> {
     };
 
     let mut import_expr = None;
-    if p.expect(Token::From) {
+    if p.eat_expect(Token::From) {
         if let Some(path) = expr(p) {
             import_expr = Some(Expr::Import(ImportExpr {
-                span: p.span(start),
+                span: p.span_from(start),
                 imports,
                 path: Box::new(path),
             }));
@@ -751,11 +751,11 @@ fn import_expr(p: &mut Parser) -> Option<Expr> {
 /// Parse an include expression.
 fn include_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
-    p.assert(Token::Include);
+    p.eat_assert(Token::Include);
 
     expr(p).map(|path| {
         Expr::Include(IncludeExpr {
-            span: p.span(start),
+            span: p.span_from(start),
             path: Box::new(path),
         })
     })

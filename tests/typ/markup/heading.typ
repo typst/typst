@@ -33,7 +33,7 @@ No = heading
     indented.
 
 =  This
-  is not.
+is not.
 
 // Code blocks continue heading.
 = A {
