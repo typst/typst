@@ -247,7 +247,7 @@ comparison!(geq, ">=", Ordering::Greater | Ordering::Equal);
 /// Compute the range from `lhs` to `rhs`.
 pub fn range(lhs: Value, rhs: Value) -> StrResult<Value> {
     match (lhs, rhs) {
-        (Int(a), Int(b)) => Ok(Array((a ..= b).map(Int).collect())),
+        (Int(a), Int(b)) => Ok(Array((a .. b).map(Int).collect())),
         (a, b) => mismatch!("cannot apply '..' to {} and {}", a, b),
     }
 }

@@ -278,7 +278,7 @@ pub enum BinOp {
     MulAssign,
     /// The divide-assign operator: `/=`.
     DivAssign,
-    /// The inclusive range operator: `..`.
+    /// The range operator: `..`.
     Range,
 }
 

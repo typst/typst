@@ -163,12 +163,12 @@
 // Test range operator.
 
 #let array = (1, 2, 3)
-#test(1..3, array)
-#test(1.. 3, array)
-#test(1 ..3, array)
-#test(1 .. 3, array)
+#test(1..4, array)
+#test(1.. 4, array)
+#test(1 ..4, array)
+#test(1 .. 4, array)
 
-#test(-4..2, (-4, -3, -2, -1, 0, 1, 2))
+#test(-4..2, (-4, -3, -2, -1, 0, 1))
 #test(10..5, ())
 
 ---
