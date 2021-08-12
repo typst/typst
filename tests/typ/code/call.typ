@@ -68,25 +68,25 @@ C
 }
 
 ---
-// Error: 2-6 expected function, found boolean
+// Error: 2-6 expected function or collection, found boolean
 {true()}
 
 ---
 #let x = "x"
 
-// Error: 1-3 expected function, found string
+// Error: 1-3 expected function or collection, found string
 #x()
 
 ---
 #let f(x) = x
 
-// Error: 1-6 expected function, found integer
+// Error: 1-6 expected function or collection, found integer
 #f(1)(2)
 
 ---
 #let f(x) = x
 
-// Error: 1-6 expected function, found template
+// Error: 1-6 expected function or collection, found template
 #f[1](2)
 
 ---

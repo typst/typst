@@ -554,18 +554,6 @@ impl Pretty for FuncArg {
     }
 }
 
-impl Pretty for i64 {
-    fn pretty(&self, p: &mut Printer) {
-        write!(p, "{}", self).unwrap();
-    }
-}
-
-impl Pretty for f64 {
-    fn pretty(&self, p: &mut Printer) {
-        write!(p, "{}", self).unwrap();
-    }
-}
-
 impl Pretty for str {
     fn pretty(&self, p: &mut Printer) {
         p.push('"');
@@ -594,6 +582,8 @@ macro_rules! pretty_display {
 }
 
 pretty_display! {
+    i64,
+    f64,
     bool,
     Length,
     Angle,

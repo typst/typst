@@ -134,7 +134,7 @@ impl FuncArgs {
         let value = self.items.remove(index).value;
         let span = value.span;
 
-        T::cast(value).map(Some).map_err(Error::partial(self.source, span))
+        T::cast(value).map(Some).map_err(Error::at(self.source, span))
     }
 
     /// Return an "unexpected argument" error if there is any remaining
@@ -144,5 +144,42 @@ impl FuncArgs {
             bail!(self.source, arg.span, "unexpected argument");
         }
         Ok(())
+    }
+}
+
+impl FuncArgs {
+    /// Reinterpret these arguments as actually being an array index.
+    pub fn into_index(self) -> TypResult<i64> {
+        self.into_castable("index")
+    }
+
+    /// Reinterpret these arguments as actually being a dictionary key.
+    pub fn into_key(self) -> TypResult<EcoString> {
+        self.into_castable("key")
+    }
+
+    /// Reinterpret these arguments as actually being a single castable thing.
+    fn into_castable<T>(self, what: &str) -> TypResult<T>
+    where
+        T: Cast<Value>,
+    {
+        let mut iter = self.items.into_iter();
+        let value = match iter.next() {
+            None => {
+                bail!(self.source, self.span, "missing {}", what);
+            }
+            Some(FuncArg { name: Some(_), span, .. }) => {
+                bail!(self.source, span, "named pair is not allowed here");
+            }
+            Some(FuncArg { name: None, value, .. }) => {
+                value.v.cast().map_err(Error::at(self.source, value.span))?
+            }
+        };
+
+        if let Some(arg) = iter.next() {
+            bail!(self.source, arg.span, "only one {} is allowed", what);
+        }
+
+        Ok(value)
     }
 }

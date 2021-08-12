@@ -70,13 +70,11 @@ fn main() {
         let lhs = args.expect::<Value>("left-hand side")?;
         let rhs = args.expect::<Value>("right-hand side")?;
         if lhs != rhs {
-            typst::bail!(
+            return Err(Error::boxed(
                 args.source,
                 args.span,
-                "Assertion failed: {:?} != {:?}",
-                lhs,
-                rhs
-            );
+                format!("Assertion failed: {:?} != {:?}", lhs, rhs),
+            ));
         }
         Ok(Value::None)
     });

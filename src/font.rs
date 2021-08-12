@@ -173,7 +173,7 @@ pub struct LineMetrics {
 impl Face {
     /// Parse a font face from a buffer and collection index.
     pub fn new(buffer: Rc<Vec<u8>>, index: u32) -> Option<Self> {
-        // SAFETY:
+        // Safety:
         // - The slices's location is stable in memory:
         //   - We don't move the underlying vector
         //   - Nobody else can move it since we have a strong ref to the `Rc`.

@@ -5,10 +5,12 @@ use std::ops::{Add, AddAssign};
 use std::rc::Rc;
 
 use super::Value;
+use crate::diag::StrResult;
+use crate::pretty::pretty;
 use crate::util::EcoString;
 
 /// Create a new [`Dict`] from key-value pairs.
-#[macro_export]
+#[allow(unused_macros)]
 macro_rules! dict {
     ($($key:expr => $value:expr),* $(,)?) => {{
         #[allow(unused_mut)]
@@ -41,18 +43,21 @@ impl Dict {
     }
 
     /// The number of pairs in the dictionary.
-    pub fn len(&self) -> usize {
-        self.map.len()
+    pub fn len(&self) -> i64 {
+        self.map.len() as i64
     }
 
     /// Borrow the value the given `key` maps to.
-    pub fn get(&self, key: &str) -> Option<&Value> {
-        self.map.get(key)
+    pub fn get(&self, key: &str) -> StrResult<&Value> {
+        self.map.get(key).ok_or_else(|| missing_key(key))
     }
 
     /// Mutably borrow the value the given `key` maps to.
-    pub fn get_mut(&mut self, key: &str) -> Option<&mut Value> {
-        Rc::make_mut(&mut self.map).get_mut(key)
+    ///
+    /// This inserts the key with [`None`](Value::None) as the value if not
+    /// present so far.
+    pub fn get_mut(&mut self, key: EcoString) -> &mut Value {
+        Rc::make_mut(&mut self.map).entry(key).or_default()
     }
 
     /// Insert a mapping from the given `key` to the given `value`.
@@ -73,6 +78,12 @@ impl Dict {
     pub fn iter(&self) -> std::collections::btree_map::Iter<EcoString, Value> {
         self.map.iter()
     }
+}
+
+/// The missing key access error message.
+#[cold]
+fn missing_key(key: &str) -> String {
+    format!("dictionary does not contain key: {}", pretty(key))
 }
 
 impl Default for Dict {

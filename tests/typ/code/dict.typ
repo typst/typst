@@ -1,11 +1,39 @@
 // Test dictionaries.
+// Ref: false
 
 ---
+// Ref: true
+
 // Empty
 {(:)}
 
 // Two pairs.
 {(a1: 1, a2: 2)}
+
+---
+// Test lvalue and rvalue access.
+{
+  let dict = (a: 1, b: 1)
+  dict("b") += 1
+  dict("c") = 3
+  test(dict, (a: 1, b: 2, c: 3))
+}
+
+---
+// Test rvalue missing key.
+{
+  let dict = (a: 1, b: 2)
+  // Error: 11-20 dictionary does not contain key: "c"
+  let x = dict("c")
+}
+
+---
+// Missing lvalue is automatically none-initialized.
+{
+  let dict = (:)
+  // Error: 3-17 cannot add none and integer
+  dict("b") += 1
+}
 
 ---
 // Simple expression after already being identified as a dictionary.

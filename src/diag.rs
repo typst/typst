@@ -58,21 +58,20 @@ impl Error {
         Box::new(vec![Self::new(source, span, message)])
     }
 
-    /// Partially build a vec-boxed error, returning a function that just needs
-    /// the message.
+    /// Create a closure that contains the positional information for an error
+    /// and just needs the message to yield a vec-boxed error.
     ///
     /// This is useful in to convert from [`StrResult`] to a [`TypResult`] using
     /// [`map_err`](Result::map_err).
-    pub fn partial(
+    pub fn at<S: Into<String>>(
         source: SourceId,
         span: impl Into<Span>,
-    ) -> impl FnOnce(String) -> Box<Vec<Self>> {
+    ) -> impl FnOnce(S) -> Box<Vec<Self>> {
         move |message| Self::boxed(source, span, message)
     }
 }
 
 /// Early-return with a vec-boxed [`Error`].
-#[macro_export]
 macro_rules! bail {
     ($source:expr, $span:expr, $message:expr $(,)?) => {
         return Err(Box::new(vec![$crate::diag::Error::new(
@@ -81,6 +80,6 @@ macro_rules! bail {
     };
 
     ($source:expr, $span:expr, $fmt:expr, $($arg:expr),+ $(,)?) => {
-        $crate::bail!($source, $span, format!($fmt, $($arg),+));
+        bail!($source, $span, format!($fmt, $($arg),+));
     };
 }

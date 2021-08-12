@@ -1,9 +1,11 @@
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, AddAssign, Deref};
 use std::rc::Rc;
 
 use super::Value;
+use crate::diag::StrResult;
 use crate::exec::ExecContext;
 use crate::syntax::{Expr, SyntaxTree};
 use crate::util::EcoString;
@@ -26,10 +28,15 @@ impl Template {
     }
 
     /// Repeat this template `n` times.
-    pub fn repeat(&self, n: usize) -> Self {
-        let len = self.nodes.len().checked_mul(n).expect("capacity overflow");
-        let nodes = self.iter().cloned().cycle().take(len).collect();
-        Self { nodes: Rc::new(nodes) }
+    pub fn repeat(&self, n: i64) -> StrResult<Self> {
+        let count = usize::try_from(n)
+            .ok()
+            .and_then(|n| self.nodes.len().checked_mul(n))
+            .ok_or_else(|| format!("cannot repeat this template {} times", n))?;
+
+        Ok(Self {
+            nodes: Rc::new(self.iter().cloned().cycle().take(count).collect()),
+        })
     }
 }
 
@@ -123,7 +130,7 @@ pub struct TemplateTree {
 /// The raw pointers point into the expressions contained in some
 /// [`SyntaxTree`]. Since the lifetime is erased, the tree could go out of scope
 /// while the hash map still lives. Although this could lead to lookup panics,
-/// it is not unsafe since the pointers are never dereferenced.
+/// it is safe since the pointers are never dereferenced.
 pub type ExprMap = HashMap<*const Expr, Value>;
 
 /// A reference-counted dynamic template node that can implement custom

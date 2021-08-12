@@ -13,7 +13,7 @@
 #test(not "b" == "b", false)
 
 // Assignment binds stronger than boolean operations.
-// Error: 2-7 cannot assign to this expression
+// Error: 2-7 cannot access this expression mutably
 {not x = "a"}
 
 ---

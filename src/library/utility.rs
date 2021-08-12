@@ -23,8 +23,8 @@ pub fn len(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("collection")?;
     Ok(match v {
         Value::Str(v) => Value::Int(v.len() as i64),
-        Value::Array(v) => Value::Int(v.len() as i64),
-        Value::Dict(v) => Value::Int(v.len() as i64),
+        Value::Array(v) => Value::Int(v.len()),
+        Value::Dict(v) => Value::Int(v.len()),
         _ => bail!(args.source, span, "expected string, array or dictionary"),
     })
 }

@@ -68,7 +68,6 @@ macro_rules! impl_visitor {
         pub mod $module {
             use super::*;
             $(
-                #[allow(unused_variables)]
                 pub fn $name<'ast, V>($v: &mut V, $node: &'ast $($fmut)? $ty)
                 where
                     V: $visit<'ast> + ?Sized

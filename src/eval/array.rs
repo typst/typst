@@ -1,12 +1,14 @@
+use std::convert::TryFrom;
 use std::fmt::{self, Debug, Formatter};
 use std::iter::FromIterator;
 use std::ops::{Add, AddAssign};
 use std::rc::Rc;
 
 use super::Value;
+use crate::diag::StrResult;
 
 /// Create a new [`Array`] from values.
-#[macro_export]
+#[allow(unused_macros)]
 macro_rules! array {
     ($value:expr; $count:expr) => {
         $crate::eval::Array::from_vec(vec![$crate::eval::Value::from($value); $count])
@@ -47,25 +49,25 @@ impl Array {
     }
 
     /// The length of the array.
-    pub fn len(&self) -> usize {
-        self.vec.len()
+    pub fn len(&self) -> i64 {
+        self.vec.len() as i64
     }
 
     /// Borrow the value at the given index.
-    pub fn get(&self, index: usize) -> Option<&Value> {
-        self.vec.get(index)
+    pub fn get(&self, index: i64) -> StrResult<&Value> {
+        usize::try_from(index)
+            .ok()
+            .and_then(|i| self.vec.get(i))
+            .ok_or_else(|| out_of_bounds(index, self.len()))
     }
 
     /// Mutably borrow the value at the given index.
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut Value> {
-        Rc::make_mut(&mut self.vec).get_mut(index)
-    }
-
-    /// Set the value at the given index.
-    ///
-    /// This panics the `index` is out of range.
-    pub fn set(&mut self, index: usize, value: Value) {
-        Rc::make_mut(&mut self.vec)[index] = value;
+    pub fn get_mut(&mut self, index: i64) -> StrResult<&mut Value> {
+        let len = self.len();
+        usize::try_from(index)
+            .ok()
+            .and_then(move |i| Rc::make_mut(&mut self.vec).get_mut(i))
+            .ok_or_else(|| out_of_bounds(index, len))
     }
 
     /// Push a value to the end of the array.
@@ -82,16 +84,26 @@ impl Array {
         }
     }
 
-    /// Repeat this array `n` times.
-    pub fn repeat(&self, n: usize) -> Self {
-        let len = self.len().checked_mul(n).expect("capacity overflow");
-        self.iter().cloned().cycle().take(len).collect()
-    }
-
     /// Iterate over references to the contained values.
     pub fn iter(&self) -> std::slice::Iter<Value> {
         self.vec.iter()
     }
+
+    /// Repeat this array `n` times.
+    pub fn repeat(&self, n: i64) -> StrResult<Self> {
+        let count = usize::try_from(n)
+            .ok()
+            .and_then(|n| self.vec.len().checked_mul(n))
+            .ok_or_else(|| format!("cannot repeat this array {} times", n))?;
+
+        Ok(self.iter().cloned().cycle().take(count).collect())
+    }
+}
+
+/// The out of bounds access error message.
+#[cold]
+fn out_of_bounds(index: i64, len: i64) -> String {
+    format!("array index out of bounds (index: {}, len: {})", index, len)
 }
 
 impl Default for Array {

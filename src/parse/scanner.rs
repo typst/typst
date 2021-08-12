@@ -128,9 +128,10 @@ impl<'s> Scanner<'s> {
     /// The remaining source string after the current index.
     #[inline]
     pub fn rest(&self) -> &'s str {
-        // SAFETY: The index is always in bounds and on a codepoint boundary
-        // since it is:
-        // - either increased by the length of a scanned character,
+        // Safety: The index is always in bounds and on a codepoint boundary
+        // since it starts at zero and is is:
+        // - either increased by the length of a scanned character, advacing
+        //   from one codepoint boundary to the next,
         // - or checked upon jumping.
         unsafe { self.src.get_unchecked(self.index ..) }
     }
@@ -138,7 +139,7 @@ impl<'s> Scanner<'s> {
     /// The full source string up to the current index.
     #[inline]
     pub fn eaten(&self) -> &'s str {
-        // SAFETY: The index is always okay, for details see `rest()`.
+        // Safety: The index is always okay, for details see `rest()`.
         unsafe { self.src.get_unchecked(.. self.index) }
     }
 

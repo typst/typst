@@ -150,12 +150,12 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Fractional(a), Float(b)) => Fractional(a * b),
         (Int(a), Fractional(b)) => Fractional(a as f64 * b),
 
-        (Str(a), Int(b)) => Str(a.repeat(b.max(0) as usize)),
-        (Int(a), Str(b)) => Str(b.repeat(a.max(0) as usize)),
-        (Array(a), Int(b)) => Array(a.repeat(b.max(0) as usize)),
-        (Int(a), Array(b)) => Array(b.repeat(a.max(0) as usize)),
-        (Template(a), Int(b)) => Template(a.repeat(b.max(0) as usize)),
-        (Int(a), Template(b)) => Template(b.repeat(a.max(0) as usize)),
+        (Str(a), Int(b)) => Str(a.repeat(b)?),
+        (Int(a), Str(b)) => Str(b.repeat(a)?),
+        (Array(a), Int(b)) => Array(a.repeat(b)?),
+        (Int(a), Array(b)) => Array(b.repeat(a)?),
+        (Template(a), Int(b)) => Template(a.repeat(b)?),
+        (Int(a), Template(b)) => Template(b.repeat(a)?),
 
         (a, b) => mismatch!("cannot multiply {} with {}", a, b),
     })

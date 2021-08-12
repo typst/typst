@@ -2,10 +2,13 @@
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+use std::convert::TryFrom;
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref};
 use std::rc::Rc;
+
+use crate::diag::StrResult;
 
 /// An economical string with inline storage and clone-on-write value semantics.
 #[derive(Clone)]
@@ -143,21 +146,25 @@ impl EcoString {
     }
 
     /// Repeat this string `n` times.
-    pub fn repeat(&self, n: usize) -> Self {
+    pub fn repeat(&self, n: i64) -> StrResult<Self> {
+        let (n, new) = usize::try_from(n)
+            .ok()
+            .and_then(|n| self.len().checked_mul(n).map(|new| (n, new)))
+            .ok_or_else(|| format!("cannot repeat this string {} times", n))?;
+
         if let Repr::Small { buf, len } = &self.0 {
             let prev = usize::from(*len);
-            let new = prev.saturating_mul(n);
             if new <= LIMIT {
                 let src = &buf[.. prev];
                 let mut buf = [0; LIMIT];
                 for i in 0 .. n {
                     buf[prev * i .. prev * (i + 1)].copy_from_slice(src);
                 }
-                return Self(Repr::Small { buf, len: new as u8 });
+                return Ok(Self(Repr::Small { buf, len: new as u8 }));
             }
         }
 
-        self.as_str().repeat(n).into()
+        Ok(self.as_str().repeat(n).into())
     }
 }
 
@@ -216,6 +223,13 @@ impl Deref for EcoString {
 
     fn deref(&self) -> &str {
         match &self.0 {
+            // Safety:
+            // The buffer contents stem from correct UTF-8 sources:
+            // - Valid ASCII characters
+            // - Other string slices
+            // - Chars that were encoded with char::encode_utf8
+            // Furthermore, we still do the bounds-check on the len in case
+            // it gets corrupted somehow.
             Repr::Small { buf, len } => unsafe {
                 std::str::from_utf8_unchecked(&buf[.. usize::from(*len)])
             },
@@ -424,13 +438,17 @@ mod tests {
     #[test]
     fn test_str_repeat() {
         // Test with empty string.
-        assert_eq!(EcoString::new().repeat(0), "");
-        assert_eq!(EcoString::new().repeat(100), "");
+        assert_eq!(EcoString::new().repeat(0).unwrap(), "");
+        assert_eq!(EcoString::new().repeat(100).unwrap(), "");
 
         // Test non-spilling and spilling case.
         let v = EcoString::from("abc");
-        assert_eq!(v.repeat(0), "");
-        assert_eq!(v.repeat(3), "abcabcabc");
-        assert_eq!(v.repeat(5), "abcabcabcabcabc");
+        assert_eq!(v.repeat(0).unwrap(), "");
+        assert_eq!(v.repeat(3).unwrap(), "abcabcabc");
+        assert_eq!(v.repeat(5).unwrap(), "abcabcabcabcabc");
+        assert_eq!(
+            v.repeat(-1).unwrap_err(),
+            "cannot repeat this string -1 times",
+        );
     }
 }

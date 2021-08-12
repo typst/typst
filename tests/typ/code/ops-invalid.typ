@@ -47,6 +47,20 @@
 {3 / 12pt}
 
 ---
+// Error: 2-9 cannot repeat this string -1 times
+{-1 * ""}
+
+---
+{
+  let x = 2
+  for _ in 0..60 {
+    x *= 2
+  }
+  // Error: 4-18 cannot repeat this string 4611686018427387904 times
+  {x * "abcdefgh"}
+}
+
+---
 // Error: 14-22 cannot add integer and string
 { let x = 1; x += "2" }
 
@@ -63,11 +77,11 @@
 { 1 .. "" }
 
 ---
-// Error: 3-6 cannot assign to this expression
+// Error: 3-6 cannot access this expression mutably
 { (x) = "" }
 
 ---
-// Error: 3-8 cannot assign to this expression
+// Error: 3-8 cannot access this expression mutably
 { 1 + 2 += 3 }
 
 ---
@@ -75,7 +89,7 @@
 { z = 1 }
 
 ---
-// Error: 3-7 cannot assign to a constant
+// Error: 3-7 cannot mutate a constant
 { rect = "hi" }
 
 ---

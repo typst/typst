@@ -1,6 +1,9 @@
 // Test arrays.
+// Ref: false
 
 ---
+// Ref: true
+
 // Empty.
 {()}
 
@@ -17,6 +20,39 @@
 {("1"
      , rgb("002")
      ,)}
+
+---
+// Test lvalue and rvalue access.
+{
+  let array = (1, 2)
+  array(1) += 5 + array(0)
+  test(array, (1, 8))
+}
+
+---
+// Test rvalue out of bounds.
+{
+  let array = (1, 2, 3)
+  // Error: 3-11 array index out of bounds (index: 5, len: 3)
+  array(5)
+}
+
+---
+// Test lvalue out of bounds.
+{
+  let array = (1, 2, 3)
+  // Error: 3-12 array index out of bounds (index: -1, len: 3)
+  array(-1) = 5
+}
+
+---
+// Test non-collection indexing.
+
+{
+  let x = 10pt
+  // Error: 3-4 expected collection, found length
+  x() = 1
+}
 
 ---
 // Error: 3 expected closing paren

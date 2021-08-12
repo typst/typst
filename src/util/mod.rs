@@ -4,6 +4,7 @@ mod eco;
 
 pub use eco::EcoString;
 
+use std::cell::RefMut;
 use std::cmp::Ordering;
 use std::ops::Range;
 use std::path::{Component, Path, PathBuf};
@@ -151,5 +152,25 @@ impl PathExt for Path {
             }
         }
         out
+    }
+}
+
+/// Additional methods for [`RefMut`].
+pub trait RefMutExt<'a, T> {
+    fn try_map<U, F, E>(orig: Self, f: F) -> Result<RefMut<'a, U>, E>
+    where
+        F: FnOnce(&mut T) -> Result<&mut U, E>;
+}
+
+impl<'a, T> RefMutExt<'a, T> for RefMut<'a, T> {
+    fn try_map<U, F, E>(mut orig: Self, f: F) -> Result<RefMut<'a, U>, E>
+    where
+        F: FnOnce(&mut T) -> Result<&mut U, E>,
+    {
+        // Taken from here:
+        // https://github.com/rust-lang/rust/issues/27746#issuecomment-172899746
+        f(&mut orig)
+            .map(|new| new as *mut U)
+            .map(|raw| RefMut::map(orig, |_| unsafe { &mut *raw }))
     }
 }

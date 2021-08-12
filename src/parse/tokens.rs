@@ -595,9 +595,9 @@ mod tests {
             // Test with each applicable suffix.
             for &(block, mode, suffix, token) in SUFFIXES {
                 let src = $src;
-                #[allow(unused)]
-                let mut blocks = BLOCKS;
-                $(blocks = $blocks;)?
+                #[allow(unused_variables)]
+                let blocks = BLOCKS;
+                $(let blocks = $blocks;)?
                 assert!(!blocks.contains(|c| !BLOCKS.contains(c)));
                 if (mode.is_none() || mode == Some($mode)) && blocks.contains(block) {
                     t!(@$mode: format!("{}{}", src, suffix) => $($token,)* token);

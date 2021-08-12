@@ -20,6 +20,7 @@ pub use scope::*;
 pub use template::*;
 pub use value::*;
 
+use std::cell::RefMut;
 use std::collections::HashMap;
 use std::io;
 use std::mem;
@@ -34,7 +35,7 @@ use crate::parse::parse;
 use crate::source::{SourceId, SourceStore};
 use crate::syntax::visit::Visit;
 use crate::syntax::*;
-use crate::util::EcoString;
+use crate::util::{EcoString, RefMutExt};
 use crate::Context;
 
 /// Evaluate a parsed source file into a module.
@@ -58,15 +59,6 @@ pub struct Module {
     pub scope: Scope,
     /// The template defined by this module.
     pub template: Template,
-}
-
-/// Evaluate an expression.
-pub trait Eval {
-    /// The output of evaluating the expression.
-    type Output;
-
-    /// Evaluate the expression to the output value.
-    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output>;
 }
 
 /// The context for evaluation.
@@ -168,45 +160,19 @@ impl<'a> EvalContext<'a> {
     }
 }
 
+/// Evaluate an expression.
+pub trait Eval {
+    /// The output of evaluating the expression.
+    type Output;
+
+    /// Evaluate the expression to the output value.
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output>;
+}
+
 impl Eval for Rc<SyntaxTree> {
     type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        trait Walk {
-            fn walk(&self, ctx: &mut EvalContext) -> TypResult<()>;
-        }
-
-        impl Walk for SyntaxTree {
-            fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
-                for node in self.iter() {
-                    node.walk(ctx)?;
-                }
-                Ok(())
-            }
-        }
-
-        impl Walk for SyntaxNode {
-            fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
-                match self {
-                    Self::Text(_) => {}
-                    Self::Space => {}
-                    Self::Linebreak(_) => {}
-                    Self::Parbreak(_) => {}
-                    Self::Strong(_) => {}
-                    Self::Emph(_) => {}
-                    Self::Raw(_) => {}
-                    Self::Heading(n) => n.body.walk(ctx)?,
-                    Self::List(n) => n.body.walk(ctx)?,
-                    Self::Enum(n) => n.body.walk(ctx)?,
-                    Self::Expr(n) => {
-                        let value = n.eval(ctx)?;
-                        ctx.map.insert(n as *const _, value);
-                    }
-                }
-                Ok(())
-            }
-        }
-
         let map = {
             let prev = mem::take(&mut ctx.map);
             self.walk(ctx)?;
@@ -302,8 +268,8 @@ impl Eval for BlockExpr {
         let mut output = Value::None;
         for expr in &self.exprs {
             let value = expr.eval(ctx)?;
-            output = ops::join(output, value)
-                .map_err(Error::partial(ctx.source, expr.span()))?;
+            output =
+                ops::join(output, value).map_err(Error::at(ctx.source, expr.span()))?;
         }
 
         if self.scoping {
@@ -324,7 +290,7 @@ impl Eval for UnaryExpr {
             UnOp::Neg => ops::neg(value),
             UnOp::Not => ops::not(value),
         };
-        result.map_err(Error::partial(ctx.source, self.span))
+        result.map_err(Error::at(ctx.source, self.span))
     }
 }
 
@@ -371,7 +337,7 @@ impl BinaryExpr {
         }
 
         let rhs = self.rhs.eval(ctx)?;
-        op(lhs, rhs).map_err(Error::partial(ctx.source, self.span))
+        op(lhs, rhs).map_err(Error::at(ctx.source, self.span))
     }
 
     /// Apply an assignment operation.
@@ -379,27 +345,11 @@ impl BinaryExpr {
     where
         F: FnOnce(Value, Value) -> StrResult<Value>,
     {
-        let lspan = self.lhs.span();
-        let slot = if let Expr::Ident(id) = self.lhs.as_ref() {
-            match ctx.scopes.get(id) {
-                Some(slot) => Rc::clone(slot),
-                None => bail!(ctx.source, lspan, "unknown variable"),
-            }
-        } else {
-            bail!(ctx.source, lspan, "cannot assign to this expression",);
-        };
-
+        let source = ctx.source;
         let rhs = self.rhs.eval(ctx)?;
-        let mut mutable = match slot.try_borrow_mut() {
-            Ok(mutable) => mutable,
-            Err(_) => {
-                bail!(ctx.source, lspan, "cannot assign to a constant",);
-            }
-        };
-
-        let lhs = mem::take(&mut *mutable);
-        *mutable = op(lhs, rhs).map_err(Error::partial(ctx.source, self.span))?;
-
+        let mut target = self.lhs.access(ctx)?;
+        let lhs = mem::take(&mut *target);
+        *target = op(lhs, rhs).map_err(Error::at(source, self.span))?;
         Ok(Value::None)
     }
 }
@@ -408,32 +358,45 @@ impl Eval for CallExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let callee = self
-            .callee
-            .eval(ctx)?
-            .cast::<Function>()
-            .map_err(Error::partial(ctx.source, self.callee.span()))?;
-
+        let callee = self.callee.eval(ctx)?;
         let mut args = self.args.eval(ctx)?;
-        let returned = callee(ctx, &mut args).map_err(|mut errors| {
-            for error in errors.iter_mut() {
-                // Skip errors directly related to arguments.
-                if error.source == ctx.source && self.span.contains(error.span) {
-                    continue;
-                }
 
-                error.trace.push((
-                    ctx.source,
-                    self.span,
-                    Tracepoint::Call(callee.name().map(Into::into)),
-                ));
+        match callee {
+            Value::Array(array) => array
+                .get(args.into_index()?)
+                .map(Value::clone)
+                .map_err(Error::at(ctx.source, self.span)),
+
+            Value::Dict(dict) => dict
+                .get(&args.into_key()?)
+                .map(Value::clone)
+                .map_err(Error::at(ctx.source, self.span)),
+
+            Value::Func(func) => {
+                let returned = func(ctx, &mut args).map_err(|mut errors| {
+                    for error in errors.iter_mut() {
+                        // Skip errors directly related to arguments.
+                        if error.source != ctx.source || !self.span.contains(error.span) {
+                            error.trace.push((
+                                ctx.source,
+                                self.span,
+                                Tracepoint::Call(func.name().map(Into::into)),
+                            ));
+                        }
+                    }
+                    errors
+                })?;
+                args.finish()?;
+                Ok(returned)
             }
-            errors
-        })?;
 
-        args.finish()?;
-
-        Ok(returned)
+            v => bail!(
+                ctx.source,
+                self.callee.span(),
+                "expected function or collection, found {}",
+                v.type_name(),
+            ),
+        }
     }
 }
 
@@ -518,7 +481,7 @@ impl Eval for WithExpr {
             .callee
             .eval(ctx)?
             .cast::<Function>()
-            .map_err(Error::partial(ctx.source, self.callee.span()))?;
+            .map_err(Error::at(ctx.source, self.callee.span()))?;
 
         let applied = self.args.eval(ctx)?;
 
@@ -568,7 +531,7 @@ impl Eval for IfExpr {
             .condition
             .eval(ctx)?
             .cast::<bool>()
-            .map_err(Error::partial(ctx.source, self.condition.span()))?;
+            .map_err(Error::at(ctx.source, self.condition.span()))?;
 
         if condition {
             self.if_body.eval(ctx)
@@ -590,11 +553,11 @@ impl Eval for WhileExpr {
             .condition
             .eval(ctx)?
             .cast::<bool>()
-            .map_err(Error::partial(ctx.source, self.condition.span()))?
+            .map_err(Error::at(ctx.source, self.condition.span()))?
         {
             let value = self.body.eval(ctx)?;
             output = ops::join(output, value)
-                .map_err(Error::partial(ctx.source, self.body.span()))?;
+                .map_err(Error::at(ctx.source, self.body.span()))?;
         }
 
         Ok(output)
@@ -616,7 +579,7 @@ impl Eval for ForExpr {
 
                     let value = self.body.eval(ctx)?;
                     output = ops::join(output, value)
-                        .map_err(Error::partial(ctx.source, self.body.span()))?;
+                        .map_err(Error::at(ctx.source, self.body.span()))?;
                 }
 
                 ctx.scopes.exit();
@@ -662,7 +625,7 @@ impl Eval for ImportExpr {
             .path
             .eval(ctx)?
             .cast::<EcoString>()
-            .map_err(Error::partial(ctx.source, self.path.span()))?;
+            .map_err(Error::at(ctx.source, self.path.span()))?;
 
         let file = ctx.import(&path, self.path.span())?;
         let module = &ctx.modules[&file];
@@ -696,11 +659,105 @@ impl Eval for IncludeExpr {
             .path
             .eval(ctx)?
             .cast::<EcoString>()
-            .map_err(Error::partial(ctx.source, self.path.span()))?;
+            .map_err(Error::at(ctx.source, self.path.span()))?;
 
         let file = ctx.import(&path, self.path.span())?;
         let module = &ctx.modules[&file];
 
         Ok(Value::Template(module.template.clone()))
+    }
+}
+
+/// Walk a node in a template, filling the context's expression map.
+pub trait Walk {
+    /// Walk the node.
+    fn walk(&self, ctx: &mut EvalContext) -> TypResult<()>;
+}
+
+impl Walk for SyntaxTree {
+    fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
+        for node in self.iter() {
+            node.walk(ctx)?;
+        }
+        Ok(())
+    }
+}
+
+impl Walk for SyntaxNode {
+    fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
+        match self {
+            Self::Text(_) => {}
+            Self::Space => {}
+            Self::Linebreak(_) => {}
+            Self::Parbreak(_) => {}
+            Self::Strong(_) => {}
+            Self::Emph(_) => {}
+            Self::Raw(_) => {}
+            Self::Heading(n) => n.body.walk(ctx)?,
+            Self::List(n) => n.body.walk(ctx)?,
+            Self::Enum(n) => n.body.walk(ctx)?,
+            Self::Expr(n) => {
+                let value = n.eval(ctx)?;
+                ctx.map.insert(n as *const _, value);
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Try to mutably access the value an expression points to.
+///
+/// This only works if the expression is a valid lvalue.
+pub trait Access {
+    /// Try to access the value.
+    fn access<'a>(&self, ctx: &'a mut EvalContext) -> TypResult<RefMut<'a, Value>>;
+}
+
+impl Access for Expr {
+    fn access<'a>(&self, ctx: &'a mut EvalContext) -> TypResult<RefMut<'a, Value>> {
+        match self {
+            Expr::Ident(ident) => ident.access(ctx),
+            Expr::Call(call) => call.access(ctx),
+            _ => bail!(
+                ctx.source,
+                self.span(),
+                "cannot access this expression mutably",
+            ),
+        }
+    }
+}
+
+impl Access for Ident {
+    fn access<'a>(&self, ctx: &'a mut EvalContext) -> TypResult<RefMut<'a, Value>> {
+        ctx.scopes
+            .get(self)
+            .ok_or("unknown variable")
+            .and_then(|slot| {
+                slot.try_borrow_mut().map_err(|_| "cannot mutate a constant")
+            })
+            .map_err(Error::at(ctx.source, self.span))
+    }
+}
+
+impl Access for CallExpr {
+    fn access<'a>(&self, ctx: &'a mut EvalContext) -> TypResult<RefMut<'a, Value>> {
+        let source = ctx.source;
+        let args = self.args.eval(ctx)?;
+        let guard = self.callee.access(ctx)?;
+
+        RefMut::try_map(guard, |value| match value {
+            Value::Array(array) => array
+                .get_mut(args.into_index()?)
+                .map_err(Error::at(source, self.span)),
+
+            Value::Dict(dict) => Ok(dict.get_mut(args.into_key()?)),
+
+            v => bail!(
+                source,
+                self.callee.span(),
+                "expected collection, found {}",
+                v.type_name(),
+            ),
+        })
     }
 }
