@@ -71,12 +71,12 @@ pub struct EvalContext<'a> {
     pub images: &'a mut ImageStore,
     /// Caches evaluated modules.
     pub modules: &'a mut ModuleCache,
-    /// The active scopes.
-    pub scopes: Scopes<'a>,
     /// The id of the currently evaluated source file.
     pub source: SourceId,
     /// The stack of imported files that led to evaluation of the current file.
     pub route: Vec<SourceId>,
+    /// The active scopes.
+    pub scopes: Scopes<'a>,
     /// The expression map for the currently built template.
     pub map: ExprMap,
 }
@@ -89,9 +89,9 @@ impl<'a> EvalContext<'a> {
             sources: &mut ctx.sources,
             images: &mut ctx.images,
             modules: &mut ctx.modules,
-            scopes: Scopes::new(Some(&ctx.std)),
             source,
             route: vec![],
+            scopes: Scopes::new(Some(&ctx.std)),
             map: ExprMap::new(),
         }
     }
@@ -439,31 +439,66 @@ impl Eval for ClosureExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let file = ctx.source;
-        let params = Rc::clone(&self.params);
-        let body = Rc::clone(&self.body);
+        struct FuncParam {
+            name: EcoString,
+            default: Option<Value>,
+        }
 
-        // Collect the captured variables.
+        let file = ctx.source;
+        let name = self.name.as_ref().map(|name| name.string.clone());
+
+        // Evaluate default values for named parameters.
+        let params: Vec<_> = self
+            .params
+            .iter()
+            .map(|param| match param {
+                ClosureParam::Pos(name) => {
+                    Ok(FuncParam { name: name.string.clone(), default: None })
+                }
+                ClosureParam::Named(Named { name, expr }) => Ok(FuncParam {
+                    name: name.string.clone(),
+                    default: Some(expr.eval(ctx)?),
+                }),
+            })
+            .collect::<TypResult<_>>()?;
+
+        // Collect captured variables.
         let captured = {
             let mut visitor = CapturesVisitor::new(&ctx.scopes);
             visitor.visit_closure(self);
             visitor.finish()
         };
 
-        let name = self.name.as_ref().map(|name| name.string.clone());
+        // Clone the body expression so that we don't have a lifetime
+        // dependence on the AST.
+        let body = Rc::clone(&self.body);
+
+        // Define the actual function.
         let func = Function::new(name, move |ctx, args| {
+            let prev_file = mem::replace(&mut ctx.source, file);
+
             // Don't leak the scopes from the call site. Instead, we use the
             // scope of captured variables we collected earlier.
             let prev_scopes = mem::take(&mut ctx.scopes);
-            let prev_file = mem::replace(&mut ctx.source, file);
             ctx.scopes.top = captured.clone();
 
-            for param in params.iter() {
-                let value = args.expect::<Value>(param.as_str())?;
-                ctx.scopes.def_mut(param.as_str(), value);
-            }
+            let mut try_eval = || {
+                // Parse the arguments according to the parameter list.
+                for param in &params {
+                    let value = match &param.default {
+                        None => args.expect::<Value>(&param.name)?,
+                        Some(default) => args
+                            .named::<Value>(&param.name)?
+                            .unwrap_or_else(|| default.clone()),
+                    };
 
-            let result = body.eval(ctx);
+                    ctx.scopes.def_mut(&param.name, value);
+                }
+
+                body.eval(ctx)
+            };
+
+            let result = try_eval();
             ctx.scopes = prev_scopes;
             ctx.source = prev_file;
             result
@@ -483,9 +518,9 @@ impl Eval for WithExpr {
             .cast::<Function>()
             .map_err(Error::at(ctx.source, self.callee.span()))?;
 
+        let name = callee.name().cloned();
         let applied = self.args.eval(ctx)?;
 
-        let name = callee.name().cloned();
         let func = Function::new(name, move |ctx, args| {
             // Remove named arguments that were overridden.
             let kept: Vec<_> = applied

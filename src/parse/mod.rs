@@ -312,7 +312,7 @@ fn primary(p: &mut Parser, atomic: bool) -> Option<Expr> {
                 Expr::Closure(ClosureExpr {
                     span: ident.span.join(body.span()),
                     name: None,
-                    params: Rc::new(vec![ident]),
+                    params: vec![ClosureParam::Pos(ident)],
                     body: Rc::new(body),
                 })
             } else {
@@ -385,12 +385,12 @@ fn parenthesized(p: &mut Parser) -> Option<Expr> {
 
     // Arrow means this is a closure's parameter list.
     if p.eat_if(Token::Arrow) {
-        let params = idents(p, items);
+        let params = params(p, items);
         let body = expr(p)?;
         return Some(Expr::Closure(ClosureExpr {
             span: span.join(body.span()),
             name: None,
-            params: Rc::new(params),
+            params,
             body: Rc::new(body),
         }));
     }
@@ -459,41 +459,53 @@ fn item(p: &mut Parser) -> Option<CallArg> {
 
 /// Convert a collection into an array, producing errors for named items.
 fn array(p: &mut Parser, items: Vec<CallArg>, span: Span) -> Expr {
-    let items = items.into_iter().filter_map(|item| match item {
+    let iter = items.into_iter().filter_map(|item| match item {
         CallArg::Pos(expr) => Some(expr),
         CallArg::Named(_) => {
             p.error(item.span(), "expected expression, found named pair");
             None
         }
     });
-
-    Expr::Array(ArrayExpr { span, items: items.collect() })
+    Expr::Array(ArrayExpr { span, items: iter.collect() })
 }
 
 /// Convert a collection into a dictionary, producing errors for expressions.
 fn dict(p: &mut Parser, items: Vec<CallArg>, span: Span) -> Expr {
-    let items = items.into_iter().filter_map(|item| match item {
+    let iter = items.into_iter().filter_map(|item| match item {
         CallArg::Named(named) => Some(named),
         CallArg::Pos(_) => {
             p.error(item.span(), "expected named pair, found expression");
             None
         }
     });
+    Expr::Dict(DictExpr { span, items: iter.collect() })
+}
 
-    Expr::Dict(DictExpr { span, items: items.collect() })
+/// Convert a collection into a list of parameters, producing errors for
+/// anything other than identifiers and named pairs.
+fn params(p: &mut Parser, items: Vec<CallArg>) -> Vec<ClosureParam> {
+    let iter = items.into_iter().filter_map(|item| match item {
+        CallArg::Pos(Expr::Ident(id)) => Some(ClosureParam::Pos(id)),
+        CallArg::Named(named) => Some(ClosureParam::Named(named)),
+        _ => {
+            p.error(item.span(), "expected parameter");
+            None
+        }
+    });
+    iter.collect()
 }
 
 /// Convert a collection into a list of identifiers, producing errors for
 /// anything other than identifiers.
 fn idents(p: &mut Parser, items: Vec<CallArg>) -> Vec<Ident> {
-    let items = items.into_iter().filter_map(|item| match item {
+    let iter = items.into_iter().filter_map(|item| match item {
         CallArg::Pos(Expr::Ident(id)) => Some(id),
         _ => {
             p.error(item.span(), "expected identifier");
             None
         }
     });
-    items.collect()
+    iter.collect()
 }
 
 // Parse a template value: `[...]`.
@@ -594,28 +606,28 @@ fn let_expr(p: &mut Parser) -> Option<Expr> {
             init = with_expr(p, Expr::Ident(binding.clone()));
         } else {
             // If a parenthesis follows, this is a function definition.
-            let mut params = None;
+            let mut maybe_params = None;
             if p.peek_direct() == Some(Token::LeftParen) {
                 p.start_group(Group::Paren, TokenMode::Code);
                 let items = collection(p).0;
-                params = Some(idents(p, items));
+                maybe_params = Some(params(p, items));
                 p.end_group();
             }
 
             if p.eat_if(Token::Eq) {
                 init = expr(p);
-            } else if params.is_some() {
+            } else if maybe_params.is_some() {
                 // Function definitions must have a body.
                 p.expected_at(p.prev_end(), "body");
             }
 
             // Rewrite into a closure expression if it's a function definition.
-            if let Some(params) = params {
+            if let Some(params) = maybe_params {
                 let body = init?;
                 init = Some(Expr::Closure(ClosureExpr {
                     span: binding.span.join(body.span()),
                     name: Some(binding.clone()),
-                    params: Rc::new(params),
+                    params,
                     body: Rc::new(body),
                 }));
             }

@@ -192,13 +192,6 @@ impl_visitors! {
         v.visit_args(r!(call.args));
     }
 
-    visit_closure(v, closure: ClosureExpr) {
-        for param in r!(rc: closure.params) {
-            v.visit_binding(param);
-        }
-        v.visit_expr(r!(rc: closure.body));
-    }
-
     visit_args(v, args: CallArgs) {
         for arg in r!(args.items) {
             v.visit_arg(arg);
@@ -209,6 +202,23 @@ impl_visitors! {
         match arg {
             CallArg::Pos(expr) => v.visit_expr(expr),
             CallArg::Named(named) => v.visit_expr(r!(named.expr)),
+        }
+    }
+
+    visit_closure(v, closure: ClosureExpr) {
+        for param in r!(closure.params) {
+            v.visit_param(param);
+        }
+        v.visit_expr(r!(rc: closure.body));
+    }
+
+    visit_param(v, param: ClosureParam) {
+        match param {
+            ClosureParam::Pos(binding) => v.visit_binding(binding),
+            ClosureParam::Named(named) => {
+                v.visit_binding(r!(named.name));
+                v.visit_expr(r!(named.expr));
+            }
         }
     }
 

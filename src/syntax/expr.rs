@@ -437,9 +437,18 @@ pub struct ClosureExpr {
     /// This only exists if you use the function syntax sugar: `let f(x) = y`.
     pub name: Option<Ident>,
     /// The parameter bindings.
-    pub params: Rc<Vec<Ident>>,
+    pub params: Vec<ClosureParam>,
     /// The body of the closure.
     pub body: Rc<Expr>,
+}
+
+/// An parameter to a closure: `x` or `draw: false`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ClosureParam {
+    /// A positional parameter.
+    Pos(Ident),
+    /// A named parameter with a default value.
+    Named(Named),
 }
 
 /// A with expression: `f with (x, y: 1)`.

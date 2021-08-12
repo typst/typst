@@ -370,6 +370,15 @@ impl Pretty for ClosureExpr {
     }
 }
 
+impl Pretty for ClosureParam {
+    fn pretty(&self, p: &mut Printer) {
+        match self {
+            Self::Pos(ident) => ident.pretty(p),
+            Self::Named(named) => named.pretty(p),
+        }
+    }
+}
+
 impl Pretty for WithExpr {
     fn pretty(&self, p: &mut Printer) {
         self.callee.pretty(p);

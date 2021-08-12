@@ -83,3 +83,17 @@
   // Error: 8-13 unexpected argument
   f(1, "two", () => x)
 }
+
+---
+// Named arguments.
+{
+  let greet(name, birthday: false) = {
+    if birthday { "Happy Birthday, " } else { "Hey, " } + name + "!"
+  }
+
+  test(greet("Typst"), "Hey, Typst!")
+  test(greet("Typst", birthday: true), "Happy Birthday, Typst!")
+
+  // Error: 23-35 unexpected argument
+  test(greet("Typst", whatever: 10))
+}
