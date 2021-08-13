@@ -52,8 +52,12 @@ pub fn resolve_raw(span: Span, text: &str, backticks: usize) -> RawNode {
     if backticks > 1 {
         let (tag, inner) = split_at_lang_tag(text);
         let (text, block) = trim_and_split_raw(inner);
-        let lang = Ident::new(tag, span.start .. span.start + tag.len());
-        RawNode { span, lang, text: text.into(), block }
+        RawNode {
+            span,
+            lang: Ident::new(tag, span.with_end(span.start + tag.len())),
+            text: text.into(),
+            block,
+        }
     } else {
         RawNode {
             span,
@@ -176,7 +180,7 @@ mod tests {
             text: &str,
             block: bool,
         ) {
-            let node = resolve_raw(Span::ZERO, raw, backticks);
+            let node = resolve_raw(Span::detached(), raw, backticks);
             assert_eq!(node.lang.as_deref(), lang);
             assert_eq!(node.text, text);
             assert_eq!(node.block, block);

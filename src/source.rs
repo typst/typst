@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::io;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -11,7 +12,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::loading::{FileHash, Loader};
 use crate::parse::{is_newline, Scanner};
-use crate::syntax::{Pos, Span};
 use crate::util::PathExt;
 
 /// A unique identifier for a loaded source file.
@@ -119,13 +119,13 @@ pub struct SourceFile {
     id: SourceId,
     path: PathBuf,
     src: String,
-    line_starts: Vec<Pos>,
+    line_starts: Vec<usize>,
 }
 
 impl SourceFile {
     /// Create a new source file.
     pub fn new(id: SourceId, path: &Path, src: String) -> Self {
-        let mut line_starts = vec![Pos::ZERO];
+        let mut line_starts = vec![0];
         let mut s = Scanner::new(&src);
 
         while let Some(c) = s.eat() {
@@ -133,7 +133,7 @@ impl SourceFile {
                 if c == '\r' {
                     s.eat_if('\n');
                 }
-                line_starts.push(s.index().into());
+                line_starts.push(s.index());
             }
         }
 
@@ -166,8 +166,8 @@ impl SourceFile {
     }
 
     /// Slice out the part of the source code enclosed by the span.
-    pub fn get(&self, span: impl Into<Span>) -> Option<&str> {
-        self.src.get(span.into().to_range())
+    pub fn get(&self, range: Range<usize>) -> Option<&str> {
+        self.src.get(range)
     }
 
     /// Get the length of the file in bytes.
@@ -180,10 +180,10 @@ impl SourceFile {
         self.line_starts.len()
     }
 
-    /// Return the index of the line that contains the given byte position.
-    pub fn pos_to_line(&self, byte_pos: Pos) -> Option<usize> {
-        (byte_pos.to_usize() <= self.src.len()).then(|| {
-            match self.line_starts.binary_search(&byte_pos) {
+    /// Return the index of the line that contains the given byte index.
+    pub fn byte_to_line(&self, byte_idx: usize) -> Option<usize> {
+        (byte_idx <= self.src.len()).then(|| {
+            match self.line_starts.binary_search(&byte_idx) {
                 Ok(i) => i,
                 Err(i) => i - 1,
             }
@@ -193,38 +193,42 @@ impl SourceFile {
     /// Return the index of the column at the byte index.
     ///
     /// The column is defined as the number of characters in the line before the
-    /// byte position.
-    pub fn pos_to_column(&self, byte_pos: Pos) -> Option<usize> {
-        let line = self.pos_to_line(byte_pos)?;
-        let start = self.line_to_pos(line)?;
-        let head = self.get(Span::new(start, byte_pos))?;
+    /// byte index.
+    pub fn byte_to_column(&self, byte_idx: usize) -> Option<usize> {
+        let line = self.byte_to_line(byte_idx)?;
+        let start = self.line_to_byte(line)?;
+        let head = self.get(start .. byte_idx)?;
         Some(head.chars().count())
     }
 
     /// Return the byte position at which the given line starts.
-    pub fn line_to_pos(&self, line_idx: usize) -> Option<Pos> {
+    pub fn line_to_byte(&self, line_idx: usize) -> Option<usize> {
         self.line_starts.get(line_idx).copied()
     }
 
-    /// Return the span which encloses the given line.
-    pub fn line_to_span(&self, line_idx: usize) -> Option<Span> {
-        let start = self.line_to_pos(line_idx)?;
-        let end = self.line_to_pos(line_idx + 1).unwrap_or(self.src.len().into());
-        Some(Span::new(start, end))
+    /// Return the range which encloses the given line.
+    pub fn line_to_range(&self, line_idx: usize) -> Option<Range<usize>> {
+        let start = self.line_to_byte(line_idx)?;
+        let end = self.line_to_byte(line_idx + 1).unwrap_or(self.src.len());
+        Some(start .. end)
     }
 
-    /// Return the byte position of the given (line, column) pair.
+    /// Return the byte index of the given (line, column) pair.
     ///
     /// The column defines the number of characters to go beyond the start of
     /// the line.
-    pub fn line_column_to_pos(&self, line_idx: usize, column_idx: usize) -> Option<Pos> {
-        let span = self.line_to_span(line_idx)?;
-        let line = self.get(span)?;
+    pub fn line_column_to_byte(
+        &self,
+        line_idx: usize,
+        column_idx: usize,
+    ) -> Option<usize> {
+        let range = self.line_to_range(line_idx)?;
+        let line = self.get(range.clone())?;
         let mut chars = line.chars();
         for _ in 0 .. column_idx {
             chars.next();
         }
-        Some(span.start + (line.len() - chars.as_str().len()))
+        Some(range.start + (line.len() - chars.as_str().len()))
     }
 }
 
@@ -251,7 +255,7 @@ impl<'a> Files<'a> for SourceStore {
     fn line_index(&'a self, id: SourceId, given: usize) -> Result<usize, files::Error> {
         let source = self.get(id);
         source
-            .pos_to_line(given.into())
+            .byte_to_line(given)
             .ok_or_else(|| files::Error::IndexTooLarge { given, max: source.len_bytes() })
     }
 
@@ -262,8 +266,7 @@ impl<'a> Files<'a> for SourceStore {
     ) -> Result<std::ops::Range<usize>, files::Error> {
         let source = self.get(id);
         source
-            .line_to_span(given)
-            .map(Span::to_range)
+            .line_to_range(given)
             .ok_or_else(|| files::Error::LineTooLarge { given, max: source.len_lines() })
     }
 
@@ -274,7 +277,7 @@ impl<'a> Files<'a> for SourceStore {
         given: usize,
     ) -> Result<usize, files::Error> {
         let source = self.get(id);
-        source.pos_to_column(given.into()).ok_or_else(|| {
+        source.byte_to_column(given).ok_or_else(|| {
             let max = source.len_bytes();
             if given <= max {
                 files::Error::InvalidCharBoundary { given }
@@ -294,47 +297,47 @@ mod tests {
     #[test]
     fn test_source_file_new() {
         let source = SourceFile::detached(TEST);
-        assert_eq!(source.line_starts, vec![Pos(0), Pos(7), Pos(15), Pos(18)]);
+        assert_eq!(source.line_starts, vec![0, 7, 15, 18]);
     }
 
     #[test]
     fn test_source_file_pos_to_line() {
         let source = SourceFile::detached(TEST);
-        assert_eq!(source.pos_to_line(Pos(0)), Some(0));
-        assert_eq!(source.pos_to_line(Pos(2)), Some(0));
-        assert_eq!(source.pos_to_line(Pos(6)), Some(0));
-        assert_eq!(source.pos_to_line(Pos(7)), Some(1));
-        assert_eq!(source.pos_to_line(Pos(8)), Some(1));
-        assert_eq!(source.pos_to_line(Pos(12)), Some(1));
-        assert_eq!(source.pos_to_line(Pos(21)), Some(3));
-        assert_eq!(source.pos_to_line(Pos(22)), None);
+        assert_eq!(source.byte_to_line(0), Some(0));
+        assert_eq!(source.byte_to_line(2), Some(0));
+        assert_eq!(source.byte_to_line(6), Some(0));
+        assert_eq!(source.byte_to_line(7), Some(1));
+        assert_eq!(source.byte_to_line(8), Some(1));
+        assert_eq!(source.byte_to_line(12), Some(1));
+        assert_eq!(source.byte_to_line(21), Some(3));
+        assert_eq!(source.byte_to_line(22), None);
     }
 
     #[test]
     fn test_source_file_pos_to_column() {
         let source = SourceFile::detached(TEST);
-        assert_eq!(source.pos_to_column(Pos(0)), Some(0));
-        assert_eq!(source.pos_to_column(Pos(2)), Some(1));
-        assert_eq!(source.pos_to_column(Pos(6)), Some(5));
-        assert_eq!(source.pos_to_column(Pos(7)), Some(0));
-        assert_eq!(source.pos_to_column(Pos(8)), Some(1));
-        assert_eq!(source.pos_to_column(Pos(12)), Some(2));
+        assert_eq!(source.byte_to_column(0), Some(0));
+        assert_eq!(source.byte_to_column(2), Some(1));
+        assert_eq!(source.byte_to_column(6), Some(5));
+        assert_eq!(source.byte_to_column(7), Some(0));
+        assert_eq!(source.byte_to_column(8), Some(1));
+        assert_eq!(source.byte_to_column(12), Some(2));
     }
 
     #[test]
     fn test_source_file_roundtrip() {
         #[track_caller]
-        fn roundtrip(source: &SourceFile, byte_pos: Pos) {
-            let line = source.pos_to_line(byte_pos).unwrap();
-            let column = source.pos_to_column(byte_pos).unwrap();
-            let result = source.line_column_to_pos(line, column).unwrap();
-            assert_eq!(result, byte_pos);
+        fn roundtrip(source: &SourceFile, byte_idx: usize) {
+            let line = source.byte_to_line(byte_idx).unwrap();
+            let column = source.byte_to_column(byte_idx).unwrap();
+            let result = source.line_column_to_byte(line, column).unwrap();
+            assert_eq!(result, byte_idx);
         }
 
         let source = SourceFile::detached(TEST);
-        roundtrip(&source, Pos(0));
-        roundtrip(&source, Pos(7));
-        roundtrip(&source, Pos(12));
-        roundtrip(&source, Pos(21));
+        roundtrip(&source, 0);
+        roundtrip(&source, 7);
+        roundtrip(&source, 12);
+        roundtrip(&source, 21);
     }
 }

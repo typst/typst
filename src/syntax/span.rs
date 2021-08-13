@@ -3,8 +3,10 @@ use std::ops::{Add, Range};
 
 use serde::{Deserialize, Serialize};
 
+use crate::source::SourceId;
+
 /// A value with the span it corresponds to in the source code.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[derive(Serialize, Deserialize)]
 pub struct Spanned<T> {
     /// The spanned value.
@@ -17,11 +19,6 @@ impl<T> Spanned<T> {
     /// Create a new instance from a value and its span.
     pub fn new(v: T, span: impl Into<Span>) -> Self {
         Self { v, span: span.into() }
-    }
-
-    /// Create a new instance from a value with the zero span.
-    pub fn zero(v: T) -> Self {
-        Self { v, span: Span::ZERO }
     }
 
     /// Convert from `&Spanned<T>` to `Spanned<&T>`
@@ -51,9 +48,11 @@ impl<T: Debug> Debug for Spanned<T> {
 }
 
 /// Bounds of a slice of source code.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[derive(Serialize, Deserialize)]
 pub struct Span {
+    /// The id of the source file.
+    pub source: SourceId,
     /// The inclusive start position.
     pub start: Pos,
     /// The inclusive end position.
@@ -61,22 +60,46 @@ pub struct Span {
 }
 
 impl Span {
-    /// The zero span.
-    pub const ZERO: Self = Self { start: Pos::ZERO, end: Pos::ZERO };
-
     /// Create a new span from start and end positions.
-    pub fn new(start: impl Into<Pos>, end: impl Into<Pos>) -> Self {
-        Self { start: start.into(), end: end.into() }
+    pub fn new(source: SourceId, start: impl Into<Pos>, end: impl Into<Pos>) -> Self {
+        Self {
+            source,
+            start: start.into(),
+            end: end.into(),
+        }
     }
 
     /// Create a span including just a single position.
-    pub fn at(pos: impl Into<Pos> + Copy) -> Self {
-        Self::new(pos, pos)
+    pub fn at(source: SourceId, pos: impl Into<Pos> + Copy) -> Self {
+        Self::new(source, pos, pos)
+    }
+
+    /// Create a span without real location information, usually for testing.
+    pub fn detached() -> Self {
+        Self {
+            source: SourceId::from_raw(0),
+            start: Pos::ZERO,
+            end: Pos::ZERO,
+        }
+    }
+
+    /// Create a span with a different start position.
+    pub fn with_start(self, start: impl Into<Pos>) -> Self {
+        Self { start: start.into(), ..self }
+    }
+
+    /// Create a span with a different end position.
+    pub fn with_end(self, end: impl Into<Pos>) -> Self {
+        Self { end: end.into(), ..self }
     }
 
     /// Create a new span with the earlier start and later end position.
+    ///
+    /// This panics if the spans come from different files.
     pub fn join(self, other: Self) -> Self {
+        debug_assert_eq!(self.source, other.source);
         Self {
+            source: self.source,
             start: self.start.min(other.start),
             end: self.end.max(other.end),
         }
@@ -89,30 +112,12 @@ impl Span {
 
     /// Test whether one span complete contains the other span.
     pub fn contains(self, other: Self) -> bool {
-        self.start <= other.start && self.end >= other.end
+        self.source == other.source && self.start <= other.start && self.end >= other.end
     }
 
-    /// Convert to a `Range<usize>` for indexing.
+    /// Convert to a `Range<Pos>` for indexing.
     pub fn to_range(self) -> Range<usize> {
         self.start.to_usize() .. self.end.to_usize()
-    }
-}
-
-impl<T> From<T> for Span
-where
-    T: Into<Pos> + Copy,
-{
-    fn from(pos: T) -> Self {
-        Self::at(pos)
-    }
-}
-
-impl<T> From<Range<T>> for Span
-where
-    T: Into<Pos>,
-{
-    fn from(range: Range<T>) -> Self {
-        Self::new(range.start, range.end)
     }
 }
 
@@ -163,5 +168,36 @@ where
 
     fn add(self, rhs: T) -> Self {
         Pos(self.0 + rhs.into().0)
+    }
+}
+
+/// Convert a position or range into a span.
+pub trait IntoSpan {
+    /// Convert into a span by providing the source id.
+    fn into_span(self, source: SourceId) -> Span;
+}
+
+impl IntoSpan for Span {
+    fn into_span(self, source: SourceId) -> Span {
+        debug_assert_eq!(self.source, source);
+        self
+    }
+}
+
+impl IntoSpan for Pos {
+    fn into_span(self, source: SourceId) -> Span {
+        Span::new(source, self, self)
+    }
+}
+
+impl IntoSpan for usize {
+    fn into_span(self, source: SourceId) -> Span {
+        Span::new(source, self, self)
+    }
+}
+
+impl IntoSpan for Range<usize> {
+    fn into_span(self, source: SourceId) -> Span {
+        Span::new(source, self.start, self.end)
     }
 }

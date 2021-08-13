@@ -113,15 +113,15 @@ fn print_diagnostics(
 
     for error in errors {
         // The main diagnostic.
-        let main = Diagnostic::error()
-            .with_message(error.message)
-            .with_labels(vec![Label::primary(error.source, error.span.to_range())]);
+        let main = Diagnostic::error().with_message(error.message).with_labels(vec![
+            Label::primary(error.span.source, error.span.to_range()),
+        ]);
 
         term::emit(&mut writer, &config, sources, &main)?;
 
         // Stacktrace-like helper diagnostics.
-        for (file, span, point) in error.trace {
-            let message = match point {
+        for point in error.trace {
+            let message = match point.v {
                 Tracepoint::Call(Some(name)) => {
                     format!("error occured in this call of function `{}`", name)
                 }
@@ -129,9 +129,9 @@ fn print_diagnostics(
                 Tracepoint::Import => "error occured while importing this module".into(),
             };
 
-            let help = Diagnostic::help()
-                .with_message(message)
-                .with_labels(vec![Label::primary(file, span.to_range())]);
+            let help = Diagnostic::help().with_message(message).with_labels(vec![
+                Label::primary(point.span.source, point.span.to_range()),
+            ]);
 
             term::emit(&mut writer, &config, sources, &help)?;
         }

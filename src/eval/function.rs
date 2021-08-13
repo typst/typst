@@ -3,8 +3,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 
 use super::{Cast, EvalContext, Value};
-use crate::diag::{Error, TypResult};
-use crate::source::SourceId;
+use crate::diag::{At, TypResult};
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
 
@@ -59,8 +58,6 @@ impl PartialEq for Function {
 /// Evaluated arguments to a function.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuncArgs {
-    /// The id of the source file in which the function was called.
-    pub source: SourceId,
     /// The span of the whole argument list.
     pub span: Span,
     /// The positional arguments.
@@ -103,7 +100,7 @@ impl FuncArgs {
     {
         match self.eat() {
             Some(found) => Ok(found),
-            None => bail!(self.source, self.span, "missing argument: {}", what),
+            None => bail!(self.span, "missing argument: {}", what),
         }
     }
 
@@ -134,14 +131,14 @@ impl FuncArgs {
         let value = self.items.remove(index).value;
         let span = value.span;
 
-        T::cast(value).map(Some).map_err(Error::at(self.source, span))
+        T::cast(value).map(Some).at(span)
     }
 
     /// Return an "unexpected argument" error if there is any remaining
     /// argument.
     pub fn finish(self) -> TypResult<()> {
         if let Some(arg) = self.items.first() {
-            bail!(self.source, arg.span, "unexpected argument");
+            bail!(arg.span, "unexpected argument");
         }
         Ok(())
     }
@@ -165,19 +162,17 @@ impl FuncArgs {
     {
         let mut iter = self.items.into_iter();
         let value = match iter.next() {
+            Some(FuncArg { name: None, value, .. }) => value.v.cast().at(value.span)?,
             None => {
-                bail!(self.source, self.span, "missing {}", what);
+                bail!(self.span, "missing {}", what);
             }
             Some(FuncArg { name: Some(_), span, .. }) => {
-                bail!(self.source, span, "named pair is not allowed here");
-            }
-            Some(FuncArg { name: None, value, .. }) => {
-                value.v.cast().map_err(Error::at(self.source, value.span))?
+                bail!(span, "named pair is not allowed here");
             }
         };
 
         if let Some(arg) = iter.next() {
-            bail!(self.source, arg.span, "only one {} is allowed", what);
+            bail!(arg.span, "only one {} is allowed", what);
         }
 
         Ok(value)

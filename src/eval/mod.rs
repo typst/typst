@@ -27,7 +27,7 @@ use std::mem;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use crate::diag::{Error, StrResult, Tracepoint, TypResult};
+use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
 use crate::geom::{Angle, Fractional, Length, Relative};
 use crate::image::ImageStore;
 use crate::loading::Loader;
@@ -71,8 +71,6 @@ pub struct EvalContext<'a> {
     pub images: &'a mut ImageStore,
     /// Caches evaluated modules.
     pub modules: &'a mut ModuleCache,
-    /// The id of the currently evaluated source file.
-    pub source: SourceId,
     /// The stack of imported files that led to evaluation of the current file.
     pub route: Vec<SourceId>,
     /// The active scopes.
@@ -89,8 +87,7 @@ impl<'a> EvalContext<'a> {
             sources: &mut ctx.sources,
             images: &mut ctx.images,
             modules: &mut ctx.modules,
-            source,
-            route: vec![],
+            route: vec![source],
             scopes: Scopes::new(Some(&ctx.std)),
             map: ExprMap::new(),
         }
@@ -101,15 +98,15 @@ impl<'a> EvalContext<'a> {
         // Load the source file.
         let full = self.make_path(path);
         let id = self.sources.load(&full).map_err(|err| {
-            Error::boxed(self.source, span, match err.kind() {
+            Error::boxed(span, match err.kind() {
                 io::ErrorKind::NotFound => "file not found".into(),
                 _ => format!("failed to load source file ({})", err),
             })
         })?;
 
         // Prevent cyclic importing.
-        if self.source == id || self.route.contains(&id) {
-            bail!(self.source, span, "cyclic import");
+        if self.route.contains(&id) {
+            bail!(span, "cyclic import");
         }
 
         // Check whether the module was already loaded.
@@ -124,23 +121,14 @@ impl<'a> EvalContext<'a> {
         // Prepare the new context.
         let new_scopes = Scopes::new(self.scopes.base);
         let old_scopes = mem::replace(&mut self.scopes, new_scopes);
-        self.route.push(self.source);
-        self.source = id;
+        self.route.push(id);
 
         // Evaluate the module.
-        let result = Rc::new(ast).eval(self);
+        let template = Rc::new(ast).eval(self).trace(|| Tracepoint::Import, span)?;
 
         // Restore the old context.
         let new_scopes = mem::replace(&mut self.scopes, old_scopes);
-        self.source = self.route.pop().unwrap();
-
-        // Add a tracepoint to the errors.
-        let template = result.map_err(|mut errors| {
-            for error in errors.iter_mut() {
-                error.trace.push((self.source, span, Tracepoint::Import));
-            }
-            errors
-        })?;
+        self.route.pop().unwrap();
 
         // Save the evaluated module.
         let module = Module { scope: new_scopes.top, template };
@@ -152,11 +140,13 @@ impl<'a> EvalContext<'a> {
     /// Complete a user-entered path (relative to the source file) to be
     /// relative to the compilation environment's root.
     pub fn make_path(&self, path: &str) -> PathBuf {
-        if let Some(dir) = self.sources.get(self.source).path().parent() {
-            dir.join(path)
-        } else {
-            path.into()
+        if let Some(&id) = self.route.last() {
+            if let Some(dir) = self.sources.get(id).path().parent() {
+                return dir.join(path);
+            }
         }
+
+        path.into()
     }
 }
 
@@ -198,10 +188,7 @@ impl Eval for Expr {
             Self::Percent(_, v) => Value::Relative(Relative::new(v / 100.0)),
             Self::Fractional(_, v) => Value::Fractional(Fractional::new(v)),
             Self::Str(_, ref v) => Value::Str(v.clone()),
-            Self::Ident(ref v) => match ctx.scopes.get(&v) {
-                Some(slot) => slot.borrow().clone(),
-                None => bail!(ctx.source, v.span, "unknown variable"),
-            },
+            Self::Ident(ref v) => v.eval(ctx)?,
             Self::Array(ref v) => Value::Array(v.eval(ctx)?),
             Self::Dict(ref v) => Value::Dict(v.eval(ctx)?),
             Self::Template(ref v) => Value::Template(v.eval(ctx)?),
@@ -219,6 +206,17 @@ impl Eval for Expr {
             Self::Import(ref v) => v.eval(ctx)?,
             Self::Include(ref v) => v.eval(ctx)?,
         })
+    }
+}
+
+impl Eval for Ident {
+    type Output = Value;
+
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        match ctx.scopes.get(self) {
+            Some(slot) => Ok(slot.borrow().clone()),
+            None => bail!(self.span, "unknown variable"),
+        }
     }
 }
 
@@ -268,8 +266,7 @@ impl Eval for BlockExpr {
         let mut output = Value::None;
         for expr in &self.exprs {
             let value = expr.eval(ctx)?;
-            output =
-                ops::join(output, value).map_err(Error::at(ctx.source, expr.span()))?;
+            output = ops::join(output, value).at(expr.span())?;
         }
 
         if self.scoping {
@@ -290,7 +287,7 @@ impl Eval for UnaryExpr {
             UnOp::Neg => ops::neg(value),
             UnOp::Not => ops::not(value),
         };
-        result.map_err(Error::at(ctx.source, self.span))
+        result.at(self.span)
     }
 }
 
@@ -337,7 +334,7 @@ impl BinaryExpr {
         }
 
         let rhs = self.rhs.eval(ctx)?;
-        op(lhs, rhs).map_err(Error::at(ctx.source, self.span))
+        op(lhs, rhs).at(self.span)
     }
 
     /// Apply an assignment operation.
@@ -345,11 +342,10 @@ impl BinaryExpr {
     where
         F: FnOnce(Value, Value) -> StrResult<Value>,
     {
-        let source = ctx.source;
         let rhs = self.rhs.eval(ctx)?;
         let mut target = self.lhs.access(ctx)?;
         let lhs = mem::take(&mut *target);
-        *target = op(lhs, rhs).map_err(Error::at(source, self.span))?;
+        *target = op(lhs, rhs).at(self.span)?;
         Ok(Value::None)
     }
 }
@@ -362,36 +358,22 @@ impl Eval for CallExpr {
         let mut args = self.args.eval(ctx)?;
 
         match callee {
-            Value::Array(array) => array
-                .get(args.into_index()?)
-                .map(Value::clone)
-                .map_err(Error::at(ctx.source, self.span)),
+            Value::Array(array) => {
+                array.get(args.into_index()?).map(Value::clone).at(self.span)
+            }
 
-            Value::Dict(dict) => dict
-                .get(&args.into_key()?)
-                .map(Value::clone)
-                .map_err(Error::at(ctx.source, self.span)),
+            Value::Dict(dict) => {
+                dict.get(&args.into_key()?).map(Value::clone).at(self.span)
+            }
 
             Value::Func(func) => {
-                let returned = func(ctx, &mut args).map_err(|mut errors| {
-                    for error in errors.iter_mut() {
-                        // Skip errors directly related to arguments.
-                        if error.source != ctx.source || !self.span.contains(error.span) {
-                            error.trace.push((
-                                ctx.source,
-                                self.span,
-                                Tracepoint::Call(func.name().map(Into::into)),
-                            ));
-                        }
-                    }
-                    errors
-                })?;
+                let point = || Tracepoint::Call(func.name().map(Into::into));
+                let value = func(ctx, &mut args).trace(point, self.span)?;
                 args.finish()?;
-                Ok(returned)
+                Ok(value)
             }
 
             v => bail!(
-                ctx.source,
                 self.callee.span(),
                 "expected function or collection, found {}",
                 v.type_name(),
@@ -405,7 +387,6 @@ impl Eval for CallArgs {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         Ok(FuncArgs {
-            source: ctx.source,
             span: self.span,
             items: self
                 .items
@@ -444,9 +425,6 @@ impl Eval for ClosureExpr {
             default: Option<Value>,
         }
 
-        let file = ctx.source;
-        let name = self.name.as_ref().map(|name| name.string.clone());
-
         // Evaluate default values for named parameters.
         let params: Vec<_> = self
             .params
@@ -472,36 +450,31 @@ impl Eval for ClosureExpr {
         // Clone the body expression so that we don't have a lifetime
         // dependence on the AST.
         let body = Rc::clone(&self.body);
+        let name = self.name.as_ref().map(|name| name.string.clone());
 
         // Define the actual function.
         let func = Function::new(name, move |ctx, args| {
-            let prev_file = mem::replace(&mut ctx.source, file);
-
             // Don't leak the scopes from the call site. Instead, we use the
             // scope of captured variables we collected earlier.
             let prev_scopes = mem::take(&mut ctx.scopes);
             ctx.scopes.top = captured.clone();
 
-            let mut try_eval = || {
-                // Parse the arguments according to the parameter list.
-                for param in &params {
-                    let value = match &param.default {
-                        None => args.expect::<Value>(&param.name)?,
-                        Some(default) => args
-                            .named::<Value>(&param.name)?
-                            .unwrap_or_else(|| default.clone()),
-                    };
+            // Parse the arguments according to the parameter list.
+            for param in &params {
+                let value = match &param.default {
+                    None => args.expect::<Value>(&param.name)?,
+                    Some(default) => args
+                        .named::<Value>(&param.name)?
+                        .unwrap_or_else(|| default.clone()),
+                };
 
-                    ctx.scopes.def_mut(&param.name, value);
-                }
+                ctx.scopes.def_mut(&param.name, value);
+            }
 
-                body.eval(ctx)
-            };
+            let value = body.eval(ctx)?;
 
-            let result = try_eval();
             ctx.scopes = prev_scopes;
-            ctx.source = prev_file;
-            result
+            Ok(value)
         });
 
         Ok(Value::Func(func))
@@ -512,11 +485,7 @@ impl Eval for WithExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let callee = self
-            .callee
-            .eval(ctx)?
-            .cast::<Function>()
-            .map_err(Error::at(ctx.source, self.callee.span()))?;
+        let callee = self.callee.eval(ctx)?.cast::<Function>().at(self.callee.span())?;
 
         let name = callee.name().cloned();
         let applied = self.args.eval(ctx)?;
@@ -562,11 +531,8 @@ impl Eval for IfExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let condition = self
-            .condition
-            .eval(ctx)?
-            .cast::<bool>()
-            .map_err(Error::at(ctx.source, self.condition.span()))?;
+        let condition =
+            self.condition.eval(ctx)?.cast::<bool>().at(self.condition.span())?;
 
         if condition {
             self.if_body.eval(ctx)
@@ -584,15 +550,9 @@ impl Eval for WhileExpr {
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         let mut output = Value::None;
 
-        while self
-            .condition
-            .eval(ctx)?
-            .cast::<bool>()
-            .map_err(Error::at(ctx.source, self.condition.span()))?
-        {
+        while self.condition.eval(ctx)?.cast::<bool>().at(self.condition.span())? {
             let value = self.body.eval(ctx)?;
-            output = ops::join(output, value)
-                .map_err(Error::at(ctx.source, self.body.span()))?;
+            output = ops::join(output, value).at(self.body.span())?;
         }
 
         Ok(output)
@@ -614,7 +574,7 @@ impl Eval for ForExpr {
 
                     let value = self.body.eval(ctx)?;
                     output = ops::join(output, value)
-                        .map_err(Error::at(ctx.source, self.body.span()))?;
+                        .at(self.body.span())?;
                 }
 
                 ctx.scopes.exit();
@@ -640,14 +600,11 @@ impl Eval for ForExpr {
                 iter!(for (k => key, v => value) in dict.into_iter())
             }
             (ForPattern::KeyValue(_, _), Value::Str(_)) => {
-                bail!(ctx.source, self.pattern.span(), "mismatched pattern");
+                bail!(self.pattern.span(), "mismatched pattern");
             }
-            (_, iter) => bail!(
-                ctx.source,
-                self.iter.span(),
-                "cannot loop over {}",
-                iter.type_name(),
-            ),
+            (_, iter) => {
+                bail!(self.iter.span(), "cannot loop over {}", iter.type_name());
+            }
         }
     }
 }
@@ -656,11 +613,7 @@ impl Eval for ImportExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let path = self
-            .path
-            .eval(ctx)?
-            .cast::<EcoString>()
-            .map_err(Error::at(ctx.source, self.path.span()))?;
+        let path = self.path.eval(ctx)?.cast::<EcoString>().at(self.path.span())?;
 
         let file = ctx.import(&path, self.path.span())?;
         let module = &ctx.modules[&file];
@@ -676,7 +629,7 @@ impl Eval for ImportExpr {
                     if let Some(slot) = module.scope.get(&ident) {
                         ctx.scopes.def_mut(ident.as_str(), slot.borrow().clone());
                     } else {
-                        bail!(ctx.source, ident.span, "unresolved import");
+                        bail!(ident.span, "unresolved import");
                     }
                 }
             }
@@ -690,11 +643,7 @@ impl Eval for IncludeExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let path = self
-            .path
-            .eval(ctx)?
-            .cast::<EcoString>()
-            .map_err(Error::at(ctx.source, self.path.span()))?;
+        let path = self.path.eval(ctx)?.cast::<EcoString>().at(self.path.span())?;
 
         let file = ctx.import(&path, self.path.span())?;
         let module = &ctx.modules[&file];
@@ -753,42 +702,34 @@ impl Access for Expr {
         match self {
             Expr::Ident(ident) => ident.access(ctx),
             Expr::Call(call) => call.access(ctx),
-            _ => bail!(
-                ctx.source,
-                self.span(),
-                "cannot access this expression mutably",
-            ),
+            _ => bail!(self.span(), "cannot access this expression mutably"),
         }
     }
 }
 
 impl Access for Ident {
     fn access<'a>(&self, ctx: &'a mut EvalContext) -> TypResult<RefMut<'a, Value>> {
-        ctx.scopes
-            .get(self)
-            .ok_or("unknown variable")
-            .and_then(|slot| {
-                slot.try_borrow_mut().map_err(|_| "cannot mutate a constant")
-            })
-            .map_err(Error::at(ctx.source, self.span))
+        match ctx.scopes.get(self) {
+            Some(slot) => match slot.try_borrow_mut() {
+                Ok(guard) => Ok(guard),
+                Err(_) => bail!(self.span, "cannot mutate a constant"),
+            },
+            None => bail!(self.span, "unknown variable"),
+        }
     }
 }
 
 impl Access for CallExpr {
     fn access<'a>(&self, ctx: &'a mut EvalContext) -> TypResult<RefMut<'a, Value>> {
-        let source = ctx.source;
         let args = self.args.eval(ctx)?;
         let guard = self.callee.access(ctx)?;
 
         RefMut::try_map(guard, |value| match value {
-            Value::Array(array) => array
-                .get_mut(args.into_index()?)
-                .map_err(Error::at(source, self.span)),
+            Value::Array(array) => array.get_mut(args.into_index()?).at(self.span),
 
             Value::Dict(dict) => Ok(dict.get_mut(args.into_key()?)),
 
             v => bail!(
-                source,
                 self.callee.span(),
                 "expected collection, found {}",
                 v.type_name(),

@@ -1,13 +1,14 @@
 use std::fmt::{self, Debug, Formatter};
+use std::ops::Range;
 
 use super::{TokenMode, Tokens};
 use crate::diag::Error;
-use crate::source::SourceFile;
-use crate::syntax::{Pos, Span, Token};
+use crate::source::{SourceFile, SourceId};
+use crate::syntax::{IntoSpan, Pos, Span, Token};
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
-    /// The id of the parsed file.
+    /// The parsed file.
     source: &'s SourceFile,
     /// Parsing errors.
     errors: Vec<Error>,
@@ -20,18 +21,18 @@ pub struct Parser<'s> {
     /// The peeked token.
     /// (Same as `next` except if we are at the end of group, then `None`).
     peeked: Option<Token<'s>>,
-    /// The end position of the last (non-whitespace if in code mode) token.
-    prev_end: Pos,
-    /// The start position of the peeked token.
-    next_start: Pos,
+    /// The end index of the last (non-whitespace if in code mode) token.
+    prev_end: usize,
+    /// The start index of the peeked token.
+    next_start: usize,
 }
 
 /// A logical group of tokens, e.g. `[...]`.
 #[derive(Debug, Copy, Clone)]
 struct GroupEntry {
-    /// The start position of the group. Used by `Parser::end_group` to return
-    /// The group's full span.
-    pub start: Pos,
+    /// The start index of the group. Used by `Parser::end_group` to return the
+    /// group's full span.
+    pub start: usize,
     /// The kind of group this is. This decides which tokens will end the group.
     /// For example, a [`Group::Paren`] will be ended by
     /// [`Token::RightParen`].
@@ -69,14 +70,19 @@ impl<'s> Parser<'s> {
             groups: vec![],
             next,
             peeked: next,
-            prev_end: Pos::ZERO,
-            next_start: Pos::ZERO,
+            prev_end: 0,
+            next_start: 0,
         }
     }
 
     /// Finish parsing and return all errors.
     pub fn finish(self) -> Vec<Error> {
         self.errors
+    }
+
+    /// The id of the parsed source file.
+    pub fn id(&self) -> SourceId {
+        self.source.id()
     }
 
     /// Whether the end of the source string or group is reached.
@@ -95,7 +101,7 @@ impl<'s> Parser<'s> {
     pub fn eat_span(&mut self) -> Span {
         let start = self.next_start();
         self.eat();
-        Span::new(start, self.prev_end())
+        Span::new(self.id(), start, self.prev_end())
     }
 
     /// Consume the next token if it is the given one.
@@ -166,12 +172,12 @@ impl<'s> Parser<'s> {
     ///
     /// Has length zero if `peek()` returns `None`.
     pub fn peek_span(&self) -> Span {
-        Span::new(self.next_start(), self.next_end())
+        Span::new(self.id(), self.next_start(), self.next_end())
     }
 
     /// Peek at the source of the next token.
     pub fn peek_src(&self) -> &'s str {
-        self.get(self.peek_span())
+        self.get(self.next_start() .. self.next_end())
     }
 
     /// Checks whether the next token fulfills a condition.
@@ -184,39 +190,39 @@ impl<'s> Parser<'s> {
         self.peek().map_or(false, f)
     }
 
-    /// The byte position at which the last token ended.
+    /// The byte index at which the last token ended.
     ///
     /// Refers to the end of the last _non-whitespace_ token in code mode.
-    pub fn prev_end(&self) -> Pos {
-        self.prev_end.into()
+    pub fn prev_end(&self) -> usize {
+        self.prev_end
     }
 
-    /// The byte position at which the next token starts.
-    pub fn next_start(&self) -> Pos {
-        self.next_start.into()
+    /// The byte index at which the next token starts.
+    pub fn next_start(&self) -> usize {
+        self.next_start
     }
 
-    /// The byte position at which the next token will end.
+    /// The byte index at which the next token will end.
     ///
     /// Is the same as [`next_start()`][Self::next_start] if `peek()` returns
     /// `None`.
-    pub fn next_end(&self) -> Pos {
-        self.tokens.index().into()
+    pub fn next_end(&self) -> usize {
+        self.tokens.index()
     }
 
-    /// The span from `start` to [`self.prev_end()`](Self::prev_end).
-    pub fn span_from(&self, start: Pos) -> Span {
-        Span::new(start, self.prev_end())
-    }
-
-    /// Determine the column index for the given byte position.
-    pub fn column(&self, pos: Pos) -> usize {
-        self.source.pos_to_column(pos).unwrap()
+    /// Determine the column index for the given byte index.
+    pub fn column(&self, index: usize) -> usize {
+        self.source.byte_to_column(index).unwrap()
     }
 
     /// Slice out part of the source string.
-    pub fn get(&self, span: impl Into<Span>) -> &'s str {
-        self.tokens.scanner().get(span.into().to_range())
+    pub fn get(&self, range: Range<usize>) -> &'s str {
+        self.source.get(range).unwrap()
+    }
+
+    /// The span from `start` to [`self.prev_end()`](Self::prev_end).
+    pub fn span_from(&self, start: impl Into<Pos>) -> Span {
+        Span::new(self.id(), start, self.prev_end())
     }
 
     /// Continue parsing in a group.
@@ -271,17 +277,20 @@ impl<'s> Parser<'s> {
                 self.bump();
                 rescan = false;
             } else if required {
-                self.error(self.next_start(), format!("expected {}", end.name()));
+                self.error(
+                    self.next_start() .. self.next_start(),
+                    format!("expected {}", end.name()),
+                );
             }
         }
 
         // Rescan the peeked token if the mode changed.
         if rescan {
-            self.tokens.jump(self.prev_end().to_usize());
+            self.tokens.jump(self.prev_end());
             self.bump();
         }
 
-        Span::new(group.start, self.prev_end())
+        Span::new(self.id(), group.start, self.prev_end())
     }
 
     /// The tokenization mode outside of the current group.
@@ -296,8 +305,13 @@ impl<'s> Parser<'s> {
     }
 
     /// Add an error with location and message.
-    pub fn error(&mut self, span: impl Into<Span>, message: impl Into<String>) {
-        self.errors.push(Error::new(self.source.id(), span, message));
+    pub fn error(&mut self, span: impl IntoSpan, message: impl Into<String>) {
+        self.errors.push(Error::new(span.into_span(self.id()), message));
+    }
+
+    /// Add an error that `what` was expected at the given span.
+    pub fn expected_at(&mut self, span: impl IntoSpan, what: &str) {
+        self.error(span, format!("expected {}", what));
     }
 
     /// Eat the next token and add an error that it is not the expected `thing`.
@@ -312,11 +326,6 @@ impl<'s> Parser<'s> {
         } else {
             self.expected_at(self.next_start(), what);
         }
-    }
-
-    /// Add an error that `what` was expected at the given position.
-    pub fn expected_at(&mut self, pos: Pos, what: &str) {
-        self.error(pos, format!("expected {}", what));
     }
 
     /// Eat the next token and add an error that it is unexpected.
@@ -386,7 +395,7 @@ impl<'s> Parser<'s> {
 impl Debug for Parser<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let mut s = self.tokens.scanner();
-        s.jump(self.next_start().to_usize());
+        s.jump(self.next_start());
         write!(f, "Parser({}|{})", s.eaten(), s.rest())
     }
 }

@@ -17,7 +17,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
 
     let full = ctx.make_path(&path.v);
     let id = ctx.images.load(&full).map_err(|err| {
-        Error::boxed(args.source, path.span, match err.kind() {
+        Error::boxed(path.span, match err.kind() {
             io::ErrorKind::NotFound => "file not found".into(),
             _ => format!("failed to load image ({})", err),
         })

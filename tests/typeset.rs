@@ -19,7 +19,7 @@ use typst::layout::{layout, Element, Frame, Geometry, LayoutTree, Paint, Text};
 use typst::loading::FsLoader;
 use typst::parse::{parse, Scanner};
 use typst::source::{SourceFile, SourceId};
-use typst::syntax::Pos;
+use typst::syntax::{Pos, Span};
 use typst::Context;
 
 const TYP_DIR: &str = "./typ";
@@ -71,7 +71,6 @@ fn main() {
         let rhs = args.expect::<Value>("right-hand side")?;
         if lhs != rhs {
             return Err(Error::boxed(
-                args.source,
                 args.span,
                 format!("Assertion failed: {:?} != {:?}", lhs, rhs),
             ));
@@ -244,7 +243,7 @@ fn test_part(
     };
 
     // TODO: Also handle errors from other files.
-    errors.retain(|error| error.source == id);
+    errors.retain(|error| error.span.source == id);
     for error in &mut errors {
         error.trace.clear();
     }
@@ -258,7 +257,7 @@ fn test_part(
 
         let source = ctx.sources.get(id);
         for error in errors.iter() {
-            if error.source == id && !ref_errors.contains(error) {
+            if error.span.source == id && !ref_errors.contains(error) {
                 print!("    Not annotated | ");
                 print_error(&source, line, error);
             }
@@ -362,24 +361,25 @@ fn parse_metadata(source: &SourceFile) -> (Option<bool>, Vec<Error>) {
             let (delta, column) =
                 if s.eat_if(':') { (first, num(s) - 1) } else { (0, first) };
             let line = (i + comments) + delta;
-            source.line_column_to_pos(line, column).unwrap()
+            source.line_column_to_byte(line, column).unwrap().into()
         };
 
         let mut s = Scanner::new(rest);
         let start = pos(&mut s);
         let end = if s.eat_if('-') { pos(&mut s) } else { start };
+        let span = Span::new(source.id(), start, end);
 
-        errors.push(Error::new(source.id(), start .. end, s.rest().trim()));
+        errors.push(Error::new(span, s.rest().trim()));
     }
 
     (compare_ref, errors)
 }
 
 fn print_error(source: &SourceFile, line: usize, error: &Error) {
-    let start_line = 1 + line + source.pos_to_line(error.span.start).unwrap();
-    let start_col = 1 + source.pos_to_column(error.span.start).unwrap();
-    let end_line = 1 + line + source.pos_to_line(error.span.end).unwrap();
-    let end_col = 1 + source.pos_to_column(error.span.end).unwrap();
+    let start_line = 1 + line + source.byte_to_line(error.span.start.to_usize()).unwrap();
+    let start_col = 1 + source.byte_to_column(error.span.start.to_usize()).unwrap();
+    let end_line = 1 + line + source.byte_to_line(error.span.end.to_usize()).unwrap();
+    let end_col = 1 + source.byte_to_column(error.span.end.to_usize()).unwrap();
     println!(
         "Error: {}:{}-{}:{}: {}",
         start_line, start_col, end_line, end_col, error.message

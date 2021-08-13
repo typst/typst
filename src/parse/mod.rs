@@ -549,7 +549,7 @@ fn call(p: &mut Parser, callee: Expr) -> Option<Expr> {
     let mut args = match p.peek_direct() {
         Some(Token::LeftParen) => args(p),
         Some(Token::LeftBracket) => CallArgs {
-            span: Span::at(callee.span().end),
+            span: Span::at(p.id(), callee.span().end),
             items: vec![],
         },
         _ => {

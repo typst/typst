@@ -25,7 +25,7 @@ pub fn len(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
         Value::Str(v) => Value::Int(v.len() as i64),
         Value::Array(v) => Value::Int(v.len()),
         Value::Dict(v) => Value::Int(v.len()),
-        _ => bail!(args.source, span, "expected string, array or dictionary"),
+        _ => bail!(span, "expected string, array or dictionary"),
     })
 }
 
@@ -35,7 +35,7 @@ pub fn rgb(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
         if let Some(string) = args.eat::<Spanned<EcoString>>() {
             match RgbaColor::from_str(&string.v) {
                 Ok(color) => color,
-                Err(_) => bail!(args.source, string.span, "invalid color"),
+                Err(_) => bail!(string.span, "invalid color"),
             }
         } else {
             let r = args.expect("red component")?;
@@ -60,7 +60,7 @@ pub fn max(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
 
 /// Find the minimum or maximum of a sequence of values.
 fn minmax(args: &mut FuncArgs, goal: Ordering) -> TypResult<Value> {
-    let &mut FuncArgs { source, span, .. } = args;
+    let span = args.span;
 
     let mut extremum = args.expect::<Value>("value")?;
     for value in args.all::<Value>() {
@@ -71,7 +71,6 @@ fn minmax(args: &mut FuncArgs, goal: Ordering) -> TypResult<Value> {
                 }
             }
             None => bail!(
-                source,
                 span,
                 "cannot compare {} with {}",
                 extremum.type_name(),
