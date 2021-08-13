@@ -202,6 +202,7 @@ impl_visitors! {
         match arg {
             CallArg::Pos(expr) => v.visit_expr(expr),
             CallArg::Named(named) => v.visit_expr(r!(named.expr)),
+            CallArg::Spread(expr) => v.visit_expr(expr),
         }
     }
 
@@ -219,6 +220,7 @@ impl_visitors! {
                 v.visit_binding(r!(named.name));
                 v.visit_expr(r!(named.expr));
             }
+            ClosureParam::Sink(binding) => v.visit_binding(binding),
         }
     }
 

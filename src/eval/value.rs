@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::rc::Rc;
 
-use super::{ops, Array, Dict, Function, Template, TemplateFunc};
+use super::{ops, Array, Dict, FuncArgs, Function, Template, TemplateFunc};
 use crate::color::{Color, RgbaColor};
 use crate::diag::StrResult;
 use crate::exec::ExecContext;
@@ -48,6 +48,8 @@ pub enum Value {
     Func(Function),
     /// A dynamic value.
     Dyn(Dynamic),
+    /// Captured arguments to a function.
+    Args(Rc<FuncArgs>),
 }
 
 impl Value {
@@ -78,6 +80,7 @@ impl Value {
             Self::Dict(_) => Dict::TYPE_NAME,
             Self::Template(_) => Template::TYPE_NAME,
             Self::Func(_) => Function::TYPE_NAME,
+            Self::Args(_) => Rc::<FuncArgs>::TYPE_NAME,
             Self::Dyn(v) => v.type_name(),
         }
     }
@@ -387,4 +390,5 @@ primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
 primitive! { Template: "template", Template }
 primitive! { Function: "function", Func }
+primitive! { Rc<FuncArgs>: "arguments", Args }
 primitive! { f64: "float", Float, Int(v) => v as f64 }

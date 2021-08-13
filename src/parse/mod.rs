@@ -406,6 +406,10 @@ fn parenthesized(p: &mut Parser) -> Option<Expr> {
         },
         [CallArg::Pos(_), ..] => array(p, items, span),
         [CallArg::Named(_), ..] => dict(p, items, span),
+        [CallArg::Spread(expr), ..] => {
+            p.error(expr.span(), "spreading is not allowed here");
+            return None;
+        }
     })
 }
 
@@ -443,6 +447,10 @@ fn collection(p: &mut Parser) -> (Vec<CallArg>, bool) {
 
 /// Parse an expression or a named pair.
 fn item(p: &mut Parser) -> Option<CallArg> {
+    if p.eat_if(Token::Dots) {
+        return expr(p).map(CallArg::Spread);
+    }
+
     let first = expr(p)?;
     if p.eat_if(Token::Colon) {
         if let Expr::Ident(name) = first {
@@ -457,7 +465,8 @@ fn item(p: &mut Parser) -> Option<CallArg> {
     }
 }
 
-/// Convert a collection into an array, producing errors for named items.
+/// Convert a collection into an array, producing errors for anything other than
+/// expressions.
 fn array(p: &mut Parser, items: Vec<CallArg>, span: Span) -> Expr {
     let iter = items.into_iter().filter_map(|item| match item {
         CallArg::Pos(expr) => Some(expr),
@@ -465,11 +474,16 @@ fn array(p: &mut Parser, items: Vec<CallArg>, span: Span) -> Expr {
             p.error(item.span(), "expected expression, found named pair");
             None
         }
+        CallArg::Spread(_) => {
+            p.error(item.span(), "spreading is not allowed here");
+            None
+        }
     });
     Expr::Array(ArrayExpr { span, items: iter.collect() })
 }
 
-/// Convert a collection into a dictionary, producing errors for expressions.
+/// Convert a collection into a dictionary, producing errors for anything other
+/// than named pairs.
 fn dict(p: &mut Parser, items: Vec<CallArg>, span: Span) -> Expr {
     let iter = items.into_iter().filter_map(|item| match item {
         CallArg::Named(named) => Some(named),
@@ -477,18 +491,23 @@ fn dict(p: &mut Parser, items: Vec<CallArg>, span: Span) -> Expr {
             p.error(item.span(), "expected named pair, found expression");
             None
         }
+        CallArg::Spread(_) => {
+            p.error(item.span(), "spreading is not allowed here");
+            None
+        }
     });
     Expr::Dict(DictExpr { span, items: iter.collect() })
 }
 
 /// Convert a collection into a list of parameters, producing errors for
-/// anything other than identifiers and named pairs.
+/// anything other than identifiers, spread operations and named pairs.
 fn params(p: &mut Parser, items: Vec<CallArg>) -> Vec<ClosureParam> {
     let iter = items.into_iter().filter_map(|item| match item {
-        CallArg::Pos(Expr::Ident(id)) => Some(ClosureParam::Pos(id)),
+        CallArg::Pos(Expr::Ident(ident)) => Some(ClosureParam::Pos(ident)),
         CallArg::Named(named) => Some(ClosureParam::Named(named)),
+        CallArg::Spread(Expr::Ident(ident)) => Some(ClosureParam::Sink(ident)),
         _ => {
-            p.error(item.span(), "expected parameter");
+            p.error(item.span(), "expected identifier");
             None
         }
     });

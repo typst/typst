@@ -357,6 +357,10 @@ impl Pretty for CallArg {
         match self {
             Self::Pos(expr) => expr.pretty(p),
             Self::Named(named) => named.pretty(p),
+            Self::Spread(expr) => {
+                p.push_str("..");
+                expr.pretty(p);
+            }
         }
     }
 }
@@ -375,6 +379,10 @@ impl Pretty for ClosureParam {
         match self {
             Self::Pos(ident) => ident.pretty(p),
             Self::Named(named) => named.pretty(p),
+            Self::Sink(ident) => {
+                p.push_str("..");
+                ident.pretty(p);
+            }
         }
     }
 }
@@ -496,6 +504,7 @@ impl Pretty for Value {
             Self::Dict(v) => v.pretty(p),
             Self::Template(v) => v.pretty(p),
             Self::Func(v) => v.pretty(p),
+            Self::Args(v) => v.pretty(p),
             Self::Dyn(v) => v.pretty(p),
         }
     }

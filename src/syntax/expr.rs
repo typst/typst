@@ -408,13 +408,15 @@ pub struct CallArgs {
     pub items: Vec<CallArg>,
 }
 
-/// An argument to a function call: `12` or `draw: false`.
+/// An argument to a function call.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CallArg {
-    /// A positional argument.
+    /// A positional argument: `12`.
     Pos(Expr),
-    /// A named argument.
+    /// A named argument: `draw: false`.
     Named(Named),
+    /// A spreaded argument: `..things`.
+    Spread(Expr),
 }
 
 impl CallArg {
@@ -423,6 +425,7 @@ impl CallArg {
         match self {
             Self::Pos(expr) => expr.span(),
             Self::Named(named) => named.span(),
+            Self::Spread(expr) => expr.span(),
         }
     }
 }
@@ -442,13 +445,26 @@ pub struct ClosureExpr {
     pub body: Rc<Expr>,
 }
 
-/// An parameter to a closure: `x` or `draw: false`.
+/// An parameter to a closure.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ClosureParam {
-    /// A positional parameter.
+    /// A positional parameter: `x`.
     Pos(Ident),
-    /// A named parameter with a default value.
+    /// A named parameter with a default value: `draw: false`.
     Named(Named),
+    /// A parameter sink: `..args`.
+    Sink(Ident),
+}
+
+impl ClosureParam {
+    /// The source code location.
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Pos(ident) => ident.span,
+            Self::Named(named) => named.span(),
+            Self::Sink(ident) => ident.span,
+        }
+    }
 }
 
 /// A with expression: `f with (x, y: 1)`.

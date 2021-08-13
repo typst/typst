@@ -1,5 +1,3 @@
-//! An economical string.
-
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::convert::TryFrom;

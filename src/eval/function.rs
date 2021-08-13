@@ -60,7 +60,7 @@ impl PartialEq for Function {
 pub struct FuncArgs {
     /// The span of the whole argument list.
     pub span: Span,
-    /// The positional arguments.
+    /// The positional and named arguments.
     pub items: Vec<FuncArg>,
 }
 
@@ -118,20 +118,28 @@ impl FuncArgs {
     where
         T: Cast<Spanned<Value>>,
     {
-        let index = match self
-            .items
-            .iter()
-            .filter_map(|arg| arg.name.as_deref())
-            .position(|other| name == other)
-        {
-            Some(index) => index,
-            None => return Ok(None),
-        };
+        // We don't quit once we have a match because when multiple matches
+        // exist, we want to remove all of them and use the last one.
+        let mut i = 0;
+        let mut found = None;
+        while i < self.items.len() {
+            if self.items[i].name.as_deref() == Some(name) {
+                let value = self.items.remove(i).value;
+                let span = value.span;
+                found = Some(T::cast(value).at(span)?);
+            } else {
+                i += 1;
+            }
+        }
+        Ok(found)
+    }
 
-        let value = self.items.remove(index).value;
-        let span = value.span;
-
-        T::cast(value).map(Some).at(span)
+    /// Take out all arguments into a new instance.
+    pub fn take(&mut self) -> Self {
+        Self {
+            span: self.span,
+            items: std::mem::take(&mut self.items),
+        }
     }
 
     /// Return an "unexpected argument" error if there is any remaining

@@ -386,33 +386,49 @@ impl Eval for CallArgs {
     type Output = FuncArgs;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        Ok(FuncArgs {
-            span: self.span,
-            items: self
-                .items
-                .iter()
-                .map(|arg| arg.eval(ctx))
-                .collect::<TypResult<Vec<_>>>()?,
-        })
-    }
-}
+        let mut items = Vec::with_capacity(self.items.len());
 
-impl Eval for CallArg {
-    type Output = FuncArg;
+        for arg in &self.items {
+            let span = arg.span();
+            match arg {
+                CallArg::Pos(expr) => {
+                    items.push(FuncArg {
+                        span,
+                        name: None,
+                        value: Spanned::new(expr.eval(ctx)?, expr.span()),
+                    });
+                }
+                CallArg::Named(Named { name, expr }) => {
+                    items.push(FuncArg {
+                        span,
+                        name: Some(name.string.clone()),
+                        value: Spanned::new(expr.eval(ctx)?, expr.span()),
+                    });
+                }
+                CallArg::Spread(expr) => match expr.eval(ctx)? {
+                    Value::Args(args) => {
+                        items.extend(args.items.iter().cloned());
+                    }
+                    Value::Array(array) => {
+                        items.extend(array.into_iter().map(|value| FuncArg {
+                            span,
+                            name: None,
+                            value: Spanned::new(value, span),
+                        }));
+                    }
+                    Value::Dict(dict) => {
+                        items.extend(dict.into_iter().map(|(key, value)| FuncArg {
+                            span,
+                            name: Some(key),
+                            value: Spanned::new(value, span),
+                        }));
+                    }
+                    v => bail!(expr.span(), "cannot spread {}", v.type_name()),
+                },
+            }
+        }
 
-    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        Ok(match self {
-            Self::Pos(expr) => FuncArg {
-                span: self.span(),
-                name: None,
-                value: Spanned::new(expr.eval(ctx)?, expr.span()),
-            },
-            Self::Named(Named { name, expr }) => FuncArg {
-                span: self.span(),
-                name: Some(name.string.clone()),
-                value: Spanned::new(expr.eval(ctx)?, expr.span()),
-            },
-        })
+        Ok(FuncArgs { span: self.span, items })
     }
 }
 
@@ -420,25 +436,7 @@ impl Eval for ClosureExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        struct FuncParam {
-            name: EcoString,
-            default: Option<Value>,
-        }
-
-        // Evaluate default values for named parameters.
-        let params: Vec<_> = self
-            .params
-            .iter()
-            .map(|param| match param {
-                ClosureParam::Pos(name) => {
-                    Ok(FuncParam { name: name.string.clone(), default: None })
-                }
-                ClosureParam::Named(Named { name, expr }) => Ok(FuncParam {
-                    name: name.string.clone(),
-                    default: Some(expr.eval(ctx)?),
-                }),
-            })
-            .collect::<TypResult<_>>()?;
+        let name = self.name.as_ref().map(|name| name.string.clone());
 
         // Collect captured variables.
         let captured = {
@@ -447,10 +445,30 @@ impl Eval for ClosureExpr {
             visitor.finish()
         };
 
+        let mut sink = None;
+        let mut params = Vec::with_capacity(self.params.len());
+
+        // Collect parameters and an optional sink parameter.
+        for param in &self.params {
+            match param {
+                ClosureParam::Pos(name) => {
+                    params.push((name.string.clone(), None));
+                }
+                ClosureParam::Named(Named { name, expr }) => {
+                    params.push((name.string.clone(), Some(expr.eval(ctx)?)));
+                }
+                ClosureParam::Sink(name) => {
+                    if sink.is_some() {
+                        bail!(name.span, "only one argument sink is allowed");
+                    }
+                    sink = Some(name.string.clone());
+                }
+            }
+        }
+
         // Clone the body expression so that we don't have a lifetime
         // dependence on the AST.
         let body = Rc::clone(&self.body);
-        let name = self.name.as_ref().map(|name| name.string.clone());
 
         // Define the actual function.
         let func = Function::new(name, move |ctx, args| {
@@ -460,19 +478,21 @@ impl Eval for ClosureExpr {
             ctx.scopes.top = captured.clone();
 
             // Parse the arguments according to the parameter list.
-            for param in &params {
-                let value = match &param.default {
-                    None => args.expect::<Value>(&param.name)?,
-                    Some(default) => args
-                        .named::<Value>(&param.name)?
-                        .unwrap_or_else(|| default.clone()),
-                };
+            for (param, default) in &params {
+                ctx.scopes.def_mut(param, match default {
+                    None => args.expect::<Value>(param)?,
+                    Some(default) => {
+                        args.named::<Value>(param)?.unwrap_or_else(|| default.clone())
+                    }
+                });
+            }
 
-                ctx.scopes.def_mut(&param.name, value);
+            // Put the remaining arguments into the sink.
+            if let Some(sink) = &sink {
+                ctx.scopes.def_mut(sink, Rc::new(args.take()));
             }
 
             let value = body.eval(ctx)?;
-
             ctx.scopes = prev_scopes;
             Ok(value)
         });
@@ -486,27 +506,11 @@ impl Eval for WithExpr {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         let callee = self.callee.eval(ctx)?.cast::<Function>().at(self.callee.span())?;
-
-        let name = callee.name().cloned();
         let applied = self.args.eval(ctx)?;
 
+        let name = callee.name().cloned();
         let func = Function::new(name, move |ctx, args| {
-            // Remove named arguments that were overridden.
-            let kept: Vec<_> = applied
-                .items
-                .iter()
-                .filter(|arg| {
-                    arg.name.is_none()
-                        || args.items.iter().all(|other| arg.name != other.name)
-                })
-                .cloned()
-                .collect();
-
-            // Preprend the applied arguments so that the positional arguments
-            // are in the right order.
-            args.items.splice(.. 0, kept);
-
-            // Call the original function.
+            args.items.splice(.. 0, applied.items.iter().cloned());
             callee(ctx, args)
         });
 
@@ -726,9 +730,7 @@ impl Access for CallExpr {
 
         RefMut::try_map(guard, |value| match value {
             Value::Array(array) => array.get_mut(args.into_index()?).at(self.span),
-
             Value::Dict(dict) => Ok(dict.get_mut(args.into_key()?)),
-
             v => bail!(
                 self.callee.span(),
                 "expected collection, found {}",
