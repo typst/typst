@@ -180,7 +180,7 @@ impl Loader for FsLoader {
             let handle = Handle::from_file(file)?;
             Ok(FileHash(fxhash::hash64(&handle)))
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, "not a file"))
+            Err(io::ErrorKind::NotFound.into())
         }
     }
 
