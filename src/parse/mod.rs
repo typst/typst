@@ -65,10 +65,12 @@ where
                 if call.wide {
                     let start = p.next_start();
                     let tree = tree_while(p, true, f);
-                    call.args.items.push(CallArg::Pos(Expr::Template(TemplateExpr {
-                        span: p.span_from(start),
-                        tree: Rc::new(tree),
-                    })));
+                    call.args.items.push(CallArg::Pos(Expr::Template(Box::new(
+                        TemplateExpr {
+                            span: p.span_from(start),
+                            tree: Rc::new(tree),
+                        },
+                    ))));
                 }
             }
 
@@ -181,7 +183,7 @@ fn raw(p: &mut Parser, token: RawToken) -> SyntaxNode {
     if !token.terminated {
         p.error(span.end, "expected backtick(s)");
     }
-    SyntaxNode::Raw(raw)
+    SyntaxNode::Raw(Box::new(raw))
 }
 
 /// Parse a heading.
@@ -201,7 +203,11 @@ fn heading(p: &mut Parser) -> SyntaxNode {
     }
 
     let body = tree_indented(p, column);
-    SyntaxNode::Heading(HeadingNode { span: p.span_from(start), level, body })
+    SyntaxNode::Heading(Box::new(HeadingNode {
+        span: p.span_from(start),
+        level,
+        body,
+    }))
 }
 
 /// Parse a single list item.
@@ -210,7 +216,7 @@ fn list_item(p: &mut Parser) -> SyntaxNode {
     let column = p.column(start);
     p.eat_assert(Token::Hyph);
     let body = tree_indented(p, column);
-    SyntaxNode::List(ListItem { span: p.span_from(start), body })
+    SyntaxNode::List(Box::new(ListItem { span: p.span_from(start), body }))
 }
 
 /// Parse a single enum item.
@@ -219,7 +225,11 @@ fn enum_item(p: &mut Parser, number: Option<usize>) -> SyntaxNode {
     let column = p.column(start);
     p.eat_assert(Token::Numbering(number));
     let body = tree_indented(p, column);
-    SyntaxNode::Enum(EnumItem { span: p.span_from(start), number, body })
+    SyntaxNode::Enum(Box::new(EnumItem {
+        span: p.span_from(start),
+        number,
+        body,
+    }))
 }
 
 /// Parse an expression.
@@ -239,8 +249,8 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) -> Option<Expr> {
     let mut lhs = match p.eat_map(UnOp::from_token) {
         Some(op) => {
             let prec = op.precedence();
-            let expr = Box::new(expr_with(p, atomic, prec)?);
-            Expr::Unary(UnaryExpr { span: p.span_from(start), op, expr })
+            let expr = expr_with(p, atomic, prec)?;
+            Expr::Unary(Box::new(UnaryExpr { span: p.span_from(start), op, expr }))
         }
         None => primary(p, atomic)?,
     };
@@ -281,12 +291,12 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) -> Option<Expr> {
         }
 
         let rhs = match expr_with(p, atomic, prec) {
-            Some(rhs) => Box::new(rhs),
+            Some(rhs) => rhs,
             None => break,
         };
 
         let span = lhs.span().join(rhs.span());
-        lhs = Expr::Binary(BinaryExpr { span, lhs: Box::new(lhs), op, rhs });
+        lhs = Expr::Binary(Box::new(BinaryExpr { span, lhs, op, rhs }));
     }
 
     Some(lhs)
@@ -309,14 +319,14 @@ fn primary(p: &mut Parser, atomic: bool) -> Option<Expr> {
             // Arrow means this is a closure's lone parameter.
             Some(if !atomic && p.eat_if(Token::Arrow) {
                 let body = expr(p)?;
-                Expr::Closure(ClosureExpr {
+                Expr::Closure(Box::new(ClosureExpr {
                     span: ident.span.join(body.span()),
                     name: None,
                     params: vec![ClosureParam::Pos(ident)],
                     body: Rc::new(body),
-                })
+                }))
             } else {
-                Expr::Ident(ident)
+                Expr::Ident(Box::new(ident))
             })
         }
 
@@ -344,18 +354,18 @@ fn primary(p: &mut Parser, atomic: bool) -> Option<Expr> {
 /// Parse a literal.
 fn literal(p: &mut Parser) -> Option<Expr> {
     let span = p.peek_span();
-    let expr = match p.peek()? {
+    let lit = match p.peek()? {
         // Basic values.
-        Token::None => Expr::None(span),
-        Token::Auto => Expr::Auto(span),
-        Token::Bool(b) => Expr::Bool(span, b),
-        Token::Int(i) => Expr::Int(span, i),
-        Token::Float(f) => Expr::Float(span, f),
-        Token::Length(val, unit) => Expr::Length(span, val, unit),
-        Token::Angle(val, unit) => Expr::Angle(span, val, unit),
-        Token::Percent(p) => Expr::Percent(span, p),
-        Token::Fraction(p) => Expr::Fractional(span, p),
-        Token::Str(token) => Expr::Str(span, {
+        Token::None => Lit::None(span),
+        Token::Auto => Lit::Auto(span),
+        Token::Bool(b) => Lit::Bool(span, b),
+        Token::Int(i) => Lit::Int(span, i),
+        Token::Float(f) => Lit::Float(span, f),
+        Token::Length(val, unit) => Lit::Length(span, val, unit),
+        Token::Angle(val, unit) => Lit::Angle(span, val, unit),
+        Token::Percent(p) => Lit::Percent(span, p),
+        Token::Fraction(p) => Lit::Fractional(span, p),
+        Token::Str(token) => Lit::Str(span, {
             if !token.terminated {
                 p.expected_at(span.end, "quote");
             }
@@ -364,7 +374,7 @@ fn literal(p: &mut Parser) -> Option<Expr> {
         _ => return None,
     };
     p.eat();
-    Some(expr)
+    Some(Expr::Lit(Box::new(lit)))
 }
 
 /// Parse something that starts with a parenthesis, which can be either of:
@@ -387,21 +397,19 @@ fn parenthesized(p: &mut Parser) -> Option<Expr> {
     if p.eat_if(Token::Arrow) {
         let params = params(p, items);
         let body = expr(p)?;
-        return Some(Expr::Closure(ClosureExpr {
+        return Some(Expr::Closure(Box::new(ClosureExpr {
             span: span.join(body.span()),
             name: None,
             params,
             body: Rc::new(body),
-        }));
+        })));
     }
 
     // Find out which kind of collection this is.
     Some(match items.as_slice() {
         [] => array(p, items, span),
         [CallArg::Pos(_)] if !has_comma => match items.into_iter().next() {
-            Some(CallArg::Pos(expr)) => {
-                Expr::Group(GroupExpr { span, expr: Box::new(expr) })
-            }
+            Some(CallArg::Pos(expr)) => Expr::Group(Box::new(GroupExpr { span, expr })),
             _ => unreachable!(),
         },
         [CallArg::Pos(_), ..] => array(p, items, span),
@@ -454,7 +462,7 @@ fn item(p: &mut Parser) -> Option<CallArg> {
     let first = expr(p)?;
     if p.eat_if(Token::Colon) {
         if let Expr::Ident(name) = first {
-            Some(CallArg::Named(Named { name, expr: expr(p)? }))
+            Some(CallArg::Named(Named { name: *name, expr: expr(p)? }))
         } else {
             p.error(first.span(), "expected identifier");
             expr(p);
@@ -479,7 +487,7 @@ fn array(p: &mut Parser, items: Vec<CallArg>, span: Span) -> Expr {
             None
         }
     });
-    Expr::Array(ArrayExpr { span, items: iter.collect() })
+    Expr::Array(Box::new(ArrayExpr { span, items: iter.collect() }))
 }
 
 /// Convert a collection into a dictionary, producing errors for anything other
@@ -496,16 +504,16 @@ fn dict(p: &mut Parser, items: Vec<CallArg>, span: Span) -> Expr {
             None
         }
     });
-    Expr::Dict(DictExpr { span, items: iter.collect() })
+    Expr::Dict(Box::new(DictExpr { span, items: iter.collect() }))
 }
 
 /// Convert a collection into a list of parameters, producing errors for
 /// anything other than identifiers, spread operations and named pairs.
 fn params(p: &mut Parser, items: Vec<CallArg>) -> Vec<ClosureParam> {
     let iter = items.into_iter().filter_map(|item| match item {
-        CallArg::Pos(Expr::Ident(ident)) => Some(ClosureParam::Pos(ident)),
+        CallArg::Pos(Expr::Ident(ident)) => Some(ClosureParam::Pos(*ident)),
         CallArg::Named(named) => Some(ClosureParam::Named(named)),
-        CallArg::Spread(Expr::Ident(ident)) => Some(ClosureParam::Sink(ident)),
+        CallArg::Spread(Expr::Ident(ident)) => Some(ClosureParam::Sink(*ident)),
         _ => {
             p.error(item.span(), "expected identifier");
             None
@@ -518,7 +526,7 @@ fn params(p: &mut Parser, items: Vec<CallArg>) -> Vec<ClosureParam> {
 /// anything other than identifiers.
 fn idents(p: &mut Parser, items: Vec<CallArg>) -> Vec<Ident> {
     let iter = items.into_iter().filter_map(|item| match item {
-        CallArg::Pos(Expr::Ident(id)) => Some(id),
+        CallArg::Pos(Expr::Ident(ident)) => Some(*ident),
         _ => {
             p.error(item.span(), "expected identifier");
             None
@@ -532,7 +540,7 @@ fn template(p: &mut Parser) -> Expr {
     p.start_group(Group::Bracket, TokenMode::Markup);
     let tree = Rc::new(tree(p));
     let span = p.end_group();
-    Expr::Template(TemplateExpr { span, tree })
+    Expr::Template(Box::new(TemplateExpr { span, tree }))
 }
 
 /// Parse a block expression: `{...}`.
@@ -553,7 +561,7 @@ fn block(p: &mut Parser, scoping: bool) -> Expr {
         p.eat_while(|t| matches!(t, Token::Space(_)));
     }
     let span = p.end_group();
-    Expr::Block(BlockExpr { span, exprs, scoping })
+    Expr::Block(Box::new(BlockExpr { span, exprs, scoping }))
 }
 
 /// Parse a function call.
@@ -582,12 +590,12 @@ fn call(p: &mut Parser, callee: Expr) -> Option<Expr> {
         args.items.push(CallArg::Pos(body));
     }
 
-    Some(Expr::Call(CallExpr {
+    Some(Expr::Call(Box::new(CallExpr {
         span: p.span_from(callee.span().start),
-        callee: Box::new(callee),
+        callee,
         wide,
         args,
-    }))
+    })))
 }
 
 /// Parse the arguments to a function call.
@@ -601,11 +609,11 @@ fn args(p: &mut Parser) -> CallArgs {
 /// Parse a with expression.
 fn with_expr(p: &mut Parser, callee: Expr) -> Option<Expr> {
     if p.peek() == Some(Token::LeftParen) {
-        Some(Expr::With(WithExpr {
+        Some(Expr::With(Box::new(WithExpr {
             span: p.span_from(callee.span().start),
-            callee: Box::new(callee),
+            callee,
             args: args(p),
-        }))
+        })))
     } else {
         p.expected("argument list");
         None
@@ -622,7 +630,7 @@ fn let_expr(p: &mut Parser) -> Option<Expr> {
         let mut init = None;
 
         if p.eat_if(Token::With) {
-            init = with_expr(p, Expr::Ident(binding.clone()));
+            init = with_expr(p, Expr::Ident(Box::new(binding.clone())));
         } else {
             // If a parenthesis follows, this is a function definition.
             let mut maybe_params = None;
@@ -643,20 +651,20 @@ fn let_expr(p: &mut Parser) -> Option<Expr> {
             // Rewrite into a closure expression if it's a function definition.
             if let Some(params) = maybe_params {
                 let body = init?;
-                init = Some(Expr::Closure(ClosureExpr {
+                init = Some(Expr::Closure(Box::new(ClosureExpr {
                     span: binding.span.join(body.span()),
                     name: Some(binding.clone()),
                     params,
                     body: Rc::new(body),
-                }));
+                })));
             }
         }
 
-        let_expr = Some(Expr::Let(LetExpr {
+        let_expr = Some(Expr::Let(Box::new(LetExpr {
             span: p.span_from(start),
             binding,
-            init: init.map(Box::new),
-        }));
+            init,
+        })));
     }
 
     let_expr
@@ -680,12 +688,12 @@ fn if_expr(p: &mut Parser) -> Option<Expr> {
                 else_body = body(p);
             }
 
-            if_expr = Some(Expr::If(IfExpr {
+            if_expr = Some(Expr::If(Box::new(IfExpr {
                 span: p.span_from(start),
-                condition: Box::new(condition),
-                if_body: Box::new(if_body),
-                else_body: else_body.map(Box::new),
-            }));
+                condition,
+                if_body,
+                else_body,
+            })));
         }
     }
 
@@ -700,11 +708,11 @@ fn while_expr(p: &mut Parser) -> Option<Expr> {
     let mut while_expr = None;
     if let Some(condition) = expr(p) {
         if let Some(body) = body(p) {
-            while_expr = Some(Expr::While(WhileExpr {
+            while_expr = Some(Expr::While(Box::new(WhileExpr {
                 span: p.span_from(start),
-                condition: Box::new(condition),
-                body: Box::new(body),
-            }));
+                condition,
+                body,
+            })));
         }
     }
 
@@ -721,12 +729,12 @@ fn for_expr(p: &mut Parser) -> Option<Expr> {
         if p.eat_expect(Token::In) {
             if let Some(iter) = expr(p) {
                 if let Some(body) = body(p) {
-                    for_expr = Some(Expr::For(ForExpr {
+                    for_expr = Some(Expr::For(Box::new(ForExpr {
                         span: p.span_from(start),
                         pattern,
-                        iter: Box::new(iter),
-                        body: Box::new(body),
-                    }));
+                        iter,
+                        body,
+                    })));
                 }
             }
         }
@@ -768,11 +776,11 @@ fn import_expr(p: &mut Parser) -> Option<Expr> {
     let mut import_expr = None;
     if p.eat_expect(Token::From) {
         if let Some(path) = expr(p) {
-            import_expr = Some(Expr::Import(ImportExpr {
+            import_expr = Some(Expr::Import(Box::new(ImportExpr {
                 span: p.span_from(start),
                 imports,
-                path: Box::new(path),
-            }));
+                path,
+            })));
         }
     }
 
@@ -785,10 +793,7 @@ fn include_expr(p: &mut Parser) -> Option<Expr> {
     p.eat_assert(Token::Include);
 
     expr(p).map(|path| {
-        Expr::Include(IncludeExpr {
-            span: p.span_from(start),
-            path: Box::new(path),
-        })
+        Expr::Include(Box::new(IncludeExpr { span: p.span_from(start), path }))
     })
 }
 

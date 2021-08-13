@@ -90,8 +90,8 @@ impl Pretty for SyntaxNode {
     fn pretty(&self, p: &mut Printer) {
         match self {
             // TODO: Handle escaping.
-            Self::Text(text) => p.push_str(text),
             Self::Space => p.push(' '),
+            Self::Text(text) => p.push_str(text),
             Self::Linebreak(_) => p.push_str(r"\"),
             Self::Parbreak(_) => p.push_str("\n\n"),
             Self::Strong(_) => p.push('*'),
@@ -196,17 +196,8 @@ impl Pretty for EnumItem {
 impl Pretty for Expr {
     fn pretty(&self, p: &mut Printer) {
         match self {
-            Self::None(_) => p.push_str("none"),
-            Self::Auto(_) => p.push_str("auto"),
-            Self::Bool(_, v) => v.pretty(p),
-            Self::Int(_, v) => v.pretty(p),
-            Self::Float(_, v) => v.pretty(p),
-            Self::Length(_, v, u) => write!(p, "{}{}", v, u).unwrap(),
-            Self::Angle(_, v, u) => write!(p, "{}{}", v, u).unwrap(),
-            Self::Percent(_, v) => write!(p, "{}%", v).unwrap(),
-            Self::Fractional(_, v) => write!(p, "{}fr", v).unwrap(),
-            Self::Str(_, v) => v.pretty(p),
             Self::Ident(v) => v.pretty(p),
+            Self::Lit(v) => v.pretty(p),
             Self::Array(v) => v.pretty(p),
             Self::Dict(v) => v.pretty(p),
             Self::Template(v) => v.pretty(p),
@@ -223,6 +214,23 @@ impl Pretty for Expr {
             Self::For(v) => v.pretty(p),
             Self::Import(v) => v.pretty(p),
             Self::Include(v) => v.pretty(p),
+        }
+    }
+}
+
+impl Pretty for Lit {
+    fn pretty(&self, p: &mut Printer) {
+        match self {
+            Self::None(_) => p.push_str("none"),
+            Self::Auto(_) => p.push_str("auto"),
+            Self::Bool(_, v) => v.pretty(p),
+            Self::Int(_, v) => v.pretty(p),
+            Self::Float(_, v) => v.pretty(p),
+            Self::Length(_, v, u) => write!(p, "{}{}", v, u).unwrap(),
+            Self::Angle(_, v, u) => write!(p, "{}{}", v, u).unwrap(),
+            Self::Percent(_, v) => write!(p, "{}%", v).unwrap(),
+            Self::Fractional(_, v) => write!(p, "{}fr", v).unwrap(),
+            Self::Str(_, v) => v.pretty(p),
         }
     }
 }

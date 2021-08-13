@@ -86,8 +86,8 @@ impl_visitors! {
 
     visit_node(v, node: SyntaxNode) {
         match node {
-            SyntaxNode::Text(_) => {}
             SyntaxNode::Space => {}
+            SyntaxNode::Text(_) => {}
             SyntaxNode::Linebreak(_) => {}
             SyntaxNode::Parbreak(_) => {}
             SyntaxNode::Strong(_) => {}
@@ -114,17 +114,8 @@ impl_visitors! {
 
     visit_expr(v, expr: Expr) {
         match expr {
-            Expr::None(_) => {}
-            Expr::Auto(_) => {}
-            Expr::Bool(_, _) => {}
-            Expr::Int(_, _) => {}
-            Expr::Float(_, _) => {}
-            Expr::Length(_, _, _) => {}
-            Expr::Angle(_, _, _) => {}
-            Expr::Percent(_, _) => {}
-            Expr::Fractional(_, _) => {}
-            Expr::Str(_, _) => {}
             Expr::Ident(_) => {}
+            Expr::Lit(_) => {},
             Expr::Array(e) => v.visit_array(e),
             Expr::Dict(e) => v.visit_dict(e),
             Expr::Template(e) => v.visit_template(e),

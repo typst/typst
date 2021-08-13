@@ -3,10 +3,10 @@ use super::*;
 /// A syntax node, encompassing a single logical entity of parsed source code.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyntaxNode {
-    /// Plain text.
-    Text(EcoString),
     /// Whitespace containing less than two newlines.
     Space,
+    /// Plain text.
+    Text(EcoString),
     /// A forced line break: `\`.
     Linebreak(Span),
     /// A paragraph break: Two or more newlines.
@@ -16,13 +16,13 @@ pub enum SyntaxNode {
     /// Emphasized text was enabled / disabled: `_`.
     Emph(Span),
     /// A raw block with optional syntax highlighting: `` `...` ``.
-    Raw(RawNode),
+    Raw(Box<RawNode>),
     /// A section heading: `= Introduction`.
-    Heading(HeadingNode),
+    Heading(Box<HeadingNode>),
     /// An item in an unordered list: `- ...`.
-    List(ListItem),
+    List(Box<ListItem>),
     /// An item in an enumeration (ordered list): `1. ...`.
-    Enum(EnumItem),
+    Enum(Box<EnumItem>),
     /// An expression.
     Expr(Expr),
 }

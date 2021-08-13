@@ -6,6 +6,87 @@ use crate::geom::{AngularUnit, LengthUnit};
 /// An expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    /// An identifier: `left`.
+    Ident(Box<Ident>),
+    /// A literal: `1`, `true`, ...
+    Lit(Box<Lit>),
+    /// An array expression: `(1, "hi", 12cm)`.
+    Array(Box<ArrayExpr>),
+    /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
+    Dict(Box<DictExpr>),
+    /// A template expression: `[*Hi* there!]`.
+    Template(Box<TemplateExpr>),
+    /// A grouped expression: `(1 + 2)`.
+    Group(Box<GroupExpr>),
+    /// A block expression: `{ let x = 1; x + 2 }`.
+    Block(Box<BlockExpr>),
+    /// A unary operation: `-x`.
+    Unary(Box<UnaryExpr>),
+    /// A binary operation: `a + b`.
+    Binary(Box<BinaryExpr>),
+    /// An invocation of a function: `f(x, y)`.
+    Call(Box<CallExpr>),
+    /// A closure expression: `(x, y) => z`.
+    Closure(Box<ClosureExpr>),
+    /// A with expression: `f with (x, y: 1)`.
+    With(Box<WithExpr>),
+    /// A let expression: `let x = 1`.
+    Let(Box<LetExpr>),
+    /// An if-else expression: `if x { y } else { z }`.
+    If(Box<IfExpr>),
+    /// A while loop expression: `while x { y }`.
+    While(Box<WhileExpr>),
+    /// A for loop expression: `for x in y { z }`.
+    For(Box<ForExpr>),
+    /// An import expression: `import a, b, c from "utils.typ"`.
+    Import(Box<ImportExpr>),
+    /// An include expression: `include "chapter1.typ"`.
+    Include(Box<IncludeExpr>),
+}
+
+impl Expr {
+    /// The source code location.
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Ident(v) => v.span,
+            Self::Lit(v) => v.span(),
+            Self::Array(v) => v.span,
+            Self::Dict(v) => v.span,
+            Self::Template(v) => v.span,
+            Self::Group(v) => v.span,
+            Self::Block(v) => v.span,
+            Self::Unary(v) => v.span,
+            Self::Binary(v) => v.span,
+            Self::Call(v) => v.span,
+            Self::Closure(v) => v.span,
+            Self::With(v) => v.span,
+            Self::Let(v) => v.span,
+            Self::If(v) => v.span,
+            Self::While(v) => v.span,
+            Self::For(v) => v.span,
+            Self::Import(v) => v.span,
+            Self::Include(v) => v.span,
+        }
+    }
+
+    /// Whether the expression can be shortened in markup with a hashtag.
+    pub fn has_short_form(&self) -> bool {
+        matches!(self,
+            Self::Ident(_)
+            | Self::Call(_)
+            | Self::Let(_)
+            | Self::If(_)
+            | Self::While(_)
+            | Self::For(_)
+            | Self::Import(_)
+            | Self::Include(_)
+        )
+    }
+}
+
+/// A literal: `1`, `true`, ...
+#[derive(Debug, Clone, PartialEq)]
+pub enum Lit {
     /// The none literal: `none`.
     None(Span),
     /// The auto literal: `auto`.
@@ -29,43 +110,9 @@ pub enum Expr {
     Fractional(Span, f64),
     /// A string literal: `"hello!"`.
     Str(Span, EcoString),
-    /// An identifier: `left`.
-    Ident(Ident),
-    /// An array expression: `(1, "hi", 12cm)`.
-    Array(ArrayExpr),
-    /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
-    Dict(DictExpr),
-    /// A template expression: `[*Hi* there!]`.
-    Template(TemplateExpr),
-    /// A grouped expression: `(1 + 2)`.
-    Group(GroupExpr),
-    /// A block expression: `{ let x = 1; x + 2 }`.
-    Block(BlockExpr),
-    /// A unary operation: `-x`.
-    Unary(UnaryExpr),
-    /// A binary operation: `a + b`.
-    Binary(BinaryExpr),
-    /// An invocation of a function: `f(x, y)`.
-    Call(CallExpr),
-    /// A closure expression: `(x, y) => z`.
-    Closure(ClosureExpr),
-    /// A with expression: `f with (x, y: 1)`.
-    With(WithExpr),
-    /// A let expression: `let x = 1`.
-    Let(LetExpr),
-    /// An if-else expression: `if x { y } else { z }`.
-    If(IfExpr),
-    /// A while loop expression: `while x { y }`.
-    While(WhileExpr),
-    /// A for loop expression: `for x in y { z }`.
-    For(ForExpr),
-    /// An import expression: `import a, b, c from "utils.typ"`.
-    Import(ImportExpr),
-    /// An include expression: `include "chapter1.typ"`.
-    Include(IncludeExpr),
 }
 
-impl Expr {
+impl Lit {
     /// The source code location.
     pub fn span(&self) -> Span {
         match *self {
@@ -79,38 +126,7 @@ impl Expr {
             Self::Percent(span, _) => span,
             Self::Fractional(span, _) => span,
             Self::Str(span, _) => span,
-            Self::Ident(ref v) => v.span,
-            Self::Array(ref v) => v.span,
-            Self::Dict(ref v) => v.span,
-            Self::Template(ref v) => v.span,
-            Self::Group(ref v) => v.span,
-            Self::Block(ref v) => v.span,
-            Self::Unary(ref v) => v.span,
-            Self::Binary(ref v) => v.span,
-            Self::Call(ref v) => v.span,
-            Self::Closure(ref v) => v.span,
-            Self::With(ref v) => v.span,
-            Self::Let(ref v) => v.span,
-            Self::If(ref v) => v.span,
-            Self::While(ref v) => v.span,
-            Self::For(ref v) => v.span,
-            Self::Import(ref v) => v.span,
-            Self::Include(ref v) => v.span,
         }
-    }
-
-    /// Whether the expression can be shortened in markup with a hashtag.
-    pub fn has_short_form(&self) -> bool {
-        matches!(self,
-            Self::Ident(_)
-            | Self::Call(_)
-            | Self::Let(_)
-            | Self::If(_)
-            | Self::While(_)
-            | Self::For(_)
-            | Self::Import(_)
-            | Self::Include(_)
-        )
     }
 }
 
@@ -163,7 +179,7 @@ pub struct GroupExpr {
     /// The source code location.
     pub span: Span,
     /// The wrapped expression.
-    pub expr: Box<Expr>,
+    pub expr: Expr,
 }
 
 /// A block expression: `{ let x = 1; x + 2 }`.
@@ -185,7 +201,7 @@ pub struct UnaryExpr {
     /// The operator: `-`.
     pub op: UnOp,
     /// The expression to operator on: `x`.
-    pub expr: Box<Expr>,
+    pub expr: Expr,
 }
 
 /// A unary operator.
@@ -234,11 +250,11 @@ pub struct BinaryExpr {
     /// The source code location.
     pub span: Span,
     /// The left-hand side of the operation: `a`.
-    pub lhs: Box<Expr>,
+    pub lhs: Expr,
     /// The operator: `+`.
     pub op: BinOp,
     /// The right-hand side of the operation: `b`.
-    pub rhs: Box<Expr>,
+    pub rhs: Expr,
 }
 
 /// A binary operator.
@@ -389,7 +405,7 @@ pub struct CallExpr {
     /// The source code location.
     pub span: Span,
     /// The function to call.
-    pub callee: Box<Expr>,
+    pub callee: Expr,
     /// Whether the call is wide, that is, capturing the template behind it.
     pub wide: bool,
     /// The arguments to the function.
@@ -475,7 +491,7 @@ pub struct WithExpr {
     /// The source code location.
     pub span: Span,
     /// The function to apply the arguments to.
-    pub callee: Box<Expr>,
+    pub callee: Expr,
     /// The arguments to apply to the function.
     pub args: CallArgs,
 }
@@ -488,7 +504,7 @@ pub struct LetExpr {
     /// The binding to assign to.
     pub binding: Ident,
     /// The expression the binding is initialized with.
-    pub init: Option<Box<Expr>>,
+    pub init: Option<Expr>,
 }
 
 /// An import expression: `import a, b, c from "utils.typ"`.
@@ -499,7 +515,7 @@ pub struct ImportExpr {
     /// The items to be imported.
     pub imports: Imports,
     /// The location of the importable file.
-    pub path: Box<Expr>,
+    pub path: Expr,
 }
 
 /// The items that ought to be imported from a file.
@@ -517,7 +533,7 @@ pub struct IncludeExpr {
     /// The source code location.
     pub span: Span,
     /// The location of the file to be included.
-    pub path: Box<Expr>,
+    pub path: Expr,
 }
 
 /// An if-else expression: `if x { y } else { z }`.
@@ -526,11 +542,11 @@ pub struct IfExpr {
     /// The source code location.
     pub span: Span,
     /// The condition which selects the body to evaluate.
-    pub condition: Box<Expr>,
+    pub condition: Expr,
     /// The expression to evaluate if the condition is true.
-    pub if_body: Box<Expr>,
+    pub if_body: Expr,
     /// The expression to evaluate if the condition is false.
-    pub else_body: Option<Box<Expr>>,
+    pub else_body: Option<Expr>,
 }
 
 /// A while loop expression: `while x { y }`.
@@ -539,9 +555,9 @@ pub struct WhileExpr {
     /// The source code location.
     pub span: Span,
     /// The condition which selects whether to evaluate the body.
-    pub condition: Box<Expr>,
+    pub condition: Expr,
     /// The expression to evaluate while the condition is true.
-    pub body: Box<Expr>,
+    pub body: Expr,
 }
 
 /// A for loop expression: `for x in y { z }`.
@@ -552,9 +568,9 @@ pub struct ForExpr {
     /// The pattern to assign to.
     pub pattern: ForPattern,
     /// The expression to iterate over.
-    pub iter: Box<Expr>,
+    pub iter: Expr,
     /// The expression to evaluate for each iteration.
-    pub body: Box<Expr>,
+    pub body: Expr,
 }
 
 /// A pattern in a for loop.

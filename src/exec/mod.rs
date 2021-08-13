@@ -52,8 +52,8 @@ impl ExecWithMap for SyntaxTree {
 impl ExecWithMap for SyntaxNode {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         match self {
-            Self::Text(text) => ctx.push_text(text),
             Self::Space => ctx.push_word_space(),
+            Self::Text(text) => ctx.push_text(text),
             Self::Linebreak(_) => ctx.linebreak(),
             Self::Parbreak(_) => ctx.parbreak(),
             Self::Strong(_) => ctx.state.font_mut().strong ^= true,

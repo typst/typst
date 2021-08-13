@@ -177,6 +177,33 @@ impl Eval for Expr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        match self {
+            Self::Ident(v) => v.eval(ctx),
+            Self::Lit(v) => v.eval(ctx),
+            Self::Array(v) => v.eval(ctx).map(Value::Array),
+            Self::Dict(v) => v.eval(ctx).map(Value::Dict),
+            Self::Template(v) => v.eval(ctx).map(Value::Template),
+            Self::Group(v) => v.eval(ctx),
+            Self::Block(v) => v.eval(ctx),
+            Self::Call(v) => v.eval(ctx),
+            Self::Closure(v) => v.eval(ctx),
+            Self::With(v) => v.eval(ctx),
+            Self::Unary(v) => v.eval(ctx),
+            Self::Binary(v) => v.eval(ctx),
+            Self::Let(v) => v.eval(ctx),
+            Self::If(v) => v.eval(ctx),
+            Self::While(v) => v.eval(ctx),
+            Self::For(v) => v.eval(ctx),
+            Self::Import(v) => v.eval(ctx),
+            Self::Include(v) => v.eval(ctx),
+        }
+    }
+}
+
+impl Eval for Lit {
+    type Output = Value;
+
+    fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
         Ok(match *self {
             Self::None(_) => Value::None,
             Self::Auto(_) => Value::Auto,
@@ -188,23 +215,6 @@ impl Eval for Expr {
             Self::Percent(_, v) => Value::Relative(Relative::new(v / 100.0)),
             Self::Fractional(_, v) => Value::Fractional(Fractional::new(v)),
             Self::Str(_, ref v) => Value::Str(v.clone()),
-            Self::Ident(ref v) => v.eval(ctx)?,
-            Self::Array(ref v) => Value::Array(v.eval(ctx)?),
-            Self::Dict(ref v) => Value::Dict(v.eval(ctx)?),
-            Self::Template(ref v) => Value::Template(v.eval(ctx)?),
-            Self::Group(ref v) => v.eval(ctx)?,
-            Self::Block(ref v) => v.eval(ctx)?,
-            Self::Call(ref v) => v.eval(ctx)?,
-            Self::Closure(ref v) => v.eval(ctx)?,
-            Self::With(ref v) => v.eval(ctx)?,
-            Self::Unary(ref v) => v.eval(ctx)?,
-            Self::Binary(ref v) => v.eval(ctx)?,
-            Self::Let(ref v) => v.eval(ctx)?,
-            Self::If(ref v) => v.eval(ctx)?,
-            Self::While(ref v) => v.eval(ctx)?,
-            Self::For(ref v) => v.eval(ctx)?,
-            Self::Import(ref v) => v.eval(ctx)?,
-            Self::Include(ref v) => v.eval(ctx)?,
         })
     }
 }
@@ -674,8 +684,8 @@ impl Walk for SyntaxTree {
 impl Walk for SyntaxNode {
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
         match self {
-            Self::Text(_) => {}
             Self::Space => {}
+            Self::Text(_) => {}
             Self::Linebreak(_) => {}
             Self::Parbreak(_) => {}
             Self::Strong(_) => {}
