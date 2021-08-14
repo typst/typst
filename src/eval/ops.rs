@@ -7,7 +7,7 @@ use Value::*;
 /// Bail with a type mismatch error.
 macro_rules! mismatch {
     ($fmt:expr, $($value:expr),* $(,)?) => {
-        return Err(format!($fmt, $($value.type_name()),*));
+        return Err(format!($fmt, $($value.type_name()),*))
     };
 }
 

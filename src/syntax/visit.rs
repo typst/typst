@@ -11,10 +11,9 @@ macro_rules! impl_visitors {
         }
 
         impl_visitor! {
-            /// Walk syntax trees immutably.
             Visit,
-            /// Immutable visitor functions.
             immutable,
+            immutably,
             [$(($name($($tts)*) $body))*]
         }
 
@@ -24,10 +23,9 @@ macro_rules! impl_visitors {
         }
 
         impl_visitor! {
-            /// Walk syntax trees mutably.
             VisitMut,
-            /// Mutable visitor functions.
             mutable,
+            mutably,
             [$(($name($($tts)*) $body mut))*] mut
         }
     };
@@ -36,8 +34,9 @@ macro_rules! impl_visitors {
 /// Implement an immutable or mutable visitor.
 macro_rules! impl_visitor {
     (
-        #[doc = $visit_doc:expr] $visit:ident,
-        #[doc = $module_doc:expr] $module:ident,
+        $visit:ident,
+        $mutability:ident,
+        $adjective:ident,
         [$((
             $name:ident($v:ident, $node:ident: $ty:ty)
             $body:block
@@ -45,7 +44,7 @@ macro_rules! impl_visitor {
         ))*]
         $($mut:tt)?
     ) => {
-        #[doc = $visit_doc]
+        #[doc = concat!("Visit syntax trees ", stringify!($adjective), ".")]
         pub trait $visit<'ast> {
             /// Visit a definition of a binding.
             ///
@@ -60,14 +59,15 @@ macro_rules! impl_visitor {
             fn visit_exit(&mut self) {}
 
             $(fn $name(&mut self, $node: &'ast $($fmut)? $ty) {
-                $module::$name(self, $node);
+                $mutability::$name(self, $node);
             })*
         }
 
-        #[doc = $module_doc]
-        pub mod $module {
+        #[doc = concat!("Visitor functions that are ", stringify!($mutability), ".")]
+        pub mod $mutability {
             use super::*;
             $(
+                #[doc = concat!("Visit a node of type [`", stringify!($ty), "`].")]
                 pub fn $name<'ast, V>($v: &mut V, $node: &'ast $($fmut)? $ty)
                 where
                     V: $visit<'ast> + ?Sized

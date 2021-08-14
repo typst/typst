@@ -7,11 +7,11 @@ use crate::syntax::{Span, Spanned};
 /// Early-return with a vec-boxed [`Error`].
 macro_rules! bail {
     ($span:expr, $message:expr $(,)?) => {
-        return Err($crate::diag::Error::boxed($span, $message,));
+        return Err($crate::diag::Error::boxed($span, $message,))
     };
 
     ($span:expr, $fmt:expr, $($arg:expr),+ $(,)?) => {
-        bail!($span, format!($fmt, $($arg),+));
+        bail!($span, format!($fmt, $($arg),+))
     };
 }
 
