@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::{Add, AddAssign, Deref};
 use std::rc::Rc;
 
-use super::Value;
+use super::{Str, Value};
 use crate::diag::StrResult;
 use crate::exec::ExecContext;
 use crate::syntax::{Expr, SyntaxTree};
@@ -40,21 +40,9 @@ impl Template {
     }
 }
 
-impl From<TemplateTree> for Template {
-    fn from(tree: TemplateTree) -> Self {
-        Self::new(vec![TemplateNode::Tree(tree)])
-    }
-}
-
-impl From<TemplateFunc> for Template {
-    fn from(func: TemplateFunc) -> Self {
-        Self::new(vec![TemplateNode::Func(func)])
-    }
-}
-
-impl From<EcoString> for Template {
-    fn from(string: EcoString) -> Self {
-        Self::new(vec![TemplateNode::Str(string)])
+impl Display for Template {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad("<template>")
     }
 }
 
@@ -83,21 +71,39 @@ impl AddAssign for Template {
     }
 }
 
-impl Add<EcoString> for Template {
+impl Add<Str> for Template {
     type Output = Self;
 
-    fn add(mut self, rhs: EcoString) -> Self::Output {
-        Rc::make_mut(&mut self.nodes).push(TemplateNode::Str(rhs));
+    fn add(mut self, rhs: Str) -> Self::Output {
+        Rc::make_mut(&mut self.nodes).push(TemplateNode::Str(rhs.into()));
         self
     }
 }
 
-impl Add<Template> for EcoString {
+impl Add<Template> for Str {
     type Output = Template;
 
     fn add(self, mut rhs: Template) -> Self::Output {
-        Rc::make_mut(&mut rhs.nodes).insert(0, TemplateNode::Str(self));
+        Rc::make_mut(&mut rhs.nodes).insert(0, TemplateNode::Str(self.into()));
         rhs
+    }
+}
+
+impl From<TemplateTree> for Template {
+    fn from(tree: TemplateTree) -> Self {
+        Self::new(vec![TemplateNode::Tree(tree)])
+    }
+}
+
+impl From<TemplateFunc> for Template {
+    fn from(func: TemplateFunc) -> Self {
+        Self::new(vec![TemplateNode::Func(func)])
+    }
+}
+
+impl From<Str> for Template {
+    fn from(string: Str) -> Self {
+        Self::new(vec![TemplateNode::Str(string.into())])
     }
 }
 

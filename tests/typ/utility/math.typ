@@ -13,5 +13,5 @@
 #min()
 
 ---
-// Error: 10-19 cannot compare integer with string
+// Error: 14-18 cannot compare integer with string
 #test(min(1, "hi"), error)

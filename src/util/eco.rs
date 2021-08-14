@@ -1,14 +1,11 @@
 use std::borrow::Borrow;
 use std::cmp::Ordering;
-use std::convert::TryFrom;
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
-use std::ops::{Add, AddAssign, Deref};
+use std::ops::Deref;
 use std::rc::Rc;
 
-use crate::diag::StrResult;
-
-/// An economical string with inline storage and clone-on-write value semantics.
+/// An economical string with inline storage and clone-on-write semantics.
 #[derive(Clone)]
 pub struct EcoString(Repr);
 
@@ -144,75 +141,25 @@ impl EcoString {
     }
 
     /// Repeat this string `n` times.
-    pub fn repeat(&self, n: i64) -> StrResult<Self> {
-        let (n, new) = usize::try_from(n)
-            .ok()
-            .and_then(|n| self.len().checked_mul(n).map(|new| (n, new)))
-            .ok_or_else(|| format!("cannot repeat this string {} times", n))?;
+    pub fn repeat(&self, n: usize) -> Self {
+        if n == 0 {
+            return Self::new();
+        }
 
         if let Repr::Small { buf, len } = &self.0 {
             let prev = usize::from(*len);
+            let new = prev.saturating_mul(n);
             if new <= LIMIT {
                 let src = &buf[.. prev];
                 let mut buf = [0; LIMIT];
                 for i in 0 .. n {
                     buf[prev * i .. prev * (i + 1)].copy_from_slice(src);
                 }
-                return Ok(Self(Repr::Small { buf, len: new as u8 }));
+                return Self(Repr::Small { buf, len: new as u8 });
             }
         }
 
-        Ok(self.as_str().repeat(n).into())
-    }
-}
-
-impl From<&Self> for EcoString {
-    fn from(s: &Self) -> Self {
-        s.clone()
-    }
-}
-
-impl From<char> for EcoString {
-    fn from(c: char) -> Self {
-        let mut buf = [0; LIMIT];
-        let len = c.encode_utf8(&mut buf).len();
-        Self(Repr::Small { buf, len: len as u8 })
-    }
-}
-
-impl From<&str> for EcoString {
-    fn from(s: &str) -> Self {
-        Self::from_str(s)
-    }
-}
-
-impl From<String> for EcoString {
-    fn from(s: String) -> Self {
-        Self::from_str(s)
-    }
-}
-
-impl From<&String> for EcoString {
-    fn from(s: &String) -> Self {
-        Self::from_str(s)
-    }
-}
-
-impl From<EcoString> for String {
-    fn from(s: EcoString) -> Self {
-        match s.0 {
-            Repr::Small { .. } => s.as_str().to_owned(),
-            Repr::Large(rc) => match Rc::try_unwrap(rc) {
-                Ok(string) => string,
-                Err(rc) => (*rc).clone(),
-            },
-        }
-    }
-}
-
-impl From<&EcoString> for String {
-    fn from(s: &EcoString) -> Self {
-        s.as_str().to_owned()
+        self.as_str().repeat(n).into()
     }
 }
 
@@ -233,18 +180,6 @@ impl Deref for EcoString {
             },
             Repr::Large(string) => string.as_str(),
         }
-    }
-}
-
-impl AsRef<str> for EcoString {
-    fn as_ref(&self) -> &str {
-        self
-    }
-}
-
-impl Borrow<str> for EcoString {
-    fn borrow(&self) -> &str {
-        self
     }
 }
 
@@ -286,12 +221,6 @@ impl PartialEq<&str> for EcoString {
     }
 }
 
-impl PartialEq<String> for EcoString {
-    fn eq(&self, other: &String) -> bool {
-        self.as_str().eq(other.as_str())
-    }
-}
-
 impl Ord for EcoString {
     fn cmp(&self, other: &Self) -> Ordering {
         self.as_str().cmp(other.as_str())
@@ -301,35 +230,6 @@ impl Ord for EcoString {
 impl PartialOrd for EcoString {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.as_str().partial_cmp(other.as_str())
-    }
-}
-
-impl Add for EcoString {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        self + rhs.as_str()
-    }
-}
-
-impl AddAssign for EcoString {
-    fn add_assign(&mut self, rhs: EcoString) {
-        self.push_str(&rhs);
-    }
-}
-
-impl Add<&str> for EcoString {
-    type Output = Self;
-
-    fn add(mut self, rhs: &str) -> Self::Output {
-        self.push_str(rhs);
-        self
-    }
-}
-
-impl AddAssign<&str> for EcoString {
-    fn add_assign(&mut self, rhs: &str) {
-        self.push_str(rhs);
     }
 }
 
@@ -348,6 +248,62 @@ impl Write for EcoString {
     fn write_char(&mut self, c: char) -> fmt::Result {
         self.push(c);
         Ok(())
+    }
+}
+
+impl AsRef<str> for EcoString {
+    fn as_ref(&self) -> &str {
+        self
+    }
+}
+
+impl Borrow<str> for EcoString {
+    fn borrow(&self) -> &str {
+        self
+    }
+}
+
+impl From<&Self> for EcoString {
+    fn from(s: &Self) -> Self {
+        s.clone()
+    }
+}
+
+impl From<char> for EcoString {
+    fn from(c: char) -> Self {
+        let mut buf = [0; LIMIT];
+        let len = c.encode_utf8(&mut buf).len();
+        Self(Repr::Small { buf, len: len as u8 })
+    }
+}
+
+impl From<&str> for EcoString {
+    fn from(s: &str) -> Self {
+        Self::from_str(s)
+    }
+}
+
+impl From<String> for EcoString {
+    fn from(s: String) -> Self {
+        Self::from_str(s)
+    }
+}
+
+impl From<EcoString> for String {
+    fn from(s: EcoString) -> Self {
+        match s.0 {
+            Repr::Small { .. } => s.as_str().to_owned(),
+            Repr::Large(rc) => match Rc::try_unwrap(rc) {
+                Ok(string) => string,
+                Err(rc) => (*rc).clone(),
+            },
+        }
+    }
+}
+
+impl From<&EcoString> for String {
+    fn from(s: &EcoString) -> Self {
+        s.as_str().to_owned()
     }
 }
 
@@ -436,17 +392,13 @@ mod tests {
     #[test]
     fn test_str_repeat() {
         // Test with empty string.
-        assert_eq!(EcoString::new().repeat(0).unwrap(), "");
-        assert_eq!(EcoString::new().repeat(100).unwrap(), "");
+        assert_eq!(EcoString::new().repeat(0), "");
+        assert_eq!(EcoString::new().repeat(100), "");
 
         // Test non-spilling and spilling case.
         let v = EcoString::from("abc");
-        assert_eq!(v.repeat(0).unwrap(), "");
-        assert_eq!(v.repeat(3).unwrap(), "abcabcabc");
-        assert_eq!(v.repeat(5).unwrap(), "abcabcabcabcabc");
-        assert_eq!(
-            v.repeat(-1).unwrap_err(),
-            "cannot repeat this string -1 times",
-        );
+        assert_eq!(v.repeat(0), "");
+        assert_eq!(v.repeat(3), "abcabcabc");
+        assert_eq!(v.repeat(5), "abcabcabcabcabc");
     }
 }

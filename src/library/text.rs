@@ -4,7 +4,7 @@ use crate::layout::Paint;
 use super::*;
 
 /// `font`: Configure the font.
-pub fn font(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+pub fn font(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let size = args.named::<Linear>("size")?.or_else(|| args.eat());
     let style = args.named("style")?;
     let weight = args.named("weight")?;
@@ -98,13 +98,13 @@ castable! {
         values
             .into_iter()
             .filter_map(|v| v.cast().ok())
-            .map(|string: EcoString| string.to_lowercase())
+            .map(|string: Str| string.to_lowercase())
             .collect()
     )),
 }
 
 /// `par`: Configure paragraphs.
-pub fn par(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+pub fn par(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let par_spacing = args.named("spacing")?;
     let line_spacing = args.named("leading")?;
     let body = args.expect::<Template>("body")?;
@@ -126,8 +126,8 @@ pub fn par(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
 }
 
 /// `lang`: Configure the language.
-pub fn lang(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
-    let iso = args.eat::<EcoString>();
+pub fn lang(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    let iso = args.eat::<Str>();
     let dir = if let Some(dir) = args.named::<Spanned<Dir>>("dir")? {
         if dir.v.axis() == SpecAxis::Horizontal {
             Some(dir.v)
@@ -160,22 +160,22 @@ fn lang_dir(iso: &str) -> Dir {
 }
 
 /// `strike`: Enable striken-through text.
-pub fn strike(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+pub fn strike(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     line_impl(args, |font| &mut font.strikethrough)
 }
 
 /// `underline`: Enable underlined text.
-pub fn underline(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+pub fn underline(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     line_impl(args, |font| &mut font.underline)
 }
 
 /// `overline`: Add an overline above text.
-pub fn overline(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+pub fn overline(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     line_impl(args, |font| &mut font.overline)
 }
 
 fn line_impl(
-    args: &mut FuncArgs,
+    args: &mut Arguments,
     substate: fn(&mut FontState) -> &mut Option<Rc<LineState>>,
 ) -> TypResult<Value> {
     let stroke = args.named("stroke")?.or_else(|| args.eat());

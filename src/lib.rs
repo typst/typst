@@ -43,7 +43,6 @@ pub mod library;
 pub mod loading;
 pub mod paper;
 pub mod parse;
-pub mod pretty;
 pub mod source;
 pub mod syntax;
 pub mod util;

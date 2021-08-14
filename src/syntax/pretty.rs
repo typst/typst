@@ -2,10 +2,7 @@
 
 use std::fmt::{self, Arguments, Write};
 
-use crate::color::{Color, RgbaColor};
-use crate::eval::*;
-use crate::geom::{Angle, Fractional, Length, Linear, Relative};
-use crate::syntax::*;
+use super::*;
 
 /// Pretty print an item and return the resulting string.
 pub fn pretty<T>(item: &T) -> String
@@ -23,7 +20,7 @@ pub trait Pretty {
     fn pretty(&self, p: &mut Printer);
 }
 
-/// A buffer into which items are printed.
+/// A buffer into which items can be pretty printed.
 pub struct Printer {
     buf: String,
 }
@@ -223,14 +220,14 @@ impl Pretty for Lit {
         match self {
             Self::None(_) => p.push_str("none"),
             Self::Auto(_) => p.push_str("auto"),
-            Self::Bool(_, v) => v.pretty(p),
-            Self::Int(_, v) => v.pretty(p),
-            Self::Float(_, v) => v.pretty(p),
+            Self::Bool(_, v) => write!(p, "{}", v).unwrap(),
+            Self::Int(_, v) => write!(p, "{}", v).unwrap(),
+            Self::Float(_, v) => write!(p, "{}", v).unwrap(),
             Self::Length(_, v, u) => write!(p, "{}{}", v, u).unwrap(),
             Self::Angle(_, v, u) => write!(p, "{}{}", v, u).unwrap(),
             Self::Percent(_, v) => write!(p, "{}%", v).unwrap(),
             Self::Fractional(_, v) => write!(p, "{}fr", v).unwrap(),
-            Self::Str(_, v) => v.pretty(p),
+            Self::Str(_, v) => write!(p, "{:?}", v).unwrap(),
         }
     }
 }
@@ -493,134 +490,6 @@ impl Pretty for Ident {
     }
 }
 
-impl Pretty for Value {
-    fn pretty(&self, p: &mut Printer) {
-        match self {
-            Self::None => p.push_str("none"),
-            Self::Auto => p.push_str("auto"),
-            Self::Bool(v) => v.pretty(p),
-            Self::Int(v) => v.pretty(p),
-            Self::Float(v) => v.pretty(p),
-            Self::Length(v) => v.pretty(p),
-            Self::Angle(v) => v.pretty(p),
-            Self::Relative(v) => v.pretty(p),
-            Self::Linear(v) => v.pretty(p),
-            Self::Fractional(v) => v.pretty(p),
-            Self::Color(v) => v.pretty(p),
-            Self::Str(v) => v.pretty(p),
-            Self::Array(v) => v.pretty(p),
-            Self::Dict(v) => v.pretty(p),
-            Self::Template(v) => v.pretty(p),
-            Self::Func(v) => v.pretty(p),
-            Self::Args(v) => v.pretty(p),
-            Self::Dyn(v) => v.pretty(p),
-        }
-    }
-}
-
-impl Pretty for Array {
-    fn pretty(&self, p: &mut Printer) {
-        p.push('(');
-        p.join(self, ", ", |item, p| item.pretty(p));
-        if self.len() == 1 {
-            p.push(',');
-        }
-        p.push(')');
-    }
-}
-
-impl Pretty for Dict {
-    fn pretty(&self, p: &mut Printer) {
-        p.push('(');
-        if self.is_empty() {
-            p.push(':');
-        } else {
-            p.join(self, ", ", |(key, value), p| {
-                p.push_str(key);
-                p.push_str(": ");
-                value.pretty(p);
-            });
-        }
-        p.push(')');
-    }
-}
-
-impl Pretty for Template {
-    fn pretty(&self, p: &mut Printer) {
-        p.push_str("<template>");
-    }
-}
-
-impl Pretty for Function {
-    fn pretty(&self, p: &mut Printer) {
-        p.push_str("<function");
-        if let Some(name) = self.name() {
-            p.push(' ');
-            p.push_str(name);
-        }
-        p.push('>');
-    }
-}
-
-impl Pretty for FuncArgs {
-    fn pretty(&self, p: &mut Printer) {
-        p.push('(');
-        p.join(&self.items, ", ", |item, p| item.pretty(p));
-        p.push(')');
-    }
-}
-
-impl Pretty for FuncArg {
-    fn pretty(&self, p: &mut Printer) {
-        if let Some(name) = &self.name {
-            p.push_str(&name);
-            p.push_str(": ");
-        }
-        self.value.v.pretty(p);
-    }
-}
-
-impl Pretty for str {
-    fn pretty(&self, p: &mut Printer) {
-        p.push('"');
-        for c in self.chars() {
-            match c {
-                '\\' => p.push_str(r"\\"),
-                '"' => p.push_str(r#"\""#),
-                '\n' => p.push_str(r"\n"),
-                '\r' => p.push_str(r"\r"),
-                '\t' => p.push_str(r"\t"),
-                _ => p.push(c),
-            }
-        }
-        p.push('"');
-    }
-}
-
-macro_rules! pretty_display {
-    ($($type:ty),* $(,)?) => {
-        $(impl Pretty for $type {
-            fn pretty(&self, p: &mut Printer) {
-                write!(p, "{}", self).unwrap();
-            }
-        })*
-    };
-}
-
-pretty_display! {
-    i64,
-    f64,
-    bool,
-    Length,
-    Angle,
-    Relative,
-    Linear,
-    Fractional,
-    RgbaColor,
-    Color,
-    Dynamic,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -633,21 +502,16 @@ mod tests {
     }
 
     #[track_caller]
-    fn test_parse(src: &str, exp: &str) {
+    fn test_parse(src: &str, expected: &str) {
         let source = SourceFile::detached(src);
         let ast = parse(&source).unwrap();
         let found = pretty(&ast);
-        if exp != found {
+        if found != expected {
             println!("tree:     {:#?}", ast);
-            println!("expected: {}", exp);
+            println!("expected: {}", expected);
             println!("found:    {}", found);
             panic!("test failed");
         }
-    }
-
-    #[track_caller]
-    fn test_value(value: impl Into<Value>, exp: &str) {
-        assert_eq!(pretty(&value.into()), exp);
     }
 
     #[test]
@@ -745,42 +609,5 @@ mod tests {
         roundtrip("#for k, x in y {z}");
         roundtrip("#import * from \"file.typ\"");
         roundtrip("#include \"chapter1.typ\"");
-    }
-
-    #[test]
-    fn test_pretty_print_value() {
-        // Primitives.
-        test_value(Value::None, "none");
-        test_value(false, "false");
-        test_value(12i64, "12");
-        test_value(3.14, "3.14");
-        test_value(Length::pt(5.5), "5.5pt");
-        test_value(Angle::deg(90.0), "90deg");
-        test_value(Relative::one() / 2.0, "50%");
-        test_value(Relative::new(0.3) + Length::cm(2.0), "30% + 2cm");
-        test_value(Fractional::one() * 7.55, "7.55fr");
-        test_value(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
-
-        // Collections.
-        test_value("hello", r#""hello""#);
-        test_value("\n", r#""\n""#);
-        test_value("\\", r#""\\""#);
-        test_value("\"", r#""\"""#);
-        test_value(array![], "()");
-        test_value(array![Value::None], "(none,)");
-        test_value(array![1, 2], "(1, 2)");
-        test_value(dict![], "(:)");
-        test_value(dict!["one" => 1], "(one: 1)");
-        test_value(dict!["two" => false, "one" => 1], "(one: 1, two: false)");
-
-        // Functions.
-        test_value(Function::new(None, |_, _| Ok(Value::None)), "<function>");
-        test_value(
-            Function::new(Some("nil".into()), |_, _| Ok(Value::None)),
-            "<function nil>",
-        );
-
-        // Dynamics.
-        test_value(Dynamic::new(1), "1");
     }
 }

@@ -142,18 +142,6 @@ impl Pos {
     }
 }
 
-impl From<u32> for Pos {
-    fn from(index: u32) -> Self {
-        Self(index)
-    }
-}
-
-impl From<usize> for Pos {
-    fn from(index: usize) -> Self {
-        Self(index as u32)
-    }
-}
-
 impl Debug for Pos {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Debug::fmt(&self.0, f)
@@ -168,6 +156,18 @@ where
 
     fn add(self, rhs: T) -> Self {
         Pos(self.0 + rhs.into().0)
+    }
+}
+
+impl From<u32> for Pos {
+    fn from(index: u32) -> Self {
+        Self(index)
+    }
+}
+
+impl From<usize> for Pos {
+    fn from(index: usize) -> Self {
+        Self(index as u32)
     }
 }
 

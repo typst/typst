@@ -1,13 +1,11 @@
 use std::collections::BTreeMap;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::iter::FromIterator;
 use std::ops::{Add, AddAssign};
 use std::rc::Rc;
 
-use super::Value;
+use super::{Str, Value};
 use crate::diag::StrResult;
-use crate::pretty::pretty;
-use crate::util::EcoString;
 
 /// Create a new [`Dict`] from key-value pairs.
 #[allow(unused_macros)]
@@ -15,15 +13,15 @@ macro_rules! dict {
     ($($key:expr => $value:expr),* $(,)?) => {{
         #[allow(unused_mut)]
         let mut map = std::collections::BTreeMap::new();
-        $(map.insert($crate::util::EcoString::from($key), $crate::eval::Value::from($value));)*
+        $(map.insert($crate::eval::Str::from($key), $crate::eval::Value::from($value));)*
         $crate::eval::Dict::from_map(map)
     }};
 }
 
-/// A variably-typed dictionary with clone-on-write value semantics.
-#[derive(Clone, PartialEq)]
+/// A dictionary from strings to values with clone-on-write value semantics.
+#[derive(Default, Clone, PartialEq)]
 pub struct Dict {
-    map: Rc<BTreeMap<EcoString, Value>>,
+    map: Rc<BTreeMap<Str, Value>>,
 }
 
 impl Dict {
@@ -33,13 +31,13 @@ impl Dict {
     }
 
     /// Create a new dictionary from a mapping of strings to values.
-    pub fn from_map(map: BTreeMap<EcoString, Value>) -> Self {
+    pub fn from_map(map: BTreeMap<Str, Value>) -> Self {
         Self { map: Rc::new(map) }
     }
 
     /// Whether the dictionary is empty.
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.map.is_empty()
     }
 
     /// The number of pairs in the dictionary.
@@ -48,21 +46,21 @@ impl Dict {
     }
 
     /// Borrow the value the given `key` maps to.
-    pub fn get(&self, key: &str) -> StrResult<&Value> {
-        self.map.get(key).ok_or_else(|| missing_key(key))
+    pub fn get(&self, key: Str) -> StrResult<&Value> {
+        self.map.get(&key).ok_or_else(|| missing_key(&key))
     }
 
     /// Mutably borrow the value the given `key` maps to.
     ///
     /// This inserts the key with [`None`](Value::None) as the value if not
     /// present so far.
-    pub fn get_mut(&mut self, key: EcoString) -> &mut Value {
-        Rc::make_mut(&mut self.map).entry(key).or_default()
+    pub fn get_mut(&mut self, key: Str) -> &mut Value {
+        Rc::make_mut(&mut self.map).entry(key.into()).or_default()
     }
 
     /// Insert a mapping from the given `key` to the given `value`.
-    pub fn insert(&mut self, key: EcoString, value: Value) {
-        Rc::make_mut(&mut self.map).insert(key, value);
+    pub fn insert(&mut self, key: Str, value: Value) {
+        Rc::make_mut(&mut self.map).insert(key.into(), value);
     }
 
     /// Clear the dictionary.
@@ -75,20 +73,32 @@ impl Dict {
     }
 
     /// Iterate over pairs of references to the contained keys and values.
-    pub fn iter(&self) -> std::collections::btree_map::Iter<EcoString, Value> {
+    pub fn iter(&self) -> std::collections::btree_map::Iter<Str, Value> {
         self.map.iter()
     }
 }
 
 /// The missing key access error message.
 #[cold]
-fn missing_key(key: &str) -> String {
-    format!("dictionary does not contain key: {}", pretty(key))
+fn missing_key(key: &Str) -> String {
+    format!("dictionary does not contain key: {}", key)
 }
 
-impl Default for Dict {
-    fn default() -> Self {
-        Self::new()
+impl Display for Dict {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_char('(')?;
+        if self.is_empty() {
+            f.write_char(':')?;
+        }
+        for (i, (key, value)) in self.iter().enumerate() {
+            f.write_str(key)?;
+            f.write_str(": ")?;
+            Display::fmt(value, f)?;
+            if i + 1 < self.map.len() {
+                f.write_str(", ")?;
+            }
+        }
+        f.write_char(')')
     }
 }
 
@@ -116,21 +126,21 @@ impl AddAssign for Dict {
     }
 }
 
-impl FromIterator<(EcoString, Value)> for Dict {
-    fn from_iter<T: IntoIterator<Item = (EcoString, Value)>>(iter: T) -> Self {
+impl FromIterator<(Str, Value)> for Dict {
+    fn from_iter<T: IntoIterator<Item = (Str, Value)>>(iter: T) -> Self {
         Dict { map: Rc::new(iter.into_iter().collect()) }
     }
 }
 
-impl Extend<(EcoString, Value)> for Dict {
-    fn extend<T: IntoIterator<Item = (EcoString, Value)>>(&mut self, iter: T) {
+impl Extend<(Str, Value)> for Dict {
+    fn extend<T: IntoIterator<Item = (Str, Value)>>(&mut self, iter: T) {
         Rc::make_mut(&mut self.map).extend(iter);
     }
 }
 
 impl IntoIterator for Dict {
-    type Item = (EcoString, Value);
-    type IntoIter = std::collections::btree_map::IntoIter<EcoString, Value>;
+    type Item = (Str, Value);
+    type IntoIter = std::collections::btree_map::IntoIter<Str, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
         match Rc::try_unwrap(self.map) {
@@ -141,8 +151,8 @@ impl IntoIterator for Dict {
 }
 
 impl<'a> IntoIterator for &'a Dict {
-    type Item = (&'a EcoString, &'a Value);
-    type IntoIter = std::collections::btree_map::Iter<'a, EcoString, Value>;
+    type Item = (&'a Str, &'a Value);
+    type IntoIter = std::collections::btree_map::Iter<'a, Str, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()

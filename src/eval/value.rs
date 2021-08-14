@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::rc::Rc;
 
-use super::{ops, Array, Dict, FuncArgs, Function, Template, TemplateFunc};
+use super::{ops, Array, Dict, Function, Str, Template, TemplateFunc};
 use crate::color::{Color, RgbaColor};
 use crate::diag::StrResult;
 use crate::exec::ExecContext;
@@ -37,7 +37,7 @@ pub enum Value {
     /// A color value: `#f79143ff`.
     Color(Color),
     /// A string: `"string"`.
-    Str(EcoString),
+    Str(Str),
     /// An array of values: `(1, "hi", 12cm)`.
     Array(Array),
     /// A dictionary value: `(color: #f79143, pattern: dashed)`.
@@ -48,8 +48,6 @@ pub enum Value {
     Func(Function),
     /// A dynamic value.
     Dyn(Dynamic),
-    /// Captured arguments to a function.
-    Args(Rc<FuncArgs>),
 }
 
 impl Value {
@@ -75,12 +73,11 @@ impl Value {
             Self::Linear(_) => Linear::TYPE_NAME,
             Self::Fractional(_) => Fractional::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
-            Self::Str(_) => EcoString::TYPE_NAME,
+            Self::Str(_) => Str::TYPE_NAME,
             Self::Array(_) => Array::TYPE_NAME,
             Self::Dict(_) => Dict::TYPE_NAME,
             Self::Template(_) => Template::TYPE_NAME,
             Self::Func(_) => Function::TYPE_NAME,
-            Self::Args(_) => Rc::<FuncArgs>::TYPE_NAME,
             Self::Dyn(v) => v.type_name(),
         }
     }
@@ -99,6 +96,48 @@ impl Value {
         T: Cast<Value>,
     {
         T::cast(self)
+    }
+}
+
+impl Default for Value {
+    fn default() -> Self {
+        Value::None
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::None => f.pad("none"),
+            Self::Auto => f.pad("auto"),
+            Self::Bool(v) => Display::fmt(v, f),
+            Self::Int(v) => Display::fmt(v, f),
+            Self::Float(v) => Display::fmt(v, f),
+            Self::Length(v) => Display::fmt(v, f),
+            Self::Angle(v) => Display::fmt(v, f),
+            Self::Relative(v) => Display::fmt(v, f),
+            Self::Linear(v) => Display::fmt(v, f),
+            Self::Fractional(v) => Display::fmt(v, f),
+            Self::Color(v) => Display::fmt(v, f),
+            Self::Str(v) => Display::fmt(v, f),
+            Self::Array(v) => Display::fmt(v, f),
+            Self::Dict(v) => Display::fmt(v, f),
+            Self::Template(v) => Display::fmt(v, f),
+            Self::Func(v) => Display::fmt(v, f),
+            Self::Dyn(v) => Display::fmt(v, f),
+        }
+    }
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        ops::equal(self, other)
+    }
+}
+
+impl PartialOrd for Value {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        ops::compare(self, other)
     }
 }
 
@@ -126,6 +165,12 @@ impl From<String> for Value {
     }
 }
 
+impl From<EcoString> for Value {
+    fn from(v: EcoString) -> Self {
+        Self::Str(v.into())
+    }
+}
+
 impl From<RgbaColor> for Value {
     fn from(v: RgbaColor) -> Self {
         Self::Color(Color::Rgba(v))
@@ -137,25 +182,6 @@ impl From<Dynamic> for Value {
         Self::Dyn(v)
     }
 }
-
-impl Default for Value {
-    fn default() -> Self {
-        Value::None
-    }
-}
-
-impl PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool {
-        ops::equal(self, other)
-    }
-}
-
-impl PartialOrd for Value {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        ops::compare(self, other)
-    }
-}
-
 /// A dynamic value.
 #[derive(Clone)]
 pub struct Dynamic(Rc<dyn Bounds>);
@@ -193,7 +219,7 @@ impl Display for Dynamic {
 
 impl Debug for Dynamic {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_tuple("ValueAny").field(&self.0).finish()
+        Debug::fmt(&self.0, f)
     }
 }
 
@@ -332,7 +358,7 @@ macro_rules! dynamic {
         }
 
         castable! {
-            $type: Self::TYPE_NAME,
+            $type: <Self as $crate::eval::Type>::TYPE_NAME,
             $($tts)*
             @this: Self => this.clone(),
         }
@@ -379,16 +405,62 @@ macro_rules! castable {
 
 primitive! { bool: "boolean", Bool }
 primitive! { i64: "integer", Int }
+primitive! { f64: "float", Float, Int(v) => v as f64 }
 primitive! { Length: "length", Length }
 primitive! { Angle: "angle", Angle }
 primitive! { Relative: "relative", Relative }
 primitive! { Linear: "linear", Linear, Length(v) => v.into(), Relative(v) => v.into() }
 primitive! { Fractional: "fractional", Fractional }
 primitive! { Color: "color", Color }
-primitive! { EcoString: "string", Str }
+primitive! { Str: "string", Str }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
 primitive! { Template: "template", Template }
 primitive! { Function: "function", Func }
-primitive! { Rc<FuncArgs>: "arguments", Args }
-primitive! { f64: "float", Float, Int(v) => v as f64 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[track_caller]
+    fn test(value: impl Into<Value>, exp: &str) {
+        assert_eq!(value.into().to_string(), exp);
+    }
+
+    #[test]
+    fn test_value_to_string() {
+        // Primitives.
+        test(Value::None, "none");
+        test(false, "false");
+        test(12i64, "12");
+        test(3.14, "3.14");
+        test(Length::pt(5.5), "5.5pt");
+        test(Angle::deg(90.0), "90deg");
+        test(Relative::one() / 2.0, "50%");
+        test(Relative::new(0.3) + Length::cm(2.0), "30% + 2cm");
+        test(Fractional::one() * 7.55, "7.55fr");
+        test(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
+
+        // Collections.
+        test("hello", r#""hello""#);
+        test("\n", r#""\n""#);
+        test("\\", r#""\\""#);
+        test("\"", r#""\"""#);
+        test(array![], "()");
+        test(array![Value::None], "(none,)");
+        test(array![1, 2], "(1, 2)");
+        test(dict![], "(:)");
+        test(dict!["one" => 1], "(one: 1)");
+        test(dict!["two" => false, "one" => 1], "(one: 1, two: false)");
+
+        // Functions.
+        test(Function::new(None, |_, _| Ok(Value::None)), "<function>");
+        test(
+            Function::new(Some("nil".into()), |_, _| Ok(Value::None)),
+            "<function nil>",
+        );
+
+        // Dynamics.
+        test(Dynamic::new(1), "1");
+    }
+}

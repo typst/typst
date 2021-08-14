@@ -11,7 +11,6 @@ use std::fmt::Write;
 use crate::eval::{ExprMap, Template, TemplateFunc, TemplateNode, TemplateTree, Value};
 use crate::geom::Gen;
 use crate::layout::{LayoutTree, StackChild, StackNode};
-use crate::pretty::pretty;
 use crate::syntax::*;
 use crate::util::EcoString;
 use crate::Context;
@@ -133,13 +132,13 @@ impl Exec for Value {
     fn exec(&self, ctx: &mut ExecContext) {
         match self {
             Value::None => {}
-            Value::Int(v) => ctx.push_text(pretty(v)),
-            Value::Float(v) => ctx.push_text(pretty(v)),
+            Value::Int(v) => ctx.push_text(v.to_string()),
+            Value::Float(v) => ctx.push_text(v.to_string()),
             Value::Str(v) => ctx.push_text(v),
             Value::Template(v) => v.exec(ctx),
             // For values which can't be shown "naturally", we print the
             // representation in monospace.
-            other => ctx.push_monospace_text(pretty(other)),
+            other => ctx.push_monospace_text(other.to_string()),
         }
     }
 }

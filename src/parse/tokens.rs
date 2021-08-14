@@ -606,20 +606,20 @@ mod tests {
         }};
         (@$mode:ident: $src:expr => $($token:expr),*) => {{
             let src = $src;
-            let exp = vec![$($token),*];
             let found = Tokens::new(&src, $mode).collect::<Vec<_>>();
-            check(&src, exp, found);
+            let expected = vec![$($token),*];
+            check(&src, found, expected);
         }};
     }
 
     #[track_caller]
-    fn check<T>(src: &str, exp: T, found: T)
+    fn check<T>(src: &str, found: T, expected: T)
     where
         T: Debug + PartialEq,
     {
-        if exp != found {
+        if found != expected {
             println!("source:   {:?}", src);
-            println!("expected: {:#?}", exp);
+            println!("expected: {:#?}", expected);
             println!("found:    {:#?}", found);
             panic!("test failed");
         }

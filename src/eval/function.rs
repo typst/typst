@@ -1,15 +1,17 @@
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::ops::Deref;
 use std::rc::Rc;
 
-use super::{Cast, EvalContext, Value};
+use super::{Cast, EvalContext, Str, Value};
 use crate::diag::{At, TypResult};
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
 
 /// An evaluatable function.
 #[derive(Clone)]
-pub struct Function(Rc<Repr<Func>>);
+pub struct Function {
+    repr: Rc<Repr<Func>>,
+}
 
 /// The unsized representation behind the [`Rc`].
 struct Repr<T: ?Sized> {
@@ -17,20 +19,20 @@ struct Repr<T: ?Sized> {
     func: T,
 }
 
-type Func = dyn Fn(&mut EvalContext, &mut FuncArgs) -> TypResult<Value>;
+type Func = dyn Fn(&mut EvalContext, &mut Arguments) -> TypResult<Value>;
 
 impl Function {
     /// Create a new function from a rust closure.
     pub fn new<F>(name: Option<EcoString>, func: F) -> Self
     where
-        F: Fn(&mut EvalContext, &mut FuncArgs) -> TypResult<Value> + 'static,
+        F: Fn(&mut EvalContext, &mut Arguments) -> TypResult<Value> + 'static,
     {
-        Self(Rc::new(Repr { name, func }))
+        Self { repr: Rc::new(Repr { name, func }) }
     }
 
     /// The name of the function.
     pub fn name(&self) -> Option<&EcoString> {
-        self.0.name.as_ref()
+        self.repr.name.as_ref()
     }
 }
 
@@ -38,44 +40,55 @@ impl Deref for Function {
     type Target = Func;
 
     fn deref(&self) -> &Self::Target {
-        &self.0.func
+        &self.repr.func
+    }
+}
+
+impl Display for Function {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("<function")?;
+        if let Some(name) = self.name() {
+            f.write_char(' ')?;
+            f.write_str(name)?;
+        }
+        f.write_char('>')
     }
 }
 
 impl Debug for Function {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("ValueFunc").field("name", &self.0.name).finish()
+        f.debug_struct("Function").field("name", &self.repr.name).finish()
     }
 }
 
 impl PartialEq for Function {
     fn eq(&self, other: &Self) -> bool {
         // We cast to thin pointers for comparison.
-        Rc::as_ptr(&self.0) as *const () == Rc::as_ptr(&other.0) as *const ()
+        Rc::as_ptr(&self.repr) as *const () == Rc::as_ptr(&other.repr) as *const ()
     }
 }
 
 /// Evaluated arguments to a function.
 #[derive(Debug, Clone, PartialEq)]
-pub struct FuncArgs {
+pub struct Arguments {
     /// The span of the whole argument list.
     pub span: Span,
     /// The positional and named arguments.
-    pub items: Vec<FuncArg>,
+    pub items: Vec<Argument>,
 }
 
 /// An argument to a function call: `12` or `draw: false`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct FuncArg {
+pub struct Argument {
     /// The span of the whole argument.
     pub span: Span,
     /// The name of the argument (`None` for positional arguments).
-    pub name: Option<EcoString>,
+    pub name: Option<Str>,
     /// The value of the argument.
     pub value: Spanned<Value>,
 }
 
-impl FuncArgs {
+impl Arguments {
     /// Find and consume the first castable positional argument.
     pub fn eat<T>(&mut self) -> Option<T>
     where
@@ -150,16 +163,14 @@ impl FuncArgs {
         }
         Ok(())
     }
-}
 
-impl FuncArgs {
     /// Reinterpret these arguments as actually being an array index.
     pub fn into_index(self) -> TypResult<i64> {
         self.into_castable("index")
     }
 
     /// Reinterpret these arguments as actually being a dictionary key.
-    pub fn into_key(self) -> TypResult<EcoString> {
+    pub fn into_key(self) -> TypResult<Str> {
         self.into_castable("key")
     }
 
@@ -170,11 +181,11 @@ impl FuncArgs {
     {
         let mut iter = self.items.into_iter();
         let value = match iter.next() {
-            Some(FuncArg { name: None, value, .. }) => value.v.cast().at(value.span)?,
+            Some(Argument { name: None, value, .. }) => value.v.cast().at(value.span)?,
             None => {
                 bail!(self.span, "missing {}", what);
             }
-            Some(FuncArg { name: Some(_), span, .. }) => {
+            Some(Argument { name: Some(_), span, .. }) => {
                 bail!(span, "named pair is not allowed here");
             }
         };
@@ -185,4 +196,25 @@ impl FuncArgs {
 
         Ok(value)
     }
+}
+
+impl Display for Arguments {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_char('(')?;
+        for (i, arg) in self.items.iter().enumerate() {
+            if let Some(name) = &arg.name {
+                f.write_str(name)?;
+                f.write_str(": ")?;
+            }
+            Display::fmt(&arg.value.v, f)?;
+            if i + 1 < self.items.len() {
+                f.write_str(", ")?;
+            }
+        }
+        f.write_char(')')
+    }
+}
+
+dynamic! {
+    Arguments: "arguments",
 }

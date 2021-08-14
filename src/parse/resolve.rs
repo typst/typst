@@ -29,12 +29,12 @@ pub fn resolve_string(string: &str) -> EcoString {
                     out.push(c);
                 } else {
                     // TODO: Feedback that unicode escape sequence is wrong.
-                    out += s.eaten_from(start);
+                    out.push_str(s.eaten_from(start));
                 }
             }
 
             // TODO: Feedback about invalid escape sequence.
-            _ => out += s.eaten_from(start),
+            _ => out.push_str(s.eaten_from(start)),
         }
     }
 
@@ -138,7 +138,7 @@ mod tests {
     fn test_resolve_strings() {
         #[track_caller]
         fn test(string: &str, expected: &str) {
-            assert_eq!(resolve_string(string), expected.to_string());
+            assert_eq!(resolve_string(string), expected);
         }
 
         test(r#"hello world"#,  "hello world");

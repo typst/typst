@@ -3,8 +3,8 @@ use crate::layout::{FixedNode, GridNode, PadNode, StackChild, StackNode, TrackSi
 use crate::paper::{Paper, PaperClass};
 
 /// `page`: Configure pages.
-pub fn page(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
-    let paper = match args.eat::<Spanned<EcoString>>() {
+pub fn page(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    let paper = match args.eat::<Spanned<Str>>() {
         Some(name) => match Paper::from_name(&name.v) {
             None => bail!(name.span, "invalid paper name"),
             paper => paper,
@@ -74,21 +74,21 @@ pub fn page(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
 }
 
 /// `pagebreak`: Start a new page.
-pub fn pagebreak(_: &mut EvalContext, _: &mut FuncArgs) -> TypResult<Value> {
+pub fn pagebreak(_: &mut EvalContext, _: &mut Arguments) -> TypResult<Value> {
     Ok(Value::template(move |ctx| ctx.pagebreak(true, true)))
 }
 
 /// `h`: Horizontal spacing.
-pub fn h(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+pub fn h(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     spacing_impl(args, GenAxis::Cross)
 }
 
 /// `v`: Vertical spacing.
-pub fn v(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+pub fn v(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     spacing_impl(args, GenAxis::Main)
 }
 
-fn spacing_impl(args: &mut FuncArgs, axis: GenAxis) -> TypResult<Value> {
+fn spacing_impl(args: &mut Arguments, axis: GenAxis) -> TypResult<Value> {
     let spacing = args.expect::<Linear>("spacing")?;
     Ok(Value::template(move |ctx| {
         // TODO: Should this really always be font-size relative?
@@ -98,7 +98,7 @@ fn spacing_impl(args: &mut FuncArgs, axis: GenAxis) -> TypResult<Value> {
 }
 
 /// `align`: Configure the alignment along the layouting axes.
-pub fn align(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+pub fn align(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let mut horizontal = args.named("horizontal")?;
     let mut vertical = args.named("vertical")?;
     let first = args.eat::<Align>();
@@ -132,7 +132,7 @@ pub fn align(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
 }
 
 /// `box`: Place content in a rectangular box.
-pub fn boxed(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+pub fn boxed(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
     let body = args.eat().unwrap_or_default();
@@ -143,7 +143,7 @@ pub fn boxed(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
 }
 
 /// `block`: Place content in a block.
-pub fn block(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+pub fn block(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let body = args.expect("body")?;
     Ok(Value::template(move |ctx| {
         let block = ctx.exec_template_stack(&body);
@@ -152,7 +152,7 @@ pub fn block(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
 }
 
 /// `pad`: Pad content at the sides.
-pub fn pad(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+pub fn pad(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let all = args.eat();
     let left = args.named("left")?;
     let top = args.named("top")?;
@@ -174,7 +174,7 @@ pub fn pad(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
 }
 
 /// `stack`: Stack children along an axis.
-pub fn stack(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+pub fn stack(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let dir = args.named("dir")?;
     let children: Vec<_> = args.all().collect();
 
@@ -200,7 +200,7 @@ pub fn stack(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
 }
 
 /// `grid`: Arrange children into a grid.
-pub fn grid(_: &mut EvalContext, args: &mut FuncArgs) -> TypResult<Value> {
+pub fn grid(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let columns = args.named("columns")?.unwrap_or_default();
     let rows = args.named("rows")?.unwrap_or_default();
 

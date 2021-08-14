@@ -18,12 +18,11 @@ use std::rc::Rc;
 
 use crate::color::{Color, RgbaColor};
 use crate::diag::TypResult;
-use crate::eval::{EvalContext, FuncArgs, Scope, Template, Type, Value};
+use crate::eval::{Arguments, EvalContext, Scope, Str, Template, Value};
 use crate::exec::Exec;
 use crate::font::{FontFamily, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
 use crate::syntax::Spanned;
-use crate::util::EcoString;
 
 /// Construct a scope containing all standard library definitions.
 pub fn new() -> Scope {

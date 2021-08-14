@@ -1,5 +1,5 @@
 use std::convert::TryFrom;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::iter::FromIterator;
 use std::ops::{Add, AddAssign};
 use std::rc::Rc;
@@ -19,8 +19,8 @@ macro_rules! array {
     };
 }
 
-/// A variably-typed array with clone-on-write value semantics.
-#[derive(Clone, PartialEq)]
+/// An array of values with clone-on-write value semantics.
+#[derive(Default, Clone, PartialEq)]
 pub struct Array {
     vec: Rc<Vec<Value>>,
 }
@@ -28,7 +28,7 @@ pub struct Array {
 impl Array {
     /// Create a new, empty array.
     pub fn new() -> Self {
-        Self { vec: Rc::new(vec![]) }
+        Self::default()
     }
 
     /// Create a new array from a vector of values.
@@ -36,16 +36,9 @@ impl Array {
         Self { vec: Rc::new(vec) }
     }
 
-    /// Create a new, empty array with the given `capacity`.
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            vec: Rc::new(Vec::with_capacity(capacity)),
-        }
-    }
-
     /// Whether the array is empty.
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.vec.is_empty()
     }
 
     /// The length of the array.
@@ -106,15 +99,25 @@ fn out_of_bounds(index: i64, len: i64) -> String {
     format!("array index out of bounds (index: {}, len: {})", index, len)
 }
 
-impl Default for Array {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Debug for Array {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_list().entries(self.vec.iter()).finish()
+    }
+}
+
+impl Display for Array {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_char('(')?;
+        for (i, value) in self.iter().enumerate() {
+            Display::fmt(value, f)?;
+            if i + 1 < self.vec.len() {
+                f.write_str(", ")?;
+            }
+        }
+        if self.len() == 1 {
+            f.write_char(',')?;
+        }
+        f.write_char(')')
     }
 }
 

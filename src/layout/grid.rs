@@ -383,7 +383,7 @@ impl<'a> GridLayouter<'a> {
             let frames = self.layout_multi_row(ctx, first, &rest, y);
             let len = frames.len();
             for (i, frame) in frames.into_iter().enumerate() {
-                if i + 1 != len {
+                if i + 1 < len {
                     self.constraints.exact.set(self.main, Some(self.full));
                 }
                 self.push_row(ctx, frame);

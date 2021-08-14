@@ -23,14 +23,11 @@ pub struct Ident {
 impl Ident {
     /// Create a new identifier from a string checking that it is a valid.
     pub fn new(
-        string: impl AsRef<str> + Into<String>,
+        string: impl AsRef<str> + Into<EcoString>,
         span: impl Into<Span>,
     ) -> Option<Self> {
         if is_ident(string.as_ref()) {
-            Some(Self {
-                span: span.into(),
-                string: EcoString::from_str(string),
-            })
+            Some(Self { span: span.into(), string: string.into() })
         } else {
             None
         }

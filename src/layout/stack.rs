@@ -111,7 +111,7 @@ impl<'a> StackLayouter<'a> {
                     let nodes = node.layout(ctx, &self.regions);
                     let len = nodes.len();
                     for (i, frame) in nodes.into_iter().enumerate() {
-                        if i + 1 != len {
+                        if i + 1 < len {
                             self.constraints.exact = self.full.to_spec().map(Some);
                         }
                         self.push_frame(frame.item, aligns);

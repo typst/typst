@@ -10,8 +10,10 @@ mod capture;
 mod function;
 mod ops;
 mod scope;
+mod str;
 mod template;
 
+pub use self::str::*;
 pub use array::*;
 pub use capture::*;
 pub use dict::*;
@@ -35,7 +37,7 @@ use crate::parse::parse;
 use crate::source::{SourceId, SourceStore};
 use crate::syntax::visit::Visit;
 use crate::syntax::*;
-use crate::util::{EcoString, RefMutExt};
+use crate::util::RefMutExt;
 use crate::Context;
 
 /// Evaluate a parsed source file into a module.
@@ -214,7 +216,7 @@ impl Eval for Lit {
             Self::Angle(_, v, unit) => Value::Angle(Angle::with_unit(v, unit)),
             Self::Percent(_, v) => Value::Relative(Relative::new(v / 100.0)),
             Self::Fractional(_, v) => Value::Fractional(Fractional::new(v)),
-            Self::Str(_, ref v) => Value::Str(v.clone()),
+            Self::Str(_, ref v) => Value::Str(v.into()),
         })
     }
 }
@@ -244,7 +246,7 @@ impl Eval for DictExpr {
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         self.items
             .iter()
-            .map(|Named { name, expr }| Ok((name.string.clone(), expr.eval(ctx)?)))
+            .map(|Named { name, expr }| Ok(((&name.string).into(), expr.eval(ctx)?)))
             .collect()
     }
 }
@@ -373,7 +375,7 @@ impl Eval for CallExpr {
             }
 
             Value::Dict(dict) => {
-                dict.get(&args.into_key()?).map(Value::clone).at(self.span)
+                dict.get(args.into_key()?).map(Value::clone).at(self.span)
             }
 
             Value::Func(func) => {
@@ -393,7 +395,7 @@ impl Eval for CallExpr {
 }
 
 impl Eval for CallArgs {
-    type Output = FuncArgs;
+    type Output = Arguments;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         let mut items = Vec::with_capacity(self.items.len());
@@ -402,43 +404,49 @@ impl Eval for CallArgs {
             let span = arg.span();
             match arg {
                 CallArg::Pos(expr) => {
-                    items.push(FuncArg {
+                    items.push(Argument {
                         span,
                         name: None,
                         value: Spanned::new(expr.eval(ctx)?, expr.span()),
                     });
                 }
                 CallArg::Named(Named { name, expr }) => {
-                    items.push(FuncArg {
+                    items.push(Argument {
                         span,
-                        name: Some(name.string.clone()),
+                        name: Some((&name.string).into()),
                         value: Spanned::new(expr.eval(ctx)?, expr.span()),
                     });
                 }
                 CallArg::Spread(expr) => match expr.eval(ctx)? {
-                    Value::Args(args) => {
-                        items.extend(args.items.iter().cloned());
-                    }
                     Value::Array(array) => {
-                        items.extend(array.into_iter().map(|value| FuncArg {
+                        items.extend(array.into_iter().map(|value| Argument {
                             span,
                             name: None,
                             value: Spanned::new(value, span),
                         }));
                     }
                     Value::Dict(dict) => {
-                        items.extend(dict.into_iter().map(|(key, value)| FuncArg {
+                        items.extend(dict.into_iter().map(|(key, value)| Argument {
                             span,
                             name: Some(key),
                             value: Spanned::new(value, span),
                         }));
                     }
-                    v => bail!(expr.span(), "cannot spread {}", v.type_name()),
+                    v => {
+                        if let Value::Dyn(dynamic) = &v {
+                            if let Some(args) = dynamic.downcast_ref::<Arguments>() {
+                                items.extend(args.items.iter().cloned());
+                                continue;
+                            }
+                        }
+
+                        bail!(expr.span(), "cannot spread {}", v.type_name())
+                    }
                 },
             }
         }
 
-        Ok(FuncArgs { span: self.span, items })
+        Ok(Arguments { span: self.span, items })
     }
 }
 
@@ -499,7 +507,7 @@ impl Eval for ClosureExpr {
 
             // Put the remaining arguments into the sink.
             if let Some(sink) = &sink {
-                ctx.scopes.def_mut(sink, Rc::new(args.take()));
+                ctx.scopes.def_mut(sink, args.take());
             }
 
             let value = body.eval(ctx)?;
@@ -599,7 +607,7 @@ impl Eval for ForExpr {
         let iter = self.iter.eval(ctx)?;
         match (&self.pattern, iter) {
             (ForPattern::Value(v), Value::Str(string)) => {
-                iter!(for (v => value) in string.chars().map(|c| Value::Str(c.into())))
+                iter!(for (v => value) in string.iter())
             }
             (ForPattern::Value(v), Value::Array(array)) => {
                 iter!(for (v => value) in array.into_iter())
@@ -627,7 +635,7 @@ impl Eval for ImportExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let path = self.path.eval(ctx)?.cast::<EcoString>().at(self.path.span())?;
+        let path = self.path.eval(ctx)?.cast::<Str>().at(self.path.span())?;
 
         let file = ctx.import(&path, self.path.span())?;
         let module = &ctx.modules[&file];
@@ -657,7 +665,7 @@ impl Eval for IncludeExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let path = self.path.eval(ctx)?.cast::<EcoString>().at(self.path.span())?;
+        let path = self.path.eval(ctx)?.cast::<Str>().at(self.path.span())?;
 
         let file = ctx.import(&path, self.path.span())?;
         let module = &ctx.modules[&file];
