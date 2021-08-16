@@ -75,7 +75,7 @@ impl ExecContext {
 
     /// Push a word space into the active paragraph.
     pub fn push_word_space(&mut self) {
-        self.stack.par.push_soft(self.make_text_node(" "));
+        self.stack.par.push_soft(self.make_text_node(' '));
     }
 
     /// Push any node into the active paragraph.
@@ -107,7 +107,7 @@ impl ExecContext {
 
     /// Apply a forced line break.
     pub fn linebreak(&mut self) {
-        self.stack.par.push_hard(self.make_text_node("\n"));
+        self.stack.par.push_hard(self.make_text_node('\n'));
     }
 
     /// Apply a forced paragraph break.

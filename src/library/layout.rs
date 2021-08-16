@@ -27,7 +27,7 @@ pub fn page(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
         let state = ctx.state.page_mut();
 
         if let Some(paper) = paper {
-            state.class = paper.class;
+            state.class = paper.class();
             state.size = paper.size();
         }
 

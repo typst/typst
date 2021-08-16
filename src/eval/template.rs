@@ -12,31 +12,29 @@ use crate::util::EcoString;
 
 /// A template value: `[*Hi* there]`.
 #[derive(Debug, Default, Clone)]
-pub struct Template {
-    nodes: Rc<Vec<TemplateNode>>,
-}
+pub struct Template(Rc<Vec<TemplateNode>>);
 
 impl Template {
     /// Create a new template from a vector of nodes.
     pub fn new(nodes: Vec<TemplateNode>) -> Self {
-        Self { nodes: Rc::new(nodes) }
+        Self(Rc::new(nodes))
     }
 
     /// Iterate over the contained template nodes.
     pub fn iter(&self) -> std::slice::Iter<TemplateNode> {
-        self.nodes.iter()
+        self.0.iter()
     }
 
     /// Repeat this template `n` times.
     pub fn repeat(&self, n: i64) -> StrResult<Self> {
         let count = usize::try_from(n)
             .ok()
-            .and_then(|n| self.nodes.len().checked_mul(n))
+            .and_then(|n| self.0.len().checked_mul(n))
             .ok_or_else(|| format!("cannot repeat this template {} times", n))?;
 
-        Ok(Self {
-            nodes: Rc::new(self.iter().cloned().cycle().take(count).collect()),
-        })
+        Ok(Self(Rc::new(
+            self.iter().cloned().cycle().take(count).collect(),
+        )))
     }
 }
 
@@ -48,7 +46,7 @@ impl Display for Template {
 
 impl PartialEq for Template {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.nodes, &other.nodes)
+        Rc::ptr_eq(&self.0, &other.0)
     }
 }
 
@@ -63,8 +61,8 @@ impl Add for Template {
 
 impl AddAssign for Template {
     fn add_assign(&mut self, rhs: Template) {
-        let sink = Rc::make_mut(&mut self.nodes);
-        match Rc::try_unwrap(rhs.nodes) {
+        let sink = Rc::make_mut(&mut self.0);
+        match Rc::try_unwrap(rhs.0) {
             Ok(source) => sink.extend(source),
             Err(rc) => sink.extend(rc.iter().cloned()),
         }
@@ -75,7 +73,7 @@ impl Add<Str> for Template {
     type Output = Self;
 
     fn add(mut self, rhs: Str) -> Self::Output {
-        Rc::make_mut(&mut self.nodes).push(TemplateNode::Str(rhs.into()));
+        Rc::make_mut(&mut self.0).push(TemplateNode::Str(rhs.into()));
         self
     }
 }
@@ -84,7 +82,7 @@ impl Add<Template> for Str {
     type Output = Template;
 
     fn add(self, mut rhs: Template) -> Self::Output {
-        Rc::make_mut(&mut rhs.nodes).insert(0, TemplateNode::Str(self.into()));
+        Rc::make_mut(&mut rhs.0).insert(0, TemplateNode::Str(self.into()));
         rhs
     }
 }
@@ -154,16 +152,16 @@ impl TemplateFunc {
     }
 }
 
+impl Debug for TemplateFunc {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("TemplateFunc").finish()
+    }
+}
+
 impl Deref for TemplateFunc {
     type Target = dyn Fn(&mut ExecContext);
 
     fn deref(&self) -> &Self::Target {
         self.0.as_ref()
-    }
-}
-
-impl Debug for TemplateFunc {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("TemplateFunc").finish()
     }
 }

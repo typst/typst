@@ -39,17 +39,17 @@ impl Ident {
     }
 }
 
-impl AsRef<str> for Ident {
-    fn as_ref(&self) -> &str {
-        self
-    }
-}
-
 impl Deref for Ident {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
         self.string.as_str()
+    }
+}
+
+impl AsRef<str> for Ident {
+    fn as_ref(&self) -> &str {
+        self
     }
 }
 

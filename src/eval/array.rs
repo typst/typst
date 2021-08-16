@@ -11,19 +11,17 @@ use crate::diag::StrResult;
 #[allow(unused_macros)]
 macro_rules! array {
     ($value:expr; $count:expr) => {
-        $crate::eval::Array::from_vec(vec![$crate::eval::Value::from($value); $count])
+        $crate::eval::Array::from_vec(vec![$value.into(); $count])
     };
 
     ($($value:expr),* $(,)?) => {
-        $crate::eval::Array::from_vec(vec![$($crate::eval::Value::from($value)),*])
+        $crate::eval::Array::from_vec(vec![$($value.into()),*])
     };
 }
 
 /// An array of values with clone-on-write value semantics.
 #[derive(Default, Clone, PartialEq)]
-pub struct Array {
-    vec: Rc<Vec<Value>>,
-}
+pub struct Array(Rc<Vec<Value>>);
 
 impl Array {
     /// Create a new, empty array.
@@ -33,24 +31,24 @@ impl Array {
 
     /// Create a new array from a vector of values.
     pub fn from_vec(vec: Vec<Value>) -> Self {
-        Self { vec: Rc::new(vec) }
+        Self(Rc::new(vec))
     }
 
     /// Whether the array is empty.
     pub fn is_empty(&self) -> bool {
-        self.vec.is_empty()
+        self.0.is_empty()
     }
 
     /// The length of the array.
     pub fn len(&self) -> i64 {
-        self.vec.len() as i64
+        self.0.len() as i64
     }
 
     /// Borrow the value at the given index.
     pub fn get(&self, index: i64) -> StrResult<&Value> {
         usize::try_from(index)
             .ok()
-            .and_then(|i| self.vec.get(i))
+            .and_then(|i| self.0.get(i))
             .ok_or_else(|| out_of_bounds(index, self.len()))
     }
 
@@ -59,19 +57,19 @@ impl Array {
         let len = self.len();
         usize::try_from(index)
             .ok()
-            .and_then(move |i| Rc::make_mut(&mut self.vec).get_mut(i))
+            .and_then(move |i| Rc::make_mut(&mut self.0).get_mut(i))
             .ok_or_else(|| out_of_bounds(index, len))
     }
 
     /// Push a value to the end of the array.
     pub fn push(&mut self, value: Value) {
-        Rc::make_mut(&mut self.vec).push(value);
+        Rc::make_mut(&mut self.0).push(value);
     }
 
     /// Clear the array.
     pub fn clear(&mut self) {
-        if Rc::strong_count(&mut self.vec) == 1 {
-            Rc::make_mut(&mut self.vec).clear();
+        if Rc::strong_count(&mut self.0) == 1 {
+            Rc::make_mut(&mut self.0).clear();
         } else {
             *self = Self::new();
         }
@@ -79,14 +77,14 @@ impl Array {
 
     /// Iterate over references to the contained values.
     pub fn iter(&self) -> std::slice::Iter<Value> {
-        self.vec.iter()
+        self.0.iter()
     }
 
     /// Repeat this array `n` times.
     pub fn repeat(&self, n: i64) -> StrResult<Self> {
         let count = usize::try_from(n)
             .ok()
-            .and_then(|n| self.vec.len().checked_mul(n))
+            .and_then(|n| self.0.len().checked_mul(n))
             .ok_or_else(|| format!("cannot repeat this array {} times", n))?;
 
         Ok(self.iter().cloned().cycle().take(count).collect())
@@ -101,7 +99,7 @@ fn out_of_bounds(index: i64, len: i64) -> String {
 
 impl Debug for Array {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_list().entries(self.vec.iter()).finish()
+        f.debug_list().entries(self.0.iter()).finish()
     }
 }
 
@@ -110,7 +108,7 @@ impl Display for Array {
         f.write_char('(')?;
         for (i, value) in self.iter().enumerate() {
             Display::fmt(value, f)?;
-            if i + 1 < self.vec.len() {
+            if i + 1 < self.0.len() {
                 f.write_str(", ")?;
             }
         }
@@ -132,7 +130,7 @@ impl Add for Array {
 
 impl AddAssign for Array {
     fn add_assign(&mut self, rhs: Array) {
-        match Rc::try_unwrap(rhs.vec) {
+        match Rc::try_unwrap(rhs.0) {
             Ok(vec) => self.extend(vec),
             Err(rc) => self.extend(rc.iter().cloned()),
         }
@@ -141,13 +139,13 @@ impl AddAssign for Array {
 
 impl FromIterator<Value> for Array {
     fn from_iter<T: IntoIterator<Item = Value>>(iter: T) -> Self {
-        Array { vec: Rc::new(iter.into_iter().collect()) }
+        Self(Rc::new(iter.into_iter().collect()))
     }
 }
 
 impl Extend<Value> for Array {
     fn extend<T: IntoIterator<Item = Value>>(&mut self, iter: T) {
-        Rc::make_mut(&mut self.vec).extend(iter);
+        Rc::make_mut(&mut self.0).extend(iter);
     }
 }
 
@@ -156,7 +154,7 @@ impl IntoIterator for Array {
     type IntoIter = std::vec::IntoIter<Value>;
 
     fn into_iter(self) -> Self::IntoIter {
-        match Rc::try_unwrap(self.vec) {
+        match Rc::try_unwrap(self.0) {
             Ok(vec) => vec.into_iter(),
             Err(rc) => (*rc).clone().into_iter(),
         }

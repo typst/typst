@@ -7,20 +7,17 @@ use super::*;
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct Length {
-    /// The length in raw units.
-    raw: N64,
-}
+pub struct Length(N64);
 
 impl Length {
     /// The zero length.
     pub fn zero() -> Self {
-        Self { raw: N64::from(0.0) }
+        Self(N64::from(0.0))
     }
 
     /// The inifinite length.
     pub fn inf() -> Self {
-        Self { raw: N64::from(f64::INFINITY) }
+        Self(N64::from(f64::INFINITY))
     }
 
     /// Create a length from a number of points.
@@ -45,7 +42,7 @@ impl Length {
 
     /// Create a length from a number of raw units.
     pub fn raw(raw: f64) -> Self {
-        Self { raw: N64::from(raw) }
+        Self(N64::from(raw))
     }
 
     /// Convert this to a number of points.
@@ -70,12 +67,12 @@ impl Length {
 
     /// Get the value of this length in raw units.
     pub fn to_raw(self) -> f64 {
-        self.raw.into()
+        self.0.into()
     }
 
     /// Create a length from a value in a unit.
     pub fn with_unit(val: f64, unit: LengthUnit) -> Self {
-        Self { raw: N64::from(val * unit.raw_scale()) }
+        Self(N64::from(val * unit.raw_scale()))
     }
 
     /// Get the value of this length in unit.
@@ -83,9 +80,24 @@ impl Length {
         self.to_raw() / unit.raw_scale()
     }
 
+    /// Whether the length is zero.
+    pub fn is_zero(self) -> bool {
+        self.0 == 0.0
+    }
+
+    /// Whether the length is finite.
+    pub fn is_finite(self) -> bool {
+        self.0.into_inner().is_finite()
+    }
+
+    /// Whether the length is infinite.
+    pub fn is_infinite(self) -> bool {
+        self.0.into_inner().is_infinite()
+    }
+
     /// The minimum of this and another length.
     pub fn min(self, other: Self) -> Self {
-        Self { raw: self.raw.min(other.raw) }
+        Self(self.0.min(other.0))
     }
 
     /// Set to the minimum of this and another length.
@@ -95,7 +107,7 @@ impl Length {
 
     /// The maximum of this and another length.
     pub fn max(self, other: Self) -> Self {
-        Self { raw: self.raw.max(other.raw) }
+        Self(self.0.max(other.0))
     }
 
     /// Set to the maximum of this and another length.
@@ -105,27 +117,12 @@ impl Length {
 
     /// Whether the other length fits into this one (i.e. is smaller).
     pub fn fits(self, other: Self) -> bool {
-        self.raw + 1e-6 >= other.raw
+        self.0 + 1e-6 >= other.0
     }
 
     /// Compares two lengths for whether they are approximately equal.
     pub fn approx_eq(self, other: Self) -> bool {
         self == other || (self - other).to_raw().abs() < 1e-6
-    }
-
-    /// Whether the length is zero.
-    pub fn is_zero(self) -> bool {
-        self.raw == 0.0
-    }
-
-    /// Whether the length is finite.
-    pub fn is_finite(self) -> bool {
-        self.raw.into_inner().is_finite()
-    }
-
-    /// Whether the length is infinite.
-    pub fn is_infinite(self) -> bool {
-        self.raw.into_inner().is_infinite()
     }
 }
 
@@ -156,7 +153,7 @@ impl Neg for Length {
     type Output = Self;
 
     fn neg(self) -> Self {
-        Self { raw: -self.raw }
+        Self(-self.0)
     }
 }
 
@@ -164,7 +161,7 @@ impl Add for Length {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        Self { raw: self.raw + other.raw }
+        Self(self.0 + other.0)
     }
 }
 
@@ -174,7 +171,7 @@ impl Mul<f64> for Length {
     type Output = Self;
 
     fn mul(self, other: f64) -> Self {
-        Self { raw: self.raw * other }
+        Self(self.0 * other)
     }
 }
 
@@ -190,7 +187,7 @@ impl Div<f64> for Length {
     type Output = Self;
 
     fn div(self, other: f64) -> Self {
-        Self { raw: self.raw / other }
+        Self(self.0 / other)
     }
 }
 

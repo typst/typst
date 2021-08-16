@@ -6,7 +6,7 @@ use crate::geom::{Length, Linear, Relative, Sides, Size};
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Paper {
     /// The broad class this paper belongs to.
-    pub class: PaperClass,
+    class: PaperClass,
     /// The width of the paper in millimeters.
     width: f64,
     /// The height of the paper in millimeters.
@@ -17,6 +17,11 @@ impl Paper {
     /// The paper with the given name.
     pub fn from_name(name: &str) -> Option<Self> {
         parse_paper(name)
+    }
+
+    /// The class of the paper.
+    pub fn class(self) -> PaperClass {
+        self.class
     }
 
     /// The size of the paper.

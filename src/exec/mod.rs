@@ -106,8 +106,7 @@ impl ExecWithMap for ListItem {
 impl ExecWithMap for EnumItem {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         let mut label = EcoString::new();
-        write!(&mut label, "{}", self.number.unwrap_or(1)).unwrap();
-        label.push('.');
+        write!(&mut label, "{}.", self.number.unwrap_or(1)).unwrap();
         exec_item(ctx, label, &self.body, map);
     }
 }
@@ -115,7 +114,7 @@ impl ExecWithMap for EnumItem {
 fn exec_item(ctx: &mut ExecContext, label: EcoString, body: &SyntaxTree, map: &ExprMap) {
     let label = ctx.exec_stack(|ctx| ctx.push_text(label));
     let body = ctx.exec_tree_stack(body, map);
-    let stack = StackNode {
+    ctx.push_into_stack(StackNode {
         dirs: Gen::new(ctx.state.dirs.main, ctx.state.dirs.cross),
         aspect: None,
         children: vec![
@@ -123,9 +122,7 @@ fn exec_item(ctx: &mut ExecContext, label: EcoString, body: &SyntaxTree, map: &E
             StackChild::Spacing(ctx.state.font.size / 2.0),
             StackChild::Any(body.into(), Gen::default()),
         ],
-    };
-
-    ctx.push_into_stack(stack);
+    });
 }
 
 impl Exec for Value {

@@ -3,15 +3,12 @@ use decorum::N64;
 
 /// An angle.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Angle {
-    /// The angle in raw units.
-    raw: N64,
-}
+pub struct Angle(N64);
 
 impl Angle {
     /// The zero angle.
     pub fn zero() -> Self {
-        Self { raw: N64::from(0.0) }
+        Self(N64::from(0.0))
     }
 
     /// Create an angle from a number of radians.
@@ -26,7 +23,7 @@ impl Angle {
 
     /// Create an angle from a number of raw units.
     pub fn raw(raw: f64) -> Self {
-        Self { raw: N64::from(raw) }
+        Self(N64::from(raw))
     }
 
     /// Convert this to a number of radians.
@@ -41,12 +38,12 @@ impl Angle {
 
     /// Get the value of this angle in raw units.
     pub fn to_raw(self) -> f64 {
-        self.raw.into()
+        self.0.into()
     }
 
     /// Create an angle from a value in a unit.
     pub fn with_unit(val: f64, unit: AngularUnit) -> Self {
-        Self { raw: N64::from(val * unit.raw_scale()) }
+        Self(N64::from(val * unit.raw_scale()))
     }
 
     /// Get the value of this length in unit.
@@ -80,7 +77,7 @@ impl Neg for Angle {
     type Output = Self;
 
     fn neg(self) -> Self {
-        Self { raw: -self.raw }
+        Self(-self.0)
     }
 }
 
@@ -88,7 +85,7 @@ impl Add for Angle {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        Self { raw: self.raw + other.raw }
+        Self(self.0 + other.0)
     }
 }
 
@@ -98,7 +95,7 @@ impl Mul<f64> for Angle {
     type Output = Self;
 
     fn mul(self, other: f64) -> Self {
-        Self { raw: self.raw * other }
+        Self(self.0 * other)
     }
 }
 
@@ -114,7 +111,7 @@ impl Div<f64> for Angle {
     type Output = Self;
 
     fn div(self, other: f64) -> Self {
-        Self { raw: self.raw / other }
+        Self(self.0 / other)
     }
 }
 

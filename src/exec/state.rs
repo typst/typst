@@ -91,7 +91,7 @@ impl Default for PageState {
     fn default() -> Self {
         let paper = PAPER_A4;
         Self {
-            class: paper.class,
+            class: paper.class(),
             size: paper.size(),
             margins: Sides::splat(None),
         }
@@ -171,19 +171,16 @@ impl FontState {
 
     /// The resolved family iterator.
     pub fn families(&self) -> impl Iterator<Item = &str> + Clone {
-        let head = if self.monospace {
-            self.families.monospace.as_slice()
-        } else {
-            &[]
-        };
+        let head = self
+            .monospace
+            .then(|| self.families.monospace.as_slice())
+            .unwrap_or_default();
 
-        let core = self.families.list.iter().flat_map(move |family: &FontFamily| {
-            match family {
-                FontFamily::Named(name) => std::slice::from_ref(name),
-                FontFamily::Serif => &self.families.serif,
-                FontFamily::SansSerif => &self.families.sans_serif,
-                FontFamily::Monospace => &self.families.monospace,
-            }
+        let core = self.families.list.iter().flat_map(move |family| match family {
+            FontFamily::Named(name) => std::slice::from_ref(name),
+            FontFamily::Serif => &self.families.serif,
+            FontFamily::SansSerif => &self.families.sans_serif,
+            FontFamily::Monospace => &self.families.monospace,
         });
 
         head.iter()

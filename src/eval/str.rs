@@ -7,9 +7,7 @@ use crate::util::EcoString;
 
 /// A string value with inline storage and clone-on-write semantics.
 #[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Str {
-    string: EcoString,
-}
+pub struct Str(EcoString);
 
 impl Str {
     /// Create a new, empty string.
@@ -19,17 +17,17 @@ impl Str {
 
     /// Whether the string is empty.
     pub fn is_empty(&self) -> bool {
-        self.string.is_empty()
+        self.0.is_empty()
     }
 
     /// The length of the string in bytes.
     pub fn len(&self) -> i64 {
-        self.string.len() as i64
+        self.0.len() as i64
     }
 
     /// Borrow this as a string slice.
     pub fn as_str(&self) -> &str {
-        self.string.as_str()
+        self.0.as_str()
     }
 
     /// Return an iterator over the chars as strings.
@@ -41,10 +39,10 @@ impl Str {
     pub fn repeat(&self, n: i64) -> StrResult<Self> {
         let n = usize::try_from(n)
             .ok()
-            .and_then(|n| self.string.len().checked_mul(n).map(|_| n))
+            .and_then(|n| self.0.len().checked_mul(n).map(|_| n))
             .ok_or_else(|| format!("cannot repeat this string {} times", n))?;
 
-        Ok(self.string.repeat(n).into())
+        Ok(self.0.repeat(n).into())
     }
 }
 
@@ -67,7 +65,7 @@ impl Display for Str {
 
 impl Debug for Str {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Debug::fmt(&self.string, f)
+        Debug::fmt(&self.0, f)
     }
 }
 
@@ -75,7 +73,7 @@ impl Deref for Str {
     type Target = str;
 
     fn deref(&self) -> &str {
-        self.string.deref()
+        self.0.deref()
     }
 }
 
@@ -90,48 +88,48 @@ impl Add for Str {
 
 impl AddAssign for Str {
     fn add_assign(&mut self, rhs: Self) {
-        self.string.push_str(rhs.as_str());
+        self.0.push_str(rhs.as_str());
     }
 }
 
 impl From<char> for Str {
     fn from(c: char) -> Self {
-        Self { string: c.into() }
+        Self(c.into())
     }
 }
 
 impl From<&str> for Str {
-    fn from(string: &str) -> Self {
-        Self { string: string.into() }
+    fn from(s: &str) -> Self {
+        Self(s.into())
     }
 }
 
 impl From<String> for Str {
-    fn from(string: String) -> Self {
-        Self { string: string.into() }
+    fn from(s: String) -> Self {
+        Self(s.into())
     }
 }
 
 impl From<EcoString> for Str {
-    fn from(string: EcoString) -> Self {
-        Self { string }
+    fn from(s: EcoString) -> Self {
+        Self(s)
     }
 }
 
 impl From<&EcoString> for Str {
-    fn from(string: &EcoString) -> Self {
-        Self { string: string.clone() }
+    fn from(s: &EcoString) -> Self {
+        Self(s.clone())
     }
 }
 
 impl From<Str> for EcoString {
-    fn from(string: Str) -> Self {
-        string.string
+    fn from(s: Str) -> Self {
+        s.0
     }
 }
 
 impl From<&Str> for EcoString {
-    fn from(string: &Str) -> Self {
-        string.string.clone()
+    fn from(s: &Str) -> Self {
+        s.0.clone()
     }
 }

@@ -8,12 +8,10 @@ use crate::util::EcoString;
 
 /// An evaluatable function.
 #[derive(Clone)]
-pub struct Function {
-    repr: Rc<Repr<Func>>,
-}
+pub struct Function(Rc<Inner<Func>>);
 
-/// The unsized representation behind the [`Rc`].
-struct Repr<T: ?Sized> {
+/// The unsized structure behind the [`Rc`].
+struct Inner<T: ?Sized> {
     name: Option<EcoString>,
     func: T,
 }
@@ -26,17 +24,17 @@ impl Function {
     where
         F: Fn(&mut EvalContext, &mut Arguments) -> TypResult<Value> + 'static,
     {
-        Self { repr: Rc::new(Repr { name, func }) }
+        Self(Rc::new(Inner { name, func }))
     }
 
     /// The name of the function.
     pub fn name(&self) -> Option<&EcoString> {
-        self.repr.name.as_ref()
+        self.0.name.as_ref()
     }
 
     /// Call the function in the context with the arguments.
     pub fn call(&self, ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
-        (&self.repr.func)(ctx, args)
+        (&self.0.func)(ctx, args)
     }
 }
 
@@ -53,14 +51,14 @@ impl Display for Function {
 
 impl Debug for Function {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("Function").field("name", &self.repr.name).finish()
+        f.debug_struct("Function").field("name", &self.0.name).finish()
     }
 }
 
 impl PartialEq for Function {
     fn eq(&self, other: &Self) -> bool {
         // We cast to thin pointers for comparison.
-        Rc::as_ptr(&self.repr) as *const () == Rc::as_ptr(&other.repr) as *const ()
+        Rc::as_ptr(&self.0) as *const () == Rc::as_ptr(&other.0) as *const ()
     }
 }
 

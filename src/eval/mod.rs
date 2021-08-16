@@ -376,7 +376,7 @@ impl Eval for CallExpr {
             }
 
             Value::Func(func) => {
-                let point = || Tracepoint::Call(func.name().map(Into::into));
+                let point = || Tracepoint::Call(func.name().map(ToString::to_string));
                 let value = func.call(ctx, &mut args).trace(point, self.span)?;
                 args.finish()?;
                 Ok(value)

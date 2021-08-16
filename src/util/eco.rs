@@ -163,6 +163,24 @@ impl EcoString {
     }
 }
 
+impl Default for EcoString {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Display for EcoString {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(self.as_str(), f)
+    }
+}
+
+impl Debug for EcoString {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Debug::fmt(self.as_str(), f)
+    }
+}
+
 impl Deref for EcoString {
     type Target = str;
 
@@ -180,24 +198,6 @@ impl Deref for EcoString {
             },
             Repr::Large(string) => string.as_str(),
         }
-    }
-}
-
-impl Default for EcoString {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Display for EcoString {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self.as_str(), f)
-    }
-}
-
-impl Debug for EcoString {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Debug::fmt(self.as_str(), f)
     }
 }
 
@@ -298,12 +298,6 @@ impl From<EcoString> for String {
                 Err(rc) => (*rc).clone(),
             },
         }
-    }
-}
-
-impl From<&EcoString> for String {
-    fn from(s: &EcoString) -> Self {
-        s.as_str().to_owned()
     }
 }
 
