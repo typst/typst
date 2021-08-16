@@ -100,9 +100,18 @@ impl SourceStore {
         id
     }
 
+    /// Edit a source file by replacing the given range.
+    ///
+    /// This panics if no source file with this `id` exists or if the `replace`
+    /// range is out of bounds for the source file identified by `id`.
+    #[track_caller]
+    pub fn edit(&mut self, id: SourceId, replace: Range<usize>, with: &str) {
+        self.sources[id.0 as usize].edit(replace, with);
+    }
+
     /// Get a reference to a loaded source file.
     ///
-    /// This panics if no source file with this id was loaded. This function
+    /// This panics if no source file with this `id` exists. This function
     /// should only be called with ids returned by this store's
     /// [`load()`](Self::load) and [`provide()`](Self::provide) methods.
     #[track_caller]
@@ -126,17 +135,7 @@ impl SourceFile {
     /// Create a new source file.
     pub fn new(id: SourceId, path: &Path, src: String) -> Self {
         let mut line_starts = vec![0];
-        let mut s = Scanner::new(&src);
-
-        while let Some(c) = s.eat() {
-            if is_newline(c) {
-                if c == '\r' {
-                    s.eat_if('\n');
-                }
-                line_starts.push(s.index());
-            }
-        }
-
+        line_starts.extend(newlines(&src));
         Self {
             id,
             path: path.normalize(),
@@ -230,12 +229,51 @@ impl SourceFile {
         }
         Some(range.start + (line.len() - chars.as_str().len()))
     }
+
+    /// Edit the source file by replacing the given range.
+    ///
+    /// This panics if the `replace` range is out of bounds.
+    pub fn edit(&mut self, replace: Range<usize>, with: &str) {
+        let start = replace.start;
+        self.src.replace_range(replace, with);
+
+        // Remove invalidated line starts.
+        let line = self.byte_to_line(start).unwrap();
+        self.line_starts.truncate(line + 1);
+
+        // Handle adjoining of \r and \n.
+        if self.src[.. start].ends_with('\r') && with.starts_with('\n') {
+            self.line_starts.pop();
+        }
+
+        // Recalculate the line starts after the edit.
+        self.line_starts
+            .extend(newlines(&self.src[start ..]).map(|idx| start + idx));
+    }
 }
 
 impl AsRef<str> for SourceFile {
     fn as_ref(&self) -> &str {
         &self.src
     }
+}
+
+/// The indices at which lines start (right behind newlines).
+///
+/// The beginning of the string (index 0) is not returned.
+fn newlines(string: &str) -> impl Iterator<Item = usize> + '_ {
+    let mut s = Scanner::new(string);
+    std::iter::from_fn(move || {
+        while let Some(c) = s.eat() {
+            if is_newline(c) {
+                if c == '\r' {
+                    s.eat_if('\n');
+                }
+                return Some(s.index());
+            }
+        }
+        None
+    })
 }
 
 #[cfg(feature = "codespan-reporting")]
@@ -297,7 +335,7 @@ mod tests {
     #[test]
     fn test_source_file_new() {
         let source = SourceFile::detached(TEST);
-        assert_eq!(source.line_starts, vec![0, 7, 15, 18]);
+        assert_eq!(source.line_starts, [0, 7, 15, 18]);
     }
 
     #[test]
@@ -339,5 +377,34 @@ mod tests {
         roundtrip(&source, 7);
         roundtrip(&source, 12);
         roundtrip(&source, 21);
+    }
+
+    #[test]
+    fn test_source_file_edit() {
+        #[track_caller]
+        fn test(prev: &str, range: Range<usize>, with: &str, after: &str) {
+            let mut source = SourceFile::detached(prev);
+            let result = SourceFile::detached(after);
+            source.edit(range, with);
+            assert_eq!(source.src, result.src);
+            assert_eq!(source.line_starts, result.line_starts);
+        }
+
+        // Test inserting at the begining.
+        test("abc\n", 0 .. 0, "hi\n", "hi\nabc\n");
+        test("\nabc", 0 .. 0, "hi\r", "hi\r\nabc");
+
+        // Test editing in the middle.
+        test(TEST, 4 .. 16, "❌", "ä\tc❌i\rjkl");
+
+        // Test appending.
+        test("abc\ndef", 7 .. 7, "hi", "abc\ndefhi");
+        test("abc\ndef\n", 8 .. 8, "hi", "abc\ndef\nhi");
+
+        // Test appending with adjoining \r and \n.
+        test("abc\ndef\r", 8 .. 8, "\nghi", "abc\ndef\r\nghi");
+
+        // Test removing everything.
+        test(TEST, 0 .. 21, "", "");
     }
 }

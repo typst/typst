@@ -51,9 +51,6 @@ pub fn eval(
     Ok(Module { scope: ctx.scopes.top, template })
 }
 
-/// Caches evaluated modules.
-pub type ModuleCache = HashMap<SourceId, Module>;
-
 /// An evaluated module, ready for importing or execution.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Module {
@@ -71,10 +68,10 @@ pub struct EvalContext<'a> {
     pub sources: &'a mut SourceStore,
     /// Stores decoded images.
     pub images: &'a mut ImageStore,
-    /// Caches evaluated modules.
-    pub modules: &'a mut ModuleCache,
     /// The stack of imported files that led to evaluation of the current file.
     pub route: Vec<SourceId>,
+    /// Caches imported modules.
+    pub modules: HashMap<SourceId, Module>,
     /// The active scopes.
     pub scopes: Scopes<'a>,
     /// The expression map for the currently built template.
@@ -88,8 +85,8 @@ impl<'a> EvalContext<'a> {
             loader: ctx.loader.as_ref(),
             sources: &mut ctx.sources,
             images: &mut ctx.images,
-            modules: &mut ctx.modules,
             route: vec![source],
+            modules: HashMap::new(),
             scopes: Scopes::new(Some(&ctx.std)),
             map: ExprMap::new(),
         }

@@ -140,7 +140,7 @@ impl FontStore {
 
     /// Get a reference to a loaded face.
     ///
-    /// This panics if no face with this id was loaded. This function should
+    /// This panics if no face with this `id` was loaded. This function should
     /// only be called with ids returned by this store's
     /// [`select()`](Self::select) method.
     #[track_caller]

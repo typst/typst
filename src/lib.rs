@@ -50,7 +50,7 @@ pub mod util;
 use std::rc::Rc;
 
 use crate::diag::TypResult;
-use crate::eval::{ModuleCache, Scope};
+use crate::eval::Scope;
 use crate::exec::State;
 use crate::font::FontStore;
 use crate::image::ImageStore;
@@ -70,8 +70,6 @@ pub struct Context {
     pub fonts: FontStore,
     /// Stores decoded images.
     pub images: ImageStore,
-    /// Caches evaluated modules.
-    pub modules: ModuleCache,
     /// Caches layouting artifacts.
     #[cfg(feature = "layout-cache")]
     pub layouts: LayoutCache,
@@ -144,7 +142,6 @@ impl ContextBuilder {
             fonts: FontStore::new(Rc::clone(&loader)),
             images: ImageStore::new(Rc::clone(&loader)),
             loader,
-            modules: ModuleCache::new(),
             #[cfg(feature = "layout-cache")]
             layouts: LayoutCache::new(),
             std: self.std.unwrap_or(library::new()),

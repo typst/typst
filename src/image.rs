@@ -79,7 +79,7 @@ impl ImageStore {
 
     /// Get a reference to a loaded image.
     ///
-    /// This panics if no image with this id was loaded. This function should
+    /// This panics if no image with this `id` was loaded. This function should
     /// only be called with ids returned by this store's [`load()`](Self::load)
     /// method.
     #[track_caller]
