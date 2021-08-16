@@ -24,6 +24,7 @@ fxhash = "0.2.1"
 image = { version = "0.23", default-features = false, features = ["png", "jpeg"] }
 miniz_oxide = "0.4"
 pdf-writer = "0.3"
+rand = "0.8.4"
 rustybuzz = "0.4"
 serde = { version = "1", features = ["derive", "rc"] }
 ttf-parser = "0.12"

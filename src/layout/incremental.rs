@@ -2,6 +2,13 @@
 use std::collections::HashMap;
 use std::ops::Deref;
 
+use crate::util::OptionExt;
+
+#[cfg(feature = "layout-cache")]
+use decorum::N32;
+#[cfg(feature = "layout-cache")]
+use rand;
+
 use super::*;
 
 /// Caches layouting artifacts.
@@ -17,6 +24,9 @@ pub struct LayoutCache {
     frames: HashMap<u64, Vec<FramesEntry>>,
     /// In how many compilations this cache has been used.
     age: usize,
+    /// What cache eviction policy should be used.
+    #[cfg(feature = "layout-cache")]
+    pub policy: EvictionStrategy,
 }
 
 #[cfg(feature = "layout-cache")]
@@ -79,25 +89,135 @@ impl LayoutCache {
         self.frames.clear();
     }
 
-    /// Retain all elements for which the closure on the level returns `true`.
+    /// Retains all elements for which the closure on the level returns `true`.
     pub fn retain<F>(&mut self, mut f: F)
     where
         F: FnMut(usize) -> bool,
     {
-        for entries in self.frames.values_mut() {
+        for (_, entries) in self.frames.iter_mut() {
             entries.retain(|entry| f(entry.level));
         }
     }
 
-    /// Prepare the cache for the next round of compilation.
+    /// Prepare the cache for the next round of compilation
     pub fn turnaround(&mut self) {
         self.age += 1;
-        for entry in self.frames.values_mut().flatten() {
-            for i in 0 .. (entry.temperature.len() - 1) {
-                entry.temperature[i + 1] = entry.temperature[i];
+        for entry in self.frames.iter_mut().flat_map(|(_, x)| x.iter_mut()) {
+            if entry.temperature[0] > 0 {
+                entry.used_cycles += 1;
             }
-            entry.temperature[0] = 0;
+
+            let mut temperature = [0; 5];
+            temperature[entry.temperature.len() - 1] =
+                entry.temperature[entry.temperature.len() - 1];
+
+            for i in 0 .. (entry.temperature.len() - 1) {
+                if i + 1 == entry.temperature.len() - 1 {
+                    temperature[i + 1] += entry.temperature[i];
+                } else {
+                    temperature[i + 1] = entry.temperature[i];
+                }
+            }
+            entry.temperature = temperature;
             entry.age += 1;
+        }
+
+        self.evict();
+
+        self.frames.retain(|_, v| !v.is_empty());
+    }
+
+    fn evict(&mut self) {
+        let max_size = 20;
+
+        match self.policy {
+            EvictionStrategy::LeastRecentlyUsed => {
+                let last_access = if let Some(max) =
+                    self.frames.iter().flat_map(|(_, f)| f).map(|f| f.cooldown()).max()
+                {
+                    max
+                } else {
+                    return;
+                };
+
+                self.frames
+                    .iter_mut()
+                    .for_each(|(_, f)| f.retain(|e| e.cooldown() < last_access));
+                if self.len() > max_size {
+                    self.evict()
+                }
+            }
+            EvictionStrategy::LeastFrequentlyUsed => {
+                let mut usage_frequencies = self
+                    .frames
+                    .iter()
+                    .flat_map(|(_, f)| f)
+                    .map(|f| N32::from(f.total() as f32) / N32::from(f.age() as f32))
+                    .collect::<Vec<_>>();
+
+                usage_frequencies.sort_unstable();
+
+                if usage_frequencies.len() <= max_size {
+                    return;
+                }
+
+                let threshold = usage_frequencies[max_size];
+
+                for (_, entries) in self.frames.iter_mut() {
+                    entries.retain(|f| {
+                        N32::from(f.total() as f32) / N32::from(f.age() as f32)
+                            < threshold
+                    });
+                }
+            }
+            EvictionStrategy::Random => {
+                let len = self.len();
+                if len <= max_size {
+                    return;
+                }
+
+                // Fraction of items that should be kept.
+                let threshold = max_size as f32 / len as f32;
+                for (_, entries) in self.frames.iter_mut() {
+                    entries.retain(|_| rand::random::<f32>() > threshold);
+                }
+            }
+            EvictionStrategy::Patterns => {
+                let should_keep: Vec<bool> = self
+                    .frames
+                    .iter()
+                    .flat_map(|(_, f)| f)
+                    .map(|f| f.properties().should_keep())
+                    .collect();
+                let kept = should_keep.iter().filter(|&&b| b).count();
+
+                let mut usage_frequencies = self
+                    .frames
+                    .iter()
+                    .flat_map(|(_, f)| f)
+                    .zip(should_keep)
+                    .filter(|(_, keep)| !keep)
+                    .map(|(f, _)| N32::from(f.total() as f32) / N32::from(f.age() as f32))
+                    .collect::<Vec<_>>();
+
+                usage_frequencies.sort_unstable();
+
+                let remaining = max_size - kept.min(max_size);
+                if usage_frequencies.len() <= remaining {
+                    return;
+                }
+
+                let threshold = usage_frequencies[remaining];
+
+                for (_, entries) in self.frames.iter_mut() {
+                    entries.retain(|f| {
+                        f.properties().should_keep()
+                            || N32::from(f.total() as f32) / N32::from(f.age() as f32)
+                                < threshold
+                    });
+                }
+            }
+            EvictionStrategy::None => {}
         }
     }
 }
@@ -115,8 +235,11 @@ pub struct FramesEntry {
     /// For how long the element already exists.
     age: usize,
     /// How much the element was accessed during the last five compilations, the
-    /// most recent one being the first element.
+    /// most recent one being the first element. The last element will collect
+    /// all usages that are farther in the past.
     temperature: [usize; 5],
+    /// Amount of cycles in which the element has been used at all.
+    used_cycles: usize,
 }
 
 #[cfg(feature = "layout-cache")]
@@ -128,6 +251,7 @@ impl FramesEntry {
             level,
             age: 1,
             temperature: [0; 5],
+            used_cycles: 0,
         }
     }
 
@@ -164,13 +288,93 @@ impl FramesEntry {
     /// The amount of consecutive cycles in which this item has not been used.
     pub fn cooldown(&self) -> usize {
         let mut cycle = 0;
-        for &temp in &self.temperature[.. self.age] {
+        let id = if self.age > self.temperature.len() {
+            self.temperature.len()
+        } else {
+            self.age
+        };
+        for &temp in &self.temperature[.. id] {
             if temp > 0 {
                 return cycle;
             }
             cycle += 1;
         }
         cycle
+    }
+
+    /// Get the total amount of hits over the lifetime of this item.
+    pub fn total(&self) -> usize {
+        self.temperature.iter().sum()
+    }
+
+    pub fn properties(&self) -> PatternProperties {
+        let mut all_zeros = true;
+        let mut multi_use = false;
+        let mut decreasing = true;
+        let mut sparse = false;
+        let mut abandoned = false;
+
+        let mut last = None;
+        let mut partially_sparse = false;
+        let mut all_same = true;
+
+        for (i, &temp) in
+            self.temperature[.. self.temperature.len() - 1].iter().enumerate()
+        {
+            if temp != 0 {
+                all_zeros = false;
+            } else if !all_zeros {
+                partially_sparse = true;
+            }
+
+            if temp == 0 && partially_sparse {
+                sparse = true;
+            }
+
+            if temp == 0 && i == 1 {
+                abandoned = true;
+            }
+
+            if temp > 1 {
+                multi_use = true;
+            }
+
+            if let Some(prev) = last {
+                if prev > temp {
+                    decreasing = false;
+                }
+
+                if temp != prev {
+                    all_same = false;
+                }
+            }
+
+            last = Some(temp);
+        }
+
+        if self.age > self.temperature.len() {
+            if self.age - (self.temperature.len() - 1) < *self.temperature.last().unwrap()
+            {
+                multi_use = true;
+            }
+        }
+
+        if self.temperature.last().unwrap() > &0 {
+            all_zeros = false;
+        }
+
+        decreasing = decreasing && !all_same;
+
+        PatternProperties {
+            mature: self.age >= self.temperature.len(),
+            hit: self.temperature[0] >= 1,
+            top_level: self.level == 0,
+            all_zeros,
+            multi_use,
+            decreasing,
+            sparse,
+            abandoned,
+        }
     }
 }
 
@@ -270,5 +474,158 @@ impl Constraints {
         self.exact.vertical.and_set(Some(current.vertical));
         self.base.horizontal.and_set(Some(base.horizontal));
         self.base.vertical.and_set(Some(base.vertical));
+    }
+}
+
+/// Cache eviction strategies.
+#[cfg(feature = "layout-cache")]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum EvictionStrategy {
+    /// Evict the least recently used item.
+    LeastRecentlyUsed,
+    /// Evict the least frequently used item.
+    LeastFrequentlyUsed,
+    /// Evict randomly.
+    Random,
+    /// Use the pattern verdicts.
+    Patterns,
+    /// Do not evict.
+    None,
+}
+
+#[cfg(feature = "layout-cache")]
+impl Default for EvictionStrategy {
+    fn default() -> Self {
+        Self::Patterns
+    }
+}
+
+/// Possible descisions on eviction that may arise from the pattern type.
+#[cfg(feature = "layout-cache")]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum EvictionVerdict {
+    /// Always evict.
+    Evict,
+    /// The item may be evicted.
+    MayEvict,
+    /// The item should be kept.
+    Keep,
+}
+
+/// Describes the properties that this entry's temperature array has.
+#[cfg(feature = "layout-cache")]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct PatternProperties {
+    /// There only are zero values.
+    pub all_zeros: bool,
+    /// The entry exists for more or equal time as the temperature array is long.
+    pub mature: bool,
+    /// The entry was used more than one time in at least one compilation.
+    pub multi_use: bool,
+    /// The entry was used in the last compilation.
+    pub hit: bool,
+    /// The temperature is monotonously decreasing in non-terminal temperature fields.
+    pub decreasing: bool,
+    /// There are zero temperatures after non-zero temperatures.
+    pub sparse: bool,
+    /// There are multiple zero temperatures at the front of the temperature array.
+    pub abandoned: bool,
+    /// If the item is on the top level.
+    pub top_level: bool,
+}
+
+#[cfg(feature = "layout-cache")]
+impl PatternProperties {
+    pub fn should_keep(&self) -> bool {
+        if self.top_level && !self.mature {
+            // Keep an undo stack.
+            true
+        } else if self.all_zeros && !self.mature {
+            // Keep the most recently created items, even if they have not yet
+            // been used.
+            true
+        } else if self.multi_use && !self.abandoned {
+            true
+        } else if self.hit {
+            true
+        } else if self.sparse {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "layout-cache")]
+mod tests {
+    use super::*;
+
+    fn empty_frame() -> Vec<Constrained<Rc<Frame>>> {
+        vec![Constrained {
+            item: Rc::new(Frame::new(Size::zero(), Length::zero())),
+            constraints: Constraints::new(Spec::splat(false)),
+        }]
+    }
+
+    fn zero_region() -> Regions {
+        Regions::one(Size::zero(), Spec::splat(false))
+    }
+
+    #[test]
+    fn test_temperature() {
+        let mut cache = LayoutCache::new();
+        let zero_region = zero_region();
+        cache.policy = EvictionStrategy::None;
+        cache.insert(0, empty_frame(), 0);
+
+        let entry = cache.frames.get(&0).unwrap().first().unwrap();
+        assert_eq!(entry.age(), 1);
+        assert_eq!(entry.temperature, [0, 0, 0, 0, 0]);
+        assert_eq!(entry.used_cycles, 0);
+        assert_eq!(entry.level, 0);
+
+        cache.get(0, &zero_region).unwrap();
+        let entry = cache.frames.get(&0).unwrap().first().unwrap();
+        assert_eq!(entry.age(), 1);
+        assert_eq!(entry.temperature, [1, 0, 0, 0, 0]);
+
+        println!("{:?}", entry.properties().should_keep());
+
+        cache.turnaround();
+        let entry = cache.frames.get(&0).unwrap().first().unwrap();
+        assert_eq!(entry.age(), 2);
+        assert_eq!(entry.temperature, [0, 1, 0, 0, 0]);
+        assert_eq!(entry.used_cycles, 1);
+
+        cache.get(0, &zero_region).unwrap();
+        for _ in 0 .. 4 {
+            let entry = cache.frames.get(&0).unwrap().first().unwrap();
+            println!("{:?}", entry.properties().should_keep());
+            cache.turnaround();
+        }
+
+        let entry = cache.frames.get(&0).unwrap().first().unwrap();
+        assert_eq!(entry.age(), 6);
+        assert_eq!(entry.temperature, [0, 0, 0, 0, 2]);
+        assert_eq!(entry.used_cycles, 2);
+    }
+
+    #[test]
+    fn test_properties() {
+        let mut cache = LayoutCache::new();
+        cache.policy = EvictionStrategy::None;
+        cache.insert(0, empty_frame(), 1);
+
+        let props = cache.frames.get(&0).unwrap().first().unwrap().properties();
+        assert_eq!(props.top_level, false);
+        assert_eq!(props.mature, false);
+        assert_eq!(props.multi_use, false);
+        assert_eq!(props.hit, false);
+        assert_eq!(props.decreasing, false);
+        assert_eq!(props.sparse, false);
+        assert_eq!(props.abandoned, true);
+        assert_eq!(props.all_zeros, true);
+        assert_eq!(props.should_keep(), true);
     }
 }
