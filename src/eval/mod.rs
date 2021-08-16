@@ -377,7 +377,7 @@ impl Eval for CallExpr {
 
             Value::Func(func) => {
                 let point = || Tracepoint::Call(func.name().map(Into::into));
-                let value = func(ctx, &mut args).trace(point, self.span)?;
+                let value = func.call(ctx, &mut args).trace(point, self.span)?;
                 args.finish()?;
                 Ok(value)
             }
@@ -520,13 +520,13 @@ impl Eval for WithExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let callee = self.callee.eval(ctx)?.cast::<Function>().at(self.callee.span())?;
+        let wrapped = self.callee.eval(ctx)?.cast::<Function>().at(self.callee.span())?;
         let applied = self.args.eval(ctx)?;
 
-        let name = callee.name().cloned();
+        let name = wrapped.name().cloned();
         let func = Function::new(name, move |ctx, args| {
             args.items.splice(.. 0, applied.items.iter().cloned());
-            callee(ctx, args)
+            wrapped.call(ctx, args)
         });
 
         Ok(Value::Func(func))

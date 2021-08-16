@@ -1,5 +1,4 @@
 use std::fmt::{self, Debug, Display, Formatter, Write};
-use std::ops::Deref;
 use std::rc::Rc;
 
 use super::{Cast, EvalContext, Str, Value};
@@ -34,13 +33,10 @@ impl Function {
     pub fn name(&self) -> Option<&EcoString> {
         self.repr.name.as_ref()
     }
-}
 
-impl Deref for Function {
-    type Target = Func;
-
-    fn deref(&self) -> &Self::Target {
-        &self.repr.func
+    /// Call the function in the context with the arguments.
+    pub fn call(&self, ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+        (&self.repr.func)(ctx, args)
     }
 }
 
