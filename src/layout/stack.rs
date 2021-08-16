@@ -24,7 +24,7 @@ pub struct StackNode {
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub enum StackChild {
     /// Spacing between other nodes.
-    Spacing(Length),
+    Spacing(Linear),
     /// Any child node and how to align it in the stack.
     Any(LayoutNode, Gen<Align>),
 }
@@ -125,11 +125,15 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Add main-axis spacing into the current region.
-    fn space(&mut self, amount: Length) {
+    fn space(&mut self, amount: Linear) {
+        // Resolve the linear.
+        let full = self.full.get(self.main);
+        let resolved = amount.resolve(full);
+
         // Cap the spacing to the remaining available space. This action does
         // not directly affect the constraints because of the cap.
         let remaining = self.regions.current.get_mut(self.main);
-        let capped = amount.min(*remaining);
+        let capped = resolved.min(*remaining);
 
         // Grow our size and shrink the available space in the region.
         self.used.main += capped;

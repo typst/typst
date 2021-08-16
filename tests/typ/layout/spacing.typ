@@ -10,8 +10,9 @@ Inv #h(0pt) isible
 // Multiple spacings in a row.
 Add #h(10pt) #h(10pt) up
 
-// Relative to font size.
-Relative #h(100%) spacing
+// Relative to area.
+#let x = 25% - 4pt
+| #h(x) | #h(x) | #h(x) | #h(x) |
 
 ---
 // Missing spacing.

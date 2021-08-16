@@ -119,7 +119,7 @@ fn exec_item(ctx: &mut ExecContext, label: EcoString, body: &SyntaxTree, map: &E
         aspect: None,
         children: vec![
             StackChild::Any(label.into(), Gen::default()),
-            StackChild::Spacing(ctx.state.font.size / 2.0),
+            StackChild::Spacing((ctx.state.font.size / 2.0).into()),
             StackChild::Any(body.into(), Gen::default()),
         ],
     });

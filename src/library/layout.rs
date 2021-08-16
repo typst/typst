@@ -80,20 +80,17 @@ pub fn pagebreak(_: &mut EvalContext, _: &mut Arguments) -> TypResult<Value> {
 
 /// `h`: Horizontal spacing.
 pub fn h(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
-    spacing_impl(args, GenAxis::Cross)
+    let spacing = args.expect("spacing")?;
+    Ok(Value::template(move |ctx| {
+        ctx.push_spacing(GenAxis::Cross, spacing);
+    }))
 }
 
 /// `v`: Vertical spacing.
 pub fn v(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
-    spacing_impl(args, GenAxis::Main)
-}
-
-fn spacing_impl(args: &mut Arguments, axis: GenAxis) -> TypResult<Value> {
-    let spacing = args.expect::<Linear>("spacing")?;
+    let spacing = args.expect("spacing")?;
     Ok(Value::template(move |ctx| {
-        // TODO: Should this really always be font-size relative?
-        let amount = spacing.resolve(ctx.state.font.size);
-        ctx.push_spacing(axis, amount);
+        ctx.push_spacing(GenAxis::Main, spacing);
     }))
 }
 

@@ -93,7 +93,7 @@ impl ExecContext {
     }
 
     /// Push spacing into the active paragraph or stack depending on the `axis`.
-    pub fn push_spacing(&mut self, axis: GenAxis, amount: Length) {
+    pub fn push_spacing(&mut self, axis: GenAxis, amount: Linear) {
         match axis {
             GenAxis::Main => {
                 self.stack.finish_par(&self.state);
@@ -114,7 +114,7 @@ impl ExecContext {
     pub fn parbreak(&mut self) {
         let amount = self.state.par_spacing();
         self.stack.finish_par(&self.state);
-        self.stack.push_soft(StackChild::Spacing(amount));
+        self.stack.push_soft(StackChild::Spacing(amount.into()));
     }
 
     /// Apply a forced page break.

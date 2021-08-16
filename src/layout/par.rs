@@ -27,7 +27,7 @@ pub struct ParNode {
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub enum ParChild {
     /// Spacing between other nodes.
-    Spacing(Length),
+    Spacing(Linear),
     /// A run of text and how to align it in its line.
     Text(EcoString, Align, Rc<FontState>),
     /// Any child node and how to align it in its line.
@@ -137,7 +137,8 @@ impl<'a> ParLayouter<'a> {
         for (range, child) in par.ranges().zip(&par.children) {
             match *child {
                 ParChild::Spacing(amount) => {
-                    items.push(ParItem::Spacing(amount));
+                    let resolved = amount.resolve(regions.current.width);
+                    items.push(ParItem::Spacing(resolved));
                     ranges.push(range);
                 }
                 ParChild::Text(_, align, ref state) => {
