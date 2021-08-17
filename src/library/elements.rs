@@ -24,7 +24,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     })?;
 
     Ok(Value::template(move |ctx| {
-        ctx.push_into_par(ImageNode { id, width, height })
+        ctx.inline(ImageNode { id, width, height })
     }))
 }
 
@@ -62,19 +62,19 @@ fn rect_impl(
     body: Template,
 ) -> Value {
     Value::template(move |ctx| {
-        let mut stack = ctx.exec_template_stack(&body);
+        let mut stack = ctx.exec_template(&body);
         stack.aspect = aspect;
 
         let fixed = FixedNode { width, height, child: stack.into() };
 
         if let Some(fill) = fill {
-            ctx.push_into_par(BackgroundNode {
+            ctx.inline(BackgroundNode {
                 shape: BackgroundShape::Rect,
                 fill: Paint::Color(fill),
                 child: fixed.into(),
             });
         } else {
-            ctx.push_into_par(fixed);
+            ctx.inline(fixed);
         }
     })
 }
@@ -117,7 +117,7 @@ fn ellipse_impl(
         // perfectly into the ellipse.
         const PAD: f64 = 0.5 - SQRT_2 / 4.0;
 
-        let mut stack = ctx.exec_template_stack(&body);
+        let mut stack = ctx.exec_template(&body);
         stack.aspect = aspect;
 
         let fixed = FixedNode {
@@ -131,13 +131,13 @@ fn ellipse_impl(
         };
 
         if let Some(fill) = fill {
-            ctx.push_into_par(BackgroundNode {
+            ctx.inline(BackgroundNode {
                 shape: BackgroundShape::Ellipse,
                 fill: Paint::Color(fill),
                 child: fixed.into(),
             });
         } else {
-            ctx.push_into_par(fixed);
+            ctx.inline(fixed);
         }
     })
 }

@@ -51,8 +51,8 @@ impl ExecWithMap for SyntaxTree {
 impl ExecWithMap for SyntaxNode {
     fn exec_with_map(&self, ctx: &mut ExecContext, map: &ExprMap) {
         match self {
-            Self::Space => ctx.push_word_space(),
-            Self::Text(text) => ctx.push_text(text),
+            Self::Space => ctx.space(),
+            Self::Text(text) => ctx.text(text),
             Self::Linebreak(_) => ctx.linebreak(),
             Self::Parbreak(_) => ctx.parbreak(),
             Self::Strong(_) => ctx.state.font_mut().strong ^= true,
@@ -72,7 +72,7 @@ impl Exec for RawNode {
             ctx.parbreak();
         }
 
-        ctx.push_monospace_text(&self.text);
+        ctx.text_mono(&self.text);
 
         if self.block {
             ctx.parbreak();
@@ -112,9 +112,9 @@ impl ExecWithMap for EnumItem {
 }
 
 fn exec_item(ctx: &mut ExecContext, label: EcoString, body: &SyntaxTree, map: &ExprMap) {
-    let label = ctx.exec_stack(|ctx| ctx.push_text(label));
-    let body = ctx.exec_tree_stack(body, map);
-    ctx.push_into_stack(StackNode {
+    let label = ctx.exec_to_stack(|ctx| ctx.text(label));
+    let body = ctx.exec_tree(body, map);
+    ctx.block(StackNode {
         dirs: Gen::new(ctx.state.dirs.main, ctx.state.dirs.cross),
         aspect: None,
         children: vec![
@@ -129,13 +129,13 @@ impl Exec for Value {
     fn exec(&self, ctx: &mut ExecContext) {
         match self {
             Value::None => {}
-            Value::Int(v) => ctx.push_text(v.to_string()),
-            Value::Float(v) => ctx.push_text(v.to_string()),
-            Value::Str(v) => ctx.push_text(v),
+            Value::Int(v) => ctx.text(v.to_string()),
+            Value::Float(v) => ctx.text(v.to_string()),
+            Value::Str(v) => ctx.text(v),
             Value::Template(v) => v.exec(ctx),
             // For values which can't be shown "naturally", we print the
             // representation in monospace.
-            other => ctx.push_monospace_text(other.to_string()),
+            other => ctx.text_mono(other.to_string()),
         }
     }
 }
@@ -153,7 +153,7 @@ impl Exec for TemplateNode {
         match self {
             Self::Tree(v) => v.exec(ctx),
             Self::Func(v) => v.exec(ctx),
-            Self::Str(v) => ctx.push_text(v),
+            Self::Str(v) => ctx.text(v),
         }
     }
 }

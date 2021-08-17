@@ -82,7 +82,7 @@ pub fn pagebreak(_: &mut EvalContext, _: &mut Arguments) -> TypResult<Value> {
 pub fn h(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let spacing = args.expect("spacing")?;
     Ok(Value::template(move |ctx| {
-        ctx.push_spacing(GenAxis::Cross, spacing);
+        ctx.spacing(GenAxis::Cross, spacing);
     }))
 }
 
@@ -90,7 +90,7 @@ pub fn h(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 pub fn v(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let spacing = args.expect("spacing")?;
     Ok(Value::template(move |ctx| {
-        ctx.push_spacing(GenAxis::Main, spacing);
+        ctx.spacing(GenAxis::Main, spacing);
     }))
 }
 
@@ -134,8 +134,8 @@ pub fn boxed(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let height = args.named("height")?;
     let body = args.eat().unwrap_or_default();
     Ok(Value::template(move |ctx| {
-        let child = ctx.exec_template_stack(&body).into();
-        ctx.push_into_par(FixedNode { width, height, child });
+        let child = ctx.exec_template(&body).into();
+        ctx.inline(FixedNode { width, height, child });
     }))
 }
 
@@ -143,8 +143,8 @@ pub fn boxed(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 pub fn block(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let body = args.expect("body")?;
     Ok(Value::template(move |ctx| {
-        let block = ctx.exec_template_stack(&body);
-        ctx.push_into_stack(block);
+        let block = ctx.exec_template(&body);
+        ctx.block(block);
     }))
 }
 
@@ -165,8 +165,8 @@ pub fn pad(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     );
 
     Ok(Value::template(move |ctx| {
-        let child = ctx.exec_template_stack(&body).into();
-        ctx.push_into_stack(PadNode { padding, child });
+        let child = ctx.exec_template(&body).into();
+        ctx.block(PadNode { padding, child });
     }))
 }
 
@@ -179,7 +179,7 @@ pub fn stack(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
         let children = children
             .iter()
             .map(|child| {
-                let child = ctx.exec_template_stack(child).into();
+                let child = ctx.exec_template(child).into();
                 StackChild::Any(child, ctx.state.aligns)
             })
             .collect();
@@ -192,7 +192,7 @@ pub fn stack(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
             dirs.cross = ctx.state.dirs.main;
         }
 
-        ctx.push_into_stack(StackNode { dirs, aspect: None, children });
+        ctx.block(StackNode { dirs, aspect: None, children });
     }))
 }
 
@@ -220,10 +220,8 @@ pub fn grid(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     );
 
     Ok(Value::template(move |ctx| {
-        let children = children
-            .iter()
-            .map(|child| ctx.exec_template_stack(child).into())
-            .collect();
+        let children =
+            children.iter().map(|child| ctx.exec_template(child).into()).collect();
 
         let mut dirs = Gen::new(column_dir, row_dir).unwrap_or(ctx.state.dirs);
 
@@ -243,7 +241,7 @@ pub fn grid(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
             };
         }
 
-        ctx.push_into_stack(GridNode {
+        ctx.block(GridNode {
             dirs,
             tracks: tracks.clone(),
             gutter: gutter.clone(),

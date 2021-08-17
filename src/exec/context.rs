@@ -35,74 +35,9 @@ impl ExecContext {
         }
     }
 
-    /// Execute a template and return the result as a stack node.
-    pub fn exec_template_stack(&mut self, template: &Template) -> StackNode {
-        self.exec_stack(|ctx| template.exec(ctx))
-    }
-
-    /// Execute a syntax tree with a map and return the result as a stack node.
-    pub fn exec_tree_stack(&mut self, tree: &SyntaxTree, map: &ExprMap) -> StackNode {
-        self.exec_stack(|ctx| tree.exec_with_map(ctx, map))
-    }
-
-    /// Execute something and return the result as a stack node.
-    pub fn exec_stack(&mut self, f: impl FnOnce(&mut Self)) -> StackNode {
-        let snapshot = self.state.clone();
-        let page = self.page.take();
-        let stack = mem::replace(&mut self.stack, StackBuilder::new(&self.state));
-
-        f(self);
-
-        self.state = snapshot;
-        self.page = page;
-        mem::replace(&mut self.stack, stack).build()
-    }
-
-    /// Push text into the active paragraph.
-    ///
-    /// The text is split into lines at newlines.
-    pub fn push_text(&mut self, text: impl Into<EcoString>) {
-        self.stack.par.push(self.make_text_node(text));
-    }
-
-    /// Push text, but in monospace.
-    pub fn push_monospace_text(&mut self, text: impl Into<EcoString>) {
-        let prev = Rc::clone(&self.state.font);
-        self.state.font_mut().monospace = true;
-        self.push_text(text);
-        self.state.font = prev;
-    }
-
     /// Push a word space into the active paragraph.
-    pub fn push_word_space(&mut self) {
+    pub fn space(&mut self) {
         self.stack.par.push_soft(self.make_text_node(' '));
-    }
-
-    /// Push any node into the active paragraph.
-    pub fn push_into_par(&mut self, node: impl Into<LayoutNode>) {
-        let align = self.state.aligns.cross;
-        self.stack.par.push(ParChild::Any(node.into(), align));
-    }
-
-    /// Push any node into the active stack.
-    pub fn push_into_stack(&mut self, node: impl Into<LayoutNode>) {
-        self.parbreak();
-        let aligns = self.state.aligns;
-        self.stack.push(StackChild::Any(node.into(), aligns));
-        self.parbreak();
-    }
-
-    /// Push spacing into the active paragraph or stack depending on the `axis`.
-    pub fn push_spacing(&mut self, axis: GenAxis, amount: Linear) {
-        match axis {
-            GenAxis::Main => {
-                self.stack.finish_par(&self.state);
-                self.stack.push_hard(StackChild::Spacing(amount));
-            }
-            GenAxis::Cross => {
-                self.stack.par.push_hard(ParChild::Spacing(amount));
-            }
-        }
     }
 
     /// Apply a forced line break.
@@ -126,6 +61,71 @@ impl ExecContext {
         }
     }
 
+    /// Push text into the active paragraph.
+    ///
+    /// The text is split into lines at newlines.
+    pub fn text(&mut self, text: impl Into<EcoString>) {
+        self.stack.par.push(self.make_text_node(text));
+    }
+
+    /// Push text, but in monospace.
+    pub fn text_mono(&mut self, text: impl Into<EcoString>) {
+        let prev = Rc::clone(&self.state.font);
+        self.state.font_mut().monospace = true;
+        self.text(text);
+        self.state.font = prev;
+    }
+
+    /// Push an inline node into the active paragraph.
+    pub fn inline(&mut self, node: impl Into<LayoutNode>) {
+        let align = self.state.aligns.cross;
+        self.stack.par.push(ParChild::Any(node.into(), align));
+    }
+
+    /// Push a block node into the active stack, finishing the active paragraph.
+    pub fn block(&mut self, node: impl Into<LayoutNode>) {
+        self.parbreak();
+        let aligns = self.state.aligns;
+        self.stack.push(StackChild::Any(node.into(), aligns));
+        self.parbreak();
+    }
+
+    /// Push spacing into the active paragraph or stack depending on the `axis`.
+    pub fn spacing(&mut self, axis: GenAxis, amount: Linear) {
+        match axis {
+            GenAxis::Main => {
+                self.stack.finish_par(&self.state);
+                self.stack.push_hard(StackChild::Spacing(amount));
+            }
+            GenAxis::Cross => {
+                self.stack.par.push_hard(ParChild::Spacing(amount));
+            }
+        }
+    }
+
+    /// Execute a template and return the result as a stack node.
+    pub fn exec_template(&mut self, template: &Template) -> StackNode {
+        self.exec_to_stack(|ctx| template.exec(ctx))
+    }
+
+    /// Execute a syntax tree with a map and return the result as a stack node.
+    pub fn exec_tree(&mut self, tree: &SyntaxTree, map: &ExprMap) -> StackNode {
+        self.exec_to_stack(|ctx| tree.exec_with_map(ctx, map))
+    }
+
+    /// Execute something and return the result as a stack node.
+    pub fn exec_to_stack(&mut self, f: impl FnOnce(&mut Self)) -> StackNode {
+        let snapshot = self.state.clone();
+        let page = self.page.take();
+        let stack = mem::replace(&mut self.stack, StackBuilder::new(&self.state));
+
+        f(self);
+
+        self.state = snapshot;
+        self.page = page;
+        mem::replace(&mut self.stack, stack).build()
+    }
+
     /// Finish execution and return the created layout tree.
     pub fn finish(mut self) -> LayoutTree {
         assert!(self.page.is_some());
@@ -133,6 +133,8 @@ impl ExecContext {
         self.tree
     }
 
+    /// Construct a text node with the given text and settings from the active
+    /// state.
     fn make_text_node(&self, text: impl Into<EcoString>) -> ParChild {
         ParChild::Text(
             text.into(),
