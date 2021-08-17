@@ -3,7 +3,7 @@ use crate::layout::{FixedNode, GridNode, PadNode, StackChild, StackNode, TrackSi
 use crate::paper::{Paper, PaperClass};
 
 /// `page`: Configure pages.
-pub fn page(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn page(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let paper = match args.eat::<Spanned<Str>>() {
         Some(name) => match Paper::from_name(&name.v) {
             None => bail!(name.span, "invalid paper name"),
@@ -20,87 +20,83 @@ pub fn page(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let right = args.named("right")?;
     let bottom = args.named("bottom")?;
     let flip = args.named("flip")?;
-    let body = args.expect::<Template>("body")?;
 
-    Ok(Value::template(move |ctx| {
-        let snapshot = ctx.state.clone();
-        let state = ctx.state.page_mut();
+    ctx.template.modify(move |state| {
+        let page = state.page_mut();
 
         if let Some(paper) = paper {
-            state.class = paper.class();
-            state.size = paper.size();
+            page.class = paper.class();
+            page.size = paper.size();
         }
 
         if let Some(width) = width {
-            state.class = PaperClass::Custom;
-            state.size.width = width;
+            page.class = PaperClass::Custom;
+            page.size.width = width;
         }
 
         if let Some(height) = height {
-            state.class = PaperClass::Custom;
-            state.size.height = height;
+            page.class = PaperClass::Custom;
+            page.size.height = height;
         }
 
         if let Some(margins) = margins {
-            state.margins = Sides::splat(Some(margins));
+            page.margins = Sides::splat(Some(margins));
         }
 
         if let Some(left) = left {
-            state.margins.left = Some(left);
+            page.margins.left = Some(left);
         }
 
         if let Some(top) = top {
-            state.margins.top = Some(top);
+            page.margins.top = Some(top);
         }
 
         if let Some(right) = right {
-            state.margins.right = Some(right);
+            page.margins.right = Some(right);
         }
 
         if let Some(bottom) = bottom {
-            state.margins.bottom = Some(bottom);
+            page.margins.bottom = Some(bottom);
         }
 
         if flip.unwrap_or(false) {
-            std::mem::swap(&mut state.size.width, &mut state.size.height);
+            std::mem::swap(&mut page.size.width, &mut page.size.height);
         }
+    });
 
-        ctx.pagebreak(false, true);
-        body.exec(ctx);
+    ctx.template.pagebreak(false);
 
-        ctx.state = snapshot;
-        ctx.pagebreak(true, false);
-    }))
+    Ok(Value::None)
 }
 
 /// `pagebreak`: Start a new page.
-pub fn pagebreak(_: &mut EvalContext, _: &mut Arguments) -> TypResult<Value> {
-    Ok(Value::template(move |ctx| ctx.pagebreak(true, true)))
+pub fn pagebreak(ctx: &mut EvalContext, _: &mut Arguments) -> TypResult<Value> {
+    ctx.template.pagebreak(true);
+    Ok(Value::None)
 }
 
 /// `h`: Horizontal spacing.
-pub fn h(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn h(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let spacing = args.expect("spacing")?;
-    Ok(Value::template(move |ctx| {
-        ctx.spacing(GenAxis::Cross, spacing);
-    }))
+    ctx.template.spacing(GenAxis::Cross, spacing);
+    Ok(Value::None)
 }
 
 /// `v`: Vertical spacing.
-pub fn v(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn v(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let spacing = args.expect("spacing")?;
-    Ok(Value::template(move |ctx| {
-        ctx.spacing(GenAxis::Main, spacing);
-    }))
+    ctx.template.spacing(GenAxis::Main, spacing);
+    Ok(Value::None)
 }
 
 /// `align`: Configure the alignment along the layouting axes.
-pub fn align(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
-    let mut horizontal = args.named("horizontal")?;
-    let mut vertical = args.named("vertical")?;
+pub fn align(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let first = args.eat::<Align>();
     let second = args.eat::<Align>();
-    let body = args.expect::<Template>("body")?;
+    let body = args.eat::<Template>();
+
+    let mut horizontal = args.named("horizontal")?;
+    let mut vertical = args.named("vertical")?;
 
     for value in first.into_iter().chain(second) {
         match value.axis() {
@@ -114,38 +110,52 @@ pub fn align(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
         }
     }
 
-    Ok(Value::template(move |ctx| {
-        if let Some(horizontal) = horizontal {
-            ctx.state.aligns.cross = horizontal;
-        }
+    let realign = |template: &mut Template| {
+        template.modify(move |state| {
+            if let Some(horizontal) = horizontal {
+                state.aligns.cross = horizontal;
+            }
 
-        if let Some(vertical) = vertical {
-            ctx.state.aligns.main = vertical;
-            ctx.parbreak();
-        }
+            if let Some(vertical) = vertical {
+                state.aligns.main = vertical;
+            }
+        });
 
-        body.exec(ctx);
-    }))
+        if vertical.is_some() {
+            template.parbreak();
+        }
+    };
+
+    if let Some(body) = body {
+        let mut template = Template::new();
+        template.save();
+        realign(&mut template);
+        template += body;
+        template.restore();
+        Ok(Value::Template(template))
+    } else {
+        realign(&mut ctx.template);
+        Ok(Value::None)
+    }
 }
 
 /// `box`: Place content in a rectangular box.
 pub fn boxed(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
-    let body = args.eat().unwrap_or_default();
-    Ok(Value::template(move |ctx| {
-        let child = ctx.exec_template(&body).into();
-        ctx.inline(FixedNode { width, height, child });
-    }))
+    let body: Template = args.eat().unwrap_or_default();
+    Ok(Value::Template(Template::from_inline(move |state| {
+        let child = body.to_stack(state).into();
+        FixedNode { width, height, child }
+    })))
 }
 
 /// `block`: Place content in a block.
 pub fn block(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
-    let body = args.expect("body")?;
-    Ok(Value::template(move |ctx| {
-        let block = ctx.exec_template(&body);
-        ctx.block(block);
-    }))
+    let body: Template = args.expect("body")?;
+    Ok(Value::Template(Template::from_block(move |state| {
+        body.to_stack(state)
+    })))
 }
 
 /// `pad`: Pad content at the sides.
@@ -155,7 +165,7 @@ pub fn pad(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let top = args.named("top")?;
     let right = args.named("right")?;
     let bottom = args.named("bottom")?;
-    let body = args.expect("body")?;
+    let body: Template = args.expect("body")?;
 
     let padding = Sides::new(
         left.or(all).unwrap_or_default(),
@@ -164,36 +174,38 @@ pub fn pad(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
         bottom.or(all).unwrap_or_default(),
     );
 
-    Ok(Value::template(move |ctx| {
-        let child = ctx.exec_template(&body).into();
-        ctx.block(PadNode { padding, child });
-    }))
+    Ok(Value::Template(Template::from_block(move |state| {
+        PadNode {
+            padding,
+            child: body.to_stack(&state).into(),
+        }
+    })))
 }
 
 /// `stack`: Stack children along an axis.
 pub fn stack(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let dir = args.named("dir")?;
-    let children: Vec<_> = args.all().collect();
+    let children: Vec<Template> = args.all().collect();
 
-    Ok(Value::template(move |ctx| {
+    Ok(Value::Template(Template::from_block(move |state| {
         let children = children
             .iter()
             .map(|child| {
-                let child = ctx.exec_template(child).into();
-                StackChild::Any(child, ctx.state.aligns)
+                let child = child.to_stack(state).into();
+                StackChild::Any(child, state.aligns)
             })
             .collect();
 
-        let mut dirs = Gen::new(None, dir).unwrap_or(ctx.state.dirs);
+        let mut dirs = Gen::new(None, dir).unwrap_or(state.dirs);
 
         // If the directions become aligned, fix up the cross direction since
         // that's the one that is not user-defined.
         if dirs.main.axis() == dirs.cross.axis() {
-            dirs.cross = ctx.state.dirs.main;
+            dirs.cross = state.dirs.main;
         }
 
-        ctx.block(StackNode { dirs, aspect: None, children });
-    }))
+        StackNode { dirs, aspect: None, children }
+    })))
 }
 
 /// `grid`: Arrange children into a grid.
@@ -211,7 +223,7 @@ pub fn grid(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let column_dir = args.named("column-dir")?;
     let row_dir = args.named("row-dir")?;
 
-    let children: Vec<_> = args.all().collect();
+    let children: Vec<Template> = args.all().collect();
 
     let tracks = Gen::new(columns, rows);
     let gutter = Gen::new(
@@ -219,14 +231,13 @@ pub fn grid(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
         gutter_rows.unwrap_or(default),
     );
 
-    Ok(Value::template(move |ctx| {
+    Ok(Value::Template(Template::from_block(move |state| {
         let children =
-            children.iter().map(|child| ctx.exec_template(child).into()).collect();
-
-        let mut dirs = Gen::new(column_dir, row_dir).unwrap_or(ctx.state.dirs);
+            children.iter().map(|child| child.to_stack(&state).into()).collect();
 
         // If the directions become aligned, try to fix up the direction which
         // is not user-defined.
+        let mut dirs = Gen::new(column_dir, row_dir).unwrap_or(state.dirs);
         if dirs.main.axis() == dirs.cross.axis() {
             let target = if column_dir.is_some() {
                 &mut dirs.main
@@ -234,20 +245,20 @@ pub fn grid(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
                 &mut dirs.cross
             };
 
-            *target = if target.axis() == ctx.state.dirs.cross.axis() {
-                ctx.state.dirs.main
+            *target = if target.axis() == state.dirs.cross.axis() {
+                state.dirs.main
             } else {
-                ctx.state.dirs.cross
+                state.dirs.cross
             };
         }
 
-        ctx.block(GridNode {
+        GridNode {
             dirs,
             tracks: tracks.clone(),
             gutter: gutter.clone(),
             children,
-        })
-    }))
+        }
+    })))
 }
 
 /// Defines size of rows and columns in a grid.

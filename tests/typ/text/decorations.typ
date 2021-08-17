@@ -1,19 +1,19 @@
 // Test text decorations.
 
 ---
+#let red = rgb("fc0030")
+
 // Basic strikethrough.
-#strike[
-  Statements dreamt up by the utterly deranged.
-]
+#strike[Statements dreamt up by the utterly deranged.]
 
 // Move underline down.
 #underline(offset: 5pt)[Further below.]
 
 // Different color.
-#underline(rgb("fc0030"))[Critical information is conveyed here.]
+#underline(red)[Critical information is conveyed here.]
 
 // Inherits font color.
-#font(fill: rgb("fc0030"), underline[Change with the wind.])
+[#font(fill: red) #underline[Change with the wind.]]
 
 // Both over- and underline.
 #overline(underline[Running amongst the wolves.])

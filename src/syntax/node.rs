@@ -5,8 +5,6 @@ use super::*;
 pub enum SyntaxNode {
     /// Whitespace containing less than two newlines.
     Space,
-    /// Plain text.
-    Text(EcoString),
     /// A forced line break: `\`.
     Linebreak(Span),
     /// A paragraph break: Two or more newlines.
@@ -15,6 +13,8 @@ pub enum SyntaxNode {
     Strong(Span),
     /// Emphasized text was enabled / disabled: `_`.
     Emph(Span),
+    /// Plain text.
+    Text(EcoString),
     /// A raw block with optional syntax highlighting: `` `...` ``.
     Raw(Box<RawNode>),
     /// A section heading: `= Introduction`.

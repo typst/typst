@@ -5,8 +5,7 @@ use std::rc::Rc;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use typst::diag::TypResult;
-use typst::eval::{eval, Module};
-use typst::exec::exec;
+use typst::eval::{eval, Module, State};
 use typst::export::pdf;
 use typst::layout::{layout, Frame, LayoutTree};
 use typst::loading::FsLoader;
@@ -30,7 +29,7 @@ fn benchmarks(c: &mut Criterion) {
         let case = Case::new(ctx.clone(), id);
 
         macro_rules! bench {
-            ($step:literal, setup = |$ctx:ident| $setup:expr, code = $code:expr $(,)?) => {
+            ($step:literal, setup: |$ctx:ident| $setup:expr, code: $code:expr $(,)?) => {
                 c.bench_function(&format!("{}-{}", $step, name), |b| {
                     b.iter_batched(
                         || {
@@ -49,7 +48,7 @@ fn benchmarks(c: &mut Criterion) {
 
         bench!("parse", case.parse());
         bench!("eval", case.eval());
-        bench!("exec", case.exec());
+        bench!("build", case.build());
 
         #[cfg(not(feature = "layout-cache"))]
         {
@@ -59,16 +58,8 @@ fn benchmarks(c: &mut Criterion) {
 
         #[cfg(feature = "layout-cache")]
         {
-            bench!(
-                "layout",
-                setup = |ctx| ctx.layouts.clear(),
-                code = case.layout(),
-            );
-            bench!(
-                "typeset",
-                setup = |ctx| ctx.layouts.clear(),
-                code = case.typeset(),
-            );
+            bench!("layout", setup: |ctx| ctx.layouts.clear(), code: case.layout());
+            bench!("typeset", setup: |ctx| ctx.layouts.clear(), code: case.typeset());
             bench!("layout-cached", case.layout());
             bench!("typeset-cached", case.typeset());
         }
@@ -80,8 +71,9 @@ fn benchmarks(c: &mut Criterion) {
 /// A test case with prepared intermediate results.
 struct Case {
     ctx: Rc<RefCell<Context>>,
+    state: State,
     id: SourceId,
-    ast: Rc<SyntaxTree>,
+    ast: SyntaxTree,
     module: Module,
     tree: LayoutTree,
     frames: Vec<Rc<Frame>>,
@@ -90,13 +82,22 @@ struct Case {
 impl Case {
     fn new(ctx: Rc<RefCell<Context>>, id: SourceId) -> Self {
         let mut borrowed = ctx.borrow_mut();
+        let state = State::default();
         let source = borrowed.sources.get(id);
-        let ast = Rc::new(parse(source).unwrap());
-        let module = eval(&mut borrowed, id, Rc::clone(&ast)).unwrap();
-        let tree = exec(&mut borrowed, &module.template);
+        let ast = parse(source).unwrap();
+        let module = eval(&mut borrowed, id, &ast).unwrap();
+        let tree = module.template.to_tree(&state);
         let frames = layout(&mut borrowed, &tree);
         drop(borrowed);
-        Self { ctx, id, ast, module, tree, frames }
+        Self {
+            ctx,
+            state,
+            id,
+            ast,
+            module,
+            tree,
+            frames,
+        }
     }
 
     fn parse(&self) -> SyntaxTree {
@@ -104,11 +105,11 @@ impl Case {
     }
 
     fn eval(&self) -> TypResult<Module> {
-        eval(&mut self.ctx.borrow_mut(), self.id, Rc::clone(&self.ast))
+        eval(&mut self.ctx.borrow_mut(), self.id, &self.ast)
     }
 
-    fn exec(&self) -> LayoutTree {
-        exec(&mut self.ctx.borrow_mut(), &self.module.template)
+    fn build(&self) -> LayoutTree {
+        self.module.template.to_tree(&self.state)
     }
 
     fn layout(&self) -> Vec<Rc<Frame>> {

@@ -7,11 +7,11 @@
 Le fira
 
 // This should just shape nicely.
-#font!("Noto Sans Arabic")
+#font("Noto Sans Arabic")
 دع النص يمطر عليك
 
 // This should form a three-member family.
-#font!("Twitter Color Emoji")
+#font("Twitter Color Emoji")
 👩‍👩‍👦 🤚🏿
 
 // These two shouldn't be affected by a zero-width joiner.
@@ -20,7 +20,7 @@ Le fira
 ---
 // Test font fallback.
 
-#font!("EB Garamond", "Noto Sans Arabic", "Twitter Color Emoji")
+#font("EB Garamond", "Noto Sans Arabic", "Twitter Color Emoji")
 
 // Font fallback for emoji.
 A😀B
@@ -40,6 +40,6 @@ A🐈中文B
 ---
 // Test reshaping.
 
-#font!("Noto Serif Hebrew")
-#lang!("he")
+#font("Noto Serif Hebrew")
+#lang("he")
 ס \ טֶ

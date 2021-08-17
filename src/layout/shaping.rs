@@ -5,7 +5,7 @@ use std::ops::Range;
 use rustybuzz::UnicodeBuffer;
 
 use super::{Element, Frame, Glyph, LayoutContext, Text};
-use crate::exec::{FontState, LineState};
+use crate::eval::{FontState, LineState};
 use crate::font::{Face, FaceId, FontVariant, LineMetrics};
 use crate::geom::{Dir, Length, Point, Size};
 use crate::layout::Geometry;

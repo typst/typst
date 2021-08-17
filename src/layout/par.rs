@@ -5,7 +5,7 @@ use unicode_bidi::{BidiInfo, Level};
 use xi_unicode::LineBreakIterator;
 
 use super::*;
-use crate::exec::FontState;
+use crate::eval::FontState;
 use crate::util::{EcoString, RangeExt, SliceExt};
 
 type Range = std::ops::Range<usize>;

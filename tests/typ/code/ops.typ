@@ -4,7 +4,7 @@
 ---
 // Test template addition.
 // Ref: true
-{[*Hello ] + [world!*]}
+{[*Hello ] + [world!]}
 
 ---
 // Test math operators.

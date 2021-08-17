@@ -3,7 +3,7 @@
 ---
 #let rect(width, fill) = rect(width: width, height: 2cm, fill: fill)
 
-#page!(width: 100pt, height: 140pt)
+#page(width: 100pt, height: 140pt)
 #grid(
   columns: (auto, 1fr, 3fr, 0.25cm, 3%, 2mm + 10%),
   rect(0.5cm, rgb("2a631a")),
@@ -33,7 +33,7 @@
 )
 
 ---
-#page!(height: 3cm, width: 2cm)
+#page(height: 3cm, width: 2cm)
 #grid(
   columns: (1fr, 1cm, 1fr, 1fr),
   column-dir: ttb,
@@ -46,8 +46,8 @@
 )
 
 ---
-#page!(height: 3cm, margins: 0pt)
-#align!(center)
+#page(height: 3cm, margins: 0pt)
+#align(center)
 #grid(
   columns: (1fr,),
   rows: (1fr, auto, 2fr),

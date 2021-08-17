@@ -1,7 +1,7 @@
 // Test grid cells that overflow to the next region.
 
 ---
-#page!(width: 5cm, height: 3cm)
+#page(width: 5cm, height: 3cm)
 #grid(
   columns: 2,
   gutter-rows: 3 * (8pt,),
@@ -18,7 +18,7 @@
 ---
 // Test a column that starts overflowing right after another row/column did
 // that.
-#page!(width: 5cm, height: 2cm)
+#page(width: 5cm, height: 2cm)
 #grid(
   columns: 4 * (1fr,),
   gutter-rows: (10pt,),
@@ -32,7 +32,7 @@
 
 ---
 // Test two columns in the same row overflowing by a different amount.
-#page!(width: 5cm, height: 2cm)
+#page(width: 5cm, height: 2cm)
 #grid(
   columns: 3 * (1fr,),
   gutter-rows: (8pt,),
@@ -48,7 +48,7 @@
 
 ---
 // Test grid within a grid, overflowing.
-#page!(width: 5cm, height: 2.25cm)
+#page(width: 5cm, height: 2.25cm)
 #grid(
   columns: 4 * (1fr,),
   gutter-rows: (10pt,),
@@ -62,7 +62,7 @@
 
 ---
 // Test partition of `fr` units before and after multi-region layout.
-#page!(width: 5cm, height: 4cm)
+#page(width: 5cm, height: 4cm)
 #grid(
   columns: 2 * (1fr,),
   rows: (1fr, 2fr, auto, 1fr, 1cm),

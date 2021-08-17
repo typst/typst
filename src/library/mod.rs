@@ -19,7 +19,6 @@ use std::rc::Rc;
 use crate::color::{Color, RgbaColor};
 use crate::diag::TypResult;
 use crate::eval::{Arguments, EvalContext, Scope, Str, Template, Value};
-use crate::exec::Exec;
 use crate::font::{FontFamily, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
 use crate::syntax::Spanned;

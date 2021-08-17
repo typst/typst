@@ -1,4 +1,4 @@
-//! Evaluation of syntax trees.
+//! Evaluation of syntax trees into modules.
 
 #[macro_use]
 mod array;
@@ -10,6 +10,7 @@ mod capture;
 mod function;
 mod ops;
 mod scope;
+mod state;
 mod str;
 mod template;
 
@@ -19,39 +20,38 @@ pub use capture::*;
 pub use dict::*;
 pub use function::*;
 pub use scope::*;
+pub use state::*;
 pub use template::*;
 pub use value::*;
 
 use std::cell::RefMut;
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::io;
 use std::mem;
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
-use crate::geom::{Angle, Fractional, Length, Relative};
+use crate::geom::{Angle, Fractional, Gen, Length, Relative};
 use crate::image::ImageStore;
+use crate::layout::{ParChild, ParNode, StackChild, StackNode};
 use crate::loading::Loader;
 use crate::parse::parse;
 use crate::source::{SourceId, SourceStore};
 use crate::syntax::visit::Visit;
 use crate::syntax::*;
-use crate::util::RefMutExt;
+use crate::util::{EcoString, RefMutExt};
 use crate::Context;
 
 /// Evaluate a parsed source file into a module.
-pub fn eval(
-    ctx: &mut Context,
-    source: SourceId,
-    ast: Rc<SyntaxTree>,
-) -> TypResult<Module> {
+pub fn eval(ctx: &mut Context, source: SourceId, ast: &SyntaxTree) -> TypResult<Module> {
     let mut ctx = EvalContext::new(ctx, source);
     let template = ast.eval(&mut ctx)?;
     Ok(Module { scope: ctx.scopes.top, template })
 }
 
-/// An evaluated module, ready for importing or execution.
+/// An evaluated module, ready for importing or instantiation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Module {
     /// The top-level definitions that were bound in this module.
@@ -74,8 +74,8 @@ pub struct EvalContext<'a> {
     pub modules: HashMap<SourceId, Module>,
     /// The active scopes.
     pub scopes: Scopes<'a>,
-    /// The expression map for the currently built template.
-    pub map: ExprMap,
+    /// The currently built template.
+    pub template: Template,
 }
 
 impl<'a> EvalContext<'a> {
@@ -88,7 +88,7 @@ impl<'a> EvalContext<'a> {
             route: vec![source],
             modules: HashMap::new(),
             scopes: Scopes::new(Some(&ctx.std)),
-            map: ExprMap::new(),
+            template: Template::new(),
         }
     }
 
@@ -158,17 +158,17 @@ pub trait Eval {
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output>;
 }
 
-impl Eval for Rc<SyntaxTree> {
+impl Eval for SyntaxTree {
     type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let map = {
-            let prev = mem::take(&mut ctx.map);
+        Ok({
+            let prev = mem::take(&mut ctx.template);
+            ctx.template.save();
             self.walk(ctx)?;
-            mem::replace(&mut ctx.map, prev)
-        };
-
-        Ok(TemplateTree { tree: Rc::clone(self), map }.into())
+            ctx.template.restore();
+            mem::replace(&mut ctx.template, prev)
+        })
     }
 }
 
@@ -671,43 +671,6 @@ impl Eval for IncludeExpr {
     }
 }
 
-/// Walk a node in a template, filling the context's expression map.
-pub trait Walk {
-    /// Walk the node.
-    fn walk(&self, ctx: &mut EvalContext) -> TypResult<()>;
-}
-
-impl Walk for SyntaxTree {
-    fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
-        for node in self.iter() {
-            node.walk(ctx)?;
-        }
-        Ok(())
-    }
-}
-
-impl Walk for SyntaxNode {
-    fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
-        match self {
-            Self::Space => {}
-            Self::Text(_) => {}
-            Self::Linebreak(_) => {}
-            Self::Parbreak(_) => {}
-            Self::Strong(_) => {}
-            Self::Emph(_) => {}
-            Self::Raw(_) => {}
-            Self::Heading(n) => n.body.walk(ctx)?,
-            Self::List(n) => n.body.walk(ctx)?,
-            Self::Enum(n) => n.body.walk(ctx)?,
-            Self::Expr(n) => {
-                let value = n.eval(ctx)?;
-                ctx.map.insert(n as *const _, value);
-            }
-        }
-        Ok(())
-    }
-}
-
 /// Try to mutably access the value an expression points to.
 ///
 /// This only works if the expression is a valid lvalue.
@@ -753,4 +716,130 @@ impl Access for CallExpr {
             ),
         })
     }
+}
+
+/// Walk a syntax node and fill the currently built template.
+pub trait Walk {
+    /// Walk the node.
+    fn walk(&self, ctx: &mut EvalContext) -> TypResult<()>;
+}
+
+impl Walk for SyntaxTree {
+    fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
+        for node in self.iter() {
+            node.walk(ctx)?;
+        }
+        Ok(())
+    }
+}
+
+impl Walk for SyntaxNode {
+    fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
+        match self {
+            Self::Space => ctx.template.space(),
+            Self::Linebreak(_) => ctx.template.linebreak(),
+            Self::Parbreak(_) => ctx.template.parbreak(),
+            Self::Strong(_) => {
+                ctx.template.modify(|state| state.font_mut().strong ^= true);
+            }
+            Self::Emph(_) => {
+                ctx.template.modify(|state| state.font_mut().emph ^= true);
+            }
+            Self::Text(text) => ctx.template.text(text),
+            Self::Raw(raw) => raw.walk(ctx)?,
+            Self::Heading(heading) => heading.walk(ctx)?,
+            Self::List(list) => list.walk(ctx)?,
+            Self::Enum(enum_) => enum_.walk(ctx)?,
+            Self::Expr(expr) => match expr.eval(ctx)? {
+                Value::None => {}
+                Value::Int(v) => ctx.template.text(v.to_string()),
+                Value::Float(v) => ctx.template.text(v.to_string()),
+                Value::Str(v) => ctx.template.text(v),
+                Value::Template(v) => ctx.template += v,
+                // For values which can't be shown "naturally", we print the
+                // representation in monospace.
+                other => ctx.template.monospace(other.to_string()),
+            },
+        }
+        Ok(())
+    }
+}
+
+impl Walk for RawNode {
+    fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
+        if self.block {
+            ctx.template.parbreak();
+        }
+
+        ctx.template.monospace(&self.text);
+
+        if self.block {
+            ctx.template.parbreak();
+        }
+
+        Ok(())
+    }
+}
+
+impl Walk for HeadingNode {
+    fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
+        let level = self.level;
+        let body = self.body.eval(ctx)?;
+
+        ctx.template.parbreak();
+        ctx.template.save();
+        ctx.template.modify(move |state| {
+            let font = state.font_mut();
+            let upscale = 1.6 - 0.1 * level as f64;
+            font.size *= upscale;
+            font.strong = true;
+        });
+        ctx.template += body;
+        ctx.template.restore();
+        ctx.template.parbreak();
+
+        Ok(())
+    }
+}
+
+impl Walk for ListItem {
+    fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
+        let body = self.body.eval(ctx)?;
+        walk_item(ctx, '•'.into(), body);
+        Ok(())
+    }
+}
+
+impl Walk for EnumItem {
+    fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
+        let body = self.body.eval(ctx)?;
+        let mut label = EcoString::new();
+        write!(&mut label, "{}.", self.number.unwrap_or(1)).unwrap();
+        walk_item(ctx, label, body);
+        Ok(())
+    }
+}
+
+/// Walk a list or enum item, converting it into a stack.
+fn walk_item(ctx: &mut EvalContext, label: EcoString, body: Template) {
+    ctx.template += Template::from_block(move |state| {
+        let label = ParNode {
+            dir: state.dirs.cross,
+            line_spacing: state.line_spacing(),
+            children: vec![ParChild::Text(
+                label.clone(),
+                state.aligns.cross,
+                Rc::clone(&state.font),
+            )],
+        };
+        StackNode {
+            dirs: Gen::new(state.dirs.main, state.dirs.cross),
+            aspect: None,
+            children: vec![
+                StackChild::Any(label.into(), Gen::default()),
+                StackChild::Spacing((state.font.size / 2.0).into()),
+                StackChild::Any(body.to_stack(&state).into(), Gen::default()),
+            ],
+        }
+    });
 }

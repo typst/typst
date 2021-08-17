@@ -88,11 +88,11 @@ impl Pretty for SyntaxNode {
         match self {
             // TODO: Handle escaping.
             Self::Space => p.push(' '),
-            Self::Text(text) => p.push_str(text),
             Self::Linebreak(_) => p.push_str(r"\"),
             Self::Parbreak(_) => p.push_str("\n\n"),
             Self::Strong(_) => p.push('*'),
             Self::Emph(_) => p.push('_'),
+            Self::Text(text) => p.push_str(text),
             Self::Raw(raw) => raw.pretty(p),
             Self::Heading(n) => n.pretty(p),
             Self::List(n) => n.pretty(p),

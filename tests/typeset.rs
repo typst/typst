@@ -10,15 +10,14 @@ use ttf_parser::{GlyphId, OutlineBuilder};
 use walkdir::WalkDir;
 
 use typst::color::Color;
-use typst::diag::{Error, TypResult};
-use typst::eval::{eval, Value};
-use typst::exec::{exec, State};
+use typst::diag::Error;
+use typst::eval::{State, Value};
 use typst::geom::{self, Length, PathElement, Point, Sides, Size};
 use typst::image::ImageId;
 use typst::layout::{layout, Element, Frame, Geometry, LayoutTree, Paint, Text};
 use typst::loading::FsLoader;
-use typst::parse::{parse, Scanner};
-use typst::source::{SourceFile, SourceId};
+use typst::parse::Scanner;
+use typst::source::SourceFile;
 use typst::syntax::{Pos, Span};
 use typst::Context;
 
@@ -225,11 +224,10 @@ fn test_part(
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
     let mut ok = true;
+    let (frames, mut errors) = match ctx.execute(id) {
+        Ok(tree) => {
+            let mut frames = layout(ctx, &tree);
 
-    let result = typeset(ctx, id);
-    let (frames, mut errors) = match result {
-        #[allow(unused_variables)]
-        Ok((tree, mut frames)) => {
             #[cfg(feature = "layout-cache")]
             (ok &= test_incremental(ctx, i, &tree, &frames));
 
@@ -272,15 +270,6 @@ fn test_part(
     }
 
     (ok, compare_ref, frames)
-}
-
-fn typeset(ctx: &mut Context, id: SourceId) -> TypResult<(LayoutTree, Vec<Rc<Frame>>)> {
-    let source = ctx.sources.get(id);
-    let ast = parse(source)?;
-    let module = eval(ctx, id, Rc::new(ast))?;
-    let tree = exec(ctx, &module.template);
-    let frames = layout(ctx, &tree);
-    Ok((tree, frames))
 }
 
 #[cfg(feature = "layout-cache")]

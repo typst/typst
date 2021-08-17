@@ -87,11 +87,11 @@ impl_visitors! {
     visit_node(v, node: SyntaxNode) {
         match node {
             SyntaxNode::Space => {}
-            SyntaxNode::Text(_) => {}
             SyntaxNode::Linebreak(_) => {}
             SyntaxNode::Parbreak(_) => {}
             SyntaxNode::Strong(_) => {}
             SyntaxNode::Emph(_) => {}
+            SyntaxNode::Text(_) => {}
             SyntaxNode::Raw(_) => {}
             SyntaxNode::Heading(n) => v.visit_heading(n),
             SyntaxNode::List(n) => v.visit_list(n),
@@ -149,7 +149,7 @@ impl_visitors! {
 
     visit_template(v, template: TemplateExpr) {
         v.visit_enter();
-        v.visit_tree(r!(rc: template.tree));
+        v.visit_tree(r!(template.tree));
         v.visit_exit();
     }
 

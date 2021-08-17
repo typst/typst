@@ -5,7 +5,7 @@
 // Ref: true
 
 // Ommitted space.
-#font(weight:bold)[Bold]
+[#font(weight:bold)Bold]
 
 // Call return value of function with body.
 #let f(x, body) = (y) => [#x] + body + [#y]
@@ -19,35 +19,6 @@
 #f[A]
 #f()[A]
 #f([A])
-
----
-// Ref: true
-
-// Test multiple wide calls in separate expressions inside a template.
-[
-  #font!(fill: eastern) - First
-  #font!(fill: forest) - Second
-]
-
-// Test wide call in heading.
-= A #align!(right) B
-C
-
----
-// Test wide call in expression.
-
-// Error: 2-4 wide calls are only allowed directly in templates
-{f!()}
-
-// Error: 5-7 wide calls are only allowed directly in templates
-#g!(f!())
-
----
-// Test wide call evaluation semantics.
-#let x = 1
-#let f(x, body) = test(x, 1)
-#f!(x)
-{ x = 2 }
 
 ---
 // Trailing comma.
@@ -90,9 +61,6 @@ C
 #f[1](2)
 
 ---
-// Error: 7 expected argument list
-#func!
-
 // Error: 7-8 expected expression, found colon
 #func(:)
 

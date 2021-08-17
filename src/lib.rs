@@ -6,12 +6,12 @@
 //!   tree]. The structures describing the tree can be found in the [syntax]
 //!   module.
 //! - **Evaluation:** The next step is to [evaluate] the syntax tree. This
-//!   computes the value of each node in the document and produces a [module].
-//! - **Execution:** Now, we can [execute] the parsed and evaluated module. This
-//!   results in a [layout tree], a high-level, fully styled representation of
-//!   the document. The nodes of this tree are self-contained and
-//!   order-independent and thus much better suited for layouting than the
-//!   syntax tree.
+//!   produces a [module], consisting of a scope of values that were exported by
+//!   the module and a template with the contents of the module. This template
+//!   can be [instantiated] in a state to produce a layout tree, a high-level,
+//!   fully styled representation of the document. The nodes of this tree are
+//!   self-contained and order-independent and thus much better suited for
+//!   layouting than a syntax tree.
 //! - **Layouting:** Next, the tree is [layouted] into a portable version of the
 //!   typeset document. The output of this is a collection of [`Frame`]s (one
 //!   per page), ready for exporting.
@@ -23,7 +23,7 @@
 //! [syntax tree]: syntax::SyntaxTree
 //! [evaluate]: eval::eval
 //! [module]: eval::Module
-//! [execute]: exec::exec
+//! [instantiated]: eval::Template::to_tree
 //! [layout tree]: layout::LayoutTree
 //! [layouted]: layout::layout
 //! [PDF]: export::pdf
@@ -33,7 +33,6 @@ pub mod diag;
 #[macro_use]
 pub mod eval;
 pub mod color;
-pub mod exec;
 pub mod export;
 pub mod font;
 pub mod geom;
@@ -50,13 +49,12 @@ pub mod util;
 use std::rc::Rc;
 
 use crate::diag::TypResult;
-use crate::eval::Scope;
-use crate::exec::State;
+use crate::eval::{Scope, State};
 use crate::font::FontStore;
 use crate::image::ImageStore;
-use crate::layout::Frame;
 #[cfg(feature = "layout-cache")]
 use crate::layout::LayoutCache;
+use crate::layout::{Frame, LayoutTree};
 use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
 
@@ -90,16 +88,21 @@ impl Context {
         ContextBuilder::default()
     }
 
+    /// Execute a source file and produce the resulting layout tree.
+    pub fn execute(&mut self, id: SourceId) -> TypResult<LayoutTree> {
+        let source = self.sources.get(id);
+        let ast = parse::parse(source)?;
+        let module = eval::eval(self, id, &ast)?;
+        Ok(module.template.to_tree(&self.state))
+    }
+
     /// Typeset a source file into a collection of layouted frames.
     ///
     /// Returns either a vector of frames representing individual pages or
     /// diagnostics in the form of a vector of error message with file and span
     /// information.
     pub fn typeset(&mut self, id: SourceId) -> TypResult<Vec<Rc<Frame>>> {
-        let source = self.sources.get(id);
-        let ast = parse::parse(source)?;
-        let module = eval::eval(self, id, Rc::new(ast))?;
-        let tree = exec::exec(self, &module.template);
+        let tree = self.execute(id)?;
         let frames = layout::layout(self, &tree);
         Ok(frames)
     }

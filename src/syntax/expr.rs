@@ -170,7 +170,7 @@ pub struct TemplateExpr {
     /// The source code location.
     pub span: Span,
     /// The contents of the template.
-    pub tree: Rc<SyntaxTree>,
+    pub tree: SyntaxTree,
 }
 
 /// A grouped expression: `(1 + 2)`.
@@ -406,8 +406,6 @@ pub struct CallExpr {
     pub span: Span,
     /// The function to call.
     pub callee: Expr,
-    /// Whether the call is wide, that is, capturing the template behind it.
-    pub wide: bool,
     /// The arguments to the function.
     pub args: CallArgs,
 }

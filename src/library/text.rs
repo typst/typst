@@ -1,10 +1,15 @@
-use crate::exec::{FontState, LineState};
+use crate::eval::{FontState, LineState};
 use crate::layout::Paint;
 
 use super::*;
 
 /// `font`: Configure the font.
-pub fn font(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn font(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    let list = args.named("family")?.or_else(|| {
+        let families: Vec<_> = args.all().collect();
+        (!families.is_empty()).then(|| FontDef(Rc::new(families)))
+    });
+
     let size = args.named::<Linear>("size")?.or_else(|| args.eat());
     let style = args.named("style")?;
     let weight = args.named("weight")?;
@@ -12,67 +17,59 @@ pub fn font(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let top_edge = args.named("top-edge")?;
     let bottom_edge = args.named("bottom-edge")?;
     let fill = args.named("fill")?;
-
-    let list = args.named("family")?.or_else(|| {
-        let families: Vec<_> = args.all().collect();
-        (!families.is_empty()).then(|| FontDef(Rc::new(families)))
-    });
-
     let serif = args.named("serif")?;
     let sans_serif = args.named("sans-serif")?;
     let monospace = args.named("monospace")?;
 
-    let body = args.expect::<Template>("body")?;
-
-    Ok(Value::template(move |ctx| {
-        let state = ctx.state.font_mut();
+    ctx.template.modify(move |state| {
+        let font = state.font_mut();
 
         if let Some(size) = size {
-            state.size = size.resolve(state.size);
+            font.size = size.resolve(font.size);
         }
 
         if let Some(style) = style {
-            state.variant.style = style;
+            font.variant.style = style;
         }
 
         if let Some(weight) = weight {
-            state.variant.weight = weight;
+            font.variant.weight = weight;
         }
 
         if let Some(stretch) = stretch {
-            state.variant.stretch = stretch;
+            font.variant.stretch = stretch;
         }
 
         if let Some(top_edge) = top_edge {
-            state.top_edge = top_edge;
+            font.top_edge = top_edge;
         }
 
         if let Some(bottom_edge) = bottom_edge {
-            state.bottom_edge = bottom_edge;
+            font.bottom_edge = bottom_edge;
         }
 
         if let Some(fill) = fill {
-            state.fill = Paint::Color(fill);
+            font.fill = Paint::Color(fill);
         }
 
         if let Some(FontDef(list)) = &list {
-            state.families_mut().list = list.clone();
+            font.families_mut().list = list.clone();
         }
 
         if let Some(FamilyDef(serif)) = &serif {
-            state.families_mut().serif = serif.clone();
+            font.families_mut().serif = serif.clone();
         }
 
         if let Some(FamilyDef(sans_serif)) = &sans_serif {
-            state.families_mut().sans_serif = sans_serif.clone();
+            font.families_mut().sans_serif = sans_serif.clone();
         }
 
         if let Some(FamilyDef(monospace)) = &monospace {
-            state.families_mut().monospace = monospace.clone();
+            font.families_mut().monospace = monospace.clone();
         }
+    });
 
-        body.exec(ctx);
-    }))
+    Ok(Value::None)
 }
 
 struct FontDef(Rc<Vec<FontFamily>>);
@@ -104,29 +101,29 @@ castable! {
 }
 
 /// `par`: Configure paragraphs.
-pub fn par(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn par(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let par_spacing = args.named("spacing")?;
     let line_spacing = args.named("leading")?;
-    let body = args.expect::<Template>("body")?;
 
-    Ok(Value::template(move |ctx| {
-        let state = ctx.state.par_mut();
+    ctx.template.modify(move |state| {
+        let par = state.par_mut();
 
         if let Some(par_spacing) = par_spacing {
-            state.par_spacing = par_spacing;
+            par.par_spacing = par_spacing;
         }
 
         if let Some(line_spacing) = line_spacing {
-            state.line_spacing = line_spacing;
+            par.line_spacing = line_spacing;
         }
+    });
 
-        ctx.parbreak();
-        body.exec(ctx);
-    }))
+    ctx.template.parbreak();
+
+    Ok(Value::None)
 }
 
 /// `lang`: Configure the language.
-pub fn lang(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn lang(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let iso = args.eat::<Str>();
     let dir = if let Some(dir) = args.named::<Spanned<Dir>>("dir")? {
         if dir.v.axis() == SpecAxis::Horizontal {
@@ -138,16 +135,13 @@ pub fn lang(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
         iso.as_deref().map(lang_dir)
     };
 
-    let body = args.expect::<Template>("body")?;
+    if let Some(dir) = dir {
+        ctx.template.modify(move |state| state.dirs.cross = dir);
+    }
 
-    Ok(Value::template(move |ctx| {
-        if let Some(dir) = dir {
-            ctx.state.dirs.cross = dir;
-        }
+    ctx.template.parbreak();
 
-        ctx.parbreak();
-        body.exec(ctx);
-    }))
+    Ok(Value::None)
 }
 
 /// The default direction for the language identified by the given `iso` code.
@@ -159,22 +153,23 @@ fn lang_dir(iso: &str) -> Dir {
     }
 }
 
-/// `strike`: Enable striken-through text.
-pub fn strike(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
-    line_impl(args, |font| &mut font.strikethrough)
+/// `strike`: Set striken-through text.
+pub fn strike(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    line_impl(ctx, args, |font| &mut font.strikethrough)
 }
 
-/// `underline`: Enable underlined text.
-pub fn underline(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
-    line_impl(args, |font| &mut font.underline)
+/// `underline`: Set underlined text.
+pub fn underline(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    line_impl(ctx, args, |font| &mut font.underline)
 }
 
-/// `overline`: Add an overline above text.
-pub fn overline(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
-    line_impl(args, |font| &mut font.overline)
+/// `overline`: Set text with an overline.
+pub fn overline(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    line_impl(ctx, args, |font| &mut font.overline)
 }
 
 fn line_impl(
+    _: &mut EvalContext,
     args: &mut Arguments,
     substate: fn(&mut FontState) -> &mut Option<Rc<LineState>>,
 ) -> TypResult<Value> {
@@ -182,10 +177,10 @@ fn line_impl(
     let thickness = args.named::<Linear>("thickness")?.or_else(|| args.eat());
     let offset = args.named("offset")?;
     let extent = args.named("extent")?.unwrap_or_default();
-    let body = args.expect::<Template>("body")?;
+    let body = args.expect("body")?;
 
     // Suppress any existing strikethrough if strength is explicitly zero.
-    let state = thickness.map_or(true, |s| !s.is_zero()).then(|| {
+    let line = thickness.map_or(true, |s| !s.is_zero()).then(|| {
         Rc::new(LineState {
             stroke: stroke.map(Paint::Color),
             thickness,
@@ -194,8 +189,11 @@ fn line_impl(
         })
     });
 
-    Ok(Value::template(move |ctx| {
-        *substate(ctx.state.font_mut()) = state.clone();
-        body.exec(ctx);
-    }))
+    let mut template = Template::new();
+    template.save();
+    template.modify(move |state| *substate(state.font_mut()) = line.clone());
+    template += body;
+    template.restore();
+
+    Ok(Value::Template(template))
 }

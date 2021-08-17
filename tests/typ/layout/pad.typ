@@ -5,10 +5,11 @@
 #pad(left: 10pt, [Indented!])
 
 // All sides together.
-#rect(fill: conifer)[
-  #pad!(10pt, right: 20pt)
-  #rect(width: 20pt, height: 20pt, fill: rgb("eb5278"))
-]
+#rect(fill: conifer,
+  pad(10pt, right: 20pt,
+    rect(width: 20pt, height: 20pt, fill: rgb("eb5278"))
+  )
+)
 
 Hi #box(pad(left: 10pt)[]) there
 
@@ -27,7 +28,7 @@ Hi #box(pad(left: 10pt)[]) there
 ---
 // Test that the pad node doesn't consume the whole region.
 
-#page!(height: 6cm)
+#page(height: 6cm)
 
 #align(left)[Before]
 #pad(10pt, image("../../res/tiger.jpg"))

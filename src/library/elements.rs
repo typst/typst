@@ -23,9 +23,11 @@ pub fn image(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
         })
     })?;
 
-    Ok(Value::template(move |ctx| {
-        ctx.inline(ImageNode { id, width, height })
-    }))
+    Ok(Value::Template(Template::from_inline(move |_| ImageNode {
+        id,
+        width,
+        height,
+    })))
 }
 
 /// `rect`: A rectangle with optional content.
@@ -61,22 +63,23 @@ fn rect_impl(
     fill: Option<Color>,
     body: Template,
 ) -> Value {
-    Value::template(move |ctx| {
-        let mut stack = ctx.exec_template(&body);
+    Value::Template(Template::from_inline(move |state| {
+        let mut stack = body.to_stack(state);
         stack.aspect = aspect;
 
-        let fixed = FixedNode { width, height, child: stack.into() };
+        let mut node = FixedNode { width, height, child: stack.into() }.into();
 
         if let Some(fill) = fill {
-            ctx.inline(BackgroundNode {
+            node = BackgroundNode {
                 shape: BackgroundShape::Rect,
                 fill: Paint::Color(fill),
-                child: fixed.into(),
-            });
-        } else {
-            ctx.inline(fixed);
+                child: node,
+            }
+            .into();
         }
-    })
+
+        node
+    }))
 }
 
 /// `ellipse`: An ellipse with optional content.
@@ -112,15 +115,15 @@ fn ellipse_impl(
     fill: Option<Color>,
     body: Template,
 ) -> Value {
-    Value::template(move |ctx| {
+    Value::Template(Template::from_inline(move |state| {
         // This padding ratio ensures that the rectangular padded region fits
         // perfectly into the ellipse.
         const PAD: f64 = 0.5 - SQRT_2 / 4.0;
 
-        let mut stack = ctx.exec_template(&body);
+        let mut stack = body.to_stack(state);
         stack.aspect = aspect;
 
-        let fixed = FixedNode {
+        let mut node = FixedNode {
             width,
             height,
             child: PadNode {
@@ -128,16 +131,18 @@ fn ellipse_impl(
                 child: stack.into(),
             }
             .into(),
-        };
+        }
+        .into();
 
         if let Some(fill) = fill {
-            ctx.inline(BackgroundNode {
+            node = BackgroundNode {
                 shape: BackgroundShape::Ellipse,
                 fill: Paint::Color(fill),
-                child: fixed.into(),
-            });
-        } else {
-            ctx.inline(fixed);
+                child: node,
+            }
+            .into();
         }
-    })
+
+        node
+    }))
 }

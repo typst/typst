@@ -8,18 +8,18 @@ use crate::geom::*;
 use crate::layout::Paint;
 use crate::paper::{PaperClass, PAPER_A4};
 
-/// The execution state.
+/// Defines an set of properties a template can be instantiated with.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct State {
     /// The direction for text and other inline objects.
     pub dirs: Gen<Dir>,
-    /// The current alignments of layouts in their parents.
+    /// The alignments of layouts in their parents.
     pub aligns: Gen<Align>,
-    /// The current page settings.
+    /// The page settings.
     pub page: Rc<PageState>,
-    /// The current paragraph settings.
+    /// The paragraph settings.
     pub par: Rc<ParState>,
-    /// The current font settings.
+    /// The font settings.
     pub font: Rc<FontState>,
 }
 
@@ -98,7 +98,7 @@ impl Default for PageState {
     }
 }
 
-/// Style paragraph properties.
+/// Defines paragraph properties.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ParState {
     /// The spacing between paragraphs (dependent on scaled font size).
@@ -119,13 +119,12 @@ impl Default for ParState {
 /// Defines font properties.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FontState {
-    /// Whether the strong toggle is active or inactive. This determines
-    /// whether the next `*` adds or removes font weight.
+    /// Whether 300 extra font weight should be added to what is defined by the
+    /// `variant`.
     pub strong: bool,
-    /// Whether the emphasis toggle is active or inactive. This determines
-    /// whether the next `_` makes italic or non-italic.
+    /// Whether the the font style defined by the `variant` should be inverted.
     pub emph: bool,
-    /// Whether the monospace toggle is active or inactive.
+    /// Whether a monospace font should be preferred.
     pub monospace: bool,
     /// The font size.
     pub size: Length,
@@ -176,11 +175,13 @@ impl FontState {
             .then(|| self.families.monospace.as_slice())
             .unwrap_or_default();
 
-        let core = self.families.list.iter().flat_map(move |family| match family {
-            FontFamily::Named(name) => std::slice::from_ref(name),
-            FontFamily::Serif => &self.families.serif,
-            FontFamily::SansSerif => &self.families.sans_serif,
-            FontFamily::Monospace => &self.families.monospace,
+        let core = self.families.list.iter().flat_map(move |family| {
+            match family {
+                FontFamily::Named(name) => std::slice::from_ref(name),
+                FontFamily::Serif => &self.families.serif,
+                FontFamily::SansSerif => &self.families.sans_serif,
+                FontFamily::Monospace => &self.families.monospace,
+            }
         });
 
         head.iter()

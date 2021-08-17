@@ -57,23 +57,8 @@ where
     // or template to know whether things like headings are allowed.
     let mut tree = vec![];
     while !p.eof() && f(p) {
-        if let Some(mut node) = node(p, &mut at_start) {
+        if let Some(node) = node(p, &mut at_start) {
             at_start &= matches!(node, SyntaxNode::Space | SyntaxNode::Parbreak(_));
-
-            // Look for wide call.
-            if let SyntaxNode::Expr(Expr::Call(call)) = &mut node {
-                if call.wide {
-                    let start = p.next_start();
-                    let tree = tree_while(p, true, f);
-                    call.args.items.push(CallArg::Pos(Expr::Template(Box::new(
-                        TemplateExpr {
-                            span: p.span_from(start),
-                            tree: Rc::new(tree),
-                        },
-                    ))));
-                }
-            }
-
             tree.push(node);
         }
     }
@@ -538,7 +523,7 @@ fn idents(p: &mut Parser, items: Vec<CallArg>) -> Vec<Ident> {
 // Parse a template value: `[...]`.
 fn template(p: &mut Parser) -> Expr {
     p.start_group(Group::Bracket, TokenMode::Markup);
-    let tree = Rc::new(tree(p));
+    let tree = tree(p);
     let span = p.end_group();
     Expr::Template(Box::new(TemplateExpr { span, tree }))
 }
@@ -566,13 +551,6 @@ fn block(p: &mut Parser, scoping: bool) -> Expr {
 
 /// Parse a function call.
 fn call(p: &mut Parser, callee: Expr) -> Option<Expr> {
-    let mut wide = p.eat_if(Token::Excl);
-    if wide && p.outer_mode() == TokenMode::Code {
-        let span = p.span_from(callee.span().start);
-        p.error(span, "wide calls are only allowed directly in templates");
-        wide = false;
-    }
-
     let mut args = match p.peek_direct() {
         Some(Token::LeftParen) => args(p),
         Some(Token::LeftBracket) => CallArgs {
@@ -593,7 +571,6 @@ fn call(p: &mut Parser, callee: Expr) -> Option<Expr> {
     Some(Expr::Call(Box::new(CallExpr {
         span: p.span_from(callee.span().start),
         callee,
-        wide,
         args,
     })))
 }

@@ -3,10 +3,9 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::rc::Rc;
 
-use super::{ops, Array, Dict, Function, Str, Template, TemplateFunc};
+use super::{ops, Array, Dict, Function, Str, Template};
 use crate::color::{Color, RgbaColor};
 use crate::diag::StrResult;
-use crate::exec::ExecContext;
 use crate::geom::{Angle, Fractional, Length, Linear, Relative};
 use crate::syntax::Spanned;
 use crate::util::EcoString;
@@ -51,14 +50,6 @@ pub enum Value {
 }
 
 impl Value {
-    /// Create a new template consisting of a single function node.
-    pub fn template<F>(f: F) -> Self
-    where
-        F: Fn(&mut ExecContext) + 'static,
-    {
-        Self::Template(TemplateFunc::new(f).into())
-    }
-
     /// The name of the stored value's type.
     pub fn type_name(&self) -> &'static str {
         match self {

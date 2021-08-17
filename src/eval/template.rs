@@ -1,28 +1,145 @@
-use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt::{self, Debug, Display, Formatter};
-use std::ops::{Add, AddAssign, Deref};
+use std::mem;
+use std::ops::{Add, AddAssign};
 use std::rc::Rc;
 
-use super::{Str, Value};
+use super::{State, Str};
 use crate::diag::StrResult;
-use crate::exec::ExecContext;
-use crate::syntax::{Expr, SyntaxTree};
+use crate::geom::{Align, Dir, Gen, GenAxis, Length, Linear, Sides, Size};
+use crate::layout::{
+    LayoutNode, LayoutTree, PadNode, PageRun, ParChild, ParNode, StackChild, StackNode,
+};
 use crate::util::EcoString;
 
 /// A template value: `[*Hi* there]`.
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub struct Template(Rc<Vec<TemplateNode>>);
 
+/// One node in a template.
+#[derive(Clone)]
+enum TemplateNode {
+    /// A word space.
+    Space,
+    /// A line break.
+    Linebreak,
+    /// A paragraph break.
+    Parbreak,
+    /// A page break.
+    Pagebreak(bool),
+    /// Plain text.
+    Text(EcoString),
+    /// Spacing.
+    Spacing(GenAxis, Linear),
+    /// An inline node builder.
+    Inline(Rc<dyn Fn(&State) -> LayoutNode>),
+    /// An block node builder.
+    Block(Rc<dyn Fn(&State) -> LayoutNode>),
+    /// Save the current state.
+    Save,
+    /// Restore the last saved state.
+    Restore,
+    /// A function that can modify the current state.
+    Modify(Rc<dyn Fn(&mut State)>),
+}
+
 impl Template {
-    /// Create a new template from a vector of nodes.
-    pub fn new(nodes: Vec<TemplateNode>) -> Self {
-        Self(Rc::new(nodes))
+    /// Create a new, empty template.
+    pub fn new() -> Self {
+        Self(Rc::new(vec![]))
     }
 
-    /// Iterate over the contained template nodes.
-    pub fn iter(&self) -> std::slice::Iter<TemplateNode> {
-        self.0.iter()
+    /// Create a template from a builder for an inline-level node.
+    pub fn from_inline<F, T>(f: F) -> Self
+    where
+        F: Fn(&State) -> T + 'static,
+        T: Into<LayoutNode>,
+    {
+        let node = TemplateNode::Inline(Rc::new(move |s| f(s).into()));
+        Self(Rc::new(vec![node]))
+    }
+
+    /// Create a template from a builder for a block-level node.
+    pub fn from_block<F, T>(f: F) -> Self
+    where
+        F: Fn(&State) -> T + 'static,
+        T: Into<LayoutNode>,
+    {
+        let node = TemplateNode::Block(Rc::new(move |s| f(s).into()));
+        Self(Rc::new(vec![node]))
+    }
+
+    /// Add a word space to the template.
+    pub fn space(&mut self) {
+        self.make_mut().push(TemplateNode::Space);
+    }
+
+    /// Add a line break to the template.
+    pub fn linebreak(&mut self) {
+        self.make_mut().push(TemplateNode::Linebreak);
+    }
+
+    /// Add a paragraph break to the template.
+    pub fn parbreak(&mut self) {
+        self.make_mut().push(TemplateNode::Parbreak);
+    }
+
+    /// Add a page break to the template.
+    pub fn pagebreak(&mut self, keep: bool) {
+        self.make_mut().push(TemplateNode::Pagebreak(keep));
+    }
+
+    /// Add text to the template.
+    pub fn text(&mut self, text: impl Into<EcoString>) {
+        self.make_mut().push(TemplateNode::Text(text.into()));
+    }
+
+    /// Add text, but in monospace.
+    pub fn monospace(&mut self, text: impl Into<EcoString>) {
+        self.save();
+        self.modify(|state| state.font_mut().monospace = true);
+        self.text(text);
+        self.restore();
+    }
+
+    /// Add spacing along an axis.
+    pub fn spacing(&mut self, axis: GenAxis, spacing: Linear) {
+        self.make_mut().push(TemplateNode::Spacing(axis, spacing));
+    }
+
+    /// Register a restorable snapshot.
+    pub fn save(&mut self) {
+        self.make_mut().push(TemplateNode::Save);
+    }
+
+    /// Ensure that later nodes are untouched by state modifications made since
+    /// the last snapshot.
+    pub fn restore(&mut self) {
+        self.make_mut().push(TemplateNode::Restore);
+    }
+
+    /// Modify the state.
+    pub fn modify<F>(&mut self, f: F)
+    where
+        F: Fn(&mut State) + 'static,
+    {
+        self.make_mut().push(TemplateNode::Modify(Rc::new(f)));
+    }
+
+    /// Build the stack node resulting from instantiating the template in the
+    /// given state.
+    pub fn to_stack(&self, state: &State) -> StackNode {
+        let mut builder = Builder::new(state, false);
+        builder.template(self);
+        builder.build_stack()
+    }
+
+    /// Build the layout tree resulting from instantiating the template in the
+    /// given state.
+    pub fn to_tree(&self, state: &State) -> LayoutTree {
+        let mut builder = Builder::new(state, true);
+        builder.template(self);
+        builder.build_tree()
     }
 
     /// Repeat this template `n` times.
@@ -33,14 +150,25 @@ impl Template {
             .ok_or_else(|| format!("cannot repeat this template {} times", n))?;
 
         Ok(Self(Rc::new(
-            self.iter().cloned().cycle().take(count).collect(),
+            self.0.iter().cloned().cycle().take(count).collect(),
         )))
+    }
+
+    /// Return a mutable reference to the inner vector.
+    fn make_mut(&mut self) -> &mut Vec<TemplateNode> {
+        Rc::make_mut(&mut self.0)
     }
 }
 
 impl Display for Template {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("<template>")
+    }
+}
+
+impl Debug for Template {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad("Template { .. }")
     }
 }
 
@@ -73,7 +201,7 @@ impl Add<Str> for Template {
     type Output = Self;
 
     fn add(mut self, rhs: Str) -> Self::Output {
-        Rc::make_mut(&mut self.0).push(TemplateNode::Str(rhs.into()));
+        Rc::make_mut(&mut self.0).push(TemplateNode::Text(rhs.into()));
         self
     }
 }
@@ -82,86 +210,306 @@ impl Add<Template> for Str {
     type Output = Template;
 
     fn add(self, mut rhs: Template) -> Self::Output {
-        Rc::make_mut(&mut rhs.0).insert(0, TemplateNode::Str(self.into()));
+        Rc::make_mut(&mut rhs.0).insert(0, TemplateNode::Text(self.into()));
         rhs
     }
 }
 
-impl From<TemplateTree> for Template {
-    fn from(tree: TemplateTree) -> Self {
-        Self::new(vec![TemplateNode::Tree(tree)])
+/// Transforms from template to layout representation.
+struct Builder {
+    /// The active state.
+    state: State,
+    /// Snapshots of the state.
+    snapshots: Vec<State>,
+    /// The tree of finished page runs.
+    tree: LayoutTree,
+    /// When we are building the top-level layout trees, this contains metrics
+    /// of the page. While building a stack, this is `None`.
+    page: Option<PageBuilder>,
+    /// The currently built stack of paragraphs.
+    stack: StackBuilder,
+}
+
+impl Builder {
+    /// Create a new builder with a base state.
+    fn new(state: &State, pages: bool) -> Self {
+        Self {
+            state: state.clone(),
+            snapshots: vec![],
+            tree: LayoutTree { runs: vec![] },
+            page: pages.then(|| PageBuilder::new(state, true)),
+            stack: StackBuilder::new(state),
+        }
+    }
+
+    /// Build a template.
+    fn template(&mut self, template: &Template) {
+        for node in template.0.iter() {
+            self.node(node);
+        }
+    }
+
+    /// Build a template node.
+    fn node(&mut self, node: &TemplateNode) {
+        match node {
+            TemplateNode::Save => self.snapshots.push(self.state.clone()),
+            TemplateNode::Restore => {
+                let state = self.snapshots.pop().unwrap();
+                let newpage = state.page != self.state.page;
+                self.state = state;
+                if newpage {
+                    self.pagebreak(true, false);
+                }
+            }
+            TemplateNode::Space => self.space(),
+            TemplateNode::Linebreak => self.linebreak(),
+            TemplateNode::Parbreak => self.parbreak(),
+            TemplateNode::Pagebreak(keep) => self.pagebreak(*keep, true),
+            TemplateNode::Text(text) => self.text(text),
+            TemplateNode::Spacing(axis, amount) => self.spacing(*axis, *amount),
+            TemplateNode::Inline(f) => self.inline(f(&self.state)),
+            TemplateNode::Block(f) => self.block(f(&self.state)),
+            TemplateNode::Modify(f) => f(&mut self.state),
+        }
+    }
+
+    /// Push a word space into the active paragraph.
+    fn space(&mut self) {
+        self.stack.par.push_soft(self.make_text_node(' '));
+    }
+
+    /// Apply a forced line break.
+    fn linebreak(&mut self) {
+        self.stack.par.push_hard(self.make_text_node('\n'));
+    }
+
+    /// Apply a forced paragraph break.
+    fn parbreak(&mut self) {
+        let amount = self.state.par_spacing();
+        self.stack.finish_par(&self.state);
+        self.stack.push_soft(StackChild::Spacing(amount.into()));
+    }
+
+    /// Apply a forced page break.
+    fn pagebreak(&mut self, keep: bool, hard: bool) {
+        if let Some(builder) = &mut self.page {
+            let page = mem::replace(builder, PageBuilder::new(&self.state, hard));
+            let stack = mem::replace(&mut self.stack, StackBuilder::new(&self.state));
+            self.tree.runs.extend(page.build(stack.build(), keep));
+        }
+    }
+
+    /// Push text into the active paragraph.
+    ///
+    /// The text is split into lines at newlines.
+    fn text(&mut self, text: impl Into<EcoString>) {
+        self.stack.par.push(self.make_text_node(text));
+    }
+
+    /// Push an inline node into the active paragraph.
+    fn inline(&mut self, node: impl Into<LayoutNode>) {
+        let align = self.state.aligns.cross;
+        self.stack.par.push(ParChild::Any(node.into(), align));
+    }
+
+    /// Push a block node into the active stack, finishing the active paragraph.
+    fn block(&mut self, node: impl Into<LayoutNode>) {
+        self.parbreak();
+        let aligns = self.state.aligns;
+        self.stack.push(StackChild::Any(node.into(), aligns));
+        self.parbreak();
+    }
+
+    /// Push spacing into the active paragraph or stack depending on the `axis`.
+    fn spacing(&mut self, axis: GenAxis, amount: Linear) {
+        match axis {
+            GenAxis::Main => {
+                self.stack.finish_par(&self.state);
+                self.stack.push_hard(StackChild::Spacing(amount));
+            }
+            GenAxis::Cross => {
+                self.stack.par.push_hard(ParChild::Spacing(amount));
+            }
+        }
+    }
+
+    /// Finish building and return the created stack.
+    fn build_stack(self) -> StackNode {
+        assert!(self.page.is_none());
+        self.stack.build()
+    }
+
+    /// Finish building and return the created layout tree.
+    fn build_tree(mut self) -> LayoutTree {
+        assert!(self.page.is_some());
+        self.pagebreak(true, false);
+        self.tree
+    }
+
+    /// Construct a text node with the given text and settings from the active
+    /// state.
+    fn make_text_node(&self, text: impl Into<EcoString>) -> ParChild {
+        ParChild::Text(
+            text.into(),
+            self.state.aligns.cross,
+            Rc::clone(&self.state.font),
+        )
     }
 }
 
-impl From<TemplateFunc> for Template {
-    fn from(func: TemplateFunc) -> Self {
-        Self::new(vec![TemplateNode::Func(func)])
+struct PageBuilder {
+    size: Size,
+    padding: Sides<Linear>,
+    hard: bool,
+}
+
+impl PageBuilder {
+    fn new(state: &State, hard: bool) -> Self {
+        Self {
+            size: state.page.size,
+            padding: state.page.margins(),
+            hard,
+        }
+    }
+
+    fn build(self, child: StackNode, keep: bool) -> Option<PageRun> {
+        let Self { size, padding, hard } = self;
+        (!child.children.is_empty() || (keep && hard)).then(|| PageRun {
+            size,
+            child: PadNode { padding, child: child.into() }.into(),
+        })
     }
 }
 
-impl From<Str> for Template {
-    fn from(string: Str) -> Self {
-        Self::new(vec![TemplateNode::Str(string.into())])
+struct StackBuilder {
+    dirs: Gen<Dir>,
+    children: Vec<StackChild>,
+    last: Last<StackChild>,
+    par: ParBuilder,
+}
+
+impl StackBuilder {
+    fn new(state: &State) -> Self {
+        Self {
+            dirs: state.dirs,
+            children: vec![],
+            last: Last::None,
+            par: ParBuilder::new(state),
+        }
+    }
+
+    fn push(&mut self, child: StackChild) {
+        self.children.extend(self.last.any());
+        self.children.push(child);
+    }
+
+    fn push_soft(&mut self, child: StackChild) {
+        self.last.soft(child);
+    }
+
+    fn push_hard(&mut self, child: StackChild) {
+        self.last.hard();
+        self.children.push(child);
+    }
+
+    fn finish_par(&mut self, state: &State) {
+        let par = mem::replace(&mut self.par, ParBuilder::new(state));
+        if let Some(par) = par.build() {
+            self.push(par);
+        }
+    }
+
+    fn build(self) -> StackNode {
+        let Self { dirs, mut children, par, mut last } = self;
+        if let Some(par) = par.build() {
+            children.extend(last.any());
+            children.push(par);
+        }
+        StackNode { dirs, aspect: None, children }
     }
 }
 
-/// One node of a template.
-///
-/// Evaluating a template expression creates only a single node. Adding multiple
-/// templates can yield multi-node templates.
-#[derive(Debug, Clone)]
-pub enum TemplateNode {
-    /// A template that was evaluated from a template expression.
-    Tree(TemplateTree),
-    /// A function template that can implement custom behaviour.
-    Func(TemplateFunc),
-    /// A template that was converted from a string.
-    Str(EcoString),
+struct ParBuilder {
+    aligns: Gen<Align>,
+    dir: Dir,
+    line_spacing: Length,
+    children: Vec<ParChild>,
+    last: Last<ParChild>,
 }
 
-/// A template that consists of a syntax tree plus already evaluated
-/// expressions.
-#[derive(Debug, Clone)]
-pub struct TemplateTree {
-    /// The syntax tree of the corresponding template expression.
-    pub tree: Rc<SyntaxTree>,
-    /// The evaluated expressions in the syntax tree.
-    pub map: ExprMap,
-}
+impl ParBuilder {
+    fn new(state: &State) -> Self {
+        Self {
+            aligns: state.aligns,
+            dir: state.dirs.cross,
+            line_spacing: state.line_spacing(),
+            children: vec![],
+            last: Last::None,
+        }
+    }
 
-/// A map from expressions to the values they evaluated to.
-///
-/// The raw pointers point into the expressions contained in some
-/// [`SyntaxTree`]. Since the lifetime is erased, the tree could go out of scope
-/// while the hash map still lives. Although this could lead to lookup panics,
-/// it is safe since the pointers are never dereferenced.
-pub type ExprMap = HashMap<*const Expr, Value>;
+    fn push(&mut self, child: ParChild) {
+        if let Some(soft) = self.last.any() {
+            self.push_inner(soft);
+        }
+        self.push_inner(child);
+    }
 
-/// A reference-counted dynamic template node that can implement custom
-/// behaviour.
-#[derive(Clone)]
-pub struct TemplateFunc(Rc<dyn Fn(&mut ExecContext)>);
+    fn push_soft(&mut self, child: ParChild) {
+        self.last.soft(child);
+    }
 
-impl TemplateFunc {
-    /// Create a new function template from a rust function or closure.
-    pub fn new<F>(f: F) -> Self
-    where
-        F: Fn(&mut ExecContext) + 'static,
-    {
-        Self(Rc::new(f))
+    fn push_hard(&mut self, child: ParChild) {
+        self.last.hard();
+        self.push_inner(child);
+    }
+
+    fn push_inner(&mut self, child: ParChild) {
+        if let ParChild::Text(curr_text, curr_props, curr_align) = &child {
+            if let Some(ParChild::Text(prev_text, prev_props, prev_align)) =
+                self.children.last_mut()
+            {
+                if prev_align == curr_align && prev_props == curr_props {
+                    prev_text.push_str(&curr_text);
+                    return;
+                }
+            }
+        }
+
+        self.children.push(child);
+    }
+
+    fn build(self) -> Option<StackChild> {
+        let Self { aligns, dir, line_spacing, children, .. } = self;
+        (!children.is_empty()).then(|| {
+            let node = ParNode { dir, line_spacing, children };
+            StackChild::Any(node.into(), aligns)
+        })
     }
 }
 
-impl Debug for TemplateFunc {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("TemplateFunc").finish()
-    }
+/// Finite state machine for spacing coalescing.
+enum Last<N> {
+    None,
+    Any,
+    Soft(N),
 }
 
-impl Deref for TemplateFunc {
-    type Target = dyn Fn(&mut ExecContext);
+impl<N> Last<N> {
+    fn any(&mut self) -> Option<N> {
+        match mem::replace(self, Self::Any) {
+            Self::Soft(soft) => Some(soft),
+            _ => None,
+        }
+    }
 
-    fn deref(&self) -> &Self::Target {
-        self.0.as_ref()
+    fn soft(&mut self, soft: N) {
+        if let Self::Any = self {
+            *self = Self::Soft(soft);
+        }
+    }
+
+    fn hard(&mut self) {
+        *self = Self::None;
     }
 }
