@@ -10,9 +10,6 @@ cli = ["anyhow", "codespan-reporting", "fs", "same-file"]
 fs = ["dirs", "memmap2", "same-file", "walkdir"]
 layout-cache = []
 
-[workspace]
-members = ["bench"]
-
 [profile.dev]
 # Faster compilation
 debug = 0
@@ -45,6 +42,7 @@ walkdir = { version = "2", optional = true }
 walkdir = "2"
 tiny-skia = "0.5"
 usvg = { version = "0.15", default-features = false }
+iai = { git = "https://github.com/reknih/iai" }
 
 [[bin]]
 name = "typst"
@@ -53,4 +51,9 @@ required-features = ["cli"]
 [[test]]
 name = "typeset"
 required-features = ["fs"]
+harness = false
+
+[[bench]]
+name = "oneshot"
+path = "benches/oneshot.rs"
 harness = false
