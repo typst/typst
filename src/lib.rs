@@ -49,7 +49,8 @@ pub mod util;
 use std::rc::Rc;
 
 use crate::diag::TypResult;
-use crate::eval::{Scope, State};
+use crate::eval::{Scope, State, Module};
+use crate::syntax::SyntaxTree;
 use crate::font::FontStore;
 use crate::image::ImageStore;
 #[cfg(feature = "layout-cache")]
@@ -88,11 +89,30 @@ impl Context {
         ContextBuilder::default()
     }
 
+    /// A read-only reference to the standard library scope.
+    pub fn std(&self) -> &Scope {
+        &self.std
+    }
+
+    /// A read-only reference to the state.
+    pub fn state(&self) -> &State {
+        &self.state
+    }
+
+    /// Parse a source file and return the resulting syntax tree.
+    pub fn parse(&mut self, id: SourceId) -> TypResult<SyntaxTree> {
+        parse::parse(self.sources.get(id))
+    }
+
+    /// Evaluate a source file and return the resulting module.
+    pub fn evaluate(&mut self, id: SourceId) -> TypResult<Module> {
+        let ast = self.parse(id)?;
+        eval::eval(self, id, &ast)
+    }
+
     /// Execute a source file and produce the resulting layout tree.
     pub fn execute(&mut self, id: SourceId) -> TypResult<LayoutTree> {
-        let source = self.sources.get(id);
-        let ast = parse::parse(source)?;
-        let module = eval::eval(self, id, &ast)?;
+        let module = self.evaluate(id)?;
         Ok(module.template.to_tree(&self.state))
     }
 
