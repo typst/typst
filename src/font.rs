@@ -3,11 +3,12 @@
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Add;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use decorum::N64;
 use serde::{Deserialize, Serialize};
+use ttf_parser::name_id;
 
 use crate::geom::Length;
 use crate::loading::{FileHash, Loader};
@@ -374,6 +375,44 @@ pub struct FaceInfo {
     /// family.
     #[serde(flatten)]
     pub variant: FontVariant,
+}
+
+impl FaceInfo {
+    /// Determine metadata about all faces that are found in the given data.
+    pub fn parse<'a>(
+        path: &'a Path,
+        data: &'a [u8],
+    ) -> impl Iterator<Item = FaceInfo> + 'a {
+        let count = ttf_parser::fonts_in_collection(data).unwrap_or(1);
+        (0 .. count).filter_map(move |index| {
+            fn find_name(face: &ttf_parser::Face, name_id: u16) -> Option<String> {
+                face.names().find_map(|entry| {
+                    (entry.name_id() == name_id).then(|| entry.to_string()).flatten()
+                })
+            }
+
+            let face = ttf_parser::Face::from_slice(data, index).ok()?;
+            let family = find_name(&face, name_id::TYPOGRAPHIC_FAMILY)
+                .or_else(|| find_name(&face, name_id::FAMILY))?;
+
+            let variant = FontVariant {
+                style: match (face.is_italic(), face.is_oblique()) {
+                    (false, false) => FontStyle::Normal,
+                    (true, _) => FontStyle::Italic,
+                    (_, true) => FontStyle::Oblique,
+                },
+                weight: FontWeight::from_number(face.weight().to_number()),
+                stretch: FontStretch::from_number(face.width().to_number()),
+            };
+
+            Some(FaceInfo {
+                path: path.to_owned(),
+                index,
+                family,
+                variant,
+            })
+        })
+    }
 }
 
 /// Properties that distinguish a face from other faces in the same family.

@@ -5,13 +5,12 @@ use std::rc::Rc;
 
 use memmap2::Mmap;
 use same_file::Handle;
-use ttf_parser::{name_id, Face};
 use walkdir::WalkDir;
 
 use super::{FileHash, Loader};
-use crate::font::{FaceInfo, FontStretch, FontStyle, FontVariant, FontWeight};
+use crate::font::FaceInfo;
 
-/// Loads fonts and images from the local file system.
+/// Loads fonts and files from the local file system.
 ///
 /// _This is only available when the `fs` feature is enabled._
 #[derive(Debug, Default, Clone)]
@@ -25,13 +24,13 @@ impl FsLoader {
         Self { faces: vec![] }
     }
 
-    /// Builder-style variant of `search_system`.
+    /// Builder-style variant of [`search_system`](Self::search_system).
     pub fn with_system(mut self) -> Self {
         self.search_system();
         self
     }
 
-    /// Builder-style variant of `search_path`.
+    /// Builder-style variant of [`search_path`](Self::search_path).
     pub fn with_path(mut self, dir: impl AsRef<Path>) -> Self {
         self.search_path(dir);
         self
@@ -89,8 +88,8 @@ impl FsLoader {
     ///
     /// If the path is a directory, all contained fonts will be searched for
     /// recursively.
-    pub fn search_path(&mut self, dir: impl AsRef<Path>) {
-        let walk = WalkDir::new(dir)
+    pub fn search_path(&mut self, path: impl AsRef<Path>) {
+        let walk = WalkDir::new(path)
             .follow_links(true)
             .sort_by(|a, b| a.file_name().cmp(b.file_name()))
             .into_iter()
@@ -99,13 +98,11 @@ impl FsLoader {
         for entry in walk {
             let path = entry.path();
             if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-                match ext {
-                    #[rustfmt::skip]
-                    "ttf" | "otf" | "TTF" | "OTF" |
-                    "ttc" | "otc" | "TTC" | "OTC" => {
-                        self.search_file(path).ok();
-                    }
-                    _ => {}
+                if matches!(
+                    ext,
+                    "ttf" | "otf" | "TTF" | "OTF" | "ttc" | "otc" | "TTC" | "OTC",
+                ) {
+                    self.search_file(path);
                 }
             }
         }
@@ -115,56 +112,14 @@ impl FsLoader {
     ///
     /// The file may form a font collection and contain multiple font faces,
     /// which will then all be indexed.
-    fn search_file(&mut self, path: impl AsRef<Path>) -> io::Result<()> {
+    fn search_file(&mut self, path: impl AsRef<Path>) {
         let path = path.as_ref();
         let path = path.strip_prefix(".").unwrap_or(path);
-
-        let file = File::open(path)?;
-        let mmap = unsafe { Mmap::map(&file)? };
-
-        for i in 0 .. ttf_parser::fonts_in_collection(&mmap).unwrap_or(1) {
-            let face = Face::from_slice(&mmap, i)
-                .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
-
-            self.parse_face(path, &face, i)?;
+        if let Ok(file) = File::open(path) {
+            if let Ok(mmap) = unsafe { Mmap::map(&file) } {
+                self.faces.extend(FaceInfo::parse(&path, &mmap));
+            }
         }
-
-        Ok(())
-    }
-
-    /// Parse a single face and insert it into the `families`. This either
-    /// merges with an existing family entry if they have the same trimmed
-    /// family name, or creates a new one.
-    fn parse_face(&mut self, path: &Path, face: &Face<'_>, index: u32) -> io::Result<()> {
-        fn find_name(face: &Face, name_id: u16) -> Option<String> {
-            face.names().find_map(|entry| {
-                (entry.name_id() == name_id).then(|| entry.to_string()).flatten()
-            })
-        }
-
-        let family = find_name(face, name_id::TYPOGRAPHIC_FAMILY)
-            .or_else(|| find_name(face, name_id::FAMILY))
-            .ok_or("unknown font family")
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
-
-        let variant = FontVariant {
-            style: match (face.is_italic(), face.is_oblique()) {
-                (false, false) => FontStyle::Normal,
-                (true, _) => FontStyle::Italic,
-                (_, true) => FontStyle::Oblique,
-            },
-            weight: FontWeight::from_number(face.weight().to_number()),
-            stretch: FontStretch::from_number(face.width().to_number()),
-        };
-
-        self.faces.push(FaceInfo {
-            path: path.to_owned(),
-            index,
-            family,
-            variant,
-        });
-
-        Ok(())
     }
 }
 

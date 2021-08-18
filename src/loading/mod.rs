@@ -2,9 +2,11 @@
 
 #[cfg(feature = "fs")]
 mod fs;
+mod mem;
 
 #[cfg(feature = "fs")]
 pub use fs::*;
+pub use mem::*;
 
 use std::io;
 use std::path::Path;
