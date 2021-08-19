@@ -14,7 +14,9 @@ use typst::diag::Error;
 use typst::eval::{State, Value};
 use typst::geom::{self, Length, PathElement, Point, Sides, Size};
 use typst::image::ImageId;
-use typst::layout::{layout, Element, Frame, Geometry, LayoutTree, Paint, Text};
+#[cfg(feature = "layout-cache")]
+use typst::layout::LayoutTree;
+use typst::layout::{layout, Element, Frame, Geometry, Paint, Text};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
 use typst::source::SourceFile;

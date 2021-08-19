@@ -1,23 +1,18 @@
-#[cfg(feature = "layout-cache")]
+use std::cmp::Reverse;
 use std::collections::HashMap;
-use std::ops::Deref;
 
-use crate::util::OptionExt;
-
-#[cfg(feature = "layout-cache")]
 use decorum::N32;
 use itertools::Itertools;
 
 use super::*;
 
 const CACHE_SIZE: usize = 20;
-const TEMP_LENGTH: usize = 5;
-const LAST: usize = TEMP_LENGTH - 1;
+const TEMP_LEN: usize = 5;
+const TEMP_LAST: usize = TEMP_LEN - 1;
 
 /// Caches layouting artifacts.
 ///
 /// _This is only available when the `layout-cache` feature is enabled._
-#[cfg(feature = "layout-cache")]
 #[derive(Default, Clone)]
 pub struct LayoutCache {
     /// Maps from node hashes to the resulting frames and regions in which the
@@ -31,7 +26,6 @@ pub struct LayoutCache {
     policy: EvictionStrategy,
 }
 
-#[cfg(feature = "layout-cache")]
 impl LayoutCache {
     /// Create a new, empty layout cache.
     pub fn new(policy: EvictionStrategy) -> Self {
@@ -113,14 +107,14 @@ impl LayoutCache {
                 entry.used_cycles += 1;
             }
 
-            let last = entry.temperature[LAST];
+            let last = entry.temperature[TEMP_LAST];
 
-            for i in (1 .. TEMP_LENGTH).rev() {
+            for i in (1 .. TEMP_LEN).rev() {
                 entry.temperature[i] = entry.temperature[i - 1];
             }
 
             entry.temperature[0] = 0;
-            entry.temperature[LAST] += last;
+            entry.temperature[TEMP_LAST] += last;
 
             entry.age += 1;
         }
@@ -131,53 +125,46 @@ impl LayoutCache {
     }
 
     fn evict(&mut self) {
+        let len = self.len();
+        if len <= CACHE_SIZE {
+            return;
+        }
+
         match self.policy {
             EvictionStrategy::LeastRecentlyUsed => {
-                if self.len() <= CACHE_SIZE {
-                    return;
-                }
-
                 // We find the element with the largest cooldown that cannot fit
                 // anymore.
                 let threshold = self
                     .frames
                     .values()
                     .flatten()
-                    .map(|f| -(f.cooldown() as isize))
-                    .k_smallest(self.len() - CACHE_SIZE)
+                    .map(|f| Reverse(f.cooldown()))
+                    .k_smallest(len - CACHE_SIZE)
                     .last()
-                    .unwrap() as usize;
+                    .unwrap()
+                    .0;
 
                 for entries in self.frames.values_mut() {
-                    entries.retain(|e| e.cooldown() < threshold)
+                    entries.retain(|e| e.cooldown() < threshold);
                 }
             }
             EvictionStrategy::LeastFrequentlyUsed => {
-                if self.len() <= CACHE_SIZE {
-                    return;
-                }
-
                 let threshold = self
                     .frames
                     .values()
                     .flatten()
                     .map(|f| N32::from(f.hits() as f32 / f.age() as f32))
-                    .k_smallest(self.len() - CACHE_SIZE)
+                    .k_smallest(len - CACHE_SIZE)
                     .last()
                     .unwrap();
 
                 for entries in self.frames.values_mut() {
                     entries.retain(|f| {
-                        N32::from(f.hits() as f32 / f.age() as f32) > threshold
+                        f.hits() as f32 / f.age() as f32 > threshold.into_inner()
                     });
                 }
             }
             EvictionStrategy::Random => {
-                let len = self.len();
-                if len <= CACHE_SIZE {
-                    return;
-                }
-
                 // Fraction of items that should be kept.
                 let threshold = CACHE_SIZE as f32 / len as f32;
                 for entries in self.frames.values_mut() {
@@ -185,16 +172,15 @@ impl LayoutCache {
                 }
             }
             EvictionStrategy::Patterns => {
-                let should_keep = self
+                let kept = self
                     .frames
-                    .iter()
-                    .flat_map(|(_, f)| f)
-                    .map(|f| f.properties().should_keep());
+                    .values()
+                    .flatten()
+                    .filter(|f| f.properties().should_keep())
+                    .count();
 
-                let kept = should_keep.clone().filter(|&b| b).count();
                 let remaining_capacity = CACHE_SIZE - kept.min(CACHE_SIZE);
-
-                if self.frames.len() - kept <= remaining_capacity {
+                if len - kept <= remaining_capacity {
                     return;
                 }
 
@@ -202,17 +188,16 @@ impl LayoutCache {
                     .frames
                     .values()
                     .flatten()
-                    .zip(should_keep)
-                    .filter(|(_, keep)| !keep)
-                    .map(|(f, _)| N32::from(f.hits() as f32 / f.age() as f32))
-                    .k_smallest((self.frames.len() - kept) - remaining_capacity)
+                    .filter(|f| !f.properties().should_keep())
+                    .map(|f| N32::from(f.hits() as f32 / f.age() as f32))
+                    .k_smallest((len - kept) - remaining_capacity)
                     .last()
                     .unwrap();
 
                 for (_, entries) in self.frames.iter_mut() {
                     entries.retain(|f| {
                         f.properties().should_keep()
-                            || N32::from(f.hits() as f32 / f.age() as f32) > threshold
+                            || f.hits() as f32 / f.age() as f32 > threshold.into_inner()
                     });
                 }
             }
@@ -224,7 +209,6 @@ impl LayoutCache {
 /// Cached frames from past layouting.
 ///
 /// _This is only available when the `layout-cache` feature is enabled._
-#[cfg(feature = "layout-cache")]
 #[derive(Debug, Clone)]
 pub struct FramesEntry {
     /// The cached frames for a node.
@@ -236,12 +220,11 @@ pub struct FramesEntry {
     /// How much the element was accessed during the last five compilations, the
     /// most recent one being the first element. The last element will collect
     /// all usages that are farther in the past.
-    temperature: [usize; TEMP_LENGTH],
+    temperature: [usize; TEMP_LEN],
     /// Amount of cycles in which the element has been used at all.
     used_cycles: usize,
 }
 
-#[cfg(feature = "layout-cache")]
 impl FramesEntry {
     /// Construct a new instance.
     pub fn new(frames: Vec<Constrained<Rc<Frame>>>, level: usize) -> Self {
@@ -249,7 +232,7 @@ impl FramesEntry {
             frames,
             level,
             age: 1,
-            temperature: [0; TEMP_LENGTH],
+            temperature: [0; TEMP_LEN],
             used_cycles: 0,
         }
     }
@@ -287,9 +270,7 @@ impl FramesEntry {
     /// The amount of consecutive cycles in which this item has not been used.
     pub fn cooldown(&self) -> usize {
         let mut cycle = 0;
-        let max_temp_idx = self.age.min(TEMP_LENGTH);
-
-        for &temp in &self.temperature[.. max_temp_idx] {
+        for &temp in &self.temperature[.. self.age.min(TEMP_LEN)] {
             if temp > 0 {
                 return cycle;
             }
@@ -313,7 +294,7 @@ impl FramesEntry {
         let mut last = None;
         let mut all_same = true;
 
-        for (i, &temp) in self.temperature[.. LAST].iter().enumerate() {
+        for (i, &temp) in self.temperature[.. TEMP_LAST].iter().enumerate() {
             if temp == 0 && !all_zeros {
                 sparse = true;
             }
@@ -343,18 +324,18 @@ impl FramesEntry {
             last = Some(temp);
         }
 
-        if self.age > TEMP_LENGTH && self.age - (LAST) < self.temperature[LAST] {
+        if self.age >= TEMP_LEN && self.age - TEMP_LAST < self.temperature[TEMP_LAST] {
             multi_use = true;
         }
 
-        if self.temperature[LAST] > 0 {
+        if self.temperature[TEMP_LAST] > 0 {
             all_zeros = false;
         }
 
         decreasing = decreasing && !all_same;
 
         PatternProperties {
-            mature: self.age >= TEMP_LENGTH,
+            mature: self.age >= TEMP_LEN,
             hit: self.temperature[0] >= 1,
             top_level: self.level == 0,
             all_zeros,
@@ -366,99 +347,7 @@ impl FramesEntry {
     }
 }
 
-/// Carries an item that is only valid in certain regions and the constraints
-/// that describe these regions.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Constrained<T> {
-    /// The item that is only valid if the constraints are fullfilled.
-    pub item: T,
-    /// Constraints on regions in which the item is valid.
-    pub constraints: Constraints,
-}
-
-impl<T> Deref for Constrained<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.item
-    }
-}
-
-/// Describe regions that match them.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Constraints {
-    /// The minimum available length in the region.
-    pub min: Spec<Option<Length>>,
-    /// The maximum available length in the region.
-    pub max: Spec<Option<Length>>,
-    /// The available length in the region.
-    pub exact: Spec<Option<Length>>,
-    /// The base length of the region used for relative length resolution.
-    pub base: Spec<Option<Length>>,
-    /// The expand settings of the region.
-    pub expand: Spec<bool>,
-}
-
-impl Constraints {
-    /// Create a new region constraint.
-    pub fn new(expand: Spec<bool>) -> Self {
-        Self {
-            min: Spec::default(),
-            max: Spec::default(),
-            exact: Spec::default(),
-            base: Spec::default(),
-            expand,
-        }
-    }
-
-    /// Check whether the constraints are fullfilled in a region with the given
-    /// properties.
-    pub fn check(&self, current: Size, base: Size, expand: Spec<bool>) -> bool {
-        let current = current.to_spec();
-        let base = base.to_spec();
-        self.expand == expand
-            && current.eq_by(&self.min, |x, y| y.map_or(true, |y| x.fits(y)))
-            && current.eq_by(&self.max, |x, y| y.map_or(true, |y| x < &y))
-            && current.eq_by(&self.exact, |x, y| y.map_or(true, |y| x.approx_eq(y)))
-            && base.eq_by(&self.base, |x, y| y.map_or(true, |y| x.approx_eq(y)))
-    }
-
-    /// Set the appropriate base constraints for (relative) width and height
-    /// metrics, respectively.
-    pub fn set_base_using_linears(
-        &mut self,
-        size: Spec<Option<Linear>>,
-        regions: &Regions,
-    ) {
-        // The full sizes need to be equal if there is a relative component in the sizes.
-        if size.horizontal.map_or(false, |l| l.is_relative()) {
-            self.base.horizontal = Some(regions.base.width);
-        }
-        if size.vertical.map_or(false, |l| l.is_relative()) {
-            self.base.vertical = Some(regions.base.height);
-        }
-    }
-
-    /// Changes all constraints by adding the `size` to them if they are `Some`.
-    pub fn inflate(&mut self, size: Size, regions: &Regions) {
-        for spec in [&mut self.min, &mut self.max] {
-            if let Some(horizontal) = spec.horizontal.as_mut() {
-                *horizontal += size.width;
-            }
-            if let Some(vertical) = spec.vertical.as_mut() {
-                *vertical += size.height;
-            }
-        }
-
-        self.exact.horizontal.and_set(Some(regions.current.width));
-        self.exact.vertical.and_set(Some(regions.current.height));
-        self.base.horizontal.and_set(Some(regions.base.width));
-        self.base.vertical.and_set(Some(regions.base.height));
-    }
-}
-
 /// Cache eviction strategies.
-#[cfg(feature = "layout-cache")]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum EvictionStrategy {
     /// Evict the least recently used item.
@@ -473,7 +362,6 @@ pub enum EvictionStrategy {
     None,
 }
 
-#[cfg(feature = "layout-cache")]
 impl Default for EvictionStrategy {
     fn default() -> Self {
         Self::Patterns
@@ -481,7 +369,6 @@ impl Default for EvictionStrategy {
 }
 
 /// Possible descisions on eviction that may arise from the pattern type.
-#[cfg(feature = "layout-cache")]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum EvictionVerdict {
     /// Always evict.
@@ -493,7 +380,6 @@ pub enum EvictionVerdict {
 }
 
 /// Describes the properties that this entry's temperature array has.
-#[cfg(feature = "layout-cache")]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct PatternProperties {
     /// There only are zero values.
@@ -514,7 +400,6 @@ pub struct PatternProperties {
     pub top_level: bool,
 }
 
-#[cfg(feature = "layout-cache")]
 impl PatternProperties {
     pub fn should_keep(&self) -> bool {
         if self.top_level && !self.mature {
@@ -537,7 +422,6 @@ impl PatternProperties {
 }
 
 #[cfg(test)]
-#[cfg(feature = "layout-cache")]
 mod tests {
     use super::*;
 

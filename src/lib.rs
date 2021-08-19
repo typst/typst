@@ -48,14 +48,12 @@ pub mod util;
 
 use std::rc::Rc;
 
-use layout::EvictionStrategy;
-
 use crate::diag::TypResult;
 use crate::eval::{Module, Scope, State};
 use crate::font::FontStore;
 use crate::image::ImageStore;
 #[cfg(feature = "layout-cache")]
-use crate::layout::LayoutCache;
+use crate::layout::{EvictionStrategy, LayoutCache};
 use crate::layout::{Frame, LayoutTree};
 use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
