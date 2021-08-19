@@ -6,10 +6,13 @@ use crate::util::OptionExt;
 
 #[cfg(feature = "layout-cache")]
 use decorum::N32;
-#[cfg(feature = "layout-cache")]
-use rand;
+use itertools::Itertools;
 
 use super::*;
+
+const CACHE_SIZE: usize = 20;
+const TEMP_LENGTH: usize = 5;
+const LAST: usize = TEMP_LENGTH - 1;
 
 /// Caches layouting artifacts.
 ///
@@ -25,15 +28,18 @@ pub struct LayoutCache {
     /// In how many compilations this cache has been used.
     age: usize,
     /// What cache eviction policy should be used.
-    #[cfg(feature = "layout-cache")]
-    pub policy: EvictionStrategy,
+    policy: EvictionStrategy,
 }
 
 #[cfg(feature = "layout-cache")]
 impl LayoutCache {
     /// Create a new, empty layout cache.
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(policy: EvictionStrategy) -> Self {
+        Self {
+            frames: HashMap::default(),
+            age: 0,
+            policy,
+        }
     }
 
     /// Whether the cache is empty.
@@ -94,31 +100,28 @@ impl LayoutCache {
     where
         F: FnMut(usize) -> bool,
     {
-        for (_, entries) in self.frames.iter_mut() {
+        for entries in self.frames.values_mut() {
             entries.retain(|entry| f(entry.level));
         }
     }
 
-    /// Prepare the cache for the next round of compilation
+    /// Prepare the cache for the next round of compilation.
     pub fn turnaround(&mut self) {
         self.age += 1;
-        for entry in self.frames.iter_mut().flat_map(|(_, x)| x.iter_mut()) {
+        for entry in self.frames.values_mut().flatten() {
             if entry.temperature[0] > 0 {
                 entry.used_cycles += 1;
             }
 
-            let mut temperature = [0; 5];
-            temperature[entry.temperature.len() - 1] =
-                entry.temperature[entry.temperature.len() - 1];
+            let last = entry.temperature[LAST];
 
-            for i in 0 .. (entry.temperature.len() - 1) {
-                if i + 1 == entry.temperature.len() - 1 {
-                    temperature[i + 1] += entry.temperature[i];
-                } else {
-                    temperature[i + 1] = entry.temperature[i];
-                }
+            for i in (1 .. TEMP_LENGTH).rev() {
+                entry.temperature[i] = entry.temperature[i - 1];
             }
-            entry.temperature = temperature;
+
+            entry.temperature[0] = 0;
+            entry.temperature[LAST] += last;
+
             entry.age += 1;
         }
 
@@ -128,92 +131,88 @@ impl LayoutCache {
     }
 
     fn evict(&mut self) {
-        let max_size = 20;
-
         match self.policy {
             EvictionStrategy::LeastRecentlyUsed => {
-                let last_access = if let Some(max) =
-                    self.frames.iter().flat_map(|(_, f)| f).map(|f| f.cooldown()).max()
-                {
-                    max
-                } else {
+                if self.len() <= CACHE_SIZE {
                     return;
-                };
+                }
 
-                self.frames
-                    .iter_mut()
-                    .for_each(|(_, f)| f.retain(|e| e.cooldown() < last_access));
-                if self.len() > max_size {
-                    self.evict()
+                // We find the element with the largest cooldown that cannot fit
+                // anymore.
+                let threshold = self
+                    .frames
+                    .values()
+                    .flatten()
+                    .map(|f| -(f.cooldown() as isize))
+                    .k_smallest(self.len() - CACHE_SIZE)
+                    .last()
+                    .unwrap() as usize;
+
+                for entries in self.frames.values_mut() {
+                    entries.retain(|e| e.cooldown() < threshold)
                 }
             }
             EvictionStrategy::LeastFrequentlyUsed => {
-                let mut usage_frequencies = self
-                    .frames
-                    .iter()
-                    .flat_map(|(_, f)| f)
-                    .map(|f| N32::from(f.total() as f32) / N32::from(f.age() as f32))
-                    .collect::<Vec<_>>();
-
-                usage_frequencies.sort_unstable();
-
-                if usage_frequencies.len() <= max_size {
+                if self.len() <= CACHE_SIZE {
                     return;
                 }
 
-                let threshold = usage_frequencies[max_size];
+                let threshold = self
+                    .frames
+                    .values()
+                    .flatten()
+                    .map(|f| N32::from(f.hits() as f32 / f.age() as f32))
+                    .k_smallest(self.len() - CACHE_SIZE)
+                    .last()
+                    .unwrap();
 
-                for (_, entries) in self.frames.iter_mut() {
+                for entries in self.frames.values_mut() {
                     entries.retain(|f| {
-                        N32::from(f.total() as f32) / N32::from(f.age() as f32)
-                            < threshold
+                        N32::from(f.hits() as f32 / f.age() as f32) > threshold
                     });
                 }
             }
             EvictionStrategy::Random => {
                 let len = self.len();
-                if len <= max_size {
+                if len <= CACHE_SIZE {
                     return;
                 }
 
                 // Fraction of items that should be kept.
-                let threshold = max_size as f32 / len as f32;
-                for (_, entries) in self.frames.iter_mut() {
+                let threshold = CACHE_SIZE as f32 / len as f32;
+                for entries in self.frames.values_mut() {
                     entries.retain(|_| rand::random::<f32>() > threshold);
                 }
             }
             EvictionStrategy::Patterns => {
-                let should_keep: Vec<bool> = self
+                let should_keep = self
                     .frames
                     .iter()
                     .flat_map(|(_, f)| f)
-                    .map(|f| f.properties().should_keep())
-                    .collect();
-                let kept = should_keep.iter().filter(|&&b| b).count();
+                    .map(|f| f.properties().should_keep());
 
-                let mut usage_frequencies = self
-                    .frames
-                    .iter()
-                    .flat_map(|(_, f)| f)
-                    .zip(should_keep)
-                    .filter(|(_, keep)| !keep)
-                    .map(|(f, _)| N32::from(f.total() as f32) / N32::from(f.age() as f32))
-                    .collect::<Vec<_>>();
+                let kept = should_keep.clone().filter(|&b| b).count();
+                let remaining_capacity = CACHE_SIZE - kept.min(CACHE_SIZE);
 
-                usage_frequencies.sort_unstable();
-
-                let remaining = max_size - kept.min(max_size);
-                if usage_frequencies.len() <= remaining {
+                if self.frames.len() - kept <= remaining_capacity {
                     return;
                 }
 
-                let threshold = usage_frequencies[remaining];
+                let threshold = self
+                    .frames
+                    .values()
+                    .flatten()
+                    .zip(should_keep)
+                    .filter(|(_, keep)| !keep)
+                    .map(|(f, _)| N32::from(f.hits() as f32 / f.age() as f32))
+                    .k_smallest((self.frames.len() - kept) - remaining_capacity)
+                    .last()
+                    .unwrap();
 
                 for (_, entries) in self.frames.iter_mut() {
                     entries.retain(|f| {
                         f.properties().should_keep()
-                            || N32::from(f.total() as f32) / N32::from(f.age() as f32)
-                                < threshold
+                            || N32::from(f.hits() as f32 / f.age() as f32) > threshold
                     });
                 }
             }
@@ -237,7 +236,7 @@ pub struct FramesEntry {
     /// How much the element was accessed during the last five compilations, the
     /// most recent one being the first element. The last element will collect
     /// all usages that are farther in the past.
-    temperature: [usize; 5],
+    temperature: [usize; TEMP_LENGTH],
     /// Amount of cycles in which the element has been used at all.
     used_cycles: usize,
 }
@@ -250,7 +249,7 @@ impl FramesEntry {
             frames,
             level,
             age: 1,
-            temperature: [0; 5],
+            temperature: [0; TEMP_LENGTH],
             used_cycles: 0,
         }
     }
@@ -288,12 +287,9 @@ impl FramesEntry {
     /// The amount of consecutive cycles in which this item has not been used.
     pub fn cooldown(&self) -> usize {
         let mut cycle = 0;
-        let id = if self.age > self.temperature.len() {
-            self.temperature.len()
-        } else {
-            self.age
-        };
-        for &temp in &self.temperature[.. id] {
+        let max_temp_idx = self.age.min(TEMP_LENGTH);
+
+        for &temp in &self.temperature[.. max_temp_idx] {
             if temp > 0 {
                 return cycle;
             }
@@ -303,7 +299,7 @@ impl FramesEntry {
     }
 
     /// Get the total amount of hits over the lifetime of this item.
-    pub fn total(&self) -> usize {
+    pub fn hits(&self) -> usize {
         self.temperature.iter().sum()
     }
 
@@ -315,23 +311,18 @@ impl FramesEntry {
         let mut abandoned = false;
 
         let mut last = None;
-        let mut partially_sparse = false;
         let mut all_same = true;
 
-        for (i, &temp) in
-            self.temperature[.. self.temperature.len() - 1].iter().enumerate()
-        {
-            if temp != 0 {
-                all_zeros = false;
-            } else if !all_zeros {
-                partially_sparse = true;
-            }
-
-            if temp == 0 && partially_sparse {
+        for (i, &temp) in self.temperature[.. LAST].iter().enumerate() {
+            if temp == 0 && !all_zeros {
                 sparse = true;
             }
 
-            if temp == 0 && i == 1 {
+            if temp != 0 {
+                all_zeros = false;
+            }
+
+            if all_zeros && i == 1 {
                 abandoned = true;
             }
 
@@ -352,21 +343,18 @@ impl FramesEntry {
             last = Some(temp);
         }
 
-        if self.age > self.temperature.len() {
-            if self.age - (self.temperature.len() - 1) < *self.temperature.last().unwrap()
-            {
-                multi_use = true;
-            }
+        if self.age > TEMP_LENGTH && self.age - (LAST) < self.temperature[LAST] {
+            multi_use = true;
         }
 
-        if self.temperature.last().unwrap() > &0 {
+        if self.temperature[LAST] > 0 {
             all_zeros = false;
         }
 
         decreasing = decreasing && !all_same;
 
         PatternProperties {
-            mature: self.age >= self.temperature.len(),
+            mature: self.age >= TEMP_LENGTH,
             hit: self.temperature[0] >= 1,
             top_level: self.level == 0,
             all_zeros,
@@ -453,12 +441,7 @@ impl Constraints {
 
     /// Changes all constraints by adding the `size` to them if they are `Some`.
     pub fn inflate(&mut self, size: Size, regions: &Regions) {
-        for spec in [
-            &mut self.min,
-            &mut self.max,
-            &mut self.exact,
-            &mut self.base,
-        ] {
+        for spec in [&mut self.min, &mut self.max] {
             if let Some(horizontal) = spec.horizontal.as_mut() {
                 *horizontal += size.width;
             }
@@ -467,13 +450,10 @@ impl Constraints {
             }
         }
 
-        let current = regions.current.to_spec();
-        let base = regions.base.to_spec();
-
-        self.exact.horizontal.and_set(Some(current.horizontal));
-        self.exact.vertical.and_set(Some(current.vertical));
-        self.base.horizontal.and_set(Some(base.horizontal));
-        self.base.vertical.and_set(Some(base.vertical));
+        self.exact.horizontal.and_set(Some(regions.current.width));
+        self.exact.vertical.and_set(Some(regions.current.height));
+        self.base.horizontal.and_set(Some(regions.base.width));
+        self.base.vertical.and_set(Some(regions.base.height));
     }
 }
 
@@ -563,7 +543,7 @@ mod tests {
 
     fn empty_frame() -> Vec<Constrained<Rc<Frame>>> {
         vec![Constrained {
-            item: Rc::new(Frame::new(Size::zero(), Length::zero())),
+            item: Rc::new(Frame::default()),
             constraints: Constraints::new(Spec::splat(false)),
         }]
     }
@@ -574,7 +554,7 @@ mod tests {
 
     #[test]
     fn test_temperature() {
-        let mut cache = LayoutCache::new();
+        let mut cache = LayoutCache::new(EvictionStrategy::None);
         let zero_region = zero_region();
         cache.policy = EvictionStrategy::None;
         cache.insert(0, empty_frame(), 0);
@@ -590,8 +570,6 @@ mod tests {
         assert_eq!(entry.age(), 1);
         assert_eq!(entry.temperature, [1, 0, 0, 0, 0]);
 
-        println!("{:?}", entry.properties().should_keep());
-
         cache.turnaround();
         let entry = cache.frames.get(&0).unwrap().first().unwrap();
         assert_eq!(entry.age(), 2);
@@ -600,8 +578,6 @@ mod tests {
 
         cache.get(0, &zero_region).unwrap();
         for _ in 0 .. 4 {
-            let entry = cache.frames.get(&0).unwrap().first().unwrap();
-            println!("{:?}", entry.properties().should_keep());
             cache.turnaround();
         }
 
@@ -613,7 +589,7 @@ mod tests {
 
     #[test]
     fn test_properties() {
-        let mut cache = LayoutCache::new();
+        let mut cache = LayoutCache::new(EvictionStrategy::None);
         cache.policy = EvictionStrategy::None;
         cache.insert(0, empty_frame(), 1);
 

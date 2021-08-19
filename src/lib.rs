@@ -48,9 +48,10 @@ pub mod util;
 
 use std::rc::Rc;
 
+use layout::EvictionStrategy;
+
 use crate::diag::TypResult;
-use crate::eval::{Scope, State, Module};
-use crate::syntax::SyntaxTree;
+use crate::eval::{Module, Scope, State};
 use crate::font::FontStore;
 use crate::image::ImageStore;
 #[cfg(feature = "layout-cache")]
@@ -58,6 +59,7 @@ use crate::layout::LayoutCache;
 use crate::layout::{Frame, LayoutTree};
 use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
+use crate::syntax::SyntaxTree;
 
 /// The core context which holds the loader, configuration and cached artifacts.
 pub struct Context {
@@ -141,6 +143,8 @@ impl Context {
 pub struct ContextBuilder {
     std: Option<Scope>,
     state: Option<State>,
+    #[cfg(feature = "layout-cache")]
+    policy: Option<EvictionStrategy>,
 }
 
 impl ContextBuilder {
@@ -157,6 +161,13 @@ impl ContextBuilder {
         self
     }
 
+    /// The policy for eviction of the layout cache.
+    #[cfg(feature = "layout-cache")]
+    pub fn policy(mut self, policy: EvictionStrategy) -> Self {
+        self.policy = Some(policy);
+        self
+    }
+
     /// Finish building the context by providing the `loader` used to load
     /// fonts, images, source files and other resources.
     pub fn build(self, loader: Rc<dyn Loader>) -> Context {
@@ -166,7 +177,7 @@ impl ContextBuilder {
             images: ImageStore::new(Rc::clone(&loader)),
             loader,
             #[cfg(feature = "layout-cache")]
-            layouts: LayoutCache::new(),
+            layouts: LayoutCache::new(self.policy.unwrap_or_default()),
             std: self.std.unwrap_or(library::new()),
             state: self.state.unwrap_or_default(),
         }

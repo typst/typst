@@ -4,7 +4,7 @@ use iai::{black_box, main, Iai};
 
 use typst::eval::eval;
 use typst::layout::layout;
-use typst::loading::{MemLoader};
+use typst::loading::MemLoader;
 use typst::parse::{parse, Scanner, TokenMode, Tokens};
 use typst::source::{SourceFile, SourceId};
 use typst::Context;
