@@ -834,7 +834,6 @@ fn walk_item(ctx: &mut EvalContext, label: EcoString, body: Template) {
         };
         StackNode {
             dirs: Gen::new(state.dirs.main, state.dirs.cross),
-            aspect: None,
             children: vec![
                 StackChild::Any(label.into(), Gen::default()),
                 StackChild::Spacing((state.font.size / 2.0).into()),

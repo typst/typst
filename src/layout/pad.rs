@@ -16,49 +16,62 @@ impl Layout for PadNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        let mut regions = regions.clone();
         let mut frames = self.child.layout(
             ctx,
             &regions.map(|size| size - self.padding.resolve(size).size()),
         );
 
-        for frame in &mut frames {
-            let padded = solve(self.padding, frame.size);
+        for (Constrained { item: frame, constraints }, (current, base)) in
+            frames.iter_mut().zip(regions.iter())
+        {
+            fn solve_axis(length: Length, padding: Linear) -> Length {
+                (length + padding.abs) / (1.0 - padding.rel.get())
+            }
+
+            // Solve for the size `padded` that satisfies (approximately):
+            // `padded - padding.resolve(padded).size() == size`
+            let padded = Size::new(
+                solve_axis(frame.size.width, self.padding.left + self.padding.right),
+                solve_axis(frame.size.height, self.padding.top + self.padding.bottom),
+            );
+
             let padding = self.padding.resolve(padded);
             let origin = Point::new(padding.left, padding.top);
 
-            let mut new = Frame::new(padded, frame.baseline + origin.y);
-            let prev = std::mem::take(&mut frame.item);
-            new.push_frame(origin, prev);
+            // Inflate min and max contraints by the padding.
+            for spec in [&mut constraints.min, &mut constraints.max] {
+                if let Some(horizontal) = spec.horizontal.as_mut() {
+                    *horizontal += padding.size().width;
+                }
+                if let Some(vertical) = spec.vertical.as_mut() {
+                    *vertical += padding.size().height;
+                }
+            }
 
-            frame.constraints.inflate(padding.size(), &regions);
+            // Set exact and base constraints if the child had them.
+            constraints.exact.horizontal.and_set(Some(current.width));
+            constraints.exact.vertical.and_set(Some(current.height));
+            constraints.base.horizontal.and_set(Some(base.width));
+            constraints.base.vertical.and_set(Some(base.height));
 
+            // Also set base constraints if the padding is relative.
             if self.padding.left.is_relative() || self.padding.right.is_relative() {
-                frame.constraints.base.horizontal = Some(regions.base.width);
-            }
-            if self.padding.top.is_relative() || self.padding.bottom.is_relative() {
-                frame.constraints.base.vertical = Some(regions.base.height);
+                constraints.base.horizontal = Some(base.width);
             }
 
-            regions.next();
-            *Rc::make_mut(&mut frame.item) = new;
+            if self.padding.top.is_relative() || self.padding.bottom.is_relative() {
+                constraints.base.vertical = Some(base.height);
+            }
+
+            // Create a new larger frame and place the child's frame inside it.
+            let empty = Frame::new(padded, frame.baseline + origin.y);
+            let prev = std::mem::replace(frame, Rc::new(empty));
+            let new = Rc::make_mut(frame);
+            new.push_frame(origin, prev);
         }
 
         frames
     }
-}
-
-/// Solve for the size `padded` that satisfies (approximately):
-/// `padded - padding.resolve(padded).size() == size`
-fn solve(padding: Sides<Linear>, size: Size) -> Size {
-    fn solve_axis(length: Length, padding: Linear) -> Length {
-        (length + padding.abs) / (1.0 - padding.rel.get())
-    }
-
-    Size::new(
-        solve_axis(size.width, padding.left + padding.right),
-        solve_axis(size.height, padding.top + padding.bottom),
-    )
 }
 
 impl From<PadNode> for LayoutNode {

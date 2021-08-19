@@ -30,6 +30,14 @@ impl Size {
         Self { width: value, height: value }
     }
 
+    /// Limit width and height at that of another size.
+    pub fn cap(self, limit: Self) -> Self {
+        Self {
+            width: self.width.min(limit.width),
+            height: self.height.min(limit.height),
+        }
+    }
+
     /// Whether the other size fits into this one (smaller width and height).
     pub fn fits(self, other: Self) -> bool {
         self.width.fits(other.width) && self.height.fits(other.height)
@@ -61,13 +69,6 @@ impl Size {
             SpecAxis::Horizontal => Gen::new(self.height, self.width),
             SpecAxis::Vertical => Gen::new(self.width, self.height),
         }
-    }
-
-    /// Find the largest contained size that satisfies the given `aspect` ratio.
-    pub fn with_aspect(self, aspect: f64) -> Self {
-        let width = self.width.min(aspect * self.height);
-        let height = width / aspect;
-        Size::new(width, height)
     }
 }
 

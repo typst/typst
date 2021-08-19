@@ -1,7 +1,5 @@
 use std::ops::Deref;
 
-use crate::util::OptionExt;
-
 use super::*;
 
 /// Carries an item that is only valid in certain regions and the constraints
@@ -61,36 +59,14 @@ impl Constraints {
             && base.eq_by(&self.base, |x, y| y.map_or(true, |y| x.approx_eq(y)))
     }
 
-    /// Set the appropriate base constraints for (relative) width and height
-    /// metrics, respectively.
-    pub fn set_base_using_linears(
-        &mut self,
-        size: Spec<Option<Linear>>,
-        regions: &Regions,
-    ) {
+    /// Set the appropriate base constraints for linear width and height sizing.
+    pub fn set_base_if_linear(&mut self, base: Size, sizing: Spec<Option<Linear>>) {
         // The full sizes need to be equal if there is a relative component in the sizes.
-        if size.horizontal.map_or(false, |l| l.is_relative()) {
-            self.base.horizontal = Some(regions.base.width);
+        if sizing.horizontal.map_or(false, |l| l.is_relative()) {
+            self.base.horizontal = Some(base.width);
         }
-        if size.vertical.map_or(false, |l| l.is_relative()) {
-            self.base.vertical = Some(regions.base.height);
+        if sizing.vertical.map_or(false, |l| l.is_relative()) {
+            self.base.vertical = Some(base.height);
         }
-    }
-
-    /// Changes all constraints by adding the `size` to them if they are `Some`.
-    pub fn inflate(&mut self, size: Size, regions: &Regions) {
-        for spec in [&mut self.min, &mut self.max] {
-            if let Some(horizontal) = spec.horizontal.as_mut() {
-                *horizontal += size.width;
-            }
-            if let Some(vertical) = spec.vertical.as_mut() {
-                *vertical += size.height;
-            }
-        }
-
-        self.exact.horizontal.and_set(Some(regions.current.width));
-        self.exact.vertical.and_set(Some(regions.current.height));
-        self.base.horizontal.and_set(Some(regions.base.width));
-        self.base.vertical.and_set(Some(regions.base.height));
     }
 }

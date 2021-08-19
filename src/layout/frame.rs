@@ -19,11 +19,13 @@ pub struct Frame {
     children: Vec<(Point, Child)>,
 }
 
-/// A frame can contain multiple children: elements or other frames, complete
-/// with their children.
+/// A frame can contain two different kinds of children: a leaf element or a
+/// nested frame.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 enum Child {
+    /// A leaf node in the frame tree.
     Element(Element),
+    /// An interior node.
     Frame(Rc<Frame>),
 }
 

@@ -19,11 +19,10 @@ impl Layout for ImageNode {
     fn layout(
         &self,
         ctx: &mut LayoutContext,
-        regions: &Regions,
+        &Regions { current, base, expand, .. }: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        let Regions { current, base, .. } = regions;
-        let mut constraints = Constraints::new(regions.expand);
-        constraints.set_base_using_linears(Spec::new(self.width, self.height), regions);
+        let mut constraints = Constraints::new(expand);
+        constraints.set_base_if_linear(base, Spec::new(self.width, self.height));
 
         let width = self.width.map(|w| w.resolve(base.width));
         let height = self.height.map(|w| w.resolve(base.height));

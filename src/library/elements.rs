@@ -64,18 +64,19 @@ fn rect_impl(
     body: Template,
 ) -> Value {
     Value::Template(Template::from_inline(move |state| {
-        let mut stack = body.to_stack(state);
-        stack.aspect = aspect;
-
-        let mut node = FixedNode { width, height, child: stack.into() }.into();
+        let mut node = LayoutNode::new(FixedNode {
+            width,
+            height,
+            aspect,
+            child: body.to_stack(state).into(),
+        });
 
         if let Some(fill) = fill {
-            node = BackgroundNode {
+            node = LayoutNode::new(BackgroundNode {
                 shape: BackgroundShape::Rect,
                 fill: Paint::Color(fill),
                 child: node,
-            }
-            .into();
+            });
         }
 
         node
@@ -120,27 +121,22 @@ fn ellipse_impl(
         // perfectly into the ellipse.
         const PAD: f64 = 0.5 - SQRT_2 / 4.0;
 
-        let mut stack = body.to_stack(state);
-        stack.aspect = aspect;
-
-        let mut node = FixedNode {
+        let mut node = LayoutNode::new(FixedNode {
             width,
             height,
-            child: PadNode {
+            aspect,
+            child: LayoutNode::new(PadNode {
                 padding: Sides::splat(Relative::new(PAD).into()),
-                child: stack.into(),
-            }
-            .into(),
-        }
-        .into();
+                child: body.to_stack(state).into(),
+            }),
+        });
 
         if let Some(fill) = fill {
-            node = BackgroundNode {
+            node = LayoutNode::new(BackgroundNode {
                 shape: BackgroundShape::Ellipse,
                 fill: Paint::Color(fill),
                 child: node,
-            }
-            .into();
+            });
         }
 
         node

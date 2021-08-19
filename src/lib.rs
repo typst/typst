@@ -53,7 +53,7 @@ use crate::eval::{Module, Scope, State};
 use crate::font::FontStore;
 use crate::image::ImageStore;
 #[cfg(feature = "layout-cache")]
-use crate::layout::{EvictionStrategy, LayoutCache};
+use crate::layout::{EvictionPolicy, LayoutCache};
 use crate::layout::{Frame, LayoutTree};
 use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
@@ -137,12 +137,13 @@ impl Context {
 /// A builder for a [`Context`].
 ///
 /// This struct is created by [`Context::builder`].
-#[derive(Default)]
 pub struct ContextBuilder {
     std: Option<Scope>,
     state: Option<State>,
     #[cfg(feature = "layout-cache")]
-    policy: Option<EvictionStrategy>,
+    policy: EvictionPolicy,
+    #[cfg(feature = "layout-cache")]
+    max_size: usize,
 }
 
 impl ContextBuilder {
@@ -161,8 +162,18 @@ impl ContextBuilder {
 
     /// The policy for eviction of the layout cache.
     #[cfg(feature = "layout-cache")]
-    pub fn policy(mut self, policy: EvictionStrategy) -> Self {
-        self.policy = Some(policy);
+    pub fn cache_policy(mut self, policy: EvictionPolicy) -> Self {
+        self.policy = policy;
+        self
+    }
+
+    /// The maximum number of entries the layout cache should have.
+    ///
+    /// Note that this can be exceeded if more entries are categorized as [must
+    /// keep][crate::layout::PatternProperties::must_keep].
+    #[cfg(feature = "layout-cache")]
+    pub fn cache_max_size(mut self, max_size: usize) -> Self {
+        self.max_size = max_size;
         self
     }
 
@@ -175,9 +186,22 @@ impl ContextBuilder {
             images: ImageStore::new(Rc::clone(&loader)),
             loader,
             #[cfg(feature = "layout-cache")]
-            layouts: LayoutCache::new(self.policy.unwrap_or_default()),
+            layouts: LayoutCache::new(self.policy, self.max_size),
             std: self.std.unwrap_or(library::new()),
             state: self.state.unwrap_or_default(),
+        }
+    }
+}
+
+impl Default for ContextBuilder {
+    fn default() -> Self {
+        Self {
+            std: None,
+            state: None,
+            #[cfg(feature = "layout-cache")]
+            policy: EvictionPolicy::default(),
+            #[cfg(feature = "layout-cache")]
+            max_size: 2000,
         }
     }
 }

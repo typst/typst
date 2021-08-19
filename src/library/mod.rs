@@ -21,6 +21,7 @@ use crate::diag::TypResult;
 use crate::eval::{Arguments, EvalContext, Scope, Str, Template, Value};
 use crate::font::{FontFamily, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
+use crate::layout::LayoutNode;
 use crate::syntax::Spanned;
 
 /// Construct a scope containing all standard library definitions.

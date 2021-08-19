@@ -1,5 +1,3 @@
-use decorum::N64;
-
 use super::*;
 
 /// A node that stacks its children.
@@ -11,10 +9,6 @@ pub struct StackNode {
     /// The children are stacked along the `main` direction. The `cross`
     /// direction is required for aligning the children.
     pub dirs: Gen<Dir>,
-    /// The fixed aspect ratio between width and height, if any.
-    ///
-    /// The resulting frames will satisfy `width = aspect * height`.
-    pub aspect: Option<N64>,
     /// The nodes to be stacked.
     pub children: Vec<StackChild>,
 }
@@ -82,10 +76,6 @@ impl<'a> StackLayouter<'a> {
 
         // Disable expansion on the main axis for children.
         regions.expand.set(main, false);
-
-        if let Some(aspect) = stack.aspect {
-            regions.current = regions.current.with_aspect(aspect.into_inner());
-        }
 
         Self {
             stack,
@@ -161,6 +151,7 @@ impl<'a> StackLayouter<'a> {
                 .max
                 .get_mut(self.main)
                 .set_min(self.used.main + size.main);
+
             self.finish_region();
         }
 
@@ -184,7 +175,7 @@ impl<'a> StackLayouter<'a> {
 
         // Determine the stack's size dependening on whether the region is
         // fixed.
-        let mut size = Size::new(
+        let size = Size::new(
             if expand.horizontal {
                 self.constraints.exact.horizontal = Some(self.full.width);
                 self.full.width
@@ -200,20 +191,6 @@ impl<'a> StackLayouter<'a> {
                 used.height
             },
         );
-
-        // Make sure the stack's size satisfies the aspect ratio.
-        if let Some(aspect) = self.stack.aspect {
-            self.constraints.exact = self.full.to_spec().map(Some);
-            self.constraints.min = Spec::splat(None);
-            self.constraints.max = Spec::splat(None);
-            let width = size
-                .width
-                .max(aspect.into_inner() * size.height)
-                .min(self.full.width)
-                .min(aspect.into_inner() * self.full.height);
-
-            size = Size::new(width, width / aspect.into_inner());
-        }
 
         if self.overflowing {
             self.constraints.min.vertical = None;
@@ -259,10 +236,6 @@ impl<'a> StackLayouter<'a> {
         }
 
         self.regions.next();
-        if let Some(aspect) = self.stack.aspect {
-            self.regions.current = self.regions.current.with_aspect(aspect.into_inner());
-        }
-
         self.full = self.regions.current;
         self.used = Gen::zero();
         self.ruler = Align::Start;

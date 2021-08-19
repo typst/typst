@@ -6,7 +6,6 @@ use itertools::Itertools;
 
 use super::*;
 
-const CACHE_SIZE: usize = 20;
 const TEMP_LEN: usize = 5;
 const TEMP_LAST: usize = TEMP_LEN - 1;
 
@@ -23,22 +22,26 @@ pub struct LayoutCache {
     /// In how many compilations this cache has been used.
     age: usize,
     /// What cache eviction policy should be used.
-    policy: EvictionStrategy,
+    policy: EvictionPolicy,
+    /// The maximum number of entries this cache should have. Can be exceeded if
+    /// there are more must-keep entries.
+    max_size: usize,
 }
 
 impl LayoutCache {
     /// Create a new, empty layout cache.
-    pub fn new(policy: EvictionStrategy) -> Self {
+    pub fn new(policy: EvictionPolicy, max_size: usize) -> Self {
         Self {
             frames: HashMap::default(),
             age: 0,
             policy,
+            max_size,
         }
     }
 
     /// Whether the cache is empty.
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.frames.values().all(|entry| entry.is_empty())
     }
 
     /// Amount of items in the cache.
@@ -108,38 +111,34 @@ impl LayoutCache {
             }
 
             let last = entry.temperature[TEMP_LAST];
-
             for i in (1 .. TEMP_LEN).rev() {
                 entry.temperature[i] = entry.temperature[i - 1];
             }
 
             entry.temperature[0] = 0;
             entry.temperature[TEMP_LAST] += last;
-
             entry.age += 1;
         }
 
         self.evict();
-
         self.frames.retain(|_, v| !v.is_empty());
     }
 
+    /// Evict the cache according to the policy.
     fn evict(&mut self) {
         let len = self.len();
-        if len <= CACHE_SIZE {
+        if len <= self.max_size {
             return;
         }
 
         match self.policy {
-            EvictionStrategy::LeastRecentlyUsed => {
+            EvictionPolicy::LeastRecentlyUsed => {
                 // We find the element with the largest cooldown that cannot fit
                 // anymore.
                 let threshold = self
-                    .frames
-                    .values()
-                    .flatten()
+                    .entries()
                     .map(|f| Reverse(f.cooldown()))
-                    .k_smallest(len - CACHE_SIZE)
+                    .k_smallest(len - self.max_size)
                     .last()
                     .unwrap()
                     .0;
@@ -148,13 +147,11 @@ impl LayoutCache {
                     entries.retain(|e| e.cooldown() < threshold);
                 }
             }
-            EvictionStrategy::LeastFrequentlyUsed => {
+            EvictionPolicy::LeastFrequentlyUsed => {
                 let threshold = self
-                    .frames
-                    .values()
-                    .flatten()
+                    .entries()
                     .map(|f| N32::from(f.hits() as f32 / f.age() as f32))
-                    .k_smallest(len - CACHE_SIZE)
+                    .k_smallest(len - self.max_size)
                     .last()
                     .unwrap();
 
@@ -164,30 +161,23 @@ impl LayoutCache {
                     });
                 }
             }
-            EvictionStrategy::Random => {
+            EvictionPolicy::Random => {
                 // Fraction of items that should be kept.
-                let threshold = CACHE_SIZE as f32 / len as f32;
+                let threshold = self.max_size as f32 / len as f32;
                 for entries in self.frames.values_mut() {
                     entries.retain(|_| rand::random::<f32>() > threshold);
                 }
             }
-            EvictionStrategy::Patterns => {
-                let kept = self
-                    .frames
-                    .values()
-                    .flatten()
-                    .filter(|f| f.properties().must_keep())
-                    .count();
+            EvictionPolicy::Patterns => {
+                let kept = self.entries().filter(|f| f.properties().must_keep()).count();
 
-                let remaining_capacity = CACHE_SIZE - kept.min(CACHE_SIZE);
+                let remaining_capacity = self.max_size - kept.min(self.max_size);
                 if len - kept <= remaining_capacity {
                     return;
                 }
 
                 let threshold = self
-                    .frames
-                    .values()
-                    .flatten()
+                    .entries()
                     .filter(|f| !f.properties().must_keep())
                     .map(|f| N32::from(f.hits() as f32 / f.age() as f32))
                     .k_smallest((len - kept) - remaining_capacity)
@@ -201,7 +191,7 @@ impl LayoutCache {
                     });
                 }
             }
-            EvictionStrategy::None => {}
+            EvictionPolicy::None => {}
         }
     }
 }
@@ -267,6 +257,11 @@ impl FramesEntry {
         self.temperature[0] != 0
     }
 
+    /// Get the total amount of hits over the lifetime of this item.
+    pub fn hits(&self) -> usize {
+        self.temperature.iter().sum()
+    }
+
     /// The amount of consecutive cycles in which this item has not been used.
     pub fn cooldown(&self) -> usize {
         let mut cycle = 0;
@@ -279,11 +274,7 @@ impl FramesEntry {
         cycle
     }
 
-    /// Get the total amount of hits over the lifetime of this item.
-    pub fn hits(&self) -> usize {
-        self.temperature.iter().sum()
-    }
-
+    /// Properties that describe how this entry's temperature evolved.
     pub fn properties(&self) -> PatternProperties {
         let mut all_zeros = true;
         let mut multi_use = false;
@@ -332,15 +323,13 @@ impl FramesEntry {
             all_zeros = false;
         }
 
-        decreasing = decreasing && !all_same;
-
         PatternProperties {
             mature: self.age >= TEMP_LEN,
             hit: self.temperature[0] >= 1,
             top_level: self.level == 0,
             all_zeros,
             multi_use,
-            decreasing,
+            decreasing: decreasing && !all_same,
             sparse,
             abandoned,
         }
@@ -349,7 +338,7 @@ impl FramesEntry {
 
 /// Cache eviction strategies.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum EvictionStrategy {
+pub enum EvictionPolicy {
     /// Evict the least recently used item.
     LeastRecentlyUsed,
     /// Evict the least frequently used item.
@@ -362,7 +351,7 @@ pub enum EvictionStrategy {
     None,
 }
 
-impl Default for EvictionStrategy {
+impl Default for EvictionPolicy {
     fn default() -> Self {
         Self::Patterns
     }
@@ -415,23 +404,23 @@ impl PatternProperties {
 mod tests {
     use super::*;
 
-    fn empty_frame() -> Vec<Constrained<Rc<Frame>>> {
+    fn empty_frames() -> Vec<Constrained<Rc<Frame>>> {
         vec![Constrained {
             item: Rc::new(Frame::default()),
             constraints: Constraints::new(Spec::splat(false)),
         }]
     }
 
-    fn zero_region() -> Regions {
-        Regions::one(Size::zero(), Spec::splat(false))
+    fn zero_regions() -> Regions {
+        Regions::one(Size::zero(), Size::zero(), Spec::splat(false))
     }
 
     #[test]
-    fn test_temperature() {
-        let mut cache = LayoutCache::new(EvictionStrategy::None);
-        let zero_region = zero_region();
-        cache.policy = EvictionStrategy::None;
-        cache.insert(0, empty_frame(), 0);
+    fn test_incremental_temperature() {
+        let mut cache = LayoutCache::new(EvictionPolicy::None, 20);
+        let regions = zero_regions();
+        cache.policy = EvictionPolicy::None;
+        cache.insert(0, empty_frames(), 0);
 
         let entry = cache.frames.get(&0).unwrap().first().unwrap();
         assert_eq!(entry.age(), 1);
@@ -439,7 +428,7 @@ mod tests {
         assert_eq!(entry.used_cycles, 0);
         assert_eq!(entry.level, 0);
 
-        cache.get(0, &zero_region).unwrap();
+        cache.get(0, &regions).unwrap();
         let entry = cache.frames.get(&0).unwrap().first().unwrap();
         assert_eq!(entry.age(), 1);
         assert_eq!(entry.temperature, [1, 0, 0, 0, 0]);
@@ -450,7 +439,7 @@ mod tests {
         assert_eq!(entry.temperature, [0, 1, 0, 0, 0]);
         assert_eq!(entry.used_cycles, 1);
 
-        cache.get(0, &zero_region).unwrap();
+        cache.get(0, &regions).unwrap();
         for _ in 0 .. 4 {
             cache.turnaround();
         }
@@ -462,10 +451,10 @@ mod tests {
     }
 
     #[test]
-    fn test_properties() {
-        let mut cache = LayoutCache::new(EvictionStrategy::None);
-        cache.policy = EvictionStrategy::None;
-        cache.insert(0, empty_frame(), 1);
+    fn test_incremental_properties() {
+        let mut cache = LayoutCache::new(EvictionPolicy::None, 20);
+        cache.policy = EvictionPolicy::None;
+        cache.insert(0, empty_frames(), 1);
 
         let props = cache.frames.get(&0).unwrap().first().unwrap().properties();
         assert_eq!(props.top_level, false);

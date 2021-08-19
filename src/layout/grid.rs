@@ -263,7 +263,7 @@ impl<'a> GridLayouter<'a> {
             let mut resolved = Length::zero();
             for node in (0 .. self.rows.len()).filter_map(|y| self.cell(x, y)) {
                 let size = Gen::new(available, Length::inf()).to_size(self.main);
-                let regions = Regions::one(size, Spec::splat(false));
+                let regions = Regions::one(size, size, Spec::splat(false));
                 let frame = node.layout(ctx, &regions).remove(0);
                 resolved.set_max(frame.size.get(self.cross));
             }
@@ -405,7 +405,7 @@ impl<'a> GridLayouter<'a> {
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(node) = self.cell(x, y) {
                 let size = Gen::new(rcol, length).to_size(self.main);
-                let regions = Regions::one(size, Spec::splat(true));
+                let regions = Regions::one(size, size, Spec::splat(true));
                 let frame = node.layout(ctx, &regions).remove(0);
                 output.push_frame(pos.to_point(self.main), frame.item);
             }
@@ -432,7 +432,8 @@ impl<'a> GridLayouter<'a> {
             .collect();
 
         // Prepare regions.
-        let mut regions = Regions::one(self.to_size(first), Spec::splat(true));
+        let size = self.to_size(first);
+        let mut regions = Regions::one(size, size, Spec::splat(true));
         regions.backlog = rest.iter().rev().map(|&v| self.to_size(v)).collect();
 
         // Layout the row.

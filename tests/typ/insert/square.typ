@@ -1,11 +1,17 @@
 // Test the `square` function.
 
 ---
-Auto-sized square. \
+// Test auto-sized square.
 #square(fill: eastern)[
   #font(fill: white, weight: bold)
   #align(center)
   #pad(5pt)[Typst]
+]
+---
+// Test relative-sized child.
+#square(fill: eastern)[
+  #rect(width: 10pt, height: 5pt, fill: conifer) \
+  #rect(width: 40%, height: 5pt, fill: conifer)
 ]
 
 ---

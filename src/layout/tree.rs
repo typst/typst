@@ -4,6 +4,9 @@ use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
 
 #[cfg(feature = "layout-cache")]
+use std::hash::{Hash, Hasher};
+
+#[cfg(feature = "layout-cache")]
 use fxhash::FxHasher64;
 
 /// A tree of layout nodes.
@@ -37,7 +40,7 @@ impl PageRun {
         // that axis.
         let Size { width, height } = self.size;
         let expand = Spec::new(width.is_finite(), height.is_finite());
-        let regions = Regions::repeat(self.size, expand);
+        let regions = Regions::repeat(self.size, self.size, expand);
         self.child.layout(ctx, &regions).into_iter().map(|c| c.item).collect()
     }
 }

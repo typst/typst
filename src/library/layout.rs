@@ -145,8 +145,12 @@ pub fn boxed(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let height = args.named("height")?;
     let body: Template = args.eat().unwrap_or_default();
     Ok(Value::Template(Template::from_inline(move |state| {
-        let child = body.to_stack(state).into();
-        FixedNode { width, height, child }
+        FixedNode {
+            width,
+            height,
+            aspect: None,
+            child: body.to_stack(state).into(),
+        }
     })))
 }
 
@@ -190,10 +194,7 @@ pub fn stack(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     Ok(Value::Template(Template::from_block(move |state| {
         let children = children
             .iter()
-            .map(|child| {
-                let child = child.to_stack(state).into();
-                StackChild::Any(child, state.aligns)
-            })
+            .map(|child| StackChild::Any(child.to_stack(state).into(), state.aligns))
             .collect();
 
         let mut dirs = Gen::new(None, dir).unwrap_or(state.dirs);
@@ -204,7 +205,7 @@ pub fn stack(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
             dirs.cross = state.dirs.main;
         }
 
-        StackNode { dirs, aspect: None, children }
+        StackNode { dirs, children }
     })))
 }
 
