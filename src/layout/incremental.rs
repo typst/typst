@@ -1,13 +1,18 @@
-#[cfg(feature = "layout-cache")]
+use std::cmp::Reverse;
 use std::collections::HashMap;
-use std::ops::Deref;
+
+use decorum::N32;
+use itertools::Itertools;
 
 use super::*;
+
+const CACHE_SIZE: usize = 20;
+const TEMP_LEN: usize = 5;
+const TEMP_LAST: usize = TEMP_LEN - 1;
 
 /// Caches layouting artifacts.
 ///
 /// _This is only available when the `layout-cache` feature is enabled._
-#[cfg(feature = "layout-cache")]
 #[derive(Default, Clone)]
 pub struct LayoutCache {
     /// Maps from node hashes to the resulting frames and regions in which the
@@ -17,13 +22,18 @@ pub struct LayoutCache {
     frames: HashMap<u64, Vec<FramesEntry>>,
     /// In how many compilations this cache has been used.
     age: usize,
+    /// What cache eviction policy should be used.
+    policy: EvictionStrategy,
 }
 
-#[cfg(feature = "layout-cache")]
 impl LayoutCache {
     /// Create a new, empty layout cache.
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(policy: EvictionStrategy) -> Self {
+        Self {
+            frames: HashMap::default(),
+            age: 0,
+            policy,
+        }
     }
 
     /// Whether the cache is empty.
@@ -79,7 +89,7 @@ impl LayoutCache {
         self.frames.clear();
     }
 
-    /// Retain all elements for which the closure on the level returns `true`.
+    /// Retains all elements for which the closure on the level returns `true`.
     pub fn retain<F>(&mut self, mut f: F)
     where
         F: FnMut(usize) -> bool,
@@ -93,11 +103,105 @@ impl LayoutCache {
     pub fn turnaround(&mut self) {
         self.age += 1;
         for entry in self.frames.values_mut().flatten() {
-            for i in 0 .. (entry.temperature.len() - 1) {
-                entry.temperature[i + 1] = entry.temperature[i];
+            if entry.temperature[0] > 0 {
+                entry.used_cycles += 1;
             }
+
+            let last = entry.temperature[TEMP_LAST];
+
+            for i in (1 .. TEMP_LEN).rev() {
+                entry.temperature[i] = entry.temperature[i - 1];
+            }
+
             entry.temperature[0] = 0;
+            entry.temperature[TEMP_LAST] += last;
+
             entry.age += 1;
+        }
+
+        self.evict();
+
+        self.frames.retain(|_, v| !v.is_empty());
+    }
+
+    fn evict(&mut self) {
+        let len = self.len();
+        if len <= CACHE_SIZE {
+            return;
+        }
+
+        match self.policy {
+            EvictionStrategy::LeastRecentlyUsed => {
+                // We find the element with the largest cooldown that cannot fit
+                // anymore.
+                let threshold = self
+                    .frames
+                    .values()
+                    .flatten()
+                    .map(|f| Reverse(f.cooldown()))
+                    .k_smallest(len - CACHE_SIZE)
+                    .last()
+                    .unwrap()
+                    .0;
+
+                for entries in self.frames.values_mut() {
+                    entries.retain(|e| e.cooldown() < threshold);
+                }
+            }
+            EvictionStrategy::LeastFrequentlyUsed => {
+                let threshold = self
+                    .frames
+                    .values()
+                    .flatten()
+                    .map(|f| N32::from(f.hits() as f32 / f.age() as f32))
+                    .k_smallest(len - CACHE_SIZE)
+                    .last()
+                    .unwrap();
+
+                for entries in self.frames.values_mut() {
+                    entries.retain(|f| {
+                        f.hits() as f32 / f.age() as f32 > threshold.into_inner()
+                    });
+                }
+            }
+            EvictionStrategy::Random => {
+                // Fraction of items that should be kept.
+                let threshold = CACHE_SIZE as f32 / len as f32;
+                for entries in self.frames.values_mut() {
+                    entries.retain(|_| rand::random::<f32>() > threshold);
+                }
+            }
+            EvictionStrategy::Patterns => {
+                let kept = self
+                    .frames
+                    .values()
+                    .flatten()
+                    .filter(|f| f.properties().must_keep())
+                    .count();
+
+                let remaining_capacity = CACHE_SIZE - kept.min(CACHE_SIZE);
+                if len - kept <= remaining_capacity {
+                    return;
+                }
+
+                let threshold = self
+                    .frames
+                    .values()
+                    .flatten()
+                    .filter(|f| !f.properties().must_keep())
+                    .map(|f| N32::from(f.hits() as f32 / f.age() as f32))
+                    .k_smallest((len - kept) - remaining_capacity)
+                    .last()
+                    .unwrap();
+
+                for (_, entries) in self.frames.iter_mut() {
+                    entries.retain(|f| {
+                        f.properties().must_keep()
+                            || f.hits() as f32 / f.age() as f32 > threshold.into_inner()
+                    });
+                }
+            }
+            EvictionStrategy::None => {}
         }
     }
 }
@@ -105,7 +209,6 @@ impl LayoutCache {
 /// Cached frames from past layouting.
 ///
 /// _This is only available when the `layout-cache` feature is enabled._
-#[cfg(feature = "layout-cache")]
 #[derive(Debug, Clone)]
 pub struct FramesEntry {
     /// The cached frames for a node.
@@ -115,11 +218,13 @@ pub struct FramesEntry {
     /// For how long the element already exists.
     age: usize,
     /// How much the element was accessed during the last five compilations, the
-    /// most recent one being the first element.
-    temperature: [usize; 5],
+    /// most recent one being the first element. The last element will collect
+    /// all usages that are farther in the past.
+    temperature: [usize; TEMP_LEN],
+    /// Amount of cycles in which the element has been used at all.
+    used_cycles: usize,
 }
 
-#[cfg(feature = "layout-cache")]
 impl FramesEntry {
     /// Construct a new instance.
     pub fn new(frames: Vec<Constrained<Rc<Frame>>>, level: usize) -> Self {
@@ -127,7 +232,8 @@ impl FramesEntry {
             frames,
             level,
             age: 1,
-            temperature: [0; 5],
+            temperature: [0; TEMP_LEN],
+            used_cycles: 0,
         }
     }
 
@@ -164,7 +270,7 @@ impl FramesEntry {
     /// The amount of consecutive cycles in which this item has not been used.
     pub fn cooldown(&self) -> usize {
         let mut cycle = 0;
-        for &temp in &self.temperature[.. self.age] {
+        for &temp in &self.temperature[.. self.age.min(TEMP_LEN)] {
             if temp > 0 {
                 return cycle;
             }
@@ -172,103 +278,204 @@ impl FramesEntry {
         }
         cycle
     }
-}
 
-/// Carries an item that is only valid in certain regions and the constraints
-/// that describe these regions.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Constrained<T> {
-    /// The item that is only valid if the constraints are fullfilled.
-    pub item: T,
-    /// Constraints on regions in which the item is valid.
-    pub constraints: Constraints,
-}
-
-impl<T> Deref for Constrained<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.item
-    }
-}
-
-/// Describe regions that match them.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Constraints {
-    /// The minimum available length in the region.
-    pub min: Spec<Option<Length>>,
-    /// The maximum available length in the region.
-    pub max: Spec<Option<Length>>,
-    /// The available length in the region.
-    pub exact: Spec<Option<Length>>,
-    /// The base length of the region used for relative length resolution.
-    pub base: Spec<Option<Length>>,
-    /// The expand settings of the region.
-    pub expand: Spec<bool>,
-}
-
-impl Constraints {
-    /// Create a new region constraint.
-    pub fn new(expand: Spec<bool>) -> Self {
-        Self {
-            min: Spec::default(),
-            max: Spec::default(),
-            exact: Spec::default(),
-            base: Spec::default(),
-            expand,
-        }
+    /// Get the total amount of hits over the lifetime of this item.
+    pub fn hits(&self) -> usize {
+        self.temperature.iter().sum()
     }
 
-    /// Check whether the constraints are fullfilled in a region with the given
-    /// properties.
-    pub fn check(&self, current: Size, base: Size, expand: Spec<bool>) -> bool {
-        let current = current.to_spec();
-        let base = base.to_spec();
-        self.expand == expand
-            && current.eq_by(&self.min, |x, y| y.map_or(true, |y| x.fits(y)))
-            && current.eq_by(&self.max, |x, y| y.map_or(true, |y| x < &y))
-            && current.eq_by(&self.exact, |x, y| y.map_or(true, |y| x.approx_eq(y)))
-            && base.eq_by(&self.base, |x, y| y.map_or(true, |y| x.approx_eq(y)))
-    }
+    pub fn properties(&self) -> PatternProperties {
+        let mut all_zeros = true;
+        let mut multi_use = false;
+        let mut decreasing = true;
+        let mut sparse = false;
+        let mut abandoned = false;
 
-    /// Set the appropriate base constraints for (relative) width and height
-    /// metrics, respectively.
-    pub fn set_base_using_linears(
-        &mut self,
-        size: Spec<Option<Linear>>,
-        regions: &Regions,
-    ) {
-        // The full sizes need to be equal if there is a relative component in the sizes.
-        if size.horizontal.map_or(false, |l| l.is_relative()) {
-            self.base.horizontal = Some(regions.base.width);
-        }
-        if size.vertical.map_or(false, |l| l.is_relative()) {
-            self.base.vertical = Some(regions.base.height);
-        }
-    }
+        let mut last = None;
+        let mut all_same = true;
 
-    /// Changes all constraints by adding the `size` to them if they are `Some`.
-    pub fn inflate(&mut self, size: Size, regions: &Regions) {
-        for spec in [
-            &mut self.min,
-            &mut self.max,
-            &mut self.exact,
-            &mut self.base,
-        ] {
-            if let Some(horizontal) = spec.horizontal.as_mut() {
-                *horizontal += size.width;
+        for (i, &temp) in self.temperature[.. TEMP_LAST].iter().enumerate() {
+            if temp == 0 && !all_zeros {
+                sparse = true;
             }
-            if let Some(vertical) = spec.vertical.as_mut() {
-                *vertical += size.height;
+
+            if temp != 0 {
+                all_zeros = false;
             }
+
+            if all_zeros && i == 1 {
+                abandoned = true;
+            }
+
+            if temp > 1 {
+                multi_use = true;
+            }
+
+            if let Some(prev) = last {
+                if prev > temp {
+                    decreasing = false;
+                }
+
+                if temp != prev {
+                    all_same = false;
+                }
+            }
+
+            last = Some(temp);
         }
 
-        let current = regions.current.to_spec();
-        let base = regions.base.to_spec();
+        if self.age >= TEMP_LEN && self.age - TEMP_LAST < self.temperature[TEMP_LAST] {
+            multi_use = true;
+        }
 
-        self.exact.horizontal.and_set(Some(current.horizontal));
-        self.exact.vertical.and_set(Some(current.vertical));
-        self.base.horizontal.and_set(Some(base.horizontal));
-        self.base.vertical.and_set(Some(base.vertical));
+        if self.temperature[TEMP_LAST] > 0 {
+            all_zeros = false;
+        }
+
+        decreasing = decreasing && !all_same;
+
+        PatternProperties {
+            mature: self.age >= TEMP_LEN,
+            hit: self.temperature[0] >= 1,
+            top_level: self.level == 0,
+            all_zeros,
+            multi_use,
+            decreasing,
+            sparse,
+            abandoned,
+        }
+    }
+}
+
+/// Cache eviction strategies.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum EvictionStrategy {
+    /// Evict the least recently used item.
+    LeastRecentlyUsed,
+    /// Evict the least frequently used item.
+    LeastFrequentlyUsed,
+    /// Evict randomly.
+    Random,
+    /// Use the pattern verdicts.
+    Patterns,
+    /// Do not evict.
+    None,
+}
+
+impl Default for EvictionStrategy {
+    fn default() -> Self {
+        Self::Patterns
+    }
+}
+
+/// Describes the properties that this entry's temperature array has.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct PatternProperties {
+    /// There only are zero values.
+    pub all_zeros: bool,
+    /// The entry exists for more or equal time as the temperature array is long.
+    pub mature: bool,
+    /// The entry was used more than one time in at least one compilation.
+    pub multi_use: bool,
+    /// The entry was used in the last compilation.
+    pub hit: bool,
+    /// The temperature is monotonously decreasing in non-terminal temperature fields.
+    pub decreasing: bool,
+    /// There are zero temperatures after non-zero temperatures.
+    pub sparse: bool,
+    /// There are multiple zero temperatures at the front of the temperature array.
+    pub abandoned: bool,
+    /// If the item is on the top level.
+    pub top_level: bool,
+}
+
+impl PatternProperties {
+    /// Check if it is vital to keep an entry based on its properties.
+    pub fn must_keep(&self) -> bool {
+        if self.top_level && !self.mature {
+            // Keep an undo stack.
+            true
+        } else if self.all_zeros && !self.mature {
+            // Keep the most recently created items, even if they have not yet
+            // been used.
+            true
+        } else if self.multi_use && !self.abandoned {
+            true
+        } else if self.hit {
+            true
+        } else if self.sparse {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn empty_frame() -> Vec<Constrained<Rc<Frame>>> {
+        vec![Constrained {
+            item: Rc::new(Frame::default()),
+            constraints: Constraints::new(Spec::splat(false)),
+        }]
+    }
+
+    fn zero_region() -> Regions {
+        Regions::one(Size::zero(), Spec::splat(false))
+    }
+
+    #[test]
+    fn test_temperature() {
+        let mut cache = LayoutCache::new(EvictionStrategy::None);
+        let zero_region = zero_region();
+        cache.policy = EvictionStrategy::None;
+        cache.insert(0, empty_frame(), 0);
+
+        let entry = cache.frames.get(&0).unwrap().first().unwrap();
+        assert_eq!(entry.age(), 1);
+        assert_eq!(entry.temperature, [0, 0, 0, 0, 0]);
+        assert_eq!(entry.used_cycles, 0);
+        assert_eq!(entry.level, 0);
+
+        cache.get(0, &zero_region).unwrap();
+        let entry = cache.frames.get(&0).unwrap().first().unwrap();
+        assert_eq!(entry.age(), 1);
+        assert_eq!(entry.temperature, [1, 0, 0, 0, 0]);
+
+        cache.turnaround();
+        let entry = cache.frames.get(&0).unwrap().first().unwrap();
+        assert_eq!(entry.age(), 2);
+        assert_eq!(entry.temperature, [0, 1, 0, 0, 0]);
+        assert_eq!(entry.used_cycles, 1);
+
+        cache.get(0, &zero_region).unwrap();
+        for _ in 0 .. 4 {
+            cache.turnaround();
+        }
+
+        let entry = cache.frames.get(&0).unwrap().first().unwrap();
+        assert_eq!(entry.age(), 6);
+        assert_eq!(entry.temperature, [0, 0, 0, 0, 2]);
+        assert_eq!(entry.used_cycles, 2);
+    }
+
+    #[test]
+    fn test_properties() {
+        let mut cache = LayoutCache::new(EvictionStrategy::None);
+        cache.policy = EvictionStrategy::None;
+        cache.insert(0, empty_frame(), 1);
+
+        let props = cache.frames.get(&0).unwrap().first().unwrap().properties();
+        assert_eq!(props.top_level, false);
+        assert_eq!(props.mature, false);
+        assert_eq!(props.multi_use, false);
+        assert_eq!(props.hit, false);
+        assert_eq!(props.decreasing, false);
+        assert_eq!(props.sparse, false);
+        assert_eq!(props.abandoned, true);
+        assert_eq!(props.all_zeros, true);
+        assert_eq!(props.must_keep(), true);
     }
 }

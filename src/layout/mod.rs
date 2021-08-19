@@ -1,10 +1,12 @@
 //! Layouting.
 
 mod background;
+mod constraints;
 mod fixed;
 mod frame;
 mod grid;
 mod image;
+#[cfg(feature = "layout-cache")]
 mod incremental;
 mod pad;
 mod par;
@@ -14,9 +16,11 @@ mod tree;
 
 pub use self::image::*;
 pub use background::*;
+pub use constraints::*;
 pub use fixed::*;
 pub use frame::*;
 pub use grid::*;
+#[cfg(feature = "layout-cache")]
 pub use incremental::*;
 pub use pad::*;
 pub use par::*;
