@@ -176,7 +176,7 @@ impl LayoutCache {
                     .frames
                     .values()
                     .flatten()
-                    .filter(|f| f.properties().should_keep())
+                    .filter(|f| f.properties().must_keep())
                     .count();
 
                 let remaining_capacity = CACHE_SIZE - kept.min(CACHE_SIZE);
@@ -188,7 +188,7 @@ impl LayoutCache {
                     .frames
                     .values()
                     .flatten()
-                    .filter(|f| !f.properties().should_keep())
+                    .filter(|f| !f.properties().must_keep())
                     .map(|f| N32::from(f.hits() as f32 / f.age() as f32))
                     .k_smallest((len - kept) - remaining_capacity)
                     .last()
@@ -196,7 +196,7 @@ impl LayoutCache {
 
                 for (_, entries) in self.frames.iter_mut() {
                     entries.retain(|f| {
-                        f.properties().should_keep()
+                        f.properties().must_keep()
                             || f.hits() as f32 / f.age() as f32 > threshold.into_inner()
                     });
                 }
@@ -368,17 +368,6 @@ impl Default for EvictionStrategy {
     }
 }
 
-/// Possible descisions on eviction that may arise from the pattern type.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum EvictionVerdict {
-    /// Always evict.
-    Evict,
-    /// The item may be evicted.
-    MayEvict,
-    /// The item should be kept.
-    Keep,
-}
-
 /// Describes the properties that this entry's temperature array has.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct PatternProperties {
@@ -401,7 +390,8 @@ pub struct PatternProperties {
 }
 
 impl PatternProperties {
-    pub fn should_keep(&self) -> bool {
+    /// Check if it is vital to keep an entry based on its properties.
+    pub fn must_keep(&self) -> bool {
         if self.top_level && !self.mature {
             // Keep an undo stack.
             true
@@ -486,6 +476,6 @@ mod tests {
         assert_eq!(props.sparse, false);
         assert_eq!(props.abandoned, true);
         assert_eq!(props.all_zeros, true);
-        assert_eq!(props.should_keep(), true);
+        assert_eq!(props.must_keep(), true);
     }
 }
