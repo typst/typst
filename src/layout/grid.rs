@@ -65,7 +65,7 @@ struct GridLayouter<'a> {
     rows: Vec<TrackSizing>,
     /// The children of the grid.
     children: &'a [LayoutNode],
-    /// The region to layout into.
+    /// The regions to layout into.
     regions: Regions,
     /// Resolved column sizes.
     rcols: Vec<Length>,
@@ -165,9 +165,13 @@ impl<'a> GridLayouter<'a> {
         enum Case {
             PurelyLinear,
             Fitting,
-            Overflowing,
             Exact,
+            Overflowing,
         }
+
+        // Generic version of current and base size.
+        let current = self.regions.current.to_gen(self.main);
+        let base = self.regions.base.to_gen(self.main);
 
         // The different cases affecting constraints.
         let mut case = Case::PurelyLinear;
@@ -178,10 +182,6 @@ impl<'a> GridLayouter<'a> {
         // Sum of fractions of all fractional tracks.
         let mut fr = Fractional::zero();
 
-        // Generic version of current and base size.
-        let current = self.regions.current.to_gen(self.main);
-        let base = self.regions.base.to_gen(self.main);
-
         // Resolve the size of all linear columns and compute the sum of all
         // fractional tracks.
         for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
@@ -190,12 +190,10 @@ impl<'a> GridLayouter<'a> {
                     case = Case::Fitting;
                 }
                 TrackSizing::Linear(v) => {
+                    self.constraints.base.set(self.cross, Some(base.cross));
                     let resolved = v.resolve(base.cross);
                     *rcol = resolved;
                     linear += resolved;
-                    self.constraints
-                        .base
-                        .set(self.cross, Some(self.regions.base.get(self.cross)));
                 }
                 TrackSizing::Fractional(v) => {
                     case = Case::Fitting;
@@ -222,26 +220,20 @@ impl<'a> GridLayouter<'a> {
                 self.shrink_auto_columns(available, count);
                 case = Case::Exact;
             }
-        } else if let Case::Fitting = case {
+        } else if matches!(case, Case::Fitting) {
             case = Case::Overflowing;
         }
 
-        self.used.cross = self.rcols.iter().sum();
-
+        // Set constraints depending on the case we hit.
         match case {
             Case::PurelyLinear => {}
-            Case::Fitting => {
-                self.constraints.min.set(self.cross, Some(self.used.cross));
-            }
-            Case::Overflowing => {
-                self.constraints.max.set(self.cross, Some(linear));
-            }
-            Case::Exact => {
-                self.constraints
-                    .exact
-                    .set(self.cross, Some(self.regions.current.get(self.cross)));
-            }
+            Case::Fitting => self.constraints.min.set(self.cross, Some(self.used.cross)),
+            Case::Exact => self.constraints.exact.set(self.cross, Some(current.cross)),
+            Case::Overflowing => self.constraints.max.set(self.cross, Some(linear)),
         }
+
+        // Sum up the resolved column sizes once here.
+        self.used.cross = self.rcols.iter().sum();
     }
 
     /// Measure the size that is available to auto columns.
