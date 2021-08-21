@@ -136,7 +136,7 @@ pub fn lang(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     };
 
     if let Some(dir) = dir {
-        ctx.template.modify(move |state| state.dirs.cross = dir);
+        ctx.template.modify(move |state| state.dirs.inline = dir);
     }
 
     ctx.template.parbreak();

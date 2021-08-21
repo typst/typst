@@ -25,8 +25,8 @@ impl Path {
     /// Create a path that approximates an axis-aligned ellipse.
     pub fn ellipse(size: Size) -> Self {
         // https://stackoverflow.com/a/2007782
-        let rx = size.width / 2.0;
-        let ry = size.height / 2.0;
+        let rx = size.w / 2.0;
+        let ry = size.h / 2.0;
         let m = 0.551784;
         let mx = m * rx;
         let my = m * ry;

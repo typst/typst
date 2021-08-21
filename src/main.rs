@@ -113,11 +113,11 @@ fn print_diagnostics(
 
     for error in errors {
         // The main diagnostic.
-        let main = Diagnostic::error().with_message(error.message).with_labels(vec![
+        let diag = Diagnostic::error().with_message(error.message).with_labels(vec![
             Label::primary(error.span.source, error.span.to_range()),
         ]);
 
-        term::emit(&mut writer, &config, sources, &main)?;
+        term::emit(&mut writer, &config, sources, &diag)?;
 
         // Stacktrace-like helper diagnostics.
         for point in error.trace {

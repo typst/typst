@@ -52,11 +52,11 @@ impl Constraints {
     /// Set the appropriate base constraints for linear width and height sizing.
     pub fn set_base_if_linear(&mut self, base: Size, sizing: Spec<Option<Linear>>) {
         // The full sizes need to be equal if there is a relative component in the sizes.
-        if sizing.horizontal.map_or(false, |l| l.is_relative()) {
-            self.base.horizontal = Some(base.width);
+        if sizing.x.map_or(false, |l| l.is_relative()) {
+            self.base.x = Some(base.w);
         }
-        if sizing.vertical.map_or(false, |l| l.is_relative()) {
-            self.base.vertical = Some(base.height);
+        if sizing.y.map_or(false, |l| l.is_relative()) {
+            self.base.y = Some(base.h);
         }
     }
 }

@@ -30,8 +30,8 @@ impl Layout for PadNode {
             // Solve for the size `padded` that satisfies (approximately):
             // `padded - padding.resolve(padded).size() == size`
             let padded = Size::new(
-                solve_axis(frame.size.width, self.padding.left + self.padding.right),
-                solve_axis(frame.size.height, self.padding.top + self.padding.bottom),
+                solve_axis(frame.size.w, self.padding.left + self.padding.right),
+                solve_axis(frame.size.h, self.padding.top + self.padding.bottom),
             );
 
             let padding = self.padding.resolve(padded);
@@ -39,27 +39,27 @@ impl Layout for PadNode {
 
             // Inflate min and max contraints by the padding.
             for spec in [&mut constraints.min, &mut constraints.max] {
-                if let Some(horizontal) = spec.horizontal.as_mut() {
-                    *horizontal += padding.size().width;
+                if let Some(x) = spec.x.as_mut() {
+                    *x += padding.size().w;
                 }
-                if let Some(vertical) = spec.vertical.as_mut() {
-                    *vertical += padding.size().height;
+                if let Some(y) = spec.y.as_mut() {
+                    *y += padding.size().h;
                 }
             }
 
             // Set exact and base constraints if the child had them.
-            constraints.exact.horizontal.and_set(Some(current.width));
-            constraints.exact.vertical.and_set(Some(current.height));
-            constraints.base.horizontal.and_set(Some(base.width));
-            constraints.base.vertical.and_set(Some(base.height));
+            constraints.exact.x.and_set(Some(current.w));
+            constraints.exact.y.and_set(Some(current.h));
+            constraints.base.x.and_set(Some(base.w));
+            constraints.base.y.and_set(Some(base.h));
 
             // Also set base constraints if the padding is relative.
             if self.padding.left.is_relative() || self.padding.right.is_relative() {
-                constraints.base.horizontal = Some(base.width);
+                constraints.base.x = Some(base.w);
             }
 
             if self.padding.top.is_relative() || self.padding.bottom.is_relative() {
-                constraints.base.vertical = Some(base.height);
+                constraints.base.y = Some(base.h);
             }
 
             // Create a new larger frame and place the child's frame inside it.

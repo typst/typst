@@ -4,26 +4,23 @@ use super::*;
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Spec<T> {
     /// The horizontal component.
-    pub horizontal: T,
+    pub x: T,
     /// The vertical component.
-    pub vertical: T,
+    pub y: T,
 }
 
 impl<T> Spec<T> {
     /// Create a new instance from the two components.
-    pub fn new(horizontal: T, vertical: T) -> Self {
-        Self { horizontal, vertical }
+    pub fn new(x: T, y: T) -> Self {
+        Self { x, y }
     }
 
     /// Create a new instance with two equal components.
-    pub fn splat(value: T) -> Self
+    pub fn splat(v: T) -> Self
     where
         T: Clone,
     {
-        Self {
-            horizontal: value.clone(),
-            vertical: value,
-        }
+        Self { x: v.clone(), y: v }
     }
 
     /// Maps the individual fields with `f`.
@@ -31,17 +28,14 @@ impl<T> Spec<T> {
     where
         F: FnMut(T) -> U,
     {
-        Spec {
-            horizontal: f(self.horizontal),
-            vertical: f(self.vertical),
-        }
+        Spec { x: f(self.x), y: f(self.y) }
     }
 
     /// Convert to the generic representation.
-    pub fn to_gen(self, main: SpecAxis) -> Gen<T> {
-        match main {
-            SpecAxis::Horizontal => Gen::new(self.vertical, self.horizontal),
-            SpecAxis::Vertical => Gen::new(self.horizontal, self.vertical),
+    pub fn to_gen(self, block: SpecAxis) -> Gen<T> {
+        match block {
+            SpecAxis::Horizontal => Gen::new(self.y, self.x),
+            SpecAxis::Vertical => Gen::new(self.x, self.y),
         }
     }
 
@@ -51,27 +45,24 @@ impl<T> Spec<T> {
     where
         F: Fn(&T, &U) -> bool,
     {
-        eq(&self.vertical, &other.vertical) && eq(&self.horizontal, &other.horizontal)
+        eq(&self.x, &other.x) && eq(&self.y, &other.y)
     }
 }
 
 impl Spec<Length> {
     /// The zero value.
     pub fn zero() -> Self {
-        Self {
-            horizontal: Length::zero(),
-            vertical: Length::zero(),
-        }
+        Self { x: Length::zero(), y: Length::zero() }
     }
 
     /// Convert to a point.
     pub fn to_point(self) -> Point {
-        Point::new(self.horizontal, self.vertical)
+        Point::new(self.x, self.y)
     }
 
     /// Convert to a size.
     pub fn to_size(self) -> Size {
-        Size::new(self.horizontal, self.vertical)
+        Size::new(self.x, self.y)
     }
 }
 
@@ -79,8 +70,8 @@ impl<T> Spec<Option<T>> {
     /// Unwrap the individual fields.
     pub fn unwrap_or(self, other: Spec<T>) -> Spec<T> {
         Spec {
-            horizontal: self.horizontal.unwrap_or(other.horizontal),
-            vertical: self.vertical.unwrap_or(other.vertical),
+            x: self.x.unwrap_or(other.x),
+            y: self.y.unwrap_or(other.y),
         }
     }
 }
@@ -90,42 +81,42 @@ impl<T> Get<SpecAxis> for Spec<T> {
 
     fn get(self, axis: SpecAxis) -> T {
         match axis {
-            SpecAxis::Horizontal => self.horizontal,
-            SpecAxis::Vertical => self.vertical,
+            SpecAxis::Horizontal => self.x,
+            SpecAxis::Vertical => self.y,
         }
     }
 
     fn get_mut(&mut self, axis: SpecAxis) -> &mut T {
         match axis {
-            SpecAxis::Horizontal => &mut self.horizontal,
-            SpecAxis::Vertical => &mut self.vertical,
+            SpecAxis::Horizontal => &mut self.x,
+            SpecAxis::Vertical => &mut self.y,
         }
     }
 }
 
 impl<T: Debug> Debug for Spec<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Spec({:?}, {:?})", self.horizontal, self.vertical)
+        write!(f, "Spec({:?}, {:?})", self.x, self.y)
     }
 }
 
 /// The two specific layouting axes.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SpecAxis {
-    /// The vertical layouting axis.
-    Vertical,
     /// The horizontal layouting axis.
     Horizontal,
+    /// The vertical layouting axis.
+    Vertical,
 }
 
 impl SpecAxis {
     /// The direction with the given positivity for this axis.
     pub fn dir(self, positive: bool) -> Dir {
         match (self, positive) {
-            (Self::Vertical, true) => Dir::TTB,
-            (Self::Vertical, false) => Dir::BTT,
             (Self::Horizontal, true) => Dir::LTR,
             (Self::Horizontal, false) => Dir::RTL,
+            (Self::Vertical, true) => Dir::TTB,
+            (Self::Vertical, false) => Dir::BTT,
         }
     }
 
@@ -141,8 +132,8 @@ impl SpecAxis {
 impl Display for SpecAxis {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
-            Self::Vertical => "vertical",
             Self::Horizontal => "horizontal",
+            Self::Vertical => "vertical",
         })
     }
 }

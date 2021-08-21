@@ -6,68 +6,65 @@ use serde::{Deserialize, Serialize};
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Size {
     /// The width.
-    pub width: Length,
+    pub w: Length,
     /// The height.
-    pub height: Length,
+    pub h: Length,
 }
 
 impl Size {
     /// The zero size.
     pub fn zero() -> Self {
-        Self {
-            width: Length::zero(),
-            height: Length::zero(),
-        }
+        Self { w: Length::zero(), h: Length::zero() }
     }
 
     /// Create a new size from width and height.
-    pub fn new(width: Length, height: Length) -> Self {
-        Self { width, height }
+    pub fn new(w: Length, h: Length) -> Self {
+        Self { w, h }
     }
 
     /// Create an instance with two equal components.
-    pub fn splat(value: Length) -> Self {
-        Self { width: value, height: value }
+    pub fn splat(v: Length) -> Self {
+        Self { w: v, h: v }
     }
 
     /// Limit width and height at that of another size.
     pub fn cap(self, limit: Self) -> Self {
         Self {
-            width: self.width.min(limit.width),
-            height: self.height.min(limit.height),
+            w: self.w.min(limit.w),
+            h: self.h.min(limit.h),
         }
     }
 
     /// Whether the other size fits into this one (smaller width and height).
     pub fn fits(self, other: Self) -> bool {
-        self.width.fits(other.width) && self.height.fits(other.height)
+        self.w.fits(other.w) && self.h.fits(other.h)
     }
 
     /// Whether both components are finite.
     pub fn is_finite(self) -> bool {
-        self.width.is_finite() && self.height.is_finite()
+        self.w.is_finite() && self.h.is_finite()
     }
 
     /// Whether any of the two components is infinite.
     pub fn is_infinite(self) -> bool {
-        self.width.is_infinite() || self.height.is_infinite()
+        self.w.is_infinite() || self.h.is_infinite()
     }
 
     /// Convert to a point.
     pub fn to_point(self) -> Point {
-        Point::new(self.width, self.height)
+        Point::new(self.w, self.h)
     }
 
     /// Convert to a Spec.
     pub fn to_spec(self) -> Spec<Length> {
-        Spec::new(self.width, self.height)
+        Spec::new(self.w, self.h)
     }
 
     /// Convert to the generic representation.
-    pub fn to_gen(self, main: SpecAxis) -> Gen<Length> {
-        match main {
-            SpecAxis::Horizontal => Gen::new(self.height, self.width),
-            SpecAxis::Vertical => Gen::new(self.width, self.height),
+    pub fn to_gen(self, block: SpecAxis) -> Gen<Length> {
+        match block {
+            SpecAxis::Horizontal => Gen::new(self.h, self.w),
+            SpecAxis::Vertical => Gen::new(self.w, self.h),
         }
     }
 }
@@ -77,22 +74,22 @@ impl Get<SpecAxis> for Size {
 
     fn get(self, axis: SpecAxis) -> Length {
         match axis {
-            SpecAxis::Horizontal => self.width,
-            SpecAxis::Vertical => self.height,
+            SpecAxis::Horizontal => self.w,
+            SpecAxis::Vertical => self.h,
         }
     }
 
     fn get_mut(&mut self, axis: SpecAxis) -> &mut Length {
         match axis {
-            SpecAxis::Horizontal => &mut self.width,
-            SpecAxis::Vertical => &mut self.height,
+            SpecAxis::Horizontal => &mut self.w,
+            SpecAxis::Vertical => &mut self.h,
         }
     }
 }
 
 impl Debug for Size {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Size({:?}, {:?})", self.width, self.height)
+        write!(f, "Size({:?}, {:?})", self.w, self.h)
     }
 }
 
@@ -100,7 +97,7 @@ impl Neg for Size {
     type Output = Self;
 
     fn neg(self) -> Self {
-        Self { width: -self.width, height: -self.height }
+        Self { w: -self.w, h: -self.h }
     }
 }
 
@@ -108,10 +105,7 @@ impl Add for Size {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        Self {
-            width: self.width + other.width,
-            height: self.height + other.height,
-        }
+        Self { w: self.w + other.w, h: self.h + other.h }
     }
 }
 
@@ -121,10 +115,7 @@ impl Mul<f64> for Size {
     type Output = Self;
 
     fn mul(self, other: f64) -> Self {
-        Self {
-            width: self.width * other,
-            height: self.height * other,
-        }
+        Self { w: self.w * other, h: self.h * other }
     }
 }
 
@@ -140,10 +131,7 @@ impl Div<f64> for Size {
     type Output = Self;
 
     fn div(self, other: f64) -> Self {
-        Self {
-            width: self.width / other,
-            height: self.height / other,
-        }
+        Self { w: self.w / other, h: self.h / other }
     }
 }
 

@@ -35,24 +35,24 @@ impl Layout for FixedNode {
         // If the size for one axis isn't specified, the `current` size along
         // that axis needs to remain the same for the result to be reusable.
         if width.is_none() {
-            constraints.exact.horizontal = Some(current.width);
+            constraints.exact.x = Some(current.w);
         }
 
         if height.is_none() {
-            constraints.exact.vertical = Some(current.height);
+            constraints.exact.y = Some(current.h);
         }
 
         // Resolve the linears based on the current width and height.
         let mut size = Size::new(
-            width.map_or(current.width, |w| w.resolve(base.width)),
-            height.map_or(current.height, |h| h.resolve(base.height)),
+            width.map_or(current.w, |w| w.resolve(base.w)),
+            height.map_or(current.h, |h| h.resolve(base.h)),
         );
 
         // If width or height aren't set for an axis, the base should be
         // inherited from the parent for that axis.
         let base = Size::new(
-            width.map_or(base.width, |_| size.width),
-            height.map_or(base.height, |_| size.height),
+            width.map_or(base.w, |_| size.w),
+            height.map_or(base.h, |_| size.h),
         );
 
         // Handle the aspect ratio.
@@ -61,7 +61,7 @@ impl Layout for FixedNode {
             constraints.min = Spec::splat(None);
             constraints.max = Spec::splat(None);
 
-            let width = size.width.min(aspect * size.height);
+            let width = size.w.min(aspect * size.h);
             size = Size::new(width, width / aspect);
         }
 
@@ -78,7 +78,7 @@ impl Layout for FixedNode {
         if let Some(aspect) = aspect {
             if width.is_none() && height.is_none() {
                 let needed = frames[0].item.size.cap(size);
-                let width = needed.width.max(aspect * needed.height);
+                let width = needed.w.max(aspect * needed.h);
                 regions.current = Size::new(width, width / aspect);
                 regions.expand = Spec::splat(true);
                 frames = self.child.layout(ctx, &regions);

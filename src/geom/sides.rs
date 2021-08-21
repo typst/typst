@@ -45,10 +45,10 @@ impl Sides<Linear> {
     /// Resolve the linear sides relative to the given `size`.
     pub fn resolve(self, size: Size) -> Sides<Length> {
         Sides {
-            left: self.left.resolve(size.width),
-            top: self.top.resolve(size.height),
-            right: self.right.resolve(size.width),
-            bottom: self.bottom.resolve(size.height),
+            left: self.left.resolve(size.w),
+            top: self.top.resolve(size.h),
+            right: self.right.resolve(size.w),
+            bottom: self.bottom.resolve(size.h),
         }
     }
 }

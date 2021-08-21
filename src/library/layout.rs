@@ -31,12 +31,12 @@ pub fn page(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 
         if let Some(width) = width {
             page.class = PaperClass::Custom;
-            page.size.width = width;
+            page.size.w = width;
         }
 
         if let Some(height) = height {
             page.class = PaperClass::Custom;
-            page.size.height = height;
+            page.size.h = height;
         }
 
         if let Some(margins) = margins {
@@ -60,7 +60,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
         }
 
         if flip.unwrap_or(false) {
-            std::mem::swap(&mut page.size.width, &mut page.size.height);
+            std::mem::swap(&mut page.size.w, &mut page.size.h);
         }
     });
 
@@ -78,14 +78,14 @@ pub fn pagebreak(ctx: &mut EvalContext, _: &mut Arguments) -> TypResult<Value> {
 /// `h`: Horizontal spacing.
 pub fn h(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let spacing = args.expect("spacing")?;
-    ctx.template.spacing(GenAxis::Cross, spacing);
+    ctx.template.spacing(GenAxis::Inline, spacing);
     Ok(Value::None)
 }
 
 /// `v`: Vertical spacing.
 pub fn v(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let spacing = args.expect("spacing")?;
-    ctx.template.spacing(GenAxis::Main, spacing);
+    ctx.template.spacing(GenAxis::Block, spacing);
     Ok(Value::None)
 }
 
@@ -113,11 +113,11 @@ pub fn align(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let realign = |template: &mut Template| {
         template.modify(move |state| {
             if let Some(horizontal) = horizontal {
-                state.aligns.cross = horizontal;
+                state.aligns.inline = horizontal;
             }
 
             if let Some(vertical) = vertical {
-                state.aligns.main = vertical;
+                state.aligns.block = vertical;
             }
         });
 
@@ -199,10 +199,10 @@ pub fn stack(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 
         let mut dirs = Gen::new(None, dir).unwrap_or(state.dirs);
 
-        // If the directions become aligned, fix up the cross direction since
+        // If the directions become aligned, fix up the inline direction since
         // that's the one that is not user-defined.
-        if dirs.main.axis() == dirs.cross.axis() {
-            dirs.cross = state.dirs.main;
+        if dirs.block.axis() == dirs.inline.axis() {
+            dirs.inline = state.dirs.block;
         }
 
         StackNode { dirs, children }
@@ -239,17 +239,17 @@ pub fn grid(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
         // If the directions become aligned, try to fix up the direction which
         // is not user-defined.
         let mut dirs = Gen::new(column_dir, row_dir).unwrap_or(state.dirs);
-        if dirs.main.axis() == dirs.cross.axis() {
+        if dirs.block.axis() == dirs.inline.axis() {
             let target = if column_dir.is_some() {
-                &mut dirs.main
+                &mut dirs.block
             } else {
-                &mut dirs.cross
+                &mut dirs.inline
             };
 
-            *target = if target.axis() == state.dirs.cross.axis() {
-                state.dirs.main
+            *target = if target.axis() == state.dirs.inline.axis() {
+                state.dirs.block
             } else {
-                state.dirs.cross
+                state.dirs.inline
             };
         }
 

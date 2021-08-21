@@ -35,8 +35,7 @@ impl PageRun {
     pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Rc<Frame>> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
-        let Size { width, height } = self.size;
-        let expand = Spec::new(width.is_finite(), height.is_finite());
+        let expand = self.size.to_spec().map(Length::is_finite);
         let regions = Regions::repeat(self.size, self.size, expand);
         self.child.layout(ctx, &regions).into_iter().map(|c| c.item).collect()
     }

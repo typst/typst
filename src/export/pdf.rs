@@ -122,8 +122,8 @@ impl<'a> PdfExporter<'a> {
                 .media_box(Rect::new(
                     0.0,
                     0.0,
-                    page.size.width.to_pt() as f32,
-                    page.size.height.to_pt() as f32,
+                    page.size.w.to_pt() as f32,
+                    page.size.h.to_pt() as f32,
                 ))
                 .contents(content_id);
         }
@@ -146,7 +146,7 @@ impl<'a> PdfExporter<'a> {
 
         for (pos, element) in page.elements() {
             let x = pos.x.to_pt() as f32;
-            let y = (page.size.height - pos.y).to_pt() as f32;
+            let y = (page.size.h - pos.y).to_pt() as f32;
 
             match *element {
                 Element::Text(ref shaped) => {
@@ -176,9 +176,9 @@ impl<'a> PdfExporter<'a> {
                     content.save_state();
 
                     match *geometry {
-                        Geometry::Rect(Size { width, height }) => {
-                            let w = width.to_pt() as f32;
-                            let h = height.to_pt() as f32;
+                        Geometry::Rect(Size { w, h }) => {
+                            let w = w.to_pt() as f32;
+                            let h = h.to_pt() as f32;
                             if w > 0.0 && h > 0.0 {
                                 write_fill(&mut content, paint);
                                 content.rect(x, y - h, w, h, false, true);
@@ -205,10 +205,10 @@ impl<'a> PdfExporter<'a> {
                     content.restore_state();
                 }
 
-                Element::Image(id, Size { width, height }) => {
+                Element::Image(id, Size { w, h }) => {
                     let name = format!("Im{}", self.image_map.map(id));
-                    let w = width.to_pt() as f32;
-                    let h = height.to_pt() as f32;
+                    let w = w.to_pt() as f32;
+                    let h = h.to_pt() as f32;
 
                     content.save_state();
                     content.matrix(w, 0.0, 0.0, h, x, y - h);

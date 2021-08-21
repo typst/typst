@@ -380,9 +380,8 @@ fn print_error(source: &SourceFile, line: usize, error: &Error) {
 
 fn draw(ctx: &Context, frames: &[Rc<Frame>], dpi: f32) -> sk::Pixmap {
     let pad = Length::pt(5.0);
-
-    let height = pad + frames.iter().map(|l| l.size.height + pad).sum::<Length>();
-    let width = 2.0 * pad + frames.iter().map(|l| l.size.width).max().unwrap_or_default();
+    let width = 2.0 * pad + frames.iter().map(|l| l.size.w).max().unwrap_or_default();
+    let height = pad + frames.iter().map(|l| l.size.h + pad).sum::<Length>();
 
     let pixel_width = (dpi * width.to_pt() as f32) as u32;
     let pixel_height = (dpi * height.to_pt() as f32) as u32;
@@ -405,8 +404,8 @@ fn draw(ctx: &Context, frames: &[Rc<Frame>], dpi: f32) -> sk::Pixmap {
             sk::Rect::from_xywh(
                 origin.x.to_pt() as f32,
                 origin.y.to_pt() as f32,
-                frame.size.width.to_pt() as f32,
-                frame.size.height.to_pt() as f32,
+                frame.size.w.to_pt() as f32,
+                frame.size.h.to_pt() as f32,
             )
             .unwrap(),
             &paint,
@@ -432,7 +431,7 @@ fn draw(ctx: &Context, frames: &[Rc<Frame>], dpi: f32) -> sk::Pixmap {
             }
         }
 
-        origin.y += frame.size.height + pad;
+        origin.y += frame.size.h + pad;
     }
 
     canvas
@@ -496,7 +495,7 @@ fn draw_geometry(
     let rule = sk::FillRule::default();
 
     match *geometry {
-        Geometry::Rect(Size { width, height }) => {
+        Geometry::Rect(Size { w: width, h: height }) => {
             let w = width.to_pt() as f32;
             let h = height.to_pt() as f32;
             let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
@@ -539,8 +538,8 @@ fn draw_image(
         *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
     }
 
-    let view_width = size.width.to_pt() as f32;
-    let view_height = size.height.to_pt() as f32;
+    let view_width = size.w.to_pt() as f32;
+    let view_height = size.h.to_pt() as f32;
     let scale_x = view_width as f32 / pixmap.width() as f32;
     let scale_y = view_height as f32 / pixmap.height() as f32;
 

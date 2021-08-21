@@ -122,7 +122,7 @@ impl<'a> ParLayouter<'a> {
         for (range, child) in par.ranges().zip(&par.children) {
             match *child {
                 ParChild::Spacing(amount) => {
-                    let resolved = amount.resolve(regions.current.width);
+                    let resolved = amount.resolve(regions.current.w);
                     items.push(ParItem::Spacing(resolved));
                     ranges.push(range);
                 }
@@ -179,81 +179,69 @@ impl<'a> ParLayouter<'a> {
             if !stack.regions.current.fits(line.size) {
                 if let Some((last_line, last_end)) = last.take() {
                     // The region must not fit this line for the result to be valid.
-                    if !stack.regions.current.width.fits(line.size.width) {
-                        stack.constraints.max.horizontal.set_min(line.size.width);
+                    if !stack.regions.current.w.fits(line.size.w) {
+                        stack.constraints.max.x.set_min(line.size.w);
                     }
 
-                    if !stack.regions.current.height.fits(line.size.height) {
-                        stack
-                            .constraints
-                            .max
-                            .vertical
-                            .set_min(stack.size.height + line.size.height);
+                    if !stack.regions.current.h.fits(line.size.h) {
+                        stack.constraints.max.y.set_min(stack.size.h + line.size.h);
                     }
 
                     stack.push(last_line);
-                    stack.constraints.min.vertical = Some(stack.size.height);
+                    stack.constraints.min.y = Some(stack.size.h);
                     start = last_end;
                     line = LineLayout::new(ctx, &self, start .. end);
                 }
             }
 
             // If the line does not fit vertically, we start a new region.
-            while !stack.regions.current.height.fits(line.size.height)
+            while !stack.regions.current.h.fits(line.size.h)
                 && !stack.regions.in_full_last()
             {
                 // Again, the line must not fit. It would if the space taken up
                 // plus the line height would fit, therefore the constraint
                 // below.
-                stack
-                    .constraints
-                    .max
-                    .vertical
-                    .set_min(stack.size.height + line.size.height);
+                stack.constraints.max.y.set_min(stack.size.h + line.size.h);
                 stack.finish_region(ctx);
             }
 
             // If the line does not fit vertically, we start a new region.
-            while !stack.regions.current.height.fits(line.size.height) {
+            while !stack.regions.current.h.fits(line.size.h) {
                 if stack.regions.in_full_last() {
                     stack.overflowing = true;
                     break;
                 }
 
-                stack
-                    .constraints
-                    .max
-                    .vertical
-                    .set_min(stack.size.height + line.size.height);
+                stack.constraints.max.y.set_min(stack.size.h + line.size.h);
                 stack.finish_region(ctx);
             }
             // If the line does not fit horizontally or we have a mandatory
             // line break (i.e. due to "\n"), we push the line into the
             // stack.
-            if mandatory || !stack.regions.current.width.fits(line.size.width) {
+            if mandatory || !stack.regions.current.w.fits(line.size.w) {
                 stack.push(line);
                 start = end;
                 last = None;
 
-                stack.constraints.min.vertical = Some(stack.size.height);
+                stack.constraints.min.y = Some(stack.size.h);
 
                 // If there is a trailing line break at the end of the
                 // paragraph, we want to force an empty line.
                 if mandatory && end == self.bidi.text.len() {
                     stack.push(LineLayout::new(ctx, &self, end .. end));
-                    stack.constraints.min.vertical = Some(stack.size.height);
+                    stack.constraints.min.y = Some(stack.size.h);
                 }
             } else {
                 // Otherwise, the line fits both horizontally and vertically
                 // and we remember it.
-                stack.constraints.min.horizontal.set_max(line.size.width);
+                stack.constraints.min.x.set_max(line.size.w);
                 last = Some((line, end));
             }
         }
 
         if let Some((line, _)) = last {
             stack.push(line);
-            stack.constraints.min.vertical = Some(stack.size.height);
+            stack.constraints.min.y = Some(stack.size.h);
         }
 
         stack.finish(ctx)
@@ -339,12 +327,12 @@ impl<'a> LineStack<'a> {
 
     /// Push a new line into the stack.
     fn push(&mut self, line: LineLayout<'a>) {
-        self.regions.current.height -= line.size.height + self.line_spacing;
+        self.regions.current.h -= line.size.h + self.line_spacing;
 
-        self.size.width.set_max(line.size.width);
-        self.size.height += line.size.height;
+        self.size.w.set_max(line.size.w);
+        self.size.h += line.size.h;
         if !self.lines.is_empty() {
-            self.size.height += self.line_spacing;
+            self.size.h += self.line_spacing;
         }
 
         self.lines.push(line);
@@ -352,23 +340,23 @@ impl<'a> LineStack<'a> {
 
     /// Finish the frame for one region.
     fn finish_region(&mut self, ctx: &LayoutContext) {
-        if self.regions.expand.horizontal {
-            self.size.width = self.regions.current.width;
-            self.constraints.exact.horizontal = Some(self.regions.current.width);
+        if self.regions.expand.x {
+            self.size.w = self.regions.current.w;
+            self.constraints.exact.x = Some(self.regions.current.w);
         }
 
         if self.overflowing {
-            self.constraints.min.vertical = None;
-            self.constraints.max.vertical = None;
+            self.constraints.min.y = None;
+            self.constraints.max.y = None;
             self.constraints.exact = self.full.to_spec().map(Some);
         }
 
-        let mut output = Frame::new(self.size, self.size.height);
+        let mut output = Frame::new(self.size, self.size.h);
         let mut offset = Length::zero();
         let mut first = true;
 
         for line in self.lines.drain(..) {
-            let frame = line.build(ctx, self.size.width);
+            let frame = line.build(ctx, self.size.w);
 
             let pos = Point::new(Length::zero(), offset);
             if first {
@@ -376,7 +364,7 @@ impl<'a> LineStack<'a> {
                 first = false;
             }
 
-            offset += frame.size.height + self.line_spacing;
+            offset += frame.size.h + self.line_spacing;
             output.merge_frame(pos, frame);
         }
 
@@ -490,9 +478,9 @@ impl<'a> LineLayout<'a> {
         for item in first.iter().chain(items).chain(&last) {
             let size = item.size();
             let baseline = item.baseline();
-            width += size.width;
+            width += size.w;
             top.set_max(baseline);
-            bottom.set_max(size.height - baseline);
+            bottom.set_max(size.h - baseline);
         }
 
         Self {
@@ -510,8 +498,8 @@ impl<'a> LineLayout<'a> {
 
     /// Build the line's frame.
     fn build(&self, ctx: &LayoutContext, width: Length) -> Frame {
-        let size = Size::new(self.size.width.max(width), self.size.height);
-        let free = size.width - self.size.width;
+        let size = Size::new(self.size.w.max(width), self.size.h);
+        let free = size.w - self.size.w;
 
         let mut output = Frame::new(size, self.baseline);
         let mut offset = Length::zero();
@@ -539,7 +527,7 @@ impl<'a> LineLayout<'a> {
                 self.baseline - frame.baseline,
             );
 
-            offset += frame.size.width;
+            offset += frame.size.w;
             output.push_frame(pos, frame);
         });
 

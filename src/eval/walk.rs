@@ -109,16 +109,16 @@ impl Walk for EnumNode {
 fn walk_item(ctx: &mut EvalContext, label: EcoString, body: Template) {
     ctx.template += Template::from_block(move |state| {
         let label = ParNode {
-            dir: state.dirs.cross,
+            dir: state.dirs.inline,
             line_spacing: state.line_spacing(),
             children: vec![ParChild::Text(
                 label.clone(),
-                state.aligns.cross,
+                state.aligns.inline,
                 Rc::clone(&state.font),
             )],
         };
         StackNode {
-            dirs: Gen::new(state.dirs.main, state.dirs.cross),
+            dirs: Gen::new(state.dirs.block, state.dirs.inline),
             children: vec![
                 StackChild::Any(label.into(), Gen::default()),
                 StackChild::Spacing((state.font.size / 2.0).into()),

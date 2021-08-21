@@ -308,7 +308,7 @@ impl Builder {
 
     /// Push an inline node into the active paragraph.
     fn inline(&mut self, node: impl Into<LayoutNode>) {
-        let align = self.state.aligns.cross;
+        let align = self.state.aligns.inline;
         self.stack.par.push(ParChild::Any(node.into(), align));
     }
 
@@ -323,11 +323,11 @@ impl Builder {
     /// Push spacing into the active paragraph or stack depending on the `axis`.
     fn spacing(&mut self, axis: GenAxis, amount: Linear) {
         match axis {
-            GenAxis::Main => {
+            GenAxis::Block => {
                 self.stack.finish_par(&self.state);
                 self.stack.push_hard(StackChild::Spacing(amount));
             }
-            GenAxis::Cross => {
+            GenAxis::Inline => {
                 self.stack.par.push_hard(ParChild::Spacing(amount));
             }
         }
@@ -351,7 +351,7 @@ impl Builder {
     fn make_text_node(&self, text: impl Into<EcoString>) -> ParChild {
         ParChild::Text(
             text.into(),
-            self.state.aligns.cross,
+            self.state.aligns.inline,
             Rc::clone(&self.state.font),
         )
     }
@@ -441,7 +441,7 @@ impl ParBuilder {
     fn new(state: &State) -> Self {
         Self {
             aligns: state.aligns,
-            dir: state.dirs.cross,
+            dir: state.dirs.inline,
             line_spacing: state.line_spacing(),
             children: vec![],
             last: Last::None,

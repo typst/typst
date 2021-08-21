@@ -23,8 +23,8 @@ impl Layout for ImageNode {
         let mut constraints = Constraints::new(expand);
         constraints.set_base_if_linear(base, Spec::new(self.width, self.height));
 
-        let width = self.width.map(|w| w.resolve(base.width));
-        let height = self.height.map(|w| w.resolve(base.height));
+        let width = self.width.map(|w| w.resolve(base.w));
+        let height = self.height.map(|w| w.resolve(base.h));
 
         let dimensions = ctx.images.get(self.id).buf.dimensions();
         let pixel_width = dimensions.0 as f64;
@@ -38,12 +38,12 @@ impl Layout for ImageNode {
             (None, None) => {
                 constraints.exact = current.to_spec().map(Some);
 
-                let ratio = current.width / current.height;
-                if ratio < pixel_ratio && current.width.is_finite() {
-                    Size::new(current.width, current.width / pixel_ratio)
-                } else if current.height.is_finite() {
+                let ratio = current.w / current.h;
+                if ratio < pixel_ratio && current.w.is_finite() {
+                    Size::new(current.w, current.w / pixel_ratio)
+                } else if current.h.is_finite() {
                     // TODO: Fix issue with line spacing.
-                    Size::new(current.height * pixel_ratio, current.height)
+                    Size::new(current.h * pixel_ratio, current.h)
                 } else {
                     // Totally unbounded region, we have to make up something.
                     Size::new(Length::pt(pixel_width), Length::pt(pixel_height))
@@ -51,7 +51,7 @@ impl Layout for ImageNode {
             }
         };
 
-        let mut frame = Frame::new(size, size.height);
+        let mut frame = Frame::new(size, size.h);
         frame.push(Point::zero(), Element::Image(self.id, size));
         vec![frame.constrain(constraints)]
     }

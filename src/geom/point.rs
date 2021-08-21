@@ -28,8 +28,8 @@ impl Point {
     }
 
     /// Convert to the generic representation.
-    pub fn to_gen(self, main: SpecAxis) -> Gen<Length> {
-        match main {
+    pub fn to_gen(self, block: SpecAxis) -> Gen<Length> {
+        match block {
             SpecAxis::Horizontal => Gen::new(self.y, self.x),
             SpecAxis::Vertical => Gen::new(self.x, self.y),
         }
