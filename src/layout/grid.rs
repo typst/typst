@@ -434,7 +434,8 @@ impl<'a> GridLayouter<'a> {
         // Prepare regions.
         let size = self.to_size(first);
         let mut regions = Regions::one(size, size, Spec::splat(true));
-        regions.backlog = rest.iter().rev().map(|&v| self.to_size(v)).collect();
+        regions.backlog =
+            rest.iter().map(|&v| self.to_size(v)).collect::<Vec<_>>().into_iter();
 
         // Layout the row.
         let mut pos = Gen::zero();

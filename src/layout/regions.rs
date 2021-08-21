@@ -1,17 +1,14 @@
 use crate::geom::{Size, Spec};
 
 /// A sequence of regions to layout into.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Regions {
     /// The remaining size of the current region.
     pub current: Size,
     /// The base size for relative sizing.
     pub base: Size,
-    /// A stack of followup regions.
-    ///
-    /// Note that this is a stack and not a queue! The size of the next region is
-    /// `backlog.last()`.
-    pub backlog: Vec<Size>,
+    /// An iterator of followup regions.
+    pub backlog: std::vec::IntoIter<Size>,
     /// The final region that is repeated once the backlog is drained.
     pub last: Option<Size>,
     /// Whether nodes should expand to fill the regions instead of shrinking to
@@ -28,7 +25,7 @@ impl Regions {
         Self {
             current: size,
             base,
-            backlog: vec![],
+            backlog: vec![].into_iter(),
             last: None,
             expand,
         }
@@ -39,7 +36,7 @@ impl Regions {
         Self {
             current: size,
             base,
-            backlog: vec![],
+            backlog: vec![].into_iter(),
             last: Some(size),
             expand,
         }
@@ -59,7 +56,7 @@ impl Regions {
     ///
     /// If this is true, calling `next()` will have no effect.
     pub fn in_full_last(&self) -> bool {
-        self.backlog.is_empty() && self.last.map_or(true, |size| self.current == size)
+        self.backlog.len() == 0 && self.last.map_or(true, |size| self.current == size)
     }
 
     /// An iterator that returns pairs of `(current, base)` that are equivalent
@@ -67,14 +64,14 @@ impl Regions {
     /// until all regions are exhausted.
     pub fn iter(&self) -> impl Iterator<Item = (Size, Size)> + '_ {
         let first = std::iter::once((self.current, self.base));
-        let backlog = self.backlog.iter().rev();
+        let backlog = self.backlog.as_slice().iter();
         let last = self.last.iter().cycle();
         first.chain(backlog.chain(last).map(|&s| (s, s)))
     }
 
     /// Advance to the next region if there is any.
     pub fn next(&mut self) {
-        if let Some(size) = self.backlog.pop().or(self.last) {
+        if let Some(size) = self.backlog.next().or(self.last) {
             self.current = size;
             self.base = size;
         }
@@ -88,6 +85,6 @@ impl Regions {
         f(&mut self.current);
         f(&mut self.base);
         self.last.as_mut().map(|x| f(x));
-        self.backlog.iter_mut().for_each(f);
+        self.backlog.as_mut_slice().iter_mut().for_each(f);
     }
 }

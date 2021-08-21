@@ -45,8 +45,8 @@ impl<T> Spec<T> {
         }
     }
 
-    /// Compare to whether two instances are equal when compared field-by-field
-    /// with `f`.
+    /// Compares if this instance's field are equal to that of another with
+    /// respect to `eq`.
     pub fn eq_by<U, F>(&self, other: &Spec<U>, eq: F) -> bool
     where
         F: Fn(&T, &U) -> bool,
