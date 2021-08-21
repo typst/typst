@@ -82,6 +82,12 @@ fn missing_key(key: &Str) -> String {
     format!("dictionary does not contain key: {}", key)
 }
 
+impl Debug for Dict {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_map().entries(self.0.iter()).finish()
+    }
+}
+
 impl Display for Dict {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_char('(')?;
@@ -97,12 +103,6 @@ impl Display for Dict {
             }
         }
         f.write_char(')')
-    }
-}
-
-impl Debug for Dict {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_map().entries(self.0.iter()).finish()
     }
 }
 
@@ -124,15 +124,15 @@ impl AddAssign for Dict {
     }
 }
 
-impl FromIterator<(Str, Value)> for Dict {
-    fn from_iter<T: IntoIterator<Item = (Str, Value)>>(iter: T) -> Self {
-        Self(Rc::new(iter.into_iter().collect()))
-    }
-}
-
 impl Extend<(Str, Value)> for Dict {
     fn extend<T: IntoIterator<Item = (Str, Value)>>(&mut self, iter: T) {
         Rc::make_mut(&mut self.0).extend(iter);
+    }
+}
+
+impl FromIterator<(Str, Value)> for Dict {
+    fn from_iter<T: IntoIterator<Item = (Str, Value)>>(iter: T) -> Self {
+        Self(Rc::new(iter.into_iter().collect()))
     }
 }
 

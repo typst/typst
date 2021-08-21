@@ -160,15 +160,15 @@ impl Template {
     }
 }
 
-impl Display for Template {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("<template>")
-    }
-}
-
 impl Debug for Template {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("Template { .. }")
+    }
+}
+
+impl Display for Template {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad("<template>")
     }
 }
 
@@ -465,11 +465,11 @@ impl ParBuilder {
     }
 
     fn push_inner(&mut self, child: ParChild) {
-        if let ParChild::Text(curr_text, curr_props, curr_align) = &child {
-            if let Some(ParChild::Text(prev_text, prev_props, prev_align)) =
+        if let ParChild::Text(curr_text, curr_align, curr_props) = &child {
+            if let Some(ParChild::Text(prev_text, prev_align, prev_props)) =
                 self.children.last_mut()
             {
-                if prev_align == curr_align && prev_props == curr_props {
+                if prev_align == curr_align && Rc::ptr_eq(prev_props, curr_props) {
                     prev_text.push_str(&curr_text);
                     return;
                 }

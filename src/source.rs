@@ -15,8 +15,7 @@ use crate::parse::{is_newline, Scanner};
 use crate::util::PathExt;
 
 /// A unique identifier for a loaded source file.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct SourceId(u32);
 
 impl SourceId {
@@ -252,12 +251,6 @@ impl SourceFile {
     }
 }
 
-impl AsRef<str> for SourceFile {
-    fn as_ref(&self) -> &str {
-        &self.src
-    }
-}
-
 /// The indices at which lines start (right behind newlines).
 ///
 /// The beginning of the string (index 0) is not returned.
@@ -274,6 +267,12 @@ fn newlines(string: &str) -> impl Iterator<Item = usize> + '_ {
         }
         None
     })
+}
+
+impl AsRef<str> for SourceFile {
+    fn as_ref(&self) -> &str {
+        &self.src
+    }
 }
 
 #[cfg(feature = "codespan-reporting")]

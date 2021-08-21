@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::fmt::{self, Debug, Formatter};
 use std::ops::Range;
 
 use rustybuzz::UnicodeBuffer;
@@ -11,12 +10,45 @@ use crate::geom::{Dir, Length, Point, Size};
 use crate::layout::Geometry;
 use crate::util::SliceExt;
 
+/// Shape text into [`ShapedText`].
+pub fn shape<'a>(
+    ctx: &mut LayoutContext,
+    text: &'a str,
+    dir: Dir,
+    state: &'a FontState,
+) -> ShapedText<'a> {
+    let mut glyphs = vec![];
+    if !text.is_empty() {
+        shape_segment(
+            ctx,
+            &mut glyphs,
+            0,
+            text,
+            dir,
+            state.size,
+            state.variant(),
+            state.families(),
+            None,
+        );
+    }
+
+    let (size, baseline) = measure(ctx, &glyphs, state);
+
+    ShapedText {
+        text,
+        dir,
+        state,
+        size,
+        baseline,
+        glyphs: Cow::Owned(glyphs),
+    }
+}
+
 /// The result of shaping text.
 ///
 /// This type contains owned or borrowed shaped text runs, which can be
 /// measured, used to reshape substrings more quickly and converted into a
 /// frame.
-#[derive(Clone)]
 pub struct ShapedText<'a> {
     /// The text that was shaped.
     pub text: &'a str,
@@ -33,7 +65,7 @@ pub struct ShapedText<'a> {
 }
 
 /// A single glyph resulting from shaping.
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct ShapedGlyph {
     /// The font face the glyph is contained in.
     pub face_id: FaceId,
@@ -49,13 +81,6 @@ pub struct ShapedGlyph {
     /// same results as shaping the parts to both sides of `text_index`
     /// separately.
     pub safe_to_break: bool,
-}
-
-/// A visual side.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Side {
-    Left,
-    Right,
 }
 
 impl<'a> ShapedText<'a> {
@@ -174,44 +199,10 @@ impl<'a> ShapedText<'a> {
     }
 }
 
-impl Debug for ShapedText<'_> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Shaped({:?})", self.text)
-    }
-}
-
-/// Shape text into [`ShapedText`].
-pub fn shape<'a>(
-    ctx: &mut LayoutContext,
-    text: &'a str,
-    dir: Dir,
-    state: &'a FontState,
-) -> ShapedText<'a> {
-    let mut glyphs = vec![];
-    if !text.is_empty() {
-        shape_segment(
-            ctx,
-            &mut glyphs,
-            0,
-            text,
-            dir,
-            state.size,
-            state.variant(),
-            state.families(),
-            None,
-        );
-    }
-
-    let (size, baseline) = measure(ctx, &glyphs, state);
-
-    ShapedText {
-        text,
-        dir,
-        state,
-        size,
-        baseline,
-        glyphs: Cow::Owned(glyphs),
-    }
+/// A visual side.
+enum Side {
+    Left,
+    Right,
 }
 
 /// Shape text with font fallback using the `families` iterator.

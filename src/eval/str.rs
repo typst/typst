@@ -6,7 +6,7 @@ use crate::diag::StrResult;
 use crate::util::EcoString;
 
 /// A string value with inline storage and clone-on-write semantics.
-#[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Str(EcoString);
 
 impl Str {
@@ -46,6 +46,20 @@ impl Str {
     }
 }
 
+impl Deref for Str {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        self.0.deref()
+    }
+}
+
+impl Debug for Str {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Debug::fmt(&self.0, f)
+    }
+}
+
 impl Display for Str {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_char('"')?;
@@ -60,20 +74,6 @@ impl Display for Str {
             }
         }
         f.write_char('"')
-    }
-}
-
-impl Debug for Str {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Debug::fmt(&self.0, f)
-    }
-}
-
-impl Deref for Str {
-    type Target = str;
-
-    fn deref(&self) -> &str {
-        self.0.deref()
     }
 }
 

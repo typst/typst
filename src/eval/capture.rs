@@ -5,7 +5,6 @@ use crate::syntax::visit::{immutable::visit_expr, Visit};
 use crate::syntax::{Expr, Ident};
 
 /// A visitor that captures variable slots.
-#[derive(Debug)]
 pub struct CapturesVisitor<'a> {
     external: &'a Scopes<'a>,
     internal: Scopes<'a>,

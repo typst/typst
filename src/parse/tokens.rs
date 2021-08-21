@@ -1,11 +1,8 @@
-use std::fmt::{self, Debug, Formatter};
-
 use super::{is_newline, Scanner};
 use crate::geom::{AngularUnit, LengthUnit};
 use crate::syntax::*;
 
 /// An iterator over the tokens of a string of source code.
-#[derive(Clone)]
 pub struct Tokens<'s> {
     s: Scanner<'s>,
     mode: TokenMode,
@@ -481,12 +478,6 @@ impl<'s> Tokens<'s> {
     }
 }
 
-impl Debug for Tokens<'_> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Tokens({}|{})", self.s.eaten(), self.s.rest())
-    }
-}
-
 fn keyword(ident: &str) -> Option<Token<'static>> {
     Some(match ident {
         "not" => Token::Not,
@@ -512,6 +503,8 @@ fn keyword(ident: &str) -> Option<Token<'static>> {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
+    use std::fmt::Debug;
+
     use super::*;
 
     use Option::None;

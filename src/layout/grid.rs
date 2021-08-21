@@ -1,7 +1,6 @@
 use super::*;
 
 /// A node that arranges its children in a grid.
-#[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub struct GridNode {
     /// The `main` and `cross` directions of this grid.
@@ -256,7 +255,7 @@ impl<'a> GridLayouter<'a> {
             for node in (0 .. self.rows.len()).filter_map(|y| self.cell(x, y)) {
                 let size = Gen::new(available, Length::inf()).to_size(self.main);
                 let regions = Regions::one(size, size, Spec::splat(false));
-                let frame = node.layout(ctx, &regions).remove(0);
+                let frame = node.layout(ctx, &regions).remove(0).item;
                 resolved.set_max(frame.size.get(self.cross));
             }
 
@@ -353,7 +352,7 @@ impl<'a> GridLayouter<'a> {
                 let mut sizes = node
                     .layout(ctx, &self.regions)
                     .into_iter()
-                    .map(|frame| frame.size.get(self.main));
+                    .map(|frame| frame.item.size.get(self.main));
 
                 if let Some(size) = sizes.next() {
                     first.set_max(size);

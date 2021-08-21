@@ -201,7 +201,7 @@ fn list_item(p: &mut Parser) -> SyntaxNode {
     let column = p.column(start);
     p.eat_assert(Token::Hyph);
     let body = tree_indented(p, column);
-    SyntaxNode::List(Box::new(ListItem { span: p.span_from(start), body }))
+    SyntaxNode::List(Box::new(ListNode { span: p.span_from(start), body }))
 }
 
 /// Parse a single enum item.
@@ -210,7 +210,7 @@ fn enum_item(p: &mut Parser, number: Option<usize>) -> SyntaxNode {
     let column = p.column(start);
     p.eat_assert(Token::Numbering(number));
     let body = tree_indented(p, column);
-    SyntaxNode::Enum(Box::new(EnumItem {
+    SyntaxNode::Enum(Box::new(EnumNode {
         span: p.span_from(start),
         number,
         body,

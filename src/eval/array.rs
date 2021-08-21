@@ -137,15 +137,15 @@ impl AddAssign for Array {
     }
 }
 
-impl FromIterator<Value> for Array {
-    fn from_iter<T: IntoIterator<Item = Value>>(iter: T) -> Self {
-        Self(Rc::new(iter.into_iter().collect()))
-    }
-}
-
 impl Extend<Value> for Array {
     fn extend<T: IntoIterator<Item = Value>>(&mut self, iter: T) {
         Rc::make_mut(&mut self.0).extend(iter);
+    }
+}
+
+impl FromIterator<Value> for Array {
+    fn from_iter<T: IntoIterator<Item = Value>>(iter: T) -> Self {
+        Self(Rc::new(iter.into_iter().collect()))
     }
 }
 

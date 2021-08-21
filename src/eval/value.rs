@@ -144,6 +144,12 @@ impl From<usize> for Value {
     }
 }
 
+impl From<RgbaColor> for Value {
+    fn from(v: RgbaColor) -> Self {
+        Self::Color(Color::Rgba(v))
+    }
+}
+
 impl From<&str> for Value {
     fn from(v: &str) -> Self {
         Self::Str(v.into())
@@ -162,12 +168,6 @@ impl From<EcoString> for Value {
     }
 }
 
-impl From<RgbaColor> for Value {
-    fn from(v: RgbaColor) -> Self {
-        Self::Color(Color::Rgba(v))
-    }
-}
-
 impl From<Dynamic> for Value {
     fn from(v: Dynamic) -> Self {
         Self::Dyn(v)
@@ -181,7 +181,7 @@ impl Dynamic {
     /// Create a new instance from any value that satisifies the required bounds.
     pub fn new<T>(any: T) -> Self
     where
-        T: Type + Debug + Display + Clone + PartialEq + 'static,
+        T: Type + Debug + Display + PartialEq + 'static,
     {
         Self(Rc::new(any))
     }
@@ -202,15 +202,15 @@ impl Dynamic {
     }
 }
 
-impl Display for Dynamic {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
-
 impl Debug for Dynamic {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Debug::fmt(&self.0, f)
+    }
+}
+
+impl Display for Dynamic {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(&self.0, f)
     }
 }
 
@@ -228,7 +228,7 @@ trait Bounds: Debug + Display + 'static {
 
 impl<T> Bounds for T
 where
-    T: Type + Debug + Display + Clone + PartialEq + 'static,
+    T: Type + Debug + Display + PartialEq + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -309,12 +309,6 @@ macro_rules! primitive {
             const TYPE_NAME: &'static str = $name;
         }
 
-        impl From<$type> for Value {
-            fn from(v: $type) -> Self {
-                Value::$variant(v)
-            }
-        }
-
         impl Cast<Value> for $type {
             fn is(value: &Value) -> bool {
                 matches!(value, Value::$variant(_) $(| Value::$other(_))*)
@@ -332,6 +326,12 @@ macro_rules! primitive {
                 }
             }
         }
+
+        impl From<$type> for Value {
+            fn from(v: $type) -> Self {
+                Value::$variant(v)
+            }
+        }
     };
 }
 
@@ -342,16 +342,16 @@ macro_rules! dynamic {
             const TYPE_NAME: &'static str = $name;
         }
 
-        impl From<$type> for $crate::eval::Value {
-            fn from(v: $type) -> Self {
-                $crate::eval::Value::Dyn($crate::eval::Dynamic::new(v))
-            }
-        }
-
         castable! {
             $type: <Self as $crate::eval::Type>::TYPE_NAME,
             $($tts)*
             @this: Self => this.clone(),
+        }
+
+        impl From<$type> for $crate::eval::Value {
+            fn from(v: $type) -> Self {
+                $crate::eval::Value::Dyn($crate::eval::Dynamic::new(v))
+            }
         }
     };
 }

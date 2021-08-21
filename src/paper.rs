@@ -3,7 +3,7 @@
 use crate::geom::{Length, Linear, Relative, Sides, Size};
 
 /// Specification of a paper.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone)]
 pub struct Paper {
     /// The broad class this paper belongs to.
     class: PaperClass,

@@ -1,4 +1,3 @@
-use std::fmt::{self, Debug, Formatter};
 use std::ops::Range;
 
 use super::{TokenMode, Tokens};
@@ -28,7 +27,6 @@ pub struct Parser<'s> {
 }
 
 /// A logical group of tokens, e.g. `[...]`.
-#[derive(Debug, Copy, Clone)]
 struct GroupEntry {
     /// The start index of the group. Used by `Parser::end_group` to return the
     /// group's full span.
@@ -389,13 +387,5 @@ impl<'s> Parser<'s> {
     /// Whether we are inside the given group.
     fn inside(&self, kind: Group) -> bool {
         self.groups.iter().any(|g| g.kind == kind)
-    }
-}
-
-impl Debug for Parser<'_> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let mut s = self.tokens.scanner();
-        s.jump(self.next_start());
-        write!(f, "Parser({}|{})", s.eaten(), s.rest())
     }
 }

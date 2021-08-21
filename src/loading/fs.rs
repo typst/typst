@@ -13,7 +13,7 @@ use crate::font::FaceInfo;
 /// Loads fonts and files from the local file system.
 ///
 /// _This is only available when the `fs` feature is enabled._
-#[derive(Debug, Default, Clone)]
+#[derive(Default)]
 pub struct FsLoader {
     faces: Vec<FaceInfo>,
 }

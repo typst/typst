@@ -11,15 +11,12 @@ pub use mem::*;
 use std::io;
 use std::path::Path;
 
-use serde::{Deserialize, Serialize};
-
 use crate::font::FaceInfo;
 
 /// A hash that identifies a file.
 ///
 /// Such a hash can be [resolved](Loader::resolve) from a path.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct FileHash(pub u64);
 
 /// Loads resources from a local or remote source.

@@ -1,4 +1,3 @@
-use std::fmt::{self, Debug, Formatter};
 use std::rc::Rc;
 
 use unicode_bidi::{BidiInfo, Level};
@@ -11,7 +10,6 @@ use crate::util::{EcoString, RangeExt, SliceExt};
 type Range = std::ops::Range<usize>;
 
 /// A node that arranges its children into a paragraph.
-#[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub struct ParNode {
     /// The inline direction of this paragraph.
@@ -23,7 +21,6 @@ pub struct ParNode {
 }
 
 /// A child of a paragraph node.
-#[derive(Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub enum ParChild {
     /// Spacing between other nodes.
@@ -91,18 +88,6 @@ impl ParNode {
 impl From<ParNode> for LayoutNode {
     fn from(par: ParNode) -> Self {
         Self::new(par)
-    }
-}
-
-impl Debug for ParChild {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Spacing(amount) => write!(f, "Spacing({:?})", amount),
-            Self::Text(text, align, _) => write!(f, "Text({:?}, {:?})", text, align),
-            Self::Any(any, align) => {
-                f.debug_tuple("Any").field(any).field(align).finish()
-            }
-        }
     }
 }
 

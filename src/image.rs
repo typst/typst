@@ -13,8 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::loading::{FileHash, Loader};
 
 /// A unique identifier for a loaded image.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct ImageId(u32);
 
 impl ImageId {

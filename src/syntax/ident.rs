@@ -12,7 +12,7 @@ use crate::util::EcoString;
 /// - `_` and `-` as continuing characters.
 ///
 /// [uax31]: http://www.unicode.org/reports/tr31/
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Ident {
     /// The source code location.
     pub span: Span,

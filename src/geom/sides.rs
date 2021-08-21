@@ -33,6 +33,14 @@ impl<T> Sides<T> {
     }
 }
 
+impl Sides<Length> {
+    /// A size with `left` and `right` summed into `width`, and `top` and
+    /// `bottom` summed into `height`.
+    pub fn size(self) -> Size {
+        Size::new(self.left + self.right, self.top + self.bottom)
+    }
+}
+
 impl Sides<Linear> {
     /// Resolve the linear sides relative to the given `size`.
     pub fn resolve(self, size: Size) -> Sides<Length> {
@@ -42,14 +50,6 @@ impl Sides<Linear> {
             right: self.right.resolve(size.width),
             bottom: self.bottom.resolve(size.height),
         }
-    }
-}
-
-impl Sides<Length> {
-    /// A size with `left` and `right` summed into `width`, and `top` and
-    /// `bottom` summed into `height`.
-    pub fn size(self) -> Size {
-        Size::new(self.left + self.right, self.top + self.bottom)
     }
 }
 

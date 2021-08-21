@@ -9,7 +9,7 @@ use crate::font::FaceInfo;
 use crate::util::PathExt;
 
 /// Loads fonts and files from an in-memory storage.
-#[derive(Debug, Default, Clone)]
+#[derive(Default)]
 pub struct MemLoader {
     faces: Vec<FaceInfo>,
     files: HashMap<PathBuf, Cow<'static, [u8]>>,

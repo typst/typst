@@ -126,6 +126,13 @@ impl Length {
     }
 }
 
+impl Debug for Length {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let unit = LengthUnit::Pt;
+        write!(f, "{}{}", self.to_unit(unit), unit)
+    }
+}
+
 impl Display for Length {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use LengthUnit::*;
@@ -138,13 +145,6 @@ impl Display for Length {
             .min_by_key(|&unit| self.to_unit(unit).to_string().len())
             .unwrap();
 
-        write!(f, "{}{}", self.to_unit(unit), unit)
-    }
-}
-
-impl Debug for Length {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let unit = LengthUnit::Pt;
         write!(f, "{}{}", self.to_unit(unit), unit)
     }
 }
@@ -217,7 +217,7 @@ impl<'a> Sum<&'a Length> for Length {
 }
 
 /// Different units of length measurement.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum LengthUnit {
     /// Points.
     Pt,

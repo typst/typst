@@ -104,12 +104,12 @@ impl_visitors! {
         v.visit_tree(r!(heading.body));
     }
 
-    visit_list(v, item: ListItem) {
-        v.visit_tree(r!(item.body));
+    visit_list(v, list: ListNode) {
+        v.visit_tree(r!(list.body));
     }
 
-    visit_enum(v, item: EnumItem) {
-        v.visit_tree(r!(item.body));
+    visit_enum(v, enum_: EnumNode) {
+        v.visit_tree(r!(enum_.body));
     }
 
     visit_expr(v, expr: Expr) {

@@ -3,7 +3,6 @@ use decorum::N64;
 use super::*;
 
 /// A node that can fix its child's width and height.
-#[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub struct FixedNode {
     /// The fixed width, if any.
@@ -78,7 +77,7 @@ impl Layout for FixedNode {
         // relayout with expansion.
         if let Some(aspect) = aspect {
             if width.is_none() && height.is_none() {
-                let needed = frames[0].size.cap(size);
+                let needed = frames[0].item.size.cap(size);
                 let width = needed.width.max(aspect * needed.height);
                 regions.current = Size::new(width, width / aspect);
                 regions.expand = Spec::splat(true);

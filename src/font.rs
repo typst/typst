@@ -14,8 +14,7 @@ use crate::geom::Length;
 use crate::loading::{FileHash, Loader};
 
 /// A unique identifier for a loaded font face.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct FaceId(u32);
 
 impl FaceId {
@@ -271,7 +270,7 @@ impl Face {
 /// A length in em units.
 ///
 /// `1em` is the same as the font size.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, PartialOrd)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Em(N64);
 
 impl Em {
@@ -343,11 +342,15 @@ impl Display for VerticalFontMetric {
 }
 
 /// A generic or named font family.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum FontFamily {
+    /// A family that has "serifs", small strokes attached to letters.
     Serif,
+    /// A family in which glyphs do not have "serifs", small attached strokes.
     SansSerif,
+    /// A family in which (almost) all glyphs are of equal width.
     Monospace,
+    /// A specific family with a name.
     Named(String),
 }
 
@@ -575,15 +578,6 @@ impl Default for FontWeight {
     }
 }
 
-impl Display for FontWeight {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self.to_str() {
-            Some(name) => f.pad(name),
-            None => write!(f, "{}", self.0),
-        }
-    }
-}
-
 impl Debug for FontWeight {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.pad(match *self {
@@ -598,6 +592,15 @@ impl Debug for FontWeight {
             Self::BLACK => "Black",
             _ => return write!(f, "{}", self.0),
         })
+    }
+}
+
+impl Display for FontWeight {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self.to_str() {
+            Some(name) => f.pad(name),
+            None => write!(f, "{}", self.0),
+        }
     }
 }
 
@@ -707,15 +710,6 @@ impl Default for FontStretch {
     }
 }
 
-impl Display for FontStretch {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self.to_str() {
-            Some(name) => f.pad(name),
-            None => write!(f, "{}", self.to_ratio()),
-        }
-    }
-}
-
 impl Debug for FontStretch {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match *self {
@@ -730,6 +724,15 @@ impl Debug for FontStretch {
             s if s == Self::ULTRA_EXPANDED => "UltraExpanded",
             _ => return write!(f, "{}", self.0),
         })
+    }
+}
+
+impl Display for FontStretch {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self.to_str() {
+            Some(name) => f.pad(name),
+            None => write!(f, "{}", self.to_ratio()),
+        }
     }
 }
 

@@ -63,7 +63,7 @@ impl Default for State {
 }
 
 /// Defines page properties.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct PageState {
     /// The class of this page.
     pub class: PaperClass,
@@ -220,7 +220,7 @@ impl Default for FontState {
 }
 
 /// Font family definitions.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FamilyState {
     /// The user-defined list of font families.
     pub list: Rc<Vec<FontFamily>>,
@@ -250,7 +250,7 @@ impl Default for FamilyState {
 }
 
 /// Defines a line that is positioned over, under or on top of text.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct LineState {
     /// Stroke color of the line, defaults to the text color if `None`.
     pub stroke: Option<Paint>,

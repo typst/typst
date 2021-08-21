@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use super::*;
 
 /// Carries an item that is only valid in certain regions and the constraints
@@ -10,14 +8,6 @@ pub struct Constrained<T> {
     pub item: T,
     /// Constraints on regions in which the item is valid.
     pub constraints: Constraints,
-}
-
-impl<T> Deref for Constrained<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.item
-    }
 }
 
 /// Describe regions that match them.

@@ -22,7 +22,7 @@ pub type TypResult<T> = Result<T, Box<Vec<Error>>>;
 pub type StrResult<T> = Result<T, String>;
 
 /// An error in a source file.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Error {
     /// The erroneous location in the source code.
     pub span: Span,

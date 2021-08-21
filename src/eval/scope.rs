@@ -12,7 +12,7 @@ use crate::util::EcoString;
 pub type Slot = Rc<RefCell<Value>>;
 
 /// A stack of scopes.
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone)]
 pub struct Scopes<'a> {
     /// The active scope.
     pub top: Scope,
@@ -65,7 +65,7 @@ impl<'a> Scopes<'a> {
 }
 
 /// A map from variable names to variable slots.
-#[derive(Default, Clone, PartialEq)]
+#[derive(Default, Clone)]
 pub struct Scope {
     /// The mapping from names to slots.
     values: HashMap<EcoString, Slot>,

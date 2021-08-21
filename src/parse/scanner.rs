@@ -1,4 +1,3 @@
-use std::fmt::{self, Debug, Formatter};
 use std::slice::SliceIndex;
 
 /// A featureful char-based scanner.
@@ -150,12 +149,6 @@ impl<'s> Scanner<'s> {
         // because then the whole call to `eaten_from` is pure and can be
         // optimized away in some cases.
         self.src.get(start .. self.index).unwrap_or_default()
-    }
-}
-
-impl Debug for Scanner<'_> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Scanner({}|{})", self.eaten(), self.rest())
     }
 }
 

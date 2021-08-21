@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Range};
 
@@ -6,8 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::source::SourceId;
 
 /// A value with the span it corresponds to in the source code.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[derive(Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Spanned<T> {
     /// The spanned value.
     pub v: T,
@@ -48,8 +48,7 @@ impl<T: Debug> Debug for Spanned<T> {
 }
 
 /// Bounds of a slice of source code.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[derive(Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Span {
     /// The id of the source file.
     pub source: SourceId,
@@ -127,9 +126,18 @@ impl Debug for Span {
     }
 }
 
+impl PartialOrd for Span {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self.source == other.source {
+            Some(self.start.cmp(&other.start).then(self.end.cmp(&other.end)))
+        } else {
+            None
+        }
+    }
+}
+
 /// A byte position in source code.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[derive(Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Pos(pub u32);
 
 impl Pos {
@@ -148,17 +156,6 @@ impl Debug for Pos {
     }
 }
 
-impl<T> Add<T> for Pos
-where
-    T: Into<Pos>,
-{
-    type Output = Self;
-
-    fn add(self, rhs: T) -> Self {
-        Pos(self.0 + rhs.into().0)
-    }
-}
-
 impl From<u32> for Pos {
     fn from(index: u32) -> Self {
         Self(index)
@@ -168,6 +165,17 @@ impl From<u32> for Pos {
 impl From<usize> for Pos {
     fn from(index: usize) -> Self {
         Self(index as u32)
+    }
+}
+
+impl<T> Add<T> for Pos
+where
+    T: Into<Pos>,
+{
+    type Output = Self;
+
+    fn add(self, rhs: T) -> Self {
+        Pos(self.0 + rhs.into().0)
     }
 }
 

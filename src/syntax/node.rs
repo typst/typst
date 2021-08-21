@@ -20,9 +20,9 @@ pub enum SyntaxNode {
     /// A section heading: `= Introduction`.
     Heading(Box<HeadingNode>),
     /// An item in an unordered list: `- ...`.
-    List(Box<ListItem>),
+    List(Box<ListNode>),
     /// An item in an enumeration (ordered list): `1. ...`.
-    Enum(Box<EnumItem>),
+    Enum(Box<EnumNode>),
     /// An expression.
     Expr(Expr),
 }
@@ -55,7 +55,7 @@ pub struct HeadingNode {
 
 /// An item in an unordered list: `- ...`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ListItem {
+pub struct ListNode {
     /// The source code location.
     pub span: Span,
     /// The contents of the list item.
@@ -64,7 +64,7 @@ pub struct ListItem {
 
 /// An item in an enumeration (ordered list): `1. ...`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct EnumItem {
+pub struct EnumNode {
     /// The source code location.
     pub span: Span,
     /// The number, if any.

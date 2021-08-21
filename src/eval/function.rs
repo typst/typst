@@ -38,6 +38,12 @@ impl Function {
     }
 }
 
+impl Debug for Function {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("Function").field("name", &self.0.name).finish()
+    }
+}
+
 impl Display for Function {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("<function")?;
@@ -46,12 +52,6 @@ impl Display for Function {
             f.write_str(name)?;
         }
         f.write_char('>')
-    }
-}
-
-impl Debug for Function {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("Function").field("name", &self.0.name).finish()
     }
 }
 

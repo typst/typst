@@ -248,8 +248,9 @@ fn test_part(
         error.trace.clear();
     }
 
-    ref_errors.sort();
-    errors.sort();
+    // The comparison never fails since all spans are from the same source file.
+    ref_errors.sort_by(|a, b| a.span.partial_cmp(&b.span).unwrap());
+    errors.sort_by(|a, b| a.span.partial_cmp(&b.span).unwrap());
 
     if errors != ref_errors {
         println!("  Subtest {} does not match expected errors. ❌", i);
