@@ -1,5 +1,4 @@
 use std::rc::Rc;
-use std::vec;
 
 use unicode_bidi::{BidiInfo, Level};
 use xi_unicode::LineBreakIterator;
@@ -19,8 +18,6 @@ pub struct ParNode {
     pub line_spacing: Length,
     /// The nodes to be arranged in a paragraph.
     pub children: Vec<ParChild>,
-    /// Decorations to apply to the paragraph.
-    pub decorations: Vec<(usize, Decoration)>,
 }
 
 /// A child of a paragraph node.
@@ -29,9 +26,9 @@ pub enum ParChild {
     /// Spacing between other nodes.
     Spacing(Linear),
     /// A run of text and how to align it in its line.
-    Text(EcoString, Align, Rc<FontState>),
+    Text(EcoString, Align, Rc<FontState>, Vec<Decoration>),
     /// Any child node and how to align it in its line.
-    Any(LayoutNode, Align),
+    Any(LayoutNode, Align, Vec<Decoration>),
 }
 
 impl Layout for ParNode {
@@ -51,7 +48,7 @@ impl Layout for ParNode {
         let layouter = ParLayouter::new(self, ctx, regions, bidi);
 
         // Find suitable linebreaks.
-        layouter.layout(ctx, regions.clone())
+        layouter.layout(ctx, &self.children, regions.clone())
     }
 }
 
@@ -82,8 +79,8 @@ impl ParNode {
     fn strings(&self) -> impl Iterator<Item = &str> {
         self.children.iter().map(|child| match child {
             ParChild::Spacing(_) => " ",
-            ParChild::Text(ref piece, _, _) => piece,
-            ParChild::Any(_, _) => "\u{FFFC}",
+            ParChild::Text(ref piece, ..) => piece,
+            ParChild::Any(..) => "\u{FFFC}",
         })
     }
 }
@@ -107,8 +104,6 @@ struct ParLayouter<'a> {
     items: Vec<ParItem<'a>>,
     /// The ranges of the items in `bidi.text`.
     ranges: Vec<Range>,
-    /// Decorations to apply to the paragraph.
-    decorations: &'a [(usize, Decoration)],
 }
 
 impl<'a> ParLayouter<'a> {
@@ -131,7 +126,7 @@ impl<'a> ParLayouter<'a> {
                     items.push(ParItem::Spacing(resolved));
                     ranges.push(range);
                 }
-                ParChild::Text(_, align, ref state) => {
+                ParChild::Text(_, align, ref state, _) => {
                     // TODO: Also split by language and script.
                     for (subrange, dir) in split_runs(&bidi, range) {
                         let text = &bidi.text[subrange.clone()];
@@ -140,7 +135,7 @@ impl<'a> ParLayouter<'a> {
                         ranges.push(subrange);
                     }
                 }
-                ParChild::Any(ref node, align) => {
+                ParChild::Any(ref node, align, _) => {
                     let frame = node.layout(ctx, regions).remove(0);
                     items.push(ParItem::Frame(frame.item, align, i));
                     ranges.push(range);
@@ -154,7 +149,6 @@ impl<'a> ParLayouter<'a> {
             bidi,
             items,
             ranges,
-            decorations: &par.decorations,
         }
     }
 
@@ -162,9 +156,10 @@ impl<'a> ParLayouter<'a> {
     fn layout(
         self,
         ctx: &mut LayoutContext,
+        children: &[ParChild],
         regions: Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        let mut stack = LineStack::new(self.line_spacing, regions, self.decorations);
+        let mut stack = LineStack::new(self.line_spacing, children, regions);
 
         // The current line attempt.
         // Invariant: Always fits into `stack.regions.current`.
@@ -289,8 +284,8 @@ impl ParItem<'_> {
     pub fn size(&self) -> Size {
         match self {
             Self::Spacing(amount) => Size::new(*amount, Length::zero()),
-            Self::Text(shaped, _, _) => shaped.size,
-            Self::Frame(frame, _, _) => frame.size,
+            Self::Text(shaped, ..) => shaped.size,
+            Self::Frame(frame, ..) => frame.size,
         }
     }
 
@@ -298,17 +293,17 @@ impl ParItem<'_> {
     pub fn baseline(&self) -> Length {
         match self {
             Self::Spacing(_) => Length::zero(),
-            Self::Text(shaped, _, _) => shaped.baseline,
-            Self::Frame(frame, _, _) => frame.baseline,
+            Self::Text(shaped, ..) => shaped.baseline,
+            Self::Frame(frame, ..) => frame.baseline,
         }
     }
 
     /// The index of the `ParChild` that this item belongs to.
     pub fn index(&self) -> Option<usize> {
-        match self {
+        match *self {
             Self::Spacing(_) => None,
-            Self::Text(_, _, index) => Some(*index),
-            Self::Frame(_, _, index) => Some(*index),
+            Self::Text(.., index) => Some(index),
+            Self::Frame(.., index) => Some(index),
         }
     }
 }
@@ -316,11 +311,11 @@ impl ParItem<'_> {
 /// Stacks lines on top of each other.
 struct LineStack<'a> {
     line_spacing: Length,
+    children: &'a [ParChild],
     full: Size,
     regions: Regions,
     size: Size,
     lines: Vec<LineLayout<'a>>,
-    decorations: &'a [(usize, Decoration)],
     finished: Vec<Constrained<Rc<Frame>>>,
     constraints: Constraints,
     overflowing: bool,
@@ -328,19 +323,15 @@ struct LineStack<'a> {
 
 impl<'a> LineStack<'a> {
     /// Create an empty line stack.
-    fn new(
-        line_spacing: Length,
-        regions: Regions,
-        decorations: &'a [(usize, Decoration)],
-    ) -> Self {
+    fn new(line_spacing: Length, children: &'a [ParChild], regions: Regions) -> Self {
         Self {
             line_spacing,
+            children,
             full: regions.current,
             constraints: Constraints::new(regions.expand),
             regions,
             size: Size::zero(),
             lines: vec![],
-            decorations,
             finished: vec![],
             overflowing: false,
         }
@@ -376,7 +367,7 @@ impl<'a> LineStack<'a> {
         let mut offset = Length::zero();
         let mut first = true;
 
-        for mut line in self.lines.drain(..) {
+        for line in self.lines.drain(..) {
             let frame = line.build(ctx, self.size.w);
 
             let pos = Point::new(Length::zero(), offset);
@@ -389,30 +380,24 @@ impl<'a> LineStack<'a> {
             output.merge_frame(pos, frame);
         }
 
-        let mut deco_elems = vec![];
-
         // For each frame, we look if any decorations apply.
-        for (point, child) in output.children.iter() {
-            if let FrameChild::Frame(Some(frame_idx), frame) = child {
-                for (deco_idx, deco) in self.decorations {
-                    if frame_idx == deco_idx {
-                        match deco {
-                            Decoration::Link(href) => {
-                                deco_elems.push((
-                                    *point,
-                                    FrameChild::Element(Element::Link(
-                                        href.to_string(),
-                                        frame.size,
-                                    )),
-                                ));
-                            }
+        for i in 0 .. output.children.len() {
+            let &(point, ref child) = &output.children[i];
+            if let &FrameChild::Frame(Some(frame_idx), ref frame) = child {
+                let size = frame.size;
+                for deco in match &self.children[frame_idx] {
+                    ParChild::Spacing(_) => continue,
+                    ParChild::Text(.., decos) => decos,
+                    ParChild::Any(.., decos) => decos,
+                } {
+                    match deco {
+                        Decoration::Link(href) => {
+                            output.push(point, Element::Link(href.to_string(), size));
                         }
                     }
                 }
             }
         }
-
-        output.children.extend(deco_elems);
 
         self.finished.push(output.constrain(self.constraints));
         self.regions.next();
@@ -543,7 +528,7 @@ impl<'a> LineLayout<'a> {
     }
 
     /// Build the line's frame.
-    fn build(&mut self, ctx: &LayoutContext, width: Length) -> Frame {
+    fn build(&self, ctx: &LayoutContext, width: Length) -> Frame {
         let size = Size::new(self.size.w.max(width), self.size.h);
         let free = size.w - self.size.w;
 

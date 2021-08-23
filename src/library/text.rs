@@ -201,17 +201,14 @@ fn line_impl(
 /// `link`: Set a link.
 pub fn link(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let url = args.expect::<Str>("url")?;
-    let body: Option<Template> = args.eat();
 
-    let mut template = if let Some(body) = body {
-        body
-    } else {
-        let mut t = Template::new();
-        t.text(&url);
-        t
-    };
+    let mut body = args.eat().unwrap_or_else(|| {
+        let mut template = Template::new();
+        template.text(&url);
+        template
+    });
 
-    template.decorate(Decoration::Link(url.into()));
+    body.decorate(Decoration::Link(url.into()));
 
-    Ok(Value::Template(template))
+    Ok(Value::Template(body))
 }

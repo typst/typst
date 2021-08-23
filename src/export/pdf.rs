@@ -8,9 +8,8 @@ use std::rc::Rc;
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Rgba};
 use miniz_oxide::deflate;
 use pdf_writer::{
-    AnnotationType, ActionType,
-    CidFontType, ColorSpace, Content, Filter, FontFlags, Name, PdfWriter, Rect, Ref, Str,
-    SystemInfo, UnicodeCmap,
+    ActionType, AnnotationType, CidFontType, ColorSpace, Content, Filter, FontFlags,
+    Name, PdfWriter, Rect, Ref, Str, SystemInfo, UnicodeCmap,
 };
 use ttf_parser::{name_id, GlyphId};
 
@@ -118,22 +117,21 @@ impl<'a> PdfExporter<'a> {
         for ((page_id, content_id), page) in
             self.refs.pages().zip(self.refs.contents()).zip(self.frames)
         {
+            let w = page.size.w.to_pt() as f32;
+            let h = page.size.h.to_pt() as f32;
+
             let mut page_writer = self.writer.page(page_id);
-            page_writer.parent(self.refs.page_tree)
-                .media_box(Rect::new(
-                    0.0,
-                    0.0,
-                    page.size.w.to_pt() as f32,
-                    page.size.h.to_pt() as f32,
-                ));
+            page_writer
+                .parent(self.refs.page_tree)
+                .media_box(Rect::new(0.0, 0.0, w, h));
 
             let mut annotations = page_writer.annotations();
             for (pos, element) in page.elements() {
                 if let Element::Link(href, size) = element {
-                    let w = size.w.to_pt() as f32;
-                    let h = size.h.to_pt() as f32;
                     let x = pos.x.to_pt() as f32;
                     let y = (page.size.h - pos.y).to_pt() as f32;
+                    let w = size.w.to_pt() as f32;
+                    let h = size.h.to_pt() as f32;
 
                     annotations
                         .push()
