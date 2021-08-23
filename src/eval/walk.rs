@@ -116,6 +116,7 @@ fn walk_item(ctx: &mut EvalContext, label: EcoString, body: Template) {
                 state.aligns.inline,
                 Rc::clone(&state.font),
             )],
+            decorations: vec![],
         };
         StackNode {
             dirs: Gen::new(state.dirs.block, state.dirs.inline),

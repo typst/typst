@@ -35,6 +35,7 @@ pub fn new() -> Scope {
     std.def_func("strike", strike);
     std.def_func("underline", underline);
     std.def_func("overline", overline);
+    std.def_func("link", link);
 
     // Layout.
     std.def_func("page", page);

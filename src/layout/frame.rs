@@ -16,17 +16,17 @@ pub struct Frame {
     /// The baseline of the frame measured from the top.
     pub baseline: Length,
     /// The elements composing this layout.
-    children: Vec<(Point, Child)>,
+    pub children: Vec<(Point, FrameChild)>,
 }
 
 /// A frame can contain two different kinds of children: a leaf element or a
 /// nested frame.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-enum Child {
+pub enum FrameChild {
     /// A leaf node in the frame tree.
     Element(Element),
-    /// An interior node.
-    Frame(Rc<Frame>),
+    /// An interior node with an optional index.
+    Frame(Option<usize>, Rc<Frame>),
 }
 
 impl Frame {
@@ -38,17 +38,22 @@ impl Frame {
 
     /// Add an element at a position in the foreground.
     pub fn push(&mut self, pos: Point, element: Element) {
-        self.children.push((pos, Child::Element(element)));
+        self.children.push((pos, FrameChild::Element(element)));
     }
 
     /// Add an element at a position in the background.
     pub fn prepend(&mut self, pos: Point, element: Element) {
-        self.children.insert(0, (pos, Child::Element(element)))
+        self.children.insert(0, (pos, FrameChild::Element(element)));
     }
 
     /// Add a frame element.
     pub fn push_frame(&mut self, pos: Point, subframe: Rc<Self>) {
-        self.children.push((pos, Child::Frame(subframe)))
+        self.children.push((pos, FrameChild::Frame(None, subframe)))
+    }
+
+    /// Add a frame element with an index of arbitrary use.
+    pub fn push_indexed_frame(&mut self, pos: Point, index: usize, subframe: Rc<Self>) {
+        self.children.push((pos, FrameChild::Frame(Some(index), subframe)));
     }
 
     /// Add all elements of another frame, placing them relative to the given
@@ -85,12 +90,12 @@ impl<'a> Iterator for Elements<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let (cursor, offset, frame) = self.stack.last_mut()?;
         match frame.children.get(*cursor) {
-            Some((pos, Child::Frame(f))) => {
+            Some((pos, FrameChild::Frame(_, f))) => {
                 let new_offset = *offset + *pos;
                 self.stack.push((0, new_offset, f.as_ref()));
                 self.next()
             }
-            Some((pos, Child::Element(e))) => {
+            Some((pos, FrameChild::Element(e))) => {
                 *cursor += 1;
                 Some((*offset + *pos, e))
             }
@@ -115,6 +120,8 @@ pub enum Element {
     Geometry(Geometry, Paint),
     /// A raster image.
     Image(ImageId, Size),
+    /// A link to an external resource.
+    Link(String, Size),
 }
 
 /// A run of shaped text.

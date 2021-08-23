@@ -9,7 +9,7 @@ use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use walkdir::WalkDir;
 
-use typst::color::Color;
+use typst::color::{Color, RgbaColor};
 use typst::diag::Error;
 use typst::eval::{State, Value};
 use typst::geom::{self, Length, PathElement, Point, Sides, Size};
@@ -427,6 +427,11 @@ fn draw(ctx: &Context, frames: &[Rc<Frame>], dpi: f32) -> sk::Pixmap {
                 }
                 Element::Image(id, size) => {
                     draw_image(&mut canvas, ts, ctx, id, size);
+                }
+                Element::Link(_, s) => {
+                    let outline = Geometry::Rect(s);
+                    let paint = Paint::Color(Color::Rgba(RgbaColor::new(40, 54, 99, 40)));
+                    draw_geometry(&mut canvas, ts, &outline, paint);
                 }
             }
         }
