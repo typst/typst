@@ -5,6 +5,7 @@ mod macros;
 mod align;
 mod angle;
 mod dir;
+mod em;
 mod fr;
 mod gen;
 mod length;
@@ -19,6 +20,7 @@ mod spec;
 pub use align::*;
 pub use angle::*;
 pub use dir::*;
+pub use em::*;
 pub use fr::*;
 pub use gen::*;
 pub use length::*;
@@ -34,6 +36,9 @@ use std::f64::consts::PI;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::iter::Sum;
 use std::ops::*;
+
+use decorum::N64;
+use serde::{Deserialize, Serialize};
 
 /// Generic access to a structure's components.
 pub trait Get<Index> {

@@ -2,15 +2,13 @@
 
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt::{self, Debug, Display, Formatter};
-use std::ops::Add;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use decorum::N64;
 use serde::{Deserialize, Serialize};
-use ttf_parser::name_id;
+use ttf_parser::{name_id, GlyphId};
 
-use crate::geom::Length;
+use crate::geom::Em;
 use crate::loading::{FileHash, Loader};
 
 /// A unique identifier for a loaded font face.
@@ -255,6 +253,13 @@ impl Face {
         Em::from_units(units, self.units_per_em)
     }
 
+    /// Look up the horizontal advance width of a glyph.
+    pub fn advance(&self, glyph: u16) -> Option<Em> {
+        self.ttf
+            .glyph_hor_advance(GlyphId(glyph))
+            .map(|units| self.to_em(units))
+    }
+
     /// Look up a vertical metric.
     pub fn vertical_metric(&self, metric: VerticalFontMetric) -> Em {
         match metric {
@@ -264,47 +269,6 @@ impl Face {
             VerticalFontMetric::Baseline => Em::zero(),
             VerticalFontMetric::Descender => self.descender,
         }
-    }
-}
-
-/// A length in em units.
-///
-/// `1em` is the same as the font size.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Em(N64);
-
-impl Em {
-    /// The zero length.
-    pub fn zero() -> Self {
-        Self(N64::from(0.0))
-    }
-
-    /// Create an em length.
-    pub fn new(em: f64) -> Self {
-        Self(N64::from(em))
-    }
-
-    /// Convert units to an em length at the given units per em.
-    pub fn from_units(units: impl Into<f64>, units_per_em: f64) -> Self {
-        Self(N64::from(units.into() / units_per_em))
-    }
-
-    /// The number of em units.
-    pub fn get(self) -> f64 {
-        self.0.into()
-    }
-
-    /// Convert to a length at the given font size.
-    pub fn to_length(self, font_size: Length) -> Length {
-        self.get() * font_size
-    }
-}
-
-impl Add for Em {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        Self(self.0 + other.0)
     }
 }
 

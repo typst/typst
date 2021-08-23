@@ -444,7 +444,7 @@ fn draw_text(canvas: &mut sk::Pixmap, ts: sk::Transform, ctx: &Context, text: &T
     for glyph in &text.glyphs {
         let units_per_em = ttf.units_per_em();
         let s = text.size.to_pt() as f32 / units_per_em as f32;
-        let dx = glyph.x_offset.to_pt() as f32;
+        let dx = glyph.x_offset.to_length(text.size).to_pt() as f32;
         let ts = ts.pre_translate(x + dx, 0.0);
 
         // Try drawing SVG if present.
@@ -481,7 +481,7 @@ fn draw_text(canvas: &mut sk::Pixmap, ts: sk::Transform, ctx: &Context, text: &T
             }
         }
 
-        x += glyph.x_advance.to_pt() as f32;
+        x += glyph.x_advance.to_length(text.size).to_pt() as f32;
     }
 }
 

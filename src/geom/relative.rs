@@ -1,5 +1,3 @@
-use decorum::N64;
-
 use super::*;
 
 /// A relative length.

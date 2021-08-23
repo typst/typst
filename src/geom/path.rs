@@ -1,7 +1,5 @@
 use super::*;
 
-use serde::{Deserialize, Serialize};
-
 /// A bezier path.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]

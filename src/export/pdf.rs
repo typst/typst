@@ -14,8 +14,8 @@ use pdf_writer::{
 use ttf_parser::{name_id, GlyphId};
 
 use crate::color::Color;
-use crate::font::{Em, FaceId, FontStore};
-use crate::geom::{self, Length, Size};
+use crate::font::{FaceId, FontStore};
+use crate::geom::{self, Em, Length, Size};
 use crate::image::{Image, ImageId, ImageStore};
 use crate::layout::{Element, Frame, Geometry, Paint};
 use crate::Context;
@@ -140,7 +140,7 @@ impl<'a> PdfExporter<'a> {
 
         // We only write font switching actions when the used face changes. To
         // do that, we need to remember the active face.
-        let mut face = None;
+        let mut face_id = None;
         let mut size = Length::zero();
         let mut fill: Option<Paint> = None;
 
@@ -159,17 +159,50 @@ impl<'a> PdfExporter<'a> {
 
                     // Then, also check if we need to issue a font switching
                     // action.
-                    if face != Some(shaped.face_id) || shaped.size != size {
-                        face = Some(shaped.face_id);
+                    if face_id != Some(shaped.face_id) || shaped.size != size {
+                        face_id = Some(shaped.face_id);
                         size = shaped.size;
 
                         let name = format!("F{}", self.font_map.map(shaped.face_id));
                         text.font(Name(name.as_bytes()), size.to_pt() as f32);
                     }
 
-                    // TODO: Respect individual glyph offsets.
+                    let face = self.fonts.get(shaped.face_id);
+
+                    // Position the text.
                     text.matrix(1.0, 0.0, 0.0, 1.0, x, y);
-                    text.show(Str(&shaped.encode_glyphs_be()));
+
+                    let mut positioned = text.show_positioned();
+                    let mut adjustment = Em::zero();
+                    let mut encoded = vec![];
+
+                    // Write the glyphs with kerning adjustments.
+                    for glyph in &shaped.glyphs {
+                        adjustment += glyph.x_offset;
+
+                        if !adjustment.is_zero() {
+                            if !encoded.is_empty() {
+                                positioned.show(Str(&encoded));
+                                encoded.clear();
+                            }
+
+                            positioned.adjust(-adjustment.to_pdf());
+                            adjustment = Em::zero();
+                        }
+
+                        encoded.push((glyph.id >> 8) as u8);
+                        encoded.push((glyph.id & 0xff) as u8);
+
+                        if let Some(advance) = face.advance(glyph.id) {
+                            adjustment += glyph.x_advance - advance;
+                        }
+
+                        adjustment -= glyph.x_offset;
+                    }
+
+                    if !encoded.is_empty() {
+                        positioned.show(Str(&encoded));
+                    }
                 }
 
                 Element::Geometry(ref geometry, paint) => {

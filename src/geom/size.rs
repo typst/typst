@@ -1,7 +1,5 @@
 use super::*;
 
-use serde::{Deserialize, Serialize};
-
 /// A size in 2D.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Size {

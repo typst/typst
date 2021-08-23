@@ -1,6 +1,3 @@
-use decorum::N64;
-use serde::{Deserialize, Serialize};
-
 use super::*;
 
 /// An angle.

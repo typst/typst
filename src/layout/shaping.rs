@@ -6,7 +6,7 @@ use rustybuzz::UnicodeBuffer;
 use super::{Element, Frame, Glyph, LayoutContext, Text};
 use crate::eval::{FontState, LineState};
 use crate::font::{Face, FaceId, FontVariant, LineMetrics};
-use crate::geom::{Dir, Length, Point, Size};
+use crate::geom::{Dir, Em, Length, Point, Size};
 use crate::layout::Geometry;
 use crate::util::SliceExt;
 
@@ -72,9 +72,9 @@ pub struct ShapedGlyph {
     /// The glyph's index in the face.
     pub glyph_id: u16,
     /// The advance width of the glyph.
-    pub x_advance: Length,
+    pub x_advance: Em,
     /// The horizontal offset of the glyph.
-    pub x_offset: Length,
+    pub x_offset: Em,
     /// The start index of the glyph in the source text.
     pub text_index: usize,
     /// Whether splitting the shaping result before this glyph would yield the
@@ -106,7 +106,7 @@ impl<'a> ShapedText<'a> {
                     x_advance: glyph.x_advance,
                     x_offset: glyph.x_offset,
                 });
-                width += glyph.x_advance;
+                width += glyph.x_advance.to_length(text.size);
             }
 
             frame.push(pos, Element::Text(text));
@@ -267,8 +267,8 @@ fn shape_segment<'a>(
             glyphs.push(ShapedGlyph {
                 face_id,
                 glyph_id: info.glyph_id as u16,
-                x_advance: face.to_em(pos[i].x_advance).to_length(size),
-                x_offset: face.to_em(pos[i].x_offset).to_length(size),
+                x_advance: face.to_em(pos[i].x_advance),
+                x_offset: face.to_em(pos[i].x_offset),
                 text_index: base + cluster,
                 safe_to_break: !info.unsafe_to_break(),
             });
@@ -342,7 +342,9 @@ fn measure(
     let mut width = Length::zero();
     let mut top = Length::zero();
     let mut bottom = Length::zero();
-    let mut expand_vertical = |face: &Face| {
+
+    // Expand top and bottom by reading the face's vertical metrics.
+    let mut expand = |face: &Face| {
         top.set_max(face.vertical_metric(state.top_edge).to_length(state.size));
         bottom.set_max(-face.vertical_metric(state.bottom_edge).to_length(state.size));
     };
@@ -352,17 +354,17 @@ fn measure(
         // first available font.
         for family in state.families() {
             if let Some(face_id) = ctx.fonts.select(family, state.variant) {
-                expand_vertical(ctx.fonts.get(face_id));
+                expand(ctx.fonts.get(face_id));
                 break;
             }
         }
     } else {
         for (face_id, group) in glyphs.group_by_key(|g| g.face_id) {
             let face = ctx.fonts.get(face_id);
-            expand_vertical(face);
+            expand(face);
 
             for glyph in group {
-                width += glyph.x_advance;
+                width += glyph.x_advance.to_length(state.size);
             }
         }
     }

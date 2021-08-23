@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::{Constrained, Constraints};
 use crate::color::Color;
 use crate::font::FaceId;
-use crate::geom::{Length, Path, Point, Size};
+use crate::geom::{Em, Length, Path, Point, Size};
 use crate::image::ImageId;
 
 /// A finished layout with elements at fixed positions.
@@ -130,27 +130,15 @@ pub struct Text {
     pub glyphs: Vec<Glyph>,
 }
 
-impl Text {
-    /// Encode the glyph ids into a big-endian byte buffer.
-    pub fn encode_glyphs_be(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(2 * self.glyphs.len());
-        for glyph in &self.glyphs {
-            bytes.push((glyph.id >> 8) as u8);
-            bytes.push((glyph.id & 0xff) as u8);
-        }
-        bytes
-    }
-}
-
 /// A glyph in a run of shaped text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Glyph {
     /// The glyph's index in the face.
     pub id: u16,
     /// The advance width of the glyph.
-    pub x_advance: Length,
+    pub x_advance: Em,
     /// The horizontal offset of the glyph.
-    pub x_offset: Length,
+    pub x_offset: Em,
 }
 
 /// A geometric shape.
