@@ -115,6 +115,7 @@ fn walk_item(ctx: &mut EvalContext, label: EcoString, body: Template) {
                 label.clone(),
                 state.aligns.inline,
                 Rc::clone(&state.font),
+                vec![],
             )],
         };
         StackNode {

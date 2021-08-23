@@ -8,8 +8,8 @@ use std::rc::Rc;
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Rgba};
 use miniz_oxide::deflate;
 use pdf_writer::{
-    CidFontType, ColorSpace, Content, Filter, FontFlags, Name, PdfWriter, Rect, Ref, Str,
-    SystemInfo, UnicodeCmap,
+    ActionType, AnnotationType, CidFontType, ColorSpace, Content, Filter, FontFlags,
+    Name, PdfWriter, Rect, Ref, Str, SystemInfo, UnicodeCmap,
 };
 use ttf_parser::{name_id, GlyphId};
 
@@ -59,6 +59,7 @@ impl<'a> PdfExporter<'a> {
                         }
                         image_map.insert(id);
                     }
+                    Element::Link(_, _) => {}
                 }
             }
         }
@@ -116,16 +117,34 @@ impl<'a> PdfExporter<'a> {
         for ((page_id, content_id), page) in
             self.refs.pages().zip(self.refs.contents()).zip(self.frames)
         {
-            self.writer
-                .page(page_id)
+            let w = page.size.w.to_pt() as f32;
+            let h = page.size.h.to_pt() as f32;
+
+            let mut page_writer = self.writer.page(page_id);
+            page_writer
                 .parent(self.refs.page_tree)
-                .media_box(Rect::new(
-                    0.0,
-                    0.0,
-                    page.size.w.to_pt() as f32,
-                    page.size.h.to_pt() as f32,
-                ))
-                .contents(content_id);
+                .media_box(Rect::new(0.0, 0.0, w, h));
+
+            let mut annotations = page_writer.annotations();
+            for (pos, element) in page.elements() {
+                if let Element::Link(href, size) = element {
+                    let x = pos.x.to_pt() as f32;
+                    let y = (page.size.h - pos.y).to_pt() as f32;
+                    let w = size.w.to_pt() as f32;
+                    let h = size.h.to_pt() as f32;
+
+                    annotations
+                        .push()
+                        .subtype(AnnotationType::Link)
+                        .rect(Rect::new(x, y - h, x + w, y))
+                        .action()
+                        .action_type(ActionType::Uri)
+                        .uri(Str(href.as_bytes()));
+                }
+            }
+
+            drop(annotations);
+            page_writer.contents(content_id);
         }
     }
 
@@ -248,6 +267,8 @@ impl<'a> PdfExporter<'a> {
                     content.x_object(Name(name.as_bytes()));
                     content.restore_state();
                 }
+
+                Element::Link(_, _) => {}
             }
         }
 

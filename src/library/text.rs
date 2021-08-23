@@ -1,4 +1,4 @@
-use crate::eval::{FontState, LineState};
+use crate::eval::{Decoration, FontState, LineState};
 use crate::layout::Paint;
 
 use super::*;
@@ -196,4 +196,19 @@ fn line_impl(
     template.restore();
 
     Ok(Value::Template(template))
+}
+
+/// `link`: Set a link.
+pub fn link(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    let url = args.expect::<Str>("url")?;
+
+    let mut body = args.eat().unwrap_or_else(|| {
+        let mut template = Template::new();
+        template.text(&url);
+        template
+    });
+
+    body.decorate(Decoration::Link(url.into()));
+
+    Ok(Value::Template(body))
 }

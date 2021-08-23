@@ -4,7 +4,7 @@ use unicode_bidi::{BidiInfo, Level};
 use xi_unicode::LineBreakIterator;
 
 use super::*;
-use crate::eval::FontState;
+use crate::eval::{Decoration, FontState};
 use crate::util::{EcoString, RangeExt, SliceExt};
 
 type Range = std::ops::Range<usize>;
@@ -26,9 +26,9 @@ pub enum ParChild {
     /// Spacing between other nodes.
     Spacing(Linear),
     /// A run of text and how to align it in its line.
-    Text(EcoString, Align, Rc<FontState>),
+    Text(EcoString, Align, Rc<FontState>, Vec<Decoration>),
     /// Any child node and how to align it in its line.
-    Any(LayoutNode, Align),
+    Any(LayoutNode, Align, Vec<Decoration>),
 }
 
 impl Layout for ParNode {
@@ -48,7 +48,7 @@ impl Layout for ParNode {
         let layouter = ParLayouter::new(self, ctx, regions, bidi);
 
         // Find suitable linebreaks.
-        layouter.layout(ctx, regions.clone())
+        layouter.layout(ctx, &self.children, regions.clone())
     }
 }
 
@@ -79,8 +79,8 @@ impl ParNode {
     fn strings(&self) -> impl Iterator<Item = &str> {
         self.children.iter().map(|child| match child {
             ParChild::Spacing(_) => " ",
-            ParChild::Text(ref piece, _, _) => piece,
-            ParChild::Any(_, _) => "\u{FFFC}",
+            ParChild::Text(ref piece, ..) => piece,
+            ParChild::Any(..) => "\u{FFFC}",
         })
     }
 }
@@ -119,25 +119,25 @@ impl<'a> ParLayouter<'a> {
         let mut ranges = vec![];
 
         // Layout the children and collect them into items.
-        for (range, child) in par.ranges().zip(&par.children) {
+        for (i, (range, child)) in par.ranges().zip(&par.children).enumerate() {
             match *child {
                 ParChild::Spacing(amount) => {
                     let resolved = amount.resolve(regions.current.w);
                     items.push(ParItem::Spacing(resolved));
                     ranges.push(range);
                 }
-                ParChild::Text(_, align, ref state) => {
+                ParChild::Text(_, align, ref state, _) => {
                     // TODO: Also split by language and script.
                     for (subrange, dir) in split_runs(&bidi, range) {
                         let text = &bidi.text[subrange.clone()];
                         let shaped = shape(ctx, text, dir, state);
-                        items.push(ParItem::Text(shaped, align));
+                        items.push(ParItem::Text(shaped, align, i));
                         ranges.push(subrange);
                     }
                 }
-                ParChild::Any(ref node, align) => {
+                ParChild::Any(ref node, align, _) => {
                     let frame = node.layout(ctx, regions).remove(0);
-                    items.push(ParItem::Frame(frame.item, align));
+                    items.push(ParItem::Frame(frame.item, align, i));
                     ranges.push(range);
                 }
             }
@@ -156,9 +156,10 @@ impl<'a> ParLayouter<'a> {
     fn layout(
         self,
         ctx: &mut LayoutContext,
+        children: &[ParChild],
         regions: Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        let mut stack = LineStack::new(self.line_spacing, regions);
+        let mut stack = LineStack::new(self.line_spacing, children, regions);
 
         // The current line attempt.
         // Invariant: Always fits into `stack.regions.current`.
@@ -273,9 +274,9 @@ enum ParItem<'a> {
     /// Spacing between other items.
     Spacing(Length),
     /// A shaped text run with consistent direction.
-    Text(ShapedText<'a>, Align),
+    Text(ShapedText<'a>, Align, usize),
     /// A layouted child node.
-    Frame(Rc<Frame>, Align),
+    Frame(Rc<Frame>, Align, usize),
 }
 
 impl ParItem<'_> {
@@ -283,8 +284,8 @@ impl ParItem<'_> {
     pub fn size(&self) -> Size {
         match self {
             Self::Spacing(amount) => Size::new(*amount, Length::zero()),
-            Self::Text(shaped, _) => shaped.size,
-            Self::Frame(frame, _) => frame.size,
+            Self::Text(shaped, ..) => shaped.size,
+            Self::Frame(frame, ..) => frame.size,
         }
     }
 
@@ -292,8 +293,17 @@ impl ParItem<'_> {
     pub fn baseline(&self) -> Length {
         match self {
             Self::Spacing(_) => Length::zero(),
-            Self::Text(shaped, _) => shaped.baseline,
-            Self::Frame(frame, _) => frame.baseline,
+            Self::Text(shaped, ..) => shaped.baseline,
+            Self::Frame(frame, ..) => frame.baseline,
+        }
+    }
+
+    /// The index of the `ParChild` that this item belongs to.
+    pub fn index(&self) -> Option<usize> {
+        match *self {
+            Self::Spacing(_) => None,
+            Self::Text(.., index) => Some(index),
+            Self::Frame(.., index) => Some(index),
         }
     }
 }
@@ -301,6 +311,7 @@ impl ParItem<'_> {
 /// Stacks lines on top of each other.
 struct LineStack<'a> {
     line_spacing: Length,
+    children: &'a [ParChild],
     full: Size,
     regions: Regions,
     size: Size,
@@ -312,11 +323,12 @@ struct LineStack<'a> {
 
 impl<'a> LineStack<'a> {
     /// Create an empty line stack.
-    fn new(line_spacing: Length, regions: Regions) -> Self {
+    fn new(line_spacing: Length, children: &'a [ParChild], regions: Regions) -> Self {
         Self {
             line_spacing,
-            constraints: Constraints::new(regions.expand),
+            children,
             full: regions.current,
+            constraints: Constraints::new(regions.expand),
             regions,
             size: Size::zero(),
             lines: vec![],
@@ -366,6 +378,25 @@ impl<'a> LineStack<'a> {
 
             offset += frame.size.h + self.line_spacing;
             output.merge_frame(pos, frame);
+        }
+
+        // For each frame, we look if any decorations apply.
+        for i in 0 .. output.children.len() {
+            let &(point, ref child) = &output.children[i];
+            if let &FrameChild::Frame(Some(frame_idx), ref frame) = child {
+                let size = frame.size;
+                for deco in match &self.children[frame_idx] {
+                    ParChild::Spacing(_) => continue,
+                    ParChild::Text(.., decos) => decos,
+                    ParChild::Any(.., decos) => decos,
+                } {
+                    match deco {
+                        Decoration::Link(href) => {
+                            output.push(point, Element::Link(href.to_string(), size));
+                        }
+                    }
+                }
+            }
         }
 
         self.finished.push(output.constrain(self.constraints));
@@ -426,7 +457,7 @@ impl<'a> LineLayout<'a> {
 
         // Reshape the last item if it's split in half.
         let mut last = None;
-        if let Some((ParItem::Text(shaped, align), rest)) = items.split_last() {
+        if let Some((ParItem::Text(shaped, align, i), rest)) = items.split_last() {
             // Compute the range we want to shape, trimming whitespace at the
             // end of the line.
             let base = par.ranges[last_idx].start;
@@ -442,7 +473,7 @@ impl<'a> LineLayout<'a> {
                 if !range.is_empty() || rest.is_empty() {
                     // Reshape that part.
                     let reshaped = shaped.reshape(ctx, range);
-                    last = Some(ParItem::Text(reshaped, *align));
+                    last = Some(ParItem::Text(reshaped, *align, *i));
                 }
 
                 items = rest;
@@ -452,7 +483,7 @@ impl<'a> LineLayout<'a> {
 
         // Reshape the start item if it's split in half.
         let mut first = None;
-        if let Some((ParItem::Text(shaped, align), rest)) = items.split_first() {
+        if let Some((ParItem::Text(shaped, align, i), rest)) = items.split_first() {
             // Compute the range we want to shape.
             let Range { start: base, end: first_end } = par.ranges[first_idx];
             let start = line.start;
@@ -463,7 +494,7 @@ impl<'a> LineLayout<'a> {
             if range.len() < shaped.text.len() {
                 if !range.is_empty() {
                     let reshaped = shaped.reshape(ctx, range);
-                    first = Some(ParItem::Text(reshaped, *align));
+                    first = Some(ParItem::Text(reshaped, *align, *i));
                 }
 
                 items = rest;
@@ -511,11 +542,11 @@ impl<'a> LineLayout<'a> {
                     offset += amount;
                     return;
                 }
-                ParItem::Text(ref shaped, align) => {
+                ParItem::Text(ref shaped, align, _) => {
                     ruler = ruler.max(align);
                     Rc::new(shaped.build(ctx))
                 }
-                ParItem::Frame(ref frame, align) => {
+                ParItem::Frame(ref frame, align, _) => {
                     ruler = ruler.max(align);
                     frame.clone()
                 }
@@ -528,7 +559,11 @@ impl<'a> LineLayout<'a> {
             );
 
             offset += frame.size.w;
-            output.push_frame(pos, frame);
+
+            match item.index() {
+                Some(idx) => output.push_indexed_frame(pos, idx, frame),
+                None => output.push_frame(pos, frame),
+            }
         });
 
         output

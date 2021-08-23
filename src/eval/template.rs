@@ -20,7 +20,7 @@ pub struct Template(Rc<Vec<TemplateNode>>);
 #[derive(Clone)]
 enum TemplateNode {
     /// A word space.
-    Space,
+    Space(Vec<Decoration>),
     /// A line break.
     Linebreak,
     /// A paragraph break.
@@ -28,11 +28,11 @@ enum TemplateNode {
     /// A page break.
     Pagebreak(bool),
     /// Plain text.
-    Text(EcoString),
+    Text(EcoString, Vec<Decoration>),
     /// Spacing.
     Spacing(GenAxis, Linear),
     /// An inline node builder.
-    Inline(Rc<dyn Fn(&State) -> LayoutNode>),
+    Inline(Rc<dyn Fn(&State) -> LayoutNode>, Vec<Decoration>),
     /// An block node builder.
     Block(Rc<dyn Fn(&State) -> LayoutNode>),
     /// Save the current state.
@@ -41,6 +41,13 @@ enum TemplateNode {
     Restore,
     /// A function that can modify the current state.
     Modify(Rc<dyn Fn(&mut State)>),
+}
+
+/// A template node decoration.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum Decoration {
+    /// A link.
+    Link(EcoString),
 }
 
 impl Template {
@@ -55,7 +62,7 @@ impl Template {
         F: Fn(&State) -> T + 'static,
         T: Into<LayoutNode>,
     {
-        let node = TemplateNode::Inline(Rc::new(move |s| f(s).into()));
+        let node = TemplateNode::Inline(Rc::new(move |s| f(s).into()), vec![]);
         Self(Rc::new(vec![node]))
     }
 
@@ -71,7 +78,7 @@ impl Template {
 
     /// Add a word space to the template.
     pub fn space(&mut self) {
-        self.make_mut().push(TemplateNode::Space);
+        self.make_mut().push(TemplateNode::Space(vec![]));
     }
 
     /// Add a line break to the template.
@@ -91,7 +98,7 @@ impl Template {
 
     /// Add text to the template.
     pub fn text(&mut self, text: impl Into<EcoString>) {
-        self.make_mut().push(TemplateNode::Text(text.into()));
+        self.make_mut().push(TemplateNode::Text(text.into(), vec![]));
     }
 
     /// Add text, but in monospace.
@@ -105,6 +112,19 @@ impl Template {
     /// Add spacing along an axis.
     pub fn spacing(&mut self, axis: GenAxis, spacing: Linear) {
         self.make_mut().push(TemplateNode::Spacing(axis, spacing));
+    }
+
+    /// Add a decoration to the last template node.
+    pub fn decorate(&mut self, deco: Decoration) {
+        for node in self.make_mut() {
+            let decos = match node {
+                TemplateNode::Space(decos) => decos,
+                TemplateNode::Text(_, decos) => decos,
+                TemplateNode::Inline(_, decos) => decos,
+                _ => continue,
+            };
+            decos.push(deco.clone());
+        }
     }
 
     /// Register a restorable snapshot.
@@ -201,7 +221,7 @@ impl Add<Str> for Template {
     type Output = Self;
 
     fn add(mut self, rhs: Str) -> Self::Output {
-        Rc::make_mut(&mut self.0).push(TemplateNode::Text(rhs.into()));
+        Rc::make_mut(&mut self.0).push(TemplateNode::Text(rhs.into(), vec![]));
         self
     }
 }
@@ -210,7 +230,7 @@ impl Add<Template> for Str {
     type Output = Template;
 
     fn add(self, mut rhs: Template) -> Self::Output {
-        Rc::make_mut(&mut rhs.0).insert(0, TemplateNode::Text(self.into()));
+        Rc::make_mut(&mut rhs.0).insert(0, TemplateNode::Text(self.into(), vec![]));
         rhs
     }
 }
@@ -261,26 +281,26 @@ impl Builder {
                     self.pagebreak(true, false);
                 }
             }
-            TemplateNode::Space => self.space(),
+            TemplateNode::Space(decos) => self.space(decos),
             TemplateNode::Linebreak => self.linebreak(),
             TemplateNode::Parbreak => self.parbreak(),
             TemplateNode::Pagebreak(keep) => self.pagebreak(*keep, true),
-            TemplateNode::Text(text) => self.text(text),
+            TemplateNode::Text(text, decos) => self.text(text, decos),
             TemplateNode::Spacing(axis, amount) => self.spacing(*axis, *amount),
-            TemplateNode::Inline(f) => self.inline(f(&self.state)),
+            TemplateNode::Inline(f, decos) => self.inline(f(&self.state), decos),
             TemplateNode::Block(f) => self.block(f(&self.state)),
             TemplateNode::Modify(f) => f(&mut self.state),
         }
     }
 
     /// Push a word space into the active paragraph.
-    fn space(&mut self) {
-        self.stack.par.push_soft(self.make_text_node(' '));
+    fn space(&mut self, decos: &[Decoration]) {
+        self.stack.par.push_soft(self.make_text_node(' ', decos.to_vec()));
     }
 
     /// Apply a forced line break.
     fn linebreak(&mut self) {
-        self.stack.par.push_hard(self.make_text_node('\n'));
+        self.stack.par.push_hard(self.make_text_node('\n', vec![]));
     }
 
     /// Apply a forced paragraph break.
@@ -300,16 +320,14 @@ impl Builder {
     }
 
     /// Push text into the active paragraph.
-    ///
-    /// The text is split into lines at newlines.
-    fn text(&mut self, text: impl Into<EcoString>) {
-        self.stack.par.push(self.make_text_node(text));
+    fn text(&mut self, text: impl Into<EcoString>, decos: &[Decoration]) {
+        self.stack.par.push(self.make_text_node(text, decos.to_vec()));
     }
 
     /// Push an inline node into the active paragraph.
-    fn inline(&mut self, node: impl Into<LayoutNode>) {
+    fn inline(&mut self, node: impl Into<LayoutNode>, decos: &[Decoration]) {
         let align = self.state.aligns.inline;
-        self.stack.par.push(ParChild::Any(node.into(), align));
+        self.stack.par.push(ParChild::Any(node.into(), align, decos.to_vec()));
     }
 
     /// Push a block node into the active stack, finishing the active paragraph.
@@ -348,11 +366,16 @@ impl Builder {
 
     /// Construct a text node with the given text and settings from the active
     /// state.
-    fn make_text_node(&self, text: impl Into<EcoString>) -> ParChild {
+    fn make_text_node(
+        &self,
+        text: impl Into<EcoString>,
+        decos: Vec<Decoration>,
+    ) -> ParChild {
         ParChild::Text(
             text.into(),
             self.state.aligns.inline,
             Rc::clone(&self.state.font),
+            decos,
         )
     }
 }
@@ -465,11 +488,14 @@ impl ParBuilder {
     }
 
     fn push_inner(&mut self, child: ParChild) {
-        if let ParChild::Text(curr_text, curr_align, curr_props) = &child {
-            if let Some(ParChild::Text(prev_text, prev_align, prev_props)) =
+        if let ParChild::Text(curr_text, curr_align, curr_props, curr_decos) = &child {
+            if let Some(ParChild::Text(prev_text, prev_align, prev_props, prev_decos)) =
                 self.children.last_mut()
             {
-                if prev_align == curr_align && Rc::ptr_eq(prev_props, curr_props) {
+                if prev_align == curr_align
+                    && Rc::ptr_eq(prev_props, curr_props)
+                    && curr_decos == prev_decos
+                {
                     prev_text.push_str(&curr_text);
                     return;
                 }
