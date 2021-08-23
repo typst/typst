@@ -4,7 +4,7 @@ use unicode_bidi::{BidiInfo, Level};
 use xi_unicode::LineBreakIterator;
 
 use super::*;
-use crate::eval::{Decoration, FontState};
+use crate::eval::FontState;
 use crate::util::{EcoString, RangeExt, SliceExt};
 
 type Range = std::ops::Range<usize>;
@@ -368,7 +368,7 @@ impl<'a> LineStack<'a> {
         let mut first = true;
 
         for line in self.lines.drain(..) {
-            let frame = line.build(ctx, self.size.w);
+            let frame = line.build(self.size.w);
 
             let pos = Point::new(Length::zero(), offset);
             if first {
@@ -380,21 +380,14 @@ impl<'a> LineStack<'a> {
             output.merge_frame(pos, frame);
         }
 
-        // For each frame, we look if any decorations apply.
-        for i in 0 .. output.children.len() {
-            let &(point, ref child) = &output.children[i];
-            if let &FrameChild::Frame(Some(frame_idx), ref frame) = child {
-                let size = frame.size;
-                for deco in match &self.children[frame_idx] {
+        for (_, child) in &mut output.children {
+            if let FrameChild::Frame(Some(frame_idx), frame) = child {
+                for deco in match &self.children[*frame_idx] {
                     ParChild::Spacing(_) => continue,
                     ParChild::Text(.., decos) => decos,
                     ParChild::Any(.., decos) => decos,
                 } {
-                    match deco {
-                        Decoration::Link(href) => {
-                            output.push(point, Element::Link(href.to_string(), size));
-                        }
-                    }
+                    deco.apply(ctx, Rc::make_mut(frame));
                 }
             }
         }
@@ -528,7 +521,7 @@ impl<'a> LineLayout<'a> {
     }
 
     /// Build the line's frame.
-    fn build(&self, ctx: &LayoutContext, width: Length) -> Frame {
+    fn build(&self, width: Length) -> Frame {
         let size = Size::new(self.size.w.max(width), self.size.h);
         let free = size.w - self.size.w;
 
@@ -544,7 +537,7 @@ impl<'a> LineLayout<'a> {
                 }
                 ParItem::Text(ref shaped, align, _) => {
                     ruler = ruler.max(align);
-                    Rc::new(shaped.build(ctx))
+                    Rc::new(shaped.build())
                 }
                 ParItem::Frame(ref frame, align, _) => {
                     ruler = ruler.max(align);
@@ -615,6 +608,96 @@ impl<'a> LineLayout<'a> {
     /// Get the item at the index.
     fn get(&self, index: usize) -> Option<&ParItem<'a>> {
         self.first.iter().chain(self.items).chain(&self.last).nth(index)
+    }
+}
+
+/// A decoration for a paragraph child.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum Decoration {
+    /// A link.
+    Link(EcoString),
+    /// An underline/strikethrough/overline decoration.
+    Line(LineDecoration),
+}
+
+/// Defines a line that is positioned over, under or on top of text.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct LineDecoration {
+    /// The kind of line.
+    pub kind: LineKind,
+    /// Stroke color of the line, defaults to the text color if `None`.
+    pub stroke: Option<Paint>,
+    /// Thickness of the line's strokes (dependent on scaled font size), read
+    /// from the font tables if `None`.
+    pub thickness: Option<Linear>,
+    /// Position of the line relative to the baseline (dependent on scaled font
+    /// size), read from the font tables if `None`.
+    pub offset: Option<Linear>,
+    /// Amount that the line will be longer or shorter than its associated text
+    /// (dependent on scaled font size).
+    pub extent: Linear,
+}
+
+/// The kind of line decoration.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum LineKind {
+    /// A line under text.
+    Underline,
+    /// A line through text.
+    Strikethrough,
+    /// A line over text.
+    Overline,
+}
+
+impl Decoration {
+    /// Apply a decoration to a child's frame.
+    pub fn apply(&self, ctx: &LayoutContext, frame: &mut Frame) {
+        match self {
+            Decoration::Link(href) => {
+                let link = Element::Link(href.to_string(), frame.size);
+                frame.push(Point::zero(), link);
+            }
+            Decoration::Line(line) => {
+                line.apply(ctx, frame);
+            }
+        }
+    }
+}
+
+impl LineDecoration {
+    /// Apply a line decoration to a all text elements in a frame.
+    pub fn apply(&self, ctx: &LayoutContext, frame: &mut Frame) {
+        for i in 0 .. frame.children.len() {
+            let (pos, child) = &frame.children[i];
+            if let FrameChild::Element(Element::Text(text)) = child {
+                let face = ctx.fonts.get(text.face_id);
+                let metrics = match self.kind {
+                    LineKind::Underline => face.underline,
+                    LineKind::Strikethrough => face.strikethrough,
+                    LineKind::Overline => face.overline,
+                };
+
+                let stroke = self.stroke.unwrap_or(text.fill);
+
+                let thickness = self
+                    .thickness
+                    .map(|s| s.resolve(text.size))
+                    .unwrap_or(metrics.strength.to_length(text.size));
+
+                let offset = self
+                    .offset
+                    .map(|s| s.resolve(text.size))
+                    .unwrap_or(-metrics.position.to_length(text.size));
+
+                let extent = self.extent.resolve(text.size);
+
+                let subpos = Point::new(pos.x - extent, pos.y + offset);
+                let vector = Point::new(text.width + 2.0 * extent, Length::zero());
+                let line = Geometry::Line(vector, thickness);
+
+                frame.push(subpos, Element::Geometry(line, stroke));
+            }
+        }
     }
 }
 

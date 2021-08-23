@@ -1,5 +1,4 @@
-use crate::eval::{Decoration, FontState, LineState};
-use crate::layout::Paint;
+use crate::layout::{Decoration, LineDecoration, LineKind, Paint};
 
 use super::*;
 
@@ -155,47 +154,39 @@ fn lang_dir(iso: &str) -> Dir {
 
 /// `strike`: Set striken-through text.
 pub fn strike(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
-    line_impl(ctx, args, |font| &mut font.strikethrough)
+    line_impl(ctx, args, LineKind::Strikethrough)
 }
 
 /// `underline`: Set underlined text.
 pub fn underline(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
-    line_impl(ctx, args, |font| &mut font.underline)
+    line_impl(ctx, args, LineKind::Underline)
 }
 
 /// `overline`: Set text with an overline.
 pub fn overline(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
-    line_impl(ctx, args, |font| &mut font.overline)
+    line_impl(ctx, args, LineKind::Overline)
 }
 
 fn line_impl(
     _: &mut EvalContext,
     args: &mut Arguments,
-    substate: fn(&mut FontState) -> &mut Option<Rc<LineState>>,
+    kind: LineKind,
 ) -> TypResult<Value> {
     let stroke = args.named("stroke")?.or_else(|| args.eat());
     let thickness = args.named::<Linear>("thickness")?.or_else(|| args.eat());
     let offset = args.named("offset")?;
     let extent = args.named("extent")?.unwrap_or_default();
-    let body = args.expect("body")?;
 
-    // Suppress any existing strikethrough if strength is explicitly zero.
-    let line = thickness.map_or(true, |s| !s.is_zero()).then(|| {
-        Rc::new(LineState {
-            stroke: stroke.map(Paint::Color),
-            thickness,
-            offset,
-            extent,
-        })
-    });
+    let mut body: Template = args.expect("body")?;
+    body.decorate(Decoration::Line(LineDecoration {
+        kind,
+        stroke: stroke.map(Paint::Color),
+        thickness,
+        offset,
+        extent,
+    }));
 
-    let mut template = Template::new();
-    template.save();
-    template.modify(move |state| *substate(state.font_mut()) = line.clone());
-    template += body;
-    template.restore();
-
-    Ok(Value::Template(template))
+    Ok(Value::Template(body))
 }
 
 /// `link`: Set a link.

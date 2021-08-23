@@ -50,7 +50,7 @@ impl<'a> PdfExporter<'a> {
         for frame in frames {
             for (_, element) in frame.elements() {
                 match *element {
-                    Element::Text(ref shaped) => font_map.insert(shaped.face_id),
+                    Element::Text(ref text) => font_map.insert(text.face_id),
                     Element::Geometry(_, _) => {}
                     Element::Image(id, _) => {
                         let img = ctx.images.get(id);
@@ -168,35 +168,35 @@ impl<'a> PdfExporter<'a> {
             let y = (page.size.h - pos.y).to_pt() as f32;
 
             match *element {
-                Element::Text(ref shaped) => {
-                    if fill != Some(shaped.fill) {
-                        write_fill(&mut content, shaped.fill);
-                        fill = Some(shaped.fill);
+                Element::Text(ref text) => {
+                    if fill != Some(text.fill) {
+                        write_fill(&mut content, text.fill);
+                        fill = Some(text.fill);
                     }
 
-                    let mut text = content.text();
+                    let mut text_writer = content.text();
 
                     // Then, also check if we need to issue a font switching
                     // action.
-                    if face_id != Some(shaped.face_id) || shaped.size != size {
-                        face_id = Some(shaped.face_id);
-                        size = shaped.size;
+                    if face_id != Some(text.face_id) || text.size != size {
+                        face_id = Some(text.face_id);
+                        size = text.size;
 
-                        let name = format!("F{}", self.font_map.map(shaped.face_id));
-                        text.font(Name(name.as_bytes()), size.to_pt() as f32);
+                        let name = format!("F{}", self.font_map.map(text.face_id));
+                        text_writer.font(Name(name.as_bytes()), size.to_pt() as f32);
                     }
 
-                    let face = self.fonts.get(shaped.face_id);
+                    let face = self.fonts.get(text.face_id);
 
                     // Position the text.
-                    text.matrix(1.0, 0.0, 0.0, 1.0, x, y);
+                    text_writer.matrix(1.0, 0.0, 0.0, 1.0, x, y);
 
-                    let mut positioned = text.show_positioned();
+                    let mut positioned = text_writer.show_positioned();
                     let mut adjustment = Em::zero();
                     let mut encoded = vec![];
 
                     // Write the glyphs with kerning adjustments.
-                    for glyph in &shaped.glyphs {
+                    for glyph in &text.glyphs {
                         adjustment += glyph.x_offset;
 
                         if !adjustment.is_zero() {

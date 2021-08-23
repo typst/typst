@@ -8,7 +8,8 @@ use super::{State, Str};
 use crate::diag::StrResult;
 use crate::geom::{Align, Dir, Gen, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{
-    LayoutNode, LayoutTree, PadNode, PageRun, ParChild, ParNode, StackChild, StackNode,
+    Decoration, LayoutNode, LayoutTree, PadNode, PageRun, ParChild, ParNode, StackChild,
+    StackNode,
 };
 use crate::util::EcoString;
 
@@ -41,13 +42,6 @@ enum TemplateNode {
     Restore,
     /// A function that can modify the current state.
     Modify(Rc<dyn Fn(&mut State)>),
-}
-
-/// A template node decoration.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum Decoration {
-    /// A link.
-    Link(EcoString),
 }
 
 impl Template {
@@ -114,7 +108,7 @@ impl Template {
         self.make_mut().push(TemplateNode::Spacing(axis, spacing));
     }
 
-    /// Add a decoration to the last template node.
+    /// Add a decoration to all contained nodes.
     pub fn decorate(&mut self, deco: Decoration) {
         for node in self.make_mut() {
             let decos = match node {

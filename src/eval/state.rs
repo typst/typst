@@ -140,12 +140,6 @@ pub struct FontState {
     /// A list of font families with generic class definitions (the final
     /// family list also depends on `monospace`).
     pub families: Rc<FamilyState>,
-    /// The specifications for a strikethrough line, if any.
-    pub strikethrough: Option<Rc<LineState>>,
-    /// The specifications for a underline, if any.
-    pub underline: Option<Rc<LineState>>,
-    /// The specifications for a overline line, if any.
-    pub overline: Option<Rc<LineState>>,
 }
 
 impl FontState {
@@ -212,9 +206,6 @@ impl Default for FontState {
             top_edge: VerticalFontMetric::CapHeight,
             bottom_edge: VerticalFontMetric::Baseline,
             fill: Paint::Color(Color::Rgba(RgbaColor::BLACK)),
-            strikethrough: None,
-            underline: None,
-            overline: None,
         }
     }
 }
@@ -247,20 +238,4 @@ impl Default for FamilyState {
             ]),
         }
     }
-}
-
-/// Defines a line that is positioned over, under or on top of text.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct LineState {
-    /// Stroke color of the line, defaults to the text color if `None`.
-    pub stroke: Option<Paint>,
-    /// Thickness of the line's strokes (dependent on scaled font size), read
-    /// from the font tables if `None`.
-    pub thickness: Option<Linear>,
-    /// Position of the line relative to the baseline (dependent on scaled font
-    /// size), read from the font tables if `None`.
-    pub offset: Option<Linear>,
-    /// Amount that the line will be longer or shorter than its associated text
-    /// (dependent on scaled font size).
-    pub extent: Linear,
 }

@@ -18,9 +18,6 @@
 // Both over- and underline.
 #overline(underline[Running amongst the wolves.])
 
-// Disable underline by setting it back to 0pt.
-#underline[Still important, but not #underline(0pt)[mission ]critical.]
-
 ---
 #let redact = strike with (10pt, extent: 5%)
 #let highlight = strike with (

@@ -131,6 +131,8 @@ pub struct Text {
     pub face_id: FaceId,
     /// The font size.
     pub size: Length,
+    /// The width of the text run.
+    pub width: Length,
     /// Glyph color.
     pub fill: Paint,
     /// The glyphs.

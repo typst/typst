@@ -163,6 +163,7 @@ pub struct Face {
 }
 
 /// Metrics for a decorative line.
+#[derive(Debug, Copy, Clone)]
 pub struct LineMetrics {
     pub strength: Em,
     pub position: Em,

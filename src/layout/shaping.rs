@@ -4,10 +4,9 @@ use std::ops::Range;
 use rustybuzz::UnicodeBuffer;
 
 use super::{Element, Frame, Glyph, LayoutContext, Text};
-use crate::eval::{FontState, LineState};
-use crate::font::{Face, FaceId, FontVariant, LineMetrics};
+use crate::eval::FontState;
+use crate::font::{Face, FaceId, FontVariant};
 use crate::geom::{Dir, Em, Length, Point, Size};
-use crate::layout::Geometry;
 use crate::util::SliceExt;
 
 /// Shape text into [`ShapedText`].
@@ -85,7 +84,7 @@ pub struct ShapedGlyph {
 
 impl<'a> ShapedText<'a> {
     /// Build the shaped text's frame.
-    pub fn build(&self, ctx: &LayoutContext) -> Frame {
+    pub fn build(&self) -> Frame {
         let mut frame = Frame::new(self.size, self.baseline);
         let mut offset = Length::zero();
 
@@ -95,24 +94,22 @@ impl<'a> ShapedText<'a> {
             let mut text = Text {
                 face_id,
                 size: self.state.size,
+                width: Length::zero(),
                 fill: self.state.fill,
                 glyphs: vec![],
             };
 
-            let mut width = Length::zero();
             for glyph in group {
                 text.glyphs.push(Glyph {
                     id: glyph.glyph_id,
                     x_advance: glyph.x_advance,
                     x_offset: glyph.x_offset,
                 });
-                width += glyph.x_advance.to_length(text.size);
+                text.width += glyph.x_advance.to_length(text.size);
             }
 
+            offset += text.width;
             frame.push(pos, Element::Text(text));
-            decorate(ctx, &mut frame, pos, width, face_id, &self.state);
-
-            offset += width;
         }
 
         frame
@@ -370,49 +367,4 @@ fn measure(
     }
 
     (Size::new(width, top + bottom), top)
-}
-
-/// Add underline, strikthrough and overline decorations.
-fn decorate(
-    ctx: &LayoutContext,
-    frame: &mut Frame,
-    pos: Point,
-    width: Length,
-    face_id: FaceId,
-    state: &FontState,
-) {
-    let mut apply = |substate: &LineState, metrics: fn(&Face) -> &LineMetrics| {
-        let metrics = metrics(ctx.fonts.get(face_id));
-
-        let stroke = substate.stroke.unwrap_or(state.fill);
-
-        let thickness = substate
-            .thickness
-            .map(|s| s.resolve(state.size))
-            .unwrap_or(metrics.strength.to_length(state.size));
-
-        let offset = substate
-            .offset
-            .map(|s| s.resolve(state.size))
-            .unwrap_or(-metrics.position.to_length(state.size));
-
-        let extent = substate.extent.resolve(state.size);
-
-        let pos = Point::new(pos.x - extent, pos.y + offset);
-        let target = Point::new(width + 2.0 * extent, Length::zero());
-        let element = Element::Geometry(Geometry::Line(target, thickness), stroke);
-        frame.push(pos, element);
-    };
-
-    if let Some(strikethrough) = &state.strikethrough {
-        apply(strikethrough, |face| &face.strikethrough);
-    }
-
-    if let Some(underline) = &state.underline {
-        apply(underline, |face| &face.underline);
-    }
-
-    if let Some(overline) = &state.overline {
-        apply(overline, |face| &face.overline);
-    }
 }
