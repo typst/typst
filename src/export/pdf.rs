@@ -1,7 +1,7 @@
 //! Exporting into PDF documents.
 
 use std::cmp::Eq;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -11,7 +11,7 @@ use pdf_writer::{
     ActionType, AnnotationType, CidFontType, ColorSpace, Content, Filter, FontFlags,
     Name, PdfWriter, Rect, Ref, Str, SystemInfo, UnicodeCmap,
 };
-use ttf_parser::{name_id, GlyphId};
+use ttf_parser::{name_id, GlyphId, Tag};
 
 use crate::color::Color;
 use crate::font::{FaceId, FontStore};
@@ -318,6 +318,16 @@ impl<'a> PdfExporter<'a> {
             let cap_height = face.cap_height.to_pdf();
             let stem_v = 10.0 + 0.244 * (f32::from(ttf.weight().to_number()) - 50.0);
 
+            // Check for the presence of CFF outlines to select the correct
+            // CID-Font subtype.
+            let subtype = match ttf
+                .table_data(Tag::from_bytes(b"CFF "))
+                .or(ttf.table_data(Tag::from_bytes(b"CFF2")))
+            {
+                Some(_) => CidFontType::Type0,
+                None => CidFontType::Type2,
+            };
+
             // Write the base font object referencing the CID font.
             self.writer
                 .type0_font(refs.type0_font)
@@ -328,10 +338,11 @@ impl<'a> PdfExporter<'a> {
 
             // Write the CID font referencing the font descriptor.
             self.writer
-                .cid_font(refs.cid_font, CidFontType::Type2)
+                .cid_font(refs.cid_font, subtype)
                 .base_font(base_font)
                 .system_info(system_info)
                 .font_descriptor(refs.font_descriptor)
+                .cid_to_gid_map_predefined(Name(b"Identity"))
                 .widths()
                 .individual(0, {
                     let num_glyphs = ttf.number_of_glyphs();
@@ -356,22 +367,25 @@ impl<'a> PdfExporter<'a> {
 
             // Write the to-unicode character map, which maps glyph ids back to
             // unicode codepoints to enable copying out of the PDF.
-            self.writer
-                .cmap(refs.cmap, &{
-                    let mut cmap = UnicodeCmap::new(cmap_name, system_info);
-                    for subtable in ttf.character_mapping_subtables() {
-                        subtable.codepoints(|n| {
-                            if let Some(c) = std::char::from_u32(n) {
-                                if let Some(g) = ttf.glyph_index(c) {
-                                    cmap.pair(g.0, c);
-                                }
+            self.writer.cmap(refs.cmap, &{
+                // Deduplicate glyph-to-unicode mappings with a set.
+                let mut mapping = BTreeSet::new();
+                for subtable in ttf.character_mapping_subtables() {
+                    subtable.codepoints(|n| {
+                        if let Some(c) = std::char::from_u32(n) {
+                            if let Some(g) = ttf.glyph_index(c) {
+                                mapping.insert((g.0, c));
                             }
-                        })
-                    }
-                    cmap.finish()
-                })
-                .name(cmap_name)
-                .system_info(system_info);
+                        }
+                    })
+                }
+
+                let mut cmap = UnicodeCmap::new(cmap_name, system_info);
+                for (g, c) in mapping {
+                    cmap.pair(g, c);
+                }
+                cmap.finish()
+            });
 
             // Write the face's bytes.
             self.writer.stream(refs.data, face.buffer());
