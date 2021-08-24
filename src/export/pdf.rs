@@ -1,7 +1,7 @@
 //! Exporting into PDF documents.
 
 use std::cmp::Eq;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -38,12 +38,14 @@ struct PdfExporter<'a> {
     frames: &'a [Rc<Frame>],
     fonts: &'a FontStore,
     images: &'a ImageStore,
+    glyphs: HashMap<FaceId, HashSet<u16>>,
     font_map: Remapper<FaceId>,
     image_map: Remapper<ImageId>,
 }
 
 impl<'a> PdfExporter<'a> {
     fn new(ctx: &'a Context, frames: &'a [Rc<Frame>]) -> Self {
+        let mut glyphs = HashMap::<FaceId, HashSet<u16>>::new();
         let mut font_map = Remapper::new();
         let mut image_map = Remapper::new();
         let mut alpha_masks = 0;
@@ -51,7 +53,11 @@ impl<'a> PdfExporter<'a> {
         for frame in frames {
             for (_, element) in frame.elements() {
                 match *element {
-                    Element::Text(ref text) => font_map.insert(text.face_id),
+                    Element::Text(ref text) => {
+                        font_map.insert(text.face_id);
+                        let set = glyphs.entry(text.face_id).or_default();
+                        set.extend(text.glyphs.iter().map(|g| g.id));
+                    }
                     Element::Geometry(_, _) => {}
                     Element::Image(id, _) => {
                         let img = ctx.images.get(id);
@@ -74,6 +80,7 @@ impl<'a> PdfExporter<'a> {
             frames,
             fonts: &ctx.fonts,
             images: &ctx.images,
+            glyphs,
             font_map,
             image_map,
         }
@@ -278,6 +285,7 @@ impl<'a> PdfExporter<'a> {
 
     fn write_fonts(&mut self) {
         for (refs, face_id) in self.refs.fonts().zip(self.font_map.layout_indices()) {
+            let glyphs = &self.glyphs[&face_id];
             let face = self.fonts.get(face_id);
             let ttf = face.ttf();
 
@@ -370,15 +378,19 @@ impl<'a> PdfExporter<'a> {
             // unicode codepoints to enable copying out of the PDF.
             self.writer.cmap(refs.cmap, &{
                 // Deduplicate glyph-to-unicode mappings with a set.
-                let mut mapping = BTreeSet::new();
+                let mut mapping = BTreeMap::new();
                 for subtable in ttf.character_mapping_subtables() {
-                    subtable.codepoints(|n| {
-                        if let Some(c) = std::char::from_u32(n) {
-                            if let Some(g) = ttf.glyph_index(c) {
-                                mapping.insert((g.0, c));
+                    if subtable.is_unicode() {
+                        subtable.codepoints(|n| {
+                            if let Some(c) = std::char::from_u32(n) {
+                                if let Some(GlyphId(g)) = ttf.glyph_index(c) {
+                                    if glyphs.contains(&g) {
+                                        mapping.insert(g, c);
+                                    }
+                                }
                             }
-                        }
-                    })
+                        });
+                    }
                 }
 
                 let mut cmap = UnicodeCmap::new(cmap_name, system_info);
@@ -388,9 +400,9 @@ impl<'a> PdfExporter<'a> {
                 cmap.finish()
             });
 
-            // Susbet and write the face's bytes.
+            // Subset and write the face's bytes.
             let original = face.buffer();
-            let subsetted = subset(original, face.index());
+            let subsetted = subset(original, face.index(), glyphs.iter().copied());
             let data = subsetted.as_deref().unwrap_or(original);
             self.writer.stream(refs.data, data);
         }
