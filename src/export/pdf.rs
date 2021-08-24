@@ -13,6 +13,7 @@ use pdf_writer::{
 };
 use ttf_parser::{name_id, GlyphId, Tag};
 
+use super::subset;
 use crate::color::Color;
 use crate::font::{FaceId, FontStore};
 use crate::geom::{self, Em, Length, Size};
@@ -387,8 +388,11 @@ impl<'a> PdfExporter<'a> {
                 cmap.finish()
             });
 
-            // Write the face's bytes.
-            self.writer.stream(refs.data, face.buffer());
+            // Susbet and write the face's bytes.
+            let original = face.buffer();
+            let subsetted = subset(original, face.index());
+            let data = subsetted.as_deref().unwrap_or(original);
+            self.writer.stream(refs.data, data);
         }
     }
 
