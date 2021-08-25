@@ -15,7 +15,7 @@ use ttf_parser::{name_id, GlyphId, Tag};
 
 use super::subset;
 use crate::color::Color;
-use crate::font::{FaceId, FontStore};
+use crate::font::{find_name, FaceId, FontStore};
 use crate::geom::{self, Em, Length, Size};
 use crate::image::{Image, ImageId, ImageStore};
 use crate::layout::{Element, Frame, Geometry, Paint};
@@ -289,12 +289,7 @@ impl<'a> PdfExporter<'a> {
             let face = self.fonts.get(face_id);
             let ttf = face.ttf();
 
-            let name = ttf
-                .names()
-                .find(|entry| {
-                    entry.name_id() == name_id::POST_SCRIPT_NAME && entry.is_unicode()
-                })
-                .and_then(|entry| entry.to_string())
+            let name = find_name(ttf.names(), name_id::POST_SCRIPT_NAME)
                 .unwrap_or_else(|| "unknown".to_string());
 
             let base_font = format!("ABCDEF+{}", name);

@@ -6,10 +6,11 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
-use ttf_parser::{name_id, GlyphId};
+use ttf_parser::{name_id, GlyphId, PlatformId};
 
 use crate::geom::Em;
 use crate::loading::{FileHash, Loader};
+use crate::util::decode_mac_roman;
 
 /// A unique identifier for a loaded font face.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -352,16 +353,11 @@ impl FaceInfo {
         data: &'a [u8],
     ) -> impl Iterator<Item = FaceInfo> + 'a {
         let count = ttf_parser::fonts_in_collection(data).unwrap_or(1);
-        (0 .. count).filter_map(move |index| {
-            fn find_name(face: &ttf_parser::Face, name_id: u16) -> Option<String> {
-                face.names().find_map(|entry| {
-                    (entry.name_id() == name_id).then(|| entry.to_string()).flatten()
-                })
-            }
 
+        (0 .. count).filter_map(move |index| {
             let face = ttf_parser::Face::from_slice(data, index).ok()?;
-            let family = find_name(&face, name_id::TYPOGRAPHIC_FAMILY)
-                .or_else(|| find_name(&face, name_id::FAMILY))?;
+            let family = find_name(face.names(), name_id::TYPOGRAPHIC_FAMILY)
+                .or_else(|| find_name(face.names(), name_id::FAMILY))?;
 
             let variant = FontVariant {
                 style: match (face.is_italic(), face.is_oblique()) {
@@ -381,6 +377,23 @@ impl FaceInfo {
             })
         })
     }
+}
+
+/// Find a decodable entry in a name table iterator.
+pub fn find_name(mut names: ttf_parser::Names<'_>, name_id: u16) -> Option<String> {
+    names.find_map(|entry| {
+        if entry.name_id() == name_id {
+            if let Some(string) = entry.to_string() {
+                return Some(string);
+            }
+
+            if entry.platform_id() == PlatformId::Macintosh && entry.encoding_id() == 0 {
+                return Some(decode_mac_roman(entry.name()));
+            }
+        }
+
+        None
+    })
 }
 
 /// Properties that distinguish a face from other faces in the same family.
