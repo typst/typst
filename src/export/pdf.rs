@@ -6,7 +6,6 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Rgba};
-use miniz_oxide::deflate;
 use pdf_writer::{
     ActionType, AnnotationType, CidFontType, ColorSpace, Content, Filter, FontFlags,
     Name, PdfWriter, Rect, Ref, Str, SystemInfo, UnicodeCmap,
@@ -280,7 +279,9 @@ impl<'a> PdfExporter<'a> {
             }
         }
 
-        self.writer.stream(id, &content.finish());
+        self.writer
+            .stream(id, &deflate(&content.finish()))
+            .filter(Filter::FlateDecode);
     }
 
     fn write_fonts(&mut self) {
@@ -289,10 +290,10 @@ impl<'a> PdfExporter<'a> {
             let face = self.fonts.get(face_id);
             let ttf = face.ttf();
 
-            let name = find_name(ttf.names(), name_id::POST_SCRIPT_NAME)
+            let postcript_name = find_name(ttf.names(), name_id::POST_SCRIPT_NAME)
                 .unwrap_or_else(|| "unknown".to_string());
 
-            let base_font = format!("ABCDEF+{}", name);
+            let base_font = format!("ABCDEF+{}", postcript_name);
             let base_font = Name(base_font.as_bytes());
             let cmap_name = Name(b"Custom");
             let system_info = SystemInfo {
@@ -301,8 +302,42 @@ impl<'a> PdfExporter<'a> {
                 supplement: 0,
             };
 
+            // Write the base font object referencing the CID font.
+            self.writer
+                .type0_font(refs.type0_font)
+                .base_font(base_font)
+                .encoding_predefined(Name(b"Identity-H"))
+                .descendant_font(refs.cid_font)
+                .to_unicode(refs.cmap);
+
+            // Check for the presence of CFF outlines to select the correct
+            // CID-Font subtype.
+            let subtype = match ttf
+                .table_data(Tag::from_bytes(b"CFF "))
+                .or(ttf.table_data(Tag::from_bytes(b"CFF2")))
+            {
+                Some(_) => CidFontType::Type0,
+                None => CidFontType::Type2,
+            };
+
+            // Write the CID font referencing the font descriptor.
+            self.writer
+                .cid_font(refs.cid_font, subtype)
+                .base_font(base_font)
+                .system_info(system_info)
+                .font_descriptor(refs.font_descriptor)
+                .cid_to_gid_map_predefined(Name(b"Identity"))
+                .widths()
+                .individual(0, {
+                    let num_glyphs = ttf.number_of_glyphs();
+                    (0 .. num_glyphs).map(|g| {
+                        let x = ttf.glyph_hor_advance(GlyphId(g)).unwrap_or(0);
+                        face.to_em(x).to_pdf()
+                    })
+                });
+
             let mut flags = FontFlags::empty();
-            flags.set(FontFlags::SERIF, name.contains("Serif"));
+            flags.set(FontFlags::SERIF, postcript_name.contains("Serif"));
             flags.set(FontFlags::FIXED_PITCH, ttf.is_monospaced());
             flags.set(FontFlags::ITALIC, ttf.is_italic());
             flags.insert(FontFlags::SYMBOLIC);
@@ -322,40 +357,6 @@ impl<'a> PdfExporter<'a> {
             let cap_height = face.cap_height.to_pdf();
             let stem_v = 10.0 + 0.244 * (f32::from(ttf.weight().to_number()) - 50.0);
 
-            // Check for the presence of CFF outlines to select the correct
-            // CID-Font subtype.
-            let subtype = match ttf
-                .table_data(Tag::from_bytes(b"CFF "))
-                .or(ttf.table_data(Tag::from_bytes(b"CFF2")))
-            {
-                Some(_) => CidFontType::Type0,
-                None => CidFontType::Type2,
-            };
-
-            // Write the base font object referencing the CID font.
-            self.writer
-                .type0_font(refs.type0_font)
-                .base_font(base_font)
-                .encoding_predefined(Name(b"Identity-H"))
-                .descendant_font(refs.cid_font)
-                .to_unicode(refs.cmap);
-
-            // Write the CID font referencing the font descriptor.
-            self.writer
-                .cid_font(refs.cid_font, subtype)
-                .base_font(base_font)
-                .system_info(system_info)
-                .font_descriptor(refs.font_descriptor)
-                .cid_to_gid_map_predefined(Name(b"Identity"))
-                .widths()
-                .individual(0, {
-                    let num_glyphs = ttf.number_of_glyphs();
-                    (0 .. num_glyphs).map(|g| {
-                        let x = ttf.glyph_hor_advance(GlyphId(g)).unwrap_or(0);
-                        face.to_em(x).to_pdf()
-                    })
-                });
-
             // Write the font descriptor (contains metrics about the font).
             self.writer
                 .font_descriptor(refs.font_descriptor)
@@ -369,10 +370,8 @@ impl<'a> PdfExporter<'a> {
                 .stem_v(stem_v)
                 .font_file2(refs.data);
 
-            // Write the to-unicode character map, which maps glyph ids back to
-            // unicode codepoints to enable copying out of the PDF.
-            self.writer.cmap(refs.cmap, &{
-                // Deduplicate glyph-to-unicode mappings with a set.
+            // Compute a reverse mapping from glyphs to unicode.
+            let cmap = {
                 let mut mapping = BTreeMap::new();
                 for subtable in ttf.character_mapping_subtables() {
                     if subtable.is_unicode() {
@@ -392,14 +391,22 @@ impl<'a> PdfExporter<'a> {
                 for (g, c) in mapping {
                     cmap.pair(g, c);
                 }
-                cmap.finish()
-            });
+                cmap
+            };
+
+            // Write the /ToUnicode character map, which maps glyph ids back to
+            // unicode codepoints to enable copying out of the PDF.
+            self.writer
+                .cmap(refs.cmap, &deflate(&cmap.finish()))
+                .filter(Filter::FlateDecode);
 
             // Subset and write the face's bytes.
-            let original = face.buffer();
-            let subsetted = subset(original, face.index(), glyphs.iter().copied());
-            let data = subsetted.as_deref().unwrap_or(original);
-            self.writer.stream(refs.data, data);
+            let buffer = face.buffer();
+            let subsetted = subset(buffer, face.index(), glyphs.iter().copied());
+            let data = subsetted.as_deref().unwrap_or(buffer);
+            self.writer
+                .stream(refs.data, &deflate(data))
+                .filter(Filter::FlateDecode);
         }
     }
 
@@ -504,26 +511,27 @@ const DEFLATE_LEVEL: u8 = 6;
 ///
 /// Skips the alpha channel as that's encoded separately.
 fn encode_image(img: &Image) -> ImageResult<(Vec<u8>, Filter, ColorSpace)> {
-    let mut data = vec![];
-    let (filter, space) = match (img.format, &img.buf) {
+    Ok(match (img.format, &img.buf) {
         // 8-bit gray JPEG.
         (ImageFormat::Jpeg, DynamicImage::ImageLuma8(_)) => {
+            let mut data = vec![];
             img.buf.write_to(&mut data, img.format)?;
-            (Filter::DctDecode, ColorSpace::DeviceGray)
+            (data, Filter::DctDecode, ColorSpace::DeviceGray)
         }
 
         // 8-bit Rgb JPEG (Cmyk JPEGs get converted to Rgb earlier).
         (ImageFormat::Jpeg, DynamicImage::ImageRgb8(_)) => {
+            let mut data = vec![];
             img.buf.write_to(&mut data, img.format)?;
-            (Filter::DctDecode, ColorSpace::DeviceRgb)
+            (data, Filter::DctDecode, ColorSpace::DeviceRgb)
         }
 
         // TODO: Encode flate streams with PNG-predictor?
 
         // 8-bit gray PNG.
         (ImageFormat::Png, DynamicImage::ImageLuma8(luma)) => {
-            data = deflate::compress_to_vec_zlib(&luma.as_raw(), DEFLATE_LEVEL);
-            (Filter::FlateDecode, ColorSpace::DeviceGray)
+            let data = deflate(&luma.as_raw());
+            (data, Filter::FlateDecode, ColorSpace::DeviceGray)
         }
 
         // Anything else (including Rgb(a) PNGs).
@@ -536,18 +544,21 @@ fn encode_image(img: &Image) -> ImageResult<(Vec<u8>, Filter, ColorSpace)> {
                 pixels.push(b);
             }
 
-            data = deflate::compress_to_vec_zlib(&pixels, DEFLATE_LEVEL);
-            (Filter::FlateDecode, ColorSpace::DeviceRgb)
+            let data = deflate(&pixels);
+            (data, Filter::FlateDecode, ColorSpace::DeviceRgb)
         }
-    };
-    Ok((data, filter, space))
+    })
 }
 
 /// Encode an image's alpha channel if present.
 fn encode_alpha(img: &Image) -> (Vec<u8>, Filter) {
     let pixels: Vec<_> = img.buf.pixels().map(|(_, _, Rgba([_, _, _, a]))| a).collect();
-    let data = deflate::compress_to_vec_zlib(&pixels, DEFLATE_LEVEL);
-    (data, Filter::FlateDecode)
+    (deflate(&pixels), Filter::FlateDecode)
+}
+
+/// Compress data with the DEFLATE algorithm.
+fn deflate(data: &[u8]) -> Vec<u8> {
+    miniz_oxide::deflate::compress_to_vec_zlib(data, DEFLATE_LEVEL)
 }
 
 /// We need to know exactly which indirect reference id will be used for which
