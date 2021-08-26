@@ -6,7 +6,7 @@ edition = "2018"
 
 [features]
 default = ["cli", "fs", "layout-cache"]
-cli = ["anyhow", "codespan-reporting", "fs", "same-file"]
+cli = ["anyhow", "codespan-reporting", "fs", "pico-args", "same-file"]
 fs = ["dirs", "memmap2", "same-file", "walkdir"]
 layout-cache = []
 
@@ -36,6 +36,7 @@ anyhow = { version = "1", optional = true }
 codespan-reporting = { version = "0.11", optional = true }
 dirs = { version = "3", optional = true }
 memmap2 = { version = "0.3", optional = true }
+pico-args = { version = "0.4", optional = true }
 same-file = { version = "1", optional = true }
 walkdir = { version = "2", optional = true }
 

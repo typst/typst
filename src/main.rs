@@ -1,6 +1,6 @@
 use std::fs;
 use std::io::{self, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process;
 
 use anyhow::Context as _;
@@ -21,26 +21,10 @@ fn main() {
 
 /// The main compiler logic.
 fn try_main() -> anyhow::Result<()> {
-    let args: Vec<_> = std::env::args().collect();
-    if args.len() < 2 || args.len() > 3 {
+    let args = Args::from_env().unwrap_or_else(|_| {
         print_usage().unwrap();
         process::exit(2);
-    }
-
-    // Determine source and destination path.
-    let src_path = Path::new(&args[1]);
-    let dest_path = match args.get(2) {
-        Some(path) => path.into(),
-        None => {
-            let name = src_path.file_name().context("source path is not a file")?;
-            Path::new(name).with_extension("pdf")
-        }
-    };
-
-    // Ensure that the source file is not overwritten.
-    if is_same_file(src_path, &dest_path).unwrap_or(false) {
-        anyhow::bail!("source and destination files are the same");
-    }
+    });
 
     // Create a loader for fonts and files.
     let loader = typst::loading::FsLoader::new()
@@ -52,15 +36,20 @@ fn try_main() -> anyhow::Result<()> {
     // cached artifacts.
     let mut ctx = typst::Context::new(loader);
 
+    // Ensure that the source file is not overwritten.
+    if is_same_file(&args.input, &args.output).unwrap_or(false) {
+        anyhow::bail!("source and destination files are the same");
+    }
+
     // Load the source file.
-    let id = ctx.sources.load(&src_path).context("source file not found")?;
+    let id = ctx.sources.load(&args.input).context("source file not found")?;
 
     // Typeset.
     match ctx.typeset(id) {
         // Export the PDF.
         Ok(document) => {
             let buffer = typst::export::pdf(&ctx, &document);
-            fs::write(&dest_path, buffer).context("failed to write PDF file")?;
+            fs::write(&args.output, buffer).context("failed to write PDF file")?;
         }
 
         // Print diagnostics.
@@ -73,34 +62,60 @@ fn try_main() -> anyhow::Result<()> {
     Ok(())
 }
 
+struct Args {
+    input: PathBuf,
+    output: PathBuf,
+}
+
+impl Args {
+    fn from_env() -> Result<Self, anyhow::Error> {
+        let mut parser = pico_args::Arguments::from_env();
+
+        // Parse free-standing arguments.
+        let input = parser.free_from_str::<PathBuf>()?;
+        let output = match parser.opt_free_from_str()? {
+            Some(output) => output,
+            None => {
+                let name = input.file_name().context("source path is not a file")?;
+                Path::new(name).with_extension("pdf")
+            }
+        };
+
+        // Don't allow excess arguments.
+        if !parser.finish().is_empty() {
+            anyhow::bail!("too many arguments");
+        }
+
+        Ok(Self { input, output })
+    }
+}
+
 /// Print a usage message.
 fn print_usage() -> io::Result<()> {
-    let mut writer = StandardStream::stderr(ColorChoice::Always);
+    let mut w = StandardStream::stderr(ColorChoice::Always);
     let styles = Styles::default();
 
-    writer.set_color(&styles.header_help)?;
-    write!(writer, "usage")?;
+    w.set_color(&styles.header_help)?;
+    write!(w, "usage")?;
 
-    writer.set_color(&styles.header_message)?;
-    writeln!(writer, ": typst document.typ [output.pdf]")?;
-
-    writer.reset()
+    w.set_color(&styles.header_message)?;
+    writeln!(w, ": typst <input.typ> [output.pdf]")
 }
 
 /// Print an error outside of a source file.
 fn print_error(error: anyhow::Error) -> io::Result<()> {
-    let mut writer = StandardStream::stderr(ColorChoice::Always);
+    let mut w = StandardStream::stderr(ColorChoice::Always);
     let styles = Styles::default();
 
     for (i, cause) in error.chain().enumerate() {
-        writer.set_color(&styles.header_error)?;
-        write!(writer, "{}", if i == 0 { "error" } else { "cause" })?;
+        w.set_color(&styles.header_error)?;
+        write!(w, "{}", if i == 0 { "error" } else { "cause" })?;
 
-        writer.set_color(&styles.header_message)?;
-        writeln!(writer, ": {}", cause)?;
+        w.set_color(&styles.header_message)?;
+        writeln!(w, ": {}", cause)?;
     }
 
-    writer.reset()
+    w.reset()
 }
 
 /// Print diagnostics messages to the terminal.
@@ -108,7 +123,7 @@ fn print_diagnostics(
     sources: &SourceStore,
     errors: Vec<Error>,
 ) -> Result<(), codespan_reporting::files::Error> {
-    let mut writer = StandardStream::stderr(ColorChoice::Always);
+    let mut w = StandardStream::stderr(ColorChoice::Always);
     let config = Config { tab_width: 2, ..Default::default() };
 
     for error in errors {
@@ -117,7 +132,7 @@ fn print_diagnostics(
             Label::primary(error.span.source, error.span.to_range()),
         ]);
 
-        term::emit(&mut writer, &config, sources, &diag)?;
+        term::emit(&mut w, &config, sources, &diag)?;
 
         // Stacktrace-like helper diagnostics.
         for point in error.trace {
@@ -133,7 +148,7 @@ fn print_diagnostics(
                 Label::primary(point.span.source, point.span.to_range()),
             ]);
 
-            term::emit(&mut writer, &config, sources, &help)?;
+            term::emit(&mut w, &config, sources, &help)?;
         }
     }
 
