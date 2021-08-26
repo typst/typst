@@ -1,6 +1,6 @@
 //! Font handling.
 
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 use std::fmt::{self, Debug, Display, Formatter};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -35,7 +35,7 @@ impl FaceId {
 pub struct FontStore {
     loader: Rc<dyn Loader>,
     faces: Vec<Option<Face>>,
-    families: HashMap<String, Vec<FaceId>>,
+    families: BTreeMap<String, Vec<FaceId>>,
     buffers: HashMap<FileHash, Rc<Vec<u8>>>,
     on_load: Option<Box<dyn Fn(FaceId, &Face)>>,
 }
@@ -44,15 +44,12 @@ impl FontStore {
     /// Create a new, empty font store.
     pub fn new(loader: Rc<dyn Loader>) -> Self {
         let mut faces = vec![];
-        let mut families = HashMap::<String, Vec<FaceId>>::new();
+        let mut families = BTreeMap::<String, Vec<FaceId>>::new();
 
         for (i, info) in loader.faces().iter().enumerate() {
             let id = FaceId(i as u32);
             faces.push(None);
-            families
-                .entry(info.family.to_lowercase())
-                .and_modify(|vec| vec.push(id))
-                .or_insert_with(|| vec![id]);
+            families.entry(info.family.to_lowercase()).or_default().push(id);
         }
 
         Self {
@@ -145,6 +142,16 @@ impl FontStore {
     #[track_caller]
     pub fn get(&self, id: FaceId) -> &Face {
         self.faces[id.0 as usize].as_ref().expect("font face was not loaded")
+    }
+
+    /// Returns an ordered iterator over all font family names this loader
+    /// knows.
+    pub fn families(&self) -> impl Iterator<Item = &str> + '_ {
+        // Since the keys are lowercased, we instead use the family field of the
+        // first face's info.
+        self.families
+            .values()
+            .map(move |id| self.loader.faces()[id[0].0 as usize].family.as_str())
     }
 }
 
@@ -356,8 +363,13 @@ impl FaceInfo {
 
         (0 .. count).filter_map(move |index| {
             let face = ttf_parser::Face::from_slice(data, index).ok()?;
-            let family = find_name(face.names(), name_id::TYPOGRAPHIC_FAMILY)
+            let mut family = find_name(face.names(), name_id::TYPOGRAPHIC_FAMILY)
                 .or_else(|| find_name(face.names(), name_id::FAMILY))?;
+
+            // Remove weird leading dot appearing in some fonts.
+            if let Some(undotted) = family.strip_prefix('.') {
+                family = undotted.to_string();
+            }
 
             let variant = FontVariant {
                 style: match (face.is_italic(), face.is_oblique()) {
@@ -412,6 +424,12 @@ impl FontVariant {
     /// Create a variant from its three components.
     pub fn new(style: FontStyle, weight: FontWeight, stretch: FontStretch) -> Self {
         Self { style, weight, stretch }
+    }
+}
+
+impl Display for FontVariant {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}-{}-{}", self.style, self.weight, self.stretch)
     }
 }
 

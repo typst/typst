@@ -233,8 +233,9 @@ impl Default for FamilyState {
             sans_serif: Rc::new(vec!["pt sans".into()]),
             monospace: Rc::new(vec!["inconsolata".into()]),
             base: Rc::new(vec![
-                "twitter color emoji".into(),
+                "eb garamond".into(),
                 "latin modern math".into(),
+                "twitter color emoji".into(),
             ]),
         }
     }
