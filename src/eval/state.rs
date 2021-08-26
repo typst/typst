@@ -119,13 +119,6 @@ impl Default for ParState {
 /// Defines font properties.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FontState {
-    /// Whether 300 extra font weight should be added to what is defined by the
-    /// `variant`.
-    pub strong: bool,
-    /// Whether the the font style defined by the `variant` should be inverted.
-    pub emph: bool,
-    /// Whether a monospace font should be preferred.
-    pub monospace: bool,
     /// The font size.
     pub size: Length,
     /// The selected font variant (the final variant also depends on `strong`
@@ -140,6 +133,15 @@ pub struct FontState {
     /// A list of font families with generic class definitions (the final
     /// family list also depends on `monospace`).
     pub families: Rc<FamilyState>,
+    /// Whether 300 extra font weight should be added to what is defined by the
+    /// `variant`.
+    pub strong: bool,
+    /// Whether the the font style defined by the `variant` should be inverted.
+    pub emph: bool,
+    /// Whether a monospace font should be preferred.
+    pub monospace: bool,
+    /// Whether font fallback to a base list should occur.
+    pub fallback: bool,
 }
 
 impl FontState {
@@ -164,10 +166,11 @@ impl FontState {
 
     /// The resolved family iterator.
     pub fn families(&self) -> impl Iterator<Item = &str> + Clone {
-        let head = self
-            .monospace
-            .then(|| self.families.monospace.as_slice())
-            .unwrap_or_default();
+        let head = if self.monospace {
+            self.families.monospace.as_slice()
+        } else {
+            &[]
+        };
 
         let core = self.families.list.iter().flat_map(move |family| {
             match family {
@@ -178,10 +181,13 @@ impl FontState {
             }
         });
 
-        head.iter()
-            .chain(core)
-            .chain(self.families.base.iter())
-            .map(String::as_str)
+        let tail = if self.fallback {
+            self.families.base.as_slice()
+        } else {
+            &[]
+        };
+
+        head.iter().chain(core).chain(tail).map(String::as_str)
     }
 
     /// Access the `families` state mutably.
@@ -193,19 +199,20 @@ impl FontState {
 impl Default for FontState {
     fn default() -> Self {
         Self {
-            families: Rc::new(FamilyState::default()),
+            size: Length::pt(11.0),
             variant: FontVariant {
                 style: FontStyle::Normal,
                 weight: FontWeight::REGULAR,
                 stretch: FontStretch::NORMAL,
             },
-            strong: false,
-            emph: false,
-            monospace: false,
-            size: Length::pt(11.0),
             top_edge: VerticalFontMetric::CapHeight,
             bottom_edge: VerticalFontMetric::Baseline,
             fill: Paint::Color(Color::Rgba(RgbaColor::BLACK)),
+            families: Rc::new(FamilyState::default()),
+            strong: false,
+            emph: false,
+            monospace: false,
+            fallback: true,
         }
     }
 }

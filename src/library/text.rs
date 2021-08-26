@@ -19,6 +19,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let serif = args.named("serif")?;
     let sans_serif = args.named("sans-serif")?;
     let monospace = args.named("monospace")?;
+    let fallback = args.named("fallback")?;
 
     ctx.template.modify(move |state| {
         let font = state.font_mut();
@@ -65,6 +66,10 @@ pub fn font(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 
         if let Some(FamilyDef(monospace)) = &monospace {
             font.families_mut().monospace = monospace.clone();
+        }
+
+        if let Some(fallback) = fallback {
+            font.fallback = fallback;
         }
     });
 

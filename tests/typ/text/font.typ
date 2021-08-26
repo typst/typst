@@ -33,6 +33,18 @@ Emoji: 🐪, 🌋, 🏞
   This is [#font(fill: rgb("FA644B")) way more] colorful.
 ]
 
+// Disable font fallback beyond the user-specified list.
+// Without disabling, Latin Modern Math would come to the rescue.
+#font("PT Sans", "Twitter Color Emoji", fallback: false)
+2π = 𝛼 + 𝛽. ✅
+
+---
+// Test class definitions.
+#font(sans-serif: "PT Sans")
+[#font(family: sans-serif) Sans-serif.] \
+[#font(monospace) Monospace.] \
+[#font(monospace, monospace: ("Nope", "Latin Modern Math")) Math.]
+
 ---
 // Test top and bottom edge.
 
@@ -46,13 +58,6 @@ Emoji: 🐪, 🌋, 🏞
 #try(ascender, baseline)
 #try(cap-height, baseline)
 #try(x-height, baseline)
-
----
-// Test class definitions.
-#font(sans-serif: "PT Sans")
-[#font(family: sans-serif) Sans-serif.] \
-[#font(monospace) Monospace.] \
-[#font(monospace, monospace: ("Nope", "Latin Modern Math")) Math.]
 
 ---
 // Error: 7-12 unexpected argument
