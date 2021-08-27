@@ -7,39 +7,41 @@ use std::convert::TryInto;
 use ttf_parser::parser::{
     FromData, LazyArray16, LazyArray32, Offset16, Offset32, Stream, F2DOT14,
 };
-use ttf_parser::{Face, Tag};
+use ttf_parser::Tag;
 
-/// Subset a font face.
+/// Subset a font face for PDF embedding.
 ///
 /// This will remove the outlines of all glyphs that are not part of the given
 /// iterator. Furthmore, all character mapping and layout tables are dropped as
 /// shaping has already happened.
 ///
-/// Returns `None` if the font data is invalid.
+/// Returns `None` if the font data is fatally invalid (in which case
+/// `ttf-parser` would probably already have rejected the font, so this
+/// shouldn't happen if the font data has already passed through `ttf-parser`).
 pub fn subset<I>(data: &[u8], index: u32, glyphs: I) -> Option<Vec<u8>>
 where
     I: IntoIterator<Item = u16>,
 {
-    Subsetter::new(data, index, glyphs.into_iter().collect())?.subset()
+    let glyphs = glyphs.into_iter().collect();
+    Some(Subsetter::new(data, index, glyphs)?.subset())
 }
 
 struct Subsetter<'a> {
-    face: Face<'a>,
-    glyphs: Vec<u16>,
+    data: &'a [u8],
     magic: Magic,
     records: LazyArray16<'a, TableRecord>,
+    glyphs: Vec<u16>,
     tables: Vec<(Tag, Cow<'a, [u8]>)>,
 }
 
 impl<'a> Subsetter<'a> {
     /// Parse the font header and create a new subsetter.
     fn new(data: &'a [u8], index: u32, glyphs: Vec<u16>) -> Option<Self> {
-        let face = Face::from_slice(data, index).ok()?;
         let mut s = Stream::new(&data);
 
-        // Parse font collection header if necessary.
         let mut magic = s.read::<Magic>()?;
         if magic == Magic::Collection {
+            // Parse font collection header if necessary.
             s.skip::<u32>();
             let num_faces = s.read::<u32>()?;
             let offsets = s.read_array32::<Offset32>(num_faces)?;
@@ -64,18 +66,17 @@ impl<'a> Subsetter<'a> {
         let records = s.read_array16::<TableRecord>(count)?;
 
         Some(Self {
-            face,
-            glyphs,
+            data,
             magic,
             records,
+            glyphs,
             tables: vec![],
         })
     }
 
     /// Encode the subsetted font file.
-    fn subset(mut self) -> Option<Vec<u8>> {
-        // Subset the individual tables and save them in `self.tables`.
-        self.subset_tables()?;
+    fn subset(mut self) -> Vec<u8> {
+        self.subset_tables();
 
         // Start writing a brand new font.
         let mut w = Vec::new();
@@ -102,7 +103,7 @@ impl<'a> Subsetter<'a> {
         // Write table records.
         let mut offset = 12 + self.tables.len() * TableRecord::SIZE;
         for (tag, data) in &mut self.tables {
-            if *tag == tg(b"head") {
+            if *tag == HEAD {
                 // Zero out checksum field in head table.
                 data.to_mut()[8 .. 12].copy_from_slice(&[0; 4]);
                 checksum_adjustment_offset = Some(offset + 8);
@@ -134,56 +135,73 @@ impl<'a> Subsetter<'a> {
             w[i .. i + 4].copy_from_slice(&val.to_be_bytes());
         }
 
-        Some(w)
+        w
     }
 
     /// Subset, drop and copy tables.
-    fn subset_tables(&mut self) -> Option<()> {
+    fn subset_tables(&mut self) {
+        // Remove unnecessary name information.
+        let handled_post = self.subset_post().is_some();
+
+        // Remove unnecessary glyph outlines.
+        let handled_glyf_loca = self.subset_glyf_loca().is_some();
+
         for record in self.records {
-            let tag = record.tag;
-            let data = self.face.table_data(tag)?;
+            // If `handled` is true, we don't take any further action, if it's
+            // false, we copy the table.
+            #[rustfmt::skip]
+            let handled = match &record.tag.to_bytes() {
+                // Drop: Glyphs are already mapped.
+                b"cmap" => true,
 
-            match &tag.to_bytes() {
-                // Glyphs are already mapped.
-                b"cmap" => {}
+                // Drop: Layout is already finished.
+                b"GPOS" | b"GSUB" | b"BASE" | b"JSTF" | b"MATH" |
+                b"ankr" | b"kern" | b"kerx" | b"mort" | b"morx" |
+                b"trak" | b"bsln" | b"just" | b"feat" | b"prop" => true,
 
-                // Layout is already finished.
-                b"GPOS" | b"GSUB" | b"BASE" | b"JSTF" | b"MATH" | b"ankr" | b"kern"
-                | b"kerx" | b"mort" | b"morx" | b"trak" | b"bsln" | b"just"
-                | b"feat" | b"prop" => {}
+                // Drop: They don't render in PDF viewers anyway.
+                // TODO: We probably have to convert fonts with one of these
+                // tables into Type 3 fonts where glyphs are described by either
+                // PDF graphics operators or XObject images.
+                b"CBDT" | b"CBLC" | b"COLR" | b"CPAL" | b"sbix" | b"SVG " => true,
 
-                b"post" => {
-                    self.subset_post();
+                // Subsetted: Subsetting happens outside the loop, but if it
+                // failed, we simply copy the affected table(s).
+                b"post" => handled_post,
+                b"loca" | b"glyf" => handled_glyf_loca,
+
+                // Copy: All other tables are simply copied.
+                _ => false,
+            };
+
+            if !handled {
+                if let Some(data) = self.table_data(record.tag) {
+                    self.push_table(record.tag, data);
                 }
-
-                // Loca is created when subsetting glyf.
-                b"loca" => {}
-                b"glyf" => {
-                    let head = self.face.table_data(tg(b"head"))?;
-                    let short = Stream::read_at::<i16>(head, 50)? == 0;
-                    if short {
-                        self.subset_glyf_loca::<Offset16>();
-                    } else {
-                        self.subset_glyf_loca::<Offset32>();
-                    }
-                }
-
-                // TODO: Subset.
-                // b"sbix" => {}
-                // b"SVG " => {}
-
-                // All other tables are simply copied.
-                _ => self.tables.push((tag, Cow::Borrowed(data))),
             }
         }
-        Some(())
+    }
+
+    /// Retrieve the table data for a table.
+    fn table_data(&mut self, tag: Tag) -> Option<&'a [u8]> {
+        let (_, record) = self.records.binary_search_by(|record| record.tag.cmp(&tag))?;
+        let start = record.offset as usize;
+        let end = start + (record.length as usize);
+        self.data.get(start .. end)
+    }
+
+    /// Push a new table.
+    fn push_table(&mut self, tag: Tag, data: impl Into<Cow<'a, [u8]>>) {
+        self.tables.push((tag, data.into()));
     }
 }
 
-/// Helper function to create a tag from bytes.
-fn tg(bytes: &[u8; 4]) -> Tag {
-    Tag::from_bytes(bytes)
-}
+// Some common tags.
+const HEAD: Tag = Tag::from_bytes(b"head");
+const MAXP: Tag = Tag::from_bytes(b"maxp");
+const POST: Tag = Tag::from_bytes(b"post");
+const LOCA: Tag = Tag::from_bytes(b"loca");
+const GLYF: Tag = Tag::from_bytes(b"glyf");
 
 /// Calculate a checksum over the sliced data as sum of u32's. The data length
 /// must be a multiple of four.
@@ -317,19 +335,33 @@ impl Subsetter<'_> {
     /// Subset the post table by removing the name information.
     fn subset_post(&mut self) -> Option<()> {
         // Set version to 3.0.
-        let post = self.face.table_data(tg(b"post"))?;
+        let post = self.table_data(POST)?;
         let mut new = 0x00030000_u32.to_be_bytes().to_vec();
         new.extend(post.get(4 .. 32)?);
-        self.tables.push((tg(b"post"), Cow::Owned(new)));
+        self.push_table(POST, new);
         Some(())
     }
 }
 
 impl Subsetter<'_> {
-    /// Subset the glyf and loca tables.
-    fn subset_glyf_loca<T: LocaOffset>(&mut self) -> Option<()> {
-        let loca = self.face.table_data(tg(b"loca"))?;
-        let glyf = self.face.table_data(tg(b"glyf"))?;
+    /// Subset the glyf and loca tables by clearing out glyph data for unused
+    /// glyphs.
+    fn subset_glyf_loca(&mut self) -> Option<()> {
+        let head = self.table_data(HEAD)?;
+        let short = Stream::read_at::<i16>(head, 50)? == 0;
+        if short {
+            self.subset_glyf_loca_impl::<Offset16>()
+        } else {
+            self.subset_glyf_loca_impl::<Offset32>()
+        }
+    }
+
+    fn subset_glyf_loca_impl<T>(&mut self) -> Option<()>
+    where
+        T: LocaOffset,
+    {
+        let loca = self.table_data(LOCA)?;
+        let glyf = self.table_data(GLYF)?;
 
         let offsets = LazyArray32::<T>::new(loca);
         let slice = |id: u16| {
@@ -369,7 +401,11 @@ impl Subsetter<'_> {
         let mut sub_loca = vec![];
         let mut sub_glyf = vec![];
 
-        for id in 0 .. self.face.number_of_glyphs() {
+        // Find out number of glyphs.
+        let maxp = self.table_data(MAXP)?;
+        let num_glyphs = Stream::read_at::<u16>(maxp, 4)?;
+
+        for id in 0 .. num_glyphs {
             sub_loca.write(T::from_usize(sub_glyf.len())?);
 
             // If the glyph shouldn't be contained in the subset, it will still
@@ -381,8 +417,8 @@ impl Subsetter<'_> {
 
         sub_loca.write(T::from_usize(sub_glyf.len())?);
 
-        self.tables.push((tg(b"loca"), Cow::Owned(sub_loca)));
-        self.tables.push((tg(b"glyf"), Cow::Owned(sub_glyf)));
+        self.push_table(LOCA, sub_loca);
+        self.push_table(GLYF, sub_glyf);
 
         Some(())
     }
