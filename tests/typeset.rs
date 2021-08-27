@@ -12,8 +12,9 @@ use walkdir::WalkDir;
 use typst::color::{Color, RgbaColor};
 use typst::diag::Error;
 use typst::eval::{State, Value};
+use typst::font::Face;
 use typst::geom::{self, Length, PathElement, Point, Sides, Size};
-use typst::image::ImageId;
+use typst::image::Image;
 #[cfg(feature = "layout-cache")]
 use typst::layout::LayoutTree;
 use typst::layout::{layout, Element, Frame, Geometry, Paint, Text};
@@ -378,13 +379,13 @@ fn print_error(source: &SourceFile, line: usize, error: &Error) {
     );
 }
 
-fn draw(ctx: &Context, frames: &[Rc<Frame>], dpi: f32) -> sk::Pixmap {
+fn draw(ctx: &Context, frames: &[Rc<Frame>], dpp: f32) -> sk::Pixmap {
     let pad = Length::pt(5.0);
     let width = 2.0 * pad + frames.iter().map(|l| l.size.w).max().unwrap_or_default();
     let height = pad + frames.iter().map(|l| l.size.h + pad).sum::<Length>();
 
-    let pixel_width = (dpi * width.to_pt() as f32) as u32;
-    let pixel_height = (dpi * height.to_pt() as f32) as u32;
+    let pixel_width = (dpp * width.to_pt() as f32) as u32;
+    let pixel_height = (dpp * height.to_pt() as f32) as u32;
     if pixel_width > 4000 || pixel_height > 4000 {
         panic!(
             "overlarge image: {} by {} ({} x {})",
@@ -393,7 +394,7 @@ fn draw(ctx: &Context, frames: &[Rc<Frame>], dpi: f32) -> sk::Pixmap {
     }
 
     let mut canvas = sk::Pixmap::new(pixel_width, pixel_height).unwrap();
-    let ts = sk::Transform::from_scale(dpi, dpi);
+    let ts = sk::Transform::from_scale(dpp, dpp);
     canvas.fill(sk::Color::BLACK);
 
     let mut origin = Point::splat(pad);
@@ -420,13 +421,13 @@ fn draw(ctx: &Context, frames: &[Rc<Frame>], dpi: f32) -> sk::Pixmap {
             let ts = ts.pre_translate(x, y);
             match *element {
                 Element::Text(ref text) => {
-                    draw_text(&mut canvas, ts, ctx, text);
+                    draw_text(&mut canvas, ts, ctx.fonts.get(text.face_id), text);
                 }
                 Element::Geometry(ref geometry, paint) => {
                     draw_geometry(&mut canvas, ts, geometry, paint);
                 }
                 Element::Image(id, size) => {
-                    draw_image(&mut canvas, ts, ctx, id, size);
+                    draw_image(&mut canvas, ts, ctx.images.get(id), size);
                 }
                 Element::Link(_, s) => {
                     let outline = Geometry::Rect(s);
@@ -442,19 +443,21 @@ fn draw(ctx: &Context, frames: &[Rc<Frame>], dpi: f32) -> sk::Pixmap {
     canvas
 }
 
-fn draw_text(canvas: &mut sk::Pixmap, ts: sk::Transform, ctx: &Context, text: &Text) {
-    let ttf = ctx.fonts.get(text.face_id).ttf();
+fn draw_text(canvas: &mut sk::Pixmap, ts: sk::Transform, face: &Face, text: &Text) {
+    let ttf = face.ttf();
+    let size = text.size.to_pt() as f32;
+    let units_per_em = ttf.units_per_em() as f32;
+    let pixels_per_em = text.size.to_pt() as f32 * ts.sy;
+    let scale = size / units_per_em;
+
     let mut x = 0.0;
-
     for glyph in &text.glyphs {
-        let units_per_em = ttf.units_per_em();
-        let s = text.size.to_pt() as f32 / units_per_em as f32;
-        let dx = glyph.x_offset.to_length(text.size).to_pt() as f32;
-        let ts = ts.pre_translate(x + dx, 0.0);
+        let glyph_id = GlyphId(glyph.id);
+        let offset = x + glyph.x_offset.to_length(text.size).to_pt() as f32;
+        let ts = ts.pre_translate(offset, 0.0);
 
-        // Try drawing SVG if present.
         if let Some(tree) = ttf
-            .glyph_svg_image(GlyphId(glyph.id))
+            .glyph_svg_image(glyph_id)
             .and_then(|data| std::str::from_utf8(data).ok())
             .map(|svg| {
                 let viewbox = format!("viewBox=\"0 0 {0} {0}\" xmlns", units_per_em);
@@ -464,22 +467,38 @@ fn draw_text(canvas: &mut sk::Pixmap, ts: sk::Transform, ctx: &Context, text: &T
         {
             for child in tree.root().children() {
                 if let usvg::NodeKind::Path(node) = &*child.borrow() {
-                    let path = convert_usvg_path(&node.data);
+                    // SVG is already Y-down, no flipping required.
                     let ts = convert_usvg_transform(node.transform)
-                        .post_scale(s, s)
+                        .post_scale(scale, scale)
                         .post_concat(ts);
+
                     if let Some(fill) = &node.fill {
+                        let path = convert_usvg_path(&node.data);
                         let (paint, fill_rule) = convert_usvg_fill(fill);
                         canvas.fill_path(&path, &paint, fill_rule, ts, None);
                     }
                 }
             }
+        } else if let Some(raster) =
+            ttf.glyph_raster_image(glyph_id, pixels_per_em as u16)
+        {
+            // TODO: Vertical alignment isn't quite right for Apple Color Emoji,
+            // and maybe also for Noto Color Emoji. And: Is the size calculation
+            // correct?
+            let img = Image::parse(&raster.data).unwrap();
+            let h = text.size;
+            let w = (img.width() as f64 / img.height() as f64) * h;
+            let dx = (raster.x as f32) / (img.width() as f32) * size;
+            let dy = (raster.y as f32) / (img.height() as f32) * size;
+            let ts = ts.pre_translate(dx, -size - dy);
+            draw_image(canvas, ts, &img, Size::new(w, h));
         } else {
             // Otherwise, draw normal outline.
             let mut builder = WrappedPathBuilder(sk::PathBuilder::new());
-            if ttf.outline_glyph(GlyphId(glyph.id), &mut builder).is_some() {
+            if ttf.outline_glyph(glyph_id, &mut builder).is_some() {
+                // Flip vertically because font designed coordinate system is Y-up.
+                let ts = ts.pre_scale(scale, -scale);
                 let path = builder.0.finish().unwrap();
-                let ts = ts.pre_scale(s, -s);
                 let mut paint = convert_typst_paint(text.fill);
                 paint.anti_alias = true;
                 canvas.fill_path(&path, &paint, sk::FillRule::default(), ts, None);
@@ -528,15 +547,7 @@ fn draw_geometry(
     };
 }
 
-fn draw_image(
-    canvas: &mut sk::Pixmap,
-    ts: sk::Transform,
-    ctx: &Context,
-    id: ImageId,
-    size: Size,
-) {
-    let img = ctx.images.get(id);
-
+fn draw_image(canvas: &mut sk::Pixmap, ts: sk::Transform, img: &Image, size: Size) {
     let mut pixmap = sk::Pixmap::new(img.buf.width(), img.buf.height()).unwrap();
     for ((_, _, src), dest) in img.buf.pixels().zip(pixmap.pixels_mut()) {
         let Rgba([r, g, b, a]) = src;
@@ -554,7 +565,7 @@ fn draw_image(
         sk::SpreadMode::Pad,
         sk::FilterQuality::Bilinear,
         1.0,
-        sk::Transform::from_row(scale_x, 0.0, 0.0, scale_y, 0.0, 0.0),
+        sk::Transform::from_scale(scale_x, scale_y),
     );
 
     let rect = sk::Rect::from_xywh(0.0, 0.0, view_width, view_height).unwrap();
