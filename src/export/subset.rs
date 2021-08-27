@@ -152,6 +152,10 @@ impl<'a> Subsetter<'a> {
                 | b"kerx" | b"mort" | b"morx" | b"trak" | b"bsln" | b"just"
                 | b"feat" | b"prop" => {}
 
+                b"post" => {
+                    self.subset_post();
+                }
+
                 // Loca is created when subsetting glyf.
                 b"loca" => {}
                 b"glyf" => {
@@ -167,7 +171,6 @@ impl<'a> Subsetter<'a> {
                 // TODO: Subset.
                 // b"sbix" => {}
                 // b"SVG " => {}
-                // b"post" => {}
 
                 // All other tables are simply copied.
                 _ => self.tables.push((tag, Cow::Borrowed(data))),
@@ -307,6 +310,18 @@ impl ToData for TableRecord {
         self.checksum.write(data);
         self.offset.write(data);
         self.length.write(data);
+    }
+}
+
+impl Subsetter<'_> {
+    /// Subset the post table by removing the name information.
+    fn subset_post(&mut self) -> Option<()> {
+        // Set version to 3.0.
+        let post = self.face.table_data(tg(b"post"))?;
+        let mut new = 0x00030000_u32.to_be_bytes().to_vec();
+        new.extend(post.get(4 .. 32)?);
+        self.tables.push((tg(b"post"), Cow::Owned(new)));
+        Some(())
     }
 }
 
