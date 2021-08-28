@@ -402,7 +402,7 @@ impl<'a> PdfExporter<'a> {
 
             // Subset and write the face's bytes.
             let buffer = face.buffer();
-            let subsetted = subset(buffer, face.index(), glyphs.iter().copied());
+            let subsetted = subset(buffer, face.index(), glyphs);
             let data = subsetted.as_deref().unwrap_or(buffer);
             self.writer
                 .stream(refs.data, &deflate(data))

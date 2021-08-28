@@ -1,42 +1,39 @@
-//! Font subsetting.
+//! OpenType font subsetting.
 
 use std::borrow::Cow;
 use std::collections::HashSet;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
+use std::iter;
 
 use ttf_parser::parser::{
-    FromData, LazyArray16, LazyArray32, Offset16, Offset32, Stream, F2DOT14,
+    FromData, LazyArray16, LazyArray32, Offset, Offset16, Offset32, Stream, F2DOT14,
 };
 use ttf_parser::Tag;
 
 /// Subset a font face for PDF embedding.
 ///
 /// This will remove the outlines of all glyphs that are not part of the given
-/// iterator. Furthmore, all character mapping and layout tables are dropped as
+/// slice. Furthmore, all character mapping and layout tables are dropped as
 /// shaping has already happened.
 ///
-/// Returns `None` if the font data is fatally invalid (in which case
+/// Returns `None` if the font data is fatally broken (in which case
 /// `ttf-parser` would probably already have rejected the font, so this
 /// shouldn't happen if the font data has already passed through `ttf-parser`).
-pub fn subset<I>(data: &[u8], index: u32, glyphs: I) -> Option<Vec<u8>>
-where
-    I: IntoIterator<Item = u16>,
-{
-    let glyphs = glyphs.into_iter().collect();
+pub fn subset(data: &[u8], index: u32, glyphs: &HashSet<u16>) -> Option<Vec<u8>> {
     Some(Subsetter::new(data, index, glyphs)?.subset())
 }
 
 struct Subsetter<'a> {
     data: &'a [u8],
+    glyphs: &'a HashSet<u16>,
     magic: Magic,
     records: LazyArray16<'a, TableRecord>,
-    glyphs: Vec<u16>,
     tables: Vec<(Tag, Cow<'a, [u8]>)>,
 }
 
 impl<'a> Subsetter<'a> {
     /// Parse the font header and create a new subsetter.
-    fn new(data: &'a [u8], index: u32, glyphs: Vec<u16>) -> Option<Self> {
+    fn new(data: &'a [u8], index: u32, glyphs: &'a HashSet<u16>) -> Option<Self> {
         let mut s = Stream::new(&data);
 
         let mut magic = s.read::<Magic>()?;
@@ -125,7 +122,7 @@ impl<'a> Subsetter<'a> {
         for (_, data) in &self.tables {
             // Write data plus padding zeros to align to 4 bytes.
             w.extend(data.as_ref());
-            w.extend(std::iter::repeat(0).take(data.len() % 4));
+            w.extend(iter::repeat(0).take(data.len() % 4));
         }
 
         // Write checksumAdjustment field in head table.
@@ -141,10 +138,11 @@ impl<'a> Subsetter<'a> {
     /// Subset, drop and copy tables.
     fn subset_tables(&mut self) {
         // Remove unnecessary name information.
-        let handled_post = self.subset_post().is_some();
+        let handled_post = post::subset(self).is_some();
 
         // Remove unnecessary glyph outlines.
-        let handled_glyf_loca = self.subset_glyf_loca().is_some();
+        let handled_glyf_loca = glyf::subset(self).is_some();
+        let handled_cff1 = cff::subset_v1(self).is_some();
 
         for record in self.records {
             // If `handled` is true, we don't take any further action, if it's
@@ -169,6 +167,7 @@ impl<'a> Subsetter<'a> {
                 // failed, we simply copy the affected table(s).
                 b"post" => handled_post,
                 b"loca" | b"glyf" => handled_glyf_loca,
+                b"CFF " => handled_cff1,
 
                 // Copy: All other tables are simply copied.
                 _ => false,
@@ -202,6 +201,7 @@ const MAXP: Tag = Tag::from_bytes(b"maxp");
 const POST: Tag = Tag::from_bytes(b"post");
 const LOCA: Tag = Tag::from_bytes(b"loca");
 const GLYF: Tag = Tag::from_bytes(b"glyf");
+const CFF1: Tag = Tag::from_bytes(b"CFF ");
 
 /// Calculate a checksum over the sliced data as sum of u32's. The data length
 /// must be a multiple of four.
@@ -331,57 +331,67 @@ impl ToData for TableRecord {
     }
 }
 
-impl Subsetter<'_> {
+mod post {
+    use super::*;
+
     /// Subset the post table by removing the name information.
-    fn subset_post(&mut self) -> Option<()> {
-        // Set version to 3.0.
-        let post = self.table_data(POST)?;
+    pub(super) fn subset(subsetter: &mut Subsetter) -> Option<()> {
+        // Table version three is the one without names.
         let mut new = 0x00030000_u32.to_be_bytes().to_vec();
-        new.extend(post.get(4 .. 32)?);
-        self.push_table(POST, new);
+        new.extend(subsetter.table_data(POST)?.get(4 .. 32)?);
+        subsetter.push_table(POST, new);
         Some(())
     }
 }
 
-impl Subsetter<'_> {
-    /// Subset the glyf and loca tables by clearing out glyph data for unused
-    /// glyphs.
-    fn subset_glyf_loca(&mut self) -> Option<()> {
-        let head = self.table_data(HEAD)?;
+mod glyf {
+    use super::*;
+
+    /// Subset the glyf and loca tables by clearing out glyph data for
+    /// unused glyphs.
+    pub(super) fn subset(subsetter: &mut Subsetter) -> Option<()> {
+        let head = subsetter.table_data(HEAD)?;
         let short = Stream::read_at::<i16>(head, 50)? == 0;
         if short {
-            self.subset_glyf_loca_impl::<Offset16>()
+            subset_impl::<Offset16>(subsetter)
         } else {
-            self.subset_glyf_loca_impl::<Offset32>()
+            subset_impl::<Offset32>(subsetter)
         }
     }
 
-    fn subset_glyf_loca_impl<T>(&mut self) -> Option<()>
+    fn subset_impl<T>(subsetter: &mut Subsetter) -> Option<()>
     where
         T: LocaOffset,
     {
-        let loca = self.table_data(LOCA)?;
-        let glyf = self.table_data(GLYF)?;
+        let loca = subsetter.table_data(LOCA)?;
+        let glyf = subsetter.table_data(GLYF)?;
+        let maxp = subsetter.table_data(MAXP)?;
+
+        // Find out number of glyphs.
+        let num_glyphs = Stream::read_at::<u16>(maxp, 4)?;
 
         let offsets = LazyArray32::<T>::new(loca);
-        let slice = |id: u16| {
-            let from = offsets.get(u32::from(id))?.to_usize();
-            let to = offsets.get(u32::from(id) + 1)?.to_usize();
+        let glyph_data = |id: u16| {
+            let from = offsets.get(u32::from(id))?.loca_to_usize();
+            let to = offsets.get(u32::from(id) + 1)?.loca_to_usize();
             glyf.get(from .. to)
         };
 
-        // To compute the set of all glyphs we want to keep, we use a work stack
-        // containing glyphs whose components we still need to consider.
-        let mut glyphs = HashSet::new();
-        let mut work: Vec<u16> = std::mem::take(&mut self.glyphs);
+        // The set of all glyphs we will include in the subset.
+        let mut subset = HashSet::new();
 
-        // Always include the notdef glyph.
-        work.push(0);
+        // Because glyphs may depend on other glyphs as components (also with
+        // multiple layers of nesting), we have to process all glyphs to find
+        // their components. For notdef and all requested glyphs we simply use
+        // an iterator, but to track other glyphs that need processing we create
+        // a work stack.
+        let mut iter = iter::once(0).chain(subsetter.glyphs.iter().copied());
+        let mut work = vec![];
 
         // Find composite glyph descriptions.
-        while let Some(id) = work.pop() {
-            if glyphs.insert(id) {
-                let mut s = Stream::new(slice(id)?);
+        while let Some(id) = work.pop().or_else(|| iter.next()) {
+            if subset.insert(id) {
+                let mut s = Stream::new(glyph_data(id)?);
                 if let Some(num_contours) = s.read::<i16>() {
                     // Negative means this is a composite glyph.
                     if num_contours < 0 {
@@ -401,97 +411,295 @@ impl Subsetter<'_> {
         let mut sub_loca = vec![];
         let mut sub_glyf = vec![];
 
-        // Find out number of glyphs.
-        let maxp = self.table_data(MAXP)?;
-        let num_glyphs = Stream::read_at::<u16>(maxp, 4)?;
-
         for id in 0 .. num_glyphs {
-            sub_loca.write(T::from_usize(sub_glyf.len())?);
-
-            // If the glyph shouldn't be contained in the subset, it will still
-            // get a loca entry, but the glyf data is simply empty.
-            if glyphs.contains(&id) {
-                sub_glyf.extend(slice(id)?);
+            // If the glyph shouldn't be contained in the subset, it will
+            // still get a loca entry, but the glyf data is simply empty.
+            sub_loca.write(T::usize_to_loca(sub_glyf.len())?);
+            if subset.contains(&id) {
+                sub_glyf.extend(glyph_data(id)?);
             }
         }
 
-        sub_loca.write(T::from_usize(sub_glyf.len())?);
+        sub_loca.write(T::usize_to_loca(sub_glyf.len())?);
 
-        self.push_table(LOCA, sub_loca);
-        self.push_table(GLYF, sub_glyf);
+        subsetter.push_table(LOCA, sub_loca);
+        subsetter.push_table(GLYF, sub_glyf);
 
         Some(())
     }
-}
 
-/// Offsets for loca table.
-trait LocaOffset: Sized + FromData + ToData {
-    fn to_usize(self) -> usize;
-    fn from_usize(offset: usize) -> Option<Self>;
-}
-
-impl LocaOffset for Offset16 {
-    fn to_usize(self) -> usize {
-        2 * usize::from(self.0)
+    trait LocaOffset: Sized + FromData + ToData {
+        fn loca_to_usize(self) -> usize;
+        fn usize_to_loca(offset: usize) -> Option<Self>;
     }
 
-    fn from_usize(offset: usize) -> Option<Self> {
-        if offset % 2 == 0 {
-            (offset / 2).try_into().ok().map(Self)
-        } else {
-            None
+    impl LocaOffset for Offset16 {
+        fn loca_to_usize(self) -> usize {
+            2 * usize::from(self.0)
+        }
+
+        fn usize_to_loca(offset: usize) -> Option<Self> {
+            if offset % 2 == 0 {
+                (offset / 2).try_into().ok().map(Self)
+            } else {
+                None
+            }
         }
     }
-}
 
-impl LocaOffset for Offset32 {
-    fn to_usize(self) -> usize {
-        self.0 as usize
+    impl LocaOffset for Offset32 {
+        fn loca_to_usize(self) -> usize {
+            self.0 as usize
+        }
+
+        fn usize_to_loca(offset: usize) -> Option<Self> {
+            offset.try_into().ok().map(Self)
+        }
     }
 
-    fn from_usize(offset: usize) -> Option<Self> {
-        offset.try_into().ok().map(Self)
+    /// Returns an iterator over the component glyphs referenced by the given
+    /// `glyf` table composite glyph description.
+    fn component_glyphs(mut s: Stream) -> impl Iterator<Item = u16> + '_ {
+        const ARG_1_AND_2_ARE_WORDS: u16 = 0x0001;
+        const WE_HAVE_A_SCALE: u16 = 0x0008;
+        const MORE_COMPONENTS: u16 = 0x0020;
+        const WE_HAVE_AN_X_AND_Y_SCALE: u16 = 0x0040;
+        const WE_HAVE_A_TWO_BY_TWO: u16 = 0x0080;
+
+        let mut done = false;
+        iter::from_fn(move || {
+            if done {
+                return None;
+            }
+
+            let flags = s.read::<u16>()?;
+            let component = s.read::<u16>()?;
+
+            if flags & ARG_1_AND_2_ARE_WORDS != 0 {
+                s.skip::<i16>();
+                s.skip::<i16>();
+            } else {
+                s.skip::<u16>();
+            }
+
+            if flags & WE_HAVE_A_SCALE != 0 {
+                s.skip::<F2DOT14>();
+            } else if flags & WE_HAVE_AN_X_AND_Y_SCALE != 0 {
+                s.skip::<F2DOT14>();
+                s.skip::<F2DOT14>();
+            } else if flags & WE_HAVE_A_TWO_BY_TWO != 0 {
+                s.skip::<F2DOT14>();
+                s.skip::<F2DOT14>();
+                s.skip::<F2DOT14>();
+                s.skip::<F2DOT14>();
+            }
+
+            done = flags & MORE_COMPONENTS == 0;
+            Some(component)
+        })
     }
 }
 
-/// Returns an iterator over the component glyphs referenced by the given
-/// `glyf` table composite glyph description.
-fn component_glyphs(mut s: Stream) -> impl Iterator<Item = u16> + '_ {
-    const ARG_1_AND_2_ARE_WORDS: u16 = 0x0001;
-    const WE_HAVE_A_SCALE: u16 = 0x0008;
-    const MORE_COMPONENTS: u16 = 0x0020;
-    const WE_HAVE_AN_X_AND_Y_SCALE: u16 = 0x0040;
-    const WE_HAVE_A_TWO_BY_TWO: u16 = 0x0080;
+mod cff {
+    use super::*;
 
-    let mut done = false;
-    std::iter::from_fn(move || {
-        if done {
+    /// Subset the CFF table by zeroing glyph data for unused glyphs.
+    pub(super) fn subset_v1(subsetter: &mut Subsetter) -> Option<()> {
+        let cff = subsetter.table_data(CFF1)?;
+        let mut s = Stream::new(cff);
+
+        let (major, _) = (s.read::<u8>()?, s.skip::<u8>());
+        if major != 1 {
             return None;
         }
 
-        let flags = s.read::<u16>()?;
-        let component = s.read::<u16>()?;
+        let header_size = s.read::<u8>()?;
+        s = Stream::new_at(cff, usize::from(header_size))?;
 
-        if flags & ARG_1_AND_2_ARE_WORDS != 0 {
-            s.skip::<i16>();
-            s.skip::<i16>();
-        } else {
-            s.skip::<u16>();
+        // Skip the name index.
+        Index::parse(&mut s);
+
+        // Read the top dict.
+        let top_dict_index = Index::parse(&mut s)?;
+        let top_dict = Dict::parse(top_dict_index.get(0)?);
+
+        let mut sub_cff = cff.to_vec();
+
+        // Because completely rebuilding the CFF structure would be pretty
+        // complex, for now, we employ a peculiar strategy for CFF subsetting:
+        // We simply fill the data for all unused glyphs with zeros. This way,
+        // the font structure and offsets can stay the same. And while the CFF
+        // table itself doesn't shrink, the actual embedded font is compressed
+        // and greatly benefits from the repeated zeros.
+        if let Some(index_offset) = top_dict.get_offset(Op::CHAR_STRINGS) {
+            let index_data = cff.get(index_offset ..)?;
+            let index = Index::parse(&mut Stream::new(index_data))?;
+
+            let mut start = index_offset + index.data_offset;
+            for (id, data) in index.items.iter().enumerate() {
+                let end = start + data.len();
+                if !subsetter.glyphs.contains(&(id as u16)) {
+                    memzero(sub_cff.get_mut(start .. end)?);
+                }
+                start = end;
+            }
         }
 
-        if flags & WE_HAVE_A_SCALE != 0 {
-            s.skip::<F2DOT14>();
-        } else if flags & WE_HAVE_AN_X_AND_Y_SCALE != 0 {
-            s.skip::<F2DOT14>();
-            s.skip::<F2DOT14>();
-        } else if flags & WE_HAVE_A_TWO_BY_TWO != 0 {
-            s.skip::<F2DOT14>();
-            s.skip::<F2DOT14>();
-            s.skip::<F2DOT14>();
-            s.skip::<F2DOT14>();
+        subsetter.push_table(CFF1, sub_cff);
+
+        Some(())
+    }
+
+    /// Zero all bytes in a slice.
+    fn memzero(slice: &mut [u8]) {
+        for byte in slice {
+            *byte = 0;
+        }
+    }
+
+    /// A CFF1 INDEX structure.
+    struct Index<'a> {
+        /// The offset of the data from the start of the index.
+        data_offset: usize,
+        /// The data for the actual items.
+        items: Vec<&'a [u8]>,
+    }
+
+    impl<'a> Index<'a> {
+        fn parse(s: &mut Stream<'a>) -> Option<Self> {
+            let data = s.tail()?;
+            let count = usize::from(s.read::<u16>()?);
+
+            let mut data_offset = 2;
+            let mut items = Vec::with_capacity(count);
+
+            if count > 0 {
+                let offsize = usize::from(s.read::<u8>()?);
+                if offsize < 1 || offsize > 4 {
+                    return None;
+                }
+
+                // The data starts right behind the offsets.
+                data_offset += 1 + offsize * (count + 1);
+
+                // Read an offset and transform it to be relative to the start
+                // of the index.
+                let mut read_offset = || {
+                    let mut bytes = [0u8; 4];
+                    bytes[4 - offsize .. 4].copy_from_slice(s.read_bytes(offsize)?);
+                    Some(data_offset - 1 + u32::from_be_bytes(bytes) as usize)
+                };
+
+                let mut len = 0;
+                let mut last = read_offset()?;
+
+                for _ in 0 .. count {
+                    let offset = read_offset()?;
+                    let item = data.get(last .. offset)?;
+                    items.push(item);
+                    last = offset;
+                    len += item.len();
+                }
+
+                // Advance the stream past the data.
+                s.advance(len);
+            }
+
+            Some(Self { data_offset, items })
         }
 
-        done = flags & MORE_COMPONENTS == 0;
-        Some(component)
-    })
+        fn get(&self, idx: usize) -> Option<&'a [u8]> {
+            self.items.get(idx).copied()
+        }
+    }
+
+    /// A CFF1 DICT structure.
+    struct Dict<'a>(Vec<Pair<'a>>);
+
+    impl<'a> Dict<'a> {
+        fn parse(data: &'a [u8]) -> Self {
+            let mut s = Stream::new(data);
+            Self(iter::from_fn(|| Pair::parse(&mut s)).collect())
+        }
+
+        fn get(&self, op: Op) -> Option<&[Operand<'a>]> {
+            self.0
+                .iter()
+                .find(|pair| pair.op == op)
+                .map(|pair| pair.operands.as_slice())
+        }
+
+        fn get_offset(&self, op: Op) -> Option<usize> {
+            match self.get(op)? {
+                &[Operand::Int(offset)] if offset > 0 => usize::try_from(offset).ok(),
+                _ => None,
+            }
+        }
+    }
+
+    struct Pair<'a> {
+        operands: Vec<Operand<'a>>,
+        op: Op,
+    }
+
+    impl<'a> Pair<'a> {
+        fn parse(s: &mut Stream<'a>) -> Option<Self> {
+            let mut operands = vec![];
+            while s.clone().read::<u8>()? > 21 {
+                operands.push(Operand::parse(s)?);
+            }
+            Some(Self { operands, op: Op::parse(s)? })
+        }
+    }
+
+    #[derive(Eq, PartialEq)]
+    struct Op(u8, u8);
+
+    impl Op {
+        const CHAR_STRINGS: Self = Self(17, 0);
+
+        fn parse(s: &mut Stream) -> Option<Self> {
+            let b0 = s.read::<u8>()?;
+            match b0 {
+                12 => Some(Self(b0, s.read::<u8>()?)),
+                0 ..= 21 => Some(Self(b0, 0)),
+                _ => None,
+            }
+        }
+    }
+
+    enum Operand<'a> {
+        Int(i32),
+        Real(&'a [u8]),
+    }
+
+    impl<'a> Operand<'a> {
+        fn parse(s: &mut Stream<'a>) -> Option<Self> {
+            let b0 = i32::from(s.read::<u8>()?);
+            Some(match b0 {
+                30 => {
+                    let mut len = 0;
+                    for &byte in s.tail()? {
+                        len += 1;
+                        if byte & 0x0f == 0x0f {
+                            break;
+                        }
+                    }
+                    Self::Real(s.read_bytes(len)?)
+                }
+                32 ..= 246 => Self::Int(b0 - 139),
+                247 ..= 250 => {
+                    let b1 = i32::from(s.read::<u8>()?);
+                    Self::Int((b0 - 247) * 256 + b1 + 108)
+                }
+                251 ..= 254 => {
+                    let b1 = i32::from(s.read::<u8>()?);
+                    Self::Int(-(b0 - 251) * 256 - b1 - 108)
+                }
+                28 => Self::Int(i32::from(s.read::<i16>()?)),
+                29 => Self::Int(s.read::<i32>()?),
+                _ => return None,
+            })
+        }
+    }
 }
