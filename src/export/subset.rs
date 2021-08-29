@@ -4,6 +4,7 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::convert::{TryFrom, TryInto};
 use std::iter;
+use std::ops::Range;
 
 use ttf_parser::parser::{
     FromData, LazyArray16, LazyArray32, Offset, Offset16, Offset32, Stream, F2DOT14,
@@ -25,9 +26,10 @@ pub fn subset(data: &[u8], index: u32, glyphs: &HashSet<u16>) -> Option<Vec<u8>>
 
 struct Subsetter<'a> {
     data: &'a [u8],
-    glyphs: &'a HashSet<u16>,
     magic: Magic,
     records: LazyArray16<'a, TableRecord>,
+    num_glyphs: u16,
+    glyphs: &'a HashSet<u16>,
     tables: Vec<(Tag, Cow<'a, [u8]>)>,
 }
 
@@ -61,14 +63,20 @@ impl<'a> Subsetter<'a> {
 
         // Read the table records.
         let records = s.read_array16::<TableRecord>(count)?;
-
-        Some(Self {
+        let mut subsetter = Self {
             data,
             magic,
             records,
+            num_glyphs: 0,
             glyphs,
             tables: vec![],
-        })
+        };
+
+        // Find out number of glyphs.
+        let maxp = subsetter.table_data(MAXP)?;
+        subsetter.num_glyphs = Stream::read_at::<u16>(maxp, 4)?;
+
+        Some(subsetter)
     }
 
     /// Encode the subsetted font file.
@@ -213,6 +221,13 @@ fn checksum(data: &[u8]) -> u32 {
         sum = sum.wrapping_add(u32::from_be_bytes(bytes));
     }
     sum
+}
+
+/// Zero all bytes in a slice.
+fn memzero(slice: &mut [u8]) {
+    for byte in slice {
+        *byte = 0;
+    }
 }
 
 /// Convenience trait for writing into a byte buffer.
@@ -365,10 +380,6 @@ mod glyf {
     {
         let loca = subsetter.table_data(LOCA)?;
         let glyf = subsetter.table_data(GLYF)?;
-        let maxp = subsetter.table_data(MAXP)?;
-
-        // Find out number of glyphs.
-        let num_glyphs = Stream::read_at::<u16>(maxp, 4)?;
 
         let offsets = LazyArray32::<T>::new(loca);
         let glyph_data = |id: u16| {
@@ -411,7 +422,7 @@ mod glyf {
         let mut sub_loca = vec![];
         let mut sub_glyf = vec![];
 
-        for id in 0 .. num_glyphs {
+        for id in 0 .. subsetter.num_glyphs {
             // If the glyph shouldn't be contained in the subset, it will
             // still get a loca entry, but the glyf data is simply empty.
             sub_loca.write(T::usize_to_loca(sub_glyf.len())?);
@@ -517,61 +528,131 @@ mod cff {
         s = Stream::new_at(cff, usize::from(header_size))?;
 
         // Skip the name index.
-        Index::parse(&mut s);
+        Index::parse_stream(&mut s);
 
-        // Read the top dict.
-        let top_dict_index = Index::parse(&mut s)?;
+        // Read the top dict. The index should contain only one item.
+        let top_dict_index = Index::parse_stream(&mut s)?;
         let top_dict = Dict::parse(top_dict_index.get(0)?);
 
         let mut sub_cff = cff.to_vec();
 
         // Because completely rebuilding the CFF structure would be pretty
         // complex, for now, we employ a peculiar strategy for CFF subsetting:
-        // We simply fill the data for all unused glyphs with zeros. This way,
-        // the font structure and offsets can stay the same. And while the CFF
-        // table itself doesn't shrink, the actual embedded font is compressed
-        // and greatly benefits from the repeated zeros.
-        if let Some(index_offset) = top_dict.get_offset(Op::CHAR_STRINGS) {
-            let index_data = cff.get(index_offset ..)?;
-            let index = Index::parse(&mut Stream::new(index_data))?;
-
-            let mut start = index_offset + index.data_offset;
-            for (id, data) in index.items.iter().enumerate() {
-                let end = start + data.len();
-                if !subsetter.glyphs.contains(&(id as u16)) {
-                    memzero(sub_cff.get_mut(start .. end)?);
-                }
-                start = end;
-            }
-        }
+        // We simply replace unused data with zeros. This way, the font
+        // structure and offsets can stay the same. And while the CFF table
+        // itself doesn't shrink, the actual embedded font is compressed and
+        // greatly benefits from the repeated zeros.
+        zero_char_strings(subsetter, cff, &top_dict, &mut sub_cff);
+        zero_subr_indices(subsetter, cff, &top_dict, &mut sub_cff);
 
         subsetter.push_table(CFF1, sub_cff);
 
         Some(())
     }
 
-    /// Zero all bytes in a slice.
-    fn memzero(slice: &mut [u8]) {
-        for byte in slice {
-            *byte = 0;
+    /// Zero unused char strings.
+    fn zero_char_strings(
+        subsetter: &Subsetter,
+        cff: &[u8],
+        top_dict: &Dict,
+        sub_cff: &mut [u8],
+    ) -> Option<()> {
+        let char_strings_offset = top_dict.get_offset(Op::CHAR_STRINGS)?;
+        let char_strings = Index::parse(cff.get(char_strings_offset ..)?)?;
+
+        for (id, _, range) in char_strings.iter() {
+            if !subsetter.glyphs.contains(&id) {
+                let start = char_strings_offset + range.start;
+                let end = char_strings_offset + range.end;
+                memzero(sub_cff.get_mut(start .. end)?);
+            }
         }
+
+        Some(())
     }
 
-    /// A CFF1 INDEX structure.
+    /// Zero unused local subroutine indices. We don't currently remove
+    /// individual subroutines because finding out which ones are used is
+    /// complicated.
+    fn zero_subr_indices(
+        subsetter: &Subsetter,
+        cff: &[u8],
+        top_dict: &Dict,
+        sub_cff: &mut [u8],
+    ) -> Option<()> {
+        // Parse FD Select data structure, which maps from glyph ids to find
+        // dict indices.
+        let fd_select_offset = top_dict.get_offset(Op::FD_SELECT)?;
+        let fd_select =
+            parse_fd_select(cff.get(fd_select_offset ..)?, subsetter.num_glyphs)?;
+
+        // Clear local subrs from unused font dicts.
+        let fd_array_offset = top_dict.get_offset(Op::FD_ARRAY)?;
+        let fd_array = Index::parse(cff.get(fd_array_offset ..)?)?;
+
+        // Determine which font dict's subrs to keep.
+        let mut sub_fds = HashSet::new();
+        for &glyph in subsetter.glyphs {
+            sub_fds.insert(fd_select.get(usize::from(glyph))?);
+        }
+
+        for (i, data, _) in fd_array.iter() {
+            if !sub_fds.contains(&(i as u8)) {
+                let font_dict = Dict::parse(data);
+                if let Some(private_range) = font_dict.get_range(Op::PRIVATE) {
+                    let private_dict = Dict::parse(cff.get(private_range.clone())?);
+                    if let Some(subrs_offset) = private_dict.get_offset(Op::SUBRS) {
+                        let start = private_range.start + subrs_offset;
+                        let index = Index::parse(cff.get(start ..)?)?;
+                        let end = start + index.data.len();
+                        memzero(sub_cff.get_mut(start .. end)?);
+                    }
+                }
+            }
+        }
+
+        Some(())
+    }
+
+    /// Returns the font dict index for each glyph.
+    fn parse_fd_select(data: &[u8], num_glyphs: u16) -> Option<Cow<'_, [u8]>> {
+        let mut s = Stream::new(data);
+        let format = s.read::<u8>()?;
+        Some(match format {
+            0 => Cow::Borrowed(s.read_bytes(usize::from(num_glyphs))?),
+            3 => {
+                let count = usize::from(s.read::<u16>()?);
+                let mut fds = vec![];
+                let mut start = s.read::<u16>()?;
+                for _ in 0 .. count {
+                    let fd = s.read::<u8>()?;
+                    let end = s.read::<u16>()?;
+                    for _ in start .. end {
+                        fds.push(fd);
+                    }
+                    start = end;
+                }
+                Cow::Owned(fds)
+            }
+            _ => Cow::Borrowed(&[]),
+        })
+    }
+
     struct Index<'a> {
-        /// The offset of the data from the start of the index.
-        data_offset: usize,
-        /// The data for the actual items.
-        items: Vec<&'a [u8]>,
+        /// The data of the whole index (including its header).
+        data: &'a [u8],
+        /// The data ranges for the actual items.
+        items: Vec<Range<usize>>,
     }
 
     impl<'a> Index<'a> {
-        fn parse(s: &mut Stream<'a>) -> Option<Self> {
-            let data = s.tail()?;
+        fn parse(data: &'a [u8]) -> Option<Self> {
+            let mut s = Stream::new(data);
+
             let count = usize::from(s.read::<u16>()?);
 
-            let mut data_offset = 2;
             let mut items = Vec::with_capacity(count);
+            let mut len = 2;
 
             if count > 0 {
                 let offsize = usize::from(s.read::<u8>()?);
@@ -579,41 +660,47 @@ mod cff {
                     return None;
                 }
 
-                // The data starts right behind the offsets.
-                data_offset += 1 + offsize * (count + 1);
-
                 // Read an offset and transform it to be relative to the start
                 // of the index.
+                let data_offset = 3 + offsize * (count + 1);
                 let mut read_offset = || {
                     let mut bytes = [0u8; 4];
                     bytes[4 - offsize .. 4].copy_from_slice(s.read_bytes(offsize)?);
                     Some(data_offset - 1 + u32::from_be_bytes(bytes) as usize)
                 };
 
-                let mut len = 0;
                 let mut last = read_offset()?;
-
                 for _ in 0 .. count {
                     let offset = read_offset()?;
-                    let item = data.get(last .. offset)?;
-                    items.push(item);
+                    data.get(last .. offset)?;
+                    items.push(last .. offset);
                     last = offset;
-                    len += item.len();
                 }
 
-                // Advance the stream past the data.
-                s.advance(len);
+                len = last;
             }
 
-            Some(Self { data_offset, items })
+            Some(Self { data: data.get(.. len)?, items })
+        }
+
+        fn parse_stream(s: &'a mut Stream) -> Option<Self> {
+            let index = Index::parse(s.tail()?)?;
+            s.advance(index.data.len());
+            Some(index)
         }
 
         fn get(&self, idx: usize) -> Option<&'a [u8]> {
-            self.items.get(idx).copied()
+            self.data.get(self.items.get(idx)?.clone())
+        }
+
+        fn iter(&self) -> impl Iterator<Item = (u16, &'a [u8], Range<usize>)> + '_ {
+            self.items
+                .iter()
+                .enumerate()
+                .map(move |(i, item)| (i as u16, &self.data[item.clone()], item.clone()))
         }
     }
 
-    /// A CFF1 DICT structure.
     struct Dict<'a>(Vec<Pair<'a>>);
 
     impl<'a> Dict<'a> {
@@ -635,8 +722,20 @@ mod cff {
                 _ => None,
             }
         }
+
+        fn get_range(&self, op: Op) -> Option<Range<usize>> {
+            match self.get(op)? {
+                &[Operand::Int(len), Operand::Int(offset)] if offset > 0 => {
+                    let offset = usize::try_from(offset).ok()?;
+                    let len = usize::try_from(len).ok()?;
+                    Some(offset .. offset + len)
+                }
+                _ => None,
+            }
+        }
     }
 
+    #[derive(Debug)]
     struct Pair<'a> {
         operands: Vec<Operand<'a>>,
         op: Op,
@@ -652,11 +751,15 @@ mod cff {
         }
     }
 
-    #[derive(Eq, PartialEq)]
+    #[derive(Debug, Eq, PartialEq)]
     struct Op(u8, u8);
 
     impl Op {
         const CHAR_STRINGS: Self = Self(17, 0);
+        const PRIVATE: Self = Self(18, 0);
+        const SUBRS: Self = Self(19, 0);
+        const FD_ARRAY: Self = Self(12, 36);
+        const FD_SELECT: Self = Self(12, 37);
 
         fn parse(s: &mut Stream) -> Option<Self> {
             let b0 = s.read::<u8>()?;
@@ -668,6 +771,7 @@ mod cff {
         }
     }
 
+    #[derive(Debug)]
     enum Operand<'a> {
         Int(i32),
         Real(&'a [u8]),
