@@ -20,8 +20,9 @@ pub fn font(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     let sans_serif = args.named("sans-serif")?;
     let monospace = args.named("monospace")?;
     let fallback = args.named("fallback")?;
+    let body = args.eat::<Template>();
 
-    ctx.template.modify(move |state| {
+    let f = move |state: &mut State| {
         let font = state.font_mut();
 
         if let Some(size) = size {
@@ -71,9 +72,14 @@ pub fn font(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
         if let Some(fallback) = fallback {
             font.fallback = fallback;
         }
-    });
+    };
 
-    Ok(Value::None)
+    Ok(if let Some(body) = body {
+        Value::Template(body.modified(f))
+    } else {
+        ctx.template.modify(f);
+        Value::None
+    })
 }
 
 struct FontDef(Rc<Vec<FontFamily>>);

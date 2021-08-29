@@ -13,7 +13,7 @@
 #underline(red)[Critical information is conveyed here.]
 
 // Inherits font color.
-[#font(fill: red) #underline[Change with the wind.]]
+#font(fill: red, underline[Change with the wind.])
 
 // Both over- and underline.
 #overline(underline[Running amongst the wolves.])

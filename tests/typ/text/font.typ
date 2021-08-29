@@ -2,35 +2,35 @@
 
 ---
 // Set same font size in three different ways.
-[#font(22pt) A]
-[#font(200%) A]
-[#font(size: 16.5pt + 50%) A]
+#font(22pt)[A]
+#font(200%)[A]
+#font(size: 16.5pt + 50%)[A]
 
 // Do nothing.
-[#font() Normal]
+#font()[Normal]
 
 // Set style (is available).
-[#font(style: italic) Italic]
+#font(style: italic)[Italic]
 
 // Set weight (is available).
-[#font(weight: bold) Bold]
+#font(weight: bold)[Bold]
 
 // Set stretch (not available, matching closest).
-[#font(stretch: 50%) Condensed]
+#font(stretch: 50%)[Condensed]
 
 // Set family.
-[#font(family: "PT Sans") Sans serif]
+#font(family: "PT Sans")[Sans serif]
 
 // Emoji.
 Emoji: 🐪, 🌋, 🏞
 
 // Math.
-[#font("Latin Modern Math") ∫ 𝛼 + 3𝛽 d𝑡]
+#font("Latin Modern Math")[∫ 𝛼 + 3𝛽 d𝑡]
 
 // Colors.
 [
   #font(fill: eastern)
-  This is [#font(fill: rgb("FA644B")) way more] colorful.
+  This is #font(fill: rgb("FA644B"))[way more] colorful.
 ]
 
 // Disable font fallback beyond the user-specified list.
@@ -41,9 +41,9 @@ Emoji: 🐪, 🌋, 🏞
 ---
 // Test class definitions.
 #font(sans-serif: "PT Sans")
-[#font(family: sans-serif) Sans-serif.] \
-[#font(monospace) Monospace.] \
-[#font(monospace, monospace: ("Nope", "Latin Modern Math")) Math.]
+#font(family: sans-serif)[Sans-serif.] \
+#font(monospace)[Monospace.] \
+#font(monospace, monospace: ("Nope", "Latin Modern Math"))[Math.]
 
 ---
 // Test top and bottom edge.

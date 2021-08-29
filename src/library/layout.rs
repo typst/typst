@@ -126,17 +126,17 @@ pub fn align(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
         }
     };
 
-    if let Some(body) = body {
+    Ok(if let Some(body) = body {
         let mut template = Template::new();
         template.save();
         realign(&mut template);
         template += body;
         template.restore();
-        Ok(Value::Template(template))
+        Value::Template(template)
     } else {
         realign(&mut ctx.template);
-        Ok(Value::None)
-    }
+        Value::None
+    })
 }
 
 /// `box`: Place content in a rectangular box.

@@ -140,6 +140,19 @@ impl Template {
         self.make_mut().push(TemplateNode::Modify(Rc::new(f)));
     }
 
+    /// Return a new template which is modified from start to end.
+    pub fn modified<F>(self, f: F) -> Self
+    where
+        F: Fn(&mut State) + 'static,
+    {
+        let mut wrapper = Self::new();
+        wrapper.save();
+        wrapper.modify(f);
+        wrapper += self;
+        wrapper.restore();
+        wrapper
+    }
+
     /// Build the stack node resulting from instantiating the template in the
     /// given state.
     pub fn to_stack(&self, state: &State) -> StackNode {
