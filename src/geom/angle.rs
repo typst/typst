@@ -50,6 +50,11 @@ impl Angle {
     pub fn to_unit(self, unit: AngularUnit) -> f64 {
         self.to_raw() / unit.raw_scale()
     }
+
+    /// The absolute value of the this angle.
+    pub fn abs(self) -> Self {
+        Self::raw(self.to_raw().abs())
+    }
 }
 
 impl Debug for Angle {

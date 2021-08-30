@@ -29,6 +29,11 @@ impl Fractional {
     pub fn is_zero(self) -> bool {
         self.0 == 0.0
     }
+
+    /// The absolute value of the this fractional.
+    pub fn abs(self) -> Self {
+        Self::new(self.get().abs())
+    }
 }
 
 impl Debug for Fractional {

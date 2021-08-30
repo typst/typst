@@ -61,6 +61,7 @@ pub fn new() -> Scope {
     std.def_func("repr", repr);
     std.def_func("len", len);
     std.def_func("rgb", rgb);
+    std.def_func("abs", abs);
     std.def_func("min", min);
     std.def_func("max", max);
     std.def_func("lower", lower);

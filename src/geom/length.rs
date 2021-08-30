@@ -92,6 +92,11 @@ impl Length {
         self.0.into_inner().is_infinite()
     }
 
+    /// The absolute value of the this length.
+    pub fn abs(self) -> Self {
+        Self::raw(self.to_raw().abs())
+    }
+
     /// The minimum of this and another length.
     pub fn min(self, other: Self) -> Self {
         Self(self.0.min(other.0))

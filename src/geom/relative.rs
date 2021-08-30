@@ -42,6 +42,11 @@ impl Relative {
     pub fn is_zero(self) -> bool {
         self.0 == 0.0
     }
+
+    /// The absolute value of the this relative.
+    pub fn abs(self) -> Self {
+        Self::new(self.get().abs())
+    }
 }
 
 impl Debug for Relative {

@@ -45,6 +45,21 @@ pub fn rgb(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     )))
 }
 
+/// `abs`: The absolute value of a numeric value.
+pub fn abs(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    let Spanned { v, span } = args.expect("numeric value")?;
+    Ok(match v {
+        Value::Int(v) => Value::Int(v.abs()),
+        Value::Float(v) => Value::Float(v.abs()),
+        Value::Length(v) => Value::Length(v.abs()),
+        Value::Angle(v) => Value::Angle(v.abs()),
+        Value::Relative(v) => Value::Relative(v.abs()),
+        Value::Fractional(v) => Value::Fractional(v.abs()),
+        Value::Linear(_) => bail!(span, "cannot take absolute value of a linear"),
+        _ => bail!(span, "expected numeric value"),
+    })
+}
+
 /// `min`: The minimum of a sequence of values.
 pub fn min(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     minmax(args, Ordering::Less)
