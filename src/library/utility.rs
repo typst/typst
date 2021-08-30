@@ -75,3 +75,13 @@ fn minmax(args: &mut Arguments, goal: Ordering) -> TypResult<Value> {
     }
     Ok(extremum)
 }
+
+/// `lower`: Convert a string to lowercase.
+pub fn lower(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    Ok(args.expect::<Str>("string")?.to_lowercase().into())
+}
+
+/// `upper`: Convert a string to uppercase.
+pub fn upper(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    Ok(args.expect::<Str>("string")?.to_uppercase().into())
+}

@@ -63,6 +63,8 @@ pub fn new() -> Scope {
     std.def_func("rgb", rgb);
     std.def_func("min", min);
     std.def_func("max", max);
+    std.def_func("lower", lower);
+    std.def_func("upper", upper);
 
     // Colors.
     std.def_const("white", RgbaColor::WHITE);
