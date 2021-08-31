@@ -46,12 +46,6 @@ impl Em {
 
 impl Debug for Em {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
-    }
-}
-
-impl Display for Em {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}em", self.get())
     }
 }

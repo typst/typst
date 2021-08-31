@@ -20,14 +20,6 @@ impl Debug for Color {
     }
 }
 
-impl Display for Color {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Rgba(c) => Display::fmt(c, f),
-        }
-    }
-}
-
 /// An 8-bit RGBA color.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct RgbaColor {
@@ -104,18 +96,12 @@ impl Debug for RgbaColor {
                 f,
                 "rgba({:02}, {:02}, {:02}, {:02})",
                 self.r, self.g, self.b, self.a,
-            )
+            )?;
         } else {
-            Display::fmt(self, f)
-        }
-    }
-}
-
-impl Display for RgbaColor {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "#{:02x}{:02x}{:02x}", self.r, self.g, self.b)?;
-        if self.a != 255 {
-            write!(f, "{:02x}", self.a)?;
+            write!(f, "#{:02x}{:02x}{:02x}", self.r, self.g, self.b)?;
+            if self.a != 255 {
+                write!(f, "{:02x}", self.a)?;
+            }
         }
         Ok(())
     }

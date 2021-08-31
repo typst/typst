@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use std::convert::TryFrom;
-use std::fmt::{self, Debug, Display, Formatter, Write};
+use std::fmt::{self, Debug, Formatter, Write};
 use std::iter::FromIterator;
 use std::ops::{Add, AddAssign};
 use std::rc::Rc;
@@ -120,15 +120,9 @@ fn out_of_bounds(index: i64, len: i64) -> String {
 
 impl Debug for Array {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_list().entries(self.0.iter()).finish()
-    }
-}
-
-impl Display for Array {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_char('(')?;
         for (i, value) in self.iter().enumerate() {
-            Display::fmt(value, f)?;
+            value.fmt(f)?;
             if i + 1 < self.0.len() {
                 f.write_str(", ")?;
             }

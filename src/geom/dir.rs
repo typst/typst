@@ -1,7 +1,7 @@
 use super::*;
 
 /// The four directions into which content can be laid out.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Dir {
     /// Left to right.
     LTR,
@@ -71,7 +71,7 @@ impl Dir {
     }
 }
 
-impl Display for Dir {
+impl Debug for Dir {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
             Self::LTR => "ltr",

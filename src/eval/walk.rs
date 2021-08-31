@@ -1,12 +1,10 @@
-use std::fmt::Write;
 use std::rc::Rc;
 
-use super::{Eval, EvalContext, Template, Value};
+use super::{Eval, EvalContext, Str, Template, Value};
 use crate::diag::TypResult;
 use crate::geom::Gen;
 use crate::layout::{ParChild, ParNode, StackChild, StackNode};
 use crate::syntax::*;
-use crate::util::EcoString;
 
 /// Walk a syntax node and fill the currently built template.
 pub trait Walk {
@@ -38,13 +36,13 @@ impl Walk for SyntaxNode {
             Self::Enum(enum_) => enum_.walk(ctx)?,
             Self::Expr(expr) => match expr.eval(ctx)? {
                 Value::None => {}
-                Value::Int(v) => ctx.template.text(v.to_string()),
-                Value::Float(v) => ctx.template.text(v.to_string()),
+                Value::Int(v) => ctx.template.text(format_str!("{}", v)),
+                Value::Float(v) => ctx.template.text(format_str!("{}", v)),
                 Value::Str(v) => ctx.template.text(v),
                 Value::Template(v) => ctx.template += v,
                 // For values which can't be shown "naturally", we print the
                 // representation in monospace.
-                other => ctx.template.monospace(other.to_string()),
+                other => ctx.template.monospace(other.repr()),
             },
         }
         Ok(())
@@ -91,7 +89,7 @@ impl Walk for HeadingNode {
 impl Walk for ListNode {
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
         let body = self.body.eval(ctx)?;
-        walk_item(ctx, '•'.into(), body);
+        walk_item(ctx, Str::from('•'), body);
         Ok(())
     }
 }
@@ -99,20 +97,19 @@ impl Walk for ListNode {
 impl Walk for EnumNode {
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
         let body = self.body.eval(ctx)?;
-        let mut label = EcoString::new();
-        write!(&mut label, "{}.", self.number.unwrap_or(1)).unwrap();
+        let label = format_str!("{}.", self.number.unwrap_or(1));
         walk_item(ctx, label, body);
         Ok(())
     }
 }
 
-fn walk_item(ctx: &mut EvalContext, label: EcoString, body: Template) {
+fn walk_item(ctx: &mut EvalContext, label: Str, body: Template) {
     ctx.template += Template::from_block(move |state| {
         let label = ParNode {
             dir: state.dirs.inline,
             line_spacing: state.line_spacing(),
             children: vec![ParChild::Text(
-                label.clone(),
+                (&label).into(),
                 state.aligns.inline,
                 Rc::clone(&state.font),
                 vec![],

@@ -1,6 +1,6 @@
 use std::any::Any;
 use std::cmp::Ordering;
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Debug, Formatter};
 use std::rc::Rc;
 
 use super::{ops, Array, Dict, Function, Str, Template};
@@ -11,7 +11,7 @@ use crate::syntax::Spanned;
 use crate::util::EcoString;
 
 /// A computational value.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Value {
     /// The value that indicates the absence of a meaningful value.
     None,
@@ -89,6 +89,11 @@ impl Value {
         T::cast(self)
     }
 
+    /// Return the debug representation of the value.
+    pub fn repr(&self) -> Str {
+        format_str!("{:?}", self)
+    }
+
     /// Join the value with another value.
     pub fn join(self, rhs: Self) -> StrResult<Self> {
         ops::join(self, rhs)
@@ -101,26 +106,26 @@ impl Default for Value {
     }
 }
 
-impl Display for Value {
+impl Debug for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::None => f.pad("none"),
             Self::Auto => f.pad("auto"),
-            Self::Bool(v) => Display::fmt(v, f),
-            Self::Int(v) => Display::fmt(v, f),
-            Self::Float(v) => Display::fmt(v, f),
-            Self::Length(v) => Display::fmt(v, f),
-            Self::Angle(v) => Display::fmt(v, f),
-            Self::Relative(v) => Display::fmt(v, f),
-            Self::Linear(v) => Display::fmt(v, f),
-            Self::Fractional(v) => Display::fmt(v, f),
-            Self::Color(v) => Display::fmt(v, f),
-            Self::Str(v) => Display::fmt(v, f),
-            Self::Array(v) => Display::fmt(v, f),
-            Self::Dict(v) => Display::fmt(v, f),
-            Self::Template(v) => Display::fmt(v, f),
-            Self::Func(v) => Display::fmt(v, f),
-            Self::Dyn(v) => Display::fmt(v, f),
+            Self::Bool(v) => Debug::fmt(v, f),
+            Self::Int(v) => Debug::fmt(v, f),
+            Self::Float(v) => Debug::fmt(v, f),
+            Self::Length(v) => Debug::fmt(v, f),
+            Self::Angle(v) => Debug::fmt(v, f),
+            Self::Relative(v) => Debug::fmt(v, f),
+            Self::Linear(v) => Debug::fmt(v, f),
+            Self::Fractional(v) => Debug::fmt(v, f),
+            Self::Color(v) => Debug::fmt(v, f),
+            Self::Str(v) => Debug::fmt(v, f),
+            Self::Array(v) => Debug::fmt(v, f),
+            Self::Dict(v) => Debug::fmt(v, f),
+            Self::Template(v) => Debug::fmt(v, f),
+            Self::Func(v) => Debug::fmt(v, f),
+            Self::Dyn(v) => Debug::fmt(v, f),
         }
     }
 }
@@ -186,7 +191,7 @@ impl Dynamic {
     /// Create a new instance from any value that satisifies the required bounds.
     pub fn new<T>(any: T) -> Self
     where
-        T: Type + Debug + Display + PartialEq + 'static,
+        T: Type + Debug + PartialEq + 'static,
     {
         Self(Rc::new(any))
     }
@@ -213,19 +218,13 @@ impl Debug for Dynamic {
     }
 }
 
-impl Display for Dynamic {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
-
 impl PartialEq for Dynamic {
     fn eq(&self, other: &Self) -> bool {
         self.0.dyn_eq(other)
     }
 }
 
-trait Bounds: Debug + Display + 'static {
+trait Bounds: Debug + 'static {
     fn as_any(&self) -> &dyn Any;
     fn dyn_eq(&self, other: &Dynamic) -> bool;
     fn dyn_type_name(&self) -> &'static str;
@@ -233,7 +232,7 @@ trait Bounds: Debug + Display + 'static {
 
 impl<T> Bounds for T
 where
-    T: Type + Debug + Display + PartialEq + 'static,
+    T: Type + Debug + PartialEq + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -420,11 +419,11 @@ mod tests {
 
     #[track_caller]
     fn test(value: impl Into<Value>, exp: &str) {
-        assert_eq!(value.into().to_string(), exp);
+        assert_eq!(format!("{:?}", value.into()), exp);
     }
 
     #[test]
-    fn test_value_to_string() {
+    fn test_value_debug() {
         // Primitives.
         test(Value::None, "none");
         test(false, "false");

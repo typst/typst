@@ -59,13 +59,6 @@ impl Angle {
 
 impl Debug for Angle {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let unit = AngularUnit::Deg;
-        write!(f, "{}{}", self.to_unit(unit), unit)
-    }
-}
-
-impl Display for Angle {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         // Format with the unit that yields the shortest output, preferring
         // degrees when tied.
         let unit = [AngularUnit::Deg, AngularUnit::Rad]
@@ -74,7 +67,7 @@ impl Display for Angle {
             .min_by_key(|&unit| self.to_unit(unit).to_string().len())
             .unwrap();
 
-        write!(f, "{}{}", self.to_unit(unit), unit)
+        write!(f, "{}{:?}", self.to_unit(unit), unit)
     }
 }
 
@@ -139,7 +132,7 @@ impl Sum for Angle {
     }
 }
 /// Different units of angular measurement.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum AngularUnit {
     /// Radians.
     Rad,
@@ -157,7 +150,7 @@ impl AngularUnit {
     }
 }
 
-impl Display for AngularUnit {
+impl Debug for AngularUnit {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
             Self::Rad => "rad",

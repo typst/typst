@@ -115,12 +115,3 @@ impl GenAxis {
         }
     }
 }
-
-impl Display for GenAxis {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Inline => "inline",
-            Self::Block => "block",
-        })
-    }
-}

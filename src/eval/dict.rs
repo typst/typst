@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::fmt::{self, Debug, Display, Formatter, Write};
+use std::fmt::{self, Debug, Formatter, Write};
 use std::iter::FromIterator;
 use std::ops::{Add, AddAssign};
 use std::rc::Rc;
@@ -79,16 +79,10 @@ impl Dict {
 /// The missing key access error message.
 #[cold]
 fn missing_key(key: &Str) -> String {
-    format!("dictionary does not contain key: {}", key)
+    format!("dictionary does not contain key: {:?}", key)
 }
 
 impl Debug for Dict {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_map().entries(self.0.iter()).finish()
-    }
-}
-
-impl Display for Dict {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_char('(')?;
         if self.is_empty() {
@@ -97,7 +91,7 @@ impl Display for Dict {
         for (i, (key, value)) in self.iter().enumerate() {
             f.write_str(key)?;
             f.write_str(": ")?;
-            Display::fmt(value, f)?;
+            value.fmt(f)?;
             if i + 1 < self.0.len() {
                 f.write_str(", ")?;
             }

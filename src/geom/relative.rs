@@ -51,12 +51,6 @@ impl Relative {
 
 impl Debug for Relative {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
-    }
-}
-
-impl Display for Relative {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}%", 100.0 * self.get())
     }
 }

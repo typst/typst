@@ -388,7 +388,7 @@ fn draw(ctx: &Context, frames: &[Rc<Frame>], dpp: f32) -> sk::Pixmap {
     let pixel_height = (dpp * height.to_pt() as f32) as u32;
     if pixel_width > 4000 || pixel_height > 4000 {
         panic!(
-            "overlarge image: {} by {} ({} x {})",
+            "overlarge image: {} by {} ({:?} x {:?})",
             pixel_width, pixel_height, width, height,
         );
     }

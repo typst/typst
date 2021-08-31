@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 use std::convert::TryFrom;
-use std::fmt::{self, Debug, Display, Formatter, Write};
+use std::fmt::{self, Debug, Formatter, Write};
 use std::ops::{Add, AddAssign, Deref};
 
 use crate::diag::StrResult;
@@ -10,9 +10,9 @@ use crate::util::EcoString;
 macro_rules! format_str {
     ($($tts:tt)*) => {{
         use std::fmt::Write;
-        let mut s = $crate::util::EcoString::new();
+        let mut s = $crate::eval::Str::new();
         write!(s, $($tts)*).unwrap();
-        $crate::eval::Str::from(s)
+        s
     }};
 }
 
@@ -67,12 +67,6 @@ impl Deref for Str {
 
 impl Debug for Str {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Debug::fmt(&self.0, f)
-    }
-}
-
-impl Display for Str {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_char('"')?;
         for c in self.chars() {
             match c {
@@ -100,6 +94,16 @@ impl Add for Str {
 impl AddAssign for Str {
     fn add_assign(&mut self, rhs: Self) {
         self.0.push_str(rhs.as_str());
+    }
+}
+
+impl Write for Str {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.0.write_str(s)
+    }
+
+    fn write_char(&mut self, c: char) -> fmt::Result {
+        self.0.write_char(c)
     }
 }
 

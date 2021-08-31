@@ -53,12 +53,6 @@ impl Debug for Linear {
     }
 }
 
-impl Display for Linear {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{} + {}", self.rel, self.abs)
-    }
-}
-
 impl From<Length> for Linear {
     fn from(abs: Length) -> Self {
         Self { rel: Relative::zero(), abs }

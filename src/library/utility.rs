@@ -12,7 +12,7 @@ pub fn type_(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 
 /// `repr`: The string representation of a value.
 pub fn repr(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
-    Ok(args.expect::<Value>("value")?.to_string().into())
+    Ok(args.expect::<Value>("value")?.repr().into())
 }
 
 /// `join`: Join a sequence of values, optionally interspersing it with another

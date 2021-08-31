@@ -130,13 +130,6 @@ impl Length {
 
 impl Debug for Length {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let unit = LengthUnit::Pt;
-        write!(f, "{}{}", self.to_unit(unit), unit)
-    }
-}
-
-impl Display for Length {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use LengthUnit::*;
 
         // Format with the unit that yields the shortest output, preferring
@@ -147,7 +140,7 @@ impl Display for Length {
             .min_by_key(|&unit| self.to_unit(unit).to_string().len())
             .unwrap();
 
-        write!(f, "{}{}", self.to_unit(unit), unit)
+        write!(f, "{}{:?}", self.to_unit(unit), unit)
     }
 }
 
@@ -219,7 +212,7 @@ impl<'a> Sum<&'a Length> for Length {
 }
 
 /// Different units of length measurement.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum LengthUnit {
     /// Points.
     Pt,
@@ -243,7 +236,7 @@ impl LengthUnit {
     }
 }
 
-impl Display for LengthUnit {
+impl Debug for LengthUnit {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
             LengthUnit::Mm => "mm",
@@ -265,9 +258,9 @@ mod tests {
 
     #[test]
     fn test_length_formatting() {
-        assert_eq!(Length::pt(23.0).to_string(), "23pt");
-        assert_eq!(Length::pt(-28.3465).to_string(), "-1cm");
-        assert_eq!(Length::cm(12.728).to_string(), "12.728cm");
-        assert_eq!(Length::cm(4.5).to_string(), "45mm");
+        assert_eq!(format!("{:?}", Length::pt(23.0)), "23pt");
+        assert_eq!(format!("{:?}", Length::pt(-28.3465)), "-1cm");
+        assert_eq!(format!("{:?}", Length::cm(12.728)), "12.728cm");
+        assert_eq!(format!("{:?}", Length::cm(4.5)), "45mm");
     }
 }

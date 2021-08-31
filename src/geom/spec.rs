@@ -128,12 +128,3 @@ impl SpecAxis {
         }
     }
 }
-
-impl Display for SpecAxis {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Horizontal => "horizontal",
-            Self::Vertical => "vertical",
-        })
-    }
-}

@@ -38,12 +38,6 @@ impl Fractional {
 
 impl Debug for Fractional {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(self, f)
-    }
-}
-
-impl Display for Fractional {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}fr", self.get())
     }
 }

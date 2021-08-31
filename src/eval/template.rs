@@ -1,5 +1,5 @@
 use std::convert::TryFrom;
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Debug, Formatter};
 use std::mem;
 use std::ops::{Add, AddAssign};
 use std::rc::Rc;
@@ -188,12 +188,6 @@ impl Template {
 }
 
 impl Debug for Template {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("Template { .. }")
-    }
-}
-
-impl Display for Template {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("<template>")
     }

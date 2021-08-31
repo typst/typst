@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug, Display, Formatter, Write};
+use std::fmt::{self, Debug, Formatter, Write};
 use std::rc::Rc;
 
 use super::{Cast, EvalContext, Str, Value};
@@ -40,12 +40,6 @@ impl Function {
 
 impl Debug for Function {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("Function").field("name", &self.0.name).finish()
-    }
-}
-
-impl Display for Function {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("<function")?;
         if let Some(name) = self.name() {
             f.write_char(' ')?;
@@ -63,7 +57,7 @@ impl PartialEq for Function {
 }
 
 /// Evaluated arguments to a function.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Arguments {
     /// The span of the whole argument list.
     pub span: Span,
@@ -72,7 +66,7 @@ pub struct Arguments {
 }
 
 /// An argument to a function call: `12` or `draw: false`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Argument {
     /// The span of the whole argument.
     pub span: Span,
@@ -192,20 +186,26 @@ impl Arguments {
     }
 }
 
-impl Display for Arguments {
+impl Debug for Arguments {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_char('(')?;
         for (i, arg) in self.items.iter().enumerate() {
-            if let Some(name) = &arg.name {
-                f.write_str(name)?;
-                f.write_str(": ")?;
-            }
-            Display::fmt(&arg.value.v, f)?;
+            arg.fmt(f)?;
             if i + 1 < self.items.len() {
                 f.write_str(", ")?;
             }
         }
         f.write_char(')')
+    }
+}
+
+impl Debug for Argument {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if let Some(name) = &self.name {
+            f.write_str(name)?;
+            f.write_str(": ")?;
+        }
+        Debug::fmt(&self.value.v, f)
     }
 }
 

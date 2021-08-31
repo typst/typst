@@ -33,7 +33,7 @@ pub use size::*;
 pub use spec::*;
 
 use std::f64::consts::PI;
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Debug, Formatter};
 use std::iter::Sum;
 use std::ops::*;
 

@@ -1,7 +1,7 @@
 //! Font handling.
 
 use std::collections::{hash_map::Entry, BTreeMap, HashMap};
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Debug, Formatter};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -282,7 +282,7 @@ impl Face {
 }
 
 /// Identifies a vertical metric of a font.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum VerticalFontMetric {
     /// The distance from the baseline to the typographic ascender.
     ///
@@ -302,7 +302,7 @@ pub enum VerticalFontMetric {
     Descender,
 }
 
-impl Display for VerticalFontMetric {
+impl Debug for VerticalFontMetric {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
             Self::Ascender => "ascender",
@@ -315,7 +315,7 @@ impl Display for VerticalFontMetric {
 }
 
 /// A generic or named font family.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub enum FontFamily {
     /// A family that has "serifs", small strokes attached to letters.
     Serif,
@@ -327,7 +327,7 @@ pub enum FontFamily {
     Named(String),
 }
 
-impl Display for FontFamily {
+impl Debug for FontFamily {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
             Self::Serif => "serif",
@@ -409,7 +409,7 @@ pub fn find_name(mut names: ttf_parser::Names<'_>, name_id: u16) -> Option<Strin
 }
 
 /// Properties that distinguish a face from other faces in the same family.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 #[derive(Serialize, Deserialize)]
 pub struct FontVariant {
     /// The style of the face (normal / italic / oblique).
@@ -427,14 +427,14 @@ impl FontVariant {
     }
 }
 
-impl Display for FontVariant {
+impl Debug for FontVariant {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}-{}-{}", self.style, self.weight, self.stretch)
+        write!(f, "{:?}-{:?}-{:?}", self.style, self.weight, self.stretch)
     }
 }
 
 /// The style of a font face.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FontStyle {
@@ -446,36 +446,19 @@ pub enum FontStyle {
     Oblique,
 }
 
-impl FontStyle {
-    /// Create a font style from a lowercase name like `italic`.
-    pub fn from_str(name: &str) -> Option<FontStyle> {
-        Some(match name {
-            "normal" => Self::Normal,
-            "italic" => Self::Italic,
-            "oblique" => Self::Oblique,
-            _ => return None,
-        })
-    }
-
-    /// The lowercase string representation of this style.
-    pub fn to_str(self) -> &'static str {
-        match self {
-            Self::Normal => "normal",
-            Self::Italic => "italic",
-            Self::Oblique => "oblique",
-        }
-    }
-}
-
 impl Default for FontStyle {
     fn default() -> Self {
         Self::Normal
     }
 }
 
-impl Display for FontStyle {
+impl Debug for FontStyle {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(self.to_str())
+        f.pad(match self {
+            Self::Normal => "normal",
+            Self::Italic => "italic",
+            Self::Oblique => "oblique",
+        })
     }
 }
 
@@ -519,42 +502,9 @@ impl FontWeight {
         Self(weight.max(100).min(900))
     }
 
-    /// Create a font weight from a lowercase name like `light`.
-    pub fn from_str(name: &str) -> Option<Self> {
-        Some(match name {
-            "thin" => Self::THIN,
-            "extralight" => Self::EXTRALIGHT,
-            "light" => Self::LIGHT,
-            "regular" => Self::REGULAR,
-            "medium" => Self::MEDIUM,
-            "semibold" => Self::SEMIBOLD,
-            "bold" => Self::BOLD,
-            "extrabold" => Self::EXTRABOLD,
-            "black" => Self::BLACK,
-            _ => return None,
-        })
-    }
-
     /// The number between 100 and 900.
     pub fn to_number(self) -> u16 {
         self.0
-    }
-
-    /// The lowercase string representation of this weight if it is divisible by
-    /// 100.
-    pub fn to_str(self) -> Option<&'static str> {
-        Some(match self {
-            Self::THIN => "thin",
-            Self::EXTRALIGHT => "extralight",
-            Self::LIGHT => "light",
-            Self::REGULAR => "regular",
-            Self::MEDIUM => "medium",
-            Self::SEMIBOLD => "semibold",
-            Self::BOLD => "bold",
-            Self::EXTRABOLD => "extrabold",
-            Self::BLACK => "black",
-            _ => return None,
-        })
     }
 
     /// Add (or remove) weight, saturating at the boundaries of 100 and 900.
@@ -575,27 +525,18 @@ impl Default for FontWeight {
 }
 
 impl Debug for FontWeight {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.pad(match *self {
-            Self::THIN => "Thin",
-            Self::EXTRALIGHT => "Extralight",
-            Self::LIGHT => "Light",
-            Self::REGULAR => "Regular",
-            Self::MEDIUM => "Medium",
-            Self::SEMIBOLD => "Semibold",
-            Self::BOLD => "Bold",
-            Self::EXTRABOLD => "Extrabold",
-            Self::BLACK => "Black",
-            _ => return write!(f, "{}", self.0),
-        })
-    }
-}
-
-impl Display for FontWeight {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self.to_str() {
-            Some(name) => f.pad(name),
-            None => write!(f, "{}", self.0),
+        match *self {
+            Self::THIN => f.pad("thin"),
+            Self::EXTRALIGHT => f.pad("extralight"),
+            Self::LIGHT => f.pad("light"),
+            Self::REGULAR => f.pad("regular"),
+            Self::MEDIUM => f.pad("medium"),
+            Self::SEMIBOLD => f.pad("semibold"),
+            Self::BOLD => f.pad("bold"),
+            Self::EXTRABOLD => f.pad("extrabold"),
+            Self::BLACK => f.pad("black"),
+            _ => write!(f, "{}", self.0),
         }
     }
 }
@@ -656,42 +597,9 @@ impl FontStretch {
         }
     }
 
-    /// Create a font stretch from a lowercase name like `extra-expanded`.
-    pub fn from_str(name: &str) -> Option<Self> {
-        Some(match name {
-            "ultra-condensed" => Self::ULTRA_CONDENSED,
-            "extra-condensed" => Self::EXTRA_CONDENSED,
-            "condensed" => Self::CONDENSED,
-            "semi-condensed" => Self::SEMI_CONDENSED,
-            "normal" => Self::NORMAL,
-            "semi-expanded" => Self::SEMI_EXPANDED,
-            "expanded" => Self::EXPANDED,
-            "extra-expanded" => Self::EXTRA_EXPANDED,
-            "ultra-expanded" => Self::ULTRA_EXPANDED,
-            _ => return None,
-        })
-    }
-
     /// The ratio between 0.5 and 2.0 corresponding to this stretch.
     pub fn to_ratio(self) -> f32 {
         self.0 as f32 / 1000.0
-    }
-
-    /// The lowercase string representation of this stretch is one of the named
-    /// ones.
-    pub fn to_str(self) -> Option<&'static str> {
-        Some(match self {
-            Self::ULTRA_CONDENSED => "ultra-condensed",
-            Self::EXTRA_CONDENSED => "extra-condensed",
-            Self::CONDENSED => "condensed",
-            Self::SEMI_CONDENSED => "semi-condensed",
-            Self::NORMAL => "normal",
-            Self::SEMI_EXPANDED => "semi-expanded",
-            Self::EXPANDED => "expanded",
-            Self::EXTRA_EXPANDED => "extra-expanded",
-            Self::ULTRA_EXPANDED => "ultra-expanded",
-            _ => return None,
-        })
     }
 
     /// The absolute ratio distance between this and another font stretch.
@@ -708,26 +616,17 @@ impl Default for FontStretch {
 
 impl Debug for FontStretch {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match *self {
-            s if s == Self::ULTRA_CONDENSED => "UltraCondensed",
-            s if s == Self::EXTRA_CONDENSED => "ExtraCondensed",
-            s if s == Self::CONDENSED => "Condensed",
-            s if s == Self::SEMI_CONDENSED => "SemiCondensed",
-            s if s == Self::NORMAL => "Normal",
-            s if s == Self::SEMI_EXPANDED => "SemiExpanded",
-            s if s == Self::EXPANDED => "Expanded",
-            s if s == Self::EXTRA_EXPANDED => "ExtraExpanded",
-            s if s == Self::ULTRA_EXPANDED => "UltraExpanded",
-            _ => return write!(f, "{}", self.0),
-        })
-    }
-}
-
-impl Display for FontStretch {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self.to_str() {
-            Some(name) => f.pad(name),
-            None => write!(f, "{}", self.to_ratio()),
+        match *self {
+            Self::ULTRA_CONDENSED => f.pad("ultra-condensed"),
+            Self::EXTRA_CONDENSED => f.pad("extra-condensed"),
+            Self::CONDENSED => f.pad("condensed"),
+            Self::SEMI_CONDENSED => f.pad("semi-condensed"),
+            Self::NORMAL => f.pad("normal"),
+            Self::SEMI_EXPANDED => f.pad("semi-expanded"),
+            Self::EXPANDED => f.pad("expanded"),
+            Self::EXTRA_EXPANDED => f.pad("extra-expanded"),
+            Self::ULTRA_EXPANDED => f.pad("ultra-expanded"),
+            _ => write!(f, "{}", self.to_ratio()),
         }
     }
 }

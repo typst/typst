@@ -1,7 +1,7 @@
 use super::*;
 
 /// Where to align something along an axis.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Align {
     /// Align at the start of the axis.
     Start,
@@ -81,7 +81,7 @@ impl Default for Align {
     }
 }
 
-impl Display for Align {
+impl Debug for Align {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
             Self::Start => "start",
