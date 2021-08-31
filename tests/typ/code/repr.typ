@@ -51,10 +51,5 @@
 {() => none}
 
 ---
-// Test using the `repr` function.
-
-// Returns a string.
-#test(repr((1, 2, false, )), "(1, 2, false)")
-
-// Not in monospace
+// When using the `repr` function it's not in monospace.
 #repr(23deg)

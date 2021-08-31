@@ -15,34 +15,65 @@ pub fn repr(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     Ok(args.expect::<Value>("value")?.to_string().into())
 }
 
-/// `len`: The length of a string, an array or a dictionary.
-pub fn len(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
-    let Spanned { v, span } = args.expect("collection")?;
+/// `join`: Join a sequence of values, optionally interspersing it with another
+/// value.
+pub fn join(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    let span = args.span;
+    let sep = args.named::<Value>("sep")?.unwrap_or(Value::None);
+
+    let mut result = Value::None;
+    let mut iter = args.all::<Value>();
+
+    if let Some(first) = iter.next() {
+        result = first;
+    }
+
+    for value in iter {
+        result = result.join(sep.clone()).at(span)?;
+        result = result.join(value).at(span)?;
+    }
+
+    Ok(result)
+}
+
+/// `int`: Try to convert a value to a integer.
+pub fn int(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Int(match v {
-        Value::Str(v) => v.len(),
-        Value::Array(v) => v.len(),
-        Value::Dict(v) => v.len(),
-        _ => bail!(span, "expected string, array or dictionary"),
+        Value::Bool(v) => v as i64,
+        Value::Int(v) => v,
+        Value::Float(v) => v as i64,
+        Value::Str(v) => match v.parse() {
+            Ok(v) => v,
+            Err(_) => bail!(span, "invalid integer"),
+        },
+        v => bail!(span, "cannot convert {} to integer", v.type_name()),
     }))
 }
 
-/// `rgb`: Create an RGB(A) color.
-pub fn rgb(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
-    Ok(Value::Color(Color::Rgba(
-        if let Some(string) = args.eat::<Spanned<Str>>() {
-            match RgbaColor::from_str(&string.v) {
-                Ok(color) => color,
-                Err(_) => bail!(string.span, "invalid color"),
-            }
-        } else {
-            let r = args.expect("red component")?;
-            let g = args.expect("green component")?;
-            let b = args.expect("blue component")?;
-            let a = args.eat().unwrap_or(1.0);
-            let f = |v: f64| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
-            RgbaColor::new(f(r), f(g), f(b), f(a))
+/// `float`: Try to convert a value to a float.
+pub fn float(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    let Spanned { v, span } = args.expect("value")?;
+    Ok(Value::Float(match v {
+        Value::Int(v) => v as f64,
+        Value::Float(v) => v,
+        Value::Str(v) => match v.parse() {
+            Ok(v) => v,
+            Err(_) => bail!(span, "invalid float"),
         },
-    )))
+        v => bail!(span, "cannot convert {} to float", v.type_name()),
+    }))
+}
+
+/// `str`: Try to convert a value to a string.
+pub fn str(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    let Spanned { v, span } = args.expect("value")?;
+    Ok(Value::Str(match v {
+        Value::Int(v) => format_str!("{}", v),
+        Value::Float(v) => format_str!("{}", v),
+        Value::Str(v) => v,
+        v => bail!(span, "cannot convert {} to string", v.type_name()),
+    }))
 }
 
 /// `abs`: The absolute value of a numeric value.
@@ -91,6 +122,25 @@ fn minmax(args: &mut Arguments, goal: Ordering) -> TypResult<Value> {
     Ok(extremum)
 }
 
+/// `rgb`: Create an RGB(A) color.
+pub fn rgb(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    Ok(Value::Color(Color::Rgba(
+        if let Some(string) = args.eat::<Spanned<Str>>() {
+            match RgbaColor::from_str(&string.v) {
+                Ok(color) => color,
+                Err(_) => bail!(string.span, "invalid color"),
+            }
+        } else {
+            let r = args.expect("red component")?;
+            let g = args.expect("green component")?;
+            let b = args.expect("blue component")?;
+            let a = args.eat().unwrap_or(1.0);
+            let f = |v: f64| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+            RgbaColor::new(f(r), f(g), f(b), f(a))
+        },
+    )))
+}
+
 /// `lower`: Convert a string to lowercase.
 pub fn lower(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     Ok(args.expect::<Str>("string")?.to_lowercase().into())
@@ -99,4 +149,21 @@ pub fn lower(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 /// `upper`: Convert a string to uppercase.
 pub fn upper(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
     Ok(args.expect::<Str>("string")?.to_uppercase().into())
+}
+
+/// `len`: The length of a string, an array or a dictionary.
+pub fn len(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    let Spanned { v, span } = args.expect("collection")?;
+    Ok(Value::Int(match v {
+        Value::Str(v) => v.len(),
+        Value::Array(v) => v.len(),
+        Value::Dict(v) => v.len(),
+        _ => bail!(span, "expected string, array or dictionary"),
+    }))
+}
+
+/// `sorted`: The sorted version of an array.
+pub fn sorted(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    let Spanned { v, span } = args.expect::<Spanned<Array>>("array")?;
+    Ok(Value::Array(v.sorted().at(span)?))
 }

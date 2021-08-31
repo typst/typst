@@ -1,9 +1,20 @@
+use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::ops::{Add, AddAssign, Deref};
 
 use crate::diag::StrResult;
 use crate::util::EcoString;
+
+/// Create a new [`Str`] from a format string.
+macro_rules! format_str {
+    ($($tts:tt)*) => {{
+        use std::fmt::Write;
+        let mut s = $crate::util::EcoString::new();
+        write!(s, $($tts)*).unwrap();
+        $crate::eval::Str::from(s)
+    }};
+}
 
 /// A string value with inline storage and clone-on-write semantics.
 #[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -89,6 +100,18 @@ impl Add for Str {
 impl AddAssign for Str {
     fn add_assign(&mut self, rhs: Self) {
         self.0.push_str(rhs.as_str());
+    }
+}
+
+impl AsRef<str> for Str {
+    fn as_ref(&self) -> &str {
+        self
+    }
+}
+
+impl Borrow<str> for Str {
+    fn borrow(&self) -> &str {
+        self
     }
 }
 

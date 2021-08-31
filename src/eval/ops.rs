@@ -291,12 +291,21 @@ pub fn compare(lhs: &Value, rhs: &Value) -> Option<Ordering> {
     match (lhs, rhs) {
         (Bool(a), Bool(b)) => a.partial_cmp(b),
         (Int(a), Int(b)) => a.partial_cmp(b),
-        (Int(a), Float(b)) => (*a as f64).partial_cmp(b),
-        (Float(a), Int(b)) => a.partial_cmp(&(*b as f64)),
         (Float(a), Float(b)) => a.partial_cmp(b),
         (Angle(a), Angle(b)) => a.partial_cmp(b),
         (Length(a), Length(b)) => a.partial_cmp(b),
+        (Relative(a), Relative(b)) => a.partial_cmp(b),
+        (Fractional(a), Fractional(b)) => a.partial_cmp(b),
         (Str(a), Str(b)) => a.partial_cmp(b),
+
+        // Some technically different things should be comparable.
+        (&Int(a), &Float(b)) => (a as f64).partial_cmp(&b),
+        (&Float(a), &Int(b)) => a.partial_cmp(&(b as f64)),
+        (&Length(a), &Linear(b)) if b.rel.is_zero() => a.partial_cmp(&b.abs),
+        (&Relative(a), &Linear(b)) if b.abs.is_zero() => a.partial_cmp(&b.rel),
+        (&Linear(a), &Length(b)) if a.rel.is_zero() => a.abs.partial_cmp(&b),
+        (&Linear(a), &Relative(b)) if a.abs.is_zero() => a.rel.partial_cmp(&b),
+
         _ => Option::None,
     }
 }

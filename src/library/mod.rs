@@ -17,8 +17,8 @@ use std::convert::TryFrom;
 use std::rc::Rc;
 
 use crate::color::{Color, RgbaColor};
-use crate::diag::TypResult;
-use crate::eval::{Arguments, EvalContext, Scope, State, Str, Template, Value};
+use crate::diag::{At, TypResult};
+use crate::eval::{Arguments, Array, EvalContext, Scope, State, Str, Template, Value};
 use crate::font::{FontFamily, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
 use crate::layout::LayoutNode;
@@ -59,13 +59,18 @@ pub fn new() -> Scope {
     // Utility.
     std.def_func("type", type_);
     std.def_func("repr", repr);
-    std.def_func("len", len);
-    std.def_func("rgb", rgb);
+    std.def_func("join", join);
+    std.def_func("int", int);
+    std.def_func("float", float);
+    std.def_func("str", str);
     std.def_func("abs", abs);
     std.def_func("min", min);
     std.def_func("max", max);
+    std.def_func("rgb", rgb);
     std.def_func("lower", lower);
     std.def_func("upper", upper);
+    std.def_func("len", len);
+    std.def_func("sorted", sorted);
 
     // Colors.
     std.def_const("white", RgbaColor::WHITE);

@@ -5,13 +5,14 @@ mod array;
 #[macro_use]
 mod dict;
 #[macro_use]
+mod str;
+#[macro_use]
 mod value;
 mod capture;
 mod function;
 mod ops;
 mod scope;
 mod state;
-mod str;
 mod template;
 mod walk;
 

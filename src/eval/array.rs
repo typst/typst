@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::convert::TryFrom;
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::iter::FromIterator;
@@ -78,6 +79,26 @@ impl Array {
     /// Iterate over references to the contained values.
     pub fn iter(&self) -> std::slice::Iter<Value> {
         self.0.iter()
+    }
+
+    /// Return a sorted version of this array.
+    ///
+    /// Returns an error if two values could not be compared.
+    pub fn sorted(mut self) -> StrResult<Self> {
+        let mut result = Ok(());
+        Rc::make_mut(&mut self.0).sort_by(|a, b| {
+            a.partial_cmp(b).unwrap_or_else(|| {
+                if result.is_ok() {
+                    result = Err(format!(
+                        "cannot compare {} with {}",
+                        a.type_name(),
+                        b.type_name(),
+                    ));
+                }
+                Ordering::Equal
+            })
+        });
+        result.map(|_| self)
     }
 
     /// Repeat this array `n` times.
