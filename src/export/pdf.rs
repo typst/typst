@@ -6,10 +6,10 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Rgba};
-use pdf_writer::{
-    ActionType, AnnotationType, CidFontType, ColorSpace, Content, Filter, FontFlags,
-    Name, PdfWriter, Rect, Ref, Str, SystemInfo, UnicodeCmap,
+use pdf_writer::types::{
+    ActionType, AnnotationType, CidFontType, ColorSpace, FontFlags, SystemInfo,
 };
+use pdf_writer::{Content, Filter, Finish, Name, PdfWriter, Rect, Ref, Str, UnicodeCmap};
 use ttf_parser::{name_id, GlyphId, Tag};
 
 use super::subset;
@@ -70,11 +70,8 @@ impl<'a> PdfExporter<'a> {
             }
         }
 
-        let mut writer = PdfWriter::new(1, 7);
-        writer.set_indent(2);
-
         Self {
-            writer,
+            writer: PdfWriter::new(),
             refs: Refs::new(frames.len(), font_map.len(), image_map.len(), alpha_masks),
             frames,
             fonts: &ctx.fonts,
@@ -108,7 +105,7 @@ impl<'a> PdfExporter<'a> {
             fonts.pair(Name(name.as_bytes()), refs.type0_font);
         }
 
-        drop(fonts);
+        fonts.finish();
 
         let mut images = resources.x_objects();
         for (id, im) in self.refs.images().zip(self.image_map.pdf_indices()) {
@@ -116,9 +113,9 @@ impl<'a> PdfExporter<'a> {
             images.pair(Name(name.as_bytes()), id);
         }
 
-        drop(images);
-        drop(resources);
-        drop(pages);
+        images.finish();
+        resources.finish();
+        pages.finish();
 
         // The page objects (non-root nodes in the page tree).
         for ((page_id, content_id), page) in
@@ -150,7 +147,7 @@ impl<'a> PdfExporter<'a> {
                 }
             }
 
-            drop(annotations);
+            annotations.finish();
             page_writer.contents(content_id);
         }
     }
@@ -169,8 +166,24 @@ impl<'a> PdfExporter<'a> {
         let mut face_id = None;
         let mut size = Length::zero();
         let mut fill: Option<Paint> = None;
+        let mut in_text_state = false;
 
         for (pos, element) in page.elements() {
+            // Make sure the content stream is in the correct state.
+            match element {
+                Element::Text(_) if !in_text_state => {
+                    content.begin_text();
+                    in_text_state = true;
+                }
+
+                Element::Geometry(..) | Element::Image(..) if in_text_state => {
+                    content.end_text();
+                    in_text_state = false;
+                }
+
+                _ => {}
+            }
+
             let x = pos.x.to_pt() as f32;
             let y = (page.size.h - pos.y).to_pt() as f32;
 
@@ -181,8 +194,6 @@ impl<'a> PdfExporter<'a> {
                         fill = Some(text.fill);
                     }
 
-                    let mut text_writer = content.text();
-
                     // Then, also check if we need to issue a font switching
                     // action.
                     if face_id != Some(text.face_id) || text.size != size {
@@ -190,15 +201,16 @@ impl<'a> PdfExporter<'a> {
                         size = text.size;
 
                         let name = format!("F{}", self.font_map.map(text.face_id));
-                        text_writer.font(Name(name.as_bytes()), size.to_pt() as f32);
+                        content.set_font(Name(name.as_bytes()), size.to_pt() as f32);
                     }
 
                     let face = self.fonts.get(text.face_id);
 
                     // Position the text.
-                    text_writer.matrix(1.0, 0.0, 0.0, 1.0, x, y);
+                    content.set_text_matrix([1.0, 0.0, 0.0, 1.0, x, y]);
 
-                    let mut positioned = text_writer.show_positioned();
+                    let mut positioned = content.show_positioned();
+                    let mut items = positioned.items();
                     let mut adjustment = Em::zero();
                     let mut encoded = vec![];
 
@@ -208,11 +220,11 @@ impl<'a> PdfExporter<'a> {
 
                         if !adjustment.is_zero() {
                             if !encoded.is_empty() {
-                                positioned.show(Str(&encoded));
+                                items.show(Str(&encoded));
                                 encoded.clear();
                             }
 
-                            positioned.adjust(-adjustment.to_pdf());
+                            items.adjust(-adjustment.to_pdf());
                             adjustment = Em::zero();
                         }
 
@@ -227,7 +239,7 @@ impl<'a> PdfExporter<'a> {
                     }
 
                     if !encoded.is_empty() {
-                        positioned.show(Str(&encoded));
+                        items.show(Str(&encoded));
                     }
                 }
 
@@ -240,24 +252,27 @@ impl<'a> PdfExporter<'a> {
                             let h = h.to_pt() as f32;
                             if w > 0.0 && h > 0.0 {
                                 write_fill(&mut content, paint);
-                                content.rect(x, y - h, w, h, false, true);
+                                content.rect(x, y - h, w, h);
+                                content.fill_nonzero();
                             }
                         }
                         Geometry::Ellipse(size) => {
                             let path = geom::Path::ellipse(size);
                             write_fill(&mut content, paint);
-                            write_path(&mut content, x, y, &path, false, true);
+                            write_path(&mut content, x, y, &path);
                         }
                         Geometry::Line(target, thickness) => {
                             write_stroke(&mut content, paint, thickness.to_pt() as f32);
-                            content.path(true, false).move_to(x, y).line_to(
+                            content.move_to(x, y);
+                            content.line_to(
                                 x + target.x.to_pt() as f32,
                                 y - target.y.to_pt() as f32,
                             );
+                            content.stroke();
                         }
                         Geometry::Path(ref path) => {
                             write_fill(&mut content, paint);
-                            write_path(&mut content, x, y, path, false, true)
+                            write_path(&mut content, x, y, path)
                         }
                     }
 
@@ -270,13 +285,17 @@ impl<'a> PdfExporter<'a> {
                     let h = h.to_pt() as f32;
 
                     content.save_state();
-                    content.matrix(w, 0.0, 0.0, h, x, y - h);
+                    content.concat_matrix([w, 0.0, 0.0, h, x, y - h]);
                     content.x_object(Name(name.as_bytes()));
                     content.restore_state();
                 }
 
                 Element::Link(_, _) => {}
             }
+        }
+
+        if in_text_state {
+            content.end_text();
         }
 
         self.writer
@@ -432,7 +451,7 @@ impl<'a> PdfExporter<'a> {
                     let (alpha_data, alpha_filter) = encode_alpha(img);
                     let mask_id = self.refs.alpha_mask(masks_seen);
                     image.s_mask(mask_id);
-                    drop(image);
+                    image.finish();
 
                     let mut mask = self.writer.image(mask_id, &alpha_data);
                     mask.filter(alpha_filter);
@@ -459,39 +478,31 @@ impl<'a> PdfExporter<'a> {
 /// Write a fill change into a content stream.
 fn write_fill(content: &mut Content, fill: Paint) {
     let Paint::Color(Color::Rgba(c)) = fill;
-    content.fill_rgb(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0);
+    content.set_fill_rgb(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0);
 }
 
 /// Write a stroke change into a content stream.
 fn write_stroke(content: &mut Content, stroke: Paint, thickness: f32) {
     match stroke {
         Paint::Color(Color::Rgba(c)) => {
-            content.stroke_rgb(
+            content.set_stroke_rgb(
                 c.r as f32 / 255.0,
                 c.g as f32 / 255.0,
                 c.b as f32 / 255.0,
             );
         }
     }
-    content.line_width(thickness);
+    content.set_line_width(thickness);
 }
 
 /// Write a path into a content stream.
-fn write_path(
-    content: &mut Content,
-    x: f32,
-    y: f32,
-    path: &geom::Path,
-    stroke: bool,
-    fill: bool,
-) {
+fn write_path(content: &mut Content, x: f32, y: f32, path: &geom::Path) {
     let f = |length: Length| length.to_pt() as f32;
-    let mut builder = content.path(stroke, fill);
     for elem in &path.0 {
         match elem {
-            geom::PathElement::MoveTo(p) => builder.move_to(x + f(p.x), y + f(p.y)),
-            geom::PathElement::LineTo(p) => builder.line_to(x + f(p.x), y + f(p.y)),
-            geom::PathElement::CubicTo(p1, p2, p3) => builder.cubic_to(
+            geom::PathElement::MoveTo(p) => content.move_to(x + f(p.x), y + f(p.y)),
+            geom::PathElement::LineTo(p) => content.line_to(x + f(p.x), y + f(p.y)),
+            geom::PathElement::CubicTo(p1, p2, p3) => content.cubic_to(
                 x + f(p1.x),
                 y + f(p1.y),
                 x + f(p2.x),
@@ -499,9 +510,10 @@ fn write_path(
                 x + f(p3.x),
                 y + f(p3.y),
             ),
-            geom::PathElement::ClosePath => builder.close_path(),
+            geom::PathElement::ClosePath => content.close_path(),
         };
     }
+    content.fill_nonzero();
 }
 
 /// The compression level for the deflating.
