@@ -1,6 +1,7 @@
 use super::*;
 
 /// A node that places a rectangular filled background behind its child.
+#[derive(Debug)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub struct BackgroundNode {
     /// The kind of shape to use as a background.

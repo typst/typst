@@ -1,6 +1,7 @@
 use super::*;
 
 /// A node that arranges its children in a grid.
+#[derive(Debug)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub struct GridNode {
     /// The inline (columns) and block (rows) directions of this grid.

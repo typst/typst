@@ -4,6 +4,7 @@ use crate::image::ImageId;
 use ::image::GenericImageView;
 
 /// An image node.
+#[derive(Debug)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub struct ImageNode {
     /// The id of the image file.

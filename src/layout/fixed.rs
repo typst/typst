@@ -3,6 +3,7 @@ use decorum::N64;
 use super::*;
 
 /// A node that can fix its child's width and height.
+#[derive(Debug)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub struct FixedNode {
     /// The fixed width, if any.

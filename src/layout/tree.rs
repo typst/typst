@@ -1,3 +1,5 @@
+use std::fmt::{self, Debug, Formatter};
+
 use super::*;
 
 use std::any::Any;
@@ -9,6 +11,7 @@ use std::hash::{Hash, Hasher};
 use fxhash::FxHasher64;
 
 /// A tree of layout nodes.
+#[derive(Debug)]
 pub struct LayoutTree {
     /// Runs of pages with the same properties.
     pub runs: Vec<PageRun>,
@@ -22,6 +25,7 @@ impl LayoutTree {
 }
 
 /// A run of pages that all have the same properties.
+#[derive(Debug)]
 pub struct PageRun {
     /// The size of each page.
     pub size: Size,
@@ -92,6 +96,12 @@ impl Layout for LayoutNode {
             ctx.layouts.insert(self.hash, frames.clone(), ctx.level);
             frames
         })
+    }
+}
+
+impl Debug for LayoutNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.node.fmt(f)
     }
 }
 

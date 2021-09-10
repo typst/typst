@@ -30,6 +30,7 @@ pub use shaping::*;
 pub use stack::*;
 pub use tree::*;
 
+use std::fmt::Debug;
 use std::rc::Rc;
 
 use crate::font::FontStore;
@@ -73,7 +74,7 @@ impl<'a> LayoutContext<'a> {
 }
 
 /// Layout a node.
-pub trait Layout {
+pub trait Layout: Debug {
     /// Layout the node into the given regions.
     fn layout(
         &self,

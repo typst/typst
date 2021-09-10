@@ -1,6 +1,7 @@
 use super::*;
 
 /// A node that stacks its children.
+#[derive(Debug)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub struct StackNode {
     /// The inline and block directions of this stack.
@@ -13,6 +14,7 @@ pub struct StackNode {
 }
 
 /// A child of a stack node.
+#[derive(Debug)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub enum StackChild {
     /// Spacing between other nodes.
