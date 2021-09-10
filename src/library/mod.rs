@@ -18,7 +18,7 @@ use std::rc::Rc;
 
 use crate::color::{Color, RgbaColor};
 use crate::diag::{At, TypResult};
-use crate::eval::{Arguments, Array, EvalContext, Scope, State, Str, Template, Value};
+use crate::eval::{Args, Array, EvalContext, Scope, State, Str, Template, Value};
 use crate::font::{FontFamily, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
 use crate::layout::LayoutNode;

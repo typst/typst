@@ -6,18 +6,18 @@ use crate::color::{Color, RgbaColor};
 use super::*;
 
 /// `type`: The name of a value's type.
-pub fn type_(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn type_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(args.expect::<Value>("value")?.type_name().into())
 }
 
 /// `repr`: The string representation of a value.
-pub fn repr(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn repr(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(args.expect::<Value>("value")?.repr().into())
 }
 
 /// `join`: Join a sequence of values, optionally interspersing it with another
 /// value.
-pub fn join(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn join(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let span = args.span;
     let sep = args.named::<Value>("sep")?.unwrap_or(Value::None);
 
@@ -37,7 +37,7 @@ pub fn join(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `int`: Try to convert a value to a integer.
-pub fn int(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn int(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Int(match v {
         Value::Bool(v) => v as i64,
@@ -52,7 +52,7 @@ pub fn int(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `float`: Try to convert a value to a float.
-pub fn float(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn float(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Float(match v {
         Value::Int(v) => v as f64,
@@ -66,7 +66,7 @@ pub fn float(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `str`: Try to convert a value to a string.
-pub fn str(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn str(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Str(match v {
         Value::Int(v) => format_str!("{}", v),
@@ -77,7 +77,7 @@ pub fn str(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `abs`: The absolute value of a numeric value.
-pub fn abs(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn abs(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("numeric value")?;
     Ok(match v {
         Value::Int(v) => Value::Int(v.abs()),
@@ -92,17 +92,17 @@ pub fn abs(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `min`: The minimum of a sequence of values.
-pub fn min(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn min(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     minmax(args, Ordering::Less)
 }
 
 /// `max`: The maximum of a sequence of values.
-pub fn max(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn max(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     minmax(args, Ordering::Greater)
 }
 
 /// Find the minimum or maximum of a sequence of values.
-fn minmax(args: &mut Arguments, goal: Ordering) -> TypResult<Value> {
+fn minmax(args: &mut Args, goal: Ordering) -> TypResult<Value> {
     let mut extremum = args.expect::<Value>("value")?;
     for Spanned { v, span } in args.all::<Spanned<Value>>() {
         match v.partial_cmp(&extremum) {
@@ -123,7 +123,7 @@ fn minmax(args: &mut Arguments, goal: Ordering) -> TypResult<Value> {
 }
 
 /// `rgb`: Create an RGB(A) color.
-pub fn rgb(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn rgb(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(Value::Color(Color::Rgba(
         if let Some(string) = args.eat::<Spanned<Str>>() {
             match RgbaColor::from_str(&string.v) {
@@ -142,17 +142,17 @@ pub fn rgb(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `lower`: Convert a string to lowercase.
-pub fn lower(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn lower(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(args.expect::<Str>("string")?.to_lowercase().into())
 }
 
 /// `upper`: Convert a string to uppercase.
-pub fn upper(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn upper(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(args.expect::<Str>("string")?.to_uppercase().into())
 }
 
 /// `len`: The length of a string, an array or a dictionary.
-pub fn len(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn len(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("collection")?;
     Ok(Value::Int(match v {
         Value::Str(v) => v.len(),
@@ -163,7 +163,7 @@ pub fn len(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `sorted`: The sorted version of an array.
-pub fn sorted(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn sorted(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<Array>>("array")?;
     Ok(Value::Array(v.sorted().at(span)?))
 }

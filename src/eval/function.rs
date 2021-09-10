@@ -16,13 +16,13 @@ struct Inner<T: ?Sized> {
     func: T,
 }
 
-type Func = dyn Fn(&mut EvalContext, &mut Arguments) -> TypResult<Value>;
+type Func = dyn Fn(&mut EvalContext, &mut Args) -> TypResult<Value>;
 
 impl Function {
     /// Create a new function from a rust closure.
     pub fn new<F>(name: Option<EcoString>, func: F) -> Self
     where
-        F: Fn(&mut EvalContext, &mut Arguments) -> TypResult<Value> + 'static,
+        F: Fn(&mut EvalContext, &mut Args) -> TypResult<Value> + 'static,
     {
         Self(Rc::new(Inner { name, func }))
     }
@@ -33,7 +33,7 @@ impl Function {
     }
 
     /// Call the function in the context with the arguments.
-    pub fn call(&self, ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+    pub fn call(&self, ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         (&self.0.func)(ctx, args)
     }
 }
@@ -58,16 +58,16 @@ impl PartialEq for Function {
 
 /// Evaluated arguments to a function.
 #[derive(Clone, PartialEq)]
-pub struct Arguments {
+pub struct Args {
     /// The span of the whole argument list.
     pub span: Span,
     /// The positional and named arguments.
-    pub items: Vec<Argument>,
+    pub items: Vec<Arg>,
 }
 
 /// An argument to a function call: `12` or `draw: false`.
 #[derive(Clone, PartialEq)]
-pub struct Argument {
+pub struct Arg {
     /// The span of the whole argument.
     pub span: Span,
     /// The name of the argument (`None` for positional arguments).
@@ -76,7 +76,7 @@ pub struct Argument {
     pub value: Spanned<Value>,
 }
 
-impl Arguments {
+impl Args {
     /// Find and consume the first castable positional argument.
     pub fn eat<T>(&mut self) -> Option<T>
     where
@@ -169,11 +169,11 @@ impl Arguments {
     {
         let mut iter = self.items.into_iter();
         let value = match iter.next() {
-            Some(Argument { name: None, value, .. }) => value.v.cast().at(value.span)?,
+            Some(Arg { name: None, value, .. }) => value.v.cast().at(value.span)?,
             None => {
                 bail!(self.span, "missing {}", what);
             }
-            Some(Argument { name: Some(_), span, .. }) => {
+            Some(Arg { name: Some(_), span, .. }) => {
                 bail!(span, "named pair is not allowed here");
             }
         };
@@ -186,7 +186,7 @@ impl Arguments {
     }
 }
 
-impl Debug for Arguments {
+impl Debug for Args {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_char('(')?;
         for (i, arg) in self.items.iter().enumerate() {
@@ -199,7 +199,7 @@ impl Debug for Arguments {
     }
 }
 
-impl Debug for Argument {
+impl Debug for Arg {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if let Some(name) = &self.name {
             f.write_str(name)?;
@@ -210,5 +210,5 @@ impl Debug for Argument {
 }
 
 dynamic! {
-    Arguments: "arguments",
+    Args: "arguments",
 }

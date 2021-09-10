@@ -3,7 +3,7 @@ use crate::layout::{Decoration, LineDecoration, LineKind, Paint};
 use super::*;
 
 /// `font`: Configure the font.
-pub fn font(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let list = args.named("family")?.or_else(|| {
         let families: Vec<_> = args.all().collect();
         (!families.is_empty()).then(|| FontDef(Rc::new(families)))
@@ -111,7 +111,7 @@ castable! {
 }
 
 /// `par`: Configure paragraphs.
-pub fn par(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let par_spacing = args.named("spacing")?;
     let line_spacing = args.named("leading")?;
 
@@ -133,7 +133,7 @@ pub fn par(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `lang`: Configure the language.
-pub fn lang(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn lang(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let iso = args.eat::<Str>();
     let dir = if let Some(dir) = args.named::<Spanned<Dir>>("dir")? {
         if dir.v.axis() == SpecAxis::Horizontal {
@@ -164,25 +164,21 @@ fn lang_dir(iso: &str) -> Dir {
 }
 
 /// `strike`: Set striken-through text.
-pub fn strike(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn strike(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     line_impl(ctx, args, LineKind::Strikethrough)
 }
 
 /// `underline`: Set underlined text.
-pub fn underline(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn underline(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     line_impl(ctx, args, LineKind::Underline)
 }
 
 /// `overline`: Set text with an overline.
-pub fn overline(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn overline(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     line_impl(ctx, args, LineKind::Overline)
 }
 
-fn line_impl(
-    _: &mut EvalContext,
-    args: &mut Arguments,
-    kind: LineKind,
-) -> TypResult<Value> {
+fn line_impl(_: &mut EvalContext, args: &mut Args, kind: LineKind) -> TypResult<Value> {
     let stroke = args.named("stroke")?.or_else(|| args.eat());
     let thickness = args.named::<Linear>("thickness")?.or_else(|| args.eat());
     let offset = args.named("offset")?;
@@ -201,7 +197,7 @@ fn line_impl(
 }
 
 /// `link`: Set a link.
-pub fn link(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn link(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let url = args.expect::<Str>("url")?;
 
     let mut body = args.eat().unwrap_or_else(|| {

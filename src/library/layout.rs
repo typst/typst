@@ -3,7 +3,7 @@ use crate::layout::{FixedNode, GridNode, PadNode, StackChild, StackNode, TrackSi
 use crate::paper::{Paper, PaperClass};
 
 /// `page`: Configure pages.
-pub fn page(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let paper = match args.eat::<Spanned<Str>>() {
         Some(name) => match Paper::from_name(&name.v) {
             None => bail!(name.span, "invalid paper name"),
@@ -70,27 +70,27 @@ pub fn page(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `pagebreak`: Start a new page.
-pub fn pagebreak(ctx: &mut EvalContext, _: &mut Arguments) -> TypResult<Value> {
+pub fn pagebreak(ctx: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
     ctx.template.pagebreak(true);
     Ok(Value::None)
 }
 
 /// `h`: Horizontal spacing.
-pub fn h(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn h(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let spacing = args.expect("spacing")?;
     ctx.template.spacing(GenAxis::Inline, spacing);
     Ok(Value::None)
 }
 
 /// `v`: Vertical spacing.
-pub fn v(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn v(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let spacing = args.expect("spacing")?;
     ctx.template.spacing(GenAxis::Block, spacing);
     Ok(Value::None)
 }
 
 /// `align`: Configure the alignment along the layouting axes.
-pub fn align(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn align(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let first = args.eat::<Align>();
     let second = args.eat::<Align>();
     let body = args.eat::<Template>();
@@ -140,7 +140,7 @@ pub fn align(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `box`: Place content in a rectangular box.
-pub fn boxed(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn boxed(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
     let body: Template = args.eat().unwrap_or_default();
@@ -155,7 +155,7 @@ pub fn boxed(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `block`: Place content in a block.
-pub fn block(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn block(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let body: Template = args.expect("body")?;
     Ok(Value::Template(Template::from_block(move |state| {
         body.to_stack(state)
@@ -163,7 +163,7 @@ pub fn block(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `pad`: Pad content at the sides.
-pub fn pad(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn pad(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let all = args.eat();
     let left = args.named("left")?;
     let top = args.named("top")?;
@@ -187,7 +187,7 @@ pub fn pad(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `stack`: Stack children along an axis.
-pub fn stack(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let dir = args.named("dir")?;
     let children: Vec<Template> = args.all().collect();
 
@@ -210,7 +210,7 @@ pub fn stack(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `grid`: Arrange children into a grid.
-pub fn grid(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let columns = args.named("columns")?.unwrap_or_default();
     let rows = args.named("rows")?.unwrap_or_default();
 

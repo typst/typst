@@ -393,7 +393,7 @@ impl Eval for CallExpr {
 }
 
 impl Eval for CallArgs {
-    type Output = Arguments;
+    type Output = Args;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         let mut items = Vec::with_capacity(self.items.len());
@@ -402,14 +402,14 @@ impl Eval for CallArgs {
             let span = arg.span();
             match arg {
                 CallArg::Pos(expr) => {
-                    items.push(Argument {
+                    items.push(Arg {
                         span,
                         name: None,
                         value: Spanned::new(expr.eval(ctx)?, expr.span()),
                     });
                 }
                 CallArg::Named(Named { name, expr }) => {
-                    items.push(Argument {
+                    items.push(Arg {
                         span,
                         name: Some((&name.string).into()),
                         value: Spanned::new(expr.eval(ctx)?, expr.span()),
@@ -417,14 +417,14 @@ impl Eval for CallArgs {
                 }
                 CallArg::Spread(expr) => match expr.eval(ctx)? {
                     Value::Array(array) => {
-                        items.extend(array.into_iter().map(|value| Argument {
+                        items.extend(array.into_iter().map(|value| Arg {
                             span,
                             name: None,
                             value: Spanned::new(value, span),
                         }));
                     }
                     Value::Dict(dict) => {
-                        items.extend(dict.into_iter().map(|(key, value)| Argument {
+                        items.extend(dict.into_iter().map(|(key, value)| Arg {
                             span,
                             name: Some(key),
                             value: Spanned::new(value, span),
@@ -432,7 +432,7 @@ impl Eval for CallArgs {
                     }
                     v => {
                         if let Value::Dyn(dynamic) = &v {
-                            if let Some(args) = dynamic.downcast_ref::<Arguments>() {
+                            if let Some(args) = dynamic.downcast_ref::<Args>() {
                                 items.extend(args.items.iter().cloned());
                                 continue;
                             }
@@ -444,7 +444,7 @@ impl Eval for CallArgs {
             }
         }
 
-        Ok(Arguments { span: self.span, items })
+        Ok(Args { span: self.span, items })
     }
 }
 

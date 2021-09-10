@@ -10,7 +10,7 @@ use crate::layout::{
 };
 
 /// `image`: An image.
-pub fn image(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn image(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let path = args.expect::<Spanned<Str>>("path to image file")?;
     let width = args.named("width")?;
     let height = args.named("height")?;
@@ -31,7 +31,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `rect`: A rectangle with optional content.
-pub fn rect(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn rect(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
     let fill = args.named("fill")?;
@@ -40,7 +40,7 @@ pub fn rect(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `square`: A square with optional content.
-pub fn square(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn square(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let length = args.named::<Length>("length")?.map(Linear::from);
     let width = match length {
         Some(length) => Some(length),
@@ -84,7 +84,7 @@ fn rect_impl(
 }
 
 /// `ellipse`: An ellipse with optional content.
-pub fn ellipse(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn ellipse(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
     let fill = args.named("fill")?;
@@ -93,7 +93,7 @@ pub fn ellipse(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
 }
 
 /// `circle`: A circle with optional content.
-pub fn circle(_: &mut EvalContext, args: &mut Arguments) -> TypResult<Value> {
+pub fn circle(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let diameter = args.named("radius")?.map(|r: Length| 2.0 * Linear::from(r));
     let width = match diameter {
         None => args.named("width")?,
