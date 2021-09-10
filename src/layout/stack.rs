@@ -178,14 +178,14 @@ impl<'a> StackLayouter<'a> {
                 self.constraints.exact.x = Some(self.full.w);
                 self.full.w
             } else {
-                self.constraints.min.x = Some(used.w);
+                self.constraints.min.x = Some(used.w.min(self.full.w));
                 used.w
             },
             if expand.y {
                 self.constraints.exact.y = Some(self.full.h);
                 self.full.h
             } else {
-                self.constraints.min.y = Some(used.h);
+                self.constraints.min.y = Some(used.h.min(self.full.h));
                 used.h
             },
         );
