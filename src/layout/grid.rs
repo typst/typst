@@ -470,10 +470,15 @@ impl<'a> GridLayouter<'a> {
 
     /// Finish rows for one region.
     fn finish_region(&mut self, ctx: &mut LayoutContext) {
-        // Determine the size of the region.
-        let length = if self.fr.is_zero() { self.used.block } else { self.full };
-        let size = self.to_size(length);
-        self.constraints.min.set(self.block, Some(length));
+        // Determine the block size of the region.
+        let block = if self.fr.is_zero() || self.full.is_infinite() {
+            self.used.block
+        } else {
+            self.full
+        };
+
+        let size = self.to_size(block);
+        self.constraints.min.set(self.block, Some(block));
 
         // The frame for the region.
         let mut output = Frame::new(size, size.h);
@@ -488,7 +493,10 @@ impl<'a> GridLayouter<'a> {
                 Row::Frame(frame) => frame,
                 Row::Fr(v, y) => {
                     let ratio = v / self.fr;
-                    if remaining > Length::zero() && ratio.is_finite() {
+                    if remaining > Length::zero()
+                        && remaining.is_finite()
+                        && ratio.is_finite()
+                    {
                         let resolved = ratio * remaining;
                         self.layout_single_row(ctx, resolved, y)
                     } else {
@@ -513,6 +521,7 @@ impl<'a> GridLayouter<'a> {
     /// Get the node in the cell in column `x` and row `y`.
     ///
     /// Returns `None` if it's a gutter cell.
+    #[track_caller]
     fn cell(&self, x: usize, y: usize) -> Option<&'a LayoutNode> {
         assert!(x < self.cols.len());
         assert!(y < self.rows.len());

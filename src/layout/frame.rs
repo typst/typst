@@ -31,6 +31,7 @@ pub enum FrameChild {
 
 impl Frame {
     /// Create a new, empty frame.
+    #[track_caller]
     pub fn new(size: Size, baseline: Length) -> Self {
         assert!(size.is_finite());
         Self { size, baseline, children: vec![] }
