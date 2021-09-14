@@ -5,6 +5,7 @@ use crate::diag::TypResult;
 use crate::geom::Gen;
 use crate::layout::{ParChild, ParNode, StackChild, StackNode};
 use crate::syntax::*;
+use crate::util::BoolExt;
 
 /// Walk a syntax node and fill the currently built template.
 pub trait Walk {
@@ -27,8 +28,8 @@ impl Walk for SyntaxNode {
             Self::Space => ctx.template.space(),
             Self::Linebreak(_) => ctx.template.linebreak(),
             Self::Parbreak(_) => ctx.template.parbreak(),
-            Self::Strong(_) => ctx.template.modify(|s| s.font_mut().strong ^= true),
-            Self::Emph(_) => ctx.template.modify(|s| s.font_mut().emph ^= true),
+            Self::Strong(_) => ctx.template.modify(|s| s.font_mut().strong.flip()),
+            Self::Emph(_) => ctx.template.modify(|s| s.font_mut().emph.flip()),
             Self::Text(text) => ctx.template.text(text),
             Self::Raw(raw) => raw.walk(ctx)?,
             Self::Heading(heading) => heading.walk(ctx)?,

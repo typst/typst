@@ -11,6 +11,18 @@ use std::cmp::Ordering;
 use std::ops::Range;
 use std::path::{Component, Path, PathBuf};
 
+/// Additional methods for booleans.
+pub trait BoolExt {
+    /// Toggle the value of the bool in place.
+    fn flip(&mut self);
+}
+
+impl BoolExt for bool {
+    fn flip(&mut self) {
+        *self = !*self;
+    }
+}
+
 /// Additional methods for options.
 pub trait OptionExt<T> {
     /// Replace `self` with `other` if `self` is `Some`.
