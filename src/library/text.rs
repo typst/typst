@@ -1,6 +1,5 @@
-use crate::layout::{Decoration, LineDecoration, LineKind, Paint};
-
 use super::*;
+use crate::layout::{Decoration, LineDecoration, LineKind, Paint};
 
 /// `font`: Configure the font.
 pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
@@ -163,22 +162,22 @@ fn lang_dir(iso: &str) -> Dir {
     }
 }
 
-/// `strike`: Set striken-through text.
-pub fn strike(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    line_impl(ctx, args, LineKind::Strikethrough)
+/// `strike`: Typeset striken-through text.
+pub fn strike(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    line_impl(args, LineKind::Strikethrough)
 }
 
-/// `underline`: Set underlined text.
-pub fn underline(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    line_impl(ctx, args, LineKind::Underline)
+/// `underline`: Typeset underlined text.
+pub fn underline(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    line_impl(args, LineKind::Underline)
 }
 
-/// `overline`: Set text with an overline.
-pub fn overline(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    line_impl(ctx, args, LineKind::Overline)
+/// `overline`: Typeset text with an overline.
+pub fn overline(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    line_impl(args, LineKind::Overline)
 }
 
-fn line_impl(_: &mut EvalContext, args: &mut Args, kind: LineKind) -> TypResult<Value> {
+fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
     let stroke = args.named("stroke")?.or_else(|| args.eat());
     let thickness = args.named::<Linear>("thickness")?.or_else(|| args.eat());
     let offset = args.named("offset")?;
@@ -196,7 +195,7 @@ fn line_impl(_: &mut EvalContext, args: &mut Args, kind: LineKind) -> TypResult<
     Ok(Value::Template(body))
 }
 
-/// `link`: Set a link.
+/// `link`: Typeset text as a link.
 pub fn link(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let url = args.expect::<Str>("url")?;
 

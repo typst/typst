@@ -17,7 +17,7 @@ use crate::source::SourceFile;
 use crate::syntax::*;
 use crate::util::EcoString;
 
-/// Parse a string of source code.
+/// Parse a source file.
 pub fn parse(source: &SourceFile) -> TypResult<SyntaxTree> {
     let mut p = Parser::new(source);
     let tree = tree(&mut p);
@@ -48,13 +48,14 @@ fn tree_indented(p: &mut Parser, column: usize) -> SyntaxTree {
     })
 }
 
-/// Parse a syntax tree.
+/// Parse a syntax tree while the peeked token satisifies a condition.
+///
+/// If `at_start` is true, things like headings that may only appear at the
+/// beginning of a line or template are allowed.
 fn tree_while<F>(p: &mut Parser, mut at_start: bool, f: &mut F) -> SyntaxTree
 where
     F: FnMut(&mut Parser) -> bool,
 {
-    // We use `at_start` to keep track of whether we are at the start of a line
-    // or template to know whether things like headings are allowed.
     let mut tree = vec![];
     while !p.eof() && f(p) {
         if let Some(node) = node(p, &mut at_start) {
@@ -94,8 +95,8 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<SyntaxNode> {
         Token::Underscore => SyntaxNode::Emph(span),
         Token::Raw(t) => raw(p, t),
         Token::Eq if *at_start => return Some(heading(p)),
-        Token::Hyph if *at_start => return Some(list_item(p)),
-        Token::Numbering(number) if *at_start => return Some(enum_item(p, number)),
+        Token::Hyph if *at_start => return Some(list_node(p)),
+        Token::Numbering(number) if *at_start => return Some(enum_node(p, number)),
 
         // Line-based markup that is not currently at the start of the line.
         Token::Eq | Token::Hyph | Token::Numbering(_) => {
@@ -196,7 +197,7 @@ fn heading(p: &mut Parser) -> SyntaxNode {
 }
 
 /// Parse a single list item.
-fn list_item(p: &mut Parser) -> SyntaxNode {
+fn list_node(p: &mut Parser) -> SyntaxNode {
     let start = p.next_start();
     let column = p.column(start);
     p.eat_assert(Token::Hyph);
@@ -205,7 +206,7 @@ fn list_item(p: &mut Parser) -> SyntaxNode {
 }
 
 /// Parse a single enum item.
-fn enum_item(p: &mut Parser, number: Option<usize>) -> SyntaxNode {
+fn enum_node(p: &mut Parser, number: Option<usize>) -> SyntaxNode {
     let start = p.next_start();
     let column = p.column(start);
     p.eat_assert(Token::Numbering(number));
@@ -243,10 +244,7 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) -> Option<Expr> {
     loop {
         // Exclamation mark, parenthesis or bracket means this is a function
         // call.
-        if matches!(
-            p.peek_direct(),
-            Some(Token::Excl | Token::LeftParen | Token::LeftBracket),
-        ) {
+        if matches!(p.peek_direct(), Some(Token::LeftParen | Token::LeftBracket)) {
             lhs = call(p, lhs)?;
             continue;
         }
@@ -520,7 +518,7 @@ fn idents(p: &mut Parser, items: Vec<CallArg>) -> Vec<Ident> {
     iter.collect()
 }
 
-// Parse a template value: `[...]`.
+// Parse a template block: `[...]`.
 fn template(p: &mut Parser) -> Expr {
     p.start_group(Group::Bracket, TokenMode::Markup);
     let tree = tree(p);
@@ -528,7 +526,7 @@ fn template(p: &mut Parser) -> Expr {
     Expr::Template(Box::new(TemplateExpr { span, tree }))
 }
 
-/// Parse a block expression: `{...}`.
+/// Parse a code block: `{...}`.
 fn block(p: &mut Parser, scoping: bool) -> Expr {
     p.start_group(Group::Brace, TokenMode::Code);
     let mut exprs = vec![];

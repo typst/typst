@@ -1,9 +1,8 @@
 use std::cmp::Ordering;
 use std::str::FromStr;
 
-use crate::color::{Color, RgbaColor};
-
 use super::*;
+use crate::color::{Color, RgbaColor};
 
 /// `type`: The name of a value's type.
 pub fn type_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {

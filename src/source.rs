@@ -6,13 +6,14 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-#[cfg(feature = "codespan-reporting")]
-use codespan_reporting::files::{self, Files};
 use serde::{Deserialize, Serialize};
 
 use crate::loading::{FileHash, Loader};
 use crate::parse::{is_newline, Scanner};
 use crate::util::PathExt;
+
+#[cfg(feature = "codespan-reporting")]
+use codespan_reporting::files::{self, Files};
 
 /// A unique identifier for a loaded source file.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]

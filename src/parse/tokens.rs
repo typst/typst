@@ -142,7 +142,6 @@ impl<'s> Tokens<'s> {
             '-' => Token::Hyph,
             '*' => Token::Star,
             '/' => Token::Slash,
-            '!' => Token::Excl,
             '=' => Token::Eq,
             '<' => Token::Lt,
             '>' => Token::Gt,

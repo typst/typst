@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::ops::Deref;
 
 use unicode_xid::UnicodeXID;
@@ -50,6 +51,18 @@ impl Deref for Ident {
 impl AsRef<str> for Ident {
     fn as_ref(&self) -> &str {
         self
+    }
+}
+
+impl Borrow<str> for Ident {
+    fn borrow(&self) -> &str {
+        self
+    }
+}
+
+impl From<&Ident> for EcoString {
+    fn from(ident: &Ident) -> Self {
+        ident.string.clone()
     }
 }
 

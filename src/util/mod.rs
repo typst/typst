@@ -1,10 +1,10 @@
 //! Utilities.
 
-mod eco;
-mod mac;
+mod eco_string;
+mod mac_roman;
 
-pub use eco::EcoString;
-pub use mac::decode_mac_roman;
+pub use eco_string::EcoString;
+pub use mac_roman::decode_mac_roman;
 
 use std::cell::RefMut;
 use std::cmp::Ordering;

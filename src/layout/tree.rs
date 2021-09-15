@@ -2,13 +2,12 @@ use std::fmt::{self, Debug, Formatter};
 
 use super::*;
 
-use std::any::Any;
-
 #[cfg(feature = "layout-cache")]
-use std::hash::{Hash, Hasher};
-
-#[cfg(feature = "layout-cache")]
-use fxhash::FxHasher64;
+use {
+    fxhash::FxHasher64,
+    std::any::Any,
+    std::hash::{Hash, Hasher},
+};
 
 /// A tree of layout nodes.
 #[derive(Debug)]

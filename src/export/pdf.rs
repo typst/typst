@@ -309,10 +309,10 @@ impl<'a> PdfExporter<'a> {
             let face = self.fonts.get(face_id);
             let ttf = face.ttf();
 
-            let postcript_name = find_name(ttf.names(), name_id::POST_SCRIPT_NAME)
+            let postscript_name = find_name(ttf.names(), name_id::POST_SCRIPT_NAME)
                 .unwrap_or_else(|| "unknown".to_string());
 
-            let base_font = format!("ABCDEF+{}", postcript_name);
+            let base_font = format!("ABCDEF+{}", postscript_name);
             let base_font = Name(base_font.as_bytes());
             let cmap_name = Name(b"Custom");
             let system_info = SystemInfo {
@@ -356,7 +356,7 @@ impl<'a> PdfExporter<'a> {
                 });
 
             let mut flags = FontFlags::empty();
-            flags.set(FontFlags::SERIF, postcript_name.contains("Serif"));
+            flags.set(FontFlags::SERIF, postscript_name.contains("Serif"));
             flags.set(FontFlags::FIXED_PITCH, ttf.is_monospaced());
             flags.set(FontFlags::ITALIC, ttf.is_italic());
             flags.insert(FontFlags::SYMBOLIC);
