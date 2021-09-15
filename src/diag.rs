@@ -57,6 +57,8 @@ pub enum Tracepoint {
     Call(Option<String>),
     /// A module import.
     Import,
+    /// A file include.
+    Include,
 }
 
 /// Convert a [`StrResult`] to a [`TypResult`] by adding span information.

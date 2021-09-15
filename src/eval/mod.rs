@@ -1,4 +1,4 @@
-//! Evaluation of markup into modules.
+//! Evaluation of parsed markup into templates.
 
 #[macro_use]
 mod array;
@@ -38,27 +38,17 @@ use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
 use crate::geom::{Angle, Fractional, Length, Relative};
 use crate::image::ImageStore;
 use crate::loading::Loader;
-use crate::parse::parse;
+use crate::parse::{parse_code, parse_markup};
 use crate::source::{SourceId, SourceStore};
 use crate::syntax::visit::Visit;
 use crate::syntax::*;
 use crate::util::RefMutExt;
 use crate::Context;
 
-/// Evaluate a parsed source file into a module.
-pub fn eval(ctx: &mut Context, source: SourceId, markup: &Markup) -> TypResult<Module> {
+/// Evaluate a parsed markup file into a template.
+pub fn eval(ctx: &mut Context, source: SourceId, markup: &Markup) -> TypResult<Template> {
     let mut ctx = EvalContext::new(ctx, source);
-    let template = markup.eval(&mut ctx)?;
-    Ok(Module { scope: ctx.scopes.top, template })
-}
-
-/// An evaluated module, ready for importing or instantiation.
-#[derive(Debug, Default, Clone)]
-pub struct Module {
-    /// The top-level definitions that were bound in this module.
-    pub scope: Scope,
-    /// The template defined by this module.
-    pub template: Template,
+    markup.eval(&mut ctx)
 }
 
 /// The context for evaluation.
@@ -71,8 +61,10 @@ pub struct EvalContext<'a> {
     pub images: &'a mut ImageStore,
     /// The stack of imported files that led to evaluation of the current file.
     pub route: Vec<SourceId>,
-    /// Caches imported modules.
-    pub modules: HashMap<SourceId, Module>,
+    /// Caches exports of evaluated code files.
+    pub imports: HashMap<SourceId, Scope>,
+    /// Caches includable markup files.
+    pub includes: HashMap<SourceId, Template>,
     /// The active scopes.
     pub scopes: Scopes<'a>,
     /// The currently built template.
@@ -87,54 +79,11 @@ impl<'a> EvalContext<'a> {
             sources: &mut ctx.sources,
             images: &mut ctx.images,
             route: vec![source],
-            modules: HashMap::new(),
+            imports: HashMap::new(),
+            includes: HashMap::new(),
             scopes: Scopes::new(Some(&ctx.std)),
             template: Template::new(),
         }
-    }
-
-    /// Process an import of a module relative to the current location.
-    pub fn import(&mut self, path: &str, span: Span) -> TypResult<SourceId> {
-        // Load the source file.
-        let full = self.make_path(path);
-        let id = self.sources.load(&full).map_err(|err| {
-            Error::boxed(span, match err.kind() {
-                io::ErrorKind::NotFound => "file not found".into(),
-                _ => format!("failed to load source file ({})", err),
-            })
-        })?;
-
-        // Prevent cyclic importing.
-        if self.route.contains(&id) {
-            bail!(span, "cyclic import");
-        }
-
-        // Check whether the module was already loaded.
-        if self.modules.get(&id).is_some() {
-            return Ok(id);
-        }
-
-        // Parse the file.
-        let source = self.sources.get(id);
-        let ast = parse(&source)?;
-
-        // Prepare the new context.
-        let new_scopes = Scopes::new(self.scopes.base);
-        let old_scopes = mem::replace(&mut self.scopes, new_scopes);
-        self.route.push(id);
-
-        // Evaluate the module.
-        let template = Rc::new(ast).eval(self).trace(|| Tracepoint::Import, span)?;
-
-        // Restore the old context.
-        let new_scopes = mem::replace(&mut self.scopes, old_scopes);
-        self.route.pop().unwrap();
-
-        // Save the evaluated module.
-        let module = Module { scope: new_scopes.top, template };
-        self.modules.insert(id, module);
-
-        Ok(id)
     }
 
     /// Complete a user-entered path (relative to the source file) to be
@@ -163,13 +112,29 @@ impl Eval for Markup {
     type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        Ok({
-            let prev = mem::take(&mut ctx.template);
-            ctx.template.save();
-            self.walk(ctx)?;
-            ctx.template.restore();
-            mem::replace(&mut ctx.template, prev)
-        })
+        let prev = mem::take(&mut ctx.template);
+
+        ctx.template.save();
+        self.walk(ctx)?;
+        ctx.template.restore();
+
+        Ok(mem::replace(&mut ctx.template, prev))
+    }
+}
+
+impl Eval for Code {
+    type Output = Scope;
+
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        let scopes = Scopes::new(ctx.scopes.base);
+        let prev = mem::replace(&mut ctx.scopes, scopes);
+
+        for expr in self {
+            expr.eval(ctx)?;
+        }
+
+        let scopes = mem::replace(&mut ctx.scopes, prev);
+        Ok(scopes.top)
     }
 }
 
@@ -272,7 +237,7 @@ impl Eval for BlockExpr {
         ctx.scopes.enter();
 
         let mut output = Value::None;
-        for expr in &self.exprs {
+        for expr in &self.code {
             let value = expr.eval(ctx)?;
             output = ops::join(output, value).at(expr.span())?;
         }
@@ -629,20 +594,41 @@ impl Eval for ImportExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        // Load the file.
         let path = self.path.eval(ctx)?.cast::<Str>().at(self.path.span())?;
+        let full = ctx.make_path(&path);
+        let id = ctx.sources.load(&full).map_err(|err| {
+            Error::boxed(self.path.span(), match err.kind() {
+                io::ErrorKind::NotFound => "file not found".into(),
+                _ => format!("failed to load code file ({})", err),
+            })
+        })?;
 
-        let file = ctx.import(&path, self.path.span())?;
-        let module = &ctx.modules[&file];
+        // Prevent cyclic importing.
+        if ctx.route.contains(&id) {
+            bail!(self.span, "cyclic import");
+        }
 
+        // Parse and evaluate the code file if it's not already loaded.
+        if !ctx.imports.contains_key(&id) {
+            ctx.route.push(id);
+            let source = ctx.sources.get(id);
+            let code = parse_code(&source)?;
+            let exports = code.eval(ctx).trace(|| Tracepoint::Import, self.span)?;
+            ctx.imports.insert(id, exports);
+            ctx.route.pop().unwrap();
+        }
+
+        let exports = &ctx.imports[&id];
         match &self.imports {
             Imports::Wildcard => {
-                for (var, slot) in module.scope.iter() {
+                for (var, slot) in exports.iter() {
                     ctx.scopes.def_mut(var, slot.borrow().clone());
                 }
             }
             Imports::Idents(idents) => {
                 for ident in idents {
-                    if let Some(slot) = module.scope.get(&ident) {
+                    if let Some(slot) = exports.get(&ident) {
                         ctx.scopes.def_mut(ident.as_str(), slot.borrow().clone());
                     } else {
                         bail!(ident.span, "unresolved import");
@@ -659,12 +645,35 @@ impl Eval for IncludeExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        // Load the file.
         let path = self.path.eval(ctx)?.cast::<Str>().at(self.path.span())?;
+        let full = ctx.make_path(&path);
+        let id = ctx.sources.load(&full).map_err(|err| {
+            Error::boxed(self.path.span(), match err.kind() {
+                io::ErrorKind::NotFound => "file not found".into(),
+                _ => format!("failed to load markup file ({})", err),
+            })
+        })?;
 
-        let file = ctx.import(&path, self.path.span())?;
-        let module = &ctx.modules[&file];
+        // Prevent cyclic including.
+        if ctx.route.contains(&id) {
+            bail!(self.span, "cyclic include");
+        }
 
-        Ok(Value::Template(module.template.clone()))
+        // Parse and evaluate the markup file if it's not already loaded.
+        if !ctx.includes.contains_key(&id) {
+            ctx.route.push(id);
+            let source = ctx.sources.get(id);
+            let markup = parse_markup(&source)?;
+            let scopes = Scopes::new(ctx.scopes.base);
+            let prev = mem::replace(&mut ctx.scopes, scopes);
+            let template = markup.eval(ctx).trace(|| Tracepoint::Include, self.span)?;
+            ctx.scopes = prev;
+            ctx.includes.insert(id, template);
+            ctx.route.pop().unwrap();
+        }
+
+        Ok(Value::Template(ctx.includes[&id].clone()))
     }
 }
 

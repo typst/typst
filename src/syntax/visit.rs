@@ -159,7 +159,7 @@ impl_visitors! {
 
     visit_block(v, block: BlockExpr) {
         v.visit_enter();
-        for expr in r!(block.exprs) {
+        for expr in r!(block.code) {
             v.visit_expr(expr);
         }
         v.visit_exit();

@@ -9,7 +9,7 @@ use std::rc::Rc;
 use serde::{Deserialize, Serialize};
 
 use crate::loading::{FileHash, Loader};
-use crate::parse::{is_newline, Scanner};
+use crate::parse::Scanner;
 use crate::util::PathExt;
 
 #[cfg(feature = "codespan-reporting")]
@@ -252,6 +252,24 @@ impl SourceFile {
     }
 }
 
+impl AsRef<str> for SourceFile {
+    fn as_ref(&self) -> &str {
+        &self.src
+    }
+}
+
+/// Whether this character denotes a newline.
+#[inline]
+pub fn is_newline(character: char) -> bool {
+    matches!(
+        character,
+        // Line Feed, Vertical Tab, Form Feed, Carriage Return.
+        '\n' | '\x0B' | '\x0C' | '\r' |
+        // Next Line, Line Separator, Paragraph Separator.
+        '\u{0085}' | '\u{2028}' | '\u{2029}'
+    )
+}
+
 /// The indices at which lines start (right behind newlines).
 ///
 /// The beginning of the string (index 0) is not returned.
@@ -268,12 +286,6 @@ fn newlines(string: &str) -> impl Iterator<Item = usize> + '_ {
         }
         None
     })
-}
-
-impl AsRef<str> for SourceFile {
-    fn as_ref(&self) -> &str {
-        &self.src
-    }
 }
 
 #[cfg(feature = "codespan-reporting")]

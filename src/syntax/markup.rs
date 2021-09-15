@@ -1,7 +1,7 @@
 use super::{Expr, Ident, Span};
 use crate::util::EcoString;
 
-/// The syntactical root capable of representing a full parsed document.
+/// The syntactical root of a markup file.
 pub type Markup = Vec<MarkupNode>;
 
 /// A single piece of markup.

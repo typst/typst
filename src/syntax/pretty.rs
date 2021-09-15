@@ -282,11 +282,11 @@ impl Pretty for GroupExpr {
 impl Pretty for BlockExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('{');
-        if self.exprs.len() > 1 {
+        if self.code.len() > 1 {
             p.push(' ');
         }
-        p.join(&self.exprs, "; ", |expr, p| expr.pretty(p));
-        if self.exprs.len() > 1 {
+        p.join(&self.code, "; ", |expr, p| expr.pretty(p));
+        if self.code.len() > 1 {
             p.push(' ');
         }
         p.push('}');
@@ -493,7 +493,7 @@ impl Pretty for Ident {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse::parse;
+    use crate::parse::parse_markup;
     use crate::source::SourceFile;
 
     #[track_caller]
@@ -504,10 +504,10 @@ mod tests {
     #[track_caller]
     fn test_parse(src: &str, expected: &str) {
         let source = SourceFile::detached(src);
-        let ast = parse(&source).unwrap();
-        let found = pretty(&ast);
+        let markup = parse_markup(&source).unwrap();
+        let found = pretty(&markup);
         if found != expected {
-            println!("tree:     {:#?}", ast);
+            println!("tree:     {:#?}", markup);
             println!("expected: {}", expected);
             println!("found:    {}", found);
             panic!("test failed");

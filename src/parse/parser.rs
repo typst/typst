@@ -58,19 +58,19 @@ pub enum Group {
 
 impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
-    pub fn new(source: &'s SourceFile) -> Self {
-        let mut tokens = Tokens::new(source.src(), TokenMode::Markup);
-        let next = tokens.next();
-        Self {
+    pub fn new(source: &'s SourceFile, mode: TokenMode) -> Self {
+        let mut p = Self {
             source,
             errors: vec![],
-            tokens,
+            tokens: Tokens::new(source.src(), mode),
             groups: vec![],
-            next,
-            peeked: next,
+            next: None,
+            peeked: None,
             prev_end: 0,
             next_start: 0,
-        }
+        };
+        p.bump();
+        p
     }
 
     /// Finish parsing and return all errors.

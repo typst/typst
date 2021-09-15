@@ -1,0 +1,4 @@
+"This is the second element of an import cycle."
+
+import * from "cycle1.typ"
+let val = "much cycle"

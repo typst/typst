@@ -5,7 +5,7 @@ use iai::{black_box, main, Iai};
 use typst::eval::eval;
 use typst::layout::layout;
 use typst::loading::MemLoader;
-use typst::parse::{parse, Scanner, TokenMode, Tokens};
+use typst::parse::{parse_markup, Scanner, TokenMode, Tokens};
 use typst::source::{SourceFile, SourceId};
 use typst::Context;
 
@@ -50,19 +50,19 @@ fn bench_tokenize(iai: &mut Iai) {
 }
 
 fn bench_parse(iai: &mut Iai) {
-    iai.run(|| parse(&SourceFile::detached(SRC)));
+    iai.run(|| parse_markup(&SourceFile::detached(SRC)));
 }
 
 fn bench_eval(iai: &mut Iai) {
     let (mut ctx, id) = context();
-    let ast = ctx.parse(id).unwrap();
-    iai.run(|| eval(&mut ctx, id, &ast).unwrap());
+    let markup = ctx.parse(id).unwrap();
+    iai.run(|| eval(&mut ctx, id, &markup).unwrap());
 }
 
 fn bench_to_tree(iai: &mut Iai) {
     let (mut ctx, id) = context();
-    let module = ctx.evaluate(id).unwrap();
-    iai.run(|| module.template.to_tree(ctx.state()));
+    let template = ctx.evaluate(id).unwrap();
+    iai.run(|| template.to_tree(ctx.state()));
 }
 
 fn bench_layout(iai: &mut Iai) {

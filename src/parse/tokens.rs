@@ -1,5 +1,6 @@
-use super::{is_newline, Scanner};
+use super::Scanner;
 use crate::geom::{AngularUnit, LengthUnit};
+use crate::source::is_newline;
 use crate::syntax::*;
 
 /// An iterator over the tokens of a string of source code.

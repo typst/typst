@@ -1,4 +1,5 @@
-use super::{is_newline, Scanner};
+use super::Scanner;
+use crate::source::is_newline;
 use crate::syntax::{Ident, RawNode, Span};
 use crate::util::EcoString;
 

@@ -6,7 +6,6 @@ mod scanner;
 mod tokens;
 
 pub use parser::*;
-pub use resolve::*;
 pub use scanner::*;
 pub use tokens::*;
 
@@ -17,13 +16,27 @@ use crate::source::SourceFile;
 use crate::syntax::*;
 use crate::util::EcoString;
 
-/// Parse a source file.
-pub fn parse(source: &SourceFile) -> TypResult<Markup> {
-    let mut p = Parser::new(source);
-    let markup = markup(&mut p);
+/// Parse a source file into markup.
+pub fn parse_markup(source: &SourceFile) -> TypResult<Markup> {
+    parse_file(source, TokenMode::Markup, markup)
+}
+
+/// Parse a source file into code.
+pub fn parse_code(source: &SourceFile) -> TypResult<Code> {
+    parse_file(source, TokenMode::Code, code)
+}
+
+/// Parse a source file with a base token mode and a parsing function.
+fn parse_file<T>(
+    source: &SourceFile,
+    mode: TokenMode,
+    f: fn(&mut Parser) -> T,
+) -> TypResult<T> {
+    let mut p = Parser::new(source, mode);
+    let t = f(&mut p);
     let errors = p.finish();
     if errors.is_empty() {
-        Ok(markup)
+        Ok(t)
     } else {
         Err(Box::new(errors))
     }
@@ -216,6 +229,25 @@ fn enum_node(p: &mut Parser, number: Option<usize>) -> MarkupNode {
         number,
         body,
     }))
+}
+
+/// Parse code.
+fn code(p: &mut Parser) -> Code {
+    let mut code = vec![];
+    while !p.eof() {
+        p.start_group(Group::Stmt, TokenMode::Code);
+        if let Some(expr) = expr(p) {
+            code.push(expr);
+            if !p.eof() {
+                p.expected_at(p.prev_end(), "semicolon or line break");
+            }
+        }
+        p.end_group();
+
+        // Forcefully skip over newlines since the group's contents can't.
+        p.eat_while(|t| matches!(t, Token::Space(_)));
+    }
+    code
 }
 
 /// Parse an expression.
@@ -521,30 +553,17 @@ fn idents(p: &mut Parser, items: Vec<CallArg>) -> Vec<Ident> {
 // Parse a template block: `[...]`.
 fn template(p: &mut Parser) -> Expr {
     p.start_group(Group::Bracket, TokenMode::Markup);
-    let tree = markup(p);
+    let body = markup(p);
     let span = p.end_group();
-    Expr::Template(Box::new(TemplateExpr { span, body: tree }))
+    Expr::Template(Box::new(TemplateExpr { span, body }))
 }
 
 /// Parse a code block: `{...}`.
 fn block(p: &mut Parser) -> Expr {
     p.start_group(Group::Brace, TokenMode::Code);
-    let mut exprs = vec![];
-    while !p.eof() {
-        p.start_group(Group::Stmt, TokenMode::Code);
-        if let Some(expr) = expr(p) {
-            exprs.push(expr);
-            if !p.eof() {
-                p.expected_at(p.prev_end(), "semicolon or line break");
-            }
-        }
-        p.end_group();
-
-        // Forcefully skip over newlines since the group's contents can't.
-        p.eat_while(|t| matches!(t, Token::Space(_)));
-    }
+    let code = code(p);
     let span = p.end_group();
-    Expr::Block(Box::new(BlockExpr { span, exprs }))
+    Expr::Block(Box::new(BlockExpr { span, code }))
 }
 
 /// Parse a function call.

@@ -142,6 +142,7 @@ fn print_diagnostics(
                 }
                 Tracepoint::Call(None) => "error occured in this function call".into(),
                 Tracepoint::Import => "error occured while importing this module".into(),
+                Tracepoint::Include => "error occured while including this file".into(),
             };
 
             let help = Diagnostic::help().with_message(message).with_labels(vec![

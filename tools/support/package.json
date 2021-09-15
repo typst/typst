@@ -12,18 +12,32 @@
   "contributes": {
     "languages": [
       {
-        "id": "typst",
-        "aliases": ["Typst", "typst"],
+        "id": "typst-markup",
+        "aliases": ["Typst Markup"],
         "extensions": [".typ"],
+        "configuration": "./config.json"
+      },
+      {
+        "id": "typst-code",
+        "aliases": ["Typst Code"],
+        "extensions": [".typc"],
         "configuration": "./config.json"
       }
     ],
     "grammars": [
       {
-        "language": "typst",
-        "scopeName": "source.typst",
-        "path": "./typst.tmLanguage.json"
+        "language": "typst-markup",
+        "scopeName": "source.typst-markup",
+        "path": "./typst-markup.tmLanguage.json"
+      },
+      {
+        "language": "typst-code",
+        "scopeName": "source.typst-code",
+        "path": "./typst-code.tmLanguage.json"
       }
     ]
+  },
+  "scripts": {
+    "build": "node build.js"
   }
 }

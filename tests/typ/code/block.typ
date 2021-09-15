@@ -77,11 +77,11 @@
 {b}
 
 ---
-// Double block creates a scope.
-{{
-  import b from "target.typ"
+// Block creates a scope.
+{
+  import b from "target.typc"
   test(b, 1)
-}}
+}
 
 // Error: 2-3 unknown variable
 {b}

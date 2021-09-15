@@ -1,0 +1,4 @@
+"This is the first element of an import cycle."
+
+import * from "cycle2.typ"
+let inaccessible = "wow"

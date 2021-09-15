@@ -4,6 +4,9 @@ use super::{Ident, Markup, Span, Token};
 use crate::geom::{AngularUnit, LengthUnit};
 use crate::util::EcoString;
 
+/// The syntactical root of a code file.
+pub type Code = Vec<Expr>;
+
 /// An expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -189,7 +192,7 @@ pub struct BlockExpr {
     /// The source code location.
     pub span: Span,
     /// The list of expressions contained in the block.
-    pub exprs: Vec<Expr>,
+    pub code: Code,
 }
 
 /// A unary operation: `-x`.

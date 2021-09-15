@@ -20,7 +20,7 @@
 //!
 
 //! [tokens]: parse::Tokens
-//! [parsed]: parse::parse
+//! [parsed]: parse::parse_markup
 //! [markup]: syntax::Markup
 //! [evaluate]: eval::eval
 //! [module]: eval::Module
@@ -50,7 +50,7 @@ pub mod util;
 use std::rc::Rc;
 
 use crate::diag::TypResult;
-use crate::eval::{Module, Scope, State};
+use crate::eval::{Scope, State, Template};
 use crate::font::FontStore;
 use crate::image::ImageStore;
 #[cfg(feature = "layout-cache")]
@@ -102,19 +102,19 @@ impl Context {
 
     /// Parse a source file and return the resulting markup.
     pub fn parse(&mut self, id: SourceId) -> TypResult<Markup> {
-        parse::parse(self.sources.get(id))
+        parse::parse_markup(self.sources.get(id))
     }
 
-    /// Evaluate a source file and return the resulting module.
-    pub fn evaluate(&mut self, id: SourceId) -> TypResult<Module> {
-        let ast = self.parse(id)?;
-        eval::eval(self, id, &ast)
+    /// Evaluate a source file and return the resulting template.
+    pub fn evaluate(&mut self, id: SourceId) -> TypResult<Template> {
+        let markup = self.parse(id)?;
+        eval::eval(self, id, &markup)
     }
 
     /// Execute a source file and produce the resulting layout tree.
     pub fn execute(&mut self, id: SourceId) -> TypResult<LayoutTree> {
-        let module = self.evaluate(id)?;
-        Ok(module.template.to_tree(&self.state))
+        let template = self.evaluate(id)?;
+        Ok(template.to_tree(&self.state))
     }
 
     /// Typeset a source file into a collection of layouted frames.
