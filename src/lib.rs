@@ -2,25 +2,26 @@
 //!
 //! # Steps
 //! - **Parsing:** The parsing step first transforms a plain string into an
-//!   [iterator of tokens][tokens]. This token stream is [parsed] into a [syntax
-//!   tree]. The structures describing the tree can be found in the [syntax]
-//!   module.
-//! - **Evaluation:** The next step is to [evaluate] the syntax tree. This
-//!   produces a [module], consisting of a scope of values that were exported by
-//!   the module and a template with the contents of the module. This template
-//!   can be [instantiated] in a state to produce a layout tree, a high-level,
-//!   fully styled representation of the document. The nodes of this tree are
+//!   [iterator of tokens][tokens]. This token stream is [parsed] into [markup].
+//!   The syntactical structures describing markup and embedded code can be
+//!   found in the [syntax] module.
+//! - **Evaluation:** The next step is to [evaluate] the markup. This produces a
+//!   [module], consisting of a scope of values that were exported by the code
+//!   and a template with the contents of the module. This template can be
+//!   [instantiated] in a state to produce a layout tree, a high-level, fully
+//!   styled representation of the document. The nodes of this tree are
 //!   self-contained and order-independent and thus much better suited for
-//!   layouting than a syntax tree.
+//!   layouting than the raw markup.
 //! - **Layouting:** Next, the tree is [layouted] into a portable version of the
 //!   typeset document. The output of this is a collection of [`Frame`]s (one
 //!   per page), ready for exporting.
 //! - **Exporting:** The finished layout can be exported into a supported
 //!   format. Currently, the only supported output format is [PDF].
 //!
+
 //! [tokens]: parse::Tokens
 //! [parsed]: parse::parse
-//! [syntax tree]: syntax::SyntaxTree
+//! [markup]: syntax::Markup
 //! [evaluate]: eval::eval
 //! [module]: eval::Module
 //! [instantiated]: eval::Template::to_tree
@@ -57,7 +58,7 @@ use crate::layout::{EvictionPolicy, LayoutCache};
 use crate::layout::{Frame, LayoutTree};
 use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
-use crate::syntax::SyntaxTree;
+use crate::syntax::Markup;
 
 /// The core context which holds the loader, configuration and cached artifacts.
 pub struct Context {
@@ -99,8 +100,8 @@ impl Context {
         &self.state
     }
 
-    /// Parse a source file and return the resulting syntax tree.
-    pub fn parse(&mut self, id: SourceId) -> TypResult<SyntaxTree> {
+    /// Parse a source file and return the resulting markup.
+    pub fn parse(&mut self, id: SourceId) -> TypResult<Markup> {
         parse::parse(self.sources.get(id))
     }
 

@@ -1,4 +1,4 @@
-//! Evaluation of syntax trees into modules.
+//! Evaluation of markup into modules.
 
 #[macro_use]
 mod array;
@@ -46,9 +46,9 @@ use crate::util::RefMutExt;
 use crate::Context;
 
 /// Evaluate a parsed source file into a module.
-pub fn eval(ctx: &mut Context, source: SourceId, ast: &SyntaxTree) -> TypResult<Module> {
+pub fn eval(ctx: &mut Context, source: SourceId, markup: &Markup) -> TypResult<Module> {
     let mut ctx = EvalContext::new(ctx, source);
-    let template = ast.eval(&mut ctx)?;
+    let template = markup.eval(&mut ctx)?;
     Ok(Module { scope: ctx.scopes.top, template })
 }
 
@@ -159,7 +159,7 @@ pub trait Eval {
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output>;
 }
 
-impl Eval for SyntaxTree {
+impl Eval for Markup {
     type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
@@ -253,7 +253,7 @@ impl Eval for TemplateExpr {
     type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        self.tree.eval(ctx)
+        self.body.eval(ctx)
     }
 }
 

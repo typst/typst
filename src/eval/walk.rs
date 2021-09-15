@@ -7,13 +7,13 @@ use crate::layout::{ParChild, ParNode, StackChild, StackNode};
 use crate::syntax::*;
 use crate::util::BoolExt;
 
-/// Walk a syntax node and fill the currently built template.
+/// Walk markup, filling the currently built template.
 pub trait Walk {
     /// Walk the node.
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()>;
 }
 
-impl Walk for SyntaxTree {
+impl Walk for Markup {
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
         for node in self.iter() {
             node.walk(ctx)?;
@@ -22,7 +22,7 @@ impl Walk for SyntaxTree {
     }
 }
 
-impl Walk for SyntaxNode {
+impl Walk for MarkupNode {
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
         match self {
             Self::Space => ctx.template.space(),

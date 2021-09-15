@@ -1,8 +1,12 @@
-use super::*;
+use super::{Expr, Ident, Span};
+use crate::util::EcoString;
 
-/// A syntax node, encompassing a single logical entity of parsed source code.
+/// The syntactical root capable of representing a full parsed document.
+pub type Markup = Vec<MarkupNode>;
+
+/// A single piece of markup.
 #[derive(Debug, Clone, PartialEq)]
-pub enum SyntaxNode {
+pub enum MarkupNode {
     /// Whitespace containing less than two newlines.
     Space,
     /// A forced line break: `\`.
@@ -50,7 +54,7 @@ pub struct HeadingNode {
     /// The section depth (numer of equals signs).
     pub level: usize,
     /// The contents of the heading.
-    pub body: SyntaxTree,
+    pub body: Markup,
 }
 
 /// An item in an unordered list: `- ...`.
@@ -59,7 +63,7 @@ pub struct ListNode {
     /// The source code location.
     pub span: Span,
     /// The contents of the list item.
-    pub body: SyntaxTree,
+    pub body: Markup,
 }
 
 /// An item in an enumeration (ordered list): `1. ...`.
@@ -70,5 +74,5 @@ pub struct EnumNode {
     /// The number, if any.
     pub number: Option<usize>,
     /// The contents of the list item.
-    pub body: SyntaxTree,
+    pub body: Markup,
 }

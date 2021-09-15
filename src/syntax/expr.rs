@@ -1,7 +1,8 @@
 use std::rc::Rc;
 
-use super::*;
+use super::{Ident, Markup, Span, Token};
 use crate::geom::{AngularUnit, LengthUnit};
+use crate::util::EcoString;
 
 /// An expression.
 #[derive(Debug, Clone, PartialEq)]
@@ -170,7 +171,7 @@ pub struct TemplateExpr {
     /// The source code location.
     pub span: Span,
     /// The contents of the template.
-    pub tree: SyntaxTree,
+    pub body: Markup,
 }
 
 /// A grouped expression: `(1 + 2)`.

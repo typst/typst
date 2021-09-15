@@ -75,7 +75,7 @@ impl Write for Printer {
     }
 }
 
-impl Pretty for SyntaxTree {
+impl Pretty for Markup {
     fn pretty(&self, p: &mut Printer) {
         for node in self {
             node.pretty(p);
@@ -83,7 +83,7 @@ impl Pretty for SyntaxTree {
     }
 }
 
-impl Pretty for SyntaxNode {
+impl Pretty for MarkupNode {
     fn pretty(&self, p: &mut Printer) {
         match self {
             // TODO: Handle escaping.
@@ -266,7 +266,7 @@ impl Pretty for Named {
 impl Pretty for TemplateExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('[');
-        self.tree.pretty(p);
+        self.body.pretty(p);
         p.push(']');
     }
 }

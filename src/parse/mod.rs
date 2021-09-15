@@ -18,31 +18,31 @@ use crate::syntax::*;
 use crate::util::EcoString;
 
 /// Parse a source file.
-pub fn parse(source: &SourceFile) -> TypResult<SyntaxTree> {
+pub fn parse(source: &SourceFile) -> TypResult<Markup> {
     let mut p = Parser::new(source);
-    let tree = tree(&mut p);
+    let markup = markup(&mut p);
     let errors = p.finish();
     if errors.is_empty() {
-        Ok(tree)
+        Ok(markup)
     } else {
         Err(Box::new(errors))
     }
 }
 
-/// Parse a syntax tree.
-fn tree(p: &mut Parser) -> SyntaxTree {
-    tree_while(p, true, &mut |_| true)
+/// Parse markup.
+fn markup(p: &mut Parser) -> Markup {
+    markup_while(p, true, &mut |_| true)
 }
 
-/// Parse a syntax tree that stays right of the given column.
-fn tree_indented(p: &mut Parser, column: usize) -> SyntaxTree {
+/// Parse markup that stays right of the given column.
+fn markup_indented(p: &mut Parser, column: usize) -> Markup {
     p.eat_while(|t| match t {
         Token::Space(n) => n == 0,
         Token::LineComment(_) | Token::BlockComment(_) => true,
         _ => false,
     });
 
-    tree_while(p, false, &mut |p| match p.peek() {
+    markup_while(p, false, &mut |p| match p.peek() {
         Some(Token::Space(n)) if n >= 1 => p.column(p.next_end()) > column,
         _ => true,
     })
@@ -52,14 +52,14 @@ fn tree_indented(p: &mut Parser, column: usize) -> SyntaxTree {
 ///
 /// If `at_start` is true, things like headings that may only appear at the
 /// beginning of a line or template are allowed.
-fn tree_while<F>(p: &mut Parser, mut at_start: bool, f: &mut F) -> SyntaxTree
+fn markup_while<F>(p: &mut Parser, mut at_start: bool, f: &mut F) -> Markup
 where
     F: FnMut(&mut Parser) -> bool,
 {
     let mut tree = vec![];
     while !p.eof() && f(p) {
-        if let Some(node) = node(p, &mut at_start) {
-            at_start &= matches!(node, SyntaxNode::Space | SyntaxNode::Parbreak(_));
+        if let Some(node) = markup_node(p, &mut at_start) {
+            at_start &= matches!(node, MarkupNode::Space | MarkupNode::Parbreak(_));
             tree.push(node);
         }
     }
@@ -67,8 +67,8 @@ where
     tree
 }
 
-/// Parse a syntax node.
-fn node(p: &mut Parser, at_start: &mut bool) -> Option<SyntaxNode> {
+/// Parse a markup node.
+fn markup_node(p: &mut Parser, at_start: &mut bool) -> Option<MarkupNode> {
     let token = p.peek()?;
     let span = p.peek_span();
     let node = match token {
@@ -76,23 +76,23 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<SyntaxNode> {
         Token::Space(newlines) => {
             *at_start |= newlines > 0;
             if newlines < 2 {
-                SyntaxNode::Space
+                MarkupNode::Space
             } else {
-                SyntaxNode::Parbreak(span)
+                MarkupNode::Parbreak(span)
             }
         }
 
         // Text.
-        Token::Text(text) => SyntaxNode::Text(text.into()),
-        Token::Tilde => SyntaxNode::Text("\u{00A0}".into()),
-        Token::HyphHyph => SyntaxNode::Text("\u{2013}".into()),
-        Token::HyphHyphHyph => SyntaxNode::Text("\u{2014}".into()),
-        Token::UnicodeEscape(t) => SyntaxNode::Text(unicode_escape(p, t)),
+        Token::Text(text) => MarkupNode::Text(text.into()),
+        Token::Tilde => MarkupNode::Text("\u{00A0}".into()),
+        Token::HyphHyph => MarkupNode::Text("\u{2013}".into()),
+        Token::HyphHyphHyph => MarkupNode::Text("\u{2014}".into()),
+        Token::UnicodeEscape(t) => MarkupNode::Text(unicode_escape(p, t)),
 
         // Markup.
-        Token::Backslash => SyntaxNode::Linebreak(span),
-        Token::Star => SyntaxNode::Strong(span),
-        Token::Underscore => SyntaxNode::Emph(span),
+        Token::Backslash => MarkupNode::Linebreak(span),
+        Token::Star => MarkupNode::Strong(span),
+        Token::Underscore => MarkupNode::Emph(span),
         Token::Raw(t) => raw(p, t),
         Token::Eq if *at_start => return Some(heading(p)),
         Token::Hyph if *at_start => return Some(list_node(p)),
@@ -100,7 +100,7 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<SyntaxNode> {
 
         // Line-based markup that is not currently at the start of the line.
         Token::Eq | Token::Hyph | Token::Numbering(_) => {
-            SyntaxNode::Text(p.peek_src().into())
+            MarkupNode::Text(p.peek_src().into())
         }
 
         // Hashtag + keyword / identifier.
@@ -121,12 +121,12 @@ fn node(p: &mut Parser, at_start: &mut bool) -> Option<SyntaxNode> {
             }
             p.end_group();
 
-            return expr.map(SyntaxNode::Expr);
+            return expr.map(MarkupNode::Expr);
         }
 
         // Block and template.
-        Token::LeftBrace => return Some(SyntaxNode::Expr(block(p, false))),
-        Token::LeftBracket => return Some(SyntaxNode::Expr(template(p))),
+        Token::LeftBrace => return Some(MarkupNode::Expr(block(p, false))),
+        Token::LeftBracket => return Some(MarkupNode::Expr(template(p))),
 
         // Comments.
         Token::LineComment(_) | Token::BlockComment(_) => {
@@ -163,17 +163,17 @@ fn unicode_escape(p: &mut Parser, token: UnicodeEscapeToken) -> EcoString {
 }
 
 /// Handle a raw block.
-fn raw(p: &mut Parser, token: RawToken) -> SyntaxNode {
+fn raw(p: &mut Parser, token: RawToken) -> MarkupNode {
     let span = p.peek_span();
     let raw = resolve::resolve_raw(span, token.text, token.backticks);
     if !token.terminated {
         p.error(span.end, "expected backtick(s)");
     }
-    SyntaxNode::Raw(Box::new(raw))
+    MarkupNode::Raw(Box::new(raw))
 }
 
 /// Parse a heading.
-fn heading(p: &mut Parser) -> SyntaxNode {
+fn heading(p: &mut Parser) -> MarkupNode {
     let start = p.next_start();
     let column = p.column(start);
     p.eat_assert(Token::Eq);
@@ -185,11 +185,11 @@ fn heading(p: &mut Parser) -> SyntaxNode {
     }
 
     if level > 6 {
-        return SyntaxNode::Text(p.get(start .. p.prev_end()).into());
+        return MarkupNode::Text(p.get(start .. p.prev_end()).into());
     }
 
-    let body = tree_indented(p, column);
-    SyntaxNode::Heading(Box::new(HeadingNode {
+    let body = markup_indented(p, column);
+    MarkupNode::Heading(Box::new(HeadingNode {
         span: p.span_from(start),
         level,
         body,
@@ -197,21 +197,21 @@ fn heading(p: &mut Parser) -> SyntaxNode {
 }
 
 /// Parse a single list item.
-fn list_node(p: &mut Parser) -> SyntaxNode {
+fn list_node(p: &mut Parser) -> MarkupNode {
     let start = p.next_start();
     let column = p.column(start);
     p.eat_assert(Token::Hyph);
-    let body = tree_indented(p, column);
-    SyntaxNode::List(Box::new(ListNode { span: p.span_from(start), body }))
+    let body = markup_indented(p, column);
+    MarkupNode::List(Box::new(ListNode { span: p.span_from(start), body }))
 }
 
 /// Parse a single enum item.
-fn enum_node(p: &mut Parser, number: Option<usize>) -> SyntaxNode {
+fn enum_node(p: &mut Parser, number: Option<usize>) -> MarkupNode {
     let start = p.next_start();
     let column = p.column(start);
     p.eat_assert(Token::Numbering(number));
-    let body = tree_indented(p, column);
-    SyntaxNode::Enum(Box::new(EnumNode {
+    let body = markup_indented(p, column);
+    MarkupNode::Enum(Box::new(EnumNode {
         span: p.span_from(start),
         number,
         body,
@@ -521,9 +521,9 @@ fn idents(p: &mut Parser, items: Vec<CallArg>) -> Vec<Ident> {
 // Parse a template block: `[...]`.
 fn template(p: &mut Parser) -> Expr {
     p.start_group(Group::Bracket, TokenMode::Markup);
-    let tree = tree(p);
+    let tree = markup(p);
     let span = p.end_group();
-    Expr::Template(Box::new(TemplateExpr { span, tree }))
+    Expr::Template(Box::new(TemplateExpr { span, body: tree }))
 }
 
 /// Parse a code block: `{...}`.

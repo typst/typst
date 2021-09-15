@@ -1,6 +1,6 @@
 //! Mutable and immutable syntax tree traversal.
 
-use crate::syntax::*;
+use super::*;
 
 /// Implement the immutable and the mutable visitor version.
 macro_rules! impl_visitors {
@@ -78,25 +78,25 @@ macro_rules! impl_visitor {
 }
 
 impl_visitors! {
-    visit_tree(v, tree: SyntaxTree) {
-        for node in tree {
+    visit_tree(v, markup: Markup) {
+        for node in markup {
             v.visit_node(node);
         }
     }
 
-    visit_node(v, node: SyntaxNode) {
+    visit_node(v, node: MarkupNode) {
         match node {
-            SyntaxNode::Space => {}
-            SyntaxNode::Linebreak(_) => {}
-            SyntaxNode::Parbreak(_) => {}
-            SyntaxNode::Strong(_) => {}
-            SyntaxNode::Emph(_) => {}
-            SyntaxNode::Text(_) => {}
-            SyntaxNode::Raw(_) => {}
-            SyntaxNode::Heading(n) => v.visit_heading(n),
-            SyntaxNode::List(n) => v.visit_list(n),
-            SyntaxNode::Enum(n) => v.visit_enum(n),
-            SyntaxNode::Expr(n) => v.visit_expr(n),
+            MarkupNode::Space => {}
+            MarkupNode::Linebreak(_) => {}
+            MarkupNode::Parbreak(_) => {}
+            MarkupNode::Strong(_) => {}
+            MarkupNode::Emph(_) => {}
+            MarkupNode::Text(_) => {}
+            MarkupNode::Raw(_) => {}
+            MarkupNode::Heading(n) => v.visit_heading(n),
+            MarkupNode::List(n) => v.visit_list(n),
+            MarkupNode::Enum(n) => v.visit_enum(n),
+            MarkupNode::Expr(n) => v.visit_expr(n),
         }
     }
 
@@ -149,7 +149,7 @@ impl_visitors! {
 
     visit_template(v, template: TemplateExpr) {
         v.visit_enter();
-        v.visit_tree(r!(template.tree));
+        v.visit_tree(r!(template.body));
         v.visit_exit();
     }
 
