@@ -190,8 +190,6 @@ pub struct BlockExpr {
     pub span: Span,
     /// The list of expressions contained in the block.
     pub exprs: Vec<Expr>,
-    /// Whether the block should create a scope.
-    pub scoping: bool,
 }
 
 /// A unary operation: `-x`.

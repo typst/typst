@@ -58,8 +58,10 @@
 }
 
 ---
-// Block in template does not create a scope.
+// Block directly in template also creates a scope.
 { let x = 1 }
+
+// Error: 7-8 unknown variable
 #test(x, 1)
 
 ---

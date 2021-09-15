@@ -158,15 +158,11 @@ impl_visitors! {
     }
 
     visit_block(v, block: BlockExpr) {
-        if block.scoping {
-            v.visit_enter();
-        }
+        v.visit_enter();
         for expr in r!(block.exprs) {
             v.visit_expr(expr);
         }
-        if block.scoping {
-            v.visit_exit();
-        }
+        v.visit_exit();
     }
 
     visit_binary(v, binary: BinaryExpr) {

@@ -21,8 +21,6 @@
   test(b, 1)
 }
 
-#test(b, 1)
-
 // A wildcard import.
 #import * from "target.typ"
 

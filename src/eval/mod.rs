@@ -269,9 +269,7 @@ impl Eval for BlockExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        if self.scoping {
-            ctx.scopes.enter();
-        }
+        ctx.scopes.enter();
 
         let mut output = Value::None;
         for expr in &self.exprs {
@@ -279,9 +277,7 @@ impl Eval for BlockExpr {
             output = ops::join(output, value).at(expr.span())?;
         }
 
-        if self.scoping {
-            ctx.scopes.exit();
-        }
+        ctx.scopes.exit();
 
         Ok(output)
     }

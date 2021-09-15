@@ -125,7 +125,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) -> Option<MarkupNode> {
         }
 
         // Block and template.
-        Token::LeftBrace => return Some(MarkupNode::Expr(block(p, false))),
+        Token::LeftBrace => return Some(MarkupNode::Expr(block(p))),
         Token::LeftBracket => return Some(MarkupNode::Expr(template(p))),
 
         // Comments.
@@ -316,7 +316,7 @@ fn primary(p: &mut Parser, atomic: bool) -> Option<Expr> {
         // Structures.
         Some(Token::LeftParen) => parenthesized(p),
         Some(Token::LeftBracket) => Some(template(p)),
-        Some(Token::LeftBrace) => Some(block(p, true)),
+        Some(Token::LeftBrace) => Some(block(p)),
 
         // Keywords.
         Some(Token::Let) => let_expr(p),
@@ -527,7 +527,7 @@ fn template(p: &mut Parser) -> Expr {
 }
 
 /// Parse a code block: `{...}`.
-fn block(p: &mut Parser, scoping: bool) -> Expr {
+fn block(p: &mut Parser) -> Expr {
     p.start_group(Group::Brace, TokenMode::Code);
     let mut exprs = vec![];
     while !p.eof() {
@@ -544,7 +544,7 @@ fn block(p: &mut Parser, scoping: bool) -> Expr {
         p.eat_while(|t| matches!(t, Token::Space(_)));
     }
     let span = p.end_group();
-    Expr::Block(Box::new(BlockExpr { span, exprs, scoping }))
+    Expr::Block(Box::new(BlockExpr { span, exprs }))
 }
 
 /// Parse a function call.
@@ -789,7 +789,7 @@ fn ident(p: &mut Parser) -> Option<Ident> {
 fn body(p: &mut Parser) -> Option<Expr> {
     match p.peek() {
         Some(Token::LeftBracket) => Some(template(p)),
-        Some(Token::LeftBrace) => Some(block(p, true)),
+        Some(Token::LeftBrace) => Some(block(p)),
         _ => {
             p.expected_at(p.prev_end(), "body");
             None
