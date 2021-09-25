@@ -173,8 +173,7 @@ impl<'a> StackLayouter<'a> {
         let expand = self.expand;
         let used = self.used.to_size(self.block);
 
-        // Determine the stack's size dependening on whether the region is
-        // fixed.
+        // Determine the stack's size dependening on whether the region expands.
         let size = Size::new(
             if expand.x {
                 self.constraints.exact.x = Some(self.full.w);

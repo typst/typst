@@ -218,21 +218,25 @@ impl<'a> ParLayouter<'a> {
                 stack.constraints.max.y.set_min(stack.size.h + line.size.h);
                 stack.finish_region(ctx);
             }
+
             // If the line does not fit horizontally or we have a mandatory
             // line break (i.e. due to "\n"), we push the line into the
             // stack.
             if mandatory || !stack.regions.current.w.fits(line.size.w) {
-                stack.push(line);
                 start = end;
                 last = None;
 
+                stack.push(line);
                 stack.constraints.min.y = Some(stack.size.h);
 
                 // If there is a trailing line break at the end of the
                 // paragraph, we want to force an empty line.
                 if mandatory && end == self.bidi.text.len() {
-                    stack.push(LineLayout::new(ctx, &self, end .. end));
-                    stack.constraints.min.y = Some(stack.size.h);
+                    let line = LineLayout::new(ctx, &self, end .. end);
+                    if stack.regions.current.h.fits(line.size.h) {
+                        stack.push(line);
+                        stack.constraints.min.y = Some(stack.size.h);
+                    }
                 }
             } else {
                 // Otherwise, the line fits both horizontally and vertically

@@ -179,8 +179,6 @@ impl<'a> GridLayouter<'a> {
         // Sum of fractions of all fractional tracks.
         let mut fr = Fractional::zero();
 
-
-
         // Resolve the size of all linear columns and compute the sum of all
         // fractional tracks.
         for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
