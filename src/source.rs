@@ -63,7 +63,7 @@ impl SourceStore {
             io::Error::new(io::ErrorKind::InvalidData, "file is not valid utf-8")
         })?;
 
-        Ok(self.insert(path, src, Some(hash)))
+        Ok(self.provide(path, src))
     }
 
     /// Directly provide a source file.
@@ -75,28 +75,23 @@ impl SourceStore {
     /// If the path is resolvable and points to an existing source file, it is
     /// overwritten.
     pub fn provide(&mut self, path: &Path, src: String) -> SourceId {
-        if let Ok(hash) = self.loader.resolve(path) {
-            if let Some(&id) = self.files.get(&hash) {
-                // Already loaded, so we replace it.
-                self.sources[id.0 as usize] = SourceFile::new(id, path, src);
-                id
-            } else {
-                // Not loaded yet.
-                self.insert(path, src, Some(hash))
-            }
-        } else {
-            // Not known to the loader.
-            self.insert(path, src, None)
-        }
-    }
+        let hash = self.loader.resolve(path).ok();
 
-    /// Insert a new source file.
-    fn insert(&mut self, path: &Path, src: String, hash: Option<FileHash>) -> SourceId {
+        // Check for existing file and replace if one exists.
+        if let Some(&id) = hash.and_then(|hash| self.files.get(&hash)) {
+            self.sources[id.0 as usize] = SourceFile::new(id, path, src);
+            return id;
+        }
+
+        // No existing file yet.
         let id = SourceId(self.sources.len() as u32);
+        self.sources.push(SourceFile::new(id, path, src));
+
+        // Register in file map if the path was known to the loader.
         if let Some(hash) = hash {
             self.files.insert(hash, id);
         }
-        self.sources.push(SourceFile::new(id, path, src));
+
         id
     }
 
