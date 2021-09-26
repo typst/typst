@@ -26,8 +26,8 @@ pub struct Frame {
 pub enum FrameChild {
     /// A leaf node in the frame tree.
     Element(Element),
-    /// An interior node with an optional index.
-    Frame(Option<usize>, Rc<Frame>),
+    /// An interior group.
+    Group(Rc<Frame>),
 }
 
 /// The building block frames are composed of.
@@ -110,12 +110,7 @@ impl Frame {
 
     /// Add a frame element.
     pub fn push_frame(&mut self, pos: Point, subframe: Rc<Self>) {
-        self.children.push((pos, FrameChild::Frame(None, subframe)))
-    }
-
-    /// Add a frame element with an index of arbitrary use.
-    pub fn push_indexed_frame(&mut self, pos: Point, index: usize, subframe: Rc<Self>) {
-        self.children.push((pos, FrameChild::Frame(Some(index), subframe)));
+        self.children.push((pos, FrameChild::Group(subframe)))
     }
 
     /// Add all elements of another frame, placing them relative to the given
@@ -152,7 +147,7 @@ impl<'a> Iterator for Elements<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let (cursor, offset, frame) = self.stack.last_mut()?;
         match frame.children.get(*cursor) {
-            Some((pos, FrameChild::Frame(_, f))) => {
+            Some((pos, FrameChild::Group(f))) => {
                 let new_offset = *offset + *pos;
                 self.stack.push((0, new_offset, f.as_ref()));
                 self.next()
@@ -194,7 +189,7 @@ impl Debug for FrameChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Element(element) => element.fmt(f),
-            Self::Frame(_, frame) => frame.fmt(f),
+            Self::Group(frame) => frame.fmt(f),
         }
     }
 }

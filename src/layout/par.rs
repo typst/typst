@@ -50,7 +50,7 @@ impl Layout for ParNode {
         let layouter = ParLayouter::new(self, ctx, regions, bidi);
 
         // Find suitable linebreaks.
-        layouter.layout(ctx, &self.children, regions.clone())
+        layouter.layout(ctx, regions.clone())
     }
 }
 
@@ -131,25 +131,25 @@ impl<'a> ParLayouter<'a> {
         let mut ranges = vec![];
 
         // Layout the children and collect them into items.
-        for (i, (range, child)) in par.ranges().zip(&par.children).enumerate() {
-            match *child {
+        for (range, child) in par.ranges().zip(&par.children) {
+            match child {
                 ParChild::Spacing(amount) => {
                     let resolved = amount.resolve(regions.current.w);
                     items.push(ParItem::Spacing(resolved));
                     ranges.push(range);
                 }
-                ParChild::Text(_, align, ref state, _) => {
+                ParChild::Text(_, align, state, decos) => {
                     // TODO: Also split by language and script.
                     for (subrange, dir) in split_runs(&bidi, range) {
                         let text = &bidi.text[subrange.clone()];
                         let shaped = shape(ctx, text, dir, state);
-                        items.push(ParItem::Text(shaped, align, i));
+                        items.push(ParItem::Text(shaped, *align, decos));
                         ranges.push(subrange);
                     }
                 }
-                ParChild::Any(ref node, align, _) => {
+                ParChild::Any(node, align, decos) => {
                     let frame = node.layout(ctx, regions).remove(0);
-                    items.push(ParItem::Frame(frame.item, align, i));
+                    items.push(ParItem::Frame(frame.item, *align, decos));
                     ranges.push(range);
                 }
             }
@@ -168,10 +168,9 @@ impl<'a> ParLayouter<'a> {
     fn layout(
         self,
         ctx: &mut LayoutContext,
-        children: &[ParChild],
         regions: Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        let mut stack = LineStack::new(self.line_spacing, children, regions);
+        let mut stack = LineStack::new(self.line_spacing, regions);
 
         // The current line attempt.
         // Invariant: Always fits into `stack.regions.current`.
@@ -290,9 +289,9 @@ enum ParItem<'a> {
     /// Spacing between other items.
     Spacing(Length),
     /// A shaped text run with consistent direction.
-    Text(ShapedText<'a>, Align, usize),
+    Text(ShapedText<'a>, Align, &'a [Decoration]),
     /// A layouted child node.
-    Frame(Rc<Frame>, Align, usize),
+    Frame(Rc<Frame>, Align, &'a [Decoration]),
 }
 
 impl ParItem<'_> {
@@ -312,113 +311,6 @@ impl ParItem<'_> {
             Self::Text(shaped, ..) => shaped.baseline,
             Self::Frame(frame, ..) => frame.baseline,
         }
-    }
-
-    /// The index of the `ParChild` that this item belongs to.
-    pub fn index(&self) -> Option<usize> {
-        match *self {
-            Self::Spacing(_) => None,
-            Self::Text(.., index) => Some(index),
-            Self::Frame(.., index) => Some(index),
-        }
-    }
-}
-
-/// Stacks lines on top of each other.
-struct LineStack<'a> {
-    line_spacing: Length,
-    children: &'a [ParChild],
-    full: Size,
-    regions: Regions,
-    size: Size,
-    lines: Vec<LineLayout<'a>>,
-    finished: Vec<Constrained<Rc<Frame>>>,
-    constraints: Constraints,
-    overflowing: bool,
-}
-
-impl<'a> LineStack<'a> {
-    /// Create an empty line stack.
-    fn new(line_spacing: Length, children: &'a [ParChild], regions: Regions) -> Self {
-        Self {
-            line_spacing,
-            children,
-            full: regions.current,
-            constraints: Constraints::new(regions.expand),
-            regions,
-            size: Size::zero(),
-            lines: vec![],
-            finished: vec![],
-            overflowing: false,
-        }
-    }
-
-    /// Push a new line into the stack.
-    fn push(&mut self, line: LineLayout<'a>) {
-        self.regions.current.h -= line.size.h + self.line_spacing;
-
-        self.size.w.set_max(line.size.w);
-        self.size.h += line.size.h;
-        if !self.lines.is_empty() {
-            self.size.h += self.line_spacing;
-        }
-
-        self.lines.push(line);
-    }
-
-    /// Finish the frame for one region.
-    fn finish_region(&mut self, ctx: &LayoutContext) {
-        if self.regions.expand.x {
-            self.size.w = self.regions.current.w;
-            self.constraints.exact.x = Some(self.regions.current.w);
-        }
-
-        if self.overflowing {
-            self.constraints.min.y = None;
-            self.constraints.max.y = None;
-            self.constraints.exact = self.full.to_spec().map(Some);
-        }
-
-        let mut output = Frame::new(self.size, self.size.h);
-        let mut offset = Length::zero();
-        let mut first = true;
-
-        for line in self.lines.drain(..) {
-            let frame = line.build(self.size.w);
-
-            let pos = Point::new(Length::zero(), offset);
-            if first {
-                output.baseline = pos.y + frame.baseline;
-                first = false;
-            }
-
-            offset += frame.size.h + self.line_spacing;
-            output.merge_frame(pos, frame);
-        }
-
-        for (_, child) in &mut output.children {
-            if let FrameChild::Frame(Some(frame_idx), frame) = child {
-                for deco in match &self.children[*frame_idx] {
-                    ParChild::Spacing(_) => continue,
-                    ParChild::Text(.., decos) => decos,
-                    ParChild::Any(.., decos) => decos,
-                } {
-                    deco.apply(ctx, Rc::make_mut(frame));
-                }
-            }
-        }
-
-        self.finished.push(output.constrain(self.constraints));
-        self.regions.next();
-        self.full = self.regions.current;
-        self.constraints = Constraints::new(self.regions.expand);
-        self.size = Size::zero();
-    }
-
-    /// Finish the last region and return the built frames.
-    fn finish(mut self, ctx: &LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
-        self.finish_region(ctx);
-        self.finished
     }
 }
 
@@ -537,7 +429,7 @@ impl<'a> LineLayout<'a> {
     }
 
     /// Build the line's frame.
-    fn build(&self, width: Length) -> Frame {
+    fn build(&self, ctx: &LayoutContext, width: Length) -> Frame {
         let size = Size::new(self.size.w.max(width), self.size.h);
         let free = size.w - self.size.w;
 
@@ -545,33 +437,36 @@ impl<'a> LineLayout<'a> {
         let mut offset = Length::zero();
         let mut ruler = Align::Start;
 
-        self.reordered(|item| {
-            let frame = match *item {
-                ParItem::Spacing(amount) => {
-                    offset += amount;
-                    return;
-                }
-                ParItem::Text(ref shaped, align, _) => {
-                    ruler = ruler.max(align);
-                    Rc::new(shaped.build())
-                }
-                ParItem::Frame(ref frame, align, _) => {
-                    ruler = ruler.max(align);
-                    frame.clone()
-                }
+        self.reordered(ctx, |ctx, item| {
+            let mut position = |frame: &Frame, align| {
+                // FIXME: Ruler alignment for RTL.
+                ruler = ruler.max(align);
+                let x = ruler.resolve(self.dir, offset .. free + offset);
+                let y = self.baseline - frame.baseline;
+                offset += frame.size.w;
+                Point::new(x, y)
             };
 
-            // FIXME: Ruler alignment for RTL.
-            let pos = Point::new(
-                ruler.resolve(self.dir, offset .. free + offset),
-                self.baseline - frame.baseline,
-            );
-
-            offset += frame.size.w;
-
-            match item.index() {
-                Some(idx) => output.push_indexed_frame(pos, idx, frame),
-                None => output.push_frame(pos, frame),
+            match *item {
+                ParItem::Spacing(amount) => {
+                    offset += amount;
+                }
+                ParItem::Text(ref shaped, align, decos) => {
+                    let mut frame = shaped.build();
+                    for deco in decos {
+                        deco.apply(ctx, &mut frame);
+                    }
+                    let pos = position(&frame, align);
+                    output.merge_frame(pos, frame);
+                }
+                ParItem::Frame(ref frame, align, decos) => {
+                    let mut frame = frame.clone();
+                    for deco in decos {
+                        deco.apply(ctx, Rc::make_mut(&mut frame));
+                    }
+                    let pos = position(&frame, align);
+                    output.push_frame(pos, frame);
+                }
             }
         });
 
@@ -579,7 +474,10 @@ impl<'a> LineLayout<'a> {
     }
 
     /// Iterate through the line's items in visual order.
-    fn reordered(&self, mut f: impl FnMut(&ParItem<'a>)) {
+    fn reordered<F>(&self, ctx: &LayoutContext, mut f: F)
+    where
+        F: FnMut(&LayoutContext, &ParItem<'a>),
+    {
         // The bidi crate doesn't like empty lines.
         if self.line.is_empty() {
             return;
@@ -606,11 +504,11 @@ impl<'a> LineLayout<'a> {
             // direction.
             if levels[run.start].is_ltr() {
                 for item in range {
-                    f(self.get(item).unwrap());
+                    f(ctx, self.get(item).unwrap());
                 }
             } else {
                 for item in range.rev() {
-                    f(self.get(item).unwrap());
+                    f(ctx, self.get(item).unwrap());
                 }
             }
         }
@@ -624,6 +522,90 @@ impl<'a> LineLayout<'a> {
     /// Get the item at the index.
     fn get(&self, index: usize) -> Option<&ParItem<'a>> {
         self.first.iter().chain(self.items).chain(&self.last).nth(index)
+    }
+}
+
+/// Stacks lines on top of each other.
+struct LineStack<'a> {
+    line_spacing: Length,
+    full: Size,
+    regions: Regions,
+    size: Size,
+    lines: Vec<LineLayout<'a>>,
+    finished: Vec<Constrained<Rc<Frame>>>,
+    constraints: Constraints,
+    overflowing: bool,
+}
+
+impl<'a> LineStack<'a> {
+    /// Create an empty line stack.
+    fn new(line_spacing: Length, regions: Regions) -> Self {
+        Self {
+            line_spacing,
+            full: regions.current,
+            constraints: Constraints::new(regions.expand),
+            regions,
+            size: Size::zero(),
+            lines: vec![],
+            finished: vec![],
+            overflowing: false,
+        }
+    }
+
+    /// Push a new line into the stack.
+    fn push(&mut self, line: LineLayout<'a>) {
+        self.regions.current.h -= line.size.h + self.line_spacing;
+
+        self.size.w.set_max(line.size.w);
+        self.size.h += line.size.h;
+        if !self.lines.is_empty() {
+            self.size.h += self.line_spacing;
+        }
+
+        self.lines.push(line);
+    }
+
+    /// Finish the frame for one region.
+    fn finish_region(&mut self, ctx: &LayoutContext) {
+        if self.regions.expand.x {
+            self.size.w = self.regions.current.w;
+            self.constraints.exact.x = Some(self.regions.current.w);
+        }
+
+        if self.overflowing {
+            self.constraints.min.y = None;
+            self.constraints.max.y = None;
+            self.constraints.exact = self.full.to_spec().map(Some);
+        }
+
+        let mut output = Frame::new(self.size, self.size.h);
+        let mut offset = Length::zero();
+        let mut first = true;
+
+        for line in self.lines.drain(..) {
+            let frame = line.build(ctx, self.size.w);
+
+            let pos = Point::new(Length::zero(), offset);
+            if first {
+                output.baseline = pos.y + frame.baseline;
+                first = false;
+            }
+
+            offset += frame.size.h + self.line_spacing;
+            output.merge_frame(pos, frame);
+        }
+
+        self.finished.push(output.constrain(self.constraints));
+        self.regions.next();
+        self.full = self.regions.current;
+        self.constraints = Constraints::new(self.regions.expand);
+        self.size = Size::zero();
+    }
+
+    /// Finish the last region and return the built frames.
+    fn finish(mut self, ctx: &LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
+        self.finish_region(ctx);
+        self.finished
     }
 }
 
