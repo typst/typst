@@ -10,7 +10,6 @@ use {
 };
 
 /// A tree of layout nodes.
-#[derive(Debug)]
 pub struct LayoutTree {
     /// Runs of pages with the same properties.
     pub runs: Vec<PageRun>,
@@ -20,6 +19,12 @@ impl LayoutTree {
     /// Layout the tree into a collection of frames.
     pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Rc<Frame>> {
         self.runs.iter().flat_map(|run| run.layout(ctx)).collect()
+    }
+}
+
+impl Debug for LayoutTree {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_list().entries(&self.runs).finish()
     }
 }
 

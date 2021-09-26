@@ -102,7 +102,6 @@ impl Image {
     pub fn parse(data: &[u8]) -> io::Result<Self> {
         let cursor = io::Cursor::new(data);
         let reader = ImageReader::new(cursor).with_guessed_format()?;
-
         let format = reader.format().ok_or_else(|| {
             io::Error::new(io::ErrorKind::InvalidData, "unknown image format")
         })?;

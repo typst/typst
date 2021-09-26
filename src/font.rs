@@ -360,7 +360,6 @@ impl FaceInfo {
         data: &'a [u8],
     ) -> impl Iterator<Item = FaceInfo> + 'a {
         let count = ttf_parser::fonts_in_collection(data).unwrap_or(1);
-
         (0 .. count).filter_map(move |index| {
             let face = ttf_parser::Face::from_slice(data, index).ok()?;
             let mut family = find_name(face.names(), name_id::TYPOGRAPHIC_FAMILY)

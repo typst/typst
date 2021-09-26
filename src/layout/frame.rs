@@ -1,3 +1,4 @@
+use std::fmt::{self, Debug, Formatter};
 use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
@@ -9,7 +10,7 @@ use crate::geom::{Em, Length, Path, Point, Size};
 use crate::image::ImageId;
 
 /// A finished layout with elements at fixed positions.
-#[derive(Debug, Default, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Frame {
     /// The size of the frame.
     pub size: Size,
@@ -21,12 +22,72 @@ pub struct Frame {
 
 /// A frame can contain two different kinds of children: a leaf element or a
 /// nested frame.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum FrameChild {
     /// A leaf node in the frame tree.
     Element(Element),
     /// An interior node with an optional index.
     Frame(Option<usize>, Rc<Frame>),
+}
+
+/// The building block frames are composed of.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub enum Element {
+    /// Shaped text.
+    Text(Text),
+    /// A geometric shape and the paint which with it should be filled or
+    /// stroked.
+    Geometry(Geometry, Paint),
+    /// A raster image.
+    Image(ImageId, Size),
+    /// A link to an external resource.
+    Link(String, Size),
+}
+
+/// A run of shaped text.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Text {
+    /// The font face the glyphs are contained in.
+    pub face_id: FaceId,
+    /// The font size.
+    pub size: Length,
+    /// The width of the text run.
+    pub width: Length,
+    /// Glyph color.
+    pub fill: Paint,
+    /// The glyphs.
+    pub glyphs: Vec<Glyph>,
+}
+
+/// A glyph in a run of shaped text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Glyph {
+    /// The glyph's index in the face.
+    pub id: u16,
+    /// The advance width of the glyph.
+    pub x_advance: Em,
+    /// The horizontal offset of the glyph.
+    pub x_offset: Em,
+}
+
+/// A geometric shape.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub enum Geometry {
+    /// A filled rectangle with its origin in the topleft corner.
+    Rect(Size),
+    /// A filled ellipse with its origin in the center.
+    Ellipse(Size),
+    /// A stroked line to a point (relative to its position) with a thickness.
+    Line(Point, Length),
+    /// A filled bezier path.
+    Path(Path),
+}
+
+/// How a fill or stroke should be painted.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub enum Paint {
+    /// A solid color.
+    Color(Color),
 }
 
 impl Frame {
@@ -111,62 +172,29 @@ impl<'a> Iterator for Elements<'a> {
     }
 }
 
-/// The building block frames are composed of.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub enum Element {
-    /// Shaped text.
-    Text(Text),
-    /// A geometric shape and the paint which with it should be filled or
-    /// stroked.
-    Geometry(Geometry, Paint),
-    /// A raster image.
-    Image(ImageId, Size),
-    /// A link to an external resource.
-    Link(String, Size),
+impl Debug for Frame {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        struct Children<'a>(&'a [(Point, FrameChild)]);
+
+        impl Debug for Children<'_> {
+            fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+                f.debug_map().entries(self.0.iter().map(|(k, v)| (k, v))).finish()
+            }
+        }
+
+        f.debug_struct("Frame")
+            .field("size", &self.size)
+            .field("baseline", &self.baseline)
+            .field("children", &Children(&self.children))
+            .finish()
+    }
 }
 
-/// A run of shaped text.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Text {
-    /// The font face the glyphs are contained in.
-    pub face_id: FaceId,
-    /// The font size.
-    pub size: Length,
-    /// The width of the text run.
-    pub width: Length,
-    /// Glyph color.
-    pub fill: Paint,
-    /// The glyphs.
-    pub glyphs: Vec<Glyph>,
-}
-
-/// A glyph in a run of shaped text.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Glyph {
-    /// The glyph's index in the face.
-    pub id: u16,
-    /// The advance width of the glyph.
-    pub x_advance: Em,
-    /// The horizontal offset of the glyph.
-    pub x_offset: Em,
-}
-
-/// A geometric shape.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub enum Geometry {
-    /// A filled rectangle with its origin in the topleft corner.
-    Rect(Size),
-    /// A filled ellipse with its origin in the center.
-    Ellipse(Size),
-    /// A stroked line to a point (relative to its position) with a thickness.
-    Line(Point, Length),
-    /// A filled bezier path.
-    Path(Path),
-}
-
-/// How a fill or stroke should be painted.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub enum Paint {
-    /// A solid color.
-    Color(Color),
+impl Debug for FrameChild {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Element(element) => element.fmt(f),
+            Self::Frame(_, frame) => frame.fmt(f),
+        }
+    }
 }

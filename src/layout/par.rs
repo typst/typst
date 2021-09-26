@@ -1,3 +1,4 @@
+use std::fmt::{self, Debug, Formatter};
 use std::rc::Rc;
 
 use unicode_bidi::{BidiInfo, Level};
@@ -22,7 +23,6 @@ pub struct ParNode {
 }
 
 /// A child of a paragraph node.
-#[derive(Debug)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub enum ParChild {
     /// Spacing between other nodes.
@@ -90,6 +90,16 @@ impl ParNode {
 impl From<ParNode> for LayoutNode {
     fn from(par: ParNode) -> Self {
         Self::new(par)
+    }
+}
+
+impl Debug for ParChild {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ParChild::Spacing(v) => write!(f, "Spacing({:?})", v),
+            ParChild::Text(text, ..) => write!(f, "Text({:?})", text),
+            ParChild::Any(node, ..) => f.debug_tuple("Any").field(node).finish(),
+        }
     }
 }
 
