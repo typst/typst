@@ -97,7 +97,14 @@ impl Layout for LayoutNode {
             ctx.level += 1;
             let frames = self.node.layout(ctx, regions);
             ctx.level -= 1;
-            ctx.layouts.insert(self.hash, frames.clone(), ctx.level);
+
+            let entry = FramesEntry::new(frames.clone(), ctx.level);
+            debug_assert!(
+                entry.check(regions),
+                "constraints did not match regions they were created for",
+            );
+
+            ctx.layouts.insert(self.hash, entry);
             frames
         })
     }

@@ -65,26 +65,15 @@ impl LayoutCache {
         hash: u64,
         regions: &Regions,
     ) -> Option<Vec<Constrained<Rc<Frame>>>> {
-        let entries = self.frames.get_mut(&hash)?;
-        for entry in entries {
-            if let Some(frames) = entry.check(regions) {
-                return Some(frames);
-            }
-        }
-        None
+        self.frames
+            .get_mut(&hash)?
+            .iter_mut()
+            .find_map(|entry| entry.lookup(regions))
     }
 
     /// Insert a new frame entry into the cache.
-    pub fn insert(
-        &mut self,
-        hash: u64,
-        frames: Vec<Constrained<Rc<Frame>>>,
-        level: usize,
-    ) {
-        self.frames
-            .entry(hash)
-            .or_default()
-            .push(FramesEntry::new(frames, level));
+    pub fn insert(&mut self, hash: u64, entry: FramesEntry) {
+        self.frames.entry(hash).or_default().push(entry);
     }
 
     /// Clear the cache.
@@ -229,17 +218,21 @@ impl FramesEntry {
 
     /// Checks if the cached frames are valid in the given regions and returns
     /// them if so.
-    pub fn check(&mut self, regions: &Regions) -> Option<Vec<Constrained<Rc<Frame>>>> {
-        let mut iter = regions.iter();
-        for frame in &self.frames {
-            let (current, base) = iter.next()?;
-            if !frame.constraints.check(current, base, regions.expand) {
-                return None;
-            }
-        }
+    pub fn lookup(&mut self, regions: &Regions) -> Option<Vec<Constrained<Rc<Frame>>>> {
+        self.check(regions).then(|| {
+            self.temperature[0] += 1;
+            self.frames.clone()
+        })
+    }
 
-        self.temperature[0] += 1;
-        Some(self.frames.clone())
+    /// Checks if the cached frames are valid in the given regions.
+    pub fn check(&self, regions: &Regions) -> bool {
+        let mut iter = regions.iter();
+        self.frames.iter().all(|frame| {
+            iter.next().map_or(false, |(current, base)| {
+                frame.constraints.check(current, base, regions.expand)
+            })
+        })
     }
 
     /// How nested the frame was in the context is was originally appearing in.
@@ -420,7 +413,7 @@ mod tests {
         let mut cache = LayoutCache::new(EvictionPolicy::None, 20);
         let regions = zero_regions();
         cache.policy = EvictionPolicy::None;
-        cache.insert(0, empty_frames(), 0);
+        cache.insert(0, FramesEntry::new(empty_frames(), 0));
 
         let entry = cache.frames.get(&0).unwrap().first().unwrap();
         assert_eq!(entry.age(), 1);
@@ -454,7 +447,7 @@ mod tests {
     fn test_incremental_properties() {
         let mut cache = LayoutCache::new(EvictionPolicy::None, 20);
         cache.policy = EvictionPolicy::None;
-        cache.insert(0, empty_frames(), 1);
+        cache.insert(0, FramesEntry::new(empty_frames(), 1));
 
         let props = cache.frames.get(&0).unwrap().first().unwrap().properties();
         assert_eq!(props.top_level, false);

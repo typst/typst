@@ -304,8 +304,11 @@ fn test_incremental(
 
         if misses > 0 {
             println!(
-                "    Subtest {} relayout had {} cache misses on level {} ❌",
-                i, misses, level
+                "    Subtest {} relayout had {} cache misses on level {} of {} ❌",
+                i,
+                misses,
+                level,
+                reference.levels() - 1,
             );
             ok = false;
         }
