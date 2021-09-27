@@ -1,6 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 use std::rc::Rc;
 
+use itertools::Either;
 use unicode_bidi::{BidiInfo, Level};
 use xi_unicode::LineBreakIterator;
 
@@ -437,7 +438,7 @@ impl<'a> LineLayout<'a> {
         let mut offset = Length::zero();
         let mut ruler = Align::Start;
 
-        self.reordered(ctx, |ctx, item| {
+        for item in self.reordered() {
             let mut position = |frame: &Frame, align| {
                 // FIXME: Ruler alignment for RTL.
                 ruler = ruler.max(align);
@@ -468,50 +469,44 @@ impl<'a> LineLayout<'a> {
                     output.push_frame(pos, frame);
                 }
             }
-        });
+        }
 
         output
     }
 
     /// Iterate through the line's items in visual order.
-    fn reordered<F>(&self, ctx: &LayoutContext, mut f: F)
-    where
-        F: FnMut(&LayoutContext, &ParItem<'a>),
-    {
+    fn reordered(&self) -> impl Iterator<Item = &ParItem<'a>> {
         // The bidi crate doesn't like empty lines.
-        if self.line.is_empty() {
-            return;
-        }
+        let (levels, runs) = if !self.line.is_empty() {
+            // Find the paragraph that contains the line.
+            let para = self
+                .bidi
+                .paragraphs
+                .iter()
+                .find(|para| para.range.contains(&self.line.start))
+                .unwrap();
 
-        // Find the paragraph that contains the line.
-        let para = self
-            .bidi
-            .paragraphs
-            .iter()
-            .find(|para| para.range.contains(&self.line.start))
-            .unwrap();
+            // Compute the reordered ranges in visual order (left to right).
+            self.bidi.visual_runs(para, self.line.clone())
+        } else {
+            <_>::default()
+        };
 
-        // Compute the reordered ranges in visual order (left to right).
-        let (levels, runs) = self.bidi.visual_runs(para, self.line.clone());
+        runs.into_iter()
+            .flat_map(move |run| {
+                let first_idx = self.find(run.start).unwrap();
+                let last_idx = self.find(run.end - 1).unwrap();
+                let range = first_idx ..= last_idx;
 
-        // Find the items for each run.
-        for run in runs {
-            let first_idx = self.find(run.start).unwrap();
-            let last_idx = self.find(run.end - 1).unwrap();
-            let range = first_idx ..= last_idx;
-
-            // Provide the items forwards or backwards depending on the run's
-            // direction.
-            if levels[run.start].is_ltr() {
-                for item in range {
-                    f(ctx, self.get(item).unwrap());
+                // Provide the items forwards or backwards depending on the run's
+                // direction.
+                if levels[run.start].is_ltr() {
+                    Either::Left(range)
+                } else {
+                    Either::Right(range.rev())
                 }
-            } else {
-                for item in range.rev() {
-                    f(ctx, self.get(item).unwrap());
-                }
-            }
-        }
+            })
+            .map(move |idx| self.get(idx).unwrap())
     }
 
     /// Find the index of the item whose range contains the `text_offset`.
