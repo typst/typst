@@ -192,11 +192,6 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let children: Vec<Template> = args.all().collect();
 
     Ok(Value::Template(Template::from_block(move |state| {
-        let children = children
-            .iter()
-            .map(|child| StackChild::Any(child.to_stack(state).into(), state.aligns))
-            .collect();
-
         let mut dirs = Gen::new(None, dir).unwrap_or(state.dirs);
 
         // If the directions become aligned, fix up the inline direction since
@@ -204,6 +199,19 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         if dirs.block.axis() == dirs.inline.axis() {
             dirs.inline = state.dirs.block;
         }
+
+        // Use the current alignments for all children, but take care to apply
+        // them to the correct axes (by swapping them if the stack axes are
+        // different from the state axes).
+        let mut aligns = state.aligns;
+        if dirs.block.axis() == state.dirs.inline.axis() {
+            aligns = Gen::new(aligns.block, aligns.inline);
+        }
+
+        let children = children
+            .iter()
+            .map(|child| StackChild::Any(child.to_stack(state).into(), aligns))
+            .collect();
 
         StackNode { dirs, children }
     })))
@@ -233,9 +241,6 @@ pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     );
 
     Ok(Value::Template(Template::from_block(move |state| {
-        let children =
-            children.iter().map(|child| child.to_stack(&state).into()).collect();
-
         // If the directions become aligned, try to fix up the direction which
         // is not user-defined.
         let mut dirs = Gen::new(column_dir, row_dir).unwrap_or(state.dirs);
@@ -252,6 +257,9 @@ pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
                 state.dirs.inline
             };
         }
+
+        let children =
+            children.iter().map(|child| child.to_stack(&state).into()).collect();
 
         GridNode {
             dirs,

@@ -1,3 +1,5 @@
+use std::fmt::{self, Debug, Formatter};
+
 use super::*;
 
 /// A node that stacks its children.
@@ -14,7 +16,6 @@ pub struct StackNode {
 }
 
 /// A child of a stack node.
-#[derive(Debug)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub enum StackChild {
     /// Spacing between other nodes.
@@ -36,6 +37,15 @@ impl Layout for StackNode {
 impl From<StackNode> for LayoutNode {
     fn from(stack: StackNode) -> Self {
         Self::new(stack)
+    }
+}
+
+impl Debug for StackChild {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Spacing(v) => write!(f, "Spacing({:?})", v),
+            Self::Any(node, _) => node.fmt(f),
+        }
     }
 }
 

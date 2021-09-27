@@ -96,9 +96,9 @@ impl From<ParNode> for LayoutNode {
 impl Debug for ParChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            ParChild::Spacing(v) => write!(f, "Spacing({:?})", v),
-            ParChild::Text(text, ..) => write!(f, "Text({:?})", text),
-            ParChild::Any(node, ..) => f.debug_tuple("Any").field(node).finish(),
+            Self::Spacing(v) => write!(f, "Spacing({:?})", v),
+            Self::Text(text, ..) => write!(f, "Text({:?})", text),
+            Self::Any(node, ..) => node.fmt(f),
         }
     }
 }

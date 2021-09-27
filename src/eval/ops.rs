@@ -181,12 +181,12 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Relative(a), Float(b)) => Relative(a / b),
         (Relative(a), Relative(b)) => Float(a / b),
 
+        (Linear(a), Int(b)) => Linear(a / b as f64),
+        (Linear(a), Float(b)) => Linear(a / b),
+
         (Fractional(a), Int(b)) => Fractional(a / b as f64),
         (Fractional(a), Float(b)) => Fractional(a / b),
         (Fractional(a), Fractional(b)) => Float(a / b),
-
-        (Linear(a), Int(b)) => Linear(a / b as f64),
-        (Linear(a), Float(b)) => Linear(a / b),
 
         (a, b) => mismatch!("cannot divide {} by {}", a, b),
     })
