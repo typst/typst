@@ -358,9 +358,7 @@ impl<'a> GridLayouter<'a> {
     /// break across multiple regions.
     fn layout_auto_row(&mut self, ctx: &mut LayoutContext, y: usize) {
         let base = self.regions.base.get(self.inline);
-
-        let mut first = Length::zero();
-        let mut rest: Vec<Length> = vec![];
+        let mut resolved: Vec<Length> = vec![];
 
         // Determine the size for each region of the row.
         for (x, &rcol) in self.rcols.iter().enumerate() {
@@ -381,24 +379,31 @@ impl<'a> GridLayouter<'a> {
                     .into_iter()
                     .map(|frame| frame.item.size.get(self.block));
 
-                if let Some(size) = sizes.next() {
-                    first.set_max(size);
+                for (target, size) in resolved.iter_mut().zip(&mut sizes) {
+                    target.set_max(size);
                 }
 
-                for (resolved, size) in rest.iter_mut().zip(&mut sizes) {
-                    resolved.set_max(size);
-                }
-
-                rest.extend(sizes);
+                resolved.extend(sizes);
             }
         }
 
         // Layout the row.
-        if rest.is_empty() {
+        if let &[first] = resolved.as_slice() {
             let frame = self.layout_single_row(ctx, first, y);
             self.push_row(ctx, frame);
         } else {
-            let frames = self.layout_multi_row(ctx, first, &rest, y);
+            // Expand all but the last region if the space is not eaten up by any fr
+            // rows.
+            if self.fr.is_zero() {
+                let len = resolved.len();
+                for (target, (current, _)) in
+                    resolved[.. len - 1].iter_mut().zip(self.regions.iter())
+                {
+                    target.set_max(current.get(self.block));
+                }
+            }
+
+            let frames = self.layout_multi_row(ctx, &resolved, y);
             let len = frames.len();
             for (i, frame) in frames.into_iter().enumerate() {
                 if i + 1 < len {
@@ -450,24 +455,26 @@ impl<'a> GridLayouter<'a> {
     fn layout_multi_row(
         &self,
         ctx: &mut LayoutContext,
-        first: Length,
-        rest: &[Length],
+        resolved: &[Length],
         y: usize,
     ) -> Vec<Frame> {
         let base = self.regions.base.get(self.inline);
 
         // Prepare frames.
-        let mut outputs: Vec<_> = std::iter::once(first)
-            .chain(rest.iter().copied())
-            .map(|v| self.complete(v))
+        let mut outputs: Vec<_> = resolved
+            .iter()
+            .map(|&v| self.complete(v))
             .map(|size| Frame::new(size, size.h))
             .collect();
 
         // Prepare regions.
-        let size = self.complete(first);
+        let size = self.complete(resolved[0]);
         let mut regions = Regions::one(size, self.regions.base, Spec::splat(true));
-        regions.backlog =
-            rest.iter().map(|&v| self.complete(v)).collect::<Vec<_>>().into_iter();
+        regions.backlog = resolved[1 ..]
+            .iter()
+            .map(|&v| self.complete(v))
+            .collect::<Vec<_>>()
+            .into_iter();
 
         // Layout the row.
         let mut pos = Gen::zero();
@@ -537,10 +544,7 @@ impl<'a> GridLayouter<'a> {
                 Row::Frame(frame) => frame,
                 Row::Fr(v, y) => {
                     let ratio = v / self.fr;
-                    if remaining > Length::zero()
-                        && remaining.is_finite()
-                        && ratio.is_finite()
-                    {
+                    if remaining.is_finite() && ratio.is_finite() {
                         let resolved = ratio * remaining;
                         self.layout_single_row(ctx, resolved, y)
                     } else {
