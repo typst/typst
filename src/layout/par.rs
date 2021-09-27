@@ -190,31 +190,26 @@ impl<'a> ParLayouter<'a> {
             // line cannot be broken up further.
             if !stack.regions.current.fits(line.size) {
                 if let Some((last_line, last_end)) = last.take() {
-                    // The region must not fit this line for the result to be valid.
+                    // Since the new line try did not fit, no region that would
+                    // fit the line will yield the same line break. Therefore,
+                    // the width of the region must not fit the width of the
+                    // tried line.
                     if !stack.regions.current.w.fits(line.size.w) {
                         stack.constraints.max.x.set_min(line.size.w);
                     }
 
+                    // Same as above, but for height.
                     if !stack.regions.current.h.fits(line.size.h) {
-                        stack.constraints.max.y.set_min(stack.size.h + line.size.h);
+                        let too_large = stack.size.h + self.line_spacing + line.size.h;
+                        stack.constraints.max.y.set_min(too_large);
                     }
 
                     stack.push(last_line);
+
                     stack.constraints.min.y = Some(stack.size.h);
                     start = last_end;
                     line = LineLayout::new(ctx, &self, start .. end);
                 }
-            }
-
-            // If the line does not fit vertically, we start a new region.
-            while !stack.regions.current.h.fits(line.size.h)
-                && !stack.regions.in_full_last()
-            {
-                // Again, the line must not fit. It would if the space taken up
-                // plus the line height would fit, therefore the constraint
-                // below.
-                stack.constraints.max.y.set_min(stack.size.h + line.size.h);
-                stack.finish_region(ctx);
             }
 
             // If the line does not fit vertically, we start a new region.
@@ -224,7 +219,12 @@ impl<'a> ParLayouter<'a> {
                     break;
                 }
 
-                stack.constraints.max.y.set_min(stack.size.h + line.size.h);
+                // Again, the line must not fit. It would if the space taken up
+                // plus the line height would fit, therefore the constraint
+                // below.
+                let too_large = stack.size.h + self.line_spacing + line.size.h;
+                stack.constraints.max.y.set_min(too_large);
+
                 stack.finish_region(ctx);
             }
 
@@ -236,7 +236,6 @@ impl<'a> ParLayouter<'a> {
                 last = None;
 
                 stack.push(line);
-                stack.constraints.min.y = Some(stack.size.h);
 
                 // If there is a trailing line break at the end of the
                 // paragraph, we want to force an empty line.
@@ -244,9 +243,10 @@ impl<'a> ParLayouter<'a> {
                     let line = LineLayout::new(ctx, &self, end .. end);
                     if stack.regions.current.h.fits(line.size.h) {
                         stack.push(line);
-                        stack.constraints.min.y = Some(stack.size.h);
                     }
                 }
+
+                stack.constraints.min.y = Some(stack.size.h);
             } else {
                 // Otherwise, the line fits both horizontally and vertically
                 // and we remember it.
