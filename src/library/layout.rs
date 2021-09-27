@@ -188,8 +188,22 @@ pub fn pad(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
 /// `stack`: Stack children along an axis.
 pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    enum Child {
+        Spacing(Linear),
+        Any(Template),
+    }
+
+    castable! {
+        Child: "linear or template",
+        Value::Length(v) => Self::Spacing(v.into()),
+        Value::Relative(v) => Self::Spacing(v.into()),
+        Value::Linear(v) => Self::Spacing(v),
+        Value::Template(v) => Self::Any(v),
+    }
+
     let dir = args.named("dir")?;
-    let children: Vec<Template> = args.all().collect();
+    let spacing = args.named("spacing")?;
+    let list: Vec<Child> = args.all().collect();
 
     Ok(Value::Template(Template::from_block(move |state| {
         let mut dirs = Gen::new(None, dir).unwrap_or(state.dirs);
@@ -208,10 +222,27 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             aligns = Gen::new(aligns.block, aligns.inline);
         }
 
-        let children = children
-            .iter()
-            .map(|child| StackChild::Any(child.to_stack(state).into(), aligns))
-            .collect();
+        let mut children = vec![];
+        let mut delayed = None;
+
+        // Build the list of stack children.
+        for child in &list {
+            match child {
+                Child::Spacing(v) => {
+                    children.push(StackChild::Spacing(*v));
+                    delayed = None;
+                }
+                Child::Any(template) => {
+                    if let Some(v) = delayed {
+                        children.push(StackChild::Spacing(v));
+                    }
+
+                    let node = template.to_stack(state).into();
+                    children.push(StackChild::Any(node, aligns));
+                    delayed = spacing;
+                }
+            }
+        }
 
         StackNode { dirs, children }
     })))
@@ -219,26 +250,44 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
 /// `grid`: Arrange children into a grid.
 pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    castable! {
+        Vec<TrackSizing>: "array of autos, linears, and fractionals",
+        Value::Int(count) => vec![TrackSizing::Auto; count.max(0) as usize],
+        Value::Array(values) => values
+            .into_iter()
+            .filter_map(|v| v.cast().ok())
+            .collect(),
+    }
+
+    castable! {
+        TrackSizing: "auto, linear, or fractional",
+        Value::Auto => Self::Auto,
+        Value::Length(v) => Self::Linear(v.into()),
+        Value::Relative(v) => Self::Linear(v.into()),
+        Value::Linear(v) => Self::Linear(v),
+        Value::Fractional(v) => Self::Fractional(v),
+    }
+
     let columns = args.named("columns")?.unwrap_or_default();
     let rows = args.named("rows")?.unwrap_or_default();
-
-    let gutter_columns = args.named("gutter-columns")?;
-    let gutter_rows = args.named("gutter-rows")?;
-    let default = args
-        .named("gutter")?
-        .map(|v| vec![TrackSizing::Linear(v)])
-        .unwrap_or_default();
+    let tracks = Gen::new(columns, rows);
 
     let column_dir = args.named("column-dir")?;
     let row_dir = args.named("row-dir")?;
 
-    let children: Vec<Template> = args.all().collect();
+    let gutter_columns = args.named("gutter-columns")?;
+    let gutter_rows = args.named("gutter-rows")?;
+    let gutter_default = args
+        .named("gutter")?
+        .map(|v| vec![TrackSizing::Linear(v)])
+        .unwrap_or_default();
 
-    let tracks = Gen::new(columns, rows);
     let gutter = Gen::new(
-        gutter_columns.unwrap_or_else(|| default.clone()),
-        gutter_rows.unwrap_or(default),
+        gutter_columns.unwrap_or_else(|| gutter_default.clone()),
+        gutter_rows.unwrap_or(gutter_default),
     );
+
+    let children: Vec<Template> = args.all().collect();
 
     Ok(Value::Template(Template::from_block(move |state| {
         // If the directions become aligned, try to fix up the direction which
@@ -268,25 +317,4 @@ pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             children,
         }
     })))
-}
-
-/// Defines size of rows and columns in a grid.
-type Tracks = Vec<TrackSizing>;
-
-castable! {
-    Tracks: "array of `auto`s, linears, and fractionals",
-    Value::Int(count) => vec![TrackSizing::Auto; count.max(0) as usize],
-    Value::Array(values) => values
-        .into_iter()
-        .filter_map(|v| v.cast().ok())
-        .collect(),
-}
-
-castable! {
-    TrackSizing: "`auto`, linear, or fractional",
-    Value::Auto => TrackSizing::Auto,
-    Value::Length(v) => TrackSizing::Linear(v.into()),
-    Value::Relative(v) => TrackSizing::Linear(v.into()),
-    Value::Linear(v) => TrackSizing::Linear(v),
-    Value::Fractional(v) => TrackSizing::Fractional(v),
 }

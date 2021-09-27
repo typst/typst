@@ -24,7 +24,17 @@
 #stack(dir: ltr, ..items)
 
 ---
-// Test overflowing stack.
+// Test spacing.
+#page(width: 50pt, margins: 0pt)
+#par(spacing: 5pt)
+
+#let x = square(length: 10pt, fill: eastern)
+#stack(dir: rtl, spacing: 5pt, x, x, x)
+#stack(dir: ltr, x, 20%, x, 20%, x)
+#stack(dir: ltr, spacing: 5pt, x, x, 7pt, 3pt, x)
+
+---
+// Test overflow.
 #page(width: 50pt, height: 30pt, margins: 0pt)
 #box(stack(
   rect(width: 40pt, height: 20pt, fill: conifer),

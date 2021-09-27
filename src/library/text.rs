@@ -3,6 +3,33 @@ use crate::layout::{Decoration, LineDecoration, LineKind, Paint};
 
 /// `font`: Configure the font.
 pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    struct FontDef(Rc<Vec<FontFamily>>);
+    struct FamilyDef(Rc<Vec<String>>);
+
+    castable! {
+        FontDef: "font family or array of font families",
+        Value::Str(string) => Self(Rc::new(vec![FontFamily::Named(string.to_lowercase())])),
+        Value::Array(values) => Self(Rc::new(
+            values
+                .into_iter()
+                .filter_map(|v| v.cast().ok())
+                .collect()
+        )),
+        @family: FontFamily => Self(Rc::new(vec![family.clone()])),
+    }
+
+    castable! {
+        FamilyDef: "string or array of strings",
+        Value::Str(string) => Self(Rc::new(vec![string.to_lowercase()])),
+        Value::Array(values) => Self(Rc::new(
+            values
+                .into_iter()
+                .filter_map(|v| v.cast().ok())
+                .map(|string: Str| string.to_lowercase())
+                .collect()
+        )),
+    }
+
     let list = args.named("family")?.or_else(|| {
         let families: Vec<_> = args.all().collect();
         (!families.is_empty()).then(|| FontDef(Rc::new(families)))
@@ -79,34 +106,6 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         ctx.template.modify(f);
         Value::None
     })
-}
-
-struct FontDef(Rc<Vec<FontFamily>>);
-
-castable! {
-    FontDef: "font family or array of font families",
-    Value::Str(string) => Self(Rc::new(vec![FontFamily::Named(string.to_lowercase())])),
-    Value::Array(values) => Self(Rc::new(
-        values
-            .into_iter()
-            .filter_map(|v| v.cast().ok())
-            .collect()
-    )),
-    @family: FontFamily => Self(Rc::new(vec![family.clone()])),
-}
-
-struct FamilyDef(Rc<Vec<String>>);
-
-castable! {
-    FamilyDef: "string or array of strings",
-    Value::Str(string) => Self(Rc::new(vec![string.to_lowercase()])),
-    Value::Array(values) => Self(Rc::new(
-        values
-            .into_iter()
-            .filter_map(|v| v.cast().ok())
-            .map(|string: Str| string.to_lowercase())
-            .collect()
-    )),
 }
 
 /// `par`: Configure paragraphs.
