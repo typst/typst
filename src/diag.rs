@@ -1,5 +1,7 @@
 //! Diagnostics.
 
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::syntax::{Span, Spanned};
@@ -57,6 +59,18 @@ pub enum Tracepoint {
     Call(Option<String>),
     /// A module import.
     Import,
+}
+
+impl Display for Tracepoint {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Tracepoint::Call(Some(name)) => {
+                write!(f, "error occured in this call of function `{}`", name)
+            }
+            Tracepoint::Call(None) => f.pad("error occured in this function call"),
+            Tracepoint::Import => f.pad("error occured while importing this module"),
+        }
+    }
 }
 
 /// Convert a [`StrResult`] to a [`TypResult`] by adding span information.

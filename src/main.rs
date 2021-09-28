@@ -9,7 +9,7 @@ use codespan_reporting::term::{self, termcolor, Config, Styles};
 use same_file::is_same_file;
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 
-use typst::diag::{Error, Tracepoint};
+use typst::diag::Error;
 use typst::source::SourceStore;
 
 fn main() {
@@ -136,14 +136,7 @@ fn print_diagnostics(
 
         // Stacktrace-like helper diagnostics.
         for point in error.trace {
-            let message = match point.v {
-                Tracepoint::Call(Some(name)) => {
-                    format!("error occured in this call of function `{}`", name)
-                }
-                Tracepoint::Call(None) => "error occured in this function call".into(),
-                Tracepoint::Import => "error occured while importing this module".into(),
-            };
-
+            let message = point.v.to_string();
             let help = Diagnostic::help().with_message(message).with_labels(vec![
                 Label::primary(point.span.source, point.span.to_range()),
             ]);
