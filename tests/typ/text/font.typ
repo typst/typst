@@ -58,6 +58,8 @@ Emoji: 🐪, 🌋, 🏞
 #try(ascender, baseline)
 #try(cap-height, baseline)
 #try(x-height, baseline)
+#try(4pt, -2pt)
+#try(1pt + 27%, -18%)
 
 ---
 // Error: 7-12 unexpected argument

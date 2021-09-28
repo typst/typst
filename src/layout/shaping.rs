@@ -342,8 +342,8 @@ fn measure(
 
     // Expand top and bottom by reading the face's vertical metrics.
     let mut expand = |face: &Face| {
-        top.set_max(face.vertical_metric(state.top_edge).to_length(state.size));
-        bottom.set_max(-face.vertical_metric(state.bottom_edge).to_length(state.size));
+        top.set_max(face.vertical_metric(state.top_edge, state.size));
+        bottom.set_max(-face.vertical_metric(state.bottom_edge, state.size));
     };
 
     if glyphs.is_empty() {

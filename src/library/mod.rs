@@ -127,16 +127,19 @@ dynamic! {
 
 dynamic! {
     FontWeight: "font weight",
-    Value::Int(number) => {
-        u16::try_from(number).map_or(Self::BLACK, Self::from_number)
+    Value::Int(v) => {
+        u16::try_from(v).map_or(Self::BLACK, Self::from_number)
     },
 }
 
 dynamic! {
     FontStretch: "font stretch",
-    Value::Relative(relative) => Self::from_ratio(relative.get() as f32),
+    Value::Relative(v) => Self::from_ratio(v.get() as f32),
 }
 
 dynamic! {
     VerticalFontMetric: "vertical font metric",
+    Value::Length(v) => Self::Linear(v.into()),
+    Value::Relative(v) => Self::Linear(v.into()),
+    Value::Linear(v) => Self::Linear(v),
 }

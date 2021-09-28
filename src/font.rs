@@ -8,7 +8,7 @@ use std::rc::Rc;
 use serde::{Deserialize, Serialize};
 use ttf_parser::{name_id, GlyphId, PlatformId};
 
-use crate::geom::Em;
+use crate::geom::{Em, Length, Linear};
 use crate::loading::{FileHash, Loader};
 use crate::util::decode_mac_roman;
 
@@ -269,20 +269,21 @@ impl Face {
             .map(|units| self.to_em(units))
     }
 
-    /// Look up a vertical metric.
-    pub fn vertical_metric(&self, metric: VerticalFontMetric) -> Em {
+    /// Look up a vertical metric at the given font size.
+    pub fn vertical_metric(&self, metric: VerticalFontMetric, size: Length) -> Length {
         match metric {
-            VerticalFontMetric::Ascender => self.ascender,
-            VerticalFontMetric::CapHeight => self.cap_height,
-            VerticalFontMetric::XHeight => self.x_height,
-            VerticalFontMetric::Baseline => Em::zero(),
-            VerticalFontMetric::Descender => self.descender,
+            VerticalFontMetric::Ascender => self.ascender.to_length(size),
+            VerticalFontMetric::CapHeight => self.cap_height.to_length(size),
+            VerticalFontMetric::XHeight => self.x_height.to_length(size),
+            VerticalFontMetric::Baseline => Length::zero(),
+            VerticalFontMetric::Descender => self.descender.to_length(size),
+            VerticalFontMetric::Linear(v) => v.resolve(size),
         }
     }
 }
 
 /// Identifies a vertical metric of a font.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum VerticalFontMetric {
     /// The distance from the baseline to the typographic ascender.
     ///
@@ -300,17 +301,21 @@ pub enum VerticalFontMetric {
     /// Corresponds to the typographic descender from the `OS/2` table if
     /// present and falls back to the descender from the `hhea` table otherwise.
     Descender,
+    /// An font-size dependent distance from the baseline (positive goes up, negative
+    /// down).
+    Linear(Linear),
 }
 
 impl Debug for VerticalFontMetric {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Ascender => "ascender",
-            Self::CapHeight => "cap-height",
-            Self::XHeight => "x-height",
-            Self::Baseline => "baseline",
-            Self::Descender => "descender",
-        })
+        match self {
+            Self::Ascender => f.pad("ascender"),
+            Self::CapHeight => f.pad("cap-height"),
+            Self::XHeight => f.pad("x-height"),
+            Self::Baseline => f.pad("baseline"),
+            Self::Descender => f.pad("descender"),
+            Self::Linear(v) => v.fmt(f),
+        }
     }
 }
 
