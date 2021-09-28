@@ -5,6 +5,7 @@ use std::rc::Rc;
 
 use memmap2::Mmap;
 use same_file::Handle;
+use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 use super::{FileHash, Loader};
@@ -13,7 +14,8 @@ use crate::font::FaceInfo;
 /// Loads fonts and files from the local file system.
 ///
 /// _This is only available when the `fs` feature is enabled._
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct FsLoader {
     faces: Vec<FaceInfo>,
 }
