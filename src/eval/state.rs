@@ -110,8 +110,8 @@ pub struct ParState {
 impl Default for ParState {
     fn default() -> Self {
         Self {
-            par_spacing: Relative::new(1.0).into(),
-            line_spacing: Relative::new(0.5).into(),
+            par_spacing: Relative::new(1.2).into(),
+            line_spacing: Relative::new(0.65).into(),
         }
     }
 }
@@ -235,12 +235,12 @@ pub struct FamilyState {
 impl Default for FamilyState {
     fn default() -> Self {
         Self {
-            list: Rc::new(vec![FontFamily::Serif]),
-            serif: Rc::new(vec!["eb garamond".into()]),
-            sans_serif: Rc::new(vec!["pt sans".into()]),
-            monospace: Rc::new(vec!["inconsolata".into()]),
+            list: Rc::new(vec![FontFamily::SansSerif]),
+            serif: Rc::new(vec!["ibm plex serif".into()]),
+            sans_serif: Rc::new(vec!["ibm plex sans".into()]),
+            monospace: Rc::new(vec!["ibm plex mono".into()]),
             base: Rc::new(vec![
-                "eb garamond".into(),
+                "ibm plex sans".into(),
                 "latin modern math".into(),
                 "twitter color emoji".into(),
             ]),

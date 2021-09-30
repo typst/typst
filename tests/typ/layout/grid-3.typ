@@ -5,9 +5,9 @@
 #grid(
   columns: 2,
   gutter-rows: 3 * (8pt,),
-  [Lorem ipsum dolor sit amet, consectetuer adipiscing elit.
+  [Lorem ipsum dolor sit amet.
 
-  Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis.],
+  Aenean commodo ligula eget dolor. Aenean massa. Penatibus et magnis.],
   [Text that is rather short],
   [Fireflies],
   [Critical],
@@ -71,7 +71,7 @@
   [foo],
   rect(height: 100%, width: 100%, fill: rgb("fc0030"))[Still no height],
   [bar],
-  [The nature of being itself is in question. Am I One? Am I Many? What is being alive?],
+  [The nature of being itself is in question. Am I One? What is being alive?],
   [baz],
   [The answer],
   [42],

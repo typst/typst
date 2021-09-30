@@ -2,7 +2,7 @@
 
 ---
 // Test overlong word that is not directly after a hard break.
-This is a spaceexceedinglylongishy.
+This is a spaceexceedinglylongy.
 
 ---
 // Test two overlong words in a row.
@@ -10,7 +10,7 @@ Supercalifragilisticexpialidocious Expialigoricmetrioxidation.
 
 ---
 // Test that there are no unwanted line break opportunities on run change.
-This is partly emph_as_ized.
+This is partly emp_has_ized.
 
 ---
 Hard \ break.

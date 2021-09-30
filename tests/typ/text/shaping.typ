@@ -20,7 +20,7 @@ Le fira
 ---
 // Test font fallback.
 
-#font("EB Garamond", "Noto Sans Arabic", "Twitter Color Emoji")
+#font(sans-serif, "Noto Sans Arabic", "Twitter Color Emoji")
 
 // Font fallback for emoji.
 A😀B

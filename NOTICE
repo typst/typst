@@ -3,13 +3,14 @@ Licenses for third party components used by this project can be found below.
 ================================================================================
 The SIL Open Font License Version 1.1 applies to:
 
-* EB Garamond fonts in fonts/EBGaramond-*.ttf
-  Copyright 2017 The EB Garamond Project Authors
-  (https://github.com/octaviopardo/EBGaramond12)
+* IBM Plex fonts in fonts/IBMPlex-*.ttf
+  Copyright © 2017 IBM Corp. with Reserved Font Name "Plex"
+  (https://github.com/IBM/plex)
 
-* Inconsolata fonts in fonts/Inconsolata-*.ttf
-  Copyright 2006 The Inconsolata Project Authors
-  (https://github.com/cyrealtype/Inconsolata)
+* Noto fonts in fonts/Noto-*.ttf
+  Copyright 2018 The Noto Project Authors
+  (https://github.com/googlefonts/noto-fonts)
+  (https://github.com/googlefonts/noto-cjk)
 
 * PT Sans fonts in fonts/PTSans-*.ttf
   Copyright (c) 2010, ParaType Ltd. (http://www.paratype.com/public),

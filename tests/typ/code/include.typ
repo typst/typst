@@ -1,6 +1,8 @@
 // Test include statements.
 
 ---
+#page(width: 200pt)
+
 = Document
 
 // Include a file

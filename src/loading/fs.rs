@@ -157,12 +157,12 @@ mod tests {
         paths.sort();
 
         assert_eq!(paths, [
-            Path::new("fonts/EBGaramond-Bold.ttf"),
-            Path::new("fonts/EBGaramond-BoldItalic.ttf"),
-            Path::new("fonts/EBGaramond-Italic.ttf"),
-            Path::new("fonts/EBGaramond-Regular.ttf"),
-            Path::new("fonts/Inconsolata-Bold.ttf"),
-            Path::new("fonts/Inconsolata-Regular.ttf"),
+            Path::new("fonts/IBMPlexMono-Regular.ttf"),
+            Path::new("fonts/IBMPlexSans-Bold.ttf"),
+            Path::new("fonts/IBMPlexSans-BoldItalic.ttf"),
+            Path::new("fonts/IBMPlexSans-Italic.ttf"),
+            Path::new("fonts/IBMPlexSans-Regular.ttf"),
+            Path::new("fonts/IBMPlexSerif-Regular.ttf"),
             Path::new("fonts/LatinModernMath.otf"),
             Path::new("fonts/NotoSansArabic-Regular.ttf"),
             Path::new("fonts/NotoSerifCJKsc-Regular.otf"),

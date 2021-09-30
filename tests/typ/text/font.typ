@@ -2,9 +2,9 @@
 
 ---
 // Set same font size in three different ways.
-#font(22pt)[A]
+#font(20pt)[A]
 #font(200%)[A]
-#font(size: 16.5pt + 50%)[A]
+#font(size: 15pt + 50%)[A]
 
 // Do nothing.
 #font()[Normal]
@@ -19,7 +19,7 @@
 #font(stretch: 50%)[Condensed]
 
 // Set family.
-#font(family: "PT Sans")[Sans serif]
+#font(family: serif)[Serif]
 
 // Emoji.
 Emoji: 🐪, 🌋, 🏞
@@ -48,7 +48,9 @@ Emoji: 🐪, 🌋, 🏞
 ---
 // Test top and bottom edge.
 
-#page(width: 170pt)
+#page(width: 150pt)
+#font(size: 8pt)
+
 #let try(top, bottom) = rect(fill: conifer)[
   #font(top-edge: top, bottom-edge: bottom)
   `From `#top` to `#bottom

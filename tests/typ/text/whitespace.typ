@@ -30,11 +30,11 @@ A #for _ in (none,) {"B"}C
 
 ---
 // Test that a run consisting only of whitespace isn't trimmed.
-A[#font("PT Sans") ]B
+A[#font(serif) ]B
 
 ---
 // Test font change after space.
-Left [#font("PT Sans")Right].
+Left [#font(serif)Right].
 
 ---
 // Test that space at start of line is not trimmed.
@@ -42,4 +42,4 @@ A{"\n"} B
 
 ---
 // Test that trailing space does not force a line break.
-LLLLLLLLLLLLLL R _L_
+LLLLLLLLLLLLLLLLLL R _L_

@@ -10,14 +10,12 @@ use typst::source::{SourceFile, SourceId};
 use typst::Context;
 
 const SRC: &str = include_str!("bench.typ");
+const FONT: &[u8] = include_bytes!("../fonts/IBMPlexSans-Regular.ttf");
 
 fn context() -> (Context, SourceId) {
-    let font = include_bytes!("../fonts/EBGaramond-Regular.ttf");
-    let loader = MemLoader::new()
-        .with(Path::new("EBGaramond-Regular.ttf"), &font[..])
-        .wrap();
+    let loader = MemLoader::new().with(Path::new("font.ttf"), FONT).wrap();
     let mut ctx = Context::new(loader);
-    let id = ctx.sources.provide(Path::new(""), SRC.to_string());
+    let id = ctx.sources.provide(Path::new("src.typ"), SRC.to_string());
     (ctx, id)
 }
 

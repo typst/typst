@@ -25,4 +25,4 @@ L #align(right)[R] \ L
 
 ---
 // FIXME: There should be a line break opportunity on alignment change.
-LLLLLLLLLLLLL#align(center)[CCCC]
+LLLLLLLLLLLLLLLLL#align(center)[CCCC]
