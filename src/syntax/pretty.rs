@@ -372,9 +372,14 @@ impl Pretty for CallArg {
 
 impl Pretty for ClosureExpr {
     fn pretty(&self, p: &mut Printer) {
-        p.push('(');
-        p.join(self.params.iter(), ", ", |item, p| item.pretty(p));
-        p.push_str(") => ");
+        if let [param] = self.params.as_slice() {
+            param.pretty(p);
+        } else {
+            p.push('(');
+            p.join(self.params.iter(), ", ", |item, p| item.pretty(p));
+            p.push(')');
+        }
+        p.push_str(" => ");
         self.body.pretty(p);
     }
 }
@@ -405,7 +410,12 @@ impl Pretty for LetExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("let ");
         self.binding.pretty(p);
-        if let Some(init) = &self.init {
+        if let Some(Expr::Closure(closure)) = &self.init {
+            p.push('(');
+            p.join(closure.params.iter(), ", ", |item, p| item.pretty(p));
+            p.push_str(") = ");
+            closure.body.pretty(p);
+        } else if let Some(init) = &self.init {
             p.push_str(" = ");
             init.pretty(p);
         }
@@ -514,8 +524,8 @@ mod tests {
     }
 
     #[test]
-    fn test_pretty_print_node() {
-        // Basic text and markup.
+    fn test_pretty_print_markup() {
+        // Basic stuff.
         roundtrip("*");
         roundtrip("_");
         roundtrip(" ");
@@ -525,7 +535,7 @@ mod tests {
         roundtrip("= *Ok*");
         roundtrip("- Ok");
 
-        // Raw.
+        // Raw node.
         roundtrip("``");
         roundtrip("`nolang 1`");
         roundtrip("```lang 1```");
@@ -556,7 +566,7 @@ mod tests {
         roundtrip("{20%}");
         roundtrip("{0.5fr}");
         roundtrip(r#"{"hi"}"#);
-        test_parse(r#"{"let's \" go"}"#, r#"{"let's \" go"}"#);
+        roundtrip(r#"{"let's \" go"}"#);
         roundtrip("{hi}");
 
         // Arrays.
@@ -597,11 +607,12 @@ mod tests {
         roundtrip("#v(1)");
         roundtrip("#v(1, 2)[*Ok*]");
         roundtrip("#v(1, f[2])");
+        roundtrip("{x => x + 1}");
         roundtrip("{(a, b) => a + b}");
 
         // Control flow.
         roundtrip("#let x = 1 + 2");
-        test_parse("#let f(x) = y", "#let f = (x) => y");
+        roundtrip("#let f(x) = y");
         roundtrip("#if x [y] else [z]");
         roundtrip("#if x {} else if y {} else {}");
         roundtrip("#while x {y}");
