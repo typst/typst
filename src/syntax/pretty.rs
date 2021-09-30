@@ -603,6 +603,7 @@ mod tests {
         roundtrip("#let x = 1 + 2");
         test_parse("#let f(x) = y", "#let f = (x) => y");
         roundtrip("#if x [y] else [z]");
+        roundtrip("#if x {} else if y {} else {}");
         roundtrip("#while x {y}");
         roundtrip("#for x in y {z}");
         roundtrip("#for k, x in y {z}");

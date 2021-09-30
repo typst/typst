@@ -600,7 +600,7 @@ fn let_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
     p.eat_assert(Token::Let);
 
-    let mut let_expr = None;
+    let mut output = None;
     if let Some(binding) = ident(p) {
         let mut init = None;
 
@@ -635,14 +635,14 @@ fn let_expr(p: &mut Parser) -> Option<Expr> {
             }
         }
 
-        let_expr = Some(Expr::Let(Box::new(LetExpr {
+        output = Some(Expr::Let(Box::new(LetExpr {
             span: p.span_from(start),
             binding,
             init,
         })));
     }
 
-    let_expr
+    output
 }
 
 /// Parse an if expresion.
@@ -650,15 +650,19 @@ fn if_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
     p.eat_assert(Token::If);
 
-    let mut if_expr = None;
+    let mut output = None;
     if let Some(condition) = expr(p) {
         if let Some(if_body) = body(p) {
             let mut else_body = None;
             if p.eat_if(Token::Else) {
-                else_body = body(p);
+                if p.peek() == Some(Token::If) {
+                    else_body = if_expr(p);
+                } else {
+                    else_body = body(p);
+                }
             }
 
-            if_expr = Some(Expr::If(Box::new(IfExpr {
+            output = Some(Expr::If(Box::new(IfExpr {
                 span: p.span_from(start),
                 condition,
                 if_body,
@@ -667,7 +671,7 @@ fn if_expr(p: &mut Parser) -> Option<Expr> {
         }
     }
 
-    if_expr
+    output
 }
 
 /// Parse a while expresion.
@@ -675,10 +679,10 @@ fn while_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
     p.eat_assert(Token::While);
 
-    let mut while_expr = None;
+    let mut output = None;
     if let Some(condition) = expr(p) {
         if let Some(body) = body(p) {
-            while_expr = Some(Expr::While(Box::new(WhileExpr {
+            output = Some(Expr::While(Box::new(WhileExpr {
                 span: p.span_from(start),
                 condition,
                 body,
@@ -686,7 +690,7 @@ fn while_expr(p: &mut Parser) -> Option<Expr> {
         }
     }
 
-    while_expr
+    output
 }
 
 /// Parse a for expression.
@@ -694,12 +698,12 @@ fn for_expr(p: &mut Parser) -> Option<Expr> {
     let start = p.next_start();
     p.eat_assert(Token::For);
 
-    let mut for_expr = None;
+    let mut output = None;
     if let Some(pattern) = for_pattern(p) {
         if p.eat_expect(Token::In) {
             if let Some(iter) = expr(p) {
                 if let Some(body) = body(p) {
-                    for_expr = Some(Expr::For(Box::new(ForExpr {
+                    output = Some(Expr::For(Box::new(ForExpr {
                         span: p.span_from(start),
                         pattern,
                         iter,
@@ -710,7 +714,7 @@ fn for_expr(p: &mut Parser) -> Option<Expr> {
         }
     }
 
-    for_expr
+    output
 }
 
 /// Parse a for loop pattern.
@@ -743,10 +747,10 @@ fn import_expr(p: &mut Parser) -> Option<Expr> {
         Imports::Idents(idents(p, items))
     };
 
-    let mut import_expr = None;
+    let mut output = None;
     if p.eat_expect(Token::From) {
         if let Some(path) = expr(p) {
-            import_expr = Some(Expr::Import(Box::new(ImportExpr {
+            output = Some(Expr::Import(Box::new(ImportExpr {
                 span: p.span_from(start),
                 imports,
                 path,
@@ -754,7 +758,7 @@ fn import_expr(p: &mut Parser) -> Option<Expr> {
         }
     }
 
-    import_expr
+    output
 }
 
 /// Parse an include expression.
