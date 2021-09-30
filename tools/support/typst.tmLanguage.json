@@ -133,11 +133,11 @@
           "patterns": [{ "include": "#code" }]
         },
         {
-          "begin": "(#)(if|else)\\b",
+          "begin": "((#)if|(?<=(}|])\\s*)else)\\b",
           "end": "\n|(?=])|(?<=}|])",
           "beginCaptures": {
             "0": { "name": "keyword.control.conditional.typst" },
-            "1": { "name": "punctuation.definition.keyword.typst" }
+            "2": { "name": "punctuation.definition.keyword.typst" }
           },
           "patterns": [{ "include": "#code" }]
         },

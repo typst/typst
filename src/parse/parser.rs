@@ -28,15 +28,16 @@ pub struct Parser<'s> {
 
 /// A logical group of tokens, e.g. `[...]`.
 struct GroupEntry {
-    /// The start index of the group. Used by `Parser::end_group` to return the
-    /// group's full span.
-    pub start: usize,
     /// The kind of group this is. This decides which tokens will end the group.
     /// For example, a [`Group::Paren`] will be ended by
     /// [`Token::RightParen`].
     pub kind: Group,
-    /// The mode the parser was in _before_ the group started.
-    pub outer_mode: TokenMode,
+    /// The start index of the group. Used by `Parser::end_group` to return the
+    /// group's full span.
+    pub start: usize,
+    /// The mode the parser was in _before_ the group started (to which we go
+    /// back once the group ends).
+    pub prev_mode: TokenMode,
 }
 
 /// A group, confined by optional start and end delimiters.
@@ -232,9 +233,9 @@ impl<'s> Parser<'s> {
     /// This panics if the next token does not start the given group.
     pub fn start_group(&mut self, kind: Group, mode: TokenMode) {
         self.groups.push(GroupEntry {
-            start: self.next_start(),
             kind,
-            outer_mode: self.tokens.mode(),
+            start: self.next_start(),
+            prev_mode: self.tokens.mode(),
         });
 
         self.tokens.set_mode(mode);
@@ -256,7 +257,7 @@ impl<'s> Parser<'s> {
     pub fn end_group(&mut self) -> Span {
         let prev_mode = self.tokens.mode();
         let group = self.groups.pop().expect("no started group");
-        self.tokens.set_mode(group.outer_mode);
+        self.tokens.set_mode(group.prev_mode);
         self.repeek();
 
         let mut rescan = self.tokens.mode() != prev_mode;
@@ -289,17 +290,6 @@ impl<'s> Parser<'s> {
         }
 
         Span::new(self.id(), group.start, self.prev_end())
-    }
-
-    /// The tokenization mode outside of the current group.
-    ///
-    /// For example, this would be [`Markup`] if we are in a [`Code`] group that
-    /// is embedded in a [`Markup`] group.
-    ///
-    /// [`Markup`]: TokenMode::Markup
-    /// [`Code`]: TokenMode::Code
-    pub fn outer_mode(&mut self) -> TokenMode {
-        self.groups.last().map_or(TokenMode::Markup, |group| group.outer_mode)
     }
 
     /// Add an error with location and message.
@@ -380,8 +370,10 @@ impl<'s> Parser<'s> {
 
     /// Whether the active group ends at a newline.
     fn stop_at_newline(&self) -> bool {
-        let active = self.groups.last().map(|group| group.kind);
-        matches!(active, Some(Group::Stmt | Group::Expr | Group::Imports))
+        matches!(
+            self.groups.last().map(|group| group.kind),
+            Some(Group::Stmt | Group::Expr | Group::Imports)
+        )
     }
 
     /// Whether we are inside the given group.

@@ -12,8 +12,8 @@ A#if true [B]C \
 A#if true [B] C \
 A #if true{"B"}C \
 A #if true{"B"} C \
-A#if false [] #else [B]C \
-A#if true [B] #else [] C
+A#if false [] else [B]C \
+A#if true [B] else [] C
 
 ---
 // Spacing around while loop.

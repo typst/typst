@@ -27,14 +27,14 @@
     == 1
 ) [
   Nope.
-] #else {
+] else {
   "Three."
 }
 
 // Multiline.
 #if false [
   Bad.
-] #else {
+] else {
   let point = "."
   "Four" + point
 }
@@ -71,7 +71,7 @@
 // Condition must be boolean.
 // If it isn't, neither branch is evaluated.
 // Error: 5-14 expected boolean, found string
-#if "a" + "b" { nope } #else { nope }
+#if "a" + "b" { nope } else { nope }
 
 ---
 // Make sure that we don't complain twice.
@@ -101,5 +101,9 @@ x {}
 #if x something
 
 // Should output `A thing.`
-// Error: 20 expected body
-A#if false {} #else thing
+// Error: 19 expected body
+A#if false {} else thing
+
+#if a []else [b]
+#if a [] else [b]
+#if a {} else [b]

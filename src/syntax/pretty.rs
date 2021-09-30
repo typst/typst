@@ -419,7 +419,6 @@ impl Pretty for IfExpr {
         p.push(' ');
         self.if_body.pretty(p);
         if let Some(expr) = &self.else_body {
-            // FIXME: Hashtag in markup.
             p.push_str(" else ");
             expr.pretty(p);
         }
@@ -603,7 +602,7 @@ mod tests {
         // Control flow.
         roundtrip("#let x = 1 + 2");
         test_parse("#let f(x) = y", "#let f = (x) => y");
-        test_parse("#if x [y] #else [z]", "#if x [y] else [z]");
+        roundtrip("#if x [y] else [z]");
         roundtrip("#while x {y}");
         roundtrip("#for x in y {z}");
         roundtrip("#for k, x in y {z}");

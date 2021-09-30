@@ -654,12 +654,7 @@ fn if_expr(p: &mut Parser) -> Option<Expr> {
     if let Some(condition) = expr(p) {
         if let Some(if_body) = body(p) {
             let mut else_body = None;
-
-            // We are in code mode but still want to react to `#else` if the
-            // outer mode is markup.
-            if (p.outer_mode() == TokenMode::Code || p.eat_if(Token::Invalid("#")))
-                && p.eat_if(Token::Else)
-            {
+            if p.eat_if(Token::Else) {
                 else_body = body(p);
             }
 
