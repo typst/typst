@@ -251,7 +251,7 @@ impl<'s> Tokens<'s> {
                 Token::Ident(read)
             }
         } else {
-            Token::Invalid("#")
+            Token::Text("#")
         }
     }
 
@@ -667,7 +667,7 @@ mod tests {
         t!(Markup[" /"]: "a():\"b" => Text("a():\"b"));
         t!(Markup[" /"]: ";:,|/+"  => Text(";:,|"), Text("/+"));
         t!(Markup[" /"]: "=-a"     => Text("="), Text("-"), Text("a"));
-        t!(Markup[" "]: "#123"     => Invalid("#"), Text("123"));
+        t!(Markup[" "]: "#123"     => Text("#"), Text("123"));
 
         // Test text ends.
         t!(Markup[""]: "hello " => Text("hello"), Space(0));
@@ -779,7 +779,7 @@ mod tests {
         for &(s, t) in &list {
             t!(Markup[" "]: format!("#{}", s) => t);
             t!(Markup[" "]: format!("#{0}#{0}", s) => t, t);
-            t!(Markup[" /"]: format!("# {}", s) => Token::Invalid("#"), Space(0), Text(s));
+            t!(Markup[" /"]: format!("# {}", s) => Token::Text("#"), Space(0), Text(s));
         }
 
         for &(s, t) in &list {
