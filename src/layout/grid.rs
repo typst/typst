@@ -387,30 +387,37 @@ impl<'a> GridLayouter<'a> {
             }
         }
 
-        // Layout the row.
+        // Nothing to layout.
+        if resolved.is_empty() {
+            return;
+        }
+
+        // Layout into a single region.
         if let &[first] = resolved.as_slice() {
             let frame = self.layout_single_row(ctx, first, y);
             self.push_row(ctx, frame);
-        } else {
-            // Expand all but the last region if the space is not eaten up by any fr
-            // rows.
-            if self.fr.is_zero() {
-                let len = resolved.len();
-                for (target, (current, _)) in
-                    resolved[.. len - 1].iter_mut().zip(self.regions.iter())
-                {
-                    target.set_max(current.get(self.block));
-                }
-            }
+            return;
+        }
 
-            let frames = self.layout_multi_row(ctx, &resolved, y);
-            let len = frames.len();
-            for (i, frame) in frames.into_iter().enumerate() {
-                if i + 1 < len {
-                    self.constraints.exact.set(self.block, Some(self.full));
-                }
-                self.push_row(ctx, frame);
+        // Expand all but the last region if the space is not
+        // eaten up by any fr rows.
+        if self.fr.is_zero() {
+            let len = resolved.len();
+            for (target, (current, _)) in
+                resolved[.. len - 1].iter_mut().zip(self.regions.iter())
+            {
+                target.set_max(current.get(self.block));
             }
+        }
+
+        // Layout into multiple regions.
+        let frames = self.layout_multi_row(ctx, &resolved, y);
+        let len = frames.len();
+        for (i, frame) in frames.into_iter().enumerate() {
+            if i + 1 < len {
+                self.constraints.exact.set(self.block, Some(self.full));
+            }
+            self.push_row(ctx, frame);
         }
     }
 
