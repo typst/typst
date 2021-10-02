@@ -4,7 +4,7 @@
 #page(width: 5cm, height: 3cm)
 #grid(
   columns: 2,
-  gutter-rows: 3 * (8pt,),
+  row-gutter: 8pt,
   [Lorem ipsum dolor sit amet.
 
   Aenean commodo ligula eget dolor. Aenean massa. Penatibus et magnis.],
@@ -21,8 +21,8 @@
 #page(width: 5cm, height: 2cm)
 #grid(
   columns: 4 * (1fr,),
-  gutter-rows: (10pt,),
-  gutter-columns: (0pt, 10%),
+  row-gutter: 10pt,
+  column-gutter: (0pt, 10%),
   image("../../res/rhino.png"),
   align(right, rect(width: 100%, fill: eastern)[LoL]),
   [rofl],
@@ -35,8 +35,8 @@
 #page(width: 5cm, height: 2cm)
 #grid(
   columns: 3 * (1fr,),
-  gutter-rows: (8pt,),
-  gutter-columns: (0pt, 10%),
+  row-gutter: 8pt,
+  column-gutter: (0pt, 10%),
   [A], [B], [C],
   [Ha!\ ] * 6,
   [rofl],
@@ -51,8 +51,8 @@
 #page(width: 5cm, height: 2.25cm)
 #grid(
   columns: 4 * (1fr,),
-  gutter-rows: (10pt,),
-  gutter-columns: (0pt, 10%),
+  row-gutter: 10pt,
+  column-gutter: (0pt, 10%),
   [A], [B], [C], [D],
   grid(columns: 2, [A], [B], [C\ ]*3, [D]),
   align(right, rect(width: 100%, fill: eastern)[LoL]),
@@ -66,7 +66,7 @@
 #grid(
   columns: 2 * (1fr,),
   rows: (1fr, 2fr, auto, 1fr, 1cm),
-  gutter-rows: 4 * (10pt,),
+  row-gutter: 10pt,
   rect(height: 100%, width: 100%, fill: rgb("ff0000"))[No height],
   [foo],
   rect(height: 100%, width: 100%, fill: rgb("fc0030"))[Still no height],

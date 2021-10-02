@@ -4,8 +4,8 @@
 #page(width: 12cm, height: 2.5cm)
 #grid(
   columns: 5,
-  gutter-columns: (2fr, 1fr, 1fr),
-  gutter-rows: 4 * (6pt,),
+  column-gutter: (2fr, 1fr, 1fr),
+  row-gutter: 6pt,
   [*Quarter*],
   [Expenditure],
   [External Revenue],

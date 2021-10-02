@@ -251,7 +251,12 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 /// `grid`: Arrange children into a grid.
 pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     castable! {
-        Vec<TrackSizing>: "array of autos, linears, and fractionals",
+        Vec<TrackSizing>: "integer or (auto, linear, fractional, or array thereof)",
+        Value::Auto => vec![TrackSizing::Auto],
+        Value::Length(v) => vec![TrackSizing::Linear(v.into())],
+        Value::Relative(v) => vec![TrackSizing::Linear(v.into())],
+        Value::Linear(v) => vec![TrackSizing::Linear(v)],
+        Value::Fractional(v) => vec![TrackSizing::Fractional(v)],
         Value::Int(count) => vec![TrackSizing::Auto; count.max(0) as usize],
         Value::Array(values) => values
             .into_iter()
@@ -272,20 +277,16 @@ pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let rows = args.named("rows")?.unwrap_or_default();
     let tracks = Gen::new(columns, rows);
 
+    let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
+    let column_gutter = args.named("column-gutter")?;
+    let row_gutter = args.named("row-gutter")?;
+    let gutter = Gen::new(
+        column_gutter.unwrap_or_else(|| base_gutter.clone()),
+        row_gutter.unwrap_or(base_gutter),
+    );
+
     let column_dir = args.named("column-dir")?;
     let row_dir = args.named("row-dir")?;
-
-    let gutter_columns = args.named("gutter-columns")?;
-    let gutter_rows = args.named("gutter-rows")?;
-    let gutter_default = args
-        .named("gutter")?
-        .map(|v| vec![TrackSizing::Linear(v)])
-        .unwrap_or_default();
-
-    let gutter = Gen::new(
-        gutter_columns.unwrap_or_else(|| gutter_default.clone()),
-        gutter_rows.unwrap_or(gutter_default),
-    );
 
     let children: Vec<Template> = args.all().collect();
 
