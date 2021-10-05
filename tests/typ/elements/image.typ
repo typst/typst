@@ -13,15 +13,6 @@
 ---
 // Test configuring the size and fitting behaviour of images.
 
-// Fit to width of page.
-#image("../../res/rhino.png")
-
-// Fit to height of page.
-[
-  #page(height: 40pt)
-  #image("../../res/rhino.png")
-]
-
 // Set width explicitly.
 #image("../../res/rhino.png", width: 50pt)
 
@@ -34,6 +25,11 @@
 // Make sure the bounding-box of the image is correct.
 #align(bottom, right)
 #image("../../res/tiger.jpg", width: 60pt)
+
+---
+// Does not fit to height of page.
+#page(height: 60pt)
+#image("../../res/rhino.png")
 
 ---
 // Error: 8-29 file not found
