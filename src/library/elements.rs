@@ -41,9 +41,9 @@ pub fn rect(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
 /// `square`: A square with optional content.
 pub fn square(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let length = args.named::<Length>("length")?.map(Linear::from);
-    let width = match length {
-        Some(length) => Some(length),
+    let size = args.named::<Length>("size")?.map(Linear::from);
+    let width = match size {
+        Some(size) => Some(size),
         None => args.named("width")?,
     };
     let height = match width {

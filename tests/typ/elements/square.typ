@@ -29,6 +29,6 @@
 ]
 
 ---
-// Length wins over width and height.
+// Size wins over width and height.
 // Error: 09-20 unexpected argument
-#square(width: 10cm, height: 20cm, length: 1cm, fill: rgb("eb5278"))
+#square(width: 10cm, height: 20cm, size: 1cm, fill: rgb("eb5278"))
