@@ -16,7 +16,7 @@
 #abs(10pt + 50%)
 
 ---
-// Error: 6-17 expected numeric value
+// Error: 6-17 expected numeric value, found string
 #abs("no number")
 
 ---

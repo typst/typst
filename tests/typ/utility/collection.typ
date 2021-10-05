@@ -19,7 +19,7 @@
 #len()
 
 ---
-// Error: 6-10 expected string, array or dictionary
+// Error: 6-10 expected string, array or dictionary, found length
 #len(12pt)
 
 ---

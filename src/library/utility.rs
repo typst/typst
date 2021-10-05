@@ -6,11 +6,9 @@ use crate::color::{Color, RgbaColor};
 
 /// `assert`: Ensure that a condition is fulfilled.
 pub fn assert(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let Spanned { v, span } = args.expect("condition")?;
-    match v {
-        Value::Bool(true) => {}
-        Value::Bool(false) => bail!(span, "assertion failed"),
-        v => bail!(span, "expected boolean, found {}", v.type_name()),
+    let Spanned { v, span } = args.expect::<Spanned<bool>>("condition")?;
+    if !v {
+        bail!(span, "assertion failed");
     }
     Ok(Value::None)
 }

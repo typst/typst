@@ -93,16 +93,21 @@ impl Args {
         None
     }
 
-    /// Find and consume the first castable positional argument, returning a
-    /// `missing argument: {what}` error if no match was found.
+    /// Try to cast the first positional argument ir returning a `missing
+    /// argument: {what}` error if no positional argument is left.
     pub fn expect<T>(&mut self, what: &str) -> TypResult<T>
     where
         T: Cast<Spanned<Value>>,
     {
-        match self.eat() {
-            Some(found) => Ok(found),
-            None => bail!(self.span, "missing argument: {}", what),
+        for (i, slot) in self.items.iter().enumerate() {
+            if slot.name.is_none() {
+                let value = self.items.remove(i).value;
+                let span = value.span;
+                return T::cast(value).at(span);
+            }
         }
+
+        bail!(self.span, "missing argument: {}", what);
     }
 
     /// Find and consume all castable positional arguments.
