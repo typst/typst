@@ -229,7 +229,7 @@ impl UnOp {
     pub fn precedence(self) -> usize {
         match self {
             Self::Pos | Self::Neg => 8,
-            Self::Not => 4,
+            Self::Not => 3,
         }
     }
 
@@ -328,10 +328,10 @@ impl BinOp {
         match self {
             Self::Mul | Self::Div => 7,
             Self::Add | Self::Sub => 6,
-            Self::Eq | Self::Neq | Self::Lt | Self::Leq | Self::Gt | Self::Geq => 5,
-            Self::And => 4,
-            Self::Or => 3,
-            Self::Range => 2,
+            Self::Range => 5,
+            Self::Eq | Self::Neq | Self::Lt | Self::Leq | Self::Gt | Self::Geq => 4,
+            Self::And => 3,
+            Self::Or => 2,
             Self::Assign
             | Self::AddAssign
             | Self::SubAssign
