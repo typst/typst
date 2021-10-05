@@ -4,6 +4,17 @@ use std::str::FromStr;
 use super::*;
 use crate::color::{Color, RgbaColor};
 
+/// `assert`: Ensure that a condition is fulfilled.
+pub fn assert(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    let Spanned { v, span } = args.expect("condition")?;
+    match v {
+        Value::Bool(true) => {}
+        Value::Bool(false) => bail!(span, "assertion failed"),
+        v => bail!(span, "expected boolean, found {}", v.type_name()),
+    }
+    Ok(Value::None)
+}
+
 /// `type`: The name of a value's type.
 pub fn type_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(args.expect::<Value>("value")?.type_name().into())
@@ -86,7 +97,7 @@ pub fn abs(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         Value::Relative(v) => Value::Relative(v.abs()),
         Value::Fractional(v) => Value::Fractional(v.abs()),
         Value::Linear(_) => bail!(span, "cannot take absolute value of a linear"),
-        _ => bail!(span, "expected numeric value"),
+        v => bail!(span, "expected numeric value, found {}", v.type_name()),
     })
 }
 
@@ -157,7 +168,11 @@ pub fn len(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         Value::Str(v) => v.len(),
         Value::Array(v) => v.len(),
         Value::Dict(v) => v.len(),
-        _ => bail!(span, "expected string, array or dictionary"),
+        v => bail!(
+            span,
+            "expected string, array or dictionary, found {}",
+            v.type_name(),
+        ),
     }))
 }
 

@@ -57,6 +57,7 @@ pub fn new() -> Scope {
     std.def_func("circle", circle);
 
     // Utility.
+    std.def_func("assert", assert);
     std.def_func("type", type_);
     std.def_func("repr", repr);
     std.def_func("join", join);
