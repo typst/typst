@@ -39,9 +39,9 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let style = args.named("style")?;
     let weight = args.named("weight")?;
     let stretch = args.named("stretch")?;
+    let fill = args.named("fill")?.or_else(|| args.eat());
     let top_edge = args.named("top-edge")?;
     let bottom_edge = args.named("bottom-edge")?;
-    let fill = args.named("fill")?;
     let serif = args.named("serif")?;
     let sans_serif = args.named("sans-serif")?;
     let monospace = args.named("monospace")?;

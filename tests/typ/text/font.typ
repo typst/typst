@@ -30,7 +30,7 @@ Emoji: 🐪, 🌋, 🏞
 // Colors.
 [
   #font(fill: eastern)
-  This is #font(fill: rgb("FA644B"))[way more] colorful.
+  This is #font(rgb("FA644B"))[way more] colorful.
 ]
 
 // Disable font fallback beyond the user-specified list.
