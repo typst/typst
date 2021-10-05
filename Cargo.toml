@@ -29,6 +29,7 @@ rustybuzz = "0.4"
 serde = { version = "1", features = ["derive", "rc"] }
 ttf-parser = "0.12"
 unicode-bidi = "0.3.5"
+unicode-segmentation = "1.8"
 unicode-xid = "0.2"
 xi-unicode = "0.3"
 anyhow = { version = "1", optional = true }

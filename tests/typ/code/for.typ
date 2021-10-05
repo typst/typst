@@ -58,15 +58,15 @@
 
 #test(out, (1, 2, 3, 4, 5, "a", 6, "b", 7))
 
-// Chars of string.
+// Grapheme clusters of string.
 #let first = true
-#let joined = for c in "abc" {
+#let joined = for c in "abc👩‍👩‍👦‍👦" {
   if not first { ", " }
   first = false
   c
 }
 
-#test(joined, "a, b, c")
+#test(joined, "a, b, c, 👩‍👩‍👦‍👦")
 
 // Return value.
 #test(for v in "" [], none)

@@ -3,6 +3,8 @@ use std::convert::TryFrom;
 use std::fmt::{self, Debug, Formatter, Write};
 use std::ops::{Add, AddAssign, Deref};
 
+use unicode_segmentation::UnicodeSegmentation;
+
 use crate::diag::StrResult;
 use crate::util::EcoString;
 
@@ -41,9 +43,9 @@ impl Str {
         self.0.as_str()
     }
 
-    /// Return an iterator over the chars as strings.
+    /// Return an iterator over the grapheme clusters as strings.
     pub fn iter(&self) -> impl Iterator<Item = Str> + '_ {
-        self.chars().map(Into::into)
+        self.graphemes(true).map(Into::into)
     }
 
     /// Repeat this string `n` times.
