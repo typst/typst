@@ -34,7 +34,7 @@ fn markup(p: &mut Parser) -> Markup {
     markup_while(p, true, &mut |_| true)
 }
 
-/// Parse markup that stays right of the given column.
+/// Parse markup that stays equal or right of the given column.
 fn markup_indented(p: &mut Parser, column: usize) -> Markup {
     p.eat_while(|t| match t {
         Token::Space(n) => n == 0,
@@ -43,7 +43,7 @@ fn markup_indented(p: &mut Parser, column: usize) -> Markup {
     });
 
     markup_while(p, false, &mut |p| match p.peek() {
-        Some(Token::Space(n)) if n >= 1 => p.column(p.next_end()) > column,
+        Some(Token::Space(n)) if n >= 1 => p.column(p.next_end()) >= column,
         _ => true,
     })
 }
@@ -175,7 +175,6 @@ fn raw(p: &mut Parser, token: RawToken) -> MarkupNode {
 /// Parse a heading.
 fn heading(p: &mut Parser) -> MarkupNode {
     let start = p.next_start();
-    let column = p.column(start);
     p.eat_assert(Token::Eq);
 
     // Count depth.
@@ -188,6 +187,7 @@ fn heading(p: &mut Parser) -> MarkupNode {
         return MarkupNode::Text(p.get(start .. p.prev_end()).into());
     }
 
+    let column = p.column(p.prev_end());
     let body = markup_indented(p, column);
     MarkupNode::Heading(Box::new(HeadingNode {
         span: p.span_from(start),
@@ -199,8 +199,8 @@ fn heading(p: &mut Parser) -> MarkupNode {
 /// Parse a single list item.
 fn list_node(p: &mut Parser) -> MarkupNode {
     let start = p.next_start();
-    let column = p.column(start);
     p.eat_assert(Token::Hyph);
+    let column = p.column(p.prev_end());
     let body = markup_indented(p, column);
     MarkupNode::List(Box::new(ListNode { span: p.span_from(start), body }))
 }
@@ -208,8 +208,8 @@ fn list_node(p: &mut Parser) -> MarkupNode {
 /// Parse a single enum item.
 fn enum_node(p: &mut Parser, number: Option<usize>) -> MarkupNode {
     let start = p.next_start();
-    let column = p.column(start);
     p.eat_assert(Token::Numbering(number));
+    let column = p.column(p.prev_end());
     let body = markup_indented(p, column);
     MarkupNode::Enum(Box::new(EnumNode {
         span: p.span_from(start),
