@@ -16,6 +16,7 @@ impl Layout for PadNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
+        // Layout child into padded regions.
         let mut frames = self.child.layout(
             ctx,
             &regions.map(|size| size - self.padding.resolve(size).size()),
@@ -37,6 +38,12 @@ impl Layout for PadNode {
 
             let padding = self.padding.resolve(padded);
             let origin = Point::new(padding.left, padding.top);
+
+            // Create a new larger frame and place the child's frame inside it.
+            let empty = Frame::new(padded, frame.baseline + origin.y);
+            let prev = std::mem::replace(frame, Rc::new(empty));
+            let new = Rc::make_mut(frame);
+            new.push_frame(origin, prev);
 
             // Inflate min and max contraints by the padding.
             for spec in [&mut constraints.min, &mut constraints.max] {
@@ -62,12 +69,6 @@ impl Layout for PadNode {
             if self.padding.top.is_relative() || self.padding.bottom.is_relative() {
                 constraints.base.y = Some(base.h);
             }
-
-            // Create a new larger frame and place the child's frame inside it.
-            let empty = Frame::new(padded, frame.baseline + origin.y);
-            let prev = std::mem::replace(frame, Rc::new(empty));
-            let new = Rc::make_mut(frame);
-            new.push_frame(origin, prev);
         }
 
         frames
