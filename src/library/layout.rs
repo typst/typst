@@ -4,7 +4,7 @@ use crate::paper::{Paper, PaperClass};
 
 /// `page`: Configure pages.
 pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let paper = match args.eat::<Spanned<Str>>() {
+    let paper = match args.named::<Spanned<Str>>("paper")?.or_else(|| args.eat()) {
         Some(name) => match Paper::from_name(&name.v) {
             None => bail!(name.span, "invalid paper name"),
             paper => paper,
