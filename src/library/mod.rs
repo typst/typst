@@ -22,7 +22,7 @@ use crate::eval::{Args, Array, EvalContext, Scope, State, Str, Template, Value};
 use crate::font::{FontFamily, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
 use crate::layout::LayoutNode;
-use crate::syntax::Spanned;
+use crate::syntax::{Span, Spanned};
 
 /// Construct a scope containing all standard library definitions.
 pub fn new() -> Scope {

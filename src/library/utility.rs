@@ -84,6 +84,31 @@ pub fn str(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }))
 }
 
+/// `rgb`: Create an RGB(A) color.
+pub fn rgb(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    Ok(Value::Color(Color::Rgba(
+        if let Some(string) = args.eat::<Spanned<Str>>() {
+            match RgbaColor::from_str(&string.v) {
+                Ok(color) => color,
+                Err(_) => bail!(string.span, "invalid color"),
+            }
+        } else {
+            let r = args.expect("red component")?;
+            let g = args.expect("green component")?;
+            let b = args.expect("blue component")?;
+            let a = args.eat().unwrap_or(Spanned::new(1.0, Span::detached()));
+            let f = |Spanned { v, span }: Spanned<f64>| {
+                if 0.0 <= v && v <= 1.0 {
+                    Ok((v * 255.0).round() as u8)
+                } else {
+                    bail!(span, "value must be between 0.0 and 1.0");
+                }
+            };
+            RgbaColor::new(f(r)?, f(g)?, f(b)?, f(a)?)
+        },
+    )))
+}
+
 /// `abs`: The absolute value of a numeric value.
 pub fn abs(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("numeric value")?;
@@ -128,25 +153,6 @@ fn minmax(args: &mut Args, goal: Ordering) -> TypResult<Value> {
         }
     }
     Ok(extremum)
-}
-
-/// `rgb`: Create an RGB(A) color.
-pub fn rgb(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    Ok(Value::Color(Color::Rgba(
-        if let Some(string) = args.eat::<Spanned<Str>>() {
-            match RgbaColor::from_str(&string.v) {
-                Ok(color) => color,
-                Err(_) => bail!(string.span, "invalid color"),
-            }
-        } else {
-            let r = args.expect("red component")?;
-            let g = args.expect("green component")?;
-            let b = args.expect("blue component")?;
-            let a = args.eat().unwrap_or(1.0);
-            let f = |v: f64| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
-            RgbaColor::new(f(r), f(g), f(b), f(a))
-        },
-    )))
 }
 
 /// `lower`: Convert a string to lowercase.
