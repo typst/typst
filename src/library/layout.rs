@@ -70,23 +70,10 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 }
 
 /// `pagebreak`: Start a new page.
-pub fn pagebreak(ctx: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
-    ctx.template.pagebreak(true);
-    Ok(Value::None)
-}
-
-/// `h`: Horizontal spacing.
-pub fn h(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let spacing = args.expect("spacing")?;
-    ctx.template.spacing(GenAxis::Inline, spacing);
-    Ok(Value::None)
-}
-
-/// `v`: Vertical spacing.
-pub fn v(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let spacing = args.expect("spacing")?;
-    ctx.template.spacing(GenAxis::Block, spacing);
-    Ok(Value::None)
+pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
+    let mut template = Template::new();
+    template.pagebreak(true);
+    Ok(Value::Template(template))
 }
 
 /// `align`: Configure the alignment along the layouting axes.
@@ -137,6 +124,22 @@ pub fn align(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         realign(&mut ctx.template);
         Value::None
     })
+}
+
+/// `h`: Horizontal spacing.
+pub fn h(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    let spacing = args.expect("spacing")?;
+    let mut template = Template::new();
+    template.spacing(GenAxis::Inline, spacing);
+    Ok(Value::Template(template))
+}
+
+/// `v`: Vertical spacing.
+pub fn v(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    let spacing = args.expect("spacing")?;
+    let mut template = Template::new();
+    template.spacing(GenAxis::Block, spacing);
+    Ok(Value::Template(template))
 }
 
 /// `box`: Place content in a rectangular box.
