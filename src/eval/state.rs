@@ -6,7 +6,7 @@ use crate::font::{
 };
 use crate::geom::*;
 use crate::layout::Paint;
-use crate::paper::{PaperClass, PAPER_A4};
+use crate::paper::{PaperClass, ISO_A4};
 
 /// Defines an set of properties a template can be instantiated with.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -89,7 +89,7 @@ impl PageState {
 
 impl Default for PageState {
     fn default() -> Self {
-        let paper = PAPER_A4;
+        let paper = ISO_A4;
         Self {
             class: paper.class(),
             size: paper.size(),

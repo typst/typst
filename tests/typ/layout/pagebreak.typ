@@ -11,7 +11,7 @@ A
 #box[
   B
   #pagebreak()
-  #page("a4")
+  #page("iso-a4")
 ]
 C
 
