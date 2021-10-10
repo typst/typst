@@ -12,7 +12,6 @@ mod capture;
 mod function;
 mod ops;
 mod scope;
-mod state;
 mod template;
 mod walk;
 
@@ -22,7 +21,6 @@ pub use capture::*;
 pub use dict::*;
 pub use function::*;
 pub use scope::*;
-pub use state::*;
 pub use template::*;
 pub use value::*;
 pub use walk::*;

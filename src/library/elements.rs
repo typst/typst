@@ -61,12 +61,12 @@ fn rect_impl(
     fill: Option<Color>,
     body: Template,
 ) -> Value {
-    Value::Template(Template::from_inline(move |state| {
+    Value::Template(Template::from_inline(move |style| {
         let mut node = LayoutNode::new(FixedNode {
             width,
             height,
             aspect,
-            child: body.to_stack(state).into(),
+            child: body.to_stack(style).into(),
         });
 
         if let Some(fill) = fill {
@@ -114,7 +114,7 @@ fn ellipse_impl(
     fill: Option<Color>,
     body: Template,
 ) -> Value {
-    Value::Template(Template::from_inline(move |state| {
+    Value::Template(Template::from_inline(move |style| {
         // This padding ratio ensures that the rectangular padded region fits
         // perfectly into the ellipse.
         const PAD: f64 = 0.5 - SQRT_2 / 4.0;
@@ -125,7 +125,7 @@ fn ellipse_impl(
             aspect,
             child: LayoutNode::new(PadNode {
                 padding: Sides::splat(Relative::new(PAD).into()),
-                child: body.to_stack(state).into(),
+                child: body.to_stack(style).into(),
             }),
         });
 

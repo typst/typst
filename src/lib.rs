@@ -8,7 +8,7 @@
 //! - **Evaluation:** The next step is to [evaluate] the markup. This produces a
 //!   [module], consisting of a scope of values that were exported by the code
 //!   and a template with the contents of the module. This template can be
-//!   [instantiated] in a state to produce a layout tree, a high-level, fully
+//!   [instantiated] with a style to produce a layout tree, a high-level, fully
 //!   styled representation of the document. The nodes of this tree are
 //!   self-contained and order-independent and thus much better suited for
 //!   layouting than the raw markup.
@@ -18,7 +18,6 @@
 //! - **Exporting:** The finished layout can be exported into a supported
 //!   format. Currently, the only supported output format is [PDF].
 //!
-
 //! [tokens]: parse::Tokens
 //! [parsed]: parse::parse
 //! [markup]: syntax::Markup
@@ -40,16 +39,16 @@ pub mod image;
 pub mod layout;
 pub mod library;
 pub mod loading;
-pub mod paper;
 pub mod parse;
 pub mod source;
+pub mod style;
 pub mod syntax;
 pub mod util;
 
 use std::rc::Rc;
 
 use crate::diag::TypResult;
-use crate::eval::{Module, Scope, State};
+use crate::eval::{Module, Scope};
 use crate::font::FontStore;
 use crate::image::ImageStore;
 #[cfg(feature = "layout-cache")]
@@ -57,6 +56,7 @@ use crate::layout::{EvictionPolicy, LayoutCache};
 use crate::layout::{Frame, LayoutTree};
 use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
+use crate::style::Style;
 use crate::syntax::Markup;
 
 /// The core context which holds the loader, configuration and cached artifacts.
@@ -74,8 +74,8 @@ pub struct Context {
     pub layouts: LayoutCache,
     /// The standard library scope.
     std: Scope,
-    /// The default state.
-    state: State,
+    /// The default style.
+    style: Style,
 }
 
 impl Context {
@@ -94,9 +94,9 @@ impl Context {
         &self.std
     }
 
-    /// A read-only reference to the state.
-    pub fn state(&self) -> &State {
-        &self.state
+    /// A read-only reference to the style.
+    pub fn style(&self) -> &Style {
+        &self.style
     }
 
     /// Parse a source file and return the resulting markup.
@@ -113,7 +113,7 @@ impl Context {
     /// Execute a source file and produce the resulting layout tree.
     pub fn execute(&mut self, id: SourceId) -> TypResult<LayoutTree> {
         let module = self.evaluate(id)?;
-        Ok(module.template.to_tree(&self.state))
+        Ok(module.template.to_tree(&self.style))
     }
 
     /// Typeset a source file into a collection of layouted frames.
@@ -139,7 +139,7 @@ impl Context {
 /// This struct is created by [`Context::builder`].
 pub struct ContextBuilder {
     std: Option<Scope>,
-    state: Option<State>,
+    style: Option<Style>,
     #[cfg(feature = "layout-cache")]
     policy: EvictionPolicy,
     #[cfg(feature = "layout-cache")]
@@ -155,8 +155,8 @@ impl ContextBuilder {
     }
 
     /// The initial properties for page size, font selection and so on.
-    pub fn state(mut self, state: State) -> Self {
-        self.state = Some(state);
+    pub fn style(mut self, style: Style) -> Self {
+        self.style = Some(style);
         self
     }
 
@@ -188,7 +188,7 @@ impl ContextBuilder {
             #[cfg(feature = "layout-cache")]
             layouts: LayoutCache::new(self.policy, self.max_size),
             std: self.std.unwrap_or(library::new()),
-            state: self.state.unwrap_or_default(),
+            style: self.style.unwrap_or_default(),
         }
     }
 }
@@ -197,7 +197,7 @@ impl Default for ContextBuilder {
     fn default() -> Self {
         Self {
             std: None,
-            state: None,
+            style: None,
             #[cfg(feature = "layout-cache")]
             policy: EvictionPolicy::default(),
             #[cfg(feature = "layout-cache")]

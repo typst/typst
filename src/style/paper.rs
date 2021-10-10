@@ -1,5 +1,3 @@
-//! Predefined papers.
-
 use crate::geom::{Length, Linear, Relative, Sides, Size};
 
 /// Specification of a paper.
@@ -11,23 +9,6 @@ pub struct Paper {
     width: f64,
     /// The height of the paper in millimeters.
     height: f64,
-}
-
-impl Paper {
-    /// The paper with the given name.
-    pub fn from_name(name: &str) -> Option<Self> {
-        parse_paper(name)
-    }
-
-    /// The class of the paper.
-    pub fn class(self) -> PaperClass {
-        self.class
-    }
-
-    /// The size of the paper.
-    pub fn size(self) -> Size {
-        Size::new(Length::mm(self.width), Length::mm(self.height))
-    }
 }
 
 /// Defines default margins for a class of related papers.
@@ -57,21 +38,38 @@ impl PaperClass {
 
 macro_rules! papers {
     ($(($var:ident: $class:ident, $width:expr, $height: expr, $($pats:tt)*))*) => {
-        $(papers!(@$var, stringify!($($pats)*), $class, $width, $height);)*
-
-        fn parse_paper(paper: &str) -> Option<Paper> {
-            match paper.to_lowercase().as_str() {
-                $($($pats)* => Some($var),)*
-                _ => None,
+        impl Paper {
+            /// Parse a paper from its name.
+            ///
+            /// Both lower and upper case are fine.
+            pub fn from_name(name: &str) -> Option<Self> {
+                match name.to_lowercase().as_str() {
+                    $($($pats)* => Some(Self::$var),)*
+                    _ => None,
+                }
             }
+
+            /// The class of the paper.
+            pub fn class(self) -> PaperClass {
+                self.class
+            }
+
+            /// The size of the paper.
+            pub fn size(self) -> Size {
+                Size::new(Length::mm(self.width), Length::mm(self.height))
+            }
+        }
+
+        /// Predefined papers.
+        ///
+        /// Each paper is parsable from its name in kebab-case.
+        impl Paper {
+            $(papers!(@$var, stringify!($($pats)*), $class, $width, $height);)*
         }
     };
 
     (@$var:ident, $names:expr, $class:ident, $width:expr, $height:expr) => {
-        #[doc = "Paper with name `"]
-        #[doc = $names]
-        #[doc = "`."]
-        pub const $var: Paper = Paper {
+        pub const $var: Self = Self {
             class: PaperClass::$class,
             width: $width,
             height: $height,

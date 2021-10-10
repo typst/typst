@@ -1,6 +1,6 @@
 use super::*;
 use crate::layout::{FixedNode, GridNode, PadNode, StackChild, StackNode, TrackSizing};
-use crate::paper::{Paper, PaperClass};
+use crate::style::{Paper, PaperClass};
 
 /// `page`: Configure pages.
 pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
@@ -21,8 +21,8 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let bottom = args.named("bottom")?;
     let flip = args.named("flip")?;
 
-    ctx.template.modify(move |state| {
-        let page = state.page_mut();
+    ctx.template.modify(move |style| {
+        let page = style.page_mut();
 
         if let Some(paper) = paper {
             page.class = paper.class();
@@ -98,13 +98,13 @@ pub fn align(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     let realign = |template: &mut Template| {
-        template.modify(move |state| {
+        template.modify(move |style| {
             if let Some(horizontal) = horizontal {
-                state.aligns.inline = horizontal;
+                style.aligns.inline = horizontal;
             }
 
             if let Some(vertical) = vertical {
-                state.aligns.block = vertical;
+                style.aligns.block = vertical;
             }
         });
 
@@ -147,12 +147,12 @@ pub fn boxed(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
     let body: Template = args.eat().unwrap_or_default();
-    Ok(Value::Template(Template::from_inline(move |state| {
+    Ok(Value::Template(Template::from_inline(move |style| {
         FixedNode {
             width,
             height,
             aspect: None,
-            child: body.to_stack(state).into(),
+            child: body.to_stack(style).into(),
         }
     })))
 }
@@ -160,8 +160,8 @@ pub fn boxed(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 /// `block`: Place content in a block.
 pub fn block(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let body: Template = args.expect("body")?;
-    Ok(Value::Template(Template::from_block(move |state| {
-        body.to_stack(state)
+    Ok(Value::Template(Template::from_block(move |style| {
+        body.to_stack(style)
     })))
 }
 
@@ -181,10 +181,10 @@ pub fn pad(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         bottom.or(all).unwrap_or_default(),
     );
 
-    Ok(Value::Template(Template::from_block(move |state| {
+    Ok(Value::Template(Template::from_block(move |style| {
         PadNode {
             padding,
-            child: body.to_stack(&state).into(),
+            child: body.to_stack(&style).into(),
         }
     })))
 }
@@ -208,20 +208,20 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let spacing = args.named("spacing")?;
     let list: Vec<Child> = args.all().collect();
 
-    Ok(Value::Template(Template::from_block(move |state| {
-        let mut dirs = Gen::new(None, dir).unwrap_or(state.dirs);
+    Ok(Value::Template(Template::from_block(move |style| {
+        let mut dirs = Gen::new(style.dir, dir.unwrap_or(Dir::TTB));
 
         // If the directions become aligned, fix up the inline direction since
         // that's the one that is not user-defined.
-        if dirs.block.axis() == dirs.inline.axis() {
-            dirs.inline = state.dirs.block;
+        if dirs.inline.axis() == dirs.block.axis() {
+            dirs.inline = Dir::TTB;
         }
 
         // Use the current alignments for all children, but take care to apply
         // them to the correct axes (by swapping them if the stack axes are
-        // different from the state axes).
-        let mut aligns = state.aligns;
-        if dirs.block.axis() == state.dirs.inline.axis() {
+        // different from the style axes).
+        let mut aligns = style.aligns;
+        if dirs.inline.axis() != style.dir.axis() {
             aligns = Gen::new(aligns.block, aligns.inline);
         }
 
@@ -240,7 +240,7 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
                         children.push(StackChild::Spacing(v));
                     }
 
-                    let node = template.to_stack(state).into();
+                    let node = template.to_stack(style).into();
                     children.push(StackChild::Any(node, aligns));
                     delayed = spacing;
                 }
@@ -293,10 +293,12 @@ pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
     let children: Vec<Template> = args.all().collect();
 
-    Ok(Value::Template(Template::from_block(move |state| {
+    Ok(Value::Template(Template::from_block(move |style| {
         // If the directions become aligned, try to fix up the direction which
         // is not user-defined.
-        let mut dirs = Gen::new(column_dir, row_dir).unwrap_or(state.dirs);
+        let mut dirs =
+            Gen::new(column_dir.unwrap_or(style.dir), row_dir.unwrap_or(Dir::TTB));
+
         if dirs.block.axis() == dirs.inline.axis() {
             let target = if column_dir.is_some() {
                 &mut dirs.block
@@ -304,15 +306,15 @@ pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
                 &mut dirs.inline
             };
 
-            *target = if target.axis() == state.dirs.inline.axis() {
-                state.dirs.block
+            *target = if target.axis() == style.dir.axis() {
+                Dir::TTB
             } else {
-                state.dirs.inline
+                style.dir
             };
         }
 
         let children =
-            children.iter().map(|child| child.to_stack(&state).into()).collect();
+            children.iter().map(|child| child.to_stack(&style).into()).collect();
 
         GridNode {
             dirs,

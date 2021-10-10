@@ -48,55 +48,55 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let fallback = args.named("fallback")?;
     let body = args.eat::<Template>();
 
-    let f = move |state: &mut State| {
-        let font = state.font_mut();
+    let f = move |style_: &mut Style| {
+        let text = style_.text_mut();
 
         if let Some(size) = size {
-            font.size = size.resolve(font.size);
+            text.size = size.resolve(text.size);
         }
 
         if let Some(style) = style {
-            font.variant.style = style;
+            text.variant.style = style;
         }
 
         if let Some(weight) = weight {
-            font.variant.weight = weight;
+            text.variant.weight = weight;
         }
 
         if let Some(stretch) = stretch {
-            font.variant.stretch = stretch;
+            text.variant.stretch = stretch;
         }
 
         if let Some(top_edge) = top_edge {
-            font.top_edge = top_edge;
+            text.top_edge = top_edge;
         }
 
         if let Some(bottom_edge) = bottom_edge {
-            font.bottom_edge = bottom_edge;
+            text.bottom_edge = bottom_edge;
         }
 
         if let Some(fill) = fill {
-            font.fill = Paint::Color(fill);
+            text.fill = Paint::Color(fill);
         }
 
         if let Some(FontDef(list)) = &list {
-            font.families_mut().list = list.clone();
+            text.families_mut().list = list.clone();
         }
 
         if let Some(FamilyDef(serif)) = &serif {
-            font.families_mut().serif = serif.clone();
+            text.families_mut().serif = serif.clone();
         }
 
         if let Some(FamilyDef(sans_serif)) = &sans_serif {
-            font.families_mut().sans_serif = sans_serif.clone();
+            text.families_mut().sans_serif = sans_serif.clone();
         }
 
         if let Some(FamilyDef(monospace)) = &monospace {
-            font.families_mut().monospace = monospace.clone();
+            text.families_mut().monospace = monospace.clone();
         }
 
         if let Some(fallback) = fallback {
-            font.fallback = fallback;
+            text.fallback = fallback;
         }
     };
 
@@ -113,8 +113,8 @@ pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let par_spacing = args.named("spacing")?;
     let line_spacing = args.named("leading")?;
 
-    ctx.template.modify(move |state| {
-        let par = state.par_mut();
+    ctx.template.modify(move |style| {
+        let par = style.par_mut();
 
         if let Some(par_spacing) = par_spacing {
             par.par_spacing = par_spacing;
@@ -144,7 +144,7 @@ pub fn lang(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     };
 
     if let Some(dir) = dir {
-        ctx.template.modify(move |state| state.dirs.inline = dir);
+        ctx.template.modify(move |style| style.dir = dir);
     }
 
     ctx.template.parbreak();

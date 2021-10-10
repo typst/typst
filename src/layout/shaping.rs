@@ -4,9 +4,9 @@ use std::ops::Range;
 use rustybuzz::UnicodeBuffer;
 
 use super::{Element, Frame, Glyph, LayoutContext, Text};
-use crate::eval::FontState;
 use crate::font::{Face, FaceId, FontVariant};
 use crate::geom::{Dir, Em, Length, Point, Size};
+use crate::style::TextStyle;
 use crate::util::SliceExt;
 
 /// Shape text into [`ShapedText`].
@@ -14,7 +14,7 @@ pub fn shape<'a>(
     ctx: &mut LayoutContext,
     text: &'a str,
     dir: Dir,
-    state: &'a FontState,
+    style: &'a TextStyle,
 ) -> ShapedText<'a> {
     let mut glyphs = vec![];
     if !text.is_empty() {
@@ -24,19 +24,19 @@ pub fn shape<'a>(
             0,
             text,
             dir,
-            state.size,
-            state.variant(),
-            state.families(),
+            style.size,
+            style.variant(),
+            style.families(),
             None,
         );
     }
 
-    let (size, baseline) = measure(ctx, &glyphs, state);
+    let (size, baseline) = measure(ctx, &glyphs, style);
 
     ShapedText {
         text,
         dir,
-        state,
+        style,
         size,
         baseline,
         glyphs: Cow::Owned(glyphs),
@@ -54,7 +54,7 @@ pub struct ShapedText<'a> {
     /// The text direction.
     pub dir: Dir,
     /// The properties used for font selection.
-    pub state: &'a FontState,
+    pub style: &'a TextStyle,
     /// The font size.
     pub size: Size,
     /// The baseline from the top of the frame.
@@ -93,9 +93,9 @@ impl<'a> ShapedText<'a> {
 
             let mut text = Text {
                 face_id,
-                size: self.state.size,
+                size: self.style.size,
                 width: Length::zero(),
-                fill: self.state.fill,
+                fill: self.style.fill,
                 glyphs: vec![],
             };
 
@@ -123,17 +123,17 @@ impl<'a> ShapedText<'a> {
         text_range: Range<usize>,
     ) -> ShapedText<'a> {
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
-            let (size, baseline) = measure(ctx, glyphs, self.state);
+            let (size, baseline) = measure(ctx, glyphs, self.style);
             Self {
                 text: &self.text[text_range],
                 dir: self.dir,
-                state: self.state,
+                style: self.style,
                 size,
                 baseline,
                 glyphs: Cow::Borrowed(glyphs),
             }
         } else {
-            shape(ctx, &self.text[text_range], self.dir, self.state)
+            shape(ctx, &self.text[text_range], self.dir, self.style)
         }
     }
 
@@ -334,7 +334,7 @@ fn shape_segment<'a>(
 fn measure(
     ctx: &mut LayoutContext,
     glyphs: &[ShapedGlyph],
-    state: &FontState,
+    style: &TextStyle,
 ) -> (Size, Length) {
     let mut width = Length::zero();
     let mut top = Length::zero();
@@ -342,15 +342,15 @@ fn measure(
 
     // Expand top and bottom by reading the face's vertical metrics.
     let mut expand = |face: &Face| {
-        top.set_max(face.vertical_metric(state.top_edge, state.size));
-        bottom.set_max(-face.vertical_metric(state.bottom_edge, state.size));
+        top.set_max(face.vertical_metric(style.top_edge, style.size));
+        bottom.set_max(-face.vertical_metric(style.bottom_edge, style.size));
     };
 
     if glyphs.is_empty() {
         // When there are no glyphs, we just use the vertical metrics of the
         // first available font.
-        for family in state.families() {
-            if let Some(face_id) = ctx.fonts.select(family, state.variant) {
+        for family in style.families() {
+            if let Some(face_id) = ctx.fonts.select(family, style.variant) {
                 expand(ctx.fonts.get(face_id));
                 break;
             }
@@ -361,7 +361,7 @@ fn measure(
             expand(face);
 
             for glyph in group {
-                width += glyph.x_advance.to_length(state.size);
+                width += glyph.x_advance.to_length(style.size);
             }
         }
     }

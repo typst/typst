@@ -6,7 +6,7 @@ use unicode_bidi::{BidiInfo, Level};
 use xi_unicode::LineBreakIterator;
 
 use super::*;
-use crate::eval::FontState;
+use crate::style::TextStyle;
 use crate::util::{EcoString, RangeExt, SliceExt};
 
 type Range = std::ops::Range<usize>;
@@ -29,7 +29,7 @@ pub enum ParChild {
     /// Spacing between other nodes.
     Spacing(Linear),
     /// A run of text and how to align it in its line.
-    Text(EcoString, Align, Rc<FontState>, Vec<Decoration>),
+    Text(EcoString, Align, Rc<TextStyle>, Vec<Decoration>),
     /// Any child node and how to align it in its line.
     Any(LayoutNode, Align, Vec<Decoration>),
 }
@@ -139,11 +139,11 @@ impl<'a> ParLayouter<'a> {
                     items.push(ParItem::Spacing(resolved));
                     ranges.push(range);
                 }
-                ParChild::Text(_, align, state, decos) => {
+                ParChild::Text(_, align, style, decos) => {
                     // TODO: Also split by language and script.
                     for (subrange, dir) in split_runs(&bidi, range) {
                         let text = &bidi.text[subrange.clone()];
-                        let shaped = shape(ctx, text, dir, state);
+                        let shaped = shape(ctx, text, dir, style);
                         items.push(ParItem::Text(shaped, *align, decos));
                         ranges.push(subrange);
                     }

@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use super::{Eval, EvalContext, Str, Template, Value};
 use crate::diag::TypResult;
-use crate::geom::Gen;
+use crate::geom::{Dir, Gen};
 use crate::layout::{ParChild, ParNode, StackChild, StackNode};
 use crate::syntax::*;
 use crate::util::BoolExt;
@@ -28,8 +28,8 @@ impl Walk for MarkupNode {
             Self::Space => ctx.template.space(),
             Self::Linebreak(_) => ctx.template.linebreak(),
             Self::Parbreak(_) => ctx.template.parbreak(),
-            Self::Strong(_) => ctx.template.modify(|s| s.font_mut().strong.flip()),
-            Self::Emph(_) => ctx.template.modify(|s| s.font_mut().emph.flip()),
+            Self::Strong(_) => ctx.template.modify(|s| s.text_mut().strong.flip()),
+            Self::Emph(_) => ctx.template.modify(|s| s.text_mut().emph.flip()),
             Self::Text(text) => ctx.template.text(text),
             Self::Raw(raw) => raw.walk(ctx)?,
             Self::Heading(heading) => heading.walk(ctx)?,
@@ -73,11 +73,11 @@ impl Walk for HeadingNode {
 
         ctx.template.parbreak();
         ctx.template.save();
-        ctx.template.modify(move |state| {
-            let font = state.font_mut();
+        ctx.template.modify(move |style| {
+            let text = style.text_mut();
             let upscale = 1.6 - 0.1 * level as f64;
-            font.size *= upscale;
-            font.strong = true;
+            text.size *= upscale;
+            text.strong = true;
         });
         ctx.template += body;
         ctx.template.restore();
@@ -105,23 +105,23 @@ impl Walk for EnumNode {
 }
 
 fn walk_item(ctx: &mut EvalContext, label: Str, body: Template) {
-    ctx.template += Template::from_block(move |state| {
+    ctx.template += Template::from_block(move |style| {
         let label = ParNode {
-            dir: state.dirs.inline,
-            line_spacing: state.line_spacing(),
+            dir: style.dir,
+            line_spacing: style.line_spacing(),
             children: vec![ParChild::Text(
                 (&label).into(),
-                state.aligns.inline,
-                Rc::clone(&state.font),
+                style.aligns.inline,
+                Rc::clone(&style.text),
                 vec![],
             )],
         };
         StackNode {
-            dirs: Gen::new(state.dirs.block, state.dirs.inline),
+            dirs: Gen::new(Dir::TTB, style.dir),
             children: vec![
                 StackChild::Any(label.into(), Gen::default()),
-                StackChild::Spacing((state.font.size / 2.0).into()),
-                StackChild::Any(body.to_stack(&state).into(), Gen::default()),
+                StackChild::Spacing((style.text.size / 2.0).into()),
+                StackChild::Any(body.to_stack(&style).into(), Gen::default()),
             ],
         }
     });

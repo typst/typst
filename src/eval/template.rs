@@ -4,13 +4,14 @@ use std::mem;
 use std::ops::{Add, AddAssign};
 use std::rc::Rc;
 
-use super::{State, Str};
+use super::Str;
 use crate::diag::StrResult;
 use crate::geom::{Align, Dir, Gen, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{
     Decoration, LayoutNode, LayoutTree, PadNode, PageRun, ParChild, ParNode, StackChild,
     StackNode,
 };
+use crate::style::Style;
 use crate::util::EcoString;
 
 /// A template value: `[*Hi* there]`.
@@ -33,15 +34,15 @@ enum TemplateNode {
     /// Spacing.
     Spacing(GenAxis, Linear),
     /// An inline node builder.
-    Inline(Rc<dyn Fn(&State) -> LayoutNode>, Vec<Decoration>),
+    Inline(Rc<dyn Fn(&Style) -> LayoutNode>, Vec<Decoration>),
     /// An block node builder.
-    Block(Rc<dyn Fn(&State) -> LayoutNode>),
-    /// Save the current state.
+    Block(Rc<dyn Fn(&Style) -> LayoutNode>),
+    /// Save the current style.
     Save,
-    /// Restore the last saved state.
+    /// Restore the last saved style.
     Restore,
-    /// A function that can modify the current state.
-    Modify(Rc<dyn Fn(&mut State)>),
+    /// A function that can modify the current style.
+    Modify(Rc<dyn Fn(&mut Style)>),
 }
 
 impl Template {
@@ -53,7 +54,7 @@ impl Template {
     /// Create a template from a builder for an inline-level node.
     pub fn from_inline<F, T>(f: F) -> Self
     where
-        F: Fn(&State) -> T + 'static,
+        F: Fn(&Style) -> T + 'static,
         T: Into<LayoutNode>,
     {
         let node = TemplateNode::Inline(Rc::new(move |s| f(s).into()), vec![]);
@@ -63,7 +64,7 @@ impl Template {
     /// Create a template from a builder for a block-level node.
     pub fn from_block<F, T>(f: F) -> Self
     where
-        F: Fn(&State) -> T + 'static,
+        F: Fn(&Style) -> T + 'static,
         T: Into<LayoutNode>,
     {
         let node = TemplateNode::Block(Rc::new(move |s| f(s).into()));
@@ -98,7 +99,7 @@ impl Template {
     /// Add text, but in monospace.
     pub fn monospace(&mut self, text: impl Into<EcoString>) {
         self.save();
-        self.modify(|state| state.font_mut().monospace = true);
+        self.modify(|style| style.text_mut().monospace = true);
         self.text(text);
         self.restore();
     }
@@ -126,16 +127,16 @@ impl Template {
         self.make_mut().push(TemplateNode::Save);
     }
 
-    /// Ensure that later nodes are untouched by state modifications made since
+    /// Ensure that later nodes are untouched by style modifications made since
     /// the last snapshot.
     pub fn restore(&mut self) {
         self.make_mut().push(TemplateNode::Restore);
     }
 
-    /// Modify the state.
+    /// Modify the style.
     pub fn modify<F>(&mut self, f: F)
     where
-        F: Fn(&mut State) + 'static,
+        F: Fn(&mut Style) + 'static,
     {
         self.make_mut().push(TemplateNode::Modify(Rc::new(f)));
     }
@@ -143,7 +144,7 @@ impl Template {
     /// Return a new template which is modified from start to end.
     pub fn modified<F>(self, f: F) -> Self
     where
-        F: Fn(&mut State) + 'static,
+        F: Fn(&mut Style) + 'static,
     {
         let mut wrapper = Self::new();
         wrapper.save();
@@ -153,18 +154,18 @@ impl Template {
         wrapper
     }
 
-    /// Build the stack node resulting from instantiating the template in the
-    /// given state.
-    pub fn to_stack(&self, state: &State) -> StackNode {
-        let mut builder = Builder::new(state, false);
+    /// Build the stack node resulting from instantiating the template with the
+    /// given style.
+    pub fn to_stack(&self, style: &Style) -> StackNode {
+        let mut builder = Builder::new(style, false);
         builder.template(self);
         builder.build_stack()
     }
 
-    /// Build the layout tree resulting from instantiating the template in the
-    /// given state.
-    pub fn to_tree(&self, state: &State) -> LayoutTree {
-        let mut builder = Builder::new(state, true);
+    /// Build the layout tree resulting from instantiating the template with the
+    /// given style.
+    pub fn to_tree(&self, style: &Style) -> LayoutTree {
+        let mut builder = Builder::new(style, true);
         builder.template(self);
         builder.build_tree()
     }
@@ -238,10 +239,10 @@ impl Add<Template> for Str {
 
 /// Transforms from template to layout representation.
 struct Builder {
-    /// The active state.
-    state: State,
-    /// Snapshots of the state.
-    snapshots: Vec<State>,
+    /// The current style.
+    style: Style,
+    /// Snapshots of the style.
+    snapshots: Vec<Style>,
     /// The tree of finished page runs.
     tree: LayoutTree,
     /// When we are building the top-level layout trees, this contains metrics
@@ -252,14 +253,14 @@ struct Builder {
 }
 
 impl Builder {
-    /// Create a new builder with a base state.
-    fn new(state: &State, pages: bool) -> Self {
+    /// Create a new builder with a base style.
+    fn new(style: &Style, pages: bool) -> Self {
         Self {
-            state: state.clone(),
+            style: style.clone(),
             snapshots: vec![],
             tree: LayoutTree { runs: vec![] },
-            page: pages.then(|| PageBuilder::new(state, true)),
-            stack: StackBuilder::new(state),
+            page: pages.then(|| PageBuilder::new(style, true)),
+            stack: StackBuilder::new(style),
         }
     }
 
@@ -273,11 +274,11 @@ impl Builder {
     /// Build a template node.
     fn node(&mut self, node: &TemplateNode) {
         match node {
-            TemplateNode::Save => self.snapshots.push(self.state.clone()),
+            TemplateNode::Save => self.snapshots.push(self.style.clone()),
             TemplateNode::Restore => {
-                let state = self.snapshots.pop().unwrap();
-                let newpage = state.page != self.state.page;
-                self.state = state;
+                let style = self.snapshots.pop().unwrap();
+                let newpage = style.page != self.style.page;
+                self.style = style;
                 if newpage {
                     self.pagebreak(true, false);
                 }
@@ -288,9 +289,9 @@ impl Builder {
             TemplateNode::Pagebreak(keep) => self.pagebreak(*keep, true),
             TemplateNode::Text(text, decos) => self.text(text, decos),
             TemplateNode::Spacing(axis, amount) => self.spacing(*axis, *amount),
-            TemplateNode::Inline(f, decos) => self.inline(f(&self.state), decos),
-            TemplateNode::Block(f) => self.block(f(&self.state)),
-            TemplateNode::Modify(f) => f(&mut self.state),
+            TemplateNode::Inline(f, decos) => self.inline(f(&self.style), decos),
+            TemplateNode::Block(f) => self.block(f(&self.style)),
+            TemplateNode::Modify(f) => f(&mut self.style),
         }
     }
 
@@ -306,16 +307,16 @@ impl Builder {
 
     /// Apply a forced paragraph break.
     fn parbreak(&mut self) {
-        let amount = self.state.par_spacing();
-        self.stack.finish_par(&self.state);
+        let amount = self.style.par_spacing();
+        self.stack.finish_par(&self.style);
         self.stack.push_soft(StackChild::Spacing(amount.into()));
     }
 
     /// Apply a forced page break.
     fn pagebreak(&mut self, keep: bool, hard: bool) {
         if let Some(builder) = &mut self.page {
-            let page = mem::replace(builder, PageBuilder::new(&self.state, hard));
-            let stack = mem::replace(&mut self.stack, StackBuilder::new(&self.state));
+            let page = mem::replace(builder, PageBuilder::new(&self.style, hard));
+            let stack = mem::replace(&mut self.stack, StackBuilder::new(&self.style));
             self.tree.runs.extend(page.build(stack.build(), keep));
         }
     }
@@ -327,14 +328,14 @@ impl Builder {
 
     /// Push an inline node into the active paragraph.
     fn inline(&mut self, node: impl Into<LayoutNode>, decos: &[Decoration]) {
-        let align = self.state.aligns.inline;
+        let align = self.style.aligns.inline;
         self.stack.par.push(ParChild::Any(node.into(), align, decos.to_vec()));
     }
 
     /// Push a block node into the active stack, finishing the active paragraph.
     fn block(&mut self, node: impl Into<LayoutNode>) {
         self.parbreak();
-        let aligns = self.state.aligns;
+        let aligns = self.style.aligns;
         self.stack.push(StackChild::Any(node.into(), aligns));
         self.parbreak();
     }
@@ -343,7 +344,7 @@ impl Builder {
     fn spacing(&mut self, axis: GenAxis, amount: Linear) {
         match axis {
             GenAxis::Block => {
-                self.stack.finish_par(&self.state);
+                self.stack.finish_par(&self.style);
                 self.stack.push_hard(StackChild::Spacing(amount));
             }
             GenAxis::Inline => {
@@ -365,8 +366,8 @@ impl Builder {
         self.tree
     }
 
-    /// Construct a text node with the given text and settings from the active
-    /// state.
+    /// Construct a text node with the given text and settings from the current
+    /// style.
     fn make_text_node(
         &self,
         text: impl Into<EcoString>,
@@ -374,8 +375,8 @@ impl Builder {
     ) -> ParChild {
         ParChild::Text(
             text.into(),
-            self.state.aligns.inline,
-            Rc::clone(&self.state.font),
+            self.style.aligns.inline,
+            Rc::clone(&self.style.text),
             decos,
         )
     }
@@ -388,10 +389,10 @@ struct PageBuilder {
 }
 
 impl PageBuilder {
-    fn new(state: &State, hard: bool) -> Self {
+    fn new(style: &Style, hard: bool) -> Self {
         Self {
-            size: state.page.size,
-            padding: state.page.margins(),
+            size: style.page.size,
+            padding: style.page.margins(),
             hard,
         }
     }
@@ -413,12 +414,12 @@ struct StackBuilder {
 }
 
 impl StackBuilder {
-    fn new(state: &State) -> Self {
+    fn new(style: &Style) -> Self {
         Self {
-            dirs: state.dirs,
+            dirs: Gen::new(style.dir, Dir::TTB),
             children: vec![],
             last: Last::None,
-            par: ParBuilder::new(state),
+            par: ParBuilder::new(style),
         }
     }
 
@@ -436,8 +437,8 @@ impl StackBuilder {
         self.children.push(child);
     }
 
-    fn finish_par(&mut self, state: &State) {
-        let par = mem::replace(&mut self.par, ParBuilder::new(state));
+    fn finish_par(&mut self, style: &Style) {
+        let par = mem::replace(&mut self.par, ParBuilder::new(style));
         if let Some(par) = par.build() {
             self.push(par);
         }
@@ -462,11 +463,11 @@ struct ParBuilder {
 }
 
 impl ParBuilder {
-    fn new(state: &State) -> Self {
+    fn new(style: &Style) -> Self {
         Self {
-            aligns: state.aligns,
-            dir: state.dirs.inline,
-            line_spacing: state.line_spacing(),
+            aligns: style.aligns,
+            dir: style.dir,
+            line_spacing: style.line_spacing(),
             children: vec![],
             last: Last::None,
         }

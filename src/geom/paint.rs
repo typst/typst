@@ -59,7 +59,7 @@ impl FromStr for RgbaColor {
     /// - `7a03c2` (without alpha),
     /// - `abcdefff` (with alpha).
     ///
-    /// Both lower and upper case is fine.
+    /// The hashtag is optional and both lower and upper case are fine.
     fn from_str(hex_str: &str) -> Result<Self, Self::Err> {
         let hex_str = hex_str.strip_prefix('#').unwrap_or(hex_str);
         if !hex_str.is_ascii() {

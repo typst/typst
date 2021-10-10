@@ -10,7 +10,7 @@ use ttf_parser::{GlyphId, OutlineBuilder};
 use walkdir::WalkDir;
 
 use typst::diag::Error;
-use typst::eval::{State, Value};
+use typst::eval::Value;
 use typst::font::Face;
 use typst::geom::{
     self, Color, Length, Paint, PathElement, Point, RgbaColor, Sides, Size,
@@ -22,6 +22,7 @@ use typst::layout::{layout, Element, Frame, Geometry, Text};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
 use typst::source::SourceFile;
+use typst::style::Style;
 use typst::syntax::{Pos, Span};
 use typst::Context;
 
@@ -62,10 +63,10 @@ fn main() {
 
     // We want to have "unbounded" pages, so we allow them to be infinitely
     // large and fit them to match their content.
-    let mut state = State::default();
-    state.page_mut().size = Size::new(Length::pt(120.0), Length::inf());
-    state.page_mut().margins = Sides::splat(Some(Length::pt(10.0).into()));
-    state.font_mut().size = Length::pt(10.0);
+    let mut style = Style::default();
+    style.page_mut().size = Size::new(Length::pt(120.0), Length::inf());
+    style.page_mut().margins = Sides::splat(Some(Length::pt(10.0).into()));
+    style.text_mut().size = Length::pt(10.0);
 
     // Hook up an assert function into the global scope.
     let mut std = typst::library::new();
@@ -83,7 +84,7 @@ fn main() {
 
     // Create loader and context.
     let loader = FsLoader::new().with_path(FONT_DIR).wrap();
-    let mut ctx = Context::builder().std(std).state(state).build(loader);
+    let mut ctx = Context::builder().std(std).style(style).build(loader);
 
     // Run all the tests.
     let mut ok = true;

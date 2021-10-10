@@ -1,68 +1,73 @@
+//! Style properties.
+
+mod paper;
+
+pub use paper::*;
+
 use std::rc::Rc;
 
 use crate::font::{
     FontFamily, FontStretch, FontStyle, FontVariant, FontWeight, VerticalFontMetric,
 };
 use crate::geom::*;
-use crate::paper::{PaperClass, ISO_A4};
 
-/// Defines an set of properties a template can be instantiated with.
+/// Defines a set of properties a template can be instantiated with.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct State {
+pub struct Style {
     /// The direction for text and other inline objects.
-    pub dirs: Gen<Dir>,
+    pub dir: Dir,
     /// The alignments of layouts in their parents.
     pub aligns: Gen<Align>,
     /// The page settings.
-    pub page: Rc<PageState>,
+    pub page: Rc<PageStyle>,
     /// The paragraph settings.
-    pub par: Rc<ParState>,
-    /// The font settings.
-    pub font: Rc<FontState>,
+    pub par: Rc<ParStyle>,
+    /// The current text settings.
+    pub text: Rc<TextStyle>,
 }
 
-impl State {
-    /// Access the `page` state mutably.
-    pub fn page_mut(&mut self) -> &mut PageState {
+impl Style {
+    /// Access the `page` style mutably.
+    pub fn page_mut(&mut self) -> &mut PageStyle {
         Rc::make_mut(&mut self.page)
     }
 
-    /// Access the `par` state mutably.
-    pub fn par_mut(&mut self) -> &mut ParState {
+    /// Access the `par` style mutably.
+    pub fn par_mut(&mut self) -> &mut ParStyle {
         Rc::make_mut(&mut self.par)
     }
 
-    /// Access the `font` state mutably.
-    pub fn font_mut(&mut self) -> &mut FontState {
-        Rc::make_mut(&mut self.font)
+    /// Access the `text` style mutably.
+    pub fn text_mut(&mut self) -> &mut TextStyle {
+        Rc::make_mut(&mut self.text)
     }
 
     /// The resolved line spacing.
     pub fn line_spacing(&self) -> Length {
-        self.par.line_spacing.resolve(self.font.size)
+        self.par.line_spacing.resolve(self.text.size)
     }
 
     /// The resolved paragraph spacing.
     pub fn par_spacing(&self) -> Length {
-        self.par.par_spacing.resolve(self.font.size)
+        self.par.par_spacing.resolve(self.text.size)
     }
 }
 
-impl Default for State {
+impl Default for Style {
     fn default() -> Self {
         Self {
-            dirs: Gen::new(Dir::LTR, Dir::TTB),
+            dir: Dir::LTR,
             aligns: Gen::splat(Align::Start),
-            page: Rc::new(PageState::default()),
-            par: Rc::new(ParState::default()),
-            font: Rc::new(FontState::default()),
+            page: Rc::new(PageStyle::default()),
+            par: Rc::new(ParStyle::default()),
+            text: Rc::new(TextStyle::default()),
         }
     }
 }
 
-/// Defines page properties.
+/// Defines style properties of pages.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct PageState {
+pub struct PageStyle {
     /// The class of this page.
     pub class: PaperClass,
     /// The width and height of the page.
@@ -72,7 +77,7 @@ pub struct PageState {
     pub margins: Sides<Option<Linear>>,
 }
 
-impl PageState {
+impl PageStyle {
     /// The resolved margins.
     pub fn margins(&self) -> Sides<Linear> {
         let default = self.class.default_margins();
@@ -85,9 +90,9 @@ impl PageState {
     }
 }
 
-impl Default for PageState {
+impl Default for PageStyle {
     fn default() -> Self {
-        let paper = ISO_A4;
+        let paper = Paper::ISO_A4;
         Self {
             class: paper.class(),
             size: paper.size(),
@@ -96,16 +101,16 @@ impl Default for PageState {
     }
 }
 
-/// Defines paragraph properties.
+/// Defines style properties of paragraphs.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct ParState {
+pub struct ParStyle {
     /// The spacing between paragraphs (dependent on scaled font size).
     pub par_spacing: Linear,
     /// The spacing between lines (dependent on scaled font size).
     pub line_spacing: Linear,
 }
 
-impl Default for ParState {
+impl Default for ParStyle {
     fn default() -> Self {
         Self {
             par_spacing: Relative::new(1.2).into(),
@@ -114,9 +119,9 @@ impl Default for ParState {
     }
 }
 
-/// Defines font properties.
+/// Defines style properties of text.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct FontState {
+pub struct TextStyle {
     /// The font size.
     pub size: Length,
     /// The selected font variant (the final variant also depends on `strong`
@@ -130,7 +135,7 @@ pub struct FontState {
     pub fill: Paint,
     /// A list of font families with generic class definitions (the final
     /// family list also depends on `monospace`).
-    pub families: Rc<FamilyState>,
+    pub families: Rc<FamilyStyle>,
     /// Whether 300 extra font weight should be added to what is defined by the
     /// `variant`.
     pub strong: bool,
@@ -142,7 +147,7 @@ pub struct FontState {
     pub fallback: bool,
 }
 
-impl FontState {
+impl TextStyle {
     /// The resolved variant with `strong` and `emph` factored in.
     pub fn variant(&self) -> FontVariant {
         let mut variant = self.variant;
@@ -188,13 +193,13 @@ impl FontState {
         head.iter().chain(core).chain(tail).map(String::as_str)
     }
 
-    /// Access the `families` state mutably.
-    pub fn families_mut(&mut self) -> &mut FamilyState {
+    /// Access the `families` style mutably.
+    pub fn families_mut(&mut self) -> &mut FamilyStyle {
         Rc::make_mut(&mut self.families)
     }
 }
 
-impl Default for FontState {
+impl Default for TextStyle {
     fn default() -> Self {
         Self {
             size: Length::pt(11.0),
@@ -206,7 +211,7 @@ impl Default for FontState {
             top_edge: VerticalFontMetric::CapHeight,
             bottom_edge: VerticalFontMetric::Baseline,
             fill: Paint::Color(Color::Rgba(RgbaColor::BLACK)),
-            families: Rc::new(FamilyState::default()),
+            families: Rc::new(FamilyStyle::default()),
             strong: false,
             emph: false,
             monospace: false,
@@ -215,9 +220,9 @@ impl Default for FontState {
     }
 }
 
-/// Font family definitions.
+/// Font list with family definitions.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct FamilyState {
+pub struct FamilyStyle {
     /// The user-defined list of font families.
     pub list: Rc<Vec<FontFamily>>,
     /// Definition of serif font families.
@@ -230,7 +235,7 @@ pub struct FamilyState {
     pub base: Rc<Vec<String>>,
 }
 
-impl Default for FamilyState {
+impl Default for FamilyStyle {
     fn default() -> Self {
         Self {
             list: Rc::new(vec![FontFamily::SansSerif]),
