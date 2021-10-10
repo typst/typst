@@ -1,11 +1,9 @@
 use std::rc::Rc;
 
-use crate::color::{Color, RgbaColor};
 use crate::font::{
     FontFamily, FontStretch, FontStyle, FontVariant, FontWeight, VerticalFontMetric,
 };
 use crate::geom::*;
-use crate::layout::Paint;
 use crate::paper::{PaperClass, ISO_A4};
 
 /// Defines an set of properties a template can be instantiated with.

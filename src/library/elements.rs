@@ -5,9 +5,7 @@ use decorum::N64;
 
 use super::*;
 use crate::diag::Error;
-use crate::layout::{
-    BackgroundNode, BackgroundShape, FixedNode, ImageNode, PadNode, Paint,
-};
+use crate::layout::{BackgroundNode, BackgroundShape, FixedNode, ImageNode, PadNode};
 
 /// `image`: An image.
 pub fn image(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {

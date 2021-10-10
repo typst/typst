@@ -4,9 +4,8 @@ use std::rc::Rc;
 use serde::{Deserialize, Serialize};
 
 use super::{Constrained, Constraints};
-use crate::color::Color;
 use crate::font::FaceId;
-use crate::geom::{Em, Length, Path, Point, Size};
+use crate::geom::{Em, Length, Paint, Path, Point, Size};
 use crate::image::ImageId;
 
 /// A finished layout with elements at fixed positions.
@@ -36,7 +35,7 @@ pub enum Element {
     /// Shaped text.
     Text(Text),
     /// A geometric shape and the paint which with it should be filled or
-    /// stroked.
+    /// stroked (which one depends on the kind of geometry).
     Geometry(Geometry, Paint),
     /// A raster image.
     Image(ImageId, Size),
@@ -81,13 +80,6 @@ pub enum Geometry {
     Line(Point, Length),
     /// A filled bezier path.
     Path(Path),
-}
-
-/// How a fill or stroke should be painted.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub enum Paint {
-    /// A solid color.
-    Color(Color),
 }
 
 impl Frame {

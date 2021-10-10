@@ -13,11 +13,10 @@ use pdf_writer::{Content, Filter, Finish, Name, PdfWriter, Rect, Ref, Str, Unico
 use ttf_parser::{name_id, GlyphId, Tag};
 
 use super::subset;
-use crate::color::Color;
 use crate::font::{find_name, FaceId, FontStore};
-use crate::geom::{self, Em, Length, Size};
+use crate::geom::{self, Color, Em, Length, Paint, Size};
 use crate::image::{Image, ImageId, ImageStore};
-use crate::layout::{Element, Frame, Geometry, Paint};
+use crate::layout::{Element, Frame, Geometry};
 use crate::Context;
 
 /// Export a collection of frames into a PDF document.

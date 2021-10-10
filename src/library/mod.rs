@@ -16,7 +16,6 @@ pub use utility::*;
 use std::convert::TryFrom;
 use std::rc::Rc;
 
-use crate::color::{Color, RgbaColor};
 use crate::diag::{At, TypResult};
 use crate::eval::{Args, Array, EvalContext, Scope, State, Str, Template, Value};
 use crate::font::{FontFamily, FontStretch, FontStyle, FontWeight, VerticalFontMetric};

@@ -9,15 +9,16 @@ use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use walkdir::WalkDir;
 
-use typst::color::{Color, RgbaColor};
 use typst::diag::Error;
 use typst::eval::{State, Value};
 use typst::font::Face;
-use typst::geom::{self, Length, PathElement, Point, Sides, Size};
+use typst::geom::{
+    self, Color, Length, Paint, PathElement, Point, RgbaColor, Sides, Size,
+};
 use typst::image::Image;
 #[cfg(feature = "layout-cache")]
 use typst::layout::LayoutTree;
-use typst::layout::{layout, Element, Frame, Geometry, Paint, Text};
+use typst::layout::{layout, Element, Frame, Geometry, Text};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
 use typst::source::SourceFile;

@@ -1,5 +1,5 @@
 use super::*;
-use crate::layout::{Decoration, LineDecoration, LineKind, Paint};
+use crate::layout::{Decoration, LineDecoration, LineKind};
 
 /// `font`: Configure the font.
 pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {

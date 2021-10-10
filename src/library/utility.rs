@@ -2,7 +2,6 @@ use std::cmp::Ordering;
 use std::str::FromStr;
 
 use super::*;
-use crate::color::{Color, RgbaColor};
 
 /// `assert`: Ensure that a condition is fulfilled.
 pub fn assert(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {

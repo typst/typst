@@ -1,9 +1,14 @@
-//! Color handling.
-
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::Display;
 use std::str::FromStr;
 
-use serde::{Deserialize, Serialize};
+use super::*;
+
+/// How a fill or stroke should be painted.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub enum Paint {
+    /// A solid color.
+    Color(Color),
+}
 
 /// A color in a dynamic format.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]

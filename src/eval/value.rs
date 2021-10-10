@@ -4,9 +4,8 @@ use std::fmt::{self, Debug, Formatter};
 use std::rc::Rc;
 
 use super::{ops, Array, Dict, Function, Str, Template};
-use crate::color::{Color, RgbaColor};
 use crate::diag::StrResult;
-use crate::geom::{Angle, Fractional, Length, Linear, Relative};
+use crate::geom::{Angle, Color, Fractional, Length, Linear, Relative, RgbaColor};
 use crate::syntax::Spanned;
 use crate::util::EcoString;
 

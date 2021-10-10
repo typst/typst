@@ -33,7 +33,6 @@
 pub mod diag;
 #[macro_use]
 pub mod eval;
-pub mod color;
 pub mod export;
 pub mod font;
 pub mod geom;
