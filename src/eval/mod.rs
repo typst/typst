@@ -412,6 +412,7 @@ impl Eval for CallArgs {
                     });
                 }
                 CallArg::Spread(expr) => match expr.eval(ctx)? {
+                    Value::None => {}
                     Value::Array(array) => {
                         items.extend(array.into_iter().map(|value| Arg {
                             span,
