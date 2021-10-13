@@ -204,27 +204,11 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         Value::Template(v) => Self::Any(v),
     }
 
-    let dir = args.named("dir")?;
+    let dir = args.named("dir")?.unwrap_or(Dir::TTB);
     let spacing = args.named("spacing")?;
     let list: Vec<Child> = args.all().collect();
 
     Ok(Value::Template(Template::from_block(move |style| {
-        let mut dirs = Gen::new(style.dir, dir.unwrap_or(Dir::TTB));
-
-        // If the directions become aligned, fix up the inline direction since
-        // that's the one that is not user-defined.
-        if dirs.inline.axis() == dirs.block.axis() {
-            dirs.inline = Dir::TTB;
-        }
-
-        // Use the current alignments for all children, but take care to apply
-        // them to the correct axes (by swapping them if the stack axes are
-        // different from the style axes).
-        let mut aligns = style.aligns;
-        if dirs.inline.axis() != style.dir.axis() {
-            aligns = Gen::new(aligns.block, aligns.inline);
-        }
-
         let mut children = vec![];
         let mut delayed = None;
 
@@ -241,13 +225,13 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
                     }
 
                     let node = template.to_stack(style).into();
-                    children.push(StackChild::Any(node, aligns));
+                    children.push(StackChild::Any(node, style.aligns.block));
                     delayed = spacing;
                 }
             }
         }
 
-        StackNode { dirs, children }
+        StackNode { dir, children }
     })))
 }
 

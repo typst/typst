@@ -20,9 +20,6 @@
 #stack(dir: btt, ..items)
 #pagebreak()
 
-// Currently stack works like flexbox apparently.
-#stack(dir: ltr, ..items)
-
 ---
 // Test spacing.
 #page(width: 50pt, margins: 0pt)

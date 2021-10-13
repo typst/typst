@@ -6,11 +6,8 @@ use super::*;
 #[derive(Debug)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub struct StackNode {
-    /// The inline and block directions of this stack.
-    ///
-    /// The children are stacked along the block direction. The inline direction
-    /// is required for aligning the children.
-    pub dirs: Gen<Dir>,
+    /// The stacking direction.
+    pub dir: Dir,
     /// The nodes to be stacked.
     pub children: Vec<StackChild>,
 }
@@ -21,7 +18,7 @@ pub enum StackChild {
     /// Spacing between other nodes.
     Spacing(Linear),
     /// Any child node and how to align it in the stack.
-    Any(LayoutNode, Gen<Align>),
+    Any(LayoutNode, Align),
 }
 
 impl Layout for StackNode {
@@ -72,7 +69,7 @@ struct StackLayouter<'a> {
     overflowing: bool,
     /// Offset, alignment and frame for all children that fit into the current
     /// region. The exact positions are not known yet.
-    frames: Vec<(Length, Gen<Align>, Rc<Frame>)>,
+    frames: Vec<(Length, Align, Rc<Frame>)>,
     /// Finished frames for previous regions.
     finished: Vec<Constrained<Rc<Frame>>>,
 }
@@ -80,7 +77,7 @@ struct StackLayouter<'a> {
 impl<'a> StackLayouter<'a> {
     /// Create a new stack layouter.
     fn new(stack: &'a StackNode, mut regions: Regions) -> Self {
-        let block = stack.dirs.block.axis();
+        let block = stack.dir.axis();
         let full = regions.current;
         let expand = regions.expand;
 
@@ -107,14 +104,14 @@ impl<'a> StackLayouter<'a> {
         for child in &self.stack.children {
             match *child {
                 StackChild::Spacing(amount) => self.space(amount),
-                StackChild::Any(ref node, aligns) => {
+                StackChild::Any(ref node, align) => {
                     let nodes = node.layout(ctx, &self.regions);
                     let len = nodes.len();
                     for (i, frame) in nodes.into_iter().enumerate() {
                         if i + 1 < len {
                             self.constraints.exact = self.full.to_spec().map(Some);
                         }
-                        self.push_frame(frame.item, aligns);
+                        self.push_frame(frame.item, align);
                     }
                 }
             }
@@ -142,11 +139,11 @@ impl<'a> StackLayouter<'a> {
 
     /// Push a frame into the current or next fitting region, finishing regions
     /// if necessary.
-    fn push_frame(&mut self, frame: Rc<Frame>, aligns: Gen<Align>) {
+    fn push_frame(&mut self, frame: Rc<Frame>, align: Align) {
         let size = frame.size.to_gen(self.block);
 
         // Don't allow `Start` after `End` in the same region.
-        if aligns.block < self.ruler {
+        if align < self.ruler {
             self.finish_region();
         }
 
@@ -172,10 +169,10 @@ impl<'a> StackLayouter<'a> {
         let offset = self.used.block;
         self.used.block += size.block;
         self.used.inline.set_max(size.inline);
-        self.ruler = aligns.block;
+        self.ruler = align;
 
         // Remember the frame with offset and alignment.
-        self.frames.push((offset, aligns, frame));
+        self.frames.push((offset, align, frame));
     }
 
     /// Finish the frame for one region.
@@ -211,20 +208,14 @@ impl<'a> StackLayouter<'a> {
         let mut first = true;
 
         // Place all frames.
-        for (offset, aligns, frame) in self.frames.drain(..) {
+        for (offset, align, frame) in self.frames.drain(..) {
             let stack_size = size.to_gen(self.block);
             let child_size = frame.size.to_gen(self.block);
 
-            // Align along the inline axis.
-            let inline = aligns.inline.resolve(
-                self.stack.dirs.inline,
-                Length::zero() .. stack_size.inline - child_size.inline,
-            );
-
             // Align along the block axis.
-            let block = aligns.block.resolve(
-                self.stack.dirs.block,
-                if self.stack.dirs.block.is_positive() {
+            let block = align.resolve(
+                self.stack.dir,
+                if self.stack.dir.is_positive() {
                     offset .. stack_size.block - self.used.block + offset
                 } else {
                     let offset_with_self = offset + child_size.block;
@@ -233,7 +224,7 @@ impl<'a> StackLayouter<'a> {
                 },
             );
 
-            let pos = Gen::new(inline, block).to_point(self.block);
+            let pos = Gen::new(Length::zero(), block).to_point(self.block);
 
             // The baseline of the stack is that of the first frame.
             if first {
