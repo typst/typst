@@ -1,11 +1,8 @@
-use std::f64::consts::SQRT_2;
 use std::io;
-
-use decorum::N64;
 
 use super::*;
 use crate::diag::Error;
-use crate::layout::{BackgroundNode, BackgroundShape, FixedNode, ImageNode, PadNode};
+use crate::layout::{ImageNode, ShapeKind, ShapeNode};
 
 /// `image`: An image.
 pub fn image(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
@@ -33,52 +30,24 @@ pub fn rect(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
     let fill = args.named("fill")?;
-    let body = args.eat().unwrap_or_default();
-    Ok(rect_impl(width, height, None, fill, body))
+    let body = args.eat();
+    Ok(shape_impl(ShapeKind::Rect, width, height, fill, body))
 }
 
 /// `square`: A square with optional content.
 pub fn square(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let size = args.named::<Length>("size")?.map(Linear::from);
     let width = match size {
-        Some(size) => Some(size),
         None => args.named("width")?,
+        size => size,
     };
-    let height = match width {
-        Some(_) => None,
+    let height = match size {
         None => args.named("height")?,
+        size => size,
     };
-    let aspect = Some(N64::from(1.0));
     let fill = args.named("fill")?;
-    let body = args.eat().unwrap_or_default();
-    Ok(rect_impl(width, height, aspect, fill, body))
-}
-
-fn rect_impl(
-    width: Option<Linear>,
-    height: Option<Linear>,
-    aspect: Option<N64>,
-    fill: Option<Color>,
-    body: Template,
-) -> Value {
-    Value::Template(Template::from_inline(move |style| {
-        let mut node = LayoutNode::new(FixedNode {
-            width,
-            height,
-            aspect,
-            child: body.to_stack(style).into(),
-        });
-
-        if let Some(fill) = fill {
-            node = LayoutNode::new(BackgroundNode {
-                shape: BackgroundShape::Rect,
-                fill: Paint::Color(fill),
-                child: node,
-            });
-        }
-
-        node
-    }))
+    let body = args.eat();
+    Ok(shape_impl(ShapeKind::Square, width, height, fill, body))
 }
 
 /// `ellipse`: An ellipse with optional content.
@@ -86,8 +55,8 @@ pub fn ellipse(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
     let fill = args.named("fill")?;
-    let body = args.eat().unwrap_or_default();
-    Ok(ellipse_impl(width, height, None, fill, body))
+    let body = args.eat();
+    Ok(shape_impl(ShapeKind::Ellipse, width, height, fill, body))
 }
 
 /// `circle`: A circle with optional content.
@@ -97,46 +66,39 @@ pub fn circle(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         None => args.named("width")?,
         diameter => diameter,
     };
-    let height = match width {
+    let height = match diameter {
         None => args.named("height")?,
-        width => width,
+        diameter => diameter,
     };
-    let aspect = Some(N64::from(1.0));
     let fill = args.named("fill")?;
-    let body = args.eat().unwrap_or_default();
-    Ok(ellipse_impl(width, height, aspect, fill, body))
+    let body = args.eat();
+    Ok(shape_impl(ShapeKind::Circle, width, height, fill, body))
 }
 
-fn ellipse_impl(
-    width: Option<Linear>,
-    height: Option<Linear>,
-    aspect: Option<N64>,
+fn shape_impl(
+    shape: ShapeKind,
+    mut width: Option<Linear>,
+    mut height: Option<Linear>,
     fill: Option<Color>,
-    body: Template,
+    body: Option<Template>,
 ) -> Value {
-    Value::Template(Template::from_inline(move |style| {
-        // This padding ratio ensures that the rectangular padded region fits
-        // perfectly into the ellipse.
-        const PAD: f64 = 0.5 - SQRT_2 / 4.0;
-
-        let mut node = LayoutNode::new(FixedNode {
-            width,
-            height,
-            aspect,
-            child: LayoutNode::new(PadNode {
-                padding: Sides::splat(Relative::new(PAD).into()),
-                child: body.to_stack(style).into(),
-            }),
+    // Set default shape size if there's no body.
+    if body.is_none() {
+        let v = Length::pt(30.0).into();
+        height.get_or_insert(v);
+        width.get_or_insert(match shape {
+            ShapeKind::Square | ShapeKind::Circle => v,
+            ShapeKind::Rect | ShapeKind::Ellipse => 1.5 * v,
         });
+    }
 
-        if let Some(fill) = fill {
-            node = LayoutNode::new(BackgroundNode {
-                shape: BackgroundShape::Ellipse,
-                fill: Paint::Color(fill),
-                child: node,
-            });
-        }
-
-        node
+    Value::Template(Template::from_inline(move |style| ShapeNode {
+        shape,
+        width,
+        height,
+        fill: Some(Paint::Color(
+            fill.unwrap_or(Color::Rgba(RgbaColor::new(175, 175, 175, 255))),
+        )),
+        child: body.as_ref().map(|template| template.to_stack(style).into()),
     }))
 }

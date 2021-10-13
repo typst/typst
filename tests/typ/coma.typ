@@ -10,18 +10,12 @@
 #let university = [*Technische Universität {city}*]
 #let faculty = [*Fakultät II, Institut for Mathematik*]
 
-// The `box` function just places content into a rectangular container. When
-// the only argument to a function is a template, the parentheses can be omitted
-// (i.e. `f[a]` is the same as `f([a])`).
-#box[
-  // Backslash adds a forced line break.
-  #university \
-  #faculty \
-  Sekretariat MA \
-  Dr. Max Mustermann \
-  Ola Nordmann, John Doe
-]
-#align(right, box[*WiSe 2019/2020* \ Woche 3])
+// Backslashs add forced line breaks.
+#university #align(right)[*WiSe 2019/2020*] \
+#faculty #align(right)[Woche 3] \
+Sekretariat MA \
+Dr. Max Mustermann \
+Ola Nordmann, John Doe
 
 // Adds vertical spacing.
 #v(6mm)

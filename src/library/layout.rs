@@ -1,5 +1,7 @@
 use super::*;
-use crate::layout::{FixedNode, GridNode, PadNode, StackChild, StackNode, TrackSizing};
+use crate::layout::{
+    GridNode, PadNode, ShapeKind, ShapeNode, StackChild, StackNode, TrackSizing,
+};
 use crate::style::{Paper, PaperClass};
 
 /// `page`: Configure pages.
@@ -146,13 +148,15 @@ pub fn v(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 pub fn boxed(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
+    let fill = args.named("fill")?;
     let body: Template = args.eat().unwrap_or_default();
     Ok(Value::Template(Template::from_inline(move |style| {
-        FixedNode {
+        ShapeNode {
+            shape: ShapeKind::Rect,
             width,
             height,
-            aspect: None,
-            child: body.to_stack(style).into(),
+            fill: fill.map(Paint::Color),
+            child: Some(body.to_stack(style).into()),
         }
     })))
 }

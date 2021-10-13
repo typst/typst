@@ -1,12 +1,18 @@
 // Test the `square` function.
 
 ---
+// Default square.
+#square()
+#square[hey!]
+
+---
 // Test auto-sized square.
 #square(fill: eastern)[
   #font(fill: white, weight: bold)
   #align(center)
   #pad(5pt)[Typst]
 ]
+
 ---
 // Test relative-sized child.
 #square(fill: eastern)[
@@ -15,14 +21,14 @@
 ]
 
 ---
-// Test height overflow.
+// Test text overflowing height.
 #page(width: 75pt, height: 100pt)
 #square(fill: conifer)[
   But, soft! what light through yonder window breaks?
 ]
 
 ---
-// Test width overflow.
+// Test required height overflowing page.
 #page(width: 100pt, height: 75pt)
 #square(fill: conifer)[
   But, soft! what light through yonder window breaks?

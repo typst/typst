@@ -20,7 +20,6 @@ use crate::diag::{At, TypResult};
 use crate::eval::{Args, Array, EvalContext, Scope, Str, Template, Value};
 use crate::font::{FontFamily, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
-use crate::layout::LayoutNode;
 use crate::style::Style;
 use crate::syntax::{Span, Spanned};
 

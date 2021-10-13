@@ -50,8 +50,9 @@ impl PageRun {
 }
 
 /// A dynamic layouting node.
+#[derive(Clone)]
 pub struct LayoutNode {
-    node: Box<dyn Layout>,
+    node: Rc<dyn Layout>,
     #[cfg(feature = "layout-cache")]
     hash: u64,
 }
@@ -63,7 +64,7 @@ impl LayoutNode {
     where
         T: Layout + 'static,
     {
-        Self { node: Box::new(node) }
+        Self { node: Rc::new(node) }
     }
 
     /// Create a new instance from any node that satisifies the required bounds.
@@ -79,7 +80,7 @@ impl LayoutNode {
             state.finish()
         };
 
-        Self { node: Box::new(node), hash }
+        Self { node: Rc::new(node), hash }
     }
 }
 
@@ -99,10 +100,16 @@ impl Layout for LayoutNode {
             ctx.level -= 1;
 
             let entry = FramesEntry::new(frames.clone(), ctx.level);
-            debug_assert!(
-                entry.check(regions),
-                "constraints did not match regions they were created for",
-            );
+
+            #[cfg(debug_assertions)]
+            if !entry.check(regions) {
+                eprintln!("regions: {:#?}", regions);
+                eprintln!(
+                    "constraints: {:#?}",
+                    frames.iter().map(|c| c.constraints).collect::<Vec<_>>()
+                );
+                panic!("constraints did not match regions they were created for");
+            }
 
             ctx.layouts.insert(self.hash, entry);
             frames

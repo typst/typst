@@ -1,6 +1,10 @@
 // Test the `ellipse` function.
 
 ---
+// Default ellipse.
+#ellipse()
+
+---
 100% rect in 100% ellipse in fixed rect. \
 #rect(width: 3cm, height: 2cm, fill: rgb("2a631a"),
   ellipse(width: 100%, height: 100%, fill: forest,

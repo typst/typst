@@ -1,6 +1,10 @@
 // Test the `circle` function.
 
 ---
+// Default circle.
+#circle()
+
+---
 // Test auto sizing.
 
 Auto-sized circle. \
@@ -29,20 +33,15 @@ Expanded by height.
 
 ---
 // Test relative sizing.
-#rect(width: 100%, height: 50pt, fill: rgb("aaa"))[
+#rect(width: 100pt, height: 50pt, fill: rgb("aaa"))[
   #align(center, center)
   #font(fill: white)
-  #circle(radius: 10pt, fill: eastern)[A]
-  #circle(height: 60%, fill: eastern)[B]
-  #circle(width: 20% + 20pt, fill: eastern)[C]
+  #circle(radius: 10pt, fill: eastern)[A]      // D=20pt
+  #circle(height: 60%, fill: eastern)[B]       // D=30pt
+  #circle(width: 20% + 20pt, fill: eastern)[C] // D=40pt
 ]
 
 ---
 // Radius wins over width and height.
 // Error: 23-34 unexpected argument
 #circle(radius: 10pt, width: 50pt, height: 100pt, fill: eastern)
-
----
-// Width wins over height.
-// Error: 9-21 unexpected argument
-#circle(height: 50pt, width: 20pt, fill: eastern)

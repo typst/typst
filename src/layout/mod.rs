@@ -1,8 +1,6 @@
 //! Layouting.
 
-mod background;
 mod constraints;
-mod fixed;
 mod frame;
 mod grid;
 mod image;
@@ -11,14 +9,13 @@ mod incremental;
 mod pad;
 mod par;
 mod regions;
+mod shape;
 mod shaping;
 mod stack;
 mod tree;
 
 pub use self::image::*;
-pub use background::*;
 pub use constraints::*;
-pub use fixed::*;
 pub use frame::*;
 pub use grid::*;
 #[cfg(feature = "layout-cache")]
@@ -26,6 +23,7 @@ pub use incremental::*;
 pub use pad::*;
 pub use par::*;
 pub use regions::*;
+pub use shape::*;
 pub use shaping::*;
 pub use stack::*;
 pub use tree::*;
