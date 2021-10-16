@@ -33,19 +33,6 @@
 )
 
 ---
-#page(height: 3cm, width: 2cm)
-#grid(
-  columns: (1fr, 1cm, 1fr, 1fr),
-  column-dir: ttb,
-  rows: (auto, 1fr),
-  rect(height: 100%, fill: rgb("222222"))[foo],
-  rect(height: 100%, fill: rgb("547d0a"))[bar],
-  rect(height: 100%, fill: eastern)[hab],
-  rect(height: 100%, fill: conifer)[baz],
-  rect(height: 100%, width: 100%, fill: rgb("547d0a"))[bar],
-)
-
----
 #page(height: 3cm, margins: 0pt)
 #align(center)
 #grid(

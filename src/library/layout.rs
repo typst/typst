@@ -266,49 +266,26 @@ pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
     let columns = args.named("columns")?.unwrap_or_default();
     let rows = args.named("rows")?.unwrap_or_default();
-    let tracks = Gen::new(columns, rows);
+    let tracks = Spec::new(columns, rows);
 
     let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
     let column_gutter = args.named("column-gutter")?;
     let row_gutter = args.named("row-gutter")?;
-    let gutter = Gen::new(
+    let gutter = Spec::new(
         column_gutter.unwrap_or_else(|| base_gutter.clone()),
         row_gutter.unwrap_or(base_gutter),
     );
 
-    let column_dir = args.named("column-dir")?;
-    let row_dir = args.named("row-dir")?;
-
     let children: Vec<Template> = args.all().collect();
 
     Ok(Value::Template(Template::from_block(move |style| {
-        // If the directions become aligned, try to fix up the direction which
-        // is not user-defined.
-        let mut dirs =
-            Gen::new(column_dir.unwrap_or(style.dir), row_dir.unwrap_or(Dir::TTB));
-
-        if dirs.block.axis() == dirs.inline.axis() {
-            let target = if column_dir.is_some() {
-                &mut dirs.block
-            } else {
-                &mut dirs.inline
-            };
-
-            *target = if target.axis() == style.dir.axis() {
-                Dir::TTB
-            } else {
-                style.dir
-            };
-        }
-
-        let children =
-            children.iter().map(|child| child.to_stack(&style).into()).collect();
-
         GridNode {
-            dirs,
             tracks: tracks.clone(),
             gutter: gutter.clone(),
-            children,
+            children: children
+                .iter()
+                .map(|child| child.to_stack(&style).into())
+                .collect(),
         }
     })))
 }

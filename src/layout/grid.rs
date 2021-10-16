@@ -4,12 +4,10 @@ use super::*;
 #[derive(Debug)]
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub struct GridNode {
-    /// The inline (columns) and block (rows) directions of this grid.
-    pub dirs: Gen<Dir>,
     /// Defines sizing for content rows and columns.
-    pub tracks: Gen<Vec<TrackSizing>>,
+    pub tracks: Spec<Vec<TrackSizing>>,
     /// Defines sizing of gutter rows and columns between content.
-    pub gutter: Gen<Vec<TrackSizing>>,
+    pub gutter: Spec<Vec<TrackSizing>>,
     /// The nodes to be arranged in a grid.
     pub children: Vec<LayoutNode>,
 }
@@ -50,10 +48,6 @@ impl From<GridNode> for LayoutNode {
 
 /// Performs grid layout.
 struct GridLayouter<'a> {
-    /// The axis of the inline direction.
-    inline: SpecAxis,
-    /// The axis of the block direction.
-    block: SpecAxis,
     /// The original expand state of the target region.
     expand: Spec<bool>,
     /// The column tracks including gutter tracks.
@@ -68,15 +62,15 @@ struct GridLayouter<'a> {
     rcols: Vec<Length>,
     /// The full block size of the current region.
     full: Length,
-    /// The used-up size of the current region. The inline size is determined
-    /// once after columns are resolved and not touched again.
-    used: Gen<Length>,
+    /// The used-up size of the current region. The horizontal size is
+    /// determined once after columns are resolved and not touched again.
+    used: Size,
     /// The sum of fractional ratios in the current region.
     fr: Fractional,
     /// Rows in the current region.
     lrows: Vec<Row>,
     /// Constraints for the active region.
-    constraints: Constraints,
+    cts: Constraints,
     /// Frames for finished regions.
     finished: Vec<Constrained<Rc<Frame>>>,
 }
@@ -97,13 +91,13 @@ impl<'a> GridLayouter<'a> {
         let mut rows = vec![];
 
         // Number of content columns: Always at least one.
-        let c = grid.tracks.inline.len().max(1);
+        let c = grid.tracks.x.len().max(1);
 
         // Number of content rows: At least as many as given, but also at least
         // as many as needed to place each item.
         let r = {
             let len = grid.children.len();
-            let given = grid.tracks.block.len();
+            let given = grid.tracks.y.len();
             let needed = len / c + (len % c).clamp(0, 1);
             given.max(needed)
         };
@@ -116,42 +110,38 @@ impl<'a> GridLayouter<'a> {
 
         // Collect content and gutter columns.
         for x in 0 .. c {
-            cols.push(get_or(&grid.tracks.inline, x, auto));
-            cols.push(get_or(&grid.gutter.inline, x, zero));
+            cols.push(get_or(&grid.tracks.x, x, auto));
+            cols.push(get_or(&grid.gutter.x, x, zero));
         }
 
         // Collect content and gutter rows.
         for y in 0 .. r {
-            rows.push(get_or(&grid.tracks.block, y, auto));
-            rows.push(get_or(&grid.gutter.block, y, zero));
+            rows.push(get_or(&grid.tracks.y, y, auto));
+            rows.push(get_or(&grid.gutter.y, y, zero));
         }
 
         // Remove superfluous gutter tracks.
         cols.pop();
         rows.pop();
 
-        let inline = grid.dirs.inline.axis();
-        let block = grid.dirs.block.axis();
-        let full = regions.current.get(block);
+        let full = regions.current.h;
         let rcols = vec![Length::zero(); cols.len()];
 
         // We use the regions only for auto row measurement and constraints.
         let expand = regions.expand;
-        regions.expand = Gen::new(true, false).to_spec(block);
+        regions.expand = Spec::new(true, false);
 
         Self {
-            inline,
-            block,
             cols,
             rows,
             children: &grid.children,
-            constraints: Constraints::new(expand),
+            cts: Constraints::new(expand),
             regions,
             expand,
             rcols,
             lrows: vec![],
             full,
-            used: Gen::zero(),
+            used: Size::zero(),
             fr: Fractional::zero(),
             finished: vec![],
         }
@@ -165,10 +155,6 @@ impl<'a> GridLayouter<'a> {
             Exact,
             Overflowing,
         }
-
-        // Generic version of current and base size.
-        let current = self.regions.current.get(self.inline);
-        let base = self.regions.base.get(self.inline);
 
         // The different cases affecting constraints.
         let mut case = Case::PurelyLinear;
@@ -187,7 +173,7 @@ impl<'a> GridLayouter<'a> {
                     case = Case::Fitting;
                 }
                 TrackSizing::Linear(v) => {
-                    let resolved = v.resolve(base);
+                    let resolved = v.resolve(self.regions.base.w);
                     *rcol = resolved;
                     linear += resolved;
                 }
@@ -199,7 +185,7 @@ impl<'a> GridLayouter<'a> {
         }
 
         // Size that is not used by fixed-size columns.
-        let available = current - linear;
+        let available = self.regions.current.w - linear;
         if available >= Length::zero() {
             // Determine size of auto columns.
             let (auto, count) = self.measure_auto_columns(ctx, available);
@@ -221,24 +207,18 @@ impl<'a> GridLayouter<'a> {
         }
 
         // Children could depend on base.
-        self.constraints.base = self.regions.base.to_spec().map(Some);
+        self.cts.base = self.regions.base.to_spec().map(Some);
 
         // Set constraints depending on the case we hit.
         match case {
             Case::PurelyLinear => {}
-            Case::Fitting => {
-                self.constraints.min.set(self.inline, Some(self.used.inline));
-            }
-            Case::Exact => {
-                self.constraints.exact.set(self.inline, Some(current));
-            }
-            Case::Overflowing => {
-                self.constraints.max.set(self.inline, Some(linear));
-            }
+            Case::Fitting => self.cts.min.x = Some(self.used.w),
+            Case::Exact => self.cts.exact.x = Some(self.regions.current.w),
+            Case::Overflowing => self.cts.max.x = Some(linear),
         }
 
         // Sum up the resolved column sizes once here.
-        self.used.inline = self.rcols.iter().sum();
+        self.used.w = self.rcols.iter().sum();
     }
 
     /// Measure the size that is available to auto columns.
@@ -247,8 +227,6 @@ impl<'a> GridLayouter<'a> {
         ctx: &mut LayoutContext,
         available: Length,
     ) -> (Length, usize) {
-        let base = self.regions.base.get(self.block);
-
         let mut auto = Length::zero();
         let mut count = 0;
 
@@ -262,7 +240,7 @@ impl<'a> GridLayouter<'a> {
             let mut resolved = Length::zero();
             for y in 0 .. self.rows.len() {
                 if let Some(node) = self.cell(x, y) {
-                    let size = Gen::new(available, Length::inf()).to_size(self.block);
+                    let size = Size::new(available, Length::inf());
                     let mut regions =
                         Regions::one(size, self.regions.base, Spec::splat(false));
 
@@ -270,11 +248,11 @@ impl<'a> GridLayouter<'a> {
                     // base, for auto it's already correct and for fr we could
                     // only guess anyway.
                     if let TrackSizing::Linear(v) = self.rows[y] {
-                        regions.base.set(self.block, v.resolve(base));
+                        regions.base.h = v.resolve(self.regions.base.h);
                     }
 
                     let frame = node.layout(ctx, &regions).remove(0).item;
-                    resolved.set_max(frame.size.get(self.inline));
+                    resolved.set_max(frame.size.w);
                 }
             }
 
@@ -336,7 +314,7 @@ impl<'a> GridLayouter<'a> {
                 TrackSizing::Linear(v) => self.layout_linear_row(ctx, v, y),
                 TrackSizing::Fractional(v) => {
                     self.fr += v;
-                    self.constraints.exact.set(self.block, Some(self.full));
+                    self.cts.exact.y = Some(self.full);
                     self.lrows.push(Row::Fr(v, y));
                 }
             }
@@ -349,27 +327,22 @@ impl<'a> GridLayouter<'a> {
     /// Layout a row with automatic size along the block axis. Such a row may
     /// break across multiple regions.
     fn layout_auto_row(&mut self, ctx: &mut LayoutContext, y: usize) {
-        let base = self.regions.base.get(self.inline);
         let mut resolved: Vec<Length> = vec![];
 
         // Determine the size for each region of the row.
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(node) = self.cell(x, y) {
-                let inline = self.inline;
-
                 let mut regions = self.regions.clone();
-                regions.mutate(|size| size.set(inline, rcol));
+                regions.mutate(|size| size.w = rcol);
 
-                // Set the inline base back to the parent region's inline base
-                // for auto columns.
+                // Set the horizontal base back to the parent region's base for
+                // auto columns.
                 if self.cols[x] == TrackSizing::Auto {
-                    regions.base.set(self.inline, base);
+                    regions.base.w = self.regions.base.w;
                 }
 
-                let mut sizes = node
-                    .layout(ctx, &regions)
-                    .into_iter()
-                    .map(|frame| frame.item.size.get(self.block));
+                let mut sizes =
+                    node.layout(ctx, &regions).into_iter().map(|frame| frame.item.size.h);
 
                 for (target, size) in resolved.iter_mut().zip(&mut sizes) {
                     target.set_max(size);
@@ -398,7 +371,7 @@ impl<'a> GridLayouter<'a> {
             for (target, (current, _)) in
                 resolved[.. len - 1].iter_mut().zip(self.regions.iter())
             {
-                target.set_max(current.get(self.block));
+                target.set_max(current.h);
             }
         }
 
@@ -408,7 +381,7 @@ impl<'a> GridLayouter<'a> {
         for (i, frame) in frames.into_iter().enumerate() {
             self.push_row(frame);
             if i + 1 < len {
-                self.constraints.exact.set(self.block, Some(self.full));
+                self.cts.exact.y = Some(self.full);
                 self.finish_region(ctx);
             }
         }
@@ -417,16 +390,13 @@ impl<'a> GridLayouter<'a> {
     /// Layout a row with linear sizing along the block axis. Such a row cannot
     /// break across multiple regions, but it may force a region break.
     fn layout_linear_row(&mut self, ctx: &mut LayoutContext, v: Linear, y: usize) {
-        let base = self.regions.base.get(self.block);
-        let resolved = v.resolve(base);
+        let resolved = v.resolve(self.regions.base.h);
         let frame = self.layout_single_row(ctx, resolved, y);
 
         // Skip to fitting region.
-        let length = frame.size.get(self.block);
-        while !self.regions.current.get(self.block).fits(length)
-            && !self.regions.in_full_last()
-        {
-            self.constraints.max.set(self.block, Some(self.used.block + length));
+        let length = frame.size.h;
+        while !self.regions.current.h.fits(length) && !self.regions.in_full_last() {
+            self.cts.max.y = Some(self.used.h + length);
             self.finish_region(ctx);
 
             // Don't skip multiple regions for gutter and don't push a row.
@@ -442,34 +412,31 @@ impl<'a> GridLayouter<'a> {
     fn layout_single_row(
         &self,
         ctx: &mut LayoutContext,
-        block: Length,
+        height: Length,
         y: usize,
     ) -> Frame {
-        let size = self.complete(block);
-
-        let mut output = Frame::new(size, size.h);
-        let mut pos = Gen::zero();
+        let mut output = Frame::new(Size::new(self.used.w, height), height);
+        let mut pos = Point::zero();
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(node) = self.cell(x, y) {
-                let size = Gen::new(rcol, block).to_size(self.block);
-                let mut base = self.regions.base;
+                let size = Size::new(rcol, height);
 
                 // Set the base to the size for non-auto rows.
-                let sizing = Gen::new(self.cols[x], self.rows[y]).to_spec(self.block);
-                if sizing.x != TrackSizing::Auto {
+                let mut base = self.regions.base;
+                if self.cols[x] != TrackSizing::Auto {
                     base.w = size.w;
                 }
-                if sizing.y != TrackSizing::Auto {
+                if self.rows[y] != TrackSizing::Auto {
                     base.h = size.h;
                 }
 
                 let regions = Regions::one(size, base, Spec::splat(true));
                 let frame = node.layout(ctx, &regions).remove(0);
-                output.push_frame(pos.to_point(self.block), frame.item);
+                output.push_frame(pos, frame.item);
             }
 
-            pos.inline += rcol;
+            pos.x += rcol;
         }
 
         output
@@ -482,44 +449,41 @@ impl<'a> GridLayouter<'a> {
         resolved: &[Length],
         y: usize,
     ) -> Vec<Frame> {
-        let base = self.regions.base.get(self.inline);
-
         // Prepare frames.
         let mut outputs: Vec<_> = resolved
             .iter()
-            .map(|&v| self.complete(v))
-            .map(|size| Frame::new(size, size.h))
+            .map(|&h| Frame::new(Size::new(self.used.w, h), h))
             .collect();
 
         // Prepare regions.
-        let size = self.complete(resolved[0]);
+        let size = Size::new(self.used.w, resolved[0]);
         let mut regions = Regions::one(size, self.regions.base, Spec::splat(true));
         regions.backlog = resolved[1 ..]
             .iter()
-            .map(|&v| self.complete(v))
+            .map(|&h| Size::new(self.used.w, h))
             .collect::<Vec<_>>()
             .into_iter();
 
         // Layout the row.
-        let mut pos = Gen::zero();
+        let mut pos = Point::zero();
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(node) = self.cell(x, y) {
-                regions.mutate(|size| size.set(self.inline, rcol));
+                regions.mutate(|size| size.w = rcol);
 
-                // Set the inline base back to the parent region's inline base
-                // for auto columns.
+                // Set the horizontal base back to the parent region's base for
+                // auto columns.
                 if self.cols[x] == TrackSizing::Auto {
-                    regions.base.set(self.inline, base);
+                    regions.base.w = self.regions.base.w;
                 }
 
                 // Push the layouted frames into the individual output frames.
                 let frames = node.layout(ctx, &regions);
                 for (output, frame) in outputs.iter_mut().zip(frames) {
-                    output.push_frame(pos.to_point(self.block), frame.item);
+                    output.push_frame(pos, frame.item);
                 }
             }
 
-            pos.inline += rcol;
+            pos.x += rcol;
         }
 
         outputs
@@ -527,30 +491,28 @@ impl<'a> GridLayouter<'a> {
 
     /// Push a row frame into the current region.
     fn push_row(&mut self, frame: Frame) {
-        let length = frame.size.get(self.block);
-        *self.regions.current.get_mut(self.block) -= length;
-        self.used.block += length;
+        self.regions.current.h -= frame.size.h;
+        self.used.h += frame.size.h;
         self.lrows.push(Row::Frame(frame));
     }
 
     /// Finish rows for one region.
     fn finish_region(&mut self, ctx: &mut LayoutContext) {
-        // Determine the block size of the region.
-        let block = if self.fr.is_zero() || self.full.is_infinite() {
-            self.used.block
+        // Determine the height of the region's frame.
+        let height = if self.fr.is_zero() || self.full.is_infinite() {
+            self.used.h
         } else {
             self.full
         };
 
-        let size = self.complete(block);
-        self.constraints.min.set(self.block, Some(block));
+        self.cts.min.y = Some(height);
 
         // The frame for the region.
-        let mut output = Frame::new(size, size.h);
-        let mut pos = Gen::zero();
+        let mut output = Frame::new(Size::new(self.used.w, height), height);
+        let mut pos = Point::zero();
 
-        // Determine the remaining size for fractional rows.
-        let remaining = self.full - self.used.block;
+        // Determine the size that remains for fractional rows.
+        let remaining = self.full - self.used.h;
 
         // Place finished rows and layout fractional rows.
         for row in std::mem::take(&mut self.lrows) {
@@ -567,17 +529,17 @@ impl<'a> GridLayouter<'a> {
                 }
             };
 
-            let point = pos.to_point(self.block);
-            pos.block += frame.size.get(self.block);
-            output.merge_frame(point, frame);
+            let height = frame.size.h;
+            output.merge_frame(pos, frame);
+            pos.y += height;
         }
 
         self.regions.next();
-        self.full = self.regions.current.get(self.block);
-        self.used.block = Length::zero();
+        self.full = self.regions.current.h;
+        self.used.h = Length::zero();
         self.fr = Fractional::zero();
-        self.finished.push(output.constrain(self.constraints));
-        self.constraints = Constraints::new(self.expand);
+        self.finished.push(output.constrain(self.cts));
+        self.cts = Constraints::new(self.expand);
     }
 
     /// Get the node in the cell in column `x` and row `y`.
@@ -595,11 +557,5 @@ impl<'a> GridLayouter<'a> {
         } else {
             None
         }
-    }
-
-    /// Return a size where the inline axis spans the whole grid and the block
-    /// axis the given length.
-    fn complete(&self, block: Length) -> Size {
-        Gen::new(self.used.inline, block).to_size(self.block)
     }
 }
