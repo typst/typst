@@ -98,7 +98,7 @@ impl<T: Debug> Debug for Gen<T> {
 }
 
 /// The two generic layouting axes.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum GenAxis {
     /// The axis words and lines are set along.
     Inline,

@@ -103,6 +103,7 @@ impl Layout for LayoutNode {
 
             #[cfg(debug_assertions)]
             if !entry.check(regions) {
+                eprintln!("node: {:#?}", self.node);
                 eprintln!("regions: {:#?}", regions);
                 eprintln!(
                     "constraints: {:#?}",

@@ -12,15 +12,6 @@ pub struct StackNode {
     pub children: Vec<StackChild>,
 }
 
-/// A child of a stack node.
-#[cfg_attr(feature = "layout-cache", derive(Hash))]
-pub enum StackChild {
-    /// Spacing between other nodes.
-    Spacing(Linear),
-    /// Any child node and how to align it in the stack.
-    Any(LayoutNode, Align),
-}
-
 impl Layout for StackNode {
     fn layout(
         &self,
@@ -37,12 +28,31 @@ impl From<StackNode> for LayoutNode {
     }
 }
 
+/// A child of a stack node.
+#[cfg_attr(feature = "layout-cache", derive(Hash))]
+pub struct StackChild {
+    /// The node itself.
+    pub node: LayoutNode,
+    /// How to align the node along the block axis.
+    pub align: Align,
+}
+
+impl StackChild {
+    /// Create a new stack child.
+    pub fn new(node: impl Into<LayoutNode>, align: Align) -> Self {
+        Self { node: node.into(), align }
+    }
+
+    /// Create a spacing stack child.
+    pub fn spacing(amount: impl Into<Linear>, axis: SpecAxis) -> Self {
+        Self::new(SpacingNode { amount: amount.into(), axis }, Align::Start)
+    }
+}
+
 impl Debug for StackChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Spacing(v) => write!(f, "Spacing({:?})", v),
-            Self::Any(node, _) => node.fmt(f),
-        }
+        write!(f, "{:?}: ", self.align)?;
+        self.node.fmt(f)
     }
 }
 
@@ -51,7 +61,7 @@ struct StackLayouter<'a> {
     /// The stack node to layout.
     stack: &'a StackNode,
     /// The axis of the block direction.
-    block: SpecAxis,
+    axis: SpecAxis,
     /// Whether the stack should expand to fill the region.
     expand: Spec<bool>,
     /// The region to layout into.
@@ -63,10 +73,6 @@ struct StackLayouter<'a> {
     used: Gen<Length>,
     /// The alignment ruler for the current region.
     ruler: Align,
-    /// The constraints for the current region.
-    constraints: Constraints,
-    /// Whether the last region can fit all the remaining content.
-    overflowing: bool,
     /// Offset, alignment and frame for all children that fit into the current
     /// region. The exact positions are not known yet.
     frames: Vec<(Length, Align, Rc<Frame>)>,
@@ -77,23 +83,21 @@ struct StackLayouter<'a> {
 impl<'a> StackLayouter<'a> {
     /// Create a new stack layouter.
     fn new(stack: &'a StackNode, mut regions: Regions) -> Self {
-        let block = stack.dir.axis();
+        let axis = stack.dir.axis();
         let full = regions.current;
         let expand = regions.expand;
 
         // Disable expansion along the block axis for children.
-        regions.expand.set(block, false);
+        regions.expand.set(axis, false);
 
         Self {
             stack,
-            block,
+            axis,
             expand,
             regions,
             full,
             used: Gen::zero(),
             ruler: Align::Start,
-            constraints: Constraints::new(expand),
-            overflowing: false,
             frames: vec![],
             finished: vec![],
         }
@@ -102,17 +106,12 @@ impl<'a> StackLayouter<'a> {
     /// Layout all children.
     fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
         for child in &self.stack.children {
-            match *child {
-                StackChild::Spacing(amount) => self.space(amount),
-                StackChild::Any(ref node, align) => {
-                    let nodes = node.layout(ctx, &self.regions);
-                    let len = nodes.len();
-                    for (i, frame) in nodes.into_iter().enumerate() {
-                        if i + 1 < len {
-                            self.constraints.exact = self.full.to_spec().map(Some);
-                        }
-                        self.push_frame(frame.item, align);
-                    }
+            let frames = child.node.layout(ctx, &self.regions);
+            let len = frames.len();
+            for (i, frame) in frames.into_iter().enumerate() {
+                self.push_frame(frame.item, child.align);
+                if i + 1 < len {
+                    self.finish_region();
                 }
             }
         }
@@ -121,96 +120,37 @@ impl<'a> StackLayouter<'a> {
         self.finished
     }
 
-    /// Add block-axis spacing into the current region.
-    fn space(&mut self, amount: Linear) {
-        // Resolve the linear.
-        let full = self.full.get(self.block);
-        let resolved = amount.resolve(full);
-
-        // Cap the spacing to the remaining available space. This action does
-        // not directly affect the constraints because of the cap.
-        let remaining = self.regions.current.get_mut(self.block);
-        let capped = resolved.min(*remaining);
-
-        // Grow our size and shrink the available space in the region.
-        self.used.block += capped;
-        *remaining -= capped;
-    }
-
-    /// Push a frame into the current or next fitting region, finishing regions
-    /// if necessary.
+    /// Push a frame into the current region.
     fn push_frame(&mut self, frame: Rc<Frame>, align: Align) {
-        let size = frame.size.to_gen(self.block);
-
-        // Don't allow `Start` after `End` in the same region.
-        if align < self.ruler {
-            self.finish_region();
-        }
-
-        // Find a fitting region.
-        while !self.regions.current.get(self.block).fits(size.block) {
-            if self.regions.in_full_last() {
-                self.overflowing = true;
-                break;
-            }
-
-            self.constraints
-                .max
-                .get_mut(self.block)
-                .set_min(self.used.block + size.block);
-
-            self.finish_region();
-        }
-
-        // Shrink available space in the region.
-        *self.regions.current.get_mut(self.block) -= size.block;
-
         // Grow our size.
         let offset = self.used.block;
+        let size = frame.size.to_gen(self.axis);
         self.used.block += size.block;
         self.used.inline.set_max(size.inline);
-        self.ruler = align;
+        self.ruler = self.ruler.max(align);
 
-        // Remember the frame with offset and alignment.
-        self.frames.push((offset, align, frame));
+        // Remember the frame and shrink available space in the region for the
+        // following children.
+        self.frames.push((offset, self.ruler, frame));
+        *self.regions.current.get_mut(self.axis) -= size.block;
     }
 
     /// Finish the frame for one region.
     fn finish_region(&mut self) {
-        let expand = self.expand;
-        let used = self.used.to_size(self.block);
-
         // Determine the stack's size dependening on whether the region expands.
+        let used = self.used.to_size(self.axis);
         let size = Size::new(
-            if expand.x {
-                self.constraints.exact.x = Some(self.full.w);
-                self.full.w
-            } else {
-                self.constraints.min.x = Some(used.w.min(self.full.w));
-                used.w
-            },
-            if expand.y {
-                self.constraints.exact.y = Some(self.full.h);
-                self.full.h
-            } else {
-                self.constraints.min.y = Some(used.h.min(self.full.h));
-                used.h
-            },
+            if self.expand.x { self.full.w } else { used.w },
+            if self.expand.y { self.full.h } else { used.h },
         );
-
-        if self.overflowing {
-            self.constraints.min.y = None;
-            self.constraints.max.y = None;
-            self.constraints.exact = self.full.to_spec().map(Some);
-        }
 
         let mut output = Frame::new(size, size.h);
         let mut first = true;
 
         // Place all frames.
         for (offset, align, frame) in self.frames.drain(..) {
-            let stack_size = size.to_gen(self.block);
-            let child_size = frame.size.to_gen(self.block);
+            let stack_size = size.to_gen(self.axis);
+            let child_size = frame.size.to_gen(self.axis);
 
             // Align along the block axis.
             let block = align.resolve(
@@ -224,7 +164,7 @@ impl<'a> StackLayouter<'a> {
                 },
             );
 
-            let pos = Gen::new(Length::zero(), block).to_point(self.block);
+            let pos = Gen::new(Length::zero(), block).to_point(self.axis);
 
             // The baseline of the stack is that of the first frame.
             if first {
@@ -235,11 +175,15 @@ impl<'a> StackLayouter<'a> {
             output.push_frame(pos, frame);
         }
 
+        // Generate tight constraints for now.
+        let mut cts = Constraints::new(self.expand);
+        cts.exact = self.full.to_spec().map(Some);
+        cts.base = self.regions.base.to_spec().map(Some);
+
         self.regions.next();
         self.full = self.regions.current;
         self.used = Gen::zero();
         self.ruler = Align::Start;
-        self.finished.push(output.constrain(self.constraints));
-        self.constraints = Constraints::new(expand);
+        self.finished.push(output.constrain(cts));
     }
 }

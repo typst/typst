@@ -11,6 +11,7 @@ mod par;
 mod regions;
 mod shape;
 mod shaping;
+mod spacing;
 mod stack;
 mod tree;
 
@@ -25,6 +26,7 @@ pub use par::*;
 pub use regions::*;
 pub use shape::*;
 pub use shaping::*;
+pub use spacing::*;
 pub use stack::*;
 pub use tree::*;
 

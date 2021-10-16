@@ -101,7 +101,7 @@ impl<T: Debug> Debug for Spec<T> {
 }
 
 /// The two specific layouting axes.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum SpecAxis {
     /// The horizontal layouting axis.
     Horizontal,

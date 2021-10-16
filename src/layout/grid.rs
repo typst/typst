@@ -330,18 +330,10 @@ impl<'a> GridLayouter<'a> {
 
     /// Layout the grid row-by-row.
     fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
-        let base = self.regions.base.get(self.block);
-
         for y in 0 .. self.rows.len() {
             match self.rows[y] {
-                TrackSizing::Auto => {
-                    self.layout_auto_row(ctx, y);
-                }
-                TrackSizing::Linear(v) => {
-                    let resolved = v.resolve(base);
-                    let frame = self.layout_single_row(ctx, resolved, y);
-                    self.push_row(ctx, frame);
-                }
+                TrackSizing::Auto => self.layout_auto_row(ctx, y),
+                TrackSizing::Linear(v) => self.layout_linear_row(ctx, v, y),
                 TrackSizing::Fractional(v) => {
                     self.fr += v;
                     self.constraints.exact.set(self.block, Some(self.full));
@@ -395,7 +387,7 @@ impl<'a> GridLayouter<'a> {
         // Layout into a single region.
         if let &[first] = resolved.as_slice() {
             let frame = self.layout_single_row(ctx, first, y);
-            self.push_row(ctx, frame);
+            self.push_row(frame);
             return;
         }
 
@@ -414,14 +406,39 @@ impl<'a> GridLayouter<'a> {
         let frames = self.layout_multi_row(ctx, &resolved, y);
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
+            self.push_row(frame);
             if i + 1 < len {
                 self.constraints.exact.set(self.block, Some(self.full));
+                self.finish_region(ctx);
             }
-            self.push_row(ctx, frame);
         }
     }
 
-    /// Layout a row with a fixed size along the block axis.
+    /// Layout a row with linear sizing along the block axis. Such a row cannot
+    /// break across multiple regions, but it may force a region break.
+    fn layout_linear_row(&mut self, ctx: &mut LayoutContext, v: Linear, y: usize) {
+        let base = self.regions.base.get(self.block);
+        let resolved = v.resolve(base);
+        let frame = self.layout_single_row(ctx, resolved, y);
+
+        // Skip to fitting region.
+        let length = frame.size.get(self.block);
+        while !self.regions.current.get(self.block).fits(length)
+            && !self.regions.in_full_last()
+        {
+            self.constraints.max.set(self.block, Some(self.used.block + length));
+            self.finish_region(ctx);
+
+            // Don't skip multiple regions for gutter and don't push a row.
+            if y % 2 == 1 {
+                return;
+            }
+        }
+
+        self.push_row(frame);
+    }
+
+    /// Layout a row with a fixed size along the block axis and return its frame.
     fn layout_single_row(
         &self,
         ctx: &mut LayoutContext,
@@ -508,19 +525,9 @@ impl<'a> GridLayouter<'a> {
         outputs
     }
 
-    /// Push a row frame into the current or next fitting region, finishing
-    /// regions (including layouting fractional rows) if necessary.
-    fn push_row(&mut self, ctx: &mut LayoutContext, frame: Frame) {
+    /// Push a row frame into the current region.
+    fn push_row(&mut self, frame: Frame) {
         let length = frame.size.get(self.block);
-
-        // Skip to fitting region.
-        while !self.regions.current.get(self.block).fits(length)
-            && !self.regions.in_full_last()
-        {
-            self.constraints.max.set(self.block, Some(self.used.block + length));
-            self.finish_region(ctx);
-        }
-
         *self.regions.current.get_mut(self.block) -= length;
         self.used.block += length;
         self.lrows.push(Row::Frame(frame));

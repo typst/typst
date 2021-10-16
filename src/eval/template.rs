@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use super::Str;
 use crate::diag::StrResult;
-use crate::geom::{Align, Dir, GenAxis, Length, Linear, Sides, Size};
+use crate::geom::{Align, Dir, GenAxis, Length, Linear, Sides, Size, SpecAxis};
 use crate::layout::{
     Decoration, LayoutNode, LayoutTree, PadNode, PageRun, ParChild, ParNode, StackChild,
     StackNode,
@@ -309,7 +309,7 @@ impl Builder {
     fn parbreak(&mut self) {
         let amount = self.style.par_spacing();
         self.stack.finish_par(&self.style);
-        self.stack.push_soft(StackChild::Spacing(amount.into()));
+        self.stack.push_soft(StackChild::spacing(amount, SpecAxis::Vertical));
     }
 
     /// Apply a forced page break.
@@ -335,7 +335,7 @@ impl Builder {
     /// Push a block node into the active stack, finishing the active paragraph.
     fn block(&mut self, node: impl Into<LayoutNode>) {
         self.parbreak();
-        self.stack.push(StackChild::Any(node.into(), self.style.aligns.block));
+        self.stack.push(StackChild::new(node, self.style.aligns.block));
         self.parbreak();
     }
 
@@ -344,7 +344,7 @@ impl Builder {
         match axis {
             GenAxis::Block => {
                 self.stack.finish_par(&self.style);
-                self.stack.push_hard(StackChild::Spacing(amount));
+                self.stack.push_hard(StackChild::spacing(amount, SpecAxis::Vertical));
             }
             GenAxis::Inline => {
                 self.stack.par.push_hard(ParChild::Spacing(amount));
@@ -508,10 +508,8 @@ impl ParBuilder {
 
     fn build(self) -> Option<StackChild> {
         let Self { align, dir, line_spacing, children, .. } = self;
-        (!children.is_empty()).then(|| {
-            let node = ParNode { dir, line_spacing, children };
-            StackChild::Any(node.into(), align)
-        })
+        (!children.is_empty())
+            .then(|| StackChild::new(ParNode { dir, line_spacing, children }, align))
     }
 }
 

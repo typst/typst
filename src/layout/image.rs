@@ -23,18 +23,18 @@ impl Layout for ImageNode {
         let pixel_size = Spec::new(img.width() as f64, img.height() as f64);
         let pixel_ratio = pixel_size.x / pixel_size.y;
 
-        let mut constraints = Constraints::new(regions.expand);
-        constraints.set_base_if_linear(regions.base, Spec::new(self.width, self.height));
-
         let width = self.width.map(|w| w.resolve(regions.base.w));
         let height = self.height.map(|w| w.resolve(regions.base.h));
+
+        let mut cts = Constraints::new(regions.expand);
+        cts.set_base_if_linear(regions.base, Spec::new(self.width, self.height));
 
         let size = match (width, height) {
             (Some(width), Some(height)) => Size::new(width, height),
             (Some(width), None) => Size::new(width, width / pixel_ratio),
             (None, Some(height)) => Size::new(height * pixel_ratio, height),
             (None, None) => {
-                constraints.exact.x = Some(regions.current.w);
+                cts.exact.x = Some(regions.current.w);
                 if regions.current.w.is_finite() {
                     // Fit to width.
                     Size::new(regions.current.w, regions.current.w / pixel_ratio)
@@ -48,7 +48,7 @@ impl Layout for ImageNode {
 
         let mut frame = Frame::new(size, size.h);
         frame.push(Point::zero(), Element::Image(self.id, size));
-        vec![frame.constrain(constraints)]
+        vec![frame.constrain(cts)]
     }
 }
 

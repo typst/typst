@@ -76,7 +76,7 @@ impl<T> Get<Side> for Sides<T> {
 }
 
 /// The four sides of objects.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Side {
     /// The left side.
     Left,

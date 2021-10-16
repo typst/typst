@@ -46,7 +46,8 @@ impl Layout for ShapeNode {
             let mut cts = Constraints::new(regions.expand);
             cts.set_base_if_linear(regions.base, Spec::new(self.width, self.height));
 
-            // Set exact and base constraint if child is automatically sized.
+            // Set tight exact and base constraints if the child is
+            // automatically sized since we don't know what the child might do.
             if self.width.is_none() {
                 cts.exact.x = Some(regions.current.w);
                 cts.base.x = Some(regions.base.w);

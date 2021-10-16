@@ -209,7 +209,7 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     let dir = args.named("dir")?.unwrap_or(Dir::TTB);
-    let spacing = args.named("spacing")?;
+    let spacing = args.named::<Linear>("spacing")?;
     let list: Vec<Child> = args.all().collect();
 
     Ok(Value::Template(Template::from_block(move |style| {
@@ -220,16 +220,16 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         for child in &list {
             match child {
                 Child::Spacing(v) => {
-                    children.push(StackChild::Spacing(*v));
+                    children.push(StackChild::spacing(*v, dir.axis()));
                     delayed = None;
                 }
                 Child::Any(template) => {
                     if let Some(v) = delayed {
-                        children.push(StackChild::Spacing(v));
+                        children.push(StackChild::spacing(v, dir.axis()));
                     }
 
-                    let node = template.to_stack(style).into();
-                    children.push(StackChild::Any(node, style.aligns.block));
+                    let node = template.to_stack(style);
+                    children.push(StackChild::new(node, style.aligns.block));
                     delayed = spacing;
                 }
             }
