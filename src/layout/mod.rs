@@ -1,6 +1,7 @@
 //! Layouting.
 
 mod constraints;
+mod deco;
 mod frame;
 mod grid;
 mod image;
@@ -15,6 +16,7 @@ mod text;
 
 pub use self::image::*;
 pub use constraints::*;
+pub use deco::*;
 pub use frame::*;
 pub use grid::*;
 #[cfg(feature = "layout-cache")]

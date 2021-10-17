@@ -113,7 +113,6 @@ fn walk_item(ctx: &mut EvalContext, label: Str, body: Template) {
                 (&label).into(),
                 style.aligns.inline,
                 Rc::clone(&style.text),
-                vec![],
             )],
         };
         StackNode {

@@ -181,30 +181,27 @@ fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
     let thickness = args.named::<Linear>("thickness")?.or_else(|| args.eat());
     let offset = args.named("offset")?;
     let extent = args.named("extent")?.unwrap_or_default();
+    let body: Template = args.expect("body")?;
 
-    let mut body: Template = args.expect("body")?;
-    body.decorate(Decoration::Line(LineDecoration {
-        kind,
-        stroke: stroke.map(Paint::Color),
-        thickness,
-        offset,
-        extent,
-    }));
-
-    Ok(Value::Template(body))
+    Ok(Value::Template(body.decorate(Decoration::Line(
+        LineDecoration {
+            kind,
+            stroke: stroke.map(Paint::Color),
+            thickness,
+            offset,
+            extent,
+        },
+    ))))
 }
 
 /// `link`: Typeset text as a link.
 pub fn link(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let url = args.expect::<Str>("url")?;
-
-    let mut body = args.eat().unwrap_or_else(|| {
+    let body = args.eat().unwrap_or_else(|| {
         let mut template = Template::new();
         template.text(&url);
         template
     });
 
-    body.decorate(Decoration::Link(url.into()));
-
-    Ok(Value::Template(body))
+    Ok(Value::Template(body.decorate(Decoration::Link(url.into()))))
 }
