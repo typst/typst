@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 use super::Value;
 use crate::diag::StrResult;
+use crate::util::RcExt;
 
 /// Create a new [`Array`] from values.
 #[allow(unused_macros)]
@@ -169,10 +170,7 @@ impl IntoIterator for Array {
     type IntoIter = std::vec::IntoIter<Value>;
 
     fn into_iter(self) -> Self::IntoIter {
-        match Rc::try_unwrap(self.0) {
-            Ok(vec) => vec.into_iter(),
-            Err(rc) => (*rc).clone().into_iter(),
-        }
+        Rc::take(self.0).into_iter()
     }
 }
 

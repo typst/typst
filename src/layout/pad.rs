@@ -7,10 +7,10 @@ pub struct PadNode {
     /// The amount of padding.
     pub padding: Sides<Linear>,
     /// The child node whose sides to pad.
-    pub child: LayoutNode,
+    pub child: BlockNode,
 }
 
-impl Layout for PadNode {
+impl BlockLevel for PadNode {
     fn layout(
         &self,
         ctx: &mut LayoutContext,
@@ -22,7 +22,7 @@ impl Layout for PadNode {
             &regions.map(|size| size - self.padding.resolve(size).size()),
         );
 
-        for (Constrained { item: frame, constraints }, (current, base)) in
+        for (Constrained { item: frame, cts }, (current, base)) in
             frames.iter_mut().zip(regions.iter())
         {
             fn solve_axis(length: Length, padding: Linear) -> Length {
@@ -46,7 +46,7 @@ impl Layout for PadNode {
             new.push_frame(origin, prev);
 
             // Inflate min and max contraints by the padding.
-            for spec in [&mut constraints.min, &mut constraints.max] {
+            for spec in [&mut cts.min, &mut cts.max] {
                 if let Some(x) = spec.x.as_mut() {
                     *x += padding.size().w;
                 }
@@ -56,18 +56,18 @@ impl Layout for PadNode {
             }
 
             // Set exact and base constraints if the child had them.
-            constraints.exact.x.and_set(Some(current.w));
-            constraints.exact.y.and_set(Some(current.h));
-            constraints.base.x.and_set(Some(base.w));
-            constraints.base.y.and_set(Some(base.h));
+            cts.exact.x.and_set(Some(current.w));
+            cts.exact.y.and_set(Some(current.h));
+            cts.base.x.and_set(Some(base.w));
+            cts.base.y.and_set(Some(base.h));
 
             // Also set base constraints if the padding is relative.
             if self.padding.left.is_relative() || self.padding.right.is_relative() {
-                constraints.base.x = Some(base.w);
+                cts.base.x = Some(base.w);
             }
 
             if self.padding.top.is_relative() || self.padding.bottom.is_relative() {
-                constraints.base.y = Some(base.h);
+                cts.base.y = Some(base.h);
             }
         }
 
@@ -75,8 +75,8 @@ impl Layout for PadNode {
     }
 }
 
-impl From<PadNode> for LayoutNode {
-    fn from(pad: PadNode) -> Self {
-        Self::new(pad)
+impl From<PadNode> for BlockNode {
+    fn from(node: PadNode) -> Self {
+        Self::new(node)
     }
 }

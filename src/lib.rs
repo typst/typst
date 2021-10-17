@@ -8,7 +8,7 @@
 //! - **Evaluation:** The next step is to [evaluate] the markup. This produces a
 //!   [module], consisting of a scope of values that were exported by the code
 //!   and a template with the contents of the module. This template can be
-//!   [instantiated] with a style to produce a layout tree, a high-level, fully
+//!   instantiated with a style to produce a layout tree, a high-level, fully
 //!   styled representation of the document. The nodes of this tree are
 //!   self-contained and order-independent and thus much better suited for
 //!   layouting than the raw markup.
@@ -23,7 +23,6 @@
 //! [markup]: syntax::Markup
 //! [evaluate]: eval::eval
 //! [module]: eval::Module
-//! [instantiated]: eval::Template::to_tree
 //! [layout tree]: layout::LayoutTree
 //! [layouted]: layout::layout
 //! [PDF]: export::pdf
@@ -53,7 +52,7 @@ use crate::font::FontStore;
 use crate::image::ImageStore;
 #[cfg(feature = "layout-cache")]
 use crate::layout::{EvictionPolicy, LayoutCache};
-use crate::layout::{Frame, LayoutTree};
+use crate::layout::{Frame, PageNode};
 use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
 use crate::style::Style;
@@ -110,10 +109,10 @@ impl Context {
         eval::eval(self, id, &ast)
     }
 
-    /// Execute a source file and produce the resulting layout tree.
-    pub fn execute(&mut self, id: SourceId) -> TypResult<LayoutTree> {
+    /// Execute a source file and produce the resulting page nodes.
+    pub fn execute(&mut self, id: SourceId) -> TypResult<Vec<PageNode>> {
         let module = self.evaluate(id)?;
-        Ok(module.template.to_tree(&self.style))
+        Ok(module.template.to_pages(&self.style))
     }
 
     /// Typeset a source file into a collection of layouted frames.

@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use super::{Str, Value};
 use crate::diag::StrResult;
+use crate::util::RcExt;
 
 /// Create a new [`Dict`] from key-value pairs.
 #[allow(unused_macros)]
@@ -135,10 +136,7 @@ impl IntoIterator for Dict {
     type IntoIter = std::collections::btree_map::IntoIter<Str, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
-        match Rc::try_unwrap(self.0) {
-            Ok(map) => map.into_iter(),
-            Err(rc) => (*rc).clone().into_iter(),
-        }
+        Rc::take(self.0).into_iter()
     }
 }
 

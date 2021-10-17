@@ -6,9 +6,9 @@ use std::rc::Rc;
 
 use super::Str;
 use crate::diag::StrResult;
-use crate::geom::{Align, Dir, GenAxis, Length, Linear, Sides, Size, SpecAxis};
+use crate::geom::{Align, Dir, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{
-    Decoration, LayoutNode, LayoutTree, PadNode, PageRun, ParChild, ParNode, StackChild,
+    BlockNode, Decoration, InlineNode, PadNode, PageNode, ParChild, ParNode, StackChild,
     StackNode,
 };
 use crate::style::Style;
@@ -34,9 +34,9 @@ enum TemplateNode {
     /// Spacing.
     Spacing(GenAxis, Linear),
     /// An inline node builder.
-    Inline(Rc<dyn Fn(&Style) -> LayoutNode>, Vec<Decoration>),
+    Inline(Rc<dyn Fn(&Style) -> InlineNode>, Vec<Decoration>),
     /// An block node builder.
-    Block(Rc<dyn Fn(&Style) -> LayoutNode>),
+    Block(Rc<dyn Fn(&Style) -> BlockNode>),
     /// Save the current style.
     Save,
     /// Restore the last saved style.
@@ -55,7 +55,7 @@ impl Template {
     pub fn from_inline<F, T>(f: F) -> Self
     where
         F: Fn(&Style) -> T + 'static,
-        T: Into<LayoutNode>,
+        T: Into<InlineNode>,
     {
         let node = TemplateNode::Inline(Rc::new(move |s| f(s).into()), vec![]);
         Self(Rc::new(vec![node]))
@@ -65,7 +65,7 @@ impl Template {
     pub fn from_block<F, T>(f: F) -> Self
     where
         F: Fn(&Style) -> T + 'static,
-        T: Into<LayoutNode>,
+        T: Into<BlockNode>,
     {
         let node = TemplateNode::Block(Rc::new(move |s| f(s).into()));
         Self(Rc::new(vec![node]))
@@ -164,10 +164,10 @@ impl Template {
 
     /// Build the layout tree resulting from instantiating the template with the
     /// given style.
-    pub fn to_tree(&self, style: &Style) -> LayoutTree {
+    pub fn to_pages(&self, style: &Style) -> Vec<PageNode> {
         let mut builder = Builder::new(style, true);
         builder.template(self);
-        builder.build_tree()
+        builder.build_pages()
     }
 
     /// Repeat this template `n` times.
@@ -243,8 +243,8 @@ struct Builder {
     style: Style,
     /// Snapshots of the style.
     snapshots: Vec<Style>,
-    /// The tree of finished page runs.
-    tree: LayoutTree,
+    /// The finished page nodes.
+    finished: Vec<PageNode>,
     /// When we are building the top-level layout trees, this contains metrics
     /// of the page. While building a stack, this is `None`.
     page: Option<PageBuilder>,
@@ -258,7 +258,7 @@ impl Builder {
         Self {
             style: style.clone(),
             snapshots: vec![],
-            tree: LayoutTree { runs: vec![] },
+            finished: vec![],
             page: pages.then(|| PageBuilder::new(style, true)),
             stack: StackBuilder::new(style),
         }
@@ -309,7 +309,7 @@ impl Builder {
     fn parbreak(&mut self) {
         let amount = self.style.par_spacing();
         self.stack.finish_par(&self.style);
-        self.stack.push_soft(StackChild::spacing(amount, SpecAxis::Vertical));
+        self.stack.push_soft(StackChild::Spacing(amount.into()));
     }
 
     /// Apply a forced page break.
@@ -317,7 +317,7 @@ impl Builder {
         if let Some(builder) = &mut self.page {
             let page = mem::replace(builder, PageBuilder::new(&self.style, hard));
             let stack = mem::replace(&mut self.stack, StackBuilder::new(&self.style));
-            self.tree.runs.extend(page.build(stack.build(), keep));
+            self.finished.extend(page.build(stack.build(), keep));
         }
     }
 
@@ -327,15 +327,15 @@ impl Builder {
     }
 
     /// Push an inline node into the active paragraph.
-    fn inline(&mut self, node: impl Into<LayoutNode>, decos: &[Decoration]) {
+    fn inline(&mut self, node: impl Into<InlineNode>, decos: &[Decoration]) {
         let align = self.style.aligns.inline;
         self.stack.par.push(ParChild::Any(node.into(), align, decos.to_vec()));
     }
 
     /// Push a block node into the active stack, finishing the active paragraph.
-    fn block(&mut self, node: impl Into<LayoutNode>) {
+    fn block(&mut self, node: impl Into<BlockNode>) {
         self.parbreak();
-        self.stack.push(StackChild::new(node, self.style.aligns.block));
+        self.stack.push(StackChild::Any(node.into(), self.style.aligns.block));
         self.parbreak();
     }
 
@@ -344,7 +344,7 @@ impl Builder {
         match axis {
             GenAxis::Block => {
                 self.stack.finish_par(&self.style);
-                self.stack.push_hard(StackChild::spacing(amount, SpecAxis::Vertical));
+                self.stack.push_hard(StackChild::Spacing(amount));
             }
             GenAxis::Inline => {
                 self.stack.par.push_hard(ParChild::Spacing(amount));
@@ -359,10 +359,10 @@ impl Builder {
     }
 
     /// Finish building and return the created layout tree.
-    fn build_tree(mut self) -> LayoutTree {
+    fn build_pages(mut self) -> Vec<PageNode> {
         assert!(self.page.is_some());
         self.pagebreak(true, false);
-        self.tree
+        self.finished
     }
 
     /// Construct a text node with the given text and settings from the current
@@ -396,9 +396,9 @@ impl PageBuilder {
         }
     }
 
-    fn build(self, child: StackNode, keep: bool) -> Option<PageRun> {
+    fn build(self, child: StackNode, keep: bool) -> Option<PageNode> {
         let Self { size, padding, hard } = self;
-        (!child.children.is_empty() || (keep && hard)).then(|| PageRun {
+        (!child.children.is_empty() || (keep && hard)).then(|| PageNode {
             size,
             child: PadNode { padding, child: child.into() }.into(),
         })
@@ -456,7 +456,7 @@ impl StackBuilder {
 struct ParBuilder {
     align: Align,
     dir: Dir,
-    line_spacing: Length,
+    leading: Length,
     children: Vec<ParChild>,
     last: Last<ParChild>,
 }
@@ -466,7 +466,7 @@ impl ParBuilder {
         Self {
             align: style.aligns.block,
             dir: style.dir,
-            line_spacing: style.line_spacing(),
+            leading: style.leading(),
             children: vec![],
             last: Last::None,
         }
@@ -507,9 +507,9 @@ impl ParBuilder {
     }
 
     fn build(self) -> Option<StackChild> {
-        let Self { align, dir, line_spacing, children, .. } = self;
+        let Self { align, dir, leading, children, .. } = self;
         (!children.is_empty())
-            .then(|| StackChild::new(ParNode { dir, line_spacing, children }, align))
+            .then(|| StackChild::Any(ParNode { dir, leading, children }.into(), align))
     }
 }
 

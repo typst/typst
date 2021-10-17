@@ -10,6 +10,7 @@ use std::cell::RefMut;
 use std::cmp::Ordering;
 use std::ops::Range;
 use std::path::{Component, Path, PathBuf};
+use std::rc::Rc;
 
 /// Additional methods for booleans.
 pub trait BoolExt {
@@ -63,6 +64,25 @@ impl<T> OptionExt<T> for Option<T> {
     {
         if self.as_ref().map_or(true, |x| other > *x) {
             *self = Some(other);
+        }
+    }
+}
+
+/// Additional methods for reference-counted pointers.
+pub trait RcExt<T> {
+    /// Takes the inner value if there is exactly one strong reference and
+    /// clones it otherwise.
+    fn take(self) -> T;
+}
+
+impl<T> RcExt<T> for Rc<T>
+where
+    T: Clone,
+{
+    fn take(self) -> T {
+        match Rc::try_unwrap(self) {
+            Ok(v) => v,
+            Err(rc) => (*rc).clone(),
         }
     }
 }

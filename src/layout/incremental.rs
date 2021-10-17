@@ -230,7 +230,7 @@ impl FramesEntry {
         let mut iter = regions.iter();
         self.frames.iter().all(|frame| {
             iter.next().map_or(false, |(current, base)| {
-                frame.constraints.check(current, base, regions.expand)
+                frame.cts.check(current, base, regions.expand)
             })
         })
     }
@@ -400,7 +400,7 @@ mod tests {
     fn empty_frames() -> Vec<Constrained<Rc<Frame>>> {
         vec![Constrained {
             item: Rc::new(Frame::default()),
-            constraints: Constraints::new(Spec::splat(false)),
+            cts: Constraints::new(Spec::splat(false)),
         }]
     }
 

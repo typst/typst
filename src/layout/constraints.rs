@@ -7,7 +7,7 @@ pub struct Constrained<T> {
     /// The item that is only valid if the constraints are fullfilled.
     pub item: T,
     /// Constraints on regions in which the item is valid.
-    pub constraints: Constraints,
+    pub cts: Constraints,
 }
 
 /// Describe regions that match them.

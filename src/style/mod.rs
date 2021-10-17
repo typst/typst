@@ -43,13 +43,13 @@ impl Style {
     }
 
     /// The resolved line spacing.
-    pub fn line_spacing(&self) -> Length {
-        self.par.line_spacing.resolve(self.text.size)
+    pub fn leading(&self) -> Length {
+        self.par.leading.resolve(self.text.size)
     }
 
     /// The resolved paragraph spacing.
     pub fn par_spacing(&self) -> Length {
-        self.par.par_spacing.resolve(self.text.size)
+        self.par.spacing.resolve(self.text.size)
     }
 }
 
@@ -105,16 +105,16 @@ impl Default for PageStyle {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ParStyle {
     /// The spacing between paragraphs (dependent on scaled font size).
-    pub par_spacing: Linear,
+    pub spacing: Linear,
     /// The spacing between lines (dependent on scaled font size).
-    pub line_spacing: Linear,
+    pub leading: Linear,
 }
 
 impl Default for ParStyle {
     fn default() -> Self {
         Self {
-            par_spacing: Relative::new(1.2).into(),
-            line_spacing: Relative::new(0.65).into(),
+            spacing: Relative::new(1.2).into(),
+            leading: Relative::new(0.65).into(),
         }
     }
 }

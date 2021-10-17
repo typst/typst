@@ -19,6 +19,70 @@ pub struct Frame {
     pub children: Vec<(Point, FrameChild)>,
 }
 
+impl Frame {
+    /// Create a new, empty frame.
+    #[track_caller]
+    pub fn new(size: Size, baseline: Length) -> Self {
+        assert!(size.is_finite());
+        Self { size, baseline, children: vec![] }
+    }
+
+    /// Add an element at a position in the foreground.
+    pub fn push(&mut self, pos: Point, element: Element) {
+        self.children.push((pos, FrameChild::Element(element)));
+    }
+
+    /// Add an element at a position in the background.
+    pub fn prepend(&mut self, pos: Point, element: Element) {
+        self.children.insert(0, (pos, FrameChild::Element(element)));
+    }
+
+    /// Add a frame element.
+    pub fn push_frame(&mut self, pos: Point, subframe: Rc<Self>) {
+        self.children.push((pos, FrameChild::Group(subframe)))
+    }
+
+    /// Add all elements of another frame, placing them relative to the given
+    /// position.
+    pub fn merge_frame(&mut self, pos: Point, subframe: Self) {
+        if pos == Point::zero() && self.children.is_empty() {
+            self.children = subframe.children;
+        } else {
+            for (subpos, child) in subframe.children {
+                self.children.push((pos + subpos, child));
+            }
+        }
+    }
+
+    /// An iterator over all elements in the frame and its children.
+    pub fn elements(&self) -> Elements {
+        Elements { stack: vec![(0, Point::zero(), self)] }
+    }
+
+    /// Wrap the frame with constraints.
+    pub fn constrain(self, cts: Constraints) -> Constrained<Rc<Self>> {
+        Constrained { item: Rc::new(self), cts }
+    }
+}
+
+impl Debug for Frame {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        struct Children<'a>(&'a [(Point, FrameChild)]);
+
+        impl Debug for Children<'_> {
+            fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+                f.debug_map().entries(self.0.iter().map(|(k, v)| (k, v))).finish()
+            }
+        }
+
+        f.debug_struct("Frame")
+            .field("size", &self.size)
+            .field("baseline", &self.baseline)
+            .field("children", &Children(&self.children))
+            .finish()
+    }
+}
+
 /// A frame can contain two different kinds of children: a leaf element or a
 /// nested frame.
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -27,6 +91,46 @@ pub enum FrameChild {
     Element(Element),
     /// An interior group.
     Group(Rc<Frame>),
+}
+
+impl Debug for FrameChild {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Element(element) => element.fmt(f),
+            Self::Group(frame) => frame.fmt(f),
+        }
+    }
+}
+
+/// An iterator over all elements in a frame, alongside with their positions.
+pub struct Elements<'a> {
+    stack: Vec<(usize, Point, &'a Frame)>,
+}
+
+impl<'a> Iterator for Elements<'a> {
+    type Item = (Point, &'a Element);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (cursor, offset, frame) = self.stack.last_mut()?;
+        match frame.children.get(*cursor) {
+            Some((pos, FrameChild::Group(f))) => {
+                let new_offset = *offset + *pos;
+                self.stack.push((0, new_offset, f.as_ref()));
+                self.next()
+            }
+            Some((pos, FrameChild::Element(e))) => {
+                *cursor += 1;
+                Some((*offset + *pos, e))
+            }
+            None => {
+                self.stack.pop();
+                if let Some((cursor, _, _)) = self.stack.last_mut() {
+                    *cursor += 1;
+                }
+                self.next()
+            }
+        }
+    }
 }
 
 /// The building block frames are composed of.
@@ -80,108 +184,4 @@ pub enum Geometry {
     Line(Point, Length),
     /// A filled bezier path.
     Path(Path),
-}
-
-impl Frame {
-    /// Create a new, empty frame.
-    #[track_caller]
-    pub fn new(size: Size, baseline: Length) -> Self {
-        assert!(size.is_finite());
-        Self { size, baseline, children: vec![] }
-    }
-
-    /// Add an element at a position in the foreground.
-    pub fn push(&mut self, pos: Point, element: Element) {
-        self.children.push((pos, FrameChild::Element(element)));
-    }
-
-    /// Add an element at a position in the background.
-    pub fn prepend(&mut self, pos: Point, element: Element) {
-        self.children.insert(0, (pos, FrameChild::Element(element)));
-    }
-
-    /// Add a frame element.
-    pub fn push_frame(&mut self, pos: Point, subframe: Rc<Self>) {
-        self.children.push((pos, FrameChild::Group(subframe)))
-    }
-
-    /// Add all elements of another frame, placing them relative to the given
-    /// position.
-    pub fn merge_frame(&mut self, pos: Point, subframe: Self) {
-        if pos == Point::zero() && self.children.is_empty() {
-            self.children = subframe.children;
-        } else {
-            for (subpos, child) in subframe.children {
-                self.children.push((pos + subpos, child));
-            }
-        }
-    }
-
-    /// Wrap the frame with constraints.
-    pub fn constrain(self, constraints: Constraints) -> Constrained<Rc<Self>> {
-        Constrained { item: Rc::new(self), constraints }
-    }
-
-    /// An iterator over all elements in the frame and its children.
-    pub fn elements(&self) -> Elements {
-        Elements { stack: vec![(0, Point::zero(), self)] }
-    }
-}
-
-/// An iterator over all elements in a frame, alongside with their positions.
-pub struct Elements<'a> {
-    stack: Vec<(usize, Point, &'a Frame)>,
-}
-
-impl<'a> Iterator for Elements<'a> {
-    type Item = (Point, &'a Element);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let (cursor, offset, frame) = self.stack.last_mut()?;
-        match frame.children.get(*cursor) {
-            Some((pos, FrameChild::Group(f))) => {
-                let new_offset = *offset + *pos;
-                self.stack.push((0, new_offset, f.as_ref()));
-                self.next()
-            }
-            Some((pos, FrameChild::Element(e))) => {
-                *cursor += 1;
-                Some((*offset + *pos, e))
-            }
-            None => {
-                self.stack.pop();
-                if let Some((cursor, _, _)) = self.stack.last_mut() {
-                    *cursor += 1;
-                }
-                self.next()
-            }
-        }
-    }
-}
-
-impl Debug for Frame {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        struct Children<'a>(&'a [(Point, FrameChild)]);
-
-        impl Debug for Children<'_> {
-            fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-                f.debug_map().entries(self.0.iter().map(|(k, v)| (k, v))).finish()
-            }
-        }
-
-        f.debug_struct("Frame")
-            .field("size", &self.size)
-            .field("baseline", &self.baseline)
-            .field("children", &Children(&self.children))
-            .finish()
-    }
-}
-
-impl Debug for FrameChild {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Element(element) => element.fmt(f),
-            Self::Group(frame) => frame.fmt(f),
-        }
-    }
 }

@@ -5,6 +5,8 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::rc::Rc;
 
+use super::RcExt;
+
 /// An economical string with inline storage and clone-on-write semantics.
 #[derive(Clone)]
 pub struct EcoString(Repr);
@@ -293,10 +295,7 @@ impl From<EcoString> for String {
     fn from(s: EcoString) -> Self {
         match s.0 {
             Repr::Small { .. } => s.as_str().to_owned(),
-            Repr::Large(rc) => match Rc::try_unwrap(rc) {
-                Ok(string) => string,
-                Err(rc) => (*rc).clone(),
-            },
+            Repr::Large(rc) => Rc::take(rc),
         }
     }
 }

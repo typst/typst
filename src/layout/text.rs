@@ -3,7 +3,7 @@ use std::ops::Range;
 
 use rustybuzz::UnicodeBuffer;
 
-use super::{Element, Frame, Glyph, LayoutContext, Text};
+use super::*;
 use crate::font::{Face, FaceId, FontVariant};
 use crate::geom::{Dir, Em, Length, Point, Size};
 use crate::style::TextStyle;
@@ -13,8 +13,8 @@ use crate::util::SliceExt;
 pub fn shape<'a>(
     ctx: &mut LayoutContext,
     text: &'a str,
-    dir: Dir,
     style: &'a TextStyle,
+    dir: Dir,
 ) -> ShapedText<'a> {
     let mut glyphs = vec![];
     if !text.is_empty() {
@@ -23,16 +23,15 @@ pub fn shape<'a>(
             &mut glyphs,
             0,
             text,
-            dir,
             style.size,
             style.variant(),
             style.families(),
             None,
+            dir,
         );
     }
 
     let (size, baseline) = measure(ctx, &glyphs, style);
-
     ShapedText {
         text,
         dir,
@@ -134,7 +133,7 @@ impl<'a> ShapedText<'a> {
                 glyphs: Cow::Borrowed(glyphs),
             }
         } else {
-            shape(ctx, &self.text[text_range], self.dir, self.style)
+            shape(ctx, &self.text[text_range], self.style, self.dir)
         }
     }
 
@@ -209,11 +208,11 @@ fn shape_segment<'a>(
     glyphs: &mut Vec<ShapedGlyph>,
     base: usize,
     text: &str,
-    dir: Dir,
     size: Length,
     variant: FontVariant,
     mut families: impl Iterator<Item = &'a str> + Clone,
     mut first_face: Option<FaceId>,
+    dir: Dir,
 ) {
     // Select the font family.
     let (face_id, fallback) = loop {
@@ -316,11 +315,11 @@ fn shape_segment<'a>(
                 glyphs,
                 base + range.start,
                 &text[range],
-                dir,
                 size,
                 variant,
                 families.clone(),
                 first_face,
+                dir,
             );
 
             face = ctx.fonts.get(face_id);

@@ -17,7 +17,7 @@ use typst::geom::{
 };
 use typst::image::Image;
 #[cfg(feature = "layout-cache")]
-use typst::layout::LayoutTree;
+use typst::layout::PageNode;
 use typst::layout::{layout, Element, Frame, Geometry, Text};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
@@ -282,7 +282,7 @@ fn test_part(
 fn test_incremental(
     ctx: &mut Context,
     i: usize,
-    tree: &LayoutTree,
+    tree: &[PageNode],
     frames: &[Rc<Frame>],
 ) -> bool {
     let mut ok = true;

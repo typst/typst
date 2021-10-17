@@ -12,7 +12,16 @@ pub struct StackNode {
     pub children: Vec<StackChild>,
 }
 
-impl Layout for StackNode {
+/// A child of a stack node.
+#[cfg_attr(feature = "layout-cache", derive(Hash))]
+pub enum StackChild {
+    /// Spacing between other nodes.
+    Spacing(Linear),
+    /// Any block node and how to align it in the stack.
+    Any(BlockNode, Align),
+}
+
+impl BlockLevel for StackNode {
     fn layout(
         &self,
         ctx: &mut LayoutContext,
@@ -22,37 +31,18 @@ impl Layout for StackNode {
     }
 }
 
-impl From<StackNode> for LayoutNode {
-    fn from(stack: StackNode) -> Self {
-        Self::new(stack)
-    }
-}
-
-/// A child of a stack node.
-#[cfg_attr(feature = "layout-cache", derive(Hash))]
-pub struct StackChild {
-    /// The node itself.
-    pub node: LayoutNode,
-    /// How to align the node along the block axis.
-    pub align: Align,
-}
-
-impl StackChild {
-    /// Create a new stack child.
-    pub fn new(node: impl Into<LayoutNode>, align: Align) -> Self {
-        Self { node: node.into(), align }
-    }
-
-    /// Create a spacing stack child.
-    pub fn spacing(amount: impl Into<Linear>, axis: SpecAxis) -> Self {
-        Self::new(SpacingNode { amount: amount.into(), axis }, Align::Start)
+impl From<StackNode> for BlockNode {
+    fn from(node: StackNode) -> Self {
+        Self::new(node)
     }
 }
 
 impl Debug for StackChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}: ", self.align)?;
-        self.node.fmt(f)
+        match self {
+            Self::Spacing(v) => write!(f, "Spacing({:?})", v),
+            Self::Any(node, _) => node.fmt(f),
+        }
     }
 }
 
@@ -106,18 +96,39 @@ impl<'a> StackLayouter<'a> {
     /// Layout all children.
     fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
         for child in &self.stack.children {
-            let frames = child.node.layout(ctx, &self.regions);
-            let len = frames.len();
-            for (i, frame) in frames.into_iter().enumerate() {
-                self.push_frame(frame.item, child.align);
-                if i + 1 < len {
-                    self.finish_region();
+            match *child {
+                StackChild::Spacing(amount) => self.space(amount),
+                StackChild::Any(ref node, align) => {
+                    let frames = node.layout(ctx, &self.regions);
+                    let len = frames.len();
+                    for (i, frame) in frames.into_iter().enumerate() {
+                        self.push_frame(frame.item, align);
+                        if i + 1 < len {
+                            self.finish_region();
+                        }
+                    }
                 }
             }
         }
 
         self.finish_region();
         self.finished
+    }
+
+    /// Add block-axis spacing into the current region.
+    fn space(&mut self, amount: Linear) {
+        // Resolve the linear.
+        let full = self.full.get(self.axis);
+        let resolved = amount.resolve(full);
+
+        // Cap the spacing to the remaining available space. This action does
+        // not directly affect the constraints because of the cap.
+        let remaining = self.regions.current.get_mut(self.axis);
+        let capped = resolved.min(*remaining);
+
+        // Grow our size and shrink the available space in the region.
+        self.used.block += capped;
+        *remaining -= capped;
     }
 
     /// Push a frame into the current region.

@@ -18,7 +18,7 @@ pub struct ParNode {
     /// The inline direction of this paragraph.
     pub dir: Dir,
     /// The spacing to insert between each line.
-    pub line_spacing: Length,
+    pub leading: Length,
     /// The nodes to be arranged in a paragraph.
     pub children: Vec<ParChild>,
 }
@@ -31,10 +31,10 @@ pub enum ParChild {
     /// A run of text and how to align it in its line.
     Text(EcoString, Align, Rc<TextStyle>, Vec<Decoration>),
     /// Any child node and how to align it in its line.
-    Any(LayoutNode, Align, Vec<Decoration>),
+    Any(InlineNode, Align, Vec<Decoration>),
 }
 
-impl Layout for ParNode {
+impl BlockLevel for ParNode {
     fn layout(
         &self,
         ctx: &mut LayoutContext,
@@ -88,9 +88,9 @@ impl ParNode {
     }
 }
 
-impl From<ParNode> for LayoutNode {
-    fn from(par: ParNode) -> Self {
-        Self::new(par)
+impl From<ParNode> for BlockNode {
+    fn from(node: ParNode) -> Self {
+        Self::new(node)
     }
 }
 
@@ -110,7 +110,7 @@ struct ParLayouter<'a> {
     /// The top-level direction.
     dir: Dir,
     /// The line spacing.
-    line_spacing: Length,
+    leading: Length,
     /// Bidirectional text embedding levels for the paragraph.
     bidi: BidiInfo<'a>,
     /// Layouted children and separated text runs.
@@ -143,14 +143,14 @@ impl<'a> ParLayouter<'a> {
                     // TODO: Also split by language and script.
                     for (subrange, dir) in split_runs(&bidi, range) {
                         let text = &bidi.text[subrange.clone()];
-                        let shaped = shape(ctx, text, dir, style);
+                        let shaped = shape(ctx, text, style, dir);
                         items.push(ParItem::Text(shaped, *align, decos));
                         ranges.push(subrange);
                     }
                 }
                 ParChild::Any(node, align, decos) => {
-                    let frame = node.layout(ctx, regions).remove(0);
-                    items.push(ParItem::Frame(frame.item, *align, decos));
+                    let frame = node.layout(ctx, regions.current.w, regions.base);
+                    items.push(ParItem::Frame(frame, *align, decos));
                     ranges.push(range);
                 }
             }
@@ -158,7 +158,7 @@ impl<'a> ParLayouter<'a> {
 
         Self {
             dir: par.dir,
-            line_spacing: par.line_spacing,
+            leading: par.leading,
             bidi,
             items,
             ranges,
@@ -171,7 +171,7 @@ impl<'a> ParLayouter<'a> {
         ctx: &mut LayoutContext,
         regions: Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        let mut stack = LineStack::new(self.line_spacing, regions);
+        let mut stack = LineStack::new(self.leading, regions);
 
         // The current line attempt.
         // Invariant: Always fits into `stack.regions.current`.
@@ -196,18 +196,18 @@ impl<'a> ParLayouter<'a> {
                     // the width of the region must not fit the width of the
                     // tried line.
                     if !stack.regions.current.w.fits(line.size.w) {
-                        stack.constraints.max.x.set_min(line.size.w);
+                        stack.cts.max.x.set_min(line.size.w);
                     }
 
                     // Same as above, but for height.
                     if !stack.regions.current.h.fits(line.size.h) {
-                        let too_large = stack.size.h + self.line_spacing + line.size.h;
-                        stack.constraints.max.y.set_min(too_large);
+                        let too_large = stack.size.h + self.leading + line.size.h;
+                        stack.cts.max.y.set_min(too_large);
                     }
 
                     stack.push(last_line);
 
-                    stack.constraints.min.y = Some(stack.size.h);
+                    stack.cts.min.y = Some(stack.size.h);
                     start = last_end;
                     line = LineLayout::new(ctx, &self, start .. end);
                 }
@@ -223,8 +223,8 @@ impl<'a> ParLayouter<'a> {
                 // Again, the line must not fit. It would if the space taken up
                 // plus the line height would fit, therefore the constraint
                 // below.
-                let too_large = stack.size.h + self.line_spacing + line.size.h;
-                stack.constraints.max.y.set_min(too_large);
+                let too_large = stack.size.h + self.leading + line.size.h;
+                stack.cts.max.y.set_min(too_large);
 
                 stack.finish_region(ctx);
             }
@@ -247,18 +247,18 @@ impl<'a> ParLayouter<'a> {
                     }
                 }
 
-                stack.constraints.min.y = Some(stack.size.h);
+                stack.cts.min.y = Some(stack.size.h);
             } else {
                 // Otherwise, the line fits both horizontally and vertically
                 // and we remember it.
-                stack.constraints.min.x.set_max(line.size.w);
+                stack.cts.min.x.set_max(line.size.w);
                 last = Some((line, end));
             }
         }
 
         if let Some((line, _)) = last {
             stack.push(line);
-            stack.constraints.min.y = Some(stack.size.h);
+            stack.cts.min.y = Some(stack.size.h);
         }
 
         stack.finish(ctx)
@@ -292,7 +292,7 @@ enum ParItem<'a> {
     /// A shaped text run with consistent direction.
     Text(ShapedText<'a>, Align, &'a [Decoration]),
     /// A layouted child node.
-    Frame(Rc<Frame>, Align, &'a [Decoration]),
+    Frame(Frame, Align, &'a [Decoration]),
 }
 
 impl ParItem<'_> {
@@ -463,10 +463,10 @@ impl<'a> LineLayout<'a> {
                 ParItem::Frame(ref frame, align, decos) => {
                     let mut frame = frame.clone();
                     for deco in decos {
-                        deco.apply(ctx, Rc::make_mut(&mut frame));
+                        deco.apply(ctx, &mut frame);
                     }
                     let pos = position(&frame, align);
-                    output.push_frame(pos, frame);
+                    output.merge_frame(pos, frame);
                 }
             }
         }
@@ -522,23 +522,23 @@ impl<'a> LineLayout<'a> {
 
 /// Stacks lines on top of each other.
 struct LineStack<'a> {
-    line_spacing: Length,
+    leading: Length,
     full: Size,
     regions: Regions,
     size: Size,
     lines: Vec<LineLayout<'a>>,
     finished: Vec<Constrained<Rc<Frame>>>,
-    constraints: Constraints,
+    cts: Constraints,
     overflowing: bool,
 }
 
 impl<'a> LineStack<'a> {
     /// Create an empty line stack.
-    fn new(line_spacing: Length, regions: Regions) -> Self {
+    fn new(leading: Length, regions: Regions) -> Self {
         Self {
-            line_spacing,
+            leading,
             full: regions.current,
-            constraints: Constraints::new(regions.expand),
+            cts: Constraints::new(regions.expand),
             regions,
             size: Size::zero(),
             lines: vec![],
@@ -549,12 +549,12 @@ impl<'a> LineStack<'a> {
 
     /// Push a new line into the stack.
     fn push(&mut self, line: LineLayout<'a>) {
-        self.regions.current.h -= line.size.h + self.line_spacing;
+        self.regions.current.h -= line.size.h + self.leading;
 
         self.size.w.set_max(line.size.w);
         self.size.h += line.size.h;
         if !self.lines.is_empty() {
-            self.size.h += self.line_spacing;
+            self.size.h += self.leading;
         }
 
         self.lines.push(line);
@@ -564,13 +564,13 @@ impl<'a> LineStack<'a> {
     fn finish_region(&mut self, ctx: &LayoutContext) {
         if self.regions.expand.x {
             self.size.w = self.regions.current.w;
-            self.constraints.exact.x = Some(self.regions.current.w);
+            self.cts.exact.x = Some(self.regions.current.w);
         }
 
         if self.overflowing {
-            self.constraints.min.y = None;
-            self.constraints.max.y = None;
-            self.constraints.exact = self.full.to_spec().map(Some);
+            self.cts.min.y = None;
+            self.cts.max.y = None;
+            self.cts.exact = self.full.to_spec().map(Some);
         }
 
         let mut output = Frame::new(self.size, self.size.h);
@@ -586,14 +586,14 @@ impl<'a> LineStack<'a> {
                 first = false;
             }
 
-            offset += frame.size.h + self.line_spacing;
+            offset += frame.size.h + self.leading;
             output.merge_frame(pos, frame);
         }
 
-        self.finished.push(output.constrain(self.constraints));
+        self.finished.push(output.constrain(self.cts));
         self.regions.next();
         self.full = self.regions.current;
-        self.constraints = Constraints::new(self.regions.expand);
+        self.cts = Constraints::new(self.regions.expand);
         self.size = Size::zero();
     }
 

@@ -110,18 +110,18 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
 /// `par`: Configure paragraphs.
 pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let par_spacing = args.named("spacing")?;
-    let line_spacing = args.named("leading")?;
+    let spacing = args.named("spacing")?;
+    let leading = args.named("leading")?;
 
     ctx.template.modify(move |style| {
         let par = style.par_mut();
 
-        if let Some(par_spacing) = par_spacing {
-            par.par_spacing = par_spacing;
+        if let Some(spacing) = spacing {
+            par.spacing = spacing;
         }
 
-        if let Some(line_spacing) = line_spacing {
-            par.line_spacing = line_spacing;
+        if let Some(leading) = leading {
+            par.leading = leading;
         }
     });
 
