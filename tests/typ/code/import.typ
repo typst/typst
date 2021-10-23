@@ -79,7 +79,7 @@ This is never reached.
 // Error: 22 expected keyword `from`
 #import afrom, "b", c
 
-// Error: 8 expected import items
+// Error: 9 expected import items
 #import from "target.typ"
 
 // Error: 9-10 expected expression, found assignment operator
@@ -114,4 +114,5 @@ This is never reached.
 // An item after a star.
 // Should output `, a from "target.typ"`.
 // Error: 10 expected keyword `from`
+// Error: 10 expected semicolon or line break
 #import *, a from "target.typ"

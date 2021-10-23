@@ -72,7 +72,7 @@
 {(,1)}
 
 // Missing expression makes named pair incomplete, making this an empty array.
-// Error: 5 expected expression
+// Error: 3-5 expected expression, found named pair
 {(a:)}
 
 // Named pair after this is already identified as an array.

@@ -1,5 +1,5 @@
 use super::{is_newline, Scanner};
-use crate::syntax::{Ident, RawNode, Span};
+use crate::syntax::RawToken;
 use crate::util::EcoString;
 
 /// Resolve all escape sequences in a string.
@@ -48,21 +48,28 @@ pub fn resolve_hex(sequence: &str) -> Option<char> {
 }
 
 /// Resolve the language tag and trims the raw text.
-pub fn resolve_raw(span: Span, column: usize, backticks: usize, text: &str) -> RawNode {
+pub fn resolve_raw(
+    column: usize,
+    backticks: u8,
+    text: &str,
+    terminated: bool,
+) -> RawToken {
     if backticks > 1 {
         let (tag, inner) = split_at_lang_tag(text);
         let (text, block) = trim_and_split_raw(column, inner);
-        RawNode {
-            span,
-            lang: Ident::new(tag, span.with_end(span.start + tag.len())),
+        RawToken {
+            lang: Some(tag.into()),
             text: text.into(),
+            backticks,
+            terminated,
             block,
         }
     } else {
-        RawNode {
-            span,
+        RawToken {
             lang: None,
             text: split_lines(text).join("\n").into(),
+            backticks,
+            terminated,
             block: false,
         }
     }
@@ -140,7 +147,6 @@ fn split_lines(text: &str) -> Vec<&str> {
 #[cfg(test)]
 #[rustfmt::skip]
 mod tests {
-    use crate::syntax::Span;
     use super::*;
 
     #[test]
@@ -175,8 +181,8 @@ mod tests {
         test("typst\n it!", "typst", "\n it!");
         test("typst\n it!", "typst", "\n it!");
         test("abc`",        "abc",   "`");
-        test(" hi",         "",      " hi");
-        test("`",           "",      "`");
+        test(" hi",         "",          " hi");
+        test("`",           "",          "`");
     }
 
     #[test]
@@ -184,13 +190,13 @@ mod tests {
         #[track_caller]
         fn test(
             column: usize,
-            backticks: usize,
+            backticks: u8,
             raw: &str,
             lang: Option<&str>,
             text: &str,
             block: bool,
         ) {
-            let node = resolve_raw(Span::detached(), column, backticks, raw);
+            let node = resolve_raw(column, backticks, raw, true);
             assert_eq!(node.lang.as_deref(), lang);
             assert_eq!(node.text, text);
             assert_eq!(node.block, block);
@@ -204,15 +210,15 @@ mod tests {
         // More than one backtick with lang tag.
         test(0, 2, "js alert()",    Some("js"), "alert()",    false);
         test(0, 3, "py quit(\n\n)", Some("py"), "quit(\n\n)", true);
-        test(0, 2, "♥",             None,       "",           false);
+        test(0, 2, "♥",             Some("♥"),  "",           false);
 
         // Trimming of whitespace (tested more thoroughly in separate test).
-        test(0, 2, " a",   None, "a",  false);
-        test(0, 2, "  a",  None, " a", false);
-        test(0, 2, " \na", None, "a",  true);
+        test(0, 2, " a",   Some(""), "a",  false);
+        test(0, 2, "  a",  Some(""), " a", false);
+        test(0, 2, " \na", Some(""), "a",  true);
 
         // Dedenting
-        test(2, 3, " def foo():\n    bar()", None, "def foo():\n  bar()", true);
+        test(2, 3, " def foo():\n    bar()", Some(""), "def foo():\n  bar()", true);
     }
 
     #[test]

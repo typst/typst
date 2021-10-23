@@ -109,6 +109,11 @@ impl Span {
         *self = self.join(other)
     }
 
+    /// Test whether a position is within the span.
+    pub fn contains_pos(&self, pos: Pos) -> bool {
+        self.start <= pos && self.end >= pos
+    }
+
     /// Test whether one span complete contains the other span.
     pub fn contains(self, other: Self) -> bool {
         self.source == other.source && self.start <= other.start && self.end >= other.end
@@ -117,6 +122,16 @@ impl Span {
     /// Convert to a `Range<Pos>` for indexing.
     pub fn to_range(self) -> Range<usize> {
         self.start.to_usize() .. self.end.to_usize()
+    }
+
+    /// A new span at the position of this span's start.
+    pub fn at_start(&self) -> Span {
+        Self::at(self.source, self.start)
+    }
+
+    /// A new span at the position of this span's end.
+    pub fn at_end(&self) -> Span {
+        Self::at(self.source, self.end)
     }
 }
 

@@ -42,7 +42,7 @@
 
 // Identified as dictionary due to initial colon.
 // Error: 4-5 expected named pair, found expression
-// Error: 5 expected comma
+// Error: 6 expected comma
 // Error: 12-16 expected identifier
 // Error: 17-18 expected expression, found colon
 {(:1 b:"", true::)}

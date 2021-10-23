@@ -5,10 +5,11 @@ authors = ["The Typst Project Developers"]
 edition = "2018"
 
 [features]
-default = ["cli", "fs", "layout-cache"]
+default = ["cli", "fs", "layout-cache", "parse-cache"]
 cli = ["anyhow", "codespan-reporting", "fs", "pico-args", "same-file"]
 fs = ["dirs", "memmap2", "same-file", "walkdir"]
 layout-cache = ["rand"]
+parse-cache = []
 
 [profile.dev]
 # Faster compilation

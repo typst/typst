@@ -8,8 +8,10 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
+use crate::diag::{Error, TypResult};
 use crate::loading::{FileHash, Loader};
-use crate::parse::{is_newline, Scanner};
+use crate::parse::{is_newline, parse, Scanner};
+use crate::syntax::{GreenNode, Markup, NodeKind, RedNode};
 use crate::util::PathExt;
 
 #[cfg(feature = "codespan-reporting")]
@@ -124,6 +126,7 @@ pub struct SourceFile {
     path: PathBuf,
     src: String,
     line_starts: Vec<usize>,
+    root: Rc<GreenNode>,
 }
 
 impl SourceFile {
@@ -131,11 +134,28 @@ impl SourceFile {
     pub fn new(id: SourceId, path: &Path, src: String) -> Self {
         let mut line_starts = vec![0];
         line_starts.extend(newlines(&src));
-        Self {
+        let mut init = Self {
             id,
             path: path.normalize(),
             src,
             line_starts,
+            root: Rc::new(GreenNode::new(NodeKind::Markup, 0)),
+        };
+
+        let root = parse(&init);
+        init.root = root;
+        init
+    }
+
+    pub fn ast(&self) -> TypResult<Markup> {
+        let res = RedNode::new_root(self.root.clone(), self.id);
+        let errors = res.errors();
+        if errors.is_empty() {
+            Ok(res.ticket().cast().unwrap())
+        } else {
+            Err(Box::new(
+                errors.into_iter().map(|(span, msg)| Error::new(span, msg)).collect(),
+            ))
         }
     }
 

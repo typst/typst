@@ -1,75 +1,50 @@
-use std::rc::Rc;
-
-use super::{Ident, Markup, Span, Token};
+use super::{Ident, Markup, NodeKind, RedNode, RedTicket, Span, TypedNode};
 use crate::geom::{AngularUnit, LengthUnit};
+use crate::node;
 use crate::util::EcoString;
 
 /// An expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     /// An identifier: `left`.
-    Ident(Box<Ident>),
+    Ident(Ident),
     /// A literal: `1`, `true`, ...
-    Lit(Box<Lit>),
+    Lit(Lit),
     /// An array expression: `(1, "hi", 12cm)`.
-    Array(Box<ArrayExpr>),
+    Array(ArrayExpr),
     /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
-    Dict(Box<DictExpr>),
+    Dict(DictExpr),
     /// A template expression: `[*Hi* there!]`.
-    Template(Box<TemplateExpr>),
+    Template(TemplateExpr),
     /// A grouped expression: `(1 + 2)`.
-    Group(Box<GroupExpr>),
+    Group(GroupExpr),
     /// A block expression: `{ let x = 1; x + 2 }`.
-    Block(Box<BlockExpr>),
+    Block(BlockExpr),
     /// A unary operation: `-x`.
-    Unary(Box<UnaryExpr>),
+    Unary(UnaryExpr),
     /// A binary operation: `a + b`.
-    Binary(Box<BinaryExpr>),
+    Binary(BinaryExpr),
     /// An invocation of a function: `f(x, y)`.
-    Call(Box<CallExpr>),
+    Call(CallExpr),
     /// A closure expression: `(x, y) => z`.
-    Closure(Box<ClosureExpr>),
+    Closure(ClosureExpr),
     /// A with expression: `f with (x, y: 1)`.
-    With(Box<WithExpr>),
+    With(WithExpr),
     /// A let expression: `let x = 1`.
-    Let(Box<LetExpr>),
+    Let(LetExpr),
     /// An if-else expression: `if x { y } else { z }`.
-    If(Box<IfExpr>),
+    If(IfExpr),
     /// A while loop expression: `while x { y }`.
-    While(Box<WhileExpr>),
+    While(WhileExpr),
     /// A for loop expression: `for x in y { z }`.
-    For(Box<ForExpr>),
+    For(ForExpr),
     /// An import expression: `import a, b, c from "utils.typ"`.
-    Import(Box<ImportExpr>),
+    Import(ImportExpr),
     /// An include expression: `include "chapter1.typ"`.
-    Include(Box<IncludeExpr>),
+    Include(IncludeExpr),
 }
 
 impl Expr {
-    /// The source code location.
-    pub fn span(&self) -> Span {
-        match self {
-            Self::Ident(v) => v.span,
-            Self::Lit(v) => v.span(),
-            Self::Array(v) => v.span,
-            Self::Dict(v) => v.span,
-            Self::Template(v) => v.span,
-            Self::Group(v) => v.span,
-            Self::Block(v) => v.span,
-            Self::Unary(v) => v.span,
-            Self::Binary(v) => v.span,
-            Self::Call(v) => v.span,
-            Self::Closure(v) => v.span,
-            Self::With(v) => v.span,
-            Self::Let(v) => v.span,
-            Self::If(v) => v.span,
-            Self::While(v) => v.span,
-            Self::For(v) => v.span,
-            Self::Import(v) => v.span,
-            Self::Include(v) => v.span,
-        }
-    }
-
     /// Whether the expression can be shortened in markup with a hashtag.
     pub fn has_short_form(&self) -> bool {
         matches!(self,
@@ -82,6 +57,63 @@ impl Expr {
             | Self::Import(_)
             | Self::Include(_)
         )
+    }
+
+    /// Return the expression's span.
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Ident(ident) => ident.span,
+            Self::Lit(lit) => lit.span(),
+            Self::Array(array) => array.span(),
+            Self::Dict(dict) => dict.span(),
+            Self::Template(template) => template.span(),
+            Self::Group(group) => group.span(),
+            Self::Block(block) => block.span(),
+            Self::Unary(unary) => unary.span(),
+            Self::Binary(binary) => binary.span(),
+            Self::Call(call) => call.span(),
+            Self::Closure(closure) => closure.span(),
+            Self::With(with) => with.span(),
+            Self::Let(let_) => let_.span(),
+            Self::If(if_) => if_.span(),
+            Self::While(while_) => while_.span(),
+            Self::For(for_) => for_.span(),
+            Self::Import(import) => import.span(),
+            Self::Include(include) => include.span(),
+        }
+    }
+}
+
+impl TypedNode for Expr {
+    fn cast_from(node: RedTicket) -> Option<Self> {
+        match node.kind() {
+            NodeKind::Ident(_) => Some(Self::Ident(Ident::cast_from(node).unwrap())),
+            NodeKind::Array => Some(Self::Array(ArrayExpr::cast_from(node).unwrap())),
+            NodeKind::Dict => Some(Self::Dict(DictExpr::cast_from(node).unwrap())),
+            NodeKind::Template => {
+                Some(Self::Template(TemplateExpr::cast_from(node).unwrap()))
+            }
+            NodeKind::Group => Some(Self::Group(GroupExpr::cast_from(node).unwrap())),
+            NodeKind::Block => Some(Self::Block(BlockExpr::cast_from(node).unwrap())),
+            NodeKind::Unary => Some(Self::Unary(UnaryExpr::cast_from(node).unwrap())),
+            NodeKind::Binary => Some(Self::Binary(BinaryExpr::cast_from(node).unwrap())),
+            NodeKind::Call => Some(Self::Call(CallExpr::cast_from(node).unwrap())),
+            NodeKind::Closure => {
+                Some(Self::Closure(ClosureExpr::cast_from(node).unwrap()))
+            }
+            NodeKind::WithExpr => Some(Self::With(WithExpr::cast_from(node).unwrap())),
+            NodeKind::LetExpr => Some(Self::Let(LetExpr::cast_from(node).unwrap())),
+            NodeKind::IfExpr => Some(Self::If(IfExpr::cast_from(node).unwrap())),
+            NodeKind::WhileExpr => Some(Self::While(WhileExpr::cast_from(node).unwrap())),
+            NodeKind::ForExpr => Some(Self::For(ForExpr::cast_from(node).unwrap())),
+            NodeKind::ImportExpr => {
+                Some(Self::Import(ImportExpr::cast_from(node).unwrap()))
+            }
+            NodeKind::IncludeExpr => {
+                Some(Self::Include(IncludeExpr::cast_from(node).unwrap()))
+            }
+            _ => Some(Self::Lit(Lit::cast_from(node)?)),
+        }
     }
 }
 
@@ -113,94 +145,145 @@ pub enum Lit {
     Str(Span, EcoString),
 }
 
-impl Lit {
-    /// The source code location.
-    pub fn span(&self) -> Span {
-        match *self {
-            Self::None(span) => span,
-            Self::Auto(span) => span,
-            Self::Bool(span, _) => span,
-            Self::Int(span, _) => span,
-            Self::Float(span, _) => span,
-            Self::Length(span, _, _) => span,
-            Self::Angle(span, _, _) => span,
-            Self::Percent(span, _) => span,
-            Self::Fractional(span, _) => span,
-            Self::Str(span, _) => span,
+impl TypedNode for Lit {
+    fn cast_from(node: RedTicket) -> Option<Self> {
+        match node.kind() {
+            NodeKind::None => Some(Self::None(node.own().span())),
+            NodeKind::Auto => Some(Self::Auto(node.own().span())),
+            NodeKind::Bool(b) => Some(Self::Bool(node.own().span(), *b)),
+            NodeKind::Int(i) => Some(Self::Int(node.own().span(), *i)),
+            NodeKind::Float(f) => Some(Self::Float(node.own().span(), *f)),
+            NodeKind::Length(f, unit) => Some(Self::Length(node.own().span(), *f, *unit)),
+            NodeKind::Angle(f, unit) => Some(Self::Angle(node.own().span(), *f, *unit)),
+            NodeKind::Percentage(f) => Some(Self::Percent(node.own().span(), *f)),
+            NodeKind::Fraction(f) => Some(Self::Fractional(node.own().span(), *f)),
+            NodeKind::Str(s) => Some(Self::Str(node.own().span(), s.string.clone())),
+            _ => None,
         }
     }
 }
 
-/// An array expression: `(1, "hi", 12cm)`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ArrayExpr {
-    /// The source code location.
-    pub span: Span,
-    /// The entries of the array.
-    pub items: Vec<Expr>,
-}
-
-/// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct DictExpr {
-    /// The source code location.
-    pub span: Span,
-    /// The named dictionary entries.
-    pub items: Vec<Named>,
-}
-
-/// A pair of a name and an expression: `pattern: dashed`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Named {
-    /// The name: `pattern`.
-    pub name: Ident,
-    /// The right-hand side of the pair: `dashed`.
-    pub expr: Expr,
-}
-
-impl Named {
-    /// The source code location.
+impl Lit {
     pub fn span(&self) -> Span {
-        self.name.span.join(self.expr.span())
+        match self {
+            Self::None(span) => *span,
+            Self::Auto(span) => *span,
+            Self::Bool(span, _) => *span,
+            Self::Int(span, _) => *span,
+            Self::Float(span, _) => *span,
+            Self::Length(span, _, _) => *span,
+            Self::Angle(span, _, _) => *span,
+            Self::Percent(span, _) => *span,
+            Self::Fractional(span, _) => *span,
+            Self::Str(span, _) => *span,
+        }
     }
 }
 
-/// A template expression: `[*Hi* there!]`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct TemplateExpr {
-    /// The source code location.
-    pub span: Span,
+node!(
+    /// An array expression: `(1, "hi", 12cm)`.
+    Array => ArrayExpr
+);
+
+impl ArrayExpr {
+    /// The array items.
+    pub fn items(&self) -> Vec<Expr> {
+        self.0.children().filter_map(RedTicket::cast).collect()
+    }
+}
+
+node!(
+    /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
+    Dict => DictExpr
+);
+
+impl DictExpr {
+    /// The named dictionary items.
+    pub fn items(&self) -> Vec<Named> {
+        self.0.children().filter_map(RedTicket::cast).collect()
+    }
+}
+
+node!(
+    /// A pair of a name and an expression: `pattern: dashed`.
+    Named
+);
+
+impl Named {
+    /// The name: `pattern`.
+    pub fn name(&self) -> Ident {
+        self.0.cast_first_child().expect("named pair is missing name ident")
+    }
+
+    /// The right-hand side of the pair: `dashed`.
+    pub fn expr(&self) -> Expr {
+        self.0
+            .children()
+            .filter_map(RedTicket::cast)
+            .nth(1)
+            .expect("named pair is missing expression")
+    }
+}
+
+node!(
+    /// A template expression: `[*Hi* there!]`.
+    Template => TemplateExpr
+);
+
+impl TemplateExpr {
     /// The contents of the template.
-    pub body: Markup,
+    pub fn body(&self) -> Markup {
+        self.0
+            .cast_first_child()
+            .expect("template expression is missing body")
+    }
 }
 
-/// A grouped expression: `(1 + 2)`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct GroupExpr {
-    /// The source code location.
-    pub span: Span,
+node!(
+    /// A grouped expression: `(1 + 2)`.
+    Group => GroupExpr
+);
+
+impl GroupExpr {
     /// The wrapped expression.
-    pub expr: Expr,
+    pub fn expr(&self) -> Expr {
+        self.0
+            .cast_first_child()
+            .expect("group expression is missing expression")
+    }
 }
 
-/// A block expression: `{ let x = 1; x + 2 }`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct BlockExpr {
-    /// The source code location.
-    pub span: Span,
+node!(
+    /// A block expression: `{ let x = 1; x + 2 }`.
+    Block => BlockExpr
+);
+
+impl BlockExpr {
     /// The list of expressions contained in the block.
-    pub exprs: Vec<Expr>,
+    pub fn exprs(&self) -> Vec<Expr> {
+        self.0.children().filter_map(RedTicket::cast).collect()
+    }
 }
 
-/// A unary operation: `-x`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct UnaryExpr {
-    /// The source code location.
-    pub span: Span,
+node!(
+    /// A unary operation: `-x`.
+    Unary => UnaryExpr
+);
+
+impl UnaryExpr {
     /// The operator: `-`.
-    pub op: UnOp,
+    pub fn op(&self) -> UnOp {
+        self.0
+            .cast_first_child()
+            .expect("unary expression is missing operator")
+    }
+
     /// The expression to operator on: `x`.
-    pub expr: Expr,
+    pub fn expr(&self) -> Expr {
+        self.0
+            .cast_first_child()
+            .expect("unary expression is missing expression")
+    }
 }
 
 /// A unary operator.
@@ -214,13 +297,19 @@ pub enum UnOp {
     Not,
 }
 
+impl TypedNode for UnOp {
+    fn cast_from(node: RedTicket) -> Option<Self> {
+        Self::from_token(node.kind())
+    }
+}
+
 impl UnOp {
     /// Try to convert the token into a unary operation.
-    pub fn from_token(token: Token) -> Option<Self> {
+    pub fn from_token(token: &NodeKind) -> Option<Self> {
         Some(match token {
-            Token::Plus => Self::Pos,
-            Token::Hyph => Self::Neg,
-            Token::Not => Self::Not,
+            NodeKind::Plus => Self::Pos,
+            NodeKind::Minus => Self::Neg,
+            NodeKind::Not => Self::Not,
             _ => return None,
         })
     }
@@ -229,7 +318,7 @@ impl UnOp {
     pub fn precedence(self) -> usize {
         match self {
             Self::Pos | Self::Neg => 8,
-            Self::Not => 3,
+            Self::Not => 4,
         }
     }
 
@@ -243,17 +332,34 @@ impl UnOp {
     }
 }
 
-/// A binary operation: `a + b`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct BinaryExpr {
-    /// The source code location.
-    pub span: Span,
+node!(
+    /// A binary operation: `a + b`.
+    Binary => BinaryExpr
+);
+
+impl BinaryExpr {
+    /// The binary operator: `+`.
+    pub fn op(&self) -> BinOp {
+        self.0
+            .cast_first_child()
+            .expect("binary expression is missing operator")
+    }
+
     /// The left-hand side of the operation: `a`.
-    pub lhs: Expr,
-    /// The operator: `+`.
-    pub op: BinOp,
+    pub fn lhs(&self) -> Expr {
+        self.0
+            .cast_first_child()
+            .expect("binary expression is missing left-hand side")
+    }
+
     /// The right-hand side of the operation: `b`.
-    pub rhs: Expr,
+    pub fn rhs(&self) -> Expr {
+        self.0
+            .children()
+            .filter_map(RedTicket::cast)
+            .nth(1)
+            .expect("binary expression is missing right-hand side")
+    }
 }
 
 /// A binary operator.
@@ -295,27 +401,33 @@ pub enum BinOp {
     DivAssign,
 }
 
+impl TypedNode for BinOp {
+    fn cast_from(node: RedTicket) -> Option<Self> {
+        Self::from_token(node.kind())
+    }
+}
+
 impl BinOp {
     /// Try to convert the token into a binary operation.
-    pub fn from_token(token: Token) -> Option<Self> {
+    pub fn from_token(token: &NodeKind) -> Option<Self> {
         Some(match token {
-            Token::Plus => Self::Add,
-            Token::Hyph => Self::Sub,
-            Token::Star => Self::Mul,
-            Token::Slash => Self::Div,
-            Token::And => Self::And,
-            Token::Or => Self::Or,
-            Token::EqEq => Self::Eq,
-            Token::ExclEq => Self::Neq,
-            Token::Lt => Self::Lt,
-            Token::LtEq => Self::Leq,
-            Token::Gt => Self::Gt,
-            Token::GtEq => Self::Geq,
-            Token::Eq => Self::Assign,
-            Token::PlusEq => Self::AddAssign,
-            Token::HyphEq => Self::SubAssign,
-            Token::StarEq => Self::MulAssign,
-            Token::SlashEq => Self::DivAssign,
+            NodeKind::Plus => Self::Add,
+            NodeKind::Minus => Self::Sub,
+            NodeKind::Star => Self::Mul,
+            NodeKind::Slash => Self::Div,
+            NodeKind::And => Self::And,
+            NodeKind::Or => Self::Or,
+            NodeKind::EqEq => Self::Eq,
+            NodeKind::ExclEq => Self::Neq,
+            NodeKind::Lt => Self::Lt,
+            NodeKind::LtEq => Self::Leq,
+            NodeKind::Gt => Self::Gt,
+            NodeKind::GtEq => Self::Geq,
+            NodeKind::Eq => Self::Assign,
+            NodeKind::PlusEq => Self::AddAssign,
+            NodeKind::HyphEq => Self::SubAssign,
+            NodeKind::StarEq => Self::MulAssign,
+            NodeKind::SlashEq => Self::DivAssign,
             _ => return None,
         })
     }
@@ -392,27 +504,35 @@ pub enum Associativity {
     Right,
 }
 
-/// An invocation of a function: `foo(...)`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct CallExpr {
-    /// The source code location.
-    pub span: Span,
+node!(
+    /// An invocation of a function: `foo(...)`.
+    Call => CallExpr
+);
+
+impl CallExpr {
     /// The function to call.
-    pub callee: Expr,
+    pub fn callee(&self) -> Expr {
+        self.0.cast_first_child().expect("call expression is missing callee")
+    }
+
     /// The arguments to the function.
-    pub args: CallArgs,
+    pub fn args(&self) -> CallArgs {
+        self.0
+            .cast_first_child()
+            .expect("call expression is missing argument list")
+    }
 }
 
-/// The arguments to a function: `12, draw: false`.
-///
-/// In case of a bracketed invocation with a body, the body is _not_
-/// included in the span for the sake of clearer error messages.
-#[derive(Debug, Clone, PartialEq)]
-pub struct CallArgs {
-    /// The source code location.
-    pub span: Span,
+node!(
+    /// The arguments to a function: `12, draw: false`.
+    CallArgs
+);
+
+impl CallArgs {
     /// The positional and named arguments.
-    pub items: Vec<CallArg>,
+    pub fn items(&self) -> Vec<CallArg> {
+        self.0.children().filter_map(RedTicket::cast).collect()
+    }
 }
 
 /// An argument to a function call.
@@ -426,30 +546,75 @@ pub enum CallArg {
     Spread(Expr),
 }
 
+impl TypedNode for CallArg {
+    fn cast_from(node: RedTicket) -> Option<Self> {
+        match node.kind() {
+            NodeKind::Named => Some(CallArg::Named(
+                node.cast().expect("named call argument is missing name"),
+            )),
+            NodeKind::ParameterSink => Some(CallArg::Spread(
+                node.own()
+                    .cast_first_child()
+                    .expect("call argument sink is missing expression"),
+            )),
+            _ => Some(CallArg::Pos(node.cast()?)),
+        }
+    }
+}
+
 impl CallArg {
-    /// The source code location.
+    /// The name of this argument.
     pub fn span(&self) -> Span {
         match self {
-            Self::Pos(expr) => expr.span(),
             Self::Named(named) => named.span(),
+            Self::Pos(expr) => expr.span(),
             Self::Spread(expr) => expr.span(),
         }
     }
 }
 
-/// A closure expression: `(x, y) => z`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ClosureExpr {
-    /// The source code location.
-    pub span: Span,
+node!(
+    /// A closure expression: `(x, y) => z`.
+    Closure => ClosureExpr
+);
+
+impl ClosureExpr {
     /// The name of the closure.
     ///
     /// This only exists if you use the function syntax sugar: `let f(x) = y`.
-    pub name: Option<Ident>,
+    pub fn name(&self) -> Option<Ident> {
+        // `first_convert_child` does not work here because of the Option in the
+        // Result.
+        self.0.cast_first_child()
+    }
+
     /// The parameter bindings.
-    pub params: Vec<ClosureParam>,
+    pub fn params(&self) -> Vec<ClosureParam> {
+        self.0
+            .children()
+            .find(|x| x.kind() == &NodeKind::ClosureParams)
+            .expect("closure is missing parameter list")
+            .own()
+            .children()
+            .filter_map(RedTicket::cast)
+            .collect()
+    }
+
     /// The body of the closure.
-    pub body: Rc<Expr>,
+    pub fn body(&self) -> Expr {
+        // The filtering for the NodeKind is necessary here because otherwise,
+        // `first_convert_child` will use the Ident if present.
+        self.0.cast_last_child().expect("closure is missing body")
+    }
+
+    /// The ticket of the body of the closure.
+    pub fn body_ticket(&self) -> RedTicket {
+        self.0
+            .children()
+            .filter(|x| x.cast::<Expr>().is_some())
+            .last()
+            .unwrap()
+    }
 }
 
 /// An parameter to a closure.
@@ -463,50 +628,111 @@ pub enum ClosureParam {
     Sink(Ident),
 }
 
-impl ClosureParam {
-    /// The source code location.
-    pub fn span(&self) -> Span {
-        match self {
-            Self::Pos(ident) => ident.span,
-            Self::Named(named) => named.span(),
-            Self::Sink(ident) => ident.span,
+impl TypedNode for ClosureParam {
+    fn cast_from(node: RedTicket) -> Option<Self> {
+        match node.kind() {
+            NodeKind::Ident(i) => {
+                Some(ClosureParam::Pos(Ident::new(i, node.own().span()).unwrap()))
+            }
+            NodeKind::Named => Some(ClosureParam::Named(
+                node.cast().expect("named closure parameter is missing name"),
+            )),
+            NodeKind::ParameterSink => Some(ClosureParam::Sink(
+                node.own()
+                    .cast_first_child()
+                    .expect("closure parameter sink is missing identifier"),
+            )),
+            _ => Some(ClosureParam::Pos(node.cast()?)),
         }
     }
 }
 
-/// A with expression: `f with (x, y: 1)`.
-///
-/// Applies arguments to a function.
-#[derive(Debug, Clone, PartialEq)]
-pub struct WithExpr {
-    /// The source code location.
-    pub span: Span,
+node!(
+    /// A with expression: `f with (x, y: 1)`.
+    WithExpr
+);
+
+impl WithExpr {
     /// The function to apply the arguments to.
-    pub callee: Expr,
+    pub fn callee(&self) -> Expr {
+        self.0
+            .cast_first_child()
+            .expect("with expression is missing callee expression")
+    }
+
     /// The arguments to apply to the function.
-    pub args: CallArgs,
+    pub fn args(&self) -> CallArgs {
+        self.0
+            .cast_first_child()
+            .expect("with expression is missing argument list")
+    }
 }
 
-/// A let expression: `let x = 1`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct LetExpr {
-    /// The source code location.
-    pub span: Span,
+node!(
+    /// A let expression: `let x = 1`.
+    LetExpr
+);
+
+impl LetExpr {
     /// The binding to assign to.
-    pub binding: Ident,
+    pub fn binding(&self) -> Ident {
+        if let Some(c) = self.0.cast_first_child() {
+            c
+        } else if let Some(w) = self.0.typed_child(&NodeKind::WithExpr) {
+            // Can't do an `first_convert_child` here because the WithExpr's
+            // callee has to be an identifier.
+            w.cast_first_child()
+                .expect("with expression is missing an identifier callee")
+        } else if let Some(Expr::Closure(c)) = self.0.cast_last_child() {
+            c.name().expect("closure is missing an identifier name")
+        } else {
+            panic!("let expression is missing either an identifier or a with expression")
+        }
+    }
+
     /// The expression the binding is initialized with.
-    pub init: Option<Expr>,
+    pub fn init(&self) -> Option<Expr> {
+        if self.0.cast_first_child::<Ident>().is_some() {
+            self.0.children().filter_map(RedTicket::cast).nth(1)
+        } else {
+            Some(
+                self.0
+                    .cast_first_child()
+                    .expect("let expression is missing a with expression"),
+            )
+        }
+    }
+
+    /// The ticket for the expression the binding is initialized with.
+    pub fn init_ticket(&self) -> RedTicket {
+        if self.0.cast_first_child::<Ident>().is_some() {
+            self.0.children().filter(|x| x.cast::<Expr>().is_some()).nth(1)
+        } else {
+            self.0.children().find(|x| x.cast::<Expr>().is_some())
+        }
+        .unwrap()
+    }
 }
 
-/// An import expression: `import a, b, c from "utils.typ"`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ImportExpr {
-    /// The source code location.
-    pub span: Span,
+node!(
+    /// An import expression: `import a, b, c from "utils.typ"`.
+    ImportExpr
+);
+
+impl ImportExpr {
     /// The items to be imported.
-    pub imports: Imports,
+    pub fn imports(&self) -> Imports {
+        self.0
+            .cast_first_child()
+            .expect("import expression is missing import list")
+    }
+
     /// The location of the importable file.
-    pub path: Expr,
+    pub fn path(&self) -> Expr {
+        self.0
+            .cast_first_child()
+            .expect("import expression is missing path expression")
+    }
 }
 
 /// The items that ought to be imported from a file.
@@ -518,67 +744,137 @@ pub enum Imports {
     Idents(Vec<Ident>),
 }
 
-/// An include expression: `include "chapter1.typ"`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct IncludeExpr {
-    /// The source code location.
-    pub span: Span,
+impl TypedNode for Imports {
+    fn cast_from(node: RedTicket) -> Option<Self> {
+        match node.kind() {
+            NodeKind::Star => Some(Imports::Wildcard),
+            NodeKind::ImportItems => {
+                let idents = node.own().children().filter_map(RedTicket::cast).collect();
+                Some(Imports::Idents(idents))
+            }
+            _ => None,
+        }
+    }
+}
+
+node!(
+    /// An include expression: `include "chapter1.typ"`.
+    IncludeExpr
+);
+
+impl IncludeExpr {
     /// The location of the file to be included.
-    pub path: Expr,
+    pub fn path(&self) -> Expr {
+        self.0
+            .cast_first_child()
+            .expect("include expression is missing path expression")
+    }
 }
 
-/// An if-else expression: `if x { y } else { z }`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct IfExpr {
-    /// The source code location.
-    pub span: Span,
+node!(
+    /// An if-else expression: `if x { y } else { z }`.
+    IfExpr
+);
+
+impl IfExpr {
     /// The condition which selects the body to evaluate.
-    pub condition: Expr,
+    pub fn condition(&self) -> Expr {
+        self.0
+            .cast_first_child()
+            .expect("if expression is missing condition expression")
+    }
+
     /// The expression to evaluate if the condition is true.
-    pub if_body: Expr,
+    pub fn if_body(&self) -> Expr {
+        self.0
+            .children()
+            .filter_map(RedTicket::cast)
+            .nth(1)
+            .expect("if expression is missing if body")
+    }
+
     /// The expression to evaluate if the condition is false.
-    pub else_body: Option<Expr>,
+    pub fn else_body(&self) -> Option<Expr> {
+        self.0.children().filter_map(RedTicket::cast).nth(2)
+    }
 }
 
-/// A while loop expression: `while x { y }`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct WhileExpr {
-    /// The source code location.
-    pub span: Span,
+node!(
+    /// A while loop expression: `while x { y }`.
+    WhileExpr
+);
+
+impl WhileExpr {
     /// The condition which selects whether to evaluate the body.
-    pub condition: Expr,
+    pub fn condition(&self) -> Expr {
+        self.0
+            .cast_first_child()
+            .expect("while loop expression is missing condition expression")
+    }
+
     /// The expression to evaluate while the condition is true.
-    pub body: Expr,
+    pub fn body(&self) -> Expr {
+        self.0
+            .children()
+            .filter_map(RedTicket::cast)
+            .nth(1)
+            .expect("while loop expression is missing body")
+    }
 }
 
-/// A for loop expression: `for x in y { z }`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ForExpr {
-    /// The source code location.
-    pub span: Span,
+node!(
+    /// A for loop expression: `for x in y { z }`.
+    ForExpr
+);
+
+impl ForExpr {
     /// The pattern to assign to.
-    pub pattern: ForPattern,
+    pub fn pattern(&self) -> ForPattern {
+        self.0
+            .cast_first_child()
+            .expect("for loop expression is missing pattern")
+    }
+
     /// The expression to iterate over.
-    pub iter: Expr,
+    pub fn iter(&self) -> Expr {
+        self.0
+            .cast_first_child()
+            .expect("for loop expression is missing iterable expression")
+    }
+
     /// The expression to evaluate for each iteration.
-    pub body: Expr,
+    pub fn body(&self) -> Expr {
+        self.0
+            .children()
+            .filter_map(RedTicket::cast)
+            .last()
+            .expect("for loop expression is missing body")
+    }
+
+    /// The ticket for the expression to evaluate for each iteration.
+    pub fn body_ticket(&self) -> RedTicket {
+        self.0
+            .children()
+            .filter(|x| x.cast::<Expr>().is_some())
+            .last()
+            .unwrap()
+    }
 }
 
-/// A pattern in a for loop.
-#[derive(Debug, Clone, PartialEq)]
-pub enum ForPattern {
-    /// A value pattern: `for v in array`.
-    Value(Ident),
-    /// A key-value pattern: `for k, v in dict`.
-    KeyValue(Ident, Ident),
-}
+node!(
+    /// A for-in loop expression: `for x in y { z }`.
+    ForPattern
+);
 
 impl ForPattern {
-    /// The source code location.
-    pub fn span(&self) -> Span {
-        match self {
-            Self::Value(v) => v.span,
-            Self::KeyValue(k, v) => k.span.join(v.span),
-        }
+    pub fn key(&self) -> Option<Ident> {
+        let mut items: Vec<_> = self.0.children().filter_map(RedTicket::cast).collect();
+        if items.len() > 1 { Some(items.remove(0)) } else { None }
+    }
+
+    pub fn value(&self) -> Ident {
+        self.0
+            .cast_last_child()
+            .expect("for-in loop pattern is missing value")
     }
 }

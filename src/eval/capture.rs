@@ -1,8 +1,7 @@
 use std::rc::Rc;
 
 use super::{Scope, Scopes, Value};
-use crate::syntax::visit::{immutable::visit_expr, Visit};
-use crate::syntax::{Expr, Ident};
+use crate::syntax::{ClosureParam, Expr, Imports, RedTicket};
 
 /// A visitor that captures variable slots.
 pub struct CapturesVisitor<'a> {
@@ -21,36 +20,83 @@ impl<'a> CapturesVisitor<'a> {
         }
     }
 
-    /// Return the scope of captured variables.
-    pub fn finish(self) -> Scope {
-        self.captures
-    }
-}
+    pub fn visit(&mut self, node: RedTicket) {
+        let expr: Option<Expr> = node.cast();
 
-impl<'ast> Visit<'ast> for CapturesVisitor<'_> {
-    fn visit_expr(&mut self, node: &'ast Expr) {
-        if let Expr::Ident(ident) = node {
-            // Find out whether the name is not locally defined and if so if it
-            // can be captured.
-            if self.internal.get(ident).is_none() {
-                if let Some(slot) = self.external.get(ident) {
-                    self.captures.def_slot(ident.as_str(), Rc::clone(slot));
+        match expr.as_ref() {
+            Some(Expr::Let(expr)) => {
+                self.visit(expr.init_ticket());
+                let ident = expr.binding();
+                self.internal.def_mut(ident.as_str(), Value::None);
+            }
+            Some(Expr::Closure(closure)) => {
+                for arg in closure.params() {
+                    match arg {
+                        ClosureParam::Pos(ident) | ClosureParam::Sink(ident) => {
+                            self.internal.def_mut(ident.as_str(), Value::None);
+                        }
+                        ClosureParam::Named(name) => {
+                            self.internal.def_mut(name.name().as_str(), Value::None);
+                        }
+                    }
+                }
+                self.visit(closure.body_ticket());
+            }
+            Some(Expr::For(forloop)) => {
+                let pattern = forloop.pattern();
+                self.internal.def_mut(pattern.value().as_str(), Value::None);
+
+                if let Some(key) = pattern.key() {
+                    self.internal.def_mut(key.as_str(), Value::None);
+                }
+                self.visit(forloop.body_ticket());
+            }
+            Some(Expr::Import(import)) => {
+                if let Imports::Idents(idents) = import.imports() {
+                    for ident in idents {
+                        self.internal.def_mut(ident.as_str(), Value::None);
+                    }
                 }
             }
-        } else {
-            visit_expr(self, node);
+            Some(Expr::Ident(ident)) => {
+                if self.internal.get(ident.as_str()).is_none() {
+                    if let Some(slot) = self.external.get(ident.as_str()) {
+                        self.captures.def_slot(ident.as_str(), Rc::clone(slot));
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        match expr.as_ref() {
+            Some(Expr::Let(_)) | Some(Expr::For(_)) | Some(Expr::Closure(_)) => {}
+
+            Some(Expr::Block(_)) => {
+                self.internal.enter();
+                for child in node.own().children() {
+                    self.visit(child);
+                }
+                self.internal.exit();
+            }
+
+            Some(Expr::Template(_)) => {
+                self.internal.enter();
+                for child in node.own().children() {
+                    self.visit(child);
+                }
+                self.internal.exit();
+            }
+
+            _ => {
+                for child in node.own().children() {
+                    self.visit(child);
+                }
+            }
         }
     }
 
-    fn visit_binding(&mut self, ident: &'ast Ident) {
-        self.internal.def_mut(ident.as_str(), Value::None);
-    }
-
-    fn visit_enter(&mut self) {
-        self.internal.enter();
-    }
-
-    fn visit_exit(&mut self) {
-        self.internal.exit();
+    /// Return the scope of captured variables.
+    pub fn finish(self) -> Scope {
+        self.captures
     }
 }

@@ -1,9 +1,13 @@
-use super::{is_newline, Scanner};
+use super::{is_newline, resolve_raw, Scanner};
 use crate::geom::{AngularUnit, LengthUnit};
+use crate::parse::resolve::{resolve_hex, resolve_string};
+use crate::source::SourceFile;
 use crate::syntax::*;
+use crate::util::EcoString;
 
 /// An iterator over the tokens of a string of source code.
 pub struct Tokens<'s> {
+    source: &'s SourceFile,
     s: Scanner<'s>,
     mode: TokenMode,
 }
@@ -20,8 +24,12 @@ pub enum TokenMode {
 impl<'s> Tokens<'s> {
     /// Create a new token iterator with the given mode.
     #[inline]
-    pub fn new(src: &'s str, mode: TokenMode) -> Self {
-        Self { s: Scanner::new(src), mode }
+    pub fn new(source: &'s SourceFile, mode: TokenMode) -> Self {
+        Self {
+            s: Scanner::new(source.src()),
+            source,
+            mode,
+        }
     }
 
     /// Get the current token mode.
@@ -59,7 +67,7 @@ impl<'s> Tokens<'s> {
 }
 
 impl<'s> Iterator for Tokens<'s> {
-    type Item = Token<'s>;
+    type Item = NodeKind;
 
     /// Parse the next token in the source code.
     #[inline]
@@ -68,19 +76,21 @@ impl<'s> Iterator for Tokens<'s> {
         let c = self.s.eat()?;
         Some(match c {
             // Blocks and templates.
-            '[' => Token::LeftBracket,
-            ']' => Token::RightBracket,
-            '{' => Token::LeftBrace,
-            '}' => Token::RightBrace,
+            '[' => NodeKind::LeftBracket,
+            ']' => NodeKind::RightBracket,
+            '{' => NodeKind::LeftBrace,
+            '}' => NodeKind::RightBrace,
 
             // Whitespace.
-            ' ' if self.s.check_or(true, |c| !c.is_whitespace()) => Token::Space(0),
+            ' ' if self.s.check_or(true, |c| !c.is_whitespace()) => NodeKind::Space(0),
             c if c.is_whitespace() => self.whitespace(),
 
             // Comments with special case for URLs.
             '/' if self.s.eat_if('*') => self.block_comment(),
             '/' if !self.maybe_in_url() && self.s.eat_if('/') => self.line_comment(),
-            '*' if self.s.eat_if('/') => Token::Invalid(self.s.eaten_from(start)),
+            '*' if self.s.eat_if('/') => {
+                NodeKind::Error(ErrorPosition::Full, self.s.eaten_from(start).into())
+            }
 
             // Other things.
             _ => match self.mode {
@@ -93,7 +103,7 @@ impl<'s> Iterator for Tokens<'s> {
 
 impl<'s> Tokens<'s> {
     #[inline]
-    fn markup(&mut self, start: usize, c: char) -> Token<'s> {
+    fn markup(&mut self, start: usize, c: char) -> NodeKind {
         match c {
             // Escape sequences.
             '\\' => self.backslash(),
@@ -102,13 +112,15 @@ impl<'s> Tokens<'s> {
             '#' => self.hash(),
 
             // Markup.
-            '~' => Token::Tilde,
-            '*' => Token::Star,
-            '_' => Token::Underscore,
+            '~' => NodeKind::NonBreakingSpace,
+            '*' => NodeKind::Strong,
+            '_' => NodeKind::Emph,
             '`' => self.raw(),
             '$' => self.math(),
-            '-' => self.hyph(start),
-            '=' if self.s.check_or(true, |c| c == '=' || c.is_whitespace()) => Token::Eq,
+            '-' => self.hyph(),
+            '=' if self.s.check_or(true, |c| c == '=' || c.is_whitespace()) => {
+                NodeKind::Eq
+            }
             c if c == '.' || c.is_ascii_digit() => self.numbering(start, c),
 
             // Plain text.
@@ -116,35 +128,35 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    fn code(&mut self, start: usize, c: char) -> Token<'s> {
+    fn code(&mut self, start: usize, c: char) -> NodeKind {
         match c {
             // Parens.
-            '(' => Token::LeftParen,
-            ')' => Token::RightParen,
+            '(' => NodeKind::LeftParen,
+            ')' => NodeKind::RightParen,
 
             // Length two.
-            '=' if self.s.eat_if('=') => Token::EqEq,
-            '!' if self.s.eat_if('=') => Token::ExclEq,
-            '<' if self.s.eat_if('=') => Token::LtEq,
-            '>' if self.s.eat_if('=') => Token::GtEq,
-            '+' if self.s.eat_if('=') => Token::PlusEq,
-            '-' if self.s.eat_if('=') => Token::HyphEq,
-            '*' if self.s.eat_if('=') => Token::StarEq,
-            '/' if self.s.eat_if('=') => Token::SlashEq,
-            '.' if self.s.eat_if('.') => Token::Dots,
-            '=' if self.s.eat_if('>') => Token::Arrow,
+            '=' if self.s.eat_if('=') => NodeKind::EqEq,
+            '!' if self.s.eat_if('=') => NodeKind::ExclEq,
+            '<' if self.s.eat_if('=') => NodeKind::LtEq,
+            '>' if self.s.eat_if('=') => NodeKind::GtEq,
+            '+' if self.s.eat_if('=') => NodeKind::PlusEq,
+            '-' if self.s.eat_if('=') => NodeKind::HyphEq,
+            '*' if self.s.eat_if('=') => NodeKind::StarEq,
+            '/' if self.s.eat_if('=') => NodeKind::SlashEq,
+            '.' if self.s.eat_if('.') => NodeKind::Dots,
+            '=' if self.s.eat_if('>') => NodeKind::Arrow,
 
             // Length one.
-            ',' => Token::Comma,
-            ';' => Token::Semicolon,
-            ':' => Token::Colon,
-            '+' => Token::Plus,
-            '-' => Token::Hyph,
-            '*' => Token::Star,
-            '/' => Token::Slash,
-            '=' => Token::Eq,
-            '<' => Token::Lt,
-            '>' => Token::Gt,
+            ',' => NodeKind::Comma,
+            ';' => NodeKind::Semicolon,
+            ':' => NodeKind::Colon,
+            '+' => NodeKind::Plus,
+            '-' => NodeKind::Minus,
+            '*' => NodeKind::Star,
+            '/' => NodeKind::Slash,
+            '=' => NodeKind::Eq,
+            '<' => NodeKind::Lt,
+            '>' => NodeKind::Gt,
 
             // Identifiers.
             c if is_id_start(c) => self.ident(start),
@@ -159,12 +171,12 @@ impl<'s> Tokens<'s> {
             // Strings.
             '"' => self.string(),
 
-            _ => Token::Invalid(self.s.eaten_from(start)),
+            _ => NodeKind::Error(ErrorPosition::Full, self.s.eaten_from(start).into()),
         }
     }
 
     #[inline]
-    fn text(&mut self, start: usize) -> Token<'s> {
+    fn text(&mut self, start: usize) -> NodeKind {
         macro_rules! table {
             ($($c:literal)|*) => {{
                 let mut t = [false; 128];
@@ -186,10 +198,10 @@ impl<'s> Tokens<'s> {
             TABLE.get(c as usize).copied().unwrap_or_else(|| c.is_whitespace())
         });
 
-        Token::Text(self.s.eaten_from(start))
+        NodeKind::Text(resolve_string(self.s.eaten_from(start)))
     }
 
-    fn whitespace(&mut self) -> Token<'s> {
+    fn whitespace(&mut self) -> NodeKind {
         self.s.uneat();
 
         // Count the number of newlines.
@@ -208,10 +220,10 @@ impl<'s> Tokens<'s> {
             }
         }
 
-        Token::Space(newlines)
+        NodeKind::Space(newlines)
     }
 
-    fn backslash(&mut self) -> Token<'s> {
+    fn backslash(&mut self) -> NodeKind {
         if let Some(c) = self.s.peek() {
             match c {
                 // Backslash and comments.
@@ -220,61 +232,61 @@ impl<'s> Tokens<'s> {
                 '[' | ']' | '{' | '}' | '#' |
                 // Markup.
                 '*' | '_' | '=' | '~' | '`' | '$' => {
-                    let start = self.s.index();
                     self.s.eat_assert(c);
-                    Token::Text(&self.s.eaten_from(start))
+                    NodeKind::Text(c.into())
                 }
                 'u' if self.s.rest().starts_with("u{") => {
                     self.s.eat_assert('u');
                     self.s.eat_assert('{');
-                    Token::UnicodeEscape(UnicodeEscapeToken {
-                        // Allow more than `ascii_hexdigit` for better error recovery.
-                        sequence: self.s.eat_while(|c| c.is_ascii_alphanumeric()),
-                        terminated: self.s.eat_if('}'),
+                    let sequence: EcoString = self.s.eat_while(|c| c.is_ascii_alphanumeric()).into();
+                    NodeKind::UnicodeEscape(UnicodeEscapeToken {
+                        character: resolve_hex(&sequence),
+                        sequence,
+                        terminated: self.s.eat_if('}')
                     })
                 }
-                c if c.is_whitespace() => Token::Backslash,
-                _ => Token::Text("\\"),
+                c if c.is_whitespace() => NodeKind::Linebreak,
+                _ => NodeKind::Text("\\".into()),
             }
         } else {
-            Token::Backslash
+            NodeKind::Linebreak
         }
     }
 
     #[inline]
-    fn hash(&mut self) -> Token<'s> {
+    fn hash(&mut self) -> NodeKind {
         if self.s.check_or(false, is_id_start) {
             let read = self.s.eat_while(is_id_continue);
             if let Some(keyword) = keyword(read) {
                 keyword
             } else {
-                Token::Ident(read)
+                NodeKind::Ident(read.into())
             }
         } else {
-            Token::Text("#")
+            NodeKind::Text("#".into())
         }
     }
 
-    fn hyph(&mut self, start: usize) -> Token<'s> {
+    fn hyph(&mut self) -> NodeKind {
         if self.s.eat_if('-') {
             if self.s.eat_if('-') {
-                Token::HyphHyphHyph
+                NodeKind::EmDash
             } else {
-                Token::HyphHyph
+                NodeKind::EnDash
             }
         } else if self.s.check_or(true, char::is_whitespace) {
-            Token::Hyph
+            NodeKind::ListBullet
         } else {
-            Token::Text(self.s.eaten_from(start))
+            NodeKind::Text("-".into())
         }
     }
 
-    fn numbering(&mut self, start: usize, c: char) -> Token<'s> {
+    fn numbering(&mut self, start: usize, c: char) -> NodeKind {
         let number = if c != '.' {
             self.s.eat_while(|c| c.is_ascii_digit());
             let read = self.s.eaten_from(start);
             if !self.s.eat_if('.') {
-                return Token::Text(read);
+                return NodeKind::Text(self.s.eaten_from(start).into());
             }
             read.parse().ok()
         } else {
@@ -282,21 +294,28 @@ impl<'s> Tokens<'s> {
         };
 
         if self.s.check_or(true, char::is_whitespace) {
-            Token::Numbering(number)
+            NodeKind::EnumNumbering(number)
         } else {
-            Token::Text(self.s.eaten_from(start))
+            NodeKind::Text(self.s.eaten_from(start).into())
         }
     }
 
-    fn raw(&mut self) -> Token<'s> {
+    fn raw(&mut self) -> NodeKind {
+        let column = self.source.byte_to_column(self.s.index() - 1).unwrap();
         let mut backticks = 1;
-        while self.s.eat_if('`') {
+        while self.s.eat_if('`') && backticks < u8::MAX {
             backticks += 1;
         }
 
         // Special case for empty inline block.
         if backticks == 2 {
-            return Token::Raw(RawToken { text: "", backticks: 1, terminated: true });
+            return NodeKind::Raw(RawToken {
+                text: EcoString::new(),
+                lang: None,
+                backticks: 1,
+                terminated: true,
+                block: false,
+            });
         }
 
         let start = self.s.index();
@@ -311,16 +330,17 @@ impl<'s> Tokens<'s> {
         }
 
         let terminated = found == backticks;
-        let end = self.s.index() - if terminated { found } else { 0 };
+        let end = self.s.index() - if terminated { found as usize } else { 0 };
 
-        Token::Raw(RawToken {
-            text: self.s.get(start .. end),
+        NodeKind::Raw(resolve_raw(
+            column,
             backticks,
+            self.s.get(start .. end).into(),
             terminated,
-        })
+        ))
     }
 
-    fn math(&mut self) -> Token<'s> {
+    fn math(&mut self) -> NodeKind {
         let mut display = false;
         if self.s.eat_if('[') {
             display = true;
@@ -350,25 +370,25 @@ impl<'s> Tokens<'s> {
                 (true, true) => 2,
             };
 
-        Token::Math(MathToken {
-            formula: self.s.get(start .. end),
+        NodeKind::Math(MathToken {
+            formula: self.s.get(start .. end).into(),
             display,
             terminated,
         })
     }
 
-    fn ident(&mut self, start: usize) -> Token<'s> {
+    fn ident(&mut self, start: usize) -> NodeKind {
         self.s.eat_while(is_id_continue);
         match self.s.eaten_from(start) {
-            "none" => Token::None,
-            "auto" => Token::Auto,
-            "true" => Token::Bool(true),
-            "false" => Token::Bool(false),
-            id => keyword(id).unwrap_or(Token::Ident(id)),
+            "none" => NodeKind::None,
+            "auto" => NodeKind::Auto,
+            "true" => NodeKind::Bool(true),
+            "false" => NodeKind::Bool(false),
+            id => keyword(id).unwrap_or(NodeKind::Ident(id.into())),
         }
     }
 
-    fn number(&mut self, start: usize, c: char) -> Token<'s> {
+    fn number(&mut self, start: usize, c: char) -> NodeKind {
         // Read the first part (integer or fractional depending on `first`).
         self.s.eat_while(|c| c.is_ascii_digit());
 
@@ -380,7 +400,9 @@ impl<'s> Tokens<'s> {
 
         // Read the exponent.
         if self.s.eat_if('e') || self.s.eat_if('E') {
-            let _ = self.s.eat_if('+') || self.s.eat_if('-');
+            if !self.s.eat_if('+') {
+                self.s.eat_if('-');
+            }
             self.s.eat_while(|c| c.is_ascii_digit());
         }
 
@@ -396,55 +418,53 @@ impl<'s> Tokens<'s> {
 
         // Find out whether it is a simple number.
         if suffix.is_empty() {
-            if let Ok(int) = number.parse::<i64>() {
-                return Token::Int(int);
-            } else if let Ok(float) = number.parse::<f64>() {
-                return Token::Float(float);
+            if let Ok(i) = number.parse::<i64>() {
+                return NodeKind::Int(i);
             }
         }
 
-        // Otherwise parse into the fitting numeric type.
-        let build = match suffix {
-            "%" => Token::Percent,
-            "fr" => Token::Fraction,
-            "pt" => |x| Token::Length(x, LengthUnit::Pt),
-            "mm" => |x| Token::Length(x, LengthUnit::Mm),
-            "cm" => |x| Token::Length(x, LengthUnit::Cm),
-            "in" => |x| Token::Length(x, LengthUnit::In),
-            "rad" => |x| Token::Angle(x, AngularUnit::Rad),
-            "deg" => |x| Token::Angle(x, AngularUnit::Deg),
-            _ => return Token::Invalid(all),
-        };
-
-        if let Ok(float) = number.parse::<f64>() {
-            build(float)
+        if let Ok(f) = number.parse::<f64>() {
+            match suffix {
+                "" => NodeKind::Float(f),
+                "%" => NodeKind::Percentage(f),
+                "fr" => NodeKind::Fraction(f),
+                "pt" => NodeKind::Length(f, LengthUnit::Pt),
+                "mm" => NodeKind::Length(f, LengthUnit::Mm),
+                "cm" => NodeKind::Length(f, LengthUnit::Cm),
+                "in" => NodeKind::Length(f, LengthUnit::In),
+                "deg" => NodeKind::Angle(f, AngularUnit::Deg),
+                "rad" => NodeKind::Angle(f, AngularUnit::Rad),
+                _ => {
+                    return NodeKind::Error(ErrorPosition::Full, all.into());
+                }
+            }
         } else {
-            Token::Invalid(all)
+            NodeKind::Error(ErrorPosition::Full, all.into())
         }
     }
 
-    fn string(&mut self) -> Token<'s> {
+
+    fn string(&mut self) -> NodeKind {
         let mut escaped = false;
-        Token::Str(StrToken {
-            string: self.s.eat_until(|c| {
+        NodeKind::Str(StrToken {
+            string: resolve_string(self.s.eat_until(|c| {
                 if c == '"' && !escaped {
                     true
                 } else {
                     escaped = c == '\\' && !escaped;
                     false
                 }
-            }),
+            })),
             terminated: self.s.eat_if('"'),
         })
     }
 
-    fn line_comment(&mut self) -> Token<'s> {
-        Token::LineComment(self.s.eat_until(is_newline))
+    fn line_comment(&mut self) -> NodeKind {
+        self.s.eat_until(is_newline);
+        NodeKind::LineComment
     }
 
-    fn block_comment(&mut self) -> Token<'s> {
-        let start = self.s.index();
-
+    fn block_comment(&mut self) -> NodeKind {
         let mut state = '_';
         let mut depth = 1;
 
@@ -466,10 +486,7 @@ impl<'s> Tokens<'s> {
             }
         }
 
-        let terminated = depth == 0;
-        let end = self.s.index() - if terminated { 2 } else { 0 };
-
-        Token::BlockComment(self.s.get(start .. end))
+        NodeKind::BlockComment
     }
 
     fn maybe_in_url(&self) -> bool {
@@ -477,24 +494,24 @@ impl<'s> Tokens<'s> {
     }
 }
 
-fn keyword(ident: &str) -> Option<Token<'static>> {
+fn keyword(ident: &str) -> Option<NodeKind> {
     Some(match ident {
-        "not" => Token::Not,
-        "and" => Token::And,
-        "or" => Token::Or,
-        "with" => Token::With,
-        "let" => Token::Let,
-        "if" => Token::If,
-        "else" => Token::Else,
-        "for" => Token::For,
-        "in" => Token::In,
-        "while" => Token::While,
-        "break" => Token::Break,
-        "continue" => Token::Continue,
-        "return" => Token::Return,
-        "import" => Token::Import,
-        "include" => Token::Include,
-        "from" => Token::From,
+        "not" => NodeKind::Not,
+        "and" => NodeKind::And,
+        "or" => NodeKind::Or,
+        "with" => NodeKind::With,
+        "let" => NodeKind::Let,
+        "if" => NodeKind::If,
+        "else" => NodeKind::Else,
+        "for" => NodeKind::For,
+        "in" => NodeKind::In,
+        "while" => NodeKind::While,
+        "break" => NodeKind::Break,
+        "continue" => NodeKind::Continue,
+        "return" => NodeKind::Return,
+        "import" => NodeKind::Import,
+        "include" => NodeKind::Include,
+        "from" => NodeKind::From,
         _ => return None,
     })
 }
@@ -506,24 +523,56 @@ mod tests {
 
     use super::*;
 
+    use NodeKind::*;
     use Option::None;
-    use Token::{Ident, *};
     use TokenMode::{Code, Markup};
 
-    const fn UnicodeEscape(sequence: &str, terminated: bool) -> Token {
-        Token::UnicodeEscape(UnicodeEscapeToken { sequence, terminated })
+    fn UnicodeEscape(sequence: &str, terminated: bool) -> NodeKind {
+        NodeKind::UnicodeEscape(UnicodeEscapeToken {
+            character: resolve_hex(sequence),
+            sequence: sequence.into(),
+            terminated,
+        })
     }
 
-    const fn Raw(text: &str, backticks: usize, terminated: bool) -> Token {
-        Token::Raw(RawToken { text, backticks, terminated })
+    fn Raw(
+        text: &str,
+        lang: Option<&str>,
+        backticks: u8,
+        terminated: bool,
+        block: bool,
+    ) -> NodeKind {
+        NodeKind::Raw(RawToken {
+            text: text.into(),
+            lang: lang.map(Into::into),
+            backticks,
+            terminated,
+            block,
+        })
     }
 
-    const fn Math(formula: &str, display: bool, terminated: bool) -> Token {
-        Token::Math(MathToken { formula, display, terminated })
+    fn Math(formula: &str, display: bool, terminated: bool) -> NodeKind {
+        NodeKind::Math(MathToken {
+            formula: formula.into(),
+            display,
+            terminated,
+        })
     }
 
-    const fn Str(string: &str, terminated: bool) -> Token {
-        Token::Str(StrToken { string, terminated })
+    fn Str(string: &str, terminated: bool) -> NodeKind {
+        NodeKind::Str(StrToken { string: string.into(), terminated })
+    }
+
+    fn Text(string: &str) -> NodeKind {
+        NodeKind::Text(string.into())
+    }
+
+    fn Ident(ident: &str) -> NodeKind {
+        NodeKind::Ident(ident.into())
+    }
+
+    fn Invalid(invalid: &str) -> NodeKind {
+        NodeKind::Error(ErrorPosition::Full, invalid.into())
     }
 
     /// Building blocks for suffix testing.
@@ -541,40 +590,6 @@ mod tests {
     /// - '/': symbols
     const BLOCKS: &str = " a1/";
 
-    /// Suffixes described by four-tuples of:
-    ///
-    /// - block the suffix is part of
-    /// - mode in which the suffix is applicable
-    /// - the suffix string
-    /// - the resulting suffix token
-    const SUFFIXES: &[(char, Option<TokenMode>, &str, Token)] = &[
-        // Whitespace suffixes.
-        (' ', None, " ", Space(0)),
-        (' ', None, "\n", Space(1)),
-        (' ', None, "\r", Space(1)),
-        (' ', None, "\r\n", Space(1)),
-        // Letter suffixes.
-        ('a', Some(Markup), "hello", Text("hello")),
-        ('a', Some(Markup), "💚", Text("💚")),
-        ('a', Some(Code), "val", Ident("val")),
-        ('a', Some(Code), "α", Ident("α")),
-        ('a', Some(Code), "_", Ident("_")),
-        // Number suffixes.
-        ('1', Some(Code), "2", Int(2)),
-        ('1', Some(Code), ".2", Float(0.2)),
-        // Symbol suffixes.
-        ('/', None, "[", LeftBracket),
-        ('/', None, "//", LineComment("")),
-        ('/', None, "/**/", BlockComment("")),
-        ('/', Some(Markup), "*", Star),
-        ('/', Some(Markup), "$ $", Math(" ", false, true)),
-        ('/', Some(Markup), r"\\", Text(r"\")),
-        ('/', Some(Markup), "#let", Let),
-        ('/', Some(Code), "(", LeftParen),
-        ('/', Some(Code), ":", Colon),
-        ('/', Some(Code), "+=", PlusEq),
-    ];
-
     macro_rules! t {
         (Both $($tts:tt)*) => {
             t!(Markup $($tts)*);
@@ -584,22 +599,56 @@ mod tests {
             // Test without suffix.
             t!(@$mode: $src => $($token),*);
 
+            // Suffixes described by four-tuples of:
+            //
+            // - block the suffix is part of
+            // - mode in which the suffix is applicable
+            // - the suffix string
+            // - the resulting suffix NodeKind
+            let suffixes: &[(char, Option<TokenMode>, &str, NodeKind)] = &[
+                // Whitespace suffixes.
+                (' ', None, " ", Space(0)),
+                (' ', None, "\n", Space(1)),
+                (' ', None, "\r", Space(1)),
+                (' ', None, "\r\n", Space(1)),
+                // Letter suffixes.
+                ('a', Some(Markup), "hello", Text("hello")),
+                ('a', Some(Markup), "💚", Text("💚")),
+                ('a', Some(Code), "val", Ident("val")),
+                ('a', Some(Code), "α", Ident("α")),
+                ('a', Some(Code), "_", Ident("_")),
+                // Number suffixes.
+                ('1', Some(Code), "2", Int(2)),
+                ('1', Some(Code), ".2", Float(0.2)),
+                // Symbol suffixes.
+                ('/', None, "[", LeftBracket),
+                ('/', None, "//", LineComment),
+                ('/', None, "/**/", BlockComment),
+                ('/', Some(Markup), "*", Strong),
+                ('/', Some(Markup), "$ $", Math(" ", false, true)),
+                ('/', Some(Markup), r"\\", Text("\\")),
+                ('/', Some(Markup), "#let", Let),
+                ('/', Some(Code), "(", LeftParen),
+                ('/', Some(Code), ":", Colon),
+                ('/', Some(Code), "+=", PlusEq),
+            ];
+
             // Test with each applicable suffix.
-            for &(block, mode, suffix, token) in SUFFIXES {
+            for (block, mode, suffix, token) in suffixes {
                 let src = $src;
                 #[allow(unused_variables)]
                 let blocks = BLOCKS;
                 $(let blocks = $blocks;)?
                 assert!(!blocks.contains(|c| !BLOCKS.contains(c)));
-                if (mode.is_none() || mode == Some($mode)) && blocks.contains(block) {
+                if (mode.is_none() || mode == &Some($mode)) && blocks.contains(*block) {
                     t!(@$mode: format!("{}{}", src, suffix) => $($token,)* token);
                 }
             }
         }};
         (@$mode:ident: $src:expr => $($token:expr),*) => {{
             let src = $src;
-            let found = Tokens::new(&src, $mode).collect::<Vec<_>>();
-            let expected = vec![$($token),*];
+            let found = Tokens::new(&SourceFile::detached(src.clone()), $mode).collect::<Vec<_>>();
+            let expected = vec![$($token.clone()),*];
             check(&src, found, expected);
         }};
     }
@@ -671,7 +720,7 @@ mod tests {
 
         // Test text ends.
         t!(Markup[""]: "hello " => Text("hello"), Space(0));
-        t!(Markup[""]: "hello~" => Text("hello"), Tilde);
+        t!(Markup[""]: "hello~" => Text("hello"), NonBreakingSpace);
     }
 
     #[test]
@@ -713,16 +762,16 @@ mod tests {
     #[test]
     fn test_tokenize_markup_symbols() {
         // Test markup tokens.
-        t!(Markup[" a1"]: "*"   => Star);
-        t!(Markup: "_"          => Underscore);
+        t!(Markup[" a1"]: "*"   => Strong);
+        t!(Markup: "_"          => Emph);
         t!(Markup[""]: "==="    => Eq, Eq, Eq);
         t!(Markup["a1/"]: "= "  => Eq, Space(0));
-        t!(Markup: "~"          => Tilde);
-        t!(Markup[" "]: r"\"    => Backslash);
-        t!(Markup["a "]: r"a--" => Text("a"), HyphHyph);
-        t!(Markup["a1/"]: "- "  => Hyph, Space(0));
-        t!(Markup[" "]: "."     => Numbering(None));
-        t!(Markup[" "]: "1."    => Numbering(Some(1)));
+        t!(Markup: "~"          => NonBreakingSpace);
+        t!(Markup[" "]: r"\"    => Linebreak);
+        t!(Markup["a "]: r"a--" => Text("a"), EnDash);
+        t!(Markup["a1/"]: "- "  => ListBullet, Space(0));
+        t!(Markup[" "]: "."     => EnumNumbering(None));
+        t!(Markup[" "]: "1."    => EnumNumbering(Some(1)));
         t!(Markup[" "]: "1.a"   => Text("1."), Text("a"));
         t!(Markup[" /"]: "a1."  => Text("a1."));
     }
@@ -734,7 +783,7 @@ mod tests {
         t!(Code: ";"        => Semicolon);
         t!(Code: ":"        => Colon);
         t!(Code: "+"        => Plus);
-        t!(Code: "-"        => Hyph);
+        t!(Code: "-"        => Minus);
         t!(Code[" a1"]: "*" => Star);
         t!(Code[" a1"]: "/" => Slash);
         t!(Code: "="        => Eq);
@@ -756,10 +805,10 @@ mod tests {
         t!(Code[" a/"]: "..." => Dots, Invalid("."));
 
         // Test hyphen as symbol vs part of identifier.
-        t!(Code[" /"]: "-1"   => Hyph, Int(1));
-        t!(Code[" /"]: "-a"   => Hyph, Ident("a"));
-        t!(Code[" /"]: "--1"  => Hyph, Hyph, Int(1));
-        t!(Code[" /"]: "--_a" => Hyph, Hyph, Ident("_a"));
+        t!(Code[" /"]: "-1"   => Minus, Int(1));
+        t!(Code[" /"]: "-a"   => Minus, Ident("a"));
+        t!(Code[" /"]: "--1"  => Minus, Minus, Int(1));
+        t!(Code[" /"]: "--_a" => Minus, Minus, Ident("_a"));
         t!(Code[" /"]: "a-b"  => Ident("a-b"));
     }
 
@@ -776,13 +825,13 @@ mod tests {
             ("import", Import),
         ];
 
-        for &(s, t) in &list {
+        for (s, t) in list.clone() {
             t!(Markup[" "]: format!("#{}", s) => t);
             t!(Markup[" "]: format!("#{0}#{0}", s) => t, t);
-            t!(Markup[" /"]: format!("# {}", s) => Token::Text("#"), Space(0), Text(s));
+            t!(Markup[" /"]: format!("# {}", s) => Text("#"), Space(0), Text(s));
         }
 
-        for &(s, t) in &list {
+        for (s, t) in list {
             t!(Code[" "]: s => t);
             t!(Markup[" /"]: s => Text(s));
         }
@@ -796,25 +845,23 @@ mod tests {
 
     #[test]
     fn test_tokenize_raw_blocks() {
-        let empty = Raw("", 1, true);
-
         // Test basic raw block.
-        t!(Markup: "``"     => empty);
-        t!(Markup: "`raw`"  => Raw("raw", 1, true));
-        t!(Markup[""]: "`]" => Raw("]", 1, false));
+        t!(Markup: "``"     => Raw("", None, 1, true, false));
+        t!(Markup: "`raw`"  => Raw("raw", None, 1, true, false));
+        t!(Markup[""]: "`]" => Raw("]", None, 1, false, false));
 
         // Test special symbols in raw block.
-        t!(Markup: "`[brackets]`" => Raw("[brackets]", 1, true));
-        t!(Markup[""]: r"`\`` "   => Raw(r"\", 1, true), Raw(" ", 1, false));
+        t!(Markup: "`[brackets]`" => Raw("[brackets]", None, 1, true, false));
+        t!(Markup[""]: r"`\`` "   => Raw(r"\", None, 1, true, false), Raw(" ", None, 1, false, false));
 
         // Test separated closing backticks.
-        t!(Markup: "```not `y`e`t```" => Raw("not `y`e`t", 3, true));
+        t!(Markup: "```not `y`e`t```" => Raw("`y`e`t", Some("not"), 3, true, false));
 
         // Test more backticks.
-        t!(Markup: "``nope``"             => empty, Text("nope"), empty);
-        t!(Markup: "````🚀````"           => Raw("🚀", 4, true));
-        t!(Markup[""]: "`````👩‍🚀````noend" => Raw("👩‍🚀````noend", 5, false));
-        t!(Markup[""]: "````raw``````"    => Raw("raw", 4, true), empty);
+        t!(Markup: "``nope``"             => Raw("", None, 1, true, false), Text("nope"), Raw("", None, 1, true, false));
+        t!(Markup: "````🚀````"           => Raw("", Some("🚀"), 4, true, false));
+        t!(Markup[""]: "`````👩‍🚀````noend" => Raw("````noend", Some("👩‍🚀"), 5, false, false));
+        t!(Markup[""]: "````raw``````"    => Raw("", Some("raw"), 4, true, false), Raw("", None, 1, true, false));
     }
 
     #[test]
@@ -896,8 +943,8 @@ mod tests {
         let nums = ints.iter().map(|&(k, v)| (k, v as f64)).chain(floats);
 
         let suffixes = [
-            ("%", Percent as fn(f64) -> Token<'static>),
-            ("fr", Fraction as fn(f64) -> Token<'static>),
+            ("%", Percentage as fn(f64) -> NodeKind),
+            ("fr", Fraction as fn(f64) -> NodeKind),
             ("mm", |x| Length(x, LengthUnit::Mm)),
             ("pt", |x| Length(x, LengthUnit::Pt)),
             ("cm", |x| Length(x, LengthUnit::Cm)),
@@ -930,54 +977,54 @@ mod tests {
         t!(Code[""]: "\"hi"      => Str("hi", false));
 
         // Test escaped quote.
-        t!(Code: r#""a\"bc""# => Str(r#"a\"bc"#, true));
-        t!(Code[""]: r#""\""# => Str(r#"\""#, false));
+        t!(Code: r#""a\"bc""# => Str("a\"bc", true));
+        t!(Code[""]: r#""\""# => Str("\"", false));
     }
 
     #[test]
     fn test_tokenize_line_comments() {
         // Test line comment with no trailing newline.
-        t!(Both[""]: "//" => LineComment(""));
+        t!(Both[""]: "//" => LineComment);
 
         // Test line comment ends at newline.
-        t!(Both["a1/"]: "//bc\n"   => LineComment("bc"), Space(1));
-        t!(Both["a1/"]: "// bc \n" => LineComment(" bc "), Space(1));
-        t!(Both["a1/"]: "//bc\r\n" => LineComment("bc"), Space(1));
+        t!(Both["a1/"]: "//bc\n"   => LineComment, Space(1));
+        t!(Both["a1/"]: "// bc \n" => LineComment, Space(1));
+        t!(Both["a1/"]: "//bc\r\n" => LineComment, Space(1));
 
         // Test nested line comments.
-        t!(Both["a1/"]: "//a//b\n" => LineComment("a//b"), Space(1));
+        t!(Both["a1/"]: "//a//b\n" => LineComment, Space(1));
     }
 
     #[test]
     fn test_tokenize_block_comments() {
         // Test basic block comments.
-        t!(Both[""]: "/*" => BlockComment(""));
-        t!(Both: "/**/"   => BlockComment(""));
-        t!(Both: "/*🏞*/" => BlockComment("🏞"));
-        t!(Both: "/*\n*/" => BlockComment("\n"));
+        t!(Both[""]: "/*" => BlockComment);
+        t!(Both: "/**/"   => BlockComment);
+        t!(Both: "/*🏞*/" => BlockComment);
+        t!(Both: "/*\n*/" => BlockComment);
 
         // Test depth 1 and 2 nested block comments.
-        t!(Both: "/* /* */ */"  => BlockComment(" /* */ "));
-        t!(Both: "/*/*/**/*/*/" => BlockComment("/*/**/*/"));
+        t!(Both: "/* /* */ */"  => BlockComment);
+        t!(Both: "/*/*/**/*/*/" => BlockComment);
 
         // Test two nested, one unclosed block comments.
-        t!(Both[""]: "/*/*/**/*/" => BlockComment("/*/**/*/"));
+        t!(Both[""]: "/*/*/**/*/" => BlockComment);
 
         // Test all combinations of up to two following slashes and stars.
-        t!(Both[""]: "/*"   => BlockComment(""));
-        t!(Both[""]: "/*/"  => BlockComment("/"));
-        t!(Both[""]: "/**"  => BlockComment("*"));
-        t!(Both[""]: "/*//" => BlockComment("//"));
-        t!(Both[""]: "/*/*" => BlockComment("/*"));
-        t!(Both[""]: "/**/" => BlockComment(""));
-        t!(Both[""]: "/***" => BlockComment("**"));
+        t!(Both[""]: "/*"   => BlockComment);
+        t!(Both[""]: "/*/"  => BlockComment);
+        t!(Both[""]: "/**"  => BlockComment);
+        t!(Both[""]: "/*//" => BlockComment);
+        t!(Both[""]: "/*/*" => BlockComment);
+        t!(Both[""]: "/**/" => BlockComment);
+        t!(Both[""]: "/***" => BlockComment);
     }
 
     #[test]
     fn test_tokenize_invalid() {
         // Test invalidly closed block comments.
-        t!(Both: "*/"     => Token::Invalid("*/"));
-        t!(Both: "/**/*/" => BlockComment(""), Token::Invalid("*/"));
+        t!(Both: "*/"     => Invalid("*/"));
+        t!(Both: "/**/*/" => BlockComment, Invalid("*/"));
 
         // Test invalid expressions.
         t!(Code: r"\"        => Invalid(r"\"));
@@ -990,6 +1037,6 @@ mod tests {
         // Test invalid number suffixes.
         t!(Code[" /"]: "1foo" => Invalid("1foo"));
         t!(Code: "1p%"        => Invalid("1p"), Invalid("%"));
-        t!(Code: "1%%"        => Percent(1.0), Invalid("%"));
+        t!(Code: "1%%"        => Percentage(1.0), Invalid("%"));
     }
 }

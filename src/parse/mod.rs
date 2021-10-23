@@ -12,215 +12,213 @@ pub use tokens::*;
 
 use std::rc::Rc;
 
-use crate::diag::TypResult;
 use crate::source::SourceFile;
 use crate::syntax::*;
 use crate::util::EcoString;
 
 /// Parse a source file.
-pub fn parse(source: &SourceFile) -> TypResult<Markup> {
+pub fn parse(source: &SourceFile) -> Rc<GreenNode> {
     let mut p = Parser::new(source);
-    let markup = markup(&mut p);
-    let errors = p.finish();
-    if errors.is_empty() {
-        Ok(markup)
-    } else {
-        Err(Box::new(errors))
-    }
+    markup(&mut p);
+    p.finish()
 }
 
 /// Parse markup.
-fn markup(p: &mut Parser) -> Markup {
+fn markup(p: &mut Parser) {
     markup_while(p, true, &mut |_| true)
 }
 
-/// Parse markup that stays equal or right of the given column.
-fn markup_indented(p: &mut Parser, column: usize) -> Markup {
+/// Parse markup that stays right of the given column.
+fn markup_indented(p: &mut Parser, column: usize) {
+    // TODO this is broken
     p.eat_while(|t| match t {
-        Token::Space(n) => n == 0,
-        Token::LineComment(_) | Token::BlockComment(_) => true,
+        NodeKind::Space(n) => n == 0,
+        NodeKind::LineComment | NodeKind::BlockComment => true,
         _ => false,
     });
 
     markup_while(p, false, &mut |p| match p.peek() {
-        Some(Token::Space(n)) if n >= 1 => p.column(p.next_end()) >= column,
+        Some(NodeKind::Space(n)) if n >= 1 => p.column(p.next_end()) >= column,
         _ => true,
     })
 }
 
-/// Parse a syntax tree while the peeked token satisifies a condition.
+/// Parse a syntax tree while the peeked NodeKind satisifies a condition.
 ///
 /// If `at_start` is true, things like headings that may only appear at the
 /// beginning of a line or template are allowed.
-fn markup_while<F>(p: &mut Parser, mut at_start: bool, f: &mut F) -> Markup
+fn markup_while<F>(p: &mut Parser, mut at_start: bool, f: &mut F)
 where
     F: FnMut(&mut Parser) -> bool,
 {
-    let mut tree = vec![];
+    p.start();
     while !p.eof() && f(p) {
-        if let Some(node) = markup_node(p, &mut at_start) {
-            at_start &= matches!(node, MarkupNode::Space | MarkupNode::Parbreak(_));
-            tree.push(node);
+        markup_node(p, &mut at_start);
+        if let Some(node) = p.last_child() {
+            at_start &= matches!(node.kind(), &NodeKind::Space(_) | &NodeKind::Parbreak | &NodeKind::LineComment | &NodeKind::BlockComment);
         }
     }
 
-    tree
+    p.end(NodeKind::Markup);
 }
 
 /// Parse a markup node.
-fn markup_node(p: &mut Parser, at_start: &mut bool) -> Option<MarkupNode> {
-    let token = p.peek()?;
-    let span = p.peek_span();
-    let node = match token {
-        // Whitespace.
-        Token::Space(newlines) => {
-            *at_start |= newlines > 0;
-            if newlines < 2 {
-                MarkupNode::Space
-            } else {
-                MarkupNode::Parbreak(span)
+fn markup_node(p: &mut Parser, at_start: &mut bool) {
+    if let Some(token) = p.peek() {
+        match token {
+            // Whitespace.
+            NodeKind::Space(newlines) => {
+                *at_start |= newlines > 0;
+
+                if newlines < 2 {
+                    p.eat();
+                } else {
+                    p.convert(NodeKind::Parbreak);
+                }
             }
-        }
 
-        // Text.
-        Token::Text(text) => MarkupNode::Text(text.into()),
-        Token::Tilde => MarkupNode::Text("\u{00A0}".into()),
-        Token::HyphHyph => MarkupNode::Text("\u{2013}".into()),
-        Token::HyphHyphHyph => MarkupNode::Text("\u{2014}".into()),
-        Token::UnicodeEscape(t) => MarkupNode::Text(unicode_escape(p, t)),
+            // Text.
+            NodeKind::UnicodeEscape(u) => {
+                if !u.terminated {
+                    p.convert(NodeKind::Error(
+                        ErrorPosition::End,
+                        "expected closing brace".into(),
+                    ));
+                    p.unsuccessful();
+                    return;
+                }
 
-        // Markup.
-        Token::Backslash => MarkupNode::Linebreak(span),
-        Token::Star => MarkupNode::Strong(span),
-        Token::Underscore => MarkupNode::Emph(span),
-        Token::Raw(t) => raw(p, t),
-        Token::Eq if *at_start => return Some(heading(p)),
-        Token::Hyph if *at_start => return Some(list_node(p)),
-        Token::Numbering(number) if *at_start => return Some(enum_node(p, number)),
+                if u.character.is_none() {
+                    let src = p.peek_src();
+                    p.convert(NodeKind::Error(
+                        ErrorPosition::Full,
+                        "invalid unicode escape sequence".into(),
+                    ));
+                    p.start();
+                    p.end(NodeKind::Text(src.into()));
+                    return;
+                }
 
-        // Line-based markup that is not currently at the start of the line.
-        Token::Eq | Token::Hyph | Token::Numbering(_) => {
-            MarkupNode::Text(p.peek_src().into())
-        }
-
-        // Hashtag + keyword / identifier.
-        Token::Ident(_)
-        | Token::Let
-        | Token::If
-        | Token::While
-        | Token::For
-        | Token::Import
-        | Token::Include => {
-            let stmt = matches!(token, Token::Let | Token::Import);
-            let group = if stmt { Group::Stmt } else { Group::Expr };
-
-            p.start_group(group, TokenMode::Code);
-            let expr = expr_with(p, true, 0);
-            if stmt && expr.is_some() && !p.eof() {
-                p.expected_at(p.prev_end(), "semicolon or line break");
+                p.eat();
             }
-            p.end_group();
+            NodeKind::Raw(r) => {
+                if !r.terminated {
+                    p.convert(NodeKind::Error(
+                        ErrorPosition::End,
+                        "expected backtick(s)".into(),
+                    ));
+                    p.unsuccessful();
+                    return;
+                }
 
-            return expr.map(MarkupNode::Expr);
-        }
+                p.eat();
+            }
+            NodeKind::Text(_)
+            | NodeKind::EnDash
+            | NodeKind::EmDash
+            | NodeKind::NonBreakingSpace => {
+                p.eat();
+            }
 
-        // Block and template.
-        Token::LeftBrace => return Some(MarkupNode::Expr(block(p))),
-        Token::LeftBracket => return Some(MarkupNode::Expr(template(p))),
+            // Markup.
+            NodeKind::Emph | NodeKind::Strong | NodeKind::Linebreak => {
+                p.eat();
+            }
 
-        // Comments.
-        Token::LineComment(_) | Token::BlockComment(_) => {
-            p.eat();
-            return None;
-        }
+            NodeKind::Eq if *at_start => heading(p),
+            NodeKind::ListBullet if *at_start => list_node(p),
+            NodeKind::EnumNumbering(_) if *at_start => enum_node(p),
 
-        _ => {
-            *at_start = false;
-            p.unexpected();
-            return None;
-        }
-    };
-    p.eat();
-    Some(node)
-}
+            // Line-based markup that is not currently at the start of the line.
+            NodeKind::Eq | NodeKind::ListBullet | NodeKind::EnumNumbering(_) => {
+                p.convert(NodeKind::Text(p.peek_src().into()))
+            }
 
-/// Handle a unicode escape sequence.
-fn unicode_escape(p: &mut Parser, token: UnicodeEscapeToken) -> EcoString {
-    let span = p.peek_span();
-    let text = if let Some(c) = resolve::resolve_hex(token.sequence) {
-        c.into()
-    } else {
-        // Print out the escape sequence verbatim if it is invalid.
-        p.error(span, "invalid unicode escape sequence");
-        p.peek_src().into()
-    };
+            // Hashtag + keyword / identifier.
+            NodeKind::Ident(_)
+            | NodeKind::Let
+            | NodeKind::If
+            | NodeKind::While
+            | NodeKind::For
+            | NodeKind::Import
+            | NodeKind::Include => {
+                let stmt = matches!(token, NodeKind::Let | NodeKind::Import);
+                let group = if stmt { Group::Stmt } else { Group::Expr };
 
-    if !token.terminated {
-        p.error(span.end, "expected closing brace");
+                p.start_group(group, TokenMode::Code);
+                expr_with(p, true, 0);
+                if stmt && p.success() && !p.eof() {
+                    p.expected_at("semicolon or line break");
+                }
+                p.end_group();
+            }
+
+            // Block and template.
+            NodeKind::LeftBrace => {
+                block(p);
+            }
+            NodeKind::LeftBracket => {
+                template(p);
+            }
+
+            // Comments.
+            NodeKind::LineComment | NodeKind::BlockComment => {
+                p.eat();
+            }
+
+            _ => {
+                *at_start = false;
+                p.unexpected();
+            }
+        };
     }
-
-    text
-}
-
-/// Handle a raw block.
-fn raw(p: &mut Parser, token: RawToken) -> MarkupNode {
-    let column = p.column(p.next_start());
-    let span = p.peek_span();
-    let raw = resolve::resolve_raw(span, column, token.backticks, token.text);
-    if !token.terminated {
-        p.error(span.end, "expected backtick(s)");
-    }
-    MarkupNode::Raw(Box::new(raw))
 }
 
 /// Parse a heading.
-fn heading(p: &mut Parser) -> MarkupNode {
-    let start = p.next_start();
-    p.eat_assert(Token::Eq);
+fn heading(p: &mut Parser) {
+    p.start();
+    p.start();
+    p.eat_assert(NodeKind::Eq);
 
     // Count depth.
     let mut level: usize = 1;
-    while p.eat_if(Token::Eq) {
+    while p.eat_if(NodeKind::Eq) {
         level += 1;
     }
 
     if level > 6 {
-        return MarkupNode::Text(p.get(start .. p.prev_end()).into());
+        p.lift();
+        p.end(NodeKind::Text(EcoString::from('=').repeat(level)));
+    } else {
+        p.end(NodeKind::HeadingLevel(level as u8));
+        let column = p.column(p.prev_end());
+        markup_indented(p, column);
+        p.end(NodeKind::Heading);
     }
-
-    let column = p.column(p.prev_end());
-    let body = markup_indented(p, column);
-    MarkupNode::Heading(Box::new(HeadingNode {
-        span: p.span_from(start),
-        level,
-        body,
-    }))
 }
 
 /// Parse a single list item.
-fn list_node(p: &mut Parser) -> MarkupNode {
-    let start = p.next_start();
-    p.eat_assert(Token::Hyph);
+fn list_node(p: &mut Parser) {
+    p.start();
+    p.eat_assert(NodeKind::ListBullet);
     let column = p.column(p.prev_end());
-    let body = markup_indented(p, column);
-    MarkupNode::List(Box::new(ListNode { span: p.span_from(start), body }))
+    markup_indented(p, column);
+    p.end(NodeKind::List);
 }
 
 /// Parse a single enum item.
-fn enum_node(p: &mut Parser, number: Option<usize>) -> MarkupNode {
-    let start = p.next_start();
-    p.eat_assert(Token::Numbering(number));
+fn enum_node(p: &mut Parser) {
+    p.start();
+    if !matches!(p.eat(), Some(NodeKind::EnumNumbering(_))) {
+        panic!("enum item does not start with numbering")
+    };
     let column = p.column(p.prev_end());
-    let body = markup_indented(p, column);
-    MarkupNode::Enum(Box::new(EnumNode {
-        span: p.span_from(start),
-        number,
-        body,
-    }))
+    markup_indented(p, column);
+    p.end(NodeKind::Enum);
 }
 
 /// Parse an expression.
-fn expr(p: &mut Parser) -> Option<Expr> {
+fn expr(p: &mut Parser) {
     expr_with(p, false, 0)
 }
 
@@ -231,134 +229,167 @@ fn expr(p: &mut Parser) -> Option<Expr> {
 /// in markup.
 ///
 /// Stops parsing at operations with lower precedence than `min_prec`,
-fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) -> Option<Expr> {
-    let start = p.next_start();
-    let mut lhs = match p.eat_map(UnOp::from_token) {
+fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) {
+    p.start();
+    let mut offset = p.child_count();
+    // Start the unary expression.
+    match p.eat_map(|x| UnOp::from_token(&x)) {
         Some(op) => {
             let prec = op.precedence();
-            let expr = expr_with(p, atomic, prec)?;
-            Expr::Unary(Box::new(UnaryExpr { span: p.span_from(start), op, expr }))
+            expr_with(p, atomic, prec);
+
+            if p.may_lift_abort() {
+                return;
+            }
+
+            p.end_and_start_with(NodeKind::Unary);
         }
-        None => primary(p, atomic)?,
+        None => {
+            primary(p, atomic);
+            if p.may_lift_abort() {
+                return;
+            }
+        }
     };
 
     loop {
         // Exclamation mark, parenthesis or bracket means this is a function
         // call.
-        if matches!(p.peek_direct(), Some(Token::LeftParen | Token::LeftBracket)) {
-            lhs = call(p, lhs)?;
+        if matches!(
+            p.peek_direct(),
+            Some(NodeKind::LeftParen | NodeKind::LeftBracket)
+        ) {
+            call(p, p.child_count() - offset);
             continue;
         }
 
-        if p.eat_if(Token::With) {
-            lhs = with_expr(p, lhs)?;
+        if p.peek() == Some(NodeKind::With) {
+            with_expr(p, p.child_count() - offset);
+
+            if p.may_lift_abort() {
+                return;
+            }
         }
 
         if atomic {
+            p.lift();
             break;
         }
 
-        let op = match p.peek().and_then(BinOp::from_token) {
+        let op = match p.peek().as_ref().and_then(BinOp::from_token) {
             Some(binop) => binop,
-            None => break,
+            None => {
+                p.lift();
+                break;
+            }
         };
 
         let mut prec = op.precedence();
         if prec < min_prec {
-            break;
+            {
+                p.lift();
+                break;
+            };
         }
 
         p.eat();
+
         match op.associativity() {
             Associativity::Left => prec += 1,
             Associativity::Right => {}
         }
 
-        let rhs = match expr_with(p, atomic, prec) {
-            Some(rhs) => rhs,
-            None => break,
-        };
+        expr_with(p, atomic, prec);
 
-        let span = lhs.span().join(rhs.span());
-        lhs = Expr::Binary(Box::new(BinaryExpr { span, lhs, op, rhs }));
+        if !p.success() {
+            p.lift();
+            break;
+        }
+
+        offset = p.end_and_start_with(NodeKind::Binary).0;
     }
-
-    Some(lhs)
 }
 
 /// Parse a primary expression.
-fn primary(p: &mut Parser, atomic: bool) -> Option<Expr> {
-    if let Some(expr) = literal(p) {
-        return Some(expr);
+fn primary(p: &mut Parser, atomic: bool) {
+    if literal(p) {
+        return;
     }
 
     match p.peek() {
         // Things that start with an identifier.
-        Some(Token::Ident(string)) => {
-            let ident = Ident {
-                span: p.eat_span(),
-                string: string.into(),
-            };
+        Some(NodeKind::Ident(_)) => {
+            // Start closure params.
+            p.start();
+            p.eat();
 
             // Arrow means this is a closure's lone parameter.
-            Some(if !atomic && p.eat_if(Token::Arrow) {
-                let body = expr(p)?;
-                Expr::Closure(Box::new(ClosureExpr {
-                    span: ident.span.join(body.span()),
-                    name: None,
-                    params: vec![ClosureParam::Pos(ident)],
-                    body: Rc::new(body),
-                }))
+            if !atomic && p.peek() == Some(NodeKind::Arrow) {
+                p.end_and_start_with(NodeKind::ClosureParams);
+                p.eat();
+
+                expr(p);
+
+                p.end_or_abort(NodeKind::Closure);
             } else {
-                Expr::Ident(Box::new(ident))
-            })
+                p.lift();
+            }
         }
 
         // Structures.
-        Some(Token::LeftParen) => parenthesized(p),
-        Some(Token::LeftBracket) => Some(template(p)),
-        Some(Token::LeftBrace) => Some(block(p)),
+        Some(NodeKind::LeftParen) => parenthesized(p),
+        Some(NodeKind::LeftBracket) => template(p),
+        Some(NodeKind::LeftBrace) => block(p),
 
         // Keywords.
-        Some(Token::Let) => let_expr(p),
-        Some(Token::If) => if_expr(p),
-        Some(Token::While) => while_expr(p),
-        Some(Token::For) => for_expr(p),
-        Some(Token::Import) => import_expr(p),
-        Some(Token::Include) => include_expr(p),
+        Some(NodeKind::Let) => let_expr(p),
+        Some(NodeKind::If) => if_expr(p),
+        Some(NodeKind::While) => while_expr(p),
+        Some(NodeKind::For) => for_expr(p),
+        Some(NodeKind::Import) => import_expr(p),
+        Some(NodeKind::Include) => include_expr(p),
 
         // Nothing.
         _ => {
             p.expected("expression");
-            None
+            p.unsuccessful();
         }
     }
 }
 
 /// Parse a literal.
-fn literal(p: &mut Parser) -> Option<Expr> {
-    let span = p.peek_span();
-    let lit = match p.peek()? {
-        // Basic values.
-        Token::None => Lit::None(span),
-        Token::Auto => Lit::Auto(span),
-        Token::Bool(b) => Lit::Bool(span, b),
-        Token::Int(i) => Lit::Int(span, i),
-        Token::Float(f) => Lit::Float(span, f),
-        Token::Length(val, unit) => Lit::Length(span, val, unit),
-        Token::Angle(val, unit) => Lit::Angle(span, val, unit),
-        Token::Percent(p) => Lit::Percent(span, p),
-        Token::Fraction(p) => Lit::Fractional(span, p),
-        Token::Str(token) => Lit::Str(span, {
-            if !token.terminated {
-                p.expected_at(span.end, "quote");
-            }
-            resolve::resolve_string(token.string)
-        }),
-        _ => return None,
+fn literal(p: &mut Parser) -> bool {
+    let peeked = if let Some(p) = p.peek() {
+        p
+    } else {
+        return false;
     };
-    p.eat();
-    Some(Expr::Lit(Box::new(lit)))
+
+    match peeked {
+        // Basic values.
+        NodeKind::None
+        | NodeKind::Auto
+        | NodeKind::Int(_)
+        | NodeKind::Float(_)
+        | NodeKind::Bool(_)
+        | NodeKind::Fraction(_)
+        | NodeKind::Length(_, _)
+        | NodeKind::Angle(_, _)
+        | NodeKind::Percentage(_) => {
+            p.eat();
+        }
+        NodeKind::Str(s) => {
+            p.eat();
+            if !s.terminated {
+                p.expected_at("quote");
+            }
+        }
+        _ => {
+            return false;
+        }
+    }
+
+    true
 }
 
 /// Parse something that starts with a parenthesis, which can be either of:
@@ -366,433 +397,508 @@ fn literal(p: &mut Parser) -> Option<Expr> {
 /// - Dictionary literal
 /// - Parenthesized expression
 /// - Parameter list of closure expression
-fn parenthesized(p: &mut Parser) -> Option<Expr> {
+fn parenthesized(p: &mut Parser) {
+    let offset = p.child_count();
+    p.start();
     p.start_group(Group::Paren, TokenMode::Code);
-    let colon = p.eat_if(Token::Colon);
-    let (items, has_comma) = collection(p);
-    let span = p.end_group();
+    let colon = p.eat_if(NodeKind::Colon);
+    let kind = collection(p).0;
+    p.end_group();
+    let token_count = p.child_count() - offset;
 
-    // Leading colon makes this a dictionary.
+    // Leading colon makes this a (empty) dictionary.
     if colon {
-        return Some(dict(p, items, span));
+        p.lift();
+        dict(p, token_count);
+        return;
     }
 
     // Arrow means this is a closure's parameter list.
-    if p.eat_if(Token::Arrow) {
-        let params = params(p, items);
-        let body = expr(p)?;
-        return Some(Expr::Closure(Box::new(ClosureExpr {
-            span: span.join(body.span()),
-            name: None,
-            params,
-            body: Rc::new(body),
-        })));
+    if p.peek() == Some(NodeKind::Arrow) {
+        p.start_with(token_count);
+        params(p, 0, true);
+        p.end(NodeKind::ClosureParams);
+
+        p.eat_assert(NodeKind::Arrow);
+
+        expr(p);
+
+        p.end_or_abort(NodeKind::Closure);
+        return;
     }
 
     // Find out which kind of collection this is.
-    Some(match items.as_slice() {
-        [] => array(p, items, span),
-        [CallArg::Pos(_)] if !has_comma => match items.into_iter().next() {
-            Some(CallArg::Pos(expr)) => Expr::Group(Box::new(GroupExpr { span, expr })),
-            _ => unreachable!(),
-        },
-        [CallArg::Pos(_), ..] => array(p, items, span),
-        [CallArg::Named(_), ..] => dict(p, items, span),
-        [CallArg::Spread(expr), ..] => {
-            p.error(expr.span(), "spreading is not allowed here");
-            return None;
+    match kind {
+        CollectionKind::Group => p.end(NodeKind::Group),
+        CollectionKind::PositionalCollection => {
+            p.lift();
+            array(p, token_count);
         }
-    })
+        CollectionKind::NamedCollection => {
+            p.lift();
+            dict(p, token_count);
+        }
+    }
+}
+
+/// The type of a collection.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum CollectionKind {
+    /// The collection is only one item and has no comma.
+    Group,
+    /// The collection starts with a positional and has more items or a trailing
+    /// comma.
+    PositionalCollection,
+    /// The collection starts with a named item.
+    NamedCollection,
 }
 
 /// Parse a collection.
 ///
-/// Returns whether the literal contained any commas.
-fn collection(p: &mut Parser) -> (Vec<CallArg>, bool) {
-    let mut items = vec![];
+/// Returns the length of the collection and whether the literal contained any
+/// commas.
+fn collection(p: &mut Parser) -> (CollectionKind, usize) {
+    let mut items = 0;
+    let mut kind = CollectionKind::PositionalCollection;
+    let mut seen_spread = false;
     let mut has_comma = false;
     let mut missing_coma = None;
 
     while !p.eof() {
-        if let Some(arg) = item(p) {
-            items.push(arg);
+        let item_kind = item(p);
+        if p.success() {
+            if items == 0 && item_kind == CollectionItemKind::Named {
+                kind = CollectionKind::NamedCollection;
+            }
+
+            if item_kind == CollectionItemKind::ParameterSink {
+                seen_spread = true;
+            }
+
+            items += 1;
 
             if let Some(pos) = missing_coma.take() {
-                p.expected_at(pos, "comma");
+                p.expected_at_child(pos, "comma");
             }
 
             if p.eof() {
                 break;
             }
 
-            let behind = p.prev_end();
-            if p.eat_if(Token::Comma) {
+            if p.eat_if(NodeKind::Comma) {
                 has_comma = true;
             } else {
-                missing_coma = Some(behind);
+                missing_coma = Some(p.child_count());
             }
         }
     }
 
-    (items, has_comma)
-}
-
-/// Parse an expression or a named pair.
-fn item(p: &mut Parser) -> Option<CallArg> {
-    if p.eat_if(Token::Dots) {
-        return expr(p).map(CallArg::Spread);
+    if !has_comma
+        && items == 1
+        && !seen_spread
+        && kind == CollectionKind::PositionalCollection
+    {
+        kind = CollectionKind::Group;
     }
 
-    let first = expr(p)?;
-    if p.eat_if(Token::Colon) {
-        if let Expr::Ident(name) = first {
-            Some(CallArg::Named(Named { name: *name, expr: expr(p)? }))
-        } else {
-            p.error(first.span(), "expected identifier");
+    (kind, items)
+}
+
+/// What kind of item is this?
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum CollectionItemKind {
+    /// A named item.
+    Named,
+    /// An unnamed item.
+    Unnamed,
+    /// A parameter sink.
+    ParameterSink,
+}
+
+/// Parse an expression or a named pair. Returns if this is a named pair.
+fn item(p: &mut Parser) -> CollectionItemKind {
+    p.start();
+    if p.eat_if(NodeKind::Dots) {
+        expr(p);
+
+        p.end_or_abort(NodeKind::ParameterSink);
+        return CollectionItemKind::ParameterSink;
+    }
+
+    expr(p);
+
+    if p.may_lift_abort() {
+        return CollectionItemKind::Unnamed;
+    }
+
+    if p.eat_if(NodeKind::Colon) {
+        let child = p.child(1).unwrap();
+        if matches!(child.kind(), &NodeKind::Ident(_)) {
             expr(p);
-            None
+            p.end_or_abort(NodeKind::Named);
+        } else {
+            p.wrap(
+                1,
+                NodeKind::Error(ErrorPosition::Full, "expected identifier".into()),
+            );
+
+            expr(p);
+            p.end(NodeKind::Named);
+            p.unsuccessful();
         }
+
+        CollectionItemKind::Named
     } else {
-        Some(CallArg::Pos(first))
+        p.lift();
+        CollectionItemKind::Unnamed
     }
 }
 
 /// Convert a collection into an array, producing errors for anything other than
 /// expressions.
-fn array(p: &mut Parser, items: Vec<CallArg>, span: Span) -> Expr {
-    let iter = items.into_iter().filter_map(|item| match item {
-        CallArg::Pos(expr) => Some(expr),
-        CallArg::Named(_) => {
-            p.error(item.span(), "expected expression, found named pair");
-            None
-        }
-        CallArg::Spread(_) => {
-            p.error(item.span(), "spreading is not allowed here");
-            None
-        }
-    });
-    Expr::Array(Box::new(ArrayExpr { span, items: iter.collect() }))
+fn array(p: &mut Parser, items: usize) {
+    p.start_with(items);
+    p.filter_children(
+        0,
+        |x| match x.kind() {
+            NodeKind::Named | NodeKind::ParameterSink => false,
+            _ => true,
+        },
+        |kind| match kind {
+            NodeKind::Named => (
+                ErrorPosition::Full,
+                "expected expression, found named pair".into(),
+            ),
+            NodeKind::ParameterSink => {
+                (ErrorPosition::Full, "spreading is not allowed here".into())
+            }
+            _ => unreachable!(),
+        },
+    );
+
+    p.end(NodeKind::Array)
 }
 
 /// Convert a collection into a dictionary, producing errors for anything other
 /// than named pairs.
-fn dict(p: &mut Parser, items: Vec<CallArg>, span: Span) -> Expr {
-    let iter = items.into_iter().filter_map(|item| match item {
-        CallArg::Named(named) => Some(named),
-        CallArg::Pos(_) => {
-            p.error(item.span(), "expected named pair, found expression");
-            None
-        }
-        CallArg::Spread(_) => {
-            p.error(item.span(), "spreading is not allowed here");
-            None
-        }
-    });
-    Expr::Dict(Box::new(DictExpr { span, items: iter.collect() }))
+fn dict(p: &mut Parser, items: usize) {
+    p.start_with(items);
+    p.filter_children(
+        0,
+        |x| {
+            x.kind() == &NodeKind::Named
+                || x.kind().is_parenthesis()
+                || x.kind() == &NodeKind::Comma
+                || x.kind() == &NodeKind::Colon
+        },
+        |kind| match kind {
+            NodeKind::ParameterSink => {
+                (ErrorPosition::Full, "spreading is not allowed here".into())
+            }
+            _ => (
+                ErrorPosition::Full,
+                "expected named pair, found expression".into(),
+            ),
+        },
+    );
+    p.end(NodeKind::Dict);
 }
 
 /// Convert a collection into a list of parameters, producing errors for
 /// anything other than identifiers, spread operations and named pairs.
-fn params(p: &mut Parser, items: Vec<CallArg>) -> Vec<ClosureParam> {
-    let iter = items.into_iter().filter_map(|item| match item {
-        CallArg::Pos(Expr::Ident(ident)) => Some(ClosureParam::Pos(*ident)),
-        CallArg::Named(named) => Some(ClosureParam::Named(named)),
-        CallArg::Spread(Expr::Ident(ident)) => Some(ClosureParam::Sink(*ident)),
-        _ => {
-            p.error(item.span(), "expected identifier");
-            None
-        }
-    });
-    iter.collect()
-}
-
-/// Convert a collection into a list of identifiers, producing errors for
-/// anything other than identifiers.
-fn idents(p: &mut Parser, items: Vec<CallArg>) -> Vec<Ident> {
-    let iter = items.into_iter().filter_map(|item| match item {
-        CallArg::Pos(Expr::Ident(ident)) => Some(*ident),
-        _ => {
-            p.error(item.span(), "expected identifier");
-            None
-        }
-    });
-    iter.collect()
+fn params(p: &mut Parser, count: usize, allow_parens: bool) {
+    p.filter_children(
+        count,
+        |x| match x.kind() {
+                NodeKind::Named | NodeKind::Comma | NodeKind::Ident(_) => true,
+                NodeKind::ParameterSink => matches!(
+                    x.children().last().map(|x| x.kind()),
+                    Some(&NodeKind::Ident(_))
+                ),
+                _ => false,
+            }
+            || (allow_parens && x.kind().is_parenthesis()),
+        |_| (ErrorPosition::Full, "expected identifier".into()),
+    );
 }
 
 // Parse a template block: `[...]`.
-fn template(p: &mut Parser) -> Expr {
+fn template(p: &mut Parser) {
+    p.start();
     p.start_group(Group::Bracket, TokenMode::Markup);
-    let tree = markup(p);
-    let span = p.end_group();
-    Expr::Template(Box::new(TemplateExpr { span, body: tree }))
+    markup(p);
+    p.end_group();
+    p.end(NodeKind::Template);
 }
 
 /// Parse a code block: `{...}`.
-fn block(p: &mut Parser) -> Expr {
+fn block(p: &mut Parser) {
+    p.start();
     p.start_group(Group::Brace, TokenMode::Code);
-    let mut exprs = vec![];
     while !p.eof() {
         p.start_group(Group::Stmt, TokenMode::Code);
-        if let Some(expr) = expr(p) {
-            exprs.push(expr);
+        expr(p);
+        if p.success() {
             if !p.eof() {
-                p.expected_at(p.prev_end(), "semicolon or line break");
+                p.expected_at("semicolon or line break");
             }
         }
         p.end_group();
 
         // Forcefully skip over newlines since the group's contents can't.
-        p.eat_while(|t| matches!(t, Token::Space(_)));
+        p.eat_while(|t| matches!(t, NodeKind::Space(_)));
     }
-    let span = p.end_group();
-    Expr::Block(Box::new(BlockExpr { span, exprs }))
+    p.end_group();
+    p.end(NodeKind::Block);
 }
 
 /// Parse a function call.
-fn call(p: &mut Parser, callee: Expr) -> Option<Expr> {
-    let mut args = match p.peek_direct() {
-        Some(Token::LeftParen) => args(p),
-        Some(Token::LeftBracket) => CallArgs {
-            span: Span::at(p.id(), callee.span().end),
-            items: vec![],
-        },
+fn call(p: &mut Parser, callee: usize) {
+    p.start_with(callee);
+    match p.peek_direct() {
+        Some(NodeKind::LeftParen) | Some(NodeKind::LeftBracket) => args(p, true),
         _ => {
-            p.expected_at(p.prev_end(), "argument list");
-            return None;
+            p.expected_at("argument list");
+            p.may_end_abort(NodeKind::Call);
+            return;
         }
     };
 
-    while p.peek_direct() == Some(Token::LeftBracket) {
-        let body = template(p);
-        args.items.push(CallArg::Pos(body));
-    }
-
-    Some(Expr::Call(Box::new(CallExpr {
-        span: p.span_from(callee.span().start),
-        callee,
-        args,
-    })))
+    p.end(NodeKind::Call);
 }
 
 /// Parse the arguments to a function call.
-fn args(p: &mut Parser) -> CallArgs {
-    p.start_group(Group::Paren, TokenMode::Code);
-    let items = collection(p).0;
-    let span = p.end_group();
-    CallArgs { span, items }
+fn args(p: &mut Parser, allow_template: bool) {
+    p.start();
+    if !allow_template || p.peek_direct() == Some(&NodeKind::LeftParen) {
+        p.start_group(Group::Paren, TokenMode::Code);
+        collection(p);
+        p.end_group();
+    }
+
+    while allow_template && p.peek_direct() == Some(&NodeKind::LeftBracket) {
+        template(p);
+    }
+
+    p.end(NodeKind::CallArgs);
 }
 
 /// Parse a with expression.
-fn with_expr(p: &mut Parser, callee: Expr) -> Option<Expr> {
-    if p.peek() == Some(Token::LeftParen) {
-        Some(Expr::With(Box::new(WithExpr {
-            span: p.span_from(callee.span().start),
-            callee,
-            args: args(p),
-        })))
+fn with_expr(p: &mut Parser, preserve: usize) {
+    p.start_with(preserve);
+    p.eat_assert(NodeKind::With);
+
+    if p.peek() == Some(NodeKind::LeftParen) {
+        args(p, false);
+        p.end(NodeKind::WithExpr);
     } else {
         p.expected("argument list");
-        None
+        p.may_end_abort(NodeKind::WithExpr);
     }
 }
 
 /// Parse a let expression.
-fn let_expr(p: &mut Parser) -> Option<Expr> {
-    let start = p.next_start();
-    p.eat_assert(Token::Let);
+fn let_expr(p: &mut Parser) {
+    p.start();
+    p.eat_assert(NodeKind::Let);
 
-    let mut output = None;
-    if let Some(binding) = ident(p) {
-        let mut init = None;
-
-        if p.eat_if(Token::With) {
-            init = with_expr(p, Expr::Ident(Box::new(binding.clone())));
-        } else {
-            // If a parenthesis follows, this is a function definition.
-            let mut maybe_params = None;
-            if p.peek_direct() == Some(Token::LeftParen) {
-                p.start_group(Group::Paren, TokenMode::Code);
-                let items = collection(p).0;
-                maybe_params = Some(params(p, items));
-                p.end_group();
-            }
-
-            if p.eat_if(Token::Eq) {
-                init = expr(p);
-            } else if maybe_params.is_some() {
-                // Function definitions must have a body.
-                p.expected_at(p.prev_end(), "body");
-            }
-
-            // Rewrite into a closure expression if it's a function definition.
-            if let Some(params) = maybe_params {
-                let body = init?;
-                init = Some(Expr::Closure(Box::new(ClosureExpr {
-                    span: binding.span.join(body.span()),
-                    name: Some(binding.clone()),
-                    params,
-                    body: Rc::new(body),
-                })));
-            }
-        }
-
-        output = Some(Expr::Let(Box::new(LetExpr {
-            span: p.span_from(start),
-            binding,
-            init,
-        })));
+    let offset = p.child_count();
+    ident(p);
+    if p.may_end_abort(NodeKind::LetExpr) {
+        return;
     }
 
-    output
+    if p.peek() == Some(NodeKind::With) {
+        with_expr(p, p.child_count() - offset);
+    } else {
+        // If a parenthesis follows, this is a function definition.
+        let has_params = if p.peek_direct() == Some(&NodeKind::LeftParen) {
+            p.start();
+            p.start_group(Group::Paren, TokenMode::Code);
+            let offset = p.child_count();
+            collection(p);
+            params(p, offset, true);
+            p.end_group();
+            p.end(NodeKind::ClosureParams);
+            true
+        } else {
+            false
+        };
+
+        if p.eat_if(NodeKind::Eq) {
+            expr(p);
+        } else if has_params {
+            // Function definitions must have a body.
+            p.expected_at("body");
+        }
+
+        // Rewrite into a closure expression if it's a function definition.
+        if has_params {
+            if p.may_end_abort(NodeKind::LetExpr) {
+                return;
+            }
+
+            p.start_with(p.child_count() - offset);
+            p.end(NodeKind::Closure)
+        }
+    }
+
+    p.end(NodeKind::LetExpr);
 }
 
 /// Parse an if expresion.
-fn if_expr(p: &mut Parser) -> Option<Expr> {
-    let start = p.next_start();
-    p.eat_assert(Token::If);
+fn if_expr(p: &mut Parser) {
+    p.start();
+    p.eat_assert(NodeKind::If);
 
-    let mut output = None;
-    if let Some(condition) = expr(p) {
-        if let Some(if_body) = body(p) {
-            let mut else_body = None;
-            if p.eat_if(Token::Else) {
-                if p.peek() == Some(Token::If) {
-                    else_body = if_expr(p);
-                } else {
-                    else_body = body(p);
-                }
-            }
+    expr(p);
+    if p.may_end_abort(NodeKind::IfExpr) {
+        return;
+    }
 
-            output = Some(Expr::If(Box::new(IfExpr {
-                span: p.span_from(start),
-                condition,
-                if_body,
-                else_body,
-            })));
+    body(p);
+    if p.may_end_abort(NodeKind::IfExpr) {
+        // Expected function body.
+        return;
+    }
+
+    if p.eat_if(NodeKind::Else) {
+        if p.peek() == Some(NodeKind::If) {
+            if_expr(p);
+        } else {
+            body(p);
         }
     }
 
-    output
+    p.end(NodeKind::IfExpr);
 }
 
 /// Parse a while expresion.
-fn while_expr(p: &mut Parser) -> Option<Expr> {
-    let start = p.next_start();
-    p.eat_assert(Token::While);
+fn while_expr(p: &mut Parser) {
+    p.start();
+    p.eat_assert(NodeKind::While);
 
-    let mut output = None;
-    if let Some(condition) = expr(p) {
-        if let Some(body) = body(p) {
-            output = Some(Expr::While(Box::new(WhileExpr {
-                span: p.span_from(start),
-                condition,
-                body,
-            })));
-        }
+    expr(p);
+
+    if p.may_end_abort(NodeKind::WhileExpr) {
+        return;
     }
 
-    output
+    body(p);
+    if !p.may_end_abort(NodeKind::WhileExpr) {
+        p.end(NodeKind::WhileExpr);
+    }
 }
 
 /// Parse a for expression.
-fn for_expr(p: &mut Parser) -> Option<Expr> {
-    let start = p.next_start();
-    p.eat_assert(Token::For);
+fn for_expr(p: &mut Parser) {
+    p.start();
+    p.eat_assert(NodeKind::For);
 
-    let mut output = None;
-    if let Some(pattern) = for_pattern(p) {
-        if p.eat_expect(Token::In) {
-            if let Some(iter) = expr(p) {
-                if let Some(body) = body(p) {
-                    output = Some(Expr::For(Box::new(ForExpr {
-                        span: p.span_from(start),
-                        pattern,
-                        iter,
-                        body,
-                    })));
-                }
-            }
-        }
+    for_pattern(p);
+
+    if p.may_end_abort(NodeKind::ForExpr) {
+        return;
     }
 
-    output
+    if p.eat_expect(NodeKind::In) {
+        expr(p);
+
+        if p.may_end_abort(NodeKind::ForExpr) {
+            return;
+        }
+
+        body(p);
+
+        if !p.may_end_abort(NodeKind::ForExpr) {
+            p.end(NodeKind::ForExpr);
+        }
+    } else {
+        p.unsuccessful();
+        p.may_end_abort(NodeKind::ForExpr);
+    }
 }
 
 /// Parse a for loop pattern.
-fn for_pattern(p: &mut Parser) -> Option<ForPattern> {
-    let first = ident(p)?;
-    if p.eat_if(Token::Comma) {
-        if let Some(second) = ident(p) {
-            return Some(ForPattern::KeyValue(first, second));
+fn for_pattern(p: &mut Parser) {
+    p.start();
+    ident(p);
+
+    if p.may_end_abort(NodeKind::ForPattern) {
+        return;
+    }
+
+    if p.peek() == Some(NodeKind::Comma) {
+        p.eat();
+
+        ident(p);
+
+        if p.may_end_abort(NodeKind::ForPattern) {
+            return;
         }
     }
-    Some(ForPattern::Value(first))
+
+    p.end(NodeKind::ForPattern);
 }
 
 /// Parse an import expression.
-fn import_expr(p: &mut Parser) -> Option<Expr> {
-    let start = p.next_start();
-    p.eat_assert(Token::Import);
+fn import_expr(p: &mut Parser) {
+    p.start();
+    p.eat_assert(NodeKind::Import);
 
-    let imports = if p.eat_if(Token::Star) {
-        // This is the wildcard scenario.
-        Imports::Wildcard
-    } else {
+    if !p.eat_if(NodeKind::Star) {
         // This is the list of identifiers scenario.
+        p.start();
         p.start_group(Group::Imports, TokenMode::Code);
-        let items = collection(p).0;
-        if items.is_empty() {
-            p.expected_at(p.prev_end(), "import items");
+        let offset = p.child_count();
+        let items = collection(p).1;
+        if items == 0 {
+            p.expected_at("import items");
         }
         p.end_group();
-        Imports::Idents(idents(p, items))
+
+        p.filter_children(
+            offset,
+            |n| matches!(n.kind(), NodeKind::Ident(_) | NodeKind::Comma),
+            |_| (ErrorPosition::Full, "expected identifier".into()),
+        );
+        p.end(NodeKind::ImportItems);
     };
 
-    let mut output = None;
-    if p.eat_expect(Token::From) {
-        if let Some(path) = expr(p) {
-            output = Some(Expr::Import(Box::new(ImportExpr {
-                span: p.span_from(start),
-                imports,
-                path,
-            })));
-        }
+    if p.eat_expect(NodeKind::From) {
+        expr(p);
     }
 
-    output
+    p.end(NodeKind::ImportExpr);
 }
 
 /// Parse an include expression.
-fn include_expr(p: &mut Parser) -> Option<Expr> {
-    let start = p.next_start();
-    p.eat_assert(Token::Include);
+fn include_expr(p: &mut Parser) {
+    p.start();
+    p.eat_assert(NodeKind::Include);
 
-    expr(p).map(|path| {
-        Expr::Include(Box::new(IncludeExpr { span: p.span_from(start), path }))
-    })
+    expr(p);
+    p.end(NodeKind::IncludeExpr);
 }
 
 /// Parse an identifier.
-fn ident(p: &mut Parser) -> Option<Ident> {
-    if let Some(Token::Ident(string)) = p.peek() {
-        Some(Ident {
-            span: p.eat_span(),
-            string: string.into(),
-        })
+fn ident(p: &mut Parser) {
+    if let Some(NodeKind::Ident(_)) = p.peek() {
+        p.eat();
     } else {
         p.expected("identifier");
-        None
+        p.unsuccessful();
     }
 }
 
 /// Parse a control flow body.
-fn body(p: &mut Parser) -> Option<Expr> {
+fn body(p: &mut Parser) {
     match p.peek() {
-        Some(Token::LeftBracket) => Some(template(p)),
-        Some(Token::LeftBrace) => Some(block(p)),
+        Some(NodeKind::LeftBracket) => template(p),
+        Some(NodeKind::LeftBrace) => block(p),
         _ => {
-            p.expected_at(p.prev_end(), "body");
-            None
+            p.expected_at("body");
+            p.unsuccessful();
         }
     }
 }
