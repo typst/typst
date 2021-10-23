@@ -92,7 +92,7 @@ impl PageStyle {
 
 impl Default for PageStyle {
     fn default() -> Self {
-        let paper = Paper::ISO_A4;
+        let paper = Paper::A4;
         Self {
             class: paper.class(),
             size: paper.size(),
