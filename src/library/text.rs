@@ -199,7 +199,7 @@ pub fn link(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let url = args.expect::<Str>("url")?;
     let body = args.find().unwrap_or_else(|| {
         let mut template = Template::new();
-        template.text(&url);
+        template.text(url.trim_start_matches("mailto:").trim_start_matches("tel:"));
         template
     });
 
