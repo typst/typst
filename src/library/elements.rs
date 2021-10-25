@@ -30,7 +30,7 @@ pub fn rect(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
     let fill = args.named("fill")?;
-    let body = args.eat();
+    let body = args.find();
     Ok(shape_impl(ShapeKind::Rect, width, height, fill, body))
 }
 
@@ -46,7 +46,7 @@ pub fn square(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         size => size,
     };
     let fill = args.named("fill")?;
-    let body = args.eat();
+    let body = args.find();
     Ok(shape_impl(ShapeKind::Square, width, height, fill, body))
 }
 
@@ -55,7 +55,7 @@ pub fn ellipse(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
     let fill = args.named("fill")?;
-    let body = args.eat();
+    let body = args.find();
     Ok(shape_impl(ShapeKind::Ellipse, width, height, fill, body))
 }
 
@@ -71,7 +71,7 @@ pub fn circle(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         diameter => diameter,
     };
     let fill = args.named("fill")?;
-    let body = args.eat();
+    let body = args.find();
     Ok(shape_impl(ShapeKind::Circle, width, height, fill, body))
 }
 

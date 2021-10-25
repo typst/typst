@@ -6,7 +6,7 @@ use crate::style::{Paper, PaperClass};
 
 /// `page`: Configure pages.
 pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let paper = match args.named::<Spanned<Str>>("paper")?.or_else(|| args.eat()) {
+    let paper = match args.named::<Spanned<Str>>("paper")?.or_else(|| args.find()) {
         Some(name) => match Paper::from_name(&name.v) {
             None => bail!(name.span, "invalid paper name"),
             paper => paper,
@@ -80,9 +80,9 @@ pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
 
 /// `align`: Configure the alignment along the layouting axes.
 pub fn align(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let first = args.eat::<Align>();
-    let second = args.eat::<Align>();
-    let body = args.eat::<Template>();
+    let first = args.find::<Align>();
+    let second = args.find::<Align>();
+    let body = args.find::<Template>();
 
     let mut horizontal = args.named("horizontal")?;
     let mut vertical = args.named("vertical")?;
@@ -149,7 +149,7 @@ pub fn boxed(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
     let fill = args.named("fill")?;
-    let body: Template = args.eat().unwrap_or_default();
+    let body: Template = args.find().unwrap_or_default();
     Ok(Value::Template(Template::from_inline(move |style| {
         ShapeNode {
             shape: ShapeKind::Rect,
@@ -171,7 +171,7 @@ pub fn block(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
 /// `pad`: Pad content at the sides.
 pub fn pad(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let all = args.eat();
+    let all = args.find();
     let left = args.named("left")?;
     let top = args.named("top")?;
     let right = args.named("right")?;

@@ -77,25 +77,22 @@ pub struct Arg {
 }
 
 impl Args {
-    /// Find and consume the first castable positional argument.
-    pub fn eat<T>(&mut self) -> Option<T>
+    /// Consume and cast the first positional argument.
+    ///
+    /// Returns a `missing argument: {what}` error if no positional argument is
+    /// left.
+    pub fn expect<T>(&mut self, what: &str) -> TypResult<T>
     where
         T: Cast<Spanned<Value>>,
     {
-        for (i, slot) in self.items.iter().enumerate() {
-            if slot.name.is_none() {
-                if T::is(&slot.value) {
-                    let value = self.items.remove(i).value;
-                    return T::cast(value).ok();
-                }
-            }
+        match self.eat()? {
+            Some(v) => Ok(v),
+            None => bail!(self.span, "missing argument: {}", what),
         }
-        None
     }
 
-    /// Try to cast the first positional argument ir returning a `missing
-    /// argument: {what}` error if no positional argument is left.
-    pub fn expect<T>(&mut self, what: &str) -> TypResult<T>
+    /// Consume and cast the first positional argument if there is one.
+    pub fn eat<T>(&mut self) -> TypResult<Option<T>>
     where
         T: Cast<Spanned<Value>>,
     {
@@ -103,11 +100,24 @@ impl Args {
             if slot.name.is_none() {
                 let value = self.items.remove(i).value;
                 let span = value.span;
-                return T::cast(value).at(span);
+                return T::cast(value).at(span).map(Some);
             }
         }
+        Ok(None)
+    }
 
-        bail!(self.span, "missing argument: {}", what);
+    /// Find and consume the first castable positional argument.
+    pub fn find<T>(&mut self) -> Option<T>
+    where
+        T: Cast<Spanned<Value>>,
+    {
+        for (i, slot) in self.items.iter().enumerate() {
+            if slot.name.is_none() && T::is(&slot.value) {
+                let value = self.items.remove(i).value;
+                return T::cast(value).ok();
+            }
+        }
+        None
     }
 
     /// Find and consume all castable positional arguments.
@@ -115,7 +125,7 @@ impl Args {
     where
         T: Cast<Spanned<Value>>,
     {
-        std::iter::from_fn(move || self.eat())
+        std::iter::from_fn(move || self.find())
     }
 
     /// Cast and remove the value for the given named argument, returning an

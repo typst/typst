@@ -35,18 +35,18 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         (!families.is_empty()).then(|| FontDef(Rc::new(families)))
     });
 
-    let size = args.named::<Linear>("size")?.or_else(|| args.eat());
+    let size = args.named::<Linear>("size")?.or_else(|| args.find());
     let style = args.named("style")?;
     let weight = args.named("weight")?;
     let stretch = args.named("stretch")?;
-    let fill = args.named("fill")?.or_else(|| args.eat());
+    let fill = args.named("fill")?.or_else(|| args.find());
     let top_edge = args.named("top-edge")?;
     let bottom_edge = args.named("bottom-edge")?;
     let serif = args.named("serif")?;
     let sans_serif = args.named("sans-serif")?;
     let monospace = args.named("monospace")?;
     let fallback = args.named("fallback")?;
-    let body = args.eat::<Template>();
+    let body = args.find::<Template>();
 
     let f = move |style_: &mut Style| {
         let text = style_.text_mut();
@@ -132,7 +132,7 @@ pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
 /// `lang`: Configure the language.
 pub fn lang(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let iso = args.eat::<Str>();
+    let iso = args.find::<Str>();
     let dir = if let Some(dir) = args.named::<Spanned<Dir>>("dir")? {
         if dir.v.axis() == SpecAxis::Horizontal {
             Some(dir.v)
@@ -177,8 +177,8 @@ pub fn overline(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 }
 
 fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
-    let stroke = args.named("stroke")?.or_else(|| args.eat());
-    let thickness = args.named::<Linear>("thickness")?.or_else(|| args.eat());
+    let stroke = args.named("stroke")?.or_else(|| args.find());
+    let thickness = args.named::<Linear>("thickness")?.or_else(|| args.find());
     let offset = args.named("offset")?;
     let extent = args.named("extent")?.unwrap_or_default();
     let body: Template = args.expect("body")?;
@@ -197,7 +197,7 @@ fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
 /// `link`: Typeset text as a link.
 pub fn link(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let url = args.expect::<Str>("url")?;
-    let body = args.eat().unwrap_or_else(|| {
+    let body = args.find().unwrap_or_else(|| {
         let mut template = Template::new();
         template.text(&url);
         template

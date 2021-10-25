@@ -29,3 +29,7 @@
 ---
 // Error: 5-11 missing argument: blue component
 #rgb(0, 1)
+
+---
+// Error: 21-26 expected float, found boolean
+#rgb(0.1, 0.2, 0.3, false)

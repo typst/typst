@@ -2,7 +2,7 @@
 // Ref: false
 
 ---
-// Test `abs` function.
+// Test the `abs` function.
 #test(abs(-3), 3)
 #test(abs(3), 3)
 #test(abs(-0.0), 0.0)
@@ -20,7 +20,7 @@
 #abs("no number")
 
 ---
-// Test `min` and `max` functions.
+// Test the `min` and `max` functions.
 #test(min(2, -4), -4)
 #test(min(3.5, 1e2, -0.1, 3), -0.1)
 #test(max(-3, 11), 11)
@@ -31,5 +31,33 @@
 #min()
 
 ---
-// Error: 14-18 cannot compare integer with string
-#test(min(1, "hi"), error)
+// Error: 9-13 cannot compare integer with string
+#min(1, "hi")
+
+---
+// Test the `range` function.
+#test(range(4), (0, 1, 2, 3))
+#test(range(1, 4), (1, 2, 3))
+#test(range(-4, 2), (-4, -3, -2, -1, 0, 1))
+#test(range(10, 5), ())
+#test(range(10, step: 3), (0, 3, 6, 9))
+#test(range(1, 4, step: 1), (1, 2, 3))
+#test(range(1, 8, step: 2), (1, 3, 5, 7))
+#test(range(5, 2, step: -1), (5, 4, 3))
+#test(range(10, 0, step: -3), (10, 7, 4, 1))
+
+---
+// Error: 7-9 missing argument: end
+#range()
+
+---
+// Error: 11-14 expected integer, found float
+#range(1, 2.0)
+
+---
+// Error: 17-22 expected integer, found string
+#range(4, step: "one")
+
+---
+// Error: 18-19 step must not be zero
+#range(10, step: 0)

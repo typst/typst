@@ -86,7 +86,7 @@ pub fn str(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 /// `rgb`: Create an RGB(A) color.
 pub fn rgb(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(Value::Color(Color::Rgba(
-        if let Some(string) = args.eat::<Spanned<Str>>() {
+        if let Some(string) = args.find::<Spanned<Str>>() {
             match RgbaColor::from_str(&string.v) {
                 Ok(color) => color,
                 Err(_) => bail!(string.span, "invalid color"),
@@ -95,7 +95,7 @@ pub fn rgb(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             let r = args.expect("red component")?;
             let g = args.expect("green component")?;
             let b = args.expect("blue component")?;
-            let a = args.eat().unwrap_or(Spanned::new(1.0, Span::detached()));
+            let a = args.eat()?.unwrap_or(Spanned::new(1.0, Span::detached()));
             let f = |Spanned { v, span }: Spanned<f64>| {
                 if 0.0 <= v && v <= 1.0 {
                     Ok((v * 255.0).round() as u8)
@@ -152,6 +152,31 @@ fn minmax(args: &mut Args, goal: Ordering) -> TypResult<Value> {
         }
     }
     Ok(extremum)
+}
+
+/// `range`: Create a sequence of numbers.
+pub fn range(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    let first = args.expect::<i64>("end")?;
+    let (start, end) = match args.eat::<i64>()? {
+        Some(second) => (first, second),
+        None => (0, first),
+    };
+
+    let step: i64 = match args.named("step")? {
+        Some(Spanned { v: 0, span }) => bail!(span, "step must not be zero"),
+        Some(Spanned { v, .. }) => v,
+        None => 1,
+    };
+
+    let mut x = start;
+    let mut seq = vec![];
+
+    while x.cmp(&end) == 0.cmp(&step) {
+        seq.push(Value::Int(x));
+        x += step;
+    }
+
+    Ok(Value::Array(Array::from_vec(seq)))
 }
 
 /// `lower`: Convert a string to lowercase.

@@ -53,7 +53,7 @@
 ---
 {
   let x = 2
-  for _ in 0..61 {
+  for _ in range(61) {
     x *= 2
   }
   // Error: 4-18 cannot repeat this string 4611686018427387904 times
@@ -71,10 +71,6 @@
 ---
 // Error: 3-4 expected function, found integer
 { 1 with () }
-
----
-// Error: 3-10 cannot apply '..' to integer and string
-{ 1 .. "" }
 
 ---
 // Error: 3-6 cannot access this expression mutably
