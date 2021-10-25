@@ -89,18 +89,6 @@
           "match": "^\\s*[0-9]*\\.\\s+"
         },
         {
-          "name": "string.other.math.block.typst",
-          "begin": "\\$\\[",
-          "end": "\\]\\$",
-          "captures": { "0": { "name": "punctuation.defintion.string.math.typst" } }
-        },
-        {
-          "name": "string.other.math.typst",
-          "begin": "\\$",
-          "end": "\\$",
-          "captures": { "0": { "name": "punctuation.defintion.string.math.typst" } }
-        },
-        {
           "name": "markup.raw.block.typst",
           "begin": "`{3,}",
           "end": "\\0",
@@ -113,24 +101,31 @@
           "captures": { "0": { "name": "punctuation.definition.raw.typst" } }
         },
         {
-          "name": "keyword.control.typst",
-          "match": "(#)(break|continue|return)\\b",
-          "captures": { "1": { "name": "punctuation.definition.keyword.typst" } }
+          "name": "string.other.math.block.typst",
+          "begin": "\\$\\[",
+          "end": "\\]\\$",
+          "captures": { "0": { "name": "punctuation.defintion.string.math.typst" } }
         },
         {
-          "name": "keyword.other.typst",
-          "match": "(#)(as|in|with|from)\\b",
-          "captures": { "1": { "name": "punctuation.definition.keyword.typst" } }
+          "name": "string.other.math.typst",
+          "begin": "\\$",
+          "end": "\\$",
+          "captures": { "0": { "name": "punctuation.defintion.string.math.typst" } }
         },
         {
-          "begin": "(#)(pub|let)\\b",
-          "end": "\n|(;)|(?=])|(?<=}|])",
+          "begin": "(#)(pub|let|set|show|wrap)\\b",
+          "end": "\n|(;)|(?=])",
           "beginCaptures": {
             "0": { "name": "keyword.other.typst" },
             "1": { "name": "punctuation.definition.keyword.typst" }
           },
           "endCaptures": { "1": { "name": "punctuation.terminator.statement.typst" } },
           "patterns": [{ "include": "#code" }]
+        },
+        {
+          "name": "keyword.other.typst",
+          "match": "(#)(as|in|with|from)\\b",
+          "captures": { "1": { "name": "punctuation.definition.keyword.typst" } }
         },
         {
           "begin": "((#)if|(?<=(}|])\\s*)else)\\b",
@@ -145,28 +140,30 @@
           "begin": "(#)(for|while)\\b",
           "end": "\n|(?=])|(?<=}|])",
           "beginCaptures": {
-            "0": { "name": "keyword.control.typst" },
+            "0": { "name": "keyword.control.loop.typst" },
             "1": { "name": "punctuation.definition.keyword.typst" }
           },
           "patterns": [{ "include": "#code" }]
         },
         {
-          "begin": "(#)import\\b",
-          "end": "\n|(?=])",
+          "name": "keyword.control.loop.typst",
+          "match": "(#)(break|continue)\\b",
+          "captures": { "1": { "name": "punctuation.definition.keyword.typst" } }
+        },
+        {
+          "begin": "(#)(import|include)\\b",
+          "end": "\n|(;)|(?=])",
           "beginCaptures": {
             "0": { "name": "keyword.control.import.typst" },
             "1": { "name": "punctuation.definition.keyword.typst" }
           },
+          "endCaptures": { "1": { "name": "punctuation.terminator.statement.typst" } },
           "patterns": [{ "include": "#code" }]
         },
         {
-          "begin": "(#)include\\b",
-          "end": "\n|(?=])",
-          "beginCaptures": {
-            "0": { "name": "keyword.control.include.typst" },
-            "1": { "name": "punctuation.definition.keyword.typst" }
-          },
-          "patterns": [{ "include": "#code" }]
+          "name": "keyword.control.flow.typst",
+          "match": "(#)(return)\\b",
+          "captures": { "1": { "name": "punctuation.definition.keyword.typst" } }
         },
         {
           "comment": "Function name",
@@ -226,12 +223,24 @@
           "match": "\\b(and|or|not)\\b"
         },
         {
-          "name": "keyword.control.typst",
-          "match": "\\b(if|else|for|while|break|continue|return)\\b"
+          "name": "keyword.other.typst",
+          "match": "\\b(pub|let|set|show|wrap|as|in|with|from)\\b"
         },
         {
-          "name": "keyword.other.typst",
-          "match": "\\b(pub|let|as|in|with|import|include|from)\\b"
+          "name": "keyword.control.conditional.typst",
+          "match": "\\b(if|else)\\b"
+        },
+        {
+          "name": "keyword.control.loop.typst",
+          "match": "\\b(for|while|break|continue)\\b"
+        },
+        {
+          "name": "keyword.control.import.typst",
+          "match": "\\b(import|include)\\b"
+        },
+        {
+          "name": "keyword.control.flow.typst",
+          "match": "\\b(return)\\b"
         },
         { "include": "#constants" },
         {
