@@ -3,7 +3,7 @@ use std::rc::Rc;
 use super::{Eval, EvalContext, Str, Template, Value};
 use crate::diag::TypResult;
 use crate::geom::Align;
-use crate::layout::{ParChild, ParNode, Spacing, StackChild, StackNode};
+use crate::layout::{BlockLevel, ParChild, ParNode, Spacing, StackChild, StackNode};
 use crate::syntax::*;
 use crate::util::BoolExt;
 
@@ -118,9 +118,9 @@ fn walk_item(ctx: &mut EvalContext, label: Str, body: Template) {
         StackNode {
             dir: style.dir,
             children: vec![
-                StackChild::Node(label.into(), Align::Start),
+                StackChild::Node(label.pack(), Align::Start),
                 StackChild::Spacing(Spacing::Linear((style.text.size / 2.0).into())),
-                StackChild::Node(body.to_stack(&style).into(), Align::Start),
+                StackChild::Node(body.to_stack(&style).pack(), Align::Start),
             ],
         }
     });

@@ -3,8 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use super::*;
 
 /// A node that stacks its children.
-#[derive(Debug)]
-#[cfg_attr(feature = "layout-cache", derive(Hash))]
+#[derive(Debug, Hash)]
 pub struct StackNode {
     /// The stacking direction.
     pub dir: Dir,
@@ -13,7 +12,7 @@ pub struct StackNode {
 }
 
 /// A child of a stack node.
-#[cfg_attr(feature = "layout-cache", derive(Hash))]
+#[derive(Hash)]
 pub enum StackChild {
     /// Spacing between other nodes.
     Spacing(Spacing),
@@ -28,12 +27,6 @@ impl BlockLevel for StackNode {
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
         StackLayouter::new(self, regions.clone()).layout(ctx)
-    }
-}
-
-impl From<StackNode> for BlockNode {
-    fn from(node: StackNode) -> Self {
-        Self::new(node)
     }
 }
 

@@ -2,8 +2,7 @@ use super::*;
 use crate::image::ImageId;
 
 /// An image node.
-#[derive(Debug)]
-#[cfg_attr(feature = "layout-cache", derive(Hash))]
+#[derive(Debug, Hash)]
 pub struct ImageNode {
     /// The id of the image file.
     pub id: ImageId,
@@ -41,11 +40,5 @@ impl InlineLevel for ImageNode {
         let mut frame = Frame::new(size, size.h);
         frame.push(Point::zero(), Element::Image(self.id, size));
         frame
-    }
-}
-
-impl From<ImageNode> for InlineNode {
-    fn from(node: ImageNode) -> Self {
-        Self::new(node)
     }
 }

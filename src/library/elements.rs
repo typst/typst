@@ -99,6 +99,6 @@ fn shape_impl(
         fill: Some(Paint::Color(
             fill.unwrap_or(Color::Rgba(RgbaColor::new(175, 175, 175, 255))),
         )),
-        child: body.as_ref().map(|template| template.to_stack(style).into()),
+        child: body.as_ref().map(|template| template.to_stack(style).pack()),
     }))
 }

@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 use std::fmt::{self, Debug, Formatter};
+use std::hash::Hash;
 use std::mem;
 use std::ops::{Add, AddAssign};
 use std::rc::Rc;
@@ -8,8 +9,8 @@ use super::Str;
 use crate::diag::StrResult;
 use crate::geom::{Align, Dir, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{
-    BlockNode, Decoration, InlineNode, PadNode, PageNode, ParChild, ParNode, Spacing,
-    StackChild, StackNode,
+    BlockLevel, BlockNode, Decoration, InlineLevel, InlineNode, PadNode, PageNode,
+    ParChild, ParNode, Spacing, StackChild, StackNode,
 };
 use crate::style::Style;
 use crate::util::EcoString;
@@ -57,9 +58,9 @@ impl Template {
     pub fn from_inline<F, T>(f: F) -> Self
     where
         F: Fn(&Style) -> T + 'static,
-        T: Into<InlineNode>,
+        T: InlineLevel + Hash + 'static,
     {
-        let node = TemplateNode::Inline(Rc::new(move |s| f(s).into()));
+        let node = TemplateNode::Inline(Rc::new(move |s| f(s).pack()));
         Self(Rc::new(vec![node]))
     }
 
@@ -67,9 +68,9 @@ impl Template {
     pub fn from_block<F, T>(f: F) -> Self
     where
         F: Fn(&Style) -> T + 'static,
-        T: Into<BlockNode>,
+        T: BlockLevel + Hash + 'static,
     {
-        let node = TemplateNode::Block(Rc::new(move |s| f(s).into()));
+        let node = TemplateNode::Block(Rc::new(move |s| f(s).pack()));
         Self(Rc::new(vec![node]))
     }
 
@@ -396,7 +397,7 @@ impl PageBuilder {
         let Self { size, padding, hard } = self;
         (!child.children.is_empty() || (keep && hard)).then(|| PageNode {
             size,
-            child: PadNode { padding, child: child.into() }.into(),
+            child: PadNode { padding, child: child.pack() }.pack(),
         })
     }
 }
@@ -502,7 +503,7 @@ impl ParBuilder {
     fn build(self) -> Option<StackChild> {
         let Self { align, dir, leading, children, .. } = self;
         (!children.is_empty())
-            .then(|| StackChild::Node(ParNode { dir, leading, children }.into(), align))
+            .then(|| StackChild::Node(ParNode { dir, leading, children }.pack(), align))
     }
 }
 

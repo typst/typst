@@ -154,7 +154,7 @@ pub fn boxed(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             width,
             height,
             fill: fill.map(Paint::Color),
-            child: Some(body.to_stack(style).into()),
+            child: Some(body.to_stack(style).pack()),
         }
     })))
 }
@@ -186,7 +186,7 @@ pub fn pad(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(Value::Template(Template::from_block(move |style| {
         PadNode {
             padding,
-            child: body.to_stack(&style).into(),
+            child: body.to_stack(&style).pack(),
         }
     })))
 }
@@ -227,7 +227,7 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
                         children.push(StackChild::Spacing(v));
                     }
 
-                    let node = template.to_stack(style).into();
+                    let node = template.to_stack(style).pack();
                     children.push(StackChild::Node(node, style.aligns.block));
                     delayed = spacing;
                 }
@@ -283,7 +283,7 @@ pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             gutter: gutter.clone(),
             children: children
                 .iter()
-                .map(|child| child.to_stack(&style).into())
+                .map(|child| child.to_stack(&style).pack())
                 .collect(),
         }
     })))

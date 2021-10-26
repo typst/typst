@@ -4,8 +4,7 @@ use super::*;
 use crate::util::RcExt;
 
 /// Places its child into a sizable and fillable shape.
-#[derive(Debug)]
-#[cfg_attr(feature = "layout-cache", derive(Hash))]
+#[derive(Debug, Hash)]
 pub struct ShapeNode {
     /// Which shape to place the child into.
     pub shape: ShapeKind,
@@ -103,11 +102,5 @@ impl InlineLevel for ShapeNode {
         }
 
         frame
-    }
-}
-
-impl From<ShapeNode> for InlineNode {
-    fn from(node: ShapeNode) -> Self {
-        Self::new(node)
     }
 }

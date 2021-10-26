@@ -29,6 +29,7 @@ pub use stack::*;
 pub use text::*;
 
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use crate::font::FontStore;
@@ -36,13 +37,6 @@ use crate::geom::*;
 use crate::image::ImageStore;
 use crate::util::OptionExt;
 use crate::Context;
-
-#[cfg(feature = "layout-cache")]
-use {
-    fxhash::FxHasher64,
-    std::any::Any,
-    std::hash::{Hash, Hasher},
-};
 
 /// Layout a page-level node into a collection of frames.
 pub fn layout<T>(ctx: &mut Context, node: &T) -> Vec<Rc<Frame>>
@@ -129,37 +123,26 @@ pub trait BlockLevel: Debug {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>>;
+
+    /// Convert to a packed block-level node.
+    fn pack(self) -> BlockNode
+    where
+        Self: Sized + Hash + 'static,
+    {
+        BlockNode {
+            #[cfg(feature = "layout-cache")]
+            hash: hash_node(&self),
+            node: Rc::new(self),
+        }
+    }
 }
 
-/// A dynamic [block-level](BlockLevel) layouting node.
+/// A packed [block-level](BlockLevel) layouting node with precomputed hash.
 #[derive(Clone)]
 pub struct BlockNode {
     node: Rc<dyn BlockLevel>,
     #[cfg(feature = "layout-cache")]
     hash: u64,
-}
-
-impl BlockNode {
-    /// Create a new dynamic node from any block-level node.
-    #[cfg(not(feature = "layout-cache"))]
-    pub fn new<T>(node: T) -> Self
-    where
-        T: BlockLevel + 'static,
-    {
-        Self { node: Rc::new(node) }
-    }
-
-    /// Create a new dynamic node from any block-level node.
-    #[cfg(feature = "layout-cache")]
-    pub fn new<T>(node: T) -> Self
-    where
-        T: BlockLevel + Hash + 'static,
-    {
-        Self {
-            hash: hash_node(&node),
-            node: Rc::new(node),
-        }
-    }
 }
 
 impl BlockLevel for BlockNode {
@@ -194,12 +177,21 @@ impl BlockLevel for BlockNode {
             frames
         })
     }
+
+    fn pack(self) -> BlockNode
+    where
+        Self: Sized + Hash + 'static,
+    {
+        self
+    }
 }
 
-#[cfg(feature = "layout-cache")]
 impl Hash for BlockNode {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.hash);
+    fn hash<H: Hasher>(&self, _state: &mut H) {
+        #[cfg(feature = "layout-cache")]
+        _state.write_u64(self.hash);
+        #[cfg(not(feature = "layout-cache"))]
+        unimplemented!()
     }
 }
 
@@ -216,9 +208,21 @@ impl Debug for BlockNode {
 pub trait InlineLevel: Debug {
     /// Layout the node into a frame.
     fn layout(&self, ctx: &mut LayoutContext, space: Length, base: Size) -> Frame;
+
+    /// Convert to a packed inline-level node.
+    fn pack(self) -> InlineNode
+    where
+        Self: Sized + Hash + 'static,
+    {
+        InlineNode {
+            #[cfg(feature = "layout-cache")]
+            hash: hash_node(&self),
+            node: Rc::new(self),
+        }
+    }
 }
 
-/// A dynamic [inline-level](InlineLevel) layouting node.
+/// A packed [inline-level](InlineLevel) layouting node with precomputed hash.
 #[derive(Clone)]
 pub struct InlineNode {
     node: Rc<dyn InlineLevel>,
@@ -226,39 +230,25 @@ pub struct InlineNode {
     hash: u64,
 }
 
-impl InlineNode {
-    /// Create a new dynamic node from any inline-level node.
-    #[cfg(not(feature = "layout-cache"))]
-    pub fn new<T>(node: T) -> Self
-    where
-        T: InlineLevel + 'static,
-    {
-        Self { node: Rc::new(node) }
-    }
-
-    /// Create a new dynamic node from any inline-level node.
-    #[cfg(feature = "layout-cache")]
-    pub fn new<T>(node: T) -> Self
-    where
-        T: InlineLevel + Hash + 'static,
-    {
-        Self {
-            hash: hash_node(&node),
-            node: Rc::new(node),
-        }
-    }
-}
-
 impl InlineLevel for InlineNode {
     fn layout(&self, ctx: &mut LayoutContext, space: Length, base: Size) -> Frame {
         self.node.layout(ctx, space, base)
     }
+
+    fn pack(self) -> InlineNode
+    where
+        Self: Sized + Hash + 'static,
+    {
+        self
+    }
 }
 
-#[cfg(feature = "layout-cache")]
 impl Hash for InlineNode {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.hash);
+    fn hash<H: Hasher>(&self, _state: &mut H) {
+        #[cfg(feature = "layout-cache")]
+        _state.write_u64(self.hash);
+        #[cfg(not(feature = "layout-cache"))]
+        unimplemented!()
     }
 }
 
@@ -271,7 +261,8 @@ impl Debug for InlineNode {
 /// Hash a node alongside its type id.
 #[cfg(feature = "layout-cache")]
 fn hash_node(node: &(impl Hash + 'static)) -> u64 {
-    let mut state = FxHasher64::default();
+    use std::any::Any;
+    let mut state = fxhash::FxHasher64::default();
     node.type_id().hash(&mut state);
     node.hash(&mut state);
     state.finish()

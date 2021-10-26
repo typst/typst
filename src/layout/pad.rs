@@ -1,8 +1,7 @@
 use super::*;
 
 /// A node that adds padding to its child.
-#[derive(Debug)]
-#[cfg_attr(feature = "layout-cache", derive(Hash))]
+#[derive(Debug, Hash)]
 pub struct PadNode {
     /// The amount of padding.
     pub padding: Sides<Linear>,
@@ -72,11 +71,5 @@ impl BlockLevel for PadNode {
         }
 
         frames
-    }
-}
-
-impl From<PadNode> for BlockNode {
-    fn from(node: PadNode) -> Self {
-        Self::new(node)
     }
 }

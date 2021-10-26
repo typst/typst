@@ -12,8 +12,7 @@ use crate::util::{EcoString, RangeExt, SliceExt};
 type Range = std::ops::Range<usize>;
 
 /// A node that arranges its children into a paragraph.
-#[derive(Debug)]
-#[cfg_attr(feature = "layout-cache", derive(Hash))]
+#[derive(Debug, Hash)]
 pub struct ParNode {
     /// The inline direction of this paragraph.
     pub dir: Dir,
@@ -24,7 +23,7 @@ pub struct ParNode {
 }
 
 /// A child of a paragraph node.
-#[cfg_attr(feature = "layout-cache", derive(Hash))]
+#[derive(Hash)]
 pub enum ParChild {
     /// Spacing between other nodes.
     Spacing(Spacing),
@@ -90,12 +89,6 @@ impl ParNode {
             ParChild::Node(..) => "\u{FFFC}",
             ParChild::Decorate(_) | ParChild::Undecorate => "",
         })
-    }
-}
-
-impl From<ParNode> for BlockNode {
-    fn from(node: ParNode) -> Self {
-        Self::new(node)
     }
 }
 

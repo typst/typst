@@ -1,8 +1,7 @@
 use super::*;
 
 /// A node that arranges its children in a grid.
-#[derive(Debug)]
-#[cfg_attr(feature = "layout-cache", derive(Hash))]
+#[derive(Debug, Hash)]
 pub struct GridNode {
     /// Defines sizing for content rows and columns.
     pub tracks: Spec<Vec<TrackSizing>>,
@@ -37,12 +36,6 @@ impl BlockLevel for GridNode {
 
         // Layout the grid row-by-row.
         layouter.layout(ctx)
-    }
-}
-
-impl From<GridNode> for BlockNode {
-    fn from(node: GridNode) -> Self {
-        Self::new(node)
     }
 }
 
