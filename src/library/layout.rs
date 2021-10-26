@@ -130,17 +130,15 @@ pub fn align(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
 /// `h`: Horizontal spacing.
 pub fn h(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let spacing = args.expect("spacing")?;
     let mut template = Template::new();
-    template.spacing(GenAxis::Inline, spacing);
+    template.spacing(GenAxis::Inline, args.expect("spacing")?);
     Ok(Value::Template(template))
 }
 
 /// `v`: Vertical spacing.
 pub fn v(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let spacing = args.expect("spacing")?;
     let mut template = Template::new();
-    template.spacing(GenAxis::Block, spacing);
+    template.spacing(GenAxis::Block, args.expect("spacing")?);
     Ok(Value::Template(template))
 }
 
@@ -196,20 +194,21 @@ pub fn pad(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 /// `stack`: Stack children along an axis.
 pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     enum Child {
-        Spacing(Linear),
+        Spacing(Spacing),
         Any(Template),
     }
 
     castable! {
-        Child: "linear or template",
-        Value::Length(v) => Self::Spacing(v.into()),
-        Value::Relative(v) => Self::Spacing(v.into()),
-        Value::Linear(v) => Self::Spacing(v),
+        Child: "linear, fractional or template",
+        Value::Length(v) => Self::Spacing(Spacing::Linear(v.into())),
+        Value::Relative(v) => Self::Spacing(Spacing::Linear(v.into())),
+        Value::Linear(v) => Self::Spacing(Spacing::Linear(v)),
+        Value::Fractional(v) => Self::Spacing(Spacing::Fractional(v)),
         Value::Template(v) => Self::Any(v),
     }
 
     let dir = args.named("dir")?.unwrap_or(Dir::TTB);
-    let spacing = args.named::<Linear>("spacing")?;
+    let spacing = args.named("spacing")?;
     let list: Vec<Child> = args.all().collect();
 
     Ok(Value::Template(Template::from_block(move |style| {
@@ -229,7 +228,7 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
                     }
 
                     let node = template.to_stack(style).into();
-                    children.push(StackChild::Any(node, style.aligns.block));
+                    children.push(StackChild::Node(node, style.aligns.block));
                     delayed = spacing;
                 }
             }

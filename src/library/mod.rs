@@ -20,6 +20,7 @@ use crate::diag::{At, TypResult};
 use crate::eval::{Args, Array, EvalContext, Scope, Str, Template, Value};
 use crate::font::{FontFamily, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
+use crate::layout::Spacing;
 use crate::style::Style;
 use crate::syntax::{Span, Spanned};
 
@@ -143,4 +144,12 @@ dynamic! {
     Value::Length(v) => Self::Linear(v.into()),
     Value::Relative(v) => Self::Linear(v.into()),
     Value::Linear(v) => Self::Linear(v),
+}
+
+castable! {
+    Spacing: "linear or fractional",
+    Value::Length(v) => Self::Linear(v.into()),
+    Value::Relative(v) => Self::Linear(v.into()),
+    Value::Linear(v) => Self::Linear(v),
+    Value::Fractional(v) => Self::Fractional(v),
 }

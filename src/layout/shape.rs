@@ -55,8 +55,7 @@ impl InlineLevel for ShapeNode {
 
             // The "pod" is the region into which the child will be layouted.
             let mut pod = {
-                let size =
-                    Size::new(width.unwrap_or(space), height.unwrap_or(Length::inf()));
+                let size = Size::new(width.unwrap_or(space), height.unwrap_or(base.h));
 
                 let base = Size::new(
                     if width.is_some() { size.w } else { base.w },

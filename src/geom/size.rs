@@ -25,14 +25,6 @@ impl Size {
         Self { w: v, h: v }
     }
 
-    /// Limit width and height at that of another size.
-    pub fn cap(self, limit: Self) -> Self {
-        Self {
-            w: self.w.min(limit.w),
-            h: self.h.min(limit.h),
-        }
-    }
-
     /// Whether the other size fits into this one (smaller width and height).
     pub fn fits(self, other: Self) -> bool {
         self.w.fits(other.w) && self.h.fits(other.h)

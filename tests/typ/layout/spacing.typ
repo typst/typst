@@ -14,6 +14,9 @@ Add #h(10pt) #h(10pt) up
 #let x = 25% - 4pt
 | #h(x) | #h(x) | #h(x) | #h(x) |
 
+// Fractional.
+| #h(1fr) | #h(2fr) | #h(1fr) |
+
 ---
 // Missing spacing.
 // Error: 11-13 missing argument: spacing

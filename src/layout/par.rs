@@ -19,7 +19,7 @@ pub struct ParNode {
     pub dir: Dir,
     /// The spacing to insert between each line.
     pub leading: Length,
-    /// The nodes to be arranged in a paragraph.
+    /// The children to be arranged in a paragraph.
     pub children: Vec<ParChild>,
 }
 
@@ -27,11 +27,11 @@ pub struct ParNode {
 #[cfg_attr(feature = "layout-cache", derive(Hash))]
 pub enum ParChild {
     /// Spacing between other nodes.
-    Spacing(Linear),
+    Spacing(Spacing),
     /// A run of text and how to align it in its line.
     Text(EcoString, Align, Rc<TextStyle>),
     /// Any child node and how to align it in its line.
-    Any(InlineNode, Align),
+    Node(InlineNode, Align),
     /// A decoration that applies until a matching `Undecorate`.
     Decorate(Decoration),
     /// The end of a decoration.
@@ -87,7 +87,7 @@ impl ParNode {
         self.children.iter().map(|child| match child {
             ParChild::Spacing(_) => " ",
             ParChild::Text(ref piece, ..) => piece,
-            ParChild::Any(..) => "\u{FFFC}",
+            ParChild::Node(..) => "\u{FFFC}",
             ParChild::Decorate(_) | ParChild::Undecorate => "",
         })
     }
@@ -104,7 +104,7 @@ impl Debug for ParChild {
         match self {
             Self::Spacing(v) => write!(f, "Spacing({:?})", v),
             Self::Text(text, ..) => write!(f, "Text({:?})", text),
-            Self::Any(node, ..) => node.fmt(f),
+            Self::Node(node, ..) => node.fmt(f),
             Self::Decorate(deco) => write!(f, "Decorate({:?})", deco),
             Self::Undecorate => write!(f, "Undecorate"),
         }
@@ -120,7 +120,7 @@ struct ParLayouter<'a> {
     leading: Length,
     /// Bidirectional text embedding levels for the paragraph.
     bidi: BidiInfo<'a>,
-    /// Layouted children and separated text runs.
+    /// Spacing, separated text runs and layouted nodes.
     items: Vec<ParItem<'a>>,
     /// The ranges of the items in `bidi.text`.
     ranges: Vec<Range>,
@@ -130,8 +130,10 @@ struct ParLayouter<'a> {
 
 /// A prepared item in a paragraph layout.
 enum ParItem<'a> {
-    /// Spacing between other items.
-    Spacing(Length),
+    /// Absolute spacing between other items.
+    Absolute(Length),
+    /// Fractional spacing between other items.
+    Fractional(Fractional),
     /// A shaped text run with consistent direction.
     Text(ShapedText<'a>, Align),
     /// A layouted child node.
@@ -153,27 +155,35 @@ impl<'a> ParLayouter<'a> {
 
         // Layout the children and collect them into items.
         for (range, child) in par.ranges().zip(&par.children) {
-            match child {
-                ParChild::Spacing(amount) => {
-                    let resolved = amount.resolve(regions.current.w);
-                    items.push(ParItem::Spacing(resolved));
+            match *child {
+                ParChild::Spacing(Spacing::Linear(v)) => {
+                    let resolved = v.resolve(regions.current.w);
+                    items.push(ParItem::Absolute(resolved));
                     ranges.push(range);
                 }
-                ParChild::Text(_, align, style) => {
+                ParChild::Spacing(Spacing::Fractional(v)) => {
+                    items.push(ParItem::Fractional(v));
+                    ranges.push(range);
+                }
+                ParChild::Text(_, align, ref style) => {
                     // TODO: Also split by language and script.
-                    for (subrange, dir) in split_runs(&bidi, range) {
+                    let mut cursor = range.start;
+                    for (level, group) in bidi.levels[range].group_by_key(|&lvl| lvl) {
+                        let start = cursor;
+                        cursor += group.len();
+                        let subrange = start .. cursor;
                         let text = &bidi.text[subrange.clone()];
-                        let shaped = shape(ctx, text, style, dir);
-                        items.push(ParItem::Text(shaped, *align));
+                        let shaped = shape(ctx, text, style, level.dir());
+                        items.push(ParItem::Text(shaped, align));
                         ranges.push(subrange);
                     }
                 }
-                ParChild::Any(node, align) => {
+                ParChild::Node(ref node, align) => {
                     let frame = node.layout(ctx, regions.current.w, regions.base);
-                    items.push(ParItem::Frame(frame, *align));
+                    items.push(ParItem::Frame(frame, align));
                     ranges.push(range);
                 }
-                ParChild::Decorate(deco) => {
+                ParChild::Decorate(ref deco) => {
                     starts.push((range.start, deco));
                 }
                 ParChild::Undecorate => {
@@ -298,41 +308,6 @@ impl<'a> ParLayouter<'a> {
     }
 }
 
-/// Split a range of text into runs of consistent direction.
-fn split_runs<'a>(
-    bidi: &'a BidiInfo,
-    range: Range,
-) -> impl Iterator<Item = (Range, Dir)> + 'a {
-    let mut cursor = range.start;
-    bidi.levels[range]
-        .group_by_key(|&level| level)
-        .map(move |(level, group)| {
-            let start = cursor;
-            cursor += group.len();
-            (start .. cursor, level.dir())
-        })
-}
-
-impl ParItem<'_> {
-    /// The size of the item.
-    pub fn size(&self) -> Size {
-        match self {
-            Self::Spacing(amount) => Size::new(*amount, Length::zero()),
-            Self::Text(shaped, ..) => shaped.size,
-            Self::Frame(frame, ..) => frame.size,
-        }
-    }
-
-    /// The baseline of the item.
-    pub fn baseline(&self) -> Length {
-        match self {
-            Self::Spacing(_) => Length::zero(),
-            Self::Text(shaped, ..) => shaped.baseline,
-            Self::Frame(frame, ..) => frame.baseline,
-        }
-    }
-}
-
 /// A lightweight representation of a line that spans a specific range in a
 /// paragraph's text. This type enables you to cheaply measure the size of a
 /// line in a range before comitting to building the line's frame.
@@ -356,6 +331,8 @@ struct LineLayout<'a> {
     size: Size,
     /// The baseline of the line.
     baseline: Length,
+    /// The sum of fractional ratios in the line.
+    fr: Fractional,
 }
 
 impl<'a> LineLayout<'a> {
@@ -422,14 +399,20 @@ impl<'a> LineLayout<'a> {
         let mut width = Length::zero();
         let mut top = Length::zero();
         let mut bottom = Length::zero();
+        let mut fr = Fractional::zero();
 
         // Measure the size of the line.
         for item in first.iter().chain(items).chain(&last) {
-            let size = item.size();
-            let baseline = item.baseline();
-            width += size.w;
-            top.set_max(baseline);
-            bottom.set_max(size.h - baseline);
+            match *item {
+                ParItem::Absolute(v) => width += v,
+                ParItem::Fractional(v) => fr += v,
+                ParItem::Text(ShapedText { size, baseline, .. }, _)
+                | ParItem::Frame(Frame { size, baseline, .. }, _) => {
+                    width += size.w;
+                    top.set_max(baseline);
+                    bottom.set_max(size.h - baseline);
+                }
+            }
         }
 
         Self {
@@ -441,13 +424,14 @@ impl<'a> LineLayout<'a> {
             ranges,
             size: Size::new(width, top + bottom),
             baseline: top,
+            fr,
         }
     }
 
     /// Build the line's frame.
     fn build(&self, ctx: &LayoutContext, width: Length) -> Frame {
         let size = Size::new(self.size.w.max(width), self.size.h);
-        let free = size.w - self.size.w;
+        let remaining = size.w - self.size.w;
 
         let mut output = Frame::new(size, self.baseline);
         let mut offset = Length::zero();
@@ -464,7 +448,7 @@ impl<'a> LineLayout<'a> {
 
                 // FIXME: Ruler alignment for RTL.
                 ruler = ruler.max(align);
-                let x = ruler.resolve(self.par.dir, offset .. free + offset);
+                let x = ruler.resolve(self.par.dir, offset .. remaining + offset);
                 let y = self.baseline - frame.baseline;
                 offset += frame.size.w;
 
@@ -473,7 +457,13 @@ impl<'a> LineLayout<'a> {
             };
 
             match *item {
-                ParItem::Spacing(amount) => offset += amount,
+                ParItem::Absolute(v) => offset += v,
+                ParItem::Fractional(v) => {
+                    let ratio = v / self.fr;
+                    if remaining.is_finite() && ratio.is_finite() {
+                        offset += ratio * remaining;
+                    }
+                }
                 ParItem::Text(ref shaped, align) => position(shaped.build(), align),
                 ParItem::Frame(ref frame, align) => position(frame.clone(), align),
             }
@@ -539,6 +529,7 @@ struct LineStack<'a> {
     finished: Vec<Constrained<Rc<Frame>>>,
     cts: Constraints,
     overflowing: bool,
+    fractional: bool,
 }
 
 impl<'a> LineStack<'a> {
@@ -553,6 +544,7 @@ impl<'a> LineStack<'a> {
             lines: vec![],
             finished: vec![],
             overflowing: false,
+            fractional: false,
         }
     }
 
@@ -566,12 +558,13 @@ impl<'a> LineStack<'a> {
             self.size.h += self.leading;
         }
 
+        self.fractional |= !line.fr.is_zero();
         self.lines.push(line);
     }
 
     /// Finish the frame for one region.
     fn finish_region(&mut self, ctx: &LayoutContext) {
-        if self.regions.expand.x {
+        if self.regions.expand.x || self.fractional {
             self.size.w = self.regions.current.w;
             self.cts.exact.x = Some(self.regions.current.w);
         }

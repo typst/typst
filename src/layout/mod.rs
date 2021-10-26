@@ -276,3 +276,12 @@ fn hash_node(node: &(impl Hash + 'static)) -> u64 {
     node.hash(&mut state);
     state.finish()
 }
+
+/// Kinds of spacing.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Spacing {
+    /// A length stated in absolute values and/or relative to the parent's size.
+    Linear(Linear),
+    /// A length that is the fraction of the remaining free space in the parent.
+    Fractional(Fractional),
+}

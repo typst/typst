@@ -17,7 +17,7 @@ pub struct GridNode {
 pub enum TrackSizing {
     /// Fit the cell to its contents.
     Auto,
-    /// A length stated in absolute values and fractions of the parent's size.
+    /// A length stated in absolute values and/or relative to the parent's size.
     Linear(Linear),
     /// A length that is the fraction of the remaining free space in the parent.
     Fractional(Fractional),
@@ -124,26 +124,23 @@ impl<'a> GridLayouter<'a> {
         cols.pop();
         rows.pop();
 
-        let full = regions.current.h;
-        let rcols = vec![Length::zero(); cols.len()];
-
         // We use the regions only for auto row measurement and constraints.
         let expand = regions.expand;
         regions.expand = Spec::new(true, false);
 
         Self {
-            cols,
-            rows,
             children: &grid.children,
             cts: Constraints::new(expand),
-            regions,
+            full: regions.current.h,
             expand,
-            rcols,
+            rcols: vec![Length::zero(); cols.len()],
             lrows: vec![],
-            full,
             used: Size::zero(),
             fr: Fractional::zero(),
             finished: vec![],
+            cols,
+            rows,
+            regions,
         }
     }
 
@@ -313,9 +310,9 @@ impl<'a> GridLayouter<'a> {
                 TrackSizing::Auto => self.layout_auto_row(ctx, y),
                 TrackSizing::Linear(v) => self.layout_linear_row(ctx, v, y),
                 TrackSizing::Fractional(v) => {
-                    self.fr += v;
                     self.cts.exact.y = Some(self.full);
                     self.lrows.push(Row::Fr(v, y));
+                    self.fr += v;
                 }
             }
         }
@@ -498,21 +495,21 @@ impl<'a> GridLayouter<'a> {
 
     /// Finish rows for one region.
     fn finish_region(&mut self, ctx: &mut LayoutContext) {
-        // Determine the height of the region's frame.
-        let height = if self.fr.is_zero() || self.full.is_infinite() {
-            self.used.h
-        } else {
-            self.full
-        };
-
-        self.cts.min.y = Some(height);
-
-        // The frame for the region.
-        let mut output = Frame::new(Size::new(self.used.w, height), height);
-        let mut pos = Point::zero();
-
         // Determine the size that remains for fractional rows.
         let remaining = self.full - self.used.h;
+
+        // Determine the size of the grid in this region, expanding fully if
+        // there are fr rows.
+        let mut size = self.used;
+        if !self.fr.is_zero() && self.full.is_finite() {
+            size.h = self.full;
+        }
+
+        self.cts.min.y = Some(size.h);
+
+        // The frame for the region.
+        let mut output = Frame::new(size, size.h);
+        let mut pos = Point::zero();
 
         // Place finished rows and layout fractional rows.
         for row in std::mem::take(&mut self.lrows) {

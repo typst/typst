@@ -8,8 +8,8 @@ use super::Str;
 use crate::diag::StrResult;
 use crate::geom::{Align, Dir, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{
-    BlockNode, Decoration, InlineNode, PadNode, PageNode, ParChild, ParNode, StackChild,
-    StackNode,
+    BlockNode, Decoration, InlineNode, PadNode, PageNode, ParChild, ParNode, Spacing,
+    StackChild, StackNode,
 };
 use crate::style::Style;
 use crate::util::EcoString;
@@ -32,7 +32,7 @@ enum TemplateNode {
     /// Plain text.
     Text(EcoString),
     /// Spacing.
-    Spacing(GenAxis, Linear),
+    Spacing(GenAxis, Spacing),
     /// A decorated template.
     Decorated(Decoration, Template),
     /// An inline node builder.
@@ -107,7 +107,7 @@ impl Template {
     }
 
     /// Add spacing along an axis.
-    pub fn spacing(&mut self, axis: GenAxis, spacing: Linear) {
+    pub fn spacing(&mut self, axis: GenAxis, spacing: Spacing) {
         self.make_mut().push(TemplateNode::Spacing(axis, spacing));
     }
 
@@ -308,7 +308,8 @@ impl Builder {
     fn parbreak(&mut self) {
         let amount = self.style.par_spacing();
         self.stack.finish_par(&self.style);
-        self.stack.push_soft(StackChild::Spacing(amount.into()));
+        self.stack
+            .push_soft(StackChild::Spacing(Spacing::Linear(amount.into())));
     }
 
     /// Apply a forced page break.
@@ -328,25 +329,26 @@ impl Builder {
     /// Push an inline node into the active paragraph.
     fn inline(&mut self, node: impl Into<InlineNode>) {
         let align = self.style.aligns.inline;
-        self.stack.par.push(ParChild::Any(node.into(), align));
+        self.stack.par.push(ParChild::Node(node.into(), align));
     }
 
     /// Push a block node into the active stack, finishing the active paragraph.
     fn block(&mut self, node: impl Into<BlockNode>) {
         self.parbreak();
-        self.stack.push(StackChild::Any(node.into(), self.style.aligns.block));
+        self.stack
+            .push(StackChild::Node(node.into(), self.style.aligns.block));
         self.parbreak();
     }
 
     /// Push spacing into the active paragraph or stack depending on the `axis`.
-    fn spacing(&mut self, axis: GenAxis, amount: Linear) {
+    fn spacing(&mut self, axis: GenAxis, spacing: Spacing) {
         match axis {
             GenAxis::Block => {
                 self.stack.finish_par(&self.style);
-                self.stack.push_hard(StackChild::Spacing(amount));
+                self.stack.push_hard(StackChild::Spacing(spacing));
             }
             GenAxis::Inline => {
-                self.stack.par.push_hard(ParChild::Spacing(amount));
+                self.stack.par.push_hard(ParChild::Spacing(spacing));
             }
         }
     }
@@ -500,7 +502,7 @@ impl ParBuilder {
     fn build(self) -> Option<StackChild> {
         let Self { align, dir, leading, children, .. } = self;
         (!children.is_empty())
-            .then(|| StackChild::Any(ParNode { dir, leading, children }.into(), align))
+            .then(|| StackChild::Node(ParNode { dir, leading, children }.into(), align))
     }
 }
 
