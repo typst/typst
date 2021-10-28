@@ -20,7 +20,7 @@ use crate::diag::{At, TypResult};
 use crate::eval::{Args, Array, EvalContext, Scope, Str, Template, Value};
 use crate::font::{FontFamily, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
-use crate::layout::{BlockLevel, Spacing};
+use crate::layout::{BlockLevel, Frame, InlineLevel, LayoutContext, Spacing};
 use crate::style::Style;
 use crate::syntax::{Span, Spanned};
 
@@ -43,9 +43,10 @@ pub fn new() -> Scope {
     std.def_func("h", h);
     std.def_func("v", v);
     std.def_func("align", align);
-    std.def_func("box", boxed);
+    std.def_func("box", box_);
     std.def_func("block", block);
     std.def_func("pad", pad);
+    std.def_func("move", move_);
     std.def_func("stack", stack);
     std.def_func("grid", grid);
 
