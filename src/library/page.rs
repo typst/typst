@@ -3,14 +3,13 @@ use crate::style::{Paper, PaperClass};
 
 /// `page`: Configure pages.
 pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let paper = match args.named::<Spanned<Str>>("paper")?.or_else(|| args.find()) {
-        Some(name) => match Paper::from_name(&name.v) {
-            None => bail!(name.span, "invalid paper name"),
-            paper => paper,
-        },
-        None => None,
-    };
+    castable! {
+        Paper: "string",
+        Value::Str(string) => Paper::from_name(&string)
+            .ok_or("invalid paper name")?,
+    }
 
+    let paper = args.named::<Paper>("paper")?.or_else(|| args.find());
     let width = args.named("width")?;
     let height = args.named("height")?;
     let margins = args.named("margins")?;

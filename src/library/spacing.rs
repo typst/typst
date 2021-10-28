@@ -22,3 +22,11 @@ pub enum Spacing {
     /// A length that is the fraction of the remaining free space in the parent.
     Fractional(Fractional),
 }
+
+castable! {
+    Spacing: "linear or fractional",
+    Value::Length(v) => Self::Linear(v.into()),
+    Value::Relative(v) => Self::Linear(v.into()),
+    Value::Linear(v) => Self::Linear(v),
+    Value::Fractional(v) => Self::Fractional(v),
+}

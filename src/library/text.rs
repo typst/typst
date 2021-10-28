@@ -1,18 +1,22 @@
 use std::borrow::Cow;
 use std::ops::Range;
 
-use rustybuzz::UnicodeBuffer;
+use rustybuzz::{Feature, Tag, UnicodeBuffer};
 
 use super::prelude::*;
 use crate::font::{Face, FaceId, FontFamily, FontVariant};
 use crate::geom::{Dir, Em, Length, Point, Size};
-use crate::style::{Style, TextStyle};
+use crate::style::{
+    FontFeatures, NumberPosition, NumberStyle, NumberWidth, Style, TextStyle,
+};
 use crate::util::SliceExt;
 
 /// `font`: Configure the font.
 pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     struct FontDef(Rc<Vec<FontFamily>>);
     struct FamilyDef(Rc<Vec<String>>);
+    struct FeatureList(Vec<(String, u32)>);
+    struct StylisticSet(Option<u8>);
 
     castable! {
         FontDef: "font family or array of font families",
@@ -38,11 +42,73 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         )),
     }
 
+    castable! {
+        StylisticSet: "none or integer",
+        Value::None => Self(None),
+        Value::Int(v) => match v {
+            1..=20 => Self(Some(v as u8)),
+            _ => Err("must be between 1 and 20")?,
+        },
+    }
+
+    castable! {
+        NumberStyle: "auto or string",
+        Value::Auto => Self::Auto,
+        Value::Str(string) => match string.as_str() {
+            "lining" => Self::Lining,
+            "old-style" => Self::OldStyle,
+            _ => Err(r#"expected "lining" or "old-style""#)?,
+        },
+    }
+
+    castable! {
+        NumberWidth: "auto or string",
+        Value::Auto => Self::Auto,
+        Value::Str(string) => match string.as_str() {
+            "proportional" => Self::Proportional,
+            "tabular" => Self::Tabular,
+            _ => Err(r#"expected "proportional" or "tabular""#)?,
+        },
+    }
+
+    castable! {
+        NumberPosition: "string",
+        Value::Str(string) => match string.as_str() {
+            "normal" => Self::Normal,
+            "subscript" => Self::Subscript,
+            "superscript" => Self::Superscript,
+            _ => Err(r#"expected "normal", "subscript" or "superscript""#)?,
+        },
+    }
+
+    castable! {
+        FeatureList: "array of strings or dictionary mapping tags to integers",
+        Value::Array(values) => Self(values
+            .into_iter()
+            .filter_map(|v| v.cast().ok())
+            .map(|string: Str| (string.to_lowercase(), 1))
+            .collect()),
+        Value::Dict(values) => Self(values
+            .into_iter()
+            .filter_map(|(k, v)| {
+                if let Ok(value) = v.cast::<i64>() {
+                    Some((k.to_lowercase(), value as u32))
+                } else {
+                    None
+                }
+            })
+            .collect()),
+    }
+
     let list = args.named("family")?.or_else(|| {
         let families: Vec<_> = args.all().collect();
         (!families.is_empty()).then(|| FontDef(Rc::new(families)))
     });
 
+    let serif = args.named("serif")?;
+    let sans_serif = args.named("sans-serif")?;
+    let monospace = args.named("monospace")?;
+    let fallback = args.named("fallback")?;
     let size = args.named::<Linear>("size")?.or_else(|| args.find());
     let style = args.named("style")?;
     let weight = args.named("weight")?;
@@ -50,42 +116,33 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let fill = args.named("fill")?.or_else(|| args.find());
     let top_edge = args.named("top-edge")?;
     let bottom_edge = args.named("bottom-edge")?;
-    let serif = args.named("serif")?;
-    let sans_serif = args.named("sans-serif")?;
-    let monospace = args.named("monospace")?;
-    let fallback = args.named("fallback")?;
+
+    let kerning = args.named("kerning")?;
+    let smallcaps = args.named("smallcaps")?;
+    let alternates = args.named("alternates")?;
+    let stylistic_set = args.named("stylistic-set")?;
+    let ligatures = args.named("ligatures")?;
+    let discretionary_ligatures = args.named("discretionary-ligatures")?;
+    let historical_ligatures = args.named("historical-ligatures")?;
+    let number_style = args.named("number-style")?;
+    let number_width = args.named("number-width")?;
+    let number_position = args.named("number-position")?;
+    let slashed_zero = args.named("slashed-zero")?;
+    let fractions = args.named("fractions")?;
+    let features = args.named("features")?;
+
     let body = args.find::<Template>();
+
+    macro_rules! set {
+        ($target:expr => $source:expr) => {
+            if let Some(v) = $source {
+                $target = v;
+            }
+        };
+    }
 
     let f = move |style_: &mut Style| {
         let text = style_.text_mut();
-
-        if let Some(size) = size {
-            text.size = size.resolve(text.size);
-        }
-
-        if let Some(style) = style {
-            text.variant.style = style;
-        }
-
-        if let Some(weight) = weight {
-            text.variant.weight = weight;
-        }
-
-        if let Some(stretch) = stretch {
-            text.variant.stretch = stretch;
-        }
-
-        if let Some(top_edge) = top_edge {
-            text.top_edge = top_edge;
-        }
-
-        if let Some(bottom_edge) = bottom_edge {
-            text.bottom_edge = bottom_edge;
-        }
-
-        if let Some(fill) = fill {
-            text.fill = Paint::Color(fill);
-        }
 
         if let Some(FontDef(list)) = &list {
             text.families_mut().list = list.clone();
@@ -103,8 +160,39 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             text.families_mut().monospace = monospace.clone();
         }
 
-        if let Some(fallback) = fallback {
-            text.fallback = fallback;
+        if let Some(size) = size {
+            text.size = size.resolve(text.size);
+        }
+
+        if let Some(fill) = fill {
+            text.fill = Paint::Color(fill);
+        }
+
+        set!(text.fallback => fallback);
+        set!(text.variant.style => style);
+        set!(text.variant.weight => weight);
+        set!(text.variant.stretch => stretch);
+        set!(text.top_edge => top_edge);
+        set!(text.bottom_edge => bottom_edge);
+
+        set!(text.features_mut().kerning => kerning);
+        set!(text.features_mut().smallcaps => smallcaps);
+        set!(text.features_mut().alternates => alternates);
+        set!(text.features_mut().ligatures.standard => ligatures);
+        set!(text.features_mut().ligatures.discretionary => discretionary_ligatures);
+        set!(text.features_mut().ligatures.historical => historical_ligatures);
+        set!(text.features_mut().numbers.style => number_style);
+        set!(text.features_mut().numbers.width => number_width);
+        set!(text.features_mut().numbers.position => number_position);
+        set!(text.features_mut().numbers.slashed_zero => slashed_zero);
+        set!(text.features_mut().numbers.fractions => fractions);
+
+        if let Some(StylisticSet(stylistic_set)) = stylistic_set {
+            text.features_mut().stylistic_set = stylistic_set;
+        }
+
+        if let Some(FeatureList(features)) = &features {
+            text.features_mut().raw = features.clone();
         }
     };
 
@@ -135,6 +223,7 @@ pub fn shape<'a>(
             style.families(),
             None,
             dir,
+            &tags(&style.features),
         );
     }
 
@@ -320,6 +409,7 @@ fn shape_segment<'a>(
     mut families: impl Iterator<Item = &'a str> + Clone,
     mut first_face: Option<FaceId>,
     dir: Dir,
+    tags: &[rustybuzz::Feature],
 ) {
     // Select the font family.
     let (face_id, fallback) = loop {
@@ -354,7 +444,7 @@ fn shape_segment<'a>(
 
     // Shape!
     let mut face = ctx.fonts.get(face_id);
-    let buffer = rustybuzz::shape(face.ttf(), &[], buffer);
+    let buffer = rustybuzz::shape(face.ttf(), tags, buffer);
     let infos = buffer.glyph_infos();
     let pos = buffer.glyph_positions();
 
@@ -427,6 +517,7 @@ fn shape_segment<'a>(
                 families.clone(),
                 first_face,
                 dir,
+                tags,
             );
 
             face = ctx.fonts.get(face_id);
@@ -474,4 +565,83 @@ fn measure(
     }
 
     (Size::new(width, top + bottom), top)
+}
+
+/// Collect the tags of the OpenType features to apply.
+fn tags(features: &FontFeatures) -> Vec<Feature> {
+    let mut tags = vec![];
+    let mut feat = |tag, value| {
+        tags.push(Feature::new(Tag::from_bytes(tag), value, ..));
+    };
+
+    // Features that are on by default in Harfbuzz are only added if disabled.
+    if !features.kerning {
+        feat(b"kern", 0);
+    }
+
+    // Features that are off by default in Harfbuzz are only added if enabled.
+    if features.smallcaps {
+        feat(b"smcp", 1);
+    }
+
+    if features.alternates {
+        feat(b"salt", 1);
+    }
+
+    let set_tag;
+    if let Some(set) = features.stylistic_set {
+        if matches!(set, 1 ..= 20) {
+            set_tag = [b's', b's', b'0' + set / 10, b'0' + set % 10];
+            feat(&set_tag, 1);
+        }
+    }
+
+    if !features.ligatures.standard {
+        feat(b"liga", 0);
+        feat(b"clig", 0);
+    }
+
+    if features.ligatures.discretionary {
+        feat(b"dlig", 1);
+    }
+
+    if features.ligatures.historical {
+        feat(b"hilg", 1);
+    }
+
+    match features.numbers.style {
+        NumberStyle::Auto => {}
+        NumberStyle::Lining => feat(b"lnum", 1),
+        NumberStyle::OldStyle => feat(b"onum", 1),
+    }
+
+    match features.numbers.width {
+        NumberWidth::Auto => {}
+        NumberWidth::Proportional => feat(b"pnum", 1),
+        NumberWidth::Tabular => feat(b"tnum", 1),
+    }
+
+    match features.numbers.position {
+        NumberPosition::Normal => {}
+        NumberPosition::Subscript => feat(b"subs", 1),
+        NumberPosition::Superscript => feat(b"sups", 1),
+    }
+
+    if features.numbers.slashed_zero {
+        feat(b"zero", 1);
+    }
+
+    if features.numbers.fractions {
+        feat(b"frac", 1);
+    }
+
+    for (tag, value) in features.raw.iter() {
+        tags.push(Feature::new(
+            Tag::from_bytes_lossy(tag.as_bytes()),
+            *value,
+            ..,
+        ))
+    }
+
+    tags
 }

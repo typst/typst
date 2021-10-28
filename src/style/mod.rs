@@ -136,6 +136,8 @@ pub struct TextStyle {
     /// A list of font families with generic class definitions (the final
     /// family list also depends on `monospace`).
     pub families: Rc<FamilyStyle>,
+    /// OpenType features.
+    pub features: Rc<FontFeatures>,
     /// Whether 300 extra font weight should be added to what is defined by the
     /// `variant`.
     pub strong: bool,
@@ -197,6 +199,11 @@ impl TextStyle {
     pub fn families_mut(&mut self) -> &mut FamilyStyle {
         Rc::make_mut(&mut self.families)
     }
+
+    /// Access the font `features` mutably.
+    pub fn features_mut(&mut self) -> &mut FontFeatures {
+        Rc::make_mut(&mut self.features)
+    }
 }
 
 impl Default for TextStyle {
@@ -212,6 +219,7 @@ impl Default for TextStyle {
             bottom_edge: VerticalFontMetric::Baseline,
             fill: Paint::Color(Color::Rgba(RgbaColor::BLACK)),
             families: Rc::new(FamilyStyle::default()),
+            features: Rc::new(FontFeatures::default()),
             strong: false,
             emph: false,
             monospace: false,
@@ -249,4 +257,118 @@ impl Default for FamilyStyle {
             ]),
         }
     }
+}
+
+/// Whether various kinds of ligatures should appear.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct FontFeatures {
+    /// Whether to apply kerning ("kern").
+    pub kerning: bool,
+    /// Whether the text should use small caps. ("smcp")
+    pub smallcaps: bool,
+    /// Whether to apply stylistic alternates. ("salt")
+    pub alternates: bool,
+    /// Which stylistic set to apply. ("ss00" - "ss20")
+    pub stylistic_set: Option<u8>,
+    /// Configuration of ligature features.
+    pub ligatures: LigatureFeatures,
+    /// Configuration of numbers features.
+    pub numbers: NumberFeatures,
+    /// Raw OpenType features to apply.
+    pub raw: Vec<(String, u32)>,
+}
+
+impl Default for FontFeatures {
+    fn default() -> Self {
+        Self {
+            kerning: true,
+            smallcaps: false,
+            alternates: false,
+            stylistic_set: None,
+            ligatures: LigatureFeatures::default(),
+            numbers: NumberFeatures::default(),
+            raw: vec![],
+        }
+    }
+}
+
+/// Whether various kinds of ligatures should appear.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct LigatureFeatures {
+    /// Standard ligatures. ("liga", "clig")
+    pub standard: bool,
+    /// Ligatures that should be used sparringly. ("dlig")
+    pub discretionary: bool,
+    /// Historical ligatures. ("hlig")
+    pub historical: bool,
+}
+
+impl Default for LigatureFeatures {
+    fn default() -> Self {
+        Self {
+            standard: true,
+            discretionary: false,
+            historical: false,
+        }
+    }
+}
+
+/// Defines the style of numbers.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct NumberFeatures {
+    /// Whether to use lining or old-style numbers.
+    pub style: NumberStyle,
+    /// Whether to use proportional or tabular numbers.
+    pub width: NumberWidth,
+    /// How to position numbers vertically.
+    pub position: NumberPosition,
+    /// Whether to have a slash through the zero glyph. ("zero")
+    pub slashed_zero: bool,
+    /// Whether to convert fractions. ("frac")
+    pub fractions: bool,
+}
+
+impl Default for NumberFeatures {
+    fn default() -> Self {
+        Self {
+            style: NumberStyle::Auto,
+            width: NumberWidth::Auto,
+            position: NumberPosition::Normal,
+            slashed_zero: false,
+            fractions: false,
+        }
+    }
+}
+
+/// How numbers / figures look.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum NumberStyle {
+    /// Select the font's preference.
+    Auto,
+    /// Numbers that fit well with capital text. ("lnum")
+    Lining,
+    /// Numbers that fit well into flow of upper- and lowercase text. ("onum")
+    OldStyle,
+}
+
+/// The width of numbers / figures.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum NumberWidth {
+    /// Select the font's preference.
+    Auto,
+    /// Number widths are glyph specific. ("pnum")
+    Proportional,
+    /// All numbers are of equal width / monospaced. ("tnum")
+    Tabular,
+}
+
+/// How to position numbers.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum NumberPosition {
+    /// Numbers are positioned on the same baseline as text.
+    Normal,
+    /// Numbers are smaller and placed at the bottom. ("subs")
+    Subscript,
+    /// Numbers are smaller and placed at the top. ("sups")
+    Superscript,
 }
