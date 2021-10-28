@@ -174,11 +174,3 @@ dynamic! {
     Value::Relative(v) => Self::Linear(v.into()),
     Value::Linear(v) => Self::Linear(v),
 }
-
-castable! {
-    Spacing: "linear or fractional",
-    Value::Length(v) => Self::Linear(v.into()),
-    Value::Relative(v) => Self::Linear(v.into()),
-    Value::Linear(v) => Self::Linear(v),
-    Value::Fractional(v) => Self::Fractional(v),
-}
