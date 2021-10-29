@@ -48,10 +48,10 @@ pub fn resolve_hex(sequence: &str) -> Option<char> {
 }
 
 /// Resolve the language tag and trims the raw text.
-pub fn resolve_raw(span: Span, text: &str, backticks: usize) -> RawNode {
+pub fn resolve_raw(span: Span, column: usize, backticks: usize, text: &str) -> RawNode {
     if backticks > 1 {
         let (tag, inner) = split_at_lang_tag(text);
-        let (text, block) = trim_and_split_raw(inner);
+        let (text, block) = trim_and_split_raw(column, inner);
         RawNode {
             span,
             lang: Ident::new(tag, span.with_end(span.start + tag.len())),
@@ -80,7 +80,7 @@ fn split_at_lang_tag(raw: &str) -> (&str, &str) {
 /// Trim raw text and splits it into lines.
 ///
 /// Returns whether at least one newline was contained in `raw`.
-fn trim_and_split_raw(mut raw: &str) -> (String, bool) {
+fn trim_and_split_raw(column: usize, mut raw: &str) -> (String, bool) {
     // Trims one space at the start.
     raw = raw.strip_prefix(' ').unwrap_or(raw);
 
@@ -90,8 +90,17 @@ fn trim_and_split_raw(mut raw: &str) -> (String, bool) {
     }
 
     let mut lines = split_lines(raw);
-    let is_whitespace = |line: &String| line.chars().all(char::is_whitespace);
+
+    // Dedent based on column, but not for the first line.
+    for line in lines.iter_mut().skip(1) {
+        let offset = line.chars().take(column).take_while(|c| c.is_whitespace()).count();
+        if offset > 0 {
+            line.drain(.. offset);
+        }
+    }
+
     let had_newline = lines.len() > 1;
+    let is_whitespace = |line: &String| line.chars().all(char::is_whitespace);
 
     // Trims a sequence of whitespace followed by a newline at the start.
     if lines.first().map_or(false, is_whitespace) {
@@ -174,39 +183,43 @@ mod tests {
     fn test_resolve_raw() {
         #[track_caller]
         fn test(
-            raw: &str,
+            column: usize,
             backticks: usize,
+            raw: &str,
             lang: Option<&str>,
             text: &str,
             block: bool,
         ) {
-            let node = resolve_raw(Span::detached(), raw, backticks);
+            let node = resolve_raw(Span::detached(), column, backticks, raw);
             assert_eq!(node.lang.as_deref(), lang);
             assert_eq!(node.text, text);
             assert_eq!(node.block, block);
         }
 
         // Just one backtick.
-        test("py",     1, None, "py",     false);
-        test("1\n2",   1, None, "1\n2", false);
-        test("1\r\n2", 1, None, "1\n2", false);
+        test(0, 1, "py",     None, "py",   false);
+        test(0, 1, "1\n2",   None, "1\n2", false);
+        test(0, 1, "1\r\n2", None, "1\n2", false);
 
         // More than one backtick with lang tag.
-        test("js alert()",     2, Some("js"), "alert()",        false);
-        test("py quit(\n\n)",  3, Some("py"), "quit(\n\n)", true);
-        test("♥",              2, None,       "",               false);
+        test(0, 2, "js alert()",    Some("js"), "alert()",    false);
+        test(0, 3, "py quit(\n\n)", Some("py"), "quit(\n\n)", true);
+        test(0, 2, "♥",             None,       "",           false);
 
         // Trimming of whitespace (tested more thoroughly in separate test).
-        test(" a",   2, None, "a",  false);
-        test("  a",  2, None, " a", false);
-        test(" \na", 2, None, "a",  true);
+        test(0, 2, " a",   None, "a",  false);
+        test(0, 2, "  a",  None, " a", false);
+        test(0, 2, " \na", None, "a",  true);
+
+        // Dedenting
+        test(2, 3, " def foo():\n    bar()", None, "def foo():\n  bar()", true);
     }
 
     #[test]
     fn test_trim_raw() {
         #[track_caller]
         fn test(text: &str, expected: &str) {
-            assert_eq!(trim_and_split_raw(text).0, expected);
+            assert_eq!(trim_and_split_raw(0, text).0, expected);
         }
 
         test(" hi",          "hi");

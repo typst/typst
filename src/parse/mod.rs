@@ -164,8 +164,9 @@ fn unicode_escape(p: &mut Parser, token: UnicodeEscapeToken) -> EcoString {
 
 /// Handle a raw block.
 fn raw(p: &mut Parser, token: RawToken) -> MarkupNode {
+    let column = p.column(p.next_start());
     let span = p.peek_span();
-    let raw = resolve::resolve_raw(span, token.text, token.backticks);
+    let raw = resolve::resolve_raw(span, column, token.backticks, token.text);
     if !token.terminated {
         p.error(span.end, "expected backtick(s)");
     }

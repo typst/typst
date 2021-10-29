@@ -37,13 +37,21 @@ The keyword ```rust let```.
 <``` trimmed ```> \
 <``` trimmed```>
 
-// Multiline trimming.
-```py
-import this
+// Multiline trimming and dedenting.
+#block[
+  ```py
+  import this
 
-def hi():
-  print("Hi!")
-```
+  def hi():
+    print("Hi!")
+  ```
+]
+
+---
+// First line is not dedented and leading space is still possible.
+     ```   A
+        B
+       C```
 
 ---
 // Unterminated.
