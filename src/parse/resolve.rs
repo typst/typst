@@ -94,13 +94,11 @@ fn trim_and_split_raw(column: usize, mut raw: &str) -> (String, bool) {
     // Dedent based on column, but not for the first line.
     for line in lines.iter_mut().skip(1) {
         let offset = line.chars().take(column).take_while(|c| c.is_whitespace()).count();
-        if offset > 0 {
-            line.drain(.. offset);
-        }
+        *line = &line[offset ..];
     }
 
     let had_newline = lines.len() > 1;
-    let is_whitespace = |line: &String| line.chars().all(char::is_whitespace);
+    let is_whitespace = |line: &&str| line.chars().all(char::is_whitespace);
 
     // Trims a sequence of whitespace followed by a newline at the start.
     if lines.first().map_or(false, is_whitespace) {
@@ -117,23 +115,25 @@ fn trim_and_split_raw(column: usize, mut raw: &str) -> (String, bool) {
 
 /// Split a string into a vector of lines
 /// (respecting Unicode, Unix, Mac and Windows line breaks).
-fn split_lines(text: &str) -> Vec<String> {
+fn split_lines(text: &str) -> Vec<&str> {
     let mut s = Scanner::new(text);
-    let mut line = String::new();
     let mut lines = Vec::new();
+    let mut start = 0;
+    let mut end = 0;
 
     while let Some(c) = s.eat() {
         if is_newline(c) {
             if c == '\r' {
                 s.eat_if('\n');
             }
-            lines.push(std::mem::take(&mut line));
-        } else {
-            line.push(c);
+
+            lines.push(&text[start .. end]);
+            start = s.index();
         }
+        end = s.index();
     }
 
-    lines.push(line);
+    lines.push(&text[start ..]);
     lines
 }
 
