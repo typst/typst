@@ -20,6 +20,11 @@
 #f()[A]
 #f([A])
 
+#let g(a, b) = a + b
+#g[A][B]
+#g([A], [B])
+#g()[A][B]
+
 ---
 // Trailing comma.
 #test(1 + 1, 2,)

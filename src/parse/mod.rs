@@ -561,7 +561,7 @@ fn call(p: &mut Parser, callee: Expr) -> Option<Expr> {
         }
     };
 
-    if p.peek_direct() == Some(Token::LeftBracket) {
+    while p.peek_direct() == Some(Token::LeftBracket) {
         let body = template(p);
         args.items.push(CallArg::Pos(body));
     }
