@@ -8,9 +8,9 @@ use std::rc::Rc;
 use super::Str;
 use crate::diag::StrResult;
 use crate::geom::{Align, Dir, GenAxis, Length, Linear, Sides, Size};
-use crate::layout::{
-    BlockLevel, BlockNode, Decoration, InlineLevel, InlineNode, PadNode, PageNode,
-    ParChild, ParNode, Spacing, StackChild, StackNode,
+use crate::layout::{BlockLevel, BlockNode, InlineLevel, InlineNode, PageNode};
+use crate::library::{
+    Decoration, PadNode, ParChild, ParNode, Spacing, StackChild, StackNode,
 };
 use crate::style::Style;
 use crate::util::EcoString;

@@ -1,9 +1,10 @@
+//! Finished layouts.
+
 use std::fmt::{self, Debug, Formatter};
 use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Constrained, Constraints};
 use crate::font::FaceId;
 use crate::geom::{Em, Length, Paint, Path, Point, Size};
 use crate::image::ImageId;
@@ -57,11 +58,6 @@ impl Frame {
     /// An iterator over all elements in the frame and its children.
     pub fn elements(&self) -> Elements {
         Elements { stack: vec![(0, Point::zero(), self)] }
-    }
-
-    /// Wrap the frame with constraints.
-    pub fn constrain(self, cts: Constraints) -> Constrained<Rc<Self>> {
-        Constrained { item: Rc::new(self), cts }
     }
 }
 

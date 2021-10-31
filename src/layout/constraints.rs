@@ -1,4 +1,19 @@
-use super::*;
+use std::rc::Rc;
+
+use crate::frame::Frame;
+use crate::geom::{Length, Size, Spec};
+
+/// Constrain a frame with constraints.
+pub trait Constrain {
+    /// Reference-count the frame and wrap it with constraints.
+    fn constrain(self, cts: Constraints) -> Constrained<Rc<Frame>>;
+}
+
+impl Constrain for Frame {
+    fn constrain(self, cts: Constraints) -> Constrained<Rc<Frame>> {
+        Constrained::new(Rc::new(self), cts)
+    }
+}
 
 /// Carries an item that is only valid in certain regions and the constraints
 /// that describe these regions.
@@ -8,6 +23,13 @@ pub struct Constrained<T> {
     pub item: T,
     /// Constraints on regions in which the item is valid.
     pub cts: Constraints,
+}
+
+impl<T> Constrained<T> {
+    /// Constrain an item with constraints.
+    pub fn new(item: T, cts: Constraints) -> Self {
+        Self { item, cts }
+    }
 }
 
 /// Describe regions that match them.

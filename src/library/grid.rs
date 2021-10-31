@@ -1,4 +1,55 @@
-use super::*;
+use super::prelude::*;
+
+/// `grid`: Arrange children into a grid.
+pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    castable! {
+        Vec<TrackSizing>: "integer or (auto, linear, fractional, or array thereof)",
+        Value::Auto => vec![TrackSizing::Auto],
+        Value::Length(v) => vec![TrackSizing::Linear(v.into())],
+        Value::Relative(v) => vec![TrackSizing::Linear(v.into())],
+        Value::Linear(v) => vec![TrackSizing::Linear(v)],
+        Value::Fractional(v) => vec![TrackSizing::Fractional(v)],
+        Value::Int(count) => vec![TrackSizing::Auto; count.max(0) as usize],
+        Value::Array(values) => values
+            .into_iter()
+            .filter_map(|v| v.cast().ok())
+            .collect(),
+    }
+
+    castable! {
+        TrackSizing: "auto, linear, or fractional",
+        Value::Auto => Self::Auto,
+        Value::Length(v) => Self::Linear(v.into()),
+        Value::Relative(v) => Self::Linear(v.into()),
+        Value::Linear(v) => Self::Linear(v),
+        Value::Fractional(v) => Self::Fractional(v),
+    }
+
+    let columns = args.named("columns")?.unwrap_or_default();
+    let rows = args.named("rows")?.unwrap_or_default();
+    let tracks = Spec::new(columns, rows);
+
+    let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
+    let column_gutter = args.named("column-gutter")?;
+    let row_gutter = args.named("row-gutter")?;
+    let gutter = Spec::new(
+        column_gutter.unwrap_or_else(|| base_gutter.clone()),
+        row_gutter.unwrap_or(base_gutter),
+    );
+
+    let children: Vec<Template> = args.all().collect();
+
+    Ok(Value::Template(Template::from_block(move |style| {
+        GridNode {
+            tracks: tracks.clone(),
+            gutter: gutter.clone(),
+            children: children
+                .iter()
+                .map(|child| child.to_stack(&style).pack())
+                .collect(),
+        }
+    })))
+}
 
 /// A node that arranges its children in a grid.
 #[derive(Debug, Hash)]

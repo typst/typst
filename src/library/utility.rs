@@ -1,7 +1,8 @@
 use std::cmp::Ordering;
 use std::str::FromStr;
 
-use super::*;
+use super::prelude::*;
+use crate::eval::Array;
 
 /// `assert`: Ensure that a condition is fulfilled.
 pub fn assert(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {

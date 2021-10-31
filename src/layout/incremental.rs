@@ -1,10 +1,12 @@
 use std::cmp::Reverse;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use decorum::N32;
 use itertools::Itertools;
 
-use super::*;
+use super::{Constrained, Regions};
+use crate::frame::Frame;
 
 const TEMP_LEN: usize = 5;
 const TEMP_LAST: usize = TEMP_LEN - 1;
@@ -396,6 +398,8 @@ impl PatternProperties {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::geom::{Size, Spec};
+    use crate::layout::Constraints;
 
     fn empty_frames() -> Vec<Constrained<Rc<Frame>>> {
         vec![Constrained {

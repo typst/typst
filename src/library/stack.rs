@@ -1,6 +1,54 @@
 use std::fmt::{self, Debug, Formatter};
 
-use super::*;
+use super::prelude::*;
+use super::Spacing;
+
+/// `stack`: Stack children along an axis.
+pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    enum Child {
+        Spacing(Spacing),
+        Any(Template),
+    }
+
+    castable! {
+        Child: "linear, fractional or template",
+        Value::Length(v) => Self::Spacing(Spacing::Linear(v.into())),
+        Value::Relative(v) => Self::Spacing(Spacing::Linear(v.into())),
+        Value::Linear(v) => Self::Spacing(Spacing::Linear(v)),
+        Value::Fractional(v) => Self::Spacing(Spacing::Fractional(v)),
+        Value::Template(v) => Self::Any(v),
+    }
+
+    let dir = args.named("dir")?.unwrap_or(Dir::TTB);
+    let spacing = args.named("spacing")?;
+    let list: Vec<Child> = args.all().collect();
+
+    Ok(Value::Template(Template::from_block(move |style| {
+        let mut children = vec![];
+        let mut delayed = None;
+
+        // Build the list of stack children.
+        for child in &list {
+            match child {
+                Child::Spacing(v) => {
+                    children.push(StackChild::Spacing(*v));
+                    delayed = None;
+                }
+                Child::Any(template) => {
+                    if let Some(v) = delayed {
+                        children.push(StackChild::Spacing(v));
+                    }
+
+                    let node = template.to_stack(style).pack();
+                    children.push(StackChild::Node(node, style.aligns.block));
+                    delayed = spacing;
+                }
+            }
+        }
+
+        StackNode { dir, children }
+    })))
+}
 
 /// A node that stacks its children.
 #[derive(Debug, Hash)]

@@ -1,5 +1,50 @@
-use super::*;
+use super::prelude::*;
 use crate::util::EcoString;
+
+/// `strike`: Typeset striken-through text.
+pub fn strike(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    line_impl(args, LineKind::Strikethrough)
+}
+
+/// `underline`: Typeset underlined text.
+pub fn underline(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    line_impl(args, LineKind::Underline)
+}
+
+/// `overline`: Typeset text with an overline.
+pub fn overline(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    line_impl(args, LineKind::Overline)
+}
+
+fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
+    let stroke = args.named("stroke")?.or_else(|| args.find());
+    let thickness = args.named::<Linear>("thickness")?.or_else(|| args.find());
+    let offset = args.named("offset")?;
+    let extent = args.named("extent")?.unwrap_or_default();
+    let body: Template = args.expect("body")?;
+
+    Ok(Value::Template(body.decorate(Decoration::Line(
+        LineDecoration {
+            kind,
+            stroke: stroke.map(Paint::Color),
+            thickness,
+            offset,
+            extent,
+        },
+    ))))
+}
+
+/// `link`: Typeset text as a link.
+pub fn link(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    let url = args.expect::<Str>("url")?;
+    let body = args.find().unwrap_or_else(|| {
+        let mut template = Template::new();
+        template.text(url.trim_start_matches("mailto:").trim_start_matches("tel:"));
+        template
+    });
+
+    Ok(Value::Template(body.decorate(Decoration::Link(url.into()))))
+}
 
 /// A decoration for a frame.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]

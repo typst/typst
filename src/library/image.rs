@@ -1,5 +1,29 @@
-use super::*;
+use std::io;
+
+use super::prelude::*;
+use crate::diag::Error;
 use crate::image::ImageId;
+
+/// `image`: An image.
+pub fn image(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    let path = args.expect::<Spanned<Str>>("path to image file")?;
+    let width = args.named("width")?;
+    let height = args.named("height")?;
+
+    let full = ctx.make_path(&path.v);
+    let id = ctx.images.load(&full).map_err(|err| {
+        Error::boxed(path.span, match err.kind() {
+            io::ErrorKind::NotFound => "file not found".into(),
+            _ => format!("failed to load image ({})", err),
+        })
+    })?;
+
+    Ok(Value::Template(Template::from_inline(move |_| ImageNode {
+        id,
+        width,
+        height,
+    })))
+}
 
 /// An image node.
 #[derive(Debug, Hash)]

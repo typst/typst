@@ -3,26 +3,54 @@
 //! Call [`new`] to obtain a [`Scope`] containing all standard library
 //! definitions.
 
-mod elements;
-mod layout;
+mod align;
+mod container;
+mod deco;
+mod grid;
+mod image;
+mod pad;
+mod page;
+mod par;
+mod shape;
+mod spacing;
+mod stack;
 mod text;
+mod transform;
 mod utility;
 
-pub use elements::*;
-pub use layout::*;
+/// Helpful imports for creating library functionality.
+mod prelude {
+    pub use std::rc::Rc;
+
+    pub use crate::diag::{At, TypResult};
+    pub use crate::eval::{Args, EvalContext, Str, Template, Value};
+    pub use crate::frame::*;
+    pub use crate::geom::*;
+    pub use crate::layout::*;
+    pub use crate::syntax::{Span, Spanned};
+    pub use crate::util::OptionExt;
+}
+
+pub use self::image::*;
+pub use align::*;
+pub use container::*;
+pub use deco::*;
+pub use grid::*;
+pub use pad::*;
+pub use page::*;
+pub use par::*;
+pub use shape::*;
+pub use spacing::*;
+pub use stack::*;
 pub use text::*;
+pub use transform::*;
 pub use utility::*;
 
 use std::convert::TryFrom;
-use std::rc::Rc;
 
-use crate::diag::{At, TypResult};
-use crate::eval::{Args, Array, EvalContext, Scope, Str, Template, Value};
+use crate::eval::{Scope, Value};
 use crate::font::{FontFamily, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 use crate::geom::*;
-use crate::layout::{BlockLevel, Frame, InlineLevel, LayoutContext, Spacing};
-use crate::style::Style;
-use crate::syntax::{Span, Spanned};
 
 /// Construct a scope containing all standard library definitions.
 pub fn new() -> Scope {

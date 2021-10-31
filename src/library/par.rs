@@ -5,11 +5,63 @@ use itertools::Either;
 use unicode_bidi::{BidiInfo, Level};
 use xi_unicode::LineBreakIterator;
 
-use super::*;
+use super::prelude::*;
+use super::{shape, Decoration, ShapedText, Spacing};
 use crate::style::TextStyle;
 use crate::util::{EcoString, RangeExt, SliceExt};
 
-type Range = std::ops::Range<usize>;
+/// `par`: Configure paragraphs.
+pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    let spacing = args.named("spacing")?;
+    let leading = args.named("leading")?;
+
+    ctx.template.modify(move |style| {
+        let par = style.par_mut();
+
+        if let Some(spacing) = spacing {
+            par.spacing = spacing;
+        }
+
+        if let Some(leading) = leading {
+            par.leading = leading;
+        }
+    });
+
+    ctx.template.parbreak();
+
+    Ok(Value::None)
+}
+
+/// `lang`: Configure the language.
+pub fn lang(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    let iso = args.find::<Str>();
+    let dir = if let Some(dir) = args.named::<Spanned<Dir>>("dir")? {
+        if dir.v.axis() == SpecAxis::Horizontal {
+            Some(dir.v)
+        } else {
+            bail!(dir.span, "must be horizontal");
+        }
+    } else {
+        iso.as_deref().map(lang_dir)
+    };
+
+    if let Some(dir) = dir {
+        ctx.template.modify(move |style| style.dir = dir);
+    }
+
+    ctx.template.parbreak();
+
+    Ok(Value::None)
+}
+
+/// The default direction for the language identified by the given `iso` code.
+fn lang_dir(iso: &str) -> Dir {
+    match iso.to_ascii_lowercase().as_str() {
+        "ar" | "he" | "fa" | "ur" | "ps" | "yi" => Dir::RTL,
+        "en" | "fr" | "de" => Dir::LTR,
+        _ => Dir::LTR,
+    }
+}
 
 /// A node that arranges its children into a paragraph.
 #[derive(Debug, Hash)]
@@ -103,6 +155,8 @@ impl Debug for ParChild {
         }
     }
 }
+
+type Range = std::ops::Range<usize>;
 
 /// A paragraph representation in which children are already layouted and text
 /// is separated into shapable runs.

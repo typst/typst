@@ -3,7 +3,8 @@ use std::rc::Rc;
 use super::{Eval, EvalContext, Str, Template, Value};
 use crate::diag::TypResult;
 use crate::geom::Align;
-use crate::layout::{BlockLevel, ParChild, ParNode, Spacing, StackChild, StackNode};
+use crate::layout::BlockLevel;
+use crate::library::{ParChild, ParNode, Spacing, StackChild, StackNode};
 use crate::syntax::*;
 use crate::util::BoolExt;
 
