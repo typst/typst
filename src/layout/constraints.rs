@@ -40,23 +40,15 @@ impl Constraints {
     /// Check whether the constraints are fullfilled in a region with the given
     /// properties.
     pub fn check(&self, current: Size, base: Size, expand: Spec<bool>) -> bool {
-        let current = current.to_spec();
-        let base = base.to_spec();
         self.expand == expand
-            && current.eq_by(&self.min, |x, y| y.map_or(true, |y| x.fits(y)))
-            && current.eq_by(&self.max, |x, y| y.map_or(true, |y| x < &y))
-            && current.eq_by(&self.exact, |x, y| y.map_or(true, |y| x.approx_eq(y)))
-            && base.eq_by(&self.base, |x, y| y.map_or(true, |y| x.approx_eq(y)))
+            && verify(self.min, current, |m, c| c.fits(m))
+            && verify(self.max, current, |m, c| m.fits(c))
+            && verify(self.exact, current, Length::approx_eq)
+            && verify(self.base, base, Length::approx_eq)
     }
+}
 
-    /// Set the appropriate base constraints for linear width and height sizing.
-    pub fn set_base_if_linear(&mut self, base: Size, sizing: Spec<Option<Linear>>) {
-        // The full sizes need to be equal if there is a relative component in the sizes.
-        if sizing.x.map_or(false, |l| l.is_relative()) {
-            self.base.x = Some(base.w);
-        }
-        if sizing.y.map_or(false, |l| l.is_relative()) {
-            self.base.y = Some(base.h);
-        }
-    }
+/// Verify a single constraint.
+fn verify(spec: Spec<Option<Length>>, size: Size, f: fn(Length, Length) -> bool) -> bool {
+    spec.zip(size).all(|&(opt, s)| opt.map_or(true, |m| f(m, s)))
 }

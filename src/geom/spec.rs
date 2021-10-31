@@ -31,6 +31,23 @@ impl<T> Spec<T> {
         Spec { x: f(self.x), y: f(self.y) }
     }
 
+    /// Zip two instances into an instance over a tuple.
+    pub fn zip<U>(self, other: impl Into<Spec<U>>) -> Spec<(T, U)> {
+        let other = other.into();
+        Spec {
+            x: (self.x, other.x),
+            y: (self.y, other.y),
+        }
+    }
+
+    /// Whether a condition is true for both fields.
+    pub fn all<F>(self, mut f: F) -> bool
+    where
+        F: FnMut(&T) -> bool,
+    {
+        f(&self.x) && f(&self.y)
+    }
+
     /// Convert to the generic representation.
     pub fn to_gen(self, block: SpecAxis) -> Gen<T> {
         match block {
@@ -38,14 +55,11 @@ impl<T> Spec<T> {
             SpecAxis::Vertical => Gen::new(self.x, self.y),
         }
     }
+}
 
-    /// Compares if this instance's field are equal to that of another with
-    /// respect to `eq`.
-    pub fn eq_by<U, F>(&self, other: &Spec<U>, eq: F) -> bool
-    where
-        F: Fn(&T, &U) -> bool,
-    {
-        eq(&self.x, &other.x) && eq(&self.y, &other.y)
+impl From<Size> for Spec<Length> {
+    fn from(size: Size) -> Self {
+        size.to_spec()
     }
 }
 
