@@ -87,32 +87,24 @@ impl Expr {
 impl TypedNode for Expr {
     fn cast_from(node: RedRef) -> Option<Self> {
         match node.kind() {
-            NodeKind::Ident(_) => Some(Self::Ident(Ident::cast_from(node).unwrap())),
-            NodeKind::Array => Some(Self::Array(ArrayExpr::cast_from(node).unwrap())),
-            NodeKind::Dict => Some(Self::Dict(DictExpr::cast_from(node).unwrap())),
-            NodeKind::Template => {
-                Some(Self::Template(TemplateExpr::cast_from(node).unwrap()))
-            }
-            NodeKind::Group => Some(Self::Group(GroupExpr::cast_from(node).unwrap())),
-            NodeKind::Block => Some(Self::Block(BlockExpr::cast_from(node).unwrap())),
-            NodeKind::Unary => Some(Self::Unary(UnaryExpr::cast_from(node).unwrap())),
-            NodeKind::Binary => Some(Self::Binary(BinaryExpr::cast_from(node).unwrap())),
-            NodeKind::Call => Some(Self::Call(CallExpr::cast_from(node).unwrap())),
-            NodeKind::Closure => {
-                Some(Self::Closure(ClosureExpr::cast_from(node).unwrap()))
-            }
-            NodeKind::WithExpr => Some(Self::With(WithExpr::cast_from(node).unwrap())),
-            NodeKind::LetExpr => Some(Self::Let(LetExpr::cast_from(node).unwrap())),
-            NodeKind::IfExpr => Some(Self::If(IfExpr::cast_from(node).unwrap())),
-            NodeKind::WhileExpr => Some(Self::While(WhileExpr::cast_from(node).unwrap())),
-            NodeKind::ForExpr => Some(Self::For(ForExpr::cast_from(node).unwrap())),
-            NodeKind::ImportExpr => {
-                Some(Self::Import(ImportExpr::cast_from(node).unwrap()))
-            }
-            NodeKind::IncludeExpr => {
-                Some(Self::Include(IncludeExpr::cast_from(node).unwrap()))
-            }
-            _ => Some(Self::Lit(Lit::cast_from(node)?)),
+            NodeKind::Ident(_) => node.cast().map(Self::Ident),
+            NodeKind::Array => node.cast().map(Self::Array),
+            NodeKind::Dict => node.cast().map(Self::Dict),
+            NodeKind::Template => node.cast().map(Self::Template),
+            NodeKind::Group => node.cast().map(Self::Group),
+            NodeKind::Block => node.cast().map(Self::Block),
+            NodeKind::Unary => node.cast().map(Self::Unary),
+            NodeKind::Binary => node.cast().map(Self::Binary),
+            NodeKind::Call => node.cast().map(Self::Call),
+            NodeKind::Closure => node.cast().map(Self::Closure),
+            NodeKind::WithExpr => node.cast().map(Self::With),
+            NodeKind::LetExpr => node.cast().map(Self::Let),
+            NodeKind::IfExpr => node.cast().map(Self::If),
+            NodeKind::WhileExpr => node.cast().map(Self::While),
+            NodeKind::ForExpr => node.cast().map(Self::For),
+            NodeKind::ImportExpr => node.cast().map(Self::Import),
+            NodeKind::IncludeExpr => node.cast().map(Self::Include),
+            _ => node.cast().map(Self::Lit),
         }
     }
 }

@@ -16,7 +16,7 @@ pub trait Walk {
 
 impl Walk for Markup {
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
-        for node in self.iter() {
+        for node in self.nodes() {
             node.walk(ctx)?;
         }
         Ok(())

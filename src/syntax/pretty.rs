@@ -82,7 +82,7 @@ impl Write for Printer {
 
 impl Pretty for Markup {
     fn pretty(&self, p: &mut Printer) {
-        for node in self {
+        for node in self.nodes() {
             node.pretty(p);
         }
     }

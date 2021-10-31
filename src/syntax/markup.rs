@@ -3,17 +3,14 @@ use crate::node;
 use crate::util::EcoString;
 use std::fmt::Write;
 
-/// The syntactical root capable of representing a full parsed document.
-pub type Markup = Vec<MarkupNode>;
+node! {
+    /// The syntactical root capable of representing a full parsed document.
+    Markup
+}
 
-impl TypedNode for Markup {
-    fn cast_from(node: RedRef) -> Option<Self> {
-        if node.kind() != &NodeKind::Markup {
-            return None;
-        }
-
-        let children = node.children().filter_map(TypedNode::cast_from).collect();
-        Some(children)
+impl Markup {
+    pub fn nodes<'a>(&'a self) -> impl Iterator<Item = MarkupNode> + 'a {
+        self.0.children().filter_map(RedRef::cast)
     }
 }
 
@@ -66,14 +63,12 @@ impl TypedNode for MarkupNode {
             NodeKind::NonBreakingSpace => {
                 Some(MarkupNode::Text(EcoString::from("\u{00A0}")))
             }
-            NodeKind::Raw(_) => Some(MarkupNode::Raw(RawNode::cast_from(node).unwrap())),
-            NodeKind::Heading => {
-                Some(MarkupNode::Heading(HeadingNode::cast_from(node).unwrap()))
-            }
-            NodeKind::List => Some(MarkupNode::List(ListNode::cast_from(node).unwrap())),
-            NodeKind::Enum => Some(MarkupNode::Enum(EnumNode::cast_from(node).unwrap())),
+            NodeKind::Raw(_) => node.cast().map(MarkupNode::Raw),
+            NodeKind::Heading => node.cast().map(MarkupNode::Heading),
+            NodeKind::List => node.cast().map(MarkupNode::List),
+            NodeKind::Enum => node.cast().map(MarkupNode::Enum),
             NodeKind::Error(_, _) => None,
-            _ => Some(MarkupNode::Expr(Expr::cast_from(node)?)),
+            _ => node.cast().map(MarkupNode::Expr),
         }
     }
 }

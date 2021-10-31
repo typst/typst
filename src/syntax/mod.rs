@@ -162,6 +162,8 @@ pub enum NodeKind {
     BlockComment,
     /// Tokens that appear in the wrong place.
     Error(ErrorPosition, EcoString),
+    /// Unknown character sequences.
+    Unknown(EcoString),
     /// Template markup.
     Markup,
     /// A forced line break: `\`.
@@ -375,10 +377,11 @@ impl NodeKind {
             Self::ImportExpr => "import expression",
             Self::ImportItems => "import items",
             Self::IncludeExpr => "include expression",
-            Self::Error(_, src) => match src.as_str() {
+            Self::Unknown(src) => match src.as_str() {
                 "*/" => "end of block comment",
                 _ => "invalid token",
             },
+            Self::Error(_, _) => "parse error",
         }
     }
 }

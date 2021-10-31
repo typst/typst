@@ -138,8 +138,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         NodeKind::LeftBracket => template(p),
 
         // Comments.
-        NodeKind::LineComment | NodeKind::BlockComment => p.eat(),
-        NodeKind::Error(t, e) if t != &ErrorPosition::Full || e.contains(' ') => p.eat(),
+        NodeKind::LineComment | NodeKind::BlockComment | NodeKind::Error(_, _) => p.eat(),
 
         _ => {
             *at_start = false;
@@ -319,7 +318,7 @@ fn primary(p: &mut Parser, atomic: bool) {
         Some(NodeKind::Import) => import_expr(p),
         Some(NodeKind::Include) => include_expr(p),
 
-        Some(NodeKind::Error(t, e)) if t != &ErrorPosition::Full || e.contains(' ') => {
+        Some(NodeKind::Error(_, _)) => {
             p.eat();
         }
 
@@ -333,28 +332,26 @@ fn primary(p: &mut Parser, atomic: bool) {
 
 /// Parse a literal.
 fn literal(p: &mut Parser) -> bool {
-    let peeked = match p.peek() {
-        Some(x) => x.clone(),
-        None => return false,
-    };
-
-    match peeked {
+    match p.peek() {
         // Basic values.
-        NodeKind::None
-        | NodeKind::Auto
-        | NodeKind::Int(_)
-        | NodeKind::Float(_)
-        | NodeKind::Bool(_)
-        | NodeKind::Fraction(_)
-        | NodeKind::Length(_, _)
-        | NodeKind::Angle(_, _)
-        | NodeKind::Percentage(_)
-        | NodeKind::Str(_) => p.eat(),
+        Some(
+            NodeKind::None
+            | NodeKind::Auto
+            | NodeKind::Int(_)
+            | NodeKind::Float(_)
+            | NodeKind::Bool(_)
+            | NodeKind::Fraction(_)
+            | NodeKind::Length(_, _)
+            | NodeKind::Angle(_, _)
+            | NodeKind::Percentage(_)
+            | NodeKind::Str(_),
+        ) => {
+            p.eat();
+            true
+        }
 
-        _ => return false,
+        _ => false,
     }
-
-    true
 }
 
 /// Parse something that starts with a parenthesis, which can be either of:
@@ -395,11 +392,11 @@ fn parenthesized(p: &mut Parser) {
     // Find out which kind of collection this is.
     match kind {
         CollectionKind::Group => p.end(NodeKind::Group),
-        CollectionKind::PositionalCollection => {
+        CollectionKind::Positional => {
             p.lift();
             array(p, token_count);
         }
-        CollectionKind::NamedCollection => {
+        CollectionKind::Named => {
             p.lift();
             dict(p, token_count);
         }
@@ -413,9 +410,9 @@ enum CollectionKind {
     Group,
     /// The collection starts with a positional and has more items or a trailing
     /// comma.
-    PositionalCollection,
+    Positional,
     /// The collection starts with a named item.
-    NamedCollection,
+    Named,
 }
 
 /// Parse a collection.
@@ -424,20 +421,19 @@ enum CollectionKind {
 /// commas.
 fn collection(p: &mut Parser) -> (CollectionKind, usize) {
     let mut items = 0;
-    let mut kind = CollectionKind::PositionalCollection;
-    let mut seen_spread = false;
+    let mut kind = CollectionKind::Positional;
     let mut has_comma = false;
     let mut missing_coma = None;
 
     while !p.eof() {
         let item_kind = item(p);
         if p.success() {
-            if items == 0 && item_kind == CollectionItemKind::Named {
-                kind = CollectionKind::NamedCollection;
+            if items == 0 && item_kind == NodeKind::Named {
+                kind = CollectionKind::Named;
             }
 
-            if item_kind == CollectionItemKind::ParameterSink {
-                seen_spread = true;
+            if item_kind == NodeKind::ParameterSink {
+                has_comma = true;
             }
 
             items += 1;
@@ -458,42 +454,27 @@ fn collection(p: &mut Parser) -> (CollectionKind, usize) {
         }
     }
 
-    if !has_comma
-        && items == 1
-        && !seen_spread
-        && kind == CollectionKind::PositionalCollection
-    {
+    if !has_comma && items == 1 && kind == CollectionKind::Positional {
         kind = CollectionKind::Group;
     }
 
     (kind, items)
 }
 
-/// What kind of item is this?
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum CollectionItemKind {
-    /// A named item.
-    Named,
-    /// An unnamed item.
-    Unnamed,
-    /// A parameter sink.
-    ParameterSink,
-}
-
 /// Parse an expression or a named pair. Returns if this is a named pair.
-fn item(p: &mut Parser) -> CollectionItemKind {
+fn item(p: &mut Parser) -> NodeKind {
     p.start();
     if p.eat_if(&NodeKind::Dots) {
         expr(p);
 
         p.end_or_abort(NodeKind::ParameterSink);
-        return CollectionItemKind::ParameterSink;
+        return NodeKind::ParameterSink;
     }
 
     expr(p);
 
     if p.may_lift_abort() {
-        return CollectionItemKind::Unnamed;
+        return NodeKind::None;
     }
 
     if p.eat_if(&NodeKind::Colon) {
@@ -512,10 +493,10 @@ fn item(p: &mut Parser) -> CollectionItemKind {
             p.unsuccessful();
         }
 
-        CollectionItemKind::Named
+        NodeKind::Named
     } else {
         p.lift();
-        CollectionItemKind::Unnamed
+        p.last_child().unwrap().kind().clone()
     }
 }
 

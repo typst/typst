@@ -91,7 +91,7 @@ impl<'s> Iterator for Tokens<'s> {
             '/' if self.s.eat_if('*') => self.block_comment(),
             '/' if !self.maybe_in_url() && self.s.eat_if('/') => self.line_comment(),
             '*' if self.s.eat_if('/') => {
-                NodeKind::Error(ErrorPosition::Full, self.s.eaten_from(start).into())
+                NodeKind::Unknown(self.s.eaten_from(start).into())
             }
 
             // Other things.
@@ -173,7 +173,7 @@ impl<'s> Tokens<'s> {
             // Strings.
             '"' => self.string(),
 
-            _ => NodeKind::Error(ErrorPosition::Full, self.s.eaten_from(start).into()),
+            _ => NodeKind::Unknown(self.s.eaten_from(start).into()),
         }
     }
 
@@ -398,10 +398,10 @@ impl<'s> Tokens<'s> {
         } else {
             NodeKind::Error(
                 ErrorPosition::End,
-                if display {
+                if !display || (!escaped && dollar) {
                     "expected closing dollar sign"
                 } else {
-                    "expected display math closure sequence"
+                    "expected closing bracket and dollar sign"
                 }
                 .into(),
             )
@@ -466,11 +466,11 @@ impl<'s> Tokens<'s> {
                 "deg" => NodeKind::Angle(f, AngularUnit::Deg),
                 "rad" => NodeKind::Angle(f, AngularUnit::Rad),
                 _ => {
-                    return NodeKind::Error(ErrorPosition::Full, all.into());
+                    return NodeKind::Unknown(all.into());
                 }
             }
         } else {
-            NodeKind::Error(ErrorPosition::Full, all.into())
+            NodeKind::Unknown(all.into())
         }
     }
 
@@ -575,45 +575,31 @@ mod tests {
         text: &str,
         lang: Option<&str>,
         backticks_left: u8,
-        backticks_right: u8,
+        err_msg: Option<&str>,
         block: bool,
     ) -> NodeKind {
-        if backticks_left == backticks_right {
-            NodeKind::Raw(Rc::new(RawToken {
+        match err_msg {
+            None => NodeKind::Raw(Rc::new(RawToken {
                 text: text.into(),
                 lang: lang.map(Into::into),
                 backticks: backticks_left,
                 block,
-            }))
-        } else {
-            let remaining = backticks_left - backticks_right;
-            let noun = if remaining == 1 { "backtick" } else { "backticks" };
-
-            NodeKind::Error(
-                ErrorPosition::End,
-                if backticks_right == 0 {
-                    format!("expected {} {}", remaining, noun)
-                } else {
-                    format!("expected {} more {}", remaining, noun)
-                }
-                .into(),
-            )
+            })),
+            Some(msg) => {
+                NodeKind::Error(ErrorPosition::End, format!("expected {}", msg).into())
+            }
         }
     }
 
-    fn Math(formula: &str, display: bool, terminated: bool) -> NodeKind {
-        if terminated {
-            NodeKind::Math(Rc::new(MathToken { formula: formula.into(), display }))
-        } else {
-            NodeKind::Error(
+    fn Math(formula: &str, display: bool, err_msg: Option<&str>) -> NodeKind {
+        match err_msg {
+            None => {
+                NodeKind::Math(Rc::new(MathToken { formula: formula.into(), display }))
+            }
+            Some(msg) => NodeKind::Error(
                 ErrorPosition::End,
-                if display {
-                    "expected closing dollar sign"
-                } else {
-                    "expected display math closure sequence"
-                }
-                .into(),
-            )
+                format!("expected closing {}", msg).into(),
+            ),
         }
     }
 
@@ -634,7 +620,7 @@ mod tests {
     }
 
     fn Invalid(invalid: &str) -> NodeKind {
-        NodeKind::Error(ErrorPosition::Full, invalid.into())
+        NodeKind::Unknown(invalid.into())
     }
 
     /// Building blocks for suffix testing.
@@ -687,7 +673,7 @@ mod tests {
                 ('/', None, "//", LineComment),
                 ('/', None, "/**/", BlockComment),
                 ('/', Some(Markup), "*", Strong),
-                ('/', Some(Markup), "$ $", Math(" ", false, true)),
+                ('/', Some(Markup), "$ $", Math(" ", false, None)),
                 ('/', Some(Markup), r"\\", Text("\\")),
                 ('/', Some(Markup), "#let", Let),
                 ('/', Some(Code), "(", LeftParen),
@@ -908,42 +894,42 @@ mod tests {
     #[test]
     fn test_tokenize_raw_blocks() {
         // Test basic raw block.
-        t!(Markup: "``"     => Raw("", None, 1, 1, false));
-        t!(Markup: "`raw`"  => Raw("raw", None, 1, 1, false));
-        t!(Markup[""]: "`]" => Raw("]", None, 1, 0, false));
+        t!(Markup: "``"     => Raw("", None, 1, None, false));
+        t!(Markup: "`raw`"  => Raw("raw", None, 1, None, false));
+        t!(Markup[""]: "`]" => Raw("]", None, 1, Some("1 backtick"), false));
 
         // Test special symbols in raw block.
-        t!(Markup: "`[brackets]`" => Raw("[brackets]", None, 1, 1, false));
-        t!(Markup[""]: r"`\`` "   => Raw(r"\", None, 1, 1, false), Raw(" ", None, 1, 0, false));
+        t!(Markup: "`[brackets]`" => Raw("[brackets]", None, 1, None, false));
+        t!(Markup[""]: r"`\`` "   => Raw(r"\", None, 1, None, false), Raw(" ", None, 1, Some("1 backtick"), false));
 
         // Test separated closing backticks.
-        t!(Markup: "```not `y`e`t```" => Raw("`y`e`t", Some("not"), 3, 3, false));
+        t!(Markup: "```not `y`e`t```" => Raw("`y`e`t", Some("not"), 3, None, false));
 
         // Test more backticks.
-        t!(Markup: "``nope``"             => Raw("", None, 1, 1, false), Text("nope"), Raw("", None, 1, 1, false));
-        t!(Markup: "````🚀````"           => Raw("", Some("🚀"), 4, 4, false));
-        t!(Markup[""]: "`````👩‍🚀````noend" => Raw("````noend", Some("👩‍🚀"), 5, 0, false));
-        t!(Markup[""]: "````raw``````"    => Raw("", Some("raw"), 4, 4, false), Raw("", None, 1, 1, false));
+        t!(Markup: "``nope``"             => Raw("", None, 1, None, false), Text("nope"), Raw("", None, 1, None, false));
+        t!(Markup: "````🚀````"           => Raw("", Some("🚀"), 4, None, false));
+        t!(Markup[""]: "`````👩‍🚀````noend" => Raw("````noend", Some("👩‍🚀"), 5, Some("5 backticks"), false));
+        t!(Markup[""]: "````raw``````"    => Raw("", Some("raw"), 4, None, false), Raw("", None, 1, None, false));
     }
 
     #[test]
     fn test_tokenize_math_formulas() {
         // Test basic formula.
-        t!(Markup: "$$"        => Math("", false, true));
-        t!(Markup: "$x$"       => Math("x", false, true));
-        t!(Markup: r"$\\$"     => Math(r"\\", false, true));
-        t!(Markup: "$[x + y]$" => Math("x + y", true, true));
-        t!(Markup: r"$[\\]$"   => Math(r"\\", true, true));
+        t!(Markup: "$$"        => Math("", false, None));
+        t!(Markup: "$x$"       => Math("x", false, None));
+        t!(Markup: r"$\\$"     => Math(r"\\", false, None));
+        t!(Markup: "$[x + y]$" => Math("x + y", true, None));
+        t!(Markup: r"$[\\]$"   => Math(r"\\", true, None));
 
         // Test unterminated.
-        t!(Markup[""]: "$x"      => Math("x", false, false));
-        t!(Markup[""]: "$[x"     => Math("x", true, false));
-        t!(Markup[""]: "$[x]\n$" => Math("x]\n$", true, false));
+        t!(Markup[""]: "$x"      => Math("x", false, Some("dollar sign")));
+        t!(Markup[""]: "$[x"     => Math("x", true, Some("bracket and dollar sign")));
+        t!(Markup[""]: "$[x]\n$" => Math("x]\n$", true, Some("bracket and dollar sign")));
 
         // Test escape sequences.
-        t!(Markup: r"$\$x$"       => Math(r"\$x", false, true));
-        t!(Markup: r"$[\\\]$]$"   => Math(r"\\\]$", true, true));
-        t!(Markup[""]: r"$[ ]\\$" => Math(r" ]\\$", true, false));
+        t!(Markup: r"$\$x$"       => Math(r"\$x", false, None));
+        t!(Markup: r"$[\\\]$]$"   => Math(r"\\\]$", true, None));
+        t!(Markup[""]: r"$[ ]\\$" => Math(r" ]\\$", true, Some("bracket and dollar sign")));
     }
 
     #[test]
