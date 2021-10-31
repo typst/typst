@@ -25,7 +25,9 @@ impl BlockLevel for PadNode {
             frames.iter_mut().zip(regions.iter())
         {
             fn solve_axis(length: Length, padding: Linear) -> Length {
-                (length + padding.abs) / (1.0 - padding.rel.get())
+                (length + padding.abs)
+                    .div_finite(1.0 - padding.rel.get())
+                    .unwrap_or_default()
             }
 
             // Solve for the size `padded` that satisfies (approximately):

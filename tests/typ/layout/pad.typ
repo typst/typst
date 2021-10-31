@@ -27,9 +27,11 @@ Hi #box(pad(left: 10pt)[]) there
 
 ---
 // Test that the pad node doesn't consume the whole region.
-
 #page(height: 6cm)
-
 #align(left)[Before]
 #pad(10pt, image("../../res/tiger.jpg"))
 #align(right)[After]
+
+---
+// Test that padding adding up to 100% does not panic.
+#pad(50%)[]
