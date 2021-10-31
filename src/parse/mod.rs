@@ -30,15 +30,14 @@ fn markup(p: &mut Parser) {
 
 /// Parse markup that stays right of the given column.
 fn markup_indented(p: &mut Parser, column: usize) {
-    // TODO this is broken
     p.eat_while(|t| match t {
-        NodeKind::Space(n) => n == 0,
+        NodeKind::Space(n) => *n == 0,
         NodeKind::LineComment | NodeKind::BlockComment => true,
         _ => false,
     });
 
     markup_while(p, false, &mut |p| match p.peek() {
-        Some(NodeKind::Space(n)) if n >= 1 => p.column(p.next_end()) >= column,
+        Some(NodeKind::Space(n)) if *n >= 1 => p.column(p.next_end()) >= column,
         _ => true,
     })
 }
@@ -64,125 +63,119 @@ where
 
 /// Parse a markup node.
 fn markup_node(p: &mut Parser, at_start: &mut bool) {
-    if let Some(token) = p.peek() {
-        match token {
-            // Whitespace.
-            NodeKind::Space(newlines) => {
-                *at_start |= newlines > 0;
+    let token = match p.peek() {
+        Some(t) => t,
+        None => return,
+    };
 
-                if newlines < 2 {
-                    p.eat();
-                } else {
-                    p.convert(NodeKind::Parbreak);
-                }
-            }
+    match token {
+        // Whitespace.
+        NodeKind::Space(newlines) => {
+            *at_start |= *newlines > 0;
 
-            // Text.
-            NodeKind::UnicodeEscape(u) => {
-                if !u.terminated {
-                    p.convert(NodeKind::Error(
-                        ErrorPosition::End,
-                        "expected closing brace".into(),
-                    ));
-                    p.unsuccessful();
-                    return;
-                }
-
-                if u.character.is_none() {
-                    let src = p.peek_src();
-                    p.convert(NodeKind::Error(
-                        ErrorPosition::Full,
-                        "invalid unicode escape sequence".into(),
-                    ));
-                    p.start();
-                    p.end(NodeKind::Text(src.into()));
-                    return;
-                }
-
+            if *newlines < 2 {
                 p.eat();
+            } else {
+                p.convert(NodeKind::Parbreak);
             }
-            NodeKind::Raw(r) => {
-                if !r.terminated {
-                    p.convert(NodeKind::Error(
-                        ErrorPosition::End,
-                        "expected backtick(s)".into(),
-                    ));
-                    p.unsuccessful();
-                    return;
-                }
+        }
 
-                p.eat();
-            }
-            NodeKind::Text(_)
-            | NodeKind::EnDash
-            | NodeKind::EmDash
-            | NodeKind::NonBreakingSpace => {
-                p.eat();
-            }
+        // Text and markup.
+        NodeKind::Text(_)
+        | NodeKind::EnDash
+        | NodeKind::EmDash
+        | NodeKind::NonBreakingSpace
+        | NodeKind::Emph
+        | NodeKind::Strong
+        | NodeKind::Linebreak => p.eat(),
 
-            // Markup.
-            NodeKind::Emph | NodeKind::Strong | NodeKind::Linebreak => {
-                p.eat();
-            }
-
-            NodeKind::Eq if *at_start => heading(p),
-            NodeKind::ListBullet if *at_start => list_node(p),
-            NodeKind::EnumNumbering(_) if *at_start => enum_node(p),
-
-            // Line-based markup that is not currently at the start of the line.
-            NodeKind::Eq | NodeKind::ListBullet | NodeKind::EnumNumbering(_) => {
-                p.convert(NodeKind::Text(p.peek_src().into()))
+        NodeKind::UnicodeEscape(u) => {
+            if !u.terminated {
+                p.convert(NodeKind::Error(
+                    ErrorPosition::End,
+                    "expected closing brace".into(),
+                ));
+                p.unsuccessful();
+                return;
             }
 
-            // Hashtag + keyword / identifier.
-            NodeKind::Ident(_)
-            | NodeKind::Let
-            | NodeKind::If
-            | NodeKind::While
-            | NodeKind::For
-            | NodeKind::Import
-            | NodeKind::Include => {
-                let stmt = matches!(token, NodeKind::Let | NodeKind::Import);
-                let group = if stmt { Group::Stmt } else { Group::Expr };
-
-                p.start_group(group, TokenMode::Code);
-                expr_with(p, true, 0);
-                if stmt && p.success() && !p.eof() {
-                    p.expected_at("semicolon or line break");
-                }
-                p.end_group();
+            if u.character.is_none() {
+                let src = p.peek_src();
+                p.convert(NodeKind::Error(
+                    ErrorPosition::Full,
+                    "invalid unicode escape sequence".into(),
+                ));
+                p.start();
+                p.end(NodeKind::Text(src.into()));
+                return;
             }
 
-            // Block and template.
-            NodeKind::LeftBrace => {
-                block(p);
-            }
-            NodeKind::LeftBracket => {
-                template(p);
+            p.eat();
+        }
+        NodeKind::Raw(r) => {
+            if !r.terminated {
+                p.convert(NodeKind::Error(
+                    ErrorPosition::End,
+                    "expected backtick(s)".into(),
+                ));
+                p.unsuccessful();
+                return;
             }
 
-            // Comments.
-            NodeKind::LineComment | NodeKind::BlockComment => {
-                p.eat();
-            }
+            p.eat();
+        }
 
-            _ => {
-                *at_start = false;
-                p.unexpected();
+        NodeKind::Eq if *at_start => heading(p),
+        NodeKind::ListBullet if *at_start => list_node(p),
+        NodeKind::EnumNumbering(_) if *at_start => enum_node(p),
+
+        // Line-based markup that is not currently at the start of the line.
+        NodeKind::Eq | NodeKind::ListBullet | NodeKind::EnumNumbering(_) => {
+            p.convert(NodeKind::Text(p.peek_src().into()))
+        }
+
+        // Hashtag + keyword / identifier.
+        NodeKind::Ident(_)
+        | NodeKind::Let
+        | NodeKind::If
+        | NodeKind::While
+        | NodeKind::For
+        | NodeKind::Import
+        | NodeKind::Include => {
+            let stmt = matches!(token, NodeKind::Let | NodeKind::Import);
+            let group = if stmt { Group::Stmt } else { Group::Expr };
+
+            p.start_group(group, TokenMode::Code);
+            expr_with(p, true, 0);
+            if stmt && p.success() && !p.eof() {
+                p.expected_at("semicolon or line break");
             }
-        };
-    }
+            p.end_group();
+        }
+
+        // Block and template.
+        NodeKind::LeftBrace => block(p),
+        NodeKind::LeftBracket => template(p),
+
+        // Comments.
+        NodeKind::LineComment | NodeKind::BlockComment => p.eat(),
+
+        _ => {
+            *at_start = false;
+            p.unexpected();
+        }
+    };
 }
 
 /// Parse a heading.
 fn heading(p: &mut Parser) {
     p.start();
     p.start();
-    p.eat_assert(NodeKind::Eq);
+    p.eat_assert(&NodeKind::Eq);
 
     // Count depth.
     let mut level: usize = 1;
-    while p.eat_if(NodeKind::Eq) {
+    while p.eat_if(&NodeKind::Eq) {
         level += 1;
     }
 
@@ -200,7 +193,7 @@ fn heading(p: &mut Parser) {
 /// Parse a single list item.
 fn list_node(p: &mut Parser) {
     p.start();
-    p.eat_assert(NodeKind::ListBullet);
+    p.eat_assert(&NodeKind::ListBullet);
     let column = p.column(p.prev_end());
     markup_indented(p, column);
     p.end(NodeKind::List);
@@ -209,9 +202,7 @@ fn list_node(p: &mut Parser) {
 /// Parse a single enum item.
 fn enum_node(p: &mut Parser) {
     p.start();
-    if !matches!(p.eat(), Some(NodeKind::EnumNumbering(_))) {
-        panic!("enum item does not start with numbering")
-    };
+    p.eat();
     let column = p.column(p.prev_end());
     markup_indented(p, column);
     p.end(NodeKind::Enum);
@@ -263,7 +254,7 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) {
             continue;
         }
 
-        if p.peek() == Some(NodeKind::With) {
+        if p.peek() == Some(&NodeKind::With) {
             with_expr(p, p.child_count() - offset);
 
             if p.may_lift_abort() {
@@ -276,7 +267,7 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) {
             break;
         }
 
-        let op = match p.peek().as_ref().and_then(BinOp::from_token) {
+        let op = match p.peek().and_then(BinOp::from_token) {
             Some(binop) => binop,
             None => {
                 p.lift();
@@ -286,10 +277,8 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) {
 
         let mut prec = op.precedence();
         if prec < min_prec {
-            {
-                p.lift();
-                break;
-            };
+            p.lift();
+            break;
         }
 
         p.eat();
@@ -324,7 +313,7 @@ fn primary(p: &mut Parser, atomic: bool) {
             p.eat();
 
             // Arrow means this is a closure's lone parameter.
-            if !atomic && p.peek() == Some(NodeKind::Arrow) {
+            if !atomic && p.peek() == Some(&NodeKind::Arrow) {
                 p.end_and_start_with(NodeKind::ClosureParams);
                 p.eat();
 
@@ -359,10 +348,9 @@ fn primary(p: &mut Parser, atomic: bool) {
 
 /// Parse a literal.
 fn literal(p: &mut Parser) -> bool {
-    let peeked = if let Some(p) = p.peek() {
-        p
-    } else {
-        return false;
+    let peeked = match p.peek() {
+        Some(x) => x.clone(),
+        None => return false,
     };
 
     match peeked {
@@ -375,18 +363,14 @@ fn literal(p: &mut Parser) -> bool {
         | NodeKind::Fraction(_)
         | NodeKind::Length(_, _)
         | NodeKind::Angle(_, _)
-        | NodeKind::Percentage(_) => {
-            p.eat();
-        }
+        | NodeKind::Percentage(_) => p.eat(),
         NodeKind::Str(s) => {
             p.eat();
             if !s.terminated {
                 p.expected_at("quote");
             }
         }
-        _ => {
-            return false;
-        }
+        _ => return false,
     }
 
     true
@@ -401,7 +385,7 @@ fn parenthesized(p: &mut Parser) {
     let offset = p.child_count();
     p.start();
     p.start_group(Group::Paren, TokenMode::Code);
-    let colon = p.eat_if(NodeKind::Colon);
+    let colon = p.eat_if(&NodeKind::Colon);
     let kind = collection(p).0;
     p.end_group();
     let token_count = p.child_count() - offset;
@@ -414,12 +398,12 @@ fn parenthesized(p: &mut Parser) {
     }
 
     // Arrow means this is a closure's parameter list.
-    if p.peek() == Some(NodeKind::Arrow) {
+    if p.peek() == Some(&NodeKind::Arrow) {
         p.start_with(token_count);
         params(p, 0, true);
         p.end(NodeKind::ClosureParams);
 
-        p.eat_assert(NodeKind::Arrow);
+        p.eat_assert(&NodeKind::Arrow);
 
         expr(p);
 
@@ -485,7 +469,7 @@ fn collection(p: &mut Parser) -> (CollectionKind, usize) {
                 break;
             }
 
-            if p.eat_if(NodeKind::Comma) {
+            if p.eat_if(&NodeKind::Comma) {
                 has_comma = true;
             } else {
                 missing_coma = Some(p.child_count());
@@ -518,7 +502,7 @@ enum CollectionItemKind {
 /// Parse an expression or a named pair. Returns if this is a named pair.
 fn item(p: &mut Parser) -> CollectionItemKind {
     p.start();
-    if p.eat_if(NodeKind::Dots) {
+    if p.eat_if(&NodeKind::Dots) {
         expr(p);
 
         p.end_or_abort(NodeKind::ParameterSink);
@@ -531,7 +515,7 @@ fn item(p: &mut Parser) -> CollectionItemKind {
         return CollectionItemKind::Unnamed;
     }
 
-    if p.eat_if(NodeKind::Colon) {
+    if p.eat_if(&NodeKind::Colon) {
         let child = p.child(1).unwrap();
         if matches!(child.kind(), &NodeKind::Ident(_)) {
             expr(p);
@@ -686,9 +670,9 @@ fn args(p: &mut Parser, allow_template: bool) {
 /// Parse a with expression.
 fn with_expr(p: &mut Parser, preserve: usize) {
     p.start_with(preserve);
-    p.eat_assert(NodeKind::With);
+    p.eat_assert(&NodeKind::With);
 
-    if p.peek() == Some(NodeKind::LeftParen) {
+    if p.peek() == Some(&NodeKind::LeftParen) {
         args(p, false);
         p.end(NodeKind::WithExpr);
     } else {
@@ -700,7 +684,7 @@ fn with_expr(p: &mut Parser, preserve: usize) {
 /// Parse a let expression.
 fn let_expr(p: &mut Parser) {
     p.start();
-    p.eat_assert(NodeKind::Let);
+    p.eat_assert(&NodeKind::Let);
 
     let offset = p.child_count();
     ident(p);
@@ -708,7 +692,7 @@ fn let_expr(p: &mut Parser) {
         return;
     }
 
-    if p.peek() == Some(NodeKind::With) {
+    if p.peek() == Some(&NodeKind::With) {
         with_expr(p, p.child_count() - offset);
     } else {
         // If a parenthesis follows, this is a function definition.
@@ -725,7 +709,7 @@ fn let_expr(p: &mut Parser) {
             false
         };
 
-        if p.eat_if(NodeKind::Eq) {
+        if p.eat_if(&NodeKind::Eq) {
             expr(p);
         } else if has_params {
             // Function definitions must have a body.
@@ -749,7 +733,7 @@ fn let_expr(p: &mut Parser) {
 /// Parse an if expresion.
 fn if_expr(p: &mut Parser) {
     p.start();
-    p.eat_assert(NodeKind::If);
+    p.eat_assert(&NodeKind::If);
 
     expr(p);
     if p.may_end_abort(NodeKind::IfExpr) {
@@ -762,8 +746,8 @@ fn if_expr(p: &mut Parser) {
         return;
     }
 
-    if p.eat_if(NodeKind::Else) {
-        if p.peek() == Some(NodeKind::If) {
+    if p.eat_if(&NodeKind::Else) {
+        if p.peek() == Some(&NodeKind::If) {
             if_expr(p);
         } else {
             body(p);
@@ -776,7 +760,7 @@ fn if_expr(p: &mut Parser) {
 /// Parse a while expresion.
 fn while_expr(p: &mut Parser) {
     p.start();
-    p.eat_assert(NodeKind::While);
+    p.eat_assert(&NodeKind::While);
 
     expr(p);
 
@@ -793,7 +777,7 @@ fn while_expr(p: &mut Parser) {
 /// Parse a for expression.
 fn for_expr(p: &mut Parser) {
     p.start();
-    p.eat_assert(NodeKind::For);
+    p.eat_assert(&NodeKind::For);
 
     for_pattern(p);
 
@@ -801,7 +785,7 @@ fn for_expr(p: &mut Parser) {
         return;
     }
 
-    if p.eat_expect(NodeKind::In) {
+    if p.eat_expect(&NodeKind::In) {
         expr(p);
 
         if p.may_end_abort(NodeKind::ForExpr) {
@@ -828,7 +812,7 @@ fn for_pattern(p: &mut Parser) {
         return;
     }
 
-    if p.peek() == Some(NodeKind::Comma) {
+    if p.peek() == Some(&NodeKind::Comma) {
         p.eat();
 
         ident(p);
@@ -844,9 +828,9 @@ fn for_pattern(p: &mut Parser) {
 /// Parse an import expression.
 fn import_expr(p: &mut Parser) {
     p.start();
-    p.eat_assert(NodeKind::Import);
+    p.eat_assert(&NodeKind::Import);
 
-    if !p.eat_if(NodeKind::Star) {
+    if !p.eat_if(&NodeKind::Star) {
         // This is the list of identifiers scenario.
         p.start();
         p.start_group(Group::Imports, TokenMode::Code);
@@ -865,7 +849,7 @@ fn import_expr(p: &mut Parser) {
         p.end(NodeKind::ImportItems);
     };
 
-    if p.eat_expect(NodeKind::From) {
+    if p.eat_expect(&NodeKind::From) {
         expr(p);
     }
 
@@ -875,7 +859,7 @@ fn import_expr(p: &mut Parser) {
 /// Parse an include expression.
 fn include_expr(p: &mut Parser) {
     p.start();
-    p.eat_assert(NodeKind::Include);
+    p.eat_assert(&NodeKind::Include);
 
     expr(p);
     p.end(NodeKind::IncludeExpr);
@@ -883,11 +867,12 @@ fn include_expr(p: &mut Parser) {
 
 /// Parse an identifier.
 fn ident(p: &mut Parser) {
-    if let Some(NodeKind::Ident(_)) = p.peek() {
-        p.eat();
-    } else {
-        p.expected("identifier");
-        p.unsuccessful();
+    match p.peek() {
+        Some(NodeKind::Ident(_)) => p.eat(),
+        _ => {
+            p.expected("identifier");
+            p.unsuccessful();
+        }
     }
 }
 

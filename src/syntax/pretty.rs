@@ -46,20 +46,25 @@ impl Printer {
         Write::write_fmt(self, fmt)
     }
 
-    /// Write a list of items joined by a joiner.
-    pub fn join<T, I, F>(&mut self, items: I, joiner: &str, mut write_item: F)
+    /// Write a list of items joined by a joiner and return how many there were.
+    pub fn join<T, I, F>(&mut self, items: I, joiner: &str, mut write_item: F) -> usize
     where
         I: IntoIterator<Item = T>,
         F: FnMut(T, &mut Self),
     {
+        let mut count = 0;
         let mut iter = items.into_iter();
         if let Some(first) = iter.next() {
             write_item(first, self);
+            count += 1;
         }
         for item in iter {
             self.push_str(joiner);
             write_item(item, self);
+            count += 1;
         }
+
+        count
     }
 
     /// Finish pretty printing and return the underlying buffer.
@@ -165,7 +170,7 @@ impl Pretty for RawNode {
 
 impl Pretty for HeadingNode {
     fn pretty(&self, p: &mut Printer) {
-        for _ in 0 .. self.level().0 {
+        for _ in 0 .. self.level() {
             p.push('=');
         }
         p.push(' ');
@@ -182,7 +187,7 @@ impl Pretty for ListNode {
 
 impl Pretty for EnumNode {
     fn pretty(&self, p: &mut Printer) {
-        if let Some(number) = self.number().0 {
+        if let Some(number) = self.number() {
             write!(p, "{}", number).unwrap();
         }
         p.push_str(". ");
@@ -237,8 +242,8 @@ impl Pretty for ArrayExpr {
         p.push('(');
 
         let items = self.items();
-        p.join(&items, ", ", |item, p| item.pretty(p));
-        if items.len() == 1 {
+        let len = p.join(items, ", ", |item, p| item.pretty(p));
+        if len == 1 {
             p.push(',');
         }
         p.push(')');
@@ -249,11 +254,11 @@ impl Pretty for DictExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
 
-        let items = self.items();
-        if items.is_empty() {
+        let mut items = self.items().peekable();
+        if items.peek().is_none() {
             p.push(':');
         } else {
-            p.join(&items, ", ", |named, p| named.pretty(p));
+            p.join(items, ", ", |named, p| named.pretty(p));
         }
         p.push(')');
     }
@@ -287,7 +292,7 @@ impl Pretty for BlockExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('{');
 
-        let exprs = self.exprs();
+        let exprs: Vec<_> = self.exprs().collect();
         if exprs.len() > 1 {
             p.push(' ');
         }
@@ -342,8 +347,7 @@ impl Pretty for CallExpr {
             p.push(')');
         };
 
-        let arg_list = self.args();
-        let args = arg_list.items();
+        let args: Vec<_> = self.args().items().collect();
 
         if let Some(Expr::Template(template)) = args
             .last()
@@ -361,7 +365,7 @@ impl Pretty for CallExpr {
 
 impl Pretty for CallArgs {
     fn pretty(&self, p: &mut Printer) {
-        p.join(&self.items(), ", ", |item, p| item.pretty(p));
+        p.join(self.items(), ", ", |item, p| item.pretty(p));
     }
 }
 
@@ -380,11 +384,12 @@ impl Pretty for CallArg {
 
 impl Pretty for ClosureExpr {
     fn pretty(&self, p: &mut Printer) {
-        if let [param] = self.params().as_slice() {
+        let params: Vec<_> = self.params().collect();
+        if let [param] = params.as_slice() {
             param.pretty(p);
         } else {
             p.push('(');
-            p.join(self.params().iter(), ", ", |item, p| item.pretty(p));
+            p.join(params.iter(), ", ", |item, p| item.pretty(p));
             p.push(')');
         }
         p.push_str(" => ");
@@ -420,7 +425,7 @@ impl Pretty for LetExpr {
         self.binding().pretty(p);
         if let Some(Expr::Closure(closure)) = &self.init() {
             p.push('(');
-            p.join(closure.params().iter(), ", ", |item, p| item.pretty(p));
+            p.join(closure.params(), ", ", |item, p| item.pretty(p));
             p.push_str(") = ");
             closure.body().pretty(p);
         } else if let Some(init) = &self.init() {
@@ -487,7 +492,9 @@ impl Pretty for Imports {
     fn pretty(&self, p: &mut Printer) {
         match self {
             Self::Wildcard => p.push('*'),
-            Self::Idents(idents) => p.join(idents, ", ", |item, p| item.pretty(p)),
+            Self::Idents(idents) => {
+                p.join(idents, ", ", |item, p| item.pretty(p));
+            }
         }
     }
 }

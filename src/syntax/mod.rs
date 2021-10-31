@@ -160,8 +160,6 @@ pub enum NodeKind {
     ///
     /// The comment can contain nested block comments.
     BlockComment,
-    /// A node that should never appear in a finished tree.
-    Never,
     /// Tokens that appear in the wrong place.
     Error(ErrorPosition, EcoString),
     /// Template markup.
@@ -246,7 +244,41 @@ pub enum ErrorPosition {
 
 impl Display for NodeKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.pad(match self {
+        f.pad(self.as_str())
+    }
+}
+
+impl NodeKind {
+    pub fn is_parenthesis(&self) -> bool {
+        match self {
+            Self::LeftParen => true,
+            Self::RightParen => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_bracket(&self) -> bool {
+        match self {
+            Self::LeftBracket => true,
+            Self::RightBracket => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_brace(&self) -> bool {
+        match self {
+            Self::LeftBrace => true,
+            Self::RightBrace => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_error(&self) -> bool {
+        matches!(self, NodeKind::Error(_, _))
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
             Self::LeftBracket => "opening bracket",
             Self::RightBracket => "closing bracket",
             Self::LeftBrace => "opening brace",
@@ -296,7 +328,6 @@ impl Display for NodeKind {
             Self::Math(_) => "math formula",
             Self::EnumNumbering(_) => "numbering",
             Self::Str(_) => "string",
-            Self::Never => "a node that should not be here",
             Self::LineComment => "line comment",
             Self::BlockComment => "block comment",
             Self::Markup => "markup",
@@ -348,37 +379,7 @@ impl Display for NodeKind {
                 "*/" => "end of block comment",
                 _ => "invalid token",
             },
-        })
-    }
-}
-
-impl NodeKind {
-    pub fn is_parenthesis(&self) -> bool {
-        match self {
-            Self::LeftParen => true,
-            Self::RightParen => true,
-            _ => false,
         }
-    }
-
-    pub fn is_bracket(&self) -> bool {
-        match self {
-            Self::LeftBracket => true,
-            Self::RightBracket => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_brace(&self) -> bool {
-        match self {
-            Self::LeftBrace => true,
-            Self::RightBrace => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_error(&self) -> bool {
-        matches!(self, NodeKind::Never | NodeKind::Error(_, _))
     }
 }
 
@@ -386,7 +387,7 @@ impl NodeKind {
 #[derive(Clone, PartialEq)]
 pub struct GreenNode {
     /// Node metadata.
-    meta: GreenData,
+    data: GreenData,
     /// This node's children, losslessly make up this node.
     children: Vec<Green>,
 }
@@ -400,12 +401,12 @@ pub struct GreenData {
     /// The byte length of the node in the source.
     len: usize,
     /// Whether this node or any of its children are erroneous.
-    has_error: bool,
+    erroneous: bool,
 }
 
 impl GreenData {
     pub fn new(kind: NodeKind, len: usize) -> Self {
-        Self { len, has_error: kind.is_error(), kind }
+        Self { len, erroneous: kind.is_error(), kind }
     }
 
     pub fn kind(&self) -> &NodeKind {
@@ -416,8 +417,8 @@ impl GreenData {
         self.len
     }
 
-    pub fn has_error(&self) -> bool {
-        self.has_error
+    pub fn erroneous(&self) -> bool {
+        self.erroneous
     }
 }
 
@@ -437,23 +438,23 @@ pub enum Green {
 }
 
 impl Green {
-    fn meta(&self) -> &GreenData {
+    fn data(&self) -> &GreenData {
         match self {
             Green::Token(t) => &t,
-            Green::Node(n) => &n.meta,
+            Green::Node(n) => &n.data,
         }
     }
 
     pub fn kind(&self) -> &NodeKind {
-        self.meta().kind()
+        self.data().kind()
     }
 
     pub fn len(&self) -> usize {
-        self.meta().len()
+        self.data().len()
     }
 
-    pub fn has_error(&self) -> bool {
-        self.meta().has_error()
+    pub fn erroneous(&self) -> bool {
+        self.data().erroneous()
     }
 
     pub fn children(&self) -> &[Green] {
@@ -467,29 +468,19 @@ impl Green {
 impl GreenNode {
     pub fn new(kind: NodeKind, len: usize) -> Self {
         Self {
-            meta: GreenData::new(kind, len),
+            data: GreenData::new(kind, len),
             children: Vec::new(),
         }
     }
 
-    pub fn with_children(
-        kind: NodeKind,
-        len: usize,
-        children: impl Iterator<Item = impl Into<Green>>,
-    ) -> Self {
+    pub fn with_children(kind: NodeKind, len: usize, children: Vec<Green>) -> Self {
         let mut meta = GreenData::new(kind, len);
-        let children = children
-            .map(|x| {
-                let x = x.into();
-                meta.has_error |= x.has_error();
-                x
-            })
-            .collect();
-        Self { meta, children }
+        meta.erroneous |= children.iter().any(|c| c.erroneous());
+        Self { data: meta, children }
     }
 
     pub fn with_child(kind: NodeKind, len: usize, child: impl Into<Green>) -> Self {
-        Self::with_children(kind, len, std::iter::once(child.into()))
+        Self::with_children(kind, len, vec![child.into()])
     }
 
     pub fn children(&self) -> &[Green] {
@@ -511,7 +502,7 @@ impl From<Rc<GreenNode>> for Green {
 
 impl Default for Green {
     fn default() -> Self {
-        Self::Token(GreenData::new(NodeKind::Never, 0))
+        Self::Token(GreenData::new(NodeKind::None, 0))
     }
 }
 
@@ -530,13 +521,13 @@ impl Debug for Green {
 }
 
 #[derive(Copy, Clone, PartialEq)]
-pub struct RedTicket<'a> {
+pub struct RedRef<'a> {
     id: SourceId,
     offset: usize,
     green: &'a Green,
 }
 
-impl<'a> RedTicket<'a> {
+impl<'a> RedRef<'a> {
     pub fn own(self) -> RedNode {
         RedNode {
             id: self.id,
@@ -549,12 +540,46 @@ impl<'a> RedTicket<'a> {
         self.green.kind()
     }
 
+    pub fn span(&self) -> Span {
+        Span::new(self.id, self.offset, self.offset + self.green.len())
+    }
 
     pub fn cast<T>(self) -> Option<T>
     where
         T: TypedNode,
     {
         T::cast_from(self)
+    }
+
+    pub fn erroneous(&self) -> bool {
+        self.green.erroneous()
+    }
+
+    pub fn children(self) -> impl Iterator<Item = RedRef<'a>> + Clone {
+        let children = match &self.green {
+            Green::Node(node) => node.children(),
+            Green::Token(_) => &[],
+        };
+
+        let mut offset = self.offset;
+        children.iter().map(move |green| {
+            let child_offset = offset;
+            offset += green.len();
+            RedRef { id: self.id, offset: child_offset, green }
+        })
+    }
+
+    pub(crate) fn typed_child(&self, kind: &NodeKind) -> Option<RedRef> {
+        self.children()
+            .find(|x| mem::discriminant(x.kind()) == mem::discriminant(kind))
+    }
+
+    pub(crate) fn cast_first_child<T: TypedNode>(&self) -> Option<T> {
+        self.children().find_map(RedRef::cast)
+    }
+
+    pub(crate) fn cast_last_child<T: TypedNode>(&self) -> Option<T> {
+        self.children().filter_map(RedRef::cast).last()
     }
 }
 
@@ -571,7 +596,7 @@ impl RedNode {
     }
 
     pub fn span(&self) -> Span {
-        Span::new(self.id, self.offset, self.offset + self.green.len())
+        self.as_ref().span()
     }
 
     pub fn len(&self) -> usize {
@@ -582,53 +607,36 @@ impl RedNode {
         self.green.kind()
     }
 
-    pub fn children<'a>(&'a self) -> impl Iterator<Item = RedTicket<'a>> + Clone + 'a {
-        let children = match &self.green {
-            Green::Node(node) => node.children(),
-            Green::Token(_) => &[],
-        };
-
-        let mut offset = self.offset;
-        children.iter().map(move |green_child| {
-            let child_offset = offset;
-            offset += green_child.len();
-            RedTicket {
-                id: self.id,
-                offset: child_offset,
-                green: &green_child,
-            }
-        })
-    }
-
-    pub fn has_error(&self) -> bool {
-        self.green.has_error()
+    pub fn children<'a>(&'a self) -> impl Iterator<Item = RedRef<'a>> + Clone {
+        self.as_ref().children()
     }
 
     pub fn errors(&self) -> Vec<(Span, EcoString)> {
-        if !self.green.has_error() {
+        if !self.green.erroneous() {
             return vec![];
         }
 
-        if let NodeKind::Error(pos, msg) = self.kind() {
-            let span = match pos {
-                ErrorPosition::Start => self.span().at_start(),
-                ErrorPosition::Full => self.span(),
-                ErrorPosition::End => self.span().at_end(),
-            };
+        match self.kind() {
+            NodeKind::Error(pos, msg) => {
+                let span = match pos {
+                    ErrorPosition::Start => self.span().at_start(),
+                    ErrorPosition::Full => self.span(),
+                    ErrorPosition::End => self.span().at_end(),
+                };
 
-            vec![(span, msg.clone())]
-        } else if let NodeKind::Never = self.kind() {
-            vec![(self.span(), "found a never node".into())]
-        } else {
-            self.children()
-                .filter(|ticket| ticket.green.has_error())
-                .flat_map(|ticket| ticket.own().errors())
-                .collect()
+                vec![(span, msg.clone())]
+            }
+            _ => self
+                .as_ref()
+                .children()
+                .filter(|red| red.green.erroneous())
+                .flat_map(|red| red.own().errors())
+                .collect(),
         }
     }
 
-    pub fn ticket<'a>(&'a self) -> RedTicket<'a> {
-        RedTicket {
+    pub fn as_ref<'a>(&'a self) -> RedRef<'a> {
+        RedRef {
             id: self.id,
             offset: self.offset,
             green: &self.green,
@@ -636,28 +644,26 @@ impl RedNode {
     }
 
     pub(crate) fn typed_child(&self, kind: &NodeKind) -> Option<RedNode> {
-        self.children()
-            .find(|x| mem::discriminant(x.kind()) == mem::discriminant(kind))
-            .map(RedTicket::own)
+        self.as_ref().typed_child(kind).map(RedRef::own)
     }
 
     pub(crate) fn cast_first_child<T: TypedNode>(&self) -> Option<T> {
-        self.children().find_map(RedTicket::cast)
+        self.as_ref().cast_first_child()
     }
 
     pub(crate) fn cast_last_child<T: TypedNode>(&self) -> Option<T> {
-        self.children().filter_map(RedTicket::cast).last()
+        self.as_ref().cast_last_child()
     }
 }
 
 impl Debug for RedNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{:?}: {:?}", self.kind(), self.span())?;
-        let children = self.children().collect::<Vec<_>>();
+        let children = self.as_ref().children().collect::<Vec<_>>();
         if !children.is_empty() {
             f.write_str(" ")?;
             f.debug_list()
-                .entries(children.into_iter().map(RedTicket::own))
+                .entries(children.into_iter().map(RedRef::own))
                 .finish()?;
         }
         Ok(())
@@ -666,21 +672,22 @@ impl Debug for RedNode {
 
 pub trait TypedNode: Sized {
     /// Performs the conversion.
-    fn cast_from(value: RedTicket) -> Option<Self>;
+    fn cast_from(value: RedRef) -> Option<Self>;
 }
 
 #[macro_export]
 macro_rules! node {
-    (#[doc = $doc:expr] $name:ident) => {
-        node!(#[doc = $doc] $name => $name);
+    ($(#[$attr:meta])* $name:ident) => {
+        node!{$(#[$attr])* $name => $name}
     };
-    (#[doc = $doc:expr] $variant:ident => $name:ident) => {
-        #[doc = $doc]
+    ($(#[$attr:meta])* $variant:ident => $name:ident) => {
         #[derive(Debug, Clone, PartialEq)]
+        #[repr(transparent)]
+        $(#[$attr])*
         pub struct $name(RedNode);
 
         impl TypedNode for $name {
-            fn cast_from(node: RedTicket) -> Option<Self> {
+            fn cast_from(node: RedRef) -> Option<Self> {
                 if node.kind() != &NodeKind::$variant {
                     return None;
                 }
@@ -694,8 +701,8 @@ macro_rules! node {
                 self.0.span()
             }
 
-            pub fn underlying(&self) -> RedTicket {
-                self.0.ticket()
+            pub fn underlying(&self) -> RedRef {
+                self.0.as_ref()
             }
         }
     };

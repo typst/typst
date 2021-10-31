@@ -1,4 +1,4 @@
-use super::{Expr, Ident, NodeKind, RedNode, RedTicket, Span, TypedNode};
+use super::{Expr, Ident, NodeKind, RedNode, RedRef, Span, TypedNode};
 use crate::node;
 use crate::util::EcoString;
 use std::fmt::Write;
@@ -7,12 +7,12 @@ use std::fmt::Write;
 pub type Markup = Vec<MarkupNode>;
 
 impl TypedNode for Markup {
-    fn cast_from(node: RedTicket) -> Option<Self> {
+    fn cast_from(node: RedRef) -> Option<Self> {
         if node.kind() != &NodeKind::Markup {
             return None;
         }
 
-        let children = node.own().children().filter_map(TypedNode::cast_from).collect();
+        let children = node.children().filter_map(TypedNode::cast_from).collect();
         Some(children)
     }
 }
@@ -45,7 +45,7 @@ pub enum MarkupNode {
 }
 
 impl TypedNode for MarkupNode {
-    fn cast_from(node: RedTicket) -> Option<Self> {
+    fn cast_from(node: RedRef) -> Option<Self> {
         match node.kind() {
             NodeKind::Space(_) => Some(MarkupNode::Space),
             NodeKind::Linebreak => Some(MarkupNode::Linebreak),
@@ -53,15 +53,14 @@ impl TypedNode for MarkupNode {
             NodeKind::Strong => Some(MarkupNode::Strong),
             NodeKind::Emph => Some(MarkupNode::Emph),
             NodeKind::Text(s) => Some(MarkupNode::Text(s.clone())),
-            NodeKind::UnicodeEscape(u) => {
-                Some(MarkupNode::Text(if let Some(s) = u.character {
-                    s.into()
-                } else {
+            NodeKind::UnicodeEscape(u) => Some(MarkupNode::Text(match u.character {
+                Some(c) => c.into(),
+                None => {
                     let mut eco = EcoString::with_capacity(u.sequence.len() + 4);
                     write!(&mut eco, "\\u{{{}}}", u.sequence).unwrap();
                     eco
-                }))
-            }
+                }
+            })),
             NodeKind::EnDash => Some(MarkupNode::Text(EcoString::from("\u{2013}"))),
             NodeKind::EmDash => Some(MarkupNode::Text(EcoString::from("\u{2014}"))),
             NodeKind::NonBreakingSpace => {
@@ -93,28 +92,29 @@ pub struct RawNode {
 }
 
 impl TypedNode for RawNode {
-    fn cast_from(node: RedTicket) -> Option<Self> {
-        if let NodeKind::Raw(raw) = node.kind() {
-            let span = node.own().span();
-            let start = span.start + raw.backticks as usize;
-            Some(Self {
-                block: raw.block,
-                lang: raw.lang.as_ref().and_then(|x| {
-                    let span = Span::new(span.source, start, start + x.len());
-                    Ident::new(x, span)
-                }),
-                text: raw.text.clone(),
-            })
-        } else {
-            None
+    fn cast_from(node: RedRef) -> Option<Self> {
+        match node.kind() {
+            NodeKind::Raw(raw) => {
+                let span = node.span();
+                let start = span.start + raw.backticks as usize;
+                Some(Self {
+                    block: raw.block,
+                    lang: raw.lang.as_ref().and_then(|x| {
+                        let span = Span::new(span.source, start, start + x.len());
+                        Ident::new(x, span)
+                    }),
+                    text: raw.text.clone(),
+                })
+            }
+            _ => None,
         }
     }
 }
 
-node!(
+node! {
     /// A section heading: `= Introduction`.
     Heading => HeadingNode
-);
+}
 
 impl HeadingNode {
     /// The contents of the heading.
@@ -125,30 +125,21 @@ impl HeadingNode {
     }
 
     /// The section depth (numer of equals signs).
-    pub fn level(&self) -> HeadingLevel {
+    pub fn level(&self) -> u8 {
         self.0
-            .cast_first_child()
+            .children()
+            .find_map(|node| match node.kind() {
+                NodeKind::HeadingLevel(heading) => Some(*heading),
+                _ => None,
+            })
             .expect("heading node is missing heading level")
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct HeadingLevel(pub usize);
-
-impl TypedNode for HeadingLevel {
-    fn cast_from(node: RedTicket) -> Option<Self> {
-        if let NodeKind::HeadingLevel(l) = node.kind() {
-            Some(Self((*l).into()))
-        } else {
-            None
-        }
-    }
-}
-
-node!(
+node! {
     /// An item in an unordered list: `- ...`.
     List => ListNode
-);
+}
 
 impl ListNode {
     /// The contents of the list item.
@@ -157,10 +148,10 @@ impl ListNode {
     }
 }
 
-node!(
+node! {
     /// An item in an enumeration (ordered list): `1. ...`.
     Enum => EnumNode
-);
+}
 
 impl EnumNode {
     /// The contents of the list item.
@@ -169,20 +160,13 @@ impl EnumNode {
     }
 
     /// The number, if any.
-    pub fn number(&self) -> EnumNumber {
-        self.0.cast_first_child().expect("enumeration node is missing number")
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct EnumNumber(pub Option<usize>);
-
-impl TypedNode for EnumNumber {
-    fn cast_from(node: RedTicket) -> Option<Self> {
-        if let NodeKind::EnumNumbering(x) = node.kind() {
-            Some(Self(*x))
-        } else {
-            None
-        }
+    pub fn number(&self) -> Option<usize> {
+        self.0
+            .children()
+            .find_map(|node| match node.kind() {
+                NodeKind::EnumNumbering(num) => Some(num.clone()),
+                _ => None,
+            })
+            .expect("enumeration node is missing number")
     }
 }

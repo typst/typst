@@ -230,7 +230,7 @@ impl Eval for ArrayExpr {
     type Output = Array;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        self.items().iter().map(|expr| expr.eval(ctx)).collect()
+        self.items().map(|expr| expr.eval(ctx)).collect()
     }
 }
 
@@ -239,7 +239,6 @@ impl Eval for DictExpr {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         self.items()
-            .iter()
             .map(|x| Ok(((&x.name().string).into(), x.expr().eval(ctx)?)))
             .collect()
     }
@@ -268,7 +267,7 @@ impl Eval for BlockExpr {
         ctx.scopes.enter();
 
         let mut output = Value::None;
-        for expr in &self.exprs() {
+        for expr in self.exprs() {
             let value = expr.eval(ctx)?;
             output = ops::join(output, value).at(expr.span())?;
         }
@@ -387,9 +386,9 @@ impl Eval for CallArgs {
     type Output = Args;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let mut items = Vec::with_capacity(self.items().len());
+        let mut items = Vec::new();
 
-        for arg in &self.items() {
+        for arg in self.items() {
             let span = arg.span();
             match arg {
                 CallArg::Pos(expr) => {
@@ -454,11 +453,10 @@ impl Eval for ClosureExpr {
         };
 
         let mut sink = None;
-        let params_src = self.params();
-        let mut params = Vec::with_capacity(params_src.len());
+        let mut params = Vec::new();
 
         // Collect parameters and an optional sink parameter.
-        for param in &params_src {
+        for param in self.params() {
             match param {
                 ClosureParam::Pos(name) => {
                     params.push((name.string.clone(), None));

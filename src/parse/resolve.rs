@@ -25,11 +25,9 @@ pub fn resolve_string(string: &str) -> EcoString {
                 let sequence = s.eat_while(|c| c.is_ascii_hexdigit());
                 let _terminated = s.eat_if('}');
 
-                if let Some(c) = resolve_hex(sequence) {
-                    out.push(c);
-                } else {
-                    // TODO: Feedback that unicode escape sequence is wrong.
-                    out.push_str(s.eaten_from(start));
+                match resolve_hex(sequence) {
+                    Some(c) => out.push(c),
+                    None => out.push_str(s.eaten_from(start)),
                 }
             }
 

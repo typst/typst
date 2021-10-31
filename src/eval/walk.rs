@@ -69,7 +69,7 @@ impl Walk for RawNode {
 
 impl Walk for HeadingNode {
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
-        let level = self.level().0;
+        let level = self.level();
         let body = self.body().eval(ctx)?;
 
         ctx.template.parbreak();
@@ -99,7 +99,7 @@ impl Walk for ListNode {
 impl Walk for EnumNode {
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
         let body = self.body().eval(ctx)?;
-        let label = format_str!("{}.", self.number().0.unwrap_or(1));
+        let label = format_str!("{}.", self.number().unwrap_or(1));
         walk_item(ctx, label, body);
         Ok(())
     }

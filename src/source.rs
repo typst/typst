@@ -148,10 +148,10 @@ impl SourceFile {
     }
 
     pub fn ast(&self) -> TypResult<Markup> {
-        let res = RedNode::new_root(self.root.clone(), self.id);
-        let errors = res.errors();
+        let red = RedNode::new_root(self.root.clone(), self.id);
+        let errors = red.errors();
         if errors.is_empty() {
-            Ok(res.ticket().cast().unwrap())
+            Ok(red.as_ref().cast().unwrap())
         } else {
             Err(Box::new(
                 errors.into_iter().map(|(span, msg)| Error::new(span, msg)).collect(),

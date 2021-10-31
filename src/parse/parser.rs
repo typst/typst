@@ -161,7 +161,7 @@ impl<'s> Parser<'s> {
 
         let len = children.iter().map(|c| c.len()).sum();
         self.children
-            .push(GreenNode::with_children(kind, len, children.into_iter()).into());
+            .push(GreenNode::with_children(kind, len, children).into());
         self.children.extend(remains);
         self.success = true;
     }
@@ -240,10 +240,9 @@ impl<'s> Parser<'s> {
     }
 
     pub fn finish(&mut self) -> Rc<GreenNode> {
-        if let Green::Node(n) = self.children.pop().unwrap() {
-            n
-        } else {
-            panic!()
+        match self.children.pop().unwrap() {
+            Green::Node(n) => n,
+            _ => panic!(),
         }
     }
 
@@ -252,16 +251,16 @@ impl<'s> Parser<'s> {
         self.peek().is_none()
     }
 
-    pub fn eat(&mut self) -> Option<NodeKind> {
-        let token = self.peek()?;
-        self.bump();
+    fn eat_peeked(&mut self) -> Option<NodeKind> {
+        let token = self.peek()?.clone();
+        self.eat();
         Some(token)
     }
 
     /// Consume the next token if it is the given one.
-    pub fn eat_if(&mut self, t: NodeKind) -> bool {
+    pub fn eat_if(&mut self, t: &NodeKind) -> bool {
         if self.peek() == Some(t) {
-            self.bump();
+            self.eat();
             true
         } else {
             false
@@ -271,36 +270,36 @@ impl<'s> Parser<'s> {
     /// Consume the next token if the closure maps it a to `Some`-variant.
     pub fn eat_map<T, F>(&mut self, f: F) -> Option<T>
     where
-        F: FnOnce(NodeKind) -> Option<T>,
+        F: FnOnce(&NodeKind) -> Option<T>,
     {
         let token = self.peek()?;
         let mapped = f(token);
         if mapped.is_some() {
-            self.bump();
+            self.eat();
         }
         mapped
     }
 
     /// Consume the next token if it is the given one and produce an error if
     /// not.
-    pub fn eat_expect(&mut self, t: NodeKind) -> bool {
-        let eaten = self.eat_if(t.clone());
+    pub fn eat_expect(&mut self, t: &NodeKind) -> bool {
+        let eaten = self.eat_if(t);
         if !eaten {
-            self.expected_at(&t.to_string());
+            self.expected_at(t.as_str());
         }
         eaten
     }
 
     /// Consume the next token, debug-asserting that it is one of the given ones.
-    pub fn eat_assert(&mut self, t: NodeKind) {
-        let next = self.eat();
-        debug_assert_eq!(next, Some(t));
+    pub fn eat_assert(&mut self, t: &NodeKind) {
+        let next = self.eat_peeked();
+        debug_assert_eq!(next.as_ref(), Some(t));
     }
 
     /// Consume tokens while the condition is true.
     pub fn eat_while<F>(&mut self, mut f: F)
     where
-        F: FnMut(NodeKind) -> bool,
+        F: FnMut(&NodeKind) -> bool,
     {
         while self.peek().map_or(false, |t| f(t)) {
             self.eat();
@@ -308,8 +307,8 @@ impl<'s> Parser<'s> {
     }
 
     /// Peek at the next token without consuming it.
-    pub fn peek(&self) -> Option<NodeKind> {
-        self.peeked.clone()
+    pub fn peek(&self) -> Option<&NodeKind> {
+        self.peeked.as_ref()
     }
 
     /// Peek at the next token if it follows immediately after the last one
@@ -371,9 +370,9 @@ impl<'s> Parser<'s> {
         self.repeek();
 
         match kind {
-            Group::Paren => self.eat_assert(NodeKind::LeftParen),
-            Group::Bracket => self.eat_assert(NodeKind::LeftBracket),
-            Group::Brace => self.eat_assert(NodeKind::LeftBrace),
+            Group::Paren => self.eat_assert(&NodeKind::LeftParen),
+            Group::Bracket => self.eat_assert(&NodeKind::LeftBracket),
+            Group::Brace => self.eat_assert(&NodeKind::LeftBrace),
             Group::Stmt => {}
             Group::Expr => {}
             Group::Imports => {}
@@ -402,11 +401,11 @@ impl<'s> Parser<'s> {
         } {
             if self.next == Some(end.clone()) {
                 // Bump the delimeter and return. No need to rescan in this case.
-                self.bump();
+                self.eat();
                 rescan = false;
             } else if required {
                 self.start();
-                self.abort(format!("expected {}", end.to_string()));
+                self.abort(format!("expected {}", end));
             }
         }
 
@@ -457,21 +456,21 @@ impl<'s> Parser<'s> {
     /// Eat the next token and add an error that it is not the expected `thing`.
     pub fn expected(&mut self, what: &str) {
         self.start();
-        if let Some(found) = self.eat() {
-            self.abort(format!("expected {}, found {}", what, found.to_string()))
-        } else {
-            self.lift();
-            self.expected_at(what);
+        match self.eat_peeked() {
+            Some(found) => self.abort(format!("expected {}, found {}", what, found)),
+            None => {
+                self.lift();
+                self.expected_at(what);
+            }
         }
     }
 
     /// Eat the next token and add an error that it is unexpected.
     pub fn unexpected(&mut self) {
         self.start();
-        if let Some(found) = self.eat() {
-            self.abort(format!("unexpected {}", found.to_string()))
-        } else {
-            self.abort("unexpected end of file")
+        match self.eat_peeked() {
+            Some(found) => self.abort(format!("unexpected {}", found)),
+            None => self.abort("unexpected end of file"),
         }
     }
 
@@ -489,7 +488,7 @@ impl<'s> Parser<'s> {
     }
 
     /// Move to the next token.
-    fn bump(&mut self) {
+    pub fn eat(&mut self) {
         self.children.push(
             GreenData::new(
                 self.next.clone().unwrap(),
@@ -511,7 +510,7 @@ impl<'s> Parser<'s> {
         if self.tokens.mode() == TokenMode::Code {
             // Skip whitespace and comments.
             while self.next.as_ref().map_or(false, |x| self.skip_type(x)) {
-                self.bump();
+                self.eat();
             }
         }
 

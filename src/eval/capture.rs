@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use super::{Scope, Scopes, Value};
-use crate::syntax::{ClosureParam, Expr, Imports, RedTicket};
+use crate::syntax::{ClosureParam, Expr, Imports, RedRef};
 
 /// A visitor that captures variable slots.
 pub struct CapturesVisitor<'a> {
@@ -20,12 +20,12 @@ impl<'a> CapturesVisitor<'a> {
         }
     }
 
-    pub fn visit(&mut self, node: RedTicket) {
+    pub fn visit(&mut self, node: RedRef) {
         let expr: Option<Expr> = node.cast();
 
         match expr.as_ref() {
             Some(Expr::Let(expr)) => {
-                self.visit(expr.init_ticket());
+                self.visit(expr.init_ref());
                 let ident = expr.binding();
                 self.internal.def_mut(ident.as_str(), Value::None);
             }
@@ -40,7 +40,7 @@ impl<'a> CapturesVisitor<'a> {
                         }
                     }
                 }
-                self.visit(closure.body_ticket());
+                self.visit(closure.body_ref());
             }
             Some(Expr::For(forloop)) => {
                 let pattern = forloop.pattern();
@@ -49,7 +49,7 @@ impl<'a> CapturesVisitor<'a> {
                 if let Some(key) = pattern.key() {
                     self.internal.def_mut(key.as_str(), Value::None);
                 }
-                self.visit(forloop.body_ticket());
+                self.visit(forloop.body_ref());
             }
             Some(Expr::Import(import)) => {
                 if let Imports::Idents(idents) = import.imports() {
@@ -73,7 +73,7 @@ impl<'a> CapturesVisitor<'a> {
 
             Some(Expr::Block(_)) => {
                 self.internal.enter();
-                for child in node.own().children() {
+                for child in node.children() {
                     self.visit(child);
                 }
                 self.internal.exit();
@@ -81,14 +81,14 @@ impl<'a> CapturesVisitor<'a> {
 
             Some(Expr::Template(_)) => {
                 self.internal.enter();
-                for child in node.own().children() {
+                for child in node.children() {
                     self.visit(child);
                 }
                 self.internal.exit();
             }
 
             _ => {
-                for child in node.own().children() {
+                for child in node.children() {
                     self.visit(child);
                 }
             }

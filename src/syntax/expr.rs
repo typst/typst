@@ -1,4 +1,4 @@
-use super::{Ident, Markup, NodeKind, RedNode, RedTicket, Span, TypedNode};
+use super::{Ident, Markup, NodeKind, RedNode, RedRef, Span, TypedNode};
 use crate::geom::{AngularUnit, LengthUnit};
 use crate::node;
 use crate::util::EcoString;
@@ -85,7 +85,7 @@ impl Expr {
 }
 
 impl TypedNode for Expr {
-    fn cast_from(node: RedTicket) -> Option<Self> {
+    fn cast_from(node: RedRef) -> Option<Self> {
         match node.kind() {
             NodeKind::Ident(_) => Some(Self::Ident(Ident::cast_from(node).unwrap())),
             NodeKind::Array => Some(Self::Array(ArrayExpr::cast_from(node).unwrap())),
@@ -146,18 +146,18 @@ pub enum Lit {
 }
 
 impl TypedNode for Lit {
-    fn cast_from(node: RedTicket) -> Option<Self> {
+    fn cast_from(node: RedRef) -> Option<Self> {
         match node.kind() {
-            NodeKind::None => Some(Self::None(node.own().span())),
-            NodeKind::Auto => Some(Self::Auto(node.own().span())),
-            NodeKind::Bool(b) => Some(Self::Bool(node.own().span(), *b)),
-            NodeKind::Int(i) => Some(Self::Int(node.own().span(), *i)),
-            NodeKind::Float(f) => Some(Self::Float(node.own().span(), *f)),
-            NodeKind::Length(f, unit) => Some(Self::Length(node.own().span(), *f, *unit)),
-            NodeKind::Angle(f, unit) => Some(Self::Angle(node.own().span(), *f, *unit)),
-            NodeKind::Percentage(f) => Some(Self::Percent(node.own().span(), *f)),
-            NodeKind::Fraction(f) => Some(Self::Fractional(node.own().span(), *f)),
-            NodeKind::Str(s) => Some(Self::Str(node.own().span(), s.string.clone())),
+            NodeKind::None => Some(Self::None(node.span())),
+            NodeKind::Auto => Some(Self::Auto(node.span())),
+            NodeKind::Bool(b) => Some(Self::Bool(node.span(), *b)),
+            NodeKind::Int(i) => Some(Self::Int(node.span(), *i)),
+            NodeKind::Float(f) => Some(Self::Float(node.span(), *f)),
+            NodeKind::Length(f, unit) => Some(Self::Length(node.span(), *f, *unit)),
+            NodeKind::Angle(f, unit) => Some(Self::Angle(node.span(), *f, *unit)),
+            NodeKind::Percentage(f) => Some(Self::Percent(node.span(), *f)),
+            NodeKind::Fraction(f) => Some(Self::Fractional(node.span(), *f)),
+            NodeKind::Str(s) => Some(Self::Str(node.span(), s.string.clone())),
             _ => None,
         }
     }
@@ -180,34 +180,34 @@ impl Lit {
     }
 }
 
-node!(
+node! {
     /// An array expression: `(1, "hi", 12cm)`.
     Array => ArrayExpr
-);
+}
 
 impl ArrayExpr {
     /// The array items.
-    pub fn items(&self) -> Vec<Expr> {
-        self.0.children().filter_map(RedTicket::cast).collect()
+    pub fn items<'a>(&'a self) -> impl Iterator<Item = Expr> + 'a {
+        self.0.children().filter_map(RedRef::cast)
     }
 }
 
-node!(
+node! {
     /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
     Dict => DictExpr
-);
+}
 
 impl DictExpr {
     /// The named dictionary items.
-    pub fn items(&self) -> Vec<Named> {
-        self.0.children().filter_map(RedTicket::cast).collect()
+    pub fn items<'a>(&'a self) -> impl Iterator<Item = Named> + 'a {
+        self.0.children().filter_map(RedRef::cast)
     }
 }
 
-node!(
+node! {
     /// A pair of a name and an expression: `pattern: dashed`.
     Named
-);
+}
 
 impl Named {
     /// The name: `pattern`.
@@ -219,16 +219,16 @@ impl Named {
     pub fn expr(&self) -> Expr {
         self.0
             .children()
-            .filter_map(RedTicket::cast)
+            .filter_map(RedRef::cast)
             .nth(1)
             .expect("named pair is missing expression")
     }
 }
 
-node!(
+node! {
     /// A template expression: `[*Hi* there!]`.
     Template => TemplateExpr
-);
+}
 
 impl TemplateExpr {
     /// The contents of the template.
@@ -239,10 +239,10 @@ impl TemplateExpr {
     }
 }
 
-node!(
+node! {
     /// A grouped expression: `(1 + 2)`.
     Group => GroupExpr
-);
+}
 
 impl GroupExpr {
     /// The wrapped expression.
@@ -253,22 +253,22 @@ impl GroupExpr {
     }
 }
 
-node!(
+node! {
     /// A block expression: `{ let x = 1; x + 2 }`.
     Block => BlockExpr
-);
+}
 
 impl BlockExpr {
     /// The list of expressions contained in the block.
-    pub fn exprs(&self) -> Vec<Expr> {
-        self.0.children().filter_map(RedTicket::cast).collect()
+    pub fn exprs<'a>(&'a self) -> impl Iterator<Item = Expr> + 'a {
+        self.0.children().filter_map(RedRef::cast)
     }
 }
 
-node!(
+node! {
     /// A unary operation: `-x`.
     Unary => UnaryExpr
-);
+}
 
 impl UnaryExpr {
     /// The operator: `-`.
@@ -298,7 +298,7 @@ pub enum UnOp {
 }
 
 impl TypedNode for UnOp {
-    fn cast_from(node: RedTicket) -> Option<Self> {
+    fn cast_from(node: RedRef) -> Option<Self> {
         Self::from_token(node.kind())
     }
 }
@@ -332,10 +332,10 @@ impl UnOp {
     }
 }
 
-node!(
+node! {
     /// A binary operation: `a + b`.
     Binary => BinaryExpr
-);
+}
 
 impl BinaryExpr {
     /// The binary operator: `+`.
@@ -356,7 +356,7 @@ impl BinaryExpr {
     pub fn rhs(&self) -> Expr {
         self.0
             .children()
-            .filter_map(RedTicket::cast)
+            .filter_map(RedRef::cast)
             .nth(1)
             .expect("binary expression is missing right-hand side")
     }
@@ -402,7 +402,7 @@ pub enum BinOp {
 }
 
 impl TypedNode for BinOp {
-    fn cast_from(node: RedTicket) -> Option<Self> {
+    fn cast_from(node: RedRef) -> Option<Self> {
         Self::from_token(node.kind())
     }
 }
@@ -504,10 +504,10 @@ pub enum Associativity {
     Right,
 }
 
-node!(
+node! {
     /// An invocation of a function: `foo(...)`.
     Call => CallExpr
-);
+}
 
 impl CallExpr {
     /// The function to call.
@@ -523,15 +523,15 @@ impl CallExpr {
     }
 }
 
-node!(
+node! {
     /// The arguments to a function: `12, draw: false`.
     CallArgs
-);
+}
 
 impl CallArgs {
     /// The positional and named arguments.
-    pub fn items(&self) -> Vec<CallArg> {
-        self.0.children().filter_map(RedTicket::cast).collect()
+    pub fn items<'a>(&'a self) -> impl Iterator<Item = CallArg> + 'a {
+        self.0.children().filter_map(RedRef::cast)
     }
 }
 
@@ -547,14 +547,13 @@ pub enum CallArg {
 }
 
 impl TypedNode for CallArg {
-    fn cast_from(node: RedTicket) -> Option<Self> {
+    fn cast_from(node: RedRef) -> Option<Self> {
         match node.kind() {
             NodeKind::Named => Some(CallArg::Named(
                 node.cast().expect("named call argument is missing name"),
             )),
             NodeKind::ParameterSink => Some(CallArg::Spread(
-                node.own()
-                    .cast_first_child()
+                node.cast_first_child()
                     .expect("call argument sink is missing expression"),
             )),
             _ => Some(CallArg::Pos(node.cast()?)),
@@ -573,10 +572,10 @@ impl CallArg {
     }
 }
 
-node!(
+node! {
     /// A closure expression: `(x, y) => z`.
     Closure => ClosureExpr
-);
+}
 
 impl ClosureExpr {
     /// The name of the closure.
@@ -589,15 +588,13 @@ impl ClosureExpr {
     }
 
     /// The parameter bindings.
-    pub fn params(&self) -> Vec<ClosureParam> {
+    pub fn params<'a>(&'a self) -> impl Iterator<Item = ClosureParam> + 'a {
         self.0
             .children()
             .find(|x| x.kind() == &NodeKind::ClosureParams)
             .expect("closure is missing parameter list")
-            .own()
             .children()
-            .filter_map(RedTicket::cast)
-            .collect()
+            .filter_map(RedRef::cast)
     }
 
     /// The body of the closure.
@@ -607,8 +604,8 @@ impl ClosureExpr {
         self.0.cast_last_child().expect("closure is missing body")
     }
 
-    /// The ticket of the body of the closure.
-    pub fn body_ticket(&self) -> RedTicket {
+    /// The red node reference of the body of the closure.
+    pub fn body_ref(&self) -> RedRef {
         self.0
             .children()
             .filter(|x| x.cast::<Expr>().is_some())
@@ -629,17 +626,16 @@ pub enum ClosureParam {
 }
 
 impl TypedNode for ClosureParam {
-    fn cast_from(node: RedTicket) -> Option<Self> {
+    fn cast_from(node: RedRef) -> Option<Self> {
         match node.kind() {
             NodeKind::Ident(i) => {
-                Some(ClosureParam::Pos(Ident::new(i, node.own().span()).unwrap()))
+                Some(ClosureParam::Pos(Ident::new(i, node.span()).unwrap()))
             }
             NodeKind::Named => Some(ClosureParam::Named(
                 node.cast().expect("named closure parameter is missing name"),
             )),
             NodeKind::ParameterSink => Some(ClosureParam::Sink(
-                node.own()
-                    .cast_first_child()
+                node.cast_first_child()
                     .expect("closure parameter sink is missing identifier"),
             )),
             _ => Some(ClosureParam::Pos(node.cast()?)),
@@ -647,10 +643,10 @@ impl TypedNode for ClosureParam {
     }
 }
 
-node!(
+node! {
     /// A with expression: `f with (x, y: 1)`.
     WithExpr
-);
+}
 
 impl WithExpr {
     /// The function to apply the arguments to.
@@ -668,10 +664,10 @@ impl WithExpr {
     }
 }
 
-node!(
+node! {
     /// A let expression: `let x = 1`.
     LetExpr
-);
+}
 
 impl LetExpr {
     /// The binding to assign to.
@@ -693,7 +689,7 @@ impl LetExpr {
     /// The expression the binding is initialized with.
     pub fn init(&self) -> Option<Expr> {
         if self.0.cast_first_child::<Ident>().is_some() {
-            self.0.children().filter_map(RedTicket::cast).nth(1)
+            self.0.children().filter_map(RedRef::cast).nth(1)
         } else {
             Some(
                 self.0
@@ -703,8 +699,9 @@ impl LetExpr {
         }
     }
 
-    /// The ticket for the expression the binding is initialized with.
-    pub fn init_ticket(&self) -> RedTicket {
+    /// The red node reference for the expression the binding is initialized
+    /// with.
+    pub fn init_ref(&self) -> RedRef {
         if self.0.cast_first_child::<Ident>().is_some() {
             self.0.children().filter(|x| x.cast::<Expr>().is_some()).nth(1)
         } else {
@@ -714,10 +711,10 @@ impl LetExpr {
     }
 }
 
-node!(
+node! {
     /// An import expression: `import a, b, c from "utils.typ"`.
     ImportExpr
-);
+}
 
 impl ImportExpr {
     /// The items to be imported.
@@ -745,11 +742,11 @@ pub enum Imports {
 }
 
 impl TypedNode for Imports {
-    fn cast_from(node: RedTicket) -> Option<Self> {
+    fn cast_from(node: RedRef) -> Option<Self> {
         match node.kind() {
             NodeKind::Star => Some(Imports::Wildcard),
             NodeKind::ImportItems => {
-                let idents = node.own().children().filter_map(RedTicket::cast).collect();
+                let idents = node.children().filter_map(RedRef::cast).collect();
                 Some(Imports::Idents(idents))
             }
             _ => None,
@@ -757,10 +754,10 @@ impl TypedNode for Imports {
     }
 }
 
-node!(
+node! {
     /// An include expression: `include "chapter1.typ"`.
     IncludeExpr
-);
+}
 
 impl IncludeExpr {
     /// The location of the file to be included.
@@ -771,10 +768,10 @@ impl IncludeExpr {
     }
 }
 
-node!(
+node! {
     /// An if-else expression: `if x { y } else { z }`.
     IfExpr
-);
+}
 
 impl IfExpr {
     /// The condition which selects the body to evaluate.
@@ -788,21 +785,21 @@ impl IfExpr {
     pub fn if_body(&self) -> Expr {
         self.0
             .children()
-            .filter_map(RedTicket::cast)
+            .filter_map(RedRef::cast)
             .nth(1)
             .expect("if expression is missing if body")
     }
 
     /// The expression to evaluate if the condition is false.
     pub fn else_body(&self) -> Option<Expr> {
-        self.0.children().filter_map(RedTicket::cast).nth(2)
+        self.0.children().filter_map(RedRef::cast).nth(2)
     }
 }
 
-node!(
+node! {
     /// A while loop expression: `while x { y }`.
     WhileExpr
-);
+}
 
 impl WhileExpr {
     /// The condition which selects whether to evaluate the body.
@@ -816,16 +813,16 @@ impl WhileExpr {
     pub fn body(&self) -> Expr {
         self.0
             .children()
-            .filter_map(RedTicket::cast)
+            .filter_map(RedRef::cast)
             .nth(1)
             .expect("while loop expression is missing body")
     }
 }
 
-node!(
+node! {
     /// A for loop expression: `for x in y { z }`.
     ForExpr
-);
+}
 
 impl ForExpr {
     /// The pattern to assign to.
@@ -846,13 +843,13 @@ impl ForExpr {
     pub fn body(&self) -> Expr {
         self.0
             .children()
-            .filter_map(RedTicket::cast)
+            .filter_map(RedRef::cast)
             .last()
             .expect("for loop expression is missing body")
     }
 
-    /// The ticket for the expression to evaluate for each iteration.
-    pub fn body_ticket(&self) -> RedTicket {
+    /// The red node reference for the expression to evaluate for each iteration.
+    pub fn body_ref(&self) -> RedRef {
         self.0
             .children()
             .filter(|x| x.cast::<Expr>().is_some())
@@ -861,14 +858,14 @@ impl ForExpr {
     }
 }
 
-node!(
+node! {
     /// A for-in loop expression: `for x in y { z }`.
     ForPattern
-);
+}
 
 impl ForPattern {
     pub fn key(&self) -> Option<Ident> {
-        let mut items: Vec<_> = self.0.children().filter_map(RedTicket::cast).collect();
+        let mut items: Vec<_> = self.0.children().filter_map(RedRef::cast).collect();
         if items.len() > 1 { Some(items.remove(0)) } else { None }
     }
 

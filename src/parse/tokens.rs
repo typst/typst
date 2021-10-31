@@ -224,8 +224,8 @@ impl<'s> Tokens<'s> {
     }
 
     fn backslash(&mut self) -> NodeKind {
-        if let Some(c) = self.s.peek() {
-            match c {
+        match self.s.peek() {
+            Some(c) => match c {
                 // Backslash and comments.
                 '\\' | '/' |
                 // Parenthesis and hashtag.
@@ -247,9 +247,8 @@ impl<'s> Tokens<'s> {
                 }
                 c if c.is_whitespace() => NodeKind::Linebreak,
                 _ => NodeKind::Text("\\".into()),
-            }
-        } else {
-            NodeKind::Linebreak
+            },
+            None => NodeKind::Linebreak,
         }
     }
 
@@ -257,10 +256,9 @@ impl<'s> Tokens<'s> {
     fn hash(&mut self) -> NodeKind {
         if self.s.check_or(false, is_id_start) {
             let read = self.s.eat_while(is_id_continue);
-            if let Some(keyword) = keyword(read) {
-                keyword
-            } else {
-                NodeKind::Ident(read.into())
+            match keyword(read) {
+                Some(keyword) => keyword,
+                None => NodeKind::Ident(read.into()),
             }
         } else {
             NodeKind::Text("#".into())

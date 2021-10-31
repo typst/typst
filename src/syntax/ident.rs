@@ -3,7 +3,7 @@ use std::ops::Deref;
 
 use unicode_xid::UnicodeXID;
 
-use super::{NodeKind, RedTicket, Span, TypedNode};
+use super::{NodeKind, RedRef, Span, TypedNode};
 use crate::util::EcoString;
 
 /// An unicode identifier with a few extra permissible characters.
@@ -67,11 +67,10 @@ impl From<&Ident> for EcoString {
 }
 
 impl TypedNode for Ident {
-    fn cast_from(node: RedTicket) -> Option<Self> {
-        if let NodeKind::Ident(i) = node.kind() {
-            Some(Ident::new(i, node.own().span()).unwrap())
-        } else {
-            None
+    fn cast_from(node: RedRef) -> Option<Self> {
+        match node.kind() {
+            NodeKind::Ident(i) => Some(Ident::new(i, node.span()).unwrap()),
+            _ => None,
         }
     }
 }
