@@ -121,12 +121,12 @@ pub enum NodeKind {
     Text(EcoString),
     /// A slash and the letter "u" followed by a hexadecimal unicode entity
     /// enclosed in curly braces: `\u{1F5FA}`.
-    UnicodeEscape(UnicodeEscapeToken),
+    UnicodeEscape(Rc<UnicodeEscapeToken>),
     /// An arbitrary number of backticks followed by inner contents, terminated
     /// with the same number of backticks: `` `...` ``.
-    Raw(RawToken),
+    Raw(Rc<RawToken>),
     /// Dollar signs surrounding inner contents.
-    Math(MathToken),
+    Math(Rc<MathToken>),
     /// A numbering: `23.`.
     ///
     /// Can also exist without the number: `.`.

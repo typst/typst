@@ -2,15 +2,10 @@ use crate::util::EcoString;
 
 /// A quoted string token: `"..."`.
 #[derive(Debug, Clone, PartialEq)]
+#[repr(transparent)]
 pub struct StrToken {
     /// The string inside the quotes.
-    ///
-    /// _Note_: If the string contains escape sequences these are not yet
-    /// applied to be able to just store a string slice here instead of
-    /// a `String`. The resolving is done later in the parser.
     pub string: EcoString,
-    /// Whether the closing quote was present.
-    pub terminated: bool,
 }
 
 /// A raw block token: `` `...` ``.
@@ -22,8 +17,6 @@ pub struct RawToken {
     pub lang: Option<EcoString>,
     /// The number of opening backticks.
     pub backticks: u8,
-    /// Whether all closing backticks were present.
-    pub terminated: bool,
     /// Whether to display this as a block.
     pub block: bool,
 }
@@ -36,8 +29,6 @@ pub struct MathToken {
     /// Whether the formula is display-level, that is, it is surrounded by
     /// `$[..]`.
     pub display: bool,
-    /// Whether the closing dollars were present.
-    pub terminated: bool,
 }
 
 /// A unicode escape sequence token: `\u{1F5FA}`.
@@ -47,15 +38,4 @@ pub struct UnicodeEscapeToken {
     pub sequence: EcoString,
     /// The resulting unicode character.
     pub character: Option<char>,
-    /// Whether the closing brace was present.
-    pub terminated: bool,
-}
-
-/// A unit-bound number token: `1.2em`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct UnitToken {
-    /// The number part.
-    pub number: std::ops::Range<usize>,
-    /// The unit part.
-    pub unit: std::ops::Range<usize>,
 }

@@ -87,18 +87,10 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | NodeKind::NonBreakingSpace
         | NodeKind::Emph
         | NodeKind::Strong
-        | NodeKind::Linebreak => p.eat(),
+        | NodeKind::Linebreak
+        | NodeKind::Raw(_) => p.eat(),
 
         NodeKind::UnicodeEscape(u) => {
-            if !u.terminated {
-                p.convert(NodeKind::Error(
-                    ErrorPosition::End,
-                    "expected closing brace".into(),
-                ));
-                p.unsuccessful();
-                return;
-            }
-
             if u.character.is_none() {
                 let src = p.peek_src();
                 p.convert(NodeKind::Error(
@@ -107,18 +99,6 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
                 ));
                 p.start();
                 p.end(NodeKind::Text(src.into()));
-                return;
-            }
-
-            p.eat();
-        }
-        NodeKind::Raw(r) => {
-            if !r.terminated {
-                p.convert(NodeKind::Error(
-                    ErrorPosition::End,
-                    "expected backtick(s)".into(),
-                ));
-                p.unsuccessful();
                 return;
             }
 
@@ -159,6 +139,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
 
         // Comments.
         NodeKind::LineComment | NodeKind::BlockComment => p.eat(),
+        NodeKind::Error(t, e) if t != &ErrorPosition::Full || e.contains(' ') => p.eat(),
 
         _ => {
             *at_start = false;
@@ -338,6 +319,10 @@ fn primary(p: &mut Parser, atomic: bool) {
         Some(NodeKind::Import) => import_expr(p),
         Some(NodeKind::Include) => include_expr(p),
 
+        Some(NodeKind::Error(t, e)) if t != &ErrorPosition::Full || e.contains(' ') => {
+            p.eat();
+        }
+
         // Nothing.
         _ => {
             p.expected("expression");
@@ -363,13 +348,9 @@ fn literal(p: &mut Parser) -> bool {
         | NodeKind::Fraction(_)
         | NodeKind::Length(_, _)
         | NodeKind::Angle(_, _)
-        | NodeKind::Percentage(_) => p.eat(),
-        NodeKind::Str(s) => {
-            p.eat();
-            if !s.terminated {
-                p.expected_at("quote");
-            }
-        }
+        | NodeKind::Percentage(_)
+        | NodeKind::Str(_) => p.eat(),
+
         _ => return false,
     }
 

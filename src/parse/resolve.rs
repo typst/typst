@@ -46,12 +46,7 @@ pub fn resolve_hex(sequence: &str) -> Option<char> {
 }
 
 /// Resolve the language tag and trims the raw text.
-pub fn resolve_raw(
-    column: usize,
-    backticks: u8,
-    text: &str,
-    terminated: bool,
-) -> RawToken {
+pub fn resolve_raw(column: usize, backticks: u8, text: &str) -> RawToken {
     if backticks > 1 {
         let (tag, inner) = split_at_lang_tag(text);
         let (text, block) = trim_and_split_raw(column, inner);
@@ -59,7 +54,6 @@ pub fn resolve_raw(
             lang: Some(tag.into()),
             text: text.into(),
             backticks,
-            terminated,
             block,
         }
     } else {
@@ -67,7 +61,6 @@ pub fn resolve_raw(
             lang: None,
             text: split_lines(text).join("\n").into(),
             backticks,
-            terminated,
             block: false,
         }
     }
@@ -194,7 +187,7 @@ mod tests {
             text: &str,
             block: bool,
         ) {
-            let node = resolve_raw(column, backticks, raw, true);
+            let node = resolve_raw(column, backticks, raw);
             assert_eq!(node.lang.as_deref(), lang);
             assert_eq!(node.text, text);
             assert_eq!(node.block, block);

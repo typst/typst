@@ -5,6 +5,8 @@ use crate::source::SourceFile;
 use crate::syntax::*;
 use crate::util::EcoString;
 
+use std::rc::Rc;
+
 /// An iterator over the tokens of a string of source code.
 pub struct Tokens<'s> {
     source: &'s SourceFile,
@@ -239,11 +241,18 @@ impl<'s> Tokens<'s> {
                     self.s.eat_assert('u');
                     self.s.eat_assert('{');
                     let sequence: EcoString = self.s.eat_while(|c| c.is_ascii_alphanumeric()).into();
-                    NodeKind::UnicodeEscape(UnicodeEscapeToken {
-                        character: resolve_hex(&sequence),
-                        sequence,
-                        terminated: self.s.eat_if('}')
-                    })
+
+                    if self.s.eat_if('}') {
+                        NodeKind::UnicodeEscape(Rc::new(UnicodeEscapeToken {
+                            character: resolve_hex(&sequence),
+                            sequence,
+                        }))
+                    } else {
+                        NodeKind::Error(
+                            ErrorPosition::End,
+                            "expected closing brace".into(),
+                        )
+                    }
                 }
                 c if c.is_whitespace() => NodeKind::Linebreak,
                 _ => NodeKind::Text("\\".into()),
@@ -307,13 +316,12 @@ impl<'s> Tokens<'s> {
 
         // Special case for empty inline block.
         if backticks == 2 {
-            return NodeKind::Raw(RawToken {
+            return NodeKind::Raw(Rc::new(RawToken {
                 text: EcoString::new(),
                 lang: None,
                 backticks: 1,
-                terminated: true,
                 block: false,
-            });
+            }));
         }
 
         let start = self.s.index();
@@ -330,12 +338,26 @@ impl<'s> Tokens<'s> {
         let terminated = found == backticks;
         let end = self.s.index() - if terminated { found as usize } else { 0 };
 
-        NodeKind::Raw(resolve_raw(
-            column,
-            backticks,
-            self.s.get(start .. end).into(),
-            terminated,
-        ))
+        if terminated {
+            NodeKind::Raw(Rc::new(resolve_raw(
+                column,
+                backticks,
+                self.s.get(start .. end).into(),
+            )))
+        } else {
+            let remaining = backticks - found;
+            let noun = if remaining == 1 { "backtick" } else { "backticks" };
+
+            NodeKind::Error(
+                ErrorPosition::End,
+                if found == 0 {
+                    format!("expected {} {}", remaining, noun)
+                } else {
+                    format!("expected {} more {}", remaining, noun)
+                }
+                .into(),
+            )
+        }
     }
 
     fn math(&mut self) -> NodeKind {
@@ -368,11 +390,22 @@ impl<'s> Tokens<'s> {
                 (true, true) => 2,
             };
 
-        NodeKind::Math(MathToken {
-            formula: self.s.get(start .. end).into(),
-            display,
-            terminated,
-        })
+        if terminated {
+            NodeKind::Math(Rc::new(MathToken {
+                formula: self.s.get(start .. end).into(),
+                display,
+            }))
+        } else {
+            NodeKind::Error(
+                ErrorPosition::End,
+                if display {
+                    "expected closing dollar sign"
+                } else {
+                    "expected display math closure sequence"
+                }
+                .into(),
+            )
+        }
     }
 
     fn ident(&mut self, start: usize) -> NodeKind {
@@ -444,17 +477,19 @@ impl<'s> Tokens<'s> {
 
     fn string(&mut self) -> NodeKind {
         let mut escaped = false;
-        NodeKind::Str(StrToken {
-            string: resolve_string(self.s.eat_until(|c| {
-                if c == '"' && !escaped {
-                    true
-                } else {
-                    escaped = c == '\\' && !escaped;
-                    false
-                }
-            })),
-            terminated: self.s.eat_if('"'),
-        })
+        let string = resolve_string(self.s.eat_until(|c| {
+            if c == '"' && !escaped {
+                true
+            } else {
+                escaped = c == '\\' && !escaped;
+                false
+            }
+        }));
+        if self.s.eat_if('"') {
+            NodeKind::Str(StrToken { string })
+        } else {
+            NodeKind::Error(ErrorPosition::End, "expected quote".into())
+        }
     }
 
     fn line_comment(&mut self) -> NodeKind {
@@ -526,39 +561,68 @@ mod tests {
     use TokenMode::{Code, Markup};
 
     fn UnicodeEscape(sequence: &str, terminated: bool) -> NodeKind {
-        NodeKind::UnicodeEscape(UnicodeEscapeToken {
-            character: resolve_hex(sequence),
-            sequence: sequence.into(),
-            terminated,
-        })
+        if terminated {
+            NodeKind::UnicodeEscape(Rc::new(UnicodeEscapeToken {
+                character: resolve_hex(sequence),
+                sequence: sequence.into(),
+            }))
+        } else {
+            NodeKind::Error(ErrorPosition::End, "expected closing brace".into())
+        }
     }
 
     fn Raw(
         text: &str,
         lang: Option<&str>,
-        backticks: u8,
-        terminated: bool,
+        backticks_left: u8,
+        backticks_right: u8,
         block: bool,
     ) -> NodeKind {
-        NodeKind::Raw(RawToken {
-            text: text.into(),
-            lang: lang.map(Into::into),
-            backticks,
-            terminated,
-            block,
-        })
+        if backticks_left == backticks_right {
+            NodeKind::Raw(Rc::new(RawToken {
+                text: text.into(),
+                lang: lang.map(Into::into),
+                backticks: backticks_left,
+                block,
+            }))
+        } else {
+            let remaining = backticks_left - backticks_right;
+            let noun = if remaining == 1 { "backtick" } else { "backticks" };
+
+            NodeKind::Error(
+                ErrorPosition::End,
+                if backticks_right == 0 {
+                    format!("expected {} {}", remaining, noun)
+                } else {
+                    format!("expected {} more {}", remaining, noun)
+                }
+                .into(),
+            )
+        }
     }
 
     fn Math(formula: &str, display: bool, terminated: bool) -> NodeKind {
-        NodeKind::Math(MathToken {
-            formula: formula.into(),
-            display,
-            terminated,
-        })
+        if terminated {
+            NodeKind::Math(Rc::new(MathToken { formula: formula.into(), display }))
+        } else {
+            NodeKind::Error(
+                ErrorPosition::End,
+                if display {
+                    "expected closing dollar sign"
+                } else {
+                    "expected display math closure sequence"
+                }
+                .into(),
+            )
+        }
     }
 
     fn Str(string: &str, terminated: bool) -> NodeKind {
-        NodeKind::Str(StrToken { string: string.into(), terminated })
+        if terminated {
+            NodeKind::Str(StrToken { string: string.into() })
+        } else {
+            NodeKind::Error(ErrorPosition::End, "expected quote".into())
+        }
     }
 
     fn Text(string: &str) -> NodeKind {
@@ -844,22 +908,22 @@ mod tests {
     #[test]
     fn test_tokenize_raw_blocks() {
         // Test basic raw block.
-        t!(Markup: "``"     => Raw("", None, 1, true, false));
-        t!(Markup: "`raw`"  => Raw("raw", None, 1, true, false));
-        t!(Markup[""]: "`]" => Raw("]", None, 1, false, false));
+        t!(Markup: "``"     => Raw("", None, 1, 1, false));
+        t!(Markup: "`raw`"  => Raw("raw", None, 1, 1, false));
+        t!(Markup[""]: "`]" => Raw("]", None, 1, 0, false));
 
         // Test special symbols in raw block.
-        t!(Markup: "`[brackets]`" => Raw("[brackets]", None, 1, true, false));
-        t!(Markup[""]: r"`\`` "   => Raw(r"\", None, 1, true, false), Raw(" ", None, 1, false, false));
+        t!(Markup: "`[brackets]`" => Raw("[brackets]", None, 1, 1, false));
+        t!(Markup[""]: r"`\`` "   => Raw(r"\", None, 1, 1, false), Raw(" ", None, 1, 0, false));
 
         // Test separated closing backticks.
-        t!(Markup: "```not `y`e`t```" => Raw("`y`e`t", Some("not"), 3, true, false));
+        t!(Markup: "```not `y`e`t```" => Raw("`y`e`t", Some("not"), 3, 3, false));
 
         // Test more backticks.
-        t!(Markup: "``nope``"             => Raw("", None, 1, true, false), Text("nope"), Raw("", None, 1, true, false));
-        t!(Markup: "````🚀````"           => Raw("", Some("🚀"), 4, true, false));
-        t!(Markup[""]: "`````👩‍🚀````noend" => Raw("````noend", Some("👩‍🚀"), 5, false, false));
-        t!(Markup[""]: "````raw``````"    => Raw("", Some("raw"), 4, true, false), Raw("", None, 1, true, false));
+        t!(Markup: "``nope``"             => Raw("", None, 1, 1, false), Text("nope"), Raw("", None, 1, 1, false));
+        t!(Markup: "````🚀````"           => Raw("", Some("🚀"), 4, 4, false));
+        t!(Markup[""]: "`````👩‍🚀````noend" => Raw("````noend", Some("👩‍🚀"), 5, 0, false));
+        t!(Markup[""]: "````raw``````"    => Raw("", Some("raw"), 4, 4, false), Raw("", None, 1, 1, false));
     }
 
     #[test]

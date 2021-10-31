@@ -30,7 +30,6 @@ use std::collections::HashMap;
 use std::io;
 use std::mem;
 use std::path::PathBuf;
-use std::rc::Rc;
 
 use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
 use crate::geom::{Angle, Fractional, Length, Relative};
@@ -475,7 +474,7 @@ impl Eval for ClosureExpr {
 
         // Clone the body expression so that we don't have a lifetime
         // dependence on the AST.
-        let body = Rc::new(self.body());
+        let body = self.body().clone();
 
         // Define the actual function.
         let func = Function::new(name, move |ctx, args| {
