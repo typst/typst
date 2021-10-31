@@ -1,7 +1,6 @@
 use super::{Expr, Ident, NodeKind, RedNode, RedRef, Span, TypedNode};
 use crate::node;
 use crate::util::EcoString;
-use std::fmt::Write;
 
 node! {
     /// The syntactical root capable of representing a full parsed document.
@@ -50,14 +49,7 @@ impl TypedNode for MarkupNode {
             NodeKind::Strong => Some(MarkupNode::Strong),
             NodeKind::Emph => Some(MarkupNode::Emph),
             NodeKind::Text(s) => Some(MarkupNode::Text(s.clone())),
-            NodeKind::UnicodeEscape(u) => Some(MarkupNode::Text(match u.character {
-                Some(c) => c.into(),
-                None => {
-                    let mut eco = EcoString::with_capacity(u.sequence.len() + 4);
-                    write!(&mut eco, "\\u{{{}}}", u.sequence).unwrap();
-                    eco
-                }
-            })),
+            NodeKind::UnicodeEscape(u) => Some(MarkupNode::Text(u.character.into())),
             NodeKind::EnDash => Some(MarkupNode::Text(EcoString::from("\u{2013}"))),
             NodeKind::EmDash => Some(MarkupNode::Text(EcoString::from("\u{2014}"))),
             NodeKind::NonBreakingSpace => {

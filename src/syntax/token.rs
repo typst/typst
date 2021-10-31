@@ -33,9 +33,8 @@ pub struct MathToken {
 
 /// A unicode escape sequence token: `\u{1F5FA}`.
 #[derive(Debug, Clone, PartialEq)]
+#[repr(transparent)]
 pub struct UnicodeEscapeToken {
-    /// The escape sequence between the braces.
-    pub sequence: EcoString,
     /// The resulting unicode character.
-    pub character: Option<char>,
+    pub character: char,
 }

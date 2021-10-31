@@ -186,9 +186,27 @@ impl<'s> Parser<'s> {
     }
 
     pub fn convert(&mut self, kind: NodeKind) {
-        self.start();
-        self.eat();
-        self.end(kind);
+        let len = self.tokens.index() - self.next_start;
+
+        self.children.push(
+            GreenNode::with_child(
+                kind,
+                len,
+                GreenData::new(self.next.clone().unwrap(), len),
+            )
+            .into(),
+        );
+        self.fast_forward();
+        self.success = true;
+    }
+
+    pub fn convert_with(&mut self, preserve: usize, kind: NodeKind) {
+        let preserved: Vec<_> =
+            self.children.drain(self.children.len() - preserve ..).collect();
+        let len = preserved.iter().map(|c| c.len()).sum();
+        self.children
+            .push(GreenNode::with_children(kind, len, preserved).into());
+        self.success = true;
     }
 
     /// End the current node and undo its existence, inling all accumulated

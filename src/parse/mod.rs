@@ -54,7 +54,10 @@ where
     while !p.eof() && f(p) {
         markup_node(p, &mut at_start);
         if let Some(node) = p.last_child() {
-            at_start &= matches!(node.kind(), &NodeKind::Space(_) | &NodeKind::Parbreak | &NodeKind::LineComment | &NodeKind::BlockComment);
+            at_start &= matches!(node.kind(),
+                &NodeKind::Space(_) | &NodeKind::Parbreak |
+                &NodeKind::LineComment | &NodeKind::BlockComment
+            );
         }
     }
 
@@ -88,22 +91,8 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | NodeKind::Emph
         | NodeKind::Strong
         | NodeKind::Linebreak
-        | NodeKind::Raw(_) => p.eat(),
-
-        NodeKind::UnicodeEscape(u) => {
-            if u.character.is_none() {
-                let src = p.peek_src();
-                p.convert(NodeKind::Error(
-                    ErrorPosition::Full,
-                    "invalid unicode escape sequence".into(),
-                ));
-                p.start();
-                p.end(NodeKind::Text(src.into()));
-                return;
-            }
-
-            p.eat();
-        }
+        | NodeKind::Raw(_)
+        | NodeKind::UnicodeEscape(_) => p.eat(),
 
         NodeKind::Eq if *at_start => heading(p),
         NodeKind::ListBullet if *at_start => list_node(p),
@@ -503,9 +492,8 @@ fn item(p: &mut Parser) -> NodeKind {
 /// Convert a collection into an array, producing errors for anything other than
 /// expressions.
 fn array(p: &mut Parser, items: usize) {
-    p.start_with(items);
     p.filter_children(
-        0,
+        p.child_count() - items,
         |x| match x.kind() {
             NodeKind::Named | NodeKind::ParameterSink => false,
             _ => true,
@@ -522,15 +510,14 @@ fn array(p: &mut Parser, items: usize) {
         },
     );
 
-    p.end(NodeKind::Array)
+    p.convert_with(items, NodeKind::Array);
 }
 
 /// Convert a collection into a dictionary, producing errors for anything other
 /// than named pairs.
 fn dict(p: &mut Parser, items: usize) {
-    p.start_with(items);
     p.filter_children(
-        0,
+        p.child_count() - items,
         |x| {
             x.kind() == &NodeKind::Named
                 || x.kind().is_parenthesis()
@@ -547,7 +534,7 @@ fn dict(p: &mut Parser, items: usize) {
             ),
         },
     );
-    p.end(NodeKind::Dict);
+    p.convert_with(items, NodeKind::Dict);
 }
 
 /// Convert a collection into a list of parameters, producing errors for
@@ -684,8 +671,7 @@ fn let_expr(p: &mut Parser) {
                 return;
             }
 
-            p.start_with(p.child_count() - offset);
-            p.end(NodeKind::Closure)
+            p.convert_with(p.child_count() - offset, NodeKind::Closure);
         }
     }
 

@@ -200,7 +200,7 @@ impl<'s> Tokens<'s> {
             TABLE.get(c as usize).copied().unwrap_or_else(|| c.is_whitespace())
         });
 
-        NodeKind::Text(resolve_string(self.s.eaten_from(start)))
+        NodeKind::Text(self.s.eaten_from(start).into())
     }
 
     fn whitespace(&mut self) -> NodeKind {
@@ -243,10 +243,16 @@ impl<'s> Tokens<'s> {
                     let sequence: EcoString = self.s.eat_while(|c| c.is_ascii_alphanumeric()).into();
 
                     if self.s.eat_if('}') {
-                        NodeKind::UnicodeEscape(Rc::new(UnicodeEscapeToken {
-                            character: resolve_hex(&sequence),
-                            sequence,
-                        }))
+                        if let Some(character) = resolve_hex(&sequence) {
+                            NodeKind::UnicodeEscape(UnicodeEscapeToken {
+                                character,
+                            })
+                        } else {
+                            NodeKind::Error(
+                                ErrorPosition::Full,
+                                "invalid unicode escape sequence".into(),
+                            )
+                        }
                     } else {
                         NodeKind::Error(
                             ErrorPosition::End,
@@ -560,35 +566,21 @@ mod tests {
     use Option::None;
     use TokenMode::{Code, Markup};
 
-    fn UnicodeEscape(sequence: &str, terminated: bool) -> NodeKind {
-        if terminated {
-            NodeKind::UnicodeEscape(Rc::new(UnicodeEscapeToken {
-                character: resolve_hex(sequence),
-                sequence: sequence.into(),
-            }))
-        } else {
-            NodeKind::Error(ErrorPosition::End, "expected closing brace".into())
-        }
+    fn UnicodeEscape(character: char) -> NodeKind {
+        NodeKind::UnicodeEscape(UnicodeEscapeToken { character })
     }
 
-    fn Raw(
-        text: &str,
-        lang: Option<&str>,
-        backticks_left: u8,
-        err_msg: Option<&str>,
-        block: bool,
-    ) -> NodeKind {
-        match err_msg {
-            None => NodeKind::Raw(Rc::new(RawToken {
-                text: text.into(),
-                lang: lang.map(Into::into),
-                backticks: backticks_left,
-                block,
-            })),
-            Some(msg) => {
-                NodeKind::Error(ErrorPosition::End, format!("expected {}", msg).into())
-            }
-        }
+    fn Error(pos: ErrorPosition, message: &str) -> NodeKind {
+        NodeKind::Error(pos, message.into())
+    }
+
+    fn Raw(text: &str, lang: Option<&str>, backticks_left: u8, block: bool) -> NodeKind {
+        NodeKind::Raw(Rc::new(RawToken {
+            text: text.into(),
+            lang: lang.map(Into::into),
+            backticks: backticks_left,
+            block,
+        }))
     }
 
     fn Math(formula: &str, display: bool, err_msg: Option<&str>) -> NodeKind {
@@ -795,16 +787,16 @@ mod tests {
         t!(Markup[" /"]: r#"\""# => Text(r"\"), Text("\""));
 
         // Test basic unicode escapes.
-        t!(Markup: r"\u{}"     => UnicodeEscape("", true));
-        t!(Markup: r"\u{2603}" => UnicodeEscape("2603", true));
-        t!(Markup: r"\u{P}"    => UnicodeEscape("P", true));
+        t!(Markup: r"\u{}"     => Error(ErrorPosition::Full, "invalid unicode escape sequence"));
+        t!(Markup: r"\u{2603}" => UnicodeEscape('☃'));
+        t!(Markup: r"\u{P}"    => Error(ErrorPosition::Full, "invalid unicode escape sequence"));
 
         // Test unclosed unicode escapes.
-        t!(Markup[" /"]: r"\u{"     => UnicodeEscape("", false));
-        t!(Markup[" /"]: r"\u{1"    => UnicodeEscape("1", false));
-        t!(Markup[" /"]: r"\u{26A4" => UnicodeEscape("26A4", false));
-        t!(Markup[" /"]: r"\u{1Q3P" => UnicodeEscape("1Q3P", false));
-        t!(Markup: r"\u{1🏕}"       => UnicodeEscape("1", false), Text("🏕"), RightBrace);
+        t!(Markup[" /"]: r"\u{"     => Error(ErrorPosition::End, "expected closing brace"));
+        t!(Markup[" /"]: r"\u{1"    => Error(ErrorPosition::End, "expected closing brace"));
+        t!(Markup[" /"]: r"\u{26A4" => Error(ErrorPosition::End, "expected closing brace"));
+        t!(Markup[" /"]: r"\u{1Q3P" => Error(ErrorPosition::End, "expected closing brace"));
+        t!(Markup: r"\u{1🏕}"       => Error(ErrorPosition::End, "expected closing brace"), Text("🏕"), RightBrace);
     }
 
     #[test]
@@ -894,22 +886,22 @@ mod tests {
     #[test]
     fn test_tokenize_raw_blocks() {
         // Test basic raw block.
-        t!(Markup: "``"     => Raw("", None, 1, None, false));
-        t!(Markup: "`raw`"  => Raw("raw", None, 1, None, false));
-        t!(Markup[""]: "`]" => Raw("]", None, 1, Some("1 backtick"), false));
+        t!(Markup: "``"     => Raw("", None, 1, false));
+        t!(Markup: "`raw`"  => Raw("raw", None, 1, false));
+        t!(Markup[""]: "`]" => Error(ErrorPosition::End, "expected 1 backtick"));
 
         // Test special symbols in raw block.
-        t!(Markup: "`[brackets]`" => Raw("[brackets]", None, 1, None, false));
-        t!(Markup[""]: r"`\`` "   => Raw(r"\", None, 1, None, false), Raw(" ", None, 1, Some("1 backtick"), false));
+        t!(Markup: "`[brackets]`" => Raw("[brackets]", None, 1, false));
+        t!(Markup[""]: r"`\`` "   => Raw(r"\", None, 1, false), Error(ErrorPosition::End, "expected 1 backtick"));
 
         // Test separated closing backticks.
-        t!(Markup: "```not `y`e`t```" => Raw("`y`e`t", Some("not"), 3, None, false));
+        t!(Markup: "```not `y`e`t```" => Raw("`y`e`t", Some("not"), 3, false));
 
         // Test more backticks.
-        t!(Markup: "``nope``"             => Raw("", None, 1, None, false), Text("nope"), Raw("", None, 1, None, false));
-        t!(Markup: "````🚀````"           => Raw("", Some("🚀"), 4, None, false));
-        t!(Markup[""]: "`````👩‍🚀````noend" => Raw("````noend", Some("👩‍🚀"), 5, Some("5 backticks"), false));
-        t!(Markup[""]: "````raw``````"    => Raw("", Some("raw"), 4, None, false), Raw("", None, 1, None, false));
+        t!(Markup: "``nope``"             => Raw("", None, 1, false), Text("nope"), Raw("", None, 1, false));
+        t!(Markup: "````🚀````"           => Raw("", Some("🚀"), 4, false));
+        t!(Markup[""]: "`````👩‍🚀````noend" => Error(ErrorPosition::End, "expected 5 backticks"));
+        t!(Markup[""]: "````raw``````"    => Raw("", Some("raw"), 4, false), Raw("", None, 1, false));
     }
 
     #[test]
