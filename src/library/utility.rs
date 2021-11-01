@@ -90,7 +90,7 @@ pub fn rgb(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         if let Some(string) = args.find::<Spanned<Str>>() {
             match RgbaColor::from_str(&string.v) {
                 Ok(color) => color,
-                Err(_) => bail!(string.span, "invalid color"),
+                Err(_) => bail!(string.span, "invalid hex string"),
             }
         } else {
             let r = args.expect("red component")?;

@@ -169,6 +169,7 @@ mod tests {
             Path::new("fonts/NotoSerifHebrew-Bold.ttf"),
             Path::new("fonts/NotoSerifHebrew-Regular.ttf"),
             Path::new("fonts/PTSans-Regular.ttf"),
+            Path::new("fonts/Roboto-Regular.ttf"),
             Path::new("fonts/TwitterColorEmoji.ttf"),
         ]);
     }

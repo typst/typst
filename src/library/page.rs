@@ -5,8 +5,7 @@ use crate::style::{Paper, PaperClass};
 pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     castable! {
         Paper: "string",
-        Value::Str(string) => Paper::from_name(&string)
-            .ok_or("invalid paper name")?,
+        Value::Str(string) => Paper::from_name(&string).ok_or("unknown paper")?,
     }
 
     let paper = args.named::<Paper>("paper")?.or_else(|| args.find());

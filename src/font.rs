@@ -283,7 +283,7 @@ impl Face {
 }
 
 /// Identifies a vertical metric of a font.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum VerticalFontMetric {
     /// The distance from the baseline to the typographic ascender.
     ///
@@ -304,19 +304,6 @@ pub enum VerticalFontMetric {
     /// An font-size dependent distance from the baseline (positive goes up, negative
     /// down).
     Linear(Linear),
-}
-
-impl Debug for VerticalFontMetric {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Ascender => f.pad("ascender"),
-            Self::CapHeight => f.pad("cap-height"),
-            Self::XHeight => f.pad("x-height"),
-            Self::Baseline => f.pad("baseline"),
-            Self::Descender => f.pad("descender"),
-            Self::Linear(v) => v.fmt(f),
-        }
-    }
 }
 
 /// A generic or named font family.
@@ -438,7 +425,7 @@ impl Debug for FontVariant {
 }
 
 /// The style of a font face.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FontStyle {
@@ -453,16 +440,6 @@ pub enum FontStyle {
 impl Default for FontStyle {
     fn default() -> Self {
         Self::Normal
-    }
-}
-
-impl Debug for FontStyle {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Normal => "normal",
-            Self::Italic => "italic",
-            Self::Oblique => "oblique",
-        })
     }
 }
 
@@ -530,18 +507,7 @@ impl Default for FontWeight {
 
 impl Debug for FontWeight {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match *self {
-            Self::THIN => f.pad("thin"),
-            Self::EXTRALIGHT => f.pad("extralight"),
-            Self::LIGHT => f.pad("light"),
-            Self::REGULAR => f.pad("regular"),
-            Self::MEDIUM => f.pad("medium"),
-            Self::SEMIBOLD => f.pad("semibold"),
-            Self::BOLD => f.pad("bold"),
-            Self::EXTRABOLD => f.pad("extrabold"),
-            Self::BLACK => f.pad("black"),
-            _ => write!(f, "{}", self.0),
-        }
+        write!(f, "{}", self.0)
     }
 }
 
@@ -620,18 +586,7 @@ impl Default for FontStretch {
 
 impl Debug for FontStretch {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match *self {
-            Self::ULTRA_CONDENSED => f.pad("ultra-condensed"),
-            Self::EXTRA_CONDENSED => f.pad("extra-condensed"),
-            Self::CONDENSED => f.pad("condensed"),
-            Self::SEMI_CONDENSED => f.pad("semi-condensed"),
-            Self::NORMAL => f.pad("normal"),
-            Self::SEMI_EXPANDED => f.pad("semi-expanded"),
-            Self::EXPANDED => f.pad("expanded"),
-            Self::EXTRA_EXPANDED => f.pad("extra-expanded"),
-            Self::ULTRA_EXPANDED => f.pad("ultra-expanded"),
-            _ => write!(f, "{}", self.to_ratio()),
-        }
+        write!(f, "{}%", 100.0 * self.to_ratio())
     }
 }
 
@@ -646,5 +601,10 @@ mod tests {
         assert_eq!(d(500, 500), 0);
         assert_eq!(d(500, 900), 400);
         assert_eq!(d(10, 100), 90);
+    }
+
+    #[test]
+    fn test_font_stretch_debug() {
+        assert_eq!(format!("{:?}", FontStretch::EXPANDED), "125%")
     }
 }

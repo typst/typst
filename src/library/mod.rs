@@ -46,10 +46,8 @@ pub use text::*;
 pub use transform::*;
 pub use utility::*;
 
-use std::convert::TryFrom;
-
 use crate::eval::{Scope, Value};
-use crate::font::{FontFamily, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
+use crate::font::FontFamily;
 use crate::geom::*;
 
 /// Construct a scope containing all standard library definitions.
@@ -125,16 +123,6 @@ pub fn new() -> Scope {
     std.def_const("serif", FontFamily::Serif);
     std.def_const("sans-serif", FontFamily::SansSerif);
     std.def_const("monospace", FontFamily::Monospace);
-    std.def_const("normal", FontStyle::Normal);
-    std.def_const("italic", FontStyle::Italic);
-    std.def_const("oblique", FontStyle::Oblique);
-    std.def_const("regular", FontWeight::REGULAR);
-    std.def_const("bold", FontWeight::BOLD);
-    std.def_const("ascender", VerticalFontMetric::Ascender);
-    std.def_const("cap-height", VerticalFontMetric::CapHeight);
-    std.def_const("x-height", VerticalFontMetric::XHeight);
-    std.def_const("baseline", VerticalFontMetric::Baseline);
-    std.def_const("descender", VerticalFontMetric::Descender);
 
     std
 }
@@ -150,27 +138,4 @@ dynamic! {
 dynamic! {
     FontFamily: "font family",
     Value::Str(string) => Self::Named(string.to_lowercase()),
-}
-
-dynamic! {
-    FontStyle: "font style",
-}
-
-dynamic! {
-    FontWeight: "font weight",
-    Value::Int(v) => {
-        u16::try_from(v).map_or(Self::BLACK, Self::from_number)
-    },
-}
-
-dynamic! {
-    FontStretch: "font stretch",
-    Value::Relative(v) => Self::from_ratio(v.get() as f32),
-}
-
-dynamic! {
-    VerticalFontMetric: "vertical font metric",
-    Value::Length(v) => Self::Linear(v.into()),
-    Value::Relative(v) => Self::Linear(v.into()),
-    Value::Linear(v) => Self::Linear(v),
 }
