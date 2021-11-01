@@ -520,7 +520,7 @@ fn dict(p: &mut Parser, items: usize) {
         p.child_count() - items,
         |x| {
             x.kind() == &NodeKind::Named
-                || x.kind().is_parenthesis()
+                || x.kind().is_paren()
                 || x.kind() == &NodeKind::Comma
                 || x.kind() == &NodeKind::Colon
         },
@@ -550,7 +550,7 @@ fn params(p: &mut Parser, count: usize, allow_parens: bool) {
                 ),
                 _ => false,
             }
-            || (allow_parens && x.kind().is_parenthesis()),
+            || (allow_parens && x.kind().is_paren()),
         |_| (ErrorPosition::Full, "expected identifier".into()),
     );
 }
