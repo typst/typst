@@ -19,7 +19,7 @@
 #test(rgb(0.1, 0.2, 0.3, -0.1))
 
 ---
-// Error: 6-11 invalid color
+// Error: 6-11 invalid hex string
 #rgb("lol")
 
 ---

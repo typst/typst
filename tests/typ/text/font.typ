@@ -10,10 +10,10 @@
 #font()[Normal]
 
 // Set style (is available).
-#font(style: italic)[Italic]
+#font(style: "italic")[Italic]
 
 // Set weight (is available).
-#font(weight: bold)[Bold]
+#font(weight: "bold")[Bold]
 
 // Set stretch (not available, matching closest).
 #font(stretch: 50%)[Condensed]
@@ -52,14 +52,14 @@ Emoji: 🐪, 🌋, 🏞
 #font(size: 8pt)
 
 #let try(top, bottom) = rect(fill: conifer)[
-  #font(top-edge: top, bottom-edge: bottom)
-  `From `#top` to `#bottom
+  #font(monospace, top-edge: top, bottom-edge: bottom)
+  From #top to #bottom
 ]
 
-#try(ascender, descender)
-#try(ascender, baseline)
-#try(cap-height, baseline)
-#try(x-height, baseline)
+#try("ascender", "descender")
+#try("ascender", "baseline")
+#try("cap-height", "baseline")
+#try("x-height", "baseline")
 #try(4pt, -2pt)
 #try(1pt + 27%, -18%)
 
@@ -68,8 +68,16 @@ Emoji: 🐪, 🌋, 🏞
 #font(false)
 
 ---
-// Error: 14-18 expected font style, found font weight
-#font(style: bold, weight: "thin")
+// Error: 14-20 expected "normal", "italic" or "oblique"
+#font(style: "bold", weight: "thin")
+
+---
+// Error: 17-19 expected linear or string, found array
+#font(top-edge: ())
+
+---
+// Error: 17-19 unknown font metric
+#font(top-edge: "")
 
 ---
 // Error: 14-15 expected string or array of strings, found integer

@@ -5,7 +5,7 @@
 // Ref: true
 
 // Ommitted space.
-[#font(weight:bold)Bold]
+[#font(weight:"bold")Bold]
 
 // Call return value of function with body.
 #let f(x, body) = (y) => [#x] + body + [#y]

@@ -1,10 +1,14 @@
 use std::borrow::Cow;
+use std::convert::TryInto;
 use std::ops::Range;
 
 use rustybuzz::{Feature, Tag, UnicodeBuffer};
 
 use super::prelude::*;
-use crate::font::{Face, FaceId, FontFamily, FontVariant};
+use crate::font::{
+    Face, FaceId, FontFamily, FontStretch, FontStyle, FontVariant, FontWeight,
+    VerticalFontMetric,
+};
 use crate::geom::{Dir, Em, Length, Point, Size};
 use crate::style::{
     FontFeatures, NumberPosition, NumberStyle, NumberWidth, Style, TextStyle,
@@ -43,10 +47,57 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     castable! {
+        FontStyle: "string",
+        Value::Str(string) => match string.as_str() {
+            "normal" => Self::Normal,
+            "italic" => Self::Italic,
+            "oblique" => Self::Oblique,
+            _ => Err(r#"expected "normal", "italic" or "oblique""#)?,
+        },
+    }
+
+    castable! {
+        FontWeight: "integer or string",
+        Value::Int(v) => v.try_into().map_or(Self::BLACK, Self::from_number),
+        Value::Str(string) => match string.as_str() {
+            "thin" => Self::THIN,
+            "extralight" => Self::EXTRALIGHT,
+            "light" => Self::LIGHT,
+            "regular" => Self::REGULAR,
+            "medium" => Self::MEDIUM,
+            "semibold" => Self::SEMIBOLD,
+            "bold" => Self::BOLD,
+            "extrabold" => Self::EXTRABOLD,
+            "black" => Self::BLACK,
+            _ => Err("unknown font weight")?,
+        },
+    }
+
+    castable! {
+        FontStretch: "relative",
+        Value::Relative(v) => Self::from_ratio(v.get() as f32),
+    }
+
+    castable! {
+        VerticalFontMetric: "linear or string",
+        Value::Length(v) => Self::Linear(v.into()),
+        Value::Relative(v) => Self::Linear(v.into()),
+        Value::Linear(v) => Self::Linear(v),
+        Value::Str(string) => match string.as_str() {
+            "ascender" => Self::Ascender,
+            "cap-height" => Self::CapHeight,
+            "x-height" => Self::XHeight,
+            "baseline" => Self::Baseline,
+            "descender" => Self::Descender,
+            _ => Err("unknown font metric")?,
+        },
+    }
+
+    castable! {
         StylisticSet: "none or integer",
         Value::None => Self(None),
         Value::Int(v) => match v {
-            1..=20 => Self(Some(v as u8)),
+            1 ..= 20 => Self(Some(v as u8)),
             _ => Err("must be between 1 and 20")?,
         },
     }
@@ -109,6 +160,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let sans_serif = args.named("sans-serif")?;
     let monospace = args.named("monospace")?;
     let fallback = args.named("fallback")?;
+
     let size = args.named::<Linear>("size")?.or_else(|| args.find());
     let style = args.named("style")?;
     let weight = args.named("weight")?;
