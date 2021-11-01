@@ -112,10 +112,14 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// Return the a child from the current stack frame specified by its
+    /// non-trivia index from the back.
     pub fn child(&self, child: usize) -> Option<&Green> {
         self.node_index_from_back(child).map(|i| &self.children[i])
     }
 
+    /// Map a non-trivia index from the back of the current stack frame to a
+    /// normal index.
     fn node_index_from_back(&self, child: usize) -> Option<usize> {
         let len = self.children.len();
         let code = self.tokens.mode() == TokenMode::Code;
@@ -172,6 +176,8 @@ impl<'s> Parser<'s> {
         (stack_offset, diff)
     }
 
+    /// Wrap a specified node in the current stack frame (indexed from the back,
+    /// not including trivia).
     pub fn wrap(&mut self, index: usize, kind: NodeKind) {
         let index = self.node_index_from_back(index).unwrap();
         let child = std::mem::take(&mut self.children[index]);
@@ -179,6 +185,7 @@ impl<'s> Parser<'s> {
         self.children[index] = item.into();
     }
 
+    /// Eat and wrap the next token.
     pub fn convert(&mut self, kind: NodeKind) {
         let len = self.tokens.index() - self.next_start;
 
@@ -194,9 +201,11 @@ impl<'s> Parser<'s> {
         self.success = true;
     }
 
-    pub fn convert_with(&mut self, preserve: usize, kind: NodeKind) {
+    /// Wrap the last `amount` children in the current stack frame with a new
+    /// node.
+    pub fn convert_with(&mut self, amount: usize, kind: NodeKind) {
         let preserved: Vec<_> =
-            self.children.drain(self.children.len() - preserve ..).collect();
+            self.children.drain(self.children.len() - amount ..).collect();
         let len = preserved.iter().map(|c| c.len()).sum();
         self.children
             .push(GreenNode::with_children(kind, len, preserved).into());
@@ -219,6 +228,8 @@ impl<'s> Parser<'s> {
         self.success = false;
     }
 
+    /// This function [`Self::lift`]s if the last operation was unsuccessful and
+    /// returns whether it did.
     pub fn may_lift_abort(&mut self) -> bool {
         if !self.success {
             self.lift();
@@ -229,6 +240,8 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// This function [`Self::end`]s if the last operation was unsuccessful and
+    /// returns whether it did.
     pub fn may_end_abort(&mut self, kind: NodeKind) -> bool {
         if !self.success {
             self.end(kind);
@@ -251,6 +264,7 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// End the parsing process and return the last child.
     pub fn finish(&mut self) -> Rc<GreenNode> {
         match self.children.pop().unwrap() {
             Green::Node(n) => n,
@@ -263,6 +277,7 @@ impl<'s> Parser<'s> {
         self.peek().is_none()
     }
 
+    /// Consume the next token and return its kind.
     fn eat_peeked(&mut self) -> Option<NodeKind> {
         let token = self.peek()?.clone();
         self.eat();
@@ -490,6 +505,8 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// Returns whether the given type can be skipped over given the current
+    /// newline mode.
     pub fn skip_type_ext(token: &NodeKind, stop_at_newline: bool) -> bool {
         match token {
             NodeKind::Space(n) => n < &1 || !stop_at_newline,
@@ -499,11 +516,12 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// Returns whether the given type can be skipped over.
     fn skip_type(&self, token: &NodeKind) -> bool {
         Self::skip_type_ext(token, self.stop_at_newline())
     }
 
-    /// Move to the next token.
+    /// Consume the next token.
     pub fn eat(&mut self) {
         self.children.push(
             GreenData::new(
@@ -516,6 +534,7 @@ impl<'s> Parser<'s> {
         self.fast_forward();
     }
 
+    /// Move to the next token.
     pub fn fast_forward(&mut self) {
         if !self.next.as_ref().map_or(false, |x| self.skip_type(x)) {
             self.prev_end = self.tokens.index().into();
@@ -567,20 +586,24 @@ impl<'s> Parser<'s> {
         self.groups.iter().any(|g| g.kind == kind)
     }
 
+    /// Returns the last child of the current stack frame.
     pub fn last_child(&self) -> Option<&Green> {
         self.children.last()
     }
 
+    /// Whether the last operation was successful.
     pub fn success(&mut self) -> bool {
         let s = self.success;
         self.success = true;
         s
     }
 
+    /// Declare the last operation as unsuccessful.
     pub fn unsuccessful(&mut self) {
         self.success = false;
     }
 
+    /// Amount of children in the current stack frame.
     pub fn child_count(&self) -> usize {
         self.children.len()
     }

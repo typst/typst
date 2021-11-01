@@ -30,6 +30,7 @@ pub enum Green {
 }
 
 impl Green {
+    /// Returns the metadata of the node.
     fn data(&self) -> &GreenData {
         match self {
             Green::Node(n) => &n.data,
@@ -37,18 +38,22 @@ impl Green {
         }
     }
 
+    /// The type of the node.
     pub fn kind(&self) -> &NodeKind {
         self.data().kind()
     }
 
+    /// The length of the node.
     pub fn len(&self) -> usize {
         self.data().len()
     }
 
+    /// Whether the node or its children contain an error.
     pub fn erroneous(&self) -> bool {
         self.data().erroneous()
     }
 
+    /// The node's children.
     pub fn children(&self) -> &[Green] {
         match self {
             Green::Node(n) => &n.children(),
@@ -87,23 +92,19 @@ pub struct GreenNode {
 }
 
 impl GreenNode {
-    pub fn new(kind: NodeKind, len: usize) -> Self {
-        Self {
-            data: GreenData::new(kind, len),
-            children: Vec::new(),
-        }
-    }
-
+    /// Creates a new node with the given kind and children.
     pub fn with_children(kind: NodeKind, len: usize, children: Vec<Green>) -> Self {
         let mut data = GreenData::new(kind, len);
         data.erroneous |= children.iter().any(|c| c.erroneous());
         Self { data, children }
     }
 
+    /// Creates a new node with the given kind and a single child.
     pub fn with_child(kind: NodeKind, len: usize, child: impl Into<Green>) -> Self {
         Self::with_children(kind, len, vec![child.into()])
     }
 
+    /// The node's children.
     pub fn children(&self) -> &[Green] {
         &self.children
     }
@@ -121,7 +122,7 @@ impl From<Rc<GreenNode>> for Green {
     }
 }
 
-/// Data shared between [`GreenNode`]s and [`GreenToken`]s.
+/// Data shared between [`GreenNode`]s and leaf nodes.
 #[derive(Clone, PartialEq)]
 pub struct GreenData {
     /// What kind of node this is (each kind would have its own struct in a
@@ -134,18 +135,22 @@ pub struct GreenData {
 }
 
 impl GreenData {
+    /// Create new node metadata.
     pub fn new(kind: NodeKind, len: usize) -> Self {
         Self { len, erroneous: kind.is_error(), kind }
     }
 
+    /// The type of the node.
     pub fn kind(&self) -> &NodeKind {
         &self.kind
     }
 
+    /// The length of the node.
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Whether the node or its children contain an error.
     pub fn erroneous(&self) -> bool {
         self.erroneous
     }
@@ -157,6 +162,8 @@ impl From<GreenData> for Green {
     }
 }
 
+/// A borrowed wrapper for the [`GreenNode`] type that allows to access spans,
+/// error lists and cast to an AST.
 #[derive(Copy, Clone, PartialEq)]
 pub struct RedRef<'a> {
     id: SourceId,
@@ -165,6 +172,7 @@ pub struct RedRef<'a> {
 }
 
 impl<'a> RedRef<'a> {
+    /// Convert to an owned representation.
     pub fn own(self) -> RedNode {
         RedNode {
             id: self.id,
@@ -173,18 +181,22 @@ impl<'a> RedRef<'a> {
         }
     }
 
+    /// The type of the node.
     pub fn kind(&self) -> &NodeKind {
         self.green.kind()
     }
 
+    /// The span of the node.
     pub fn span(&self) -> Span {
         Span::new(self.id, self.offset, self.offset + self.green.len())
     }
 
+    /// The length of the node.
     pub fn len(&self) -> usize {
         self.green.len()
     }
 
+    /// Convert the node to a typed AST node.
     pub fn cast<T>(self) -> Option<T>
     where
         T: TypedNode,
@@ -192,10 +204,12 @@ impl<'a> RedRef<'a> {
         T::cast_from(self)
     }
 
+    /// Whether the node or its children contain an error.
     pub fn erroneous(&self) -> bool {
         self.green.erroneous()
     }
 
+    /// The node's children.
     pub fn children(self) -> impl Iterator<Item = RedRef<'a>> + Clone {
         let children = match &self.green {
             Green::Node(node) => node.children(),
@@ -210,6 +224,7 @@ impl<'a> RedRef<'a> {
         })
     }
 
+    /// The error messages for this node and its descendants.
     pub fn errors(&self) -> Vec<Error> {
         if !self.green.erroneous() {
             return vec![];
@@ -233,15 +248,18 @@ impl<'a> RedRef<'a> {
         }
     }
 
+    /// Get the first child of some type.
     pub(crate) fn typed_child(&self, kind: &NodeKind) -> Option<RedRef> {
         self.children()
             .find(|x| mem::discriminant(x.kind()) == mem::discriminant(kind))
     }
 
+    /// Get the first child that can cast to some AST type.
     pub(crate) fn cast_first_child<T: TypedNode>(&self) -> Option<T> {
         self.children().find_map(RedRef::cast)
     }
 
+    /// Get the last child that can cast to some AST type.
     pub(crate) fn cast_last_child<T: TypedNode>(&self) -> Option<T> {
         self.children().filter_map(RedRef::cast).last()
     }
@@ -259,6 +277,8 @@ impl Debug for RedRef<'_> {
     }
 }
 
+/// An owned wrapper for the [`GreenNode`] type that allows to access spans,
+/// error lists and cast to an AST.
 #[derive(Clone, PartialEq)]
 pub struct RedNode {
     id: SourceId,
@@ -267,10 +287,12 @@ pub struct RedNode {
 }
 
 impl RedNode {
+    /// Create a new root node from a [`GreenNode`].
     pub fn new_root(root: Rc<GreenNode>, id: SourceId) -> Self {
         Self { id, offset: 0, green: root.into() }
     }
 
+    /// Convert to a borrowed representation.
     pub fn as_ref<'a>(&'a self) -> RedRef<'a> {
         RedRef {
             id: self.id,
@@ -279,14 +301,17 @@ impl RedNode {
         }
     }
 
+    /// The span of the node.
     pub fn span(&self) -> Span {
         self.as_ref().span()
     }
 
+    /// The length of the node.
     pub fn len(&self) -> usize {
         self.as_ref().len()
     }
 
+    /// Convert the node to a typed AST node.
     pub fn cast<T>(self) -> Option<T>
     where
         T: TypedNode,
@@ -294,26 +319,32 @@ impl RedNode {
         T::cast_from(self.as_ref())
     }
 
+    /// The type of the node.
     pub fn kind(&self) -> &NodeKind {
         self.green.kind()
     }
 
+    /// The children of the node.
     pub fn children<'a>(&'a self) -> impl Iterator<Item = RedRef<'a>> + Clone {
         self.as_ref().children()
     }
 
+    /// The error messages for this node and its descendants.
     pub fn errors<'a>(&'a self) -> Vec<Error> {
         self.as_ref().errors()
     }
 
+    /// Get the first child of some type.
     pub(crate) fn typed_child(&self, kind: &NodeKind) -> Option<RedNode> {
         self.as_ref().typed_child(kind).map(RedRef::own)
     }
 
+    /// Get the first child that can cast to some AST type.
     pub(crate) fn cast_first_child<T: TypedNode>(&self) -> Option<T> {
         self.as_ref().cast_first_child()
     }
 
+    /// Get the last child that can cast to some AST type.
     pub(crate) fn cast_last_child<T: TypedNode>(&self) -> Option<T> {
         self.as_ref().cast_last_child()
     }
@@ -477,7 +508,7 @@ pub enum NodeKind {
     /// A percentage: `50%`.
     ///
     /// _Note_: `50%` is stored as `50.0` here, as in the corresponding
-    /// [literal](super::Lit::Percent).
+    /// [literal](Lit::Percent).
     Percentage(f64),
     /// A fraction unit: `3fr`.
     Fraction(f64),
@@ -595,6 +626,7 @@ impl Display for NodeKind {
 }
 
 impl NodeKind {
+    /// Whether this is some kind of parenthesis.
     pub fn is_paren(&self) -> bool {
         match self {
             Self::LeftParen => true,
@@ -603,6 +635,7 @@ impl NodeKind {
         }
     }
 
+    /// Whether this is some kind of bracket.
     pub fn is_bracket(&self) -> bool {
         match self {
             Self::LeftBracket => true,
@@ -611,6 +644,7 @@ impl NodeKind {
         }
     }
 
+    /// Whether this is some kind of brace.
     pub fn is_brace(&self) -> bool {
         match self {
             Self::LeftBrace => true,
@@ -619,8 +653,9 @@ impl NodeKind {
         }
     }
 
+    /// Whether this is some kind of error.
     pub fn is_error(&self) -> bool {
-        matches!(self, NodeKind::Error(_, _))
+        matches!(self, NodeKind::Error(_, _) | NodeKind::Unknown(_))
     }
 
     pub fn as_str(&self) -> &'static str {
