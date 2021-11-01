@@ -1,15 +1,14 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use super::{TokenMode, Tokens};
-use crate::source::{SourceFile, SourceId};
+use super::{is_newline, TokenMode, Tokens};
 use crate::syntax::{ErrorPosition, Green, GreenData, GreenNode, NodeKind};
 use crate::util::EcoString;
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
     /// The parsed file.
-    source: &'s SourceFile,
+    src: &'s str,
     /// An iterator over the source tokens.
     tokens: Tokens<'s>,
     /// The stack of open groups.
@@ -61,11 +60,11 @@ pub enum Group {
 
 impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
-    pub fn new(source: &'s SourceFile) -> Self {
-        let mut tokens = Tokens::new(source, TokenMode::Markup);
+    pub fn new(src: &'s str) -> Self {
+        let mut tokens = Tokens::new(src, TokenMode::Markup);
         let next = tokens.next();
         Self {
-            source,
+            src,
             tokens,
             groups: vec![],
             next: next.clone(),
@@ -76,11 +75,6 @@ impl<'s> Parser<'s> {
             children: vec![],
             success: true,
         }
-    }
-
-    /// The id of the parsed source file.
-    pub fn id(&self) -> SourceId {
-        self.source.id()
     }
 
     /// Start a nested node.
@@ -366,12 +360,16 @@ impl<'s> Parser<'s> {
 
     /// Determine the column index for the given byte index.
     pub fn column(&self, index: usize) -> usize {
-        self.source.byte_to_column(index).unwrap()
+        self.src[.. index]
+            .chars()
+            .rev()
+            .take_while(|&c| !is_newline(c))
+            .count()
     }
 
     /// Slice out part of the source string.
     pub fn get(&self, range: Range<usize>) -> &'s str {
-        self.source.get(range).unwrap()
+        self.src.get(range).unwrap()
     }
 
     /// Continue parsing in a group.

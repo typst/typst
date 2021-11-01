@@ -1,5 +1,5 @@
 use super::{is_newline, Scanner};
-use crate::syntax::RawToken;
+use crate::syntax::RawData;
 use crate::util::EcoString;
 
 /// Resolve all escape sequences in a string.
@@ -46,18 +46,18 @@ pub fn resolve_hex(sequence: &str) -> Option<char> {
 }
 
 /// Resolve the language tag and trims the raw text.
-pub fn resolve_raw(column: usize, backticks: u8, text: &str) -> RawToken {
+pub fn resolve_raw(column: usize, backticks: u8, text: &str) -> RawData {
     if backticks > 1 {
         let (tag, inner) = split_at_lang_tag(text);
         let (text, block) = trim_and_split_raw(column, inner);
-        RawToken {
+        RawData {
             lang: Some(tag.into()),
             text: text.into(),
             backticks,
             block,
         }
     } else {
-        RawToken {
+        RawData {
             lang: None,
             text: split_lines(text).join("\n").into(),
             backticks,

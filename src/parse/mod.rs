@@ -12,12 +12,11 @@ pub use tokens::*;
 
 use std::rc::Rc;
 
-use crate::source::SourceFile;
 use crate::syntax::*;
 use crate::util::EcoString;
 
 /// Parse a source file.
-pub fn parse(source: &SourceFile) -> Rc<GreenNode> {
+pub fn parse(source: &str) -> Rc<GreenNode> {
     let mut p = Parser::new(source);
     markup(&mut p);
     p.finish()

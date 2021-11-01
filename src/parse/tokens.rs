@@ -1,7 +1,6 @@
 use super::{is_newline, resolve_raw, Scanner};
 use crate::geom::{AngularUnit, LengthUnit};
 use crate::parse::resolve::{resolve_hex, resolve_string};
-use crate::source::SourceFile;
 use crate::syntax::*;
 use crate::util::EcoString;
 
@@ -9,7 +8,6 @@ use std::rc::Rc;
 
 /// An iterator over the tokens of a string of source code.
 pub struct Tokens<'s> {
-    source: &'s SourceFile,
     s: Scanner<'s>,
     mode: TokenMode,
 }
@@ -26,12 +24,8 @@ pub enum TokenMode {
 impl<'s> Tokens<'s> {
     /// Create a new token iterator with the given mode.
     #[inline]
-    pub fn new(source: &'s SourceFile, mode: TokenMode) -> Self {
-        Self {
-            s: Scanner::new(source.src()),
-            source,
-            mode,
-        }
+    pub fn new(source: &'s str, mode: TokenMode) -> Self {
+        Self { s: Scanner::new(source), mode }
     }
 
     /// Get the current token mode.
@@ -244,7 +238,7 @@ impl<'s> Tokens<'s> {
 
                     if self.s.eat_if('}') {
                         if let Some(character) = resolve_hex(&sequence) {
-                            NodeKind::UnicodeEscape(UnicodeEscapeToken {
+                            NodeKind::UnicodeEscape(UnicodeEscapeData {
                                 character,
                             })
                         } else {
@@ -314,7 +308,7 @@ impl<'s> Tokens<'s> {
     }
 
     fn raw(&mut self) -> NodeKind {
-        let column = self.source.byte_to_column(self.s.index() - 1).unwrap();
+        let column = self.s.column(self.s.index() - 1);
         let mut backticks = 1;
         while self.s.eat_if('`') && backticks < u8::MAX {
             backticks += 1;
@@ -322,7 +316,7 @@ impl<'s> Tokens<'s> {
 
         // Special case for empty inline block.
         if backticks == 2 {
-            return NodeKind::Raw(Rc::new(RawToken {
+            return NodeKind::Raw(Rc::new(RawData {
                 text: EcoString::new(),
                 lang: None,
                 backticks: 1,
@@ -397,7 +391,7 @@ impl<'s> Tokens<'s> {
             };
 
         if terminated {
-            NodeKind::Math(Rc::new(MathToken {
+            NodeKind::Math(Rc::new(MathData {
                 formula: self.s.get(start .. end).into(),
                 display,
             }))
@@ -492,7 +486,7 @@ impl<'s> Tokens<'s> {
             }
         }));
         if self.s.eat_if('"') {
-            NodeKind::Str(StrToken { string })
+            NodeKind::Str(StrData { string })
         } else {
             NodeKind::Error(ErrorPosition::End, "expected quote".into())
         }
@@ -567,7 +561,7 @@ mod tests {
     use TokenMode::{Code, Markup};
 
     fn UnicodeEscape(character: char) -> NodeKind {
-        NodeKind::UnicodeEscape(UnicodeEscapeToken { character })
+        NodeKind::UnicodeEscape(UnicodeEscapeData { character })
     }
 
     fn Error(pos: ErrorPosition, message: &str) -> NodeKind {
@@ -575,7 +569,7 @@ mod tests {
     }
 
     fn Raw(text: &str, lang: Option<&str>, backticks_left: u8, block: bool) -> NodeKind {
-        NodeKind::Raw(Rc::new(RawToken {
+        NodeKind::Raw(Rc::new(RawData {
             text: text.into(),
             lang: lang.map(Into::into),
             backticks: backticks_left,
@@ -586,7 +580,7 @@ mod tests {
     fn Math(formula: &str, display: bool, err_msg: Option<&str>) -> NodeKind {
         match err_msg {
             None => {
-                NodeKind::Math(Rc::new(MathToken { formula: formula.into(), display }))
+                NodeKind::Math(Rc::new(MathData { formula: formula.into(), display }))
             }
             Some(msg) => NodeKind::Error(
                 ErrorPosition::End,
@@ -597,7 +591,7 @@ mod tests {
 
     fn Str(string: &str, terminated: bool) -> NodeKind {
         if terminated {
-            NodeKind::Str(StrToken { string: string.into() })
+            NodeKind::Str(StrData { string: string.into() })
         } else {
             NodeKind::Error(ErrorPosition::End, "expected quote".into())
         }
@@ -687,7 +681,7 @@ mod tests {
         }};
         (@$mode:ident: $src:expr => $($token:expr),*) => {{
             let src = $src;
-            let found = Tokens::new(&SourceFile::detached(src.clone()), $mode).collect::<Vec<_>>();
+            let found = Tokens::new(&src, $mode).collect::<Vec<_>>();
             let expected = vec![$($token.clone()),*];
             check(&src, found, expected);
         }};

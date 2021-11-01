@@ -15,6 +15,7 @@ pub use ident::*;
 pub use pretty::*;
 pub use span::*;
 
+use crate::diag::Error;
 use crate::geom::{AngularUnit, LengthUnit};
 use crate::source::SourceId;
 use crate::util::EcoString;
@@ -94,9 +95,9 @@ impl GreenNode {
     }
 
     pub fn with_children(kind: NodeKind, len: usize, children: Vec<Green>) -> Self {
-        let mut meta = GreenData::new(kind, len);
-        meta.erroneous |= children.iter().any(|c| c.erroneous());
-        Self { data: meta, children }
+        let mut data = GreenData::new(kind, len);
+        data.erroneous |= children.iter().any(|c| c.erroneous());
+        Self { data, children }
     }
 
     pub fn with_child(kind: NodeKind, len: usize, child: impl Into<Green>) -> Self {
@@ -180,6 +181,10 @@ impl<'a> RedRef<'a> {
         Span::new(self.id, self.offset, self.offset + self.green.len())
     }
 
+    pub fn len(&self) -> usize {
+        self.green.len()
+    }
+
     pub fn cast<T>(self) -> Option<T>
     where
         T: TypedNode,
@@ -205,6 +210,29 @@ impl<'a> RedRef<'a> {
         })
     }
 
+    pub fn errors(&self) -> Vec<Error> {
+        if !self.green.erroneous() {
+            return vec![];
+        }
+
+        match self.kind() {
+            NodeKind::Error(pos, msg) => {
+                let span = match pos {
+                    ErrorPosition::Start => self.span().at_start(),
+                    ErrorPosition::Full => self.span(),
+                    ErrorPosition::End => self.span().at_end(),
+                };
+
+                vec![Error::new(span, msg.to_string())]
+            }
+            _ => self
+                .children()
+                .filter(|red| red.green.erroneous())
+                .flat_map(|red| red.errors())
+                .collect(),
+        }
+    }
+
     pub(crate) fn typed_child(&self, kind: &NodeKind) -> Option<RedRef> {
         self.children()
             .find(|x| mem::discriminant(x.kind()) == mem::discriminant(kind))
@@ -216,6 +244,18 @@ impl<'a> RedRef<'a> {
 
     pub(crate) fn cast_last_child<T: TypedNode>(&self) -> Option<T> {
         self.children().filter_map(RedRef::cast).last()
+    }
+}
+
+impl Debug for RedRef<'_> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:?}: {:?}", self.kind(), self.span())?;
+        let mut children = self.children().peekable();
+        if children.peek().is_some() {
+            f.write_str(" ")?;
+            f.debug_list().entries(children.map(RedRef::own)).finish()?;
+        }
+        Ok(())
     }
 }
 
@@ -231,12 +271,27 @@ impl RedNode {
         Self { id, offset: 0, green: root.into() }
     }
 
+    pub fn as_ref<'a>(&'a self) -> RedRef<'a> {
+        RedRef {
+            id: self.id,
+            offset: self.offset,
+            green: &self.green,
+        }
+    }
+
     pub fn span(&self) -> Span {
         self.as_ref().span()
     }
 
     pub fn len(&self) -> usize {
-        self.green.len()
+        self.as_ref().len()
+    }
+
+    pub fn cast<T>(self) -> Option<T>
+    where
+        T: TypedNode,
+    {
+        T::cast_from(self.as_ref())
     }
 
     pub fn kind(&self) -> &NodeKind {
@@ -247,36 +302,8 @@ impl RedNode {
         self.as_ref().children()
     }
 
-    pub fn errors(&self) -> Vec<(Span, EcoString)> {
-        if !self.green.erroneous() {
-            return vec![];
-        }
-
-        match self.kind() {
-            NodeKind::Error(pos, msg) => {
-                let span = match pos {
-                    ErrorPosition::Start => self.span().at_start(),
-                    ErrorPosition::Full => self.span(),
-                    ErrorPosition::End => self.span().at_end(),
-                };
-
-                vec![(span, msg.clone())]
-            }
-            _ => self
-                .as_ref()
-                .children()
-                .filter(|red| red.green.erroneous())
-                .flat_map(|red| red.own().errors())
-                .collect(),
-        }
-    }
-
-    pub fn as_ref<'a>(&'a self) -> RedRef<'a> {
-        RedRef {
-            id: self.id,
-            offset: self.offset,
-            green: &self.green,
-        }
+    pub fn errors<'a>(&'a self) -> Vec<Error> {
+        self.as_ref().errors()
     }
 
     pub(crate) fn typed_child(&self, kind: &NodeKind) -> Option<RedNode> {
@@ -294,15 +321,7 @@ impl RedNode {
 
 impl Debug for RedNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}: {:?}", self.kind(), self.span())?;
-        let children = self.as_ref().children().collect::<Vec<_>>();
-        if !children.is_empty() {
-            f.write_str(" ")?;
-            f.debug_list()
-                .entries(children.into_iter().map(RedRef::own))
-                .finish()?;
-        }
-        Ok(())
+        self.as_ref().fmt(f)
     }
 }
 
@@ -419,7 +438,7 @@ pub enum NodeKind {
     EmDash,
     /// A slash and the letter "u" followed by a hexadecimal unicode entity
     /// enclosed in curly braces: `\u{1F5FA}`.
-    UnicodeEscape(UnicodeEscapeToken),
+    UnicodeEscape(UnicodeEscapeData),
     /// Strong text was enabled / disabled: `*`.
     Strong,
     /// Emphasized text was enabled / disabled: `_`.
@@ -440,9 +459,9 @@ pub enum NodeKind {
     ListBullet,
     /// An arbitrary number of backticks followed by inner contents, terminated
     /// with the same number of backticks: `` `...` ``.
-    Raw(Rc<RawToken>),
+    Raw(Rc<RawData>),
     /// Dollar signs surrounding inner contents.
-    Math(Rc<MathToken>),
+    Math(Rc<MathData>),
     /// An identifier: `center`.
     Ident(EcoString),
     /// A boolean: `true`, `false`.
@@ -463,7 +482,7 @@ pub enum NodeKind {
     /// A fraction unit: `3fr`.
     Fraction(f64),
     /// A quoted string: `"..."`.
-    Str(StrToken),
+    Str(StrData),
     /// An array expression: `(1, "hi", 12cm)`.
     Array,
     /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
@@ -534,15 +553,14 @@ pub enum ErrorPosition {
 
 /// A quoted string token: `"..."`.
 #[derive(Debug, Clone, PartialEq)]
-#[repr(transparent)]
-pub struct StrToken {
+pub struct StrData {
     /// The string inside the quotes.
     pub string: EcoString,
 }
 
 /// A raw block token: `` `...` ``.
 #[derive(Debug, Clone, PartialEq)]
-pub struct RawToken {
+pub struct RawData {
     /// The raw text in the block.
     pub text: EcoString,
     /// The programming language of the raw text.
@@ -555,7 +573,7 @@ pub struct RawToken {
 
 /// A math formula token: `$2pi + x$` or `$[f'(x) = x^2]$`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct MathToken {
+pub struct MathData {
     /// The formula between the dollars.
     pub formula: EcoString,
     /// Whether the formula is display-level, that is, it is surrounded by
@@ -565,8 +583,7 @@ pub struct MathToken {
 
 /// A unicode escape sequence token: `\u{1F5FA}`.
 #[derive(Debug, Clone, PartialEq)]
-#[repr(transparent)]
-pub struct UnicodeEscapeToken {
+pub struct UnicodeEscapeData {
     /// The resulting unicode character.
     pub character: char,
 }
@@ -711,37 +728,4 @@ impl NodeKind {
             },
         }
     }
-}
-
-#[macro_export]
-macro_rules! node {
-    ($(#[$attr:meta])* $name:ident) => {
-        node!{$(#[$attr])* $name => $name}
-    };
-    ($(#[$attr:meta])* $variant:ident => $name:ident) => {
-        #[derive(Debug, Clone, PartialEq)]
-        #[repr(transparent)]
-        $(#[$attr])*
-        pub struct $name(RedNode);
-
-        impl TypedNode for $name {
-            fn cast_from(node: RedRef) -> Option<Self> {
-                if node.kind() != &NodeKind::$variant {
-                    return None;
-                }
-
-                Some(Self(node.own()))
-            }
-        }
-
-        impl $name {
-            pub fn span(&self) -> Span {
-                self.0.span()
-            }
-
-            pub fn underlying(&self) -> RedRef {
-                self.0.as_ref()
-            }
-        }
-    };
 }

@@ -106,6 +106,16 @@ impl<'s> Scanner<'s> {
         self.index
     }
 
+    /// The column index of a given index in the source string.
+    #[inline]
+    pub fn column(&self, index: usize) -> usize {
+        self.src[.. index]
+            .chars()
+            .rev()
+            .take_while(|&c| !is_newline(c))
+            .count()
+    }
+
     /// Jump to an index in the source string.
     #[inline]
     pub fn jump(&mut self, index: usize) {

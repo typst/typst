@@ -1,7 +1,38 @@
 use super::{Ident, NodeKind, RedNode, RedRef, Span, TypedNode};
 use crate::geom::{AngularUnit, LengthUnit};
-use crate::node;
 use crate::util::EcoString;
+
+macro_rules! node {
+    ($(#[$attr:meta])* $name:ident) => {
+        node!{$(#[$attr])* $name => $name}
+    };
+    ($(#[$attr:meta])* $variant:ident => $name:ident) => {
+        #[derive(Debug, Clone, PartialEq)]
+        #[repr(transparent)]
+        $(#[$attr])*
+        pub struct $name(RedNode);
+
+        impl TypedNode for $name {
+            fn cast_from(node: RedRef) -> Option<Self> {
+                if node.kind() != &NodeKind::$variant {
+                    return None;
+                }
+
+                Some(Self(node.own()))
+            }
+        }
+
+        impl $name {
+            pub fn span(&self) -> Span {
+                self.0.span()
+            }
+
+            pub fn underlying(&self) -> RedRef {
+                self.0.as_ref()
+            }
+        }
+    };
+}
 
 node! {
     /// The syntactical root capable of representing a full parsed document.
