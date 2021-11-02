@@ -1,10 +1,12 @@
-use super::{is_newline, resolve_raw, Scanner};
+use std::rc::Rc;
+
+use super::{
+    is_id_continue, is_id_start, is_newline, resolve_hex, resolve_raw, resolve_string,
+    Scanner,
+};
 use crate::geom::{AngularUnit, LengthUnit};
-use crate::parse::resolve::{resolve_hex, resolve_string};
 use crate::syntax::*;
 use crate::util::EcoString;
-
-use std::rc::Rc;
 
 /// An iterator over the tokens of a string of source code.
 pub struct Tokens<'s> {
@@ -53,6 +55,12 @@ impl<'s> Tokens<'s> {
     #[inline]
     pub fn jump(&mut self, index: usize) {
         self.s.jump(index);
+    }
+
+    /// The column of a given index in the source string.
+    #[inline]
+    pub fn column(&self, index: usize) -> usize {
+        self.s.column(index)
     }
 
     /// The underlying scanner.
@@ -237,10 +245,8 @@ impl<'s> Tokens<'s> {
                     let sequence: EcoString = self.s.eat_while(|c| c.is_ascii_alphanumeric()).into();
 
                     if self.s.eat_if('}') {
-                        if let Some(character) = resolve_hex(&sequence) {
-                            NodeKind::UnicodeEscape(UnicodeEscapeData {
-                                character,
-                            })
+                        if let Some(c) = resolve_hex(&sequence) {
+                            NodeKind::UnicodeEscape(c)
                         } else {
                             NodeKind::Error(
                                 ErrorPosition::Full,
@@ -308,7 +314,8 @@ impl<'s> Tokens<'s> {
     }
 
     fn raw(&mut self) -> NodeKind {
-        let column = self.s.column(self.s.index() - 1);
+        let column = self.column(self.s.index() - 1);
+
         let mut backticks = 1;
         while self.s.eat_if('`') && backticks < u8::MAX {
             backticks += 1;
@@ -486,7 +493,7 @@ impl<'s> Tokens<'s> {
             }
         }));
         if self.s.eat_if('"') {
-            NodeKind::Str(StrData { string })
+            NodeKind::Str(string)
         } else {
             NodeKind::Error(ErrorPosition::End, "expected quote".into())
         }
@@ -556,12 +563,13 @@ mod tests {
 
     use super::*;
 
+    use ErrorPosition::*;
     use NodeKind::*;
     use Option::None;
     use TokenMode::{Code, Markup};
 
-    fn UnicodeEscape(character: char) -> NodeKind {
-        NodeKind::UnicodeEscape(UnicodeEscapeData { character })
+    fn UnicodeEscape(c: char) -> NodeKind {
+        NodeKind::UnicodeEscape(c)
     }
 
     fn Error(pos: ErrorPosition, message: &str) -> NodeKind {
@@ -577,24 +585,12 @@ mod tests {
         }))
     }
 
-    fn Math(formula: &str, display: bool, err_msg: Option<&str>) -> NodeKind {
-        match err_msg {
-            None => {
-                NodeKind::Math(Rc::new(MathData { formula: formula.into(), display }))
-            }
-            Some(msg) => NodeKind::Error(
-                ErrorPosition::End,
-                format!("expected closing {}", msg).into(),
-            ),
-        }
+    fn Math(formula: &str, display: bool) -> NodeKind {
+        NodeKind::Math(Rc::new(MathData { formula: formula.into(), display }))
     }
 
-    fn Str(string: &str, terminated: bool) -> NodeKind {
-        if terminated {
-            NodeKind::Str(StrData { string: string.into() })
-        } else {
-            NodeKind::Error(ErrorPosition::End, "expected quote".into())
-        }
+    fn Str(string: &str) -> NodeKind {
+        NodeKind::Str(string.into())
     }
 
     fn Text(string: &str) -> NodeKind {
@@ -659,7 +655,7 @@ mod tests {
                 ('/', None, "//", LineComment),
                 ('/', None, "/**/", BlockComment),
                 ('/', Some(Markup), "*", Strong),
-                ('/', Some(Markup), "$ $", Math(" ", false, None)),
+                ('/', Some(Markup), "$ $", Math(" ", false)),
                 ('/', Some(Markup), r"\\", Text("\\")),
                 ('/', Some(Markup), "#let", Let),
                 ('/', Some(Code), "(", LeftParen),
@@ -781,16 +777,16 @@ mod tests {
         t!(Markup[" /"]: r#"\""# => Text(r"\"), Text("\""));
 
         // Test basic unicode escapes.
-        t!(Markup: r"\u{}"     => Error(ErrorPosition::Full, "invalid unicode escape sequence"));
+        t!(Markup: r"\u{}"     => Error(Full, "invalid unicode escape sequence"));
         t!(Markup: r"\u{2603}" => UnicodeEscape('☃'));
-        t!(Markup: r"\u{P}"    => Error(ErrorPosition::Full, "invalid unicode escape sequence"));
+        t!(Markup: r"\u{P}"    => Error(Full, "invalid unicode escape sequence"));
 
         // Test unclosed unicode escapes.
-        t!(Markup[" /"]: r"\u{"     => Error(ErrorPosition::End, "expected closing brace"));
-        t!(Markup[" /"]: r"\u{1"    => Error(ErrorPosition::End, "expected closing brace"));
-        t!(Markup[" /"]: r"\u{26A4" => Error(ErrorPosition::End, "expected closing brace"));
-        t!(Markup[" /"]: r"\u{1Q3P" => Error(ErrorPosition::End, "expected closing brace"));
-        t!(Markup: r"\u{1🏕}"       => Error(ErrorPosition::End, "expected closing brace"), Text("🏕"), RightBrace);
+        t!(Markup[" /"]: r"\u{"     => Error(End, "expected closing brace"));
+        t!(Markup[" /"]: r"\u{1"    => Error(End, "expected closing brace"));
+        t!(Markup[" /"]: r"\u{26A4" => Error(End, "expected closing brace"));
+        t!(Markup[" /"]: r"\u{1Q3P" => Error(End, "expected closing brace"));
+        t!(Markup: r"\u{1🏕}"       => Error(End, "expected closing brace"), Text("🏕"), RightBrace);
     }
 
     #[test]
@@ -882,11 +878,11 @@ mod tests {
         // Test basic raw block.
         t!(Markup: "``"     => Raw("", None, 1, false));
         t!(Markup: "`raw`"  => Raw("raw", None, 1, false));
-        t!(Markup[""]: "`]" => Error(ErrorPosition::End, "expected 1 backtick"));
+        t!(Markup[""]: "`]" => Error(End, "expected 1 backtick"));
 
         // Test special symbols in raw block.
         t!(Markup: "`[brackets]`" => Raw("[brackets]", None, 1, false));
-        t!(Markup[""]: r"`\`` "   => Raw(r"\", None, 1, false), Error(ErrorPosition::End, "expected 1 backtick"));
+        t!(Markup[""]: r"`\`` "   => Raw(r"\", None, 1, false), Error(End, "expected 1 backtick"));
 
         // Test separated closing backticks.
         t!(Markup: "```not `y`e`t```" => Raw("`y`e`t", Some("not"), 3, false));
@@ -894,28 +890,28 @@ mod tests {
         // Test more backticks.
         t!(Markup: "``nope``"             => Raw("", None, 1, false), Text("nope"), Raw("", None, 1, false));
         t!(Markup: "````🚀````"           => Raw("", Some("🚀"), 4, false));
-        t!(Markup[""]: "`````👩‍🚀````noend" => Error(ErrorPosition::End, "expected 5 backticks"));
+        t!(Markup[""]: "`````👩‍🚀````noend" => Error(End, "expected 5 backticks"));
         t!(Markup[""]: "````raw``````"    => Raw("", Some("raw"), 4, false), Raw("", None, 1, false));
     }
 
     #[test]
     fn test_tokenize_math_formulas() {
         // Test basic formula.
-        t!(Markup: "$$"        => Math("", false, None));
-        t!(Markup: "$x$"       => Math("x", false, None));
-        t!(Markup: r"$\\$"     => Math(r"\\", false, None));
-        t!(Markup: "$[x + y]$" => Math("x + y", true, None));
-        t!(Markup: r"$[\\]$"   => Math(r"\\", true, None));
+        t!(Markup: "$$"        => Math("", false));
+        t!(Markup: "$x$"       => Math("x", false));
+        t!(Markup: r"$\\$"     => Math(r"\\", false));
+        t!(Markup: "$[x + y]$" => Math("x + y", true));
+        t!(Markup: r"$[\\]$"   => Math(r"\\", true));
 
         // Test unterminated.
-        t!(Markup[""]: "$x"      => Math("x", false, Some("dollar sign")));
-        t!(Markup[""]: "$[x"     => Math("x", true, Some("bracket and dollar sign")));
-        t!(Markup[""]: "$[x]\n$" => Math("x]\n$", true, Some("bracket and dollar sign")));
+        t!(Markup[""]: "$x"      => Error(End, "expected closing dollar sign"));
+        t!(Markup[""]: "$[x"     => Error(End, "expected closing bracket and dollar sign"));
+        t!(Markup[""]: "$[x]\n$" => Error(End, "expected closing bracket and dollar sign"));
 
         // Test escape sequences.
-        t!(Markup: r"$\$x$"       => Math(r"\$x", false, None));
-        t!(Markup: r"$[\\\]$]$"   => Math(r"\\\]$", true, None));
-        t!(Markup[""]: r"$[ ]\\$" => Math(r" ]\\$", true, Some("bracket and dollar sign")));
+        t!(Markup: r"$\$x$"       => Math(r"\$x", false));
+        t!(Markup: r"$[\\\]$]$"   => Math(r"\\\]$", true));
+        t!(Markup[""]: r"$[ ]\\$" => Error(End, "expected closing bracket and dollar sign"));
     }
 
     #[test]
@@ -1003,16 +999,16 @@ mod tests {
     #[test]
     fn test_tokenize_strings() {
         // Test basic strings.
-        t!(Code: "\"hi\""        => Str("hi", true));
-        t!(Code: "\"hi\nthere\"" => Str("hi\nthere", true));
-        t!(Code: "\"🌎\""        => Str("🌎", true));
+        t!(Code: "\"hi\""        => Str("hi"));
+        t!(Code: "\"hi\nthere\"" => Str("hi\nthere"));
+        t!(Code: "\"🌎\""        => Str("🌎"));
 
         // Test unterminated.
-        t!(Code[""]: "\"hi"      => Str("hi", false));
+        t!(Code[""]: "\"hi" => Error(End, "expected quote"));
 
         // Test escaped quote.
-        t!(Code: r#""a\"bc""# => Str("a\"bc", true));
-        t!(Code[""]: r#""\""# => Str("\"", false));
+        t!(Code: r#""a\"bc""# => Str("a\"bc"));
+        t!(Code[""]: r#""\""# => Error(End, "expected quote"));
     }
 
     #[test]

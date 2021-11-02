@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
 use crate::parse::{is_newline, parse, Scanner};
-use crate::syntax::{GreenNode, Markup, RedNode};
+use crate::syntax::ast::Markup;
+use crate::syntax::{GreenNode, RedNode};
 use crate::util::PathExt;
 
 #[cfg(feature = "codespan-reporting")]

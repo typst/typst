@@ -24,7 +24,7 @@ use typst::loading::FsLoader;
 use typst::parse::Scanner;
 use typst::source::SourceFile;
 use typst::style::Style;
-use typst::syntax::{Pos, Span};
+use typst::syntax::Span;
 use typst::Context;
 
 const TYP_DIR: &str = "./typ";
@@ -355,12 +355,12 @@ fn parse_metadata(source: &SourceFile) -> (Option<bool>, Vec<Error>) {
         let comments =
             lines[i ..].iter().take_while(|line| line.starts_with("//")).count();
 
-        let pos = |s: &mut Scanner| -> Pos {
+        let pos = |s: &mut Scanner| -> usize {
             let first = num(s) - 1;
             let (delta, column) =
                 if s.eat_if(':') { (first, num(s) - 1) } else { (0, first) };
             let line = (i + comments) + delta;
-            source.line_column_to_byte(line, column).unwrap().into()
+            source.line_column_to_byte(line, column).unwrap()
         };
 
         let mut s = Scanner::new(rest);
@@ -375,10 +375,10 @@ fn parse_metadata(source: &SourceFile) -> (Option<bool>, Vec<Error>) {
 }
 
 fn print_error(source: &SourceFile, line: usize, error: &Error) {
-    let start_line = 1 + line + source.byte_to_line(error.span.start.to_usize()).unwrap();
-    let start_col = 1 + source.byte_to_column(error.span.start.to_usize()).unwrap();
-    let end_line = 1 + line + source.byte_to_line(error.span.end.to_usize()).unwrap();
-    let end_col = 1 + source.byte_to_column(error.span.end.to_usize()).unwrap();
+    let start_line = 1 + line + source.byte_to_line(error.span.start).unwrap();
+    let start_col = 1 + source.byte_to_column(error.span.start).unwrap();
+    let end_line = 1 + line + source.byte_to_line(error.span.end).unwrap();
+    let end_col = 1 + source.byte_to_column(error.span.end).unwrap();
     println!(
         "Error: {}:{}-{}:{}: {}",
         start_line, start_col, end_line, end_col, error.message

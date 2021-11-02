@@ -1,31 +1,28 @@
 //! Syntax types.
 
-mod ast;
-mod ident;
+pub mod ast;
 mod pretty;
 mod span;
 
-use std::fmt;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::mem;
 use std::rc::Rc;
 
-pub use ast::*;
-pub use ident::*;
 pub use pretty::*;
 pub use span::*;
 
+use self::ast::TypedNode;
 use crate::diag::Error;
 use crate::geom::{AngularUnit, LengthUnit};
 use crate::source::SourceId;
 use crate::util::EcoString;
 
-/// Children of a [`GreenNode`].
+/// An inner of leaf node in the untyped green tree.
 #[derive(Clone, PartialEq)]
 pub enum Green {
-    /// A non-terminal node in an Rc.
+    /// A reference-counted inner node.
     Node(Rc<GreenNode>),
-    /// A terminal owned token.
+    /// A terminal, owned token.
     Token(GreenData),
 }
 
@@ -77,13 +74,12 @@ impl Debug for Green {
                 f.debug_list().entries(&n.children).finish()?;
             }
         }
-
         Ok(())
     }
 }
 
-/// A syntactical node.
-#[derive(Clone, PartialEq)]
+/// An inner node in the untyped green tree.
+#[derive(Debug, Clone, PartialEq)]
 pub struct GreenNode {
     /// Node metadata.
     data: GreenData,
@@ -122,15 +118,15 @@ impl From<Rc<GreenNode>> for Green {
     }
 }
 
-/// Data shared between [`GreenNode`]s and leaf nodes.
-#[derive(Clone, PartialEq)]
+/// Data shared between inner and leaf nodes.
+#[derive(Debug, Clone, PartialEq)]
 pub struct GreenData {
     /// What kind of node this is (each kind would have its own struct in a
     /// strongly typed AST).
     kind: NodeKind,
     /// The byte length of the node in the source.
     len: usize,
-    /// Whether this node or any of its children are erroneous.
+    /// Whether this node or any of its children contain an error.
     erroneous: bool,
 }
 
@@ -162,8 +158,9 @@ impl From<GreenData> for Green {
     }
 }
 
-/// A borrowed wrapper for the [`GreenNode`] type that allows to access spans,
-/// error lists and cast to an AST.
+/// A borrowed wrapper for a [`GreenNode`] with span information.
+///
+/// Borrowed variant of [`RedNode`]. Can be [cast](Self::cast) to an AST node.
 #[derive(Copy, Clone, PartialEq)]
 pub struct RedRef<'a> {
     id: SourceId,
@@ -182,50 +179,27 @@ impl<'a> RedRef<'a> {
     }
 
     /// The type of the node.
-    pub fn kind(&self) -> &NodeKind {
+    pub fn kind(self) -> &'a NodeKind {
         self.green.kind()
     }
 
-    /// The span of the node.
-    pub fn span(&self) -> Span {
-        Span::new(self.id, self.offset, self.offset + self.green.len())
-    }
-
     /// The length of the node.
-    pub fn len(&self) -> usize {
+    pub fn len(self) -> usize {
         self.green.len()
     }
 
-    /// Convert the node to a typed AST node.
-    pub fn cast<T>(self) -> Option<T>
-    where
-        T: TypedNode,
-    {
-        T::cast_from(self)
+    /// The span of the node.
+    pub fn span(self) -> Span {
+        Span::new(self.id, self.offset, self.offset + self.green.len())
     }
 
     /// Whether the node or its children contain an error.
-    pub fn erroneous(&self) -> bool {
+    pub fn erroneous(self) -> bool {
         self.green.erroneous()
     }
 
-    /// The node's children.
-    pub fn children(self) -> impl Iterator<Item = RedRef<'a>> + Clone {
-        let children = match &self.green {
-            Green::Node(node) => node.children(),
-            Green::Token(_) => &[],
-        };
-
-        let mut offset = self.offset;
-        children.iter().map(move |green| {
-            let child_offset = offset;
-            offset += green.len();
-            RedRef { id: self.id, offset: child_offset, green }
-        })
-    }
-
     /// The error messages for this node and its descendants.
-    pub fn errors(&self) -> Vec<Error> {
+    pub fn errors(self) -> Vec<Error> {
         if !self.green.erroneous() {
             return vec![];
         }
@@ -248,19 +222,42 @@ impl<'a> RedRef<'a> {
         }
     }
 
+    /// Convert the node to a typed AST node.
+    pub fn cast<T>(self) -> Option<T>
+    where
+        T: TypedNode,
+    {
+        T::from_red(self)
+    }
+
+    /// The node's children.
+    pub fn children(self) -> impl Iterator<Item = RedRef<'a>> {
+        let children = match &self.green {
+            Green::Node(node) => node.children(),
+            Green::Token(_) => &[],
+        };
+
+        let mut offset = self.offset;
+        children.iter().map(move |green| {
+            let child_offset = offset;
+            offset += green.len();
+            RedRef { id: self.id, offset: child_offset, green }
+        })
+    }
+
     /// Get the first child of some type.
-    pub(crate) fn typed_child(&self, kind: &NodeKind) -> Option<RedRef> {
+    pub(crate) fn typed_child(self, kind: &NodeKind) -> Option<RedRef<'a>> {
         self.children()
             .find(|x| mem::discriminant(x.kind()) == mem::discriminant(kind))
     }
 
     /// Get the first child that can cast to some AST type.
-    pub(crate) fn cast_first_child<T: TypedNode>(&self) -> Option<T> {
+    pub(crate) fn cast_first_child<T: TypedNode>(self) -> Option<T> {
         self.children().find_map(RedRef::cast)
     }
 
     /// Get the last child that can cast to some AST type.
-    pub(crate) fn cast_last_child<T: TypedNode>(&self) -> Option<T> {
+    pub(crate) fn cast_last_child<T: TypedNode>(self) -> Option<T> {
         self.children().filter_map(RedRef::cast).last()
     }
 }
@@ -277,8 +274,9 @@ impl Debug for RedRef<'_> {
     }
 }
 
-/// An owned wrapper for the [`GreenNode`] type that allows to access spans,
-/// error lists and cast to an AST.
+/// A owned wrapper for a [`GreenNode`] with span information.
+///
+/// Owned variant of [`RedRef`]. Can be [cast](Self::cast) to an AST nodes.
 #[derive(Clone, PartialEq)]
 pub struct RedNode {
     id: SourceId,
@@ -293,7 +291,7 @@ impl RedNode {
     }
 
     /// Convert to a borrowed representation.
-    pub fn as_ref<'a>(&'a self) -> RedRef<'a> {
+    pub fn as_ref(&self) -> RedRef<'_> {
         RedRef {
             id: self.id,
             offset: self.offset,
@@ -301,9 +299,9 @@ impl RedNode {
         }
     }
 
-    /// The span of the node.
-    pub fn span(&self) -> Span {
-        self.as_ref().span()
+    /// The type of the node.
+    pub fn kind(&self) -> &NodeKind {
+        self.as_ref().kind()
     }
 
     /// The length of the node.
@@ -311,27 +309,27 @@ impl RedNode {
         self.as_ref().len()
     }
 
+    /// The span of the node.
+    pub fn span(&self) -> Span {
+        self.as_ref().span()
+    }
+
+    /// The error messages for this node and its descendants.
+    pub fn errors(&self) -> Vec<Error> {
+        self.as_ref().errors()
+    }
+
     /// Convert the node to a typed AST node.
     pub fn cast<T>(self) -> Option<T>
     where
         T: TypedNode,
     {
-        T::cast_from(self.as_ref())
-    }
-
-    /// The type of the node.
-    pub fn kind(&self) -> &NodeKind {
-        self.green.kind()
+        self.as_ref().cast()
     }
 
     /// The children of the node.
-    pub fn children<'a>(&'a self) -> impl Iterator<Item = RedRef<'a>> + Clone {
+    pub fn children(&self) -> impl Iterator<Item = RedRef<'_>> {
         self.as_ref().children()
-    }
-
-    /// The error messages for this node and its descendants.
-    pub fn errors<'a>(&'a self) -> Vec<Error> {
-        self.as_ref().errors()
     }
 
     /// Get the first child of some type.
@@ -356,11 +354,10 @@ impl Debug for RedNode {
     }
 }
 
-pub trait TypedNode: Sized {
-    /// Performs the conversion.
-    fn cast_from(value: RedRef) -> Option<Self>;
-}
-
+/// All syntactical building blocks that can be part of a Typst document.
+///
+/// Can be emitted as a token by the tokenizer or as part of a green node by
+/// the parser.
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeKind {
     /// A left square bracket: `[`.
@@ -469,7 +466,7 @@ pub enum NodeKind {
     EmDash,
     /// A slash and the letter "u" followed by a hexadecimal unicode entity
     /// enclosed in curly braces: `\u{1F5FA}`.
-    UnicodeEscape(UnicodeEscapeData),
+    UnicodeEscape(char),
     /// Strong text was enabled / disabled: `*`.
     Strong,
     /// Emphasized text was enabled / disabled: `_`.
@@ -508,12 +505,12 @@ pub enum NodeKind {
     /// A percentage: `50%`.
     ///
     /// _Note_: `50%` is stored as `50.0` here, as in the corresponding
-    /// [literal](Lit::Percent).
+    /// [literal](ast::Lit::Percent).
     Percentage(f64),
     /// A fraction unit: `3fr`.
     Fraction(f64),
     /// A quoted string: `"..."`.
-    Str(StrData),
+    Str(EcoString),
     /// An array expression: `(1, "hi", 12cm)`.
     Array,
     /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
@@ -572,24 +569,7 @@ pub enum NodeKind {
     Unknown(EcoString),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ErrorPosition {
-    /// At the start of the node.
-    Start,
-    /// Over the full width of the node.
-    Full,
-    /// At the end of the node.
-    End,
-}
-
-/// A quoted string token: `"..."`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct StrData {
-    /// The string inside the quotes.
-    pub string: EcoString,
-}
-
-/// A raw block token: `` `...` ``.
+/// Payload of a raw block: `` `...` ``.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawData {
     /// The raw text in the block.
@@ -602,7 +582,7 @@ pub struct RawData {
     pub block: bool,
 }
 
-/// A math formula token: `$2pi + x$` or `$[f'(x) = x^2]$`.
+/// Payload of a math formula: `$2pi + x$` or `$[f'(x) = x^2]$`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MathData {
     /// The formula between the dollars.
@@ -612,17 +592,15 @@ pub struct MathData {
     pub display: bool,
 }
 
-/// A unicode escape sequence token: `\u{1F5FA}`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct UnicodeEscapeData {
-    /// The resulting unicode character.
-    pub character: char,
-}
-
-impl Display for NodeKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.pad(self.as_str())
-    }
+/// Where in a node an error should be annotated.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ErrorPosition {
+    /// At the start of the node.
+    Start,
+    /// Over the full width of the node.
+    Full,
+    /// At the end of the node.
+    End,
 }
 
 impl NodeKind {
@@ -658,6 +636,7 @@ impl NodeKind {
         matches!(self, NodeKind::Error(_, _) | NodeKind::Unknown(_))
     }
 
+    /// A human-readable name for the kind.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::LeftBracket => "opening bracket",
@@ -762,5 +741,11 @@ impl NodeKind {
                 _ => "invalid token",
             },
         }
+    }
+}
+
+impl Display for NodeKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.pad(self.as_str())
     }
 }

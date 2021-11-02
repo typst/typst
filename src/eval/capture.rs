@@ -1,7 +1,8 @@
 use std::rc::Rc;
 
 use super::{Scope, Scopes, Value};
-use crate::syntax::{ClosureParam, Expr, Imports, RedRef};
+use crate::syntax::ast::{ClosureParam, Expr, Imports};
+use crate::syntax::RedRef;
 
 /// A visitor that captures variable slots.
 pub struct CapturesVisitor<'a> {

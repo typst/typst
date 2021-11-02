@@ -2,7 +2,7 @@
 
 use std::fmt::{self, Arguments, Write};
 
-use super::*;
+use super::ast::*;
 
 /// Pretty print an item and return the resulting string.
 pub fn pretty<T>(item: &T) -> String

@@ -1,5 +1,7 @@
 use std::slice::SliceIndex;
 
+use unicode_xid::UnicodeXID;
+
 /// A featureful char-based scanner.
 #[derive(Copy, Clone)]
 pub struct Scanner<'s> {
@@ -106,22 +108,18 @@ impl<'s> Scanner<'s> {
         self.index
     }
 
-    /// The column index of a given index in the source string.
-    #[inline]
-    pub fn column(&self, index: usize) -> usize {
-        self.src[.. index]
-            .chars()
-            .rev()
-            .take_while(|&c| !is_newline(c))
-            .count()
-    }
-
     /// Jump to an index in the source string.
     #[inline]
     pub fn jump(&mut self, index: usize) {
         // Make sure that the index is in bounds and on a codepoint boundary.
         self.src.get(index ..).expect("jumped to invalid index");
         self.index = index;
+    }
+
+    /// The full source string.
+    #[inline]
+    pub fn src(&self) -> &'s str {
+        &self.src
     }
 
     /// Slice out part of the source string.
@@ -160,6 +158,16 @@ impl<'s> Scanner<'s> {
         // optimized away in some cases.
         self.src.get(start .. self.index).unwrap_or_default()
     }
+
+    /// The column index of a given index in the source string.
+    #[inline]
+    pub fn column(&self, index: usize) -> usize {
+        self.src[.. index]
+            .chars()
+            .rev()
+            .take_while(|&c| !is_newline(c))
+            .count()
+    }
 }
 
 /// Whether this character denotes a newline.
@@ -172,4 +180,25 @@ pub fn is_newline(character: char) -> bool {
         // Next Line, Line Separator, Paragraph Separator.
         '\u{0085}' | '\u{2028}' | '\u{2029}'
     )
+}
+
+/// Whether a string is a valid identifier.
+#[inline]
+pub fn is_ident(string: &str) -> bool {
+    let mut chars = string.chars();
+    chars
+        .next()
+        .map_or(false, |c| is_id_start(c) && chars.all(is_id_continue))
+}
+
+/// Whether a character can start an identifier.
+#[inline]
+pub fn is_id_start(c: char) -> bool {
+    c.is_xid_start() || c == '_'
+}
+
+/// Whether a character can continue an identifier.
+#[inline]
+pub fn is_id_continue(c: char) -> bool {
+    c.is_xid_continue() || c == '_' || c == '-'
 }

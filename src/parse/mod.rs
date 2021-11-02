@@ -12,7 +12,8 @@ pub use tokens::*;
 
 use std::rc::Rc;
 
-use crate::syntax::*;
+use crate::syntax::ast::{Associativity, BinOp, UnOp};
+use crate::syntax::{ErrorPosition, GreenNode, NodeKind};
 use crate::util::EcoString;
 
 /// Parse a source file.

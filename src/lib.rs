@@ -20,7 +20,7 @@
 //!
 //! [tokens]: parse::Tokens
 //! [parsed]: parse::parse
-//! [markup]: syntax::Markup
+//! [markup]: syntax::ast::Markup
 //! [evaluate]: eval::eval
 //! [module]: eval::Module
 //! [layout tree]: layout::LayoutTree

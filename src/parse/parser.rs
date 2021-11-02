@@ -1,7 +1,7 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use super::{is_newline, TokenMode, Tokens};
+use super::{TokenMode, Tokens};
 use crate::syntax::{ErrorPosition, Green, GreenData, GreenNode, NodeKind};
 use crate::util::EcoString;
 
@@ -375,11 +375,7 @@ impl<'s> Parser<'s> {
 
     /// Determine the column index for the given byte index.
     pub fn column(&self, index: usize) -> usize {
-        self.src[.. index]
-            .chars()
-            .rev()
-            .take_while(|&c| !is_newline(c))
-            .count()
+        self.tokens.column(index)
     }
 
     /// Slice out part of the source string.

@@ -5,7 +5,7 @@ use crate::diag::TypResult;
 use crate::geom::Spec;
 use crate::layout::BlockLevel;
 use crate::library::{GridNode, ParChild, ParNode, TrackSizing};
-use crate::syntax::*;
+use crate::syntax::ast::*;
 use crate::util::BoolExt;
 
 /// Walk markup, filling the currently built template.

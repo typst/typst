@@ -36,7 +36,8 @@ use crate::geom::{Angle, Fractional, Length, Relative};
 use crate::image::ImageStore;
 use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
-use crate::syntax::*;
+use crate::syntax::ast::*;
+use crate::syntax::{Span, Spanned};
 use crate::util::RefMutExt;
 use crate::Context;
 
@@ -238,7 +239,7 @@ impl Eval for DictExpr {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         self.items()
-            .map(|x| Ok(((&x.name().string).into(), x.expr().eval(ctx)?)))
+            .map(|x| Ok((x.name().string.into(), x.expr().eval(ctx)?)))
             .collect()
     }
 }

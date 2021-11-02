@@ -1,6 +1,17 @@
-use super::{Ident, NodeKind, RedNode, RedRef, Span, TypedNode};
+//! A typed layer over the red-green tree.
+
+use std::ops::Deref;
+
+use super::{NodeKind, RedNode, RedRef, Span};
 use crate::geom::{AngularUnit, LengthUnit};
+use crate::parse::is_ident;
 use crate::util::EcoString;
+
+/// A typed AST node.
+pub trait TypedNode: Sized {
+    /// Convert from a red node to a typed node.
+    fn from_red(value: RedRef) -> Option<Self>;
+}
 
 macro_rules! node {
     ($(#[$attr:meta])* $name:ident) => {
@@ -13,7 +24,7 @@ macro_rules! node {
         pub struct $name(RedNode);
 
         impl TypedNode for $name {
-            fn cast_from(node: RedRef) -> Option<Self> {
+            fn from_red(node: RedRef) -> Option<Self> {
                 if node.kind() != &NodeKind::$variant {
                     return None;
                 }
@@ -23,10 +34,12 @@ macro_rules! node {
         }
 
         impl $name {
+            /// The source code location.
             pub fn span(&self) -> Span {
                 self.0.span()
             }
 
+            /// The underlying red node.
             pub fn underlying(&self) -> RedRef {
                 self.0.as_ref()
             }
@@ -40,7 +53,8 @@ node! {
 }
 
 impl Markup {
-    pub fn nodes<'a>(&'a self) -> impl Iterator<Item = MarkupNode> + 'a {
+    /// The markup nodes.
+    pub fn nodes(&self) -> impl Iterator<Item = MarkupNode> + '_ {
         self.0.children().filter_map(RedRef::cast)
     }
 }
@@ -73,7 +87,7 @@ pub enum MarkupNode {
 }
 
 impl TypedNode for MarkupNode {
-    fn cast_from(node: RedRef) -> Option<Self> {
+    fn from_red(node: RedRef) -> Option<Self> {
         match node.kind() {
             NodeKind::Space(_) => Some(MarkupNode::Space),
             NodeKind::Linebreak => Some(MarkupNode::Linebreak),
@@ -81,17 +95,14 @@ impl TypedNode for MarkupNode {
             NodeKind::Strong => Some(MarkupNode::Strong),
             NodeKind::Emph => Some(MarkupNode::Emph),
             NodeKind::Text(s) => Some(MarkupNode::Text(s.clone())),
-            NodeKind::UnicodeEscape(u) => Some(MarkupNode::Text(u.character.into())),
-            NodeKind::EnDash => Some(MarkupNode::Text(EcoString::from("\u{2013}"))),
-            NodeKind::EmDash => Some(MarkupNode::Text(EcoString::from("\u{2014}"))),
-            NodeKind::NonBreakingSpace => {
-                Some(MarkupNode::Text(EcoString::from("\u{00A0}")))
-            }
+            NodeKind::UnicodeEscape(c) => Some(MarkupNode::Text((*c).into())),
+            NodeKind::EnDash => Some(MarkupNode::Text("\u{2013}".into())),
+            NodeKind::EmDash => Some(MarkupNode::Text("\u{2014}".into())),
+            NodeKind::NonBreakingSpace => Some(MarkupNode::Text("\u{00A0}".into())),
             NodeKind::Raw(_) => node.cast().map(MarkupNode::Raw),
             NodeKind::Heading => node.cast().map(MarkupNode::Heading),
             NodeKind::List => node.cast().map(MarkupNode::List),
             NodeKind::Enum => node.cast().map(MarkupNode::Enum),
-            NodeKind::Error(_, _) => None,
             _ => node.cast().map(MarkupNode::Expr),
         }
     }
@@ -111,16 +122,16 @@ pub struct RawNode {
 }
 
 impl TypedNode for RawNode {
-    fn cast_from(node: RedRef) -> Option<Self> {
+    fn from_red(node: RedRef) -> Option<Self> {
         match node.kind() {
             NodeKind::Raw(raw) => {
-                let span = node.span();
-                let start = span.start + raw.backticks as usize;
+                let full = node.span();
+                let start = full.start + raw.backticks as usize;
                 Some(Self {
                     block: raw.block,
-                    lang: raw.lang.as_ref().and_then(|x| {
-                        let span = Span::new(span.source, start, start + x.len());
-                        Ident::new(x, span)
+                    lang: raw.lang.as_ref().and_then(|lang| {
+                        let span = Span::new(full.source, start, start + lang.len());
+                        Ident::new(lang, span)
                     }),
                     text: raw.text.clone(),
                 })
@@ -272,7 +283,7 @@ impl Expr {
 }
 
 impl TypedNode for Expr {
-    fn cast_from(node: RedRef) -> Option<Self> {
+    fn from_red(node: RedRef) -> Option<Self> {
         match node.kind() {
             NodeKind::Ident(_) => node.cast().map(Self::Ident),
             NodeKind::Array => node.cast().map(Self::Array),
@@ -325,7 +336,7 @@ pub enum Lit {
 }
 
 impl TypedNode for Lit {
-    fn cast_from(node: RedRef) -> Option<Self> {
+    fn from_red(node: RedRef) -> Option<Self> {
         match node.kind() {
             NodeKind::None => Some(Self::None(node.span())),
             NodeKind::Auto => Some(Self::Auto(node.span())),
@@ -336,13 +347,14 @@ impl TypedNode for Lit {
             NodeKind::Angle(f, unit) => Some(Self::Angle(node.span(), *f, *unit)),
             NodeKind::Percentage(f) => Some(Self::Percent(node.span(), *f)),
             NodeKind::Fraction(f) => Some(Self::Fractional(node.span(), *f)),
-            NodeKind::Str(s) => Some(Self::Str(node.span(), s.string.clone())),
+            NodeKind::Str(s) => Some(Self::Str(node.span(), s.clone())),
             _ => None,
         }
     }
 }
 
 impl Lit {
+    /// The source code location.
     pub fn span(&self) -> Span {
         match self {
             Self::None(span) => *span,
@@ -366,7 +378,7 @@ node! {
 
 impl ArrayExpr {
     /// The array items.
-    pub fn items<'a>(&'a self) -> impl Iterator<Item = Expr> + 'a {
+    pub fn items(&self) -> impl Iterator<Item = Expr> + '_ {
         self.0.children().filter_map(RedRef::cast)
     }
 }
@@ -378,7 +390,7 @@ node! {
 
 impl DictExpr {
     /// The named dictionary items.
-    pub fn items<'a>(&'a self) -> impl Iterator<Item = Named> + 'a {
+    pub fn items(&self) -> impl Iterator<Item = Named> + '_ {
         self.0.children().filter_map(RedRef::cast)
     }
 }
@@ -439,7 +451,7 @@ node! {
 
 impl BlockExpr {
     /// The list of expressions contained in the block.
-    pub fn exprs<'a>(&'a self) -> impl Iterator<Item = Expr> + 'a {
+    pub fn exprs(&self) -> impl Iterator<Item = Expr> + '_ {
         self.0.children().filter_map(RedRef::cast)
     }
 }
@@ -477,7 +489,7 @@ pub enum UnOp {
 }
 
 impl TypedNode for UnOp {
-    fn cast_from(node: RedRef) -> Option<Self> {
+    fn from_red(node: RedRef) -> Option<Self> {
         Self::from_token(node.kind())
     }
 }
@@ -581,7 +593,7 @@ pub enum BinOp {
 }
 
 impl TypedNode for BinOp {
-    fn cast_from(node: RedRef) -> Option<Self> {
+    fn from_red(node: RedRef) -> Option<Self> {
         Self::from_token(node.kind())
     }
 }
@@ -709,7 +721,7 @@ node! {
 
 impl CallArgs {
     /// The positional and named arguments.
-    pub fn items<'a>(&'a self) -> impl Iterator<Item = CallArg> + 'a {
+    pub fn items(&self) -> impl Iterator<Item = CallArg> + '_ {
         self.0.children().filter_map(RedRef::cast)
     }
 }
@@ -726,7 +738,7 @@ pub enum CallArg {
 }
 
 impl TypedNode for CallArg {
-    fn cast_from(node: RedRef) -> Option<Self> {
+    fn from_red(node: RedRef) -> Option<Self> {
         match node.kind() {
             NodeKind::Named => Some(CallArg::Named(
                 node.cast().expect("named call argument is missing name"),
@@ -767,7 +779,7 @@ impl ClosureExpr {
     }
 
     /// The parameter bindings.
-    pub fn params<'a>(&'a self) -> impl Iterator<Item = ClosureParam> + 'a {
+    pub fn params(&self) -> impl Iterator<Item = ClosureParam> + '_ {
         self.0
             .children()
             .find(|x| x.kind() == &NodeKind::ClosureParams)
@@ -805,10 +817,10 @@ pub enum ClosureParam {
 }
 
 impl TypedNode for ClosureParam {
-    fn cast_from(node: RedRef) -> Option<Self> {
+    fn from_red(node: RedRef) -> Option<Self> {
         match node.kind() {
-            NodeKind::Ident(i) => {
-                Some(ClosureParam::Pos(Ident::new(i, node.span()).unwrap()))
+            NodeKind::Ident(id) => {
+                Some(ClosureParam::Pos(Ident::new_unchecked(id, node.span())))
             }
             NodeKind::Named => Some(ClosureParam::Named(
                 node.cast().expect("named closure parameter is missing name"),
@@ -921,7 +933,7 @@ pub enum Imports {
 }
 
 impl TypedNode for Imports {
-    fn cast_from(node: RedRef) -> Option<Self> {
+    fn from_red(node: RedRef) -> Option<Self> {
         match node.kind() {
             NodeKind::Star => Some(Imports::Wildcard),
             NodeKind::ImportItems => {
@@ -1043,14 +1055,75 @@ node! {
 }
 
 impl ForPattern {
+    /// The key part of the pattern: index for arrays, name for dictionaries.
     pub fn key(&self) -> Option<Ident> {
-        let mut items: Vec<_> = self.0.children().filter_map(RedRef::cast).collect();
-        if items.len() > 1 { Some(items.remove(0)) } else { None }
+        let mut children = self.0.children().filter_map(RedRef::cast);
+        let key = children.next();
+        if children.next().is_some() { key } else { None }
     }
 
+    /// The value part of the pattern.
     pub fn value(&self) -> Ident {
         self.0
             .cast_last_child()
             .expect("for-in loop pattern is missing value")
+    }
+}
+
+/// An unicode identifier with a few extra permissible characters.
+///
+/// In addition to what is specified in the [Unicode Standard][uax31], we allow:
+/// - `_` as a starting character,
+/// - `_` and `-` as continuing characters.
+///
+/// [uax31]: http://www.unicode.org/reports/tr31/
+#[derive(Debug, Clone, PartialEq)]
+pub struct Ident {
+    /// The source code location.
+    pub span: Span,
+    /// The identifier string.
+    pub string: EcoString,
+}
+
+impl Ident {
+    /// Create a new identifier from a string checking that it is a valid.
+    pub fn new(
+        string: impl AsRef<str> + Into<EcoString>,
+        span: impl Into<Span>,
+    ) -> Option<Self> {
+        is_ident(string.as_ref())
+            .then(|| Self { span: span.into(), string: string.into() })
+    }
+
+    /// Create a new identifier from a string and a span.
+    ///
+    /// The `string` must be a valid identifier.
+    #[track_caller]
+    pub fn new_unchecked(string: impl Into<EcoString>, span: Span) -> Self {
+        let string = string.into();
+        debug_assert!(is_ident(&string), "`{}` is not a valid identifier", string);
+        Self { span, string }
+    }
+
+    /// Return a reference to the underlying string.
+    pub fn as_str(&self) -> &str {
+        &self.string
+    }
+}
+
+impl Deref for Ident {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+impl TypedNode for Ident {
+    fn from_red(node: RedRef) -> Option<Self> {
+        match node.kind() {
+            NodeKind::Ident(string) => Some(Ident::new_unchecked(string, node.span())),
+            _ => None,
+        }
     }
 }
