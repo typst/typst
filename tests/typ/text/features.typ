@@ -21,10 +21,10 @@ a vs #font(alternates: true)[a] \
 fi vs. #font(ligatures: false)[No fi] \
 
 ---
-// Test number style.
+// Test number type.
 #font("Roboto")
-#font(number-style: "old-style") 0123456789 \
-#font(number-style: auto)[0123456789]
+#font(number-type: "old-style") 0123456789 \
+#font(number-type: auto)[0123456789]
 
 ---
 // Test number width.
@@ -57,8 +57,8 @@ fi vs. #font(features: (liga: 0))[No fi]
 #font(stylistic-set: 25)
 
 ---
-// Error: 21-32 expected "lining" or "old-style"
-#font(number-style: "different")
+// Error: 20-31 expected "lining" or "old-style"
+#font(number-type: "different")
 
 ---
 // Error: 17-22 expected array of strings or dictionary mapping tags to integers, found boolean
