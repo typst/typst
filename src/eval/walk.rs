@@ -2,9 +2,9 @@ use std::rc::Rc;
 
 use super::{Eval, EvalContext, Str, Template, Value};
 use crate::diag::TypResult;
-use crate::geom::Align;
+use crate::geom::Spec;
 use crate::layout::BlockLevel;
-use crate::library::{ParChild, ParNode, Spacing, StackChild, StackNode};
+use crate::library::{GridNode, ParChild, ParNode, TrackSizing};
 use crate::syntax::*;
 use crate::util::BoolExt;
 
@@ -116,13 +116,12 @@ fn walk_item(ctx: &mut EvalContext, label: Str, body: Template) {
                 Rc::clone(&style.text),
             )],
         };
-        StackNode {
-            dir: style.dir,
-            children: vec![
-                StackChild::Node(label.pack(), Align::Start),
-                StackChild::Spacing(Spacing::Linear((style.text.size / 2.0).into())),
-                StackChild::Node(body.to_stack(&style).pack(), Align::Start),
-            ],
+
+        let spacing = style.text.size / 2.0;
+        GridNode {
+            tracks: Spec::new(vec![TrackSizing::Auto; 2], vec![]),
+            gutter: Spec::new(vec![TrackSizing::Linear(spacing.into())], vec![]),
+            children: vec![label.pack(), body.to_stack(&style).pack()],
         }
     });
 }
