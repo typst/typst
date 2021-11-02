@@ -268,7 +268,7 @@ impl SourceFile {
     /// This panics if the `replace` range is out of bounds.
     pub fn edit(&mut self, replace: Range<usize>, with: &str) {
         let start = replace.start;
-        self.src.replace_range(replace, with);
+        self.src.replace_range(replace.clone(), with);
 
         // Remove invalidated line starts.
         let line = self.byte_to_line(start).unwrap();
@@ -283,8 +283,39 @@ impl SourceFile {
         self.line_starts
             .extend(newlines(&self.src[start ..]).map(|idx| start + idx));
 
-        // Reparse.
-        self.root = parse(&self.src);
+        // Update the root node.
+        #[cfg(not(feature = "parse-cache"))]
+        {
+            self.root = parse(&self.src);
+        }
+
+        #[cfg(feature = "parse-cache")]
+        {
+            let insertion_span = replace.into_span(self.id);
+            let incremental_target =
+                Rc::make_mut(&mut self.root).incremental_parent(insertion_span);
+
+            match incremental_target {
+                Some((child_idx, parent, offset)) => {
+                    let child = &parent.children()[child_idx];
+                    let src = &self.src[offset .. offset + child.len()];
+                    let parse_res = match child.kind() {
+                        NodeKind::Markup => Some(parse(src)),
+                        _ => parse_block(src),
+                    }
+                    .and_then(|x| x.data().erroneous().not().then(|| x));
+
+                    if let Some(parse_res) = parse_res {
+                        parent.replace_child(child_idx, parse_res);
+                    } else {
+                        self.root = parse(&self.src);
+                    }
+                }
+                None => {
+                    self.root = parse(&self.src);
+                }
+            }
+        }
     }
 
     /// Provide highlighting categories for the given range of the source file.
@@ -472,5 +503,22 @@ mod tests {
 
         // Test removing everything.
         test(TEST, 0 .. 21, "", "");
+    }
+
+    #[test]
+    fn test_source_file_edit_2() {
+        #[track_caller]
+        fn test(prev: &str, range: Range<usize>, with: &str, after: &str) {
+            let mut source = SourceFile::detached(prev);
+            let result = SourceFile::detached(after);
+            dbg!(Green::from(source.root.clone()));
+            source.edit(range, with);
+            assert_eq!(source.src, result.src);
+            assert_eq!(source.line_starts, result.line_starts);
+            dbg!(Green::from(source.root));
+        }
+
+        // Test inserting at the begining.
+        test("abc #f()[def] ghi", 10 .. 11, "xyz", "abc #f()[dxyzf] ghi");
     }
 }

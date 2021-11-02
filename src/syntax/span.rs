@@ -125,6 +125,17 @@ impl Span {
         *self = self.join(other)
     }
 
+    /// Create a new span with n characters inserted inside of this span.
+    pub fn inserted(mut self, other: Self, n: usize) -> Self {
+        if !self.contains(other.start) || !self.contains(other.end) {
+            panic!();
+        }
+
+        let len_change = (n as isize - other.len() as isize) as usize;
+        self.end += len_change;
+        self
+    }
+
     /// Test whether a position is within the span.
     pub fn contains(&self, pos: usize) -> bool {
         self.start <= pos && self.end >= pos

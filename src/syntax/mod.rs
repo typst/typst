@@ -127,6 +127,92 @@ impl GreenNode {
     pub fn children(&self) -> &[Green] {
         &self.children
     }
+
+    /// The node's children, mutably.
+    pub fn children_mut(&mut self) -> &mut [Green] {
+        &mut self.children
+    }
+
+    /// The node's metadata.
+    pub fn data(&self) -> &GreenData {
+        &self.data
+    }
+
+    /// The node's type.
+    pub fn kind(&self) -> &NodeKind {
+        self.data().kind()
+    }
+
+    /// The node's length.
+    pub fn len(&self) -> usize {
+        self.data().len()
+    }
+
+    /// Find the parent of the deepest incremental-safe node and the index of
+    /// the found child.
+    pub fn incremental_parent(
+        &mut self,
+        span: Span,
+    ) -> Option<(usize, &mut GreenNode, usize)> {
+        self.incremental_parent_internal(span, 0)
+    }
+
+    fn incremental_parent_internal(
+        &mut self,
+        span: Span,
+        mut offset: usize,
+    ) -> Option<(usize, &mut GreenNode, usize)> {
+        let x = unsafe { &mut *(self as *mut _) };
+
+        for (i, child) in self.children.iter_mut().enumerate() {
+            match child {
+                Green::Token(n) => {
+                    if offset < span.start {
+                        // the token is strictly before the span
+                        offset += n.len();
+                    } else {
+                        // the token is within or after the span; tokens are
+                        // never safe, so we return.
+                        return None;
+                    }
+                }
+                Green::Node(n) => {
+                    let end = n.len() + offset;
+                    if offset < span.start && end < span.start {
+                        // the node is strictly before the span
+                        offset += n.len();
+                    } else if span.start >= offset
+                        && span.start < end
+                        && span.end <= end
+                        && span.end > offset
+                    {
+                        // the node is within the span.
+                        if n.kind().is_incremental_safe() {
+                            let res =
+                                Rc::make_mut(n).incremental_parent_internal(span, offset);
+                            if res.is_none() {
+                                return Some((i, x, offset));
+                            }
+                        } else {
+                            return Rc::make_mut(n)
+                                .incremental_parent_internal(span, offset);
+                        }
+                    } else {
+                        // the node is overlapping or after after the span; nodes are
+                        // never safe, so we return.
+                        return None;
+                    }
+                }
+            }
+        }
+
+        return None;
+    }
+
+    /// Replace one of the node's children.
+    pub fn replace_child(&mut self, index: usize, child: impl Into<Green>) {
+        self.children[index] = child.into();
+    }
 }
 
 impl From<GreenNode> for Green {
@@ -651,6 +737,14 @@ impl NodeKind {
     /// Whether this is some kind of error.
     pub fn is_error(&self) -> bool {
         matches!(self, NodeKind::Error(_, _) | NodeKind::Unknown(_))
+    }
+
+    /// Whether it is safe to do incremental parsing on this node.
+    pub fn is_incremental_safe(&self) -> bool {
+        match self {
+            Self::Block | Self::Markup => true,
+            _ => false,
+        }
     }
 
     /// A human-readable name for the kind.

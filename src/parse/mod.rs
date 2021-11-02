@@ -25,6 +25,20 @@ pub fn parse(src: &str) -> Rc<GreenNode> {
     }
 }
 
+/// Parse a block. Returns `Some` if there was only one block.
+pub fn parse_block(source: &str) -> Option<Rc<GreenNode>> {
+    let mut p = Parser::new(source);
+    block(&mut p);
+    if p.eof() {
+        match p.finish().into_iter().next() {
+            Some(Green::Node(node)) => Some(node),
+            _ => unreachable!(),
+        }
+    } else {
+        None
+    }
+}
+
 /// Parse markup.
 fn markup(p: &mut Parser) {
     markup_while(p, true, &mut |_| true)
