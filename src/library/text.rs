@@ -11,7 +11,7 @@ use crate::font::{
 };
 use crate::geom::{Dir, Em, Length, Point, Size};
 use crate::style::{
-    FontFeatures, NumberPosition, NumberStyle, NumberWidth, Style, TextStyle,
+    FontFeatures, NumberPosition, NumberType, NumberWidth, Style, TextStyle,
 };
 use crate::util::SliceExt;
 
@@ -103,7 +103,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     castable! {
-        NumberStyle: "auto or string",
+        NumberType: "auto or string",
         Value::Auto => Self::Auto,
         Value::Str(string) => match string.as_str() {
             "lining" => Self::Lining,
@@ -176,7 +176,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let ligatures = args.named("ligatures")?;
     let discretionary_ligatures = args.named("discretionary-ligatures")?;
     let historical_ligatures = args.named("historical-ligatures")?;
-    let number_style = args.named("number-style")?;
+    let number_type = args.named("number-type")?;
     let number_width = args.named("number-width")?;
     let number_position = args.named("number-position")?;
     let slashed_zero = args.named("slashed-zero")?;
@@ -233,7 +233,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         set!(text.features_mut().ligatures.standard => ligatures);
         set!(text.features_mut().ligatures.discretionary => discretionary_ligatures);
         set!(text.features_mut().ligatures.historical => historical_ligatures);
-        set!(text.features_mut().numbers.style => number_style);
+        set!(text.features_mut().numbers.type_ => number_type);
         set!(text.features_mut().numbers.width => number_width);
         set!(text.features_mut().numbers.position => number_position);
         set!(text.features_mut().numbers.slashed_zero => slashed_zero);
@@ -661,10 +661,10 @@ fn tags(features: &FontFeatures) -> Vec<Feature> {
         feat(b"hilg", 1);
     }
 
-    match features.numbers.style {
-        NumberStyle::Auto => {}
-        NumberStyle::Lining => feat(b"lnum", 1),
-        NumberStyle::OldStyle => feat(b"onum", 1),
+    match features.numbers.type_ {
+        NumberType::Auto => {}
+        NumberType::Lining => feat(b"lnum", 1),
+        NumberType::OldStyle => feat(b"onum", 1),
     }
 
     match features.numbers.width {

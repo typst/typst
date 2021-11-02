@@ -268,7 +268,7 @@ pub struct FontFeatures {
     pub smallcaps: bool,
     /// Whether to apply stylistic alternates. ("salt")
     pub alternates: bool,
-    /// Which stylistic set to apply. ("ss00" - "ss20")
+    /// Which stylistic set to apply. ("ss01" - "ss20")
     pub stylistic_set: Option<u8>,
     /// Configuration of ligature features.
     pub ligatures: LigatureFeatures,
@@ -317,7 +317,7 @@ impl Default for LigatureFeatures {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct NumberFeatures {
     /// Whether to use lining or old-style numbers.
-    pub style: NumberStyle,
+    pub type_: NumberType,
     /// Whether to use proportional or tabular numbers.
     pub width: NumberWidth,
     /// How to position numbers vertically.
@@ -331,7 +331,7 @@ pub struct NumberFeatures {
 impl Default for NumberFeatures {
     fn default() -> Self {
         Self {
-            style: NumberStyle::Auto,
+            type_: NumberType::Auto,
             width: NumberWidth::Auto,
             position: NumberPosition::Normal,
             slashed_zero: false,
@@ -340,9 +340,9 @@ impl Default for NumberFeatures {
     }
 }
 
-/// How numbers / figures look.
+/// Which kind of numbers / figures to select.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum NumberStyle {
+pub enum NumberType {
     /// Select the font's preference.
     Auto,
     /// Numbers that fit well with capital text. ("lnum")
