@@ -98,7 +98,7 @@ pub struct GreenNode {
     /// This node's children, losslessly make up this node.
     children: Vec<Green>,
     /// Whether this node or any of its children are erroneous.
-    erroneous: bool,
+    pub erroneous: bool,
 }
 
 impl GreenNode {
@@ -148,12 +148,9 @@ impl GreenNode {
         self.data().len()
     }
 
-    /// Find the parent of the deepest incremental-safe node and the index of
-    /// the found child.
-    pub fn incremental_parent(
-        &mut self,
-        span: Span,
-    ) -> Option<(usize, &mut GreenNode, usize)> {
+    /// Find the deepest incremental-safe node and its offset in the source
+    /// code.
+    pub fn incremental_parent(&mut self, span: Span) -> Option<(&mut GreenNode, usize)> {
         self.incremental_parent_internal(span, 0)
     }
 
@@ -161,10 +158,8 @@ impl GreenNode {
         &mut self,
         span: Span,
         mut offset: usize,
-    ) -> Option<(usize, &mut GreenNode, usize)> {
-        let x = unsafe { &mut *(self as *mut _) };
-
-        for (i, child) in self.children.iter_mut().enumerate() {
+    ) -> Option<(&mut GreenNode, usize)> {
+        for child in self.children.iter_mut() {
             match child {
                 Green::Token(n) => {
                     if offset < span.start {
@@ -187,15 +182,15 @@ impl GreenNode {
                         && span.end > offset
                     {
                         // the node is within the span.
-                        if n.kind().is_incremental_safe() {
-                            let res =
-                                Rc::make_mut(n).incremental_parent_internal(span, offset);
+                        let safe = n.kind().is_incremental_safe();
+                        let mut_n = Rc::make_mut(n);
+                        if safe {
+                            let res = mut_n.incremental_parent_internal(span, offset);
                             if res.is_none() {
-                                return Some((i, x, offset));
+                                return Some((mut_n, offset));
                             }
                         } else {
-                            return Rc::make_mut(n)
-                                .incremental_parent_internal(span, offset);
+                            return mut_n.incremental_parent_internal(span, offset);
                         }
                     } else {
                         // the node is overlapping or after after the span; nodes are
@@ -207,11 +202,6 @@ impl GreenNode {
         }
 
         return None;
-    }
-
-    /// Replace one of the node's children.
-    pub fn replace_child(&mut self, index: usize, child: impl Into<Green>) {
-        self.children[index] = child.into();
     }
 }
 
@@ -352,7 +342,7 @@ impl Debug for RedNode {
     }
 }
 
-/// A borrowed wrapper for a green node with span information.
+/// A borrowed wrapper for a [`GreenNode`] with span information.
 ///
 /// Borrowed variant of [`RedNode`]. Can be [cast](Self::cast) to an AST node.
 #[derive(Copy, Clone, PartialEq)]
@@ -387,6 +377,26 @@ impl<'a> RedRef<'a> {
         Span::new(self.id, self.offset, self.offset + self.green.len())
     }
 
+    /// Whether the node or its children contain an error.
+    pub fn erroneous(self) -> bool {
+        self.green.erroneous()
+    }
+
+    /// The node's children.
+    pub fn children(self) -> Children<'a> {
+        let children = match &self.green {
+            Green::Node(node) => node.children(),
+            Green::Token(_) => &[],
+        };
+
+        Children {
+            id: self.id,
+            iter: children.iter(),
+            front: self.offset,
+            back: self.offset + self.len(),
+        }
+    }
+
     /// The error messages for this node and its descendants.
     pub fn errors(self) -> Vec<Error> {
         if !self.green.erroneous() {
@@ -417,21 +427,6 @@ impl<'a> RedRef<'a> {
         T: TypedNode,
     {
         T::from_red(self)
-    }
-
-    /// The node's children.
-    pub fn children(self) -> Children<'a> {
-        let children = match &self.green {
-            Green::Node(node) => node.children(),
-            Green::Token(_) => &[],
-        };
-
-        Children {
-            id: self.id,
-            iter: children.iter(),
-            front: self.offset,
-            back: self.offset + self.len(),
-        }
     }
 
     /// Get the first child that can cast to some AST type.

@@ -127,12 +127,12 @@ impl Span {
 
     /// Create a new span with n characters inserted inside of this span.
     pub fn inserted(mut self, other: Self, n: usize) -> Self {
-        if !self.contains(other.start) || !self.contains(other.end) {
+        if !self.surrounds(other) {
             panic!();
         }
 
-        let len_change = (n as isize - other.len() as isize) as usize;
-        self.end += len_change;
+        let len_change = n as isize - other.len() as isize;
+        self.end += len_change as usize;
         self
     }
 

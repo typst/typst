@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::io;
-use std::ops::Range;
+use std::ops::{Not, Range};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
-use crate::parse::{is_newline, parse, Scanner};
+use crate::parse::{is_newline, parse, parse_block, Scanner};
 use crate::syntax::ast::Markup;
-use crate::syntax::{self, Category, GreenNode, RedNode};
+use crate::syntax::{self, Category, GreenNode, NodeKind, RedNode, Span};
 use crate::util::PathExt;
 
 #[cfg(feature = "codespan-reporting")]
@@ -284,36 +284,27 @@ impl SourceFile {
             .extend(newlines(&self.src[start ..]).map(|idx| start + idx));
 
         // Update the root node.
-        #[cfg(not(feature = "parse-cache"))]
-        {
-            self.root = parse(&self.src);
-        }
+        let insertion_span = Span::new(self.id, replace.start, replace.end);
+        let incremental_target =
+            Rc::make_mut(&mut self.root).incremental_parent(insertion_span);
 
-        #[cfg(feature = "parse-cache")]
-        {
-            let insertion_span = replace.into_span(self.id);
-            let incremental_target =
-                Rc::make_mut(&mut self.root).incremental_parent(insertion_span);
-
-            match incremental_target {
-                Some((child_idx, parent, offset)) => {
-                    let child = &parent.children()[child_idx];
-                    let src = &self.src[offset .. offset + child.len()];
-                    let parse_res = match child.kind() {
-                        NodeKind::Markup => Some(parse(src)),
-                        _ => parse_block(src),
-                    }
-                    .and_then(|x| x.data().erroneous().not().then(|| x));
-
-                    if let Some(parse_res) = parse_res {
-                        parent.replace_child(child_idx, parse_res);
-                    } else {
-                        self.root = parse(&self.src);
-                    }
+        match incremental_target {
+            Some((child, offset)) => {
+                let src = &self.src[offset .. offset + child.len()];
+                let parse_res = match child.kind() {
+                    NodeKind::Markup => Some(parse(src)),
+                    _ => parse_block(src),
                 }
-                None => {
+                .and_then(|x| x.erroneous.not().then(|| x));
+
+                if let Some(parse_res) = parse_res {
+                    *child = Rc::try_unwrap(parse_res).unwrap();
+                } else {
                     self.root = parse(&self.src);
                 }
+            }
+            None => {
+                self.root = parse(&self.src);
             }
         }
     }
@@ -405,6 +396,7 @@ impl<'a> Files<'a> for SourceStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::syntax::Green;
 
     const TEST: &str = "ä\tcde\nf💛g\r\nhi\rjkl";
 
