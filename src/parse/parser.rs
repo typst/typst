@@ -187,17 +187,8 @@ impl<'s> Parser<'s> {
 
     /// Eat and wrap the next token.
     pub fn convert(&mut self, kind: NodeKind) {
-        let len = self.tokens.index() - self.next_start;
-
-        self.children.push(
-            GreenNode::with_child(
-                kind,
-                len,
-                GreenData::new(self.next.clone().unwrap(), len),
-            )
-            .into(),
-        );
-        self.fast_forward();
+        self.eat();
+        self.children.last_mut().unwrap().set_kind(kind);
         self.success = true;
     }
 
@@ -278,6 +269,7 @@ impl<'s> Parser<'s> {
     }
 
     /// Consume the next token and return its kind.
+    // NOTE: This isn't great.
     fn eat_peeked(&mut self) -> Option<NodeKind> {
         let token = self.peek()?.clone();
         self.eat();
@@ -319,6 +311,7 @@ impl<'s> Parser<'s> {
 
     /// Consume the next token, debug-asserting that it is one of the given ones.
     pub fn eat_assert(&mut self, t: &NodeKind) {
+        // NOTE: assert with peek(), then eat()
         let next = self.eat_peeked();
         debug_assert_eq!(next.as_ref(), Some(t));
     }
@@ -438,8 +431,6 @@ impl<'s> Parser<'s> {
 
         // Rescan the peeked token if the mode changed.
         if rescan {
-            self.tokens.jump(self.prev_end());
-
             if prev_mode == TokenMode::Code {
                 let len = self.children.len();
                 for n in (0 .. len).rev() {
@@ -451,7 +442,11 @@ impl<'s> Parser<'s> {
                 }
             }
 
-            self.fast_forward();
+            self.tokens.jump(self.prev_end());
+            self.prev_end = self.tokens.index().into();
+            self.next_start = self.tokens.index().into();
+            self.next = self.tokens.next();
+            self.repeek();
         }
     }
 
@@ -527,21 +522,23 @@ impl<'s> Parser<'s> {
             .into(),
         );
 
-        self.fast_forward();
-    }
-
-    /// Move to the next token.
-    pub fn fast_forward(&mut self) {
-        if !self.next.as_ref().map_or(false, |x| self.skip_type(x)) {
-            self.prev_end = self.tokens.index().into();
-        }
+        self.prev_end = self.tokens.index().into();
         self.next_start = self.tokens.index().into();
         self.next = self.tokens.next();
 
         if self.tokens.mode() == TokenMode::Code {
             // Skip whitespace and comments.
             while self.next.as_ref().map_or(false, |x| self.skip_type(x)) {
-                self.eat();
+                self.children.push(
+                    GreenData::new(
+                        self.next.clone().unwrap(),
+                        self.tokens.index() - self.next_start,
+                    )
+                    .into(),
+                );
+
+                self.next_start = self.tokens.index().into();
+                self.next = self.tokens.next();
             }
         }
 

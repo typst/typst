@@ -53,6 +53,8 @@ where
     p.start();
     while !p.eof() && f(p) {
         markup_node(p, &mut at_start);
+        // NOTE: Just do this at the end of markup_node. Maybe even gives a
+        // speed boost. Wasn't possible in old parser due to use of ?.
         if let Some(node) = p.last_child() {
             at_start &= matches!(node.kind(),
                 &NodeKind::Space(_) | &NodeKind::Parbreak |
@@ -115,6 +117,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
             let group = if stmt { Group::Stmt } else { Group::Expr };
 
             p.start_group(group, TokenMode::Code);
+            // NOTE: Return success from expr_with?
             expr_with(p, true, 0);
             if stmt && p.success() && !p.eof() {
                 p.expected_at("semicolon or line break");
@@ -138,6 +141,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
 
 /// Parse a heading.
 fn heading(p: &mut Parser) {
+    // NOTE: Remove HeadingLevel kind and simply count Eq children in AST.
     p.start();
     p.start();
     p.eat_assert(&NodeKind::Eq);
@@ -198,6 +202,8 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) {
             let prec = op.precedence();
             expr_with(p, atomic, prec);
 
+            // NOTE: Lifting not needed if we don't start in the first place.
+            // Then we could simply do expr_with(p, atomic, prec)?;
             if p.may_lift_abort() {
                 return;
             }
@@ -263,6 +269,10 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) {
             p.lift();
             break;
         }
+
+        // NOTE: All lifts up to here wouldn't be needed.
+        // Only here we then need to do
+        // marker.end(p, NodeKind::Binary);
 
         offset = p.end_and_start_with(NodeKind::Binary).0;
     }
@@ -456,6 +466,7 @@ fn item(p: &mut Parser) -> NodeKind {
     if p.eat_if(&NodeKind::Dots) {
         expr(p);
 
+        // NOTE: Should be called `Spread`.
         p.end_or_abort(NodeKind::ParameterSink);
         return NodeKind::ParameterSink;
     }

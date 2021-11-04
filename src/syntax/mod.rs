@@ -40,6 +40,15 @@ impl Green {
         self.data().kind()
     }
 
+    /// Set the type of the node.
+    pub fn set_kind(&mut self, kind: NodeKind) {
+        let data = match self {
+            Self::Node(node) => &mut Rc::make_mut(node).data,
+            Self::Token(data) => data,
+        };
+        data.set_kind(kind);
+    }
+
     /// The length of the node.
     pub fn len(&self) -> usize {
         self.data().len()
@@ -139,6 +148,11 @@ impl GreenData {
     /// The type of the node.
     pub fn kind(&self) -> &NodeKind {
         &self.kind
+    }
+
+    /// Set the type of the node.
+    pub fn set_kind(&mut self, kind: NodeKind) {
+        self.kind = kind;
     }
 
     /// The length of the node.
