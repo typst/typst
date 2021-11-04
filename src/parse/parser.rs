@@ -1,7 +1,7 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use super::{TokenMode, Tokens};
+use super::{ParseResult, TokenMode, Tokens};
 use crate::syntax::{ErrorPosition, Green, GreenData, GreenNode, NodeKind};
 use crate::util::EcoString;
 
@@ -26,8 +26,6 @@ pub struct Parser<'s> {
     stack: Vec<Vec<Green>>,
     /// The children of the currently built node.
     children: Vec<Green>,
-    /// Whether the last parsing step was successful.
-    success: bool,
 }
 
 /// A logical group of tokens, e.g. `[...]`.
@@ -58,6 +56,49 @@ pub enum Group {
     Imports,
 }
 
+/// A marker that indicates where a child may start.
+pub struct Marker(usize);
+
+impl Marker {
+    /// Wraps all children in front of the marker.
+    pub fn end(&self, p: &mut Parser, kind: NodeKind) {
+        if p.children.len() != self.0 {
+            let stop_nl = p.stop_at_newline();
+            let end = (self.0 .. p.children.len())
+                .rev()
+                .find(|&i| !Parser::skip_type_ext(p.children[i].kind(), stop_nl))
+                .unwrap_or(self.0)
+                + 1;
+
+            let children: Vec<_> = p.children.drain(self.0 .. end).collect();
+            let len = children.iter().map(Green::len).sum();
+            p.children
+                .insert(self.0, GreenNode::with_children(kind, len, children).into());
+        }
+    }
+
+    /// Wrap all children that do not fulfill the predicate in error nodes.
+    pub fn filter_children<F, G>(&self, p: &mut Parser, f: F, error: G)
+    where
+        F: Fn(&Green) -> bool,
+        G: Fn(&NodeKind) -> (ErrorPosition, EcoString),
+    {
+        p.filter_children(self, f, error)
+    }
+
+    /// Insert an error message that `what` was expected at the marker position.
+    pub fn expected_at(&self, p: &mut Parser, what: &str) {
+        p.children.insert(
+            self.0,
+            GreenData::new(
+                NodeKind::Error(ErrorPosition::Full, format!("expected {}", what).into()),
+                0,
+            )
+            .into(),
+        );
+    }
+}
+
 impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
     pub fn new(src: &'s str) -> Self {
@@ -73,7 +114,6 @@ impl<'s> Parser<'s> {
             next_start: 0,
             stack: vec![],
             children: vec![],
-            success: true,
         }
     }
 
@@ -85,19 +125,13 @@ impl<'s> Parser<'s> {
         self.stack.push(std::mem::take(&mut self.children));
     }
 
-    /// Start a nested node, preserving a number of the current children.
-    pub fn start_with(&mut self, preserve: usize) {
-        let preserved = self.children.drain(self.children.len() - preserve ..).collect();
-        self.stack.push(std::mem::replace(&mut self.children, preserved));
-    }
-
     /// Filter the last children using the given predicate.
-    pub fn filter_children<F, G>(&mut self, count: usize, f: F, error: G)
+    fn filter_children<F, G>(&mut self, count: &Marker, f: F, error: G)
     where
         F: Fn(&Green) -> bool,
         G: Fn(&NodeKind) -> (ErrorPosition, EcoString),
     {
-        for child in &mut self.children[count ..] {
+        for child in &mut self.children[count.0 ..] {
             if !((self.tokens.mode() != TokenMode::Code
                 || Self::skip_type_ext(child.kind(), false))
                 || child.kind().is_error()
@@ -161,46 +195,22 @@ impl<'s> Parser<'s> {
         self.children
             .push(GreenNode::with_children(kind, len, children).into());
         self.children.extend(remains);
-        self.success = true;
     }
 
-    /// End the current node as a node of given `kind`, and start a new node
-    /// with the ended node as a first child. The function returns how many
-    /// children the stack frame had before and how many were appended (accounts
-    /// for trivia).
-    pub fn end_and_start_with(&mut self, kind: NodeKind) -> (usize, usize) {
-        let stack_offset = self.stack.last().unwrap().len();
+    pub fn perform<F>(&mut self, kind: NodeKind, f: F) -> ParseResult
+    where
+        F: FnOnce(&mut Self) -> ParseResult,
+    {
+        self.start();
+        let success = f(self);
         self.end(kind);
-        let diff = self.children.len() - stack_offset;
-        self.start_with(diff);
-        (stack_offset, diff)
-    }
-
-    /// Wrap a specified node in the current stack frame (indexed from the back,
-    /// not including trivia).
-    pub fn wrap(&mut self, index: usize, kind: NodeKind) {
-        let index = self.node_index_from_back(index).unwrap();
-        let child = std::mem::take(&mut self.children[index]);
-        let item = GreenNode::with_child(kind, child.len(), child);
-        self.children[index] = item.into();
+        success
     }
 
     /// Eat and wrap the next token.
     pub fn convert(&mut self, kind: NodeKind) {
         self.eat();
         self.children.last_mut().unwrap().set_kind(kind);
-        self.success = true;
-    }
-
-    /// Wrap the last `amount` children in the current stack frame with a new
-    /// node.
-    pub fn convert_with(&mut self, amount: usize, kind: NodeKind) {
-        let preserved: Vec<_> =
-            self.children.drain(self.children.len() - amount ..).collect();
-        let len = preserved.iter().map(|c| c.len()).sum();
-        self.children
-            .push(GreenNode::with_children(kind, len, preserved).into());
-        self.success = true;
     }
 
     /// End the current node and undo its existence, inling all accumulated
@@ -209,50 +219,14 @@ impl<'s> Parser<'s> {
         let outer = self.stack.pop().unwrap();
         let children = std::mem::replace(&mut self.children, outer);
         self.children.extend(children);
-        self.success = true;
     }
 
-    /// End the current node and undo its existence, deleting all accumulated
-    /// children.
-    pub fn abort(&mut self, msg: impl Into<String>) {
-        self.end(NodeKind::Error(ErrorPosition::Full, msg.into().into()));
-        self.success = false;
-    }
-
-    /// This function [`Self::lift`]s if the last operation was unsuccessful and
-    /// returns whether it did.
-    pub fn may_lift_abort(&mut self) -> bool {
-        if !self.success {
-            self.lift();
-            self.success = false;
-            true
-        } else {
-            false
-        }
-    }
-
-    /// This function [`Self::end`]s if the last operation was unsuccessful and
-    /// returns whether it did.
-    pub fn may_end_abort(&mut self, kind: NodeKind) -> bool {
-        if !self.success {
-            self.end(kind);
-            self.success = false;
-            true
-        } else {
-            false
-        }
-    }
-
-    /// End the current node as a node of given `kind` if the last parse was
-    /// successful, otherwise, abort.
-    pub fn end_or_abort(&mut self, kind: NodeKind) -> bool {
-        if self.success {
-            self.end(kind);
-            true
-        } else {
-            self.may_end_abort(kind);
-            false
-        }
+    /// Add an error to the current children list.
+    fn push_error(&mut self, msg: impl Into<String>) {
+        self.children.push(
+            GreenData::new(NodeKind::Error(ErrorPosition::Full, msg.into().into()), 0)
+                .into(),
+        );
     }
 
     /// End the parsing process and return the last child.
@@ -266,14 +240,6 @@ impl<'s> Parser<'s> {
     /// Whether the end of the source string or group is reached.
     pub fn eof(&self) -> bool {
         self.peek().is_none()
-    }
-
-    /// Consume the next token and return its kind.
-    // NOTE: This isn't great.
-    fn eat_peeked(&mut self) -> Option<NodeKind> {
-        let token = self.peek()?.clone();
-        self.eat();
-        Some(token)
     }
 
     /// Consume the next token if it is the given one.
@@ -311,9 +277,9 @@ impl<'s> Parser<'s> {
 
     /// Consume the next token, debug-asserting that it is one of the given ones.
     pub fn eat_assert(&mut self, t: &NodeKind) {
-        // NOTE: assert with peek(), then eat()
-        let next = self.eat_peeked();
-        debug_assert_eq!(next.as_ref(), Some(t));
+        let next = self.peek();
+        debug_assert_eq!(next, Some(t));
+        self.eat();
     }
 
     /// Consume tokens while the condition is true.
@@ -402,9 +368,10 @@ impl<'s> Parser<'s> {
     /// End the parsing of a group.
     ///
     /// This panics if no group was started.
-    pub fn end_group(&mut self) {
+    pub fn end_group(&mut self) -> ParseResult {
         let prev_mode = self.tokens.mode();
         let group = self.groups.pop().expect("no started group");
+        let mut success = true;
         self.tokens.set_mode(group.prev_mode);
         self.repeek();
 
@@ -424,8 +391,8 @@ impl<'s> Parser<'s> {
                 self.eat();
                 rescan = false;
             } else if required {
-                self.start();
-                self.abort(format!("expected {}", end));
+                self.push_error(format!("expected {}", end));
+                success = false;
             }
         }
 
@@ -448,6 +415,8 @@ impl<'s> Parser<'s> {
             self.next = self.tokens.next();
             self.repeek();
         }
+
+        if success { Ok(()) } else { Err(()) }
     }
 
     /// Add an error that `what` was expected at the given span.
@@ -460,39 +429,36 @@ impl<'s> Parser<'s> {
             found = i;
         }
 
-        self.expected_at_child(found, what);
-    }
-
-    /// Add an error that `what` was expected at the given child index.
-    pub fn expected_at_child(&mut self, index: usize, what: &str) {
-        self.children.insert(
-            index,
-            GreenData::new(
-                NodeKind::Error(ErrorPosition::Full, format!("expected {}", what).into()),
-                0,
-            )
-            .into(),
-        );
+        Marker(found).expected_at(self, what);
     }
 
     /// Eat the next token and add an error that it is not the expected `thing`.
     pub fn expected(&mut self, what: &str) {
-        self.start();
-        match self.eat_peeked() {
-            Some(found) => self.abort(format!("expected {}, found {}", what, found)),
-            None => {
-                self.lift();
-                self.expected_at(what);
+        match self.peek().cloned() {
+            Some(found) => {
+                self.start();
+                self.eat();
+                self.end(NodeKind::Error(
+                    ErrorPosition::Full,
+                    format!("expected {}, found {}", what, found).into(),
+                ));
             }
+            None => self.expected_at(what),
         }
     }
 
     /// Eat the next token and add an error that it is unexpected.
     pub fn unexpected(&mut self) {
-        self.start();
-        match self.eat_peeked() {
-            Some(found) => self.abort(format!("unexpected {}", found)),
-            None => self.abort("unexpected end of file"),
+        match self.peek().cloned() {
+            Some(found) => {
+                self.start();
+                self.eat();
+                self.end(NodeKind::Error(
+                    ErrorPosition::Full,
+                    format!("unexpected {}", found).into(),
+                ));
+            }
+            None => self.push_error("unexpected end of file"),
         }
     }
 
@@ -584,20 +550,8 @@ impl<'s> Parser<'s> {
         self.children.last()
     }
 
-    /// Whether the last operation was successful.
-    pub fn success(&mut self) -> bool {
-        let s = self.success;
-        self.success = true;
-        s
-    }
-
-    /// Declare the last operation as unsuccessful.
-    pub fn unsuccessful(&mut self) {
-        self.success = false;
-    }
-
-    /// Amount of children in the current stack frame.
-    pub fn child_count(&self) -> usize {
-        self.children.len()
+    /// Create a new marker.
+    pub fn marker(&mut self) -> Marker {
+        Marker(self.children.len())
     }
 }

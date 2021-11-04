@@ -487,8 +487,6 @@ pub enum NodeKind {
     Emph,
     /// A section heading: `= Introduction`.
     Heading,
-    /// A heading's level: `=`, `==`, `===`, etc.
-    HeadingLevel(u8),
     /// An item in an enumeration (ordered list): `1. ...`.
     Enum,
     /// A numbering: `23.`.
@@ -546,7 +544,7 @@ pub enum NodeKind {
     /// A closure's parameters: `(x, y)`.
     ClosureParams,
     /// A parameter sink: `..x`.
-    ParameterSink,
+    Spread,
     /// A template expression: `[*Hi* there!]`.
     Template,
     /// A block expression: `{ let x = 1; x + 2 }`.
@@ -709,7 +707,6 @@ impl NodeKind {
             Self::Strong => "strong",
             Self::Emph => "emphasis",
             Self::Heading => "heading",
-            Self::HeadingLevel(_) => "heading level",
             Self::Enum => "enumeration item",
             Self::EnumNumbering(_) => "enumeration item numbering",
             Self::List => "list item",
@@ -735,7 +732,7 @@ impl NodeKind {
             Self::CallArgs => "call arguments",
             Self::Closure => "closure",
             Self::ClosureParams => "closure parameters",
-            Self::ParameterSink => "parameter sink",
+            Self::Spread => "parameter sink",
             Self::Template => "template",
             Self::Block => "block",
             Self::ForExpr => "for-loop expression",

@@ -16,6 +16,8 @@ use crate::syntax::ast::{Associativity, BinOp, UnOp};
 use crate::syntax::{ErrorPosition, GreenNode, NodeKind};
 use crate::util::EcoString;
 
+type ParseResult = Result<(), ()>;
+
 /// Parse a source file.
 pub fn parse(source: &str) -> Rc<GreenNode> {
     let mut p = Parser::new(source);
@@ -53,24 +55,16 @@ where
     p.start();
     while !p.eof() && f(p) {
         markup_node(p, &mut at_start);
-        // NOTE: Just do this at the end of markup_node. Maybe even gives a
-        // speed boost. Wasn't possible in old parser due to use of ?.
-        if let Some(node) = p.last_child() {
-            at_start &= matches!(node.kind(),
-                &NodeKind::Space(_) | &NodeKind::Parbreak |
-                &NodeKind::LineComment | &NodeKind::BlockComment
-            );
-        }
     }
 
     p.end(NodeKind::Markup);
 }
 
 /// Parse a markup node.
-fn markup_node(p: &mut Parser, at_start: &mut bool) {
+fn markup_node(p: &mut Parser, at_start: &mut bool) -> ParseResult {
     let token = match p.peek() {
         Some(t) => t,
-        None => return,
+        None => return Ok(()),
     };
 
     match token {
@@ -83,6 +77,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
             } else {
                 p.convert(NodeKind::Parbreak);
             }
+            return Ok(());
         }
 
         // Text and markup.
@@ -94,7 +89,10 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | NodeKind::Strong
         | NodeKind::Linebreak
         | NodeKind::Raw(_)
-        | NodeKind::UnicodeEscape(_) => p.eat(),
+        | NodeKind::UnicodeEscape(_) => {
+            p.eat();
+            Ok(())
+        }
 
         NodeKind::Eq if *at_start => heading(p),
         NodeKind::ListBullet if *at_start => list_node(p),
@@ -102,7 +100,8 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
 
         // Line-based markup that is not currently at the start of the line.
         NodeKind::Eq | NodeKind::ListBullet | NodeKind::EnumNumbering(_) => {
-            p.convert(NodeKind::Text(p.peek_src().into()))
+            p.convert(NodeKind::Text(p.peek_src().into()));
+            Ok(())
         }
 
         // Hashtag + keyword / identifier.
@@ -117,12 +116,11 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
             let group = if stmt { Group::Stmt } else { Group::Expr };
 
             p.start_group(group, TokenMode::Code);
-            // NOTE: Return success from expr_with?
-            expr_with(p, true, 0);
-            if stmt && p.success() && !p.eof() {
+            let res = expr_with(p, true, 0);
+            if stmt && res.is_ok() && !p.eof() {
                 p.expected_at("semicolon or line break");
             }
-            p.end_group();
+            p.end_group()
         }
 
         // Block and template.
@@ -130,19 +128,28 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         NodeKind::LeftBracket => template(p),
 
         // Comments.
-        NodeKind::LineComment | NodeKind::BlockComment | NodeKind::Error(_, _) => p.eat(),
+        NodeKind::LineComment | NodeKind::BlockComment => {
+            p.eat();
+            return Ok(());
+        }
+
+        NodeKind::Error(_, _) => {
+            p.eat();
+            Ok(())
+        }
 
         _ => {
-            *at_start = false;
             p.unexpected();
+            Err(())
         }
-    };
+    }?;
+
+    *at_start = false;
+    Ok(())
 }
 
 /// Parse a heading.
-fn heading(p: &mut Parser) {
-    // NOTE: Remove HeadingLevel kind and simply count Eq children in AST.
-    p.start();
+fn heading(p: &mut Parser) -> ParseResult {
     p.start();
     p.eat_assert(&NodeKind::Eq);
 
@@ -153,36 +160,37 @@ fn heading(p: &mut Parser) {
     }
 
     if level > 6 {
-        p.lift();
         p.end(NodeKind::Text(EcoString::from('=').repeat(level)));
     } else {
-        p.end(NodeKind::HeadingLevel(level as u8));
         let column = p.column(p.prev_end());
         markup_indented(p, column);
         p.end(NodeKind::Heading);
     }
+    Ok(())
 }
 
 /// Parse a single list item.
-fn list_node(p: &mut Parser) {
+fn list_node(p: &mut Parser) -> ParseResult {
     p.start();
     p.eat_assert(&NodeKind::ListBullet);
     let column = p.column(p.prev_end());
     markup_indented(p, column);
     p.end(NodeKind::List);
+    Ok(())
 }
 
 /// Parse a single enum item.
-fn enum_node(p: &mut Parser) {
+fn enum_node(p: &mut Parser) -> ParseResult {
     p.start();
     p.eat();
     let column = p.column(p.prev_end());
     markup_indented(p, column);
     p.end(NodeKind::Enum);
+    Ok(())
 }
 
 /// Parse an expression.
-fn expr(p: &mut Parser) {
+fn expr(p: &mut Parser) -> ParseResult {
     expr_with(p, false, 0)
 }
 
@@ -193,28 +201,19 @@ fn expr(p: &mut Parser) {
 /// in markup.
 ///
 /// Stops parsing at operations with lower precedence than `min_prec`,
-fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) {
-    p.start();
-    let mut offset = p.child_count();
+fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
+    let marker = p.marker();
+
     // Start the unary expression.
     match p.eat_map(|x| UnOp::from_token(&x)) {
         Some(op) => {
             let prec = op.precedence();
-            expr_with(p, atomic, prec);
+            expr_with(p, atomic, prec)?;
 
-            // NOTE: Lifting not needed if we don't start in the first place.
-            // Then we could simply do expr_with(p, atomic, prec)?;
-            if p.may_lift_abort() {
-                return;
-            }
-
-            p.end_and_start_with(NodeKind::Unary);
+            marker.end(p, NodeKind::Unary);
         }
         None => {
-            primary(p, atomic);
-            if p.may_lift_abort() {
-                return;
-            }
+            primary(p, atomic)?;
         }
     };
 
@@ -225,35 +224,28 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) {
             p.peek_direct(),
             Some(NodeKind::LeftParen | NodeKind::LeftBracket)
         ) {
-            call(p, p.child_count() - offset);
+            call(p, &marker);
             continue;
         }
 
-        if p.peek() == Some(&NodeKind::With) {
-            with_expr(p, p.child_count() - offset);
-
-            if p.may_lift_abort() {
-                return;
-            }
+        if atomic {
+            break Ok(());
         }
 
-        if atomic {
-            p.lift();
-            break;
+        if p.peek() == Some(&NodeKind::With) {
+            with_expr(p, &marker)?;
         }
 
         let op = match p.peek().and_then(BinOp::from_token) {
             Some(binop) => binop,
             None => {
-                p.lift();
-                break;
+                break Ok(());
             }
         };
 
         let mut prec = op.precedence();
         if prec < min_prec {
-            p.lift();
-            break;
+            break Ok(());
         }
 
         p.eat();
@@ -263,44 +255,38 @@ fn expr_with(p: &mut Parser, atomic: bool, min_prec: usize) {
             Associativity::Right => {}
         }
 
-        expr_with(p, atomic, prec);
-
-        if !p.success() {
-            p.lift();
-            break;
+        if expr_with(p, atomic, prec).is_err() {
+            break Ok(());
         }
 
-        // NOTE: All lifts up to here wouldn't be needed.
-        // Only here we then need to do
-        // marker.end(p, NodeKind::Binary);
-
-        offset = p.end_and_start_with(NodeKind::Binary).0;
+        marker.end(p, NodeKind::Binary);
     }
 }
 
 /// Parse a primary expression.
-fn primary(p: &mut Parser, atomic: bool) {
-    if literal(p) {
-        return;
+fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
+    let lit = literal(p);
+    if lit.is_ok() {
+        return lit;
     }
 
     match p.peek() {
         // Things that start with an identifier.
         Some(NodeKind::Ident(_)) => {
             // Start closure params.
-            p.start();
+            let marker = p.marker();
             p.eat();
 
             // Arrow means this is a closure's lone parameter.
             if !atomic && p.peek() == Some(&NodeKind::Arrow) {
-                p.end_and_start_with(NodeKind::ClosureParams);
+                marker.end(p, NodeKind::ClosureParams);
                 p.eat();
 
-                expr(p);
-
-                p.end_or_abort(NodeKind::Closure);
+                let e = expr(p);
+                marker.end(p, NodeKind::Closure);
+                e
             } else {
-                p.lift();
+                Ok(())
             }
         }
 
@@ -319,18 +305,19 @@ fn primary(p: &mut Parser, atomic: bool) {
 
         Some(NodeKind::Error(_, _)) => {
             p.eat();
+            Ok(())
         }
 
         // Nothing.
         _ => {
             p.expected("expression");
-            p.unsuccessful();
+            Err(())
         }
     }
 }
 
 /// Parse a literal.
-fn literal(p: &mut Parser) -> bool {
+fn literal(p: &mut Parser) -> ParseResult {
     match p.peek() {
         // Basic values.
         Some(
@@ -346,10 +333,10 @@ fn literal(p: &mut Parser) -> bool {
             | NodeKind::Str(_),
         ) => {
             p.eat();
-            true
+            Ok(())
         }
 
-        _ => false,
+        _ => Err(()),
     }
 }
 
@@ -358,47 +345,39 @@ fn literal(p: &mut Parser) -> bool {
 /// - Dictionary literal
 /// - Parenthesized expression
 /// - Parameter list of closure expression
-fn parenthesized(p: &mut Parser) {
-    let offset = p.child_count();
-    p.start();
+fn parenthesized(p: &mut Parser) -> ParseResult {
+    let marker = p.marker();
     p.start_group(Group::Paren, TokenMode::Code);
     let colon = p.eat_if(&NodeKind::Colon);
     let kind = collection(p).0;
     p.end_group();
-    let token_count = p.child_count() - offset;
 
     // Leading colon makes this a (empty) dictionary.
     if colon {
-        p.lift();
-        dict(p, token_count);
-        return;
+        return dict(p, &marker);
     }
 
     // Arrow means this is a closure's parameter list.
     if p.peek() == Some(&NodeKind::Arrow) {
-        p.start_with(token_count);
-        params(p, 0, true);
-        p.end(NodeKind::ClosureParams);
+        params(p, &marker, true);
+        marker.end(p, NodeKind::ClosureParams);
 
         p.eat_assert(&NodeKind::Arrow);
 
-        expr(p);
+        let r = expr(p);
 
-        p.end_or_abort(NodeKind::Closure);
-        return;
+        marker.end(p, NodeKind::Closure);
+        return r;
     }
 
     // Find out which kind of collection this is.
     match kind {
-        CollectionKind::Group => p.end(NodeKind::Group),
-        CollectionKind::Positional => {
-            p.lift();
-            array(p, token_count);
+        CollectionKind::Group => {
+            marker.end(p, NodeKind::Group);
+            Ok(())
         }
-        CollectionKind::Named => {
-            p.lift();
-            dict(p, token_count);
-        }
+        CollectionKind::Positional => array(p, &marker),
+        CollectionKind::Named => dict(p, &marker),
     }
 }
 
@@ -422,23 +401,22 @@ fn collection(p: &mut Parser) -> (CollectionKind, usize) {
     let mut items = 0;
     let mut kind = CollectionKind::Positional;
     let mut has_comma = false;
-    let mut missing_coma = None;
+    let mut missing_coma: Option<Marker> = None;
 
     while !p.eof() {
-        let item_kind = item(p);
-        if p.success() {
+        if let Ok(item_kind) = item(p) {
             if items == 0 && item_kind == NodeKind::Named {
                 kind = CollectionKind::Named;
             }
 
-            if item_kind == NodeKind::ParameterSink {
+            if item_kind == NodeKind::Spread {
                 has_comma = true;
             }
 
             items += 1;
 
-            if let Some(pos) = missing_coma.take() {
-                p.expected_at_child(pos, "comma");
+            if let Some(marker) = missing_coma.take() {
+                marker.expected_at(p, "comma");
             }
 
             if p.eof() {
@@ -448,7 +426,7 @@ fn collection(p: &mut Parser) -> (CollectionKind, usize) {
             if p.eat_if(&NodeKind::Comma) {
                 has_comma = true;
             } else {
-                missing_coma = Some(p.child_count());
+                missing_coma = Some(p.marker());
             }
         }
     }
@@ -461,52 +439,49 @@ fn collection(p: &mut Parser) -> (CollectionKind, usize) {
 }
 
 /// Parse an expression or a named pair. Returns if this is a named pair.
-fn item(p: &mut Parser) -> NodeKind {
-    p.start();
+fn item(p: &mut Parser) -> Result<NodeKind, ()> {
+    let marker = p.marker();
     if p.eat_if(&NodeKind::Dots) {
-        expr(p);
+        let r = expr(p);
 
-        // NOTE: Should be called `Spread`.
-        p.end_or_abort(NodeKind::ParameterSink);
-        return NodeKind::ParameterSink;
+        marker.end(p, NodeKind::Spread);
+        return r.map(|_| NodeKind::Spread);
     }
 
-    expr(p);
-
-    if p.may_lift_abort() {
-        return NodeKind::None;
+    let ident_marker = p.marker();
+    if expr(p).is_err() {
+        return Err(());
     }
 
-    if p.eat_if(&NodeKind::Colon) {
-        let child = p.child(1).unwrap();
-        if matches!(child.kind(), &NodeKind::Ident(_)) {
-            expr(p);
-            p.end_or_abort(NodeKind::Named);
+    if p.peek() == Some(&NodeKind::Colon) {
+        let r = if matches!(p.child(0).unwrap().kind(), &NodeKind::Ident(_)) {
+            p.eat();
+            expr(p)
         } else {
-            p.wrap(
-                1,
+            ident_marker.end(
+                p,
                 NodeKind::Error(ErrorPosition::Full, "expected identifier".into()),
             );
+            p.eat();
 
             expr(p);
-            p.end(NodeKind::Named);
-            p.unsuccessful();
-        }
+            Err(())
+        };
 
-        NodeKind::Named
+        marker.end(p, NodeKind::Named);
+        r.map(|_| NodeKind::Named)
     } else {
-        p.lift();
-        p.last_child().unwrap().kind().clone()
+        Ok(p.last_child().unwrap().kind().clone())
     }
 }
 
 /// Convert a collection into an array, producing errors for anything other than
 /// expressions.
-fn array(p: &mut Parser, items: usize) {
-    p.filter_children(
-        p.child_count() - items,
+fn array(p: &mut Parser, marker: &Marker) -> ParseResult {
+    marker.filter_children(
+        p,
         |x| match x.kind() {
-            NodeKind::Named | NodeKind::ParameterSink => false,
+            NodeKind::Named | NodeKind::Spread => false,
             _ => true,
         },
         |kind| match kind {
@@ -514,21 +489,22 @@ fn array(p: &mut Parser, items: usize) {
                 ErrorPosition::Full,
                 "expected expression, found named pair".into(),
             ),
-            NodeKind::ParameterSink => {
+            NodeKind::Spread => {
                 (ErrorPosition::Full, "spreading is not allowed here".into())
             }
             _ => unreachable!(),
         },
     );
 
-    p.convert_with(items, NodeKind::Array);
+    marker.end(p, NodeKind::Array);
+    Ok(())
 }
 
 /// Convert a collection into a dictionary, producing errors for anything other
 /// than named pairs.
-fn dict(p: &mut Parser, items: usize) {
-    p.filter_children(
-        p.child_count() - items,
+fn dict(p: &mut Parser, marker: &Marker) -> ParseResult {
+    marker.filter_children(
+        p,
         |x| {
             x.kind() == &NodeKind::Named
                 || x.kind().is_paren()
@@ -536,7 +512,7 @@ fn dict(p: &mut Parser, items: usize) {
                 || x.kind() == &NodeKind::Colon
         },
         |kind| match kind {
-            NodeKind::ParameterSink => {
+            NodeKind::Spread => {
                 (ErrorPosition::Full, "spreading is not allowed here".into())
             }
             _ => (
@@ -545,17 +521,19 @@ fn dict(p: &mut Parser, items: usize) {
             ),
         },
     );
-    p.convert_with(items, NodeKind::Dict);
+
+    marker.end(p, NodeKind::Dict);
+    Ok(())
 }
 
 /// Convert a collection into a list of parameters, producing errors for
 /// anything other than identifiers, spread operations and named pairs.
-fn params(p: &mut Parser, count: usize, allow_parens: bool) {
-    p.filter_children(
-        count,
+fn params(p: &mut Parser, marker: &Marker, allow_parens: bool) {
+    marker.filter_children(
+        p,
         |x| match x.kind() {
                 NodeKind::Named | NodeKind::Comma | NodeKind::Ident(_) => true,
-                NodeKind::ParameterSink => matches!(
+                NodeKind::Spread => matches!(
                     x.children().last().map(|x| x.kind()),
                     Some(&NodeKind::Ident(_))
                 ),
@@ -567,22 +545,22 @@ fn params(p: &mut Parser, count: usize, allow_parens: bool) {
 }
 
 // Parse a template block: `[...]`.
-fn template(p: &mut Parser) {
+fn template(p: &mut Parser) -> ParseResult {
     p.start();
     p.start_group(Group::Bracket, TokenMode::Markup);
     markup(p);
     p.end_group();
     p.end(NodeKind::Template);
+    Ok(())
 }
 
 /// Parse a code block: `{...}`.
-fn block(p: &mut Parser) {
+fn block(p: &mut Parser) -> ParseResult {
     p.start();
     p.start_group(Group::Brace, TokenMode::Code);
     while !p.eof() {
         p.start_group(Group::Stmt, TokenMode::Code);
-        expr(p);
-        if p.success() {
+        if expr(p).is_ok() {
             if !p.eof() {
                 p.expected_at("semicolon or line break");
             }
@@ -594,25 +572,25 @@ fn block(p: &mut Parser) {
     }
     p.end_group();
     p.end(NodeKind::Block);
+    Ok(())
 }
 
 /// Parse a function call.
-fn call(p: &mut Parser, callee: usize) {
-    p.start_with(callee);
-    match p.peek_direct() {
+fn call(p: &mut Parser, callee: &Marker) -> ParseResult {
+    let res = match p.peek_direct() {
         Some(NodeKind::LeftParen) | Some(NodeKind::LeftBracket) => args(p, true),
         _ => {
             p.expected_at("argument list");
-            p.may_end_abort(NodeKind::Call);
-            return;
+            Err(())
         }
     };
 
-    p.end(NodeKind::Call);
+    callee.end(p, NodeKind::Call);
+    res
 }
 
 /// Parse the arguments to a function call.
-fn args(p: &mut Parser, allow_template: bool) {
+fn args(p: &mut Parser, allow_template: bool) -> ParseResult {
     p.start();
     if !allow_template || p.peek_direct() == Some(&NodeKind::LeftParen) {
         p.start_group(Group::Paren, TokenMode::Code);
@@ -625,167 +603,126 @@ fn args(p: &mut Parser, allow_template: bool) {
     }
 
     p.end(NodeKind::CallArgs);
+    Ok(())
 }
 
 /// Parse a with expression.
-fn with_expr(p: &mut Parser, preserve: usize) {
-    p.start_with(preserve);
+fn with_expr(p: &mut Parser, marker: &Marker) -> ParseResult {
     p.eat_assert(&NodeKind::With);
 
-    if p.peek() == Some(&NodeKind::LeftParen) {
-        args(p, false);
-        p.end(NodeKind::WithExpr);
+    let res = if p.peek() == Some(&NodeKind::LeftParen) {
+        args(p, false)
     } else {
         p.expected("argument list");
-        p.may_end_abort(NodeKind::WithExpr);
-    }
+        Err(())
+    };
+
+    marker.end(p, NodeKind::WithExpr);
+    res
 }
 
 /// Parse a let expression.
-fn let_expr(p: &mut Parser) {
-    p.start();
-    p.eat_assert(&NodeKind::Let);
+fn let_expr(p: &mut Parser) -> ParseResult {
+    p.perform(NodeKind::LetExpr, |p| {
+        p.eat_assert(&NodeKind::Let);
 
-    let offset = p.child_count();
-    ident(p);
-    if p.may_end_abort(NodeKind::LetExpr) {
-        return;
-    }
+        let marker = p.marker();
+        ident(p)?;
 
-    if p.peek() == Some(&NodeKind::With) {
-        with_expr(p, p.child_count() - offset);
-    } else {
-        // If a parenthesis follows, this is a function definition.
-        let has_params = if p.peek_direct() == Some(&NodeKind::LeftParen) {
-            p.start();
-            p.start_group(Group::Paren, TokenMode::Code);
-            let offset = p.child_count();
-            collection(p);
-            params(p, offset, true);
-            p.end_group();
-            p.end(NodeKind::ClosureParams);
-            true
+        if p.peek() == Some(&NodeKind::With) {
+            with_expr(p, &marker);
         } else {
-            false
-        };
+            // If a parenthesis follows, this is a function definition.
+            let has_params = if p.peek_direct() == Some(&NodeKind::LeftParen) {
+                p.start();
+                p.start_group(Group::Paren, TokenMode::Code);
+                let marker = p.marker();
+                collection(p);
+                params(p, &marker, true);
+                p.end_group();
+                p.end(NodeKind::ClosureParams);
+                true
+            } else {
+                false
+            };
 
-        if p.eat_if(&NodeKind::Eq) {
-            expr(p);
-        } else if has_params {
-            // Function definitions must have a body.
-            p.expected_at("body");
-        }
-
-        // Rewrite into a closure expression if it's a function definition.
-        if has_params {
-            if p.may_end_abort(NodeKind::LetExpr) {
-                return;
+            if p.eat_if(&NodeKind::Eq) {
+                expr(p)?;
+            } else if has_params {
+                // Function definitions must have a body.
+                p.expected_at("body");
             }
 
-            p.convert_with(p.child_count() - offset, NodeKind::Closure);
+            // Rewrite into a closure expression if it's a function definition.
+            if has_params {
+                marker.end(p, NodeKind::Closure);
+            }
         }
-    }
 
-    p.end(NodeKind::LetExpr);
+        Ok(())
+    })
 }
 
 /// Parse an if expresion.
-fn if_expr(p: &mut Parser) {
-    p.start();
-    p.eat_assert(&NodeKind::If);
+fn if_expr(p: &mut Parser) -> ParseResult {
+    p.perform(NodeKind::IfExpr, |p| {
+        p.eat_assert(&NodeKind::If);
 
-    expr(p);
-    if p.may_end_abort(NodeKind::IfExpr) {
-        return;
-    }
+        expr(p)?;
+        body(p)?;
 
-    body(p);
-    if p.may_end_abort(NodeKind::IfExpr) {
-        // Expected function body.
-        return;
-    }
-
-    if p.eat_if(&NodeKind::Else) {
-        if p.peek() == Some(&NodeKind::If) {
-            if_expr(p);
-        } else {
-            body(p);
+        if p.eat_if(&NodeKind::Else) {
+            if p.peek() == Some(&NodeKind::If) {
+                if_expr(p)?;
+            } else {
+                body(p)?;
+            }
         }
-    }
 
-    p.end(NodeKind::IfExpr);
+        Ok(())
+    })
 }
 
 /// Parse a while expresion.
-fn while_expr(p: &mut Parser) {
-    p.start();
-    p.eat_assert(&NodeKind::While);
-
-    expr(p);
-
-    if p.may_end_abort(NodeKind::WhileExpr) {
-        return;
-    }
-
-    body(p);
-    if !p.may_end_abort(NodeKind::WhileExpr) {
-        p.end(NodeKind::WhileExpr);
-    }
+fn while_expr(p: &mut Parser) -> ParseResult {
+    p.perform(NodeKind::WhileExpr, |p| {
+        p.eat_assert(&NodeKind::While);
+        expr(p)?;
+        body(p)?;
+        Ok(())
+    })
 }
 
 /// Parse a for expression.
-fn for_expr(p: &mut Parser) {
-    p.start();
-    p.eat_assert(&NodeKind::For);
+fn for_expr(p: &mut Parser) -> ParseResult {
+    p.perform(NodeKind::ForExpr, |p| {
+        p.eat_assert(&NodeKind::For);
 
-    for_pattern(p);
-
-    if p.may_end_abort(NodeKind::ForExpr) {
-        return;
-    }
-
-    if p.eat_expect(&NodeKind::In) {
-        expr(p);
-
-        if p.may_end_abort(NodeKind::ForExpr) {
-            return;
+        for_pattern(p)?;
+        if p.eat_expect(&NodeKind::In) {
+            expr(p)?;
+            body(p)?;
+            Ok(())
+        } else {
+            Err(())
         }
-
-        body(p);
-
-        if !p.may_end_abort(NodeKind::ForExpr) {
-            p.end(NodeKind::ForExpr);
-        }
-    } else {
-        p.unsuccessful();
-        p.may_end_abort(NodeKind::ForExpr);
-    }
+    })
 }
 
 /// Parse a for loop pattern.
-fn for_pattern(p: &mut Parser) {
-    p.start();
-    ident(p);
-
-    if p.may_end_abort(NodeKind::ForPattern) {
-        return;
-    }
-
-    if p.peek() == Some(&NodeKind::Comma) {
-        p.eat();
-
-        ident(p);
-
-        if p.may_end_abort(NodeKind::ForPattern) {
-            return;
+fn for_pattern(p: &mut Parser) -> ParseResult {
+    p.perform(NodeKind::ForPattern, |p| {
+        ident(p)?;
+        if p.peek() == Some(&NodeKind::Comma) {
+            p.eat();
+            ident(p)?;
         }
-    }
-
-    p.end(NodeKind::ForPattern);
+        Ok(())
+    })
 }
 
 /// Parse an import expression.
-fn import_expr(p: &mut Parser) {
+fn import_expr(p: &mut Parser) -> ParseResult {
     p.start();
     p.eat_assert(&NodeKind::Import);
 
@@ -793,15 +730,15 @@ fn import_expr(p: &mut Parser) {
         // This is the list of identifiers scenario.
         p.start();
         p.start_group(Group::Imports, TokenMode::Code);
-        let offset = p.child_count();
+        let marker = p.marker();
         let items = collection(p).1;
         if items == 0 {
             p.expected_at("import items");
         }
         p.end_group();
 
-        p.filter_children(
-            offset,
+        marker.filter_children(
+            p,
             |n| matches!(n.kind(), NodeKind::Ident(_) | NodeKind::Comma),
             |_| (ErrorPosition::Full, "expected identifier".into()),
         );
@@ -813,36 +750,41 @@ fn import_expr(p: &mut Parser) {
     }
 
     p.end(NodeKind::ImportExpr);
+    Ok(())
 }
 
 /// Parse an include expression.
-fn include_expr(p: &mut Parser) {
+fn include_expr(p: &mut Parser) -> ParseResult {
     p.start();
     p.eat_assert(&NodeKind::Include);
 
     expr(p);
     p.end(NodeKind::IncludeExpr);
+    Ok(())
 }
 
 /// Parse an identifier.
-fn ident(p: &mut Parser) {
+fn ident(p: &mut Parser) -> ParseResult {
     match p.peek() {
-        Some(NodeKind::Ident(_)) => p.eat(),
+        Some(NodeKind::Ident(_)) => {
+            p.eat();
+            Ok(())
+        }
         _ => {
             p.expected("identifier");
-            p.unsuccessful();
+            Err(())
         }
     }
 }
 
 /// Parse a control flow body.
-fn body(p: &mut Parser) {
+fn body(p: &mut Parser) -> ParseResult {
     match p.peek() {
         Some(NodeKind::LeftBracket) => template(p),
         Some(NodeKind::LeftBrace) => block(p),
         _ => {
             p.expected_at("body");
-            p.unsuccessful();
+            Err(())
         }
     }
 }

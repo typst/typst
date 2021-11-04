@@ -156,13 +156,7 @@ impl HeadingNode {
 
     /// The section depth (numer of equals signs).
     pub fn level(&self) -> u8 {
-        self.0
-            .children()
-            .find_map(|node| match node.kind() {
-                NodeKind::HeadingLevel(heading) => Some(*heading),
-                _ => None,
-            })
-            .expect("heading node is missing heading level")
+        self.0.children().filter(|n| n.kind() == &NodeKind::Eq).count() as u8
     }
 }
 
@@ -743,7 +737,7 @@ impl TypedNode for CallArg {
             NodeKind::Named => Some(CallArg::Named(
                 node.cast().expect("named call argument is missing name"),
             )),
-            NodeKind::ParameterSink => Some(CallArg::Spread(
+            NodeKind::Spread => Some(CallArg::Spread(
                 node.cast_first_child()
                     .expect("call argument sink is missing expression"),
             )),
@@ -825,7 +819,7 @@ impl TypedNode for ClosureParam {
             NodeKind::Named => Some(ClosureParam::Named(
                 node.cast().expect("named closure parameter is missing name"),
             )),
-            NodeKind::ParameterSink => Some(ClosureParam::Sink(
+            NodeKind::Spread => Some(ClosureParam::Sink(
                 node.cast_first_child()
                     .expect("closure parameter sink is missing identifier"),
             )),
