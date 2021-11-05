@@ -1,9 +1,13 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use super::{ParseResult, TokenMode, Tokens};
+use super::{TokenMode, Tokens};
 use crate::syntax::{ErrorPosition, Green, GreenData, GreenNode, NodeKind};
 use crate::util::EcoString;
+
+/// Allows parser methods to use the try operator. Not exposed as the parser
+/// recovers from all errors.
+pub(crate) type ParseResult<T = ()> = Result<T, ()>;
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
@@ -56,59 +60,6 @@ pub enum Group {
     Imports,
 }
 
-/// A marker that indicates where a child may start.
-pub struct Marker(usize);
-
-impl Marker {
-    /// Wraps all children in front of the marker.
-    pub fn end(&self, p: &mut Parser, kind: NodeKind) {
-        let stop_nl = p.stop_at_newline();
-        let end = (self.0 .. p.children.len())
-            .rev()
-            .find(|&i| !Parser::skip_type_ext(p.children[i].kind(), stop_nl))
-            .unwrap_or(self.0)
-            + 1;
-
-        let children: Vec<_> = p.children.drain(self.0 .. end).collect();
-        p.children
-            .insert(self.0, GreenNode::with_children(kind, children).into());
-    }
-
-    /// Wrap all children that do not fulfill the predicate in error nodes.
-    pub fn filter_children<F>(&self, p: &mut Parser, f: F)
-    where
-        F: Fn(&Green) -> Result<(), (ErrorPosition, EcoString)>,
-    {
-        p.filter_children(self, f)
-    }
-
-    /// Insert an error message that `what` was expected at the marker position.
-    pub fn expected_at(&self, p: &mut Parser, what: &str) {
-        p.children.insert(
-            self.0,
-            GreenData::new(
-                NodeKind::Error(ErrorPosition::Full, format!("expected {}", what).into()),
-                0,
-            )
-            .into(),
-        );
-    }
-
-    /// Return a reference to the child after the marker.
-    pub fn child_at<'a>(&self, p: &'a Parser) -> Option<&'a Green> {
-        p.children.get(self.0)
-    }
-
-    pub fn perform<T, F>(&self, p: &mut Parser, kind: NodeKind, f: F) -> T
-    where
-        F: FnOnce(&mut Parser) -> T,
-    {
-        let success = f(p);
-        self.end(p, kind);
-        success
-    }
-}
-
 impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
     pub fn new(src: &'s str) -> Self {
@@ -127,40 +78,16 @@ impl<'s> Parser<'s> {
         }
     }
 
-    /// Start a nested node.
-    ///
-    /// Each start call has to be matched with a call to `end`,
-    /// `end_with_custom_children`, `lift`, `abort`, or `end_or_abort`.
-    fn start(&mut self) {
-        self.stack.push(std::mem::take(&mut self.children));
-    }
-
-    /// Filter the last children using the given predicate.
-    fn filter_children<F>(&mut self, count: &Marker, f: F)
+    /// Perform a subparse that wraps its result in a node with the given kind.
+    pub fn perform<T, F>(&mut self, kind: NodeKind, f: F) -> T
     where
-        F: Fn(&Green) -> Result<(), (ErrorPosition, EcoString)>,
+        F: FnOnce(&mut Self) -> T,
     {
-        for child in &mut self.children[count.0 ..] {
-            if !((self.tokens.mode() != TokenMode::Code
-                || Self::skip_type_ext(child.kind(), false))
-                || child.kind().is_error())
-            {
-                if let Err((pos, msg)) = f(child) {
-                    let inner = std::mem::take(child);
-                    *child =
-                        GreenNode::with_child(NodeKind::Error(pos, msg), inner).into();
-                }
-            }
-        }
-    }
+        let prev = std::mem::take(&mut self.children);
+        let output = f(self);
+        let mut children = std::mem::replace(&mut self.children, prev);
 
-    /// End the current node as a node of given `kind`.
-    fn end(&mut self, kind: NodeKind) {
-        let outer = self.stack.pop().unwrap();
-        let mut children = std::mem::replace(&mut self.children, outer);
-
-        // have trailing whitespace continue to sit in self.children in code
-        // mode.
+        // Trailing trivia should not be wrapped into the new node.
         let mut remains = vec![];
         if self.tokens.mode() == TokenMode::Code {
             let len = children.len();
@@ -176,16 +103,8 @@ impl<'s> Parser<'s> {
 
         self.children.push(GreenNode::with_children(kind, children).into());
         self.children.extend(remains);
-    }
 
-    pub fn perform<T, F>(&mut self, kind: NodeKind, f: F) -> T
-    where
-        F: FnOnce(&mut Self) -> T,
-    {
-        self.start();
-        let success = f(self);
-        self.end(kind);
-        success
+        output
     }
 
     /// Eat and wrap the next token.
@@ -332,7 +251,6 @@ impl<'s> Parser<'s> {
     /// This panics if the next token does not start the given group.
     pub fn start_group(&mut self, kind: Group, mode: TokenMode) {
         self.groups.push(GroupEntry { kind, prev_mode: self.tokens.mode() });
-
         self.tokens.set_mode(mode);
         self.repeek();
 
@@ -532,5 +450,69 @@ impl<'s> Parser<'s> {
     /// Create a new marker.
     pub fn marker(&mut self) -> Marker {
         Marker(self.children.len())
+    }
+}
+
+/// A marker that indicates where a child may start.
+pub struct Marker(usize);
+
+impl Marker {
+    /// Wraps all children in front of the marker.
+    pub fn end(&self, p: &mut Parser, kind: NodeKind) {
+        let stop_nl = p.stop_at_newline();
+        let end = (self.0 .. p.children.len())
+            .rev()
+            .find(|&i| !Parser::skip_type_ext(p.children[i].kind(), stop_nl))
+            .unwrap_or(self.0)
+            + 1;
+
+        let children: Vec<_> = p.children.drain(self.0 .. end).collect();
+        p.children
+            .insert(self.0, GreenNode::with_children(kind, children).into());
+    }
+
+    /// Wrap all children that do not fulfill the predicate in error nodes.
+    pub fn filter_children<F>(&self, p: &mut Parser, f: F)
+    where
+        F: Fn(&Green) -> Result<(), (ErrorPosition, EcoString)>,
+    {
+        for child in &mut p.children[self.0 ..] {
+            if !((p.tokens.mode() != TokenMode::Code
+                || Parser::skip_type_ext(child.kind(), false))
+                || child.kind().is_error())
+            {
+                if let Err((pos, msg)) = f(child) {
+                    let inner = std::mem::take(child);
+                    *child =
+                        GreenNode::with_child(NodeKind::Error(pos, msg), inner).into();
+                }
+            }
+        }
+    }
+
+    /// Insert an error message that `what` was expected at the marker position.
+    pub fn expected_at(&self, p: &mut Parser, what: &str) {
+        p.children.insert(
+            self.0,
+            GreenData::new(
+                NodeKind::Error(ErrorPosition::Full, format!("expected {}", what).into()),
+                0,
+            )
+            .into(),
+        );
+    }
+
+    /// Return a reference to the child after the marker.
+    pub fn child_at<'a>(&self, p: &'a Parser) -> Option<&'a Green> {
+        p.children.get(self.0)
+    }
+
+    pub fn perform<T, F>(&self, p: &mut Parser, kind: NodeKind, f: F) -> T
+    where
+        F: FnOnce(&mut Parser) -> T,
+    {
+        let success = f(p);
+        self.end(p, kind);
+        success
     }
 }
