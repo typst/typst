@@ -76,7 +76,7 @@ impl Walk for HeadingNode {
         ctx.template.save();
         ctx.template.modify(move |style| {
             let text = style.text_mut();
-            let upscale = 1.6 - 0.1 * level as f64;
+            let upscale = (1.6 - 0.1 * level as f64).max(0.75);
             text.size *= upscale;
             text.strong = true;
         });

@@ -98,15 +98,20 @@ pub struct GreenNode {
 
 impl GreenNode {
     /// Creates a new node with the given kind and children.
-    pub fn with_children(kind: NodeKind, len: usize, children: Vec<Green>) -> Self {
-        let mut data = GreenData::new(kind, len);
-        data.erroneous |= children.iter().any(|c| c.erroneous());
+    pub fn with_children(kind: NodeKind, children: Vec<Green>) -> Self {
+        let mut data = GreenData::new(kind, 0);
+        let len = children
+            .iter()
+            .inspect(|c| data.erroneous |= c.erroneous())
+            .map(Green::len)
+            .sum();
+        data.len = len;
         Self { data, children }
     }
 
     /// Creates a new node with the given kind and a single child.
-    pub fn with_child(kind: NodeKind, len: usize, child: impl Into<Green>) -> Self {
-        Self::with_children(kind, len, vec![child.into()])
+    pub fn with_child(kind: NodeKind, child: impl Into<Green>) -> Self {
+        Self::with_children(kind, vec![child.into()])
     }
 
     /// The node's children.

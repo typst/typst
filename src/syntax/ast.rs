@@ -156,7 +156,11 @@ impl HeadingNode {
 
     /// The section depth (numer of equals signs).
     pub fn level(&self) -> u8 {
-        self.0.children().filter(|n| n.kind() == &NodeKind::Eq).count() as u8
+        self.0
+            .children()
+            .filter(|n| n.kind() == &NodeKind::Eq)
+            .count()
+            .min(u8::MAX.into()) as u8
     }
 }
 

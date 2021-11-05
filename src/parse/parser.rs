@@ -62,28 +62,24 @@ pub struct Marker(usize);
 impl Marker {
     /// Wraps all children in front of the marker.
     pub fn end(&self, p: &mut Parser, kind: NodeKind) {
-        if p.children.len() != self.0 {
-            let stop_nl = p.stop_at_newline();
-            let end = (self.0 .. p.children.len())
-                .rev()
-                .find(|&i| !Parser::skip_type_ext(p.children[i].kind(), stop_nl))
-                .unwrap_or(self.0)
-                + 1;
+        let stop_nl = p.stop_at_newline();
+        let end = (self.0 .. p.children.len())
+            .rev()
+            .find(|&i| !Parser::skip_type_ext(p.children[i].kind(), stop_nl))
+            .unwrap_or(self.0)
+            + 1;
 
-            let children: Vec<_> = p.children.drain(self.0 .. end).collect();
-            let len = children.iter().map(Green::len).sum();
-            p.children
-                .insert(self.0, GreenNode::with_children(kind, len, children).into());
-        }
+        let children: Vec<_> = p.children.drain(self.0 .. end).collect();
+        p.children
+            .insert(self.0, GreenNode::with_children(kind, children).into());
     }
 
     /// Wrap all children that do not fulfill the predicate in error nodes.
-    pub fn filter_children<F, G>(&self, p: &mut Parser, f: F, error: G)
+    pub fn filter_children<F>(&self, p: &mut Parser, f: F)
     where
-        F: Fn(&Green) -> bool,
-        G: Fn(&NodeKind) -> (ErrorPosition, EcoString),
+        F: Fn(&Green) -> Result<(), (ErrorPosition, EcoString)>,
     {
-        p.filter_children(self, f, error)
+        p.filter_children(self, f)
     }
 
     /// Insert an error message that `what` was expected at the marker position.
@@ -96,6 +92,20 @@ impl Marker {
             )
             .into(),
         );
+    }
+
+    /// Return a reference to the child after the marker.
+    pub fn child_at<'a>(&self, p: &'a Parser) -> Option<&'a Green> {
+        p.children.get(self.0)
+    }
+
+    pub fn perform<T, F>(&self, p: &mut Parser, kind: NodeKind, f: F) -> T
+    where
+        F: FnOnce(&mut Parser) -> T,
+    {
+        let success = f(p);
+        self.end(p, kind);
+        success
     }
 }
 
@@ -121,58 +131,31 @@ impl<'s> Parser<'s> {
     ///
     /// Each start call has to be matched with a call to `end`,
     /// `end_with_custom_children`, `lift`, `abort`, or `end_or_abort`.
-    pub fn start(&mut self) {
+    fn start(&mut self) {
         self.stack.push(std::mem::take(&mut self.children));
     }
 
     /// Filter the last children using the given predicate.
-    fn filter_children<F, G>(&mut self, count: &Marker, f: F, error: G)
+    fn filter_children<F>(&mut self, count: &Marker, f: F)
     where
-        F: Fn(&Green) -> bool,
-        G: Fn(&NodeKind) -> (ErrorPosition, EcoString),
+        F: Fn(&Green) -> Result<(), (ErrorPosition, EcoString)>,
     {
         for child in &mut self.children[count.0 ..] {
             if !((self.tokens.mode() != TokenMode::Code
                 || Self::skip_type_ext(child.kind(), false))
-                || child.kind().is_error()
-                || f(&child))
+                || child.kind().is_error())
             {
-                let (pos, msg) = error(child.kind());
-                let inner = std::mem::take(child);
-                *child =
-                    GreenNode::with_child(NodeKind::Error(pos, msg), inner.len(), inner)
-                        .into();
+                if let Err((pos, msg)) = f(child) {
+                    let inner = std::mem::take(child);
+                    *child =
+                        GreenNode::with_child(NodeKind::Error(pos, msg), inner).into();
+                }
             }
         }
-    }
-
-    /// Return the a child from the current stack frame specified by its
-    /// non-trivia index from the back.
-    pub fn child(&self, child: usize) -> Option<&Green> {
-        self.node_index_from_back(child).map(|i| &self.children[i])
-    }
-
-    /// Map a non-trivia index from the back of the current stack frame to a
-    /// normal index.
-    fn node_index_from_back(&self, child: usize) -> Option<usize> {
-        let len = self.children.len();
-        let code = self.tokens.mode() == TokenMode::Code;
-        let mut seen = 0;
-        for x in (0 .. len).rev() {
-            if self.skip_type(self.children[x].kind()) && code {
-                continue;
-            }
-            if seen == child {
-                return Some(x);
-            }
-            seen += 1;
-        }
-
-        None
     }
 
     /// End the current node as a node of given `kind`.
-    pub fn end(&mut self, kind: NodeKind) {
+    fn end(&mut self, kind: NodeKind) {
         let outer = self.stack.pop().unwrap();
         let mut children = std::mem::replace(&mut self.children, outer);
 
@@ -191,15 +174,13 @@ impl<'s> Parser<'s> {
             remains.reverse();
         }
 
-        let len = children.iter().map(|c| c.len()).sum();
-        self.children
-            .push(GreenNode::with_children(kind, len, children).into());
+        self.children.push(GreenNode::with_children(kind, children).into());
         self.children.extend(remains);
     }
 
-    pub fn perform<F>(&mut self, kind: NodeKind, f: F) -> ParseResult
+    pub fn perform<T, F>(&mut self, kind: NodeKind, f: F) -> T
     where
-        F: FnOnce(&mut Self) -> ParseResult,
+        F: FnOnce(&mut Self) -> T,
     {
         self.start();
         let success = f(self);
@@ -267,12 +248,12 @@ impl<'s> Parser<'s> {
 
     /// Consume the next token if it is the given one and produce an error if
     /// not.
-    pub fn eat_expect(&mut self, t: &NodeKind) -> bool {
+    pub fn eat_expect(&mut self, t: &NodeKind) -> ParseResult {
         let eaten = self.eat_if(t);
         if !eaten {
             self.expected_at(t.as_str());
         }
-        eaten
+        if eaten { Ok(()) } else { Err(()) }
     }
 
     /// Consume the next token, debug-asserting that it is one of the given ones.
@@ -368,10 +349,9 @@ impl<'s> Parser<'s> {
     /// End the parsing of a group.
     ///
     /// This panics if no group was started.
-    pub fn end_group(&mut self) -> ParseResult {
+    pub fn end_group(&mut self) {
         let prev_mode = self.tokens.mode();
         let group = self.groups.pop().expect("no started group");
-        let mut success = true;
         self.tokens.set_mode(group.prev_mode);
         self.repeek();
 
@@ -392,7 +372,6 @@ impl<'s> Parser<'s> {
                 rescan = false;
             } else if required {
                 self.push_error(format!("expected {}", end));
-                success = false;
             }
         }
 
@@ -415,8 +394,6 @@ impl<'s> Parser<'s> {
             self.next = self.tokens.next();
             self.repeek();
         }
-
-        if success { Ok(()) } else { Err(()) }
     }
 
     /// Add an error that `what` was expected at the given span.
@@ -436,12 +413,13 @@ impl<'s> Parser<'s> {
     pub fn expected(&mut self, what: &str) {
         match self.peek().cloned() {
             Some(found) => {
-                self.start();
-                self.eat();
-                self.end(NodeKind::Error(
-                    ErrorPosition::Full,
-                    format!("expected {}, found {}", what, found).into(),
-                ));
+                self.perform(
+                    NodeKind::Error(
+                        ErrorPosition::Full,
+                        format!("expected {}, found {}", what, found).into(),
+                    ),
+                    Self::eat,
+                );
             }
             None => self.expected_at(what),
         }
@@ -451,12 +429,13 @@ impl<'s> Parser<'s> {
     pub fn unexpected(&mut self) {
         match self.peek().cloned() {
             Some(found) => {
-                self.start();
-                self.eat();
-                self.end(NodeKind::Error(
-                    ErrorPosition::Full,
-                    format!("unexpected {}", found).into(),
-                ));
+                self.perform(
+                    NodeKind::Error(
+                        ErrorPosition::Full,
+                        format!("unexpected {}", found).into(),
+                    ),
+                    Self::eat,
+                );
             }
             None => self.push_error("unexpected end of file"),
         }
