@@ -65,7 +65,9 @@ impl Markup {
             NodeKind::Parbreak => Some(MarkupNode::Parbreak),
             NodeKind::Strong => Some(MarkupNode::Strong),
             NodeKind::Emph => Some(MarkupNode::Emph),
-            NodeKind::Text(s) => Some(MarkupNode::Text(s.clone())),
+            NodeKind::Text(s) | NodeKind::TextInLine(s) => {
+                Some(MarkupNode::Text(s.clone()))
+            }
             NodeKind::Escape(c) => Some(MarkupNode::Text((*c).into())),
             NodeKind::EnDash => Some(MarkupNode::Text('\u{2013}'.into())),
             NodeKind::EmDash => Some(MarkupNode::Text('\u{2014}'.into())),

@@ -15,6 +15,9 @@ pub use span::*;
 use self::ast::{MathNode, RawNode, TypedNode};
 use crate::diag::Error;
 use crate::geom::{AngularUnit, LengthUnit};
+use crate::parse::{
+    parse_atomic, parse_code, parse_markup, parse_markup_elements, TokenMode,
+};
 use crate::source::SourceId;
 use crate::util::EcoString;
 
@@ -71,6 +74,43 @@ impl Green {
                 node.data.kind = kind;
             }
             Self::Token(data) => data.kind = kind,
+        }
+    }
+
+    /// Find the innermost child that is incremental safe.
+    pub fn incremental_int(
+        &mut self,
+        edit: &str,
+        replace: Span,
+        replacement_len: usize,
+        offset: usize,
+        parent_mode: TokenMode,
+        outermost: bool,
+    ) -> bool {
+        match self {
+            Green::Node(n) => Rc::make_mut(n).incremental_int(
+                edit,
+                replace,
+                replacement_len,
+                offset,
+                parent_mode,
+                outermost,
+            ),
+            Green::Token(_) => false,
+        }
+    }
+
+    /// The error messages for this node and its descendants.
+    pub fn errors(&self) -> Vec<NodeKind> {
+        match self {
+            Green::Node(n) => n.errors(),
+            Green::Token(t) => {
+                if t.kind().is_error() {
+                    vec![t.kind().clone()]
+                } else {
+                    vec![]
+                }
+            }
         }
     }
 }
@@ -148,60 +188,181 @@ impl GreenNode {
         self.data().len()
     }
 
-    /// Find the deepest incremental-safe node and its offset in the source
-    /// code.
-    pub fn incremental_parent(&mut self, span: Span) -> Option<(&mut GreenNode, usize)> {
-        self.incremental_parent_internal(span, 0)
+    /// The error messages for this node and its descendants.
+    pub fn errors(&self) -> Vec<NodeKind> {
+        let mut res = self.children.iter().flat_map(|c| c.errors()).collect::<Vec<_>>();
+
+        if self.kind().is_error() {
+            res.push(self.kind().clone());
+        }
+
+        res
     }
 
-    fn incremental_parent_internal(
+    /// Find the innermost child that is incremental safe.
+    pub fn incremental(
         &mut self,
-        span: Span,
+        edit: &str,
+        replace: Span,
+        replacement_len: usize,
+    ) -> bool {
+        self.incremental_int(edit, replace, replacement_len, 0, TokenMode::Markup, true)
+    }
+
+    fn incremental_int(
+        &mut self,
+        src: &str,
+        replace: Span,
+        replacement_len: usize,
         mut offset: usize,
-    ) -> Option<(&mut GreenNode, usize)> {
-        for child in self.children.iter_mut() {
-            match child {
-                Green::Token(n) => {
-                    if offset < span.start {
-                        // the token is strictly before the span
-                        offset += n.len();
-                    } else {
-                        // the token is within or after the span; tokens are
-                        // never safe, so we return.
-                        return None;
-                    }
+        parent_mode: TokenMode,
+        outermost: bool,
+    ) -> bool {
+        let kind = self.kind().clone();
+        let mode = kind.mode().apply(parent_mode);
+        eprintln!("in {:?} (mode {:?})", kind, mode);
+
+        let mut loop_result = None;
+        let mut child_at_start = true;
+        let last = self.children.len() - 1;
+        for (i, child) in self.children.iter_mut().enumerate() {
+            let child_span = Span::new(replace.source, offset, offset + child.len());
+            if child_span.surrounds(replace) {
+                eprintln!("found correct child");
+
+                // First, we try if the child has another, more specific applicable child.
+                if kind.incremental_safety() != IncrementalSafety::Unsafe
+                    && child.incremental_int(
+                        src,
+                        replace,
+                        replacement_len,
+                        offset,
+                        mode,
+                        i == last && outermost,
+                    )
+                {
+                    eprintln!("child was successful");
+                    return true;
                 }
-                Green::Node(n) => {
-                    let end = n.len() + offset;
-                    if offset < span.start && end < span.start {
-                        // the node is strictly before the span
-                        offset += n.len();
-                    } else if span.start >= offset
-                        && span.start < end
-                        && span.end <= end
-                        && span.end > offset
-                    {
-                        // the node is within the span.
-                        let safe = n.kind().is_incremental_safe();
-                        let mut_n = Rc::make_mut(n);
-                        if safe {
-                            let res = mut_n.incremental_parent_internal(span, offset);
-                            if res.is_none() {
-                                return Some((mut_n, offset));
-                            }
-                        } else {
-                            return mut_n.incremental_parent_internal(span, offset);
-                        }
+
+                // This didn't work, so we try to replace the child at this
+                // level.
+                let (function, policy) =
+                    if let Some(p) = child.kind().reparsing_function(mode) {
+                        p
                     } else {
-                        // the node is overlapping or after after the span; nodes are
-                        // never safe, so we return.
-                        return None;
-                    }
+                        return false;
+                    };
+                loop_result = Some((i, child_span, function, policy));
+                break;
+            }
+
+            offset += child.len();
+            child_at_start = child.kind().is_at_start(child_at_start);
+        }
+
+
+        // We now have a child that we can replace and a function to do so if
+        // the loop found any results at all.
+        let (child_idx, child_span, func, policy) = if let Some(loop_result) = loop_result
+        {
+            loop_result
+        } else {
+            // No child fully contains the replacement.
+            eprintln!("no child match");
+            return false;
+        };
+
+        eprintln!("aquired function, policy {:?}", policy);
+
+        let src_span = child_span.inserted(replace, replacement_len);
+
+        let new_children =
+            if let Some(new_children) = func(&src[src_span.to_range()], child_at_start) {
+                new_children
+            } else {
+                eprintln!("function failed");
+                return false;
+            };
+        let child_mode = self.children[child_idx].kind().mode().apply(mode);
+        eprintln!("child mode {:?}", child_mode);
+
+        // Check if the children / child has the right type.
+        let require_single = match policy {
+            IncrementalSafety::AtomicPrimary | IncrementalSafety::SameKind => true,
+            IncrementalSafety::SameKindInCode if child_mode == TokenMode::Code => true,
+            _ => false,
+        };
+
+        if require_single {
+            eprintln!("must be a single replacement");
+            if new_children.len() != 1 {
+                eprintln!("not a single replacement");
+                return false;
+            }
+
+            if match policy {
+                IncrementalSafety::SameKind => true,
+                IncrementalSafety::SameKindInCode if child_mode == TokenMode::Code => {
+                    true
+                }
+                _ => false,
+            } {
+                if self.children[child_idx].kind() != new_children[0].kind() {
+                    eprintln!("not the same kind");
+                    return false;
                 }
             }
         }
 
-        return None;
+        // Do not accept unclosed nodes if the old node did not use to be at the
+        // right edge of the tree.
+        if !outermost
+            && new_children
+                .iter()
+                .flat_map(|x| x.errors())
+                .any(|x| matches!(x, NodeKind::Error(ErrorPos::End, _)))
+        {
+            eprintln!("unclosed node");
+            return false;
+        }
+
+        // Check if the neighbor invariants are still true.
+        if mode == TokenMode::Markup {
+            if child_idx > 0 {
+                if self.children[child_idx - 1].kind().incremental_safety()
+                    == IncrementalSafety::EnsureRightWhitespace
+                    && !new_children[0].kind().is_whitespace()
+                {
+                    eprintln!("left whitespace missing");
+                    return false;
+                }
+            }
+
+            let mut new_at_start = child_at_start;
+            for child in &new_children {
+                new_at_start = child.kind().is_at_start(new_at_start);
+            }
+
+            for child in &self.children[child_idx + 1 ..] {
+                if child.kind().is_trivia() {
+                    new_at_start = child.kind().is_at_start(new_at_start);
+                    continue;
+                }
+
+                match child.kind().incremental_safety() {
+                    IncrementalSafety::EnsureAtStart if !new_at_start => return false,
+                    IncrementalSafety::EnsureNotAtStart if new_at_start => return false,
+                    _ => {}
+                }
+                break;
+            }
+        }
+
+        eprintln!("... replacing");
+
+        self.children.splice(child_idx .. child_idx + 1, new_children);
+        true
     }
 }
 
@@ -396,6 +557,7 @@ impl<'a> RedRef<'a> {
             back: self.offset + self.len(),
         }
     }
+
 
     /// The error messages for this node and its descendants.
     pub fn errors(self) -> Vec<Error> {
@@ -593,6 +755,8 @@ pub enum NodeKind {
     Parbreak,
     /// A consecutive non-markup string.
     Text(EcoString),
+    /// A text node that cannot appear at the beginning of a source line.
+    TextInLine(EcoString),
     /// A non-breaking space: `~`.
     NonBreakingSpace,
     /// An en-dash: `--`.
@@ -729,16 +893,246 @@ impl NodeKind {
         matches!(self, Self::LeftParen | Self::RightParen)
     }
 
+    /// Whether this is whitespace.
+    pub fn is_whitespace(&self) -> bool {
+        match self {
+            Self::Space(_) | Self::Parbreak => true,
+            _ => false,
+        }
+    }
+
+    /// Whether this is trivia.
+    pub fn is_trivia(&self) -> bool {
+        match self {
+            _ if self.is_whitespace() => true,
+            Self::LineComment | Self::BlockComment => true,
+            _ => false,
+        }
+    }
+
     /// Whether this is some kind of error.
     pub fn is_error(&self) -> bool {
         matches!(self, NodeKind::Error(_, _) | NodeKind::Unknown(_))
     }
 
-    /// Whether it is safe to do incremental parsing on this node.
-    pub fn is_incremental_safe(&self) -> bool {
+    /// Whether this node is `at_start` given the previous value of the property.
+    pub fn is_at_start(&self, prev: bool) -> bool {
         match self {
-            Self::Block | Self::Markup => true,
+            Self::Space(n) if *n > 0 => true,
+            Self::Parbreak => true,
+            Self::LineComment | Self::BlockComment => prev,
             _ => false,
+        }
+    }
+
+    /// Whether this token appears in Markup.
+    pub fn mode(&self) -> NodeMode {
+        match self {
+            Self::Markup
+            | Self::Space(_)
+            | Self::Parbreak
+            | Self::Text(_)
+            | Self::TextInLine(_)
+            | Self::NonBreakingSpace
+            | Self::EnDash
+            | Self::EmDash
+            | Self::Escape(_)
+            | Self::Strong
+            | Self::Emph
+            | Self::Math(_) => NodeMode::Markup,
+            Self::Template
+            | Self::Block
+            | Self::None
+            | Self::Auto
+            | Self::Ident(_)
+            | Self::Bool(_)
+            | Self::Int(_)
+            | Self::Float(_)
+            | Self::Length(_, _)
+            | Self::Angle(_, _)
+            | Self::Percentage(_)
+            | Self::Str(_)
+            | Self::Fraction(_)
+            | Self::Array
+            | Self::Dict
+            | Self::Group
+            | Self::Call
+            | Self::LineComment
+            | Self::BlockComment
+            | Self::Error(_, _)
+            | Self::Minus
+            | Self::Eq => NodeMode::Universal,
+            _ => NodeMode::Code,
+        }
+    }
+
+    pub fn reparsing_function(
+        &self,
+        parent_mode: TokenMode,
+    ) -> Option<(fn(&str, bool) -> Option<Vec<Green>>, IncrementalSafety)> {
+        let policy = self.incremental_safety();
+        if policy == IncrementalSafety::Unsafe {
+            return None;
+        }
+
+        let mode = self.mode();
+        if mode == NodeMode::Code && policy == IncrementalSafety::UnsafeLayer {
+            return None;
+        }
+
+        if mode != NodeMode::Markup
+            && parent_mode == TokenMode::Code
+            && policy == IncrementalSafety::AtomicPrimary
+        {
+            return Some((parse_atomic, policy));
+        }
+
+        let parser: fn(&str, bool) -> _ = match mode {
+            NodeMode::Code => parse_code,
+            NodeMode::Markup if self == &Self::Markup => parse_markup,
+            NodeMode::Markup => parse_markup_elements,
+            NodeMode::Universal if parent_mode == TokenMode::Code => parse_code,
+            NodeMode::Universal => parse_markup_elements,
+        };
+
+        Some((parser, policy))
+    }
+
+    /// Whether it is safe to do incremental parsing on this node. Never allow
+    /// non-termination errors if this is not already the last leaf node.
+    pub fn incremental_safety(&self) -> IncrementalSafety {
+        match self {
+            // Replacing parenthesis changes if the expression is balanced and
+            // is therefore not safe.
+            Self::LeftBracket
+            | Self::RightBracket
+            | Self::LeftBrace
+            | Self::RightBrace
+            | Self::LeftParen
+            | Self::RightParen => IncrementalSafety::Unsafe,
+
+            // Replacing an operator can change whether the parent is an
+            // operation which makes it unsafe. The star can appear in markup.
+            Self::Star
+            | Self::Comma
+            | Self::Semicolon
+            | Self::Colon
+            | Self::Plus
+            | Self::Minus
+            | Self::Slash
+            | Self::Eq
+            | Self::EqEq
+            | Self::ExclEq
+            | Self::Lt
+            | Self::LtEq
+            | Self::Gt
+            | Self::GtEq
+            | Self::PlusEq
+            | Self::HyphEq
+            | Self::StarEq
+            | Self::SlashEq
+            | Self::Not
+            | Self::And
+            | Self::Or
+            | Self::With
+            | Self::Dots
+            | Self::Arrow => IncrementalSafety::Unsafe,
+
+            // These keywords are literals and can be safely be substituted with
+            // other expressions.
+            Self::None | Self::Auto => IncrementalSafety::AtomicPrimary,
+
+            // These keywords change what kind of expression the parent is.
+            Self::Let
+            | Self::If
+            | Self::Else
+            | Self::For
+            | Self::In
+            | Self::While
+            | Self::Break
+            | Self::Continue
+            | Self::Return
+            | Self::Set
+            | Self::Import
+            | Self::Include
+            | Self::From => IncrementalSafety::Unsafe,
+
+            // This is a backslash followed by a space. But changing it to
+            // anything else is fair game.
+            Self::Linebreak => IncrementalSafety::EnsureRightWhitespace,
+
+            Self::Markup => IncrementalSafety::SameKind,
+
+            Self::Space(_) => IncrementalSafety::SameKindInCode,
+
+            // These are all replaceable by other tokens.
+            Self::Parbreak
+            | Self::Text(_)
+            | Self::NonBreakingSpace
+            | Self::EnDash
+            | Self::EmDash
+            | Self::Escape(_)
+            | Self::Strong
+            | Self::Emph => IncrementalSafety::Safe,
+
+            // This is text that needs to be not `at_start`, otherwise it would
+            // start one of the below items.
+            Self::TextInLine(_) => IncrementalSafety::EnsureNotAtStart,
+
+            // These have to be `at_start` so they must be preceeded with a
+            // Space(n) with n > 0 or a Parbreak.
+            Self::Heading | Self::Enum | Self::List => IncrementalSafety::EnsureAtStart,
+
+            // Changing the heading level, enum numbering, or list bullet
+            // changes the next layer.
+            Self::EnumNumbering(_) => IncrementalSafety::Unsafe,
+
+            Self::Raw(_) | Self::Math(_) => IncrementalSafety::Safe,
+
+            // These are expressions that can be replaced by other expressions.
+            Self::Ident(_)
+            | Self::Bool(_)
+            | Self::Int(_)
+            | Self::Float(_)
+            | Self::Length(_, _)
+            | Self::Angle(_, _)
+            | Self::Percentage(_)
+            | Self::Str(_)
+            | Self::Fraction(_)
+            | Self::Array
+            | Self::Dict
+            | Self::Group => IncrementalSafety::AtomicPrimary,
+
+            Self::Call | Self::Unary | Self::Binary | Self::SetExpr => {
+                IncrementalSafety::UnsafeLayer
+            }
+
+            Self::CallArgs | Self::Named | Self::Spread => IncrementalSafety::UnsafeLayer,
+
+            // The closure is a bit magic with the let expression, and also it
+            // is not atomic.
+            Self::Closure | Self::ClosureParams => IncrementalSafety::UnsafeLayer,
+
+            // These can appear as bodies and would trigger an error if they
+            // became something else.
+            Self::Template | Self::Block => IncrementalSafety::SameKindInCode,
+
+            Self::ForExpr
+            | Self::WhileExpr
+            | Self::IfExpr
+            | Self::LetExpr
+            | Self::ImportExpr
+            | Self::IncludeExpr => IncrementalSafety::AtomicPrimary,
+
+            Self::WithExpr | Self::ForPattern | Self::ImportItems => {
+                IncrementalSafety::UnsafeLayer
+            }
+
+            // These can appear everywhere and must not change to other stuff
+            // because that could change the outer expression.
+            Self::LineComment | Self::BlockComment => IncrementalSafety::SameKind,
+
+            Self::Error(_, _) | Self::Unknown(_) => IncrementalSafety::Unsafe,
         }
     }
 
@@ -794,7 +1188,7 @@ impl NodeKind {
             Self::Space(_) => "space",
             Self::Linebreak => "forced linebreak",
             Self::Parbreak => "paragraph break",
-            Self::Text(_) => "text",
+            Self::Text(_) | Self::TextInLine(_) => "text",
             Self::NonBreakingSpace => "non-breaking space",
             Self::EnDash => "en dash",
             Self::EmDash => "em dash",
@@ -853,5 +1247,89 @@ impl NodeKind {
 impl Display for NodeKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.pad(self.as_str())
+    }
+}
+
+/// This enum describes what conditions a node has for being replaced by a new
+/// parse result.
+///
+/// Safe nodes are replaced by the new parse result from the respective mode.
+/// They can be replaced by multiple tokens. If a token is inserted in Markup
+/// mode and the next token would not be `at_start` there needs to be a forward
+/// check for a `EnsureAtStart` node. If this fails, the parent has to be
+/// reparsed. if the direct whitespace sibling of a `EnsureRightWhitespace` is
+/// `Unsafe`. Similarly, if a `EnsureRightWhitespace` token is one of the last
+/// tokens to be inserted, the edit is invalidated if there is no following
+/// whitespace. The atomic nodes may only be replaced by other atomic nodes. The
+/// unsafe layers cannot be used but allow children access, the unsafe nodes do
+/// neither.
+///
+/// *Procedure:*
+/// 1. Check if the node is safe - if unsafe layer recurse, if unsafe, return
+///    None.
+/// 2. Reparse with appropriate node kind and `at_start`.
+/// 3. Check whether the topmost group is terminated and the range was
+///    completely consumed, otherwise return None.
+/// 4. Check if the type criteria are met.
+/// 5. If the node is not at the end of the tree, check if Strings etc. are
+///    terminated.
+/// 6. If this is markup, check the following things:
+///   - The `at_start` conditions of the next non-comment and non-space(0) node
+///     are met.
+///   - The first node is whitespace or the previous siblings are not
+///     `EnsureRightWhitespace`.
+///   - If any of those fails, return None.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum IncrementalSafety {
+    /// Changing this node can never have an influence on the other nodes.
+    Safe,
+    /// This node has to be replaced with a single token of the same kind.
+    SameKind,
+    /// This node has to be replaced with a single token of the same kind if in
+    /// code mode.
+    SameKindInCode,
+    /// These nodes depend on being at the start of a line. Reparsing of safe
+    /// left neighbors has to check this invariant. Otherwise, this node is
+    /// safe.
+    EnsureAtStart,
+    /// These nodes depend on not being at the start of a line. Reparsing of
+    /// safe left neighbors has to check this invariant. Otherwise, this node is
+    /// safe.
+    EnsureNotAtStart,
+    /// These nodes must be followed by whitespace.
+    EnsureRightWhitespace,
+    /// Changing this node into a single atomic expression is allowed if it
+    /// appears in code mode, otherwise it is safe.
+    AtomicPrimary,
+    /// Changing an unsafe layer node changes what the parents or the
+    /// surrounding nodes would be and is therefore disallowed. Change the
+    /// parents or children instead. If it appears in Markup, however, it is
+    /// safe to change.
+    UnsafeLayer,
+    /// Changing an unsafe node or any of its children will trigger undefined
+    /// behavior. Change the parents instead.
+    Unsafe,
+}
+
+/// This enum describes which mode a token of [`NodeKind`] can appear in.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum NodeMode {
+    /// The token can only appear in markup mode.
+    Markup,
+    /// The token can only appear in code mode.
+    Code,
+    /// The token can appear in either mode. Look at the parent node to decide
+    /// which mode it is in.
+    Universal,
+}
+
+impl NodeMode {
+    /// Returns the new [`TokenMode`] given the old one.
+    pub fn apply(&self, old: TokenMode) -> TokenMode {
+        match self {
+            Self::Markup => TokenMode::Markup,
+            Self::Code => TokenMode::Code,
+            Self::Universal => old,
+        }
     }
 }

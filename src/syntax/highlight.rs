@@ -158,6 +158,7 @@ impl Category {
             NodeKind::Space(_) => None,
             NodeKind::Parbreak => None,
             NodeKind::Text(_) => None,
+            NodeKind::TextInLine(_) => None,
             NodeKind::List => None,
             NodeKind::Enum => None,
             NodeKind::Array => None,

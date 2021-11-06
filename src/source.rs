@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::io;
-use std::ops::{Not, Range};
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
-use crate::parse::{is_newline, parse, parse_block, Scanner};
+use crate::parse::{is_newline, parse, Scanner};
 use crate::syntax::ast::Markup;
-use crate::syntax::{self, Category, GreenNode, NodeKind, RedNode, Span};
+use crate::syntax::{self, Category, GreenNode, RedNode, Span};
 use crate::util::PathExt;
 
 #[cfg(feature = "codespan-reporting")]
@@ -285,27 +285,10 @@ impl SourceFile {
 
         // Update the root node.
         let insertion_span = Span::new(self.id, replace.start, replace.end);
-        let incremental_target =
-            Rc::make_mut(&mut self.root).incremental_parent(insertion_span);
-
-        match incremental_target {
-            Some((child, offset)) => {
-                let src = &self.src[offset .. offset + child.len()];
-                let parse_res = match child.kind() {
-                    NodeKind::Markup => Some(parse(src)),
-                    _ => parse_block(src),
-                }
-                .and_then(|x| x.erroneous.not().then(|| x));
-
-                if let Some(parse_res) = parse_res {
-                    *child = Rc::try_unwrap(parse_res).unwrap();
-                } else {
-                    self.root = parse(&self.src);
-                }
-            }
-            None => {
-                self.root = parse(&self.src);
-            }
+        let source = self.src().to_string();
+        if !Rc::make_mut(&mut self.root).incremental(&source, insertion_span, with.len())
+        {
+            self.root = parse(self.src());
         }
     }
 
@@ -511,6 +494,6 @@ mod tests {
         }
 
         // Test inserting at the begining.
-        test("abc #f()[def] ghi", 10 .. 11, "xyz", "abc #f()[dxyzf] ghi");
+        test("abc #f()[def] ghi", 5 .. 6, "g", "abc #g()[def] ghi");
     }
 }

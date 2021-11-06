@@ -21,6 +21,8 @@ pub struct Parser<'s> {
     groups: Vec<GroupEntry>,
     /// The children of the currently built node.
     children: Vec<Green>,
+    /// Whether the last group was terminated.
+    last_group_terminated: bool,
 }
 
 impl<'s> Parser<'s> {
@@ -36,12 +38,22 @@ impl<'s> Parser<'s> {
             current_start: 0,
             groups: vec![],
             children: vec![],
+            last_group_terminated: true,
         }
     }
 
     /// End the parsing process and return the last child.
     pub fn finish(self) -> Vec<Green> {
         self.children
+    }
+
+    /// End the parsing process and return multiple children.
+    pub fn eject(self) -> Option<Vec<Green>> {
+        if self.eof() && self.group_success() {
+            Some(self.children)
+        } else {
+            None
+        }
     }
 
     /// Create a new marker.
@@ -190,6 +202,11 @@ impl<'s> Parser<'s> {
         self.tokens.scanner().column(index)
     }
 
+    /// Set the tokenizer's mode.
+    pub fn set_mode(&mut self, mode: TokenMode) {
+        self.tokens.set_mode(mode);
+    }
+
     /// Continue parsing in a group.
     ///
     /// When the end delimiter of the group is reached, all subsequent calls to
@@ -225,6 +242,7 @@ impl<'s> Parser<'s> {
         let group = self.groups.pop().expect("no started group");
         self.tokens.set_mode(group.prev_mode);
         self.repeek();
+        self.last_group_terminated = true;
 
         let mut rescan = self.tokens.mode() != group_mode;
 
@@ -243,6 +261,7 @@ impl<'s> Parser<'s> {
                 rescan = false;
             } else if required {
                 self.push_error(format_eco!("expected {}", end));
+                self.last_group_terminated = false;
             }
         }
 
@@ -258,6 +277,11 @@ impl<'s> Parser<'s> {
             self.current = self.tokens.next();
             self.repeek();
         }
+    }
+
+    /// Check if the group processing was successfully terminated.
+    pub fn group_success(&self) -> bool {
+        self.last_group_terminated && self.groups.is_empty()
     }
 
     /// Low-level bump that consumes exactly one token without special trivia

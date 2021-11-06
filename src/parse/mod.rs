@@ -25,18 +25,36 @@ pub fn parse(src: &str) -> Rc<GreenNode> {
     }
 }
 
-/// Parse a block. Returns `Some` if there was only one block.
-pub fn parse_block(source: &str) -> Option<Rc<GreenNode>> {
+/// Parse an atomic primary. Returns `Some` if all of the input was consumed.
+pub fn parse_atomic(source: &str, _: bool) -> Option<Vec<Green>> {
     let mut p = Parser::new(source);
-    block(&mut p);
-    if p.eof() {
-        match p.finish().into_iter().next() {
-            Some(Green::Node(node)) => Some(node),
-            _ => unreachable!(),
-        }
-    } else {
-        None
+    primary(&mut p, true).ok()?;
+    p.eject()
+}
+
+/// Parse some markup. Returns `Some` if all of the input was consumed.
+pub fn parse_markup(source: &str, _: bool) -> Option<Vec<Green>> {
+    let mut p = Parser::new(source);
+    markup(&mut p);
+    p.eject()
+}
+
+/// Parse some markup without the topmost node. Returns `Some` if all of the
+/// input was consumed.
+pub fn parse_markup_elements(source: &str, mut at_start: bool) -> Option<Vec<Green>> {
+    let mut p = Parser::new(source);
+    while !p.eof() {
+        markup_node(&mut p, &mut at_start);
     }
+    p.eject()
+}
+
+/// Parse some code. Returns `Some` if all of the input was consumed.
+pub fn parse_code(source: &str, _: bool) -> Option<Vec<Green>> {
+    let mut p = Parser::new(source);
+    p.set_mode(TokenMode::Code);
+    expr_list(&mut p);
+    p.eject()
 }
 
 /// Parse markup.
@@ -118,7 +136,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
 
         // Line-based markup that is not currently at the start of the line.
         NodeKind::Eq | NodeKind::Minus | NodeKind::EnumNumbering(_) => {
-            p.convert(NodeKind::Text(p.peek_src().into()));
+            p.convert(NodeKind::TextInLine(p.peek_src().into()))
         }
 
         // Hashtag + keyword / identifier.
@@ -196,7 +214,7 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
     let marker = p.marker();
 
     // Start the unary expression.
-    match p.peek().and_then(UnOp::from_token) {
+    match (!atomic).then(|| p.peek().and_then(UnOp::from_token)).flatten() {
         Some(op) => {
             p.eat();
             let prec = op.precedence();
@@ -268,7 +286,7 @@ fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
         }
 
         // Structures.
-        Some(NodeKind::LeftParen) => parenthesized(p),
+        Some(NodeKind::LeftParen) => parenthesized(p, atomic),
         Some(NodeKind::LeftBracket) => {
             template(p);
             Ok(())
@@ -329,7 +347,7 @@ fn literal(p: &mut Parser) -> bool {
 /// - Dictionary literal
 /// - Parenthesized expression
 /// - Parameter list of closure expression
-fn parenthesized(p: &mut Parser) -> ParseResult {
+fn parenthesized(p: &mut Parser, atomic: bool) -> ParseResult {
     let marker = p.marker();
 
     p.start_group(Group::Paren);
@@ -344,7 +362,7 @@ fn parenthesized(p: &mut Parser) -> ParseResult {
     }
 
     // Arrow means this is a closure's parameter list.
-    if p.at(&NodeKind::Arrow) {
+    if !atomic && p.at(&NodeKind::Arrow) {
         params(p, marker);
         p.eat_assert(&NodeKind::Arrow);
         return marker.perform(p, NodeKind::Closure, expr);
@@ -507,18 +525,23 @@ fn template(p: &mut Parser) {
 fn block(p: &mut Parser) {
     p.perform(NodeKind::Block, |p| {
         p.start_group(Group::Brace);
-        while !p.eof() {
-            p.start_group(Group::Stmt);
-            if expr(p).is_ok() && !p.eof() {
-                p.expected_at("semicolon or line break");
-            }
-            p.end_group();
-
-            // Forcefully skip over newlines since the group's contents can't.
-            p.eat_while(|t| matches!(t, NodeKind::Space(_)));
-        }
+        expr_list(p);
         p.end_group();
     });
+}
+
+/// Parse a number of code expressions.
+fn expr_list(p: &mut Parser) {
+    while !p.eof() {
+        p.start_group(Group::Stmt);
+        if expr(p).is_ok() && !p.eof() {
+            p.expected_at("semicolon or line break");
+        }
+        p.end_group();
+
+        // Forcefully skip over newlines since the group's contents can't.
+        p.eat_while(|t| matches!(t, NodeKind::Space(_)));
+    }
 }
 
 /// Parse a function call.

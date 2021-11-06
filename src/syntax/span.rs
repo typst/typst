@@ -125,7 +125,8 @@ impl Span {
         *self = self.join(other)
     }
 
-    /// Create a new span with n characters inserted inside of this span.
+    /// Create a new span by specifying a span in which a modification happened
+    /// and how many characters are now in that span.
     pub fn inserted(mut self, other: Self, n: usize) -> Self {
         if !self.surrounds(other) {
             panic!();
