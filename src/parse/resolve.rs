@@ -172,8 +172,8 @@ mod tests {
         test("typst\n it!", "typst", "\n it!");
         test("typst\n it!", "typst", "\n it!");
         test("abc`",        "abc",   "`");
-        test(" hi",         "",          " hi");
-        test("`",           "",          "`");
+        test(" hi",         "",      " hi");
+        test("`",           "",      "`");
     }
 
     #[test]

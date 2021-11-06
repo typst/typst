@@ -42,11 +42,10 @@ impl Green {
 
     /// Set the type of the node.
     pub fn set_kind(&mut self, kind: NodeKind) {
-        let data = match self {
-            Self::Node(node) => &mut Rc::make_mut(node).data,
-            Self::Token(data) => data,
-        };
-        data.set_kind(kind);
+        match self {
+            Self::Node(node) => Rc::make_mut(node).data.set_kind(kind),
+            Self::Token(data) => data.set_kind(kind),
+        }
     }
 
     /// The length of the node.
@@ -56,7 +55,10 @@ impl Green {
 
     /// Whether the node or its children contain an error.
     pub fn erroneous(&self) -> bool {
-        self.data().erroneous()
+        match self {
+            Self::Node(node) => node.erroneous,
+            Self::Token(data) => data.kind.is_error(),
+        }
     }
 
     /// The node's children.
@@ -94,24 +96,30 @@ pub struct GreenNode {
     data: GreenData,
     /// This node's children, losslessly make up this node.
     children: Vec<Green>,
+    /// Whether this node or any of its children are erroneous.
+    erroneous: bool,
 }
 
 impl GreenNode {
-    /// Creates a new node with the given kind and children.
-    pub fn with_children(kind: NodeKind, children: Vec<Green>) -> Self {
-        let mut data = GreenData::new(kind, 0);
-        let len = children
-            .iter()
-            .inspect(|c| data.erroneous |= c.erroneous())
-            .map(Green::len)
-            .sum();
-        data.len = len;
-        Self { data, children }
-    }
-
     /// Creates a new node with the given kind and a single child.
     pub fn with_child(kind: NodeKind, child: impl Into<Green>) -> Self {
         Self::with_children(kind, vec![child.into()])
+    }
+
+    /// Creates a new node with the given kind and children.
+    pub fn with_children(kind: NodeKind, children: Vec<Green>) -> Self {
+        let mut erroneous = kind.is_error();
+        let len = children
+            .iter()
+            .inspect(|c| erroneous |= c.erroneous())
+            .map(Green::len)
+            .sum();
+
+        Self {
+            data: GreenData::new(kind, len),
+            children,
+            erroneous,
+        }
     }
 
     /// The node's children.
@@ -140,14 +148,12 @@ pub struct GreenData {
     kind: NodeKind,
     /// The byte length of the node in the source.
     len: usize,
-    /// Whether this node or any of its children contain an error.
-    erroneous: bool,
 }
 
 impl GreenData {
     /// Create new node metadata.
     pub fn new(kind: NodeKind, len: usize) -> Self {
-        Self { len, erroneous: kind.is_error(), kind }
+        Self { len, kind }
     }
 
     /// The type of the node.
@@ -163,11 +169,6 @@ impl GreenData {
     /// The length of the node.
     pub fn len(&self) -> usize {
         self.len
-    }
-
-    /// Whether the node or its children contain an error.
-    pub fn erroneous(&self) -> bool {
-        self.erroneous
     }
 }
 
@@ -219,7 +220,7 @@ impl<'a> RedRef<'a> {
 
     /// The error messages for this node and its descendants.
     pub fn errors(self) -> Vec<Error> {
-        if !self.green.erroneous() {
+        if !self.erroneous() {
             return vec![];
         }
 
@@ -235,7 +236,7 @@ impl<'a> RedRef<'a> {
             }
             _ => self
                 .children()
-                .filter(|red| red.green.erroneous())
+                .filter(|red| red.erroneous())
                 .flat_map(|red| red.errors())
                 .collect(),
         }
@@ -256,11 +257,11 @@ impl<'a> RedRef<'a> {
             Green::Token(_) => &[],
         };
 
-        let mut offset = self.offset;
+        let mut cursor = self.offset;
         children.iter().map(move |green| {
-            let child_offset = offset;
-            offset += green.len();
-            RedRef { id: self.id, offset: child_offset, green }
+            let offset = cursor;
+            cursor += green.len();
+            RedRef { id: self.id, offset, green }
         })
     }
 
@@ -623,29 +624,17 @@ pub enum ErrorPosition {
 impl NodeKind {
     /// Whether this is some kind of parenthesis.
     pub fn is_paren(&self) -> bool {
-        match self {
-            Self::LeftParen => true,
-            Self::RightParen => true,
-            _ => false,
-        }
+        matches!(self, Self::LeftParen | Self::RightParen)
     }
 
     /// Whether this is some kind of bracket.
     pub fn is_bracket(&self) -> bool {
-        match self {
-            Self::LeftBracket => true,
-            Self::RightBracket => true,
-            _ => false,
-        }
+        matches!(self, Self::LeftBracket | Self::RightBracket)
     }
 
     /// Whether this is some kind of brace.
     pub fn is_brace(&self) -> bool {
-        match self {
-            Self::LeftBrace => true,
-            Self::RightBrace => true,
-            _ => false,
-        }
+        matches!(self, Self::LeftBrace | Self::RightBrace)
     }
 
     /// Whether this is some kind of error.

@@ -57,12 +57,6 @@ impl<'s> Tokens<'s> {
         self.s.jump(index);
     }
 
-    /// The column of a given index in the source string.
-    #[inline]
-    pub fn column(&self, index: usize) -> usize {
-        self.s.column(index)
-    }
-
     /// The underlying scanner.
     #[inline]
     pub fn scanner(&self) -> Scanner<'s> {
@@ -314,7 +308,7 @@ impl<'s> Tokens<'s> {
     }
 
     fn raw(&mut self) -> NodeKind {
-        let column = self.column(self.s.index() - 1);
+        let column = self.s.column(self.s.index() - 1);
 
         let mut backticks = 1;
         while self.s.eat_if('`') && backticks < u8::MAX {
@@ -342,10 +336,8 @@ impl<'s> Tokens<'s> {
             }
         }
 
-        let terminated = found == backticks;
-        let end = self.s.index() - if terminated { found as usize } else { 0 };
-
-        if terminated {
+        if found == backticks {
+            let end = self.s.index() - found as usize;
             NodeKind::Raw(Rc::new(resolve_raw(
                 column,
                 backticks,
