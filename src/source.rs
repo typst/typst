@@ -145,7 +145,7 @@ impl SourceFile {
     }
 
     pub fn ast(&self) -> TypResult<Markup> {
-        let red = RedNode::new_root(self.root.clone(), self.id);
+        let red = RedNode::from_root(self.root.clone(), self.id);
         let errors = red.errors();
         if errors.is_empty() {
             Ok(red.cast().unwrap())

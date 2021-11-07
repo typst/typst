@@ -1,6 +1,8 @@
 //! A typed layer over the red-green tree.
 
-use super::{NodeKind, RedNode, RedRef, Span};
+use std::ops::Deref;
+
+use super::{Green, GreenData, NodeKind, RedNode, RedRef, Span};
 use crate::geom::{AngularUnit, LengthUnit};
 use crate::util::EcoString;
 
@@ -8,13 +10,24 @@ use crate::util::EcoString;
 pub trait TypedNode: Sized {
     /// Convert from a red node to a typed node.
     fn from_red(value: RedRef) -> Option<Self>;
+
+    /// A reference to the underlying red node.
+    fn as_red(&self) -> RedRef<'_>;
+
+    /// The source code location.
+    fn span(&self) -> Span {
+        self.as_red().span()
+    }
 }
 
 macro_rules! node {
     ($(#[$attr:meta])* $name:ident) => {
-        node!{$(#[$attr])* $name => $name}
+        node!{$(#[$attr])* $name: $name}
     };
-    ($(#[$attr:meta])* $variant:ident => $name:ident) => {
+    ($(#[$attr:meta])* $name:ident: $variant:ident) => {
+        node!{$(#[$attr])* $name: NodeKind::$variant}
+    };
+    ($(#[$attr:meta])* $name:ident: $($variant:pat)|*) => {
         #[derive(Debug, Clone, PartialEq)]
         #[repr(transparent)]
         $(#[$attr])*
@@ -22,22 +35,14 @@ macro_rules! node {
 
         impl TypedNode for $name {
             fn from_red(node: RedRef) -> Option<Self> {
-                if node.kind() != &NodeKind::$variant {
-                    return None;
+                if matches!(node.kind(), $($variant)|*) {
+                    Some(Self(node.own()))
+                } else {
+                    None
                 }
-
-                Some(Self(node.own()))
-            }
-        }
-
-        impl $name {
-            /// The source code location.
-            pub fn span(&self) -> Span {
-                self.0.span()
             }
 
-            /// The underlying red node.
-            pub fn as_red(&self) -> RedRef {
+            fn as_red(&self) -> RedRef<'_> {
                 self.0.as_ref()
             }
         }
@@ -52,7 +57,27 @@ node! {
 impl Markup {
     /// The markup nodes.
     pub fn nodes(&self) -> impl Iterator<Item = MarkupNode> + '_ {
-        self.0.children().filter_map(RedRef::cast)
+        self.0.children().filter_map(|node| match node.kind() {
+            NodeKind::Space(_) => Some(MarkupNode::Space),
+            NodeKind::Linebreak => Some(MarkupNode::Linebreak),
+            NodeKind::Parbreak => Some(MarkupNode::Parbreak),
+            NodeKind::Strong => Some(MarkupNode::Strong),
+            NodeKind::Emph => Some(MarkupNode::Emph),
+            NodeKind::Text(s) => Some(MarkupNode::Text(s.clone())),
+            NodeKind::UnicodeEscape(c) => Some(MarkupNode::Text((*c).into())),
+            NodeKind::EnDash => Some(MarkupNode::Text("\u{2013}".into())),
+            NodeKind::EmDash => Some(MarkupNode::Text("\u{2014}".into())),
+            NodeKind::NonBreakingSpace => Some(MarkupNode::Text("\u{00A0}".into())),
+            NodeKind::Raw(raw) => Some(MarkupNode::Raw(RawNode {
+                block: raw.block,
+                lang: raw.lang.clone(),
+                text: raw.text.clone(),
+            })),
+            NodeKind::Heading => node.cast().map(MarkupNode::Heading),
+            NodeKind::List => node.cast().map(MarkupNode::List),
+            NodeKind::Enum => node.cast().map(MarkupNode::Enum),
+            _ => node.cast().map(MarkupNode::Expr),
+        })
     }
 }
 
@@ -83,28 +108,6 @@ pub enum MarkupNode {
     Expr(Expr),
 }
 
-impl TypedNode for MarkupNode {
-    fn from_red(node: RedRef) -> Option<Self> {
-        match node.kind() {
-            NodeKind::Space(_) => Some(MarkupNode::Space),
-            NodeKind::Linebreak => Some(MarkupNode::Linebreak),
-            NodeKind::Parbreak => Some(MarkupNode::Parbreak),
-            NodeKind::Strong => Some(MarkupNode::Strong),
-            NodeKind::Emph => Some(MarkupNode::Emph),
-            NodeKind::Text(s) => Some(MarkupNode::Text(s.clone())),
-            NodeKind::UnicodeEscape(c) => Some(MarkupNode::Text((*c).into())),
-            NodeKind::EnDash => Some(MarkupNode::Text("\u{2013}".into())),
-            NodeKind::EmDash => Some(MarkupNode::Text("\u{2014}".into())),
-            NodeKind::NonBreakingSpace => Some(MarkupNode::Text("\u{00A0}".into())),
-            NodeKind::Raw(_) => node.cast().map(MarkupNode::Raw),
-            NodeKind::Heading => node.cast().map(MarkupNode::Heading),
-            NodeKind::List => node.cast().map(MarkupNode::List),
-            NodeKind::Enum => node.cast().map(MarkupNode::Enum),
-            _ => node.cast().map(MarkupNode::Expr),
-        }
-    }
-}
-
 /// A raw block with optional syntax highlighting: `` `...` ``.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawNode {
@@ -118,22 +121,9 @@ pub struct RawNode {
     pub block: bool,
 }
 
-impl TypedNode for RawNode {
-    fn from_red(node: RedRef) -> Option<Self> {
-        match node.kind() {
-            NodeKind::Raw(raw) => Some(Self {
-                block: raw.block,
-                lang: raw.lang.clone(),
-                text: raw.text.clone(),
-            }),
-            _ => None,
-        }
-    }
-}
-
 node! {
     /// A section heading: `= Introduction`.
-    Heading => HeadingNode
+    HeadingNode: Heading
 }
 
 impl HeadingNode {
@@ -154,7 +144,7 @@ impl HeadingNode {
 
 node! {
     /// An item in an unordered list: `- ...`.
-    List => ListNode
+    ListNode: List
 }
 
 impl ListNode {
@@ -166,7 +156,7 @@ impl ListNode {
 
 node! {
     /// An item in an enumeration (ordered list): `1. ...`.
-    Enum => EnumNode
+    EnumNode: Enum
 }
 
 impl EnumNode {
@@ -190,10 +180,10 @@ impl EnumNode {
 /// An expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    /// An identifier: `left`.
-    Ident(Ident),
     /// A literal: `1`, `true`, ...
     Lit(Lit),
+    /// An identifier: `left`.
+    Ident(Ident),
     /// An array expression: `(1, "hi", 12cm)`.
     Array(ArrayExpr),
     /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
@@ -251,6 +241,29 @@ impl TypedNode for Expr {
             _ => node.cast().map(Self::Lit),
         }
     }
+
+    fn as_red(&self) -> RedRef<'_> {
+        match self {
+            Self::Lit(v) => v.as_red(),
+            Self::Ident(v) => v.as_red(),
+            Self::Array(v) => v.as_red(),
+            Self::Dict(v) => v.as_red(),
+            Self::Template(v) => v.as_red(),
+            Self::Group(v) => v.as_red(),
+            Self::Block(v) => v.as_red(),
+            Self::Unary(v) => v.as_red(),
+            Self::Binary(v) => v.as_red(),
+            Self::Call(v) => v.as_red(),
+            Self::Closure(v) => v.as_red(),
+            Self::With(v) => v.as_red(),
+            Self::Let(v) => v.as_red(),
+            Self::If(v) => v.as_red(),
+            Self::While(v) => v.as_red(),
+            Self::For(v) => v.as_red(),
+            Self::Import(v) => v.as_red(),
+            Self::Include(v) => v.as_red(),
+        }
+    }
 }
 
 impl Expr {
@@ -267,99 +280,72 @@ impl Expr {
             | Self::Include(_)
         )
     }
+}
 
-    /// Return the expression's span.
-    pub fn span(&self) -> Span {
-        match self {
-            Self::Ident(ident) => ident.span,
-            Self::Lit(lit) => lit.span(),
-            Self::Array(array) => array.span(),
-            Self::Dict(dict) => dict.span(),
-            Self::Template(template) => template.span(),
-            Self::Group(group) => group.span(),
-            Self::Block(block) => block.span(),
-            Self::Unary(unary) => unary.span(),
-            Self::Binary(binary) => binary.span(),
-            Self::Call(call) => call.span(),
-            Self::Closure(closure) => closure.span(),
-            Self::With(with) => with.span(),
-            Self::Let(let_) => let_.span(),
-            Self::If(if_) => if_.span(),
-            Self::While(while_) => while_.span(),
-            Self::For(for_) => for_.span(),
-            Self::Import(import) => import.span(),
-            Self::Include(include) => include.span(),
+node! {
+    /// A literal: `1`, `true`, ...
+    Lit: NodeKind::None
+       | NodeKind::Auto
+       | NodeKind::Bool(_)
+       | NodeKind::Int(_)
+       | NodeKind::Float(_)
+       | NodeKind::Length(_, _)
+       | NodeKind::Angle(_, _)
+       | NodeKind::Percentage(_)
+       | NodeKind::Fraction(_)
+       | NodeKind::Str(_)
+}
+
+impl Lit {
+    /// The kind of literal.
+    pub fn kind(&self) -> LitKind {
+        match *self.0.kind() {
+            NodeKind::None => LitKind::None,
+            NodeKind::Auto => LitKind::Auto,
+            NodeKind::Bool(v) => LitKind::Bool(v),
+            NodeKind::Int(v) => LitKind::Int(v),
+            NodeKind::Float(v) => LitKind::Float(v),
+            NodeKind::Length(v, unit) => LitKind::Length(v, unit),
+            NodeKind::Angle(v, unit) => LitKind::Angle(v, unit),
+            NodeKind::Percentage(v) => LitKind::Percent(v),
+            NodeKind::Fraction(v) => LitKind::Fractional(v),
+            NodeKind::Str(ref v) => LitKind::Str(v.clone()),
+            _ => panic!("literal is of wrong kind"),
         }
     }
 }
 
-/// A literal: `1`, `true`, ...
+/// The kind of a literal.
 #[derive(Debug, Clone, PartialEq)]
-pub enum Lit {
+pub enum LitKind {
     /// The none literal: `none`.
-    None(Span),
+    None,
     /// The auto literal: `auto`.
-    Auto(Span),
+    Auto,
     /// A boolean literal: `true`, `false`.
-    Bool(Span, bool),
+    Bool(bool),
     /// An integer literal: `120`.
-    Int(Span, i64),
+    Int(i64),
     /// A floating-point literal: `1.2`, `10e-4`.
-    Float(Span, f64),
+    Float(f64),
     /// A length literal: `12pt`, `3cm`.
-    Length(Span, f64, LengthUnit),
+    Length(f64, LengthUnit),
     /// An angle literal:  `1.5rad`, `90deg`.
-    Angle(Span, f64, AngularUnit),
+    Angle(f64, AngularUnit),
     /// A percent literal: `50%`.
     ///
     /// _Note_: `50%` is stored as `50.0` here, but as `0.5` in the
     /// corresponding [value](crate::geom::Relative).
-    Percent(Span, f64),
+    Percent(f64),
     /// A fraction unit literal: `1fr`.
-    Fractional(Span, f64),
+    Fractional(f64),
     /// A string literal: `"hello!"`.
-    Str(Span, EcoString),
-}
-
-impl TypedNode for Lit {
-    fn from_red(node: RedRef) -> Option<Self> {
-        match *node.kind() {
-            NodeKind::None => Some(Self::None(node.span())),
-            NodeKind::Auto => Some(Self::Auto(node.span())),
-            NodeKind::Bool(v) => Some(Self::Bool(node.span(), v)),
-            NodeKind::Int(v) => Some(Self::Int(node.span(), v)),
-            NodeKind::Float(v) => Some(Self::Float(node.span(), v)),
-            NodeKind::Length(v, unit) => Some(Self::Length(node.span(), v, unit)),
-            NodeKind::Angle(v, unit) => Some(Self::Angle(node.span(), v, unit)),
-            NodeKind::Percentage(v) => Some(Self::Percent(node.span(), v)),
-            NodeKind::Fraction(v) => Some(Self::Fractional(node.span(), v)),
-            NodeKind::Str(ref v) => Some(Self::Str(node.span(), v.clone())),
-            _ => None,
-        }
-    }
-}
-
-impl Lit {
-    /// The source code location.
-    pub fn span(&self) -> Span {
-        match *self {
-            Self::None(span) => span,
-            Self::Auto(span) => span,
-            Self::Bool(span, _) => span,
-            Self::Int(span, _) => span,
-            Self::Float(span, _) => span,
-            Self::Length(span, _, _) => span,
-            Self::Angle(span, _, _) => span,
-            Self::Percent(span, _) => span,
-            Self::Fractional(span, _) => span,
-            Self::Str(span, _) => span,
-        }
-    }
+    Str(EcoString),
 }
 
 node! {
     /// An array expression: `(1, "hi", 12cm)`.
-    Array => ArrayExpr
+    ArrayExpr: Array
 }
 
 impl ArrayExpr {
@@ -371,7 +357,7 @@ impl ArrayExpr {
 
 node! {
     /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
-    Dict => DictExpr
+    DictExpr: Dict
 }
 
 impl DictExpr {
@@ -400,7 +386,7 @@ impl Named {
 
 node! {
     /// A template expression: `[*Hi* there!]`.
-    Template => TemplateExpr
+    TemplateExpr: Template
 }
 
 impl TemplateExpr {
@@ -412,7 +398,7 @@ impl TemplateExpr {
 
 node! {
     /// A grouped expression: `(1 + 2)`.
-    Group => GroupExpr
+    GroupExpr: Group
 }
 
 impl GroupExpr {
@@ -424,7 +410,7 @@ impl GroupExpr {
 
 node! {
     /// A block expression: `{ let x = 1; x + 2 }`.
-    Block => BlockExpr
+    BlockExpr: Block
 }
 
 impl BlockExpr {
@@ -436,14 +422,15 @@ impl BlockExpr {
 
 node! {
     /// A unary operation: `-x`.
-    Unary => UnaryExpr
+    UnaryExpr: Unary
 }
 
 impl UnaryExpr {
     /// The operator: `-`.
     pub fn op(&self) -> UnOp {
         self.0
-            .cast_first_child()
+            .children()
+            .find_map(|node| UnOp::from_token(node.kind()))
             .expect("unary expression is missing operator")
     }
 
@@ -462,12 +449,6 @@ pub enum UnOp {
     Neg,
     /// The boolean `not`.
     Not,
-}
-
-impl TypedNode for UnOp {
-    fn from_red(node: RedRef) -> Option<Self> {
-        Self::from_token(node.kind())
-    }
 }
 
 impl UnOp {
@@ -501,14 +482,15 @@ impl UnOp {
 
 node! {
     /// A binary operation: `a + b`.
-    Binary => BinaryExpr
+    BinaryExpr: Binary
 }
 
 impl BinaryExpr {
     /// The binary operator: `+`.
     pub fn op(&self) -> BinOp {
         self.0
-            .cast_first_child()
+            .children()
+            .find_map(|node| BinOp::from_token(node.kind()))
             .expect("binary expression is missing operator")
     }
 
@@ -564,12 +546,6 @@ pub enum BinOp {
     MulAssign,
     /// The divide-assign operator: `/=`.
     DivAssign,
-}
-
-impl TypedNode for BinOp {
-    fn from_red(node: RedRef) -> Option<Self> {
-        Self::from_token(node.kind())
-    }
 }
 
 impl BinOp {
@@ -671,7 +647,7 @@ pub enum Associativity {
 
 node! {
     /// An invocation of a function: `foo(...)`.
-    Call => CallExpr
+    CallExpr: Call
 }
 
 impl CallExpr {
@@ -717,6 +693,14 @@ impl TypedNode for CallArg {
             _ => node.cast().map(CallArg::Pos),
         }
     }
+
+    fn as_red(&self) -> RedRef<'_> {
+        match self {
+            Self::Pos(v) => v.as_red(),
+            Self::Named(v) => v.as_red(),
+            Self::Spread(v) => v.as_red(),
+        }
+    }
 }
 
 impl CallArg {
@@ -732,7 +716,7 @@ impl CallArg {
 
 node! {
     /// A closure expression: `(x, y) => z`.
-    Closure => ClosureExpr
+    ClosureExpr: Closure
 }
 
 impl ClosureExpr {
@@ -777,6 +761,14 @@ impl TypedNode for ClosureParam {
             NodeKind::Named => node.cast().map(ClosureParam::Named),
             NodeKind::Spread => node.cast_first_child().map(ClosureParam::Sink),
             _ => None,
+        }
+    }
+
+    fn as_red(&self) -> RedRef<'_> {
+        match self {
+            Self::Pos(v) => v.as_red(),
+            Self::Named(v) => v.as_red(),
+            Self::Sink(v) => v.as_red(),
         }
     }
 }
@@ -840,7 +832,17 @@ node! {
 impl ImportExpr {
     /// The items to be imported.
     pub fn imports(&self) -> Imports {
-        self.0.cast_first_child().expect("import is missing items")
+        self.0
+            .children()
+            .find_map(|node| match node.kind() {
+                NodeKind::Star => Some(Imports::Wildcard),
+                NodeKind::ImportItems => {
+                    let items = node.children().filter_map(RedRef::cast).collect();
+                    Some(Imports::Items(items))
+                }
+                _ => None,
+            })
+            .expect("import is missing items")
     }
 
     /// The location of the importable file.
@@ -856,19 +858,6 @@ pub enum Imports {
     Wildcard,
     /// The specified items from the file should be imported.
     Items(Vec<Ident>),
-}
-
-impl TypedNode for Imports {
-    fn from_red(node: RedRef) -> Option<Self> {
-        match node.kind() {
-            NodeKind::Star => Some(Imports::Wildcard),
-            NodeKind::ImportItems => {
-                let items = node.children().filter_map(RedRef::cast).collect();
-                Some(Imports::Items(items))
-            }
-            _ => None,
-        }
-    }
 }
 
 node! {
@@ -967,23 +956,28 @@ impl ForPattern {
     }
 }
 
-/// An identifier.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Ident {
-    /// The source code location.
-    pub span: Span,
-    /// The identifier string.
-    pub string: EcoString,
+node! {
+    /// An identifier.
+    Ident: NodeKind::Ident(_)
 }
 
-impl TypedNode for Ident {
-    fn from_red(node: RedRef) -> Option<Self> {
-        match node.kind() {
-            NodeKind::Ident(string) => Some(Ident {
-                span: node.span(),
-                string: string.clone(),
-            }),
-            _ => None,
+impl Ident {
+    /// Take out the contained [`EcoString`].
+    pub fn take(self) -> EcoString {
+        match self.0.green {
+            Green::Token(GreenData { kind: NodeKind::Ident(id), .. }) => id,
+            _ => panic!("identifier is of wrong kind"),
+        }
+    }
+}
+
+impl Deref for Ident {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        match &self.0.green {
+            Green::Token(GreenData { kind: NodeKind::Ident(id), .. }) => id,
+            _ => panic!("identifier is of wrong kind"),
         }
     }
 }

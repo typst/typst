@@ -174,8 +174,8 @@ impl Eval for Expr {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         match self {
-            Self::Ident(v) => v.eval(ctx),
             Self::Lit(v) => v.eval(ctx),
+            Self::Ident(v) => v.eval(ctx),
             Self::Array(v) => v.eval(ctx).map(Value::Array),
             Self::Dict(v) => v.eval(ctx).map(Value::Dict),
             Self::Template(v) => v.eval(ctx).map(Value::Template),
@@ -200,17 +200,17 @@ impl Eval for Lit {
     type Output = Value;
 
     fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
-        Ok(match *self {
-            Self::None(_) => Value::None,
-            Self::Auto(_) => Value::Auto,
-            Self::Bool(_, v) => Value::Bool(v),
-            Self::Int(_, v) => Value::Int(v),
-            Self::Float(_, v) => Value::Float(v),
-            Self::Length(_, v, unit) => Value::Length(Length::with_unit(v, unit)),
-            Self::Angle(_, v, unit) => Value::Angle(Angle::with_unit(v, unit)),
-            Self::Percent(_, v) => Value::Relative(Relative::new(v / 100.0)),
-            Self::Fractional(_, v) => Value::Fractional(Fractional::new(v)),
-            Self::Str(_, ref v) => Value::Str(v.into()),
+        Ok(match self.kind() {
+            LitKind::None => Value::None,
+            LitKind::Auto => Value::Auto,
+            LitKind::Bool(v) => Value::Bool(v),
+            LitKind::Int(v) => Value::Int(v),
+            LitKind::Float(v) => Value::Float(v),
+            LitKind::Length(v, unit) => Value::Length(Length::with_unit(v, unit)),
+            LitKind::Angle(v, unit) => Value::Angle(Angle::with_unit(v, unit)),
+            LitKind::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
+            LitKind::Fractional(v) => Value::Fractional(Fractional::new(v)),
+            LitKind::Str(ref v) => Value::Str(v.into()),
         })
     }
 }
@@ -219,9 +219,9 @@ impl Eval for Ident {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        match ctx.scopes.get(&self.string) {
+        match ctx.scopes.get(self) {
             Some(slot) => Ok(slot.borrow().clone()),
-            None => bail!(self.span, "unknown variable"),
+            None => bail!(self.span(), "unknown variable"),
         }
     }
 }
@@ -239,7 +239,7 @@ impl Eval for DictExpr {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         self.items()
-            .map(|x| Ok((x.name().string.into(), x.expr().eval(ctx)?)))
+            .map(|x| Ok((x.name().take().into(), x.expr().eval(ctx)?)))
             .collect()
     }
 }
@@ -401,7 +401,7 @@ impl Eval for CallArgs {
                 CallArg::Named(x) => {
                     items.push(Arg {
                         span,
-                        name: Some(x.name().string.into()),
+                        name: Some(x.name().take().into()),
                         value: Spanned::new(x.expr().eval(ctx)?, x.expr().span()),
                     });
                 }
@@ -457,23 +457,23 @@ impl Eval for ClosureExpr {
         for param in self.params() {
             match param {
                 ClosureParam::Pos(name) => {
-                    params.push((name.string, None));
+                    params.push((name.take(), None));
                 }
                 ClosureParam::Named(named) => {
-                    params.push((named.name().string, Some(named.expr().eval(ctx)?)));
+                    params.push((named.name().take(), Some(named.expr().eval(ctx)?)));
                 }
                 ClosureParam::Sink(name) => {
                     if sink.is_some() {
-                        bail!(name.span, "only one argument sink is allowed");
+                        bail!(name.span(), "only one argument sink is allowed");
                     }
-                    sink = Some(name.string);
+                    sink = Some(name.take());
                 }
             }
         }
 
         // Clone the body expression so that we don't have a lifetime
         // dependence on the AST.
-        let name = self.name().map(|name| name.string);
+        let name = self.name().map(Ident::take);
         let body = self.body();
 
         // Define the actual function.
@@ -533,7 +533,7 @@ impl Eval for LetExpr {
             Some(expr) => expr.eval(ctx)?,
             None => Value::None,
         };
-        ctx.scopes.def_mut(self.binding().string, value);
+        ctx.scopes.def_mut(self.binding().take(), value);
         Ok(Value::None)
     }
 }
@@ -589,7 +589,7 @@ impl Eval for ForExpr {
 
                 #[allow(unused_parens)]
                 for ($($value),*) in $iter {
-                    $(ctx.scopes.def_mut(&$binding.string, $value);)*
+                    $(ctx.scopes.def_mut(&$binding, $value);)*
 
                     let value = self.body().eval(ctx)?;
                     output = ops::join(output, value)
@@ -603,7 +603,10 @@ impl Eval for ForExpr {
 
         let iter = self.iter().eval(ctx)?;
         let pattern = self.pattern();
-        match (pattern.key(), pattern.value(), iter) {
+        let key = pattern.key().map(Ident::take);
+        let value = pattern.value().take();
+
+        match (key, value, iter) {
             (None, v, Value::Str(string)) => iter!(for (v => value) in string.iter()),
             (None, v, Value::Array(array)) => {
                 iter!(for (v => value) in array.into_iter())
@@ -644,10 +647,10 @@ impl Eval for ImportExpr {
             }
             Imports::Items(idents) => {
                 for ident in idents {
-                    if let Some(slot) = module.scope.get(&ident.string) {
-                        ctx.scopes.def_mut(ident.string, slot.borrow().clone());
+                    if let Some(slot) = module.scope.get(&ident) {
+                        ctx.scopes.def_mut(ident.take(), slot.borrow().clone());
                     } else {
-                        bail!(ident.span, "unresolved import");
+                        bail!(ident.span(), "unresolved import");
                     }
                 }
             }
@@ -691,12 +694,12 @@ impl Access for Expr {
 
 impl Access for Ident {
     fn access<'a>(&self, ctx: &'a mut EvalContext) -> TypResult<RefMut<'a, Value>> {
-        match ctx.scopes.get(&self.string) {
+        match ctx.scopes.get(self) {
             Some(slot) => match slot.try_borrow_mut() {
                 Ok(guard) => Ok(guard),
-                Err(_) => bail!(self.span, "cannot mutate a constant"),
+                Err(_) => bail!(self.span(), "cannot mutate a constant"),
             },
-            None => bail!(self.span, "unknown variable"),
+            None => bail!(self.span(), "unknown variable"),
         }
     }
 }

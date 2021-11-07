@@ -418,7 +418,7 @@ fn item(p: &mut Parser) -> ParseResult<NodeKind> {
 
     if p.at(&NodeKind::Colon) {
         marker.perform(p, NodeKind::Named, |p| {
-            if matches!(marker.peek(p).unwrap().kind(), &NodeKind::Ident(_)) {
+            if let Some(NodeKind::Ident(_)) = marker.peek(p).map(|c| c.kind()) {
                 p.eat();
                 expr(p)
             } else {

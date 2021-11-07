@@ -120,6 +120,8 @@ impl Scope {
 
 impl Debug for Scope {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.values.fmt(f)
+        f.debug_map()
+            .entries(self.values.iter().map(|(k, v)| (k, v.borrow())))
+            .finish()
     }
 }

@@ -88,6 +88,11 @@ impl Span {
         Self { end, ..self }
     }
 
+    /// The byte length of the spanned region.
+    pub fn len(self) -> usize {
+        self.end - self.start
+    }
+
     /// A new span at the position of this span's start.
     pub fn at_start(&self) -> Span {
         Self::at(self.source, self.start)

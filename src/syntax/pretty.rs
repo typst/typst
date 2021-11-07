@@ -198,8 +198,8 @@ impl Pretty for EnumNode {
 impl Pretty for Expr {
     fn pretty(&self, p: &mut Printer) {
         match self {
-            Self::Ident(v) => v.pretty(p),
             Self::Lit(v) => v.pretty(p),
+            Self::Ident(v) => v.pretty(p),
             Self::Array(v) => v.pretty(p),
             Self::Dict(v) => v.pretty(p),
             Self::Template(v) => v.pretty(p),
@@ -222,17 +222,17 @@ impl Pretty for Expr {
 
 impl Pretty for Lit {
     fn pretty(&self, p: &mut Printer) {
-        match self {
-            Self::None(_) => p.push_str("none"),
-            Self::Auto(_) => p.push_str("auto"),
-            Self::Bool(_, v) => write!(p, "{}", v).unwrap(),
-            Self::Int(_, v) => write!(p, "{}", v).unwrap(),
-            Self::Float(_, v) => write!(p, "{}", v).unwrap(),
-            Self::Length(_, v, u) => write!(p, "{}{:?}", v, u).unwrap(),
-            Self::Angle(_, v, u) => write!(p, "{}{:?}", v, u).unwrap(),
-            Self::Percent(_, v) => write!(p, "{}%", v).unwrap(),
-            Self::Fractional(_, v) => write!(p, "{}fr", v).unwrap(),
-            Self::Str(_, v) => write!(p, "{:?}", v).unwrap(),
+        match self.kind() {
+            LitKind::None => p.push_str("none"),
+            LitKind::Auto => p.push_str("auto"),
+            LitKind::Bool(v) => write!(p, "{}", v).unwrap(),
+            LitKind::Int(v) => write!(p, "{}", v).unwrap(),
+            LitKind::Float(v) => write!(p, "{}", v).unwrap(),
+            LitKind::Length(v, u) => write!(p, "{}{:?}", v, u).unwrap(),
+            LitKind::Angle(v, u) => write!(p, "{}{:?}", v, u).unwrap(),
+            LitKind::Percent(v) => write!(p, "{}%", v).unwrap(),
+            LitKind::Fractional(v) => write!(p, "{}fr", v).unwrap(),
+            LitKind::Str(v) => write!(p, "{:?}", v).unwrap(),
         }
     }
 }
@@ -508,7 +508,7 @@ impl Pretty for IncludeExpr {
 
 impl Pretty for Ident {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str(&self.string);
+        p.push_str(self);
     }
 }
 

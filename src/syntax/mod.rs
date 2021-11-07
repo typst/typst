@@ -187,9 +187,18 @@ pub struct RedNode {
 }
 
 impl RedNode {
-    /// Create a new root node from a [`GreenNode`].
-    pub fn new_root(root: Rc<GreenNode>, id: SourceId) -> Self {
+    /// Create a new red node from a root [`GreenNode`].
+    pub fn from_root(root: Rc<GreenNode>, id: SourceId) -> Self {
         Self { id, offset: 0, green: root.into() }
+    }
+
+    /// Create a new red node from a node kind and a span.
+    pub fn from_data(kind: NodeKind, span: Span) -> Self {
+        Self {
+            id: span.source,
+            offset: span.start,
+            green: Green::Token(GreenData { kind, len: span.len() }),
+        }
     }
 
     /// Convert to a borrowed representation.
@@ -540,7 +549,7 @@ pub enum NodeKind {
     /// A percentage: `50%`.
     ///
     /// _Note_: `50%` is stored as `50.0` here, as in the corresponding
-    /// [literal](ast::Lit::Percent).
+    /// [literal](ast::LitKind::Percent).
     Percentage(f64),
     /// A fraction unit: `3fr`.
     Fraction(f64),
