@@ -219,7 +219,7 @@ impl Eval for Ident {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        match ctx.scopes.get(self) {
+        match ctx.scopes.get(&self.string) {
             Some(slot) => Ok(slot.borrow().clone()),
             None => bail!(self.span, "unknown variable"),
         }
@@ -401,7 +401,7 @@ impl Eval for CallArgs {
                 CallArg::Named(x) => {
                     items.push(Arg {
                         span,
-                        name: Some((&x.name().string).into()),
+                        name: Some(x.name().string.into()),
                         value: Spanned::new(x.expr().eval(ctx)?, x.expr().span()),
                     });
                 }
@@ -443,12 +443,10 @@ impl Eval for ClosureExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let name = self.name().as_ref().map(|name| name.string.clone());
-
         // Collect captured variables.
         let captured = {
             let mut visitor = CapturesVisitor::new(&ctx.scopes);
-            visitor.visit(self.underlying());
+            visitor.visit(self.as_red());
             visitor.finish()
         };
 
@@ -459,23 +457,24 @@ impl Eval for ClosureExpr {
         for param in self.params() {
             match param {
                 ClosureParam::Pos(name) => {
-                    params.push((name.string.clone(), None));
+                    params.push((name.string, None));
                 }
-                ClosureParam::Named(x) => {
-                    params.push((x.name().string.clone(), Some(x.expr().eval(ctx)?)));
+                ClosureParam::Named(named) => {
+                    params.push((named.name().string, Some(named.expr().eval(ctx)?)));
                 }
                 ClosureParam::Sink(name) => {
                     if sink.is_some() {
                         bail!(name.span, "only one argument sink is allowed");
                     }
-                    sink = Some(name.string.clone());
+                    sink = Some(name.string);
                 }
             }
         }
 
         // Clone the body expression so that we don't have a lifetime
         // dependence on the AST.
-        let body = self.body().clone();
+        let name = self.name().map(|name| name.string);
+        let body = self.body();
 
         // Define the actual function.
         let func = Function::new(name, move |ctx, args| {
@@ -534,7 +533,7 @@ impl Eval for LetExpr {
             Some(expr) => expr.eval(ctx)?,
             None => Value::None,
         };
-        ctx.scopes.def_mut(self.binding().as_str(), value);
+        ctx.scopes.def_mut(self.binding().string, value);
         Ok(Value::None)
     }
 }
@@ -590,7 +589,7 @@ impl Eval for ForExpr {
 
                 #[allow(unused_parens)]
                 for ($($value),*) in $iter {
-                    $(ctx.scopes.def_mut($binding.as_str(), $value);)*
+                    $(ctx.scopes.def_mut(&$binding.string, $value);)*
 
                     let value = self.body().eval(ctx)?;
                     output = ops::join(output, value)
@@ -637,16 +636,16 @@ impl Eval for ImportExpr {
         let file = ctx.import(&path, self.path().span())?;
         let module = &ctx.modules[&file];
 
-        match &self.imports() {
+        match self.imports() {
             Imports::Wildcard => {
                 for (var, slot) in module.scope.iter() {
                     ctx.scopes.def_mut(var, slot.borrow().clone());
                 }
             }
-            Imports::Idents(idents) => {
+            Imports::Items(idents) => {
                 for ident in idents {
-                    if let Some(slot) = module.scope.get(&ident) {
-                        ctx.scopes.def_mut(ident.as_str(), slot.borrow().clone());
+                    if let Some(slot) = module.scope.get(&ident.string) {
+                        ctx.scopes.def_mut(ident.string, slot.borrow().clone());
                     } else {
                         bail!(ident.span, "unresolved import");
                     }
@@ -692,7 +691,7 @@ impl Access for Expr {
 
 impl Access for Ident {
     fn access<'a>(&self, ctx: &'a mut EvalContext) -> TypResult<RefMut<'a, Value>> {
-        match ctx.scopes.get(self) {
+        match ctx.scopes.get(&self.string) {
             Some(slot) => match slot.try_borrow_mut() {
                 Ok(guard) => Ok(guard),
                 Err(_) => bail!(self.span, "cannot mutate a constant"),

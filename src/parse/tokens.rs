@@ -236,20 +236,19 @@ impl<'s> Tokens<'s> {
                 'u' if self.s.rest().starts_with("u{") => {
                     self.s.eat_assert('u');
                     self.s.eat_assert('{');
-                    let sequence: EcoString = self.s.eat_while(|c| c.is_ascii_alphanumeric()).into();
-
+                    let sequence = self.s.eat_while(|c| c.is_ascii_alphanumeric());
                     if self.s.eat_if('}') {
                         if let Some(c) = resolve_hex(&sequence) {
                             NodeKind::UnicodeEscape(c)
                         } else {
                             NodeKind::Error(
-                                ErrorPosition::Full,
+                                ErrorPos::Full,
                                 "invalid unicode escape sequence".into(),
                             )
                         }
                     } else {
                         NodeKind::Error(
-                            ErrorPosition::End,
+                            ErrorPos::End,
                             "expected closing brace".into(),
                         )
                     }
@@ -348,7 +347,7 @@ impl<'s> Tokens<'s> {
             let noun = if remaining == 1 { "backtick" } else { "backticks" };
 
             NodeKind::Error(
-                ErrorPosition::End,
+                ErrorPos::End,
                 if found == 0 {
                     format!("expected {} {}", remaining, noun)
                 } else {
@@ -396,7 +395,7 @@ impl<'s> Tokens<'s> {
             }))
         } else {
             NodeKind::Error(
-                ErrorPosition::End,
+                ErrorPos::End,
                 if !display || (!escaped && dollar) {
                     "expected closing dollar sign"
                 } else {
@@ -487,7 +486,7 @@ impl<'s> Tokens<'s> {
         if self.s.eat_if('"') {
             NodeKind::Str(string)
         } else {
-            NodeKind::Error(ErrorPosition::End, "expected quote".into())
+            NodeKind::Error(ErrorPos::End, "expected quote".into())
         }
     }
 
@@ -555,7 +554,7 @@ mod tests {
 
     use super::*;
 
-    use ErrorPosition::*;
+    use ErrorPos::*;
     use NodeKind::*;
     use Option::None;
     use TokenMode::{Code, Markup};
@@ -564,7 +563,7 @@ mod tests {
         NodeKind::UnicodeEscape(c)
     }
 
-    fn Error(pos: ErrorPosition, message: &str) -> NodeKind {
+    fn Error(pos: ErrorPos, message: &str) -> NodeKind {
         NodeKind::Error(pos, message.into())
     }
 
@@ -881,7 +880,7 @@ mod tests {
 
         // Test more backticks.
         t!(Markup: "``nope``"             => Raw("", None, 1, false), Text("nope"), Raw("", None, 1, false));
-        t!(Markup: "````🚀````"           => Raw("", Some("🚀"), 4, false));
+        t!(Markup: "````🚀````"           => Raw("", None, 4, false));
         t!(Markup[""]: "`````👩‍🚀````noend" => Error(End, "expected 5 backticks"));
         t!(Markup[""]: "````raw``````"    => Raw("", Some("raw"), 4, false), Raw("", None, 1, false));
     }

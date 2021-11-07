@@ -5,7 +5,6 @@ mod pretty;
 mod span;
 
 use std::fmt::{self, Debug, Display, Formatter};
-use std::mem;
 use std::rc::Rc;
 
 pub use pretty::*;
@@ -40,14 +39,6 @@ impl Green {
         self.data().kind()
     }
 
-    /// Set the type of the node.
-    pub fn set_kind(&mut self, kind: NodeKind) {
-        match self {
-            Self::Node(node) => Rc::make_mut(node).data.set_kind(kind),
-            Self::Token(data) => data.set_kind(kind),
-        }
-    }
-
     /// The length of the node.
     pub fn len(&self) -> usize {
         self.data().len()
@@ -66,6 +57,18 @@ impl Green {
         match self {
             Green::Node(n) => &n.children(),
             Green::Token(_) => &[],
+        }
+    }
+
+    /// Change the type of the node.
+    pub fn convert(&mut self, kind: NodeKind) {
+        match self {
+            Self::Node(node) => {
+                let node = Rc::make_mut(node);
+                node.erroneous |= kind.is_error();
+                node.data.kind = kind;
+            }
+            Self::Token(data) => data.kind = kind,
         }
     }
 }
@@ -161,11 +164,6 @@ impl GreenData {
         &self.kind
     }
 
-    /// Set the type of the node.
-    pub fn set_kind(&mut self, kind: NodeKind) {
-        self.kind = kind;
-    }
-
     /// The length of the node.
     pub fn len(&self) -> usize {
         self.len
@@ -178,123 +176,7 @@ impl From<GreenData> for Green {
     }
 }
 
-/// A borrowed wrapper for a [`GreenNode`] with span information.
-///
-/// Borrowed variant of [`RedNode`]. Can be [cast](Self::cast) to an AST node.
-#[derive(Copy, Clone, PartialEq)]
-pub struct RedRef<'a> {
-    id: SourceId,
-    offset: usize,
-    green: &'a Green,
-}
-
-impl<'a> RedRef<'a> {
-    /// Convert to an owned representation.
-    pub fn own(self) -> RedNode {
-        RedNode {
-            id: self.id,
-            offset: self.offset,
-            green: self.green.clone(),
-        }
-    }
-
-    /// The type of the node.
-    pub fn kind(self) -> &'a NodeKind {
-        self.green.kind()
-    }
-
-    /// The length of the node.
-    pub fn len(self) -> usize {
-        self.green.len()
-    }
-
-    /// The span of the node.
-    pub fn span(self) -> Span {
-        Span::new(self.id, self.offset, self.offset + self.green.len())
-    }
-
-    /// Whether the node or its children contain an error.
-    pub fn erroneous(self) -> bool {
-        self.green.erroneous()
-    }
-
-    /// The error messages for this node and its descendants.
-    pub fn errors(self) -> Vec<Error> {
-        if !self.erroneous() {
-            return vec![];
-        }
-
-        match self.kind() {
-            NodeKind::Error(pos, msg) => {
-                let span = match pos {
-                    ErrorPosition::Start => self.span().at_start(),
-                    ErrorPosition::Full => self.span(),
-                    ErrorPosition::End => self.span().at_end(),
-                };
-
-                vec![Error::new(span, msg.to_string())]
-            }
-            _ => self
-                .children()
-                .filter(|red| red.erroneous())
-                .flat_map(|red| red.errors())
-                .collect(),
-        }
-    }
-
-    /// Convert the node to a typed AST node.
-    pub fn cast<T>(self) -> Option<T>
-    where
-        T: TypedNode,
-    {
-        T::from_red(self)
-    }
-
-    /// The node's children.
-    pub fn children(self) -> impl Iterator<Item = RedRef<'a>> {
-        let children = match &self.green {
-            Green::Node(node) => node.children(),
-            Green::Token(_) => &[],
-        };
-
-        let mut cursor = self.offset;
-        children.iter().map(move |green| {
-            let offset = cursor;
-            cursor += green.len();
-            RedRef { id: self.id, offset, green }
-        })
-    }
-
-    /// Get the first child of some type.
-    pub(crate) fn typed_child(self, kind: &NodeKind) -> Option<RedRef<'a>> {
-        self.children()
-            .find(|x| mem::discriminant(x.kind()) == mem::discriminant(kind))
-    }
-
-    /// Get the first child that can cast to some AST type.
-    pub(crate) fn cast_first_child<T: TypedNode>(self) -> Option<T> {
-        self.children().find_map(RedRef::cast)
-    }
-
-    /// Get the last child that can cast to some AST type.
-    pub(crate) fn cast_last_child<T: TypedNode>(self) -> Option<T> {
-        self.children().filter_map(RedRef::cast).last()
-    }
-}
-
-impl Debug for RedRef<'_> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}: {:?}", self.kind(), self.span())?;
-        let mut children = self.children().peekable();
-        if children.peek().is_some() {
-            f.write_str(" ")?;
-            f.debug_list().entries(children.map(RedRef::own)).finish()?;
-        }
-        Ok(())
-    }
-}
-
-/// A owned wrapper for a [`GreenNode`] with span information.
+/// A owned wrapper for a green node with span information.
 ///
 /// Owned variant of [`RedRef`]. Can be [cast](Self::cast) to an AST nodes.
 #[derive(Clone, PartialEq)]
@@ -348,22 +230,17 @@ impl RedNode {
     }
 
     /// The children of the node.
-    pub fn children(&self) -> impl Iterator<Item = RedRef<'_>> {
+    pub fn children(&self) -> Children<'_> {
         self.as_ref().children()
     }
 
-    /// Get the first child of some type.
-    pub(crate) fn typed_child(&self, kind: &NodeKind) -> Option<RedNode> {
-        self.as_ref().typed_child(kind).map(RedRef::own)
-    }
-
     /// Get the first child that can cast to some AST type.
-    pub(crate) fn cast_first_child<T: TypedNode>(&self) -> Option<T> {
+    pub fn cast_first_child<T: TypedNode>(&self) -> Option<T> {
         self.as_ref().cast_first_child()
     }
 
     /// Get the last child that can cast to some AST type.
-    pub(crate) fn cast_last_child<T: TypedNode>(&self) -> Option<T> {
+    pub fn cast_last_child<T: TypedNode>(&self) -> Option<T> {
         self.as_ref().cast_last_child()
     }
 }
@@ -373,6 +250,146 @@ impl Debug for RedNode {
         self.as_ref().fmt(f)
     }
 }
+
+/// A borrowed wrapper for a green node with span information.
+///
+/// Borrowed variant of [`RedNode`]. Can be [cast](Self::cast) to an AST node.
+#[derive(Copy, Clone, PartialEq)]
+pub struct RedRef<'a> {
+    id: SourceId,
+    offset: usize,
+    green: &'a Green,
+}
+
+impl<'a> RedRef<'a> {
+    /// Convert to an owned representation.
+    pub fn own(self) -> RedNode {
+        RedNode {
+            id: self.id,
+            offset: self.offset,
+            green: self.green.clone(),
+        }
+    }
+
+    /// The type of the node.
+    pub fn kind(self) -> &'a NodeKind {
+        self.green.kind()
+    }
+
+    /// The length of the node.
+    pub fn len(self) -> usize {
+        self.green.len()
+    }
+
+    /// The span of the node.
+    pub fn span(self) -> Span {
+        Span::new(self.id, self.offset, self.offset + self.green.len())
+    }
+
+    /// The error messages for this node and its descendants.
+    pub fn errors(self) -> Vec<Error> {
+        if !self.green.erroneous() {
+            return vec![];
+        }
+
+        match self.kind() {
+            NodeKind::Error(pos, msg) => {
+                let span = match pos {
+                    ErrorPos::Start => self.span().at_start(),
+                    ErrorPos::Full => self.span(),
+                    ErrorPos::End => self.span().at_end(),
+                };
+
+                vec![Error::new(span, msg.to_string())]
+            }
+            _ => self
+                .children()
+                .filter(|red| red.green.erroneous())
+                .flat_map(|red| red.errors())
+                .collect(),
+        }
+    }
+
+    /// Convert the node to a typed AST node.
+    pub fn cast<T>(self) -> Option<T>
+    where
+        T: TypedNode,
+    {
+        T::from_red(self)
+    }
+
+    /// The node's children.
+    pub fn children(self) -> Children<'a> {
+        let children = match &self.green {
+            Green::Node(node) => node.children(),
+            Green::Token(_) => &[],
+        };
+
+        Children {
+            id: self.id,
+            iter: children.iter(),
+            front: self.offset,
+            back: self.offset + self.len(),
+        }
+    }
+
+    /// Get the first child that can cast to some AST type.
+    pub fn cast_first_child<T: TypedNode>(self) -> Option<T> {
+        self.children().find_map(RedRef::cast)
+    }
+
+    /// Get the last child that can cast to some AST type.
+    pub fn cast_last_child<T: TypedNode>(self) -> Option<T> {
+        self.children().rev().find_map(RedRef::cast)
+    }
+}
+
+impl Debug for RedRef<'_> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:?}: {:?}", self.kind(), self.span())?;
+        let mut children = self.children().peekable();
+        if children.peek().is_some() {
+            f.write_str(" ")?;
+            f.debug_list().entries(children.map(RedRef::own)).finish()?;
+        }
+        Ok(())
+    }
+}
+
+/// An iterator over the children of a red node.
+pub struct Children<'a> {
+    id: SourceId,
+    iter: std::slice::Iter<'a, Green>,
+    front: usize,
+    back: usize,
+}
+
+impl<'a> Iterator for Children<'a> {
+    type Item = RedRef<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|green| {
+            let offset = self.front;
+            self.front += green.len();
+            RedRef { id: self.id, offset, green }
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl DoubleEndedIterator for Children<'_> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back().map(|green| {
+            self.back -= green.len();
+            RedRef { id: self.id, offset: self.back, green }
+        })
+    }
+}
+
+impl ExactSizeIterator for Children<'_> {}
 
 /// All syntactical building blocks that can be part of a Typst document.
 ///
@@ -533,7 +550,7 @@ pub enum NodeKind {
     Array,
     /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
     Dict,
-    /// A named argument: `thickness: 3pt`.
+    /// A named pair: `thickness: 3pt`.
     Named,
     /// A grouped expression: `(1 + 2)`.
     Group,
@@ -582,12 +599,12 @@ pub enum NodeKind {
     /// The comment can contain nested block comments.
     BlockComment,
     /// Tokens that appear in the wrong place.
-    Error(ErrorPosition, EcoString),
+    Error(ErrorPos, EcoString),
     /// Unknown character sequences.
     Unknown(EcoString),
 }
 
-/// Payload of a raw block: `` `...` ``.
+/// Payload of a raw block node.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawData {
     /// The raw text in the block.
@@ -600,19 +617,19 @@ pub struct RawData {
     pub block: bool,
 }
 
-/// Payload of a math formula: `$2pi + x$` or `$[f'(x) = x^2]$`.
+/// Payload of a math formula node.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MathData {
-    /// The formula between the dollars.
+    /// The formula between the dollars / brackets.
     pub formula: EcoString,
     /// Whether the formula is display-level, that is, it is surrounded by
-    /// `$[..]`.
+    /// `$[..]$`.
     pub display: bool,
 }
 
 /// Where in a node an error should be annotated.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ErrorPosition {
+pub enum ErrorPos {
     /// At the start of the node.
     Start,
     /// Over the full width of the node.

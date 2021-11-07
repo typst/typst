@@ -141,7 +141,7 @@ impl Pretty for RawNode {
 
         // Language tag.
         if let Some(lang) = &self.lang {
-            lang.pretty(p);
+            p.push_str(lang);
         }
 
         // Start untrimming.
@@ -492,7 +492,7 @@ impl Pretty for Imports {
     fn pretty(&self, p: &mut Printer) {
         match self {
             Self::Wildcard => p.push('*'),
-            Self::Idents(idents) => {
+            Self::Items(idents) => {
                 p.join(idents, ", ", |item, p| item.pretty(p));
             }
         }
@@ -508,7 +508,7 @@ impl Pretty for IncludeExpr {
 
 impl Pretty for Ident {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str(self.as_str());
+        p.push_str(&self.string);
     }
 }
 

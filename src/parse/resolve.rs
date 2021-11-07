@@ -1,4 +1,4 @@
-use super::{is_newline, Scanner};
+use super::{is_ident, is_newline, Scanner};
 use crate::syntax::RawData;
 use crate::util::EcoString;
 
@@ -51,7 +51,7 @@ pub fn resolve_raw(column: usize, backticks: u8, text: &str) -> RawData {
         let (tag, inner) = split_at_lang_tag(text);
         let (text, block) = trim_and_split_raw(column, inner);
         RawData {
-            lang: Some(tag.into()),
+            lang: is_ident(tag).then(|| tag.into()),
             text: text.into(),
             backticks,
             block,
@@ -201,15 +201,15 @@ mod tests {
         // More than one backtick with lang tag.
         test(0, 2, "js alert()",    Some("js"), "alert()",    false);
         test(0, 3, "py quit(\n\n)", Some("py"), "quit(\n\n)", true);
-        test(0, 2, "♥",             Some("♥"),  "",           false);
+        test(0, 2, "♥",             None,       "",           false);
 
         // Trimming of whitespace (tested more thoroughly in separate test).
-        test(0, 2, " a",   Some(""), "a",  false);
-        test(0, 2, "  a",  Some(""), " a", false);
-        test(0, 2, " \na", Some(""), "a",  true);
+        test(0, 2, " a",   None, "a",  false);
+        test(0, 2, "  a",  None, " a", false);
+        test(0, 2, " \na", None, "a",  true);
 
         // Dedenting
-        test(2, 3, " def foo():\n    bar()", Some(""), "def foo():\n  bar()", true);
+        test(2, 3, " def foo():\n    bar()", None, "def foo():\n  bar()", true);
     }
 
     #[test]

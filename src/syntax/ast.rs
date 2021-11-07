@@ -1,10 +1,7 @@
 //! A typed layer over the red-green tree.
 
-use std::ops::Deref;
-
 use super::{NodeKind, RedNode, RedRef, Span};
 use crate::geom::{AngularUnit, LengthUnit};
-use crate::parse::is_ident;
 use crate::util::EcoString;
 
 /// A typed AST node.
@@ -40,7 +37,7 @@ macro_rules! node {
             }
 
             /// The underlying red node.
-            pub fn underlying(&self) -> RedRef {
+            pub fn as_red(&self) -> RedRef {
                 self.0.as_ref()
             }
         }
@@ -112,7 +109,7 @@ impl TypedNode for MarkupNode {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawNode {
     /// An optional identifier specifying the language to syntax-highlight in.
-    pub lang: Option<Ident>,
+    pub lang: Option<EcoString>,
     /// The raw text, determined as the raw string between the backticks trimmed
     /// according to the above rules.
     pub text: EcoString,
@@ -124,18 +121,11 @@ pub struct RawNode {
 impl TypedNode for RawNode {
     fn from_red(node: RedRef) -> Option<Self> {
         match node.kind() {
-            NodeKind::Raw(raw) => {
-                let full = node.span();
-                let start = full.start + raw.backticks as usize;
-                Some(Self {
-                    block: raw.block,
-                    lang: raw.lang.as_ref().and_then(|lang| {
-                        let span = Span::new(full.source, start, start + lang.len());
-                        Ident::new(lang, span)
-                    }),
-                    text: raw.text.clone(),
-                })
-            }
+            NodeKind::Raw(raw) => Some(Self {
+                block: raw.block,
+                lang: raw.lang.clone(),
+                text: raw.text.clone(),
+            }),
             _ => None,
         }
     }
@@ -149,9 +139,7 @@ node! {
 impl HeadingNode {
     /// The contents of the heading.
     pub fn body(&self) -> Markup {
-        self.0
-            .cast_first_child()
-            .expect("heading node is missing markup body")
+        self.0.cast_first_child().expect("heading is missing markup body")
     }
 
     /// The section depth (numer of equals signs).
@@ -184,7 +172,7 @@ node! {
 impl EnumNode {
     /// The contents of the list item.
     pub fn body(&self) -> Markup {
-        self.0.cast_first_child().expect("enumeration node is missing body")
+        self.0.cast_first_child().expect("enum node is missing body")
     }
 
     /// The number, if any.
@@ -195,7 +183,7 @@ impl EnumNode {
                 NodeKind::EnumNumbering(num) => Some(num.clone()),
                 _ => None,
             })
-            .expect("enumeration node is missing number")
+            .expect("enum node is missing number")
     }
 }
 
@@ -240,6 +228,31 @@ pub enum Expr {
     Include(IncludeExpr),
 }
 
+impl TypedNode for Expr {
+    fn from_red(node: RedRef) -> Option<Self> {
+        match node.kind() {
+            NodeKind::Ident(_) => node.cast().map(Self::Ident),
+            NodeKind::Array => node.cast().map(Self::Array),
+            NodeKind::Dict => node.cast().map(Self::Dict),
+            NodeKind::Template => node.cast().map(Self::Template),
+            NodeKind::Group => node.cast().map(Self::Group),
+            NodeKind::Block => node.cast().map(Self::Block),
+            NodeKind::Unary => node.cast().map(Self::Unary),
+            NodeKind::Binary => node.cast().map(Self::Binary),
+            NodeKind::Call => node.cast().map(Self::Call),
+            NodeKind::Closure => node.cast().map(Self::Closure),
+            NodeKind::WithExpr => node.cast().map(Self::With),
+            NodeKind::LetExpr => node.cast().map(Self::Let),
+            NodeKind::IfExpr => node.cast().map(Self::If),
+            NodeKind::WhileExpr => node.cast().map(Self::While),
+            NodeKind::ForExpr => node.cast().map(Self::For),
+            NodeKind::ImportExpr => node.cast().map(Self::Import),
+            NodeKind::IncludeExpr => node.cast().map(Self::Include),
+            _ => node.cast().map(Self::Lit),
+        }
+    }
+}
+
 impl Expr {
     /// Whether the expression can be shortened in markup with a hashtag.
     pub fn has_short_form(&self) -> bool {
@@ -280,31 +293,6 @@ impl Expr {
     }
 }
 
-impl TypedNode for Expr {
-    fn from_red(node: RedRef) -> Option<Self> {
-        match node.kind() {
-            NodeKind::Ident(_) => node.cast().map(Self::Ident),
-            NodeKind::Array => node.cast().map(Self::Array),
-            NodeKind::Dict => node.cast().map(Self::Dict),
-            NodeKind::Template => node.cast().map(Self::Template),
-            NodeKind::Group => node.cast().map(Self::Group),
-            NodeKind::Block => node.cast().map(Self::Block),
-            NodeKind::Unary => node.cast().map(Self::Unary),
-            NodeKind::Binary => node.cast().map(Self::Binary),
-            NodeKind::Call => node.cast().map(Self::Call),
-            NodeKind::Closure => node.cast().map(Self::Closure),
-            NodeKind::WithExpr => node.cast().map(Self::With),
-            NodeKind::LetExpr => node.cast().map(Self::Let),
-            NodeKind::IfExpr => node.cast().map(Self::If),
-            NodeKind::WhileExpr => node.cast().map(Self::While),
-            NodeKind::ForExpr => node.cast().map(Self::For),
-            NodeKind::ImportExpr => node.cast().map(Self::Import),
-            NodeKind::IncludeExpr => node.cast().map(Self::Include),
-            _ => node.cast().map(Self::Lit),
-        }
-    }
-}
-
 /// A literal: `1`, `true`, ...
 #[derive(Debug, Clone, PartialEq)]
 pub enum Lit {
@@ -335,17 +323,17 @@ pub enum Lit {
 
 impl TypedNode for Lit {
     fn from_red(node: RedRef) -> Option<Self> {
-        match node.kind() {
+        match *node.kind() {
             NodeKind::None => Some(Self::None(node.span())),
             NodeKind::Auto => Some(Self::Auto(node.span())),
-            NodeKind::Bool(b) => Some(Self::Bool(node.span(), *b)),
-            NodeKind::Int(i) => Some(Self::Int(node.span(), *i)),
-            NodeKind::Float(f) => Some(Self::Float(node.span(), *f)),
-            NodeKind::Length(f, unit) => Some(Self::Length(node.span(), *f, *unit)),
-            NodeKind::Angle(f, unit) => Some(Self::Angle(node.span(), *f, *unit)),
-            NodeKind::Percentage(f) => Some(Self::Percent(node.span(), *f)),
-            NodeKind::Fraction(f) => Some(Self::Fractional(node.span(), *f)),
-            NodeKind::Str(s) => Some(Self::Str(node.span(), s.clone())),
+            NodeKind::Bool(v) => Some(Self::Bool(node.span(), v)),
+            NodeKind::Int(v) => Some(Self::Int(node.span(), v)),
+            NodeKind::Float(v) => Some(Self::Float(node.span(), v)),
+            NodeKind::Length(v, unit) => Some(Self::Length(node.span(), v, unit)),
+            NodeKind::Angle(v, unit) => Some(Self::Angle(node.span(), v, unit)),
+            NodeKind::Percentage(v) => Some(Self::Percent(node.span(), v)),
+            NodeKind::Fraction(v) => Some(Self::Fractional(node.span(), v)),
+            NodeKind::Str(ref v) => Some(Self::Str(node.span(), v.clone())),
             _ => None,
         }
     }
@@ -354,17 +342,17 @@ impl TypedNode for Lit {
 impl Lit {
     /// The source code location.
     pub fn span(&self) -> Span {
-        match self {
-            Self::None(span) => *span,
-            Self::Auto(span) => *span,
-            Self::Bool(span, _) => *span,
-            Self::Int(span, _) => *span,
-            Self::Float(span, _) => *span,
-            Self::Length(span, _, _) => *span,
-            Self::Angle(span, _, _) => *span,
-            Self::Percent(span, _) => *span,
-            Self::Fractional(span, _) => *span,
-            Self::Str(span, _) => *span,
+        match *self {
+            Self::None(span) => span,
+            Self::Auto(span) => span,
+            Self::Bool(span, _) => span,
+            Self::Int(span, _) => span,
+            Self::Float(span, _) => span,
+            Self::Length(span, _, _) => span,
+            Self::Angle(span, _, _) => span,
+            Self::Percent(span, _) => span,
+            Self::Fractional(span, _) => span,
+            Self::Str(span, _) => span,
         }
     }
 }
@@ -401,16 +389,12 @@ node! {
 impl Named {
     /// The name: `pattern`.
     pub fn name(&self) -> Ident {
-        self.0.cast_first_child().expect("named pair is missing name ident")
+        self.0.cast_first_child().expect("named pair is missing name")
     }
 
     /// The right-hand side of the pair: `dashed`.
     pub fn expr(&self) -> Expr {
-        self.0
-            .children()
-            .filter_map(RedRef::cast)
-            .nth(1)
-            .expect("named pair is missing expression")
+        self.0.cast_last_child().expect("named pair is missing expression")
     }
 }
 
@@ -422,9 +406,7 @@ node! {
 impl TemplateExpr {
     /// The contents of the template.
     pub fn body(&self) -> Markup {
-        self.0
-            .cast_first_child()
-            .expect("template expression is missing body")
+        self.0.cast_first_child().expect("template is missing body")
     }
 }
 
@@ -436,9 +418,7 @@ node! {
 impl GroupExpr {
     /// The wrapped expression.
     pub fn expr(&self) -> Expr {
-        self.0
-            .cast_first_child()
-            .expect("group expression is missing expression")
+        self.0.cast_first_child().expect("group is missing expression")
     }
 }
 
@@ -469,9 +449,7 @@ impl UnaryExpr {
 
     /// The expression to operator on: `x`.
     pub fn expr(&self) -> Expr {
-        self.0
-            .cast_first_child()
-            .expect("unary expression is missing expression")
+        self.0.cast_last_child().expect("unary expression is missing child")
     }
 }
 
@@ -506,7 +484,7 @@ impl UnOp {
     /// The precedence of this operator.
     pub fn precedence(self) -> usize {
         match self {
-            Self::Pos | Self::Neg => 8,
+            Self::Pos | Self::Neg => 7,
             Self::Not => 4,
         }
     }
@@ -544,9 +522,7 @@ impl BinaryExpr {
     /// The right-hand side of the operation: `b`.
     pub fn rhs(&self) -> Expr {
         self.0
-            .children()
-            .filter_map(RedRef::cast)
-            .nth(1)
+            .cast_last_child()
             .expect("binary expression is missing right-hand side")
     }
 }
@@ -701,14 +677,12 @@ node! {
 impl CallExpr {
     /// The function to call.
     pub fn callee(&self) -> Expr {
-        self.0.cast_first_child().expect("call expression is missing callee")
+        self.0.cast_first_child().expect("call is missing callee")
     }
 
     /// The arguments to the function.
     pub fn args(&self) -> CallArgs {
-        self.0
-            .cast_first_child()
-            .expect("call expression is missing argument list")
+        self.0.cast_last_child().expect("call is missing argument list")
     }
 }
 
@@ -738,14 +712,9 @@ pub enum CallArg {
 impl TypedNode for CallArg {
     fn from_red(node: RedRef) -> Option<Self> {
         match node.kind() {
-            NodeKind::Named => Some(CallArg::Named(
-                node.cast().expect("named call argument is missing name"),
-            )),
-            NodeKind::Spread => Some(CallArg::Spread(
-                node.cast_first_child()
-                    .expect("call argument sink is missing expression"),
-            )),
-            _ => Some(CallArg::Pos(node.cast()?)),
+            NodeKind::Named => node.cast().map(CallArg::Named),
+            NodeKind::Spread => node.cast_first_child().map(CallArg::Spread),
+            _ => node.cast().map(CallArg::Pos),
         }
     }
 }
@@ -754,8 +723,8 @@ impl CallArg {
     /// The name of this argument.
     pub fn span(&self) -> Span {
         match self {
-            Self::Named(named) => named.span(),
             Self::Pos(expr) => expr.span(),
+            Self::Named(named) => named.span(),
             Self::Spread(expr) => expr.span(),
         }
     }
@@ -771,8 +740,6 @@ impl ClosureExpr {
     ///
     /// This only exists if you use the function syntax sugar: `let f(x) = y`.
     pub fn name(&self) -> Option<Ident> {
-        // `first_convert_child` does not work here because of the Option in the
-        // Result.
         self.0.cast_first_child()
     }
 
@@ -788,22 +755,11 @@ impl ClosureExpr {
 
     /// The body of the closure.
     pub fn body(&self) -> Expr {
-        // The filtering for the NodeKind is necessary here because otherwise,
-        // `first_convert_child` will use the Ident if present.
         self.0.cast_last_child().expect("closure is missing body")
-    }
-
-    /// The red node reference of the body of the closure.
-    pub fn body_ref(&self) -> RedRef {
-        self.0
-            .children()
-            .filter(|x| x.cast::<Expr>().is_some())
-            .last()
-            .unwrap()
     }
 }
 
-/// An parameter to a closure.
+/// A parameter to a closure.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ClosureParam {
     /// A positional parameter: `x`.
@@ -817,17 +773,10 @@ pub enum ClosureParam {
 impl TypedNode for ClosureParam {
     fn from_red(node: RedRef) -> Option<Self> {
         match node.kind() {
-            NodeKind::Ident(id) => {
-                Some(ClosureParam::Pos(Ident::new_unchecked(id, node.span())))
-            }
-            NodeKind::Named => Some(ClosureParam::Named(
-                node.cast().expect("named closure parameter is missing name"),
-            )),
-            NodeKind::Spread => Some(ClosureParam::Sink(
-                node.cast_first_child()
-                    .expect("closure parameter sink is missing identifier"),
-            )),
-            _ => Some(ClosureParam::Pos(node.cast()?)),
+            NodeKind::Ident(_) => node.cast().map(ClosureParam::Pos),
+            NodeKind::Named => node.cast().map(ClosureParam::Named),
+            NodeKind::Spread => node.cast_first_child().map(ClosureParam::Sink),
+            _ => None,
         }
     }
 }
@@ -840,9 +789,7 @@ node! {
 impl WithExpr {
     /// The function to apply the arguments to.
     pub fn callee(&self) -> Expr {
-        self.0
-            .cast_first_child()
-            .expect("with expression is missing callee expression")
+        self.0.cast_first_child().expect("with expression is missing callee")
     }
 
     /// The arguments to apply to the function.
@@ -861,17 +808,16 @@ node! {
 impl LetExpr {
     /// The binding to assign to.
     pub fn binding(&self) -> Ident {
-        if let Some(c) = self.0.cast_first_child() {
-            c
-        } else if let Some(w) = self.0.typed_child(&NodeKind::WithExpr) {
-            // Can't do an `first_convert_child` here because the WithExpr's
-            // callee has to be an identifier.
-            w.cast_first_child()
-                .expect("with expression is missing an identifier callee")
-        } else if let Some(Expr::Closure(c)) = self.0.cast_last_child() {
-            c.name().expect("closure is missing an identifier name")
-        } else {
-            panic!("let expression is missing either an identifier or a with expression")
+        match self.0.cast_first_child() {
+            Some(Expr::Ident(binding)) => binding,
+            Some(Expr::With(with)) => match with.callee() {
+                Expr::Ident(binding) => binding,
+                _ => panic!("let .. with callee must be identifier"),
+            },
+            Some(Expr::Closure(closure)) => {
+                closure.name().expect("let-bound closure is missing name")
+            }
+            _ => panic!("let expression is missing binding"),
         }
     }
 
@@ -880,23 +826,9 @@ impl LetExpr {
         if self.0.cast_first_child::<Ident>().is_some() {
             self.0.children().filter_map(RedRef::cast).nth(1)
         } else {
-            Some(
-                self.0
-                    .cast_first_child()
-                    .expect("let expression is missing a with expression"),
-            )
+            // This is a let .. with expression.
+            self.0.cast_first_child()
         }
-    }
-
-    /// The red node reference for the expression the binding is initialized
-    /// with.
-    pub fn init_ref(&self) -> RedRef {
-        if self.0.cast_first_child::<Ident>().is_some() {
-            self.0.children().filter(|x| x.cast::<Expr>().is_some()).nth(1)
-        } else {
-            self.0.children().find(|x| x.cast::<Expr>().is_some())
-        }
-        .unwrap()
     }
 }
 
@@ -908,16 +840,12 @@ node! {
 impl ImportExpr {
     /// The items to be imported.
     pub fn imports(&self) -> Imports {
-        self.0
-            .cast_first_child()
-            .expect("import expression is missing import list")
+        self.0.cast_first_child().expect("import is missing items")
     }
 
     /// The location of the importable file.
     pub fn path(&self) -> Expr {
-        self.0
-            .cast_first_child()
-            .expect("import expression is missing path expression")
+        self.0.cast_last_child().expect("import is missing path")
     }
 }
 
@@ -926,8 +854,8 @@ impl ImportExpr {
 pub enum Imports {
     /// All items in the scope of the file should be imported.
     Wildcard,
-    /// The specified identifiers from the file should be imported.
-    Idents(Vec<Ident>),
+    /// The specified items from the file should be imported.
+    Items(Vec<Ident>),
 }
 
 impl TypedNode for Imports {
@@ -935,8 +863,8 @@ impl TypedNode for Imports {
         match node.kind() {
             NodeKind::Star => Some(Imports::Wildcard),
             NodeKind::ImportItems => {
-                let idents = node.children().filter_map(RedRef::cast).collect();
-                Some(Imports::Idents(idents))
+                let items = node.children().filter_map(RedRef::cast).collect();
+                Some(Imports::Items(items))
             }
             _ => None,
         }
@@ -951,9 +879,7 @@ node! {
 impl IncludeExpr {
     /// The location of the file to be included.
     pub fn path(&self) -> Expr {
-        self.0
-            .cast_first_child()
-            .expect("include expression is missing path expression")
+        self.0.cast_last_child().expect("include is missing path")
     }
 }
 
@@ -965,9 +891,7 @@ node! {
 impl IfExpr {
     /// The condition which selects the body to evaluate.
     pub fn condition(&self) -> Expr {
-        self.0
-            .cast_first_child()
-            .expect("if expression is missing condition expression")
+        self.0.cast_first_child().expect("if expression is missing condition")
     }
 
     /// The expression to evaluate if the condition is true.
@@ -976,7 +900,7 @@ impl IfExpr {
             .children()
             .filter_map(RedRef::cast)
             .nth(1)
-            .expect("if expression is missing if body")
+            .expect("if expression is missing body")
     }
 
     /// The expression to evaluate if the condition is false.
@@ -993,18 +917,12 @@ node! {
 impl WhileExpr {
     /// The condition which selects whether to evaluate the body.
     pub fn condition(&self) -> Expr {
-        self.0
-            .cast_first_child()
-            .expect("while loop expression is missing condition expression")
+        self.0.cast_first_child().expect("while loop is missing condition")
     }
 
     /// The expression to evaluate while the condition is true.
     pub fn body(&self) -> Expr {
-        self.0
-            .children()
-            .filter_map(RedRef::cast)
-            .nth(1)
-            .expect("while loop expression is missing body")
+        self.0.cast_last_child().expect("while loop is missing body")
     }
 }
 
@@ -1016,34 +934,17 @@ node! {
 impl ForExpr {
     /// The pattern to assign to.
     pub fn pattern(&self) -> ForPattern {
-        self.0
-            .cast_first_child()
-            .expect("for loop expression is missing pattern")
+        self.0.cast_first_child().expect("for loop is missing pattern")
     }
 
     /// The expression to iterate over.
     pub fn iter(&self) -> Expr {
-        self.0
-            .cast_first_child()
-            .expect("for loop expression is missing iterable expression")
+        self.0.cast_first_child().expect("for loop is missing iterable")
     }
 
     /// The expression to evaluate for each iteration.
     pub fn body(&self) -> Expr {
-        self.0
-            .children()
-            .filter_map(RedRef::cast)
-            .last()
-            .expect("for loop expression is missing body")
-    }
-
-    /// The red node reference for the expression to evaluate for each iteration.
-    pub fn body_ref(&self) -> RedRef {
-        self.0
-            .children()
-            .filter(|x| x.cast::<Expr>().is_some())
-            .last()
-            .unwrap()
+        self.0.cast_last_child().expect("for loop is missing body")
     }
 }
 
@@ -1062,19 +963,11 @@ impl ForPattern {
 
     /// The value part of the pattern.
     pub fn value(&self) -> Ident {
-        self.0
-            .cast_last_child()
-            .expect("for-in loop pattern is missing value")
+        self.0.cast_last_child().expect("for loop pattern is missing value")
     }
 }
 
-/// An unicode identifier with a few extra permissible characters.
-///
-/// In addition to what is specified in the [Unicode Standard][uax31], we allow:
-/// - `_` as a starting character,
-/// - `_` and `-` as continuing characters.
-///
-/// [uax31]: http://www.unicode.org/reports/tr31/
+/// An identifier.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Ident {
     /// The source code location.
@@ -1083,44 +976,13 @@ pub struct Ident {
     pub string: EcoString,
 }
 
-impl Ident {
-    /// Create a new identifier from a string checking that it is a valid.
-    pub fn new(
-        string: impl AsRef<str> + Into<EcoString>,
-        span: impl Into<Span>,
-    ) -> Option<Self> {
-        is_ident(string.as_ref())
-            .then(|| Self { span: span.into(), string: string.into() })
-    }
-
-    /// Create a new identifier from a string and a span.
-    ///
-    /// The `string` must be a valid identifier.
-    #[track_caller]
-    pub fn new_unchecked(string: impl Into<EcoString>, span: Span) -> Self {
-        let string = string.into();
-        debug_assert!(is_ident(&string), "`{}` is not a valid identifier", string);
-        Self { span, string }
-    }
-
-    /// Return a reference to the underlying string.
-    pub fn as_str(&self) -> &str {
-        &self.string
-    }
-}
-
-impl Deref for Ident {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        self.as_str()
-    }
-}
-
 impl TypedNode for Ident {
     fn from_red(node: RedRef) -> Option<Self> {
         match node.kind() {
-            NodeKind::Ident(string) => Some(Ident::new_unchecked(string, node.span())),
+            NodeKind::Ident(string) => Some(Ident {
+                span: node.span(),
+                string: string.clone(),
+            }),
             _ => None,
         }
     }

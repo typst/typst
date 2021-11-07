@@ -1,7 +1,7 @@
 use std::mem;
 
 use super::{TokenMode, Tokens};
-use crate::syntax::{ErrorPosition, Green, GreenData, GreenNode, NodeKind};
+use crate::syntax::{ErrorPos, Green, GreenData, GreenNode, NodeKind};
 use crate::util::EcoString;
 
 /// Allows parser methods to use the try operator. Not exposed as the parser
@@ -131,11 +131,9 @@ impl<'s> Parser<'s> {
 
     /// Eat the current token, but change its type.
     pub fn convert(&mut self, kind: NodeKind) {
-        let idx = self.children.len();
+        let marker = self.marker();
         self.eat();
-        if let Some(child) = self.children.get_mut(idx) {
-            child.set_kind(kind);
-        }
+        marker.convert(self, kind);
     }
 
     /// Whether the current token is of the given type.
@@ -321,7 +319,7 @@ impl<'s> Parser<'s> {
 impl Parser<'_> {
     /// Push an error into the children list.
     pub fn push_error(&mut self, msg: impl Into<EcoString>) {
-        let error = NodeKind::Error(ErrorPosition::Full, msg.into());
+        let error = NodeKind::Error(ErrorPos::Full, msg.into());
         self.children.push(GreenData::new(error, 0).into());
     }
 
@@ -330,7 +328,7 @@ impl Parser<'_> {
         match self.peek() {
             Some(found) => {
                 let msg = format!("unexpected {}", found);
-                let error = NodeKind::Error(ErrorPosition::Full, msg.into());
+                let error = NodeKind::Error(ErrorPos::Full, msg.into());
                 self.perform(error, Self::eat);
             }
             None => self.push_error("unexpected end of file"),
@@ -342,7 +340,7 @@ impl Parser<'_> {
         match self.peek() {
             Some(found) => {
                 let msg = format!("expected {}, found {}", thing, found);
-                let error = NodeKind::Error(ErrorPosition::Full, msg.into());
+                let error = NodeKind::Error(ErrorPos::Full, msg.into());
                 self.perform(error, Self::eat);
             }
             None => self.expected_at(thing),
@@ -352,7 +350,7 @@ impl Parser<'_> {
     /// Add an error that the `thing` was expected at the end of the last
     /// non-trivia token.
     pub fn expected_at(&mut self, thing: &str) {
-        Marker(self.trivia_start()).expected_at(self, thing);
+        Marker(self.trivia_start()).expected(self, thing);
     }
 }
 
@@ -384,15 +382,15 @@ impl Marker {
     /// Wrap all children that do not fulfill the predicate in error nodes.
     pub fn filter_children<F>(self, p: &mut Parser, f: F)
     where
-        F: Fn(&Green) -> Result<(), (ErrorPosition, EcoString)>,
+        F: Fn(&Green) -> Result<(), &'static str>,
     {
         for child in &mut p.children[self.0 ..] {
             if (p.tokens.mode() == TokenMode::Markup
                 || !Parser::is_trivia_ext(child.kind(), false))
                 && !child.kind().is_error()
             {
-                if let Err((pos, msg)) = f(child) {
-                    let error = NodeKind::Error(pos, msg);
+                if let Err(msg) = f(child) {
+                    let error = NodeKind::Error(ErrorPos::Full, msg.into());
                     let inner = mem::take(child);
                     *child = GreenNode::with_child(error, inner).into();
                 }
@@ -401,15 +399,22 @@ impl Marker {
     }
 
     /// Insert an error message that `what` was expected at the marker position.
-    pub fn expected_at(self, p: &mut Parser, what: &str) {
+    pub fn expected(self, p: &mut Parser, what: &str) {
         let msg = format!("expected {}", what);
-        let error = NodeKind::Error(ErrorPosition::Full, msg.into());
+        let error = NodeKind::Error(ErrorPos::Full, msg.into());
         p.children.insert(self.0, GreenData::new(error, 0).into());
     }
 
-    /// Return a reference to the child directly after the marker.
-    pub fn child_at<'a>(self, p: &'a Parser) -> Option<&'a Green> {
+    /// Peek at the child directly after the marker.
+    pub fn peek<'a>(self, p: &'a Parser) -> Option<&'a Green> {
         p.children.get(self.0)
+    }
+
+    /// Convert the child directly after marker.
+    pub fn convert(self, p: &mut Parser, kind: NodeKind) {
+        if let Some(child) = p.children.get_mut(self.0) {
+            child.convert(kind);
+        }
     }
 }
 

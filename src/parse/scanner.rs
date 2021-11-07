@@ -182,7 +182,13 @@ pub fn is_newline(character: char) -> bool {
     )
 }
 
-/// Whether a string is a valid identifier.
+/// Whether a string is a valid unicode identifier.
+///
+/// In addition to what is specified in the [Unicode Standard][uax31], we allow:
+/// - `_` as a starting character,
+/// - `_` and `-` as continuing characters.
+///
+/// [uax31]: http://www.unicode.org/reports/tr31/
 #[inline]
 pub fn is_ident(string: &str) -> bool {
     let mut chars = string.chars();
