@@ -27,8 +27,8 @@ pub struct Parser<'s> {
 
 impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
-    pub fn new(src: &'s str) -> Self {
-        let mut tokens = Tokens::new(src, TokenMode::Markup);
+    pub fn new(src: &'s str, mode: TokenMode) -> Self {
+        let mut tokens = Tokens::new(src, mode);
         let current = tokens.next();
         Self {
             tokens,
@@ -200,11 +200,6 @@ impl<'s> Parser<'s> {
     /// Determine the column index for the given byte index.
     pub fn column(&self, index: usize) -> usize {
         self.tokens.scanner().column(index)
-    }
-
-    /// Set the tokenizer's mode.
-    pub fn set_mode(&mut self, mode: TokenMode) {
-        self.tokens.set_mode(mode);
     }
 
     /// Continue parsing in a group.

@@ -17,7 +17,7 @@ use crate::syntax::{ErrorPos, Green, GreenNode, NodeKind};
 
 /// Parse a source file.
 pub fn parse(src: &str) -> Rc<GreenNode> {
-    let mut p = Parser::new(src);
+    let mut p = Parser::new(src, TokenMode::Markup);
     markup(&mut p);
     match p.finish().into_iter().next() {
         Some(Green::Node(node)) => node,
@@ -26,23 +26,23 @@ pub fn parse(src: &str) -> Rc<GreenNode> {
 }
 
 /// Parse an atomic primary. Returns `Some` if all of the input was consumed.
-pub fn parse_atomic(source: &str, _: bool) -> Option<Vec<Green>> {
-    let mut p = Parser::new(source);
+pub fn parse_atomic(src: &str, _: bool) -> Option<Vec<Green>> {
+    let mut p = Parser::new(src, TokenMode::Code);
     primary(&mut p, true).ok()?;
     p.eject()
 }
 
 /// Parse some markup. Returns `Some` if all of the input was consumed.
-pub fn parse_markup(source: &str, _: bool) -> Option<Vec<Green>> {
-    let mut p = Parser::new(source);
+pub fn parse_markup(src: &str, _: bool) -> Option<Vec<Green>> {
+    let mut p = Parser::new(src, TokenMode::Markup);
     markup(&mut p);
     p.eject()
 }
 
 /// Parse some markup without the topmost node. Returns `Some` if all of the
 /// input was consumed.
-pub fn parse_markup_elements(source: &str, mut at_start: bool) -> Option<Vec<Green>> {
-    let mut p = Parser::new(source);
+pub fn parse_markup_elements(src: &str, mut at_start: bool) -> Option<Vec<Green>> {
+    let mut p = Parser::new(src, TokenMode::Markup);
     while !p.eof() {
         markup_node(&mut p, &mut at_start);
     }
@@ -50,9 +50,8 @@ pub fn parse_markup_elements(source: &str, mut at_start: bool) -> Option<Vec<Gre
 }
 
 /// Parse some code. Returns `Some` if all of the input was consumed.
-pub fn parse_code(source: &str, _: bool) -> Option<Vec<Green>> {
-    let mut p = Parser::new(source);
-    p.set_mode(TokenMode::Code);
+pub fn parse_code(src: &str, _: bool) -> Option<Vec<Green>> {
+    let mut p = Parser::new(src, TokenMode::Code);
     expr_list(&mut p);
     p.eject()
 }

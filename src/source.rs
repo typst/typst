@@ -128,6 +128,7 @@ pub struct SourceFile {
     src: String,
     line_starts: Vec<usize>,
     root: Rc<GreenNode>,
+    was_incremental: bool,
 }
 
 impl SourceFile {
@@ -141,6 +142,7 @@ impl SourceFile {
             root: parse(&src),
             src,
             line_starts,
+            was_incremental: false,
         }
     }
 
@@ -286,10 +288,18 @@ impl SourceFile {
         // Update the root node.
         let insertion_span = Span::new(self.id, replace.start, replace.end);
         let source = self.src().to_string();
-        if !Rc::make_mut(&mut self.root).incremental(&source, insertion_span, with.len())
-        {
+        if Rc::make_mut(&mut self.root).incremental(&source, insertion_span, with.len()) {
+            self.was_incremental = true;
+        } else {
             self.root = parse(self.src());
+            self.was_incremental = false;
         }
+    }
+
+    /// Forces a non-incremental reparsing of the source file.
+    fn force_reparse(&mut self) {
+        self.root = parse(self.src());
+        self.was_incremental = false;
     }
 
     /// Provide highlighting categories for the given range of the source file.
@@ -379,7 +389,6 @@ impl<'a> Files<'a> for SourceStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::syntax::Green;
 
     const TEST: &str = "ä\tcde\nf💛g\r\nhi\rjkl";
 
@@ -481,19 +490,88 @@ mod tests {
     }
 
     #[test]
-    fn test_source_file_edit_2() {
+    fn test_incremental_parse() {
         #[track_caller]
-        fn test(prev: &str, range: Range<usize>, with: &str, after: &str) {
+        fn test(prev: &str, range: Range<usize>, with: &str, incr: bool) {
             let mut source = SourceFile::detached(prev);
-            let result = SourceFile::detached(after);
-            dbg!(Green::from(source.root.clone()));
             source.edit(range, with);
-            assert_eq!(source.src, result.src);
-            assert_eq!(source.line_starts, result.line_starts);
-            dbg!(Green::from(source.root));
+
+            if incr {
+                assert!(source.was_incremental);
+                let incr_tree = source.root.clone();
+                source.force_reparse();
+                assert_eq!(source.root, incr_tree);
+            } else {
+                assert!(!source.was_incremental);
+            }
         }
 
-        // Test inserting at the begining.
-        test("abc #f()[def] ghi", 5 .. 6, "g", "abc #g()[def] ghi");
+        // Test simple replacements.
+        test("hello world", 6 .. 11, "wankers", true);
+        test("{(0, 1, 2)}", 5 .. 6, "11pt", true);
+        test("= A heading", 3 .. 3, "n evocative", true);
+        test(
+            "#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])",
+            16 .. 20,
+            "none",
+            true,
+        );
+        test(
+            "#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])",
+            33 .. 42,
+            "[_gronk_]",
+            true,
+        );
+        test(
+            "#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])",
+            34 .. 41,
+            "_bar_",
+            true,
+        );
+        test("{let i=1; for x in range(5) {i}}", 6 .. 6, " ", true);
+        test("{let i=1; for x in range(5) {i}}", 13 .. 14, "  ", true);
+        test("hello {x}", 6 .. 9, "#f()", false);
+        test(
+            "this is -- in my opinion -- spectacular",
+            8 .. 10,
+            "---",
+            true,
+        );
+        test("understanding `code` is complicated", 15 .. 15, "C ", true);
+        test("{ let x = g() }", 10 .. 12, "f(54", true);
+        test(
+            "#let rect with (fill: eastern)",
+            14 .. 29,
+            " (stroke: conifer",
+            true,
+        );
+        test("a b c", 1 .. 1, " /* letters */", false);
+
+        // Test the whitespace invariants.
+        test("hello \\ world", 7 .. 8, "a ", false);
+        test("hello \\ world", 7 .. 8, "\n\n", true);
+        test("x = y", 2 .. 2, "+ y ", true);
+        test("x = y", 2 .. 2, "+ y \n ", false);
+        test("abc\n= a heading", 3 .. 4, "\nsome more test\n\n", true);
+        test("abc\n= a heading", 3 .. 4, "\nnot ", false);
+
+        // Test type invariants.
+        test("#for x in array {x}", 16 .. 19, "[#x]", true);
+        test("#let x = 1 {5}", 1 .. 4, "if", false);
+        test("#let x = 1 {5}", 4 .. 4, " if", false);
+        test("a // b c #f()", 3 .. 4, "", false);
+
+        // this appearantly works but the assertion fails.
+        // test("a b c", 1 .. 1, "{[}", true);
+
+        // Test unclosed things.
+        test(r#"{"hi"}"#, 4 .. 5, "c", false);
+        test(r"this \u{abcd}", 8 .. 9, "", true);
+        test(r"this \u{abcd} that", 12 .. 13, "", false);
+        test(r"{{let x = z}; a = 1} b", 6 .. 6, "//", false);
+
+        // these appearantly works but the assertion fails.
+        // test(r#"a ```typst hello``` b"#, 16 .. 17, "", false);
+        // test(r#"a ```typst hello```"#, 16 .. 17, "", true);
     }
 }
