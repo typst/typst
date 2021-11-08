@@ -558,11 +558,15 @@ mod tests {
         // Test type invariants.
         test("#for x in array {x}", 16 .. 19, "[#x]", true);
         test("#let x = 1 {5}", 1 .. 4, "if", false);
+        test("{let x = 1 {5}}", 1 .. 4, "if", true);
         test("#let x = 1 {5}", 4 .. 4, " if", false);
+        test("{let x = 1 {5}}", 4 .. 4, " if", true);
         test("a // b c #f()", 3 .. 4, "", false);
+        test("{\nf()\n//g(a)\n}", 6 .. 8, "", true);
+        test("{(1, 2)}", 1 .. 1, "while ", true);
 
         // this appearantly works but the assertion fails.
-        // test("a b c", 1 .. 1, "{[}", true);
+        test("a b c", 1 .. 1, "{[}", true);
 
         // Test unclosed things.
         test(r#"{"hi"}"#, 4 .. 5, "c", false);
@@ -571,7 +575,7 @@ mod tests {
         test(r"{{let x = z}; a = 1} b", 6 .. 6, "//", false);
 
         // these appearantly works but the assertion fails.
-        // test(r#"a ```typst hello``` b"#, 16 .. 17, "", false);
-        // test(r#"a ```typst hello```"#, 16 .. 17, "", true);
+        test(r#"a ```typst hello``` b"#, 16 .. 17, "", false);
+        test(r#"a ```typst hello```"#, 16 .. 17, "", true);
     }
 }

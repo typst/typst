@@ -16,7 +16,8 @@ use self::ast::{MathNode, RawNode, TypedNode};
 use crate::diag::Error;
 use crate::geom::{AngularUnit, LengthUnit};
 use crate::parse::{
-    parse_atomic, parse_code, parse_markup, parse_markup_elements, TokenMode,
+    parse_atomic, parse_block, parse_comment, parse_markup, parse_markup_elements,
+    parse_template, TokenMode,
 };
 use crate::source::SourceId;
 use crate::util::EcoString;
@@ -95,7 +96,7 @@ impl Green {
         offset: usize,
         parent_mode: NodeMode,
         outermost: bool,
-    ) -> Result<(), bool> {
+    ) -> bool {
         match self {
             Green::Node(n) => Rc::make_mut(n).incremental_int(
                 edit,
@@ -105,7 +106,7 @@ impl Green {
                 parent_mode,
                 outermost,
             ),
-            Green::Token(_) => Err(false),
+            Green::Token(_) => false,
         }
     }
 
@@ -221,7 +222,6 @@ impl GreenNode {
         }
 
         self.incremental_int(src, replace, replacement_len, 0, NodeMode::Markup, true)
-            .is_ok()
     }
 
     fn incremental_int(
@@ -232,7 +232,7 @@ impl GreenNode {
         mut offset: usize,
         parent_mode: NodeMode,
         outermost: bool,
-    ) -> Result<(), bool> {
+    ) -> bool {
         let kind = self.kind().clone();
         let mode = kind.mode().apply(parent_mode);
         eprintln!("in {:?} (mode {:?})", kind, mode);
@@ -248,7 +248,7 @@ impl GreenNode {
                 let old_len = child.len();
                 // First, we try if the child has another, more specific applicable child.
                 if !kind.incremental_safety().unsafe_interior() {
-                    match child.incremental_int(
+                    if child.incremental_int(
                         src,
                         replace,
                         replacement_len,
@@ -256,14 +256,11 @@ impl GreenNode {
                         kind.mode().child_mode(),
                         i == last && outermost,
                     ) {
-                        Ok(_) => {
-                            eprintln!("child success");
-                            let new_len = child.len();
-                            self.data.set_len(self.data.len() + new_len - old_len);
-                            return Ok(());
-                        }
-                        Err(b) if b => return Err(false),
-                        _ => {}
+                        eprintln!("child success");
+                        let new_len = child.len();
+                        self.data.set_len(self.data.len() + new_len - old_len);
+                        self.erroneous = self.children.iter().any(|x| x.erroneous());
+                        return true;
                     }
                 }
 
@@ -274,8 +271,8 @@ impl GreenNode {
                     .reparsing_function(mode.child_mode().as_token_mode())
                 {
                     Ok(p) => p,
-                    Err(policy) => {
-                        return Err(policy == IncrementalSafety::VeryUnsafe);
+                    _ => {
+                        return false;
                     }
                 };
                 loop_result =
@@ -296,20 +293,33 @@ impl GreenNode {
             } else {
                 // No child fully contains the replacement.
                 eprintln!("no child match");
-                return Err(false);
+                return false;
             };
 
         eprintln!("aquired function, policy {:?}", policy);
 
         let src_span = child_span.inserted(replace, replacement_len);
+        let recompile_range = if policy == IncrementalSafety::AtomicPrimary {
+            src_span.start .. src.len()
+        } else {
+            src_span.to_range()
+        };
 
-        let new_children =
-            if let Some(new_children) = func(&src[src_span.to_range()], child_at_start) {
+        let new_children = if let Some(new_children) =
+            func(&src[recompile_range], child_at_start)
+        {
+            if policy != IncrementalSafety::AtomicPrimary
+                || new_children.iter().map(Green::len).sum::<usize>() == src_span.len()
+            {
                 new_children
             } else {
-                eprintln!("function failed");
-                return Err(false);
-            };
+                eprintln!("wrong atomic len");
+                return false;
+            }
+        } else {
+            eprintln!("function failed");
+            return false;
+        };
         let child_mode =
             self.children[child_idx].kind().mode().child_mode().as_token_mode();
         eprintln!("child mode {:?}", child_mode);
@@ -325,7 +335,7 @@ impl GreenNode {
             eprintln!("must be a single replacement");
             if new_children.len() != 1 {
                 eprintln!("not a single replacement");
-                return Err(false);
+                return false;
             }
 
             if match policy {
@@ -337,7 +347,7 @@ impl GreenNode {
             } {
                 if self.children[child_idx].kind() != new_children[0].kind() {
                     eprintln!("not the same kind");
-                    return Err(false);
+                    return false;
                 }
             }
         }
@@ -351,7 +361,7 @@ impl GreenNode {
                 .any(|x| matches!(x, NodeKind::Error(ErrorPos::End, _)))
         {
             eprintln!("unclosed node");
-            return Err(false);
+            return false;
         }
 
         // Check if the neighbor invariants are still true.
@@ -362,7 +372,7 @@ impl GreenNode {
                     && !new_children[0].kind().is_whitespace()
                 {
                     eprintln!("left whitespace missing");
-                    return Err(false);
+                    return false;
                 }
             }
 
@@ -379,10 +389,10 @@ impl GreenNode {
 
                 match child.kind().incremental_safety() {
                     IncrementalSafety::EnsureAtStart if !new_at_start => {
-                        return Err(false);
+                        return false;
                     }
                     IncrementalSafety::EnsureNotAtStart if new_at_start => {
-                        return Err(false);
+                        return false;
                     }
                     _ => {}
                 }
@@ -396,8 +406,9 @@ impl GreenNode {
         let new_len: usize = new_children.iter().map(Green::len).sum();
 
         self.children.splice(child_idx .. child_idx + 1, new_children);
+        self.erroneous = self.children.iter().any(|x| x.erroneous());
         self.data.set_len(self.data.len + new_len - old_len);
-        Ok(())
+        true
     }
 }
 
@@ -1008,28 +1019,41 @@ impl NodeKind {
         IncrementalSafety,
     > {
         let policy = self.incremental_safety();
-        if policy.unsafe_interior() {
+        if policy.is_unsafe() {
             return Err(policy);
         }
 
         let mode = self.mode();
+        let is_code = mode == NodeMode::Universal && parent_mode == TokenMode::Code
+            || mode == NodeMode::Code;
         if mode == NodeMode::Code && policy == IncrementalSafety::UnsafeLayer {
             return Err(policy);
         }
 
-        if mode != NodeMode::Markup
-            && parent_mode == TokenMode::Code
-            && policy == IncrementalSafety::AtomicPrimary
-        {
+        if is_code && policy == IncrementalSafety::AtomicPrimary {
             return Ok((parse_atomic, policy));
         }
 
+        if policy == IncrementalSafety::SameKind
+            || (policy == IncrementalSafety::SameKindInCode && is_code)
+        {
+            let parser: fn(&str, bool) -> _ = match self {
+                NodeKind::Template => parse_template,
+                NodeKind::Block => parse_block,
+                NodeKind::LineComment | NodeKind::BlockComment => parse_comment,
+                _ => return Err(policy),
+            };
+
+            return Ok((parser, policy));
+        }
+
         let parser: fn(&str, bool) -> _ = match mode {
-            NodeMode::Code => parse_code,
             NodeMode::Markup if self == &Self::Markup => parse_markup,
             NodeMode::Markup => parse_markup_elements,
-            NodeMode::Universal if parent_mode == TokenMode::Code => parse_code,
-            NodeMode::Universal => parse_markup_elements,
+            NodeMode::Universal if parent_mode == TokenMode::Markup => {
+                parse_markup_elements
+            }
+            _ => return Err(policy),
         };
 
         Ok((parser, policy))
@@ -1093,7 +1117,7 @@ impl NodeKind {
             | Self::Set
             | Self::Import
             | Self::Include
-            | Self::From => IncrementalSafety::VeryUnsafe,
+            | Self::From => IncrementalSafety::Unsafe,
 
             // This is a backslash followed by a space. But changing it to
             // anything else is fair game.
@@ -1347,14 +1371,19 @@ pub enum IncrementalSafety {
     /// Changing an unsafe node or any of its children will trigger undefined
     /// behavior. Change the parents instead.
     Unsafe,
-    /// Its unsafe for two!
-    VeryUnsafe,
 }
 
 impl IncrementalSafety {
     pub fn unsafe_interior(&self) -> bool {
         match self {
-            Self::Unsafe | Self::VeryUnsafe => true,
+            Self::Unsafe => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_unsafe(&self) -> bool {
+        match self {
+            Self::UnsafeLayer | Self::Unsafe => true,
             _ => false,
         }
     }

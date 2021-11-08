@@ -95,6 +95,12 @@ impl<'s> Parser<'s> {
         output
     }
 
+    /// End the parsing process and return multiple children, even if there
+    /// remains stuff in the string.
+    pub fn eject_partial(self) -> Option<Vec<Green>> {
+        self.group_success().then(|| self.children)
+    }
+
     /// Whether the end of the source string or group is reached.
     pub fn eof(&self) -> bool {
         self.eof
