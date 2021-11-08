@@ -52,6 +52,17 @@ impl<'s> Parser<'s> {
         Marker(self.children.len())
     }
 
+    /// Create a markup right before the trailing trivia.
+    pub fn trivia_start(&self) -> Marker {
+        let count = self
+            .children
+            .iter()
+            .rev()
+            .take_while(|node| self.is_trivia(node.kind()))
+            .count();
+        Marker(self.children.len() - count)
+    }
+
     /// Perform a subparse that wraps its result in a node with the given kind.
     pub fn perform<F, T>(&mut self, kind: NodeKind, f: F) -> T
     where
@@ -66,7 +77,7 @@ impl<'s> Parser<'s> {
             // Trailing trivia should not be wrapped into the new node.
             let idx = self.children.len();
             self.children.push(Green::default());
-            self.children.extend(children.drain(until ..));
+            self.children.extend(children.drain(until.0 ..));
             self.children[idx] = GreenNode::with_children(kind, children).into();
         } else {
             self.children.push(GreenNode::with_children(kind, children).into());
@@ -238,7 +249,7 @@ impl<'s> Parser<'s> {
         // Rescan the peeked token if the mode changed.
         if rescan {
             if group_mode == TokenMode::Code {
-                self.children.truncate(self.trivia_start());
+                self.children.truncate(self.trivia_start().0);
             }
 
             self.tokens.jump(self.prev_end());
@@ -290,17 +301,6 @@ impl<'s> Parser<'s> {
         }
     }
 
-    /// Find the index in the children list where trailing trivia starts.
-    fn trivia_start(&self) -> usize {
-        self.children.len()
-            - self
-                .children
-                .iter()
-                .rev()
-                .take_while(|node| self.is_trivia(node.kind()))
-                .count()
-    }
-
     /// Whether the active group must end at a newline.
     fn stop_at_newline(&self) -> bool {
         matches!(
@@ -350,7 +350,7 @@ impl Parser<'_> {
     /// Add an error that the `thing` was expected at the end of the last
     /// non-trivia token.
     pub fn expected_at(&mut self, thing: &str) {
-        Marker(self.trivia_start()).expected(self, thing);
+        self.trivia_start().expected(self, thing);
     }
 }
 
@@ -374,7 +374,7 @@ impl Marker {
     /// with the given `kind`.
     pub fn end(self, p: &mut Parser, kind: NodeKind) {
         let until = p.trivia_start();
-        let children = p.children.drain(self.0 .. until).collect();
+        let children = p.children.drain(self.0 .. until.0).collect();
         p.children
             .insert(self.0, GreenNode::with_children(kind, children).into());
     }

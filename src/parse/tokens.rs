@@ -5,7 +5,8 @@ use super::{
     Scanner,
 };
 use crate::geom::{AngularUnit, LengthUnit};
-use crate::syntax::*;
+use crate::syntax::ast::{MathNode, RawNode};
+use crate::syntax::{ErrorPos, NodeKind};
 use crate::util::EcoString;
 
 /// An iterator over the tokens of a string of source code.
@@ -26,8 +27,8 @@ pub enum TokenMode {
 impl<'s> Tokens<'s> {
     /// Create a new token iterator with the given mode.
     #[inline]
-    pub fn new(source: &'s str, mode: TokenMode) -> Self {
-        Self { s: Scanner::new(source), mode }
+    pub fn new(src: &'s str, mode: TokenMode) -> Self {
+        Self { s: Scanner::new(src), mode }
     }
 
     /// Get the current token mode.
@@ -254,7 +255,7 @@ impl<'s> Tokens<'s> {
                     }
                 }
                 c if c.is_whitespace() => NodeKind::Linebreak,
-                _ => NodeKind::Text("\\".into()),
+                _ => NodeKind::Text('\\'.into()),
             },
             None => NodeKind::Linebreak,
         }
@@ -281,7 +282,7 @@ impl<'s> Tokens<'s> {
                 NodeKind::EnDash
             }
         } else if self.s.check_or(true, char::is_whitespace) {
-            NodeKind::ListBullet
+            NodeKind::Minus
         } else {
             NodeKind::Text("-".into())
         }
@@ -310,16 +311,15 @@ impl<'s> Tokens<'s> {
         let column = self.s.column(self.s.index() - 1);
 
         let mut backticks = 1;
-        while self.s.eat_if('`') && backticks < u8::MAX {
+        while self.s.eat_if('`') {
             backticks += 1;
         }
 
         // Special case for empty inline block.
         if backticks == 2 {
-            return NodeKind::Raw(Rc::new(RawData {
+            return NodeKind::Raw(Rc::new(RawNode {
                 text: EcoString::new(),
                 lang: None,
-                backticks: 1,
                 block: false,
             }));
         }
@@ -389,7 +389,7 @@ impl<'s> Tokens<'s> {
             };
 
         if terminated {
-            NodeKind::Math(Rc::new(MathData {
+            NodeKind::Math(Rc::new(MathNode {
                 formula: self.s.get(start .. end).into(),
                 display,
             }))
@@ -429,9 +429,7 @@ impl<'s> Tokens<'s> {
 
         // Read the exponent.
         if self.s.eat_if('e') || self.s.eat_if('E') {
-            if !self.s.eat_if('+') {
-                self.s.eat_if('-');
-            }
+            let _ = self.s.eat_if('+') || self.s.eat_if('-');
             self.s.eat_while(|c| c.is_ascii_digit());
         }
 
@@ -483,6 +481,7 @@ impl<'s> Tokens<'s> {
                 false
             }
         }));
+
         if self.s.eat_if('"') {
             NodeKind::Str(string)
         } else {
@@ -567,17 +566,16 @@ mod tests {
         NodeKind::Error(pos, message.into())
     }
 
-    fn Raw(text: &str, lang: Option<&str>, backticks_left: u8, block: bool) -> NodeKind {
-        NodeKind::Raw(Rc::new(RawData {
+    fn Raw(text: &str, lang: Option<&str>, block: bool) -> NodeKind {
+        NodeKind::Raw(Rc::new(RawNode {
             text: text.into(),
             lang: lang.map(Into::into),
-            backticks: backticks_left,
             block,
         }))
     }
 
     fn Math(formula: &str, display: bool) -> NodeKind {
-        NodeKind::Math(Rc::new(MathData { formula: formula.into(), display }))
+        NodeKind::Math(Rc::new(MathNode { formula: formula.into(), display }))
     }
 
     fn Str(string: &str) -> NodeKind {
@@ -655,13 +653,13 @@ mod tests {
             ];
 
             // Test with each applicable suffix.
-            for (block, mode, suffix, token) in suffixes {
+            for &(block, mode, suffix, ref token) in suffixes {
                 let src = $src;
                 #[allow(unused_variables)]
                 let blocks = BLOCKS;
                 $(let blocks = $blocks;)?
                 assert!(!blocks.contains(|c| !BLOCKS.contains(c)));
-                if (mode.is_none() || mode == &Some($mode)) && blocks.contains(*block) {
+                if (mode.is_none() || mode == Some($mode)) && blocks.contains(block) {
                     t!(@$mode: format!("{}{}", src, suffix) => $($token,)* token);
                 }
             }
@@ -790,7 +788,7 @@ mod tests {
         t!(Markup: "~"          => NonBreakingSpace);
         t!(Markup[" "]: r"\"    => Linebreak);
         t!(Markup["a "]: r"a--" => Text("a"), EnDash);
-        t!(Markup["a1/"]: "- "  => ListBullet, Space(0));
+        t!(Markup["a1/"]: "- "  => Minus, Space(0));
         t!(Markup[" "]: "."     => EnumNumbering(None));
         t!(Markup[" "]: "1."    => EnumNumbering(Some(1)));
         t!(Markup[" "]: "1.a"   => Text("1."), Text("a"));
@@ -867,22 +865,22 @@ mod tests {
     #[test]
     fn test_tokenize_raw_blocks() {
         // Test basic raw block.
-        t!(Markup: "``"     => Raw("", None, 1, false));
-        t!(Markup: "`raw`"  => Raw("raw", None, 1, false));
+        t!(Markup: "``"     => Raw("", None, false));
+        t!(Markup: "`raw`"  => Raw("raw", None, false));
         t!(Markup[""]: "`]" => Error(End, "expected 1 backtick"));
 
         // Test special symbols in raw block.
-        t!(Markup: "`[brackets]`" => Raw("[brackets]", None, 1, false));
-        t!(Markup[""]: r"`\`` "   => Raw(r"\", None, 1, false), Error(End, "expected 1 backtick"));
+        t!(Markup: "`[brackets]`" => Raw("[brackets]", None, false));
+        t!(Markup[""]: r"`\`` "   => Raw(r"\", None, false), Error(End, "expected 1 backtick"));
 
         // Test separated closing backticks.
-        t!(Markup: "```not `y`e`t```" => Raw("`y`e`t", Some("not"), 3, false));
+        t!(Markup: "```not `y`e`t```" => Raw("`y`e`t", Some("not"), false));
 
         // Test more backticks.
-        t!(Markup: "``nope``"             => Raw("", None, 1, false), Text("nope"), Raw("", None, 1, false));
-        t!(Markup: "````🚀````"           => Raw("", None, 4, false));
+        t!(Markup: "``nope``"             => Raw("", None, false), Text("nope"), Raw("", None, false));
+        t!(Markup: "````🚀````"           => Raw("", None, false));
         t!(Markup[""]: "`````👩‍🚀````noend" => Error(End, "expected 5 backticks"));
-        t!(Markup[""]: "````raw``````"    => Raw("", Some("raw"), 4, false), Raw("", None, 1, false));
+        t!(Markup[""]: "````raw``````"    => Raw("", Some("raw"), false), Raw("", None, false));
     }
 
     #[test]

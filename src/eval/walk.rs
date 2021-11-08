@@ -33,6 +33,7 @@ impl Walk for MarkupNode {
             Self::Emph => ctx.template.modify(|s| s.text_mut().emph.flip()),
             Self::Text(text) => ctx.template.text(text),
             Self::Raw(raw) => raw.walk(ctx)?,
+            Self::Math(math) => math.walk(ctx)?,
             Self::Heading(heading) => heading.walk(ctx)?,
             Self::List(list) => list.walk(ctx)?,
             Self::Enum(enum_) => enum_.walk(ctx)?,
@@ -60,6 +61,22 @@ impl Walk for RawNode {
         ctx.template.monospace(&self.text);
 
         if self.block {
+            ctx.template.parbreak();
+        }
+
+        Ok(())
+    }
+}
+
+impl Walk for MathNode {
+    fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
+        if self.display {
+            ctx.template.parbreak();
+        }
+
+        ctx.template.monospace(self.formula.trim());
+
+        if self.display {
             ctx.template.parbreak();
         }
 

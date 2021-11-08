@@ -10,7 +10,7 @@ use std::rc::Rc;
 pub use pretty::*;
 pub use span::*;
 
-use self::ast::TypedNode;
+use self::ast::{MathNode, RawNode, TypedNode};
 use crate::diag::Error;
 use crate::geom::{AngularUnit, LengthUnit};
 use crate::source::SourceId;
@@ -178,7 +178,7 @@ impl From<GreenData> for Green {
 
 /// A owned wrapper for a green node with span information.
 ///
-/// Owned variant of [`RedRef`]. Can be [cast](Self::cast) to an AST nodes.
+/// Owned variant of [`RedRef`]. Can be [cast](Self::cast) to an AST node.
 #[derive(Clone, PartialEq)]
 pub struct RedNode {
     id: SourceId,
@@ -190,15 +190,6 @@ impl RedNode {
     /// Create a new red node from a root [`GreenNode`].
     pub fn from_root(root: Rc<GreenNode>, id: SourceId) -> Self {
         Self { id, offset: 0, green: root.into() }
-    }
-
-    /// Create a new red node from a node kind and a span.
-    pub fn from_data(kind: NodeKind, span: Span) -> Self {
-        Self {
-            id: span.source,
-            offset: span.start,
-            green: Green::Token(GreenData { kind, len: span.len() }),
-        }
     }
 
     /// Convert to a borrowed representation.
@@ -527,13 +518,11 @@ pub enum NodeKind {
     EnumNumbering(Option<usize>),
     /// An item in an unordered list: `- ...`.
     List,
-    /// The bullet character of an item in an unordered list: `-`.
-    ListBullet,
     /// An arbitrary number of backticks followed by inner contents, terminated
     /// with the same number of backticks: `` `...` ``.
-    Raw(Rc<RawData>),
+    Raw(Rc<RawNode>),
     /// Dollar signs surrounding inner contents.
-    Math(Rc<MathData>),
+    Math(Rc<MathNode>),
     /// An identifier: `center`.
     Ident(EcoString),
     /// A boolean: `true`, `false`.
@@ -611,29 +600,6 @@ pub enum NodeKind {
     Error(ErrorPos, EcoString),
     /// Unknown character sequences.
     Unknown(EcoString),
-}
-
-/// Payload of a raw block node.
-#[derive(Debug, Clone, PartialEq)]
-pub struct RawData {
-    /// The raw text in the block.
-    pub text: EcoString,
-    /// The programming language of the raw text.
-    pub lang: Option<EcoString>,
-    /// The number of opening backticks.
-    pub backticks: u8,
-    /// Whether to display this as a block.
-    pub block: bool,
-}
-
-/// Payload of a math formula node.
-#[derive(Debug, Clone, PartialEq)]
-pub struct MathData {
-    /// The formula between the dollars / brackets.
-    pub formula: EcoString,
-    /// Whether the formula is display-level, that is, it is surrounded by
-    /// `$[..]$`.
-    pub display: bool,
 }
 
 /// Where in a node an error should be annotated.
@@ -730,7 +696,6 @@ impl NodeKind {
             Self::Enum => "enumeration item",
             Self::EnumNumbering(_) => "enumeration item numbering",
             Self::List => "list item",
-            Self::ListBullet => "list bullet",
             Self::Raw(_) => "raw block",
             Self::Math(_) => "math formula",
             Self::Ident(_) => "identifier",

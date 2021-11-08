@@ -398,11 +398,11 @@ impl Eval for CallArgs {
                         value: Spanned::new(expr.eval(ctx)?, expr.span()),
                     });
                 }
-                CallArg::Named(x) => {
+                CallArg::Named(named) => {
                     items.push(Arg {
                         span,
-                        name: Some(x.name().take().into()),
-                        value: Spanned::new(x.expr().eval(ctx)?, x.expr().span()),
+                        name: Some(named.name().take().into()),
+                        value: Spanned::new(named.expr().eval(ctx)?, named.expr().span()),
                     });
                 }
                 CallArg::Spread(expr) => match expr.eval(ctx)? {
@@ -511,8 +511,8 @@ impl Eval for WithExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let wrapped =
-            self.callee().eval(ctx)?.cast::<Function>().at(self.callee().span())?;
+        let callee = self.callee();
+        let wrapped = callee.eval(ctx)?.cast::<Function>().at(callee.span())?;
         let applied = self.args().eval(ctx)?;
 
         let name = wrapped.name().cloned();
@@ -529,7 +529,7 @@ impl Eval for LetExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let value = match &self.init() {
+        let value = match self.init() {
             Some(expr) => expr.eval(ctx)?,
             None => Value::None,
         };
@@ -542,15 +542,10 @@ impl Eval for IfExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let condition = self
-            .condition()
-            .eval(ctx)?
-            .cast::<bool>()
-            .at(self.condition().span())?;
-
-        if condition {
+        let condition = self.condition();
+        if condition.eval(ctx)?.cast::<bool>().at(condition.span())? {
             self.if_body().eval(ctx)
-        } else if let Some(else_body) = &self.else_body() {
+        } else if let Some(else_body) = self.else_body() {
             else_body.eval(ctx)
         } else {
             Ok(Value::None)
@@ -564,14 +559,11 @@ impl Eval for WhileExpr {
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         let mut output = Value::None;
 
-        while self
-            .condition()
-            .eval(ctx)?
-            .cast::<bool>()
-            .at(self.condition().span())?
-        {
-            let value = self.body().eval(ctx)?;
-            output = ops::join(output, value).at(self.body().span())?;
+        let condition = self.condition();
+        while condition.eval(ctx)?.cast::<bool>().at(condition.span())? {
+            let body = self.body();
+            let value = body.eval(ctx)?;
+            output = ops::join(output, value).at(body.span())?;
         }
 
         Ok(output)
@@ -597,7 +589,7 @@ impl Eval for ForExpr {
                 }
 
                 ctx.scopes.exit();
-                Ok(output)
+                return Ok(output);
             }};
         }
 
@@ -607,18 +599,20 @@ impl Eval for ForExpr {
         let value = pattern.value().take();
 
         match (key, value, iter) {
-            (None, v, Value::Str(string)) => iter!(for (v => value) in string.iter()),
+            (None, v, Value::Str(string)) => {
+                iter!(for (v => value) in string.iter());
+            }
             (None, v, Value::Array(array)) => {
-                iter!(for (v => value) in array.into_iter())
+                iter!(for (v => value) in array.into_iter());
             }
             (Some(i), v, Value::Array(array)) => {
-                iter!(for (i => idx, v => value) in array.into_iter().enumerate())
+                iter!(for (i => idx, v => value) in array.into_iter().enumerate());
             }
             (None, v, Value::Dict(dict)) => {
-                iter!(for (v => value) in dict.into_iter().map(|p| p.1))
+                iter!(for (v => value) in dict.into_iter().map(|p| p.1));
             }
             (Some(k), v, Value::Dict(dict)) => {
-                iter!(for (k => key, v => value) in dict.into_iter())
+                iter!(for (k => key, v => value) in dict.into_iter());
             }
             (_, _, Value::Str(_)) => {
                 bail!(pattern.span(), "mismatched pattern");
@@ -634,9 +628,9 @@ impl Eval for ImportExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let path = self.path().eval(ctx)?.cast::<Str>().at(self.path().span())?;
-
-        let file = ctx.import(&path, self.path().span())?;
+        let path = self.path();
+        let resolved = path.eval(ctx)?.cast::<Str>().at(path.span())?;
+        let file = ctx.import(&resolved, path.span())?;
         let module = &ctx.modules[&file];
 
         match self.imports() {
@@ -664,12 +658,10 @@ impl Eval for IncludeExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let path_node = self.path();
-        let path = path_node.eval(ctx)?.cast::<Str>().at(path_node.span())?;
-
-        let file = ctx.import(&path, path_node.span())?;
+        let path = self.path();
+        let resolved = path.eval(ctx)?.cast::<Str>().at(path.span())?;
+        let file = ctx.import(&resolved, path.span())?;
         let module = &ctx.modules[&file];
-
         Ok(Value::Template(module.template.clone()))
     }
 }

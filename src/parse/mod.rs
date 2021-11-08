@@ -16,8 +16,8 @@ use crate::syntax::ast::{Associativity, BinOp, UnOp};
 use crate::syntax::{ErrorPos, Green, GreenNode, NodeKind};
 
 /// Parse a source file.
-pub fn parse(source: &str) -> Rc<GreenNode> {
-    let mut p = Parser::new(source);
+pub fn parse(src: &str) -> Rc<GreenNode> {
+    let mut p = Parser::new(src);
     markup(&mut p);
     match p.finish().into_iter().next() {
         Some(Green::Node(node)) => node,
@@ -93,16 +93,17 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | NodeKind::Strong
         | NodeKind::Linebreak
         | NodeKind::Raw(_)
+        | NodeKind::Math(_)
         | NodeKind::UnicodeEscape(_) => {
             p.eat();
         }
 
         NodeKind::Eq if *at_start => heading(p),
-        NodeKind::ListBullet if *at_start => list_node(p),
+        NodeKind::Minus if *at_start => list_node(p),
         NodeKind::EnumNumbering(_) if *at_start => enum_node(p),
 
         // Line-based markup that is not currently at the start of the line.
-        NodeKind::Eq | NodeKind::ListBullet | NodeKind::EnumNumbering(_) => {
+        NodeKind::Eq | NodeKind::Minus | NodeKind::EnumNumbering(_) => {
             p.convert(NodeKind::Text(p.peek_src().into()));
         }
 
@@ -149,7 +150,7 @@ fn heading(p: &mut Parser) {
 /// Parse a single list item.
 fn list_node(p: &mut Parser) {
     p.perform(NodeKind::List, |p| {
-        p.eat_assert(&NodeKind::ListBullet);
+        p.eat_assert(&NodeKind::Minus);
         let column = p.column(p.prev_end());
         markup_indented(p, column);
     });
@@ -193,10 +194,7 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
     loop {
         // Exclamation mark, parenthesis or bracket means this is a function
         // call.
-        if matches!(
-            p.peek_direct(),
-            Some(NodeKind::LeftParen | NodeKind::LeftBracket)
-        ) {
+        if let Some(NodeKind::LeftParen | NodeKind::LeftBracket) = p.peek_direct() {
             call(p, marker)?;
             continue;
         }
@@ -241,7 +239,6 @@ fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
     match p.peek() {
         // Things that start with an identifier.
         Some(NodeKind::Ident(_)) => {
-            // Start closure params.
             let marker = p.marker();
             p.eat();
 
@@ -364,9 +361,10 @@ enum CollectionKind {
 /// Returns the length of the collection and whether the literal contained any
 /// commas.
 fn collection(p: &mut Parser) -> (CollectionKind, usize) {
-    let mut items = 0;
     let mut kind = CollectionKind::Positional;
+    let mut items = 0;
     let mut can_group = true;
+    let mut error = false;
     let mut missing_coma: Option<Marker> = None;
 
     while !p.eof() {
@@ -393,12 +391,14 @@ fn collection(p: &mut Parser) -> (CollectionKind, usize) {
             if p.eat_if(&NodeKind::Comma) {
                 can_group = false;
             } else {
-                missing_coma = Some(p.marker());
+                missing_coma = Some(p.trivia_start());
             }
+        } else {
+            error = true;
         }
     }
 
-    if can_group && items == 1 {
+    if error || (can_group && items == 1) {
         kind = CollectionKind::Group;
     }
 
@@ -467,7 +467,7 @@ fn params(p: &mut Parser, marker: Marker) {
         NodeKind::Named | NodeKind::Comma | NodeKind::Ident(_) => Ok(()),
         NodeKind::Spread
             if matches!(
-                x.children().last().map(|x| x.kind()),
+                x.children().last().map(|child| child.kind()),
                 Some(&NodeKind::Ident(_))
             ) =>
         {

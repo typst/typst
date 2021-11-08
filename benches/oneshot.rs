@@ -44,11 +44,11 @@ fn bench_scan(iai: &mut Iai) {
 }
 
 fn bench_tokenize(iai: &mut Iai) {
-    iai.run(|| Tokens::new(black_box(&SRC), black_box(TokenMode::Markup)).count());
+    iai.run(|| Tokens::new(black_box(SRC), black_box(TokenMode::Markup)).count());
 }
 
 fn bench_parse(iai: &mut Iai) {
-    iai.run(|| parse(&SRC));
+    iai.run(|| parse(SRC));
 }
 
 fn bench_eval(iai: &mut Iai) {

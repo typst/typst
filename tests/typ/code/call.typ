@@ -72,7 +72,7 @@
 // Error: 10-12 expected expression, found end of block comment
 #func(a:1*/)
 
-// Error: 9 expected comma
+// Error: 8 expected comma
 #func(1 2)
 
 // Error: 7-8 expected identifier

@@ -63,7 +63,6 @@ impl Printer {
             write_item(item, self);
             count += 1;
         }
-
         count
     }
 
@@ -99,6 +98,7 @@ impl Pretty for MarkupNode {
             Self::Emph => p.push('_'),
             Self::Text(text) => p.push_str(text),
             Self::Raw(raw) => raw.pretty(p),
+            Self::Math(math) => math.pretty(p),
             Self::Heading(heading) => heading.pretty(p),
             Self::List(list) => list.pretty(p),
             Self::Enum(enum_) => enum_.pretty(p),
@@ -165,6 +165,20 @@ impl Pretty for RawNode {
         for _ in 0 .. backticks {
             p.push('`');
         }
+    }
+}
+
+impl Pretty for MathNode {
+    fn pretty(&self, p: &mut Printer) {
+        p.push('$');
+        if self.display {
+            p.push('[');
+        }
+        p.push_str(&self.formula);
+        if self.display {
+            p.push(']');
+        }
+        p.push('$');
     }
 }
 
@@ -253,12 +267,9 @@ impl Pretty for ArrayExpr {
 impl Pretty for DictExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
-
-        let mut items = self.items().peekable();
-        if items.peek().is_none() {
+        let len = p.join(self.items(), ", ", |named, p| named.pretty(p));
+        if len == 0 {
             p.push(':');
-        } else {
-            p.join(items, ", ", |named, p| named.pretty(p));
         }
         p.push(')');
     }
@@ -291,13 +302,11 @@ impl Pretty for GroupExpr {
 impl Pretty for BlockExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('{');
-
-        let exprs: Vec<_> = self.exprs().collect();
-        if exprs.len() > 1 {
+        if self.exprs().count() > 1 {
             p.push(' ');
         }
-        p.join(&exprs, "; ", |expr, p| expr.pretty(p));
-        if exprs.len() > 1 {
+        let len = p.join(self.exprs(), "; ", |expr, p| expr.pretty(p));
+        if len > 1 {
             p.push(' ');
         }
         p.push('}');
@@ -348,17 +357,17 @@ impl Pretty for CallExpr {
         };
 
         let args: Vec<_> = self.args().items().collect();
-
-        if let Some(Expr::Template(template)) = args
-            .last()
-            .and_then(|x| if let CallArg::Pos(arg) = x { Some(arg) } else { None })
-        {
-            if args.len() > 1 {
-                write_args(&args[0 .. args.len() - 1]);
+        match args.as_slice() {
+            // This can be moved behind the arguments.
+            //
+            // Example: Transforms "#v(a, [b])" => "#v(a)[b]".
+            [head @ .., CallArg::Pos(Expr::Template(template))] => {
+                if !head.is_empty() {
+                    write_args(head);
+                }
+                template.pretty(p);
             }
-            template.pretty(p);
-        } else {
-            write_args(&args);
+            items => write_args(items),
         }
     }
 }
@@ -423,12 +432,12 @@ impl Pretty for LetExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("let ");
         self.binding().pretty(p);
-        if let Some(Expr::Closure(closure)) = &self.init() {
+        if let Some(Expr::Closure(closure)) = self.init() {
             p.push('(');
             p.join(closure.params(), ", ", |item, p| item.pretty(p));
             p.push_str(") = ");
             closure.body().pretty(p);
-        } else if let Some(init) = &self.init() {
+        } else if let Some(init) = self.init() {
             p.push_str(" = ");
             init.pretty(p);
         }
@@ -441,7 +450,7 @@ impl Pretty for IfExpr {
         self.condition().pretty(p);
         p.push(' ');
         self.if_body().pretty(p);
-        if let Some(expr) = &self.else_body() {
+        if let Some(expr) = self.else_body() {
             p.push_str(" else ");
             expr.pretty(p);
         }
@@ -525,7 +534,7 @@ mod tests {
     #[track_caller]
     fn test_parse(src: &str, expected: &str) {
         let source = SourceFile::detached(src);
-        let ast: Markup = source.ast().unwrap();
+        let ast = source.ast().unwrap();
         let found = pretty(&ast);
         if found != expected {
             println!("tree:     {:#?}", ast);
@@ -563,6 +572,11 @@ mod tests {
         test_parse("``` 1```", "`1`");
         test_parse("``` 1 ```", "`1 `");
         test_parse("```` ` ````", "``` ` ```");
+
+        // Math node.
+        roundtrip("$$");
+        roundtrip("$a+b$");
+        roundtrip("$[ a^2 + b^2 = c^2 ]$");
     }
 
     #[test]

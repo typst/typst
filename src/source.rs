@@ -144,6 +144,7 @@ impl SourceFile {
         }
     }
 
+    /// The file's abstract syntax tree.
     pub fn ast(&self) -> TypResult<Markup> {
         let red = RedNode::from_root(self.root.clone(), self.id);
         let errors = red.errors();

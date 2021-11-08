@@ -68,11 +68,8 @@ impl Markup {
             NodeKind::EnDash => Some(MarkupNode::Text("\u{2013}".into())),
             NodeKind::EmDash => Some(MarkupNode::Text("\u{2014}".into())),
             NodeKind::NonBreakingSpace => Some(MarkupNode::Text("\u{00A0}".into())),
-            NodeKind::Raw(raw) => Some(MarkupNode::Raw(RawNode {
-                block: raw.block,
-                lang: raw.lang.clone(),
-                text: raw.text.clone(),
-            })),
+            NodeKind::Math(math) => Some(MarkupNode::Math(math.as_ref().clone())),
+            NodeKind::Raw(raw) => Some(MarkupNode::Raw(raw.as_ref().clone())),
             NodeKind::Heading => node.cast().map(MarkupNode::Heading),
             NodeKind::List => node.cast().map(MarkupNode::List),
             NodeKind::Enum => node.cast().map(MarkupNode::Enum),
@@ -98,6 +95,8 @@ pub enum MarkupNode {
     Text(EcoString),
     /// A raw block with optional syntax highlighting: `` `...` ``.
     Raw(RawNode),
+    /// A math formula: `$a^2 = b^2 + c^2$`.
+    Math(MathNode),
     /// A section heading: `= Introduction`.
     Heading(HeadingNode),
     /// An item in an unordered list: `- ...`.
@@ -121,6 +120,16 @@ pub struct RawNode {
     pub block: bool,
 }
 
+/// A math formula: `$a^2 + b^2 = c^2$`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MathNode {
+    /// The formula between the dollars / brackets.
+    pub formula: EcoString,
+    /// Whether the formula is display-level, that is, it is surrounded by
+    /// `$[..]$`.
+    pub display: bool,
+}
+
 node! {
     /// A section heading: `= Introduction`.
     HeadingNode: Heading
@@ -133,12 +142,8 @@ impl HeadingNode {
     }
 
     /// The section depth (numer of equals signs).
-    pub fn level(&self) -> u8 {
-        self.0
-            .children()
-            .filter(|n| n.kind() == &NodeKind::Eq)
-            .count()
-            .min(u8::MAX.into()) as u8
+    pub fn level(&self) -> usize {
+        self.0.children().filter(|n| n.kind() == &NodeKind::Eq).count()
     }
 }
 

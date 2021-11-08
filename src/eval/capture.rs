@@ -172,5 +172,6 @@ mod tests {
 
         // Scoping.
         test("{ let x = 1; { let y = 2; y }; x + y }", &["y"]);
+        test("[#let x = 1]#x", &["x"]);
     }
 }
