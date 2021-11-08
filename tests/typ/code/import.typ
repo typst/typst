@@ -79,7 +79,7 @@ This is never reached.
 // Error: 22 expected keyword `from`
 #import afrom, "b", c
 
-// Error: 8 expected import items
+// Error: 9 expected import items
 #import from "target.typ"
 
 // Error: 9-10 expected expression, found assignment operator

@@ -30,16 +30,14 @@ use std::collections::HashMap;
 use std::io;
 use std::mem;
 use std::path::PathBuf;
-use std::rc::Rc;
 
 use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
 use crate::geom::{Angle, Fractional, Length, Relative};
 use crate::image::ImageStore;
 use crate::loading::Loader;
-use crate::parse::parse;
 use crate::source::{SourceId, SourceStore};
-use crate::syntax::visit::Visit;
-use crate::syntax::*;
+use crate::syntax::ast::*;
+use crate::syntax::{Span, Spanned};
 use crate::util::RefMutExt;
 use crate::Context;
 
@@ -114,7 +112,7 @@ impl<'a> EvalContext<'a> {
 
         // Parse the file.
         let source = self.sources.get(id);
-        let ast = parse(&source)?;
+        let ast = source.ast()?;
 
         // Prepare the new context.
         let new_scopes = Scopes::new(self.scopes.base);
@@ -122,7 +120,7 @@ impl<'a> EvalContext<'a> {
         self.route.push(id);
 
         // Evaluate the module.
-        let template = Rc::new(ast).eval(self).trace(|| Tracepoint::Import, span)?;
+        let template = ast.eval(self).trace(|| Tracepoint::Import, span)?;
 
         // Restore the old context.
         let new_scopes = mem::replace(&mut self.scopes, old_scopes);
@@ -176,8 +174,8 @@ impl Eval for Expr {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         match self {
-            Self::Ident(v) => v.eval(ctx),
             Self::Lit(v) => v.eval(ctx),
+            Self::Ident(v) => v.eval(ctx),
             Self::Array(v) => v.eval(ctx).map(Value::Array),
             Self::Dict(v) => v.eval(ctx).map(Value::Dict),
             Self::Template(v) => v.eval(ctx).map(Value::Template),
@@ -202,17 +200,17 @@ impl Eval for Lit {
     type Output = Value;
 
     fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
-        Ok(match *self {
-            Self::None(_) => Value::None,
-            Self::Auto(_) => Value::Auto,
-            Self::Bool(_, v) => Value::Bool(v),
-            Self::Int(_, v) => Value::Int(v),
-            Self::Float(_, v) => Value::Float(v),
-            Self::Length(_, v, unit) => Value::Length(Length::with_unit(v, unit)),
-            Self::Angle(_, v, unit) => Value::Angle(Angle::with_unit(v, unit)),
-            Self::Percent(_, v) => Value::Relative(Relative::new(v / 100.0)),
-            Self::Fractional(_, v) => Value::Fractional(Fractional::new(v)),
-            Self::Str(_, ref v) => Value::Str(v.into()),
+        Ok(match self.kind() {
+            LitKind::None => Value::None,
+            LitKind::Auto => Value::Auto,
+            LitKind::Bool(v) => Value::Bool(v),
+            LitKind::Int(v) => Value::Int(v),
+            LitKind::Float(v) => Value::Float(v),
+            LitKind::Length(v, unit) => Value::Length(Length::with_unit(v, unit)),
+            LitKind::Angle(v, unit) => Value::Angle(Angle::with_unit(v, unit)),
+            LitKind::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
+            LitKind::Fractional(v) => Value::Fractional(Fractional::new(v)),
+            LitKind::Str(ref v) => Value::Str(v.into()),
         })
     }
 }
@@ -223,7 +221,7 @@ impl Eval for Ident {
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         match ctx.scopes.get(self) {
             Some(slot) => Ok(slot.borrow().clone()),
-            None => bail!(self.span, "unknown variable"),
+            None => bail!(self.span(), "unknown variable"),
         }
     }
 }
@@ -232,7 +230,7 @@ impl Eval for ArrayExpr {
     type Output = Array;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        self.items.iter().map(|expr| expr.eval(ctx)).collect()
+        self.items().map(|expr| expr.eval(ctx)).collect()
     }
 }
 
@@ -240,9 +238,8 @@ impl Eval for DictExpr {
     type Output = Dict;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        self.items
-            .iter()
-            .map(|Named { name, expr }| Ok(((&name.string).into(), expr.eval(ctx)?)))
+        self.items()
+            .map(|x| Ok((x.name().take().into(), x.expr().eval(ctx)?)))
             .collect()
     }
 }
@@ -251,7 +248,7 @@ impl Eval for TemplateExpr {
     type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        self.body.eval(ctx)
+        self.body().eval(ctx)
     }
 }
 
@@ -259,7 +256,7 @@ impl Eval for GroupExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        self.expr.eval(ctx)
+        self.expr().eval(ctx)
     }
 }
 
@@ -270,7 +267,7 @@ impl Eval for BlockExpr {
         ctx.scopes.enter();
 
         let mut output = Value::None;
-        for expr in &self.exprs {
+        for expr in self.exprs() {
             let value = expr.eval(ctx)?;
             output = ops::join(output, value).at(expr.span())?;
         }
@@ -285,13 +282,13 @@ impl Eval for UnaryExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let value = self.expr.eval(ctx)?;
-        let result = match self.op {
+        let value = self.expr().eval(ctx)?;
+        let result = match self.op() {
             UnOp::Pos => ops::pos(value),
             UnOp::Neg => ops::neg(value),
             UnOp::Not => ops::not(value),
         };
-        result.at(self.span)
+        result.at(self.span())
     }
 }
 
@@ -299,7 +296,7 @@ impl Eval for BinaryExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        match self.op {
+        match self.op() {
             BinOp::Add => self.apply(ctx, ops::add),
             BinOp::Sub => self.apply(ctx, ops::sub),
             BinOp::Mul => self.apply(ctx, ops::mul),
@@ -327,17 +324,17 @@ impl BinaryExpr {
     where
         F: FnOnce(Value, Value) -> StrResult<Value>,
     {
-        let lhs = self.lhs.eval(ctx)?;
+        let lhs = self.lhs().eval(ctx)?;
 
         // Short-circuit boolean operations.
-        if (self.op == BinOp::And && lhs == Value::Bool(false))
-            || (self.op == BinOp::Or && lhs == Value::Bool(true))
+        if (self.op() == BinOp::And && lhs == Value::Bool(false))
+            || (self.op() == BinOp::Or && lhs == Value::Bool(true))
         {
             return Ok(lhs);
         }
 
-        let rhs = self.rhs.eval(ctx)?;
-        op(lhs, rhs).at(self.span)
+        let rhs = self.rhs().eval(ctx)?;
+        op(lhs, rhs).at(self.span())
     }
 
     /// Apply an assignment operation.
@@ -345,10 +342,10 @@ impl BinaryExpr {
     where
         F: FnOnce(Value, Value) -> StrResult<Value>,
     {
-        let rhs = self.rhs.eval(ctx)?;
-        let mut target = self.lhs.access(ctx)?;
+        let rhs = self.rhs().eval(ctx)?;
+        let mut target = self.lhs().access(ctx)?;
         let lhs = mem::take(&mut *target);
-        *target = op(lhs, rhs).at(self.span)?;
+        *target = op(lhs, rhs).at(self.span())?;
         Ok(Value::None)
     }
 }
@@ -357,27 +354,27 @@ impl Eval for CallExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let callee = self.callee.eval(ctx)?;
-        let mut args = self.args.eval(ctx)?;
+        let callee = self.callee().eval(ctx)?;
+        let mut args = self.args().eval(ctx)?;
 
         match callee {
             Value::Array(array) => {
-                array.get(args.into_index()?).map(Value::clone).at(self.span)
+                array.get(args.into_index()?).map(Value::clone).at(self.span())
             }
 
             Value::Dict(dict) => {
-                dict.get(args.into_key()?).map(Value::clone).at(self.span)
+                dict.get(args.into_key()?).map(Value::clone).at(self.span())
             }
 
             Value::Func(func) => {
                 let point = || Tracepoint::Call(func.name().map(ToString::to_string));
-                let value = func.call(ctx, &mut args).trace(point, self.span)?;
+                let value = func.call(ctx, &mut args).trace(point, self.span())?;
                 args.finish()?;
                 Ok(value)
             }
 
             v => bail!(
-                self.callee.span(),
+                self.callee().span(),
                 "expected function or collection, found {}",
                 v.type_name(),
             ),
@@ -389,9 +386,9 @@ impl Eval for CallArgs {
     type Output = Args;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let mut items = Vec::with_capacity(self.items.len());
+        let mut items = Vec::new();
 
-        for arg in &self.items {
+        for arg in self.items() {
             let span = arg.span();
             match arg {
                 CallArg::Pos(expr) => {
@@ -401,11 +398,11 @@ impl Eval for CallArgs {
                         value: Spanned::new(expr.eval(ctx)?, expr.span()),
                     });
                 }
-                CallArg::Named(Named { name, expr }) => {
+                CallArg::Named(named) => {
                     items.push(Arg {
                         span,
-                        name: Some((&name.string).into()),
-                        value: Spanned::new(expr.eval(ctx)?, expr.span()),
+                        name: Some(named.name().take().into()),
+                        value: Spanned::new(named.expr().eval(ctx)?, named.expr().span()),
                     });
                 }
                 CallArg::Spread(expr) => match expr.eval(ctx)? {
@@ -438,7 +435,7 @@ impl Eval for CallArgs {
             }
         }
 
-        Ok(Args { span: self.span, items })
+        Ok(Args { span: self.span(), items })
     }
 }
 
@@ -446,39 +443,38 @@ impl Eval for ClosureExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let name = self.name.as_ref().map(|name| name.string.clone());
-
         // Collect captured variables.
         let captured = {
             let mut visitor = CapturesVisitor::new(&ctx.scopes);
-            visitor.visit_closure(self);
+            visitor.visit(self.as_red());
             visitor.finish()
         };
 
         let mut sink = None;
-        let mut params = Vec::with_capacity(self.params.len());
+        let mut params = Vec::new();
 
         // Collect parameters and an optional sink parameter.
-        for param in &self.params {
+        for param in self.params() {
             match param {
                 ClosureParam::Pos(name) => {
-                    params.push((name.string.clone(), None));
+                    params.push((name.take(), None));
                 }
-                ClosureParam::Named(Named { name, expr }) => {
-                    params.push((name.string.clone(), Some(expr.eval(ctx)?)));
+                ClosureParam::Named(named) => {
+                    params.push((named.name().take(), Some(named.expr().eval(ctx)?)));
                 }
                 ClosureParam::Sink(name) => {
                     if sink.is_some() {
-                        bail!(name.span, "only one argument sink is allowed");
+                        bail!(name.span(), "only one argument sink is allowed");
                     }
-                    sink = Some(name.string.clone());
+                    sink = Some(name.take());
                 }
             }
         }
 
         // Clone the body expression so that we don't have a lifetime
         // dependence on the AST.
-        let body = Rc::clone(&self.body);
+        let name = self.name().map(Ident::take);
+        let body = self.body();
 
         // Define the actual function.
         let func = Function::new(name, move |ctx, args| {
@@ -515,8 +511,9 @@ impl Eval for WithExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let wrapped = self.callee.eval(ctx)?.cast::<Function>().at(self.callee.span())?;
-        let applied = self.args.eval(ctx)?;
+        let callee = self.callee();
+        let wrapped = callee.eval(ctx)?.cast::<Function>().at(callee.span())?;
+        let applied = self.args().eval(ctx)?;
 
         let name = wrapped.name().cloned();
         let func = Function::new(name, move |ctx, args| {
@@ -532,11 +529,11 @@ impl Eval for LetExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let value = match &self.init {
+        let value = match self.init() {
             Some(expr) => expr.eval(ctx)?,
             None => Value::None,
         };
-        ctx.scopes.def_mut(self.binding.as_str(), value);
+        ctx.scopes.def_mut(self.binding().take(), value);
         Ok(Value::None)
     }
 }
@@ -545,12 +542,10 @@ impl Eval for IfExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let condition =
-            self.condition.eval(ctx)?.cast::<bool>().at(self.condition.span())?;
-
-        if condition {
-            self.if_body.eval(ctx)
-        } else if let Some(else_body) = &self.else_body {
+        let condition = self.condition();
+        if condition.eval(ctx)?.cast::<bool>().at(condition.span())? {
+            self.if_body().eval(ctx)
+        } else if let Some(else_body) = self.else_body() {
             else_body.eval(ctx)
         } else {
             Ok(Value::None)
@@ -564,9 +559,11 @@ impl Eval for WhileExpr {
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         let mut output = Value::None;
 
-        while self.condition.eval(ctx)?.cast::<bool>().at(self.condition.span())? {
-            let value = self.body.eval(ctx)?;
-            output = ops::join(output, value).at(self.body.span())?;
+        let condition = self.condition();
+        while condition.eval(ctx)?.cast::<bool>().at(condition.span())? {
+            let body = self.body();
+            let value = body.eval(ctx)?;
+            output = ops::join(output, value).at(body.span())?;
         }
 
         Ok(output)
@@ -584,40 +581,44 @@ impl Eval for ForExpr {
 
                 #[allow(unused_parens)]
                 for ($($value),*) in $iter {
-                    $(ctx.scopes.def_mut($binding.as_str(), $value);)*
+                    $(ctx.scopes.def_mut(&$binding, $value);)*
 
-                    let value = self.body.eval(ctx)?;
+                    let value = self.body().eval(ctx)?;
                     output = ops::join(output, value)
-                        .at(self.body.span())?;
+                        .at(self.body().span())?;
                 }
 
                 ctx.scopes.exit();
-                Ok(output)
+                return Ok(output);
             }};
         }
 
-        let iter = self.iter.eval(ctx)?;
-        match (&self.pattern, iter) {
-            (ForPattern::Value(v), Value::Str(string)) => {
-                iter!(for (v => value) in string.iter())
+        let iter = self.iter().eval(ctx)?;
+        let pattern = self.pattern();
+        let key = pattern.key().map(Ident::take);
+        let value = pattern.value().take();
+
+        match (key, value, iter) {
+            (None, v, Value::Str(string)) => {
+                iter!(for (v => value) in string.iter());
             }
-            (ForPattern::Value(v), Value::Array(array)) => {
-                iter!(for (v => value) in array.into_iter())
+            (None, v, Value::Array(array)) => {
+                iter!(for (v => value) in array.into_iter());
             }
-            (ForPattern::KeyValue(i, v), Value::Array(array)) => {
-                iter!(for (i => idx, v => value) in array.into_iter().enumerate())
+            (Some(i), v, Value::Array(array)) => {
+                iter!(for (i => idx, v => value) in array.into_iter().enumerate());
             }
-            (ForPattern::Value(v), Value::Dict(dict)) => {
-                iter!(for (v => value) in dict.into_iter().map(|p| p.1))
+            (None, v, Value::Dict(dict)) => {
+                iter!(for (v => value) in dict.into_iter().map(|p| p.1));
             }
-            (ForPattern::KeyValue(k, v), Value::Dict(dict)) => {
-                iter!(for (k => key, v => value) in dict.into_iter())
+            (Some(k), v, Value::Dict(dict)) => {
+                iter!(for (k => key, v => value) in dict.into_iter());
             }
-            (ForPattern::KeyValue(_, _), Value::Str(_)) => {
-                bail!(self.pattern.span(), "mismatched pattern");
+            (_, _, Value::Str(_)) => {
+                bail!(pattern.span(), "mismatched pattern");
             }
-            (_, iter) => {
-                bail!(self.iter.span(), "cannot loop over {}", iter.type_name());
+            (_, _, iter) => {
+                bail!(self.iter().span(), "cannot loop over {}", iter.type_name());
             }
         }
     }
@@ -627,23 +628,23 @@ impl Eval for ImportExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let path = self.path.eval(ctx)?.cast::<Str>().at(self.path.span())?;
-
-        let file = ctx.import(&path, self.path.span())?;
+        let path = self.path();
+        let resolved = path.eval(ctx)?.cast::<Str>().at(path.span())?;
+        let file = ctx.import(&resolved, path.span())?;
         let module = &ctx.modules[&file];
 
-        match &self.imports {
+        match self.imports() {
             Imports::Wildcard => {
                 for (var, slot) in module.scope.iter() {
                     ctx.scopes.def_mut(var, slot.borrow().clone());
                 }
             }
-            Imports::Idents(idents) => {
+            Imports::Items(idents) => {
                 for ident in idents {
                     if let Some(slot) = module.scope.get(&ident) {
-                        ctx.scopes.def_mut(ident.as_str(), slot.borrow().clone());
+                        ctx.scopes.def_mut(ident.take(), slot.borrow().clone());
                     } else {
-                        bail!(ident.span, "unresolved import");
+                        bail!(ident.span(), "unresolved import");
                     }
                 }
             }
@@ -657,11 +658,10 @@ impl Eval for IncludeExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let path = self.path.eval(ctx)?.cast::<Str>().at(self.path.span())?;
-
-        let file = ctx.import(&path, self.path.span())?;
+        let path = self.path();
+        let resolved = path.eval(ctx)?.cast::<Str>().at(path.span())?;
+        let file = ctx.import(&resolved, path.span())?;
         let module = &ctx.modules[&file];
-
         Ok(Value::Template(module.template.clone()))
     }
 }
@@ -689,23 +689,23 @@ impl Access for Ident {
         match ctx.scopes.get(self) {
             Some(slot) => match slot.try_borrow_mut() {
                 Ok(guard) => Ok(guard),
-                Err(_) => bail!(self.span, "cannot mutate a constant"),
+                Err(_) => bail!(self.span(), "cannot mutate a constant"),
             },
-            None => bail!(self.span, "unknown variable"),
+            None => bail!(self.span(), "unknown variable"),
         }
     }
 }
 
 impl Access for CallExpr {
     fn access<'a>(&self, ctx: &'a mut EvalContext) -> TypResult<RefMut<'a, Value>> {
-        let args = self.args.eval(ctx)?;
-        let guard = self.callee.access(ctx)?;
+        let args = self.args().eval(ctx)?;
+        let guard = self.callee().access(ctx)?;
 
         RefMut::try_map(guard, |value| match value {
-            Value::Array(array) => array.get_mut(args.into_index()?).at(self.span),
+            Value::Array(array) => array.get_mut(args.into_index()?).at(self.span()),
             Value::Dict(dict) => Ok(dict.get_mut(args.into_key()?)),
             v => bail!(
-                self.callee.span(),
+                self.callee().span(),
                 "expected collection, found {}",
                 v.type_name(),
             ),

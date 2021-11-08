@@ -8,8 +8,8 @@
 === Level 2
 ====== Level 6
 
-// Too many hashtags.
-======= Level 7
+// At some point, it should stop shrinking.
+=========== Level 11
 
 ---
 // Heading vs. no heading.

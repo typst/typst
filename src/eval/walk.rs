@@ -5,7 +5,7 @@ use crate::diag::TypResult;
 use crate::geom::Spec;
 use crate::layout::BlockLevel;
 use crate::library::{GridNode, ParChild, ParNode, TrackSizing};
-use crate::syntax::*;
+use crate::syntax::ast::*;
 use crate::util::BoolExt;
 
 /// Walk markup, filling the currently built template.
@@ -16,7 +16,7 @@ pub trait Walk {
 
 impl Walk for Markup {
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
-        for node in self.iter() {
+        for node in self.nodes() {
             node.walk(ctx)?;
         }
         Ok(())
@@ -27,12 +27,13 @@ impl Walk for MarkupNode {
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
         match self {
             Self::Space => ctx.template.space(),
-            Self::Linebreak(_) => ctx.template.linebreak(),
-            Self::Parbreak(_) => ctx.template.parbreak(),
-            Self::Strong(_) => ctx.template.modify(|s| s.text_mut().strong.flip()),
-            Self::Emph(_) => ctx.template.modify(|s| s.text_mut().emph.flip()),
+            Self::Linebreak => ctx.template.linebreak(),
+            Self::Parbreak => ctx.template.parbreak(),
+            Self::Strong => ctx.template.modify(|s| s.text_mut().strong.flip()),
+            Self::Emph => ctx.template.modify(|s| s.text_mut().emph.flip()),
             Self::Text(text) => ctx.template.text(text),
             Self::Raw(raw) => raw.walk(ctx)?,
+            Self::Math(math) => math.walk(ctx)?,
             Self::Heading(heading) => heading.walk(ctx)?,
             Self::List(list) => list.walk(ctx)?,
             Self::Enum(enum_) => enum_.walk(ctx)?,
@@ -67,16 +68,32 @@ impl Walk for RawNode {
     }
 }
 
+impl Walk for MathNode {
+    fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
+        if self.display {
+            ctx.template.parbreak();
+        }
+
+        ctx.template.monospace(self.formula.trim());
+
+        if self.display {
+            ctx.template.parbreak();
+        }
+
+        Ok(())
+    }
+}
+
 impl Walk for HeadingNode {
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
-        let level = self.level;
-        let body = self.body.eval(ctx)?;
+        let level = self.level();
+        let body = self.body().eval(ctx)?;
 
         ctx.template.parbreak();
         ctx.template.save();
         ctx.template.modify(move |style| {
             let text = style.text_mut();
-            let upscale = 1.6 - 0.1 * level as f64;
+            let upscale = (1.6 - 0.1 * level as f64).max(0.75);
             text.size *= upscale;
             text.strong = true;
         });
@@ -90,7 +107,7 @@ impl Walk for HeadingNode {
 
 impl Walk for ListNode {
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
-        let body = self.body.eval(ctx)?;
+        let body = self.body().eval(ctx)?;
         walk_item(ctx, Str::from('•'), body);
         Ok(())
     }
@@ -98,8 +115,8 @@ impl Walk for ListNode {
 
 impl Walk for EnumNode {
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
-        let body = self.body.eval(ctx)?;
-        let label = format_str!("{}.", self.number.unwrap_or(1));
+        let body = self.body().eval(ctx)?;
+        let label = format_str!("{}.", self.number().unwrap_or(1));
         walk_item(ctx, label, body);
         Ok(())
     }

@@ -100,7 +100,7 @@ impl<T> Trace<T> for TypResult<T> {
     {
         self.map_err(|mut errors| {
             for error in errors.iter_mut() {
-                if !span.contains(error.span) {
+                if !span.surrounds(error.span) {
                     error.trace.push(Spanned::new(make_point(), span));
                 }
             }

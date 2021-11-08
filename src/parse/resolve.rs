@@ -1,5 +1,5 @@
-use super::{is_newline, Scanner};
-use crate::syntax::{Ident, RawNode, Span};
+use super::{is_ident, is_newline, Scanner};
+use crate::syntax::ast::RawNode;
 use crate::util::EcoString;
 
 /// Resolve all escape sequences in a string.
@@ -25,11 +25,9 @@ pub fn resolve_string(string: &str) -> EcoString {
                 let sequence = s.eat_while(|c| c.is_ascii_hexdigit());
                 let _terminated = s.eat_if('}');
 
-                if let Some(c) = resolve_hex(sequence) {
-                    out.push(c);
-                } else {
-                    // TODO: Feedback that unicode escape sequence is wrong.
-                    out.push_str(s.eaten_from(start));
+                match resolve_hex(sequence) {
+                    Some(c) => out.push(c),
+                    None => out.push_str(s.eaten_from(start)),
                 }
             }
 
@@ -48,19 +46,17 @@ pub fn resolve_hex(sequence: &str) -> Option<char> {
 }
 
 /// Resolve the language tag and trims the raw text.
-pub fn resolve_raw(span: Span, column: usize, backticks: usize, text: &str) -> RawNode {
+pub fn resolve_raw(column: usize, backticks: usize, text: &str) -> RawNode {
     if backticks > 1 {
         let (tag, inner) = split_at_lang_tag(text);
         let (text, block) = trim_and_split_raw(column, inner);
         RawNode {
-            span,
-            lang: Ident::new(tag, span.with_end(span.start + tag.len())),
+            lang: is_ident(tag).then(|| tag.into()),
             text: text.into(),
             block,
         }
     } else {
         RawNode {
-            span,
             lang: None,
             text: split_lines(text).join("\n").into(),
             block: false,
@@ -140,7 +136,6 @@ fn split_lines(text: &str) -> Vec<&str> {
 #[cfg(test)]
 #[rustfmt::skip]
 mod tests {
-    use crate::syntax::Span;
     use super::*;
 
     #[test]
@@ -190,7 +185,7 @@ mod tests {
             text: &str,
             block: bool,
         ) {
-            let node = resolve_raw(Span::detached(), column, backticks, raw);
+            let node = resolve_raw(column, backticks, raw);
             assert_eq!(node.lang.as_deref(), lang);
             assert_eq!(node.text, text);
             assert_eq!(node.block, block);

@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
-use std::ops::{Add, Range};
+use std::ops::Range;
 
 use serde::{Deserialize, Serialize};
 
@@ -53,23 +53,19 @@ pub struct Span {
     /// The id of the source file.
     pub source: SourceId,
     /// The inclusive start position.
-    pub start: Pos,
+    pub start: usize,
     /// The inclusive end position.
-    pub end: Pos,
+    pub end: usize,
 }
 
 impl Span {
     /// Create a new span from start and end positions.
-    pub fn new(source: SourceId, start: impl Into<Pos>, end: impl Into<Pos>) -> Self {
-        Self {
-            source,
-            start: start.into(),
-            end: end.into(),
-        }
+    pub fn new(source: SourceId, start: usize, end: usize) -> Self {
+        Self { source, start, end }
     }
 
     /// Create a span including just a single position.
-    pub fn at(source: SourceId, pos: impl Into<Pos> + Copy) -> Self {
+    pub fn at(source: SourceId, pos: usize) -> Self {
         Self::new(source, pos, pos)
     }
 
@@ -77,19 +73,34 @@ impl Span {
     pub fn detached() -> Self {
         Self {
             source: SourceId::from_raw(0),
-            start: Pos::ZERO,
-            end: Pos::ZERO,
+            start: 0,
+            end: 0,
         }
     }
 
     /// Create a span with a different start position.
-    pub fn with_start(self, start: impl Into<Pos>) -> Self {
-        Self { start: start.into(), ..self }
+    pub fn with_start(self, start: usize) -> Self {
+        Self { start, ..self }
     }
 
     /// Create a span with a different end position.
-    pub fn with_end(self, end: impl Into<Pos>) -> Self {
-        Self { end: end.into(), ..self }
+    pub fn with_end(self, end: usize) -> Self {
+        Self { end, ..self }
+    }
+
+    /// The byte length of the spanned region.
+    pub fn len(self) -> usize {
+        self.end - self.start
+    }
+
+    /// A new span at the position of this span's start.
+    pub fn at_start(&self) -> Span {
+        Self::at(self.source, self.start)
+    }
+
+    /// A new span at the position of this span's end.
+    pub fn at_end(&self) -> Span {
+        Self::at(self.source, self.end)
     }
 
     /// Create a new span with the earlier start and later end position.
@@ -109,14 +120,19 @@ impl Span {
         *self = self.join(other)
     }
 
+    /// Test whether a position is within the span.
+    pub fn contains(&self, pos: usize) -> bool {
+        self.start <= pos && self.end >= pos
+    }
+
     /// Test whether one span complete contains the other span.
-    pub fn contains(self, other: Self) -> bool {
+    pub fn surrounds(self, other: Self) -> bool {
         self.source == other.source && self.start <= other.start && self.end >= other.end
     }
 
-    /// Convert to a `Range<Pos>` for indexing.
+    /// Convert to a `Range<usize>` for indexing.
     pub fn to_range(self) -> Range<usize> {
-        self.start.to_usize() .. self.end.to_usize()
+        self.start .. self.end
     }
 }
 
@@ -133,79 +149,5 @@ impl PartialOrd for Span {
         } else {
             None
         }
-    }
-}
-
-/// A byte position in source code.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct Pos(pub u32);
-
-impl Pos {
-    /// The zero position.
-    pub const ZERO: Self = Self(0);
-
-    /// Convert to a usize for indexing.
-    pub fn to_usize(self) -> usize {
-        self.0 as usize
-    }
-}
-
-impl Debug for Pos {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Debug::fmt(&self.0, f)
-    }
-}
-
-impl From<u32> for Pos {
-    fn from(index: u32) -> Self {
-        Self(index)
-    }
-}
-
-impl From<usize> for Pos {
-    fn from(index: usize) -> Self {
-        Self(index as u32)
-    }
-}
-
-impl<T> Add<T> for Pos
-where
-    T: Into<Pos>,
-{
-    type Output = Self;
-
-    fn add(self, rhs: T) -> Self {
-        Pos(self.0 + rhs.into().0)
-    }
-}
-
-/// Convert a position or range into a span.
-pub trait IntoSpan {
-    /// Convert into a span by providing the source id.
-    fn into_span(self, source: SourceId) -> Span;
-}
-
-impl IntoSpan for Span {
-    fn into_span(self, source: SourceId) -> Span {
-        debug_assert_eq!(self.source, source);
-        self
-    }
-}
-
-impl IntoSpan for Pos {
-    fn into_span(self, source: SourceId) -> Span {
-        Span::new(source, self, self)
-    }
-}
-
-impl IntoSpan for usize {
-    fn into_span(self, source: SourceId) -> Span {
-        Span::new(source, self, self)
-    }
-}
-
-impl IntoSpan for Range<usize> {
-    fn into_span(self, source: SourceId) -> Span {
-        Span::new(source, self.start, self.end)
     }
 }

@@ -57,6 +57,52 @@
 }
 
 ---
+// Import bindings.
+{
+  let b = "target.typ"
+  let f() = {
+    import b from b
+    b
+  }
+  test(f(), 1)
+}
+
+---
+// For loop bindings.
+{
+  let v = (1, 2, 3)
+  let s = 0
+  let f() = {
+    for v in v { s += v }
+  }
+  f()
+  test(s, 6)
+}
+
+---
+// Let + closure bindings.
+{
+  let g = "hi"
+  let f() = {
+    let g() = "bye"
+    g()
+  }
+  test(f(), "bye")
+}
+
+---
+// Parameter bindings.
+{
+  let x = 5
+  let g() = {
+    let f(x, y: x) = x + y
+    f
+  }
+
+  test(g()(8), 13)
+}
+
+---
 // Don't leak environment.
 {
   // Error: 16-17 unknown variable

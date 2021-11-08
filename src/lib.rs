@@ -20,7 +20,7 @@
 //!
 //! [tokens]: parse::Tokens
 //! [parsed]: parse::parse
-//! [markup]: syntax::Markup
+//! [markup]: syntax::ast::Markup
 //! [evaluate]: eval::eval
 //! [module]: eval::Module
 //! [layout tree]: layout::LayoutTree
@@ -58,7 +58,6 @@ use crate::layout::{EvictionPolicy, LayoutCache};
 use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
 use crate::style::Style;
-use crate::syntax::Markup;
 
 /// The core context which holds the loader, configuration and cached artifacts.
 pub struct Context {
@@ -100,14 +99,9 @@ impl Context {
         &self.style
     }
 
-    /// Parse a source file and return the resulting markup.
-    pub fn parse(&mut self, id: SourceId) -> TypResult<Markup> {
-        parse::parse(self.sources.get(id))
-    }
-
     /// Evaluate a source file and return the resulting module.
     pub fn evaluate(&mut self, id: SourceId) -> TypResult<Module> {
-        let ast = self.parse(id)?;
+        let ast = self.sources.get(id).ast()?;
         eval::eval(self, id, &ast)
     }
 

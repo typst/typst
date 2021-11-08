@@ -1,250 +1,216 @@
-use std::ops::Range;
+use std::mem;
 
 use super::{TokenMode, Tokens};
-use crate::diag::Error;
-use crate::source::{SourceFile, SourceId};
-use crate::syntax::{IntoSpan, Pos, Span, Token};
+use crate::syntax::{ErrorPos, Green, GreenData, GreenNode, NodeKind};
+use crate::util::EcoString;
+
+/// Allows parser methods to use the try operator. Not exposed as the parser
+/// recovers from all errors.
+pub(crate) type ParseResult<T = ()> = Result<T, ()>;
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
-    /// The parsed file.
-    source: &'s SourceFile,
-    /// Parsing errors.
-    errors: Vec<Error>,
     /// An iterator over the source tokens.
     tokens: Tokens<'s>,
+    /// Whether we are at the end of the file or of a group.
+    eof: bool,
+    /// The current token.
+    current: Option<NodeKind>,
+    /// The end byte index of the last non-trivia token.
+    prev_end: usize,
+    /// The start byte index of the peeked token.
+    current_start: usize,
     /// The stack of open groups.
     groups: Vec<GroupEntry>,
-    /// The next token.
-    next: Option<Token<'s>>,
-    /// The peeked token.
-    /// (Same as `next` except if we are at the end of group, then `None`).
-    peeked: Option<Token<'s>>,
-    /// The end index of the last (non-whitespace if in code mode) token.
-    prev_end: usize,
-    /// The start index of the peeked token.
-    next_start: usize,
-}
-
-/// A logical group of tokens, e.g. `[...]`.
-struct GroupEntry {
-    /// The kind of group this is. This decides which tokens will end the group.
-    /// For example, a [`Group::Paren`] will be ended by
-    /// [`Token::RightParen`].
-    pub kind: Group,
-    /// The start index of the group. Used by `Parser::end_group` to return the
-    /// group's full span.
-    pub start: usize,
-    /// The mode the parser was in _before_ the group started (to which we go
-    /// back once the group ends).
-    pub prev_mode: TokenMode,
-}
-
-/// A group, confined by optional start and end delimiters.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Group {
-    /// A parenthesized group: `(...)`.
-    Paren,
-    /// A bracketed group: `[...]`.
-    Bracket,
-    /// A curly-braced group: `{...}`.
-    Brace,
-    /// A group ended by a semicolon or a line break: `;`, `\n`.
-    Stmt,
-    /// A group for a single expression, ended by a line break.
-    Expr,
-    /// A group for import items, ended by a semicolon, line break or `from`.
-    Imports,
+    /// The children of the currently built node.
+    children: Vec<Green>,
 }
 
 impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
-    pub fn new(source: &'s SourceFile) -> Self {
-        let mut tokens = Tokens::new(source.src(), TokenMode::Markup);
-        let next = tokens.next();
+    pub fn new(src: &'s str) -> Self {
+        let mut tokens = Tokens::new(src, TokenMode::Markup);
+        let current = tokens.next();
         Self {
-            source,
-            errors: vec![],
             tokens,
-            groups: vec![],
-            next,
-            peeked: next,
+            eof: current.is_none(),
+            current,
             prev_end: 0,
-            next_start: 0,
+            current_start: 0,
+            groups: vec![],
+            children: vec![],
         }
     }
 
-    /// Finish parsing and return all errors.
-    pub fn finish(self) -> Vec<Error> {
-        self.errors
+    /// End the parsing process and return the last child.
+    pub fn finish(self) -> Vec<Green> {
+        self.children
     }
 
-    /// The id of the parsed source file.
-    pub fn id(&self) -> SourceId {
-        self.source.id()
+    /// Create a new marker.
+    pub fn marker(&mut self) -> Marker {
+        Marker(self.children.len())
+    }
+
+    /// Create a markup right before the trailing trivia.
+    pub fn trivia_start(&self) -> Marker {
+        let count = self
+            .children
+            .iter()
+            .rev()
+            .take_while(|node| self.is_trivia(node.kind()))
+            .count();
+        Marker(self.children.len() - count)
+    }
+
+    /// Perform a subparse that wraps its result in a node with the given kind.
+    pub fn perform<F, T>(&mut self, kind: NodeKind, f: F) -> T
+    where
+        F: FnOnce(&mut Self) -> T,
+    {
+        let prev = mem::take(&mut self.children);
+        let output = f(self);
+        let until = self.trivia_start();
+        let mut children = mem::replace(&mut self.children, prev);
+
+        if self.tokens.mode() == TokenMode::Code {
+            // Trailing trivia should not be wrapped into the new node.
+            let idx = self.children.len();
+            self.children.push(Green::default());
+            self.children.extend(children.drain(until.0 ..));
+            self.children[idx] = GreenNode::with_children(kind, children).into();
+        } else {
+            self.children.push(GreenNode::with_children(kind, children).into());
+        }
+
+        output
     }
 
     /// Whether the end of the source string or group is reached.
     pub fn eof(&self) -> bool {
-        self.peek().is_none()
+        self.eof
     }
 
-    /// Consume the next token.
-    pub fn eat(&mut self) -> Option<Token<'s>> {
-        let token = self.peek()?;
+    /// Consume the current token and also trailing trivia.
+    pub fn eat(&mut self) {
+        self.prev_end = self.tokens.index();
         self.bump();
-        Some(token)
-    }
 
-    /// Eat the next token and return its source range.
-    pub fn eat_span(&mut self) -> Span {
-        let start = self.next_start();
-        self.eat();
-        Span::new(self.id(), start, self.prev_end())
-    }
-
-    /// Consume the next token if it is the given one.
-    pub fn eat_if(&mut self, t: Token) -> bool {
-        if self.peek() == Some(t) {
-            self.bump();
-            true
-        } else {
-            false
+        if self.tokens.mode() == TokenMode::Code {
+            // Skip whitespace and comments.
+            while self.current.as_ref().map_or(false, |x| self.is_trivia(x)) {
+                self.bump();
+            }
         }
+
+        self.repeek();
     }
 
-    /// Consume the next token if the closure maps it a to `Some`-variant.
-    pub fn eat_map<T, F>(&mut self, f: F) -> Option<T>
-    where
-        F: FnOnce(Token<'s>) -> Option<T>,
-    {
-        let token = self.peek()?;
-        let mapped = f(token);
-        if mapped.is_some() {
-            self.bump();
+    /// Eat if the current token it is the given one.
+    pub fn eat_if(&mut self, t: &NodeKind) -> bool {
+        let at = self.at(t);
+        if at {
+            self.eat();
         }
-        mapped
+        at
     }
 
-    /// Consume the next token if it is the given one and produce an error if
-    /// not.
-    pub fn eat_expect(&mut self, t: Token) -> bool {
+    /// Eat if the current token is the given one and produce an error if not.
+    pub fn eat_expect(&mut self, t: &NodeKind) -> ParseResult {
         let eaten = self.eat_if(t);
         if !eaten {
-            self.expected_at(self.prev_end(), t.name());
+            self.expected_at(t.as_str());
         }
-        eaten
+        if eaten { Ok(()) } else { Err(()) }
     }
 
-    /// Consume the next token, debug-asserting that it is one of the given ones.
-    pub fn eat_assert(&mut self, t: Token) {
-        let next = self.eat();
-        debug_assert_eq!(next, Some(t));
+    /// Eat, debug-asserting that the token is the given one.
+    pub fn eat_assert(&mut self, t: &NodeKind) {
+        debug_assert_eq!(self.peek(), Some(t));
+        self.eat();
     }
 
-    /// Consume tokens while the condition is true.
+    /// Eat tokens while the condition is true.
     pub fn eat_while<F>(&mut self, mut f: F)
     where
-        F: FnMut(Token<'s>) -> bool,
+        F: FnMut(&NodeKind) -> bool,
     {
         while self.peek().map_or(false, |t| f(t)) {
             self.eat();
         }
     }
 
-    /// Peek at the next token without consuming it.
-    pub fn peek(&self) -> Option<Token<'s>> {
-        self.peeked
+    /// Eat the current token, but change its type.
+    pub fn convert(&mut self, kind: NodeKind) {
+        let marker = self.marker();
+        self.eat();
+        marker.convert(self, kind);
     }
 
-    /// Peek at the next token if it follows immediately after the last one
-    /// without any whitespace in between.
-    pub fn peek_direct(&self) -> Option<Token<'s>> {
-        if self.next_start() == self.prev_end() {
-            self.peeked
+    /// Whether the current token is of the given type.
+    pub fn at(&self, kind: &NodeKind) -> bool {
+        self.peek() == Some(kind)
+    }
+
+    /// Peek at the current token without consuming it.
+    pub fn peek(&self) -> Option<&NodeKind> {
+        if self.eof { None } else { self.current.as_ref() }
+    }
+
+    /// Peek at the current token, if it follows immediately after the last one
+    /// without any trivia in between.
+    pub fn peek_direct(&self) -> Option<&NodeKind> {
+        if self.prev_end() == self.current_start() {
+            self.peek()
         } else {
             None
         }
     }
 
-    /// Peek at the span of the next token.
-    ///
-    /// Has length zero if `peek()` returns `None`.
-    pub fn peek_span(&self) -> Span {
-        Span::new(self.id(), self.next_start(), self.next_end())
-    }
-
-    /// Peek at the source of the next token.
+    /// Peek at the source of the current token.
     pub fn peek_src(&self) -> &'s str {
-        self.get(self.next_start() .. self.next_end())
+        self.tokens.scanner().get(self.current_start() .. self.current_end())
     }
 
-    /// Checks whether the next token fulfills a condition.
-    ///
-    /// Returns `false` if there is no next token.
-    pub fn check<F>(&self, f: F) -> bool
-    where
-        F: FnOnce(Token<'s>) -> bool,
-    {
-        self.peek().map_or(false, f)
-    }
-
-    /// The byte index at which the last token ended.
-    ///
-    /// Refers to the end of the last _non-whitespace_ token in code mode.
+    /// The byte index at which the last non-trivia token ended.
     pub fn prev_end(&self) -> usize {
         self.prev_end
     }
 
-    /// The byte index at which the next token starts.
-    pub fn next_start(&self) -> usize {
-        self.next_start
+    /// The byte index at which the current token starts.
+    pub fn current_start(&self) -> usize {
+        self.current_start
     }
 
-    /// The byte index at which the next token will end.
-    ///
-    /// Is the same as [`next_start()`][Self::next_start] if `peek()` returns
-    /// `None`.
-    pub fn next_end(&self) -> usize {
+    /// The byte index at which the current token ends.
+    pub fn current_end(&self) -> usize {
         self.tokens.index()
     }
 
     /// Determine the column index for the given byte index.
     pub fn column(&self, index: usize) -> usize {
-        self.source.byte_to_column(index).unwrap()
-    }
-
-    /// Slice out part of the source string.
-    pub fn get(&self, range: Range<usize>) -> &'s str {
-        self.source.get(range).unwrap()
-    }
-
-    /// The span from `start` to [`self.prev_end()`](Self::prev_end).
-    pub fn span_from(&self, start: impl Into<Pos>) -> Span {
-        Span::new(self.id(), start, self.prev_end())
+        self.tokens.scanner().column(index)
     }
 
     /// Continue parsing in a group.
     ///
     /// When the end delimiter of the group is reached, all subsequent calls to
-    /// `eat()` and `peek()` return `None`. Parsing can only continue with
-    /// a matching call to `end_group`.
+    /// `peek()` return `None`. Parsing can only continue with a matching call
+    /// to `end_group`.
     ///
-    /// This panics if the next token does not start the given group.
-    pub fn start_group(&mut self, kind: Group, mode: TokenMode) {
-        self.groups.push(GroupEntry {
-            kind,
-            start: self.next_start(),
-            prev_mode: self.tokens.mode(),
+    /// This panics if the current token does not start the given group.
+    pub fn start_group(&mut self, kind: Group) {
+        self.groups.push(GroupEntry { kind, prev_mode: self.tokens.mode() });
+        self.tokens.set_mode(match kind {
+            Group::Bracket => TokenMode::Markup,
+            _ => TokenMode::Code,
         });
 
-        self.tokens.set_mode(mode);
         self.repeek();
-
         match kind {
-            Group::Paren => self.eat_assert(Token::LeftParen),
-            Group::Bracket => self.eat_assert(Token::LeftBracket),
-            Group::Brace => self.eat_assert(Token::LeftBrace),
+            Group::Paren => self.eat_assert(&NodeKind::LeftParen),
+            Group::Bracket => self.eat_assert(&NodeKind::LeftBracket),
+            Group::Brace => self.eat_assert(&NodeKind::LeftBrace),
             Group::Stmt => {}
             Group::Expr => {}
             Group::Imports => {}
@@ -254,121 +220,88 @@ impl<'s> Parser<'s> {
     /// End the parsing of a group.
     ///
     /// This panics if no group was started.
-    pub fn end_group(&mut self) -> Span {
-        let prev_mode = self.tokens.mode();
+    pub fn end_group(&mut self) {
+        let group_mode = self.tokens.mode();
         let group = self.groups.pop().expect("no started group");
         self.tokens.set_mode(group.prev_mode);
         self.repeek();
 
-        let mut rescan = self.tokens.mode() != prev_mode;
+        let mut rescan = self.tokens.mode() != group_mode;
 
         // Eat the end delimiter if there is one.
         if let Some((end, required)) = match group.kind {
-            Group::Paren => Some((Token::RightParen, true)),
-            Group::Bracket => Some((Token::RightBracket, true)),
-            Group::Brace => Some((Token::RightBrace, true)),
-            Group::Stmt => Some((Token::Semicolon, false)),
+            Group::Paren => Some((NodeKind::RightParen, true)),
+            Group::Bracket => Some((NodeKind::RightBracket, true)),
+            Group::Brace => Some((NodeKind::RightBrace, true)),
+            Group::Stmt => Some((NodeKind::Semicolon, false)),
             Group::Expr => None,
             Group::Imports => None,
         } {
-            if self.next == Some(end) {
+            if self.current.as_ref() == Some(&end) {
                 // Bump the delimeter and return. No need to rescan in this case.
-                self.bump();
+                self.eat();
                 rescan = false;
             } else if required {
-                self.error(
-                    self.next_start() .. self.next_start(),
-                    format!("expected {}", end.name()),
-                );
+                self.push_error(format!("expected {}", end));
             }
         }
 
         // Rescan the peeked token if the mode changed.
         if rescan {
-            self.tokens.jump(self.prev_end());
-            self.bump();
-        }
-
-        Span::new(self.id(), group.start, self.prev_end())
-    }
-
-    /// Add an error with location and message.
-    pub fn error(&mut self, span: impl IntoSpan, message: impl Into<String>) {
-        self.errors.push(Error::new(span.into_span(self.id()), message));
-    }
-
-    /// Add an error that `what` was expected at the given span.
-    pub fn expected_at(&mut self, span: impl IntoSpan, what: &str) {
-        self.error(span, format!("expected {}", what));
-    }
-
-    /// Eat the next token and add an error that it is not the expected `thing`.
-    pub fn expected(&mut self, what: &str) {
-        let before = self.next_start();
-        if let Some(found) = self.eat() {
-            let after = self.prev_end();
-            self.error(
-                before .. after,
-                format!("expected {}, found {}", what, found.name()),
-            );
-        } else {
-            self.expected_at(self.next_start(), what);
-        }
-    }
-
-    /// Eat the next token and add an error that it is unexpected.
-    pub fn unexpected(&mut self) {
-        let before = self.next_start();
-        if let Some(found) = self.eat() {
-            let after = self.prev_end();
-            self.error(before .. after, format!("unexpected {}", found.name()));
-        }
-    }
-
-    /// Move to the next token.
-    fn bump(&mut self) {
-        self.prev_end = self.tokens.index().into();
-        self.next_start = self.tokens.index().into();
-        self.next = self.tokens.next();
-
-        if self.tokens.mode() == TokenMode::Code {
-            // Skip whitespace and comments.
-            while match self.next {
-                Some(Token::Space(n)) => n < 1 || !self.stop_at_newline(),
-                Some(Token::LineComment(_)) => true,
-                Some(Token::BlockComment(_)) => true,
-                _ => false,
-            } {
-                self.next_start = self.tokens.index().into();
-                self.next = self.tokens.next();
+            if group_mode == TokenMode::Code {
+                self.children.truncate(self.trivia_start().0);
             }
-        }
 
-        self.repeek();
+            self.tokens.jump(self.prev_end());
+            self.prev_end = self.tokens.index();
+            self.current_start = self.tokens.index();
+            self.current = self.tokens.next();
+            self.repeek();
+        }
     }
 
-    /// Take another look at the next token to recheck whether it ends a group.
+    /// Low-level bump that consumes exactly one token without special trivia
+    /// handling.
+    fn bump(&mut self) {
+        let kind = self.current.take().unwrap();
+        let len = self.tokens.index() - self.current_start;
+        self.children.push(GreenData::new(kind, len).into());
+        self.current_start = self.tokens.index();
+        self.current = self.tokens.next();
+    }
+
+    /// Take another look at the current token to recheck whether it ends a
+    /// group.
     fn repeek(&mut self) {
-        self.peeked = self.next;
-        let token = match self.next {
-            Some(token) => token,
-            None => return,
+        self.eof = match &self.current {
+            Some(NodeKind::RightParen) => self.inside(Group::Paren),
+            Some(NodeKind::RightBracket) => self.inside(Group::Bracket),
+            Some(NodeKind::RightBrace) => self.inside(Group::Brace),
+            Some(NodeKind::Semicolon) => self.inside(Group::Stmt),
+            Some(NodeKind::From) => self.inside(Group::Imports),
+            Some(NodeKind::Space(n)) => *n >= 1 && self.stop_at_newline(),
+            Some(_) => false,
+            None => true,
         };
+    }
 
-        if match token {
-            Token::RightParen => self.inside(Group::Paren),
-            Token::RightBracket => self.inside(Group::Bracket),
-            Token::RightBrace => self.inside(Group::Brace),
-            Token::Semicolon => self.inside(Group::Stmt),
-            Token::From => self.inside(Group::Imports),
-            Token::Space(n) => n >= 1 && self.stop_at_newline(),
+    /// Returns whether the given type can be skipped over.
+    fn is_trivia(&self, token: &NodeKind) -> bool {
+        Self::is_trivia_ext(token, self.stop_at_newline())
+    }
+
+    /// Returns whether the given type can be skipped over given the current
+    /// newline mode.
+    fn is_trivia_ext(token: &NodeKind, stop_at_newline: bool) -> bool {
+        match token {
+            NodeKind::Space(n) => *n == 0 || !stop_at_newline,
+            NodeKind::LineComment => true,
+            NodeKind::BlockComment => true,
             _ => false,
-        } {
-            self.peeked = None;
         }
     }
 
-    /// Whether the active group ends at a newline.
+    /// Whether the active group must end at a newline.
     fn stop_at_newline(&self) -> bool {
         matches!(
             self.groups.last().map(|group| group.kind),
@@ -380,4 +313,135 @@ impl<'s> Parser<'s> {
     fn inside(&self, kind: Group) -> bool {
         self.groups.iter().any(|g| g.kind == kind)
     }
+}
+
+/// Error handling.
+impl Parser<'_> {
+    /// Push an error into the children list.
+    pub fn push_error(&mut self, msg: impl Into<EcoString>) {
+        let error = NodeKind::Error(ErrorPos::Full, msg.into());
+        self.children.push(GreenData::new(error, 0).into());
+    }
+
+    /// Eat the current token and add an error that it is unexpected.
+    pub fn unexpected(&mut self) {
+        match self.peek() {
+            Some(found) => {
+                let msg = format!("unexpected {}", found);
+                let error = NodeKind::Error(ErrorPos::Full, msg.into());
+                self.perform(error, Self::eat);
+            }
+            None => self.push_error("unexpected end of file"),
+        }
+    }
+
+    /// Eat the current token and add an error that it is not the expected `thing`.
+    pub fn expected(&mut self, thing: &str) {
+        match self.peek() {
+            Some(found) => {
+                let msg = format!("expected {}, found {}", thing, found);
+                let error = NodeKind::Error(ErrorPos::Full, msg.into());
+                self.perform(error, Self::eat);
+            }
+            None => self.expected_at(thing),
+        }
+    }
+
+    /// Add an error that the `thing` was expected at the end of the last
+    /// non-trivia token.
+    pub fn expected_at(&mut self, thing: &str) {
+        self.trivia_start().expected(self, thing);
+    }
+}
+
+/// A marker that indicates where a node may start.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct Marker(usize);
+
+impl Marker {
+    /// Perform a subparse that wraps all children after the marker in a node
+    /// with the given kind.
+    pub fn perform<T, F>(self, p: &mut Parser, kind: NodeKind, f: F) -> T
+    where
+        F: FnOnce(&mut Parser) -> T,
+    {
+        let success = f(p);
+        self.end(p, kind);
+        success
+    }
+
+    /// Wrap all children after the marker (excluding trailing trivia) in a node
+    /// with the given `kind`.
+    pub fn end(self, p: &mut Parser, kind: NodeKind) {
+        let until = p.trivia_start();
+        let children = p.children.drain(self.0 .. until.0).collect();
+        p.children
+            .insert(self.0, GreenNode::with_children(kind, children).into());
+    }
+
+    /// Wrap all children that do not fulfill the predicate in error nodes.
+    pub fn filter_children<F>(self, p: &mut Parser, f: F)
+    where
+        F: Fn(&Green) -> Result<(), &'static str>,
+    {
+        for child in &mut p.children[self.0 ..] {
+            if (p.tokens.mode() == TokenMode::Markup
+                || !Parser::is_trivia_ext(child.kind(), false))
+                && !child.kind().is_error()
+            {
+                if let Err(msg) = f(child) {
+                    let error = NodeKind::Error(ErrorPos::Full, msg.into());
+                    let inner = mem::take(child);
+                    *child = GreenNode::with_child(error, inner).into();
+                }
+            }
+        }
+    }
+
+    /// Insert an error message that `what` was expected at the marker position.
+    pub fn expected(self, p: &mut Parser, what: &str) {
+        let msg = format!("expected {}", what);
+        let error = NodeKind::Error(ErrorPos::Full, msg.into());
+        p.children.insert(self.0, GreenData::new(error, 0).into());
+    }
+
+    /// Peek at the child directly after the marker.
+    pub fn peek<'a>(self, p: &'a Parser) -> Option<&'a Green> {
+        p.children.get(self.0)
+    }
+
+    /// Convert the child directly after marker.
+    pub fn convert(self, p: &mut Parser, kind: NodeKind) {
+        if let Some(child) = p.children.get_mut(self.0) {
+            child.convert(kind);
+        }
+    }
+}
+
+/// A logical group of tokens, e.g. `[...]`.
+struct GroupEntry {
+    /// The kind of group this is. This decides which tokens will end the group.
+    /// For example, a [`Group::Paren`] will be ended by
+    /// [`Token::RightParen`].
+    pub kind: Group,
+    /// The mode the parser was in _before_ the group started (to which we go
+    /// back once the group ends).
+    pub prev_mode: TokenMode,
+}
+
+/// A group, confined by optional start and end delimiters.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Group {
+    /// A bracketed group: `[...]`.
+    Bracket,
+    /// A curly-braced group: `{...}`.
+    Brace,
+    /// A parenthesized group: `(...)`.
+    Paren,
+    /// A group ended by a semicolon or a line break: `;`, `\n`.
+    Stmt,
+    /// A group for a single expression, ended by a line break.
+    Expr,
+    /// A group for import items, ended by a semicolon, line break or `from`.
+    Imports,
 }

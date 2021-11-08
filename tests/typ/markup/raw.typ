@@ -55,5 +55,5 @@ The keyword ```rust let```.
 
 ---
 // Unterminated.
-// Error: 2:1 expected backtick(s)
+// Error: 2:1 expected 1 backtick
 `endless

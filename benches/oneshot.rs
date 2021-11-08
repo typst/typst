@@ -6,7 +6,7 @@ use typst::eval::eval;
 use typst::layout::layout;
 use typst::loading::MemLoader;
 use typst::parse::{parse, Scanner, TokenMode, Tokens};
-use typst::source::{SourceFile, SourceId};
+use typst::source::SourceId;
 use typst::Context;
 
 const SRC: &str = include_str!("bench.typ");
@@ -48,12 +48,12 @@ fn bench_tokenize(iai: &mut Iai) {
 }
 
 fn bench_parse(iai: &mut Iai) {
-    iai.run(|| parse(&SourceFile::detached(SRC)));
+    iai.run(|| parse(SRC));
 }
 
 fn bench_eval(iai: &mut Iai) {
     let (mut ctx, id) = context();
-    let ast = ctx.parse(id).unwrap();
+    let ast = ctx.sources.get(id).ast().unwrap();
     iai.run(|| eval(&mut ctx, id, &ast).unwrap());
 }
 

@@ -62,7 +62,7 @@
 #min(.."nope")
 
 ---
-// Error: 10-14 expected identifier
+// Error: 8-14 expected identifier
 #let f(..true) = none
 
 ---
@@ -70,9 +70,9 @@
 #let f(..a, ..b) = none
 
 ---
-// Error: 5-6 spreading is not allowed here
+// Error: 3-6 spreading is not allowed here
 {(..x)}
 
 ---
-// Error: 11-17 spreading is not allowed here
+// Error: 9-17 spreading is not allowed here
 {(1, 2, ..(1, 2))}

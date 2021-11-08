@@ -2,7 +2,7 @@
 
 use std::fmt::{self, Arguments, Write};
 
-use super::*;
+use super::ast::*;
 
 /// Pretty print an item and return the resulting string.
 pub fn pretty<T>(item: &T) -> String
@@ -46,20 +46,24 @@ impl Printer {
         Write::write_fmt(self, fmt)
     }
 
-    /// Write a list of items joined by a joiner.
-    pub fn join<T, I, F>(&mut self, items: I, joiner: &str, mut write_item: F)
+    /// Write a list of items joined by a joiner and return how many there were.
+    pub fn join<T, I, F>(&mut self, items: I, joiner: &str, mut write_item: F) -> usize
     where
         I: IntoIterator<Item = T>,
         F: FnMut(T, &mut Self),
     {
+        let mut count = 0;
         let mut iter = items.into_iter();
         if let Some(first) = iter.next() {
             write_item(first, self);
+            count += 1;
         }
         for item in iter {
             self.push_str(joiner);
             write_item(item, self);
+            count += 1;
         }
+        count
     }
 
     /// Finish pretty printing and return the underlying buffer.
@@ -77,7 +81,7 @@ impl Write for Printer {
 
 impl Pretty for Markup {
     fn pretty(&self, p: &mut Printer) {
-        for node in self {
+        for node in self.nodes() {
             node.pretty(p);
         }
     }
@@ -88,12 +92,13 @@ impl Pretty for MarkupNode {
         match self {
             // TODO: Handle escaping.
             Self::Space => p.push(' '),
-            Self::Linebreak(_) => p.push_str(r"\"),
-            Self::Parbreak(_) => p.push_str("\n\n"),
-            Self::Strong(_) => p.push('*'),
-            Self::Emph(_) => p.push('_'),
+            Self::Linebreak => p.push_str(r"\"),
+            Self::Parbreak => p.push_str("\n\n"),
+            Self::Strong => p.push('*'),
+            Self::Emph => p.push('_'),
             Self::Text(text) => p.push_str(text),
             Self::Raw(raw) => raw.pretty(p),
+            Self::Math(math) => math.pretty(p),
             Self::Heading(heading) => heading.pretty(p),
             Self::List(list) => list.pretty(p),
             Self::Enum(enum_) => enum_.pretty(p),
@@ -136,7 +141,7 @@ impl Pretty for RawNode {
 
         // Language tag.
         if let Some(lang) = &self.lang {
-            lang.pretty(p);
+            p.push_str(lang);
         }
 
         // Start untrimming.
@@ -163,38 +168,52 @@ impl Pretty for RawNode {
     }
 }
 
+impl Pretty for MathNode {
+    fn pretty(&self, p: &mut Printer) {
+        p.push('$');
+        if self.display {
+            p.push('[');
+        }
+        p.push_str(&self.formula);
+        if self.display {
+            p.push(']');
+        }
+        p.push('$');
+    }
+}
+
 impl Pretty for HeadingNode {
     fn pretty(&self, p: &mut Printer) {
-        for _ in 0 .. self.level {
+        for _ in 0 .. self.level() {
             p.push('=');
         }
         p.push(' ');
-        self.body.pretty(p);
+        self.body().pretty(p);
     }
 }
 
 impl Pretty for ListNode {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("- ");
-        self.body.pretty(p);
+        self.body().pretty(p);
     }
 }
 
 impl Pretty for EnumNode {
     fn pretty(&self, p: &mut Printer) {
-        if let Some(number) = self.number {
+        if let Some(number) = self.number() {
             write!(p, "{}", number).unwrap();
         }
         p.push_str(". ");
-        self.body.pretty(p);
+        self.body().pretty(p);
     }
 }
 
 impl Pretty for Expr {
     fn pretty(&self, p: &mut Printer) {
         match self {
-            Self::Ident(v) => v.pretty(p),
             Self::Lit(v) => v.pretty(p),
+            Self::Ident(v) => v.pretty(p),
             Self::Array(v) => v.pretty(p),
             Self::Dict(v) => v.pretty(p),
             Self::Template(v) => v.pretty(p),
@@ -217,17 +236,17 @@ impl Pretty for Expr {
 
 impl Pretty for Lit {
     fn pretty(&self, p: &mut Printer) {
-        match self {
-            Self::None(_) => p.push_str("none"),
-            Self::Auto(_) => p.push_str("auto"),
-            Self::Bool(_, v) => write!(p, "{}", v).unwrap(),
-            Self::Int(_, v) => write!(p, "{}", v).unwrap(),
-            Self::Float(_, v) => write!(p, "{}", v).unwrap(),
-            Self::Length(_, v, u) => write!(p, "{}{:?}", v, u).unwrap(),
-            Self::Angle(_, v, u) => write!(p, "{}{:?}", v, u).unwrap(),
-            Self::Percent(_, v) => write!(p, "{}%", v).unwrap(),
-            Self::Fractional(_, v) => write!(p, "{}fr", v).unwrap(),
-            Self::Str(_, v) => write!(p, "{:?}", v).unwrap(),
+        match self.kind() {
+            LitKind::None => p.push_str("none"),
+            LitKind::Auto => p.push_str("auto"),
+            LitKind::Bool(v) => write!(p, "{}", v).unwrap(),
+            LitKind::Int(v) => write!(p, "{}", v).unwrap(),
+            LitKind::Float(v) => write!(p, "{}", v).unwrap(),
+            LitKind::Length(v, u) => write!(p, "{}{:?}", v, u).unwrap(),
+            LitKind::Angle(v, u) => write!(p, "{}{:?}", v, u).unwrap(),
+            LitKind::Percent(v) => write!(p, "{}%", v).unwrap(),
+            LitKind::Fractional(v) => write!(p, "{}fr", v).unwrap(),
+            LitKind::Str(v) => write!(p, "{:?}", v).unwrap(),
         }
     }
 }
@@ -235,8 +254,10 @@ impl Pretty for Lit {
 impl Pretty for ArrayExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
-        p.join(&self.items, ", ", |item, p| item.pretty(p));
-        if self.items.len() == 1 {
+
+        let items = self.items();
+        let len = p.join(items, ", ", |item, p| item.pretty(p));
+        if len == 1 {
             p.push(',');
         }
         p.push(')');
@@ -246,10 +267,9 @@ impl Pretty for ArrayExpr {
 impl Pretty for DictExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
-        if self.items.is_empty() {
+        let len = p.join(self.items(), ", ", |named, p| named.pretty(p));
+        if len == 0 {
             p.push(':');
-        } else {
-            p.join(&self.items, ", ", |named, p| named.pretty(p));
         }
         p.push(')');
     }
@@ -257,16 +277,16 @@ impl Pretty for DictExpr {
 
 impl Pretty for Named {
     fn pretty(&self, p: &mut Printer) {
-        self.name.pretty(p);
+        self.name().pretty(p);
         p.push_str(": ");
-        self.expr.pretty(p);
+        self.expr().pretty(p);
     }
 }
 
 impl Pretty for TemplateExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('[');
-        self.body.pretty(p);
+        self.body().pretty(p);
         p.push(']');
     }
 }
@@ -274,7 +294,7 @@ impl Pretty for TemplateExpr {
 impl Pretty for GroupExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('(');
-        self.expr.pretty(p);
+        self.expr().pretty(p);
         p.push(')');
     }
 }
@@ -282,11 +302,11 @@ impl Pretty for GroupExpr {
 impl Pretty for BlockExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push('{');
-        if self.exprs.len() > 1 {
+        if self.exprs().count() > 1 {
             p.push(' ');
         }
-        p.join(&self.exprs, "; ", |expr, p| expr.pretty(p));
-        if self.exprs.len() > 1 {
+        let len = p.join(self.exprs(), "; ", |expr, p| expr.pretty(p));
+        if len > 1 {
             p.push(' ');
         }
         p.push('}');
@@ -295,11 +315,12 @@ impl Pretty for BlockExpr {
 
 impl Pretty for UnaryExpr {
     fn pretty(&self, p: &mut Printer) {
-        self.op.pretty(p);
-        if self.op == UnOp::Not {
+        let op = self.op();
+        op.pretty(p);
+        if op == UnOp::Not {
             p.push(' ');
         }
-        self.expr.pretty(p);
+        self.expr().pretty(p);
     }
 }
 
@@ -311,11 +332,11 @@ impl Pretty for UnOp {
 
 impl Pretty for BinaryExpr {
     fn pretty(&self, p: &mut Printer) {
-        self.lhs.pretty(p);
+        self.lhs().pretty(p);
         p.push(' ');
-        self.op.pretty(p);
+        self.op().pretty(p);
         p.push(' ');
-        self.rhs.pretty(p);
+        self.rhs().pretty(p);
     }
 }
 
@@ -327,7 +348,7 @@ impl Pretty for BinOp {
 
 impl Pretty for CallExpr {
     fn pretty(&self, p: &mut Printer) {
-        self.callee.pretty(p);
+        self.callee().pretty(p);
 
         let mut write_args = |items: &[CallArg]| {
             p.push('(');
@@ -335,7 +356,8 @@ impl Pretty for CallExpr {
             p.push(')');
         };
 
-        match self.args.items.as_slice() {
+        let args: Vec<_> = self.args().items().collect();
+        match args.as_slice() {
             // This can be moved behind the arguments.
             //
             // Example: Transforms "#v(a, [b])" => "#v(a)[b]".
@@ -345,7 +367,6 @@ impl Pretty for CallExpr {
                 }
                 template.pretty(p);
             }
-
             items => write_args(items),
         }
     }
@@ -353,7 +374,7 @@ impl Pretty for CallExpr {
 
 impl Pretty for CallArgs {
     fn pretty(&self, p: &mut Printer) {
-        p.join(&self.items, ", ", |item, p| item.pretty(p));
+        p.join(self.items(), ", ", |item, p| item.pretty(p));
     }
 }
 
@@ -372,15 +393,16 @@ impl Pretty for CallArg {
 
 impl Pretty for ClosureExpr {
     fn pretty(&self, p: &mut Printer) {
-        if let [param] = self.params.as_slice() {
+        let params: Vec<_> = self.params().collect();
+        if let [param] = params.as_slice() {
             param.pretty(p);
         } else {
             p.push('(');
-            p.join(self.params.iter(), ", ", |item, p| item.pretty(p));
+            p.join(params.iter(), ", ", |item, p| item.pretty(p));
             p.push(')');
         }
         p.push_str(" => ");
-        self.body.pretty(p);
+        self.body().pretty(p);
     }
 }
 
@@ -399,9 +421,9 @@ impl Pretty for ClosureParam {
 
 impl Pretty for WithExpr {
     fn pretty(&self, p: &mut Printer) {
-        self.callee.pretty(p);
+        self.callee().pretty(p);
         p.push_str(" with (");
-        self.args.pretty(p);
+        self.args().pretty(p);
         p.push(')');
     }
 }
@@ -409,13 +431,13 @@ impl Pretty for WithExpr {
 impl Pretty for LetExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("let ");
-        self.binding.pretty(p);
-        if let Some(Expr::Closure(closure)) = &self.init {
+        self.binding().pretty(p);
+        if let Some(Expr::Closure(closure)) = self.init() {
             p.push('(');
-            p.join(closure.params.iter(), ", ", |item, p| item.pretty(p));
+            p.join(closure.params(), ", ", |item, p| item.pretty(p));
             p.push_str(") = ");
-            closure.body.pretty(p);
-        } else if let Some(init) = &self.init {
+            closure.body().pretty(p);
+        } else if let Some(init) = self.init() {
             p.push_str(" = ");
             init.pretty(p);
         }
@@ -425,10 +447,10 @@ impl Pretty for LetExpr {
 impl Pretty for IfExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("if ");
-        self.condition.pretty(p);
+        self.condition().pretty(p);
         p.push(' ');
-        self.if_body.pretty(p);
-        if let Some(expr) = &self.else_body {
+        self.if_body().pretty(p);
+        if let Some(expr) = self.else_body() {
             p.push_str(" else ");
             expr.pretty(p);
         }
@@ -438,42 +460,40 @@ impl Pretty for IfExpr {
 impl Pretty for WhileExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("while ");
-        self.condition.pretty(p);
+        self.condition().pretty(p);
         p.push(' ');
-        self.body.pretty(p);
+        self.body().pretty(p);
     }
 }
 
 impl Pretty for ForExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("for ");
-        self.pattern.pretty(p);
+        self.pattern().pretty(p);
         p.push_str(" in ");
-        self.iter.pretty(p);
+        self.iter().pretty(p);
         p.push(' ');
-        self.body.pretty(p);
+        self.body().pretty(p);
     }
 }
 
 impl Pretty for ForPattern {
     fn pretty(&self, p: &mut Printer) {
-        match self {
-            Self::Value(v) => v.pretty(p),
-            Self::KeyValue(k, v) => {
-                k.pretty(p);
-                p.push_str(", ");
-                v.pretty(p);
-            }
+        if let Some(key) = self.key() {
+            key.pretty(p);
+            p.push_str(", ");
         }
+
+        self.value().pretty(p);
     }
 }
 
 impl Pretty for ImportExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("import ");
-        self.imports.pretty(p);
+        self.imports().pretty(p);
         p.push_str(" from ");
-        self.path.pretty(p);
+        self.path().pretty(p);
     }
 }
 
@@ -481,7 +501,9 @@ impl Pretty for Imports {
     fn pretty(&self, p: &mut Printer) {
         match self {
             Self::Wildcard => p.push('*'),
-            Self::Idents(idents) => p.join(idents, ", ", |item, p| item.pretty(p)),
+            Self::Items(idents) => {
+                p.join(idents, ", ", |item, p| item.pretty(p));
+            }
         }
     }
 }
@@ -489,20 +511,19 @@ impl Pretty for Imports {
 impl Pretty for IncludeExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("include ");
-        self.path.pretty(p);
+        self.path().pretty(p);
     }
 }
 
 impl Pretty for Ident {
     fn pretty(&self, p: &mut Printer) {
-        p.push_str(self.as_str());
+        p.push_str(self);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse::parse;
     use crate::source::SourceFile;
 
     #[track_caller]
@@ -513,7 +534,7 @@ mod tests {
     #[track_caller]
     fn test_parse(src: &str, expected: &str) {
         let source = SourceFile::detached(src);
-        let ast = parse(&source).unwrap();
+        let ast = source.ast().unwrap();
         let found = pretty(&ast);
         if found != expected {
             println!("tree:     {:#?}", ast);
@@ -551,6 +572,11 @@ mod tests {
         test_parse("``` 1```", "`1`");
         test_parse("``` 1 ```", "`1 `");
         test_parse("```` ` ````", "``` ` ```");
+
+        // Math node.
+        roundtrip("$$");
+        roundtrip("$a+b$");
+        roundtrip("$[ a^2 + b^2 = c^2 ]$");
     }
 
     #[test]

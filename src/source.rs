@@ -8,8 +8,11 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
+use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
-use crate::parse::{is_newline, Scanner};
+use crate::parse::{is_newline, parse, Scanner};
+use crate::syntax::ast::Markup;
+use crate::syntax::{GreenNode, RedNode};
 use crate::util::PathExt;
 
 #[cfg(feature = "codespan-reporting")]
@@ -124,6 +127,7 @@ pub struct SourceFile {
     path: PathBuf,
     src: String,
     line_starts: Vec<usize>,
+    root: Rc<GreenNode>,
 }
 
 impl SourceFile {
@@ -134,8 +138,20 @@ impl SourceFile {
         Self {
             id,
             path: path.normalize(),
+            root: parse(&src),
             src,
             line_starts,
+        }
+    }
+
+    /// The file's abstract syntax tree.
+    pub fn ast(&self) -> TypResult<Markup> {
+        let red = RedNode::from_root(self.root.clone(), self.id);
+        let errors = red.errors();
+        if errors.is_empty() {
+            Ok(red.cast().unwrap())
+        } else {
+            Err(Box::new(errors))
         }
     }
 
