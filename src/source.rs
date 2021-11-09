@@ -500,6 +500,8 @@ mod tests {
 
         // Test simple replacements.
         test("hello world", 6 .. 11, "wankers", true);
+        test("a d e", 1 .. 3, " b c d", true);
+        test("a #f() e", 1 .. 6, " b c d", false);
         test("{(0, 1, 2)}", 5 .. 6, "11pt", true);
         test("= A heading", 3 .. 3, "n evocative", true);
         test(
@@ -546,6 +548,8 @@ mod tests {
         test("x = y", 2 .. 2, "+ y \n ", false);
         test("abc\n= a heading", 3 .. 4, "\nsome more test\n\n", true);
         test("abc\n= a heading", 3 .. 4, "\nnot ", false);
+        test("hey #myfriend", 4 .. 4, "\\", false);
+        test("hey  #myfriend", 4 .. 4, "\\", true);
 
         // Test type invariants.
         test("#for x in array {x}", 16 .. 19, "[#x]", true);

@@ -240,6 +240,7 @@ impl GreenNode {
         let mut loop_result = None;
         let mut child_at_start = true;
         let last = self.children.len() - 1;
+        let mut start = None;
         for (i, child) in self.children.iter_mut().enumerate() {
             let child_span = Span::new(replace.source, offset, offset + child.len());
             if child_span.surrounds(replace) {
@@ -271,8 +272,45 @@ impl GreenNode {
                         Ok(p) => p,
                         _ => return false,
                     };
-                loop_result =
-                    Some((i, child_span, i == last && outermost, function, policy));
+                loop_result = Some((
+                    i .. i + 1,
+                    child_span,
+                    i == last && outermost,
+                    function,
+                    policy,
+                ));
+                break;
+            } else if child_span.contains(replace.start)
+                && mode == TokenMode::Markup
+                && child.kind().incremental_safety().markup_safe()
+            {
+                eprintln!("found safe start");
+                start = Some((i, offset));
+            } else if child_span.contains(replace.end)
+                && mode == TokenMode::Markup
+                && child.kind().incremental_safety().markup_safe()
+            {
+                eprintln!("found safe end");
+                if let Some((start, start_offset)) = start {
+                    let (function, policy) =
+                        match child.kind().reparsing_function(kind.mode().child_mode()) {
+                            Ok(p) => p,
+                            _ => return false,
+                        };
+                    loop_result = Some((
+                        start .. i + 1,
+                        Span::new(replace.source, start_offset, offset + child.len()),
+                        i == last && outermost,
+                        function,
+                        policy,
+                    ));
+                }
+                break;
+            } else if start.is_some()
+                && (mode != TokenMode::Markup
+                    || !child.kind().incremental_safety().markup_safe())
+            {
+                eprintln!("unsafe inbetweeen {:?}", child.kind());
                 break;
             }
 
@@ -283,7 +321,7 @@ impl GreenNode {
 
         // We now have a child that we can replace and a function to do so if
         // the loop found any results at all.
-        let (child_idx, child_span, child_outermost, func, policy) =
+        let (child_idx_range, child_span, child_outermost, func, policy) =
             if let Some(loop_result) = loop_result {
                 loop_result
             } else {
@@ -316,7 +354,7 @@ impl GreenNode {
             eprintln!("function failed");
             return false;
         };
-        let child_mode = self.children[child_idx].kind().mode().child_mode();
+        let child_mode = self.children[child_idx_range.start].kind().mode().child_mode();
         eprintln!("child mode {:?}", child_mode);
 
         // Check if the children / child has the right type.
@@ -340,7 +378,7 @@ impl GreenNode {
                 }
                 _ => false,
             } {
-                if self.children[child_idx].kind() != new_children[0].kind() {
+                if self.children[child_idx_range.start].kind() != new_children[0].kind() {
                     eprintln!("not the same kind");
                     return false;
                 }
@@ -361,8 +399,8 @@ impl GreenNode {
 
         // Check if the neighbor invariants are still true.
         if mode == TokenMode::Markup {
-            if child_idx > 0 {
-                if self.children[child_idx - 1].kind().incremental_safety()
+            if child_idx_range.start > 0 {
+                if self.children[child_idx_range.start - 1].kind().incremental_safety()
                     == IncrementalSafety::EnsureRightWhitespace
                     && !new_children[0].kind().is_whitespace()
                 {
@@ -376,7 +414,7 @@ impl GreenNode {
                 new_at_start = child.kind().is_at_start(new_at_start);
             }
 
-            for child in &self.children[child_idx + 1 ..] {
+            for child in &self.children[child_idx_range.end ..] {
                 if child.kind().is_trivia() {
                     new_at_start = child.kind().is_at_start(new_at_start);
                     continue;
@@ -393,14 +431,25 @@ impl GreenNode {
                 }
                 break;
             }
+
+            if new_children.last().map(|x| x.kind().incremental_safety())
+                == Some(IncrementalSafety::EnsureRightWhitespace)
+                && self.children.len() > child_idx_range.end
+            {
+                if !self.children[child_idx_range.end].kind().is_whitespace() {
+                    eprintln!("right whitespace missing");
+                    return false;
+                }
+            }
         }
 
         eprintln!("... replacing");
 
-        let old_len = self.children[child_idx].len();
+        let old_len: usize =
+            self.children[child_idx_range.clone()].iter().map(Green::len).sum();
         let new_len: usize = new_children.iter().map(Green::len).sum();
 
-        self.children.splice(child_idx .. child_idx + 1, new_children);
+        self.children.splice(child_idx_range, new_children);
         self.erroneous = self.children.iter().any(|x| x.erroneous());
         self.data.set_len(self.data.len + new_len - old_len);
         true
@@ -1376,6 +1425,16 @@ impl IncrementalSafety {
     pub fn is_unsafe(&self) -> bool {
         match self {
             Self::UnsafeLayer | Self::Unsafe => true,
+            _ => false,
+        }
+    }
+
+    pub fn markup_safe(&self) -> bool {
+        match self {
+            Self::Safe
+            | Self::SameKindInCode
+            | Self::EnsureAtStart
+            | Self::UnsafeLayer => true,
             _ => false,
         }
     }
