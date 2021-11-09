@@ -94,7 +94,7 @@ impl Green {
         replace: Span,
         replacement_len: usize,
         offset: usize,
-        parent_mode: NodeMode,
+        parent_mode: TokenMode,
         outermost: bool,
     ) -> bool {
         match self {
@@ -221,7 +221,7 @@ impl GreenNode {
             return false;
         }
 
-        self.incremental_int(src, replace, replacement_len, 0, NodeMode::Markup, true)
+        self.incremental_int(src, replace, replacement_len, 0, TokenMode::Markup, true)
     }
 
     fn incremental_int(
@@ -230,11 +230,11 @@ impl GreenNode {
         replace: Span,
         replacement_len: usize,
         mut offset: usize,
-        parent_mode: NodeMode,
+        parent_mode: TokenMode,
         outermost: bool,
     ) -> bool {
         let kind = self.kind().clone();
-        let mode = kind.mode().apply(parent_mode);
+        let mode = kind.mode().contextualize(parent_mode);
         eprintln!("in {:?} (mode {:?})", kind, mode);
 
         let mut loop_result = None;
@@ -266,15 +266,11 @@ impl GreenNode {
 
                 // This didn't work, so we try to replace the child at this
                 // level.
-                let (function, policy) = match child
-                    .kind()
-                    .reparsing_function(mode.child_mode().as_token_mode())
-                {
-                    Ok(p) => p,
-                    _ => {
-                        return false;
-                    }
-                };
+                let (function, policy) =
+                    match child.kind().reparsing_function(kind.mode().child_mode()) {
+                        Ok(p) => p,
+                        _ => return false,
+                    };
                 loop_result =
                     Some((i, child_span, i == last && outermost, function, policy));
                 break;
@@ -320,8 +316,7 @@ impl GreenNode {
             eprintln!("function failed");
             return false;
         };
-        let child_mode =
-            self.children[child_idx].kind().mode().child_mode().as_token_mode();
+        let child_mode = self.children[child_idx].kind().mode().child_mode();
         eprintln!("child mode {:?}", child_mode);
 
         // Check if the children / child has the right type.
@@ -365,7 +360,7 @@ impl GreenNode {
         }
 
         // Check if the neighbor invariants are still true.
-        if mode.as_token_mode() == TokenMode::Markup {
+        if mode == TokenMode::Markup {
             if child_idx > 0 {
                 if self.children[child_idx - 1].kind().incremental_safety()
                     == IncrementalSafety::EnsureRightWhitespace
@@ -1023,10 +1018,10 @@ impl NodeKind {
             return Err(policy);
         }
 
-        let mode = self.mode();
-        let is_code = mode == NodeMode::Universal && parent_mode == TokenMode::Code
-            || mode == NodeMode::Code;
-        if mode == NodeMode::Code && policy == IncrementalSafety::UnsafeLayer {
+        let contextualized = self.mode().contextualize(parent_mode);
+        let is_code = contextualized == TokenMode::Code;
+
+        if is_code && policy == IncrementalSafety::UnsafeLayer {
             return Err(policy);
         }
 
@@ -1047,12 +1042,9 @@ impl NodeKind {
             return Ok((parser, policy));
         }
 
-        let parser: fn(&str, bool) -> _ = match mode {
-            NodeMode::Markup if self == &Self::Markup => parse_markup,
-            NodeMode::Markup => parse_markup_elements,
-            NodeMode::Universal if parent_mode == TokenMode::Markup => {
-                parse_markup_elements
-            }
+        let parser: fn(&str, bool) -> _ = match contextualized {
+            TokenMode::Markup if self == &Self::Markup => parse_markup,
+            TokenMode::Markup => parse_markup_elements,
             _ => return Err(policy),
         };
 
@@ -1403,28 +1395,20 @@ pub enum NodeMode {
 
 impl NodeMode {
     /// Returns a new mode considering the parent node.
-    pub fn apply(&self, old: Self) -> Self {
+    pub fn contextualize(&self, old: TokenMode) -> TokenMode {
         match self {
-            Self::Markup => Self::Markup,
-            Self::Code => Self::Code,
-            Self::Universal if old != Self::Markup => Self::Code,
-            Self::Universal => Self::Universal,
-        }
-    }
-
-    /// Return the corresponding token mode.
-    pub fn as_token_mode(&self) -> TokenMode {
-        match self {
-            Self::Markup | Self::Universal => TokenMode::Markup,
+            Self::Markup => TokenMode::Markup,
             Self::Code => TokenMode::Code,
+            Self::Universal if old != TokenMode::Markup => TokenMode::Code,
+            Self::Universal => TokenMode::Markup,
         }
     }
 
     /// The mode of the children of this node.
-    pub fn child_mode(&self) -> Self {
+    pub fn child_mode(&self) -> TokenMode {
         match self {
-            Self::Markup => Self::Markup,
-            Self::Code | Self::Universal => Self::Code,
+            Self::Markup => TokenMode::Markup,
+            Self::Code | Self::Universal => TokenMode::Code,
         }
     }
 }

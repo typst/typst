@@ -772,6 +772,6 @@ fn comment(p: &mut Parser) -> ParseResult {
             p.eat();
             Ok(())
         }
-        _ => Err(()),
+        _ => Err(ParseError),
     }
 }

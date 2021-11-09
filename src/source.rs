@@ -286,20 +286,13 @@ impl SourceFile {
             .extend(newlines(&self.src[start ..]).map(|idx| start + idx));
 
         // Update the root node.
-        let insertion_span = Span::new(self.id, replace.start, replace.end);
-        let source = self.src().to_string();
-        if Rc::make_mut(&mut self.root).incremental(&source, insertion_span, with.len()) {
+        let span = Span::new(self.id, replace.start, replace.end);
+        if Rc::make_mut(&mut self.root).incremental(&self.src, span, with.len()) {
             self.was_incremental = true;
         } else {
-            self.root = parse(self.src());
+            self.root = parse(&self.src);
             self.was_incremental = false;
         }
-    }
-
-    /// Forces a non-incremental reparsing of the source file.
-    fn force_reparse(&mut self) {
-        self.root = parse(self.src());
-        self.was_incremental = false;
     }
 
     /// Provide highlighting categories for the given range of the source file.
@@ -499,8 +492,7 @@ mod tests {
             if incr {
                 assert!(source.was_incremental);
                 let incr_tree = source.root.clone();
-                source.force_reparse();
-                assert_eq!(source.root, incr_tree);
+                assert_eq!(parse(source.src()), incr_tree);
             } else {
                 assert!(!source.was_incremental);
             }
