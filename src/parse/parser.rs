@@ -48,9 +48,9 @@ impl<'s> Parser<'s> {
     }
 
     /// End the parsing process and return multiple children.
-    pub fn eject(self) -> Option<Vec<Green>> {
+    pub fn eject(self) -> Option<(Vec<Green>, bool)>{
         if self.eof() && self.group_success() {
-            Some(self.children)
+            Some((self.children, self.tokens.was_unterminated()))
         } else {
             None
         }
@@ -97,8 +97,9 @@ impl<'s> Parser<'s> {
 
     /// End the parsing process and return multiple children, even if there
     /// remains stuff in the string.
-    pub fn eject_partial(self) -> Option<Vec<Green>> {
-        self.group_success().then(|| self.children)
+    pub fn eject_partial(self) -> Option<(Vec<Green>, bool)> {
+        self.group_success()
+            .then(|| (self.children, self.tokens.was_unterminated()))
     }
 
     /// Whether the end of the source string or group is reached.

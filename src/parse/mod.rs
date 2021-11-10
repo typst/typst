@@ -26,14 +26,14 @@ pub fn parse(src: &str) -> Rc<GreenNode> {
 }
 
 /// Parse an atomic primary. Returns `Some` if all of the input was consumed.
-pub fn parse_atomic(src: &str, _: bool) -> Option<Vec<Green>> {
+pub fn parse_atomic(src: &str, _: bool) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(src, TokenMode::Code);
     primary(&mut p, true).ok()?;
     p.eject_partial()
 }
 
 /// Parse some markup. Returns `Some` if all of the input was consumed.
-pub fn parse_markup(src: &str, _: bool) -> Option<Vec<Green>> {
+pub fn parse_markup(src: &str, _: bool) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(src, TokenMode::Markup);
     markup(&mut p);
     p.eject()
@@ -41,7 +41,10 @@ pub fn parse_markup(src: &str, _: bool) -> Option<Vec<Green>> {
 
 /// Parse some markup without the topmost node. Returns `Some` if all of the
 /// input was consumed.
-pub fn parse_markup_elements(src: &str, mut at_start: bool) -> Option<Vec<Green>> {
+pub fn parse_markup_elements(
+    src: &str,
+    mut at_start: bool,
+) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(src, TokenMode::Markup);
     while !p.eof() {
         markup_node(&mut p, &mut at_start);
@@ -50,7 +53,7 @@ pub fn parse_markup_elements(src: &str, mut at_start: bool) -> Option<Vec<Green>
 }
 
 /// Parse a template literal. Returns `Some` if all of the input was consumed.
-pub fn parse_template(source: &str, _: bool) -> Option<Vec<Green>> {
+pub fn parse_template(source: &str, _: bool) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(source, TokenMode::Code);
     if !matches!(p.peek(), Some(NodeKind::LeftBracket)) {
         return None;
@@ -61,7 +64,7 @@ pub fn parse_template(source: &str, _: bool) -> Option<Vec<Green>> {
 }
 
 /// Parse a code block. Returns `Some` if all of the input was consumed.
-pub fn parse_block(source: &str, _: bool) -> Option<Vec<Green>> {
+pub fn parse_block(source: &str, _: bool) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(source, TokenMode::Code);
     if !matches!(p.peek(), Some(NodeKind::LeftBrace)) {
         return None;
@@ -72,7 +75,7 @@ pub fn parse_block(source: &str, _: bool) -> Option<Vec<Green>> {
 }
 
 /// Parse a comment. Returns `Some` if all of the input was consumed.
-pub fn parse_comment(source: &str, _: bool) -> Option<Vec<Green>> {
+pub fn parse_comment(source: &str, _: bool) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(source, TokenMode::Code);
     comment(&mut p).ok()?;
     p.eject()
