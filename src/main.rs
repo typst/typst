@@ -10,7 +10,10 @@ use same_file::is_same_file;
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 
 use typst::diag::Error;
+use typst::export;
+use typst::loading::FsLoader;
 use typst::source::SourceStore;
+use typst::Context;
 
 fn main() {
     if let Err(error) = try_main() {
@@ -27,14 +30,24 @@ fn try_main() -> anyhow::Result<()> {
     });
 
     // Create a loader for fonts and files.
-    let loader = typst::loading::FsLoader::new()
-        .with_path("fonts")
-        .with_system()
-        .wrap();
+    let mut loader = FsLoader::new();
+
+    // Search for fonts in the project directory.
+    if let Some(dir) = args.input.parent() {
+        if dir.as_os_str().is_empty() {
+            // Just a filename, so directory is current directory.
+            loader.search_path(".");
+        } else {
+            loader.search_path(dir);
+        }
+    }
+
+    // Search system fonts only now to give local fonts priority.
+    loader.search_system();
 
     // Create the context which holds loaded source files, fonts, images and
     // cached artifacts.
-    let mut ctx = typst::Context::new(loader);
+    let mut ctx = Context::new(loader.wrap());
 
     // Ensure that the source file is not overwritten.
     if is_same_file(&args.input, &args.output).unwrap_or(false) {
@@ -48,7 +61,7 @@ fn try_main() -> anyhow::Result<()> {
     match ctx.typeset(id) {
         // Export the PDF.
         Ok(document) => {
-            let buffer = typst::export::pdf(&ctx, &document);
+            let buffer = export::pdf(&ctx, &document);
             fs::write(&args.output, buffer).context("failed to write PDF file")?;
         }
 
