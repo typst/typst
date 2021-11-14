@@ -144,6 +144,11 @@ impl SourceFile {
         }
     }
 
+    /// Create a source file without a real id and path, usually for testing.
+    pub fn detached(src: impl Into<String>) -> Self {
+        Self::new(SourceId(0), Path::new(""), src.into())
+    }
+
     /// The file's abstract syntax tree.
     pub fn ast(&self) -> TypResult<Markup> {
         let red = RedNode::from_root(self.root.clone(), self.id);
@@ -153,11 +158,6 @@ impl SourceFile {
         } else {
             Err(Box::new(errors))
         }
-    }
-
-    /// Create a source file without a real id and path, usually for testing.
-    pub fn detached(src: impl Into<String>) -> Self {
-        Self::new(SourceId(0), Path::new(""), src.into())
     }
 
     /// The id of the source file.

@@ -6,9 +6,9 @@ pub use paper::*;
 
 use std::rc::Rc;
 
-use crate::font::{
-    FontFamily, FontStretch, FontStyle, FontVariant, FontWeight, VerticalFontMetric,
-};
+use ttf_parser::Tag;
+
+use crate::font::*;
 use crate::geom::*;
 
 /// Defines a set of properties a template can be instantiated with.
@@ -275,7 +275,7 @@ pub struct FontFeatures {
     /// Configuration of numbers features.
     pub numbers: NumberFeatures,
     /// Raw OpenType features to apply.
-    pub raw: Vec<(String, u32)>,
+    pub raw: Vec<(Tag, u32)>,
 }
 
 impl Default for FontFeatures {

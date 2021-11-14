@@ -2,11 +2,12 @@ use std::borrow::Cow;
 use std::convert::TryInto;
 use std::ops::Range;
 
-use rustybuzz::{Feature, Tag, UnicodeBuffer};
+use rustybuzz::{Feature, UnicodeBuffer};
+use ttf_parser::Tag;
 
 use super::prelude::*;
 use crate::font::{
-    Face, FaceId, FontFamily, FontStretch, FontStyle, FontVariant, FontWeight,
+    Face, FaceId, FontFamily, FontStore, FontStretch, FontStyle, FontVariant, FontWeight,
     VerticalFontMetric,
 };
 use crate::geom::{Dir, Em, Length, Point, Size};
@@ -19,7 +20,7 @@ use crate::util::SliceExt;
 pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     struct FontDef(Rc<Vec<FontFamily>>);
     struct FamilyDef(Rc<Vec<String>>);
-    struct FeatureList(Vec<(String, u32)>);
+    struct FeatureList(Vec<(Tag, u32)>);
     struct StylisticSet(Option<u8>);
 
     castable! {
@@ -134,21 +135,23 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
     castable! {
         FeatureList: "array of strings or dictionary mapping tags to integers",
-        Value::Array(values) => Self(values
-            .into_iter()
-            .filter_map(|v| v.cast().ok())
-            .map(|string: Str| (string.to_lowercase(), 1))
-            .collect()),
-        Value::Dict(values) => Self(values
-            .into_iter()
-            .filter_map(|(k, v)| {
-                if let Ok(value) = v.cast::<i64>() {
-                    Some((k.to_lowercase(), value as u32))
-                } else {
-                    None
-                }
-            })
-            .collect()),
+        Value::Array(values) => Self(
+            values
+                .into_iter()
+                .filter_map(|v| v.cast().ok())
+                .map(|string: Str| (Tag::from_bytes_lossy(string.as_bytes()), 1))
+                .collect()
+        ),
+        Value::Dict(values) => Self(
+            values
+                .into_iter()
+                .filter_map(|(k, v)| {
+                    let tag = Tag::from_bytes_lossy(k.as_bytes());
+                    let num = v.cast::<i64>().ok()?.try_into().ok()?;
+                    Some((tag, num))
+                })
+                .collect()
+        ),
     }
 
     let list = args.named("family")?.or_else(|| {
@@ -266,11 +269,10 @@ pub fn shape<'a>(
     let mut glyphs = vec![];
     if !text.is_empty() {
         shape_segment(
-            ctx,
+            ctx.fonts,
             &mut glyphs,
             0,
             text,
-            style.size,
             style.variant(),
             style.families(),
             None,
@@ -452,11 +454,10 @@ enum Side {
 
 /// Shape text with font fallback using the `families` iterator.
 fn shape_segment<'a>(
-    ctx: &mut LayoutContext,
+    fonts: &mut FontStore,
     glyphs: &mut Vec<ShapedGlyph>,
     base: usize,
     text: &str,
-    size: Length,
     variant: FontVariant,
     mut families: impl Iterator<Item = &'a str> + Clone,
     mut first_face: Option<FaceId>,
@@ -468,7 +469,7 @@ fn shape_segment<'a>(
         // Try to load the next available font family.
         match families.next() {
             Some(family) => {
-                if let Some(id) = ctx.fonts.select(family, variant) {
+                if let Some(id) = fonts.select(family, variant) {
                     break (id, true);
                 }
             }
@@ -495,7 +496,7 @@ fn shape_segment<'a>(
     });
 
     // Shape!
-    let mut face = ctx.fonts.get(face_id);
+    let mut face = fonts.get(face_id);
     let buffer = rustybuzz::shape(face.ttf(), tags, buffer);
     let infos = buffer.glyph_infos();
     let pos = buffer.glyph_positions();
@@ -545,11 +546,9 @@ fn shape_segment<'a>(
                 // Glyphs:   E   C   _   _   A
                 // Clusters: 8   6   4   2   0
                 //                  k=2 i=3
-
                 let ltr = dir.is_positive();
                 let first = if ltr { k } else { i };
                 let start = infos[first].cluster as usize;
-
                 let last = if ltr { i.checked_add(1) } else { k.checked_sub(1) };
                 let end = last
                     .and_then(|last| infos.get(last))
@@ -560,11 +559,10 @@ fn shape_segment<'a>(
 
             // Recursively shape the tofu sequence with the next family.
             shape_segment(
-                ctx,
+                fonts,
                 glyphs,
                 base + range.start,
                 &text[range],
-                size,
                 variant,
                 families.clone(),
                 first_face,
@@ -572,7 +570,7 @@ fn shape_segment<'a>(
                 tags,
             );
 
-            face = ctx.fonts.get(face_id);
+            face = fonts.get(face_id);
         }
 
         i += 1;
@@ -687,12 +685,8 @@ fn tags(features: &FontFeatures) -> Vec<Feature> {
         feat(b"frac", 1);
     }
 
-    for (tag, value) in features.raw.iter() {
-        tags.push(Feature::new(
-            Tag::from_bytes_lossy(tag.as_bytes()),
-            *value,
-            ..,
-        ))
+    for &(tag, value) in features.raw.iter() {
+        tags.push(Feature::new(tag, value, ..))
     }
 
     tags

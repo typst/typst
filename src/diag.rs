@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use crate::syntax::{Span, Spanned};
 
 /// Early-return with a vec-boxed [`Error`].
-#[macro_export]
 macro_rules! bail {
     ($span:expr, $message:expr $(,)?) => {
         return Err($crate::diag::Error::boxed($span, $message,))

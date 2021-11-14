@@ -149,31 +149,48 @@ impl FontStore {
     pub fn families(&self) -> impl Iterator<Item = &str> + '_ {
         // Since the keys are lowercased, we instead use the family field of the
         // first face's info.
+        let faces = self.loader.faces();
         self.families
             .values()
-            .map(move |id| self.loader.faces()[id[0].0 as usize].family.as_str())
+            .map(move |id| faces[id[0].0 as usize].family.as_str())
     }
 }
 
 /// A font face.
 pub struct Face {
+    /// The raw face data, possibly shared with other faces from the same
+    /// collection. Must stay alive put, because `ttf` points into it using
+    /// unsafe code.
     buffer: Rc<Vec<u8>>,
+    /// The face's index in the collection (zero if not a collection).
     index: u32,
+    /// The underlying ttf-parser/rustybuzz face.
     ttf: rustybuzz::Face<'static>,
-    units_per_em: f64,
+    /// How many font units represent one em unit.
+    pub units_per_em: f64,
+    /// The distance from the baseline to the typographic ascender.
     pub ascender: Em,
+    /// The approximate height of uppercase letters.
     pub cap_height: Em,
+    /// The approximate height of non-ascending lowercase letters.
     pub x_height: Em,
+    /// The distance from the baseline to the typographic descender.
     pub descender: Em,
+    /// Recommended metrics for a strikethrough line.
     pub strikethrough: LineMetrics,
+    /// Recommended metrics for an underline.
     pub underline: LineMetrics,
+    /// Recommended metrics for an overline.
     pub overline: LineMetrics,
 }
 
 /// Metrics for a decorative line.
 #[derive(Debug, Copy, Clone)]
 pub struct LineMetrics {
+    /// The thickness of the line.
     pub strength: Em,
+    /// The vertical offset of the line from the baseline. Positive goes
+    /// upwards, negative downwards.
     pub position: Em,
 }
 
@@ -190,7 +207,6 @@ impl Face {
             unsafe { std::slice::from_raw_parts(buffer.as_ptr(), buffer.len()) };
 
         let ttf = rustybuzz::Face::from_slice(slice, index)?;
-
         let units_per_em = f64::from(ttf.units_per_em());
         let to_em = |units| Em::from_units(units, units_per_em);
 
@@ -250,11 +266,6 @@ impl Face {
         // We can't implement Deref because that would leak the internal 'static
         // lifetime.
         &self.ttf
-    }
-
-    /// Get the number of units per em.
-    pub fn units_per_em(&self) -> f64 {
-        self.units_per_em
     }
 
     /// Convert from font units to an em length.

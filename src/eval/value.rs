@@ -72,14 +72,6 @@ impl Value {
         }
     }
 
-    /// Check whether the value is castable into a specific type.
-    pub fn is<T>(&self) -> bool
-    where
-        T: Cast<Value>,
-    {
-        T::is(self)
-    }
-
     /// Try to cast the value into a specific type.
     pub fn cast<T>(self) -> StrResult<T>
     where
