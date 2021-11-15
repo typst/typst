@@ -70,7 +70,7 @@ impl Array {
 
     /// Clear the array.
     pub fn clear(&mut self) {
-        if Rc::strong_count(&mut self.0) == 1 {
+        if Rc::strong_count(&self.0) == 1 {
             Rc::make_mut(&mut self.0).clear();
         } else {
             *self = Self::new();

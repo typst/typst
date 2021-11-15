@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter, Write};
 use std::rc::Rc;
 
-use super::{Cast, EvalContext, Str, Value};
+use super::{Cast, EvalContext, Value};
 use crate::diag::{At, TypResult};
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
@@ -52,7 +52,10 @@ impl Debug for Function {
 impl PartialEq for Function {
     fn eq(&self, other: &Self) -> bool {
         // We cast to thin pointers for comparison.
-        Rc::as_ptr(&self.0) as *const () == Rc::as_ptr(&other.0) as *const ()
+        std::ptr::eq(
+            Rc::as_ptr(&self.0) as *const (),
+            Rc::as_ptr(&other.0) as *const (),
+        )
     }
 }
 
@@ -71,7 +74,7 @@ pub struct Arg {
     /// The span of the whole argument.
     pub span: Span,
     /// The name of the argument (`None` for positional arguments).
-    pub name: Option<Str>,
+    pub name: Option<EcoString>,
     /// The value of the argument.
     pub value: Spanned<Value>,
 }
@@ -173,7 +176,7 @@ impl Args {
     }
 
     /// Reinterpret these arguments as actually being a dictionary key.
-    pub fn into_key(self) -> TypResult<Str> {
+    pub fn into_key(self) -> TypResult<EcoString> {
         self.into_castable("key")
     }
 

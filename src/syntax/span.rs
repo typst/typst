@@ -88,6 +88,11 @@ impl Span {
         Self { end, ..self }
     }
 
+    /// Whether the span is a single point.
+    pub fn is_empty(self) -> bool {
+        self.start == self.end
+    }
+
     /// The byte length of the spanned region.
     pub fn len(self) -> usize {
         self.end - self.start

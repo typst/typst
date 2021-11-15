@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::rc::Rc;
 
-use super::{ops, Array, Dict, Function, Str, Template};
+use super::{ops, Array, Dict, Function, Template};
 use crate::diag::StrResult;
 use crate::geom::{Angle, Color, Fractional, Length, Linear, Relative, RgbaColor};
 use crate::syntax::Spanned;
@@ -35,7 +35,7 @@ pub enum Value {
     /// A color value: `#f79143ff`.
     Color(Color),
     /// A string: `"string"`.
-    Str(Str),
+    Str(EcoString),
     /// An array of values: `(1, "hi", 12cm)`.
     Array(Array),
     /// A dictionary value: `(color: #f79143, pattern: dashed)`.
@@ -63,7 +63,7 @@ impl Value {
             Self::Linear(_) => Linear::TYPE_NAME,
             Self::Fractional(_) => Fractional::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
-            Self::Str(_) => Str::TYPE_NAME,
+            Self::Str(_) => EcoString::TYPE_NAME,
             Self::Array(_) => Array::TYPE_NAME,
             Self::Dict(_) => Dict::TYPE_NAME,
             Self::Template(_) => Template::TYPE_NAME,
@@ -81,8 +81,8 @@ impl Value {
     }
 
     /// Return the debug representation of the value.
-    pub fn repr(&self) -> Str {
-        format_str!("{:?}", self)
+    pub fn repr(&self) -> EcoString {
+        format_eco!("{:?}", self)
     }
 
     /// Join the value with another value.
@@ -163,17 +163,12 @@ impl From<String> for Value {
     }
 }
 
-impl From<EcoString> for Value {
-    fn from(v: EcoString) -> Self {
-        Self::Str(v.into())
-    }
-}
-
 impl From<Dynamic> for Value {
     fn from(v: Dynamic) -> Self {
         Self::Dyn(v)
     }
 }
+
 /// A dynamic value.
 #[derive(Clone)]
 pub struct Dynamic(Rc<dyn Bounds>);
@@ -338,7 +333,8 @@ macro_rules! dynamic {
         }
 
         castable! {
-            $type: <Self as $crate::eval::Type>::TYPE_NAME,
+            $type,
+            Expected: <Self as $crate::eval::Type>::TYPE_NAME,
             $($tts)*
             @this: Self => this.clone(),
         }
@@ -354,8 +350,8 @@ macro_rules! dynamic {
 /// Make a type castable from a value.
 macro_rules! castable {
     (
-        $type:ty:
-        $expected:expr,
+        $type:ty,
+        Expected: $expected:expr,
         $($pattern:pat => $out:expr,)*
         $(@$dyn_in:ident: $dyn_type:ty => $dyn_out:expr,)*
     ) => {
@@ -398,7 +394,7 @@ primitive! { Relative: "relative", Relative }
 primitive! { Linear: "linear", Linear, Length(v) => v.into(), Relative(v) => v.into() }
 primitive! { Fractional: "fractional", Fractional }
 primitive! { Color: "color", Color }
-primitive! { Str: "string", Str }
+primitive! { EcoString: "string", Str }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
 primitive! { Template: "template", Template }

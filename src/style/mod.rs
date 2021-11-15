@@ -4,12 +4,14 @@ mod paper;
 
 pub use paper::*;
 
+use std::fmt::{self, Debug, Formatter};
 use std::rc::Rc;
 
 use ttf_parser::Tag;
 
 use crate::font::*;
 use crate::geom::*;
+use crate::util::EcoString;
 
 /// Defines a set of properties a template can be instantiated with.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -192,7 +194,7 @@ impl TextStyle {
             &[]
         };
 
-        head.iter().chain(core).chain(tail).map(String::as_str)
+        head.iter().chain(core).chain(tail).map(EcoString::as_str)
     }
 
     /// Access the `families` style mutably.
@@ -232,30 +234,54 @@ impl Default for TextStyle {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FamilyStyle {
     /// The user-defined list of font families.
-    pub list: Rc<Vec<FontFamily>>,
+    pub list: Vec<FontFamily>,
     /// Definition of serif font families.
-    pub serif: Rc<Vec<String>>,
+    pub serif: Vec<EcoString>,
     /// Definition of sans-serif font families.
-    pub sans_serif: Rc<Vec<String>>,
+    pub sans_serif: Vec<EcoString>,
     /// Definition of monospace font families used for raw text.
-    pub monospace: Rc<Vec<String>>,
+    pub monospace: Vec<EcoString>,
     /// Base fonts that are tried as last resort.
-    pub base: Rc<Vec<String>>,
+    pub base: Vec<EcoString>,
 }
 
 impl Default for FamilyStyle {
     fn default() -> Self {
         Self {
-            list: Rc::new(vec![FontFamily::SansSerif]),
-            serif: Rc::new(vec!["ibm plex serif".into()]),
-            sans_serif: Rc::new(vec!["ibm plex sans".into()]),
-            monospace: Rc::new(vec!["ibm plex mono".into()]),
-            base: Rc::new(vec![
+            list: vec![FontFamily::SansSerif],
+            serif: vec!["ibm plex serif".into()],
+            sans_serif: vec!["ibm plex sans".into()],
+            monospace: vec!["ibm plex mono".into()],
+            base: vec![
                 "ibm plex sans".into(),
                 "latin modern math".into(),
                 "twitter color emoji".into(),
-            ]),
+            ],
         }
+    }
+}
+
+/// A generic or named font family.
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub enum FontFamily {
+    /// A family that has "serifs", small strokes attached to letters.
+    Serif,
+    /// A family in which glyphs do not have "serifs", small attached strokes.
+    SansSerif,
+    /// A family in which (almost) all glyphs are of equal width.
+    Monospace,
+    /// A specific family with a name.
+    Named(EcoString),
+}
+
+impl Debug for FontFamily {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(match self {
+            Self::Serif => "serif",
+            Self::SansSerif => "sans-serif",
+            Self::Monospace => "monospace",
+            Self::Named(s) => s,
+        })
     }
 }
 
@@ -269,7 +295,7 @@ pub struct FontFeatures {
     /// Whether to apply stylistic alternates. ("salt")
     pub alternates: bool,
     /// Which stylistic set to apply. ("ss01" - "ss20")
-    pub stylistic_set: Option<u8>,
+    pub stylistic_set: StylisticSet,
     /// Configuration of ligature features.
     pub ligatures: LigatureFeatures,
     /// Configuration of numbers features.
@@ -284,11 +310,21 @@ impl Default for FontFeatures {
             kerning: true,
             smallcaps: false,
             alternates: false,
-            stylistic_set: None,
+            stylistic_set: StylisticSet::default(),
             ligatures: LigatureFeatures::default(),
             numbers: NumberFeatures::default(),
             raw: vec![],
         }
+    }
+}
+
+/// A stylistic set in a font face.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct StylisticSet(pub Option<u8>);
+
+impl Default for StylisticSet {
+    fn default() -> Self {
+        Self(None)
     }
 }
 

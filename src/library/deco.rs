@@ -36,14 +36,14 @@ fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
 
 /// `link`: Typeset text as a link.
 pub fn link(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let url = args.expect::<Str>("url")?;
+    let url = args.expect::<EcoString>("url")?;
     let body = args.find().unwrap_or_else(|| {
         let mut template = Template::new();
         template.text(url.trim_start_matches("mailto:").trim_start_matches("tel:"));
         template
     });
 
-    Ok(Value::Template(body.decorate(Decoration::Link(url.into()))))
+    Ok(Value::Template(body.decorate(Decoration::Link(url))))
 }
 
 /// A decoration for a frame.

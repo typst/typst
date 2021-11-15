@@ -1,5 +1,6 @@
 //! Utilities.
 
+#[macro_use]
 mod eco_string;
 mod mac_roman;
 

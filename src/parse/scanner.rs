@@ -119,7 +119,7 @@ impl<'s> Scanner<'s> {
     /// The full source string.
     #[inline]
     pub fn src(&self) -> &'s str {
-        &self.src
+        self.src
     }
 
     /// Slice out part of the source string.

@@ -242,7 +242,7 @@ impl<'s> Parser<'s> {
                 self.eat();
                 rescan = false;
             } else if required {
-                self.push_error(format!("expected {}", end));
+                self.push_error(format_eco!("expected {}", end));
             }
         }
 
@@ -327,8 +327,8 @@ impl Parser<'_> {
     pub fn unexpected(&mut self) {
         match self.peek() {
             Some(found) => {
-                let msg = format!("unexpected {}", found);
-                let error = NodeKind::Error(ErrorPos::Full, msg.into());
+                let msg = format_eco!("unexpected {}", found);
+                let error = NodeKind::Error(ErrorPos::Full, msg);
                 self.perform(error, Self::eat);
             }
             None => self.push_error("unexpected end of file"),
@@ -339,8 +339,8 @@ impl Parser<'_> {
     pub fn expected(&mut self, thing: &str) {
         match self.peek() {
             Some(found) => {
-                let msg = format!("expected {}, found {}", thing, found);
-                let error = NodeKind::Error(ErrorPos::Full, msg.into());
+                let msg = format_eco!("expected {}, found {}", thing, found);
+                let error = NodeKind::Error(ErrorPos::Full, msg);
                 self.perform(error, Self::eat);
             }
             None => self.expected_at(thing),
@@ -400,8 +400,8 @@ impl Marker {
 
     /// Insert an error message that `what` was expected at the marker position.
     pub fn expected(self, p: &mut Parser, what: &str) {
-        let msg = format!("expected {}", what);
-        let error = NodeKind::Error(ErrorPos::Full, msg.into());
+        let msg = format_eco!("expected {}", what);
+        let error = NodeKind::Error(ErrorPos::Full, msg);
         p.children.insert(self.0, GreenData::new(error, 0).into());
     }
 

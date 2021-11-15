@@ -1,12 +1,12 @@
 use std::rc::Rc;
 
-use super::{Eval, EvalContext, Str, Template, Value};
+use super::{Eval, EvalContext, Template, Value};
 use crate::diag::TypResult;
 use crate::geom::Spec;
 use crate::layout::BlockLevel;
 use crate::library::{GridNode, ParChild, ParNode, TrackSizing};
 use crate::syntax::ast::*;
-use crate::util::BoolExt;
+use crate::util::{BoolExt, EcoString};
 
 /// Walk markup, filling the currently built template.
 pub trait Walk {
@@ -39,8 +39,8 @@ impl Walk for MarkupNode {
             Self::Enum(enum_) => enum_.walk(ctx)?,
             Self::Expr(expr) => match expr.eval(ctx)? {
                 Value::None => {}
-                Value::Int(v) => ctx.template.text(format_str!("{}", v)),
-                Value::Float(v) => ctx.template.text(format_str!("{}", v)),
+                Value::Int(v) => ctx.template.text(format_eco!("{}", v)),
+                Value::Float(v) => ctx.template.text(format_eco!("{}", v)),
                 Value::Str(v) => ctx.template.text(v),
                 Value::Template(v) => ctx.template += v,
                 // For values which can't be shown "naturally", we print the
@@ -108,7 +108,7 @@ impl Walk for HeadingNode {
 impl Walk for ListNode {
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
         let body = self.body().eval(ctx)?;
-        walk_item(ctx, Str::from('•'), body);
+        walk_item(ctx, EcoString::from('•'), body);
         Ok(())
     }
 }
@@ -116,19 +116,19 @@ impl Walk for ListNode {
 impl Walk for EnumNode {
     fn walk(&self, ctx: &mut EvalContext) -> TypResult<()> {
         let body = self.body().eval(ctx)?;
-        let label = format_str!("{}.", self.number().unwrap_or(1));
+        let label = format_eco!("{}.", self.number().unwrap_or(1));
         walk_item(ctx, label, body);
         Ok(())
     }
 }
 
-fn walk_item(ctx: &mut EvalContext, label: Str, body: Template) {
+fn walk_item(ctx: &mut EvalContext, label: EcoString, body: Template) {
     ctx.template += Template::from_block(move |style| {
         let label = ParNode {
             dir: style.dir,
             leading: style.leading(),
             children: vec![ParChild::Text(
-                (&label).into(),
+                label.clone(),
                 style.aligns.inline,
                 Rc::clone(&style.text),
             )],
@@ -138,7 +138,7 @@ fn walk_item(ctx: &mut EvalContext, label: Str, body: Template) {
         GridNode {
             tracks: Spec::new(vec![TrackSizing::Auto; 2], vec![]),
             gutter: Spec::new(vec![TrackSizing::Linear(spacing.into())], vec![]),
-            children: vec![label.pack(), body.to_stack(&style).pack()],
+            children: vec![label.pack(), body.to_stack(style).pack()],
         }
     });
 }

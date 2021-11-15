@@ -100,7 +100,7 @@ impl<'a> PdfExporter<'a> {
         let mut resources = pages.resources();
         let mut fonts = resources.fonts();
         for (refs, f) in self.refs.fonts().zip(self.font_map.pdf_indices()) {
-            let name = format!("F{}", f);
+            let name = format_eco!("F{}", f);
             fonts.pair(Name(name.as_bytes()), refs.type0_font);
         }
 
@@ -108,7 +108,7 @@ impl<'a> PdfExporter<'a> {
 
         let mut images = resources.x_objects();
         for (id, im) in self.refs.images().zip(self.image_map.pdf_indices()) {
-            let name = format!("Im{}", im);
+            let name = format_eco!("Im{}", im);
             images.pair(Name(name.as_bytes()), id);
         }
 
@@ -153,7 +153,7 @@ impl<'a> PdfExporter<'a> {
 
     fn write_pages(&mut self) {
         for (id, page) in self.refs.contents().zip(self.frames) {
-            self.write_page(id, &page);
+            self.write_page(id, page);
         }
     }
 
@@ -199,7 +199,7 @@ impl<'a> PdfExporter<'a> {
                         face_id = Some(text.face_id);
                         size = text.size;
 
-                        let name = format!("F{}", self.font_map.map(text.face_id));
+                        let name = format_eco!("F{}", self.font_map.map(text.face_id));
                         content.set_font(Name(name.as_bytes()), size.to_pt() as f32);
                     }
 
@@ -541,7 +541,7 @@ fn encode_image(img: &Image) -> ImageResult<(Vec<u8>, Filter, ColorSpace)> {
 
         // 8-bit gray PNG.
         (ImageFormat::Png, DynamicImage::ImageLuma8(luma)) => {
-            let data = deflate(&luma.as_raw());
+            let data = deflate(luma.as_raw());
             (data, Filter::FlateDecode, ColorSpace::DeviceGray)
         }
 

@@ -5,7 +5,6 @@ use std::mem;
 use std::ops::{Add, AddAssign};
 use std::rc::Rc;
 
-use super::Str;
 use crate::diag::StrResult;
 use crate::geom::{Align, Dir, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{BlockLevel, BlockNode, InlineLevel, InlineNode, PageNode};
@@ -214,20 +213,20 @@ impl AddAssign for Template {
     }
 }
 
-impl Add<Str> for Template {
+impl Add<EcoString> for Template {
     type Output = Self;
 
-    fn add(mut self, rhs: Str) -> Self::Output {
-        Rc::make_mut(&mut self.0).push(TemplateNode::Text(rhs.into()));
+    fn add(mut self, rhs: EcoString) -> Self::Output {
+        Rc::make_mut(&mut self.0).push(TemplateNode::Text(rhs));
         self
     }
 }
 
-impl Add<Template> for Str {
+impl Add<Template> for EcoString {
     type Output = Template;
 
     fn add(self, mut rhs: Template) -> Self::Output {
-        Rc::make_mut(&mut rhs.0).insert(0, TemplateNode::Text(self.into()));
+        Rc::make_mut(&mut rhs.0).insert(0, TemplateNode::Text(self));
         rhs
     }
 }
@@ -491,7 +490,7 @@ impl ParBuilder {
                 self.children.last_mut()
             {
                 if prev_align == curr_align && Rc::ptr_eq(prev_props, curr_props) {
-                    prev_text.push_str(&curr_text);
+                    prev_text.push_str(curr_text);
                     return;
                 }
             }

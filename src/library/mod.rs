@@ -23,12 +23,12 @@ mod prelude {
     pub use std::rc::Rc;
 
     pub use crate::diag::{At, TypResult};
-    pub use crate::eval::{Args, EvalContext, Str, Template, Value};
+    pub use crate::eval::{Args, EvalContext, Template, Value};
     pub use crate::frame::*;
     pub use crate::geom::*;
     pub use crate::layout::*;
     pub use crate::syntax::{Span, Spanned};
-    pub use crate::util::OptionExt;
+    pub use crate::util::{EcoString, OptionExt};
 }
 
 pub use self::image::*;
@@ -47,8 +47,8 @@ pub use transform::*;
 pub use utility::*;
 
 use crate::eval::{Scope, Value};
-use crate::font::FontFamily;
 use crate::geom::*;
+use crate::style::FontFamily;
 
 /// Construct a scope containing all standard library definitions.
 pub fn new() -> Scope {

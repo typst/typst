@@ -24,7 +24,8 @@ pub enum Spacing {
 }
 
 castable! {
-    Spacing: "linear or fractional",
+    Spacing,
+    Expected: "linear or fractional",
     Value::Length(v) => Self::Linear(v.into()),
     Value::Relative(v) => Self::Linear(v.into()),
     Value::Linear(v) => Self::Linear(v),

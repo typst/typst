@@ -28,6 +28,8 @@
 //! [PDF]: export::pdf
 
 #[macro_use]
+pub mod util;
+#[macro_use]
 pub mod diag;
 #[macro_use]
 pub mod eval;
@@ -43,7 +45,6 @@ pub mod parse;
 pub mod source;
 pub mod style;
 pub mod syntax;
-pub mod util;
 
 use std::rc::Rc;
 
@@ -182,7 +183,7 @@ impl ContextBuilder {
             loader,
             #[cfg(feature = "layout-cache")]
             layouts: LayoutCache::new(self.policy, self.max_size),
-            std: self.std.unwrap_or(library::new()),
+            std: self.std.unwrap_or_else(library::new),
             style: self.style.unwrap_or_default(),
         }
     }

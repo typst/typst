@@ -34,7 +34,7 @@ pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
 /// `lang`: Configure the language.
 pub fn lang(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let iso = args.find::<Str>();
+    let iso = args.find::<EcoString>();
     let dir = if let Some(dir) = args.named::<Spanned<Dir>>("dir")? {
         if dir.v.axis() == SpecAxis::Horizontal {
             Some(dir.v)

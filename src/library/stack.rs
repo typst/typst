@@ -11,7 +11,8 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     castable! {
-        Child: "linear, fractional or template",
+        Child,
+        Expected: "linear, fractional or template",
         Value::Length(v) => Self::Spacing(Spacing::Linear(v.into())),
         Value::Relative(v) => Self::Spacing(Spacing::Linear(v.into())),
         Value::Linear(v) => Self::Spacing(Spacing::Linear(v)),

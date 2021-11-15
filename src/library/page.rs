@@ -4,7 +4,8 @@ use crate::style::{Paper, PaperClass};
 /// `page`: Configure pages.
 pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     castable! {
-        Paper: "string",
+        Paper,
+        Expected: "string",
         Value::Str(string) => Paper::from_name(&string).ok_or("unknown paper")?,
     }
 

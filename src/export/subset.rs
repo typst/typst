@@ -36,7 +36,7 @@ struct Subsetter<'a> {
 impl<'a> Subsetter<'a> {
     /// Parse the font header and create a new subsetter.
     fn new(data: &'a [u8], index: u32, glyphs: &'a HashSet<u16>) -> Option<Self> {
-        let mut s = Stream::new(&data);
+        let mut s = Stream::new(data);
 
         let mut magic = s.read::<Magic>()?;
         if magic == Magic::Collection {
@@ -46,7 +46,7 @@ impl<'a> Subsetter<'a> {
             let offsets = s.read_array32::<Offset32>(num_faces)?;
             let offset = offsets.get(index)?.to_usize();
 
-            s = Stream::new_at(&data, offset)?;
+            s = Stream::new_at(data, offset)?;
             magic = s.read::<Magic>()?;
             if magic == Magic::Collection {
                 return None;
@@ -117,7 +117,7 @@ impl<'a> Subsetter<'a> {
             let len = data.len();
             w.write(TableRecord {
                 tag: *tag,
-                checksum: checksum(&data),
+                checksum: checksum(data),
                 offset: offset as u32,
                 length: len as u32,
             });

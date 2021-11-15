@@ -1,7 +1,9 @@
 use std::cmp::Ordering;
+use std::convert::TryFrom;
 
 use super::Value;
 use crate::diag::StrResult;
+use crate::util::EcoString;
 use Value::*;
 
 /// Bail with a type mismatch error.
@@ -150,8 +152,8 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Fractional(a), Float(b)) => Fractional(a * b),
         (Int(a), Fractional(b)) => Fractional(a as f64 * b),
 
-        (Str(a), Int(b)) => Str(a.repeat(b)?),
-        (Int(a), Str(b)) => Str(b.repeat(a)?),
+        (Str(a), Int(b)) => Str(repeat_str(a, b)?),
+        (Int(a), Str(b)) => Str(repeat_str(b, a)?),
         (Array(a), Int(b)) => Array(a.repeat(b)?),
         (Int(a), Array(b)) => Array(b.repeat(a)?),
         (Template(a), Int(b)) => Template(a.repeat(b)?),
@@ -159,6 +161,16 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (a, b) => mismatch!("cannot multiply {} with {}", a, b),
     })
+}
+
+/// Repeat a string a number of times.
+fn repeat_str(string: EcoString, n: i64) -> StrResult<EcoString> {
+    let n = usize::try_from(n)
+        .ok()
+        .and_then(|n| string.len().checked_mul(n).map(|_| n))
+        .ok_or_else(|| format!("cannot repeat this string {} times", n))?;
+
+    Ok(string.repeat(n))
 }
 
 /// Compute the quotient of two values.

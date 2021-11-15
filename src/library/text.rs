@@ -7,48 +7,42 @@ use ttf_parser::Tag;
 
 use super::prelude::*;
 use crate::font::{
-    Face, FaceId, FontFamily, FontStore, FontStretch, FontStyle, FontVariant, FontWeight,
+    Face, FaceId, FontStore, FontStretch, FontStyle, FontVariant, FontWeight,
     VerticalFontMetric,
 };
 use crate::geom::{Dir, Em, Length, Point, Size};
 use crate::style::{
-    FontFeatures, NumberPosition, NumberType, NumberWidth, Style, TextStyle,
+    FontFamily, FontFeatures, NumberPosition, NumberType, NumberWidth, Style,
+    StylisticSet, TextStyle,
 };
-use crate::util::SliceExt;
+use crate::util::{EcoString, SliceExt};
 
 /// `font`: Configure the font.
 pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    struct FontDef(Rc<Vec<FontFamily>>);
-    struct FamilyDef(Rc<Vec<String>>);
-    struct FeatureList(Vec<(Tag, u32)>);
-    struct StylisticSet(Option<u8>);
-
     castable! {
-        FontDef: "font family or array of font families",
-        Value::Str(string) => Self(Rc::new(vec![FontFamily::Named(string.to_lowercase())])),
-        Value::Array(values) => Self(Rc::new(
-            values
-                .into_iter()
-                .filter_map(|v| v.cast().ok())
-                .collect()
-        )),
-        @family: FontFamily => Self(Rc::new(vec![family.clone()])),
+        Vec<FontFamily>,
+        Expected: "string, generic family or array thereof",
+        Value::Str(string) => vec![FontFamily::Named(string.to_lowercase())],
+        Value::Array(values) => {
+            values.into_iter().filter_map(|v| v.cast().ok()).collect()
+        },
+        @family: FontFamily => vec![family.clone()],
     }
 
     castable! {
-        FamilyDef: "string or array of strings",
-        Value::Str(string) => Self(Rc::new(vec![string.to_lowercase()])),
-        Value::Array(values) => Self(Rc::new(
-            values
-                .into_iter()
-                .filter_map(|v| v.cast().ok())
-                .map(|string: Str| string.to_lowercase())
-                .collect()
-        )),
+        Vec<EcoString>,
+        Expected: "string or array of strings",
+        Value::Str(string) => vec![string.to_lowercase()],
+        Value::Array(values) => values
+            .into_iter()
+            .filter_map(|v| v.cast().ok())
+            .map(|string: EcoString| string.to_lowercase())
+            .collect(),
     }
 
     castable! {
-        FontStyle: "string",
+        FontStyle,
+        Expected: "string",
         Value::Str(string) => match string.as_str() {
             "normal" => Self::Normal,
             "italic" => Self::Italic,
@@ -58,7 +52,8 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     castable! {
-        FontWeight: "integer or string",
+        FontWeight,
+        Expected: "integer or string",
         Value::Int(v) => v.try_into().map_or(Self::BLACK, Self::from_number),
         Value::Str(string) => match string.as_str() {
             "thin" => Self::THIN,
@@ -75,12 +70,14 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     castable! {
-        FontStretch: "relative",
+        FontStretch,
+        Expected: "relative",
         Value::Relative(v) => Self::from_ratio(v.get() as f32),
     }
 
     castable! {
-        VerticalFontMetric: "linear or string",
+        VerticalFontMetric,
+        Expected: "linear or string",
         Value::Length(v) => Self::Linear(v.into()),
         Value::Relative(v) => Self::Linear(v.into()),
         Value::Linear(v) => Self::Linear(v),
@@ -95,7 +92,8 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     castable! {
-        StylisticSet: "none or integer",
+        StylisticSet,
+        Expected: "none or integer",
         Value::None => Self(None),
         Value::Int(v) => match v {
             1 ..= 20 => Self(Some(v as u8)),
@@ -104,7 +102,8 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     castable! {
-        NumberType: "auto or string",
+        NumberType,
+        Expected: "auto or string",
         Value::Auto => Self::Auto,
         Value::Str(string) => match string.as_str() {
             "lining" => Self::Lining,
@@ -114,7 +113,8 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     castable! {
-        NumberWidth: "auto or string",
+        NumberWidth,
+        Expected: "auto or string",
         Value::Auto => Self::Auto,
         Value::Str(string) => match string.as_str() {
             "proportional" => Self::Proportional,
@@ -124,7 +124,8 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     castable! {
-        NumberPosition: "string",
+        NumberPosition,
+        Expected: "string",
         Value::Str(string) => match string.as_str() {
             "normal" => Self::Normal,
             "subscript" => Self::Subscript,
@@ -134,44 +135,39 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     castable! {
-        FeatureList: "array of strings or dictionary mapping tags to integers",
-        Value::Array(values) => Self(
-            values
-                .into_iter()
-                .filter_map(|v| v.cast().ok())
-                .map(|string: Str| (Tag::from_bytes_lossy(string.as_bytes()), 1))
-                .collect()
-        ),
-        Value::Dict(values) => Self(
-            values
-                .into_iter()
-                .filter_map(|(k, v)| {
-                    let tag = Tag::from_bytes_lossy(k.as_bytes());
-                    let num = v.cast::<i64>().ok()?.try_into().ok()?;
-                    Some((tag, num))
-                })
-                .collect()
-        ),
+        Vec<(Tag, u32)>,
+        Expected: "array of strings or dictionary mapping tags to integers",
+        Value::Array(values) => values
+            .into_iter()
+            .filter_map(|v| v.cast().ok())
+            .map(|string: EcoString| (Tag::from_bytes_lossy(string.as_bytes()), 1))
+            .collect(),
+        Value::Dict(values) => values
+            .into_iter()
+            .filter_map(|(k, v)| {
+                let tag = Tag::from_bytes_lossy(k.as_bytes());
+                let num = v.cast::<i64>().ok()?.try_into().ok()?;
+                Some((tag, num))
+            })
+            .collect(),
     }
 
     let list = args.named("family")?.or_else(|| {
         let families: Vec<_> = args.all().collect();
-        (!families.is_empty()).then(|| FontDef(Rc::new(families)))
+        (!families.is_empty()).then(|| families)
     });
 
     let serif = args.named("serif")?;
     let sans_serif = args.named("sans-serif")?;
     let monospace = args.named("monospace")?;
     let fallback = args.named("fallback")?;
-
-    let size = args.named::<Linear>("size")?.or_else(|| args.find());
     let style = args.named("style")?;
     let weight = args.named("weight")?;
     let stretch = args.named("stretch")?;
-    let fill = args.named("fill")?.or_else(|| args.find());
+    let size = args.named::<Linear>("size")?.or_else(|| args.find());
     let top_edge = args.named("top-edge")?;
     let bottom_edge = args.named("bottom-edge")?;
-
+    let fill = args.named("fill")?.or_else(|| args.find());
     let kerning = args.named("kerning")?;
     let smallcaps = args.named("smallcaps")?;
     let alternates = args.named("alternates")?;
@@ -199,22 +195,6 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let f = move |style_: &mut Style| {
         let text = style_.text_mut();
 
-        if let Some(FontDef(list)) = &list {
-            text.families_mut().list = list.clone();
-        }
-
-        if let Some(FamilyDef(serif)) = &serif {
-            text.families_mut().serif = serif.clone();
-        }
-
-        if let Some(FamilyDef(sans_serif)) = &sans_serif {
-            text.families_mut().sans_serif = sans_serif.clone();
-        }
-
-        if let Some(FamilyDef(monospace)) = &monospace {
-            text.families_mut().monospace = monospace.clone();
-        }
-
         if let Some(size) = size {
             text.size = size.resolve(text.size);
         }
@@ -223,16 +203,21 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             text.fill = Paint::Color(fill);
         }
 
-        set!(text.fallback => fallback);
         set!(text.variant.style => style);
         set!(text.variant.weight => weight);
         set!(text.variant.stretch => stretch);
         set!(text.top_edge => top_edge);
         set!(text.bottom_edge => bottom_edge);
+        set!(text.fallback => fallback);
 
+        set!(text.families_mut().list => list.clone());
+        set!(text.families_mut().serif => serif.clone());
+        set!(text.families_mut().sans_serif => sans_serif.clone());
+        set!(text.families_mut().monospace => monospace.clone());
         set!(text.features_mut().kerning => kerning);
         set!(text.features_mut().smallcaps => smallcaps);
         set!(text.features_mut().alternates => alternates);
+        set!(text.features_mut().stylistic_set => stylistic_set);
         set!(text.features_mut().ligatures.standard => ligatures);
         set!(text.features_mut().ligatures.discretionary => discretionary_ligatures);
         set!(text.features_mut().ligatures.historical => historical_ligatures);
@@ -241,14 +226,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         set!(text.features_mut().numbers.position => number_position);
         set!(text.features_mut().numbers.slashed_zero => slashed_zero);
         set!(text.features_mut().numbers.fractions => fractions);
-
-        if let Some(StylisticSet(stylistic_set)) = stylistic_set {
-            text.features_mut().stylistic_set = stylistic_set;
-        }
-
-        if let Some(FeatureList(features)) = &features {
-            text.features_mut().raw = features.clone();
-        }
+        set!(text.features_mut().raw => features.clone());
     };
 
     Ok(if let Some(body) = body {
@@ -638,12 +616,10 @@ fn tags(features: &FontFeatures) -> Vec<Feature> {
         feat(b"salt", 1);
     }
 
-    let set_tag;
-    if let Some(set) = features.stylistic_set {
-        if matches!(set, 1 ..= 20) {
-            set_tag = [b's', b's', b'0' + set / 10, b'0' + set % 10];
-            feat(&set_tag, 1);
-        }
+    let storage;
+    if let StylisticSet(Some(set @ 1 ..= 20)) = features.stylistic_set {
+        storage = [b's', b's', b'0' + set / 10, b'0' + set % 10];
+        feat(&storage, 1);
     }
 
     if !features.ligatures.standard {

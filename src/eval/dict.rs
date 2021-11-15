@@ -4,9 +4,9 @@ use std::iter::FromIterator;
 use std::ops::{Add, AddAssign};
 use std::rc::Rc;
 
-use super::{Str, Value};
+use super::Value;
 use crate::diag::StrResult;
-use crate::util::RcExt;
+use crate::util::{EcoString, RcExt};
 
 /// Create a new [`Dict`] from key-value pairs.
 #[allow(unused_macros)]
@@ -21,7 +21,7 @@ macro_rules! dict {
 
 /// A dictionary from strings to values with clone-on-write value semantics.
 #[derive(Default, Clone, PartialEq)]
-pub struct Dict(Rc<BTreeMap<Str, Value>>);
+pub struct Dict(Rc<BTreeMap<EcoString, Value>>);
 
 impl Dict {
     /// Create a new, empty dictionary.
@@ -30,7 +30,7 @@ impl Dict {
     }
 
     /// Create a new dictionary from a mapping of strings to values.
-    pub fn from_map(map: BTreeMap<Str, Value>) -> Self {
+    pub fn from_map(map: BTreeMap<EcoString, Value>) -> Self {
         Self(Rc::new(map))
     }
 
@@ -45,7 +45,7 @@ impl Dict {
     }
 
     /// Borrow the value the given `key` maps to.
-    pub fn get(&self, key: Str) -> StrResult<&Value> {
+    pub fn get(&self, key: EcoString) -> StrResult<&Value> {
         self.0.get(&key).ok_or_else(|| missing_key(&key))
     }
 
@@ -53,18 +53,18 @@ impl Dict {
     ///
     /// This inserts the key with [`None`](Value::None) as the value if not
     /// present so far.
-    pub fn get_mut(&mut self, key: Str) -> &mut Value {
-        Rc::make_mut(&mut self.0).entry(key.into()).or_default()
+    pub fn get_mut(&mut self, key: EcoString) -> &mut Value {
+        Rc::make_mut(&mut self.0).entry(key).or_default()
     }
 
     /// Insert a mapping from the given `key` to the given `value`.
-    pub fn insert(&mut self, key: Str, value: Value) {
-        Rc::make_mut(&mut self.0).insert(key.into(), value);
+    pub fn insert(&mut self, key: EcoString, value: Value) {
+        Rc::make_mut(&mut self.0).insert(key, value);
     }
 
     /// Clear the dictionary.
     pub fn clear(&mut self) {
-        if Rc::strong_count(&mut self.0) == 1 {
+        if Rc::strong_count(&self.0) == 1 {
             Rc::make_mut(&mut self.0).clear();
         } else {
             *self = Self::new();
@@ -72,14 +72,14 @@ impl Dict {
     }
 
     /// Iterate over pairs of references to the contained keys and values.
-    pub fn iter(&self) -> std::collections::btree_map::Iter<Str, Value> {
+    pub fn iter(&self) -> std::collections::btree_map::Iter<EcoString, Value> {
         self.0.iter()
     }
 }
 
 /// The missing key access error message.
 #[cold]
-fn missing_key(key: &Str) -> String {
+fn missing_key(key: &EcoString) -> String {
     format!("dictionary does not contain key: {:?}", key)
 }
 
@@ -119,21 +119,21 @@ impl AddAssign for Dict {
     }
 }
 
-impl Extend<(Str, Value)> for Dict {
-    fn extend<T: IntoIterator<Item = (Str, Value)>>(&mut self, iter: T) {
+impl Extend<(EcoString, Value)> for Dict {
+    fn extend<T: IntoIterator<Item = (EcoString, Value)>>(&mut self, iter: T) {
         Rc::make_mut(&mut self.0).extend(iter);
     }
 }
 
-impl FromIterator<(Str, Value)> for Dict {
-    fn from_iter<T: IntoIterator<Item = (Str, Value)>>(iter: T) -> Self {
+impl FromIterator<(EcoString, Value)> for Dict {
+    fn from_iter<T: IntoIterator<Item = (EcoString, Value)>>(iter: T) -> Self {
         Self(Rc::new(iter.into_iter().collect()))
     }
 }
 
 impl IntoIterator for Dict {
-    type Item = (Str, Value);
-    type IntoIter = std::collections::btree_map::IntoIter<Str, Value>;
+    type Item = (EcoString, Value);
+    type IntoIter = std::collections::btree_map::IntoIter<EcoString, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
         Rc::take(self.0).into_iter()
@@ -141,8 +141,8 @@ impl IntoIterator for Dict {
 }
 
 impl<'a> IntoIterator for &'a Dict {
-    type Item = (&'a Str, &'a Value);
-    type IntoIter = std::collections::btree_map::Iter<'a, Str, Value>;
+    type Item = (&'a EcoString, &'a Value);
+    type IntoIter = std::collections::btree_map::Iter<'a, EcoString, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()

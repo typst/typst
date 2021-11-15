@@ -5,8 +5,6 @@ mod array;
 #[macro_use]
 mod dict;
 #[macro_use]
-mod str;
-#[macro_use]
 mod value;
 mod capture;
 mod function;
@@ -15,7 +13,6 @@ mod scope;
 mod template;
 mod walk;
 
-pub use self::str::*;
 pub use array::*;
 pub use capture::*;
 pub use dict::*;
@@ -31,6 +28,8 @@ use std::io;
 use std::mem;
 use std::path::PathBuf;
 
+use unicode_segmentation::UnicodeSegmentation;
+
 use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
 use crate::geom::{Angle, Fractional, Length, Relative};
 use crate::image::ImageStore;
@@ -38,7 +37,7 @@ use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
 use crate::syntax::ast::*;
 use crate::syntax::{Span, Spanned};
-use crate::util::RefMutExt;
+use crate::util::{EcoString, RefMutExt};
 use crate::Context;
 
 /// Evaluate a parsed source file into a module.
@@ -210,7 +209,7 @@ impl Eval for Lit {
             LitKind::Angle(v, unit) => Value::Angle(Angle::with_unit(v, unit)),
             LitKind::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
             LitKind::Fractional(v) => Value::Fractional(Fractional::new(v)),
-            LitKind::Str(ref v) => Value::Str(v.into()),
+            LitKind::Str(ref v) => Value::Str(v.clone()),
         })
     }
 }
@@ -239,7 +238,7 @@ impl Eval for DictExpr {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         self.items()
-            .map(|x| Ok((x.name().take().into(), x.expr().eval(ctx)?)))
+            .map(|x| Ok((x.name().take(), x.expr().eval(ctx)?)))
             .collect()
     }
 }
@@ -401,7 +400,7 @@ impl Eval for CallArgs {
                 CallArg::Named(named) => {
                     items.push(Arg {
                         span,
-                        name: Some(named.name().take().into()),
+                        name: Some(named.name().take()),
                         value: Spanned::new(named.expr().eval(ctx)?, named.expr().span()),
                     });
                 }
@@ -600,7 +599,7 @@ impl Eval for ForExpr {
 
         match (key, value, iter) {
             (None, v, Value::Str(string)) => {
-                iter!(for (v => value) in string.iter());
+                iter!(for (v => value) in string.graphemes(true));
             }
             (None, v, Value::Array(array)) => {
                 iter!(for (v => value) in array.into_iter());
@@ -629,7 +628,7 @@ impl Eval for ImportExpr {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         let path = self.path();
-        let resolved = path.eval(ctx)?.cast::<Str>().at(path.span())?;
+        let resolved = path.eval(ctx)?.cast::<EcoString>().at(path.span())?;
         let file = ctx.import(&resolved, path.span())?;
         let module = &ctx.modules[&file];
 
@@ -659,7 +658,7 @@ impl Eval for IncludeExpr {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         let path = self.path();
-        let resolved = path.eval(ctx)?.cast::<Str>().at(path.span())?;
+        let resolved = path.eval(ctx)?.cast::<EcoString>().at(path.span())?;
         let file = ctx.import(&resolved, path.span())?;
         let module = &ctx.modules[&file];
         Ok(Value::Template(module.template.clone()))

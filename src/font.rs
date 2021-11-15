@@ -317,30 +317,6 @@ pub enum VerticalFontMetric {
     Linear(Linear),
 }
 
-/// A generic or named font family.
-#[derive(Clone, Eq, PartialEq, Hash)]
-pub enum FontFamily {
-    /// A family that has "serifs", small strokes attached to letters.
-    Serif,
-    /// A family in which glyphs do not have "serifs", small attached strokes.
-    SansSerif,
-    /// A family in which (almost) all glyphs are of equal width.
-    Monospace,
-    /// A specific family with a name.
-    Named(String),
-}
-
-impl Debug for FontFamily {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Serif => "serif",
-            Self::SansSerif => "sans-serif",
-            Self::Monospace => "monospace",
-            Self::Named(s) => s,
-        })
-    }
-}
-
 /// Properties of a single font face.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FaceInfo {

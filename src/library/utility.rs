@@ -77,8 +77,8 @@ pub fn float(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 pub fn str(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Str(match v {
-        Value::Int(v) => format_str!("{}", v),
-        Value::Float(v) => format_str!("{}", v),
+        Value::Int(v) => format_eco!("{}", v),
+        Value::Float(v) => format_eco!("{}", v),
         Value::Str(v) => v,
         v => bail!(span, "cannot convert {} to string", v.type_name()),
     }))
@@ -87,7 +87,7 @@ pub fn str(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 /// `rgb`: Create an RGB(A) color.
 pub fn rgb(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(Value::Color(Color::Rgba(
-        if let Some(string) = args.find::<Spanned<Str>>() {
+        if let Some(string) = args.find::<Spanned<EcoString>>() {
             match RgbaColor::from_str(&string.v) {
                 Ok(color) => color,
                 Err(_) => bail!(string.span, "invalid hex string"),
@@ -98,7 +98,7 @@ pub fn rgb(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             let b = args.expect("blue component")?;
             let a = args.eat()?.unwrap_or(Spanned::new(1.0, Span::detached()));
             let f = |Spanned { v, span }: Spanned<f64>| {
-                if 0.0 <= v && v <= 1.0 {
+                if (0.0 ..= 1.0).contains(&v) {
                     Ok((v * 255.0).round() as u8)
                 } else {
                     bail!(span, "value must be between 0.0 and 1.0");
@@ -182,19 +182,19 @@ pub fn range(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
 /// `lower`: Convert a string to lowercase.
 pub fn lower(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    Ok(args.expect::<Str>("string")?.to_lowercase().into())
+    Ok(args.expect::<EcoString>("string")?.to_lowercase().into())
 }
 
 /// `upper`: Convert a string to uppercase.
 pub fn upper(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    Ok(args.expect::<Str>("string")?.to_uppercase().into())
+    Ok(args.expect::<EcoString>("string")?.to_uppercase().into())
 }
 
 /// `len`: The length of a string, an array or a dictionary.
 pub fn len(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("collection")?;
     Ok(Value::Int(match v {
-        Value::Str(v) => v.len(),
+        Value::Str(v) => v.len() as i64,
         Value::Array(v) => v.len(),
         Value::Dict(v) => v.len(),
         v => bail!(

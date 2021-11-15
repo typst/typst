@@ -65,9 +65,9 @@ impl Markup {
             NodeKind::Emph => Some(MarkupNode::Emph),
             NodeKind::Text(s) => Some(MarkupNode::Text(s.clone())),
             NodeKind::UnicodeEscape(c) => Some(MarkupNode::Text((*c).into())),
-            NodeKind::EnDash => Some(MarkupNode::Text("\u{2013}".into())),
-            NodeKind::EmDash => Some(MarkupNode::Text("\u{2014}".into())),
-            NodeKind::NonBreakingSpace => Some(MarkupNode::Text("\u{00A0}".into())),
+            NodeKind::EnDash => Some(MarkupNode::Text('\u{2013}'.into())),
+            NodeKind::EmDash => Some(MarkupNode::Text('\u{2014}'.into())),
+            NodeKind::NonBreakingSpace => Some(MarkupNode::Text('\u{00A0}'.into())),
             NodeKind::Math(math) => Some(MarkupNode::Math(math.as_ref().clone())),
             NodeKind::Raw(raw) => Some(MarkupNode::Raw(raw.as_ref().clone())),
             NodeKind::Heading => node.cast().map(MarkupNode::Heading),
@@ -175,7 +175,7 @@ impl EnumNode {
         self.0
             .children()
             .find_map(|node| match node.kind() {
-                NodeKind::EnumNumbering(num) => Some(num.clone()),
+                NodeKind::EnumNumbering(num) => Some(*num),
                 _ => None,
             })
             .expect("enum node is missing number")

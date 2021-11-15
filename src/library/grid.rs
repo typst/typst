@@ -3,7 +3,8 @@ use super::prelude::*;
 /// `grid`: Arrange children into a grid.
 pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     castable! {
-        Vec<TrackSizing>: "integer or (auto, linear, fractional, or array thereof)",
+        Vec<TrackSizing>,
+        Expected: "integer or (auto, linear, fractional, or array thereof)",
         Value::Auto => vec![TrackSizing::Auto],
         Value::Length(v) => vec![TrackSizing::Linear(v.into())],
         Value::Relative(v) => vec![TrackSizing::Linear(v.into())],
@@ -17,7 +18,8 @@ pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     castable! {
-        TrackSizing: "auto, linear, or fractional",
+        TrackSizing,
+        Expected: "auto, linear, or fractional",
         Value::Auto => Self::Auto,
         Value::Length(v) => Self::Linear(v.into()),
         Value::Relative(v) => Self::Linear(v.into()),
@@ -43,10 +45,7 @@ pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         GridNode {
             tracks: tracks.clone(),
             gutter: gutter.clone(),
-            children: children
-                .iter()
-                .map(|child| child.to_stack(&style).pack())
-                .collect(),
+            children: children.iter().map(|child| child.to_stack(style).pack()).collect(),
         }
     })))
 }

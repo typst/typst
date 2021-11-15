@@ -6,7 +6,7 @@ use crate::image::ImageId;
 
 /// `image`: An image.
 pub fn image(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let path = args.expect::<Spanned<Str>>("path to image file")?;
+    let path = args.expect::<Spanned<EcoString>>("path to image file")?;
     let width = args.named("width")?;
     let height = args.named("height")?;
 

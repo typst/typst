@@ -30,7 +30,7 @@ impl Green {
     fn data(&self) -> &GreenData {
         match self {
             Green::Node(n) => &n.data,
-            Green::Token(t) => &t,
+            Green::Token(t) => t,
         }
     }
 
@@ -55,7 +55,7 @@ impl Green {
     /// The node's children.
     pub fn children(&self) -> &[Green] {
         match self {
-            Green::Node(n) => &n.children(),
+            Green::Node(n) => n.children(),
             Green::Token(_) => &[],
         }
     }

@@ -119,7 +119,7 @@ impl FsLoader {
         let path = path.strip_prefix(".").unwrap_or(path);
         if let Ok(file) = File::open(path) {
             if let Ok(mmap) = unsafe { Mmap::map(&file) } {
-                self.faces.extend(FaceInfo::parse(&path, &mmap));
+                self.faces.extend(FaceInfo::parse(path, &mmap));
             }
         }
     }

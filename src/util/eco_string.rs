@@ -2,10 +2,20 @@ use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
-use std::ops::Deref;
+use std::ops::{Add, AddAssign, Deref};
 use std::rc::Rc;
 
 use super::RcExt;
+
+/// Create a new [`EcoString`] from a format string.
+macro_rules! format_eco {
+    ($($tts:tt)*) => {{
+        use std::fmt::Write;
+        let mut s = $crate::util::EcoString::new();
+        write!(s, $($tts)*).unwrap();
+        s
+    }};
+}
 
 /// An economical string with inline storage and clone-on-write semantics.
 #[derive(Clone)]
@@ -142,14 +152,38 @@ impl EcoString {
         }
     }
 
+    /// Convert the string to lowercase.
+    pub fn to_lowercase(&self) -> Self {
+        if let Repr::Small { mut buf, len } = self.0 {
+            if self.is_ascii() {
+                buf[.. usize::from(len)].make_ascii_lowercase();
+                return Self(Repr::Small { buf, len });
+            }
+        }
+
+        self.as_str().to_lowercase().into()
+    }
+
+    /// Convert the string to uppercase.
+    pub fn to_uppercase(&self) -> Self {
+        if let Repr::Small { mut buf, len } = self.0 {
+            if self.is_ascii() {
+                buf[.. usize::from(len)].make_ascii_uppercase();
+                return Self(Repr::Small { buf, len });
+            }
+        }
+
+        self.as_str().to_uppercase().into()
+    }
+
     /// Repeat this string `n` times.
     pub fn repeat(&self, n: usize) -> Self {
         if n == 0 {
             return Self::new();
         }
 
-        if let Repr::Small { buf, len } = &self.0 {
-            let prev = usize::from(*len);
+        if let Repr::Small { buf, len } = self.0 {
+            let prev = usize::from(len);
             let new = prev.saturating_mul(n);
             if new <= LIMIT {
                 let src = &buf[.. prev];
@@ -193,7 +227,18 @@ impl Default for EcoString {
 
 impl Debug for EcoString {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Debug::fmt(self.as_str(), f)
+        f.write_char('"')?;
+        for c in self.chars() {
+            match c {
+                '\\' => f.write_str(r"\\")?,
+                '"' => f.write_str(r#"\""#)?,
+                '\n' => f.write_str(r"\n")?,
+                '\r' => f.write_str(r"\r")?,
+                '\t' => f.write_str(r"\t")?,
+                _ => f.write_char(c)?,
+            }
+        }
+        f.write_char('"')
     }
 }
 
@@ -250,6 +295,21 @@ impl Write for EcoString {
     fn write_char(&mut self, c: char) -> fmt::Result {
         self.push(c);
         Ok(())
+    }
+}
+
+impl Add for EcoString {
+    type Output = Self;
+
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self += rhs;
+        self
+    }
+}
+
+impl AddAssign for EcoString {
+    fn add_assign(&mut self, rhs: Self) {
+        self.push_str(rhs.as_str());
     }
 }
 
@@ -380,6 +440,21 @@ mod tests {
         // Test that we can use the index syntax.
         let v = EcoString::from("abc");
         assert_eq!(&v[.. 2], "ab");
+    }
+
+    #[test]
+    fn test_str_case() {
+        assert_eq!(EcoString::new().to_uppercase(), "");
+        assert_eq!(EcoString::from("abc").to_uppercase(), "ABC");
+        assert_eq!(EcoString::from("AΣ").to_lowercase(), "aς");
+        assert_eq!(
+            EcoString::from("a").repeat(100).to_uppercase(),
+            EcoString::from("A").repeat(100)
+        );
+        assert_eq!(
+            EcoString::from("Ö").repeat(20).to_lowercase(),
+            EcoString::from("ö").repeat(20)
+        );
     }
 
     #[test]

@@ -239,7 +239,7 @@ impl<'s> Tokens<'s> {
                     self.s.eat_assert('{');
                     let sequence = self.s.eat_while(|c| c.is_ascii_alphanumeric());
                     if self.s.eat_if('}') {
-                        if let Some(c) = resolve_hex(&sequence) {
+                        if let Some(c) = resolve_hex(sequence) {
                             NodeKind::UnicodeEscape(c)
                         } else {
                             NodeKind::Error(
@@ -270,7 +270,7 @@ impl<'s> Tokens<'s> {
                 None => NodeKind::Ident(read.into()),
             }
         } else {
-            NodeKind::Text("#".into())
+            NodeKind::Text('#'.into())
         }
     }
 
@@ -284,7 +284,7 @@ impl<'s> Tokens<'s> {
         } else if self.s.check_or(true, char::is_whitespace) {
             NodeKind::Minus
         } else {
-            NodeKind::Text("-".into())
+            NodeKind::Text('-'.into())
         }
     }
 
@@ -340,7 +340,7 @@ impl<'s> Tokens<'s> {
             NodeKind::Raw(Rc::new(resolve_raw(
                 column,
                 backticks,
-                self.s.get(start .. end).into(),
+                self.s.get(start .. end),
             )))
         } else {
             let remaining = backticks - found;
@@ -349,11 +349,10 @@ impl<'s> Tokens<'s> {
             NodeKind::Error(
                 ErrorPos::End,
                 if found == 0 {
-                    format!("expected {} {}", remaining, noun)
+                    format_eco!("expected {} {}", remaining, noun)
                 } else {
-                    format!("expected {} more {}", remaining, noun)
-                }
-                .into(),
+                    format_eco!("expected {} more {}", remaining, noun)
+                },
             )
         }
     }
@@ -397,11 +396,10 @@ impl<'s> Tokens<'s> {
             NodeKind::Error(
                 ErrorPos::End,
                 if !display || (!escaped && dollar) {
-                    "expected closing dollar sign"
+                    "expected closing dollar sign".into()
                 } else {
-                    "expected closing bracket and dollar sign"
-                }
-                .into(),
+                    "expected closing bracket and dollar sign".into()
+                },
             )
         }
     }
@@ -413,7 +411,7 @@ impl<'s> Tokens<'s> {
             "auto" => NodeKind::Auto,
             "true" => NodeKind::Bool(true),
             "false" => NodeKind::Bool(false),
-            id => keyword(id).unwrap_or(NodeKind::Ident(id.into())),
+            id => keyword(id).unwrap_or_else(|| NodeKind::Ident(id.into())),
         }
     }
 
@@ -461,9 +459,7 @@ impl<'s> Tokens<'s> {
                 "in" => NodeKind::Length(f, LengthUnit::In),
                 "deg" => NodeKind::Angle(f, AngularUnit::Deg),
                 "rad" => NodeKind::Angle(f, AngularUnit::Rad),
-                _ => {
-                    return NodeKind::Unknown(all.into());
-                }
+                _ => NodeKind::Unknown(all.into()),
             }
         } else {
             NodeKind::Unknown(all.into())
