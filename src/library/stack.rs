@@ -40,7 +40,7 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
                         children.push(StackChild::Spacing(v));
                     }
 
-                    let node = template.to_stack(style).pack();
+                    let node = template.to_flow(style).pack();
                     children.push(StackChild::Node(node, style.aligns.block));
                     delayed = spacing;
                 }

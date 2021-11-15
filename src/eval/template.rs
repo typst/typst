@@ -9,7 +9,7 @@ use crate::diag::StrResult;
 use crate::geom::{Align, Dir, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{BlockLevel, BlockNode, InlineLevel, InlineNode, PageNode};
 use crate::library::{
-    Decoration, PadNode, ParChild, ParNode, Spacing, StackChild, StackNode,
+    Decoration, FlowChild, FlowNode, PadNode, ParChild, ParNode, Spacing,
 };
 use crate::style::Style;
 use crate::util::EcoString;
@@ -148,12 +148,12 @@ impl Template {
         Self(Rc::new(vec![TemplateNode::Decorated(deco, self)]))
     }
 
-    /// Build the stack node resulting from instantiating the template with the
+    /// Build the flow node resulting from instantiating the template with the
     /// given style.
-    pub fn to_stack(&self, style: &Style) -> StackNode {
+    pub fn to_flow(&self, style: &Style) -> FlowNode {
         let mut builder = Builder::new(style, false);
         builder.template(self);
-        builder.build_stack()
+        builder.build_flow()
     }
 
     /// Build the layout tree resulting from instantiating the template with the
@@ -240,10 +240,10 @@ struct Builder {
     /// The finished page nodes.
     finished: Vec<PageNode>,
     /// When we are building the top-level layout trees, this contains metrics
-    /// of the page. While building a stack, this is `None`.
+    /// of the page. While building a flow, this is `None`.
     page: Option<PageBuilder>,
-    /// The currently built stack of paragraphs.
-    stack: StackBuilder,
+    /// The currently built flow of paragraphs.
+    flow: FlowBuilder,
 }
 
 impl Builder {
@@ -254,7 +254,7 @@ impl Builder {
             snapshots: vec![],
             finished: vec![],
             page: pages.then(|| PageBuilder::new(style, true)),
-            stack: StackBuilder::new(style),
+            flow: FlowBuilder::new(style),
         }
     }
 
@@ -284,9 +284,9 @@ impl Builder {
             TemplateNode::Text(text) => self.text(text),
             TemplateNode::Spacing(axis, amount) => self.spacing(*axis, *amount),
             TemplateNode::Decorated(deco, template) => {
-                self.stack.par.push(ParChild::Decorate(deco.clone()));
+                self.flow.par.push(ParChild::Decorate(deco.clone()));
                 self.template(template);
-                self.stack.par.push(ParChild::Undecorate);
+                self.flow.par.push(ParChild::Undecorate);
             }
             TemplateNode::Inline(f) => self.inline(f(&self.style)),
             TemplateNode::Block(f) => self.block(f(&self.style)),
@@ -296,67 +296,66 @@ impl Builder {
 
     /// Push a word space into the active paragraph.
     fn space(&mut self) {
-        self.stack.par.push_soft(self.make_text_node(' '));
+        self.flow.par.push_soft(self.make_text_node(' '));
     }
 
     /// Apply a forced line break.
     fn linebreak(&mut self) {
-        self.stack.par.push_hard(self.make_text_node('\n'));
+        self.flow.par.push_hard(self.make_text_node('\n'));
     }
 
     /// Apply a forced paragraph break.
     fn parbreak(&mut self) {
         let amount = self.style.par_spacing();
-        self.stack.finish_par(&self.style);
-        self.stack
-            .push_soft(StackChild::Spacing(Spacing::Linear(amount.into())));
+        self.flow.finish_par(&self.style);
+        self.flow
+            .push_soft(FlowChild::Spacing(Spacing::Linear(amount.into())));
     }
 
     /// Apply a forced page break.
     fn pagebreak(&mut self, keep: bool, hard: bool) {
         if let Some(builder) = &mut self.page {
             let page = mem::replace(builder, PageBuilder::new(&self.style, hard));
-            let stack = mem::replace(&mut self.stack, StackBuilder::new(&self.style));
-            self.finished.extend(page.build(stack.build(), keep));
+            let flow = mem::replace(&mut self.flow, FlowBuilder::new(&self.style));
+            self.finished.extend(page.build(flow.build(), keep));
         }
     }
 
     /// Push text into the active paragraph.
     fn text(&mut self, text: impl Into<EcoString>) {
-        self.stack.par.push(self.make_text_node(text));
+        self.flow.par.push(self.make_text_node(text));
     }
 
     /// Push an inline node into the active paragraph.
     fn inline(&mut self, node: impl Into<InlineNode>) {
         let align = self.style.aligns.inline;
-        self.stack.par.push(ParChild::Node(node.into(), align));
+        self.flow.par.push(ParChild::Node(node.into(), align));
     }
 
-    /// Push a block node into the active stack, finishing the active paragraph.
+    /// Push a block node into the active flow, finishing the active paragraph.
     fn block(&mut self, node: impl Into<BlockNode>) {
         self.parbreak();
-        self.stack
-            .push(StackChild::Node(node.into(), self.style.aligns.block));
+        self.flow.push(FlowChild::Node(node.into(), self.style.aligns.block));
         self.parbreak();
     }
 
-    /// Push spacing into the active paragraph or stack depending on the `axis`.
+    /// Push spacing into the active paragraph or flow depending on the `axis`.
     fn spacing(&mut self, axis: GenAxis, spacing: Spacing) {
         match axis {
             GenAxis::Block => {
-                self.stack.finish_par(&self.style);
-                self.stack.push_hard(StackChild::Spacing(spacing));
+                self.flow.finish_par(&self.style);
+                self.flow.push_hard(FlowChild::Spacing(spacing));
             }
             GenAxis::Inline => {
-                self.stack.par.push_hard(ParChild::Spacing(spacing));
+                self.flow.par.push_hard(ParChild::Spacing(spacing));
             }
         }
     }
 
-    /// Finish building and return the created stack.
-    fn build_stack(self) -> StackNode {
+    /// Finish building and return the created flow.
+    fn build_flow(self) -> FlowNode {
         assert!(self.page.is_none());
-        self.stack.build()
+        self.flow.build()
     }
 
     /// Finish building and return the created layout tree.
@@ -392,7 +391,7 @@ impl PageBuilder {
         }
     }
 
-    fn build(self, child: StackNode, keep: bool) -> Option<PageNode> {
+    fn build(self, child: FlowNode, keep: bool) -> Option<PageNode> {
         let Self { size, padding, hard } = self;
         (!child.children.is_empty() || (keep && hard)).then(|| PageNode {
             size,
@@ -401,33 +400,31 @@ impl PageBuilder {
     }
 }
 
-struct StackBuilder {
-    dir: Dir,
-    children: Vec<StackChild>,
-    last: Last<StackChild>,
+struct FlowBuilder {
+    children: Vec<FlowChild>,
+    last: Last<FlowChild>,
     par: ParBuilder,
 }
 
-impl StackBuilder {
+impl FlowBuilder {
     fn new(style: &Style) -> Self {
         Self {
-            dir: Dir::TTB,
             children: vec![],
             last: Last::None,
             par: ParBuilder::new(style),
         }
     }
 
-    fn push(&mut self, child: StackChild) {
+    fn push(&mut self, child: FlowChild) {
         self.children.extend(self.last.any());
         self.children.push(child);
     }
 
-    fn push_soft(&mut self, child: StackChild) {
+    fn push_soft(&mut self, child: FlowChild) {
         self.last.soft(child);
     }
 
-    fn push_hard(&mut self, child: StackChild) {
+    fn push_hard(&mut self, child: FlowChild) {
         self.last.hard();
         self.children.push(child);
     }
@@ -439,13 +436,13 @@ impl StackBuilder {
         }
     }
 
-    fn build(self) -> StackNode {
-        let Self { dir, mut children, par, mut last } = self;
+    fn build(self) -> FlowNode {
+        let Self { mut children, par, mut last } = self;
         if let Some(par) = par.build() {
             children.extend(last.any());
             children.push(par);
         }
-        StackNode { dir, children }
+        FlowNode { children }
     }
 }
 
@@ -499,10 +496,10 @@ impl ParBuilder {
         self.children.push(child);
     }
 
-    fn build(self) -> Option<StackChild> {
+    fn build(self) -> Option<FlowChild> {
         let Self { align, dir, leading, children, .. } = self;
         (!children.is_empty())
-            .then(|| StackChild::Node(ParNode { dir, leading, children }.pack(), align))
+            .then(|| FlowChild::Node(ParNode { dir, leading, children }.pack(), align))
     }
 }
 

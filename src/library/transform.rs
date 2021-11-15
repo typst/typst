@@ -15,7 +15,7 @@ pub fn move_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
                 width: None,
                 height: None,
                 fill: None,
-                child: Some(body.to_stack(style).pack()),
+                child: Some(body.to_flow(style).pack()),
             },
         }
     })))

@@ -13,7 +13,7 @@ pub fn box_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             width,
             height,
             fill: fill.map(Paint::Color),
-            child: Some(body.to_stack(style).pack()),
+            child: Some(body.to_flow(style).pack()),
         }
     })))
 }
@@ -22,6 +22,6 @@ pub fn box_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 pub fn block(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let body: Template = args.expect("body")?;
     Ok(Value::Template(Template::from_block(move |style| {
-        body.to_stack(style)
+        body.to_flow(style)
     })))
 }

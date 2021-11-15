@@ -6,6 +6,7 @@
 mod align;
 mod container;
 mod deco;
+mod flow;
 mod grid;
 mod image;
 mod pad;
@@ -35,6 +36,7 @@ pub use self::image::*;
 pub use align::*;
 pub use container::*;
 pub use deco::*;
+pub use flow::*;
 pub use grid::*;
 pub use pad::*;
 pub use page::*;
@@ -71,6 +73,7 @@ pub fn new() -> Scope {
     std.def_func("align", align);
     std.def_func("box", box_);
     std.def_func("block", block);
+    std.def_func("flow", flow);
     std.def_func("pad", pad);
     std.def_func("move", move_);
     std.def_func("stack", stack);

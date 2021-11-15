@@ -138,7 +138,7 @@ fn walk_item(ctx: &mut EvalContext, label: EcoString, body: Template) {
         GridNode {
             tracks: Spec::new(vec![TrackSizing::Auto; 2], vec![]),
             gutter: Spec::new(vec![TrackSizing::Linear(spacing.into())], vec![]),
-            children: vec![label.pack(), body.to_stack(style).pack()],
+            children: vec![label.pack(), body.to_flow(style).pack()],
         }
     });
 }
