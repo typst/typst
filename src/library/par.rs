@@ -15,52 +15,41 @@ pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let spacing = args.named("spacing")?;
     let leading = args.named("leading")?;
 
+    let mut dir = args.named::<EcoString>("lang")?.map(|iso| {
+        match iso.to_ascii_lowercase().as_str() {
+            "ar" | "he" | "fa" | "ur" | "ps" | "yi" => Dir::RTL,
+            "en" | "fr" | "de" => Dir::LTR,
+            _ => Dir::LTR,
+        }
+    });
+
+    if let Some(Spanned { v, span }) = args.named::<Spanned<Dir>>("dir")? {
+        if v.axis() == SpecAxis::Horizontal {
+            dir = Some(v)
+        } else {
+            bail!(span, "must be horizontal");
+        }
+    }
+
     ctx.template.modify(move |style| {
         let par = style.par_mut();
 
-        if let Some(spacing) = spacing {
-            par.spacing = spacing;
+        if let Some(dir) = dir {
+            par.dir = dir;
         }
 
         if let Some(leading) = leading {
             par.leading = leading;
+        }
+
+        if let Some(spacing) = spacing {
+            par.spacing = spacing;
         }
     });
 
     ctx.template.parbreak();
 
     Ok(Value::None)
-}
-
-/// `lang`: Configure the language.
-pub fn lang(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let iso = args.find::<EcoString>();
-    let dir = if let Some(dir) = args.named::<Spanned<Dir>>("dir")? {
-        if dir.v.axis() == SpecAxis::Horizontal {
-            Some(dir.v)
-        } else {
-            bail!(dir.span, "must be horizontal");
-        }
-    } else {
-        iso.as_deref().map(lang_dir)
-    };
-
-    if let Some(dir) = dir {
-        ctx.template.modify(move |style| style.dir = dir);
-    }
-
-    ctx.template.parbreak();
-
-    Ok(Value::None)
-}
-
-/// The default direction for the language identified by the given `iso` code.
-fn lang_dir(iso: &str) -> Dir {
-    match iso.to_ascii_lowercase().as_str() {
-        "ar" | "he" | "fa" | "ur" | "ps" | "yi" => Dir::RTL,
-        "en" | "fr" | "de" => Dir::LTR,
-        _ => Dir::LTR,
-    }
 }
 
 /// A node that arranges its children into a paragraph.

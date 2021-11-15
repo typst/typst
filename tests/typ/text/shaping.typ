@@ -41,5 +41,5 @@ A🐈中文B
 // Test reshaping.
 
 #font("Noto Serif Hebrew")
-#lang("he")
+#par(lang: "he")
 ס \ טֶ

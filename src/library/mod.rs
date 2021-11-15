@@ -59,7 +59,6 @@ pub fn new() -> Scope {
     // Text.
     std.def_func("font", font);
     std.def_func("par", par);
-    std.def_func("lang", lang);
     std.def_func("strike", strike);
     std.def_func("underline", underline);
     std.def_func("overline", overline);

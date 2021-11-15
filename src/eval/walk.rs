@@ -125,7 +125,7 @@ impl Walk for EnumNode {
 fn walk_item(ctx: &mut EvalContext, label: EcoString, body: Template) {
     ctx.template += Template::from_block(move |style| {
         let label = ParNode {
-            dir: style.dir,
+            dir: style.par.dir,
             leading: style.leading(),
             children: vec![ParChild::Text(
                 label.clone(),

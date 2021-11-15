@@ -16,8 +16,6 @@ use crate::util::EcoString;
 /// Defines a set of properties a template can be instantiated with.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Style {
-    /// The direction for text and other inline objects.
-    pub dir: Dir,
     /// The alignments of layouts in their parents.
     pub aligns: Gen<Align>,
     /// The page settings.
@@ -58,7 +56,6 @@ impl Style {
 impl Default for Style {
     fn default() -> Self {
         Self {
-            dir: Dir::LTR,
             aligns: Gen::splat(Align::Start),
             page: Rc::new(PageStyle::default()),
             par: Rc::new(ParStyle::default()),
@@ -106,17 +103,20 @@ impl Default for PageStyle {
 /// Defines style properties of paragraphs.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ParStyle {
-    /// The spacing between paragraphs (dependent on scaled font size).
-    pub spacing: Linear,
+    /// The direction for text and other inline objects.
+    pub dir: Dir,
     /// The spacing between lines (dependent on scaled font size).
     pub leading: Linear,
+    /// The spacing between paragraphs (dependent on scaled font size).
+    pub spacing: Linear,
 }
 
 impl Default for ParStyle {
     fn default() -> Self {
         Self {
-            spacing: Relative::new(1.2).into(),
+            dir: Dir::LTR,
             leading: Relative::new(0.65).into(),
+            spacing: Relative::new(1.2).into(),
         }
     }
 }

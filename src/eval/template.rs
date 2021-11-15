@@ -458,7 +458,7 @@ impl ParBuilder {
     fn new(style: &Style) -> Self {
         Self {
             align: style.aligns.block,
-            dir: style.dir,
+            dir: style.par.dir,
             leading: style.leading(),
             children: vec![],
             last: Last::None,
