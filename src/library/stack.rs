@@ -60,15 +60,6 @@ pub struct StackNode {
     pub children: Vec<StackChild>,
 }
 
-/// A child of a stack node.
-#[derive(Hash)]
-pub enum StackChild {
-    /// Spacing between other nodes.
-    Spacing(Spacing),
-    /// Any block node and how to align it in the stack.
-    Node(BlockNode, Align),
-}
-
 impl BlockLevel for StackNode {
     fn layout(
         &self,
@@ -77,6 +68,15 @@ impl BlockLevel for StackNode {
     ) -> Vec<Constrained<Rc<Frame>>> {
         StackLayouter::new(self, regions.clone()).layout(ctx)
     }
+}
+
+/// A child of a stack node.
+#[derive(Hash)]
+pub enum StackChild {
+    /// Spacing between other nodes.
+    Spacing(Spacing),
+    /// Any block node and how to align it in the stack.
+    Node(BlockNode, Align),
 }
 
 impl Debug for StackChild {
@@ -179,15 +179,12 @@ impl<'a> StackLayouter<'a> {
         let frames = node.layout(ctx, &self.regions);
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
-            // Grow our size.
+            // Grow our size, shrink the region and save the frame for later.
             let size = frame.item.size.to_gen(self.axis);
             self.used.block += size.block;
             self.used.inline.set_max(size.inline);
-
-            // Remember the frame and shrink available space in the region for the
-            // following children.
-            self.items.push(StackItem::Frame(frame.item, align));
             *self.regions.current.get_mut(self.axis) -= size.block;
+            self.items.push(StackItem::Frame(frame.item, align));
 
             if i + 1 < len {
                 self.finish_region();
@@ -197,9 +194,6 @@ impl<'a> StackLayouter<'a> {
 
     /// Finish the frame for one region.
     fn finish_region(&mut self) {
-        // Determine the size that remains for fractional spacing.
-        let remaining = self.full.get(self.axis) - self.used.block;
-
         // Determine the size of the stack in this region dependening on whether
         // the region expands.
         let used = self.used.to_size(self.axis);
@@ -217,7 +211,6 @@ impl<'a> StackLayouter<'a> {
         let mut output = Frame::new(size, size.h);
         let mut before = Length::zero();
         let mut ruler = Align::Start;
-        let mut first = true;
 
         // Place all frames.
         for item in self.items.drain(..) {
@@ -225,6 +218,7 @@ impl<'a> StackLayouter<'a> {
                 StackItem::Absolute(v) => before += v,
                 StackItem::Fractional(v) => {
                     let ratio = v / self.fr;
+                    let remaining = self.full.get(self.axis) - self.used.block;
                     if remaining.is_finite() && ratio.is_finite() {
                         before += ratio * remaining;
                     }
@@ -248,15 +242,10 @@ impl<'a> StackLayouter<'a> {
                         },
                     );
 
-                    let pos = Gen::new(Length::zero(), block).to_point(self.axis);
-                    if first {
-                        // The baseline of the stack is that of the first frame.
-                        output.baseline = pos.y + frame.baseline;
-                        first = false;
-                    }
-
-                    output.push_frame(pos, frame);
                     before += child.block;
+
+                    let pos = Gen::new(Length::zero(), block).to_point(self.axis);
+                    output.push_frame(pos, frame);
                 }
             }
         }
@@ -266,6 +255,7 @@ impl<'a> StackLayouter<'a> {
         cts.exact = self.full.to_spec().map(Some);
         cts.base = self.regions.base.to_spec().map(Some);
 
+        // Advance to the next region.
         self.regions.next();
         self.full = self.regions.current;
         self.used = Gen::zero();

@@ -74,21 +74,6 @@ pub struct ParNode {
     pub children: Vec<ParChild>,
 }
 
-/// A child of a paragraph node.
-#[derive(Hash)]
-pub enum ParChild {
-    /// Spacing between other nodes.
-    Spacing(Spacing),
-    /// A run of text and how to align it in its line.
-    Text(EcoString, Align, Rc<TextStyle>),
-    /// Any child node and how to align it in its line.
-    Node(InlineNode, Align),
-    /// A decoration that applies until a matching `Undecorate`.
-    Decorate(Decoration),
-    /// The end of a decoration.
-    Undecorate,
-}
-
 impl BlockLevel for ParNode {
     fn layout(
         &self,
@@ -144,6 +129,21 @@ impl ParNode {
     }
 }
 
+/// A child of a paragraph node.
+#[derive(Hash)]
+pub enum ParChild {
+    /// Spacing between other nodes.
+    Spacing(Spacing),
+    /// A run of text and how to align it in its line.
+    Text(EcoString, Align, Rc<TextStyle>),
+    /// Any child node and how to align it in its line.
+    Node(InlineNode, Align),
+    /// A decoration that applies until a matching `Undecorate`.
+    Decorate(Decoration),
+    /// The end of a decoration.
+    Undecorate,
+}
+
 impl Debug for ParChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
@@ -155,8 +155,6 @@ impl Debug for ParChild {
         }
     }
 }
-
-type Range = std::ops::Range<usize>;
 
 /// A paragraph representation in which children are already layouted and text
 /// is separated into shapable runs.
@@ -174,6 +172,9 @@ struct ParLayouter<'a> {
     /// The decorations and the ranges they span.
     decos: Vec<(Range, &'a Decoration)>,
 }
+
+/// Range of a substring of text.
+type Range = std::ops::Range<usize>;
 
 /// A prepared item in a paragraph layout.
 enum ParItem<'a> {

@@ -48,15 +48,6 @@ pub struct FlowNode {
     pub children: Vec<FlowChild>,
 }
 
-/// A child of a flow node.
-#[derive(Hash)]
-pub enum FlowChild {
-    /// Vertical spacing between other children.
-    Spacing(Spacing),
-    /// Any block node and how to align it in the flow.
-    Node(BlockNode, Align),
-}
-
 impl BlockLevel for FlowNode {
     fn layout(
         &self,
@@ -65,6 +56,15 @@ impl BlockLevel for FlowNode {
     ) -> Vec<Constrained<Rc<Frame>>> {
         FlowLayouter::new(self, regions.clone()).layout(ctx)
     }
+}
+
+/// A child of a flow node.
+#[derive(Hash)]
+pub enum FlowChild {
+    /// Vertical spacing between other children.
+    Spacing(Spacing),
+    /// Any block node and how to align it in the flow.
+    Node(BlockNode, Align),
 }
 
 impl Debug for FlowChild {
@@ -79,7 +79,7 @@ impl Debug for FlowChild {
 /// Performs flow layout.
 struct FlowLayouter<'a> {
     /// The flow node to layout.
-    flow: &'a FlowNode,
+    children: &'a [FlowChild],
     /// Whether the flow should expand to fill the region.
     expand: Spec<bool>,
     /// The region to layout into.
@@ -115,7 +115,7 @@ impl<'a> FlowLayouter<'a> {
         regions.expand.y = false;
 
         Self {
-            flow,
+            children: &flow.children,
             expand,
             full: regions.current,
             regions,
@@ -128,7 +128,7 @@ impl<'a> FlowLayouter<'a> {
 
     /// Layout all children.
     fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
-        for child in &self.flow.children {
+        for child in self.children {
             match *child {
                 FlowChild::Spacing(Spacing::Linear(v)) => {
                     self.layout_absolute(v);
@@ -150,10 +150,9 @@ impl<'a> FlowLayouter<'a> {
     /// Layout absolute spacing.
     fn layout_absolute(&mut self, amount: Linear) {
         // Resolve the linear, limiting it to the remaining available space.
-        let remaining = &mut self.regions.current.h;
         let resolved = amount.resolve(self.full.h);
-        let limited = resolved.min(*remaining);
-        *remaining -= limited;
+        let limited = resolved.min(self.regions.current.h);
+        self.regions.current.h -= limited;
         self.used.h += limited;
         self.items.push(FlowItem::Absolute(resolved));
     }
@@ -163,15 +162,12 @@ impl<'a> FlowLayouter<'a> {
         let frames = node.layout(ctx, &self.regions);
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
-            // Grow our size.
+            // Grow our size, shrink the region and save the frame for later.
             let size = frame.item.size;
             self.used.h += size.h;
             self.used.w.set_max(size.w);
-
-            // Remember the frame and shrink available space in the region for the
-            // following children.
-            self.items.push(FlowItem::Frame(frame.item, align));
             self.regions.current.h -= size.h;
+            self.items.push(FlowItem::Frame(frame.item, align));
 
             if i + 1 < len {
                 self.finish_region();
@@ -181,20 +177,16 @@ impl<'a> FlowLayouter<'a> {
 
     /// Finish the frame for one region.
     fn finish_region(&mut self) {
-        // Determine the size that remains for fractional spacing.
-        let remaining = self.full.h - self.used.h;
-
         // Determine the size of the flow in this region dependening on whether
         // the region expands.
-        let mut size = Size::new(
+        let size = Size::new(
             if self.expand.x { self.full.w } else { self.used.w },
-            if self.expand.y { self.full.h } else { self.used.h },
+            if self.expand.y || (!self.fr.is_zero() && self.full.h.is_finite()) {
+                self.full.h
+            } else {
+                self.used.h
+            },
         );
-
-        // Expand fully if there are fr spacings.
-        if !self.fr.is_zero() && self.full.h.is_finite() {
-            size.h = self.full.h;
-        }
 
         let mut output = Frame::new(size, size.h);
         let mut before = Length::zero();
@@ -207,6 +199,7 @@ impl<'a> FlowLayouter<'a> {
                 FlowItem::Absolute(v) => before += v,
                 FlowItem::Fractional(v) => {
                     let ratio = v / self.fr;
+                    let remaining = self.full.h - self.used.h;
                     if remaining.is_finite() && ratio.is_finite() {
                         before += ratio * remaining;
                     }
@@ -215,18 +208,17 @@ impl<'a> FlowLayouter<'a> {
                     ruler = ruler.max(align);
 
                     // Align vertically.
-                    let y =
-                        ruler.resolve(Dir::TTB, before .. before + size.h - self.used.h);
+                    let range = before .. before + size.h - self.used.h;
+                    let y = ruler.resolve(Dir::TTB, range);
+                    before += frame.size.h;
 
-                    let pos = Point::new(Length::zero(), y);
+                    // The baseline of the flow is that of the first frame.
                     if first {
-                        // The baseline of the flow is that of the first frame.
-                        output.baseline = pos.y + frame.baseline;
+                        output.baseline = y + frame.baseline;
                         first = false;
                     }
 
-                    before += frame.size.h;
-                    output.push_frame(pos, frame);
+                    output.push_frame(Point::new(Length::zero(), y), frame);
                 }
             }
         }
@@ -236,6 +228,7 @@ impl<'a> FlowLayouter<'a> {
         cts.exact = self.full.to_spec().map(Some);
         cts.base = self.regions.base.to_spec().map(Some);
 
+        // Advance to the next region.
         self.regions.next();
         self.full = self.regions.current;
         self.used = Size::zero();

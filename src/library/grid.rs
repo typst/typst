@@ -91,14 +91,14 @@ impl BlockLevel for GridNode {
 
 /// Performs grid layout.
 struct GridLayouter<'a> {
-    /// The original expand state of the target region.
+    /// The children of the grid.
+    children: &'a [BlockNode],
+    /// Whether the grid should expand to fill the region.
     expand: Spec<bool>,
     /// The column tracks including gutter tracks.
     cols: Vec<TrackSizing>,
     /// The row tracks including gutter tracks.
     rows: Vec<TrackSizing>,
-    /// The children of the grid.
-    children: &'a [BlockNode],
     /// The regions to layout into.
     regions: Regions,
     /// Resolved column sizes.
@@ -173,17 +173,17 @@ impl<'a> GridLayouter<'a> {
 
         Self {
             children: &grid.children,
-            cts: Constraints::new(expand),
-            full: regions.current.h,
             expand,
             rcols: vec![Length::zero(); cols.len()],
-            lrows: vec![],
-            used: Size::zero(),
-            fr: Fractional::zero(),
-            finished: vec![],
             cols,
             rows,
+            full: regions.current.h,
             regions,
+            used: Size::zero(),
+            fr: Fractional::zero(),
+            lrows: vec![],
+            cts: Constraints::new(expand),
+            finished: vec![],
         }
     }
 
@@ -544,9 +544,6 @@ impl<'a> GridLayouter<'a> {
 
     /// Finish rows for one region.
     fn finish_region(&mut self, ctx: &mut LayoutContext) {
-        // Determine the size that remains for fractional rows.
-        let remaining = self.full - self.used.h;
-
         // Determine the size of the grid in this region, expanding fully if
         // there are fr rows.
         let mut size = self.used;
@@ -567,6 +564,7 @@ impl<'a> GridLayouter<'a> {
                 Row::Frame(frame) => frame,
                 Row::Fr(v, y) => {
                     let ratio = v / self.fr;
+                    let remaining = self.full - self.used.h;
                     if remaining.is_finite() && ratio.is_finite() {
                         let resolved = ratio * remaining;
                         self.layout_single_row(ctx, resolved, y)
