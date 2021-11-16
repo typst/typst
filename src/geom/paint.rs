@@ -45,9 +45,14 @@ impl RgbaColor {
     /// White color.
     pub const WHITE: Self = Self { r: 255, g: 255, b: 255, a: 255 };
 
-    /// Constructs a new RGBA color.
+    /// Construct a new RGBA color.
     pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self { r, g, b, a }
+    }
+
+    /// Construct a new, opaque gray color.
+    pub fn gray(luma: u8) -> Self {
+        Self::new(luma, luma, luma, 255)
     }
 }
 

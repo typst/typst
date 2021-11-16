@@ -77,7 +77,7 @@ impl Layout for ParNode {
 
         // Prepare paragraph layout by building a representation on which we can
         // do line breaking without layouting each and every line from scratch.
-        let layouter = ParLayouter::new(self, ctx, regions.clone(), bidi);
+        let layouter = ParLayouter::new(self, ctx, regions, bidi);
 
         // Find suitable linebreaks.
         layouter.layout(ctx, regions.clone())
@@ -182,12 +182,9 @@ impl<'a> ParLayouter<'a> {
     fn new(
         par: &'a ParNode,
         ctx: &mut LayoutContext,
-        mut regions: Regions,
+        regions: &Regions,
         bidi: BidiInfo<'a>,
     ) -> Self {
-        // Disable expansion for children.
-        regions.expand = Spec::splat(false);
-
         let mut items = vec![];
         let mut ranges = vec![];
         let mut starts = vec![];
@@ -219,7 +216,10 @@ impl<'a> ParLayouter<'a> {
                     }
                 }
                 ParChild::Node(ref node, align) => {
-                    let frame = node.layout(ctx, &regions).remove(0);
+                    let size = Size::new(regions.current.w, regions.base.h);
+                    let expand = Spec::splat(false);
+                    let pod = Regions::one(size, regions.base, expand);
+                    let frame = node.layout(ctx, &pod).remove(0);
                     items.push(ParItem::Frame(Rc::take(frame.item), align));
                     ranges.push(range);
                 }

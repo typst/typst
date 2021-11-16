@@ -35,12 +35,12 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
                     children.push(StackChild::Spacing(*v));
                     delayed = None;
                 }
-                Child::Any(template) => {
+                Child::Any(child) => {
                     if let Some(v) = delayed {
                         children.push(StackChild::Spacing(v));
                     }
 
-                    let node = template.to_flow(style).pack();
+                    let node = child.to_flow(style).pack();
                     children.push(StackChild::Node(node));
                     delayed = spacing;
                 }

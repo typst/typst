@@ -4,7 +4,6 @@
 //! definitions.
 
 mod align;
-mod container;
 mod deco;
 mod document;
 mod flow;
@@ -14,6 +13,7 @@ mod pad;
 mod page;
 mod par;
 mod shape;
+mod sized;
 mod spacing;
 mod stack;
 mod text;
@@ -35,7 +35,6 @@ mod prelude {
 
 pub use self::image::*;
 pub use align::*;
-pub use container::*;
 pub use deco::*;
 pub use document::*;
 pub use flow::*;
@@ -44,6 +43,7 @@ pub use pad::*;
 pub use page::*;
 pub use par::*;
 pub use shape::*;
+pub use sized::*;
 pub use spacing::*;
 pub use stack::*;
 pub use text::*;

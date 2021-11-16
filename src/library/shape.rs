@@ -1,7 +1,7 @@
 use std::f64::consts::SQRT_2;
 
 use super::prelude::*;
-use super::PadNode;
+use super::{PadNode, SizedNode};
 use crate::util::RcExt;
 
 /// `rect`: A rectangle with optional content.
@@ -55,7 +55,7 @@ pub fn circle(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 }
 
 fn shape_impl(
-    shape: ShapeKind,
+    kind: ShapeKind,
     mut width: Option<Linear>,
     mut height: Option<Linear>,
     fill: Option<Color>,
@@ -65,20 +65,30 @@ fn shape_impl(
     if body.is_none() {
         let v = Length::pt(30.0).into();
         height.get_or_insert(v);
-        width.get_or_insert(match shape {
+        width.get_or_insert(match kind {
             ShapeKind::Square | ShapeKind::Circle => v,
             ShapeKind::Rect | ShapeKind::Ellipse => 1.5 * v,
         });
     }
 
-    Value::Template(Template::from_inline(move |style| ShapeNode {
-        shape,
-        width,
-        height,
-        fill: Some(Paint::Color(
-            fill.unwrap_or(Color::Rgba(RgbaColor::new(175, 175, 175, 255))),
-        )),
-        child: body.as_ref().map(|template| template.to_flow(style).pack()),
+    // Set default fill if there's no fill.
+    let fill = fill.unwrap_or(Color::Rgba(RgbaColor::gray(175)));
+
+    Value::Template(Template::from_inline(move |style| {
+        let shape = Layout::pack(ShapeNode {
+            kind,
+            fill: Some(Paint::Color(fill)),
+            child: body.as_ref().map(|body| body.to_flow(style).pack()),
+        });
+
+        if width.is_some() || height.is_some() {
+            Layout::pack(SizedNode {
+                sizing: Spec::new(width, height),
+                child: shape,
+            })
+        } else {
+            shape
+        }
     }))
 }
 
@@ -86,11 +96,7 @@ fn shape_impl(
 #[derive(Debug, Hash)]
 pub struct ShapeNode {
     /// Which shape to place the child into.
-    pub shape: ShapeKind,
-    /// The width, if any.
-    pub width: Option<Linear>,
-    /// The height, if any.
-    pub height: Option<Linear>,
+    pub kind: ShapeKind,
     /// How to fill the shape, if at all.
     pub fill: Option<Paint>,
     /// The child node to place into the shape, if any.
@@ -116,33 +122,12 @@ impl Layout for ShapeNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        // Resolve width and height relative to the region's base.
-        let width = self.width.map(|w| w.resolve(regions.base.w));
-        let height = self.height.map(|h| h.resolve(regions.base.h));
-
-        // Generate constraints.
-        let mut cts = Constraints::new(regions.expand);
-        cts.set_base_if_linear(regions.base, Spec::new(self.width, self.height));
-
-        // Set tight exact and base constraints if the child is
-        // automatically sized since we don't know what the child might do.
-        if self.width.is_none() {
-            cts.exact.x = Some(regions.current.w);
-            cts.base.x = Some(regions.base.w);
-        }
-
-        // Same here.
-        if self.height.is_none() {
-            cts.exact.y = Some(regions.current.h);
-            cts.base.y = Some(regions.base.h);
-        }
-
         // Layout.
         let mut frame = if let Some(child) = &self.child {
             let mut node: &dyn Layout = child;
 
             let padded;
-            if matches!(self.shape, ShapeKind::Circle | ShapeKind::Ellipse) {
+            if matches!(self.kind, ShapeKind::Circle | ShapeKind::Ellipse) {
                 // Padding with this ratio ensures that a rectangular child fits
                 // perfectly into a circle / an ellipse.
                 padded = PadNode {
@@ -152,29 +137,14 @@ impl Layout for ShapeNode {
                 node = &padded;
             }
 
-            // The "pod" is the region into which the child will be layouted.
-            let mut pod = {
-                let size = Size::new(
-                    width.unwrap_or(regions.current.w),
-                    height.unwrap_or(regions.base.h),
-                );
-
-                let base = Size::new(
-                    if width.is_some() { size.w } else { regions.base.w },
-                    if height.is_some() { size.h } else { regions.base.h },
-                );
-
-                let expand = Spec::new(width.is_some(), height.is_some());
-                Regions::one(size, base, expand)
-            };
-
             // Now, layout the child.
-            let mut frames = node.layout(ctx, &pod);
+            let mut frames = node.layout(ctx, regions);
 
-            if matches!(self.shape, ShapeKind::Square | ShapeKind::Circle) {
+            if matches!(self.kind, ShapeKind::Square | ShapeKind::Circle) {
                 // Relayout with full expansion into square region to make sure
                 // the result is really a square or circle.
                 let size = frames[0].item.size;
+                let mut pod = regions.clone();
                 pod.current.w = size.w.max(size.h).min(pod.current.w);
                 pod.current.h = pod.current.w;
                 pod.expand = Spec::splat(true);
@@ -185,14 +155,12 @@ impl Layout for ShapeNode {
             assert_eq!(frames.len(), 1);
             Rc::take(frames.into_iter().next().unwrap().item)
         } else {
-            // Resolve shape size.
-            let size = Size::new(width.unwrap_or_default(), height.unwrap_or_default());
-            Frame::new(size, size.h)
+            Frame::new(regions.current, regions.current.h)
         };
 
         // Add background shape if desired.
         if let Some(fill) = self.fill {
-            let (pos, geometry) = match self.shape {
+            let (pos, geometry) = match self.kind {
                 ShapeKind::Square | ShapeKind::Rect => {
                     (Point::zero(), Geometry::Rect(frame.size))
                 }
@@ -203,6 +171,11 @@ impl Layout for ShapeNode {
 
             frame.prepend(pos, Element::Geometry(geometry, fill));
         }
+
+        // Generate tight constraints for now.
+        let mut cts = Constraints::new(regions.expand);
+        cts.exact = regions.current.to_spec().map(Some);
+        cts.base = regions.base.to_spec().map(Some);
 
         vec![frame.constrain(cts)]
     }
