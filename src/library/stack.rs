@@ -204,7 +204,7 @@ impl<'a> StackLayouter<'a> {
 
         // Expand fully if there are fr spacings.
         let full = self.full.get(self.axis);
-        if !self.fr.is_zero() && full.is_finite() {
+        if self.fr.get() > 0.0 && full.is_finite() {
             size.set(self.axis, full);
         }
 
@@ -216,11 +216,8 @@ impl<'a> StackLayouter<'a> {
             match item {
                 StackItem::Absolute(v) => before += v,
                 StackItem::Fractional(v) => {
-                    let ratio = v / self.fr;
                     let remaining = self.full.get(self.axis) - self.used.block;
-                    if remaining.is_finite() && ratio.is_finite() {
-                        before += ratio * remaining;
-                    }
+                    before += v.resolve(self.fr, remaining)
                 }
                 StackItem::Frame(frame) => {
                     let parent = size.get(self.axis);

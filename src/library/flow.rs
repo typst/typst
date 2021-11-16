@@ -179,7 +179,7 @@ impl<'a> FlowLayouter<'a> {
         // the region expands.
         let size = Size::new(
             if self.expand.x { self.full.w } else { self.used.w },
-            if self.expand.y || (!self.fr.is_zero() && self.full.h.is_finite()) {
+            if self.expand.y || (self.fr.get() > 0.0 && self.full.h.is_finite()) {
                 self.full.h
             } else {
                 self.used.h
@@ -196,11 +196,8 @@ impl<'a> FlowLayouter<'a> {
             match item {
                 FlowItem::Absolute(v) => before += v,
                 FlowItem::Fractional(v) => {
-                    let ratio = v / self.fr;
                     let remaining = self.full.h - self.used.h;
-                    if remaining.is_finite() && ratio.is_finite() {
-                        before += ratio * remaining;
-                    }
+                    before += v.resolve(self.fr, remaining);
                 }
                 FlowItem::Frame(frame, align) => {
                     ruler = ruler.max(align);

@@ -147,7 +147,7 @@ impl Layout for ShapeNode {
         } else {
             let default = Length::pt(30.0);
             let size = Size::new(
-                if regions.expand.x && regions.current.w.is_finite() {
+                if regions.expand.x {
                     regions.current.w
                 } else {
                     match self.kind {
@@ -155,11 +155,7 @@ impl Layout for ShapeNode {
                         ShapeKind::Rect | ShapeKind::Ellipse => 1.5 * default,
                     }
                 },
-                if regions.expand.y && regions.current.h.is_finite() {
-                    regions.current.h
-                } else {
-                    default
-                },
+                if regions.expand.y { regions.current.h } else { default },
             );
 
             Frame::new(size, size.h)

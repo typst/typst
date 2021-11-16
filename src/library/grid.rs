@@ -314,10 +314,7 @@ impl<'a> GridLayouter<'a> {
     fn grow_fractional_columns(&mut self, remaining: Length, fr: Fractional) {
         for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
             if let TrackSizing::Fractional(v) = col {
-                let ratio = v / fr;
-                if ratio.is_finite() {
-                    *rcol = ratio * remaining;
-                }
+                *rcol = v.resolve(fr, remaining);
             }
         }
     }
@@ -547,7 +544,7 @@ impl<'a> GridLayouter<'a> {
         // Determine the size of the grid in this region, expanding fully if
         // there are fr rows.
         let mut size = self.used;
-        if !self.fr.is_zero() && self.full.is_finite() {
+        if self.fr.get() > 0.0 && self.full.is_finite() {
             size.h = self.full;
             self.cts.exact.y = Some(self.full);
         } else {
@@ -563,14 +560,9 @@ impl<'a> GridLayouter<'a> {
             let frame = match row {
                 Row::Frame(frame) => frame,
                 Row::Fr(v, y) => {
-                    let ratio = v / self.fr;
                     let remaining = self.full - self.used.h;
-                    if remaining.is_finite() && ratio.is_finite() {
-                        let resolved = ratio * remaining;
-                        self.layout_single_row(ctx, resolved, y)
-                    } else {
-                        continue;
-                    }
+                    let height = v.resolve(self.fr, remaining);
+                    self.layout_single_row(ctx, height, y)
                 }
             };
 

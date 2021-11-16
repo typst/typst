@@ -34,6 +34,16 @@ impl Fractional {
     pub fn abs(self) -> Self {
         Self::new(self.get().abs())
     }
+
+    /// Resolve this fractionals share in the remaining space.
+    pub fn resolve(self, total: Self, remaining: Length) -> Length {
+        let ratio = self / total;
+        if ratio.is_finite() && remaining.is_finite() {
+            ratio * remaining
+        } else {
+            Length::zero()
+        }
+    }
 }
 
 impl Debug for Fractional {

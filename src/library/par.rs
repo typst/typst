@@ -498,12 +498,7 @@ impl<'a> LineLayout<'a> {
 
             match *item {
                 ParItem::Absolute(v) => offset += v,
-                ParItem::Fractional(v) => {
-                    let ratio = v / self.fr;
-                    if remaining.is_finite() && ratio.is_finite() {
-                        offset += ratio * remaining;
-                    }
-                }
+                ParItem::Fractional(v) => offset += v.resolve(self.fr, remaining),
                 ParItem::Text(ref shaped, align) => position(shaped.build(), align),
                 ParItem::Frame(ref frame, align) => position(frame.clone(), align),
             }
