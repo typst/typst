@@ -60,7 +60,7 @@ fn bench_eval(iai: &mut Iai) {
 fn bench_to_tree(iai: &mut Iai) {
     let (mut ctx, id) = context();
     let module = ctx.evaluate(id).unwrap();
-    iai.run(|| module.template.to_pages(ctx.style()));
+    iai.run(|| module.template.to_document(ctx.style()));
 }
 
 fn bench_layout(iai: &mut Iai) {

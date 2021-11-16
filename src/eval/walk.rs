@@ -3,7 +3,7 @@ use std::rc::Rc;
 use super::{Eval, EvalContext, Template, Value};
 use crate::diag::TypResult;
 use crate::geom::Spec;
-use crate::layout::BlockLevel;
+use crate::layout::Layout;
 use crate::library::{GridNode, ParChild, ParNode, TrackSizing};
 use crate::syntax::ast::*;
 use crate::util::{BoolExt, EcoString};

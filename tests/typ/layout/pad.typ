@@ -11,19 +11,11 @@
   )
 )
 
-Hi #box(pad(left: 10pt)[]) there
+Hi #pad(left: 10pt)[A] there
 
 ---
-#let pad(body) = pad(left: 10pt, right: 10pt, body)
-
-// Pad inherits expansion behaviour from stack ....
-#pad[PL #align(right)[PR]]
-
-// ... block ...
-#block(pad[PL #align(right)[PR]])
-
-// ... and box.
-#box(pad[PL #align(right)[PR]])
+// Pad can grow.
+#pad(left: 10pt, right: 10pt)[PL #h(1fr) PR]
 
 ---
 // Test that the pad node doesn't consume the whole region.

@@ -73,3 +73,23 @@ pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
     template.pagebreak(true);
     Ok(Value::Template(template))
 }
+
+/// Layouts its children onto one or multiple pages.
+#[derive(Debug, Hash)]
+pub struct PageNode {
+    /// The size of the page.
+    pub size: Size,
+    /// The node that produces the actual pages.
+    pub child: PackedNode,
+}
+
+impl PageNode {
+    /// Layout the page run into a sequence of frames, one per page.
+    pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Rc<Frame>> {
+        // When one of the lengths is infinite the page fits its content along
+        // that axis.
+        let expand = self.size.to_spec().map(Length::is_finite);
+        let regions = Regions::repeat(self.size, self.size, expand);
+        self.child.layout(ctx, &regions).into_iter().map(|c| c.item).collect()
+    }
+}

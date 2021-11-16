@@ -8,7 +8,7 @@ use xi_unicode::LineBreakIterator;
 use super::prelude::*;
 use super::{shape, Decoration, ShapedText, Spacing};
 use crate::style::TextStyle;
-use crate::util::{EcoString, RangeExt, SliceExt};
+use crate::util::{EcoString, RangeExt, RcExt, SliceExt};
 
 /// `par`: Configure paragraphs.
 pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
@@ -63,7 +63,7 @@ pub struct ParNode {
     pub children: Vec<ParChild>,
 }
 
-impl BlockLevel for ParNode {
+impl Layout for ParNode {
     fn layout(
         &self,
         ctx: &mut LayoutContext,
@@ -77,7 +77,7 @@ impl BlockLevel for ParNode {
 
         // Prepare paragraph layout by building a representation on which we can
         // do line breaking without layouting each and every line from scratch.
-        let layouter = ParLayouter::new(self, ctx, regions, bidi);
+        let layouter = ParLayouter::new(self, ctx, regions.clone(), bidi);
 
         // Find suitable linebreaks.
         layouter.layout(ctx, regions.clone())
@@ -126,7 +126,7 @@ pub enum ParChild {
     /// A run of text and how to align it in its line.
     Text(EcoString, Align, Rc<TextStyle>),
     /// Any child node and how to align it in its line.
-    Node(InlineNode, Align),
+    Node(PackedNode, Align),
     /// A decoration that applies until a matching `Undecorate`.
     Decorate(Decoration),
     /// The end of a decoration.
@@ -182,9 +182,12 @@ impl<'a> ParLayouter<'a> {
     fn new(
         par: &'a ParNode,
         ctx: &mut LayoutContext,
-        regions: &Regions,
+        mut regions: Regions,
         bidi: BidiInfo<'a>,
     ) -> Self {
+        // Disable expansion for children.
+        regions.expand = Spec::splat(false);
+
         let mut items = vec![];
         let mut ranges = vec![];
         let mut starts = vec![];
@@ -216,8 +219,8 @@ impl<'a> ParLayouter<'a> {
                     }
                 }
                 ParChild::Node(ref node, align) => {
-                    let frame = node.layout(ctx, regions.current.w, regions.base);
-                    items.push(ParItem::Frame(frame, align));
+                    let frame = node.layout(ctx, &regions).remove(0);
+                    items.push(ParItem::Frame(Rc::take(frame.item), align));
                     ranges.push(range);
                 }
                 ParChild::Decorate(ref deco) => {

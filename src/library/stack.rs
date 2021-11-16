@@ -60,7 +60,7 @@ pub struct StackNode {
     pub children: Vec<StackChild>,
 }
 
-impl BlockLevel for StackNode {
+impl Layout for StackNode {
     fn layout(
         &self,
         ctx: &mut LayoutContext,
@@ -76,7 +76,7 @@ pub enum StackChild {
     /// Spacing between other nodes.
     Spacing(Spacing),
     /// Any block node and how to align it in the stack.
-    Node(BlockNode),
+    Node(PackedNode),
 }
 
 impl Debug for StackChild {
@@ -174,8 +174,8 @@ impl<'a> StackLayouter<'a> {
         self.items.push(StackItem::Absolute(resolved));
     }
 
-    /// Layout a block node.
-    fn layout_node(&mut self, ctx: &mut LayoutContext, node: &BlockNode) {
+    /// Layout a node.
+    fn layout_node(&mut self, ctx: &mut LayoutContext, node: &PackedNode) {
         let frames = node.layout(ctx, &self.regions);
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {

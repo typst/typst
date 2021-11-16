@@ -19,13 +19,13 @@ use crate::geom::{self, Color, Em, Length, Paint, Size};
 use crate::image::{Image, ImageId, ImageStore};
 use crate::Context;
 
-/// Export a collection of frames into a PDF document.
+/// Export a collection of frames into a PDF file.
 ///
 /// This creates one page per frame. In addition to the frames, you need to pass
 /// in the context used during compilation such that things like fonts and
 /// images can be included in the PDF.
 ///
-/// Returns the raw bytes making up the PDF document.
+/// Returns the raw bytes making up the PDF file.
 pub fn pdf(ctx: &Context, frames: &[Rc<Frame>]) -> Vec<u8> {
     PdfExporter::new(ctx, frames).write()
 }

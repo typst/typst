@@ -17,7 +17,7 @@ World! 🌍
 ---
 #page(height: 2cm)
 #font(white)
-#box(fill: forest)[
+#rect(fill: forest)[
           #v(1fr)
   #h(1fr) Hi you! #h(5pt)
           #v(5pt)

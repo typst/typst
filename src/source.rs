@@ -1,4 +1,4 @@
-//! Source files.
+//! Source file management.
 
 use std::collections::HashMap;
 use std::io;

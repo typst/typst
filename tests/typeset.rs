@@ -19,7 +19,7 @@ use typst::geom::{
 use typst::image::Image;
 use typst::layout::layout;
 #[cfg(feature = "layout-cache")]
-use typst::layout::PageNode;
+use typst::library::DocumentNode;
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
 use typst::source::SourceFile;
@@ -231,11 +231,11 @@ fn test_part(
 
     let mut ok = true;
     let (frames, mut errors) = match ctx.execute(id) {
-        Ok(tree) => {
-            let mut frames = layout(ctx, &tree);
+        Ok(document) => {
+            let mut frames = layout(ctx, &document);
 
             #[cfg(feature = "layout-cache")]
-            (ok &= test_incremental(ctx, i, &tree, &frames));
+            (ok &= test_incremental(ctx, i, &document, &frames));
 
             if !compare_ref {
                 frames.clear();
@@ -283,7 +283,7 @@ fn test_part(
 fn test_incremental(
     ctx: &mut Context,
     i: usize,
-    tree: &[PageNode],
+    document: &DocumentNode,
     frames: &[Rc<Frame>],
 ) -> bool {
     let mut ok = true;
@@ -298,7 +298,7 @@ fn test_incremental(
 
         ctx.layouts.turnaround();
 
-        let cached = layout(ctx, tree);
+        let cached = layout(ctx, document);
         let misses = ctx
             .layouts
             .entries()

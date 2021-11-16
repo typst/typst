@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::frame::Frame;
-use crate::geom::{Length, Size, Spec};
+use crate::geom::{Length, Linear, Size, Spec};
 
 /// Constrain a frame with constraints.
 pub trait Constrain {
@@ -67,6 +67,18 @@ impl Constraints {
             && verify(self.max, current, |m, c| m.fits(c))
             && verify(self.exact, current, Length::approx_eq)
             && verify(self.base, base, Length::approx_eq)
+    }
+
+    /// Set the appropriate base constraints for linear width and height sizing.
+    pub fn set_base_if_linear(&mut self, base: Size, sizing: Spec<Option<Linear>>) {
+        // The full sizes need to be equal if there is a relative component in
+        // the sizes.
+        if sizing.x.map_or(false, |l| l.is_relative()) {
+            self.base.x = Some(base.w);
+        }
+        if sizing.y.map_or(false, |l| l.is_relative()) {
+            self.base.y = Some(base.h);
+        }
     }
 }
 

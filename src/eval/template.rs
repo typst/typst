@@ -7,9 +7,10 @@ use std::rc::Rc;
 
 use crate::diag::StrResult;
 use crate::geom::{Align, Dir, GenAxis, Length, Linear, Sides, Size};
-use crate::layout::{BlockLevel, BlockNode, InlineLevel, InlineNode, PageNode};
+use crate::layout::{Layout, PackedNode};
 use crate::library::{
-    Decoration, FlowChild, FlowNode, PadNode, ParChild, ParNode, Spacing,
+    Decoration, DocumentNode, FlowChild, FlowNode, PadNode, PageNode, ParChild, ParNode,
+    Spacing,
 };
 use crate::style::Style;
 use crate::util::EcoString;
@@ -36,9 +37,9 @@ enum TemplateNode {
     /// A decorated template.
     Decorated(Decoration, Template),
     /// An inline node builder.
-    Inline(Rc<dyn Fn(&Style) -> InlineNode>),
-    /// An block node builder.
-    Block(Rc<dyn Fn(&Style) -> BlockNode>),
+    Inline(Rc<dyn Fn(&Style) -> PackedNode>),
+    /// A block node builder.
+    Block(Rc<dyn Fn(&Style) -> PackedNode>),
     /// Save the current style.
     Save,
     /// Restore the last saved style.
@@ -57,7 +58,7 @@ impl Template {
     pub fn from_inline<F, T>(f: F) -> Self
     where
         F: Fn(&Style) -> T + 'static,
-        T: InlineLevel + Hash + 'static,
+        T: Layout + Hash + 'static,
     {
         let node = TemplateNode::Inline(Rc::new(move |s| f(s).pack()));
         Self(Rc::new(vec![node]))
@@ -67,7 +68,7 @@ impl Template {
     pub fn from_block<F, T>(f: F) -> Self
     where
         F: Fn(&Style) -> T + 'static,
-        T: BlockLevel + Hash + 'static,
+        T: Layout + Hash + 'static,
     {
         let node = TemplateNode::Block(Rc::new(move |s| f(s).pack()));
         Self(Rc::new(vec![node]))
@@ -158,10 +159,10 @@ impl Template {
 
     /// Build the layout tree resulting from instantiating the template with the
     /// given style.
-    pub fn to_pages(&self, style: &Style) -> Vec<PageNode> {
+    pub fn to_document(&self, style: &Style) -> DocumentNode {
         let mut builder = Builder::new(style, true);
         builder.template(self);
-        builder.build_pages()
+        builder.build_document()
     }
 
     /// Repeat this template `n` times.
@@ -327,13 +328,13 @@ impl Builder {
     }
 
     /// Push an inline node into the active paragraph.
-    fn inline(&mut self, node: impl Into<InlineNode>) {
+    fn inline(&mut self, node: impl Into<PackedNode>) {
         let align = self.style.aligns.inline;
         self.flow.par.push(ParChild::Node(node.into(), align));
     }
 
     /// Push a block node into the active flow, finishing the active paragraph.
-    fn block(&mut self, node: impl Into<BlockNode>) {
+    fn block(&mut self, node: impl Into<PackedNode>) {
         self.parbreak();
         self.flow.push(FlowChild::Node(node.into(), self.style.aligns.block));
         self.parbreak();
@@ -359,10 +360,10 @@ impl Builder {
     }
 
     /// Finish building and return the created layout tree.
-    fn build_pages(mut self) -> Vec<PageNode> {
+    fn build_document(mut self) -> DocumentNode {
         assert!(self.page.is_some());
         self.pagebreak(true, false);
-        self.finished
+        DocumentNode { pages: self.finished }
     }
 
     /// Construct a text node with the given text and settings from the current

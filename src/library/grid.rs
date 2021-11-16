@@ -58,7 +58,7 @@ pub struct GridNode {
     /// Defines sizing of gutter rows and columns between content.
     pub gutter: Spec<Vec<TrackSizing>>,
     /// The nodes to be arranged in a grid.
-    pub children: Vec<BlockNode>,
+    pub children: Vec<PackedNode>,
 }
 
 /// Defines how to size a grid cell along an axis.
@@ -72,7 +72,7 @@ pub enum TrackSizing {
     Fractional(Fractional),
 }
 
-impl BlockLevel for GridNode {
+impl Layout for GridNode {
     fn layout(
         &self,
         ctx: &mut LayoutContext,
@@ -92,7 +92,7 @@ impl BlockLevel for GridNode {
 /// Performs grid layout.
 struct GridLayouter<'a> {
     /// The children of the grid.
-    children: &'a [BlockNode],
+    children: &'a [PackedNode],
     /// Whether the grid should expand to fill the region.
     expand: Spec<bool>,
     /// The column tracks including gutter tracks.
@@ -591,7 +591,7 @@ impl<'a> GridLayouter<'a> {
     ///
     /// Returns `None` if it's a gutter cell.
     #[track_caller]
-    fn cell(&self, x: usize, y: usize) -> Option<&'a BlockNode> {
+    fn cell(&self, x: usize, y: usize) -> Option<&'a PackedNode> {
         assert!(x < self.cols.len());
         assert!(y < self.rows.len());
 

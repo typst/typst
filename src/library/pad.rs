@@ -16,7 +16,7 @@ pub fn pad(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         bottom.or(all).unwrap_or_default(),
     );
 
-    Ok(Value::Template(Template::from_block(move |style| {
+    Ok(Value::Template(Template::from_inline(move |style| {
         PadNode {
             padding,
             child: body.to_flow(style).pack(),
@@ -30,10 +30,10 @@ pub struct PadNode {
     /// The amount of padding.
     pub padding: Sides<Linear>,
     /// The child node whose sides to pad.
-    pub child: BlockNode,
+    pub child: PackedNode,
 }
 
-impl BlockLevel for PadNode {
+impl Layout for PadNode {
     fn layout(
         &self,
         ctx: &mut LayoutContext,

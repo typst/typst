@@ -1,5 +1,4 @@
 use super::prelude::*;
-use super::{ShapeKind, ShapeNode};
 
 /// `move`: Move content without affecting layout.
 pub fn move_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
@@ -10,13 +9,7 @@ pub fn move_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(Value::Template(Template::from_inline(move |style| {
         MoveNode {
             offset: Spec::new(x, y),
-            child: ShapeNode {
-                shape: ShapeKind::Rect,
-                width: None,
-                height: None,
-                fill: None,
-                child: Some(body.to_flow(style).pack()),
-            },
+            child: body.to_flow(style).pack(),
         }
     })))
 }
@@ -24,21 +17,30 @@ pub fn move_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 #[derive(Debug, Hash)]
 struct MoveNode {
     offset: Spec<Option<Linear>>,
-    child: ShapeNode,
+    child: PackedNode,
 }
 
-impl InlineLevel for MoveNode {
-    fn layout(&self, ctx: &mut LayoutContext, space: Length, base: Size) -> Frame {
-        let offset = Point::new(
-            self.offset.x.map(|x| x.resolve(base.w)).unwrap_or_default(),
-            self.offset.y.map(|y| y.resolve(base.h)).unwrap_or_default(),
-        );
+impl Layout for MoveNode {
+    fn layout(
+        &self,
+        ctx: &mut LayoutContext,
+        regions: &Regions,
+    ) -> Vec<Constrained<Rc<Frame>>> {
+        let mut frames = self.child.layout(ctx, regions);
 
-        let mut frame = self.child.layout(ctx, space, base);
-        for (point, _) in &mut frame.children {
-            *point += offset;
+        for (Constrained { item: frame, .. }, (_, base)) in
+            frames.iter_mut().zip(regions.iter())
+        {
+            let offset = Point::new(
+                self.offset.x.map(|x| x.resolve(base.w)).unwrap_or_default(),
+                self.offset.y.map(|y| y.resolve(base.h)).unwrap_or_default(),
+            );
+
+            for (point, _) in &mut Rc::make_mut(frame).children {
+                *point += offset;
+            }
         }
 
-        frame
+        frames
     }
 }

@@ -60,8 +60,8 @@ fn try_main() -> anyhow::Result<()> {
     // Typeset.
     match ctx.typeset(id) {
         // Export the PDF.
-        Ok(document) => {
-            let buffer = export::pdf(&ctx, &document);
+        Ok(frames) => {
+            let buffer = export::pdf(&ctx, &frames);
             fs::write(&args.output, buffer).context("failed to write PDF file")?;
         }
 

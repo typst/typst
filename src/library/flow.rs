@@ -48,7 +48,7 @@ pub struct FlowNode {
     pub children: Vec<FlowChild>,
 }
 
-impl BlockLevel for FlowNode {
+impl Layout for FlowNode {
     fn layout(
         &self,
         ctx: &mut LayoutContext,
@@ -63,8 +63,8 @@ impl BlockLevel for FlowNode {
 pub enum FlowChild {
     /// Vertical spacing between other children.
     Spacing(Spacing),
-    /// Any block node and how to align it in the flow.
-    Node(BlockNode, Align),
+    /// A node and how to align it in the flow.
+    Node(PackedNode, Align),
 }
 
 impl Debug for FlowChild {
@@ -157,8 +157,8 @@ impl<'a> FlowLayouter<'a> {
         self.items.push(FlowItem::Absolute(resolved));
     }
 
-    /// Layout a block node.
-    fn layout_node(&mut self, ctx: &mut LayoutContext, node: &BlockNode, align: Align) {
+    /// Layout a node.
+    fn layout_node(&mut self, ctx: &mut LayoutContext, node: &PackedNode, align: Align) {
         let frames = node.layout(ctx, &self.regions);
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {

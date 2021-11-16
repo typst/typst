@@ -6,6 +6,7 @@
 mod align;
 mod container;
 mod deco;
+mod document;
 mod flow;
 mod grid;
 mod image;
@@ -36,6 +37,7 @@ pub use self::image::*;
 pub use align::*;
 pub use container::*;
 pub use deco::*;
+pub use document::*;
 pub use flow::*;
 pub use grid::*;
 pub use pad::*;
