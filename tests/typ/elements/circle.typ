@@ -14,16 +14,15 @@ Auto-sized circle. \
 ]
 
 Center-aligned rect in auto-sized circle.
-#circle(fill: forest)[
-  #align(center, center)
-  #rect(fill: conifer, pad(5pt)[
-    But, soft!
-  ])
-]
-
-100%-width rect in auto-sized circle. \
 #circle(fill: forest,
-  rect(width: 100%, fill: conifer)[
+  align(center, center,
+    rect(fill: conifer, pad(5pt)[But, soft!])
+  )
+)
+
+Rect in auto-sized circle. \
+#circle(fill: forest,
+  rect(fill: conifer)[
     But, soft! what light through yonder window breaks?
   ]
 )

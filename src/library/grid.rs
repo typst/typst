@@ -45,7 +45,7 @@ pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         GridNode {
             tracks: tracks.clone(),
             gutter: gutter.clone(),
-            children: children.iter().map(|child| child.to_flow(style).pack()).collect(),
+            children: children.iter().map(|child| child.pack(style)).collect(),
         }
     })))
 }

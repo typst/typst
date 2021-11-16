@@ -149,12 +149,15 @@ impl Template {
         Self(Rc::new(vec![TemplateNode::Decorated(deco, self)]))
     }
 
-    /// Build the flow node resulting from instantiating the template with the
-    /// given style.
-    pub fn to_flow(&self, style: &Style) -> FlowNode {
-        let mut builder = Builder::new(style, false);
-        builder.template(self);
-        builder.build_flow()
+    /// Pack the template into a layout node.
+    pub fn pack(&self, style: &Style) -> PackedNode {
+        if let [TemplateNode::Block(f) | TemplateNode::Inline(f)] = self.0.as_slice() {
+            f(style)
+        } else {
+            let mut builder = Builder::new(style, false);
+            builder.template(self);
+            builder.build_flow().pack()
+        }
     }
 
     /// Build the layout tree resulting from instantiating the template with the

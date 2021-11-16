@@ -9,7 +9,7 @@ pub fn move_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(Value::Template(Template::from_inline(move |style| {
         MoveNode {
             offset: Spec::new(x, y),
-            child: body.to_flow(style).pack(),
+            child: body.pack(style),
         }
     })))
 }

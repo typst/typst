@@ -17,10 +17,7 @@ pub fn pad(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     );
 
     Ok(Value::Template(Template::from_inline(move |style| {
-        PadNode {
-            padding,
-            child: body.to_flow(style).pack(),
-        }
+        PadNode { padding, child: body.pack(style) }
     })))
 }
 

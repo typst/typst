@@ -15,10 +15,10 @@
 #grid(
   columns: (1fr,) * 4,
   rows: (1cm,),
-  rect(width: 50%, height: 100%, fill: conifer),
-  rect(width: 50%, height: 100%, fill: forest),
-  rect(width: 50%, height: 100%, fill: conifer),
-  rect(width: 50%, height: 100%, fill: forest),
+  rect(width: 50%, fill: conifer),
+  rect(width: 50%, fill: forest),
+  rect(width: 50%, fill: conifer),
+  rect(width: 50%, fill: forest),
 )
 
 ---

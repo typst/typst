@@ -13,9 +13,8 @@
   w => rect(width: w, height: 10pt, fill: next())
 }
 
-#let items = for w in widths { (shaded(w),) }
+#let items = for w in widths { (align(right, shaded(w)),) }
 
-#align(right)
 #page(width: 50pt, margins: 0pt)
 #stack(dir: btt, ..items)
 #pagebreak()

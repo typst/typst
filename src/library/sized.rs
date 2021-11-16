@@ -6,14 +6,11 @@ pub fn box_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let height = args.named("height")?;
     let body: Template = args.find().unwrap_or_default();
     Ok(Value::Template(Template::from_inline(move |style| {
-        let flow = body.to_flow(style).pack();
+        let child = body.pack(style);
         if width.is_some() || height.is_some() {
-            Layout::pack(SizedNode {
-                sizing: Spec::new(width, height),
-                child: flow,
-            })
+            Layout::pack(SizedNode { sizing: Spec::new(width, height), child })
         } else {
-            flow
+            child
         }
     })))
 }
@@ -24,14 +21,11 @@ pub fn block(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let height = args.named("height")?;
     let body: Template = args.find().unwrap_or_default();
     Ok(Value::Template(Template::from_block(move |style| {
-        let flow = body.to_flow(style).pack();
+        let child = body.pack(style);
         if width.is_some() || height.is_some() {
-            Layout::pack(SizedNode {
-                sizing: Spec::new(width, height),
-                child: flow,
-            })
+            Layout::pack(SizedNode { sizing: Spec::new(width, height), child })
         } else {
-            flow
+            child
         }
     })))
 }

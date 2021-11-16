@@ -27,9 +27,7 @@ pub fn flow(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             .iter()
             .map(|child| match child {
                 Child::Spacing(spacing) => FlowChild::Spacing(*spacing),
-                Child::Any(child) => {
-                    FlowChild::Node(child.to_flow(style).pack(), style.aligns.block)
-                }
+                Child::Any(node) => FlowChild::Node(node.pack(style), style.aligns.block),
             })
             .collect();
 

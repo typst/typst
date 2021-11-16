@@ -56,21 +56,11 @@ pub fn circle(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
 fn shape_impl(
     kind: ShapeKind,
-    mut width: Option<Linear>,
-    mut height: Option<Linear>,
+    width: Option<Linear>,
+    height: Option<Linear>,
     fill: Option<Color>,
     body: Option<Template>,
 ) -> Value {
-    // Set default shape size if there's no body.
-    if body.is_none() {
-        let v = Length::pt(30.0).into();
-        height.get_or_insert(v);
-        width.get_or_insert(match kind {
-            ShapeKind::Square | ShapeKind::Circle => v,
-            ShapeKind::Rect | ShapeKind::Ellipse => 1.5 * v,
-        });
-    }
-
     // Set default fill if there's no fill.
     let fill = fill.unwrap_or(Color::Rgba(RgbaColor::gray(175)));
 
@@ -78,7 +68,7 @@ fn shape_impl(
         let shape = Layout::pack(ShapeNode {
             kind,
             fill: Some(Paint::Color(fill)),
-            child: body.as_ref().map(|body| body.to_flow(style).pack()),
+            child: body.as_ref().map(|body| body.pack(style)),
         });
 
         if width.is_some() || height.is_some() {
@@ -126,15 +116,15 @@ impl Layout for ShapeNode {
         let mut frame = if let Some(child) = &self.child {
             let mut node: &dyn Layout = child;
 
-            let padded;
+            let storage;
             if matches!(self.kind, ShapeKind::Circle | ShapeKind::Ellipse) {
                 // Padding with this ratio ensures that a rectangular child fits
                 // perfectly into a circle / an ellipse.
-                padded = PadNode {
+                storage = PadNode {
                     padding: Sides::splat(Relative::new(0.5 - SQRT_2 / 4.0).into()),
                     child: child.clone(),
                 };
-                node = &padded;
+                node = &storage;
             }
 
             // Now, layout the child.
@@ -155,7 +145,24 @@ impl Layout for ShapeNode {
             assert_eq!(frames.len(), 1);
             Rc::take(frames.into_iter().next().unwrap().item)
         } else {
-            Frame::new(regions.current, regions.current.h)
+            let default = Length::pt(30.0);
+            let size = Size::new(
+                if regions.expand.x && regions.current.w.is_finite() {
+                    regions.current.w
+                } else {
+                    match self.kind {
+                        ShapeKind::Square | ShapeKind::Circle => default,
+                        ShapeKind::Rect | ShapeKind::Ellipse => 1.5 * default,
+                    }
+                },
+                if regions.expand.y && regions.current.h.is_finite() {
+                    regions.current.h
+                } else {
+                    default
+                },
+            );
+
+            Frame::new(size, size.h)
         };
 
         // Add background shape if desired.

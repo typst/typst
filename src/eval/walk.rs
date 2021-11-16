@@ -124,7 +124,7 @@ impl Walk for EnumNode {
 
 fn walk_item(ctx: &mut EvalContext, label: EcoString, body: Template) {
     ctx.template += Template::from_block(move |style| {
-        let label = ParNode {
+        let label = Layout::pack(ParNode {
             dir: style.par.dir,
             leading: style.leading(),
             children: vec![ParChild::Text(
@@ -132,13 +132,13 @@ fn walk_item(ctx: &mut EvalContext, label: EcoString, body: Template) {
                 style.aligns.inline,
                 Rc::clone(&style.text),
             )],
-        };
+        });
 
         let spacing = style.text.size / 2.0;
         GridNode {
             tracks: Spec::new(vec![TrackSizing::Auto; 2], vec![]),
             gutter: Spec::new(vec![TrackSizing::Linear(spacing.into())], vec![]),
-            children: vec![label.pack(), body.to_flow(style).pack()],
+            children: vec![label, body.pack(style)],
         }
     });
 }
