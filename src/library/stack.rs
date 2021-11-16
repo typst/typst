@@ -41,7 +41,7 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
                     }
 
                     let node = template.to_flow(style).pack();
-                    children.push(StackChild::Node(node, style.aligns.block));
+                    children.push(StackChild::Node(node));
                     delayed = spacing;
                 }
             }
@@ -76,14 +76,14 @@ pub enum StackChild {
     /// Spacing between other nodes.
     Spacing(Spacing),
     /// Any block node and how to align it in the stack.
-    Node(BlockNode, Align),
+    Node(BlockNode),
 }
 
 impl Debug for StackChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Spacing(v) => write!(f, "Spacing({:?})", v),
-            Self::Node(node, _) => node.fmt(f),
+            Self::Node(node) => node.fmt(f),
         }
     }
 }
@@ -118,7 +118,7 @@ enum StackItem {
     /// Fractional spacing between other items.
     Fractional(Fractional),
     /// A layouted child node.
-    Frame(Rc<Frame>, Align),
+    Frame(Rc<Frame>),
 }
 
 impl<'a> StackLayouter<'a> {
@@ -153,8 +153,8 @@ impl<'a> StackLayouter<'a> {
                     self.items.push(StackItem::Fractional(v));
                     self.fr += v;
                 }
-                StackChild::Node(ref node, align) => {
-                    self.layout_node(ctx, node, align);
+                StackChild::Node(ref node) => {
+                    self.layout_node(ctx, node);
                 }
             }
         }
@@ -175,7 +175,7 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Layout a block node.
-    fn layout_node(&mut self, ctx: &mut LayoutContext, node: &BlockNode, align: Align) {
+    fn layout_node(&mut self, ctx: &mut LayoutContext, node: &BlockNode) {
         let frames = node.layout(ctx, &self.regions);
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
@@ -184,7 +184,7 @@ impl<'a> StackLayouter<'a> {
             self.used.block += size.block;
             self.used.inline.set_max(size.inline);
             *self.regions.current.get_mut(self.axis) -= size.block;
-            self.items.push(StackItem::Frame(frame.item, align));
+            self.items.push(StackItem::Frame(frame.item));
 
             if i + 1 < len {
                 self.finish_region();
@@ -210,7 +210,6 @@ impl<'a> StackLayouter<'a> {
 
         let mut output = Frame::new(size, size.h);
         let mut before = Length::zero();
-        let mut ruler = Align::Start;
 
         // Place all frames.
         for item in self.items.drain(..) {
@@ -223,26 +222,16 @@ impl<'a> StackLayouter<'a> {
                         before += ratio * remaining;
                     }
                 }
-                StackItem::Frame(frame, align) => {
-                    ruler = ruler.max(align);
+                StackItem::Frame(frame) => {
+                    let parent = size.get(self.axis);
+                    let child = frame.size.get(self.axis);
+                    let block = if self.stack.dir.is_positive() {
+                        before
+                    } else {
+                        parent - (before + child)
+                    };
 
-                    let parent = size.to_gen(self.axis);
-                    let child = frame.size.to_gen(self.axis);
-
-                    // Align along the block axis.
-                    let block = ruler.resolve(
-                        self.stack.dir,
-                        if self.stack.dir.is_positive() {
-                            let after = self.used.block - before;
-                            before .. parent.block - after
-                        } else {
-                            let before_with_self = before + child.block;
-                            let after = self.used.block - before_with_self;
-                            after .. parent.block - before_with_self
-                        },
-                    );
-
-                    before += child.block;
+                    before += child;
 
                     let pos = Gen::new(Length::zero(), block).to_point(self.axis);
                     output.push_frame(pos, frame);
