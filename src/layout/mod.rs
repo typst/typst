@@ -16,8 +16,9 @@ use std::rc::Rc;
 
 use crate::font::FontStore;
 use crate::frame::Frame;
+use crate::geom::{Linear, Spec};
 use crate::image::ImageStore;
-use crate::library::DocumentNode;
+use crate::library::{DocumentNode, SizedNode};
 use crate::Context;
 
 /// Layout a document node into a collection of frames.
@@ -91,6 +92,23 @@ pub struct PackedNode {
     node: Rc<dyn Layout>,
     #[cfg(feature = "layout-cache")]
     hash: u64,
+}
+
+impl PackedNode {
+    /// Force a size for this node.
+    ///
+    /// If at least one of `width` and `height` is `Some`, this wraps the node
+    /// in a [`SizedNode`]. Otherwise, it returns the node unchanged.
+    pub fn sized(self, width: Option<Linear>, height: Option<Linear>) -> PackedNode {
+        if width.is_some() || height.is_some() {
+            Layout::pack(SizedNode {
+                sizing: Spec::new(width, height),
+                child: self,
+            })
+        } else {
+            self
+        }
+    }
 }
 
 impl Layout for PackedNode {

@@ -46,9 +46,7 @@ impl Layout for PadNode {
             frames.iter_mut().zip(regions.iter())
         {
             fn solve_axis(length: Length, padding: Linear) -> Length {
-                (length + padding.abs)
-                    .div_finite(1.0 - padding.rel.get())
-                    .unwrap_or_default()
+                (length + padding.abs).safe_div(1.0 - padding.rel.get())
             }
 
             // Solve for the size `padded` that satisfies (approximately):

@@ -127,11 +127,15 @@ impl Length {
         self == other || (self - other).to_raw().abs() < 1e-6
     }
 
-    /// Perform a checked division by a number, returning `None` if the result
+    /// Perform a checked division by a number, returning zero if the result
     /// is not finite.
-    pub fn div_finite(self, number: f64) -> Option<Self> {
+    pub fn safe_div(self, number: f64) -> Self {
         let result = self.to_raw() / number;
-        result.is_finite().then(|| Self::raw(result))
+        if result.is_finite() {
+            Self::raw(result)
+        } else {
+            Self::zero()
+        }
     }
 }
 

@@ -17,7 +17,6 @@
 
 #page(width: 50pt, margins: 0pt)
 #stack(dir: btt, ..items)
-#pagebreak()
 
 ---
 // Test spacing.

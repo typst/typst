@@ -5,30 +5,42 @@
 
 // Load an RGBA PNG image.
 #image("../../res/rhino.png")
-#pagebreak()
 
 // Load an RGB JPEG image.
+#page(height: 60pt)
 #image("../../res/tiger.jpg")
 
 ---
 // Test configuring the size and fitting behaviour of images.
 
-// Set width explicitly.
-#image("../../res/rhino.png", width: 50pt)
-
-// Set height explicitly.
-#image("../../res/rhino.png", height: 50pt)
+// Set width and height explicitly.
+#image("../../res/rhino.png", width: 30pt)
+#image("../../res/rhino.png", height: 30pt)
 
 // Set width and height explicitly and force stretching.
-#image("../../res/rhino.png", width: 25pt, height: 50pt)
+#image("../../res/tiger.jpg", width: 100%, height: 20pt, fit: "stretch")
 
 // Make sure the bounding-box of the image is correct.
 #align(bottom, right)
-#image("../../res/tiger.jpg", width: 60pt)
+#image("../../res/tiger.jpg", width: 40pt)
 
 ---
-// Does not fit to height of page.
+// Test all three fit modes.
+#page(height: 50pt, margins: 0pt)
+#grid(
+  columns: 3,
+  rows: 100%,
+  gutter: 3pt,
+  image("../../res/tiger.jpg", fit: "contain"),
+  image("../../res/tiger.jpg", fit: "cover"),
+  image("../../res/tiger.jpg", fit: "stretch"),
+)
+
+---
+// Does not fit to remaining height of page.
 #page(height: 60pt)
+Stuff \
+Stuff
 #image("../../res/rhino.png")
 
 ---

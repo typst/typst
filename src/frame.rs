@@ -16,8 +16,10 @@ pub struct Frame {
     pub size: Size,
     /// The baseline of the frame measured from the top.
     pub baseline: Length,
+    /// Whether this frame should be a clipping boundary.
+    pub clips: bool,
     /// The elements composing this layout.
-    pub children: Vec<(Point, FrameChild)>,
+    pub elements: Vec<(Point, Element)>,
 }
 
 impl Frame {
@@ -25,37 +27,44 @@ impl Frame {
     #[track_caller]
     pub fn new(size: Size, baseline: Length) -> Self {
         assert!(size.is_finite());
-        Self { size, baseline, children: vec![] }
-    }
-
-    /// Add an element at a position in the foreground.
-    pub fn push(&mut self, pos: Point, element: Element) {
-        self.children.push((pos, FrameChild::Element(element)));
+        Self {
+            size,
+            baseline,
+            elements: vec![],
+            clips: false,
+        }
     }
 
     /// Add an element at a position in the background.
     pub fn prepend(&mut self, pos: Point, element: Element) {
-        self.children.insert(0, (pos, FrameChild::Element(element)));
+        self.elements.insert(0, (pos, element));
+    }
+
+    /// Add an element at a position in the foreground.
+    pub fn push(&mut self, pos: Point, element: Element) {
+        self.elements.push((pos, element));
     }
 
     /// Add a frame element.
     pub fn push_frame(&mut self, pos: Point, subframe: Rc<Self>) {
-        self.children.push((pos, FrameChild::Group(subframe)))
+        self.elements.push((pos, Element::Frame(subframe)))
     }
 
     /// Add all elements of another frame, placing them relative to the given
     /// position.
     pub fn merge_frame(&mut self, pos: Point, subframe: Self) {
-        if pos == Point::zero() && self.children.is_empty() {
-            self.children = subframe.children;
+        if subframe.clips {
+            self.push_frame(pos, Rc::new(subframe));
+        } else if pos == Point::zero() && self.elements.is_empty() {
+            self.elements = subframe.elements;
         } else {
-            for (subpos, child) in subframe.children {
-                self.children.push((pos + subpos, child));
+            for (subpos, child) in subframe.elements {
+                self.elements.push((pos + subpos, child));
             }
         }
     }
 
-    /// An iterator over all elements in the frame and its children.
+    /// An iterator over all non-frame elements in this and nested frames.
     pub fn elements(&self) -> Elements {
         Elements { stack: vec![(0, Point::zero(), self)] }
     }
@@ -63,7 +72,7 @@ impl Frame {
 
 impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        struct Children<'a>(&'a [(Point, FrameChild)]);
+        struct Children<'a>(&'a [(Point, Element)]);
 
         impl Debug for Children<'_> {
             fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -74,27 +83,9 @@ impl Debug for Frame {
         f.debug_struct("Frame")
             .field("size", &self.size)
             .field("baseline", &self.baseline)
-            .field("children", &Children(&self.children))
+            .field("clips", &self.clips)
+            .field("children", &Children(&self.elements))
             .finish()
-    }
-}
-
-/// A frame can contain two different kinds of children: a leaf element or a
-/// nested frame.
-#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub enum FrameChild {
-    /// A leaf node in the frame tree.
-    Element(Element),
-    /// An interior group.
-    Group(Rc<Frame>),
-}
-
-impl Debug for FrameChild {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Element(element) => element.fmt(f),
-            Self::Group(frame) => frame.fmt(f),
-        }
     }
 }
 
@@ -108,23 +99,21 @@ impl<'a> Iterator for Elements<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let (cursor, offset, frame) = self.stack.last_mut()?;
-        match frame.children.get(*cursor) {
-            Some((pos, FrameChild::Group(f))) => {
+        if let Some((pos, e)) = frame.elements.get(*cursor) {
+            if let Element::Frame(f) = e {
                 let new_offset = *offset + *pos;
                 self.stack.push((0, new_offset, f.as_ref()));
                 self.next()
-            }
-            Some((pos, FrameChild::Element(e))) => {
+            } else {
                 *cursor += 1;
                 Some((*offset + *pos, e))
             }
-            None => {
-                self.stack.pop();
-                if let Some((cursor, _, _)) = self.stack.last_mut() {
-                    *cursor += 1;
-                }
-                self.next()
+        } else {
+            self.stack.pop();
+            if let Some((cursor, _, _)) = self.stack.last_mut() {
+                *cursor += 1;
             }
+            self.next()
         }
     }
 }
@@ -141,6 +130,8 @@ pub enum Element {
     Image(ImageId, Size),
     /// A link to an external resource.
     Link(String, Size),
+    /// A subframe, which can be a clipping boundary.
+    Frame(Rc<Frame>),
 }
 
 /// A run of shaped text.

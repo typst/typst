@@ -167,7 +167,8 @@ impl<'a> GridLayouter<'a> {
         cols.pop();
         rows.pop();
 
-        // We use the regions only for auto row measurement and constraints.
+        // We use the regions for auto row measurement. Since at that moment,
+        // columns are already sized, we can enable horizontal expansion.
         let expand = regions.expand;
         regions.expand = Spec::new(true, false);
 

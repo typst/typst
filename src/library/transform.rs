@@ -36,7 +36,7 @@ impl Layout for MoveNode {
                 self.offset.y.map(|y| y.resolve(base.h)).unwrap_or_default(),
             );
 
-            for (point, _) in &mut Rc::make_mut(frame).children {
+            for (point, _) in &mut Rc::make_mut(frame).elements {
                 *point += offset;
             }
         }

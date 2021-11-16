@@ -102,9 +102,9 @@ pub enum LineKind {
 impl LineDecoration {
     /// Apply a line decoration to a all text elements in a frame.
     pub fn apply(&self, ctx: &LayoutContext, frame: &mut Frame) {
-        for i in 0 .. frame.children.len() {
-            let (pos, child) = &frame.children[i];
-            if let FrameChild::Element(Element::Text(text)) = child {
+        for i in 0 .. frame.elements.len() {
+            let (pos, child) = &frame.elements[i];
+            if let Element::Text(text) = child {
                 let face = ctx.fonts.get(text.face_id);
                 let metrics = match self.kind {
                     LineKind::Underline => face.underline,

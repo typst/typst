@@ -1,7 +1,7 @@
 use std::f64::consts::SQRT_2;
 
 use super::prelude::*;
-use super::{PadNode, SizedNode};
+use super::PadNode;
 use crate::util::RcExt;
 
 /// `rect`: A rectangle with optional content.
@@ -65,20 +65,13 @@ fn shape_impl(
     let fill = fill.unwrap_or(Color::Rgba(RgbaColor::gray(175)));
 
     Value::Template(Template::from_inline(move |style| {
-        let shape = Layout::pack(ShapeNode {
+        ShapeNode {
             kind,
             fill: Some(Paint::Color(fill)),
             child: body.as_ref().map(|body| body.pack(style)),
-        });
-
-        if width.is_some() || height.is_some() {
-            Layout::pack(SizedNode {
-                sizing: Spec::new(width, height),
-                child: shape,
-            })
-        } else {
-            shape
         }
+        .pack()
+        .sized(width, height)
     }))
 }
 
@@ -112,7 +105,7 @@ impl Layout for ShapeNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        // Layout.
+        // Layout, either with or without child.
         let mut frame = if let Some(child) = &self.child {
             let mut node: &dyn Layout = child;
 
@@ -141,15 +134,18 @@ impl Layout for ShapeNode {
                 frames = node.layout(ctx, &pod);
             }
 
-            // Validate and set constraints.
-            assert_eq!(frames.len(), 1);
+            // Extract the frame.
             Rc::take(frames.into_iter().next().unwrap().item)
         } else {
+            // When there's no child, fill the area if expansion is on,
+            // otherwise fall back to a default size.
             let default = Length::pt(30.0);
             let size = Size::new(
                 if regions.expand.x {
                     regions.current.w
                 } else {
+                    // For rectangle and ellipse, the default shape is a bit
+                    // wider than high.
                     match self.kind {
                         ShapeKind::Square | ShapeKind::Circle => default,
                         ShapeKind::Rect | ShapeKind::Ellipse => 1.5 * default,
@@ -161,7 +157,7 @@ impl Layout for ShapeNode {
             Frame::new(size, size.h)
         };
 
-        // Add background shape if desired.
+        // Add background fill if desired.
         if let Some(fill) = self.fill {
             let (pos, geometry) = match self.kind {
                 ShapeKind::Square | ShapeKind::Rect => {
@@ -175,11 +171,10 @@ impl Layout for ShapeNode {
             frame.prepend(pos, Element::Geometry(geometry, fill));
         }
 
-        // Generate tight constraints for now.
+        // Return tight constraints for now.
         let mut cts = Constraints::new(regions.expand);
         cts.exact = regions.current.to_spec().map(Some);
         cts.base = regions.base.to_spec().map(Some);
-
         vec![frame.constrain(cts)]
     }
 }
