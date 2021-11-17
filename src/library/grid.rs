@@ -287,7 +287,7 @@ impl<'a> GridLayouter<'a> {
             let mut resolved = Length::zero();
             for y in 0 .. self.rows.len() {
                 if let Some(node) = self.cell(x, y) {
-                    let size = Size::new(available, Length::inf());
+                    let size = Size::new(available, self.regions.base.h);
                     let mut regions =
                         Regions::one(size, self.regions.base, Spec::splat(false));
 
